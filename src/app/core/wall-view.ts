@@ -1,5 +1,6 @@
 import type { CategoryLooks } from './category-looks';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
+import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
@@ -30,7 +31,7 @@ import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filt
 import { ONE_DECIMAL as avgFmt } from './review';
 import { cap, labelKey, nameCollator, plural } from './text';
 import { longMonthFmt } from './dates';
-import { writeJson } from './storage';
+import { writeJson, writeText } from './storage';
 
 /**
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
@@ -220,6 +221,16 @@ export abstract class WallState {
    */
   readonly hiddenTabs: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /**
+   * A aba "Tudo" fica em pé (ver `NotesConfig.showAll`). Só o seu mural de anotações pode tirá-la: o
+   * de músicas e o de quem visita têm sempre o Tudo.
+   */
+  readonly showAllTab: Signal<boolean> = signal(true);
+  /**
+   * Sem a aba Tudo, a busca pediu para procurar em todos os grupos: o Tudo aparece até a pessoa
+   * escolher um grupo. Só nesta visita.
+   */
+  protected readonly allAsked = signal(false);
+  /**
    * As tags que nascem escondidas no filtro (as chaves de `tagLookKey(tag, categoria)`, ver
    * core/tag-filter.ts): só no seu mural, pelas configurações; no de um colega, nenhuma.
    */
@@ -311,12 +322,21 @@ export abstract class WallState {
     if (isNotes(kind)) return noteTabsOf(this.wall(), (r) => this.shows(r), undefined, this.categoryOrder());
     return isMusic(kind) ? noteTabsOf(this.wall(), undefined, 'Sem artista') : null;
   });
-  /** A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". */
+  /**
+   * A aba que vale de fato: a escolhida, se ela ainda existe; senão, "Tudo". Sem a aba Tudo (e sem a
+   * busca ter pedido por ela), o primeiro grupo em pé: o mural abre sempre num grupo.
+   */
   readonly activeTab = computed<string>(() => {
     const tabs = this.noteTabs();
     const k = this.tabOf(this.mural.kind())();
-    return tabs && hasTab(tabs, k) ? k : ALL_TAB;
+    if (!tabs || !tabs.tabs.length) return ALL_TAB;
+    if (k !== ALL_TAB && hasTab(tabs, k)) return k;
+    if (this.showAllTab() || this.allAsked()) return ALL_TAB;
+    const hidden = this.notes() ? this.hiddenTabs() : new Set<string>();
+    return (tabs.tabs.find((t) => !hidden.has(t.key)) ?? tabs.tabs[0]).key;
   });
+  /** A aba Tudo aparece: ligada nas configurações, ou aberta (a busca em todos os grupos). */
+  readonly allTabShown = computed(() => this.showAllTab() || this.activeTab() === ALL_TAB);
   /** O nome da aba aberta (null em "Tudo"). */
   readonly activeTabLabel = computed<string | null>(() => {
     const tabs = this.noteTabs();
@@ -557,6 +577,7 @@ export abstract class WallState {
    */
   setNoteTab(key: string): void {
     const tab = this.tabOf(this.mural.kind());
+    this.allAsked.set(key === ALL_TAB);
     if (tab() === key && this.activeTab() === key) return;
     tab.set(key);
     this.filter.set(NO_FILTER);
@@ -646,6 +667,7 @@ export abstract class WallState {
     this.tagOuts.set(NO_TAG_OUTS);
     this.noteTab.set(ALL_TAB);
     this.musicTab.set(ALL_TAB);
+    this.allAsked.set(false);
     this.collapsed.set(new Set());
     this.showDone.set(false);
     this.showBoard.set(false);
@@ -662,11 +684,32 @@ export class WallView extends WallState {
   readonly categoryLooks = this.settings.categoryLooks.asReadonly();
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
+  override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
   override readonly boardOnly = inject(KanbanStore).boardOnly;
 
   constructor() {
     super({ key: KEY, whole: true });
+    // o grupo aberto no mural é o do Kanban também: abrir o Kanban cai no quadro dele (e o quadro
+    // aberto no Kanban abre o grupo no mural, ver `openGroup`)
+    effect(() => {
+      if (!this.notes()) return;
+      const label = this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
+      if (label) writeText(KANBAN_LAST_KEY, boardIdFor(label));
+    });
+  }
+
+  /**
+   * Abre no mural de anotações a aba do grupo (o quadro aberto no Kanban): mural e Kanban ficam no
+   * mesmo grupo. Como trocar de aba, os filtros da aba de antes saem.
+   */
+  openGroup(label: string): void {
+    const key = noteTabKey({ category: label });
+    this.allAsked.set(false);
+    if (this.noteTab() === key) return;
+    this.noteTab.set(key);
+    this.filter.set(NO_FILTER);
+    this.tagOuts.set(NO_TAG_OUTS);
   }
 
   /**

@@ -44,10 +44,12 @@
     </ol>
   </section>
 } @else if (board(); as b) {
-  <!-- os quadros: um por categoria, nas mesmas divisórias de manilha das abas do mural, com o ícone e a cor dela -->
+  <!-- os quadros: um por categoria, nas mesmas divisórias de manilha das abas do mural, com o ícone e a
+       cor dela, na mesma ordem; os grupos escondidos nas configurações do mural (e os que não cabem)
+       vão para o "Mais", como lá -->
   <nav #abas class="abas-quadros" aria-label="Quadros dos grupos">
     <ul class="abas">
-      @for (q of tabs(); track q.id) {
+      @for (q of shownTabs(); track q.id) {
         <li>
           <a
             class="aba"
@@ -73,7 +75,60 @@
           </a>
         </li>
       }
+      @if (moreTabs().length) {
+        <li>
+          <label class="aba aba-mais" [class.on]="!!moreOn()">
+            @if (moreOn(); as m) {
+              <app-cat-label
+                class="rotulo-cat"
+                [label]="m.label"
+                [look]="m.look"
+                [iconSize]="15"
+              />
+              <span class="aba-n">{{ m.n }}</span>
+            } @else {
+              <span class="mais-nome">Mais</span>
+            }
+            <lucide-icon
+              class="chev"
+              [img]="ChevronIcon"
+              [size]="15"
+              aria-hidden="true"
+            />
+            <select
+              aria-label="Mais grupos"
+              (change)="openBoard($any($event.target).value)"
+            >
+              <option value="" disabled [selected]="!moreOn()">
+                Mais grupos
+              </option>
+              @for (q of moreTabs(); track q.id) {
+                <option [value]="q.id" [selected]="q.id === b.id">
+                  {{ q.label }} ({{ q.n }})
+                </option>
+              }
+            </select>
+          </label>
+        </li>
+      }
     </ul>
+    <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé (ui/tab-fit.ts) -->
+    <div class="abas medida" aria-hidden="true">
+      @for (q of tabs(); track q.id) {
+        <span class="aba" [attr.data-k]="tabKey(q.key)">
+          <app-cat-label
+            class="rotulo-cat"
+            [label]="q.label"
+            [look]="q.look"
+            [iconSize]="15"
+          />
+          <span class="aba-n">{{ q.n }}</span>
+        </span>
+      }
+      <span class="aba aba-mais" data-k="mais"
+        ><span class="mais-nome">Mais</span></span
+      >
+    </div>
   </nav>
 
   <!-- a pasta: a busca, o filtro das tags e os ajustes do quadro -->

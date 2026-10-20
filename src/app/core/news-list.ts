@@ -26,13 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-regua-desfazer',
+    id: '2026-10-20-grupos-mural-kanban',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
-    title: 'Anotações só no Kanban e as opções do Kanban em linhas',
+    title: 'Anotações só no Kanban, os grupos iguais no mural e no Kanban e as opções do Kanban em linhas',
     melhorias: [
       'As anotações do Kanban agora ficam só no Kanban, fora do mural; a que você quiser nos dois lugares liga o interruptor "No mural", na folha dela no quadro ou na etiqueta Kanban do editor. Tirada do quadro, ela volta para o mural.',
+      'As abas do Kanban seguem as configurações dos grupos do mural: a mesma ordem, e os grupos escondidos ficam no "Mais", como lá.',
+      'O grupo aberto é o mesmo no mural e no Kanban: passar de um para o outro continua no mesmo grupo.',
+      'A aba "Tudo" do mural agora só aparece se você ligar "Mostrar a aba Tudo" nas configurações do mural (em Grupos); sem ela, o mural abre sempre num grupo.',
       'Cada grupo pode pôr as anotações do quadro dele no mural também, nas configurações do mural (em Grupos, ou na parte Quadro da engrenagem do Kanban); cada anotação ainda pode escolher o contrário.',
       'No mural, a pasta conta as anotações que estão só no Kanban e "Mostrar" as traz até você sair, com uma etiqueta; a aba com tudo no Kanban leva direto ao quadro, e a busca avisa quando uma delas fala do que você procurou.',
       'As opções de uma anotação no Kanban ficaram em linhas, como as propriedades do Notion: a etapa numa lista que aguenta quantas colunas o quadro tiver, a importância numa régua de cinco tracinhos que não sai do lugar ao passar o mouse, o status (só o campo, sem sugestões) e as dependências.',

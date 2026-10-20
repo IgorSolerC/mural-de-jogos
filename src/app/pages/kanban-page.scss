@@ -187,6 +187,42 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* a régua de medir (ver ui/tab-fit.ts): no lugar, sem ocupar espaço nem aparecer */
+.medida {
+  position: absolute;
+  inset: 0 auto auto 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* o "Mais": os grupos escondidos e os que não cabem, num <select> invisível sobre a aba, como o do mural */
+.aba-mais {
+  padding-right: 34px;
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  .mais-nome {
+    font-family: var(--f-marker);
+    font-size: 1.1rem;
+    line-height: 1.1;
+    opacity: 0.85;
+  }
+
+  .chev {
+    position: absolute;
+    right: 12px;
+    top: calc(50% - 6px - var(--borda) / 2);
+    display: inline-flex;
+  }
+
+  select {
+    @include kit.select-por-cima;
+  }
+}
+
 /* ===== O quadro: as colunas lado a lado; a fileira rola para o lado =====
    A pasta (as abas, a busca, as tags) fica na largura da página; o quadro passa dela e corre até as
    beiradas da tela, para caberem mais colunas. A primeira coluna continua na linha da pasta (a folga

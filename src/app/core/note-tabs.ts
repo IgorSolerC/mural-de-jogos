@@ -104,7 +104,8 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
  * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`. `ordered`:
  * as abas vêm na ordem montada à mão, e ficam em pé as primeiras dela (e a aberta). `hidden`: as abas
  * das categorias escondidas (na engrenagem do mural), que vão sempre para o "Mais", mesmo abertas (o
- * "Mais" mostra o nome da aberta).
+ * "Mais" mostra o nome da aberta). `slots`: quantas abas de grupo cabem em pé no máximo (uma a menos
+ * que `MAX_TABS` com o Tudo em pé).
  */
 export function splitTabs(
   tabs: readonly NoteTab[],
@@ -112,6 +113,7 @@ export function splitTabs(
   fits: (shown: readonly NoteTab[], more: boolean) => boolean = () => true,
   ordered = false,
   hidden: ReadonlySet<string> = new Set(),
+  slots = MAX_TABS - 1,
 ): { shown: NoteTab[]; more: NoteTab[] } {
   const standing = tabs.filter((t) => !hidden.has(t.key));
   const anyHidden = standing.length < tabs.length;
@@ -121,7 +123,7 @@ export function splitTabs(
   const byWeight = [...standing].sort(
     (a, b) => (b.key === active ? 1 : 0) - (a.key === active ? 1 : 0) || (ordered ? at.get(a.key)! - at.get(b.key)! : b.n - a.n || b.total - a.total),
   );
-  let keep = Math.min(standing.length, MAX_TABS - 1);
+  let keep = Math.min(standing.length, slots);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
   while (keep > 0 && !fits(standing.filter((t) => pick(keep).has(t.key)), anyHidden || keep < standing.length)) keep--;
   const kept = pick(keep);

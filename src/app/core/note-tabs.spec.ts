@@ -6,6 +6,7 @@ import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { WallView } from './wall-view';
+import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 
 let seq = 0;
 const note = (title: string, category: string | null, extra: Record<string, unknown> = {}): Review =>
@@ -146,6 +147,8 @@ describe('WallView com abas', () => {
     store = TestBed.inject(ReviewStore);
     view = TestBed.inject(WallView);
     TestBed.inject(Mural).kind.set('anotacoes');
+    // o mural de antes, com a aba Tudo (sem ela, abre no primeiro grupo: ver note-tabs.spec.ts)
+    TestBed.inject(Settings).setNotesConfig({ showAll: true });
     store.reviews.set(sea());
   });
 
@@ -257,6 +260,7 @@ describe('WallView com abas', () => {
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     TestBed.inject(Mural).kind.set('anotacoes');
     TestBed.inject(ReviewStore).reviews.set(sea());
+    TestBed.inject(Settings).setNotesConfig({ showAll: true });
     const fresh = TestBed.inject(WallView);
     expect(fresh.shownSort()).toBe('categoria');
     expect(fresh.direction()).toBe('asc');
@@ -317,5 +321,77 @@ describe('WallView com abas', () => {
     view.reveal(nova);
     expect(view.activeTab()).toBe(key('Receitas'));
     expect(view.visible().some((r) => r.id === nova.id)).toBeTrue();
+  });
+});
+
+describe('WallView sem a aba Tudo (o padrão)', () => {
+  let view: WallView;
+  let settings: Settings;
+  const key = (label: string) => noteTabKey({ category: label });
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(ReviewStore).reviews.set(sea());
+    settings = TestBed.inject(Settings);
+    view = TestBed.inject(WallView);
+    TestBed.inject(Mural).kind.set('anotacoes');
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('o mural abre no primeiro grupo, sem a aba Tudo; com ela ligada nas configurações, abre em Tudo', () => {
+    expect(settings.notesConfig().showAll).toBeFalse();
+    expect(view.activeTab()).toBe(key('Trabalho'));
+    expect(view.allTabShown()).toBeFalse();
+    expect(view.visible().map((r) => r.game.name)).toEqual(['Retro', 'Daily 01', 'Daily 02']);
+    // a nova escrita agora vai para o grupo aberto
+    expect(view.newNoteCategory()).toBe('Trabalho');
+    settings.setNotesConfig({ showAll: true });
+    expect(view.activeTab()).toBe(ALL_TAB);
+    expect(view.allTabShown()).toBeTrue();
+  });
+
+  it('o primeiro grupo em pé: o escondido na engrenagem fica no "Mais" e não abre sozinho', () => {
+    settings.setCategoryPrefs('Trabalho', { hidden: true });
+    expect(view.activeTab()).toBe(key('Estudos'));
+    // escolhido, abre (pelo "Mais")
+    view.setNoteTab(key('Trabalho'));
+    expect(view.activeTab()).toBe(key('Trabalho'));
+  });
+
+  it('a busca em todos os grupos abre o Tudo só até escolher um grupo (e não fica guardado)', () => {
+    view.setNoteTab(ALL_TAB);
+    expect(view.activeTab()).toBe(ALL_TAB);
+    expect(view.allTabShown()).toBeTrue();
+    expect(view.visible().length).toBe(11);
+    view.setNoteTab(key('Viagem'));
+    expect(view.allTabShown()).toBeFalse();
+    // a aba guardada como Tudo (de antes, ou da busca) abre no primeiro grupo na próxima visita
+    view.setNoteTab(ALL_TAB);
+    TestBed.tick();
+    TestBed.resetTestingModule();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(ReviewStore).reviews.set(sea());
+    TestBed.inject(Mural).kind.set('anotacoes');
+    expect(TestBed.inject(WallView).activeTab()).toBe(key('Trabalho'));
+  });
+
+  it('o grupo aberto no mural é o do Kanban, e o quadro aberto no Kanban abre o grupo no mural', () => {
+    view.setNoteTab(key('Estudos'));
+    TestBed.tick();
+    expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(boardIdFor('Estudos'));
+    view.toggle('tag', 'Rust');
+    view.openGroup('Viagem');
+    expect(view.activeTab()).toBe(key('Viagem'));
+    expect(view.filterCount()).withContext('os filtros eram da aba de antes').toBe(0);
+    TestBed.tick();
+    expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(boardIdFor('Viagem'));
+  });
+
+  it('sem o Tudo, cabe um grupo a mais em pé', () => {
+    const many = Array.from({ length: MAX_TABS + 2 }, (_, i): NoteTab => ({ key: `c:g${i}`, label: `G${i}`, n: 20 - i, total: 20 - i }));
+    expect(splitTabs(many, many[0].key).shown.length).toBe(MAX_TABS - 1);
+    expect(splitTabs(many, many[0].key, undefined, false, new Set(), MAX_TABS).shown.length).toBe(MAX_TABS);
   });
 });

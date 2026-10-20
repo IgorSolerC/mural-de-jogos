@@ -1,20 +1,20 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
-import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, splitTabs } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, NoteTab } from '../core/note-tabs';
 import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
-
-/** O vão entre duas abas (o `gap` da fileira). */
-const GAP = 3;
+import { TabFit } from './tab-fit';
 
 /**
  * As abas do mural de anotações (ver core/note-tabs.ts): divisórias de pasta de papel manilha, em
  * cima da pasta. A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam atrás,
  * mais escuras. Toda categoria fica em pé enquanto couber na largura (e até oito abas, contando
- * Tudo); as que sobram, as com menos anotações, e as escondidas na engrenagem do mural vão para o "Mais" (um <select> invisível sobre a aba,
- * como o Ordenar). Para saber o que cabe, uma fileira escondida mede cada aba de verdade.
+ * Tudo); as que sobram, as com menos anotações, e as escondidas na engrenagem do mural vão para o
+ * "Mais" (um <select> invisível sobre a aba, como o Ordenar). Para saber o que cabe, uma fileira
+ * escondida mede cada aba de verdade (ver ui/tab-fit.ts, a mesma régua das abas do Kanban). O Tudo
+ * só fica em pé com "Mostrar a aba Tudo" nas configurações do mural (ou aberto pela busca).
  *
  * No mural de músicas, as mesmas divisórias, uma por artista.
  */
@@ -25,9 +25,11 @@ const GAP = 3;
   template: `
     @if (tabs(); as t) {
       <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Grupos das anotações'">
-        <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
-          <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
-        </button>
+        @if (allShown()) {
+          <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
+            <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
+          </button>
+        }
         @for (x of layout().shown; track x.key) {
           <button
             type="button"
@@ -67,7 +69,9 @@ const GAP = 3;
 
       <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé -->
       <div class="abas medida" aria-hidden="true">
-        <span class="aba" data-k="tudo"><span class="nome">Tudo</span><span class="n">{{ t.all }}</span></span>
+        @if (allShown()) {
+          <span class="aba" data-k="tudo"><span class="nome">Tudo</span><span class="n">{{ t.all }}</span></span>
+        }
         @for (x of t.tabs; track x.key) {
           <span class="aba" [class.sem]="x.key === NONE" [attr.data-k]="x.key">
             @if (x.key === NONE) {
@@ -231,32 +235,22 @@ export class NoteTabsBar {
   protected readonly active = this.view.activeTab;
   protected readonly activeLabel = this.view.activeTabLabel;
 
-  /** A largura de cada aba, medida na régua escondida ("tudo", "mais" e a chave de cada categoria). */
-  private readonly widths = signal<ReadonlyMap<string, number>>(new Map());
-  /** A largura que a fileira tem para as abas. */
-  private readonly room = signal(0);
-  /** Quantas vezes as fontes terminaram de carregar (ver o construtor). */
-  private readonly fontsLoaded = signal(0);
+  /** O Tudo em pé (ver `WallState.allTabShown`). */
+  protected readonly allShown = this.view.allTabShown;
 
-  /** Quais ficam em pé e quais vão para o "Mais". Sem medida ainda, todas em pé (até o limite). */
-  protected readonly layout = computed<{ shown: NoteTab[]; more: NoteTab[] }>(() => {
-    const t = this.tabs();
-    if (!t) return { shown: [], more: [] };
-    const w = this.widths();
-    const room = this.room();
+  /** Quais ficam em pé e quais vão para o "Mais" (ver ui/tab-fit.ts). */
+  private readonly fit = new TabFit({
+    host: this.host,
+    row: '.abas:not(.medida)',
+    tabs: () => this.tabs()?.tabs ?? null,
+    active: () => this.active(),
     // na ordem montada à mão (só nas anotações), ficam em pé as primeiras dela
-    const ordered = !this.music() && !!this.view.categoryOrder();
+    ordered: () => !this.music() && !!this.view.categoryOrder(),
     // as escondidas na engrenagem do mural vão sempre para o "Mais"
-    const hidden = this.music() ? undefined : this.view.hiddenTabs();
-    if (!room || !w.size) return splitTabs(t.tabs, this.active(), undefined, ordered, hidden);
-    const fits = (shown: readonly NoteTab[], more: boolean) => {
-      let used = w.get('tudo') ?? 0;
-      for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
-      if (more) used += GAP + (w.get('mais') ?? 0);
-      return used <= room;
-    };
-    return splitTabs(t.tabs, this.active(), fits, ordered, hidden);
+    hidden: () => (this.music() ? undefined : this.view.hiddenTabs()),
+    lead: () => (this.allShown() ? 'tudo' : null),
   });
+  protected readonly layout = this.fit.layout;
 
   /** O mural de músicas: as abas são dos artistas. */
   protected readonly music = this.view.music;
@@ -276,44 +270,6 @@ export class NoteTabsBar {
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */
   protected readonly moreOn = computed(() => this.layout().more.some((x) => x.key === this.active()));
   protected readonly moreCount = computed(() => this.layout().more.find((x) => x.key === this.active())?.n ?? 0);
-
-  constructor() {
-    // a largura da fileira muda com a janela
-    const ro = new ResizeObserver(() => this.measureRoom());
-    ro.observe(this.host);
-    inject(DestroyRef).onDestroy(() => ro.disconnect());
-
-    // a fonte das abas chegou (na primeira visita, depois das abas desenhadas): mede de novo
-    const fonts = typeof document !== 'undefined' ? document.fonts : undefined;
-    if (fonts) {
-      const loaded = () => this.fontsLoaded.update((n) => n + 1);
-      void fonts.ready.then(loaded);
-      fonts.addEventListener('loadingdone', loaded);
-      inject(DestroyRef).onDestroy(() => fonts.removeEventListener('loadingdone', loaded));
-    }
-
-    // cada vez que as abas mudam (nome, número), a régua escondida mede de novo
-    afterRenderEffect(() => {
-      this.tabs();
-      this.fontsLoaded();
-      const next = new Map<string, number>();
-      for (const el of Array.from(this.host.querySelectorAll<HTMLElement>('.medida [data-k]'))) {
-        next.set(el.dataset['k']!, el.offsetWidth);
-      }
-      const now = this.widths();
-      if (next.size !== now.size || [...next].some(([k, v]) => now.get(k) !== v)) this.widths.set(next);
-      this.measureRoom();
-    });
-  }
-
-  /** O espaço da fileira para as abas: a largura dela, sem o recuo dos lados. */
-  private measureRoom(): void {
-    const row = this.host.querySelector<HTMLElement>('.abas:not(.medida)');
-    if (!row) return;
-    const cs = getComputedStyle(row);
-    const room = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    if (Math.abs(room - this.room()) > 0.5) this.room.set(room);
-  }
 
   protected choose(key: string): void {
     if (key === this.active()) return;

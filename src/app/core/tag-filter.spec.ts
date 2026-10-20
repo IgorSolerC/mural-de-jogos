@@ -69,6 +69,8 @@ describe('tags escondidas no mural de anotações (WallView)', () => {
     localStorage.clear();
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
     TestBed.inject(Mural).kind.set('anotacoes');
+    // o mural de antes, com a aba Tudo (sem ela, abre no primeiro grupo: ver note-tabs.spec.ts)
+    TestBed.inject(Settings).setNotesConfig({ showAll: true });
     TestBed.inject(ReviewStore).reviews.set([note('Dia ruim', 'Pessoal', ['Desabafo']), note('Mercado', 'Pessoal', ['Casa']), note('Deploy', 'Trabalho', ['Desabafo', 'Infra'])]);
     view = TestBed.inject(WallView);
   });

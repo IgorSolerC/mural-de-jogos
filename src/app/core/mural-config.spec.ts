@@ -51,7 +51,12 @@ describe('as configurações do mural de anotações', () => {
       order: ['viagens!', 'roadmap site'],
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
       hiddenTags: [],
+      showAll: false,
     });
+    // a aba Tudo: só com true (o padrão é sem ela)
+    expect(sanitizeNotesConfig({ showAll: true }).showAll).toBeTrue();
+    expect(sanitizeNotesConfig({ showAll: 'sim' }).showAll).toBeFalse();
+    expect(sanitizeNotesConfig(null).showAll).toBeFalse();
     const many = Object.fromEntries(Array.from({ length: MAX_CONFIG_CATEGORIES + 5 }, (_, i) => [`c${i}`, { askTag: true }]));
     expect(Object.keys(sanitizeNotesConfig({ categories: many }).categories).length).toBe(MAX_CONFIG_CATEGORIES);
   });

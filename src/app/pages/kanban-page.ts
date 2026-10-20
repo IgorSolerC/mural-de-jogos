@@ -6,7 +6,7 @@ import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
-import { KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, resetBoard } from '../core/kanban';
+import { KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDresser } from '../core/kanban-dresser';
 import { sortCards, sortComparator, sortSentence, sortShort, tieRange } from '../core/kanban-sort';
@@ -16,6 +16,8 @@ import { Review, fold } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings as SettingsStore } from '../core/settings';
+import { NoteTab } from '../core/note-tabs';
+import { WallView } from '../core/wall-view';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
@@ -29,13 +31,12 @@ import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { TagChip, TagChips } from '../ui/tag-chips';
+import { TabFit } from '../ui/tab-fit';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
 import { focusAfterRender, swallowNextClick } from '../ui/focus';
 
-/** O último quadro aberto, para `/anotacoes/kanban` sem quadro abrir nele. */
-const LAST_KEY = 'meu-mural:kanban-aberto:v1';
 /** Os quadros vistos só pelos títulos neste aparelho (os ids); os outros, nas fichas. */
 const DENSE_KEY = 'meu-mural:kanban-titulos:v1';
 
@@ -111,6 +112,11 @@ interface Edges {
 }
 const NO_EDGES: Edges = { start: false, end: false, before: 0, after: 0 };
 
+/** A chave de um quadro na régua das abas (a das abas do mural: "c:" e a chave da categoria). */
+function tabKeyOf(categoryKey: string): string {
+  return `c:${categoryKey.slice(0, 64)}`;
+}
+
 /** Uma aba de quadro: a categoria, o id do quadro dela, quantas anotações ele tem e a cor da orelha. */
 interface BoardTab {
   id: string;
@@ -168,6 +174,7 @@ export class KanbanPage {
   private readonly actions = inject(KanbanActions);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(SettingsStore);
+  private readonly wallView = inject(WallView);
   private readonly desk = inject(Desk);
   private readonly toasts = inject(Toasts);
   private readonly router = inject(Router);
@@ -190,16 +197,69 @@ export class KanbanPage {
     return c ? this.kanban.boardFor(c.key) : null;
   });
 
-  /** As abas: uma por categoria, com o ícone e a cor dela e quantas anotações o quadro tem. */
+  /**
+   * As abas: uma por categoria, com o ícone e a cor dela e quantas anotações o quadro tem, na ordem
+   * das abas do mural (a montada à mão, ou da maior para a menor no mural): as configurações dos
+   * grupos valem nos dois.
+   */
   protected readonly tabs = computed<BoardTab[]>(() => {
     const looks = this.settings.categoryLooks();
-    return this.categories().map((c) => {
+    const list = this.categories().map((c) => {
       const id = boardIdFor(c.key);
       const stored = this.kanban.boards().find((b) => b.id === id);
       const look = looks[c.key] ?? {};
       return { id, key: c.key, label: c.label, n: stored ? this.kanban.live(stored).length : 0, color: categoryColorHex(look.color), look };
     });
+    const at = new Map(this.wallTabs().map((t, i) => [t.key, i]));
+    const place = (q: BoardTab) => at.get(tabKeyOf(q.key)) ?? Number.MAX_SAFE_INTEGER;
+    return list.sort((a, b) => place(a) - place(b));
   });
+  /** As abas do mural de anotações (as dos grupos), pela chave como a do quadro. */
+  private readonly wallTabs = computed<NoteTab[]>(() => {
+    const t = this.wallView.notes() ? this.wallView.noteTabs() : null;
+    return (t?.tabs ?? []).filter((x) => x.key.startsWith('c:')).map((x) => ({ ...x, key: tabKeyOf(x.key.slice(2)) }));
+  });
+
+  /**
+   * Quais abas ficam em pé e quais vão para o "Mais", com a régua das abas do mural (ver
+   * ui/tab-fit.ts): os grupos escondidos nas configurações do mural ficam sempre no "Mais", e cabem
+   * em pé os mesmos que lá (os maiores do mural, ou os primeiros da ordem montada à mão).
+   */
+  private readonly fit = new TabFit({
+    host: this.host,
+    row: '.abas-quadros .abas:not(.medida)',
+    tabs: () => {
+      const weight = new Map(this.wallTabs().map((t) => [t.key, t]));
+      return this.tabs().map((q) => {
+        const w = weight.get(tabKeyOf(q.key));
+        return { key: tabKeyOf(q.key), label: q.label, n: w?.n ?? q.n, total: w?.total ?? q.n };
+      });
+    },
+    active: () => tabKeyOf(this.category()?.key ?? ''),
+    ordered: () => !!this.wallView.categoryOrder(),
+    hidden: () => this.wallView.hiddenTabs(),
+    lead: () => null,
+  });
+  /** As abas em pé. */
+  protected readonly shownTabs = computed(() => {
+    const keys = new Set(this.fit.layout().shown.map((t) => t.key));
+    return this.tabs().filter((q) => keys.has(tabKeyOf(q.key)));
+  });
+  /** As abas do "Mais" (as escondidas e as que não cabem), na ordem do mural. */
+  protected readonly moreTabs = computed(() => {
+    const keys = new Set(this.fit.layout().more.map((t) => t.key));
+    return this.tabs().filter((q) => keys.has(tabKeyOf(q.key)));
+  });
+  /** O quadro aberto é um dos do "Mais": ele mostra o nome dele, como aba aberta. */
+  protected readonly moreOn = computed(() => this.moreTabs().find((q) => q.id === this.board()?.id) ?? null);
+
+  protected readonly tabKey = tabKeyOf;
+  protected readonly ChevronIcon = ICON.abrir;
+
+  /** Abre o quadro escolhido no "Mais". */
+  protected openBoard(id: string): void {
+    if (id && id !== this.board()?.id) void this.router.navigate([kanbanPath(id)]);
+  }
 
   protected readonly query = signal('');
   /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
@@ -441,7 +501,7 @@ export class KanbanPage {
       if (!ids.length || (id && ids.includes(id))) return;
       untracked(() => {
         // sem armazenamento, nada lido: o primeiro
-        const last = readText(LAST_KEY);
+        const last = readText(KANBAN_LAST_KEY);
         const to = ids.find((x) => x === last) ?? ids[0];
         void this.router.navigate([kanbanPath(to)], { replaceUrl: true });
       });
@@ -450,7 +510,10 @@ export class KanbanPage {
       const b = this.board();
       this.kanban.openBoard.set(b?.id ?? null);
       if (!b) return;
-      writeText(LAST_KEY, b.id);
+      writeText(KANBAN_LAST_KEY, b.id);
+      // o grupo do quadro aberto fica aberto no mural também (e o do mural abre aqui, ver WallView)
+      const c = this.category();
+      if (c) untracked(() => this.wallView.openGroup(c.label));
     });
     // trocou de quadro: o filtro e o que estava aberto eram do outro
     // (pelo id: mexer numa ficha troca o objeto do quadro, e o filtro não pode sair a cada movida)

@@ -6,6 +6,7 @@ import { ReviewStore } from './review-store';
 import { Mural } from './mural';
 import { NotePin } from './note-pin';
 import { Toasts } from '../ui/toast';
+import { Settings } from './settings';
 import { WallView, groupWall, sortWall } from './wall-view';
 
 /** Fixadas no topo, as comuns depois: o lugar de cada anotação no mural (a sub-nota de antes virou comum). */
@@ -76,6 +77,8 @@ describe('o lugar da anotação no mural', () => {
       TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
       store = TestBed.inject(ReviewStore);
       view = TestBed.inject(WallView);
+      // o mural de antes, com a aba Tudo (sem ela, abre no primeiro grupo: ver note-tabs.spec.ts)
+      TestBed.inject(Settings).setNotesConfig({ showAll: true });
       store.reviews.set(list);
     });
 

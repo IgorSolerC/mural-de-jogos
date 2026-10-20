@@ -111,7 +111,7 @@
                   <legend class="linha-titulo">Ordem das abas</legend>
                   <p class="linha-desc">
                     {{ manual() ? 'Do jeito que você montar: arraste pela alça ou use ↑ e ↓ nela. Grupo novo entra no fim.' : 'Do grupo com mais anotações ao que tem menos, sempre.' }}
-                    O olho esconde o grupo: a aba dele fica sempre no “Mais”.
+                    O olho esconde o grupo: a aba dele fica sempre no “Mais”. Vale no mural e no Kanban.
                   </p>
                   <div class="segmentos dois">
                     <label class="segmento">
@@ -124,6 +124,23 @@
                     </label>
                   </div>
                 </fieldset>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-tudo">Mostrar a aba “Tudo”</p>
+                    <p class="linha-desc" id="config-d-tudo">Uma aba com o mural inteiro, antes dos grupos. Sem ela, o mural abre sempre num grupo, como o Kanban.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    class="interruptor"
+                    aria-labelledby="config-t-tudo"
+                    aria-describedby="config-d-tudo"
+                    [attr.aria-checked]="config().showAll"
+                    (click)="settings.setNotesConfig({ showAll: !config().showAll })"
+                  >
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
               </div>
 
               <ol #lista class="cats" [class.arrastando]="!!drag()" [class.montada]="manual()">

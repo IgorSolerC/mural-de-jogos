@@ -10,6 +10,9 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { MuralConfig } from '../ui/mural-config';
+import { Mural } from '../core/mural';
+import { KANBAN_LAST_KEY } from '../core/kanban';
+import { WallView } from '../core/wall-view';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -125,7 +128,7 @@ describe('página do Kanban', () => {
     kanban.state.set(state(board()));
     await go('/anotacoes/kanban');
     expect(router.url).toBe(TRAB_URL);
-    const abas = [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros .aba')];
+    const abas = [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')];
     expect(abas.map((a) => a.querySelector('app-cat-label')!.textContent!.trim())).toEqual(['Trabalho', 'Estudos']);
     expect(abas.map((a) => a.querySelector('.aba-n')!.textContent!.replace(/\s+/g, ' ').trim())).toEqual([', 2 anotações no quadro', ', 0 anotações no quadro']);
     expect(abas[0].getAttribute('aria-current')).toBe('page');
@@ -137,6 +140,57 @@ describe('página do Kanban', () => {
     await go(`/anotacoes/kanban/${EST}`);
     expect([...host.querySelectorAll('.etiqueta-nome')].map(columnName)).toEqual(['A fazer', 'Fazendo', 'Feito']);
     expect(kanban.boards().length).toBe(1);
+  });
+
+  it('os grupos escondidos nas configurações do mural ficam no "Mais", como no mural; escolher ali abre o quadro', async () => {
+    TestBed.inject(Settings).setCategoryPrefs('Estudos', { hidden: true });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const links = () => [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')].map((a) => a.querySelector('app-cat-label')!.textContent!.trim());
+    expect(links()).toEqual(['Trabalho']);
+    const mais = host.querySelector<HTMLLabelElement>('.abas-quadros label.aba-mais')!;
+    expect(mais.textContent).toContain('Mais');
+    expect(mais.classList).not.toContain('on');
+    const select = mais.querySelector('select')!;
+    expect([...select.options].filter((o) => !o.disabled).map((o) => o.textContent!.trim())).toEqual(['Estudos (0)']);
+    select.value = EST;
+    select.dispatchEvent(new Event('change'));
+    await settle();
+    expect(router.url).toBe(`/anotacoes/kanban/${EST}`);
+    // aberto, o "Mais" mostra o grupo, como a aba aberta
+    const aberto = host.querySelector<HTMLLabelElement>('.abas-quadros label.aba-mais')!;
+    expect(aberto.classList).toContain('on');
+    expect(aberto.querySelector('app-cat-label')!.textContent!.trim()).toBe('Estudos');
+  });
+
+  it('as abas vão na ordem das abas do mural (da maior para a menor lá: as finalizadas escondidas não contam)', async () => {
+    TestBed.inject(Mural).kind.set('anotacoes');
+    // os Estudos têm mais anotações, mas três finalizadas: no mural, o Trabalho tem mais à mostra (as
+    // do quadro dele no mural também)
+    TestBed.inject(Settings).setCategoryPrefs('Trabalho', { kanbanOnly: false });
+    store.reviews.update((list) => [...list, ...[1, 2, 3].map((i) => note(`nfeita0${i}`, `Feita ${i}`, { category: 'Estudos', doneAt: T0 }))]);
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const links = [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')].map((a) => a.querySelector('app-cat-label')!.textContent!.trim());
+    expect(links).toEqual(['Trabalho', 'Estudos']);
+    // na ordem montada à mão, a dela
+    TestBed.inject(Settings).setNotesConfig({ orderBy: 'minha', order: ['estudos', 'trabalho'] });
+    await settle();
+    expect([...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')].map((a) => a.querySelector('app-cat-label')!.textContent!.trim())).toEqual(['Estudos', 'Trabalho']);
+  });
+
+  it('o grupo é o mesmo no mural e no Kanban: o quadro aberto abre a aba dele no mural, e a aba do mural abre o quadro dela', async () => {
+    TestBed.inject(Mural).kind.set('anotacoes');
+    const view = TestBed.inject(WallView);
+    kanban.state.set(state(board()));
+    await go(`/anotacoes/kanban/${EST}`);
+    expect(view.activeTab()).toBe('c:estudos');
+    // no mural, o Trabalho: o Kanban abre nele
+    view.setNoteTab('c:trabalho');
+    await settle();
+    expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(TRAB);
+    await go('/anotacoes/kanban');
+    expect(router.url).toBe(TRAB_URL);
   });
 
   it('mostra as colunas e só as anotações da categoria, com a importância e as tags coloridas na ficha', async () => {

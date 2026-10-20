@@ -55,9 +55,14 @@ export interface NotesConfig {
    * pode ser escondida numa categoria e não em outra; "" é a categoria das anotações sem categoria.
    */
   hiddenTags: string[];
+  /**
+   * A aba "Tudo" (o mural inteiro) fica em pé ao lado dos grupos. Sem ela (o padrão), o mural abre
+   * sempre num grupo, como o Kanban, e o Tudo só aparece quando a busca pede para procurar em todos.
+   */
+  showAll: boolean;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [] };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false };
 
 /** Tags demais viram lixo guardado: no máximo estas com o filtro padrão Excluído. */
 export const MAX_HIDDEN_TAGS = 500;
@@ -116,6 +121,7 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     order,
     categories,
     hiddenTags,
+    showAll: r['showAll'] === true,
   };
 }
 

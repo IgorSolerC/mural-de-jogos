@@ -146,11 +146,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 33: as anotações do quadro ficam só no Kanban por padrão, e o grupo que as quer no mural também
  *     guarda `kanbanOnly: false`. Um site da 32 jogaria o `false` fora e enviaria assim, e o grupo
  *     voltaria a esconder as anotações do quadro em todo aparelho.
+ * 34: a aba "Tudo" do mural de anotações aparece só com `showAll` (nas configurações do mural). Um site
+ *     da 33 jogaria o campo fora e enviaria assim, e a aba sumiria de novo em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 33;
+export const SYNC_SCHEMA = 34;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

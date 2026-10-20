@@ -213,6 +213,12 @@ function hash64(text: string): string {
   return (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0');
 }
 
+/**
+ * O último quadro aberto neste aparelho (o id), para `/anotacoes/kanban` sem quadro abrir nele. O
+ * grupo aberto no mural também escreve aqui (ver WallView): mural e Kanban ficam no mesmo grupo.
+ */
+export const KANBAN_LAST_KEY = 'meu-mural:kanban-aberto:v1';
+
 /** O id do quadro de uma categoria: o mesmo em todo aparelho. */
 export function boardIdFor(category: string): string {
   return `kb${hash64(categoryKey(category))}`;

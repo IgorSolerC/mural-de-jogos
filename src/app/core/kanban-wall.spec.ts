@@ -115,6 +115,8 @@ describe('só no Kanban: o mural', () => {
     settings = TestBed.inject(Settings);
     view = TestBed.inject(WallView);
     TestBed.inject(Mural).kind.set('anotacoes');
+    // o mural de antes, com a aba Tudo (sem ela, abre no primeiro grupo: ver note-tabs.spec.ts)
+    TestBed.inject(Settings).setNotesConfig({ showAll: true });
     store.reviews.set([note('ntarefa1', 'Trabalho'), note('ntarefa2', 'Trabalho'), note('nreuniao', 'Trabalho'), note('nprova01', 'Estudos')]);
     kanban.state.set({ boards: [board([card('ntarefa1'), card('ntarefa2')])], removed: {}, legacy: [] });
   });
