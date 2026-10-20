@@ -38,7 +38,7 @@ import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
 import { KanbanDresser } from './core/kanban-dresser';
-import { doneChange, placeCard, setDeps, setImportance, setStatus } from './core/kanban';
+import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
 import { NoteDone } from './core/note-done';
 import { TRY_AGAIN } from './ui/follow-toasts';
 
@@ -443,12 +443,17 @@ export class App {
       // a importância e o status escolhidos na parte Quadro do editor
       const ranked = spot.importance ? setImportance(placed, id, spot.importance, at) : placed;
       const told = spot.status ? setStatus(ranked, id, spot.status, at) : ranked;
-      return spot.deps?.length ? setDeps(told, id, spot.deps, at) : told;
+      const linked = spot.deps?.length ? setDeps(told, id, spot.deps, at) : told;
+      // também no mural ou só no Kanban, escolhido no editor (sem escolha: o do grupo)
+      return spot.wall === undefined ? linked : setWall(linked, id, spot.wall, at);
     });
     if (doneChange(board, null, spot.column) === 'finalizar') this.noteDone.set(id, true, { quiet: true });
     const col = board.columns.find((c) => c.id === spot.column);
     this.desk.land(id);
-    this.toasts.show(`“${name}” pregada em ${col?.name ?? 'uma coluna'}, no quadro ${category!.trim()}`);
+    // fora do mural: o aviso diz onde ela está (no mural, ninguém a veria chegar)
+    const card = this.kanban.get(spot.board)?.cards.find((c) => c.note === id);
+    const only = card && !this.kanban.isOnWall(card, category) ? ' (só no Kanban)' : '';
+    this.toasts.show(`“${name}” pregada em ${col?.name ?? 'uma coluna'}, no quadro ${category!.trim()}${only}`);
     void this.backup.protect();
     return true;
   }

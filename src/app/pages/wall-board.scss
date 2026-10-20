@@ -413,6 +413,11 @@
   gap: 10px 18px;
 }
 
+/* "Abrir o quadro" é um link com cara de botão: sem o sublinhado dos links */
+.acoes-vazio a.btn-ink {
+  text-decoration: none;
+}
+
 @media (max-width: 559px) {
   .wall {
     flex-direction: column;

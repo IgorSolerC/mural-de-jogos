@@ -17,7 +17,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
  * As coisas da anotação no quadro, em linhas como as propriedades do Notion: a etapa (a lista das
  * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver), a importância (a régua de cinco tracinhos das fichas do quadro, que
  * diz o nome de cada um ao passar o mouse ou o dedo), o status (só o campo, sem sugestões) e as
- * dependências. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
+ * dependências, e se ela aparece também no mural ou fica só no Kanban. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
  * hora, o editor guarda ao salvar. Compacto (no editor), a etapa e a importância ficam lado a lado e o
  * status e as dependências vazios são dois "+". O que vier depois (as tags, na folha) entra pelo
  * conteúdo, como mais uma linha.
@@ -99,6 +99,25 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
     </div>
 
     @if (column() !== null) {
+      <!-- ===== No mural: também lá, ou só no Kanban (o "também no Feed" das redes) ===== -->
+      <div class="linha mural-linha">
+        <span class="nome" [id]="id + '-mural'"><lucide-icon [img]="WallIcon" [size]="16" aria-hidden="true" />No mural</span>
+        <div class="valor mural-valor">
+          <button
+            type="button"
+            role="switch"
+            class="interruptor"
+            [attr.aria-checked]="wall()"
+            [attr.aria-labelledby]="id + '-mural'"
+            [attr.aria-describedby]="id + '-mural-diz'"
+            (click)="wall.set(!wall())"
+          >
+            <span class="bolinha"></span>
+          </button>
+          <span class="mural-diz" [id]="id + '-mural-diz'" [class.so-kanban]="!wall()">{{ wall() ? 'Aparece no mural também' : 'Só no Kanban' }}</span>
+        </div>
+      </div>
+
       @if (!compact() || statusOpen()) {
         <!-- ===== Status: umas palavras ===== -->
         <div class="linha">
@@ -212,6 +231,8 @@ export class KanbanProps {
   /** O status: muda quando a pessoa termina de escrever (Enter, sair do campo). */
   readonly status = model('');
   readonly deps = model<readonly string[]>([]);
+  /** Também no mural (`true`) ou só no Kanban (ver `KanbanCard.wall`). */
+  readonly wall = model(true);
 
   protected readonly id = `kprops-${++uid}`;
   protected readonly ColumnsIcon = ICON.colunas;
@@ -222,6 +243,7 @@ export class KanbanProps {
   protected readonly DepsIcon = ICON.dependencias;
   protected readonly CloseIcon = ICON.fechar;
   protected readonly PlusIcon = ICON.adicionar;
+  protected readonly WallIcon = ICON.painel;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly scale = SCALE;
   protected readonly impLabel = IMPORTANCE_LABEL;

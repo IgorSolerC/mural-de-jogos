@@ -120,6 +120,13 @@ export interface KanbanCard {
    */
   status?: string;
   /**
+   * Onde mais a anotação aparece: `false`, só no Kanban (fora do mural de anotações); `true`, também
+   * no mural, mesmo com o grupo pedindo "só no Kanban". Sem o campo, segue o grupo (ver
+   * `CategoryPrefs.kanbanOnly` e `onWall`). Saindo do quadro, a anotação volta para o mural: nunca fica
+   * sem lugar.
+   */
+  wall?: boolean;
+  /**
    * Quando a pessoa a pôs no lugar (ou mudou a importância ou o status) pela última vez: na junção de dois
    * aparelhos que mexeram na mesma anotação, vale a mexida por último (e não o quadro mexido por último).
    */
@@ -310,6 +317,7 @@ function sanitizeCards(raw: unknown, columns: readonly KanbanColumn[]): { card: 
         column,
         importance: importanceOf(cr['importance']),
         ...(status ? { status } : {}),
+        ...(typeof cr['wall'] === 'boolean' ? { wall: cr['wall'] } : {}),
         ...(dress ? { dress } : {}),
         ...(deps.length ? { deps } : {}),
         ...(isIso(cr['at']) ? { at: cr['at'] } : {}),
@@ -740,6 +748,34 @@ export function setStatus(b: KanbanBoard, note: string, status: string, at: stri
 }
 
 /**
+ * A anotação aparece também no mural? `wall`: `false` só no Kanban, `true` também no mural, `undefined`
+ * segue o grupo (ver `onWall`).
+ */
+export function setWall(b: KanbanBoard, note: string, wall: boolean | undefined, at: string): KanbanBoard {
+  const card = b.cards.find((c) => c.note === note);
+  if (!card || card.wall === wall) return b;
+  return touch(
+    b,
+    {
+      cards: b.cards.map((c) => {
+        if (c.note !== note) return c;
+        const { wall: _, ...plain } = c;
+        return { ...plain, ...(wall === undefined ? {} : { wall }), at };
+      }),
+    },
+    at,
+  );
+}
+
+/**
+ * A anotação do quadro aparece no mural? A escolha dela, ou a do grupo (`kanbanOnly`: as do quadro
+ * ficam só no Kanban).
+ */
+export function onWall(card: Pick<KanbanCard, 'wall'>, kanbanOnly: boolean): boolean {
+  return card.wall ?? !kanbanOnly;
+}
+
+/**
  * As dependências da anotação passam a ser `deps` (na ordem dada; vazia: nenhuma). As que fariam uma
  * roda (ver `dependsOn`) ficam de fora. Quem confere a roda pelos quadros todos é quem chama; aqui,
  * só pelo quadro.
@@ -822,7 +858,7 @@ export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined,
     const was = current.get(c.note);
     const own = was?.dress?.own ?? c.dress?.own;
     const { dress: _, ...plain } = c;
-    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance || was.status !== c.status) ? { at } : {};
+    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance || was.status !== c.status || was.wall !== c.wall) ? { at } : {};
     return own ? { ...plain, ...moved, dress: { col: '', v: '', own } } : { ...plain, ...moved };
   });
   return { ...before, cards };

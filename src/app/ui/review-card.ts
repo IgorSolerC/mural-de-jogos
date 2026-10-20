@@ -408,6 +408,16 @@ export const CARD_TEMPLATE = `
         <app-done-stamp [at]="at" [size]="compact() ? 'compact' : 'card'" [dark]="dark()" [hit]="stamping()" />
       </span>
     }
+    <!-- a anotação que está só no Kanban, à mostra no mural ("Mostrar" na pasta): a etiqueta de tinta
+         presa na quina de baixo, do lado oposto às reações -->
+    @if (boardOnly() && !bare()) {
+      <span class="so-kanban" aria-hidden="true">
+        <lucide-icon [img]="BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
+        @if (!capas()) {
+          <span>Só no Kanban</span>
+        }
+      </span>
+    }
     <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
          o dos comentários abre a ficha já com eles -->
     @if (reactTarget() || sharedHere()) {
@@ -1284,6 +1294,44 @@ export const CARD_STYLES = `
     }
 
     /* o balão das reações: preso na quina de baixo, metade para fora da ficha, por cima de tudo */
+    /* só no Kanban: a etiqueta de tinta das ações (Fixar, Finalizar), parada, presa na quina de baixo */
+    .so-kanban {
+      position: absolute;
+      left: 14px;
+      bottom: -11px;
+      z-index: 6;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px 3px 7px;
+      border-radius: 2px;
+      background: #151515;
+      color: #f1f1ec;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      text-transform: uppercase;
+      white-space: nowrap;
+      rotate: -1.5deg;
+      box-shadow: 0 2px 4px rgb(0 0 0 / 0.28);
+      pointer-events: none;
+
+      lucide-icon {
+        display: inline-flex;
+      }
+    }
+    :host(.compact) .so-kanban {
+      left: 12px;
+      bottom: -10px;
+      font-size: 0.66rem;
+    }
+    :host(.capas) .so-kanban {
+      left: 6px;
+      padding: 4px 5px 3px;
+    }
+
     .reacoes {
       position: absolute;
       right: 14px;
@@ -1593,6 +1641,8 @@ export class ReviewCard {
   readonly times = input(1);
   /** As tarefas da anotação se marcam na própria ficha (só no seu mural; nos outros, só se veem). */
   readonly checkable = input(false);
+  /** A anotação está só no Kanban (e à mostra no mural, pelo "Mostrar" da pasta): a etiqueta diz. */
+  readonly boardOnly = input(false);
   /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
   readonly reactCode = input<string | null>(null);
   /** O ícone e a cor das categorias do dono da ficha (os seus, no seu mural; os da pessoa, no dela). */
@@ -1651,6 +1701,7 @@ export class ReviewCard {
   /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
   protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
   protected readonly DoneIcon = ICON.feito;
+  protected readonly BoardIcon = ICON.colunas;
   /**
    * O texto tem o que tocar (tarefas, links, um spoiler)? Só então ele sobe por cima do botão da ficha;
    * sem nada para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
@@ -1893,7 +1944,8 @@ export class ReviewCard {
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
-      return `Abrir anotação: ${[r.game.name, rank, done, cats, todo, this.noText() ? 'sem descrição' : '', when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
+      const board = this.boardOnly() ? 'só no Kanban' : '';
+      return `Abrir anotação: ${[r.game.name, rank, done, board, cats, todo, this.noText() ? 'sem descrição' : '', when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];
     if (isMusicReview(r)) parts.push(`${MUSIC_FORM_LABEL[musicFormOf(r.game)].toLowerCase()}${r.category ? ' de ' + r.category : ''}`);

@@ -1,5 +1,6 @@
 import type { CategoryLooks } from './category-looks';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
+import { KanbanStore } from './kanban-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
@@ -223,6 +224,14 @@ export abstract class WallState {
    * core/tag-filter.ts): só no seu mural, pelas configurações; no de um colega, nenhuma.
    */
   readonly defaultTagOuts: Signal<ReadonlySet<string>> = signal(new Set<string>());
+  /**
+   * As anotações que estão só no Kanban (pelo id, ver `KanbanStore.boardOnly`): ficam fora do mural,
+   * como as finalizadas, até a pessoa pedir para ver (`showBoard`). Só no seu mural: o quadro é seu, e
+   * o mural de quem visita não sabe dele.
+   */
+  readonly boardOnly: Signal<ReadonlySet<string>> = signal(new Set<string>());
+  /** "Mostrar as do Kanban": as que estão só no Kanban aparecem no mural. Só nesta visita, não fica guardado. */
+  readonly showBoard = signal(false);
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
   readonly profile = computed(() => this.mural.profile());
   /** O mural de anotações: abas, tags e a lista; sem nota, veredito nem status. */
@@ -269,9 +278,18 @@ export abstract class WallState {
    */
   readonly stamping = signal<ReadonlySet<string>>(new Set());
 
-  /** A anotação entra no mural agora? A finalizada, só mostrando as finalizadas ou durante o carimbo. */
+  /**
+   * A anotação entra no mural agora? A finalizada, só mostrando as finalizadas ou durante o carimbo; a
+   * que está só no Kanban, só mostrando as do Kanban.
+   */
   private shows(r: Review): boolean {
+    return this.showsDone(r) && this.showsBoard(r);
+  }
+  private showsDone(r: Review): boolean {
     return !isDone(r) || this.showDone() || this.stamping().has(r.id);
+  }
+  private showsBoard(r: Review): boolean {
+    return this.showBoard() || !this.boardOnly().has(r.id);
   }
   /**
    * A aba escolhida no mural de anotações (ver core/note-tabs.ts). Fica guardada: o mural abre na
@@ -358,8 +376,15 @@ export abstract class WallState {
   readonly pool = computed<Review[]>(() => this.tabbed().filter((r) => this.shows(r)));
   /** Quantas anotações finalizadas a aba tem (à mostra ou não). */
   readonly doneCount = computed(() => this.tabbed().filter(isDone).length);
-  /** As finalizadas que estão fora do mural agora. */
-  readonly hiddenDone = computed(() => this.tabbed().length - this.pool().length);
+  /** As finalizadas que estão fora do mural agora (também as que estão só no Kanban). */
+  readonly hiddenDone = computed(() => this.tabbed().filter((r) => !this.showsDone(r)).length);
+  /** As anotações da aba que estão só no Kanban (as finalizadas, só com as finalizadas à mostra). */
+  readonly boardCount = computed(() => {
+    const only = this.boardOnly();
+    return only.size ? this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r)).length : 0;
+  });
+  /** As que estão fora do mural agora só por estarem no Kanban (para o vazio dizer onde elas estão). */
+  readonly hiddenBoard = computed(() => (this.showBoard() ? 0 : this.boardCount()));
 
   /**
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
@@ -410,7 +435,16 @@ export abstract class WallState {
   readonly doneMatches = computed(() => {
     const needle = fold(this.query().trim());
     if (!needle || this.showDone()) return 0;
-    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && matchesQuery(r, needle)).length;
+    return this.tabbed().filter((r) => isDone(r) && !this.stamping().has(r.id) && this.showsBoard(r) && matchesQuery(r, needle)).length;
+  });
+
+  /** Quantas anotações só no Kanban, escondidas, a busca acharia (para o mural dizer que elas existem). */
+  readonly boardMatches = computed(() => {
+    const needle = fold(this.query().trim());
+    if (!needle || this.showBoard()) return 0;
+    const only = this.boardOnly();
+    const out = this.outByTags();
+    return this.tabbed().filter((r) => only.has(r.id) && this.showsDone(r) && matchesQuery(r, needle) && !out(r)).length;
   });
 
   /** Quantas anotações à mostra, nas outras abas, a busca acharia (para oferecer procurar em todas). */
@@ -614,6 +648,7 @@ export abstract class WallState {
     this.musicTab.set(ALL_TAB);
     this.collapsed.set(new Set());
     this.showDone.set(false);
+    this.showBoard.set(false);
   }
 }
 
@@ -628,6 +663,7 @@ export class WallView extends WallState {
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
+  override readonly boardOnly = inject(KanbanStore).boardOnly;
 
   constructor() {
     super({ key: KEY, whole: true });

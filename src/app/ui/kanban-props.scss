@@ -401,3 +401,27 @@
     transition: background-color var(--t-ui) var(--ease-ui);
   }
 }
+
+/* ===== No mural: o interruptor de papel e, ao lado, o que vale em palavras ===== */
+.interruptor {
+  @include kit.interruptor;
+}
+
+.mural-valor {
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.mural-diz {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  /* só no Kanban é a exceção: em tinta cheia, para não passar batido */
+  &.so-kanban {
+    color: var(--ink);
+  }
+}

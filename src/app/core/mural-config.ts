@@ -29,6 +29,11 @@ export interface CategoryPrefs {
   askTag?: boolean;
   /** Escondida: a aba dela fica sempre no "Mais", nunca em pé lá em cima. Guardado só quando `true`. */
   hidden?: boolean;
+  /**
+   * As anotações do quadro Kanban do grupo ficam só no Kanban, fora do mural (cada uma pode escolher
+   * o contrário, ver `KanbanCard.wall`). Guardado só quando `true`.
+   */
+  kanbanOnly?: boolean;
 }
 
 export interface NotesConfig {
@@ -62,14 +67,15 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, askTag, hidden } = raw as Record<string, unknown>;
+  const { audience, askTag, hidden, kanbanOnly } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;
+  if (kanbanOnly === true) out.kanbanOnly = true;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden;
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && !p.kanbanOnly;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -149,7 +155,7 @@ export function withPrefs(cfg: NotesConfig, category: string, patch: CategoryPre
   if (!key) return cfg;
   const { [key]: old, ...rest } = cfg.categories;
   const merged: CategoryPrefs = { ...old, ...patch };
-  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || (k === 'hidden' && !merged[k])) delete merged[k];
+  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || ((k === 'hidden' || k === 'kanbanOnly') && !merged[k])) delete merged[k];
   return { ...cfg, categories: isEmpty(merged) ? rest : { ...rest, [key]: merged } };
 }
 
@@ -185,3 +191,8 @@ export function hiddenKeys(cfg: NotesConfig): ReadonlySet<string> {
   return new Set(Object.entries(cfg.categories).flatMap(([k, p]) => (p.hidden ? [k] : [])));
 }
 
+
+/** As anotações do quadro Kanban deste grupo ficam só no Kanban (cada uma pode escolher o contrário)? */
+export function kanbanOnly(cfg: NotesConfig, category: string | null | undefined): boolean {
+  return !!prefsOf(cfg, category).kanbanOnly;
+}

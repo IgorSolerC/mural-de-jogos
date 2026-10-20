@@ -22,7 +22,8 @@ import { TagPicker } from './tag-picker';
  * quadro em linhas (ver ui/kanban-props.ts: a etapa, a importância, o status e as dependências) e as
  * tags dela (as do mural, com o seletor do editor). Tudo vale na hora (não tem "Salvar"; o status, ao
  * terminar de escrever); mudar de etapa passa por `KanbanActions` (finaliza ou abre de novo, como
- * arrastar). Ler a anotação fecha a folha e abre a leitura; Tirar do quadro deixa a anotação no mural.
+ * arrastar). Ler a anotação fecha a folha e abre a leitura; Tirar do quadro deixa a anotação no mural
+ * (também a que estava só no Kanban: ela volta para lá).
  */
 @Component({
   selector: 'app-kanban-card-sheet',
@@ -56,6 +57,8 @@ import { TagPicker } from './tag-picker';
               (statusChange)="saveStatus($event)"
               [deps]="d.card.deps ?? []"
               (depsChange)="setDeps($event)"
+              [wall]="d.onWall"
+              (wallChange)="setWall($event)"
             >
               <!-- as tags da anotação, a última linha, do mesmo jeito das outras -->
               <div class="linha tags-linha">
@@ -121,7 +124,14 @@ export class KanbanCardSheet {
     const note = this.store.get(this.noteId());
     const card = board?.cards.find((c) => c.note === this.noteId());
     if (!board || !note || !card) return null;
-    return { board, note, card, label: this.kanban.labelOf(board) ?? note.category ?? '', stock: pinningFor(note.id, note.stock).stock };
+    return {
+      board,
+      note,
+      card,
+      label: this.kanban.labelOf(board) ?? note.category ?? '',
+      stock: pinningFor(note.id, note.stock).stock,
+      onWall: this.kanban.isOnWall(card, note.category),
+    };
   });
 
   /**
@@ -165,6 +175,11 @@ export class KanbanCardSheet {
 
   protected saveStatus(status: string): void {
     this.kanban.update(this.boardId(), (b, at) => setStatus(b, this.noteId(), status, at));
+  }
+
+  /** Também no mural, ou só no Kanban: vale na hora, como o resto da folha. */
+  protected setWall(wall: boolean): void {
+    this.kanban.setOnWall(this.noteId(), wall);
   }
 
   protected setDeps(list: readonly string[]): void {

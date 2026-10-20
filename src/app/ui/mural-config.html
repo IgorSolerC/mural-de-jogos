@@ -217,6 +217,21 @@
 
 
                         <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Anotações do Kanban</legend>
+                          <div class="segmentos dois">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-kanban-' + i" [checked]="!p.kanbanOnly" (change)="setPrefs(c, { kanbanOnly: undefined })" />
+                              <span class="seg-nome">No mural também</span>
+                            </label>
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-kanban-' + i" [checked]="!!p.kanbanOnly" (change)="setPrefs(c, { kanbanOnly: true })" />
+                              <span class="seg-nome">Só no Kanban</span>
+                            </label>
+                          </div>
+                          <p class="nome-dica">Cada anotação do quadro pode escolher o contrário, na folha dela.</p>
+                        </fieldset>
+
+                        <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Aviso de “você esqueceu a tag”</legend>
                           <div class="segmentos tres">
                             <label class="segmento">
@@ -336,6 +351,29 @@
                 {{ quadroNotas() === 1 ? '1 anotação' : quadroNotas() + ' anotações' }}. Cada coluna se ajusta pela etiqueta dela; a cor das tags do grupo fica em
                 <button type="button" class="link" (click)="pick('tags')">Tags</button>.
               </p>
+
+              <div class="grupo">
+                <p class="grupo-titulo">No mural</p>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-so-kanban">Só no Kanban</p>
+                    <p class="linha-desc" id="config-d-so-kanban">
+                      As anotações deste quadro saem do mural de anotações e ficam só aqui. Cada uma pode escolher o contrário, na folha dela; tirada do quadro, volta para o mural.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    class="interruptor"
+                    aria-labelledby="config-t-so-kanban"
+                    aria-describedby="config-d-so-kanban"
+                    [attr.aria-checked]="quadroSoKanban()"
+                    (click)="setQuadroSoKanban(!quadroSoKanban())"
+                  >
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
+              </div>
 
               <div class="grupo">
                 <p class="grupo-titulo">Começar de novo</p>

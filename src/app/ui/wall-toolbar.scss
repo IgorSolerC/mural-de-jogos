@@ -14,6 +14,12 @@
   display: none;
 }
 
+/* "8 só no Kanban · Mostrar": a mesma letra do que a busca achou, com o desenho do quadro */
+.do-kanban-icone {
+  display: inline-flex;
+  margin-right: 4px;
+}
+
 /* ===== Depois do picote: as tags (ou os filtros ligados), o que a busca achou e as tarefas =====
    (as tags moram em styles.scss, com a pasta: o Kanban usa as mesmas) */
 /* os filtros ligados da cartela, adesivos de papel colados na pasta, cada um com o seu X */

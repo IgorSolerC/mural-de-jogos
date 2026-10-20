@@ -73,6 +73,7 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     reactCode: null,
     checkable: true,
     looks: {},
+    boardOnly: new Set(),
   };
 
   const notes = (n: number): Review[] =>

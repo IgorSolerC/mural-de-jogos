@@ -1,4 +1,21 @@
-@if (!view.pool().length) {
+@if (!view.pool().length && view.hiddenBoard() && !view.hiddenDone()) {
+  <!-- todas as anotações da aba estão só no Kanban: o mural não está vazio, elas moram no quadro -->
+  <section class="no-results cartolina" aria-live="polite">
+    <app-pin class="pin" color="#f4f4f0" />
+    <h2>Tudo no Kanban</h2>
+    <p>
+      {{ view.hiddenBoard() === 1 ? 'A anotação ' + where() + ' está só no Kanban.' : 'As ' + view.hiddenBoard() + ' anotações ' + where() + ' estão só no Kanban.' }}
+      Abra o quadro, ou mostre as anotações aqui.
+    </p>
+    <div class="acoes-vazio">
+      <a class="btn-ink" [routerLink]="boardLink()">
+        <lucide-icon [img]="BoardIcon" [size]="20" aria-hidden="true" />
+        Abrir o quadro
+      </a>
+      <button type="button" class="btn-quiet" (click)="showBoard()">Mostrar aqui</button>
+    </div>
+  </section>
+} @else if (!view.pool().length) {
   <!-- todas as anotações têm check: o mural não está vazio, só em dia (e leva o carimbo) -->
   <section class="no-results tudo-feito cartolina" aria-live="polite">
     <app-pin class="pin" color="#f4f4f0" />
@@ -39,6 +56,11 @@
     @if (view.doneMatches(); as n) {
       <p>{{ n === 1 ? 'Uma anotação finalizada fala disso.' : n + ' anotações finalizadas falam disso.' }}</p>
       <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
+    }
+    <!-- a busca acharia anotações que estão só no Kanban -->
+    @if (view.boardMatches(); as n) {
+      <p>{{ n === 1 ? 'Uma anotação que está só no Kanban fala disso.' : n + ' anotações que estão só no Kanban falam disso.' }}</p>
+      <button type="button" class="btn-quiet" (click)="showBoard()">Mostrar as do Kanban</button>
     }
     <!-- a busca acharia anotações de outras abas -->
     @if (view.elsewhere(); as n) {
@@ -100,7 +122,7 @@
         <!-- fechada, a seção é só a etiqueta com o maço -->
         @if (!shut) {
           @if (lista()) {
-            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" (opened)="opened.emit($event)" />
+            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" [boardOnly]="shownBoard()" (opened)="opened.emit($event)" />
           } @else {
             <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()"></div>
           }

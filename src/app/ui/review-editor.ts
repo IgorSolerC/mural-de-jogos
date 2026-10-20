@@ -325,7 +325,7 @@ export class ReviewEditor {
     const board = this.kbBoard();
     if (note && board) {
       const col = board.columns.find((x) => x.id === this.kbColumn());
-      out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}` : 'fora do quadro', filled: !!col, tint: col?.color });
+      out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}${this.kbWall() ? '' : ', só no Kanban'}` : 'fora do quadro', filled: !!col, tint: col?.color });
     }
     if (note || this.game()) {
       const has = !!this.game()?.coverUrl;
@@ -367,6 +367,19 @@ export class ReviewEditor {
   protected readonly kbImportance = signal<Importance | null>(null);
   protected readonly kbStatus = signal('');
   protected readonly kbDeps = signal<readonly string[]>([]);
+  /** Também no mural (`true`) ou só no Kanban, escolhido aqui; null: o que já vale (o da anotação, ou o do grupo). */
+  private readonly kbWallChoice = signal<boolean | null>(null);
+  /** Também no mural ou só no Kanban: o escolhido, senão o da anotação no quadro, senão o do grupo de agora. */
+  protected readonly kbWall = computed(() => {
+    const chosen = this.kbWallChoice();
+    if (chosen !== null) return chosen;
+    const card = this.kbBoard()?.cards.find((c) => c.note === this.id());
+    const category = this.noteCategory();
+    return card ? this.kanban.isOnWall(card, category) : !this.kanban.groupKanbanOnly(category);
+  });
+  protected setKbWall(wall: boolean): void {
+    this.kbWallChoice.set(wall);
+  }
 
   /** O lugar como está no quadro do grupo de agora (ou o pedido pela coluna de onde a nova veio). */
   private syncBoard(): void {
@@ -380,6 +393,7 @@ export class ReviewEditor {
     this.kbImportance.set(card?.importance ?? null);
     this.kbStatus.set(card?.status ?? '');
     this.kbDeps.set(card?.deps ?? []);
+    this.kbWallChoice.set(null);
   }
 
   /**
@@ -392,8 +406,11 @@ export class ReviewEditor {
     const column = this.kbColumn();
     const status = cleanStatus(this.kbStatus());
     const deps = this.kbDeps();
+    const wall = this.kbWallChoice();
     if (isNew) {
-      this.kanban.pending.set(b && column ? { board: b.id, column, importance: this.kbImportance(), status, deps: [...deps] } : null);
+      // a escolha igual à do grupo não é guardada: a anotação segue o grupo
+      const own = wall !== null && wall === this.kanban.groupKanbanOnly(this.noteCategory()) ? { wall } : {};
+      this.kanban.pending.set(b && column ? { board: b.id, column, importance: this.kbImportance(), status, deps: [...deps], ...own } : null);
       return;
     }
     if (!b) return;
@@ -412,6 +429,7 @@ export class ReviewEditor {
       });
       // a que acabou de entrar no quadro ganha as dependências agora (antes, não tinha onde guardar)
       if (deps.join() !== this.kanbanDeps.idsOf(id).join()) this.kanbanDeps.set(id, deps);
+      if (wall !== null) this.kanban.setOnWall(id, wall);
     };
     // as dependências antes de andar: levar para uma coluna que finaliza pergunta pelas de agora
     if (deps.join() !== (card?.deps ?? []).join() && card) this.kanbanDeps.set(id, deps);
@@ -1565,6 +1583,7 @@ export class ReviewEditor {
       this.kbImportance(),
       cleanStatus(this.kbStatus()),
       this.kbDeps(),
+      this.kbWall(),
     ]);
   }
 

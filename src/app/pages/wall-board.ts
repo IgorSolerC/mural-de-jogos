@@ -1,5 +1,8 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
+import { kanbanPath } from '../core/areas';
+import { boardIdFor } from '../core/kanban';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
@@ -13,6 +16,8 @@ import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
 
+const NONE: ReadonlySet<string> = new Set();
+
 /** O que muda nas fichas conforme quem olha o mural (o dono ou quem visita); o resto vem da vista. */
 export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' | 'masked' | 'secret' | 'reactCode' | 'checkable' | 'looks'>;
 
@@ -25,7 +30,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, IconModule, NoteIndex, Pin, SearchHighlight, WallCards],
+  imports: [DoneStamp, IconModule, NoteIndex, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
@@ -47,6 +52,13 @@ export class WallBoard {
 
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly BoardIcon = ICON.colunas;
+
+  /** O quadro do grupo da aba aberta (em "Tudo", o último aberto). */
+  protected readonly boardLink = computed(() => {
+    const tab = this.view.activeTab();
+    return kanbanPath(tab.startsWith('c:') ? boardIdFor(tab.slice(2)) : undefined);
+  });
 
   /** De quem é o mural: null, o seu. */
   protected readonly owner = this.view.owner;
@@ -80,6 +92,9 @@ export class WallBoard {
     return this.owner() === null ? 'do mural' : `de ${this.owner()}`;
   });
 
+  /** As que estão só no Kanban e à mostra no mural agora: levam a etiqueta (nenhuma, escondidas). */
+  protected readonly shownBoard = computed(() => (this.view.showBoard() ? this.view.boardOnly() : NONE));
+
   /** O que todas as fichas da parede recebem igual (ver WallCardPool). */
   private readonly cardProps = computed<WallCardProps>(() => ({
     ...this.access(),
@@ -89,6 +104,7 @@ export class WallBoard {
     full: this.inteira(),
     dayOnly: this.view.shownSort() === 'data',
     times: this.view.times(),
+    boardOnly: this.shownBoard(),
   }));
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
@@ -162,6 +178,11 @@ export class WallBoard {
   /** A busca sai da aba e procura no mural inteiro. */
   protected searchAll(): void {
     this.motion.run(() => this.view.setNoteTab(ALL_TAB));
+  }
+
+  /** "Mostrar as do Kanban": as que estão só no Kanban entram no mural, nesta visita. */
+  protected showBoard(): void {
+    this.motion.run(() => this.view.showBoard.set(true));
   }
 
   protected showDone(): void {

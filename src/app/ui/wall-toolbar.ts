@@ -64,6 +64,7 @@ export class WallToolbar {
   protected readonly PinIcon = ICON.fixar;
   protected readonly RevealIcon = ICON.ver;
   protected readonly GearIcon = ICON.configurar;
+  protected readonly BoardIcon = ICON.colunas;
 
   private readonly injector = inject(Injector);
   /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */
@@ -189,6 +190,11 @@ export class WallToolbar {
   /** "Mostrar finalizadas": as anotações com check voltam (ou saem) do mural, deslizando. */
   protected toggleDone(): void {
     this.motion.run(() => this.view.showDone.update((v) => !v));
+  }
+
+  /** "Mostrar" as que estão só no Kanban: elas entram no mural (ou saem), deslizando. Só nesta visita. */
+  protected toggleBoard(): void {
+    this.motion.run(() => this.view.showBoard.update((v) => !v));
   }
 
   /** Tira a busca e os filtros ligados (o "Limpar" da pasta). */

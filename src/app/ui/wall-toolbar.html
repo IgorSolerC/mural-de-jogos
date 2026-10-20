@@ -119,6 +119,21 @@
             <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
           </p>
         }
+        <!-- as anotações que estão só no Kanban: fora do mural, a um toque de aparecer aqui -->
+        @if (view.boardCount(); as n) {
+          <p class="achados do-kanban">
+            <lucide-icon class="do-kanban-icone" [img]="BoardIcon" [size]="17" aria-hidden="true" />
+            <span>{{ n }} {{ view.showBoard() ? 'do Kanban à mostra' : 'só no Kanban' }}</span>
+            <button
+              type="button"
+              class="tinta-link"
+              [attr.aria-label]="view.showBoard() ? 'Esconder as anotações que estão só no Kanban' : 'Mostrar aqui as anotações que estão só no Kanban'"
+              (click)="toggleBoard()"
+            >
+              {{ view.showBoard() ? 'Esconder' : 'Mostrar' }}
+            </button>
+          </p>
+        }
         @if (view.tasks(); as t) {
           @if (t.total) {
             <p class="tarefas" [class.todas]="!t.todo">

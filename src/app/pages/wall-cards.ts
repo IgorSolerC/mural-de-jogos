@@ -48,6 +48,8 @@ export interface WallCardProps {
   checkable: boolean;
   /** O ícone e a cor das categorias do dono do mural, nas orelhas. */
   looks: CategoryLooks;
+  /** As anotações à mostra que estão só no Kanban (ver `WallState.showBoard`): levam a etiqueta. */
+  boardOnly: ReadonlySet<string>;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -65,6 +67,7 @@ const NO_PROPS: WallCardProps = {
   reactCode: null,
   checkable: false,
   looks: {},
+  boardOnly: new Set(),
 };
 
 /** O tipo de ficha, pelo que muda a altura dela. */
@@ -903,6 +906,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('reactCode', p.reactCode);
     ref.setInput('checkable', p.checkable);
     ref.setInput('looks', p.looks);
+    ref.setInput('boardOnly', p.boardOnly.has(r.id));
   }
 }
 

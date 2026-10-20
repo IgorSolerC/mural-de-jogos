@@ -1,6 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { EMPTY_KANBAN, Importance, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, restoredBoard, sanitizeKanban } from './kanban';
-import { activeOrder } from './mural-config';
+import { EMPTY_KANBAN, Importance, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, onWall, restoredBoard, sanitizeKanban, setWall } from './kanban';
+import { activeOrder, kanbanOnly } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -28,6 +28,8 @@ export interface KanbanSpot {
   status?: string;
   /** As dependências escolhidas no editor (ver `KanbanCard.deps`). */
   deps?: string[];
+  /** Também no mural, ou só no Kanban, escolhido no editor (sem o campo: o do grupo; ver `KanbanCard.wall`). */
+  wall?: boolean;
 }
 
 /**
@@ -63,6 +65,44 @@ export class KanbanStore {
 
   /** As anotações pelo id (para ver quais do quadro ainda são da categoria dele). */
   readonly notesById = computed(() => new Map(this.store.notes().map((r) => [r.id, r])));
+
+  /**
+   * As anotações que estão só no Kanban, fora do mural (pelo id): as que estão no quadro do grupo delas
+   * e, pela escolha delas ou do grupo, não aparecem no mural (ver `onWall`). Saindo do quadro (ou do
+   * grupo), voltam ao mural.
+   */
+  readonly boardOnly = computed<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    const cfg = this.settings.notesConfig();
+    const byId = this.notesById();
+    for (const b of this.boards()) {
+      const only = kanbanOnly(cfg, b.category);
+      for (const c of liveCards(b, byId)) if (!onWall(c, only)) out.add(c.note);
+    }
+    return out;
+  });
+
+  /** As anotações do quadro deste grupo ficam só no Kanban (a escolha do grupo)? */
+  groupKanbanOnly(category: string | null | undefined): boolean {
+    return !!category?.trim() && kanbanOnly(this.settings.notesConfig(), category);
+  }
+
+  /**
+   * A anotação aparece também no mural (`true`) ou só no Kanban (`false`). Igual à escolha do grupo,
+   * volta a seguir o grupo (e passa a mudar com ele).
+   */
+  setOnWall(note: string, wall: boolean): void {
+    const at = this.cardOf(note);
+    if (!at) return;
+    const category = this.notesById().get(note)?.category;
+    const value = wall === !this.groupKanbanOnly(category) ? undefined : wall;
+    this.update(at.board.id, (b, when) => setWall(b, note, value, when));
+  }
+
+  /** A anotação do quadro aparece no mural (a escolha dela, ou a do grupo)? */
+  isOnWall(card: Pick<KanbanCard, 'wall'>, category: string | null | undefined): boolean {
+    return onWall(card, this.groupKanbanOnly(category));
+  }
 
   /** As anotações do quadro que estão nele de verdade (existem e são da categoria dele). */
   live(board: KanbanBoard): KanbanCard[] {

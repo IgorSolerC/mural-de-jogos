@@ -5,7 +5,7 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, arrangedKeys, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
+import { CategoryPrefs, arrangedKeys, kanbanOnly, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, cleanCategory, cleanTag } from '../core/note-labels';
@@ -167,6 +167,12 @@ export class MuralConfig {
     const b = this.quadro();
     return b ? this.kanban.live(b).length : 0;
   });
+  /** As anotações do quadro aberto ficam só no Kanban (a escolha do grupo dele)? */
+  protected readonly quadroSoKanban = computed(() => !!this.quadro() && kanbanOnly(this.config(), this.quadroGrupo()));
+  protected setQuadroSoKanban(on: boolean): void {
+    const label = this.quadroGrupo();
+    if (label) this.settings.setCategoryPrefs(label, { kanbanOnly: on || undefined });
+  }
   protected readonly config = this.settings.notesConfig;
   /** A ordem montada à mão está valendo. */
   protected readonly manual = computed(() => this.config().orderBy === 'minha');
@@ -425,6 +431,7 @@ export class MuralConfig {
     const parts: string[] = [];
     if (p.audience) parts.push(`Nasce ${AUDIENCE_LABEL[p.audience]}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
+    if (p.kanbanOnly) parts.push('Kanban fora do mural');
     return parts.join(' · ');
   }
 
@@ -448,7 +455,7 @@ export class MuralConfig {
   }
 
   protected resetPrefs(row: CategoryRow): void {
-    this.settings.setCategoryPrefs(row.label, { audience: undefined, askTag: undefined });
+    this.settings.setCategoryPrefs(row.label, { audience: undefined, askTag: undefined, kanbanOnly: undefined });
   }
 
   /** Pela quantidade ou na ordem montada; a montada começa da ordem de agora e nunca se perde. */

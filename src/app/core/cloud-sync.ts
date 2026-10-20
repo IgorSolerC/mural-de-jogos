@@ -140,11 +140,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     enviaria o quadro assim, e as dependências sumiriam em todo aparelho.
  * 31: o status de uma anotação no quadro Kanban (`status`, as palavras ao lado da importância). Um site
  *     antigo jogaria o campo fora e enviaria o quadro assim, e o status sumiria em todo aparelho.
+ * 32: a anotação do quadro Kanban que fica só no Kanban, ou também no mural (`wall`), e o grupo cujas
+ *     anotações do quadro ficam só no Kanban (`kanbanOnly`, nas configurações do mural). Um site antigo
+ *     jogaria os dois fora e enviaria assim, e as anotações voltariam ao mural em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 31;
+export const SYNC_SCHEMA = 32;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

@@ -273,7 +273,7 @@
                 }
                 @case ('quadro') {
                   @if (kbBoard(); as b) {
-                    <app-kanban-props [compact]="true" [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" />
+                    <app-kanban-props [compact]="true" [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
                   }
                 }
                 @case ('quem') {

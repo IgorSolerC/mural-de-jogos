@@ -17,6 +17,8 @@ interface Row {
   tasks: { done: number; total: number } | null;
   pinned: boolean;
   done: boolean;
+  /** Só no Kanban (à mostra no mural pelo "Mostrar" da pasta). */
+  board: boolean;
 }
 
 /**
@@ -43,6 +45,10 @@ interface Row {
             @if (r.done) {
               <lucide-icon class="marca" [img]="CheckIcon" [size]="16" aria-hidden="true" />
               <span class="sr-only">, finalizada</span>
+            }
+            @if (r.board) {
+              <lucide-icon class="marca" [img]="BoardIcon" [size]="15" aria-hidden="true" />
+              <span class="sr-only">, só no Kanban</span>
             }
             @if (r.category) {
               <span class="cat">{{ r.category }}</span>
@@ -269,9 +275,12 @@ export class NoteIndex {
   readonly reviews = input.required<readonly Review[]>();
   /** Mostrar a categoria de cada linha (em Tudo; numa aba de categoria, seria a mesma em todas). */
   readonly showCategory = input(false);
+  /** As que estão só no Kanban, à mostra no mural: a linha leva o desenho do quadro. */
+  readonly boardOnly = input<ReadonlySet<string>>(new Set());
   readonly opened = output<string>();
 
   protected readonly PinIcon = ICON.fixar;
+  protected readonly BoardIcon = ICON.colunas;
   protected readonly CheckIcon = ICON.pronto;
 
   protected readonly rows = computed<Row[]>(() =>
@@ -287,6 +296,7 @@ export class NoteIndex {
         tasks: tasks.total ? tasks : null,
         pinned: isPinnedNote(r),
         done: isDone(r),
+        board: this.boardOnly().has(r.id),
       };
     }),
   );
