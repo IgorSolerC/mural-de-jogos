@@ -2547,6 +2547,8 @@ export class RichEditor {
       this.toggleGuide(big);
     } else if (e.key === 'Tab' && !mod && !e.altKey && this.tableLine(area)) {
       this.tableTab(e, area);
+    } else if (e.key === 'Tab' && !mod && !e.altKey) {
+      this.indentKey(e, area);
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
       if (this.tableLine(area)) this.tableEnter(e, area);
       else this.continueList(e, area);
@@ -3156,6 +3158,48 @@ export class RichEditor {
     this.replace(area, s, old.length - e, next.slice(s, next.length - e), caret, caret);
   }
 
+  /**
+   * Tab: o recuo vai até o próximo número par de espaços (um ou dois a mais), o que o texto lê como
+   * "dentro" do item de cima, sem nunca parar em três. Num item de lista, com o cursor no recuo ou
+   * com várias linhas, a linha toda anda (como no Docs); no meio do texto, os espaços entram no cursor,
+   * até a próxima coluna par. Shift+Tab volta ao par de antes; numa linha sem recuo, ele é o de
+   * sempre (o foco sai da folha, que é o caminho do teclado para fora dela).
+   */
+  private indentKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
+    const { from, to, lines } = this.linesAt(area);
+    const [s, end] = [area.selectionStart, area.selectionEnd];
+    const lead = (l: string) => /^[ \t]*/.exec(l)![0];
+    const single = lines.length === 1;
+    if (e.shiftKey) {
+      const out = lines.map((l) => outdentLine(l));
+      if (out.every((l, i) => l === lines[i])) return;
+      e.preventDefault();
+      const joined = out.join('\n');
+      if (single && s === end) {
+        const caret = Math.max(from + lead(out[0]).length, s - (lines[0].length - out[0].length));
+        this.replace(area, from, to, joined, caret, caret);
+      } else this.replace(area, from, to, joined, from, from + joined.length);
+      return;
+    }
+    e.preventDefault();
+    const caretCol = s - from;
+    if (single && s === end && lineKind(lines[0]).kind === 'p' && caretCol > lead(lines[0]).length) {
+      // no meio do texto: os espaços até a próxima coluna par, no cursor
+      const pad = ' '.repeat(caretCol % 2 ? 1 : 2);
+      this.replace(area, s, s, pad, s + pad.length, s + pad.length);
+      return;
+    }
+    // a linha em branco no meio da seleção fica como está
+    const out = lines.map((l) => (!single && !l.trim() ? l : indentLine(l)));
+    const joined = out.join('\n');
+    if (single && s === end) {
+      // o cursor anda junto com o texto (no recuo, vai para o fim dele)
+      const grown = out[0].length - lines[0].length;
+      const caret = caretCol <= lead(lines[0]).length ? from + lead(out[0]).length : s + grown;
+      this.replace(area, from, to, joined, caret, caret);
+    } else this.replace(area, from, to, joined, from, from + joined.length);
+  }
+
   /** A linha do cursor: o número dela no texto, e as linhas todas. */
   private cursorLine(area: HTMLTextAreaElement): { lines: string[]; at: number } {
     return { lines: linesOf(area.value), at: area.value.slice(0, area.selectionStart).split('\n').length - 1 };
@@ -3253,6 +3297,25 @@ export function normalizeUrl(raw: string): string | null {
   // "www.site.com" ou "site.com/x": vira https
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(t)) return 'https://' + t;
   return null;
+}
+
+/** A largura do recuo da linha, em espaços (o tab vai até a próxima parada de 4, como no markdown). */
+function leadWidth(line: string): number {
+  let w = 0;
+  for (const ch of /^[ \t]*/.exec(line)![0]) w += ch === ' ' ? 1 : 4 - (w % 4);
+  return w;
+}
+
+/** A linha com o recuo no próximo número par de espaços (2 → 4, 3 → 4). */
+export function indentLine(line: string): string {
+  const w = leadWidth(line);
+  return ' '.repeat(w + (w % 2 ? 1 : 2)) + line.replace(/^[ \t]*/, '');
+}
+
+/** A linha com o recuo no número par de antes (4 → 2, 3 → 2); sem recuo, fica como está. */
+export function outdentLine(line: string): string {
+  const w = leadWidth(line);
+  return w ? ' '.repeat(w - (w % 2 ? 1 : 2)) + line.replace(/^[ \t]*/, '') : line;
 }
 
 /** O marcador do item novo; na numerada, com o número dele ("3", "1.2"). */

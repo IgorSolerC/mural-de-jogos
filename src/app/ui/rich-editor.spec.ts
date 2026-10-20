@@ -133,6 +133,56 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('1. a\n2. \n3. b\ntexto\n2. c');
   });
 
+  it('Tab recua até o próximo número par de espaços; Shift+Tab volta ao par de antes', () => {
+    const tab = (shiftKey = false) => {
+      const e = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true });
+      area.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    // num item, a linha toda anda, de onde estiver o cursor
+    write('1. a\n2. b|');
+    expect(tab()).toBeTrue();
+    expect(value()).toBe('1. a\n  2. b');
+    expect(area.selectionStart).toBe(value().length);
+    // com um espaço, só mais um (nunca três)
+    write(' - [ ] |x');
+    tab();
+    expect(value()).toBe('  - [ ] x');
+    write(' | texto');
+    tab();
+    expect(value()).toBe('    texto');
+    expect(area.selectionStart).toBe(4);
+    // o tab de verdade conta até a parada de 4
+    write('\t- a|');
+    tab();
+    expect(value()).toBe('      - a');
+    // no recuo, o cursor vai para o fim dele
+    write('|texto');
+    tab();
+    expect(value()).toBe('  texto');
+    expect(area.selectionStart).toBe(2);
+    // no meio do texto, os espaços entram no cursor, até a coluna par
+    write('abc|def');
+    tab();
+    expect(value()).toBe('abc def');
+    write('ab|cd');
+    tab();
+    expect(value()).toBe('ab  cd');
+    // várias linhas: todas andam, a em branco fica
+    write('|- a\n\n- b|');
+    tab();
+    expect(value()).toBe('  - a\n\n  - b');
+    // Shift+Tab: o par de antes
+    write('   - a|');
+    expect(tab(true)).toBeTrue();
+    expect(value()).toBe('  - a');
+    tab(true);
+    expect(value()).toBe('- a');
+    // sem recuo, é o de sempre (o foco sai da folha)
+    expect(tab(true)).toBeFalse();
+    expect(value()).toBe('- a');
+  });
+
   it('a lista de dentro com o número do pai ("1.1."): Enter continua com o seguinte, e os de baixo descem', () => {
     write('1. teste 1\n  1.1. teste 11|\n  1.2. teste 12\n2. teste 2');
     key('Enter');

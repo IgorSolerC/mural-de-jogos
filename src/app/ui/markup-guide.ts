@@ -32,6 +32,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
         keys: 'Shift+Enter',
         note: 'As linhas com dois espaços (ou mais) antes, embaixo de um item, são dele: a descrição, uma foto, outra lista. Feita a tarefa, tudo é riscado junto.',
       },
+      { what: 'Recuar', mark: '  item', keys: 'Tab', note: 'Põe a linha dois espaços para dentro (sempre num número par, que conta como dentro do item de cima); Shift+Tab volta.' },
     ],
   },
   {
