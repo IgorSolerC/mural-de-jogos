@@ -68,7 +68,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
   imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
-  host: { '[class.presa]': 'docked() !== null' },
+  host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
   template: `
     <ng-template #campo let-big="big">
       <!-- O alto da folha, como nos editores de sempre: as duas abas (escrever e ver como fica) e, na
@@ -1855,6 +1855,24 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .papel > .previa.grande {
       min-height: 5rem;
     }
+
+    /* ===== Enchendo o lugar (ver \`fill\`): a folha vai até embaixo, sem alça de esticar ===== */
+    :host(.encher) {
+      display: flex;
+      flex-direction: column;
+    }
+    :host(.encher) > .papel:not(.grande) {
+      display: flex;
+      flex: 1 0 auto;
+      flex-direction: column;
+    }
+    :host(.encher) > .papel > textarea:not(.grande),
+    :host(.encher) > .papel > .previa:not(.grande) {
+      flex: 1 0 auto;
+      min-height: calc(var(--line) * 6 + 8px);
+      max-height: none;
+      resize: none;
+    }
   `,
 })
 export class RichEditor {
@@ -1882,6 +1900,11 @@ export class RichEditor {
    * ficha); num lugar que gira ou rola com a página, ela fica no alto da folha.
    */
   readonly dock = input(false);
+  /**
+   * A folha enche o lugar que o pai der (o pai em coluna, com altura): a anotação, que é quase só o
+   * texto, vai até o pé da página. Cresce com o texto; passou, quem rola é a página, não a folha.
+   */
+  readonly fill = input(false);
 
   /** Em qual folha a régua está presa em cima do teclado (null: no alto da folha, como sempre). */
   protected readonly docked = signal<boolean | null>(null);

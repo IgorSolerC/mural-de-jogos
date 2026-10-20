@@ -99,7 +99,7 @@
     </header>
 
     <div class="body">
-      <div class="conteudo" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="mode() === 'escrever' ? 'editor-modo-escrever' : 'editor-modo-cartolina'">
+      <div class="conteudo" [class.enche]="notes()" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="mode() === 'escrever' ? 'editor-modo-escrever' : 'editor-modo-cartolina'">
         <!-- ===== Escrever ===== -->
         <div class="escrever" [hidden]="mode() !== 'escrever'">
           @if (notes()) {
@@ -288,17 +288,6 @@
           }
           </div>
 
-          <!-- de dentro do Kanban, o lugar no quadro é uma seção da página: à vista desde o começo -->
-          @if (kbInline()) {
-            <section class="bloco kanban-bloco" aria-labelledby="editor-kanban">
-              <div class="pergunta-linha">
-                <h3 class="pergunta" id="editor-kanban">Kanban</h3>
-                <span class="quadro-nome"><lucide-icon [img]="BoardIcon" [size]="15" aria-hidden="true" />Quadro de {{ noteCategory() }}</span>
-              </div>
-              <app-kanban-props [compact]="true" [board]="kbBoard()!" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" />
-            </section>
-          }
-
           @if (!notes()) {
             <section class="bloco como" aria-labelledby="editor-como">
               <h3 class="pergunta" id="editor-como">Como foi?</h3>
@@ -383,6 +372,7 @@
               [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o nome)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
               [notes]="linkNotes()"
               [onCard]="notes()"
+              [fill]="notes()"
               [stock]="stock()"
               [selfId]="id()"
               [dock]="true"

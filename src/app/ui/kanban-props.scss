@@ -183,55 +183,6 @@
   }
 }
 
-/* o atalho para a coluna seguinte: a etiqueta de tinta do quadro, com o nome dela e a seta */
-.avancar {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-height: 36px;
-  max-width: min(100%, 14rem);
-  padding: 5px 8px 4px 11px;
-  border: 0;
-  border-radius: 2px;
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.78rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.35),
-    0 4px 8px -3px rgb(0 0 0 / 0.35);
-  cursor: pointer;
-  transition:
-    rotate var(--t-ui) var(--ease-ui),
-    translate var(--t-ui) var(--ease-ui);
-
-  lucide-icon {
-    display: inline-flex;
-    flex: none;
-    color: var(--hi);
-  }
-
-  &:hover {
-    rotate: -1.5deg;
-    translate: 0 -1px;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
-}
-
-.avancar-nome {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 /* ===== Importância: os cinco tracinhos da ficha do quadro, em tamanho de tocar ===== */
 .regua-imp {
   --imp: var(--ink);
@@ -279,6 +230,20 @@
   }
 }
 
+/* o lugar do nome: todos os nomes empilhados (os de medida invisíveis), da largura do mais comprido */
+.imp-lugar {
+  display: inline-grid;
+  align-items: center;
+  justify-items: start;
+
+  > * {
+    grid-area: 1 / 1;
+  }
+}
+
+.medida {
+  visibility: hidden;
+}
 
 .imp-nome {
   @include kk.importancia;
@@ -336,7 +301,7 @@
   }
 }
 
-/* ===== Status: o campo e, embaixo, os já usados no quadro como recortes ===== */
+/* ===== Status: só o campo ===== */
 .status-valor {
   display: grid;
   gap: 8px;
@@ -344,38 +309,6 @@
 
   .campo {
     width: min(100%, 17rem);
-  }
-}
-
-.usados {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.usado {
-  min-height: 34px;
-  padding: 4px 10px 3px;
-  border: 0;
-  border-radius: 2px;
-  outline: 1.5px dashed rgb(21 21 21 / 0.42);
-  outline-offset: -1.5px;
-  background: transparent;
-  color: rgb(21 21 21 / 0.78);
-  /* as palavras da pessoa, como ela escreveu */
-  font-family: var(--f-ui);
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.06);
-    outline-color: rgb(21 21 21 / 0.72);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
   }
 }
 

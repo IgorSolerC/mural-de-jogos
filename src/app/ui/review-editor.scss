@@ -435,27 +435,6 @@
   border-top: 2px dashed rgb(21 21 21 / 0.2);
 }
 
-/* De dentro do Kanban: a seção do quadro, com o nome do quadro na letra de etiqueta ao lado */
-.kanban-bloco {
-  gap: 4px;
-}
-
-.quadro-nome {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-
-  lucide-icon {
-    display: inline-flex;
-  }
-}
-
 /* na anotação, o texto vem colado nas etiquetas, sem o fio: é a mesma página */
 .bloco.texto.principal {
   margin-top: 4px;
@@ -463,10 +442,27 @@
   border-top: 0;
 }
 
-.kanban-bloco + .bloco.texto.principal {
-  margin-top: 8px;
-  padding-top: 24px;
-  border-top: 2px dashed rgb(21 21 21 / 0.2);
+/* A anotação é quase só o texto: a folha pautada vai até o pé da página (sem rolar, até o texto
+   passar dela). A página, a coluna do escrever e o bloco do texto viram colunas que esticam. */
+.conteudo.enche {
+  display: flex;
+  flex-direction: column;
+
+  > .escrever:not([hidden]) {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+  }
+}
+
+.escrever > .bloco.texto.principal {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+
+  > app-rich-editor {
+    flex: 1 0 auto;
+  }
 }
 
 .campo {

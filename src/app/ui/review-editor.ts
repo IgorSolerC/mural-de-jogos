@@ -216,7 +216,6 @@ export class ReviewEditor {
   protected readonly WriteIcon = ICON.escrever;
   protected readonly KitIcon = ICON.paleta;
   protected readonly ClearIcon = ICON.recomecar;
-  protected readonly BoardIcon = ICON.colunas;
 
   /**
    * As duas abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes) e
@@ -324,8 +323,7 @@ export class ReviewEditor {
       out.push({ id: 'dificuldade', name: p.difficulty, icon: ICON.caveira, value: d === 'nenhuma' ? 'Dificuldade' : DIFFICULTY_LABEL[d], spoken: DIFFICULTY_LABEL[d], filled: d !== 'nenhuma' });
     }
     const board = this.kbBoard();
-    // de dentro do Kanban, o lugar no quadro é uma seção da página (ver `kbInline`), não uma etiqueta
-    if (note && board && !this.kbInline()) {
+    if (note && board) {
       const col = board.columns.find((x) => x.id === this.kbColumn());
       out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}` : 'fora do quadro', filled: !!col, tint: col?.color });
     }
@@ -369,12 +367,6 @@ export class ReviewEditor {
   protected readonly kbImportance = signal<Importance | null>(null);
   protected readonly kbStatus = signal('');
   protected readonly kbDeps = signal<readonly string[]>([]);
-  /**
-   * O editor abriu de dentro do Kanban (a página do quadro aberta, ou a "Nova nota" de uma coluna): o
-   * lugar no quadro vira uma seção da página, logo à vista, em vez da etiqueta.
-   */
-  private readonly fromKanban = signal(false);
-  protected readonly kbInline = computed(() => this.fromKanban() && !!this.kbBoard());
 
   /** O lugar como está no quadro do grupo de agora (ou o pedido pela coluna de onde a nova veio). */
   private syncBoard(): void {
@@ -1084,8 +1076,6 @@ export class ReviewEditor {
     this.attempted.set(false);
     this.confirmingDraft.set(false);
     this.draftError.set(false);
-    // de dentro do Kanban: a página do quadro aberta, ou a nova pedida de uma coluna
-    this.fromKanban.set(isNotes(kind) && (this.kanban.openBoard() !== null || (!review && this.kanban.pending() !== null)));
     this.syncBoard();
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;

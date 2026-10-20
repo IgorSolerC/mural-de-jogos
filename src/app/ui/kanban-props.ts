@@ -3,7 +3,6 @@ import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, STATUS_MAX, cleanStatus } from '../core/kanban';
 import { KanbanDeps } from '../core/kanban-deps';
 import { NOTES } from '../core/kinds';
-import { fold } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { CardPicker } from './card-picker';
@@ -16,10 +15,9 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
 
 /**
  * As coisas da anotação no quadro, em linhas como as propriedades do Notion: a etapa (a lista das
- * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver, e a etiqueta de
- * tinta que leva para a seguinte), a importância (a régua de cinco tracinhos das fichas do quadro, que
- * diz o nome de cada um ao passar o mouse ou o dedo), o status (com os já usados no quadro a um toque)
- * e as dependências. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
+ * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver), a importância (a régua de cinco tracinhos das fichas do quadro, que
+ * diz o nome de cada um ao passar o mouse ou o dedo), o status (só o campo, sem sugestões) e as
+ * dependências. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
  * hora, o editor guarda ao salvar. Compacto (no editor), a etapa e a importância ficam lado a lado e o
  * status e as dependências vazios são dois "+". O que vier depois (as tags, na folha) entra pelo
  * conteúdo, como mais uma linha.
@@ -31,7 +29,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
   host: { '[class.compacto]': 'compact()' },
   template: `
     <div class="par">
-      <!-- ===== Etapa: a lista das colunas por cima da tira; a seguinte a um toque ===== -->
+      <!-- ===== Etapa: a lista das colunas por cima da tira ===== -->
       <div class="linha">
         <label class="nome" [for]="id + '-etapa'"><lucide-icon [img]="ColumnsIcon" [size]="16" aria-hidden="true" />Etapa</label>
         <div class="valor etapa-valor">
@@ -52,11 +50,6 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
           </span>
           @if (current()?.finishes) {
             <span class="finaliza" title="Nesta etapa a anotação fica finalizada"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" />Finaliza</span>
-          } @else if (next(); as n) {
-            <button type="button" class="avancar" [attr.aria-label]="'Levar para ' + n.name" [title]="'Levar para ' + n.name + (n.finishes ? ' (finaliza)' : '')" (click)="column.set(n.id)">
-              <span class="avancar-nome">{{ n.name }}</span>
-              <lucide-icon [img]="NextIcon" [size]="15" aria-hidden="true" />
-            </button>
           }
         </div>
       </div>
@@ -84,16 +77,22 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
                 ></button>
               }
             </div>
-            @if (shownImp(); as i) {
-              <span class="imp-nome" [class.previa]="hover() !== null && hover() !== importance()" [attr.data-imp]="i">{{ impLabel[i] }}</span>
-            } @else {
-              <span class="imp-vazia">Sem importância</span>
-            }
-            @if (importance() && hover() === null) {
-              <button type="button" class="tirar" aria-label="Tirar a importância" title="Tirar" (click)="importance.set(null)">
-                <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
-              </button>
-            }
+            <!-- o lugar do nome tem a largura do mais comprido: a régua não anda ao passar o mouse -->
+            <span class="imp-lugar">
+              @for (i of scale; track i) {
+                <span class="imp-nome medida" aria-hidden="true">{{ impLabel[i] }}</span>
+              }
+              <span class="imp-vazia medida" aria-hidden="true">Sem importância</span>
+              @if (shownImp(); as i) {
+                <span class="imp-nome" [class.previa]="hover() !== null && hover() !== importance()" [attr.data-imp]="i">{{ impLabel[i] }}</span>
+              } @else {
+                <span class="imp-vazia">Sem importância</span>
+              }
+            </span>
+            <!-- sempre no lugar (escondido sem importância), para a régua não andar ao escolher -->
+            <button type="button" class="tirar" [class.medida]="!importance()" [attr.aria-hidden]="!importance() || null" aria-label="Tirar a importância" title="Tirar" (click)="importance.set(null)">
+              <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+            </button>
           </div>
         </div>
       }
@@ -101,7 +100,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
 
     @if (column() !== null) {
       @if (!compact() || statusOpen()) {
-        <!-- ===== Status: umas palavras; os já usados no quadro a um toque ===== -->
+        <!-- ===== Status: umas palavras ===== -->
         <div class="linha">
           <label class="nome" [for]="id + '-status'"><lucide-icon [img]="StatusIcon" [size]="16" aria-hidden="true" />Status</label>
           <div class="valor status-valor">
@@ -112,7 +111,6 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
                 autocomplete="off"
                 enterkeyhint="done"
                 [maxLength]="statusMax"
-                placeholder="Em revisão, Com o Sérgio…"
                 [value]="draft()"
                 (input)="draft.set($any($event.target).value)"
                 (change)="commit()"
@@ -124,13 +122,6 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
                 </button>
               }
             </span>
-            @if (usedStatuses().length) {
-              <div class="usados" role="group" aria-label="Status já usados no quadro">
-                @for (s of usedStatuses(); track s) {
-                  <button type="button" class="usado" (click)="setStatus(s)">{{ s }}</button>
-                }
-              </div>
-            }
           </div>
         </div>
       }
@@ -218,14 +209,13 @@ export class KanbanProps {
   /** A coluna; null: fora do quadro. */
   readonly column = model<string | null>(null);
   readonly importance = model<Importance | null>(null);
-  /** O status: muda quando a pessoa termina de escrever (Enter, sair do campo) ou escolhe um usado. */
+  /** O status: muda quando a pessoa termina de escrever (Enter, sair do campo). */
   readonly status = model('');
   readonly deps = model<readonly string[]>([]);
 
   protected readonly id = `kprops-${++uid}`;
   protected readonly ColumnsIcon = ICON.colunas;
   protected readonly ChevronIcon = ICON.abrir;
-  protected readonly NextIcon = ICON.proximo;
   protected readonly DoneIcon = ICON.pronto;
   protected readonly ImportanceIcon = ICON.importancia;
   protected readonly StatusIcon = ICON.emAndamento;
@@ -249,32 +239,9 @@ export class KanbanProps {
   protected readonly statusOpen = computed(() => this.statusTouched() || !!this.status());
 
   protected readonly current = computed(() => this.board().columns.find((c) => c.id === this.column()) ?? null);
-  /** A coluna seguinte (o atalho "levar para…"); nenhuma na última, ou fora do quadro. */
-  protected readonly next = computed(() => {
-    const cols = this.board().columns;
-    const at = cols.findIndex((c) => c.id === this.column());
-    return at >= 0 ? (cols[at + 1] ?? null) : null;
-  });
 
   /** O status sendo escrito: o de fora, até a pessoa mexer (e de novo quando o de fora muda). */
   protected readonly draft = linkedSignal(() => this.status());
-
-  /** Os status das outras anotações do quadro, os mais usados primeiro (até quatro, sem o de agora). */
-  protected readonly usedStatuses = computed(() => {
-    const now = fold(this.draft().trim());
-    const count = new Map<string, { label: string; n: number }>();
-    for (const c of this.board().cards) {
-      if (c.note === this.noteId() || !c.status) continue;
-      const e = count.get(fold(c.status));
-      if (e) e.n++;
-      else count.set(fold(c.status), { label: c.status, n: 1 });
-    }
-    return [...count.entries()]
-      .filter(([k]) => k !== now)
-      .sort((a, b) => b[1].n - a[1].n)
-      .slice(0, 4)
-      .map(([, e]) => e.label);
-  });
 
   /** As dependências escolhidas que ainda existem: finalizada ou não, e onde estão. */
   protected readonly depRows = computed(() =>
