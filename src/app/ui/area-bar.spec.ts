@@ -99,14 +99,15 @@ describe('o índice embaixo do topo', () => {
 
   it('nos Extras, o mural (sem o de anotações) e a volta para Extras; no mural de um colega, nada', async () => {
     await go('/extras');
-    expect(host.querySelector('.nota')?.textContent).toContain('Números e jogos');
+    expect(picker()).not.toBeNull();
     expect(host.querySelector('.volta')).toBeNull();
+    // o que é Extras é escrito na própria página, não na barra
+    expect(host.querySelector('.nota')).toBeNull();
 
     await go('/extras/estatisticas');
     expect(picker()).not.toBeNull();
     expect(tabs().length).toBe(0);
     expect(host.querySelector('.volta')?.getAttribute('href')).toBe('/extras');
-    expect(host.querySelector('.nota')).toBeNull();
     picker()!.click();
     await fixture.whenStable();
     expect(host.textContent).not.toContain('Anotações');
@@ -159,6 +160,43 @@ describe('o índice embaixo do topo', () => {
     expect(router.url).toBe('/amigos');
   });
 
+  it('cada mural e cada seção tem o seu logo; Amigos fica sem', async () => {
+    const logos: [string, string][] = [
+      ['/analises/jogos', 'app-reviews-logo'],
+      ['/analises/jogos/lado-a-lado', 'app-reviews-logo'],
+      ['/analises/jogos/pra-depois', 'app-queue-logo'],
+      ['/analises/jogos/wishlist', 'app-wishlist-logo'],
+      ['/anotacoes', 'app-notes-logo'],
+      ['/anotacoes/kanban/qualquer', 'app-kanban-logo'],
+      ['/anotacoes/calendario', 'app-calendar-logo'],
+      ['/extras', 'app-extras-logo'],
+      ['/extras/estatisticas', 'app-extras-logo'],
+    ];
+    for (const [url, tag] of logos) {
+      await go(url);
+      const shown = [...host.querySelectorAll('.pagina > *')].map((el) => el.tagName.toLowerCase());
+      expect(shown).withContext(url).toEqual([tag]);
+      // o logo é desenho: o nome da página está no h1 dela
+      expect(host.querySelector('.pagina [aria-hidden="true"]')).withContext(url).not.toBeNull();
+    }
+    TestBed.inject(Settings).friendKinds.set('separado');
+    await go('/amigos');
+    expect(host.querySelector('.pagina')).toBeNull();
+  });
+
+  it('o logo das análises diz o mural; o do Calendário, a data de hoje', async () => {
+    await go('/analises/livros');
+    expect(host.querySelector('app-reviews-logo .papel')?.textContent?.trim()).toBe('Análises');
+    expect(host.querySelector('app-reviews-logo .canhoto')?.textContent?.trim()).toBe('de livros');
+    const calendar = TestBed.inject(CalendarStore);
+    calendar.today.set('2026-03-07');
+    await go('/anotacoes/calendario');
+    expect(host.querySelector('app-calendar-logo .data')?.textContent?.trim()).toBe('07 mar 2026');
+    calendar.today.set('2026-10-20');
+    await fixture.whenStable();
+    expect(host.querySelector('app-calendar-logo .data')?.textContent?.trim()).toBe('20 out 2026');
+  });
+
   describe('em todas as larguras', () => {
     let still: HTMLStyleElement;
     const loaded: FontFace[] = [];
@@ -206,7 +244,14 @@ describe('o índice embaixo do topo', () => {
             if (t.r.height < 44 || t.r.width < 40) say(`${t.name} pequeno demais (${Math.round(t.r.width)}x${Math.round(t.r.height)})`);
             if (t.el.scrollWidth > t.el.clientWidth + 1) say(`${t.name} cortado`);
           }
-          const solid = [...all, ...text];
+          // o logo cabe na barra e na faixa dele, sem encostar em nada
+          const logo = host.querySelector<HTMLElement>('.logo');
+          const logos = logo ? [{ el: logo, r: logo.getBoundingClientRect(), name: logo.tagName.toLowerCase() }] : [];
+          for (const l of logos) {
+            if (l.r.left < box.left - 2 || l.r.right > box.right + 2) say(`${l.name} sai do índice`);
+            if (l.el.offsetHeight > 56) say(`${l.name} mais alto que a faixa (${l.el.offsetHeight}px)`);
+          }
+          const solid = [...all, ...text, ...logos];
           for (let i = 0; i < solid.length; i++) {
             for (let j = i + 1; j < solid.length; j++) {
               const a = solid[i].r,
@@ -223,5 +268,46 @@ describe('o índice embaixo do topo', () => {
         expect(problems).withContext(url).toEqual([]);
       });
     }
+
+    /**
+     * Trocar de página não mexe na barra: as páginas de uma parte têm a mesma altura em toda largura,
+     * e com tudo numa fileira (a partir de 900px) todas as partes têm a mesma.
+     */
+    it('a barra tem a mesma altura em toda página', async () => {
+      fill(135, 3);
+      TestBed.inject(CalendarStore).save({ ...TestBed.inject(CalendarStore).blank(TestBed.inject(CalendarStore).today()), title: 'Dentista' });
+      const areas: Record<string, string[]> = {
+        analises: ['/analises/musicas', '/analises/musicas/lado-a-lado', '/analises/musicas/pra-depois', '/analises/musicas/wishlist'],
+        anotacoes: ['/anotacoes', '/anotacoes/kanban', '/anotacoes/calendario'],
+        extras: ['/extras', '/extras/estatisticas', '/ranking'],
+      };
+      const steps = WIDTHS.filter((_, i) => i % 4 === 0);
+      const heights = new Map<string, number[]>();
+      for (const urls of Object.values(areas)) {
+        for (const url of urls) {
+          await go(url);
+          await document.fonts.ready;
+          heights.set(
+            url,
+            steps.map((w) => {
+              host.style.width = `${w}px`;
+              return Math.round(host.getBoundingClientRect().height);
+            }),
+          );
+        }
+      }
+      const problems: string[] = [];
+      steps.forEach((w, i) => {
+        for (const [area, urls] of Object.entries(areas)) {
+          const hs = urls.map((u) => heights.get(u)![i]);
+          if (new Set(hs).size > 1) problems.push(`${w}px, ${area}: ${urls.map((u, j) => `${u} ${hs[j]}`).join(', ')}`);
+        }
+        if (w >= 900) {
+          const all = [...heights.values()].map((h) => h[i]);
+          if (new Set(all).size > 1) problems.push(`${w}px: alturas diferentes entre as partes (${[...new Set(all)].join(', ')})`);
+        }
+      });
+      expect(problems).toEqual([]);
+    });
   });
 });

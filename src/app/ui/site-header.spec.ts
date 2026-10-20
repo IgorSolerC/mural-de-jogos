@@ -243,5 +243,30 @@ describe('o topo do site', () => {
         expect(problems).withContext(scene.name).toEqual([]);
       });
     }
+
+    // o botão de adicionar muda com a página (a pilha de fichas, a folha do Pra depois, o cupom da
+    // Wishlist), mas o topo não muda de altura: trocar de página não empurra nada
+    it('tem a mesma altura em toda página', async () => {
+      available.set(true);
+      const urls = ['/analises/jogos', '/analises/jogos/pra-depois', '/analises/jogos/wishlist', '/anotacoes', '/extras'];
+      const steps = WIDTHS.filter((_, i) => i % 4 === 0);
+      const heights: number[][] = [];
+      for (const url of urls) {
+        await TestBed.inject(Router).navigateByUrl(url);
+        await fixture.whenStable();
+        await document.fonts.ready;
+        heights.push(
+          steps.map((w) => {
+            host.style.width = `${w}px`;
+            return Math.round(host.getBoundingClientRect().height);
+          }),
+        );
+      }
+      const problems = steps
+        .map((w, i) => ({ w, hs: heights.map((h) => h[i]) }))
+        .filter(({ hs }) => new Set(hs).size > 1)
+        .map(({ w, hs }) => `${w}px: ${urls.map((u, j) => `${u} ${hs[j]}`).join(', ')}`);
+      expect(problems).toEqual([]);
+    });
   });
 });

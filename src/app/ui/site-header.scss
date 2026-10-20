@@ -469,7 +469,11 @@
 /* ===== O botão de adicionar: a pilha de fichas, a folha de caderno e o cupom ===== */
 .adicionar {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  /* a altura da pilha de fichas, em toda página: a folha do Pra depois e o cupom da Wishlist, mais
+     altos, sobram para cima e para baixo sem empurrar o topo (trocar de página não mexe em nada) */
+  height: 50px;
 }
 
 /* A pilha: um bloco de fichas em branco, e o botão é a de cima */
@@ -789,6 +793,10 @@
 /* ===== Computador: duas fileiras. Em cima o cartaz, os bottons (com o nome embaixo) e o botão de
    adicionar, lado a lado; embaixo o varal, de ponta a ponta ===== */
 @container topo (min-width: 860px) {
+  .adicionar {
+    height: 54px;
+  }
+
   .topo {
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     grid-template-areas:

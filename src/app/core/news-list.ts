@@ -26,16 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-ficha-inteira-sozinha',
+    id: '2026-10-20-logos-dos-murais',
     version: '1.29.1',
     kind: 'ajustes',
     date: '2026-10-20',
-    title: 'A ficha inteira ao lado do editor e a Observação do Kanban',
+    title: 'Logos em todos os murais, a ficha inteira ao lado do editor e a Observação do Kanban',
     melhorias: [
+      'Todo mural e toda seção ganhou um logo, como os da Wishlist e do Pra depois: a etiqueta "Análises" das fichas, a folha de bloco de espiral das Anotações, o quadro branco do Kanban, o carimbo com a data de hoje do Calendário e o tíquete de Extras. Todos têm a mesma altura, então passar de uma página para a outra não empurra nada; o texto de Extras foi para a própria página.',
       'No computador, a ficha ao lado do editor ficou reta e fica inteira enquanto você escreve o texto: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo. Saindo do texto, ela volta; para deixá-la sempre inteira, use o botão Ficha inteira.',
       'O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".',
     ],
-    correcoes: ['As abas dos grupos no Kanban tinham o nome numa letra maior e eram mais altas que as do mural; agora são iguais.'],
+    correcoes: [
+      'No celular e em telas médias, o topo ficava um pouco mais alto no Pra depois e na Wishlist e empurrava a página para baixo; agora tem a mesma altura em toda página.',
+      'As abas dos grupos no Kanban tinham o nome numa letra maior e eram mais altas que as do mural; agora são iguais.',
+    ],
   },
   {
     id: '2026-10-20-assunto',
