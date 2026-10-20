@@ -1,88 +1,422 @@
 @use 'sheet';
 @use 'a11y';
+@use 'paper-kit' as kit;
+@use 'kanban-kit' as kk;
 
-/* ===== A ficha em branco =====
-   À esquerda, a bancada: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no
-   mural, e as amostras de cartolina. À direita, o formulário na ordem em que se pensa num jogo:
-   qual, como foi, que nota, o veredito, o que achou. Cada bloco abre com uma pergunta a pincel. */
-
-.head {
-  margin-bottom: 0;
-}
+/* ===== A ficha em branco, como uma página =====
+   No alto, a faixa da cartolina com o nome escrito nela (como na ficha aberta) e, na beirada de
+   baixo, duas abas recortadas no papel: o que se escreve e a cartolina. Embaixo, a folha: uma
+   fileira de etiquetas com os detalhes (cada uma abre a sua parte) e o texto. No computador, a ficha
+   fica pregada num pedaço da parede ao lado, nas duas abas; no celular, só na aba da cartolina. */
 
 .ficha {
   height: calc(100dvh - 24px);
 }
 
+/* ===== A faixa ===== */
+.head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 0;
+  padding: 24px 24px 0;
+}
+
+.faixa-linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+
+  > .icon-btn {
+    margin-left: auto;
+  }
+}
+
+/* O nome da anotação, escrito a pincel na faixa, sobre a linha de caneta de onde se escreve */
+.nome-faixa {
+  flex: 1;
+  min-width: 0;
+
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 1.2em;
+    padding: 0 0 8px;
+    border: 0;
+    background:
+      linear-gradient(currentColor, currentColor) 0 100% / 100% 1.5px no-repeat;
+    background-color: transparent;
+    color: inherit;
+    caret-color: var(--red);
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 2.05rem;
+    line-height: 1.08;
+    letter-spacing: 0.005em;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    resize: none;
+    outline: none;
+    opacity: 0.94;
+    transition: background-size var(--t-ui) var(--ease-ui);
+
+    &::placeholder {
+      color: inherit;
+      opacity: 0.66;
+    }
+
+    /* no foco, a linha de caneta engrossa: é ela que diz onde se escreve */
+    &:focus {
+      background-size: 100% 3px;
+      opacity: 1;
+    }
+  }
+
+  &.errada textarea {
+    background-image: linear-gradient(var(--error-ink), var(--error-ink));
+    background-size: 100% 2.6px;
+  }
+}
+
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .nome-faixa textarea {
+  color: var(--ink-claro-solido);
+}
+
+/* na faixa escura, a linha de erro é a caneta clara de lá (o --pen das cartolinas escuras) */
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .nome-faixa.errada textarea {
+  background-image: linear-gradient(var(--pen), var(--pen));
+}
+
+/* Na resenha, a obra escolhida: a capinha e o nome escritos na faixa */
+.obra-faixa {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.obra-capa {
+  flex: none;
+  width: 46px;
+}
+
+.obra-txt {
+  flex: 1;
+  min-width: 0;
+}
+
+.obra-nome {
+  font-family: var(--f-marker);
+  font-size: 1.85rem;
+  line-height: 1.06;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .obra-nome {
+  color: var(--ink-claro-solido);
+}
+
+.tj-ano {
+  margin-top: 3px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.84rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* Trocar (e, na rejogada, a setinha de "outra vez"): a ação na tinta da faixa */
+.faixa-acao,
+.obra-volta {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.faixa-acao {
+  cursor: pointer;
+  text-decoration: underline 2px;
+  text-underline-offset: 5px;
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: 0;
+  }
+}
+
+.nome-vazio {
+  flex: 1;
+  font-family: var(--f-marker);
+  font-size: 1.9rem;
+  line-height: 1.05;
+}
+
+/* As duas abas, recortadas na beirada de baixo da faixa: a de trás é só o nome, na tinta da faixa;
+   a escolhida é um pedaço da própria folha, emendado nela (como as abas da folha do texto) */
+.modos {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin: 0 -6px;
+}
+
+.modo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px 1px;
+  border: 0;
+  border-radius: 4px 4px 0 0;
+  background: transparent;
+  color: inherit;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0.82;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    opacity: 1;
+    background: color-mix(in srgb, currentColor 10%, transparent);
+  }
+
+  &[aria-selected='true'] {
+    opacity: 1;
+    background: var(--paper);
+    /* a tinta preta de sempre: nas faixas escuras, --ink vira a clara, e esta aba é da folha creme */
+    color: #151515;
+    box-shadow: 0 -2px 4px -2px rgb(0 0 0 / 0.25);
+    clip-path: inset(-6px -6px 0 -6px);
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 3px solid currentColor;
+    outline-offset: -4px;
+  }
+}
+
+/* ===== O corpo: a folha (que rola) e, no largo, o palco ao lado ===== */
 .body {
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, min(var(--preview-row-height, 260px), 45%)) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
   padding: 0;
   overflow: hidden;
 }
 
-/* ===== A bancada ===== */
-.bancada {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr);
+.conteudo {
+  grid-row: 1;
+  grid-column: 1;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  padding: 8px 20px 4px;
-  /* a parede aparece por baixo do cabeçalho: uma sombra desce da faixa de cor */
-  box-shadow: inset 0 12px 16px -12px rgb(0 0 0 / 0.7);
-}
-
-.editor-content {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-color: rgb(21 21 21 / 0.35) transparent;
 }
 
-.kit-panel {
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+.escrever {
+  display: grid;
+  align-content: start;
+  gap: 18px;
   min-width: 0;
-  height: min(310px, 42dvh);
-  overflow: hidden;
-  padding: 18px 20px 24px;
+  padding: 22px 24px 30px;
+
+  &[hidden] {
+    display: none;
+  }
 }
 
-.previa-slot {
+/* ===== A fileira de etiquetas =====
+   Cada detalhe é uma etiqueta adesiva da cartela (o botão de papel do site): com algo escolhido,
+   colada, dizendo o quê; sem nada, só o recorte, com o nome do que falta. A aberta vira tinta. */
+.props {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prop {
+  @include kit.botao-papel;
+  max-width: 100%;
+  min-height: 40px;
+  padding: 6px 12px 5px;
+  gap: 7px;
+  font-size: 0.84rem;
+
+  &.vazia {
+    background: transparent;
+    box-shadow: none;
+    color: rgb(21 21 21 / 0.72);
+
+    &:hover {
+      background: rgb(21 21 21 / 0.06);
+      box-shadow: none;
+      color: var(--ink);
+    }
+  }
+
+  &.errada {
+    --corte: color-mix(in srgb, var(--error-ink) 70%, transparent);
+    --corte-forte: var(--error-ink);
+    color: var(--error-ink);
+  }
+
+  &[aria-expanded='true'],
+  &[aria-expanded='true']:hover {
+    background: var(--ink);
+    color: var(--hi);
+    rotate: -1deg;
+    translate: 0 -1px;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 5px 10px -4px rgb(0 0 0 / 0.4);
+
+    &::after {
+      content: none;
+    }
+
+    .prop-tags,
+    .prop-orelha {
+      filter: none;
+    }
+  }
+
+  &[data-prop='quadro'] {
+    @include kk.coluna-cores;
+  }
+}
+
+.prop-txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* o grupo: o desenho na cor dele e o nome a pincel, como na orelha do mural */
+.prop-orelha {
+  min-width: 0;
+  font-family: var(--f-marker);
+  font-size: 0.98rem;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.1;
+
+  &.orelha-cor::before {
+    content: none;
+  }
+}
+
+.prop[aria-expanded='true'] .prop-orelha {
+  color: var(--paper);
+}
+
+.prop-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  text-transform: none;
+}
+
+.prop-mais {
+  margin-left: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.prop-capa {
+  width: 18px;
+  height: 24px;
+  border-radius: 2px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgb(21 21 21 / 0.2);
+}
+
+.prop[data-prop='quadro'] lucide-icon {
+  color: var(--col-cor);
+}
+
+.prop[data-prop='quadro'][aria-expanded='true'] lucide-icon {
+  color: var(--hi);
+}
+
+/* ===== A parte aberta: um papel solto preso logo embaixo das etiquetas =====
+   No celular ela entra no meio, empurrando o texto; no largo, cai por cima do texto como um bilhete,
+   e o texto fica onde estava. */
+.props-area {
   position: relative;
-  width: 100%;
+  display: grid;
+  gap: 12px;
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
 }
 
-.previa-frame {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-  transform: scale(var(--preview-scale, 1));
-  transform-origin: top center;
-}
-
-.previa {
-  width: 100%;
-  max-width: 440px;
-  /* a ficha cai um pouco do alto, como no mural: dá lugar para a tachinha */
-  padding-top: 10px;
-}
-
-/* ===== O formulário ===== */
-.form {
+.parte {
+  position: relative;
+  display: grid;
+  gap: 16px;
   min-width: 0;
-  padding: 24px 20px 28px;
+  margin-top: -4px;
+  padding: 20px 20px 14px;
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: var(--papel-solto-sombra);
+  animation: parte-cai var(--t-physical) var(--ease-physical);
 }
 
+@keyframes parte-cai {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+
+.parte-pronto {
+  @include kit.botao-papel;
+  justify-self: end;
+  min-height: 40px;
+  margin: -4px -6px 0 0;
+}
+
+/* ===== Os blocos da resenha ===== */
 .bloco {
   display: grid;
   gap: 18px;
@@ -94,39 +428,22 @@
 }
 
 /* entre um bloco e outro, uma linha tracejada a caneta, como nas outras fichas abertas */
-.bloco + .bloco {
-  margin-top: 26px;
+.bloco + .bloco,
+.props-area + .bloco {
+  margin-top: 8px;
   padding-top: 24px;
   border-top: 2px dashed rgb(21 21 21 / 0.2);
 }
 
+/* na anotação, o texto vem colado nas etiquetas, sem o fio: é a mesma página */
+.bloco.texto.principal {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: 0;
+}
+
 .campo {
   min-width: 0;
-}
-
-.campos-linha {
-  /* data e horas lado a lado: a mesma altura de cabeçalho e de tira, pra as caixas nascerem na mesma linha */
-  --cabeca-campo: 33px;
-  --tira-campo: 56px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px 32px;
-}
-
-/* as horas não têm atalhos, mas guardam o mesmo espaço de cabeçalho da data */
-.campo-horas {
-  display: grid;
-  grid-template-rows: minmax(var(--cabeca-campo), auto) auto;
-  align-content: start;
-
-  > .rotulo {
-    align-self: end;
-  }
-
-  > .tira {
-    justify-self: start;
-    min-height: var(--tira-campo);
-  }
 }
 
 .pergunta-linha {
@@ -143,7 +460,7 @@
 
 /* a nota final na mão: um convite discreto embaixo dos bônus; aberta, a tira das horas */
 .nota-mao {
-  margin-top: 20px;
+  margin-top: 4px;
 
   .hours {
     gap: 10px;
@@ -173,63 +490,12 @@
   max-width: 560px;
 }
 
-/* ===== O jogo escolhido: a tira da busca, preenchida ===== */
-.tira-jogo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 62px;
-  padding: 6px 16px 6px 8px;
-  border-radius: 2px;
-  background: var(--campo-papel);
-  box-shadow: var(--campo-sombra);
-}
-
-.tj-capa {
-  flex: none;
-  width: 40px;
-}
-
-.tj-txt {
-  flex: 1;
-  min-width: 0;
-}
-
-.tj-nome {
-  font-family: var(--f-ui);
-  font-weight: 600;
-  font-size: 1.08rem;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.tj-ano {
-  margin-top: 1px;
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 0.82rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-/* Na rejogada o item não troca: no lugar do Trocar, a setinha de "outra vez" */
-.tj-volta {
-  flex: none;
-  color: var(--ink-2);
-}
-
-/* "Manter notas": uma linha escrita à mão com a caneta ao lado, logo abaixo da tira */
+/* "Manter notas": uma linha escrita à mão com a caneta ao lado */
 .manter {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 2px 12px;
-  margin-top: -6px;
 
   .acao-caneta {
     margin-left: -8px;
@@ -244,52 +510,12 @@
   line-height: 1.3;
 }
 
-/* Trocar a capa: uma linha de caneta logo abaixo da tira do jogo */
-.capa-btn {
-  justify-self: start;
-  margin: -10px 0 0 -8px;
-  font-size: 0.95rem;
+.aviso-nome,
+.gemea {
+  margin: 0;
 }
 
-/* aberta, as fotos do mesmo título soltas na ficha, num papel liso preso por cima da cartolina */
-.escolher-capa {
-  min-width: 0;
-  margin: -6px 0 0;
-  padding: 12px 14px 12px;
-  border: 0;
-  border-radius: 2px;
-  background: rgb(255 255 255 / 0.42);
-  box-shadow:
-    inset 0 0 0 1.5px rgb(21 21 21 / 0.14),
-    0 1px 2px rgb(0 0 0 / 0.08);
-  animation: capas-in var(--t-physical) var(--ease-physical);
-
-  /* a legenda de um fieldset não aceita gap: o espaço vem dela */
-  > legend {
-    float: left;
-    width: 100%;
-    margin: 0 0 4px;
-    padding: 0;
-  }
-
-  app-cover-picker {
-    clear: both;
-  }
-
-  .pronto {
-    margin: 2px -8px 0 auto;
-    font-size: 0.95rem;
-  }
-}
-
-@keyframes capas-in {
-  from {
-    opacity: 0;
-    translate: 0 -6px;
-  }
-}
-
-/* ===== Tiras de papel: data, horas e texto, com a mesma linha de caneta e o mesmo foco da busca ===== */
+/* ===== Tiras de papel: data e horas, com a mesma linha de caneta e o mesmo foco da busca ===== */
 .tira {
   min-height: 50px;
   border-radius: 2px;
@@ -297,28 +523,6 @@
   color: var(--ink);
   box-shadow: var(--campo-sombra);
   transition: box-shadow var(--t-physical) var(--ease-physical);
-}
-
-/* o título da anotação: escrito à mão, na tira de sempre */
-.tira-titulo {
-  display: flex;
-  width: 100%;
-
-  input {
-    flex: 1;
-    min-width: 0;
-    padding: 8px 14px;
-    border: 0;
-    background: transparent;
-    color: var(--ink);
-    font-family: var(--f-hand);
-    font-size: 1.3rem;
-    outline: none;
-
-    &::placeholder {
-      color: rgb(21 21 21 / 0.66);
-    }
-  }
 
   &.errada,
   &.errada:focus-within {
@@ -340,7 +544,7 @@
   grid-template-columns: auto auto;
   align-items: end;
   column-gap: 14px;
-  width: min(100%, 300px);
+  width: min(100%, 320px);
 
   > .rotulo {
     margin-bottom: 8px;
@@ -357,7 +561,7 @@
   align-items: flex-end;
   justify-content: flex-end;
   gap: 2px;
-  min-height: var(--cabeca-campo, 33px);
+  min-height: 33px;
   padding-bottom: 3px;
   box-sizing: border-box;
 }
@@ -396,17 +600,11 @@
   display: flex;
   align-items: stretch;
   width: 100%;
-  min-height: var(--tira-campo, 56px);
+  min-height: 56px;
   padding: 0 6px;
-
-  &.errada,
-  &.errada:focus-within {
-    background: var(--campo-fundo-erro);
-    box-shadow: var(--campo-sombra-erro);
-  }
 }
 
-.parte {
+.parte-data {
   position: relative;
   display: grid;
   grid-template-rows: auto 1fr;
@@ -504,6 +702,12 @@
   }
 }
 
+.campo-horas {
+  display: grid;
+  gap: 0;
+  justify-items: start;
+}
+
 .hours {
   display: inline-flex;
   align-items: center;
@@ -538,30 +742,13 @@
   }
 }
 
-/* O texto: uma folha de fichário pautada, com o mesmo fio das outras tiras */
+/* O texto: a folha pautada. Na anotação ela é o principal: começa alta */
 .texto {
   gap: 12px;
 }
 
-/* a data da anotação fechada: o rótulo, a data e o Mudar numa linha */
-.data-curta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  margin: 0;
-
-  .rotulo {
-    margin: 0;
-  }
-}
-.data-curta-txt {
-  font-family: var(--f-hand);
-  font-size: 1.15rem;
-}
-/* na anotação o texto é o principal: a folha começa mais alta */
 app-rich-editor.anotacao {
-  --linhas: 9;
+  --linhas: 10;
 }
 
 .field-error {
@@ -579,17 +766,12 @@ app-rich-editor.anotacao {
   font-size: 0.95rem;
 }
 
-/* ===== Publicar ou manter privado: dois recortes; o escolhido sai colado em tinta, como as etiquetas de status ===== */
-.quem-ve fieldset {
+/* ===== Quem vê: dois recortes; o escolhido sai colado em tinta, como as etiquetas de status ===== */
+fieldset.quem-ve {
   margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
-}
-
-.quem-ve .pergunta {
-  padding: 0;
-  margin-bottom: 12px;
 }
 
 .quem-opts {
@@ -615,8 +797,8 @@ app-rich-editor.anotacao {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
-  padding: 8px 13px 7px;
+  min-height: 44px;
+  padding: 8px 14px 7px;
   border-radius: 2px;
   outline: 1.5px dashed rgb(21 21 21 / 0.45);
   outline-offset: -1.5px;
@@ -664,7 +846,6 @@ app-rich-editor.anotacao {
 
 /* outra anotação com o mesmo título: um lembrete, não um erro */
 .gemea {
-  margin-top: 6px;
   max-width: 60ch;
   font-size: 0.92rem;
   line-height: 1.45;
@@ -679,8 +860,183 @@ app-rich-editor.anotacao {
   color: var(--ink-2);
 }
 
-/* Pregar e a setinha (ver ui/feed-menu.ts): um bloco de pincel só, com o picote no meio. A sombra e o
-   levantar do mouse passam para o bloco inteiro, senão a metade que levanta se solta da outra */
+/* ===== O palco: a ficha pregada num pedaço da parede ===== */
+.palco {
+  display: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  box-shadow: inset 0 12px 16px -12px rgb(0 0 0 / 0.7);
+}
+
+.previa-slot {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.previa-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  transform: scale(var(--preview-scale, 1));
+  transform-origin: top center;
+}
+
+.previa {
+  width: 100%;
+  max-width: 440px;
+  /* a ficha cai um pouco do alto, como no mural: dá lugar para a tachinha e para a orelha do grupo */
+  padding-top: 30px;
+}
+
+/* ===== A aba da cartolina: o estojo na parede, com o que está na ficha em etiquetas no alto ===== */
+.cartolina-modo {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  height: 100%;
+  padding: 18px 24px 22px;
+  box-shadow: inset 0 12px 16px -12px rgb(0 0 0 / 0.7);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* com a aba inteira para ele, o estojo pode ser mais largo que na bancada de antes */
+.estojo {
+  min-height: 0;
+  max-width: 600px;
+}
+
+/* As camadas da ficha: etiquetas de papel na parede (o nome leva à aba dela; o x tira) */
+.na-ficha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.camada {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.4),
+    0 4px 8px -4px rgb(0 0 0 / 0.6);
+}
+
+.camada-nome {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 38px;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+.camada-tipo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.camada-tirar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  border: 0;
+  border-left: 1.5px dashed rgb(21 21 21 / 0.25);
+  border-radius: 0 2px 2px 0;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+/* "Só a cartolina": tirar tudo de uma vez, em giz */
+.limpar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: underline 2px rgb(243 239 230 / 0.45);
+  text-underline-offset: 5px;
+  cursor: pointer;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    background: rgb(243 239 230 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 2px;
+  }
+}
+
+/* ===== Pregar e a setinha (ver ui/feed-menu.ts): um bloco de pincel só, com o picote no meio ===== */
 .pregar {
   position: relative;
   display: inline-flex;
@@ -726,21 +1082,84 @@ app-rich-editor.anotacao {
   border-radius: 3px;
 }
 
-@media (max-width: 560px) {
-  .bancada {
-    padding: 8px 16px 4px;
+/* ===== Estreito: a aba da cartolina põe a ficha em cima do estojo ===== */
+@media (max-width: 1023px) {
+  dialog.editor.na-cartolina .body {
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
-  .kit-panel {
+  dialog.editor.na-cartolina .conteudo {
+    grid-row: 2;
+    overflow: hidden;
+  }
+
+  dialog.editor.na-cartolina .palco {
+    display: block;
+    grid-row: 1;
+    padding: 10px 20px 6px;
+  }
+
+  .cartolina-modo {
+    box-shadow: none;
+    padding-top: 10px;
+  }
+}
+
+@media (max-width: 560px) {
+  .head {
+    padding: 22px 16px 0;
+  }
+
+  .nome-faixa textarea {
+    font-size: 1.65rem;
+  }
+
+  .obra-nome {
+    font-size: 1.45rem;
+  }
+
+  .obra-capa {
+    width: 38px;
+  }
+
+  .faixa-acao-txt,
+  .obra-volta-txt {
+    @include a11y.escondido;
+  }
+
+  .modo {
+    padding-inline: 13px;
+  }
+
+  .escrever {
+    padding: 18px 16px 26px;
+  }
+
+  /* as etiquetas mais justas: cabem em duas fileiras na tela do celular */
+  .props {
+    gap: 6px;
+  }
+
+  .prop {
+    padding-inline: 9px;
+    gap: 5px;
+    font-size: 0.8rem;
+  }
+
+  .parte {
+    padding: 18px 14px 12px;
+  }
+
+  .cartolina-modo {
     padding-inline: 16px;
   }
 
-  .form {
-    padding: 22px 16px 26px;
+  dialog.editor.na-cartolina .palco {
+    padding-inline: 16px;
   }
 
-  /* no celular o rodapé cabe numa linha só: o X do cabeçalho já cancela, e "Salvar pra depois"
-     fica só com o marcador (o nome continua lá, para o leitor de tela) */
+  /* no celular o rodapé cabe numa linha só: o X da faixa já cancela, e "Salvar pra depois" fica
+     só com o marcador (o nome continua lá, para o leitor de tela) */
   .cancelar {
     display: none;
   }
@@ -760,36 +1179,7 @@ app-rich-editor.anotacao {
   }
 }
 
-/* No celular e no tablet, o que se escreve vem antes da cartolina (o estojo desce para o fim, logo
-   antes de pregar): a ficha abre no "Qual jogo?", não no estojo. Na anotação, a ficha de prévia
-   ainda encolhe para a faixa do título enquanto se escreve, para sobrar folha */
-@media (max-width: 1023px) {
-  dialog.editor .editor-content {
-    display: flex;
-    flex-direction: column;
-  }
-
-  dialog.editor .form {
-    order: -1;
-  }
-
-  dialog.editor.notas .bancada {
-    transition: max-height var(--t-physical) var(--ease-physical);
-    max-height: 60vh;
-  }
-
-  dialog.editor.notas:has(.form textarea:focus, .form input:focus) .bancada {
-    max-height: 64px;
-  }
-}
-
-@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
-  dialog.editor.notas .bancada {
-    transition: none;
-  }
-}
-
-/* Tela larga: prévia fixa à esquerda, opções e formulário com rolagens próprias */
+/* ===== Largo: a folha à esquerda, a ficha pregada na parede à direita, nas duas abas ===== */
 @media (min-width: 1024px) {
   /* a prévia tem a largura da ficha no mural (a mesma conta), para o canhoto caber igual */
   dialog.editor {
@@ -798,43 +1188,60 @@ app-rich-editor.anotacao {
   }
 
   .body {
-    grid-template-columns: calc(var(--previa-w) + 56px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, min(var(--preview-row-height, 500px), 60%)) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) calc(var(--previa-w) + 56px);
   }
 
-  .editor-content {
-    display: contents;
+  .palco {
+    grid-row: 1;
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 28px 16px;
+    box-shadow:
+      inset 0 12px 16px -12px rgb(0 0 0 / 0.7),
+      inset 10px 0 14px -12px rgb(0 0 0 / 0.6);
+  }
+
+  .previa-slot {
+    flex: 1 1 auto;
   }
 
   .previa {
     max-width: var(--previa-w);
   }
 
-  .bancada {
-    grid-column: 1;
-    grid-row: 1;
-    padding: 10px 28px 6px;
-    box-shadow:
-      inset 0 12px 16px -12px rgb(0 0 0 / 0.7),
-      inset -10px 0 14px -12px rgb(0 0 0 / 0.6);
+  .escrever {
+    padding: 26px 28px 34px;
   }
 
-  .kit-panel {
-    grid-column: 1;
-    grid-row: 2;
-    height: auto;
-    overflow: hidden;
-    padding: 12px 28px 30px;
-    box-shadow: inset -10px 0 14px -12px rgb(0 0 0 / 0.6);
+  /* a fileira cabe numa linha só, e a parte aberta cai por cima do texto, sem empurrar nada */
+  .props {
+    gap: 6px;
   }
 
-  .form {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    min-height: 0;
+  .prop {
+    padding-inline: 10px;
+  }
+
+  .parte {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    left: 0;
+    z-index: 4;
+    max-height: min(520px, 62dvh);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 28px 36px 32px;
+  }
+
+  /* as duas metades da parede viram uma: sem a emenda entre o estojo e a ficha */
+  dialog.editor.na-cartolina .palco {
+    box-shadow: inset 0 12px 16px -12px rgb(0 0 0 / 0.7);
+  }
+
+  .cartolina-modo {
+    padding: 22px 30px 24px;
   }
 
   /* a Média já está na etiqueta da ficha, à vista ao lado */
@@ -843,15 +1250,19 @@ app-rich-editor.anotacao {
   }
 
   app-rich-editor {
-    --linhas: 7;
+    --linhas: 8;
+  }
+
+  app-rich-editor.anotacao {
+    --linhas: 13;
   }
 }
 
 /* ===== Com o teclado do celular aberto =====
    O teclado cobre a metade de baixo da tela sem a página saber. A ficha passa a ocupar só a parte que
-   ele deixa à vista (ver ui/visual-viewport.ts), a prévia encolhe para a faixa do título e o rodapé
-   sai (fechar o teclado, ou o "Pronto" da régua, traz ele de volta): sobra folha para escrever. Com
-   a régua presa em cima do teclado (54px, ver rich-editor.ts), a ficha termina em cima dela. */
+   ele deixa à vista (ver ui/visual-viewport.ts), a faixa encolhe e o rodapé sai (fechar o teclado, ou
+   o "Pronto" da régua, traz ele de volta): sobra folha para escrever. Com a régua presa em cima do
+   teclado (54px, ver rich-editor.ts), a ficha termina em cima dela. */
 @media (pointer: coarse) and (max-width: 1023px), (pointer: coarse) and (max-height: 500px) {
   :host-context(html.teclado) {
     dialog.editor {
@@ -866,36 +1277,22 @@ app-rich-editor.anotacao {
     }
 
     .pin,
-    .foot {
+    .foot,
+    .modos,
+    .palco {
       display: none;
     }
 
     .head {
       padding-block: 14px 10px;
-
-      h2 {
-        font-size: 1.5rem;
-      }
     }
 
-    .body {
-      grid-template-rows: 64px minmax(0, 1fr);
-    }
-
-    dialog.editor .bancada {
-      max-height: 64px;
+    .nome-faixa textarea {
+      font-size: 1.35rem;
     }
 
     .ficha:has(.regua.presa) {
       padding-bottom: 54px;
     }
   }
-}
-
-/* a categoria e as tags de uma compartilhada em que você é editor: escritas, sem mexer */
-.rotulos-fixos .rotulos-valor {
-  margin-top: 8px;
-  font-family: var(--f-hand);
-  font-weight: 700;
-  font-size: 1.1rem;
 }

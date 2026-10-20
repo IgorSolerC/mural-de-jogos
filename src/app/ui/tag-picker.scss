@@ -1,0 +1,166 @@
+@use 'paper-kit' as kit;
+
+:host {
+  display: grid;
+  gap: 12px;
+}
+
+.topo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.campo {
+  @include kit.campo;
+  flex: 1;
+  max-width: 420px;
+  padding-left: 12px;
+}
+
+.lupa {
+  flex: none;
+  display: inline-flex;
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+.conta {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+
+  &.cheia {
+    color: var(--ink);
+  }
+}
+
+/* As tags como na folha da anotação no quadro: amarradas (com a cor delas) ou só o contorno */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.tag-op {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover:not(:disabled) {
+    background-color: rgb(21 21 21 / 0.06);
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 0;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* criar: só o nome, com o + na frente, na letra de etiqueta */
+.criar {
+  padding: 0 10px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.05em;
+}
+
+/* A estrela da fixa: quieta (a 30%), acende no mouse ou no foco; a fixa fica sempre acesa, cheia */
+.estrela {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 30px;
+  height: 40px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.55);
+  cursor: pointer;
+  transition:
+    color var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
+    color: var(--ink);
+  }
+
+  /* o alvo do dedo passa dos 44px */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px -6px;
+  }
+
+  &[aria-pressed='true'] {
+    color: #9a7300;
+
+    lucide-icon ::ng-deep svg {
+      fill: currentColor;
+    }
+  }
+}
+
+.mais {
+  @include kit.botao-papel;
+  min-height: 36px;
+  font-size: 0.82rem;
+}
+
+.legenda {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-2);
+  font-size: 0.86rem;
+
+  lucide-icon {
+    display: inline-flex;
+    color: #9a7300;
+  }
+}
+
+.dica {
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  line-height: 1.35;
+}

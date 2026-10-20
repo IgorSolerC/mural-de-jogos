@@ -12,7 +12,8 @@ import {
   viewChild,
 } from '@angular/core';
 import { BackdropClose } from './backdrop-close';
-import { ICON, IconModule } from './icons';
+import { LucideIconData } from 'lucide-angular';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { NgTemplateOutlet } from '@angular/common';
 import {
   Bonus,
@@ -27,6 +28,8 @@ import {
   SCORE_LABEL,
   Status,
   NO_DAY_LABEL,
+  STOCK_LABEL,
+  DIFFICULTY_LABEL,
   Stock,
   Verdict,
   Weight,
@@ -65,21 +68,25 @@ import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
-import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
+import { DAMAGE_LABEL, DECOR_LABEL, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, PAPER_LABEL, PATTERN_LABEL, Paper, Pattern, PatternLook, SCRIBBLE_LABEL, STAIN_LABEL, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
-import { NoteLabelsPicker } from './note-labels-picker';
+import { GroupPicker } from './group-picker';
+import { TagPicker } from './tag-picker';
+import { BoardPlace } from './board-place';
+import { CategoryLabel } from './category-label';
+import { NoteTag } from './note-tag';
 import { categoryLibrary, tagLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
-import { lookKey, randomCategoryColor } from '../core/category-looks';
+import { categoryColorHex, lookKey, randomCategoryColor, tagColorHex } from '../core/category-looks';
 import { asksTag, newNoteAudience, prefsOf } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
-import { DifficultyPicker } from './difficulty';
+import { DifficultyPicker, Skulls } from './difficulty';
 import { GameSearch } from './game-search';
 import { MusicFields } from './music-fields';
 import { JudgeLabel } from './judge-label';
@@ -95,6 +102,10 @@ import { SharedStore } from '../core/shared-store';
 import { canManage } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
+import { KanbanStore } from '../core/kanban-store';
+import { KanbanActions } from '../core/kanban-actions';
+import { Importance, KanbanBoard, cleanStatus, setImportance, setStatus } from '../core/kanban';
+import type { KitTab } from './card-kit';
 
 export interface SavedEvent {
   id: string;
@@ -103,6 +114,35 @@ export interface SavedEvent {
   swap?: OriginalSwap | null;
   /** A anotação mudou de título: em quantas outras os links para ela foram atualizados. */
   relinked?: number;
+}
+
+/** As duas abas da ficha no editor. */
+type EditorMode = 'escrever' | 'cartolina';
+
+/** As etiquetas da fileira de propriedades (cada uma abre a sua parte). */
+type PropId = 'grupo' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'quadro' | 'capa' | 'quem';
+
+interface PropView {
+  id: PropId;
+  name: string;
+  icon: LucideIconData;
+  value: string;
+  /** O que o leitor de tela diz depois do nome. */
+  spoken: string;
+  /** Tem algo escolhido: a etiqueta colada; sem nada, o recorte. */
+  filled: boolean;
+  error?: boolean;
+  /** A cor da coluna (no Kanban). */
+  tint?: string;
+}
+
+/** Uma camada da cartolina, no alto do estojo. */
+interface Layer {
+  key: string;
+  tab: KitTab;
+  kind: string;
+  label: string;
+  remove: (() => void) | null;
 }
 
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
@@ -116,7 +156,12 @@ const MIN_YEAR = 1971;
     IconModule,
     NgTemplateOutlet,
     BonusPicker,
-    NoteLabelsPicker,
+    GroupPicker,
+    TagPicker,
+    BoardPlace,
+    CategoryLabel,
+    NoteTag,
+    Skulls,
     CardKit,
     CoverPicker,
     CoverSleeve,
@@ -159,7 +204,6 @@ export class ReviewEditor {
   protected readonly TrashIcon = ICON.apagar;
   protected readonly SwapIcon = ICON.atualizar;
   protected readonly PinIcon = ICON.fixar;
-  protected readonly CoversIcon = ICON.capas;
   protected readonly DoneIcon = ICON.pronto;
   protected readonly RevisitIcon = ICON.repetir;
   protected readonly KeepIcon = ICON.copiado;
@@ -178,13 +222,248 @@ export class ReviewEditor {
     { value: 'privada', label: 'Privado', icon: ICON.privada },
   ] as const;
   protected readonly labels = SCORE_LABEL;
+  protected readonly WriteIcon = ICON.escrever;
+  protected readonly KitIcon = ICON.paleta;
+  protected readonly ClearIcon = ICON.recomecar;
+
+  /**
+   * As duas abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes) e
+   * a cartolina (o estojo). No computador a ficha fica à vista nas duas, ao lado; no celular, só na
+   * da cartolina, em cima do estojo.
+   */
+  protected readonly mode = signal<EditorMode>('escrever');
+
+  protected setMode(m: EditorMode): void {
+    this.mode.set(m);
+    // a prévia aparece (no celular) ou muda de lugar: mede de novo depois de desenhar
+    requestAnimationFrame(() => this.fitPreview());
+  }
+
+  /** Setas, Home e End trocam de aba, como um tablist. */
+  protected onModeKey(e: KeyboardEvent): void {
+    const order: EditorMode[] = ['escrever', 'cartolina'];
+    if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
+    const next = e.key === 'ArrowRight' || e.key === 'End' ? 1 : 0;
+    e.preventDefault();
+    this.setMode(order[next]);
+    this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-modo-${order[next]}`)?.focus();
+  }
+
+  /**
+   * A parte aberta embaixo da fileira de etiquetas (uma de cada vez), ou nenhuma. Tocar na etiqueta
+   * de novo, o Pronto ou o Esc fecham, e o foco volta para a etiqueta.
+   */
+  protected readonly prop = signal<PropId | null>(null);
+
+  protected toggleProp(id: PropId): void {
+    if (this.prop() === id) this.closeProp();
+    else this.openProp(id);
+  }
+
+  /** Abre a parte, com o foco no primeiro campo dela. */
+  private openProp(id: PropId, focus = true): void {
+    this.mode.set('escrever');
+    this.prop.set(id);
+    if (!focus) return;
+    setTimeout(() => {
+      if (id === 'grupo') this.groupPicker()?.focus();
+      else if (id === 'tags') this.tagPicker()?.focus();
+      else this.dialog().nativeElement.querySelector<HTMLElement>('#editor-parte :is(input:checked, input:not([type=radio]), select, button)')?.focus();
+    });
+  }
+
+  protected closeProp(e?: Event): void {
+    e?.preventDefault();
+    e?.stopPropagation();
+    const was = this.prop();
+    this.prop.set(null);
+    if (was) setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>(`.prop[data-prop="${was}"]`)?.focus());
+  }
+
+  protected propName(id: PropId): string {
+    return this.props().find((p) => p.id === id)?.name ?? '';
+  }
+
+  /** O grupo escolhido na parte Grupo: a parte fecha, e o lugar no quadro passa a ser o do grupo novo. */
+  protected pickGroup(category: string | null): void {
+    this.noteCategory.set(category);
+    this.syncBoard();
+    this.closeProp();
+  }
+
+  /** O ícone e a cor do grupo da anotação, na etiqueta (os mesmos da orelha no mural). */
+  protected readonly groupLook = computed(() => {
+    this.categoryLooks();
+    const c = this.noteCategory();
+    return c ? this.settings.categoryLook(c) : {};
+  });
+  protected readonly groupColor = computed(() => categoryColorHex(this.groupLook().color));
+
+  /** A cor da tag no grupo da anotação, ou null (o papel pardo de sempre). */
+  protected tagColor(tag: string): string | null {
+    return tagColorHex(this.categoryLooks(), tag, this.noteCategory() ?? '');
+  }
+
+  /**
+   * A fileira de etiquetas: o que a ficha tem além do nome e do texto (na anotação, o grupo, as tags,
+   * a data, o lugar no Kanban, a capa e quem vê; na resenha, a data, a quantidade, a dificuldade, a
+   * capa e quem vê), cada uma com o que está escolhido.
+   */
+  protected readonly props = computed<PropView[]>(() => {
+    const out: PropView[] = [];
+    const note = this.notes();
+    const p = this.profile();
+    if (note) {
+      const c = this.noteCategory();
+      out.push({ id: 'grupo', name: 'Grupo', icon: ICON.pasta, value: c ?? 'Grupo', spoken: c ?? 'sem grupo', filled: !!c });
+      const tags = this.noteTags();
+      out.push({ id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: tags.join(', '), spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 });
+    }
+    const day = this.dateShort();
+    out.push({ id: 'data', name: note ? 'Data' : this.dateLabel(), icon: ICON.calendario, value: day, spoken: day, filled: true, error: this.attempted() && !this.dateValid() });
+    if (!note && p.amount) {
+      const v = this.hoursValue();
+      const filled = typeof v === 'number' && !Number.isNaN(v);
+      const value = filled ? `${String(v).replace('.', ',')} ${p.amount.unit}` : cap(p.amount.unit);
+      out.push({ id: 'horas', name: p.amount.label, icon: ICON.relogio, value, spoken: filled ? value : 'em branco', filled, error: !this.hoursValid() });
+    }
+    if (!note && p.difficulty) {
+      const d = this.difficulty();
+      out.push({ id: 'dificuldade', name: p.difficulty, icon: ICON.caveira, value: d === 'nenhuma' ? 'Dificuldade' : DIFFICULTY_LABEL[d], spoken: DIFFICULTY_LABEL[d], filled: d !== 'nenhuma' });
+    }
+    const board = this.kbBoard();
+    if (note && board) {
+      const col = board.columns.find((x) => x.id === this.kbColumn());
+      out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}` : 'fora do quadro', filled: !!col, tint: col?.color });
+    }
+    if (note || this.game()) {
+      const has = !!this.game()?.coverUrl;
+      out.push({ id: 'capa', name: 'Capa', icon: ICON.imagem, value: 'Capa', spoken: has ? 'com capa' : 'sem capa', filled: has });
+    }
+    if (this.sharedRole() || this.cloud.config()) {
+      const shared = !!this.sharedRole();
+      const value = this.isPrivate() ? 'Privada' : 'Pública';
+      out.push({ id: 'quem', name: 'Quem vê', icon: shared ? ICON.pessoas : this.isPrivate() ? ICON.privada : ICON.publica, value, spoken: value.toLowerCase() + (shared ? ', compartilhada' : ''), filled: true });
+    }
+    return out;
+  });
+
+  /** A data numa palavra ("Hoje"), curta ("2 set 2026") ou "Sem data". */
+  protected readonly dateShort = computed(() => {
+    const v = this.dateValue();
+    if (v === null) return 'Sem data';
+    if (!this.dateValid()) return 'Data?';
+    if (this.isToday()) return 'Hoje';
+    // deste ano, sem o ano ("18 de out"): a etiqueta fica curta
+    return formatReviewDate(v, v.length === 10 && v.startsWith(this.today().slice(0, 4)));
+  });
+
+  // ===== O lugar no quadro do grupo (a parte Kanban) =====
+
+  private readonly kanban = inject(KanbanStore);
+  private readonly kanbanActions = inject(KanbanActions);
+  /** O quadro do grupo da anotação (cada grupo tem o seu), ou null sem grupo. */
+  protected readonly kbBoard = computed<KanbanBoard | null>(() => {
+    const c = this.notes() ? this.noteCategory()?.trim() : '';
+    return c ? this.kanban.boardFor(c) : null;
+  });
+  /** A etapa (a coluna), a importância e o status escolhidos: valem ao salvar (ver `applyBoard`). */
+  protected readonly kbColumn = signal<string | null>(null);
+  protected readonly kbImportance = signal<Importance | null>(null);
+  protected readonly kbStatus = signal('');
+
+  /** O lugar como está no quadro do grupo de agora (ou o pedido pela coluna de onde a nova veio). */
+  private syncBoard(): void {
+    const b = this.kbBoard();
+    const card = b?.cards.find((c) => c.note === this.id());
+    const spot = this.editing() ? null : this.kanban.pending();
+    let column = card?.column ?? null;
+    // a nova pedida de uma coluna: nela; trocado o grupo, na primeira coluna do quadro do grupo novo
+    if (b && spot) column = b.id === spot.board && b.columns.some((c) => c.id === spot.column) ? spot.column : (b.columns[0]?.id ?? null);
+    this.kbColumn.set(column);
+    this.kbImportance.set(card?.importance ?? null);
+    this.kbStatus.set(card?.status ?? '');
+  }
+
+  /**
+   * Leva o que foi escolhido na parte Kanban para o quadro. A nova cai lá pelo pedido (`pending`, ver
+   * App.onSaved, que finaliza se a coluna finaliza); a que já existia anda como no quadro (com a
+   * pergunta das dependências e o Desfazer), e a importância e o status mudam depois de ela chegar.
+   */
+  private applyBoard(id: string, isNew: boolean): void {
+    const b = this.kbBoard();
+    const column = this.kbColumn();
+    const status = cleanStatus(this.kbStatus());
+    if (isNew) {
+      this.kanban.pending.set(b && column ? { board: b.id, column, importance: this.kbImportance(), status } : null);
+      return;
+    }
+    if (!b) return;
+    const card = b.cards.find((c) => c.note === id);
+    if (column === null) {
+      if (card) this.kanbanActions.remove(b, id);
+      return;
+    }
+    const importance = this.kbImportance();
+    const rank = () =>
+      this.kanban.update(b.id, (board, at) => {
+        const now = board.cards.find((c) => c.note === id);
+        if (!now) return board;
+        const ranked = now.importance !== importance ? setImportance(board, id, importance, at) : board;
+        return setStatus(ranked, id, status, at);
+      });
+    if (card?.column === column) rank();
+    else this.kanbanActions.move(b.id, id, column, undefined, rank);
+  }
+
+  // ===== As camadas da cartolina, em etiquetas no alto do estojo =====
+
+  /** O que está na ficha, camada por camada (a cor sempre; o resto, se tem), para ver e tirar de uma vez. */
+  protected readonly layers = computed<Layer[]>(() => {
+    const out: Layer[] = [{ key: 'cor', tab: 'cor', kind: 'Cor', label: STOCK_LABEL[this.stock()], remove: null }];
+    if (this.paper() !== 'cartolina') out.push({ key: 'papel', tab: 'papel', kind: 'Papel', label: PAPER_LABEL[this.paper()], remove: () => (this.paper.set('cartolina'), this.paperSeed.set(null)) });
+    const pattern = this.pattern();
+    if (pattern) out.push({ key: 'estampa', tab: 'estampa', kind: 'Estampa', label: PATTERN_LABEL[pattern], remove: () => (this.pattern.set(null), this.patternSeed.set(null)) });
+    const scribble = this.scribble();
+    if (scribble) out.push({ key: 'rabisco', tab: 'rabisco', kind: 'Rabisco', label: SCRIBBLE_LABEL[scribble], remove: () => (this.scribble.set(null), this.scribbleSeed.set(null)) });
+    const damage = this.damage();
+    if (damage) out.push({ key: 'estrago', tab: 'estrago', kind: 'Estrago', label: DAMAGE_LABEL[damage], remove: () => (this.damage.set(null), this.damageSeed.set(null)) });
+    for (const m of this.stains()) out.push({ key: `mancha-${m.stain}`, tab: 'mancha', kind: 'Mancha', label: STAIN_LABEL[m.stain], remove: () => this.stains.update((l) => l.filter((x) => x.stain !== m.stain)) });
+    for (const m of this.decors()) out.push({ key: `decoracao-${m.decor}`, tab: 'decoracao', kind: 'Decoração', label: DECOR_LABEL[m.decor], remove: () => this.decors.update((l) => l.filter((x) => x.decor !== m.decor)) });
+    return out;
+  });
+
+  protected showKit(tab: KitTab): void {
+    this.kit()?.show(tab);
+  }
+
+  protected removeLayer(l: Layer): void {
+    l.remove?.();
+  }
+
+  /** "Só a cartolina": tira tudo o que está por cima, e a cor fica. */
+  protected clearLayers(): void {
+    for (const l of this.layers()) l.remove?.();
+  }
+
+  /** O nome da anotação, escrito na faixa: a tira cresce com ele (Enter vai para o texto). */
+  protected fitTitle(el: HTMLTextAreaElement | null): void {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  protected toText(): void {
+    this.writer()?.focus();
+  }
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly previewSlot = viewChild.required<ElementRef<HTMLDivElement>>('previewSlot');
   private readonly previewFrame = viewChild.required<ElementRef<HTMLDivElement>>('previewFrame');
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
-  private readonly labelsPicker = viewChild(NoteLabelsPicker);
+  private readonly groupPicker = viewChild<GroupPicker>('grupo');
+  private readonly tagPicker = viewChild<TagPicker>('tags');
   // pela marca no template, e não pela classe: os campos chegam por @defer, e citar a classe aqui os traria junto com o editor
   private readonly musicFields = viewChild<MusicFields>('campos');
   // pela marca do template, não pela classe: citar a classe traria o estojo de volta ao bundle inicial
@@ -302,20 +581,6 @@ export class ReviewEditor {
   protected readonly noteTitle = computed(() => this.game()?.name ?? '');
   /** A anotação como "item", para a escolha da capa (só link colado ou sem capa: não há catálogo). */
   protected readonly noteGame = computed<PickedGame>(() => this.game() ?? { name: '', coverUrl: null, source: 'manual' });
-  /** A tira da data aberta na anotação (fechada, é uma linha: "Data: hoje · Mudar"). */
-  protected readonly noteDateOpen = signal(false);
-  /** A data da anotação, em uma palavra ou por extenso. */
-  protected readonly noteDateText = computed(() => {
-    const v = this.dateValue();
-    if (v === null) return 'Sem data';
-    return this.isToday() ? 'Hoje' : formatReviewDateLong(v);
-  });
-
-  protected openNoteDate(): void {
-    this.noteDateOpen.set(true);
-    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-data')?.focus());
-  }
-
   /**
    * Fixada no topo ou comum (null): não se escolhe aqui (fixar é pelo alfinete da ficha e da leitura);
    * o editor só guarda o lugar que a anotação já tinha.
@@ -369,8 +634,6 @@ export class ReviewEditor {
     return Math.round(n * 10) / 10;
   });
   protected readonly hoursValid = computed(() => !Number.isNaN(this.hoursValue()));
-  /** As capas do mesmo título abertas na ficha, para trocar a que veio. */
-  protected readonly choosingCover = signal(false);
   /** A busca da capa da Steam, logo depois de escolher um jogo da RAWG. */
   private coverAbort: AbortController | undefined;
   protected readonly status = signal<Status | null>(null);
@@ -511,10 +774,13 @@ export class ReviewEditor {
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
 
-  /** No celular a prévia é a ficha simples, que cabe no alto da tela sem empurrar o formulário. */
+  /** No celular a prévia é a ficha simples, que cabe no alto do estojo sem empurrar o resto. */
   protected readonly phone = signal(false);
+  /** Tela larga: a ficha fica à vista ao lado, nas duas abas (ver o palco). */
+  protected readonly wide = signal(false);
   protected readonly previewScale = signal(1);
-  protected readonly previewRowHeight = signal(500);
+  /** A altura da ficha encolhida (no estreito, o palco tem a altura dela). */
+  protected readonly previewHeight = signal(0);
   private previewObserver: ResizeObserver | null = null;
 
   /**
@@ -564,6 +830,7 @@ export class ReviewEditor {
     // de uma coluna do Kanban com card padrão: a cartolina dele (o estojo continua mudando)
     if (look) this.setLook(look);
     this.applyDefaultAudience();
+    this.syncBoard();
     this.snapshot = this.serialize();
   }
 
@@ -596,6 +863,7 @@ export class ReviewEditor {
     const fromNote = !!from && isNote(from);
     this.noteCategory.set(fromNote ? (from.category ?? null) : null);
     this.applyDefaultAudience();
+    this.syncBoard();
     this.linkTitle = title;
     // fechar sem mexer em nada não pergunta se quer descartar
     this.snapshot = this.serialize();
@@ -655,26 +923,34 @@ export class ReviewEditor {
 
   constructor() {
     const mq = matchMedia('(max-width: 699px)');
-    const sync = () => this.phone.set(mq.matches);
+    const wq = matchMedia('(min-width: 1024px)');
+    const sync = () => {
+      this.phone.set(mq.matches);
+      this.wide.set(wq.matches);
+    };
     sync();
     mq.addEventListener('change', sync);
+    wq.addEventListener('change', sync);
     inject(DestroyRef).onDestroy(() => {
       mq.removeEventListener('change', sync);
+      wq.removeEventListener('change', sync);
       this.previewObserver?.disconnect();
     });
   }
 
+  /**
+   * A ficha cabe no palco: no largo, na altura que a coluna dá; no estreito, em até 40% da tela (o
+   * palco fica com a altura da ficha encolhida, e o estojo logo embaixo).
+   */
   private fitPreview(): void {
     const slot = this.previewSlot().nativeElement;
-    const frame = this.previewFrame().nativeElement;
-    const pane = slot.parentElement;
-    const body = pane?.parentElement;
-    if (!pane || !body || !body.clientHeight || !frame.offsetHeight) return;
-    const overhead = pane.clientHeight - slot.clientHeight;
-    const desired = Math.ceil(frame.offsetHeight + overhead + 12);
-    const cap = body.clientHeight * (innerWidth >= 1024 ? 0.6 : 0.45);
-    this.previewRowHeight.set(desired);
-    this.previewScale.set(Math.min(1, Math.max(0, Math.min(desired, cap) - overhead) / frame.offsetHeight));
+    const natural = this.previewFrame().nativeElement.offsetHeight;
+    if (!natural) return;
+    const cap = this.wide() ? slot.clientHeight : Math.round(innerHeight * 0.4);
+    if (!cap) return;
+    const scale = Math.min(1, cap / natural);
+    this.previewScale.set(scale);
+    this.previewHeight.set(Math.ceil(natural * scale));
   }
 
   /** As notas como vão para a ficha: a categoria que "não tem" vai sem nota. */
@@ -695,7 +971,7 @@ export class ReviewEditor {
     const m: string[] = [];
     if (this.notes()) {
       // o texto é opcional: um lembrete pode ser só o título
-      if (!this.noteTitle().trim()) m.push('o título');
+      if (!this.noteTitle().trim()) m.push('o nome');
       if (!this.dateValid()) m.push('uma data válida');
       return m;
     }
@@ -750,7 +1026,9 @@ export class ReviewEditor {
     this.bornQuiet.set(false);
     this.visibility.set(review ? (review.private ? 'privada' : 'publica') : isNotes(kind) ? 'privada' : 'publica');
     this.noteRank.set(review?.noteRank ?? null);
-    this.noteDateOpen.set(false);
+    // abre sempre no que se escreve, com as partes fechadas
+    this.mode.set('escrever');
+    this.prop.set(null);
     // O pendente (ou o desejo) vira a resenha com o mesmo id.
     this.id.set(review?.id ?? draft?.id ?? wish?.id ?? newId());
     // a rejogada nova desenha como a original desenha hoje (que pode ser com o id de antes)
@@ -792,10 +1070,9 @@ export class ReviewEditor {
     this.noteCategory.set(review?.category ?? (artist || null));
     this.noteTags.set([...(review?.tags ?? [])]);
     this.applyDefaultAudience();
-    this.labelsPicker()?.reset();
+    this.tagPicker()?.reset();
     this.hours.set(review?.hoursPlayed === null || review?.hoursPlayed === undefined ? '' : String(review.hoursPlayed).replace('.', ','));
     this.coverAbort?.abort();
-    this.choosingCover.set(false);
     this.text.set(review?.text ?? '');
     this.writer()?.reset();
     this.searchSeed.set('');
@@ -804,12 +1081,13 @@ export class ReviewEditor {
     this.attempted.set(false);
     this.confirmingDraft.set(false);
     this.draftError.set(false);
+    this.syncBoard();
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;
     // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
     const toTop = () => {
       dialog.scrollTop = 0;
-      dialog.querySelectorAll('.editor-content, .kit-panel, .form, app-card-kit .painel').forEach((pane) => pane.scrollTo({ top: 0, behavior: 'instant' }));
+      dialog.querySelectorAll('.conteudo, app-card-kit .painel').forEach((pane) => pane.scrollTo({ top: 0, behavior: 'instant' }));
     };
     toTop();
     this.previewScale.set(1);
@@ -824,10 +1102,12 @@ export class ReviewEditor {
     toTop();
     // e de novo depois que o conteúdo da resenha nova desenhar (e o foco ir para a busca)
     requestAnimationFrame(toTop);
+    // o nome na faixa cresce com ele (depois de desenhar: o campo pode ainda não existir)
+    setTimeout(() => this.fitTitle(this.dialog().nativeElement.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')));
     if (!review && !draft && !root) {
       // depois de desenhar: trocando de mural, o campo do título ainda não existe neste instante
       setTimeout(() =>
-        isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus() : this.search()?.focus(),
+        isNotes(kind) ? this.dialog().nativeElement.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')?.focus() : this.search()?.focus(),
       );
     }
   }
@@ -854,7 +1134,6 @@ export class ReviewEditor {
 
   protected pick(game: PickedGame): void {
     this.coverAbort?.abort();
-    this.choosingCover.set(false);
     this.game.set(game);
     this.draftError.set(false);
     // a música já vem com o artista do catálogo (dá para mudar); o álbum sai tocando a primeira faixa
@@ -897,20 +1176,6 @@ export class ReviewEditor {
     }
   }
 
-  protected openCovers(e: MouseEvent): void {
-    this.choosingCover.set(true);
-    // pelo teclado (Enter ou espaço não têm clique contado), o foco entra na capa escolhida
-    if (e.detail === 0)
-      setTimeout(() =>
-        this.dialog().nativeElement.querySelector<HTMLInputElement>('.escolher-capa input:checked')?.focus({ preventScroll: true }),
-      );
-  }
-
-  protected closeCovers(): void {
-    this.choosingCover.set(false);
-    setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('.capa-btn')?.focus());
-  }
-
   protected setWeight(k: RatedKey, w: Weight): void {
     this.weights.update((cur) => {
       const next = { ...cur };
@@ -922,7 +1187,6 @@ export class ReviewEditor {
 
   protected swapGame(): void {
     this.coverAbort?.abort();
-    this.choosingCover.set(false);
     this.searchSeed.set(this.game()?.name ?? '');
     this.game.set(null);
     setTimeout(() => this.search()?.focus());
@@ -1051,6 +1315,8 @@ export class ReviewEditor {
     if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
+    // o lugar no quadro do grupo, como ficou na parte Kanban
+    this.applyBoard(clean.id, !prev);
     this.snapshot = this.serialize();
     this.shut();
     this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
@@ -1089,11 +1355,8 @@ export class ReviewEditor {
         else this.settings.askNoTag.set(false);
       }
     }
-    if (!ok) {
-      const picker = this.dialog().nativeElement.querySelector('app-note-labels-picker');
-      const target = noCategory ? picker?.querySelector<HTMLElement>('.toggle[aria-controls$="-cartela"]') : picker?.querySelector<HTMLElement>('input[role="combobox"]');
-      setTimeout(() => target?.focus());
-    }
+    // Voltar: abre a parte do que faltou, com o foco na busca dela
+    if (!ok) this.openProp(noCategory ? 'grupo' : 'tags');
     return ok;
   }
 
@@ -1300,14 +1563,22 @@ export class ReviewEditor {
       this.noteRank(),
       this.game()?.form,
       this.game()?.sample,
+      // o lugar no quadro (a parte Kanban) também é coisa por salvar
+      this.kbColumn(),
+      this.kbImportance(),
+      cleanStatus(this.kbStatus()),
     ]);
   }
 
   private focusFirstMissing(): void {
     const root = this.dialog().nativeElement;
+    // o que falta está sempre na aba do que se escreve; a data e a quantidade, na parte delas
+    this.mode.set('escrever');
+    if (!this.dateValid()) this.openProp('data', false);
+    else if (!this.hoursValid()) this.openProp('horas', false);
     if (this.notes()) {
       setTimeout(() => {
-        if (!this.noteTitle().trim()) root.querySelector<HTMLInputElement>('#editor-titulo-nota')?.focus();
+        if (!this.noteTitle().trim()) root.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')?.focus();
         else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
         else root.querySelector<HTMLTextAreaElement>('app-rich-editor textarea:not(.grande)')?.focus();
       });

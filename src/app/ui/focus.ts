@@ -24,6 +24,21 @@ export function tabStep(key: string, i: number, n: number, vertical = true): num
 }
 
 /**
+ * As setas (e Home, End) andam entre os `[role=radio]` do grupo onde o evento caiu (`currentTarget`),
+ * levando só o foco: quem escolhe é o Enter ou o espaço. Para os grupos de botões-rádio do editor.
+ */
+export function roveRadios(e: KeyboardEvent): void {
+  const group = e.currentTarget as HTMLElement;
+  const radios = Array.from(group.querySelectorAll<HTMLElement>('[role="radio"]'));
+  const i = radios.indexOf(document.activeElement as HTMLElement);
+  if (i < 0) return;
+  const next = tabStep(e.key, i, radios.length);
+  if (next < 0) return;
+  e.preventDefault();
+  radios[next].focus();
+}
+
+/**
  * Engole o clique que o navegador manda logo depois de soltar um arrasto (em `target`, ou na página),
  * para o arrasto não escolher nem abrir o que estava embaixo do ponteiro. Se não vier clique, nada fica preso.
  */

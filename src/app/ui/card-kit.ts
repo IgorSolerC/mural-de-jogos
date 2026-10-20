@@ -45,7 +45,9 @@ import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { swallowNextClick, tabStep } from './focus';
 
-type Tab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
+/** As abas do estojo. */
+export type KitTab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
+type Tab = KitTab;
 
 interface Option {
   value: string | null;
@@ -1032,6 +1034,11 @@ export class CardKit {
   protected isOn(o: Option): boolean {
     if (!this.multi()) return o.value === this.value();
     return o.value === null ? !this.picked().length : this.orderOf(o) > 0;
+  }
+
+  /** Abre a aba (as etiquetas "na ficha" do editor levam direto a ela). */
+  show(tab: KitTab): void {
+    this.selectTab(tab);
   }
 
   /** Reset ao abrir outra ficha: a primeira aba de novo. */

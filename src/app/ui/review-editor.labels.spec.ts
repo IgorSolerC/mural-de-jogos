@@ -101,17 +101,43 @@ describe('o editor: anotação sem categoria ou tag', () => {
     expect(JSON.parse(localStorage.getItem('mural-de-jogos:config:v1')!)).toEqual(jasmine.objectContaining({ askNoCategory: false, askNoTag: true }));
   });
 
-  it('na tela, a categoria se chama grupo: o título, o campo e o que o leitor de tela lê', async () => {
-    const picker = fixture.nativeElement.querySelector('app-note-labels-picker') as HTMLElement;
-    expect(picker.querySelector('.pergunta')!.textContent!.trim()).toBe('Grupo');
-    picker.querySelector<HTMLButtonElement>('.acoes .toggle')!.click();
+  it('Voltar abre a parte do que faltou: o grupo, ou as tags', async () => {
+    await save();
+    await answer({ ok: false, checked: false });
+    await new Promise((r) => setTimeout(r));
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('#editor-parte app-group-picker')).not.toBeNull();
+    expect(el.querySelector('.prop[data-prop="grupo"]')!.getAttribute('aria-expanded')).toBe('true');
+    expect(document.activeElement).toBe(el.querySelector('app-group-picker input'));
+    inside().noteCategory.set('Casa');
+    await save();
+    await answer({ ok: false, checked: false });
+    await new Promise((r) => setTimeout(r));
+    expect(el.querySelector('#editor-parte app-tag-picker')).not.toBeNull();
+  });
+
+  it('na tela, a categoria se chama grupo: a etiqueta, a parte e o que o leitor de tela lê', async () => {
+    const el = fixture.nativeElement as HTMLElement;
+    const chip = el.querySelector<HTMLButtonElement>('.prop[data-prop="grupo"]')!;
+    expect(chip.textContent!.trim()).toBe('Grupo');
+    expect(chip.getAttribute('aria-label')).toBe('Grupo: sem grupo');
+    chip.click();
     await fixture.whenStable();
-    picker.querySelector<HTMLButtonElement>('[data-write]')!.click();
-    await fixture.whenStable();
-    const field = picker.querySelector<HTMLInputElement>('input.write')!;
-    expect(field.placeholder).toBe('Nome do grupo');
-    const said = [picker.textContent, ...Array.from(picker.querySelectorAll('[aria-label], [placeholder]')).flatMap((n) => [n.getAttribute('aria-label') ?? '', n.getAttribute('placeholder') ?? ''])].join(' ');
+    const part = el.querySelector<HTMLElement>('#editor-parte')!;
+    expect(part.getAttribute('aria-label')).toBe('Grupo');
+    const field = part.querySelector<HTMLInputElement>('app-group-picker input')!;
+    expect(field.placeholder).toBe('Buscar ou criar grupo');
+    const said = [part.textContent, ...Array.from(part.querySelectorAll('[aria-label], [placeholder]')).flatMap((n) => [n.getAttribute('aria-label') ?? '', n.getAttribute('placeholder') ?? ''])].join(' ');
     expect(said).not.toMatch(/categori/i);
+    // escrever um nome novo e Enter cria o grupo, e a parte fecha
+    field.value = 'Viagens';
+    field.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(part.querySelector('.criar')!.textContent).toContain('Criar “Viagens”');
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+    expect(el.querySelector('#editor-parte')).toBeNull();
+    expect(el.querySelector('.prop[data-prop="grupo"]')!.textContent).toContain('Viagens');
   });
 
   it('desligada a pergunta, salva direto', async () => {

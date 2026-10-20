@@ -2,6 +2,7 @@
   #dialog
   class="sheet editor"
   [class.notas]="notes()"
+  [class.na-cartolina]="mode() === 'cartolina'"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
   (close)="onClose()"
@@ -16,131 +17,122 @@
   >
     <app-pin class="pin" [color]="pin().pinColor" />
 
+    <!-- A faixa da cartolina é o alto da página: o nome escrito nela (como na ficha aberta) e, na
+         beirada de baixo, as duas abas recortadas no papel: o que se escreve e a cartolina -->
     <header class="head" [style]="headPaper()">
-      <h2 id="editor-titulo">{{ title() }}</h2>
-      <button type="button" class="icon-btn" (click)="requestClose()" aria-label="Fechar">
-        <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
-      </button>
+      <h2 id="editor-titulo" class="sr-only">{{ title() }}</h2>
+      <div class="faixa-linha">
+        @if (notes()) {
+          <div class="nome-faixa" [class.errada]="attempted() && !noteTitle().trim()">
+            <label class="sr-only" for="editor-titulo-nota">Título</label>
+            <textarea
+              id="editor-titulo-nota"
+              rows="1"
+              autocomplete="off"
+              maxlength="200"
+              spellcheck="true"
+              placeholder="Nome da anotação"
+              [value]="noteTitle()"
+              [attr.aria-invalid]="attempted() && !noteTitle().trim()"
+              [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' : null"
+              (input)="setNoteTitle($any($event.target).value); fitTitle($any($event.target))"
+              (keydown.enter)="$event.preventDefault(); toText()"
+            ></textarea>
+          </div>
+        } @else if (game(); as g) {
+          <!-- a obra escolhida: a capinha e o nome escritos na faixa; trocar volta para a busca -->
+          <div class="obra-faixa">
+            <app-cover-sleeve class="obra-capa" size="thumb" [game]="g" />
+            <div class="obra-txt">
+              <p class="obra-nome">{{ g.name }}</p>
+              @if (g.year || g.by || g.form) {
+                <p class="tj-ano">@if (g.form) {{{ formLabel[g.form] }}@if (g.by || g.year) {<span aria-hidden="true"> · </span>}}{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+              }
+            </div>
+            @if (revisitRoot()) {
+              <span class="obra-volta" [title]="revisitWord() + ' de ' + g.name">
+                <lucide-icon [img]="RevisitIcon" [size]="18" aria-hidden="true" />
+                <span class="obra-volta-txt">{{ revisitWord() }}</span>
+              </span>
+            } @else {
+              <button type="button" class="faixa-acao" (click)="swapGame()" [attr.aria-label]="'Trocar ' + words().o">
+                <lucide-icon [img]="SwapIcon" [size]="16" aria-hidden="true" />
+                <span class="faixa-acao-txt">Trocar</span>
+              </button>
+            }
+          </div>
+        } @else {
+          <p class="nome-vazio" aria-hidden="true">{{ title() }}</p>
+        }
+        <button type="button" class="icon-btn" (click)="requestClose()" aria-label="Fechar">
+          <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+        </button>
+      </div>
+      <div class="modos" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
+        <button
+          type="button"
+          role="tab"
+          class="modo"
+          id="editor-modo-escrever"
+          aria-controls="editor-conteudo"
+          [attr.aria-selected]="mode() === 'escrever'"
+          [attr.tabindex]="mode() === 'escrever' ? 0 : -1"
+          (click)="setMode('escrever')"
+        >
+          <lucide-icon [img]="WriteIcon" [size]="16" aria-hidden="true" />
+          {{ notes() ? 'Anotação' : 'Resenha' }}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="modo"
+          id="editor-modo-cartolina"
+          aria-controls="editor-conteudo"
+          [attr.aria-selected]="mode() === 'cartolina'"
+          [attr.tabindex]="mode() === 'cartolina' ? 0 : -1"
+          (click)="setMode('cartolina')"
+        >
+          <lucide-icon [img]="KitIcon" [size]="16" aria-hidden="true" />
+          Cartolina
+        </button>
+      </div>
     </header>
 
-    <div class="body" [style.--preview-row-height.px]="previewRowHeight()">
-      <!-- A bancada: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural -->
-      <aside class="bancada parede" aria-label="A ficha no mural">
-        <div class="previa-slot" #previewSlot>
-          <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
-            <div class="previa" inert>
-              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      <div class="editor-content">
-        <div class="kit-panel parede">
-          <!-- o estojo: a cor da cartolina, o papel e as marcas; a ficha acima muda na hora -->
-          <!-- o estojo vem à parte, quando o navegador folga: fora do bundle inicial (e já está aqui quando o editor abre) -->
-          @defer (on idle) {
-            <app-card-kit #kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(paperSeed)]="paperSeed" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stains)]="stains" [(decors)]="decors" />
-          }
-        </div>
-
-        <div class="form">
-        @if (notes()) {
-          <!-- A anotação: título escrito à mão (sem catálogo), capa só se quiser, as categorias e a data -->
-          <section class="bloco jogo">
-            <label class="pergunta" for="editor-titulo-nota">Título</label>
-            <div class="tira tira-titulo" [class.errada]="attempted() && !noteTitle().trim()">
-              <input
-                id="editor-titulo-nota"
-                type="text"
-                autocomplete="off"
-                maxlength="200"
-                placeholder="Lista do mercado, ideias pro fim de semana…"
-                [value]="noteTitle()"
-                [attr.aria-invalid]="attempted() && !noteTitle().trim()"
-                [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' : null"
-                (input)="setNoteTitle($any($event.target).value)"
-              />
-            </div>
+    <div class="body">
+      <div class="conteudo" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="mode() === 'escrever' ? 'editor-modo-escrever' : 'editor-modo-cartolina'">
+        <!-- ===== Escrever ===== -->
+        <div class="escrever" [hidden]="mode() !== 'escrever'">
+          @if (notes()) {
             @if (attempted() && !noteTitle().trim()) {
-              <p class="field-error" id="editor-titulo-dica">Dê um título para a anotação.</p>
+              <p class="field-error aviso-nome" id="editor-titulo-dica">Dê um nome para a anotação, lá em cima.</p>
             } @else if (bracketTitle()) {
-              <p class="hint gemea" id="editor-titulo-dica">Com colchetes no título, um link [[…]] não consegue apontar para esta anotação.</p>
+              <p class="hint gemea" id="editor-titulo-dica">Com colchetes no nome, um link [[…]] não consegue apontar para esta anotação.</p>
             } @else if (titleTwin(); as t) {
               <!-- dois títulos iguais: o link abre a mais antiga (ver core/note-links.ts) -->
               @if (t.mine) {
-                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”, mais nova que esta. Os links para esse título vão abrir esta, que é a mais antiga.</p>
+                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”, mais nova que esta. Os links para esse nome vão abrir esta, a mais antiga.</p>
               } @else {
-                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”. Os links para esse título continuam abrindo aquela, que é mais antiga.</p>
+                <p class="hint gemea" id="editor-titulo-dica">Já existe uma anotação “{{ t.twin.game.name }}”. Os links para esse nome continuam abrindo aquela, a mais antiga.</p>
               }
             }
-            @if (choosingCover()) {
-              <fieldset class="escolher-capa">
-                <legend class="rotulo">Qual capa?</legend>
-                <app-cover-picker group="editor-capa" [game]="noteGame()" [kind]="kind()" (changed)="setNoteCover($event.coverUrl)">
-                  <button type="button" class="acao-caneta pronto" (click)="closeCovers()">
-                    <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />
-                    Pronto
-                  </button>
-                </app-cover-picker>
-              </fieldset>
-            } @else {
-              <button type="button" class="acao-caneta capa-btn" (click)="openCovers($event)">
-                <lucide-icon [img]="CoversIcon" [size]="16" aria-hidden="true" />
-                {{ game()?.coverUrl ? 'Trocar a capa' : 'Pôr uma capa (opcional)' }}
-              </button>
-            }
-          </section>
-
-          <!-- o texto é o principal da anotação: logo depois do título -->
-          <ng-container [ngTemplateOutlet]="textoCampo" />
-
-          <!-- a categoria (uma, o assunto) e as tags (várias, informam) -->
-          <section class="bloco">
-            @if (structureLocked()) {
-              <!-- a compartilhada em que você é editor: a categoria e as tags são do dono e dos gestores -->
-              <div class="rotulos-fixos">
-                <p class="pergunta">Grupo e tags</p>
-                <p class="rotulos-valor">
-                  {{ noteCategory() || 'Sem grupo' }}@if (noteTags().length) {<span aria-hidden="true"> · </span>{{ noteTags().join(', ') }}}
-                </p>
-                <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo, as tags e quem vê.</p>
-              </div>
-            } @else {
-              <app-note-labels-picker [(category)]="noteCategory" [(tags)]="noteTags" [categories]="categoryLib()" [library]="tagLib()" />
-            }
-          </section>
-
-          <!-- a data numa linha só ("Hoje"); a tira de dia, mês e ano só para quem quiser mudar -->
-          <section class="bloco como">
-            @if (noteDateOpen() || (attempted() && !dateValid())) {
-              <div class="campos-linha">
-                <ng-container [ngTemplateOutlet]="dataCampo" />
-              </div>
-            } @else {
-              <p class="data-curta">
-                <span class="rotulo">Data</span>
-                <span class="data-curta-txt">{{ noteDateText() }}</span>
-                <button type="button" class="acao-caneta" (click)="openNoteDate()">Mudar</button>
-              </p>
-            }
-          </section>
-        } @else {
-        <section class="bloco jogo">
-          @if (revisitRoot() && game(); as g) {
-            <!-- a rejogada é da mesma obra: o item vem da original e não troca -->
-            <p class="pergunta">{{ revisitWord() }} de</p>
-            <div class="tira-jogo">
-              <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
-              <div class="tj-txt">
-                <p class="tj-nome">{{ g.name }}</p>
-                @if (g.year || g.by || g.form) {
-                  <p class="tj-ano">@if (g.form) {{{ formLabel[g.form] }}@if (g.by || g.year) {<span aria-hidden="true"> · </span>}}{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+          } @else {
+            @if (!game()) {
+              <section class="bloco busca-obra">
+                <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
+                @if (draftError() && !game()) {
+                  <p class="field-error">Escolha {{ words().o }} antes de guardar pra depois.</p>
+                } @else if (attempted() && !game()) {
+                  <p class="field-error">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
                 }
-              </div>
-              <lucide-icon class="tj-volta" [img]="RevisitIcon" [size]="20" aria-hidden="true" />
-            </div>
-            @if (original()) {
+              </section>
+            } @else if (music()) {
+              <!-- a música: se é álbum ou música, de quem é (a aba dela no mural) e o que toca no vinil;
+                   chegam num pedaço à parte do site: só o mural de músicas precisa deles -->
+              @defer (on immediate) {
+                <app-music-fields #campos class="bloco" [game]="game()!" (gameChange)="game.set($event)" [(artist)]="noteCategory" [artists]="artistLib()" [fresh]="freshPick()" [session]="openCount()" />
+              }
+            }
+            @if (revisitRoot() && original()) {
               <div class="manter" aria-live="polite">
                 @if (keptNotes()) {
                   <p class="manter-txt">Notas {{ originalWhen() }} copiadas. Mude só o que mudou desta vez.</p>
@@ -157,225 +149,282 @@
                 }
               </div>
             }
-          } @else if (game(); as g) {
-            <p class="pergunta">{{ profile().ask ?? 'Qual ' + profile().singular + '?' }}</p>
-            <!-- o campo, preenchido: a mesma tira de papel da busca, com o jogo escolhido -->
-            <div class="tira-jogo">
-              <app-cover-sleeve class="tj-capa" size="thumb" [game]="g" />
-              <div class="tj-txt">
-                <p class="tj-nome">{{ g.name }}</p>
-                @if (g.year || g.by || g.form) {
-                  <p class="tj-ano">@if (g.form) {{{ formLabel[g.form] }}@if (g.by || g.year) {<span aria-hidden="true"> · </span>}}{{ g.by }}@if (g.by && g.year) {<span aria-hidden="true"> · </span>}{{ g.year }}</p>
+          }
+
+          <!-- As propriedades da ficha, numa fileira de etiquetas (como no Notion): cada uma diz o que
+               está escolhido e abre a sua parte embaixo; a vazia é o recorte, ainda sem etiqueta -->
+          <div class="props-area">
+          <div class="props" role="group" aria-label="Detalhes da ficha">
+            @for (p of props(); track p.id) {
+              <button
+                type="button"
+                class="prop"
+                [class.vazia]="!p.filled"
+                [class.errada]="p.error"
+                [attr.data-prop]="p.id"
+                [attr.data-cor]="p.tint ?? null"
+                [attr.aria-expanded]="prop() === p.id"
+                aria-controls="editor-parte"
+                [attr.aria-label]="p.name + ': ' + p.spoken"
+                (click)="toggleProp(p.id)"
+              >
+                @switch (p.id) {
+                  @case ('grupo') {
+                    @if (noteCategory(); as c) {
+                      <span class="prop-orelha" [class.orelha-cor]="!!groupColor()" [style.--cat-cor]="groupColor()"><app-cat-label [label]="c" [look]="groupLook()" [iconSize]="14" /></span>
+                    } @else {
+                      <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" /><span class="prop-txt">{{ p.name }}</span>
+                    }
+                  }
+                  @case ('tags') {
+                    @if (noteTags().length) {
+                      <span class="prop-tags">
+                        @for (t of noteTags().slice(0, 3); track t) {
+                          <app-note-tag [label]="t" size="mini" [color]="tagColor(t)" />
+                        }
+                        @if (noteTags().length > 3) {
+                          <span class="prop-mais">+{{ noteTags().length - 3 }}</span>
+                        }
+                      </span>
+                    } @else {
+                      <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" /><span class="prop-txt">{{ p.name }}</span>
+                    }
+                  }
+                  @case ('dificuldade') {
+                    @if (difficulty() !== 'nenhuma') {
+                      <app-skulls [value]="difficulty()" [size]="14" [showLabel]="false" [ghosts]="false" />
+                    } @else {
+                      <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                    }
+                    <span class="prop-txt">{{ p.value }}</span>
+                  }
+                  @case ('capa') {
+                    @if (game()?.coverUrl; as url) {
+                      <img class="prop-capa" [src]="url" alt="" loading="lazy" referrerpolicy="no-referrer" />
+                    } @else {
+                      <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                    }
+                    <span class="prop-txt">{{ p.value }}</span>
+                  }
+                  @case ('quadro') {
+                    <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                    <span class="prop-txt">{{ p.value }}</span>
+                  }
+                  @default {
+                    <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
+                    <span class="prop-txt">{{ p.value }}</span>
+                  }
+                }
+              </button>
+            }
+          </div>
+
+          <!-- a parte aberta: logo embaixo da fileira, um papel solto; Esc ou a etiqueta de novo fecham -->
+          @if (prop(); as p) {
+            <div class="parte" id="editor-parte" role="group" [attr.aria-label]="propName(p)" (keydown.escape)="closeProp($event)">
+              @switch (p) {
+                @case ('grupo') {
+                  @if (structureLocked()) {
+                    <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo e as tags.</p>
+                  } @else {
+                    <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
+                  }
+                }
+                @case ('tags') {
+                  @if (structureLocked()) {
+                    <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo e as tags.</p>
+                  } @else {
+                    <app-tag-picker #tags [(tags)]="noteTags" [library]="tagLib()" [category]="noteCategory()" />
+                  }
+                }
+                @case ('data') {
+                  <ng-container [ngTemplateOutlet]="dataCampo" />
+                }
+                @case ('horas') {
+                  @if (profile().amount; as a) {
+                    <div class="campo campo-horas">
+                      <label for="editor-horas" class="rotulo">{{ a.label }}</label>
+                      <div class="tira hours" [class.errada]="!hoursValid()">
+                        <input
+                          id="editor-horas"
+                          type="text"
+                          [attr.inputmode]="a.decimals ? 'decimal' : 'numeric'"
+                          autocomplete="off"
+                          placeholder="0"
+                          [value]="hours()"
+                          (input)="hours.set($any($event.target).value)"
+                          (keydown.enter)="$event.preventDefault(); closeProp()"
+                        />
+                        <span class="unit" aria-hidden="true">{{ a.unit }}</span>
+                      </div>
+                      @if (!hoursValid()) {
+                        <p class="field-error">Use só números, {{ a.example }}.</p>
+                      }
+                    </div>
+                  }
+                }
+                @case ('dificuldade') {
+                  @if (profile().difficulty; as d) {
+                    <app-difficulty-picker [label]="d" [(value)]="difficulty" />
+                  }
+                }
+                @case ('capa') {
+                  <app-cover-picker group="editor-capa" [game]="notes() ? noteGame() : game()!" [kind]="kind()" (changed)="notes() ? setNoteCover($event.coverUrl) : game.set($event)" />
+                }
+                @case ('quadro') {
+                  @if (kbBoard(); as b) {
+                    <app-board-place [board]="b" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" />
+                  }
+                }
+                @case ('quem') {
+                  <ng-container [ngTemplateOutlet]="quemVe" />
+                }
+              }
+              <button type="button" class="parte-pronto" (click)="closeProp()">
+                <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />
+                Pronto
+              </button>
+            </div>
+          }
+          </div>
+
+          @if (!notes()) {
+            <section class="bloco como" aria-labelledby="editor-como">
+              <h3 class="pergunta" id="editor-como">Como foi?</h3>
+              <app-status-picker [kind]="kind()" [(value)]="status" />
+              @if (attempted() && !status()) {
+                <p class="field-error">Marque {{ profile().status.incompleto }}, {{ profile().status.finalizado }} ou {{ profile().status.platinado }}.</p>
+              }
+            </section>
+
+            <section class="bloco notas" aria-labelledby="editor-notas">
+              <div class="pergunta-linha">
+                <h3 class="pergunta" id="editor-notas">Que nota?</h3>
+                <!-- no celular a ficha não está à vista: a Média viaja junto, ao lado da pergunta -->
+                <div class="media-ao-vivo">
+                  <span class="rotulo">{{ overrideOn() ? 'Nota final' : 'Média' }}</span>
+                  <app-judge-label [value]="shown()" size="compact" />
+                </div>
+              </div>
+              <div class="subs">
+                @for (k of categories(); track k) {
+                  <app-score-picker
+                    [attr.data-nota]="k"
+                    [label]="labels[k]"
+                    [value]="scoreOf(k)"
+                    (valueChange)="setScore(k, $event)"
+                    [weight]="weightOf(weights(), k)"
+                    (weightChange)="setWeight(k, $event)"
+                  />
                 }
               </div>
-              <button type="button" class="acao-caneta" (click)="swapGame()">
-                <lucide-icon [img]="SwapIcon" [size]="16" aria-hidden="true" />
-                Trocar
-              </button>
-            </div>
-            <!-- a capa: fechada, é uma linha de caneta; aberta, as fotos do mesmo título soltas na ficha -->
-            @if (choosingCover()) {
-              <fieldset class="escolher-capa">
-                <legend class="rotulo">Qual capa?</legend>
-                <app-cover-picker group="editor-capa" [game]="g" [kind]="kind()" (changed)="game.set($event)">
-                  <button type="button" class="acao-caneta pronto" (click)="closeCovers()">
-                    <lucide-icon [img]="DoneIcon" [size]="16" aria-hidden="true" />
-                    Pronto
-                  </button>
-                </app-cover-picker>
-              </fieldset>
-            } @else {
-              <button type="button" class="acao-caneta capa-btn" (click)="openCovers($event)">
-                <lucide-icon [img]="CoversIcon" [size]="16" aria-hidden="true" />
-                {{ g.coverUrl ? 'Escolher outra capa' : 'Escolher uma capa' }}
-              </button>
-            }
-            <!-- a música: se é álbum ou música, de quem é (a aba dela no mural) e o que toca no vinil -->
-            @if (music()) {
-              <!-- chegam num pedaço à parte do site: só o mural de músicas precisa deles -->
-              @defer (on immediate) {
-                <app-music-fields #campos [game]="g" (gameChange)="game.set($event)" [(artist)]="noteCategory" [artists]="artistLib()" [fresh]="freshPick()" [session]="openCount()" />
+              @if (attempted() && missingScores().length) {
+                <p class="field-error">Dê uma nota de 0 a 10 para cada categoria que conta na média.</p>
+              } @else if (attempted() && noneCounts()) {
+                <p class="field-error">Todas as categorias estão como “Não tem”. Deixe ao menos uma contar na média.</p>
               }
-            }
-          } @else {
-            <app-game-search [kind]="kind()" [initialQuery]="searchSeed()" (picked)="pick($event)" />
-            @if (draftError() && !game()) {
-              <p class="field-error">Escolha {{ words().o }} antes de guardar pra depois.</p>
-            } @else if (attempted() && !game()) {
-              <p class="field-error">Escolha {{ words().um }} da lista ou use o nome sem capa.</p>
-            }
-          }
-        </section>
-
-        <section class="bloco como" aria-labelledby="editor-como">
-          <h3 class="pergunta" id="editor-como">Como foi?</h3>
-          <div class="campo">
-            <app-status-picker [kind]="kind()" [(value)]="status" />
-            @if (attempted() && !status()) {
-              <p class="field-error">Marque {{ profile().status.incompleto }}, {{ profile().status.finalizado }} ou {{ profile().status.platinado }}.</p>
-            }
-          </div>
-          <div class="campos-linha">
-            <ng-container [ngTemplateOutlet]="dataCampo" />
-            @if (profile().amount; as a) {
-            <div class="campo campo-horas">
-              <label for="editor-horas" class="rotulo">{{ a.label }}</label>
-              <div class="tira hours">
-                <input
-                  id="editor-horas"
-                  type="text"
-                  [attr.inputmode]="a.decimals ? 'decimal' : 'numeric'"
-                  autocomplete="off"
-                  placeholder="0"
-                  [value]="hours()"
-                  (input)="hours.set($any($event.target).value)"
-                />
-                <span class="unit" aria-hidden="true">{{ a.unit }}</span>
+              <div class="campo bonus">
+                <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [final]="final()" [shift]="shift()" />
               </div>
-              @if (!hoursValid()) {
-                <p class="field-error">Use só números, {{ a.example }}.</p>
-              }
-            </div>
-            }
-          </div>
-          @if (profile().difficulty; as d) {
-            <div class="campo">
-              <app-difficulty-picker [label]="d" [(value)]="difficulty" />
-            </div>
-          }
-        </section>
-
-        <section class="bloco notas" aria-labelledby="editor-notas">
-          <div class="pergunta-linha">
-            <h3 class="pergunta" id="editor-notas">Que nota?</h3>
-            <!-- no celular a prévia fica lá em cima: a Média viaja junto, ao lado da pergunta -->
-            <div class="media-ao-vivo">
-              <span class="rotulo">{{ overrideOn() ? 'Nota final' : 'Média' }}</span>
-              <app-judge-label [value]="shown()" size="compact" />
-            </div>
-          </div>
-          <div class="subs">
-            @for (k of categories(); track k) {
-              <app-score-picker
-                [attr.data-nota]="k"
-                [label]="labels[k]"
-                [value]="scoreOf(k)"
-                (valueChange)="setScore(k, $event)"
-                [weight]="weightOf(weights(), k)"
-                (weightChange)="setWeight(k, $event)"
-              />
-            }
-          </div>
-          @if (attempted() && missingScores().length) {
-            <p class="field-error">Dê uma nota de 0 a 10 para cada categoria que conta na média.</p>
-          } @else if (attempted() && noneCounts()) {
-            <p class="field-error">Todas as categorias estão como “Não tem”. Deixe ao menos uma contar na média.</p>
-          }
-          <div class="campo bonus">
-            <app-bonus-picker [(value)]="bonuses" [catalog]="profile().bonuses" [library]="library()" [final]="final()" [shift]="shift()" />
-          </div>
-          <!-- a nota final na mão: fechada, vale a média; aberta, a nota escrita vai no lugar dela -->
-          <div class="campo nota-mao">
-            @if (overrideOn()) {
-              <label for="editor-nota-final" class="rotulo">Nota final na mão</label>
-              <div class="tira hours">
-                <input
-                  id="editor-nota-final"
-                  type="text"
-                  inputmode="decimal"
-                  autocomplete="off"
-                  maxlength="4"
-                  placeholder="0"
-                  [value]="overrideText()"
-                  (input)="overrideText.set($any($event.target).value)"
-                  [attr.aria-invalid]="attempted() && overrideValue() === null"
-                  aria-describedby="editor-nota-final-media"
-                />
-                <span class="unit" aria-hidden="true">até 11</span>
-                <button type="button" class="acao-caneta" (click)="setOverride(false)">Usar a média</button>
-              </div>
-              @if (attempted() && overrideValue() === null) {
-                <p class="field-error">Escreva uma nota de 0 a 11, como 7,5 ou 11.</p>
-              } @else if (final() !== null) {
-                <p class="nota-mao-media" id="editor-nota-final-media">A média das notas daria {{ formatScore(final()) }}.</p>
-              }
-            } @else {
-              <button type="button" class="acao-caneta" (click)="setOverride(true)">Dar a nota final na mão</button>
-            }
-          </div>
-        </section>
-
-        <section class="bloco">
-          <app-verdict-picker [(value)]="verdict" />
-        </section>
-        }
-
-        <!-- na resenha, o texto vem depois do julgamento; na anotação, logo depois do título (ver acima) -->
-        @if (!notes()) {
-          <ng-container [ngTemplateOutlet]="textoCampo" />
-        }
-
-        <!-- Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
-             A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
-        @if (sharedRole()) {
-          <!-- a compartilhada: quem vê (e quem está nela) muda em Compartilhar, aberto daqui mesmo -->
-          <section class="bloco quem-ve">
-            <p class="pergunta">Quem vê?</p>
-            <div class="quem-opts">
-              <span class="quem-tag escolhida">
-                <lucide-icon [img]="isPrivate() ? PrivateIcon : EveryoneIcon" [size]="16" aria-hidden="true" />
-                {{ isPrivate() ? 'Privado' : 'Público' }}
-              </span>
-              <button type="button" class="quem-tag quem-mudar" aria-haspopup="dialog" aria-describedby="editor-quem-dica" (click)="shareOpen.set(true)">
-                <lucide-icon [img]="SharedIcon" [size]="16" aria-hidden="true" />
-                {{ structureLocked() ? 'Ver em Compartilhar' : 'Mudar em Compartilhar' }}
-              </button>
-            </div>
-            <p class="quem-dica" id="editor-quem-dica">
-              {{ isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela, para quem visita.' }}
-              @if (structureLocked()) {
-                Só o dono e os gestores mudam isso.
-              }
-            </p>
-          </section>
-          @if (shareOpen()) {
-            @defer (on immediate) {
-              <app-share-sheet [noteId]="id()" (closed)="shareOpen.set(false)" (left)="leftShared()" />
-            }
-          }
-        } @else if (cloud.config()) {
-          <section class="bloco quem-ve">
-            <fieldset>
-              <legend class="pergunta">Quem vê?</legend>
-              <div class="quem-opts">
-                @for (o of visibilities; track o.value) {
-                  <label class="quem">
-                    <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="pickVisibility(o.value)" aria-describedby="editor-quem-dica" />
-                    <span class="quem-tag">
-                      <lucide-icon [img]="o.icon" [size]="16" aria-hidden="true" />
-                      {{ o.label }}
-                    </span>
-                  </label>
-                }
-              </div>
-              <p class="quem-dica" id="editor-quem-dica">
-                @if (isPrivate()) {
-                  Fica só com você: quem abrir o seu mural não vê, e ninguém é avisado. Quando quiser mostrar, edite e troque.
-                } @else if (!announces() && !editing()) {
-                  Vai para o seu mural sem aparecer no Feed de quem segue você. Para publicar no Feed também, use a setinha ao lado de Pregar.
-                } @else if (!announces()) {
-                  Está no seu mural, mas não foi para o Feed de quem segue você. Para publicar no Feed, use a setinha ao lado de Salvar.
-                } @else if (editing() && !feedMenu()) {
-                  Está no seu mural e já foi para o Feed de quem segue você.
+              <!-- a nota final na mão: fechada, vale a média; aberta, a nota escrita vai no lugar dela -->
+              <div class="campo nota-mao">
+                @if (overrideOn()) {
+                  <label for="editor-nota-final" class="rotulo">Nota final na mão</label>
+                  <div class="tira hours">
+                    <input
+                      id="editor-nota-final"
+                      type="text"
+                      inputmode="decimal"
+                      autocomplete="off"
+                      maxlength="4"
+                      placeholder="0"
+                      [value]="overrideText()"
+                      (input)="overrideText.set($any($event.target).value)"
+                      [attr.aria-invalid]="attempted() && overrideValue() === null"
+                      aria-describedby="editor-nota-final-media"
+                    />
+                    <span class="unit" aria-hidden="true">até 11</span>
+                    <button type="button" class="acao-caneta" (click)="setOverride(false)">Usar a média</button>
+                  </div>
+                  @if (attempted() && overrideValue() === null) {
+                    <p class="field-error">Escreva uma nota de 0 a 11, como 7,5 ou 11.</p>
+                  } @else if (final() !== null) {
+                    <p class="nota-mao-media" id="editor-nota-final-media">A média das notas daria {{ formatScore(final()) }}.</p>
+                  }
                 } @else {
-                  {{ notes() ? 'Vai para o seu mural de anotações e aparece no Feed de quem segue você.' : 'Vai para o seu mural e aparece no Feed de quem segue você.' }}
+                  <button type="button" class="acao-caneta" (click)="setOverride(true)">Dar a nota final na mão</button>
                 }
-              </p>
-            </fieldset>
+              </div>
+            </section>
+
+            <section class="bloco">
+              <app-verdict-picker [(value)]="verdict" />
+            </section>
+          }
+
+          <!-- o texto: na anotação, o principal, logo depois das etiquetas; na resenha, depois do julgamento -->
+          <section class="bloco texto" [class.principal]="notes()">
+            <label [for]="texto.areaId" [class]="notes() ? 'sr-only' : 'pergunta'">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
+            <app-rich-editor
+              #texto
+              [class.anotacao]="notes()"
+              [label]="notes() ? 'Anotação' : 'O que achou?'"
+              [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o nome)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
+              [notes]="linkNotes()"
+              [onCard]="notes()"
+              [stock]="stock()"
+              [selfId]="id()"
+              [dock]="true"
+              [max]="textMax"
+              [(value)]="text"
+            />
+            @if (attempted() && textTooLong()) {
+              <p class="field-error" role="alert">O texto passou de {{ textMaxShown }} caracteres. Tire {{ textExcess() }} para salvar.</p>
+            }
           </section>
-        }
+        </div>
+
+        <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->
+        <div class="cartolina-modo parede" [hidden]="mode() !== 'cartolina'">
+          <div class="na-ficha" role="group" aria-label="O que está na ficha" [hidden]="layers().length < 2">
+            @for (l of layers(); track l.key) {
+              <span class="camada">
+                <button type="button" class="camada-nome" (click)="showKit(l.tab)">
+                  <span class="camada-tipo">{{ l.kind }}</span>
+                  {{ l.label }}
+                </button>
+                @if (l.remove) {
+                  <button type="button" class="camada-tirar" [attr.aria-label]="'Tirar ' + l.label" title="Tirar" (click)="removeLayer(l)">
+                    <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
+                  </button>
+                }
+              </span>
+            }
+            @if (layers().length > 1) {
+              <button type="button" class="limpar" (click)="clearLayers()">
+                <lucide-icon [img]="ClearIcon" [size]="15" aria-hidden="true" />
+                Só a cartolina
+              </button>
+            }
+          </div>
+          <!-- o estojo vem à parte, quando o navegador folga: fora do bundle inicial (e já está aqui quando o editor abre) -->
+          @defer (on idle) {
+            <app-card-kit #kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(paperSeed)]="paperSeed" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stains)]="stains" [(decors)]="decors" />
+          }
+        </div>
       </div>
-      </div>
+
+      <!-- O palco: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural. No
+           computador fica sempre à vista, ao lado; no celular, só na aba Cartolina, em cima do estojo -->
+      <aside class="palco parede" aria-label="A ficha no mural">
+        <div class="previa-slot" #previewSlot [style.height.px]="wide() ? null : previewHeight()">
+          <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
+            <div class="previa" inert>
+              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <footer class="foot">
@@ -429,84 +478,121 @@
         </div>
       }
     </footer>
-    <!-- o texto: "O que achou?" na resenha, "Anotação" (opcional) na anotação -->
-    <ng-template #textoCampo>
-      <section class="bloco texto">
-        <label [for]="texto.areaId" class="pergunta">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
-        <app-rich-editor
-          #texto
-          [class.anotacao]="notes()"
-          [label]="notes() ? 'Anotação' : 'O que achou?'"
-          [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o título)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
-          [notes]="linkNotes()"
-          [onCard]="notes()"
-          [stock]="stock()"
-          [selfId]="id()"
-          [dock]="true"
-          [max]="textMax"
-          [(value)]="text"
-        />
-        @if (attempted() && textTooLong()) {
-          <p class="field-error" role="alert">O texto passou de {{ textMaxShown }} caracteres. Tire {{ textExcess() }} para salvar.</p>
-        }
-      </section>
+
+    <!-- Quem vê: Público (o mural pelo código, o perfil, Amigos, Comparar) ou Privado, até mudar de ideia.
+         A pública vai também para o Feed de quem segue; quem não quiser usa a setinha do botão -->
+    <ng-template #quemVe>
+      @if (sharedRole()) {
+        <!-- a compartilhada: quem vê (e quem está nela) muda em Compartilhar, aberto daqui mesmo -->
+        <div class="quem-ve">
+          <div class="quem-opts">
+            <span class="quem-tag escolhida">
+              <lucide-icon [img]="isPrivate() ? PrivateIcon : EveryoneIcon" [size]="16" aria-hidden="true" />
+              {{ isPrivate() ? 'Privado' : 'Público' }}
+            </span>
+            <button type="button" class="quem-tag quem-mudar" aria-haspopup="dialog" aria-describedby="editor-quem-dica" (click)="shareOpen.set(true)">
+              <lucide-icon [img]="SharedIcon" [size]="16" aria-hidden="true" />
+              {{ structureLocked() ? 'Ver em Compartilhar' : 'Mudar em Compartilhar' }}
+            </button>
+          </div>
+          <p class="quem-dica" id="editor-quem-dica">
+            {{ isPrivate() ? 'Só quem está na anotação vê.' : 'Aparece também no mural de quem está nela.' }}
+            @if (structureLocked()) {
+              Só o dono e os gestores mudam isso.
+            }
+          </p>
+        </div>
+      } @else {
+        <fieldset class="quem-ve">
+          <legend class="sr-only">Quem vê?</legend>
+          <div class="quem-opts">
+            @for (o of visibilities; track o.value) {
+              <label class="quem">
+                <input type="radio" name="editor-quem" [checked]="visibility() === o.value" (change)="pickVisibility(o.value)" aria-describedby="editor-quem-dica" />
+                <span class="quem-tag">
+                  <lucide-icon [img]="o.icon" [size]="16" aria-hidden="true" />
+                  {{ o.label }}
+                </span>
+              </label>
+            }
+          </div>
+          <p class="quem-dica" id="editor-quem-dica">
+            @if (isPrivate()) {
+              Só você vê. Ninguém é avisado.
+            } @else if (!announces() && !editing()) {
+              No seu mural, fora do Feed. A setinha ao lado de Pregar publica no Feed.
+            } @else if (!announces()) {
+              No seu mural, fora do Feed. A setinha ao lado de Salvar publica no Feed.
+            } @else if (editing() && !feedMenu()) {
+              No seu mural, e já foi para o Feed de quem segue você.
+            } @else {
+              No seu mural e no Feed de quem segue você.
+            }
+          </p>
+        </fieldset>
+      }
     </ng-template>
 
     <!-- a data em três partes: a mesma na resenha e na anotação -->
     <ng-template #dataCampo>
-            <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
-              <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
-              <div class="data-atalhos">
-                <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
-                <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
-              </div>
-              <!-- dia, mês e ano numa tira só, como um formulário impresso: cada parte pode ficar em branco -->
-              <div class="tira tira-data" [class.vazia]="dateUnknown()" [class.errada]="attempted() && !dateValid()">
-                <label class="parte parte-dia">
-                  <span class="parte-rotulo">Dia</span>
-                  <input
-                    id="editor-data"
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="2"
-                    autocomplete="off"
-                    placeholder="–"
-                    [value]="dateDay()"
-                    [attr.aria-invalid]="attempted() && !dateValid()"
-                    (input)="typeDate($any($event.target), 'day')"
-                  />
-                </label>
-                <span class="barra" aria-hidden="true">/</span>
-                <label class="parte parte-mes">
-                  <span class="parte-rotulo">Mês</span>
-                  <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
-                    <option value="" [selected]="!dateMonth()">–</option>
-                    @for (m of months; track m; let i = $index) {
-                      <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
-                    }
-                  </select>
-                </label>
-                <span class="barra" aria-hidden="true">/</span>
-                <label class="parte parte-ano">
-                  <span class="parte-rotulo">Ano</span>
-                  <input
-                    type="text"
-                    inputmode="numeric"
-                    maxlength="4"
-                    autocomplete="off"
-                    placeholder="–"
-                    [value]="dateYear()"
-                    [attr.aria-invalid]="attempted() && !dateValid()"
-                    (input)="typeDate($any($event.target), 'year')"
-                    (keydown.arrowup)="$event.preventDefault(); stepYear(1)"
-                    (keydown.arrowdown)="$event.preventDefault(); stepYear(-1)"
-                  />
-                </label>
-              </div>
-              <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
-                {{ dateProblem() || dateReading() }}
-              </p>
-            </div>
+      <div class="campo campo-data" role="group" aria-labelledby="editor-data-rotulo" aria-describedby="editor-data-leitura">
+        <span class="rotulo" id="editor-data-rotulo">{{ dateLabel() }}</span>
+        <div class="data-atalhos">
+          <button type="button" class="data-atalho" [disabled]="isToday()" (click)="setToday()">Hoje</button>
+          <button type="button" class="data-atalho" [disabled]="dateUnknown()" (click)="clearDate()">Não lembro</button>
+        </div>
+        <!-- dia, mês e ano numa tira só, como um formulário impresso: cada parte pode ficar em branco -->
+        <div class="tira tira-data" [class.vazia]="dateUnknown()" [class.errada]="attempted() && !dateValid()">
+          <label class="parte-data parte-dia">
+            <span class="parte-rotulo">Dia</span>
+            <input
+              id="editor-data"
+              type="text"
+              inputmode="numeric"
+              maxlength="2"
+              autocomplete="off"
+              placeholder="–"
+              [value]="dateDay()"
+              [attr.aria-invalid]="attempted() && !dateValid()"
+              (input)="typeDate($any($event.target), 'day')"
+            />
+          </label>
+          <span class="barra" aria-hidden="true">/</span>
+          <label class="parte-data parte-mes">
+            <span class="parte-rotulo">Mês</span>
+            <select id="editor-data-mes" [value]="dateMonth()" (change)="dateMonth.set($any($event.target).value)">
+              <option value="" [selected]="!dateMonth()">–</option>
+              @for (m of months; track m; let i = $index) {
+                <option [value]="(i + 1 < 10 ? '0' : '') + (i + 1)" [selected]="+dateMonth() === i + 1">{{ m }}</option>
+              }
+            </select>
+          </label>
+          <span class="barra" aria-hidden="true">/</span>
+          <label class="parte-data parte-ano">
+            <span class="parte-rotulo">Ano</span>
+            <input
+              type="text"
+              inputmode="numeric"
+              maxlength="4"
+              autocomplete="off"
+              placeholder="–"
+              [value]="dateYear()"
+              [attr.aria-invalid]="attempted() && !dateValid()"
+              (input)="typeDate($any($event.target), 'year')"
+              (keydown.arrowup)="$event.preventDefault(); stepYear(1)"
+              (keydown.arrowdown)="$event.preventDefault(); stepYear(-1)"
+            />
+          </label>
+        </div>
+        <p class="data-leitura" id="editor-data-leitura" [class.problema]="dateProblem()" [class.erro]="attempted() && dateProblem()" aria-live="polite">
+          {{ dateProblem() || dateReading() }}
+        </p>
+      </div>
     </ng-template>
   </form>
+  @if (shareOpen()) {
+    @defer (on immediate) {
+      <app-share-sheet [noteId]="id()" (closed)="shareOpen.set(false)" (left)="leftShared()" />
+    }
+  }
 </dialog>

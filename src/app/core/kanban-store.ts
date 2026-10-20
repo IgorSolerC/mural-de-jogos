@@ -1,5 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { EMPTY_KANBAN, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, restoredBoard, sanitizeKanban } from './kanban';
+import { EMPTY_KANBAN, Importance, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, restoredBoard, sanitizeKanban } from './kanban';
 import { activeOrder } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
@@ -17,10 +17,15 @@ function read(): KanbanState {
   }
 }
 
-/** Onde a próxima anotação nova vai cair, quando ela é criada de dentro de uma coluna. */
+/**
+ * Onde a próxima anotação nova vai cair: criada de dentro de uma coluna, ou com a etapa escolhida na
+ * parte Quadro do editor (que pode trazer também a importância e o status).
+ */
 export interface KanbanSpot {
   board: string;
   column: string;
+  importance?: Importance | null;
+  status?: string;
 }
 
 /**
@@ -160,7 +165,8 @@ export class KanbanStore {
     if (!spot || !category?.trim()) return null;
     const board = this.boardFor(category);
     if (board.id === spot.board && board.columns.some((c) => c.id === spot.column)) return spot;
-    return { board: board.id, column: board.columns[0].id };
+    const { board: _b, column: _c, ...rest } = spot;
+    return { board: board.id, column: board.columns[0].id, ...rest };
   }
 
   /** Converte os quadros de antes (ver `attachLegacy`): as anotações vão para os quadros das categorias delas. */

@@ -63,46 +63,7 @@ dialog.ficha-quadro {
 }
 
 .etapa {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  max-width: 100%;
-  padding: 6px 12px 5px 10px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: rgb(21 21 21 / 0.78);
-  box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.4);
-  font-family: var(--f-marker);
-  font-size: 1rem;
-  line-height: 1.1;
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    rotate var(--t-physical) var(--ease-physical);
-
-  &:hover {
-    background: rgb(21 21 21 / 0.06);
-    color: var(--ink);
-  }
-
-  /* a escolhida: o cabeçalho da coluna, colado (o papel claro com o contorno da cor dela) */
-  &[aria-checked='true'] {
-    @include kk.cabecalho;
-    padding-inline: 13px 15px;
-    rotate: -1.2deg;
-
-    lucide-icon {
-      color: var(--col-cor);
-    }
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
+  @include kk.etapa-opcao;
 }
 
 .etapa-nome {
@@ -117,63 +78,7 @@ dialog.ficha-quadro {
 }
 
 .imp {
-  @include kk.importancia-cores;
-  --imp: var(--ink);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 6px 11px 5px 9px;
-  /* o recorte ainda na cartela: o contorno tracejado */
-  border: 1.5px dashed rgb(21 21 21 / 0.42);
-  border-radius: 2px;
-  background: transparent;
-  color: rgb(21 21 21 / 0.74);
-  outline-offset: 2px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    rotate var(--t-physical) var(--ease-physical),
-    scale var(--t-physical) var(--ease-physical);
-
-  .escala {
-    @include kk.escala;
-    color: var(--imp);
-  }
-
-  &:hover {
-    background-color: rgb(21 21 21 / 0.06);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-  }
-
-  &.colado {
-    @include kk.importancia;
-    min-height: 44px;
-    padding: 6px 11px 5px 9px;
-    border: 1.5px solid transparent;
-    font-size: 0.86rem;
-    rotate: -2deg;
-    scale: 1.04;
-
-    .escala {
-      color: inherit;
-    }
-  }
-
-  &.nenhuma.colado {
-    --imp: rgb(21 21 21 / 0.55);
-    color: var(--ink);
-  }
+  @include kk.imp-opcao;
 }
 
 /* ===== Tags: as da anotação, amarradas (com a cor delas); as outras da categoria, em contorno ===== */

@@ -68,7 +68,15 @@ describe('o editor segue as configurações do mural', () => {
     localStorage.clear();
   });
 
-  const block = () => el.querySelector<HTMLFieldSetElement>('fieldset:has(input[name="editor-quem"])')!;
+  /** Quem vê mora na parte dele, aberta pela etiqueta "Quem vê" da fileira. */
+  const block = () => {
+    const chip = el.querySelector<HTMLButtonElement>('.prop[data-prop="quem"]')!;
+    if (chip.getAttribute('aria-expanded') !== 'true') {
+      chip.click();
+      fixture.detectChanges();
+    }
+    return el.querySelector<HTMLFieldSetElement>('fieldset:has(input[name="editor-quem"])')!;
+  };
   const chosen = () => Array.from(block().querySelectorAll<HTMLLabelElement>('label.quem')).find((l) => l.querySelector('input')!.checked)!.textContent!.trim();
   const choose = async (label: string) => {
     Array.from(block().querySelectorAll<HTMLLabelElement>('label.quem'))
@@ -77,7 +85,7 @@ describe('o editor segue as configurações do mural', () => {
       .click();
     await fixture.whenStable();
   };
-  const hint = () => el.querySelector('#editor-quem-dica')!.textContent!.trim();
+  const hint = () => (block(), el.querySelector('#editor-quem-dica')!.textContent!.trim());
   const titled = (name: string) => store.notes().find((n) => n.game.name === name)!;
   const saveAndWait = async () => {
     const dialog = el.querySelector('dialog')!;
@@ -103,7 +111,7 @@ describe('o editor segue as configurações do mural', () => {
     fixture.componentInstance.openInCategory('Roadmap site');
     await fixture.whenStable();
     expect(chosen()).toBe('Público');
-    expect(hint()).toContain('sem aparecer no Feed');
+    expect(hint()).toContain('fora do Feed');
     await typeTitle('Próximos passos');
     await saveAndWait();
     const saved = titled('Próximos passos');
@@ -115,7 +123,7 @@ describe('o editor segue as configurações do mural', () => {
     fixture.componentInstance.openInCategory('Viagens!');
     await fixture.whenStable();
     expect(chosen()).toBe('Público');
-    expect(hint()).toContain('aparece no Feed');
+    expect(hint()).toContain('no Feed de quem segue você');
     await typeTitle('Lisboa');
     await saveAndWait();
     const saved = titled('Lisboa');

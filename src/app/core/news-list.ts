@@ -26,12 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-19-sem-sub-nota',
+    id: '2026-10-19-editor-pagina',
     version: '1.28.1',
     kind: 'ajustes',
     date: '2026-10-19',
-    title: 'A ficha aberta, mais fácil de ler, e a folha dos widgets',
+    title: 'O editor refeito, a ficha aberta mais fácil de ler e a folha dos widgets',
     melhorias: [
+      'O editor das anotações e das análises virou uma página: o nome vai escrito na faixa colorida, os detalhes (grupo, tags, data, Kanban, capa e quem vê; nas análises, data, horas e dificuldade) ficam numa fileira de etiquetas que abrem cada uma a sua parte, e o texto ocupa o resto.',
+      'O grupo e as tags se escolhem com uma busca que também cria; o ícone e a cor do grupo ficam só nas configurações do mural.',
+      'A cartolina ganhou uma aba só dela no editor, com o que já está na ficha em etiquetas para tirar uma a uma ou tudo de uma vez; no computador, a ficha fica à vista ao lado o tempo todo.',
+      'O lugar da anotação no Kanban (a coluna, a importância e o status) também se escolhe no editor, e a anotação nova já pode nascer numa coluna.',
       'Pôr e mexer num widget ficou bem mais simples: ele abre numa folha só dele, com os widgets numa coluna ao lado (trocar de um para outro leva o link e o nome junto), o que ele mostra num grupo, a aparência em outro e o widget de verdade ao lado, andando, na ficha do mural ou aberto.',
       'Os jeitos de cada widget (calendário, neon, placar, riscado; foto, polaroide, recorte; fita, simples, vinil) viraram miniaturas desenhadas, e a escolhida fica presa com a tachinha.',
       'No contador, a repetição virou uma lista só, ao lado do dia e da hora, e a de toda semana escolhe o dia em bolinhas, como nos calendários.',

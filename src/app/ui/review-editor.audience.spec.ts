@@ -54,8 +54,16 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     localStorage.clear();
   });
 
-  /** O bloco de quem vê (a anotação tem outro bloco do mesmo jeito antes dele: o lugar no mural). */
-  const block = () => el.querySelector<HTMLFieldSetElement>('fieldset:has(input[name="editor-quem"])');
+  /** Quem vê mora na parte dele, aberta pela etiqueta "Quem vê" da fileira (se ela existe). */
+  const openQuem = () => {
+    if (el.querySelector('#editor-parte')) return;
+    el.querySelector<HTMLButtonElement>('.prop[data-prop="quem"]')?.click();
+    fixture.detectChanges();
+  };
+  const block = () => {
+    openQuem();
+    return el.querySelector<HTMLFieldSetElement>('fieldset:has(input[name="editor-quem"])');
+  };
   const options = () => Array.from(block()!.querySelectorAll<HTMLLabelElement>('label.quem')).map((l) => l.textContent!.trim());
   const choose = async (label: string) => {
     const opt = Array.from(block()!.querySelectorAll<HTMLLabelElement>('label.quem')).find((l) => l.textContent!.includes(label))!;
@@ -63,7 +71,10 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     await fixture.whenStable();
   };
   const arrow = () => el.querySelector<HTMLButtonElement>('app-feed-menu .seta');
-  const hint = () => el.querySelector('#editor-quem-dica')!.textContent!.trim();
+  const hint = () => {
+    openQuem();
+    return el.querySelector('#editor-quem-dica')!.textContent!.trim();
+  };
   const submit = () => el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!;
   /** Espera o diálogo fechar depois de `act`. */
   const closing = async (act: () => void) => {
@@ -108,7 +119,7 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     expect(arrow()!.getAttribute('aria-expanded')).toBe('false');
     expect(el.querySelector('.pregar')!.classList).toContain('dividido');
     expect(submit().textContent).toContain('Pregar no mural');
-    expect(hint()).toContain('aparece no Feed');
+    expect(hint()).toContain('no Feed de quem segue você');
   });
 
   it('pregar no mural publica: vai para o Feed', async () => {
@@ -157,7 +168,7 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     await fixture.whenStable();
     expect(options()).toEqual(['Público', 'Privado']);
     expect(block()!.querySelector<HTMLInputElement>('input')!.checked).toBeTrue();
-    expect(hint()).toContain('não foi para o Feed');
+    expect(hint()).toContain('fora do Feed');
     expect(submit().textContent).toContain('Salvar alterações');
     const item = await openMenu();
     expect(item.textContent).toContain('Salvar e publicar no Feed');
@@ -211,7 +222,10 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
   });
 
   describe('na anotação compartilhada', () => {
-    const shared = () => el.querySelector<HTMLElement>('.quem-ve:has(.quem-mudar)');
+    const shared = () => {
+      openQuem();
+      return el.querySelector<HTMLElement>('.quem-ve:has(.quem-mudar)');
+    };
     const change = () => el.querySelector<HTMLButtonElement>('.quem-mudar')!;
     async function openShared(role: 'gestor' | 'editor', extra: Record<string, unknown> = {}): Promise<Review> {
       spyOn(TestBed.inject(SharedStore), 'role').and.returnValue(role);
@@ -225,7 +239,8 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     it('"Quem vê?" mostra como ela está e leva ao Compartilhar, em vez das opções', async () => {
       await openShared('gestor');
       expect(block()).toBeNull();
-      expect(shared()!.querySelector('.pergunta')!.textContent!.trim()).toBe('Quem vê?');
+      expect(shared()!.closest('#editor-parte')!.getAttribute('aria-label')).toBe('Quem vê');
+      expect(el.querySelector('.prop[data-prop="quem"]')!.getAttribute('aria-label')).toBe('Quem vê: pública, compartilhada');
       expect(shared()!.querySelector('.quem-tag.escolhida')!.textContent!.trim()).toBe('Público');
       expect(change().textContent!.trim()).toBe('Mudar em Compartilhar');
       expect(change().getAttribute('aria-haspopup')).toBe('dialog');
