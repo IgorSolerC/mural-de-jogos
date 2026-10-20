@@ -30,6 +30,7 @@ import { NoteSelection } from '../ui/note-selection';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
+import { SubjectChip, SubjectChips } from '../ui/subject-chips';
 import { TagChip, TagChips } from '../ui/tag-chips';
 import { TabFit } from '../ui/tab-fit';
 import { Toasts } from '../ui/toast';
@@ -142,7 +143,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, TagChips],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, SubjectChips, TagChips],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -264,6 +265,13 @@ export class KanbanPage {
   protected readonly query = signal('');
   /** As tags ligadas no filtro (sem acento nem caixa): mostra as anotações com qualquer uma delas. */
   protected readonly tagFilter = signal<readonly string[]>([]);
+  /** Os assuntos ligados no filtro (sem acento nem caixa; 'sem' para as sem assunto): qualquer um deles. */
+  protected readonly subjectFilter = signal<readonly string[]>([]);
+  /** A anotação passa no filtro do assunto? */
+  private readonly bySubject = computed(() => {
+    const on = this.subjectFilter();
+    return (r: Review) => !on.length || on.includes(r.subject ? fold(r.subject) : 'sem');
+  });
   /**
    * As tags escondidas nesta visita (o clique direito no filtro) e as que o padrão esconde e a pessoa
    * mostrou de novo (ver core/tag-filter.ts). Trocar de quadro volta ao padrão.
@@ -301,7 +309,7 @@ export class KanbanPage {
     return !!b && this.denseBoards().includes(b.id);
   });
 
-  protected readonly filtering = computed(() => !!this.query().trim() || this.tagFilter().length > 0 || this.tagHidden() > 0);
+  protected readonly filtering = computed(() => !!this.query().trim() || this.tagFilter().length > 0 || this.subjectFilter().length > 0 || this.tagHidden() > 0);
 
   /**
    * As anotações do quadro que estão nele de verdade: existem e ainda são da categoria dele (uma
@@ -346,7 +354,7 @@ export class KanbanPage {
     const seen = new Map<string, { spell: Map<string, number>; uses: number; n: number }>();
     for (const c of this.live()) {
       const note = this.notes().get(c.note)!;
-      const found = (!q || fold(note.game.name).includes(q)) && !out(note);
+      const found = (!q || fold(note.game.name).includes(q)) && !out(note) && this.bySubject()(note);
       for (const k of new Set((note.tags ?? []).map(fold))) {
         const e = seen.get(k) ?? { spell: new Map<string, number>(), uses: 0, n: 0 };
         e.uses++;
@@ -367,6 +375,37 @@ export class KanbanPage {
       .sort((a, b) => b.uses - a.uses || a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }))
       .map(({ uses: _u, ...chip }) => chip);
   });
+
+  /**
+   * Os assuntos das anotações do quadro para o filtro, como os do mural (ver `SubjectChips`): de A a Z
+   * e "Sem assunto" no fim, cada um com quantas anotações mostraria com a busca e as tags de agora.
+   */
+  protected readonly subjectChips = computed<SubjectChip[]>(() => {
+    const q = fold(this.query().trim());
+    const on = new Set(this.subjectFilter());
+    const tags = this.tagFilter();
+    const out = this.outByTags();
+    const seen = new Map<string, { spell: Map<string, number>; n: number }>();
+    for (const c of this.live()) {
+      const note = this.notes().get(c.note)!;
+      const k = note.subject ? fold(note.subject) : 'sem';
+      const e = seen.get(k) ?? { spell: new Map<string, number>(), n: 0 };
+      if (note.subject) e.spell.set(note.subject, (e.spell.get(note.subject) ?? 0) + 1);
+      if ((!q || fold(note.game.name).includes(q)) && (!tags.length || (note.tags ?? []).some((t) => tags.includes(fold(t)))) && !out(note)) e.n++;
+      seen.set(k, e);
+    }
+    // sem nenhum assunto no quadro, não há o que filtrar
+    if (![...seen.keys()].some((k) => k !== 'sem')) return [];
+    for (const k of on) if (!seen.has(k)) seen.set(k, { spell: new Map(), n: 0 });
+    return [...seen]
+      .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem assunto' : e.spell.size ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : value, n: e.n, on: on.has(value) }))
+      .sort((a, b) => (a.value === 'sem' ? 1 : b.value === 'sem' ? -1 : a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })));
+  });
+
+  /** O toque num assunto do filtro: liga ou desliga. */
+  protected toggleSubject(value: string): void {
+    this.subjectFilter.update((on) => (on.includes(value) ? on.filter((s) => s !== value) : [...on, value]));
+  }
 
   /** O clique numa tag do filtro: liga ou desliga; na riscada, as anotações dela voltam ao quadro. */
   protected toggleTag(value: string): void {
@@ -407,6 +446,7 @@ export class KanbanPage {
     const q = fold(this.query().trim());
     const tags = this.tagFilter();
     const hidden = this.outByTags();
+    const subject = this.bySubject();
     const d = this.drag();
     // as que estão sendo arrastadas saem das colunas (a vaga, uma só, fica onde cairiam)
     const moving = new Set(d ? [d.note, ...d.group] : []);
@@ -414,7 +454,7 @@ export class KanbanPage {
       const n = notes.get(c.note);
       if (!n) return false;
       if (moving.has(c.note)) return true;
-      return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t)))) && !hidden(n);
+      return (!q || fold(n.game.name).includes(q)) && (!tags.length || (n.tags ?? []).some((t) => tags.includes(fold(t)))) && !hidden(n) && subject(n);
     };
     const shown = this.shown();
     const out = b.columns.map((col) => {
@@ -486,7 +526,7 @@ export class KanbanPage {
     drags: true,
     notes: this.notes,
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
-    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
+    reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.subjectFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
     layout: this.view,
   });
 
@@ -522,6 +562,7 @@ export class KanbanPage {
       boardId();
       untracked(() => {
         this.tagFilter.set([]);
+        this.subjectFilter.set([]);
         this.tagOuts.set(NO_TAG_OUTS);
         this.adding.set(null);
         this.shown.set(new Map());
@@ -719,7 +760,11 @@ export class KanbanPage {
     this.kanban.pending.set({ board: b.id, column });
     // com o card padrão ligado, a anotação já nasce vestida com ele
     const col = b.columns.find((x) => x.id === column);
-    this.desk.newNoteIn(c.label, col?.dresses ? col.look : undefined);
+    // com um assunto só ligado no filtro, ela nasce nele
+    const on = this.subjectChips().filter((s) => s.on);
+    const look = col?.dresses ? col.look : undefined;
+    if (on.length === 1 && on[0].value !== 'sem') this.desk.newNoteIn(c.label, look, on[0].label);
+    else this.desk.newNoteIn(c.label, look);
   }
 
   protected read(id: string): void {
@@ -730,6 +775,7 @@ export class KanbanPage {
   protected clearFilters(): void {
     this.query.set('');
     this.tagFilter.set([]);
+    this.subjectFilter.set([]);
     this.tagOuts.set(showAllTags(this.boardNotes(), this.settings.hiddenTagKeys()));
   }
 

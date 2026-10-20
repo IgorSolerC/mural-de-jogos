@@ -52,7 +52,7 @@ const SCORE_FIELDS = new Set(['scores', 'weights', 'bonuses', 'finalOverride', '
 function partOf(path: readonly string[]): FichaPart {
   const [field, sub] = path;
   if (field === 'game') return sub === 'name' ? 'titulo' : sub === 'coverUrl' ? 'capa' : 'outros';
-  if (field === 'category') return 'categoria';
+  if (field === 'category' || field === 'subject') return 'categoria';
   if (field === 'completedAt') return 'data';
   if (SCORE_FIELDS.has(field)) return 'nota';
   return 'outros';

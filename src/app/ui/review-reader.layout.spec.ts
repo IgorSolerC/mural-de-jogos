@@ -280,6 +280,15 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('.orelha-grupo')).toBeNull();
   });
 
+  it('o assunto da anotação abre a linha da data (o grupo continua na orelha)', async () => {
+    fixture.componentInstance.open(note('n-revol', 'Revolução Francesa', { category: 'Estudos', subject: 'História' }));
+    await settle();
+    expect(words(q('.meta .assunto'))).toBe('Assunto: História');
+    fixture.componentInstance.open(note('n-revol-2', 'Era Vargas', { category: 'Estudos' }));
+    await settle();
+    expect(q('.meta .assunto')).toBeNull();
+  });
+
   it('a anotação no quadro do Kanban diz a coluna, a importância e o status; tocar na coluna abre o quadro', async () => {
     const store = TestBed.inject(ReviewStore);
     store.add(note('n-mercado', 'Mercado', { category: 'Casa' }));
@@ -295,7 +304,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     const line = q('.lugares .no-quadro')!;
     expect(words(line)).toContain('Fazendo');
     expect(words(line.querySelector('.etq.imp'))).toBe('Importância: Importante');
-    expect(words(line.querySelector('.etq.status'))).toBe('Status: Com o Caio');
+    expect(words(line.querySelector('.etq.status'))).toBe('Observação: Com o Caio');
 
     const router = TestBed.inject(Router);
     const go = spyOn(router, 'navigate').and.resolveTo(true);

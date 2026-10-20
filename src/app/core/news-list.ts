@@ -26,6 +26,28 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-20-observacao-kanban',
+    version: '1.29.1',
+    kind: 'ajustes',
+    date: '2026-10-20',
+    title: 'O status do Kanban virou Observação',
+    melhorias: ['O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".'],
+  },
+  {
+    id: '2026-10-20-assunto',
+    version: '1.29.0',
+    kind: 'funcionalidade',
+    date: '2026-10-20',
+    title: 'Assunto nas anotações',
+    notice: 'Novo: o assunto, entre o grupo e as tags. Em Estudos, História e Geografia; em Trabalho, cada projeto. Escolha no editor e filtre na pasta do mural e do Kanban.',
+    items: [
+      'Toda anotação pode ter um assunto, um nível entre o grupo e as tags: no grupo Estudos, História ou Geografia; em Desenvolvimento, Kanban. Ele fica na etiqueta Assunto do editor (e na folha da anotação no quadro), com uma busca que também cria, e cada grupo sugere só os assuntos dele.',
+      'O assunto abre a linha da data da ficha, no mural e no Kanban (também na vista Só os títulos), e a linha da data da anotação aberta.',
+      'Na pasta do mural e do Kanban, os assuntos da aba ficam antes das tags, cada um com quantas anotações tem: um toque mostra só as dele, e a anotação nova escrita com um assunto ligado já nasce nele. Também dá para ordenar o mural por assunto, em seções, e a busca acha pelo assunto.',
+      'As configurações do mural ganharam a parte Assuntos: cada grupo com os seus, para criar antes de usar, renomear e apagar (em todas as anotações do grupo). O painel de cada grupo, em Grupos, mostra os assuntos dele e leva até lá.',
+    ],
+  },
+  {
     id: '2026-10-20-sutil-na-frase',
     version: '1.28.2',
     kind: 'ajustes',

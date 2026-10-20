@@ -88,6 +88,7 @@ import {
   FlagOff,
   Flame,
   FolderOpen,
+  FolderTree,
   Frame,
   GalleryVerticalEnd,
   Gamepad2,
@@ -490,6 +491,8 @@ export const ICON = {
   semEstrela: StarOff,
   etiqueta: Tag,
   etiquetas: Tags,
+  /** O assunto de uma anotação: um nível abaixo do grupo (a pasta dentro da pasta). */
+  assunto: FolderTree,
   paleta: Palette,
   coroa: Crown,
   joinha: ThumbsUp,

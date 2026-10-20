@@ -5,10 +5,10 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, arrangedKeys, kanbanOnly, moveKey, prefsOf, tagHiddenByDefault } from '../core/mural-config';
+import { CategoryPrefs, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { LABEL_MAX, cleanCategory, cleanTag } from '../core/note-labels';
+import { LABEL_MAX, SubjectEntry, cleanCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
@@ -28,6 +28,7 @@ import { tabStep } from './focus';
 const SECTIONS = [
   { id: 'padroes', label: 'Padrões', hint: 'Como nasce cada anotação', icon: ICON.ajustar },
   { id: 'categorias', label: 'Grupos', hint: 'Nome, ordem, cor e padrões', icon: ICON.etiquetas },
+  { id: 'assuntos', label: 'Assuntos', hint: 'Por grupo: criar e renomear', icon: ICON.assunto },
   { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: ICON.etiqueta },
   { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: ICON.colunas },
 ] as const;
@@ -82,6 +83,16 @@ interface TagGroup {
   /** A categoria como vai para as cores e o renomear ("" para as sem). */
   category: string;
   tags: CategoryRow[];
+}
+
+/** Os assuntos de um grupo, na parte Assuntos: cada grupo com os seus (também os ainda sem nenhum). */
+interface SubjectGroup {
+  /** A chave do grupo ("" para as anotações sem grupo). */
+  key: string;
+  label: string;
+  /** O grupo como vai para o renomear e a lista dos criados ("" para as sem grupo). */
+  category: string;
+  subjects: SubjectEntry[];
 }
 
 /** O arrastar de uma categoria pela alça: onde ela estava, onde vai cair e quanto andou. */
@@ -142,6 +153,7 @@ export class MuralConfig {
   protected readonly RenameIcon = ICON.editar;
   protected readonly DeleteIcon = ICON.apagar;
   protected readonly OkIcon = ICON.pronto;
+  protected readonly AddIcon = ICON.adicionar;
   protected readonly labelMax = LABEL_MAX;
   protected readonly ResetBoardIcon = ICON.recomecar;
   /** As partes à mostra: o Quadro só pelo Kanban. */
@@ -201,6 +213,32 @@ export class MuralConfig {
     if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', tags: loose });
     return groups;
   });
+
+  /**
+   * Os assuntos de cada grupo, na ordem dos grupos (a das abas), e os das anotações sem grupo por
+   * último (só quando há algum): os criados aqui primeiro, depois os usados (ver `subjectLibrary`).
+   */
+  protected readonly subjectGroups = computed<SubjectGroup[]>(() => {
+    const notes = this.store.notes();
+    const cfg = this.config();
+    const groups: SubjectGroup[] = this.categories().map((c) => ({ key: c.key, label: c.label, category: c.label, subjects: subjectLibrary(notes, savedSubjects(cfg, c.label), c.label) }));
+    const loose = subjectLibrary(notes, savedSubjects(cfg, ''), null);
+    if (loose.length) groups.push({ key: '', label: 'Sem grupo', category: '', subjects: loose });
+    return groups;
+  });
+
+  /** Os assuntos do grupo, numa linha para o painel dele em Grupos ("História, Geografia e Matemática"). */
+  protected subjectsLine(row: CategoryRow): string {
+    const names = this.subjectGroups().find((g) => g.key === row.key)?.subjects.map((s) => s.label) ?? [];
+    if (!names.length) return 'Nenhum ainda.';
+    const shown = names.slice(0, 5);
+    const rest = names.length - shown.length;
+    const list = rest ? `${shown.join(', ')} e mais ${rest}` : shown.length > 1 ? `${shown.slice(0, -1).join(', ')} e ${shown.at(-1)}` : shown[0];
+    return `${list}.`;
+  }
+
+  /** O assunto sendo renomeado (o grupo e a chave), com o campo no lugar dele. */
+  protected readonly renamingSubject = signal<string | null>(null);
 
   /** A categoria aberta (uma por vez, como o acordeão do perfil). */
   protected readonly open = signal<string | null>(null);
@@ -382,6 +420,106 @@ export class MuralConfig {
     this.renamingTag.set(null);
     const r = this.edits.renameTag(row.label, group.category, null);
     this.notice.set(`${this.where(group)}${row.label} foi apagada ${this.told(r)}`);
+  }
+
+  // ===== assuntos =====
+
+  /** De Grupos para Assuntos, já no grupo e com o foco no "Novo assunto" dele. */
+  protected openSubjects(row: CategoryRow): void {
+    this.pick('assuntos');
+    afterNextRender(
+      () => {
+        const field = this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-novo-assunto="${CSS.escape(row.key)}"]`);
+        field?.scrollIntoView({ block: 'center' });
+        field?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  protected subjectId(group: SubjectGroup, s: SubjectEntry): string {
+    return `${group.key}|${lookKey(s.label)}`;
+  }
+
+  /** "em 3 anotações", ou "ainda em nenhuma anotação". */
+  protected subjectUses(s: SubjectEntry): string {
+    return s.n ? plural(s.n, 'anotação', 'anotações') : 'Ainda em nenhuma';
+  }
+
+  /** Um assunto novo para o grupo: fica à mão no editor e no filtro, mesmo antes de alguma anotação usar. */
+  protected addSubject(e: Event, group: SubjectGroup, field: HTMLInputElement): void {
+    e.preventDefault();
+    const name = cleanSubject(field.value);
+    if (!name) return;
+    const twin = group.subjects.find((s) => lookKey(s.label) === lookKey(name));
+    field.value = '';
+    if (twin) {
+      this.notice.set(group.category ? `${group.label} já tem o assunto ${twin.label}.` : `As anotações sem grupo já têm o assunto ${twin.label}.`);
+      return;
+    }
+    this.settings.setSavedSubjects(group.category, [...savedSubjects(this.config(), group.category), name]);
+    this.notice.set(group.category ? `${name} entrou nos assuntos de ${group.label}.` : `${name} entrou nos assuntos das anotações sem grupo.`);
+  }
+
+  protected startSubjectRename(group: SubjectGroup, s: SubjectEntry): void {
+    const id = this.subjectId(group, s);
+    this.renamingSubject.set(id);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLInputElement>(`[data-assunto-campo="${CSS.escape(id)}"]`)?.select(), { injector: this.injector });
+  }
+
+  /** Fecha o campo do assunto e devolve o foco ao lápis dele. */
+  protected stopSubjectRename(id: string): void {
+    this.renamingSubject.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`[data-assunto-lapis="${CSS.escape(id)}"]`)?.focus(), { injector: this.injector });
+  }
+
+  protected async renameSubject(e: Event, group: SubjectGroup, s: SubjectEntry, field: HTMLInputElement): Promise<void> {
+    e.preventDefault();
+    const name = cleanSubject(field.value);
+    if (!name || name === s.label) {
+      this.stopSubjectRename(this.subjectId(group, s));
+      return;
+    }
+    const other = this.edits.existingSubject(name, s.label, group.category);
+    if (other) {
+      const sure = await this.confirm.ask({
+        title: `Juntar com ${other}?`,
+        text: `${group.category ? `${group.label} já tem o assunto ${other}` : `As anotações sem grupo já têm o assunto ${other}`}. As anotações de ${s.label} passam para ${other}.`,
+        confirm: `Juntar com ${other}`,
+        tone: 'neutro',
+        icon: null,
+      });
+      if (!sure) return;
+    }
+    const r = this.edits.renameSubject(s.label, group.category, other ?? name);
+    this.stopSubjectRename(`${group.key}|${lookKey(other ?? name)}`);
+    const where = group.category ? `Em ${group.label}, ` : 'Nas anotações sem grupo, ';
+    this.notice.set(`${where}${s.label} ${other ? `entrou em ${other}` : `virou ${name}`}${s.n ? ` ${this.told(r)}` : '.'}`);
+  }
+
+  protected async deleteSubject(group: SubjectGroup, s: SubjectEntry): Promise<void> {
+    if (s.n) {
+      const sure = await this.confirm.ask({
+        title: group.category ? `Apagar o assunto ${s.label} de ${group.label}?` : `Apagar o assunto ${s.label}?`,
+        text: `${this.uses(s.n)} este assunto. Elas continuam no mural, no mesmo grupo, sem assunto.`,
+        confirm: 'Apagar o assunto',
+        icon: this.DeleteIcon,
+      });
+      if (!sure) return;
+    }
+    this.renamingSubject.set(null);
+    const r = this.edits.renameSubject(s.label, group.category, null);
+    const where = group.category ? `Em ${group.label}, ` : 'Nas anotações sem grupo, ';
+    this.notice.set(`${where}${s.label} foi apagado${s.n ? ` ${this.told(r)}` : '.'}`);
+  }
+
+  /** O ícone e a cor do grupo pela chave (na orelha da parte Assuntos). */
+  protected groupLookOf(key: string): CategoryLook {
+    return this.settings.categoryLooks()[key] ?? {};
+  }
+
+  protected groupColorOf(key: string): string | null {
+    return categoryColorHex(this.groupLookOf(key).color);
   }
 
   // ===== tags =====

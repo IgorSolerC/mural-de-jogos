@@ -244,7 +244,7 @@ describe('página do Kanban', () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const mexer = column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!;
-    expect(mexer.getAttribute('aria-label')).toBe('Etapa, importância, status, dependências e tags de Sincronizar quadros');
+    expect(mexer.getAttribute('aria-label')).toBe('Etapa, assunto, importância, observação, dependências e tags de Sincronizar quadros');
     mexer.click();
     await settle();
     const sheet = host.querySelector('app-kanban-card-sheet')!;
@@ -292,7 +292,7 @@ describe('página do Kanban', () => {
     expect(gear.getAttribute('aria-expanded')).toBe('true');
     const sheet = await configSheet();
     expect(sheet.querySelector('h2')!.textContent).toBe('Configurações do mural');
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Tags', 'Quadro']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Assuntos', 'Tags', 'Quadro']);
     sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
     expect(sheet.querySelector('h3')!.textContent).toBe('Quadro');
@@ -358,7 +358,7 @@ describe('página do Kanban', () => {
     document.body.appendChild(solo.nativeElement);
     await solo.whenStable();
     sheet = solo.nativeElement;
-    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Tags']);
+    expect([...sheet.querySelectorAll('.parte-nome')].map((t) => t.textContent!.trim())).toEqual(['Padrões', 'Grupos', 'Assuntos', 'Tags']);
     expect(sheet.querySelector('h3')!.textContent).toBe('Padrões');
     sheet.querySelector('dialog')!.close();
     solo.nativeElement.remove();
@@ -705,6 +705,51 @@ describe('página do Kanban', () => {
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(chips().every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
+  });
+
+  it('o assunto: abre a linha da data na ficha; o filtro da pasta (antes das tags) esconde os outros, e a nova nasce no único ligado', async () => {
+    store.update({ ...store.get('nlogin01')!, subject: 'Site' });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const kicker = column('afazer').querySelector('[data-nota="nlogin01"] .assunto')!;
+    expect(kicker.textContent!.replace('Assunto: ', '').trim()).toBe('Site');
+    expect(column('afazer').querySelector('[data-nota="nsync001"] .assunto')).toBeNull();
+    const chips = () => [...host.querySelectorAll<HTMLButtonElement>('.pasta-baixo app-subject-chips .assunto')];
+    // impresso em tinta, de A a Z, e "Sem assunto" no fim, com quantas cada um mostra
+    expect(chips().map((b) => b.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Site, 1', 'Sem assunto, 1']);
+    chips()[0].click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01']);
+    expect(chips()[0].getAttribute('aria-pressed')).toBe('true');
+    expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 2');
+    // a anotação nova pedida da coluna nasce no assunto ligado
+    const spy = spyOn(TestBed.inject(Desk), 'newNoteIn');
+    column('afazer').querySelector<HTMLButtonElement>('.adicionar-btn')!.click();
+    await settle();
+    [...column('afazer').querySelectorAll<HTMLButtonElement>('.adicionar-op')].find((b) => b.textContent!.includes('Nova nota'))!.click();
+    await settle();
+    expect(spy).toHaveBeenCalledWith('Trabalho', undefined, 'Site');
+    host.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    expect(chips().every((b) => b.getAttribute('aria-pressed') === 'false')).toBeTrue();
+  });
+
+  it('o assunto na folha da anotação: os do grupo à mão; escolher muda a anotação', async () => {
+    store.update({ ...store.get('nlogin01')!, subject: 'Site' });
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
+    await settle();
+    const sheet = host.querySelector('app-kanban-card-sheet')!;
+    const op = () => [...sheet.querySelectorAll<HTMLButtonElement>('app-subject-picker .op')].find((b) => b.textContent!.includes('Site'))!;
+    expect(op().getAttribute('aria-checked')).toBe('false');
+    op().click();
+    await settle();
+    expect(store.get('nsync001')!.subject).toBe('Site');
+    sheet.querySelector<HTMLButtonElement>('app-subject-picker .nenhum')!.click();
+    await settle();
+    expect(store.get('nsync001')!.subject).toBeUndefined();
   });
 
   it('o quadro passa da pasta até as beiradas da tela: a primeira coluna na linha da pasta, o resto some num degradê, e a seta traz as escondidas', async () => {
@@ -1340,7 +1385,7 @@ describe('página do Kanban', () => {
       expect([...pe.children].map((e) => e.className.split(' ')[0])).toEqual(['imp', 'status']);
       const status = pe.querySelector<HTMLButtonElement>('.status')!;
       expect(status.textContent!.trim()).toBe('Aguardando cliente');
-      expect(status.getAttribute('aria-label')).toBe('Status: Aguardando cliente. Mudar');
+      expect(status.getAttribute('aria-label')).toBe('Observação: Aguardando cliente. Mudar');
       // a mesma etiqueta de bloco da importância: a letra de etiqueta, na tinta preta
       expect(getComputedStyle(status).fontFamily).toBe(getComputedStyle(pe.querySelector('.imp')!).fontFamily);
       expect(getComputedStyle(status).color).toBe('rgb(21, 21, 21)');
@@ -1369,7 +1414,7 @@ describe('página do Kanban', () => {
       await settle();
       const tira = column('afazer').querySelector('[data-nota="nlogin01"] .tira')!;
       expect(tira.querySelector('.status-mini')!.textContent!.trim()).toBe('Aguardando cliente');
-      expect(tira.querySelector('.tira-nome')!.getAttribute('aria-label')).toBe('Corrigir o login, importância crítico, status Aguardando cliente');
+      expect(tira.querySelector('.tira-nome')!.getAttribute('aria-label')).toBe('Corrigir o login, importância crítico, observação Aguardando cliente');
       expect(column('afazer').querySelector('[data-nota="nsync001"] .status-mini')!.textContent!.trim()).toBe('Sérgio');
     });
 
@@ -1399,7 +1444,7 @@ describe('página do Kanban', () => {
       column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
       await settle();
       const sheet = host.querySelector('app-kanban-card-sheet')!;
-      expect(sheet.querySelector('label[for$="-status"]')!.textContent!.trim()).toBe('Status');
+      expect(sheet.querySelector('label[for$="-status"]')!.textContent!.trim()).toBe('Observação');
       const input = sheet.querySelector<HTMLInputElement>('.status-valor input')!;
       expect(input.value).toBe('');
       expect(sheet.querySelector('.status-valor .tirar')).toBeNull();

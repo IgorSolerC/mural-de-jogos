@@ -725,6 +725,55 @@ fieldset.linha {
   }
 }
 
+/* ===== Os assuntos: uma linha por assunto, impresso em tinta (como no filtro da pasta) ===== */
+.assunto {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px 14px;
+  min-height: 56px;
+  padding: 6px 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+
+  &.renomeando {
+    padding: 10px 0;
+  }
+
+  .cat-n {
+    white-space: nowrap;
+  }
+}
+
+.assunto-nome {
+  min-width: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+/* o "Novo assunto" do grupo, no pé da lista: o campo de caneta e o Criar */
+.novo-assunto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-top: 12px;
+}
+
+/* no painel do grupo: a lista dos assuntos e o caminho para a parte Assuntos */
+.assuntos-resumo {
+  .nome-dica {
+    margin-top: 6px;
+  }
+
+  .link {
+    margin-top: 4px;
+  }
+}
+
 .vazio {
   max-width: 54ch;
   margin-top: 22px;

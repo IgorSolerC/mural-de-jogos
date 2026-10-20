@@ -214,6 +214,13 @@
 
                         <app-category-style class="sub-bloco" [id]="'config-estilo-' + i" [category]="c.label" [bare]="true" />
 
+                        <!-- os assuntos do grupo: só a lista, e o caminho para criar e renomear em Assuntos -->
+                        <div class="sub-bloco assuntos-resumo">
+                          <p class="sub-titulo">Assuntos</p>
+                          <p class="nome-dica">{{ subjectsLine(c) }}</p>
+                          <button type="button" class="link" (click)="openSubjects(c)">Criar e renomear em Assuntos</button>
+                        </div>
+
                         <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Anotação nova nasce</legend>
                           <div class="segmentos quatro">
@@ -288,6 +295,69 @@
               <p class="sr-only" aria-live="polite">{{ said() }}</p>
             } @else {
               <p class="vazio">Ainda não há grupos. Escolha um no editor de uma anotação e ele aparece aqui, pronto para ganhar ícone, cor e padrões próprios.</p>
+            }
+          }
+
+          @case ('assuntos') {
+            <h3>Assuntos</h3>
+            <p class="lead">O assunto separa as anotações de um grupo por dentro: em Estudos, História e Geografia. Os criados aqui já ficam à mão no editor e no filtro, antes de alguma anotação usar.</p>
+            <p class="aviso" role="status">{{ notice() }}</p>
+
+            @for (g of subjectGroups(); track g.key) {
+              <section class="tags-grupo assuntos-grupo" [attr.aria-label]="g.category ? 'Assuntos de ' + g.label : 'Assuntos das anotações sem grupo'">
+                <h4 class="tags-cat">
+                  @if (g.category) {
+                    <span class="orelha" [class.orelha-cor]="!!groupColorOf(g.key)" [style.--cat-cor]="groupColorOf(g.key)"><app-cat-label [label]="g.label" [look]="groupLookOf(g.key)" [iconSize]="14" /></span>
+                  } @else {
+                    <span class="orelha sem">Sem grupo</span>
+                  }
+                  <span class="cat-n">{{ g.subjects.length === 1 ? '1 assunto' : g.subjects.length ? g.subjects.length + ' assuntos' : 'Nenhum assunto' }}</span>
+                </h4>
+                <ul class="tags assuntos">
+                  @for (s of g.subjects; track s.label) {
+                    @let id = subjectId(g, s);
+                    <li class="assunto" [class.renomeando]="renamingSubject() === id">
+                      @if (renamingSubject() === id) {
+                        <form class="tag-nome" (submit)="renameSubject($event, g, s, nomeAssunto)">
+                          <span class="campo">
+                            <span class="sr-only">Novo nome do assunto {{ s.label }}{{ g.category ? ' em ' + g.label : '' }}</span>
+                            <input #nomeAssunto type="text" autocomplete="off" spellcheck="false" [attr.data-assunto-campo]="id" [maxLength]="labelMax" [value]="s.label" (keydown.escape)="$event.preventDefault(); stopSubjectRename(id)" />
+                          </span>
+                          <button type="submit" class="papel">
+                            <lucide-icon [img]="OkIcon" [size]="17" aria-hidden="true" />
+                            Renomear
+                          </button>
+                          <button type="button" class="papel quieto" (click)="stopSubjectRename(id)">Cancelar</button>
+                        </form>
+                      } @else {
+                        <span class="assunto-nome">{{ s.label }}</span>
+                        <span class="cat-n">{{ subjectUses(s) }}</span>
+                        <span class="tag-acoes">
+                          <button type="button" class="olho" [attr.data-assunto-lapis]="id" [attr.aria-label]="'Renomear o assunto ' + s.label + (g.category ? ' em ' + g.label : '')" title="Renomear" (click)="startSubjectRename(g, s)">
+                            <lucide-icon [img]="RenameIcon" [size]="18" aria-hidden="true" />
+                          </button>
+                          <button type="button" class="olho apagar-tag" [attr.aria-label]="'Apagar o assunto ' + s.label + (g.category ? ' de ' + g.label : '')" title="Apagar" (click)="deleteSubject(g, s)">
+                            <lucide-icon [img]="DeleteIcon" [size]="18" aria-hidden="true" />
+                          </button>
+                        </span>
+                      }
+                    </li>
+                  }
+                </ul>
+                <!-- um assunto novo, antes de alguma anotação usar -->
+                <form class="novo-assunto" (submit)="addSubject($event, g, novoAssunto)">
+                  <span class="campo">
+                    <span class="sr-only">Novo assunto {{ g.category ? 'em ' + g.label : 'sem grupo' }}</span>
+                    <input #novoAssunto type="text" autocomplete="off" [attr.data-novo-assunto]="g.key" [maxLength]="labelMax" [placeholder]="g.category ? 'Novo assunto em ' + g.label : 'Novo assunto'" />
+                  </span>
+                  <button type="submit" class="papel">
+                    <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
+                    Criar
+                  </button>
+                </form>
+              </section>
+            } @empty {
+              <p class="vazio">Ainda não há grupos. O assunto fica dentro de um grupo: escolha um grupo no editor de uma anotação e volte aqui para criar os assuntos dele.</p>
             }
           }
 

@@ -1,0 +1,133 @@
+@use 'paper-kit' as kit;
+
+:host {
+  display: grid;
+  gap: 12px;
+}
+
+.campo {
+  @include kit.campo;
+  max-width: 420px;
+  padding-left: 12px;
+}
+
+.lupa {
+  flex: none;
+  display: inline-flex;
+  margin-right: 6px;
+  color: var(--ink-2);
+}
+
+/* Os assuntos impressos em tinta, como no filtro da pasta: o escolhido com o traço de marca-texto */
+.ops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+}
+
+.op {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+
+  /* o traço de marca-texto (o mesmo dos controles da pasta) */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px 2px;
+    z-index: -1;
+    border-radius: 3px 8px 4px 9px;
+    background: var(--hi);
+    rotate: -1.2deg;
+    opacity: 0;
+    scale: 0.6 1;
+    transform-origin: left center;
+    transition:
+      opacity var(--t-ui) var(--ease-ui),
+      scale var(--t-ui) var(--ease-ui);
+  }
+
+  &[aria-checked='true'] {
+    &::before {
+      opacity: 1;
+      scale: 1 1;
+    }
+    &:hover {
+      background: none;
+    }
+  }
+}
+
+.nome {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.n {
+  font-weight: 600;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sem assunto e Criar: o recorte tracejado, ainda sem tinta */
+.nenhum,
+.criar {
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  color: rgb(21 21 21 / 0.74);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    color: var(--ink);
+  }
+
+  &[aria-checked='true'] {
+    outline-color: rgb(21 21 21 / 0.72);
+    color: var(--ink);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.dica {
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  color: var(--ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .op::before {
+    transition: none;
+  }
+}

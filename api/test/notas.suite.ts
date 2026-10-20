@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { googleVerifier } from '../src/domain/google';
-import { MAX_MEMBERS, MAX_NOTE_CHARS } from '../src/domain/shared-note';
+import { MAX_MEMBERS, MAX_NOTE_CHARS, structureOf } from '../src/domain/shared-note';
 import { MAX_SHARES_PER_DAY, MIN_EDIT_MS } from '../src/routes/notes';
 import { Config, Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
@@ -252,6 +252,22 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await put(t.token, 'nota-1', { base: 2, dados: nota('nota-1', { tags: ['b', 'a'], text: 'x' }) })).status).toBe(200);
         void share;
         void setRole;
+      });
+
+      it('o editor não muda o assunto (403 so-gestor), nem o tira; o texto ele muda', async () => {
+        const { put, ana, bia } = await shared();
+        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { subject: 'História' }) })).status).toBe(200);
+        for (const change of [{ subject: 'Geografia' }, {}]) {
+          const r = await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', change) });
+          expect(r.status, JSON.stringify(change)).toBe(403);
+          expect(r.body.erro).toBe('so-gestor');
+        }
+        expect((await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { subject: 'História', text: 'x' }) })).status).toBe(200);
+      });
+
+      it('a estrutura da anotação sem assunto é a mesma de antes do assunto existir', () => {
+        expect(structureOf(JSON.stringify({ category: 'Casa', tags: ['b', 'a'] }))).toBe(JSON.stringify({ category: 'Casa', tags: ['a', 'b'], private: false, quiet: false }));
+        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira' }))).not.toBe(structureOf(JSON.stringify({ category: 'Casa' })));
       });
 
       it('o editor não põe nem tira ninguém; o gestor põe, troca o papel e tira', async () => {

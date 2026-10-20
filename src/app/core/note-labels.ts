@@ -3,10 +3,12 @@ import { Bonus, Review, fold } from './review';
 import { cleanLabel, slugOf } from './text';
 
 /**
- * A categoria e as tags de uma anotação.
+ * A categoria, o assunto e as tags de uma anotação.
  *
  * - A categoria é uma só: o assunto da anotação, o que ela é (Lista de compras, Estudos, Trabalho).
  *   Vem da cartela pronta do mural ou é escrita à mão. Ordena e agrupa o mural.
+ * - O assunto é um só, um nível abaixo da categoria (no grupo Estudos: História, Geografia). É do
+ *   grupo: cada grupo tem os seus, criados nas configurações do mural ou escritos no editor.
  * - As tags são várias, sempre escritas à mão: informam ("Bugfix", "Feature", "Urgente"). As tags
  *   fixas (Ajustes, ver `Settings.pinnedTags`) ficam sempre à mão no editor, mesmo sem nenhuma
  *   anotação usando.
@@ -24,6 +26,11 @@ export const MAX_PINNED_TAGS = 40;
 
 /** "  lista   de compras " → "Lista de compras". */
 export function cleanCategory(raw: string): string {
+  return cleanLabel(raw, LABEL_MAX);
+}
+
+/** "  história  " → "História": o assunto, como a categoria. */
+export function cleanSubject(raw: string): string {
   return cleanLabel(raw, LABEL_MAX);
 }
 
@@ -70,6 +77,53 @@ export function categoryBonus(label: string): Bonus {
 /** A categoria da anotação, ou null. */
 export function categoryOf(r: Pick<Review, 'category'>): string | null {
   return r.category ?? null;
+}
+
+/** O assunto da anotação, ou null. */
+export function subjectOf(r: Pick<Review, 'subject'>): string | null {
+  return r.subject ?? null;
+}
+
+/** Um assunto da biblioteca de um grupo: quantas anotações usam e se foi criado nas configurações. */
+export interface SubjectEntry {
+  label: string;
+  n: number;
+  /** Criado nas configurações do mural (fica à mão mesmo sem nenhuma anotação). */
+  saved: boolean;
+}
+
+/**
+ * Os assuntos de um grupo (`category`, null: sem grupo): os criados nas configurações e os usados nas
+ * anotações do grupo, de A a Z (a mesma ordem do filtro da pasta, em todo lugar). Cada assunto aparece
+ * uma vez, com a grafia mais usada. O assunto é do grupo: a "História" dos Estudos não é sugerida no
+ * Trabalho.
+ */
+export function subjectLibrary(notes: readonly Review[], saved: readonly string[], category: string | null | undefined): SubjectEntry[] {
+  const used = new Map<string, { spell: Map<string, number>; n: number }>();
+  const group = fold(category ?? '');
+  for (const n of notes) {
+    const s = subjectOf(n);
+    if (!s || fold(categoryOf(n) ?? '') !== group) continue;
+    const k = fold(s);
+    const e = used.get(k) ?? { spell: new Map<string, number>(), n: 0 };
+    e.spell.set(s, (e.spell.get(s) ?? 0) + 1);
+    e.n++;
+    used.set(k, e);
+  }
+  const spelling = (k: string) => {
+    const e = used.get(k);
+    return e ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : null;
+  };
+  const out: SubjectEntry[] = [];
+  const seen = new Set<string>();
+  for (const label of saved) {
+    const k = fold(label);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ label: spelling(k) ?? label, n: used.get(k)?.n ?? 0, saved: true });
+  }
+  const rest = [...used.keys()].filter((k) => !seen.has(k)).map((k) => ({ label: spelling(k)!, n: used.get(k)!.n, saved: false }));
+  return [...out, ...rest].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
 }
 
 /** As tags da anotação. */

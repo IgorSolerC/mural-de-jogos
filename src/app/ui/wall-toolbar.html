@@ -107,7 +107,11 @@
     </div>
 
     <div class="pasta-linha pasta-baixo">
-      <app-tag-shortcuts class="pasta-tags" />
+      <!-- o assunto (impresso em tinta, um por anotação) e as tags (as etiquetas): um toque filtra -->
+      <div class="pasta-filtrar">
+        <app-subject-shortcuts class="pasta-assuntos" />
+        <app-tag-shortcuts class="pasta-tags" />
+      </div>
       <div class="pasta-estado">
         <!-- o que a busca e as tags acharam, e como desfazer -->
         @if (view.isFiltered()) {

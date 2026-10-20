@@ -9,7 +9,7 @@ export interface DeskHandlers {
   /** O link para uma anotação que não existe: criar, com o título (e a categoria da anotação `fromId`). */
   newNote(title: string, fromId?: string): void;
   /** Uma anotação nova em branco, já nesta categoria (o "Nova nota" de uma coluna do Kanban). */
-  newNoteIn(category: string, look?: CardLook): void;
+  newNoteIn(category: string, look?: CardLook, subject?: string | null): void;
   openDraft(id: string): void;
   /** Recortar um item novo para a wishlist. */
   newWish(): void;
@@ -48,8 +48,8 @@ export class Desk {
   }
 
   /** Uma anotação nova já na categoria (e, de uma coluna com card padrão, já vestida com ele). */
-  newNoteIn(category: string, look?: CardLook): void {
-    this.handlers?.newNoteIn(category, look);
+  newNoteIn(category: string, look?: CardLook, subject?: string | null): void {
+    this.handlers?.newNoteIn(category, look, subject);
   }
 
   openDraft(id: string): void {

@@ -286,6 +286,18 @@
   }
 }
 
+/* o assunto, antes do nome, como a linha miúda da ficha */
+.tira-assunto {
+  margin-right: 0.5em;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
+  vertical-align: 0.06em;
+}
+
 .tira:has(.tira-nome:focus-visible) {
   outline: 3px solid var(--hi);
   outline-offset: 2px;

@@ -52,6 +52,7 @@ describe('as configurações do mural de anotações', () => {
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
       hiddenTags: [],
       showAll: false,
+      subjects: {},
     });
     // a aba Tudo: só com true (o padrão é sem ela)
     expect(sanitizeNotesConfig({ showAll: true }).showAll).toBeTrue();

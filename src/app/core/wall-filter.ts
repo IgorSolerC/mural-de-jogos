@@ -43,6 +43,8 @@ export interface WallFilter {
   look: readonly LookFilter[];
   /** Só nas anotações: o nome de uma categoria, ou 'sem' para as sem categoria. */
   category: readonly string[];
+  /** Só nas anotações: o assunto (qualquer um dos escolhidos), ou 'sem' para as sem assunto. */
+  subject: readonly string[];
   /** Só nas anotações: uma tag (qualquer uma das escolhidas), ou 'sem' para as sem tag. */
   tag: readonly string[];
   /** Só nas músicas: álbum ou música. */
@@ -52,16 +54,16 @@ export interface WallFilter {
 export type FacetKey = keyof WallFilter;
 
 /** A ordem dos grupos na cartela e das etiquetas embaixo da régua. */
-export const FACET_KEYS: readonly FacetKey[] = ['category', 'tag', 'verdict', 'status', 'form', 'text', 'look', 'grade', 'difficulty', 'year'];
+export const FACET_KEYS: readonly FacetKey[] = ['category', 'subject', 'tag', 'verdict', 'status', 'form', 'text', 'look', 'grade', 'difficulty', 'year'];
 
 /** Os grupos de cada mural: as anotações não têm nota, veredito, status nem dificuldade; as resenhas, categoria. */
 // (o texto é obrigatório na anotação: o grupo Resenha, com e sem texto, não serve)
-const NOTE_FACETS: readonly FacetKey[] = ['category', 'tag', 'look', 'year'];
+const NOTE_FACETS: readonly FacetKey[] = ['category', 'subject', 'tag', 'look', 'year'];
 
 export function facetKeysOf(profile: KindProfile): readonly FacetKey[] {
   if (isNotes(profile.kind)) return NOTE_FACETS;
   // (nas músicas, o artista é a aba: não precisa de grupo na cartela)
-  return FACET_KEYS.filter((k) => k !== 'category' && k !== 'tag' && (k !== 'difficulty' || profile.difficulty !== null) && (k !== 'form' || isMusic(profile.kind)));
+  return FACET_KEYS.filter((k) => k !== 'category' && k !== 'subject' && k !== 'tag' && (k !== 'difficulty' || profile.difficulty !== null) && (k !== 'form' || isMusic(profile.kind)));
 }
 
 /**
@@ -75,11 +77,16 @@ export function filterFor(f: WallFilter, profile: KindProfile): WallFilter {
   return off.length ? { ...f, ...Object.fromEntries(off.map((k) => [k, []])) } : f;
 }
 
-export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [], tag: [], form: [] };
+export const NO_FILTER: WallFilter = { verdict: [], status: [], grade: [], difficulty: [], year: [], text: [], look: [], category: [], subject: [], tag: [], form: [] };
 
 /** A categoria de uma anotação, ou 'sem'. */
 export function categoryValueOf(r: Review): string {
   return r.category ?? 'sem';
+}
+
+/** O assunto de uma anotação, ou 'sem'. */
+export function subjectValueOf(r: Review): string {
+  return r.subject ?? 'sem';
 }
 
 /** As tags de uma anotação, ou 'sem'. */
@@ -114,6 +121,8 @@ function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>): string {
   switch (k) {
     case 'category':
       return categoryValueOf(r);
+    case 'subject':
+      return subjectValueOf(r);
     case 'verdict':
       return r.verdict ?? 'sem';
     case 'status':
@@ -134,11 +143,11 @@ function valueOf(r: Review, k: Exclude<FacetKey, 'tag'>): string {
 }
 
 /**
- * A chave de comparação de um valor: as categorias e as tags valem sem acento nem caixa ("Diário" e
+ * A chave de comparação de um valor: as categorias, os assuntos e as tags valem sem acento nem caixa ("Diário" e
  * "diario" são a mesma), como nas abas e nas seções; o resto, como está.
  */
 function keyOf(k: FacetKey, value: string): string {
-  return k === 'category' || k === 'tag' ? fold(value) : value;
+  return k === 'category' || k === 'subject' || k === 'tag' ? fold(value) : value;
 }
 
 /** A ficha passa nos filtros? Com `skip`, ignora um grupo (para contar as opções dele). */
@@ -154,7 +163,7 @@ export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolea
 }
 
 /**
- * A busca do mural: nome, texto e bônus (nas anotações, a categoria e as tags; nas músicas, o
+ * A busca do mural: nome, texto e bônus (nas anotações, a categoria, o assunto e as tags; nas músicas, o
  * artista, o álbum de onde a música é e a faixa de destaque), sem ligar para acento nem caixa.
  * `needle` já vem dobrado; "#bug" procura só nas tags.
  */
@@ -169,6 +178,7 @@ export function matchesQuery(r: Review, needle: string): boolean {
     fold(r.text).includes(needle) ||
     r.bonuses.some((b) => fold(b.label).includes(needle)) ||
     (!!r.category && fold(r.category).includes(needle)) ||
+    (!!r.subject && fold(r.subject).includes(needle)) ||
     !!r.tags?.some((t) => fold(t).includes(needle)) ||
     (!!r.game.form && [r.game.by, r.game.album, r.game.sampleTitle].some((t) => !!t && fold(t).includes(needle)))
   );
@@ -229,6 +239,7 @@ export const FACET_TITLE: Record<FacetKey, string> = {
   difficulty: 'Dificuldade',
   year: 'Ano',
   category: 'Grupo',
+  subject: 'Assunto',
   tag: 'Tags',
   form: 'Tipo',
 };
@@ -263,6 +274,8 @@ export function optionLabel(k: FacetKey, value: string, profile: KindProfile): s
       return value === 'com' ? 'Com decoração' : 'Sem decoração';
     case 'category':
       return value === 'sem' ? 'Sem grupo' : value;
+    case 'subject':
+      return value === 'sem' ? 'Sem assunto' : value;
     case 'tag':
       return value === 'sem' ? 'Sem tag' : value;
     case 'form':
@@ -299,6 +312,7 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
   const bySem = (a: string, b: string) => (a === 'sem' ? 1 : b === 'sem' ? -1 : a.localeCompare(b, 'pt-BR'));
   const cats = spellingsOf(list.map(categoryValueOf), f.category).sort(bySem);
   const tags = spellingsOf(list.flatMap(tagValuesOf), f.tag).sort(bySem);
+  const subjects = spellingsOf(list.map(subjectValueOf), f.subject).sort(bySem);
 
   const values: Record<FacetKey, readonly string[]> = {
     verdict: anyNoVerdict ? [...VERDICTS, 'sem'] : VERDICTS,
@@ -309,13 +323,14 @@ export function facetsOf(list: readonly Review[], f: WallFilter, profile: KindPr
     difficulty: DIFFICULTIES,
     year: years,
     category: cats,
+    subject: subjects,
     tag: tags,
     form: MUSIC_FORMS,
   };
 
   return facetKeysOf(profile)
     // sem nenhuma tag no mural, o grupo de tags só diria "Sem tag": fica de fora
-    .filter((k) => (k !== 'year' || years.length > 0) && (k !== 'category' || cats.length > 0) && (k !== 'tag' || tags.some((t) => t !== 'sem')))
+    .filter((k) => (k !== 'year' || years.length > 0) && (k !== 'category' || cats.length > 0) && (k !== 'tag' || tags.some((t) => t !== 'sem')) && (k !== 'subject' || subjects.some((t) => t !== 'sem')))
     // nas anotações, o visual e o ano só aparecem quando separam alguma coisa (com uma opção só, não filtram nada)
     .filter((k) => !isNotes(profile.kind) || (k !== 'look' && k !== 'year') || f[k].length > 0 || new Set(list.map((r) => valuesOf(r, k)[0])).size > 1)
     .map((key) => {

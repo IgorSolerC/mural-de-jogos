@@ -59,7 +59,7 @@ export function noteId(raw: unknown): string {
 }
 
 /**
- * O que é da estrutura na anotação guardada: a categoria, as tags (a ordem não importa) e quem vê.
+ * O que é da estrutura na anotação guardada: a categoria, o assunto, as tags (a ordem não importa) e quem vê.
  * Um editor não muda nada disso.
  */
 export function structureOf(stored: string): string {
@@ -73,6 +73,8 @@ export function structureOf(stored: string): string {
   const tags = Array.isArray(r['tags']) ? r['tags'].filter((t): t is string => typeof t === 'string').sort() : [];
   return JSON.stringify({
     category: typeof r['category'] === 'string' ? r['category'] : '',
+    // o assunto só entra quando existe: a estrutura guardada antes dele continua igual
+    ...(typeof r['subject'] === 'string' && r['subject'] ? { subject: r['subject'] } : {}),
     tags,
     private: r['private'] === true,
     quiet: r['quiet'] === true,

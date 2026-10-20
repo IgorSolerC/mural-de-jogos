@@ -73,16 +73,17 @@ import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { GroupPicker } from './group-picker';
+import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
 import { CategoryLabel } from './category-label';
 import { NoteTag } from './note-tag';
-import { categoryLibrary, tagLibrary } from '../core/note-labels';
+import { categoryLibrary, subjectLibrary, tagLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { CardKit } from './card-kit';
 import { Confirm } from './confirm';
 import { categoryColorHex, lookKey, randomCategoryColor, tagColorHex } from '../core/category-looks';
-import { asksTag, newNoteAudience, prefsOf } from '../core/mural-config';
+import { asksTag, newNoteAudience, prefsOf, savedSubjects } from '../core/mural-config';
 import { CoverPicker } from './cover-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { DifficultyPicker, Skulls } from './difficulty';
@@ -119,7 +120,7 @@ export interface SavedEvent {
 type EditorMode = 'escrever' | 'cartolina';
 
 /** As etiquetas da fileira de propriedades (cada uma abre a sua parte). */
-type PropId = 'grupo' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'quadro' | 'capa' | 'quem';
+type PropId = 'grupo' | 'assunto' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'quadro' | 'capa' | 'quem';
 
 interface PropView {
   id: PropId;
@@ -148,6 +149,7 @@ const MIN_YEAR = 1971;
     NgTemplateOutlet,
     BonusPicker,
     GroupPicker,
+    SubjectPicker,
     TagPicker,
     KanbanProps,
     CategoryLabel,
@@ -258,6 +260,7 @@ export class ReviewEditor {
     if (!focus) return;
     setTimeout(() => {
       if (id === 'grupo') this.groupPicker()?.focus();
+      else if (id === 'assunto') this.subjectPicker()?.focus();
       else if (id === 'tags') this.tagPicker()?.focus();
       else this.dialog().nativeElement.querySelector<HTMLElement>('#editor-parte :is(input:checked, input:not([type=radio]), select, button)')?.focus();
     });
@@ -279,6 +282,12 @@ export class ReviewEditor {
   protected pickGroup(category: string | null): void {
     this.noteCategory.set(category);
     this.syncBoard();
+    this.closeProp();
+  }
+
+  /** O assunto escolhido na parte Assunto: a parte fecha. */
+  protected pickSubject(subject: string | null): void {
+    this.noteSubject.set(subject);
     this.closeProp();
   }
 
@@ -307,6 +316,8 @@ export class ReviewEditor {
     if (note) {
       const c = this.noteCategory();
       out.push({ id: 'grupo', name: 'Grupo', icon: ICON.pasta, value: c ?? 'Grupo', spoken: c ?? 'sem grupo', filled: !!c });
+      const s = this.noteSubject();
+      out.push({ id: 'assunto', name: 'Assunto', icon: ICON.assunto, value: s ?? 'Assunto', spoken: s ?? 'sem assunto', filled: !!s });
       const tags = this.noteTags();
       out.push({ id: 'tags', name: 'Tags', icon: ICON.etiquetas, value: tags.join(', '), spoken: tags.length ? tags.join(', ') : 'nenhuma', filled: tags.length > 0 });
     }
@@ -475,6 +486,7 @@ export class ReviewEditor {
   private readonly search = viewChild(GameSearch);
   private readonly bonusPicker = viewChild(BonusPicker);
   private readonly groupPicker = viewChild<GroupPicker>('grupo');
+  private readonly subjectPicker = viewChild<SubjectPicker>('assunto');
   private readonly tagPicker = viewChild<TagPicker>('tags');
   // pela marca no template, e não pela classe: os campos chegam por @defer, e citar a classe aqui os traria junto com o editor
   private readonly musicFields = viewChild<MusicFields>('campos');
@@ -733,8 +745,9 @@ export class ReviewEditor {
   protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock())));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
-  /** A categoria e as tags da anotação (ver core/note-labels.ts). */
+  /** A categoria, o assunto e as tags da anotação (ver core/note-labels.ts). */
   protected readonly noteCategory = signal<string | null>(null);
+  protected readonly noteSubject = signal<string | null>(null);
   protected readonly noteTags = signal<string[]>([]);
   private readonly settings = inject(Settings);
   /** O ícone e a cor das suas categorias, na orelha da prévia. */
@@ -783,6 +796,9 @@ export class ReviewEditor {
     this.audienceTouched = true;
     this.visibility.set(v);
   }
+
+  /** Os assuntos à mão: os criados nas configurações e os das outras anotações do mesmo grupo. */
+  protected readonly subjectLib = computed(() => subjectLibrary(this.store.notes(), savedSubjects(this.settings.notesConfig(), this.noteCategory()), this.noteCategory()));
 
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
@@ -837,9 +853,11 @@ export class ReviewEditor {
    * Uma anotação nova escrita dentro de uma aba do mural: já vem com a categoria da aba. Fechar sem
    * mexer em nada não pergunta se quer descartar.
    */
-  openInCategory(category: string, look?: CardLook): void {
+  openInCategory(category: string, look?: CardLook, subject?: string | null): void {
     this.open(undefined, undefined, undefined, undefined, 'anotacoes');
     this.noteCategory.set(category);
+    // com um assunto só ligado no filtro do mural, a nova já nasce nele
+    if (subject) this.noteSubject.set(subject);
     // de uma coluna do Kanban com card padrão: a cartolina dele (o estojo continua mudando)
     if (look) this.setLook(look);
     this.applyDefaultAudience();
@@ -875,6 +893,7 @@ export class ReviewEditor {
     // veio de outra anotação: tem o mesmo assunto (de uma resenha, nenhum)
     const fromNote = !!from && isNote(from);
     this.noteCategory.set(fromNote ? (from.category ?? null) : null);
+    this.noteSubject.set(fromNote ? (from.subject ?? null) : null);
     this.applyDefaultAudience();
     this.syncBoard();
     this.linkTitle = title;
@@ -898,6 +917,7 @@ export class ReviewEditor {
       ...(this.notes() && this.noteRank() ? { noteRank: this.noteRank()! } : {}),
       ...(this.notes() && this.noteCategory() ? { category: this.noteCategory()! } : {}),
       ...(this.artistValue() ? { category: this.artistValue() } : {}),
+      ...(this.notes() && this.noteSubject() ? { subject: this.noteSubject()! } : {}),
       ...(this.notes() && this.noteTags().length ? { tags: [...this.noteTags()] } : {}),
       id: this.id(),
       kind: this.kind(),
@@ -1081,6 +1101,7 @@ export class ReviewEditor {
     // a música que vem da fila, da wishlist ou de uma reescuta já traz o artista: o da original, ou o do catálogo
     const artist = isMusic(kind) && !review ? cleanArtist(rootReview?.category ?? this.game()?.by ?? '') : '';
     this.noteCategory.set(review?.category ?? (artist || null));
+    this.noteSubject.set(review?.subject ?? null);
     this.noteTags.set([...(review?.tags ?? [])]);
     this.applyDefaultAudience();
     this.tagPicker()?.reset();
@@ -1568,6 +1589,7 @@ export class ReviewEditor {
       this.weights(),
       this.bonuses().map((b) => b.id),
       this.noteCategory(),
+      this.noteSubject(),
       this.noteTags(),
       this.hours().trim(),
       this.game()?.coverUrl,

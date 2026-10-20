@@ -5,7 +5,8 @@ import { Importance, KanbanBoard, setImportance, setStatus } from '../core/kanba
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
-import { sanitizeTags, tagLibrary } from '../core/note-labels';
+import { cleanSubject, sanitizeTags, subjectLibrary, tagLibrary } from '../core/note-labels';
+import { savedSubjects } from '../core/mural-config';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { canManage } from '../core/shared-notes';
@@ -15,19 +16,20 @@ import { BackdropClose } from './backdrop-close';
 import { KanbanProps } from './kanban-props';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
+import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 
 /**
  * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): as coisas dela no
- * quadro em linhas (ver ui/kanban-props.ts: a etapa, a importância, o status e as dependências) e as
- * tags dela (as do mural, com o seletor do editor). Tudo vale na hora (não tem "Salvar"; o status, ao
+ * quadro em linhas (ver ui/kanban-props.ts: a etapa, a importância, a observação e as dependências), o
+ * assunto e as tags dela (as do mural, com o seletor do editor). Tudo vale na hora (não tem "Salvar"; o status, ao
  * terminar de escrever); mudar de etapa passa por `KanbanActions` (finaliza ou abre de novo, como
  * arrastar). Ler a anotação fecha a folha e abre a leitura; Tirar do quadro deixa a anotação no mural
  * (também a que estava só no Kanban: ela volta para lá).
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, IconModule, KanbanProps, NoteTag, Pin, TagPicker],
+  imports: [BackdropClose, IconModule, KanbanProps, NoteTag, Pin, SubjectPicker, TagPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="props()?.flush(); closed.emit()" (backdropClose)="close()">
@@ -60,7 +62,19 @@ import { TagPicker } from './tag-picker';
               [wall]="d.onWall"
               (wallChange)="setWall($event)"
             >
-              <!-- as tags da anotação, a última linha, do mesmo jeito das outras -->
+              <!-- o assunto da anotação (um nível abaixo do grupo do quadro) e as tags, as últimas linhas -->
+              <div class="linha assunto-linha">
+                <span class="nome" id="fq-assunto"><lucide-icon [img]="SubjectIcon" [size]="16" aria-hidden="true" />Assunto</span>
+                @if (locked()) {
+                  <div class="valor">
+                    <span class="vazio">{{ d.note.subject ?? 'Nenhum' }}</span>
+                    <p class="dica">Só o dono e os gestores mudam o assunto.</p>
+                  </div>
+                } @else {
+                  <app-subject-picker class="valor" [subject]="d.note.subject ?? null" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="d.note.category ?? null" />
+                }
+              </div>
+
               <div class="linha tags-linha">
                 <span class="nome" id="fq-tags"><lucide-icon [img]="TagsIcon" [size]="16" aria-hidden="true" />Tags</span>
                 @if (locked()) {
@@ -108,6 +122,7 @@ export class KanbanCardSheet {
   protected readonly ReadIcon = ICON.livros;
   protected readonly BoardIcon = ICON.colunas;
   protected readonly TagsIcon = ICON.etiquetas;
+  protected readonly SubjectIcon = ICON.assunto;
   protected readonly OutIcon = ICON.sair;
 
   private readonly kanban = inject(KanbanStore);
@@ -148,6 +163,12 @@ export class KanbanCardSheet {
 
   /** As tags à mão: as fixas e as das outras anotações do grupo do quadro. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.data()?.note.category ?? null));
+
+  /** Os assuntos à mão: os criados nas configurações e os das outras anotações do grupo do quadro. */
+  protected readonly subjectLib = computed(() => {
+    const category = this.data()?.note.category ?? null;
+    return subjectLibrary(this.store.notes(), savedSubjects(this.settings.notesConfig(), category), category);
+  });
 
   constructor() {
     afterNextRender(() => {
@@ -197,6 +218,16 @@ export class KanbanCardSheet {
     const next = sanitizeTags(tags);
     const { tags: _, ...rest } = r;
     this.store.update({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: new Date().toISOString() }, r);
+  }
+
+  /** O assunto da anotação (muda na anotação mesmo, como as tags). */
+  protected setSubject(subject: string | null): void {
+    const r = this.store.get(this.noteId());
+    if (!r) return;
+    const next = subject ? cleanSubject(subject) : '';
+    if (next === (r.subject ?? '')) return;
+    const { subject: _, ...rest } = r;
+    this.store.update({ ...rest, ...(next ? { subject: next } : {}), updatedAt: new Date().toISOString() }, r);
   }
 
   protected removeFromBoard(): void {

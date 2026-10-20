@@ -86,7 +86,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     const name = el.querySelector<HTMLTextAreaElement>('.head #editor-titulo-nota')!;
     expect(name.value).toBe('Ideias');
-    expect(chips()).toEqual(['grupo', 'tags', 'data', 'capa', 'quem']);
+    expect(chips()).toEqual(['grupo', 'assunto', 'tags', 'data', 'capa', 'quem']);
     expect(chip('grupo').classList).toContain('vazia');
     expect(chip('data').textContent!.trim()).toBe('Hoje');
     // nada de sub-nota nem de "Lugar no mural"
@@ -181,7 +181,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(p.querySelector('.imp-nome:not(.medida)')!.textContent!.trim()).toBe('Importante');
     expect(p.querySelectorAll('.traco.aceso').length).toBe(4);
     // compacto: o "+ Status" abre o campo no lugar
-    [...p.querySelectorAll<HTMLButtonElement>('.extras .mais')].find((b) => b.textContent!.includes('Status'))!.click();
+    [...p.querySelectorAll<HTMLButtonElement>('.extras .mais')].find((b) => b.textContent!.includes('Observação'))!.click();
     await fixture.whenStable();
     const status = p.querySelector<HTMLInputElement>('.status-valor input')!;
     // só o campo: sem exemplo e sem os status já usados no quadro
@@ -294,7 +294,7 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(fixture.componentInstance['serialize']()).toBe(fixture.componentInstance['snapshot']);
     // vazios, o status e as dependências são só dois "+" numa linha
     const mais = [...sec.querySelectorAll<HTMLButtonElement>('.extras .mais')];
-    expect(mais.map((b) => b.textContent!.trim())).toEqual(['Status', 'Dependência']);
+    expect(mais.map((b) => b.textContent!.trim())).toEqual(['Observação', 'Dependência']);
     mais[1].click();
     await fixture.whenStable();
     let item: HTMLButtonElement | undefined;
@@ -345,6 +345,52 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(r.paper).toBe('cartolina');
     expect(r.pattern).toBeUndefined();
     expect(r.stains).toBeUndefined();
+  });
+
+  it('o assunto: os do grupo à mão (também os criados), de A a Z; tocar escolhe e fecha; um nome novo com Enter cria; salva na anotação', async () => {
+    store.add(note('noutra01', { category: 'Estudos', subject: 'Geografia' }));
+    store.add(note('noutra02', { category: 'Trabalho', subject: 'Site' }));
+    settings.setSavedSubjects('Estudos', ['História']);
+    fixture.componentInstance.openInCategory('Estudos');
+    await fixture.whenStable();
+    expect(chip('assunto').classList).toContain('vazia');
+    let p = await openPart('assunto');
+    const names = () => Array.from(p.querySelectorAll<HTMLElement>('.op .nome')).map((n) => n.textContent!.trim());
+    // o do Trabalho não aparece nos Estudos
+    expect(names()).toEqual(['Geografia', 'História']);
+    expect(p.querySelector('.nenhum')!.getAttribute('aria-checked')).toBe('true');
+    Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Geografia'))!.click();
+    await fixture.whenStable();
+    // escolher fecha a parte, e a etiqueta diz o assunto
+    expect(part()).toBeNull();
+    expect(chip('assunto').classList).not.toContain('vazia');
+    expect(chip('assunto').textContent).toContain('Geografia');
+    p = await openPart('assunto');
+    const field = p.querySelector<HTMLInputElement>('input')!;
+    field.value = 'artes';
+    field.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    expect(p.querySelector('.criar')!.textContent).toContain('Criar “Artes”');
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+    expect(chip('assunto').textContent).toContain('Artes');
+    const name = el.querySelector<HTMLTextAreaElement>('.head #editor-titulo-nota')!;
+    name.value = 'Pintura moderna';
+    name.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    await saveAndClose();
+    const saved = store.notes().find((r) => r.game.name === 'Pintura moderna')!;
+    expect([saved.category, saved.subject]).toEqual(['Estudos', 'Artes']);
+  });
+
+  it('o assunto: a anotação nova pedida com um assunto (o filtro do mural) já nasce nele; "Sem assunto" tira', async () => {
+    fixture.componentInstance.openInCategory('Estudos', undefined, 'História');
+    await fixture.whenStable();
+    expect(chip('assunto').textContent).toContain('História');
+    const p = await openPart('assunto');
+    p.querySelector<HTMLButtonElement>('.nenhum')!.click();
+    await fixture.whenStable();
+    expect(chip('assunto').classList).toContain('vazia');
   });
 
   it('o que falta abre a parte dele: a data inválida abre a Data', async () => {

@@ -16,10 +16,10 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
 /**
  * As coisas da anotação no quadro, em linhas como as propriedades do Notion: a etapa (a lista das
  * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver), a importância (a régua de cinco tracinhos das fichas do quadro, que
- * diz o nome de cada um ao passar o mouse ou o dedo), o status (só o campo, sem sugestões) e as
+ * diz o nome de cada um ao passar o mouse ou o dedo), a observação (o `status`, só o campo, sem sugestões) e as
  * dependências, e se ela aparece também no mural ou fica só no Kanban. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
  * hora, o editor guarda ao salvar. Compacto (no editor), a etapa e a importância ficam lado a lado e o
- * status e as dependências vazios são dois "+". O que vier depois (as tags, na folha) entra pelo
+ * observação e as dependências vazias são dois "+". O que vier depois (as tags, na folha) entra pelo
  * conteúdo, como mais uma linha.
  */
 @Component({
@@ -119,9 +119,9 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
       </div>
 
       @if (!compact() || statusOpen()) {
-        <!-- ===== Status: umas palavras ===== -->
+        <!-- ===== Observação: umas palavras (o status, por dentro) ===== -->
         <div class="linha">
-          <label class="nome" [for]="id + '-status'"><lucide-icon [img]="StatusIcon" [size]="16" aria-hidden="true" />Status</label>
+          <label class="nome" [for]="id + '-status'"><lucide-icon [img]="StatusIcon" [size]="16" aria-hidden="true" />Observação</label>
           <div class="valor status-valor">
             <span class="campo">
               <input
@@ -136,7 +136,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
                 (keydown.enter)="$event.preventDefault(); commit()"
               />
               @if (draft().trim()) {
-                <button type="button" class="tirar" aria-label="Tirar o status" title="Tirar" (click)="setStatus('')">
+                <button type="button" class="tirar" aria-label="Tirar a observação" title="Tirar" (click)="setStatus('')">
                   <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
                 </button>
               }
@@ -186,7 +186,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
       @if (compact() && (!statusOpen() || !deps().length)) {
         <div class="extras">
           @if (!statusOpen()) {
-            <button type="button" class="mais" (click)="openStatus()"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Status</button>
+            <button type="button" class="mais" (click)="openStatus()"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Observação</button>
           }
           @if (!deps().length) {
             <button type="button" class="mais" [title]="'As que precisam estar finalizadas antes'" (click)="picking.set(true)"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Dependência</button>

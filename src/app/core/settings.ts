@@ -2,7 +2,7 @@ import { Injectable, computed, effect, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
-import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withTagHidden } from './mural-config';
+import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden } from './mural-config';
 import { writeJson } from './storage';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
@@ -363,6 +363,11 @@ export class Settings {
   /** O filtro padrão da tag na categoria ("" ou null: as sem categoria): Excluído (`true`) ou Disponível. */
   setTagHidden(tag: string, category: string | null, hidden: boolean): void {
     this.setNotesConfig(withTagHidden(this.notesConfig(), tag, category, hidden));
+  }
+
+  /** Os assuntos criados nas configurações para o grupo ("" ou null: as anotações sem grupo). */
+  setSavedSubjects(category: string | null, list: readonly string[]): void {
+    this.setNotesConfig(withSavedSubjects(this.notesConfig(), category, list));
   }
 
   /** As configurações que vieram de outro aparelho (mudadas depois das daqui). */

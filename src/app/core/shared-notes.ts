@@ -8,7 +8,7 @@ import { NOTE_RANKS, NoteRank, Review, STOCKS, Stock, isNote, sanitizeReview, st
  * As anotações compartilhadas: uma anotação que o dono divide com outras pessoas (ver
  * `api/src/routes/notes.ts`). O dono é sempre o dono; cada pessoa a mais tem um papel:
  *
- * - **gestor:** faz tudo (o texto, as tags, a categoria, quem vê, quem mais entra), menos mexer no dono
+ * - **gestor:** faz tudo (o texto, as tags, a categoria e o assunto, quem vê, quem mais entra), menos mexer no dono
  *   ou apagar a anotação para todos;
  * - **editor:** escreve como se a anotação fosse dele, sem mudar a estrutura (as pessoas, a categoria,
  *   as tags e quem vê);
@@ -31,13 +31,13 @@ export const ROLE_LABEL: Record<SharedRole, string> = { dono: 'Dono', gestor: 'G
 /** O que cada papel pode, numa frase (no menu de papéis). */
 export const ROLE_HINT: Record<MemberRole, string> = {
   gestor: 'Edita tudo e chama mais gente',
-  editor: 'Escreve, sem mudar grupo, tags e quem vê',
+  editor: 'Escreve, sem mudar grupo, assunto, tags e quem vê',
   leitor: 'Só lê',
 };
 
 /** Escreve no texto (e escolhe num conflito): o dono, os gestores e os editores. */
 export const canWrite = (r: SharedRole | null | undefined): boolean => r === 'dono' || r === 'gestor' || r === 'editor';
-/** Mexe na estrutura (as pessoas, a categoria, as tags, quem vê): o dono e os gestores. */
+/** Mexe na estrutura (as pessoas, a categoria, o assunto, as tags, quem vê): o dono e os gestores. */
 export const canManage = (r: SharedRole | null | undefined): boolean => r === 'dono' || r === 'gestor';
 export const isMemberRole = (v: unknown): v is MemberRole => typeof v === 'string' && (MEMBER_ROLES as readonly string[]).includes(v);
 
@@ -170,7 +170,7 @@ export const CONFLICT_PART_LABEL: Record<ConflictPart, string> = {
   titulo: 'o título',
   capa: 'a capa',
   texto: 'o texto',
-  categoria: 'o grupo',
+  categoria: 'o grupo e o assunto',
   publico: 'quem vê',
   aparencia: 'o papel da ficha',
   data: 'a data',
@@ -197,7 +197,7 @@ const LOOK_GROUPS: readonly (readonly string[])[] = [
 ];
 const AUDIENCE = ['private', 'quiet', 'publishedAt'] as const;
 /** Os campos que a junção trata um a um; o resto (um campo novo de um site mais novo) vai como um todo. */
-const HANDLED = new Set<string>(['id', 'kind', 'game', 'text', 'tags', 'category', 'doneAt', 'completedAt', 'createdAt', 'updatedAt', ...AUDIENCE, ...LOOK_GROUPS.flat()]);
+const HANDLED = new Set<string>(['id', 'kind', 'game', 'text', 'tags', 'category', 'subject', 'doneAt', 'completedAt', 'createdAt', 'updatedAt', ...AUDIENCE, ...LOOK_GROUPS.flat()]);
 
 type Obj = Record<string, unknown>;
 const pick = (o: Obj, keys: readonly string[]): Obj => Object.fromEntries(keys.filter((k) => o[k] !== undefined).map((k) => [k, o[k]]));
@@ -253,8 +253,8 @@ export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
   const mergedTags = [...new Set([...tags(A['tags']), ...tags(B['tags'])])].filter((t) => !removed.has(t));
   if (mergedTags.length) set('tags', mergedTags);
 
-  const [catA, catB] = atomic('categoria', O['category'], A['category'], B['category']);
-  set('category', catA, catB);
+  // o grupo e o assunto andam juntos: o assunto é do grupo
+  group('categoria', ['category', 'subject']);
 
   // finalizada: é sim ou não; os dois finalizaram, fica a data mais antiga (nunca briga)
   const done = (x: Obj) => typeof x['doneAt'] === 'string';

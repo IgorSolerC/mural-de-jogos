@@ -770,12 +770,13 @@ function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'mem
   return { id: d.id, dono: d.dono, papel: d.papel, membros: d.membros, versao: d.versao, atualizadoEm: d.atualizadoEm, atualizadoPor: d.atualizadoPor };
 }
 
-/** A anotação com a estrutura (a categoria, as tags, quem vê) de `from`: o que o editor não muda. */
+/** A anotação com a estrutura (a categoria, o assunto, as tags, quem vê) de `from`: o que o editor não muda. */
 function withStructureOf(r: Review, from: Review): Review {
-  const { category: _c, tags: _t, private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
+  const { category: _c, subject: _s, tags: _t, private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
   return {
     ...rest,
     ...(from.category ? { category: from.category } : {}),
+    ...(from.subject ? { subject: from.subject } : {}),
     ...(from.tags?.length ? { tags: from.tags } : {}),
     ...(from.private ? { private: true as const } : {}),
     ...(from.quiet ? { quiet: true as const } : {}),
@@ -784,7 +785,7 @@ function withStructureOf(r: Review, from: Review): Review {
 }
 
 /** A estrutura da anotação como a nuvem confere (ver `structureOf` em api/src/domain/shared-note.ts). */
-const structureKey = (r: Review) => JSON.stringify([r.category ?? '', [...(r.tags ?? [])].sort(), !!r.private, !!r.quiet]);
+const structureKey = (r: Review) => JSON.stringify([r.category ?? '', r.subject ?? '', [...(r.tags ?? [])].sort(), !!r.private, !!r.quiet]);
 const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank;
 const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
 const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;

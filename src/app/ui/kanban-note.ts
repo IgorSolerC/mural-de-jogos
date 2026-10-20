@@ -60,9 +60,9 @@ export class KanbanReviewCard extends ReviewCard {
 /**
  * Uma anotação no quadro (ver pages/kanban-page.ts), numa de duas vistas:
  * - **fichas**: a ficha simples dela (com as tags dela, cada uma na sua cor) e, coladas na beirada
- *   de baixo, a etiqueta de importância, o status (a mesma etiqueta, com as palavras da pessoa) e o
- *   selo das dependências; tocar na ficha abre a leitura.
- * - **títulos** (`dense`): só uma tira da cartolina dela com o nome, o status, o selo das dependências
+ *   de baixo, a etiqueta de importância, a observação (a mesma etiqueta, com as palavras da pessoa) e o
+ *   selo das dependências; tocar na ficha abre a leitura. O assunto abre a linha da data.
+ * - **títulos** (`dense`): só uma tira da cartolina dela com o assunto e o nome, a observação, o selo das dependências
  *   e a escala da importância, para caber o quadro inteiro na tela.
  * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
  * em cima ou o foco do teclado: os ajustes, que abrem a folha da anotação no quadro, e, fora da última
@@ -77,7 +77,7 @@ export class KanbanReviewCard extends ReviewCard {
   template: `
     @if (dense()) {
       <div class="tira cartolina" [attr.data-cor]="pin().stock" [style.--stock]="'var(--stock-' + pin().stock + ')'" [style.--tilt]="pin().tilt">
-        <button type="button" class="hit tira-nome" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)">{{ review().game.name }}</button>
+        <button type="button" class="hit tira-nome" [attr.aria-label]="spoken()" (click)="opened.emit(review().id)">@if (review().subject; as s) {<span class="tira-assunto">{{ s }}</span>}{{ review().game.name }}</button>
         @if (noText()) {
           <!-- só o título, ainda sem descrição: o lápis na tinta da tira, antes da importância -->
           <span class="sem-texto" title="Sem descrição" aria-hidden="true">
@@ -101,7 +101,7 @@ export class KanbanReviewCard extends ReviewCard {
               <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" [mini]="true" (opened)="opened.emit($event)" (edit)="details.emit()" />
             }
             @if (card().status; as st) {
-              <span class="status-mini" [title]="'Status: ' + st" aria-hidden="true">{{ st }}</span>
+              <span class="status-mini" [title]="'Observação: ' + st" aria-hidden="true">{{ st }}</span>
             }
           </span>
         }
@@ -123,7 +123,7 @@ export class KanbanReviewCard extends ReviewCard {
               </button>
             }
             @if (card().status; as st) {
-              <button type="button" class="status" [title]="st" [attr.aria-label]="'Status: ' + st + '. Mudar'" (click)="details.emit()">{{ st }}</button>
+              <button type="button" class="status" [title]="st" [attr.aria-label]="'Observação: ' + st + '. Mudar'" (click)="details.emit()">{{ st }}</button>
             }
             @if (hasDeps()) {
               <app-kanban-deps class="dependencias" [noteId]="review().id" [owner]="review().game.name" [deps]="card().deps!" (opened)="opened.emit($event)" (edit)="details.emit()" />
@@ -136,7 +136,7 @@ export class KanbanReviewCard extends ReviewCard {
     <ng-template #adjust>
       <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
       <div class="acoes" [class.duas]="!!next()">
-        <button type="button" class="mexer" [attr.aria-label]="'Etapa, importância, status, dependências e tags de ' + review().game.name" title="Etapa, importância, status, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
+        <button type="button" class="mexer" [attr.aria-label]="'Etapa, assunto, importância, observação, dependências e tags de ' + review().game.name" title="Etapa, assunto, importância, observação, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
           <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>
         @if (next(); as to) {
@@ -175,10 +175,10 @@ export class KanbanNote {
   protected readonly looks = inject(Settings).categoryLooks;
   /** A cartolina e a inclinação da ficha no mural: a tira é do mesmo papel. */
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));
-  /** O que o leitor de tela diz da tira: o nome, a importância, o status e se está finalizada. */
+  /** O que o leitor de tela diz da tira: o nome, o assunto, a importância, a observação e se está finalizada. */
   protected readonly spoken = computed(() => {
     const r = this.review();
     const { importance: imp, status } = this.card();
-    return [r.game.name, imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `status ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
+    return [r.game.name, r.subject ? `assunto ${r.subject}` : '', imp ? `importância ${IMPORTANCE_LABEL[imp].toLowerCase()}` : '', status ? `observação ${status}` : '', this.noText() ? 'sem descrição' : '', r.doneAt ? 'finalizada' : ''].filter(Boolean).join(', ');
   });
 }

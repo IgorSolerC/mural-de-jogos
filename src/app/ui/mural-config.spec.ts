@@ -394,13 +394,82 @@ describe('as configurações do mural (a folha)', () => {
       expect(Array.from(group('Roadmap site').querySelectorAll('.tags > li app-note-tag')).map((t) => t.textContent!.trim())).toEqual(['bug', 'urgente']);
       expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, ideia foi apagada em 1 anotação.');
     });
+
+    describe('os assuntos', () => {
+      const subjectGroup = (label: string) =>
+        Array.from(el.querySelectorAll<HTMLElement>('.assuntos-grupo')).find((g) => g.querySelector('.tags-cat .orelha')!.textContent!.trim() === label)!;
+      const subjectNames = (label: string) => Array.from(subjectGroup(label).querySelectorAll('.assunto-nome')).map((n) => n.textContent!.trim());
+      const subjectRow = (cat: string, label: string) =>
+        Array.from(subjectGroup(cat).querySelectorAll<HTMLElement>('li.assunto')).find((li) => li.querySelector('.assunto-nome')?.textContent!.trim() === label)!;
+
+      beforeEach(() => {
+        const store = TestBed.inject(ReviewStore);
+        const [a, b] = store.notes().filter((r) => r.category === 'Roadmap site');
+        store.update({ ...a, subject: 'Kanban' }, a);
+        store.update({ ...b, subject: 'kanban' }, b);
+      });
+
+      it('cada grupo com os seus (também os sem nenhum); criar um novo deixa ele à mão antes de alguma anotação usar', async () => {
+        await go('assuntos');
+        expect(el.querySelector('h3')!.textContent).toBe('Assuntos');
+        expect(subjectNames('Roadmap site')).toEqual(['Kanban']);
+        expect(subjectRow('Roadmap site', 'Kanban').querySelector('.cat-n')!.textContent!.trim()).toBe('2 anotações');
+        expect(subjectNames('Receitas')).toEqual([]);
+        const form = subjectGroup('Receitas').querySelector<HTMLFormElement>('form.novo-assunto')!;
+        form.querySelector('input')!.value = '  doces ';
+        submit(form);
+        await settle();
+        expect(settings.notesConfig().subjects['receitas']).toEqual(['Doces']);
+        expect(subjectNames('Receitas')).toEqual(['Doces']);
+        expect(subjectRow('Receitas', 'Doces').querySelector('.cat-n')!.textContent!.trim()).toBe('Ainda em nenhuma');
+        expect(el.querySelector('.aviso')!.textContent).toContain('Doces entrou nos assuntos de Receitas.');
+        // o mesmo nome de novo não repete
+        form.querySelector('input')!.value = 'DOCES';
+        submit(form);
+        await settle();
+        expect(settings.notesConfig().subjects['receitas']).toEqual(['Doces']);
+        expect(el.querySelector('.aviso')!.textContent).toContain('Receitas já tem o assunto Doces.');
+      });
+
+      it('renomear muda as anotações do grupo (as duas grafias); apagar pergunta quando alguma usa', async () => {
+        await go('assuntos');
+        subjectRow('Roadmap site', 'Kanban').querySelector<HTMLButtonElement>('[data-assunto-lapis]')!.click();
+        await settle();
+        const field = subjectGroup('Roadmap site').querySelector<HTMLInputElement>('[data-assunto-campo]')!;
+        field.value = 'Quadro';
+        submit(field.closest('form')!);
+        await settle();
+        expect(notes().filter((r) => r.subject === 'Quadro').length).toBe(2);
+        expect(el.querySelector('.aviso')!.textContent).toContain('Em Roadmap site, Kanban virou Quadro em 2 anotações.');
+        answer = false;
+        subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        await settle();
+        expect(asked.at(-1)!.title).toBe('Apagar o assunto Quadro de Roadmap site?');
+        expect(notes().filter((r) => r.subject === 'Quadro').length).toBe(2);
+        answer = true;
+        subjectRow('Roadmap site', 'Quadro').querySelector<HTMLButtonElement>('.apagar-tag')!.click();
+        await settle();
+        expect(notes().some((r) => !!r.subject)).toBeFalse();
+        expect(subjectNames('Roadmap site')).toEqual([]);
+      });
+
+      it('no painel do grupo, a lista dos assuntos e o caminho para a parte Assuntos', async () => {
+        await go('categorias');
+        const row = await openCat('Roadmap site');
+        expect(row.querySelector('.assuntos-resumo .nome-dica')!.textContent!.trim()).toBe('Kanban.');
+        row.querySelector<HTMLButtonElement>('.assuntos-resumo .link')!.click();
+        await settle();
+        expect(tab('assuntos').getAttribute('aria-selected')).toBe('true');
+        expect(document.activeElement?.getAttribute('data-novo-assunto')).toBe('roadmap site');
+      });
+    });
   });
 
   it('na tela, a categoria da anotação se chama grupo, em todas as partes', async () => {
     // o texto e o que o leitor de tela lê (aria-label, placeholder, title)
     const said = () =>
       [el.textContent, ...Array.from(el.querySelectorAll('[aria-label], [placeholder], [title]')).flatMap((n) => ['aria-label', 'placeholder', 'title'].map((a) => n.getAttribute(a) ?? ''))].join(' ');
-    for (const part of ['padroes', 'categorias', 'tags']) {
+    for (const part of ['padroes', 'categorias', 'assuntos', 'tags']) {
       await go(part);
       if (part === 'categorias') {
         el.querySelector<HTMLButtonElement>('.cat-abre')!.click();

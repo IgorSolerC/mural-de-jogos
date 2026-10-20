@@ -37,8 +37,8 @@ import { writeJson, writeText } from './storage';
  * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
  * tag) e `prioridade` (fixadas, depois as comuns) só no de anotações; `nota` e `status`, só nos de resenhas.
  */
-export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'tag' | 'prioridade';
-const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'tag', 'prioridade'];
+export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'assunto' | 'tag' | 'prioridade';
+const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade'];
 export type Direction = 'desc' | 'asc';
 /**
  * Completa (tudo), inteira (a completa com o texto todo, as fichas encaixadas em colagem), simples
@@ -108,6 +108,7 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   alfabetica: 'asc',
   status: 'desc',
   categoria: 'asc',
+  assunto: 'asc',
   tag: 'asc',
   prioridade: 'desc',
 };
@@ -117,7 +118,7 @@ export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
   if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
   // as músicas também se ordenam pelo artista (a categoria delas)
   if (sort === 'categoria' && isMusic(profile.kind)) return sort;
-  return sort === 'categoria' || sort === 'tag' || sort === 'prioridade' ? 'data' : sort;
+  return sort === 'categoria' || sort === 'assunto' || sort === 'tag' || sort === 'prioridade' ? 'data' : sort;
 }
 
 function readNoteView(raw: unknown, base: NoteView): NoteView | null {
@@ -421,7 +422,7 @@ export abstract class WallState {
    * filtra as análises) e, sem spoilers, sem veredito, nota nem dificuldade, que entregariam o que
    * está escondido.
    */
-  private readonly activeFilter = computed<WallFilter>(() => {
+  protected readonly activeFilter = computed<WallFilter>(() => {
     const f = filterFor(this.filter(), this.mural.profile());
     return this.guarding() ? withoutSpoilerFacets(f) : f;
   });
@@ -726,6 +727,12 @@ export class WallView extends WallState {
     return this.notes() && this.activeTab().startsWith('c:') ? this.activeTabLabel() : null;
   }
 
+  /** O assunto da anotação nova escrita no mural: o único ligado no filtro, se for um só (e não "Sem assunto"). */
+  newNoteSubject(): string | null {
+    const on = this.notes() ? this.activeFilter().subject : [];
+    return on.length === 1 && on[0] !== 'sem' ? on[0] : null;
+  }
+
   /** Guarda a busca, o filtro e a ordem, e devolve como voltar a eles (ver ViewTransitions.run). */
   snapshot(): () => void {
     const query = this.query(),
@@ -766,6 +773,8 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       if (isMusic(profile.kind)) return desc ? 'Artistas de Z a A' : 'Artistas de A a Z';
       if (ordered) return desc ? 'Grupos na sua ordem, de trás para a frente' : 'Grupos na sua ordem';
       return desc ? 'Grupos de Z a A' : 'Grupos de A a Z';
+    case 'assunto':
+      return desc ? 'Assuntos de Z a A' : 'Assuntos de A a Z';
     case 'tag':
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
@@ -847,6 +856,11 @@ function firstCategory(r: Review): string | null {
   return r.category ?? null;
 }
 
+/** O assunto da anotação (a seção dela ordenando por assunto), ou nenhum. */
+function subjectOfNote(r: Review): string | null {
+  return r.subject ?? null;
+}
+
 /** A primeira tag da anotação (a seção dela ordenando por tag), ou nenhuma. */
 function firstTag(r: Review): string | null {
   return r.tags?.[0] ?? null;
@@ -860,6 +874,11 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       return (r) => {
         const c = firstCategory(r);
         return c === null ? ['sem-categoria', isMusic(o.profile.kind) ? 'Sem artista' : 'Sem grupo'] : [`c:${fold(c)}`, c];
+      };
+    case 'assunto':
+      return (r) => {
+        const s = subjectOfNote(r);
+        return s === null ? ['sem-assunto', 'Sem assunto'] : [`s:${fold(s)}`, s];
       };
     case 'tag':
       return (r) => {
@@ -939,6 +958,8 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
         return sign * (pa - pb || nameCollator.compare(ca, cb)) || -byDate(a, b);
       };
     }
+    case 'assunto':
+      return byLabel(subjectOfNote);
     case 'tag':
       // pela primeira tag
       return byLabel(firstTag);

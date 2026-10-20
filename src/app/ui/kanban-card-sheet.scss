@@ -54,7 +54,8 @@ dialog.ficha-quadro {
   @include kk.props-nome;
 }
 
-/* a linha das tags vem depois das do quadro (de outro componente): o fio tracejado por conta própria */
+/* as linhas do assunto e das tags vêm depois das do quadro (de outro componente): o fio tracejado por conta própria */
+.assunto-linha,
 .tags-linha {
   border-top: 1.5px dashed rgb(21 21 21 / 0.18);
 }
@@ -68,7 +69,8 @@ dialog.ficha-quadro {
   min-height: 44px;
 }
 
-app-tag-picker.valor {
+app-tag-picker.valor,
+app-subject-picker.valor {
   display: grid;
 }
 

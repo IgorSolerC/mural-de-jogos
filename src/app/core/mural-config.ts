@@ -1,5 +1,7 @@
 import type { Audience } from './review';
 import { lookKey, tagLookKey } from './category-looks';
+// (não de note-labels: ela traz review e settings, que trazem este arquivo)
+import { cleanLabel } from './text';
 
 /**
  * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
@@ -60,9 +62,18 @@ export interface NotesConfig {
    * sempre num grupo, como o Kanban, e o Tudo só aparece quando a busca pede para procurar em todos.
    */
   showAll: boolean;
+  /**
+   * Os assuntos criados nas configurações, por grupo (a chave de `lookKey`; "" para as anotações sem
+   * grupo), na ordem em que foram criados: ficam à mão no editor e no filtro mesmo antes de alguma
+   * anotação usar. Os escritos direto numa anotação não entram aqui (vêm das anotações).
+   */
+  subjects: Record<string, string[]>;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, subjects: {} };
+
+/** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
+export const MAX_SAVED_SUBJECTS = 60;
 
 /** Tags demais viram lixo guardado: no máximo estas com o filtro padrão Excluído. */
 export const MAX_HIDDEN_TAGS = 500;
@@ -85,7 +96,7 @@ const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === u
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [] };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [], subjects: {} };
   const r = raw as Record<string, unknown>;
   const order: string[] = [];
   if (Array.isArray(r['order'])) {
@@ -115,6 +126,17 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
       if (typeof k === 'string' && /^##.*#[^#]/.test(k) && k.length <= 160 && !hiddenTags.includes(k)) hiddenTags.push(k);
     }
   }
+  const subjects: Record<string, string[]> = {};
+  if (r['subjects'] && typeof r['subjects'] === 'object' && !Array.isArray(r['subjects'])) {
+    let n = 0;
+    for (const [k, v] of Object.entries(r['subjects'] as Record<string, unknown>)) {
+      if (n >= MAX_CONFIG_CATEGORIES) break;
+      const list = sanitizeSubjectList(v);
+      if (!list.length) continue;
+      subjects[lookKey(k).slice(0, 64)] = list;
+      n++;
+    }
+  }
   return {
     audience: AUDIENCES.includes(r['audience'] as Audience) ? (r['audience'] as Audience) : NOTES_CONFIG_DEFAULT.audience,
     orderBy: r['orderBy'] === 'minha' ? 'minha' : 'quantidade',
@@ -122,7 +144,33 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     categories,
     hiddenTags,
     showAll: r['showAll'] === true,
+    subjects,
   };
+}
+
+/** Uma lista de assuntos guardada: limpos, sem repetir (sem ligar para caixa e acento), no máximo `MAX_SAVED_SUBJECTS`. */
+function sanitizeSubjectList(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    if (out.length >= MAX_SAVED_SUBJECTS) break;
+    const s = typeof v === 'string' ? cleanLabel(v, 32) : '';
+    if (s && !out.some((x) => lookKey(x) === lookKey(s))) out.push(s);
+  }
+  return out;
+}
+
+/** Os assuntos criados nas configurações para o grupo (null ou "": as anotações sem grupo). */
+export function savedSubjects(cfg: NotesConfig, category: string | null | undefined): readonly string[] {
+  return cfg.subjects[lookKey(category ?? '')] ?? [];
+}
+
+/** Os assuntos guardados do grupo trocados por `list` (vazia: o grupo deixa de ser guardado). */
+export function withSavedSubjects(cfg: NotesConfig, category: string | null | undefined, list: readonly string[]): NotesConfig {
+  const key = lookKey(category ?? '');
+  const { [key]: _old, ...rest } = cfg.subjects;
+  const clean = sanitizeSubjectList(list);
+  return { ...cfg, subjects: clean.length ? { ...rest, [key]: clean } : rest };
 }
 
 /** A tag nasce escondida no filtro das anotações desta categoria ("" ou null: as sem categoria)? */

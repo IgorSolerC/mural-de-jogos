@@ -159,9 +159,9 @@ export class App {
       },
       // da ficha do mural: a nova herda a categoria, e o editor fecha de volta no mural
       newNote: (title, fromId) => this.newNote(title, fromId ?? null, false),
-      newNoteIn: (category, look) => {
+      newNoteIn: (category, look, subject) => {
         this.reader().close();
-        this.editor().openInCategory(category, look);
+        this.editor().openInCategory(category, look, subject);
       },
       openDraft: (id) => {
         const d = this.store.getDraft(id);
@@ -203,7 +203,7 @@ export class App {
       return;
     }
     const category = this.view.newNoteCategory();
-    if (category) this.editor().openInCategory(category);
+    if (category) this.editor().openInCategory(category, undefined, this.view.newNoteSubject());
     else this.editor().open(undefined, undefined, undefined, undefined, NOTES);
   }
 

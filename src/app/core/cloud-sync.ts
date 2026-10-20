@@ -148,11 +148,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     voltaria a esconder as anotações do quadro em todo aparelho.
  * 34: a aba "Tudo" do mural de anotações aparece só com `showAll` (nas configurações do mural). Um site
  *     da 33 jogaria o campo fora e enviaria assim, e a aba sumiria de novo em todo aparelho.
+ * 35: o assunto da anotação (`subject`, entre o grupo e as tags) e os assuntos criados nas
+ *     configurações do mural (`subjects`, por grupo). Um site da 34 jogaria os dois fora e enviaria
+ *     assim, e o assunto sumiria das anotações em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 34;
+export const SYNC_SCHEMA = 35;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

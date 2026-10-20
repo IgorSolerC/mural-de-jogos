@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { CategoryLook, CategoryLooks, lookKey, tagKeyPrefix, tagLookKey } from './category-looks';
 import { KanbanStore } from './kanban-store';
-import { NotesConfig } from './mural-config';
-import { MAX_PINNED_TAGS, cleanCategory, cleanTag, sanitizeTags } from './note-labels';
+import { NotesConfig, savedSubjects, withSavedSubjects } from './mural-config';
+import { MAX_PINNED_TAGS, cleanCategory, cleanSubject, cleanTag, sanitizeTags } from './note-labels';
 import { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -10,12 +10,13 @@ import { canManage } from './shared-notes';
 import { SharedStore } from './shared-store';
 
 /**
- * Renomear e apagar uma categoria ou uma tag das anotações, pelas Configurações do mural. O nome mora
+ * Renomear e apagar uma categoria, um assunto ou uma tag das anotações, pelas Configurações do mural. O nome mora
  * em vários lugares, e todos acompanham: as próprias anotações, o ícone e a cor (nos jeitos das
  * categorias, com as chaves "#" das tags), a ordem e os padrões de cada categoria, as tags fixas e o
  * quadro do Kanban (um por categoria, pelo nome).
  *
- * A tag é de uma categoria: renomear ou apagar a "Bug" do Trabalho não mexe na "Bug" dos Estudos, e
+ * O assunto e a tag são de uma categoria (o assunto também fica na lista dos criados nas
+ * configurações, `NotesConfig.subjects`, que acompanha). A tag é de uma categoria: renomear ou apagar a "Bug" do Trabalho não mexe na "Bug" dos Estudos, e
  * cada uma tem a sua cor (ver `tagLookKey`).
  *
  * Renomear para o nome de outra que já existe junta as duas: as anotações passam para ela, e o que
@@ -64,6 +65,17 @@ export function notesWithTag(notes: readonly Review[], category: string, from: s
     if (next.length === tags.length && next.every((t, i) => t === tags[i])) continue;
     const { tags: _t, ...rest } = r;
     out.push({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: at } as Review);
+  }
+  return out;
+}
+
+/** As anotações da categoria `category` (a chave) com o assunto `from` (pela chave), agora com `to` (null: sem assunto). */
+export function notesWithSubject(notes: readonly Review[], category: string, from: string, to: string | null, at: string): Review[] {
+  const out: Review[] = [];
+  for (const r of notes) {
+    if (!inCategory(r, category) || !r.subject || lookKey(r.subject) !== from || to === r.subject) continue;
+    const { subject: _s, ...rest } = r;
+    out.push({ ...rest, ...(to ? { subject: to } : {}), updatedAt: at } as Review);
   }
   return out;
 }
@@ -138,7 +150,20 @@ export function configMoved(cfg: NotesConfig, from: string, to: string | null): 
     const moved = mine ? toPrefix + k.slice(fromPrefix.length) : k;
     if (!hiddenTags.includes(moved)) hiddenTags.push(moved);
   }
-  return { ...cfg, order, categories, hiddenTags };
+  // os assuntos criados: os da categoria vão junto (para as anotações sem grupo, se ela foi apagada),
+  // depois dos que a outra já tinha
+  const { [from]: movingSubjects, ...subjects } = cfg.subjects;
+  const target = to ?? '';
+  const out = { ...cfg, order, categories, hiddenTags, subjects };
+  return movingSubjects?.length ? withSavedSubjects(out, target, [...(subjects[target] ?? []), ...movingSubjects]) : out;
+}
+
+/** O assunto `from` da lista dos criados da categoria trocado por `to` (null: sai da lista). */
+export function subjectConfigMoved(cfg: NotesConfig, category: string, from: string, to: string | null): NotesConfig {
+  const list = savedSubjects(cfg, category);
+  if (!list.some((x) => lookKey(x) === from)) return cfg;
+  const next = list.flatMap((x) => (lookKey(x) === from ? (to ? [to] : []) : [x]));
+  return withSavedSubjects(cfg, category, next);
 }
 
 /**
@@ -176,6 +201,37 @@ export class LabelEdits {
     const key = lookKey(tag);
     const cat = lookKey(category);
     return this.store.notes().filter((r) => inCategory(r, cat) && (r.tags ?? []).some((t) => lookKey(t) === key)).length;
+  }
+
+  /** Quantas anotações da categoria ("" é a sem categoria) têm o assunto (pela chave). */
+  subjectUses(subject: string, category: string): number {
+    const key = lookKey(subject);
+    const cat = lookKey(category);
+    return this.store.notes().filter((r) => inCategory(r, cat) && !!r.subject && lookKey(r.subject) === key).length;
+  }
+
+  /** O nome de outro assunto da mesma categoria (numa anotação ou entre os criados) que já atende por `name`, para juntar. */
+  existingSubject(name: string, except: string, category: string): string | null {
+    const key = lookKey(name);
+    const cat = lookKey(category);
+    if (key === lookKey(except)) return null;
+    const used = this.store.notes().find((r) => inCategory(r, cat) && !!r.subject && lookKey(r.subject) === key)?.subject;
+    return used ?? savedSubjects(this.settings.notesConfig(), category).find((x) => lookKey(x) === key) ?? null;
+  }
+
+  /**
+   * Renomeia o assunto nas anotações da categoria ("" é a sem categoria; null no nome: tira dele) e na
+   * lista dos criados nas configurações.
+   */
+  renameSubject(subject: string, category: string, name: string | null): LabelEditResult {
+    const from = lookKey(subject);
+    const cat = lookKey(category);
+    const to = name === null ? null : cleanSubject(name);
+    if (to === '') return { changed: 0, skipped: 0 };
+    const result = this.save(notesWithSubject(this.store.notes(), cat, from, to, new Date().toISOString()));
+    const cfg = subjectConfigMoved(this.settings.notesConfig(), category, from, to);
+    if (cfg !== this.settings.notesConfig()) this.settings.setNotesConfig(cfg);
+    return result;
   }
 
   /** O nome de outra categoria que já atende por `name` (sem ligar para caixa e acento), para juntar. */

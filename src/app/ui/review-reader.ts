@@ -168,6 +168,10 @@ const PATCH_GAP = 8;
                   @if (audience(); as a) {
                     <span class="quem-ve" [title]="a.title"><lucide-icon class="quem-ve-icone" [img]="a.icon" [size]="15" aria-hidden="true" /><span class="sr-only">{{ a.title }}. </span></span>
                   }
+                  <!-- o assunto da anotação (o grupo é a orelha da ficha), primeiro -->
+                  @if (note() && r.subject; as s) {
+                    <span class="assunto"><lucide-icon class="quem-ve-icone" [img]="SubjectIcon" [size]="15" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span><span aria-hidden="true"> · </span>
+                  }
                   <!-- o lugar da anotação no mural vem antes da data, com ou sem data -->
                   @if (note() && r.noteRank === 'fixada') {
                     Fixada<span aria-hidden="true"> · </span>
@@ -228,7 +232,7 @@ const PATCH_GAP = 8;
                           </span>
                         }
                         @if (b.status; as st) {
-                          <span class="etq status" [title]="st"><span class="sr-only">Status: </span>{{ st }}</span>
+                          <span class="etq status" [title]="st"><span class="sr-only">Observação: </span>{{ st }}</span>
                         }
                         @if (b.deps; as deps) {
                           <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="openBoard(b.id)" />
@@ -556,6 +560,7 @@ export class ReviewReader {
   private readonly calendar = inject(CalendarStore);
   protected readonly CalendarIcon = ICON.calendario;
   protected readonly TasksIcon = ICON.tarefas;
+  protected readonly SubjectIcon = ICON.assunto;
   protected readonly importanceLabel = IMPORTANCE_LABEL;
   protected readonly importanceLevel = IMPORTANCE_LEVEL;
   protected readonly steps = [1, 2, 3, 4, 5];
@@ -568,7 +573,7 @@ export class ReviewReader {
   });
   /**
    * A anotação no quadro do grupo dela (no seu mural): a coluna (com o desenho e a cor dela), a
-   * importância, o status e as dependências, as mesmas etiquetas da ficha no quadro.
+   * importância, a observação e as dependências, as mesmas etiquetas da ficha no quadro.
    */
   protected readonly board = computed(() => {
     const r = this.review();

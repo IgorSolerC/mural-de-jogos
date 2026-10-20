@@ -1,6 +1,6 @@
 import { KIND_PROFILES, Kind, isKind, isMusic, isNotes, profileOf } from './kinds';
 import { scoreDisplay } from './settings';
-import { cleanCategory, sanitizeTags } from './note-labels';
+import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { Damage, DecorMark, Paper, Pattern, Scribble, StainMark, isAgedPaper, sanitizeDamage, sanitizeDecors, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeScribbleInk, sanitizeSeed, sanitizeStains } from './paper';
 import { BUILD } from './build';
 import { migrateReview } from './migrations';
@@ -329,6 +329,11 @@ export interface Review {
    * Nas músicas: o artista (a banda), que vem da busca e vira a aba dela no mural. Sem o campo, sem artista.
    */
   category?: string;
+  /**
+   * Só nas anotações: o assunto, um nível entre o grupo e as tags (no grupo Estudos: História,
+   * Geografia). Um só, escrito à mão ou escolhido entre os do grupo. Sem o campo, sem assunto.
+   */
+  subject?: string;
   /** Só nas anotações: as tags, escritas à mão ("Bugfix", "Feature"). Sem o campo, nenhuma. */
   tags?: string[];
   /**
@@ -1197,6 +1202,7 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
         ).map((b) => b.label);
   const category = cleanCategory(typeof r['category'] === 'string' ? r['category'] : (legacy[0] ?? ''));
   const tags = sanitizeTags('tags' in r ? r['tags'] : legacy.slice(1));
+  const subject = cleanSubject(typeof r['subject'] === 'string' ? r['subject'] : '');
   // `r` já passou pelas conversões em sanitizeReview
   const base = sanitizeReview({ ...r, kind: 'jogos', bonuses: [], scores: { final: 0 }, revisitOf: undefined, artFrom: undefined, finalOverride: undefined }, BUILD)!;
   const {
@@ -1217,6 +1223,7 @@ export function sanitizeNote(r: Record<string, any>, game: PickedGame): Review {
     weights: {},
     bonuses: [],
     ...(category ? { category } : {}),
+    ...(subject ? { subject } : {}),
     ...(tags.length ? { tags } : {}),
     hoursPlayed: null,
     // a sub-nota de antes (e o "era sub-nota" da fixada) não existe mais: vira comum

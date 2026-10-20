@@ -11,6 +11,7 @@ import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view
 import { FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
+import { SubjectShortcuts } from './subject-shortcuts';
 import { TagShortcuts } from './tag-shortcuts';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
@@ -29,12 +30,13 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'data', label: 'Data' },
   { value: 'alfabetica', label: 'Título' },
   { value: 'categoria', label: 'Grupo' },
+  { value: 'assunto', label: 'Assunto' },
   { value: 'tag', label: 'Tag' },
 ];
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, TagShortcuts],
+  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, SubjectShortcuts, TagShortcuts],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',

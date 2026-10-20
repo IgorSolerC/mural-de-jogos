@@ -219,9 +219,16 @@ export const CARD_TEMPLATE = `
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
         } @else if (!capas() && note()) {
           <p class="meta meta-nota" data-queima>
+            <!-- o assunto, primeiro: o grupo está na orelha, o assunto abre a linha -->
+            @if (review().subject; as s) {
+              <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span>
+            }
             <!-- quem vê (a pública, no seu mural) e a data; sem data, o lugar dela fica vazio (a linha
                  continua, do mesmo tamanho) -->
             @if (review().completedAt || publicBadge()) {
+              @if (review().subject) {
+                <span aria-hidden="true"> · </span>
+              }
               <span class="quando">
                 @if (publicBadge()) {
                   <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
@@ -233,14 +240,14 @@ export const CARD_TEMPLATE = `
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (review().completedAt || publicBadge()) {
+              @if (review().completedAt || publicBadge() || review().subject) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
-              @if (review().completedAt || publicBadge() || tasks()) {
+              @if (review().completedAt || publicBadge() || tasks() || review().subject) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
@@ -1690,6 +1697,7 @@ export class ReviewCard {
   protected readonly PublicIcon = ICON.publica;
   protected readonly TasksIcon = ICON.tarefas;
   protected readonly NoTextIcon = ICON.escrever;
+  protected readonly SubjectIcon = ICON.assunto;
   /** No quadro (Kanban), a anotação sem texto nenhum, só o título: a linha da data avisa. */
   protected readonly noText = computed(() => this.onBoard && isNote(this.review()) && !this.review().text.trim());
   /** As tarefas do texto da anotação: quantas feitas de quantas (null: sem tarefas). */
@@ -1938,7 +1946,7 @@ export class ReviewCard {
   protected readonly spoken = computed(() => {
     const r = this.review();
     if (isNote(r)) {
-      const cats = [r.category ? `grupo ${r.category}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
+      const cats = [r.category ? `grupo ${r.category}` : '', r.subject ? `assunto ${r.subject}` : '', ...(r.tags ?? []).map((t) => `tag ${t}`)].filter(Boolean).join(', ');
       const when = r.completedAt === null ? NO_DAY_LABEL.toLowerCase() : formatReviewDate(r.completedAt);
       const rank = r.noteRank === 'fixada' ? 'fixada' : '';
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
