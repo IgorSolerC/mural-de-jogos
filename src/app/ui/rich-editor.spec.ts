@@ -378,6 +378,23 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('abc\n> ');
     });
 
+    it('texto sutil pelo estilo: "-# " na frente, marcado no Formatar; troca a citação e "Texto normal" tira', () => {
+      write('> detalhe|');
+      pick('formatar', 'Texto sutil');
+      expect(value()).toBe('-# detalhe');
+      // o Formatar marca o da linha do cursor
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect((fixture.nativeElement.querySelector('.menu-op[aria-checked="true"]') as HTMLElement).textContent!.trim()).toBe('Texto sutil');
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      pick('formatar', 'Título 2');
+      expect(value()).toBe('## detalhe');
+      pick('formatar', 'Texto sutil');
+      pick('formatar', 'Texto normal');
+      expect(value()).toBe('detalhe');
+    });
+
     it('o título troca a citação (e vice-versa), sem somar as marcas', () => {
       write('> frase|');
       pick('formatar', 'Título 2');
@@ -954,6 +971,8 @@ describe('o estilo do parágrafo da linha (styleAt)', () => {
     expect(at('#hashtag')).toBe('texto');
     expect(at('> dito')).toBe('citacao');
     expect(at('>!segredo!<')).toBe('texto');
+    expect(at('-# pequeno')).toBe('sutil');
+    expect(at('-#junto')).toBe('texto');
     expect(at('- item')).toBe('texto');
   });
 

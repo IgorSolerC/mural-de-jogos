@@ -22,6 +22,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       { what: 'Título 2', mark: '## Título' },
       { what: 'Título 3', mark: '### Título' },
       { what: 'Citação', mark: '> texto' },
+      { what: 'Texto sutil', mark: '-# texto', note: 'A linha menor e mais clara, para o que é só um detalhe (como no Discord).' },
       { what: 'Bloco de código', mark: '```', note: 'Numa linha antes do código e noutra depois.' },
       { what: 'Tarefas', mark: '- [ ] tarefa', keys: 'Ctrl+Shift+9', note: 'Feita: - [x] tarefa.' },
       { what: 'Lista', mark: '- item', keys: 'Ctrl+Shift+8' },

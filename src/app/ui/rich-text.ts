@@ -79,6 +79,12 @@ import { NoteWidget } from './note-widget';
               }
             </blockquote>
           }
+          @case ('subtle') {
+            <!-- o texto sutil: a letra menor e mais clara, sentada na mesma linha da pauta -->
+            @for (l of b.lines; track $index) {
+              <div class="linha paragrafo sutil"><span class="sutil-texto">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span></div>
+            }
+          }
           @case ('hr') {
             <div class="linha divisoria" role="separator"></div>
           }
@@ -331,6 +337,16 @@ import { NoteWidget } from './note-widget';
       opacity: 0.45;
       -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
       mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+    }
+
+    /* ===== O texto sutil ("-# "): a letra menor, na tinta da folha mais rala (na cartolina colorida,
+       a cor dela aparece por baixo, sem virar cinza). A linha continua com a altura da pauta: só as
+       letras diminuem, dentro dela ===== */
+    .sutil {
+      color: color-mix(in srgb, currentColor 64%, transparent);
+    }
+    .sutil-texto {
+      font-size: 0.84em;
     }
 
     /* ===== A divisória: um risco ondulado à mão, no meio da linha da pauta ===== */

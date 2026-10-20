@@ -33,6 +33,23 @@ describe('o markdown do texto', () => {
     expect(parseRich('* * *')[0].kind).toBe('hr');
   });
 
+  it('o texto sutil ("-# ", como no Discord): as linhas seguidas são um bloco, com as marcas dentro', () => {
+    const blocks = parseRich('-# um detalhe **pequeno**\n-# outro\ntexto\n-#\n-#junto');
+    expect(blocks.map((b) => b.kind)).toEqual(['subtle', 'p', 'subtle', 'p']);
+    expect(blocks[0]).toEqual({ kind: 'subtle', lines: [[{ text: 'um detalhe ' }, { text: 'pequeno', bold: true }], [{ text: 'outro' }]] });
+    // "-#" sozinho é uma linha sutil vazia; colado no texto ("-#junto"), é texto
+    expect(blocks[2]).toEqual({ kind: 'subtle', lines: [[]] });
+    expect(blocks[3]).toEqual({ kind: 'p', lines: [[{ text: '-#junto' }]] });
+    // não é título, nem item, e embaixo de um item é dele
+    expect(parseRich('- # x')[0].kind).toBe('ul');
+    const [list] = parseRich('- [ ] tarefa\n  -# a observação');
+    expect(list.kind === 'check' && list.items[0].body![0].kind).toBe('subtle');
+    expect(hasFormatting('-# x')).toBeTrue();
+    expect(plainText('-# um ||segredo||\nfim')).toBe('um [spoiler]\nfim');
+    // o "-\#" escapado fica como foi escrito
+    expect(parseRich('-\\# x')[0].kind).toBe('p');
+  });
+
   it('a tabela: cabeçalho, alinhamento, a barra escapada fica na célula, e a linha curta ganha células vazias', () => {
     const [t] = parseRich('| Nome | Nota | Obs |\n| :-- | :-: | --: |\n| Hades | 9 | a \\| b |\n| Celeste | 8 |');
     if (t.kind !== 'table') throw new Error('não é tabela');

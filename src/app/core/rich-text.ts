@@ -13,7 +13,7 @@
  *   "+ item", "1. item" e, dentro de um, "1.1. item"), checklists ("- [ ] tarefa", "- [x] feita"), citações ("> "), a divisória
  *   ("---"), tabelas (as linhas com "|", a segunda só de traços), blocos de código (entre "```" ou
  *   "~~~") e os widgets das anotações ("{{contador: 19/11/2026 | Lançamento}}", numa linha só dele;
- *   ver core/widgets.ts).
+ *   ver core/widgets.ts), e o texto sutil ("-# texto", como no Discord: menor e mais claro).
  * - O que vem embaixo de um item, recuado dois espaços ou mais, é dele, como no markdown: a
  *   descrição em várias linhas, outra lista, um widget (ver `ListItem.body`).
  *
@@ -82,6 +82,8 @@ export type Block =
   | { kind: 'check'; items: ListItem[]; folded?: number; seq?: number }
   | { kind: 'h'; level: 1 | 2 | 3; spans: Span[] }
   | { kind: 'quote'; lines: Span[][] }
+  /** "-# texto": as linhas seguidas de texto sutil, menor e mais claro. */
+  | { kind: 'subtle'; lines: Span[][] }
   | { kind: 'hr' }
   | { kind: 'code'; text: string }
   /** Um widget (ver core/widgets.ts): o nome do registro, os parâmetros como foram escritos e o tamanho. */
@@ -96,6 +98,8 @@ const NUMBER = /^\s*((?:\d{1,4}\.)*)(\d{1,4})[.)]\s+(.*)$/;
 const NUMBER_AT = /^(\s*)(\d{1,4}(?:\.\d{1,4})*)/;
 // do "####" ao "######" (o markdown tem seis níveis), com a cara do terceiro; os "#" do fim saem
 const HEADING = /^(#{1,6})\s+(.*?\S)(?:\s+#+)?\s*$/;
+/** O texto sutil, como o "-# " do Discord: a linha menor e mais clara (o "-" sem espaço depois não é item). */
+const SUBTLE = /^\s*-#(?:[ \t]+(.*))?$/;
 // (">!spoiler!<" no começo da linha é um spoiler, não uma citação)
 const QUOTE = /^\s*>(?!!\S.*!<)\s?(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
@@ -526,6 +530,13 @@ function parseLines(lines: readonly string[], base: number): Block[] {
       else blocks.push({ kind: 'quote', lines: [parseInline(q[1])] });
       continue;
     }
+    const sub = SUBTLE.exec(line);
+    if (sub) {
+      const spans = parseInline(sub[1] ?? '');
+      if (last?.kind === 'subtle') last.lines.push(spans);
+      else blocks.push({ kind: 'subtle', lines: [spans] });
+      continue;
+    }
     const k = lineKind(line);
     if (k.kind === 'p') {
       const spans = parseInline(line);
@@ -564,6 +575,7 @@ function spansOf(b: Block): Span[] {
   switch (b.kind) {
     case 'p':
     case 'quote':
+    case 'subtle':
       return b.lines.flat();
     case 'h':
       return b.spans;
@@ -631,6 +643,7 @@ function textOf(text: string, widget: (name: string, args: readonly string[]) =>
       switch (b.kind) {
         case 'p':
         case 'quote':
+        case 'subtle':
           out.push(...b.lines.map(join));
           break;
         case 'h':

@@ -65,6 +65,27 @@ describe('o texto formatado na leitura', () => {
     expect(el.querySelector('ol')!.getAttribute('start')).toBe('3');
   });
 
+  it('a lista de dentro com o número do pai escreve "1.1.", "1.2.", com mais lugar para o número', async () => {
+    const el = await render('1. teste 1\n  1.1. teste 11\n  1.2. teste 12\n2. teste 2');
+    const inner = Array.from(el.querySelectorAll<HTMLElement>('ol ol > li'));
+    expect(inner.map((li) => li.getAttribute('data-pre'))).toEqual(['1.', '1.']);
+    expect(marker(inner[0])).toContain('1.');
+    const outer = el.querySelector<HTMLElement>('ol > li')!;
+    expect(outer.hasAttribute('data-pre')).toBeFalse();
+    expect(parseFloat(getComputedStyle(inner[0]).paddingLeft)).toBeGreaterThan(parseFloat(getComputedStyle(outer).paddingLeft));
+  });
+
+  it('o texto sutil ("-# ") é menor e mais claro, na mesma altura de linha', async () => {
+    const el = await render('normal\n-# um **detalhe**');
+    const [plain, subtle] = Array.from(el.querySelectorAll<HTMLElement>('.linha'));
+    expect(subtle.classList).toContain('sutil');
+    expect(subtle.textContent).toBe('um detalhe');
+    const small = subtle.querySelector<HTMLElement>('.sutil-texto')!;
+    expect(parseFloat(getComputedStyle(small).fontSize)).toBeLessThan(parseFloat(getComputedStyle(plain).fontSize));
+    expect(getComputedStyle(subtle).color).not.toBe(getComputedStyle(plain).color);
+    expect(subtle.getBoundingClientRect().height).toBe(plain.getBoundingClientRect().height);
+  });
+
   it('o que vem embaixo da tarefa fica no alinhamento do texto dela, com uma linha de respiro; feita, é riscado junto', async () => {
     const el = await render('- [x] **Mandolin**\n      Descrição: adaptável\n      {{imagem: https://ex.com/m.jpg}}\n- [ ] Panelas\n      fundo triplo\n- [ ] Cola', null, true);
     const items = Array.from(el.querySelectorAll<HTMLElement>('.tarefas > li'));

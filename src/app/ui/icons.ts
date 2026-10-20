@@ -38,6 +38,7 @@ import {
   Camera,
   CameraOff,
   Car,
+  CaseLower,
   CaseSensitive,
   CassetteTape,
   ChartNoAxesColumn,
@@ -453,6 +454,8 @@ export const ICON = {
   paragrafo: Pilcrow,
   citacao: TextQuote,
   aspas: Quote,
+  /** O texto sutil ("-# "): as letras pequenas. */
+  sutil: CaseLower,
   codigo: Code,
   blocoDeCodigo: SquareCode,
   tabela: Table,

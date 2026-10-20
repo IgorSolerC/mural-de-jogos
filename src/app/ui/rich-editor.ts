@@ -19,7 +19,7 @@ type MenuName = 'formatar' | 'inserir';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
-export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'codigo';
+export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'sutil' | 'codigo';
 
 /**
  * Onde a régua desce para cima do teclado: no toque, com a tela estreita (o celular em pé) ou baixa
@@ -1436,6 +1436,10 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     [data-estilo='citacao'] {
       font-style: italic;
     }
+    [data-estilo='sutil'] {
+      font-size: 0.84em;
+      opacity: 0.64;
+    }
     [data-estilo='codigo'] {
       font-family: var(--f-mono);
       font-weight: 700;
@@ -1921,6 +1925,7 @@ export class RichEditor {
     { value: 't2', name: 'Título 2', icon: ICON.titulo2 },
     { value: 't3', name: 'Título 3', icon: ICON.titulo3 },
     { value: 'citacao', name: 'Citação', icon: ICON.aspas },
+    { value: 'sutil', name: 'Texto sutil', icon: ICON.sutil },
     { value: 'codigo', name: 'Bloco de código', icon: ICON.blocoDeCodigo },
   ];
   /** O que o "Inserir" tem antes dos widgets (o link para outra anotação, só onde ele abre alguma). */
@@ -2106,7 +2111,7 @@ export class RichEditor {
     const out = lines.map((l, i) => {
       // linha em branco no meio da seleção fica em branco
       if (!single && !l.trim()) return l;
-      const bare = l.replace(QUOTE_MARK, '').replace(HEADING_MARK, '');
+      const bare = l.replace(QUOTE_MARK, '').replace(SUBTLE_MARK, '').replace(HEADING_MARK, '');
       if (i === 0) shift = prefix.length - (l.length - bare.length);
       return prefix + bare;
     }).join('\n');
@@ -3268,11 +3273,13 @@ export class RichEditor {
 let uid = 0;
 
 /** A marca do começo da linha de cada estilo do parágrafo (o bloco de código são as cercas). */
-const STYLE_PREFIX: Record<Exclude<LineStyle, 'codigo'>, string> = { texto: '', t1: '# ', t2: '## ', t3: '### ', citacao: '> ' };
+const STYLE_PREFIX: Record<Exclude<LineStyle, 'codigo'>, string> = { texto: '', t1: '# ', t2: '## ', t3: '### ', citacao: '> ', sutil: '-# ' };
 const HEADING_MARK = /^#{1,3}\s+/;
 /** A citação ("> "), não o spoiler ">!texto!<". */
 const QUOTE_MARK = /^\s*>(?!!\S.*!<)\s?/;
 const FENCE_MARK = /^\s*```/;
+/** O texto sutil ("-# ", como no Discord). */
+const SUBTLE_MARK = /^\s*-#(?:[ \t]+|$)/;
 /** Ctrl+Shift+7, 8 e 9: as listas, pela tecla (com o Shift, ela escreve outra coisa). */
 const LIST_KEYS: Record<string, ListKind> = { Digit7: 'ol', Digit8: 'ul', Digit9: 'check' };
 
@@ -3286,6 +3293,7 @@ export function styleAt(text: string, at: number): LineStyle {
   if (open || FENCE_MARK.test(line)) return 'codigo';
   const h = /^(#{1,3})\s/.exec(line);
   if (h) return `t${h[1].length}` as LineStyle;
+  if (SUBTLE_MARK.test(line)) return 'sutil';
   return QUOTE_MARK.test(line) && !/^\s*>!/.test(line) ? 'citacao' : 'texto';
 }
 
