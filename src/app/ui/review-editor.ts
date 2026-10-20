@@ -826,7 +826,25 @@ export class ReviewEditor {
    * escreve; a escolha fica neste aparelho.
    */
   protected readonly whole = signal(readText(WHOLE_KEY) === '1');
-  protected readonly showWhole = computed(() => this.wide() && this.whole());
+  /**
+   * Inteira sozinha: enquanto o foco está no texto (o campo, a régua, as folhas dele), a ficha fica
+   * inteira; o foco em qualquer outra coisa do editor a fecha. Aberta pelo botão (`whole`), ela não
+   * fecha sozinha.
+   */
+  protected readonly autoWhole = signal(false);
+  /** A ficha está inteira, pelo botão ou pelo texto (o botão mostra assim). */
+  protected readonly wholeOn = computed(() => this.whole() || this.autoWhole());
+  protected readonly showWhole = computed(() => this.wide() && this.wholeOn());
+  /** A ficha mudou de tamanho: inteira, vai até o cursor (ou fica no alto); de volta, no alto. */
+  private readonly refitWhole = effect(() => {
+    const on = this.showWhole();
+    untracked(() =>
+      requestAnimationFrame(() => {
+        this.fitPreview();
+        if (!on || !this.followCaret('instant')) this.previewSlot().nativeElement.scrollTo({ top: 0, behavior: 'instant' });
+      }),
+    );
+  });
   /** O campo do texto onde o cursor esteve por último (a régua tira o foco dele, não o cursor). */
   private caretArea: HTMLTextAreaElement | null = null;
   private followFrame = 0;
@@ -1016,16 +1034,22 @@ export class ReviewEditor {
     this.previewHeight.set(Math.ceil(natural * scale));
   }
 
+  /** O botão: inteira (por ele ou pelo texto), volta ao tamanho do mural; senão, abre e fica aberta. */
   protected toggleWhole(): void {
-    const on = !this.whole();
+    const on = !this.wholeOn();
     this.whole.set(on);
+    this.autoWhole.set(false);
     writeText(WHOLE_KEY, on ? '1' : '0');
-    const slot = this.previewSlot().nativeElement;
-    // depois de a ficha mudar de tamanho: inteira, vai até o cursor (ou fica no alto); de volta, no alto
-    requestAnimationFrame(() => {
-      this.fitPreview();
-      if (!on || !this.followCaret('instant')) slot.scrollTo({ top: 0, behavior: 'instant' });
-    });
+  }
+
+  /**
+   * O foco andou no editor: no texto (o campo, a régua, a folha de um widget, a tela cheia), a ficha
+   * fica inteira; fora dele, volta. O botão da ficha inteira não conta (quem decide é o clique nele).
+   */
+  protected focusMoved(e: FocusEvent): void {
+    const at = e.target;
+    if (!(at instanceof Element) || at.closest('.ver-inteira')) return;
+    this.autoWhole.set(!!at.closest('app-rich-editor'));
   }
 
   /** O cursor entrou num campo do texto (o de sempre ou o grande). */
@@ -1201,6 +1225,7 @@ export class ReviewEditor {
     toTop();
     this.previewScale.set(1);
     this.caretArea = null;
+    this.autoWhole.set(false);
     // as fichas montadas fora da tela dormem enquanto o diálogo está aberto (ver core/wall-settle.ts)
     napWall();
     dialog.showModal();

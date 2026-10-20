@@ -95,6 +95,78 @@ describe('o editor: a prévia reta e a ficha inteira', () => {
     expect(localStorage.getItem('meu-mural:editor:ficha-inteira')).toBe('0');
   });
 
+  describe('sozinha, enquanto se escreve o texto', () => {
+    const area = () => el.querySelector<HTMLTextAreaElement>('app-rich-editor textarea')!;
+    const title = () => el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
+    const focus = async (target: HTMLElement) => {
+      target.focus();
+      await fixture.whenStable();
+    };
+
+    it('o foco no texto (e na régua dele) abre a ficha inteira; fora dele, ela volta', async () => {
+      wide();
+      await open(note(LONG));
+      await focus(title());
+      expect(card().classList).not.toContain('inteira');
+      await focus(area());
+      expect(card().classList).toContain('inteira');
+      // o botão mostra que ela está inteira, mas a escolha do aparelho não muda
+      expect(button().getAttribute('aria-pressed')).toBe('true');
+      expect(localStorage.getItem('meu-mural:editor:ficha-inteira')).toBeNull();
+      // a régua do texto é do texto
+      await focus(el.querySelector<HTMLButtonElement>('app-rich-editor button')!);
+      expect(card().classList).toContain('inteira');
+      await focus(title());
+      expect(card().classList).not.toContain('inteira');
+      expect(button().getAttribute('aria-pressed')).toBe('false');
+      await focus(area());
+      await focus(el.querySelector<HTMLButtonElement>('.prop')!);
+      expect(card().classList).not.toContain('inteira');
+    });
+
+    it('aberta pelo botão, não fecha ao sair do texto', async () => {
+      wide();
+      await open(note(LONG));
+      el.querySelector<HTMLElement>('.palco')!.style.display = 'block';
+      el.querySelector<HTMLElement>('.palco-topo')!.style.display = 'flex';
+      await focus(button());
+      button().click();
+      await fixture.whenStable();
+      await focus(area());
+      await focus(title());
+      expect(card().classList).toContain('inteira');
+      expect(localStorage.getItem('meu-mural:editor:ficha-inteira')).toBe('1');
+    });
+
+    it('inteira pelo texto, o botão a fecha (e o foco nele não fecha antes do clique)', async () => {
+      wide();
+      await open(note(LONG));
+      // o palco à vista, como no largo (a tela de teste é estreita): o botão pode receber o foco
+      el.querySelector<HTMLElement>('.palco')!.style.display = 'block';
+      el.querySelector<HTMLElement>('.palco-topo')!.style.display = 'flex';
+      await focus(area());
+      await focus(button());
+      expect(card().classList).toContain('inteira');
+      button().click();
+      await fixture.whenStable();
+      expect(card().classList).not.toContain('inteira');
+      expect(button().getAttribute('aria-pressed')).toBe('false');
+      // e voltar ao texto abre de novo
+      await focus(area());
+      expect(card().classList).toContain('inteira');
+    });
+
+    it('o editor abre de novo sem ela inteira', async () => {
+      wide();
+      await open(note(LONG));
+      await focus(area());
+      fixture.componentInstance['dialog']().nativeElement.close();
+      await open(note('Outra.'));
+      await focus(title());
+      expect(card().classList).not.toContain('inteira');
+    });
+  });
+
   it('no estreito a ficha fica do tamanho do mural (o botão é só do largo)', async () => {
     localStorage.setItem('meu-mural:editor:ficha-inteira', '1');
     await open(note(LONG));

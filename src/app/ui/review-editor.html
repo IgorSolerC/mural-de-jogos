@@ -7,6 +7,7 @@
   (cancel)="requestClose($event)"
   (close)="onClose()"
   (backdropClose)="requestClose()"
+  (focusin)="focusMoved($event)"
 >
   <form
     class="ficha cartolina"
@@ -421,11 +422,11 @@
           <button
             type="button"
             class="ver-inteira"
-            [attr.aria-pressed]="whole()"
-            [title]="whole() ? 'Voltar a ficha ao tamanho do mural' : 'Ver o texto todo, como em Fichas inteiras'"
+            [attr.aria-pressed]="wholeOn()"
+            [title]="wholeOn() ? 'Voltar a ficha ao tamanho do mural' : 'Ver o texto todo, como em Fichas inteiras (ela também fica inteira enquanto você escreve o texto)'"
             (click)="toggleWhole()"
           >
-            <lucide-icon [img]="whole() ? ShrinkIcon : GrowIcon" [size]="15" aria-hidden="true" />
+            <lucide-icon [img]="wholeOn() ? ShrinkIcon : GrowIcon" [size]="15" aria-hidden="true" />
             Ficha inteira
           </button>
         </div>

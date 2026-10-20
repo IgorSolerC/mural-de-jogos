@@ -26,13 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-orelhas-iguais',
+    id: '2026-10-20-ficha-inteira-sozinha',
     version: '1.29.1',
     kind: 'ajustes',
     date: '2026-10-20',
     title: 'A ficha inteira ao lado do editor e a Observação do Kanban',
     melhorias: [
-      'No computador, a ficha ao lado do editor ficou reta e ganhou o botão Ficha inteira: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo.',
+      'No computador, a ficha ao lado do editor ficou reta e fica inteira enquanto você escreve o texto: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo. Saindo do texto, ela volta; para deixá-la sempre inteira, use o botão Ficha inteira.',
       'O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".',
     ],
     correcoes: ['As abas dos grupos no Kanban tinham o nome numa letra maior e eram mais altas que as do mural; agora são iguais.'],
