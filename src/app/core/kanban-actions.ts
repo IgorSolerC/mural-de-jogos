@@ -141,7 +141,7 @@ export class KanbanActions {
   }
 
   /**
-   * Tira a anotação do quadro (ela continua no mural), com Desfazer. Vestida pelo card padrão da
+   * Tira a anotação do quadro (ela fica no mural, também a que estava só no Kanban), com Desfazer. Vestida pelo card padrão da
    * coluna, ela continua com o visual dele.
    */
   remove(board: KanbanBoard, note: string): void {
@@ -150,8 +150,10 @@ export class KanbanActions {
     const index = cardsIn(board, card.column).findIndex((c) => c.note === note);
     const name = this.store.get(note)?.game.name ?? 'A anotação';
     const back = card.dress ? { ...card, dress: { ...card.dress, col: '', v: '' } } : card;
+    // a que estava só no Kanban volta para o mural (fora do quadro, o mural é o lugar dela)
+    const was = this.kanban.isOnWall(card, this.store.get(note)?.category) ? 'continua no mural' : 'voltou para o mural';
     this.kanban.update(board.id, (b, at) => removeCard(b, note, at));
-    this.toasts.show(`“${name}” saiu do quadro (continua no mural)`, {
+    this.toasts.show(`“${name}” saiu do quadro (${was})`, {
       label: 'Desfazer',
       run: () =>
         this.kanban.update(board.id, (b, at) => {

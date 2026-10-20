@@ -1,7 +1,9 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { KanbanBoard, boardIdFor, mergeBoards, onWall, restoredBoard, sanitizeBoard, setWall } from './kanban';
+import { KanbanActions } from './kanban-actions';
 import { KanbanStore } from './kanban-store';
+import { Toasts } from '../ui/toast';
 import { Mural } from './mural';
 import { NOTES_CONFIG_DEFAULT, kanbanOnly, sanitizeNotesConfig, withPrefs } from './mural-config';
 import { Review, sanitizeReview } from './review';
@@ -60,13 +62,16 @@ describe('só no Kanban: o que se guarda', () => {
     expect(onWall({ wall: false }, false)).toBeFalse();
   });
 
-  it('o grupo guarda "só no Kanban" só quando ligado', () => {
-    const on = withPrefs(NOTES_CONFIG_DEFAULT, 'Trabalho', { kanbanOnly: true });
-    expect(on.categories['trabalho']).toEqual({ kanbanOnly: true });
-    expect(kanbanOnly(on, 'TRABALHO')).toBeTrue();
-    expect(kanbanOnly(on, 'Estudos')).toBeFalse();
-    expect(withPrefs(on, 'Trabalho', { kanbanOnly: undefined }).categories).toEqual({});
-    expect(sanitizeNotesConfig({ categories: { trabalho: { kanbanOnly: true }, estudos: { kanbanOnly: 'sim' } } }).categories).toEqual({ trabalho: { kanbanOnly: true } });
+  it('todo grupo deixa as do quadro só no Kanban; guarda só o grupo que as quer no mural também', () => {
+    expect(kanbanOnly(NOTES_CONFIG_DEFAULT, 'Trabalho')).toBeTrue();
+    const off = withPrefs(NOTES_CONFIG_DEFAULT, 'Trabalho', { kanbanOnly: false });
+    expect(off.categories['trabalho']).toEqual({ kanbanOnly: false });
+    expect(kanbanOnly(off, 'TRABALHO')).toBeFalse();
+    expect(kanbanOnly(off, 'Estudos')).toBeTrue();
+    expect(withPrefs(off, 'Trabalho', { kanbanOnly: undefined }).categories).toEqual({});
+    expect(withPrefs(off, 'Trabalho', { kanbanOnly: true }).categories).toEqual({});
+    // o `true` guardado antes é o padrão: não fica
+    expect(sanitizeNotesConfig({ categories: { trabalho: { kanbanOnly: false }, estudos: { kanbanOnly: true }, casa: { kanbanOnly: 'nao' } } }).categories).toEqual({ trabalho: { kanbanOnly: false } });
   });
 
   it('na junção, tirar do mural num aparelho fica com o status posto no outro', () => {
@@ -116,43 +121,41 @@ describe('só no Kanban: o mural', () => {
 
   afterEach(() => localStorage.clear());
 
-  it('sem escolha, as do quadro aparecem no mural também (como sempre)', () => {
-    expect(kanban.boardOnly().size).toBe(0);
-    expect(shown().sort()).toEqual(['nprova01', 'nreuniao', 'ntarefa1', 'ntarefa2']);
-    expect(view.boardCount()).toBe(0);
+  it('sem escolha, as do quadro ficam só no Kanban (o padrão); as de fora do quadro, no mural', () => {
+    expect([...kanban.boardOnly()].sort()).toEqual(['ntarefa1', 'ntarefa2']);
+    expect(shown().sort()).toEqual(['nprova01', 'nreuniao']);
+    expect(view.boardCount()).toBe(2);
+    expect(view.hiddenBoard()).toBe(2);
   });
 
-  it('só no Kanban, a anotação sai do mural; "Mostrar" a traz de volta só nesta visita', () => {
-    kanban.setOnWall('ntarefa1', false);
-    expect(kanban.get(TRAB)!.cards[0].wall).toBeFalse();
-    expect(shown()).not.toContain('ntarefa1');
-    expect(view.boardCount()).toBe(1);
-    expect(view.hiddenBoard()).toBe(1);
+  it('"Mostrar" traz as do Kanban de volta só nesta visita', () => {
     view.showBoard.set(true);
-    expect(shown()).toContain('ntarefa1');
-    expect(view.boardCount()).toBe(1);
+    expect(shown().sort()).toEqual(['nprova01', 'nreuniao', 'ntarefa1', 'ntarefa2']);
+    expect(view.boardCount()).toBe(2);
     expect(view.hiddenBoard()).toBe(0);
   });
 
-  it('o grupo "só no Kanban" tira todas as do quadro; a anotação pode escolher ficar no mural', () => {
-    settings.setCategoryPrefs('Trabalho', { kanbanOnly: true });
-    expect([...kanban.boardOnly()].sort()).toEqual(['ntarefa1', 'ntarefa2']);
-    // a que não está no quadro continua no mural (só "Notas de reunião")
-    expect(shown().sort()).toEqual(['nprova01', 'nreuniao']);
-    kanban.setOnWall('ntarefa2', true);
-    expect(kanban.get(TRAB)!.cards[1].wall).toBeTrue();
-    expect(shown()).toContain('ntarefa2');
-    // igual à do grupo: volta a seguir o grupo (sem o campo)
-    kanban.setOnWall('ntarefa1', false);
-    expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
-    // o grupo volta atrás: a que escolheu "só no Kanban" à mão continuaria; as que seguiam, voltam
-    settings.setCategoryPrefs('Trabalho', { kanbanOnly: undefined });
+  it('a anotação pode escolher o mural também; o grupo pode pôr todas no mural, e a anotação escolher o contrário', () => {
+    kanban.setOnWall('ntarefa1', true);
+    expect(kanban.get(TRAB)!.cards[0].wall).toBeTrue();
+    expect(shown()).toContain('ntarefa1');
+    expect(view.boardCount()).toBe(1);
+    // o grupo com as do quadro no mural também
+    settings.setCategoryPrefs('Trabalho', { kanbanOnly: false });
     expect(kanban.boardOnly().size).toBe(0);
+    expect(shown().sort()).toEqual(['nprova01', 'nreuniao', 'ntarefa1', 'ntarefa2']);
+    kanban.setOnWall('ntarefa2', false);
+    expect(kanban.get(TRAB)!.cards[1].wall).toBeFalse();
+    expect(shown()).not.toContain('ntarefa2');
+    // igual à do grupo: volta a seguir o grupo (sem o campo)
+    kanban.setOnWall('ntarefa1', true);
+    expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
+    // o grupo volta ao padrão: as que seguiam saem do mural; a escolhida à mão continua fora
+    settings.setCategoryPrefs('Trabalho', { kanbanOnly: undefined });
+    expect([...kanban.boardOnly()].sort()).toEqual(['ntarefa1', 'ntarefa2']);
   });
 
   it('tirada do quadro, ou levada a outro grupo, a anotação volta para o mural', () => {
-    kanban.setOnWall('ntarefa1', false);
-    kanban.setOnWall('ntarefa2', false);
     kanban.update(TRAB, (b, at) => ({ ...b, at, cards: b.cards.filter((c) => c.note !== 'ntarefa1') }));
     expect(shown()).toContain('ntarefa1');
     store.update({ ...store.get('ntarefa2')!, category: 'Estudos', updatedAt: T1 });
@@ -160,8 +163,18 @@ describe('só no Kanban: o mural', () => {
     expect(kanban.boardOnly().size).toBe(0);
   });
 
+  it('tirar do quadro diz que a anotação voltou para o mural (ou que continua lá)', () => {
+    const toasts = TestBed.inject(Toasts);
+    const actions = TestBed.inject(KanbanActions);
+    actions.remove(kanban.get(TRAB)!, 'ntarefa1');
+    expect(toasts.current()!.text).toBe('“Nota ntarefa1” saiu do quadro (voltou para o mural)');
+    kanban.setOnWall('ntarefa2', true);
+    actions.remove(kanban.get(TRAB)!, 'ntarefa2');
+    expect(toasts.current()!.text).toBe('“Nota ntarefa2” saiu do quadro (continua no mural)');
+    expect(shown()).toContain('ntarefa1');
+  });
+
   it('a aba com tudo no Kanban: o mural vazio conta as do Kanban, e não as finalizadas', () => {
-    settings.setCategoryPrefs('Trabalho', { kanbanOnly: true });
     store.update({ ...store.get('nreuniao')!, doneAt: T1, updatedAt: T1 });
     view.setNoteTab('c:trabalho');
     expect(view.pool().length).toBe(0);
@@ -170,7 +183,6 @@ describe('só no Kanban: o mural', () => {
   });
 
   it('a busca diz que uma do Kanban fala disso', () => {
-    kanban.setOnWall('ntarefa1', false);
     view.query.set('ntarefa1');
     expect(view.visible().length).toBe(0);
     expect(view.boardMatches()).toBe(1);

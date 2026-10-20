@@ -220,12 +220,13 @@
                           <legend class="sub-titulo">Anotações do Kanban</legend>
                           <div class="segmentos dois">
                             <label class="segmento">
-                              <input type="radio" [name]="'config-kanban-' + i" [checked]="!p.kanbanOnly" (change)="setPrefs(c, { kanbanOnly: undefined })" />
-                              <span class="seg-nome">No mural também</span>
+                              <input type="radio" [name]="'config-kanban-' + i" [checked]="p.kanbanOnly !== false" (change)="setPrefs(c, { kanbanOnly: undefined })" />
+                              <span class="seg-nome">Só no Kanban</span>
+                              <span class="seg-sub">O padrão</span>
                             </label>
                             <label class="segmento">
-                              <input type="radio" [name]="'config-kanban-' + i" [checked]="!!p.kanbanOnly" (change)="setPrefs(c, { kanbanOnly: true })" />
-                              <span class="seg-nome">Só no Kanban</span>
+                              <input type="radio" [name]="'config-kanban-' + i" [checked]="p.kanbanOnly === false" (change)="setPrefs(c, { kanbanOnly: false })" />
+                              <span class="seg-nome">No mural também</span>
                             </label>
                           </div>
                           <p class="nome-dica">Cada anotação do quadro pode escolher o contrário, na folha dela.</p>
@@ -358,7 +359,7 @@
                   <div>
                     <p class="linha-titulo" id="config-t-so-kanban">Só no Kanban</p>
                     <p class="linha-desc" id="config-d-so-kanban">
-                      As anotações deste quadro saem do mural de anotações e ficam só aqui. Cada uma pode escolher o contrário, na folha dela; tirada do quadro, volta para o mural.
+                      Ligado (o padrão), as anotações deste quadro ficam só aqui, fora do mural de anotações. Cada uma pode escolher o contrário, na folha dela; tirada do quadro, volta para o mural.
                     </p>
                   </div>
                   <button
@@ -380,7 +381,7 @@
                 <div class="linha">
                   <div>
                     <p class="linha-titulo" id="config-t-recomecar">Recomeçar o quadro</p>
-                    <p class="linha-desc" id="config-d-recomecar">As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. Nenhuma sai do mural.</p>
+                    <p class="linha-desc" id="config-d-recomecar">As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro e voltam todas para o mural. Nenhuma é apagada.</p>
                   </div>
                   <button type="button" class="papel perigo" aria-labelledby="config-t-recomecar" aria-describedby="config-d-recomecar" (click)="resetBoard()">
                     <lucide-icon [img]="ResetBoardIcon" [size]="17" aria-hidden="true" />

@@ -457,7 +457,8 @@
     [hint]="
       'Uma anotação de ' +
       category()!.label +
-      ', para pôr nesta coluna. Ela continua no mural.'
+      ', para pôr nesta coluna. ' +
+      (onlyHere() ? 'Ela sai do mural e fica só no Kanban.' : 'Ela continua no mural.')
     "
     footHint="Toque numa anotação para pôr no quadro."
     [emptyText]="pickerEmpty()"

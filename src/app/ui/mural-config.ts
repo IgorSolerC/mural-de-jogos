@@ -171,7 +171,7 @@ export class MuralConfig {
   protected readonly quadroSoKanban = computed(() => !!this.quadro() && kanbanOnly(this.config(), this.quadroGrupo()));
   protected setQuadroSoKanban(on: boolean): void {
     const label = this.quadroGrupo();
-    if (label) this.settings.setCategoryPrefs(label, { kanbanOnly: on || undefined });
+    if (label) this.settings.setCategoryPrefs(label, { kanbanOnly: on ? undefined : false });
   }
   protected readonly config = this.settings.notesConfig;
   /** A ordem montada à mão está valendo. */
@@ -253,7 +253,7 @@ export class MuralConfig {
     const yes = await this.confirm.ask({
       title: `Recomeçar o quadro de ${this.quadroGrupo()}?`,
       text: n
-        ? `As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. ${n === 1 ? 'Ela continua' : `As ${n} continuam`} no mural, como ${n === 1 ? 'está' : 'estão'}.`
+        ? `As colunas voltam a ser A fazer, Fazendo e Feito, e as anotações saem do quadro. ${n === 1 ? 'Ela fica' : `As ${n} ficam`} no mural, sem nada apagado.`
         : 'As colunas voltam a ser A fazer, Fazendo e Feito. Nenhuma anotação muda.',
       confirm: 'Recomeçar',
       cancel: 'Deixar',
@@ -431,7 +431,7 @@ export class MuralConfig {
     const parts: string[] = [];
     if (p.audience) parts.push(`Nasce ${AUDIENCE_LABEL[p.audience]}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
-    if (p.kanbanOnly) parts.push('Kanban fora do mural');
+    if (p.kanbanOnly === false) parts.push('Kanban no mural também');
     return parts.join(' · ');
   }
 

@@ -113,18 +113,21 @@ describe('só no Kanban, nas telas', () => {
       x.componentRef.setInput('noteId', 'ntarefa1');
     });
     const sw = (f.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.mural-linha [role="switch"]')!;
+    // o padrão: só no Kanban
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    sw.click();
+    await f.whenStable();
+    expect(kanban.boardOnly().has('ntarefa1')).toBeFalse();
+    expect(kanban.get(TRAB)!.cards[0].wall).toBeTrue();
     sw.click();
     await f.whenStable();
     expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
-    expect(kanban.get(TRAB)!.cards[0].wall).toBeFalse();
-    sw.click();
-    await f.whenStable();
-    expect(kanban.boardOnly().size).toBe(0);
     expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
   });
 
   it('a pasta do mural conta as que estão só no Kanban, e "Mostrar" as traz com a etiqueta', async () => {
-    kanban.setOnWall('ntarefa1', false);
+    // a ntarefa2 escolheu o mural também: só a ntarefa1 fica só no Kanban
+    kanban.setOnWall('ntarefa2', true);
     const bar = await mount(WallToolbar);
     const wall = await mount(WallBoard, (x) => x.componentRef.setInput('access', ACCESS));
     const line = () => (bar.nativeElement as HTMLElement).querySelector<HTMLElement>('.do-kanban');
@@ -146,7 +149,6 @@ describe('só no Kanban, nas telas', () => {
   });
 
   it('a aba com tudo no Kanban: o mural diz onde elas estão, com o quadro e o "Mostrar aqui"', async () => {
-    settings.setCategoryPrefs('Trabalho', { kanbanOnly: true });
     TestBed.inject(WallView).setNoteTab('c:trabalho');
     const f = await mount(WallBoard, (x) => x.componentRef.setInput('access', ACCESS));
     const el: HTMLElement = f.nativeElement;
@@ -158,30 +160,31 @@ describe('só no Kanban, nas telas', () => {
     expect(TestBed.inject(WallView).visible().map((r) => r.id).sort()).toEqual(['ntarefa1', 'ntarefa2']);
   });
 
-  it('nas configurações: o Quadro liga "só no Kanban" para o grupo, e o grupo mostra a escolha', async () => {
+  it('nas configurações: "só no Kanban" vem ligado; o Quadro desliga para o grupo, e o grupo mostra a escolha', async () => {
     const f = await mount(MuralConfig, (x) => x.componentRef.setInput('board', TRAB));
     const el: HTMLElement = f.nativeElement;
     el.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await f.whenStable();
     const sw = el.querySelector<HTMLButtonElement>('[aria-labelledby="config-t-so-kanban"]')!;
-    expect(sw.getAttribute('aria-checked')).toBe('false');
+    expect(sw.getAttribute('aria-checked')).toBe('true');
     sw.click();
     await f.whenStable();
-    expect(settings.notesConfig().categories['trabalho']).toEqual({ kanbanOnly: true });
-    expect(kanban.boardOnly().size).toBe(2);
+    expect(settings.notesConfig().categories['trabalho']).toEqual({ kanbanOnly: false });
+    expect(kanban.boardOnly().size).toBe(0);
     el.querySelector<HTMLButtonElement>('#config-aba-categorias')!.click();
     await f.whenStable();
     const row = [...el.querySelectorAll<HTMLElement>('.cat')].find((c) => c.textContent!.includes('Trabalho'))!;
-    expect(row.querySelector('.cat-resumo')!.textContent).toContain('Kanban fora do mural');
+    expect(row.querySelector('.cat-resumo')!.textContent).toContain('Kanban no mural também');
     row.querySelector<HTMLButtonElement>('.cat-abre')!.click();
     await f.whenStable();
-    const seg = [...row.querySelectorAll<HTMLLabelElement>('.segmento')].find((s) => s.textContent!.trim() === 'No mural também')!.querySelector('input')!;
+    const seg = [...row.querySelectorAll<HTMLLabelElement>('.segmento')].find((s) => s.textContent!.trim().startsWith('Só no Kanban'))!.querySelector('input')!;
     seg.click();
     await f.whenStable();
     expect(settings.notesConfig().categories['trabalho']).toBeUndefined();
+    expect(kanban.boardOnly().size).toBe(2);
   });
 
-  it('no editor, a etiqueta Kanban tira a anotação do mural ao salvar', async () => {
+  it('no editor, a etiqueta Kanban põe a anotação no mural também ao salvar', async () => {
     TestBed.inject(Cloud).config.set(null);
     const f = await mount(ReviewEditor);
     const el: HTMLElement = f.nativeElement;
@@ -192,13 +195,13 @@ describe('só no Kanban, nas telas', () => {
     el.querySelector<HTMLButtonElement>('#editor-parte .mural-linha [role="switch"]')!.click();
     await f.whenStable();
     // nada vale antes de salvar
-    expect(kanban.boardOnly().size).toBe(0);
+    expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
     const dialog = el.querySelector('dialog')!;
     const closed = new Promise((r) => dialog.addEventListener('close', r, { once: true }));
     el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
     await closed;
     await f.whenStable();
-    expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
+    expect(kanban.boardOnly().has('ntarefa1')).toBeFalse();
   });
 
   it('no editor, a nova pedida de uma coluna leva a escolha pelo pedido (só quando difere do grupo)', async () => {
@@ -219,6 +222,6 @@ describe('só no Kanban, nas telas', () => {
     const closed = new Promise((r) => dialog.addEventListener('close', r, { once: true }));
     el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
     await closed;
-    expect(kanban.pending()).toEqual(jasmine.objectContaining({ board: TRAB, column: 'afazer', wall: false }));
+    expect(kanban.pending()).toEqual(jasmine.objectContaining({ board: TRAB, column: 'afazer', wall: true }));
   });
 });

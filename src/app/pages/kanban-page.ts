@@ -182,6 +182,8 @@ export class KanbanPage {
   private readonly param = toSignal(inject(ActivatedRoute).paramMap.pipe(map((p) => p.get('quadro'))), { initialValue: null });
   /** A categoria do quadro aberto (a do endereço; sem ela, ou uma que sumiu, a página leva ao último ou ao primeiro). */
   protected readonly category = computed(() => this.categories().find((c) => boardIdFor(c.key) === this.param()) ?? null);
+  /** As anotações deste quadro ficam só no Kanban (o padrão do grupo)? A busca de pôr no quadro avisa. */
+  protected readonly onlyHere = computed(() => this.kanban.groupKanbanOnly(this.category()?.label));
   /** O quadro aberto: o guardado da categoria, ou o de sempre (que só é guardado quando alguém mexe). */
   protected readonly board = computed<KanbanBoard | null>(() => {
     const c = this.category();

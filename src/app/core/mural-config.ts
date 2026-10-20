@@ -31,7 +31,8 @@ export interface CategoryPrefs {
   hidden?: boolean;
   /**
    * As anotações do quadro Kanban do grupo ficam só no Kanban, fora do mural (cada uma pode escolher
-   * o contrário, ver `KanbanCard.wall`). Guardado só quando `true`.
+   * o contrário, ver `KanbanCard.wall`). É o padrão de todo grupo: guardado só quando `false` (o grupo
+   * que quer as anotações do quadro no mural também). Um `true` guardado antes (build 447) é o padrão.
    */
   kanbanOnly?: boolean;
 }
@@ -71,11 +72,11 @@ function sanitizePrefs(raw: unknown): CategoryPrefs {
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;
-  if (kanbanOnly === true) out.kanbanOnly = true;
+  if (kanbanOnly === false) out.kanbanOnly = false;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && !p.kanbanOnly;
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -155,7 +156,7 @@ export function withPrefs(cfg: NotesConfig, category: string, patch: CategoryPre
   if (!key) return cfg;
   const { [key]: old, ...rest } = cfg.categories;
   const merged: CategoryPrefs = { ...old, ...patch };
-  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || ((k === 'hidden' || k === 'kanbanOnly') && !merged[k])) delete merged[k];
+  for (const k of Object.keys(merged) as (keyof CategoryPrefs)[]) if (merged[k] === undefined || (k === 'hidden' && !merged[k]) || (k === 'kanbanOnly' && merged[k] !== false)) delete merged[k];
   return { ...cfg, categories: isEmpty(merged) ? rest : { ...rest, [key]: merged } };
 }
 
@@ -192,7 +193,10 @@ export function hiddenKeys(cfg: NotesConfig): ReadonlySet<string> {
 }
 
 
-/** As anotações do quadro Kanban deste grupo ficam só no Kanban (cada uma pode escolher o contrário)? */
+/**
+ * As anotações do quadro Kanban deste grupo ficam só no Kanban (cada uma pode escolher o contrário)?
+ * Sim, a não ser que o grupo tenha pedido as do quadro no mural também.
+ */
 export function kanbanOnly(cfg: NotesConfig, category: string | null | undefined): boolean {
-  return !!prefsOf(cfg, category).kanbanOnly;
+  return prefsOf(cfg, category).kanbanOnly !== false;
 }

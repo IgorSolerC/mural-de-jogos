@@ -26,14 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-so-no-kanban',
+    id: '2026-10-20-so-no-kanban-padrao',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
     title: 'Anotações só no Kanban e as opções do Kanban em linhas',
     melhorias: [
-      'Uma anotação do Kanban pode ficar só no Kanban, fora do mural: é o interruptor "No mural", na folha dela no quadro e na etiqueta Kanban do editor. Tirada do quadro, ela volta para o mural.',
-      'Cada grupo pode deixar as anotações do quadro dele só no Kanban, nas configurações do mural (em Grupos, ou na parte Quadro da engrenagem do Kanban); cada anotação ainda pode escolher o contrário.',
+      'As anotações do Kanban agora ficam só no Kanban, fora do mural; a que você quiser nos dois lugares liga o interruptor "No mural", na folha dela no quadro ou na etiqueta Kanban do editor. Tirada do quadro, ela volta para o mural.',
+      'Cada grupo pode pôr as anotações do quadro dele no mural também, nas configurações do mural (em Grupos, ou na parte Quadro da engrenagem do Kanban); cada anotação ainda pode escolher o contrário.',
       'No mural, a pasta conta as anotações que estão só no Kanban e "Mostrar" as traz até você sair, com uma etiqueta; a aba com tudo no Kanban leva direto ao quadro, e a busca avisa quando uma delas fala do que você procurou.',
       'As opções de uma anotação no Kanban ficaram em linhas, como as propriedades do Notion: a etapa numa lista que aguenta quantas colunas o quadro tiver, a importância numa régua de cinco tracinhos que não sai do lugar ao passar o mouse, o status (só o campo, sem sugestões) e as dependências.',
       'A anotação criada de dentro do Kanban já pode nascer com a importância, o status e as dependências, pela etiqueta Kanban do editor, igual à do mural.',
