@@ -254,3 +254,46 @@
     color: var(--ink);
   }
 }
+
+/* As linhas das coisas da anotação no quadro (ui/kanban-props.ts e a linha das tags na folha da
+   anotação no quadro): o nome à esquerda, com o desenho, na letra de etiqueta; o valor à direita; um fio
+   tracejado de caneta entre uma e outra. Num contêiner `kprops` estreito, o nome sobe. */
+@mixin props-linha {
+  display: grid;
+  grid-template-columns: 8.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 6px 14px;
+  padding: 12px 0;
+
+  & + & {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+  }
+
+  @container kprops (max-width: 420px) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}
+
+@mixin props-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+  }
+
+  @container kprops (max-width: 420px) {
+    min-height: 28px;
+  }
+}

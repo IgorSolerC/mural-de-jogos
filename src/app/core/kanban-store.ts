@@ -26,6 +26,8 @@ export interface KanbanSpot {
   column: string;
   importance?: Importance | null;
   status?: string;
+  /** As dependências escolhidas no editor (ver `KanbanCard.deps`). */
+  deps?: string[];
 }
 
 /**

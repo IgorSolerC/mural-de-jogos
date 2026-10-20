@@ -38,7 +38,7 @@ import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
 import { KanbanDresser } from './core/kanban-dresser';
-import { doneChange, placeCard, setImportance, setStatus } from './core/kanban';
+import { doneChange, placeCard, setDeps, setImportance, setStatus } from './core/kanban';
 import { NoteDone } from './core/note-done';
 import { TRY_AGAIN } from './ui/follow-toasts';
 
@@ -442,7 +442,8 @@ export class App {
       const placed = placeCard(b, id, spot.column, at);
       // a importância e o status escolhidos na parte Quadro do editor
       const ranked = spot.importance ? setImportance(placed, id, spot.importance, at) : placed;
-      return spot.status ? setStatus(ranked, id, spot.status, at) : ranked;
+      const told = spot.status ? setStatus(ranked, id, spot.status, at) : ranked;
+      return spot.deps?.length ? setDeps(told, id, spot.deps, at) : told;
     });
     if (doneChange(board, null, spot.column) === 'finalizar') this.noteDone.set(id, true, { quiet: true });
     const col = board.columns.find((c) => c.id === spot.column);

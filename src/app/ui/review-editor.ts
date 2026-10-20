@@ -28,7 +28,6 @@ import {
   SCORE_LABEL,
   Status,
   NO_DAY_LABEL,
-  STOCK_LABEL,
   DIFFICULTY_LABEL,
   Stock,
   Verdict,
@@ -68,14 +67,14 @@ import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
 import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
-import { DAMAGE_LABEL, DECOR_LABEL, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, PAPER_LABEL, PATTERN_LABEL, Paper, Pattern, PatternLook, SCRIBBLE_LABEL, STAIN_LABEL, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
+import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { GroupPicker } from './group-picker';
 import { TagPicker } from './tag-picker';
-import { BoardPlace } from './board-place';
+import { KanbanProps } from './kanban-props';
 import { CategoryLabel } from './category-label';
 import { NoteTag } from './note-tag';
 import { categoryLibrary, tagLibrary } from '../core/note-labels';
@@ -104,8 +103,8 @@ import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
 import { KanbanActions } from '../core/kanban-actions';
+import { KanbanDeps } from '../core/kanban-deps';
 import { Importance, KanbanBoard, cleanStatus, setImportance, setStatus } from '../core/kanban';
-import type { KitTab } from './card-kit';
 
 export interface SavedEvent {
   id: string;
@@ -136,14 +135,6 @@ interface PropView {
   tint?: string;
 }
 
-/** Uma camada da cartolina, no alto do estojo. */
-interface Layer {
-  key: string;
-  tab: KitTab;
-  kind: string;
-  label: string;
-  remove: (() => void) | null;
-}
 
 /** O ano mais antigo aceito na data (o mesmo limite da validação dos backups). */
 const MIN_YEAR = 1971;
@@ -158,7 +149,7 @@ const MIN_YEAR = 1971;
     BonusPicker,
     GroupPicker,
     TagPicker,
-    BoardPlace,
+    KanbanProps,
     CategoryLabel,
     NoteTag,
     Skulls,
@@ -225,6 +216,7 @@ export class ReviewEditor {
   protected readonly WriteIcon = ICON.escrever;
   protected readonly KitIcon = ICON.paleta;
   protected readonly ClearIcon = ICON.recomecar;
+  protected readonly BoardIcon = ICON.colunas;
 
   /**
    * As duas abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes) e
@@ -332,7 +324,8 @@ export class ReviewEditor {
       out.push({ id: 'dificuldade', name: p.difficulty, icon: ICON.caveira, value: d === 'nenhuma' ? 'Dificuldade' : DIFFICULTY_LABEL[d], spoken: DIFFICULTY_LABEL[d], filled: d !== 'nenhuma' });
     }
     const board = this.kbBoard();
-    if (note && board) {
+    // de dentro do Kanban, o lugar no quadro é uma seção da página (ver `kbInline`), não uma etiqueta
+    if (note && board && !this.kbInline()) {
       const col = board.columns.find((x) => x.id === this.kbColumn());
       out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}` : 'fora do quadro', filled: !!col, tint: col?.color });
     }
@@ -362,15 +355,26 @@ export class ReviewEditor {
 
   private readonly kanban = inject(KanbanStore);
   private readonly kanbanActions = inject(KanbanActions);
+  private readonly kanbanDeps = inject(KanbanDeps);
   /** O quadro do grupo da anotação (cada grupo tem o seu), ou null sem grupo. */
   protected readonly kbBoard = computed<KanbanBoard | null>(() => {
     const c = this.notes() ? this.noteCategory()?.trim() : '';
     return c ? this.kanban.boardFor(c) : null;
   });
-  /** A etapa (a coluna), a importância e o status escolhidos: valem ao salvar (ver `applyBoard`). */
+  /**
+   * A etapa (a coluna), a importância, o status e as dependências escolhidos: valem ao salvar (ver
+   * `applyBoard`).
+   */
   protected readonly kbColumn = signal<string | null>(null);
   protected readonly kbImportance = signal<Importance | null>(null);
   protected readonly kbStatus = signal('');
+  protected readonly kbDeps = signal<readonly string[]>([]);
+  /**
+   * O editor abriu de dentro do Kanban (a página do quadro aberta, ou a "Nova nota" de uma coluna): o
+   * lugar no quadro vira uma seção da página, logo à vista, em vez da etiqueta.
+   */
+  private readonly fromKanban = signal(false);
+  protected readonly kbInline = computed(() => this.fromKanban() && !!this.kbBoard());
 
   /** O lugar como está no quadro do grupo de agora (ou o pedido pela coluna de onde a nova veio). */
   private syncBoard(): void {
@@ -383,6 +387,7 @@ export class ReviewEditor {
     this.kbColumn.set(column);
     this.kbImportance.set(card?.importance ?? null);
     this.kbStatus.set(card?.status ?? '');
+    this.kbDeps.set(card?.deps ?? []);
   }
 
   /**
@@ -394,8 +399,9 @@ export class ReviewEditor {
     const b = this.kbBoard();
     const column = this.kbColumn();
     const status = cleanStatus(this.kbStatus());
+    const deps = this.kbDeps();
     if (isNew) {
-      this.kanban.pending.set(b && column ? { board: b.id, column, importance: this.kbImportance(), status } : null);
+      this.kanban.pending.set(b && column ? { board: b.id, column, importance: this.kbImportance(), status, deps: [...deps] } : null);
       return;
     }
     if (!b) return;
@@ -405,45 +411,41 @@ export class ReviewEditor {
       return;
     }
     const importance = this.kbImportance();
-    const rank = () =>
+    const rank = () => {
       this.kanban.update(b.id, (board, at) => {
         const now = board.cards.find((c) => c.note === id);
         if (!now) return board;
         const ranked = now.importance !== importance ? setImportance(board, id, importance, at) : board;
         return setStatus(ranked, id, status, at);
       });
+      // a que acabou de entrar no quadro ganha as dependências agora (antes, não tinha onde guardar)
+      if (deps.join() !== this.kanbanDeps.idsOf(id).join()) this.kanbanDeps.set(id, deps);
+    };
+    // as dependências antes de andar: levar para uma coluna que finaliza pergunta pelas de agora
+    if (deps.join() !== (card?.deps ?? []).join() && card) this.kanbanDeps.set(id, deps);
     if (card?.column === column) rank();
     else this.kanbanActions.move(b.id, id, column, undefined, rank);
   }
 
-  // ===== As camadas da cartolina, em etiquetas no alto do estojo =====
+  // ===== A cartolina: tirar de uma vez tudo o que está por cima da cor =====
 
-  /** O que está na ficha, camada por camada (a cor sempre; o resto, se tem), para ver e tirar de uma vez. */
-  protected readonly layers = computed<Layer[]>(() => {
-    const out: Layer[] = [{ key: 'cor', tab: 'cor', kind: 'Cor', label: STOCK_LABEL[this.stock()], remove: null }];
-    if (this.paper() !== 'cartolina') out.push({ key: 'papel', tab: 'papel', kind: 'Papel', label: PAPER_LABEL[this.paper()], remove: () => (this.paper.set('cartolina'), this.paperSeed.set(null)) });
-    const pattern = this.pattern();
-    if (pattern) out.push({ key: 'estampa', tab: 'estampa', kind: 'Estampa', label: PATTERN_LABEL[pattern], remove: () => (this.pattern.set(null), this.patternSeed.set(null)) });
-    const scribble = this.scribble();
-    if (scribble) out.push({ key: 'rabisco', tab: 'rabisco', kind: 'Rabisco', label: SCRIBBLE_LABEL[scribble], remove: () => (this.scribble.set(null), this.scribbleSeed.set(null)) });
-    const damage = this.damage();
-    if (damage) out.push({ key: 'estrago', tab: 'estrago', kind: 'Estrago', label: DAMAGE_LABEL[damage], remove: () => (this.damage.set(null), this.damageSeed.set(null)) });
-    for (const m of this.stains()) out.push({ key: `mancha-${m.stain}`, tab: 'mancha', kind: 'Mancha', label: STAIN_LABEL[m.stain], remove: () => this.stains.update((l) => l.filter((x) => x.stain !== m.stain)) });
-    for (const m of this.decors()) out.push({ key: `decoracao-${m.decor}`, tab: 'decoracao', kind: 'Decoração', label: DECOR_LABEL[m.decor], remove: () => this.decors.update((l) => l.filter((x) => x.decor !== m.decor)) });
-    return out;
-  });
+  /** A ficha tem algo além da cor (papel, estampa, rabisco, estrago, manchas, decorações). */
+  protected readonly decorated = computed(
+    () => this.paper() !== 'cartolina' || !!this.pattern() || !!this.scribble() || !!this.damage() || this.stains().length > 0 || this.decors().length > 0,
+  );
 
-  protected showKit(tab: KitTab): void {
-    this.kit()?.show(tab);
-  }
-
-  protected removeLayer(l: Layer): void {
-    l.remove?.();
-  }
-
-  /** "Só a cartolina": tira tudo o que está por cima, e a cor fica. */
+  /** "Só a cartolina": a cor fica, o resto sai. */
   protected clearLayers(): void {
-    for (const l of this.layers()) l.remove?.();
+    this.paper.set('cartolina');
+    this.paperSeed.set(null);
+    this.pattern.set(null);
+    this.patternSeed.set(null);
+    this.scribble.set(null);
+    this.scribbleSeed.set(null);
+    this.damage.set(null);
+    this.damageSeed.set(null);
+    this.stains.set([]);
+    this.decors.set([]);
   }
 
   /** O nome da anotação, escrito na faixa: a tira cresce com ele (Enter vai para o texto). */
@@ -469,6 +471,7 @@ export class ReviewEditor {
   // pela marca do template, não pela classe: citar a classe traria o estojo de volta ao bundle inicial
   private readonly kit = viewChild<CardKit>('kit');
   private readonly writer = viewChild(RichEditor);
+  private readonly kanbanProps = viewChild(KanbanProps);
 
   protected readonly id = signal(newId());
   protected readonly editing = signal<Review | null>(null);
@@ -1081,6 +1084,8 @@ export class ReviewEditor {
     this.attempted.set(false);
     this.confirmingDraft.set(false);
     this.draftError.set(false);
+    // de dentro do Kanban: a página do quadro aberta, ou a nova pedida de uma coluna
+    this.fromKanban.set(isNotes(kind) && (this.kanban.openBoard() !== null || (!review && this.kanban.pending() !== null)));
     this.syncBoard();
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;
@@ -1197,6 +1202,8 @@ export class ReviewEditor {
    */
   protected save(e: Event | null, other = false): void {
     e?.preventDefault();
+    // o status do Kanban que ainda está sendo escrito vale também
+    this.kanbanProps()?.flush();
     this.attempted.set(true);
     const audience: Audience = this.isPrivate() ? 'privada' : this.announces() !== other ? 'publicar' : 'visivel';
     if (this.notes()) {
@@ -1567,6 +1574,7 @@ export class ReviewEditor {
       this.kbColumn(),
       this.kbImportance(),
       cleanStatus(this.kbStatus()),
+      this.kbDeps(),
     ]);
   }
 

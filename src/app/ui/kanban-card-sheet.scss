@@ -9,7 +9,7 @@
 /* A ficha de fichário dos diálogos, com a faixa na cartolina da anotação. Reta: é de ler e mexer. */
 dialog.ficha-quadro {
   width: 100%;
-  max-width: min(560px, calc(100vw - 24px));
+  max-width: min(620px, calc(100vw - 24px));
 }
 
 .ficha {
@@ -18,7 +18,7 @@ dialog.ficha-quadro {
 
 .head {
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 
   h2 {
     overflow-wrap: anywhere;
@@ -31,219 +31,59 @@ dialog.ficha-quadro {
 
 .sub {
   @include sheet.sub;
-}
-
-.body {
-  gap: 24px;
-  padding-top: 18px;
-}
-
-.grupo {
-  display: grid;
-  gap: 11px;
-  min-width: 0;
-}
-
-.grupo-titulo {
-  @include kit.grupo-titulo;
-}
-
-.dica {
-  margin-top: -3px;
-  color: var(--ink-2);
-  font-size: 0.92rem;
-  line-height: 1.35;
-}
-
-/* ===== Etapa: as etiquetas de cartolina das colunas; a de agora, colada e com o fio de tinta ===== */
-.etapas {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.etapa {
-  @include kk.etapa-opcao;
-}
-
-.etapa-nome {
-  overflow-wrap: anywhere;
-}
-
-/* ===== Importância: a cartela de adesivos; a escolhida é a etiqueta de verdade, colada ===== */
-.cartela {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.imp {
-  @include kk.imp-opcao;
-}
-
-/* ===== Tags: as da anotação, amarradas (com a cor delas); as outras da categoria, em contorno ===== */
-.tags {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.tag-op {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 4px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    background-color: rgb(21 21 21 / 0.06);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 0;
-  }
-}
-
-.nova {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.campo {
-  @include kit.campo;
-  flex: 1;
-}
-
-.papel {
-  @include kit.botao-papel;
-}
-
-/* ===== Dependências: uma lista curta, a caixinha (feita ou não), o nome que abre a leitura, onde ela
-   está e o x que a tira; o botão de pôr outra embaixo ===== */
-.deps {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.dep {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 10px;
-  padding: 4px 0;
-
-  & + & {
-    border-top: 1px dashed rgb(21 21 21 / 0.22);
-  }
-}
-
-.caixa {
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--ink);
-  border-radius: 3px;
-  background: rgb(255 255 255 / 0.7);
-  color: #fff;
-
-  &.marcada {
-    background: var(--ink);
-  }
+  gap: 6px;
 
   lucide-icon {
     display: inline-flex;
   }
 }
 
-.dep-texto {
-  display: grid;
+.body {
+  gap: 0;
+  padding-top: 6px;
+}
+
+/* a linha das tags, do mesmo jeito das linhas do quadro (ui/kanban-props.ts) */
+.linha {
+  @include kk.props-linha;
+}
+
+.nome {
+  @include kk.props-nome;
+}
+
+/* a linha das tags vem depois das do quadro (de outro componente): o fio tracejado por conta própria */
+.tags-linha {
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+}
+
+.valor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
   min-width: 0;
-}
-
-.dep-nome {
-  justify-self: start;
-  max-width: 100%;
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font-family: var(--f-ui);
-  font-weight: 600;
-  font-size: 0.98rem;
-  line-height: 1.25;
-  text-align: left;
-  overflow-wrap: anywhere;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-    text-decoration-thickness: 2px;
-    text-underline-offset: 3px;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
-}
-
-/* a finalizada: riscada a caneta, como a tarefa feita */
-.feita .dep-nome {
-  color: var(--ink-2);
-  text-decoration: line-through;
-  text-decoration-thickness: 1.5px;
-}
-
-.dep-onde {
-  color: var(--ink-2);
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.74rem;
-  letter-spacing: 0.08em;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.dep-tirar {
-  width: 40px;
-  height: 40px;
-}
-
-/* ===== Status: o campo com a linha de caneta; o x tira, dentro dele ===== */
-.status-tirar {
-  width: 40px;
-  height: 40px;
-  margin: 0;
-}
-
-.por-dep {
-  justify-self: start;
   min-height: 44px;
 }
 
-.foot .papel {
-  min-height: 44px;
+app-tag-picker.valor {
+  display: grid;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .etapa,
-  .imp,
-  .tag-op {
-    transition: none;
-  }
+.vazio {
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  color: var(--ink-2);
+}
+
+.dica {
+  width: 100%;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+
+.papel {
+  @include kit.botao-papel;
 }

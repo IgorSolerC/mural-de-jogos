@@ -150,6 +150,19 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(chip('tags').textContent).not.toContain('Correção');
   });
 
+  /** Escolhe a etapa na lista do aparelho (o select por cima da tira). */
+  const pickColumn = async (scope: Element, value: string) => {
+    const select = scope.querySelector<HTMLSelectElement>('app-kanban-props select')!;
+    select.value = value;
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+  };
+  /** Toca no tracinho da importância. */
+  const pickImportance = async (scope: Element, label: string) => {
+    scope.querySelector<HTMLButtonElement>(`app-kanban-props .traco[aria-label="${label}"]`)!.click();
+    await fixture.whenStable();
+  };
+
   it('o Kanban: a anotação do quadro anda de coluna, ganha importância e status ao salvar', async () => {
     const n = note('nquadro1', { category: 'Trabalho', tags: ['x'] });
     store.add(n);
@@ -157,18 +170,24 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await edit(store.get('nquadro1')!);
     expect(chip('quadro').textContent!.trim()).toBe('A fazer');
     const p = await openPart('quadro');
-    const radio = (name: string) => Array.from(p.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent!.trim() === name)!;
-    radio('Fazendo').click();
+    // a seguinte a um toque: "→ Fazendo"
+    expect(p.querySelector('.avancar')!.textContent!.trim()).toBe('Fazendo');
+    p.querySelector<HTMLButtonElement>('.avancar')!.click();
     await fixture.whenStable();
-    radio('Importante').click();
+    await pickImportance(p, 'Importante');
+    expect(p.querySelector('.imp-nome')!.textContent!.trim()).toBe('Importante');
+    expect(p.querySelectorAll('.traco.aceso').length).toBe(4);
+    // compacto: o "+ Status" abre o campo no lugar
+    [...p.querySelectorAll<HTMLButtonElement>('.extras .mais')].find((b) => b.textContent!.includes('Status'))!.click();
     await fixture.whenStable();
-    const status = p.querySelector<HTMLInputElement>('app-board-place input')!;
+    const status = p.querySelector<HTMLInputElement>('.status-valor input')!;
     status.value = 'Em revisão';
     status.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     expect(chip('quadro').textContent!.trim()).toBe('Fazendo');
     // nada vale antes de salvar
     expect(kanban.get(TRAB)!.cards[0].column).toBe('afazer');
+    // o status ainda sendo escrito vale ao salvar
     await saveAndClose();
     const card = kanban.get(TRAB)!.cards.find((c) => c.note === 'nquadro1')!;
     expect(card.column).toBe('fazendo');
@@ -181,10 +200,10 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     kanban.state.set({ boards: [board([{ note: 'nquadro2', column: 'fazendo', importance: 'baixo', at: T0 }])], removed: {}, legacy: [] });
     await edit(store.get('nquadro2')!);
     const p = await openPart('quadro');
-    p.querySelector<HTMLButtonElement>('.etapa.fora')!.click();
-    await fixture.whenStable();
-    // a importância e o status somem: fora do quadro não tem
-    expect(p.querySelector('.imp')).toBeNull();
+    await pickColumn(p, '');
+    expect(p.querySelector('.escolha-nome')!.textContent!.trim()).toBe('Fora do quadro');
+    // a importância, o status e as dependências somem: fora do quadro não tem
+    expect(p.querySelector('.regua-imp')).toBeNull();
     await saveAndClose();
     expect(kanban.get(TRAB)!.cards.some((c) => c.note === 'nquadro2')).toBeFalse();
     expect(store.get('nquadro2')).toBeDefined();
@@ -197,33 +216,64 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     expect(chip('quadro').classList).toContain('vazia');
     const p = await openPart('quadro');
-    Array.from(p.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent!.trim().startsWith('Feito'))!.click();
-    await fixture.whenStable();
-    Array.from(p.querySelectorAll<HTMLButtonElement>('[role="radio"]')).find((b) => b.textContent!.trim() === 'Crítico')!.click();
-    await fixture.whenStable();
+    await pickColumn(p, 'feito');
+    expect(p.querySelector('.finaliza')).not.toBeNull();
+    await pickImportance(p, 'Crítico');
     const name = el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
     name.value = 'Nova do quadro';
     name.dispatchEvent(new Event('input'));
     await fixture.whenStable();
     await saveAndClose();
-    expect(kanban.pending()).toEqual({ board: TRAB, column: 'feito', importance: 'critico', status: '' });
+    expect(kanban.pending()).toEqual({ board: TRAB, column: 'feito', importance: 'critico', status: '', deps: [] });
   });
 
-  it('a nova pedida de uma coluna já mostra a coluna; trocar o grupo leva para a primeira do quadro novo', async () => {
+  it('de dentro do Kanban, o quadro é uma seção da página (sem a etiqueta), com as dependências', async () => {
+    store.add(note('noutra03', { category: 'Trabalho' }));
     kanban.state.set({ boards: [board()], removed: {}, legacy: [] });
     kanban.pending.set({ board: TRAB, column: 'fazendo' });
     fixture.componentInstance.openInCategory('Trabalho');
     await fixture.whenStable();
-    expect(chip('quadro').textContent!.trim()).toBe('Fazendo');
+    expect(chips()).not.toContain('quadro');
+    const sec = el.querySelector<HTMLElement>('.kanban-bloco')!;
+    expect(sec.querySelector('#editor-kanban')!.textContent!.trim()).toBe('Kanban');
+    expect(sec.querySelector('.quadro-nome')!.textContent!.trim()).toBe('Quadro de Trabalho');
+    expect(sec.querySelector<HTMLSelectElement>('select')!.value).toBe('fazendo');
     // fechar sem mexer não pergunta: a coluna pedida é o começo, não uma mudança
     expect(fixture.componentInstance['serialize']()).toBe(fixture.componentInstance['snapshot']);
+    // vazios, o status e as dependências são só dois "+" numa linha
+    const mais = [...sec.querySelectorAll<HTMLButtonElement>('.extras .mais')];
+    expect(mais.map((b) => b.textContent!.trim())).toEqual(['Status', 'Dependência']);
+    mais[1].click();
+    await fixture.whenStable();
+    let item: HTMLButtonElement | undefined;
+    for (let i = 0; i < 50 && !item; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      await fixture.whenStable();
+      item = [...sec.querySelectorAll<HTMLButtonElement>('app-card-picker .escolha')].find((b) => b.textContent!.includes('Nota noutra03'));
+    }
+    item!.click();
+    await fixture.whenStable();
+    expect(sec.querySelector('.dep-nome')!.textContent).toContain('Nota noutra03');
+    const name = el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
+    name.value = 'Com dependência';
+    name.dispatchEvent(new Event('input'));
+    await fixture.whenStable();
+    await saveAndClose();
+    expect(kanban.pending()).toEqual({ board: TRAB, column: 'fazendo', importance: null, status: '', deps: ['noutra03'] });
+  });
+
+  it('a nova pedida de uma coluna: trocar o grupo leva para a primeira coluna do quadro novo', async () => {
+    kanban.state.set({ boards: [board()], removed: {}, legacy: [] });
+    kanban.pending.set({ board: TRAB, column: 'fazendo' });
+    fixture.componentInstance.openInCategory('Trabalho');
+    await fixture.whenStable();
     const p = await openPart('grupo');
     Array.from(p.querySelectorAll<HTMLButtonElement>('.op')).find((b) => b.textContent!.includes('Estudos'))!.click();
     await fixture.whenStable();
-    expect(chip('quadro').textContent!.trim()).toBe('A fazer');
+    expect(el.querySelector<HTMLSelectElement>('.kanban-bloco select')!.value).toBe(boardIdFor('estudos') + '-afazer');
   });
 
-  it('as abas: a da cartolina mostra o estojo e as camadas da ficha, que saem pelo x ou de uma vez', async () => {
+  it('a aba da cartolina: o que está na ficha aparece no estojo; "Só a cartolina" tira tudo menos a cor', async () => {
     store.add(note('nvisual1', { paper: 'canson', pattern: 'gatinhos', stains: [{ stain: 'cafe' }], tags: ['x'], category: 'Casa' }));
     await edit(store.get('nvisual1')!);
     const tabs = Array.from(el.querySelectorAll<HTMLButtonElement>('.modo'));
@@ -232,15 +282,13 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     expect(el.querySelector<HTMLElement>('.escrever')!.hidden).toBeTrue();
-    const layers = () => Array.from(el.querySelectorAll<HTMLElement>('.na-ficha .camada')).map((c) => c.querySelector('.camada-tipo')!.textContent!.trim());
-    expect(layers()).toEqual(['Cor', 'Papel', 'Estampa', 'Mancha']);
-    el.querySelectorAll<HTMLElement>('.na-ficha .camada')[3].querySelector<HTMLButtonElement>('.camada-tirar')!.click();
-    await fixture.whenStable();
-    expect(layers()).toEqual(['Cor', 'Papel', 'Estampa']);
+    // sem a fileira de camadas de antes: só o atalho de limpar
+    expect(el.querySelector('.na-ficha')).toBeNull();
     el.querySelector<HTMLButtonElement>('.limpar')!.click();
     await fixture.whenStable();
-    expect(el.querySelector<HTMLElement>('.na-ficha')!.hidden).toBeTrue();
+    expect(el.querySelector('.limpar')).toBeNull();
     const r = (fixture.componentInstance as unknown as { preview(): Review }).preview();
+    expect(r.stock).toBe(store.get('nvisual1')!.stock);
     expect(r.paper).toBe('cartolina');
     expect(r.pattern).toBeUndefined();
     expect(r.stains).toBeUndefined();

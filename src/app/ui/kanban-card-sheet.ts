@@ -1,45 +1,42 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, linkedSignal, output, signal, viewChild } from '@angular/core';
-import { ICON, ICON_CHOICE, IconModule } from './icons';
-import { randomCategoryColor, tagColorHex, tagHasLook } from '../core/category-looks';
-import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, STATUS_MAX, belongs, setImportance, setStatus } from '../core/kanban';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, linkedSignal, output, viewChild } from '@angular/core';
+import { ICON, IconModule } from './icons';
+import { tagColorHex } from '../core/category-looks';
+import { Importance, KanbanBoard, setImportance, setStatus } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
-import { NOTES } from '../core/kinds';
 import { KanbanStore } from '../core/kanban-store';
-import { LABEL_MAX, MAX_TAGS, cleanTag, sanitizeTags } from '../core/note-labels';
-import { fold } from '../core/review';
+import { sanitizeTags, tagLibrary } from '../core/note-labels';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { canManage } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
-import { CardPicker } from './card-picker';
-import { IMPORTANCE_LEVEL } from './kanban-icons';
+import { KanbanProps } from './kanban-props';
 import { NoteTag } from './note-tag';
 import { Pin } from './pin';
+import { TagPicker } from './tag-picker';
 
 /**
- * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): em que etapa
- * ela está, a importância, o status (umas palavras livres, ao lado da importância), as dependências (as anotações que precisam estar finalizadas antes, ver
- * `KanbanDeps`) e as tags (as da anotação mesmo). Tudo vale na hora (não tem "Salvar"; o status, ao
- * sair do campo, no Enter ou ao fechar); mudar de etapa
- * passa por `KanbanActions` (finaliza ou abre de novo, como arrastar). Ler a anotação fecha a folha
- * e abre a leitura; Tirar do quadro deixa a anotação no mural.
+ * A folha de uma anotação no quadro (o botão de ajustes, ou a importância da ficha): as coisas dela no
+ * quadro em linhas (ver ui/kanban-props.ts: a etapa, a importância, o status e as dependências) e as
+ * tags dela (as do mural, com o seletor do editor). Tudo vale na hora (não tem "Salvar"; o status, ao
+ * terminar de escrever); mudar de etapa passa por `KanbanActions` (finaliza ou abre de novo, como
+ * arrastar). Ler a anotação fecha a folha e abre a leitura; Tirar do quadro deixa a anotação no mural.
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, CardPicker, IconModule, NoteTag, Pin],
+  imports: [BackdropClose, IconModule, KanbanProps, NoteTag, Pin, TagPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="saveStatus(); closed.emit()" (backdropClose)="close()">
+    <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="props()?.flush(); closed.emit()" (backdropClose)="close()">
       @if (data(); as d) {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + d.stock + ')'" [attr.data-cor]="d.stock">
           <app-pin class="pin" />
           <header class="head">
             <div class="titulos">
               <h2 id="fq-titulo">{{ d.note.game.name }}</h2>
-              <p class="sub">No quadro de {{ d.label }}</p>
+              <p class="sub"><lucide-icon [img]="BoardIcon" [size]="14" aria-hidden="true" />No quadro de {{ d.label }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -47,154 +44,43 @@ import { Pin } from './pin';
           </header>
 
           <div class="body">
-            <section class="grupo" aria-labelledby="fq-etapa">
-              <h3 class="grupo-titulo" id="fq-etapa">Etapa</h3>
-              <div class="etapas" role="radiogroup" aria-labelledby="fq-etapa">
-                @for (c of d.board.columns; track c.id) {
-                  @let on = c.id === d.card.column;
-                  <button type="button" role="radio" class="etapa" [attr.aria-checked]="on" [attr.data-cor]="c.color" (click)="moveTo(c.id)">
-                    <lucide-icon [img]="iconOf[c.icon]" [size]="16" aria-hidden="true" />
-                    <span class="etapa-nome">{{ c.name }}</span>
-                    @if (c.finishes) {
-                      <span class="sr-only">(finaliza)</span>
+            <app-kanban-props
+              [board]="d.board"
+              [noteId]="d.note.id"
+              [title]="d.note.game.name"
+              [column]="column()"
+              (columnChange)="moveTo($event)"
+              [importance]="d.card.importance"
+              (importanceChange)="setImp($event)"
+              [status]="d.card.status ?? ''"
+              (statusChange)="saveStatus($event)"
+              [deps]="d.card.deps ?? []"
+              (depsChange)="setDeps($event)"
+            >
+              <!-- as tags da anotação, a última linha, do mesmo jeito das outras -->
+              <div class="linha tags-linha">
+                <span class="nome" id="fq-tags"><lucide-icon [img]="TagsIcon" [size]="16" aria-hidden="true" />Tags</span>
+                @if (locked()) {
+                  <div class="valor">
+                    @for (t of d.note.tags ?? []; track t; let i = $index) {
+                      <app-note-tag [label]="t" [index]="i" [color]="colorOf(t)" />
+                    } @empty {
+                      <span class="vazio">Nenhuma</span>
                     }
-                  </button>
+                    <p class="dica">Só o dono e os gestores mudam as tags.</p>
+                  </div>
+                } @else {
+                  <app-tag-picker class="valor" [tags]="d.note.tags ?? []" (tagsChange)="setTags($event)" [library]="tagLib()" [category]="d.note.category ?? null" />
                 }
               </div>
-              @if (finishHint(); as h) {
-                <p class="dica">{{ h }}</p>
-              }
-            </section>
-
-            <section class="grupo" aria-labelledby="fq-imp">
-              <h3 class="grupo-titulo" id="fq-imp">Importância</h3>
-              <div class="cartela" role="radiogroup" aria-labelledby="fq-imp">
-                @for (i of importances; track i) {
-                  @let on = d.card.importance === i;
-                  <button type="button" role="radio" class="imp" [class.colado]="on" [attr.data-imp]="i" [attr.aria-checked]="on" (click)="setImp(on ? null : i)">
-                    <span class="escala" aria-hidden="true">
-                      @for (n of steps; track n) {
-                        <i [class.acesa]="n <= level[i]"></i>
-                      }
-                    </span>
-                    {{ impLabel[i] }}
-                  </button>
-                }
-                <button type="button" role="radio" class="imp nenhuma" [class.colado]="!d.card.importance" [attr.aria-checked]="!d.card.importance" (click)="setImp(null)">Nenhuma</button>
-              </div>
-            </section>
-
-            <section class="grupo" aria-labelledby="fq-status">
-              <h3 class="grupo-titulo" id="fq-status">Status</h3>
-              <p class="dica" id="fq-status-dica">Umas palavras ao lado da importância: Em revisão, Aguardando cliente, o nome de quem está com ela.</p>
-              <form class="status" (submit)="$event.preventDefault(); saveStatus()">
-                <label class="campo">
-                  <span class="sr-only">Status</span>
-                  <input
-                    type="text"
-                    autocomplete="off"
-                    enterkeyhint="done"
-                    aria-describedby="fq-status-dica"
-                    [maxLength]="statusMax"
-                    placeholder="Em revisão, Com o Sérgio…"
-                    [value]="statusDraft()"
-                    (input)="statusDraft.set($any($event.target).value)"
-                    (change)="saveStatus()"
-                  />
-                  @if (statusDraft().trim()) {
-                    <button type="button" class="icon-btn status-tirar" aria-label="Tirar o status" title="Tirar o status" (click)="clearStatus()">
-                      <lucide-icon [img]="CloseIcon" [size]="16" aria-hidden="true" />
-                    </button>
-                  }
-                </label>
-              </form>
-            </section>
-
-            <section class="grupo" aria-labelledby="fq-deps">
-              <h3 class="grupo-titulo" id="fq-deps">Dependências</h3>
-              <p class="dica">As anotações que precisam estar finalizadas antes desta. Finalizar com alguma aberta pergunta antes.</p>
-              @if (depRows().length) {
-                <ul class="deps" aria-labelledby="fq-deps">
-                  @for (d of depRows(); track d.note.id) {
-                    <li class="dep" [class.feita]="d.done">
-                      <span class="caixa" [class.marcada]="d.done" aria-hidden="true">
-                        @if (d.done) {
-                          <lucide-icon [img]="CheckIcon" [size]="13" aria-hidden="true" />
-                        }
-                      </span>
-                      <span class="dep-texto">
-                        <button type="button" class="dep-nome" (click)="read(d.note.id)">
-                          {{ d.note.game.name }}<span class="sr-only">{{ d.done ? ', finalizada' : ', aberta' }}</span>
-                        </button>
-                        <span class="dep-onde">{{ d.where }}</span>
-                      </span>
-                      <button type="button" class="icon-btn dep-tirar" [attr.aria-label]="'Tirar ' + d.note.game.name + ' das dependências'" title="Tirar das dependências" (click)="removeDep(d.note.id)">
-                        <lucide-icon [img]="CloseIcon" [size]="16" aria-hidden="true" />
-                      </button>
-                    </li>
-                  }
-                </ul>
-              }
-              <button type="button" class="papel por-dep" [disabled]="depsFull()" (click)="pickingDep.set(true)">
-                <lucide-icon [img]="DepsIcon" [size]="16" aria-hidden="true" />
-                Pôr dependência
-              </button>
-              @if (depsFull()) {
-                <p class="dica">Esta anotação já tem {{ maxDeps }} dependências: tire uma para pôr outra.</p>
-              }
-            </section>
-
-            <section class="grupo" aria-labelledby="fq-tags">
-              <h3 class="grupo-titulo" id="fq-tags">Tags</h3>
-              @if (locked()) {
-                <p class="dica">Nesta anotação compartilhada, só o dono e os gestores mudam as tags.</p>
-                @if (d.note.tags?.length) {
-                  <ul class="tags" aria-labelledby="fq-tags">
-                    @for (t of d.note.tags; track t; let i = $index) {
-                      <li><app-note-tag [label]="t" [index]="i" [color]="colorOf(t)" /></li>
-                    }
-                  </ul>
-                }
-              } @else {
-                <p class="dica">As tags da anotação, as mesmas do mural. Toque para pôr ou tirar.</p>
-                @if (tagChoices().length) {
-                  <ul class="tags" aria-labelledby="fq-tags">
-                    @for (t of tagChoices(); track t.key; let i = $index) {
-                      <li>
-                        <button type="button" class="tag-op" [attr.aria-pressed]="t.on" [attr.aria-label]="t.label" (click)="toggleTag(t.label)">
-                          <app-note-tag [label]="t.label" [ghost]="!t.on" [index]="t.on ? i : null" [color]="colorOf(t.label)" />
-                        </button>
-                      </li>
-                    }
-                  </ul>
-                }
-                <form class="nova" (submit)="$event.preventDefault(); create()">
-                  <label class="campo">
-                    <span class="sr-only">Nova tag</span>
-                    <input
-                      #campo
-                      type="text"
-                      autocomplete="off"
-                      [maxLength]="tagMax"
-                      placeholder="Nova tag: Correção, Urgente…"
-                      [value]="typed()"
-                      (input)="typed.set($any($event.target).value)"
-                    />
-                  </label>
-                  <button type="submit" class="papel" [disabled]="!typed().trim() || full()">
-                    <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
-                    Pôr
-                  </button>
-                </form>
-                @if (full()) {
-                  <p class="dica">Esta anotação já tem {{ maxTags }} tags: tire uma para pôr outra.</p>
-                }
-              }
-            </section>
+            </app-kanban-props>
           </div>
 
           <footer class="foot">
-            <button type="button" class="papel perigo" (click)="removeFromBoard()">Tirar do quadro</button>
+            <button type="button" class="papel perigo" (click)="removeFromBoard()">
+              <lucide-icon [img]="OutIcon" [size]="16" aria-hidden="true" />
+              Tirar do quadro
+            </button>
             <div class="actions">
               <button type="button" class="btn-ink" (click)="read()">
                 <lucide-icon [img]="ReadIcon" [size]="18" aria-hidden="true" />
@@ -205,20 +91,6 @@ import { Pin } from './pin';
         </div>
       }
     </dialog>
-
-    @if (data(); as d) {
-      <app-card-picker
-        [(open)]="pickingDep"
-        [onlyKind]="notesKind"
-        [doneOption]="true"
-        [exclude]="depExcluded()"
-        heading="Pôr dependência"
-        [hint]="'Uma anotação que precisa estar finalizada antes de “' + d.note.game.name + '”. Pode ser de outro grupo.'"
-        footHint="Toque numa anotação para pôr como dependência."
-        emptyText="Não há outra anotação que possa ser dependência desta."
-        (picked)="addDep($event.id)"
-      />
-    }
   `,
   styleUrl: './kanban-card-sheet.scss',
 })
@@ -230,81 +102,19 @@ export class KanbanCardSheet {
   readonly reading = output<string>();
 
   protected readonly CloseIcon = ICON.fechar;
-  protected readonly PlusIcon = ICON.adicionar;
   protected readonly ReadIcon = ICON.livros;
-  protected readonly iconOf = ICON_CHOICE;
-  protected readonly importances = IMPORTANCES;
-  protected readonly impLabel = IMPORTANCE_LABEL;
-  protected readonly level = IMPORTANCE_LEVEL;
-  protected readonly steps = [1, 2, 3, 4, 5];
-  protected readonly tagMax = LABEL_MAX;
-  protected readonly maxTags = MAX_TAGS;
-  protected readonly typed = signal('');
-  protected readonly DepsIcon = ICON.dependencias;
-  protected readonly CheckIcon = ICON.pronto;
-  protected readonly maxDeps = MAX_DEPS;
-  protected readonly statusMax = STATUS_MAX;
-  protected readonly notesKind = NOTES;
-  /** O seletor da dependência nova aberto. */
-  protected readonly pickingDep = signal(false);
+  protected readonly BoardIcon = ICON.colunas;
+  protected readonly TagsIcon = ICON.etiquetas;
+  protected readonly OutIcon = ICON.sair;
 
   private readonly kanban = inject(KanbanStore);
   private readonly actions = inject(KanbanActions);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
   private readonly shared = inject(SharedStore);
-  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly deps = inject(KanbanDeps);
-
-  /** As dependências guardadas (as que ainda existem): finalizada ou não e onde estão. */
-  protected readonly depRows = computed(() => {
-    const d = this.data();
-    if (!d) return [];
-    return this.deps
-      .progress(d.card.deps)
-      .all.map((note) => ({ note, done: !!note.doneAt, where: this.deps.whereOf(note, d.note.id) }));
-  });
-  protected readonly depsFull = computed(() => (this.data()?.card.deps?.length ?? 0) >= MAX_DEPS);
-  /** Fora do seletor: ela mesma, as que já são, e as que dependem dela (fariam uma roda). */
-  protected readonly depExcluded = computed(() => this.deps.excluded(this.noteId()));
-
-  /** Numa compartilhada, só o dono e os gestores mudam as tags (como no editor). */
-  protected readonly locked = computed(() => {
-    const role = this.shared.role(this.noteId());
-    return !!role && !canManage(role);
-  });
-
-  /** As tags que dá para pôr: as das anotações da categoria (as mais usadas primeiro) e as fixas. */
-  private readonly library = computed(() => {
-    const d = this.data();
-    if (!d) return [];
-    const count = new Map<string, { label: string; n: number }>();
-    for (const r of this.store.notes()) {
-      if (!belongs(d.board, r)) continue;
-      for (const t of r.tags ?? []) {
-        const e = count.get(fold(t));
-        if (e) e.n++;
-        else count.set(fold(t), { label: t, n: 1 });
-      }
-    }
-    const used = [...count.values()].sort((a, b) => b.n - a.n).map((e) => e.label);
-    const pinned = this.settings.pinnedTags().filter((t) => !count.has(fold(t)));
-    return [...used, ...pinned];
-  });
-
-  /** As da anotação primeiro (coladas, na ordem dela), depois as outras, em contorno. */
-  protected readonly tagChoices = computed(() => {
-    const own = this.data()?.note.tags ?? [];
-    const on = new Set(own.map(fold));
-    return [
-      ...own.map((label) => ({ key: fold(label), label, on: true })),
-      ...this.library()
-        .filter((t) => !on.has(fold(t)))
-        .slice(0, 16)
-        .map((label) => ({ key: fold(label), label, on: false })),
-    ];
-  });
-  protected readonly full = computed(() => (this.data()?.note.tags?.length ?? 0) >= MAX_TAGS);
+  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  protected readonly props = viewChild(KanbanProps);
 
   protected readonly data = computed(() => {
     const board = this.kanban.get(this.boardId());
@@ -314,24 +124,26 @@ export class KanbanCardSheet {
     return { board, note, card, label: this.kanban.labelOf(board) ?? note.category ?? '', stock: pinningFor(note.id, note.stock).stock };
   });
 
-  /** O status sendo escrito: o guardado, até a pessoa mexer (e de novo quando o guardado muda). */
-  protected readonly statusDraft = linkedSignal(() => this.data()?.card.status ?? '');
+  /**
+   * A etapa na tira: a guardada. Ir para uma que finaliza com dependência aberta pergunta antes: até a
+   * resposta (e sem o sim), a tira volta a mostrar a de agora.
+   */
+  protected readonly column = linkedSignal(() => this.data()?.card.column ?? null);
 
-  /** O que a etapa de agora faz com a anotação, quando ela finaliza. */
-  protected readonly finishHint = computed(() => {
-    const d = this.data();
-    const col = d?.board.columns.find((c) => c.id === d.card.column);
-    if (!d || !col) return null;
-    if (col.finishes) return `${col.name} finaliza a anotação. Levar para outra etapa abre ela de novo.`;
-    const done = d.board.columns.filter((c) => c.finishes).map((c) => c.name);
-    return done.length ? `Levar para ${done.join(' ou ')} finaliza a anotação.` : null;
+  /** Numa compartilhada, só o dono e os gestores mudam as tags (como no editor). */
+  protected readonly locked = computed(() => {
+    const role = this.shared.role(this.noteId());
+    return !!role && !canManage(role);
   });
+
+  /** As tags à mão: as fixas e as das outras anotações do grupo do quadro. */
+  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.data()?.note.category ?? null));
 
   constructor() {
     afterNextRender(() => {
       const el = this.dialog().nativeElement;
       el.showModal();
-      el.querySelector<HTMLElement>('.etapa[aria-checked="true"]')?.focus();
+      el.querySelector<HTMLElement>('app-kanban-props select')?.focus();
     });
   }
 
@@ -340,68 +152,36 @@ export class KanbanCardSheet {
     if (el.open) el.close();
   }
 
-  protected moveTo(column: string): void {
+  protected moveTo(column: string | null): void {
     const d = this.data();
-    if (!d || d.card.column === column) return;
+    if (!d || !column || d.card.column === column) return;
     this.actions.move(d.board.id, d.note.id, column);
+    this.column.set(this.data()?.card.column ?? null);
   }
 
   protected setImp(i: Importance | null): void {
     this.kanban.update(this.boardId(), (b, at) => setImportance(b, this.noteId(), i, at));
   }
 
-  /** Guarda o status escrito (vazio tira). */
-  protected saveStatus(): void {
-    const d = this.data();
-    if (!d || this.statusDraft() === (d.card.status ?? '')) return;
-    this.kanban.update(this.boardId(), (b, at) => setStatus(b, this.noteId(), this.statusDraft(), at));
+  protected saveStatus(status: string): void {
+    this.kanban.update(this.boardId(), (b, at) => setStatus(b, this.noteId(), status, at));
   }
 
-  protected clearStatus(): void {
-    this.statusDraft.set('');
-    this.saveStatus();
-  }
-
-  /** A categoria da anotação: a cor de cada tag é a dela ali. */
-  private category(): string {
-    return this.store.get(this.noteId())?.category ?? '';
+  protected setDeps(list: readonly string[]): void {
+    this.deps.set(this.noteId(), list);
   }
 
   protected colorOf(tag: string): string | null {
-    return tagColorHex(this.settings.categoryLooks(), tag, this.category());
+    return tagColorHex(this.settings.categoryLooks(), tag, this.store.get(this.noteId())?.category ?? '');
   }
 
-  /** Põe ou tira a tag da anotação (a do mural: muda na anotação mesmo, como no editor). */
-  protected toggleTag(tag: string): void {
+  /** As tags da anotação (as do mural: mudam na anotação mesmo, como no editor). */
+  protected setTags(tags: string[]): void {
     const r = this.store.get(this.noteId());
     if (!r) return;
-    const has = (r.tags ?? []).some((t) => fold(t) === fold(tag));
-    const next = has ? (r.tags ?? []).filter((t) => fold(t) !== fold(tag)) : sanitizeTags([...(r.tags ?? []), tag]);
-    if (!has && next.length === (r.tags ?? []).length) return;
+    const next = sanitizeTags(tags);
     const { tags: _, ...rest } = r;
     this.store.update({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: new Date().toISOString() }, r);
-  }
-
-  /**
-   * Uma tag escrita: a que já existe com esse nome (na grafia dela), ou uma nova, que ganha uma cor
-   * sorteada como a categoria nova. Já colada na anotação.
-   */
-  protected create(): void {
-    const tag = cleanTag(this.typed());
-    this.typed.set('');
-    if (!tag) return;
-    const known = this.library().find((t) => fold(t) === fold(tag));
-    if (!known && !tagHasLook(this.settings.categoryLooks(), tag, this.category())) this.settings.setTagColor(tag, randomCategoryColor(), this.category());
-    const r = this.store.get(this.noteId());
-    if (r && !(r.tags ?? []).some((t) => fold(t) === fold(tag))) this.toggleTag(known ?? tag);
-  }
-
-  protected addDep(id: string): void {
-    this.deps.add(this.noteId(), id);
-  }
-
-  protected removeDep(id: string): void {
-    this.deps.remove(this.noteId(), id);
   }
 
   protected removeFromBoard(): void {
@@ -410,7 +190,7 @@ export class KanbanCardSheet {
     this.close();
   }
 
-  /** Ler a anotação (ou uma dependência dela): a folha fecha e a leitura abre. */
+  /** Ler a anotação: a folha fecha e a leitura abre. */
   protected read(id = this.noteId()): void {
     this.close();
     this.reading.emit(id);

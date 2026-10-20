@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-20-kanban-em-linhas',
+    version: '1.28.2',
+    kind: 'ajustes',
+    date: '2026-10-20',
+    title: 'As opções do Kanban em linhas, também ao criar a anotação',
+    melhorias: [
+      'As opções de uma anotação no Kanban ficaram em linhas, como as propriedades do Notion: a etapa numa lista que aguenta quantas colunas o quadro tiver (com a seguinte a um toque), a importância numa régua de cinco tracinhos, o status com os já usados no quadro a um toque e as dependências.',
+      'Criar uma anotação de dentro do Kanban (ou editar uma de lá) mostra uma seção Kanban no editor, com a etapa, a importância, o status e as dependências já à mão.',
+      'Na aba Cartolina do editor, o que está na ficha aparece nas próprias abas do estojo (um pontinho, ou quantas manchas e decorações), no lugar da fileira de etiquetas; "Só a cartolina" continua tirando tudo de uma vez.',
+    ],
+  },
+  {
     id: '2026-10-19-editor-pagina',
     version: '1.28.1',
     kind: 'ajustes',

@@ -273,7 +273,7 @@
                 }
                 @case ('quadro') {
                   @if (kbBoard(); as b) {
-                    <app-board-place [board]="b" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" />
+                    <app-kanban-props [compact]="true" [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" />
                   }
                 }
                 @case ('quem') {
@@ -287,6 +287,17 @@
             </div>
           }
           </div>
+
+          <!-- de dentro do Kanban, o lugar no quadro é uma seção da página: à vista desde o começo -->
+          @if (kbInline()) {
+            <section class="bloco kanban-bloco" aria-labelledby="editor-kanban">
+              <div class="pergunta-linha">
+                <h3 class="pergunta" id="editor-kanban">Kanban</h3>
+                <span class="quadro-nome"><lucide-icon [img]="BoardIcon" [size]="15" aria-hidden="true" />Quadro de {{ noteCategory() }}</span>
+              </div>
+              <app-kanban-props [compact]="true" [board]="kbBoard()!" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" />
+            </section>
+          }
 
           @if (!notes()) {
             <section class="bloco como" aria-labelledby="editor-como">
@@ -386,27 +397,14 @@
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->
         <div class="cartolina-modo parede" [hidden]="mode() !== 'cartolina'">
-          <div class="na-ficha" role="group" aria-label="O que está na ficha" [hidden]="layers().length < 2">
-            @for (l of layers(); track l.key) {
-              <span class="camada">
-                <button type="button" class="camada-nome" (click)="showKit(l.tab)">
-                  <span class="camada-tipo">{{ l.kind }}</span>
-                  {{ l.label }}
-                </button>
-                @if (l.remove) {
-                  <button type="button" class="camada-tirar" [attr.aria-label]="'Tirar ' + l.label" title="Tirar" (click)="removeLayer(l)">
-                    <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
-                  </button>
-                }
-              </span>
-            }
-            @if (layers().length > 1) {
-              <button type="button" class="limpar" (click)="clearLayers()">
-                <lucide-icon [img]="ClearIcon" [size]="15" aria-hidden="true" />
-                Só a cartolina
-              </button>
-            }
-          </div>
+          <!-- o que está na ficha aparece nas próprias abas do estojo (o pontinho, ou quantas); aqui só
+               o atalho de tirar tudo o que está por cima da cor -->
+          @if (decorated()) {
+            <button type="button" class="limpar" (click)="clearLayers()">
+              <lucide-icon [img]="ClearIcon" [size]="15" aria-hidden="true" />
+              Só a cartolina
+            </button>
+          }
           <!-- o estojo vem à parte, quando o navegador folga: fora do bundle inicial (e já está aqui quando o editor abre) -->
           @defer (on idle) {
             <app-card-kit #kit class="estojo scrollable" [id]="artId()" [pinColor]="pin().pinColor" [(stock)]="stock" [(paper)]="paper" [(paperSeed)]="paperSeed" [(pattern)]="pattern" [(patternLook)]="patternLook" [(patternSeed)]="patternSeed" [(scribble)]="scribble" [(scribbleSeed)]="scribbleSeed" [(scribbleInk)]="scribbleInk" [(damage)]="damage" [(damageSeed)]="damageSeed" [(stains)]="stains" [(decors)]="decors" />

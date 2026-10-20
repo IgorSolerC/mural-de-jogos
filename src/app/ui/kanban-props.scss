@@ -1,0 +1,470 @@
+@use 'paper-kit' as kit;
+@use 'kanban-kit' as kk;
+
+/* As linhas das propriedades: o nome à esquerda (o desenho e a letra de etiqueta), o valor à direita;
+   um fio tracejado de caneta entre uma e outra. Estreito (a folha do celular), o nome sobe. */
+:host {
+  display: block;
+  container: kprops / inline-size;
+}
+
+.linha {
+  @include kk.props-linha;
+}
+
+/* a etapa e a importância andam juntas; depois delas, o fio de sempre */
+.par + .linha,
+.par + .extras {
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+}
+
+/* Compacto (no editor): a etapa e a importância lado a lado, cada uma com o nome em cima; o que está
+   vazio vira só o "+", numa linha. Sobra folha para escrever. */
+:host(.compacto) {
+  .par {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 28px;
+  }
+
+  .par > .linha {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-bottom: 8px;
+    border-top: 0;
+  }
+
+  .par .nome {
+    min-height: 28px;
+  }
+
+  .linha {
+    padding-block: 8px;
+  }
+
+  .escolha {
+    width: min(100%, 14rem);
+  }
+}
+
+@container kprops (max-width: 480px) {
+  :host(.compacto) .par {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.extras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.mais {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 6px 12px 5px 10px;
+  border: 0;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.78);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+  }
+}
+
+.nome {
+  @include kk.props-nome;
+}
+
+.valor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+  min-height: 44px;
+}
+
+/* ===== Etapa: a lista do aparelho por cima da tira impressa, com o desenho da coluna na cor dela ===== */
+.campo {
+  @include kit.campo;
+}
+
+.escolha {
+  position: relative;
+  gap: 8px;
+  width: min(100%, 17rem);
+  padding-right: 12px;
+  cursor: pointer;
+
+  select {
+    @include kit.select-por-cima;
+  }
+
+  &:has(select:focus-visible) {
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
+  }
+
+  @include kk.coluna-cores;
+}
+
+.col-icone {
+  display: inline-flex;
+  flex: none;
+  color: var(--col-cor);
+}
+
+.escolha-nome {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  &.fora {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+}
+
+.escolha-seta {
+  display: inline-flex;
+  flex: none;
+  color: var(--ink-2);
+}
+
+/* a etapa que finaliza: a etiqueta de tinta do cabeçalho da coluna ("✓ Finaliza") */
+.finaliza {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 7px 3px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  rotate: -2deg;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* o atalho para a coluna seguinte: a etiqueta de tinta do quadro, com o nome dela e a seta */
+.avancar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  max-width: min(100%, 14rem);
+  padding: 5px 8px 4px 11px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 4px 8px -3px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+  transition:
+    rotate var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    color: var(--hi);
+  }
+
+  &:hover {
+    rotate: -1.5deg;
+    translate: 0 -1px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.avancar-nome {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ===== Importância: os cinco tracinhos da ficha do quadro, em tamanho de tocar ===== */
+.regua-imp {
+  --imp: var(--ink);
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 44px;
+  padding: 0 2px;
+  @include kk.importancia-cores;
+}
+
+.traco {
+  position: relative;
+  width: 16px;
+  height: var(--h);
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: rgb(21 21 21 / 0.34);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+
+  /* o alvo do dedo: a coluna inteira, de cima a baixo */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: auto -4px 0;
+    height: 44px;
+  }
+
+  &.aceso {
+    background: var(--imp);
+  }
+
+  &:hover {
+    scale: 1.08 1.04;
+    transform-origin: bottom;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+
+.imp-nome {
+  @include kk.importancia;
+
+  & {
+    font-size: 0.78rem;
+    min-height: 26px;
+  }
+
+  /* o nome do tracinho sob o mouse, antes de escolher: a etiqueta ainda clara */
+  &.previa {
+    opacity: 0.6;
+  }
+}
+
+/* sem importância: o recorte da etiqueta, ainda sem etiqueta */
+.imp-vazia {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px 3px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  color: rgb(21 21 21 / 0.7);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+
+.tirar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -2px;
+  }
+}
+
+/* ===== Status: o campo e, embaixo, os já usados no quadro como recortes ===== */
+.status-valor {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+
+  .campo {
+    width: min(100%, 17rem);
+  }
+}
+
+.usados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.usado {
+  min-height: 34px;
+  padding: 4px 10px 3px;
+  border: 0;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.78);
+  /* as palavras da pessoa, como ela escreveu */
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+  }
+}
+
+/* ===== Depende de: uma lista curta e o botão de pôr outra ===== */
+.deps-valor {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.deps {
+  display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dep {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+
+  & + & {
+    border-top: 1px dashed rgb(21 21 21 / 0.18);
+  }
+}
+
+.dep-texto {
+  display: grid;
+  min-width: 0;
+}
+
+.dep-nome {
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.feita .dep-nome {
+  text-decoration: line-through 1.5px rgb(21 21 21 / 0.55);
+  color: var(--ink-2);
+}
+
+.feita-selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-right: 6px;
+  padding: 2px 5px 1px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.66rem;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.dica {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+.dep-onde {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.por-dep {
+  @include kit.botao-papel;
+
+  & {
+    min-height: 40px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .traco {
+    transition: background-color var(--t-ui) var(--ease-ui);
+  }
+}

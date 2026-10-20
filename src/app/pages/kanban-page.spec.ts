@@ -196,7 +196,7 @@ describe('página do Kanban', () => {
     const sheet = host.querySelector('app-kanban-card-sheet')!;
     expect(sheet.querySelector('.sub')!.textContent).toContain('No quadro de Trabalho');
     // a tag de outra anotação da categoria está à mão, em contorno
-    const op = () => sheet.querySelector<HTMLButtonElement>('.tag-op[aria-label="Correção"]')!;
+    const op = () => [...sheet.querySelectorAll<HTMLButtonElement>('.tag-op')].find((b) => b.textContent!.includes('Correção'))!;
     expect(op().getAttribute('aria-pressed')).toBe('false');
     op().click();
     await settle();
@@ -206,10 +206,11 @@ describe('página do Kanban', () => {
     await settle();
     expect(store.get('nsync001')!.tags).toBeUndefined();
     // uma tag nova: amarrada na anotação e com uma das cores, sorteada
-    const input = sheet.querySelector<HTMLInputElement>('.nova input')!;
+    const input = sheet.querySelector<HTMLInputElement>('app-tag-picker input')!;
     input.value = 'Urgente';
     input.dispatchEvent(new Event('input'));
-    sheet.querySelector<HTMLFormElement>('.nova')!.dispatchEvent(new Event('submit'));
+    await settle();
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     await settle();
     expect(store.get('nsync001')!.tags).toEqual(['Urgente']);
     // a cor nasce na categoria da anotação
@@ -497,7 +498,7 @@ describe('página do Kanban', () => {
       expect(host.querySelector('app-kanban-card-sheet')).toBeNull();
       tira('nlogin01').querySelector<HTMLButtonElement>('.mudar')!.click();
       await settle();
-      expect(host.querySelector('app-kanban-card-sheet #fq-deps')!.textContent).toBe('Dependências');
+      expect(host.querySelector('app-kanban-card-sheet .deps-linha .nome')!.textContent!.trim()).toBe('Depende de');
     });
 
     it('a folha da anotação põe dependência (o seletor esconde as que fariam roda) e tira', async () => {
@@ -520,9 +521,9 @@ describe('página do Kanban', () => {
       await settle();
       expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toEqual(['nprova01']);
       const rows = [...sheet.querySelectorAll('.dep')];
-      expect(rows.map((r) => r.querySelector('.dep-onde')!.textContent!.trim())).toEqual(['Estudos · Fora do quadro']);
+      expect(rows.map((r) => r.querySelector('.dep-onde')!.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Finalizada Estudos · Fora do quadro']);
       expect(rows[0].classList).toContain('feita');
-      sheet.querySelector<HTMLButtonElement>('.dep-tirar')!.click();
+      sheet.querySelector<HTMLButtonElement>('.dep .tirar')!.click();
       await settle();
       expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toBeUndefined();
       expect(sheet.querySelectorAll('.dep').length).toBe(0);
@@ -1294,7 +1295,7 @@ describe('página do Kanban', () => {
       expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .imp')).toBeNull();
       status.click();
       await settle();
-      expect(host.querySelector<HTMLInputElement>('app-kanban-card-sheet .status input')!.value).toBe('Aguardando cliente');
+      expect(host.querySelector<HTMLInputElement>('app-kanban-card-sheet .status-valor input')!.value).toBe('Aguardando cliente');
     });
 
     it('com o status, a fileira do pé desce de linha em vez de cobrir a ficha de baixo', async () => {
@@ -1344,16 +1345,16 @@ describe('página do Kanban', () => {
       column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
       await settle();
       const sheet = host.querySelector('app-kanban-card-sheet')!;
-      expect(sheet.querySelector('#fq-status')!.textContent).toBe('Status');
-      const input = sheet.querySelector<HTMLInputElement>('.status input')!;
+      expect(sheet.querySelector('label[for$="-status"]')!.textContent!.trim()).toBe('Status');
+      const input = sheet.querySelector<HTMLInputElement>('.status-valor input')!;
       expect(input.value).toBe('');
-      expect(sheet.querySelector('.status-tirar')).toBeNull();
+      expect(sheet.querySelector('.status-valor .tirar')).toBeNull();
       input.value = '  Em   revisão ';
       input.dispatchEvent(new Event('input'));
       await settle();
       // escrevendo, ainda não guardou
       expect(cardOf('nsync001').status).toBeUndefined();
-      sheet.querySelector<HTMLFormElement>('form.status')!.requestSubmit();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       await settle();
       expect(cardOf('nsync001').status).toBe('Em revisão');
       expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .status')!.textContent!.trim()).toBe('Em revisão');
@@ -1364,7 +1365,7 @@ describe('página do Kanban', () => {
       await settle();
       expect(cardOf('nsync001').status).toBe('Com o Sérgio');
       // o x tira
-      sheet.querySelector<HTMLButtonElement>('.status-tirar')!.click();
+      sheet.querySelector<HTMLButtonElement>('.status-valor .tirar')!.click();
       await settle();
       expect(cardOf('nsync001').status).toBeUndefined();
       expect(input.value).toBe('');

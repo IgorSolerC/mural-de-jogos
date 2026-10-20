@@ -435,11 +435,38 @@
   border-top: 2px dashed rgb(21 21 21 / 0.2);
 }
 
+/* De dentro do Kanban: a seção do quadro, com o nome do quadro na letra de etiqueta ao lado */
+.kanban-bloco {
+  gap: 4px;
+}
+
+.quadro-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
 /* na anotação, o texto vem colado nas etiquetas, sem o fio: é a mesma página */
 .bloco.texto.principal {
   margin-top: 4px;
   padding-top: 0;
   border-top: 0;
+}
+
+.kanban-bloco + .bloco.texto.principal {
+  margin-top: 8px;
+  padding-top: 24px;
+  border-top: 2px dashed rgb(21 21 21 / 0.2);
 }
 
 .campo {
@@ -898,8 +925,8 @@ fieldset.quem-ve {
 /* ===== A aba da cartolina: o estojo na parede, com o que está na ficha em etiquetas no alto ===== */
 .cartolina-modo {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 14px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 4px;
   min-width: 0;
   height: 100%;
   padding: 18px 24px 22px;
@@ -916,94 +943,15 @@ fieldset.quem-ve {
   max-width: 600px;
 }
 
-/* As camadas da ficha: etiquetas de papel na parede (o nome leva à aba dela; o x tira) */
-.na-ficha {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-
-  &[hidden] {
-    display: none;
-  }
+/* com a ficha enfeitada, "Só a cartolina" em cima do estojo, no canto, em giz */
+.cartolina-modo:has(> .limpar) {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
-.camada {
-  display: inline-flex;
-  align-items: stretch;
-  max-width: 100%;
-  border-radius: 2px;
-  background-color: var(--campo-papel);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.4),
-    0 4px 8px -4px rgb(0 0 0 / 0.6);
-}
-
-.camada-nome {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-  min-height: 38px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: inherit;
-  font-family: var(--f-ui);
-  font-weight: 600;
-  font-size: 0.95rem;
-  line-height: 38px;
-  white-space: nowrap;
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.06);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 2px;
-  }
-}
-
-.camada-tipo {
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.72rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-}
-
-.camada-tirar {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  border: 0;
-  border-left: 1.5px dashed rgb(21 21 21 / 0.25);
-  border-radius: 0 2px 2px 0;
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.07);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 2px;
-  }
-}
-
-/* "Só a cartolina": tirar tudo de uma vez, em giz */
+/* "Só a cartolina": tirar tudo de uma vez */
 .limpar {
+  justify-self: end;
+  margin: -8px -6px 0 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;

@@ -86,6 +86,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
           [id]="'kit-aba-' + t.id"
           [class.is-active]="tab() === t.id"
           [class.usada]="used(t.id)"
+          [class.com-conta]="marks(t.id) > 1"
           [attr.aria-selected]="tab() === t.id"
           [attr.aria-controls]="'kit-painel'"
           [attr.tabindex]="tab() === t.id ? 0 : -1"
@@ -93,6 +94,12 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
         >
           <lucide-icon class="aba-icone" [img]="tabIcons[t.id]" [size]="20" aria-hidden="true" />
           <span>{{ t.label }}</span>
+          @if (marks(t.id) > 1) {
+            <span class="aba-conta" aria-hidden="true">{{ marks(t.id) }}</span>
+          }
+          @if (used(t.id)) {
+            <span class="sr-only">(na ficha)</span>
+          }
         </button>
       }
       <!-- as duas réguas: a da cartolina e a do que vem por cima dela -->
@@ -391,6 +398,28 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       height: 6px;
       border-radius: 50%;
       background: currentColor;
+    }
+    /* com mais de uma (manchas, decorações), o número no lugar do pontinho: uma bolinha de tinta */
+    .plate.com-conta::after {
+      content: none;
+    }
+    .aba-conta {
+      position: absolute;
+      top: 3px;
+      right: 5px;
+      display: grid;
+      place-items: center;
+      min-width: 15px;
+      height: 15px;
+      padding: 0 3px;
+      border-radius: 8px;
+      background: #151515;
+      color: #f7f4ec;
+      /* um aro de papel: metade dela fica sobre a parede escura */
+      box-shadow: 0 0 0 1.5px #f7f4ec;
+      font-size: 0.62rem;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
     }
     .plate:focus-visible {
       outline: 3px solid var(--hi);
@@ -1119,6 +1148,11 @@ export class CardKit {
   }
 
   /** A aba mostra um pontinho quando a ficha tem algo escolhido ali. */
+  /** Quantas marcas da aba estão na ficha (só as de várias: manchas e decorações). */
+  protected marks(t: Tab): number {
+    return t === 'mancha' ? this.stains().length : t === 'decoracao' ? this.decors().length : 0;
+  }
+
   protected used(t: Tab): boolean {
     return t === 'papel' ? this.paper() !== 'cartolina' : t === 'estampa' ? !!this.pattern() : t === 'rabisco' ? !!this.scribble() : t === 'estrago' ? !!this.damage() : t === 'mancha' ? this.stains().length > 0 : t === 'decoracao' ? this.decors().length > 0 : false;
   }
