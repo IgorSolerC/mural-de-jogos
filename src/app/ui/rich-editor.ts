@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, ownerItem, tableCells, toggleCheck } from '../core/rich-text';
+import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableCells, toggleCheck, withNumber } from '../core/rich-text';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
@@ -3122,17 +3122,38 @@ export class RichEditor {
       // o de cima no mesmo jeito deste ("*", "1)"), a tarefa por fazer; o numerado desce com o número seguinte
       const mark = line.slice(0, marker);
       const above = k.kind === 'check' ? mark.replace(/\[[xX]\]/, '[ ]') : mark;
-      const own = k.kind === 'ol' ? mark.replace(/\d+/, String(k.n + 1)) : mark;
+      const own = k.kind === 'ol' ? withNumber(mark, nextNumber(line)) : mark;
       const caret = from + above.length + 1 + own.length;
-      this.replace(area, from, from + marker, `${above}\n${own}`, caret, caret);
+      // o que desceu leva os de baixo junto: "3." vira "4.", e o "4." de baixo, "5."
+      this.putItem(area, text.slice(0, from) + `${above}\n${own}` + text.slice(from + marker), caret, k.kind === 'ol' ? k.pre + k.n : undefined);
       return;
     }
-    const prefix = indent + prefixOf(k.kind, k.kind === 'ol' ? k.n + 1 : 1);
+    const prefix = indent + prefixOf(k.kind, nextNumber(line));
     // no fim de um item com o que vem embaixo dele: o item novo entra depois disso, que continua dele
     const { lines, at: here } = this.cursorLine(area);
     const end = at === from + line.length ? itemEnd(lines, here) : here;
     const put = end === here ? at : from + lines.slice(here, end + 1).join('\n').length;
-    this.replace(area, put, put, '\n' + prefix, put + 1 + prefix.length, put + 1 + prefix.length);
+    this.putItem(area, text.slice(0, put) + '\n' + prefix + text.slice(put), put + 1 + prefix.length);
+  }
+
+  /**
+   * Põe o texto com o item novo (o cursor em `caret`, na linha dele) numa troca só, com os números
+   * de baixo da mesma lista acertados (ver `renumberAfter`); `was`, o número que a linha do cursor
+   * tinha, quando foi ela que desceu.
+   */
+  private putItem(area: HTMLTextAreaElement, next: string, caret: number, was?: string): void {
+    const row = next.slice(0, caret).split('\n').length - 1;
+    this.replaceAll(area, renumberAfter(linesOf(next), row, was).join('\n'), caret);
+  }
+
+  /** Troca o texto inteiro por `next` numa troca só (um Ctrl+Z desfaz tudo): só o trecho que mudou. */
+  private replaceAll(area: HTMLTextAreaElement, next: string, caret: number): void {
+    const old = area.value;
+    let s = 0;
+    while (s < old.length && s < next.length && old[s] === next[s]) s++;
+    let e = 0;
+    while (e < old.length - s && e < next.length - s && old[old.length - 1 - e] === next[next.length - 1 - e]) e++;
+    this.replace(area, s, old.length - e, next.slice(s, next.length - e), caret, caret);
   }
 
   /** A linha do cursor: o número dela no texto, e as linhas todas. */
@@ -3169,13 +3190,14 @@ export class RichEditor {
     e.preventDefault();
     const top = lines[owner];
     const k = lineKind(top);
-    const prefix = /^\s*/.exec(top)![0] + prefixOf(k.kind as ListKind, k.kind === 'ol' ? k.n + 1 : 1);
+    const prefix = /^\s*/.exec(top)![0] + prefixOf(k.kind as ListKind, nextNumber(top));
+    const text = area.value;
     if (!line.trim()) {
-      this.replace(area, from, from + line.length, prefix, from + prefix.length, from + prefix.length);
+      this.putItem(area, text.slice(0, from) + prefix + text.slice(from + line.length), from + prefix.length);
       return;
     }
     const cur = area.selectionStart;
-    this.replace(area, cur, cur, '\n' + prefix, cur + 1 + prefix.length, cur + 1 + prefix.length);
+    this.putItem(area, text.slice(0, cur) + '\n' + prefix + text.slice(cur), cur + 1 + prefix.length);
   }
 
   /**
@@ -3233,6 +3255,7 @@ export function normalizeUrl(raw: string): string | null {
   return null;
 }
 
-function prefixOf(kind: ListKind, n: number): string {
+/** O marcador do item novo; na numerada, com o número dele ("3", "1.2"). */
+function prefixOf(kind: ListKind, n: number | string): string {
   return kind === 'ul' ? '- ' : kind === 'check' ? '- [ ] ' : `${n}. `;
 }

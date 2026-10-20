@@ -1,4 +1,4 @@
-import { Block, bodyIndent, checkCount, foldDone, hasFormatting, hasInteractive, hasSpoiler, itemEnd, linkAt, ownerItem, parseInline, parseRich, plainText, snapshotDone, toggleCheck } from './rich-text';
+import { Block, bodyIndent, checkCount, foldDone, hasFormatting, hasInteractive, hasSpoiler, itemEnd, linkAt, nextNumber, ownerItem, parseInline, parseRich, plainText, renumberAfter, snapshotDone, toggleCheck, withNumber } from './rich-text';
 
 /** Os blocos em resumo: o tipo, e nas listas cada item com a linha, o texto, a marca e o que vem embaixo. */
 type Shape = unknown[];
@@ -113,6 +113,54 @@ describe('o item com corpo (as linhas recuadas embaixo dele)', () => {
     expect(itemEnd(lines, 0)).toBe(1);
     expect(itemEnd(lines, 4)).toBe(5);
     expect(itemEnd(['- a', '- b'], 0)).toBe(0);
+  });
+});
+
+describe('a lista numerada de dentro com o número do pai ("1.1.")', () => {
+  it('"1.1." e "1.2." embaixo do "1." são a lista de dentro dele, com o "1." na frente de cada número', () => {
+    const text = '1. teste 1\n  1.1. teste 11\n  1.2. teste 12\n2. teste 2';
+    expect(shape(parseRich(text))).toEqual([['ol', [[0, 'teste 1', [['ol', [[1, 'teste 11'], [2, 'teste 12']]]]], [3, 'teste 2']]]]);
+    const [list] = parseRich(text);
+    const inner = list.kind === 'ol' ? list.items[0].body![0] : null;
+    expect(inner).toEqual(jasmine.objectContaining({ kind: 'ol', start: 1, pre: '1.' }));
+    // a de sempre não leva o número do pai
+    expect(list.kind === 'ol' && 'pre' in list).toBeFalse();
+    // o jeito de antes continua valendo
+    expect(shape(parseRich('1. teste 1\n  1. teste 11\n  2. teste 12\n2. teste 2'))).toEqual([['ol', [[0, 'teste 1', [['ol', [[1, 'teste 11'], [2, 'teste 12']]]]], [3, 'teste 2']]]]);
+  });
+
+  it('mais fundo também ("1.2.1."), e sem recuo é outra lista, com o número escrito', () => {
+    const [list] = parseRich('1.2.1. fundo');
+    expect(list).toEqual(jasmine.objectContaining({ kind: 'ol', start: 1, pre: '1.2.' }));
+    expect(parseRich('1. a\n1.1. b\n2. c').map((b) => (b.kind === 'ol' ? [b.start, b.pre ?? ''] : b.kind))).toEqual([
+      [1, ''],
+      [1, '1.'],
+      [2, ''],
+    ]);
+  });
+
+  it('o número com casas sem o ponto no fim é texto: "1.5 kg de arroz" não é lista', () => {
+    expect(shape(parseRich('1.5 kg de arroz'))).toEqual([['p', ['1.5 kg de arroz']]]);
+    expect(shape(parseRich('1\\.1. escapado'))).toEqual([['p', ['1.1. escapado']]]);
+    expect(plainText('1. a\n  1.1. b')).toBe('a\nb');
+  });
+
+  it('o número seguinte e a troca do número', () => {
+    expect(nextNumber('2. b')).toBe('3');
+    expect(nextNumber('  1.2. b')).toBe('1.3');
+    expect(withNumber('  2.1. x', '3.1')).toBe('  3.1. x');
+    expect(withNumber('texto 2.1', '3')).toBe('texto 2.1');
+  });
+
+  it('os de baixo descem um número depois do item novo, e os de dentro vão com o pai', () => {
+    const lines = ['1. a', '2. novo', '2. b', '  2.1. c', '  texto', '3. d', '', '4. e', 'fim', '5. f'];
+    expect(renumberAfter(lines, 1)).toEqual(['1. a', '2. novo', '3. b', '  3.1. c', '  texto', '4. d', '', '5. e', 'fim', '5. f']);
+    // a que desceu leva os dela
+    expect(renumberAfter(['3. ', '4. b', '  3.1. c', '4. d'], 1, '3')).toEqual(['3. ', '4. b', '  4.1. c', '5. d']);
+    // na lista "1. 1. 1." nada muda; na de dentro, só os do mesmo pai
+    expect(renumberAfter(['1. a', '2. ', '1. b'], 1)).toEqual(['1. a', '2. ', '1. b']);
+    expect(renumberAfter(['  1.2. ', '  1.2. b', '  2.1. c', '3. d'], 0)).toEqual(['  1.2. ', '  1.3. b', '  2.1. c', '3. d']);
+    expect(renumberAfter(['- a', '- b'], 0)).toEqual(['- a', '- b']);
   });
 });
 

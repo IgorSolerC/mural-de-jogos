@@ -61,9 +61,10 @@ import { NoteWidget } from './note-widget';
             </ul>
           }
           @case ('ol') {
-            <ol class="lista numerada" [start]="b.start" [style.counter-reset]="'item ' + (b.start - 1)">
+            <!-- a de dentro com o número do pai ("1.1.", "1.2."): ele vai antes do número de cada item -->
+            <ol class="lista numerada" [start]="b.start" [style.counter-reset]="'item ' + (b.start - 1)" [style.--pre-n]="b.pre?.length ?? null">
               @for (it of b.items; track it.line) {
-                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
+                <li class="linha" [attr.data-pre]="b.pre ?? null">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
               }
             </ol>
           }
@@ -436,12 +437,13 @@ import { NoteWidget } from './note-widget';
       left: 0.3em;
       font-weight: 700;
     }
+    /* o número do pai na frente ("1.1.") pede mais lugar: um terço de em por sinal dele */
     .numerada > li {
       counter-increment: item;
-      padding-left: 1.7em;
+      padding-left: calc(1.7em + var(--pre-n, 0) * 0.33em);
     }
     .numerada > li::before {
-      content: counter(item) '.';
+      content: attr(data-pre) counter(item) '.';
       position: absolute;
       left: 0;
       font-variant-numeric: tabular-nums;

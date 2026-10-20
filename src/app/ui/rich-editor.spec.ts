@@ -101,11 +101,46 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('- [ ] \n- [x] café');
     write('|3) três\n4) quatro');
     key('Enter');
-    expect(value()).toBe('3) \n4) três\n4) quatro');
+    expect(value()).toBe('3) \n4) três\n5) quatro');
     // no meio do texto, continua partindo o item em dois
     write('- le|ite');
     key('Enter');
     expect(value()).toBe('- le\n- ite');
+  });
+
+  it('o item numerado novo no meio da lista: os de baixo descem um número, e os de dentro deles vão junto', () => {
+    write('1. teste1\n2. teste2|\n3. teste3\n4. teste4');
+    key('Enter');
+    expect(value()).toBe('1. teste1\n2. teste2\n3. \n4. teste3\n5. teste4');
+    expect(area.selectionStart).toBe('1. teste1\n2. teste2\n3. '.length);
+    write('1. a|\n2. b\n  2.1. c\n  2.2. d\n3. e');
+    key('Enter');
+    expect(value()).toBe('1. a\n2. \n3. b\n  3.1. c\n  3.2. d\n4. e');
+    // no começo do item, ele desce com os dele
+    write('1. a\n|2. b\n  2.1. c\n3. e');
+    key('Enter');
+    expect(value()).toBe('1. a\n2. \n3. b\n  3.1. c\n4. e');
+    // depois do que vem embaixo de um item (Enter numa linha da descrição)
+    write('1. a\n   desc|\n2. b');
+    key('Enter');
+    expect(value()).toBe('1. a\n   desc\n2. \n3. b');
+    // fora da sequência, os de baixo ficam: a lista "1. 1." e a outra lista depois de um texto
+    write('1. a|\n1. b');
+    key('Enter');
+    expect(value()).toBe('1. a\n2. \n1. b');
+    write('1. a|\n2. b\ntexto\n2. c');
+    key('Enter');
+    expect(value()).toBe('1. a\n2. \n3. b\ntexto\n2. c');
+  });
+
+  it('a lista de dentro com o número do pai ("1.1."): Enter continua com o seguinte, e os de baixo descem', () => {
+    write('1. teste 1\n  1.1. teste 11|\n  1.2. teste 12\n2. teste 2');
+    key('Enter');
+    expect(value()).toBe('1. teste 1\n  1.1. teste 11\n  1.2. \n  1.3. teste 12\n2. teste 2');
+    expect(area.selectionStart).toBe('1. teste 1\n  1.1. teste 11\n  1.2. '.length);
+    // Enter no item vazio termina a lista, como nas outras
+    key('Enter');
+    expect(value()).toBe('1. teste 1\n  1.1. teste 11\n\n  1.3. teste 12\n2. teste 2');
   });
 
   it('Shift+Enter num item abre uma linha dentro dele, na coluna do texto; Enter nela volta para a lista', () => {

@@ -10,7 +10,7 @@
  *   "==>" ⟹, "<==" ⟸, "!=" ≠, ">=" ≥, "<=" ≤, "~=" ≈ e "+-" ±. Fora do código e dos links; com a
  *   barra antes do último sinal ("-\>"), ficam como são.
  * - Em blocos: títulos ("# ", "## ", "### "; do quarto ao sexto, como o terceiro), listas ("- item",
- *   "+ item", "1. item"), checklists ("- [ ] tarefa", "- [x] feita"), citações ("> "), a divisória
+ *   "+ item", "1. item" e, dentro de um, "1.1. item"), checklists ("- [ ] tarefa", "- [x] feita"), citações ("> "), a divisória
  *   ("---"), tabelas (as linhas com "|", a segunda só de traços), blocos de código (entre "```" ou
  *   "~~~") e os widgets das anotações ("{{contador: 19/11/2026 | Lançamento}}", numa linha só dele;
  *   ver core/widgets.ts).
@@ -76,7 +76,8 @@ export type Align = 'left' | 'center' | 'right' | null;
 export type Block =
   | { kind: 'p'; lines: Span[][] }
   | { kind: 'ul'; items: ListItem[] }
-  | { kind: 'ol'; items: ListItem[]; start: number }
+  // pre: o número do pai escrito antes do de cada item ("1." em "1.1.", "1.2."); sem ele, 1, 2, 3
+  | { kind: 'ol'; items: ListItem[]; start: number; pre?: string }
   // folded: quantas feitas a sequência esconde; seq: a linha da primeira tarefa dela (ver `foldDone`)
   | { kind: 'check'; items: ListItem[]; folded?: number; seq?: number }
   | { kind: 'h'; level: 1 | 2 | 3; spans: Span[] }
@@ -89,7 +90,10 @@ export type Block =
 
 const CHECK = /^\s*[-*+•]\s+\[([ xX])\]\s?(.*)$/;
 const BULLET = /^\s*[-*+•]\s+(.*)$/;
-const NUMBER = /^\s*(\d{1,4})[.)]\s+(.*)$/;
+// "1. item" e, dentro dele, "1.1. item" (o número do pai na frente, e o ponto no fim: "1.5 kg" é texto)
+const NUMBER = /^\s*((?:\d{1,4}\.)*)(\d{1,4})[.)]\s+(.*)$/;
+/** O número escrito no começo da linha numerada ("1.2" de "  1.2. item"), com o recuo antes dele. */
+const NUMBER_AT = /^(\s*)(\d{1,4}(?:\.\d{1,4})*)/;
 // do "####" ao "######" (o markdown tem seis níveis), com a cara do terceiro; os "#" do fim saem
 const HEADING = /^(#{1,6})\s+(.*?\S)(?:\s+#+)?\s*$/;
 // (">!spoiler!<" no começo da linha é um spoiler, não uma citação)
@@ -184,6 +188,55 @@ export function bodyIndent(lines: readonly string[], i: number): string | null {
   return /^[ \t]*/.exec(lines[i])![0];
 }
 
+/** A linha numerada com outro número ("2.1. item" com "3.1" vira "3.1. item"); a que não é numerada fica. */
+export function withNumber(line: string, num: string): string {
+  return lineKind(line).kind === 'ol' ? line.replace(NUMBER_AT, (_, sp: string) => sp + num) : line;
+}
+
+/** O número do item seguinte ao da linha numerada: "3" depois de "2.", "1.3" depois de "1.2.". */
+export function nextNumber(line: string): string {
+  const k = lineKind(line);
+  return k.kind === 'ol' ? k.pre + (k.n + 1) : '1';
+}
+
+/**
+ * Depois de um item numerado entrar na linha `i` (o Enter que criou o "3." entre o "2." e o "3."),
+ * os de baixo da mesma lista que vinham na sequência descem um número ("3." vira "4.", "4." vira
+ * "5."), e os de dentro deles com o número do pai na frente vão junto ("3.1." vira "4.1."). Para no
+ * primeiro fora da sequência (a lista "1. 1. 1." fica como está), numa linha menos recuada ou num
+ * texto no mesmo recuo. `was`: o número que a própria linha `i` tinha, quando foi ela que desceu
+ * (os de dentro dela também mudam).
+ */
+export function renumberAfter(lines: readonly string[], i: number, was?: string): string[] {
+  const out = [...lines];
+  const k = lineKind(out[i] ?? '');
+  if (k.kind !== 'ol') return out;
+  const indent = indentOf(out[i]);
+  let old = k.n - 1;
+  let next = k.n + 1;
+  let parent = was && was !== k.pre + k.n ? { from: was, to: k.pre + k.n } : null;
+  for (let j = i + 1; j < out.length; j++) {
+    const line = out[j];
+    if (!line.trim()) continue;
+    const w = indentOf(line);
+    if (w > indent) {
+      // dentro do item de cima: o número que começa com o do pai segue o pai
+      const s = lineKind(line);
+      const num = s.kind === 'ol' ? s.pre + s.n : '';
+      if (parent && num.startsWith(parent.from + '.')) out[j] = withNumber(line, parent.to + num.slice(parent.from.length));
+      continue;
+    }
+    if (w < indent) break;
+    const s = lineKind(line);
+    if (s.kind !== 'ol' || s.pre !== k.pre || s.n !== old + 1) break;
+    old = s.n;
+    parent = { from: k.pre + s.n, to: k.pre + next };
+    out[j] = withNumber(line, parent.to);
+    next++;
+  }
+  return out;
+}
+
 /** A linha de traços embaixo do cabeçalho da tabela: "| --- | :-: |". */
 const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
 
@@ -192,14 +245,15 @@ export function isTableSep(line: string): boolean {
   return line.includes('-') && TABLE_SEP.test(line);
 }
 
-type LineKind = { kind: 'check'; done: boolean; rest: string } | { kind: 'ul'; rest: string } | { kind: 'ol'; n: number; rest: string } | { kind: 'p'; rest: string };
+/** No item numerado, `pre` é o número do pai escrito antes do dele: "1." em "1.2. item" ("" em "2. item"). */
+type LineKind = { kind: 'check'; done: boolean; rest: string } | { kind: 'ul'; rest: string } | { kind: 'ol'; n: number; pre: string; rest: string } | { kind: 'p'; rest: string };
 
 /** Que tipo de linha de lista é: tarefa, item de lista, item numerado ou texto. */
 export function lineKind(line: string): LineKind {
   let m = CHECK.exec(line);
   if (m) return { kind: 'check', done: m[1] !== ' ', rest: m[2] };
   m = NUMBER.exec(line);
-  if (m) return { kind: 'ol', n: Number(m[1]), rest: m[2] };
+  if (m) return { kind: 'ol', n: Number(m[2]), pre: m[1], rest: m[3] };
   // "* * *" é a divisória, não um item
   if (RULE.test(line)) return { kind: 'p', rest: line };
   m = BULLET.exec(line);
@@ -487,8 +541,9 @@ function parseLines(lines: readonly string[], base: number): Block[] {
       item.body = parseLines(inner, base + i + 1);
       i = body.end;
     }
-    if (last?.kind === k.kind) last.items.push(item);
-    else if (k.kind === 'ol') blocks.push({ kind: 'ol', items: [item], start: k.n });
+    // a numerada com outro número de pai na frente ("1." e depois "1.1.") é outra lista
+    if (last?.kind === k.kind && (k.kind !== 'ol' || (last.kind === 'ol' && (last.pre ?? '') === k.pre))) last.items.push(item);
+    else if (k.kind === 'ol') blocks.push({ kind: 'ol', items: [item], start: k.n, ...(k.pre ? { pre: k.pre } : {}) });
     else blocks.push({ kind: k.kind, items: [item] } as Block);
   }
   return blocks;

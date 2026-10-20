@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-busca-musicas-iphone',
+    id: '2026-10-20-listas-numeradas',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
@@ -42,10 +42,12 @@ export const NEWS: NewsEntry[] = [
       'A anotação criada de dentro do Kanban já pode nascer com a importância, o status e as dependências, pela etiqueta Kanban do editor, igual à do mural.',
       'Na anotação, a folha do texto vai até o pé do editor, sem espaço vazio embaixo.',
       'A régua do texto perdeu a caixa "Texto normal", que repetia os estilos do Formatar; no lugar dela entraram Desfazer e Refazer, que no celular não tinham botão.',
+      'As listas numeradas de dentro de um item também podem levar o número do pai na frente, como 1.1. e 1.2., e o Enter continua nelas com o número seguinte.',
       'Na aba Cartolina do editor, o que está na ficha aparece nas próprias abas do estojo (um pontinho, ou quantas manchas e decorações), no lugar da fileira de etiquetas; "Só a cartolina" continua tirando tudo de uma vez.',
     ],
     correcoes: [
       'A busca de álbuns e músicas do mural de músicas não falha mais no iPhone, onde não achava nada.',
+      'O Enter no meio de uma lista numerada acerta os números dos itens de baixo, que antes ficavam repetidos (dois "3.").',
     ],
   },
   {

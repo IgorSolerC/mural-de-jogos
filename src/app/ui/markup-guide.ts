@@ -25,7 +25,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       { what: 'Bloco de código', mark: '```', note: 'Numa linha antes do código e noutra depois.' },
       { what: 'Tarefas', mark: '- [ ] tarefa', keys: 'Ctrl+Shift+9', note: 'Feita: - [x] tarefa.' },
       { what: 'Lista', mark: '- item', keys: 'Ctrl+Shift+8' },
-      { what: 'Lista numerada', mark: '1. item', keys: 'Ctrl+Shift+7', note: 'Enter continua a lista; Enter num item vazio termina.' },
+      { what: 'Lista numerada', mark: '1. item', keys: 'Ctrl+Shift+7', note: 'Enter continua a lista (os números de baixo seguem); Enter num item vazio termina. Dentro de um item, 1.1. item também vale.' },
       {
         what: 'Dentro do item',
         mark: '- [ ] tarefa\n  descrição',
