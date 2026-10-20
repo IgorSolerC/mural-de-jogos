@@ -428,11 +428,12 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
     else out.push({ text: t, ...marks });
   };
   // ***os dois*** (ou ___), **negrito** (ou __), ~~riscado~~, ==marca-texto==, *itálico* (ou _),
-  // ||spoiler|| (ou >!…!<), ((sutil)). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
+  // ||spoiler|| (ou >!…!<), ((sutil)) (fecha no último "))" de uma fila de parênteses, como o "**":
+  // "(((um aparte)))" é sutil com os parênteses dentro). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
   // que fecha não pode ser metade de outra marca ("*um **dois** três*" é um itálico só, com o negrito
   // dentro, e "**muito *bom***", um negrito com o itálico no fim)
   const re =
-    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!<|\(\((?=\S)(?<sub>.+?)(?<=\S)\)\)/gu;
+    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!<|\(\((?=\S)(?<sub>.+?)(?<=\S)\)\)(?!\))/gu;
   let at = 0;
   for (const m of text.matchAll(re)) {
     push(text.slice(at, m.index), inherit);

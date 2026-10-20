@@ -56,6 +56,10 @@ describe('o markdown do texto', () => {
     expect(parseInline('**((leve))**')).toEqual([{ text: 'leve', bold: true, subtle: true }]);
     expect(parseInline('((veja [[Compras]]))')).toEqual([{ text: 'veja ', subtle: true }, { text: 'Compras', subtle: true, link: true }]);
     expect(parseInline('((`x`))')).toEqual([{ text: 'x', subtle: true, code: true }]);
+    // os parênteses dentro dele: o "))" que fecha é o último da fila
+    expect(parseInline('Eu gosto de bolo (((só nao de cenoura)))')).toEqual([{ text: 'Eu gosto de bolo ' }, { text: '(só nao de cenoura)', subtle: true }]);
+    expect(parseInline('((veja (isto) e (aquilo))) fim')).toEqual([{ text: 'veja (isto) e (aquilo)', subtle: true }, { text: ' fim' }]);
+    expect(parseInline('((a)) e ((b))')).toEqual([{ text: 'a', subtle: true }, { text: ' e ' }, { text: 'b', subtle: true }]);
     // com espaço colado na marca, um parêntese só, ou escapado, não é sutil
     for (const t of ['(( solto ))', '(um) e (dois)', 'f(x) = (a)', '\\((nada))']) expect(parseInline(t).some((s) => s.subtle)).withContext(t).toBeFalse();
     expect(hasFormatting('um ((dois))')).toBeTrue();
