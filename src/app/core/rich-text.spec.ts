@@ -1,4 +1,4 @@
-import { Block, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -191,5 +191,45 @@ describe('texto com formatação', () => {
     expect(linkAt(line, 57)).toEqual({ kind: 'url', start: 54, end: 67, text: '', href: 'https://b.com' });
     expect(linkAt(line, 68)).toBeNull();
     expect(linkAt(line, line.length - 3)).toBeNull();
+  });
+});
+
+describe('a linha do texto de cada bloco (a prévia do editor acompanha o cursor)', () => {
+  it('cada bloco sabe a linha onde começa, sem mudar o que os blocos são', () => {
+    const text = ['um', 'dois', '', '# Título', '> citação', '> mais', '---', '```', 'a = 1', '```', '{{contador: 2026-12-25 | Natal}}', '| a | b |', '| --- | --- |', '| 1 | 2 |', '-# sutil', 'fim'].join('\n');
+    const blocks = parseRich(text);
+    expect(blocks.map((b) => [b.kind, blockLine(b)])).toEqual([
+      ['p', 0],
+      ['h', 3],
+      ['quote', 4],
+      ['hr', 6],
+      ['code', 7],
+      ['widget', 10],
+      ['table', 11],
+      ['subtle', 14],
+      ['p', 15],
+    ]);
+    // o texto corrido, as citações e o sutil seguem linha por linha a partir dela
+    expect((blocks[0] as Extract<Block, { kind: 'p' }>).lines.length).toBe(3);
+    expect(blocks[0]).toEqual({ kind: 'p', lines: [[{ text: 'um' }], [{ text: 'dois' }], []] });
+  });
+
+  it('o que vem embaixo de um item conta a partir da linha dele no texto todo', () => {
+    const blocks = parseRich(['antes', '- item', '  descrição', '  - [ ] dentro', '- outro'].join('\n'));
+    expect(blocks.map((b) => blockLine(b))).toEqual([0, 1]);
+    const list = blocks[1] as Extract<Block, { kind: 'ul' }>;
+    expect(list.items.map((it) => it.line)).toEqual([1, 4]);
+    const body = list.items[0].body!;
+    expect(body.map((b) => [b.kind, blockLine(b)])).toEqual([
+      ['p', 2],
+      ['check', 3],
+    ]);
+  });
+
+  it('as tarefas recolhidas não perdem a linha dos outros blocos', () => {
+    const blocks = parseRich(['texto', '- [x] feita', '', 'depois'].join('\n'));
+    const folded = foldDone(blocks, new Set([1]));
+    expect(folded.filter((b) => b.kind === 'p').map((b) => blockLine(b))).toEqual([0, 2]);
+    expect(blockLine({ kind: 'hr' })).toBeNull();
   });
 });

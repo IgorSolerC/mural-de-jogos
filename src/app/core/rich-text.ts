@@ -482,6 +482,19 @@ function startsTable(lines: readonly string[], i: number): boolean {
   return !!sep && head.includes('|') && sep.includes('|') && isTableSep(sep) && tableCells(head).length === tableCells(sep).length;
 }
 
+/**
+ * A linha do texto onde cada bloco começa, guardada fora dele (os blocos continuam iguais nas
+ * comparações): o texto corrido, a citação e o sutil seguem uma linha por linha a partir dela; o
+ * código e a tabela começam nela. Serve para achar no desenho o trecho onde está o cursor (a prévia
+ * do editor acompanha quem escreve).
+ */
+const STARTS = new WeakMap<Block, number>();
+
+/** A linha do texto onde o bloco começa (ver `STARTS`); null no que não saiu de `parseRich`. */
+export function blockLine(b: Block): number | null {
+  return STARTS.get(b) ?? null;
+}
+
 /** O texto em blocos: o texto corrido (linha a linha), as listas seguidas, os títulos, as citações, as tabelas… */
 export function parseRich(text: string): Block[] {
   return parseLines(linesOf(text), 0);
@@ -490,20 +503,25 @@ export function parseRich(text: string): Block[] {
 /** As linhas em blocos; `base` é o número no texto da primeira (o que vem embaixo de um item é lido à parte). */
 function parseLines(lines: readonly string[], base: number): Block[] {
   const blocks: Block[] = [];
+  const push = (b: Block, at: number) => {
+    STARTS.set(b, base + at);
+    blocks.push(b);
+  };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const last = blocks.at(-1);
+    const at = i;
     // o bloco de código vai até a cerca que fecha (ou até o fim)
     const open = fenceOf(line);
     if (open) {
       const body: string[] = [];
       while (++i < lines.length && !closes(lines[i], open)) body.push(lines[i]);
-      blocks.push({ kind: 'code', text: body.join('\n') });
+      push({ kind: 'code', text: body.join('\n') }, at);
       continue;
     }
     const w = parseWidgetLine(line);
     if (w) {
-      blocks.push({ kind: 'widget', ...w });
+      push({ kind: 'widget', ...w }, at);
       continue;
     }
     if (startsTable(lines, i)) {
@@ -517,36 +535,36 @@ function parseLines(lines: readonly string[], base: number): Block[] {
         rows.push(head.map((_, c) => parseInline(cells[c] ?? '')));
       }
       i--;
-      blocks.push({ kind: 'table', align, head: head.map(parseInline), rows });
+      push({ kind: 'table', align, head: head.map(parseInline), rows }, at);
       continue;
     }
     if (RULE.test(line)) {
-      blocks.push({ kind: 'hr' });
+      push({ kind: 'hr' }, at);
       continue;
     }
     const h = HEADING.exec(line);
     if (h) {
-      blocks.push({ kind: 'h', level: Math.min(3, h[1].length) as 1 | 2 | 3, spans: parseInline(h[2].trim()) });
+      push({ kind: 'h', level: Math.min(3, h[1].length) as 1 | 2 | 3, spans: parseInline(h[2].trim()) }, at);
       continue;
     }
     const q = QUOTE.exec(line);
     if (q) {
       if (last?.kind === 'quote') last.lines.push(parseInline(q[1]));
-      else blocks.push({ kind: 'quote', lines: [parseInline(q[1])] });
+      else push({ kind: 'quote', lines: [parseInline(q[1])] }, at);
       continue;
     }
     const sub = SUBTLE.exec(line);
     if (sub) {
       const spans = parseInline(sub[1] ?? '');
       if (last?.kind === 'subtle') last.lines.push(spans);
-      else blocks.push({ kind: 'subtle', lines: [spans] });
+      else push({ kind: 'subtle', lines: [spans] }, at);
       continue;
     }
     const k = lineKind(line);
     if (k.kind === 'p') {
       const spans = parseInline(line);
       if (last?.kind === 'p') last.lines.push(spans);
-      else blocks.push({ kind: 'p', lines: [spans] });
+      else push({ kind: 'p', lines: [spans] }, at);
       continue;
     }
     const item: ListItem = { spans: parseInline(k.rest), line: base + i, ...(k.kind === 'check' ? { done: k.done } : {}) };
@@ -559,8 +577,8 @@ function parseLines(lines: readonly string[], base: number): Block[] {
     }
     // a numerada com outro número de pai na frente ("1." e depois "1.1.") é outra lista
     if (last?.kind === k.kind && (k.kind !== 'ol' || (last.kind === 'ol' && (last.pre ?? '') === k.pre))) last.items.push(item);
-    else if (k.kind === 'ol') blocks.push({ kind: 'ol', items: [item], start: k.n, ...(k.pre ? { pre: k.pre } : {}) });
-    else blocks.push({ kind: k.kind, items: [item] } as Block);
+    else if (k.kind === 'ol') push({ kind: 'ol', items: [item], start: k.n, ...(k.pre ? { pre: k.pre } : {}) }, at);
+    else push({ kind: k.kind, items: [item] } as Block, at);
   }
   return blocks;
 }

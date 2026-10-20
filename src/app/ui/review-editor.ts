@@ -98,6 +98,9 @@ import { ScorePicker } from './score-picker';
 import { StatusPicker } from './status-picker';
 import { VerdictPicker } from './verdict';
 import { napWall } from '../core/wall-settle';
+import { readText, writeText } from '../core/storage';
+import { reducedMotion } from '../core/motion';
+import { anchorFor, caretSpot, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
 import { canManage } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
@@ -106,6 +109,9 @@ import { KanbanStore } from '../core/kanban-store';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { Importance, KanbanBoard, cleanStatus, setImportance, setStatus } from '../core/kanban';
+
+/** A prévia mostra a ficha inteira (lembrado neste aparelho). */
+const WHOLE_KEY = 'meu-mural:editor:ficha-inteira';
 
 export interface SavedEvent {
   id: string;
@@ -218,6 +224,8 @@ export class ReviewEditor {
   protected readonly WriteIcon = ICON.escrever;
   protected readonly KitIcon = ICON.paleta;
   protected readonly ClearIcon = ICON.recomecar;
+  protected readonly GrowIcon = ICON.aumentar;
+  protected readonly ShrinkIcon = ICON.diminuir;
 
   /**
    * As duas abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes) e
@@ -813,6 +821,22 @@ export class ReviewEditor {
   private previewObserver: ResizeObserver | null = null;
 
   /**
+   * A prévia com a ficha inteira, como em Fichas inteiras no mural: o texto todo, sem corte, e a
+   * coluna rola. Só no largo, onde a prévia fica ao lado do texto e serve para ver na hora o que se
+   * escreve; a escolha fica neste aparelho.
+   */
+  protected readonly whole = signal(readText(WHOLE_KEY) === '1');
+  protected readonly showWhole = computed(() => this.wide() && this.whole());
+  /** O campo do texto onde o cursor esteve por último (a régua tira o foco dele, não o cursor). */
+  private caretArea: HTMLTextAreaElement | null = null;
+  private followFrame = 0;
+  /** O texto mudou (digitando ou pela régua): a prévia vai até o cursor depois de desenhar. */
+  private readonly followText = effect(() => {
+    this.text();
+    untracked(() => this.followSoon());
+  });
+
+  /**
    * De onde sai o desenho do papel desta ficha (ver artIdOf): o da própria ficha, o da original numa
    * rejogada, ou o que ficou guardado depois que a original trocou.
    */
@@ -968,6 +992,7 @@ export class ReviewEditor {
       mq.removeEventListener('change', sync);
       wq.removeEventListener('change', sync);
       this.previewObserver?.disconnect();
+      cancelAnimationFrame(this.followFrame);
     });
   }
 
@@ -976,6 +1001,11 @@ export class ReviewEditor {
    * palco fica com a altura da ficha encolhida, e o estojo logo embaixo).
    */
   private fitPreview(): void {
+    // inteira, a ficha fica do tamanho de verdade e a coluna rola
+    if (this.showWhole()) {
+      this.previewScale.set(1);
+      return;
+    }
     const slot = this.previewSlot().nativeElement;
     const natural = this.previewFrame().nativeElement.offsetHeight;
     if (!natural) return;
@@ -984,6 +1014,51 @@ export class ReviewEditor {
     const scale = Math.min(1, cap / natural);
     this.previewScale.set(scale);
     this.previewHeight.set(Math.ceil(natural * scale));
+  }
+
+  protected toggleWhole(): void {
+    const on = !this.whole();
+    this.whole.set(on);
+    writeText(WHOLE_KEY, on ? '1' : '0');
+    const slot = this.previewSlot().nativeElement;
+    // depois de a ficha mudar de tamanho: inteira, vai até o cursor (ou fica no alto); de volta, no alto
+    requestAnimationFrame(() => {
+      this.fitPreview();
+      if (!on || !this.followCaret('instant')) slot.scrollTo({ top: 0, behavior: 'instant' });
+    });
+  }
+
+  /** O cursor entrou num campo do texto (o de sempre ou o grande). */
+  protected caretFrom(e: Event): void {
+    if (e.target instanceof HTMLTextAreaElement) this.caretArea = e.target;
+    this.followSoon();
+  }
+
+  /** O cursor andou ou o texto mudou: no próximo quadro (já com a ficha desenhada), a prévia vai até ele. */
+  protected followSoon(): void {
+    if (!this.showWhole() || !this.caretArea) return;
+    cancelAnimationFrame(this.followFrame);
+    this.followFrame = requestAnimationFrame(() => this.followCaret());
+  }
+
+  /**
+   * A coluna da prévia rola até a linha do cursor (ver ui/caret-follow.ts), com folga de umas linhas
+   * em cima e embaixo; parada, se ela já está à vista. Diz se achou a linha na ficha.
+   */
+  private followCaret(behavior: ScrollBehavior = reducedMotion() ? 'instant' : 'smooth'): boolean {
+    const area = this.caretArea;
+    if (!area?.isConnected || area.hidden || !this.showWhole()) return false;
+    const slot = this.previewSlot().nativeElement;
+    const at = area.selectionDirection === 'backward' ? area.selectionStart : area.selectionEnd;
+    const { line, frac } = caretSpot(area.value, at);
+    const spot = anchorFor(slot, line);
+    if (!spot) return false;
+    const top = scrollToShow(slot.scrollTop, slot.clientHeight, caretY(slot, spot, line, frac), 96);
+    // no começo do texto, o alto da ficha (o nome, a tachinha) também fica à vista
+    const start = slot.querySelector<HTMLElement>('[data-l]');
+    const textTop = start ? start.getBoundingClientRect().top - slot.getBoundingClientRect().top + slot.scrollTop : 0;
+    if (top !== null) slot.scrollTo({ top: top < textTop ? 0 : top, behavior });
+    return true;
   }
 
   /** As notas como vão para a ficha: a categoria que "não tem" vai sem nota. */
@@ -1121,10 +1196,11 @@ export class ReviewEditor {
     // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
     const toTop = () => {
       dialog.scrollTop = 0;
-      dialog.querySelectorAll('.conteudo, app-card-kit .painel').forEach((pane) => pane.scrollTo({ top: 0, behavior: 'instant' }));
+      dialog.querySelectorAll('.conteudo, .previa-slot, app-card-kit .painel').forEach((pane) => pane.scrollTo({ top: 0, behavior: 'instant' }));
     };
     toTop();
     this.previewScale.set(1);
+    this.caretArea = null;
     // as fichas montadas fora da tela dormem enquanto o diálogo está aberto (ver core/wall-settle.ts)
     napWall();
     dialog.showModal();

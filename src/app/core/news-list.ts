@@ -26,12 +26,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-observacao-kanban',
+    id: '2026-10-20-previa-inteira',
     version: '1.29.1',
     kind: 'ajustes',
     date: '2026-10-20',
-    title: 'O status do Kanban virou Observação',
-    melhorias: ['O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".'],
+    title: 'A ficha inteira ao lado do editor e a Observação do Kanban',
+    melhorias: [
+      'No computador, a ficha ao lado do editor ficou reta e ganhou o botão Ficha inteira: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo.',
+      'O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".',
+    ],
   },
   {
     id: '2026-10-20-assunto',

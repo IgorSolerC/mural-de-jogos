@@ -370,7 +370,7 @@ export const CARD_TEMPLATE = `
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
         <div class="nota-texto" [class.marcavel]="interactive()" data-widget-teto appCorta>
-          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" (toggled)="toggleTask($event)" />
+          <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" />
         </div>
       }
     } @else if (!compact() && !capas()) {
@@ -379,7 +379,7 @@ export const CARD_TEMPLATE = `
         @if (masked()) {
           <p class="texto-inteiro" data-queima><app-rabisco [text]="fullMasked()" /><span class="sr-only">Texto escondido</span></p>
         } @else {
-          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" (toggled)="toggleTask($event)" /></div>
+          <div class="texto-inteiro" [class.marcavel]="interactive()" data-queima><app-rich-text [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" /></div>
         }
       } @else if (lead(); as line) {
         @if (masked() && !bare()) {

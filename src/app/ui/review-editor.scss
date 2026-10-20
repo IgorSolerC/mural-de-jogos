@@ -273,14 +273,24 @@
   min-width: 0;
 }
 
-.prop {
+/* As etiquetas de papel do editor, com o kit uma vez só: as da fileira, o Pronto da parte aberta e a
+   Ficha inteira, em cima da prévia (a mesma etiqueta da fileira; ligada, a de tinta) */
+.prop,
+.ver-inteira,
+.parte-pronto {
   @include kit.botao-papel;
+}
+
+.prop,
+.ver-inteira {
   max-width: 100%;
   min-height: 40px;
   padding: 6px 12px 5px;
   gap: 7px;
   font-size: 0.84rem;
+}
 
+.prop {
   &.vazia {
     background: transparent;
     box-shadow: none;
@@ -299,28 +309,31 @@
     color: var(--error-ink);
   }
 
-  &[aria-expanded='true'],
-  &[aria-expanded='true']:hover {
-    background: var(--ink);
-    color: var(--hi);
-    rotate: -1deg;
-    translate: 0 -1px;
-    box-shadow:
-      0 1px 2px rgb(0 0 0 / 0.35),
-      0 5px 10px -4px rgb(0 0 0 / 0.4);
-
-    &::after {
-      content: none;
-    }
-
-    .prop-tags,
-    .prop-orelha {
-      filter: none;
-    }
-  }
-
   &[data-prop='quadro'] {
     @include kk.coluna-cores;
+  }
+}
+
+/* a aberta, e a Ficha inteira ligada: a etiqueta de tinta */
+.prop[aria-expanded='true'],
+.prop[aria-expanded='true']:hover,
+.ver-inteira[aria-pressed='true'],
+.ver-inteira[aria-pressed='true']:hover {
+  background: var(--ink);
+  color: var(--hi);
+  rotate: -1deg;
+  translate: 0 -1px;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 5px 10px -4px rgb(0 0 0 / 0.4);
+
+  &::after {
+    content: none;
+  }
+
+  .prop-tags,
+  .prop-orelha {
+    filter: none;
   }
 }
 
@@ -410,7 +423,6 @@
 }
 
 .parte-pronto {
-  @include kit.botao-papel;
   justify-self: end;
   min-height: 40px;
   margin: -4px -6px 0 0;
@@ -918,6 +930,16 @@ fieldset.quem-ve {
   padding-top: 30px;
 }
 
+/* a ficha da prévia fica reta: torta, as pontas saíam do palco, e o que importa aqui é ler */
+.previa app-review-card {
+  --inclina: 0;
+}
+
+/* o botão da ficha inteira só existe no largo, onde a prévia fica ao lado do texto */
+.palco-topo {
+  display: none;
+}
+
 /* ===== A aba da cartolina: o estojo na parede, com o que está na ficha em etiquetas no alto ===== */
 .cartolina-modo {
   display: grid;
@@ -1155,6 +1177,34 @@ fieldset.quem-ve {
     max-width: var(--previa-w);
   }
 
+  .palco-topo {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* na parede escura, o contorno do foco é o giz dela (o de tinta sumiria) */
+  .ver-inteira:focus-visible {
+    outline-color: var(--wall-ink);
+  }
+
+  /* inteira: a ficha no tamanho de verdade, e a coluna rola (acompanhando o cursor, ver followCaret) */
+  .previa-slot.inteira {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(243 236 224 / 0.32) transparent;
+
+    .previa-frame {
+      position: relative;
+      transform: none;
+    }
+
+    /* a sombra da ficha e o pé dela à vista no fim da rolagem */
+    .previa {
+      padding-bottom: 28px;
+    }
+  }
+
   .escrever {
     padding: 26px 28px 34px;
   }
@@ -1164,7 +1214,8 @@ fieldset.quem-ve {
     gap: 6px;
   }
 
-  .prop {
+  .prop,
+  .ver-inteira {
     padding-inline: 10px;
   }
 

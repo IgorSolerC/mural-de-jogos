@@ -374,6 +374,9 @@
             <label [for]="texto.areaId" [class]="notes() ? 'sr-only' : 'pergunta'">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
             <app-rich-editor
               #texto
+              (focusin)="caretFrom($event)"
+              (click)="followSoon()"
+              (keyup)="followSoon()"
               [class.anotacao]="notes()"
               [label]="notes() ? 'Anotação' : 'O que achou?'"
               [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o nome)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
@@ -409,13 +412,27 @@
         </div>
       </div>
 
-      <!-- O palco: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural. No
-           computador fica sempre à vista, ao lado; no celular, só na aba Cartolina, em cima do estojo -->
+      <!-- O palco: um pedaço da parede com a ficha sendo feita, pregada como vai ficar no mural, mas
+           reta. No computador fica sempre à vista, ao lado; no celular, só na aba Cartolina, em cima
+           do estojo. No computador, a ficha pode ficar inteira (o texto todo, rolando junto com o
+           cursor de quem escreve) -->
       <aside class="palco parede" aria-label="A ficha no mural">
-        <div class="previa-slot" #previewSlot [style.height.px]="wide() ? null : previewHeight()">
+        <div class="palco-topo">
+          <button
+            type="button"
+            class="ver-inteira"
+            [attr.aria-pressed]="whole()"
+            [title]="whole() ? 'Voltar a ficha ao tamanho do mural' : 'Ver o texto todo, como em Fichas inteiras'"
+            (click)="toggleWhole()"
+          >
+            <lucide-icon [img]="whole() ? ShrinkIcon : GrowIcon" [size]="15" aria-hidden="true" />
+            Ficha inteira
+          </button>
+        </div>
+        <div class="previa-slot" #previewSlot [class.inteira]="showWhole()" [style.height.px]="wide() ? null : previewHeight()">
           <div class="previa-frame" #previewFrame [style.--preview-scale]="previewScale()">
             <div class="previa" inert>
-              <app-review-card [review]="preview()" [compact]="phone()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
+              <app-review-card [review]="preview()" [compact]="phone()" [full]="showWhole()" [preview]="true" [looks]="categoryLooks()" [empty]="notes() ? !noteTitle().trim() : !game()" />
             </div>
           </div>
         </div>

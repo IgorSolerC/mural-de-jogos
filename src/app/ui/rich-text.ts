@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
-import { Block, foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
+import { Block, blockLine, foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
@@ -39,7 +39,7 @@ import { NoteWidget } from './note-widget';
     @if (!formatted()) {
       <!-- sem marcas: as linhas como foram escritas (nada vira link, lista nem negrito) -->
       @for (l of plainLines(); track $index) {
-        <div class="linha paragrafo">{{ l }}</div>
+        <div class="linha paragrafo" [attr.data-l]="anchors() ? $index : null">{{ l }}</div>
       }
     } @else {
       <ng-container *ngTemplateOutlet="blocos; context: { $implicit: blocks() }" />
@@ -50,13 +50,13 @@ import { NoteWidget } from './note-widget';
         @switch (b.kind) {
           @case ('p') {
             @for (l of b.lines; track $index) {
-              <div class="linha paragrafo">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+              <div class="linha paragrafo" [attr.data-l]="at(b, $index)">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
             }
           }
           @case ('ul') {
             <ul class="lista">
               @for (it of b.items; track it.line) {
-                <li class="linha">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
+                <li class="linha" [attr.data-l]="anchors() ? it.line : null">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
               }
             </ul>
           }
@@ -64,38 +64,38 @@ import { NoteWidget } from './note-widget';
             <!-- a de dentro com o número do pai ("1.1.", "1.2."): ele vai antes do número de cada item -->
             <ol class="lista numerada" [start]="b.start" [style.counter-reset]="'item ' + (b.start - 1)" [style.--pre-n]="b.pre?.length ?? null">
               @for (it of b.items; track it.line) {
-                <li class="linha" [attr.data-pre]="b.pre ?? null">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
+                <li class="linha" [attr.data-pre]="b.pre ?? null" [attr.data-l]="anchors() ? it.line : null">@for (s of it.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}@if (it.body) {<div class="corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: it.body }" /></div>}</li>
               }
             </ol>
           }
           @case ('h') {
             <!-- o título: um dos níveis abaixo do título da ficha (4, 5, 6) -->
-            <div [class]="'linha titulo t' + b.level" role="heading" [attr.aria-level]="3 + b.level">@for (s of b.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+            <div [class]="'linha titulo t' + b.level" [attr.data-l]="at(b)" role="heading" [attr.aria-level]="3 + b.level">@for (s of b.spans; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
           }
           @case ('quote') {
             <blockquote class="citacao">
               @for (l of b.lines; track $index) {
-                <div class="linha paragrafo">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
+                <div class="linha paragrafo" [attr.data-l]="at(b, $index)">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</div>
               }
             </blockquote>
           }
           @case ('subtle') {
             <!-- o texto sutil: a letra menor e mais clara, sentada na mesma linha da pauta -->
             @for (l of b.lines; track $index) {
-              <div class="linha paragrafo sutil"><span class="sutil-texto">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span></div>
+              <div class="linha paragrafo sutil" [attr.data-l]="at(b, $index)"><span class="sutil-texto">@for (s of l; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span></div>
             }
           }
           @case ('hr') {
-            <div class="linha divisoria" role="separator"></div>
+            <div class="linha divisoria" role="separator" [attr.data-l]="at(b)"></div>
           }
           @case ('code') {
-            <pre class="codigo"><code>{{ b.text }}</code></pre>
+            <pre class="codigo" [attr.data-l]="at(b)"><code>{{ b.text }}</code></pre>
           }
           @case ('widget') {
-            <app-note-widget class="widget" [name]="b.name" [args]="b.args" [size]="b.size" [links]="links()" />
+            <app-note-widget class="widget" [attr.data-l]="at(b)" [name]="b.name" [args]="b.args" [size]="b.size" [links]="links()" />
           }
           @case ('table') {
-            <div class="tabela-rolo">
+            <div class="tabela-rolo" [attr.data-l]="at(b)">
               <table class="tabela">
                 <thead>
                   <tr>
@@ -119,7 +119,7 @@ import { NoteWidget } from './note-widget';
           @case ('check') {
             <ul class="lista tarefas">
               @for (it of b.items; track it.line) {
-                <li class="linha" [class.feita]="it.done">
+                <li class="linha" [class.feita]="it.done" [attr.data-l]="anchors() ? it.line : null">
                   <label>
                     @if (checkable()) {
                       <input type="checkbox" [checked]="it.done" (change)="toggled.emit(it.line)" />
@@ -635,6 +635,18 @@ export class RichText {
    * em todo lugar onde ela aparece, até a página recarregar (ver core/shown-done.ts). Sem ele, só aqui.
    */
   readonly foldKey = input<string | null>(null);
+  /**
+   * Cada linha desenhada leva o número da linha do texto de onde saiu (`data-l`): a prévia do editor
+   * acha nelas o trecho onde está o cursor (ver ReviewEditor.followCaret). Só lá.
+   */
+  readonly anchors = input(false);
+
+  /** O número da linha do texto da `i`-ésima linha do bloco (só com `anchors`). */
+  protected at(b: Block, i = 0): number | null {
+    if (!this.anchors()) return null;
+    const start = blockLine(b);
+    return start === null ? null : start + i;
+  }
 
   protected readonly formatted = computed(() => hasFormatting(this.text()));
   protected readonly plainLines = computed(() => this.text().split(/\r?\n/));
