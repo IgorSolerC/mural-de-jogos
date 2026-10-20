@@ -58,6 +58,19 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('**bom**');
   });
 
+  it('"Sutil" no Formatar põe "((" e "))" em volta da seleção; de novo, tira', () => {
+    write('zerei |no fácil| ontem');
+    pick('formatar', 'Sutil');
+    expect(value()).toBe('zerei ((no fácil)) ontem');
+    expect(value().slice(area.selectionStart, area.selectionEnd)).toBe('no fácil');
+    pick('formatar', 'Sutil');
+    expect(value()).toBe('zerei no fácil ontem');
+    write('a |');
+    pick('formatar', 'Sutil');
+    expect(value()).toBe('a (())');
+    expect(area.selectionStart).toBe(4);
+  });
+
   it('sem seleção, as marcas ficam com o cursor no meio', () => {
     write('a |');
     key('b', { ctrlKey: true });

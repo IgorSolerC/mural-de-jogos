@@ -50,6 +50,18 @@ describe('o markdown do texto', () => {
     expect(parseRich('-\\# x')[0].kind).toBe('p');
   });
 
+  it('o sutil no meio da frase ("((texto))"): com as outras marcas dentro e por fora; parêntese comum fica', () => {
+    expect(parseInline('zerei ((no fácil)) ontem')).toEqual([{ text: 'zerei ' }, { text: 'no fácil', subtle: true }, { text: ' ontem' }]);
+    expect(parseInline('((um **detalhe**))')).toEqual([{ text: 'um ', subtle: true }, { text: 'detalhe', subtle: true, bold: true }]);
+    expect(parseInline('**((leve))**')).toEqual([{ text: 'leve', bold: true, subtle: true }]);
+    expect(parseInline('((veja [[Compras]]))')).toEqual([{ text: 'veja ', subtle: true }, { text: 'Compras', subtle: true, link: true }]);
+    expect(parseInline('((`x`))')).toEqual([{ text: 'x', subtle: true, code: true }]);
+    // com espaço colado na marca, um parêntese só, ou escapado, não é sutil
+    for (const t of ['(( solto ))', '(um) e (dois)', 'f(x) = (a)', '\\((nada))']) expect(parseInline(t).some((s) => s.subtle)).withContext(t).toBeFalse();
+    expect(hasFormatting('um ((dois))')).toBeTrue();
+    expect(plainText('um ((dois))')).toBe('um dois');
+  });
+
   it('a tabela: cabeçalho, alinhamento, a barra escapada fica na célula, e a linha curta ganha células vazias', () => {
     const [t] = parseRich('| Nome | Nota | Obs |\n| :-- | :-: | --: |\n| Hades | 9 | a \\| b |\n| Celeste | 8 |');
     if (t.kind !== 'table') throw new Error('não é tabela');

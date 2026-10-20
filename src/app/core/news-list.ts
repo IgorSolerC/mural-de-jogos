@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-texto-sutil',
+    id: '2026-10-20-sutil-na-frase',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
@@ -42,7 +42,7 @@ export const NEWS: NewsEntry[] = [
       'A anotação criada de dentro do Kanban já pode nascer com a importância, o status e as dependências, pela etiqueta Kanban do editor, igual à do mural.',
       'Na anotação, a folha do texto vai até o pé do editor, sem espaço vazio embaixo.',
       'A régua do texto perdeu a caixa "Texto normal", que repetia os estilos do Formatar; no lugar dela entraram Desfazer e Refazer, que no celular não tinham botão.',
-      'O texto ganhou o estilo Texto sutil, para os detalhes: a linha que começa com -# (como no Discord) fica menor e mais clara; também no Formatar, em Parágrafo.',
+      'O texto ganhou o sutil, para os detalhes: ((assim)), no meio da frase, ou a linha inteira começando com -# (como no Discord), fica menor e mais claro; os dois também estão no Formatar.',
       'As listas numeradas de dentro de um item também podem levar o número do pai na frente, como 1.1. e 1.2., e o Enter continua nelas com o número seguinte.',
       'No texto das anotações, o Tab põe a linha para dentro (sempre até um número par de espaços, que conta como dentro do item de cima) e o Shift+Tab a traz de volta.',
       'Na aba Cartolina do editor, o que está na ficha aparece nas próprias abas do estojo (um pontinho, ou quantas manchas e decorações), no lugar da fileira de etiquetas; "Só a cartolina" continua tirando tudo de uma vez.',

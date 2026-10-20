@@ -86,6 +86,19 @@ describe('o texto formatado na leitura', () => {
     expect(subtle.getBoundingClientRect().height).toBe(plain.getBoundingClientRect().height);
   });
 
+  it('o sutil no meio da frase ("((texto))") é menor e mais claro só no trecho, e não encolhe de novo na linha sutil', async () => {
+    const el = await render('zerei ((no fácil)) ontem\n-# tudo ((sutil))');
+    const [line, subtleLine] = Array.from(el.querySelectorAll<HTMLElement>('.linha'));
+    const piece = line.querySelector<HTMLElement>('.enf.sutil')!;
+    expect(piece.textContent).toBe('no fácil');
+    expect(parseFloat(getComputedStyle(piece).fontSize)).toBeLessThan(parseFloat(getComputedStyle(line).fontSize));
+    expect(getComputedStyle(piece).color).not.toBe(getComputedStyle(line).color);
+    const inner = subtleLine.querySelector<HTMLElement>('.enf.sutil')!;
+    const box = subtleLine.querySelector<HTMLElement>('.sutil-texto')!;
+    expect(getComputedStyle(inner).fontSize).toBe(getComputedStyle(box).fontSize);
+    expect(getComputedStyle(inner).color).toBe(getComputedStyle(box).color);
+  });
+
   it('o que vem embaixo da tarefa fica no alinhamento do texto dela, com uma linha de respiro; feita, é riscado junto', async () => {
     const el = await render('- [x] **Mandolin**\n      Descrição: adaptável\n      {{imagem: https://ex.com/m.jpg}}\n- [ ] Panelas\n      fundo triplo\n- [ ] Cola', null, true);
     const items = Array.from(el.querySelectorAll<HTMLElement>('.tarefas > li'));

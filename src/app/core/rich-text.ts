@@ -2,7 +2,7 @@
  * O texto das fichas com formatação, guardado como texto simples com marcas leves (um markdown):
  *
  * - Na linha: **negrito** (ou __negrito__), *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==,
- *   ||spoiler|| (ou >!spoiler!<, como no Reddit), `código`,
+ *   ||spoiler|| (ou >!spoiler!<, como no Reddit), ((sutil)) (menor e mais claro), `código`,
  *   [texto](https://endereço), <https://endereço>, endereços soltos (https://… ou www.…) e, nas
  *   anotações, links para outras anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de
  *   qualquer sinal o escreve como é ("\*" é um asterisco, "1\." não começa lista).
@@ -34,6 +34,8 @@ export interface Span {
   mark?: true;
   /** ||spoiler||: escondido num bloco preto até alguém tocar (ver ui/rich-text.ts). */
   spoiler?: true;
+  /** ((sutil)): o trecho menor e mais claro, como um aparte (a linha inteira é o "-# "). */
+  subtle?: true;
   /** `código`: o texto como foi escrito, sem marcas. */
   code?: true;
   /** Um link "[[título]]" (ou "[[título|texto]]"): `text` é o que aparece, sem os colchetes. */
@@ -394,7 +396,7 @@ export function parseInline(text: string): Span[] {
         plain += a.text;
       } else {
         flush();
-        if (a.kind === 'code') out.push({ ...pick(marks, 'bold', 'italic', 'strike', 'mark', 'spoiler'), text: a.text, code: true });
+        if (a.kind === 'code') out.push({ ...pick(marks, 'bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle'), text: a.text, code: true });
         else if (a.kind === 'note') out.push({ ...marks, text: a.label, link: true, ...(a.label !== a.title ? { ref: a.title } : {}) });
         else out.push({ ...marks, text: a.text, href: a.href });
       }
@@ -410,7 +412,7 @@ function pick(m: Marks, ...keys: (keyof Marks)[]): Marks {
   return out;
 }
 
-const FLAGS = ['bold', 'italic', 'strike', 'mark', 'spoiler'] as const;
+const FLAGS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle'] as const;
 
 function sameMarks(a: Marks, b: Marks): boolean {
   return FLAGS.every((k) => !!a[k] === !!b[k]);
@@ -426,15 +428,15 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
     else out.push({ text: t, ...marks });
   };
   // ***os dois*** (ou ___), **negrito** (ou __), ~~riscado~~, ==marca-texto==, *itálico* (ou _),
-  // ||spoiler|| (ou >!…!<). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
+  // ||spoiler|| (ou >!…!<), ((sutil)). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
   // que fecha não pode ser metade de outra marca ("*um **dois** três*" é um itálico só, com o negrito
   // dentro, e "**muito *bom***", um negrito com o itálico no fim)
   const re =
-    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!</gu;
+    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!<|\(\((?=\S)(?<sub>.+?)(?<=\S)\)\)/gu;
   let at = 0;
   for (const m of text.matchAll(re)) {
     push(text.slice(at, m.index), inherit);
-    const g = m.groups as Partial<Record<'bi' | 'bi2' | 'b' | 'b2' | 's' | 'm' | 'i' | 'i2' | 'sp' | 'sp2', string>>;
+    const g = m.groups as Partial<Record<'bi' | 'bi2' | 'b' | 'b2' | 's' | 'm' | 'i' | 'i2' | 'sp' | 'sp2' | 'sub', string>>;
     const [inner, add]: [string, Marks] =
       (g.bi ?? g.bi2) !== undefined
         ? [(g.bi ?? g.bi2)!, { bold: true, italic: true }]
@@ -446,7 +448,9 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
               ? [g.m, { mark: true }]
               : (g.sp ?? g.sp2) !== undefined
                 ? [(g.sp ?? g.sp2)!, { spoiler: true }]
-                : [(g.i ?? g.i2)!, { italic: true }];
+                : g.sub !== undefined
+                  ? [g.sub, { subtle: true }]
+                  : [(g.i ?? g.i2)!, { italic: true }];
     // o que tem dentro pode ter outras ênfases: "**muito *bom***", "~~**caro**~~"
     for (const s of parseMarks(inner, { ...inherit, ...add })) {
       const { text: t, ...marks } = s;

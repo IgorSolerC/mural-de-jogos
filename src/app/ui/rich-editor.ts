@@ -17,7 +17,7 @@ type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
 type MenuName = 'formatar' | 'inserir';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'sutil' | 'codigo';
 
@@ -179,6 +179,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                           @case ('strike') { <s>Riscado</s> }
                           @case ('mark') { <mark>Marca-texto</mark> }
                           @case ('spoiler') { <span class="tarja-amostra">Spoiler</span> }
+                          @case ('subtle') { <span data-estilo="sutil">Sutil</span> }
                           @default { <code>Código</code> }
                         }
                       </span>
@@ -1909,6 +1910,7 @@ export class RichEditor {
     { act: 'strike', icon: ICON.riscado, keys: 'Ctrl+Shift+X', aria: 'Control+Shift+X' },
     { act: 'mark', icon: ICON.marcaTexto, keys: 'Ctrl+Shift+H', aria: 'Control+Shift+H' },
     { act: 'spoiler', icon: ICON.esconder, keys: '', aria: null },
+    { act: 'subtle', icon: ICON.sutil, keys: '', aria: null },
     { act: 'code', icon: ICON.codigo, keys: 'Ctrl+E', aria: 'Control+E' },
   ];
   protected readonly InsideIcon = ICON.dentro;
@@ -2042,6 +2044,8 @@ export class RichEditor {
         return this.wrap(area, '==');
       case 'spoiler':
         return this.wrap(area, '||');
+      case 'subtle':
+        return this.wrap(area, '((', '))');
       case 'code':
         return this.code(area);
       case 'url':
@@ -3054,8 +3058,9 @@ export class RichEditor {
   /**
    * Negrito ou itálico na seleção: põe as marcas em volta (os espaços das pontas ficam de fora); se
    * ela já está marcada, tira. Sem seleção, deixa as marcas com o cursor no meio, pronto para escrever.
+   * `close`: a marca de fechar, quando não é a mesma da de abrir (o sutil, "((" e "))").
    */
-  protected wrap(area: HTMLTextAreaElement, mark: string): void {
+  protected wrap(area: HTMLTextAreaElement, mark: string, close = mark): void {
     const text = area.value;
     let [s, e] = [area.selectionStart, area.selectionEnd];
     while (s < e && /\s/.test(text[s])) s++;
@@ -3064,18 +3069,18 @@ export class RichEditor {
     // já marcada por fora ("**|texto|**"): tira as marcas. Um "*" que é metade de um "**" é negrito,
     // não itálico ("**|texto|**" ganha o itálico por dentro: "***texto***")
     const halfOfBold = m === 1 && text[s - 2] === '*' && text[s - 3] !== '*';
-    const outside = text.slice(s - m, s) === mark && text.slice(e, e + m) === mark && !halfOfBold;
+    const outside = text.slice(s - m, s) === mark && text.slice(e, e + m) === close && !halfOfBold;
     if (s < e && outside) {
       this.replace(area, s - m, e + m, text.slice(s, e), s - m, e - m);
       return;
     }
     // ou por dentro ("|**texto**|")
     const inner = text.slice(s, e);
-    if (inner.length > 2 * m && inner.startsWith(mark) && inner.endsWith(mark) && (m === 2 || !inner.startsWith('**') || inner.startsWith('***'))) {
+    if (inner.length > 2 * m && inner.startsWith(mark) && inner.endsWith(close) && (m === 2 || !inner.startsWith('**') || inner.startsWith('***'))) {
       this.replace(area, s, e, inner.slice(m, -m), s, e - 2 * m);
       return;
     }
-    this.replace(area, s, e, mark + inner + mark, s + m, e + m);
+    this.replace(area, s, e, mark + inner + close, s + m, e + m);
   }
 
   /**
