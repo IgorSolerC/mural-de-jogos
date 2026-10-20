@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-so-no-kanban-padrao',
+    id: '2026-10-20-regua-desfazer',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
@@ -38,6 +38,7 @@ export const NEWS: NewsEntry[] = [
       'As opções de uma anotação no Kanban ficaram em linhas, como as propriedades do Notion: a etapa numa lista que aguenta quantas colunas o quadro tiver, a importância numa régua de cinco tracinhos que não sai do lugar ao passar o mouse, o status (só o campo, sem sugestões) e as dependências.',
       'A anotação criada de dentro do Kanban já pode nascer com a importância, o status e as dependências, pela etiqueta Kanban do editor, igual à do mural.',
       'Na anotação, a folha do texto vai até o pé do editor, sem espaço vazio embaixo.',
+      'A régua do texto perdeu a caixa "Texto normal", que repetia os estilos do Formatar; no lugar dela entraram Desfazer e Refazer, que no celular não tinham botão.',
       'Na aba Cartolina do editor, o que está na ficha aparece nas próprias abas do estojo (um pontinho, ou quantas manchas e decorações), no lugar da fileira de etiquetas; "Só a cartolina" continua tirando tudo de uma vez.',
     ],
   },

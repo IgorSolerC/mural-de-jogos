@@ -14,11 +14,11 @@ import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, w
 import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
-/** Os menus da régua: "Formatar", "Inserir" e a caixa do estilo do parágrafo. */
-type MenuName = 'formatar' | 'inserir' | 'estilo';
+/** Os menus da régua: "Formatar" e "Inserir". */
+type MenuName = 'formatar' | 'inserir';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
-/** O estilo do parágrafo, como a caixa "Texto normal" dos editores: o da linha do cursor. */
+/** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'codigo';
 
 /**
@@ -35,10 +35,9 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  * - "Formatar": o texto (negrito, itálico, riscado, marca-texto, spoiler, código, com o atalho de
  *   cada um) e o parágrafo (os estilos e as listas);
  * - "Inserir": link para um endereço, link para outra anotação, tabela, divisória e os widgets;
- * - a caixa do estilo do parágrafo ("Texto normal", "Título 1"…), que diz o da linha do cursor;
- * - os botões de toda hora (negrito, itálico, riscado, marca-texto, as listas, o link). Sem lugar,
- *   os que também estão nos menus saem primeiro, e no fim os que sobram rolam de lado; nada some,
- *   tudo continua no "Formatar" e no "Inserir".
+ * - os botões de toda hora (desfazer e refazer, negrito, itálico, riscado, marca-texto, as listas, o
+ *   link). Sem lugar, os que também estão nos menus saem primeiro, e no fim os que sobram rolam de
+ *   lado; nada some, tudo continua no "Formatar" e no "Inserir".
  *
  * O que a régua faz são as marcas de core/rich-text.ts, escritas no próprio texto. A "Ajuda"
  * (ui/markup-guide.ts) lista todas, em partes, com o jeito de escrever e o atalho.
@@ -259,33 +258,17 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               </div>
             }
           </span>
-          <!-- o estilo do parágrafo, como a caixa "Texto normal" do Docs: diz o da linha do cursor e troca -->
-          <span class="menu-ancora estilo-ancora" (focusout)="onMenuFocusOut($event)">
-            <button
-              type="button"
-              class="menu-botao estilo"
-              data-menu="estilo"
-              aria-haspopup="menu"
-              [attr.aria-expanded]="isOpen('estilo', big)"
-              [attr.aria-controls]="isOpen('estilo', big) ? areaId + '-estilo' : null"
-              [attr.aria-label]="'Estilo do parágrafo: ' + styleName()"
-              title="Estilo do parágrafo: texto, títulos, citação, código"
-              (pointerdown)="$event.preventDefault()"
-              (click)="toggleMenu('estilo', big, $event, area)"
-              (keydown.arrowdown)="$event.preventDefault(); openMenu('estilo', big, true)"
-            >
-              <span class="menu-nome">{{ styleName() }}</span>
-              <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
-            </button>
-            @if (isOpen('estilo', big)) {
-              <div class="menu" role="menu" tabindex="-1" [id]="areaId + '-estilo'" aria-label="Estilo do parágrafo" (keydown)="onMenuKey($event, area)">
-                <ng-container *ngTemplateOutlet="estilos; context: { area, big }" />
-              </div>
-            }
-          </span>
-          <span class="fio estilo-fio" aria-hidden="true"></span>
-          <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus) -->
+          <span class="fio menus-fio" aria-hidden="true"></span>
+          <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus). Primeiro
+               desfazer e refazer, como no Docs: no celular não tem Ctrl+Z -->
           <div class="ferramentas">
+            <button type="button" class="ferramenta" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" aria-keyshortcuts="Control+Z" (pointerdown)="$event.preventDefault()" (click)="history(area, 'undo')">
+              <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
+            </button>
+            <button type="button" class="ferramenta" title="Refazer (Ctrl+Y)" aria-label="Refazer" aria-keyshortcuts="Control+Y Control+Shift+Z" (pointerdown)="$event.preventDefault()" (click)="history(area, 'redo')">
+              <lucide-icon [img]="RedoIcon" [size]="18" aria-hidden="true" />
+            </button>
+            <span class="fio" aria-hidden="true"></span>
             <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
               <lucide-icon [img]="BoldIcon" [size]="18" aria-hidden="true" />
             </button>
@@ -580,8 +563,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       </ul>
     </ng-template>
 
-    <!-- os estilos do parágrafo (no "Formatar" e na caixa do estilo): cada um escrito do jeito que fica,
-         com o tique no da linha do cursor -->
+    <!-- os estilos do parágrafo (no "Formatar"): cada um escrito do jeito que fica, com o tique no da
+         linha do cursor -->
     <ng-template #estilos let-area="area" let-big="big">
       @for (s of styles; track s.value) {
         <button
@@ -772,8 +755,8 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       box-shadow: var(--campo-sombra-foco);
     }
 
-    /* ===== A régua: os dois menus com nome ("Formatar", "Inserir"), a caixa do estilo e os botões de
-       sempre, numa linha só ===== */
+    /* ===== A régua: os dois menus com nome ("Formatar", "Inserir") e os botões de sempre, numa linha
+       só ===== */
     .regua {
       position: relative;
       display: flex;
@@ -830,51 +813,24 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .menu-botao[aria-expanded='true'] .seta {
       rotate: 180deg;
     }
-    /* a caixa do estilo: o nome do estilo da linha na letra do texto, de largura fixa (a régua não
-       pula quando ele troca) */
-    .menu-botao.estilo {
-      justify-content: space-between;
-      width: 7.6rem;
-      padding-inline: 9px 7px;
-      font-family: var(--f-ui);
-      font-weight: 600;
-      font-size: 0.92rem;
-      letter-spacing: 0;
-      text-transform: none;
-      background: rgb(21 21 21 / 0.045);
-    }
-    .menu-botao.estilo:hover {
-      background: rgb(21 21 21 / 0.09);
-    }
-    .menu-botao.estilo .menu-nome {
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .estilo-ancora {
-      margin-left: 4px;
-    }
 
     /* Sem lugar, os botões que também estão nos menus saem da régua (como a régua do Docs): primeiro o
-       riscado, o marca-texto e o link de anotação; depois o link (Ctrl+K); por fim a caixa do estilo.
-       Nada some: tudo continua no "Formatar" e no "Inserir". Os cortes têm folga sobre a medida da
-       régua (medida: uns 720px com tudo, 615 sem os primeiros, 560 sem o link, 425 sem a caixa), para a letra
-       e o zoom de cada computador */
-    @container folha (max-width: 819px) {
+       riscado, o marca-texto e o link de anotação; depois o link (Ctrl+K). Nada some: tudo continua no
+       "Formatar" e no "Inserir" (desfazer e refazer, que não estão neles, nunca saem). Os cortes têm
+       folga sobre a medida da régua (medida: uns 700px com tudo, 590 sem os primeiros, 540 sem o
+       link), para a letra e o zoom de cada computador */
+    @container folha (max-width: 739px) {
       .ferramenta.extra {
         display: none;
       }
     }
-    @container folha (max-width: 699px) {
+    @container folha (max-width: 629px) {
       .link,
       .link-fio {
         display: none;
       }
     }
     @container folha (max-width: 599px) {
-      .estilo-ancora,
-      .estilo-fio {
-        display: none;
-      }
       /* o menu se alinha às bordas da régua */
       .menu-ancora {
         position: static;
@@ -888,7 +844,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
     /* apertada mesmo assim, a régua não quebra em duas: os botões rolam de lado, com o esmaecido na
        ponta dizendo que tem mais, e os menus ficam fixos */
-    @container folha (max-width: 479px) {
+    @container folha (max-width: 579px) {
       .ferramentas {
         flex: 1 1 0;
         contain: inline-size;
@@ -975,8 +931,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       display: none;
     }
     .regua.presa .ferramenta.extra,
-    .regua.presa .estilo-ancora,
-    .regua.presa .estilo-fio {
+    .regua.presa .menus-fio {
       display: none;
     }
     .regua.presa .menu-ancora {
@@ -1321,7 +1276,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       color: var(--red-deep);
     }
 
-    /* ===== Os menus ("Formatar", "Inserir", o estilo): um cartão de papel que cai do botão, por cima
+    /* ===== Os menus ("Formatar", "Inserir"): um cartão de papel que cai do botão, por cima
        da folha; os de duas colunas com o nome de cada parte em cima e um risco tracejado entre elas ===== */
     .menu {
       position: absolute;
@@ -1941,7 +1896,7 @@ export class RichEditor {
     setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
   }
 
-  // ===== Os menus: "Formatar", "Inserir" e a caixa do estilo =====
+  // ===== Os menus: "Formatar" e "Inserir" =====
 
   /** As marcas do texto, no "Formatar" (o nome vai escrito do jeito que fica), com o atalho. */
   protected readonly textMarks: readonly { act: Action; icon: LucideIconData; keys: string; aria: string | null }[] = [
@@ -1998,8 +1953,8 @@ export class RichEditor {
   }
 
   /**
-   * Abre um menu. Pelo teclado, o foco vai para o primeiro item (na caixa do estilo, para o estilo da
-   * linha); pelo mouse, fica no menu (sem marcar nenhum de cara), e as setas, Esc e Tab já valem.
+   * Abre um menu. Pelo teclado, o foco vai para o primeiro item; pelo mouse, fica no menu (sem marcar
+   * nenhum de cara), e as setas, Esc e Tab já valem.
    */
   protected openMenu(name: MenuName, big: boolean, first: boolean): void {
     this.menuByKeyboard = first;
@@ -2007,8 +1962,7 @@ export class RichEditor {
     this.menu.set({ name, big });
     setTimeout(() => {
       const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
-      const chosen = name === 'estilo' ? menu?.querySelector<HTMLElement>('.menu-op[aria-checked="true"]') : null;
-      (first ? (chosen ?? this.menuItems()[0]) : menu)?.focus({ preventScroll: true });
+      (first ? this.menuItems()[0] : menu)?.focus({ preventScroll: true });
       // o menu inteiro na tela (embaixo da folha, ele pode cair atrás do pé do editor); preso em cima
       // do teclado, ele já abre para cima, à vista
       if (this.docked() === null) menu?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2100,11 +2054,26 @@ export class RichEditor {
     }
   }
 
+  // ===== Desfazer e refazer =====
+
+  protected readonly UndoIcon = ICON.desfazer;
+  protected readonly RedoIcon = ICON.refazer;
+
+  /**
+   * Desfazer e refazer da régua: os do próprio navegador (o Ctrl+Z e o Ctrl+Y), que já guardam cada
+   * marca posta pela régua (ver `replace`). O campo avisa a mudança pelo `input` de sempre.
+   */
+  protected history(area: HTMLTextAreaElement, what: 'undo' | 'redo'): void {
+    this.menu.set(null);
+    area.focus();
+    document.execCommand(what);
+    this.track(area);
+  }
+
   // ===== O estilo do parágrafo =====
 
-  /** O estilo da linha do cursor: a caixa do estilo diz qual é, e os menus marcam. */
+  /** O estilo da linha do cursor: o "Formatar" marca qual é. */
   protected readonly lineStyle = signal<LineStyle>('texto');
-  protected readonly styleName = computed(() => this.styles.find((s) => s.value === this.lineStyle())?.name ?? 'Texto normal');
 
   /** O cursor andou (ou o texto mudou): o estilo da linha dele. */
   protected track(area: HTMLTextAreaElement): void {
@@ -2117,7 +2086,7 @@ export class RichEditor {
   }
 
   /**
-   * Troca o estilo das linhas da seleção (ou da linha do cursor), como a caixa de estilos do Word:
+   * Troca o estilo das linhas da seleção (ou da linha do cursor), como os estilos do Word:
    * o título e a citação trocam a marca do começo de cada linha; o bloco de código cerca as linhas
    * com "```" (e sair dele tira as cercas, o que estava dentro fica).
    */

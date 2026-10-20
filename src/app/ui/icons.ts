@@ -164,6 +164,7 @@ import {
   Plus,
   Puzzle,
   Quote,
+  Redo2,
   RefreshCw,
   Repeat,
   Reply,
@@ -320,6 +321,7 @@ export const ICON = {
   emAndamento: CircleDashed,
   pular: SkipForward,
   desfazer: Undo2,
+  refazer: Redo2,
   /** Recomeçar, reabrir, voltar ao padrão: a volta ao começo. */
   recomecar: RotateCcw,
   /** Tentar de novo, atualizar, trocar por outro. */

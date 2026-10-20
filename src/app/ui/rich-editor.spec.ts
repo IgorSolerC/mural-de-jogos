@@ -29,7 +29,7 @@ describe('a régua de formatação do texto', () => {
     area.setSelectionRange(start, end === -1 ? start : end - 1);
   }
   const button = (name: string) => fixture.nativeElement.querySelector(`button[aria-label="${name}"]`) as HTMLButtonElement;
-  /** Abre um menu da régua ("formatar", "inserir", "estilo") e toca no item pelo nome. */
+  /** Abre um menu da régua ("formatar", "inserir") e toca no item pelo nome. */
   function pick(menu: string, name: string): void {
     (fixture.nativeElement.querySelector(`.menu-botao[data-menu="${menu}"]`) as HTMLButtonElement).click();
     fixture.detectChanges();
@@ -200,11 +200,11 @@ describe('a régua de formatação do texto', () => {
   });
 
   describe('as marcas novas', () => {
-    it('a régua: "Formatar" e "Inserir" com nome, a caixa do estilo e os botões de toda hora', () => {
+    it('a régua: "Formatar" e "Inserir" com nome (sem a caixa do estilo, que repetia o Formatar) e os botões de toda hora', () => {
       const menus = Array.from(fixture.nativeElement.querySelectorAll('.regua .menu-botao') as NodeListOf<HTMLElement>).map((b) => b.textContent!.trim());
-      expect(menus).toEqual(['Formatar', 'Inserir', 'Texto normal']);
+      expect(menus).toEqual(['Formatar', 'Inserir']);
       const tools = Array.from(fixture.nativeElement.querySelectorAll('.regua .ferramenta') as NodeListOf<HTMLElement>).map((b) => b.getAttribute('aria-label'));
-      expect(tools).toEqual(['Negrito', 'Itálico', 'Riscado', 'Marca-texto', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço']);
+      expect(tools).toEqual(['Desfazer', 'Refazer', 'Negrito', 'Itálico', 'Riscado', 'Marca-texto', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço']);
       (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
       fixture.detectChanges();
       const formatar = fixture.nativeElement.querySelector('.menu')!.textContent;
@@ -218,16 +218,16 @@ describe('a régua de formatação do texto', () => {
       expect(inserir).not.toContain('Link para outra anotação');
     });
 
-    it('a régua nunca passa da folha: de 480px para cima, o que não cabe sai dela (e continua nos menus)', async () => {
+    it('a régua nunca passa da folha: de 580px para cima, o que não cabe sai dela (e continua nos menus); abaixo, os botões rolam', async () => {
       fixture.componentRef.setInput('notes', []);
       fixture.detectChanges();
       const ruler = fixture.nativeElement.querySelector('.regua') as HTMLElement;
       const tools = ruler.querySelector('.ferramentas') as HTMLElement;
-      for (const w of [480, 520, 560, 600, 615, 640, 700, 760, 820, 960]) {
+      for (const w of [360, 420, 480, 520, 580, 600, 615, 630, 640, 680, 700, 740, 760, 800, 960]) {
         (fixture.nativeElement as HTMLElement).style.width = w + 'px';
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         expect(ruler.scrollWidth).withContext(`régua em ${w}px`).toBeLessThanOrEqual(ruler.clientWidth);
-        expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
+        if (w >= 580) expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
       }
     });
 
@@ -244,25 +244,39 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('um ==||caro||== item');
     });
 
-    it('o estilo do parágrafo: a caixa diz o da linha do cursor e troca o título (no mesmo ponto do texto)', () => {
-      const box = () => (fixture.nativeElement.querySelector('.menu-botao.estilo') as HTMLElement).textContent!.trim();
+    it('Desfazer e Refazer na régua: voltam e refazem a marca posta (como o Ctrl+Z e o Ctrl+Y)', () => {
+      write('um |caro| item');
+      button('Negrito').click();
+      expect(value()).toBe('um **caro** item');
+      button('Desfazer').click();
+      expect(value()).toBe('um caro item');
+      button('Refazer').click();
+      expect(value()).toBe('um **caro** item');
+      expect(document.activeElement).withContext('o foco fica no texto').toBe(area);
+    });
+
+    it('o estilo do parágrafo: o Formatar marca o da linha do cursor e troca o título (no mesmo ponto do texto)', () => {
+      /** O estilo marcado no Formatar (abre e fecha o menu). */
+      const marked = () => {
+        const b = fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement;
+        b.click();
+        fixture.detectChanges();
+        const t = (fixture.nativeElement.querySelector('.menu-op[aria-checked="true"]') as HTMLElement).textContent!.trim();
+        b.click();
+        fixture.detectChanges();
+        return t;
+      };
       write('Com|pras');
       area.dispatchEvent(new Event('click'));
       fixture.detectChanges();
-      expect(box()).toBe('Texto normal');
-      pick('estilo', 'Título 1');
+      expect(marked()).toBe('Texto normal');
+      pick('formatar', 'Título 1');
       expect(value()).toBe('# Compras');
       expect(area.selectionStart).toBe(5);
-      expect(box()).toBe('Título 1');
-      pick('estilo', 'Título 3');
+      expect(marked()).toBe('Título 1');
+      pick('formatar', 'Título 3');
       expect(value()).toBe('### Compras');
-      expect(box()).toBe('Título 3');
-      // a escolhida, marcada no menu
-      (fixture.nativeElement.querySelector('.menu-botao[data-menu="estilo"]') as HTMLButtonElement).click();
-      fixture.detectChanges();
-      expect((fixture.nativeElement.querySelector('.menu-op[aria-checked="true"]') as HTMLElement).textContent!.trim()).toBe('Título 3');
-      (fixture.nativeElement.querySelector('.menu-botao[data-menu="estilo"]') as HTMLButtonElement).click();
-      fixture.detectChanges();
+      expect(marked()).toBe('Título 3');
       pick('formatar', 'Texto normal');
       expect(value()).toBe('Compras');
     });
@@ -281,9 +295,9 @@ describe('a régua de formatação do texto', () => {
 
     it('o título troca a citação (e vice-versa), sem somar as marcas', () => {
       write('> frase|');
-      pick('estilo', 'Título 2');
+      pick('formatar', 'Título 2');
       expect(value()).toBe('## frase');
-      pick('estilo', 'Citação');
+      pick('formatar', 'Citação');
       expect(value()).toBe('> frase');
     });
 
@@ -295,8 +309,12 @@ describe('a régua de formatação do texto', () => {
       area.setSelectionRange(value().indexOf('b'), value().indexOf('b'));
       area.dispatchEvent(new Event('click'));
       fixture.detectChanges();
-      expect((fixture.nativeElement.querySelector('.menu-botao.estilo') as HTMLElement).textContent!.trim()).toBe('Bloco de código');
-      pick('estilo', 'Texto normal');
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect((fixture.nativeElement.querySelector('.menu-op[aria-checked="true"]') as HTMLElement).textContent!.trim()).toBe('Bloco de código');
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      pick('formatar', 'Texto normal');
       expect(value()).toBe('antes\na = 1\nb = 2\ndepois');
       expect(value().slice(area.selectionStart)).toBe('b = 2\ndepois');
       // numa linha vazia, o bloco vazio com o cursor dentro
@@ -308,7 +326,7 @@ describe('a régua de formatação do texto', () => {
 
     it('um bloco sem a cerca de baixo: "Título 1" tira a de cima e põe o título', () => {
       write('```\nlinha|');
-      pick('estilo', 'Título 1');
+      pick('formatar', 'Título 1');
       expect(value()).toBe('# linha');
     });
 
