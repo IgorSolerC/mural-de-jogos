@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-previa-inteira',
+    id: '2026-10-20-orelhas-iguais',
     version: '1.29.1',
     kind: 'ajustes',
     date: '2026-10-20',
@@ -35,6 +35,7 @@ export const NEWS: NewsEntry[] = [
       'No computador, a ficha ao lado do editor ficou reta e ganhou o botão Ficha inteira: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo.',
       'O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".',
     ],
+    correcoes: ['As abas dos grupos no Kanban tinham o nome numa letra maior e eram mais altas que as do mural; agora são iguais.'],
   },
   {
     id: '2026-10-20-assunto',

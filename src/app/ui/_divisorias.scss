@@ -71,3 +71,106 @@
     transition: translate var(--t-ui) var(--ease-ui);
   }
 }
+
+/* ===== As abas dos grupos =====
+   O mural das anotações (ui/note-tabs-bar.ts) e os quadros do Kanban (pages/kanban-page) têm a mesma
+   orelha: o mesmo tamanho, a mesma letra, a mesma tinta. O desenho mora só aqui. */
+
+/* A fileira de abas em cima da pasta */
+@mixin abas-de-grupo {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 6px 12px 0;
+
+  @media (max-width: 720px) {
+    padding-inline: 6px;
+  }
+}
+
+/* A aba de um grupo: a divisória e, com cor, a borda colorida correndo por dentro dela (ver
+   .orelha-cor em styles.scss) num papel claro dos dois lados; o pé some atrás da borda da pasta e a de
+   trás escurece um pouco. `$nome` e `$numero` são os seletores do nome e da conta dentro dela: na de
+   trás, o nome clareia e a conta ganha tinta (no papel mais escuro, ela precisa para continuar legível). */
+@mixin aba-de-grupo($aberta, $nome, $numero) {
+  @include aba($aberta);
+
+  &#{$aberta} {
+    box-shadow: none;
+  }
+
+  &.orelha-cor {
+    background-color: var(--papel-orelha);
+
+    &:not(#{$aberta}) {
+      background-color: #d9cdab;
+    }
+
+    &:hover:not(#{$aberta}) {
+      background-color: #e6dcbf;
+    }
+  }
+
+  &:not(#{$aberta}) :is(#{$nome}) {
+    opacity: 0.82;
+  }
+
+  &:not(#{$aberta}) :is(#{$numero}) {
+    opacity: 0.85;
+  }
+
+  @media (max-width: 720px) {
+    padding-inline: 11px;
+  }
+}
+
+/* O nome do grupo escrito a pincel, até 16 caracteres */
+@mixin nome-de-grupo {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--f-marker);
+  font-size: 1.08rem;
+  line-height: 1.1;
+}
+
+/* O nome com o desenho do grupo antes dele (ui/category-label.ts): o nome continua com os seus 16 caracteres */
+@mixin rotulo-de-grupo {
+  @include nome-de-grupo;
+  max-width: calc(16ch + 20px);
+  overflow: visible;
+}
+
+/* Quantas anotações: impresso miúdo, na tinta rala */
+@mixin numero-de-grupo {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.92rem;
+  /* a mesma altura de linha do nome: com o número, a aba ficava mais alta que o "Mais" */
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  opacity: 0.62;
+  font-variant-numeric: tabular-nums;
+}
+
+/* O "Mais": os grupos escondidos e os que não cabem, num <select> invisível sobre a aba; a setinha no
+   meio da parte que aparece (o pé fica atrás da borda da pasta) */
+@mixin mais-de-grupo {
+  padding-right: 32px;
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: -3px;
+  }
+
+  .chev {
+    position: absolute;
+    right: 11px;
+    top: calc(50% - 6px - var(--borda) / 2);
+    display: inline-flex;
+  }
+
+  @media (max-width: 720px) {
+    padding-right: 30px;
+  }
+}

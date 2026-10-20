@@ -102,10 +102,7 @@ import { TabFit } from './tab-fit';
 
     .abas {
       position: relative;
-      display: flex;
-      align-items: flex-end;
-      gap: 3px;
-      padding: 6px 12px 0;
+      @include div.abas-de-grupo;
     }
 
     /* a régua de medir: no lugar, sem ocupar espaço nem aparecer */
@@ -116,64 +113,20 @@ import { TabFit } from './tab-fit';
       pointer-events: none;
     }
 
+    /* a orelha dos grupos, igual à dos quadros do Kanban (ver _divisorias.scss) */
     .aba {
-      @include div.aba('.on');
-
-      /* o "Mais" é um select dentro da aba */
-      &:has(select:focus-visible) {
-        outline: 3px solid var(--focus);
-        outline-offset: -3px;
-      }
-
-      &.on {
-        box-shadow: none;
-      }
+      @include div.aba-de-grupo('.on', '.nome, .rotulo-cat', '.n');
     }
 
-    .nome,
+    .nome {
+      @include div.nome-de-grupo;
+    }
     .rotulo-cat {
-      max-width: 16ch;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      font-family: var(--f-marker);
-      font-size: 1.08rem;
-      line-height: 1.1;
-    }
-    /* o desenho da categoria vem antes do nome: o nome continua com os seus 16 caracteres */
-    .rotulo-cat {
-      max-width: calc(16ch + 20px);
-      overflow: visible;
-    }
-    .aba:not(.on) :is(.nome, .rotulo-cat) {
-      opacity: 0.82;
-    }
-
-    /* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss), num papel
-       claro dos dois lados dela; o pé some atrás da borda da pasta. A de trás escurece um pouco. */
-    .aba.orelha-cor {
-      background-color: var(--papel-orelha);
-
-      &:not(.on) {
-        background-color: #d9cdab;
-      }
-      &:hover:not(.on) {
-        background-color: #e6dcbf;
-      }
+      @include div.rotulo-de-grupo;
     }
 
     .n {
-      font-family: var(--f-label);
-      font-weight: 700;
-      font-size: 0.92rem;
-      /* a mesma altura de linha do nome: com o número, a aba ficava mais alta que o "Mais" */
-      line-height: 1.1;
-      letter-spacing: 0.04em;
-      opacity: 0.62;
-      font-variant-numeric: tabular-nums;
-    }
-    /* na aba de trás, mais escura, o número precisa de mais tinta para continuar legível */
-    .aba:not(.on) .n {
-      opacity: 0.85;
+      @include div.numero-de-grupo;
     }
 
     /* "Sem categoria" escrito a lápis, não a pincel: não é uma categoria */
@@ -184,30 +137,10 @@ import { TabFit } from './tab-fit';
     }
 
     .mais {
-      padding-right: 32px;
-
-      /* no meio da parte que aparece (o pé fica atrás da borda da pasta) */
-      .chev {
-        position: absolute;
-        right: 11px;
-        top: calc(50% - 6px - var(--borda) / 2);
-        display: inline-flex;
-      }
+      @include div.mais-de-grupo;
 
       select {
         @include kit.select-por-cima;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .abas {
-        padding-inline: 6px;
-      }
-      .aba {
-        padding-inline: 11px;
-      }
-      .mais {
-        padding-right: 30px;
       }
     }
 

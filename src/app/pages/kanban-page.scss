@@ -120,14 +120,11 @@
 }
 
 .abas {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
   margin: 0;
-  padding: 6px 12px 0;
   list-style: none;
   overflow-x: auto;
   scrollbar-width: none;
+  @include div.abas-de-grupo;
 
   &::-webkit-scrollbar {
     display: none;
@@ -139,52 +136,19 @@
   }
 }
 
-/* as abas dos quadros são um pouco maiores que as do mural */
+/* a orelha dos grupos, igual à das abas do mural (ver _divisorias.scss) */
 .aba {
-  @include div.aba('.on');
-  min-height: 44px;
-  padding: 11px 15px calc(8px + var(--borda));
   text-decoration: none;
-
-  &.on {
-    padding-top: 14px;
-  }
+  @include div.aba-de-grupo('.on', '.rotulo-cat, .mais-nome', '.aba-n');
 }
 
-/* o nome da categoria com o ícone dela, como nas abas do mural (o nome continua com os 20 caracteres) */
+/* o nome do grupo com o ícone dele, como nas abas do mural */
 .rotulo-cat {
-  max-width: calc(20ch + 20px);
-  font-family: var(--f-marker);
-  font-size: 1.1rem;
-  line-height: 1.1;
-}
-
-.aba:not(.on) .rotulo-cat {
-  opacity: 0.85;
-}
-
-/* com cor, a borda colorida corre por dentro da aba (ver .orelha-cor em styles.scss), num papel claro
-   dos dois lados dela; o pé some atrás da borda da pasta. A de trás escurece um pouco. */
-.aba.orelha-cor {
-  background-color: var(--papel-orelha);
-
-  &:not(.on) {
-    background-color: #d9cdab;
-  }
-
-  &:hover:not(.on) {
-    background-color: #e6dcbf;
-  }
+  @include div.rotulo-de-grupo;
 }
 
 .aba-n {
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.92rem;
-  line-height: 1.1;
-  letter-spacing: 0.04em;
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
+  @include div.numero-de-grupo;
 }
 
 /* a régua de medir (ver ui/tab-fit.ts): no lugar, sem ocupar espaço nem aparecer */
@@ -197,25 +161,10 @@
 
 /* o "Mais": os grupos escondidos e os que não cabem, num <select> invisível sobre a aba, como o do mural */
 .aba-mais {
-  padding-right: 34px;
-
-  &:has(select:focus-visible) {
-    outline: 3px solid var(--focus);
-    outline-offset: -3px;
-  }
+  @include div.mais-de-grupo;
 
   .mais-nome {
-    font-family: var(--f-marker);
-    font-size: 1.1rem;
-    line-height: 1.1;
-    opacity: 0.85;
-  }
-
-  .chev {
-    position: absolute;
-    right: 12px;
-    top: calc(50% - 6px - var(--borda) / 2);
-    display: inline-flex;
+    @include div.nome-de-grupo;
   }
 
   select {
