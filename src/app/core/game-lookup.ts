@@ -184,6 +184,16 @@ export function catalogAlbumId(g: PickedGame): string | null {
   return g.source === 'itunes' ? (g.sourceId?.match(/^album\/(\d+)$/)?.[1] ?? null) : null;
 }
 
+/**
+ * O endereço de uma busca no iTunes. Nunca com `media=music`: com ele, o iTunes responde ao Safari
+ * do iPhone com um 301 para `musics://…` (o app Música), o `fetch` falha e a busca de álbuns e
+ * músicas não achava nada só nos iPhones. As entidades (album, song, musicArtist) já são só de
+ * música, e o resultado é o mesmo.
+ */
+export function itunesSearchUrl(term: string, entity: string, limit: number): string {
+  return `${ITUNES}/search?${new URLSearchParams({ term, entity, limit: String(limit), ...ITUNES_STORE })}`;
+}
+
 /** O link é um trecho do catálogo (e não um que a pessoa colou)? */
 export function isCatalogSample(url: string | null | undefined): boolean {
   return !!url && /^https:\/\/audio-ssl\.itunes\.apple\.com\//.test(url);
@@ -951,10 +961,13 @@ export class GameLookup {
     return hit ? [{ n: 1, name: String(hit.trackName ?? game.name).trim(), sample: hit.previewUrl as string }] : [];
   }
 
-  /** Uma busca no iTunes, crua: `entity` diz o que procurar (album, song, musicArtist). */
+  /**
+   * Uma busca no iTunes, crua: `entity` diz o que procurar (album, song, musicArtist, que já são só
+   * de música). Sem `media=music`: com ele, o iTunes responde ao iPhone com um redirecionamento para
+   * o app Música, e a busca falhava só lá (ver `itunesSearchUrl`).
+   */
   private async itunesResults(q: string, entity: string, limit: number, signal: AbortSignal): Promise<any[]> {
-    const params = new URLSearchParams({ term: q, media: 'music', entity, limit: String(limit), ...ITUNES_STORE });
-    const data = await this.fetchJson(`${ITUNES}/search?${params}`, signal);
+    const data = await this.fetchJson(itunesSearchUrl(q, entity, limit), signal);
     return Array.isArray(data?.results) ? data.results : [];
   }
 

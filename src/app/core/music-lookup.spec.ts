@@ -71,6 +71,8 @@ describe('a busca do mural de músicas (iTunes)', () => {
     expect(urls.map((u) => u.searchParams.get('entity')).sort()).toEqual(['album', 'song,musicArtist']);
     expect(urls[0].searchParams.get('country')).toBe('BR');
     expect(urls[0].searchParams.get('term')).toBe('radiohead');
+    // sem media=music: com ele, o iTunes manda o iPhone para o app Música (musics://) e a busca falha lá
+    expect(urls.every((u) => !u.searchParams.has('media'))).toBeTrue();
     // o artista abre a lista; depois os álbuns dele e as músicas
     expect(hits.map((h) => h.name)).toEqual(['Radiohead', 'OK Computer', 'Karma Police']);
     expect(artistHitId(hits[0])).toBe('657515');

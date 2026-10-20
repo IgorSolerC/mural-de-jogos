@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-grupos-mural-kanban',
+    id: '2026-10-20-busca-musicas-iphone',
     version: '1.28.2',
     kind: 'ajustes',
     date: '2026-10-20',
@@ -43,6 +43,9 @@ export const NEWS: NewsEntry[] = [
       'Na anotação, a folha do texto vai até o pé do editor, sem espaço vazio embaixo.',
       'A régua do texto perdeu a caixa "Texto normal", que repetia os estilos do Formatar; no lugar dela entraram Desfazer e Refazer, que no celular não tinham botão.',
       'Na aba Cartolina do editor, o que está na ficha aparece nas próprias abas do estojo (um pontinho, ou quantas manchas e decorações), no lugar da fileira de etiquetas; "Só a cartolina" continua tirando tudo de uma vez.',
+    ],
+    correcoes: [
+      'A busca de álbuns e músicas do mural de músicas não falha mais no iPhone, onde não achava nada.',
     ],
   },
   {
