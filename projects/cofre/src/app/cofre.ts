@@ -1,15 +1,26 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { demonstracao } from './ambiente';
+import { Criar } from './criar/criar';
 
 /**
  * A página do cofre enquanto as telas não existem (Fase 3 do PLANO-COFRE.md): diz que o cofre está em
  * construção e mostra se as proteções da hospedagem estão valendo neste navegador. O isolamento de
  * origem só liga com os cabeçalhos COOP e COEP do Worker (seção 7.3): se ele aparece "não", a
  * hospedagem está errada.
+ *
+ * As telas de criar o cofre já existem (Fase 4), mas só aparecem quando há uma sessão de entrada, que
+ * vem do login com o Google (Fase 4, parte 2). Até lá, só a demonstração do desenvolvimento as mostra.
  */
 @Component({
   selector: 'cofre-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Criar],
   template: `
+    @if (demo; as demo) {
+      <main class="fluxo">
+        <cofre-criar [entrada]="demo.entrada" />
+      </main>
+    } @else {
     <main class="folha">
       <h1>Cofre de senhas</h1>
       <p class="aviso">Em construção. Por enquanto, nada é guardado aqui.</p>
@@ -23,6 +34,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       </ul>
       <a class="voltar" href="https://murall.igorsc.com.br/#/anotacoes" rel="noreferrer">Voltar ao Murall</a>
     </main>
+    }
   `,
   styles: `
     :host {
@@ -30,6 +42,11 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
       place-items: center;
       min-height: 100dvh;
       padding: 32px 16px;
+    }
+    .fluxo {
+      align-self: start;
+      width: 100%;
+      padding: 8px 0 64px;
     }
     .folha {
       width: min(100%, 520px);
@@ -84,6 +101,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   `,
 })
 export class Cofre {
+  protected readonly demo = demonstracao();
   protected readonly provas = [
     { nome: 'Endereço seguro (https)', ok: window.isSecureContext },
     { nome: 'Isolado das outras páginas', ok: window.crossOriginIsolated },

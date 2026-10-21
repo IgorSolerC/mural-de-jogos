@@ -1,0 +1,54 @@
+// O que todo passo de criar o cofre tem: o título, a nota à mão, os campos, os avisos e o pé com a ação.
+@use '../papelaria' as p;
+
+@mixin passo {
+  :host {
+    display: grid;
+    gap: 18px;
+  }
+  h2 {
+    margin: 0;
+    font: 400 1.9rem/1.05 var(--f-marker);
+    text-wrap: balance;
+  }
+  .nota {
+    @include p.nota;
+    max-width: 60ch;
+  }
+  .nota.pequena {
+    font-size: 1rem;
+  }
+  .rotulo {
+    @include p.rotulo;
+  }
+  .campo-bloco {
+    display: block;
+  }
+  input {
+    @include p.campo;
+  }
+  .aviso {
+    margin: -8px 0 0;
+    font: 600 0.95rem/1.35 var(--f-texto);
+    color: var(--erro);
+  }
+  .tinta {
+    @include p.botao-tinta;
+  }
+  .quieto {
+    @include p.botao-quieto;
+  }
+  .pe {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 6px;
+    padding-top: 18px;
+    border-top: 2px dashed rgb(21 21 21 / 0.22);
+  }
+  .pe .tinta {
+    margin-left: auto;
+  }
+}

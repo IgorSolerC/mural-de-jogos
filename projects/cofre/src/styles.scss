@@ -5,13 +5,35 @@
 :root {
   color-scheme: dark;
   --parede: #1f1c1a;
+  --parede-buraco: #0b0908;
+  --giz: #f3efe6;
+  --giz-2: #bdb5a8;
   --papel: #f7f4ec;
+  --cartela: #fdfcf8;
   --tinta: #151515;
-  --tinta-2: #4a4540;
+  --tinta-2: rgb(21 21 21 / 0.78);
   --linha: rgb(21 21 21 / 0.16);
   --vermelho: #b81d1c;
+  --caneta: #e62e2d;
   --verde: #0b7a3b;
+  --erro: #6b0000;
+  --hi: #ffda42;
+  --fita: rgb(222 205 160 / 0.86);
+  --regua: #76726b;
+  --aba: #dcd6c8;
+  --azul: #70cdff;
+  --amarelo: #ffda42;
+  --verde-cartolina: #7be986;
+  --listra-prf: #10a64a;
+  --listra-servidor: #ff8a1f;
   --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --f-mao: 'Kalam', 'Segoe Print', cursive;
+  --f-rotulo: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-texto: 'Barlow', system-ui, sans-serif;
+  --sombra-ficha: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
+  --sombra-alta: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
+  --curva: cubic-bezier(0.16, 1, 0.3, 1);
+  --curva-ui: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 * {
@@ -19,21 +41,59 @@
 }
 
 ::selection {
-  background: #ffda42;
+  background: var(--hi);
   color: var(--tinta);
 }
 
 html,
 body {
   margin: 0;
-  background: var(--parede);
+  min-height: 100dvh;
   color: var(--tinta);
-  font: 1rem/1.55 system-ui, sans-serif;
+  font: 1rem/1.5 var(--f-texto);
+  caret-color: var(--caneta);
 }
 
-/* nada do cofre sai na impressão (ameaça 19) */
+/* a parede de eucatex pintada de grafite, com os furos e a luz do tubo fluorescente em cima */
+body {
+  background:
+    radial-gradient(ellipse 90% 900px at 50% -120px, rgb(255 250 235 / 0.1), transparent 70%),
+    radial-gradient(circle at 13px 14px, rgb(255 255 255 / 0.05) 2.4px, transparent 3px),
+    radial-gradient(circle at 13px 13px, var(--parede-buraco) 2.6px, transparent 3.2px),
+    var(--parede);
+  background-size: auto, 26px 26px, 26px 26px, auto;
+  scrollbar-color: #5a544e var(--parede);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/*
+ * Nada do cofre sai na impressão (ameaça 19). A única exceção é o kit de emergência, que existe para
+ * ser impresso: com `imprimir-kit` no body, só o papel do kit aparece.
+ */
 @media print {
-  body {
+  body:not(.imprimir-kit) {
     display: none;
+  }
+  body.imprimir-kit {
+    background: #fff;
+  }
+  body.imprimir-kit * {
+    visibility: hidden;
+  }
+  body.imprimir-kit .kit-papel,
+  body.imprimir-kit .kit-papel * {
+    visibility: visible;
+  }
+  body.imprimir-kit .kit-papel {
+    position: absolute;
+    inset: 0;
   }
 }

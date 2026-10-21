@@ -1,0 +1,120 @@
+// As peças de papelaria do cofre, as mesmas do Murall (DESIGN.md: botões, campos, rótulos), copiadas à
+// mão para o cofre não importar nada de src/app.
+
+// Botão de tinta: completa uma ação dentro da ficha ("Criar o cofre").
+@mixin botao-tinta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 50px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--tinta);
+  color: var(--hi);
+  font: 400 1.15rem/1 var(--f-marker);
+  cursor: pointer;
+  transition:
+    translate 380ms var(--curva),
+    rotate 380ms var(--curva),
+    opacity 160ms var(--curva-ui);
+  &:hover:not(:disabled) {
+    translate: 0 -2px;
+    rotate: -1deg;
+  }
+  &:active:not(:disabled) {
+    translate: 0 1px;
+    rotate: 0deg;
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.38;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 3px;
+  }
+  svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+}
+
+// Botão quieto: a ação de apoio ("Voltar", "Sortear outra").
+@mixin botao-quieto {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tinta);
+  font: 800 0.98rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 160ms var(--curva-ui);
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.08);
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+}
+
+// Faixa de campo: papel de bloco com o contorno de tinta.
+@mixin campo {
+  width: 100%;
+  min-height: 50px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--papel);
+  box-shadow:
+    inset 0 0 0 2px var(--tinta),
+    0 1px 1px rgb(0 0 0 / 0.18);
+  color: var(--tinta);
+  font: 500 1.05rem/1.2 var(--f-texto);
+  caret-color: var(--caneta);
+  transition: box-shadow 160ms var(--curva-ui);
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+  &:focus {
+    outline: none;
+    box-shadow:
+      inset 0 0 0 3px var(--tinta),
+      0 0 0 4px rgb(21 21 21 / 0.16);
+  }
+}
+
+// O rótulo impresso de um campo ou de um grupo.
+@mixin rotulo {
+  display: block;
+  margin: 0 0 6px;
+  font: 800 0.86rem/1.2 var(--f-rotulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+// O texto de apoio na ficha: escrito à mão, curto.
+@mixin nota {
+  margin: 0;
+  font: 400 1.08rem/1.45 var(--f-mao);
+  color: var(--tinta);
+  text-wrap: pretty;
+}

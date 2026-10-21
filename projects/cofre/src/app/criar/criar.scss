@@ -1,0 +1,177 @@
+:host {
+  display: block;
+  width: min(100%, 680px);
+  margin: 0 auto;
+}
+
+/* os passos como abas de fichário em pé na régua de alumínio; a de agora, amarela, mais alta */
+.passos ol {
+  display: flex;
+  gap: 6px;
+  margin: 0;
+  padding: 0 18px;
+  list-style: none;
+}
+.passos li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 16px;
+  background: var(--aba);
+  color: var(--tinta);
+  clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%);
+  font: 800 0.98rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition:
+    translate 160ms var(--curva-ui),
+    background 160ms var(--curva-ui);
+}
+.passos li.agora {
+  background: var(--hi);
+  translate: 0 -4px;
+}
+.passos li.feito {
+  color: rgb(21 21 21 / 0.62);
+}
+.numero {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--tinta);
+  color: var(--aba);
+  font-size: 0.8rem;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.agora .numero {
+  color: var(--hi);
+}
+.passos::after {
+  content: '';
+  display: block;
+  height: 8px;
+  border-radius: 1px;
+  background: var(--regua);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    inset 0 -2px 0 rgb(0 0 0 / 0.3),
+    0 6px 10px -3px rgb(0 0 0 / 0.6);
+}
+
+/* a ficha: um cartão de papel creme com a faixa amarela e a tachinha no meio */
+.ficha {
+  position: relative;
+  margin-top: 30px;
+  border-radius: 2px;
+  background: var(--papel);
+  box-shadow: var(--sombra-alta);
+  rotate: -0.5deg;
+}
+.tachinha {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  translate: -50% 0;
+  background:
+    radial-gradient(circle at 38% 34%, rgb(255 255 255 / 0.85) 0 2px, transparent 3px),
+    radial-gradient(circle at 50% 50%, #e62e2d 0 8px, color-mix(in srgb, #e62e2d 62%, #000) 9px 10px, #e62e2d 11px 12px, color-mix(in srgb, #e62e2d 62%, #000) 13px);
+  box-shadow:
+    2px 5px 3px -1px rgb(0 0 0 / 0.45),
+    5px 10px 10px -2px rgb(0 0 0 / 0.25);
+}
+.faixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 26px clamp(16px, 5vw, 32px) 14px;
+  border-radius: 2px 2px 0 0;
+  background: var(--amarelo);
+}
+h1 {
+  margin: 0;
+  font: 400 clamp(1.6rem, 5vw, 2rem)/1.05 var(--f-marker);
+  text-wrap: balance;
+}
+.conta {
+  font: 800 0.9rem/1 var(--f-rotulo);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.corpo {
+  position: relative;
+  display: grid;
+  gap: 18px;
+  padding: 24px clamp(16px, 5vw, 32px) 26px;
+}
+.erro {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px var(--erro);
+  font: 600 0.98rem/1.4 var(--f-texto);
+  color: var(--erro);
+}
+.escondido {
+  visibility: hidden;
+}
+
+/* enquanto o Argon2id trabalha: um bilhete no lugar dos aparelhos */
+.criando {
+  position: absolute;
+  inset: 24px clamp(16px, 5vw, 32px) 26px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.criando p {
+  margin: 0;
+  font: 400 1.5rem/1.2 var(--f-marker);
+}
+.criando .pequeno {
+  max-width: 34ch;
+  font: 400 1.05rem/1.4 var(--f-mao);
+}
+/* um traço de lápis que vai e volta */
+.lapis {
+  width: 120px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #2c2b29 30% 70%, transparent) 0 0 / 200% 100% no-repeat;
+  animation: riscar 1.4s var(--curva) infinite alternate;
+}
+@keyframes riscar {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .passos ol {
+    padding: 0 8px;
+    gap: 4px;
+  }
+  .passos li {
+    padding: 0 10px;
+    font-size: 0.9rem;
+  }
+  .ficha {
+    rotate: none;
+  }
+}

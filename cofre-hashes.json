@@ -2,10 +2,24 @@
   "nota": "Gerado por scripts/cofre-hashes.mjs depois de `npx ng build cofre`. Não editar à mão.",
   "arquivos": {
     "favicon.svg": "46bcb0896705c8f43e7dbccc2ea441792355720ca389bfe40d5a7b61a6a36451",
-    "index.html": "cae32637631551b1de1be89a919ca8a69ea82fdecbb91b938a24343a7deacc0c",
-    "main-67FXVHBO.js": "28480940115a29685650ab733e78b0b34c97cade3ca50dc1c100dd679971e337",
+    "index.html": "cf0895cb344f6c9680fb9aa8b179c8959389d164ecf605ff407216c1d8dd9cd7",
+    "main-PY374RML.js": "f5b2d101557ffabc1b5bcea28a6ed9c8073d38f93ef8b0f904267d9b1be0e5d6",
+    "media/barlow-condensed-latin-600-normal-UCXK75QA.woff": "02e9d2ca2e9af5d8dbdfd30c4a5aa59632205901e9045140b559a44d361d8a46",
+    "media/barlow-condensed-latin-600-normal-WUDKPSWC.woff2": "215a93c696f442034a46fbb382958f753fda60e30490683aeea6b235fcbb2b66",
+    "media/barlow-condensed-latin-800-normal-2XTMG3UL.woff": "8ac1acb3ce8849a2fb0160f778099fc48a440d4f50b6121cd66e628816c2fb2b",
+    "media/barlow-condensed-latin-800-normal-C7LOS5FO.woff2": "2515494e8cc2ca07c86ea78766cfa104b796aa6ed5d66821c01d51dbb0b52bce",
+    "media/barlow-latin-400-normal-NENW7MY5.woff2": "b0a8ad37ac45f5fb22ced461576db72e44e295107aad7a9c8a7a4bad728fd03b",
+    "media/barlow-latin-400-normal-NP6ENZ2E.woff": "7376a9d87b48a86bb0ca067d00a994d65bb171c66f126be40ec647ebbe3e0ee7",
+    "media/barlow-latin-500-normal-HZFCIMMG.woff": "1034267b215d256e3453114832e745d342815a3ff22c629288c6d2e1f9dcfa51",
+    "media/barlow-latin-500-normal-XG5KS5C2.woff2": "cd759df8ef9efc98fee14307b4eb5ba27f08b1f8f2f3ad2872432e25c89907a8",
+    "media/barlow-latin-600-normal-APFZWJSU.woff2": "4b52ddd4836b592df0e4832b8286956883cdc651b015126bdd18f184b7f90cc3",
+    "media/barlow-latin-600-normal-IMDL24A2.woff": "cb76adc8642e8980cd4bdb0e63658aa818696f3289f38400e7154ed3992bbeb6",
+    "media/kalam-latin-400-normal-4TKJA74U.woff2": "954410601a823f37e219f7930b7446f86afa15621326a7078d56fb9c910135cb",
+    "media/kalam-latin-400-normal-MNNKW7DG.woff": "70ab8c1d2c10a28f213c6f1c359888624d5e650ffcd64f93a8194c3e14403746",
+    "media/kalam-latin-700-normal-FKD7IY4J.woff2": "252063af6ade8b9a744cde4ddad0fc21ea53b8ba711eed121a0c2e8610ea9c93",
+    "media/kalam-latin-700-normal-SK3S3GL7.woff": "c873bc1baaf504ff4ef11a733a0a857e2cf2fb1ad1be125b0f15ce2d57adefa0",
     "media/permanent-marker-latin-400-normal-3EBV27YY.woff2": "4884fec2c73aa52a2461073c1b87d1ceb80f400520391b43f97ca7d3c39eeb24",
     "media/permanent-marker-latin-400-normal-CQDOX4K6.woff": "ab8ac2bb72d48e089e37d8eefbacdfe2d74ccd48ae786d952fce9874837d2b2b",
-    "styles-TBFKOVZR.css": "cf63d0d14850b7cc30365f5f19f7b1b7ed23afe2434405cd807e66dfe27ceebf"
+    "styles-R4IH2PK5.css": "cee6f688d23093f8739652cc984ff95c0a0fc5f7ad96bedd1daf98e507a8b595"
   }
 }

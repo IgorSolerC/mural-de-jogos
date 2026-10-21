@@ -1,0 +1,108 @@
+@use './passo' as passo;
+
+@include passo.passo;
+
+/* os dois jeitos, como etiquetas de um bloco de recortes: a escolhida colada, a outra só o contorno */
+.jeitos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.jeitos button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1.5px dashed rgb(21 21 21 / 0.42);
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.74);
+  font: 800 0.98rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    rotate 380ms var(--curva),
+    scale 380ms var(--curva),
+    background 160ms var(--curva-ui);
+}
+.jeitos button:hover {
+  background: rgb(21 21 21 / 0.06);
+  color: var(--tinta);
+}
+.jeitos button[aria-checked='true'] {
+  border: 0;
+  background: var(--tinta);
+  color: var(--papel);
+  rotate: -1.5deg;
+  scale: 1.04;
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.25);
+}
+.jeitos button:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: 2px;
+}
+
+/* a frase sorteada, escrita à mão numa tira de bloco pautado */
+.frase-bloco {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.frase {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 4px;
+  width: 100%;
+  margin: 0;
+  padding: 14px 18px 12px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 calc(2.4rem - 1px), rgb(64 110 190 / 0.32) calc(2.4rem - 1px) 2.4rem),
+    var(--cartela);
+  background-position: 0 6px;
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.12),
+    0 1px 2px rgb(0 0 0 / 0.2);
+  font: 700 clamp(1.35rem, 4.6vw, 1.75rem)/2.4rem var(--f-mao);
+  rotate: -0.4deg;
+}
+.palavra {
+  white-space: nowrap;
+}
+.hifen {
+  margin-left: 4px;
+  color: rgb(21 21 21 / 0.5);
+}
+
+.com-olho {
+  position: relative;
+  display: block;
+}
+.com-olho input {
+  padding-right: 54px;
+}
+.olho {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tinta);
+  cursor: pointer;
+}
+.olho:hover {
+  background: rgb(21 21 21 / 0.08);
+}
+.olho:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: -3px;
+}
+.olho svg {
+  width: 22px;
+  height: 22px;
+}

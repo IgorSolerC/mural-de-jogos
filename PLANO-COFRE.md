@@ -1116,7 +1116,7 @@ A Fase 4 (criar o cofre) em partes, uma de cada vez:
 |---|---|---|
 | 1 | **A lógica de criar, sem tela**: a conversa com a API, a passkey com PRF e a montagem do pedido, com um teste da página e da API juntas | Feita |
 | 2 | **Entrar com o Google** na página: o PKCE, a volta em `/entrar`, limpar a URL na hora. Precisa do cliente OAuth "Murall Cofre" do usuário (16.14) para testar no ar | — |
-| 3 | **As telas de criar**: os aparelhos (com PRF ou no modo servidor, o aviso de um aparelho só), a senha mestra (a frase sorteada e a força de uma escrita à mão), o kit de emergência para imprimir. Com o Impeccable | — |
+| 3 | **As telas de criar**: os aparelhos (com PRF ou no modo servidor, o aviso de um aparelho só), a senha mestra (a frase sorteada e a força de uma escrita à mão), o kit de emergência para imprimir. Com o Impeccable | Feita |
 | 4 | **De ponta a ponta no Chrome** com o autenticador virtual e o `wrangler dev` (a sessão de entrada posta direto no banco local, só no teste) | — |
 
 Parte 1, o que entrou:
@@ -1175,4 +1175,36 @@ Mínimo de 70 bits; com algum aparelho no modo servidor, 78, o de uma frase sort
 - não passam: as senhas comuns, as trocas por número, as frases do dia a dia ("eu amo meu cachorro
   rex desde 2015", 62) e uma senha aleatória de 14 caracteres (66);
 - passam: 7 palavras escolhidas da lista (73) e uma senha aleatória de 16 caracteres variados (74).
+
+Parte 3, as telas (`projects/cofre/src/app/criar/`), no jeito do Murall:
+- as abas de fichário dos passos em pé na régua;
+- a ficha creme com a faixa amarela e a tachinha;
+- os botões de tinta, as faixas de campo e as etiquetas de adesivo com listras;
+- a régua escolar da força, com a caneta vermelha no mínimo.
+
+**A ordem mudou** em relação à 8.3, e é para o usuário conferir: senha → aparelhos → kit.
+- O desafio de cada passkey vale só 2 minutos, então o cofre é criado logo depois do último aparelho.
+- O kit vem depois de criado, para o código que aparece já valer.
+- Se um aparelho ficar no modo servidor e a senha escrita à mão não chegar a 78 bits, o passo dos
+  aparelhos não deixa criar e oferece "Trocar a senha". O passo da senha já avisa disso antes.
+
+O que cada passo faz:
+- **Senha**: a frase sorteada, copiada no papel e digitada de volta com os hífens (só a sorteada,
+  igual, vale como sorteada), ou uma senha da pessoa, com a régua e a confirmação. Os campos são de
+  senha, com mostrar/esconder, sem completar, corrigir nem traduzir.
+- **Aparelhos**: registrar até dois, cada um com o nome (Celular ou PC, que dá para mudar) e a
+  etiqueta "Com PRF" ou "Modo servidor". Um aparelho que diz ter PRF mas não deu o segredo fica
+  "Falta confirmar", com "Confirmar de novo" ou "Usar no modo servidor": a escolha é da pessoa,
+  nunca em silêncio.
+- **Kit**: o código em 7 grupos, a conta e a data, o que fazer com ele, "Imprimir o kit" (a única
+  coisa do cofre que vai para a impressora; o resto continua sumindo na impressão) e "Guardei o
+  código" antes de "Terminar", que recarrega a página e joga fora a memória.
+- **Se a API recusar ao criar**: os aparelhos recomeçam do zero. Os desafios podem ter sido gastos, e
+  o segredo do PRF já foi zerado na montagem, então tentar de novo com eles cairia no modo servidor
+  sem ninguém ver.
+
+No ar, a página continua "em construção": as telas só aparecem com uma sessão de entrada, que vem do
+login (parte 2). Para ver sem servidor, `ng serve cofre` e abrir `/?demo` (ou `/?demo=sem-prf`): a
+API e as passkeys são de mentira, e o arquivo da demonstração só entra no build de desenvolvimento
+(fileReplacements), nunca no de produção.
 

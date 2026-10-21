@@ -1,0 +1,129 @@
+@use './passo' as passo;
+
+@include passo.passo;
+
+/* o papel do kit: uma folha de bloco picotada, pronta para a impressora */
+.kit-papel {
+  position: relative;
+  padding: 22px clamp(16px, 5vw, 28px) 26px;
+  border-radius: 2px;
+  background: var(--cartela);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.14),
+    0 2px 3px rgb(0 0 0 / 0.22);
+  rotate: 0.4deg;
+}
+/* o picote de cima, por onde a folha saiu do bloco */
+.kit-papel::before {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 14px;
+  right: 14px;
+  border-top: 2px dotted rgb(21 21 21 / 0.28);
+}
+.kit-cabeca {
+  margin-top: 8px;
+}
+h3 {
+  margin: 0;
+  font: 400 1.35rem/1.15 var(--f-marker);
+  text-wrap: balance;
+}
+.kit-meta {
+  margin: 4px 0 0;
+  font: 600 0.86rem/1.3 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+.kit-rotulo {
+  margin: 18px 0 6px;
+  font: 800 0.86rem/1 var(--f-rotulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+/* o código, impresso grande, em grupos de 4 que dá para ler em voz alta */
+.kit-codigo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 2px solid var(--tinta);
+  border-radius: 2px;
+  background: #fff;
+  font: 800 clamp(1.5rem, 5.4vw, 2.05rem)/1.1 var(--f-rotulo);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+.kit-passos {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding-left: 1.3em;
+  font: 500 0.95rem/1.45 var(--f-texto);
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.guardei {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font: 600 1rem/1.3 var(--f-texto);
+  cursor: pointer;
+}
+/* a caixinha de marcar, de papel com contorno de tinta */
+.guardei input {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  flex: none;
+  cursor: pointer;
+}
+.guardei input::after {
+  content: '';
+  width: 12px;
+  height: 7px;
+  border-left: 3px solid var(--tinta);
+  border-bottom: 3px solid var(--tinta);
+  rotate: -45deg;
+  translate: 0 -2px;
+  scale: 0;
+  transition: scale 160ms var(--curva-ui);
+}
+.guardei input:checked::after {
+  scale: 1;
+}
+.guardei input:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: 3px;
+}
+
+@media print {
+  .kit-papel {
+    padding: 24mm 18mm;
+    background: #fff;
+    box-shadow: none;
+    rotate: none;
+    color: #000;
+  }
+  .kit-papel::before {
+    display: none;
+  }
+  .kit-codigo {
+    font-size: 26pt;
+  }
+}
