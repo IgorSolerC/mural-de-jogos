@@ -38,3 +38,8 @@ export async function hmac(key: Uint8Array, data: Uint8Array): Promise<Bytes> {
   const k = await crypto.subtle.importKey('raw', key as Bytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
   return new Uint8Array(await crypto.subtle.sign('HMAC', k, data as Bytes));
 }
+
+/** Um BLOB como o banco devolve (Uint8Array no Node, ArrayBuffer ou lista de números no D1) em bytes. */
+export function blob(value: Uint8Array | ArrayBuffer | number[]): Bytes {
+  return new Uint8Array(value instanceof Uint8Array ? value.slice() : value);
+}

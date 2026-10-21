@@ -16,7 +16,10 @@ export const ENTRY_MS = 5 * 60_000;
 export interface Session {
   hash: string;
   userId: string;
+  /** O código da conta do Murall, sem o traço. */
+  code: string;
   kind: SessionKind;
+  device: string | null;
 }
 
 export function newToken(): string {
@@ -28,13 +31,13 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 /** Cria a sessão de entrada e apaga as vencidas da mesma conta (contam 4 linhas: a linha e 3 índices). */
-export function entrySessionStatements(hash: string, userId: string, device: string | null, now: Date): Statement[] {
+export function entrySessionStatements(hash: string, userId: string, code: string, device: string | null, now: Date): Statement[] {
   const at = now.toISOString();
   return [
     { sql: "DELETE FROM cofre_sessoes WHERE usuario_id = ? AND tipo = 'entrada' AND expira_em <= ?", params: [userId, at] },
     {
-      sql: "INSERT INTO cofre_sessoes (hash, usuario_id, tipo, criada_em, usada_em, expira_em, aparelho) VALUES (?, ?, 'entrada', ?, ?, ?, ?)",
-      params: [hash, userId, at, at, new Date(now.getTime() + ENTRY_MS).toISOString(), device],
+      sql: "INSERT INTO cofre_sessoes (hash, usuario_id, tipo, codigo, criada_em, usada_em, expira_em, aparelho) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?)",
+      params: [hash, userId, code, at, at, new Date(now.getTime() + ENTRY_MS).toISOString(), device],
     },
   ];
 }
@@ -46,10 +49,10 @@ export async function authenticate(deps: Deps, header: string | undefined, kinds
   const match = /^Bearer ([A-Za-z0-9_-]{43})$/.exec(header ?? '');
   if (!match) throw invalidSession();
   const hash = await hashToken(match[1]!);
-  const row = await deps.db.first<{ usuario_id: string; tipo: SessionKind; expira_em: string }>(
-    'SELECT usuario_id, tipo, expira_em FROM cofre_sessoes WHERE hash = ?',
+  const row = await deps.db.first<{ usuario_id: string; codigo: string; tipo: SessionKind; expira_em: string; aparelho: string | null }>(
+    'SELECT usuario_id, codigo, tipo, expira_em, aparelho FROM cofre_sessoes WHERE hash = ?',
     [hash],
   );
   if (!row || !kinds.includes(row.tipo) || Date.parse(row.expira_em) <= deps.now().getTime()) throw invalidSession();
-  return { hash, userId: row.usuario_id, kind: row.tipo };
+  return { hash, userId: row.usuario_id, code: row.codigo, kind: row.tipo, device: row.aparelho };
 }

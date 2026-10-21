@@ -5,6 +5,7 @@ import { write } from '../src/domain/quota';
 import { Db, Deps } from '../src/ports';
 import { readSecrets } from '../src/secrets';
 import { BASE_ENV, NOW, TABLES, fakeGoogle, fakeMural, jsonCaller } from './harness';
+import { createSuite } from './create.suite';
 import { entrySuite } from './entry.suite';
 
 /**
@@ -42,6 +43,7 @@ export function cofreSuite(label: string, getDb: () => Db) {
   }
 
   entrySuite(label, setup);
+  createSuite(label, setup);
 
   describe(`API do cofre (${label})`, () => {
     it('o /api/status responde sem login, com o uso do dia', async () => {

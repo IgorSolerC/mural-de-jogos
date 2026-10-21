@@ -12,5 +12,5 @@ export default defineConfig({
       },
     })),
   ],
-  test: { name: 'workers', include: ['test/workers.test.ts'] },
+  test: { name: 'workers', include: ['test/workers.test.ts', 'test/webauthn.test.ts'] },
 });

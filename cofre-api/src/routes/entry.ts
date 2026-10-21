@@ -17,7 +17,7 @@ export function entryRoutes(app: Hono, deps: Deps): void {
 
     // o freio por IP vem antes de falar com o Google, e conta mesmo quando o login dá errado
     const ip = await ipKey(deps, clientIp(c));
-    await assertUnderLimit(deps, ip, 'entrar', LIMITS.entrar.ip);
+    await assertUnderLimit(deps, ip, 'entrar', LIMITS.entrar.ip!);
     await write(deps, [brakeStatement(ip, 'entrar', now)], 2);
 
     const sub = await deps.googleLogin(code, verifier);
@@ -31,7 +31,7 @@ export function entryRoutes(app: Hono, deps: Deps): void {
     await assertUnderLimit(deps, accountKey(account.id), 'entrar', LIMITS.entrar.account);
 
     const token = newToken();
-    await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, deviceOf(body), now)], 7);
+    await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now)], 7);
     return c.json({ token, expiraEm: new Date(now.getTime() + ENTRY_MS).toISOString() });
   });
 

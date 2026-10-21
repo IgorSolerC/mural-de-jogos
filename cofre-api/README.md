@@ -15,6 +15,11 @@ nunca decifra nada: não tem a chave para isso.
     de 5 minutos. Freios: 30 por hora por IP (o IP só como HMAC com uma chave do dia, derivada da
     pimenta) e 30 por hora por conta.
   - `GET /api/cofre` (com a sessão): `{ existe, congeladoAte, aparelhos }`.
+  - `POST /api/cofre/registro`: o desafio para registrar uma passkey (`{ desafio, publicKey }`, as
+    opções do `navigator.credentials.create`; a página acrescenta o PRF). Uso único, 2 minutos.
+  - `POST /api/cofre`: criar o cofre (8.3) com um ou dois aparelhos, o código de recuperação, V, a
+    prova da senha e o manifesto vazio. A conferência das passkeys é `src/domain/webauthn.ts`
+    (código próprio, sem biblioteca: só atestado "none", ES256 e RS256).
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação
   do usuário. Até lá, a migração 0001 ainda pode mudar.
@@ -33,7 +38,8 @@ nunca decifra nada: não tem a chave para isso.
 
 Secrets (`npx wrangler secret put`, anotados em papel antes, seção 16.2 do plano): `COFRE_PIMENTA_1`
 (32 bytes em base64url; uma versão nova é `COFRE_PIMENTA_2`, e a de número maior vale para as
-provas novas) e `GOOGLE_CLIENT_SECRET`. Sem eles, o que depende deles responde 503. O binding
+provas novas), `COFRE_ENVELOPES_1` (32 bytes; cifra o segredo dos aparelhos sem PRF) e
+`GOOGLE_CLIENT_SECRET`. Sem eles, o que depende deles responde 503. O binding
 `MURAL` liga à classe `CofreRpc` da API do Murall.
 
 ## Testes

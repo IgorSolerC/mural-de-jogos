@@ -94,6 +94,8 @@ CREATE TABLE cofre_sessoes (
   hash TEXT PRIMARY KEY,
   usuario_id TEXT NOT NULL,
   tipo TEXT NOT NULL CHECK (tipo IN ('entrada', 'cofre')),
+  -- o código da conta do Murall (K7QFM2XA), para o nome das passkeys ("Cofre do Murall (K7QF-M2XA)")
+  codigo TEXT NOT NULL,
   criada_em TEXT NOT NULL,
   usada_em TEXT NOT NULL,
   expira_em TEXT NOT NULL,

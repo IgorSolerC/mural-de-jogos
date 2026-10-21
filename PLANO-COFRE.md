@@ -865,7 +865,7 @@ Em partes, um commit cada:
 |-------|-------------|--------|
 | 1 | Esqueleto do `cofre-api/` (a montagem do `api/`): o banco inteiro da 9.1 com o que a seção 16 pede, `GET /api/status`, a cota, o `MODO`, a recusa de pedido de outra origem, a configuração (`COFRE_CODIGOS`, `COFRE_ORIGEM`, `COFRE_RP_ID`, que desliga a API se o rpId não for exatamente o host do cofre), testes em Node + SQLite e no D1 simulado, e o workflow `cofre-api.yml`, que só testa | Feita |
 | 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC (`CofreRpc` no `api/`), e já o freio por IP do login (16.6) | Feita |
-| 3 | Conferência das passkeys (registro e assinatura) e criar o cofre | — |
+| 3 | Conferência das passkeys (registro e assinatura, código próprio, sem dependência nova) e criar o cofre | Feita |
 | 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha | — |
 | 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | — |
 | 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | — |
@@ -876,3 +876,32 @@ passkeys, 16.8), as versões da pimenta e do `COFRE_ENVELOPES` ao lado de cada p
 conta ou o HMAC do IP, 16.6). Restrições no próprio banco: um envelope de código por conta, um por
 aparelho, e cada tipo de envelope com só as colunas dele. O `wrangler.toml` vai com um id
 provisório do D1 até a Fase 3, e até lá a migração 0001 ainda pode mudar.
+
+Detalhes da parte 3 (decididos ao implementar; a conferência das passkeys é código próprio, por
+escolha do usuário em 21/10, em vez da `@simplewebauthn/server`, para não trazer dependências):
+
+- `cofre-api/src/domain/webauthn.ts` segue os passos 7.1 e 7.2 da WebAuthn nível 3: tipo, desafio,
+  origem exata, nada de iframe de outra origem (`crossOrigin`/`topOrigin`), hash do rpId, presença e
+  verificação do usuário, flags de cópia coerentes, contador que tem de subir (com algum dos dois
+  diferente de zero), só ES256 (P-256) e RS256 (2048 a 4096 bits), assinatura ECDSA em DER lida no
+  formato estrito. O `attStmt` não é lido (atestado "none": o cofre não confia em fabricante), mas o
+  `fmt` pode ser qualquer um, para um aparelho que mande outro não ser recusado à toa.
+- `cbor.ts`: leitor de CBOR rígido (forma mais curta, sem tamanho indefinido, sem tag, sem número com
+  vírgula, chave repetida recusada, profundidade 4, 64 itens).
+- Testes com vetores reais do autenticador virtual do Chrome (ES256 e RS256, registro e duas
+  assinaturas, conferidas também com o `node:crypto`), rodando no Node e no runtime dos Workers, e
+  um teste por ataque. Estragar de propósito a conferência de origem, de verificação e de assinatura
+  faz 11 testes falharem.
+- **O `user.id` das passkeys** (16.8 dizia "16 bytes aleatórios por conta"): até o cofre existir, é
+  derivado da pimenta e do id da conta (HMAC, 16 bytes), para os dois aparelhos da criação terem o
+  mesmo `user.id` sem guardar estado; ao criar, ele fica em `cofre_contas.usuario_passkey` e não muda
+  mais. Sem a pimenta, não dá para ligar o `user.id` à conta. **O usuário confere.**
+- `POST /api/cofre/registro`: o desafio (uso único, 2 minutos, 30 por hora por conta), o rpId, o
+  `user.id`, o nome "Cofre do Murall (K7QF-M2XA)" e `excludeCredentials` com as passkeys que já
+  existem.
+- `POST /api/cofre`: confere os tamanhos exatos de cada selado da versão 1, o mínimo do Argon2id
+  (o mesmo do navegador), um ou dois aparelhos, cada passkey contra o seu desafio (que sai do banco
+  antes, mesmo se der errado), PRF ou S_i (nunca os dois), e grava tudo num lote só: as provas como
+  HMAC com a pimenta, o S_i cifrado com `COFRE_ENVELOPES_n` amarrado à conta e ao envelope, e o
+  evento `cofre-criado`. Devolve `201`; a sessão do cofre aberto vem com a parte 4.
+
