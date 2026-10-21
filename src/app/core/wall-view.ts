@@ -41,7 +41,7 @@ export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 
 const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade'];
 export type Direction = 'desc' | 'asc';
 /**
- * Completa (tudo), inteira (a completa com o texto todo, as fichas encaixadas em colagem), simples
+ * Comum (a ficha de sempre; o id guardado continua `completa`), inteira (a comum com o texto todo, as fichas encaixadas em colagem), simples
  * (a tira com a nota), capas (só a foto e o nome, para ver o máximo de fichas) ou lista (só no mural
  * de anotações: uma linha por anotação, ver NoteIndex).
  */

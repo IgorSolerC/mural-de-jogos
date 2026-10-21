@@ -92,8 +92,8 @@ export type SectionFill = Exclude<ProfileBackground, { kind: 'link' }>;
 
 /** Como as fichas de uma seção aparecem: os tipos de ficha do mural (a lista vale para tudo aqui). */
 export const SECTION_DENSITIES = [
-  { id: 'completa', label: 'Completa', hint: 'A ficha do mural, com a frase e as notas.' },
-  { id: 'inteira', label: 'Inteira', hint: 'A ficha completa com o texto todo.' },
+  { id: 'completa', label: 'Comum', hint: 'A ficha do mural, com a frase e as notas.' },
+  { id: 'inteira', label: 'Inteira', hint: 'A ficha comum com o texto todo.' },
   { id: 'simples', label: 'Simples', hint: 'Capa, nome, data e a nota.' },
   { id: 'capas', label: 'Capas', hint: 'Só a capa e o nome.' },
   { id: 'polaroid', label: 'Polaroid', hint: 'Cada uma numa polaroid presa com fita: a capa, o nome à mão e a nota.' },

@@ -133,7 +133,7 @@ describe('as configurações do mural (a folha)', () => {
     const panel = first.querySelector('.cat-painel')!;
     const vista = panel.querySelector('input[name^="config-vista-"]')!.closest('fieldset')!;
     expect(vista.querySelector('legend')!.textContent).toContain('Visualização padrão');
-    expect(Array.from(vista.querySelectorAll('.seg-nome')).map((n) => n.textContent!.trim())).toEqual(['A última usada', 'Completas', 'Inteiras', 'Simples', 'Capa e nome', 'Lista']);
+    expect(Array.from(vista.querySelectorAll('.seg-nome')).map((n) => n.textContent!.trim())).toEqual(['A última usada', 'Comuns', 'Inteiras', 'Simples', 'Capa e nome', 'Lista']);
     expect(segment(vista, 'A última usada').checked).toBeTrue();
     expect(vista.querySelector('.nome-dica')!.textContent).toContain('da última vez');
     segment(vista, 'Lista').click();

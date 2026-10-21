@@ -1622,7 +1622,7 @@ export class ReviewCard {
   readonly compact = input(false);
   /** Só a foto e o nome: a ficha mais enxuta, para caber o máximo no mural. */
   readonly capas = input(false);
-  /** A ficha inteira (o tipo "Fichas inteiras"): a completa com o texto todo, sem cortar. */
+  /** A ficha inteira (o tipo "Fichas inteiras"): a comum com o texto todo, sem cortar. */
   readonly full = input(false);
   /** Duas fichas em colunas no celular, mantendo a orientação da comparação. */
   readonly paired = input(false);
@@ -1825,7 +1825,7 @@ export class ReviewCard {
   /** "Álbum" ou "Música". */
   protected readonly formLabel = computed(() => MUSIC_FORM_LABEL[musicFormOf(this.review().game)]);
   protected readonly ArtistIcon = ICON.vocal;
-  /** A categoria (na orelha) e as tags que cabem ao lado da foto (até 4 na Completa, 2 na Simples); o resto vira "+N". */
+  /** A categoria (na orelha) e as tags que cabem ao lado da foto (até 4 na Comum, 2 na Simples); o resto vira "+N". */
   protected readonly noteLabels = computed(() => {
     const r = this.review();
     const tags = r.tags ?? [];

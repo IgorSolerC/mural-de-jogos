@@ -46,14 +46,14 @@ const AUDIENCE_LABEL: Record<Audience, string> = { privada: 'Privada', visivel: 
 
 /** As visualizações que um grupo pode escolher para abrir, com os desenhos dos botões da régua do mural. */
 const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[] = [
-  { value: 'completa', label: 'Completas', icon: ICON.completas },
+  { value: 'completa', label: 'Comuns', icon: ICON.completas },
   { value: 'inteira', label: 'Inteiras', icon: ICON.painel },
   { value: 'simples', label: 'Simples', icon: ICON.simples },
   { value: 'capas', label: 'Capa e nome', icon: ICON.grade },
   { value: 'lista', label: 'Lista', icon: ICON.lista },
 ];
 /** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
-const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas completas', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
+const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {

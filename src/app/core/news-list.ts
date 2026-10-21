@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-21-texto-inteiro-vivo',
+    id: '2026-10-21-ficha-comum',
     version: '1.29.2',
     kind: 'ajustes',
     date: '2026-10-21',
@@ -34,7 +34,8 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'O widget Nota ganhou jeitos, escolhidos em miniaturas na folha dele: a Ficha de sempre, Capa e título (como em "Só capa e nome" do mural), Só o título (uma tira da cor da nota, como no Kanban em "Só os títulos") e Texto inteiro: a nota colada inteira, com o nome na faixa da cor dela e o texto todo, do tamanho do texto.',
       'O texto inteiro de uma nota colada ficou vivo: dá para marcar as tarefas dela ali mesmo (na sua nota), tocar os vídeos e sons, abrir os links e revelar os spoilers. Para abrir a nota, toque no nome dela, na faixa.',
-      'Cada grupo pode ter a sua visualização padrão nas configurações do mural (em Grupos): com ela, o grupo sempre abre em Completas, Inteiras, Simples, Capa e nome ou Lista, e trocar na régua vale só até sair dele. Sem ela, ele continua abrindo como você o deixou da última vez.',
+      'Cada grupo pode ter a sua visualização padrão nas configurações do mural (em Grupos): com ela, o grupo sempre abre em Comuns, Inteiras, Simples, Capa e nome ou Lista, e trocar na régua vale só até sair dele. Sem ela, ele continua abrindo como você o deixou da última vez.',
+      'As Fichas completas agora se chamam Fichas comuns, em todo o site: confundia a que mostra menos se chamar completa, e a que mostra tudo, inteira.',
     ],
     correcoes: [
       'A nota colada (a ficha, a tira e a faixa do texto inteiro) saía com o papel e a estampa da anotação em volta, e numa anotação escura com o papel escuro dela; agora tem o papel dela.',
@@ -596,7 +597,7 @@ export const NEWS: NewsEntry[] = [
       'Em Ajustes › Perfil, “Editar o perfil” abre a sua página: a foto é um emoji numa polaroid da cor que você escolher, com o seu nome, uma linha embaixo dele e uma descrição com a formatação das resenhas.',
       'Assuntos viram fitas Dymo na folha “Sobre mim”, e o quadro de cima pode ser de cortiça, kraft, quadriculado, caderno pautado, papelão, eucatex, de uma cartolina ou de uma imagem sua (um link https).',
       'Cada mural com fichas à mostra vira uma pasta, com um texto seu; dá para esconder qualquer uma.',
-      'Seções com o nome que você quiser (“Jogos que tocaram meu coração”) juntam fichas de qualquer mural, na ordem que você escolher, como Completa, Inteira, Simples, Capas ou Lista, na parede ou num quadro de cortiça.',
+      'Seções com o nome que você quiser (“Jogos que tocaram meu coração”) juntam fichas de qualquer mural, na ordem que você escolher, como Comum, Inteira, Simples, Capas ou Lista, na parede ou num quadro de cortiça.',
       'Tudo vale na hora, com a prévia do quadro ao lado. Com conta, o perfil vai junto com o seu mural, e quem visita só vê as fichas públicas. A página do perfil para quem visita chega na próxima atualização.',
     ],
   },

@@ -52,7 +52,7 @@ export class WallToolbar {
   protected readonly TasksIcon = ICON.tarefas;
   /** Os tipos de ficha dos murais de resenhas. */
   protected readonly reviewDensities: readonly { value: Density; label: string; icon: LucideIconData }[] = [
-    { value: 'completa', label: 'Fichas completas', icon: ICON.completas },
+    { value: 'completa', label: 'Fichas comuns', icon: ICON.completas },
     { value: 'inteira', label: 'Fichas inteiras: o texto todo, em colagem', icon: ICON.painel },
     { value: 'simples', label: 'Fichas simples', icon: ICON.simples },
     { value: 'capas', label: 'Só capa e nome', icon: ICON.grade },
