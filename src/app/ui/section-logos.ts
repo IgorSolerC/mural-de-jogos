@@ -198,6 +198,8 @@ export class QueueLogo {}
       border-left: 2px dotted rgb(255 255 255 / 0.5);
       border-radius: 0 3px 3px 0;
       background: var(--ink);
+      /* um fio de papel na beirada: sem ele o canhoto preto some na parede escura, e os entalhes junto */
+      box-shadow: inset 0 0 0 1.5px rgb(247 244 236 / 0.34);
       color: var(--paper);
       font-family: var(--f-label);
       font-weight: 800;
@@ -298,14 +300,19 @@ export class NotesLogo {
 }
 
 /**
- * O logo do Kanban: um quadro branco pequeno de moldura de alumínio, "Kanban" escrito com o pincel
- * de quadro (com a sombra do que já foi apagado) e um post-it colado no canto.
+ * O logo do Kanban: um quadro branco pequeno, de trilho de alumínio com as cantoneiras de plástico
+ * nos quatro cantos e a bandeja embaixo com o pincel deitado; "Kanban" escrito com o pincel de
+ * quadro e um post-it colado no canto, com a ponta levantando.
  */
 @Component({
   selector: 'app-kanban-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <span class="escrito" aria-hidden="true">Kanban</span>
+    @for (c of corners; track c) {
+      <span class="canto" [class]="c" aria-hidden="true"></span>
+    }
+    <span class="bandeja" aria-hidden="true"><span class="pincel"></span></span>
     <span class="postit" aria-hidden="true"></span>
   `,
   styles: `
@@ -314,49 +321,110 @@ export class NotesLogo {
       display: inline-flex;
       align-items: center;
       box-sizing: border-box;
-      height: 52px;
-      padding: 0 28px 0 19px;
+      height: 46px;
+      margin-bottom: 6px;
+      padding: 0 30px 0 20px;
       rotate: -1.2deg;
-      border: 4px solid transparent;
-      border-radius: 4px;
-      background:
-        /* o que foi apagado e deixou sombra no quadro */
-        radial-gradient(ellipse 38% 34% at 72% 62%, rgb(90 100 110 / 0.1), transparent 70%) padding-box,
-        radial-gradient(ellipse 30% 28% at 24% 30%, rgb(90 100 110 / 0.08), transparent 70%) padding-box,
-        /* o brilho do esmalte */
-        linear-gradient(158deg, #ffffff 0 34%, #eef1f4 34% 56%, #fafbfc 56%) padding-box,
-        /* a moldura de alumínio escovado */
-        linear-gradient(180deg, #eef0f2, #a3aab1 48%, #c9ced3 52%, #8b9299) border-box;
+      /* o trilho: um perfil fino de alumínio, aceso em cima pela luz do teto */
+      border: 3px solid;
+      border-color: #dfe3e6 #b3b9bf #9aa1a8 #c2c7cc;
+      border-radius: 2px;
+      background: linear-gradient(162deg, #ffffff 0 38%, #f1f3f5 38% 60%, #fbfcfc 60%);
       filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.4));
     }
     .escrito {
       color: #1b1d20;
       font-family: var(--f-marker);
       font-weight: 400;
-      font-size: 1.86rem;
+      font-size: 1.8rem;
       line-height: 1;
       letter-spacing: 0.01em;
       white-space: nowrap;
     }
-    /* o post-it rosa no canto de cima, por cima da moldura */
+    /* as cantoneiras de plástico cinza-escuro que prendem o trilho */
+    .canto {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      background: linear-gradient(145deg, #5b6167, #33383d);
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+    }
+    .ce {
+      top: -5px;
+      left: -5px;
+      border-radius: 3px 1px 1px 1px;
+    }
+    .cd {
+      top: -5px;
+      right: -5px;
+      border-radius: 1px 3px 1px 1px;
+    }
+    .be {
+      bottom: -5px;
+      left: -5px;
+      border-radius: 1px 1px 1px 3px;
+    }
+    .bd {
+      bottom: -5px;
+      right: -5px;
+      border-radius: 1px 1px 3px 1px;
+    }
+    /* a bandeja do pincel, presa embaixo do quadro, com o pincel deitado */
+    .bandeja {
+      position: absolute;
+      left: 22%;
+      bottom: -9px;
+      width: 46%;
+      height: 6px;
+      border-radius: 0 0 3px 3px;
+      background: linear-gradient(180deg, #c9ced3, #8f969d);
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.35);
+    }
+    .pincel {
+      position: absolute;
+      left: 16%;
+      bottom: 3px;
+      width: 30px;
+      height: 6px;
+      border-radius: 2px 3px 3px 2px;
+      background: linear-gradient(90deg, #1f4fa8 0 26%, #f3f4f5 26% 100%);
+      box-shadow:
+        inset 0 -1px 0 rgb(0 0 0 / 0.18),
+        0 1px 1px rgb(0 0 0 / 0.3);
+    }
+    /* o post-it rosa no canto de cima: a faixa da cola mais escura e a ponta de baixo levantando */
     .postit {
       position: absolute;
-      top: -9px;
-      right: -9px;
-      width: 19px;
-      height: 19px;
-      rotate: 9deg;
-      background: linear-gradient(160deg, #ff9fc2, #f97fae);
-      box-shadow: 0 2px 2px rgb(0 0 0 / 0.3);
-      clip-path: polygon(0 0, 100% 0, 100% 78%, 80% 100%, 0 100%);
+      top: -12px;
+      right: -11px;
+      width: 27px;
+      height: 27px;
+      rotate: 8deg;
+      background:
+        linear-gradient(rgb(0 0 0 / 0.06) 0 24%, transparent 24%),
+        linear-gradient(160deg, #ffa6c7, #f985b2);
+      box-shadow: 0 2px 2px rgb(0 0 0 / 0.28);
+      clip-path: polygon(0 0, 100% 0, 100% 72%, 72% 100%, 0 100%);
+
+      &::after {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 28%;
+        height: 28%;
+        background: linear-gradient(135deg, #fff1f6 0 46%, #e46d9b 54%, transparent 56%);
+      }
     }
   `,
 })
-export class KanbanLogo {}
+export class KanbanLogo {
+  protected readonly corners = ['ce', 'cd', 'be', 'bd'];
+}
 
 /**
- * O logo do Calendário: um papelzinho batido com o carimbo datador, em tinta violeta, com
- * "Calendário" em cima e a data de hoje embaixo (a de verdade, que vira à meia-noite).
+ * O logo do Calendário: um papelzinho batido com o carimbo datador, em tinta violeta: "Calendário"
+ * grande e, embaixo, menor, a data de hoje (a de verdade, que vira à meia-noite).
  */
 @Component({
   selector: 'app-calendar-logo',
@@ -373,7 +441,7 @@ export class KanbanLogo {}
       align-items: center;
       box-sizing: border-box;
       height: 52px;
-      padding: 0 13px;
+      padding: 0 12px;
       rotate: 1.6deg;
       border-radius: 2px;
       background: var(--paper-grain), #fbfaf5;
@@ -384,10 +452,10 @@ export class KanbanLogo {}
       display: grid;
       justify-items: center;
       gap: 2px;
-      padding: 6px 12px 5px;
+      padding: 4px 11px 3px;
       rotate: -3.5deg;
       position: relative;
-      border: 2px solid currentColor;
+      border: 3px solid currentColor;
       border-radius: 5px;
       color: #5b3c9e;
       font-family: var(--f-label);
@@ -403,18 +471,18 @@ export class KanbanLogo {}
       content: '';
       position: absolute;
       inset: 2px;
-      border: 1px solid currentColor;
-      border-radius: 3px;
+      border: 1.5px solid currentColor;
+      border-radius: 2px;
     }
     .titulo {
-      /* a última letra não fica com o espaço sobrando à direita */
-      margin-right: -0.22em;
-      font-size: 0.7rem;
-      letter-spacing: 0.22em;
+      font-size: 1.22rem;
+      letter-spacing: 0.04em;
     }
     .data {
-      font-size: 1.2rem;
-      letter-spacing: 0.06em;
+      /* a última letra não fica com o espaço sobrando à direita */
+      margin-right: -0.16em;
+      font-size: 0.72rem;
+      letter-spacing: 0.16em;
       font-variant-numeric: tabular-nums;
       white-space: nowrap;
     }
@@ -458,7 +526,7 @@ export class CalendarLogo {
       box-sizing: border-box;
       height: 52px;
       color: #fbefd6;
-      background: var(--paper-grain), linear-gradient(180deg, #d93a2f, #c22d24);
+      background: var(--paper-grain), linear-gradient(180deg, #b23a2e, #9c2f26);
       /* a fibra do papel escurece o vermelho, não desbota */
       background-blend-mode: multiply;
       mask:
