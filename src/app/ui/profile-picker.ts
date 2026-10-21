@@ -17,7 +17,8 @@ import { Review, formatScore, isNote, isPrivate } from '../core/review';
 import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
 import { Pin } from './pin';
-import { kindTabs, matchingCards } from './picker-kit';
+import { kindTabs } from './picker-kit';
+import { CardFilters, PickerFilters } from './picker-filters';
 
 /**
  * Escolher as fichas de uma seção do perfil: todas as suas, de todos os murais, com busca e abas por
@@ -26,7 +27,7 @@ import { kindTabs, matchingCards } from './picker-kit';
  */
 @Component({
   selector: 'app-profile-picker',
-  imports: [BackdropClose, CoverSleeve, IconModule, Pin],
+  imports: [BackdropClose, CoverSleeve, IconModule, Pin, PickerFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet escolher" aria-labelledby="escolher-titulo" (close)="open.set(false)" (backdropClose)="open.set(false)">
@@ -44,20 +45,13 @@ import { kindTabs, matchingCards } from './picker-kit';
           </header>
 
           <div class="ferramentas">
-            <label class="busca">
-              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-              <span class="sr-only">Procurar pelo nome</span>
-              <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
-            </label>
-            <div class="murais" role="group" aria-label="Mural">
-              <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
-              @for (k of kinds(); track k.kind) {
-                <button type="button" class="filtro" [attr.aria-pressed]="kind() === k.kind" (click)="kind.set(k.kind)">
-                  <lucide-icon [img]="k.icon" [size]="15" aria-hidden="true" />
-                  {{ k.label }} <span class="n">{{ k.count }}</span>
-                </button>
-              }
-            </div>
+            <app-picker-filters [filters]="filters" [kinds]="kinds()" [total]="cards().length" [(kind)]="kind">
+              <label class="busca">
+                <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
+                <span class="sr-only">Procurar pelo nome</span>
+                <input #search type="search" autocomplete="off" placeholder="Procurar pelo nome" [value]="query()" (input)="query.set($any($event.target).value)" />
+              </label>
+            </app-picker-filters>
           </div>
 
           <div class="body">
@@ -92,8 +86,16 @@ import { kindTabs, matchingCards } from './picker-kit';
                 </li>
               } @empty {
                 <li class="nada">
-                  @if (cards().length) {
+                  @if (!cards().length) {
+                    Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
+                  } @else if (filters.active()) {
+                    Nenhuma anotação com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
+                    <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
+                  } @else if (query().trim()) {
                     Nenhuma ficha com “{{ query().trim() }}”.
+                  } @else if (filters.hideDone()) {
+                    Aqui só há anotações finalizadas.
+                    <button type="button" class="nada-link" (click)="filters.hideDone.set(false)">Mostrar as finalizadas</button>
                   } @else {
                     Você ainda não tem fichas no mural. Pregue a primeira e ela aparece aqui.
                   }
@@ -141,12 +143,14 @@ export class ProfilePicker {
   protected readonly full = computed(() => this.chosen().length >= this.max);
   /** Os murais que têm alguma ficha, com quantas. */
   protected readonly kinds = computed(() => kindTabs(this.cards(), KINDS));
+  /** O grupo, o assunto, as tags e as finalizadas (ver ui/picker-filters.ts). */
+  protected readonly filters = new CardFilters(this.cards, this.kind, this.query);
   /** As que já estavam escolhidas quando a folha abriu: elas vêm primeiro, e nada pula enquanto se marca. */
   private readonly before = signal<readonly string[]>([]);
   /** As escolhidas de antes primeiro (na ordem), depois as outras de A a Z. */
   protected readonly shown = computed(() => {
     const before = this.before();
-    const list = matchingCards(this.cards(), this.kind(), this.query());
+    const list = [...this.filters.matching()];
     const rank = (r: Review) => {
       const at = before.indexOf(r.id);
       return at < 0 ? Infinity : at;
@@ -165,6 +169,7 @@ export class ProfilePicker {
         this.before.set([...this.chosen()]);
         this.query.set('');
         this.kind.set(null);
+        this.filters.reset(false);
         this.search()?.nativeElement.focus();
       }
       wasOpen = open;

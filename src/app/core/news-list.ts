@@ -26,16 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-20-grupo-de-cada-um',
+    id: '2026-10-20-filtros-do-seletor',
     version: '1.29.1',
     kind: 'ajustes',
     date: '2026-10-20',
-    title: 'Logos em todos os murais, o grupo de cada um nas compartilhadas e a ficha inteira ao lado do editor',
+    title: 'Logos em todos os murais, o grupo de cada um nas compartilhadas, filtros ao escolher anotações e a ficha inteira ao lado do editor',
     melhorias: [
       'Todo mural e toda seção ganhou um logo, como os da Wishlist e do Pra depois: a etiqueta "Análises" das fichas, a folha de bloco de espiral das Anotações, o quadro branco do Kanban, o carimbo com a data de hoje do Calendário e o tíquete de Extras. Todos têm a mesma altura, então passar de uma página para a outra não empurra nada; o texto de Extras foi para a própria página.',
       'Nas anotações compartilhadas, o grupo, o assunto e as tags agora são de cada pessoa: mudar no seu mural não muda no dos outros. Quem recebe uma anotação a encontra no grupo Compartilhadas, com o desenho de duas pessoas, e leva para onde quiser (quem só lê, pelo Mais › Grupo e tags).',
       'No computador, a ficha ao lado do editor ficou reta e fica inteira enquanto você escreve o texto: o texto todo, como em Fichas inteiras, rolando junto com o cursor para você ver na hora o que está escrevendo. Saindo do texto, ela volta; para deixá-la sempre inteira, use o botão Ficha inteira.',
       'O status das anotações do Kanban agora se chama Observação, porque é um texto livre: escreva o que quiser, como "Falar com a Juliana".',
+      'Ao escolher anotações (o widget Nota, Buscar nota e Depende de no Kanban, Anexar nota no Calendário, Escolher fichas no perfil), dá para filtrar pelo grupo, pelo assunto e pelas tags, como na pasta do mural, e esconder as finalizadas em qualquer um deles.',
     ],
     correcoes: [
       'No celular e em telas médias, o topo ficava um pouco mais alto no Pra depois e na Wishlist e empurrava a página para baixo; agora tem a mesma altura em toda página.',

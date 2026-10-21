@@ -1,0 +1,203 @@
+/* Os filtros dos seletores de fichas (ver picker-filters.ts), na folha amarela da busca: cada fileira
+   é uma linha da grade de .ferramentas (o host não ocupa caixa). */
+
+:host {
+  display: contents;
+}
+
+.murais {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* o filtro do mural: o recorte picotado; o escolhido, o adesivo de tinta colado */
+.filtro {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  padding: 5px 10px 4px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.78);
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &[aria-pressed='true'] {
+    background: var(--ink);
+    color: var(--paper);
+    outline-color: transparent;
+    rotate: -1.5deg;
+  }
+
+  .n {
+    opacity: 0.62;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* a busca e, ao lado, "Esconder finalizadas" (no celular, embaixo dela) */
+.linha-busca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.finalizadas {
+  flex: none;
+}
+
+/* O grupo e o assunto: o rótulo na frente, como o "Assunto" da pasta, e os recortes depois */
+.fileira {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rotulo {
+  flex: none;
+  min-width: 4.6em;
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--ink-2);
+  /* na altura da primeira fileira de recortes, quando eles quebram */
+  padding-top: 10px;
+}
+
+.correr {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* o desenho do grupo na cor dele (escurecida, para o amarelo aparecer na folha amarela); no adesivo
+   de tinta, a cor de verdade */
+.grupo .icone {
+  display: inline-flex;
+  flex: none;
+}
+
+.grupo .icone.colorido {
+  color: color-mix(in srgb, var(--cat-cor) 70%, var(--ink));
+}
+
+.grupo[aria-pressed='true'] .icone.colorido {
+  color: var(--cat-cor);
+}
+
+.nome {
+  max-width: 16ch;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* "Sem grupo" e "Sem assunto" são o resto: a mesma letra, mais leve */
+.sem .nome {
+  font-weight: 600;
+}
+
+/* as tags: as etiquetas do mural, sem rótulo (a etiqueta já diz o que é) */
+.tags {
+  display: block;
+}
+
+/* "Mostrando 3 de 12 · Limpar": o que os filtros deixaram e como desfazer */
+.achados {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin: -4px 0 0;
+  min-height: 32px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.88rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.tinta-link {
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  text-decoration: underline 2px var(--ink);
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+}
+
+/* no celular, o grupo, o assunto e as tags numa linha só cada um, que corre de lado (quebrando, a
+   folha ficava sem lugar para a lista), como na pasta do mural */
+@media (max-width: 720px) {
+  .correr {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* corre até a beirada da folha, e o foco e o adesivo torto não são cortados */
+    margin: -6px -16px -6px -6px;
+    padding: 6px 16px 6px 6px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    > * {
+      flex: none;
+    }
+  }
+
+  .rotulo {
+    min-width: 0;
+  }
+
+
+  .rotulo {
+    padding-top: 14px;
+  }
+}

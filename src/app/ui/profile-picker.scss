@@ -38,6 +38,7 @@ dialog.escolher {
 }
 
 .busca {
+  flex: 1 1 260px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -71,55 +72,7 @@ dialog.escolher {
   }
 }
 
-.murais {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* o filtro do mural: o recorte picotado; o escolhido, o adesivo de tinta colado */
-.filtro {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 34px;
-  padding: 5px 10px 4px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: rgb(21 21 21 / 0.78);
-  outline: 1.5px dashed rgb(21 21 21 / 0.42);
-  outline-offset: -1.5px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background-color var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    background: rgb(21 21 21 / 0.07);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
-
-  &[aria-pressed='true'] {
-    background: var(--ink);
-    color: var(--paper);
-    outline-color: transparent;
-    rotate: -1.5deg;
-  }
-
-  .n {
-    opacity: 0.62;
-    font-variant-numeric: tabular-nums;
-  }
-}
+/* os filtros (o mural, as finalizadas, o grupo, o assunto e as tags) ficam em picker-filters.scss */
 
 .body {
   padding-top: 8px;
@@ -237,6 +190,32 @@ dialog.escolher {
   font-family: var(--f-hand);
   font-size: 1.1rem;
   color: var(--ink-2);
+}
+
+/* "Limpar os filtros", "Mostrar as finalizadas": o jeito de sair da lista vazia, na mesma letra */
+.nada-link {
+  display: inline;
+  min-height: 0;
+  padding: 2px 4px;
+  margin-left: 2px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline 2px var(--ink);
+  text-underline-offset: 4px;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
 }
 
 .conta {

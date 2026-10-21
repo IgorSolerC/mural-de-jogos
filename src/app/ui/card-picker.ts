@@ -9,7 +9,8 @@ import { BackdropClose } from './backdrop-close';
 import { CoverSleeve } from './cover-sleeve';
 import { KIND_ICON } from './kind-switcher';
 import { Pin } from './pin';
-import { kindTabs, matchingCards } from './picker-kit';
+import { kindTabs } from './picker-kit';
+import { CardFilters, PickerFilters } from './picker-filters';
 
 /** As abas dos murais: as anotações primeiro (é delas que mais se cola), depois os de resenhas. */
 const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anotacoes')];
@@ -25,7 +26,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
  */
 @Component({
   selector: 'app-card-picker',
-  imports: [BackdropClose, CoverSleeve, IconModule, Pin],
+  imports: [BackdropClose, CoverSleeve, IconModule, Pin, PickerFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- as teclas ficam aqui: o painel e o editor por baixo não ouvem o Esc nem o que se digita -->
@@ -44,36 +45,22 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
           </header>
 
           <div class="ferramentas">
-            <label class="busca">
-              <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
-              <span class="sr-only">Procurar pelo nome</span>
-              <input
-                #search
-                type="search"
-                autocomplete="off"
-                placeholder="Procurar pelo nome"
-                [value]="query()"
-                (input)="query.set($any($event.target).value)"
-                (keydown.enter)="$event.preventDefault(); pickFirst()"
-                (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
-              />
-            </label>
-            @if (doneOption()) {
-              <div class="murais" role="group" aria-label="Finalizadas">
-                <button type="button" class="filtro" [attr.aria-pressed]="hideDone()" (click)="hideDone.set(!hideDone())">Esconder finalizadas</button>
-              </div>
-            }
-            @if (!onlyKind()) {
-            <div class="murais" role="group" aria-label="Mural">
-              <button type="button" class="filtro" [attr.aria-pressed]="kind() === null" (click)="kind.set(null)">Todos <span class="n">{{ cards().length }}</span></button>
-              @for (k of kinds(); track k.kind) {
-                <button type="button" class="filtro" [attr.aria-pressed]="kind() === k.kind" (click)="kind.set(k.kind)">
-                  <lucide-icon [img]="k.icon" [size]="15" aria-hidden="true" />
-                  {{ k.label }} <span class="n">{{ k.count }}</span>
-                </button>
-              }
-            </div>
-            }
+            <app-picker-filters [filters]="filters" [kinds]="onlyKind() ? null : kinds()" [total]="cards().length" [(kind)]="kind">
+              <label class="busca">
+                <lucide-icon [img]="SearchIcon" [size]="18" aria-hidden="true" />
+                <span class="sr-only">Procurar pelo nome</span>
+                <input
+                  #search
+                  type="search"
+                  autocomplete="off"
+                  placeholder="Procurar pelo nome"
+                  [value]="query()"
+                  (input)="query.set($any($event.target).value)"
+                  (keydown.enter)="$event.preventDefault(); pickFirst()"
+                  (keydown.arrowdown)="$event.preventDefault(); focusItem(0)"
+                />
+              </label>
+            </app-picker-filters>
           </div>
 
           <div class="body">
@@ -112,8 +99,16 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                 </li>
               } @empty {
                 <li class="nada">
-                  @if (cards().length) {
+                  @if (!cards().length) {
+                    {{ emptyText() }}
+                  } @else if (filters.active()) {
+                    Nenhuma anotação com esses filtros@if (query().trim()) { e “{{ query().trim() }}”}.
+                    <button type="button" class="nada-link" (click)="filters.clear()">Limpar os filtros</button>
+                  } @else if (query().trim()) {
                     Nenhuma ficha com “{{ query().trim() }}”@if (kind(); as k) { em {{ kindLabel(k) }}}.
+                  } @else if (filters.hideDone()) {
+                    Aqui só há anotações finalizadas.
+                    <button type="button" class="nada-link" (click)="filters.hideDone.set(false)">Mostrar as finalizadas</button>
                   } @else {
                     {{ emptyText() }}
                   }
@@ -150,9 +145,11 @@ export class CardPicker {
   readonly heading = input('Escolher a nota');
   readonly hint = input('Uma anotação ou ficha de qualquer mural, para colar no texto.');
   readonly footHint = input('Toque numa ficha para colar.');
-  /** Mostra "Esconder finalizadas" (ligado ao abrir): o "Buscar nota" do Kanban. */
+  /**
+   * "Esconder finalizadas" já ligado ao abrir: o "Buscar nota" do Kanban. Sem ele, o filtro aparece
+   * desligado quando a lista tem alguma finalizada.
+   */
   readonly doneOption = input(false);
-  protected readonly hideDone = signal(true);
   readonly emptyText = input('Você ainda não tem outras fichas. Pregue uma no mural e ela aparece aqui.');
 
   protected readonly CloseIcon = ICON.fechar;
@@ -174,12 +171,13 @@ export class CardPicker {
     const self = this.selfId();
     const only = this.onlyKind();
     const out = new Set(this.exclude());
-    const noDone = this.doneOption() && this.hideDone();
     const cat = this.onlyCategory();
-    return this.store
-      .reviews()
-      .filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && !(noDone && r.doneAt) && (!cat || belongs({ category: cat }, r)));
+    return this.store.reviews().filter((r) => r.id !== self && !out.has(r.id) && (!only || r.kind === only) && (!cat || belongs({ category: cat }, r)));
   });
+  /** O mural da lista: a aba escolhida, ou o único (o "Buscar nota" do Kanban). */
+  private readonly listKind = computed(() => this.onlyKind() ?? this.kind());
+  /** O grupo, o assunto, as tags e as finalizadas (ver ui/picker-filters.ts). */
+  protected readonly filters = new CardFilters(this.cards, this.listKind, this.query, this.onlyCategory);
   /** Os murais que têm alguma ficha, com quantas. */
   protected readonly kinds = computed(() => kindTabs(this.cards(), ORDER));
   /** A escolhida quando a folha abriu: ela vem primeiro, e nada pula enquanto se procura. */
@@ -187,7 +185,7 @@ export class CardPicker {
   /** A escolhida primeiro, depois as mexidas mais recentemente. */
   protected readonly shown = computed(() => {
     const before = this.before();
-    const list = matchingCards(this.cards(), this.kind(), this.query());
+    const list = [...this.filters.matching()];
     return list.sort((a, b) => Number(b.id === before) - Number(a.id === before) || b.updatedAt.localeCompare(a.updatedAt) || a.game.name.localeCompare(b.game.name, 'pt-BR'));
   });
 
@@ -201,6 +199,7 @@ export class CardPicker {
       if (open && !wasOpen) {
         this.before.set(this.chosen());
         this.query.set('');
+        this.filters.reset(this.doneOption());
         // já tem uma escolhida: abre no mural dela (trocar costuma ser por outra parecida)
         this.kind.set(this.store.get(this.chosen())?.kind ?? null);
         this.search()?.nativeElement.focus();
