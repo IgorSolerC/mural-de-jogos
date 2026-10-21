@@ -1,0 +1,571 @@
+# Plano do Cofre de senhas do Murall
+
+Escrito em 21/10/2026, revisto no mesmo dia para **custo zero**. É o plano completo, para quem for
+implementar (eu ou outra IA) seguir sem precisar desta conversa. Nada daqui foi implementado ainda.
+
+## 1. O que o usuário pediu
+
+- Guardar senhas no Murall, **nada salvo no aparelho**, tudo **cifrado**, sempre dependendo de uma
+  **senha segura**.
+- Só para quem está **logado** (login com Google, como o resto do Murall).
+- **Proteção máxima** contra todo ataque imaginável: navegador comprometido, keylogger, código
+  injetado no site, servidor vazado, etc.
+- **Tudo gratuito.** Nenhuma compra, nenhuma assinatura, nenhum plano pago (seção 2).
+
+## 2. Custo: zero
+
+Cada peça do plano e por que não custa nada. Se uma implementação futura precisar de algo pago, ela
+para e pergunta ao usuário.
+
+| Peça | Custo | Limite do grátis (o cofre usa uma fração mínima) |
+|------|-------|------------------------------------------------|
+| Passkey no celular e no PC (no lugar da chave física) | Grátis: já vem no iPhone/Android e no Windows Hello | — |
+| Código de recuperação | Grátis: papel impresso | — |
+| Worker `cofre-api` (site + API) | Cloudflare Workers Free | 100 mil pedidos/dia, 10 ms de CPU por pedido |
+| Banco D1 `cofre` | D1 Free | 10 bancos, 5 GB, 5 mi linhas lidas e 100 mil gravadas/dia |
+| DNS de `igorsc.com.br` na Cloudflare, DNSSEC, domínio no Worker | Cloudflare Free | — |
+| Alerta de certificado novo | Cloudflare CT Monitoring (grátis); se não aparecer, Cert Spotter (plano grátis) | — |
+| Domínio `igorsc.com.br` | O que você **já paga** no registro.br; o cofre não acrescenta nada | — |
+| GitHub Actions (deploy, vigia a cada hora) e environment com aprovação | Grátis em repositório público | — |
+| Login com Google (cliente OAuth) | Grátis | — |
+| Angular, `hash-wasm`, `hono`, `jose`, verificação WebAuthn | Código aberto (MIT e parecidas) | — |
+| 2FA das contas (GitHub, Cloudflare, Google, Apple, registro.br) | Grátis: passkey ou app autenticador | — |
+| BitLocker | Já vem no Windows 11 Pro | — |
+| Testes de cabeçalho (securityheaders.com, Mozilla Observatory) | Grátis | — |
+| Extensão verificadora (Fase 8, opcional) | Grátis: Firefox (AMO) ou "carregar sem compactação" no Chrome. **Não** publicar na Chrome Web Store (cobra US$ 5) | — |
+
+Fica de fora por custar: chave física (YubiKey), Logpush e qualquer recurso pago da Cloudflare,
+Chrome Web Store, auditoria externa paga.
+
+## 3. A ideia em uma frase
+
+O cofre vive **num endereço separado do Murall**. Ele abre só com **três coisas juntas**: o login
+do Google, a senha mestra e a **passkey de um aparelho seu** (Face ID, digital ou PIN). Tudo é
+cifrado **no navegador** antes de subir, e o servidor só guarda texto embaralhado que nem ele
+consegue abrir.
+
+```
+ Murall (murall.igorsc.com.br)              Cofre (cofre.murall.igorsc.com.br)
+ ┌───────────────────────────┐              ┌───────────────────────────────────┐
+ │ mural, comentários, Feed, │   só um link │ código mínimo, sem conteúdo de    │
+ │ widgets, conteúdo de      │ ───────────► │ terceiros, sem service worker,    │
+ │ outras pessoas            │  (noopener)  │ cabeçalhos de segurança rígidos   │
+ └─────────────┬─────────────┘              └────────────────┬──────────────────┘
+               │ token no localStorage                       │ tudo só na memória
+               ▼                                             ▼
+        mural-api (Worker)  ◄──── RPC interno (sem ────►  cofre-api (Worker)
+        D1 "mural"                endereço público)       D1 "cofre": só texto cifrado
+```
+
+## 4. Por que cada peça existe (modelo de ameaças)
+
+Cada linha é um ataque, o que o bloqueia e o que sobra. "Fator" = coisa que o atacante precisa ter.
+
+| # | Ataque | Proteção | O que sobra |
+|---|--------|----------|-------------|
+| 1 | Banco D1 vaza (ou o backup diário) | Conhecimento zero: só texto cifrado. Com passkey **com PRF** (seção 5), a chave depende de um segredo que só o aparelho gera | Com PRF: nada útil, por mais fraca que a senha seja. Sem PRF: precisa também dos secrets do Worker (ver a linha 2) |
+| 2 | A conta da Cloudflare inteira cai (banco **e** secrets) | Com PRF: igual à linha 1. Sem PRF: ainda falta a senha mestra, protegida por Argon2id | Sem PRF: um atacante com tudo isso pode tentar adivinhar a senha fora do site. Uma frase de 6 palavras sorteadas leva séculos |
+| 3 | Alguém rouba a conta do Google | O Google é só a porta. Faltam a senha mestra e a passkey | Nada |
+| 4 | Alguém rouba o token do Murall (XSS no mural, infostealer lendo o localStorage) | O cofre está em outra origem, com sessão própria e só na memória. O token do Murall não abre nem baixa o cofre | Nada |
+| 5 | **Infostealer** (o malware mais comum hoje: rouba cookies, localStorage e senhas salvas no navegador) | O cofre não salva nada no aparelho. Não há o que roubar em disco | Nada |
+| 6 | **Keylogger** no PC | Ele captura a senha mestra, mas falta a passkey, que fica **no celular** (outro aparelho). O celular pede Face ID ou digital | Se a passkey usada for a do próprio PC infectado, ela é mais fraca: por isso a principal é a do celular |
+| 7 | **Phishing** (site falso igual ao cofre) | A passkey só responde ao endereço exato do cofre (`rpId` = `cofre.murall.igorsc.com.br`) | O site falso pode pegar a senha digitada (um fator só, inútil sozinho) |
+| 8 | **Código injetado no cofre** (XSS) | Cofre sem conteúdo de terceiros, sem `innerHTML`, sem markdown; CSP rígida; Trusted Types obrigatório | Um bug no próprio código do cofre. Por isso o código fica mínimo e revisado |
+| 9 | **Malware no PC com o cofre aberto** (acesso remoto, leitura de tela ou de memória) | Decifra item a item só quando abre; tranca sozinho cedo; senhas mascaradas; "gaveta" que pede a passkey de novo a cada revelação | **Não tem defesa completa**: o que você abre num PC dominado pode ser visto. Diminuímos quanto e por quanto tempo |
+| 10 | **Extensão maliciosa no navegador** (lê qualquer página) | Perfil do navegador só para o cofre, sem extensões; aviso quando algo de fora mexe na página; campos com `spellcheck=false`, `translate="no"` | Uma extensão com acesso total enxerga o que está na tela, como na linha 9 |
+| 11 | **Navegador comprometido** (binário adulterado, falha 0-day) | Navegador oficial atualizado; isolamento de processo (COOP/COEP, `Origin-Agent-Cluster`); tempo aberto curto | Igual à linha 9 |
+| 12 | **Deploy malicioso** (alguém entra no GitHub, na Cloudflare ou no domínio e publica um cofre adulterado) | 2FA com passkey em todas as contas; o cofre só publica com **aprovação manual** sua; Actions fixadas por hash; vigia a cada hora que confere os arquivos no ar contra os hashes do repositório | É o maior risco que sobra num site. O vigia avisa, mas depois. Ver a seção 13 |
+| 13 | **Pacote do npm comprometido** (cadeia de suprimentos) | O cofre usa o mínimo de dependências (Angular + `hash-wasm`), versões fixas no lockfile, `npm ci`, revisão a cada atualização | Uma versão adulterada antes de alguém perceber |
+| 14 | **Servidor malicioso ou adulterado** (devolve dados trocados, antigos ou faltando) | Cada item é cifrado com autenticação (AES-GCM) amarrada ao usuário, ao id e à versão; um "manifesto" cifrado lista todos os itens e versões; o navegador recusa parâmetros de cifra mais fracos que o mínimo | Voltar o cofre inteiro para uma versão antiga é detectável só se o navegador lembrar o último contador (decisão aberta, seção 15) |
+| 15 | **Força bruta online** (tentar senhas na tela de abrir) | Precisa da passkey em cada tentativa; freios por conta (espera dobrando, limite por dia); aviso no Murall a cada sequência de erros | Nada útil |
+| 16 | **Clickjacking** (cofre dentro de um iframe invisível) | `frame-ancestors 'none'` + `X-Frame-Options: DENY` | Nada |
+| 17 | **Homem no meio da rede** | Só HTTPS, HSTS, DNSSEC, registros CAA, alerta de certificado novo (Certificate Transparency) | A Cloudflare vê o tráfego, mas só o que já está cifrado |
+| 18 | **Alguém no seu PC destravado** | Tranca com 5 min parado, ao esconder a aba por 1 min, ao fechar; abrir de novo pede senha + passkey | Os minutos antes de trancar |
+| 19 | **Olho por cima do ombro, compartilhar tela** | Tudo mascarado; revelar dura 15 s; impressão (Ctrl+P) não mostra segredos | Uma senha revelada na hora errada |
+| 20 | **Área de transferência** (histórico do Windows Win+V, área sincronizada na nuvem) | Limpa depois de 30 s; opção "mostrar para digitar" sem copiar; instrução de desligar o histórico | Limpar é melhor esforço: o navegador não deixa limpar se o cofre perdeu o foco |
+| 21 | **Windows Recall / prints automáticos / arquivo de paginação** | Instruções no Ajustes (desligar o Recall ou excluir o navegador; BitLocker no disco) | Depende do sistema, não do site |
+| 22 | **Ortografia aprimorada e tradução do navegador** (mandam o texto para o Google) | `spellcheck=false`, `autocorrect=off`, `translate="no"` e `<meta name="google" content="notranslate">` | Nada |
+| 23 | **Apagar o cofre para te prejudicar** (com o token roubado do Murall, apagando a conta) | Apagar a conta do Murall com cofre exige abrir o cofre, ou espera 7 dias com aviso e botão de cancelar; o cofre só se apaga aberto | O backup diário cobre o resto |
+| 24 | **Ficar trancado do lado de fora** (perdeu o celular, esqueceu a senha) | Passkey em dois aparelhos (celular e PC) + código de recuperação impresso | **Esquecer a senha mestra = perder o cofre.** É o preço do conhecimento zero |
+| 25 | **Roubo da conta da Apple ou do Google** (onde a passkey do celular é sincronizada) | A passkey sozinha não abre: falta a senha mestra. A Apple e o Google cifram as passkeys de ponta a ponta | O atacante teria um fator; precisaria ainda da senha |
+| 26 | **Golpe pelo console** ("cole isto no F12") | Aviso grande no console, como o do Facebook | Quem cola mesmo assim |
+| 27 | **Automação do navegador** (robôs, `navigator.webdriver`) | O cofre recusa abrir com automação ligada (só os testes desligam isso) | Nada |
+| 28 | **Service worker plantado** (persiste depois de uma invasão) | O cofre não tem service worker; ao carregar, desregistra qualquer um que exista e avisa; `Clear-Site-Data` ao trancar | Nada |
+| 29 | **IA ou pessoa mexendo no código do cofre sem querer abrir um buraco** | Regras de código da seção 14; testes de ataque obrigatórios; mudança na cripto só com aprovação do usuário | Revisão humana continua necessária |
+
+## 5. Os três fatores
+
+1. **Login com Google** (quem você é). Abre a porta para pedir o cofre. Fluxo de código com PKCE,
+   sem carregar o script do Google na página do cofre.
+2. **Senha mestra** (o que você sabe). Frase de 6 palavras sorteadas, ou equivalente. Nunca sai do
+   navegador.
+3. **Passkey** (o que você tem), em dois aparelhos que você já tem:
+   - **Principal: o celular** (Face ID ou digital). Fica fora do PC, então um keylogger no PC não
+     chega nela. No PC, o navegador mostra um QR code e o celular confirma.
+   - **Reserva: o PC** (Windows Hello, com PIN ou rosto). Para quando o celular não estiver à mão.
+
+### Com PRF e sem PRF
+
+A extensão **PRF** do WebAuthn faz a passkey devolver um segredo de 32 bytes que só ela gera. Com
+PRF, esse segredo entra na chave do cofre, e o vazamento do banco fica inofensivo mesmo com uma
+senha fraca. Nem todo aparelho tem PRF:
+
+- iPhone com iOS 18+ (passkeys do iCloud) e Android (passkeys do Gerenciador de Senhas do Google):
+  têm PRF.
+- Windows Hello e o celular usado pelo PC com QR code: **conferir** na Fase 1.
+
+Um aparelho **sem PRF** ainda serve, num modo mais fraco: a passkey vira só um portão no servidor, e
+o servidor guarda a parte do aparelho cifrada com um secret do Worker. Fica seguro contra vazamento
+do banco e do backup, mas não contra quem tomar a Cloudflare inteira (aí só a senha mestra protege).
+A Fase 1 começa com **uma página de teste** que diz, em cada aparelho e navegador, se tem PRF.
+
+## 6. A criptografia, em detalhe
+
+Tudo com WebCrypto (nativo do navegador), menos o Argon2id, que vem de `hash-wasm` (WASM, sem
+outras dependências). Todo `CryptoKey` é criado **não exportável** sempre que possível. Todo
+`Uint8Array` com segredo é zerado (`fill(0)`) logo depois do uso.
+
+### 6.1 Chaves
+
+```
+senha mestra ──Argon2id(sal, m=64 MiB, t=3, p=1)──► kSenha (32 bytes)
+
+M  = 32 bytes aleatórios, a "chave do meio" (criada uma vez no navegador)
+VK = 32 bytes aleatórios, a chave do cofre (criada uma vez; vira chave HKDF não exportável)
+
+Envelope de um aparelho com PRF:
+  kAparelho_i = WebAuthn PRF(eval = SHA-256("murall-cofre-v1-prf"))          (32 bytes)
+  E_i         = AES-256-GCM(HKDF(kAparelho_i, "cofre-v1 env " + idEnvelope), M)
+
+Envelope de um aparelho sem PRF (modo servidor):
+  S_i  = 32 bytes aleatórios gerados no navegador ao registrar o aparelho
+  E_i  = AES-256-GCM(HKDF(S_i, "cofre-v1 env " + idEnvelope), M)
+  S_i vai para o servidor, que o guarda cifrado com o secret COFRE_ENVELOPES (fora do banco)
+  e só o devolve depois de conferir a assinatura da passkey daquele aparelho.
+
+Envelope do código:    E_rec = AES-256-GCM(HKDF(codigoRecuperacao, "cofre-v1 rec"), M)
+Cofre:                 V     = AES-256-GCM(HKDF(kSenha ‖ M, "cofre-v1 cofre"), VK)
+Prova para o servidor: kAuth = HKDF(kSenha ‖ M, "cofre-v1 auth")
+Prova do código:       kRec  = HKDF(codigoRecuperacao, "cofre-v1 rec auth")  (o servidor só solta E_rec com ela)
+```
+
+Por que a "chave do meio" M:
+
+- Abrir precisa de **M** (só sai de uma passkey ou do código de recuperação) **e** de **kSenha**
+  (só sai da senha). Um sem o outro não abre nada.
+- **Trocar a senha** reescreve só `V` e `kAuth`. Não precisa dos dois aparelhos na mão.
+- **Pôr ou tirar um aparelho** cria ou apaga só o `E_i` dele.
+- O **código de recuperação substitui a passkey, não a senha** (recomendação; decisão aberta na
+  seção 15). Papel roubado + conta do Google não abrem o cofre.
+- Sem PRF, o servidor (com o secret) consegue chegar a M, mas M sozinho não abre nada: ainda falta
+  a senha. Por isso o modo sem PRF exige a frase de 6 palavras.
+
+### 6.2 Itens
+
+```
+chaveItem = HKDF(VK, sal = idItem, info = "cofre-v1 item")       (AES-256-GCM, não exportável)
+dados     = AES-256-GCM(chaveItem, iv aleatório de 12 bytes,
+                        JSON do item completado até múltiplo de 512 bytes,
+                        AAD = "cofre-v1|item|" + idUsuario + "|" + idItem + "|" + versao)
+```
+
+- **Tudo** fica dentro do cifrado: título, usuário, senha, site, observações, datas, histórico das
+  últimas 5 senhas. O servidor vê só: id aleatório (UUID), versão, tamanho arredondado e quando mudou.
+- O AAD amarra o item ao dono, ao id e à versão: o servidor não consegue trocar itens de lugar,
+  entre contas, nem devolver uma versão velha de um item só.
+
+### 6.3 Manifesto
+
+```
+chaveManifesto = HKDF(VK, info = "cofre-v1 manifesto")
+manifesto      = AES-256-GCM(chaveManifesto, { contador, itens: { idItem: versao }, mudadoEm, aparelho },
+                             AAD = "cofre-v1|manifesto|" + idUsuario + "|" + contador)
+```
+
+- Ao abrir, o navegador confere que os itens que o servidor mandou são **exatamente** os do
+  manifesto, com as mesmas versões. Faltou, sobrou ou mudou: alerta e não mostra nada.
+- Toda gravação manda o item novo + o manifesto novo (contador + 1) com o contador anterior. O
+  servidor grava os dois juntos (batch do D1) ou responde **409** se outro aparelho gravou antes. O
+  navegador então recarrega e reaplica.
+
+### 6.4 Regras que o navegador impõe
+
+- Recusa Argon2id com `m < 64 MiB` ou `t < 3` vindos do servidor (bloqueia o rebaixamento).
+- Recusa `versao_cripto` desconhecida.
+- Recusa resposta sem a assinatura WebAuthn válida para o `rpId` exato do cofre.
+- Nunca cria chave a partir de dado do servidor; só usa o sal dele (um sal falso só dá chave
+  errada, e a abertura falha).
+
+### 6.5 No servidor
+
+- Guarda `HMAC-SHA256(pimenta, kAuth)` e `HMAC-SHA256(pimenta, kRec)`. A **pimenta** é um secret
+  do Worker (`COFRE_PIMENTA`), fora do banco. Compara com `crypto.subtle.timingSafeEqual` (existe
+  nos Workers).
+- Guarda os `S_i` dos aparelhos sem PRF cifrados com AES-GCM pelo secret `COFRE_ENVELOPES`.
+- Confere a assinatura WebAuthn: desafio de uso único (2 min), origem, `rpId`, flag de verificação
+  do usuário (biometria ou PIN) e o contador da passkey, quando ela tem (as sincronizadas mandam 0).
+- Nunca decifra item nenhum. Não tem a chave para isso.
+
+## 7. Onde o cofre mora
+
+### 7.1 Endereço separado
+
+`cofre.murall.igorsc.com.br`, uma origem só dele. Um XSS no Murall (comentários, Feed, anotações
+compartilhadas, markdown, widgets) **não alcança** o cofre. O navegador isola origens diferentes, e
+o `rpId` da passkey é o host exato do cofre, não `igorsc.com.br`. Se fosse o domínio de cima, uma
+página do Murall comprometida poderia pedir a passkey.
+
+### 7.2 Hospedagem com cabeçalhos (decidido: DNS na Cloudflare)
+
+O GitHub Pages **não deixa configurar cabeçalhos HTTP**. E `frame-ancestors`, HSTS, COOP e COEP só
+funcionam como cabeçalho, não como `<meta>`. Por isso o cofre fica fora do GitHub Pages.
+
+**Decidido em 21/10:** o DNS de `igorsc.com.br` sai do registro.br (servidores `a.sec.dns.br` e
+`c.sec.dns.br`) para a Cloudflare, no plano grátis. O cofre vira **um Worker `cofre-api`** que
+serve os arquivos do site (static assets) **e** a API em `/api/...`, na **mesma origem**, com o
+domínio próprio do Worker. Sem CORS, `connect-src 'self'`.
+
+Passos do usuário (grátis):
+
+1. Criar a zona `igorsc.com.br` na Cloudflare (plano Free). Ela copia os registros de hoje.
+2. Conferir que o CNAME `murall` → `igorsolerc.github.io.` veio junto, **com a nuvem cinza**
+   (só DNS, sem proxy), para o GitHub Pages continuar emitindo o certificado.
+3. No registro.br, trocar os servidores de DNS pelos dois que a Cloudflare indicar.
+4. Ligar o DNSSEC na Cloudflare e pôr o registro DS que ela mostrar no registro.br.
+5. Conferir que o Murall continua abrindo.
+
+### 7.3 Cabeçalhos (todas as respostas do cofre)
+
+```
+Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval';
+  style-src 'self' 'nonce-{por pedido}'; img-src 'self' data:; font-src 'self';
+  connect-src 'self'; manifest-src 'self'; form-action 'none'; frame-ancestors 'none';
+  base-uri 'none'; object-src 'none'; require-trusted-types-for 'script';
+  trusted-types angular angular#bundler; upgrade-insecure-requests
+Strict-Transport-Security: max-age=63072000; includeSubDomains
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Resource-Policy: same-origin
+Origin-Agent-Cluster: ?1
+Referrer-Policy: no-referrer
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(),
+  hid=(), bluetooth=(), display-capture=(), clipboard-read=(), clipboard-write=(self),
+  publickey-credentials-get=(self), publickey-credentials-create=(self)
+Cache-Control: no-store
+```
+
+- O `nonce` dos estilos: o Worker gera um por pedido, põe no `ngCspNonce` do `index.html` (com
+  `HTMLRewriter`) e no cabeçalho. Angular injeta os estilos dos componentes com ele. Desligar o
+  `inlineCritical` do build (ele usa `onload` inline, que a CSP barra).
+- `'wasm-unsafe-eval'` é só para o Argon2id em WASM. Sem `unsafe-eval`, sem `unsafe-inline`.
+- `Cache-Control: no-store` também tira o cofre do cache de voltar/avançar (bfcache).
+- Ao trancar ou sair, a resposta leva `Clear-Site-Data: "cache", "storage"`.
+- Tudo isso cabe nos 10 ms de CPU do plano grátis (o trabalho pesado, o Argon2id, roda no navegador).
+- Depois de estável: HSTS preload de `igorsc.com.br` (grátis; exige HTTPS em todos os subdomínios).
+
+### 7.4 Sem service worker, sem nada guardado
+
+- Nenhum service worker. Ao carregar, `navigator.serviceWorker.getRegistrations()` desregistra
+  qualquer um e mostra um aviso (não deveria existir).
+- Nada em `localStorage`, `IndexedDB` ou cookies. A sessão do cofre fica numa variável.
+- Única exceção: o `state` e o `code_verifier` do login do Google ficam no `sessionStorage` entre
+  sair para o Google e voltar, e são apagados na volta. Não são segredos do cofre.
+
+## 8. Os fluxos
+
+### 8.1 Entrar e abrir
+
+1. **Google** (código + PKCE, escopo só `openid`, `prompt=select_account`). Volta para
+   `/entrar` com `code` e `state`; o navegador limpa a URL na hora (`history.replaceState`).
+2. `POST /api/entrar {code, verifier}` → o `cofre-api` troca o código no Google, confere o
+   `id_token` (com `jose`), acha a conta do Murall pelo `sub` (RPC para o `mural-api`) e devolve
+   uma **sessão de entrada** (5 min, só na memória). Sem conta no Murall: não entra.
+3. `POST /api/cofre/desafio` → `{desafio, sal, kdf, credenciais[]}`.
+4. A pessoa digita a senha mestra e confirma a passkey (no celular pelo QR code, ou no Windows
+   Hello). O navegador roda o Argon2id **enquanto** espera a confirmação.
+5. `POST /api/cofre/chave {assertion}` → o servidor confere a assinatura e devolve o `E_i` daquele
+   aparelho (e, se for sem PRF, o `S_i` dele). O navegador abre `E_i` → **M**.
+6. Calcula `kAuth`. `POST /api/cofre/abrir {kAuth}` → freio, comparação, e devolve `V`, o
+   manifesto e a **sessão do cofre** (só na memória; 10 min parada ou 8 h no máximo, no servidor).
+7. Abre `V` → **VK**. Baixa os itens, confere com o manifesto. Decifra cada item **só quando abre**
+   (a lista mostra títulos, decifrados na hora e descartados ao trancar).
+
+### 8.2 Trancar
+
+- Gatilhos: 5 min sem mexer, aba escondida por 1 min, `pagehide`, botão Trancar, 8 h.
+- Trancar = avisa o servidor (`sendBeacon`) para matar a sessão, e `location.replace('/')`, que
+  joga fora toda a memória da página (o jeito confiável de apagar segredo em JavaScript).
+
+### 8.3 Criar o cofre
+
+1. Entrar com o Google.
+2. Registrar a passkey **em dois aparelhos**: o celular e o PC (`userVerification: 'required'`,
+   `attestation: 'none'`, PRF pedido). O cofre mostra, para cada um, se ficou **com PRF** ou no
+   **modo sem PRF**. Aceitar um aparelho só com aviso forte é decisão aberta.
+3. Criar a senha mestra: o cofre sugere uma frase de 6 palavras (sorteio com `getRandomValues` e
+   rejeição, sem viés) e confere a força de uma escrita à mão (mínimo de ~70 bits estimados,
+   lista das senhas mais comuns). Com algum aparelho sem PRF, só aceita frase sorteada ou
+   equivalente.
+4. **Kit de emergência**: o código de recuperação (128 bits, em base32, 26 caracteres em grupos)
+   aparece **uma vez**, numa página para imprimir. Nunca é salvo nem enviado em claro.
+5. O navegador gera M, VK e os `S_i`, monta os `E_i`, `E_rec`, `V`, `kAuth` e o manifesto vazio, e
+   envia.
+
+### 8.4 Recuperar (perdeu os aparelhos)
+
+Google + código de recuperação + senha mestra. Depois disso o cofre obriga a registrar uma passkey
+nova e gerar um código novo; o antigo é apagado (uso único).
+
+### 8.5 Gerenciar (com o cofre aberto)
+
+- **Trocar a senha**: novo sal, novo `V`, novo `kAuth`.
+- **Pôr ou tirar aparelho**: cria ou apaga um `E_i` (nunca deixa ficar sem nenhum).
+- **Novo código de recuperação**: novo `E_rec`.
+- **Trocar a chave do cofre** (depois de uma suspeita): VK nova, recifra todos os itens.
+- **Aparelhos abertos**: lista as sessões e tem "Trancar todos".
+- **Histórico**: aberturas, erros de senha, passkeys usadas, aparelho e país, dos últimos 90 dias.
+
+### 8.6 Do lado do Murall
+
+- Um botão **Cofre** que só abre o link (`target=_blank rel="noopener noreferrer"`). O Murall
+  **nunca** carrega código nem dado do cofre.
+- **Congelar o cofre** (nos Ajustes do Murall, só com o login): ninguém abre por 24 h. Para quando
+  você suspeita de algo e está sem o celular na mão.
+- Avisos no correio do Murall: abertura num aparelho novo, sequência de erros, passkey posta ou
+  tirada, senha trocada.
+- **Apagar a conta** do Murall com cofre: espera 7 dias com aviso e Cancelar, ou na hora se o
+  cofre for aberto antes.
+
+## 9. A API (`cofre-api`)
+
+Um Worker novo, pasta `cofre-api/`, com a mesma montagem do `api/` (Hono, `domain/`, `routes/`,
+`adapters/d1.ts` e `sqlite-node.ts` para os testes, `migrations/`). Banco D1 **separado**
+(`cofre`). Fala com o `mural-api` por **service binding com RPC** (`WorkerEntrypoint`), que não tem
+endereço público: `contaPorGoogle(sub)`, `avisar(usuarioId, tipo)`, `temCofre(usuarioId)`.
+
+### 9.1 Tabelas
+
+```sql
+cofre_contas      (usuario_id PK, versao_cripto, kdf_m, kdf_t, kdf_p, sal, v BLOB,
+                   auth_hash BLOB, manifesto BLOB, contador INT, congelado_ate, criado_em)
+cofre_envelopes   (id PK, usuario_id, tipo 'prf'|'servidor'|'recuperacao', credencial_id NULL,
+                   envelope BLOB, s_cifrado BLOB NULL, rec_hash BLOB NULL, criado_em, usado_em)
+cofre_credenciais (id PK, usuario_id, chave_publica BLOB, algoritmo, contador_assinatura INT,
+                   apelido, criado_em, usado_em)
+cofre_itens       (id PK, usuario_id, versao INT, dados BLOB, mudado_em)
+cofre_sessoes     (hash PK, usuario_id, tipo 'entrada'|'cofre', criada_em, usada_em, expira_em, aparelho)
+cofre_desafios    (id PK, usuario_id, desafio, expira_em)        -- uso único, 2 min
+cofre_eventos     (id PK, usuario_id, tipo, em, aparelho, pais)   -- 90 dias
+freios            (como em api/src/domain/brake.ts)
+```
+
+### 9.2 Rotas
+
+| Rota | O que faz |
+|------|-----------|
+| `POST /api/entrar` | Código do Google → sessão de entrada |
+| `GET  /api/cofre` | Existe? Congelado? Quantos aparelhos? |
+| `POST /api/cofre` | Criar (tudo da 8.3) |
+| `POST /api/cofre/desafio` | Desafio WebAuthn + sal + parâmetros + credenciais |
+| `POST /api/cofre/chave` | Assinatura WebAuthn → `E_i` (e `S_i`, se sem PRF) |
+| `POST /api/cofre/recuperar` | Prova do código → `E_rec` |
+| `POST /api/cofre/abrir` | `kAuth` → `V`, manifesto, sessão do cofre |
+| `GET  /api/cofre/itens` | Todos os itens cifrados + manifesto |
+| `PUT  /api/cofre/itens/:id` | Item + manifesto novo, com o contador anterior (409 se mudou) |
+| `DELETE /api/cofre/itens/:id` | Idem |
+| `PUT  /api/cofre/senha` | Novo sal, `V`, `kAuth` |
+| `POST/DELETE /api/cofre/aparelhos/:id` | Pôr ou tirar passkey |
+| `PUT  /api/cofre/recuperacao` | Novo `E_rec` |
+| `GET  /api/cofre/sessoes` · `POST /api/cofre/trancar-todos` | Aparelhos abertos |
+| `GET  /api/cofre/eventos` | Histórico |
+| `POST /api/cofre/trancar` | Mata a sessão (com `Clear-Site-Data`) |
+| `DELETE /api/cofre` | Apagar o cofre (só aberto, com confirmação) |
+
+### 9.3 Regras da API
+
+- **Freios**: 5 erros de senha → espera 1 min, dobrando a cada nova sequência; no máximo 20 por
+  dia; desafios no máximo 30 por hora. Cada sequência de erros vira aviso no Murall. O freio nunca
+  tranca para sempre (senão o atacante te tranca fora).
+- **Cota própria** de gravações por dia, como o `COTA_LINHAS_DIA` do `mural-api`, para nunca passar
+  do plano grátis.
+- **Limites de tamanho**: item até 16 kB, até 2.000 itens, corpo até 64 kB.
+- **Validação** rígida de tudo (formatos base64url, tamanhos exatos de chaves e IVs).
+- **Logs**: nunca o corpo do pedido nem os tokens. Sem `console.log` de dado.
+- **Respostas**: `Cache-Control: no-store`.
+- **Secrets**: `COFRE_PIMENTA`, `COFRE_ENVELOPES` (32 bytes aleatórios cada) e o client secret do
+  Google. Um cliente OAuth **próprio do cofre** ("Murall Cofre", só `openid`, redirect só para
+  `/entrar` do cofre): o cofre nunca carrega a permissão da Agenda.
+- Token da Cloudflare para o deploy do cofre com permissão **só** para este Worker e este D1.
+
+## 10. O front do cofre
+
+Um segundo projeto Angular no mesmo workspace (`projects/cofre`, alvo próprio no `angular.json`).
+**Não importa nada de `src/app`**, só os tokens de cor e fonte em SCSS. Um teste confere isso
+varrendo os imports.
+
+### Telas
+
+1. **Entrar** (Google) → **Abrir** (senha + passkey).
+2. **Lista**: busca local, títulos e sites. Nada decifrado além do necessário.
+3. **Item**: usuário, senha (mascarada), site, observações. Revelar (15 s), Copiar (limpa em 30 s),
+   Mostrar para digitar (letras grandes, separadas em grupos), Abrir o site (abre a URL salva;
+   ajuda a não cair em site falso).
+4. **Gerador**: frase de palavras ou caracteres aleatórios, sem viés.
+5. **Ajustes**: senha, aparelhos (com PRF ou não), código de recuperação, aparelhos abertos,
+   histórico, apagar. Mais as instruções do aparelho (perfil sem extensões, histórico da área de
+   transferência, Recall, BitLocker).
+
+### Comportamentos de segurança
+
+- Campos de segredo: `type=password`, `autocomplete="off"`, `spellcheck=false`,
+  `autocorrect=off`, `autocapitalize=off`, `translate="no"`.
+- `@media print`: segredos somem.
+- Ao perder o foco da janela: borra o conteúdo (opcional, ligado por padrão).
+- **Vigia do DOM**: um `MutationObserver` avisa quando aparece na página algo que o cofre não pôs
+  (o sinal típico de uma extensão injetando coisas): "Algo de fora mexeu nesta página. Feche o
+  cofre e use um perfil sem extensões."
+- Aviso grande no console contra o golpe do "cole isto no F12".
+- Recusa abrir com `navigator.webdriver` ligado.
+- Não escuta `postMessage`. Nenhum link externo além do "Abrir o site" (sempre com `noopener noreferrer`).
+- Nada de `innerHTML`, `bypassSecurityTrust*`, markdown ou HTML vindo de dado.
+- Visual com o jeito do Murall, mas **clareza acima de enfeite**: numa tela de segurança, o
+  que está aberto, trancado ou em risco tem de ser óbvio. Passa pelo Impeccable.
+
+### Gaveta (opcional, Fase 7)
+
+Itens marcados como "gaveta" são cifrados com uma segunda chave (`VK2`), embrulhada por cada
+passkey com outro sal do PRF (`"murall-cofre-v1-gaveta"`), ou pelo servidor no modo sem PRF.
+Revelar um item da gaveta pede **a passkey de novo** (Face ID no celular), e a `VK2` é descartada
+logo depois. Um malware com o cofre aberto não consegue ler a gaveta sem essa confirmação. Para as
+senhas mais críticas (e-mail principal, banco).
+
+## 11. Contas e cadeia de entrega
+
+O maior risco que sobra num site é alguém publicar um cofre adulterado. Por isso:
+
+### O que o usuário faz (Fase 0, tudo grátis)
+
+- [ ] **DNS na Cloudflare** (passos da seção 7.2).
+- [ ] **GitHub**: 2FA com passkey (celular ou Windows Hello); tirar SMS; revisar quem tem acesso e
+      os tokens antigos.
+- [ ] **Cloudflare**: 2FA com passkey ou app autenticador.
+- [ ] **Google** (login e o projeto do Google Cloud): passkey e 2FA ligados.
+- [ ] **Apple** (se a passkey do celular for do iCloud): 2FA ligado (já vem) e código do iPhone forte.
+- [ ] **registro.br**: 2FA com app autenticador.
+- [ ] **E-mail que recupera tudo isso**: o mais protegido de todos.
+- [ ] Registros **CAA** só para as autoridades usadas, e o alerta de certificado novo ligado.
+- [ ] No PC: navegador oficial atualizado, **perfil só para o cofre sem extensões**, BitLocker,
+      histórico da área de transferência e Recall desligados (ou o navegador excluído).
+
+### No repositório
+
+- Workflow novo `cofre.yml`: só `workflow_dispatch` (nunca no push), environment `cofre` com
+  **aprovação obrigatória do usuário**, token da Cloudflare só do cofre.
+- **Todas** as Actions (de todos os workflows) fixadas por **hash de commit**, não por tag.
+- `npm ci` com lockfile; o cofre só com Angular + `hash-wasm` no navegador e `hono` + `jose` +
+  (verificação WebAuthn) no Worker. Nenhuma dependência nova sem aprovação do usuário.
+- Build reprodutível: Node fixo, e o deploy publica a lista de **SHA-256 de cada arquivo** no
+  repositório (`cofre-hashes.json`).
+- **Vigia** (`cofre-vigia.yml`, a cada hora): baixa os arquivos no ar e compara com o
+  `cofre-hashes.json`; diferença = falha = e-mail do GitHub. Avisa se alguém publicou por fora.
+- Proteção do branch `main` com os testes obrigatórios, e revisão das mudanças em `projects/cofre`
+  e `cofre-api` antes de publicar.
+
+> O repositório é público. Tudo bem: a segurança não depende de o plano ser secreto, só das chaves.
+> Nenhum secret entra no git.
+
+## 12. Fases
+
+Uma de cada vez (o usuário prefere rodadas pequenas). Cada fase termina com testes, build e commit.
+
+| Fase | O que entra | Pronto quando |
+|------|-------------|---------------|
+| 0 | Usuário: DNS na Cloudflare, 2FA, PC (seção 11) | Lista marcada |
+| 1 | **Página de teste do PRF** (em cada aparelho e navegador) + **núcleo de cripto** (`projects/cofre/src/core/crypto.ts`), sem tela | Sabemos quais aparelhos têm PRF; testes com vetores oficiais (Argon2id da RFC 9106, HKDF da RFC 5869), ida e volta, adulteração de cada campo falha, rebaixamento recusado |
+| 2 | **`cofre-api`**: tabelas, rotas, freios, cota, RPC com o `mural-api` | Testes de API (Node + SQLite como em `api/test`), incluindo ataques: desafio reusado, contador da passkey voltando, `kAuth` errado, freio, 409 |
+| 3 | **Hospedagem**: Worker com os arquivos, cabeçalhos, deploy com aprovação, vigia | Uma página "olá" no ar; script que confere cada cabeçalho; nota A+ no securityheaders.com e no Mozilla Observatory |
+| 4 | **Criar o cofre**: Google, dois aparelhos, senha, kit de emergência | Fluxo de ponta a ponta no navegador com autenticador virtual |
+| 5 | **Abrir e usar**: abrir, trancar, lista, item, gerador, área de transferência | Idem + os gatilhos de trancar |
+| 6 | **Gerenciar e ligar ao Murall**: senha, aparelhos, recuperação, sessões, histórico, congelar, avisos no correio, apagar a conta protegido, botão Cofre | Novidades e BUILD; testes nos dois lados |
+| 7 | **Endurecer**: gaveta, vigia do DOM, revisão de segurança final (`/security-review` + leitura linha a linha da cripto) | Lista de ataques da seção 4 toda testada |
+| 8 (opcional) | **Extensão verificadora**, grátis (Firefox ou carregada à mão no Chrome): confere os hashes do cofre antes de deixar abrir | Única defesa *dentro* do navegador contra um deploy adulterado |
+
+### Testes que não podem faltar
+
+- Cada ataque da seção 4 que dá para simular vira um teste com o nome dele.
+- Autenticador virtual do Chrome pelo DevTools Protocol (`WebAuthn.addVirtualAuthenticator`, com
+  e sem `hasPrf`), via `puppeteer-core`, para os fluxos de ponta a ponta nos dois modos.
+- Teste que falha se aparecer `innerHTML`, `bypassSecurityTrust`, `localStorage`, `indexedDB`,
+  `document.cookie`, `eval` ou `console.log` em `projects/cofre`.
+- Teste que falha se `projects/cofre` importar algo de `src/app`.
+- Teste que falha se aparecer dependência nova no bundle do cofre.
+
+## 13. O que não tem como proteger
+
+Para ninguém achar que existe 100%:
+
+- **PC ou navegador dominado com o cofre aberto**: o que aparece na tela, ou passa pela memória,
+  pode ser visto. A gaveta e o trancar cedo diminuem o estrago.
+- **Deploy adulterado**: se alguém publicar um cofre falso, na próxima vez que você abrir ele pega
+  a senha e o que a passkey liberar. 2FA, aprovação manual e o vigia tornam isso difícil e
+  barulhento, mas não impossível. Só a extensão verificadora (Fase 8) fecha esse buraco de dentro do
+  navegador. Conferir hashes com SRI não ajuda: o HTML vem do mesmo servidor que seria adulterado.
+- **Aparelho sem PRF + Cloudflare tomada inteira**: aí só a senha mestra segura. Por isso, nesse
+  modo, a frase sorteada é obrigatória.
+- **A passkey é mais fraca que uma chave física**: a do celular é sincronizada na nuvem da Apple ou
+  do Google, e a do PC mora no mesmo PC onde um malware pode estar. É a troca por custo zero.
+- **Esquecer a senha mestra**: perde o cofre. Ninguém consegue recuperar, nem o dono do site.
+- **Perder os dois aparelhos e o código**: idem.
+- **Ser forçado a abrir**: fora do escopo.
+- **A senha do Google**: não guarde **só** no cofre, porque o cofre precisa do login do Google. Se
+  perder o acesso ao Google, fica trancado do lado de fora. O mesmo vale para a senha da Apple, se a
+  passkey do celular estiver no iCloud.
+- **Códigos de 2FA (TOTP)**: fora da primeira versão. Guardar a senha e o código 2FA no mesmo lugar
+  junta dois fatores num só.
+
+## 14. Regras para quem implementar
+
+Valem para este repositório inteiro (do usuário, Igor Soler):
+
+- **Custo zero**: nada pago, nenhum plano pago, nenhuma compra. Se algo precisar, parar e perguntar.
+- **Commits** no nome do usuário (autor do git `igorsoler.c`), **sem** linha `Co-Authored-By`. Um
+  commit ao fim de cada fase. **Push só quando o usuário pedir** (push publica o site).
+- Todo commit sobe `BUILD` em `src/app/core/build.ts` em 1 (`git rev-list --count HEAD` + 1).
+- Toda mudança que vai para o ar entra nas Novidades (`src/app/core/news-list.ts`), seguindo
+  `NOVIDADES.md` (ler antes). O cofre é uma funcionalidade nova (F2) quando o botão aparecer no
+  Murall (Fase 6).
+- Antes do commit: `npm run test:ci` na raiz; em `api/` e `cofre-api/`, `npm run typecheck` e
+  `npm test`; `npx ng build` de produção dos dois projetos; abrir a build com dados guardados.
+- Toda mudança de front passa pela skill **Impeccable**. Textos da tela em português simples.
+- Atualizar `DESIGN.md` e `PRODUCT.md` quando a tela mudar.
+- **Nunca rodar prettier** no repositório.
+- **Específico do cofre:**
+  - Mudança na cripto (seção 6) só com aprovação explícita do usuário, e sempre com teste novo.
+  - Nenhuma dependência nova sem aprovação.
+  - Nada de conteúdo de terceiros, `innerHTML`, armazenamento local, service worker ou log de dado.
+  - Na dúvida entre conforto e segurança, escolher segurança e perguntar ao usuário.
+
+## 15. Decisões
+
+### Decididas
+
+1. **Onde o cofre mora** (21/10): DNS de `igorsc.com.br` na Cloudflare (grátis), cofre num Worker
+   só, com site e API na mesma origem (seção 7.2). O usuário não teve preferência; foi a
+   recomendação.
+2. **Custo zero** (21/10): passkey do celular e do PC no lugar da chave física (seções 2 e 5).
+
+### Em aberto (perguntar ao usuário, uma de cada vez)
+
+3. **Código de recuperação substitui só a passkey** (recomendado: ainda pede a senha) **ou abre
+   tudo sozinho** (perdoa esquecer a senha, mas o papel vira um alvo)?
+4. **Exigir dois aparelhos** (recomendado: celular e PC) ou aceitar um com aviso?
+5. **Aceitar aparelho sem PRF** (no modo servidor, seção 5) ou só aparelhos com PRF? Depende do
+   resultado da página de teste da Fase 1.
+6. **Guardar no navegador o último contador e a última versão vista** (números, não segredos)?
+   Detecta o servidor voltando o cofre para uma versão antiga, mas é "algo salvo no aparelho".
+7. **Lista de palavras do gerador**: português (qual lista, qual licença) ou a EFF em inglês?
+8. **Consulta de senha vazada** (Have I Been Pwned, grátis, só os 5 primeiros caracteres do hash
+   saem do navegador)? Desligada por padrão, porque abre conexão com um terceiro.
+9. **Exportar um backup cifrado** para um arquivo? Continua cifrado, mas é algo salvo fora da nuvem.
