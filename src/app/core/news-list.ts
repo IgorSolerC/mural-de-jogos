@@ -26,13 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-21-jeitos-da-nota',
+    id: '2026-10-21-jeitos-da-nota-e-vista-do-grupo',
     version: '1.29.2',
     kind: 'ajustes',
     date: '2026-10-21',
-    title: 'Quatro jeitos do widget Nota',
+    title: 'Quatro jeitos do widget Nota e a visualização padrão de cada grupo',
     melhorias: [
       'O widget Nota ganhou jeitos, escolhidos em miniaturas na folha dele: a Ficha de sempre, Capa e título (como em "Só capa e nome" do mural), Só o título (uma tira da cor da nota, como no Kanban em "Só os títulos") e Texto inteiro: a nota colada inteira, com o nome na faixa da cor dela e o texto todo, do tamanho do texto.',
+      'Cada grupo pode ter a sua visualização padrão nas configurações do mural (em Grupos): com ela, o grupo sempre abre em Completas, Inteiras, Simples, Capa e nome ou Lista, e trocar na régua vale só até sair dele. Sem ela, ele continua abrindo como você o deixou da última vez.',
     ],
     correcoes: ['Na leitura de uma anotação de cartolina escura, o nome da ficha colada no texto saía em tinta clara, quase invisível; agora tem a tinta da cartolina dela.'],
   },

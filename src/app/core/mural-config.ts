@@ -23,6 +23,13 @@ export type CategoryOrderBy = 'quantidade' | 'minha';
 
 const AUDIENCES: readonly Audience[] = ['privada', 'visivel', 'publicar'];
 
+/**
+ * Os jeitos de ver o mural de anotações (os tipos de ficha da régua, ver `Density` em
+ * core/wall-view.ts, que importa este arquivo: a lista mora aqui para não fazer um ciclo).
+ */
+export const GROUP_VIEWS = ['completa', 'inteira', 'simples', 'capas', 'lista'] as const;
+export type GroupView = (typeof GROUP_VIEWS)[number];
+
 /** O que uma categoria muda em cima do mural. Sem o campo: segue o mural. */
 export interface CategoryPrefs {
   /** Como nasce a anotação nova desta categoria: Privada, Disponível (pública, fora do Feed) ou Publicar. */
@@ -37,6 +44,12 @@ export interface CategoryPrefs {
    * que quer as anotações do quadro no mural também). Um `true` guardado antes (build 447) é o padrão.
    */
   kanbanOnly?: boolean;
+  /**
+   * A visualização com que o grupo abre no mural (o tipo de ficha da régua). Com ela, o grupo
+   * esquece a última escolhida na régua: mudar na régua vale só até sair do grupo. Sem ela, o grupo
+   * abre na última que a pessoa usou nele (o de sempre).
+   */
+  view?: GroupView;
 }
 
 export interface NotesConfig {
@@ -84,15 +97,16 @@ export const MAX_CONFIG_CATEGORIES = 200;
 function sanitizePrefs(raw: unknown): CategoryPrefs {
   const out: CategoryPrefs = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
-  const { audience, askTag, hidden, kanbanOnly } = raw as Record<string, unknown>;
+  const { audience, askTag, hidden, kanbanOnly, view } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
+  if (GROUP_VIEWS.includes(view as GroupView)) out.view = view as GroupView;
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;
   if (kanbanOnly === false) out.kanbanOnly = false;
   return out;
 }
 
-const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined;
+const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === undefined && !p.hidden && p.kanbanOnly === undefined && p.view === undefined;
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
@@ -239,6 +253,16 @@ export function moveKey(list: readonly string[], key: string, to: number): strin
  */
 export function activeOrder(cfg: NotesConfig): readonly string[] | null {
   return cfg.orderBy === 'minha' ? cfg.order : null;
+}
+
+/**
+ * A visualização com que cada grupo abre (pela chave da aba, "c:" e a de `lookKey`, como as de
+ * `hiddenKeys`): só os grupos que escolheram uma.
+ */
+export function groupViews(cfg: NotesConfig): ReadonlyMap<string, GroupView> {
+  const out = new Map<string, GroupView>();
+  for (const [k, p] of Object.entries(cfg.categories)) if (p.view) out.set(`c:${k}`, p.view);
+  return out;
 }
 
 /** As categorias escondidas (pela chave, a de `lookKey`): as abas delas ficam sempre no "Mais". */

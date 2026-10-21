@@ -208,6 +208,11 @@ fieldset.linha {
   &.quatro {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  /* a visualização do grupo: as seis em duas fileiras de três */
+  &.seis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .segmento {
@@ -834,7 +839,7 @@ fieldset.linha {
 
 /* a parte estreita: quatro opções viram duas fileiras, e o painel da categoria encosta */
 @container parte (max-width: 460px) {
-  .segmentos.quatro {
+  .segmentos:is(.quatro, .seis) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

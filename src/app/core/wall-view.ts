@@ -6,7 +6,7 @@ import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf }
 import { Mural } from './mural';
 import { checkCount } from './rich-text';
 import { Settings } from './settings';
-import { activeOrder, hiddenKeys } from './mural-config';
+import { activeOrder, groupViews, hiddenKeys } from './mural-config';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
@@ -227,6 +227,17 @@ export abstract class WallState {
    */
   readonly showAllTab: Signal<boolean> = signal(true);
   /**
+   * A visualização com que cada grupo abre, escolhida nas configurações do mural (pela chave da aba,
+   * ver core/mural-config.ts). O grupo que tem uma esquece a última escolhida na régua. Só o seu
+   * mural de anotações: o de quem visita abre como a pessoa que visita deixou.
+   */
+  readonly groupViews: Signal<ReadonlyMap<string, Density>> = signal(new Map<string, Density>());
+  /**
+   * A visualização trocada na régua num grupo que tem a dele: vale enquanto o grupo fica aberto, e
+   * não é guardada (ao voltar para ele, o grupo abre na dele de novo).
+   */
+  protected readonly passingDensity = signal<{ tab: string; density: Density } | null>(null);
+  /**
    * Sem a aba Tudo, a busca pediu para procurar em todos os grupos: o Tudo aparece até a pessoa
    * escolher um grupo. Só nesta visita.
    */
@@ -354,8 +365,19 @@ export abstract class WallState {
   private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? this.noteView().sort : this.sort()));
   /** A direção da ordem do mural aberto. */
   readonly direction = computed<Direction>(() => (isNotes(this.mural.kind()) ? this.noteView().direction : this.reviewDirection()));
-  /** O tipo de ficha do mural aberto (no de anotações, o da aba). Muda com `setDensity`. */
-  readonly density = computed<Density>(() => (isNotes(this.mural.kind()) ? this.noteView().density : this.reviewDensity()));
+  /** A visualização escolhida nas configurações para o grupo aberto; null, ele abre na última usada. */
+  readonly groupDensity = computed<Density | null>(() => (this.notes() ? (this.groupViews().get(this.activeTab()) ?? null) : null));
+  /**
+   * O tipo de ficha do mural aberto (no de anotações, o da aba; num grupo com a visualização dele,
+   * ela, ou a trocada na régua enquanto ele está aberto). Muda com `setDensity`.
+   */
+  readonly density = computed<Density>(() => {
+    if (!isNotes(this.mural.kind())) return this.reviewDensity();
+    const fixed = this.groupDensity();
+    if (!fixed) return this.noteView().density;
+    const passing = this.passingDensity();
+    return passing && passing.tab === this.activeTab() ? passing.density : fixed;
+  });
 
   protected inTab(r: Review): boolean {
     const k = this.activeTab();
@@ -580,6 +602,7 @@ export abstract class WallState {
     const tab = this.tabOf(this.mural.kind());
     this.allAsked.set(key === ALL_TAB);
     if (tab() === key && this.activeTab() === key) return;
+    this.passingDensity.set(null);
     tab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);
@@ -612,7 +635,9 @@ export abstract class WallState {
   /** O tipo de ficha do mural aberto (no de anotações, só o da aba aberta). */
   setDensity(density: Density): void {
     if (isNotes(this.mural.kind())) {
-      if (this.noteView().density !== density) this.patchNoteView({ density });
+      // o grupo com a visualização dele: a trocada na régua vale só enquanto ele está aberto
+      if (this.groupDensity()) this.passingDensity.set({ tab: this.activeTab(), density });
+      else if (this.noteView().density !== density) this.patchNoteView({ density });
     } else if (REVIEW_DENSITIES.includes(density)) {
       this.reviewDensity.set(density);
     }
@@ -670,6 +695,7 @@ export abstract class WallState {
     this.musicTab.set(ALL_TAB);
     this.allAsked.set(false);
     this.collapsed.set(new Set());
+    this.passingDensity.set(null);
     this.showDone.set(false);
     this.showBoard.set(false);
   }
@@ -686,6 +712,7 @@ export class WallView extends WallState {
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
+  override readonly groupViews = computed<ReadonlyMap<string, Density>>(() => groupViews(this.settings.notesConfig()));
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
   override readonly boardOnly = inject(KanbanStore).boardOnly;
 
@@ -708,6 +735,7 @@ export class WallView extends WallState {
     const key = noteTabKey({ category: label });
     this.allAsked.set(false);
     if (this.noteTab() === key) return;
+    this.passingDensity.set(null);
     this.noteTab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);

@@ -125,6 +125,27 @@ describe('as configurações do mural (a folha)', () => {
     expect(settings.notesConfig().categories).toEqual({});
   });
 
+  it('a visualização padrão do grupo: a última usada até escolher uma; o resumo diz qual', async () => {
+    await go('categorias');
+    const first = el.querySelector('.cat')!;
+    first.querySelector<HTMLButtonElement>('.cat-abre')!.click();
+    await fixture.whenStable();
+    const panel = first.querySelector('.cat-painel')!;
+    const vista = panel.querySelector('input[name^="config-vista-"]')!.closest('fieldset')!;
+    expect(vista.querySelector('legend')!.textContent).toContain('Visualização padrão');
+    expect(Array.from(vista.querySelectorAll('.seg-nome')).map((n) => n.textContent!.trim())).toEqual(['A última usada', 'Completas', 'Inteiras', 'Simples', 'Capa e nome', 'Lista']);
+    expect(segment(vista, 'A última usada').checked).toBeTrue();
+    expect(vista.querySelector('.nome-dica')!.textContent).toContain('da última vez');
+    segment(vista, 'Lista').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories['viagens!']).toEqual({ view: 'lista' });
+    expect(first.querySelector('.cat-resumo')!.textContent!.trim()).toBe('Abre em lista');
+    expect(vista.querySelector('.nome-dica')!.textContent).toContain('sempre abre assim');
+    segment(vista, 'A última usada').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories).toEqual({});
+  });
+
   it('na minha ordem, a alça sobe e desce a categoria pelo teclado, e as abas seguem', async () => {
     await go('categorias');
     segment(el, 'Na minha ordem').click();

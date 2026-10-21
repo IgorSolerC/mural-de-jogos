@@ -5,7 +5,7 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
+import { CategoryPrefs, GroupView, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, SubjectEntry, cleanCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
@@ -43,6 +43,17 @@ const AUDIENCES: readonly { value: Audience; label: string; icon: LucideIconData
   { value: 'publicar', label: 'Publicar', icon: ICON.megafone, desc: 'No seu mural e no Feed de quem segue você.' },
 ];
 const AUDIENCE_LABEL: Record<Audience, string> = { privada: 'Privada', visivel: 'Disponível', publicar: 'Publicar' };
+
+/** As visualizações que um grupo pode escolher para abrir, com os desenhos dos botões da régua do mural. */
+const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[] = [
+  { value: 'completa', label: 'Completas', icon: ICON.completas },
+  { value: 'inteira', label: 'Inteiras', icon: ICON.painel },
+  { value: 'simples', label: 'Simples', icon: ICON.simples },
+  { value: 'capas', label: 'Capa e nome', icon: ICON.grade },
+  { value: 'lista', label: 'Lista', icon: ICON.lista },
+];
+/** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
+const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas completas', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {
@@ -160,6 +171,7 @@ export class MuralConfig {
   protected readonly sections = computed(() => SECTIONS.filter((s) => s.id !== 'quadro' || !!this.board()));
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
+  protected readonly views = VIEWS;
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
@@ -567,6 +579,7 @@ export class MuralConfig {
     const parts: string[] = [];
     if (p.audience) parts.push(`Nasce ${AUDIENCE_LABEL[p.audience]}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
+    if (p.view) parts.push(`Abre em ${VIEW_SAID[p.view]}`);
     if (p.kanbanOnly === false) parts.push('Kanban no mural também');
     return parts.join(' · ');
   }

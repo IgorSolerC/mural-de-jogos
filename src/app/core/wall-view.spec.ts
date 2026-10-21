@@ -4,6 +4,7 @@ import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Mural } from './mural';
 import { WallView } from './wall-view';
+import { Settings } from './settings';
 
 function r(id: string, name: string, completedAt: string | null, diversao: number, extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -185,5 +186,66 @@ describe('WallView', () => {
     view.clearFilters();
     expect(view.isFiltered()).toBeFalse();
     expect(view.visible().length).toBe(4);
+  });
+
+  describe('a visualização padrão do grupo (configurações do mural)', () => {
+    const note = (id: string, name: string, category: string) => sanitizeReview({ id, kind: 'anotacoes', game: { name }, category, createdAt: '2024-01-01T00:00:00.000Z' })!;
+    let settings: Settings;
+
+    beforeEach(() => {
+      settings = TestBed.inject(Settings);
+      store.reviews.update((list) => [...list, note('ntrab01', 'Daily', 'Trabalho'), note('ncasa01', 'Receitas', 'Casa')]);
+      TestBed.inject(Mural).kind.set('anotacoes');
+    });
+
+    it('sem padrão, o grupo abre na última visualização usada nele (guardada)', () => {
+      view.setNoteTab('c:trabalho');
+      view.setDensity('capas');
+      view.setNoteTab('c:casa');
+      expect(view.density()).toBe('completa');
+      view.setNoteTab('c:trabalho');
+      expect(view.density()).toBe('capas');
+    });
+
+    it('com padrão, o grupo sempre abre nele; trocar na régua vale só até sair do grupo', () => {
+      view.setNoteTab('c:trabalho');
+      view.setDensity('capas');
+      settings.setCategoryPrefs('Trabalho', { view: 'lista' });
+      expect(view.groupDensity()).toBe('lista');
+      expect(view.density()).toBe('lista');
+      view.setDensity('simples');
+      expect(view.density()).toBe('simples');
+      // a escolhida na régua não é guardada como a do grupo
+      expect(view.noteViews()['c:trabalho'].density).toBe('capas');
+      view.setNoteTab('c:casa');
+      expect(view.density()).toBe('completa');
+      view.setNoteTab('c:trabalho');
+      expect(view.density()).toBe('lista');
+      // abrir pelo Kanban também volta ao padrão
+      view.setDensity('inteira');
+      view.openGroup('Casa');
+      view.openGroup('Trabalho');
+      expect(view.density()).toBe('lista');
+    });
+
+    it('tirar o padrão volta à última usada no grupo; o padrão de um grupo não mexe nos outros', () => {
+      settings.setCategoryPrefs('Trabalho', { view: 'lista' });
+      view.setNoteTab('c:casa');
+      expect(view.groupDensity()).toBeNull();
+      view.setDensity('capas');
+      expect(view.density()).toBe('capas');
+      view.setNoteTab('c:trabalho');
+      expect(view.density()).toBe('lista');
+      settings.setCategoryPrefs('Trabalho', { view: undefined });
+      expect(view.density()).toBe('completa');
+    });
+
+    it('nos murais de análises, o padrão dos grupos não vale', () => {
+      settings.setCategoryPrefs('Trabalho', { view: 'lista' });
+      view.setNoteTab('c:trabalho');
+      TestBed.inject(Mural).kind.set('jogos');
+      expect(view.groupDensity()).toBeNull();
+      expect(view.density()).toBe('completa');
+    });
   });
 });

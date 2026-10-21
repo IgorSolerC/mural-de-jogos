@@ -7,6 +7,7 @@ import {
   activeOrder,
   arrangedKeys,
   asksTag,
+  groupViews,
   hiddenKeys,
   moveKey,
   newNoteAudience,
@@ -98,6 +99,20 @@ describe('as configurações do mural de anotações', () => {
     expect([...hiddenKeys(cfg)]).toEqual([]);
     // da nuvem ou do armazenamento: só o true conta
     expect(sanitizeNotesConfig({ categories: { A: { hidden: true }, B: { hidden: 'sim' }, C: { hidden: false } } }).categories).toEqual({ a: { hidden: true } });
+  });
+
+  it('a visualização padrão do grupo: só as da régua; voltar à última usada tira o campo', () => {
+    let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Trabalho', { view: 'lista' });
+    cfg = withPrefs(cfg, 'Estudos!', { view: 'inteira', askTag: false });
+    expect(prefsOf(cfg, 'TRABALHO').view).toBe('lista');
+    expect([...groupViews(cfg)]).toEqual([
+      ['c:trabalho', 'lista'],
+      ['c:estudos!', 'inteira'],
+    ]);
+    cfg = withPrefs(cfg, 'trabalho', { view: undefined });
+    expect(cfg.categories).toEqual({ 'estudos!': { view: 'inteira', askTag: false } });
+    // da nuvem ou do armazenamento: só as visualizações que existem
+    expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 } } }).categories).toEqual({ a: { view: 'capas' } });
   });
 
   it('o filtro padrão das tags: Excluído por categoria (a mesma tag pode ficar em outra), e da nuvem só chaves de tag', () => {

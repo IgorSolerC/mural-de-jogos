@@ -1590,3 +1590,12 @@ The user wanted more ways to show the Nota widget than the compact card with tit
 - **No endless glue.** A whole-text note inside its own text (or deeper than two whole texts) falls back to the card (`GlueLink` chain through DI). A masked card (no spoilers) is always the card.
 - **Fixed in passing.** The reader's dark-band ink rule (`.ficha[data-cor] .head`) leaked into the header of a card glued in the text; it now skips `app-review-card .head`.
 - **Tests.** `core/widgets.spec.ts` (reading, writing, clashes, fixed size, hidden card), `ui/linked-card.spec.ts` (each look, opening, the self-glue, the cream inks inside a dark card, the reader's ink leak), `ui/rich-editor.spec.ts` (tiles and the sheet without size).
+
+## Visualização padrão do grupo (settings pass, 2026-10-21)
+
+The user wanted each group of the notes wall to choose the view it opens in, instead of the last one used. Notes wall only (not the Kanban, not the analyses).
+
+- **Where.** In the group's panel of Configurações do mural › Grupos, first among the behaviour rows: "Visualização padrão", a strip of six (two rows of three, two columns under 460px of part width): "A última usada" with "O padrão" under it, then the ruler's own icons and names, Completas, Inteiras, Simples, Capa e nome, Lista. A line under it says what the choice does; the group's summary reads "Abre em lista".
+- **Behaviour.** `CategoryPrefs.view` (SYNC_SCHEMA 37). `WallState.groupViews` → `groupDensity`: with one, the group's density is it, and `setDensity` keeps the ruler's change only while that tab stays open (`passingDensity`, cleared when the tab changes, by the wall or the Kanban); the remembered per-tab view is left untouched, so removing the default brings it back.
+- **Tests.** `core/mural-config.spec.ts`, `core/wall-view.spec.ts`, `ui/mural-config.spec.ts`.
+

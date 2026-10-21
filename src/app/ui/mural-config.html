@@ -221,6 +221,26 @@
                           <button type="button" class="link" (click)="openSubjects(c)">Criar e renomear em Assuntos</button>
                         </div>
 
+                        <!-- a visualização com que o grupo abre: a última usada (o de sempre) ou uma fixa -->
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Visualização padrão</legend>
+                          <div class="segmentos seis">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-vista-' + i" [checked]="!p.view" (change)="setPrefs(c, { view: undefined })" />
+                              <span class="seg-nome">A última usada</span>
+                              <span class="seg-sub">O padrão</span>
+                            </label>
+                            @for (o of views; track o.value) {
+                              <label class="segmento">
+                                <input type="radio" [name]="'config-vista-' + i" [checked]="p.view === o.value" (change)="setPrefs(c, { view: o.value })" />
+                                <lucide-icon class="seg-icone" [img]="o.icon" [size]="16" aria-hidden="true" />
+                                <span class="seg-nome">{{ o.label }}</span>
+                              </label>
+                            }
+                          </div>
+                          <p class="nome-dica">{{ p.view ? 'O grupo sempre abre assim. Trocar na régua do mural vale até sair dele.' : 'O grupo abre como você o deixou da última vez.' }}</p>
+                        </fieldset>
+
                         <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Anotação nova nasce</legend>
                           <div class="segmentos quatro">
