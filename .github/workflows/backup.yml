@@ -36,14 +36,13 @@ jobs:
     defaults:
       run:
         working-directory: api
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+    # Os secrets só nos passos que os usam, nunca no job: o `npm ci` não vê nem o token nem a senha.
     steps:
       - name: Confere a senha antes de tudo
         # roda antes do checkout: a pasta api ainda não existe, e o passo falhava ao começar
         working-directory: .
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           if [ -z "$BACKUP_SENHA" ]; then
             echo "::error::Falta o secret BACKUP_SENHA (Settings › Secrets and variables › Actions). Sem ele o backup não é feito, para nunca subir o banco aberto."
@@ -62,9 +61,14 @@ jobs:
       - run: npm ci
       - name: Exporta o banco
         run: npx wrangler d1 export mural --remote --output=backup-mural.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Confere o que veio
         run: bash scripts/backup.sh conferir backup-mural.sql
       - name: Compacta e tranca
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           DIA=$(date -u +%F)
           bash scripts/backup.sh trancar backup-mural.sql "backup-mural-$DIA.sql.gz.enc"
@@ -72,6 +76,8 @@ jobs:
           echo "ARQUIVO=backup-mural-$DIA.sql.gz.enc" >> "$GITHUB_ENV"
           echo "DIA=$DIA" >> "$GITHUB_ENV"
       - name: Confere que abre com a senha (e que o que abre é o banco inteiro)
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           bash scripts/backup.sh abrir "$ARQUIVO" > volta.sql
           bash scripts/backup.sh conferir volta.sql
@@ -104,14 +110,14 @@ jobs:
       run:
         working-directory: cofre-api
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
       # as tabelas das migrações do cofre (cofre-api/test/backup.test.ts confere a lista)
       BACKUP_TABELAS: cofre_contas cofre_credenciais cofre_envelopes cofre_itens cofre_sessoes cofre_desafios cofre_eventos cofre_freio_senha freios uso_diario
+    # os secrets só nos passos que os usam, como no job de cima
     steps:
       - name: Confere a senha antes de tudo
         working-directory: .
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           if [ -z "$BACKUP_SENHA" ] || [ "${#BACKUP_SENHA}" -lt 16 ]; then
             echo "::error::Falta o secret BACKUP_SENHA (pelo menos 16 caracteres). Sem ele o backup não é feito, para nunca subir o banco aberto."
@@ -126,9 +132,14 @@ jobs:
       - run: npm ci
       - name: Exporta o banco do cofre
         run: npx wrangler d1 export cofre --remote --output=backup-cofre.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Confere o que veio
         run: bash ../api/scripts/backup.sh conferir backup-cofre.sql
       - name: Compacta e tranca
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           DIA=$(date -u +%F)
           bash ../api/scripts/backup.sh trancar backup-cofre.sql "backup-cofre-$DIA.sql.gz.enc"
@@ -136,6 +147,8 @@ jobs:
           echo "ARQUIVO=backup-cofre-$DIA.sql.gz.enc" >> "$GITHUB_ENV"
           echo "DIA=$DIA" >> "$GITHUB_ENV"
       - name: Confere que abre com a senha (e que o que abre é o banco inteiro)
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
         run: |
           bash ../api/scripts/backup.sh abrir "$ARQUIVO" > volta.sql
           bash ../api/scripts/backup.sh conferir volta.sql

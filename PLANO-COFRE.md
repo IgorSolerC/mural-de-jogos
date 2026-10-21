@@ -1055,7 +1055,7 @@ Tudo grátis. Os comandos são no PowerShell, dentro da pasta `cofre-api`.
    - Nome: `cofre-deploy`.
 
    Ele só aparece uma vez: copie direto para o passo 5. Se o primeiro deploy falhar por permissão no
-   domínio, acrescente Zone › DNS › Edit. Antes deste passo, veja a decisão logo abaixo.
+   domínio, acrescente Zone › DNS › Edit. Sobre até onde os tokens alcançam, veja a decisão logo abaixo.
 5. **O environment `cofre` no GitHub** (Settings › Environments › New environment, nome `cofre`):
    - Required reviewers: você. Deixe "Prevent self-review" desligado, senão nem você aprova.
    - Deployment branches and tags: Selected branches, só `main`.
@@ -1084,7 +1084,7 @@ Tudo grátis. Os comandos são no PowerShell, dentro da pasta `cofre-api`.
 9. **Fica para a Fase 4**: o seu código em `COFRE_CODIGOS`, o cliente OAuth "Murall Cofre" e o
    `GOOGLE_CLIENT_SECRET`. Até lá, ninguém entra no cofre: a lista de quem pode usar está vazia.
 
-#### Uma decisão antes do passo 4: até onde o token do Murall alcança
+#### Decidido (21/10): até onde o token do Murall alcança
 
 Até onde sei, um token da Cloudflare não fica preso a um Worker nem a um banco: as permissões de
 Workers e de D1 valem para a conta inteira (a seção 9.3 pedia "só este Worker e este D1", e isso
@@ -1103,5 +1103,7 @@ O backup do cofre usa esse mesmo token, por isso não precisa de outro.
   `wrangler` adulterado, que alcança o cofre nos dois casos (ele roda também no deploy do cofre).
 - **c) Deixar como está** e contar com o vigia.
 
-Recomendação: **b**. Quase tudo o que a "a" protege também passa pelo `wrangler` e pelo GitHub, que
-as duas opções têm em comum.
+O usuário escolheu a **b**: quase tudo o que a "a" protege também passa pelo `wrangler` e pelo
+GitHub, que as duas opções têm em comum. Feito: nos três workflows, o token e a `BACKUP_SENHA` saíram
+do nível do job e só vão para o `env` dos passos que os usam (o token, só para os do `wrangler`). O
+`cofre-api/test/workflows.test.ts` confere isso em todos os workflows.
