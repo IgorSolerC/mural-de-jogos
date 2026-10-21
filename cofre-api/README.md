@@ -27,6 +27,10 @@ nunca decifra nada: não tem a chave para isso.
     Freio: 5 erros seguidos, espera de 1 minuto que dobra; 20 erros por dia.
   - `POST /api/cofre/recuperar` (`{ kRec }`): o código de recuperação no lugar da passkey.
   - `POST /api/cofre/trancar`: apaga a sessão (o token pode vir no corpo, como o `sendBeacon` manda).
+  - Itens (com o cofre aberto): `GET /api/cofre/itens`, `PUT`/`DELETE /api/cofre/itens/:id`,
+    `POST /api/cofre/itens/:id/restaurar` e `DELETE /api/cofre/lixeira/:id`. Cada gravação manda o
+    manifesto novo e o `contadorAnterior`; se outro aparelho gravou antes, 409 com o contador de
+    agora, e nada muda. Até 2.000 itens de até 16 kB.
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação
   do usuário. Até lá, a migração 0001 ainda pode mudar.

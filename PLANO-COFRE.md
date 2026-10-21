@@ -874,7 +874,7 @@ Em partes, um commit cada:
 | 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC (`CofreRpc` no `api/`), e já o freio por IP do login (16.6) | Feita |
 | 3 | Conferência das passkeys (registro e assinatura, código próprio, sem dependência nova) e criar o cofre | Feita |
 | 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha, a sessão do cofre e trancar | Feita |
-| 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | — |
+| 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | Feita |
 | 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | — |
 
 Detalhes da parte 1: o banco ganhou, além da 9.1, o `usuario_passkey` (o `user.id` de 16 bytes das
@@ -935,4 +935,23 @@ Detalhes da parte 4:
   abrir e ver o cofre, só não para mudar o que tem dentro.
 - O histórico ganha `passkey-usada`, `codigo-usado`, `aberto`, `aberto-com-codigo` e `erro-senha`.
   O aviso no Murall a cada sequência de erros (9.3) fica para a parte 6, com o RPC `avisar`.
+
+Detalhes da parte 5 (com o cofre aberto):
+
+- `GET /api/cofre/itens`: o contador, o manifesto e todos os itens (id, versão, dados cifrados, quando
+  mudou, desde quando está na lixeira). A página confere tudo contra o manifesto (`conferirItens`).
+- `PUT /api/cofre/itens/:id` (criar na versão 1, mudar na versão de agora + 1), `DELETE` no mesmo
+  endereço (para a lixeira; a versão não muda), `POST .../restaurar` e `DELETE /api/cofre/lixeira/:id`
+  (apagar de vez). Cada um manda o manifesto novo e o contador que o aparelho viu.
+- **O 409 de verdade**: o item e o manifesto vão num lote atômico, e a parte do item só acontece se o
+  manifesto gravado for exatamente o deste pedido. Comparar só o contador não bastava: dois aparelhos
+  que partem do mesmo contador chegariam os dois a "contador + 1". Tirar essa condição de propósito
+  faz 2 testes falharem.
+- **A lixeira e o manifesto cifrado** (decidido ao implementar): o servidor não pode mudar o
+  manifesto, então a limpeza dos 30 dias (parte 6) apaga os dados do item e deixa uma lápide (o id e a
+  versão, sem conteúdo); o manifesto continua batendo, e a página tira a lápide no próximo salvamento
+  com `DELETE /api/cofre/lixeira/:id`. Uma lápide não volta (410).
+- Limites: item de 541 bytes a 16 kB, em blocos de 512 (a versão 1); até 2.000 itens contando a
+  lixeira; **o corpo dessas rotas vai até 256 kB** (o plano dizia 64 kB, mas com 2.000 itens o
+  manifesto sozinho passa disso); a cota do dia vale para tudo.
 

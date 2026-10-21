@@ -4,6 +4,7 @@ import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { createRoutes } from './routes/create';
 import { entryRoutes } from './routes/entry';
+import { itemRoutes } from './routes/items';
 import { openRoutes } from './routes/open';
 
 /** A versão da API que o /api/status informa. */
@@ -65,6 +66,7 @@ export function createApp(deps: Deps): Hono {
   entryRoutes(app, deps);
   createRoutes(app, deps);
   openRoutes(app, deps);
+  itemRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API do cofre.' }, 404));
 
