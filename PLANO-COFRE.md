@@ -1151,3 +1151,28 @@ Parte 1, o que entrou:
   passkeys reais dos vetores, e abre pelo caminho da 8.1. Abre pelo celular com o segredo do PRF, pelo
   PC no modo servidor e pelo código do kit; com a senha errada, a API recusa a prova. Selar o envelope
   com um id e mandar outro faz 3 desses testes falharem.
+
+Parte 3, primeiro pedaço (a senha mestra, sem tela): `core/forca.ts`. **Para o usuário conferir**: o plano
+pedia "mínimo de ~70 bits estimados", e a estimativa é minha, sem dependência nova, feita para errar
+para menos:
+
+- Só a frase que a página sorteou, exatamente igual, vale como sorteada (77 bits). A mesma frase
+  digitada sem ter sido a sorteada desta vez conta como palavras escolhidas.
+- Uma palavra da lista do cofre: ~11 bits, o de uma palavra escolhida por alguém (sorteada valeria
+  12,9).
+- Letras fora da lista:
+  - 3 ou mais letras seguidas (palavra de outra língua, nome): 2 bits por letra;
+  - uma palavra de 1 ou 2 letras sozinha (eu, de): 5 bits;
+  - letras soltas: 4,7 bits cada.
+- Algarismos: 3,3 bits; símbolos: 5; cada maiúscula: +1; separador (espaço, hífen, ponto): 1; acentos
+  não contam.
+- Repetição, sequência e fileira do teclado: 1 bit por caractere; um ano (19xx/20xx): 7 bits.
+- Letra trocada por número numa palavra da lista (p3dr4): +1 bit por troca.
+- Repetir a senha inteira quase não soma.
+- As senhas mais comuns: no máximo 10 bits.
+
+Mínimo de 70 bits; com algum aparelho no modo servidor, 78, o de uma frase sorteada. Na prática:
+- não passam: as senhas comuns, as trocas por número, as frases do dia a dia ("eu amo meu cachorro
+  rex desde 2015", 62) e uma senha aleatória de 14 caracteres (66);
+- passam: 7 palavras escolhidas da lista (73) e uma senha aleatória de 16 caracteres variados (74).
+
