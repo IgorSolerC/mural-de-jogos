@@ -624,7 +624,11 @@ describe('Kanban', () => {
       kanban.update(TRAB, (b, at) => resetBoard(b, at));
       expect(kanban.get(TRAB)!.cards).toEqual([]);
       kanban.restore(before);
-      expect(kanban.get(TRAB)!.cards).toEqual(before.cards);
+      // as anotações voltam com a hora do Desfazer (desfazer é mexer agora, ver restoredBoard): a
+      // mesma de antes só quando o relógio não virou um milésimo no meio; o lugar é o de antes
+      const place = (cards: KanbanBoard['cards']) => cards.map(({ at: _, ...c }) => c);
+      expect(place(kanban.get(TRAB)!.cards)).toEqual(place(before.cards));
+      kanban.get(TRAB)!.cards.forEach((c, i) => expect(c.at! >= (before.cards[i].at ?? '')).withContext(c.note).toBeTrue());
       expect(kanban.get(TRAB)!.columns).toEqual(before.columns);
     });
 

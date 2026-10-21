@@ -38,6 +38,9 @@ describe('Toasts.copy', () => {
       const live = sheet.querySelector<HTMLElement>('.live');
       expect(live).not.toBeNull();
       const undo = live!.querySelector('button')!;
+      // o bilhete entra recortado (a animação print começa com clip-path de 100%), e o recorte vale
+      // para o toque também: no começo dela, o ponto acha a folha de trás. Esperar ela acabar.
+      await Promise.all(live!.querySelector('.bilhete')!.getAnimations().map((a) => a.finished));
       const r = undo.getBoundingClientRect();
       // o que está por cima naquele ponto é o bilhete, não a folha nem o fundo dela
       const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);

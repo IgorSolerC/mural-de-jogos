@@ -9,6 +9,7 @@ import { ReviewStore } from '../core/review-store';
 import { Choice, Confirm } from '../ui/confirm';
 import { CalendarPage } from './calendar-page';
 import { GoogleAgenda } from '../core/google-agenda-sync';
+import { closeDialog } from '../testing/dialog-close.spec';
 
 /** A página do Calendário: as três vistas, andar pelos períodos, a folha do lembrete e as anotações anexadas. */
 
@@ -186,7 +187,7 @@ describe('página do Calendário', () => {
       expect(sheet()?.open).toBeTrue();
       expect(text(sheet()!.querySelector('h2'))).toBe('Editar lembrete');
       expect(sheet()!.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Fazer bolo de aniversário');
-      sheet()!.close();
+      await closeDialog(sheet()!);
       await settle();
       $$('.dia-col')[4].querySelector<HTMLElement>('.dia-mais')!.click();
       await settle();

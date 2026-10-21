@@ -4,6 +4,7 @@ import { NOTES_CONFIG_DEFAULT } from '../core/mural-config';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { nextClose } from '../testing/dialog-close.spec';
 import { CardPicker } from './card-picker';
 import { ProfilePicker } from './profile-picker';
 
@@ -55,10 +56,15 @@ describe('os filtros do seletor de fichas', () => {
   }
 
   const stable = () => fixture.whenStable();
-  /** Fechar: o "close" do diálogo chega numa tarefa depois (e fecharia a folha aberta de novo logo em seguida). */
+  /**
+   * Fechar (depois do `open.set(false)`): o "close" do diálogo chega numa tarefa depois, e fecharia a
+   * folha aberta de novo logo em seguida; por isso, esperar o próprio evento.
+   */
   const closed = async () => {
+    const dialog = el.querySelector('dialog')!;
+    const event = dialog.open ? nextClose(dialog) : Promise.resolve();
     await stable();
-    await new Promise((r) => setTimeout(r));
+    await event;
     await stable();
   };
   const names = () => Array.from(el.querySelectorAll('.escolha .nome')).map(text);

@@ -10,6 +10,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { SHARED_AUTO, SharedEntry, SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { nextClose } from '../testing/dialog-close.spec';
 import { ReviewReader } from './review-reader';
 
 /**
@@ -364,7 +365,10 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     // nada vai para a nuvem da anotação (a leitora nem escreve nela)
     expect(shared.get('nota-1')!.local).toBeNull();
     expect(TestBed.inject(Settings).categoryLook('Casa').color).toBeDefined();
+    // a orelha muda no "close" da folha, que chega numa tarefa depois do Pronto
+    const shut = nextClose(sheet);
     sheet.querySelector<HTMLButtonElement>('.foot .btn-ink')!.click();
+    await shut;
     await settle();
     expect(q('.orelha-grupo')?.textContent).toContain('Casa');
     // quem escreve tem o Editar: o "Mais" não traz a folha

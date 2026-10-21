@@ -237,6 +237,9 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     fixture.componentInstance.open(review('r-hades', 'Hades'));
     await settle();
     const items = await openMore();
+    // o bilhete leva o foco ao primeiro caminho num setTimeout dele, que o Chrome pode atrasar 4 ms
+    // (timers aninhados): esperar ele chegar, senão as teclas abaixo saem antes dele
+    for (let i = 0; i < 50 && document.activeElement !== items[0]; i++) await wait(10);
     expect(document.activeElement).toBe(items[0]);
     const key = (k: string) => (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
     key('ArrowDown');

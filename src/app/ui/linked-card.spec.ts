@@ -277,11 +277,13 @@ describe('a nota colada no texto (o widget Nota)', () => {
       // o canto vazio da folha (o fim da pauta, à direita) abre esta nota, e o toque não sobe
       let outer = 0;
       document.body.addEventListener('click', () => outer++, { once: true });
-      // o canto tem de estar na janela: fora dela, elementFromPoint não acha nada
+      // o canto tem de estar na janela: fora dela, elementsFromPoint não acha nada
       const folha = sheet.querySelector<HTMLElement>('.folha')!;
       folha.scrollIntoView({ block: 'end' });
       const r = folha.getBoundingClientRect();
-      const empty = document.elementFromPoint(r.right - 4, r.bottom - 4) as HTMLElement;
+      // o de cima naquele ponto, entre os desta nota colada: o que mais estiver na tela do teste
+      // (preso no pé da janela, por exemplo) não conta, mas nada da ficha pode cobrir o canto
+      const empty = document.elementsFromPoint(r.right - 4, r.bottom - 4).find((n) => el.contains(n)) as HTMLElement;
       expect(empty.closest('article.inteira')).toBe(sheet);
       empty.click();
       expect(opened).toEqual(['rnota1', 'rnota1']);
@@ -299,12 +301,16 @@ describe('a nota colada no texto (o widget Nota)', () => {
       const folha = el.querySelector<HTMLElement>('.folha')!;
       expect(arrow.getAttribute('aria-expanded')).toBe('true');
       expect(arrow.getAttribute('aria-controls')).toBe(folha.id);
+      // a altura em linhas da pauta (min-height) chega num quadro depois: medir com ela já posta
+      await settle(() => el.style.minHeight !== '');
       const tall = el.getBoundingClientRect().height;
       arrow.click();
       await fixture.whenStable();
       expect(arrow.getAttribute('aria-expanded')).toBe('false');
       expect(folha.hidden).toBeTrue();
       expect(el.querySelector('article.inteira')!.classList).toContain('fechada');
+      // e, fechada, a altura em linhas baixa no quadro seguinte
+      await settle(() => el.getBoundingClientRect().height < tall);
       expect(el.getBoundingClientRect().height).toBeLessThan(tall);
       arrow.click();
       await fixture.whenStable();

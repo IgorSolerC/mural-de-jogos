@@ -3,6 +3,7 @@ import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testin
 import { RichEditor, styleAt } from './rich-editor';
 import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { closeDialog } from '../testing/dialog-close.spec';
 
 describe('a régua de formatação do texto', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -959,7 +960,7 @@ describe('a folha do widget no editor', () => {
 
   it('fechar a lista da Nota sem escolher deixa o foco na ficha a escolher, que a abre de novo', async () => {
     await choose('Nota');
-    (el.querySelector('app-card-picker dialog') as HTMLDialogElement).close();
+    await closeDialog(el.querySelector('app-card-picker dialog') as HTMLDialogElement);
     await wait();
     const which = el.querySelector<HTMLButtonElement>('.wfolha .ficha-escolher')!;
     expect(which.classList).toContain('vazia');

@@ -93,10 +93,20 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     return arrow();
   };
   const openMenu = async () => {
-    (await arrived())!.click();
-    await fixture.whenStable();
-    await new Promise((r) => setTimeout(r));
-    return el.querySelector<HTMLButtonElement>('app-feed-menu [role="menuitem"]')!;
+    const seta = (await arrived())!;
+    // a parte Quem vê, aberta agora há pouco, leva o foco ao rádio marcado num setTimeout do editor,
+    // que o Chrome pode atrasar 4 ms (timers aninhados): chegando depois do da setinha, ele tiraria o
+    // foco do item do bilhete. Uma pessoa nunca clica tão rápido; o teste espera ele chegar antes.
+    await new Promise((r) => setTimeout(r, 20));
+    seta.click();
+    // o bilhete leva o foco ao item no setTimeout dele, que o Chrome também pode atrasar: esperar ele
+    // chegar (senão um Esc logo depois fecha o bilhete e o foco atrasado vai para o item que some)
+    const item = () => el.querySelector<HTMLButtonElement>('app-feed-menu [role="menuitem"]');
+    for (let i = 0; i < 50 && (!item() || document.activeElement !== item()); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      await fixture.whenStable();
+    }
+    return item()!;
   };
 
   it('tem só Público e Privado, sem Visível', async () => {

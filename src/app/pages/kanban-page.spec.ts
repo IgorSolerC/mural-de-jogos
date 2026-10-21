@@ -13,6 +13,7 @@ import { MuralConfig } from '../ui/mural-config';
 import { Mural } from '../core/mural';
 import { KANBAN_LAST_KEY } from '../core/kanban';
 import { WallView } from '../core/wall-view';
+import { closeDialog, nextClose } from '../testing/dialog-close.spec';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -298,7 +299,7 @@ describe('página do Kanban', () => {
     expect(sheet.querySelector('h3')!.textContent).toBe('Quadro');
     expect(sheet.querySelector('.lead')!.textContent!.replace(/\s+/g, ' ')).toContain('O quadro de Trabalho no Kanban: 3 colunas e 2 anotações.');
     // fechar devolve o foco à engrenagem
-    sheet.querySelector('dialog')!.close();
+    await closeDialog(sheet.querySelector('dialog')!);
     await settle();
     expect(host.querySelector('app-mural-config')).toBeNull();
     expect(document.activeElement).toBe(gear);
@@ -333,7 +334,10 @@ describe('página do Kanban', () => {
     const sheet = await configSheet();
     sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
+    // a folha sai no "close", que chega numa tarefa depois
+    const shut = nextClose(sheet.querySelector('dialog')!);
     sheet.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
+    await shut;
     await settle();
     expect(ask.calls.mostRecent().args[0].title).toBe('Recomeçar o quadro de Trabalho?');
     expect(host.querySelector('app-mural-config')).toBeNull();
@@ -352,7 +356,7 @@ describe('página do Kanban', () => {
     // a última parte aberta foi o Quadro: sem quadro, a folha abre nos Padrões
     sheet.querySelector<HTMLButtonElement>('#config-aba-quadro')!.click();
     await settle();
-    sheet.querySelector('dialog')!.close();
+    await closeDialog(sheet.querySelector('dialog')!);
     await settle();
     const solo = TestBed.createComponent(MuralConfig);
     document.body.appendChild(solo.nativeElement);
@@ -946,7 +950,9 @@ describe('página do Kanban', () => {
     const tpl = host.querySelector('app-kanban-template-sheet')!;
     expect(tpl.querySelector('dialog[open] h2')!.textContent).toContain('Card padrão');
     expect(tpl.querySelector('.previa app-review-card')).not.toBeNull();
+    const shut = nextClose(tpl.querySelector('dialog')!);
     [...tpl.querySelectorAll<HTMLButtonElement>('.foot button')].find((b) => b.textContent!.includes('Usar este card'))!.click();
+    await shut;
     await settle();
     expect(host.querySelector('app-kanban-template-sheet')).toBeNull();
     expect(kanban.get(TRAB)!.columns[1].dresses).toBeTrue();
@@ -1472,7 +1478,7 @@ describe('página do Kanban', () => {
       // fechar a folha (o Esc, ou o x) guarda o que estava escrito
       input.value = 'Aguardando cliente';
       input.dispatchEvent(new Event('input'));
-      sheet.querySelector<HTMLDialogElement>('dialog')!.close();
+      await closeDialog(sheet.querySelector<HTMLDialogElement>('dialog')!);
       await settle();
       expect(cardOf('nsync001').status).toBe('Aguardando cliente');
     });
