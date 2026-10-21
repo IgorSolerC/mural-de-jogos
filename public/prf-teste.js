@@ -231,6 +231,20 @@
 
   async function conferirNavegador() {
     var partes = [nomeDoNavegador()];
+    // aberta como arquivo (ou num endereço sem https), o navegador recusa toda passkey
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      var site = 'https://murall.igorsc.com.br/prf-teste.html';
+      navegador.textContent = 'Aberta como ' + (location.protocol === 'file:' ? 'arquivo' : 'endereço sem https') + ', o navegador recusa as passkeys. Abra pelo site: ';
+      var link = document.createElement('a');
+      link.href = site;
+      link.textContent = site;
+      navegador.appendChild(link);
+      botoesCriar.concat([botaoQualquer]).forEach(function (b) {
+        b.disabled = true;
+      });
+      linhas.push('Endereço: ' + location.protocol + ' (sem https)\n  Sem passkeys.');
+      return;
+    }
     if (!window.isSecureContext || !window.PublicKeyCredential || !navigator.credentials) {
       navegador.textContent = partes[0] + ': ' + (window.isSecureContext ? 'este navegador não tem passkeys.' : 'passkeys só funcionam com https.');
       botoesCriar.concat([botaoQualquer]).forEach(function (b) {
@@ -251,7 +265,7 @@
       /* segue sem a informação */
     }
     navegador.textContent = partes.join(' · ') + '.';
-    linhas.unshift('Navegador: ' + navigator.userAgent + '\n  ' + partes.join(' · '));
+    linhas.unshift('Navegador: ' + navigator.userAgent + '\n  ' + partes.join(' · ') + '\n  Endereço: ' + location.origin);
   }
 
   botoesCriar.forEach(function (b) {
