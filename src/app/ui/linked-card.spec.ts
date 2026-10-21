@@ -263,20 +263,41 @@ describe('a nota colada no texto (o widget Nota)', () => {
       expect(el.querySelector('button.tira')!.hasAttribute('inert')).toBeTrue();
     });
 
-    it('texto inteiro: o nome na faixa e o texto todo; tocar no texto abre a nota', async () => {
+    it('texto inteiro: o nome na faixa e o texto todo; o nome abre a nota, o texto é dela (não abre)', async () => {
       const opened: string[] = [];
       await show(['#rnota1', 'inteira'], { openCard: (r) => opened.push(r.id) });
       const sheet = el.querySelector<HTMLElement>('article.inteira')!;
-      expect(sheet.querySelector('.faixa-nome')?.textContent?.trim()).toBe('Comprar um console');
+      const name = sheet.querySelector<HTMLButtonElement>('button.faixa-nome')!;
+      expect(name.textContent?.trim()).toBe('Comprar um console');
       expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Ver o preço.');
       expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Pesquisar');
       expect(el.classList).toContain('sem-tamanho');
-      // a altura do texto: passa do tamanho do widget, se o texto pede
+      // tocar no texto não abre nada: é o texto dela
       const r = sheet.querySelector('.folha')!.getBoundingClientRect();
       const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 8)!;
-      expect(hit.classList).toContain('faixa-nome');
+      expect(hit.closest('button.faixa-nome')).toBeNull();
       (hit as HTMLElement).click();
+      expect(opened).toEqual([]);
+      name.click();
       expect(opened).toEqual(['rnota1']);
+    });
+
+    it('texto inteiro: as tarefas da sua nota se marcam ali mesmo, e ela é salva marcada', async () => {
+      const store = TestBed.inject(ReviewStore);
+      await show(['#rnota1', 'inteira'], { openCard: () => undefined });
+      const box = el.querySelector<HTMLInputElement>('.folha input[type="checkbox"]')!;
+      expect(box).not.toBeNull();
+      box.click();
+      await fixture.whenStable();
+      expect(store.get('rnota1')!.text).toContain('- [x] Pesquisar');
+      fixture.destroy();
+      el.remove();
+
+      // sem quem abra (um lugar só de ver), as tarefas não se marcam
+      store.update({ ...store.get('rnota1')!, text: '- [ ] Pesquisar' });
+      await show(['#rnota1', 'inteira'], {});
+      expect(el.querySelector('.folha input[type="checkbox"]')).toBeNull();
+      expect(el.querySelector('.folha .caixa')).not.toBeNull();
     });
 
     it('a faixa, a tira e a ficha colada têm o papel delas, não o da nota em volta', async () => {

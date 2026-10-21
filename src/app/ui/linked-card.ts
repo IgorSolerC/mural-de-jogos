@@ -4,8 +4,13 @@ import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
 import { Review, isDarkStock, isNote } from '../core/review';
+import { NoteDone } from '../core/note-done';
 import { lookOf } from '../core/paper';
 import { ownPaperVars } from '../core/paper-art';
+import { ReviewStore } from '../core/review-store';
+import { toggleCheck } from '../core/rich-text';
+import { canWrite } from '../core/shared-notes';
+import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { CardLook, readCardRef } from '../core/widgets';
 import { GluedReviewCard } from './glued-review-card';
@@ -97,20 +102,21 @@ const EAR_GAP = 0.2;
         @case ('inteira') {
           <!-- o texto inteiro: a nota como fica aberta, colada inteira na de fora (a faixa da
                cartolina dela com o nome e a folha creme com o texto todo) -->
-          <article class="inteira" data-colado [class.abre]="openable()" [attr.aria-label]="spoken(f.review)">
+          <article class="inteira" data-colado [attr.aria-label]="spoken(f.review)">
             <header class="faixa cartolina" [attr.data-cor]="stock()" [style]="ownPaper()">
               @if (overline(f.review); as o) {
                 <span class="faixa-assunto">{{ o }}</span>
               }
               @if (openable()) {
-                <button type="button" class="faixa-nome" (click)="open(f.review)">{{ f.review.game.name }}</button>
+                <button type="button" class="faixa-nome" [title]="'Abrir ' + f.review.game.name" (click)="open(f.review)">{{ f.review.game.name }}</button>
               } @else {
                 <span class="faixa-nome">{{ f.review.game.name }}</span>
               }
             </header>
             <div class="folha">
               @if (f.review.text.trim()) {
-                <app-rich-text class="folha-texto" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" />
+                <!-- o texto vivo: as tarefas se marcam (na sua nota), os widgets tocam, os links abrem -->
+                <app-rich-text class="folha-texto" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" [checkable]="canTick()" (toggled)="tick(f.review, $event)" />
               } @else {
                 <p class="folha-vazia">Ainda sem texto.</p>
               }
@@ -312,19 +318,17 @@ const EAR_GAP = 0.2;
       text-wrap: balance;
       overflow-wrap: anywhere;
     }
-    /* o nome é o botão que abre; a área dele cobre a nota inteira */
+    /* o nome é o botão que abre a nota; o texto embaixo é dela, vivo (as tarefas, os widgets) */
     button.faixa-nome {
       cursor: pointer;
+      text-decoration: underline 2px transparent;
+      text-underline-offset: 0.16em;
+      transition: text-decoration-color var(--t-ui) var(--ease-ui);
     }
-    button.faixa-nome::after {
-      content: '';
-      position: absolute;
-      inset: 0;
+    button.faixa-nome:hover {
+      text-decoration-color: currentColor;
     }
     button.faixa-nome:focus-visible {
-      outline: none;
-    }
-    .inteira:has(.faixa-nome:focus-visible) {
       outline: 3px solid var(--hi);
       outline-offset: 3px;
     }
@@ -337,10 +341,11 @@ const EAR_GAP = 0.2;
       white-space: normal;
       text-align: left;
     }
-    .inteira.abre .folha {
-      pointer-events: none;
-    }
-    .inteira.abre .folha ::ng-deep :is(a.url, .elo[tabindex], .tocavel, .spoiler:not(.revelado), .resumo-btn, app-linked-card.abre .lugar, app-linked-card.abre .tira, app-linked-card.abre .inteira) {
+    /* Na ficha do mural, o texto deixa o toque passar para a ficha de fora (só o que é de tocar pega):
+       o nome e o que é de tocar no texto desta continuam pegando */
+    :host(.abre) .tira,
+    :host(.abre) button.faixa-nome,
+    .folha ::ng-deep :is(input, button, a, select, summary, iframe, video, audio, [tabindex], .tocavel, .spoiler) {
       pointer-events: auto;
     }
     .folha-texto {
@@ -375,10 +380,9 @@ const EAR_GAP = 0.2;
       text-decoration-color: rgb(21 21 21 / 0.45);
     }
 
-    /* a que abre sobe um pouco com o mouse, reta, como a ficha colada */
+    /* a tira que abre sobe um pouco com o mouse, reta, como a ficha colada */
     @media (hover: hover) {
-      :host(.abre) .tira:hover,
-      .inteira.abre:hover {
+      :host(.abre) .tira:hover {
         translate: 0 -2px;
         filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.28)) drop-shadow(0 7px 9px rgb(0 0 0 / 0.22));
       }
@@ -510,6 +514,19 @@ export class LinkedCard {
     return { '--stock': `var(--stock-${stock})`, ...(r ? ownPaperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, isDarkStock(stock)) : {}) };
   });
 
+  private readonly store = inject(ReviewStore);
+  private readonly shared = inject(SharedStore);
+  private readonly noteDone = inject(NoteDone);
+  /**
+   * As tarefas do texto inteiro se marcam: a nota é sua (e, compartilhada, você pode escrever nela),
+   * num lugar onde as notas coladas abrem (o seu mural, a leitura).
+   */
+  protected readonly canTick = computed(() => {
+    const f = this.found();
+    if (!f?.mine || !this.openable() || !this.store.get(f.review.id)) return false;
+    const id = f.review.id;
+    return !this.shared.get(id) || canWrite(this.shared.role(id));
+  });
 
   /**
    * O tamanho da ficha na folha: a escala, a caixa que ela ocupa depois de encolher e a folga em
@@ -600,6 +617,17 @@ export class LinkedCard {
         this.refit = null;
       });
     });
+  }
+
+  /** Marcou uma tarefa no texto inteiro: a nota colada é salva com ela marcada, sem abrir nada. */
+  protected tick(r: Review, line: number): void {
+    const now = this.store.get(r.id);
+    if (!now || !this.canTick()) return;
+    const text = toggleCheck(now.text, line);
+    if (text === now.text) return;
+    this.store.update({ ...now, text, updatedAt: new Date().toISOString() });
+    // a tarefa com link para outra anotação: oferece finalizar aquela também
+    void this.noteDone.offerLinked(now.id, text, line);
   }
 
   protected open(r: Review): void {
