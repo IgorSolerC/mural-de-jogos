@@ -277,7 +277,10 @@ describe('a nota colada no texto (o widget Nota)', () => {
       // o canto vazio da folha (o fim da pauta, à direita) abre esta nota, e o toque não sobe
       let outer = 0;
       document.body.addEventListener('click', () => outer++, { once: true });
-      const r = sheet.querySelector('.folha')!.getBoundingClientRect();
+      // o canto tem de estar na janela: fora dela, elementFromPoint não acha nada
+      const folha = sheet.querySelector<HTMLElement>('.folha')!;
+      folha.scrollIntoView({ block: 'end' });
+      const r = folha.getBoundingClientRect();
       const empty = document.elementFromPoint(r.right - 4, r.bottom - 4) as HTMLElement;
       expect(empty.closest('article.inteira')).toBe(sheet);
       empty.click();
