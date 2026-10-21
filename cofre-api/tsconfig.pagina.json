@@ -1,0 +1,9 @@
+{
+  // A página e a API juntas (test/pagina.suite.ts, rodado pelo test/node.test.ts): o teste importa o
+  // núcleo do cofre (projects/cofre), que segue o tsconfig da raiz, sem o noUncheckedIndexedAccess daqui.
+  // O resto da API continua conferido com ele em tsconfig.json e tsconfig.node.json.
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": { "noUncheckedIndexedAccess": false },
+  "include": ["test/node.test.ts", "test/pagina.suite.ts"],
+  "exclude": []
+}

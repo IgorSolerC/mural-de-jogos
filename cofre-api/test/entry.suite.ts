@@ -12,9 +12,12 @@ export function entrySuite(label: string, setup: Setup) {
       const { db, call, google } = await setup();
       const res = await call('POST', '/api/entrar', entrar('codigo-sub-dono'), { ip: '203.0.113.5' });
       expect(res.status).toBe(200);
-      const body = (await res.json()) as { token: string; expiraEm: string };
+      const body = (await res.json()) as { token: string; expiraEm: string; usuario: string; codigo: string };
       expect(body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
       expect(body.expiraEm).toBe('2026-10-21T15:05:00.000Z');
+      // o id da conta (vai no AAD do que a página sela) e o código do Murall
+      expect(body.usuario).toBe(DONO.id);
+      expect(body.codigo).toBe(DONO.code);
       // ao Google vai o código, o verificador do PKCE e o endereço de volta do próprio cofre
       expect(Object.fromEntries(google.requests[0]!)).toEqual({
         grant_type: 'authorization_code',

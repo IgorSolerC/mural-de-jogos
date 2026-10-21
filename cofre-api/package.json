@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json && tsc -p tsconfig.pagina.json",
     "test": "npm run test:node && npm run test:workers",
     "test:node": "vitest run --config vitest.node.config.ts",
     "test:workers": "vitest run --config vitest.workers.config.ts"

@@ -1107,3 +1107,47 @@ O usuário escolheu a **b**: quase tudo o que a "a" protege também passa pelo `
 GitHub, que as duas opções têm em comum. Feito: nos três workflows, o token e a `BACKUP_SENHA` saíram
 do nível do job e só vão para o `env` dos passos que os usam (o token, só para os do `wrangler`). O
 `cofre-api/test/workflows.test.ts` confere isso em todos os workflows.
+
+### 17.6 Fase 4 (começada em 21/10, enquanto o DNS troca)
+
+A Fase 4 (criar o cofre) em partes, uma de cada vez:
+
+| Parte | O quê | Estado |
+|---|---|---|
+| 1 | **A lógica de criar, sem tela**: a conversa com a API, a passkey com PRF e a montagem do pedido, com um teste da página e da API juntas | Feita |
+| 2 | **Entrar com o Google** na página: o PKCE, a volta em `/entrar`, limpar a URL na hora. Precisa do cliente OAuth "Murall Cofre" do usuário (16.14) para testar no ar | — |
+| 3 | **As telas de criar**: os aparelhos (com PRF ou no modo servidor, o aviso de um aparelho só), a senha mestra (a frase sorteada e a força de uma escrita à mão), o kit de emergência para imprimir. Com o Impeccable | — |
+| 4 | **De ponta a ponta no Chrome** com o autenticador virtual e o `wrangler dev` (a sessão de entrada posta direto no banco local, só no teste) | — |
+
+Parte 1, o que entrou:
+
+- `core/api.ts`: os pedidos à API na mesma origem, sem cookie, sem cache, sem seguir redirecionamento
+  e sem referência; o token só na memória; um erro da API vira `ErroApi` com o código e a mensagem em
+  português dela, e uma resposta que não é da API (a Cloudflare fora, sem rede) vira uma mensagem
+  simples.
+- `core/passkey.ts`: as opções da API passam pelas regras da página (o rpId tem de ser o do cofre,
+  biometria obrigatória, atestado "none", só ES256 e RS256) e pedem o PRF com a entrada do cofre. Os
+  aparelhos respondem de três jeitos, e cada um tem teste:
+  - o segredo já vem no registro;
+  - o aparelho diz que tem PRF, mas só dá o segredo numa assinatura: a página pede uma logo em seguida
+    (um segundo toque), com um desafio sorteado na própria página, porque essa assinatura não vai para
+    o servidor;
+  - sem PRF: quem decide o modo servidor é a tela, nunca a função em silêncio.
+
+  Se a pessoa cancelar o segundo toque, a passkey volta marcada "tem PRF, falta o segredo", e a tela
+  pode pedir de novo. Os erros do navegador viram mensagens em português.
+- `core/criar.ts`: monta o corpo do `POST /api/cofre`:
+  - o sal, o Argon2id, M, V, kAuth e o manifesto vazio;
+  - o código de recuperação, com E_rec e kRec;
+  - o envelope de cada aparelho, com o S_i dos sem PRF.
+
+  Os segredos são zerados. O segredo do PRF de cada passkey só é zerado quando tudo deu certo: se algo
+  falhar no meio, montar de novo não rebaixa o aparelho para o modo servidor. O texto do código volta
+  para a tela, para o kit.
+- Na API: `POST /api/entrar` devolve também o `usuario` (o id da conta, que entra no AAD de tudo o que
+  a página sela) e o `codigo`.
+- **A página e a API juntas** (`cofre-api/test/pagina.suite.ts`, só no Node, porque o runtime dos
+  Workers não compila o WASM do Argon2id): o que a página monta vai para a API de verdade com as
+  passkeys reais dos vetores, e abre pelo caminho da 8.1. Abre pelo celular com o segredo do PRF, pelo
+  PC no modo servidor e pelo código do kit; com a senha errada, a API recusa a prova. Selar o envelope
+  com um id e mandar outro faz 3 desses testes falharem.

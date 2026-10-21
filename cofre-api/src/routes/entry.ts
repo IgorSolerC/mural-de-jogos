@@ -32,7 +32,8 @@ export function entryRoutes(app: Hono, deps: Deps): void {
 
     const token = newToken();
     await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now)], 7, { session: true });
-    return c.json({ token, expiraEm: new Date(now.getTime() + ENTRY_MS).toISOString() });
+    // a página precisa do id da conta: ele entra no AAD de tudo o que ela sela (6.1); e o código, para mostrar
+    return c.json({ token, expiraEm: new Date(now.getTime() + ENTRY_MS).toISOString(), usuario: account.id, codigo: account.code });
   });
 
   app.get('/api/cofre', async (c) => {

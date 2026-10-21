@@ -15,7 +15,7 @@ import { openSuite } from './open.suite';
  * A mesma suíte roda em dois bancos: o D1 (simulado pelo Miniflare, `workers.test.ts`) e o SQLite do
  * Node (`node.test.ts`). Se algo só funcionar num deles, a outra rodada quebra.
  */
-export function cofreSuite(label: string, getDb: () => Db) {
+export function cofreSuite(label: string, getDb: () => Db, extras: ((label: string, setup: Setup) => void)[] = []) {
   let google: Awaited<ReturnType<typeof fakeGoogle>>;
   beforeAll(async () => {
     google = await fakeGoogle();
@@ -56,6 +56,7 @@ export function cofreSuite(label: string, getDb: () => Db) {
   openSuite(label, setup);
   itemsSuite(label, setup);
   manageSuite(label, setup);
+  for (const extra of extras) extra(label, setup);
 
   describe(`API do cofre (${label})`, () => {
     it('o /api/status responde sem login, com o uso do dia', async () => {
