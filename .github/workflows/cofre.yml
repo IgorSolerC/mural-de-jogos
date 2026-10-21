@@ -1,0 +1,75 @@
+name: Publicar o cofre
+
+# Publica o cofre de senhas (a página e a API, no Worker cofre-api) em cofre.murall.igorsc.com.br.
+# PLANO-COFRE.md, seções 11 e 16.
+#
+# - Só à mão (Actions › Publicar o cofre › Run workflow), nunca num push.
+# - O job usa o environment "cofre", que exige a aprovação do usuário antes de começar; os secrets do
+#   deploy ficam no environment (não no repositório), então só um job aprovado os vê.
+# - O build da página tem de dar exatamente os hashes de cofre-hashes.json (o que foi revisto no
+#   repositório). Se não der, nada é publicado.
+# - Depois de publicar, confere os cabeçalhos de segurança e que o que está no ar é o do repositório.
+#
+# Secrets do environment "cofre": CLOUDFLARE_API_TOKEN (um token só para o deploy do cofre) e
+# CLOUDFLARE_ACCOUNT_ID. Os secrets do Worker (a pimenta, a chave dos envelopes e o client secret do
+# Google) são gravados à mão com `wrangler secret put`, uma vez, e nunca passam por aqui.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cofre-publicar
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: cofre
+      url: https://cofre.murall.igorsc.com.br
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            cofre-api/package-lock.json
+      - name: Instala (o site e a API do cofre, pelos lockfiles)
+        run: |
+          npm ci
+          npm ci --prefix cofre-api
+      - name: Testa o núcleo de cripto e as regras do código do cofre
+        run: npm run test:cofre
+      - name: Testa a API do cofre
+        working-directory: cofre-api
+        run: |
+          npm run typecheck
+          npm test
+      - name: Constrói a página e confere os hashes com os do repositório
+        run: |
+          npx ng build cofre
+          node scripts/cofre-hashes.mjs --conferir
+      - name: Aplica as migrações no D1 do cofre
+        working-directory: cofre-api
+        run: npx wrangler d1 migrations apply cofre --remote
+      - name: Publica o Worker
+        working-directory: cofre-api
+        run: npx wrangler deploy
+      - name: Confere os cabeçalhos no ar
+        working-directory: cofre-api
+        run: |
+          for i in 1 2 3 4 5 6; do
+            node scripts/cabecalhos.mjs https://cofre.murall.igorsc.com.br && exit 0
+            sleep 10
+          done
+          exit 1
+      - name: Confere que o que está no ar é o do repositório
+        run: node scripts/cofre-hashes.mjs --no-ar https://cofre.murall.igorsc.com.br

@@ -1,0 +1,14 @@
+/* O cofre de senhas (ver PLANO-COFRE.md, seção 10): um projeto à parte, que não importa nada de src/app. */
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "../../out-tsc/cofre",
+    "types": []
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts"
+  ]
+}

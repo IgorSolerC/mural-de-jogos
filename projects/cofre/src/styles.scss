@@ -1,0 +1,39 @@
+/*
+ * Os estilos globais do cofre: só os tokens de cor e fonte do Murall (seção 10 do plano), copiados à
+ * mão. Nada de src/styles.scss: o cofre não importa nada do Murall.
+ */
+:root {
+  color-scheme: dark;
+  --parede: #1f1c1a;
+  --papel: #f7f4ec;
+  --tinta: #151515;
+  --tinta-2: #4a4540;
+  --linha: rgb(21 21 21 / 0.16);
+  --vermelho: #b81d1c;
+  --verde: #0b7a3b;
+  --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: #ffda42;
+  color: var(--tinta);
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--parede);
+  color: var(--tinta);
+  font: 1rem/1.55 system-ui, sans-serif;
+}
+
+/* nada do cofre sai na impressão (ameaça 19) */
+@media print {
+  body {
+    display: none;
+  }
+}

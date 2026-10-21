@@ -986,3 +986,28 @@ Detalhes da parte 6 (com o cofre aberto):
 Com isso, a API do cofre (Fase 2) está completa para as telas das Fases 4 e 5. Nada foi publicado:
 o domínio, o D1 `cofre`, os secrets e o deploy com aprovação são a Fase 3.
 
+
+### 17.5 Fase 3 (em preparo, 21/10)
+
+Pronto no repositório (nada publicado):
+
+- **A página do cofre** no Angular (`ng build cofre` → `dist/cofre/browser`): por enquanto um "em
+  construção" que mostra se o endereço é seguro e se a página está isolada (COOP + COEP), sem nada
+  inline no `index.html`. Testada no Chrome com o `wrangler dev`: nenhuma violação de CSP, estilos do
+  Angular com o nonce, `crossOriginIsolated` ligado.
+- **O Worker serve a página e a API** na mesma origem (`[assets]` com `run_worker_first`), com os
+  cabeçalhos da 7.3 em toda resposta (`cofre-api/src/site.ts`) e o nonce por pedido no `ngCspNonce`.
+  Diferença do plano: `base-uri 'self'` (o Angular usa `<base href="/">`). Em `http://localhost`, sem
+  HSTS nem `upgrade-insecure-requests`. O domínio próprio está no `wrangler.toml`.
+- **`cofre-api/scripts/cabecalhos.mjs <endereço>`** confere cada cabeçalho, exato, em `/`, `/entrar`,
+  um arquivo e `/api/status` (um teste garante que ele e o Worker esperam o mesmo).
+- **`scripts/cofre-hashes.mjs`** (e `npm run build:cofre`): o SHA-256 de cada arquivo do build em
+  `cofre-hashes.json`; `--conferir` (o build bate?) e `--no-ar <endereço>` (o que está no ar bate?).
+  Os arquivos do cofre ficam com LF (`.gitattributes`) para o build dar igual no Windows e no Linux.
+- **`cofre.yml`**: publicar só à mão, no environment `cofre` (com aprovação), testando tudo, recusando
+  build que não bata com os hashes, e conferindo cabeçalhos e hashes no ar depois.
+- **`cofre-vigia.yml`**: de hora em hora, os hashes e os cabeçalhos no ar; desligado até a variável
+  `COFRE_NO_AR = sim`.
+
+Falta: o D1 `cofre` no `backup.yml` e o `/api/status` do cofre no `saude.yml` (ligados pela mesma
+variável), e a lista de passos do usuário (DNS, D1, secrets com cópia em papel, environment e tokens).

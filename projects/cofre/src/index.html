@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR" translate="no">
+<head>
+  <meta charset="utf-8">
+  <!--
+    O cofre de senhas (PLANO-COFRE.md). A segurança desta página vem dos cabeçalhos HTTP que o Worker
+    põe em toda resposta (seção 7.3: CSP, Trusted Types, isolamento de origem…), não de uma meta aqui:
+    frame-ancestors, COOP e COEP só valem como cabeçalho. O Worker também põe o nonce dos estilos no
+    `ngCspNonce` do <cofre-root>, por pedido.
+  -->
+  <title>Cofre de senhas · Murall</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="referrer" content="no-referrer">
+  <!-- a tradução do navegador manda o texto da página para fora (ameaça 22) -->
+  <meta name="google" content="notranslate">
+  <meta name="theme-color" content="#1f1c1a">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+</head>
+<body>
+  <cofre-root></cofre-root>
+</body>
+</html>

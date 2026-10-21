@@ -5,6 +5,9 @@ main = "src/entry/worker.ts"
 compatibility_date = "2026-08-01"
 workers_dev = false
 preview_urls = false
+# O domínio próprio do Worker (precisa do DNS de igorsc.com.br na Cloudflare, Fase 0): a página e a API
+# na mesma origem, com o certificado da Cloudflare.
+routes = [{ pattern = "cofre.murall.igorsc.com.br", custom_domain = true }]
 
 [vars]
 # ligado | so-leitura | desligado. Qualquer outro valor desliga (ver src/config.ts).
@@ -36,3 +39,12 @@ entrypoint = "CofreRpc"
 # A limpeza diária (src/domain/cleanup.ts), às 06:43 UTC (a do Murall é às 06:17).
 [triggers]
 crons = ["43 6 * * *"]
+
+# A página do cofre: o build do projeto Angular `cofre` (`npx ng build cofre`, na raiz). O Worker roda
+# antes dos arquivos, para nenhum sair sem os cabeçalhos de segurança; endereço desconhecido (como
+# /entrar, a volta do Google) recebe o index.html.
+[assets]
+directory = "../dist/cofre/browser"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true

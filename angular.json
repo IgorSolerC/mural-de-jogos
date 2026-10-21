@@ -139,6 +139,66 @@
       "sourceRoot": "projects/cofre/src",
       "prefix": "cofre",
       "architect": {
+        "build": {
+          "builder": "@angular/build:application",
+          "options": {
+            "outputPath": "dist/cofre",
+            "browser": "projects/cofre/src/main.ts",
+            "index": "projects/cofre/src/index.html",
+            "tsConfig": "projects/cofre/tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "projects/cofre/public"
+              }
+            ],
+            "styles": [
+              "node_modules/@fontsource/permanent-marker/latin-400.css",
+              "projects/cofre/src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "400kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "14kB",
+                  "maximumError": "24kB"
+                }
+              ],
+              "outputHashing": "all",
+              "optimization": {
+                "scripts": true,
+                "styles": { "minify": true, "inlineCritical": false },
+                "fonts": false
+              }
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server",
+          "configurations": {
+            "production": {
+              "buildTarget": "cofre:build:production"
+            },
+            "development": {
+              "buildTarget": "cofre:build:development"
+            }
+          },
+          "defaultConfiguration": "development"
+        },
         "test": {
           "builder": "@angular/build:karma",
           "options": {

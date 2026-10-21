@@ -1,0 +1,11 @@
+{
+  "nota": "Gerado por scripts/cofre-hashes.mjs depois de `npx ng build cofre`. Não editar à mão.",
+  "arquivos": {
+    "favicon.svg": "46bcb0896705c8f43e7dbccc2ea441792355720ca389bfe40d5a7b61a6a36451",
+    "index.html": "cae32637631551b1de1be89a919ca8a69ea82fdecbb91b938a24343a7deacc0c",
+    "main-67FXVHBO.js": "28480940115a29685650ab733e78b0b34c97cade3ca50dc1c100dd679971e337",
+    "media/permanent-marker-latin-400-normal-3EBV27YY.woff2": "4884fec2c73aa52a2461073c1b87d1ceb80f400520391b43f97ca7d3c39eeb24",
+    "media/permanent-marker-latin-400-normal-CQDOX4K6.woff": "ab8ac2bb72d48e089e37d8eefbacdfe2d74ccd48ae786d952fce9874837d2b2b",
+    "styles-TBFKOVZR.css": "cf63d0d14850b7cc30365f5f19f7b1b7ed23afe2434405cd807e66dfe27ceebf"
+  }
+}

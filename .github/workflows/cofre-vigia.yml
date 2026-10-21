@@ -1,0 +1,31 @@
+name: Vigia do cofre
+
+# De hora em hora, confere que o cofre no ar é exatamente o do repositório (os hashes de
+# cofre-hashes.json) e que os cabeçalhos de segurança estão todos lá. Se alguém publicar um cofre por
+# fora (uma conta invadida), esta execução falha e o GitHub manda e-mail (PLANO-COFRE.md, seção 11).
+#
+# Só roda depois de o cofre estar no ar: ligue a variável COFRE_NO_AR = sim em Settings › Secrets and
+# variables › Actions › Variables, depois do primeiro "Publicar o cofre".
+# Execuções agendadas só rodam a partir da main.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vigiar:
+    if: vars.COFRE_NO_AR == 'sim'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: O que está no ar é o do repositório?
+        run: node scripts/cofre-hashes.mjs --no-ar https://cofre.murall.igorsc.com.br
+      - name: Os cabeçalhos de segurança estão todos lá?
+        run: node cofre-api/scripts/cabecalhos.mjs https://cofre.murall.igorsc.com.br

@@ -1,2 +1,6 @@
 # Scripts de shell sempre com LF, também no Windows (com CRLF o bash não roda).
 *.sh text eol=lf
+
+# O cofre de senhas: o build tem de dar os mesmos hashes no Windows e no Linux (scripts/cofre-hashes.mjs).
+projects/cofre/** text eol=lf
+cofre-hashes.json text eol=lf

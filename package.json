@@ -8,6 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test mural-de-jogos",
     "test:ci": "ng test mural-de-jogos --watch=false --browsers=ChromeHeadless && npm run test:cofre",
+    "build:cofre": "ng build cofre && node scripts/cofre-hashes.mjs",
     "test:cofre": "ng test cofre --watch=false --browsers=ChromeHeadless && node --test projects/cofre/regras.test.mjs"
   },
   "prettier": {
