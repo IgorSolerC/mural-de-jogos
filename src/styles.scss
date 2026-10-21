@@ -151,6 +151,9 @@
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   /* a fibra que a cartolina usa: a procedural até a foto carregar (body.has-paper-texture) */
   --grao-img: var(--paper-grain);
+  /* a fibra das claras, sempre: uma ficha clara colada numa escura volta a ela (a escura troca a
+     --grao-img para tudo o que está dentro, ver ui/glued-review-card.ts) */
+  --grao-claro-img: var(--paper-grain);
   --grao-tam: auto;
   --grao-mistura: multiply;
 
@@ -1505,6 +1508,7 @@ body.has-holo {
 /* Fibra fotográfica centrada em 50% de cinza + soft-light: textura sem encardir a cartolina */
 body.has-paper-texture {
   --grao-img: url('textures/cartolina-fibra.png');
+  --grao-claro-img: url('textures/cartolina-fibra.png');
   /* a mesma fibra, bem mais suave, para o reforço das cartolinas claras */
   --grao-realce-img: url('textures/cartolina-fibra-realce.png');
   /* e a das escuras, onde o soft-light pesa: metade do contraste */

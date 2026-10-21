@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import { lookOf } from '../core/paper';
+import { ownPaperVars } from '../core/paper-art';
 import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-card';
 
 /**
@@ -56,6 +58,42 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
         display: none;
       }
     `,
+    `
+      /* O papel próprio: a cartolina escura em volta pinta tudo o que está dentro com o papel escuro, e
+         a clara com o reforço da fibra (styles.scss); a colada desfaz o que não é dela, pela cor dela
+         (o mesmo para a tira e a faixa, em ui/linked-card.ts) */
+      :host(.cartolina:not([data-cor$='-escuro']):not([data-cor='preto'])),
+      :host(.cartolina:not([data-cor$='-escuro']):not([data-cor='preto'])) ::ng-deep .papel,
+      :host(.cartolina:not([data-cor$='-escuro']):not([data-cor='preto'])) ::ng-deep .head {
+        --textura-uso: var(--textura, none);
+        --realce: none;
+        --grao-img: var(--grao-claro-img);
+        --estampa-uso: var(--estampa, none);
+        --estampa-mistura: multiply;
+      }
+      :host(.cartolina),
+      :host(.cartolina) ::ng-deep .papel,
+      :host(.cartolina) ::ng-deep .head {
+        --realce-grao: none;
+      }
+      :host(.cartolina[data-cor='amarelo']),
+      :host(.cartolina[data-cor='amarelo']) ::ng-deep .papel,
+      :host(.cartolina[data-cor='amarelo']) ::ng-deep .head,
+      :host(.cartolina[data-cor='verde']),
+      :host(.cartolina[data-cor='verde']) ::ng-deep .papel,
+      :host(.cartolina[data-cor='verde']) ::ng-deep .head,
+      :host(.cartolina[data-cor='azul']),
+      :host(.cartolina[data-cor='azul']) ::ng-deep .papel,
+      :host(.cartolina[data-cor='azul']) ::ng-deep .head,
+      :host(.cartolina[data-cor='branco']),
+      :host(.cartolina[data-cor='branco']) ::ng-deep .papel,
+      :host(.cartolina[data-cor='branco']) ::ng-deep .head {
+        --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
+      }
+    `,
   ],
 })
-export class GluedReviewCard extends ReviewCard {}
+export class GluedReviewCard extends ReviewCard {
+  /** O papel dela, inteiro: o que ela não tem não vem da ficha em volta (ver `ownPaperVars`). */
+  protected override readonly paperVars = computed(() => ownPaperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark()));
+}

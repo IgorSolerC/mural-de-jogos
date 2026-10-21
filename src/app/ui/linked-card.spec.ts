@@ -279,6 +279,34 @@ describe('a nota colada no texto (o widget Nota)', () => {
       expect(opened).toEqual(['rnota1']);
     });
 
+    it('a faixa, a tira e a ficha colada têm o papel delas, não o da nota em volta', async () => {
+      const outer = document.createElement('div');
+      outer.className = 'cartolina';
+      outer.setAttribute('data-cor', 'preto');
+      outer.style.setProperty('--estampa', 'url("data:image/svg+xml,x")');
+      outer.style.setProperty('--textura', 'url("data:image/svg+xml,y")');
+      document.body.appendChild(outer);
+      const css = (sel: string, v: string) => getComputedStyle(el.querySelector(sel)!).getPropertyValue(v).trim();
+      for (const [args, sel] of [
+        [['#rnota1', 'inteira'], '.faixa'],
+        [['#rnota1', 'tira'], '.tira'],
+        [['#rnota1'], 'app-review-card'],
+      ] as const) {
+        await show([...args]);
+        outer.appendChild(el);
+        await fixture.whenStable();
+        // a estampa e a textura da de fora não chegam; o papel escuro dela também não (a colada é clara)
+        expect(css(sel, '--estampa')).withContext(sel).toBe('');
+        expect(css(sel, '--textura')).withContext(sel).toBe('');
+        expect(css(sel, '--estampa-uso')).withContext(sel).toBe('none');
+        expect(css(sel, '--realce')).withContext(sel).toBe('none');
+        expect(css(sel, '--grao-img')).withContext(sel).not.toContain('escura');
+        fixture.destroy();
+        el.remove();
+      }
+      outer.remove();
+    });
+
     it('texto inteiro sem texto diz que ainda não tem', async () => {
       await show(['#rjogo1', 'inteira']);
       expect(el.querySelector('.folha-vazia')?.textContent).toContain('Ainda sem texto');

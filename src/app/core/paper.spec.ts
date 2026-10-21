@@ -1,5 +1,5 @@
 import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed } from './paper';
-import { cutMask, lightPattern, motifIcon, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
+import { cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
 
@@ -408,5 +408,15 @@ describe('papel da ficha', () => {
     expect(dark.replace(/#fff/g, '#000')).toBe(light.replace(/#fff/g, '#000'));
     expect(paperVars('cartolina', 'gatinhos')['--estampa-clara']).toBeNull();
     expect(paperVars('cartolina', 'gatinhos', undefined, undefined, true)['--estampa-clara']).toBe(lightPattern('gatinhos'));
+  });
+
+  it('a peça colada tem o papel todo dela: o que ela não tem vale "initial" (não vem da ficha em volta)', () => {
+    const own = ownPaperVars(undefined, undefined);
+    expect(Object.keys(own)).toEqual(Object.keys(paperVars(undefined, undefined)));
+    expect(Object.values(own).every((v) => v === 'initial')).toBeTrue();
+    // o que ela tem continua o mesmo
+    const full = paperVars('lisa', 'gatinhos', undefined, 7, true);
+    const mine = ownPaperVars('lisa', 'gatinhos', undefined, 7, true);
+    for (const [k, v] of Object.entries(full)) expect(mine[k]).withContext(k).toBe(v ?? 'initial');
   });
 });

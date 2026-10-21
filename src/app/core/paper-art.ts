@@ -6053,6 +6053,17 @@ export function lightPattern(pattern: Pattern, look?: PatternLook, seed?: number
 }
 
 /**
+ * As variáveis do papel de uma peça colada dentro de outra ficha (a ficha, a tira e a faixa do widget
+ * Nota): as mesmas de `paperVars`, mas o que ela não tem vale "initial" em vez de ficar de fora. Uma
+ * variável que fica de fora vem da ficha em volta, e a colada saía com a textura e a estampa da outra.
+ */
+export function ownPaperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(paperVars(paper, pattern, look, seed, dark))) out[k] = v ?? 'initial';
+  return out;
+}
+
+/**
  * As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas.
  * Na cartolina escura (`dark`), a estampa também sai em branco (`--estampa-clara`).
  */

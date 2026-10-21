@@ -3,7 +3,9 @@ import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
-import { Review, isNote } from '../core/review';
+import { Review, isDarkStock, isNote } from '../core/review';
+import { lookOf } from '../core/paper';
+import { ownPaperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { CardLook, readCardRef } from '../core/widgets';
 import { GluedReviewCard } from './glued-review-card';
@@ -81,7 +83,7 @@ const EAR_GAP = 0.2;
             class="tira cartolina"
             data-colado
             [attr.data-cor]="stock()"
-            [style.--stock]="'var(--stock-' + stock() + ')'"
+            [style]="ownPaper()"
             [attr.inert]="openable() ? null : ''"
             [attr.aria-label]="spoken(f.review)"
             (click)="open(f.review)"
@@ -96,7 +98,7 @@ const EAR_GAP = 0.2;
           <!-- o texto inteiro: a nota como fica aberta, colada inteira na de fora (a faixa da
                cartolina dela com o nome e a folha creme com o texto todo) -->
           <article class="inteira" data-colado [class.abre]="openable()" [attr.aria-label]="spoken(f.review)">
-            <header class="faixa cartolina" [attr.data-cor]="stock()" [style.--stock]="'var(--stock-' + stock() + ')'">
+            <header class="faixa cartolina" [attr.data-cor]="stock()" [style]="ownPaper()">
               @if (overline(f.review); as o) {
                 <span class="faixa-assunto">{{ o }}</span>
               }
@@ -388,6 +390,30 @@ const EAR_GAP = 0.2;
       }
     }
 
+    /* o papel da tira e da faixa é o dela, não o da ficha em volta (ver ui/glued-review-card.ts) */
+    .faixa.cartolina:not([data-cor$='-escuro']):not([data-cor='preto']),
+    .tira.cartolina:not([data-cor$='-escuro']):not([data-cor='preto']) {
+      --textura-uso: var(--textura, none);
+      --realce: none;
+      --grao-img: var(--grao-claro-img);
+      --estampa-uso: var(--estampa, none);
+      --estampa-mistura: multiply;
+    }
+    .faixa.cartolina,
+    .tira.cartolina {
+      --realce-grao: none;
+    }
+    .faixa.cartolina[data-cor='amarelo'],
+    .tira.cartolina[data-cor='amarelo'],
+    .faixa.cartolina[data-cor='verde'],
+    .tira.cartolina[data-cor='verde'],
+    .faixa.cartolina[data-cor='azul'],
+    .tira.cartolina[data-cor='azul'],
+    .faixa.cartolina[data-cor='branco'],
+    .tira.cartolina[data-cor='branco'] {
+      --realce-grao: var(--grao-realce, var(--grao-realce-img, none));
+    }
+
     /* ===== A que sumiu: um pedaço de papel pardo rasgado, com o nome ===== */
     .perdida {
       position: relative;
@@ -474,6 +500,16 @@ export class LinkedCard {
     const r = this.found()?.review;
     return r ? pinningFor(r.id, r.stock).stock : 'amarelo';
   });
+  /**
+   * A cor e o papel dela (a textura, a estampa), para a tira e a faixa: o que ela não tem não vem da
+   * ficha em volta (ver `ownPaperVars`).
+   */
+  protected readonly ownPaper = computed<Record<string, string>>(() => {
+    const r = this.found()?.review;
+    const stock = this.stock();
+    return { '--stock': `var(--stock-${stock})`, ...(r ? ownPaperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, isDarkStock(stock)) : {}) };
+  });
+
 
   /**
    * O tamanho da ficha na folha: a escala, a caixa que ela ocupa depois de encolher e a folga em
