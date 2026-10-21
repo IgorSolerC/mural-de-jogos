@@ -1,0 +1,33 @@
+name: API do cofre (testes)
+
+# Testa a API do cofre em todo push e pull request que mexe em cofre-api/. Só testa: a publicação do
+# cofre é outro workflow, só à mão e com a aprovação do usuário (PLANO-COFRE.md, seção 11, Fase 3).
+on:
+  push:
+    branches: [main]
+    paths: ['cofre-api/**', '.github/workflows/cofre-api.yml']
+  pull_request:
+    paths: ['cofre-api/**', '.github/workflows/cofre-api.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: cofre-api
+
+jobs:
+  testes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cofre-api/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      # A mesma suíte no SQLite do Node e no simulador do D1.
+      - run: npm test

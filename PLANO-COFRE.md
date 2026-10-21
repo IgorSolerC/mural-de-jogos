@@ -856,3 +856,23 @@ confere o SHA-256 de cada fonte).
   do arquivo). Os dicionários (GPL/LGPL/MPL) e a lista de palavrões (CC-BY 4.0) só filtram.
 - **Testes**: a conferência da lista, a frase saindo dela, palavras comuns presentes, e um teste em
   Node (`regras.test.mjs`) que falha se uma palavra tirada à mão voltar.
+
+### 17.4 Fase 2 (começada em 21/10)
+
+Em partes, um commit cada:
+
+| Parte | O que entra | Estado |
+|-------|-------------|--------|
+| 1 | Esqueleto do `cofre-api/` (a montagem do `api/`): o banco inteiro da 9.1 com o que a seção 16 pede, `GET /api/status`, a cota, o `MODO`, a recusa de pedido de outra origem, a configuração (`COFRE_CODIGOS`, `COFRE_ORIGEM`, `COFRE_RP_ID`, que desliga a API se o rpId não for exatamente o host do cofre), testes em Node + SQLite e no D1 simulado, e o workflow `cofre-api.yml`, que só testa | Feita |
+| 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC | — |
+| 3 | Conferência das passkeys (registro e assinatura) e criar o cofre | — |
+| 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha | — |
+| 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | — |
+| 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar), limpeza diária e freio por IP | — |
+
+Detalhes da parte 1: o banco ganhou, além da 9.1, o `usuario_passkey` (o `user.id` de 16 bytes das
+passkeys, 16.8), as versões da pimenta e do `COFRE_ENVELOPES` ao lado de cada prova (16.2), o
+`prf` de cada passkey, a tabela `cofre_freio_senha` (sequências de erros) e `freios` por chave (a
+conta ou o HMAC do IP, 16.6). Restrições no próprio banco: um envelope de código por conta, um por
+aparelho, e cada tipo de envelope com só as colunas dele. O `wrangler.toml` vai com um id
+provisório do D1 até a Fase 3, e até lá a migração 0001 ainda pode mudar.

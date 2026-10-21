@@ -1,0 +1,28 @@
+# A API do cofre de senhas (PLANO-COFRE.md, seções 9 e 16), à parte da API do Murall.
+# Ainda não foi publicada: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação do usuário.
+name = "cofre-api"
+main = "src/entry/worker.ts"
+compatibility_date = "2026-08-01"
+workers_dev = false
+preview_urls = false
+
+[vars]
+# ligado | so-leitura | desligado. Qualquer outro valor desliga (ver src/config.ts).
+MODO = "ligado"
+# Cota própria de linhas gravadas por dia UTC (o D1 grátis dá 100 mil; o Murall usa até 60 mil).
+COTA_LINHAS_DIA = "20000"
+# Quem pode usar o cofre: os códigos das contas do Murall, separados por vírgula; vazio, ninguém;
+# "*", todo mundo logado (16.1). Começa só com o código do dono, posto na Fase 3.
+COFRE_CODIGOS = ""
+# O endereço do cofre: a origem que o WebAuthn confere e o rpId das passkeys (7.1, 16.8).
+COFRE_ORIGEM = "https://cofre.murall.igorsc.com.br"
+COFRE_RP_ID = "cofre.murall.igorsc.com.br"
+# O client ID do cliente OAuth próprio do cofre ("Murall Cofre", 16.14), posto na Fase 4.
+GOOGLE_CLIENT_ID = ""
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cofre"
+# o id real sai do `wrangler d1 create cofre`, na Fase 3
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "migrations"

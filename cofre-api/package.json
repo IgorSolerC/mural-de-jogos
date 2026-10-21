@@ -1,0 +1,28 @@
+{
+  "name": "cofre-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
+    "test": "npm run test:node && npm run test:workers",
+    "test:node": "vitest run --config vitest.node.config.ts",
+    "test:workers": "vitest run --config vitest.workers.config.ts"
+  },
+  "dependencies": {
+    "hono": "4.13.13",
+    "jose": "6.2.12"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.22.0",
+    "@cloudflare/workers-types": "5.20261006.1",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11",
+    "wrangler": "4.147.0"
+  },
+  "description": "A API do cofre de senhas do Murall (Cloudflare Workers + D1), à parte da API do Murall.",
+  "engines": {
+    "node": ">=22.13"
+  }
+}
