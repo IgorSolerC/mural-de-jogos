@@ -875,7 +875,7 @@ Em partes, um commit cada:
 | 3 | Conferência das passkeys (registro e assinatura, código próprio, sem dependência nova) e criar o cofre | Feita |
 | 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha, a sessão do cofre e trancar | Feita |
 | 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | Feita |
-| 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | — |
+| 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | Feita |
 
 Detalhes da parte 1: o banco ganhou, além da 9.1, o `usuario_passkey` (o `user.id` de 16 bytes das
 passkeys, 16.8), as versões da pimenta e do `COFRE_ENVELOPES` ao lado de cada prova (16.2), o
@@ -954,4 +954,35 @@ Detalhes da parte 5 (com o cofre aberto):
 - Limites: item de 541 bytes a 16 kB, em blocos de 512 (a versão 1); até 2.000 itens contando a
   lixeira; **o corpo dessas rotas vai até 256 kB** (o plano dizia 64 kB, mas com 2.000 itens o
   manifesto sozinho passa disso); a cota do dia vale para tudo.
+
+Detalhes da parte 6 (com o cofre aberto):
+
+- Aparelhos: `GET /api/cofre/aparelhos`, `POST /api/cofre/aparelhos` (a passkey registrada contra o
+  desafio de `POST /api/cofre/registro`, até 10 aparelhos) e `DELETE /api/cofre/aparelhos/:id` (a
+  passkey e o envelope dela; **nunca o último**, com a condição em cada parte do lote, para dois
+  "tirar" ao mesmo tempo não deixarem o cofre sem nenhum).
+- `PUT /api/cofre/senha`: novo sal, Argon2id (com o mesmo mínimo), V e prova; o freio da senha zera.
+- `PUT /api/cofre/recuperacao`: um código novo; o antigo para de valer na hora.
+- **O código de recuperação é de uso único** (8.4): fica gasto quando abre o cofre (não quando só é
+  conferido: errar a senha depois dele não o queima), e depois disso `POST /api/cofre/recuperar`
+  responde 410 até haver um novo.
+- `GET /api/cofre/sessoes` (quando e onde, a atual marcada, nenhum token) e
+  `POST /api/cofre/trancar-todos` (todas, inclusive a atual, com `Clear-Site-Data`).
+- `GET /api/cofre/eventos`: o histórico dos últimos 90 dias, do mais novo para o mais velho.
+- `DELETE /api/cofre` com `{ "confirmacao": "APAGAR" }`: tudo da conta, de todas as tabelas.
+- A limpeza diária (`cleanup.ts`, Cron Trigger às 06:43 UTC): sessões e desafios vencidos, histórico
+  de mais de 90 dias, freios e uso velhos, esperas do freio da senha que já passaram, e a lápide dos
+  itens com mais de 30 dias na lixeira.
+
+**Ficam para depois** (anotados aqui para não se perderem):
+
+- Os avisos no correio do Murall (abertura em aparelho novo, sequência de erros de senha, aparelho
+  posto ou tirado, senha trocada) e o "Congelar o cofre": precisam do lado do Murall (RPC `avisar` e
+  `congelar` na `CofreRpc`, e a tela dos avisos), na Fase 6.
+- "Trocar a chave do cofre" (8.5: VK nova e todos os itens recifrados): precisa ir em partes (até
+  2.000 itens de 16 kB não cabem num pedido) e de uma rota de troca em lotes com o contador. Entra com a
+  tela de Ajustes, na Fase 6.
+
+Com isso, a API do cofre (Fase 2) está completa para as telas das Fases 4 e 5. Nada foi publicado:
+o domínio, o D1 `cofre`, os secrets e o deploy com aprovação são a Fase 3.
 

@@ -8,6 +8,7 @@ import { BASE_ENV, NOW, TABLES, fakeGoogle, fakeMural, jsonCaller } from './harn
 import { createSuite } from './create.suite';
 import { entrySuite } from './entry.suite';
 import { itemsSuite } from './items.suite';
+import { manageSuite } from './manage.suite';
 import { openSuite } from './open.suite';
 
 /**
@@ -54,6 +55,7 @@ export function cofreSuite(label: string, getDb: () => Db) {
   createSuite(label, setup);
   openSuite(label, setup);
   itemsSuite(label, setup);
+  manageSuite(label, setup);
 
   describe(`API do cofre (${label})`, () => {
     it('o /api/status responde sem login, com o uso do dia', async () => {

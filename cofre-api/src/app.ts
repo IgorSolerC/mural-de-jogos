@@ -5,13 +5,14 @@ import { Deps } from './ports';
 import { createRoutes } from './routes/create';
 import { entryRoutes } from './routes/entry';
 import { itemRoutes } from './routes/items';
+import { manageRoutes } from './routes/manage';
 import { openRoutes } from './routes/open';
 
 /** A versão da API que o /api/status informa. */
 const API_VERSION = 1;
 
 /** As rotas que só mexem na sessão, e por isso valem também no "só leitura". */
-const SESSION_PATHS = new Set(['/api/entrar', '/api/cofre/desafio', '/api/cofre/chave', '/api/cofre/abrir', '/api/cofre/recuperar', '/api/cofre/trancar']);
+const SESSION_PATHS = new Set(['/api/entrar', '/api/cofre/desafio', '/api/cofre/chave', '/api/cofre/abrir', '/api/cofre/recuperar', '/api/cofre/trancar', '/api/cofre/trancar-todos']);
 
 /**
  * A API do cofre inteira, montada a partir das dependências prontas. Mora na mesma origem da página
@@ -67,6 +68,7 @@ export function createApp(deps: Deps): Hono {
   createRoutes(app, deps);
   openRoutes(app, deps);
   itemRoutes(app, deps);
+  manageRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API do cofre.' }, 404));
 

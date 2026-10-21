@@ -32,3 +32,7 @@ migrations_dir = "migrations"
 binding = "MURAL"
 service = "mural-api"
 entrypoint = "CofreRpc"
+
+# A limpeza diária (src/domain/cleanup.ts), às 06:43 UTC (a do Murall é às 06:17).
+[triggers]
+crons = ["43 6 * * *"]

@@ -8,58 +8,60 @@ import { ORIGEM, RP_ID, VETORES } from './webauthn-vetores';
 const seq = (n: number, ini: number) => Uint8Array.from({ length: n }, (_, i) => (ini + i) & 255);
 const b = (n: number, ini: number) => base64url(seq(n, ini));
 const LOCAL = { COFRE_ORIGEM: ORIGEM, COFRE_RP_ID: RP_ID, COFRE_ENVELOPES_1: b(32, 200), COTA_LINHAS_DIA: '100000' };
-const ENV = { rec: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70', celular: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b71', pc: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b72' };
-const SENHA = b(32, 3);
-const CODIGO = b(32, 6);
+export const ENV = { rec: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70', celular: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b71', pc: '3f1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b72' };
+export const SENHA = b(32, 3);
+export const CODIGO = b(32, 6);
+
+/**
+ * Um cofre já criado com os vetores reais: o celular (ES256, com PRF) e o PC (RS256, modo servidor).
+ * `entrar` faz uma sessão de entrada nova; `desafio` põe no banco um desafio de assinatura com os
+ * bytes dos vetores (33..64 para a primeira assinatura, 65..96 para a segunda).
+ */
+export async function cofrePronto(setup: Setup, env: Record<string, string> = {}) {
+  const ctx = await setup({ ...LOCAL, ...env });
+  const post = (path: string, body: unknown, token?: string, call = ctx.call) => call('POST', path, body, { origin: ORIGEM, token });
+  const entrar = async () => {
+    const res = await post('/api/entrar', { codigo: 'codigo-sub-dono', verificador: VERIFIER, aparelho: 'Chrome no Windows' });
+    return ((await res.json()) as { token: string }).token;
+  };
+  const desafio = async (tipo: 'registro' | 'assinatura', bytes: Uint8Array) => {
+    const id = crypto.randomUUID();
+    await ctx.db.batch([
+      { sql: 'INSERT INTO cofre_desafios (id, usuario_id, tipo, desafio, expira_em) VALUES (?, ?, ?, ?, ?)', params: [id, DONO.id, tipo, bytes, new Date(ctx.deps.now().getTime() + 120_000).toISOString()] },
+    ]);
+    return id;
+  };
+  const token = await entrar();
+  const criado = await post(
+    '/api/cofre',
+    {
+      versao: 1,
+      kdf: { m: 65536, t: 3, p: 1 },
+      sal: b(16, 1),
+      v: b(61, 2),
+      kAuth: SENHA,
+      manifesto: b(541, 4),
+      recuperacao: { id: ENV.rec, envelope: b(61, 5), kRec: CODIGO },
+      aparelhos: [
+        { desafio: await desafio('registro', seq(32, 1)), credencial: VETORES.es256.reg, apelido: 'Celular', prf: true, envelopeId: ENV.celular, envelope: b(61, 7) },
+        { desafio: await desafio('registro', seq(32, 1)), credencial: VETORES.rs256.reg, apelido: 'PC', prf: false, envelopeId: ENV.pc, envelope: b(61, 9), s: b(32, 8) },
+      ],
+    },
+    token,
+  );
+  expect(criado.status).toBe(201);
+  /** A passkey do celular (ou do PC), com a assinatura `n` (0 ou 1) dos vetores. */
+  const chave = async (t: string, alg: 'es256' | 'rs256' = 'es256', n: 0 | 1 = 0, call = ctx.call) =>
+    post('/api/cofre/chave', { desafio: await desafio('assinatura', seq(32, n === 0 ? 33 : 65)), assinatura: VETORES[alg].assinaturas[n] }, t, call);
+  /** Marca direto no banco que o segundo fator acabou de ser conferido (para testar o freio sem gastar vetores). */
+  const marcar = (t: string) =>
+    ctx.db.batch([{ sql: "UPDATE cofre_sessoes SET fator = 'passkey', fator_ate = ? WHERE tipo = 'entrada'", params: [new Date(ctx.deps.now().getTime() + 120_000).toISOString()] }]).then(() => t);
+  return { ...ctx, post, entrar, desafio, chave, marcar };
+}
 
 /** Abrir, recuperar e trancar o cofre. */
 export function openSuite(label: string, setup: Setup) {
-  /**
-   * Um cofre já criado com os vetores reais: o celular (ES256, com PRF) e o PC (RS256, modo servidor).
-   * `entrar` faz uma sessão de entrada nova; `desafio` põe no banco um desafio de assinatura com os
-   * bytes dos vetores (33..64 para a primeira assinatura, 65..96 para a segunda).
-   */
-  async function cofre(env: Record<string, string> = {}) {
-    const ctx = await setup({ ...LOCAL, ...env });
-    const post = (path: string, body: unknown, token?: string, call = ctx.call) => call('POST', path, body, { origin: ORIGEM, token });
-    const entrar = async () => {
-      const res = await post('/api/entrar', { codigo: 'codigo-sub-dono', verificador: VERIFIER, aparelho: 'Chrome no Windows' });
-      return ((await res.json()) as { token: string }).token;
-    };
-    const desafio = async (tipo: 'registro' | 'assinatura', bytes: Uint8Array) => {
-      const id = crypto.randomUUID();
-      await ctx.db.batch([
-        { sql: 'INSERT INTO cofre_desafios (id, usuario_id, tipo, desafio, expira_em) VALUES (?, ?, ?, ?, ?)', params: [id, DONO.id, tipo, bytes, new Date(ctx.deps.now().getTime() + 120_000).toISOString()] },
-      ]);
-      return id;
-    };
-    const token = await entrar();
-    const criado = await post(
-      '/api/cofre',
-      {
-        versao: 1,
-        kdf: { m: 65536, t: 3, p: 1 },
-        sal: b(16, 1),
-        v: b(61, 2),
-        kAuth: SENHA,
-        manifesto: b(541, 4),
-        recuperacao: { id: ENV.rec, envelope: b(61, 5), kRec: CODIGO },
-        aparelhos: [
-          { desafio: await desafio('registro', seq(32, 1)), credencial: VETORES.es256.reg, apelido: 'Celular', prf: true, envelopeId: ENV.celular, envelope: b(61, 7) },
-          { desafio: await desafio('registro', seq(32, 1)), credencial: VETORES.rs256.reg, apelido: 'PC', prf: false, envelopeId: ENV.pc, envelope: b(61, 9), s: b(32, 8) },
-        ],
-      },
-      token,
-    );
-    expect(criado.status).toBe(201);
-    /** A passkey do celular (ou do PC), com a assinatura `n` (0 ou 1) dos vetores. */
-    const chave = async (t: string, alg: 'es256' | 'rs256' = 'es256', n: 0 | 1 = 0, call = ctx.call) =>
-      post('/api/cofre/chave', { desafio: await desafio('assinatura', seq(32, n === 0 ? 33 : 65)), assinatura: VETORES[alg].assinaturas[n] }, t, call);
-    /** Marca direto no banco que o segundo fator acabou de ser conferido (para testar o freio sem gastar vetores). */
-    const marcar = (t: string) =>
-      ctx.db.batch([{ sql: "UPDATE cofre_sessoes SET fator = 'passkey', fator_ate = ? WHERE tipo = 'entrada'", params: [new Date(ctx.deps.now().getTime() + 120_000).toISOString()] }]).then(() => t);
-    return { ...ctx, post, entrar, desafio, chave, marcar };
-  }
+  const cofre = (env: Record<string, string> = {}) => cofrePronto(setup, env);
 
   describe(`Abrir o cofre (${label})`, () => {
     it('o desafio traz o sal, o Argon2id, as passkeys da conta e a última mudança', async () => {

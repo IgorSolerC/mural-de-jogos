@@ -2,13 +2,14 @@ import { createRemoteJWKSet } from 'jose';
 import { d1Db } from '../adapters/d1';
 import { createApp } from '../app';
 import { readConfig } from '../config';
+import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleLogin } from '../domain/google';
 import { Deps } from '../ports';
 import { readSecrets } from '../secrets';
 
 /*
  * A entrada na Cloudflare: o único arquivo, junto com `adapters/d1.ts`, que conhece o Worker. Os
- * arquivos da página do cofre, os cabeçalhos dela e a limpeza diária entram na Fase 3.
+ * arquivos da página do cofre e os cabeçalhos dela entram na Fase 3.
  */
 
 /** O que a API do Murall oferece ao cofre pelo service binding (a classe `CofreRpc` em `api/src/entry/worker.ts`). */
@@ -54,5 +55,8 @@ function deps(env: Env): Deps {
 export default {
   fetch(request, env) {
     return createApp(deps(env)).fetch(request);
+  },
+  scheduled(_controller, env, ctx) {
+    ctx.waitUntil(cleanup(deps(env)));
   },
 } satisfies ExportedHandler<Env>;

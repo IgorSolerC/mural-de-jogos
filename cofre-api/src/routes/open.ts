@@ -172,16 +172,17 @@ export function openRoutes(app: Hono, deps: Deps): void {
     await vaultOf(deps, s.userId);
     await assertUnderLimit(deps, accountKey(s.userId), 'recuperar', LIMITS.recuperar.account);
     const kRec = proofField(body['kRec'], 'prova do código');
-    const rec = await deps.db.first<{ id: string; envelope: Blob; rec_hash: Blob; rec_pimenta: number }>(
-      "SELECT id, envelope, rec_hash, rec_pimenta FROM cofre_envelopes WHERE usuario_id = ? AND tipo = 'recuperacao'",
+    const rec = await deps.db.first<{ id: string; envelope: Blob; rec_hash: Blob; rec_pimenta: number; usado_em: string | null }>(
+      "SELECT id, envelope, rec_hash, rec_pimenta, usado_em FROM cofre_envelopes WHERE usuario_id = ? AND tipo = 'recuperacao'",
       [s.userId],
     );
+    // uso único (8.4): o código que já abriu o cofre não abre de novo; um novo sai em Ajustes
+    if (rec?.usado_em) throw new HttpError(410, 'codigo-ja-usado', 'Este código de recuperação já foi usado. Gere outro nos Ajustes do cofre.');
     const now = deps.now();
     const ok = rec !== null && sameBytes((await proofHash(deps, 'rec', kRec, rec.rec_pimenta)).hash, blob(rec.rec_hash));
     const statements: Statement[] = [brakeStatement(accountKey(s.userId), 'recuperar', now)];
     if (ok) {
       statements.push(
-        { sql: 'UPDATE cofre_envelopes SET usado_em = ? WHERE id = ?', params: [now.toISOString(), rec.id] },
         factorStatement(s, 'recuperacao', now),
         eventStatement(s.userId, 'codigo-usado', now, s.device, country(c)),
       );
@@ -218,6 +219,8 @@ export function openRoutes(app: Hono, deps: Deps): void {
       ...vaultSessionStatements(s, await hashToken(token), recovered, now),
       eventStatement(s.userId, recovered ? 'aberto-com-codigo' : 'aberto', now, s.device, country(c)),
     ];
+    // o código só fica gasto quando abre de verdade: errar a senha depois dele não o queima
+    if (recovered) statements.push({ sql: "UPDATE cofre_envelopes SET usado_em = ? WHERE usuario_id = ? AND tipo = 'recuperacao'", params: [now.toISOString(), s.userId] });
     // a pimenta foi trocada (16.2): a prova que acabou de conferir passa para a versão nova
     const pepper = currentPepper(deps.secrets);
     if (vault.auth_pimenta < pepper.version) {

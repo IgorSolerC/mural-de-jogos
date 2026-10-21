@@ -5,7 +5,7 @@ Murall (`api/`), com banco D1 próprio (`cofre`), na mesma origem da página do 
 (`https://cofre.murall.igorsc.com.br/api/...`). Ela só guarda o que chega cifrado do navegador e
 nunca decifra nada: não tem a chave para isso.
 
-- Estado: **Fase 2, em partes**. Por enquanto, o banco inteiro (`migrations/0001_cofre.sql`), o
+- Estado: **Fase 2 completa** (as seis partes da seção 17.4 do plano). O banco inteiro (`migrations/0001_cofre.sql`), o
   `GET /api/status` (sem login), a cota de gravações por dia, o interruptor `MODO`, a recusa de
   pedidos de outra origem e o login:
   - `POST /api/entrar` `{ codigo, verificador, aparelho? }`: o código que o Google mandou de volta a
@@ -31,6 +31,11 @@ nunca decifra nada: não tem a chave para isso.
     `POST /api/cofre/itens/:id/restaurar` e `DELETE /api/cofre/lixeira/:id`. Cada gravação manda o
     manifesto novo e o `contadorAnterior`; se outro aparelho gravou antes, 409 com o contador de
     agora, e nada muda. Até 2.000 itens de até 16 kB.
+  - Gerenciar (com o cofre aberto): `GET`/`POST /api/cofre/aparelhos`, `DELETE
+    /api/cofre/aparelhos/:id` (nunca o último), `PUT /api/cofre/senha`, `PUT /api/cofre/recuperacao`,
+    `GET /api/cofre/sessoes`, `POST /api/cofre/trancar-todos`, `GET /api/cofre/eventos` (90 dias) e
+    `DELETE /api/cofre` (com `{ "confirmacao": "APAGAR" }`).
+  - A limpeza diária (`src/domain/cleanup.ts`, Cron Trigger às 06:43 UTC).
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação
   do usuário. Até lá, a migração 0001 ainda pode mudar.
