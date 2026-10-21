@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
+    <meta name="robots" content="noindex" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="google" content="notranslate" />
+    <title>Teste do PRF · Murall</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --parede: #1f1c1a;
+        --papel: #f7f4ec;
+        --tinta: #151515;
+        --tinta-2: #4a4540;
+        --vermelho: #b81d1c;
+        --verde: #0b7a3b;
+        --linha: rgb(21 21 21 / 0.16);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      ::selection {
+        background: #ffda42;
+        color: var(--tinta);
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        padding: 32px 16px 64px;
+        background: var(--parede);
+        color: var(--tinta);
+        font: 1.05rem/1.55 system-ui, sans-serif;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 32px clamp(20px, 5vw, 40px) 36px;
+        border-radius: 2px;
+        background: var(--papel);
+        box-shadow: 0 10px 18px -6px rgb(0 0 0 / 0.55);
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 1.9rem;
+        line-height: 1.1;
+        text-wrap: balance;
+      }
+      h2 {
+        margin: 2em 0 0.5em;
+        font-size: 1.15rem;
+      }
+      p {
+        margin: 0 0 0.8em;
+        max-width: 65ch;
+      }
+      .fraco {
+        color: var(--tinta-2);
+        font-size: 0.95rem;
+      }
+      .passos {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .passo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+      }
+      .passos + .fraco {
+        margin-top: 10px;
+      }
+      button {
+        min-height: 44px;
+        padding: 8px 16px;
+        border: 2px solid var(--tinta);
+        border-radius: 3px;
+        background: #fff;
+        color: var(--tinta);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.25);
+        transition: background-color 120ms ease-out, transform 120ms ease-out;
+      }
+      button:hover {
+        background: #fff6c9;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      button:disabled {
+        border-color: var(--linha);
+        background: transparent;
+        color: var(--tinta-2);
+        box-shadow: none;
+        cursor: not-allowed;
+      }
+      button:focus-visible {
+        outline: 3px solid var(--vermelho);
+        outline-offset: 2px;
+      }
+      #registro {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      #registro li {
+        padding: 10px 12px;
+        border: 1px solid var(--linha);
+        border-radius: 3px;
+        background: #fff;
+        font-size: 0.97rem;
+      }
+      #registro li b,
+      #registro li > span {
+        display: block;
+      }
+      .sim {
+        color: var(--verde);
+        font-weight: 700;
+      }
+      .nao {
+        color: var(--vermelho);
+        font-weight: 700;
+      }
+      .vazio {
+        color: var(--tinta-2);
+      }
+      code {
+        font-family: ui-monospace, monospace;
+        font-size: 0.92em;
+      }
+      #copiar {
+        margin-top: 16px;
+      }
+      #aviso {
+        min-height: 1.5em;
+        margin: 8px 0 0;
+        color: var(--tinta-2);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        button {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Teste do PRF</h1>
+      <p>
+        Esta página confere se a passkey deste aparelho tem <strong>PRF</strong>, a peça que deixa o cofre de senhas mais
+        forte. Ela cria uma passkey de teste chamada “Teste do PRF”, que não guarda nada e não manda nada para lugar
+        nenhum: o resultado só aparece aqui.
+      </p>
+      <p id="navegador" class="fraco">Conferindo o navegador…</p>
+
+      <h2>1. Criar a passkey de teste</h2>
+      <ul class="passos">
+        <li class="passo">
+          <button type="button" data-criar="platform">Neste aparelho</button>
+          <button type="button" data-criar="cross-platform">Com o celular (QR code)</button>
+        </li>
+      </ul>
+      <p class="fraco">“Neste aparelho” usa o Windows Hello no PC, ou o Face ID e a digital no celular. “Com o celular” mostra um QR code no PC para o celular confirmar.</p>
+
+      <h2>2. Abrir com ela, duas vezes</h2>
+      <ul class="passos">
+        <li class="passo">
+          <button type="button" id="abrir" disabled>Abrir com a passkey criada</button>
+          <button type="button" id="abrir-qualquer">Escolher a passkey</button>
+        </li>
+      </ul>
+      <p class="fraco">Abra duas vezes: o PRF só serve se der a mesma resposta nas duas.</p>
+
+      <h2>Resultado</h2>
+      <ol id="registro" aria-live="polite">
+        <li class="vazio">Nada testado ainda.</li>
+      </ol>
+      <button type="button" id="copiar" disabled>Copiar o resultado</button>
+      <p id="aviso" role="status"></p>
+
+      <h2>Depois do teste</h2>
+      <p>
+        Apague a passkey “Teste do PRF”: no iPhone, em Ajustes › Senhas; no Android, no Gerenciador de Senhas do Google;
+        no Windows, em Configurações › Contas › Chaves de acesso.
+      </p>
+    </main>
+    <script src="prf-teste.js"></script>
+  </body>
+</html>
