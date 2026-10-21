@@ -4,9 +4,13 @@ import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { createRoutes } from './routes/create';
 import { entryRoutes } from './routes/entry';
+import { openRoutes } from './routes/open';
 
 /** A versão da API que o /api/status informa. */
 const API_VERSION = 1;
+
+/** As rotas que só mexem na sessão, e por isso valem também no "só leitura". */
+const SESSION_PATHS = new Set(['/api/entrar', '/api/cofre/desafio', '/api/cofre/chave', '/api/cofre/abrir', '/api/cofre/recuperar', '/api/cofre/trancar']);
 
 /**
  * A API do cofre inteira, montada a partir das dependências prontas. Mora na mesma origem da página
@@ -31,11 +35,12 @@ export function createApp(deps: Deps): Hono {
     await next();
   });
 
-  // O interruptor geral: desligado, só o /api/status responde; só leitura, só GET.
+  // O interruptor geral: desligado, só o /api/status responde; só leitura, só GET e as rotas da sessão
+  // (entrar, abrir, trancar), para dar para abrir e ver o cofre sem mudar o que tem dentro.
   app.use('*', async (c, next) => {
     const isStatus = c.req.method === 'GET' && c.req.path === '/api/status';
     if (config.mode === 'desligado' && !isStatus) throw offline();
-    if (config.mode === 'so-leitura' && !['GET', 'HEAD'].includes(c.req.method)) throw readOnly();
+    if (config.mode === 'so-leitura' && !['GET', 'HEAD'].includes(c.req.method) && !SESSION_PATHS.has(c.req.path)) throw readOnly();
     await next();
   });
 
@@ -59,6 +64,7 @@ export function createApp(deps: Deps): Hono {
 
   entryRoutes(app, deps);
   createRoutes(app, deps);
+  openRoutes(app, deps);
 
   app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API do cofre.' }, 404));
 

@@ -20,6 +20,13 @@ nunca decifra nada: não tem a chave para isso.
   - `POST /api/cofre`: criar o cofre (8.3) com um ou dois aparelhos, o código de recuperação, V, a
     prova da senha e o manifesto vazio. A conferência das passkeys é `src/domain/webauthn.ts`
     (código próprio, sem biblioteca: só atestado "none", ES256 e RS256).
+  - Abrir (8.1): `POST /api/cofre/desafio` (o desafio, o sal, o Argon2id e as passkeys),
+    `POST /api/cofre/chave` (a assinatura da passkey → o envelope do aparelho; no modo servidor,
+    também o S_i) e `POST /api/cofre/abrir` (`{ kAuth }` → a sessão do cofre, V, o manifesto e o
+    contador). A senha só é conferida logo depois de uma passkey, e cada tentativa gasta a passkey.
+    Freio: 5 erros seguidos, espera de 1 minuto que dobra; 20 erros por dia.
+  - `POST /api/cofre/recuperar` (`{ kRec }`): o código de recuperação no lugar da passkey.
+  - `POST /api/cofre/trancar`: apaga a sessão (o token pode vir no corpo, como o `sendBeacon` manda).
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação
   do usuário. Até lá, a migração 0001 ainda pode mudar.

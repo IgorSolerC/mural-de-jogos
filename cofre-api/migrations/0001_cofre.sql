@@ -99,7 +99,14 @@ CREATE TABLE cofre_sessoes (
   criada_em TEXT NOT NULL,
   usada_em TEXT NOT NULL,
   expira_em TEXT NOT NULL,
-  aparelho TEXT
+  aparelho TEXT,
+  -- só na de entrada: o segundo fator acabou de ser conferido (a passkey ou o código de
+  -- recuperação) e vale até aqui para UMA tentativa de senha; cada tentativa apaga a marca
+  fator TEXT CHECK (fator IN ('passkey', 'recuperacao')),
+  fator_ate TEXT,
+  -- só na do cofre: aberta com o código de recuperação (a página obriga a pôr uma passkey e um
+  -- código novos, 8.4)
+  recuperada INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX cofre_sessoes_usuario ON cofre_sessoes (usuario_id);
 CREATE INDEX cofre_sessoes_expira ON cofre_sessoes (expira_em);

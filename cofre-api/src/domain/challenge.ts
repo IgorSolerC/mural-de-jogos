@@ -40,7 +40,7 @@ export async function consumeChallenge(deps: Deps, id: unknown, userId: string, 
     [id, userId, kind, now],
   );
   if (!row) throw invalidChallenge();
-  const [deleted] = await write(deps, [{ sql: 'DELETE FROM cofre_desafios WHERE id = ?', params: [id] }], 2);
+  const [deleted] = await write(deps, [{ sql: 'DELETE FROM cofre_desafios WHERE id = ?', params: [id] }], 2, { session: true });
   if (deleted?.changes !== 1) throw invalidChallenge();
   return blob(row.desafio);
 }

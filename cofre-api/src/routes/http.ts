@@ -35,3 +35,9 @@ export function deviceOf(body: Record<string, unknown>): string | null {
   const d = body['aparelho'];
   return typeof d === 'string' ? d.replace(/[^\p{L}\p{N} .()/-]/gu, '').slice(0, 60) || null : null;
 }
+
+/** O país de quem chama, como a Cloudflare informa (`CF-IPCountry`), para o histórico. */
+export function country(c: Context): string | null {
+  const v = c.req.header('CF-IPCountry');
+  return v && /^[A-Z]{2}$/.test(v) ? v : null;
+}

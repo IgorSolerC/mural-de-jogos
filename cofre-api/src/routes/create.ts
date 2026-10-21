@@ -1,4 +1,4 @@
-import { Context, Hono } from 'hono';
+import { Hono } from 'hono';
 import { LIMITS, accountKey, assertUnderLimit, brakeStatement } from '../domain/brake';
 import { Bytes, base64url, blob, fromBase64url } from '../domain/bytes';
 import { consumeChallenge, newChallenge } from '../domain/challenge';
@@ -9,7 +9,7 @@ import { authenticate } from '../domain/session';
 import { ES256, RS256, VerifiedRegistration, WebAuthnError, verifyRegistration } from '../domain/webauthn';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
-import { readJson } from './http';
+import { country, readJson } from './http';
 
 /**
  * Criar o cofre (8.3): `POST /api/cofre/registro` dá o desafio para registrar uma passkey, e
@@ -61,10 +61,6 @@ function transportsField(value: unknown): string {
   return [...new Set(value.filter((t): t is string => typeof t === 'string' && known.includes(t)))].join(',');
 }
 
-const country = (c: Context) => {
-  const v = c.req.header('CF-IPCountry');
-  return v && /^[A-Z]{2}$/.test(v) ? v : null;
-};
 
 export function createRoutes(app: Hono, deps: Deps): void {
   const { config } = deps;

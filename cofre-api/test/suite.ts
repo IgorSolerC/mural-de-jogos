@@ -7,6 +7,7 @@ import { readSecrets } from '../src/secrets';
 import { BASE_ENV, NOW, TABLES, fakeGoogle, fakeMural, jsonCaller } from './harness';
 import { createSuite } from './create.suite';
 import { entrySuite } from './entry.suite';
+import { openSuite } from './open.suite';
 
 /**
  * A mesma suíte roda em dois bancos: o D1 (simulado pelo Miniflare, `workers.test.ts`) e o SQLite do
@@ -39,11 +40,18 @@ export function cofreSuite(label: string, getDb: () => Db) {
     const advance = (ms: number) => {
       clock.t += ms;
     };
-    return { db, deps, call, advance, google };
+    /** O mesmo banco e o mesmo relógio, com outra configuração (uma pimenta nova, o modo só leitura). */
+    const withEnv = (more: Record<string, string>) => {
+      const v2 = { ...vars, ...more };
+      const other = createApp({ ...deps, config: readConfig(v2), secrets: readSecrets(v2) });
+      return jsonCaller((path, init) => other.request(path, init));
+    };
+    return { db, deps, call, advance, google, withEnv };
   }
 
   entrySuite(label, setup);
   createSuite(label, setup);
+  openSuite(label, setup);
 
   describe(`API do cofre (${label})`, () => {
     it('o /api/status responde sem login, com o uso do dia', async () => {
@@ -141,4 +149,5 @@ export type Setup = (env?: Record<string, string>) => Promise<{
   call: ReturnType<typeof jsonCaller>;
   advance: (ms: number) => void;
   google: Awaited<ReturnType<typeof fakeGoogle>>;
+  withEnv: (more: Record<string, string>) => ReturnType<typeof jsonCaller>;
 }>;

@@ -12,7 +12,7 @@ import { utcDay } from './quota';
  * fora do banco). Quem levar o banco não consegue voltar dele para o IP, e o mesmo IP em dias
  * diferentes vira chaves diferentes.
  */
-export type BrakeAction = 'entrar' | 'desafio';
+export type BrakeAction = 'entrar' | 'desafio' | 'erro-senha' | 'recuperar';
 
 /** O limite de cada ação: quantas vezes numa janela de tempo, por IP (antes do login) e por conta. */
 export const LIMITS: Record<BrakeAction, { ip?: number; account: number; windowMs: number }> = {
@@ -20,6 +20,10 @@ export const LIMITS: Record<BrakeAction, { ip?: number; account: number; windowM
   entrar: { ip: 30, account: 30, windowMs: 3_600_000 },
   // 30 desafios de passkey por hora por conta (9.3)
   desafio: { account: 30, windowMs: 3_600_000 },
+  // os erros de senha têm o freio próprio (password-brake.ts); aqui só a contagem do dia
+  'erro-senha': { account: 20, windowMs: 86_400_000 },
+  // o código de recuperação tem 128 bits (adivinhar é impossível), mas 10 tentativas por dia bastam
+  recuperar: { account: 10, windowMs: 86_400_000 },
 };
 
 /** A chave do freio de um IP: `ip:` + HMAC(chave do dia, IP). */

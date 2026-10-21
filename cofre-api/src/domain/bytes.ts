@@ -43,3 +43,11 @@ export async function hmac(key: Uint8Array, data: Uint8Array): Promise<Bytes> {
 export function blob(value: Uint8Array | ArrayBuffer | number[]): Bytes {
   return new Uint8Array(value instanceof Uint8Array ? value.slice() : value);
 }
+
+/** Compara bytes no mesmo tempo, acertando ou errando em qualquer posição (para provas e hashes). */
+export function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i]! ^ b[i]!;
+  return diff === 0;
+}

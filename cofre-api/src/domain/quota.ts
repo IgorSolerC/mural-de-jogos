@@ -31,10 +31,13 @@ export async function usageToday(deps: Deps): Promise<Usage> {
   return { day, rowsWritten: row?.linhas_gravadas ?? 0, writes: row?.gravacoes ?? 0 };
 }
 
-/** Recusa se o cofre não está aceitando gravações agora. */
-export function assertWritable(deps: Deps): void {
+/**
+ * Recusa se o cofre não está aceitando gravações agora. As da sessão (entrar, abrir, trancar) valem
+ * também no "só leitura": nele, dá para abrir e ver o cofre, só não para mudar o que tem dentro.
+ */
+export function assertWritable(deps: Deps, session = false): void {
   if (deps.config.mode === 'desligado') throw offline();
-  if (deps.config.mode === 'so-leitura') throw readOnly();
+  if (deps.config.mode === 'so-leitura' && !session) throw readOnly();
 }
 
 export function offline(): HttpError {
@@ -49,8 +52,8 @@ export function readOnly(): HttpError {
  * Grava `statements` de uma vez, contando `estimatedRows` na cota do dia. Se a cota não comporta,
  * nada é gravado. A própria anotação do uso entra no mesmo lote (e conta uma linha).
  */
-export async function write(deps: Deps, statements: Statement[], estimatedRows: number): Promise<StatementResult[]> {
-  assertWritable(deps);
+export async function write(deps: Deps, statements: Statement[], estimatedRows: number, options: { session?: boolean } = {}): Promise<StatementResult[]> {
+  assertWritable(deps, options.session);
   const cost = Math.max(0, Math.ceil(estimatedRows)) + 1;
   const usage = await usageToday(deps);
   if (usage.rowsWritten + cost > deps.config.dailyRowBudget) {

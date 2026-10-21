@@ -454,7 +454,8 @@ que o topo usa são copiadas para o cofre e servidas da origem dele (o COEP barr
 
 1. **Entrar** (Google) → **Abrir** (senha + passkey).
 2. **Lista**: busca local, títulos e sites. Nada decifrado além do necessário.
-3. **Item**: usuário, senha (mascarada), site, observações. Revelar (15 s), Copiar (limpa em 30 s),
+3. **Item**: os campos **Título, User, Senha (mascarada), URL e Descrição, todos opcionais**
+   (decisão 11). Revelar (15 s), Copiar (limpa em 30 s),
    Mostrar para digitar (letras grandes, separadas em grupos), Abrir o site (abre a URL salva;
    ajuda a não cair em site falso).
 4. **Gerador**: frase de palavras (a lista em português sem acento) ou caracteres aleatórios, sem
@@ -648,6 +649,12 @@ Valem para este repositório inteiro (do usuário, Igor Soler):
     Calendário, que abre o cofre **na mesma aba do navegador**, no endereço dele, com o **topo
     igual ao do Murall** (seções 8.6 e 10). Descartados: abrir dentro da página do Murall (barrado
     pela segurança) e abrir numa aba nova do navegador.
+
+11. **Os campos de cada senha** (21/10, pedido do usuário): **Título, User, Senha, URL e
+    Descrição**, com esses nomes na tela, **todos opcionais** (um item pode ter só o título, só a
+    senha…). Tudo vai dentro do item cifrado (6.2), junto com as datas e o histórico das últimas 5
+    senhas; o servidor não vê nenhum deles. Não mexeu em nada já feito: os campos são decididos na
+    página do cofre (Fase 5).
 
 ### Em aberto
 
@@ -866,7 +873,7 @@ Em partes, um commit cada:
 | 1 | Esqueleto do `cofre-api/` (a montagem do `api/`): o banco inteiro da 9.1 com o que a seção 16 pede, `GET /api/status`, a cota, o `MODO`, a recusa de pedido de outra origem, a configuração (`COFRE_CODIGOS`, `COFRE_ORIGEM`, `COFRE_RP_ID`, que desliga a API se o rpId não for exatamente o host do cofre), testes em Node + SQLite e no D1 simulado, e o workflow `cofre-api.yml`, que só testa | Feita |
 | 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC (`CofreRpc` no `api/`), e já o freio por IP do login (16.6) | Feita |
 | 3 | Conferência das passkeys (registro e assinatura, código próprio, sem dependência nova) e criar o cofre | Feita |
-| 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha | — |
+| 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha, a sessão do cofre e trancar | Feita |
 | 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | — |
 | 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | — |
 
@@ -904,4 +911,28 @@ escolha do usuário em 21/10, em vez da `@simplewebauthn/server`, para não traz
   antes, mesmo se der errado), PRF ou S_i (nunca os dois), e grava tudo num lote só: as provas como
   HMAC com a pimenta, o S_i cifrado com `COFRE_ENVELOPES_n` amarrado à conta e ao envelope, e o
   evento `cofre-criado`. Devolve `201`; a sessão do cofre aberto vem com a parte 4.
+
+Detalhes da parte 4:
+
+- `POST /api/cofre/desafio` (sessão de entrada): o desafio de assinatura, o sal, o Argon2id, as
+  passkeys (com o apelido e se têm PRF) e `mudadoEm`. Cofre congelado: 423.
+- `POST /api/cofre/chave`: confere a assinatura com a chave guardada e o contador (que tem de subir),
+  devolve o envelope do aparelho e, no modo servidor, o S_i (só depois da assinatura), e marca na
+  sessão de entrada que a passkey foi conferida, por 2 minutos.
+- `POST /api/cofre/abrir` (`kAuth`): **só logo depois de uma passkey ou do código**, e a marca é
+  gasta de forma atômica **antes** de conferir a senha: cada palpite custa um toque no aparelho
+  (ameaça 15), e duas tentativas ao mesmo tempo não aproveitam o mesmo toque. Freio: 5 erros seguidos,
+  espera de 1 minuto que dobra a cada sequência (no máximo 1 dia); 20 erros por dia. Comparação em
+  tempo constante. Com a pimenta trocada, a prova passa para a versão nova na abertura certa (16.2).
+  Devolve a sessão do cofre (10 minutos parada, renovada de minuto em minuto pelo uso; 8 horas no
+  máximo), V, o manifesto e o contador; a sessão de entrada some.
+- `POST /api/cofre/recuperar` (`kRec`): o código no lugar da passkey (a senha continua sendo pedida),
+  10 tentativas por dia; a sessão aberta assim vem marcada `recuperada` (a página obriga a pôr uma
+  passkey e um código novos, parte 6).
+- `POST /api/cofre/trancar`: o token pode vir no corpo (o `sendBeacon` não manda cabeçalho); responde
+  sempre igual, com `Clear-Site-Data: "cache", "storage"`.
+- **O modo só leitura** passou a deixar entrar, abrir e trancar (as rotas de sessão): nele dá para
+  abrir e ver o cofre, só não para mudar o que tem dentro.
+- O histórico ganha `passkey-usada`, `codigo-usado`, `aberto`, `aberto-com-codigo` e `erro-senha`.
+  O aviso no Murall a cada sequência de erros (9.3) fica para a parte 6, com o RPC `avisar`.
 
