@@ -1,5 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FREE, evaluate, parseStatus, usageFrom, utcDay } from '../scripts/saude';
+import { FREE, databaseIdOf, evaluate, parseStatus, sumUsage, usageFrom, utcDay, type Status } from '../scripts/saude';
 
 const status = { modo: 'ligado', dia: '2026-10-06', linhasGravadas: 1200, cotaLinhas: 60000 };
 const day = (over: Partial<{ workerRequests: number; workerErrors: number; d1RowsRead: number; d1RowsWritten: number }> = {}) => ({
@@ -10,39 +11,41 @@ const day = (over: Partial<{ workerRequests: number; workerErrors: number; d1Row
   d1RowsWritten: 900,
   ...over,
 });
+const murall = (s: Status | null, error: string | null = null) => [{ name: 'do Murall', status: s, error }];
+const usage = (days: ReturnType<typeof day>[], bytes: number | null) => ({ days, databases: [{ name: 'mural', bytes }] });
 
 describe('checagem diária', () => {
   it('tudo dentro do gratuito: sem problemas', () => {
-    const r = evaluate(status, null, { days: [day()], d1DatabaseBytes: 3 * 1024 * 1024 }, null);
+    const r = evaluate(murall(status, null), usage([day()], 3 * 1024 * 1024), null);
     expect(r.problems).toEqual([]);
     expect(r.lines.length).toBeGreaterThan(3);
   });
 
   it('API fora do ar falha', () => {
-    expect(evaluate(null, 'HTTP 503', null, null).problems[0]).toContain('HTTP 503');
+    expect(evaluate(murall(null, 'HTTP 503'), null, null).problems[0]).toContain('HTTP 503');
   });
 
   it('70% de qualquer limite falha', () => {
-    expect(evaluate({ ...status, linhasGravadas: 42000 }, null, null, null).problems).toHaveLength(1);
-    expect(evaluate(status, null, { days: [day({ workerRequests: FREE.workerRequests * 0.7 })], d1DatabaseBytes: null }, null).problems).toHaveLength(1);
-    expect(evaluate(status, null, { days: [day({ d1RowsRead: 3_600_000 })], d1DatabaseBytes: null }, null).problems).toHaveLength(1);
-    expect(evaluate(status, null, { days: [day({ d1RowsWritten: 70_000 })], d1DatabaseBytes: null }, null).problems).toHaveLength(1);
-    expect(evaluate(status, null, { days: [day()], d1DatabaseBytes: 360 * 1024 * 1024 }, null).problems).toHaveLength(1);
+    expect(evaluate(murall({ ...status, linhasGravadas: 42000 }, null), null, null).problems).toHaveLength(1);
+    expect(evaluate(murall(status, null), usage([day({ workerRequests: FREE.workerRequests * 0.7 })], null), null).problems).toHaveLength(1);
+    expect(evaluate(murall(status, null), usage([day({ d1RowsRead: 3_600_000 })], null), null).problems).toHaveLength(1);
+    expect(evaluate(murall(status, null), usage([day({ d1RowsWritten: 70_000 })], null), null).problems).toHaveLength(1);
+    expect(evaluate(murall(status, null), usage([day()], 360 * 1024 * 1024), null).problems).toHaveLength(1);
   });
 
   it('muitos erros no Worker falham; poucos, não', () => {
-    expect(evaluate(status, null, { days: [day({ workerErrors: 400 })], d1DatabaseBytes: null }, null).problems).toHaveLength(1);
-    expect(evaluate(status, null, { days: [day({ workerRequests: 30, workerErrors: 5 })], d1DatabaseBytes: null }, null).problems).toEqual([]);
+    expect(evaluate(murall(status, null), usage([day({ workerErrors: 400 })], null), null).problems).toHaveLength(1);
+    expect(evaluate(murall(status, null), usage([day({ workerRequests: 30, workerErrors: 5 })], null), null).problems).toEqual([]);
   });
 
   it('nuvem desligada de propósito e sem token só anotam', () => {
-    const r = evaluate({ ...status, modo: 'desligado' }, null, null, null);
+    const r = evaluate(murall({ ...status, modo: 'desligado' }, null), null, null);
     expect(r.problems).toEqual([]);
     expect(r.notes).toHaveLength(2);
   });
 
   it('erro ao ler a Cloudflare falha (um token vencido precisa aparecer)', () => {
-    expect(evaluate(status, null, null, 'not authorized').problems[0]).toContain('not authorized');
+    expect(evaluate(murall(status, null), null, 'not authorized').problems[0]).toContain('not authorized');
   });
 
   it('lê o status da API e recusa o que não é', () => {
@@ -63,12 +66,53 @@ describe('checagem diária', () => {
         storage: [{ max: { databaseSizeBytes: 12345 } }],
       },
       ['2026-10-05', '2026-10-06'],
+      'mural',
     );
     expect(u.days).toEqual([
       { day: '2026-10-05', workerRequests: 15, workerErrors: 1, d1RowsRead: 0, d1RowsWritten: 0 },
       { day: '2026-10-06', workerRequests: 7, workerErrors: 0, d1RowsRead: 100, d1RowsWritten: 4 },
     ]);
-    expect(u.d1DatabaseBytes).toBe(12345);
+    expect(u.databases).toEqual([{ name: 'mural', bytes: 12345 }]);
+  });
+
+  it('o cofre entra no mesmo relatório: fora do ar falha, desligado só anota', () => {
+    const cofre = { modo: 'ligado', dia: '2026-10-06', linhasGravadas: 30, cotaLinhas: 20000 };
+    const ok = evaluate([...murall(status), { name: 'do cofre', status: cofre, error: null }], null, null);
+    expect(ok.problems).toEqual([]);
+    expect(ok.lines.some((l) => l.includes('API do cofre'))).toBe(true);
+    const fora = evaluate([...murall(status), { name: 'do cofre', status: null, error: 'HTTP 522' }], null, null);
+    expect(fora.problems).toEqual(['A API do cofre não respondeu direito: HTTP 522.']);
+    const desligado = evaluate([...murall(status), { name: 'do cofre', status: { ...cofre, modo: 'desligado' }, error: null }], null, null);
+    expect(desligado.problems).toEqual([]);
+    expect(desligado.notes).toContain('A API do cofre está em modo "desligado".');
+  });
+
+  it('os limites de pedidos e linhas são da conta: o Murall e o cofre somam', () => {
+    // 40% em cada um não avisa sozinho, mas 80% na conta avisa
+    const half = (over: Parameters<typeof day>[0]) => usage([day(over)], null);
+    const sum = sumUsage([
+      half({ workerRequests: 40_000, d1RowsWritten: 40_000 }),
+      { ...half({ workerRequests: 40_000, d1RowsWritten: 40_000 }), databases: [{ name: 'cofre', bytes: null }] },
+    ]);
+    expect(sum.days).toEqual([{ day: '2026-10-05', workerRequests: 80_000, workerErrors: 0, d1RowsRead: 80_000, d1RowsWritten: 80_000 }]);
+    expect(evaluate(murall(status), half({ workerRequests: 40_000, d1RowsWritten: 40_000 }), null).problems).toEqual([]);
+    expect(evaluate(murall(status), sum, null).problems).toHaveLength(2);
+  });
+
+  it('o tamanho é por banco', () => {
+    const sum = sumUsage([usage([day()], 300 * 1024 * 1024), { days: [day()], databases: [{ name: 'cofre', bytes: 300 * 1024 * 1024 }] }]);
+    expect(sum.databases.map((d) => d.name)).toEqual(['mural', 'cofre']);
+    expect(evaluate(murall(status), sum, null).problems).toEqual([]);
+    const big = sumUsage([usage([day()], 1024), { days: [day()], databases: [{ name: 'cofre', bytes: 360 * 1024 * 1024 }] }]);
+    expect(evaluate(murall(status), big, null).problems).toEqual(['O banco cofre já tem 360,0 MB, 72,0% do gratuito.']);
+  });
+
+  it('o id do D1 do cofre vem do wrangler.toml, e o de mentira não vale', () => {
+    expect(databaseIdOf('database_name = "cofre"\ndatabase_id = "00000000-0000-0000-0000-000000000000"\n')).toBeNull();
+    expect(databaseIdOf('database_id = "c2c789d6-f0f3-4f37-b53a-f049aa02a530"\n')).toBe('c2c789d6-f0f3-4f37-b53a-f049aa02a530');
+    expect(databaseIdOf('# nada aqui\n')).toBeNull();
+    // o wrangler.toml de verdade tem a linha no formato que databaseIdOf lê (com o id real ou o de mentira)
+    expect(readFileSync(new URL('../../cofre-api/wrangler.toml', import.meta.url), 'utf8')).toMatch(/^database_id = "[0-9a-f-]{36}"$/m);
   });
 
   it('dia UTC', () => {

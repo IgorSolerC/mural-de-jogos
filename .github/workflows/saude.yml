@@ -6,6 +6,10 @@ name: Saúde da nuvem
 #
 # Secrets: CF_ANALYTICS_TOKEN (um token só de leitura, "Account Analytics: Read") e
 # CLOUDFLARE_ACCOUNT_ID (o mesmo do deploy). Sem o token, só a API é conferida.
+#
+# Com a variável COFRE_NO_AR = sim (a mesma do vigia e do backup), confere também o cofre de senhas
+# (o /api/status do cofre-api e o uso do D1 cofre, PLANO-COFRE.md 16.7). Os limites de pedidos e de
+# linhas do gratuito são da conta toda: o relatório soma o Murall e o cofre.
 # Execuções agendadas só rodam a partir da main.
 on:
   schedule:
@@ -36,3 +40,4 @@ jobs:
         env:
           CF_ANALYTICS_TOKEN: ${{ secrets.CF_ANALYTICS_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          COFRE_URL: ${{ vars.COFRE_NO_AR == 'sim' && 'https://cofre.murall.igorsc.com.br' || '' }}

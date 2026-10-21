@@ -970,7 +970,7 @@ Detalhes da parte 6 (com o cofre aberto):
   `POST /api/cofre/trancar-todos` (todas, inclusive a atual, com `Clear-Site-Data`).
 - `GET /api/cofre/eventos`: o histórico dos últimos 90 dias, do mais novo para o mais velho.
 - `DELETE /api/cofre` com `{ "confirmacao": "APAGAR" }`: tudo da conta, de todas as tabelas.
-- A limpeza diária (`cleanup.ts`, Cron Trigger às 06:43 UTC): sessões e desafios vencidos, histórico
+- A limpeza diária (`cleanup.ts`, Cron Trigger às 06:23 UTC, antes do backup das 06:31): sessões e desafios vencidos, histórico
   de mais de 90 dias, freios e uso velhos, esperas do freio da senha que já passaram, e a lápide dos
   itens com mais de 30 dias na lixeira.
 
@@ -1009,5 +1009,99 @@ Pronto no repositório (nada publicado):
 - **`cofre-vigia.yml`**: de hora em hora, os hashes e os cabeçalhos no ar; desligado até a variável
   `COFRE_NO_AR = sim`.
 
-Falta: o D1 `cofre` no `backup.yml` e o `/api/status` do cofre no `saude.yml` (ligados pela mesma
-variável), e a lista de passos do usuário (DNS, D1, secrets com cópia em papel, environment e tokens).
+- **`backup.yml`**, job `cofre`: o D1 `cofre` todo dia, em `backup-cofre-<dia>.sql.gz.enc`, com a
+  mesma `BACKUP_SENHA` e o mesmo `api/scripts/backup.sh` (a lista de tabelas vem do workflow, e um
+  teste do `cofre-api` a confere contra as migrações). A limpeza do cofre passou para as 06:23 UTC,
+  antes do backup das 06:31. Como voltar um backup e usar o Time Travel: `cofre-api/README.md`.
+- **`saude.yml`**: também o `/api/status` do cofre e o uso do Worker e do D1 dele. Os limites de pedidos e
+  de linhas do plano grátis valem para a conta toda, então o relatório soma o Murall e o cofre antes
+  de comparar com eles. O de tamanho é por banco. O id do D1 do cofre vem do `cofre-api/wrangler.toml`.
+- O job do backup e a parte da saúde só ligam com a mesma variável do vigia, `COFRE_NO_AR = sim`.
+- **`cofre-api/scripts/segredo.mjs`**: os secrets com a cópia em papel. Gera os 32 bytes e mostra em
+  hexadecimal (16 grupos de 4 e um grupo de conferência, sem maiúsculas nem letras parecidas). Pede que
+  você digite de volta o que escreveu no papel e só grava (`wrangler secret put`, pela entrada, nunca na
+  linha de comando) se bater. `--do-papel` grava de novo a partir do papel; `--conferir-papel` só
+  confere uma cópia.
+
+#### Os passos do usuário (Fase 3), na ordem
+
+Tudo grátis. Os comandos são no PowerShell, dentro da pasta `cofre-api`.
+
+1. **A Fase 0, se ainda não foi feita** (seção 11):
+   - o DNS de `igorsc.com.br` na Cloudflare, com os passos da 7.2: o CNAME `murall` com a nuvem
+     cinza e o TXT do Google têm de vir juntos;
+   - o DNSSEC, com o DS no registro.br;
+   - 2FA no GitHub, na Cloudflare, no Google, na Apple e no registro.br.
+
+   Na Cloudflare, em SSL/TLS › Edge Certificates, ligue o "Certificate Transparency Monitoring", que
+   manda e-mail a cada certificado novo do domínio. Em DNS, um registro CAA em `igorsc.com.br`:
+   `0 issue "letsencrypt.org"`, a autoridade do GitHub Pages do Murall. Com o SSL Universal ligado, a
+   Cloudflare acrescenta sozinha as autoridades dela. Depois, confira que o Murall continua abrindo.
+2. **Pedir o push** dos commits do cofre. Ele publica o site e a API do Murall, agora com a classe
+   `CofreRpc` que o cofre usa, e põe os workflows do cofre na `main`: o "Publicar o cofre" só aparece
+   em Actions depois disso.
+3. **Criar o banco do cofre**:
+   ```
+   npx wrangler login
+   npx wrangler d1 create cofre
+   ```
+   O id que aparecer vai no `database_id` do `cofre-api/wrangler.toml`. O id não é segredo, e o do
+   Murall já está no repositório: é só mandar para eu commitar. Se o wrangler perguntar se pode pôr o
+   id no arquivo, responda que não.
+4. **O token do deploy do cofre**: Cloudflare › My Profile › API Tokens › Create Token, no modelo
+   "Edit Cloudflare Workers".
+   - Account Resources: a sua conta. Zone Resources: só `igorsc.com.br`.
+   - Acrescente a permissão Account › D1 › Edit.
+   - Nome: `cofre-deploy`.
+
+   Ele só aparece uma vez: copie direto para o passo 5. Se o primeiro deploy falhar por permissão no
+   domínio, acrescente Zone › DNS › Edit. Antes deste passo, veja a decisão logo abaixo.
+5. **O environment `cofre` no GitHub** (Settings › Environments › New environment, nome `cofre`):
+   - Required reviewers: você. Deixe "Prevent self-review" desligado, senão nem você aprova.
+   - Deployment branches and tags: Selected branches, só `main`.
+   - Environment secrets: `CLOUDFLARE_API_TOKEN` (o do passo 4) e `CLOUDFLARE_ACCOUNT_ID` (o mesmo do
+     repositório).
+6. **Publicar**: Actions › Publicar o cofre › Run workflow, e aprovar. O workflow:
+   - testa tudo e confere os hashes;
+   - cria as tabelas e publica;
+   - confere os cabeçalhos e os arquivos no ar.
+
+   Abra `https://cofre.murall.igorsc.com.br`: tem de aparecer a página "em construção", dizendo que o
+   endereço é seguro e a página está isolada. Para a nota do plano, teste o endereço no
+   securityheaders.com e no Mozilla Observatory (o plano espera A+).
+7. **Os dois secrets, com a cópia em papel**, depois do passo 6, para o Worker já existir:
+   ```
+   node scripts/segredo.mjs COFRE_PIMENTA_1
+   node scripts/segredo.mjs COFRE_ENVELOPES_1
+   ```
+   Cada um mostra o que escrever no papel, com o nome. Escreva, depois digite de volta olhando o papel
+   (não a tela); só então ele grava na Cloudflare. Guarde os dois papéis num lugar só seu, por exemplo
+   junto do código de recuperação. Sem eles, ninguém abre o cofre se a Cloudflare perder os secrets.
+   Para conferir um papel depois: `node scripts/segredo.mjs --conferir-papel`.
+8. **Ligar o vigia, o backup e a saúde do cofre**: Settings › Secrets and variables › Actions ›
+   Variables › New repository variable: `COFRE_NO_AR` = `sim`. Rode uma vez à mão o "Vigia do cofre",
+   o "Backup da nuvem" (o job `cofre`) e a "Saúde da nuvem": os três têm de passar.
+9. **Fica para a Fase 4**: o seu código em `COFRE_CODIGOS`, o cliente OAuth "Murall Cofre" e o
+   `GOOGLE_CLIENT_SECRET`. Até lá, ninguém entra no cofre: a lista de quem pode usar está vazia.
+
+#### Uma decisão antes do passo 4: até onde o token do Murall alcança
+
+Até onde sei, um token da Cloudflare não fica preso a um Worker nem a um banco: as permissões de
+Workers e de D1 valem para a conta inteira (a seção 9.3 pedia "só este Worker e este D1", e isso
+não existe). Então o token que já está no repositório (`CLOUDFLARE_API_TOKEN`, o do deploy do Murall,
+usado em todo push que mexe em `api/`) também consegue publicar o cofre e mexer no banco dele. A
+aprovação do environment protege o caminho normal, não esse; o vigia avisa, mas em até uma hora.
+O backup do cofre usa esse mesmo token, por isso não precisa de outro.
+
+- **a) Uma conta da Cloudflare só para o cofre** (grátis). O token do Murall não alcança o cofre. Mas o
+  RPC entre as APIs só funciona na mesma conta, então seria trocado por uma chamada HTTP assinada
+  (código novo, nas duas APIs); o domínio `igorsc.com.br` iria para a conta do cofre; e o backup do
+  cofre precisaria de um token da conta do cofre no repositório.
+- **b) A mesma conta, com o token do Murall em menos lugares**: no `api.yml`, no `backup.yml` e no
+  `cofre.yml`, só os passos do `wrangler` recebem o token. Hoje o `npm ci` também recebe, e um pacote
+  malicioso o leria na instalação. É uma mudança pequena, sem mexer no desenho. Sobra o risco de um
+  `wrangler` adulterado, que alcança o cofre nos dois casos (ele roda também no deploy do cofre).
+- **c) Deixar como está** e contar com o vigia.
+
+Recomendação: **b**. Quase tudo o que a "a" protege também passa pelo `wrangler` e pelo GitHub, que
+as duas opções têm em comum.

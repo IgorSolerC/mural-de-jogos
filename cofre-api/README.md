@@ -35,7 +35,7 @@ nunca decifra nada: não tem a chave para isso.
     /api/cofre/aparelhos/:id` (nunca o último), `PUT /api/cofre/senha`, `PUT /api/cofre/recuperacao`,
     `GET /api/cofre/sessoes`, `POST /api/cofre/trancar-todos`, `GET /api/cofre/eventos` (90 dias) e
     `DELETE /api/cofre` (com `{ "confirmacao": "APAGAR" }`).
-  - A limpeza diária (`src/domain/cleanup.ts`, Cron Trigger às 06:43 UTC).
+  - A limpeza diária (`src/domain/cleanup.ts`, Cron Trigger às 06:23 UTC, antes do backup das 06:31).
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação
   do usuário. Até lá, a migração 0001 ainda pode mudar.
@@ -55,7 +55,9 @@ nunca decifra nada: não tem a chave para isso.
 Secrets (`npx wrangler secret put`, anotados em papel antes, seção 16.2 do plano): `COFRE_PIMENTA_1`
 (32 bytes em base64url; uma versão nova é `COFRE_PIMENTA_2`, e a de número maior vale para as
 provas novas), `COFRE_ENVELOPES_1` (32 bytes; cifra o segredo dos aparelhos sem PRF) e
-`GOOGLE_CLIENT_SECRET`. Sem eles, o que depende deles responde 503. O binding
+`GOOGLE_CLIENT_SECRET`. Sem eles, o que depende deles responde 503. A pimenta e a chave dos
+envelopes se gravam com `node scripts/segredo.mjs COFRE_PIMENTA_1` (e `COFRE_ENVELOPES_1`), que
+mostra o valor para o papel e só grava depois de você digitá-lo de volta (passo 7 da seção 17.5). O binding
 `MURAL` liga à classe `CofreRpc` da API do Murall.
 
 ## Testes
@@ -69,3 +71,33 @@ npm test   # a mesma suíte no SQLite do Node e no simulador do D1
 
 O workflow `.github/workflows/cofre-api.yml` roda os mesmos testes em todo push que mexe aqui. Ele
 não publica nada.
+
+## Backup e volta do banco (16.3)
+
+O job `cofre` do `.github/workflows/backup.yml` exporta o D1 `cofre` todo dia às 06:31 UTC (depois
+da limpeza das 06:23), confere que vieram todas as tabelas, compacta, tranca com a mesma
+`BACKUP_SENHA` do Murall e guarda `backup-cofre-<dia>.sql.gz.enc` nos artefatos da execução por 30
+dias. Ele só roda com a variável do repositório `COFRE_NO_AR = sim`. O que está no banco já é cifrado
+no aparelho; o tranca é uma segunda camada (o repositório é público, e os artefatos também).
+
+O backup não leva os secrets do Worker: para o cofre abrir de novo depois de uma volta, a pimenta e a
+chave dos envelopes têm de ser as mesmas (a cópia em papel, seção 16.2 do plano).
+
+Para um estrago dos últimos 7 dias, o mais simples é o Time Travel da Cloudflare (grátis):
+
+```bash
+npx wrangler d1 time-travel info cofre
+npx wrangler d1 time-travel restore cofre --timestamp=2026-10-21T12:00:00Z
+```
+
+Para voltar um backup (no Git Bash, no Windows), baixe o artefato, descompacte o `.zip` e:
+
+```bash
+export BACKUP_SENHA='a senha'
+bash ../api/scripts/backup.sh abrir backup-cofre-2026-10-21.sql.gz.enc > backup-cofre.sql
+npx wrangler d1 execute cofre --remote --file=backup-cofre.sql
+```
+
+Isso só num banco **vazio** (o arquivo cria as tabelas). Antes, ponha `MODO = "desligado"` e publique,
+para ninguém gravar no meio. O que mudou depois do dia do backup se perde. Os contadores das passkeys
+voltam para trás, e isso não atrapalha, porque o aparelho só manda números maiores.

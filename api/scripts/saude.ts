@@ -1,17 +1,20 @@
 /**
  * A checagem diária da nuvem (roda no GitHub Actions, `.github/workflows/saude.yml`).
  *
- * 1. A API responde? `GET /v1/status`, e a cota própria de gravações do dia.
+ * 1. A API responde? `GET /v1/status`, e a cota própria de gravações do dia. Com COFRE_URL, também a
+ *    API do cofre de senhas (`GET /api/status`, PLANO-COFRE.md 16.7).
  * 2. Com o token de leitura da Cloudflare: quanto do plano gratuito foi usado ontem e hoje (pedidos
- *    ao Worker, linhas lidas e gravadas no D1, tamanho do banco).
+ *    aos Workers, linhas lidas e gravadas no D1, tamanho de cada banco). Os limites de pedidos e de
+ *    linhas valem para a conta toda, então o Murall e o cofre somam; o de tamanho é por banco.
  *
  * Termina com erro (e o GitHub manda e-mail) se a API não responde ou se algum número passou de 70%
  * do gratuito. Nada aqui grava em lugar nenhum: o token só precisa de "Account Analytics: Read".
  *
  * Variáveis: CF_ANALYTICS_TOKEN e CF_ACCOUNT_ID (sem elas, só a API é conferida), API_URL,
- * D1_DATABASE_ID e WORKER_NAME (os padrões são os de produção).
+ * D1_DATABASE_ID e WORKER_NAME (os padrões são os de produção), e COFRE_URL (vazio: o cofre ainda
+ * não está no ar; o id do D1 dele vem de cofre-api/wrangler.toml).
  */
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 /** O plano Workers Free (por dia UTC, menos o tamanho do banco). */
@@ -42,7 +45,15 @@ export interface DayUsage {
 
 export interface Usage {
   days: DayUsage[];
-  d1DatabaseBytes: number | null;
+  /** O tamanho de cada banco (null: a Cloudflare não disse). */
+  databases: { name: string; bytes: number | null }[];
+}
+
+/** Uma API conferida: o que o status dela respondeu, ou o erro. */
+export interface Checked {
+  name: string;
+  status: Status | null;
+  error: string | null;
 }
 
 export interface Report {
@@ -66,30 +77,32 @@ export function parseStatus(data: unknown): Status | null {
   return { modo: s['modo'], dia: s['dia'], linhasGravadas: s['linhasGravadas'], cotaLinhas: s['cotaLinhas'] };
 }
 
-export function evaluate(status: Status | null, statusError: string | null, usage: Usage | null, usageError: string | null): Report {
+export function evaluate(apis: Checked[], usage: Usage | null, usageError: string | null): Report {
   const problems: string[] = [];
   const notes: string[] = [];
   const lines: string[] = [];
 
-  if (!status) {
-    problems.push(`A API não respondeu direito: ${statusError ?? 'resposta inesperada'}.`);
-  } else {
-    lines.push(`| Modo da API | ${status.modo} | |`);
-    if (status.modo !== 'ligado') notes.push(`A API está em modo "${status.modo}".`);
+  for (const { name, status, error } of apis) {
+    if (!status) {
+      problems.push(`A API ${name} não respondeu direito: ${error ?? 'resposta inesperada'}.`);
+      continue;
+    }
+    lines.push(`| Modo da API ${name} | ${status.modo} | |`);
+    if (status.modo !== 'ligado') notes.push(`A API ${name} está em modo "${status.modo}".`);
     if (status.cotaLinhas > 0) {
-      lines.push(`| Cota própria de gravações (${status.dia}) | ${int(status.linhasGravadas)} de ${int(status.cotaLinhas)} | ${pct(status.linhasGravadas, status.cotaLinhas)} |`);
+      lines.push(`| Cota própria de gravações ${name} (${status.dia}) | ${int(status.linhasGravadas)} de ${int(status.cotaLinhas)} | ${pct(status.linhasGravadas, status.cotaLinhas)} |`);
       if (status.linhasGravadas >= status.cotaLinhas * ALERT) {
-        problems.push(`As gravações de hoje já passaram de ${ALERT * 100}% da cota própria (${int(status.linhasGravadas)} de ${int(status.cotaLinhas)}).`);
+        problems.push(`As gravações de hoje na API ${name} já passaram de ${ALERT * 100}% da cota própria (${int(status.linhasGravadas)} de ${int(status.cotaLinhas)}).`);
       }
     } else {
-      notes.push('A cota própria está zerada: a API não grava nada.');
+      notes.push(`A cota própria da API ${name} está zerada: ela não grava nada.`);
     }
   }
 
   if (usage) {
     for (const d of usage.days) {
       const rows: [string, number, number][] = [
-        ['Pedidos ao Worker', d.workerRequests, FREE.workerRequests],
+        ['Pedidos aos Workers', d.workerRequests, FREE.workerRequests],
         ['Linhas lidas no D1', d.d1RowsRead, FREE.d1RowsRead],
         ['Linhas gravadas no D1', d.d1RowsWritten, FREE.d1RowsWritten],
       ];
@@ -101,10 +114,11 @@ export function evaluate(status: Status | null, statusError: string | null, usag
         problems.push(`O Worker falhou em ${int(d.workerErrors)} de ${int(d.workerRequests)} pedidos em ${d.day}.`);
       }
     }
-    if (usage.d1DatabaseBytes !== null) {
-      const mb = (usage.d1DatabaseBytes / 1024 / 1024).toFixed(1).replace('.', ',');
-      lines.push(`| Tamanho do banco | ${mb} MB de 500 MB | ${pct(usage.d1DatabaseBytes, FREE.d1DatabaseBytes)} |`);
-      if (usage.d1DatabaseBytes >= FREE.d1DatabaseBytes * ALERT) problems.push(`O banco já tem ${mb} MB, ${pct(usage.d1DatabaseBytes, FREE.d1DatabaseBytes)} do gratuito.`);
+    for (const { name, bytes } of usage.databases) {
+      if (bytes === null) continue;
+      const mb = (bytes / 1024 / 1024).toFixed(1).replace('.', ',');
+      lines.push(`| Tamanho do banco ${name} | ${mb} MB de 500 MB | ${pct(bytes, FREE.d1DatabaseBytes)} |`);
+      if (bytes >= FREE.d1DatabaseBytes * ALERT) problems.push(`O banco ${name} já tem ${mb} MB, ${pct(bytes, FREE.d1DatabaseBytes)} do gratuito.`);
     }
   } else if (usageError) {
     problems.push(`Não consegui ler o uso na Cloudflare: ${usageError}.`);
@@ -145,8 +159,8 @@ interface GraphQLAccount {
   storage?: { max?: { databaseSizeBytes?: number } }[];
 }
 
-/** Junta as respostas da Cloudflare por dia (os grupos podem vir picados). */
-export function usageFrom(account: GraphQLAccount, days: string[]): Usage {
+/** Junta as respostas da Cloudflare por dia (os grupos podem vir picados), de um Worker e um banco. */
+export function usageFrom(account: GraphQLAccount, days: string[], name: string): Usage {
   const byDay = new Map(days.map((day) => [day, { day, workerRequests: 0, workerErrors: 0, d1RowsRead: 0, d1RowsWritten: 0 }]));
   for (const g of account.workers ?? []) {
     const d = byDay.get((g.dimensions?.datetime ?? '').slice(0, 10));
@@ -161,15 +175,37 @@ export function usageFrom(account: GraphQLAccount, days: string[]): Usage {
     d.d1RowsWritten += g.sum?.rowsWritten ?? 0;
   }
   const size = account.storage?.[0]?.max?.databaseSizeBytes;
-  return { days: [...byDay.values()], d1DatabaseBytes: typeof size === 'number' ? size : null };
+  return { days: [...byDay.values()], databases: [{ name, bytes: typeof size === 'number' ? size : null }] };
 }
 
-async function readStatus(api: string): Promise<{ status: Status | null; error: string | null }> {
+/** O uso da conta: os pedidos e as linhas somados por dia (o limite é da conta), cada banco à parte. */
+export function sumUsage(parts: Usage[]): Usage {
+  const byDay = new Map<string, DayUsage>();
+  for (const part of parts) {
+    for (const d of part.days) {
+      const sum = byDay.get(d.day) ?? { day: d.day, workerRequests: 0, workerErrors: 0, d1RowsRead: 0, d1RowsWritten: 0 };
+      sum.workerRequests += d.workerRequests;
+      sum.workerErrors += d.workerErrors;
+      sum.d1RowsRead += d.d1RowsRead;
+      sum.d1RowsWritten += d.d1RowsWritten;
+      byDay.set(d.day, sum);
+    }
+  }
+  return { days: [...byDay.values()], databases: parts.flatMap((p) => p.databases) };
+}
+
+/** O id do D1 no wrangler.toml (null se ainda é o de mentira, antes do `wrangler d1 create`). */
+export function databaseIdOf(toml: string): string | null {
+  const id = /^database_id = "([0-9a-f-]{36})"$/m.exec(toml)?.[1];
+  return id && !/^[0-]+$/.test(id) ? id : null;
+}
+
+async function readStatus(url: string): Promise<{ status: Status | null; error: string | null }> {
   let last = 'sem resposta';
   // a primeira chamada do dia pode pegar o Worker frio: três tentativas
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(`${api}/v1/status`, { signal: AbortSignal.timeout(15_000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
       if (!res.ok) last = `HTTP ${res.status}`;
       else {
         const status = parseStatus(await res.json());
@@ -183,7 +219,7 @@ async function readStatus(api: string): Promise<{ status: Status | null; error: 
   return { status: null, error: last };
 }
 
-async function readUsage(token: string, account: string, script: string, db: string, now: Date): Promise<Usage> {
+async function readUsage(token: string, account: string, script: string, db: string, name: string, now: Date): Promise<Usage> {
   const days = [utcDay(now, 1), utcDay(now)];
   const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
     method: 'POST',
@@ -207,28 +243,35 @@ async function readUsage(token: string, account: string, script: string, db: str
   if (body.errors?.length) throw new Error(body.errors.map((e) => e.message ?? '?').join('; '));
   const acc = body.data?.viewer?.accounts?.[0];
   if (!acc) throw new Error('a conta não apareceu na resposta (confira CF_ACCOUNT_ID e o token)');
-  return usageFrom(acc, days);
+  return usageFrom(acc, days, name);
 }
 
 async function main(): Promise<void> {
   const env = process.env;
   const api = (env['API_URL'] || 'https://mural-api.igorsoler.workers.dev').replace(/\/+$/, '');
+  const cofre = (env['COFRE_URL'] ?? '').replace(/\/+$/, '');
   const token = env['CF_ANALYTICS_TOKEN'] ?? '';
   const account = env['CF_ACCOUNT_ID'] ?? '';
   const now = new Date();
 
-  const { status, error } = await readStatus(api);
+  const apis: Checked[] = [{ name: 'do Murall', ...(await readStatus(`${api}/v1/status`)) }];
+  if (cofre) apis.push({ name: 'do cofre', ...(await readStatus(`${cofre}/api/status`)) });
+
+  const targets = [{ script: env['WORKER_NAME'] || 'mural-api', db: env['D1_DATABASE_ID'] || 'c2c789d6-f0f3-4f37-b53a-f049aa02a530', name: 'mural' }];
+  const cofreDb = cofre ? databaseIdOf(readFileSync(new URL('../../cofre-api/wrangler.toml', import.meta.url), 'utf8')) : null;
+  if (cofreDb) targets.push({ script: 'cofre-api', db: cofreDb, name: 'cofre' });
   let usage: Usage | null = null;
   let usageError: string | null = null;
   if (token && account) {
     try {
-      usage = await readUsage(token, account, env['WORKER_NAME'] || 'mural-api', env['D1_DATABASE_ID'] || 'c2c789d6-f0f3-4f37-b53a-f049aa02a530', now);
+      usage = sumUsage(await Promise.all(targets.map((t) => readUsage(token, account, t.script, t.db, t.name, now))));
     } catch (e) {
       usageError = e instanceof Error ? e.message : String(e);
     }
   }
 
-  const report = evaluate(status, error, usage, usageError);
+  const report = evaluate(apis, usage, usageError);
+  if (cofre && !cofreDb) report.problems.push('O cofre está no ar, mas cofre-api/wrangler.toml ainda não tem o id do D1 dele.');
   const out = [
     `## Saúde da nuvem, ${now.toISOString().slice(0, 16).replace('T', ' ')} UTC`,
     '',

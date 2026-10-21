@@ -5,11 +5,17 @@
 #   bash scripts/backup.sh trancar  mural.sql saida.sql.gz.enc  compacta e tranca com a BACKUP_SENHA
 #   bash scripts/backup.sh abrir    saida.sql.gz.enc > mural.sql  destranca e descompacta
 #
+# O mesmo script serve o banco do cofre (cofre-api): BACKUP_TABELAS="a b c" troca a lista de tabelas
+# que o "conferir" exige (o backup.yml passa a do cofre; um teste do cofre-api confere essa lista).
+#
 # A senha vem da variável BACKUP_SENHA (nunca da linha de comando, que fica no histórico).
 # Trancado com AES-256 (openssl, chave derivada da senha por PBKDF2 com 600 mil voltas).
 set -euo pipefail
 
 TABELAS=(usuarios sessoes murais murais_publicos seguindo seguindo_desfeito atividades reacoes comentarios comentario_reacoes freios notas nota_membros agenda_google agenda_pedidos uso_diario)
+if [ -n "${BACKUP_TABELAS:-}" ]; then
+  read -r -a TABELAS <<< "$BACKUP_TABELAS"
+fi
 
 senha() {
   if [ -z "${BACKUP_SENHA:-}" ]; then
