@@ -3,6 +3,9 @@
  * entrega as suas versões (ver `src/adapters/` e `src/entry/`), como na API do Murall (`api/`).
  */
 
+import type { GoogleLogin } from './domain/google';
+import type { Secrets } from './secrets';
+
 /** O que pode ir num parâmetro de SQL. */
 export type SqlValue = string | number | null | Uint8Array;
 
@@ -41,8 +44,25 @@ export interface Config {
   googleClientId: string;
 }
 
+/** A conta do Murall, como a API do Murall a devolve pelo RPC (16.13). */
+export interface MuralAccount {
+  id: string;
+  /** O código da conta, sem o traço (`K7QFM2XA`). */
+  code: string;
+}
+
+/** O que o cofre pergunta à API do Murall, por service binding com RPC (sem endereço público). */
+export interface Mural {
+  /** A conta do Murall que entrou com este `sub` do Google; null se a pessoa nunca entrou no Murall. */
+  accountByGoogle(sub: string): Promise<MuralAccount | null>;
+}
+
 export interface Deps {
   db: Db;
   config: Config;
+  secrets: Secrets;
   now: () => Date;
+  mural: Mural;
+  /** Troca o código do login do Google pelo `sub` (ver `domain/google.ts`). */
+  googleLogin: GoogleLogin;
 }

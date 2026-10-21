@@ -5,7 +5,11 @@ export default defineConfig({
   plugins: [
     cloudflareTest(async () => ({
       wrangler: { configPath: './wrangler.toml' },
-      miniflare: { bindings: { TEST_MIGRATIONS: await readD1Migrations('./migrations') } },
+      miniflare: {
+        bindings: { TEST_MIGRATIONS: await readD1Migrations('./migrations') },
+        // a API do Murall não existe aqui: os testes usam o Murall de mentira (test/harness.ts)
+        serviceBindings: { MURAL: () => new Response('sem Murall nos testes', { status: 503 }) },
+      },
     })),
   ],
   test: { name: 'workers', include: ['test/workers.test.ts'] },

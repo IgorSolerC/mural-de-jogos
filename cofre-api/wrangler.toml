@@ -26,3 +26,9 @@ database_name = "cofre"
 # o id real sai do `wrangler d1 create cofre`, na Fase 3
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
+
+# A API do Murall, por RPC (sem endereço público): a conta pelo `sub` do Google (16.13).
+[[services]]
+binding = "MURAL"
+service = "mural-api"
+entrypoint = "CofreRpc"

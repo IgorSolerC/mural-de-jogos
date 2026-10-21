@@ -1,3 +1,4 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import { d1Db } from '../adapters/d1';
 import { createApp } from '../app';
 import { readCatalogKeys } from '../routes/catalog';
@@ -6,6 +7,7 @@ import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
+import { accountByGoogle } from '../domain/vault';
 import { Deps } from '../ports';
 
 /*
@@ -51,3 +53,13 @@ export default {
     ctx.waitUntil(cleanup(deps(env)));
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * A porta do cofre de senhas (ver `domain/vault.ts`): só por service binding, sem endereço público.
+ * O Worker do cofre chama `env.MURAL.contaPorGoogle(sub)`.
+ */
+export class CofreRpc extends WorkerEntrypoint<Env> {
+  contaPorGoogle(sub: string): Promise<{ id: string; codigo: string } | null> {
+    return accountByGoogle(d1Db(this.env.DB), sub);
+  }
+}

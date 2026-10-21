@@ -5,6 +5,7 @@ import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
 import { write } from '../src/domain/quota';
+import { accountByGoogle } from '../src/domain/vault';
 import { toBytes } from '../src/routes/mural';
 import { Config, Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, noGoogle } from './harness';
@@ -84,6 +85,18 @@ export function apiSuite(label: string, getDb: () => Db) {
       call(`/v1/eu/mural${rev === undefined ? '' : `?rev=${rev}`}`, { headers: { Authorization: `Bearer ${token}` } });
     return { db, deps, app, call, json, login, advance, push, pull };
   }
+
+  describe(`A porta do cofre de senhas (${label})`, () => {
+    it('acha a conta pelo sub do Google e devolve só o id e o código', async () => {
+      const { db, login } = await setup();
+      const { body } = await login({ sub: 'sub-do-cofre' });
+      expect(await accountByGoogle(db, 'sub-do-cofre')).toEqual({ id: body.conta.id, codigo: body.conta.codigo.replace('-', '') });
+      expect(await accountByGoogle(db, 'sub-que-nao-existe')).toBeNull();
+      // nada fora do formato do sub chega ao banco
+      expect(await accountByGoogle(db, "x' OR '1'='1")).toBeNull();
+      expect(await accountByGoogle(db, '')).toBeNull();
+    });
+  });
 
   describe(`API (${label})`, () => {
     it('cria todas as tabelas da migração', async () => {

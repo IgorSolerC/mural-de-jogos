@@ -864,11 +864,11 @@ Em partes, um commit cada:
 | Parte | O que entra | Estado |
 |-------|-------------|--------|
 | 1 | Esqueleto do `cofre-api/` (a montagem do `api/`): o banco inteiro da 9.1 com o que a seção 16 pede, `GET /api/status`, a cota, o `MODO`, a recusa de pedido de outra origem, a configuração (`COFRE_CODIGOS`, `COFRE_ORIGEM`, `COFRE_RP_ID`, que desliga a API se o rpId não for exatamente o host do cofre), testes em Node + SQLite e no D1 simulado, e o workflow `cofre-api.yml`, que só testa | Feita |
-| 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC | — |
+| 2 | Login com o Google (código + PKCE), a sessão de entrada e quem pode usar, com a conta do Murall por RPC (`CofreRpc` no `api/`), e já o freio por IP do login (16.6) | Feita |
 | 3 | Conferência das passkeys (registro e assinatura) e criar o cofre | — |
 | 4 | Abrir: desafio, chave, abrir e recuperar, com o freio da senha | — |
 | 5 | Itens e manifesto: gravar com o contador (409), lixeira, limites e cota | — |
-| 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar), limpeza diária e freio por IP | — |
+| 6 | Gerenciar (senha, aparelhos, código, sessões, histórico, apagar) e limpeza diária | — |
 
 Detalhes da parte 1: o banco ganhou, além da 9.1, o `usuario_passkey` (o `user.id` de 16 bytes das
 passkeys, 16.8), as versões da pimenta e do `COFRE_ENVELOPES` ao lado de cada prova (16.2), o

@@ -1,28 +1,52 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { write } from '../src/domain/quota';
 import { Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
+import { readSecrets } from '../src/secrets';
+import { BASE_ENV, NOW, TABLES, fakeGoogle, fakeMural, jsonCaller } from './harness';
+import { entrySuite } from './entry.suite';
 
 /**
  * A mesma suíte roda em dois bancos: o D1 (simulado pelo Miniflare, `workers.test.ts`) e o SQLite do
  * Node (`node.test.ts`). Se algo só funcionar num deles, a outra rodada quebra.
  */
 export function cofreSuite(label: string, getDb: () => Db) {
+  let google: Awaited<ReturnType<typeof fakeGoogle>>;
+  beforeAll(async () => {
+    google = await fakeGoogle();
+  });
+
+  /** Um cofre novo, com o banco vazio, o Google e o Murall de mentira e um relógio que anda à mão. */
   async function setup(env: Record<string, string> = {}) {
     const db = getDb();
     await db.batch(TABLES.map((t) => ({ sql: `DELETE FROM ${t}` })));
-    const deps: Deps = { db, config: readConfig({ ...BASE_ENV, ...env }), now: () => NOW };
+    const vars = { ...BASE_ENV, ...env };
+    const clock = { t: NOW.getTime() };
+    google.requests.length = 0;
+    google.tamper({});
+    const deps: Deps = {
+      db,
+      config: readConfig(vars),
+      secrets: readSecrets(vars),
+      now: () => new Date(clock.t),
+      mural: fakeMural(),
+      googleLogin: google.login(vars.GOOGLE_CLIENT_SECRET),
+    };
     const app = createApp(deps);
     const call = jsonCaller((path, init) => app.request(path, init));
-    return { db, deps, call };
+    const advance = (ms: number) => {
+      clock.t += ms;
+    };
+    return { db, deps, call, advance, google };
   }
+
+  entrySuite(label, setup);
 
   describe(`API do cofre (${label})`, () => {
     it('o /api/status responde sem login, com o uso do dia', async () => {
       const { call } = await setup();
-      const res = await call('GET', '/api/status', undefined, null);
+      const res = await call('GET', '/api/status', undefined, { origin: null });
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ versao: 1, modo: 'ligado', dia: '2026-10-21', gravacoes: 0, linhasGravadas: 0, cotaLinhas: 1000 });
     });
@@ -37,10 +61,10 @@ export function cofreSuite(label: string, getDb: () => Db) {
 
     it('não responde CORS, e recusa pedido de outra origem', async () => {
       const { call } = await setup();
-      const outra = await call('POST', '/api/status', {}, 'https://murall.igorsc.com.br');
+      const outra = await call('POST', '/api/status', {}, { origin: 'https://murall.igorsc.com.br' });
       expect(outra.status).toBe(403);
       expect(await outra.json()).toMatchObject({ erro: 'origem-recusada' });
-      expect((await call('GET', '/api/status', undefined, 'https://atacante.dev')).status).toBe(403);
+      expect((await call('GET', '/api/status', undefined, { origin: 'https://atacante.dev' })).status).toBe(403);
       const daqui = await call('GET', '/api/status');
       expect(daqui.status).toBe(200);
       expect(daqui.headers.get('Access-Control-Allow-Origin')).toBeNull();
@@ -108,3 +132,11 @@ export function cofreSuite(label: string, getDb: () => Db) {
     });
   });
 }
+
+export type Setup = (env?: Record<string, string>) => Promise<{
+  db: Db;
+  deps: Deps;
+  call: ReturnType<typeof jsonCaller>;
+  advance: (ms: number) => void;
+  google: Awaited<ReturnType<typeof fakeGoogle>>;
+}>;
