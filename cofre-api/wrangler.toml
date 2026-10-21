@@ -1,5 +1,5 @@
 # A API do cofre de senhas (PLANO-COFRE.md, seções 9 e 16), à parte da API do Murall.
-# Ainda não foi publicada: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação do usuário.
+# Ainda não foi publicada: o banco D1 já existe; o domínio e os secrets entram na Fase 3, com a aprovação do usuário.
 name = "cofre-api"
 main = "src/entry/worker.ts"
 compatibility_date = "2026-08-01"
@@ -26,8 +26,8 @@ GOOGLE_CLIENT_ID = ""
 [[d1_databases]]
 binding = "DB"
 database_name = "cofre"
-# o id real sai do `wrangler d1 create cofre`, na Fase 3
-database_id = "00000000-0000-0000-0000-000000000000"
+# criado pelo usuário em 21/10 com `wrangler d1 create cofre` (região ENAM); o id não é segredo
+database_id = "ea30a419-28e2-4e9e-b2b3-23fc1757c3cc"
 migrations_dir = "migrations"
 
 # A API do Murall, por RPC (sem endereço público): a conta pelo `sub` do Google (16.13).
