@@ -32,6 +32,7 @@ para e pergunta ao usuário.
 | 2FA das contas (GitHub, Cloudflare, Google, Apple, registro.br) | Grátis: passkey ou app autenticador | — |
 | BitLocker | Já vem no Windows 11 Pro | — |
 | Testes de cabeçalho (securityheaders.com, Mozilla Observatory) | Grátis | — |
+| Aviso de senha vazada (Have I Been Pwned, consulta por faixa) | Grátis, sem chave | — |
 | Extensão verificadora (Fase 8, opcional) | Grátis: Firefox (AMO) ou "carregar sem compactação" no Chrome. **Não** publicar na Chrome Web Store (cobra US$ 5) | — |
 
 Fica de fora por custar: chave física (YubiKey), Logpush e qualquer recurso pago da Cloudflare,
@@ -76,7 +77,7 @@ Cada linha é um ataque, o que o bloqueia e o que sobra. "Fator" = coisa que o a
 | 11 | **Navegador comprometido** (binário adulterado, falha 0-day) | Navegador oficial atualizado; isolamento de processo (COOP/COEP, `Origin-Agent-Cluster`); tempo aberto curto | Igual à linha 9 |
 | 12 | **Deploy malicioso** (alguém entra no GitHub, na Cloudflare ou no domínio e publica um cofre adulterado) | 2FA com passkey em todas as contas; o cofre só publica com **aprovação manual** sua; Actions fixadas por hash; vigia a cada hora que confere os arquivos no ar contra os hashes do repositório | É o maior risco que sobra num site. O vigia avisa, mas depois. Ver a seção 13 |
 | 13 | **Pacote do npm comprometido** (cadeia de suprimentos) | O cofre usa o mínimo de dependências (Angular + `hash-wasm`), versões fixas no lockfile, `npm ci`, revisão a cada atualização | Uma versão adulterada antes de alguém perceber |
-| 14 | **Servidor malicioso ou adulterado** (devolve dados trocados, antigos ou faltando) | Cada item é cifrado com autenticação (AES-GCM) amarrada ao usuário, ao id e à versão; um "manifesto" cifrado lista todos os itens e versões; o navegador recusa parâmetros de cifra mais fracos que o mínimo | Voltar o cofre inteiro para uma versão antiga é detectável só se o navegador lembrar o último contador (decisão aberta, seção 15) |
+| 14 | **Servidor malicioso ou adulterado** (devolve dados trocados, antigos ou faltando) | Cada item é cifrado com autenticação (AES-GCM) amarrada ao usuário, ao id e à versão; um "manifesto" cifrado lista todos os itens e versões; o navegador recusa parâmetros de cifra mais fracos que o mínimo | Voltar o cofre inteiro para uma versão antiga não é detectado (decisão 6: nada fica no aparelho). A tela de abrir mostra a data e o aparelho da última mudança, para você notar |
 | 15 | **Força bruta online** (tentar senhas na tela de abrir) | Precisa da passkey em cada tentativa; freios por conta (espera dobrando, limite por dia); aviso no Murall a cada sequência de erros | Nada útil |
 | 16 | **Clickjacking** (cofre dentro de um iframe invisível) | `frame-ancestors 'none'` + `X-Frame-Options: DENY` | Nada |
 | 17 | **Homem no meio da rede** | Só HTTPS, HSTS, DNSSEC, registros CAA, alerta de certificado novo (Certificate Transparency) | A Cloudflare vê o tráfego, mas só o que já está cifrado |
@@ -86,7 +87,7 @@ Cada linha é um ataque, o que o bloqueia e o que sobra. "Fator" = coisa que o a
 | 21 | **Windows Recall / prints automáticos / arquivo de paginação** | Instruções no Ajustes (desligar o Recall ou excluir o navegador; BitLocker no disco) | Depende do sistema, não do site |
 | 22 | **Ortografia aprimorada e tradução do navegador** (mandam o texto para o Google) | `spellcheck=false`, `autocorrect=off`, `translate="no"` e `<meta name="google" content="notranslate">` | Nada |
 | 23 | **Apagar o cofre para te prejudicar** (com o token roubado do Murall, apagando a conta) | Apagar a conta do Murall com cofre exige abrir o cofre, ou espera 7 dias com aviso e botão de cancelar; o cofre só se apaga aberto | O backup diário cobre o resto |
-| 24 | **Ficar trancado do lado de fora** (perdeu o celular, esqueceu a senha) | Passkey em dois aparelhos (celular e PC) + código de recuperação impresso | **Esquecer a senha mestra = perder o cofre.** É o preço do conhecimento zero |
+| 24 | **Ficar trancado do lado de fora** (perdeu o celular, esqueceu a senha) | Código de recuperação impresso + passkey num segundo aparelho (opcional, com aviso fixo até existir) | Com um aparelho só, perdê-lo deixa só o código. **Esquecer a senha mestra = perder o cofre.** É o preço do conhecimento zero |
 | 25 | **Roubo da conta da Apple ou do Google** (onde a passkey do celular é sincronizada) | A passkey sozinha não abre: falta a senha mestra. A Apple e o Google cifram as passkeys de ponta a ponta | O atacante teria um fator; precisaria ainda da senha |
 | 26 | **Golpe pelo console** ("cole isto no F12") | Aviso grande no console, como o do Facebook | Quem cola mesmo assim |
 | 27 | **Automação do navegador** (robôs, `navigator.webdriver`) | O cofre recusa abrir com automação ligada (só os testes desligam isso) | Nada |
@@ -99,10 +100,12 @@ Cada linha é um ataque, o que o bloqueia e o que sobra. "Fator" = coisa que o a
    sem carregar o script do Google na página do cofre.
 2. **Senha mestra** (o que você sabe). Frase de 6 palavras sorteadas, ou equivalente. Nunca sai do
    navegador.
-3. **Passkey** (o que você tem), em dois aparelhos que você já tem:
+3. **Passkey** (o que você tem), nos aparelhos que você já tem:
    - **Principal: o celular** (Face ID ou digital). Fica fora do PC, então um keylogger no PC não
      chega nela. No PC, o navegador mostra um QR code e o celular confirma.
-   - **Reserva: o PC** (Windows Hello, com PIN ou rosto). Para quando o celular não estiver à mão.
+   - **Reserva, opcional: o PC** (Windows Hello, com PIN ou rosto). Para quando o celular não
+     estiver à mão. O cofre funciona com um aparelho só, mas mostra um aviso fixo nos Ajustes até
+     haver o segundo (decisão 4).
 
 ### Com PRF e sem PRF
 
@@ -114,7 +117,7 @@ senha fraca. Nem todo aparelho tem PRF:
   têm PRF.
 - Windows Hello e o celular usado pelo PC com QR code: **conferir** na Fase 1.
 
-Um aparelho **sem PRF** ainda serve, num modo mais fraco: a passkey vira só um portão no servidor, e
+Um aparelho **sem PRF** ainda serve (decisão 5: aceito, com aviso), num modo mais fraco: a passkey vira só um portão no servidor, e
 o servidor guarda a parte do aparelho cifrada com um secret do Worker. Fica seguro contra vazamento
 do banco e do backup, mas não contra quem tomar a Cloudflare inteira (aí só a senha mestra protege).
 A Fase 1 começa com **uma página de teste** que diz, em cada aparelho e navegador, se tem PRF.
@@ -153,10 +156,10 @@ Por que a "chave do meio" M:
 
 - Abrir precisa de **M** (só sai de uma passkey ou do código de recuperação) **e** de **kSenha**
   (só sai da senha). Um sem o outro não abre nada.
-- **Trocar a senha** reescreve só `V` e `kAuth`. Não precisa dos dois aparelhos na mão.
+- **Trocar a senha** reescreve só `V` e `kAuth`. Não precisa de todos os aparelhos na mão.
 - **Pôr ou tirar um aparelho** cria ou apaga só o `E_i` dele.
-- O **código de recuperação substitui a passkey, não a senha** (recomendação; decisão aberta na
-  seção 15). Papel roubado + conta do Google não abrem o cofre.
+- O **código de recuperação substitui a passkey, não a senha** (decidido em 21/10, seção 15).
+  Papel roubado + conta do Google não abrem o cofre.
 - Sem PRF, o servidor (com o secret) consegue chegar a M, mas M sozinho não abre nada: ainda falta
   a senha. Por isso o modo sem PRF exige a frase de 6 palavras.
 
@@ -239,7 +242,7 @@ Passos do usuário (grátis):
 ```
 Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval';
   style-src 'self' 'nonce-{por pedido}'; img-src 'self' data:; font-src 'self';
-  connect-src 'self'; manifest-src 'self'; form-action 'none'; frame-ancestors 'none';
+  connect-src 'self' https://api.pwnedpasswords.com; manifest-src 'self'; form-action 'none'; frame-ancestors 'none';
   base-uri 'none'; object-src 'none'; require-trusted-types-for 'script';
   trusted-types angular angular#bundler; upgrade-insecure-requests
 Strict-Transport-Security: max-age=63072000; includeSubDomains
@@ -260,6 +263,8 @@ Cache-Control: no-store
   `HTMLRewriter`) e no cabeçalho. Angular injeta os estilos dos componentes com ele. Desligar o
   `inlineCritical` do build (ele usa `onload` inline, que a CSP barra).
 - `'wasm-unsafe-eval'` é só para o Argon2id em WASM. Sem `unsafe-eval`, sem `unsafe-inline`.
+- `api.pwnedpasswords.com` é o único endereço de fora, e só é chamado com o aviso de senha vazada
+  ligado (decisão 8). A API responde com CORS, então funciona com o COEP `require-corp`.
 - `Cache-Control: no-store` também tira o cofre do cache de voltar/avançar (bfcache).
 - Ao trancar ou sair, a resposta leva `Clear-Site-Data: "cache", "storage"`.
 - Tudo isso cabe nos 10 ms de CPU do plano grátis (o trabalho pesado, o Argon2id, roda no navegador).
@@ -291,6 +296,9 @@ Cache-Control: no-store
    manifesto e a **sessão do cofre** (só na memória; 10 min parada ou 8 h no máximo, no servidor).
 7. Abre `V` → **VK**. Baixa os itens, confere com o manifesto. Decifra cada item **só quando abre**
    (a lista mostra títulos, decifrados na hora e descartados ao trancar).
+8. Mostra no topo, por alguns segundos, a **última mudança** do manifesto ("Mudado pela última vez
+   em 21/10 às 14:32, no celular"). Se a data estiver velha demais, o servidor pode ter voltado o
+   cofre para uma versão antiga.
 
 ### 8.2 Trancar
 
@@ -301,13 +309,14 @@ Cache-Control: no-store
 ### 8.3 Criar o cofre
 
 1. Entrar com o Google.
-2. Registrar a passkey **em dois aparelhos**: o celular e o PC (`userVerification: 'required'`,
+2. Registrar a passkey: o celular primeiro e, se quiser, o PC (`userVerification: 'required'`,
    `attestation: 'none'`, PRF pedido). O cofre mostra, para cada um, se ficou **com PRF** ou no
-   **modo sem PRF**. Aceitar um aparelho só com aviso forte é decisão aberta.
-3. Criar a senha mestra: o cofre sugere uma frase de 6 palavras (sorteio com `getRandomValues` e
-   rejeição, sem viés) e confere a força de uma escrita à mão (mínimo de ~70 bits estimados,
-   lista das senhas mais comuns). Com algum aparelho sem PRF, só aceita frase sorteada ou
-   equivalente.
+   **modo servidor**. Com um aparelho só, cria o cofre e deixa o aviso fixo nos Ajustes até haver
+   o segundo.
+3. Criar a senha mestra: o cofre sugere uma frase de 6 palavras sorteadas da lista em português sem
+   acento (`getRandomValues` com rejeição, sem viés; ~77 bits), com hífens entre elas, e confere a
+   força de uma escrita à mão (mínimo de ~70 bits estimados, lista das senhas mais comuns). Com
+   algum aparelho no modo servidor, só aceita frase sorteada ou equivalente.
 4. **Kit de emergência**: o código de recuperação (128 bits, em base32, 26 caracteres em grupos)
    aparece **uma vez**, numa página para imprimir. Nunca é salvo nem enviado em claro.
 5. O navegador gera M, VK e os `S_i`, monta os `E_i`, `E_rec`, `V`, `kAuth` e o manifesto vazio, e
@@ -412,10 +421,21 @@ varrendo os imports.
 3. **Item**: usuário, senha (mascarada), site, observações. Revelar (15 s), Copiar (limpa em 30 s),
    Mostrar para digitar (letras grandes, separadas em grupos), Abrir o site (abre a URL salva;
    ajuda a não cair em site falso).
-4. **Gerador**: frase de palavras ou caracteres aleatórios, sem viés.
-5. **Ajustes**: senha, aparelhos (com PRF ou não), código de recuperação, aparelhos abertos,
-   histórico, apagar. Mais as instruções do aparelho (perfil sem extensões, histórico da área de
-   transferência, Recall, BitLocker).
+4. **Gerador**: frase de palavras (a lista em português sem acento) ou caracteres aleatórios, sem
+   viés.
+5. **Ajustes**: senha, aparelhos (com PRF ou no modo servidor; o aviso fixo "Ponha a passkey num
+   segundo aparelho" enquanto houver um só), código de recuperação, aparelhos abertos, histórico,
+   **Avisar senha vazada** (desligado por padrão), apagar. Mais as instruções do aparelho (perfil
+   sem extensões, histórico da área de transferência, Recall, BitLocker).
+
+### Aviso de senha vazada (ligado nos Ajustes)
+
+- Ao abrir o cofre, e ao salvar uma senha, o navegador calcula o SHA-1 de cada senha, manda só os
+  5 primeiros caracteres para `api.pwnedpasswords.com/range/` com `Add-Padding: true` e confere o
+  resto ali mesmo. A senha e o hash inteiro nunca saem.
+- Senha encontrada: um selo "Vazada" no item e uma lista "Senhas vazadas" no topo. Nada é
+  guardado: a conferência se repete a cada abertura.
+- Sem rede ou com a API fora: não avisa nada e não atrapalha o cofre.
 
 ### Comportamentos de segurança
 
@@ -486,10 +506,10 @@ Uma de cada vez (o usuário prefere rodadas pequenas). Cada fase termina com tes
 | 1 | **Página de teste do PRF** (em cada aparelho e navegador) + **núcleo de cripto** (`projects/cofre/src/core/crypto.ts`), sem tela | Sabemos quais aparelhos têm PRF; testes com vetores oficiais (Argon2id da RFC 9106, HKDF da RFC 5869), ida e volta, adulteração de cada campo falha, rebaixamento recusado |
 | 2 | **`cofre-api`**: tabelas, rotas, freios, cota, RPC com o `mural-api` | Testes de API (Node + SQLite como em `api/test`), incluindo ataques: desafio reusado, contador da passkey voltando, `kAuth` errado, freio, 409 |
 | 3 | **Hospedagem**: Worker com os arquivos, cabeçalhos, deploy com aprovação, vigia | Uma página "olá" no ar; script que confere cada cabeçalho; nota A+ no securityheaders.com e no Mozilla Observatory |
-| 4 | **Criar o cofre**: Google, dois aparelhos, senha, kit de emergência | Fluxo de ponta a ponta no navegador com autenticador virtual |
+| 4 | **Criar o cofre**: Google, um ou dois aparelhos (com o aviso), senha com o gerador em português, kit de emergência | Fluxo de ponta a ponta no navegador com autenticador virtual |
 | 5 | **Abrir e usar**: abrir, trancar, lista, item, gerador, área de transferência | Idem + os gatilhos de trancar |
 | 6 | **Gerenciar e ligar ao Murall**: senha, aparelhos, recuperação, sessões, histórico, congelar, avisos no correio, apagar a conta protegido, botão Cofre | Novidades e BUILD; testes nos dois lados |
-| 7 | **Endurecer**: gaveta, vigia do DOM, revisão de segurança final (`/security-review` + leitura linha a linha da cripto) | Lista de ataques da seção 4 toda testada |
+| 7 | **Endurecer**: gaveta, vigia do DOM, aviso de senha vazada, revisão de segurança final (`/security-review` + leitura linha a linha da cripto) | Lista de ataques da seção 4 toda testada |
 | 8 (opcional) | **Extensão verificadora**, grátis (Firefox ou carregada à mão no Chrome): confere os hashes do cofre antes de deixar abrir | Única defesa *dentro* do navegador contra um deploy adulterado |
 
 ### Testes que não podem faltar
@@ -517,7 +537,12 @@ Para ninguém achar que existe 100%:
 - **A passkey é mais fraca que uma chave física**: a do celular é sincronizada na nuvem da Apple ou
   do Google, e a do PC mora no mesmo PC onde um malware pode estar. É a troca por custo zero.
 - **Esquecer a senha mestra**: perde o cofre. Ninguém consegue recuperar, nem o dono do site.
-- **Perder os dois aparelhos e o código**: idem.
+- **Perder os aparelhos e o código**: idem. Com um aparelho só (decisão 4), perder ele já deixa só
+  o código.
+- **O servidor voltar o cofre inteiro para uma versão antiga**: não é detectado, porque nada fica no
+  aparelho (decisão 6). A data da última mudança na tela de abrir é o aviso.
+- **Perder a nuvem**: não há exportação do cofre (decisão 9). Sobram o backup diário trancado
+  (30 dias) e a volta de 7 dias do D1.
 - **Ser forçado a abrir**: fora do escopo.
 - **A senha do Google**: não guarde **só** no cofre, porque o cofre precisa do login do Google. Se
   perder o acesso ao Google, fica trancado do lado de fora. O mesmo vale para a senha da Apple, se a
@@ -555,17 +580,31 @@ Valem para este repositório inteiro (do usuário, Igor Soler):
    só, com site e API na mesma origem (seção 7.2). O usuário não teve preferência; foi a
    recomendação.
 2. **Custo zero** (21/10): passkey do celular e do PC no lugar da chave física (seções 2 e 5).
+3. **Código de recuperação** (21/10): **só substitui a passkey**. Abrir com ele pede Google +
+   código + senha mestra (seções 6.1 e 8.4). Papel roubado + Google não abrem nada; esquecer a
+   senha mestra continua sendo perder o cofre, sem volta. Descartadas: o código abrir tudo sozinho
+   (o papel viraria o alvo) e ter dois códigos (o segundo teria o mesmo risco).
 
-### Em aberto (perguntar ao usuário, uma de cada vez)
+4. **Quantos aparelhos** (21/10): o cofre **aceita ser criado com um aparelho só**, com um aviso
+   fixo nos Ajustes ("Ponha a passkey num segundo aparelho") até haver dois. Com um só, perder o
+   aparelho deixa só o código impresso (seções 8.3 e 13).
+5. **Aparelho sem PRF** (21/10): **aceito, com aviso**. Fica marcado "modo servidor" nos Ajustes
+   e, com algum aparelho assim, a senha mestra tem de ser a frase sorteada (seções 5 e 8.3).
+6. **Lembrar o último contador no navegador** (21/10): **não**. Nada fica no aparelho, nem
+   números. Voltar o cofre inteiro para uma versão antiga não é detectado; para ajudar, a tela de
+   abrir mostra a última mudança do manifesto (data e aparelho), e você nota se ela estiver velha
+   (seções 4 e 13).
+7. **Lista de palavras do gerador** (21/10): **português, sem acento nem cedilha**, 7.776 palavras,
+   licença livre. A Fase 1 escolhe a lista, confere a licença e a qualidade (sem palavras
+   repetidas, parecidas ou ofensivas) e a guarda no repositório (seção 8.3).
+8. **Avisar senha vazada** (21/10): **sim, desligado por padrão**; você liga nos Ajustes. Usa o
+   Have I Been Pwned (grátis, sem chave) por k-anonimato: só os 5 primeiros caracteres do SHA-1
+   saem do navegador, com o cabeçalho `Add-Padding: true` para a resposta não revelar nada pelo
+   tamanho (seções 7.3 e 10).
+9. **Exportar backup cifrado** (21/10): **não**. O cofre só existe na nuvem; a proteção contra
+   perder o banco é o backup diário trancado do D1 (`backup.yml`, 30 dias) e a volta de 7 dias da
+   Cloudflare (seção 13).
 
-3. **Código de recuperação substitui só a passkey** (recomendado: ainda pede a senha) **ou abre
-   tudo sozinho** (perdoa esquecer a senha, mas o papel vira um alvo)?
-4. **Exigir dois aparelhos** (recomendado: celular e PC) ou aceitar um com aviso?
-5. **Aceitar aparelho sem PRF** (no modo servidor, seção 5) ou só aparelhos com PRF? Depende do
-   resultado da página de teste da Fase 1.
-6. **Guardar no navegador o último contador e a última versão vista** (números, não segredos)?
-   Detecta o servidor voltando o cofre para uma versão antiga, mas é "algo salvo no aparelho".
-7. **Lista de palavras do gerador**: português (qual lista, qual licença) ou a EFF em inglês?
-8. **Consulta de senha vazada** (Have I Been Pwned, grátis, só os 5 primeiros caracteres do hash
-   saem do navegador)? Desligada por padrão, porque abre conexão com um terceiro.
-9. **Exportar um backup cifrado** para um arquivo? Continua cifrado, mas é algo salvo fora da nuvem.
+### Em aberto
+
+Nenhuma. As próximas dúvidas aparecem na Fase 1 (quais aparelhos têm PRF, qual lista de palavras).
