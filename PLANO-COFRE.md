@@ -231,8 +231,12 @@ domínio próprio do Worker. Sem CORS, `connect-src 'self'`.
 Passos do usuário (grátis):
 
 1. Criar a zona `igorsc.com.br` na Cloudflare (plano Free). Ela copia os registros de hoje.
-2. Conferir que o CNAME `murall` → `igorsolerc.github.io.` veio junto, **com a nuvem cinza**
-   (só DNS, sem proxy), para o GitHub Pages continuar emitindo o certificado.
+2. Conferir que os dois registros de hoje vieram juntos (o domínio não tem e-mail, então não há
+   MX para levar):
+   - o CNAME `murall` → `igorsolerc.github.io.`, **com a nuvem cinza** (só DNS, sem proxy), para
+     o GitHub Pages continuar emitindo o certificado;
+   - o TXT `google-site-verification=…`, que prova ao Google que o domínio é seu (o login e a
+     Agenda dependem dele).
 3. No registro.br, trocar os servidores de DNS pelos dois que a Cloudflare indicar.
 4. Ligar o DNSSEC na Cloudflare e pôr o registro DS que ela mostrar no registro.br.
 5. Conferir que o Murall continua abrindo.
@@ -338,8 +342,25 @@ nova e gerar um código novo; o antigo é apagado (uso único).
 
 ### 8.6 Do lado do Murall
 
-- Um botão **Cofre** que só abre o link (`target=_blank rel="noopener noreferrer"`). O Murall
-  **nunca** carrega código nem dado do cofre.
+- **A aba "Cofre de senhas"** (decisão 10): nas Anotações, ao lado do Calendário, nas seções da
+  barra (`ui/area-bar.ts`, junto de Mural, Kanban e Calendário), com um logo próprio no jeito dos
+  outros (`ui/section-logos.ts`).
+  - É **só um link** para `https://cofre.murall.igorsc.com.br/`, aberto **na mesma aba do
+    navegador** (um `<a href>` comum com `rel="noreferrer"`, sem `target`). Nada de `iframe`: o
+    cofre recusa ser emoldurado (`frame-ancestors 'none'`), e um cofre dentro da página do Murall
+    deixaria uma falha no Murall desenhar um campo de senha falso por cima dele.
+  - O Murall **nunca** carrega código nem dado do cofre: a aba não mostra contagem, nome de item
+    nem se o cofre existe.
+  - Só aparece para quem está logado.
+- O **topo do cofre é igual ao do Murall**: o mesmo varal, os mesmos bottons e a mesma barra das
+  Anotações, com "Cofre de senhas" marcada. Mural, Kanban e Calendário são links de volta
+  (`https://murall.igorsc.com.br/anotacoes`, `/anotacoes/kanban`, `/anotacoes/calendario`), e os
+  bottons (Perfil, Amigos, Ajustes) também. Ver a seção 10.
+- **Sair do cofre o tranca**: clicar em qualquer link de volta, recarregar ou fechar joga a
+  memória fora (o `pagehide` da seção 8.2). Voltar pelo botão do navegador abre o cofre trancado
+  (o `Cache-Control: no-store` tira a página do cache de voltar).
+- A mudança de endereço na barra do navegador é o que denuncia a troca; uma página falsa no lugar
+  não consegue a passkey, que só responde a `cofre.murall.igorsc.com.br`.
 - **Congelar o cofre** (nos Ajustes do Murall, só com o login): ninguém abre por 24 h. Para quando
   você suspeita de algo e está sem o celular na mão.
 - Avisos no correio do Murall: abertura num aparelho novo, sequência de erros, passkey posta ou
@@ -414,6 +435,19 @@ Um segundo projeto Angular no mesmo workspace (`projects/cofre`, alvo próprio n
 **Não importa nada de `src/app`**, só os tokens de cor e fonte em SCSS. Um teste confere isso
 varrendo os imports.
 
+### O topo igual ao do Murall
+
+O cofre tem **uma cópia própria** do topo do Murall (o varal de kraft, os bottons e a barra das
+Anotações com os logos), feita só de HTML e SCSS em `projects/cofre`. Não importa os componentes
+de `src/app` (eles trazem lojas, sincronização e conteúdo de outras pessoas). As imagens e fontes
+que o topo usa são copiadas para o cofre e servidas da origem dele (o COEP barra as de fora).
+
+- Os links do topo levam ao Murall (seção 8.6) e trancam o cofre ao sair.
+- O topo não mostra nada que dependa da conta do Murall (nem a foto do perfil nem os avisos): o
+  cofre não tem o token do Murall e não deve ter.
+- Quando o topo do Murall mudar, o do cofre muda junto, à mão. Um teste compara a lista de seções
+  e os endereços dos dois, para avisar se um ficar para trás.
+
 ### Telas
 
 1. **Entrar** (Google) → **Abrir** (senha + passkey).
@@ -448,7 +482,8 @@ varrendo os imports.
   cofre e use um perfil sem extensões."
 - Aviso grande no console contra o golpe do "cole isto no F12".
 - Recusa abrir com `navigator.webdriver` ligado.
-- Não escuta `postMessage`. Nenhum link externo além do "Abrir o site" (sempre com `noopener noreferrer`).
+- Não escuta `postMessage`. Links para fora: só os do topo (para o Murall, `rel="noreferrer"`) e
+  o "Abrir o site" de um item (aba nova, `noopener noreferrer`).
 - Nada de `innerHTML`, `bypassSecurityTrust*`, markdown ou HTML vindo de dado.
 - Visual com o jeito do Murall, mas **clareza acima de enfeite**: numa tela de segurança, o
   que está aberto, trancado ou em risco tem de ser óbvio. Passa pelo Impeccable.
@@ -508,7 +543,7 @@ Uma de cada vez (o usuário prefere rodadas pequenas). Cada fase termina com tes
 | 3 | **Hospedagem**: Worker com os arquivos, cabeçalhos, deploy com aprovação, vigia | Uma página "olá" no ar; script que confere cada cabeçalho; nota A+ no securityheaders.com e no Mozilla Observatory |
 | 4 | **Criar o cofre**: Google, um ou dois aparelhos (com o aviso), senha com o gerador em português, kit de emergência | Fluxo de ponta a ponta no navegador com autenticador virtual |
 | 5 | **Abrir e usar**: abrir, trancar, lista, item, gerador, área de transferência | Idem + os gatilhos de trancar |
-| 6 | **Gerenciar e ligar ao Murall**: senha, aparelhos, recuperação, sessões, histórico, congelar, avisos no correio, apagar a conta protegido, botão Cofre | Novidades e BUILD; testes nos dois lados |
+| 6 | **Gerenciar e ligar ao Murall**: senha, aparelhos, recuperação, sessões, histórico, congelar, avisos no correio, apagar a conta protegido, a aba "Cofre de senhas" nas Anotações e o topo igual ao do Murall no cofre | Novidades e BUILD; testes nos dois lados |
 | 7 | **Endurecer**: gaveta, vigia do DOM, aviso de senha vazada, revisão de segurança final (`/security-review` + leitura linha a linha da cripto) | Lista de ataques da seção 4 toda testada |
 | 8 (opcional) | **Extensão verificadora**, grátis (Firefox ou carregada à mão no Chrome): confere os hashes do cofre antes de deixar abrir | Única defesa *dentro* do navegador contra um deploy adulterado |
 
@@ -604,6 +639,11 @@ Valem para este repositório inteiro (do usuário, Igor Soler):
 9. **Exportar backup cifrado** (21/10): **não**. O cofre só existe na nuvem; a proteção contra
    perder o banco é o backup diário trancado do D1 (`backup.yml`, 30 dias) e a volta de 7 dias da
    Cloudflare (seção 13).
+
+10. **Onde o cofre aparece** (21/10): uma aba **"Cofre de senhas"** nas Anotações, ao lado do
+    Calendário, que abre o cofre **na mesma aba do navegador**, no endereço dele, com o **topo
+    igual ao do Murall** (seções 8.6 e 10). Descartados: abrir dentro da página do Murall (barrado
+    pela segurança) e abrir numa aba nova do navegador.
 
 ### Em aberto
 
