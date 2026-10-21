@@ -1,7 +1,8 @@
 # Plano do Cofre de senhas do Murall
 
 Escrito em 21/10/2026, revisto no mesmo dia para **custo zero**. É o plano completo, para quem for
-implementar (eu ou outra IA) seguir sem precisar desta conversa. Nada daqui foi implementado ainda.
+implementar (eu ou outra IA) seguir sem precisar desta conversa. A Fase 1 começou em 21/10: o que
+já existe e o que foi decidido ao implementar estão na seção 17.
 
 ## 1. O que o usuário pediu
 
@@ -786,3 +787,55 @@ e só se ligado).
   verdade em desenvolvimento.
 - Os secrets locais em `cofre-api/.dev.vars`, que o `.gitignore` do `cofre-api` ignora desde o
   primeiro commit (como o do `api/`).
+
+## 17. Andamento
+
+### 17.1 Fase 1 (começada em 21/10)
+
+| Peça | Onde | Estado |
+|------|------|--------|
+| Página de teste do PRF | `public/prf-teste.html` + `prf-teste.js` | Feita (1819a89). Conferida com o autenticador virtual do Chrome, com e sem PRF. **Falta o usuário testar** no iPhone, no Windows Hello (Chrome e Edge) e no PC com o celular pelo QR code, e trazer o "Copiar o resultado" |
+| Núcleo de cripto | `projects/cofre/src/core/crypto.ts` (+ `bytes.ts`) | Feito (342eab0), com os testes da seção 12 |
+| Regras do código do cofre | `projects/cofre/regras.test.mjs` (Node, no `test:ci`) | Feito (342eab0) |
+| Sorteio da frase e código de recuperação | `core/sorteio.ts`, `core/codigo.ts` | Feitos (9cc69d0) |
+| Lista de palavras | — | **Falta** (17.3) |
+
+O projeto `cofre` existe no `angular.json` só com o alvo de teste (`ng test cofre`); o de build entra
+na Fase 3. O `npm run test:ci` roda os testes do Murall, os do cofre e as regras.
+
+### 17.2 Detalhes decididos ao implementar
+
+O plano não dizia, e a Fase 1 decidiu assim. São todos do lado mais seguro, mas mexem no formato:
+**o usuário confere** (seção 14: mudança na cripto só com aprovação dele).
+
+1. **Senha normalizada em NFC** antes do Argon2id: a mesma frase com acento digitada no iPhone e no
+   PC dá a mesma chave (sem isso, "ç" pode chegar de dois jeitos e o cofre não abrir).
+2. **AAD também nos envelopes e em V**, além dos itens e do manifesto: `cofre-v1|env|usuário|envelope`,
+   `cofre-v1|rec|usuário`, `cofre-v1|cofre|usuário`. O servidor não consegue servir o envelope ou o V
+   de uma conta em outra.
+3. **Formato de todo selado**: `[versão 1 byte][IV 12 bytes sorteado][cifrado + etiqueta 16 bytes]`.
+   Byte de versão desconhecido é recusado.
+4. **HKDF sem sal** onde o plano não dá um (todos menos o dos itens, que usa o id).
+5. **Teto dos parâmetros do Argon2id** (m ≤ 1 GiB, t ≤ 16, p ≤ 4) além do mínimo: um servidor
+   adulterado também não consegue travar o navegador.
+6. **Completar até 512 bytes com espaços** (o JSON os ignora). O manifesto também é completado.
+7. **Ids sempre UUID em minúsculas** (o id do usuário do Murall já é um UUID); nada mais entra num AAD.
+8. **Código de recuperação com 28 caracteres** (7 grupos de 4), não 26: os 128 bits + 12 bits de
+   conferência (começo do SHA-256), em base32 de Crockford. Pega erro de digitação antes de gastar
+   uma tentativa no servidor. A cripto usa só os 16 bytes.
+9. **Base64url só canônico** no que vem do servidor (sem padding, sem bits sobrando).
+10. **Vetores do Argon2id**: os da RFC 9106 usam "dado associado", que o `hash-wasm` não expõe; os
+    testes usam os da implementação de referência (phc-winner-argon2, `test.c`), que bateram também
+    com o que eu tinha anotado deles. O HKDF usa os três casos da RFC 5869, e os vetores próprios da
+    versão 1 foram conferidos também com o `node:crypto`.
+11. O `hash-wasm` guarda a senha e os 64 MiB de trabalho na memória do WASM até o coletor de lixo
+    passar: não dá para zerar por fora. Entra na lista da seção 13 (PC dominado com o cofre aberto).
+
+### 17.3 A lista de palavras (em aberto)
+
+A única lista pronta em português que achei (um gist de "Portuguese diceware") **não serve**: sem
+autor nem licença, com entradas como "aa", "aaa", "f.o.b.", acentos tirados à força ("fumaca",
+"acao") e palavrões. A proposta é **montar a lista**: palavras comuns que já se escrevem sem acento
+nem cedilha (nunca com o acento arrancado), de 3 a 9 letras, tiradas de uma lista de frequência com
+licença livre e conferidas num dicionário aberto, sem palavrões, nomes próprios nem palavras quase
+iguais, e com o arquivo da licença ao lado. Baixar as listas de origem espera o "pode" do usuário.
