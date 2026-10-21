@@ -6,8 +6,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
-    "test:ci": "ng test --watch=false --browsers=ChromeHeadless"
+    "test": "ng test mural-de-jogos",
+    "test:ci": "ng test mural-de-jogos --watch=false --browsers=ChromeHeadless && npm run test:cofre",
+    "test:cofre": "ng test cofre --watch=false --browsers=ChromeHeadless && node --test projects/cofre/regras.test.mjs"
   },
   "prettier": {
     "overrides": [
@@ -32,6 +33,7 @@
     "@fontsource/dm-serif-display": "^5.3.0",
     "@fontsource/kalam": "^5.3.0",
     "@fontsource/permanent-marker": "^5.3.0",
+    "hash-wasm": "4.12.0",
     "lucide-angular": "^1.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"

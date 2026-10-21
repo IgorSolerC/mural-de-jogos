@@ -132,6 +132,20 @@
           }
         }
       }
+    },
+    "cofre": {
+      "projectType": "application",
+      "root": "projects/cofre",
+      "sourceRoot": "projects/cofre/src",
+      "prefix": "cofre",
+      "architect": {
+        "test": {
+          "builder": "@angular/build:karma",
+          "options": {
+            "tsConfig": "projects/cofre/tsconfig.spec.json"
+          }
+        }
+      }
     }
   }
 }
