@@ -1,0 +1,97 @@
+# Palavras que a revisão à mão tirou da lista do cofre (ver scripts/cofre-palavras.py).
+# Uma por linha, separadas por assunto. As que entram no lugar delas são revistas também.
+
+# sexo, corpo e excreção
+anal bacanal bordel brochar cibersexo copular defecar deflorar bolinar cornear chichi chupa chulo
+ejacular erotismo escroto escrotal esperma estuprar estupro fornicar falo genital glande lascivo
+lesbiano libido lingerie masturbar mijar mijo mijona meretriz mamilo menstrual menstruar menopausa
+inseminar incesto onanismo orgasmo obsceno odalisca pederasta pedofilia pudenda puto sacana
+sodomia sodomita sodomizar sexo sexual sexologia peitudo tetudo pipi pilinha vagina vaginal
+vaginismo vulva uretra uterino xixi proxeneta cio luxurioso sensual seio pernoca safadeza
+afeminar assexuado mariquice
+
+# insultos e ofensas a pessoas e grupos
+cafajeste calhorda cretino canalha biltre bandalho corja cigano boche crioulo imbecil idiotia
+gentalha labrego javardo gajo gabarola forreta foleiro fedelho lamecha negrada negreiro negritude
+mulato gringo paspalho patife sabujo tanso ranheta parvo parolo piroso porreiro velhaco
+pulguento piolhento semita judeu judia judiar maometano racial sefardita sionismo sunita xiita
+islamismo islamita xenofobia homofobia misoginia fascismo nazi nazismo marxismo peronismo
+populismo satanismo sadismo nazareno sarraceno mameluco
+
+# violência e morte
+assassino apunhalar decapitar degolar chacinar cadafalso linchar massacrar mutilar estripar
+esfaquear esganar enforcar fuzilar metralhar napalm suicidar trucidar violentar violar vitimar
+regicida punhalada tiroteio torturar matar moribundo mortalha
+
+# doenças
+autismo anorexia carcinoma canceroso cancro cirrose dislexia brucelose bronquite artrite artrose
+arritmia apoplexia afasia alexia cefaleia celulite colite dengue diabete difteria distrofia
+eczema edema arterite adenoma angina bipolar dispepsia embolia embolismo enfarte enfartar
+equimose escorbuto maleita hematoma hemofilia hepatite leucemia lepra leproso meningite melanoma
+isquemia glaucoma gastrite gengivite faringite laringite fibroma fibrose granuloma lombalgia
+micose miopia neuralgia nevralgia lobotomia histeria tumor tumoral sinusite rinite tendinite tifo
+sarampo salmonela psicose pneumonia pelagra paralisia purulento ulceroso virose variz sarnento
+pandemia peste catarro catapora caxumba
+
+# drogas
+haxixe marijuana
+
+# grafias e usos de Portugal
+aluguer autocarro caloiro casadoiro coiro dezanove dezasseis dezassete desporto controlo
+contactar aspeto detetar detetor canadiano cobarde dossier casino aldrabar aldrabice camionete
+bolbo azoto berbequim berma carril coiso concelho atacador aterragem amaragem caril carapau
+choldra chorudo casquilho cabular chavo copito cegueta facto ficheiro guionista hormona frenesim
+furgoneta gaguez golo grossista joalharia massajar mealheiro montra icebergue infetar jugoslavo
+lambidela mordidela nenhures escadote esfregona escuteiro estore neutral moiro historial fiambre
+furriel herdade registar registo sector subtil subtileza sumptuoso terramoto toalhete travagem
+tubagem utente videojogo xaile tejadilho tarte tasco sanita saloio planear polaco paragem
+patinagem peritagem portagem prensagem ripagem queque pequenito peluche sumarento rafeiro paio
+lusco
+
+# estrangeirismos, siglas, unidades e letras
+alter atelier designer drive dojo curie fermi hertz joule laser mainframe glamour magazine mousse
+modem menu online pipeline telex vitae psi sigma tau quantum priori pence slalom slide spam site
+velcro vuvuzela lambda gonzo goto geco
+
+# termos técnicos ou raros demais
+carboneto carbonite borato brometo cloral clorato citosina anidrido iodeto fulminato metileno
+naftaleno fluoreto glicol globulina glifo megaciclo milibar trigrama termopar tolueno xileno
+sulfureto sulfito silicato zeugma imago quimo timo bugiar bujarrona financial
+
+# formas estranhas, conjugações, nomes e pedaços
+aprouver apaga aparta cospe adir dilo dine diana clarissa clarito albano cabinda borgonha montijo
+for eram mui nini fifi lulu tutu chi gear fulo mor graal grei garotal molinar javalino montesino
+fontano noveno lobito fuinho gaveto ceita bular pero sito sido vendo tonar valar talar togar sique
+soba pado pataco tele porcento porretada pedroso paulito pascoal pascal paul rabi rosinha redinha
+velhada viuvinha quico teluriano tebano poceiro rascar
+
+# das de 10 letras
+agorafobia amigdalite anfetamina apendicite assassinar catarrento coqueluche disenteria
+excremento flatulento gangrenoso hemorragia hidrofobia holocausto incestuoso libidinoso
+licencioso masoquismo mulherengo necrofilia neuropatia ninfomania paraplegia peritonite
+prostituir prostituto psicopatia raquitismo septicemia testicular transexual vasectomia
+virgindade voluptuoso exterminar mentecapto falangista curriculum posteriori figueiredo
+pubescente endoscopia mamografia aderecista perclorato pneumococo peritoneal puntiforme
+regiamente galvanismo mesmerismo engravidar embriaguez
+pederastia casadouro franquismo absentismo vitelino zarzuela olmeiro
+
+# da varredura final (gíria vulgar, e as que formam ofensa racial juntas na frase)
+grelo piranha rabo escravo escravizar negro macaco
+
+# depois de o VERO ser expandido (entraram as palavras comuns, e com elas estas)
+cachorra calcinhas concubina mija mijada menstruada orgia pica porrada prostituta rameira teta
+travesti trepa trepada rola chupador mona masoquista
+macaca maricas judio cigana escrava fascista nazista racismo racista sionista terrorista
+comunismo comunista marxista satanista papista niilista feminista
+autista esclerose epilepsia gangrena herpes necrose neurose reumatismo trombose anemia asma
+atrofia enxaqueca epidemia asfixia fezes urina morfina metadona nicotina maconha droga drogado
+chacina massacre tortura torturante deus aleluia budismo budista
+africanas catacumbas comanches primatas orientais casados mexidos tomados trocados cegas escuras
+salgados escondidas
+corpus status stress sande gauss nano loco carte lena mariana pandora judas maia marta nina nino
+castro margarita corujo concho piro pipo lura aso basto barbo uno nico nica teca chino chio sena
+cavo testo giga opa toa jus hasta praxe
+quer deve pertence explicando iniciando sossega prolonga empurra recordo atesto arrumo encerro
+congelo cobro chora custa arromba esfrega molha zomba engasgue rasgue troque transforme
+acrescente encarregue encolha dobre cale derrube endireito finto surro rastejo esbarro
+direitista extremismo rebelo endireita

@@ -71,3 +71,14 @@ test('o cofre não importa nada de fora dele, e só as dependências permitidas'
   }
   assert.deepEqual(achados, []);
 });
+
+test('a lista de palavras não tem nenhuma das que a revisão à mão tirou', () => {
+  const fora = readFileSync(join(raiz, '..', '..', 'scripts', 'cofre-palavras-fora.txt'), 'utf8')
+    .split('\n')
+    .filter((l) => !l.startsWith('#'))
+    .flatMap((l) => l.split(/\s+/))
+    .filter(Boolean);
+  const lista = new Set([...readFileSync(join(fonte, 'core', 'palavras.ts'), 'utf8').matchAll(/^ {2}'([a-z ]+)',/gm)].flatMap((m) => m[1].split(' ')));
+  assert.equal(lista.size, 7776);
+  assert.deepEqual(fora.filter((w) => lista.has(w)), []);
+});

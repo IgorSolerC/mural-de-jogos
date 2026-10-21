@@ -798,7 +798,7 @@ e só se ligado).
 | Núcleo de cripto | `projects/cofre/src/core/crypto.ts` (+ `bytes.ts`) | Feito (342eab0), com os testes da seção 12 |
 | Regras do código do cofre | `projects/cofre/regras.test.mjs` (Node, no `test:ci`) | Feito (342eab0) |
 | Sorteio da frase e código de recuperação | `core/sorteio.ts`, `core/codigo.ts` | Feitos (9cc69d0) |
-| Lista de palavras | — | **Falta** (17.3) |
+| Lista de palavras | `core/palavras.ts`, `scripts/cofre-palavras.py` | Feita (17.3) |
 
 O projeto `cofre` existe no `angular.json` só com o alvo de teste (`ng test cofre`); o de build entra
 na Fase 3. O `npm run test:ci` roda os testes do Murall, os do cofre e as regras.
@@ -831,11 +831,28 @@ O plano não dizia, e a Fase 1 decidiu assim. São todos do lado mais seguro, ma
 11. O `hash-wasm` guarda a senha e os 64 MiB de trabalho na memória do WASM até o coletor de lixo
     passar: não dá para zerar por fora. Entra na lista da seção 13 (PC dominado com o cofre aberto).
 
-### 17.3 A lista de palavras (em aberto)
+### 17.3 A lista de palavras (feita em 21/10)
 
 A única lista pronta em português que achei (um gist de "Portuguese diceware") **não serve**: sem
 autor nem licença, com entradas como "aa", "aaa", "f.o.b.", acentos tirados à força ("fumaca",
-"acao") e palavrões. A proposta é **montar a lista**: palavras comuns que já se escrevem sem acento
-nem cedilha (nunca com o acento arrancado), de 3 a 9 letras, tiradas de uma lista de frequência com
-licença livre e conferidas num dicionário aberto, sem palavrões, nomes próprios nem palavras quase
-iguais, e com o arquivo da licença ao lado. Baixar as listas de origem espera o "pode" do usuário.
+"acao") e palavrões. Com o "pode" do usuário, a lista foi **montada**: `core/palavras.ts`, gerada
+por `scripts/cofre-palavras.py` (rodar de novo com as mesmas fontes dá a mesma lista; o script
+confere o SHA-256 de cada fonte).
+
+- **De onde vem**: as entradas do dicionário de Portugal do LibreOffice que são substantivo, verbo,
+  adjetivo, advérbio ou número (ele marca a classe, e assim saem nomes próprios e conjugações),
+  conferidas no VERO (o pt_BR, expandido pelas regras de sufixo) e ordenadas pelas contagens das
+  legendas do Brasil (FrequencyWords, OpenSubtitles), somando plural e feminino. Fica de fora o que
+  se usa mais de 5 vezes mais nas legendas de Portugal ("facto", "autocarro", "planear").
+- **Formato**: só de a a z, palavras que já se escrevem assim (nunca com o acento arrancado; perde
+  a que tem gêmea acentuada mais usada, como "esta" para "está"), **de 3 a 10 letras** (o plano
+  dizia 3 a 9; com 10 entram "acompanhar" e "astronauta" no lugar de termos raros), média de 7,3.
+  A menos comum aparece 105 vezes nas legendas.
+- **Revisão à mão** (`scripts/cofre-palavras-fora.txt`, 717 itens): sexo e corpo, insultos e
+  ofensas a grupos, violência, doenças, drogas, política e religião, grafias de Portugal,
+  estrangeirismos, termos técnicos, formas estranhas, e palavras que juntas na frase formariam uma
+  ofensa racial. Cada rodada que tirava palavras teve as que entraram no lugar revistas também.
+- **Licença**: a lista deriva das contagens CC-BY-SA 4.0, então é CC-BY-SA 4.0 (dito no cabeçalho
+  do arquivo). Os dicionários (GPL/LGPL/MPL) e a lista de palavrões (CC-BY 4.0) só filtram.
+- **Testes**: a conferência da lista, a frase saindo dela, palavras comuns presentes, e um teste em
+  Node (`regras.test.mjs`) que falha se uma palavra tirada à mão voltar.

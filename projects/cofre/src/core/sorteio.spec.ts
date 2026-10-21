@@ -1,4 +1,5 @@
 import { ErroCofre } from './crypto';
+import { PALAVRAS } from './palavras';
 import { bitsDaFrase, conferirLista, sortearAte, sortearFrase, TAMANHO_DA_LISTA } from './sorteio';
 
 /** Uma lista de mentira no formato certo: "aaa", "aab", … (7.776 palavras de 3 letras). */
@@ -74,6 +75,28 @@ describe('frase de palavras', () => {
     expect(() => conferirLista([...lista.slice(1), 'pão'])).toThrowError(ErroCofre, /formato/);
     expect(() => conferirLista([...lista.slice(1), 'ame-o'])).toThrowError(ErroCofre, /formato/);
     expect(() => conferirLista([...lista.slice(1), 'Casa'])).toThrowError(ErroCofre, /formato/);
+    expect(() => conferirLista([...lista.slice(1), 'paralelepipedo'])).toThrowError(ErroCofre, /formato/);
     expect(() => sortearFrase(lista.slice(1))).toThrowError(ErroCofre);
+  });
+});
+
+describe('a lista do cofre', () => {
+  it('passa na conferência: 7.776 palavras, de a a z, de 3 a 10 letras, sem repetidas', () => {
+    expect(() => conferirLista(PALAVRAS)).not.toThrow();
+  });
+
+  it('está em ordem alfabética (o script a gera assim, e a ordem não muda o sorteio)', () => {
+    expect([...PALAVRAS].sort()).toEqual([...PALAVRAS]);
+  });
+
+  it('a frase sugerida sai dela por padrão', () => {
+    const palavras = sortearFrase().split('-');
+    expect(palavras.length).toBe(6);
+    for (const p of palavras) expect(PALAVRAS).toContain(p);
+  });
+
+  it('tem as palavras comuns que deviam estar, e não as que a revisão tirou', () => {
+    for (const p of ['casa', 'gato', 'chave', 'abacaxi', 'janela', 'amigo', 'correr', 'azul']) expect(PALAVRAS).withContext(p).toContain(p);
+    for (const p of ['facto', 'autocarro', 'adelaide', 'macaco', 'piranha']) expect(PALAVRAS).withContext(p).not.toContain(p);
   });
 });

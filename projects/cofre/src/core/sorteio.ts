@@ -7,6 +7,7 @@
  * lista; aqui os sorteios que cairiam nessa sobra são jogados fora e refeitos (rejeição).
  */
 import { ErroCofre } from './crypto';
+import { PALAVRAS } from './palavras';
 
 /** Quantas palavras a frase sugerida tem: com 7.776 palavras, 6 dão ~77 bits. */
 export const PALAVRAS_DA_FRASE = 6;
@@ -27,20 +28,20 @@ export function sortearAte(n: number): number {
 
 /**
  * Confere uma lista de palavras: o tamanho exato, só letras de a a z (sem acento nem cedilha), de
- * 3 a 9 letras, e nenhuma repetida. Uma lista errada enfraqueceria toda frase sorteada dela.
+ * 3 a 10 letras, e nenhuma repetida. Uma lista errada enfraqueceria toda frase sorteada dela.
  */
 export function conferirLista(lista: readonly string[]): void {
   if (lista.length !== TAMANHO_DA_LISTA) throw new ErroCofre('formato', `a lista tem ${lista.length} palavras, e não ${TAMANHO_DA_LISTA}`);
   const vistas = new Set<string>();
   for (const palavra of lista) {
-    if (!/^[a-z]{3,9}$/.test(palavra)) throw new ErroCofre('formato', `palavra fora do formato: "${palavra}"`);
+    if (!/^[a-z]{3,10}$/.test(palavra)) throw new ErroCofre('formato', `palavra fora do formato: "${palavra}"`);
     if (vistas.has(palavra)) throw new ErroCofre('formato', `palavra repetida: "${palavra}"`);
     vistas.add(palavra);
   }
 }
 
-/** A frase sugerida: palavras sorteadas da lista, com hífens entre elas. */
-export function sortearFrase(lista: readonly string[], palavras = PALAVRAS_DA_FRASE): string {
+/** A frase sugerida: palavras sorteadas da lista (a do cofre, `palavras.ts`), com hífens entre elas. */
+export function sortearFrase(lista: readonly string[] = PALAVRAS, palavras = PALAVRAS_DA_FRASE): string {
   conferirLista(lista);
   if (!Number.isSafeInteger(palavras) || palavras < 1) throw new RangeError('quantidade de palavras inválida');
   return Array.from({ length: palavras }, () => lista[sortearAte(lista.length)]).join(SEPARADOR);
