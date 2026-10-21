@@ -34,10 +34,10 @@ export interface WidgetField {
   max?: number;
   /**
    * Como a folha do widget mostra a escolha: `tiles`, as miniaturas desenhadas de cada jeito (vão para a
-   * parte "Aparência"); `select`, uma lista que abre; `days`, os dias da semana em bolinhas. Sem ele, o
-   * seletor de recortes.
+   * parte "Aparência"); `segments`, os recortes do tamanho, também na Aparência; `select`, uma lista
+   * que abre; `days`, os dias da semana em bolinhas. Sem ele, o seletor de recortes.
    */
-  display?: 'tiles' | 'select' | 'days';
+  display?: 'tiles' | 'select' | 'days' | 'segments';
   /** Os campos com o mesmo `row` ficam lado a lado, numa linha só (o repete, o dia e a hora do contador). */
   row?: string;
   /** O que a folha diz quando ele falta ("Falta o dia"). */
@@ -906,25 +906,44 @@ function cardLookWord(a: string): CardLook | null {
 }
 
 /**
- * Os parâmetros da nota em qualquer ordem: o id ("#r…"), o título e o jeito (a primeira palavra de
- * jeito: "capa", "tira", "inteira"). Escrita à mão, só com o título ("{{nota: Comprar um console}}"),
- * ela é a anotação com esse título, como um link "[[…]]". Com a marca `PRIVATE_CARD`, `hidden`: a
- * ficha é privada (o texto como foi para quem visita).
+ * Como o texto inteiro começa: aberto (o de sempre, não se escreve) ou fechado, só com o nome na
+ * faixa (a seta da faixa abre e fecha, ali mesmo). Só vale para o texto inteiro.
  */
-export function readCardRef(args: readonly string[]): { id: string; title: string; hidden: boolean; look: CardLook } {
+export type CardFold = 'aberta' | 'fechada';
+export const CARD_FOLDS: readonly { value: CardFold; label: string }[] = [
+  { value: 'aberta', label: 'Aberta' },
+  { value: 'fechada', label: 'Fechada' },
+];
+const CARD_FOLD_WORDS: Record<string, CardFold> = { aberta: 'aberta', fechada: 'fechada' };
+function cardFoldWord(a: string): CardFold | null {
+  const k = key(a.trim());
+  return Object.hasOwn(CARD_FOLD_WORDS, k) ? CARD_FOLD_WORDS[k] : null;
+}
+
+/**
+ * Os parâmetros da nota em qualquer ordem: o id ("#r…"), o título, o jeito (a primeira palavra de
+ * jeito: "capa", "tira", "inteira") e, no texto inteiro, como ele começa (a primeira palavra "aberta"
+ * ou "fechada"). Escrita à mão, só com o título ("{{nota: Comprar um console}}"), ela é a anotação com
+ * esse título, como um link "[[…]]". Com a marca `PRIVATE_CARD`, `hidden`: a ficha é privada (o texto
+ * como foi para quem visita).
+ */
+export function readCardRef(args: readonly string[]): { id: string; title: string; hidden: boolean; look: CardLook; fold: CardFold } {
   let id = '';
   let title = '';
   let hidden = false;
   let look: CardLook | null = null;
+  let fold: CardFold | null = null;
   for (const a of args) {
     const m = CARD_ID.exec(a);
     const l: CardLook | null = look ? null : cardLookWord(a);
+    const f: CardFold | null = fold ? null : cardFoldWord(a);
     if (!id && m) id = m[1];
     else if (a === PRIVATE_CARD) hidden = true;
     else if (l) look = l;
+    else if (f) fold = f;
     else if (!title && a) title = a;
   }
-  return { id, title, hidden, look: look ?? 'ficha' };
+  return { id, title, hidden, look: look ?? 'ficha', fold: fold ?? 'aberta' };
 }
 
 /** O jeito tem o tamanho do widget? A tira e o texto inteiro, não (têm o do que mostram). */
@@ -933,14 +952,14 @@ export function cardLookSized(look: CardLook): boolean {
 }
 
 /**
- * Os parâmetros escritos da nota: o id, o título e o jeito (a ficha, o de sempre, não se escreve).
- * Um título que é uma palavra de jeito ("Capa") vai depois do jeito, que então se escreve sempre:
- * a primeira palavra de jeito é o jeito.
+ * Os parâmetros escritos da nota: o id, o título, o jeito (a ficha, o de sempre, não se escreve) e,
+ * no texto inteiro, "fechada" (aberto é o de sempre). Um título que é uma dessas palavras ("Capa",
+ * "Fechada") vai depois delas, que então se escrevem sempre: a primeira palavra de cada uma é ela.
  */
-function cardArgs(id: string, title: string, look: CardLook): string[] {
+function cardArgs(id: string, title: string, look: CardLook, fold: CardFold = 'aberta'): string[] {
   const head = id ? [`#${id}`] : [];
-  if (title && cardLookWord(title)) return [...head, look, title];
-  return [...head, title, look === 'ficha' ? '' : look].filter(Boolean);
+  if (title && (cardLookWord(title) || cardFoldWord(title))) return [...head, look, fold, title];
+  return [...head, title, look === 'ficha' ? '' : look, look === 'inteira' && fold === 'fechada' ? fold : ''].filter(Boolean);
 }
 
 /** As fichas coladas no texto (o id e o título de cada uma), na ordem. */
@@ -973,7 +992,7 @@ export function hideCardTitles(text: string, hidden: ReadonlySet<string>): strin
     if (!ref.id || !hidden.has(ref.id) || (ref.hidden && !ref.title)) return line;
     changed = true;
     // o jeito vai junto (a privada colada como tira continua uma tira)
-    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD, ...(ref.look === 'ficha' ? [] : [ref.look])], w.size);
+    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD, ...(ref.look === 'ficha' ? [] : [ref.look]), ...(ref.look === 'inteira' && ref.fold === 'fechada' ? [ref.fold] : [])], w.size);
   });
   return changed ? lines.join('\n') : text;
 }
@@ -990,18 +1009,28 @@ const CARD: WidgetDef = {
   fields: [
     { key: 'id', label: 'Qual ficha', kind: 'card', required: true, missing: 'Falta escolher a ficha' },
     { key: 'look', label: 'Jeito', kind: 'choice', options: CARD_LOOKS, display: 'tiles' },
+    {
+      key: 'fold',
+      label: 'Começa',
+      kind: 'choice',
+      options: CARD_FOLDS,
+      display: 'segments',
+      shown: (v) => cardLookWord(v['look'] ?? '') === 'inteira',
+      hint: 'Fechada, mostra só o nome na faixa. A seta da faixa abre e fecha o texto ali mesmo.',
+    },
   ],
   read(args) {
-    const { id, title, look } = readCardRef(args);
-    return { id, title, look };
+    const { id, title, look, fold } = readCardRef(args);
+    return { id, title, look, fold };
   },
   write(v) {
     const id = (v['id'] ?? '').trim();
     const title = (v['title'] ?? '').trim();
     const look = cardLookWord(v['look'] ?? '') ?? 'ficha';
-    if (id) return CARD_ID.test(`#${id}`) ? cardArgs(id, title, look) : null;
+    const fold = cardFoldWord(v['fold'] ?? '') ?? 'aberta';
+    if (id) return CARD_ID.test(`#${id}`) ? cardArgs(id, title, look, fold) : null;
     // a escrita à mão, só com o título, continua do jeito que estava
-    return title ? cardArgs('', title, look) : null;
+    return title ? cardArgs('', title, look, fold) : null;
   },
   fixedSize(v) {
     const look = cardLookWord(v['look'] ?? '') ?? 'ficha';

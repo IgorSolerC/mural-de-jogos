@@ -112,7 +112,7 @@ export class WidgetSheet {
   protected readonly rows = computed<FieldRow[]>(() => {
     const out: FieldRow[] = [];
     for (const f of this.shown()) {
-      if (f.display === 'tiles') continue;
+      if (f.display === 'tiles' || f.display === 'segments') continue;
       const last = out.at(-1);
       if (f.row && last?.key === f.row) last.fields.push(f);
       else out.push({ key: f.row ?? f.key, fields: [f] });
@@ -120,6 +120,8 @@ export class WidgetSheet {
     return out;
   });
   protected readonly looks = computed(() => this.shown().filter((f) => f.display === 'tiles'));
+  /** As escolhas da Aparência em recortes, como o tamanho (como o texto inteiro da Nota começa). */
+  protected readonly segs = computed(() => this.shown().filter((f) => f.display === 'segments'));
   /** As dicas dos campos de uma linha, juntas embaixo dela (a do dia do mês; a da hora, só sem a hora). */
   protected hintsOf(row: FieldRow): string {
     return row.fields

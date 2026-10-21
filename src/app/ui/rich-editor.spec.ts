@@ -940,6 +940,21 @@ describe('a folha do widget no editor', () => {
     el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
     await wait();
     expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight | inteira}}');
+    // o texto inteiro escolhe como começa, em recortes: fechado se escreve
+    el.querySelector<HTMLTextAreaElement>('textarea')!.focus();
+    const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+    area.setSelectionRange(3, 3);
+    area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    await wait();
+    el.querySelector<HTMLButtonElement>('.widget-tira-editar')!.click();
+    await wait();
+    const comeca = Array.from(el.querySelectorAll<HTMLLabelElement>('.wfolha .tamanhos.dois .segmento'));
+    expect(comeca.map((l) => l.textContent!.trim())).toEqual(['Aberta', 'Fechada']);
+    comeca[1].querySelector('input')!.click();
+    await wait();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight | inteira | fechada}}');
   });
 
   it('fechar a lista da Nota sem escolher deixa o foco na ficha a escolher, que a abre de novo', async () => {

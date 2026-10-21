@@ -314,15 +314,15 @@ describe('widgets das anotações', () => {
 
 describe('a nota colada (o widget Nota)', () => {
   it('o id ("#r…") e o título em qualquer ordem; só o título vale para a escrita à mão', () => {
-    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha' });
-    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha' });
-    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console', hidden: false, look: 'ficha' });
+    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha', fold: 'aberta' });
+    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha', fold: 'aberta' });
+    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console', hidden: false, look: 'ficha', fold: 'aberta' });
     // um título que parece id, depois do id, é título
-    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1', hidden: false, look: 'ficha' });
+    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1', hidden: false, look: 'ficha', fold: 'aberta' });
     // "#" com espaço não é id
-    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título', hidden: false, look: 'ficha' });
+    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título', hidden: false, look: 'ficha', fold: 'aberta' });
     // o cadeado (a ficha privada, no texto de quem visita) não é o título
-    expect(readCardRef(['#rabc123', '🔒'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'ficha' });
+    expect(readCardRef(['#rabc123', '🔒'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'ficha', fold: 'aberta' });
     expect(widgetDef('nota')!.plain(['#rabc123', '🔒'])).toBe('');
   });
 
@@ -339,7 +339,7 @@ describe('a nota colada (o widget Nota)', () => {
     const line = widgetLine('nota', def.write({ id: 'rabc123', title: 'Grande' })!, 'medio');
     expect(parseWidgetLine(line)).toEqual({ name: 'nota', args: ['#rabc123', 'Grande'], size: 'medio' });
     // lida de volta, para o painel de trocar
-    expect(def.read(['#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'ficha' });
+    expect(def.read(['#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'ficha', fold: 'aberta' });
   });
 
   it('o jeito: ficha (o de sempre, não se escreve), capa, tira e texto inteiro', () => {
@@ -351,15 +351,34 @@ describe('a nota colada (o widget Nota)', () => {
     expect(def.write({ id: 'rabc123', look: 'tira' })).toEqual(['#rabc123', 'tira']);
     expect(def.write({ id: '', title: 'Compras', look: 'capa' })).toEqual(['Compras', 'capa']);
     // lido em qualquer ordem, com ou sem acento e caixa
-    expect(readCardRef(['Capa', '#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', hidden: false, look: 'capa' });
-    expect(def.read(['#rabc123', 'Celeste', 'INTEIRA'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'inteira' });
+    expect(readCardRef(['Capa', '#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', hidden: false, look: 'capa', fold: 'aberta' });
+    expect(def.read(['#rabc123', 'Celeste', 'INTEIRA'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'inteira', fold: 'aberta' });
     // um título que é palavra de jeito volta como título: o jeito vai antes, escrito
     for (const look of ['ficha', 'tira'] as const) {
       const args = def.write({ id: 'rabc123', title: 'Capa', look })!;
-      expect(readCardRef(args)).withContext(look).toEqual({ id: 'rabc123', title: 'Capa', hidden: false, look });
+      expect(readCardRef(args)).withContext(look).toEqual({ id: 'rabc123', title: 'Capa', hidden: false, look, fold: 'aberta' });
     }
     // o tamanho continua à parte do jeito
     expect(parseWidgetLine('{{nota: #rabc123 | Celeste | capa | grande}}')).toEqual({ name: 'nota', args: ['#rabc123', 'Celeste', 'capa'], size: 'grande' });
+  });
+
+  it('o texto inteiro começa aberto (não se escreve) ou fechado; a escolha só aparece nele', () => {
+    const def = widgetDef('nota')!;
+    const field = def.fields.find((f) => f.key === 'fold')!;
+    expect(field.display).toBe('segments');
+    expect(field.options!.map((o) => o.value)).toEqual(['aberta', 'fechada']);
+    expect(fieldsFor(def, { id: 'r1', look: 'inteira' }).map((f) => f.key)).toContain('fold');
+    expect(fieldsFor(def, { id: 'r1', look: 'tira' }).map((f) => f.key)).not.toContain('fold');
+    expect(def.write({ id: 'rabc123', title: 'Celeste', look: 'inteira', fold: 'fechada' })).toEqual(['#rabc123', 'Celeste', 'inteira', 'fechada']);
+    expect(def.write({ id: 'rabc123', title: 'Celeste', look: 'inteira', fold: 'aberta' })).toEqual(['#rabc123', 'Celeste', 'inteira']);
+    // fora do texto inteiro, o fechado não se escreve
+    expect(def.write({ id: 'rabc123', title: 'Celeste', look: 'tira', fold: 'fechada' })).toEqual(['#rabc123', 'Celeste', 'tira']);
+    expect(readCardRef(['#rabc123', 'fechada', 'Celeste', 'inteira'])).toEqual({ id: 'rabc123', title: 'Celeste', hidden: false, look: 'inteira', fold: 'fechada' });
+    // um título que é palavra de "começa" volta como título
+    const args = def.write({ id: 'rabc123', title: 'Fechada', look: 'ficha' })!;
+    expect(readCardRef(args)).toEqual({ id: 'rabc123', title: 'Fechada', hidden: false, look: 'ficha', fold: 'aberta' });
+    // a privada escondida de quem visita fica fechada
+    expect(hideCardTitles('{{nota: #rabc123 | Diário | inteira | fechada}}', new Set(['rabc123']))).toBe('{{nota: #rabc123 | 🔒 | inteira | fechada}}');
   });
 
   it('a tira e o texto inteiro têm a altura do que mostram: a folha diz isso no lugar do tamanho', () => {
@@ -377,7 +396,7 @@ describe('a nota colada (o widget Nota)', () => {
   it('a privada, no texto de quem visita, perde o título mas fica com o jeito e o tamanho', () => {
     expect(hideCardTitles('{{nota: #rabc123 | Diário | tira}}', new Set(['rabc123']))).toBe('{{nota: #rabc123 | 🔒 | tira}}');
     expect(hideCardTitles('{{nota: #rabc123 | Diário | grande}}', new Set(['rabc123']))).toBe('{{nota: #rabc123 | 🔒 | grande}}');
-    expect(readCardRef(['#rabc123', '🔒', 'inteira'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'inteira' });
+    expect(readCardRef(['#rabc123', '🔒', 'inteira'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'inteira', fold: 'aberta' });
   });
 
   it('o texto dela é o título (a busca, a contagem de palavras); as do texto, na ordem', () => {

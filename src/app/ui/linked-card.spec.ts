@@ -263,7 +263,7 @@ describe('a nota colada no texto (o widget Nota)', () => {
       expect(el.querySelector('button.tira')!.hasAttribute('inert')).toBeTrue();
     });
 
-    it('texto inteiro: o nome na faixa e o texto todo; o nome abre a nota, o texto é dela (não abre)', async () => {
+    it('texto inteiro: o nome abre a nota; o papel vazio também abre esta, e não a de fora', async () => {
       const opened: string[] = [];
       await show(['#rnota1', 'inteira'], { openCard: (r) => opened.push(r.id) });
       const sheet = el.querySelector<HTMLElement>('article.inteira')!;
@@ -272,14 +272,55 @@ describe('a nota colada no texto (o widget Nota)', () => {
       expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Ver o preço.');
       expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Pesquisar');
       expect(el.classList).toContain('sem-tamanho');
-      // tocar no texto não abre nada: é o texto dela
-      const r = sheet.querySelector('.folha')!.getBoundingClientRect();
-      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 8)!;
-      expect(hit.closest('button.faixa-nome')).toBeNull();
-      (hit as HTMLElement).click();
-      expect(opened).toEqual([]);
       name.click();
       expect(opened).toEqual(['rnota1']);
+      // o canto vazio da folha (o fim da pauta, à direita) abre esta nota, e o toque não sobe
+      let outer = 0;
+      document.body.addEventListener('click', () => outer++, { once: true });
+      const r = sheet.querySelector('.folha')!.getBoundingClientRect();
+      const empty = document.elementFromPoint(r.right - 4, r.bottom - 4) as HTMLElement;
+      expect(empty.closest('article.inteira')).toBe(sheet);
+      empty.click();
+      expect(opened).toEqual(['rnota1', 'rnota1']);
+      expect(outer).toBe(0);
+      // o que é de tocar faz o seu: a caixinha da tarefa não abre a nota
+      sheet.querySelector<HTMLInputElement>('.folha input[type="checkbox"]')!.click();
+      await fixture.whenStable();
+      expect(opened).toEqual(['rnota1', 'rnota1']);
+    });
+
+    it('texto inteiro: a seta recolhe o texto (fica só o nome) e mostra de novo, sem abrir a nota', async () => {
+      const opened: string[] = [];
+      await show(['#rnota1', 'inteira'], { openCard: (r) => opened.push(r.id) });
+      const arrow = el.querySelector<HTMLButtonElement>('button.dobra')!;
+      const folha = el.querySelector<HTMLElement>('.folha')!;
+      expect(arrow.getAttribute('aria-expanded')).toBe('true');
+      expect(arrow.getAttribute('aria-controls')).toBe(folha.id);
+      const tall = el.getBoundingClientRect().height;
+      arrow.click();
+      await fixture.whenStable();
+      expect(arrow.getAttribute('aria-expanded')).toBe('false');
+      expect(folha.hidden).toBeTrue();
+      expect(el.querySelector('article.inteira')!.classList).toContain('fechada');
+      expect(el.getBoundingClientRect().height).toBeLessThan(tall);
+      arrow.click();
+      await fixture.whenStable();
+      expect(folha.hidden).toBeFalse();
+      expect(opened).toEqual([]);
+    });
+
+    it('texto inteiro escrito "fechada" começa fechado; a seta abre só ali (a marca não muda)', async () => {
+      await show(['#rnota1', 'inteira', 'fechada']);
+      const arrow = el.querySelector<HTMLButtonElement>('button.dobra')!;
+      expect(arrow.getAttribute('aria-expanded')).toBe('false');
+      expect(el.querySelector<HTMLElement>('.folha')!.hidden).toBeTrue();
+      arrow.click();
+      await fixture.whenStable();
+      expect(el.querySelector<HTMLElement>('.folha')!.hidden).toBeFalse();
+      // a marca nova (aberta) volta a valer
+      fixture.componentRef.setInput('args', ['#rnota1', 'inteira', 'fechada', 'Comprar um console']);
+      await fixture.whenStable();
+      expect(el.querySelector<HTMLElement>('.folha')!.hidden).toBeTrue();
     });
 
     it('texto inteiro: as tarefas da sua nota se marcam ali mesmo, e ela é salva marcada', async () => {
@@ -326,6 +367,37 @@ describe('a nota colada no texto (o widget Nota)', () => {
         el.remove();
       }
       outer.remove();
+    });
+
+    it('toda nota colada ocupa linhas inteiras da pauta (o texto de baixo continua nas linhas)', async () => {
+      const lines = async (args: string[]) => {
+        await show(args, { openCard: () => undefined });
+        el.style.lineHeight = '24px';
+        el.style.setProperty('--line', '24px');
+        el.style.setProperty('--widget-alto', '168px');
+        await settle(() => {
+          const h = el.getBoundingClientRect().height;
+          return h > 0 && Math.abs(h / 24 - Math.round(h / 24)) < 0.01;
+        });
+        return el.getBoundingClientRect().height / 24;
+      };
+      for (const args of [['#rnota1', 'inteira'], ['#rnota1', 'inteira', 'fechada'], ['#rnota1', 'tira'], ['#rjogo1'], ['#rjogo1', 'capa']]) {
+        const n = await lines(args);
+        expect(Math.abs(n - Math.round(n))).withContext(args.join(' ') + ': ' + n).toBeLessThan(0.01);
+        if (args[1] === 'tira') expect(Math.round(n)).withContext('tira').toBe(2);
+        if (!args[1] || args[1] === 'capa') expect(Math.round(n)).withContext(args.join(' ')).toBe(7);
+        fixture.destroy();
+        el.remove();
+      }
+      // a seta muda a altura, e ela continua em linhas inteiras (só as da faixa)
+      const open = await lines(['#rnota1', 'inteira']);
+      el.querySelector<HTMLButtonElement>('button.dobra')!.click();
+      const art = el.querySelector<HTMLElement>('article.inteira')!;
+      const band = () => Math.max(1, Math.ceil((art.offsetHeight + 2 * 3.6 - 1) / 24));
+      await settle(() => Math.round(el.getBoundingClientRect().height / 24) === band());
+      const closed = el.getBoundingClientRect().height / 24;
+      expect(closed).toBeCloseTo(band(), 2);
+      expect(closed).toBeLessThan(open);
     });
 
     it('texto inteiro sem texto diz que ainda não tem', async () => {

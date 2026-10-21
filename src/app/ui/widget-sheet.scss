@@ -658,6 +658,12 @@ div.bloco {
   margin-top: 0;
 }
 
+/* duas escolhas (o texto inteiro aberto ou fechado): da largura de dois tamanhos */
+.tamanhos.dois {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 276px;
+}
+
 .segmento {
   @include kit.segmento;
 }

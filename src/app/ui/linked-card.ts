@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, InjectionToken, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, InjectionToken, afterNextRender, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
@@ -12,7 +12,7 @@ import { toggleCheck } from '../core/rich-text';
 import { canWrite } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
-import { CardLook, readCardRef } from '../core/widgets';
+import { CardLook, cardLookSized, readCardRef } from '../core/widgets';
 import { GluedReviewCard } from './glued-review-card';
 import { RichText } from './rich-text';
 
@@ -41,6 +41,7 @@ class GlueLink {
   }
 }
 const GLUE = new InjectionToken<GlueLink>('nota colada');
+let sheetUid = 0;
 /** Até quanto a ficha cresce além do tamanho dela (o grande, na leitura): mais que isso, a capinha borra. */
 const MAX_SCALE = 2;
 /** A folga mínima em cima da ficha, em em: ela não encosta na linha de cima. */
@@ -71,6 +72,8 @@ const EAR_GAP = 0.2;
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [{ provide: GLUE, useFactory: () => new GlueLink(inject(GLUE, { skipSelf: true, optional: true })) }],
   host: {
+    // (a marca de quem é a nota colada: o toque no texto inteiro é da mais de dentro)
+    class: 'nota-colada',
     '[class.sem-tamanho]': "look() === 'tira' || look() === 'inteira'",
     // (não é o .tocavel do texto: com ele, a linha inteira pegava o toque, e o vazio ao lado da
     // ficha não abria nada; só a ficha pega o toque, o resto deixa passar para a ficha de fora)
@@ -101,19 +104,33 @@ const EAR_GAP = 0.2;
         }
         @case ('inteira') {
           <!-- o texto inteiro: a nota como fica aberta, colada inteira na de fora (a faixa da
-               cartolina dela com o nome e a folha creme com o texto todo) -->
-          <article class="inteira" data-colado [attr.aria-label]="spoken(f.review)">
+               cartolina dela com o nome e a folha creme com o texto todo). A seta da faixa fecha o
+               texto (fica só o nome); tocar no que não é de tocar abre esta nota, não a de fora -->
+          <article class="inteira" data-colado [class.abre]="openable()" [class.fechada]="folded()" [attr.aria-label]="spoken(f.review)" (click)="sheetClick($event, f.review)">
             <header class="faixa cartolina" [attr.data-cor]="stock()" [style]="ownPaper()">
-              @if (overline(f.review); as o) {
-                <span class="faixa-assunto">{{ o }}</span>
-              }
-              @if (openable()) {
-                <button type="button" class="faixa-nome" [title]="'Abrir ' + f.review.game.name" (click)="open(f.review)">{{ f.review.game.name }}</button>
-              } @else {
-                <span class="faixa-nome">{{ f.review.game.name }}</span>
-              }
+              <span class="faixa-textos">
+                @if (overline(f.review); as o) {
+                  <span class="faixa-assunto">{{ o }}</span>
+                }
+                @if (openable()) {
+                  <button type="button" class="faixa-nome" [title]="'Abrir ' + f.review.game.name" (click)="open(f.review)">{{ f.review.game.name }}</button>
+                } @else {
+                  <span class="faixa-nome">{{ f.review.game.name }}</span>
+                }
+              </span>
+              <button
+                type="button"
+                class="dobra"
+                [attr.aria-expanded]="!folded()"
+                [attr.aria-controls]="sheetId"
+                [attr.aria-label]="(folded() ? 'Mostrar o texto de ' : 'Recolher o texto de ') + f.review.game.name"
+                [title]="folded() ? 'Mostrar o texto' : 'Recolher: só o nome'"
+                (click)="toggleFold($event)"
+              >
+                <lucide-icon [img]="FoldIcon" [size]="18" aria-hidden="true" />
+              </button>
             </header>
-            <div class="folha">
+            <div class="folha" [id]="sheetId" [hidden]="folded()">
               @if (f.review.text.trim()) {
                 <!-- o texto vivo: as tarefas se marcam (na sua nota), os widgets tocam, os links abrem -->
                 <app-rich-text class="folha-texto" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" [checkable]="canTick()" (toggled)="tick(f.review, $event)" />
@@ -292,14 +309,75 @@ const EAR_GAP = 0.2;
         translate var(--t-ui) var(--ease-ui),
         filter var(--t-ui) var(--ease-ui);
     }
-    /* a faixa: a cartolina dela (a tinta clara nas escuras vem com a cartolina) */
+    /* a faixa: a cartolina dela (a tinta clara nas escuras vem com a cartolina), o nome e a seta */
     .faixa {
       position: static;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6em;
+      padding: 0.6em 0.5em 0.5em 0.95em;
+      border-radius: 2px 2px 0 0;
+    }
+    .inteira.fechada .faixa {
+      border-radius: 2px;
+    }
+    /* fechada, só a faixa: com a folga menor, cabe em duas linhas da pauta, como a tira */
+    .inteira.fechada {
+      margin-block: calc(var(--line, 1.5em) * 0.15);
+    }
+    .faixa-textos {
+      flex: 1 1 auto;
+      min-width: 0;
       display: grid;
       justify-items: start;
       gap: 0.15em;
-      padding: 0.6em 0.95em 0.5em;
-      border-radius: 2px 2px 0 0;
+    }
+    /* a seta: sutil, na tinta da faixa; aponta para cima com o texto à mostra (recolher) e para
+       baixo com ele fechado (mostrar), e gira entre as duas */
+    .dobra {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 32px;
+      height: 32px;
+      margin: -4px 0;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: inherit;
+      opacity: 0.55;
+      cursor: pointer;
+      pointer-events: auto;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        background-color var(--t-ui) var(--ease-ui);
+    }
+    .dobra lucide-icon {
+      display: flex;
+      rotate: 180deg;
+      transition: rotate var(--t-physical) var(--ease-physical);
+    }
+    .inteira.fechada .dobra lucide-icon {
+      rotate: 0deg;
+    }
+    .dobra:hover,
+    .dobra:focus-visible {
+      opacity: 1;
+      background: color-mix(in srgb, currentColor 12%, transparent);
+    }
+    .dobra:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 1px;
+    }
+    /* tocar no que não é de tocar abre esta nota: a mãozinha na folha toda */
+    .inteira.abre {
+      cursor: pointer;
+    }
+    @media (hover: hover) {
+      .inteira.abre:hover button.faixa-nome {
+        text-decoration-color: currentColor;
+      }
     }
     .faixa-nome {
       max-width: 100%;
@@ -342,9 +420,9 @@ const EAR_GAP = 0.2;
       text-align: left;
     }
     /* Na ficha do mural, o texto deixa o toque passar para a ficha de fora (só o que é de tocar pega):
-       o nome e o que é de tocar no texto desta continuam pegando */
+       a tira e o texto inteiro pegam o toque de volta (o que é de tocar nele, e o resto abre esta) */
     :host(.abre) .tira,
-    :host(.abre) button.faixa-nome,
+    :host(.abre) .inteira,
     .folha ::ng-deep :is(input, button, a, select, summary, iframe, video, audio, [tabindex], .tocavel, .spoiler) {
       pointer-events: auto;
     }
@@ -514,6 +592,16 @@ export class LinkedCard {
     return { '--stock': `var(--stock-${stock})`, ...(r ? ownPaperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, isDarkStock(stock)) : {}) };
   });
 
+  protected readonly FoldIcon = ICON.abrir;
+  /** O id da folha do texto (o que a seta mostra e esconde). */
+  protected readonly sheetId = `nota-colada-${++sheetUid}`;
+  /**
+   * O texto inteiro fechado (só o nome na faixa): começa como a marca diz ("fechada"), e a seta troca
+   * ali mesmo, sem mudar o que está escrito (volta ao da marca quando ela muda).
+   */
+  protected readonly folded = linkedSignal(() => this.ref().fold === 'fechada');
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly store = inject(ReviewStore);
   private readonly shared = inject(SharedStore);
   private readonly noteDone = inject(NoteDone);
@@ -551,6 +639,8 @@ export class LinkedCard {
     effect(() => {
       this.lines();
       this.look();
+      // a seta abre e fecha o texto inteiro: a altura em linhas muda junto
+      this.folded();
       untracked(() => this.refit?.());
     });
     afterNextRender(() => {
@@ -560,8 +650,16 @@ export class LinkedCard {
         frame = 0;
         const card = this.escala()?.nativeElement.firstElementChild as HTMLElement | null | undefined;
         if (!card) {
-          // a tira e o texto inteiro têm a altura deles: nada a encolher
-          this.snapped.set(null);
+          // a tira, o texto inteiro (aberto ou fechado) e o papel rasgado têm a altura deles: nada
+          // a encolher, mas ocupam linhas inteiras da pauta, para o texto de baixo continuar nelas
+          const piece = this.piece();
+          const line = parseFloat(getComputedStyle(host).lineHeight);
+          // (a ficha e a capa que sumiram guardam o espaço do tamanho, como sempre)
+          if (!piece || !line || cardLookSized(this.look())) return this.snapped.set(null);
+          const cs = getComputedStyle(piece);
+          const total = piece.offsetHeight + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+          // (a folga de um pixel, como em ui/line-snap.ts: uns décimos a mais não sobem uma linha)
+          this.snapped.set(Math.max(1, Math.ceil((total - 1) / line)) * line);
           return;
         }
         const w0 = card.offsetWidth;
@@ -582,7 +680,9 @@ export class LinkedCard {
         // a ficha e a folga cabem juntas na altura do tamanho
         const fitH = Math.min((alto - tape) / h0, (alto - gap) / (h0 + over));
         const s = Math.max(0.2, Math.min(fitH, room / w0, MAX_SCALE));
-        const next = { s: Math.round(s * 1000) / 1000, w: Math.round(w0 * s), h: Math.round(h0 * s), top: Math.round(Math.max(over * s + gap, tape)) };
+        // (para baixo: arredondadas para cima, a ficha passava uns décimos da altura do tamanho, e o
+        // texto de baixo saía da pauta)
+        const next = { s: Math.floor(s * 1000) / 1000, w: Math.floor(w0 * s), h: Math.floor(h0 * s), top: Math.floor(Math.max(over * s + gap, tape)) };
         const now = this.box();
         if (now.s !== next.s || now.w !== next.w || now.h !== next.h || now.top !== next.top) this.box.set(next);
         const line = parseFloat(style.lineHeight);
@@ -599,6 +699,9 @@ export class LinkedCard {
       const watchCard = () => {
         const card = this.escala()?.nativeElement.firstElementChild;
         if (card) ro.observe(card);
+        // a tira e o texto inteiro mudam de altura (a seta fecha, o texto cresce)
+        const piece = this.piece();
+        if (piece) ro.observe(piece);
       };
       watchCard();
       const teto = host.closest<HTMLElement>('[data-widget-teto]');
@@ -617,6 +720,32 @@ export class LinkedCard {
         this.refit = null;
       });
     });
+  }
+
+  /** A peça sem tamanho que está à mostra (a tira, o texto inteiro, o papel rasgado). */
+  private piece(): HTMLElement | null {
+    return this.host.querySelector<HTMLElement>(':scope > .tira, :scope > .inteira, :scope > .perdida');
+  }
+
+  protected toggleFold(e: Event): void {
+    e.stopPropagation();
+    this.folded.update((v) => !v);
+  }
+
+  /**
+   * Tocou no texto inteiro: no que é de tocar (um link, uma tarefa, um widget, a seta, o nome), cada
+   * um faz o seu; no resto (o papel, o texto corrido) abre esta nota, e não a de fora. Selecionando o
+   * texto, não abre nada.
+   */
+  protected sheetClick(e: MouseEvent, r: Review): void {
+    if (!this.openable()) return;
+    const at = e.target as HTMLElement | null;
+    if (!at || at.closest('a, button, input, label, select, textarea, summary, iframe, video, audio, [tabindex], .tocavel, .spoiler')) return;
+    // uma nota colada dentro desta cuida do toque dela
+    if (at.closest('.nota-colada') !== this.host) return;
+    if (window.getSelection()?.toString()) return;
+    e.stopPropagation();
+    this.open(r);
   }
 
   /** Marcou uma tarefa no texto inteiro: a nota colada é salva com ela marcada, sem abrir nada. */

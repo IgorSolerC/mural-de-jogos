@@ -26,20 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-21-ficha-comum',
+    id: '2026-10-21-texto-inteiro-recolhe',
     version: '1.29.2',
     kind: 'ajustes',
     date: '2026-10-21',
     title: 'Quatro jeitos do widget Nota e a visualização padrão de cada grupo',
     melhorias: [
       'O widget Nota ganhou jeitos, escolhidos em miniaturas na folha dele: a Ficha de sempre, Capa e título (como em "Só capa e nome" do mural), Só o título (uma tira da cor da nota, como no Kanban em "Só os títulos") e Texto inteiro: a nota colada inteira, com o nome na faixa da cor dela e o texto todo, do tamanho do texto.',
-      'O texto inteiro de uma nota colada ficou vivo: dá para marcar as tarefas dela ali mesmo (na sua nota), tocar os vídeos e sons, abrir os links e revelar os spoilers. Para abrir a nota, toque no nome dela, na faixa.',
+      'O texto inteiro de uma nota colada ficou vivo: dá para marcar as tarefas dela ali mesmo (na sua nota), tocar os vídeos e sons, abrir os links e revelar os spoilers. Para abrir a nota colada, toque no nome dela ou em qualquer parte do papel que não seja de tocar (antes, o papel vazio abria a nota de fora).',
+      'O texto inteiro recolhe: a seta da faixa deixa só o nome à mostra e abre de novo, e a folha do widget escolhe se ele começa aberto ou fechado.',
       'Cada grupo pode ter a sua visualização padrão nas configurações do mural (em Grupos): com ela, o grupo sempre abre em Comuns, Inteiras, Simples, Capa e nome ou Lista, e trocar na régua vale só até sair dele. Sem ela, ele continua abrindo como você o deixou da última vez.',
       'As Fichas completas agora se chamam Fichas comuns, em todo o site: confundia a que mostra menos se chamar completa, e a que mostra tudo, inteira.',
     ],
     correcoes: [
       'A nota colada (a ficha, a tira e a faixa do texto inteiro) saía com o papel e a estampa da anotação em volta, e numa anotação escura com o papel escuro dela; agora tem o papel dela.',
       'Na leitura de uma anotação de cartolina escura, o nome da ficha colada no texto saía em tinta clara, quase invisível; agora tem a tinta da cartolina dela.',
+      'O texto que vinha depois de uma nota colada saía fora das linhas do caderno; agora toda nota colada ocupa linhas inteiras da pauta.',
     ],
   },
   {
