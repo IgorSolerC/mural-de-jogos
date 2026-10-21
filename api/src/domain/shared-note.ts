@@ -4,11 +4,13 @@ import { REF_RE, cleanTitle } from './review';
 /**
  * As anotações compartilhadas (migração 0011). O dono é sempre o dono; cada pessoa a mais entra com um
  * papel:
- * - gestor: faz tudo com a anotação (o texto, as tags, a categoria, quem vê, quem mais entra), menos
- *   mexer no dono ou apagar a anotação para todos;
- * - editor: escreve como se a anotação fosse dele, sem mudar o que é da estrutura (as pessoas, a
- *   categoria, as tags e quem vê);
+ * - gestor: faz tudo com a anotação (o texto, quem vê, quem mais entra), menos mexer no dono ou
+ *   apagar a anotação para todos;
+ * - editor: escreve como se a anotação fosse dele, sem mudar o que é da estrutura (as pessoas e quem vê);
  * - leitor: só lê.
+ *
+ * O grupo, o assunto e as tags não são da anotação: cada pessoa organiza o próprio mural (o site guarda
+ * os dela no mural privado). O que chega com eles (um site de antes) é guardado sem eles.
  *
  * O servidor guarda a anotação aberta (`dados`, o JSON da ficha como o site grava) e só confere a vez
  * (`rev`) e o papel. Juntar duas edições é com o site (ver `src/app/core/merge3.ts`).
@@ -22,7 +24,7 @@ export const isRole = (v: unknown): v is Role => typeof v === 'string' && (ROLES
 
 /** Escrevem no texto: o dono, os gestores e os editores (e só eles escolhem num conflito). */
 export const canWrite = (a: Access | null): boolean => a === 'dono' || a === 'gestor' || a === 'editor';
-/** Mexem na estrutura (as pessoas, a categoria, as tags, quem vê): o dono e os gestores. */
+/** Mexem na estrutura (as pessoas e quem vê): o dono e os gestores. */
 export const canManage = (a: Access | null): boolean => a === 'dono' || a === 'gestor';
 
 /** Quantas pessoas (além do dono) uma anotação aceita. */
@@ -34,9 +36,13 @@ export const MAX_NOTE_CHARS = 450_000;
 /** O maior pedido aceito numa gravação: a anotação e, num conflito, a outra versão. */
 export const MAX_NOTE_BODY_CHARS = 2 * MAX_NOTE_CHARS + 4_096;
 
+/** O que é de cada pessoa e não vai na anotação guardada (ver o topo do arquivo). */
+const PERSONAL = ['category', 'subject', 'tags', 'noteRank'] as const;
+
 /**
- * A anotação que veio do site, pronta para guardar (JSON). Tem de ser um objeto com o id dela e do
- * mural de anotações; o resto o servidor não abre (quem desenha e confere é o site).
+ * A anotação que veio do site, pronta para guardar (JSON), sem o que é de cada pessoa (`PERSONAL`).
+ * Tem de ser um objeto com o id dela e do mural de anotações; o resto o servidor não abre (quem desenha
+ * e confere é o site).
  */
 export function noteData(raw: unknown, id: string): string {
   const bad = () => new HttpError(400, 'nota-invalida', 'Essa anotação veio quebrada.');
@@ -45,7 +51,8 @@ export function noteData(raw: unknown, id: string): string {
   if (r['id'] !== id || r['kind'] !== 'anotacoes') throw bad();
   const game = r['game'] as Record<string, unknown> | undefined;
   if (!game || typeof game !== 'object' || typeof game['name'] !== 'string') throw bad();
-  const text = JSON.stringify(raw);
+  const own = Object.fromEntries(Object.entries(r).filter(([k]) => !(PERSONAL as readonly string[]).includes(k)));
+  const text = JSON.stringify(own);
   if (text.length > MAX_NOTE_CHARS) {
     throw new HttpError(413, 'nota-grande-demais', 'Essa anotação ficou grande demais para compartilhar (passa de 450 mil caracteres).');
   }
@@ -59,8 +66,8 @@ export function noteId(raw: unknown): string {
 }
 
 /**
- * O que é da estrutura na anotação guardada: a categoria, o assunto, as tags (a ordem não importa) e quem vê.
- * Um editor não muda nada disso.
+ * O que é da estrutura na anotação guardada: quem vê. Um editor não muda isso. O grupo, o assunto e as
+ * tags de uma anotação gravada antes deles serem de cada pessoa não contam.
  */
 export function structureOf(stored: string): string {
   let r: Record<string, unknown> = {};
@@ -70,12 +77,7 @@ export function structureOf(stored: string): string {
   } catch {
     /* sem estrutura */
   }
-  const tags = Array.isArray(r['tags']) ? r['tags'].filter((t): t is string => typeof t === 'string').sort() : [];
   return JSON.stringify({
-    category: typeof r['category'] === 'string' ? r['category'] : '',
-    // o assunto só entra quando existe: a estrutura guardada antes dele continua igual
-    ...(typeof r['subject'] === 'string' && r['subject'] ? { subject: r['subject'] } : {}),
-    tags,
     private: r['private'] === true,
     quiet: r['quiet'] === true,
   });

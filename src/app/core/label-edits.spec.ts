@@ -163,7 +163,7 @@ describe('renomear e apagar categorias e tags', () => {
       expect(edits.categoryUses('trabalho')).toBe(2);
       expect(edits.existingCategory('estudos', 'Trabalho')).toBe('Estudos');
       expect(edits.existingCategory('TRABALHO', 'Trabalho')).toBeNull();
-      expect(edits.renameCategory('Trabalho', '  projeto  ')).toEqual({ changed: 2, skipped: 0 });
+      expect(edits.renameCategory('Trabalho', '  projeto  ')).toEqual({ changed: 2 });
       expect(store.notes().map((r) => r.category)).toEqual(['Projeto', 'Projeto', 'Estudos']);
       expect(settings.categoryLook('Projeto')).toEqual({ color: 'azul' });
       expect(settings.notesConfig().categories['projeto']).toEqual({ audience: 'publicar' });
@@ -171,11 +171,10 @@ describe('renomear e apagar categorias e tags', () => {
       expect(kanban.get(boardIdFor('trabalho'))).toBeUndefined();
     });
 
-    it('a compartilhada em que a pessoa não gere fica como está', () => {
-      spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n2' ? 'editor' : id === 'n3' ? 'gestor' : null));
-      expect(edits.renameCategory('Trabalho', 'Projeto')).toEqual({ changed: 1, skipped: 1 });
-      // o gestor muda, como o dono
-      expect(edits.renameTag('bug', 'Estudos', null)).toEqual({ changed: 1, skipped: 0 });
+    it('a compartilhada muda também, em qualquer papel: o grupo e as tags dela são de cada um', () => {
+      spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n2' ? 'leitor' : id === 'n3' ? 'editor' : null));
+      expect(edits.renameCategory('Trabalho', 'Projeto')).toEqual({ changed: 2 });
+      expect(edits.renameTag('bug', 'Estudos', null)).toEqual({ changed: 1 });
     });
 
     it('apaga a tag só da categoria; a fixa sai quando ela não está em mais nenhuma anotação', () => {
@@ -183,7 +182,7 @@ describe('renomear e apagar categorias e tags', () => {
       settings.setTagColor('Bug', 'azul', 'Estudos');
       settings.togglePinnedTag('BUG');
       expect(edits.tagUses('bug', 'Trabalho')).toBe(1);
-      expect(edits.renameTag('Bug', 'Trabalho', null)).toEqual({ changed: 1, skipped: 0 });
+      expect(edits.renameTag('Bug', 'Trabalho', null)).toEqual({ changed: 1 });
       expect(store.notes().map((r) => r.tags ?? [])).toEqual([[], [], ['bug']]);
       expect(settings.tagColor('bug', 'Trabalho')).toBeUndefined();
       expect(settings.tagColor('bug', 'Estudos')).toBe('azul');
@@ -196,7 +195,7 @@ describe('renomear e apagar categorias e tags', () => {
       settings.setTagColor('Bug', 'rosa', 'Trabalho');
       expect(edits.existingTag('BUG', 'Ideia', 'Estudos')).toBe('bug');
       expect(edits.existingTag('Ideia', 'Bug', 'Estudos')).toBeNull();
-      expect(edits.renameTag('Bug', 'Trabalho', 'Falha')).toEqual({ changed: 1, skipped: 0 });
+      expect(edits.renameTag('Bug', 'Trabalho', 'Falha')).toEqual({ changed: 1 });
       expect(store.notes().map((r) => r.tags ?? [])).toEqual([['Falha'], [], ['bug']]);
       expect(settings.tagColor('Falha', 'Trabalho')).toBe('rosa');
       expect(settings.tagColor('bug', 'Trabalho')).toBeUndefined();
@@ -210,8 +209,8 @@ describe('renomear e apagar categorias e tags', () => {
     });
 
     it('um nome vazio não muda nada', () => {
-      expect(edits.renameCategory('Trabalho', '   ')).toEqual({ changed: 0, skipped: 0 });
-      expect(edits.renameTag('Bug', 'Trabalho', '#')).toEqual({ changed: 0, skipped: 0 });
+      expect(edits.renameCategory('Trabalho', '   ')).toEqual({ changed: 0 });
+      expect(edits.renameTag('Bug', 'Trabalho', '#')).toEqual({ changed: 0 });
       expect(store.notes().map((r) => r.category)).toEqual(['Trabalho', 'Trabalho', 'Estudos']);
     });
   });

@@ -225,25 +225,13 @@
             <div class="parte" id="editor-parte" role="group" [attr.aria-label]="propName(p)" (keydown.escape)="closeProp($event)">
               @switch (p) {
                 @case ('grupo') {
-                  @if (structureLocked()) {
-                    <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo, o assunto e as tags.</p>
-                  } @else {
-                    <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
-                  }
+                  <app-group-picker #grupo [category]="noteCategory()" (categoryChange)="pickGroup($event)" [categories]="categoryLib()" />
                 }
                 @case ('assunto') {
-                  @if (structureLocked()) {
-                    <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo, o assunto e as tags.</p>
-                  } @else {
-                    <app-subject-picker #assunto [subject]="noteSubject()" (subjectChange)="pickSubject($event)" [subjects]="subjectLib()" [group]="noteCategory()" />
-                  }
+                  <app-subject-picker #assunto [subject]="noteSubject()" (subjectChange)="pickSubject($event)" [subjects]="subjectLib()" [group]="noteCategory()" />
                 }
                 @case ('tags') {
-                  @if (structureLocked()) {
-                    <p class="quem-dica">Nesta anotação compartilhada, só o dono e os gestores mudam o grupo, o assunto e as tags.</p>
-                  } @else {
-                    <app-tag-picker #tags [(tags)]="noteTags" [library]="tagLib()" [category]="noteCategory()" />
-                  }
+                  <app-tag-picker #tags [(tags)]="noteTags" [library]="tagLib()" [category]="noteCategory()" />
                 }
                 @case ('data') {
                   <ng-container [ngTemplateOutlet]="dataCampo" />

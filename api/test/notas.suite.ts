@@ -240,34 +240,32 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect(d.atualizadoPor.nome).toBe('Bia');
       });
 
-      it('o editor não muda a categoria, as tags nem quem vê (403 so-gestor); a ordem das tags não conta', async () => {
-        const { put, share, setRole, login, ana } = await shared();
-        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { tags: ['a', 'b'] }) })).status).toBe(200);
-        const t = await login('bia', 'Bia');
-        for (const change of [{ category: 'Casa' }, { tags: ['a'] }, { tags: ['a', 'b'], private: true }, { tags: ['a', 'b'], quiet: true }]) {
-          const r = await put(t.token, 'nota-1', { base: 2, dados: nota('nota-1', change) });
+      it('o editor não muda quem vê (403 so-gestor)', async () => {
+        const { put, bia } = await shared();
+        for (const change of [{ private: true }, { quiet: true }]) {
+          const r = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', change) });
           expect(r.status, JSON.stringify(change)).toBe(403);
           expect(r.body.erro).toBe('so-gestor');
         }
-        expect((await put(t.token, 'nota-1', { base: 2, dados: nota('nota-1', { tags: ['b', 'a'], text: 'x' }) })).status).toBe(200);
-        void share;
-        void setRole;
+        expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'x' }) })).status).toBe(200);
       });
 
-      it('o editor não muda o assunto (403 so-gestor), nem o tira; o texto ele muda', async () => {
-        const { put, ana, bia } = await shared();
-        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { subject: 'História' }) })).status).toBe(200);
-        for (const change of [{ subject: 'Geografia' }, {}]) {
-          const r = await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', change) });
-          expect(r.status, JSON.stringify(change)).toBe(403);
-          expect(r.body.erro).toBe('so-gestor');
-        }
-        expect((await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { subject: 'História', text: 'x' }) })).status).toBe(200);
+      it('o grupo, o assunto e as tags são de cada pessoa: nunca ficam guardados, e o editor manda qualquer um', async () => {
+        const { put, details, ana, bia } = await shared();
+        expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { category: 'Casa', subject: 'Feira', tags: ['a'], noteRank: 'fixada' }) })).status).toBe(200);
+        const [d] = await details(bia.token, ['nota-1']);
+        expect(d.dados.category).toBeUndefined();
+        expect(d.dados.subject).toBeUndefined();
+        expect(d.dados.tags).toBeUndefined();
+        expect(d.dados.noteRank).toBeUndefined();
+        // um site de antes mandando os da Bia: passa, e também não fica
+        expect((await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { category: 'Trabalho', tags: ['b'], text: 'x' }) })).status).toBe(200);
+        expect((await details(ana.token, ['nota-1']))[0].dados.category).toBeUndefined();
       });
 
-      it('a estrutura da anotação sem assunto é a mesma de antes do assunto existir', () => {
-        expect(structureOf(JSON.stringify({ category: 'Casa', tags: ['b', 'a'] }))).toBe(JSON.stringify({ category: 'Casa', tags: ['a', 'b'], private: false, quiet: false }));
-        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira' }))).not.toBe(structureOf(JSON.stringify({ category: 'Casa' })));
+      it('a estrutura é só quem vê: o grupo, o assunto e as tags de uma anotação de antes não contam', () => {
+        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira', tags: ['b', 'a'] }))).toBe(JSON.stringify({ private: false, quiet: false }));
+        expect(structureOf(JSON.stringify({ private: true }))).not.toBe(structureOf(JSON.stringify({})));
       });
 
       it('o editor não põe nem tira ninguém; o gestor põe, troca o papel e tira', async () => {
@@ -283,10 +281,10 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await index(cris.token))[0]?.papel).toBe('editor');
       });
 
-      it('o gestor muda as tags, mas não tira a dona, não muda o papel dela e não apaga a anotação para todos', async () => {
+      it('o gestor muda quem vê, mas não tira a dona, não muda o papel dela e não apaga a anotação para todos', async () => {
         const { setRole, drop, put, res, json, ana, bia } = await shared();
         await setRole(ana.token, 'nota-1', bia.codigo, 'gestor');
-        expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { tags: ['nova'], private: true }) })).status).toBe(200);
+        expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { private: true }) })).status).toBe(200);
         expect((await drop(bia.token, 'nota-1', ana.codigo)).body.erro).toBe('e-o-dono');
         expect((await setRole(bia.token, 'nota-1', ana.codigo, 'leitor')).body.erro).toBe('e-o-dono');
         const del = await res(json('DELETE', '/v1/notas/nota-1', undefined, bia.token));
@@ -376,21 +374,21 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await details(bia.token, ['nota-1']))[0].dados.text).toBe('b');
       });
 
-      it('o editor escolhe a versão de um gestor mesmo que ela mude as tags (a estrutura de uma das duas vale)', async () => {
+      it('o editor escolhe a versão de um gestor mesmo que ela mude quem vê (a estrutura de uma das duas vale)', async () => {
         const { put, setRole, ana, bia, cris } = await shared();
         await setRole(ana.token, 'nota-1', cris.codigo, 'gestor');
-        // Cris (gestora) mudou as tags e brigou com a versão de agora
-        await put(cris.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'x' }), conflito: { b: nota('nota-1', { text: 'y', tags: ['cris'] }) } });
-        const r = await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { text: 'y', tags: ['cris'] }), resolver: true });
+        // Cris (gestora) deixou privada e brigou com a versão de agora
+        await put(cris.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'x' }), conflito: { b: nota('nota-1', { text: 'y', private: true }) } });
+        const r = await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { text: 'y', private: true }), resolver: true });
         expect(r.status).toBe(200);
         // mas não inventa uma terceira
-        const r2 = await put(bia.token, 'nota-1', { base: 3, dados: nota('nota-1', { text: 'y', tags: ['bia'] }) });
+        const r2 = await put(bia.token, 'nota-1', { base: 3, dados: nota('nota-1', { text: 'y', quiet: true }) });
         expect(r2.status).toBe(403);
       });
 
       it('o editor não manda um conflito com outra estrutura', async () => {
         const { put, bia } = await shared();
-        const r = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1'), conflito: { b: nota('nota-1', { category: 'Outra' }) } });
+        const r = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1'), conflito: { b: nota('nota-1', { private: true }) } });
         expect(r.status).toBe(403);
       });
 

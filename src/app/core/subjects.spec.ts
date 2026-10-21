@@ -129,23 +129,23 @@ describe('assunto das anotações', () => {
         expect(edits.existingSubject('GEOGRAFIA', 'História', 'Estudos')).toBe('Geografia');
         expect(edits.existingSubject('matematica', 'História', 'Estudos')).toBe('Matemática');
         expect(edits.existingSubject('Artes', 'História', 'Estudos')).toBeNull();
-        expect(edits.renameSubject('História', 'Estudos', ' história geral ')).toEqual({ changed: 1, skipped: 0 });
+        expect(edits.renameSubject('História', 'Estudos', ' história geral ')).toEqual({ changed: 1 });
         expect(store.notes().map((r) => r.subject)).toEqual(['História geral', 'Geografia', 'História']);
         expect(savedSubjects(settings.notesConfig(), 'Estudos')).toEqual(['Matemática', 'História geral']);
       });
 
       it('apaga das anotações do grupo e da lista; o criado sem anotação só sai da lista', () => {
-        expect(edits.renameSubject('Matemática', 'Estudos', null)).toEqual({ changed: 0, skipped: 0 });
+        expect(edits.renameSubject('Matemática', 'Estudos', null)).toEqual({ changed: 0 });
         expect(savedSubjects(settings.notesConfig(), 'Estudos')).toEqual(['História']);
         edits.renameSubject('Geografia', 'Estudos', null);
         expect(store.get('n2')!.subject).toBeUndefined();
         expect(store.get('n3')!.subject).toBe('História');
       });
 
-      it('a compartilhada em que a pessoa não gere fica como está', () => {
+      it('a compartilhada muda também: o assunto dela é de cada um', () => {
         spyOn(TestBed.inject(SharedStore), 'role').and.callFake((id: string) => (id === 'n1' ? 'editor' : null));
-        expect(edits.renameSubject('História', 'Estudos', 'Outra')).toEqual({ changed: 0, skipped: 1 });
-        expect(store.get('n1')!.subject).toBe('História');
+        expect(edits.renameSubject('História', 'Estudos', 'Outra')).toEqual({ changed: 1 });
+        expect(store.get('n1')!.subject).toBe('Outra');
       });
 
       it('o grupo renomeado leva os assuntos criados', () => {
@@ -194,15 +194,10 @@ describe('assunto das anotações', () => {
   });
 
   describe('a anotação compartilhada', () => {
-    it('o grupo e o assunto andam juntos na junção: um lado mexeu, vale; os dois, diferente, conflito', () => {
+    it('o grupo e o assunto não entram na junção: são de cada pessoa', () => {
       const o = note('n1', 'Estudos', 'História');
-      const a = { ...o, subject: 'Geografia' };
-      const b = { ...o, text: 'outro texto' };
-      const merged = mergeNote(o, a, b);
-      expect(merged.parts).toEqual([]);
-      expect(merged.merged.subject).toBe('Geografia');
-      const clash = mergeNote(o, a, { ...o, subject: 'Artes' });
-      expect(clash.parts).toEqual(['categoria']);
+      const clash = mergeNote(o, { ...o, subject: 'Geografia' }, { ...o, subject: 'Artes', category: 'Outro' });
+      expect(clash.parts).toEqual([]);
     });
   });
 });

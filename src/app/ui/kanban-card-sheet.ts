@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, linkedSignal, output, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
-import { tagColorHex } from '../core/category-looks';
 import { Importance, KanbanBoard, setImportance, setStatus } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
@@ -9,12 +8,9 @@ import { cleanSubject, sanitizeTags, subjectLibrary, tagLibrary } from '../core/
 import { savedSubjects } from '../core/mural-config';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
-import { canManage } from '../core/shared-notes';
-import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { KanbanProps } from './kanban-props';
-import { NoteTag } from './note-tag';
 import { Pin } from './pin';
 import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
@@ -29,7 +25,7 @@ import { TagPicker } from './tag-picker';
  */
 @Component({
   selector: 'app-kanban-card-sheet',
-  imports: [BackdropClose, IconModule, KanbanProps, NoteTag, Pin, SubjectPicker, TagPicker],
+  imports: [BackdropClose, IconModule, KanbanProps, Pin, SubjectPicker, TagPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro" aria-labelledby="fq-titulo" (close)="props()?.flush(); closed.emit()" (backdropClose)="close()">
@@ -65,30 +61,12 @@ import { TagPicker } from './tag-picker';
               <!-- o assunto da anotação (um nível abaixo do grupo do quadro) e as tags, as últimas linhas -->
               <div class="linha assunto-linha">
                 <span class="nome" id="fq-assunto"><lucide-icon [img]="SubjectIcon" [size]="16" aria-hidden="true" />Assunto</span>
-                @if (locked()) {
-                  <div class="valor">
-                    <span class="vazio">{{ d.note.subject ?? 'Nenhum' }}</span>
-                    <p class="dica">Só o dono e os gestores mudam o assunto.</p>
-                  </div>
-                } @else {
-                  <app-subject-picker class="valor" [subject]="d.note.subject ?? null" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="d.note.category ?? null" />
-                }
+                <app-subject-picker class="valor" [subject]="d.note.subject ?? null" (subjectChange)="setSubject($event)" [subjects]="subjectLib()" [group]="d.note.category ?? null" />
               </div>
 
               <div class="linha tags-linha">
                 <span class="nome" id="fq-tags"><lucide-icon [img]="TagsIcon" [size]="16" aria-hidden="true" />Tags</span>
-                @if (locked()) {
-                  <div class="valor">
-                    @for (t of d.note.tags ?? []; track t; let i = $index) {
-                      <app-note-tag [label]="t" [index]="i" [color]="colorOf(t)" />
-                    } @empty {
-                      <span class="vazio">Nenhuma</span>
-                    }
-                    <p class="dica">Só o dono e os gestores mudam as tags.</p>
-                  </div>
-                } @else {
-                  <app-tag-picker class="valor" [tags]="d.note.tags ?? []" (tagsChange)="setTags($event)" [library]="tagLib()" [category]="d.note.category ?? null" />
-                }
+                <app-tag-picker class="valor" [tags]="d.note.tags ?? []" (tagsChange)="setTags($event)" [library]="tagLib()" [category]="d.note.category ?? null" />
               </div>
             </app-kanban-props>
           </div>
@@ -129,7 +107,6 @@ export class KanbanCardSheet {
   private readonly actions = inject(KanbanActions);
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
-  private readonly shared = inject(SharedStore);
   private readonly deps = inject(KanbanDeps);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   protected readonly props = viewChild(KanbanProps);
@@ -154,12 +131,6 @@ export class KanbanCardSheet {
    * resposta (e sem o sim), a tira volta a mostrar a de agora.
    */
   protected readonly column = linkedSignal(() => this.data()?.card.column ?? null);
-
-  /** Numa compartilhada, só o dono e os gestores mudam as tags (como no editor). */
-  protected readonly locked = computed(() => {
-    const role = this.shared.role(this.noteId());
-    return !!role && !canManage(role);
-  });
 
   /** As tags à mão: as fixas e as das outras anotações do grupo do quadro. */
   protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.data()?.note.category ?? null));
@@ -205,10 +176,6 @@ export class KanbanCardSheet {
 
   protected setDeps(list: readonly string[]): void {
     this.deps.set(this.noteId(), list);
-  }
-
-  protected colorOf(tag: string): string | null {
-    return tagColorHex(this.settings.categoryLooks(), tag, this.store.get(this.noteId())?.category ?? '');
   }
 
   /** As tags da anotação (as do mural: mudam na anotação mesmo, como no editor). */

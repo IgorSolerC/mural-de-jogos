@@ -151,11 +151,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 35: o assunto da anotação (`subject`, entre o grupo e as tags) e os assuntos criados nas
  *     configurações do mural (`subjects`, por grupo). Um site da 34 jogaria os dois fora e enviaria
  *     assim, e o assunto sumiria das anotações em todo aparelho.
+ * 36: o grupo, o assunto e as tags das anotações compartilhadas são de cada pessoa e vão no lugar delas
+ *     (`lugares`: `category`, `subject`, `tags`, `org`). Um site da 35 jogaria os quatro fora e enviaria
+ *     assim, e a compartilhada voltaria a "Sem grupo" nos outros aparelhos.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 35;
+export const SYNC_SCHEMA = 36;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

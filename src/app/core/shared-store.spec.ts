@@ -11,7 +11,7 @@ import { CloudSync, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
 import { ProfileStore } from './profile-store';
 import { Confirm } from '../ui/confirm';
 import { SyncConflicts } from './sync-conflicts';
-import { mergeNote, sharedContent } from './shared-notes';
+import { SHARED_GROUP, mergeNote, sharedContent } from './shared-notes';
 import { KanbanStore } from './kanban-store';
 import { KanbanActions } from './kanban-actions';
 import { KanbanDresser } from './kanban-dresser';
@@ -67,6 +67,15 @@ class FakeNotes {
   readonly privados = new Map<string, { rev: number; doc: Uint8Array }>();
   /** Com a regra de 1 s entre duas gravações da mesma pessoa (429 devagar), como a API. */
   strict = false;
+  /** Quantas vezes o grupo, o assunto, as tags ou a fixada (que são de cada um) chegaram na anotação. */
+  leaks = 0;
+
+  /** A anotação como a API guarda: sem o que é de cada pessoa (ver `noteData` em api/src/domain/shared-note.ts). */
+  private stored(d: Record<string, unknown>): Record<string, unknown> {
+    const { category, subject, tags, noteRank, ...rest } = d;
+    if (category !== undefined || subject !== undefined || tags !== undefined || noteRank !== undefined) this.leaks++;
+    return rest;
+  }
 
   private user(init: RequestInit): User | null {
     const auth = ((init.headers ?? {}) as Record<string, string>)['Authorization'] ?? '';
@@ -103,7 +112,7 @@ class FakeNotes {
   }
 
   private structure(d: Record<string, unknown>) {
-    return JSON.stringify({ c: d['category'] ?? '', t: [...((d['tags'] as string[]) ?? [])].sort(), p: !!d['private'], q: !!d['quiet'] });
+    return JSON.stringify({ p: !!d['private'], q: !!d['quiet'] });
   }
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
@@ -147,7 +156,7 @@ class FakeNotes {
     }
     if (path === '/v1/notas' && method === 'POST') {
       const at = new Date().toISOString();
-      const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: body.dados, conflito: null, por: me.id, em: at, membros: new Map() };
+      const n: FakeNote = { id: body.id, dono: me.id, rev: 1, versao: 1, dados: this.stored(body.dados), conflito: null, por: me.id, em: at, membros: new Map() };
       for (const m of body.membros ?? []) n.membros.set(this.byCode(m.codigo)!.id, m.papel);
       this.notes.set(n.id, n);
       return json({ nota: this.detail(n, 'dono') }, 201);
@@ -184,9 +193,9 @@ class FakeNotes {
       if (!allowed.has(this.structure(body.dados))) return json({ erro: 'so-gestor', mensagem: 'Só o dono e os gestores mudam a estrutura.' }, 403);
     }
     const at = new Date().toISOString();
-    if (body.conflito) n.conflito = { a: body.dados, b: body.conflito.b, autorA: n.por, autorB: me.id, em: at };
+    if (body.conflito) n.conflito = { a: this.stored(body.dados), b: this.stored(body.conflito.b), autorA: n.por, autorB: me.id, em: at };
     else if (body.resolver) n.conflito = null;
-    n.dados = body.dados;
+    n.dados = this.stored(body.dados);
     n.rev++;
     n.versao++;
     n.por = me.id;
@@ -526,7 +535,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(bia.store.get('nota-1')?.noteRank).toBe('fixada');
     });
 
-    it('a editora escreve, mas a categoria, as tags e quem vê ficam como estão', async () => {
+    it('a editora escreve e organiza do jeito dela; quem vê fica como está, e o grupo e as tags da dona também', async () => {
       const { ana, bia } = await sharedNote('a', { category: 'Casa', tags: ['mercado'] });
       bia.edit('nota-1', { text: 'b', category: 'Trabalho', tags: ['outra'], private: true });
       await sync(bia, ana);
@@ -535,13 +544,19 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(r.category).toBe('Casa');
       expect(r.tags).toEqual(['mercado']);
       expect(r.private).toBeUndefined();
+      const mine = bia.store.get('nota-1')!;
+      expect(mine.category).toBe('Trabalho');
+      expect(mine.tags).toEqual(['outra']);
+      expect(mine.private).toBeUndefined();
     });
 
-    it('a dona muda as tags, e a editora vê', async () => {
+    it('a dona muda as tags e o grupo: só no mural dela', async () => {
       const { ana, bia } = await sharedNote('a', { tags: ['mercado'] });
-      ana.edit('nota-1', { tags: ['mercado', 'semana'] });
+      ana.edit('nota-1', { tags: ['mercado', 'semana'], category: 'Casa' });
       await sync(ana, bia);
-      expect(bia.store.get('nota-1')?.tags).toEqual(['mercado', 'semana']);
+      expect(ana.store.get('nota-1')?.tags).toEqual(['mercado', 'semana']);
+      expect(bia.store.get('nota-1')?.tags).toBeUndefined();
+      expect(bia.store.get('nota-1')?.category).toBe(SHARED_GROUP);
     });
 
     it('virou leitora com uma edição esperando: a edição fica guardada, a anotação segue a da nuvem', async () => {
@@ -796,26 +811,30 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       }
     });
 
-    it('a editora escolhe a versão da gestora (outra categoria) depois de a dona pôr uma tag: a escolha entra sem a nuvem recusar', async () => {
+    it('a editora escolhe a versão da gestora (privada) depois de a dona mudar o título: a escolha entra sem a nuvem recusar', async () => {
       const { ana, bia, cris } = await sharedNote('O gato preto.', { category: 'Casa' });
       await ana.shared.setRole('nota-1', USERS['cris'].codigo, 'gestor');
       await sync(cris);
-      ana.edit('nota-1', { text: 'O gato branco.', category: 'Mercado' });
-      cris.edit('nota-1', { text: 'O gato cinza.', category: 'Feira' });
+      ana.edit('nota-1', { text: 'O gato branco.', quiet: true });
+      cris.edit('nota-1', { text: 'O gato cinza.', private: true });
       await sync(ana, cris, ana, bia);
       expect(bia.shared.conflicts().length).toBe(1);
-      ana.edit('nota-1', { tags: ['urgente'] });
+      ana.edit('nota-1', { game: { ...ana.store.get('nota-1')!.game, name: 'Bichos' } });
       await sync(ana, bia);
       later();
       const c = bia.shared.conflicts()[0].conflito!;
-      bia.shared.resolve('nota-1', c.b.category === 'Feira' ? c.b : c.a);
+      bia.shared.resolve('nota-1', c.b.private ? c.b : c.a);
       TestBed.tick();
       await sync(bia, ana, cris);
       for (const p of [ana, bia, cris]) {
         expect(p.shared.conflicts()).toEqual([]);
         expect(p.text('nota-1')).toBe('O gato cinza.');
-        expect(p.store.get('nota-1')!.category).toBe('Feira');
+        expect(p.store.get('nota-1')!.private).toBeTrue();
+        expect(p.store.get('nota-1')!.game.name).toBe('Bichos');
       }
+      // e cada uma continua no próprio grupo
+      expect(ana.store.get('nota-1')!.category).toBe('Casa');
+      expect(bia.store.get('nota-1')!.category).toBe(SHARED_GROUP);
       expect(bia.store.versions().length).toBe(0);
     });
 
@@ -855,30 +874,32 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(bia.shared.role('nota-1')).toBe('editor');
     });
 
-    it('a dona muda a categoria enquanto a editora escreve: as duas mudanças ficam, e a editora não desfaz a categoria', async () => {
+    it('a dona muda o grupo enquanto a editora escreve: o texto junta, e o grupo de cada uma fica o dela', async () => {
       const { ana, bia } = await sharedNote('um', { category: 'Casa' });
       ana.edit('nota-1', { category: 'Mercado' });
       bia.edit('nota-1', { text: 'um\ndois' });
       await sync(ana, bia, ana);
-      for (const p of [ana, bia]) {
-        expect(p.store.get('nota-1')!.category).toBe('Mercado');
-        expect(p.text('nota-1')).toBe('um\ndois');
-      }
-      // a editora salva de novo (o editor dela ainda mostrava a categoria de antes): continua Mercado
+      for (const p of [ana, bia]) expect(p.text('nota-1')).toBe('um\ndois');
+      expect(ana.store.get('nota-1')!.category).toBe('Mercado');
+      expect(bia.store.get('nota-1')!.category).toBe(SHARED_GROUP);
       bia.edit('nota-1', { text: 'um\ndois\ntrês', category: 'Casa' });
       await sync(bia, ana);
       expect(ana.store.get('nota-1')!.category).toBe('Mercado');
+      expect(bia.store.get('nota-1')!.category).toBe('Casa');
       expect(ana.text('nota-1')).toBe('um\ndois\ntrês');
     });
 
-    it('a dona e a gestora mexem nas tags ao mesmo tempo: o que cada uma pôs fica, o que tirou sai', async () => {
+    it('a dona e a gestora mexem nas tags ao mesmo tempo: cada uma fica com as suas, e nada brigou', async () => {
       const { ana, bia } = await sharedNote('a', { tags: ['mercado', 'semana'] });
       await ana.shared.setRole('nota-1', USERS['bia'].codigo, 'gestor');
       await sync(bia);
       ana.edit('nota-1', { tags: ['mercado', 'semana', 'urgente'] });
       bia.edit('nota-1', { tags: ['mercado', 'feira'] });
       await sync(ana, bia, ana);
-      for (const p of [ana, bia]) expect([...p.store.get('nota-1')!.tags!].sort()).toEqual(['feira', 'mercado', 'urgente']);
+      expect(ana.store.get('nota-1')!.tags).toEqual(['mercado', 'semana', 'urgente']);
+      expect(bia.store.get('nota-1')!.tags).toEqual(['mercado', 'feira']);
+      expect(ana.shared.conflicts()).toEqual([]);
+      expect(bia.shared.conflicts()).toEqual([]);
     });
 
     it('duas gravações seguidas da mesma pessoa (a nuvem pede para esperar 1 s): nada se perde, e sobe depois', async () => {
@@ -956,7 +977,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
     describe('no Kanban', () => {
       it('a editora leva a compartilhada para Feito: ela finaliza para todas', async () => {
         const { ana, bia } = await sharedNote('a', { category: 'Casa' });
-        const board = bia.kanban.boardFor('Casa');
+        const board = bia.kanban.boardFor(SHARED_GROUP);
         bia.actions.move(board.id, 'nota-1', board.columns[2].id);
         TestBed.tick();
         expect(isDone(bia.store.get('nota-1')!)).toBeTrue();
@@ -966,26 +987,140 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
 
       it('a leitora leva a compartilhada para Feito: o quadro é dela, mas a anotação não finaliza (e o bilhete não diz que finalizou)', async () => {
         const { ana, cris } = await sharedNote('a', { category: 'Casa' });
-        const board = cris.kanban.boardFor('Casa');
+        const board = cris.kanban.boardFor(SHARED_GROUP);
         spyOn(cris.toasts, 'show').and.callThrough();
         cris.actions.move(board.id, 'nota-1', board.columns[2].id);
         TestBed.tick();
-        expect(cris.kanban.boardFor('Casa').cards.map((c) => c.note)).toEqual(['nota-1']);
+        expect(cris.kanban.boardFor(SHARED_GROUP).cards.map((c) => c.note)).toEqual(['nota-1']);
         expect(isDone(cris.store.get('nota-1')!)).toBeFalse();
         expect(cris.toasts.show).not.toHaveBeenCalled();
         await sync(cris, ana);
         expect(isDone(ana.store.get('nota-1')!)).toBeFalse();
       });
 
-      it('a dona tira a compartilhada da categoria: ela sai do quadro da leitora, sem quebrar o quadro', async () => {
+      it('a dona muda o grupo: a anotação continua no quadro da leitora', async () => {
         const { ana, cris } = await sharedNote('a', { category: 'Casa' });
-        const board = cris.kanban.boardFor('Casa');
+        const board = cris.kanban.boardFor(SHARED_GROUP);
         cris.actions.move(board.id, 'nota-1', board.columns[0].id);
         ana.edit('nota-1', { category: 'Trabalho' });
         await sync(ana, cris);
-        expect(cris.kanban.live(cris.kanban.boardFor('Casa'))).toEqual([]);
-        expect(cris.store.get('nota-1')!.category).toBe('Trabalho');
+        expect(cris.kanban.live(cris.kanban.boardFor(SHARED_GROUP)).map((c) => c.note)).toEqual(['nota-1']);
+        expect(cris.store.get('nota-1')!.category).toBe(SHARED_GROUP);
       });
+
+      it('a leitora leva a compartilhada para o próprio grupo: ela vai para o quadro dele, e nada sobe', async () => {
+        const { ana, cris } = await sharedNote('a', { category: 'Casa' });
+        cris.edit('nota-1', { category: 'Mercado', subject: 'Feira', tags: ['sábado'] });
+        await sync(cris, ana);
+        expect(cris.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Mercado', subject: 'Feira', tags: ['sábado'] }));
+        expect(ana.store.get('nota-1')!.category).toBe('Casa');
+        expect(cloud.notes.get('nota-1')!.rev).toBe(1);
+        const board = cris.kanban.boardFor('Mercado');
+        cris.actions.move(board.id, 'nota-1', board.columns[0].id);
+        TestBed.tick();
+        expect(cris.kanban.live(cris.kanban.boardFor('Mercado')).map((c) => c.note)).toEqual(['nota-1']);
+      });
+    });
+  });
+
+  describe('o grupo, o assunto e as tags são de cada um', () => {
+    it('quem recebe acha a anotação no grupo Compartilhadas, com o desenho de duas pessoas; a dona, no grupo dela', async () => {
+      const { ana, bia, cris } = await sharedNote('a', { category: 'Casa', subject: 'Feira', tags: ['mercado'] });
+      expect(ana.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Casa', subject: 'Feira', tags: ['mercado'] }));
+      for (const p of [bia, cris]) {
+        const r = p.store.get('nota-1')!;
+        expect(r.category).toBe(SHARED_GROUP);
+        expect(r.subject).toBeUndefined();
+        expect(r.tags).toBeUndefined();
+      }
+      const looks = (p: Person) => p.shared['settings'].categoryLook(SHARED_GROUP);
+      expect(looks(bia).icon).toBe('pessoas');
+      expect(looks(ana).icon).toBeUndefined();
+    });
+
+    it('o desenho que a pessoa já escolheu para Compartilhadas fica', async () => {
+      const ana = person('ana');
+      const bia = person('bia');
+      bia.shared['settings'].setCategoryLook(SHARED_GROUP, { icon: 'coracao', color: 'rosa' });
+      ana.store.add(note('nota-1', 'a'));
+      TestBed.tick();
+      await ana.shared.share(ana.store.get('nota-1')!, [{ codigo: USERS['bia'].codigo, papel: 'editor' }]);
+      await sync(bia);
+      expect(bia.store.get('nota-1')!.category).toBe(SHARED_GROUP);
+      expect(bia.shared['settings'].categoryLook(SHARED_GROUP)).toEqual({ icon: 'coracao', color: 'rosa' });
+    });
+
+    it('o grupo, o assunto, as tags e a fixada nunca vão para a anotação na nuvem', async () => {
+      const { ana, bia, cris } = await sharedNote('a', { category: 'Casa', subject: 'Feira', tags: ['mercado'] });
+      bia.edit('nota-1', { text: 'b', category: 'Trabalho', tags: ['x'] });
+      ana.edit('nota-1', { text: 'c', tags: ['y'], noteRank: 'fixada' });
+      cris.edit('nota-1', { category: 'Leitura' });
+      await sync(ana, bia, cris, ana);
+      expect(cloud.leaks).toBe(0);
+      expect(cloud.notes.get('nota-1')!.dados['text']).toBeDefined();
+    });
+
+    it('o grupo escolhido num aparelho vai para os outros aparelhos da mesma pessoa (e só para os dela)', async () => {
+      const { ana, bia } = await sharedNote('a', { category: 'Casa' });
+      await bia.mural.syncNow();
+      const phone = person('bia');
+      await phone.mural.syncNow();
+      await sync(phone);
+      expect(phone.store.get('nota-1')!.category).toBe(SHARED_GROUP);
+      bia.edit('nota-1', { category: 'Trabalho', subject: 'Reunião', tags: ['daily'] });
+      await bia.mural.syncNow();
+      await phone.mural.syncNow();
+      TestBed.tick();
+      expect(phone.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', subject: 'Reunião', tags: ['daily'] }));
+      expect(ana.store.get('nota-1')!.category).toBe('Casa');
+      // fixar no celular não desfaz o grupo
+      later();
+      phone.store.update(withPin(phone.store.get('nota-1')!, true, new Date().toISOString()));
+      TestBed.tick();
+      await phone.mural.syncNow();
+      await bia.mural.syncNow();
+      TestBed.tick();
+      expect(bia.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada' }));
+    });
+
+    it('a anotação guardada antes (com o grupo no conteúdo) fica onde estava, e o lugar vai para os outros aparelhos', async () => {
+      const { bia } = await sharedNote('a', { category: 'Casa' });
+      // como um aparelho de antes guardava: o grupo e as tags no conteúdo, e o lugar só com a fixada
+      const raw = JSON.parse(bia.data.getItem('meu-mural:compartilhadas:v1')!);
+      const [entry] = raw.contas['u-bia'];
+      entry.base = { ...entry.base, category: 'Mercado', subject: 'Feira', tags: ['sábado'] };
+      entry.pessoal = { noteRank: 'fixada' };
+      raw.lugares = {};
+      const data = new MemoryData();
+      data.setItem('meu-mural:compartilhadas:v1', JSON.stringify(raw));
+      const old = person('bia', data);
+      expect(old.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Mercado', subject: 'Feira', tags: ['sábado'], noteRank: 'fixada' }));
+      expect(old.shared.places().get('nota-1')?.p).toEqual(jasmine.objectContaining({ category: 'Mercado', org: true }));
+      // e o conteúdo guardado de novo já vem sem eles
+      const again = JSON.parse(data.getItem('meu-mural:compartilhadas:v1')!).contas['u-bia'][0];
+      expect(again.base.category).toBeUndefined();
+      expect(again.pessoal.org).toBeTrue();
+    });
+
+    it('um lugar de um site de antes (só a fixada) não tira a anotação do grupo', async () => {
+      const { bia } = await sharedNote('a');
+      bia.edit('nota-1', { category: 'Trabalho' });
+      later();
+      bia.shared.mergePlaces(new Map([['nota-1', { p: { noteRank: 'fixada' }, em: new Date().toISOString() }]]));
+      TestBed.tick();
+      expect(bia.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada' }));
+    });
+
+    it('quem já estava numa anotação e abre num aparelho novo (o lugar de antes, sem o grupo) fica no grupo de antes', async () => {
+      const { ana } = await sharedNote('a');
+      // a nota gravada antes, com o grupo da dona no conteúdo
+      cloud.notes.get('nota-1')!.dados['category'] = 'Casa';
+      cloud.notes.get('nota-1')!.versao++;
+      const phone = person('bia');
+      phone.shared.mergePlaces(new Map([['nota-1', { p: { noteRank: 'fixada' }, em: new Date().toISOString() }]]));
+      await sync(phone);
+      expect(phone.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Casa', noteRank: 'fixada' }));
+      void ana;
     });
   });
 
@@ -1006,10 +1141,14 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(k.other!.game.name).toBe('Outro título');
     });
 
-    it('as tags nunca brigam: o que cada um pôs fica, o que cada um tirou sai', () => {
-      const a = { ...base, tags: ['a', 'b', 'c'] };
-      const b = { ...base, tags: ['b', 'd'] };
-      expect(mergeNote(base, a, b).merged.tags).toEqual(['b', 'c', 'd']);
+    it('o grupo, o assunto e as tags nunca entram na junção: são de cada um', () => {
+      const m = mergeNote(base, { ...base, category: 'X', tags: ['a'] }, { ...base, category: 'Y', subject: 'Z', tags: ['d'] });
+      expect(m.parts).toEqual([]);
+      expect(m.merged.category).toBeUndefined();
+      expect(m.merged.subject).toBeUndefined();
+      expect(m.merged.tags).toBeUndefined();
+      expect(Object.keys(sharedContent(base))).not.toContain('category');
+      expect(Object.keys(sharedContent(base))).not.toContain('tags');
     });
 
     it('finalizar: os dois finalizaram, fica a primeira data; um abriu de novo, vale o que mudou', () => {
@@ -1030,8 +1169,8 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(mergeNote(base, a, { ...base, stock: 'rosa' }).parts).toEqual(['aparencia']);
     });
 
-    it('a categoria e quem vê: atômicos', () => {
-      expect(mergeNote(base, { ...base, category: 'X' }, { ...base, category: 'Y' }).parts).toEqual(['categoria']);
+    it('quem vê: atômico', () => {
+      expect(mergeNote(base, { ...base, private: true }, { ...base, quiet: true }).parts).toEqual(['publico']);
       expect(mergeNote(base, { ...base, private: true }, base).merged.private).toBeTrue();
     });
 

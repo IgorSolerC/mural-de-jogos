@@ -2,10 +2,16 @@ import { DestroyRef, Injectable, InjectionToken, Injector, computed, effect, inj
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { DataKey, LocalData } from './local-data';
-import { Review } from './review';
+import { Review, sanitizeReview } from './review';
 import { ReviewStore, SharedSink } from './review-store';
+import { Settings } from './settings';
 import {
   MemberRole,
+  SHARED_GROUP,
+  arrivalOrg,
+  legacyOrg,
+  orgOf,
+  samePersonal,
   Personal,
   SharedConflict,
   SharedDetail,
@@ -37,8 +43,9 @@ import {
  *
  * Fica tudo no IndexedDB, por conta (outra conta neste navegador não vê nem mexe nas de outra), e
  * funciona sem rede: a edição espera e sobe quando a conexão voltar. Nada da anotação vai no mural da
- * nuvem; só o lugar dela no mural de quem está aqui (fixada no topo), que é da pessoa e vai para os
- * outros aparelhos dela pelo mural privado (`places`, ver core/cloud-sync.ts), nunca para a anotação.
+ * nuvem; só o lugar dela no mural de quem está aqui (fixada no topo, o grupo, o assunto e as tags), que
+ * é da pessoa e vai para os outros aparelhos dela pelo mural privado (`places`, ver core/cloud-sync.ts),
+ * nunca para a anotação.
  */
 
 export const SHARED_KEY: DataKey = 'meu-mural:compartilhadas:v1';
@@ -77,7 +84,7 @@ export interface SharedEntry {
   conflito: SharedConflict | null;
   atualizadoEm: string;
   atualizadoPor: SharedPerson | null;
-  /** O lugar dela no mural de quem está aqui (fixada no topo): não vai para a nuvem. */
+  /** O lugar dela no mural de quem está aqui (fixada no topo, o grupo, o assunto e as tags): não vai para a nuvem. */
   pessoal: Personal;
   /** A anotação como ela aparece no mural (feita uma vez por mudança, para o mural saber o que mudou). */
   view: Review;
@@ -90,8 +97,8 @@ export type SharedNotice =
   | { tipo: 'saiu'; id: string; titulo: string };
 
 /**
- * O lugar de uma anotação compartilhada no mural de quem está aqui (fixada no topo) e quando ele
- * mudou: vai para os outros aparelhos da pessoa, e o mudado por último vale.
+ * O lugar de uma anotação compartilhada no mural de quem está aqui (fixada no topo, o grupo, o assunto
+ * e as tags) e quando ele mudou: vai para os outros aparelhos da pessoa, e o mudado por último vale.
  */
 export interface Place {
   p: Personal;
@@ -145,7 +152,11 @@ function storedEntry(e: SharedEntry): unknown {
   };
 }
 
-function readEntry(raw: unknown): SharedEntry | null {
+/**
+ * Uma anotação guardada neste aparelho. A guardada antes do grupo, do assunto e das tags serem de cada
+ * um (build 463) os tinha no conteúdo: eles viram os desta pessoa, e ela fica onde estava (`migrated`).
+ */
+function readEntry(raw: unknown): (SharedEntry & { migrated?: true }) | null {
   const r = raw as Record<string, unknown> | null;
   const id = typeof r?.['id'] === 'string' ? r['id'] : null;
   if (!id) return null;
@@ -153,7 +164,10 @@ function readEntry(raw: unknown): SharedEntry | null {
   if (!detail) return null;
   const local = r?.['local'] ? noteFrom(r['local'], id) : null;
   const outra = r?.['outra'] ? noteFrom(r['outra'], id) : null;
-  return entryOf({
+  const stored = sanitizePersonal(r?.['pessoal']);
+  const before = r?.['local'] ? sanitizeReview(r['local']) : null;
+  const pessoal = legacyOrg(stored, before ? orgOf(before) : detail.orgDados);
+  const entry = entryOf({
     id,
     dono: detail.dono,
     papel: detail.papel,
@@ -167,8 +181,9 @@ function readEntry(raw: unknown): SharedEntry | null {
     conflito: detail.conflito,
     atualizadoEm: detail.atualizadoEm,
     atualizadoPor: detail.atualizadoPor,
-    pessoal: sanitizePersonal(r?.['pessoal']),
+    pessoal,
   });
+  return stored.org ? entry : { ...entry, migrated: true };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -179,6 +194,7 @@ export class SharedStore implements SharedSink {
   private readonly cloud = inject(Cloud);
   private readonly auto = inject(SHARED_AUTO);
   private readonly injector = inject(Injector);
+  private readonly settings = inject(Settings);
 
   /** As anotações compartilhadas da conta de agora (id → anotação). */
   readonly entries = signal<ReadonlyMap<string, SharedEntry>>(new Map());
@@ -302,7 +318,9 @@ export class SharedStore implements SharedSink {
     if (!changed) return;
     this.places.set(newestPlaces(places));
     for (const e of [...this.entries().values()]) {
-      const p = this.places().get(e.id)?.p;
+      const place = this.places().get(e.id)?.p;
+      // o lugar de um site de antes (sem o grupo): só a fixada muda, o grupo fica
+      const p = place && legacyOrg(place, e.pessoal);
       if (p && !samePersonal(p, e.pessoal)) this.put({ ...e, pessoal: p });
     }
     this.persist();
@@ -333,7 +351,8 @@ export class SharedStore implements SharedSink {
 
   /**
    * A anotação foi salva neste aparelho (ver `SharedSink`). Quem só lê muda só o lugar dela no próprio
-   * mural; o editor não muda a estrutura (a categoria, as tags e quem vê ficam como estão). Com `from`
+   * mural (fixada, o grupo, o assunto e as tags, que são de cada um); o editor não muda a estrutura (quem
+   * vê fica como está). Com `from`
    * (a versão que o editor abriu) diferente da de agora (outra pessoa gravou enquanto ele estava aberto),
    * as duas se juntam como no git.
    */
@@ -377,8 +396,9 @@ export class SharedStore implements SharedSink {
     // a de antes de compartilhar continua sendo a mais nova aqui, se mudou durante o pedido
     const now = this.store.get(review.id) ?? review;
     const local = sameShared(withPersonal(now, {}), detail.dados) ? null : withPersonal(now, {});
+    // o grupo, o assunto e as tags continuam os de quem compartilhou (só para ele)
     const pessoal = personalOf(now);
-    if (pessoal.noteRank) this.setPlace(detail.id, pessoal);
+    this.setPlace(detail.id, pessoal);
     const entry = this.adopt(detail, { pessoal, local });
     if (local) this.schedulePush();
     return entry;
@@ -442,7 +462,7 @@ export class SharedStore implements SharedSink {
     const m = mergeNote(e.conflito.a, current, pick);
     // o que veio depois mexeu no mesmo trecho que a escolha: vale a escolha
     let next = m.other ?? m.merged;
-    // quem não gere só manda a estrutura (categoria, tags, quem vê) de agora ou a da versão escolhida (a nuvem recusa outra)
+    // quem não gere só manda a estrutura (quem vê) de agora ou a da versão escolhida (a nuvem recusa outra)
     if (!canManage(e.papel) && structureKey(next) !== structureKey(current) && structureKey(next) !== structureKey(pick)) next = withStructureOf(next, pick);
     this.put({ ...e, local: { ...next, updatedAt: new Date().toISOString() }, outra: null, resolver: true, conflito: null });
     this.schedulePush(0);
@@ -658,6 +678,7 @@ export class SharedStore implements SharedSink {
 
   /** Uma anotação nova aqui (acabou de ser compartilhada, daqui ou com a pessoa). */
   private adopt(d: SharedDetail, extra: { pessoal?: Personal; local?: Review | null }): SharedEntry {
+    const pessoal = extra.pessoal ?? this.arrival(d);
     const entry = entryOf({
       ...meta(d),
       id: d.id,
@@ -667,12 +688,27 @@ export class SharedStore implements SharedSink {
       outra: null,
       resolver: false,
       conflito: d.conflito,
-      // o lugar escolhido em outro aparelho, se veio antes dela
-      pessoal: extra.pessoal ?? this.places().get(d.id)?.p ?? {},
+      pessoal,
     });
     this.put(entry);
     this.maybeAnnounce(entry);
     return this.entries().get(d.id)!;
+  }
+
+  /**
+   * Onde a anotação chega neste aparelho: no lugar escolhido em outro aparelho da pessoa, se ele veio
+   * antes dela; a de outra pessoa, nova para quem a recebe, no grupo Compartilhadas (que ganha o desenho
+   * de duas pessoas, se ainda não tem um); a dele mesmo, no grupo em que estava.
+   */
+  private arrival(d: SharedDetail): Personal {
+    const place = this.places().get(d.id)?.p;
+    if (place?.org) return place;
+    // um lugar de antes do grupo ser de cada um: quem já estava nela continua no grupo de antes
+    if (place || d.papel === 'dono') return legacyOrg(place ?? {}, d.orgDados);
+    const p = arrivalOrg();
+    this.setPlace(d.id, p);
+    if (!this.settings.categoryLook(SHARED_GROUP).icon) this.settings.setCategoryLook(SHARED_GROUP, { ...this.settings.categoryLook(SHARED_GROUP), icon: 'pessoas' });
+    return p;
   }
 
   /** Tira a anotação daqui. `quiet` falso: foi a pessoa que pediu; verdadeiro: a nuvem disse que saiu. */
@@ -728,14 +764,17 @@ export class SharedStore implements SharedSink {
     }
     const all = this.readAll();
     this.places.set(sanitizePlaces(all.lugares[account]));
-    const list = (all.contas[account] ?? []).map(readEntry).filter((e): e is SharedEntry => e !== null);
+    const list = (all.contas[account] ?? []).map(readEntry).filter((e) => e !== null);
     const before = this.entries();
     const next = new Map<string, SharedEntry>();
-    for (const e of list) {
+    for (const { migrated, ...e } of list) {
       const was = before.get(e.id);
       next.set(e.id, was && sameView(was.view, e.view) ? { ...e, view: was.view } : e);
+      // o grupo de antes vira o desta pessoa, e vai para os outros aparelhos dela
+      if (migrated) this.setPlace(e.id, e.pessoal);
     }
     this.entries.set(next);
+    if (list.some((e) => e.migrated)) this.persist();
   }
 
   private readAll(): Stored {
@@ -770,14 +809,11 @@ function meta(d: SharedDetail): Pick<SharedEntry, 'id' | 'dono' | 'papel' | 'mem
   return { id: d.id, dono: d.dono, papel: d.papel, membros: d.membros, versao: d.versao, atualizadoEm: d.atualizadoEm, atualizadoPor: d.atualizadoPor };
 }
 
-/** A anotação com a estrutura (a categoria, o assunto, as tags, quem vê) de `from`: o que o editor não muda. */
+/** A anotação com a estrutura (quem vê) de `from`: o que o editor não muda. */
 function withStructureOf(r: Review, from: Review): Review {
-  const { category: _c, subject: _s, tags: _t, private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
+  const { private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
   return {
     ...rest,
-    ...(from.category ? { category: from.category } : {}),
-    ...(from.subject ? { subject: from.subject } : {}),
-    ...(from.tags?.length ? { tags: from.tags } : {}),
     ...(from.private ? { private: true as const } : {}),
     ...(from.quiet ? { quiet: true as const } : {}),
     ...(from.publishedAt ? { publishedAt: from.publishedAt } : {}),
@@ -785,8 +821,7 @@ function withStructureOf(r: Review, from: Review): Review {
 }
 
 /** A estrutura da anotação como a nuvem confere (ver `structureOf` em api/src/domain/shared-note.ts). */
-const structureKey = (r: Review) => JSON.stringify([r.category ?? '', r.subject ?? '', [...(r.tags ?? [])].sort(), !!r.private, !!r.quiet]);
-const samePersonal = (a: Personal, b: Personal) => a.noteRank === b.noteRank;
+const structureKey = (r: Review) => JSON.stringify([!!r.private, !!r.quiet]);
 const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
 const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;
 

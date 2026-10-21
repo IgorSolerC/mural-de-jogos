@@ -508,7 +508,7 @@ export class ReviewEditor {
   private readonly shared = inject(SharedStore);
   /** O papel de quem edita uma anotação compartilhada (null: não é compartilhada). */
   protected readonly sharedRole = computed(() => (this.editing() ? this.shared.role(this.id()) : null));
-  /** O editor de uma compartilhada: a categoria, as tags e quem vê ficam como estão. */
+  /** O editor de uma compartilhada: quem vê fica como está (o grupo, o assunto e as tags são de cada um). */
   protected readonly structureLocked = computed(() => {
     const role = this.sharedRole();
     return !!role && !canManage(role);

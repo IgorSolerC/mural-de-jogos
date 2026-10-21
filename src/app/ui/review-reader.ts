@@ -64,6 +64,7 @@ import { CommentsPanel } from './comments-panel';
 // as folhas das anotações compartilhadas, também em pedaços à parte (cada uma num import só dela)
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
+import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
 import { ROLE_LABEL, canManage, canWrite } from '../core/shared-notes';
@@ -74,7 +75,7 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, ShareSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
@@ -459,6 +460,11 @@ const PATCH_GAP = 8;
             <app-conflict-sheet [noteId]="r.id" (closed)="conflictOpen.set(false)" (resolved)="afterConflict()" />
           }
         }
+        @if (organizeOpen()) {
+          @defer (on immediate) {
+            <app-organize-sheet [noteId]="r.id" (closed)="closeOrganize()" />
+          }
+        }
       }
     </dialog>
   `,
@@ -509,6 +515,7 @@ export class ReviewReader {
   protected readonly PinIcon = ICON.fixar;
   protected readonly UnpinIcon = ICON.desafixar;
   protected readonly SharedIcon = ICON.pessoas;
+  protected readonly GroupIcon = ICON.pasta;
   protected readonly LeaveIcon = ICON.sair;
   protected readonly ConflictIcon = ICON.aviso;
   private readonly store = inject(ReviewStore);
@@ -641,6 +648,8 @@ export class ReviewReader {
       const shared = this.sharedHere();
       return [
         { id: 'fixar', label: pinned ? 'Desafixar' : 'Fixar no topo', icon: pinned ? this.UnpinIcon : this.PinIcon },
+        // quem só lê não abre o editor: o grupo, o assunto e as tags (que são de cada um) mudam numa folha
+        ...(this.writable() ? [] : [{ id: 'organizar', label: 'Grupo e tags', icon: this.GroupIcon, dialog: true }]),
         // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
         { id: 'compartilhar', label: !shared || shared.manages ? 'Compartilhar' : 'Pessoas', icon: this.SharedIcon, dialog: true },
         remove,
@@ -659,6 +668,7 @@ export class ReviewReader {
     if (!r) return;
     if (id === 'fixar') this.togglePin();
     else if (id === 'compartilhar') this.openShare();
+    else if (id === 'organizar') this.organizeOpen.set(true);
     else if (id === 'outra-vez') this.revisit.emit(r.id);
     else if (id === 'lado-a-lado') this.side.toggle(r.id);
     else if (id === 'remover') this.remove.emit(r.id);
@@ -693,8 +703,22 @@ export class ReviewReader {
     if (c.a === null || c.b === null) return `Você apagou ${what} num aparelho e mudou no outro.`;
     return `${what.charAt(0).toUpperCase()}${what.slice(1)} mudou em dois aparelhos seus ao mesmo tempo, no mesmo trecho.`;
   });
-  protected readonly shareOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
-  protected readonly conflictOpen = linkedSignal({ source: () => this.review()?.id, computation: () => false });
+  /**
+   * A ficha aberta, pelo id: as folhas fecham quando abre outra ficha, não quando chega uma versão nova
+   * da mesma (a compartilhada que mudou na nuvem ou no seu mural).
+   */
+  private readonly openId = computed(() => this.review()?.id);
+  protected readonly shareOpen = linkedSignal({ source: this.openId, computation: () => false });
+  protected readonly conflictOpen = linkedSignal({ source: this.openId, computation: () => false });
+  /** A folha do grupo, do assunto e das tags de quem só lê a compartilhada. */
+  protected readonly organizeOpen = linkedSignal({ source: this.openId, computation: () => false });
+
+  protected closeOrganize(): void {
+    this.organizeOpen.set(false);
+    // a orelha do grupo e as tags mostram os de agora
+    const r = this.review();
+    if (r && this.owner() === null) this.review.set(this.store.get(r.id) ?? r);
+  }
 
   protected openShare(): void {
     this.shareOpen.set(true);

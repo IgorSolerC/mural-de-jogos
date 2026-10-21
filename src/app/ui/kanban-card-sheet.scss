@@ -74,18 +74,6 @@ app-subject-picker.valor {
   display: grid;
 }
 
-.vazio {
-  font-family: var(--f-hand);
-  font-size: 1.02rem;
-  color: var(--ink-2);
-}
-
-.dica {
-  width: 100%;
-  color: var(--ink-2);
-  font-size: 0.9rem;
-}
-
 .papel {
   @include kit.botao-papel;
 }

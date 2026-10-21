@@ -8,6 +8,8 @@ import { FeedItem, Follow, People } from '../core/follow';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
 import { SHARED_AUTO, SharedEntry, SharedStore } from '../core/shared-store';
+import { ReviewStore } from '../core/review-store';
+import { Settings } from '../core/settings';
 import { ReviewReader } from './review-reader';
 
 /**
@@ -96,7 +98,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
             },
           },
         },
-        { provide: Follow, useValue: { items: signal<FeedItem[]>([]), people, follow: async () => undefined } },
+        { provide: Follow, useValue: { items: signal<FeedItem[]>([]), people, follow: async () => undefined, available: () => true, loadPeople: async () => people() } },
       ],
     });
     fixture = TestBed.createComponent(ReviewReader);
@@ -307,6 +309,81 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     q<HTMLButtonElement>('.comentar')!.click();
     await settle();
     expect(q('app-comments-panel .recado')?.textContent?.trim()).toBe('Anotação privada: só quem está nela vê os comentários.');
+  });
+
+  it('quem só lê a compartilhada muda o grupo, o assunto e as tags pelo "Mais" (só no mural dela); quem escreve, não precisa', async () => {
+    const note = review('nota-1', 'Lista do mercado', { kind: 'anotacoes', private: true, category: 'Compartilhadas' });
+    const entry = (papel: SharedEntry['papel']): SharedEntry => ({
+      id: 'nota-1',
+      dono: { codigo: ANA, nome: 'Ana', foto: null },
+      papel,
+      membros: [{ codigo: ME.codigo, nome: ME.nome, foto: null, papel: 'leitor', desde: '' }],
+      rev: 1,
+      versao: 1,
+      base: { ...note, category: undefined },
+      local: null,
+      outra: null,
+      resolver: false,
+      conflito: null,
+      atualizadoEm: note.updatedAt,
+      atualizadoPor: null,
+      pessoal: { category: 'Compartilhadas', org: true },
+      view: note,
+    });
+    const shared = TestBed.inject(SharedStore);
+    shared.entries.set(new Map([['nota-1', entry('leitor')]]));
+    await settle();
+    const store = TestBed.inject(ReviewStore);
+    fixture.componentInstance.open(store.get('nota-1')!);
+    await settle();
+    const items = async () => {
+      if (!q('app-more-menu .bilhete')) q<HTMLButtonElement>('app-more-menu .mais')!.click();
+      await settle();
+      return [...el.querySelectorAll<HTMLButtonElement>('app-more-menu .item')];
+    };
+    const organize = (await items()).find((b) => b.textContent?.includes('Grupo e tags'))!;
+    expect(organize).toBeDefined();
+    expect(organize.getAttribute('aria-haspopup')).toBe('dialog');
+    organize.click();
+    await settle();
+    const sheet = q('app-organize-sheet dialog') as HTMLDialogElement;
+    expect(sheet.open).toBeTrue();
+    expect(sheet.querySelector('h2')?.textContent).toBe('Lista do mercado');
+    expect(sheet.querySelector('.sub')?.textContent).toContain('Só no seu mural');
+    // um grupo novo, escrito na busca
+    const input = sheet.querySelector<HTMLInputElement>('app-group-picker input')!;
+    input.value = 'Casa';
+    input.dispatchEvent(new Event('input'));
+    await settle();
+    sheet.querySelector<HTMLButtonElement>('app-group-picker .criar')!.click();
+    await settle();
+    expect(store.get('nota-1')!.category).toBe('Casa');
+    expect(shared.get('nota-1')!.pessoal.category).toBe('Casa');
+    // a leitura recebe a versão nova da anotação, e a folha continua aberta
+    expect(sheet.isConnected && sheet.open).toBeTrue();
+    // nada vai para a nuvem da anotação (a leitora nem escreve nela)
+    expect(shared.get('nota-1')!.local).toBeNull();
+    expect(TestBed.inject(Settings).categoryLook('Casa').color).toBeDefined();
+    sheet.querySelector<HTMLButtonElement>('.foot .btn-ink')!.click();
+    await settle();
+    expect(q('.orelha-grupo')?.textContent).toContain('Casa');
+    // quem escreve tem o Editar: o "Mais" não traz a folha
+    await closeReader();
+    shared.entries.set(new Map([['nota-1', entry('editor')]]));
+    await settle();
+    fixture.componentInstance.open(store.get('nota-1')!);
+    await settle();
+    expect((await items()).some((b) => b.textContent?.includes('Grupo e tags'))).toBeFalse();
+    // a folha Compartilhar (Pessoas) não fecha quando chega uma versão nova da anotação pela nuvem
+    (await items()).find((b) => b.textContent?.includes('Pessoas'))!.click();
+    await settle();
+    const people = q('app-share-sheet dialog') as HTMLDialogElement;
+    expect(people.open).toBeTrue();
+    const next = { ...store.get('nota-1')!, text: 'mudou na nuvem', updatedAt: '2026-10-20T13:00:00.000Z' };
+    shared.entries.set(new Map([['nota-1', { ...entry('editor'), base: next, view: next }]]));
+    await settle();
+    expect(q('[data-citavel]')?.textContent).toContain('mudou na nuvem');
+    expect(people.isConnected && people.open).toBeTrue();
   });
 
   it('uma ficha sem código (um backup aberto em Comparar) não tem comentários', async () => {

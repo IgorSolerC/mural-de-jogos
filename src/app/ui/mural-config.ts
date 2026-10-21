@@ -314,11 +314,9 @@ export class MuralConfig {
 
   // ===== renomear e apagar =====
 
-  /** "em 3 anotações", e as compartilhadas que ficaram de fora. */
+  /** "em 3 anotações". */
   private told(r: LabelEditResult): string {
-    const n = `em ${plural(r.changed, 'anotação', 'anotações')}`;
-    const out = r.skipped === 1 ? ' Uma compartilhada ficou como estava: só o dono e os gestores mudam.' : r.skipped ? ` ${r.skipped} compartilhadas ficaram como estavam: só o dono e os gestores mudam.` : '';
-    return `${n}.${out}`;
+    return `em ${plural(r.changed, 'anotação', 'anotações')}.`;
   }
 
   private uses(n: number): string {

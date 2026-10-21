@@ -285,7 +285,7 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       const allowed = new Set([structureOf(n.dados)]);
       if (body['resolver'] === true && pending) for (const v of [pending.a, pending.b]) allowed.add(structureOf(JSON.stringify(v)));
       if (!allowed.has(structureOf(dados)) || (other !== null && structureOf(other) !== structureOf(n.dados))) {
-        throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores mudam o grupo, o assunto, as tags e quem vê esta anotação.');
+        throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores mudam quem vê esta anotação.');
       }
     }
     const now = deps.now();

@@ -1,0 +1,62 @@
+@use 'sheet';
+@use 'kanban-kit' as kk;
+
+:host {
+  display: contents;
+}
+
+/* A ficha de fichário dos diálogos, na cartolina da anotação, como a folha do quadro (ui/kanban-card-sheet). */
+dialog.ficha-lugar {
+  width: 100%;
+  max-width: min(560px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 0;
+
+  h2 {
+    overflow-wrap: anywhere;
+  }
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.body {
+  gap: 0;
+  padding-top: 6px;
+  /* estreita (o celular), cada linha vira o nome em cima e o seletor embaixo, como no quadro */
+  container: kprops / inline-size;
+}
+
+/* as linhas, do mesmo jeito das do quadro: o nome à esquerda, o seletor à direita, fio tracejado entre elas */
+.linha {
+  @include kk.props-linha;
+}
+
+.nome {
+  @include kk.props-nome;
+}
+
+.valor {
+  display: grid;
+  min-width: 0;
+  min-height: 44px;
+}

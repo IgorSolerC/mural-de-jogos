@@ -6,8 +6,6 @@ import { MAX_PINNED_TAGS, cleanCategory, cleanSubject, cleanTag, sanitizeTags } 
 import { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
-import { canManage } from './shared-notes';
-import { SharedStore } from './shared-store';
 
 /**
  * Renomear e apagar uma categoria, um assunto ou uma tag das anotações, pelas Configurações do mural. O nome mora
@@ -24,14 +22,13 @@ import { SharedStore } from './shared-store';
  * ela não tinha nada. Trocar só a caixa ou o acento ("trabalho" → "Trabalho") é a mesma categoria:
  * só a grafia das anotações muda.
  *
- * Uma anotação compartilhada em que a pessoa não gere (Editor, Leitor) fica como está: a categoria e
- * as tags dela são do dono e dos gestores (a loja das compartilhadas desfaria a troca).
+ * As compartilhadas mudam como as outras: o grupo, o assunto e as tags delas são de cada um (ver
+ * core/shared-notes.ts), então a troca vale só no mural de quem está aqui.
  */
 
-/** O que mudou: quantas anotações e quantas compartilhadas ficaram de fora. */
+/** O que mudou: quantas anotações. */
 export interface LabelEditResult {
   changed: number;
-  skipped: number;
 }
 
 // ===== as anotações =====
@@ -188,7 +185,6 @@ export class LabelEdits {
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
-  private readonly shared = inject(SharedStore);
 
   /** Quantas anotações têm a categoria (pela chave). */
   categoryUses(category: string): number {
@@ -227,7 +223,7 @@ export class LabelEdits {
     const from = lookKey(subject);
     const cat = lookKey(category);
     const to = name === null ? null : cleanSubject(name);
-    if (to === '') return { changed: 0, skipped: 0 };
+    if (to === '') return { changed: 0 };
     const result = this.save(notesWithSubject(this.store.notes(), cat, from, to, new Date().toISOString()));
     const cfg = subjectConfigMoved(this.settings.notesConfig(), category, from, to);
     if (cfg !== this.settings.notesConfig()) this.settings.setNotesConfig(cfg);
@@ -253,7 +249,7 @@ export class LabelEdits {
   renameCategory(category: string, name: string | null): LabelEditResult {
     const from = lookKey(category);
     const to = name === null ? null : cleanCategory(name);
-    if (to === '') return { changed: 0, skipped: 0 };
+    if (to === '') return { changed: 0 };
     const toKey = to === null ? null : lookKey(to);
     const result = this.save(notesWithCategory(this.store.notes(), from, to, new Date().toISOString()));
     if (toKey !== from) {
@@ -273,7 +269,7 @@ export class LabelEdits {
     const from = lookKey(tag);
     const cat = lookKey(category);
     const to = name === null ? null : cleanTag(name);
-    if (to === '') return { changed: 0, skipped: 0 };
+    if (to === '') return { changed: 0 };
     const at = new Date().toISOString();
     const merging = to !== null && !!this.existingTag(to, tag, category);
     const result = this.save(notesWithTag(this.store.notes(), cat, from, to, at));
@@ -285,20 +281,9 @@ export class LabelEdits {
     return result;
   }
 
-  /** Salva as anotações mudadas, menos as compartilhadas em que a pessoa não gere. */
+  /** Salva as anotações mudadas. */
   private save(changed: readonly Review[]): LabelEditResult {
-    let skipped = 0;
-    let saved = 0;
-    for (const r of changed) {
-      const role = this.shared.role(r.id);
-      if (role && !canManage(role)) {
-        skipped++;
-        continue;
-      }
-      const before = this.store.get(r.id);
-      this.store.update(r, before);
-      saved++;
-    }
-    return { changed: saved, skipped };
+    for (const r of changed) this.store.update(r, this.store.get(r.id));
+    return { changed: changed.length };
   }
 }

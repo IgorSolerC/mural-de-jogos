@@ -2,17 +2,21 @@ import { canonicalJson } from './canonical-json';
 import { normalizeCode } from './cloud-murals';
 import { isEmoji } from './emoji';
 import { mergeText } from './merge3';
+import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { NOTE_RANKS, NoteRank, Review, STOCKS, Stock, isNote, sanitizeReview, storedNote } from './review';
 
 /**
  * As anotações compartilhadas: uma anotação que o dono divide com outras pessoas (ver
  * `api/src/routes/notes.ts`). O dono é sempre o dono; cada pessoa a mais tem um papel:
  *
- * - **gestor:** faz tudo (o texto, as tags, a categoria e o assunto, quem vê, quem mais entra), menos mexer no dono
- *   ou apagar a anotação para todos;
- * - **editor:** escreve como se a anotação fosse dele, sem mudar a estrutura (as pessoas, a categoria,
- *   as tags e quem vê);
+ * - **gestor:** faz tudo (o texto, quem vê, quem mais entra), menos mexer no dono ou apagar a anotação
+ *   para todos;
+ * - **editor:** escreve como se a anotação fosse dele, sem mudar a estrutura (as pessoas e quem vê);
  * - **leitor:** só lê, no próprio mural.
+ *
+ * O grupo, o assunto e as tags não são da anotação, são de cada um (como fixar no topo): cada pessoa
+ * organiza o próprio mural do seu jeito, e mudar aqui não muda para os outros (ver `Personal`). Quem
+ * recebe uma anotação a encontra no grupo Compartilhadas (`SHARED_GROUP`).
  *
  * Na nuvem a anotação mora à parte do mural de cada um, numa cópia só que todos editam. Aqui ela fica na
  * mesma lista das outras fichas (o mural, os links, a busca e a leitura nem percebem), mas é gravada à
@@ -31,13 +35,13 @@ export const ROLE_LABEL: Record<SharedRole, string> = { dono: 'Dono', gestor: 'G
 /** O que cada papel pode, numa frase (no menu de papéis). */
 export const ROLE_HINT: Record<MemberRole, string> = {
   gestor: 'Edita tudo e chama mais gente',
-  editor: 'Escreve, sem mudar grupo, assunto, tags e quem vê',
+  editor: 'Escreve, sem mudar quem vê',
   leitor: 'Só lê',
 };
 
 /** Escreve no texto (e escolhe num conflito): o dono, os gestores e os editores. */
 export const canWrite = (r: SharedRole | null | undefined): boolean => r === 'dono' || r === 'gestor' || r === 'editor';
-/** Mexe na estrutura (as pessoas, a categoria, o assunto, as tags, quem vê): o dono e os gestores. */
+/** Mexe na estrutura (as pessoas e quem vê): o dono e os gestores. */
 export const canManage = (r: SharedRole | null | undefined): boolean => r === 'dono' || r === 'gestor';
 export const isMemberRole = (v: unknown): v is MemberRole => typeof v === 'string' && (MEMBER_ROLES as readonly string[]).includes(v);
 
@@ -69,33 +73,92 @@ export interface SharedDetail {
   papel: SharedRole;
   rev: number;
   versao: number;
-  /** O conteúdo na nuvem (sem o que é de cada um: fixada). */
+  /** O conteúdo na nuvem (sem o que é de cada um: fixada, o grupo, o assunto e as tags). */
   dados: Review;
+  /**
+   * O grupo, o assunto e as tags que vieram dentro do conteúdo: só numa anotação gravada antes de eles
+   * serem de cada um (build 463). Servem de partida para quem já estava nela (ver `legacyOrg`).
+   */
+  orgDados: Personal;
   membros: SharedMember[];
   atualizadoEm: string;
   atualizadoPor: SharedPerson | null;
   conflito: SharedConflict | null;
 }
 
-/** O que é de cada um, não da anotação: o lugar dela no próprio mural. */
+/** O grupo em que a anotação compartilhada chega para quem a recebe (com o desenho de duas pessoas). */
+export const SHARED_GROUP = 'Compartilhadas';
+
+/**
+ * O que é de cada um, não da anotação: o lugar dela no próprio mural (fixada) e onde ela mora nele (o
+ * grupo, o assunto e as tags). Nada disso vai para a nuvem da anotação; vai para os outros aparelhos da
+ * pessoa pelo mural privado (ver `Place` em core/shared-store.ts).
+ */
 export interface Personal {
   noteRank?: NoteRank;
+  category?: string;
+  subject?: string;
+  tags?: string[];
+  /**
+   * O grupo, o assunto e as tags já são desta pessoa (sem eles, "Sem grupo" e nenhuma tag). Sem a marca,
+   * o lugar foi guardado antes deles serem de cada um (build 463): só a fixada vale, e eles vêm da
+   * anotação como ela estava (`legacyOrg`).
+   */
+  org?: true;
 }
 
-/** O que da anotação vai para a nuvem: tudo, menos o lugar dela no mural de cada um. */
+/** O que cada um organiza do seu jeito, e o lugar inteiro. */
+const PERSONAL_KEYS = ['noteRank', 'category', 'subject', 'tags', 'org'] as const;
+
+/** Sem o que é de cada um. */
+function withoutPersonal(r: Review): Review {
+  const { noteRank: _r, category: _c, subject: _s, tags: _t, ...rest } = r;
+  return rest as Review;
+}
+
+/** O que da anotação vai para a nuvem: tudo, menos o que é de cada um (o lugar e o grupo, o assunto e as tags). */
 export function sharedContent(r: Review): Record<string, unknown> {
-  const { noteRank: _r, sharedBy: _b, ...rest } = storedNote(r);
+  const { sharedBy: _b, ...rest } = storedNote(withoutPersonal(r));
   return rest as Record<string, unknown>;
 }
 
-export function personalOf(r: Pick<Review, 'noteRank'>): Personal {
-  return r.noteRank ? { noteRank: r.noteRank } : {};
+/** O grupo, o assunto e as tags da anotação, como de quem está aqui. */
+export function orgOf(r: Pick<Review, 'category' | 'subject' | 'tags'>): Personal {
+  return {
+    ...(r.category ? { category: r.category } : {}),
+    ...(r.category && r.subject ? { subject: r.subject } : {}),
+    ...(r.tags?.length ? { tags: [...r.tags] } : {}),
+    org: true,
+  };
 }
 
-/** A anotação do mural: o conteúdo compartilhado com o lugar dela no mural de quem vê. */
+export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' | 'tags'>): Personal {
+  return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), ...orgOf(r) };
+}
+
+/** Onde a anotação chega no mural de quem a recebe: no grupo Compartilhadas. */
+export function arrivalOrg(): Personal {
+  return { category: SHARED_GROUP, org: true };
+}
+
+/**
+ * O lugar com o grupo, o assunto e as tags: o guardado antes deles serem de cada um (sem `org`) fica
+ * com os de `from` (a anotação como ela estava).
+ */
+export function legacyOrg(p: Personal, from: Personal): Personal {
+  if (p.org) return p;
+  return { ...(p.noteRank ? { noteRank: p.noteRank } : {}), ...orgOf(from) };
+}
+
+/** A anotação do mural: o conteúdo compartilhado com o lugar e o grupo dela no mural de quem vê. */
 export function withPersonal(content: Review, personal: Personal): Review {
-  const { noteRank: _r, ...rest } = content;
-  return { ...rest, ...personal };
+  const { org: _o, ...mine } = personal;
+  return { ...withoutPersonal(content), ...mine };
+}
+
+/** Os dois lugares dizem a mesma coisa? */
+export function samePersonal(a: Personal, b: Personal): boolean {
+  return canonicalJson(pick(a as Obj, PERSONAL_KEYS)) === canonicalJson(pick(b as Obj, PERSONAL_KEYS));
 }
 
 /** O conteúdo de uma anotação que veio da nuvem (só uma anotação com o id certo serve). */
@@ -136,6 +199,7 @@ export function parseDetail(raw: unknown): SharedDetail | null {
   const rev = n?.['rev'];
   const versao = n?.['versao'];
   const dados = noteFrom(n?.['dados'], id);
+  const inside = dados ? sanitizeReview(n?.['dados']) : null;
   if (!dono || !papel || !dados || !Number.isSafeInteger(rev) || !Number.isSafeInteger(versao)) return null;
   const membros: SharedMember[] = [];
   const seen = new Set<string>([dono.codigo]);
@@ -156,6 +220,7 @@ export function parseDetail(raw: unknown): SharedDetail | null {
     rev: rev as number,
     versao: versao as number,
     dados,
+    orgDados: inside ? orgOf(inside) : {},
     membros,
     atualizadoEm: iso(n?.['atualizadoEm']) ?? dados.updatedAt,
     atualizadoPor: parsePerson(n?.['atualizadoPor']),
@@ -247,14 +312,7 @@ export function mergeNote(o: Review, a: Review, b: Review): NoteMerge {
   if (!text.clean) parts.add('texto');
   set('text', text.a, text.b);
 
-  // as tags: o que cada lado pôs fica, o que cada lado tirou sai (nunca briga)
-  const tags = (x: unknown) => (Array.isArray(x) ? (x as string[]) : []);
-  const removed = new Set([...tags(O['tags'])].filter((t) => !tags(A['tags']).includes(t) || !tags(B['tags']).includes(t)));
-  const mergedTags = [...new Set([...tags(A['tags']), ...tags(B['tags'])])].filter((t) => !removed.has(t));
-  if (mergedTags.length) set('tags', mergedTags);
-
-  // o grupo e o assunto andam juntos: o assunto é do grupo
-  group('categoria', ['category', 'subject']);
+  // o grupo, o assunto e as tags são de cada um: não vêm no conteúdo (ver `sharedContent`)
 
   // finalizada: é sim ou não; os dois finalizaram, fica a data mais antiga (nunca briga)
   const done = (x: Obj) => typeof x['doneAt'] === 'string';
@@ -290,5 +348,9 @@ export function sanitizePersonal(raw: unknown): Personal {
   const p = (raw ?? {}) as Record<string, unknown>;
   const rank = NOTE_RANKS.find((r) => r === p['noteRank']);
   // a sub-nota de antes não existe mais: o lugar dela vira comum
-  return rank ? { noteRank: rank } : {};
+  const out: Personal = rank ? { noteRank: rank } : {};
+  if (p['org'] !== true) return out;
+  const category = typeof p['category'] === 'string' ? cleanCategory(p['category']) : '';
+  const subject = typeof p['subject'] === 'string' ? cleanSubject(p['subject']) : '';
+  return { ...out, ...orgOf({ category: category || undefined, subject: subject || undefined, tags: sanitizeTags(p['tags']) }) };
 }
