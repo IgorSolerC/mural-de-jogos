@@ -1,14 +1,39 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, InjectionToken, afterNextRender, computed, effect, inject, input, signal, untracked, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { CardFinder, FoundCard } from '../core/card-finder';
 import { cap, profileOf } from '../core/kinds';
 import { NoteLinks } from '../core/note-links';
 import { Review, isNote } from '../core/review';
-import { readCardRef } from '../core/widgets';
+import { pinningFor } from '../core/wall-physics';
+import { CardLook, readCardRef } from '../core/widgets';
 import { GluedReviewCard } from './glued-review-card';
+import { RichText } from './rich-text';
 
 /** A largura da ficha simples de verdade, antes de encolher (a de uma coluna do mural). */
 const CARD_WIDTH = 300;
+/** A da ficha só com a capa e o nome (a de uma coluna da vista "Só capa e nome" do mural). */
+const COVER_WIDTH = 140;
+/** Quantas notas de texto inteiro cabem uma dentro da outra: mais funda que isso, ela vira ficha. */
+const MAX_WHOLE_DEPTH = 2;
+
+/**
+ * As notas coladas de onde esta está, de dentro para fora: cada uma diz quem é e se está com o texto
+ * inteiro. Uma nota de texto inteiro desenha o texto dela, que pode ter outra nota de texto inteiro:
+ * colada nela mesma (ou numa que a cola de volta), ela se desenharia para sempre. A que já está entre
+ * as de fora (ou fundo demais) vira a ficha.
+ */
+class GlueLink {
+  readonly id = signal<string | null>(null);
+  readonly whole = signal(false);
+  constructor(readonly outer: GlueLink | null) {}
+  /** Os ids das notas de texto inteiro, desta para fora. */
+  wholeChain(): string[] {
+    const out: string[] = [];
+    for (let at: GlueLink | null = this; at; at = at.outer) if (at.whole() && at.id()) out.push(at.id()!);
+    return out;
+  }
+}
+const GLUE = new InjectionToken<GlueLink>('nota colada');
 /** Até quanto a ficha cresce além do tamanho dela (o grande, na leitura): mais que isso, a capinha borra. */
 const MAX_SCALE = 2;
 /** A folga mínima em cima da ficha, em em: ela não encosta na linha de cima. */
@@ -35,9 +60,11 @@ const EAR_GAP = 0.2;
 @Component({
   selector: 'app-linked-card',
   // (ela chega por um import() do widget: a ficha do mural desenha o texto, que desenha esta)
-  imports: [IconModule, GluedReviewCard],
+  imports: [IconModule, GluedReviewCard, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [{ provide: GLUE, useFactory: () => new GlueLink(inject(GLUE, { skipSelf: true, optional: true })) }],
   host: {
+    '[class.sem-tamanho]': "look() === 'tira' || look() === 'inteira'",
     // (não é o .tocavel do texto: com ele, a linha inteira pegava o toque, e o vazio ao lado da
     // ficha não abria nada; só a ficha pega o toque, o resto deixa passar para a ficha de fora)
     '[class.abre]': 'openable()',
@@ -46,11 +73,55 @@ const EAR_GAP = 0.2;
   },
   template: `
     @if (found(); as f) {
+      @switch (look()) {
+        @case ('tira') {
+          <!-- só o título: a tira da cartolina dela, como a anotação no Kanban em "Só os títulos" -->
+          <button
+            type="button"
+            class="tira cartolina"
+            data-colado
+            [attr.data-cor]="stock()"
+            [style.--stock]="'var(--stock-' + stock() + ')'"
+            [attr.inert]="openable() ? null : ''"
+            [attr.aria-label]="spoken(f.review)"
+            (click)="open(f.review)"
+          >
+            @if (overline(f.review); as o) {
+              <span class="tira-assunto">{{ o }}</span>
+            }
+            <span class="tira-nome">{{ f.review.game.name }}</span>
+          </button>
+        }
+        @case ('inteira') {
+          <!-- o texto inteiro: a nota como fica aberta, colada inteira na de fora (a faixa da
+               cartolina dela com o nome e a folha creme com o texto todo) -->
+          <article class="inteira" data-colado [class.abre]="openable()" [attr.aria-label]="spoken(f.review)">
+            <header class="faixa cartolina" [attr.data-cor]="stock()" [style.--stock]="'var(--stock-' + stock() + ')'">
+              @if (overline(f.review); as o) {
+                <span class="faixa-assunto">{{ o }}</span>
+              }
+              @if (openable()) {
+                <button type="button" class="faixa-nome" (click)="open(f.review)">{{ f.review.game.name }}</button>
+              } @else {
+                <span class="faixa-nome">{{ f.review.game.name }}</span>
+              }
+            </header>
+            <div class="folha">
+              @if (f.review.text.trim()) {
+                <app-rich-text class="folha-texto" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" />
+              } @else {
+                <p class="folha-vazia">Ainda sem texto.</p>
+              }
+            </div>
+          </article>
+        }
+        @default {
       <div class="lugar" data-colado [style.width.px]="box().w" [style.height.px]="box().h" [style.margin-top.px]="box().top">
-        <div class="escala" #escala [style.width.px]="cardWidth" [style.scale]="box().s">
+        <div class="escala" #escala [style.width.px]="cardWidth()" [style.scale]="box().s">
           <app-review-card
             [review]="f.review"
-            [compact]="true"
+            [compact]="look() !== 'capa'"
+            [capas]="look() === 'capa'"
             [preview]="true"
             [masked]="f.masked"
             [looks]="f.looks"
@@ -61,6 +132,8 @@ const EAR_GAP = 0.2;
       </div>
       @if (!openable()) {
         <span class="sr-only">{{ spoken(f.review) }}</span>
+      }
+        }
       }
     } @else {
       <!-- sumiu: o pedaço de papel que ficou colado, com o nome dela (ou, a privada, o cadeado) -->
@@ -123,6 +196,198 @@ const EAR_GAP = 0.2;
       pointer-events: auto;
     }
 
+    /* a tira e o texto inteiro têm a altura do que mostram, não a do tamanho do widget */
+    :host(.sem-tamanho) {
+      min-height: 0;
+    }
+
+    /* ===== Só o título: a tira da cartolina dela, como a anotação no Kanban em "Só os títulos" =====
+       Reta e rente, como a ficha colada; ocupa duas linhas do texto (a tira tem uma e meia, no meio
+       delas), e só o que o nome pede de largura. */
+    .tira {
+      /* a tinta da tira é a da cartolina dela, não a da ficha de fora (a escura dá a clara) */
+      --ink: #151515;
+      position: relative;
+      display: flex;
+      align-items: baseline;
+      gap: 0.55em;
+      max-width: 100%;
+      min-height: calc(var(--line, 1.5em) * 1.5);
+      margin-block: calc(var(--line, 1.5em) * 0.25);
+      padding: 0.3em 0.95em 0.32em 0.85em;
+      border: 0;
+      border-radius: 2px;
+      font-family: var(--f-marker);
+      font-size: 1rem;
+      font-weight: 400;
+      font-style: normal;
+      line-height: 1.15;
+      letter-spacing: 0.005em;
+      text-align: left;
+      text-indent: 0;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.32)) drop-shadow(0 3px 4px rgb(0 0 0 / 0.22));
+      cursor: pointer;
+      transition:
+        translate var(--t-ui) var(--ease-ui),
+        filter var(--t-ui) var(--ease-ui);
+    }
+    .tira-nome {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    /* o assunto (ou o mural da ficha), antes do nome, na letra miúda da linha da data */
+    .tira-assunto,
+    .faixa-assunto {
+      flex: none;
+      font-family: var(--f-label);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      line-height: 1.1;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+    .tira:focus-visible {
+      outline: 3px solid var(--hi);
+      outline-offset: 2px;
+    }
+
+    /* ===== O texto inteiro: a nota como fica aberta, colada inteira na de fora =====
+       A folha creme da leitura com a faixa da cartolina dela em cima, o nome escrito a pincel na
+       faixa, e o texto todo embaixo, na pauta azul da leitura. A largura da linha toda; a altura, a
+       do texto (a ficha do mural corta, como corta o resto do texto). Tocar em qualquer lugar abre a
+       nota; só os links, as tarefas recolhidas, os spoilers e os widgets que tocam pegam o toque. */
+    .inteira {
+      --ink: #151515;
+      --ink-2: rgb(21 21 21 / 0.74);
+      --focus: #151515;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 100%;
+      /* a largura vem da linha, nunca do que está dentro (uma ficha colada no texto dela pediria a
+         largura da ficha inteira, antes de encolher, e a folha passaria da beirada) */
+      contain: inline-size;
+      margin: calc(var(--line, 1.5em) * 0.3) 0 calc(var(--line, 1.5em) * 0.5);
+      border-radius: 2px;
+      /* um tom mais claro que o creme da leitura: colada nela, a folha ainda se destaca */
+      background-color: #fdfbf5;
+      color: var(--ink);
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 3px 5px rgb(0 0 0 / 0.22));
+      transition:
+        translate var(--t-ui) var(--ease-ui),
+        filter var(--t-ui) var(--ease-ui);
+    }
+    /* a faixa: a cartolina dela (a tinta clara nas escuras vem com a cartolina) */
+    .faixa {
+      position: static;
+      display: grid;
+      justify-items: start;
+      gap: 0.15em;
+      padding: 0.6em 0.95em 0.5em;
+      border-radius: 2px 2px 0 0;
+    }
+    .faixa-nome {
+      max-width: 100%;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      font-family: var(--f-marker);
+      font-size: 1.4rem;
+      font-weight: 400;
+      font-style: normal;
+      line-height: 1.06;
+      letter-spacing: 0.005em;
+      text-align: left;
+      text-indent: 0;
+      text-wrap: balance;
+      overflow-wrap: anywhere;
+    }
+    /* o nome é o botão que abre; a área dele cobre a nota inteira */
+    button.faixa-nome {
+      cursor: pointer;
+    }
+    button.faixa-nome::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+    }
+    button.faixa-nome:focus-visible {
+      outline: none;
+    }
+    .inteira:has(.faixa-nome:focus-visible) {
+      outline: 3px solid var(--hi);
+      outline-offset: 3px;
+    }
+    .folha {
+      position: relative;
+      z-index: 1;
+      padding: calc(var(--line, 1.5em) * 0.35) 0.95em calc(var(--line, 1.5em) * 0.45);
+      /* a pauta azul da leitura, na altura das linhas do texto */
+      background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line, 1.5em) - 1.5px), rgb(64 110 190 / 0.26) calc(var(--line, 1.5em) - 1.5px) var(--line, 1.5em)) 0 calc(var(--line, 1.5em) * 0.35);
+      white-space: normal;
+      text-align: left;
+    }
+    .inteira.abre .folha {
+      pointer-events: none;
+    }
+    .inteira.abre .folha ::ng-deep :is(a.url, .elo[tabindex], .tocavel, .spoiler:not(.revelado), .resumo-btn, app-linked-card.abre .lugar, app-linked-card.abre .tira, app-linked-card.abre .inteira) {
+      pointer-events: auto;
+    }
+    .folha-texto {
+      display: block;
+    }
+    .folha-vazia {
+      margin: 0;
+      font-family: var(--f-label);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--ink-2);
+    }
+    /* A folha é creme mesmo dentro de uma ficha escura (ou amarela): o texto volta às cores da
+       leitura, e não às da ficha de fora (as do texto seguem a ficha em que ele está) */
+    :host .inteira .folha ::ng-deep .formatado .elo {
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%231d3577' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+      --elo-marca: rgb(96 150 235 / 0.3);
+    }
+    :host .inteira .folha ::ng-deep .formatado .elo.quebrado {
+      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23151515' stroke-opacity='.55' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+    }
+    :host .inteira .folha ::ng-deep .formatado .marca {
+      --marca-cor: rgb(255 218 66 / 0.62);
+    }
+    :host .inteira .folha ::ng-deep .formatado .spoiler {
+      --tarja: #151515;
+    }
+    :host .inteira .folha ::ng-deep .formatado .spoiler.revelado {
+      --tarja: rgb(21 21 21 / 0.09);
+    }
+    :host .inteira .folha ::ng-deep .formatado :is(.feita .tarefa, .feita > .corpo .linha) {
+      text-decoration-color: rgb(21 21 21 / 0.45);
+    }
+
+    /* a que abre sobe um pouco com o mouse, reta, como a ficha colada */
+    @media (hover: hover) {
+      :host(.abre) .tira:hover,
+      .inteira.abre:hover {
+        translate: 0 -2px;
+        filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.28)) drop-shadow(0 7px 9px rgb(0 0 0 / 0.22));
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .tira,
+      .inteira {
+        transition: none;
+      }
+    }
+
     /* ===== A que sumiu: um pedaço de papel pardo rasgado, com o nome ===== */
     .perdida {
       position: relative;
@@ -175,7 +440,6 @@ export class LinkedCard {
    */
   readonly lines = input<number | null>(null);
 
-  protected readonly cardWidth = CARD_WIDTH;
   protected readonly LostIcon = ICON.notaSumida;
   protected readonly PrivateIcon = ICON.privada;
   private readonly finder = inject(CardFinder);
@@ -189,6 +453,27 @@ export class LinkedCard {
     return note ? (this.finder.find(note.id) ?? { review: note, mine: false, masked: false, looks: {} }) : null;
   });
   protected readonly openable = computed(() => !!this.found() && !!this.links()?.openCard);
+
+  private readonly glue = inject(GLUE);
+  /**
+   * O jeito de verdade: o escrito, menos o texto inteiro que não pode ser (colado dentro dele mesmo,
+   * fundo demais, ou com o texto escondido pelo modo sem spoilers): esse vira a ficha.
+   */
+  protected readonly look = computed<CardLook>(() => {
+    const look = this.ref().look;
+    if (look !== 'inteira') return look;
+    const f = this.found();
+    const above = this.glue.outer?.wholeChain() ?? [];
+    if (!f || f.masked || above.length >= MAX_WHOLE_DEPTH || above.includes(f.review.id)) return 'ficha';
+    return look;
+  });
+  /** A largura da ficha antes de encolher: a da coluna do mural, ou a da vista "Só capa e nome". */
+  protected readonly cardWidth = computed(() => (this.look() === 'capa' ? COVER_WIDTH : CARD_WIDTH));
+  /** A cartolina dela no mural: a tira e a faixa do texto inteiro são do mesmo papel. */
+  protected readonly stock = computed(() => {
+    const r = this.found()?.review;
+    return r ? pinningFor(r.id, r.stock).stock : 'amarelo';
+  });
 
   /**
    * O tamanho da ficha na folha: a escala, a caixa que ela ocupa depois de encolher e a folga em
@@ -205,8 +490,14 @@ export class LinkedCard {
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const destroy = inject(DestroyRef);
+    // quem esta nota é, para as que vierem coladas dentro do texto inteiro dela
+    effect(() => {
+      this.glue.id.set(this.found()?.review.id ?? null);
+      this.glue.whole.set(this.look() === 'inteira');
+    });
     effect(() => {
       this.lines();
+      this.look();
       untracked(() => this.refit?.());
     });
     afterNextRender(() => {
@@ -215,7 +506,11 @@ export class LinkedCard {
       const fit = () => {
         frame = 0;
         const card = this.escala()?.nativeElement.firstElementChild as HTMLElement | null | undefined;
-        if (!card) return;
+        if (!card) {
+          // a tira e o texto inteiro têm a altura deles: nada a encolher
+          this.snapped.set(null);
+          return;
+        }
         const w0 = card.offsetWidth;
         const h0 = card.offsetHeight;
         const style = getComputedStyle(host);
@@ -273,6 +568,14 @@ export class LinkedCard {
 
   protected open(r: Review): void {
     this.links()?.openCard?.(r);
+  }
+
+  /**
+   * A linha miúda antes do nome, na tira e no texto inteiro: o assunto da anotação; a ficha de outro
+   * mural diz de qual ("Jogo", "Livro").
+   */
+  protected overline(r: Review): string {
+    return isNote(r) ? (r.subject ?? '') : cap(profileOf(r.kind).singular);
   }
 
   /** Para o leitor de tela, quando a ficha não abre: o que ela é. */

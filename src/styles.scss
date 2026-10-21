@@ -1112,10 +1112,11 @@ dialog.sheet {
   --estampa-mistura: screen;
 }
 /* O que está escrito nelas sai em tinta clara: a ficha do mural (e a amostra) inteira; na ficha
-   aberta, que é papel creme, só a faixa do cabeçalho. A caneta vermelha que risca a nota da ordem
-   acende um pouco (e onde a cartolina já é vermelha, quem risca é a própria tinta). */
+   aberta, que é papel creme, só a faixa do cabeçalho (não o cabeçalho de uma ficha colada no texto
+   dela, que é de outra cartolina). A caneta vermelha que risca a nota da ordem acende um pouco (e
+   onde a cartolina já é vermelha, quem risca é a própria tinta). */
 .cartolina:is([data-cor$='-escuro'], [data-cor='preto']):not(.ficha),
-.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .head {
+.ficha:is([data-cor$='-escuro'], [data-cor='preto']) .head:not(app-review-card .head) {
   --ink: var(--ink-claro);
   --ink-2: var(--ink-claro-2);
   --pen: #ff7a68;

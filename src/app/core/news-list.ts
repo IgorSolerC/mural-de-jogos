@@ -26,6 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-21-jeitos-da-nota',
+    version: '1.29.2',
+    kind: 'ajustes',
+    date: '2026-10-21',
+    title: 'Quatro jeitos do widget Nota',
+    melhorias: [
+      'O widget Nota ganhou jeitos, escolhidos em miniaturas na folha dele: a Ficha de sempre, Capa e título (como em "Só capa e nome" do mural), Só o título (uma tira da cor da nota, como no Kanban em "Só os títulos") e Texto inteiro: a nota colada inteira, com o nome na faixa da cor dela e o texto todo, do tamanho do texto.',
+    ],
+    correcoes: ['Na leitura de uma anotação de cartolina escura, o nome da ficha colada no texto saía em tinta clara, quase invisível; agora tem a tinta da cartolina dela.'],
+  },
+  {
     id: '2026-10-20-filtros-do-seletor',
     version: '1.29.1',
     kind: 'ajustes',

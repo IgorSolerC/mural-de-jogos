@@ -100,7 +100,10 @@ export class WidgetSheet {
   protected readonly cardPickerOpen = signal(false);
 
   protected readonly def = computed<WidgetDef>(() => widgetDef(this.name()) ?? WIDGETS[0]);
-  protected readonly size = computed<WidgetSize>(() => (this.values()['size'] as WidgetSize | undefined) || 'medio');
+  /** O jeito escolhido não tem tamanho (a tira e o texto inteiro da nota): o que a folha diz no lugar dele. */
+  protected readonly fixedSize = computed(() => this.def().fixedSize?.(this.values()) ?? null);
+  /** O tamanho; sem tamanho, o de sempre (que não se escreve no texto). */
+  protected readonly size = computed<WidgetSize>(() => (this.fixedSize() ? 'medio' : (this.values()['size'] as WidgetSize | undefined) || 'medio'));
   protected readonly sizeHint = computed(() => WIDGET_SIZES.find((o) => o.value === this.size())?.hint ?? '');
   protected readonly cardView = computed(() => this.onCard() && this.view() === 'ficha');
 

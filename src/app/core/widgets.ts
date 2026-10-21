@@ -79,6 +79,11 @@ export interface WidgetDef {
   problem?(values: WidgetValues): string | null;
   /** O que deu certo no link ("Vídeo do YouTube"), para a folha confirmar embaixo dele; null, nada a dizer. */
   found?(values: WidgetValues): string | null;
+  /**
+   * O jeito escolhido não tem tamanho (ele tem o do que mostra, como o texto inteiro da nota): a
+   * frase que a folha diz no lugar do tamanho. Sem ele (ou null), o tamanho vale como sempre.
+   */
+  fixedSize?(values: WidgetValues): string | null;
 }
 
 /** Os campos que o painel mostra agora (os de `shown` só quando valem para os valores de agora). */
@@ -877,21 +882,65 @@ const CARD_ID = /^#([A-Za-z0-9_-]{1,64})$/;
 export const PRIVATE_CARD = '🔒';
 
 /**
- * Os parâmetros da nota em qualquer ordem: o id ("#r…") e o título. Escrita à mão, só com o título
- * ("{{nota: Comprar um console}}"), ela é a anotação com esse título, como um link "[[…]]". Com a
- * marca `PRIVATE_CARD`, `hidden`: a ficha é privada (o texto como foi para quem visita).
+ * Os jeitos da nota colada. A ficha (o de sempre) e a capa têm o tamanho do widget; a tira e o texto
+ * inteiro têm o do que mostram (uma linha; o texto todo da nota).
+ * - `ficha`: a ficha simples do mural, encolhida;
+ * - `capa`: só a capa e o nome, a ficha da vista "Só capa e nome" do mural;
+ * - `tira`: só o nome, numa tira da cartolina dela (a ficha do Kanban em "Só os títulos");
+ * - `inteira`: o nome e o texto todo, a nota como fica aberta, colada inteira na de fora.
  */
-export function readCardRef(args: readonly string[]): { id: string; title: string; hidden: boolean } {
+export type CardLook = 'ficha' | 'capa' | 'tira' | 'inteira';
+export const CARD_LOOKS: readonly { value: CardLook; label: string }[] = [
+  { value: 'ficha', label: 'Ficha' },
+  { value: 'capa', label: 'Capa e título' },
+  { value: 'tira', label: 'Só o título' },
+  { value: 'inteira', label: 'Texto inteiro' },
+];
+/** Os jeitos sem tamanho: têm a altura do que mostram. */
+const UNSIZED_LOOKS: readonly CardLook[] = ['tira', 'inteira'];
+/** As palavras que valem como o jeito, escritas à mão (sem acento, em minúsculas). */
+const CARD_LOOK_WORDS: Record<string, CardLook> = { ficha: 'ficha', capa: 'capa', tira: 'tira', inteira: 'inteira' };
+function cardLookWord(a: string): CardLook | null {
+  const k = key(a.trim());
+  return Object.hasOwn(CARD_LOOK_WORDS, k) ? CARD_LOOK_WORDS[k] : null;
+}
+
+/**
+ * Os parâmetros da nota em qualquer ordem: o id ("#r…"), o título e o jeito (a primeira palavra de
+ * jeito: "capa", "tira", "inteira"). Escrita à mão, só com o título ("{{nota: Comprar um console}}"),
+ * ela é a anotação com esse título, como um link "[[…]]". Com a marca `PRIVATE_CARD`, `hidden`: a
+ * ficha é privada (o texto como foi para quem visita).
+ */
+export function readCardRef(args: readonly string[]): { id: string; title: string; hidden: boolean; look: CardLook } {
   let id = '';
   let title = '';
   let hidden = false;
+  let look: CardLook | null = null;
   for (const a of args) {
     const m = CARD_ID.exec(a);
+    const l: CardLook | null = look ? null : cardLookWord(a);
     if (!id && m) id = m[1];
     else if (a === PRIVATE_CARD) hidden = true;
+    else if (l) look = l;
     else if (!title && a) title = a;
   }
-  return { id, title, hidden };
+  return { id, title, hidden, look: look ?? 'ficha' };
+}
+
+/** O jeito tem o tamanho do widget? A tira e o texto inteiro, não (têm o do que mostram). */
+export function cardLookSized(look: CardLook): boolean {
+  return !UNSIZED_LOOKS.includes(look);
+}
+
+/**
+ * Os parâmetros escritos da nota: o id, o título e o jeito (a ficha, o de sempre, não se escreve).
+ * Um título que é uma palavra de jeito ("Capa") vai depois do jeito, que então se escreve sempre:
+ * a primeira palavra de jeito é o jeito.
+ */
+function cardArgs(id: string, title: string, look: CardLook): string[] {
+  const head = id ? [`#${id}`] : [];
+  if (title && cardLookWord(title)) return [...head, look, title];
+  return [...head, title, look === 'ficha' ? '' : look].filter(Boolean);
 }
 
 /** As fichas coladas no texto (o id e o título de cada uma), na ordem. */
@@ -923,7 +972,8 @@ export function hideCardTitles(text: string, hidden: ReadonlySet<string>): strin
     const ref = readCardRef(w.args);
     if (!ref.id || !hidden.has(ref.id) || (ref.hidden && !ref.title)) return line;
     changed = true;
-    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD], w.size);
+    // o jeito vai junto (a privada colada como tira continua uma tira)
+    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD, ...(ref.look === 'ficha' ? [] : [ref.look])], w.size);
   });
   return changed ? lines.join('\n') : text;
 }
@@ -937,17 +987,27 @@ const CARD: WidgetDef = {
   what: 'A ficha',
   put: 'Colar a nota',
   swap: 'Salvar a nota',
-  fields: [{ key: 'id', label: 'Qual ficha', kind: 'card', required: true, missing: 'Falta escolher a ficha' }],
+  fields: [
+    { key: 'id', label: 'Qual ficha', kind: 'card', required: true, missing: 'Falta escolher a ficha' },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: CARD_LOOKS, display: 'tiles' },
+  ],
   read(args) {
-    const { id, title } = readCardRef(args);
-    return { id, title };
+    const { id, title, look } = readCardRef(args);
+    return { id, title, look };
   },
   write(v) {
     const id = (v['id'] ?? '').trim();
     const title = (v['title'] ?? '').trim();
-    if (id) return CARD_ID.test(`#${id}`) ? [`#${id}`, title].filter(Boolean) : null;
+    const look = cardLookWord(v['look'] ?? '') ?? 'ficha';
+    if (id) return CARD_ID.test(`#${id}`) ? cardArgs(id, title, look) : null;
     // a escrita à mão, só com o título, continua do jeito que estava
-    return title ? [title] : null;
+    return title ? cardArgs('', title, look) : null;
+  },
+  fixedSize(v) {
+    const look = cardLookWord(v['look'] ?? '') ?? 'ficha';
+    if (look === 'tira') return 'Só o título ocupa duas linhas do texto, como a anotação no Kanban em "Só os títulos".';
+    if (look === 'inteira') return 'O texto inteiro tem a altura do texto da nota: cresce e diminui com ele.';
+    return null;
   },
   plain: (args) => readCardRef(args).title,
   copy(args, { cardTitle }) {

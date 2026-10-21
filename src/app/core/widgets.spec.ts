@@ -1,5 +1,5 @@
 import { hasFormatting, parseRich, plainText } from './rich-text';
-import { Frame, WIDGETS, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
+import { CARD_LOOKS, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -314,15 +314,15 @@ describe('widgets das anotações', () => {
 
 describe('a nota colada (o widget Nota)', () => {
   it('o id ("#r…") e o título em qualquer ordem; só o título vale para a escrita à mão', () => {
-    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false });
-    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false });
-    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console', hidden: false });
+    expect(readCardRef(['#rabc123', 'Hollow Knight'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha' });
+    expect(readCardRef(['Hollow Knight', '#rabc123'])).toEqual({ id: 'rabc123', title: 'Hollow Knight', hidden: false, look: 'ficha' });
+    expect(readCardRef(['Comprar um console'])).toEqual({ id: '', title: 'Comprar um console', hidden: false, look: 'ficha' });
     // um título que parece id, depois do id, é título
-    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1', hidden: false });
+    expect(readCardRef(['#rabc123', '#1'])).toEqual({ id: 'rabc123', title: '#1', hidden: false, look: 'ficha' });
     // "#" com espaço não é id
-    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título', hidden: false });
+    expect(readCardRef(['# um título'])).toEqual({ id: '', title: '# um título', hidden: false, look: 'ficha' });
     // o cadeado (a ficha privada, no texto de quem visita) não é o título
-    expect(readCardRef(['#rabc123', '🔒'])).toEqual({ id: 'rabc123', title: '', hidden: true });
+    expect(readCardRef(['#rabc123', '🔒'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'ficha' });
     expect(widgetDef('nota')!.plain(['#rabc123', '🔒'])).toBe('');
   });
 
@@ -339,7 +339,45 @@ describe('a nota colada (o widget Nota)', () => {
     const line = widgetLine('nota', def.write({ id: 'rabc123', title: 'Grande' })!, 'medio');
     expect(parseWidgetLine(line)).toEqual({ name: 'nota', args: ['#rabc123', 'Grande'], size: 'medio' });
     // lida de volta, para o painel de trocar
-    expect(def.read(['#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste' });
+    expect(def.read(['#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'ficha' });
+  });
+
+  it('o jeito: ficha (o de sempre, não se escreve), capa, tira e texto inteiro', () => {
+    const def = widgetDef('nota')!;
+    expect(CARD_LOOKS.map((l) => l.value)).toEqual(['ficha', 'capa', 'tira', 'inteira']);
+    expect(def.fields.find((f) => f.key === 'look')?.display).toBe('tiles');
+    expect(def.write({ id: 'rabc123', title: 'Celeste', look: 'ficha' })).toEqual(['#rabc123', 'Celeste']);
+    expect(def.write({ id: 'rabc123', title: 'Celeste', look: 'inteira' })).toEqual(['#rabc123', 'Celeste', 'inteira']);
+    expect(def.write({ id: 'rabc123', look: 'tira' })).toEqual(['#rabc123', 'tira']);
+    expect(def.write({ id: '', title: 'Compras', look: 'capa' })).toEqual(['Compras', 'capa']);
+    // lido em qualquer ordem, com ou sem acento e caixa
+    expect(readCardRef(['Capa', '#rabc123', 'Celeste'])).toEqual({ id: 'rabc123', title: 'Celeste', hidden: false, look: 'capa' });
+    expect(def.read(['#rabc123', 'Celeste', 'INTEIRA'])).toEqual({ id: 'rabc123', title: 'Celeste', look: 'inteira' });
+    // um título que é palavra de jeito volta como título: o jeito vai antes, escrito
+    for (const look of ['ficha', 'tira'] as const) {
+      const args = def.write({ id: 'rabc123', title: 'Capa', look })!;
+      expect(readCardRef(args)).withContext(look).toEqual({ id: 'rabc123', title: 'Capa', hidden: false, look });
+    }
+    // o tamanho continua à parte do jeito
+    expect(parseWidgetLine('{{nota: #rabc123 | Celeste | capa | grande}}')).toEqual({ name: 'nota', args: ['#rabc123', 'Celeste', 'capa'], size: 'grande' });
+  });
+
+  it('a tira e o texto inteiro têm a altura do que mostram: a folha diz isso no lugar do tamanho', () => {
+    const def = widgetDef('nota')!;
+    expect(def.fixedSize!({ id: 'r1', look: 'ficha' })).toBeNull();
+    expect(def.fixedSize!({ id: 'r1', look: 'capa' })).toBeNull();
+    expect(def.fixedSize!({ id: 'r1', look: 'tira' })).toContain('duas linhas');
+    expect(def.fixedSize!({ id: 'r1', look: 'inteira' })).toContain('altura do texto');
+    expect(cardLookSized('ficha')).toBeTrue();
+    expect(cardLookSized('inteira')).toBeFalse();
+    // os outros widgets têm sempre o tamanho
+    expect(WIDGETS.filter((w) => w.fixedSize).map((w) => w.name)).toEqual(['nota']);
+  });
+
+  it('a privada, no texto de quem visita, perde o título mas fica com o jeito e o tamanho', () => {
+    expect(hideCardTitles('{{nota: #rabc123 | Diário | tira}}', new Set(['rabc123']))).toBe('{{nota: #rabc123 | 🔒 | tira}}');
+    expect(hideCardTitles('{{nota: #rabc123 | Diário | grande}}', new Set(['rabc123']))).toBe('{{nota: #rabc123 | 🔒 | grande}}');
+    expect(readCardRef(['#rabc123', '🔒', 'inteira'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'inteira' });
   });
 
   it('o texto dela é o título (a busca, a contagem de palavras); as do texto, na ordem', () => {
@@ -386,7 +424,7 @@ describe('a cópia de cada widget, como texto', () => {
       expect(tiles('imagem')).toEqual(['frame']);
       expect(tiles('video')).toEqual(['frame']);
       expect(tiles('audio')).toEqual(['look']);
-      expect(tiles('nota')).toEqual([]);
+      expect(tiles('nota')).toEqual(['look']);
       // o repete, o dia e a hora do contador numa linha só
       const quando = widgetDef('contador')!.fields.filter((f) => f.row === 'quando').map((f) => f.key);
       expect(quando).toEqual(['repeat', 'date', 'monthDay', 'time', 'time']);

@@ -221,4 +221,99 @@ describe('a nota colada no texto (o widget Nota)', () => {
     outer.nativeElement.remove();
     outer.destroy();
   });
+
+  describe('os jeitos', () => {
+    beforeEach(() => {
+      TestBed.inject(ReviewStore).reviews.set([
+        card('rjogo1', 'Hollow Knight'),
+        card('rnota1', 'Comprar um console', 'anotacoes', { category: 'Compras', subject: 'Casa', text: 'Ver o preço.\n\n- [ ] Pesquisar\n\n==importante==' }),
+        card('rnotaA', 'Volta para mim', 'anotacoes', { text: 'antes\n{{nota: #rnotaA | Volta para mim | inteira}}\ndepois' }),
+      ]);
+    });
+
+    it('capa e título: a ficha da vista "Só capa e nome" do mural, encolhida como a ficha', async () => {
+      await show(['#rjogo1', 'capa']);
+      await settle();
+      const glued = el.querySelector('app-review-card')!;
+      expect(glued.classList).toContain('capas');
+      expect(glued.classList).not.toContain('compact');
+      expect(el.querySelector<HTMLElement>('.escala')!.style.width).toBe('140px');
+      expect(el.classList).not.toContain('sem-tamanho');
+    });
+
+    it('só o título: a tira da cartolina dela, com o assunto (ou o mural) antes do nome; toca e abre', async () => {
+      const opened: string[] = [];
+      await show(['#rnota1', 'tira'], { openCard: (r) => opened.push(r.id) });
+      const tira = el.querySelector<HTMLButtonElement>('button.tira')!;
+      expect(tira.querySelector('.tira-nome')?.textContent).toBe('Comprar um console');
+      expect(tira.querySelector('.tira-assunto')?.textContent).toBe('Casa');
+      expect(tira.classList).toContain('cartolina');
+      expect(el.querySelector('app-review-card')).toBeNull();
+      // a altura do que mostra, não a do tamanho do widget (200px)
+      expect(el.classList).toContain('sem-tamanho');
+      expect(el.getBoundingClientRect().height).toBeLessThan(120);
+      tira.click();
+      expect(opened).toEqual(['rnota1']);
+      fixture.destroy();
+      el.remove();
+
+      // a ficha de outro mural diz de qual; sem quem abra, não pega o toque
+      await show(['#rjogo1', 'tira'], {});
+      expect(el.querySelector('.tira-assunto')?.textContent).toBe('Jogo');
+      expect(el.querySelector('button.tira')!.hasAttribute('inert')).toBeTrue();
+    });
+
+    it('texto inteiro: o nome na faixa e o texto todo; tocar no texto abre a nota', async () => {
+      const opened: string[] = [];
+      await show(['#rnota1', 'inteira'], { openCard: (r) => opened.push(r.id) });
+      const sheet = el.querySelector<HTMLElement>('article.inteira')!;
+      expect(sheet.querySelector('.faixa-nome')?.textContent?.trim()).toBe('Comprar um console');
+      expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Ver o preço.');
+      expect(sheet.querySelector('.folha app-rich-text')?.textContent).toContain('Pesquisar');
+      expect(el.classList).toContain('sem-tamanho');
+      // a altura do texto: passa do tamanho do widget, se o texto pede
+      const r = sheet.querySelector('.folha')!.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + 8)!;
+      expect(hit.classList).toContain('faixa-nome');
+      (hit as HTMLElement).click();
+      expect(opened).toEqual(['rnota1']);
+    });
+
+    it('texto inteiro sem texto diz que ainda não tem', async () => {
+      await show(['#rjogo1', 'inteira']);
+      expect(el.querySelector('.folha-vazia')?.textContent).toContain('Ainda sem texto');
+    });
+
+    it('colada dentro dela mesma, a nota de texto inteiro vira ficha: não se desenha para sempre', async () => {
+      await show(['#rnotaA', 'inteira']);
+      await settle();
+      expect(el.querySelectorAll('article.inteira').length).toBe(1);
+      expect(el.querySelector('article.inteira app-linked-card app-review-card')).not.toBeNull();
+    });
+
+    it('a folha do texto inteiro é creme mesmo dentro de uma ficha escura: o marca-texto é o da leitura', async () => {
+      const dark = document.createElement('app-review-card');
+      dark.setAttribute('data-cor', 'preto');
+      document.body.appendChild(dark);
+      await show(['#rnota1', 'inteira']);
+      dark.appendChild(el);
+      await fixture.whenStable();
+      const mark = el.querySelector<HTMLElement>('.folha .marca')!;
+      expect(getComputedStyle(mark).getPropertyValue('--marca-cor').trim()).toBe('rgb(255 218 66 / 0.62)');
+      expect(getComputedStyle(el.querySelector('.folha')!).color).toBe('rgb(21, 21, 21)');
+      dark.remove();
+    });
+
+    it('na leitura de uma nota escura, a ficha colada fica com a tinta da cartolina dela (a do cabeçalho da leitura não vaza)', async () => {
+      const reader = document.createElement('article');
+      reader.className = 'ficha cartolina';
+      reader.setAttribute('data-cor', 'preto');
+      document.body.appendChild(reader);
+      await show(['#rnota1']);
+      reader.appendChild(el);
+      await fixture.whenStable();
+      expect(getComputedStyle(el.querySelector('app-review-card .title')!).color).toBe('rgb(21, 21, 21)');
+      reader.remove();
+    });
+  });
 });

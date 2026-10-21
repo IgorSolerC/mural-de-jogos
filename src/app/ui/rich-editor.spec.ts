@@ -922,6 +922,26 @@ describe('a folha do widget no editor', () => {
     expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight}}');
   });
 
+  it('a Nota: o jeito vem em miniaturas; a tira e o texto inteiro não têm tamanho (e não escrevem um)', async () => {
+    await choose('Nota');
+    el.querySelector<HTMLButtonElement>('app-card-picker .escolha')!.click();
+    await wait();
+    const jeitos = Array.from(el.querySelectorAll('.wfolha .jeito'));
+    expect(jeitos.map((j) => j.querySelector('.jeito-nome')!.textContent!.trim())).toEqual(['Ficha', 'Capa e título', 'Só o título', 'Texto inteiro']);
+    // escolher o grande na ficha, depois o texto inteiro: o tamanho some, e a frase diz por quê
+    const sizes = () => Array.from(el.querySelectorAll<HTMLInputElement>('.wfolha .tamanho input'));
+    sizes()[3].click();
+    await wait();
+    jeitos[3].querySelector('input')!.click();
+    await wait();
+    expect(sizes().length).toBe(0);
+    expect(el.querySelector('.wfolha .tamanho-fixo')?.textContent).toContain('altura do texto');
+    expect(el.querySelector('.wfolha app-note-widget app-linked-card, .wfolha app-note-widget')).not.toBeNull();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('{{nota: #rjogo1 | Hollow Knight | inteira}}');
+  });
+
   it('fechar a lista da Nota sem escolher deixa o foco na ficha a escolher, que a abre de novo', async () => {
     await choose('Nota');
     (el.querySelector('app-card-picker dialog') as HTMLDialogElement).close();

@@ -541,6 +541,20 @@ fieldset.bloco {
   }
 }
 
+/* o jeito que tem a altura do que mostra (a tira e o texto inteiro da nota): no lugar dos tamanhos,
+   a frase que diz isso, com o mesmo respiro */
+div.bloco {
+  margin: 20px 0 0;
+
+  .rotulo {
+    margin: 0 0 8px;
+  }
+
+  .dica {
+    margin: 0;
+  }
+}
+
 /* o jeito: uma miniatura desenhada de cada um, como as amostras de cartolina do editor; a escolhida
    descola, entorta e fica presa com a tachinha */
 .jeitos {
