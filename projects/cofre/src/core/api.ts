@@ -30,6 +30,14 @@ export interface Entrada {
   readonly codigo: string;
 }
 
+/** O `GET /api/status` (sem login): se a API está de pé e o cliente OAuth do cofre. */
+export interface StatusDaApi {
+  readonly versao: number;
+  readonly modo: string;
+  /** Vazio: o login ainda não está pronto (falta o cliente OAuth do cofre). */
+  readonly googleClientId: string;
+}
+
 /** O `GET /api/cofre`: se a conta já tem cofre, se está congelado e quantos aparelhos tem. */
 export interface EstadoDoCofre {
   readonly existe: boolean;
@@ -118,6 +126,10 @@ export class ApiCofre {
     const entrada = await this.pedir<Entrada>('POST', '/api/entrar', { codigo, verificador, aparelho });
     this.usarToken(entrada.token);
     return entrada;
+  }
+
+  status(): Promise<StatusDaApi> {
+    return this.pedir('GET', '/api/status');
   }
 
   estado(): Promise<EstadoDoCofre> {

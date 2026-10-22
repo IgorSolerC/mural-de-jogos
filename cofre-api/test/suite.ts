@@ -63,7 +63,7 @@ export function cofreSuite(label: string, getDb: () => Db, extras: ((label: stri
       const { call } = await setup();
       const res = await call('GET', '/api/status', undefined, { origin: null });
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ versao: 1, modo: 'ligado', dia: '2026-10-21', gravacoes: 0, linhasGravadas: 0, cotaLinhas: 1000 });
+      expect(await res.json()).toEqual({ versao: 1, modo: 'ligado', dia: '2026-10-21', gravacoes: 0, linhasGravadas: 0, cotaLinhas: 1000, googleClientId: 'cofre.apps.googleusercontent.com' });
     });
 
     it('nada fica em cache, e o tipo não é adivinhado', async () => {

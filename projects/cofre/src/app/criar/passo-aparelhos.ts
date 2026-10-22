@@ -21,8 +21,8 @@ interface Aparelho {
 type Estado = 'prf' | 'servidor' | 'pendente';
 
 /** É o celular? Pelo QR code, sim; senão, é o aparelho onde a página está. */
-function ehCelular(passkey: PasskeyRegistrada): boolean {
-  return passkey.credencial.transports.includes('hybrid') || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+function ehCelular(passkey: PasskeyRegistrada, agente: string): boolean {
+  return passkey.credencial.transports.includes('hybrid') || /Android|iPhone|iPad|Mobile/i.test(agente);
 }
 
 function mensagem(e: unknown): string {
@@ -122,6 +122,8 @@ export class PassoAparelhos {
   readonly senha = input.required<SenhaEscolhida>();
   readonly voltar = output<void>();
   readonly criarCom = output<AparelhoParaCriar[]>();
+  /** A sessão de entrada acabou: quem cuida é a ficha (pede para entrar de novo). */
+  readonly sessaoAcabou = output<void>();
 
   protected readonly maximo = APARELHOS_NA_CRIACAO;
   protected readonly minimoServidor = BITS_MINIMOS_MODO_SERVIDOR;
@@ -162,10 +164,11 @@ export class PassoAparelhos {
     try {
       const desafio = await this.servicos.api.desafioDeRegistro();
       const passkey = await registrarPasskey(desafio, this.servicos.rpId, this.servicos.autenticador);
-      const celular = ehCelular(passkey);
+      const celular = ehCelular(passkey, this.servicos.pagina.agente);
       this.aparelhos.update((lista) => [...lista, { id: passkey.credencial.id, passkey, celular, apelido: celular ? 'Celular' : 'PC', aceitouServidor: false }]);
     } catch (e) {
-      this.erro.set(mensagem(e));
+      if (e instanceof ErroApi && e.status === 401) this.sessaoAcabou.emit();
+      else this.erro.set(mensagem(e));
     } finally {
       this.ocupado.set(false);
     }

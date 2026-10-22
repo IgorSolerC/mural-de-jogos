@@ -40,7 +40,10 @@ export function createSuite(label: string, setup: Setup) {
       return id;
     };
     const post = (path: string, body: unknown, t = token) => ctx.call('POST', path, body, { origin: ORIGEM, token: t });
-    return { ...ctx, token, desafio, post };
+    /** Uma entrada nova (criar o cofre gasta a de antes). */
+    const entrarDeNovo = async () =>
+      ((await (await ctx.call('POST', '/api/entrar', { codigo: 'codigo-sub-dono', verificador: VERIFIER }, { origin: ORIGEM })).json()) as { token: string }).token;
+    return { ...ctx, token, desafio, post, entrarDeNovo };
   }
 
   const aparelho = (alg: 'es256' | 'rs256', desafio: string, envelopeId: string, prf: boolean, extra: Record<string, unknown> = {}) => ({
@@ -72,8 +75,14 @@ export function createSuite(label: string, setup: Setup) {
       expect(row!.expira_em).toBe('2026-10-21T15:02:00.000Z');
     });
 
+    it('criar gasta a sessão de entrada: abrir pede uma entrada nova', async () => {
+      const { desafio, post, call, token } = await entrou();
+      expect((await post('/api/cofre', corpo([aparelho('es256', await desafio(), ENV_IDS[1]!, true)]))).status).toBe(201);
+      expect((await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token })).status).toBe(401);
+    });
+
     it('cria o cofre com um aparelho com PRF, sem guardar nenhum segredo em claro', async () => {
-      const { db, deps, desafio, post, call, token } = await entrou();
+      const { db, deps, desafio, post, call, entrarDeNovo } = await entrou();
       const res = await post('/api/cofre', corpo([aparelho('es256', await desafio(), ENV_IDS[1]!, true)]));
       expect(res.status).toBe(201);
       expect(await res.json()).toEqual({ criado: true, aparelhos: [{ id: VETORES.es256.reg.id, apelido: 'Celular', prf: true }] });
@@ -93,6 +102,7 @@ export function createSuite(label: string, setup: Setup) {
       expect(blob(envelopes[0].rec_hash)).toEqual((await proofHash(deps, 'rec', seq(32, 6))).hash);
       expect(await db.first('SELECT tipo FROM cofre_eventos')).toEqual({ tipo: 'cofre-criado' });
       expect(await db.first('SELECT * FROM cofre_desafios')).toBeNull();
+      const token = await entrarDeNovo();
       expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token })).json()).toEqual({ existe: true, congeladoAte: null, aparelhos: 1 });
     });
 
@@ -134,9 +144,10 @@ export function createSuite(label: string, setup: Setup) {
     });
 
     it('não cria dois cofres na mesma conta', async () => {
-      const { desafio, post } = await entrou();
+      const { desafio, post, entrarDeNovo } = await entrou();
       expect((await post('/api/cofre', corpo([aparelho('es256', await desafio(), ENV_IDS[1]!, true)]))).status).toBe(201);
-      expect(await (await post('/api/cofre', corpo([aparelho('rs256', await desafio(), ENV_IDS[2]!, true)]))).json()).toMatchObject({ erro: 'cofre-existe' });
+      const outra = await entrarDeNovo();
+      expect(await (await post('/api/cofre', corpo([aparelho('rs256', await desafio(), ENV_IDS[2]!, true)]), outra)).json()).toMatchObject({ erro: 'cofre-existe' });
     });
 
     it('o mesmo aparelho duas vezes: recusado', async () => {
@@ -207,9 +218,9 @@ export function createSuite(label: string, setup: Setup) {
     });
 
     it('depois de criado, o desafio de registro usa o user.id guardado e exclui o aparelho que já existe', async () => {
-      const { desafio, post } = await entrou();
+      const { desafio, post, entrarDeNovo } = await entrou();
       await post('/api/cofre', corpo([aparelho('es256', await desafio(), ENV_IDS[1]!, true)]));
-      const { publicKey } = (await (await post('/api/cofre/registro', {})).json()) as { publicKey: any };
+      const { publicKey } = (await (await post('/api/cofre/registro', {}, await entrarDeNovo())).json()) as { publicKey: any };
       expect(publicKey.excludeCredentials).toEqual([{ type: 'public-key', id: VETORES.es256.reg.id, transports: ['internal'] }]);
     });
   });

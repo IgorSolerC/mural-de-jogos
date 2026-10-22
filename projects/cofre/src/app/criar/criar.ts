@@ -52,6 +52,9 @@ const PASSOS: readonly { readonly id: 'senha' | 'aparelhos' | 'kit'; readonly no
         @if (erro()) {
           <p class="erro" role="alert">{{ erro() }}</p>
         }
+        @if (sessaoAcabou()) {
+          <button type="button" class="de-novo" (click)="terminar()">Entrar de novo</button>
+        }
         @switch (passo()) {
           @case ('senha') {
             <cofre-passo-senha (escolhida)="senhaEscolhida($event)" />
@@ -60,7 +63,7 @@ const PASSOS: readonly { readonly id: 'senha' | 'aparelhos' | 'kit'; readonly no
             <cofre-passo-kit [codigo]="codigo()!" [conta]="entrada().codigo" [criadoEm]="criadoEm()!" (terminar)="terminar()" />
           }
           @default {
-            <cofre-passo-aparelhos [senha]="senha()!" [class.escondido]="passo() === 'criando'" (voltar)="passo.set('senha')" (criarCom)="criar($event)" />
+            <cofre-passo-aparelhos [senha]="senha()!" [class.escondido]="passo() === 'criando'" (voltar)="passo.set('senha')" (criarCom)="criar($event)" (sessaoAcabou)="acabou()" />
             @if (passo() === 'criando') {
               <div class="criando" role="status">
                 <span class="lapis" aria-hidden="true"></span>
@@ -87,6 +90,7 @@ export class Criar {
   protected readonly codigo = signal<string | null>(null);
   protected readonly criadoEm = signal<Date | null>(null);
   protected readonly erro = signal<string | null>(null);
+  protected readonly sessaoAcabou = signal(false);
   private readonly aparelhos = viewChild(PassoAparelhos);
 
   protected readonly indice = computed(() => ({ senha: 0, aparelhos: 1, criando: 1, kit: 2 })[this.passo()]);
@@ -102,14 +106,17 @@ export class Criar {
     const senha = this.senha();
     if (!senha) return;
     this.erro.set(null);
+    this.sessaoAcabou.set(false);
     this.passo.set('criando');
+    // deixa a tela mostrar "Fazendo a chave do cofre…" antes de o Argon2id ocupar o navegador
+    await new Promise<void>((ok) => requestAnimationFrame(() => setTimeout(ok, 0)));
     try {
       const agora = new Date();
       const { corpo, codigo } = await montarCofre({
         usuario: this.entrada().usuario,
         senha: senha.senha,
         aparelhos,
-        aparelhoAgora: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) ? 'Celular' : 'PC',
+        aparelhoAgora: /Android|iPhone|iPad|Mobile/i.test(this.servicos.pagina.agente) ? 'Celular' : 'PC',
         agora,
       });
       await this.servicos.api.criarCofre(corpo);
@@ -121,6 +128,9 @@ export class Criar {
     } catch (e) {
       if (e instanceof ErroApi && e.codigo === 'cofre-existe') {
         this.erro.set('Esta conta já tem um cofre. Recarregue a página para abrir.');
+      } else if (e instanceof ErroApi && e.status === 401) {
+        this.acabou();
+        this.aparelhos()?.recomecar();
       } else {
         // Recomeça os aparelhos do zero: o servidor pode ter gastado os desafios, e o segredo do PRF de cada
         // passkey já foi zerado na montagem (tentar de novo com elas cairia no modo servidor sem ninguém ver).
@@ -130,6 +140,12 @@ export class Criar {
       }
       this.passo.set('aparelhos');
     }
+  }
+
+  /** A sessão de entrada acabou (20 minutos para criar): só entrando de novo. */
+  protected acabou(): void {
+    this.sessaoAcabou.set(true);
+    this.erro.set('A entrada acabou: ela vale 20 minutos. Entre de novo para criar o cofre.');
   }
 
   protected terminar(): void {

@@ -1,6 +1,29 @@
 import { InjectionToken } from '@angular/core';
 import { ApiCofre, type Entrada } from '../core/api';
+import { type Guarda, guardaDaAba } from '../core/entrar';
 import { type Autenticador, autenticadorDoNavegador } from '../core/passkey';
+import type { Porta } from './porta/porta';
+import type { Trabalhadores } from './sem-service-worker';
+
+/** O que a raiz lê e faz na página: o endereço, as proteções e a ida ao Google (nos testes, de mentira). */
+export interface Pagina {
+  /** Endereço seguro (https ou localhost). */
+  readonly seguro: boolean;
+  /** Isolada das outras páginas (os cabeçalhos COOP e COEP do Worker). */
+  readonly isolado: boolean;
+  readonly origem: string;
+  readonly caminho: string;
+  readonly busca: string;
+  /** O navegador e o sistema, para o histórico do cofre. */
+  readonly agente: string;
+  /** Os service workers do endereço (seção 7.4). */
+  readonly trabalhadores: Trabalhadores | undefined;
+  /** Onde o login guarda o state e o verificador entre a ida e a volta do Google. */
+  readonly guarda: Guarda;
+  /** Tira o código do Google da URL (e do histórico). */
+  limparUrl(): void;
+  irPara(url: string): void;
+}
 
 /**
  * O que as telas do cofre usam de fora: a API, as passkeys e o endereço. Nos testes e na demonstração
@@ -11,8 +34,24 @@ export interface Servicos {
   readonly autenticador: Autenticador;
   /** O rpId das passkeys: o próprio endereço do cofre. */
   readonly rpId: string;
+  readonly pagina: Pagina;
   /** Joga fora toda a memória da página (8.2): é assim que o cofre tranca. */
   terminar(): void;
+}
+
+export function paginaDoNavegador(): Pagina {
+  return {
+    seguro: window.isSecureContext,
+    isolado: window.crossOriginIsolated,
+    origem: location.origin,
+    caminho: location.pathname,
+    busca: location.search,
+    agente: navigator.userAgent,
+    trabalhadores: navigator.serviceWorker,
+    guarda: guardaDaAba,
+    limparUrl: () => history.replaceState(null, '', '/'),
+    irPara: (url) => location.assign(url),
+  };
 }
 
 export function servicosDoNavegador(): Servicos {
@@ -20,6 +59,7 @@ export function servicosDoNavegador(): Servicos {
     api: new ApiCofre(),
     autenticador: autenticadorDoNavegador,
     rpId: location.hostname,
+    pagina: paginaDoNavegador(),
     terminar: () => location.replace('/'),
   };
 }
@@ -30,4 +70,6 @@ export const SERVICOS = new InjectionToken<Servicos>('serviços do cofre', { pro
 export interface Demonstracao {
   readonly servicos: Servicos;
   readonly entrada: Entrada;
+  /** Para ver uma porta (`?demo=entrar`, `existe`, `construcao`) em vez das telas de criar. */
+  readonly porta?: Porta;
 }

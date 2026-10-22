@@ -1,12 +1,14 @@
 import { ApiCofre, type CofreCriado, type DesafioDeRegistro } from '../core/api';
 import { aleatorios, paraBase64url } from '../core/bytes';
 import type { Autenticador } from '../core/passkey';
-import type { Demonstracao } from './servicos';
+import { type Demonstracao, paginaDoNavegador } from './servicos';
 
 /**
  * A demonstração das telas, só no `ng serve cofre` (fileReplacements no angular.json): abra
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
- * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem.
+ * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar`,
+ * `?demo=existe` ou `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de
+ * entrar aparece bloqueado, como deve).
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
@@ -58,8 +60,10 @@ export function demonstracao(): Demonstracao | null {
   if (feita !== undefined) return feita;
   const pedido = new URLSearchParams(location.search).get('demo');
   if (pedido === null) return (feita = null);
+  const porta = pedido === 'entrar' || pedido === 'existe' || pedido === 'construcao' ? pedido : undefined;
   return (feita = {
-    servicos: { api: new ApiDeMentira(), autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, terminar: () => location.reload() },
+    porta,
+    servicos: { api: new ApiDeMentira(), autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: paginaDoNavegador(), terminar: () => location.reload() },
     entrada: { token: 'demo', expiraEm: new Date(Date.now() + 300_000).toISOString(), usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' },
   });
 }

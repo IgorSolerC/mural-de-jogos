@@ -13,6 +13,11 @@ import { write } from './quota';
 export type SessionKind = 'entrada' | 'cofre';
 
 export const ENTRY_MS = 5 * 60_000;
+/**
+ * Para quem ainda não tem cofre, a entrada vale mais: criar leva tempo (copiar a frase sorteada no papel,
+ * registrar os aparelhos), e ainda não há nada a proteger. Ela some quando o cofre é criado.
+ */
+export const ENTRY_CREATE_MS = 20 * 60_000;
 export const VAULT_IDLE_MS = 10 * 60_000;
 export const VAULT_MAX_MS = 8 * 3_600_000;
 /** Quanto tempo a passkey (ou o código) conferida vale para a tentativa de senha que vem logo depois. */
@@ -44,13 +49,13 @@ export async function hashToken(token: string): Promise<string> {
 }
 
 /** Cria a sessão de entrada e apaga as vencidas da mesma conta (contam 4 linhas: a linha e 3 índices). */
-export function entrySessionStatements(hash: string, userId: string, code: string, device: string | null, now: Date): Statement[] {
+export function entrySessionStatements(hash: string, userId: string, code: string, device: string | null, now: Date, ttlMs = ENTRY_MS): Statement[] {
   const at = now.toISOString();
   return [
     { sql: 'DELETE FROM cofre_sessoes WHERE usuario_id = ? AND expira_em <= ?', params: [userId, at] },
     {
       sql: "INSERT INTO cofre_sessoes (hash, usuario_id, tipo, codigo, criada_em, usada_em, expira_em, aparelho) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?)",
-      params: [hash, userId, code, at, at, new Date(now.getTime() + ENTRY_MS).toISOString(), device],
+      params: [hash, userId, code, at, at, new Date(now.getTime() + ttlMs).toISOString(), device],
     },
   ];
 }

@@ -55,6 +55,15 @@ test('nenhum uso proibido no código do cofre', () => {
   assert.deepEqual(achados, []);
 });
 
+test('o sessionStorage só no login do Google (a única exceção da seção 7.4)', () => {
+  const achados = [];
+  for (const f of todos) {
+    if (f.endsWith(`core${sep}entrar.ts`) || f.endsWith('.spec.ts')) continue;
+    if (/\bsessionStorage\b/.test(semComentarios(readFileSync(f, 'utf8')))) achados.push(relative(raiz, f));
+  }
+  assert.deepEqual(achados, []);
+});
+
 test('o cofre não importa nada de fora dele, e só as dependências permitidas', () => {
   const achados = [];
   const importa = /(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g;

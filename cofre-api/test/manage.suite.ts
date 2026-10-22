@@ -114,8 +114,8 @@ export function manageSuite(label: string, setup: Setup) {
       const { pedir, entrar } = await aberto();
       await entrar();
       const { sessoes } = (await (await pedir('GET', '/api/cofre/sessoes')).json()) as any;
-      // a de criar o cofre, a desta entrada e a do cofre aberto (a entrada que abriu já sumiu)
-      expect(sessoes).toHaveLength(3);
+      // a desta entrada e a do cofre aberto (a de criar e a entrada que abriu já sumiram)
+      expect(sessoes).toHaveLength(2);
       expect(sessoes.filter((s: any) => s.atual)).toEqual([{ tipo: 'cofre', criadaEm: '2026-10-21T15:00:00.000Z', usadaEm: '2026-10-21T15:00:00.000Z', aparelho: 'Chrome no Windows', atual: true }]);
       expect(JSON.stringify(sessoes)).not.toMatch(/hash|token/);
     });

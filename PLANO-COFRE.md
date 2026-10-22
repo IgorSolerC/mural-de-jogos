@@ -1115,7 +1115,7 @@ A Fase 4 (criar o cofre) em partes, uma de cada vez:
 | Parte | O quê | Estado |
 |---|---|---|
 | 1 | **A lógica de criar, sem tela**: a conversa com a API, a passkey com PRF e a montagem do pedido, com um teste da página e da API juntas | Feita |
-| 2 | **Entrar com o Google** na página: o PKCE, a volta em `/entrar`, limpar a URL na hora. Precisa do cliente OAuth "Murall Cofre" do usuário (16.14) para testar no ar | — |
+| 2 | **Entrar com o Google** na página: o PKCE, a volta em `/entrar`, limpar a URL na hora. Precisa do cliente OAuth "Murall Cofre" do usuário (16.14) para testar no ar | Feita na página; falta o teste no ar com o cliente do usuário |
 | 3 | **As telas de criar**: os aparelhos (com PRF ou no modo servidor, o aviso de um aparelho só), a senha mestra (a frase sorteada e a força de uma escrita à mão), o kit de emergência para imprimir. Com o Impeccable | Feita |
 | 4 | **De ponta a ponta no Chrome** com o autenticador virtual e o `wrangler dev` (a sessão de entrada posta direto no banco local, só no teste) | — |
 
@@ -1208,4 +1208,33 @@ No ar, a página continua "em construção": as telas só aparecem com uma sess�
 login (parte 2). Para ver sem servidor, `ng serve cofre` e abrir `/?demo` (ou `/?demo=sem-prf`): a
 API e as passkeys são de mentira, e o arquivo da demonstração só entra no build de desenvolvimento
 (fileReplacements), nunca no de produção.
+
+Parte 2, o login na página, e o que a revisão de 21/10 achou:
+
+- **A porta** (`app/porta/`): a ficha antes de criar ou abrir.
+  - Mostra as proteções da página: endereço seguro, isolada das outras e sem service worker.
+  - Só deixa entrar com as três valendo; sem elas, nem troca o código do Google.
+  - Sem o `GOOGLE_CLIENT_ID` no `wrangler.toml` (ou com o `MODO` desligado), mostra "Em construção".
+    É o que vai ao ar no passo 6 da 17.5, até o cliente OAuth do cofre existir.
+  - Com cofre já criado, diz que abrir chega numa próxima parte (Fase 5).
+- **O login** (`core/entrar.ts`):
+  - o PKCE S256 (conferido com o vetor da RFC 7636), o `state`, só `openid` e a escolha da conta;
+  - a volta em `/entrar` é tirada da URL antes de qualquer outra coisa;
+  - o pendente sai do `sessionStorage` na volta, deu certo ou não, e vale 10 minutos;
+  - state trocado, login que não começou nesta aba, cancelamento e volta sem código têm cada um a sua
+    mensagem.
+
+  O `sessionStorage` só aparece nesse arquivo, e uma regra nova dos testes confere isso (a única
+  exceção da 7.4). Conferido com o Worker local (`wrangler dev`): CSP, Trusted Types e isolamento
+  valendo, nenhuma violação, e uma volta forjada não troca o código.
+- **Para o usuário conferir: a entrada de criar vale 20 minutos.** A de 5 minutos não dava para copiar
+  a frase no papel e registrar os aparelhos, e a frase sorteada se perderia ao entrar de novo.
+  - Para quem já tem cofre, a entrada continua de 5 minutos.
+  - Só sem cofre ela vale 20, e o `POST /api/cofre` apaga a sessão de entrada usada: abrir pede uma
+    entrada nova.
+  - Se a entrada acabar no meio, a ficha pede "Entrar de novo".
+- **Nenhum service worker** (7.4, que faltava): ao abrir, a página tira qualquer um. Se a página estava
+  nas mãos de um, pede para recarregar antes de entrar.
+- O aviso "Fazendo a chave do cofre…" agora aparece antes de o Argon2id ocupar o navegador.
+- O `GET /api/status` devolve o `googleClientId`, que é público e vai na URL do Google.
 

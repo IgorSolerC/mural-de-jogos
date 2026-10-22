@@ -1,0 +1,57 @@
+// A ficha do cofre: um cartão de papel creme, a faixa amarela com o título e o corpo. É o mesmo cartão
+// nas telas de criar e na porta (entrar); quem inclui põe o que vai em cima ou dentro.
+
+@mixin ficha {
+  .ficha {
+    position: relative;
+    isolation: isolate;
+    border-radius: 2px;
+    background: var(--papel);
+    box-shadow: var(--sombra-alta);
+    rotate: -0.5deg;
+  }
+  .faixa {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 16px;
+    padding: 18px clamp(16px, 5vw, 32px) 14px;
+    border-radius: 2px 2px 0 0;
+    background: var(--amarelo);
+  }
+  h1 {
+    margin: 0;
+    font: 400 clamp(1.6rem, 5vw, 2rem)/1.05 var(--f-marker);
+    text-wrap: balance;
+  }
+  .conta {
+    font: 800 0.9rem/1 var(--f-rotulo);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+  .corpo {
+    position: relative;
+    display: grid;
+    gap: 18px;
+    padding: 24px clamp(16px, 5vw, 32px) 26px;
+  }
+  .erro {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 2px;
+    background: #fff;
+    box-shadow: inset 0 0 0 2px var(--erro);
+    font: 600 0.98rem/1.4 var(--f-texto);
+    color: var(--erro);
+  }
+
+  @media (max-width: 520px) {
+    .ficha {
+      rotate: none;
+    }
+  }
+}

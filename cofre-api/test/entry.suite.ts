@@ -8,13 +8,13 @@ export function entrySuite(label: string, setup: Setup) {
   const entrar = (codigo: string, extra: Record<string, unknown> = {}) => ({ codigo, verificador: VERIFIER, aparelho: 'Chrome no Windows', ...extra });
 
   describe(`Entrar com o Google (${label})`, () => {
-    it('entra com o código do Google e devolve uma sessão de entrada de 5 minutos', async () => {
+    it('entra com o código do Google e devolve uma sessão de entrada (sem cofre ainda, de 20 minutos)', async () => {
       const { db, call, google } = await setup();
       const res = await call('POST', '/api/entrar', entrar('codigo-sub-dono'), { ip: '203.0.113.5' });
       expect(res.status).toBe(200);
       const body = (await res.json()) as { token: string; expiraEm: string; usuario: string; codigo: string };
       expect(body.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      expect(body.expiraEm).toBe('2026-10-21T15:05:00.000Z');
+      expect(body.expiraEm).toBe('2026-10-21T15:20:00.000Z');
       // o id da conta (vai no AAD do que a página sela) e o código do Murall
       expect(body.usuario).toBe(DONO.id);
       expect(body.codigo).toBe(DONO.code);
@@ -39,10 +39,10 @@ export function entrySuite(label: string, setup: Setup) {
       expect(await res.json()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0 });
     });
 
-    it('a sessão de entrada acaba em 5 minutos', async () => {
+    it('sem cofre, a sessão de entrada acaba em 20 minutos (o tempo de criar)', async () => {
       const { call, advance } = await setup();
       const { token } = (await (await call('POST', '/api/entrar', entrar('codigo-sub-dono'))).json()) as { token: string };
-      advance(5 * 60_000 - 1);
+      advance(20 * 60_000 - 1);
       expect((await call('GET', '/api/cofre', undefined, { token })).status).toBe(200);
       advance(1);
       expect(await (await call('GET', '/api/cofre', undefined, { token })).json()).toMatchObject({ erro: 'sessao-invalida' });

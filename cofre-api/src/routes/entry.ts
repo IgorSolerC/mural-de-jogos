@@ -3,7 +3,7 @@ import { canUseVault } from '../config';
 import { LIMITS, accountKey, assertUnderLimit, brakeStatement, ipKey } from '../domain/brake';
 import { readLoginBody } from '../domain/google';
 import { write } from '../domain/quota';
-import { ENTRY_MS, authenticate, entrySessionStatements, hashToken, newToken } from '../domain/session';
+import { ENTRY_CREATE_MS, ENTRY_MS, authenticate, entrySessionStatements, hashToken, newToken } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { clientIp, deviceOf, readJson } from './http';
@@ -31,9 +31,11 @@ export function entryRoutes(app: Hono, deps: Deps): void {
     await assertUnderLimit(deps, accountKey(account.id), 'entrar', LIMITS.entrar.account);
 
     const token = newToken();
-    await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now)], 7, { session: true });
+    // 5 minutos para abrir; 20 para criar, quando ainda não há cofre (ENTRY_CREATE_MS)
+    const ttl = (await deps.db.first('SELECT 1 FROM cofre_contas WHERE usuario_id = ?', [account.id])) ? ENTRY_MS : ENTRY_CREATE_MS;
+    await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now, ttl)], 7, { session: true });
     // a página precisa do id da conta: ele entra no AAD de tudo o que ela sela (6.1); e o código, para mostrar
-    return c.json({ token, expiraEm: new Date(now.getTime() + ENTRY_MS).toISOString(), usuario: account.id, codigo: account.code });
+    return c.json({ token, expiraEm: new Date(now.getTime() + ttl).toISOString(), usuario: account.id, codigo: account.code });
   });
 
   app.get('/api/cofre', async (c) => {

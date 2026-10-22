@@ -12,7 +12,7 @@ nunca decifra nada: não tem a chave para isso.
     `/entrar` e o verificador do PKCE. A API troca o código no Google (só `openid`), confere o
     `id_token`, acha a conta do Murall pelo `sub` (RPC `CofreRpc.contaPorGoogle`, sem endereço
     público) e, se ela estiver em `COFRE_CODIGOS`, devolve `{ token, expiraEm, usuario, codigo }`: a
-    sessão de entrada, de 5 minutos, o id da conta (que entra no AAD de tudo o que a página sela) e o
+    sessão de entrada (5 minutos; 20 para quem ainda não tem cofre, o tempo de criar), o id da conta (que entra no AAD de tudo o que a página sela) e o
     código do Murall. Freios: 30 por hora por IP (o IP só como HMAC com uma chave do dia, derivada da
     pimenta) e 30 por hora por conta.
   - `GET /api/cofre` (com a sessão): `{ existe, congeladoAte, aparelhos }`.

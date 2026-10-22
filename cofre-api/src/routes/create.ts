@@ -103,8 +103,10 @@ export function createRoutes(app: Hono, deps: Deps): void {
     ];
     for (const [i, d] of parsed.entries()) statements.push(...(await deviceStatements(deps, s.userId, d, verified[i]!, at)));
     statements.push(eventStatement(s.userId, 'cofre-criado', now, s.device, country(c)));
+    // a entrada de criar (20 minutos) não serve para mais nada: abrir pede uma entrada nova, de 5
+    statements.push({ sql: 'DELETE FROM cofre_sessoes WHERE hash = ?', params: [s.hash] });
     try {
-      await write(deps, statements, 4 + parsed.length * 8 + 8);
+      await write(deps, statements, 5 + parsed.length * 8 + 8);
     } catch (error) {
       // dois "criar" ao mesmo tempo: o outro chegou antes
       if (!(error instanceof HttpError) && (await deps.db.first('SELECT 1 FROM cofre_contas WHERE usuario_id = ?', [s.userId]))) {

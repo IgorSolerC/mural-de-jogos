@@ -1,109 +1,147 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { type Entrada, ErroApi } from '../core/api';
+import { descreverAparelho, lerVolta, MENSAGENS_DO_LOGIN, urlDoLogin } from '../core/entrar';
 import { demonstracao } from './ambiente';
 import { Criar } from './criar/criar';
+import { type Porta, PortaDoCofre } from './porta/porta';
+import { type SemServiceWorker, tirarServiceWorkers } from './sem-service-worker';
+import { SERVICOS } from './servicos';
 
 /**
- * A página do cofre enquanto as telas não existem (Fase 3 do PLANO-COFRE.md): diz que o cofre está em
- * construção e mostra se as proteções da hospedagem estão valendo neste navegador. O isolamento de
- * origem só liga com os cabeçalhos COOP e COEP do Worker (seção 7.3): se ele aparece "não", a
- * hospedagem está errada.
+ * A raiz do cofre: decide o que aparece. Primeiro a porta (seção 8.1): entrar com o Google, que volta em
+ * `/entrar` com o código; a URL é limpa antes de qualquer outra coisa (o código não fica no histórico).
+ * Com a sessão de entrada, a API diz se a conta já tem cofre: sem cofre, as telas de criar; com cofre,
+ * abrir (que chega numa próxima parte).
  *
- * As telas de criar o cofre já existem (Fase 4), mas só aparecem quando há uma sessão de entrada, que
- * vem do login com o Google (Fase 4, parte 2). Até lá, só a demonstração do desenvolvimento as mostra.
+ * A página só deixa entrar com as proteções da hospedagem valendo (seção 7): o endereço seguro, o
+ * isolamento de origem (COOP e COEP do Worker) e nenhum service worker. Sem elas, nem troca o código.
  */
 @Component({
   selector: 'cofre-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Criar],
+  imports: [Criar, PortaDoCofre],
   template: `
-    @if (demo; as demo) {
-      <main class="fluxo">
-        <cofre-criar [entrada]="demo.entrada" />
-      </main>
-    } @else {
-    <main class="folha">
-      <h1>Cofre de senhas</h1>
-      <p class="aviso">Em construção. Por enquanto, nada é guardado aqui.</p>
-      <ul class="provas" aria-label="Proteções deste navegador">
-        @for (prova of provas; track prova.nome) {
-          <li [class.ok]="prova.ok">
-            <span class="marca" aria-hidden="true">{{ prova.ok ? '●' : '○' }}</span>
-            {{ prova.nome }}: <strong>{{ prova.ok ? 'sim' : 'não' }}</strong>
-          </li>
+    <main class="fluxo">
+      @if (entrada(); as entrada) {
+        @if (tela() === 'criar') {
+          <cofre-criar [entrada]="entrada" />
+        } @else {
+          <cofre-porta [porta]="porta()" [conta]="entrada.codigo" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" (sair)="sair()" />
         }
-      </ul>
-      <a class="voltar" href="https://murall.igorsc.com.br/#/anotacoes" rel="noreferrer">Voltar ao Murall</a>
+      } @else {
+        <cofre-porta [porta]="porta()" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" (entrar)="entrar()" />
+      }
     </main>
-    }
   `,
   styles: `
     :host {
-      display: grid;
-      place-items: center;
+      display: block;
       min-height: 100dvh;
-      padding: 32px 16px;
+      padding: 32px 16px 64px;
     }
     .fluxo {
-      align-self: start;
       width: 100%;
-      padding: 8px 0 64px;
-    }
-    .folha {
-      width: min(100%, 520px);
-      padding: 32px clamp(20px, 6vw, 40px) 28px;
-      border-radius: 2px;
-      background: var(--papel);
-      color: var(--tinta);
-      box-shadow: 0 12px 22px -8px rgb(0 0 0 / 0.6);
-      rotate: -0.6deg;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-family: var(--f-marker);
-      font-size: clamp(2rem, 7vw, 2.6rem);
-      font-weight: 400;
-      line-height: 1.05;
-    }
-    .aviso {
-      margin: 0 0 20px;
-      font-size: 1.05rem;
-    }
-    .provas {
-      display: grid;
-      gap: 6px;
-      margin: 0 0 24px;
-      padding: 12px 14px;
-      border: 1px solid var(--linha);
-      list-style: none;
-      font-size: 0.95rem;
-      color: var(--tinta-2);
-    }
-    .marca {
-      display: inline-block;
-      width: 1.1em;
-      color: var(--vermelho);
-    }
-    .ok .marca {
-      color: var(--verde);
-    }
-    strong {
-      color: var(--tinta);
-    }
-    .voltar {
-      color: var(--vermelho);
-      font-weight: 600;
-      text-underline-offset: 3px;
-    }
-    .voltar:focus-visible {
-      outline: 3px solid var(--vermelho);
-      outline-offset: 3px;
     }
   `,
 })
 export class Cofre {
-  protected readonly demo = demonstracao();
-  protected readonly provas = [
-    { nome: 'Endereço seguro (https)', ok: window.isSecureContext },
-    { nome: 'Isolado das outras páginas', ok: window.crossOriginIsolated },
-  ];
+  private readonly servicos = inject(SERVICOS);
+
+  protected readonly tela = signal<'porta' | 'criar'>('porta');
+  protected readonly porta = signal<Porta>('carregando');
+  protected readonly entrada = signal<Entrada | null>(null);
+  protected readonly erro = signal<string | null>(null);
+  private readonly semServiceWorker = signal<SemServiceWorker>({ tirados: 0, controlada: false });
+  private clientId = '';
+
+  private readonly pagina = this.servicos.pagina;
+
+  protected readonly provas = computed(() => {
+    const sw = this.semServiceWorker();
+    return [
+      { nome: 'Endereço seguro (https)', ok: this.pagina.seguro },
+      { nome: 'Isolado das outras páginas', ok: this.pagina.isolado },
+      { nome: 'Sem service worker', ok: !sw.tirados && !sw.controlada },
+    ];
+  });
+
+  protected readonly bloqueio = computed(() => {
+    if (!this.pagina.seguro) return 'Este endereço não é seguro (https). Não use o cofre assim.';
+    if (!this.pagina.isolado) return 'A página não está isolada das outras, como devia. Não use o cofre agora.';
+    const sw = this.semServiceWorker();
+    if (sw.tirados || sw.controlada) return 'Havia um service worker neste endereço, e ele foi tirado. Isso não devia acontecer: recarregue a página antes de entrar.';
+    return null;
+  });
+
+  constructor() {
+    void this.comecar();
+  }
+
+  private async comecar(): Promise<void> {
+    const demo = demonstracao();
+    // a volta do Google: tira o código da URL antes de qualquer outra coisa
+    const voltou = this.pagina.caminho === '/entrar';
+    const busca = this.pagina.busca;
+    if (voltou) this.pagina.limparUrl();
+    if (demo) {
+      if (demo.porta) {
+        this.porta.set(demo.porta);
+        this.clientId = 'demo';
+      } else {
+        this.entrada.set(demo.entrada);
+        this.tela.set('criar');
+      }
+      return;
+    }
+    this.semServiceWorker.set(await tirarServiceWorkers(this.pagina.trabalhadores));
+    if (voltou && (await this.voltarDoGoogle(busca))) return;
+    await this.lerStatus();
+  }
+
+  /** Troca o código do Google pela sessão de entrada; true se entrou. */
+  private async voltarDoGoogle(busca: string): Promise<boolean> {
+    const volta = lerVolta(busca, this.pagina.guarda);
+    if (!volta.ok) {
+      this.erro.set(MENSAGENS_DO_LOGIN[volta.motivo]);
+      return false;
+    }
+    const bloqueio = this.bloqueio();
+    if (bloqueio) {
+      this.erro.set(bloqueio);
+      return false;
+    }
+    this.porta.set('entrando');
+    try {
+      const entrada = await this.servicos.api.entrar(volta.codigo, volta.verificador, descreverAparelho(this.pagina.agente));
+      const estado = await this.servicos.api.estado();
+      this.entrada.set(entrada);
+      if (estado.existe) this.porta.set('existe');
+      else this.tela.set('criar');
+      return true;
+    } catch (e) {
+      this.servicos.api.usarToken(null);
+      this.erro.set(e instanceof ErroApi ? e.message : 'Não deu para entrar. Tente de novo.');
+      return false;
+    }
+  }
+
+  private async lerStatus(): Promise<void> {
+    try {
+      const status = await this.servicos.api.status();
+      this.clientId = status.googleClientId;
+      this.porta.set(this.clientId && status.modo !== 'desligado' ? 'entrar' : 'construcao');
+    } catch (e) {
+      this.porta.set('construcao');
+      this.erro.set(e instanceof ErroApi ? e.message : 'O cofre não respondeu. Tente de novo daqui a pouco.');
+    }
+  }
+
+  protected async entrar(): Promise<void> {
+    if (this.bloqueio() || !this.clientId) return;
+    this.pagina.irPara(await urlDoLogin(this.clientId, this.pagina.origem, this.pagina.guarda));
+  }
+
+  protected sair(): void {
+    this.servicos.terminar();
+  }
 }

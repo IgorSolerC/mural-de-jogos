@@ -61,6 +61,8 @@ export function createApp(deps: Deps): Hono {
       gravacoes: usage.writes,
       linhasGravadas: usage.rowsWritten,
       cotaLinhas: config.dailyRowBudget,
+      // o cliente OAuth do cofre (público: vai na URL do Google); vazio, o login ainda não está pronto
+      googleClientId: config.googleClientId,
     });
   });
 

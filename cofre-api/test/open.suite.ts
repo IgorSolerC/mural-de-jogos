@@ -64,6 +64,15 @@ export function openSuite(label: string, setup: Setup) {
   const cofre = (env: Record<string, string> = {}) => cofrePronto(setup, env);
 
   describe(`Abrir o cofre (${label})`, () => {
+    it('com o cofre criado, a sessão de entrada vale só 5 minutos (a de 20 é para criar)', async () => {
+      const { post, call, advance } = await cofre();
+      const res = await post('/api/entrar', { codigo: 'codigo-sub-dono', verificador: VERIFIER, aparelho: 'Chrome no Windows' });
+      const { token, expiraEm } = (await res.json()) as { token: string; expiraEm: string };
+      expect(expiraEm).toBe('2026-10-21T15:05:00.000Z');
+      advance(5 * 60_000);
+      expect((await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token })).status).toBe(401);
+    });
+
     it('o desafio traz o sal, o Argon2id, as passkeys da conta e a última mudança', async () => {
       const { post, entrar, db } = await cofre();
       const res = await post('/api/cofre/desafio', {}, await entrar());

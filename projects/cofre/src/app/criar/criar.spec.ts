@@ -4,7 +4,7 @@ import { ApiCofre, type CofreCriado, type DesafioDeRegistro, type Entrada, ErroA
 import { aleatorios, paraBase64url } from '../../core/bytes';
 import type { CorpoDeCriar } from '../../core/criar';
 import type { Autenticador } from '../../core/passkey';
-import { SERVICOS, type Servicos } from '../servicos';
+import { type Pagina, SERVICOS, type Servicos } from '../servicos';
 import { Criar } from './criar';
 
 const ENTRADA: Entrada = { token: 'a'.repeat(43), expiraEm: '2026-10-21T15:05:00.000Z', usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' };
@@ -14,6 +14,7 @@ class ApiDeTeste extends ApiCofre {
   corpos: CorpoDeCriar[] = [];
   falha: ErroApi | null = null;
   override async desafioDeRegistro(): Promise<DesafioDeRegistro> {
+    if (this.falha?.status === 401) throw this.falha;
     return {
       desafio: crypto.randomUUID(),
       publicKey: {
@@ -51,7 +52,19 @@ function autenticador(prf: boolean[]): Autenticador {
 async function montar(prf: boolean[]) {
   const api = new ApiDeTeste();
   const terminou = jasmine.createSpy('terminar');
-  const servicos: Servicos = { api, autenticador: autenticador(prf), rpId: 'cofre.teste', terminar: terminou };
+  const pagina: Pagina = {
+    seguro: true,
+    isolado: true,
+    origem: 'https://cofre.teste',
+    caminho: '/',
+    busca: '',
+    agente: 'Mozilla/5.0 (Windows NT 10.0) Chrome/141.0',
+    trabalhadores: undefined,
+    guarda: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined },
+    limparUrl: () => undefined,
+    irPara: () => undefined,
+  };
+  const servicos: Servicos = { api, autenticador: autenticador(prf), rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Criar);
   fixture.componentRef.setInput('entrada', ENTRADA);
@@ -176,6 +189,17 @@ describe('as telas de criar o cofre', () => {
     expect(el.querySelector('.erro')!.textContent).toContain('O desafio venceu. Registre os aparelhos de novo.');
     expect(el.querySelectorAll('.aparelho').length).toBe(0);
     expect(botao(el, /primeiro aparelho/)).toBeTruthy();
+  });
+
+  it('a entrada que acaba no meio (20 minutos): pede para entrar de novo', async () => {
+    const { fixture, api, terminou, el } = await montar([true]);
+    await usarFraseSorteada(fixture, el);
+    api.falha = new ErroApi(401, 'sessao-invalida', 'Sua sessão acabou. Entre de novo.');
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => !!el.querySelector('.erro'));
+    expect(el.querySelector('.erro')!.textContent).toContain('A entrada acabou');
+    botao(el, 'Entrar de novo').click();
+    expect(terminou).toHaveBeenCalled();
   });
 
   it('a frase sorteada: sortear outra limpa o que foi digitado', async () => {
