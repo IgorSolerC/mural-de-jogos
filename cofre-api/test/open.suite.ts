@@ -231,6 +231,45 @@ export function openSuite(label: string, setup: Setup) {
       expect((await post('/api/cofre/recuperar', { kRec: CODIGO }, t)).status).toBe(423);
     });
 
+    it('congelar só com o Google: 24 h sem abrir, todos os aparelhos trancados, e não há como tirar antes', async () => {
+      const { entrar, post, db, chave, call, advance } = await cofre();
+      // o cofre aberto num aparelho (quem a pessoa suspeita que entrou)
+      const t1 = await entrar();
+      await chave(t1);
+      const { token: aberto } = (await (await post('/api/cofre/abrir', { kAuth: SENHA }, t1)).json()) as { token: string };
+      expect((await post('/api/cofre/congelar', {})).status).toBe(401);
+      const t2 = await entrar();
+      const res = await post('/api/cofre/congelar', {}, t2);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ congeladoAte: '2026-10-22T15:00:00.000Z' });
+      // todas as sessões saem: a do cofre aberto e a própria de entrada
+      expect(await db.first('SELECT COUNT(*) AS n FROM cofre_sessoes')).toEqual({ n: 0 });
+      expect((await call('GET', '/api/cofre/itens', undefined, { origin: ORIGEM, token: aberto })).status).toBe(401);
+      expect(await db.first("SELECT tipo, aparelho FROM cofre_eventos WHERE tipo = 'cofre-congelado'")).toEqual({ tipo: 'cofre-congelado', aparelho: 'Chrome no Windows' });
+      // a porta mostra até quando, e nada abre
+      const t3 = await entrar();
+      expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token: t3 })).json()).toMatchObject({ congeladoAte: '2026-10-22T15:00:00.000Z' });
+      expect((await chave(t3)).status).toBe(423);
+      // congelar de novo estende a partir de agora (nunca encurta)
+      advance(60 * 60_000);
+      expect(await (await post('/api/cofre/congelar', {}, await entrar())).json()).toEqual({ congeladoAte: '2026-10-22T16:00:00.000Z' });
+      await db.batch([{ sql: 'UPDATE cofre_contas SET congelado_ate = ?', params: ['2026-10-30T00:00:00.000Z'] }]);
+      expect(await (await post('/api/cofre/congelar', {}, await entrar())).json()).toEqual({ congeladoAte: '2026-10-30T00:00:00.000Z' });
+      await db.batch([{ sql: 'UPDATE cofre_contas SET congelado_ate = ?', params: ['2026-10-22T16:00:00.000Z'] }]);
+      // passado o prazo, abre de novo
+      advance(24 * 60 * 60_000);
+      const t4 = await entrar();
+      expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token: t4 })).json()).toMatchObject({ congeladoAte: null });
+      expect((await chave(t4, 'es256', 1)).status).toBe(200);
+    });
+
+    it('congelar sem cofre: 404', async () => {
+      const { call } = await setup(LOCAL);
+      const res = await call('POST', '/api/entrar', { codigo: 'codigo-sub-dono', verificador: VERIFIER, aparelho: 'Chrome no Windows' }, { origin: ORIGEM });
+      const { token } = (await res.json()) as { token: string };
+      expect((await call('POST', '/api/cofre/congelar', {}, { origin: ORIGEM, token })).status).toBe(404);
+    });
+
     it('a pimenta trocada: quem abre com a senha certa passa para a versão nova', async () => {
       const { db, deps, withEnv, entrar, chave, post } = await cofre();
       const nova = withEnv({ COFRE_PIMENTA_2: b(32, 77) });

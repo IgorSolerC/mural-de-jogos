@@ -50,6 +50,15 @@ describe('a conversa com a API do cofre', () => {
     expect(pedidos[2]!.init.headers).toEqual({});
   });
 
+  it('congelar: o servidor tranca tudo, e a página esquece o token', async () => {
+    const { pedidos, buscar } = fetchDeMentira(() => json({ congeladoAte: '2026-10-23T18:00:00.000Z' }));
+    const api = new ApiCofre(buscar);
+    api.usarToken('a'.repeat(43));
+    expect(await api.congelar()).toEqual({ congeladoAte: '2026-10-23T18:00:00.000Z' });
+    expect([pedidos[0]!.url, pedidos[0]!.init.method]).toEqual(['/api/cofre/congelar', 'POST']);
+    expect(api.temSessao).toBe(false);
+  });
+
   it('o erro da API vira ErroApi com o código e a mensagem dela', async () => {
     const { buscar } = fetchDeMentira(() => json({ erro: 'cofre-existe', mensagem: 'Esta conta já tem um cofre.' }, 409));
     const erro = await falhaCom(new ApiCofre(buscar).criarCofre({}));

@@ -1423,5 +1423,37 @@ dados de mentira.
   - Conferido de dentro do cofre isolado no Chrome de verdade, com a base de verdade. A página de
     privacidade conta isso.
 
+- **A limpeza da área de transferência** (`app/area-de-transferencia.ts`): um serviço único da página.
+  O navegador só deixa escrever com a página em foco; se a limpeza dos 30 segundos falhar, ela fica
+  pendente e acontece assim que a página volta ao foco, mesmo com o item fechado.
+
 Falta da Fase 7: a revisão de segurança final e a gaveta (opcional).
+
+### 17.10 Congelar o cofre (22/10)
+
+Feito do lado do cofre, com uma mudança para o usuário conferir: o plano punha o "Congelar" nos Ajustes
+do Murall, por uma RPC `congelar` na `CofreRpc` (16.13). O Murall ainda não tem a ligação com o cofre
+(ela espera o cofre no ar), e o freio serve para quando a pessoa está sem os aparelhos. Por isso ele fica na
+tela de abrir, logo depois do login do Google: "Suspeita de algo? Congelar o cofre". A RPC do Murall pode
+vir depois, chamando a mesma coisa.
+
+- `POST /api/cofre/congelar`, com a sessão de entrada (só o Google) ou a do cofre aberto.
+  - Ninguém abre por 24 h, nem com a senha, a passkey ou o código (o 423 que já existia).
+  - Todas as sessões da conta saem: os aparelhos com o cofre aberto são trancados, este também.
+  - O histórico ganha "Cofre congelado por 24 horas".
+  - Grava mesmo no modo só leitura, como trancar.
+- **Não há descongelar.** Quem tem só o Google (o caso de 16.13) não pode tirar o freio. Congelar de novo
+  estende para 24 h a partir de agora e nunca encurta. O estrago de quem roubar o Google continua sendo o
+  cofre fechado, sem nada lido.
+- **A tela**: a confirmação diz que nem a própria pessoa abre e que não dá para desfazer. Congelado, a ficha
+  ganha a faixa azul e o carimbo "Congelado", diz até quando (dia e hora) e o que fazer se não foi a
+  pessoa: trocar a senha do Google. A próxima entrada já chega assim, pelo `congeladoAte` do
+  `GET /api/cofre`.
+- **`Clear-Site-Data`**: o navegador o ignora na resposta de um `fetch` sem credenciais, que é como a página
+  fala com a API. Por isso ele só vale no `trancar` (o `sendBeacon` vai com credenciais). Em
+  `trancar-todos` e no apagar ele continua, sem efeito (o teste de ponta a ponta mostrou o aviso do
+  Chrome); no congelar, nem entrou. Quem cobre o service worker plantado (28) é a página: ela tira
+  qualquer um ao carregar, e o Sair recarrega.
+- Testes da API (prazo, sessões, histórico, estender sem encurtar, sem cofre, depois do prazo), da tela e
+  do cliente. No teste de ponta a ponta no Chrome, congelar e a entrada seguinte já congelada.
 

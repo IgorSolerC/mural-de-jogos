@@ -28,6 +28,7 @@ async function cofreDeTeste() {
 
 class ApiDeAbrir extends ApiCofre {
   senhaErrada = false;
+  congelou = 0;
   constructor(private readonly c: Awaited<ReturnType<typeof cofreDeTeste>>) {
     super();
   }
@@ -44,6 +45,10 @@ class ApiDeAbrir extends ApiCofre {
   }
   override async chave(): Promise<ChaveDoAparelho> {
     return { envelope: { id: this.c.envelopeId, dados: paraBase64url(this.c.envelope) }, tipo: 'prf' };
+  }
+  override async congelar(): Promise<{ readonly congeladoAte: string }> {
+    this.congelou++;
+    return { congeladoAte: '2026-10-23T18:00:00.000Z' };
   }
   override async abrir(): Promise<Abertura> {
     if (this.senhaErrada) throw new ErroApi(401, 'senha-errada', 'Senha errada.');
@@ -64,7 +69,7 @@ function autenticador(prf: Uint8Array): Autenticador {
   };
 }
 
-async function montar(senhaErrada = false) {
+async function montar(senhaErrada = false, congeladoAte: string | null = null) {
   const c = await cofreDeTeste();
   const api = new ApiDeAbrir(c);
   api.senhaErrada = senhaErrada;
@@ -73,10 +78,13 @@ async function montar(senhaErrada = false) {
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Abrir);
   fixture.componentRef.setInput('entrada', ENTRADA);
+  fixture.componentRef.setInput('congeladoAte', congeladoAte);
+  const saidas: number[] = [];
+  fixture.componentInstance.sair.subscribe(() => saidas.push(1));
   const abertos: CofreAberto[] = [];
   fixture.componentInstance.aberto.subscribe((x) => abertos.push(x));
   await fixture.whenStable();
-  return { fixture, abertos, el: fixture.nativeElement as HTMLElement };
+  return { fixture, abertos, saidas, api, el: fixture.nativeElement as HTMLElement };
 }
 
 async function ate(fixture: ComponentFixture<Abrir>, condicao: () => boolean): Promise<void> {
@@ -133,5 +141,33 @@ describe('a tela de abrir', () => {
     await fixture.whenStable();
     expect(botao(el, 'Abrir').disabled).toBe(false);
     expect(botao(el, 'Usar a passkey')).toBeTruthy();
+  });
+
+  it('congelado: mostra até quando, sem campo de senha, e só o Sair', async () => {
+    const { el, saidas } = await montar(false, '2026-10-23T18:00:00.000Z');
+    expect(el.querySelector('.carimbo')!.textContent).toContain('Congelado');
+    expect(el.querySelector('.ate')!.textContent).toContain('23 de outubro');
+    expect(el.querySelector('#abrir-senha')).toBeNull();
+    expect(el.querySelector('.ficha')!.classList).toContain('gelo');
+    botao(el, 'Sair').click();
+    expect(saidas.length).toBe(1);
+  });
+
+  it('congelar pede confirmação; confirmado, o servidor congela e a tela mostra até quando', async () => {
+    const { fixture, el, api } = await montar();
+    botao(el, 'Suspeita de algo? Congelar o cofre').click();
+    await fixture.whenStable();
+    expect(el.querySelector('.freio')!.textContent).toContain('Não dá para desfazer');
+    botao(el, 'Não').click();
+    await fixture.whenStable();
+    expect(api.congelou).toBe(0);
+    digitar(el, '#abrir-senha', SENHA);
+    botao(el, 'Suspeita de algo? Congelar o cofre').click();
+    await fixture.whenStable();
+    botao(el, 'Congelar por 24 horas').click();
+    await ate(fixture, () => !!el.querySelector('.carimbo'));
+    expect(api.congelou).toBe(1);
+    expect(el.querySelector('.ate')!.textContent).toContain('23 de outubro');
+    expect(el.querySelector('#abrir-senha')).toBeNull();
   });
 });

@@ -1,7 +1,8 @@
 // O cofre de ponta a ponta no Chrome (PLANO-COFRE.md, 17.6, parte 4): a página e a API de verdade, pelo
 // Worker de teste (worker-e2e.ts, com o Google e o Murall de mentira), e a passkey no autenticador
 // virtual do Chrome, com PRF. Faz: a porta (seguro e isolado), entrar, criar com a frase sorteada,
-// abrir com a senha e a passkey, guardar uma senha, trancar e abrir pelo código do kit.
+// abrir com a senha e a passkey, guardar uma senha, trancar e abrir pelo código do kit, gerenciar,
+// conferir as vazadas, a vigia do DOM e, por fim, congelar.
 //
 // O puppeteer-core não é dependência do projeto: rode numa pasta à parte.
 //   1. npx wrangler d1 migrations apply cofre-e2e --local -c test/e2e/wrangler.e2e.toml   (em cofre-api)
@@ -176,6 +177,19 @@ try {
   await page.evaluate(() => document.body.appendChild(document.createElement('extensao-injetada')));
   await esperar(() => page.$('.vigia'), 5000, 'a vigia avisar da injeção');
   passo('a vigia do DOM avisou de um elemento injetado');
+  await clicar('Trancar');
+  await page.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => undefined);
+
+  // 8. congelar só com o Google: a tela mostra até quando, e a próxima entrada já chega congelada
+  await entrar();
+  await clicar('Suspeita de algo? Congelar o cofre');
+  await clicar('Congelar por 24 horas');
+  await page.waitForSelector('.carimbo', { timeout: 20000 });
+  await foto('8-congelado');
+  await entrar();
+  await page.waitForSelector('.carimbo', { timeout: 20000 });
+  if (await page.$('#abrir-senha')) throw new Error('congelado, mas o campo da senha apareceu');
+  passo(`congelado: ${await page.$eval('.ate', (e) => e.textContent.trim())}`);
 } catch (e) {
   erros.push(`FALHOU: ${e.message}`);
   await foto('erro').catch(() => undefined);

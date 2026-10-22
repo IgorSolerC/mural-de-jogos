@@ -21,6 +21,7 @@ const EVENTOS: Record<string, string> = {
   'aparelho-posto': 'Aparelho posto',
   'aparelho-tirado': 'Aparelho tirado',
   'todos-trancados': 'Todos os aparelhos trancados',
+  'cofre-congelado': 'Cofre congelado por 24 horas',
 };
 
 const MAXIMO_DE_APARELHOS = 10;

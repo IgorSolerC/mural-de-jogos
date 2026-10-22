@@ -299,6 +299,13 @@ export class ApiCofre {
     return this.pedir('GET', '/api/cofre/sessoes');
   }
 
+  /** Congelar o cofre por 24 h (8.6), só com a entrada do Google: o servidor tranca todos os aparelhos, este também. */
+  async congelar(): Promise<{ readonly congeladoAte: string }> {
+    const r = await this.pedir<{ readonly congeladoAte: string }>('POST', '/api/cofre/congelar', {});
+    this.token = null;
+    return r;
+  }
+
   trancarTodos(): Promise<{ readonly trancados: true }> {
     return this.pedir('POST', '/api/cofre/trancar-todos', {});
   }

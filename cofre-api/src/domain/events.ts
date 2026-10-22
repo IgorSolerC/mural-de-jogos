@@ -12,7 +12,8 @@ export type EventKind =
   | 'aparelho-tirado'
   | 'senha-trocada'
   | 'codigo-trocado'
-  | 'todos-trancados';
+  | 'todos-trancados'
+  | 'cofre-congelado';
 
 /** Uma linha do histórico (conta 3 linhas na cota: a linha, a chave e o índice). */
 export function eventStatement(userId: string, kind: EventKind, now: Date, device: string | null, country: string | null): Statement {

@@ -11,12 +11,17 @@ import { type Demonstracao, paginaDoNavegador } from './servicos';
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
  * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar` ou
  * `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de entrar aparece
- * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir; com `?demo=aberto`, um cofre aberto com três
+ * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com três
  * senhas de exemplo, guardadas na memória por uma API de mentira que confere o contador como a de verdade.
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
 class ApiDeMentira extends ApiCofre {
+  override async congelar(): Promise<{ readonly congeladoAte: string }> {
+    await espera(250);
+    return { congeladoAte: new Date(Date.now() + 86_400_000).toISOString() };
+  }
+
   override async desafioDeRegistro(): Promise<DesafioDeRegistro> {
     await espera(250);
     return {
@@ -171,7 +176,8 @@ export function demonstracao(): Demonstracao | null {
   const usuario = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
   return (feita = {
     porta,
-    abrir: pedido === 'abrir',
+    abrir: pedido === 'abrir' || pedido === 'congelado',
+    congeladoAte: pedido === 'congelado' ? new Date(Date.now() + 86_400_000).toISOString() : undefined,
     aberto: pedido === 'aberto' ? () => cofreDeMentira(api, usuario) : undefined,
     servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: paginaDoNavegador(), terminar: () => location.reload() },
     entrada: { token: 'demo', expiraEm: new Date(Date.now() + 300_000).toISOString(), usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' },

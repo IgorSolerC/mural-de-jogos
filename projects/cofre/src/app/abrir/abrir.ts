@@ -25,79 +25,107 @@ function mensagem(e: unknown): string {
 /**
  * Abrir o cofre (8.1): a senha mestra e a passkey de um aparelho (ou o código do kit no lugar dela). O
  * desafio é pedido na hora de abrir (ele vale 2 minutos), e o Argon2id roda enquanto a pessoa confirma a
- * passkey. A senha só vive no campo até abrir.
+ * passkey. A senha só vive no campo até abrir. Daqui também dá para congelar o cofre (8.6), e congelado
+ * ele mostra só até quando.
  */
 @Component({
   selector: 'cofre-abrir',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article class="ficha">
+    <article class="ficha" [class.gelo]="prazo()">
       <header class="faixa">
         <h1>Cofre de senhas</h1>
         <span class="conta">Conta {{ contaFormatada() }}</span>
       </header>
-      <form class="corpo" (submit)="$event.preventDefault(); abrirCofre()">
-        <h2>Abrir o cofre</h2>
-        @if (jeito() === 'passkey') {
-          <p class="nota">Digite a senha mestra. Depois o aparelho pede o rosto, a digital ou o PIN: no computador, pode ser o celular pelo QR code.</p>
-        } @else {
-          <p class="nota">Sem nenhum aparelho? Use o código do kit de emergência, com a senha mestra.</p>
-        }
-
-        <div class="campo-bloco">
-          <label class="rotulo" for="abrir-senha">Senha mestra</label>
-          <input
-            id="abrir-senha"
-            type="password"
-            autocomplete="off"
-            autocapitalize="off"
-            autocorrect="off"
-            spellcheck="false"
-            translate="no"
-            [value]="senha()"
-            (input)="senha.set(valor($event))"
-            [disabled]="ocupado()"
-          />
+      @if (prazo()) {
+        <div class="corpo" role="status">
+          <h2 class="carimbo">Congelado</h2>
+          <p class="ate">Até {{ prazo() }}</p>
+          <p class="nota">Ninguém abre o cofre até lá: nem com a senha, nem com a passkey, nem com o código do kit. Não dá para tirar o congelamento antes.</p>
+          <p class="nota">Foi você? É só esperar. Se não foi, alguém entrou na sua conta do Google: troque a senha do Google agora.</p>
+          <div class="pe">
+            <button type="button" class="tinta" (click)="sair.emit()">Sair</button>
+          </div>
         </div>
+      } @else {
+        <form class="corpo" (submit)="$event.preventDefault(); abrirCofre()">
+          <h2>Abrir o cofre</h2>
+          @if (jeito() === 'passkey') {
+            <p class="nota">Digite a senha mestra. Depois o aparelho pede o rosto, a digital ou o PIN: no computador, pode ser o celular pelo QR code.</p>
+          } @else {
+            <p class="nota">Sem nenhum aparelho? Use o código do kit de emergência, com a senha mestra.</p>
+          }
 
-        @if (jeito() === 'codigo') {
           <div class="campo-bloco">
-            <label class="rotulo" for="abrir-codigo">Código de recuperação</label>
+            <label class="rotulo" for="abrir-senha">Senha mestra</label>
             <input
-              id="abrir-codigo"
-              class="codigo"
+              id="abrir-senha"
+              type="password"
               autocomplete="off"
-              autocapitalize="characters"
+              autocapitalize="off"
               autocorrect="off"
               spellcheck="false"
               translate="no"
-              placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-              [value]="codigo()"
-              (input)="codigo.set(valor($event))"
+              [value]="senha()"
+              (input)="senha.set(valor($event))"
               [disabled]="ocupado()"
             />
           </div>
-        }
 
-        <div aria-live="polite">
-          @if (erro()) {
-            <p class="erro" role="alert">{{ erro() }}</p>
+          @if (jeito() === 'codigo') {
+            <div class="campo-bloco">
+              <label class="rotulo" for="abrir-codigo">Código de recuperação</label>
+              <input
+                id="abrir-codigo"
+                class="codigo"
+                autocomplete="off"
+                autocapitalize="characters"
+                autocorrect="off"
+                spellcheck="false"
+                translate="no"
+                placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+                [value]="codigo()"
+                (input)="codigo.set(valor($event))"
+                [disabled]="ocupado()"
+              />
+            </div>
           }
-          @if (ocupado()) {
-            <p class="nota pequena">{{ etapa() }}</p>
-          }
-        </div>
-        @if (sessaoAcabou()) {
-          <button type="button" class="tinta" (click)="sair.emit()">Entrar de novo</button>
-        }
 
-        <div class="pe">
-          <button type="button" class="quieto" [disabled]="ocupado()" (click)="trocarJeito()">
-            {{ jeito() === 'passkey' ? 'Usar o código de recuperação' : 'Usar a passkey' }}
-          </button>
-          <button type="submit" class="tinta" [disabled]="!pronto()">Abrir</button>
-        </div>
-      </form>
+          <div aria-live="polite">
+            @if (erro()) {
+              <p class="erro" role="alert">{{ erro() }}</p>
+            }
+            @if (ocupado()) {
+              <p class="nota pequena">{{ etapa() }}</p>
+            }
+          </div>
+          @if (sessaoAcabou()) {
+            <button type="button" class="tinta" (click)="sair.emit()">Entrar de novo</button>
+          }
+
+          <div class="pe">
+            <button type="button" class="quieto" [disabled]="ocupado()" (click)="trocarJeito()">
+              {{ jeito() === 'passkey' ? 'Usar o código de recuperação' : 'Usar a passkey' }}
+            </button>
+            <button type="submit" class="tinta" [disabled]="!pronto()">Abrir</button>
+          </div>
+
+          <!-- o freio de emergência (8.6): para quando a pessoa suspeita de algo e está sem os aparelhos -->
+          <div class="freio">
+            @if (confirmarCongelar()) {
+              <p class="nota" id="freio-pergunta">
+                Por 24 horas ninguém abre o cofre, nem você, e os aparelhos com ele aberto agora são trancados. Não dá para desfazer antes do prazo.
+              </p>
+              <span class="botoes" role="group" aria-labelledby="freio-pergunta">
+                <button type="button" class="tinta" [disabled]="ocupado()" (click)="congelar()">Congelar por 24 horas</button>
+                <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarCongelar.set(false)">Não</button>
+              </span>
+            } @else {
+              <button type="button" class="quieto" [disabled]="ocupado() || sessaoAcabou()" (click)="confirmarCongelar.set(true)">Suspeita de algo? Congelar o cofre</button>
+            }
+          </div>
+        </form>
+      }
     </article>
   `,
   styleUrl: './abrir.scss',
@@ -106,6 +134,8 @@ export class Abrir {
   private readonly servicos = inject(SERVICOS);
 
   readonly entrada = input.required<Entrada>();
+  /** Até quando o cofre está congelado (null: não está), pelo `GET /api/cofre`. */
+  readonly congeladoAte = input<string | null>(null);
   readonly aberto = output<CofreAberto>();
   readonly sair = output<void>();
 
@@ -116,6 +146,16 @@ export class Abrir {
   protected readonly etapa = signal('');
   protected readonly erro = signal<string | null>(null);
   protected readonly sessaoAcabou = signal(false);
+  protected readonly confirmarCongelar = signal(false);
+  /** O congelamento feito agora, nesta tela (o servidor devolve até quando). */
+  private readonly congeladoAgora = signal<string | null>(null);
+  /** Até quando, em palavras ("quinta-feira, 23 de outubro, às 15:00"); vazio se não está congelado. */
+  protected readonly prazo = computed(() => {
+    const iso = this.congeladoAgora() ?? this.congeladoAte();
+    if (!iso) return '';
+    const d = new Date(iso);
+    return `${d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}, às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  });
 
   protected readonly contaFormatada = computed(() => `${this.entrada().codigo.slice(0, 4)}-${this.entrada().codigo.slice(4)}`);
   protected readonly pronto = computed(() => !this.ocupado() && !this.sessaoAcabou() && this.senha().length > 0 && (this.jeito() === 'passkey' || this.codigo().trim().length >= 28));
@@ -128,6 +168,27 @@ export class Abrir {
     this.jeito.set(this.jeito() === 'passkey' ? 'codigo' : 'passkey');
     this.codigo.set('');
     this.erro.set(null);
+  }
+
+  protected async congelar(): Promise<void> {
+    this.erro.set(null);
+    this.ocupado.set(true);
+    try {
+      const { congeladoAte } = await this.servicos.api.congelar();
+      this.senha.set('');
+      this.codigo.set('');
+      this.congeladoAgora.set(congeladoAte);
+    } catch (e) {
+      if (e instanceof ErroApi && e.status === 401 && e.codigo === 'sessao-invalida') {
+        this.sessaoAcabou.set(true);
+        this.erro.set('A entrada acabou: ela vale 5 minutos. Entre de novo para congelar.');
+      } else {
+        this.erro.set(e instanceof ErroApi ? e.message : 'Não deu para congelar. Tente de novo.');
+      }
+    } finally {
+      this.ocupado.set(false);
+      this.confirmarCongelar.set(false);
+    }
   }
 
   protected async abrirCofre(): Promise<void> {

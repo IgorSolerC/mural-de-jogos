@@ -23,3 +23,50 @@
 .corpo > .tinta {
   justify-self: start;
 }
+
+/* o freio de emergência, no pé da ficha: quieto até ser pedido */
+.freio {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.freio > .quieto {
+  margin-left: -12px;
+}
+.freio .nota {
+  margin: 0;
+  color: var(--vermelho);
+  font-weight: 600;
+}
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+/* congelado: a faixa vira gelo, e o carimbo diz o estado antes de qualquer frase */
+.gelo .faixa {
+  background: var(--azul);
+}
+.carimbo {
+  justify-self: start;
+  margin: 4px 0 0;
+  padding: 4px 14px 2px;
+  border: 3px solid currentColor;
+  border-radius: 4px;
+  color: #0b4f7a;
+  font: 400 clamp(1.7rem, 6vw, 2.2rem)/1.1 var(--f-marker);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  rotate: -3deg;
+}
+.ate {
+  margin: -6px 0 0;
+  font: 700 1.25rem/1.3 var(--f-rotulo);
+  letter-spacing: 0.02em;
+  text-wrap: balance;
+}
+.ate::first-letter {
+  text-transform: uppercase;
+}

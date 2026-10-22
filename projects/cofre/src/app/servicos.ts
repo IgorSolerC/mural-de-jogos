@@ -87,6 +87,8 @@ export interface Demonstracao {
   readonly porta?: Porta;
   /** `?demo=abrir`: a tela de abrir. */
   readonly abrir?: boolean;
+  /** `?demo=congelado`: a tela de abrir com o cofre congelado. */
+  readonly congeladoAte?: string;
   /** `?demo=aberto`: um cofre já aberto, com a API de mentira guardando os itens na memória. */
   readonly aberto?: () => Promise<CofreAberto>;
 }

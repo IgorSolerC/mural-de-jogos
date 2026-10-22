@@ -43,7 +43,7 @@ import { VigiaDoDom } from './vigia-do-dom';
           }
           @case ('abrir') {
             @defer (on immediate) {
-              <cofre-abrir [entrada]="entrada" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
+              <cofre-abrir [entrada]="entrada" [congeladoAte]="congeladoAte()" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
             } @loading {
               <p class="carregando">Abrindo…</p>
             }
@@ -100,6 +100,8 @@ export class Cofre {
   protected readonly cofre = signal<CofreAberto | null>(null);
   protected readonly porta = signal<Porta>('carregando');
   protected readonly entrada = signal<Entrada | null>(null);
+  /** Até quando o cofre está congelado (8.6), pelo `GET /api/cofre`. */
+  protected readonly congeladoAte = signal<string | null>(null);
   protected readonly erro = signal<string | null>(null);
   private readonly semServiceWorker = signal<SemServiceWorker>({ tirados: 0, controlada: false });
   /** O que a vigia do DOM viu de estranho na página (null: nada). */
@@ -147,6 +149,7 @@ export class Cofre {
         this.tela.set('aberto');
       } else if (demo.abrir) {
         this.entrada.set(demo.entrada);
+        this.congeladoAte.set(demo.congeladoAte ?? null);
         this.tela.set('abrir');
       } else {
         this.entrada.set(demo.entrada);
@@ -177,6 +180,7 @@ export class Cofre {
       const entrada = await this.servicos.api.entrar(volta.codigo, volta.verificador, descreverAparelho(this.pagina.agente));
       const estado = await this.servicos.api.estado();
       this.entrada.set(entrada);
+      this.congeladoAte.set(estado.congeladoAte);
       this.tela.set(estado.existe ? 'abrir' : 'criar');
       return true;
     } catch (e) {

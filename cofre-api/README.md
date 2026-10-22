@@ -28,6 +28,8 @@ nunca decifra nada: não tem a chave para isso.
     Freio: 5 erros seguidos, espera de 1 minuto que dobra; 20 erros por dia.
   - `POST /api/cofre/recuperar` (`{ kRec }`): o código de recuperação no lugar da passkey.
   - `POST /api/cofre/trancar`: apaga a sessão (o token pode vir no corpo, como o `sendBeacon` manda).
+  - `POST /api/cofre/congelar` (com a sessão de entrada ou a do cofre): ninguém abre por 24 h e todas as
+    sessões saem (8.6). Não há descongelar; congelar de novo estende o prazo, nunca encurta.
   - Itens (com o cofre aberto): `GET /api/cofre/itens`, `PUT`/`DELETE /api/cofre/itens/:id`,
     `POST /api/cofre/itens/:id/restaurar` e `DELETE /api/cofre/lixeira/:id`. Cada gravação manda o
     manifesto novo e o `contadorAnterior`; se outro aparelho gravou antes, 409 com o contador de
