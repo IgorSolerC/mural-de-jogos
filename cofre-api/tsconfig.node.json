@@ -2,5 +2,5 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "types": ["node"], "lib": ["ES2022", "DOM"] },
   "include": ["src/**/*.ts", "test/**/*.ts", "vitest.*.config.ts"],
-  "exclude": ["src/entry/worker.ts", "src/adapters/d1.ts", "test/workers.test.ts", "test/site.test.ts", "vitest.workers.config.ts", "test/node.test.ts", "test/pagina.suite.ts"]
+  "exclude": ["src/entry/worker.ts", "src/adapters/d1.ts", "test/workers.test.ts", "test/site.test.ts", "vitest.workers.config.ts", "test/node.test.ts", "test/pagina.suite.ts", "test/e2e/**"]
 }

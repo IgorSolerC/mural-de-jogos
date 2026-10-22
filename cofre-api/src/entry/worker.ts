@@ -21,7 +21,7 @@ interface MuralRpc {
 }
 
 /** As variáveis do wrangler.toml (ver `config.ts`), os secrets (ver `secrets.ts`), o banco e o Murall. */
-interface Env {
+export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
   MURAL: MuralRpc;
@@ -37,7 +37,7 @@ interface Env {
 /** Fora do `fetch`: as chaves do Google ficam guardadas enquanto o Worker está de pé. */
 const googleKeys = createRemoteJWKSet(new URL(GOOGLE_CERTS_URL));
 
-function deps(env: Env): Deps {
+export function deps(env: Env): Deps {
   const vars = env as unknown as Record<string, unknown>;
   const config = readConfig(vars);
   const secrets = readSecrets(vars);
@@ -66,9 +66,12 @@ function withNonce(response: Response, nonce: string): Response {
   }).transform(response);
 }
 
-/** A página e a API, com os cabeçalhos. */
-export async function serve(request: Request, env: Env): Promise<Response> {
-  const d = deps(env);
+/**
+ * A página e a API, com os cabeçalhos. `fazerDeps` é a de produção; só o teste de ponta a ponta
+ * (`test/e2e/worker-e2e.ts`, que nunca é publicado) passa outra, com o Google e o Murall de mentira.
+ */
+export async function serve(request: Request, env: Env, fazerDeps: (env: Env) => Deps = deps): Promise<Response> {
+  const d = fazerDeps(env);
   const nonce = newNonce();
   const secure = d.config.origin.startsWith('https://');
   const url = new URL(request.url);

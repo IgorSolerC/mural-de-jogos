@@ -1117,7 +1117,7 @@ A Fase 4 (criar o cofre) em partes, uma de cada vez:
 | 1 | **A lógica de criar, sem tela**: a conversa com a API, a passkey com PRF e a montagem do pedido, com um teste da página e da API juntas | Feita |
 | 2 | **Entrar com o Google** na página: o PKCE, a volta em `/entrar`, limpar a URL na hora. Precisa do cliente OAuth "Murall Cofre" do usuário (16.14) para testar no ar | Feita na página; falta o teste no ar com o cliente do usuário |
 | 3 | **As telas de criar**: os aparelhos (com PRF ou no modo servidor, o aviso de um aparelho só), a senha mestra (a frase sorteada e a força de uma escrita à mão), o kit de emergência para imprimir. Com o Impeccable | Feita |
-| 4 | **De ponta a ponta no Chrome** com o autenticador virtual e o `wrangler dev` (a sessão de entrada posta direto no banco local, só no teste) | — |
+| 4 | **De ponta a ponta no Chrome** com o autenticador virtual e o `wrangler dev` | Feita (22/10) |
 
 Parte 1, o que entrou:
 
@@ -1311,4 +1311,40 @@ Partes 2 a 4, as telas (22/10, de madrugada, com o usuário dormindo e a autoriz
 - Testes no Karma: a tela de abrir (abrindo de verdade, com a cripto real e o PRF), o cofre aberto
   (lista, busca, copiar e limpar, abrir o site, nova senha, lixeira com confirmação, conflito, sessão
   vencida, Trancar), os gatilhos de trancar, o gerador (inclusive a distribuição) e o endereço seguro.
+
+#### O certificado do cofre não saiu (22/10)
+
+A primeira publicação deu certo: os testes, os hashes conferidos no Linux, as migrações e o Worker. Mas
+o HTTPS de `cofre.murall.igorsc.com.br` recusa a conexão ("handshake failure") mesmo depois de 2 horas.
+
+A causa é o **CAA**. O domínio próprio de um Worker ganha um certificado próprio, mesmo em subdomínio de
+dois níveis, mas quem emite procura o CAA subindo pelos nomes:
+- `cofre.murall.igorsc.com.br` não tem CAA próprio;
+- o nome de cima, `murall.igorsc.com.br`, é um CNAME para `igorsolerc.github.io`, e o CAA do GitHub vale
+  ali: só DigiCert, Let's Encrypt e Sectigo;
+- a autoridade que a Cloudflare usa para esse certificado (a Google Trust Services, `pki.goog`) fica
+  barrada.
+
+O CAA da raiz (`igorsc.com.br`) não chega a ser lido.
+
+**Correção (passo do usuário, um minuto)**: na Cloudflare, em DNS › Records, três registros CAA com
+**Name** `cofre.murall`, Flags `0`, Tag "Only allow specific hostnames" e CA domain name `pki.goog`,
+`letsencrypt.org` e `ssl.com` (um registro para cada). Com um CAA no nome exato, a busca para ali. A
+Cloudflare tenta emitir de novo sozinha; depois, rodar o "Publicar o cofre" para conferir. O login do
+wrangler desta máquina só lê a zona, por isso o Claude não fez a mudança.
+
+#### De ponta a ponta no Chrome (Fase 4, parte 4; 22/10)
+
+O cofre inteiro rodou no Chrome de verdade, com:
+- a passkey no autenticador virtual, com PRF;
+- a página e a API servidas pelo Worker de teste (`cofre-api/test/e2e/worker-e2e.ts`, com os cabeçalhos,
+  a CSP, os Trusted Types e o isolamento de verdade, e só o Google e o Murall de mentira; nunca vai ao ar:
+  sem rota e só em localhost);
+- o banco D1 local.
+
+Passou tudo, sem nenhum erro no console: a porta (seguro e isolado), entrar (a URL limpa), criar com a
+frase sorteada (a passkey ficou "Com PRF"), abrir com a senha e a passkey, guardar uma senha, trancar e
+abrir pelo código do kit (com a senha guardada lá e o aviso do código). O teste achou um defeito: o campo
+URL era `type="url"` e o navegador barrava "banco.exemplo" sem esquema; virou texto com
+`inputmode="url"`. O roteiro é `cofre-api/test/e2e/chrome.mjs` (o puppeteer-core fica fora do projeto).
 

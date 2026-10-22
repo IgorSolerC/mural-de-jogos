@@ -1,0 +1,31 @@
+# Só para o teste de ponta a ponta no Chrome (worker-e2e.ts): NUNCA publicar.
+#   npx wrangler d1 migrations apply cofre-e2e --local -c test/e2e/wrangler.e2e.toml
+#   npx wrangler dev -c test/e2e/wrangler.e2e.toml --port 8790
+name = "cofre-e2e"
+main = "worker-e2e.ts"
+compatibility_date = "2026-08-01"
+workers_dev = false
+preview_urls = false
+
+[vars]
+MODO = "ligado"
+COTA_LINHAS_DIA = "100000"
+COFRE_CODIGOS = "*"
+COFRE_ORIGEM = "http://localhost:8790"
+COFRE_RP_ID = "localhost"
+GOOGLE_CLIENT_ID = "e2e.apps.googleusercontent.com"
+# segredos só de teste (32 bytes fixos): este Worker nunca vai ao ar
+COFRE_PIMENTA_1 = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc"
+COFRE_ENVELOPES_1 = "yMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMg"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cofre-e2e"
+database_id = "00000000-0000-0000-0000-0000000000e2"
+migrations_dir = "../../migrations"
+
+[assets]
+directory = "../../../dist/cofre/browser"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true

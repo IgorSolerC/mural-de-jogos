@@ -76,7 +76,7 @@
     </div>
   </div>
 } @else if (editando()) {
-  <form class="editar" (submit)="$event.preventDefault(); gravar()">
+  <form class="editar" novalidate (submit)="$event.preventDefault(); gravar()">
     <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
     <p class="nota pequena">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
 
@@ -112,7 +112,7 @@
     }
     <div class="campo-bloco">
       <label class="rotulo" for="item-url">URL</label>
-      <input id="item-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.url" [value]="campos().url" (input)="mudar('url', $event)" placeholder="https://" />
+      <input id="item-url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.url" [value]="campos().url" (input)="mudar('url', $event)" placeholder="https://" />
     </div>
     <div class="campo-bloco">
       <label class="rotulo" for="item-descricao">Descrição</label>
