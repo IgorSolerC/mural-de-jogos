@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { type CamposDoItem, type ItemNaLista, LIMITES } from '../../core/itens';
-import { AreaDeTransferencia } from '../area-de-transferencia';
+import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
@@ -24,7 +24,7 @@ export function emGrupos(senha: string): string[] {
 
 /**
  * Um item do cofre (decisão 11): Título, User, Senha, URL e Descrição, à direita da lista. Ver: copiar
- * (a área de transferência é limpa em 30 s), revelar a senha (15 s, com a linha que encolhe), mostrar
+ * (a área de transferência é limpa 30 s depois, com o cofre na frente), revelar a senha (15 s, com a linha que encolhe), mostrar
  * para digitar (letras grandes, em grupos) e abrir o site (aba nova, sem dizer de onde veio). Editar no
  * mesmo lugar: os cinco campos, todos opcionais, e o gerador.
  */
@@ -161,7 +161,7 @@ export class ItemDoCofre {
       this.copiado.set(marca);
       if (this.timerCopiado) clearTimeout(this.timerCopiado);
       this.timerCopiado = setTimeout(() => this.copiado.set(null), COPIADO_MS);
-      this.avisar.emit(`${oQue} copiado. A área de transferência é limpa em 30 segundos.`);
+      this.avisar.emit(avisoDaCopia(oQue, this.servicos.pagina.agente));
     } catch {
       this.avisar.emit('Não deu para copiar. Toque em Revelar e digite.');
     }

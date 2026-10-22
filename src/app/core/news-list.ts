@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-cofre-refeito',
+    id: '2026-10-22-cofre-copia-limpa',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'Uma anotação compartilhada podia mudar de grupo sozinha em todos os seus aparelhos: voltava ao grupo de antes quando abria um aparelho que ficou dias fechado, voltava para Compartilhadas num aparelho novo de quem a recebeu, ou caía no grupo de antes depois de uma internet que responde com outra página (um wi-fi de hotel). Agora o grupo que você escolheu por último, em qualquer aparelho, continua valendo.',
       'Num aparelho novo, a anotação compartilhada que chegava antes do resto do mural podia apagar o desenho e a cor dos seus grupos, também nos outros aparelhos; num aparelho que ficou fechado desde antes dos quadros Kanban por grupo, a conversão dos quadros de antes fazia o mesmo. Não apagam mais.',
       'Nesse aparelho que ficou fechado, as tags que a conversão dos quadros Kanban de antes põe nas anotações faziam a anotação dele passar por cima da escrita depois em outro aparelho (e, na compartilhada, desfaziam o grupo escolhido depois); agora a mais nova continua valendo.',
+      'O Copiar do cofre dizia que a área de transferência é limpa em 30 segundos, mas o navegador só deixa o cofre limpá-la quando ele está na frente: colando em outro app, a senha continuava no Ctrl+V, e se o cofre trancasse nesse meio-tempo, não era limpa nunca. Agora ela é limpa assim que você volta ao cofre, mesmo depois de trancar, e o aviso diz isso (no Windows, avisa também que o histórico do Win+V guarda uma cópia).',
     ],
   },
   {

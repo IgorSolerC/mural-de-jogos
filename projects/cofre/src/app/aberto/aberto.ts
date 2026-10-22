@@ -5,7 +5,7 @@ import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
 import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../core/itens';
 import { conferirVazadas } from '../../core/vazadas';
-import { AreaDeTransferencia } from '../area-de-transferencia';
+import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { Gerenciar } from '../gerenciar/gerenciar';
@@ -199,7 +199,7 @@ export class Aberto implements OnInit {
       this.copiado.set(`${i.id}:${campo}`);
       if (this.timerCopiado) clearTimeout(this.timerCopiado);
       this.timerCopiado = setTimeout(() => this.copiado.set(null), COPIADO_MS);
-      this.avisar(`${campo === 'usuario' ? 'User' : 'Senha'} de ${nomeDoItem(i.item!)} copiado. A área de transferência é limpa em 30 segundos.`);
+      this.avisar(avisoDaCopia(`${campo === 'usuario' ? 'User' : 'Senha'} de ${nomeDoItem(i.item!)}`, this.servicos.pagina.agente));
     } catch {
       this.avisar('Não deu para copiar. Abra o item e use Revelar.');
     }

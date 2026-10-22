@@ -6,6 +6,7 @@ import { aleatorios, paraBase64url } from '../../core/bytes';
 import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../../core/crypto';
 import { salvarItem } from '../../core/itens';
 import { sha1 } from '../../core/vazadas';
+import { CHAVE_DA_LIMPEZA } from '../area-de-transferencia';
 import { type Pagina, SERVICOS, type Servicos } from '../servicos';
 import { Aberto } from './aberto';
 
@@ -105,7 +106,10 @@ const botao = (el: HTMLElement, texto: string | RegExp) =>
 const titulos = (el: HTMLElement) => [...el.querySelectorAll('.lista .titulo')].map((t) => t.textContent!.trim());
 
 describe('o cofre aberto', () => {
-  afterEach(() => TestBed.resetTestingModule());
+  afterEach(() => {
+    TestBed.resetTestingModule();
+    sessionStorage.removeItem(CHAVE_DA_LIMPEZA);
+  });
 
   it('mostra a última mudança e os itens em ordem; a busca filtra sem acento nem maiúscula', async () => {
     const { fixture, el } = await montar();
@@ -250,7 +254,8 @@ describe('o cofre aberto', () => {
     senha().click();
     await estabilizar(fixture);
     expect(senha().classList).toContain('feito');
-    expect(el.querySelector('.bilhete')!.textContent).toContain('Senha de Banco copiado');
+    // o bilhete diz o que é verdade: só limpa com o cofre na frente, e o Win+V do Windows guarda uma cópia
+    expect(el.querySelector('.bilhete')!.textContent).toContain('Senha de Banco copiada. Sai do Ctrl+V depois de 30 s, quando o cofre estiver na frente. O histórico do Win+V guarda uma cópia.');
     await new Promise((ok) => setTimeout(ok, 1900));
     await estabilizar(fixture);
     expect(senha().classList).not.toContain('feito');

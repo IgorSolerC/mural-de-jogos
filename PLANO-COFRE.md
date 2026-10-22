@@ -280,8 +280,11 @@ Cache-Control: no-store
 - Nenhum service worker. Ao carregar, `navigator.serviceWorker.getRegistrations()` desregistra
   qualquer um e mostra um aviso (não deveria existir).
 - Nada em `localStorage`, `IndexedDB` ou cookies. A sessão do cofre fica numa variável.
-- Única exceção: o `state` e o `code_verifier` do login do Google ficam no `sessionStorage` entre
-  sair para o Google e voltar, e são apagados na volta. Não são segredos do cofre.
+- Exceções, no `sessionStorage` da aba (somem quando ela fecha), nenhuma com segredo do cofre:
+  - o `state` e o `code_verifier` do login do Google, entre sair para o Google e voltar, apagados na volta;
+  - a hora em que a área de transferência deve ser limpa depois de um Copiar (só a hora, nunca o texto),
+    apagada quando a limpeza acontece. Trancar recarrega a página, e sem isso a limpeza pendente se
+    perdia (22/10).
 
 ## 8. Os fluxos
 
@@ -1434,6 +1437,12 @@ dados de mentira.
 - **A limpeza da área de transferência** (`app/area-de-transferencia.ts`): um serviço único da página.
   O navegador só deixa escrever com a página em foco; se a limpeza dos 30 segundos falhar, ela fica
   pendente e acontece assim que a página volta ao foco, mesmo com o item fechado.
+  - Conferido no Chrome de verdade (22/10): com a página em foco, o timer limpa; com a pessoa colando em
+    outro app, o Chrome recusa a escrita (ou ela nem termina) e a senha continua no Ctrl+V até o cofre
+    voltar à frente. Nenhuma página consegue mais que isso. O bilhete do Copiar diz assim, e no Windows
+    avisa que o Win+V guarda a sua própria cópia, que só programas instalados conseguem evitar.
+  - Trancar recarrega a página e perdia a limpeza pendente: a hora dela fica no `sessionStorage` (7.4), e
+    a raiz do cofre já cria o serviço na porta, para terminar o serviço quando a página voltar ao foco.
 
 Falta da Fase 7: a revisão de segurança final e a gaveta (opcional).
 

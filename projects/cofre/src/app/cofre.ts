@@ -3,6 +3,7 @@ import type { CofreAberto } from '../core/abrir';
 import { type Entrada, ErroApi } from '../core/api';
 import { descreverAparelho, lerVolta, MENSAGENS_DO_LOGIN, urlDoLogin } from '../core/entrar';
 import { Abrir } from './abrir/abrir';
+import { AreaDeTransferencia } from './area-de-transferencia';
 import { Aberto } from './aberto/aberto';
 import { demonstracao } from './ambiente';
 import { Criar } from './criar/criar';
@@ -140,6 +141,8 @@ export class Cofre {
   });
 
   constructor() {
+    // já na porta: termina a limpeza da área de transferência que o cofre trancado deixou por fazer
+    inject(AreaDeTransferencia);
     void this.comecar();
   }
 

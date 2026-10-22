@@ -62,10 +62,10 @@ test('nenhum uso proibido no código do cofre', () => {
   assert.deepEqual(achados, []);
 });
 
-test('o sessionStorage só no login do Google (a única exceção da seção 7.4)', () => {
+test('o sessionStorage só no login do Google e na hora da limpeza da cópia (as exceções da seção 7.4)', () => {
   const achados = [];
   for (const f of todos) {
-    if (f.endsWith(`core${sep}entrar.ts`) || f.endsWith('.spec.ts')) continue;
+    if (f.endsWith(`core${sep}entrar.ts`) || f.endsWith(`app${sep}area-de-transferencia.ts`) || f.endsWith('.spec.ts')) continue;
     if (/\bsessionStorage\b/.test(semComentarios(readFileSync(f, 'utf8')))) achados.push(relative(raiz, f));
   }
   assert.deepEqual(achados, []);
