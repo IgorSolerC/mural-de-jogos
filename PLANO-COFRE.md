@@ -1504,3 +1504,9 @@ deve ter. Uma cópia nunca seria igual e ficaria para trás a cada mudança do M
 - Ainda vale: o cofre só muda quando é publicado à mão. Mudar a lista e não publicar deixa o topo do cofre
   com a lista velha até a próxima publicação (a vigia continua conferindo o publicado contra o repositório).
 
+### 17.13 Aberto para todos (22/10)
+
+A pedido do usuário, `COFRE_CODIGOS = "*"`: todo mundo com conta no Murall vê a aba Cofre e pode criar o
+seu cofre. Entrou nas Novidades como a funcionalidade 1.30.0, com a faixa do topo. A página de teste do
+PRF (`public/prf-teste.html`) ficou por enquanto, para conferir um aparelho antes de pô-lo no cofre.
+

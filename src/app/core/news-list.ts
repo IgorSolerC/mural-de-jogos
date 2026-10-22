@@ -26,6 +26,21 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-22-cofre-de-senhas',
+    version: '1.30.0',
+    kind: 'funcionalidade',
+    date: '2026-10-22',
+    title: 'Cofre de senhas',
+    notice: 'Novo: o cofre de senhas, na aba Cofre das Anotações. Ele abre com a sua conta, uma senha mestra e a passkey de um aparelho seu, e as senhas são cifradas no próprio aparelho.',
+    items: [
+      'O cofre de senhas: a aba Cofre das Anotações, depois do Calendário, leva a um endereço só dele, onde você guarda senhas com título, usuário, senha, site e descrição (todos opcionais).',
+      'Ele abre com três coisas: a sua conta do Google, uma senha mestra e a passkey de um aparelho seu (o rosto, a digital ou o PIN; no computador, pode ser o celular pelo QR code). As senhas são cifradas no seu aparelho antes de sair dele: ninguém consegue lê-las, nem quem cuida do Murall.',
+      'Ao criar, o cofre sugere uma frase sorteada para a senha mestra e entrega um kit de emergência com o código de recuperação, para imprimir: sem a senha mestra, ninguém abre o cofre.',
+      'No cofre aberto: busca, revelar, copiar (a área de transferência se limpa em 30 segundos), mostrar para digitar, gerador de senhas, as últimas versões de cada senha, lixeira de 30 dias e conferir se alguma senha apareceu em vazamentos. Parado, ele tranca sozinho.',
+      'Em Gerenciar o cofre: os aparelhos, trocar a senha mestra, um código de recuperação novo, os aparelhos com o cofre aberto agora, o histórico de 90 dias e apagar o cofre. Suspeita de algo? Na tela de abrir, Congelar o cofre impede que alguém o abra por 24 horas.',
+    ],
+  },
+  {
     id: '2026-10-21-texto-inteiro-recolhe',
     version: '1.29.2',
     kind: 'ajustes',
