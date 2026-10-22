@@ -1,6 +1,7 @@
-import { ApplicationConfig, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationConfig, ErrorHandler, inject, provideAppInitializer, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
 import { PreloadAllModules, TitleStrategy, provideRouter, withHashLocation, withInMemoryScrolling, withPreloading } from '@angular/router';
 import { LocalData } from './core/local-data';
+import { MuralErrorHandler } from './core/missing-piece';
 import { MuralTitle } from './core/title';
 import { routes } from './app.routes';
 
@@ -20,5 +21,8 @@ export const appConfig: ApplicationConfig = {
       withPreloading(PreloadAllModules),
     ),
     { provide: TitleStrategy, useExisting: MuralTitle },
+    // um pedaço do site que não chegou (uma página aberta antes da última publicação) vira um bilhete
+    // com o Recarregar, em vez de um botão que não abre nada (ver core/missing-piece.ts)
+    { provide: ErrorHandler, useClass: MuralErrorHandler },
   ],
 };

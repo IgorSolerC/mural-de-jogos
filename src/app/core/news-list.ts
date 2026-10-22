@@ -26,11 +26,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-cofre-copia-limpa',
+    id: '2026-10-22-folhas-que-nao-abriam',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
-    title: 'O cofre de senhas refeito, as anotações só no Kanban fora do mural de quem visita e o grupo das compartilhadas',
+    title: 'O cofre de senhas refeito, as folhas que às vezes não abriam, as anotações só no Kanban fora do mural de quem visita e o grupo das compartilhadas',
     melhorias: [
       'O cofre de senhas refeito para usar no dia a dia: a lista e a senha aberta lado a lado, e o user e a senha de cada item se copiam direto da lista, sem abrir. A senha aberta mostra tudo em linhas, com a edição no mesmo lugar; cada senha ganhou uma letra colorida para achar de olho; "/" busca e as setas andam pela lista.',
       'Gerenciar o cofre virou Ajustes do cofre, como as Configurações do mural: uma etiqueta por parte (Aparelhos, Senha mestra, Recuperação, Abertos agora, Senhas vazadas, Histórico e Cuidado). Conferir as senhas vazadas foi para lá, com a lista das que apareceram e um botão para abrir cada uma.',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Num aparelho novo, a anotação compartilhada que chegava antes do resto do mural podia apagar o desenho e a cor dos seus grupos, também nos outros aparelhos; num aparelho que ficou fechado desde antes dos quadros Kanban por grupo, a conversão dos quadros de antes fazia o mesmo. Não apagam mais.',
       'Nesse aparelho que ficou fechado, as tags que a conversão dos quadros Kanban de antes põe nas anotações faziam a anotação dele passar por cima da escrita depois em outro aparelho (e, na compartilhada, desfaziam o grupo escolhido depois); agora a mais nova continua valendo.',
       'O Copiar do cofre dizia que a área de transferência é limpa em 30 segundos, mas o navegador só deixa o cofre limpá-la quando ele está na frente: colando em outro app, a senha continuava no Ctrl+V, e se o cofre trancasse nesse meio-tempo, não era limpa nunca. Agora ela é limpa assim que você volta ao cofre, mesmo depois de trancar, e o aviso diz isso (no Windows, avisa também que o histórico do Win+V guarda uma cópia).',
+      'Com o Murall aberto desde antes de uma versão nova, algumas folhas não abriam no toque, como as Configurações do mural, o painel de emojis das reações e o Compartilhar, e o botão ficava preso até recarregar a página. Agora o site guarda logo tudo da versão aberta, e, se ainda faltar alguma parte (sem internet na hora de guardar), um bilhete avisa e recarrega num toque.',
     ],
   },
   {

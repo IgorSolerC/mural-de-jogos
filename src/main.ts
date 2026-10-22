@@ -13,7 +13,7 @@ if (!isDevMode() && 'serviceWorker' in navigator) {
     // Na primeira visita a página carregou antes do service worker existir: os arquivos dela (código,
     // estilos, fontes, texturas) não passaram por ele. Guarda agora, senão o offline abre em branco.
     void navigator.serviceWorker.ready
-      .then(async () => {
+      .then(async (reg) => {
         // o mesmo nome do SHELL de public/sw.js
         const cache = await caches.open('mural-site-v1');
         const own = performance
@@ -25,6 +25,9 @@ if (!isDevMode() && 'serviceWorker' in navigator) {
             if (!(await cache.match(url))) await cache.add(url).catch(() => undefined);
           }),
         );
+        // e o resto do código desta versão, o que só chega quando alguém toca (ver keepVersion em public/sw.js)
+        const economia = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+        reg.active?.postMessage({ tipo: 'guardar-versao', economia });
       })
       .catch(() => undefined); // sem Cache Storage (alguma aba anônima): segue sem a cópia
   });

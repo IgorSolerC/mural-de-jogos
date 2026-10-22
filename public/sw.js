@@ -8,6 +8,10 @@
  * - As capas (Wikipedia, Steam, RAWG, Open Library, TMDB, AniList, iTunes): guardadas na primeira vez, para sempre.
  *   As do Kitsu não aceitam CORS: aparecem normalmente, mas não ficam guardadas.
  * - As buscas de catálogo passam direto: sem rede, a busca já avisa e oferece seguir sem capa.
+ * - Todo o código da versão aberta fica guardado logo, mesmo o que ainda não foi usado (os pedaços
+ *   que só chegam quando alguém toca, como as Configurações do mural ou o painel de emojis). Cada
+ *   publicação troca o site inteiro no servidor: sem isso, uma página aberta antes dela pedia um
+ *   pedaço que não existe mais, e a folha não abria (ver `keepVersion`).
  * - Os arquivos de versões antigas do site (o código e as fontes, que levam o hash no nome) saem
  *   quando ninguém os pede há mais de 30 dias. Os da versão atual ficam sempre, mesmo sem uso.
  * - A ponte da mudança de endereço (ponte.html e ponte.js): guardada na instalação e servida do cache
@@ -20,8 +24,8 @@ const COVERS = 'mural-capas-v1';
 const MAX_COVERS = 3000;
 /** Um arquivo de outra versão do site guardado há mais que isto sai do cache. */
 const OLD_VERSION_DAYS = 30;
-/** Uma limpeza das versões antigas por vida do service worker (ele acorda a cada visita). */
-let pruned = false;
+/** A página guardada da última vez que a versão foi guardada e limpa: uma vez por versão em cada vida do service worker (ele acorda a cada visita). */
+let kept = '';
 /** As capas já postas no fim da fila nesta vida do service worker. */
 const refreshed = new Set();
 const COVER_HOSTS =/(^|\.)(wikimedia\.org|steamstatic\.com|rawg\.io|openlibrary\.org|archive\.org|tmdb\.org|anilist\.co|mzstatic\.com)$/;
@@ -72,12 +76,9 @@ async function page(req, event) {
   let saving = Promise.resolve();
   const network = fetch(req).then((res) => {
     if (res.ok) {
-      // com a página nova guardada (e com rede), é a hora de tirar o que é de versões antigas
-      const saved = cache.put('./', res.clone()).then(() => {
-        if (pruned) return;
-        pruned = true;
-        return pruneOldVersions(cache);
-      });
+      // com a página nova guardada (e com rede), é a hora de guardar o resto dela e tirar o que é de
+      // versões antigas; quem pediu economia de dados só leva o que usar
+      const saved = cache.put('./', res.clone()).then(() => keepVersion(cache, req.headers.get('save-data') !== 'on'));
       saving = saved.catch(() => undefined);
     }
     return res;
@@ -167,28 +168,63 @@ async function trim(cache) {
 const VERSIONED = /-[A-Z0-9]{8}\.(?:js|css|woff2?)$/;
 
 /**
- * Tira do cache os arquivos de versões antigas do site guardados há mais de OLD_VERSION_DAYS. Os da
- * versão atual (tudo o que a página guardada carrega, direta ou indiretamente: o código, os pedaços
- * que ele importa, as fontes do CSS) ficam, mesmo que ninguém os peça há muito tempo: sem eles, o
- * mural não abriria offline. A idade é a do cabeçalho Date da resposta guardada (cada uso com rede
- * guarda de novo).
+ * A página avisa que abriu (src/main.ts): na primeira visita ela carregou antes do service worker
+ * existir, e nenhuma navegação passou por `page` para guardar o resto da versão.
  */
-async function pruneOldVersions(cache) {
+self.addEventListener('message', (event) => {
+  if (event.data?.tipo !== 'guardar-versao') return;
+  event.waitUntil(caches.open(SHELL).then((cache) => keepVersion(cache, !event.data.economia)));
+});
+
+/**
+ * A versão da página guardada: o código que ela ainda não pediu vem já (com `fetchMissing`), e os
+ * arquivos de versões antigas saem. Uma vez por versão em cada vida do service worker.
+ */
+async function keepVersion(cache, fetchMissing) {
   const index = await cache.match('./');
   if (!index) return;
+  const text = await index.text();
+  if (text === kept) return;
+  kept = text;
+  await pruneOldVersions(cache, await versionFiles(cache, text, fetchMissing));
+}
+
+/**
+ * Os arquivos de uma versão do site: tudo o que a página carrega, direta ou indiretamente (o código,
+ * os pedaços que ele importa, as fontes do CSS). Com `fetchMissing`, o código (.js e .css com o hash
+ * no nome) que ainda não está guardado vem da rede, um por vez e sem pressa: as fontes não, que o
+ * navegador só pede as do alfabeto que aparece na tela, e faltar uma só troca a letra. Um arquivo que
+ * a rede não tem mais (a página é de antes de outra publicação) fica de fora.
+ */
+async function versionFiles(cache, index, fetchMissing) {
   const base = new URL('./', self.registration.scope).href;
-  const current = new Set();
-  const queue = [...(await index.text()).matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => new URL(m[1], base).href);
+  const files = new Set();
+  const queue = [...index.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => new URL(m[1], base).href);
   while (queue.length) {
     const url = queue.pop();
-    if (current.has(url)) continue;
-    current.add(url);
+    if (files.has(url)) continue;
+    files.add(url);
     if (!/\.(?:js|css)$/.test(url)) continue;
-    const res = await cache.match(url);
+    let res = await cache.match(url);
+    if (!res && fetchMissing && new URL(url).origin === self.location.origin && VERSIONED.test(new URL(url).pathname)) {
+      res = await fetch(url, { priority: 'low' }).catch(() => null);
+      if (res?.ok) await cache.put(url, res.clone()).catch(() => undefined);
+      else res = null;
+    }
     if (!res) continue;
     const text = await res.text();
     for (const m of text.matchAll(/["'(]\.\/([\w./-]+\.(?:js|css|woff2?))["')]/g)) queue.push(new URL(m[1], url).href);
   }
+  return files;
+}
+
+/**
+ * Tira do cache os arquivos de versões antigas do site guardados há mais de OLD_VERSION_DAYS. Os da
+ * versão atual (`current`, ver `versionFiles`) ficam, mesmo que ninguém os peça há muito tempo: sem
+ * eles, o mural não abriria offline. A idade é a do cabeçalho Date da resposta guardada (cada uso com
+ * rede guarda de novo).
+ */
+async function pruneOldVersions(cache, current) {
   const limit = Date.now() - OLD_VERSION_DAYS * 86_400_000;
   for (const req of await cache.keys()) {
     if (current.has(req.url) || !VERSIONED.test(new URL(req.url).pathname)) continue;
