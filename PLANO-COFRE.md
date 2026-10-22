@@ -1177,7 +1177,8 @@ Mínimo de 70 bits; com algum aparelho no modo servidor, 78, o de uma frase sort
 - passam: 7 palavras escolhidas da lista (73) e uma senha aleatória de 16 caracteres variados (74).
 
 Parte 3, as telas (`projects/cofre/src/app/criar/`), no jeito do Murall:
-- as abas de fichário dos passos em pé na régua;
+- os passos como orelhas de pasta manilha, iguais às do mural de anotações (a de agora emendada na
+  faixa da ficha; a aba trapézio da primeira versão foi recusada pelo usuário);
 - a ficha creme com a faixa amarela e a tachinha;
 - os botões de tinta, as faixas de campo e as etiquetas de adesivo com listras;
 - a régua escolar da força, com a caneta vermelha no mínimo.

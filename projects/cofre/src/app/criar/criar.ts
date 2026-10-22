@@ -24,19 +24,26 @@ const PASSOS: readonly { readonly id: 'senha' | 'aparelhos' | 'kit'; readonly no
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [PassoSenha, PassoAparelhos, PassoKit],
   template: `
-    <nav class="passos" aria-label="Passos para criar o cofre">
-      <ol>
-        @for (p of passos; track p.id; let i = $index) {
-          <li [class.feito]="indice() > i" [class.agora]="indice() === i" [attr.aria-current]="indice() === i ? 'step' : null">
-            <span class="numero" aria-hidden="true">{{ i + 1 }}</span>
-            {{ p.nome }}
-          </li>
-        }
-      </ol>
-    </nav>
-
     <article class="ficha">
-      <span class="tachinha" aria-hidden="true"></span>
+      <nav class="passos" aria-label="Passos para criar o cofre">
+        <ol>
+          @for (p of passos; track p.id; let i = $index) {
+            <li [class.feito]="indice() > i" [class.agora]="indice() === i" [attr.aria-current]="indice() === i ? 'step' : null">
+              <span class="numero" aria-hidden="true">
+                @if (indice() > i) {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+                } @else {
+                  {{ i + 1 }}
+                }
+              </span>
+              <span class="nome">{{ p.nome }}</span>
+              @if (indice() > i) {
+                <span class="visivel-so-leitor">(feito)</span>
+              }
+            </li>
+          }
+        </ol>
+      </nav>
       <header class="faixa">
         <h1>Criar o cofre de senhas</h1>
         <span class="conta">Conta {{ contaFormatada() }}</span>

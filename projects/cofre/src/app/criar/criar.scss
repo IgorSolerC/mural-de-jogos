@@ -4,36 +4,61 @@
   margin: 0 auto;
 }
 
-/* os passos como abas de fichário em pé na régua de alumínio; a de agora, amarela, mais alta */
+/* a ficha é uma divisória de pasta: as orelhas dos passos ficam de pé em cima dela, como as do mural de
+   anotações. As de trás, de manilha mais escura, descem até atrás da faixa; a de agora vem para a frente,
+   da cor da faixa, emendada nela. */
+.ficha {
+  position: relative;
+  isolation: isolate;
+  margin-top: 46px;
+  border-radius: 2px;
+  background: var(--papel);
+  box-shadow: var(--sombra-alta);
+  rotate: -0.5deg;
+}
+.passos {
+  position: absolute;
+  left: clamp(8px, 3vw, 18px);
+  right: clamp(8px, 3vw, 18px);
+  bottom: calc(100% - 8px);
+}
 .passos ol {
   display: flex;
-  gap: 6px;
+  align-items: flex-end;
+  gap: 3px;
   margin: 0;
-  padding: 0 18px;
+  padding: 0;
   list-style: none;
 }
 .passos li {
+  position: relative;
+  z-index: 0;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 38px;
-  padding: 0 16px;
-  background: var(--aba);
+  gap: 7px;
+  min-height: 40px;
+  /* o pé desce 8px: fica escondido atrás da faixa */
+  padding: 9px 14px 15px;
+  border-radius: 10px 10px 0 0;
+  background-color: var(--manilha-atras);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
   color: var(--tinta);
-  clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%);
-  font: 800 0.98rem/1 var(--f-rotulo);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  transition:
-    translate 160ms var(--curva-ui),
-    background 160ms var(--curva-ui);
+  white-space: nowrap;
+  translate: 0 3px;
+  transition: translate 160ms var(--curva-ui);
 }
 .passos li.agora {
-  background: var(--hi);
-  translate: 0 -4px;
+  z-index: 2;
+  padding-top: 12px;
+  background-color: var(--amarelo);
+  translate: 0 0;
 }
-.passos li.feito {
-  color: rgb(21 21 21 / 0.62);
+.nome {
+  font: 400 1.08rem/1.1 var(--f-marker);
+}
+.passos li:not(.agora) .nome {
+  opacity: 0.82;
 }
 .numero {
   display: grid;
@@ -42,58 +67,31 @@
   height: 20px;
   border-radius: 50%;
   background: var(--tinta);
-  color: var(--aba);
-  font-size: 0.8rem;
-  letter-spacing: 0;
+  color: var(--papel);
+  font: 700 0.8rem/1 var(--f-rotulo);
   font-variant-numeric: tabular-nums;
 }
-.agora .numero {
-  color: var(--hi);
+.numero svg {
+  width: 13px;
+  height: 13px;
 }
-.passos::after {
-  content: '';
-  display: block;
-  height: 8px;
-  border-radius: 1px;
-  background: var(--regua);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.28),
-    inset 0 -2px 0 rgb(0 0 0 / 0.3),
-    0 6px 10px -3px rgb(0 0 0 / 0.6);
-}
-
-/* a ficha: um cartão de papel creme com a faixa amarela e a tachinha no meio */
-.ficha {
-  position: relative;
-  margin-top: 30px;
-  border-radius: 2px;
-  background: var(--papel);
-  box-shadow: var(--sombra-alta);
-  rotate: -0.5deg;
-}
-.tachinha {
+.visivel-so-leitor {
   position: absolute;
-  top: -9px;
-  left: 50%;
-  z-index: 1;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  translate: -50% 0;
-  background:
-    radial-gradient(circle at 38% 34%, rgb(255 255 255 / 0.85) 0 2px, transparent 3px),
-    radial-gradient(circle at 50% 50%, #e62e2d 0 8px, color-mix(in srgb, #e62e2d 62%, #000) 9px 10px, #e62e2d 11px 12px, color-mix(in srgb, #e62e2d 62%, #000) 13px);
-  box-shadow:
-    2px 5px 3px -1px rgb(0 0 0 / 0.45),
-    5px 10px 10px -2px rgb(0 0 0 / 0.25);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .faixa {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
   gap: 4px 16px;
-  padding: 26px clamp(16px, 5vw, 32px) 14px;
+  padding: 18px clamp(16px, 5vw, 32px) 14px;
   border-radius: 2px 2px 0 0;
   background: var(--amarelo);
 }
@@ -163,15 +161,17 @@ h1 {
 }
 
 @media (max-width: 520px) {
-  .passos ol {
-    padding: 0 8px;
-    gap: 4px;
-  }
   .passos li {
-    padding: 0 10px;
-    font-size: 0.9rem;
+    padding-inline: 11px;
   }
   .ficha {
     rotate: none;
+  }
+}
+
+/* nos celulares mais estreitos, o nome do passo basta */
+@media (max-width: 359px) {
+  .numero {
+    display: none;
   }
 }

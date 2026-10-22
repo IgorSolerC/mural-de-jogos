@@ -19,8 +19,9 @@
   --erro: #6b0000;
   --hi: #ffda42;
   --fita: rgb(222 205 160 / 0.86);
-  --regua: #76726b;
-  --aba: #dcd6c8;
+  --manilha-atras: #ae9a6c;
+  /* o grão do papel (um ruído desenhado, sem arquivo de fora) */
+  --grao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   --azul: #70cdff;
   --amarelo: #ffda42;
   --verde-cartolina: #7be986;
