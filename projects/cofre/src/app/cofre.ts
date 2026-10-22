@@ -9,6 +9,7 @@ import { Criar } from './criar/criar';
 import { type Porta, PortaDoCofre } from './porta/porta';
 import { type SemServiceWorker, tirarServiceWorkers } from './sem-service-worker';
 import { SERVICOS } from './servicos';
+import { Topo } from './topo/topo';
 import { VigiaDoDom } from './vigia-do-dom';
 
 /**
@@ -23,8 +24,9 @@ import { VigiaDoDom } from './vigia-do-dom';
 @Component({
   selector: 'cofre-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Criar, PortaDoCofre, Abrir, Aberto],
+  imports: [Criar, PortaDoCofre, Abrir, Aberto, Topo],
   template: `
+    <cofre-topo />
     <main class="fluxo">
       @if (estranho()) {
         <p class="vigia" role="alert">

@@ -3,4 +3,6 @@
 
 # O cofre de senhas: o build tem de dar os mesmos hashes no Windows e no Linux (scripts/cofre-hashes.mjs).
 projects/cofre/** text eol=lf
+# a lista das seções entra no build do cofre também
+shared/** text eol=lf
 cofre-hashes.json text eol=lf

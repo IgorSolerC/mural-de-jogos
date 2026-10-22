@@ -1482,5 +1482,25 @@ vir depois, chamando a mesma coisa.
   a aba vira só o cadeado (com o nome "Cofre de senhas" para o leitor de tela) e as seções chegam mais
   perto. O teste das larguras (288 a 1384 px) cobre as Anotações com as quatro seções.
 - Ordem do deploy: o cofre primeiro (para a `MuralRpc` existir), depois a API do Murall.
-- Falta da 8.6: o topo igual ao do Murall dentro do cofre, os avisos no correio e o `congelar` pelo Murall.
+- Falta da 8.6: os avisos no correio e o `congelar` pelo Murall.
+
+### 17.12 O topo do cofre (22/10)
+
+Decidido com o usuário: **um topo próprio e enxuto, não uma cópia do topo do Murall** (o 8.6 e a parte
+"O topo igual ao do Murall" da seção 10 ficam valendo só no espírito). O varal e os bottons do Murall
+dependem da conta (a foto no Perfil, os avisos em Amigos, o botão de adicionar), que o cofre não tem e não
+deve ter. Uma cópia nunca seria igual e ficaria para trás a cada mudança do Murall.
+
+- **O topo** (`projects/cofre/src/app/topo`): o cartaz "Murall", com as tachinhas e o "ALL" de revista,
+  que leva de volta ao Murall, e a fileira a giz **Mural · Kanban · Calendário · Cofre**, com o Cofre
+  marcado. Aparece em todas as telas do cofre. Os links saem para o Murall na mesma aba, e sair tranca o
+  cofre.
+- **A lista vem de um lugar só**: `shared/secoes-das-anotacoes.ts`, só dados (as seções, os endereços e o
+  nome da aba do cofre). O Murall monta a barra das Anotações com ela (`core/areas.ts`, `ui/area-bar.ts`)
+  e o cofre, a fileira do topo: mudar ali muda nos dois. É a única coisa de fora que o cofre usa. A regra
+  do cofre (`regras.test.mjs`) abre exceção só para esse arquivo e confere que ele não importa nada.
+- Os desenhos (o cartaz e o giz com marca-texto) são refeitos no cofre com os tokens dele. A letra do "ALL"
+  (Abril Fatface) entrou no cofre, servida da origem dele.
+- Ainda vale: o cofre só muda quando é publicado à mão. Mudar a lista e não publicar deixa o topo do cofre
+  com a lista velha até a próxima publicação (a vigia continua conferindo o publicado contra o repositório).
 

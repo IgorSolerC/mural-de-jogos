@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, RedirectFunction, Router, RouterStateSnapshot } from '@angular/router';
 import { Kind, NOTES, SCORED_KINDS, isNotes } from './kinds';
 import { Mural } from './mural';
+import { COFRE_URL, SECOES_DAS_ANOTACOES } from '../../../shared/secoes-das-anotacoes';
 
 /**
  * As três partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
@@ -30,19 +31,15 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 
 /**
  * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e o Calendário
- * (`/anotacoes/calendario`). O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
+ * (`/anotacoes/calendario`). A lista mora em `shared/secoes-das-anotacoes.ts`, a mesma do topo do cofre. O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
  */
-export const NOTE_SECTIONS: readonly AreaSection[] = [
-  { slug: '', label: 'Mural' },
-  { slug: 'kanban', label: 'Kanban' },
-  { slug: 'calendario', label: 'Calendário' },
-];
+export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
 
 /**
  * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Anotações é só um link
  * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.
  */
-export const VAULT_URL = 'https://cofre.murall.igorsc.com.br/';
+export const VAULT_URL = COFRE_URL;
 
 /** O caminho de um quadro Kanban (sem quadro: o último aberto, ou o primeiro). */
 export function kanbanPath(board?: string): string {

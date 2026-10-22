@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 
 const raiz = dirname(fileURLToPath(import.meta.url));
 const fonte = join(raiz, 'src');
+/** A lista das seções das Anotações, a única coisa de fora que o cofre usa (sem extensão, como no import). */
+const COMPARTILHADA = resolve(raiz, '..', '..', 'shared', 'secoes-das-anotacoes');
 
 /** As únicas dependências que o cofre pode importar. Uma nova só com a aprovação do usuário. */
 const PERMITIDAS = ['hash-wasm', '@angular/core', '@angular/common', '@angular/platform-browser', '@angular/router'];
@@ -71,6 +73,8 @@ test('o cofre não importa nada de fora dele, e só as dependências permitidas'
     for (const [, alvo] of semComentarios(readFileSync(f, 'utf8')).matchAll(importa)) {
       if (alvo.startsWith('.')) {
         const destino = resolve(dirname(f), alvo);
+        // a única exceção: a lista das seções, só dados (o teste de baixo confere que ela não importa nada)
+        if (destino === COMPARTILHADA) continue;
         if (!destino.startsWith(fonte + sep)) achados.push(`${relative(raiz, f)}: importa ${alvo}, fora do cofre`);
       } else {
         const pacote = alvo.startsWith('@') ? alvo.split('/').slice(0, 2).join('/') : alvo.split('/')[0];
@@ -79,6 +83,11 @@ test('o cofre não importa nada de fora dele, e só as dependências permitidas'
     }
   }
   assert.deepEqual(achados, []);
+});
+
+test('a lista das seções, que o cofre divide com o Murall, é só dados: não importa nada', () => {
+  const texto = semComentarios(readFileSync(COMPARTILHADA + '.ts', 'utf8'));
+  assert.equal(/\bimport\b|\brequire\s*\(/.test(texto), false);
 });
 
 test('a lista de palavras não tem nenhuma das que a revisão à mão tirou', () => {

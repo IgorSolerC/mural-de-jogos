@@ -5,6 +5,7 @@ import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
 import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
+import { COFRE_ROTULO } from '../../../shared/secoes-das-anotacoes';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { KanbanStore } from '../core/kanban-store';
@@ -501,7 +502,7 @@ export class AreaBar {
       on: s === open,
     }));
     // o cofre de senhas, depois do Calendário, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
-    if (area === 'anotacoes' && this.cloudAccount.account()?.cofre) tabs.push({ label: 'Cofre', link: VAULT_URL, on: false, external: true });
+    if (area === 'anotacoes' && this.cloudAccount.account()?.cofre) tabs.push({ label: COFRE_ROTULO, link: VAULT_URL, on: false, external: true });
     return tabs;
   });
 
