@@ -4,6 +4,7 @@ import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
 import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../core/itens';
+import { conferirVazadas } from '../../core/vazadas';
 import { SERVICOS } from '../servicos';
 import { Gerenciar } from '../gerenciar/gerenciar';
 import { ItemDoCofre } from './item';
@@ -55,6 +56,9 @@ export class Aberto implements OnInit {
   protected readonly bilhete = signal<string | null>(null);
   protected readonly ultimaMudanca = signal<string | null>(null);
   protected readonly borrado = signal(false);
+  /** Quantas vezes cada senha apareceu em vazamentos (só depois de "Conferir senhas vazadas"). */
+  protected readonly vazadas = signal<ReadonlyMap<string, number>>(new Map());
+  protected readonly conferindo = signal(false);
   /** O item da lixeira esperando a confirmação de apagar de vez. */
   protected readonly confirmarApagar = signal<string | null>(null);
   private readonly item = viewChild(ItemDoCofre);
@@ -194,6 +198,32 @@ export class Aberto implements OnInit {
       this.falhou(e);
     } finally {
       this.ocupado.set(false);
+    }
+  }
+
+  /** Confere as senhas na base de vazamentos (só o começo de cada hash sai, seção 10). */
+  protected async conferirVazadas(): Promise<void> {
+    const comSenha = this.noCofre().filter((i) => i.item!.senha);
+    if (!comSenha.length) {
+      this.avisar('Nenhuma senha guardada para conferir.');
+      return;
+    }
+    this.conferindo.set(true);
+    try {
+      const vezes = await conferirVazadas(
+        comSenha.map((i) => i.item!.senha),
+        this.servicos.pagina.buscarFora,
+      );
+      if (vezes.some((v) => v === null)) {
+        this.avisar('Não deu para conferir agora (sem internet ou a base fora do ar).');
+        return;
+      }
+      const mapa = new Map(comSenha.map((i, n) => [i.id, vezes[n]!]));
+      this.vazadas.set(mapa);
+      const quantas = [...mapa.values()].filter((v) => v > 0).length;
+      this.avisar(quantas ? `${quantas} ${quantas === 1 ? 'senha apareceu' : 'senhas apareceram'} em vazamentos. Troque.` : 'Nenhuma senha apareceu em vazamentos.');
+    } finally {
+      this.conferindo.set(false);
     }
   }
 

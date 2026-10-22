@@ -1411,6 +1411,17 @@ dados de mentira.
 - **O aviso no console** contra o golpe do "cole isto aqui".
 - **Mostrar para digitar**: a folha recebe o foco e o Esc fecha de qualquer lugar.
 
-Falta da Fase 7: o aviso de senha vazada (precisa de um lugar para o "ligado", que hoje o cofre não tem
-sem guardar no aparelho), a revisão de segurança final e a gaveta (opcional).
+- **O aviso de senha vazada** (`core/vazadas.ts`), com uma mudança para o usuário conferir: em vez de
+  "ligado nos Ajustes, a cada abertura", é um botão, "Conferir senhas vazadas", no pé da lista. O cofre
+  não tem onde guardar o "ligado" sem guardar no aparelho, e mudar o manifesto para isso seria mexer na
+  cripto.
+  - Nada sai até a pessoa tocar.
+  - O SHA-1 é feito no aparelho; só os 5 primeiros caracteres vão para `api.pwnedpasswords.com/range/`, com
+    `Add-Padding`, e o resto é conferido aqui. Senhas com o mesmo começo fazem um pedido só.
+  - As encontradas ganham o selo "Vazada" na lista e o aviso no item.
+  - Sem rede ou com a base fora, diz que não deu para conferir.
+  - Conferido de dentro do cofre isolado no Chrome de verdade, com a base de verdade. A página de
+    privacidade conta isso.
+
+Falta da Fase 7: a revisão de segurança final e a gaveta (opcional).
 

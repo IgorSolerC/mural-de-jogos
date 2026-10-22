@@ -32,6 +32,9 @@
               <button type="button" class="quieto" (click)="copiar(i.senha, 'Senha')">Copiar</button>
               <button type="button" class="quieto" (click)="mostrarParaDigitar()">Mostrar para digitar</button>
             </span>
+            @if (vazada() > 0) {
+              <p class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazada().toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</p>
+            }
           </dd>
         </div>
       }

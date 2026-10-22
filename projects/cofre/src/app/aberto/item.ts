@@ -45,6 +45,8 @@ export class ItemDoCofre implements OnInit {
   /** O item, ou null para um novo. */
   readonly alvo = input<ItemNaLista | null>(null);
   readonly ocupado = input(false);
+  /** Quantas vezes a senha apareceu em vazamentos (0: nenhuma, ou ainda não conferida). */
+  readonly vazada = input(0);
   readonly salvar = output<CamposDoItem>();
   readonly paraALixeira = output<void>();
   readonly voltar = output<void>();

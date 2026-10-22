@@ -5,6 +5,7 @@ import { ApiCofre, ErroApi, type Gravacao, type ItensDaApi } from '../../core/ap
 import { aleatorios, paraBase64url } from '../../core/bytes';
 import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../../core/crypto';
 import { salvarItem } from '../../core/itens';
+import { sha1 } from '../../core/vazadas';
 import { type Pagina, SERVICOS, type Servicos } from '../servicos';
 import { Aberto } from './aberto';
 
@@ -60,6 +61,7 @@ async function montar(recuperada = false) {
   await salvarItem(api, outro, { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel', url: '', descricao: '' }, null);
   await salvarItem(api, outro, { titulo: 'Banco', usuario: 'fulano', senha: 'segredo-1', url: 'banco.exemplo', descricao: 'agência 1' }, null);
   const copias: string[] = [];
+  const pedidosFora: string[] = [];
   const sites: string[] = [];
   const terminou = jasmine.createSpy('terminar');
   const pagina = {
@@ -75,6 +77,12 @@ async function montar(recuperada = false) {
     irPara: () => undefined,
     copiar: async (t: string) => void copias.push(t),
     abrirSite: (u: string) => void sites.push(u),
+    // a base de vazamentos de mentira: só "segredo-1" (a senha do Banco) aparece, 42 vezes
+    buscarFora: (async (url: RequestInfo | URL) => {
+      const h = await sha1('segredo-1');
+      pedidosFora.push(String(url));
+      return new Response(String(url).endsWith(h.slice(0, 5)) ? `${h.slice(5)}:42\n` : '', { status: 200 });
+    }) as typeof fetch,
   } satisfies Pagina;
   const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar: async () => null }, rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
@@ -82,7 +90,7 @@ async function montar(recuperada = false) {
   fixture.componentRef.setInput('cofre', cofre);
   fixture.componentRef.setInput('conta', 'K7QFM2XA');
   await estabilizar(fixture);
-  return { fixture, api, cofre, copias, sites, terminou, el: fixture.nativeElement as HTMLElement };
+  return { fixture, api, cofre, copias, sites, terminou, pedidosFora, el: fixture.nativeElement as HTMLElement };
 }
 
 async function estabilizar(fixture: ComponentFixture<Aberto>): Promise<void> {
@@ -190,6 +198,19 @@ describe('o cofre aberto', () => {
     botao(b.el, 'Pôr na lixeira').click();
     await estabilizar(b.fixture);
     expect(b.terminou).toHaveBeenCalled();
+  });
+
+  it('conferir senhas vazadas: só o começo do hash sai; o selo aparece na lista e o aviso no item', async () => {
+    const { fixture, el, pedidosFora } = await montar();
+    expect(el.querySelector('.selo-vazada')).toBeNull();
+    [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Conferir senhas vazadas')!.click();
+    for (let i = 0; i < 20 && !el.querySelector('.selo-vazada'); i++) await estabilizar(fixture);
+    expect(pedidosFora.every((u) => /\/range\/[0-9A-F]{5}$/.test(u))).toBe(true);
+    expect(el.querySelector('.selo-vazada')!.closest('.linha')!.textContent).toContain('Banco');
+    expect(el.querySelector('.bilhete')!.textContent).toContain('1 senha apareceu em vazamentos');
+    botao(el, /Banco/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
   });
 
   it('aberto pelo código: avisa para gerar um código novo', async () => {

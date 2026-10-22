@@ -68,6 +68,7 @@
     <li><strong>O que fica no servidor, além disso:</strong> os aparelhos (o nome que você deu, a chave pública da passkey e quando foram usados), as sessões abertas (a chave de cada uma só em forma de hash) e o histórico dos últimos 90 dias (aberturas, senhas erradas, passkeys usadas e mudanças, com o aparelho e o país de onde vieram).</li>
     <li><strong>A lixeira</strong> guarda o item apagado, ainda cifrado, por 30 dias.</li>
     <li><strong>A cópia diária</strong> do banco do cofre fica no GitHub por 30 dias, trancada com senha (AES-256), além de já ser cifrada.</li>
+    <li><strong>Conferir senhas vazadas</strong> só acontece quando você toca no botão: cada senha vira um código (SHA-1) no seu aparelho, e só os 5 primeiros caracteres desse código vão para a base do Have I Been Pwned (api.pwnedpasswords.com). A senha e o código inteiro nunca saem, e nada é guardado.</li>
     <li>Nada do cofre fica guardado no seu aparelho: ao trancar ou fechar a página, tudo some da memória.</li>
     <li>Para apagar tudo do cofre: com ele aberto, em <strong>Gerenciar o cofre › Apagar o cofre</strong>.</li>
   </ul>

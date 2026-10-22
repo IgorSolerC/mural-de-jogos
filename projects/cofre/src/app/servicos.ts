@@ -30,6 +30,8 @@ export interface Pagina {
   copiar(texto: string): Promise<void>;
   /** Abre um site guardado numa aba nova, sem dizer de onde veio. */
   abrirSite(url: string): void;
+  /** Pedidos para fora do cofre (só a base de senhas vazadas, que a CSP deixa). */
+  readonly buscarFora?: typeof fetch;
 }
 
 /**
@@ -61,6 +63,7 @@ export function paginaDoNavegador(): Pagina {
     irPara: (url) => location.assign(url),
     copiar: (texto) => navigator.clipboard.writeText(texto),
     abrirSite: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
+    buscarFora: (url, init) => fetch(url, init),
   };
 }
 

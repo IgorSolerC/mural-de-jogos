@@ -165,6 +165,11 @@ try {
   await page.waitForSelector('cofre-aberto', { timeout: 60000 });
   await esperar(() => temTexto('Banco do teste'), 20000, 'item com a senha nova');
   passo('a senha nova abre o cofre, com a senha guardada lá');
+  // a base de senhas vazadas de verdade, de dentro do cofre isolado (só 5 caracteres do hash saem)
+  await clicar('Conferir senhas vazadas');
+  const bilhete = await esperar(() => page.$eval('.bilhete', (e) => e.textContent).catch(() => null), 20000, 'resposta da base de vazadas');
+  if (/Não deu/.test(bilhete)) throw new Error(`a base de vazadas não respondeu de dentro do cofre: ${bilhete}`);
+  passo(`base de vazadas: ${bilhete.trim()}`);
   if (await page.$('.vigia')) throw new Error('a vigia do DOM disparou à toa');
   passo('a vigia do DOM ficou quieta o tempo todo');
   // e pega o que uma extensão injetar
