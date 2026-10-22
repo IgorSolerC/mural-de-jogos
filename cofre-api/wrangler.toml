@@ -16,7 +16,7 @@ MODO = "ligado"
 COTA_LINHAS_DIA = "20000"
 # Quem pode usar o cofre: os códigos das contas do Murall, separados por vírgula; vazio, ninguém;
 # "*", todo mundo logado (16.1). Começa só com o código do dono, posto na Fase 3.
-COFRE_CODIGOS = ""
+COFRE_CODIGOS = "G11TG00D"
 # O endereço do cofre: a origem que o WebAuthn confere e o rpId das passkeys (7.1, 16.8).
 COFRE_ORIGEM = "https://cofre.murall.igorsc.com.br"
 COFRE_RP_ID = "cofre.murall.igorsc.com.br"
