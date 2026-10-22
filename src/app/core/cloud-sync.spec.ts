@@ -7,7 +7,7 @@ import { BASE_KEY, CloudSync, KeyValueStore, OWNER_KEY, STATE_KEY, SYNC_AUTO, SY
 import { LocalData } from './local-data';
 import { Review, sanitizeDraft, sanitizeNote, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
-import { Settings } from './settings';
+import { SETTINGS_KEY, Settings } from './settings';
 import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
 import { CalendarStore } from './calendar-store';
@@ -319,6 +319,40 @@ describe('sincronização com a nuvem', () => {
       b.kanban.update(qb, (x, at) => resetBoard(x, at));
       await settle(b, a);
       expect(a.kanban.get(qb)!.cards).toEqual([]);
+    });
+
+    it('os quadros de antes convertidos num aparelho que ficou fechado não apagam o desenho e a cor dos grupos escolhidos depois em outro', async () => {
+      const a = device();
+      a.settings.setCategoryLook('Trabalho', { icon: 'maleta', color: 'azul' });
+      await a.sync.syncNow();
+      // o aparelho parou antes dos quadros por categoria: um quadro de antes, com a característica Urgente laranja
+      localStorage.removeItem(SETTINGS_KEY);
+      const at = '2026-10-10T12:00:00.000Z';
+      localStorage.setItem(
+        'meu-mural:kanban:v1',
+        JSON.stringify({
+          boards: [
+            {
+              id: 'qvelho',
+              name: 'Meu quadro',
+              at,
+              columns: [{ id: 'qvelho-a', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false }],
+              traits: [{ id: 't1', name: 'Urgente', color: 'laranja' }],
+              cards: [{ note: 'rnota0001', column: 'qvelho-a', traits: ['t1'] }],
+            },
+          ],
+        }),
+      );
+      const b = device();
+      b.store.add({ ...sanitizeReview({ kind: 'anotacoes', game: { name: 'Relatório' }, category: 'Trabalho', completedAt: '2026-10-10', createdAt: at, updatedAt: at })!, id: 'rnota0001' });
+      TestBed.tick();
+      expect(b.kanban.state().legacy).toEqual([]);
+      expect(b.settings.tagColor('Urgente')).toBe('laranja');
+      await b.sync.syncNow();
+      TestBed.tick();
+      expect(b.settings.categoryLook('Trabalho')).toEqual({ icon: 'maleta', color: 'azul' });
+      await a.sync.syncNow();
+      expect(a.settings.categoryLook('Trabalho')).toEqual({ icon: 'maleta', color: 'azul' });
     });
   });
 

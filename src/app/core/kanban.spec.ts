@@ -395,11 +395,13 @@ describe('Kanban', () => {
           legacyBoard('q2', 'Outro', [{ note: 'n1', column: 'q2-a', traits: ['t9'] }], [{ id: 't9', name: 'correção', color: 'azul' }]),
         ],
       };
-      const { tags, colors } = attachLegacy(sanitizeKanban(raw), notes, T1);
+      const { tags, colors, colorsAt } = attachLegacy(sanitizeKanban(raw), notes, T1);
       expect(tags.get('n1')).toEqual(['Correção', 'Login']);
       expect(tags.get('n4')).toEqual(['Correção']);
       // a primeira cor de um nome vale; a preta fica sem
       expect([...colors]).toEqual([['Correção', 'vermelho']]);
+      // a hora das cores é a do quadro de antes, não a da conversão
+      expect(colorsAt).toBe(T0);
     });
 
     it('um quadro de agora da mesma categoria recebe as anotações nas colunas dele', () => {

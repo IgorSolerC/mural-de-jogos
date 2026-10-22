@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-grupo-das-compartilhadas',
+    id: '2026-10-22-cores-dos-quadros-de-antes',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
@@ -34,7 +34,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'As anotações públicas que estão só no Kanban apareciam para quem visitava o seu mural, no Feed de quem segue você e no seu perfil; agora ficam só no seu quadro, como no seu mural. Ao abrir o site, o mural que os outros veem é refeito sozinho, e no "Escolher fichas" do perfil elas aparecem apagadas, como as privadas.',
       'Uma anotação compartilhada podia mudar de grupo sozinha em todos os seus aparelhos: voltava ao grupo de antes quando abria um aparelho que ficou dias fechado, voltava para Compartilhadas num aparelho novo de quem a recebeu, ou caía no grupo de antes depois de uma internet que responde com outra página (um wi-fi de hotel). Agora o grupo que você escolheu por último, em qualquer aparelho, continua valendo.',
-      'Num aparelho novo, a anotação compartilhada que chegava antes do resto do mural podia apagar o desenho e a cor dos seus grupos, também nos outros aparelhos; não apaga mais.',
+      'Num aparelho novo, a anotação compartilhada que chegava antes do resto do mural podia apagar o desenho e a cor dos seus grupos, também nos outros aparelhos; num aparelho que ficou fechado desde antes dos quadros Kanban por grupo, a conversão dos quadros de antes fazia o mesmo. Não apagam mais.',
     ],
   },
   {

@@ -990,6 +990,12 @@ export interface LegacyOutcome {
   tags: Map<string, string[]>;
   /** A cor de cada tag (a da fita da característica; a preta não ganha cor). */
   colors: Map<string, CategoryColorId>;
+  /**
+   * Quando as cores foram escolhidas: no mais tarde, quando mudou o quadro de antes mais novo que deu
+   * uma delas ("" sem nenhuma). Não é a hora da conversão: no aparelho que ficou fechado desde antes
+   * dos quadros por categoria, os jeitos escolhidos depois em outro aparelho valem mais.
+   */
+  colorsAt: string;
 }
 
 /**
@@ -1004,7 +1010,8 @@ export interface LegacyOutcome {
 export function attachLegacy(state: KanbanState, notes: readonly BoardNote[], at: string): LegacyOutcome {
   const tags = new Map<string, string[]>();
   const colors = new Map<string, CategoryColorId>();
-  if (!state.legacy.length) return { state, tags, colors };
+  let colorsAt = '';
+  if (!state.legacy.length) return { state, tags, colors, colorsAt };
   const byId = new Map(notes.map((n) => [n.id, n]));
   const keyOf = (note: string) => {
     const c = byId.get(note)?.category?.trim();
@@ -1051,12 +1058,15 @@ export function attachLegacy(state: KanbanState, notes: readonly BoardNote[], at
         const list = tags.get(c.note) ?? [];
         if (!list.some((x) => fold(x) === fold(trait.name))) tags.set(c.note, [...list, trait.name]);
         const color = LEGACY_TRAIT_COLOR[trait.color];
-        if (color && ![...colors.keys()].some((x) => fold(x) === fold(trait.name))) colors.set(trait.name, color);
+        if (color && ![...colors.keys()].some((x) => fold(x) === fold(trait.name))) {
+          colors.set(trait.name, color);
+          if (lb.at > colorsAt) colorsAt = lb.at;
+        }
       }
     }
   }
   const kept = new Set(boards.map((b) => b.id));
   const removed = { ...state.removed };
   for (const lb of state.legacy) if (!kept.has(lb.id)) removed[lb.id] = at > lb.at ? at : new Date(Date.parse(lb.at) + 1).toISOString();
-  return { state: { ...state, boards, removed, legacy: [] }, tags, colors };
+  return { state: { ...state, boards, removed, legacy: [] }, tags, colors, colorsAt };
 }

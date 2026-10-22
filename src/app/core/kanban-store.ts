@@ -214,7 +214,7 @@ export class KanbanStore {
   /** Converte os quadros de antes (ver `attachLegacy`): as anotações vão para os quadros das categorias delas. */
   private attachLegacy(): void {
     const at = new Date().toISOString();
-    const { state, tags, colors } = attachLegacy(this.state(), this.store.notes(), at);
+    const { state, tags, colors, colorsAt } = attachLegacy(this.state(), this.store.notes(), at);
     for (const [id, names] of tags) {
       const r = this.store.get(id);
       if (!r) continue;
@@ -224,7 +224,11 @@ export class KanbanStore {
       this.store.update({ ...r, tags: next, updatedAt: at });
     }
     const paint = new Map([...colors].filter(([tag]) => !this.settings.tagColor(tag)));
-    if (paint.size) this.settings.setTagColors(paint);
+    // com a hora em que as cores foram escolhidas, não a de agora: os jeitos dos grupos vão juntos para
+    // a nuvem, e o mapa daqui, marcado como recém-mudado, passaria por cima do escolhido em outro aparelho
+    // (sem ficar mais velho que o que já estava aqui)
+    const looksAt = this.settings.categoryLooksAt();
+    if (paint.size) this.settings.setTagColors(paint, undefined, colorsAt > looksAt ? colorsAt : looksAt);
     this.state.set(state);
     this.changedAt.set(Date.now());
   }

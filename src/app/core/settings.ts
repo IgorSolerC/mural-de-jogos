@@ -322,11 +322,12 @@ export class Settings {
   }
 
   /**
-   * Troca a cor de várias tags de uma vez (undefined tira a cor); vale como a mudança mais nova. Com
-   * `category`, a cor delas naquela categoria (e "Sem cor" por cima da cor de sempre fica marcado);
-   * sem, a cor de sempre (só a conversão dos quadros de antes grava ali).
+   * Troca a cor de várias tags de uma vez (undefined tira a cor); vale como a mudança mais nova (ou
+   * como de `at`, a hora em que a cor foi escolhida de verdade). Com `category`, a cor delas naquela
+   * categoria (e "Sem cor" por cima da cor de sempre fica marcado); sem, a cor de sempre (só a
+   * conversão dos quadros de antes grava ali).
    */
-  setTagColors(colors: ReadonlyMap<string, CategoryColorId | undefined>, category?: string | null): void {
+  setTagColors(colors: ReadonlyMap<string, CategoryColorId | undefined>, category?: string | null, at = new Date().toISOString()): void {
     const next: Record<string, CategoryLook> = { ...this.categoryLooks() };
     for (const [tag, color] of colors) {
       if (!lookKey(tag)) continue;
@@ -336,7 +337,7 @@ export class Settings {
       else delete next[key];
     }
     this.categoryLooks.set(sanitizeCategoryLooks(next));
-    this.categoryLooksAt.set(new Date().toISOString());
+    this.categoryLooksAt.set(at);
   }
 
   setTagColor(tag: string, color: CategoryColorId | undefined, category?: string | null): void {
