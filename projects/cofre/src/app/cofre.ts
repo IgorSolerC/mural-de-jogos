@@ -67,10 +67,18 @@ import { VigiaDoDom } from './vigia-do-dom';
     </main>
   `,
   styles: `
+    /* a mesma folga de página do Murall (src/app/app.scss e --gutter em src/styles.scss) */
     :host {
       display: block;
       min-height: 100dvh;
-      padding: 32px 16px 64px;
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 28px clamp(16px, 4vw, 48px) 64px;
+    }
+    @media (max-width: 720px) {
+      :host {
+        padding-top: 22px;
+      }
     }
     .fluxo {
       width: 100%;

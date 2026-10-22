@@ -1495,7 +1495,7 @@ deve ter. Uma cópia nunca seria igual e ficaria para trás a cada mudança do M
   que leva de volta ao Murall, e a fileira a giz **Mural · Kanban · Calendário · Cofre**, com o Cofre
   marcado. Aparece em todas as telas do cofre. Os links saem para o Murall na mesma aba, e sair tranca o
   cofre.
-- **A lista vem de um lugar só**: `shared/secoes-das-anotacoes.ts`, só dados (as seções, os endereços e o
+- **A lista vem de um lugar só**: `shared/topo-do-murall.ts`, só dados (as seções, os endereços e o
   nome da aba do cofre). O Murall monta a barra das Anotações com ela (`core/areas.ts`, `ui/area-bar.ts`)
   e o cofre, a fileira do topo: mudar ali muda nos dois. É a única coisa de fora que o cofre usa. A regra
   do cofre (`regras.test.mjs`) abre exceção só para esse arquivo e confere que ele não importa nada.
@@ -1509,4 +1509,30 @@ deve ter. Uma cópia nunca seria igual e ficaria para trás a cada mudança do M
 A pedido do usuário, `COFRE_CODIGOS = "*"`: todo mundo com conta no Murall vê a aba Cofre e pode criar o
 seu cofre. Entrou nas Novidades como a funcionalidade 1.30.0, com a faixa do topo. A página de teste do
 PRF (`public/prf-teste.html`) ficou por enquanto, para conferir um aparelho antes de pô-lo no cofre.
+
+### 17.14 O topo do cofre igual ao do Murall (22/10)
+
+O usuário pediu, com um desenho, o topo do Murall inteiro no cofre: o cartaz, o varal com as Anotações
+marcadas, os três bottons (o Perfil com uma pessoa genérica no lugar da foto), a fileira Mural · Kanban ·
+Calendário · Cofre e, à direita dela, o logo do Cofre. Substitui o topo enxuto da 17.12. Para os dois
+não se desencontrarem, o topo virou um só:
+
+- **O desenho é o mesmo arquivo**: o SCSS do topo do Murall mudou para `shared/topo/_topo-do-murall.scss`,
+  sem mudar uma regra (o Murall só faz `@use` dele, e o teste do topo do Murall passou igual). O botão de
+  adicionar fica atrás de `$com-adicionar` (ligado no Murall, desligado no cofre), no mesmo lugar.
+- **Os dados são os mesmos**: `shared/topo-do-murall.ts` tem as partes do varal, os bottons (nome, dica e
+  caminho), os desenhos deles (copiados dos ícones Lucide, os mesmos que o topo do Murall passou a usar
+  daqui) e as seções das Anotações.
+- **Os tokens** que o desenho usa ficam em `shared/topo/_tokens-do-murall.scss`; o cofre os põe só no topo
+  dele, e o teste do cofre confere que cada um é igual ao de `src/styles.scss`.
+- **As fotos** das tachinhas e da fibra da cartolina são as do Murall, levadas para o build do cofre direto
+  de `public/textures` (cerca de 1 MB, que fica no cache). A folga da página é a do Murall
+  (`clamp(16px, 4vw, 48px)`, 28 px em cima, até 1480 px).
+- **O que fica de fora**, porque depende da conta do Murall: a foto do Perfil (uma pessoa no lugar),
+  o número de novidades em Amigos, o botão de adicionar e a parede escolhida no perfil (o cofre fica com
+  a parede padrão).
+- **O logo do Cofre**: a porta de um cofre de aço grafite, com filete branco, quatro rebites e o disco do
+  segredo, e o nome em letra de estêncil, na faixa dos logos das seções.
+- A regra do cofre aceita só a pasta `shared/`: o TypeScript de lá não importa nada, e o SCSS só usa
+  arquivos da própria pasta, `data:` e as fotos do próprio site em `textures/`.
 

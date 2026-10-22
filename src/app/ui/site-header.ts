@@ -3,30 +3,22 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { Area, CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
+import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
 import { Mural } from '../core/mural';
 import { ProfileStore } from '../core/profile-store';
 import { Settings } from '../core/settings';
+import type { LucideIconData } from 'lucide-angular';
+import { BOTTONS, DESENHOS, INCLINACOES, PARTES_DO_SITE } from '../../../shared/topo-do-murall';
 import { Pin } from './pin';
 
-/** Uma etiqueta do varal: uma parte do site. */
-interface Section {
-  area: Area;
-  label: string;
-}
-
-/** As três partes do site (ver core/areas.ts). */
-const SECTIONS: Section[] = [
-  { area: 'anotacoes', label: 'Anotações' },
-  { area: 'analises', label: 'Análises' },
-  { area: 'extras', label: 'Extras' },
-];
-
-/** Cada etiqueta pende de um jeito no barbante, sempre o mesmo (o prendedor é o eixo). */
-const TILTS = [-2.2, 1.6, -1.2, 2];
+/*
+ * As partes do varal, os bottons e os desenhos deles moram em `shared/topo-do-murall.ts`, e o desenho do
+ * topo em `shared/topo/_topo-do-murall.scss`: o topo do cofre de senhas usa os mesmos, e os dois nunca
+ * se desencontram.
+ */
 
 /**
  * O topo do site, igual em todas as páginas, em três grupos que não se misturam:
@@ -59,8 +51,10 @@ export class SiteHeader {
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly NoteIcon = ICON.praDepois;
   protected readonly CutIcon = ICON.tesoura;
-  protected readonly GearIcon = ICON.configurar;
-  protected readonly FriendsIcon = ICON.pessoas;
+  protected readonly GearIcon = DESENHOS.ajustes as unknown as LucideIconData;
+  protected readonly FriendsIcon = DESENHOS.amigos as unknown as LucideIconData;
+  /** Os bottons pelo id: o nome, a dica e o caminho de cada um. */
+  protected readonly botton = Object.fromEntries(BOTTONS.map((b) => [b.id, b])) as Record<(typeof BOTTONS)[number]['id'], (typeof BOTTONS)[number]>;
 
   private readonly path = toSignal(
     this.router.events.pipe(
@@ -75,12 +69,12 @@ export class SiteHeader {
 
   protected readonly sections = computed(() => {
     const open = areaOf(this.path());
-    return SECTIONS.map((s, i) => ({
+    return PARTES_DO_SITE.map((s, i) => ({
       ...s,
       // as Análises abrem direto no último mural de resenhas (sem passar pelo redirecionamento)
       path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : '/' + s.area,
       on: s.area === open,
-      tilt: TILTS[i % TILTS.length],
+      tilt: INCLINACOES[i % INCLINACOES.length],
     }));
   });
 

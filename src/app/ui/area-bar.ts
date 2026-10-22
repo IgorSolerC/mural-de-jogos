@@ -5,7 +5,7 @@ import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
 import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
-import { COFRE_ROTULO } from '../../../shared/secoes-das-anotacoes';
+import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { KanbanStore } from '../core/kanban-store';

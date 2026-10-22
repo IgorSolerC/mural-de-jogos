@@ -1,0 +1,931 @@
+// O desenho do topo do Murall, o mesmo nos dois sites (PLANO-COFRE.md, 17.14): o cartaz, o varal, os
+// bottons e o botão de adicionar. O topo do Murall (`src/app/ui/site-header.scss`) e o do cofre de senhas
+// (`projects/cofre/src/app/topo`) só fazem `@use` deste arquivo, então os dois nunca se desencontram. Usa
+// os tokens do Murall pelo nome (--ink, --kraft, --shadow-card...): o cofre os define no topo dele, com os
+// mesmos valores (`shared/topo/_tokens-do-murall.scss`, conferidos pelo teste do cofre).
+
+/* Com o botão de adicionar (o Murall) ou sem (o cofre): `@use ... with ($com-adicionar: false)`. */
+$com-adicionar: true !default;
+
+/* Some para os olhos e fica para o leitor de tela (o mesmo de src/app/ui/_a11y.scss: o cofre não o vê). */
+@mixin escondido {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* O topo segue a própria largura (container queries), não a da janela: o teste mede de 320 a 1920 */
+:host {
+  position: relative;
+  /* as etiquetas saem por cima do índice e da prateleira de filtros */
+  z-index: 20;
+  display: block;
+  container: topo / inline-size;
+  margin-bottom: 22px;
+}
+
+/* ===== A disposição =====
+   Celular: o cartaz à esquerda; à direita, os bottons e, embaixo deles, o botão de adicionar; o varal
+   na fileira de baixo, de ponta a ponta. */
+.topo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'cartaz bottons'
+    'cartaz adicionar'
+    'varal varal';
+  align-items: center;
+  gap: 10px 12px;
+}
+
+.cartaz {
+  grid-area: cartaz;
+}
+
+.varal {
+  grid-area: varal;
+}
+
+.bottons {
+  grid-area: bottons;
+}
+
+.adicionar {
+  grid-area: adicionar;
+}
+
+/* ===== Cartaz: a cartolina amarela com o nome do site ===== */
+.cartaz {
+  --stock: var(--stock-amarelo);
+  position: relative;
+  z-index: 3;
+  justify-self: start;
+  padding: 13px 15px 11px;
+  border-radius: 2px;
+  rotate: -1.6deg;
+  box-shadow: var(--shadow-card);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    rotate: -1deg;
+    box-shadow: var(--shadow-lift);
+  }
+
+  .pin-l {
+    top: -9px;
+    left: 8px;
+  }
+
+  .pin-r {
+    top: -9px;
+    right: 8px;
+  }
+}
+
+.logo {
+  display: block;
+  font-family: var(--f-marker);
+  line-height: 1.08;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+}
+
+/* "Murall" leva à última parede aberta */
+.logo-link {
+  /* a caixa do link é a da linha, não a da letra (a do pincel é alta) */
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 3px;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 5px;
+  }
+}
+
+/* "Mur": o mural, escrito a pincel direto no cartaz */
+.mur {
+  letter-spacing: -0.01em;
+}
+
+/* "all": de tudo. Um recorte de revista, letra de manchete em cartolina rosa, colado torto por cima
+   do cartaz, com a tesoura um pouco fora da linha */
+.all {
+  display: inline-flex;
+  /* encostado no "r", como se tivesse sido colado logo depois da última pincelada */
+  margin-left: 0.03em;
+  /* a sombra é do grupo: o corte (clip-path) cortaria a sombra do próprio recorte */
+  filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.3)) drop-shadow(0 2.5px 2px rgb(0 0 0 / 0.28));
+}
+
+.recorte {
+  display: inline-block;
+  padding: 0.13em 0.2em 0.07em 0.22em;
+  font-family: var(--f-didone);
+  font-size: 1.02em;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  /* cartolina rosa com a mesma fibra do cartaz */
+  background-color: var(--stock-rosa);
+  background-image: var(--grao-img);
+  background-size: var(--grao-tam);
+  background-blend-mode: var(--grao-mistura);
+  clip-path: polygon(0 6%, 41% 0, 100% 4%, 97% 100%, 58% 95%, 2% 100%);
+  rotate: -5deg;
+  translate: 0 -0.03em;
+  transition: rotate var(--t-physical) var(--ease-physical);
+}
+
+/* um gesto só: ao passar por cima do cartaz, o recorte se ajeita como se alguém o apertasse */
+.cartaz:hover .recorte {
+  rotate: -2.5deg;
+}
+
+/* ===== O varal: um barbante de ponta a ponta, preso em dois ganchos, e as partes do mural penduradas
+   nele por prendedores de madeira, cada etiqueta de kraft pendendo um pouco para um lado ===== */
+.varal {
+  --linha: 16px;
+  position: relative;
+  min-width: 0;
+  padding-top: calc(var(--linha) - 1px);
+}
+
+.barbante {
+  position: absolute;
+  top: var(--linha);
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 2px;
+  /* fio torcido: listras diagonais de dois tons de sisal */
+  background: repeating-linear-gradient(118deg, #e6d6ad 0 2px, #b59a69 2px 3.6px, #cdb684 3.6px 5px);
+  filter: drop-shadow(0 5px 3px rgb(0 0 0 / 0.5));
+
+  /* os ganchos: armelas de metal parafusadas na parede, com o barbante amarrado */
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    width: 9px;
+    height: 9px;
+    border: 2.5px solid #c9c7c0;
+    border-radius: 50%;
+    border-bottom-color: #8f8d86;
+    box-shadow:
+      0 2px 2px rgb(0 0 0 / 0.55),
+      inset 0 1px 1px rgb(0 0 0 / 0.35);
+  }
+
+  &::before {
+    left: -6px;
+  }
+
+  &::after {
+    right: -6px;
+  }
+}
+
+.etiquetas {
+  display: flex;
+  gap: 5px;
+  margin: 0;
+  padding: 0 6px;
+  list-style: none;
+
+  li {
+    display: flex;
+    flex: 1 1 auto;
+  }
+}
+
+.etiqueta {
+  --kraft: #c9a46c;
+  position: relative;
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 13px 6px 9px;
+  border-radius: 2px;
+  background-color: var(--kraft);
+  /* kraft: a fibra do papel e umas pintas mais escuras */
+  background-image:
+    radial-gradient(circle at 18% 32%, rgb(90 55 20 / 0.22) 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 74% 68%, rgb(90 55 20 / 0.2) 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 46% 84%, rgb(255 240 210 / 0.35) 0 0.8px, transparent 1.3px),
+    var(--paper-grain);
+  background-size:
+    23px 19px,
+    29px 23px,
+    31px 27px,
+    220px;
+  background-blend-mode: normal, normal, normal, multiply;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.35),
+    0 9px 12px -6px rgb(0 0 0 / 0.65);
+  /* pende do prendedor, no barbante */
+  transform-origin: 50% calc(-1 * var(--linha) + 18px);
+  rotate: calc(var(--tilt, 0) * 1deg);
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    /* puxada de leve: balança para o outro lado e desce um tico no prendedor */
+    rotate: calc(var(--tilt, 0) * -0.35deg);
+    translate: 0 2px;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.3),
+      0 14px 16px -6px rgb(0 0 0 / 0.65);
+  }
+
+  &:active {
+    translate: 0 4px;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+
+  /* a parte aberta: a etiqueta amarela, a cor de estado, quase reta */
+  &.on {
+    --kraft: var(--hi);
+    rotate: calc(var(--tilt, 0) * 0.3deg);
+  }
+}
+
+/* O prendedor de madeira: as pernas por cima do barbante, a mola de arame no meio, as pontas mordendo a
+   etiqueta */
+.prendedor {
+  position: absolute;
+  top: -15px;
+  left: calc(50% - 5px);
+  width: 10px;
+  height: 25px;
+  border-radius: 2px 2px 1px 1px;
+  background:
+    /* a mola */
+    linear-gradient(to bottom, transparent 8px, #f1f1ed 8px, #a7a6a1 10px, #6c6b66 11.5px, transparent 11.5px),
+    /* veios */
+    repeating-linear-gradient(90deg, rgb(110 70 25 / 0.12) 0 1px, transparent 1px 3px),
+    /* a madeira clara, com a borda redonda mais escura */
+    linear-gradient(90deg, #c79b5f, #efd3a2 35%, #e6c48d 65%, #c09359);
+  box-shadow:
+    inset 0 0 0 0.5px rgb(90 55 20 / 0.45),
+    1px 2px 2px rgb(0 0 0 / 0.45);
+  /* o prendedor fica reto: só a etiqueta pende */
+  rotate: calc(var(--tilt, 0) * -1deg);
+  transform-origin: 50% 40%;
+
+  /* as pontas da mola, saindo dos dois lados */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: -1.5px;
+    right: -1.5px;
+    height: 3.5px;
+    border-radius: 1px;
+    background: linear-gradient(#ecebe6, #77766f);
+  }
+}
+
+/* ===== Os bottons: broches redondos de lata, com a estampa sob a cúpula brilhante ===== */
+.bottons {
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 5px;
+}
+
+.botton {
+  --size: 38px;
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  color: var(--wall-ink);
+  text-decoration: none;
+  border-radius: 6px;
+
+  &:focus-visible {
+    outline: none;
+
+    .face {
+      outline: 3px solid var(--hi);
+      outline-offset: 3px;
+    }
+  }
+}
+
+.face {
+  --face: #f6f2e7;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  margin: 1px;
+  border-radius: 50%;
+  background: var(--face);
+  color: var(--ink);
+  /* a cúpula: a borda curva escurece embaixo, clareia em cima; o broche faz sombra na parede */
+  box-shadow:
+    inset 0 -4px 6px rgb(0 0 0 / 0.26),
+    inset 0 3px 3px rgb(255 255 255 / 0.55),
+    inset 0 0 0 1px rgb(0 0 0 / 0.28),
+    0 2px 2px rgb(0 0 0 / 0.45),
+    0 9px 12px -5px rgb(0 0 0 / 0.65);
+  rotate: -8deg;
+  transition:
+    rotate var(--t-physical) var(--ease-physical),
+    translate var(--t-physical) var(--ease-physical),
+    box-shadow var(--t-ui) var(--ease-ui);
+
+  /* o anel impresso na estampa */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 1.5px solid rgb(21 21 21 / 0.28);
+    border-radius: 50%;
+  }
+
+  /* o brilho da lâmpada na cúpula, por cima da estampa */
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse 34% 24% at 34% 24%, rgb(255 255 255 / 0.8), rgb(255 255 255 / 0) 100%),
+      linear-gradient(165deg, rgb(255 255 255 / 0.22), rgb(255 255 255 / 0) 48%);
+    pointer-events: none;
+  }
+}
+
+/* a sua "foto": o emoji sobre a cartolina do seu perfil */
+.foto {
+  --face: var(--stock);
+}
+
+.emoji {
+  font-size: calc(var(--size) * 0.5);
+  line-height: 1;
+}
+
+.desenho {
+  display: inline-flex;
+}
+
+.botton:hover .face {
+  rotate: 6deg;
+  translate: 0 -2px;
+}
+
+/* aberto: o aro do broche fica amarelo, a cor de estado */
+.botton.on .face {
+  box-shadow:
+    inset 0 -4px 6px rgb(0 0 0 / 0.26),
+    inset 0 3px 3px rgb(255 255 255 / 0.55),
+    inset 0 0 0 1px rgb(0 0 0 / 0.28),
+    0 0 0 3px var(--hi),
+    0 2px 2px 3px rgb(0 0 0 / 0.45),
+    0 9px 12px -5px rgb(0 0 0 / 0.65);
+  rotate: 0deg;
+}
+
+/* o nome embaixo, escrito na parede a giz; no celular só o desenho (o nome fica para o leitor de tela) */
+.legenda {
+  @include escondido;
+}
+
+.botton.on .legenda {
+  color: var(--hi);
+}
+
+/* Amigos: quantas novidades chegaram, num adesivo amarelo (estado) colado no broche */
+.selo {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  display: inline-grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: var(--hi);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  rotate: 8deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.55);
+}
+
+.botton.on .selo {
+  background: var(--ink);
+  color: var(--hi);
+}
+
+/* Chegou algo: as pessoas do broche dão uma balançada, como quem acena */
+.desenho.balanca {
+  animation: acena 1.2s var(--ease-physical) 1;
+  transform-origin: 50% 90%;
+}
+
+@keyframes acena {
+  0%,
+  100% {
+    rotate: 0deg;
+    scale: 1;
+  }
+  15% {
+    rotate: -16deg;
+    scale: 1.18;
+  }
+  35% {
+    rotate: 13deg;
+    scale: 1.18;
+  }
+  55% {
+    rotate: -9deg;
+    scale: 1.1;
+  }
+  75% {
+    rotate: 5deg;
+  }
+}
+
+/* O botão de adicionar é só do Murall: o cofre de senhas não tem o que adicionar ($com-adicionar: false). */
+@if $com-adicionar {
+  /* ===== O botão de adicionar: a pilha de fichas, a folha de caderno e o cupom ===== */
+  .adicionar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    /* a altura da pilha de fichas, em toda página: a folha do Pra depois e o cupom da Wishlist, mais
+       altos, sobram para cima e para baixo sem empurrar o topo (trocar de página não mexe em nada) */
+    height: 50px;
+  }
+
+  /* A pilha: um bloco de fichas em branco, e o botão é a de cima */
+  .stack {
+    position: relative;
+    display: inline-flex;
+    isolation: isolate;
+
+    .btn-cartolina {
+      --stock: var(--paper);
+      min-height: 50px;
+      padding: 10px 16px 9px 12px;
+      font-size: 1.1rem;
+    }
+
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: 2px;
+      box-shadow: var(--shadow-card);
+      transition:
+        rotate var(--t-physical) var(--ease-physical),
+        translate var(--t-physical) var(--ease-physical);
+    }
+
+    /* atrás, as cartolinas que esperam a próxima resenha: só as bordas aparecem */
+    &::before {
+      background: var(--stock-rosa);
+      rotate: 5deg;
+      translate: 6px 3px;
+    }
+
+    &::after {
+      background: var(--stock-azul);
+      rotate: -4deg;
+      translate: -5px 5px;
+    }
+
+    &:hover {
+      &::before {
+        rotate: 9deg;
+        translate: 10px 2px;
+      }
+
+      &::after {
+        rotate: -8deg;
+        translate: -9px 6px;
+      }
+    }
+  }
+
+  /* ===== Guardar: uma folha de caderno arrancada da espiral, pautada, com o lápis em cima =====
+     O irmão do cupom da wishlist: lá a tesoura corre pela linha; aqui o lápis escreve. */
+  .anotar {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 54px;
+    padding: 9px 16px 8px 30px;
+    border: 0;
+    color: var(--ink);
+    text-align: left;
+    rotate: -1.2deg;
+    background:
+      linear-gradient(90deg, transparent 22px, rgb(230 46 45 / 0.55) 22px 23.5px, transparent 0),
+      repeating-linear-gradient(to top, transparent 0 14px, rgb(70 120 200 / 0.3) 14px 15.5px, transparent 15.5px 20px),
+      #fbfaf3;
+    /* a mordida da espiral na borda esquerda; a sombra vem de filtro, porque a máscara come box-shadow */
+    -webkit-mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+    mask: radial-gradient(circle at 0 50%, #0000 3.5px, #000 4px) 0 0 / 100% 13px repeat-y;
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 8px 10px rgb(0 0 0 / 0.42));
+    transition:
+      rotate var(--t-physical) var(--ease-physical),
+      translate var(--t-physical) var(--ease-physical),
+      filter var(--t-ui) var(--ease-ui);
+  }
+  .anotar .lapis {
+    position: absolute;
+    top: 6px;
+    right: 9px;
+    display: inline-flex;
+    color: #3a67b8;
+    transition:
+      translate var(--t-physical) var(--ease-physical),
+      rotate var(--t-physical) var(--ease-physical);
+  }
+  .anotar-txt {
+    display: grid;
+    padding-right: 14px;
+    font-family: var(--f-hand);
+    font-weight: 700;
+    font-size: 1.14rem;
+    line-height: 1.05;
+  }
+  .anotar small {
+    margin-bottom: 3px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #3a67b8;
+  }
+  .anotar:hover {
+    rotate: 0.6deg;
+    translate: 0 -2px;
+    filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3)) drop-shadow(0 16px 16px rgb(0 0 0 / 0.5));
+  }
+  /* o lápis escreve: desce um tico pela pauta */
+  .anotar:hover .lapis {
+    translate: -6px 4px;
+    rotate: -8deg;
+  }
+  .anotar:focus-visible {
+    outline-offset: 4px;
+  }
+
+  /* o botão de adicionar à wishlist é um cupom de catálogo: a linha tracejada e a tesoura em cima dela */
+  .cupom {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 54px;
+    padding: 9px 16px 8px 15px;
+    border: 0;
+    border-radius: 2px;
+    background: #fdfcf9;
+    color: var(--ink);
+    text-align: left;
+    rotate: 1.2deg;
+    box-shadow:
+      inset 0 0 0 5px #fdfcf9,
+      var(--shadow-card);
+    transition:
+      rotate var(--t-physical) var(--ease-physical),
+      translate var(--t-physical) var(--ease-physical),
+      box-shadow var(--t-ui) var(--ease-ui);
+  }
+  .cupom::before {
+    content: '';
+    position: absolute;
+    inset: 5px;
+    border: 2px dashed rgb(21 21 21 / 0.5);
+    border-radius: 1px;
+    pointer-events: none;
+  }
+  .cupom .tesoura {
+    position: absolute;
+    top: -5px;
+    left: 14px;
+    display: inline-flex;
+    padding: 0 3px;
+    background: #fdfcf9;
+    color: var(--ink);
+    transition: translate var(--t-physical) var(--ease-physical);
+  }
+  .cupom-txt {
+    display: grid;
+    padding-top: 4px;
+    font-family: var(--f-label);
+    font-style: italic;
+    font-weight: 800;
+    font-size: 1.08rem;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+  .cupom small {
+    font-style: normal;
+    font-size: 0.72rem;
+    letter-spacing: 0.16em;
+    color: var(--red-deep);
+    margin-bottom: 3px;
+  }
+  .cupom:hover {
+    rotate: -0.6deg;
+    translate: 0 -2px;
+    box-shadow:
+      inset 0 0 0 5px #fdfcf9,
+      var(--shadow-lift);
+  }
+  /* a tesoura anda pela linha, cortando */
+  .cupom:hover .tesoura {
+    translate: 18px 0;
+  }
+  .cupom:focus-visible {
+    outline-offset: 4px;
+  }
+
+  /* no celular estreito o botão diz só o verbo ("Nova", "Guardar", "Adicionar"); o nome inteiro fica
+     para o leitor de tela */
+  .long {
+    display: none;
+  }
+}
+
+/* ===== Celular: o cartaz encolhe o que for preciso para nunca encostar nos bottons ao lado =====
+   ("Murall" tem 4,5 vezes a letra de largura, conto 5 de folga; 176px são os bottons e o respiro) */
+.logo {
+  font-size: clamp(1.1rem, calc((100cqi - 176px) / 5), 1.6rem);
+}
+
+/* ===== Celular mais largo: cabe o nome inteiro no botão ===== */
+@container topo (min-width: 440px) {
+  .long {
+    display: inline;
+  }
+
+  .logo {
+    font-size: 1.62rem;
+  }
+
+  .cartaz {
+    padding: 14px 16px 12px;
+  }
+
+  .etiquetas {
+    gap: 8px;
+    padding-inline: 10px;
+  }
+
+  .etiqueta {
+    padding-inline: 8px;
+    font-size: 0.86rem;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* ===== Tablet: o cartaz numa linha; as etiquetas do tamanho do nome, encostadas no começo do varal ===== */
+@container topo (min-width: 660px) {
+  .topo {
+    column-gap: 20px;
+  }
+
+  .logo {
+    font-size: 1.74rem;
+  }
+
+  .cartaz {
+    padding: 16px 22px 14px;
+    rotate: -2deg;
+
+    .pin-l {
+      left: 14px;
+    }
+
+    .pin-r {
+      right: 14px;
+    }
+  }
+
+  .bottons {
+    gap: 8px;
+  }
+
+  .stack .btn-cartolina {
+    min-height: 54px;
+    padding: 12px 18px 11px 16px;
+    font-size: 1.12rem;
+  }
+
+  .anotar {
+    min-height: 62px;
+    padding: 11px 22px 10px 34px;
+  }
+
+  .anotar-txt {
+    padding-right: 22px;
+    font-size: 1.32rem;
+  }
+
+  .cupom {
+    min-height: 60px;
+    padding: 10px 22px 10px 20px;
+  }
+
+  .cupom-txt {
+    font-size: 1.3rem;
+  }
+
+  .varal {
+    --linha: 18px;
+  }
+
+  /* as três partes no meio do barbante, que vai de ponta a ponta: o nome à esquerda, as partes no
+     centro, o que é seu à direita */
+  .etiquetas {
+    justify-content: center;
+    gap: 18px;
+    padding-inline: 22px;
+
+    li {
+      flex: 0 0 auto;
+    }
+  }
+
+  .etiqueta {
+    min-height: 46px;
+    padding: 15px 18px 11px;
+    font-size: 0.98rem;
+    letter-spacing: 0.12em;
+  }
+
+  .prendedor {
+    top: -17px;
+    left: calc(50% - 5.5px);
+    width: 11px;
+    height: 28px;
+
+    &::before {
+      top: 9px;
+    }
+  }
+}
+
+/* ===== Computador: duas fileiras. Em cima o cartaz, os bottons (com o nome embaixo) e o botão de
+   adicionar, lado a lado; embaixo o varal, de ponta a ponta ===== */
+@container topo (min-width: 860px) {
+  .adicionar {
+    height: 54px;
+  }
+
+  .topo {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      'cartaz . bottons adicionar'
+      'varal varal varal varal';
+    gap: 20px 24px;
+  }
+
+  .bottons {
+    gap: 10px;
+  }
+
+  .botton {
+    --size: 44px;
+  }
+}
+
+/* o nome embaixo de cada botton, quando sobra largura (antes, só o desenho, com o nome no title) */
+@container topo (min-width: 1100px) {
+  .botton {
+    min-width: 56px;
+  }
+
+  .legenda {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.74rem;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    color: var(--wall-ink-2);
+    text-shadow: 0 1px 2px rgb(0 0 0 / 0.8);
+  }
+}
+
+/* ===== Tela larga: tudo numa fileira só, o varal de ponta a ponta entre o cartaz e os bottons, as
+   partes no meio dele. Até 1200px as etiquetas ficam mais justas (e até 1100px os bottons vão sem o
+   nome), para caber já no tablet deitado: uma fileira inteira só para três etiquetas era espaço à
+   toa ===== */
+@container topo (min-width: 920px) {
+  .topo {
+    grid-template-areas: 'cartaz varal bottons adicionar';
+    column-gap: 22px;
+  }
+
+  .varal {
+    /* o barbante sobe um pouco para as etiquetas ficarem na altura do cartaz */
+    margin-top: -8px;
+  }
+
+  .etiquetas {
+    gap: 10px;
+    padding-inline: 14px;
+  }
+
+  .etiqueta {
+    padding-inline: 12px;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+  }
+}
+
+@container topo (min-width: 1200px) {
+  .topo {
+    column-gap: 28px;
+  }
+
+  .etiquetas {
+    gap: 18px;
+    padding-inline: 22px;
+  }
+
+  .etiqueta {
+    padding-inline: 18px;
+    font-size: 0.98rem;
+    letter-spacing: 0.12em;
+  }
+}
+
+@container topo (min-width: 1380px) {
+  .logo {
+    font-size: 2rem;
+  }
+
+  .cartaz {
+    padding: 18px 24px 16px;
+  }
+
+  .stack .btn-cartolina {
+    padding: 12px 22px 11px 18px;
+    font-size: 1.2rem;
+  }
+
+  .topo {
+    column-gap: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desenho.balanca {
+    animation: none;
+  }
+
+  .recorte {
+    transition: none;
+  }
+}

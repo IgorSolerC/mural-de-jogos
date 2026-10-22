@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, RedirectFunction, Router, RouterStateSnapshot } from '@angular/router';
 import { Kind, NOTES, SCORED_KINDS, isNotes } from './kinds';
 import { Mural } from './mural';
-import { COFRE_URL, SECOES_DAS_ANOTACOES } from '../../../shared/secoes-das-anotacoes';
+import { COFRE_URL, SECOES_DAS_ANOTACOES } from '../../../shared/topo-do-murall';
 
 /**
  * As três partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
@@ -31,7 +31,7 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 
 /**
  * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e o Calendário
- * (`/anotacoes/calendario`). A lista mora em `shared/secoes-das-anotacoes.ts`, a mesma do topo do cofre. O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
+ * (`/anotacoes/calendario`). A lista mora em `shared/topo-do-murall.ts`, a mesma do topo do cofre. O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
  */
 export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
 

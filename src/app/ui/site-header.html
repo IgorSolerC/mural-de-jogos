@@ -33,23 +33,23 @@
   <nav class="bottons" aria-label="Você">
     <a
       class="botton"
-      routerLink="/perfil"
+      [routerLink]="botton.perfil.caminho"
       [class.on]="onProfile()"
       [attr.aria-current]="onProfile() ? 'page' : null"
-      title="Seu perfil"
+      [title]="botton.perfil.title"
     >
       <span class="face foto" [attr.data-cor]="profiles.profile().photo" [style.--stock]="'var(--stock-' + profiles.profile().photo + ')'">
         <span class="emoji" aria-hidden="true">{{ profiles.profile().emoji }}</span>
       </span>
-      <span class="legenda">Perfil</span>
+      <span class="legenda">{{ botton.perfil.label }}</span>
     </a>
     @if (friends()) {
       <a
         class="botton"
-        routerLink="/amigos"
+        [routerLink]="botton.amigos.caminho"
         [class.on]="onFriends()"
         [attr.aria-current]="onFriends() ? 'page' : null"
-        [attr.title]="unseen() ? 'Amigos: ' + unseen() + (unseen() === 1 ? ' novidade' : ' novidades') : 'Amigos'"
+        [attr.title]="unseen() ? botton.amigos.title + ': ' + unseen() + (unseen() === 1 ? ' novidade' : ' novidades') : botton.amigos.title"
       >
         <span class="face">
           <lucide-icon class="desenho" [class.balanca]="nudge()" [img]="FriendsIcon" [size]="21" aria-hidden="true" />
@@ -57,20 +57,20 @@
         @if (unseen(); as n) {
           <span class="selo">{{ n > 99 ? '99+' : n }}<span class="sr-only"> {{ n === 1 ? 'nova' : 'novas' }}</span></span>
         }
-        <span class="legenda">Amigos</span>
+        <span class="legenda">{{ botton.amigos.label }}</span>
       </a>
     }
     <a
       class="botton"
-      routerLink="/ajustes"
+      [routerLink]="botton.ajustes.caminho"
       [class.on]="onSettings()"
       [attr.aria-current]="onSettings() ? 'page' : null"
-      title="Ajustes"
+      [title]="botton.ajustes.title"
     >
       <span class="face">
         <lucide-icon class="desenho" [img]="GearIcon" [size]="21" aria-hidden="true" />
       </span>
-      <span class="legenda">Ajustes</span>
+      <span class="legenda">{{ botton.ajustes.label }}</span>
     </a>
   </nav>
 

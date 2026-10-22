@@ -147,10 +147,16 @@
             "index": "projects/cofre/src/index.html",
             "tsConfig": "projects/cofre/tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+            "externalDependencies": ["textures/*"],
             "assets": [
               {
                 "glob": "**/*",
                 "input": "projects/cofre/public"
+              },
+              {
+                "glob": "{tachinhas,cartolina-fibra}.png",
+                "input": "public/textures",
+                "output": "textures"
               }
             ],
             "styles": [
@@ -213,7 +219,8 @@
         "test": {
           "builder": "@angular/build:karma",
           "options": {
-            "tsConfig": "projects/cofre/tsconfig.spec.json"
+            "tsConfig": "projects/cofre/tsconfig.spec.json",
+            "externalDependencies": ["textures/*"]
           }
         }
       }

@@ -10,8 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 const raiz = dirname(fileURLToPath(import.meta.url));
 const fonte = join(raiz, 'src');
-/** A lista das seções das Anotações, a única coisa de fora que o cofre usa (sem extensão, como no import). */
-const COMPARTILHADA = resolve(raiz, '..', '..', 'shared', 'secoes-das-anotacoes');
+/** A pasta que o cofre divide com o Murall (o topo em dados e o desenho dele): a única coisa de fora que ele usa. */
+const COMPARTILHADA = resolve(raiz, '..', '..', 'shared');
+const arquivosCompartilhados = (ext) =>
+  readdirSync(COMPARTILHADA, { recursive: true })
+    .map(String)
+    .filter((f) => f.endsWith(ext))
+    .map((f) => join(COMPARTILHADA, f));
 
 /** As únicas dependências que o cofre pode importar. Uma nova só com a aprovação do usuário. */
 const PERMITIDAS = ['hash-wasm', '@angular/core', '@angular/common', '@angular/platform-browser', '@angular/router'];
@@ -74,7 +79,7 @@ test('o cofre não importa nada de fora dele, e só as dependências permitidas'
       if (alvo.startsWith('.')) {
         const destino = resolve(dirname(f), alvo);
         // a única exceção: a lista das seções, só dados (o teste de baixo confere que ela não importa nada)
-        if (destino === COMPARTILHADA) continue;
+        if (destino.startsWith(COMPARTILHADA + sep)) continue;
         if (!destino.startsWith(fonte + sep)) achados.push(`${relative(raiz, f)}: importa ${alvo}, fora do cofre`);
       } else {
         const pacote = alvo.startsWith('@') ? alvo.split('/').slice(0, 2).join('/') : alvo.split('/')[0];
@@ -85,9 +90,26 @@ test('o cofre não importa nada de fora dele, e só as dependências permitidas'
   assert.deepEqual(achados, []);
 });
 
-test('a lista das seções, que o cofre divide com o Murall, é só dados: não importa nada', () => {
-  const texto = semComentarios(readFileSync(COMPARTILHADA + '.ts', 'utf8'));
-  assert.equal(/\bimport\b|\brequire\s*\(/.test(texto), false);
+test('o que o cofre divide com o Murall é só dados e desenho: nenhum import, nenhum endereço de fora', () => {
+  const ts = arquivosCompartilhados('.ts');
+  const scss = arquivosCompartilhados('.scss');
+  assert.ok(ts.length >= 1 && scss.length >= 2);
+  for (const f of ts) assert.equal(/\bimport\b|\brequire\s*\(/.test(semComentarios(readFileSync(f, 'utf8'))), false, f);
+  // o desenho só usa @use dos arquivos da própria pasta, e nenhum url( que saia para outro endereço (só
+  // data: e as fotos do próprio site, em textures/)
+  for (const f of scss) {
+    const texto = readFileSync(f, 'utf8');
+    for (const [, alvo] of texto.matchAll(/@use \s+'([^']+)'/g)) assert.ok(resolve(dirname(f), alvo).startsWith(COMPARTILHADA + sep), `${f}: @use ${alvo}`);
+    for (const [, alvo] of texto.matchAll(/url\(\s*['"]?([^'")]+)/g)) assert.ok(alvo.startsWith('data:') || alvo.startsWith('%23') || /^textures\/[a-z-]+\.png$/.test(alvo), `${f}: url(${alvo})`);
+  }
+});
+
+test('os tokens do Murall no topo do cofre são os mesmos de src/styles.scss', () => {
+  const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
+  const tokens = readFileSync(join(COMPARTILHADA, 'topo', '_tokens-do-murall.scss'), 'utf8');
+  const linhas = [...tokens.matchAll(/^ {2}(--[a-z0-9-]+: .+;)$/gm)].map((m) => m[1]);
+  assert.ok(linhas.length > 15);
+  for (const l of linhas) assert.ok(murall.includes(l), `diferente do Murall: ${l}`);
 });
 
 test('a lista de palavras não tem nenhuma das que a revisão à mão tirou', () => {

@@ -1,0 +1,30 @@
+// Os tokens do Murall que o desenho do topo usa (`_topo-do-murall.scss`), com os mesmos valores de
+// `src/styles.scss`. O Murall já os tem no site inteiro; o cofre os põe só no topo dele, com
+// `@include tokens`. O teste do cofre (`projects/cofre/regras.test.mjs`) confere que cada linha daqui
+// existe igual em `src/styles.scss`: se o Murall mudar um, o teste avisa.
+@mixin tokens {
+  --ink: #151515;
+  --hi: #ffda42;
+  --paper: #f7f4ec;
+  --wall-ink: #f3efe6;
+  --wall-ink-2: #bdb5a8;
+  --stock-rosa: #ff79a8;
+  --stock-azul: #70cdff;
+  --stock-amarelo: #ffda42;
+  --red-deep: #b81d1c;
+  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
+  --shadow-lift: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
+  --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-physical: 380ms;
+  --ease-ui: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-ui: 160ms;
+  --f-label: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --f-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+  --f-hand: 'Kalam', 'Segoe Print', cursive;
+  --f-didone: 'Abril Fatface', 'Bodoni MT', serif;
+  --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  // a fibra fotográfica da cartolina (a do Murall com body.has-paper-texture), do mesmo arquivo
+  --grao-img: url('textures/cartolina-fibra.png');
+  --grao-tam: 420px 420px;
+  --grao-mistura: soft-light;
+}
