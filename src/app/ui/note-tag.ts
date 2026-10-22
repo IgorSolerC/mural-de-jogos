@@ -19,7 +19,7 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
     '[class.cor]': '!!color() && !ghost()',
     '[style.--tag-cor]': 'color()',
   },
-  template: `<span class="papel" aria-hidden="true"></span><span class="furo" aria-hidden="true"></span><span class="txt">{{ label() }}</span>`,
+  template: `<span class="papel" aria-hidden="true"></span><span class="furo" aria-hidden="true"></span><span class="txt">{{ label() }}</span>@if (count() !== null) {<span class="n">{{ count() }}</span>}`,
   styles: `
     :host {
       --kraft: #d8bd8c;
@@ -71,6 +71,16 @@ const TILTS = [1.2, -0.8, 0.5, -1.3, 0.9, -0.4];
       overflow: hidden;
       text-overflow: ellipsis;
       padding-bottom: 1px;
+    }
+    /* a contagem do filtro (quantas anotações a tag mostra), escrita na própria etiqueta, depois de
+       um risquinho: a tag e o número são uma coisa só */
+    .n {
+      flex: none;
+      padding: 0 0 1px 6px;
+      border-left: 1.5px solid currentColor;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      opacity: 0.72;
     }
     :host(.mini) {
       min-height: 19px;
@@ -152,6 +162,8 @@ export class NoteTag {
   readonly ghost = input(false);
   /** A cor que o dono deu à tag (o hex, ver `tagColorHex`), ou null: o papel pardo de sempre. */
   readonly color = input<string | null>(null);
+  /** Um número escrito na etiqueta, depois do nome (no filtro, quantas anotações ela mostra); null, nenhum. */
+  readonly count = input<number | null>(null);
   /** A posição na fileira, para a tortura de cada uma; null amarra reto. */
   readonly index = input<number | null>(null);
 

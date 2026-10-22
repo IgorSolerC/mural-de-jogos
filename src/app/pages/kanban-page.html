@@ -131,7 +131,7 @@
     </div>
   </nav>
 
-  <!-- a pasta: a busca, o filtro das tags e os ajustes do quadro -->
+  <!-- a pasta: a busca, os ajustes do quadro e a ficha dos filtros -->
   <div #pasta class="pasta">
     <div class="pasta-linha">
       <app-search-strip
@@ -210,32 +210,19 @@
         </div>
       </div>
     </div>
-    <div class="pasta-linha pasta-baixo">
-      <!-- o assunto (impresso em tinta, um por anotação) e as tags (as etiquetas): um toque filtra -->
-      <div class="pasta-filtrar">
-        <app-subject-chips
-          class="pasta-assuntos"
-          [chips]="subjectChips()"
-          (toggled)="toggleSubject($event)"
-        />
-        <app-tag-chips
-          class="pasta-tags"
-          [tags]="tagChips()"
-          (toggled)="toggleTag($event)"
-          (excluded)="excludeTagChip($event)"
-        />
-      </div>
-      @if (filtering()) {
-        <div class="pasta-estado">
-          <p class="achados" aria-live="polite">
-            <span>Mostrando {{ shownCount() }} de {{ liveCount() }}</span>
-            <button type="button" class="tinta-link" (click)="clearFilters()">
-              Limpar
-            </button>
-          </p>
-        </div>
-      }
-    </div>
+    <!-- a ficha dos filtros, a mesma do mural (ver ui/filter-card.ts): o assunto e as tags -->
+    <app-filter-card
+      [subjects]="subjectOptions()"
+      [tags]="tagChips()"
+      [shown]="shownCount()"
+      [total]="liveCount()"
+      [filtering]="filtering()"
+      everything="Todo o quadro"
+      (subjectChosen)="chooseSubject($event)"
+      (tagToggled)="toggleTag($event)"
+      (tagExcluded)="excludeTagChip($event)"
+      (cleared)="clearFilters()"
+    />
   </div>
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->

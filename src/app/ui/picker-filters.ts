@@ -8,7 +8,7 @@ import { activeOrder } from '../core/mural-config';
 import { NO_CATEGORY_TAB, noteTabKey, noteTabsOf } from '../core/note-tabs';
 import { categoryColorHex, lookKey } from '../core/category-looks';
 import { categoryIcon } from './category-label';
-import { SubjectChip } from './subject-chips';
+import { SubjectOption } from './filter-card';
 import { TagChip, TagChips } from './tag-chips';
 import { kindTabs } from './picker-kit';
 
@@ -141,7 +141,7 @@ export class CardFilters {
    * Sem grupo escolhido não aparecem: o assunto é de cada grupo, e a "História" dos Estudos não é a do
    * Trabalho.
    */
-  readonly subjectChips = computed<SubjectChip[]>(() => {
+  readonly subjectChips = computed<SubjectOption[]>(() => {
     if (!this.notesScope()) return [];
     const g = this.group();
     if (!this.fixedGroup() && (!g || g === NO_CATEGORY_TAB)) return [];

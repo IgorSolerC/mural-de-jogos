@@ -11,8 +11,7 @@ import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view
 import { FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
-import { SubjectShortcuts } from './subject-shortcuts';
-import { TagShortcuts } from './tag-shortcuts';
+import { WallFilters } from './wall-filters';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
@@ -36,7 +35,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, SubjectShortcuts, TagShortcuts],
+  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, WallFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -49,7 +48,6 @@ export class WallToolbar {
 
   protected readonly DescIcon = ICON.ordenarDecrescente;
   protected readonly AscIcon = ICON.ordenarCrescente;
-  protected readonly TasksIcon = ICON.tarefas;
   /** Os tipos de ficha dos murais de resenhas. */
   protected readonly reviewDensities: readonly { value: Density; label: string; icon: LucideIconData }[] = [
     { value: 'completa', label: 'Fichas comuns', icon: ICON.completas },
@@ -62,11 +60,9 @@ export class WallToolbar {
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly MarkIcon = ICON.marcado;
   protected readonly FilterIcon = ICON.filtrar;
-  protected readonly DoneIcon = ICON.feito;
   protected readonly PinIcon = ICON.fixar;
   protected readonly RevealIcon = ICON.ver;
   protected readonly GearIcon = ICON.configurar;
-  protected readonly BoardIcon = ICON.colunas;
 
   private readonly injector = inject(Injector);
   /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */
@@ -187,16 +183,6 @@ export class WallToolbar {
     // (com uma troca esperando, voltar ao tipo de agora também conta: a troca esperando é desfeita)
     if (this.view.density() === d && !this.motion.swapping) return;
     this.motion.swap(() => this.view.setDensity(d));
-  }
-
-  /** "Mostrar finalizadas": as anotações com check voltam (ou saem) do mural, deslizando. */
-  protected toggleDone(): void {
-    this.motion.run(() => this.view.showDone.update((v) => !v));
-  }
-
-  /** "Mostrar" as que estão só no Kanban: elas entram no mural (ou saem), deslizando. Só nesta visita. */
-  protected toggleBoard(): void {
-    this.motion.run(() => this.view.showBoard.update((v) => !v));
   }
 
   /** Tira a busca e os filtros ligados (o "Limpar" da pasta). */

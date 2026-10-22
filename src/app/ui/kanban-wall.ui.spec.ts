@@ -125,19 +125,26 @@ describe('só no Kanban, nas telas', () => {
     expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
   });
 
-  it('a pasta do mural conta as que estão só no Kanban, e "Mostrar" as traz com a etiqueta', async () => {
+  it('a ficha dos filtros conta as que estão só no Kanban, no "Mostrar também", e o interruptor as traz com a etiqueta', async () => {
     // a ntarefa2 escolheu o mural também: só a ntarefa1 fica só no Kanban
     kanban.setOnWall('ntarefa2', true);
+    localStorage.setItem('meu-mural:filtros-abertos:v1', 'true');
     const bar = await mount(WallToolbar);
     const wall = await mount(WallBoard, (x) => x.componentRef.setInput('access', ACCESS));
-    const line = () => (bar.nativeElement as HTMLElement).querySelector<HTMLElement>('.do-kanban');
-    expect(line()!.textContent).toContain('1 só no Kanban');
+    const el = bar.nativeElement as HTMLElement;
+    const row = () => [...el.querySelectorAll<HTMLElement>('app-filter-card .chave')].find((c) => c.textContent!.includes('Só no Kanban'))!;
+    const sw = () => row().querySelector<HTMLButtonElement>('[role="switch"]')!;
+    expect(row().textContent!.replace(/\s+/g, ' ').trim()).toBe('Só no Kanban, 1');
+    expect(sw().getAttribute('aria-checked')).toBe('false');
+    // nada dele na linha de cima da pasta
+    expect(el.querySelector('.pasta-linha')!.textContent).not.toContain('Kanban');
     expect((wall.nativeElement as HTMLElement).querySelector('[data-lugar="ntarefa1"]')).toBeNull();
-    line()!.querySelector<HTMLButtonElement>('button')!.click();
+    // o toque no nome também liga
+    row().querySelector<HTMLElement>('.chave-nome')!.click();
     await bar.whenStable();
     await wall.whenStable();
-    expect(line()!.textContent).toContain('1 do Kanban à mostra');
-    expect(line()!.querySelector('button')!.textContent!.trim()).toBe('Esconder');
+    expect(sw().getAttribute('aria-checked')).toBe('true');
+    expect(el.querySelector('app-filter-card .resumo')!.textContent).toContain('com as do Kanban');
     await new Promise((r) => setTimeout(r, 60));
     await wall.whenStable();
     const box = (wall.nativeElement as HTMLElement).querySelector('[data-lugar="ntarefa1"]');

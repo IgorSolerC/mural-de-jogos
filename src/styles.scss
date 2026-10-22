@@ -676,39 +676,9 @@ select optgroup {
     border-top: 2px dashed var(--picote);
 
     /* sem nada para dizer, o picote não aparece */
-    &:not(:has(.assuntos, .atalhos, .achados, .tarefas)) {
+    &:not(:has(.atalhos, .achados)) {
       display: none;
     }
-  }
-
-  /* o que filtra, no mural das anotações e no Kanban: o assunto (ver ui/subject-chips.ts) e, depois de
-     um picote, as tags (ver ui/tag-chips.ts) */
-  .pasta-filtrar {
-    flex: 1 1 320px;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 12px;
-    min-width: 0;
-
-    &:not(:has(.assuntos, .atalhos)) {
-      display: none;
-    }
-  }
-
-  .pasta-assuntos {
-    flex: 0 1 auto;
-    min-width: 0;
-  }
-
-  .pasta-tags {
-    flex: 1 1 280px;
-    min-width: 0;
-  }
-
-  .pasta-assuntos:has(.assuntos) + .pasta-tags:has(.atalhos) {
-    padding-left: 12px;
-    border-left: 2px dashed var(--picote);
   }
 
   .pasta-estado {
@@ -788,31 +758,6 @@ select optgroup {
     .pasta-estado {
       justify-content: flex-start;
       margin-left: 0;
-    }
-
-    /* no celular, o assunto e as tags numa linha só cada um, que corre de lado (quebrando, a pasta
-       ficava alta) */
-    .pasta-filtrar {
-      flex-basis: 100%;
-      gap: 4px 0;
-    }
-
-    .pasta-assuntos:has(.assuntos) + .pasta-tags:has(.atalhos) {
-      padding-left: 10px;
-      border-left: 0;
-    }
-
-    .pasta-assuntos,
-    .pasta-tags {
-      flex-basis: 100%;
-      overflow-x: auto;
-      scrollbar-width: none;
-      margin-inline: -10px;
-      padding-inline: 10px;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
     }
   }
 

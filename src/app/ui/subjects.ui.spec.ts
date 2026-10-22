@@ -9,7 +9,7 @@ import { WallView } from '../core/wall-view';
 import { ReviewCard } from './review-card';
 import { WallToolbar } from './wall-toolbar';
 
-/** O assunto nas telas do mural: a fileira da pasta (o filtro), a linha miúda da ficha e a ordem. */
+/** O assunto nas telas do mural: a ficha dos filtros da pasta, a linha miúda da ficha e a ordem. */
 
 const T0 = '2026-10-20T10:00:00.000Z';
 
@@ -43,6 +43,8 @@ describe('o assunto nas telas do mural', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // a ficha dos filtros aberta (ela lembra no aparelho): os testes mexem no assunto e nas tags
+    localStorage.setItem('meu-mural:filtros-abertos:v1', 'true');
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
     TestBed.inject(Mural).kind.set('anotacoes');
     TestBed.inject(Settings).setNotesConfig({ showAll: true });
@@ -56,49 +58,82 @@ describe('o assunto nas telas do mural', () => {
     localStorage.clear();
   });
 
-  it('a pasta mostra os assuntos antes das tags, impressos em tinta; um toque filtra e a nova nasce no único ligado', async () => {
+  /** Os recortes do assunto na ficha dos filtros: o rádio de cada um e o que se lê nele. */
+  const radios = (el: HTMLElement) => [...el.querySelectorAll<HTMLInputElement>('app-filter-card .recorte input')];
+  const labels = (el: HTMLElement) => [...el.querySelectorAll('app-filter-card .recorte')].map((l) => l.textContent!.replace(/\s+/g, ' ').trim());
+  const summary = (el: HTMLElement) => el.querySelector('app-filter-card .resumo')!.textContent!.replace(/\s+/g, ' ').trim();
+  async function pick(bar: ComponentFixture<WallToolbar>, i: number): Promise<void> {
+    radios(bar.nativeElement)[i].click();
+    await bar.whenStable();
+  }
+
+  it('a ficha dos filtros mostra o assunto antes das tags, em recortes; escolher filtra, vai para o resumo e a nova nasce nele', async () => {
     const bar = await mount(WallToolbar);
     const el: HTMLElement = bar.nativeElement;
-    const chips = () => [...el.querySelectorAll<HTMLButtonElement>('.pasta-assuntos .assunto')];
-    expect(el.querySelector('.pasta-assuntos .rotulo')!.textContent!.trim()).toBe('Assunto');
-    expect(chips().map((b) => b.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Geografia, 1', 'História, 2', 'Sem assunto, 1']);
+    const rows = [...el.querySelectorAll('app-filter-card .linha-titulo')].map((t) => t.textContent!.trim());
+    expect(rows).toEqual(['Assunto']);
+    // Todos, de A a Z, "Sem assunto" no fim, com quantas cada um mostra
+    expect(labels(el)).toEqual(['Todos', 'Geografia, 1', 'História, 2', 'Sem assunto, 1']);
+    expect(radios(el)[0].checked).toBeTrue();
+    expect(summary(el)).toBe(': Todas as anotações');
     expect(view.newNoteSubject()).toBeNull();
-    chips()[1].click();
-    await bar.whenStable();
-    expect(chips()[1].getAttribute('aria-pressed')).toBe('true');
+    await pick(bar, 2);
+    expect(radios(el)[2].checked).toBeTrue();
     expect(view.visible().map((r) => r.id).sort()).toEqual(['nhist001', 'nhist002']);
+    expect(summary(el)).toBe(': História');
     expect(el.querySelector('.achados')!.textContent).toContain('Mostrando 2 de 4');
     expect(view.newNoteSubject()).toBe('História');
-    // dois ligados: vale qualquer um, e a nova não escolhe por você
-    chips()[0].click();
-    await bar.whenStable();
-    expect(view.visible().length).toBe(3);
+    // um por vez: escolher outro troca, não soma
+    await pick(bar, 1);
+    expect(view.visible().map((r) => r.id)).toEqual(['ngeo0001']);
+    // Todos desfaz
+    await pick(bar, 0);
+    expect(view.visible().length).toBe(4);
     expect(view.newNoteSubject()).toBeNull();
   });
 
-  it('sem o que separar (um assunto só, em todas), a fileira não aparece; nenhum assunto, também não', async () => {
-    store.reviews.set([note('nhist001', 'História'), note('nhist002', 'História')]);
+  it('o Limpar da ficha volta o assunto para Todos', async () => {
     const bar = await mount(WallToolbar);
     const el: HTMLElement = bar.nativeElement;
-    expect(el.querySelector('.pasta-assuntos .assuntos')).toBeNull();
-    store.reviews.set([note('nsem0001', null)]);
+    await pick(bar, 2);
+    el.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
     await bar.whenStable();
-    expect(el.querySelector('.pasta-assuntos .assuntos')).toBeNull();
+    expect(radios(el)[0].checked).toBeTrue();
+    expect(view.visible().length).toBe(4);
   });
 
-  it('com muitos assuntos, dez ficam à mão e o "+N" mostra os outros; o ligado e o "Sem assunto" ficam sempre', async () => {
+  it('fechada, a ficha é uma linha com o resumo; abrir e fechar fica guardado no aparelho', async () => {
+    localStorage.removeItem('meu-mural:filtros-abertos:v1');
+    const bar = await mount(WallToolbar);
+    const el: HTMLElement = bar.nativeElement;
+    const head = el.querySelector<HTMLButtonElement>('app-filter-card .abre')!;
+    expect(head.getAttribute('aria-expanded')).toBe('false');
+    expect(el.querySelector('app-filter-card .corpo')).toBeNull();
+    expect(head.textContent!.replace(/\s+/g, ' ').trim()).toBe('Filtros: Todas as anotações');
+    head.click();
+    await bar.whenStable();
+    expect(head.getAttribute('aria-expanded')).toBe('true');
+    expect(el.querySelector('app-filter-card .corpo')!.id).toBe(head.getAttribute('aria-controls')!);
+    expect(localStorage.getItem('meu-mural:filtros-abertos:v1')).toBe('true');
+  });
+
+  it('sem o que separar (um assunto só, em todas), a linha do assunto não aparece; nada para filtrar, nem a ficha', async () => {
+    store.reviews.set([note('nhist001', 'História', { tags: ['Prova'] }), note('nhist002', 'História')]);
+    const bar = await mount(WallToolbar);
+    const el: HTMLElement = bar.nativeElement;
+    expect(radios(el).length).toBe(0);
+    expect([...el.querySelectorAll('app-filter-card .linha-titulo')].map((t) => t.textContent!.trim())).toEqual(['Tags']);
+    store.reviews.set([note('nsem0001', null)]);
+    await bar.whenStable();
+    expect(el.querySelector('app-filter-card')!.classList).toContain('vazio');
+  });
+
+  it('com muitos assuntos, todos ficam na ficha (ela só ocupa espaço aberta)', async () => {
     store.reviews.set([...Array.from({ length: 13 }, (_, i) => note(`nmuitos${String(i).padStart(2, '0')}`, `Assunto ${String.fromCharCode(65 + i)}`)), note('nsem0001', null)]);
     const bar = await mount(WallToolbar);
     const el: HTMLElement = bar.nativeElement;
-    const names = () => [...el.querySelectorAll<HTMLElement>('.pasta-assuntos .assunto .nome')].map((n) => n.textContent!.trim());
-    expect(names().length).toBe(11);
-    expect(names().at(-1)).toBe('Sem assunto');
-    const more = el.querySelector<HTMLButtonElement>('.pasta-assuntos .mais')!;
-    expect(more.textContent!.trim()).toContain('+3');
-    more.click();
-    await bar.whenStable();
-    expect(names().length).toBe(14);
-    expect(el.querySelector('.pasta-assuntos .mais')!.textContent!.trim()).toBe('Menos');
+    expect(radios(el).length).toBe(15);
+    expect(labels(el).at(-1)).toBe('Sem assunto, 1');
   });
 
   it('ordenar por assunto está no Ordenar das anotações', async () => {

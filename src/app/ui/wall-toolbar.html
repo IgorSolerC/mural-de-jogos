@@ -2,8 +2,8 @@
   <!-- O mural de anotações é uma pasta: as divisórias por categoria em cima e, emendado nelas, o
        corpo de papel manilha com tudo o que mexe no mural. Na primeira linha, a busca (uma etiqueta
        colada) e os controles impressos em tinta, em grupos separados por um picote (o ligado ganha o
-       traço de marca-texto). Depois da linha picotada, as tags (um toque filtra; é o filtro das
-       anotações, que não têm cartela), o que a busca achou e as tarefas. -->
+       traço de marca-texto). Embaixo, guardada na pasta, a ficha dos filtros (ver ui/filter-card.ts):
+       fechada, uma linha com o que está ligado; aberta, o assunto, as tags e o "Mostrar também". -->
   <app-note-tabs class="cadernos" />
 
   <div class="pasta">
@@ -18,24 +18,6 @@
       />
 
       <div class="pasta-controles">
-        @if (view.doneCount() || view.showDone()) {
-          <div class="pasta-grupo">
-            <button
-              type="button"
-              class="tinta"
-              [attr.aria-pressed]="view.showDone()"
-              [attr.aria-label]="'Mostrar finalizadas (' + view.doneCount() + ')'"
-              (click)="toggleDone()"
-              [title]="view.showDone() ? 'As anotações finalizadas saem do mural' : 'As anotações com check voltam para o mural'"
-            >
-              <lucide-icon [img]="DoneIcon" [size]="18" aria-hidden="true" />
-              <span class="finalizadas-txt" aria-hidden="true">Finalizadas</span>
-              <span class="finalizadas-curto" aria-hidden="true">Feitas</span>
-              <span class="tinta-n" aria-hidden="true">{{ view.doneCount() }}</span>
-            </button>
-          </div>
-        }
-
         <div class="pasta-grupo" role="group" aria-label="Ordenar">
           <label class="tinta campo">
             <span class="campo-pre">Ordenar</span>
@@ -106,60 +88,13 @@
       </div>
     </div>
 
-    <div class="pasta-linha pasta-baixo">
-      <!-- o assunto (impresso em tinta, um por anotação) e as tags (as etiquetas): um toque filtra -->
-      <div class="pasta-filtrar">
-        <app-subject-shortcuts class="pasta-assuntos" />
-        <app-tag-shortcuts class="pasta-tags" />
-      </div>
-      <div class="pasta-estado">
-        <!-- o que a busca e as tags acharam, e como desfazer -->
-        @if (view.isFiltered()) {
-          <p class="achados" aria-live="polite">
-            <span>Mostrando {{ view.visible().length }} de {{ view.pool().length }}</span>
-            @if (view.elsewhere(); as n) {
-              <button type="button" class="tinta-link" (click)="searchAll()">+{{ n }} em outras abas</button>
-            }
-            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
-          </p>
-        }
-        <!-- as anotações que estão só no Kanban: fora do mural, a um toque de aparecer aqui -->
-        @if (view.boardCount(); as n) {
-          <p class="achados do-kanban">
-            <lucide-icon class="do-kanban-icone" [img]="BoardIcon" [size]="17" aria-hidden="true" />
-            <span>{{ n }} {{ view.showBoard() ? 'do Kanban à mostra' : 'só no Kanban' }}</span>
-            <button
-              type="button"
-              class="tinta-link"
-              [attr.aria-label]="view.showBoard() ? 'Esconder as anotações que estão só no Kanban' : 'Mostrar aqui as anotações que estão só no Kanban'"
-              (click)="toggleBoard()"
-            >
-              {{ view.showBoard() ? 'Esconder' : 'Mostrar' }}
-            </button>
-          </p>
-        }
-        @if (view.tasks(); as t) {
-          @if (t.total) {
-            <p class="tarefas" [class.todas]="!t.todo">
-              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" aria-hidden="true" />
-              @if (!t.todo) {
-                <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
-              } @else {
-                <span aria-hidden="true">{{ t.done }} {{ t.done === 1 ? 'feita' : 'feitas' }}</span>
-                <span class="tarefas-barra" aria-hidden="true"><span [style.width.%]="(t.done / t.total) * 100"></span></span>
-                <span aria-hidden="true">{{ t.todo }} para fazer</span>
-                <span class="sr-only">Tarefas no mural: {{ t.done }} de {{ t.total }} feitas, {{ t.todo }} para fazer</span>
-              }
-            </p>
-          }
-        }
-      </div>
-    </div>
+    <!-- a ficha dos filtros: o assunto, as tags e o que fica fora do mural (as finalizadas, as do Kanban) -->
+    <app-wall-filters />
   </div>
 } @else {
   <!-- Nos murais de resenhas, a mesma pasta, solta (sem divisórias em cima): a busca e os controles
        em tinta; Filtrar abre a cartela embaixo da pasta. Depois da linha picotada, os filtros ligados
-       (cada um com o seu X), o que a busca achou e as tarefas. No mural de músicas, as divisórias
+       (cada um com o seu X) e o que a busca achou. No mural de músicas, as divisórias
        voltam: uma por artista, como as categorias das anotações. -->
   @if (artistTabs()) {
     <app-note-tabs class="cadernos" />
@@ -294,22 +229,6 @@
             }
             <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
           </p>
-        }
-        <!-- as tarefas das fichas à mostra, somadas: mudam com a busca, os filtros e cada check -->
-        @if (view.tasks(); as t) {
-          @if (t.total) {
-            <p class="tarefas" [class.todas]="!t.todo">
-              <lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="17" aria-hidden="true" />
-              @if (!t.todo) {
-                <span>{{ t.total === 1 ? 'A tarefa está feita' : 'As ' + t.total + ' tarefas estão feitas' }}</span>
-              } @else {
-                <span aria-hidden="true">{{ t.done }} {{ t.done === 1 ? 'feita' : 'feitas' }}</span>
-                <span class="tarefas-barra" aria-hidden="true"><span [style.width.%]="(t.done / t.total) * 100"></span></span>
-                <span aria-hidden="true">{{ t.todo }} para fazer</span>
-                <span class="sr-only">Tarefas no mural: {{ t.done }} de {{ t.total }} feitas, {{ t.todo }} para fazer</span>
-              }
-            </p>
-          }
         }
       </div>
     </div>

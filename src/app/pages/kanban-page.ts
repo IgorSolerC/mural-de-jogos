@@ -30,8 +30,8 @@ import { NoteSelection } from '../ui/note-selection';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
-import { SubjectChip, SubjectChips } from '../ui/subject-chips';
-import { TagChip, TagChips } from '../ui/tag-chips';
+import { FilterCard, SubjectOption } from '../ui/filter-card';
+import { TagChip } from '../ui/tag-chips';
 import { TabFit } from '../ui/tab-fit';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
@@ -143,7 +143,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, SubjectChips, TagChips],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -336,7 +336,7 @@ export class KanbanPage {
   });
 
   /**
-   * As tags das anotações do quadro para o filtro, como as do mural (ver `TagChips`): a grafia mais
+   * As tags das anotações do quadro para o filtro, como as do mural (ver `TagChips`, na ficha dos filtros): a grafia mais
    * usada, as mais usadas no quadro primeiro, e em quantas a busca de agora deixa cada uma.
    */
   protected readonly tagChips = computed<TagChip[]>(() => {
@@ -377,10 +377,10 @@ export class KanbanPage {
   });
 
   /**
-   * Os assuntos das anotações do quadro para o filtro, como os do mural (ver `SubjectChips`): de A a Z
+   * Os assuntos das anotações do quadro para o filtro, como os do mural (ver `FilterCard`): de A a Z
    * e "Sem assunto" no fim, cada um com quantas anotações mostraria com a busca e as tags de agora.
    */
-  protected readonly subjectChips = computed<SubjectChip[]>(() => {
+  protected readonly subjectOptions = computed<SubjectOption[]>(() => {
     const q = fold(this.query().trim());
     const on = new Set(this.subjectFilter());
     const tags = this.tagFilter();
@@ -402,9 +402,9 @@ export class KanbanPage {
       .sort((a, b) => (a.value === 'sem' ? 1 : b.value === 'sem' ? -1 : a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })));
   });
 
-  /** O toque num assunto do filtro: liga ou desliga. */
-  protected toggleSubject(value: string): void {
-    this.subjectFilter.update((on) => (on.includes(value) ? on.filter((s) => s !== value) : [...on, value]));
+  /** A escolha no campo do assunto: um assunto por vez, ou todos (null). */
+  protected chooseSubject(value: string | null): void {
+    this.subjectFilter.set(value ? [value] : []);
   }
 
   /** O clique numa tag do filtro: liga ou desliga; na riscada, as anotações dela voltam ao quadro. */
@@ -761,7 +761,7 @@ export class KanbanPage {
     // com o card padrão ligado, a anotação já nasce vestida com ele
     const col = b.columns.find((x) => x.id === column);
     // com um assunto só ligado no filtro, ela nasce nele
-    const on = this.subjectChips().filter((s) => s.on);
+    const on = this.subjectOptions().filter((s) => s.on);
     const look = col?.dresses ? col.look : undefined;
     if (on.length === 1 && on[0].value !== 'sem') this.desk.newNoteIn(c.label, look, on[0].label);
     else this.desk.newNoteIn(c.label, look);

@@ -23,10 +23,10 @@ export interface TagChip {
 let nextId = 0;
 
 /**
- * O filtro por tags na pasta, depois do picote: o do mural de anotações (ver `TagShortcuts`) e o do
- * Kanban. Um toque liga ou desliga a tag (ligadas várias, vale qualquer uma delas). A desligada é o
+ * O filtro por tags: o da ficha dos filtros do mural de anotações e do Kanban (ver `FilterCard`) e o
+ * do seletor de fichas. Um toque liga ou desliga a tag (ligadas várias, vale qualquer uma delas). A desligada é o
  * contorno tracejado de uma etiqueta em branco; a ligada é a etiqueta de papel kraft amarrada, como na
- * ficha. Chegam na ordem em que aparecem (as mais usadas primeiro); com mais de dez, o "+N" mostra as
+ * ficha. Quantas anotações cada uma mostra vai escrito na própria etiqueta. Chegam na ordem em que aparecem (as mais usadas primeiro); com mais de dez, o "+N" mostra as
  * outras, e as ligadas e as escondidas ficam sempre à mão.
  *
  * O clique direito (no teclado, a tecla de menu ou Shift+F10; no dedo, segurar meio segundo) esconde
@@ -46,6 +46,7 @@ let nextId = 0;
               type="button"
               class="atalho"
               [class.fora]="!!t.out"
+              [class.zero]="!t.on && !t.out && !t.n"
               [attr.aria-pressed]="t.on"
               [attr.aria-describedby]="hintId"
               [title]="titleOf(t)"
@@ -58,8 +59,7 @@ let nextId = 0;
               (pointercancel)="cancelHold()"
               (pointerleave)="cancelHold()"
             >
-              <app-note-tag [label]="t.label" [ghost]="!t.on" [index]="t.on ? i : null" />
-              <span class="n">{{ t.n }}</span>
+              <app-note-tag [label]="t.label" [count]="t.n" [ghost]="!t.on" [index]="t.on ? i : null" />
               @if (t.out) {
                 <span class="sr-only">, escondida</span>
               }
@@ -99,9 +99,8 @@ let nextId = 0;
       position: relative;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
       min-height: 36px;
-      padding: 4px 8px 4px 4px;
+      padding: 4px;
       border: 0;
       border-radius: 4px;
       background: none;
@@ -119,18 +118,22 @@ let nextId = 0;
       }
     }
 
+    /* a que, com o resto do filtro, não mostraria nada: desbotada (ainda dá para ligar) */
+    .zero:not(:hover) app-note-tag {
+      opacity: 0.5;
+    }
+
     /* escondida: a etiqueta e a contagem desbotam, e um risco de caneta atravessa as duas, torto,
        como quem cortou a tag da lista */
-    .fora app-note-tag,
-    .fora .n {
+    .fora app-note-tag {
       opacity: 0.6;
     }
 
     .fora::after {
       content: '';
       position: absolute;
-      left: 0;
-      right: 3px;
+      left: 2px;
+      right: 2px;
       top: calc(50% - 1.25px);
       height: 2.5px;
       border-radius: 2px;
@@ -153,17 +156,12 @@ let nextId = 0;
       }
     }
 
-    .n,
     .mais {
       font-family: var(--f-label);
       font-weight: 700;
       font-size: 0.88rem;
       letter-spacing: 0.06em;
-      color: rgb(21 21 21 / 0.72);
       font-variant-numeric: tabular-nums;
-    }
-
-    .mais {
       min-height: 36px;
       padding: 4px 8px;
       border: 0;
@@ -185,12 +183,13 @@ let nextId = 0;
       }
     }
 
-    /* no celular, uma linha só, que corre de lado dentro da pasta */
+    /* no celular, uma linha só, que corre de lado (no seletor de fichas); na ficha dos filtros, com a
+       classe quebra, as etiquetas quebram a linha como no computador */
     @media (max-width: 720px) {
-      .atalhos {
+      :host(:not(.quebra)) .atalhos {
         flex-wrap: nowrap;
       }
-      li {
+      :host(:not(.quebra)) li {
         flex: none;
       }
     }

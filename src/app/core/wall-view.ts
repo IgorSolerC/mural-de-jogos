@@ -4,7 +4,6 @@ import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
-import { checkCount } from './rich-text';
 import { Settings } from './settings';
 import { activeOrder, groupViews, hiddenKeys } from './mural-config';
 import {
@@ -193,7 +192,7 @@ interface WallMemory {
 /**
  * A vista de um mural: busca, filtros, abas, ordem, tipo de ficha e seções fechadas, sobre as fichas
  * de `wall`. É a mesma para o seu mural (`WallView`) e para o de outra pessoa (`VisitView`): a régua,
- * as abas, as tags e a parede (WallToolbar, NoteTabsBar, TagShortcuts, WallBoard) leem a que a página
+ * as abas, as tags e a parede (WallToolbar, NoteTabsBar, WallFilters, WallBoard) leem a que a página
  * fornece, então quem visita vê e mexe no mural como o dono. Sem nada fornecido, é a do seu mural.
  */
 @Injectable({ providedIn: 'root', useExisting: forwardRef(() => WallView) })
@@ -519,21 +518,6 @@ export abstract class WallState {
     );
   });
 
-  /**
-   * As tarefas (checklists) das fichas à mostra, somadas: quantas feitas e quantas para fazer. Segue a
-   * busca, os filtros e o "Mostrar finalizadas", porque conta só o que está no mural agora.
-   */
-  readonly tasks = computed(() => {
-    let done = 0;
-    let total = 0;
-    for (const r of this.visible()) {
-      const c = checkCount(r.text);
-      done += c.done;
-      total += c.total;
-    }
-    return { done, todo: total - done, total };
-  });
-
   private readonly order = computed<WallOrder>(() => ({
     sort: this.shownSort(),
     key: this.activeScore(),
@@ -645,6 +629,11 @@ export abstract class WallState {
 
   toggle(key: FacetKey, value: string): void {
     this.filter.update((f) => toggleOption(f, key, value));
+  }
+
+  /** O campo do assunto na pasta das anotações: um assunto por vez (o valor da opção), ou todos (null). */
+  chooseSubject(value: string | null): void {
+    this.filter.update((f) => ({ ...f, subject: value ? [value] : [] }));
   }
 
   /**

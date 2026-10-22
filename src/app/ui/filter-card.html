@@ -1,0 +1,90 @@
+@if (!empty()) {
+  <!-- a cabeça: fechada, a ficha inteira abre com um toque (o botão cobre a linha); o Limpar fica por cima -->
+  <div class="cabeca">
+    <button
+      type="button"
+      class="abre"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="id + '-corpo'"
+      (click)="toggle()"
+    >
+      <lucide-icon class="abre-icone" [img]="FilterIcon" [size]="22" aria-hidden="true" />
+      <span class="abre-nome">Filtros</span>
+      <span class="resumo">
+        <span class="sr-only">: </span>
+        @for (b of bits(); track $index) {
+          <span class="resumo-item">{{ b }}</span>
+        }
+      </span>
+    </button>
+    @if (filtering()) {
+      <p class="achados" aria-live="polite">
+        <span>Mostrando {{ shown() }} de {{ total() }}</span>
+        @if (elsewhere(); as n) {
+          <button type="button" class="tinta-link" (click)="searchedAll.emit()">+{{ n }} em outras abas</button>
+        }
+        <button type="button" class="tinta-link" (click)="cleared.emit()">Limpar</button>
+      </p>
+    }
+    <span class="abre-acao" aria-hidden="true">
+      <span class="abre-acao-txt">{{ open() ? 'Fechar' : 'Abrir' }}</span>
+      <lucide-icon class="abre-seta" [img]="ChevronIcon" [size]="18" />
+    </span>
+  </div>
+
+  @if (open()) {
+    <div class="corpo" [id]="id + '-corpo'" animate.enter="abrindo">
+      @if (subjectRow()) {
+        <div class="linha">
+          <div class="linha-texto">
+            <p class="linha-titulo" [id]="id + '-assunto'">Assunto</p>
+            <p class="linha-desc">Um por anotação: escolha um para ver só ele.</p>
+          </div>
+          <div class="recortes" role="radiogroup" [attr.aria-labelledby]="id + '-assunto'">
+            <label class="recorte">
+              <input type="radio" [name]="id + '-assunto-r'" value="" [checked]="!chosen()" (change)="subjectChosen.emit(null)" />
+              <span class="recorte-nome">Todos</span>
+            </label>
+            @for (s of subjects(); track s.value) {
+              <label class="recorte" [class.sem]="s.value === 'sem'" [class.zero]="!s.n && !s.on">
+                <input type="radio" [name]="id + '-assunto-r'" [value]="s.value" [checked]="s.on" (change)="subjectChosen.emit(s.value)" />
+                <span class="recorte-nome">{{ s.label }}</span>
+                <span class="recorte-n"><span class="sr-only">, </span>{{ s.n }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      }
+
+      @if (tags().length) {
+        <div class="linha">
+          <div class="linha-texto">
+            <p class="linha-titulo">Tags</p>
+            <p class="linha-desc">Um toque mostra só as com a tag. O botão direito (ou segurar) esconde as dela.</p>
+          </div>
+          <app-tag-chips class="etiquetas quebra" [tags]="tags()" (toggled)="tagToggled.emit($event)" (excluded)="tagExcluded.emit($event)" />
+        </div>
+      }
+
+      @if (shows().length) {
+        <div class="linha">
+          <div class="linha-texto">
+            <p class="linha-titulo">Mostrar também</p>
+            <p class="linha-desc">Ficam fora do mural até você pedir.</p>
+          </div>
+          <div class="chaves">
+            @for (x of shows(); track x.key) {
+              <label class="chave">
+                <button type="button" role="switch" class="interruptor" [attr.aria-checked]="x.on" (click)="showToggled.emit(x.key)">
+                  <span class="bolinha"></span>
+                </button>
+                <span class="chave-nome">{{ x.label }}</span>
+                <span class="chave-n"><span class="sr-only">, </span>{{ x.n }}</span>
+              </label>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  }
+}
