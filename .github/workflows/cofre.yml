@@ -67,6 +67,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # Na primeira publicação (ou depois de mexer no domínio), a Cloudflare cria o endereço e emite o
+      # certificado dele, o que leva alguns minutos: espera o HTTPS responder antes de conferir.
+      - name: Espera o endereço e o certificado
+        run: |
+          for i in $(seq 1 60); do
+            curl --silent --fail --output /dev/null --max-time 10 https://cofre.murall.igorsc.com.br/api/status && exit 0
+            sleep 15
+          done
+          echo "::error::O endereço não respondeu por HTTPS em 15 minutos."
+          exit 1
       - name: Confere os cabeçalhos no ar
         working-directory: cofre-api
         run: |
