@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
 import { map } from 'rxjs';
 import { kanbanPath } from '../core/areas';
-import { CategoryLook, categoryColorHex } from '../core/category-looks';
+import { CategoryLook, categoryColorHex, tagColorHex } from '../core/category-looks';
 import { Desk } from '../core/desk';
 import { KANBAN_LAST_KEY, KanbanBoard, KanbanCard, KanbanColumn, MAX_COLUMNS, addColumn, belongs, boardIdFor, cardsIn, defaultColumns, nextStop, resetBoard } from '../core/kanban';
 import { KanbanActions } from '../core/kanban-actions';
@@ -30,7 +30,8 @@ import { NoteSelection } from '../ui/note-selection';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
-import { FilterCard, SubjectOption } from '../ui/filter-card';
+import { FilterCard, SubjectOption, activeFilters, removeActive } from '../ui/filter-card';
+import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { TagChip } from '../ui/tag-chips';
 import { TabFit } from '../ui/tab-fit';
 import { Toasts } from '../ui/toast';
@@ -143,7 +144,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -151,6 +152,7 @@ interface BoardTab {
 export class KanbanPage {
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly SettingsIcon = ICON.configurar;
+  protected readonly FilterIcon = ICON.filtrar;
   protected readonly PencilIcon = ICON.editar;
   protected readonly DoneIcon = ICON.feito;
   protected readonly SearchIcon = ICON.buscar;
@@ -351,12 +353,13 @@ export class KanbanPage {
       this.tagOuts(),
       this.settings.hiddenTagKeys(),
     );
-    const seen = new Map<string, { spell: Map<string, number>; uses: number; n: number }>();
+    // (o grupo da primeira anotação com a tag dá a cor dela, como na ficha)
+    const seen = new Map<string, { spell: Map<string, number>; uses: number; n: number; group: string }>();
     for (const c of this.live()) {
       const note = this.notes().get(c.note)!;
       const found = (!q || fold(note.game.name).includes(q)) && !out(note) && this.bySubject()(note);
       for (const k of new Set((note.tags ?? []).map(fold))) {
-        const e = seen.get(k) ?? { spell: new Map<string, number>(), uses: 0, n: 0 };
+        const e = seen.get(k) ?? { spell: new Map<string, number>(), uses: 0, n: 0, group: note.category ?? '' };
         e.uses++;
         if (found) e.n++;
         seen.set(k, e);
@@ -366,11 +369,13 @@ export class KanbanPage {
         m.set(t, (m.get(t) ?? 0) + 1);
       }
     }
+    const looks = this.settings.categoryLooks();
     return [...seen]
       .map(([value, e]) => {
         const label = [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0];
+        const color = tagColorHex(looks, label, e.group);
         const h = hidden.get(value);
-        return h ? { value, label, n: h.n, on: false, out: true, uses: e.uses } : { value, label, n: e.n, on: on.has(value), uses: e.uses };
+        return h ? { value, label, n: h.n, on: false, out: true, uses: e.uses, color } : { value, label, n: e.n, on: on.has(value), uses: e.uses, color };
       })
       .sort((a, b) => b.uses - a.uses || a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }))
       .map(({ uses: _u, ...chip }) => chip);
@@ -401,6 +406,43 @@ export class KanbanPage {
       .map(([value, e]) => ({ value, label: value === 'sem' ? 'Sem assunto' : e.spell.size ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : value, n: e.n, on: on.has(value) }))
       .sort((a, b) => (a.value === 'sem' ? 1 : b.value === 'sem' ? -1 : a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' })));
   });
+
+  /** A folha dos filtros aberta embaixo da pasta (o Filtrar). */
+  protected readonly filtersOpen = signal(false);
+  private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
+  private readonly filterCard = viewChild(FilterCard);
+  private readonly filterSheet = viewChild(FilterCard, { read: ElementRef });
+  /** Os filtros ligados: os adesivos embaixo da pasta e o número do Filtrar. */
+  protected readonly activeFilters = computed(() => activeFilters(this.subjectOptions(), this.tagChips()));
+
+  /** O Filtrar: abre ou fecha a folha; aberta pelo teclado, o foco desce para ela. */
+  protected toggleFilters(e: MouseEvent): void {
+    if (this.filtersOpen()) {
+      this.closeFilters();
+      return;
+    }
+    this.filtersOpen.set(true);
+    if (e.detail === 0) afterNextRender(() => this.filterCard()?.focusFirst(), { injector: this.injector });
+  }
+
+  /** Fecha a folha; se o foco estava nela, volta para o Filtrar. */
+  protected closeFilters(): void {
+    const hadFocus = !!document.getElementById('cartela-filtros')?.contains(document.activeElement);
+    this.filtersOpen.set(false);
+    if (hadFocus) this.filterTab()?.nativeElement.focus();
+  }
+
+  /** O X de um adesivo ligado: o mesmo toque que o ligou. */
+  protected removeFilter(f: FilterChip): void {
+    removeActive(f, { subjectChosen: (v) => this.chooseSubject(v), tagToggled: (v) => this.toggleTag(v) });
+  }
+
+  /** Limpar tudo, na folha: o assunto e as tags (ligadas e escondidas); a busca fica. */
+  protected clearChoices(): void {
+    this.tagFilter.set([]);
+    this.subjectFilter.set([]);
+    this.tagOuts.set(showAllTags(this.boardNotes(), this.settings.hiddenTagKeys()));
+  }
 
   /** A escolha no campo do assunto: um assunto por vez, ou todos (null). */
   protected chooseSubject(value: string | null): void {
@@ -590,14 +632,17 @@ export class KanbanPage {
       untracked(() => this.scheduleEdges());
     });
     // a altura das colunas: o que sobra da tela depois das abas e da pasta (ver `fitColumns`), medido de
-    // novo quando elas mudam de altura (as tags que quebram em outra linha, o "Mostrando 3 de 9")
+    // novo quando elas mudam de altura (os filtros ligados que quebram em outra linha, o "Mostrando 3
+    // de 9") e quando a folha dos filtros abre embaixo da pasta, cresce ou fecha
     effect((onCleanup) => {
       const top = this.abas()?.nativeElement;
       const folder = this.pasta()?.nativeElement;
+      const sheet = this.filterSheet()?.nativeElement;
       if (!top || !folder) return;
       const ro = new ResizeObserver(() => this.fitColumns());
       ro.observe(top);
       ro.observe(folder);
+      if (sheet) ro.observe(sheet);
       onCleanup(() => ro.disconnect());
     });
     // a anotação nova que caiu numa coluna (a "Nova nota" do pé dela) aparece, mesmo depois das primeiras

@@ -19,7 +19,8 @@
   bottom: 0;
   z-index: 1;
   height: var(--borda);
-  border-radius: 1px;
+  /* os cantos de cima tão redondos quanto os de baixo da pasta (6px), que continua dela para baixo */
+  border-radius: 6px 6px 0 0;
   background-color: var(--manilha);
   background-image: var(--paper-grain);
   background-blend-mode: multiply;

@@ -18,6 +18,8 @@ export interface TagChip {
   n: number;
   on: boolean;
   out?: boolean;
+  /** A cor que o dono deu à tag no grupo dela (o hex), ou null: a etiqueta de papel pardo. */
+  color?: string | null;
 }
 
 let nextId = 0;
@@ -59,7 +61,7 @@ let nextId = 0;
               (pointercancel)="cancelHold()"
               (pointerleave)="cancelHold()"
             >
-              <app-note-tag [label]="t.label" [count]="t.n" [ghost]="!t.on" [index]="t.on ? i : null" />
+              <app-note-tag [class.tingida]="!!t.color" [label]="t.label" [count]="t.n" [ghost]="!t.on" [index]="t.on ? i : null" [color]="t.color ?? null" />
               @if (t.out) {
                 <span class="sr-only">, escondida</span>
               }
@@ -116,6 +118,13 @@ let nextId = 0;
         outline: 2.5px solid var(--ink);
         outline-offset: 1px;
       }
+    }
+
+    /* a tag com cor, ainda não ligada: o contorno tracejado e a letra na cor dela (ligada, a etiqueta
+       com a cor por dentro da beirada, como na ficha) */
+    app-note-tag.tingida.ghost {
+      outline-color: var(--tag-cor);
+      color: color-mix(in srgb, var(--tag-cor) 78%, #151515);
     }
 
     /* a que, com o resto do filtro, não mostraria nada: desbotada (ainda dá para ligar) */

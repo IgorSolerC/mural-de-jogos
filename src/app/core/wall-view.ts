@@ -192,7 +192,7 @@ interface WallMemory {
 /**
  * A vista de um mural: busca, filtros, abas, ordem, tipo de ficha e seções fechadas, sobre as fichas
  * de `wall`. É a mesma para o seu mural (`WallView`) e para o de outra pessoa (`VisitView`): a régua,
- * as abas, as tags e a parede (WallToolbar, NoteTabsBar, WallFilters, WallBoard) leem a que a página
+ * as abas, as tags e a parede (WallToolbar, NoteTabsBar, NoteFilters, WallBoard) leem a que a página
  * fornece, então quem visita vê e mexe no mural como o dono. Sem nada fornecido, é a do seu mural.
  */
 @Injectable({ providedIn: 'root', useExisting: forwardRef(() => WallView) })
@@ -666,6 +666,12 @@ export abstract class WallState {
 
   clearFacet(key: FacetKey): void {
     this.filter.update((f) => (f[key].length ? { ...f, [key]: [] } : f));
+  }
+
+  /** Limpar tudo, na folha dos filtros: sem filtros e nenhuma tag escondida (nem pelo padrão); a busca fica. */
+  clearChoices(): void {
+    this.filter.set(NO_FILTER);
+    this.tagOuts.set(showAllTags(this.wall(), this.defaultTagOuts()));
   }
 
   /** Limpar: sem busca nem filtros, e nenhuma tag escondida nesta visita (nem pelo padrão). */

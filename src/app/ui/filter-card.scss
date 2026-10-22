@@ -1,159 +1,16 @@
 @use 'paper-kit' as kit;
 
-/* A ficha dos filtros: o papel creme das fichas do perfil, guardado na pasta, um tico torto */
+/* A folha dos filtros: a cartela branca das resenhas, presa com fita-crepe embaixo da pasta */
 :host {
-  @include kit.folha;
-  display: block;
-  margin-top: 14px;
-  padding: 10px 18px;
-  rotate: -0.2deg;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.22),
-    0 6px 12px -6px rgb(0 0 0 / 0.4);
-  transition:
-    translate var(--t-physical) var(--ease-physical),
-    box-shadow var(--t-physical) var(--ease-physical);
+  @include kit.cartela;
+  padding-top: 12px;
 }
 
-:host(.vazio) {
-  display: none;
-}
+@include kit.cartela-fitas('.fita-l', '.fita-r');
 
-/* Fechada, a ficha inteira é o botão: sobe um pouco no hover, como uma ficha que se puxa da pasta */
-:host(:not(.aberta):hover) {
-  translate: 0 -2px;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.22),
-    0 10px 16px -8px rgb(0 0 0 / 0.45);
-}
-
-:host(:not(.aberta):has(.abre:focus-visible)) {
-  outline: 3px solid var(--ink);
-  outline-offset: 3px;
-
-  .abre {
-    outline: 0;
-  }
-}
-
-/* ===== A cabeça: o nome a pincel, o resumo a lápis, o que achou e o Abrir ===== */
-.cabeca {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px 16px;
-  min-height: 44px;
-}
-
-.abre {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-
-  /* o toque em qualquer lugar da cabeça abre e fecha */
-  &::after {
-    content: '';
-    position: absolute;
-    inset: -10px -18px;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 4px;
-    border-radius: 2px;
-  }
-}
-
-.abre-icone {
-  flex: none;
-  display: inline-flex;
-}
-
-.abre-nome {
-  flex: none;
-  font-family: var(--f-marker);
-  font-size: 1.4rem;
-  line-height: 1.05;
-}
-
-/* o resumo, a lápis, numa linha só: "História · Grupo ou Resumo" */
-.resumo {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  padding-left: 2px;
-  font-family: var(--f-hand);
-  font-size: 1.12rem;
-  line-height: 1.35;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.resumo-item:not(:last-child)::after {
-  content: '·';
-  margin: 0 8px;
-  color: var(--ink-2);
-}
-
-/* o que a busca e os filtros acharam, por cima do botão da cabeça */
-.achados {
-  position: relative;
-  z-index: 1;
-  flex: none;
-}
-
-.abre-acao {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.8rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  pointer-events: none;
-  transition: color var(--t-ui) var(--ease-ui);
-}
-
-.cabeca:hover .abre-acao {
-  color: var(--ink);
-}
-
-.abre-seta {
-  display: inline-flex;
-  transition: rotate var(--t-physical) var(--ease-physical);
-}
-
-:host(.aberta) .abre-seta {
-  rotate: 180deg;
-}
-
-/* ===== Aberta: o fio vermelho embaixo da cabeça e as linhas das Configurações ===== */
-.corpo {
-  margin: 10px -18px 0;
-  padding: 2px 18px 4px;
-  border-top: 2px solid rgb(206 58 48 / 0.6);
-}
-
-.corpo.abrindo {
-  animation: abre var(--t-physical) var(--ease-physical);
-}
-
-@keyframes abre {
-  from {
-    opacity: 0;
-    translate: 0 -6px;
-  }
+.pe {
+  @include kit.cartela-pe;
+  margin-top: 6px;
 }
 
 /* uma linha: o nome e o que ele faz à esquerda, as escolhas à direita, um fio tracejado embaixo */
@@ -165,7 +22,8 @@
   padding: 16px 0;
   border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
 
-  &:last-child {
+  /* (o pé tem o picote dele) */
+  &:last-of-type {
     border-bottom: 0;
   }
 }
@@ -261,54 +119,15 @@
   color: var(--ink-2);
 }
 
-/* ===== No celular: o resumo e o que achou embaixo do nome, e as linhas empilhadas ===== */
+.vazio {
+  margin: 16px 0 4px;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  color: var(--ink-2);
+}
+
+/* ===== No celular: as linhas empilhadas ===== */
 @media (max-width: 720px) {
-  :host {
-    padding: 8px 12px;
-  }
-
-  .cabeca {
-    flex-wrap: wrap;
-  }
-
-  .abre {
-    flex-wrap: wrap;
-    row-gap: 0;
-  }
-
-  .abre-nome {
-    font-size: 1.25rem;
-  }
-
-  /* o resumo vai para a linha de baixo, alinhado com o nome (depois do ícone) */
-  .resumo {
-    order: 3;
-    flex-basis: 100%;
-    padding-left: 34px;
-    font-size: 1.04rem;
-  }
-
-  /* no celular, só a seta, na altura do nome */
-  .abre-acao {
-    position: absolute;
-    top: 2px;
-    right: 0;
-  }
-
-  .abre-acao-txt {
-    display: none;
-  }
-
-  .achados {
-    flex-basis: 100%;
-    padding-left: 34px;
-  }
-
-  .corpo {
-    margin-inline: -12px;
-    padding-inline: 12px;
-  }
-
   .linha {
     grid-template-columns: minmax(0, 1fr);
     gap: 10px;
@@ -317,15 +136,5 @@
 
   .recorte {
     padding: 9px 10px 7px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :host,
-  :host(:not(.aberta):hover) {
-    translate: none;
-  }
-  .corpo.abrindo {
-    animation: none;
   }
 }

@@ -3,7 +3,7 @@ import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, Status, Verdict } from '../core/review';
 import { isNotes } from '../core/kinds';
-import { Facet, FacetKey, FilterTag, GRADE_SHORT, GradeBand } from '../core/wall-filter';
+import { Facet, FacetKey, GRADE_SHORT, GradeBand } from '../core/wall-filter';
 import { Skulls } from './difficulty';
 import { BonusSticker } from './bonus';
 import { NoteTag } from './note-tag';
@@ -158,36 +158,11 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     @use 'paper-kit' as kit;
 
     :host {
-      position: relative;
-      display: block;
-      padding: 26px 28px 0;
-      border-radius: 2px;
-      background: var(--cartela, #fdfcf8);
-      color: var(--ink);
-      color-scheme: light;
-      box-shadow: var(--shadow-card);
-      --focus: var(--ink);
+      @include kit.cartela;
     }
 
     /* duas tiras de fita-crepe prendem a folha na régua */
-    .fita {
-      position: absolute;
-      top: -15px;
-      width: 92px;
-      height: 26px;
-      background: rgb(222 205 160 / 0.86);
-      clip-path: polygon(0 8%, 5px 30%, 1px 52%, 6px 74%, 0 94%, 100% 100%, calc(100% - 4px) 70%, 100% 46%, calc(100% - 6px) 22%, 100% 4%);
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
-      pointer-events: none;
-    }
-    .fita-l {
-      left: 7%;
-      rotate: -4deg;
-    }
-    .fita-r {
-      right: 7%;
-      rotate: 3deg;
-    }
+    @include kit.cartela-fitas('.fita-l', '.fita-r');
 
     /* Veredito e Status em cima, com Resenha e Visual (só dois adesivos cada) empilhados ao lado;
        Média, Dificuldade e Ano embaixo */
@@ -431,45 +406,9 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
 
     /* o pé da folha: quantas fichas sobraram e o Pronto, sempre à mão mesmo com a cartela comprida */
     .pe {
-      position: sticky;
-      bottom: 0;
-      z-index: 1;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px 20px;
-      margin: 22px -28px 0;
-      padding: 12px 28px 14px;
-      border-top: 1.5px dashed rgb(21 21 21 / 0.3);
-      background: var(--cartela, #fdfcf8);
-      border-radius: 0 0 2px 2px;
+      @include kit.cartela-pe;
     }
 
-    .conta {
-      margin: 0;
-      font-family: var(--f-hand);
-      font-size: 1.14rem;
-      line-height: 1.3;
-    }
-
-    .pe-acoes {
-      display: flex;
-      align-items: center;
-      gap: 18px;
-      margin-left: auto;
-    }
-
-    .pronto {
-      @include kit.tinta;
-      min-height: 44px;
-      padding: 9px 20px 8px;
-      font-size: 1.08rem;
-    }
-    .pronto:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 3px;
-    }
 
     @media (max-width: 1180px) {
       .grupos,
@@ -503,9 +442,6 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
     }
 
     @media (max-width: 640px) {
-      :host {
-        padding: 22px 16px 0;
-      }
       .grupos,
       .grupos.sem-dificuldade,
       .grupos.sem-julgamento,
@@ -520,16 +456,6 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
       }
       .opts {
         gap: 2px 12px;
-      }
-      .pe {
-        margin-inline: -16px;
-        padding: 10px 16px 12px;
-      }
-      .conta {
-        font-size: 1.04rem;
-      }
-      .pe-acoes {
-        gap: 12px;
       }
     }
   `,
@@ -607,9 +533,17 @@ export class FilterSheet {
   }
 }
 
+/** Um filtro ligado, embaixo da régua: o grupo dele (o da cartela, ou o que quem usa escolher), o valor e como aparece. */
+export interface FilterChip {
+  key: string;
+  value: string;
+  label: string;
+}
+
 /**
  * Os filtros ligados, como adesivos de papel colados na parede logo embaixo da régua: cada um com o
- * seu X, para tirar um sem abrir a cartela.
+ * seu X, para tirar um sem abrir a cartela. Os da cartela das resenhas e os da ficha dos filtros das
+ * anotações e do Kanban (ver `activeFilters` em ui/filter-card.ts).
  */
 @Component({
   selector: 'app-filter-tags',
@@ -676,8 +610,8 @@ export class FilterSheet {
   `,
 })
 export class FilterTags {
-  readonly tags = input.required<FilterTag[]>();
-  readonly remove = output<FilterTag>();
+  readonly tags = input.required<readonly FilterChip[]>();
+  readonly remove = output<FilterChip>();
   protected readonly XIcon = ICON.fechar;
 
   protected tilt(i: number): string {

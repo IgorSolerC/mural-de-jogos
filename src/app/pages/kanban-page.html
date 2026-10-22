@@ -131,7 +131,7 @@
     </div>
   </nav>
 
-  <!-- a pasta: a busca, os ajustes do quadro e a ficha dos filtros -->
+  <!-- a pasta: a busca, o Filtrar, os ajustes do quadro e, depois do picote, os filtros ligados -->
   <div #pasta class="pasta">
     <div class="pasta-linha">
       <app-search-strip
@@ -144,6 +144,24 @@
         (valueChange)="query.set($event)"
       />
       <div class="pasta-controles">
+        <!-- Filtrar abre a folha dos filtros embaixo da pasta, a mesma do mural -->
+        <div class="pasta-grupo">
+          <button
+            #filterTab
+            type="button"
+            class="tinta"
+            [attr.aria-expanded]="filtersOpen()"
+            aria-controls="cartela-filtros"
+            (click)="toggleFilters($event)"
+          >
+            <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+            <span>Filtrar</span>
+            @if (activeFilters().length) {
+              <span class="tinta-n" aria-hidden="true">{{ activeFilters().length }}</span>
+              <span class="sr-only">({{ activeFilters().length }} ligados)</span>
+            }
+          </button>
+        </div>
         <div class="pasta-grupo" role="group" aria-label="Vista do quadro">
           <button
             type="button"
@@ -210,20 +228,43 @@
         </div>
       </div>
     </div>
-    <!-- a ficha dos filtros, a mesma do mural (ver ui/filter-card.ts): o assunto e as tags -->
+    <!-- depois do picote: os filtros ligados, cada um com o seu X, e o que a busca e os filtros acharam -->
+    <div class="pasta-linha pasta-baixo">
+      @if (activeFilters().length) {
+        <div class="pasta-filtros">
+          <app-filter-tags class="atalhos" [tags]="activeFilters()" (remove)="removeFilter($event)" />
+        </div>
+      }
+      <div class="pasta-estado">
+        @if (filtering()) {
+          <p class="achados" aria-live="polite">
+            <span>Mostrando {{ shownCount() }} de {{ liveCount() }}</span>
+            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- a folha dos filtros, a mesma do mural (ver ui/filter-card.ts): o assunto e as tags -->
+  @if (filtersOpen()) {
     <app-filter-card
+      id="cartela-filtros"
+      class="cartela"
+      animate.enter="desce"
+      animate.leave="sobe"
       [subjects]="subjectOptions()"
       [tags]="tagChips()"
       [shown]="shownCount()"
       [total]="liveCount()"
       [filtering]="filtering()"
-      everything="Todo o quadro"
       (subjectChosen)="chooseSubject($event)"
       (tagToggled)="toggleTag($event)"
       (tagExcluded)="excludeTagChip($event)"
-      (cleared)="clearFilters()"
+      (cleared)="clearChoices()"
+      (done)="closeFilters()"
     />
-  </div>
+  }
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
   <p id="kanban-dica" class="sr-only">

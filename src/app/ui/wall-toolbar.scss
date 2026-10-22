@@ -2,37 +2,13 @@
   display: block;
 }
 
-/* A pasta (a busca, os controles em tinta e a linha picotada) mora em styles.scss: é a mesma do Pra
-   depois, da Wishlist e das fichas do Comparar. Aqui fica só o que é do mural. */
-
-/* ===== A cartela, logo embaixo da pasta (a entrada e a saída moram em styles.scss) ===== */
-.cartela {
-  margin: 22px 4px 0;
-}
-
-/* ===== Depois do picote, nos murais de resenhas: os filtros ligados e o que a busca achou =====
-   (nas anotações, a ficha dos filtros: ui/filter-card.ts) */
-/* os filtros ligados da cartela, adesivos de papel colados na pasta, cada um com o seu X */
-.pasta-filtros {
-  flex: 1 1 320px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 10px;
-  min-width: 0;
-}
+/* A pasta (a busca, os controles em tinta, a linha picotada e os filtros ligados) e a cartela que
+   desce embaixo dela moram em styles.scss: são as mesmas do Kanban, do Pra depois, da Wishlist e das
+   fichas do Comparar. Aqui fica só o que é do mural. */
 
 @media (max-width: 720px) {
-  .cartela {
-    margin: 20px 0 0;
-  }
-
   /* no celular, Marcar é só o ícone (e a contagem) */
   .marcar-txt {
     display: none;
-  }
-
-  .pasta-filtros {
-    flex-basis: 100%;
   }
 }

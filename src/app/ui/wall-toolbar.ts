@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, Injector, linkedSignal, signal, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Mural } from '../core/mural';
@@ -6,12 +7,13 @@ import { countOf, g, isNotes, revisitCountOf } from '../core/kinds';
 import { SCORE_LABEL, ScoreKey, isPinnedNote, scoreKeys } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
-import { FacetKey, FilterTag, NO_FILTER } from '../core/wall-filter';
+import { FacetKey, NO_FILTER } from '../core/wall-filter';
 import { Density, SortKey, WallState, directionLabelOf } from '../core/wall-view';
-import { FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
+import { FilterChip, FilterSheet, FilterTags, FilterToggle } from './filter-sheet';
+import { FilterCard } from './filter-card';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
-import { WallFilters } from './wall-filters';
+import { NoteFilters } from './note-filters';
 import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
@@ -35,7 +37,9 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
 
 @Component({
   selector: 'app-wall-toolbar',
-  imports: [FilterSheet, FilterTags, IconModule, MuralConfig, NoteTabsBar, SearchStrip, WallFilters],
+  imports: [FilterCard, FilterSheet, FilterTags, IconModule, MuralConfig, NgTemplateOutlet, NoteTabsBar, SearchStrip],
+  // a folha dos filtros das anotações, o Filtrar e os adesivos ligados leem as mesmas escolhas
+  providers: [NoteFilters],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-toolbar.html',
   styleUrl: './wall-toolbar.scss',
@@ -65,9 +69,14 @@ export class WallToolbar {
   protected readonly GearIcon = ICON.configurar;
 
   private readonly injector = inject(Injector);
-  /** O Filtrar da pasta (só nos murais de resenhas: as anotações não têm cartela). */
+  /** O Filtrar da pasta: abre a cartela (nas resenhas) ou a folha dos filtros (nas anotações). */
   private readonly filterTab = viewChild<ElementRef<HTMLButtonElement>>('filterTab');
   private readonly sheet = viewChild(FilterSheet);
+  private readonly card = viewChild(FilterCard);
+  /** As escolhas da folha dos filtros das anotações. */
+  protected readonly noteFilters = inject(NoteFilters);
+  /** O número do Filtrar: os filtros da cartela, ou os ligados na folha das anotações. */
+  protected readonly filterCount = computed(() => (this.notes() ? this.noteFilters.active().length : this.view.filterCount()));
   /** A engrenagem das anotações: o foco volta para ela quando as configurações fecham. */
   private readonly gear = viewChild<ElementRef<HTMLButtonElement>>('gear');
 
@@ -145,7 +154,7 @@ export class WallToolbar {
     }
     this.open.set(true);
     // aberta pelo teclado (Enter ou espaço não têm clique de verdade): o foco desce para a cartela
-    if (e.detail === 0) afterNextRender(() => this.sheet()?.focusFirst(), { injector: this.injector });
+    if (e.detail === 0) afterNextRender(() => (this.sheet() ?? this.card())?.focusFirst(), { injector: this.injector });
   }
 
   /** Fecha a cartela; se o foco estava nela, volta para o Filtrar. */
@@ -191,8 +200,8 @@ export class WallToolbar {
   }
 
   /** Tira um filtro ligado, pelo X do adesivo na pasta. */
-  protected removeTag(t: FilterTag): void {
-    this.motion.run(() => this.view.toggle(t.key, t.value));
+  protected removeTag(t: FilterChip): void {
+    this.motion.run(() => this.view.toggle(t.key as FacetKey, t.value));
   }
 
   /** A busca sai da aba e procura no mural inteiro. */

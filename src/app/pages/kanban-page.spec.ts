@@ -65,6 +65,11 @@ describe('página do Kanban', () => {
     await router.navigateByUrl(url);
     await settle();
   }
+  /** O Filtrar da pasta abre a folha dos filtros embaixo dela (o assunto e as tags). */
+  async function openFilters(): Promise<void> {
+    [...host.querySelectorAll<HTMLButtonElement>('.pasta-controles button.tinta')].find((b) => b.textContent!.includes('Filtrar'))!.click();
+    await settle();
+  }
   async function settle(): Promise<void> {
     for (let i = 0; i < 3; i++) {
       await new Promise((r) => setTimeout(r, 0));
@@ -78,8 +83,6 @@ describe('página do Kanban', () => {
 
   beforeEach(async () => {
     localStorage.clear();
-    // a ficha dos filtros aberta (ela lembra no aparelho): os testes mexem no assunto e nas tags
-    localStorage.setItem('meu-mural:filtros-abertos:v1', 'true');
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -689,6 +692,7 @@ describe('página do Kanban', () => {
     store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     // sem seletor: as etiquetas depois do picote, como as do mural de anotações
     expect(host.querySelector('.pasta select')).toBeNull();
     const chips = () => [...host.querySelectorAll<HTMLButtonElement>('app-filter-card app-tag-chips .atalho')];
@@ -717,6 +721,7 @@ describe('página do Kanban', () => {
     store.update({ ...store.get('nlogin01')!, subject: 'Site' });
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     const kicker = column('afazer').querySelector('[data-nota="nlogin01"] .assunto')!;
     expect(kicker.textContent!.replace('Assunto: ', '').trim()).toBe('Site');
     expect(column('afazer').querySelector('[data-nota="nsync001"] .assunto')).toBeNull();
@@ -729,7 +734,9 @@ describe('página do Kanban', () => {
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01']);
     expect(radios()[1].checked).toBeTrue();
-    expect(host.querySelector('app-filter-card .resumo')!.textContent).toContain('Site');
+    // o escolhido vira adesivo na pasta, e o Filtrar conta 1
+    expect(host.querySelector('app-filter-tags')!.textContent).toContain('Site');
+    expect([...host.querySelectorAll('.pasta-controles button.tinta')].find((b) => b.textContent!.includes('Filtrar'))!.textContent).toContain('1');
     expect(host.querySelector('.achados')?.textContent).toContain('Mostrando 1 de 2');
     // a anotação nova pedida da coluna nasce no assunto ligado
     const spy = spyOn(TestBed.inject(Desk), 'newNoteIn');
@@ -742,7 +749,7 @@ describe('página do Kanban', () => {
     await settle();
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(radios()[0].checked).toBeTrue();
-    expect(host.querySelector('app-filter-card .resumo')!.textContent!.trim()).toBe(': Todo o quadro');
+    expect(host.querySelector('app-filter-tags')).toBeNull();
   });
 
   it('o assunto na folha da anotação: os do grupo à mão; escolher muda a anotação', async () => {
@@ -869,6 +876,7 @@ describe('página do Kanban', () => {
     store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     const chips = () => [...host.querySelectorAll<HTMLButtonElement>('app-filter-card app-tag-chips .atalho')];
     const chip = (label: string) => chips().find((b) => b.querySelector('app-note-tag .txt')!.textContent!.trim() === label)!;
     // ligada e depois escondida: sai das ligadas
@@ -894,6 +902,7 @@ describe('página do Kanban', () => {
   it('no dedo, segurar a tag meio segundo esconde (e o toque que sobe não liga a tag); um toque comum liga', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     const chip = () => host.querySelector<HTMLButtonElement>('app-filter-card .atalho')!;
     const touch = (type: string) => chip().dispatchEvent(new PointerEvent(type, { bubbles: true, pointerType: 'touch', clientX: 10, clientY: 10 }));
     touch('pointerdown');
@@ -921,6 +930,7 @@ describe('página do Kanban', () => {
     store.update({ ...store.get('nsync001')!, tags: ['Sincronização'] });
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     expect(namesIn('afazer')).toEqual(['nsync001']);
     const fora = [...host.querySelectorAll('app-filter-card .atalho.fora app-note-tag .txt')].map((t) => t.textContent!.trim());
     expect(fora).toEqual(['Correção']);
@@ -1245,6 +1255,7 @@ describe('página do Kanban', () => {
   it('mover uma anotação não desliga o filtro das tags (só trocar de quadro)', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await openFilters();
     const chips = () => [...host.querySelectorAll<HTMLButtonElement>('app-filter-card app-tag-chips .atalho')];
     chips()[0].click();
     await settle();
@@ -1326,7 +1337,11 @@ describe('página do Kanban', () => {
       expect(getComputedStyle(column('feito')).maxHeight).toBe(`${Math.max(360, innerHeight - topo() - 46)}px`);
       // a página acaba no pé do quadro: sem a folga de baixo das outras páginas
       expect(getComputedStyle(page).marginBottom).toMatch(/^(-?0px|-\d+px)$/);
-      // a pasta mais alta (a ficha dos filtros aberta, com muitas tags): as colunas encolhem para caber
+      // a folha dos filtros aberta embaixo da pasta, e depois mais alta (muitas tags): as colunas encolhem para caber
+      const closed = topo();
+      await openFilters();
+      await frames();
+      expect(topo()).toBeGreaterThan(closed);
       const before = topo();
       host.querySelector<HTMLElement>('app-filter-card')!.style.minHeight = '320px';
       await frames();

@@ -15,6 +15,106 @@
   box-shadow: var(--shadow-card);
 }
 
+/* A cartela dos filtros: a folha presa embaixo da pasta (a das resenhas, ui/filter-sheet.ts, e a das
+   anotações e do Kanban, ui/filter-card.ts), no papel de ficha com a fibra, o mesmo da `folha` */
+@mixin cartela {
+  position: relative;
+  display: block;
+  padding: 26px 28px 0;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  box-shadow: var(--shadow-card);
+  --focus: var(--ink);
+
+  @media (max-width: 640px) {
+    padding: 22px 16px 0;
+  }
+}
+
+/* As duas tiras de fita-crepe que prendem a cartela na pasta (dois <span>, um em cada lado) */
+@mixin cartela-fitas($esquerda, $direita) {
+  #{$esquerda},
+  #{$direita} {
+    position: absolute;
+    top: -15px;
+    width: 92px;
+    height: 26px;
+    background: rgb(222 205 160 / 0.86);
+    clip-path: polygon(0 8%, 5px 30%, 1px 52%, 6px 74%, 0 94%, 100% 100%, calc(100% - 4px) 70%, 100% 46%, calc(100% - 6px) 22%, 100% 4%);
+    filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3));
+    pointer-events: none;
+  }
+  #{$esquerda} {
+    left: 7%;
+    rotate: -4deg;
+  }
+  #{$direita} {
+    right: 7%;
+    rotate: 3deg;
+  }
+}
+
+/* O pé da cartela, preso embaixo enquanto ela rola: quantas mostra, Limpar tudo e o Pronto */
+@mixin cartela-pe {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin: 22px -28px 0;
+  padding: 12px 28px 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.3);
+  /* (preso embaixo enquanto a folha rola: o mesmo papel por baixo, para o que passa não aparecer) */
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  border-radius: 0 0 2px 2px;
+
+  .conta {
+    margin: 0;
+    font-family: var(--f-hand);
+    font-size: 1.14rem;
+    line-height: 1.3;
+  }
+
+  .pe-acoes {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-left: auto;
+  }
+
+  .pronto {
+    @include tinta;
+    min-height: 44px;
+    padding: 9px 20px 8px;
+    font-size: 1.08rem;
+  }
+  .pronto:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 640px) {
+    margin-inline: -16px;
+    padding: 10px 16px 12px;
+
+    .conta {
+      font-size: 1.04rem;
+    }
+    .pe-acoes {
+      gap: 12px;
+    }
+  }
+}
+
 /* O título de um grupo dentro da folha: caixa alta, em cima de um fio */
 @mixin grupo-titulo {
   padding-bottom: 7px;

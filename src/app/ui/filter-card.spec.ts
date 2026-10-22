@@ -1,9 +1,9 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FilterCard, FilterShow, SubjectOption } from './filter-card';
+import { FilterCard, FilterShow, SubjectOption, activeFilters, removeActive } from './filter-card';
 import { TagChip } from './tag-chips';
 
-/** A ficha dos filtros sozinha: o resumo a lápis, as linhas que aparecem, as contagens e o que ela avisa. */
+/** A folha dos filtros sozinha: as linhas que aparecem, as contagens, as cores, o pé e os ligados. */
 describe('FilterCard', () => {
   let fixture: ComponentFixture<FilterCard>;
   let el: HTMLElement;
@@ -19,15 +19,13 @@ describe('FilterCard', () => {
   ];
   const shows: FilterShow[] = [{ key: 'kanban', label: 'Só no Kanban', n: 4, on: true, summary: 'com as do Kanban' }];
 
-  async function mount(inputs: Record<string, unknown>, open = true): Promise<void> {
-    localStorage.setItem('meu-mural:filtros-abertos:v1', String(open));
+  async function mount(inputs: Record<string, unknown>): Promise<void> {
     fixture = TestBed.createComponent(FilterCard);
     for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
     el = fixture.nativeElement;
     document.body.appendChild(el);
     await fixture.whenStable();
   }
-  const summary = () => [...el.querySelectorAll('.resumo-item')].map((b) => b.textContent!.trim());
 
   beforeEach(() => {
     localStorage.clear();
@@ -39,14 +37,28 @@ describe('FilterCard', () => {
     localStorage.clear();
   });
 
-  it('o resumo diz o assunto, as tags ligadas, as escondidas e o que voltou ao mural', async () => {
-    await mount({ subjects: [{ ...subjects[0], on: true }, subjects[1]], tags: [...tags, { value: 'Lista', label: 'Lista', n: 1, on: true }], shows });
-    expect(summary()).toEqual(['Site', 'Prova ou Lista', 'sem Urgente', 'com as do Kanban']);
+  it('os ligados (para os adesivos embaixo da pasta) são o assunto, as tags ligadas, as escondidas e o que voltou ao mural', () => {
+    const chips = activeFilters([{ ...subjects[0], on: true }, subjects[1]], [...tags, { value: 'Lista', label: 'Lista', n: 1, on: true }], shows);
+    expect(chips.map((c) => c.label)).toEqual(['Site', '#Prova', '#Lista', 'Sem #Urgente', 'com as do Kanban']);
+    expect(chips.map((c) => c.key)).toEqual(['subject', 'tag', 'tag', 'out', 'show']);
+    expect(activeFilters(subjects, [], [])).toEqual([]);
   });
 
-  it('sem nada ligado, o resumo é o "tudo" de quem usa', async () => {
-    await mount({ subjects, tags: [], everything: 'Todo o quadro' });
-    expect(summary()).toEqual(['Todo o quadro']);
+  it('tirar um adesivo é o mesmo toque que o ligou', () => {
+    const calls: string[] = [];
+    const to = { subjectChosen: (v: string | null) => calls.push(`assunto:${v}`), tagToggled: (v: string) => calls.push(`tag:${v}`), showToggled: (k: string) => calls.push(`mostrar:${k}`) };
+    for (const c of activeFilters([{ ...subjects[0], on: true }], tags, shows)) removeActive(c, to);
+    expect(calls).toEqual(['assunto:null', 'tag:Prova', 'tag:Urgente', 'mostrar:kanban']);
+  });
+
+  it('a tag com cor vai pintada na etiqueta: o contorno tracejado, e a cor por dentro quando ligada', async () => {
+    await mount({ tags: [{ ...tags[0], color: '#2f6fd1' }, { ...tags[1], color: '#2f6fd1' }, tags[2]] });
+    const notes = [...el.querySelectorAll<HTMLElement>('app-note-tag')];
+    expect(notes[0].classList).toContain('cor');
+    expect(notes[1].classList).toContain('tingida');
+    expect(notes[1].classList).toContain('ghost');
+    expect(getComputedStyle(notes[1]).outlineColor).toBe('rgb(47, 111, 209)');
+    expect(notes[2].classList).not.toContain('tingida');
   });
 
   it('cada tag traz o número na própria etiqueta, e a que não mostraria nada desbota', async () => {
@@ -76,23 +88,34 @@ describe('FilterCard', () => {
     expect(toggled).toEqual(['kanban', 'kanban']);
   });
 
-  it('o Mostrando e o Limpar ficam na cabeça só quando filtra, e o Limpar não abre nem fecha a ficha', async () => {
-    await mount({ subjects, filtering: false, shown: 2, total: 5 }, false);
-    expect(el.querySelector('.achados')).toBeNull();
+  it('o pé diz quantas mostra; Limpar tudo só com algo ligado; Esc e Pronto fecham', async () => {
+    await mount({ subjects, tags: [tags[1]], filtering: false, shown: 2, total: 5 });
+    expect(el.querySelector('.conta')!.textContent!.trim()).toBe('5 anotações');
+    expect(el.querySelector('.pe .acao-caneta')).toBeNull();
     fixture.componentRef.setInput('filtering', true);
+    fixture.componentRef.setInput('tags', tags);
     await fixture.whenStable();
-    expect(el.querySelector('.achados')!.textContent).toContain('Mostrando 2 de 5');
+    expect(el.querySelector('.conta')!.textContent!.trim()).toBe('Mostrando 2 de 5 anotações');
     let cleared = 0;
+    let done = 0;
     fixture.componentInstance.cleared.subscribe(() => cleared++);
-    el.querySelector<HTMLButtonElement>('.achados .tinta-link')!.click();
-    await fixture.whenStable();
+    fixture.componentInstance.done.subscribe(() => done++);
+    el.querySelector<HTMLButtonElement>('.pe .acao-caneta')!.click();
+    el.querySelector<HTMLButtonElement>('.pronto')!.click();
+    el.querySelector<HTMLElement>('.recorte input')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(cleared).toBe(1);
-    expect(el.querySelector('.abre')!.getAttribute('aria-expanded')).toBe('false');
+    expect(done).toBe(2);
   });
 
-  it('sem assunto que separe, sem tags e sem o que mostrar, a ficha some', async () => {
+  it('é a cartela das resenhas: a folha branca com as duas fitas', async () => {
+    await mount({ subjects });
+    expect(el.querySelectorAll('.fita').length).toBe(2);
+    expect(el.getAttribute('role')).toBe('region');
+  });
+
+  it('sem assunto que separe, sem tags e sem o que mostrar, a folha diz que não há o que filtrar', async () => {
     await mount({ subjects: [subjects[0]], tags: [], shows: [] });
-    expect(el.classList).toContain('vazio');
-    expect(el.querySelector('.cabeca')).toBeNull();
+    expect(el.querySelector('.linha')).toBeNull();
+    expect(el.querySelector('.vazio')).not.toBeNull();
   });
 });

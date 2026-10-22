@@ -125,26 +125,28 @@ describe('só no Kanban, nas telas', () => {
     expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
   });
 
-  it('a ficha dos filtros conta as que estão só no Kanban, no "Mostrar também", e o interruptor as traz com a etiqueta', async () => {
+  it('a folha dos filtros conta as que estão só no Kanban, no "Mostrar também", e o interruptor as traz com a etiqueta', async () => {
     // a ntarefa2 escolheu o mural também: só a ntarefa1 fica só no Kanban
     kanban.setOnWall('ntarefa2', true);
-    localStorage.setItem('meu-mural:filtros-abertos:v1', 'true');
     const bar = await mount(WallToolbar);
     const wall = await mount(WallBoard, (x) => x.componentRef.setInput('access', ACCESS));
     const el = bar.nativeElement as HTMLElement;
+    [...el.querySelectorAll<HTMLButtonElement>('.pasta-controles button.tinta')].find((b) => b.textContent!.includes('Filtrar'))!.click();
+    await bar.whenStable();
     const row = () => [...el.querySelectorAll<HTMLElement>('app-filter-card .chave')].find((c) => c.textContent!.includes('Só no Kanban'))!;
     const sw = () => row().querySelector<HTMLButtonElement>('[role="switch"]')!;
     expect(row().textContent!.replace(/\s+/g, ' ').trim()).toBe('Só no Kanban, 1');
     expect(sw().getAttribute('aria-checked')).toBe('false');
-    // nada dele na linha de cima da pasta
-    expect(el.querySelector('.pasta-linha')!.textContent).not.toContain('Kanban');
+    // nada dele na pasta enquanto não está à mostra
+    expect(el.querySelector('.pasta')!.textContent).not.toContain('Kanban');
     expect((wall.nativeElement as HTMLElement).querySelector('[data-lugar="ntarefa1"]')).toBeNull();
     // o toque no nome também liga
     row().querySelector<HTMLElement>('.chave-nome')!.click();
     await bar.whenStable();
     await wall.whenStable();
     expect(sw().getAttribute('aria-checked')).toBe('true');
-    expect(el.querySelector('app-filter-card .resumo')!.textContent).toContain('com as do Kanban');
+    // à mostra, vira adesivo na pasta, com o X para tirar
+    expect(el.querySelector('app-filter-tags')!.textContent).toContain('Com as do Kanban');
     await new Promise((r) => setTimeout(r, 60));
     await wall.whenStable();
     const box = (wall.nativeElement as HTMLElement).querySelector('[data-lugar="ntarefa1"]');

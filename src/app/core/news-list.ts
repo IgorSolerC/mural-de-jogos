@@ -26,14 +26,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-ficha-dos-filtros',
+    id: '2026-10-22-filtrar-das-anotacoes',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
-    title: 'O cofre de senhas refeito, a ficha dos filtros e a parede do cofre no Murall',
+    title: 'O cofre de senhas refeito, o Filtrar das anotações e a parede do cofre no Murall',
     melhorias: [
       'A parede de eucatex do Murall agora é a mesma do cofre de senhas: furos menores e mais discretos e a luz do tubo mais aberta, desenhada em vez de foto, o que também deixa o site mais leve para abrir.',
-      'Os filtros da pasta das Anotações e do Kanban viraram uma ficha, como as do perfil: fechada, uma linha com o que está ligado escrito a lápis; aberta, o assunto (um por vez), as tags com o número na própria etiqueta e, no mural, os interruptores das finalizadas e das que estão só no Kanban. A soma das tarefas feitas e para fazer saiu da pasta.',
+      'As Anotações e o Kanban ganharam o Filtrar das análises: um toque abre embaixo da pasta a folha presa com fita, com o assunto (um por vez), as tags com o número na própria etiqueta e, no mural, os interruptores das finalizadas e das que estão só no Kanban. O que está ligado fica na pasta, cada um com o seu X. As tags aparecem nas cores delas, e a soma das tarefas feitas e para fazer saiu da pasta.',
+      'A folha do Filtrar, também nas análises, ficou no papel de ficha acinzentado, e os cantos de cima das pastas com abas ficaram tão redondos quanto os de baixo.',
       'O cofre de senhas refeito para usar no dia a dia: a lista e a senha aberta lado a lado, e o user e a senha de cada item se copiam direto da lista, sem abrir. A senha aberta mostra tudo em linhas, com a edição no mesmo lugar; cada senha ganhou uma letra colorida para achar de olho; "/" busca e as setas andam pela lista.',
       'Gerenciar o cofre virou Ajustes do cofre, como as Configurações do mural: uma etiqueta por parte (Aparelhos, Senha mestra, Recuperação, Abertos agora, Senhas vazadas, Histórico e Cuidado). Conferir as senhas vazadas foi para lá, com a lista das que apareceram e um botão para abrir cada uma.',
       'Os botões e campos do cofre são os do Murall: etiquetas de papel com o meio-corte, tiras de papel com a linha de caneta, os seletores de adesivo e a régua do gerador.',

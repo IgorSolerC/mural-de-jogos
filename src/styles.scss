@@ -427,12 +427,23 @@ p {
   animation: cola var(--t-physical) var(--ease-physical);
 }
 
+/* A cartela dos filtros (a das resenhas e a das anotações e do Kanban), logo embaixo da pasta */
+:is(app-filter-sheet, app-filter-card).cartela {
+  margin: 22px 4px 0;
+
+  @media (max-width: 720px) {
+    margin: 20px 0 0;
+  }
+}
+
 /* A cartela de filtros desce de trás da régua, como folha que acabou de ser presa; sobe rápido ao
    fechar (animate.enter / animate.leave) */
-app-filter-sheet.desce {
+app-filter-sheet.desce,
+app-filter-card.desce {
   animation: cartela-desce var(--t-physical) var(--ease-physical);
 }
-app-filter-sheet.sobe {
+app-filter-sheet.sobe,
+app-filter-card.sobe {
   animation: cartela-sobe 140ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 @keyframes cartela-desce {
@@ -669,7 +680,17 @@ select optgroup {
     display: inline-flex;
   }
 
-  /* ===== Depois do picote: o que a busca achou e como desfazer ===== */
+  /* ===== Depois do picote: os filtros ligados (adesivos colados na pasta, cada um com o seu X), o
+     que a busca achou e como desfazer ===== */
+  .pasta-filtros {
+    flex: 1 1 320px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    min-width: 0;
+  }
+
   .pasta-baixo {
     margin-top: 12px;
     padding-top: 10px;
@@ -758,6 +779,10 @@ select optgroup {
     .pasta-estado {
       justify-content: flex-start;
       margin-left: 0;
+    }
+
+    .pasta-filtros {
+      flex-basis: 100%;
     }
   }
 
