@@ -48,6 +48,11 @@ const esperar = async (cond, ms = 30000, oQue = 'condição') => {
   }
 };
 const temTexto = (t) => page.evaluate((t) => document.body.innerText.toLowerCase().includes(t.toLowerCase()), t);
+/** Abre uma parte dos Ajustes do cofre pelo índice (a etiqueta tem o nome e a dica). */
+const aba = async (nome) => {
+  await esperar(() => page.evaluate((n) => [...document.querySelectorAll('[role=tab] .parte-nome')].some((t) => t.textContent.trim() === n), nome), 30000, `parte ${nome}`);
+  await page.evaluate((n) => [...document.querySelectorAll('[role=tab] .parte-nome')].find((t) => t.textContent.trim() === n).closest('button').click(), nome);
+};
 const clicar = async (texto) => {
   await esperar(() => page.evaluate((t) => [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === t && !b.disabled), texto), 30000, `botão ${texto}`);
   await page.evaluate((t) => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === t && !b.disabled).click(), texto);
@@ -139,14 +144,16 @@ try {
   passo(`aberto pelo código; a senha guardada continua lá; aviso do código: ${aviso}`);
 
   // 6. gerenciar: um código novo (o de antes já foi gasto) e trocar a senha
-  await clicar('Gerenciar o cofre');
-  await esperar(() => temTexto('Aparelhos abertos agora'), 20000, 'tela de gerenciar');
+  await clicar('Ajustes');
+  await esperar(() => temTexto('Ajustes do cofre'), 20000, 'os ajustes');
+  await aba('Recuperação');
   await clicar('Gerar um código novo');
   await clicar('Gerar');
   await page.waitForSelector('.kit-codigo', { timeout: 30000 });
   const codigoNovo = await page.$$eval('.kit-codigo span', (s) => s.map((x) => x.textContent).join('-'));
   await page.click('.guardei input');
   await clicar('Terminar');
+  await aba('Senha mestra');
   await digitar('#g-atual', frase);
   await clicar('Sortear frase');
   const novaSenha = await esperar(() => page.$eval('#g-nova', (e) => e.value), 10000, 'frase sorteada no campo');
@@ -167,6 +174,8 @@ try {
   await esperar(() => temTexto('Banco do teste'), 20000, 'item com a senha nova');
   passo('a senha nova abre o cofre, com a senha guardada lá');
   // a base de senhas vazadas de verdade, de dentro do cofre isolado (só 5 caracteres do hash saem)
+  await clicar('Ajustes');
+  await aba('Senhas vazadas');
   await clicar('Conferir senhas vazadas');
   const bilhete = await esperar(() => page.$eval('.bilhete', (e) => e.textContent).catch(() => null), 20000, 'resposta da base de vazadas');
   if (/Não deu/.test(bilhete)) throw new Error(`a base de vazadas não respondeu de dentro do cofre: ${bilhete}`);

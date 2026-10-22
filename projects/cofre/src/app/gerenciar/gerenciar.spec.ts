@@ -120,6 +120,12 @@ async function ate(fixture: ComponentFixture<Gerenciar>, cond: () => boolean): P
 }
 
 const botao = (el: HTMLElement, texto: string) => [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === texto) as HTMLButtonElement;
+/** Abre uma parte dos Ajustes pelo índice. */
+async function parte(fixture: ComponentFixture<Gerenciar>, nome: string): Promise<void> {
+  const el = fixture.nativeElement as HTMLElement;
+  [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.querySelector('.parte-nome')!.textContent!.trim() === nome)!.click();
+  await estabilizar(fixture);
+}
 function digitar(el: HTMLElement, seletor: string, valor: string): void {
   const i = el.querySelector<HTMLInputElement>(seletor)!;
   i.value = valor;
@@ -129,11 +135,53 @@ function digitar(el: HTMLElement, seletor: string, valor: string): void {
 describe('gerenciar o cofre', () => {
   afterEach(() => TestBed.resetTestingModule());
 
-  it('mostra os aparelhos, as sessões e o histórico em palavras', async () => {
-    const { el } = await montar();
+  it('mostra os aparelhos, as sessões e o histórico em palavras, uma parte por vez', async () => {
+    const { fixture, el } = await montar();
+    expect(el.querySelector('[role=tab][aria-selected=true]')!.textContent).toContain('Aparelhos');
     expect([...el.querySelectorAll('.aparelho .nome')].map((n) => n.textContent)).toEqual(['Celular', 'PC']);
-    expect(el.textContent).toContain('Chrome no Windows · cofre aberto');
+    await parte(fixture, 'Abertos agora');
+    expect(el.querySelector('.aparelho')).toBeNull();
+    expect(el.textContent).toContain('Chrome no Windows');
+    expect(el.textContent).toContain('Cofre aberto desde');
+    await parte(fixture, 'Histórico');
     expect(el.querySelector('.historico .alerta')!.textContent).toContain('Senha errada');
+  });
+
+  it('o índice anda com as setas, Home e End, como uma lista de abas', async () => {
+    const { fixture, el } = await montar();
+    const indice = el.querySelector<HTMLElement>('[role=tablist]')!;
+    const aberta = () => el.querySelector('[role=tab][aria-selected=true] .parte-nome')!.textContent!.trim();
+    indice.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await estabilizar(fixture);
+    expect(aberta()).toBe('Senha mestra');
+    expect(el.querySelector('#g-atual')).not.toBeNull();
+    indice.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    await estabilizar(fixture);
+    expect(aberta()).toBe('Cuidado');
+    indice.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    await estabilizar(fixture);
+    expect(aberta()).toBe('Aparelhos');
+    expect(document.activeElement).toBe(el.querySelector('[role=tab][aria-selected=true]'));
+  });
+
+  it('as senhas vazadas: conferir pede a quem usa, e cada vazada abre o item', async () => {
+    const { fixture, el } = await montar();
+    const pedidos: string[] = [];
+    fixture.componentInstance.conferir.subscribe(() => pedidos.push('conferir'));
+    fixture.componentInstance.abrirItem.subscribe((id) => pedidos.push(`abrir ${id}`));
+    fixture.componentRef.setInput('senhas', 3);
+    await parte(fixture, 'Senhas vazadas');
+    expect(el.textContent).toContain('3 senhas guardadas');
+    botao(el, 'Conferir senhas vazadas').click();
+    fixture.componentRef.setInput('conferidoEm', new Date());
+    fixture.componentRef.setInput('vazadas', [{ id: 'i1', nome: 'Banco', vezes: 42 }]);
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('42 vezes');
+    botao(el, 'Abrir').click();
+    expect(pedidos).toEqual(['conferir', 'abrir i1']);
+    fixture.componentRef.setInput('vazadas', []);
+    await estabilizar(fixture);
+    expect(el.querySelector('.tudo-certo')!.textContent).toContain('Nenhuma senha apareceu');
   });
 
   it('tirar pede confirmação; o último aparelho não tem o botão', async () => {
@@ -151,6 +199,7 @@ describe('gerenciar o cofre', () => {
 
   it('trocar a senha: a atual errada não troca; a certa, com a nova forte, troca', async () => {
     const { fixture, api, avisos, el } = await montar();
+    await parte(fixture, 'Senha mestra');
     digitar(el, '#g-atual', 'errada');
     botao(el, 'Sortear frase').click();
     await estabilizar(fixture);
@@ -170,6 +219,7 @@ describe('gerenciar o cofre', () => {
 
   it('um código novo mostra o kit, e terminar volta', async () => {
     const { fixture, api, el } = await montar();
+    await parte(fixture, 'Recuperação');
     botao(el, 'Gerar um código novo').click();
     await estabilizar(fixture);
     botao(el, 'Gerar').click();
@@ -180,7 +230,7 @@ describe('gerenciar o cofre', () => {
     await estabilizar(fixture);
     botao(el, 'Terminar').click();
     await estabilizar(fixture);
-    expect(el.querySelector('h2')!.textContent).toContain('Gerenciar o cofre');
+    expect(el.querySelector('[role=tablist]')).not.toBeNull();
   });
 
   it('um aparelho sem PRF só entra no modo servidor com uma senha que sirva', async () => {
@@ -202,6 +252,7 @@ describe('gerenciar o cofre', () => {
 
   it('trancar todos e apagar (só com APAGAR) terminam a sessão', async () => {
     const a = await montar();
+    await parte(a.fixture, 'Abertos agora');
     botao(a.el, 'Trancar todos').click();
     await estabilizar(a.fixture);
     botao(a.el, 'Trancar todos').click();
@@ -210,6 +261,7 @@ describe('gerenciar o cofre', () => {
     expect(a.terminou).toHaveBeenCalled();
     TestBed.resetTestingModule();
     const b = await montar();
+    await parte(b.fixture, 'Cuidado');
     expect(botao(b.el, 'Apagar o cofre').disabled).toBe(true);
     digitar(b.el, '#g-apagar-palavra', 'apagar');
     await estabilizar(b.fixture);

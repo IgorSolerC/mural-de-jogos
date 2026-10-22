@@ -91,6 +91,10 @@ h3 {
   padding: 0;
   margin: 0;
   flex: none;
+  border: 0;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
   cursor: pointer;
 }
 .guardei input::after {

@@ -1,24 +1,21 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, OnInit, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { type CamposDoItem, type ItemNaLista, LIMITES } from '../../core/itens';
 import { AreaDeTransferencia } from '../area-de-transferencia';
+import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
+import { dominio, nomeDoItem, urlSegura } from './monograma';
+import { MonogramaSelo } from './monograma-selo';
+import { emTrechos } from './trechos';
+
+export { urlSegura } from './monograma';
+export { emTrechos, type Trecho } from './trechos';
 
 /** Quanto tempo a senha fica à mostra. */
 export const REVELAR_MS = 15_000;
 const MOSTRAR_PARA_DIGITAR_MS = 60_000;
-
-/** O endereço guardado, só se for http ou https (sem esquema, entende como https). */
-export function urlSegura(texto: string): string | null {
-  const t = texto.trim();
-  if (!t) return null;
-  try {
-    const url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`);
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
-  } catch {
-    return null;
-  }
-}
+/** Quanto tempo o botão de copiar fica dizendo "copiado". */
+const COPIADO_MS = 1800;
 
 /** A senha em grupos de 4, para ler e digitar em outro aparelho. */
 export function emGrupos(senha: string): string[] {
@@ -26,19 +23,20 @@ export function emGrupos(senha: string): string[] {
 }
 
 /**
- * Um item do cofre (decisão 11): Título, User, Senha, URL e Descrição. Ver: copiar (a área de
- * transferência é limpa em 30 s), revelar a senha (15 s), mostrar para digitar (letras grandes, em grupos)
- * e abrir o site (aba nova, sem dizer de onde veio). Editar: os cinco campos, todos opcionais, e o gerador.
+ * Um item do cofre (decisão 11): Título, User, Senha, URL e Descrição, à direita da lista. Ver: copiar
+ * (a área de transferência é limpa em 30 s), revelar a senha (15 s, com a linha que encolhe), mostrar
+ * para digitar (letras grandes, em grupos) e abrir o site (aba nova, sem dizer de onde veio). Editar no
+ * mesmo lugar: os cinco campos, todos opcionais, e o gerador.
  */
 @Component({
   selector: 'cofre-item',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GeradorPainel],
+  imports: [GeradorPainel, Icone, MonogramaSelo],
   templateUrl: './item.html',
   styleUrl: './item.scss',
   host: { '(document:keydown.escape)': 'paraDigitar.set(false)' },
 })
-export class ItemDoCofre implements OnInit {
+export class ItemDoCofre {
   private readonly servicos = inject(SERVICOS);
   private readonly area = inject(AreaDeTransferencia);
   private readonly timers: ReturnType<typeof setTimeout>[] = [];
@@ -59,26 +57,51 @@ export class ItemDoCofre implements OnInit {
   protected readonly paraDigitar = signal(false);
   protected readonly gerador = signal(false);
   protected readonly mostrarNoCampo = signal(false);
+  /** O que acabou de ser copiado ("usuario", "senha", "anterior-2"…), para o botão dizer que deu certo. */
+  protected readonly copiado = signal<string | null>(null);
   protected readonly campos = signal<CamposDoItem>({ titulo: '', usuario: '', senha: '', url: '', descricao: '' });
 
   protected readonly item = computed(() => this.alvo()?.item ?? null);
   protected readonly site = computed(() => urlSegura(this.item()?.url ?? ''));
-  protected readonly grupos = computed(() => emGrupos(this.item()?.senha ?? ''));
+  protected readonly dominio = computed(() => dominio(this.item()?.url ?? ''));
+  protected readonly nome = computed(() => (this.item() ? nomeDoItem(this.item()!) : ''));
+  /** O nome enquanto se escreve (o monograma acompanha). */
+  protected readonly nomeEditando = computed(() => nomeDoItem(this.campos()) === 'Sem título' ? '' : nomeDoItem(this.campos()));
+  protected readonly trechos = computed(() => emTrechos(this.item()?.senha ?? ''));
+  protected readonly gruposEmTrechos = computed(() => emGrupos(this.item()?.senha ?? '').map(emTrechos));
   protected readonly novo = computed(() => this.alvo() === null);
   protected readonly vazio = computed(() => Object.values(this.campos()).every((v) => !v.trim()));
+  private readonly idDoAlvo = computed(() => this.alvo()?.id ?? null);
+  private timerRevelar: ReturnType<typeof setTimeout> | null = null;
+  private timerCopiado: ReturnType<typeof setTimeout> | null = null;
 
   private readonly fecharParaDigitar = viewChild<ElementRef<HTMLButtonElement>>('fecharDigitar');
+  private readonly primeiroCampo = viewChild<ElementRef<HTMLInputElement>>('primeiroCampo');
 
   constructor() {
     // o foco vai para a folha da senha quando ela abre (o Esc fecha, de qualquer lugar)
     effect(() => this.fecharParaDigitar()?.nativeElement.focus());
+    // trocar de item (na lista ao lado) começa do zero: nada revelado, nada sendo editado
+    effect(() => {
+      this.idDoAlvo();
+      untracked(() => {
+        this.revelada.set(false);
+        this.paraDigitar.set(false);
+        this.gerador.set(false);
+        this.mostrarNoCampo.set(false);
+        this.copiado.set(null);
+        if (this.novo()) this.editar();
+        else this.editando.set(false);
+      });
+    });
     inject(DestroyRef).onDestroy(() => {
-      for (const t of this.timers) clearTimeout(t);
+      for (const t of [...this.timers, this.timerRevelar, this.timerCopiado]) if (t) clearTimeout(t);
     });
   }
 
-  ngOnInit(): void {
-    if (this.novo()) this.editar();
+  /** Editando ou com a senha grande na tela: o Esc é de quem está aberto aqui. */
+  ocupadoComAlgo(): boolean {
+    return this.editando() || this.paraDigitar();
   }
 
   private depois(ms: number, fazer: () => void): void {
@@ -90,6 +113,7 @@ export class ItemDoCofre implements OnInit {
     this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '' });
     this.revelada.set(false);
     this.editando.set(true);
+    setTimeout(() => this.primeiroCampo()?.nativeElement.focus());
   }
 
   protected cancelar(): void {
@@ -121,14 +145,22 @@ export class ItemDoCofre implements OnInit {
     this.mostrarNoCampo.set(false);
   }
 
-  protected revelar(): void {
+  protected alternarRevelar(): void {
+    if (this.timerRevelar) clearTimeout(this.timerRevelar);
+    if (this.revelada()) {
+      this.revelada.set(false);
+      return;
+    }
     this.revelada.set(true);
-    this.depois(REVELAR_MS, () => this.revelada.set(false));
+    this.timerRevelar = setTimeout(() => this.revelada.set(false), REVELAR_MS);
   }
 
-  protected async copiar(texto: string, oQue: string): Promise<void> {
+  protected async copiar(texto: string, oQue: string, marca: string): Promise<void> {
     try {
       await this.area.copiar(texto);
+      this.copiado.set(marca);
+      if (this.timerCopiado) clearTimeout(this.timerCopiado);
+      this.timerCopiado = setTimeout(() => this.copiado.set(null), COPIADO_MS);
       this.avisar.emit(`${oQue} copiado. A área de transferência é limpa em 30 segundos.`);
     } catch {
       this.avisar.emit('Não deu para copiar. Toque em Revelar e digite.');

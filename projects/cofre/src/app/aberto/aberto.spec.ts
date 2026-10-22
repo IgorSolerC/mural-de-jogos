@@ -140,7 +140,7 @@ describe('o cofre aberto', () => {
     }
     botao(el, 'Abrir o site').click();
     expect(sites).toEqual(['https://banco.exemplo/']);
-    botao(el, 'Revelar').click();
+    el.querySelector<HTMLButtonElement>('[aria-label="Revelar a senha"]')!.click();
     await estabilizar(fixture);
     expect(el.textContent).toContain('segredo-1');
   });
@@ -200,17 +200,91 @@ describe('o cofre aberto', () => {
     expect(b.terminou).toHaveBeenCalled();
   });
 
-  it('conferir senhas vazadas: só o começo do hash sai; o selo aparece na lista e o aviso no item', async () => {
+  it('conferir senhas vazadas (nos Ajustes): só o começo do hash sai; a vazada abre, com o selo na lista e o aviso no item', async () => {
     const { fixture, el, pedidosFora } = await montar();
     expect(el.querySelector('.selo-vazada')).toBeNull();
-    [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Conferir senhas vazadas')!.click();
-    for (let i = 0; i < 20 && !el.querySelector('.selo-vazada'); i++) await estabilizar(fixture);
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Senhas vazadas'))!.click();
+    await estabilizar(fixture);
+    botao(el, 'Conferir senhas vazadas').click();
+    for (let i = 0; i < 20 && !el.textContent!.includes('42 vezes'); i++) await estabilizar(fixture);
     expect(pedidosFora.every((u) => /\/range\/[0-9A-F]{5}$/.test(u))).toBe(true);
-    expect(el.querySelector('.selo-vazada')!.closest('.linha')!.textContent).toContain('Banco');
     expect(el.querySelector('.bilhete')!.textContent).toContain('1 senha apareceu em vazamentos');
+    botao(el, 'Abrir').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.selo-vazada')!.closest('.linha')!.textContent).toContain('Banco');
+    expect(el.querySelector('h2')!.textContent).toContain('Banco');
+    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
+  });
+
+  it('copia o user e a senha direto da lista, sem abrir o item, e limpa em 30 segundos', async () => {
+    const { fixture, el, copias } = await montar();
+    jasmine.clock().install();
+    try {
+      el.querySelector<HTMLButtonElement>('[aria-label="Copiar a senha de Banco"]')!.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(copias).toEqual(['segredo-1']);
+      el.querySelector<HTMLButtonElement>('[aria-label="Copiar o user de Banco"]')!.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(copias).toEqual(['segredo-1', 'fulano']);
+      jasmine.clock().tick(30_000);
+      expect(copias).toEqual(['segredo-1', 'fulano', '']);
+    } finally {
+      jasmine.clock().uninstall();
+    }
+    await estabilizar(fixture);
+    // nada abriu, e a senha não apareceu na tela
+    expect(el.querySelector('cofre-item')).toBeNull();
+    expect(el.textContent).not.toContain('segredo-1');
+    // o Wi-Fi não tem user: só o botão da senha
+    expect(el.querySelector('[aria-label="Copiar o user de Wi-Fi de casa"]')).toBeNull();
+    expect(el.querySelector('[aria-label="Copiar a senha de Wi-Fi de casa"]')).not.toBeNull();
+  });
+
+  it('o botão de copiar diz que deu certo, e volta sozinho', async () => {
+    const { fixture, el } = await montar();
+    const senha = () => el.querySelector<HTMLButtonElement>('[aria-label="Copiar a senha de Banco"]')!;
+    senha().click();
+    await estabilizar(fixture);
+    expect(senha().classList).toContain('feito');
+    expect(el.querySelector('.bilhete')!.textContent).toContain('Senha de Banco copiado');
+    await new Promise((ok) => setTimeout(ok, 1900));
+    await estabilizar(fixture);
+    expect(senha().classList).not.toContain('feito');
+  });
+
+  it('"/" vai para a busca, as setas andam pela lista e o Esc fecha o item aberto', async () => {
+    const { fixture, el } = await montar();
+    const tecla = (alvo: EventTarget, key: string) => alvo.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    tecla(document.body, '/');
+    expect(document.activeElement).toBe(el.querySelector('#busca'));
+    tecla(document.activeElement!, 'ArrowDown');
+    expect(document.activeElement!.textContent).toContain('Banco');
+    tecla(document.activeElement!, 'ArrowDown');
+    expect(document.activeElement!.textContent).toContain('Wi-Fi');
+    (document.activeElement as HTMLElement).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('h2')!.textContent).toContain('Wi-Fi');
+    tecla(document.body, 'Escape');
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-item')).toBeNull();
+  });
+
+  it('trocar de item na lista esconde de novo a senha revelada', async () => {
+    const { fixture, el } = await montar();
     botao(el, /Banco/).click();
     await estabilizar(fixture);
-    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
+    el.querySelector<HTMLButtonElement>('[aria-label="Revelar a senha"]')!.click();
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('segredo-1');
+    botao(el, /Wi-Fi/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('h2')!.textContent).toContain('Wi-Fi');
+    expect(el.textContent).not.toContain('pastel');
+    expect(el.querySelector('[aria-label="Revelar a senha"]')).not.toBeNull();
   });
 
   it('aberto pelo código: avisa para gerar um código novo', async () => {

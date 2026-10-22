@@ -1,7 +1,10 @@
-// As peças de papelaria do cofre, as mesmas do Murall (DESIGN.md: botões, campos, rótulos), copiadas à
-// mão para o cofre não importar nada de src/app.
+// As peças de papelaria do cofre, as mesmas do Murall (DESIGN.md: "Etiqueta de papel" e "Campos,
+// seletores e interruptores de papel", e as linhas das Configurações do mural), copiadas à mão para o
+// cofre não importar nada de src/app. Os tokens do campo (--campo-*) são as mesmas linhas de
+// src/styles.scss.
 
-// Botão de tinta: completa uma ação dentro da ficha ("Criar o cofre").
+// Botão de tinta: completa uma ação dentro da ficha ("Criar o cofre", "Salvar"). O bloco de tinta preta
+// com a letra a pincel amarela, que sobe torto no mouse e afunda no aperto.
 @mixin botao-tinta {
   display: inline-flex;
   align-items: center;
@@ -13,6 +16,9 @@
   border-radius: 3px;
   background: var(--tinta);
   color: var(--hi);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 6px 12px -4px rgb(0 0 0 / 0.35);
   font: 400 1.15rem/1 var(--f-marker);
   cursor: pointer;
   transition:
@@ -29,7 +35,8 @@
   }
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.38;
+    opacity: 0.4;
+    box-shadow: none;
   }
   &:focus-visible {
     outline: 3px solid var(--tinta);
@@ -42,28 +49,153 @@
   }
 }
 
-// Botão quieto: a ação de apoio ("Voltar", "Sortear outra").
+// Botão de papel: a ação de apoio dentro da ficha ("Copiar", "Revelar", "Cancelar"). Uma etiqueta
+// adesiva ainda na cartela: papel claro com grão, colado rente, e o meio-corte tracejado por dentro da
+// beirada. No mouse ela descola um pouco (sobe, entorta 1°, a sombra cresce e o corte escurece);
+// apertando, assenta. Desligada, sobra só o corte. Com .forte (tinta), .perigo e .feito (deu certo).
 @mixin botao-quieto {
+  --corte: rgb(21 21 21 / 0.42);
+  --corte-forte: rgb(21 21 21 / 0.72);
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  gap: 7px;
   min-height: 44px;
-  padding: 0 12px;
+  padding: 8px 14px 7px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  color: var(--tinta);
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 1px rgb(0 0 0 / 0.24),
+    0 3px 6px -3px rgb(0 0 0 / 0.32);
+  font: 800 0.94rem/1 var(--f-rotulo);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--curva-ui),
+    color 160ms var(--curva-ui),
+    box-shadow 380ms var(--curva),
+    translate 380ms var(--curva),
+    rotate 380ms var(--curva);
+
+  // o meio-corte: tracejado por dentro da beirada, embaixo das letras
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    z-index: -1;
+    border: 1.5px dashed var(--corte);
+    border-radius: 1px;
+    pointer-events: none;
+    transition: border-color 160ms var(--curva-ui);
+  }
+  &:hover:not(:disabled) {
+    background-color: #fff;
+    translate: 0 -1px;
+    rotate: -1deg;
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.08),
+      0 2px 2px rgb(0 0 0 / 0.2),
+      0 7px 12px -5px rgb(0 0 0 / 0.4);
+    &::after {
+      border-color: var(--corte-forte);
+    }
+  }
+  &:active:not(:disabled) {
+    translate: 0 1px;
+    rotate: 0deg;
+    box-shadow:
+      0 0 0 1px rgb(21 21 21 / 0.08),
+      0 1px 1px rgb(0 0 0 / 0.22);
+    transition-duration: 80ms;
+  }
+  // desligada: a etiqueta ainda não está ali, só o corte na cartela
+  &:disabled {
+    --corte: rgb(21 21 21 / 0.3);
+    background: transparent;
+    box-shadow: none;
+    color: rgb(21 21 21 / 0.5);
+    cursor: not-allowed;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
+  &[aria-pressed='true'] {
+    background-color: var(--hi);
+  }
+  svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+  // a que conclui ao lado de outras de papel: tinta com letra amarela, sem o corte
+  &.forte {
+    background-color: var(--tinta);
+    background-image: none;
+    color: var(--hi);
+    &::after {
+      content: none;
+    }
+    &:hover:not(:disabled) {
+      background-color: #2a2a2a;
+    }
+  }
+  // o que não tem volta: tinta e corte vermelhos
+  &.perigo {
+    --corte: rgb(184 29 28 / 0.5);
+    --corte-forte: rgb(184 29 28 / 0.85);
+    color: var(--vermelho);
+    &:hover:not(:disabled) {
+      background-color: #fff3f1;
+    }
+  }
+  // acabou de dar certo (Copiado): a etiqueta verde de conferido
+  &.feito {
+    --corte: rgb(11 90 44 / 0.55);
+    --corte-forte: rgb(11 90 44 / 0.85);
+    background-color: #e3f6e6;
+    color: #0b5a2c;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:hover:not(:disabled) {
+      rotate: 0deg;
+    }
+  }
+}
+
+// Só a palavra, sublinhada, sem etiqueta: ir e voltar ("Voltar à lista", "Usar o código").
+@mixin botao-palavra {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 2px;
   background: transparent;
   color: var(--tinta);
-  font: 800 0.98rem/1 var(--f-rotulo);
-  letter-spacing: 0.04em;
+  font: 800 0.94rem/1 var(--f-rotulo);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  text-decoration: underline 2px;
+  text-underline-offset: 4px;
   cursor: pointer;
-  transition: background 160ms var(--curva-ui);
+  transition: background-color 160ms var(--curva-ui);
   &:hover:not(:disabled) {
-    background: rgb(21 21 21 / 0.08);
+    background: rgb(21 21 21 / 0.07);
   }
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.4;
+    opacity: 0.45;
   }
   &:focus-visible {
     outline: 3px solid var(--tinta);
@@ -76,30 +208,291 @@
   }
 }
 
-// Faixa de campo: papel de bloco com o contorno de tinta.
+// Campo: a tira de papel colada rente na folha, com a linha de caneta onde se escreve. Num <input> ou
+// <textarea> direto; no foco a linha fica cheia, o papel branco e a tira descola um pouco.
 @mixin campo {
   width: 100%;
   min-height: 50px;
   padding: 0 14px;
   border: 0;
   border-radius: 2px;
-  background: var(--papel);
-  box-shadow:
-    inset 0 0 0 2px var(--tinta),
-    0 1px 1px rgb(0 0 0 / 0.18);
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
   color: var(--tinta);
   font: 500 1.05rem/1.2 var(--f-texto);
   caret-color: var(--caneta);
-  transition: box-shadow 160ms var(--curva-ui);
+  transition: box-shadow 380ms var(--curva);
   &::placeholder {
     color: rgb(21 21 21 / 0.55);
   }
   &:focus {
     outline: none;
-    box-shadow:
-      inset 0 0 0 3px var(--tinta),
-      0 0 0 4px rgb(21 21 21 / 0.16);
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
   }
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+// A mesma tira com coisas dentro (o ícone da busca, os botões do campo da senha): o desenho fica na caixa
+// e o input dentro dela não tem borda.
+@mixin campo-caixa {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 4px 0 14px;
+  border-radius: 2px;
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
+  transition: box-shadow 380ms var(--curva);
+  &:focus-within {
+    background: var(--campo-fundo-foco);
+    box-shadow: var(--campo-sombra-foco);
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    height: 48px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    outline: none;
+    color: var(--tinta);
+    caret-color: var(--caneta);
+    font: 500 1.05rem/1.2 var(--f-texto);
+    &::placeholder {
+      color: rgb(21 21 21 / 0.55);
+    }
+  }
+}
+
+// O campo com erro: a linha de caneta na tinta de erro
+@mixin campo-erro {
+  &,
+  &:focus,
+  &:focus-within {
+    background: var(--campo-fundo-erro);
+    box-shadow: var(--campo-sombra-erro);
+  }
+}
+
+// O botão redondo de um ícone só, dentro de um campo ou de uma linha (o olho, copiar na lista)
+@mixin botao-icone {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--tinta-2);
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--curva-ui),
+    color 160ms var(--curva-ui);
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.08);
+    color: var(--tinta);
+  }
+  &[aria-pressed='true'] {
+    background: rgb(255 218 66 / 0.7);
+    color: var(--tinta);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 1px;
+  }
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+// O interruptor: desligado, o recorte da trilha (tracejado, a bolinha de tinta numa ponta); ligado, a
+// trilha de tinta colada e a bolinha amarela na outra. Dentro, um `.bolinha`.
+@mixin interruptor {
+  position: relative;
+  flex: none;
+  width: 58px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 16px;
+  background: rgb(21 21 21 / 0.04);
+  cursor: pointer;
+  transition: background-color 160ms var(--curva-ui);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -7px -4px;
+  }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px dashed rgb(21 21 21 / 0.5);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 3px;
+  }
+  &[aria-checked='true'] {
+    background: var(--tinta);
+    &::after {
+      border-color: transparent;
+    }
+    .bolinha {
+      translate: 26px 0;
+      background: var(--hi);
+    }
+  }
+  .bolinha {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--tinta);
+    transition:
+      translate 380ms var(--curva),
+      background-color 160ms var(--curva-ui);
+  }
+}
+
+// O seletor: as opções lado a lado como a cartela de adesivos do editor: cada uma o recorte tracejado,
+// a escolhida o adesivo de tinta colado, torto. Funciona com rádio dentro (`:has(input:checked)`) ou com
+// botões role="radio" (`[aria-checked='true']`).
+@mixin segmento {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  background: transparent;
+  color: var(--tinta);
+  font: 800 0.86rem/1.1 var(--f-rotulo);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background-color 160ms var(--curva-ui),
+    outline-color 160ms var(--curva-ui),
+    rotate 380ms var(--curva),
+    scale 380ms var(--curva);
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    pointer-events: none;
+  }
+  &:hover:not(:has(input:checked)):not([aria-checked='true']) {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+  }
+  &:has(input:checked),
+  &[aria-checked='true'] {
+    outline-color: transparent;
+    background: var(--tinta);
+    color: var(--papel);
+    rotate: -1.5deg;
+    scale: 1.02;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+  &:has(input:focus-visible),
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
+  &:has(input:disabled) {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:has(input:checked),
+    &[aria-checked='true'] {
+      rotate: 0deg;
+      scale: 1;
+    }
+  }
+}
+
+// O título de um grupo dentro da folha: caixa alta, em cima de um fio
+@mixin grupo-titulo {
+  margin: 0;
+  padding-bottom: 7px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
+  font: 800 0.84rem/1.1 var(--f-rotulo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
+}
+
+// Uma linha de ajuste: o nome e o que ele faz à esquerda, o controle à direita, um fio tracejado embaixo
+@mixin linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 28px;
+  min-width: 0;
+  margin: 0;
+  padding: 18px 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+@mixin linha-titulo {
+  display: block;
+  margin: 0;
+  font: 700 1.06rem/1.3 var(--f-texto);
+  color: var(--tinta);
+}
+
+@mixin linha-desc {
+  max-width: 62ch;
+  margin: 3px 0 0;
+  font: 400 0.94rem/1.45 var(--f-texto);
+  color: var(--tinta-2);
+  text-wrap: pretty;
+}
+
+// O bilhete colado na folha: um aviso curto (amarelo: atenção; rosa: erro; papel: só para saber)
+@mixin bilhete-colado($fundo: var(--campo-papel)) {
+  margin: 0;
+  padding: 11px 14px 12px;
+  border-radius: 2px;
+  background-color: $fundo;
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.08),
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 3px 6px -3px rgb(0 0 0 / 0.3);
+  font: 500 0.98rem/1.4 var(--f-texto);
+  color: var(--tinta);
+  text-wrap: pretty;
 }
 
 // O rótulo impresso de um campo ou de um grupo.

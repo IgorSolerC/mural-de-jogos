@@ -1,4 +1,4 @@
-import { emGrupos, urlSegura } from './item';
+import { emGrupos, emTrechos, urlSegura } from './item';
 
 describe('o item: o endereço e a senha para digitar', () => {
   it('abre só http e https; sem esquema, entende como https', () => {
@@ -15,5 +15,24 @@ describe('o item: o endereço e a senha para digitar', () => {
     expect(emGrupos('Xk9#mQ2$vL')).toEqual(['Xk9#', 'mQ2$', 'vL']);
     expect(emGrupos('abcd')).toEqual(['abcd']);
     expect(emGrupos('')).toEqual([]);
+  });
+
+  it('a senha em trechos de letras, números e símbolos, para pintar cada tipo', () => {
+    expect(emTrechos('Xk9#mQ2$vL')).toEqual([
+      { tipo: 'letra', texto: 'Xk' },
+      { tipo: 'numero', texto: '9' },
+      { tipo: 'simbolo', texto: '#' },
+      { tipo: 'letra', texto: 'mQ' },
+      { tipo: 'numero', texto: '2' },
+      { tipo: 'simbolo', texto: '$' },
+      { tipo: 'letra', texto: 'vL' },
+    ]);
+    expect(emTrechos('ação 42')).toEqual([
+      { tipo: 'letra', texto: 'ação' },
+      { tipo: 'simbolo', texto: ' ' },
+      { tipo: 'numero', texto: '42' },
+    ]);
+    expect(emTrechos('')).toEqual([]);
+    expect(emTrechos('a😀b').map((t) => t.texto).join('')).toBe('a😀b');
   });
 });

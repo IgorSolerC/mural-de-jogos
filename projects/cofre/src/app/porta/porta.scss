@@ -33,15 +33,9 @@ h2 {
   margin-left: auto;
 }
 .voltar {
+  @include p.botao-palavra;
   justify-self: start;
-  color: var(--tinta);
-  font: 600 1rem/1.3 var(--f-texto);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
-}
-.voltar:focus-visible {
-  outline: 3px solid var(--tinta);
-  outline-offset: 3px;
+  margin-left: -10px;
 }
 
 /* as proteções da página, num canhoto impresso */

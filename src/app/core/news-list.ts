@@ -26,11 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-tags-dos-quadros-de-antes',
+    id: '2026-10-22-cofre-refeito',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
-    title: 'As anotações só no Kanban fora do mural de quem visita e o grupo das compartilhadas',
+    title: 'O cofre de senhas refeito, as anotações só no Kanban fora do mural de quem visita e o grupo das compartilhadas',
+    melhorias: [
+      'O cofre de senhas refeito para usar no dia a dia: a lista e a senha aberta lado a lado, e o user e a senha de cada item se copiam direto da lista, sem abrir. A senha aberta mostra tudo em linhas, com a edição no mesmo lugar; cada senha ganhou uma letra colorida para achar de olho; "/" busca e as setas andam pela lista.',
+      'Gerenciar o cofre virou Ajustes do cofre, como as Configurações do mural: uma etiqueta por parte (Aparelhos, Senha mestra, Recuperação, Abertos agora, Senhas vazadas, Histórico e Cuidado). Conferir as senhas vazadas foi para lá, com a lista das que apareceram e um botão para abrir cada uma.',
+      'Os botões e campos do cofre são os do Murall: etiquetas de papel com o meio-corte, tiras de papel com a linha de caneta, os seletores de adesivo e a régua do gerador.',
+    ],
     correcoes: [
       'As anotações públicas que estão só no Kanban apareciam para quem visitava o seu mural, no Feed de quem segue você e no seu perfil; agora ficam só no seu quadro, como no seu mural. Ao abrir o site, o mural que os outros veem é refeito sozinho, e no "Escolher fichas" do perfil elas aparecem apagadas, como as privadas.',
       'Uma anotação compartilhada podia mudar de grupo sozinha em todos os seus aparelhos: voltava ao grupo de antes quando abria um aparelho que ficou dias fechado, voltava para Compartilhadas num aparelho novo de quem a recebeu, ou caía no grupo de antes depois de uma internet que responde com outra página (um wi-fi de hotel). Agora o grupo que você escolheu por último, em qualquer aparelho, continua valendo.',

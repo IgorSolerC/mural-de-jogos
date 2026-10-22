@@ -3,7 +3,7 @@
 
 :host {
   display: block;
-  width: min(100%, 720px);
+  width: min(100%, 1120px);
   margin: 0 auto;
 }
 /* quando a janela perde o foco, o cofre embaça (seção 10) */
@@ -14,21 +14,38 @@
 
 @include f.ficha;
 
+/* a ficha de trabalho fica reta (é toda leitura, como as Configurações do mural), e as duas partes vão
+   de ponta a ponta */
+.ficha {
+  rotate: none;
+  overflow: clip;
+}
+.corpo {
+  gap: 0;
+  padding: 0;
+  container: corpo / inline-size;
+}
+
 h2 {
   margin: 0;
   font: 400 1.9rem/1.05 var(--f-marker);
 }
 .nota {
   @include p.nota;
+  max-width: 56ch;
 }
 .tinta {
   @include p.botao-tinta;
 }
-.quieto {
+.papel {
   @include p.botao-quieto;
 }
-.perigo {
-  color: var(--vermelho);
+.palavra {
+  @include p.botao-palavra;
+}
+cofre-icone {
+  width: 18px;
+  height: 18px;
 }
 .visivel-so-leitor {
   position: absolute;
@@ -39,64 +56,184 @@ h2 {
   white-space: nowrap;
 }
 
+/* ===== A faixa: o nome, a conta, Ajustes e Trancar ===== */
+.faixa {
+  align-items: center;
+}
+.faixa-titulo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.faixa-sub {
+  margin: 0;
+  font: 800 0.8rem/1.2 var(--f-rotulo);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.78);
+}
 .direita {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 14px;
+  gap: 10px 12px;
 }
-/* trancar: um botão de tinta pequeno na faixa */
-.trancar {
-  @include p.botao-tinta;
+.conta {
+  margin-right: 6px;
+}
+.ajustes {
   min-height: 40px;
-  padding: 0 14px;
-  font-size: 1rem;
+  padding: 0 12px;
+  background-color: var(--papel-ficha);
+}
+.trancar {
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 1.02rem;
 }
 
+/* ===== Os avisos, colados no alto da ficha ===== */
 .avisos {
   display: grid;
   gap: 10px;
+  padding: 16px clamp(16px, 3vw, 28px) 0;
 }
 .avisos:empty {
   display: none;
 }
-.aviso-mudanca,
 .aviso-codigo {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 2px;
-  background: var(--cartela);
-  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.14);
-  font: 500 0.98rem/1.4 var(--f-texto);
+  @include p.bilhete-colado(var(--bilhete-amarelo));
 }
-.aviso-codigo {
-  box-shadow: inset 0 0 0 2px var(--listra-servidor);
+.erro {
+  @include p.bilhete-colado(var(--rosa-tinta));
+  box-shadow:
+    0 0 0 1.5px rgb(107 0 0 / 0.4),
+    0 1px 1px rgb(0 0 0 / 0.2);
+  color: var(--erro);
+  font-weight: 600;
 }
 
+/* ===== A mesa: a lista à esquerda (o índice do cofre, na faixa de manilha) e a senha aberta à direita ===== */
+.mesa {
+  display: grid;
+  min-height: 460px;
+}
+.lado-lista {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 20px 16px 22px;
+  background-color: var(--manilha);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+}
+.lado-item {
+  min-width: 0;
+  padding: 24px clamp(16px, 3.5vw, 36px) 32px;
+}
+
+/* estreita: um de cada vez (a lista, ou a senha aberta no lugar dela) */
+.mesa:not(.com-detalhe) .lado-item,
+.mesa.com-detalhe .lado-lista {
+  display: none;
+}
+
+@container corpo (min-width: 820px) {
+  .mesa {
+    grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
+    min-height: 560px;
+  }
+  .mesa.com-detalhe .lado-lista {
+    display: grid;
+  }
+  .mesa:not(.com-detalhe) .lado-item {
+    display: block;
+  }
+  .lado-lista {
+    padding-right: 0;
+    box-shadow:
+      inset -2px 0 0 rgb(21 21 21 / 0.12),
+      inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
+  }
+  .lado-lista > :not(.lista) {
+    margin-right: 16px;
+  }
+  /* a senha aberta fica à vista enquanto a lista rola (e rola sozinha, se for mais alta que a tela) */
+  .lado-item > * {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100dvh - 32px);
+    /* a folga para a sombra das etiquetas e o anel de foco não serem cortados pela rolagem */
+    margin: -8px;
+    padding: 8px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+  }
+}
+
+/* --- a busca e a senha nova */
 .barra {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
 }
 .busca {
-  position: relative;
-  flex: 1 1 220px;
+  @include p.campo-caixa;
+  flex: 1 1 180px;
+  padding-right: 10px;
+  gap: 10px;
+  > cofre-icone {
+    color: var(--tinta-2);
+  }
 }
-.busca svg {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  width: 20px;
-  height: 20px;
-  translate: 0 -50%;
-  pointer-events: none;
+.tecla,
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 3px;
+  background: var(--papel);
+  box-shadow:
+    inset 0 -2px 0 rgb(21 21 21 / 0.18),
+    0 0 0 1px rgb(21 21 21 / 0.2);
+  color: var(--tinta-2);
+  font: 800 0.8rem/1 var(--f-rotulo);
 }
-.busca input {
-  @include p.campo;
-  padding-left: 44px;
+.busca:focus-within .tecla {
+  visibility: hidden;
+}
+@media (hover: none) {
+  .tecla {
+    display: none;
+  }
+}
+.nova {
+  min-height: 50px;
+  padding: 0 16px;
+  gap: 8px;
+}
+.nova[aria-pressed='true'] {
+  rotate: -1deg;
 }
 
-/* a lista: tiras de cartela, uma por senha, a ficha inteira é o botão */
+.contagem {
+  margin: 4px 0 -2px;
+  font: 800 0.8rem/1.1 var(--f-rotulo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.7);
+}
+.sem-achados {
+  padding: 8px 2px;
+}
+
+/* --- as linhas: uma etiqueta de papel por senha, a aberta amarela, reta e encostada na folha */
 .lista {
   display: grid;
   gap: 8px;
@@ -105,102 +242,207 @@ h2 {
   list-style: none;
 }
 .linha {
+  position: relative;
   display: grid;
-  gap: 2px;
-  width: 100%;
-  min-height: 56px;
-  padding: 10px 14px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  margin-right: 0;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 6px 10px -6px rgb(0 0 0 / 0.4);
+  rotate: -0.35deg;
+  transition:
+    translate 380ms var(--curva),
+    rotate 380ms var(--curva),
+    background-color 160ms var(--curva-ui);
+  &:nth-child(2n) {
+    rotate: 0.3deg;
+  }
+  &:hover {
+    translate: 2px 0;
+  }
+  &.aberta {
+    rotate: 0deg;
+    background-color: var(--hi);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.25),
+      0 8px 12px -8px rgb(0 0 0 / 0.45);
+  }
+}
+@container corpo (min-width: 820px) {
+  .linha {
+    margin-right: 16px;
+  }
+  .linha.aberta {
+    translate: 16px 0;
+    margin-right: 0;
+    border-radius: 2px 0 0 2px;
+  }
+}
+.abre {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 10px 6px 10px 12px;
   border: 0;
   border-radius: 2px;
-  background: var(--cartela);
-  box-shadow:
-    inset 0 0 0 1px rgb(21 21 21 / 0.12),
-    0 1px 2px rgb(0 0 0 / 0.18);
+  background: transparent;
   color: var(--tinta);
   text-align: left;
   cursor: pointer;
-  transition:
-    translate 160ms var(--curva-ui),
-    box-shadow 160ms var(--curva-ui);
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
 }
-.linha:hover {
-  translate: 0 -1px;
-  box-shadow:
-    inset 0 0 0 1px rgb(21 21 21 / 0.2),
-    0 4px 8px rgb(0 0 0 / 0.2);
-}
-.linha:focus-visible {
-  outline: 3px solid var(--tinta);
-  outline-offset: 2px;
+.textos {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 .titulo {
-  font: 400 1.15rem/1.2 var(--f-marker);
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  font: 400 1.12rem/1.2 var(--f-marker);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usuario {
+  overflow: hidden;
+  font: 500 0.92rem/1.3 var(--f-texto);
+  color: var(--tinta-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 /* o selo de senha vazada: uma etiqueta vermelha colada torta ao lado do título */
 .selo-vazada {
   display: inline-block;
-  margin-left: 8px;
-  padding: 4px 7px 3px;
+  margin-left: 6px;
+  padding: 4px 6px 3px;
   border-radius: 2px;
   background: var(--vermelho);
   color: #fff;
-  font: 800 0.72rem/1 var(--f-rotulo);
+  font: 800 0.68rem/1 var(--f-rotulo);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   vertical-align: 3px;
   rotate: -3deg;
 }
-.usuario {
-  font: 500 0.95rem/1.3 var(--f-texto);
-  color: var(--tinta-2);
-  overflow-wrap: anywhere;
-}
-.voltar {
-  justify-self: start;
-  margin-left: -12px;
-}
-.rodape {
+
+/* copiar sem abrir: duas etiquetas pequenas no fim da linha */
+.rapidos {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px;
-  margin: 0 -12px;
+  gap: 6px;
+  padding-right: 10px;
 }
-.vazio {
-  padding: 18px;
-  border: 2.5px dashed rgb(21 21 21 / 0.3);
-  border-radius: 2px;
+.rapido {
+  @include p.botao-quieto;
+  & {
+    flex-direction: column;
+    gap: 3px;
+    min-width: 52px;
+    min-height: 46px;
+    padding: 6px 7px 5px;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+  }
+  cofre-icone {
+    width: 17px;
+    height: 17px;
+  }
+}
+.linha.aberta .rapido:not(.feito) {
+  background-color: #fffdf0;
+}
+@container corpo (max-width: 340px) {
+  .rapido {
+    min-width: 44px;
+  }
+  .rapido-nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }
 
-.na-lixeira {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 4px 12px;
-  padding: 10px 14px;
+/* abrindo: três etiquetas vazias no lugar das senhas */
+.esqueleto li {
+  height: 62px;
   border-radius: 2px;
-  background: var(--cartela);
-  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.12);
+  background: rgb(251 249 242 / 0.55);
+  animation: respira 1.4s var(--curva-ui) infinite alternate;
 }
-.dias {
-  font: 800 0.86rem/1 var(--f-rotulo);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.esqueleto li:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.esqueleto li:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes respira {
+  to {
+    background: rgb(251 249 242 / 0.85);
+  }
+}
+
+.vazio {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+}
+.vazio-titulo,
+.nada-titulo {
+  margin: 0;
+  font: 400 1.3rem/1.15 var(--f-marker);
+}
+.pe-lixeira {
+  justify-self: start;
+  margin-top: 6px;
+  margin-left: -8px;
+}
+
+/* nada aberto à direita: o que dá para fazer, e os atalhos */
+.nada-aberto {
+  display: grid;
+  gap: 10px;
+  max-width: 46ch;
+  padding-top: 18px;
+}
+.teclas {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+.teclas div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.teclas dt {
+  display: flex;
+  gap: 4px;
+  min-width: 64px;
+}
+.teclas dd {
+  margin: 0;
+  font: 500 0.95rem/1.3 var(--f-texto);
   color: var(--tinta-2);
 }
-.botoes {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  margin-left: -12px;
-}
-.pergunta {
-  padding-left: 12px;
-  font: 600 0.95rem/1.3 var(--f-texto);
-  color: var(--vermelho);
+@media (hover: none) {
+  .teclas {
+    display: none;
+  }
 }
 
 /* o bilhete: uma nota de bloco presa embaixo, com a borda serrilhada */
@@ -219,11 +461,20 @@ h2 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   mask: conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) 50% / 12px 100%;
+  animation: chega 380ms var(--curva);
+}
+@keyframes chega {
+  from {
+    translate: -50% 14px;
+    opacity: 0;
+  }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 560px) {
   .faixa .direita {
     width: 100%;
-    justify-content: space-between;
+  }
+  .conta {
+    flex-basis: 100%;
   }
 }

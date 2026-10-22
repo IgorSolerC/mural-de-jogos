@@ -1536,3 +1536,23 @@ não se desencontrarem, o topo virou um só:
 - A regra do cofre aceita só a pasta `shared/`: o TypeScript de lá não importa nada, e o SCSS só usa
   arquivos da própria pasta, `data:` e as fotos do próprio site em `textures/`.
 
+### 17.15 O cofre refeito para o dia a dia (22/10)
+
+Pedido do usuário: copiar o user e a senha sem abrir cada item, arrumar o item aberto, os ajustes e os
+dados, os ajustes do cofre como as Configurações do mural, e os botões e campos como os dos ajustes do
+Murall. Feito sem mexer na cripto, na API nem no que fica na memória (nada novo no aparelho):
+
+- **Lista e item lado a lado** (de 820 px de largura da ficha para cima; abaixo, um de cada vez). Cada
+  linha copia o User e a Senha direto, pela mesma área de transferência de antes (limpa em 30 s). A senha
+  só aparece na tela quando revelada no item, como antes; copiar da lista não a mostra.
+- **Ajustes do cofre** no lugar de Gerenciar o cofre: índice de etiquetas (Aparelhos, Senha mestra,
+  Recuperação, Abertos agora, Senhas vazadas, Histórico, Cuidado). "Conferir senhas vazadas" saiu do pé
+  da lista e foi para a parte Senhas vazadas, que lista as que apareceram com um botão para abrir cada uma.
+- **A senha revelada** em letra de máquina do sistema (sem arquivo de fonte novo), números em azul e
+  símbolos em vermelho; o mesmo no gerador e no "Mostrar para digitar".
+- **A última mudança** fica na faixa enquanto o cofre está aberto (antes sumia em 12 s).
+- Peças novas, todas do próprio cofre: `app/icone.ts` (os desenhos do Lucide em dados),
+  `aberto/monograma.ts` e `monograma-selo.ts`, `aberto/trechos.ts`, `aberto/lixeira.ts`; a papelaria do
+  Murall copiada em `_papelaria.scss`, com os tokens do campo conferidos contra `src/styles.scss`.
+- O teste de ponta a ponta no Chrome (`cofre-api/test/e2e/chrome.mjs`) passou a abrir as partes dos
+  Ajustes pelo índice.

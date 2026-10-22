@@ -112,6 +112,14 @@ test('os tokens do Murall no topo do cofre são os mesmos de src/styles.scss', (
   for (const l of linhas) assert.ok(murall.includes(l), `diferente do Murall: ${l}`);
 });
 
+test('o campo e o papel solto do cofre são os mesmos do Murall (as linhas de src/styles.scss)', () => {
+  const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
+  const cofre = readFileSync(join(fonte, 'styles.scss'), 'utf8');
+  const linhas = [...cofre.matchAll(/^ {2}(--(?:campo-[a-z-]+|papel-solto-sombra|papel-ficha): .+;)$/gm)].map((m) => m[1]);
+  assert.ok(linhas.length >= 12, `só ${linhas.length} tokens do campo no cofre`);
+  for (const l of linhas) assert.ok(murall.includes(l), `diferente do Murall: ${l}`);
+});
+
 test('a lista de palavras não tem nenhuma das que a revisão à mão tirou', () => {
   const fora = readFileSync(join(raiz, '..', '..', 'scripts', 'cofre-palavras-fora.txt'), 'utf8')
     .split('\n')

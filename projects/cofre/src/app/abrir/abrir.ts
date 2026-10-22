@@ -104,7 +104,7 @@ function mensagem(e: unknown): string {
           }
 
           <div class="pe">
-            <button type="button" class="quieto" [disabled]="ocupado()" (click)="trocarJeito()">
+            <button type="button" class="palavra" [disabled]="ocupado()" (click)="trocarJeito()">
               {{ jeito() === 'passkey' ? 'Usar o código de recuperação' : 'Usar a passkey' }}
             </button>
             <button type="submit" class="tinta" [disabled]="!pronto()">Abrir</button>
@@ -121,7 +121,7 @@ function mensagem(e: unknown): string {
                 <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarCongelar.set(false)">Não</button>
               </span>
             } @else {
-              <button type="button" class="quieto" [disabled]="ocupado() || sessaoAcabou()" (click)="confirmarCongelar.set(true)">Suspeita de algo? Congelar o cofre</button>
+              <button type="button" class="palavra" [disabled]="ocupado() || sessaoAcabou()" (click)="confirmarCongelar.set(true)">Suspeita de algo? Congelar o cofre</button>
             }
           </div>
         </form>

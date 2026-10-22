@@ -1,67 +1,254 @@
-@use '../criar/passo' as passo;
 @use '../papelaria' as p;
 
-@include passo.passo;
+:host {
+  display: block;
+}
 
-.gerenciar {
-  display: grid;
-  gap: 22px;
+.tinta {
+  @include p.botao-tinta;
 }
-.voltar {
-  justify-self: start;
-  margin-left: -12px;
+.papel {
+  @include p.botao-quieto;
 }
-section {
+cofre-icone {
+  width: 18px;
+  height: 18px;
+}
+.rotulo {
+  @include p.rotulo;
+}
+input {
+  @include p.campo;
+}
+input.com-erro {
+  @include p.campo-erro;
+}
+.aviso {
+  margin: 6px 0 0;
+  font: 600 0.95rem/1.35 var(--f-texto);
+  color: var(--erro);
+}
+
+/* o kit do código novo ocupa a ficha inteira, com a folga dela */
+.kit {
+  padding: 24px clamp(16px, 3.5vw, 36px) 30px;
+}
+
+/* ===== A mesa: o índice na faixa de manilha e a parte aberta ===== */
+.mesa {
   display: grid;
-  gap: 10px;
-  padding-top: 18px;
-  border-top: 2px dashed rgb(21 21 21 / 0.22);
+  grid-template-columns: 228px minmax(0, 1fr);
+  min-height: 560px;
+}
+.indice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px 0 22px 16px;
+  background-color: var(--manilha);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    inset -2px 0 0 rgb(21 21 21 / 0.12),
+    inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
+}
+.etiqueta-parte {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  margin-right: 16px;
+  padding: 11px 12px 12px;
+  border: 0;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  color: var(--tinta);
+  text-align: left;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.22),
+    0 6px 10px -6px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+  rotate: -1deg;
+  transition:
+    translate 380ms var(--curva),
+    rotate 380ms var(--curva),
+    background-color 160ms var(--curva-ui);
+  &:nth-child(2n) {
+    rotate: 0.8deg;
+  }
+  &:hover {
+    translate: 3px 0;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 3px;
+  }
+  /* a aberta: amarela, reta e encostada na folha */
+  &[aria-selected='true'] {
+    rotate: 0deg;
+    translate: 16px 0;
+    margin-right: 0;
+    border-radius: 2px 0 0 2px;
+    background-color: var(--hi);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.25),
+      0 8px 12px -8px rgb(0 0 0 / 0.45);
+  }
+  &.cuidado .parte-nome {
+    color: var(--vermelho);
+  }
+}
+.parte-icone {
+  width: 18px;
+  height: 18px;
+}
+.parte-nome {
+  font: 800 1rem/1.1 var(--f-rotulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.parte-dica {
+  grid-column: 2;
+  font: 400 0.86rem/1.3 var(--f-texto);
+  color: var(--tinta-2);
+}
+
+.conteudo {
+  min-width: 0;
+  padding: 24px clamp(18px, 3.5vw, 36px) 36px;
 }
 h3 {
   margin: 0;
-  font: 400 1.35rem/1.1 var(--f-marker);
+  font: 400 1.7rem/1.05 var(--f-marker);
+}
+.lead {
+  max-width: 62ch;
+  margin: 8px 0 0;
+  font: 400 1rem/1.5 var(--f-texto);
+  color: var(--tinta);
+  text-wrap: pretty;
+}
+.perigo-titulo {
+  color: var(--vermelho);
 }
 .aviso-codigo {
-  margin: 0;
-  padding: 10px 14px;
-  border-radius: 2px;
-  background: var(--cartela);
-  box-shadow: inset 0 0 0 2px var(--listra-servidor);
-  font: 500 0.98rem/1.4 var(--f-texto);
+  @include p.bilhete-colado(var(--bilhete-amarelo));
+  max-width: 62ch;
+  margin: 0 0 16px;
+}
+.conteudo > h3 + .lead + .aviso-codigo {
+  margin: 16px 0 0;
 }
 .erro {
-  margin: 0;
-  padding: 12px 14px;
-  border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--erro);
-  font: 600 0.98rem/1.4 var(--f-texto);
+  @include p.bilhete-colado(var(--rosa-tinta));
+  margin: 0 0 16px;
+  box-shadow:
+    0 0 0 1.5px rgb(107 0 0 / 0.4),
+    0 1px 1px rgb(0 0 0 / 0.2);
   color: var(--erro);
+  font-weight: 600;
 }
-.lista {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.tudo-certo {
+  @include p.bilhete-colado(#e3f6e6);
+  max-width: 62ch;
+  margin-top: 18px;
+  color: #0b5a2c;
+  font-weight: 600;
 }
-.aparelho {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+
+/* ===== Os grupos e as linhas (as mesmas das Configurações do mural) ===== */
+.grupo {
+  margin-top: 26px;
+}
+.grupo-titulo {
+  @include p.grupo-titulo;
+}
+.linha {
+  @include p.linha;
+}
+.linha-titulo {
+  @include p.linha-titulo;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px 12px;
-  padding: 10px 14px;
-  border-radius: 2px;
-  background: var(--cartela);
-  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.12);
+  gap: 4px 10px;
 }
+label.linha-titulo {
+  cursor: pointer;
+}
+.linha-desc {
+  @include p.linha-desc;
+}
+/* a linha com campo: tudo empilha, o nome, o que ele faz, e o campo com o botão embaixo */
+.linha.pilha {
+  grid-template-columns: minmax(0, 1fr);
+}
+.linha-com-icone {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+.linha-icone {
+  width: 22px;
+  height: 22px;
+  margin-top: 2px;
+  color: var(--tinta-2);
+}
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.pergunta {
+  font: 600 0.95rem/1.3 var(--f-texto);
+  color: var(--vermelho);
+}
+/* a confirmação embaixo da linha: a pergunta e as duas respostas, num bilhete amarelo */
+.confirma {
+  @include p.bilhete-colado(var(--bilhete-amarelo));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-top: 4px;
+}
+.confirma .pergunta {
+  color: var(--tinta);
+}
+.em-linha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.em-linha input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.campo-com-rotulo {
+  display: block;
+  max-width: 520px;
+}
+.formulario {
+  display: grid;
+  gap: 16px;
+  max-width: 520px;
+  margin-top: 22px;
+}
+.formulario > .tinta {
+  justify-self: start;
+}
+
+/* as etiquetas do aparelho: o adesivo listrado (verde com PRF, laranja no modo servidor) */
 .nome {
   font: 400 1.15rem/1.2 var(--f-marker);
-}
-.meta {
-  grid-column: 1 / -1;
-  font: 500 0.9rem/1.3 var(--f-texto);
-  color: var(--tinta-2);
 }
 .etiqueta {
   position: relative;
@@ -69,7 +256,7 @@ h3 {
   border-radius: 2px;
   background: var(--papel);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.28);
-  font: 800 0.8rem/1 var(--f-rotulo);
+  font: 800 0.76rem/1 var(--f-rotulo);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -98,66 +285,61 @@ h3 {
   --listra: var(--listra-servidor);
   color: #7a3a00;
 }
-.botoes {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+.etiqueta.este {
+  --listra: var(--tinta);
+  background: var(--hi);
 }
-.aparelho .botoes {
-  margin-left: -12px;
+
+.historico {
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
 }
-.pergunta {
-  font: 600 0.95rem/1.3 var(--f-texto);
+.historico .linha {
+  padding: 12px 0;
+}
+.historico .alerta .linha-titulo {
   color: var(--vermelho);
 }
-.aparelho .pergunta {
-  padding-left: 12px;
-}
-.perigo {
-  color: var(--vermelho);
-}
-.linha {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-.linha input {
-  flex: 1 1 200px;
-  min-width: 0;
-}
-.campos {
-  display: grid;
-  gap: 12px;
-}
-.campos .tinta,
-section > .tinta,
-section > .quieto {
-  justify-self: start;
-}
-.pendente,
-.por {
-  display: grid;
-  gap: 8px;
-}
-.simples li {
-  display: grid;
-  gap: 2px;
-  padding: 8px 0;
-  border-bottom: 1.5px solid rgb(21 21 21 / 0.12);
-  font: 600 1rem/1.3 var(--f-texto);
-}
-.historico .alerta > span:first-child {
-  color: var(--vermelho);
-}
-.perigo-zona h3 {
-  color: var(--vermelho);
-}
+
 /* apagar o cofre: o único botão vermelho cheio, e só com a palavra escrita */
 .apagar {
   @include p.botao-tinta;
   background: var(--vermelho);
   color: #fff;
+}
+
+/* estreita: o índice vira uma fileira de etiquetas em cima da parte */
+@container corpo (max-width: 700px) {
+  .mesa {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .indice {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 14px;
+    box-shadow: inset 0 -2px 0 rgb(21 21 21 / 0.12);
+  }
+  .etiqueta-parte {
+    margin-right: 0;
+    padding: 10px;
+    &[aria-selected='true'] {
+      translate: 0 3px;
+      border-radius: 2px;
+    }
+  }
+  .parte-dica {
+    display: none;
+  }
+  .linha:not(.pilha) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .linha:not(.pilha) > .papel,
+  .linha:not(.pilha) > .botoes {
+    justify-self: start;
+    justify-content: flex-start;
+  }
 }

@@ -24,7 +24,7 @@
   .campo-bloco {
     display: block;
   }
-  input {
+  input:not([type='checkbox']):not([type='radio']) {
     @include p.campo;
   }
   .aviso {
@@ -37,6 +37,9 @@
   }
   .quieto {
     @include p.botao-quieto;
+  }
+  .palavra {
+    @include p.botao-palavra;
   }
   .pe {
     display: flex;

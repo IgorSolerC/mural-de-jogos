@@ -1,99 +1,145 @@
 @if (!editando() && item(); as i) {
   <div class="ver">
-    <button type="button" class="quieto voltar" (click)="voltar.emit()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+    <button type="button" class="palavra voltar" (click)="voltar.emit()">
+      <cofre-icone nome="voltar" />
       Voltar à lista
     </button>
-    <h2>{{ i.titulo || 'Sem título' }}</h2>
+
+    <header class="cabeca">
+      <cofre-monograma [nome]="nome()" [grande]="true" />
+      <div class="cabeca-textos">
+        <h2>{{ nome() }}</h2>
+        @if (dominio()) {
+          <p class="site" translate="no">{{ dominio() }}</p>
+        }
+      </div>
+      <button type="button" class="papel editar" [disabled]="ocupado()" (click)="editar()">
+        <cofre-icone nome="lapis" />
+        Editar
+      </button>
+    </header>
 
     <dl class="campos">
       @if (i.usuario) {
         <div class="campo">
           <dt>User</dt>
-          <dd>
-            <span class="valor" translate="no">{{ i.usuario }}</span>
-            <button type="button" class="quieto" (click)="copiar(i.usuario, 'User')">Copiar</button>
+          <dd class="valor" translate="no">{{ i.usuario }}</dd>
+          <dd class="acoes">
+            <button type="button" class="papel" [class.feito]="copiado() === 'usuario'" (click)="copiar(i.usuario, 'User', 'usuario')">
+              <cofre-icone [nome]="copiado() === 'usuario' ? 'feito' : 'copiar'" />
+              Copiar
+            </button>
           </dd>
         </div>
       }
       @if (i.senha) {
-        <div class="campo">
+        <div class="campo" [class.revelada]="revelada()">
           <dt>Senha</dt>
-          <dd>
-            <span class="valor senha" translate="no">
-              @if (revelada()) {
-                {{ i.senha }}
-              } @else {
-                <span aria-label="Senha escondida">••••••••••</span>
-              }
-            </span>
-            <span class="botoes">
-              <button type="button" class="quieto" [attr.aria-pressed]="revelada()" (click)="revelada() ? revelada.set(false) : revelar()">{{ revelada() ? 'Esconder' : 'Revelar' }}</button>
-              <button type="button" class="quieto" (click)="copiar(i.senha, 'Senha')">Copiar</button>
-              <button type="button" class="quieto" (click)="mostrarParaDigitar()">Mostrar para digitar</button>
-            </span>
-            @if (vazada() > 0) {
-              <p class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazada().toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</p>
+          <dd class="valor senha" translate="no">
+            @if (revelada()) {
+              <span class="senha-aberta">
+                @for (t of trechos(); track $index) {
+                  <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
+                }
+              </span>
+            } @else {
+              <span class="pontos" aria-label="Senha escondida">••••••••••••</span>
+            }
+            <button type="button" class="icone olho" [attr.aria-pressed]="revelada()" [attr.aria-label]="revelada() ? 'Esconder a senha' : 'Revelar a senha'" [title]="revelada() ? 'Esconder' : 'Revelar por 15 segundos'" (click)="alternarRevelar()">
+              <cofre-icone [nome]="revelada() ? 'olho-fechado' : 'olho'" />
+            </button>
+            @if (revelada()) {
+              <span class="encolhe" aria-hidden="true"></span>
             }
           </dd>
+          <dd class="acoes">
+            <button type="button" class="papel" [class.feito]="copiado() === 'senha'" (click)="copiar(i.senha, 'Senha', 'senha')">
+              <cofre-icone [nome]="copiado() === 'senha' ? 'feito' : 'copiar'" />
+              Copiar
+            </button>
+          </dd>
+          <dd class="extra">
+            <button type="button" class="palavra" (click)="mostrarParaDigitar()">
+              <cofre-icone nome="letras" />
+              Mostrar para digitar
+            </button>
+          </dd>
+          @if (vazada() > 0) {
+            <dd class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazada().toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</dd>
+          }
         </div>
       }
       @if (i.url) {
         <div class="campo">
-          <dt>URL</dt>
-          <dd>
-            <span class="valor" translate="no">{{ i.url }}</span>
+          <dt>Site</dt>
+          <dd class="valor" translate="no">{{ i.url }}</dd>
+          <dd class="acoes">
             @if (site()) {
-              <button type="button" class="quieto" (click)="abrirSite()">Abrir o site</button>
+              <button type="button" class="papel" (click)="abrirSite()">
+                <cofre-icone nome="abrir" />
+                Abrir o site
+              </button>
             }
           </dd>
         </div>
       }
       @if (i.descricao) {
-        <div class="campo">
+        <div class="campo descricao-campo">
           <dt>Descrição</dt>
-          <dd><p class="descricao">{{ i.descricao }}</p></dd>
+          <dd class="valor descricao">{{ i.descricao }}</dd>
         </div>
       }
     </dl>
 
     @if (i.historico.length) {
       <details class="historico">
-        <summary>Senhas anteriores ({{ i.historico.length }})</summary>
+        <summary>
+          <cofre-icone nome="historico" />
+          Senhas anteriores ({{ i.historico.length }})
+        </summary>
         <ul>
           @for (h of i.historico; track $index) {
             <li>
-              <span>Até {{ dia(h.ate) }}</span>
-              <button type="button" class="quieto" (click)="copiar(h.senha, 'Senha anterior')">Copiar</button>
+              <span>Usada até {{ dia(h.ate) }}</span>
+              <button type="button" class="papel" [class.feito]="copiado() === 'anterior-' + $index" (click)="copiar(h.senha, 'Senha anterior', 'anterior-' + $index)">
+                <cofre-icone [nome]="copiado() === 'anterior-' + $index ? 'feito' : 'copiar'" />
+                Copiar
+              </button>
             </li>
           }
         </ul>
       </details>
     }
 
-    <p class="datas">Guardado em {{ dia(i.criadoEm) }} · mudado em {{ dia(i.mudadoEm) }}</p>
-
     <div class="pe">
-      <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="paraALixeira.emit()">Pôr na lixeira</button>
-      <button type="button" class="tinta" [disabled]="ocupado()" (click)="editar()">Editar</button>
+      <p class="datas">Guardado em {{ dia(i.criadoEm) }} · mudado em {{ dia(i.mudadoEm) }}</p>
+      <button type="button" class="papel perigo" [disabled]="ocupado()" (click)="paraALixeira.emit()">
+        <cofre-icone nome="lixeira" />
+        Pôr na lixeira
+      </button>
     </div>
   </div>
 } @else if (editando()) {
   <form class="editar" novalidate (submit)="$event.preventDefault(); gravar()">
-    <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
-    <p class="nota pequena">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
+    <header class="cabeca">
+      <cofre-monograma [nome]="nomeEditando() || '?'" [grande]="true" />
+      <div class="cabeca-textos">
+        <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
+        <p class="site">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
+      </div>
+    </header>
 
     <div class="campo-bloco">
       <label class="rotulo" for="item-titulo">Título</label>
-      <input id="item-titulo" autocomplete="off" spellcheck="false" [attr.maxlength]="limites.titulo" [value]="campos().titulo" (input)="mudar('titulo', $event)" placeholder="Banco, e-mail, Wi-Fi de casa…" />
+      <input #primeiroCampo id="item-titulo" autocomplete="off" spellcheck="false" [attr.maxlength]="limites.titulo" [value]="campos().titulo" (input)="mudar('titulo', $event)" placeholder="Banco, e-mail, Wi-Fi de casa…" />
     </div>
     <div class="campo-bloco">
       <label class="rotulo" for="item-usuario">User</label>
-      <input id="item-usuario" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.usuario" [value]="campos().usuario" (input)="mudar('usuario', $event)" />
+      <input id="item-usuario" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.usuario" [value]="campos().usuario" (input)="mudar('usuario', $event)" placeholder="E-mail ou nome de usuário" />
     </div>
     <div class="campo-bloco">
       <label class="rotulo" for="item-senha">Senha</label>
-      <span class="com-acao">
+      <span class="caixa-senha">
         <input
           id="item-senha"
           [type]="mostrarNoCampo() ? 'text' : 'password'"
@@ -106,15 +152,20 @@
           [value]="campos().senha"
           (input)="mudar('senha', $event)"
         />
-        <button type="button" class="quieto" [attr.aria-pressed]="mostrarNoCampo()" (click)="mostrarNoCampo.set(!mostrarNoCampo())">{{ mostrarNoCampo() ? 'Esconder' : 'Mostrar' }}</button>
-        <button type="button" class="quieto" [attr.aria-expanded]="gerador()" (click)="gerador.set(!gerador())">Gerar</button>
+        <button type="button" class="icone" [attr.aria-pressed]="mostrarNoCampo()" [attr.aria-label]="mostrarNoCampo() ? 'Esconder a senha' : 'Mostrar a senha'" [title]="mostrarNoCampo() ? 'Esconder' : 'Mostrar'" (click)="mostrarNoCampo.set(!mostrarNoCampo())">
+          <cofre-icone [nome]="mostrarNoCampo() ? 'olho-fechado' : 'olho'" />
+        </button>
+        <button type="button" class="papel gerar" [attr.aria-expanded]="gerador()" (click)="gerador.set(!gerador())">
+          <cofre-icone nome="gerar" />
+          Gerar
+        </button>
       </span>
     </div>
     @if (gerador()) {
       <cofre-gerador-painel (usar)="usarGerada($event)" />
     }
     <div class="campo-bloco">
-      <label class="rotulo" for="item-url">URL</label>
+      <label class="rotulo" for="item-url">Site (URL)</label>
       <input id="item-url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.url" [value]="campos().url" (input)="mudar('url', $event)" placeholder="https://" />
     </div>
     <div class="campo-bloco">
@@ -123,7 +174,7 @@
     </div>
 
     <div class="pe">
-      <button type="button" class="quieto" [disabled]="ocupado()" (click)="cancelar()">Cancelar</button>
+      <button type="button" class="papel" [disabled]="ocupado()" (click)="cancelar()">Cancelar</button>
       <button type="submit" class="tinta" [disabled]="vazio() || ocupado()">{{ ocupado() ? 'Salvando…' : 'Salvar' }}</button>
     </div>
   </form>
@@ -133,8 +184,12 @@
   <div class="para-digitar" role="dialog" aria-modal="true" aria-label="Senha para digitar">
     <div class="folha-grande">
       <p class="grupos" translate="no">
-        @for (g of grupos(); track $index) {
-          <span>{{ g }}</span>
+        @for (g of gruposEmTrechos(); track $index) {
+          <span class="grupo">
+            @for (t of g; track $index) {
+              <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
+            }
+          </span>
         }
       </p>
       <p class="nota pequena">{{ i.senha.length }} caracteres. Some sozinho em 1 minuto.</p>

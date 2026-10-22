@@ -34,6 +34,27 @@
   --f-mao: 'Kalam', 'Segoe Print', cursive;
   --f-rotulo: 'Barlow Condensed', 'Arial Narrow', sans-serif;
   --f-texto: 'Barlow', system-ui, sans-serif;
+  /* a letra das senhas: a de máquina de cada sistema, onde o I, o l, o 1, o O e o 0 não se confundem */
+  --f-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Consolas, Menlo, 'Roboto Mono', 'DejaVu Sans Mono', monospace;
+  --tinta-numero: #0a4f9c;
+  --papel-ficha: #fbf9f2;
+  --manilha: #ecdcaa;
+  --laranja: #ffa358;
+  --lilas: #c4a5fb;
+  --rosa-tinta: #fbe7e3;
+  --bilhete-amarelo: #fff1b8;
+  /* o campo e o papel solto do Murall (as mesmas linhas de src/styles.scss: regras.test.mjs confere) */
+  --campo-papel: #fffdf8;
+  --campo-linha: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%23151515' stroke-opacity='.5' stroke-width='1.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-linha-foco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%23151515' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-linha-erro: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 4' preserveAspectRatio='none'%3E%3Cpath d='M1 2.3C70 1.5 130 2.7 205 2s140-.9 194 .4' fill='none' stroke='%236b0000' stroke-width='2.6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
+  --campo-fundo: var(--campo-linha) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, var(--campo-papel);
+  --campo-fundo-foco: var(--campo-linha-foco) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, #fff;
+  --campo-fundo-erro: var(--campo-linha-erro) left 12px bottom 7px / calc(100% - 24px) 4px no-repeat, var(--campo-papel);
+  --campo-sombra: 0 0 0 1px rgb(21 21 21 / 0.1), 0 1px 1px rgb(0 0 0 / 0.16), 0 2px 5px -2px rgb(0 0 0 / 0.24);
+  --campo-sombra-foco: 0 0 0 1px rgb(21 21 21 / 0.14), 0 2px 2px rgb(0 0 0 / 0.16), 0 7px 12px -5px rgb(0 0 0 / 0.36);
+  --campo-sombra-erro: 0 0 0 1.5px rgb(107 0 0 / 0.45), 0 1px 1px rgb(0 0 0 / 0.16), 0 2px 5px -2px rgb(0 0 0 / 0.24);
+  --papel-solto-sombra: 0 0 0 1px rgb(21 21 21 / 0.14), 0 2px 2px rgb(0 0 0 / 0.18), 0 10px 18px -8px rgb(0 0 0 / 0.42);
   --sombra-ficha: 0 1px 1px rgb(0 0 0 / 0.35), 0 10px 18px -6px rgb(0 0 0 / 0.55), 0 22px 40px -18px rgb(0 0 0 / 0.6);
   --sombra-alta: 0 2px 2px rgb(0 0 0 / 0.3), 0 20px 28px -8px rgb(0 0 0 / 0.55), 0 40px 60px -24px rgb(0 0 0 / 0.65);
   --curva: cubic-bezier(0.16, 1, 0.3, 1);

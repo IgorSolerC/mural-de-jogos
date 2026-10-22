@@ -1,132 +1,312 @@
-@use '../criar/passo' as passo;
 @use '../papelaria' as p;
 
-@include passo.passo;
+:host {
+  display: block;
+}
 
 .ver,
 .editar {
   display: grid;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
 }
-.voltar {
-  justify-self: start;
-  margin-left: -12px;
+.tinta {
+  @include p.botao-tinta;
 }
-h2 {
-  overflow-wrap: anywhere;
+.papel {
+  @include p.botao-quieto;
+}
+.palavra {
+  @include p.botao-palavra;
+}
+.icone {
+  @include p.botao-icone;
+}
+cofre-icone {
+  width: 18px;
+  height: 18px;
+}
+.nota {
+  @include p.nota;
+}
+.nota.pequena {
+  font-size: 1rem;
+}
+.rotulo {
+  @include p.rotulo;
 }
 
-/* os campos do item, como linhas de uma ficha pautada */
+/* "Voltar à lista" só existe quando a lista não está ao lado */
+.voltar {
+  justify-self: start;
+  margin: -8px 0 -6px -10px;
+}
+@container corpo (min-width: 820px) {
+  .voltar {
+    display: none;
+  }
+}
+
+/* ===== A cabeça: o monograma, o nome e o site, Editar à direita ===== */
+.cabeca {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 16px;
+  padding-bottom: 18px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
+}
+.cabeca-textos {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+h2 {
+  margin: 0;
+  font: 400 clamp(1.6rem, 3.4vw, 2.1rem)/1.05 var(--f-marker);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.site {
+  margin: 0;
+  font: 500 0.98rem/1.35 var(--f-texto);
+  color: var(--tinta-2);
+  overflow-wrap: anywhere;
+}
+.editar .site {
+  max-width: 52ch;
+}
+@container corpo (max-width: 480px) {
+  .cabeca {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .cabeca .editar {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* ===== Os campos: as linhas das Configurações do mural (o rótulo e o valor à esquerda, as ações à
+   direita, um fio tracejado entre elas) ===== */
 .campos {
   display: grid;
-  gap: 0;
-  margin: 0;
+  margin: -6px 0 0;
 }
 .campo {
   display: grid;
-  gap: 4px;
-  padding: 12px 0;
-  border-top: 1.5px solid rgb(21 21 21 / 0.14);
-}
-.campo:last-child {
-  border-bottom: 1.5px solid rgb(21 21 21 / 0.14);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'rotulo acoes'
+    'valor acoes'
+    'extra extra'
+    'aviso aviso';
+  align-items: center;
+  gap: 4px 20px;
+  padding: 16px 0;
+  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
+  &:last-child {
+    border-bottom: 0;
+  }
 }
 dt {
-  @include p.rotulo;
+  grid-area: rotulo;
   margin: 0;
+  font: 800 0.8rem/1.1 var(--f-rotulo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta-2);
 }
 dd {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 4px 12px;
   margin: 0;
 }
 .valor {
-  font: 600 1.08rem/1.35 var(--f-texto);
-  overflow-wrap: anywhere;
+  grid-area: valor;
   min-width: 0;
+  font: 600 1.12rem/1.35 var(--f-texto);
+  overflow-wrap: anywhere;
 }
-.valor.senha {
-  font: 700 1.2rem/1.3 var(--f-rotulo);
-  letter-spacing: 0.06em;
-}
-.botoes {
+.acoes {
+  grid-area: acoes;
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  justify-content: flex-end;
+  gap: 8px;
 }
-.vazada {
-  flex-basis: 100%;
-  margin: 4px 0 0;
-  padding: 8px 12px;
-  border-radius: 2px;
-  background: #fff;
-  box-shadow: inset 0 0 0 2px var(--vermelho);
-  color: var(--erro);
-  font: 600 0.95rem/1.35 var(--f-texto);
-}
-.descricao {
-  margin: 0;
-  font: 400 1.05rem/1.5 var(--f-mao);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+/* "Mostrar para digitar": a ação de apoio da senha, embaixo do valor (o Copiar fica sempre na coluna da direita) */
+.extra {
+  grid-area: extra;
+  margin: 2px 0 -6px -10px;
 }
 
+/* a senha: pontos quando escondida; revelada, em letra de máquina (o I, o l e o 1 não se confundem), com
+   os números em azul e os símbolos em vermelho, o olho logo depois e a linha que encolhe nos 15 s */
+.senha {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+}
+.olho {
+  width: 38px;
+  height: 38px;
+}
+.pontos {
+  font: 800 1.35rem/1 var(--f-rotulo);
+  letter-spacing: 0.12em;
+  color: rgb(21 21 21 / 0.72);
+}
+.senha-aberta {
+  padding: 2px 6px;
+  margin-left: -6px;
+  border-radius: 2px;
+  background: rgb(255 218 66 / 0.55);
+  font: 600 1.15rem/1.4 var(--f-mono);
+  overflow-wrap: anywhere;
+}
+.t-numero {
+  color: var(--tinta-numero);
+}
+.t-simbolo {
+  color: var(--vermelho);
+}
+.encolhe {
+  flex: 0 0 100%;
+  height: 3px;
+  background: linear-gradient(var(--tinta), var(--tinta)) left / min(100%, 220px) 100% no-repeat;
+  transform-origin: left;
+  animation: encolhe 15s linear forwards;
+}
+@keyframes encolhe {
+  to {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .encolhe {
+    animation: none;
+    opacity: 0.4;
+  }
+}
+.vazada {
+  grid-area: aviso;
+  @include p.bilhete-colado(var(--rosa-tinta));
+  margin-top: 10px;
+  color: var(--erro);
+  font-weight: 600;
+}
+.descricao {
+  font: 400 1.08rem/1.5 var(--f-mao);
+  white-space: pre-wrap;
+}
+
+/* ===== As senhas de antes: a gaveta fechada ===== */
+.historico {
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
+}
 .historico summary {
-  min-height: 44px;
   display: flex;
   align-items: center;
-  font: 800 0.95rem/1 var(--f-rotulo);
-  letter-spacing: 0.04em;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 14px;
+  font: 800 0.9rem/1 var(--f-rotulo);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
+  list-style: none;
+  &::-webkit-details-marker {
+    display: none;
+  }
+  &::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    margin-left: auto;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    rotate: 45deg;
+    translate: 0 -2px;
+    transition: rotate 160ms var(--curva-ui);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
 }
-.historico summary:focus-visible {
-  outline: 3px solid var(--tinta);
-  outline-offset: 2px;
+.historico[open] summary::after {
+  rotate: 225deg;
+  translate: 0 2px;
 }
 .historico ul {
   display: grid;
-  gap: 4px;
-  margin: 4px 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 0 14px 6px;
   list-style: none;
 }
 .historico li {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
   font: 500 0.95rem/1.3 var(--f-texto);
+}
+
+/* ===== O pé ===== */
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
+}
+.editar .pe {
+  justify-content: flex-end;
 }
 .datas {
   margin: 0;
-  font: 600 0.86rem/1.3 var(--f-rotulo);
-  letter-spacing: 0.04em;
+  font: 700 0.8rem/1.3 var(--f-rotulo);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--tinta-2);
 }
-.perigo {
-  color: var(--vermelho);
-}
 
-.com-acao {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-}
-.com-acao input {
-  flex: 1;
+/* ===== Editar: as tiras de papel com a linha de caneta ===== */
+.campo-bloco {
+  display: block;
   min-width: 0;
+}
+/* o Salvar fica sempre à vista, preso no pé da parte que rola */
+.editar .pe {
+  position: sticky;
+  bottom: -8px;
+  z-index: 1;
+  padding-bottom: 10px;
+  background: var(--papel);
+}
+.campo-bloco > input {
+  @include p.campo;
+}
+.caixa-senha {
+  @include p.campo-caixa;
+  padding-right: 5px;
+}
+.caixa-senha .gerar {
+  min-height: 38px;
+  padding: 6px 12px 5px;
 }
 textarea {
   @include p.campo;
   display: block;
-  min-height: 110px;
-  padding: 12px 14px;
+  min-height: 116px;
+  padding: 12px 14px 16px;
   resize: vertical;
-  font: 400 1.05rem/1.5 var(--f-mao);
+  font: 400 1.08rem/1.5 var(--f-mao);
 }
 
 /* mostrar para digitar: a senha numa folha grande sobre a parede escurecida */
@@ -155,19 +335,8 @@ textarea {
   justify-content: center;
   gap: 8px 20px;
   margin: 0;
-  font: 800 clamp(2rem, 8vw, 3.4rem)/1.1 var(--f-rotulo);
-  letter-spacing: 0.08em;
-  font-variant-numeric: tabular-nums slashed-zero;
+  font: 600 clamp(1.8rem, 7vw, 3rem)/1.2 var(--f-mono);
 }
-.grupos span {
+.grupos .grupo {
   white-space: pre;
-}
-
-@media (max-width: 520px) {
-  .com-acao {
-    flex-wrap: wrap;
-  }
-  .com-acao input {
-    flex-basis: 100%;
-  }
 }

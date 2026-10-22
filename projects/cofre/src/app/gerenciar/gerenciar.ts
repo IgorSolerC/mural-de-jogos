@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injector, input, OnInit, output, signal, viewChild } from '@angular/core';
 import type { CofreAberto } from '../../core/abrir';
 import { type AparelhoDaApi, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { ErroCofre } from '../../core/crypto';
@@ -8,6 +8,7 @@ import { ErroPasskey, type PasskeyRegistrada, registrarPasskey } from '../../cor
 import { sortearFrase } from '../../core/sorteio';
 import { PassoKit } from '../criar/passo-kit';
 import { ReguaForca } from '../criar/regua-forca';
+import { Icone, type NomeDoIcone } from '../icone';
 import { SERVICOS } from '../servicos';
 
 const EVENTOS: Record<string, string> = {
@@ -26,6 +27,26 @@ const EVENTOS: Record<string, string> = {
 
 const MAXIMO_DE_APARELHOS = 10;
 
+export type ParteDosAjustes = 'aparelhos' | 'senha' | 'recuperacao' | 'sessoes' | 'vazadas' | 'historico' | 'cuidado';
+
+/** As partes dos Ajustes, na ordem do índice (como as Configurações do mural: uma lista e um bloco no template). */
+export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: string; readonly dica: string; readonly icone: NomeDoIcone }[] = [
+  { id: 'aparelhos', nome: 'Aparelhos', dica: 'As passkeys que abrem', icone: 'celular' },
+  { id: 'senha', nome: 'Senha mestra', dica: 'Trocar a senha', icone: 'chave' },
+  { id: 'recuperacao', nome: 'Recuperação', dica: 'O código de emergência', icone: 'boia' },
+  { id: 'sessoes', nome: 'Abertos agora', dica: 'Onde o cofre está aberto', icone: 'tela' },
+  { id: 'vazadas', nome: 'Senhas vazadas', dica: 'Conferir na base pública', icone: 'escudo' },
+  { id: 'historico', nome: 'Histórico', dica: 'Os últimos 90 dias', icone: 'historico' },
+  { id: 'cuidado', nome: 'Cuidado', dica: 'Apagar o cofre', icone: 'perigo' },
+];
+
+/** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
+export interface Vazada {
+  readonly id: string;
+  readonly nome: string;
+  readonly vezes: number;
+}
+
 function mensagem(e: unknown): string {
   if (e instanceof ErroApi || e instanceof ErroPasskey) return e.message;
   if (e instanceof ErroCofre && e.motivo === 'abrir') return 'A senha atual não confere.';
@@ -33,28 +54,41 @@ function mensagem(e: unknown): string {
 }
 
 /**
- * Gerenciar o cofre aberto (seção 8.5): os aparelhos (pôr, com PRF ou no modo servidor, e tirar, nunca o
- * último), a senha mestra, o código de recuperação, os aparelhos abertos (e trancar todos), o histórico
- * de 90 dias e apagar o cofre (só escrevendo APAGAR).
+ * Os Ajustes do cofre aberto (seção 8.5), montados como as Configurações do mural: o índice de etiquetas
+ * na faixa de manilha e uma parte aberta por vez. Os aparelhos (pôr, com PRF ou no modo servidor, e
+ * tirar, nunca o último), a senha mestra, o código de recuperação, os aparelhos abertos (e trancar
+ * todos), as senhas vazadas, o histórico de 90 dias e apagar o cofre (só escrevendo APAGAR).
  */
 @Component({
   selector: 'cofre-gerenciar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PassoKit, ReguaForca],
+  imports: [PassoKit, ReguaForca, Icone],
   templateUrl: './gerenciar.html',
   styleUrl: './gerenciar.scss',
 })
 export class Gerenciar implements OnInit {
   private readonly servicos = inject(SERVICOS);
+  private readonly injector = inject(Injector);
 
   readonly cofre = input.required<CofreAberto>();
   readonly conta = input.required<string>();
-  readonly voltar = output<void>();
+  /** As senhas que apareceram em vazamentos na última conferência. */
+  readonly vazadas = input<readonly Vazada[]>([]);
+  readonly conferindo = input(false);
+  /** Quando as senhas foram conferidas (null: ainda não, desde que o cofre abriu). */
+  readonly conferidoEm = input<Date | null>(null);
+  /** Quantas senhas há no cofre. */
+  readonly senhas = input(0);
   readonly avisar = output<string>();
+  readonly conferir = output<void>();
+  readonly abrirItem = output<string>();
   /** Trancar todos e apagar o cofre acabam com esta sessão: quem usa recarrega a página. */
   readonly terminar = output<void>();
 
   protected readonly maximo = MAXIMO_DE_APARELHOS;
+  protected readonly partes = PARTES;
+  protected readonly parte = signal<ParteDosAjustes>('aparelhos');
+  private readonly indice = viewChild<ElementRef<HTMLElement>>('indice');
   protected readonly ocupado = signal(false);
   protected readonly erro = signal<string | null>(null);
 
@@ -129,6 +163,27 @@ export class Gerenciar implements OnInit {
     if (!iso) return 'nunca';
     const d = new Date(iso);
     return `${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  protected hora(d: Date): string {
+    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  protected escolher(parte: ParteDosAjustes): void {
+    this.parte.set(parte);
+    this.erro.set(null);
+  }
+
+  /** O índice é uma lista de abas: as setas andam, Home e End vão às pontas (a aberta leva o foco). */
+  protected teclaNoIndice(e: KeyboardEvent): void {
+    const n = PARTES.length;
+    const agora = PARTES.findIndex((p) => p.id === this.parte());
+    const passos: Record<string, number> = { ArrowDown: agora + 1, ArrowRight: agora + 1, ArrowUp: agora - 1, ArrowLeft: agora - 1, Home: 0, End: n - 1 };
+    const proxima = passos[e.key];
+    if (proxima === undefined) return;
+    e.preventDefault();
+    this.escolher(PARTES[(proxima + n) % n]!.id);
+    afterNextRender(() => this.indice()?.nativeElement.querySelector<HTMLElement>('[aria-selected="true"]')?.focus(), { injector: this.injector });
   }
 
   protected nomeDoEvento(tipo: string): string {

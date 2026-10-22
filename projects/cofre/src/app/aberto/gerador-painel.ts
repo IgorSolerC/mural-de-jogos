@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, output, signal } from '@angular/core';
+import { Icone } from '../icone';
+import { emTrechos } from './trechos';
 import { bitsGerados, gerarCaracteres, gerarFrase, PALAVRAS_MAXIMAS, PALAVRAS_MINIMAS, TAMANHO_MAXIMO, TAMANHO_MINIMO, type Tipo } from '../../core/gerador';
 
 const NOMES: Record<Tipo, string> = { minusculas: 'abc', maiusculas: 'ABC', numeros: '123', simbolos: '#$%' };
@@ -10,11 +12,12 @@ const NOMES: Record<Tipo, string> = { minusculas: 'abc', maiusculas: 'ABC', nume
 @Component({
   selector: 'cofre-gerador-painel',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Icone],
   template: `
     <div class="painel" role="group" aria-label="Gerar uma senha">
       <div class="jeitos" role="radiogroup" aria-label="Que tipo de senha">
-        <button type="button" role="radio" [attr.aria-checked]="jeito() === 'caracteres'" (click)="trocar('caracteres')">Caracteres</button>
-        <button type="button" role="radio" [attr.aria-checked]="jeito() === 'frase'" (click)="trocar('frase')">Frase</button>
+        <button type="button" class="segmento" role="radio" [attr.aria-checked]="jeito() === 'caracteres'" (click)="trocar('caracteres')">Caracteres</button>
+        <button type="button" class="segmento" role="radio" [attr.aria-checked]="jeito() === 'frase'" (click)="trocar('frase')">Frase</button>
       </div>
 
       @if (jeito() === 'caracteres') {
@@ -25,7 +28,7 @@ const NOMES: Record<Tipo, string> = { minusculas: 'abc', maiusculas: 'ABC', nume
         </label>
         <div class="tipos" role="group" aria-label="Que caracteres usar">
           @for (t of todos; track t) {
-            <label class="tipo">
+            <label class="segmento tipo">
               <input type="checkbox" [checked]="tipos().includes(t)" [disabled]="tipos().length === 1 && tipos().includes(t)" (change)="alternar(t)" />
               <span>{{ nomes[t] }}</span>
             </label>
@@ -39,10 +42,17 @@ const NOMES: Record<Tipo, string> = { minusculas: 'abc', maiusculas: 'ABC', nume
         </label>
       }
 
-      <p class="gerada" translate="no">{{ senha() }}</p>
+      <p class="gerada" translate="no">
+        @for (t of trechos(); track $index) {
+          <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
+        }
+      </p>
       <p class="bits">Cerca de {{ bits() }} bits</p>
       <div class="acoes">
-        <button type="button" class="quieto" (click)="gerar()">Outra</button>
+        <button type="button" class="papel" (click)="gerar()">
+          <cofre-icone nome="outra" />
+          Outra
+        </button>
         <button type="button" class="tinta" (click)="usar.emit(senha())">Usar esta</button>
       </div>
     </div>
@@ -64,6 +74,7 @@ export class GeradorPainel {
   protected readonly palavras = signal(6);
   protected readonly tipos = signal<readonly Tipo[]>(['minusculas', 'maiusculas', 'numeros', 'simbolos']);
   protected readonly senha = signal('');
+  protected readonly trechos = computed(() => emTrechos(this.senha()));
   protected readonly bits = computed(() => (this.jeito() === 'frase' ? bitsGerados({ frase: this.palavras() }) : bitsGerados({ tamanho: this.tamanho(), tipos: this.tipos() })));
 
   constructor() {
