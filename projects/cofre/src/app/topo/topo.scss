@@ -10,6 +10,14 @@
   margin-inline: auto;
 }
 
+/* o Murall mede tudo pela borda, até os pseudo-elementos (as argolas do varal, o anel dos bottons), no
+   site inteiro (src/styles.scss); o cofre, só aqui */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 /* o Murall zera a margem dos parágrafos no site inteiro; o cofre, só aqui (o nome no cartaz é um <p>) */
 .logo {
   margin: 0;
