@@ -11,10 +11,15 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, OnDestroy,
   selector: 'cofre-passo-kit',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <h2>O cofre está criado</h2>
-    <p class="nota">
-      Falta o kit de emergência. Com este código, a sua conta do Google e a senha mestra, o cofre abre mesmo sem nenhum aparelho. Ele aparece só agora: imprima ou copie à mão, e guarde longe do computador.
-    </p>
+    @if (novo()) {
+      <h2>O código novo</h2>
+      <p class="nota">O código antigo já não vale. Este aparece só agora: imprima ou copie à mão, e guarde longe do computador.</p>
+    } @else {
+      <h2>O cofre está criado</h2>
+      <p class="nota">
+        Falta o kit de emergência. Com este código, a sua conta do Google e a senha mestra, o cofre abre mesmo sem nenhum aparelho. Ele aparece só agora: imprima ou copie à mão, e guarde longe do computador.
+      </p>
+    }
 
     <section class="kit-papel" aria-labelledby="kit-titulo">
       <header class="kit-cabeca">
@@ -63,6 +68,8 @@ export class PassoKit implements OnInit, OnDestroy {
   /** O código da conta do Murall (8 caracteres, sem hífen). */
   readonly conta = input.required<string>();
   readonly criadoEm = input.required<Date>();
+  /** Um código novo (em Gerenciar), e não o do cofre que acabou de ser criado. */
+  readonly novo = input(false);
   readonly terminar = output<void>();
 
   protected readonly guardou = signal(false);

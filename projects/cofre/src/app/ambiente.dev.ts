@@ -1,7 +1,7 @@
 import type { CofreAberto } from '../core/abrir';
-import { ApiCofre, type CofreCriado, type DesafioDeRegistro, ErroApi, type Gravacao, type ItensDaApi } from '../core/api';
+import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
 import { aleatorios, paraBase64url } from '../core/bytes';
-import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../core/crypto';
+import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
 import { salvarItem } from '../core/itens';
 import type { Autenticador } from '../core/passkey';
 import { type Demonstracao, paginaDoNavegador } from './servicos';
@@ -73,14 +73,61 @@ class ApiDeMentira extends ApiCofre {
   override trancar(): void {
     /* na demonstração não há servidor */
   }
+
+  private lista: AparelhoDaApi[] = [
+    { id: 'celular', apelido: 'Celular', prf: true, criadoEm: new Date(Date.now() - 9 * 86_400_000).toISOString(), usadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString() },
+    { id: 'pc', apelido: 'PC do escritório', prf: false, criadoEm: new Date(Date.now() - 9 * 86_400_000).toISOString(), usadoEm: new Date().toISOString() },
+  ];
+
+  override async aparelhos(): Promise<{ aparelhos: readonly AparelhoDaApi[] }> {
+    return { aparelhos: this.lista };
+  }
+  override async porAparelho(aparelho: unknown): Promise<{ id: string; apelido: string; prf: boolean }> {
+    const a = aparelho as { apelido: string; prf: boolean };
+    const novo = { id: crypto.randomUUID(), apelido: a.apelido, prf: a.prf, criadoEm: new Date().toISOString(), usadoEm: null };
+    this.lista = [...this.lista, novo];
+    return novo;
+  }
+  override async tirarAparelho(id: string): Promise<{ tirado: true }> {
+    this.lista = this.lista.filter((a) => a.id !== id);
+    return { tirado: true };
+  }
+  override async trocarSenha(): Promise<{ trocada: true }> {
+    await espera(400);
+    return { trocada: true };
+  }
+  override async novoCodigo(): Promise<{ trocado: true }> {
+    return { trocado: true };
+  }
+  override async sessoes(): Promise<{ sessoes: readonly SessaoDaApi[] }> {
+    return { sessoes: [{ tipo: 'cofre', criadaEm: new Date(Date.now() - 600_000).toISOString(), usadaEm: new Date().toISOString(), aparelho: 'Chrome no Windows', atual: true }] };
+  }
+  override async eventos(): Promise<{ eventos: readonly EventoDaApi[] }> {
+    const h = (horas: number) => new Date(Date.now() - horas * 3_600_000).toISOString();
+    return {
+      eventos: [
+        { tipo: 'aberto', em: h(0.1), aparelho: 'Chrome no Windows', pais: 'BR' },
+        { tipo: 'passkey-usada', em: h(0.1), aparelho: 'Chrome no Windows', pais: 'BR' },
+        { tipo: 'erro-senha', em: h(26), aparelho: 'Safari no iPhone', pais: 'BR' },
+        { tipo: 'cofre-criado', em: h(216), aparelho: 'Chrome no Windows', pais: 'BR' },
+      ],
+    };
+  }
+  override async trancarTodos(): Promise<{ trancados: true }> {
+    return { trancados: true };
+  }
+  override async apagarCofre(): Promise<{ apagado: true }> {
+    return { apagado: true };
+  }
 }
 
 /** Um cofre aberto de mentira (chaves sorteadas agora), com três senhas de exemplo. */
 async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<CofreAberto> {
-  const { chave } = await criarCofre(aleatorios(32), novaChaveDoMeio(), usuario);
+  const m = novaChaveDoMeio();
+  const { chave, v } = await criarCofre(aleatorios(32), m, usuario);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString(), aparelho: 'Celular' };
   api.manifesto = paraBase64url(await cifrarManifesto(chave, usuario, manifesto));
-  const cofre: CofreAberto = { usuario, chave, manifesto, contador: 0, recuperada: false, expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC' };
+  const cofre: CofreAberto = { usuario, chave, manifesto, contador: 0, recuperada: false, expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC', segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } } };
   for (const campos of [
     { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6' },
     { titulo: 'E-mail', usuario: 'exemplo@email.com', senha: 'vidraceiro-incisivo-convite-mexicano-soprano-mortal', url: 'mail.google.com', descricao: '' },

@@ -142,10 +142,16 @@ h2 {
   color: var(--tinta-2);
   overflow-wrap: anywhere;
 }
-.para-lixeira,
 .voltar {
   justify-self: start;
   margin-left: -12px;
+}
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0 -12px;
 }
 .vazio {
   padding: 18px;

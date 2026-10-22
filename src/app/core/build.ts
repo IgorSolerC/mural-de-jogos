@@ -6,4 +6,4 @@
  * Não é a versão das Novidades (1.38.12…): aquela é para as pessoas lerem e ainda pode ser
  * renumerada; esta é só uma contagem. A 301 é o 301º commit da main.
  */
-export const BUILD = 504;
+export const BUILD = 505;

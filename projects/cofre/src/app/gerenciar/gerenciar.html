@@ -1,0 +1,154 @@
+@if (codigo(); as c) {
+  <cofre-passo-kit [codigo]="c" [conta]="conta()" [criadoEm]="agora" [novo]="true" (terminar)="codigo.set(null)" />
+} @else {
+  <div class="gerenciar">
+    <button type="button" class="quieto voltar" (click)="voltar.emit()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+      Voltar à lista
+    </button>
+    <h2>Gerenciar o cofre</h2>
+    @if (cofre().recuperada) {
+      <p class="aviso-codigo">Você abriu com o código de recuperação, e ele já não vale mais. Gere um código novo e ponha uma passkey.</p>
+    }
+    <div aria-live="polite">
+      @if (erro()) {
+        <p class="erro" role="alert">{{ erro() }}</p>
+      }
+    </div>
+
+    <section aria-labelledby="g-aparelhos">
+      <h3 id="g-aparelhos">Aparelhos</h3>
+      <ul class="lista">
+        @for (a of aparelhos(); track a.id) {
+          <li class="aparelho">
+            <span class="nome">{{ a.apelido }}</span>
+            <span class="etiqueta" [class.prf]="a.prf" [class.servidor]="!a.prf">{{ a.prf ? 'Com PRF' : 'Modo servidor' }}</span>
+            <span class="meta">Usado pela última vez: {{ quando(a.usadoEm) }}</span>
+            @if (aparelhos().length > 1) {
+              <span class="botoes">
+                @if (confirmarTirar() === a.id) {
+                  <span class="pergunta">Tirar {{ a.apelido }} do cofre?</span>
+                  <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="tirar(a)">Tirar</button>
+                  <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarTirar.set(null)">Não</button>
+                } @else {
+                  <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="confirmarTirar.set(a.id)">Tirar</button>
+                }
+              </span>
+            }
+          </li>
+        }
+      </ul>
+      @if (aparelhos().length === 1) {
+        <p class="nota pequena">Só um aparelho: se perdê-lo, só o código de recuperação abre o cofre. Ponha um segundo.</p>
+      }
+
+      @if (pendente()) {
+        <div class="pendente">
+          <p class="nota pequena">Este aparelho não tem PRF: ele fica no modo servidor, que protege menos. Para isso, a senha mestra precisa ser a frase sorteada (ou ter pelo menos 78 bits). Digite a senha para conferir.</p>
+          <label class="rotulo" for="g-senha-servidor">Senha mestra</label>
+          <input id="g-senha-servidor" type="password" autocomplete="off" spellcheck="false" translate="no" [value]="senhaDoModoServidor()" (input)="senhaDoModoServidor.set(valor($event))" />
+          <span class="botoes">
+            <button type="button" class="quieto" [disabled]="ocupado()" (click)="cancelarPendente()">Cancelar</button>
+            <button type="button" class="tinta" [disabled]="ocupado() || !senhaDoModoServidor()" (click)="usarModoServidor()">Pôr no modo servidor</button>
+          </span>
+        </div>
+      } @else if (aparelhos().length < maximo) {
+        <div class="por">
+          <label class="rotulo" for="g-apelido">Nome do aparelho novo</label>
+          <span class="linha">
+            <input id="g-apelido" maxlength="40" autocomplete="off" spellcheck="false" [value]="apelido()" (input)="apelido.set(valor($event))" />
+            <button type="button" class="tinta" [disabled]="ocupado()" (click)="registrar()">Pôr um aparelho</button>
+          </span>
+        </div>
+      }
+    </section>
+
+    <section aria-labelledby="g-senha">
+      <h3 id="g-senha">Senha mestra</h3>
+      <form class="campos" novalidate (submit)="$event.preventDefault(); trocar()">
+        <div>
+          <label class="rotulo" for="g-atual">Senha atual</label>
+          <input id="g-atual" type="password" autocomplete="off" spellcheck="false" translate="no" [value]="senhaAtual()" (input)="senhaAtual.set(valor($event))" />
+        </div>
+        <div>
+          <label class="rotulo" for="g-nova">Senha nova</label>
+          <span class="linha">
+            <input id="g-nova" [type]="sugerida() ? 'text' : 'password'" autocomplete="off" spellcheck="false" translate="no" [value]="senhaNova()" (input)="senhaNova.set(valor($event)); sugerida.set(null)" />
+            <button type="button" class="quieto" (click)="sortear()">Sortear frase</button>
+          </span>
+        </div>
+        @if (senhaNova()) {
+          <cofre-regua-forca [avaliacao]="avaliacao()" />
+        }
+        <div>
+          <label class="rotulo" for="g-confirmacao">Digite a nova de novo</label>
+          <input id="g-confirmacao" type="password" autocomplete="off" spellcheck="false" translate="no" [value]="senhaConfirmacao()" (input)="senhaConfirmacao.set(valor($event))" />
+        </div>
+        @if (senhaConfirmacao() && senhaConfirmacao() !== senhaNova()) {
+          <p class="aviso">As duas não são iguais.</p>
+        }
+        <button type="submit" class="tinta" [disabled]="!senhaPronta()">Trocar a senha</button>
+      </form>
+    </section>
+
+    <section aria-labelledby="g-codigo">
+      <h3 id="g-codigo">Código de recuperação</h3>
+      <p class="nota pequena">Abre o cofre no lugar da passkey, com a senha mestra. Um código novo faz o antigo parar de valer na hora.</p>
+      @if (confirmarCodigo()) {
+        <span class="botoes">
+          <span class="pergunta">O código de hoje vai parar de valer. Gerar um novo?</span>
+          <button type="button" class="tinta" [disabled]="ocupado()" (click)="gerarCodigo()">Gerar</button>
+          <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarCodigo.set(false)">Não</button>
+        </span>
+      } @else {
+        <button type="button" class="tinta" (click)="confirmarCodigo.set(true)">Gerar um código novo</button>
+      }
+    </section>
+
+    <section aria-labelledby="g-sessoes">
+      <h3 id="g-sessoes">Aparelhos abertos agora</h3>
+      <ul class="lista simples">
+        @for (s of sessoes(); track $index) {
+          <li>
+            <span>{{ s.aparelho || 'Aparelho sem nome' }} · {{ s.tipo === 'cofre' ? 'cofre aberto' : 'entrando' }}</span>
+            <span class="meta">desde {{ quando(s.criadaEm) }}{{ s.atual ? ' · este' : '' }}</span>
+          </li>
+        }
+      </ul>
+      @if (confirmarTrancarTodos()) {
+        <span class="botoes">
+          <span class="pergunta">Trancar todos, este também?</span>
+          <button type="button" class="tinta" [disabled]="ocupado()" (click)="trancarTodos()">Trancar todos</button>
+          <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarTrancarTodos.set(false)">Não</button>
+        </span>
+      } @else {
+        <button type="button" class="quieto" (click)="confirmarTrancarTodos.set(true)">Trancar todos</button>
+      }
+    </section>
+
+    <section aria-labelledby="g-historico">
+      <h3 id="g-historico">Histórico (90 dias)</h3>
+      @if (!eventos().length) {
+        <p class="nota pequena">Nada ainda.</p>
+      }
+      <ul class="lista simples historico">
+        @for (e of eventos(); track $index) {
+          <li [class.alerta]="e.tipo === 'erro-senha'">
+            <span>{{ nomeDoEvento(e.tipo) }}</span>
+            <span class="meta">{{ quando(e.em) }}{{ e.aparelho ? ' · ' + e.aparelho : '' }}{{ e.pais ? ' · ' + e.pais : '' }}</span>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <section class="perigo-zona" aria-labelledby="g-apagar">
+      <h3 id="g-apagar">Apagar o cofre</h3>
+      <p class="nota pequena">Apaga todas as senhas, os aparelhos e o histórico. Não tem volta.</p>
+      <label class="rotulo" for="g-apagar-palavra">Para apagar, escreva APAGAR</label>
+      <span class="linha">
+        <input id="g-apagar-palavra" autocomplete="off" spellcheck="false" [value]="palavraApagar()" (input)="palavraApagar.set(valor($event))" />
+        <button type="button" class="apagar" [disabled]="ocupado() || palavraApagar() !== 'APAGAR'" (click)="apagar()">Apagar o cofre</button>
+      </span>
+    </section>
+  </div>
+}

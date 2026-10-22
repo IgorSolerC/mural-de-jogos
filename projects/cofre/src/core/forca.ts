@@ -208,3 +208,16 @@ export function avaliarSenha(senha: string, opcoes: { sugerida?: string | null; 
   const bits = estimarBits(normalizada);
   return { bits, situacao: bits >= minimo ? 'boa' : 'fraca', minimo };
 }
+
+/**
+ * Pôr um aparelho sem PRF depois de criado (Gerenciar): a senha de hoje precisa servir para o modo
+ * servidor, mas não dá para saber se ela foi a frase sorteada. Serve com os bits de uma frase sorteada
+ * estimados, ou no formato dela: 6 ou mais palavras da lista do cofre, com hífens.
+ */
+export function serveParaModoServidor(senha: string): boolean {
+  const normalizada = senha.normalize('NFC');
+  const partes = normalizada.split('-');
+  const dic = palavras();
+  if (partes.length >= 6 && partes.every((p) => dic.has(p))) return true;
+  return estimarBits(normalizada) >= BITS_MINIMOS_MODO_SERVIDOR;
+}

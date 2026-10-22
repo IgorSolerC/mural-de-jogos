@@ -63,9 +63,15 @@
           </ul>
         }
 
-        @if (naLixeira().length) {
-          <button type="button" class="quieto para-lixeira" (click)="vista.set('lixeira')">Lixeira ({{ naLixeira().length }})</button>
-        }
+        <span class="rodape">
+          @if (naLixeira().length) {
+            <button type="button" class="quieto" (click)="vista.set('lixeira')">Lixeira ({{ naLixeira().length }})</button>
+          }
+          <button type="button" class="quieto" (click)="vista.set('gerenciar')">Gerenciar o cofre</button>
+        </span>
+      }
+      @case ('gerenciar') {
+        <cofre-gerenciar [cofre]="cofre()" [conta]="conta()" (voltar)="voltarALista()" (avisar)="avisar($event)" (terminar)="trancar()" />
       }
       @case ('lixeira') {
         <button type="button" class="quieto voltar" (click)="voltarALista()">

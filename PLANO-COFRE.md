@@ -1376,3 +1376,22 @@ Com a API de verdade (`pagina.suite.ts`):
 - as sessões sem token, o histórico, trancar todos (a sessão para de valer) e apagar o cofre (só com
   APAGAR).
 
+Parte 2, a tela (`app/gerenciar/`, aberta por "Gerenciar o cofre" no pé da lista):
+- **Aparelhos**: cada um com a etiqueta (com PRF ou modo servidor) e quando foi usado.
+  - Tirar pede confirmação, e o último não tem o botão.
+  - "Pôr um aparelho" registra a passkey com o nome escolhido.
+  - **Para o usuário conferir**: um aparelho sem PRF só entra no modo servidor se a senha de hoje servir
+    para isso. Como não dá para saber se ela foi a frase sorteada, ela serve com 78 bits estimados ou no
+    formato da sorteada (6 ou mais palavras da lista com hífens); a pessoa digita a senha para conferir.
+- **Senha mestra**: a atual (conferida abrindo V), a nova (escrita ou "Sortear frase", com a régua, e o
+  mínimo do modo servidor se houver um aparelho assim) e a confirmação.
+- **Código de recuperação**: "Gerar um código novo" pede confirmação (o de hoje para de valer) e mostra o
+  kit, que pode ser impresso.
+- **Aparelhos abertos agora**: quando e onde, o atual marcado, e "Trancar todos" com confirmação.
+- **Histórico de 90 dias**: em palavras, com as senhas erradas em vermelho.
+- **Apagar o cofre**: só escrevendo APAGAR.
+
+Trancar zera M e V antes de recarregar. O teste de ponta a ponta no Chrome passou também com o código
+novo, a troca de senha e a reabertura com a senha nova. A demonstração (`/?demo=aberto`) mostra a tela com
+dados de mentira.
+

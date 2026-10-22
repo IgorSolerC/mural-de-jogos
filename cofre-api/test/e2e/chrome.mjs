@@ -135,6 +135,35 @@ try {
   const aviso = await temTexto('código de recuperação');
   await foto('6-pelo-codigo');
   passo(`aberto pelo código; a senha guardada continua lá; aviso do código: ${aviso}`);
+
+  // 6. gerenciar: um código novo (o de antes já foi gasto) e trocar a senha
+  await clicar('Gerenciar o cofre');
+  await esperar(() => temTexto('Aparelhos abertos agora'), 20000, 'tela de gerenciar');
+  await clicar('Gerar um código novo');
+  await clicar('Gerar');
+  await page.waitForSelector('.kit-codigo', { timeout: 30000 });
+  const codigoNovo = await page.$$eval('.kit-codigo span', (s) => s.map((x) => x.textContent).join('-'));
+  await page.click('.guardei input');
+  await clicar('Terminar');
+  await digitar('#g-atual', frase);
+  await clicar('Sortear frase');
+  const novaSenha = await page.$eval('#g-nova', (e) => e.value);
+  await digitar('#g-confirmacao', novaSenha);
+  await clicar('Trocar a senha');
+  await esperar(() => temTexto('Senha mestra trocada'), 60000, 'senha trocada');
+  await foto('7-gerenciar');
+  passo(`código novo (${codigoNovo.slice(0, 4)}…) e senha trocada`);
+  await clicar('Trancar');
+  await page.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => undefined);
+
+  // 7. a senha nova abre com a passkey
+  await entrar();
+  await page.waitForSelector('#abrir-senha');
+  await digitar('#abrir-senha', novaSenha);
+  await clicar('Abrir');
+  await page.waitForSelector('cofre-aberto', { timeout: 60000 });
+  await esperar(() => temTexto('Banco do teste'), 20000, 'item com a senha nova');
+  passo('a senha nova abre o cofre, com a senha guardada lá');
 } catch (e) {
   erros.push(`FALHOU: ${e.message}`);
   await foto('erro').catch(() => undefined);

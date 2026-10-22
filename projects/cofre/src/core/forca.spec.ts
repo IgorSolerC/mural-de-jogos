@@ -1,4 +1,4 @@
-import { avaliarSenha, BITS_MINIMOS, BITS_MINIMOS_MODO_SERVIDOR, estimarBits } from './forca';
+import { avaliarSenha, BITS_MINIMOS, BITS_MINIMOS_MODO_SERVIDOR, estimarBits, serveParaModoServidor } from './forca';
 import { bitsDaFrase, sortearFrase } from './sorteio';
 
 describe('a força da senha mestra', () => {
@@ -62,5 +62,13 @@ describe('a força da senha mestra', () => {
     expect(estimarBits('p3dr4')).toBeLessThanOrEqual(estimarBits('pedra') + 2);
     // e uma maiúscula, 1 bit
     expect(estimarBits('Pedra')).toBe(estimarBits('pedra') + 1);
+  });
+
+  it('pôr um aparelho sem PRF depois: serve a frase no formato da sorteada, ou uma senha de 78 bits', () => {
+    expect(serveParaModoServidor(sortearFrase())).toBe(true);
+    expect(serveParaModoServidor('Xk9#mQ2$vL7!pR4@')).toBe(false);
+    expect(serveParaModoServidor('Xk9#mQ2$vL7!pR4@Zt8%')).toBe(true);
+    expect(serveParaModoServidor('gato-azul-pedra-chuva-livro')).toBe(false);
+    expect(serveParaModoServidor('gato azul pedra chuva livro mesa')).toBe(false);
   });
 });

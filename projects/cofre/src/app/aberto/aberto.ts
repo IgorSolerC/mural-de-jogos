@@ -5,10 +5,11 @@ import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
 import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../core/itens';
 import { SERVICOS } from '../servicos';
+import { Gerenciar } from '../gerenciar/gerenciar';
 import { ItemDoCofre } from './item';
 import { type MotivoDeTrancar, Trancador } from './trancador';
 
-type Vista = 'lista' | 'item' | 'novo' | 'lixeira';
+type Vista = 'lista' | 'item' | 'novo' | 'lixeira' | 'gerenciar';
 const DIA_MS = 86_400_000;
 const AVISO_MS = 12_000;
 
@@ -29,7 +30,7 @@ function quando(iso: string): string {
 @Component({
   selector: 'cofre-aberto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ItemDoCofre],
+  imports: [ItemDoCofre, Gerenciar],
   templateUrl: './aberto.html',
   styleUrl: './aberto.scss',
   host: { '[class.borrado]': 'borrado()' },
@@ -203,6 +204,12 @@ export class Aberto implements OnInit {
 
   protected trancar(_motivo: MotivoDeTrancar = 'parado'): void {
     this.trancador?.parar();
+    // M e V não servem mais (a página recarrega em seguida, mas não custa zerar já)
+    const segredos = this.cofre().segredos;
+    if (segredos) {
+      segredos.m.fill(0);
+      segredos.v.fill(0);
+    }
     this.servicos.api.trancar();
     this.servicos.terminar();
   }

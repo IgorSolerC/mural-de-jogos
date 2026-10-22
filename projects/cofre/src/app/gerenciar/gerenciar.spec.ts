@@ -1,0 +1,224 @@
+import { provideZonelessChangeDetection } from '@angular/core';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
+import type { CofreAberto } from '../../core/abrir';
+import { type AparelhoDaApi, ApiCofre, type DesafioDeRegistro, type EventoDaApi, type SessaoDaApi } from '../../core/api';
+import { aleatorios, paraBase64url } from '../../core/bytes';
+import { chaveDaSenha, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../../core/crypto';
+import { sortearFrase } from '../../core/sorteio';
+import type { Autenticador } from '../../core/passkey';
+import { type Pagina, SERVICOS, type Servicos } from '../servicos';
+import { Gerenciar } from './gerenciar';
+
+const USUARIO = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
+const SENHA = sortearFrase();
+
+class ApiDeGerenciar extends ApiCofre {
+  lista: AparelhoDaApi[] = [
+    { id: 'a1', apelido: 'Celular', prf: true, criadoEm: '2026-10-20T10:00:00.000Z', usadoEm: null },
+    { id: 'a2', apelido: 'PC', prf: true, criadoEm: '2026-10-20T10:00:00.000Z', usadoEm: null },
+  ];
+  pedidos: string[] = [];
+  postos: { apelido: string; prf: boolean }[] = [];
+  override async aparelhos() {
+    return { aparelhos: this.lista };
+  }
+  override async sessoes(): Promise<{ sessoes: readonly SessaoDaApi[] }> {
+    return { sessoes: [{ tipo: 'cofre', criadaEm: '2026-10-21T10:00:00.000Z', usadaEm: '2026-10-21T10:00:00.000Z', aparelho: 'Chrome no Windows', atual: true }] };
+  }
+  override async eventos(): Promise<{ eventos: readonly EventoDaApi[] }> {
+    return { eventos: [{ tipo: 'erro-senha', em: '2026-10-21T09:00:00.000Z', aparelho: 'Safari no iPhone', pais: 'BR' }] };
+  }
+  override async tirarAparelho(id: string) {
+    this.pedidos.push(`tirar ${id}`);
+    this.lista = this.lista.filter((a) => a.id !== id);
+    return { tirado: true as const };
+  }
+  override async trocarSenha() {
+    this.pedidos.push('senha');
+    return { trocada: true as const };
+  }
+  override async novoCodigo() {
+    this.pedidos.push('codigo');
+    return { trocado: true as const };
+  }
+  override async trancarTodos() {
+    this.pedidos.push('trancar-todos');
+    return { trancados: true as const };
+  }
+  override async apagarCofre(confirmacao: string) {
+    this.pedidos.push(`apagar ${confirmacao}`);
+    return { apagado: true as const };
+  }
+  override async desafioDeRegistro(): Promise<DesafioDeRegistro> {
+    return {
+      desafio: 'd',
+      publicKey: { challenge: paraBase64url(aleatorios(32)), rp: { id: 'cofre.teste', name: 'x' }, user: { id: paraBase64url(aleatorios(16)), name: 'x', displayName: 'x' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] },
+    };
+  }
+  override async porAparelho(aparelho: unknown) {
+    const a = aparelho as { apelido: string; prf: boolean };
+    this.postos.push({ apelido: a.apelido, prf: a.prf });
+    return { id: 'novo', apelido: a.apelido, prf: a.prf };
+  }
+}
+
+/** Uma passkey sem PRF (o aparelho novo vai pedir o modo servidor). */
+const semPrf: Autenticador = {
+  criar: async () =>
+    ({
+      type: 'public-key',
+      rawId: aleatorios(16).buffer,
+      response: { clientDataJSON: aleatorios(8).buffer, attestationObject: aleatorios(8).buffer, getTransports: () => ['internal'] },
+      getClientExtensionResults: () => ({ prf: { enabled: false } }),
+    }) as unknown as Credential,
+  pegar: async () => null,
+};
+
+async function montar() {
+  const sal = novoSal();
+  const m = novaChaveDoMeio();
+  const { chave, v } = await criarCofre(await chaveDaSenha(SENHA, sal, KDF_PADRAO), m, USUARIO);
+  const cofre: CofreAberto = {
+    usuario: USUARIO,
+    chave,
+    manifesto: { contador: 0, itens: {}, lixeira: {}, mudadoEm: '2026-10-21T10:00:00.000Z', aparelho: 'PC' },
+    contador: 0,
+    recuperada: false,
+    expiraEm: '',
+    paradaMaxima: 600,
+    aparelho: 'PC',
+    segredos: { m, v, sal, kdf: { ...KDF_PADRAO } },
+  };
+  const api = new ApiDeGerenciar();
+  const servicos: Servicos = { api, autenticador: semPrf, rpId: 'cofre.teste', pagina: { agente: 'Chrome no Windows' } as Pagina, terminar: () => undefined };
+  TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
+  const fixture = TestBed.createComponent(Gerenciar);
+  fixture.componentRef.setInput('cofre', cofre);
+  fixture.componentRef.setInput('conta', 'K7QFM2XA');
+  const terminou = jasmine.createSpy('terminar');
+  const avisos: string[] = [];
+  fixture.componentInstance.terminar.subscribe(terminou);
+  fixture.componentInstance.avisar.subscribe((t) => avisos.push(t));
+  await estabilizar(fixture);
+  return { fixture, api, terminou, avisos, el: fixture.nativeElement as HTMLElement };
+}
+
+async function estabilizar(fixture: ComponentFixture<Gerenciar>, vezes = 6): Promise<void> {
+  for (let i = 0; i < vezes; i++) {
+    await new Promise((ok) => setTimeout(ok, 0));
+    await fixture.whenStable();
+  }
+}
+
+async function ate(fixture: ComponentFixture<Gerenciar>, cond: () => boolean): Promise<void> {
+  const fim = Date.now() + 15000;
+  while (!cond()) {
+    if (Date.now() > fim) throw new Error('não chegou');
+    await new Promise((ok) => setTimeout(ok, 30));
+    await fixture.whenStable();
+  }
+}
+
+const botao = (el: HTMLElement, texto: string) => [...el.querySelectorAll('button')].find((b) => b.textContent!.trim() === texto) as HTMLButtonElement;
+function digitar(el: HTMLElement, seletor: string, valor: string): void {
+  const i = el.querySelector<HTMLInputElement>(seletor)!;
+  i.value = valor;
+  i.dispatchEvent(new Event('input'));
+}
+
+describe('gerenciar o cofre', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  it('mostra os aparelhos, as sessões e o histórico em palavras', async () => {
+    const { el } = await montar();
+    expect([...el.querySelectorAll('.aparelho .nome')].map((n) => n.textContent)).toEqual(['Celular', 'PC']);
+    expect(el.textContent).toContain('Chrome no Windows · cofre aberto');
+    expect(el.querySelector('.historico .alerta')!.textContent).toContain('Senha errada');
+  });
+
+  it('tirar pede confirmação; o último aparelho não tem o botão', async () => {
+    const { fixture, api, el } = await montar();
+    botao(el, 'Tirar').click();
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('Tirar Celular do cofre?');
+    expect(api.pedidos).toEqual([]);
+    botao(el, 'Tirar').click();
+    await estabilizar(fixture);
+    expect(api.pedidos).toEqual(['tirar a1']);
+    expect(botao(el, 'Tirar')).toBeUndefined();
+    expect(el.textContent).toContain('Só um aparelho');
+  });
+
+  it('trocar a senha: a atual errada não troca; a certa, com a nova forte, troca', async () => {
+    const { fixture, api, avisos, el } = await montar();
+    digitar(el, '#g-atual', 'errada');
+    botao(el, 'Sortear frase').click();
+    await estabilizar(fixture);
+    const nova = el.querySelector<HTMLInputElement>('#g-nova')!.value;
+    digitar(el, '#g-confirmacao', nova);
+    await estabilizar(fixture);
+    botao(el, 'Trocar a senha').click();
+    await ate(fixture, () => !!el.querySelector('.erro'));
+    expect(el.querySelector('.erro')!.textContent).toContain('A senha atual não confere');
+    expect(api.pedidos).toEqual([]);
+    digitar(el, '#g-atual', SENHA);
+    await estabilizar(fixture);
+    botao(el, 'Trocar a senha').click();
+    await ate(fixture, () => api.pedidos.includes('senha'));
+    await ate(fixture, () => avisos.includes('Senha mestra trocada.'));
+  });
+
+  it('um código novo mostra o kit, e terminar volta', async () => {
+    const { fixture, api, el } = await montar();
+    botao(el, 'Gerar um código novo').click();
+    await estabilizar(fixture);
+    botao(el, 'Gerar').click();
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(api.pedidos).toEqual(['codigo']);
+    expect(el.querySelector('h2')!.textContent).toContain('O código novo');
+    el.querySelector<HTMLInputElement>('.guardei input')!.click();
+    await estabilizar(fixture);
+    botao(el, 'Terminar').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('h2')!.textContent).toContain('Gerenciar o cofre');
+  });
+
+  it('um aparelho sem PRF só entra no modo servidor com uma senha que sirva', async () => {
+    const { fixture, api, el } = await montar();
+    botao(el, 'Pôr um aparelho').click();
+    await ate(fixture, () => !!el.querySelector('#g-senha-servidor'));
+    digitar(el, '#g-senha-servidor', 'senha123');
+    await estabilizar(fixture);
+    botao(el, 'Pôr no modo servidor').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.erro')!.textContent).toContain('frase sorteada');
+    expect(api.postos).toEqual([]);
+    digitar(el, '#g-senha-servidor', SENHA);
+    await estabilizar(fixture);
+    botao(el, 'Pôr no modo servidor').click();
+    await ate(fixture, () => api.postos.length === 1);
+    expect(api.postos).toEqual([{ apelido: 'PC', prf: false }]);
+  });
+
+  it('trancar todos e apagar (só com APAGAR) terminam a sessão', async () => {
+    const a = await montar();
+    botao(a.el, 'Trancar todos').click();
+    await estabilizar(a.fixture);
+    botao(a.el, 'Trancar todos').click();
+    await estabilizar(a.fixture);
+    expect(a.api.pedidos).toEqual(['trancar-todos']);
+    expect(a.terminou).toHaveBeenCalled();
+    TestBed.resetTestingModule();
+    const b = await montar();
+    expect(botao(b.el, 'Apagar o cofre').disabled).toBe(true);
+    digitar(b.el, '#g-apagar-palavra', 'apagar');
+    await estabilizar(b.fixture);
+    expect(botao(b.el, 'Apagar o cofre').disabled).toBe(true);
+    digitar(b.el, '#g-apagar-palavra', 'APAGAR');
+    await estabilizar(b.fixture);
+    botao(b.el, 'Apagar o cofre').click();
+    await estabilizar(b.fixture);
+    expect(b.api.pedidos).toEqual(['apagar APAGAR']);
+    expect(b.terminou).toHaveBeenCalled();
+  });
+});
