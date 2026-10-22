@@ -1333,6 +1333,14 @@ O CAA da raiz (`igorsc.com.br`) não chega a ser lido.
 Cloudflare tenta emitir de novo sozinha; depois, rodar o "Publicar o cofre" para conferir. O login do
 wrangler desta máquina só lê a zona, por isso o Claude não fez a mudança.
 
+**Resolvido em 22/10.** O usuário criou os três CAA, mas a Cloudflare não emitiu de novo sozinha em 15
+minutos: a tentativa recusada antes dos CAA fica esperando a próxima rodada. O que destravou foi tirar o
+domínio do Worker no painel (Workers & Pages › cofre-api › Domains › ⋯ › Remove) e rodar o "Publicar o
+cofre", que cria o domínio de novo e pede um certificado novo. O certificado saiu dentro da espera do
+workflow, e os cabeçalhos e os hashes no ar conferiram com os do repositório. `COFRE_NO_AR=sim` ligou a
+vigia, que rodou e passou. No ar, a porta mostra as três proteções verdes e fica em "Em construção" até
+existir o `GOOGLE_CLIENT_ID` (16.14).
+
 #### De ponta a ponta no Chrome (Fase 4, parte 4; 22/10)
 
 O cofre inteiro rodou no Chrome de verdade, com:
