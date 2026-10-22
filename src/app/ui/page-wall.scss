@@ -13,14 +13,3 @@
   border-radius: inherit;
   @include materials.paredes;
 }
-
-/* o eucatex de outra pessoa por cima da sua parede: com a foto do site, quando ela carregou */
-:host-context(body.has-wall-texture) .parede[data-parede='eucatex'] {
-  background-image:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
-    linear-gradient(rgb(31 27 24 / 0.56), rgb(31 27 24 / 0.56)),
-    var(--parede-foto);
-  background-size: 100% 900px, auto, 560px 560px;
-  background-position: 0 0;
-  background-repeat: no-repeat, repeat, repeat;
-}

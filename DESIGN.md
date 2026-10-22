@@ -354,7 +354,7 @@ The density is a real mural's: cards grouped in sections with generous gaps, and
 This world replaces the category default of a uniform dark grid of cover posters with star ratings. There are no stars, no cover-only tiles and no dark glass cards anywhere.
 
 **Key Characteristics:**
-- Graphite eucatex wall (26px hole grid) with a fluorescent light falloff at the top of the page.
+- Graphite eucatex wall (26px hole grid) with a fluorescent light falloff at the top of the page, pure CSS and the same drawing as the password vault's (`shared/_eucatex.scss`).
 - Eight cartolina stocks (six neon, a red and a warm grey), always with near-black marker ink on top.
 - Permanent Marker for lettering and sub-score numerals, Kalam for handwriting, Barlow Condensed for printed labels and the Média numeral, Barlow for UI body text.
 - Physical stationery with real behavior: tachinhas, contact plastic, masking tape, Dymo tape, a two-part sticker label carrying the Média and the verdict, rubber verdict stamps in the reader, sticker labels, paper starbursts in the editor and reader, notepad paper.
@@ -595,7 +595,6 @@ The slots are wired; the app tries to load each file after the first render and 
 
 | File | Body class | What it replaces | Fallback |
 |---|---|---|---|
-| `parede-eucatex.png` | `has-wall-texture` | wall holes and fibre (560px tile) | two radial-gradient hole layers at a 26px pitch (dark hole plus a lit lower rim) and a 300px fractal-noise fibre SVG at 5% |
 | `cartolina-fibra.png` (derived from a cartolina photo, no longer shipped) | `has-paper-texture` | grain on `.cartolina` and cartolina buttons (420px tile, soft-light) | `--paper-grain`, a 220px fractal-noise SVG multiplied over the stock colour |
 | `tachinhas.png` | `has-pins` | the CSS pin (192×32 sprite, 6 × 32px in pin palette order) | the layered radial-gradient base, head and specular dot |
 | `holografico.png` | `has-holo` | Platinado foil via `--holo-foil` (180px tile) | a 62deg diffraction-line pattern over a pastel spectrum gradient |
@@ -637,7 +636,7 @@ One physical curve, `cubic-bezier(0.16, 1, 0.3, 1)` at 380ms, is used for anythi
 ## Material calibration (polish pass)
 
 - **Paper grain.** The shipping grain is `textures/cartolina-fibra.png`, derived from a cartolina photo (the original `cartolina.png` was removed: nothing loaded it) and re-centred on 50% grey, blended with `soft-light` at 420px. It adds fibre without shifting a stock's hue. Multiply with the raw light-grey photo muddied every stock (yellow read olive) and is not used.
-- **Wall.** The photographic eucatex (`parede-eucatex.png`, 560px tile) sits under a flat coat of `rgb(24 24 27 / 0.46)` and the fluorescent falloff at 13%. The coat keeps the holes visible but stops them competing with cards and tabs.
+- **Wall.** The eucatex is drawn, not photographed: one mixin in `shared/_eucatex.scss`, the same in the Murall and in the password vault (the user preferred the vault's). A 26px tile holds a 2.6px `wall-hole` dot and, 1px lower, a 2.4px dot of 5% white that lights its bottom rim; over the top 900px of the page a fluorescent falloff (`rgb(255 250 235 / 0.1)`, an ellipse 90% wide and 900px tall centred 120px above the page). No fibre, no photo: the holes stay quiet against the cards on their own. It paints the body, the `.parede` preview patches (without the tube), the profile's Eucatex grafite wall and the Kanban edge veil, so the holes line up everywhere. The photographic `parede-eucatex.png` under a 56% coat was the wall until 2026-10-22.
 - **Native controls on paper.** Every `.cartolina` sets `color-scheme: light`, so radios, the date picker and scrollbars render light on paper while the wall stays dark.
 - **Foil.** Platinado carries a 40% milky varnish between the shine and the holographic photo, so the word stays readable on the glitter.
 - **Shadows.** No zero-blur offset shadows remain: `btn-ink` and field strips use soft offsets (`0 1px 2-3px`).
@@ -756,7 +755,7 @@ The user felt that many colours looked wrong next to each other. A dual critique
 - **Index-card sheets.** Reader, editor and settings dialogs are cream `paper`. The review's stock fills only the header band (with its grain). A 2px `red` rule under the header was tried and removed at the user's request. Ruled text areas use `ruling-blue` pencil lines, the same as the Pra depois pages. Hover tints inside sheets are ink at 5–7%, not white, because white vanishes on cream.
 - **Blank-card stack.** The primary action is a white index card on top of rosa and azul sheets, so it reads as "a fresh card" and no longer copies a card stock.
 - **Pins.** Red and white only, and white on rosa and laranja.
-- **Warm neutrals.** Wall `#1f1c1a` under a warm 56% coat over the eucatex photo; fluorescent falloff `rgb(255 246 230 / 0.11)`; paper `#f7f4ec`; ivory divider plastic; the ruler warmed to `#76726b`; scrollbar `#4d4843`; `theme-color` updated.
+- **Warm neutrals.** Wall `#1f1c1a` (the drawn eucatex of `shared/_eucatex.scss`); fluorescent falloff `rgb(255 250 235 / 0.1)`; paper `#f7f4ec`; ivory divider plastic; the ruler warmed to `#76726b`; scrollbar `#4d4843`; `theme-color` updated.
 - **Editor digits.** Unselected score digits are ink at 60% (full ink on hover), so the circled choice leads instead of 44 equal numerals.
 - **Nota a nota** column heads carry a 6px strip in each game's stock, linking the table to the cards above it.
 - **Contrast.** The save-error banner moved to `red-deep` (white text now passes 4.5:1). The Dymo tabs and their counts pass.

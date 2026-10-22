@@ -104,6 +104,20 @@ test('o que o cofre divide com o Murall é só dados e desenho: nenhum import, n
   }
 });
 
+test('a parede de eucatex do cofre e a do Murall são o mesmo desenho (shared/_eucatex.scss)', () => {
+  const cofre = readFileSync(join(fonte, 'styles.scss'), 'utf8');
+  const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
+  assert.match(cofre, /^@use '\.\.\/\.\.\/\.\.\/shared\/eucatex' as parede;/m);
+  assert.match(cofre, /^body \{\r?\n {2}@include parede\.eucatex\(var\(--parede\), var\(--parede-buraco\)\);/m);
+  assert.match(murall, /^@use '\.\.\/shared\/eucatex';/m);
+  assert.match(murall, /^body \{\r?\n {2}@include eucatex\.eucatex\(var\(--wall\), var\(--wall-hole\)\);/m);
+  // os furos e a luz só existem no mixin: nenhum dos dois os desenha à mão, nem volta à foto de antes
+  for (const texto of [cofre, murall]) {
+    assert.doesNotMatch(texto, /radial-gradient\(circle at 13px 1[34]px/);
+    assert.doesNotMatch(texto, /parede-eucatex\.png/);
+  }
+});
+
 test('os tokens do Murall no topo do cofre são os mesmos de src/styles.scss', () => {
   const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
   const tokens = readFileSync(join(COMPARTILHADA, 'topo', '_tokens-do-murall.scss'), 'utf8');

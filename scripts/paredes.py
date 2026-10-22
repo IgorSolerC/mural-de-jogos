@@ -383,17 +383,9 @@ css = f"""
   /* a fibra e a tinta irregular, a mesma em várias (fica numa variável para não repetir o desenho) */
   --grao-parede: {fine_white};
 
-  /* Eucatex grafite: a parede do site, com os furos */
+  /* Eucatex grafite: a parede do site, com os furos (a mesma do body e do cofre, em shared/_eucatex.scss) */
   &[data-parede='eucatex'] {{
-    background-color: #1f1c1a;
-    background-image:
-      radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
-      radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
-      radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px),
-      var(--grao-parede);
-    background-size: 100% 900px, 26px 26px, 26px 26px, 300px 300px;
-    background-position: 0 0, 13px 13px, 13px 13px, 0 0;
-    background-repeat: no-repeat, repeat, repeat, repeat;
+    @include eucatex.eucatex(#1f1c1a, var(--wall-hole));
   }}
 
   /* Planta azul: o papel de cópia heliográfica, a grade fina e a grossa, e os desenhos a lápis branco */

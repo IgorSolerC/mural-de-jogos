@@ -1,0 +1,24 @@
+// A parede de eucatex pintada de grafite, a mesma no Murall e no cofre de senhas: os furos de 26 em 26 px,
+// cada um com um fio de luz na borda de baixo, e a luz do tubo fluorescente caindo do alto. Só CSS, sem
+// foto e sem fibra. O Murall a põe no body (`src/styles.scss`), no pedaço de parede das prévias (`.parede`),
+// na parede de eucatex do perfil (`src/app/ui/_profile-materials.scss`, gerado por `scripts/paredes.py`) e
+// no véu das beiradas do Kanban; o cofre, no body dele (`projects/cofre/src/styles.scss`).
+
+/* `$luz: false` para um pedaço de parede pequeno, que fica sem o tubo em cima (as prévias) */
+@mixin eucatex($cor, $buraco, $luz: true) {
+  $furos:
+    radial-gradient(circle at 13px 14px, rgb(255 255 255 / 0.05) 2.4px, transparent 3px),
+    radial-gradient(circle at 13px 13px, $buraco 2.6px, transparent 3.2px);
+  background-color: $cor;
+  @if $luz {
+    /* a luz ocupa só os 900 px de cima: os mesmos pixels de uma camada da página inteira, menos para pintar */
+    background-image: radial-gradient(ellipse 90% 900px at 50% -120px, rgb(255 250 235 / 0.1), transparent 70%), $furos;
+    background-size: 100% 900px, 26px 26px, 26px 26px;
+    background-repeat: no-repeat, repeat, repeat;
+  } @else {
+    background-image: $furos;
+    background-size: 26px 26px;
+    background-repeat: repeat;
+  }
+  background-position: 0 0;
+}

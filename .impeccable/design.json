@@ -982,13 +982,6 @@
     },
     "rasterSlots": [
       {
-        "file": "public/textures/parede-eucatex.png",
-        "bodyClass": "has-wall-texture",
-        "status": "file present in public/textures; loaded after first render",
-        "tile": "560px, under a warm coat rgb(31 27 24 / 0.56) and a warm fluorescent falloff rgb(255 246 230 / 0.11)",
-        "fallback": "radial-gradient hole grid (26px pitch, lit lower rim) + 300px fractal-noise fibre at 5% + fluorescent falloff"
-      },
-      {
         "file": "public/textures/cartolina-fibra.png",
         "bodyClass": "has-paper-texture",
         "status": "file present in public/textures (derived from cartolina.png, re-centred on 50% grey); loaded after first render",

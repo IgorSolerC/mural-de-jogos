@@ -1,6 +1,9 @@
+@use '../../../shared/eucatex' as parede;
+
 /*
  * Os estilos globais do cofre: só os tokens de cor e fonte do Murall (seção 10 do plano), copiados à
- * mão. Nada de src/styles.scss: o cofre não importa nada do Murall.
+ * mão. Nada de src/styles.scss: o cofre não importa nada do Murall. A parede de eucatex é a de shared/,
+ * a mesma dos dois sites.
  */
 :root {
   color-scheme: dark;
@@ -79,14 +82,10 @@ body {
   caret-color: var(--caneta);
 }
 
-/* a parede de eucatex pintada de grafite, com os furos e a luz do tubo fluorescente em cima */
+/* a parede de eucatex pintada de grafite, com os furos e a luz do tubo fluorescente em cima: a mesma do
+   Murall (shared/_eucatex.scss) */
 body {
-  background:
-    radial-gradient(ellipse 90% 900px at 50% -120px, rgb(255 250 235 / 0.1), transparent 70%),
-    radial-gradient(circle at 13px 14px, rgb(255 255 255 / 0.05) 2.4px, transparent 3px),
-    radial-gradient(circle at 13px 13px, var(--parede-buraco) 2.6px, transparent 3.2px),
-    var(--parede);
-  background-size: auto, 26px 26px, 26px 26px, auto;
+  @include parede.eucatex(var(--parede), var(--parede-buraco));
   scrollbar-color: #5a544e var(--parede);
 }
 

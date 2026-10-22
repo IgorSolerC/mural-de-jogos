@@ -1,6 +1,7 @@
 @use 'app/ui/paper-kit' as kit;
 @use 'app/ui/divisorias' as div;
 @use 'app/ui/a11y';
+@use '../shared/eucatex';
 
 /* Murall: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
 
@@ -239,33 +240,10 @@ body {
   overflow-x: clip;
 }
 
-/* A parede em si: cobre a página inteira, por mais longo que o mural fique */
+/* A parede em si: cobre a página inteira, por mais longo que o mural fique. É a mesma do cofre de
+   senhas (shared/_eucatex.scss): os furos, a luz do tubo em cima, sem foto */
 body {
-  background-image:
-    /* luz das lâmpadas fluorescentes caindo de cima */
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
-    /* furos do eucatex: borda de baixo levemente iluminada */
-    radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
-    radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px),
-    /* fibra e tinta irregular */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.65' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 100% 900px, 26px 26px, 26px 26px, 300px 300px;
-  background-position: 0 0, 13px 13px, 13px 13px, 0 0;
-  background-repeat: no-repeat, repeat, repeat, repeat;
-}
-
-/* Quando a textura fotográfica existir, ela substitui furos e fibra */
-body.has-wall-texture {
-  /* a mesma foto, para a parede de eucatex desenhada por cima de outra (ui/page-wall) */
-  --parede-foto: url('textures/parede-eucatex.png');
-  background-image:
-    radial-gradient(ellipse 90% 55% at 50% -8%, rgb(255 246 230 / 0.11), transparent 70%),
-    /* demão de tinta quente por cima da foto: os furos continuam lá, mas param de gritar */
-    linear-gradient(rgb(31 27 24 / 0.56), rgb(31 27 24 / 0.56)),
-    url('textures/parede-eucatex.png');
-  background-size: 100% 900px, auto, 560px 560px;
-  background-position: 0 0, 0 0, 0 0;
-  background-repeat: no-repeat, repeat, repeat;
+  @include eucatex.eucatex(var(--wall), var(--wall-hole));
 }
 
 ::selection {
@@ -1481,23 +1459,13 @@ dialog.sheet {
     scale: 0.94;
   }
 }
-/* Um pedaço da parede de eucatex, para ver a ficha como ela vai ficar no mural */
+/* Um pedaço da parede de eucatex, para ver a ficha como ela vai ficar no mural (sem o tubo em cima) */
 .parede {
-  background-color: var(--wall);
-  background-image:
-    radial-gradient(circle at 50% 44%, var(--wall-hole) 0 3.1px, transparent 3.6px),
-    radial-gradient(circle at 50% 56%, rgb(255 255 255 / 0.07) 0 3.4px, transparent 4px);
-  background-size: 26px 26px;
+  @include eucatex.eucatex(var(--wall), var(--wall-hole), $luz: false);
+  /* as paredes do perfil (ui/page-wall) também têm a classe e herdam daqui o lugar do desenho */
   background-position: 13px 13px;
   color: var(--wall-ink);
   color-scheme: dark;
-}
-body.has-wall-texture .parede {
-  background-image:
-    linear-gradient(rgb(31 27 24 / 0.56), rgb(31 27 24 / 0.56)),
-    url('textures/parede-eucatex.png');
-  background-size: auto, 560px 560px;
-  background-position: 0 0;
 }
 
 /* Foto do foil holográfico, quando existir */

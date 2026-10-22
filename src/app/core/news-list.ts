@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-22-folhas-que-nao-abriam',
+    id: '2026-10-22-parede-do-cofre',
     version: '1.30.1',
     kind: 'ajustes',
     date: '2026-10-22',
-    title: 'O cofre de senhas refeito, as folhas que às vezes não abriam, as anotações só no Kanban fora do mural de quem visita e o grupo das compartilhadas',
+    title: 'O cofre de senhas refeito, a parede do cofre no Murall e as folhas que às vezes não abriam',
     melhorias: [
+      'A parede de eucatex do Murall agora é a mesma do cofre de senhas: furos menores e mais discretos e a luz do tubo mais aberta, desenhada em vez de foto, o que também deixa o site mais leve para abrir.',
       'O cofre de senhas refeito para usar no dia a dia: a lista e a senha aberta lado a lado, e o user e a senha de cada item se copiam direto da lista, sem abrir. A senha aberta mostra tudo em linhas, com a edição no mesmo lugar; cada senha ganhou uma letra colorida para achar de olho; "/" busca e as setas andam pela lista.',
       'Gerenciar o cofre virou Ajustes do cofre, como as Configurações do mural: uma etiqueta por parte (Aparelhos, Senha mestra, Recuperação, Abertos agora, Senhas vazadas, Histórico e Cuidado). Conferir as senhas vazadas foi para lá, com a lista das que apareceram e um botão para abrir cada uma.',
       'Os botões e campos do cofre são os do Murall: etiquetas de papel com o meio-corte, tiras de papel com a linha de caneta, os seletores de adesivo e a régua do gerador.',
