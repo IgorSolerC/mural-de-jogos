@@ -1238,3 +1238,38 @@ Parte 2, o login na página, e o que a revisão de 21/10 achou:
 - O aviso "Fazendo a chave do cofre…" agora aparece antes de o Argon2id ocupar o navegador.
 - O `GET /api/status` devolve o `googleClientId`, que é público e vai na URL do Google.
 
+### 17.7 Fase 5 (começada em 21/10)
+
+A Fase 5 (abrir e usar) em partes:
+
+| Parte | O quê | Estado |
+|---|---|---|
+| 1 | **A lógica de abrir e dos itens, sem tela** (`core/abrir.ts`, `core/itens.ts`), com o teste da página e da API juntas | Feita |
+| 2 | **A tela de abrir**: a senha e a passkey ao mesmo tempo, o código de recuperação no lugar da passkey, a senha errada (cada tentativa gasta a passkey), a última mudança | — |
+| 3 | **A lista e o item**: busca, os cinco campos, revelar (15 s), copiar (limpa em 30 s), mostrar para digitar, abrir o site, a lixeira | — |
+| 4 | **O gerador e os gatilhos de trancar** (5 min parado, aba escondida, `pagehide`, 8 h), com o `sendBeacon` | — |
+
+Parte 1, o que entrou:
+
+- **`core/abrir.ts`**:
+  - a passkey assina o desafio da API, com o rpId do cofre conferido e o PRF pedido;
+  - `senhaDoDesafio` faz kSenha com as regras de 6.4 (versão, Argon2id mínimo e máximo), e a tela roda
+    as duas coisas ao mesmo tempo;
+  - `chaveDoMeio` abre o envelope do aparelho: com PRF, só com o segredo que a passkey deu (um envelope
+    de PRF sem o segredo é erro, nunca o modo servidor); no modo servidor, com o S_i devolvido;
+  - `chaveDoMeioPeloCodigo` abre o envelope do código;
+  - `abrir` manda kAuth e abre V e o manifesto. Os segredos são zerados.
+- **`core/itens.ts`**:
+  - o item com Título, User, Senha, URL e Descrição (todos opcionais), as datas e as últimas 5 senhas;
+  - `lerItens` confere cada item contra o manifesto e decifra;
+  - salvar, lixeira, voltar e apagar de vez mandam o manifesto novo com o contador visto, e o 409 de
+    outro aparelho vira `ErroConflito`, sem nada mudar;
+  - `limparLapides` tira do manifesto os itens que a limpeza esvaziou depois de 30 dias.
+- **Com a API de verdade** (`cofre-api/test/pagina.suite.ts`), o cofre criado pela página:
+  - abre pelo celular com o PRF, pelo PC no modo servidor e pelo código do kit;
+  - guarda, muda (com o histórico), vai para a lixeira, volta e é apagado de vez;
+  - dois aparelhos: o segundo leva o conflito, relê e grava, e nada se perde;
+  - a lápide sai do manifesto;
+  - um servidor que troca os dados de um item ou some com um é pego, e nada aparece. Tirar a conferência
+    do manifesto faz esse teste falhar.
+

@@ -3,7 +3,11 @@ import { deBase64url } from '../../projects/cofre/src/core/bytes';
 import { lerCodigo } from '../../projects/cofre/src/core/codigo';
 import { montarCofre } from '../../projects/cofre/src/core/criar';
 import { abrirCofre, abrirEnvelope, abrirRecuperacao, chaveDaSenha, decifrarManifesto, KDF_PADRAO, provaDaSenha, provaDoCodigo } from '../../projects/cofre/src/core/crypto';
-import type { PasskeyRegistrada } from '../../projects/cofre/src/core/passkey';
+import { abrir, assinar, chaveDoMeio, chaveDoMeioPeloCodigo, senhaDoDesafio } from '../../projects/cofre/src/core/abrir';
+import { ApiCofre } from '../../projects/cofre/src/core/api';
+import { apagarDeVez, ErroConflito, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../projects/cofre/src/core/itens';
+import type { Autenticador, PasskeyRegistrada } from '../../projects/cofre/src/core/passkey';
+import { createApp } from '../src/app';
 import { base64url } from '../src/domain/bytes';
 import { DONO, VERIFIER } from './harness';
 import type { Setup } from './suite';
@@ -13,7 +17,10 @@ import { ORIGEM, RP_ID, VETORES } from './webauthn-vetores';
  * A página e a API juntas: o que `projects/cofre/src/core/criar.ts` monta vai para a API de verdade, com
  * as passkeys reais dos vetores, e depois abre pelo caminho que a página vai usar (8.1): o desafio, a
  * passkey (o envelope do aparelho, e o S_i no modo servidor), a prova da senha, V e o manifesto. Também
- * pelo código de recuperação. Se a página e a API discordarem de um formato, isto quebra.
+ * pelo código de recuperação. Depois, abrir e usar com a lógica da página (`core/abrir.ts` e
+ * `core/itens.ts`): guardar, mudar, lixeira, voltar, apagar de vez, o conflito entre dois aparelhos, as
+ * lápides e um servidor que troca ou some com um item. Se a página e a API discordarem de um formato,
+ * isto quebra.
  *
  * Só no Node: o Argon2id da página é WASM (hash-wasm), e o runtime dos Workers não compila WASM em
  * tempo de execução.
@@ -131,6 +138,136 @@ export function paginaSuite(label: string, setup: Setup) {
       const errada = await chaveDaSenha('cavalo-ponte-relogio-nuvem-pipoca-trevos', b(doCofre.sal), doCofre.kdf);
       const res = await post('/api/cofre/abrir', { kAuth: base64url(await provaDaSenha(errada, m)) }, token);
       expect(await res.json()).toMatchObject({ erro: 'senha-errada' });
+    });
+  });
+
+  /** O cofre criado pela página, e a API da página falando com a API de verdade (a mesma do teste). */
+  async function paraAbrir() {
+    const ctx = await criado();
+    const app = createApp(ctx.deps);
+    const novaApi = () =>
+      new ApiCofre(((url: RequestInfo | URL, init?: RequestInit) =>
+        Promise.resolve(app.request(String(url), { ...init, headers: { ...(init?.headers as Record<string, string>), Origin: ORIGEM } }))) as typeof fetch);
+    /**
+     * Uma passkey dos vetores: ao assinar, troca no banco o desafio de assinatura pelos bytes que o vetor
+     * assinou (o autenticador virtual não assina o desafio que o servidor sorteou agora).
+     */
+    const autenticador = (alg: 'es256' | 'rs256', n: 0 | 1, prf: Uint8Array | null): Autenticador => ({
+      criar: async () => null,
+      pegar: async () => {
+        await ctx.db.batch([{ sql: "UPDATE cofre_desafios SET desafio = ? WHERE tipo = 'assinatura'", params: [seq(32, n === 0 ? 33 : 65)] }]);
+        const v = VETORES[alg].assinaturas[n];
+        const buf = (t: string) => b(t).slice().buffer;
+        return {
+          type: 'public-key',
+          rawId: buf(v.id),
+          response: { clientDataJSON: buf(v.clientDataJSON), authenticatorData: buf(v.authenticatorData), signature: buf(v.signature), userHandle: buf(v.userHandle) },
+          getClientExtensionResults: () => (prf ? { prf: { results: { first: prf.slice().buffer } } } : {}),
+        } as unknown as Credential;
+      },
+    });
+    /** Entra e abre como a página vai fazer: o desafio, e a passkey e o Argon2id ao mesmo tempo. */
+    const abrirPelaPagina = async (alg: 'es256' | 'rs256', n: 0 | 1, aparelho: string) => {
+      const api = novaApi();
+      const { token } = await ctx.entrar();
+      api.usarToken(token);
+      const desafio = await api.desafioDeAbrir();
+      const [assinada, kSenha] = await Promise.all([assinar(desafio, RP_ID, autenticador(alg, n, alg === 'es256' ? PRF_CELULAR : null)), senhaDoDesafio(SENHA, desafio)]);
+      const m = await chaveDoMeio(api, assinada, DONO.id);
+      return { api, cofre: await abrir(api, DONO.id, kSenha, m, aparelho) };
+    };
+    return { ...ctx, novaApi, abrirPelaPagina };
+  }
+
+  describe(`Abrir e usar o cofre pela página (${label})`, () => {
+    it('abre pelo celular (PRF), guarda, muda, põe na lixeira, volta e apaga de vez', async () => {
+      const { abrirPelaPagina } = await paraAbrir();
+      const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
+      expect(cofre.contador).toBe(0);
+      expect(cofre.recuperada).toBe(false);
+      expect(await lerItens(api, cofre)).toEqual([]);
+
+      const campos = { titulo: 'Banco', usuario: 'igor', senha: 'senha-1', url: 'https://banco.exemplo', descricao: 'agência 0001' };
+      const salvo = await salvarItem(api, cofre, campos, null);
+      expect(cofre.contador).toBe(1);
+      let lista = await lerItens(api, cofre);
+      expect(lista.map((i) => [i.id, i.versao, i.naLixeira, i.item?.titulo, i.item?.senha])).toEqual([[salvo.id, 1, false, 'Banco', 'senha-1']]);
+
+      const mudado = await salvarItem(api, cofre, { ...campos, senha: 'senha-2' }, lista[0]!);
+      expect(mudado.versao).toBe(2);
+      lista = await lerItens(api, cofre);
+      expect(lista[0]!.item!.senha).toBe('senha-2');
+      expect(lista[0]!.item!.historico.map((h) => h.senha)).toEqual(['senha-1']);
+
+      await paraALixeira(api, cofre, lista[0]!);
+      lista = await lerItens(api, cofre);
+      expect(lista[0]!.naLixeira).toBe(true);
+      expect(cofre.manifesto.lixeira).toEqual({ [salvo.id]: 2 });
+      await restaurar(api, cofre, lista[0]!);
+      lista = await lerItens(api, cofre);
+      expect(lista[0]!.naLixeira).toBe(false);
+      await paraALixeira(api, cofre, lista[0]!);
+      lista = await lerItens(api, cofre);
+      await apagarDeVez(api, cofre, lista[0]!);
+      expect(await lerItens(api, cofre)).toEqual([]);
+      expect(cofre.contador).toBe(6);
+    });
+
+    it('abre pelo PC no modo servidor, e pelo código do kit', async () => {
+      const { abrirPelaPagina, novaApi, entrar, codigo } = await paraAbrir();
+      const pc = await abrirPelaPagina('rs256', 0, 'PC');
+      await salvarItem(pc.api, pc.cofre, { titulo: 'E-mail', usuario: '', senha: 'x', url: '', descricao: '' }, null);
+
+      const api = novaApi();
+      api.usarToken((await entrar()).token);
+      const desafio = await api.desafioDeAbrir();
+      const m = await chaveDoMeioPeloCodigo(api, codigo.toLowerCase().replace(/-/g, ' '), DONO.id);
+      const cofre = await abrir(api, DONO.id, await senhaDoDesafio(SENHA, desafio), m, 'PC');
+      expect(cofre.recuperada).toBe(true);
+      expect((await lerItens(api, cofre)).map((i) => i.item?.titulo)).toEqual(['E-mail']);
+    });
+
+    it('dois aparelhos gravando: o segundo leva um conflito, relê e grava (nada se perde)', async () => {
+      const { abrirPelaPagina } = await paraAbrir();
+      const celular = await abrirPelaPagina('es256', 0, 'Celular');
+      const pc = await abrirPelaPagina('rs256', 0, 'PC');
+      await salvarItem(celular.api, celular.cofre, { titulo: 'do celular', usuario: '', senha: '1', url: '', descricao: '' }, null);
+      await expect(salvarItem(pc.api, pc.cofre, { titulo: 'do PC', usuario: '', senha: '2', url: '', descricao: '' }, null)).rejects.toBeInstanceOf(ErroConflito);
+      expect((await lerItens(pc.api, pc.cofre)).map((i) => i.item?.titulo)).toEqual(['do celular']);
+      await salvarItem(pc.api, pc.cofre, { titulo: 'do PC', usuario: '', senha: '2', url: '', descricao: '' }, null);
+      const titulos = (await lerItens(celular.api, celular.cofre)).map((i) => i.item?.titulo).sort();
+      expect(titulos).toEqual(['do PC', 'do celular']);
+      expect(celular.cofre.manifesto.aparelho).toBe('PC');
+    });
+
+    it('a lápide de um item que passou dos 30 dias na lixeira sai do manifesto', async () => {
+      const { abrirPelaPagina, db } = await paraAbrir();
+      const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
+      const salvo = await salvarItem(api, cofre, { titulo: 'velho', usuario: '', senha: '', url: '', descricao: '' }, null);
+      await paraALixeira(api, cofre, salvo);
+      // o que a limpeza diária faz depois de 30 dias: apaga os dados e deixa o id e a versão
+      await db.batch([{ sql: 'UPDATE cofre_itens SET dados = ? WHERE id = ?', params: [new Uint8Array(0), salvo.id] }]);
+      const lista = await lerItens(api, cofre);
+      expect(lista).toEqual([{ id: salvo.id, versao: 1, naLixeira: true, naLixeiraDesde: expect.any(String), item: null }]);
+      expect(await limparLapides(api, cofre, lista)).toEqual([]);
+      expect(await lerItens(api, cofre)).toEqual([]);
+      expect(cofre.manifesto.lixeira).toEqual({});
+    });
+
+    it('um servidor que troca, some ou volta um item é pego (nada aparece)', async () => {
+      const { abrirPelaPagina, db } = await paraAbrir();
+      const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
+      const a = await salvarItem(api, cofre, { titulo: 'a', usuario: '', senha: '1', url: '', descricao: '' }, null);
+      const c = await salvarItem(api, cofre, { titulo: 'c', usuario: '', senha: '2', url: '', descricao: '' }, null);
+      const dados = async (id: string) => (await db.first<{ dados: Uint8Array }>('SELECT dados FROM cofre_itens WHERE id = ?', [id]))!.dados;
+      const [da, dc] = [await dados(a.id), await dados(c.id)];
+      // os dados de um item no lugar do outro: o AAD (o id) não bate
+      await db.batch([{ sql: 'UPDATE cofre_itens SET dados = ? WHERE id = ?', params: [dc, a.id] }]);
+      await expect(lerItens(api, cofre)).rejects.toMatchObject({ motivo: 'abrir' });
+      await db.batch([{ sql: 'UPDATE cofre_itens SET dados = ? WHERE id = ?', params: [da, a.id] }]);
+      // um item sumido: o manifesto diz que ele existe
+      await db.batch([{ sql: 'DELETE FROM cofre_itens WHERE id = ?', params: [c.id] }]);
+      await expect(lerItens(api, cofre)).rejects.toMatchObject({ motivo: 'manifesto' });
     });
   });
 }

@@ -63,6 +63,71 @@ export interface OpcoesDeRegistroJson {
   readonly excludeCredentials?: readonly { readonly type: 'public-key'; readonly id: string; readonly transports?: readonly string[] }[];
 }
 
+/** O desafio para abrir (`POST /api/cofre/desafio`): a assinatura e a cripto do cofre. */
+export interface DesafioDeAbrir {
+  readonly desafio: string;
+  readonly publicKey: {
+    readonly challenge: string;
+    readonly rpId: string;
+    readonly allowCredentials: readonly { readonly type: 'public-key'; readonly id: string; readonly transports?: readonly string[] }[];
+    readonly userVerification?: UserVerificationRequirement;
+    readonly timeout?: number;
+  };
+  readonly versao: number;
+  readonly kdf: { readonly m: number; readonly t: number; readonly p: number };
+  readonly sal: string;
+  readonly aparelhos: readonly { readonly id: string; readonly apelido: string; readonly prf: boolean }[];
+  readonly mudadoEm: string;
+}
+
+/** A assinatura de uma passkey como a API confere (os bytes em base64url). */
+export interface AssinaturaJson {
+  readonly id: string;
+  readonly clientDataJSON: string;
+  readonly authenticatorData: string;
+  readonly signature: string;
+  readonly userHandle?: string;
+}
+
+/** O envelope do aparelho que assinou (`POST /api/cofre/chave`); no modo servidor, com o S_i. */
+export interface ChaveDoAparelho {
+  readonly envelope: { readonly id: string; readonly dados: string };
+  readonly tipo: 'prf' | 'servidor';
+  readonly s?: string;
+}
+
+/** O cofre aberto pela API (`POST /api/cofre/abrir`): a sessão do cofre, V e o manifesto. */
+export interface Abertura {
+  readonly token: string;
+  readonly expiraEm: string;
+  /** Segundos parado até a sessão acabar. */
+  readonly paradaMaxima: number;
+  readonly v: string;
+  readonly manifesto: string;
+  readonly contador: number;
+  readonly recuperada: boolean;
+}
+
+/** Os itens como a API guarda (`GET /api/cofre/itens`): cifrados, com o manifesto e o contador de agora. */
+export interface ItensDaApi {
+  readonly contador: number;
+  readonly manifesto: string;
+  readonly itens: readonly {
+    readonly id: string;
+    readonly versao: number;
+    /** null: a lápide de um item que passou de 30 dias na lixeira. */
+    readonly dados: string | null;
+    readonly mudadoEm: string;
+    readonly naLixeiraDesde: string | null;
+  }[];
+}
+
+/** O pedaço comum a toda gravação de item: o manifesto novo e o contador que o aparelho viu. */
+export interface Gravacao {
+  readonly manifesto: string;
+  readonly contadorAnterior: number;
+}
+
 /** O que o `POST /api/cofre` devolve ao criar. */
 export interface CofreCriado {
   readonly criado: true;
@@ -142,5 +207,45 @@ export class ApiCofre {
 
   criarCofre(corpo: unknown): Promise<CofreCriado> {
     return this.pedir('POST', '/api/cofre', corpo);
+  }
+
+  desafioDeAbrir(): Promise<DesafioDeAbrir> {
+    return this.pedir('POST', '/api/cofre/desafio', {});
+  }
+
+  chave(desafio: string, assinatura: AssinaturaJson): Promise<ChaveDoAparelho> {
+    return this.pedir('POST', '/api/cofre/chave', { desafio, assinatura });
+  }
+
+  /** O código de recuperação no lugar da passkey: devolve o envelope do código. */
+  recuperar(kRec: string): Promise<{ readonly envelope: { readonly id: string; readonly dados: string } }> {
+    return this.pedir('POST', '/api/cofre/recuperar', { kRec });
+  }
+
+  /** A prova da senha; dando certo, já passa a usar a sessão do cofre. */
+  async abrir(kAuth: string): Promise<Abertura> {
+    const abertura = await this.pedir<Abertura>('POST', '/api/cofre/abrir', { kAuth });
+    this.usarToken(abertura.token);
+    return abertura;
+  }
+
+  itens(): Promise<ItensDaApi> {
+    return this.pedir('GET', '/api/cofre/itens');
+  }
+
+  salvarItem(id: string, dados: string, versao: number, gravacao: Gravacao): Promise<{ readonly contador: number }> {
+    return this.pedir('PUT', `/api/cofre/itens/${encodeURIComponent(id)}`, { dados, versao, ...gravacao });
+  }
+
+  paraALixeira(id: string, gravacao: Gravacao): Promise<{ readonly contador: number }> {
+    return this.pedir('DELETE', `/api/cofre/itens/${encodeURIComponent(id)}`, gravacao);
+  }
+
+  restaurar(id: string, gravacao: Gravacao): Promise<{ readonly contador: number }> {
+    return this.pedir('POST', `/api/cofre/itens/${encodeURIComponent(id)}/restaurar`, gravacao);
+  }
+
+  apagarDeVez(id: string, gravacao: Gravacao): Promise<{ readonly contador: number }> {
+    return this.pedir('DELETE', `/api/cofre/lixeira/${encodeURIComponent(id)}`, gravacao);
   }
 }
