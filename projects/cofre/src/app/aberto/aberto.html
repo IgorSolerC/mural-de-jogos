@@ -1,0 +1,115 @@
+<article class="ficha">
+  <header class="faixa">
+    <h1>Cofre de senhas</h1>
+    <span class="direita">
+      <span class="conta">Conta {{ contaFormatada() }}</span>
+      <button type="button" class="trancar" (click)="trancar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="5" y="11" width="14" height="10" rx="1.5" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+        </svg>
+        Trancar
+      </button>
+    </span>
+  </header>
+
+  <div class="corpo">
+    <div class="avisos" aria-live="polite">
+      @if (ultimaMudanca()) {
+        <p class="aviso-mudanca">{{ ultimaMudanca() }}</p>
+      }
+      @if (cofre().recuperada) {
+        <p class="aviso-codigo">Você abriu com o código de recuperação. Ele já não vale mais: em Gerenciar, gere um código novo e registre uma passkey.</p>
+      }
+      @if (erro()) {
+        <p class="erro" role="alert">{{ erro() }}</p>
+      }
+    </div>
+
+    @switch (vista()) {
+      @case ('lista') {
+        <div class="barra">
+          <div class="busca">
+            <label class="visivel-so-leitor" for="busca">Buscar no cofre</label>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+            <input id="busca" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar" [value]="busca()" (input)="busca.set(valor($event))" />
+          </div>
+          <button type="button" class="tinta" (click)="novo()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            Nova senha
+          </button>
+        </div>
+
+        @if (carregando()) {
+          <p class="nota">Abrindo os itens…</p>
+        } @else if (!noCofre().length) {
+          <div class="vazio">
+            <p class="nota">Nenhuma senha guardada ainda. Cada uma pode ter título, user, senha, URL e descrição, e tudo é cifrado neste aparelho.</p>
+          </div>
+        } @else if (!achados().length) {
+          <p class="nota">Nada com “{{ busca() }}”.</p>
+        } @else {
+          <ul class="lista" aria-label="Senhas guardadas">
+            @for (i of achados(); track i.id) {
+              <li>
+                <button type="button" class="linha" (click)="abrirItem(i)">
+                  <span class="titulo">{{ i.item!.titulo || i.item!.url || 'Sem título' }}</span>
+                  @if (i.item!.usuario) {
+                    <span class="usuario" translate="no">{{ i.item!.usuario }}</span>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+
+        @if (naLixeira().length) {
+          <button type="button" class="quieto para-lixeira" (click)="vista.set('lixeira')">Lixeira ({{ naLixeira().length }})</button>
+        }
+      }
+      @case ('lixeira') {
+        <button type="button" class="quieto voltar" (click)="voltarALista()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+          Voltar à lista
+        </button>
+        <h2>Lixeira</h2>
+        <p class="nota">Cada item fica aqui por 30 dias e depois é apagado sozinho.</p>
+        @if (!naLixeira().length) {
+          <p class="nota">A lixeira está vazia.</p>
+        }
+        <ul class="lista" aria-label="Itens na lixeira">
+          @for (i of naLixeira(); track i.id) {
+            <li class="na-lixeira">
+              <span class="titulo">{{ i.item!.titulo || i.item!.url || 'Sem título' }}</span>
+              <span class="dias">{{ diasNaLixeira(i) }} {{ diasNaLixeira(i) === 1 ? 'dia' : 'dias' }}</span>
+              <span class="botoes">
+                @if (confirmarApagar() === i.id) {
+                  <span class="pergunta">Apagar de vez? Não dá para desfazer.</span>
+                  <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="apagar(i)">Apagar</button>
+                  <button type="button" class="quieto" [disabled]="ocupado()" (click)="confirmarApagar.set(null)">Não</button>
+                } @else {
+                  <button type="button" class="quieto" [disabled]="ocupado()" (click)="voltarDaLixeira(i)">Voltar</button>
+                  <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="confirmarApagar.set(i.id)">Apagar de vez</button>
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      }
+      @default {
+        <cofre-item
+          [alvo]="vista() === 'novo' ? null : selecionado()"
+          [ocupado]="ocupado()"
+          (salvar)="salvar($event)"
+          (paraALixeira)="lixeira(selecionado()!)"
+          (voltar)="voltarALista()"
+          (avisar)="avisar($event)"
+        />
+      }
+    }
+  </div>
+</article>
+
+@if (bilhete()) {
+  <p class="bilhete" role="status">{{ bilhete() }}</p>
+}

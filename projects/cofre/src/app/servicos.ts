@@ -1,4 +1,5 @@
 import { InjectionToken } from '@angular/core';
+import type { CofreAberto } from '../core/abrir';
 import { ApiCofre, type Entrada } from '../core/api';
 import { type Guarda, guardaDaAba } from '../core/entrar';
 import { type Autenticador, autenticadorDoNavegador } from '../core/passkey';
@@ -23,6 +24,10 @@ export interface Pagina {
   /** Tira o código do Google da URL (e do histórico). */
   limparUrl(): void;
   irPara(url: string): void;
+  /** Copia para a área de transferência. */
+  copiar(texto: string): Promise<void>;
+  /** Abre um site guardado numa aba nova, sem dizer de onde veio. */
+  abrirSite(url: string): void;
 }
 
 /**
@@ -51,6 +56,8 @@ export function paginaDoNavegador(): Pagina {
     guarda: guardaDaAba,
     limparUrl: () => history.replaceState(null, '', '/'),
     irPara: (url) => location.assign(url),
+    copiar: (texto) => navigator.clipboard.writeText(texto),
+    abrirSite: (url) => void window.open(url, '_blank', 'noopener,noreferrer'),
   };
 }
 
@@ -70,6 +77,10 @@ export const SERVICOS = new InjectionToken<Servicos>('serviços do cofre', { pro
 export interface Demonstracao {
   readonly servicos: Servicos;
   readonly entrada: Entrada;
-  /** Para ver uma porta (`?demo=entrar`, `existe`, `construcao`) em vez das telas de criar. */
+  /** Para ver uma porta (`?demo=entrar`, `construcao`) em vez das telas de criar. */
   readonly porta?: Porta;
+  /** `?demo=abrir`: a tela de abrir. */
+  readonly abrir?: boolean;
+  /** `?demo=aberto`: um cofre já aberto, com a API de mentira guardando os itens na memória. */
+  readonly aberto?: () => Promise<CofreAberto>;
 }

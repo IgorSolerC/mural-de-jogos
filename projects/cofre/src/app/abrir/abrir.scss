@@ -1,0 +1,25 @@
+@use '../ficha' as f;
+@use '../criar/passo' as passo;
+
+:host {
+  display: block;
+  width: min(100%, 560px);
+  margin: 0 auto;
+}
+
+@include f.ficha;
+@include passo.passo;
+
+/* o passo inclui um :host próprio; aqui a ficha é que dá o espaçamento */
+:host {
+  display: block;
+  gap: 0;
+}
+.codigo {
+  font: 800 1.15rem/1.2 var(--f-rotulo);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.corpo > .tinta {
+  justify-self: start;
+}

@@ -1245,9 +1245,9 @@ A Fase 5 (abrir e usar) em partes:
 | Parte | O quê | Estado |
 |---|---|---|
 | 1 | **A lógica de abrir e dos itens, sem tela** (`core/abrir.ts`, `core/itens.ts`), com o teste da página e da API juntas | Feita |
-| 2 | **A tela de abrir**: a senha e a passkey ao mesmo tempo, o código de recuperação no lugar da passkey, a senha errada (cada tentativa gasta a passkey), a última mudança | — |
-| 3 | **A lista e o item**: busca, os cinco campos, revelar (15 s), copiar (limpa em 30 s), mostrar para digitar, abrir o site, a lixeira | — |
-| 4 | **O gerador e os gatilhos de trancar** (5 min parado, aba escondida, `pagehide`, 8 h), com o `sendBeacon` | — |
+| 2 | **A tela de abrir**: a senha e a passkey ao mesmo tempo, o código de recuperação no lugar da passkey, a senha errada (cada tentativa gasta a passkey), a última mudança | Feita |
+| 3 | **A lista e o item**: busca, os cinco campos, revelar (15 s), copiar (limpa em 30 s), mostrar para digitar, abrir o site, a lixeira | Feita |
+| 4 | **O gerador e os gatilhos de trancar** (5 min parado, aba escondida, `pagehide`, 8 h), com o `sendBeacon` | Feita |
 
 Parte 1, o que entrou:
 
@@ -1272,4 +1272,43 @@ Parte 1, o que entrou:
   - a lápide sai do manifesto;
   - um servidor que troca os dados de um item ou some com um é pego, e nada aparece. Tirar a conferência
     do manifesto faz esse teste falhar.
+
+Partes 2 a 4, as telas (22/10, de madrugada, com o usuário dormindo e a autorização dele para seguir):
+
+- **Abrir** (`app/abrir/`):
+  - o desafio é pedido na hora de abrir (ele vale 2 minutos);
+  - a passkey e o Argon2id rodam ao mesmo tempo;
+  - o código do kit pode ir no lugar da passkey, e só deixa abrir com os 28 caracteres;
+  - a senha errada diz que cada tentativa pede a passkey de novo;
+  - a entrada vencida pede para entrar de novo.
+
+  A raiz troca a porta "o cofre já existe" por esta tela.
+- **O cofre aberto** (`app/aberto/`):
+  - o aviso da última mudança, por 12 segundos, com o dia, a hora e o aparelho do manifesto;
+  - a lista em ordem, com a busca sem acento nem maiúscula por título, user e URL;
+  - "Nova senha", o item e a lixeira com os dias que faltam. "Apagar de vez" pede confirmação.
+  - Um conflito com outro aparelho relê tudo e avisa; o que vier do servidor e não conferir esconde
+    tudo; a sessão vencida no servidor tranca. Quem abriu pelo código vê o aviso para gerar um novo.
+  - A janela sem foco embaça a ficha (seção 10).
+- **O item**:
+  - os cinco campos;
+  - revelar a senha por 15 segundos;
+  - copiar, e a área de transferência é limpa em 30 segundos (sobrescrevendo, porque ler a área de
+    transferência é proibido pelo `Permissions-Policy`; se a pessoa copiou outra coisa nesse meio-tempo,
+    isso também some);
+  - mostrar para digitar, com as letras grandes em grupos de 4, que some em 1 minuto;
+  - abrir o site, só http ou https e numa aba nova, sem dizer de onde veio;
+  - as senhas anteriores (até 5) e as datas no fuso do aparelho.
+- **O gerador** (`core/gerador.ts`): caracteres sem os parecidos (l, I, O, 0, 1), com pelo menos um de
+  cada tipo escolhido e de 8 a 64; ou uma frase de 4 a 10 palavras da lista. É sem viés (rejeição) e
+  mostra os bits.
+- **Trancar** (`app/aberto/trancador.ts`): 5 minutos sem mexer, a aba escondida por 1 minuto, a página
+  fechando (`pagehide`), as 8 horas e o botão Trancar. Trancar avisa o servidor com o `sendBeacon` (o
+  token no corpo) e recarrega a página.
+- **A demonstração do desenvolvimento** ganhou `/?demo=abrir` e `/?demo=aberto`. A segunda é um cofre de
+  mentira na memória, com três senhas de exemplo, servido por uma API que confere o contador como a de
+  verdade.
+- Testes no Karma: a tela de abrir (abrindo de verdade, com a cripto real e o PRF), o cofre aberto
+  (lista, busca, copiar e limpar, abrir o site, nova senha, lixeira com confirmação, conflito, sessão
+  vencida, Trancar), os gatilhos de trancar, o gerador (inclusive a distribuição) e o endereço seguro.
 

@@ -9,14 +9,13 @@ export type Porta =
   /** Pronto para entrar com o Google. */
   | 'entrar'
   /** Voltou do Google: trocando o código pela sessão de entrada. */
-  | 'entrando'
-  /** A conta já tem cofre: abrir chega numa próxima parte. */
-  | 'existe';
+  | 'entrando';
 
 /**
  * A porta do cofre: a ficha que aparece antes de criar ou abrir. Diz se as proteções da página estão
  * valendo (a página só deixa entrar com o endereço seguro, isolada das outras e sem service worker) e
- * leva para o Google. Só mostra; quem decide e faz é a raiz (`cofre.ts`).
+ * leva para o Google. Só mostra; quem decide e faz é a raiz (`cofre.ts`). Depois de entrar, a raiz troca a
+ * porta pelas telas de criar ou de abrir.
  */
 @Component({
   selector: 'cofre-porta',
@@ -40,13 +39,6 @@ export type Porta =
           @case ('construcao') {
             <h2>Em construção</h2>
             <p class="nota">O cofre ainda não abriu. Por enquanto, nada é guardado aqui.</p>
-          }
-          @case ('existe') {
-            <h2>O seu cofre já existe</h2>
-            <p class="nota">Abrir o cofre, para ver e guardar senhas, chega numa próxima versão. Por enquanto, não há mais nada a fazer aqui.</p>
-            <div class="pe">
-              <button type="button" class="tinta" (click)="sair.emit()">Sair</button>
-            </div>
           }
           @case ('entrar') {
             <h2>Entrar</h2>
@@ -104,7 +96,6 @@ export class PortaDoCofre {
   readonly bloqueio = input<string | null>(null);
   readonly provas = input.required<readonly { readonly nome: string; readonly ok: boolean }[]>();
   readonly entrar = output<void>();
-  readonly sair = output<void>();
 
   protected readonly contaFormatada = computed(() => {
     const c = this.conta() ?? '';

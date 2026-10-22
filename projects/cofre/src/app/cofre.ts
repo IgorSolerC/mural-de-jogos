@@ -1,6 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import type { CofreAberto } from '../core/abrir';
 import { type Entrada, ErroApi } from '../core/api';
 import { descreverAparelho, lerVolta, MENSAGENS_DO_LOGIN, urlDoLogin } from '../core/entrar';
+import { Abrir } from './abrir/abrir';
+import { Aberto } from './aberto/aberto';
 import { demonstracao } from './ambiente';
 import { Criar } from './criar/criar';
 import { type Porta, PortaDoCofre } from './porta/porta';
@@ -11,7 +14,7 @@ import { SERVICOS } from './servicos';
  * A raiz do cofre: decide o que aparece. Primeiro a porta (seção 8.1): entrar com o Google, que volta em
  * `/entrar` com o código; a URL é limpa antes de qualquer outra coisa (o código não fica no histórico).
  * Com a sessão de entrada, a API diz se a conta já tem cofre: sem cofre, as telas de criar; com cofre,
- * abrir (que chega numa próxima parte).
+ * a de abrir, e depois o cofre aberto.
  *
  * A página só deixa entrar com as proteções da hospedagem valendo (seção 7): o endereço seguro, o
  * isolamento de origem (COOP e COEP do Worker) e nenhum service worker. Sem elas, nem troca o código.
@@ -19,14 +22,23 @@ import { SERVICOS } from './servicos';
 @Component({
   selector: 'cofre-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Criar, PortaDoCofre],
+  imports: [Criar, PortaDoCofre, Abrir, Aberto],
   template: `
     <main class="fluxo">
       @if (entrada(); as entrada) {
-        @if (tela() === 'criar') {
-          <cofre-criar [entrada]="entrada" />
-        } @else {
-          <cofre-porta [porta]="porta()" [conta]="entrada.codigo" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" (sair)="sair()" />
+        @switch (tela()) {
+          @case ('criar') {
+            <cofre-criar [entrada]="entrada" />
+          }
+          @case ('abrir') {
+            <cofre-abrir [entrada]="entrada" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
+          }
+          @case ('aberto') {
+            <cofre-aberto [cofre]="cofre()!" [conta]="entrada.codigo" />
+          }
+          @default {
+            <cofre-porta [porta]="porta()" [conta]="entrada.codigo" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" />
+          }
         }
       } @else {
         <cofre-porta [porta]="porta()" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" (entrar)="entrar()" />
@@ -47,7 +59,8 @@ import { SERVICOS } from './servicos';
 export class Cofre {
   private readonly servicos = inject(SERVICOS);
 
-  protected readonly tela = signal<'porta' | 'criar'>('porta');
+  protected readonly tela = signal<'porta' | 'criar' | 'abrir' | 'aberto'>('porta');
+  protected readonly cofre = signal<CofreAberto | null>(null);
   protected readonly porta = signal<Porta>('carregando');
   protected readonly entrada = signal<Entrada | null>(null);
   protected readonly erro = signal<string | null>(null);
@@ -87,6 +100,13 @@ export class Cofre {
       if (demo.porta) {
         this.porta.set(demo.porta);
         this.clientId = 'demo';
+      } else if (demo.aberto) {
+        this.entrada.set(demo.entrada);
+        this.cofre.set(await demo.aberto());
+        this.tela.set('aberto');
+      } else if (demo.abrir) {
+        this.entrada.set(demo.entrada);
+        this.tela.set('abrir');
       } else {
         this.entrada.set(demo.entrada);
         this.tela.set('criar');
@@ -115,8 +135,7 @@ export class Cofre {
       const entrada = await this.servicos.api.entrar(volta.codigo, volta.verificador, descreverAparelho(this.pagina.agente));
       const estado = await this.servicos.api.estado();
       this.entrada.set(entrada);
-      if (estado.existe) this.porta.set('existe');
-      else this.tela.set('criar');
+      this.tela.set(estado.existe ? 'abrir' : 'criar');
       return true;
     } catch (e) {
       this.servicos.api.usarToken(null);

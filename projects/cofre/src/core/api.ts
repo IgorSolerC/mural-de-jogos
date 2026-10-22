@@ -248,4 +248,17 @@ export class ApiCofre {
   apagarDeVez(id: string, gravacao: Gravacao): Promise<{ readonly contador: number }> {
     return this.pedir('DELETE', `/api/cofre/lixeira/${encodeURIComponent(id)}`, gravacao);
   }
+
+  /**
+   * Avisa o servidor para apagar a sessão (8.2), com o `sendBeacon`, que sai mesmo com a página fechando;
+   * o token vai no corpo (o beacon não manda cabeçalho). Depois, esta instância fica sem sessão.
+   */
+  trancar(enviar: (url: string, corpo: Blob) => boolean = (url, corpo) => navigator.sendBeacon(url, corpo)): void {
+    if (!this.token) return;
+    try {
+      enviar('/api/cofre/trancar', new Blob([JSON.stringify({ token: this.token })], { type: 'text/plain;charset=UTF-8' }));
+    } finally {
+      this.token = null;
+    }
+  }
 }

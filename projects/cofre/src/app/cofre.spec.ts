@@ -47,6 +47,8 @@ async function montar(mudar: Partial<Pagina> = {}, ajustarApi: (api: ApiDeTeste)
     guarda: guarda(),
     limparUrl: () => void api.ordem.push('limparUrl'),
     irPara: (url) => void idas.push(url),
+    copiar: async () => undefined,
+    abrirSite: () => undefined,
     ...mudar,
   };
   const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar: async () => null }, rpId: 'cofre.teste', pagina, terminar: () => undefined };
@@ -114,11 +116,12 @@ describe('a porta do cofre', () => {
     expect(g.dados.size).toBe(0);
   });
 
-  it('a volta do Google com cofre já criado: avisa que abrir chega depois', async () => {
+  it('a volta do Google com cofre já criado: a tela de abrir', async () => {
     const g = guarda();
     const state = new URL(await urlDoLogin('c', 'https://cofre.teste', g)).searchParams.get('state');
     const { el } = await montar({ caminho: '/entrar', busca: `?state=${state}&code=x`, guarda: g }, (api) => (api.existe = true));
-    expect(el.querySelector('h2')!.textContent).toContain('O seu cofre já existe');
+    expect(el.querySelector('cofre-abrir')).not.toBeNull();
+    expect(el.querySelector('h2')!.textContent).toContain('Abrir o cofre');
     expect(el.querySelector('cofre-criar')).toBeNull();
   });
 

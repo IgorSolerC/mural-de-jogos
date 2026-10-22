@@ -63,6 +63,8 @@ async function montar(prf: boolean[]) {
     guarda: { getItem: () => null, setItem: () => undefined, removeItem: () => undefined },
     limparUrl: () => undefined,
     irPara: () => undefined,
+    copiar: async () => undefined,
+    abrirSite: () => undefined,
   };
   const servicos: Servicos = { api, autenticador: autenticador(prf), rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });

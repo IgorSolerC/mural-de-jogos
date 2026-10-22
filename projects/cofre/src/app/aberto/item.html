@@ -1,0 +1,141 @@
+@if (!editando() && item(); as i) {
+  <div class="ver">
+    <button type="button" class="quieto voltar" (click)="voltar.emit()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+      Voltar à lista
+    </button>
+    <h2>{{ i.titulo || 'Sem título' }}</h2>
+
+    <dl class="campos">
+      @if (i.usuario) {
+        <div class="campo">
+          <dt>User</dt>
+          <dd>
+            <span class="valor" translate="no">{{ i.usuario }}</span>
+            <button type="button" class="quieto" (click)="copiar(i.usuario, 'User')">Copiar</button>
+          </dd>
+        </div>
+      }
+      @if (i.senha) {
+        <div class="campo">
+          <dt>Senha</dt>
+          <dd>
+            <span class="valor senha" translate="no">
+              @if (revelada()) {
+                {{ i.senha }}
+              } @else {
+                <span aria-label="Senha escondida">••••••••••</span>
+              }
+            </span>
+            <span class="botoes">
+              <button type="button" class="quieto" [attr.aria-pressed]="revelada()" (click)="revelada() ? revelada.set(false) : revelar()">{{ revelada() ? 'Esconder' : 'Revelar' }}</button>
+              <button type="button" class="quieto" (click)="copiar(i.senha, 'Senha')">Copiar</button>
+              <button type="button" class="quieto" (click)="mostrarParaDigitar()">Mostrar para digitar</button>
+            </span>
+          </dd>
+        </div>
+      }
+      @if (i.url) {
+        <div class="campo">
+          <dt>URL</dt>
+          <dd>
+            <span class="valor" translate="no">{{ i.url }}</span>
+            @if (site()) {
+              <button type="button" class="quieto" (click)="abrirSite()">Abrir o site</button>
+            }
+          </dd>
+        </div>
+      }
+      @if (i.descricao) {
+        <div class="campo">
+          <dt>Descrição</dt>
+          <dd><p class="descricao">{{ i.descricao }}</p></dd>
+        </div>
+      }
+    </dl>
+
+    @if (i.historico.length) {
+      <details class="historico">
+        <summary>Senhas anteriores ({{ i.historico.length }})</summary>
+        <ul>
+          @for (h of i.historico; track $index) {
+            <li>
+              <span>Até {{ dia(h.ate) }}</span>
+              <button type="button" class="quieto" (click)="copiar(h.senha, 'Senha anterior')">Copiar</button>
+            </li>
+          }
+        </ul>
+      </details>
+    }
+
+    <p class="datas">Guardado em {{ dia(i.criadoEm) }} · mudado em {{ dia(i.mudadoEm) }}</p>
+
+    <div class="pe">
+      <button type="button" class="quieto perigo" [disabled]="ocupado()" (click)="paraALixeira.emit()">Pôr na lixeira</button>
+      <button type="button" class="tinta" [disabled]="ocupado()" (click)="editar()">Editar</button>
+    </div>
+  </div>
+} @else if (editando()) {
+  <form class="editar" (submit)="$event.preventDefault(); gravar()">
+    <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
+    <p class="nota pequena">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
+
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-titulo">Título</label>
+      <input id="item-titulo" autocomplete="off" spellcheck="false" [attr.maxlength]="limites.titulo" [value]="campos().titulo" (input)="mudar('titulo', $event)" placeholder="Banco, e-mail, Wi-Fi de casa…" />
+    </div>
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-usuario">User</label>
+      <input id="item-usuario" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.usuario" [value]="campos().usuario" (input)="mudar('usuario', $event)" />
+    </div>
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-senha">Senha</label>
+      <span class="com-acao">
+        <input
+          id="item-senha"
+          [type]="mostrarNoCampo() ? 'text' : 'password'"
+          autocomplete="off"
+          autocapitalize="off"
+          autocorrect="off"
+          spellcheck="false"
+          translate="no"
+          [attr.maxlength]="limites.senha"
+          [value]="campos().senha"
+          (input)="mudar('senha', $event)"
+        />
+        <button type="button" class="quieto" [attr.aria-pressed]="mostrarNoCampo()" (click)="mostrarNoCampo.set(!mostrarNoCampo())">{{ mostrarNoCampo() ? 'Esconder' : 'Mostrar' }}</button>
+        <button type="button" class="quieto" [attr.aria-expanded]="gerador()" (click)="gerador.set(!gerador())">Gerar</button>
+      </span>
+    </div>
+    @if (gerador()) {
+      <cofre-gerador-painel (usar)="usarGerada($event)" />
+    }
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-url">URL</label>
+      <input id="item-url" type="url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.url" [value]="campos().url" (input)="mudar('url', $event)" placeholder="https://" />
+    </div>
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-descricao">Descrição</label>
+      <textarea id="item-descricao" rows="4" spellcheck="false" [attr.maxlength]="limites.descricao" [value]="campos().descricao" (input)="mudar('descricao', $event)"></textarea>
+    </div>
+
+    <div class="pe">
+      <button type="button" class="quieto" [disabled]="ocupado()" (click)="cancelar()">Cancelar</button>
+      <button type="submit" class="tinta" [disabled]="vazio() || ocupado()">{{ ocupado() ? 'Salvando…' : 'Salvar' }}</button>
+    </div>
+  </form>
+}
+
+@if (paraDigitar() && item(); as i) {
+  <div class="para-digitar" role="dialog" aria-modal="true" aria-label="Senha para digitar" (keydown.escape)="paraDigitar.set(false)">
+    <div class="folha-grande">
+      <p class="grupos" translate="no">
+        @for (g of grupos(); track $index) {
+          <span>{{ g }}</span>
+        }
+      </p>
+      <p class="nota pequena">{{ i.senha.length }} caracteres. Some sozinho em 1 minuto.</p>
+      <button type="button" class="tinta" (click)="paraDigitar.set(false)">Fechar</button>
+    </div>
+  </div>
+}

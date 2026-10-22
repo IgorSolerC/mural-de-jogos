@@ -1,0 +1,105 @@
+@use '../papelaria' as p;
+
+.painel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 2px;
+  background: var(--cartela);
+  box-shadow:
+    inset 0 0 0 1px rgb(21 21 21 / 0.14),
+    0 2px 3px rgb(0 0 0 / 0.18);
+}
+.rotulo {
+  @include p.rotulo;
+  margin: 0;
+}
+.tinta {
+  @include p.botao-tinta;
+}
+.quieto {
+  @include p.botao-quieto;
+}
+
+.jeitos {
+  display: flex;
+  gap: 8px;
+}
+.jeitos button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px dashed rgb(21 21 21 / 0.42);
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(21 21 21 / 0.74);
+  font: 800 0.92rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.jeitos button[aria-checked='true'] {
+  border: 0;
+  background: var(--tinta);
+  color: var(--papel);
+  rotate: -1.5deg;
+}
+.jeitos button:focus-visible {
+  outline: 3px solid var(--tinta);
+  outline-offset: 2px;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: auto 1fr 2.5ch;
+  align-items: center;
+  gap: 12px;
+}
+.linha input {
+  accent-color: var(--tinta);
+  min-height: 32px;
+}
+.numero {
+  font: 800 1.05rem/1 var(--f-rotulo);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.tipos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.tipo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font: 800 1rem/1 var(--f-rotulo);
+  cursor: pointer;
+}
+.tipo input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--tinta);
+}
+
+/* a senha gerada: impressa grande, para conferir antes de usar */
+.gerada {
+  margin: 0;
+  padding: 12px 14px;
+  border: 2px solid var(--tinta);
+  border-radius: 2px;
+  background: #fff;
+  font: 700 1.25rem/1.3 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+.bits {
+  margin: -6px 0 0;
+  font: 600 0.9rem/1.3 var(--f-texto);
+  color: var(--tinta-2);
+}
+.acoes {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
