@@ -85,5 +85,12 @@ jobs:
             sleep 10
           done
           exit 1
+      # A versão nova leva alguns segundos para chegar a todos os servidores da Cloudflare (a de antes já
+      # respondia na espera acima): até 2 minutos de novas tentativas antes de dizer que não bate.
       - name: Confere que o que está no ar é o do repositório
-        run: node scripts/cofre-hashes.mjs --no-ar https://cofre.murall.igorsc.com.br
+        run: |
+          for i in $(seq 1 12); do
+            node scripts/cofre-hashes.mjs --no-ar https://cofre.murall.igorsc.com.br && exit 0
+            sleep 10
+          done
+          exit 1
