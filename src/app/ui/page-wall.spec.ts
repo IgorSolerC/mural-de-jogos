@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { PAGE_BACKGROUNDS } from '../core/profile';
 import { PageWall } from './page-wall';
 
 /** As camadas do fundo de um elemento, como o navegador as calculou. */
@@ -24,6 +25,24 @@ describe('a parede de eucatex (shared/_eucatex.scss)', () => {
       expect(imagem).toContain('radial-gradient(90% 900px at 50% -120px');
       expect(imagem).toContain('radial-gradient(circle at 13px 13px, rgb(11, 9, 8) 2.6px');
       expect(tamanho).toBe('100% 900px, 26px 26px, 26px 26px');
+    } finally {
+      fixture.destroy();
+      (fixture.nativeElement as HTMLElement).remove();
+    }
+  });
+
+  it('nenhuma parede do perfil sai do lugar: a luz e o vinheteado cobrem da beirada, sem faixa clara', () => {
+    TestBed.configureTestingModule({ imports: [PageWall], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(PageWall);
+    document.body.appendChild(fixture.nativeElement);
+    try {
+      for (const { id } of PAGE_BACKGROUNDS) {
+        fixture.componentRef.setInput('wall', id);
+        fixture.detectChanges();
+        const lugar = fundo((fixture.nativeElement as HTMLElement).querySelector('.parede')!).lugar;
+        // a do pedaço das prévias (.parede, que elas também têm) não pode empurrar o desenho
+        expect(lugar.split(',')[0].trim()).withContext(id).toBe('0px 0px');
+      }
     } finally {
       fixture.destroy();
       (fixture.nativeElement as HTMLElement).remove();

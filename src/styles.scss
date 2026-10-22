@@ -1462,8 +1462,6 @@ dialog.sheet {
 /* Um pedaço da parede de eucatex, para ver a ficha como ela vai ficar no mural (sem o tubo em cima) */
 .parede {
   @include eucatex.eucatex(var(--wall), var(--wall-hole), $luz: false);
-  /* as paredes do perfil (ui/page-wall) também têm a classe e herdam daqui o lugar do desenho */
-  background-position: 13px 13px;
   color: var(--wall-ink);
   color-scheme: dark;
 }
