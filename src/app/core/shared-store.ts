@@ -386,7 +386,9 @@ export class SharedStore implements SharedSink {
       }
     }
     if (local === e.local && outra === e.outra && samePersonal(pessoal, e.pessoal)) return;
-    if (!samePersonal(pessoal, e.pessoal)) this.setPlace(e.id, pessoal);
+    // o lugar mudou quando a anotação diz (agora, no que a pessoa mexe; antes, numa conversão), nunca no futuro
+    const now = new Date().toISOString();
+    if (!samePersonal(pessoal, e.pessoal)) this.setPlace(e.id, pessoal, review.updatedAt < now ? review.updatedAt : now);
     this.put({ ...e, local, outra, pessoal });
     if (local !== e.local) this.schedulePush();
   }

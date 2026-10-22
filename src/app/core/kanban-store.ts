@@ -220,8 +220,10 @@ export class KanbanStore {
       if (!r) continue;
       const next = sanitizeTags([...(r.tags ?? []), ...names]);
       if (next.length === (r.tags ?? []).length) continue;
-      // numa compartilhada em que a pessoa não gere, a loja das compartilhadas desfaz a troca das tags
-      this.store.update({ ...r, tags: next, updatedAt: at });
+      // logo depois da versão daqui, não agora: no aparelho que ficou fechado desde antes dos quadros por
+      // categoria, a versão escrita depois em outro aparelho vale mais que esta com as tags (e, na
+      // compartilhada, o lugar dela no mural, com o grupo, também)
+      this.store.update({ ...r, tags: next, updatedAt: new Date(Date.parse(r.updatedAt) + 1).toISOString() });
     }
     const paint = new Map([...colors].filter(([tag]) => !this.settings.tagColor(tag)));
     // com a hora em que as cores foram escolhidas, não a de agora: os jeitos dos grupos vão juntos para

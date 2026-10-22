@@ -1193,6 +1193,42 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(phone.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada' }));
     });
 
+    it('as tags que a conversão dos quadros de antes põe numa compartilhada não desfazem o grupo escolhido depois em outro aparelho', async () => {
+      const { bia } = await sharedNote('a');
+      await bia.mural.syncNow();
+      // o celular parou aqui: a anotação em Compartilhadas
+      const phoneData = new MemoryData();
+      for (const [k, v] of bia.data.map) phoneData.setItem(k, v);
+      bia.edit('nota-1', { category: 'Trabalho' });
+      await bia.mural.syncNow();
+      later();
+      // e tinha um quadro de antes com ela
+      localStorage.setItem(
+        'meu-mural:kanban:v1',
+        JSON.stringify({
+          boards: [
+            {
+              id: 'qvelho',
+              name: 'Meu quadro',
+              at: '2026-10-10T12:00:00.000Z',
+              columns: [{ id: 'qvelho-a', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false }],
+              traits: [{ id: 't1', name: 'Urgente', color: 'preta' }],
+              cards: [{ note: 'nota-1', column: 'qvelho-a', traits: ['t1'] }],
+            },
+          ],
+        }),
+      );
+      const phone = person('bia', phoneData);
+      TestBed.tick();
+      expect(phone.store.get('nota-1')!.tags).toEqual(['Urgente']);
+      await phone.mural.syncNow();
+      TestBed.tick();
+      expect(phone.store.get('nota-1')!.category).toBe('Trabalho');
+      await bia.mural.syncNow();
+      TestBed.tick();
+      expect(bia.store.get('nota-1')!.category).toBe('Trabalho');
+    });
+
     it('no aparelho novo, a anotação que chega antes do mural não apaga o desenho e a cor que a pessoa deu aos grupos', async () => {
       const { bia } = await sharedNote('a');
       bia.settings.setCategoryLook('Trabalho', { icon: 'maleta', color: 'azul' });

@@ -354,6 +354,44 @@ describe('sincronização com a nuvem', () => {
       await a.sync.syncNow();
       expect(a.settings.categoryLook('Trabalho')).toEqual({ icon: 'maleta', color: 'azul' });
     });
+
+    it('as tags que a conversão dos quadros de antes põe numa anotação não passam por cima da versão escrita depois em outro aparelho', async () => {
+      const old = '2026-10-10T12:00:00.000Z';
+      const note = (text: string, updatedAt: string): Review => ({
+        ...sanitizeReview({ kind: 'anotacoes', game: { name: 'Relatório' }, category: 'Trabalho', text, completedAt: '2026-10-10', createdAt: old, updatedAt })!,
+        id: 'rnota0001',
+      });
+      const a = device();
+      a.store.add(note('escrito depois', '2026-10-20T12:00:00.000Z'));
+      await a.sync.syncNow();
+      // o aparelho parou antes dos quadros por categoria: a anotação como era, e um quadro de antes com ela
+      localStorage.setItem(
+        'meu-mural:kanban:v1',
+        JSON.stringify({
+          boards: [
+            {
+              id: 'qvelho',
+              name: 'Meu quadro',
+              at: old,
+              columns: [{ id: 'qvelho-a', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false }],
+              traits: [{ id: 't1', name: 'Urgente', color: 'preta' }],
+              cards: [{ note: 'rnota0001', column: 'qvelho-a', traits: ['t1'] }],
+            },
+          ],
+        }),
+      );
+      const b = device();
+      b.store.add(note('como era', old));
+      TestBed.tick();
+      expect(b.store.get('rnota0001')!.tags).toEqual(['Urgente']);
+      // já sincronizou com a conta antes (sem a base da junção, que veio depois)
+      b.kv.setItem(OWNER_KEY, ACCOUNT.id);
+      await b.sync.syncNow();
+      expect(b.asked).toEqual([]);
+      expect(b.store.get('rnota0001')!.text).toBe('escrito depois');
+      await a.sync.syncNow();
+      expect(a.store.get('rnota0001')!.text).toBe('escrito depois');
+    });
   });
 
   describe('os lembretes do Calendário', () => {
