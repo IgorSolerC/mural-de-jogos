@@ -1395,3 +1395,22 @@ Trancar zera M e V antes de recarregar. O teste de ponta a ponta no Chrome passo
 novo, a troca de senha e a reabertura com a senha nova. A demonstração (`/?demo=aberto`) mostra a tela com
 dados de mentira.
 
+### 17.9 Endurecer, primeiro pedaço (Fase 7; 22/10)
+
+- **As telas em pedaços** (`@defer`): criar, abrir e o cofre aberto chegam só quando aparecem, e o bundle
+  inicial caiu de 382 kB para 197 kB (o orçamento avisa em 400). Funciona com a CSP e os Trusted Types:
+  o teste de ponta a ponta passou.
+- **A vigia do DOM** (`app/vigia-do-dom.ts`): avisa quando aparece algo que o cofre não pôs.
+  - Conta qualquer coisa fora do `<cofre-root>`, menos os `<style>` do Angular com o nonce da página.
+  - Dentro dele, conta script, iframe, object e embed.
+  - Ela não impede nada: mostra o aviso para trancar e usar um perfil sem extensões.
+  - O navegador esconde o atributo `nonce` depois de aplicá-lo, então ela lê a propriedade `.nonce`.
+  - No Chrome de verdade, ela ficou quieta o caminho inteiro e avisou de um elemento injetado.
+- **Navegador controlado por um programa** (`navigator.webdriver`): o cofre não deixa entrar. Só o
+  localhost escapa, para o teste de ponta a ponta.
+- **O aviso no console** contra o golpe do "cole isto aqui".
+- **Mostrar para digitar**: a folha recebe o foco e o Esc fecha de qualquer lugar.
+
+Falta da Fase 7: o aviso de senha vazada (precisa de um lugar para o "ligado", que hoje o cofre não tem
+sem guardar no aparelho), a revisão de segurança final e a gaveta (opcional).
+

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input, OnInit, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, OnInit, output, signal, viewChild } from '@angular/core';
 import { type CamposDoItem, type ItemNaLista, LIMITES } from '../../core/itens';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
@@ -36,6 +36,7 @@ export function emGrupos(senha: string): string[] {
   imports: [GeradorPainel],
   templateUrl: './item.html',
   styleUrl: './item.scss',
+  host: { '(document:keydown.escape)': 'paraDigitar.set(false)' },
 })
 export class ItemDoCofre implements OnInit {
   private readonly servicos = inject(SERVICOS);
@@ -63,7 +64,11 @@ export class ItemDoCofre implements OnInit {
   protected readonly novo = computed(() => this.alvo() === null);
   protected readonly vazio = computed(() => Object.values(this.campos()).every((v) => !v.trim()));
 
+  private readonly fecharParaDigitar = viewChild<ElementRef<HTMLButtonElement>>('fecharDigitar');
+
   constructor() {
+    // o foco vai para a folha da senha quando ela abre (o Esc fecha, de qualquer lugar)
+    effect(() => this.fecharParaDigitar()?.nativeElement.focus());
     inject(DestroyRef).onDestroy(() => {
       for (const t of this.timers) clearTimeout(t);
     });

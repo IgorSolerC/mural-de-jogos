@@ -127,7 +127,7 @@
 }
 
 @if (paraDigitar() && item(); as i) {
-  <div class="para-digitar" role="dialog" aria-modal="true" aria-label="Senha para digitar" (keydown.escape)="paraDigitar.set(false)">
+  <div class="para-digitar" role="dialog" aria-modal="true" aria-label="Senha para digitar">
     <div class="folha-grande">
       <p class="grupos" translate="no">
         @for (g of grupos(); track $index) {
@@ -135,7 +135,7 @@
         }
       </p>
       <p class="nota pequena">{{ i.senha.length }} caracteres. Some sozinho em 1 minuto.</p>
-      <button type="button" class="tinta" (click)="paraDigitar.set(false)">Fechar</button>
+      <button #fecharDigitar type="button" class="tinta" (click)="paraDigitar.set(false)">Fechar</button>
     </div>
   </div>
 }

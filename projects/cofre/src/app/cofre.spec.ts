@@ -92,6 +92,7 @@ describe('a porta do cofre', () => {
       [{ seguro: false }, 'não é seguro'],
       [{ trabalhadores: { controller: {}, getRegistrations: async () => [] } }, 'service worker'],
       [{ trabalhadores: { controller: null, getRegistrations: async () => [{ unregister: async () => true }] } }, 'service worker'],
+      [{ automatizado: true }, 'controlado por um programa'],
     ] as [Partial<Pagina>, string][]) {
       TestBed.resetTestingModule();
       const { fixture, el, idas } = await montar(mudar);

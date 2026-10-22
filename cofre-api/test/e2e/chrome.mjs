@@ -75,6 +75,7 @@ try {
   await page.goto(`${BASE}/`, { waitUntil: 'networkidle0' });
   const protecoes = await page.evaluate(() => ({ seguro: isSecureContext, isolado: crossOriginIsolated }));
   if (!protecoes.seguro || !protecoes.isolado) throw new Error(`proteções: ${JSON.stringify(protecoes)}`);
+  if (await page.$('.vigia')) throw new Error('a vigia do DOM disparou à toa');
   await foto('1-porta');
   passo('porta com as proteções (seguro e isolado)');
 
@@ -147,7 +148,7 @@ try {
   await clicar('Terminar');
   await digitar('#g-atual', frase);
   await clicar('Sortear frase');
-  const novaSenha = await page.$eval('#g-nova', (e) => e.value);
+  const novaSenha = await esperar(() => page.$eval('#g-nova', (e) => e.value), 10000, 'frase sorteada no campo');
   await digitar('#g-confirmacao', novaSenha);
   await clicar('Trocar a senha');
   await esperar(() => temTexto('Senha mestra trocada'), 60000, 'senha trocada');
@@ -164,6 +165,12 @@ try {
   await page.waitForSelector('cofre-aberto', { timeout: 60000 });
   await esperar(() => temTexto('Banco do teste'), 20000, 'item com a senha nova');
   passo('a senha nova abre o cofre, com a senha guardada lá');
+  if (await page.$('.vigia')) throw new Error('a vigia do DOM disparou à toa');
+  passo('a vigia do DOM ficou quieta o tempo todo');
+  // e pega o que uma extensão injetar
+  await page.evaluate(() => document.body.appendChild(document.createElement('extensao-injetada')));
+  await esperar(() => page.$('.vigia'), 5000, 'a vigia avisar da injeção');
+  passo('a vigia do DOM avisou de um elemento injetado');
 } catch (e) {
   erros.push(`FALHOU: ${e.message}`);
   await foto('erro').catch(() => undefined);

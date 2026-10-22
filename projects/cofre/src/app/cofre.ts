@@ -9,6 +9,7 @@ import { Criar } from './criar/criar';
 import { type Porta, PortaDoCofre } from './porta/porta';
 import { type SemServiceWorker, tirarServiceWorkers } from './sem-service-worker';
 import { SERVICOS } from './servicos';
+import { VigiaDoDom } from './vigia-do-dom';
 
 /**
  * A raiz do cofre: decide o que aparece. Primeiro a porta (seção 8.1): entrar com o Google, que volta em
@@ -25,16 +26,34 @@ import { SERVICOS } from './servicos';
   imports: [Criar, PortaDoCofre, Abrir, Aberto],
   template: `
     <main class="fluxo">
+      @if (estranho()) {
+        <p class="vigia" role="alert">
+          Algo de fora mexeu nesta página ({{ estranho() }}), o que costuma ser uma extensão do navegador. Tranque o cofre e use um perfil do navegador sem extensões.
+        </p>
+      }
       @if (entrada(); as entrada) {
+        <!-- cada tela num pedaço à parte, baixado só quando aparece (o bundle inicial fica só com a porta) -->
         @switch (tela()) {
           @case ('criar') {
-            <cofre-criar [entrada]="entrada" />
+            @defer (on immediate) {
+              <cofre-criar [entrada]="entrada" />
+            } @loading {
+              <p class="carregando">Abrindo…</p>
+            }
           }
           @case ('abrir') {
-            <cofre-abrir [entrada]="entrada" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
+            @defer (on immediate) {
+              <cofre-abrir [entrada]="entrada" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
+            } @loading {
+              <p class="carregando">Abrindo…</p>
+            }
           }
           @case ('aberto') {
-            <cofre-aberto [cofre]="cofre()!" [conta]="entrada.codigo" />
+            @defer (on immediate) {
+              <cofre-aberto [cofre]="cofre()!" [conta]="entrada.codigo" />
+            } @loading {
+              <p class="carregando">Abrindo…</p>
+            }
           }
           @default {
             <cofre-porta [porta]="porta()" [conta]="entrada.codigo" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" />
@@ -54,6 +73,24 @@ import { SERVICOS } from './servicos';
     .fluxo {
       width: 100%;
     }
+    .vigia {
+      width: min(100%, 720px);
+      margin: 0 auto 18px;
+      padding: 12px 16px;
+      border-radius: 2px;
+      background: #fff;
+      box-shadow:
+        inset 0 0 0 3px var(--vermelho),
+        var(--sombra-ficha);
+      color: var(--erro);
+      font: 600 1rem/1.4 var(--f-texto);
+    }
+    .carregando {
+      margin: 40px auto;
+      text-align: center;
+      color: var(--giz-2);
+      font: 400 1.2rem/1.3 var(--f-mao);
+    }
   `,
 })
 export class Cofre {
@@ -65,6 +102,8 @@ export class Cofre {
   protected readonly entrada = signal<Entrada | null>(null);
   protected readonly erro = signal<string | null>(null);
   private readonly semServiceWorker = signal<SemServiceWorker>({ tirados: 0, controlada: false });
+  /** O que a vigia do DOM viu de estranho na página (null: nada). */
+  protected readonly estranho = signal<string | null>(null);
   private clientId = '';
 
   private readonly pagina = this.servicos.pagina;
@@ -79,6 +118,8 @@ export class Cofre {
   });
 
   protected readonly bloqueio = computed(() => {
+    // um navegador controlado por um programa pode ler tudo; só o teste de ponta a ponta, no localhost, roda assim
+    if (this.pagina.automatizado && !this.pagina.origem.startsWith('http://localhost:')) return 'Este navegador está sendo controlado por um programa. O cofre não abre assim.';
     if (!this.pagina.seguro) return 'Este endereço não é seguro (https). Não use o cofre assim.';
     if (!this.pagina.isolado) return 'A página não está isolada das outras, como devia. Não use o cofre agora.';
     const sw = this.semServiceWorker();
@@ -113,6 +154,7 @@ export class Cofre {
       }
       return;
     }
+    new VigiaDoDom(document, (oQue) => this.estranho.set(oQue)).comecar();
     this.semServiceWorker.set(await tirarServiceWorkers(this.pagina.trabalhadores));
     if (voltou && (await this.voltarDoGoogle(busca))) return;
     await this.lerStatus();

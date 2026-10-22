@@ -17,6 +17,8 @@ export interface Pagina {
   readonly busca: string;
   /** O navegador e o sistema, para o histórico do cofre. */
   readonly agente: string;
+  /** O navegador está sendo controlado por um programa (`navigator.webdriver`). */
+  readonly automatizado?: boolean;
   /** Os service workers do endereço (seção 7.4). */
   readonly trabalhadores: Trabalhadores | undefined;
   /** Onde o login guarda o state e o verificador entre a ida e a volta do Google. */
@@ -52,6 +54,7 @@ export function paginaDoNavegador(): Pagina {
     caminho: location.pathname,
     busca: location.search,
     agente: navigator.userAgent,
+    automatizado: navigator.webdriver === true,
     trabalhadores: navigator.serviceWorker,
     guarda: guardaDaAba,
     limparUrl: () => history.replaceState(null, '', '/'),
