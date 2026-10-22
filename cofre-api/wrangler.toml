@@ -21,7 +21,7 @@ COFRE_CODIGOS = ""
 COFRE_ORIGEM = "https://cofre.murall.igorsc.com.br"
 COFRE_RP_ID = "cofre.murall.igorsc.com.br"
 # O client ID do cliente OAuth próprio do cofre ("Murall Cofre", 16.14), posto na Fase 4.
-GOOGLE_CLIENT_ID = ""
+GOOGLE_CLIENT_ID = "891037362218-1si6phu1qa3p3g3lsaine9050vq9gnn9.apps.googleusercontent.com"
 
 [[d1_databases]]
 binding = "DB"
