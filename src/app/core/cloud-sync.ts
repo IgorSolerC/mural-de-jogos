@@ -6,6 +6,7 @@ import { CloudAccount, CloudError } from './cloud-account';
 import { Review, isNote, isPrivate, sanitizeReview, shelfOf, storedNote } from './review';
 import { BUILD } from './build';
 import { Place, SharedStore, sanitizePlaces } from './shared-store';
+import { SharedPerson } from './shared-notes';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
@@ -361,9 +362,34 @@ export function publicReviews(reviews: readonly Review[]): Review[] {
   return reviews.filter((r) => !isPrivate(r));
 }
 
-/** As anotações que os outros veem: só as publicadas (a anotação nasce privada). */
-export function publicNotes(notes: unknown): unknown[] {
-  return Array.isArray(notes) ? notes.filter((n) => (n as { private?: unknown } | null)?.private !== true) : [];
+/**
+ * As anotações que os outros veem: só as publicadas (a anotação nasce privada) e fora das que estão só
+ * no Kanban (`boardOnly`, ver `KanbanStore.boardOnly`): a que não está no mural do dono também não
+ * está no de quem visita.
+ */
+export function publicNotes(notes: unknown, boardOnly: ReadonlySet<string> = new Set()): unknown[] {
+  if (!Array.isArray(notes)) return [];
+  return notes.filter((n) => {
+    const r = n as { id?: unknown; private?: unknown } | null;
+    return r?.private !== true && !(typeof r?.id === 'string' && boardOnly.has(r.id));
+  });
+}
+
+/**
+ * A regra do que vai para o mural público. Ela entra na impressão do público (ver `publicPrint`):
+ * mudar a regra (subir o número) faz cada aparelho reenviar o público uma vez, sem esperar a pessoa
+ * mexer em algo. 2: as anotações que estão só no Kanban saem do público.
+ */
+export const PUBLIC_RULES = 2;
+
+/**
+ * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
+ * quem baixa o mural sabe se o público da nuvem já está como o daqui faria. Vazia num mural enviado
+ * por um site de antes dela, que então é refeito uma vez.
+ */
+function publicPrintOf(data: Record<string, unknown>): string {
+  const p = (data['sync'] as { publico?: unknown } | undefined)?.publico;
+  return typeof p === 'string' ? p : '';
 }
 
 /**
@@ -419,8 +445,8 @@ interface SyncState {
   /** Quando a última sincronização terminou bem (ms). */
   em: number | null;
   /**
-   * A impressão das anotações compartilhadas públicas que foram no último envio (ver core/shared-store.ts):
-   * elas não estão no mural privado, mas vão no público, então mudar uma pede um envio.
+   * A impressão do que vai no público e não está no privado (ver `publicPrint`): as anotações
+   * compartilhadas públicas, as que estão só no Kanban e a regra do público. Mudar uma pede um envio.
    */
   publicas?: string;
 }
@@ -749,7 +775,8 @@ export class CloudSync {
       if (remote.kind === 'doc') {
         if (isNewerSchema(remote.data)) throw this.outdated();
         this.integrate(state.conta, remote, this.knownFor(state));
-        state = { ...state, rev: remote.rev };
+        // o público da nuvem agora é o que veio com este mural (de outro aparelho, talvez com outra regra)
+        state = { ...state, rev: remote.rev, publicas: publicPrintOf(remote.data) };
         const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
@@ -770,13 +797,13 @@ export class CloudSync {
       const conflitos = this.conflicts.toSync();
       const calendario = this.localCalendar();
       const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario);
-      const publicas = await this.sharedPrint();
+      const publicas = await this.publicPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
         const boards = this.kanban.state().boards;
         const blocks = this.blocksNow();
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, here + publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, here + publicas, publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
@@ -840,6 +867,7 @@ export class CloudSync {
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
       const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
+      base.publicas = publicPrintOf(remote.data);
     }
     // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
     this.writeOwner(accountId);
@@ -1293,6 +1321,7 @@ export class CloudSync {
     places: Record<string, Place> | null,
     calendario: CalendarState | null,
     print: string,
+    publicas: string,
   ): Promise<number> {
     const now = Date.now();
     this.pushes = this.pushes.filter((p) => now - p.at < PUSH_WINDOW);
@@ -1309,16 +1338,19 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device } }));
+    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } }));
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
+    // as anotações que estão só no Kanban: fora do seu mural, fora do de quem visita (nem o título nas
+    // notas coladas, nem aviso, nem reações e comentários à mostra)
+    const board = this.kanban.boardOnly();
     // as anotações compartilhadas públicas (as de outra pessoa dizem de quem são): não estão no mural
     // privado, mas os outros as veem no seu; as privadas, nem o título nas notas coladas
-    const sharedPublic = this.shared
-      .publicShared()
-      .map((x) => (x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note)));
-    const ownNotes = [...publicNotes(doc.notas), ...sharedPublic];
+    const sharedPublic = this.publicShared(board).map((x) =>
+      x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note),
+    );
+    const ownNotes = [...publicNotes(doc.notas, board), ...sharedPublic];
     // tudo o que os outros veem; o que é seu e fica de fora não deixa nem o título nas notas coladas
     const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], ownNotes);
     const allIds = publicIds(payloadReviews(doc), [...(Array.isArray(doc.notas) ? doc.notas : []), ...this.shared.allShared()]);
@@ -1345,8 +1377,8 @@ export class CloudSync {
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
     // (das compartilhadas, só as suas: a dos outros é aviso para quem segue o dono)
-    const ownShared = this.shared.publicShared().filter((x) => !x.dono).map((x) => x.note);
-    const novas = newReviews([...payloadReviews(doc), ...notesOf(doc.notas), ...ownShared], now);
+    const ownShared = this.publicShared(board).filter((x) => !x.dono).map((x) => x.note);
+    const novas = newReviews([...payloadReviews(doc), ...notesOf(publicNotes(doc.notas, board)), ...ownShared], now);
     const form = new FormData();
     form.append('privado', privado, 'privado.json.gz');
     form.append('publico', publico, 'publico.json.gz');
@@ -1372,11 +1404,25 @@ export class CloudSync {
     return body.rev;
   }
 
-  /** A impressão das compartilhadas públicas que vão no mural público ('' sem nenhuma). */
-  private async sharedPrint(): Promise<string> {
-    const list = this.shared.publicShared();
-    if (!list.length) return '';
-    const text = canonicalJson(list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)));
+  /** As compartilhadas públicas que vão no mural público: as que estão só no Kanban ficam de fora. */
+  private publicShared(board: ReadonlySet<string>): { note: Review; dono: SharedPerson | null }[] {
+    return this.shared.publicShared().filter((x) => !board.has(x.note.id));
+  }
+
+  /**
+   * A impressão do que vai no mural público e não está no privado: as compartilhadas públicas, quais
+   * anotações estão só no Kanban (a conta sai dos quadros, das configurações e das anotações, que já
+   * estão no privado, mas guardar a lista aqui deixa o público certo mesmo se a conta mudar) e a
+   * regra do público (`PUBLIC_RULES`).
+   */
+  private async publicPrint(): Promise<string> {
+    const board = this.kanban.boardOnly();
+    const list = this.publicShared(board);
+    const text = canonicalJson({
+      regra: PUBLIC_RULES,
+      publicas: list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)),
+      soKanban: [...board].sort(),
+    });
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return Array.from(new Uint8Array(digest).slice(0, 12), (b) => b.toString(16).padStart(2, '0')).join('');
   }

@@ -580,6 +580,7 @@
   (openChange)="!$event && picking.set(null)"
   [sectionTitle]="pickingSection()?.title ?? ''"
   [cards]="cards()"
+  [boardOnly]="boardOnly()"
   [chosen]="pickingSection()?.items ?? []"
   (chosenChange)="setItems(picking()!, $event)"
 />

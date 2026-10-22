@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-22-so-no-kanban-fora-do-publico',
+    version: '1.30.1',
+    kind: 'ajustes',
+    date: '2026-10-22',
+    title: 'As anotações só no Kanban fora do mural de quem visita',
+    correcoes: [
+      'As anotações públicas que estão só no Kanban apareciam para quem visitava o seu mural, no Feed de quem segue você e no seu perfil; agora ficam só no seu quadro, como no seu mural. Ao abrir o site, o mural que os outros veem é refeito sozinho, e no "Escolher fichas" do perfil elas aparecem apagadas, como as privadas.',
+    ],
+  },
+  {
     id: '2026-10-22-cofre-de-senhas',
     version: '1.30.0',
     kind: 'funcionalidade',

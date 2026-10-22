@@ -29,8 +29,9 @@ import {
   updatedLabel,
 } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
-import { LIGHT_STOCKS, DARK_STOCKS, Review, STOCK_LABEL, Stock, isNote, isPrivate } from '../core/review';
+import { LIGHT_STOCKS, DARK_STOCKS, Review, STOCK_LABEL, Stock, isNote, shownToOthers } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { KanbanStore } from '../core/kanban-store';
 import { OWNER_NAME_MAX, Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { CoverSleeve } from '../ui/cover-sleeve';
@@ -80,6 +81,7 @@ export class ProfileEditPage {
   protected readonly account = inject(CloudAccount);
   protected readonly cloud = inject(Cloud);
   private readonly store = inject(ReviewStore);
+  private readonly kanban = inject(KanbanStore);
   private readonly confirm = inject(Confirm);
 
   protected readonly limits = PROFILE_LIMITS;
@@ -116,8 +118,10 @@ export class ProfileEditPage {
   /** Todas as suas fichas e anotações. */
   protected readonly cards = computed(() => this.store.reviews());
   private readonly byId = computed(() => new Map(this.cards().map((r) => [r.id, r])));
-  /** O que quem visita vê: as públicas (a anotação nasce privada). */
-  protected readonly publicCards = computed(() => this.cards().filter((r) => !isPrivate(r)));
+  /** As anotações só no Kanban: fora do mural, fora do perfil (ver `shownToOthers`). */
+  protected readonly boardOnly = this.kanban.boardOnly;
+  /** O que quem visita vê: as públicas (a anotação nasce privada), fora as só no Kanban. */
+  protected readonly publicCards = computed(() => this.cards().filter((r) => shownToOthers(r, this.boardOnly())));
 
   /** O nome no quadro: o "Seu nome", o da conta, ou um provisório. */
   protected readonly name = computed(() => this.settings.ownerName().trim() || this.account.account()?.nome || 'Seu nome');
@@ -277,7 +281,7 @@ export class ProfileEditPage {
 
   /** As fichas da seção que quem visita vê. */
   private publicOf(section: ProfileSection): Review[] {
-    return section.items.map((id) => this.byId().get(id)).filter((r): r is Review => !!r && !isPrivate(r));
+    return section.items.map((id) => this.byId().get(id)).filter((r): r is Review => !!r && shownToOthers(r, this.boardOnly()));
   }
 
   /** A prévia vai no pé desta ficha (só na tela estreita). */
@@ -515,7 +519,7 @@ export class ProfileEditPage {
   /** A ficha de um id (null: apagada do mural) e como ela fica para quem visita. */
   protected itemOf(id: string): { card: Review | null; hidden: boolean; kind: string } {
     const card = this.byId().get(id) ?? null;
-    return { card, hidden: !card || isPrivate(card), kind: card ? cap(profileOf(card.kind).singular) : '' };
+    return { card, hidden: !card || !shownToOthers(card, this.boardOnly()), kind: card ? cap(profileOf(card.kind).singular) : '' };
   }
 
   protected densityHint(id: SectionDensity): string {

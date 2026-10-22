@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { KIND_PROFILES, SCORED_KINDS } from './kinds';
 import { LocalData } from './local-data';
-import { Review, isNote, sanitizeReview, storedNote } from './review';
+import { Review, isNote, sanitizeReview, shownToOthers, storedNote } from './review';
 import { ReviewStore } from './review-store';
 import { fingerprint, publicNotes } from './cloud-sync';
 import { NO_FILTER, facetsOf, matchesFilter } from './wall-filter';
@@ -141,6 +141,15 @@ describe('anotações', () => {
     expect(publicNotes([pub, priv]).map((n) => (n as Review).id)).toEqual(['nota0001']);
     const snap = parseBackupSnapshot(JSON.stringify({ app: 'meu-mural', version: 2, reviews: [game('rjogo001', 'Hades')], notas: publicNotes([pub, priv]) }));
     expect(snap.reviews.map((r) => r.id).sort()).toEqual(['nota0001', 'rjogo001']);
+  });
+
+  it('as anotações só no Kanban ficam fora do que os outros veem, mesmo públicas', () => {
+    const pub = storedNote(note('nota0001', 'Pública', [], { private: undefined }));
+    const board = storedNote(note('nota0003', 'Do quadro', [], { private: undefined }));
+    expect(publicNotes([pub, board], new Set(['nota0003'])).map((n) => (n as Review).id)).toEqual(['nota0001']);
+    expect(shownToOthers(note('nota0001', 'Pública', [], { private: undefined }), new Set(['nota0003']))).toBeTrue();
+    expect(shownToOthers(note('nota0003', 'Do quadro', [], { private: undefined }), new Set(['nota0003']))).toBeFalse();
+    expect(shownToOthers(note('nota0002', 'Privada'), new Set())).toBeFalse();
   });
 
   it('os filtros de categoria (uma por anotação) e de tags (qualquer uma das escolhidas); "Sem" à parte', () => {

@@ -430,6 +430,14 @@ export function isPrivate(r: Pick<Review, 'private'>): boolean {
 }
 
 /**
+ * Os outros veem a ficha (no mural de quem visita, no perfil, no Feed)? Nem privada, nem só no Kanban
+ * (`boardOnly`, ver `KanbanStore.boardOnly`): a que não está no mural do dono não está no dos outros.
+ */
+export function shownToOthers(r: Pick<Review, 'id' | 'private'>, boardOnly: ReadonlySet<string>): boolean {
+  return !isPrivate(r) && !boardOnly.has(r.id);
+}
+
+/**
  * Quem vê a ficha: publicada (o mural e o Feed de quem segue), pública sem aviso (só o mural; o
  * valor guarda o nome antigo, "visível") ou privada (só a pessoa). Na tela são só duas escolhas,
  * Público e Privado: o Feed sai do botão de pregar. Ver `Review.private` e `Review.quiet`.

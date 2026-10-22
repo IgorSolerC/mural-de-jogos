@@ -16,8 +16,9 @@ import { Mural } from '../core/mural';
 import { Profile, defaultProfile, profileStats, updatedLabel } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
 import { Reactions } from '../core/reactions';
-import { Review, isPrivate } from '../core/review';
+import { Review, shownToOthers } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { KanbanStore } from '../core/kanban-store';
 import { Settings } from '../core/settings';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { Busy } from '../ui/busy';
@@ -69,6 +70,7 @@ export class ProfilePage {
   private readonly profiles = inject(ProfileStore);
   private readonly settings = inject(Settings);
   private readonly store = inject(ReviewStore);
+  private readonly kanban = inject(KanbanStore);
   private readonly shield = inject(SpoilerShield);
   private readonly desk = inject(Desk);
   private readonly mural = inject(Mural);
@@ -143,10 +145,12 @@ export class ProfilePage {
     return who.kind === 'other' ? who.code : (this.account.account()?.codigo ?? null);
   });
   protected readonly profile = computed<Profile>(() => (this.own() ? this.profiles.profile() : (this.colleague()?.profile ?? BLANK)));
-  /** As fichas que aparecem: só as públicas (o seu perfil mostra o que os outros veem). */
-  protected readonly cards = computed<readonly Review[]>(() =>
-    this.own() ? this.store.reviews().filter((r) => !isPrivate(r)) : (this.colleague()?.reviews ?? []),
-  );
+  /** As fichas que aparecem: só as públicas e fora das só no Kanban (o seu perfil mostra o que os outros veem). */
+  protected readonly cards = computed<readonly Review[]>(() => {
+    if (!this.own()) return this.colleague()?.reviews ?? [];
+    const board = this.kanban.boardOnly();
+    return this.store.reviews().filter((r) => shownToOthers(r, board));
+  });
   private readonly byId = computed(() => new Map(this.cards().map((r) => [r.id, r])));
   /** As fichas de outra pessoa sobre o que você não avaliou ficam em segredo (Ajustes › Mural). */
   protected readonly hidden = computed(() => (this.own() ? new Set<string>() : this.shield.hiddenIn(this.cards())));

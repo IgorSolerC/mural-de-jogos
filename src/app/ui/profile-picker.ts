@@ -22,8 +22,8 @@ import { CardFilters, PickerFilters } from './picker-filters';
 
 /**
  * Escolher as fichas de uma seção do perfil: todas as suas, de todos os murais, com busca e abas por
- * mural. A escolhida ganha o número da ordem (a próxima vai para o fim); as privadas ficam à vista,
- * mas apagadas, porque quem visita nunca as veria.
+ * mural. A escolhida ganha o número da ordem (a próxima vai para o fim); as privadas e as só no
+ * Kanban ficam à vista, mas apagadas, porque quem visita nunca as veria.
  */
 @Component({
   selector: 'app-profile-picker',
@@ -58,7 +58,7 @@ import { CardFilters, PickerFilters } from './picker-filters';
             <ul class="lista" aria-label="Suas fichas">
               @for (r of shown(); track r.id) {
                 @let at = chosen().indexOf(r.id);
-                @let locked = isPrivate(r);
+                @let locked = isPrivate(r) || boardOnly().has(r.id);
                 <li>
                   <label class="item" [class.on]="at >= 0" [class.off]="locked || (at < 0 && full())">
                     <input
@@ -72,7 +72,7 @@ import { CardFilters, PickerFilters } from './picker-filters';
                       <span class="nome">{{ r.game.name }}</span>
                       <span class="meta">
                         {{ kindLabel(r.kind) }}@if (!isNote(r) && r.scores.final !== null) { · média {{ score(r) }} }
-                        @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: não aparece }
+                        @if (locked) { · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> {{ isPrivate(r) ? 'privada' : 'só no Kanban' }}: não aparece }
                       </span>
                     </span>
                     <span class="marca" aria-hidden="true">
@@ -124,6 +124,8 @@ export class ProfilePicker {
   readonly sectionTitle = input('');
   /** Todas as suas fichas e anotações. */
   readonly cards = input.required<readonly Review[]>();
+  /** As anotações só no Kanban (ver `KanbanStore.boardOnly`): como as privadas, quem visita não vê. */
+  readonly boardOnly = input<ReadonlySet<string>>(new Set());
   /** Os ids já escolhidos, na ordem. */
   readonly chosen = input.required<readonly string[]>();
   readonly chosenChange = output<string[]>();

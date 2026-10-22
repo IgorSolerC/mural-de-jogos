@@ -277,4 +277,24 @@ describe('os filtros no "Escolher fichas" do perfil', () => {
     fixture.destroy();
     localStorage.clear();
   });
+
+  it('a anotação só no Kanban fica apagada, como a privada: quem visita não a veria', async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [ProfilePicker], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(ProfilePicker);
+    fixture.componentRef.setInput('cards', seed());
+    fixture.componentRef.setInput('chosen', []);
+    fixture.componentRef.setInput('boardOnly', new Set(['nota02']));
+    const el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el);
+    fixture.componentInstance.open.set(true);
+    await fixture.whenStable();
+    const item = (name: string) => Array.from(el.querySelectorAll('.item')).find((i) => text(i.querySelector('.nome')!) === name)!;
+    expect(item('Tela de login').querySelector('input')!.disabled).toBeTrue();
+    expect(text(item('Tela de login').querySelector('.meta')!)).toContain('só no Kanban: não aparece');
+    expect(item('Revisar o deploy').querySelector('input')!.disabled).toBeFalse();
+    el.remove();
+    fixture.destroy();
+    localStorage.clear();
+  });
 });

@@ -733,6 +733,95 @@ describe('sincronização com a nuvem', () => {
     expect(JSON.parse(form.get('fichas') as string).sort()).toEqual(['rpub0001', 'rpub0002']);
   });
 
+  describe('as anotações só no Kanban', () => {
+    /** Uma anotação pública do grupo Trabalho, posta na primeira coluna do quadro dele. */
+    function onBoard(d: Device, id: string, name: string, at = new Date().toISOString()) {
+      d.store.add({ ...review(id, name, at, at), kind: 'anotacoes', category: 'Trabalho', publishedAt: at });
+      const q = d.kanban.boardFor('Trabalho').id;
+      d.kanban.update(q, (b, when) => placeCard(b, id, b.columns[0].id, when));
+    }
+    const putOf = () => {
+      const puts = (window.fetch as jasmine.Spy).calls.all().filter((c) => (c.args[1] as RequestInit | undefined)?.method === 'PUT');
+      return (puts[puts.length - 1].args[1] as RequestInit).body as FormData;
+    };
+
+    it('ficam fora do mural público, dos avisos e das fichas à mostra, e o título delas some das notas coladas', async () => {
+      const a = device();
+      onBoard(a, 'nkan0001', 'Corrigir o login');
+      const now = new Date().toISOString();
+      a.store.add({ ...review('nmur0001', 'Reunião', now, now), kind: 'anotacoes', category: 'Trabalho', publishedAt: now, text: '{{nota: #nkan0001 | Corrigir o login}}' });
+      expect(a.kanban.boardOnly().has('nkan0001')).toBeTrue();
+      await a.sync.syncNow();
+      const pub = (await cloud.readPublic()) as unknown as { notas: Review[] };
+      expect(pub.notas.map((n) => n.id)).toEqual(['nmur0001']);
+      expect(JSON.stringify(pub)).not.toContain('Corrigir o login');
+      const form = putOf();
+      expect(JSON.parse(form.get('fichas') as string)).toEqual(['nmur0001']);
+      expect(JSON.parse(form.get('novas') as string).map((n: { ref: string }) => n.ref)).toEqual(['nmur0001']);
+      expect(JSON.parse(form.get('cartao') as string)).toEqual(jasmine.objectContaining({ fichas: 1 }));
+      // o privado continua com ela
+      const priv = (await cloud.read()) as unknown as { notas: Review[] };
+      expect(priv.notas.map((n) => n.id).sort()).toEqual(['nkan0001', 'nmur0001']);
+    });
+
+    it('a que vai para o mural também (a dela ou a do grupo) aparece para os outros, e voltar ao só Kanban tira de novo', async () => {
+      const a = device();
+      onBoard(a, 'nkan0001', 'Corrigir o login');
+      await a.sync.syncNow();
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
+
+      a.kanban.setOnWall('nkan0001', true);
+      await a.sync.syncNow();
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas.map((n) => n.id)).toEqual(['nkan0001']);
+
+      a.kanban.setOnWall('nkan0001', false);
+      await a.sync.syncNow();
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
+
+      // o grupo inteiro no mural também
+      a.settings.setCategoryPrefs('Trabalho', { kanbanOnly: false });
+      a.kanban.setOnWall('nkan0001', true);
+      await a.sync.syncNow();
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas.map((n) => n.id)).toEqual(['nkan0001']);
+    });
+
+    it('o mural público enviado por um site de antes (com elas) é refeito ao abrir, sem a pessoa mexer em nada', async () => {
+      const a = device();
+      onBoard(a, 'nkan0001', 'Corrigir o login');
+      await a.sync.syncNow();
+      const puts = cloud.puts;
+      await a.sync.syncNow();
+      expect(cloud.puts).toBe(puts);
+      // como o site de antes deixou o estado: sem compartilhadas, a impressão do público era vazia
+      const state = JSON.parse(a.kv.getItem(STATE_KEY)!) as Record<string, unknown>;
+      delete state['publicas'];
+      a.kv.setItem(STATE_KEY, JSON.stringify(state));
+      await a.sync.syncNow();
+      expect(cloud.puts).toBe(puts + 1);
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
+    });
+
+    it('o aparelho que baixa um mural enviado por um site de antes refaz o público; um enviado agora, não', async () => {
+      const a = device();
+      onBoard(a, 'nkan0001', 'Corrigir o login');
+      await a.sync.syncNow();
+      const fresh = device();
+      await fresh.sync.syncNow();
+      const puts = cloud.puts;
+      expect(fresh.store.reviews().map((r) => r.id)).toEqual(['nkan0001']);
+
+      // o mesmo mural, como um site de antes o mandaria (sem a impressão do público)
+      const doc = (await cloud.read()) as unknown as { sync: Record<string, unknown> };
+      expect(typeof doc.sync['publico']).toBe('string');
+      delete doc.sync['publico'];
+      await cloud.seed(doc);
+      const b = device();
+      await b.sync.syncNow();
+      expect(cloud.puts).toBe(puts + 1);
+      expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
+    });
+  });
+
   describe('nada se perde quando dois aparelhos mexem na mesma ficha', () => {
     /** Os dois aparelhos com a mesma ficha, já acertados com a nuvem. */
     async function twoDevices() {
