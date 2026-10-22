@@ -21,6 +21,8 @@ import { WallMotion } from './wall-motion';
 import { Mural } from './mural';
 import { Toasts } from '../ui/toast';
 import { isDone } from './review';
+import { categoryIcon } from '../ui/category-label';
+import { ICON, ICON_CHOICE } from '../ui/icons';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -69,6 +71,8 @@ class FakeNotes {
   strict = false;
   /** Quantas vezes o grupo, o assunto, as tags ou a fixada (que são de cada um) chegaram na anotação. */
   leaks = 0;
+  /** A lista das anotações volta como uma página qualquer (um wi-fi de hotel), com 200. */
+  brokenList = false;
 
   /** A anotação como a API guarda: sem o que é de cada pessoa (ver `noteData` em api/src/domain/shared-note.ts). */
   private stored(d: Record<string, unknown>): Record<string, unknown> {
@@ -146,6 +150,7 @@ class FakeNotes {
       return json({ rev: rev + 1, novas: 0 });
     }
     if (path === '/v1/eu/notas' && method === 'GET') {
+      if (this.brokenList) return new Response('<html>Entre na rede</html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
       const out = [...this.notes.values()].filter((n) => this.access(n, me)).map((n) => ({ id: n.id, versao: n.versao, papel: this.access(n, me) }));
       return json({ notas: out });
     }
@@ -252,6 +257,7 @@ interface Person {
   kanban: KanbanStore;
   actions: KanbanActions;
   toasts: Toasts;
+  settings: Settings;
   data: MemoryData;
   edit(id: string, change: Partial<Review>): void;
   text(id: string): string | undefined;
@@ -329,6 +335,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       kanban: injector.get(KanbanStore),
       actions: injector.get(KanbanActions),
       toasts: injector.get(Toasts),
+      settings: injector.get(Settings),
       data,
       edit: (id, change) => {
         later();
@@ -1033,21 +1040,22 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         expect(r.subject).toBeUndefined();
         expect(r.tags).toBeUndefined();
       }
-      const looks = (p: Person) => p.shared['settings'].categoryLook(SHARED_GROUP);
-      expect(looks(bia).icon).toBe('pessoas');
-      expect(looks(ana).icon).toBeUndefined();
+      // o desenho de duas pessoas é o de sempre do grupo: nada vai para os ajustes
+      expect(categoryIcon(SHARED_GROUP)).toBe(ICON.pessoas);
+      for (const p of [ana, bia, cris]) expect(p.settings.categoryLooksAt()).toBe('');
     });
 
     it('o desenho que a pessoa já escolheu para Compartilhadas fica', async () => {
       const ana = person('ana');
       const bia = person('bia');
-      bia.shared['settings'].setCategoryLook(SHARED_GROUP, { icon: 'coracao', color: 'rosa' });
+      bia.settings.setCategoryLook(SHARED_GROUP, { icon: 'coracao', color: 'rosa' });
       ana.store.add(note('nota-1', 'a'));
       TestBed.tick();
       await ana.shared.share(ana.store.get('nota-1')!, [{ codigo: USERS['bia'].codigo, papel: 'editor' }]);
       await sync(bia);
       expect(bia.store.get('nota-1')!.category).toBe(SHARED_GROUP);
-      expect(bia.shared['settings'].categoryLook(SHARED_GROUP)).toEqual({ icon: 'coracao', color: 'rosa' });
+      expect(bia.settings.categoryLook(SHARED_GROUP)).toEqual({ icon: 'coracao', color: 'rosa' });
+      expect(categoryIcon(SHARED_GROUP, bia.settings.categoryLook(SHARED_GROUP))).toBe(ICON_CHOICE['coracao']);
     });
 
     it('o grupo, o assunto, as tags e a fixada nunca vão para a anotação na nuvem', async () => {
@@ -1109,6 +1117,108 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       bia.shared.mergePlaces(new Map([['nota-1', { p: { noteRank: 'fixada' }, em: new Date().toISOString() }]]));
       TestBed.tick();
       expect(bia.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada' }));
+    });
+
+    /** Como um aparelho de antes guardava a anotação: o grupo no conteúdo, e o lugar só com a fixada. */
+    function oldDevice(from: MemoryData, account: string, category: string, keepPlaces = false): MemoryData {
+      const raw = JSON.parse(from.getItem('meu-mural:compartilhadas:v1')!);
+      const [entry] = raw.contas[account];
+      entry.base = { ...entry.base, category };
+      entry.pessoal = {};
+      if (!keepPlaces) raw.lugares = {};
+      const data = new MemoryData();
+      data.setItem('meu-mural:compartilhadas:v1', JSON.stringify(raw));
+      return data;
+    }
+
+    it('o aparelho fechado desde antes do grupo ser de cada um não desfaz, ao abrir, o grupo escolhido depois em outro', async () => {
+      const ana = person('ana');
+      ana.store.add(note('nota-1', 'a', { category: 'Pessoal' }));
+      TestBed.tick();
+      await ana.shared.share(ana.store.get('nota-1')!, [{ codigo: USERS['bia'].codigo, papel: 'editor' }]);
+      TestBed.tick();
+      // o celular parou aqui, com o site de antes: a anotação no grupo Pessoal
+      const phoneData = oldDevice(ana.data, 'u-ana', 'Pessoal');
+      // no computador, ela vai para Compras
+      ana.edit('nota-1', { category: 'Compras' });
+      await ana.mural.syncNow();
+      // dias depois, o celular abre com o site novo
+      later();
+      const phone = person('ana', phoneData);
+      await phone.mural.syncNow();
+      TestBed.tick();
+      expect(phone.store.get('nota-1')!.category).toBe('Compras');
+      await ana.mural.syncNow();
+      TestBed.tick();
+      expect(ana.store.get('nota-1')!.category).toBe('Compras');
+    });
+
+    it('a anotação guardada antes não passa por cima do lugar mais novo guardado no mesmo aparelho', async () => {
+      const { bia } = await sharedNote('a');
+      bia.edit('nota-1', { category: 'Trabalho' });
+      // uma aba com o site de antes, ainda aberta, gravou a anotação como gravava (com o grupo de antes)
+      const again = person('bia', oldDevice(bia.data, 'u-bia', 'Casa', true));
+      expect(again.store.get('nota-1')!.category).toBe('Trabalho');
+      expect(again.shared.places().get('nota-1')!.p.category).toBe('Trabalho');
+    });
+
+    it('no aparelho novo de quem recebeu, a anotação que chega antes do mural não volta para Compartilhadas', async () => {
+      const { bia } = await sharedNote('a', { category: 'Casa' });
+      bia.edit('nota-1', { category: 'Trabalho' });
+      await bia.mural.syncNow();
+      later();
+      const phone = person('bia');
+      // as compartilhadas baixam antes do mural privado (onde está o grupo escolhido no computador)
+      await sync(phone);
+      expect(phone.store.get('nota-1')!.category).toBe(SHARED_GROUP);
+      await phone.mural.syncNow();
+      TestBed.tick();
+      expect(phone.store.get('nota-1')!.category).toBe('Trabalho');
+      await bia.mural.syncNow();
+      TestBed.tick();
+      expect(bia.store.get('nota-1')!.category).toBe('Trabalho');
+    });
+
+    it('o lugar de um site de antes (só a fixada) fica com o grupo guardado, e um aparelho novo acha a anotação nele', async () => {
+      const { bia } = await sharedNote('a');
+      bia.edit('nota-1', { category: 'Trabalho' });
+      later();
+      bia.shared.mergePlaces(new Map([['nota-1', { p: { noteRank: 'fixada' }, em: new Date().toISOString() }]]));
+      TestBed.tick();
+      expect(bia.shared.places().get('nota-1')!.p).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada', org: true }));
+      await bia.mural.syncNow();
+      const phone = person('bia');
+      await phone.mural.syncNow();
+      await sync(phone);
+      expect(phone.store.get('nota-1')).toEqual(jasmine.objectContaining({ category: 'Trabalho', noteRank: 'fixada' }));
+    });
+
+    it('no aparelho novo, a anotação que chega antes do mural não apaga o desenho e a cor que a pessoa deu aos grupos', async () => {
+      const { bia } = await sharedNote('a');
+      bia.settings.setCategoryLook('Trabalho', { icon: 'maleta', color: 'azul' });
+      await bia.mural.syncNow();
+      later();
+      const phone = person('bia');
+      await sync(phone);
+      await phone.mural.syncNow();
+      TestBed.tick();
+      expect(phone.settings.categoryLook('Trabalho')).toEqual({ icon: 'maleta', color: 'azul' });
+      await bia.mural.syncNow();
+      TestBed.tick();
+      expect(bia.settings.categoryLook('Trabalho')).toEqual({ icon: 'maleta', color: 'azul' });
+    });
+
+    it('uma resposta estranha da lista (um wi-fi que devolve uma página) não tira as compartilhadas nem o lugar delas', async () => {
+      const { ana, bia } = await sharedNote('a', { category: 'Casa' });
+      bia.edit('nota-1', { category: 'Trabalho' });
+      cloud.brokenList = true;
+      await sync(ana, bia);
+      cloud.brokenList = false;
+      expect(ana.store.get('nota-1')!.category).toBe('Casa');
+      expect(bia.store.get('nota-1')!.category).toBe('Trabalho');
+      expect(bia.shared.places().get('nota-1')!.p.category).toBe('Trabalho');
+      await sync(ana, bia);
+      expect(bia.store.get('nota-1')!.category).toBe('Trabalho');
     });
 
     it('quem já estava numa anotação e abre num aparelho novo (o lugar de antes, sem o grupo) fica no grupo de antes', async () => {

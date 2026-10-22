@@ -4,10 +4,8 @@ import { Cloud } from './cloud-config';
 import { DataKey, LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore, SharedSink } from './review-store';
-import { Settings } from './settings';
 import {
   MemberRole,
-  SHARED_GROUP,
   arrivalOrg,
   legacyOrg,
   orgOf,
@@ -108,6 +106,12 @@ export interface Place {
 /** Lugares demais viram lixo guardado: os mais novos ficam (uma conta tem até 500 compartilhadas). */
 export const MAX_PLACES = 600;
 
+/**
+ * Quando mudou o lugar em que a anotação chega (Compartilhadas): nunca. Ninguém o escolheu, então o
+ * escolhido em qualquer outro aparelho vale mais, mesmo chegando depois dela.
+ */
+export const ARRIVAL_AT = new Date(0).toISOString();
+
 /** Os lugares guardados ou vindos da nuvem (id → lugar), só os que servem. */
 export function sanitizePlaces(raw: unknown): Map<string, Place> {
   const out = new Map<string, Place>();
@@ -154,9 +158,12 @@ function storedEntry(e: SharedEntry): unknown {
 
 /**
  * Uma anotação guardada neste aparelho. A guardada antes do grupo, do assunto e das tags serem de cada
- * um (build 463) os tinha no conteúdo: eles viram os desta pessoa, e ela fica onde estava (`migrated`).
+ * um (build 463) os tinha no conteúdo: eles viram os desta pessoa, e ela fica onde estava. `migrated`:
+ * quando esse grupo foi escolhido (no mais tarde, quando o conteúdo guardado mudou), não a hora da
+ * conversão; o aparelho que ficou fechado esse tempo todo tem o grupo de antes, e o escolhido depois
+ * em outro aparelho vale mais.
  */
-function readEntry(raw: unknown): (SharedEntry & { migrated?: true }) | null {
+function readEntry(raw: unknown): (SharedEntry & { migrated?: string }) | null {
   const r = raw as Record<string, unknown> | null;
   const id = typeof r?.['id'] === 'string' ? r['id'] : null;
   if (!id) return null;
@@ -183,7 +190,7 @@ function readEntry(raw: unknown): (SharedEntry & { migrated?: true }) | null {
     atualizadoPor: detail.atualizadoPor,
     pessoal,
   });
-  return stored.org ? entry : { ...entry, migrated: true };
+  return stored.org ? entry : { ...entry, migrated: before?.updatedAt ?? detail.atualizadoEm };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -194,7 +201,6 @@ export class SharedStore implements SharedSink {
   private readonly cloud = inject(Cloud);
   private readonly auto = inject(SHARED_AUTO);
   private readonly injector = inject(Injector);
-  private readonly settings = inject(Settings);
 
   /** As anotações compartilhadas da conta de agora (id → anotação). */
   readonly entries = signal<ReadonlyMap<string, SharedEntry>>(new Map());
@@ -312,7 +318,10 @@ export class SharedStore implements SharedSink {
     for (const [id, place] of remote) {
       const here = places.get(id);
       if (here && here.em >= place.em) continue;
-      places.set(id, place);
+      // o lugar de um site de antes (sem o grupo) só traz a fixada: o grupo guardado continua no lugar,
+      // para o aparelho novo que a receber achar a anotação nele
+      const known = here?.p.org ? here.p : this.entries().get(id)?.pessoal;
+      places.set(id, place.p.org || !known?.org ? place : { p: legacyOrg(place.p, known), em: place.em });
       changed = true;
     }
     if (!changed) return;
@@ -326,9 +335,9 @@ export class SharedStore implements SharedSink {
     this.persist();
   }
 
-  private setPlace(id: string, p: Personal): void {
+  private setPlace(id: string, p: Personal, em = new Date().toISOString()): void {
     const places = new Map(this.places());
-    places.set(id, { p, em: new Date().toISOString() });
+    places.set(id, { p, em });
     this.places.set(newestPlaces(places));
   }
 
@@ -534,8 +543,11 @@ export class SharedStore implements SharedSink {
   /** Baixa a lista e as anotações que mudaram. */
   private async pull(): Promise<void> {
     const res = await this.account.request<{ notas?: unknown }>('/v1/eu/notas');
+    // uma resposta sem a lista (a página de um wi-fi de hotel, com 200) não diz que elas saíram: tirar
+    // todas daqui levaria junto o lugar delas, e elas voltariam no grupo de antes
+    if (!Array.isArray(res?.notas)) throw new CloudError('A nuvem respondeu de um jeito estranho. Tente de novo.', 'resposta-invalida', 0);
     const index = new Map<string, number>();
-    for (const item of Array.isArray(res?.notas) ? res.notas : []) {
+    for (const item of res.notas) {
       const r = item as Record<string, unknown> | null;
       if (typeof r?.['id'] === 'string' && Number.isSafeInteger(r['versao'])) index.set(r['id'], r['versao'] as number);
     }
@@ -697,8 +709,9 @@ export class SharedStore implements SharedSink {
 
   /**
    * Onde a anotação chega neste aparelho: no lugar escolhido em outro aparelho da pessoa, se ele veio
-   * antes dela; a de outra pessoa, nova para quem a recebe, no grupo Compartilhadas (que ganha o desenho
-   * de duas pessoas, se ainda não tem um); a dele mesmo, no grupo em que estava.
+   * antes dela; a de outra pessoa, nova para quem a recebe, no grupo Compartilhadas (o desenho de duas
+   * pessoas é o de sempre dele, ver `categoryIcon`: nada muda nos ajustes, que, mudados agora num
+   * aparelho novo, passariam por cima dos da nuvem); a dele mesmo, no grupo em que estava.
    */
   private arrival(d: SharedDetail): Personal {
     const place = this.places().get(d.id)?.p;
@@ -706,8 +719,7 @@ export class SharedStore implements SharedSink {
     // um lugar de antes do grupo ser de cada um: quem já estava nela continua no grupo de antes
     if (place || d.papel === 'dono') return legacyOrg(place ?? {}, d.orgDados);
     const p = arrivalOrg();
-    this.setPlace(d.id, p);
-    if (!this.settings.categoryLook(SHARED_GROUP).icon) this.settings.setCategoryLook(SHARED_GROUP, { ...this.settings.categoryLook(SHARED_GROUP), icon: 'pessoas' });
+    this.setPlace(d.id, p, ARRIVAL_AT);
     return p;
   }
 
@@ -767,11 +779,17 @@ export class SharedStore implements SharedSink {
     const list = (all.contas[account] ?? []).map(readEntry).filter((e) => e !== null);
     const before = this.entries();
     const next = new Map<string, SharedEntry>();
-    for (const { migrated, ...e } of list) {
+    for (const { migrated, ...read } of list) {
+      let e: SharedEntry = read;
+      if (migrated) {
+        // o grupo de antes vira o desta pessoa, e vai para os outros aparelhos dela; um lugar com o
+        // grupo escolhido depois (uma aba com o site de antes regravou a anotação) continua valendo
+        const known = this.places().get(e.id);
+        if (known?.p.org && known.em >= migrated) e = entryOf({ ...e, pessoal: known.p });
+        else this.setPlace(e.id, e.pessoal, migrated);
+      }
       const was = before.get(e.id);
       next.set(e.id, was && sameView(was.view, e.view) ? { ...e, view: was.view } : e);
-      // o grupo de antes vira o desta pessoa, e vai para os outros aparelhos dela
-      if (migrated) this.setPlace(e.id, e.pessoal);
     }
     this.entries.set(next);
     if (list.some((e) => e.migrated)) this.persist();

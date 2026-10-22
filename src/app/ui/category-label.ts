@@ -1,13 +1,18 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { ICON_CHOICE, IconModule } from './icons';
-import { CategoryLook } from '../core/category-looks';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
+import { CategoryLook, lookKey } from '../core/category-looks';
 import { categoryBonus } from '../core/note-labels';
+import { SHARED_GROUP } from '../core/shared-notes';
 import { bonusIcon } from './bonus';
 
-/** O desenho da categoria: o escolhido, ou o de sempre (o da cartela, ou a pasta). */
+/**
+ * O desenho da categoria: o escolhido, ou o de sempre (o da cartela, ou a pasta). O de sempre do grupo
+ * Compartilhadas, onde chega a anotação que alguém compartilhou, é o de duas pessoas.
+ */
 export function categoryIcon(category: string, look: CategoryLook = {}): LucideIconData {
-  return look.icon ? ICON_CHOICE[look.icon] : bonusIcon(categoryBonus(category));
+  if (look.icon) return ICON_CHOICE[look.icon];
+  return lookKey(category) === lookKey(SHARED_GROUP) ? ICON.pessoas : bonusIcon(categoryBonus(category));
 }
 
 /**
