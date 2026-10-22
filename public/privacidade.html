@@ -25,7 +25,7 @@
 <body>
 <main>
   <h1>Privacidade</h1>
-  <p class="data">Murall · última atualização: 18 de outubro de 2026</p>
+  <p class="data">Murall · última atualização: 22 de outubro de 2026</p>
 
   <div class="resumo">
     <p><strong>Sem conta, nada sai do seu aparelho.</strong> Com uma conta (entrando com o Google), o seu mural fica guardado na nuvem para você abrir em qualquer aparelho, e quem tiver o seu código pode ver as suas resenhas.</p>
@@ -60,6 +60,17 @@
     <li><strong>Para desligar:</strong> em Calendário › Google Agenda › Desconectar (a permissão é devolvida ao Google e apagada do servidor), em <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, ou apagando a conta.</li>
   </ul>
   <p>O uso e a transferência, para qualquer outro app, de informações recebidas das APIs do Google seguem a <a href="https://developers.google.com/terms/api-services-user-data-policy">Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos de Uso Limitado.</p>
+
+  <h2>Cofre de senhas</h2>
+  <p>O cofre de senhas fica num endereço à parte, <strong>cofre.murall.igorsc.com.br</strong>, e abre com três coisas: a conta do Google (só o número que a identifica), a senha mestra e a passkey de um aparelho seu.</p>
+  <ul>
+    <li><strong>As senhas são cifradas no seu aparelho</strong>, antes de sair dele. O servidor guarda só esse texto cifrado: ninguém consegue ler, nem quem cuida do Murall. A senha mestra nunca sai do seu aparelho, e sem ela ninguém abre o cofre.</li>
+    <li><strong>O que fica no servidor, além disso:</strong> os aparelhos (o nome que você deu, a chave pública da passkey e quando foram usados), as sessões abertas (a chave de cada uma só em forma de hash) e o histórico dos últimos 90 dias (aberturas, senhas erradas, passkeys usadas e mudanças, com o aparelho e o país de onde vieram).</li>
+    <li><strong>A lixeira</strong> guarda o item apagado, ainda cifrado, por 30 dias.</li>
+    <li><strong>A cópia diária</strong> do banco do cofre fica no GitHub por 30 dias, trancada com senha (AES-256), além de já ser cifrada.</li>
+    <li>Nada do cofre fica guardado no seu aparelho: ao trancar ou fechar a página, tudo some da memória.</li>
+    <li>Para apagar tudo do cofre: com ele aberto, em <strong>Gerenciar o cofre › Apagar o cofre</strong>.</li>
+  </ul>
 
   <h2>Quem vê o quê</h2>
   <ul>
