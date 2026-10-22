@@ -1465,3 +1465,22 @@ vir depois, chamando a mesma coisa.
 - Testes da API (prazo, sessões, histórico, estender sem encurtar, sem cofre, depois do prazo), da tela e
   do cliente. No teste de ponta a ponta no Chrome, congelar e a entrada seguinte já congelada.
 
+### 17.11 A aba do cofre no Murall (22/10)
+
+- **Só para quem pode usar o cofre**, não para todo mundo logado (o 8.6 dizia "só aparece para quem está
+  logado"; mudado para o usuário conferir). Com `COFRE_CODIGOS` só com o dono, uma aba para todos levaria
+  os outros a uma porta que diz "não está aberto para a sua conta".
+- **Como o Murall sabe**: o caminho de volta da 16.13, só o pedaço que a aba precisa.
+  - O cofre tem uma segunda porta por service binding, a classe `MuralRpc` (`cofre-api/src/entry/worker.ts`),
+    sem endereço público. Ela responde só `podeUsar(codigo)`: se o código está em `COFRE_CODIGOS`. Não diz
+    se a conta já tem cofre nem nada de dentro dele.
+  - A API do Murall liga nela pelo binding `COFRE` (`api/wrangler.toml`), e o `GET /v1/eu` responde também
+    `cofre: true/false`. Se o cofre não responder, `false`: o `/v1/eu` nunca quebra por isso.
+  - O site guarda o `cofre` junto com a conta e mostra a aba "Cofre" depois do Calendário.
+- **A aba** é um `<a href>` comum para `https://cofre.murall.igorsc.com.br/`, na mesma aba do navegador, com
+  `rel="noreferrer"`, como a 8.6 pede. Abaixo de ~342 px a fileira não cabe com a contagem do Calendário:
+  a aba vira só o cadeado (com o nome "Cofre de senhas" para o leitor de tela) e as seções chegam mais
+  perto. O teste das larguras (288 a 1384 px) cobre as Anotações com as quatro seções.
+- Ordem do deploy: o cofre primeiro (para a `MuralRpc` existir), depois a API do Murall.
+- Falta da 8.6: o topo igual ao do Murall dentro do cofre, os avisos no correio e o `congelar` pelo Murall.
+

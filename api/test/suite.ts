@@ -381,12 +381,30 @@ export function apiSuite(label: string, getDb: () => Db) {
     });
 
     describe('sessão e conta', () => {
+      it('GET /v1/eu diz se a conta pode usar o cofre, perguntando ao cofre pelo código; se ele falhar, não', async () => {
+        const { login, deps } = await setup();
+        const { body } = await login({}, { nome: 'Igor' });
+        const perguntas: string[] = [];
+        const comCofre = (canUse: (code: string) => Promise<boolean>) => jsonCaller((path, init) => createApp({ ...deps, vault: { canUse } }).request(`https://api.teste${path}`, init));
+        const sim = comCofre(async (code) => (perguntas.push(code), true));
+        expect(((await (await sim('GET', '/v1/eu', undefined, body.token)).json()) as any).cofre).toBe(true);
+        expect(perguntas).toEqual([body.conta.codigo.replace('-', '')]);
+        const nao = comCofre(async () => false);
+        expect(((await (await nao('GET', '/v1/eu', undefined, body.token)).json()) as any).cofre).toBe(false);
+        const fora = comCofre(async () => {
+          throw new Error('o cofre não respondeu');
+        });
+        const res = await fora('GET', '/v1/eu', undefined, body.token);
+        expect(res.status).toBe(200);
+        expect(((await res.json()) as any).cofre).toBe(false);
+      });
+
       it('GET /v1/eu responde com a sessão e recusa sem ela', async () => {
         const { login, json } = await setup();
         const { body } = await login({}, { nome: 'Igor' });
         const me = await json('GET', '/v1/eu', undefined, body.token);
         expect(me.status).toBe(200);
-        expect(await me.json()).toEqual({ id: body.conta.id, codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0, pessoas: 'listas', comentarios: 'seguidores' });
+        expect(await me.json()).toEqual({ id: body.conta.id, codigo: body.conta.codigo, nome: 'Igor', criadoEm: NOW.toISOString(), seguidores: 0, seguindo: 0, pessoas: 'listas', comentarios: 'seguidores', cofre: false });
         for (const token of [undefined, 'x', 'A'.repeat(43)]) {
           const res = await json('GET', '/v1/eu', undefined, token);
           expect(res.status).toBe(401);

@@ -76,6 +76,19 @@ describe('conta na nuvem', () => {
     expect((calls.at(-1)!.init.headers as Record<string, string>)['Authorization']).toBe(`Bearer ${TOKEN}`);
   });
 
+  it('o /v1/eu diz se a conta pode usar o cofre; fica guardado com a conta e some quando deixa de poder', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'G11T-G00D', nome: 'Igor' }));
+    fakeFetch(json({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', cofre: false }));
+    const account = setup();
+    await settle();
+    await account.refresh();
+    expect(account.account()?.cofre).toBeTrue();
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).cofre).toBeTrue();
+    await account.refresh();
+    expect(account.account()?.cofre).toBeUndefined();
+  });
+
   it('sessão recusada pela nuvem (401) sai da conta neste navegador', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));

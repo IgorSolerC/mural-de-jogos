@@ -3,7 +3,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { CloudAccount } from '../core/cloud-account';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { KanbanStore } from '../core/kanban-store';
@@ -20,6 +21,8 @@ interface Tab {
   label: string;
   link: string;
   on: boolean;
+  /** Um endereço fora do Murall (o cofre): link comum, sem o roteador. */
+  external?: boolean;
 }
 
 /** A contagem do lado direito: o número em destaque e o resto, inteiro (tela larga) e curto. */
@@ -64,7 +67,15 @@ interface Summary {
             <ul>
               @for (t of tabs(); track t.label) {
                 <li>
-                  <a class="secao" [routerLink]="t.link" [class.on]="t.on" [attr.aria-current]="t.on ? 'page' : null">{{ t.label }}</a>
+                  @if (t.external) {
+                    <!-- o cofre é outra origem: link comum, na mesma aba, sem levar o endereço daqui -->
+                    <a class="secao cofre" [href]="t.link" rel="noreferrer" aria-label="Cofre de senhas" title="Cofre de senhas">
+                      <lucide-icon class="cadeado" [img]="LockIcon" [size]="18" aria-hidden="true" />
+                      <span class="nome">{{ t.label }}</span>
+                    </a>
+                  } @else {
+                    <a class="secao" [routerLink]="t.link" [class.on]="t.on" [attr.aria-current]="t.on ? 'page' : null">{{ t.label }}</a>
+                  }
                 </li>
               }
             </ul>
@@ -369,6 +380,38 @@ interface Summary {
       }
     }
 
+    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (as quatro seções e a contagem não
+       cabem abaixo de ~342px: o cofre vira só o cadeado e as seções chegam mais perto) */
+    .cofre .cadeado {
+      display: none;
+    }
+    @container indice (max-width: 341px) {
+      .indice:has(.cofre) .secao {
+        padding: 0 6px;
+        letter-spacing: 0.06em;
+      }
+      .cofre {
+        min-width: 44px;
+        justify-content: center;
+      }
+      .cofre .nome {
+        display: none;
+      }
+      .cofre .cadeado {
+        display: block;
+      }
+    }
+    /* o celular mais estreito (320px): mais um aperto, para a contagem do Calendário caber ao lado */
+    @container indice (max-width: 309px) {
+      .indice:has(.cofre) .secao {
+        padding: 0 4px;
+        letter-spacing: 0.04em;
+      }
+      .indice:has(.cofre) .secoes ul {
+        gap: 0;
+      }
+    }
+
     @container indice (min-width: 860px) {
       .longo {
         display: inline;
@@ -418,8 +461,10 @@ export class AreaBar {
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
   protected readonly calendar = inject(CalendarStore);
+  private readonly cloudAccount = inject(CloudAccount);
 
   protected readonly BackIcon = ICON.voltar;
+  protected readonly LockIcon = ICON.privada;
 
   private readonly path = toSignal(
     this.router.events.pipe(
@@ -450,11 +495,14 @@ export class AreaBar {
     const list: readonly AreaSection[] = area === 'analises' ? REVIEW_SECTIONS : area === 'anotacoes' ? NOTE_SECTIONS : [];
     if (list.length < 2) return [];
     const open = sectionOf(this.path(), list);
-    return list.map((s) => ({
+    const tabs: Tab[] = list.map((s) => ({
       label: s.label,
       link: area === 'analises' ? reviewPath(kind, s.slug) : '/anotacoes' + (s.slug ? '/' + s.slug : ''),
       on: s === open,
     }));
+    // o cofre de senhas, depois do Calendário, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
+    if (area === 'anotacoes' && this.cloudAccount.account()?.cofre) tabs.push({ label: 'Cofre', link: VAULT_URL, on: false, external: true });
+    return tabs;
   });
 
   /** Quanto há na seção aberta das Análises (nada quando está vazia: a página já diz). */

@@ -14,9 +14,15 @@ import { Deps } from '../ports';
  * A entrada na Cloudflare: o único arquivo, junto com `adapters/d1.ts`, que conhece o Worker.
  */
 
-/** As variáveis do wrangler.toml (ver `config.ts`) e o banco. */
+/** O que o cofre de senhas oferece ao Murall pelo service binding (a classe `MuralRpc` em `cofre-api/src/entry/worker.ts`). */
+interface VaultRpc {
+  podeUsar(codigo: string): Promise<boolean>;
+}
+
+/** As variáveis do wrangler.toml (ver `config.ts`), o banco e o cofre. */
 interface Env {
   DB: D1Database;
+  COFRE?: VaultRpc;
   MODO?: string;
   ORIGENS?: string;
   COTA_LINHAS_DIA?: string;
@@ -42,6 +48,7 @@ function deps(env: Env): Deps {
     verifyGoogle: googleVerifier(config.googleClientId, googleKeys),
     catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
     agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
+    ...(env.COFRE ? { vault: { canUse: (code: string) => env.COFRE!.podeUsar(code) } } : {}),
   };
 }
 

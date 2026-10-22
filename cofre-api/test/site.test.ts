@@ -1,7 +1,7 @@
-import { applyD1Migrations, type D1Migration } from 'cloudflare:test';
+import { applyD1Migrations, createExecutionContext, type D1Migration } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { serve } from '../src/entry/worker';
+import { MuralRpc, serve } from '../src/entry/worker';
 import { securityHeaders } from '../src/site';
 // @ts-expect-error o script é JavaScript puro, sem tipos
 import { expectedHeaders, problems } from '../scripts/cabecalhos.mjs';
@@ -82,5 +82,23 @@ describe('a página e os cabeçalhos', () => {
     const res = await get('/api/cofre/trancar', { method: 'POST', headers: { Origin: 'https://cofre.teste.dev', 'Content-Type': 'application/json' }, body: '{}' });
     expect(res.headers.get('Clear-Site-Data')).toBe('"cache", "storage"');
     expect(problems(res.headers, true)).toEqual([]);
+  });
+});
+
+describe('a porta do Murall (MuralRpc)', () => {
+  const rpc = (codigos: string) => new MuralRpc(createExecutionContext(), workerEnv({ COFRE_CODIGOS: codigos }));
+
+  it('diz só se a conta está em COFRE_CODIGOS (com ou sem hífen, maiúscula ou não)', () => {
+    expect(rpc('G11TG00D').podeUsar('G11T-G00D')).toBe(true);
+    expect(rpc('G11T-G00D, K7QFM2XA').podeUsar('k7qf-m2xa')).toBe(true);
+    expect(rpc('G11TG00D').podeUsar('K7QF-M2XA')).toBe(false);
+    expect(rpc('').podeUsar('G11T-G00D')).toBe(false);
+    expect(rpc('*').podeUsar('QUALQUER1')).toBe(true);
+  });
+
+  it('código vazio, enorme ou que não é texto: não', () => {
+    expect(rpc('G11TG00D').podeUsar('')).toBe(false);
+    expect(rpc('*').podeUsar('X'.repeat(17))).toBe(false);
+    expect(rpc('*').podeUsar(42 as unknown as string)).toBe(false);
   });
 });

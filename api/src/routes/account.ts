@@ -5,6 +5,7 @@ import { cleanName } from '../domain/name';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
+import { vaultAllowed } from '../domain/vault';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -102,6 +103,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       seguindo: user.seguindo,
       pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
       comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores',
+      cofre: await vaultAllowed(deps, user.codigo),
     });
   });
 

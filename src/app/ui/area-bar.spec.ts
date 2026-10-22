@@ -8,6 +8,7 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { AreaBar } from './area-bar';
 import { CalendarStore } from '../core/calendar-store';
+import { CloudAccount } from '../core/cloud-account';
 
 @Component({ template: '' })
 class Blank {}
@@ -131,6 +132,25 @@ describe('o índice embaixo do topo', () => {
     expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/calendario');
   });
 
+  it('a aba Cofre, depois do Calendário, só para quem pode usar o cofre: um link comum para a origem dele', async () => {
+    const conta = TestBed.inject(CloudAccount).account;
+    conta.set({ codigo: 'G11T-G00D', nome: 'Igor' });
+    await go('/anotacoes');
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
+    conta.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
+    await fixture.whenStable();
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário', 'Cofre']);
+    const cofre = tabs()[3];
+    expect(cofre.getAttribute('aria-label')).toBe('Cofre de senhas');
+    expect(cofre.getAttribute('href')).toBe('https://cofre.murall.igorsc.com.br/');
+    expect(cofre.getAttribute('rel')).toBe('noreferrer');
+    expect(cofre.hasAttribute('target')).toBe(false);
+    expect(cofre.classList).not.toContain('on');
+    // nas Análises, não
+    await go('/analises/jogos');
+    expect(tabs().map((t) => t.textContent!.trim())).not.toContain('Cofre');
+  });
+
   it('no Calendário, quantos lembretes hoje tem', async () => {
     const calendar = TestBed.inject(CalendarStore);
     await go('/anotacoes/calendario');
@@ -219,10 +239,16 @@ describe('o índice embaixo do topo', () => {
 
     afterAll(() => still?.remove());
 
-    // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta
-    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata']) {
+    // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta; nas Anotações, as quatro
+    // seções (com a do cofre) e a contagem do Calendário
+    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/anotacoes/calendario']) {
       it(url, async () => {
         fill(135, 1);
+        if (url.startsWith('/anotacoes')) {
+          TestBed.inject(CloudAccount).account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
+          const calendar = TestBed.inject(CalendarStore);
+          calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
+        }
         TestBed.inject(Mural).kind.set('jogos');
         await go(url);
         await document.fonts.ready;
@@ -233,7 +259,7 @@ describe('o índice embaixo do topo', () => {
           host.style.width = `${w}px`;
           const box = host.getBoundingClientRect();
           const say = (msg: string) => problems.push(`${w}px: ${msg}`);
-          const targets = [picker()!, ...host.querySelectorAll<HTMLElement>('.secao')];
+          const targets = [picker(), ...host.querySelectorAll<HTMLElement>('.secao')].filter((el): el is HTMLElement => !!el);
           const all = targets.map((el) => ({ el, r: el.getBoundingClientRect(), name: el.textContent!.trim().slice(0, 20) }));
           // a contagem e o texto de Extras: não se tocam, mas também não podem encostar em nada
           const text = [...host.querySelectorAll<HTMLElement>('.resumo, .nota')].map((el) => ({ el, r: el.getBoundingClientRect(), name: el.className }));

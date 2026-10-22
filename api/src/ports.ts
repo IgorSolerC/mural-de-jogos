@@ -64,4 +64,9 @@ export interface Deps {
    * permissão guardada. Sem isto, ele fica indisponível. `fetch` só muda nos testes.
    */
   agenda?: { keys: AgendaKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
+  /**
+   * O cofre de senhas, pelo service binding (ver `src/domain/vault.ts`): a conta pode usá-lo? Sem isto
+   * (nos testes, ou sem o binding), ninguém vê a aba do cofre.
+   */
+  vault?: { canUse(code: string): Promise<boolean> };
 }

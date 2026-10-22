@@ -1,7 +1,8 @@
+import { WorkerEntrypoint } from 'cloudflare:workers';
 import { createRemoteJWKSet } from 'jose';
 import { d1Db } from '../adapters/d1';
 import { createApp } from '../app';
-import { readConfig } from '../config';
+import { canUseVault, readConfig } from '../config';
 import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleLogin } from '../domain/google';
 import { Deps } from '../ports';
@@ -16,7 +17,7 @@ import { newNonce, withSecurity } from '../site';
  */
 
 /** O que a API do Murall oferece ao cofre pelo service binding (a classe `CofreRpc` em `api/src/entry/worker.ts`). */
-interface MuralRpc {
+interface RpcDoMural {
   contaPorGoogle(sub: string): Promise<{ id: string; codigo: string } | null>;
 }
 
@@ -24,7 +25,7 @@ interface MuralRpc {
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
-  MURAL: MuralRpc;
+  MURAL: RpcDoMural;
   MODO?: string;
   COTA_LINHAS_DIA?: string;
   COFRE_CODIGOS?: string;
@@ -84,6 +85,18 @@ export async function serve(request: Request, env: Env, fazerDeps: (env: Env) =>
     response = withNonce(await env.ASSETS.fetch(request), nonce);
   }
   return withSecurity(response, nonce, secure);
+}
+
+/**
+ * A porta do Murall (16.13): só por service binding, sem endereço público. A API do Murall chama
+ * `env.COFRE.podeUsar(codigo)` para mostrar a aba "Cofre" só a quem está em COFRE_CODIGOS. Responde só
+ * isso: nem se a conta tem cofre, nem nada de dentro dele.
+ */
+export class MuralRpc extends WorkerEntrypoint<Env> {
+  podeUsar(codigo: string): boolean {
+    if (typeof codigo !== 'string' || !codigo || codigo.length > 16) return false;
+    return canUseVault(readConfig(this.env as unknown as Record<string, unknown>), codigo);
+  }
 }
 
 export default {

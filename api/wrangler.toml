@@ -28,6 +28,13 @@ database_name = "mural"
 database_id = "c2c789d6-f0f3-4f37-b53a-f049aa02a530"
 migrations_dir = "migrations"
 
+# O cofre de senhas, por RPC (sem endereço público): a conta pode usá-lo? (16.13). A aba "Cofre" das
+# Anotações só aparece para quem pode.
+[[services]]
+binding = "COFRE"
+service = "cofre-api"
+entrypoint = "MuralRpc"
+
 # A limpeza diária (src/domain/cleanup.ts), às 06:17 UTC.
 [triggers]
 crons = ["17 6 * * *"]

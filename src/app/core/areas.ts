@@ -38,6 +38,12 @@ export const NOTE_SECTIONS: readonly AreaSection[] = [
   { slug: 'calendario', label: 'Calendário' },
 ];
 
+/**
+ * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Anotações é só um link
+ * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.
+ */
+export const VAULT_URL = 'https://cofre.murall.igorsc.com.br/';
+
 /** O caminho de um quadro Kanban (sem quadro: o último aberto, ou o primeiro). */
 export function kanbanPath(board?: string): string {
   return '/anotacoes/kanban' + (board ? `/${board}` : '');

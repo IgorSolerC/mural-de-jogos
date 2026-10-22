@@ -16,6 +16,8 @@ export interface CloudAccountInfo {
   /** `K7QF-M2XA`. */
   codigo: string;
   nome: string;
+  /** Pode usar o cofre de senhas (o código está na lista do cofre)? Vem do /v1/eu; só mostra a aba do cofre. */
+  cofre?: boolean;
 }
 
 /** Um erro da nuvem, com a mensagem pronta para mostrar (a API já responde em português). */
@@ -72,7 +74,7 @@ export function deviceLabel(ua: string): string {
 function readAccount(): CloudAccountInfo | null {
   const raw = readJson<Partial<CloudAccountInfo>>(ACCOUNT_KEY);
   if (!raw || typeof raw.codigo !== 'string' || typeof raw.nome !== 'string') return null;
-  return { ...(typeof raw.id === 'string' ? { id: raw.id } : {}), codigo: raw.codigo, nome: raw.nome };
+  return { ...(typeof raw.id === 'string' ? { id: raw.id } : {}), codigo: raw.codigo, nome: raw.nome, ...(raw.cofre === true ? { cofre: true } : {}) };
 }
 
 function readToken(): string | null {
@@ -160,7 +162,7 @@ export class CloudAccount {
   async refresh(): Promise<void> {
     const me = await this.request<CloudAccountInfo>('/v1/eu');
     const before = this.account()?.nome;
-    this.setAccount({ ...(me.id ? { id: me.id } : {}), codigo: me.codigo, nome: me.nome });
+    this.setAccount({ ...(me.id ? { id: me.id } : {}), codigo: me.codigo, nome: me.nome, ...(me.cofre === true ? { cofre: true } : {}) });
     // O nome mudou na nuvem (em outro aparelho) e aqui ninguém mexeu desde a última vez: o "Seu nome"
     // passa a ser o novo. Sem isso, o efeito que acompanha o "Seu nome" mandaria o velho de volta.
     // Um nome trocado aqui e ainda não enviado (sem rede) continua valendo e sobe.
