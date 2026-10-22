@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, OnInit, output, signal, viewChild } from '@angular/core';
 import { type CamposDoItem, type ItemNaLista, LIMITES } from '../../core/itens';
+import { AreaDeTransferencia } from '../area-de-transferencia';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
 
-/** Quanto tempo a senha fica à mostra, e quanto tempo até a área de transferência ser limpa. */
+/** Quanto tempo a senha fica à mostra. */
 export const REVELAR_MS = 15_000;
-export const LIMPAR_COPIA_MS = 30_000;
 const MOSTRAR_PARA_DIGITAR_MS = 60_000;
 
 /** O endereço guardado, só se for http ou https (sem esquema, entende como https). */
@@ -40,6 +40,7 @@ export function emGrupos(senha: string): string[] {
 })
 export class ItemDoCofre implements OnInit {
   private readonly servicos = inject(SERVICOS);
+  private readonly area = inject(AreaDeTransferencia);
   private readonly timers: ReturnType<typeof setTimeout>[] = [];
 
   /** O item, ou null para um novo. */
@@ -127,9 +128,8 @@ export class ItemDoCofre implements OnInit {
 
   protected async copiar(texto: string, oQue: string): Promise<void> {
     try {
-      await this.servicos.pagina.copiar(texto);
+      await this.area.copiar(texto);
       this.avisar.emit(`${oQue} copiado. A área de transferência é limpa em 30 segundos.`);
-      this.depois(LIMPAR_COPIA_MS, () => void this.servicos.pagina.copiar('').catch(() => undefined));
     } catch {
       this.avisar.emit('Não deu para copiar. Toque em Revelar e digite.');
     }
