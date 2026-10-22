@@ -156,7 +156,7 @@ export class Abrir {
         m = await chaveDoMeioPeloCodigo(api, this.codigo(), usuario);
       }
       const aparelho = /Android|iPhone|iPad|Mobile/i.test(pagina.agente) ? 'Celular' : 'PC';
-      const cofre = await abrir(api, usuario, kSenha, m, aparelho);
+      const cofre = await abrir(api, usuario, kSenha, m, aparelho, desafio);
       this.senha.set('');
       this.codigo.set('');
       this.aberto.emit(cofre);

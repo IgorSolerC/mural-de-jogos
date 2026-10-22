@@ -79,6 +79,34 @@ export interface PedidoDeCriar {
   readonly agora?: Date;
 }
 
+/** Um aparelho como a API recebe (ao criar e ao pôr um aparelho). */
+export type CorpoDoAparelho = CorpoDeCriar['aparelhos'][number];
+
+/**
+ * O corpo de um aparelho: o envelope dele selado com M (com o segredo do PRF, ou com um S_i sorteado aqui,
+ * no modo servidor). Devolve também o segredo usado; um S_i sorteado (`sorteado`) é de quem chama zerar.
+ */
+export async function corpoDoAparelho(aparelho: AparelhoParaCriar, usuario: string, m: Uint8Array): Promise<{ corpo: CorpoDoAparelho; segredo: Bytes; sorteado: boolean }> {
+  const { passkey, apelido } = aparelho;
+  const comPrf = passkey.prf !== null;
+  // sem PRF, o segredo do aparelho é sorteado aqui e vai para o servidor (o modo servidor, 5)
+  const segredo = passkey.prf ?? novoSegredoDeAparelho();
+  const envelopeId = novoId();
+  return {
+    corpo: {
+      desafio: passkey.desafio,
+      credencial: passkey.credencial,
+      apelido,
+      prf: comPrf,
+      envelopeId,
+      envelope: paraBase64url(await selarEnvelope(segredo, usuario, envelopeId, m)),
+      ...(comPrf ? {} : { s: paraBase64url(segredo) }),
+    },
+    segredo,
+    sorteado: !comPrf,
+  };
+}
+
 export async function montarCofre(pedido: PedidoDeCriar): Promise<CofreMontado> {
   const { usuario, senha, aparelhos } = pedido;
   conferirId(usuario, 'usuário');
@@ -107,22 +135,11 @@ export async function montarCofre(pedido: PedidoDeCriar): Promise<CofreMontado> 
       kRec: paraBase64url(await provaDoCodigo(codigo)),
     };
 
-    const corpoAparelhos: CorpoDeCriar['aparelhos'][number][] = [];
-    for (const { passkey, apelido } of aparelhos) {
-      const comPrf = passkey.prf !== null;
-      // sem PRF, o segredo do aparelho é sorteado aqui e vai para o servidor (o modo servidor, 5)
-      const segredo = passkey.prf ?? novoSegredoDeAparelho();
-      if (!comPrf) segredos.push(segredo);
-      const envelopeId = novoId();
-      corpoAparelhos.push({
-        desafio: passkey.desafio,
-        credencial: passkey.credencial,
-        apelido,
-        prf: comPrf,
-        envelopeId,
-        envelope: paraBase64url(await selarEnvelope(segredo, usuario, envelopeId, m)),
-        ...(comPrf ? {} : { s: paraBase64url(segredo) }),
-      });
+    const corpoAparelhos: CorpoDoAparelho[] = [];
+    for (const aparelho of aparelhos) {
+      const { corpo, segredo, sorteado } = await corpoDoAparelho(aparelho, usuario, m);
+      if (sorteado) segredos.push(segredo);
+      corpoAparelhos.push(corpo);
     }
 
     const manifesto: Manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: (pedido.agora ?? new Date()).toISOString(), aparelho: pedido.aparelhoAgora };

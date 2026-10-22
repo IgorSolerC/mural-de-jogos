@@ -23,6 +23,7 @@ import {
   decifrarManifesto,
   entradaPrf,
   ErroCofre,
+  type Kdf,
   type Manifesto,
   provaDaSenha,
   provaDoCodigo,
@@ -30,6 +31,19 @@ import {
   VERSAO_CRIPTO,
 } from './crypto';
 import { type Autenticador, autenticadorDoNavegador, ErroPasskey } from './passkey';
+
+/**
+ * O que gerenciar o cofre precisa (8.5) e só existe com ele aberto: M, para selar o envelope de um aparelho
+ * novo ou de um código novo; V, o sal e o Argon2id, para trocar a senha. Fica na memória enquanto o cofre
+ * está aberto e some ao trancar (a página recarrega). Quem já roda código na página aberta consegue usar a
+ * chave do cofre do mesmo jeito; M sozinho não abre nada sem a senha.
+ */
+export interface SegredosDoAberto {
+  readonly m: Bytes;
+  v: Bytes;
+  sal: Bytes;
+  kdf: Kdf;
+}
 
 /** O cofre aberto, só na memória: a chave (não exportável), o manifesto e de quem é. */
 export interface CofreAberto {
@@ -45,6 +59,8 @@ export interface CofreAberto {
   readonly paradaMaxima: number;
   /** Este aparelho, em palavras, para o manifesto ("PC", "Celular"). */
   readonly aparelho: string;
+  /** Para gerenciar; ausente quando quem abriu não passou o desafio (os testes da lista e dos itens). */
+  readonly segredos?: SegredosDoAberto;
 }
 
 /** A assinatura de uma passkey para abrir, e o segredo do PRF que ela deu (null se não deu). */
@@ -157,15 +173,19 @@ export async function senhaDoDesafio(senha: string, desafio: DesafioDeAbrir): Pr
 
 /**
  * Com M e kSenha: a prova da senha vai para a API, que devolve V e o manifesto; V abre em VK. Zera M e
- * kSenha (deu certo ou não). Uma senha errada vem da API como `ErroApi` ("senha-errada").
+ * kSenha (deu certo ou não). Uma senha errada vem da API como `ErroApi` ("senha-errada"). Com o desafio
+ * (o sal e o Argon2id), o cofre aberto guarda o que gerenciar precisa (`SegredosDoAberto`), com uma cópia
+ * de M.
  */
-export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: Bytes, aparelho: string): Promise<CofreAberto> {
+export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: Bytes, aparelho: string, desafio?: Pick<DesafioDeAbrir, 'sal' | 'kdf'>): Promise<CofreAberto> {
   let kAuth: Bytes | null = null;
   try {
     kAuth = await provaDaSenha(kSenha, m);
     const abertura = await api.abrir(paraBase64url(kAuth));
-    const chave = await abrirCofre(kSenha, m, usuario, bytes(abertura.v, 'V'));
+    const v = bytes(abertura.v, 'V');
+    const chave = await abrirCofre(kSenha, m, usuario, v);
     const manifesto = await decifrarManifesto(chave, usuario, abertura.contador, bytes(abertura.manifesto, 'manifesto'));
+    const segredos = desafio ? { m: m.slice(), v, sal: bytes(desafio.sal, 'sal'), kdf: { m: desafio.kdf.m, t: desafio.kdf.t, p: desafio.kdf.p } } : undefined;
     return {
       usuario,
       chave,
@@ -175,6 +195,7 @@ export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: By
       expiraEm: abertura.expiraEm,
       paradaMaxima: abertura.paradaMaxima,
       aparelho,
+      ...(segredos ? { segredos } : {}),
     };
   } finally {
     zerar(kSenha, m, kAuth);

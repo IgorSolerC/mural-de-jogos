@@ -128,6 +128,32 @@ export interface Gravacao {
   readonly contadorAnterior: number;
 }
 
+/** Um aparelho do cofre (`GET /api/cofre/aparelhos`). */
+export interface AparelhoDaApi {
+  readonly id: string;
+  readonly apelido: string;
+  readonly prf: boolean;
+  readonly criadoEm: string;
+  readonly usadoEm: string | null;
+}
+
+/** Uma sessão aberta agora (`GET /api/cofre/sessoes`): só quando e onde, nunca o token. */
+export interface SessaoDaApi {
+  readonly tipo: 'entrada' | 'cofre';
+  readonly criadaEm: string;
+  readonly usadaEm: string;
+  readonly aparelho: string | null;
+  readonly atual: boolean;
+}
+
+/** Um acontecimento do histórico (`GET /api/cofre/eventos`). */
+export interface EventoDaApi {
+  readonly tipo: string;
+  readonly em: string;
+  readonly aparelho: string | null;
+  readonly pais: string | null;
+}
+
 /** O que o `POST /api/cofre` devolve ao criar. */
 export interface CofreCriado {
   readonly criado: true;
@@ -247,6 +273,42 @@ export class ApiCofre {
 
   apagarDeVez(id: string, gravacao: Gravacao): Promise<{ readonly contador: number }> {
     return this.pedir('DELETE', `/api/cofre/lixeira/${encodeURIComponent(id)}`, gravacao);
+  }
+
+  aparelhos(): Promise<{ readonly aparelhos: readonly AparelhoDaApi[] }> {
+    return this.pedir('GET', '/api/cofre/aparelhos');
+  }
+
+  porAparelho(aparelho: unknown): Promise<{ readonly id: string; readonly apelido: string; readonly prf: boolean }> {
+    return this.pedir('POST', '/api/cofre/aparelhos', { aparelho });
+  }
+
+  tirarAparelho(id: string): Promise<{ readonly tirado: true }> {
+    return this.pedir('DELETE', `/api/cofre/aparelhos/${encodeURIComponent(id)}`);
+  }
+
+  trocarSenha(corpo: unknown): Promise<{ readonly trocada: true }> {
+    return this.pedir('PUT', '/api/cofre/senha', corpo);
+  }
+
+  novoCodigo(corpo: unknown): Promise<{ readonly trocado: true }> {
+    return this.pedir('PUT', '/api/cofre/recuperacao', corpo);
+  }
+
+  sessoes(): Promise<{ readonly sessoes: readonly SessaoDaApi[] }> {
+    return this.pedir('GET', '/api/cofre/sessoes');
+  }
+
+  trancarTodos(): Promise<{ readonly trancados: true }> {
+    return this.pedir('POST', '/api/cofre/trancar-todos', {});
+  }
+
+  eventos(): Promise<{ readonly eventos: readonly EventoDaApi[] }> {
+    return this.pedir('GET', '/api/cofre/eventos');
+  }
+
+  apagarCofre(confirmacao: string): Promise<{ readonly apagado: true }> {
+    return this.pedir('DELETE', '/api/cofre', { confirmacao });
   }
 
   /**

@@ -1348,3 +1348,31 @@ abrir pelo código do kit (com a senha guardada lá e o aviso do código). O tes
 URL era `type="url"` e o navegador barrava "banco.exemplo" sem esquema; virou texto com
 `inputmode="url"`. O roteiro é `cofre-api/test/e2e/chrome.mjs` (o puppeteer-core fica fora do projeto).
 
+### 17.8 Fase 6 (começada em 22/10)
+
+Parte 1, a lógica de gerenciar, sem tela (`core/gerenciar.ts`):
+- pôr um aparelho: a passkey e o envelope selado com M;
+- trocar a senha: confere a atual abrindo V, sela a mesma chave do cofre com a nova, com sal novo e o
+  Argon2id padrão, e manda a prova nova;
+- um código de recuperação novo, devolvido para o kit.
+
+A API da página ganhou os pedidos de aparelhos, sessões, trancar todos, histórico e apagar. A montagem do
+envelope de um aparelho ficou numa função só (`corpoDoAparelho`), usada ao criar e ao pôr.
+
+**Para o usuário conferir: M fica na memória enquanto o cofre está aberto.**
+- Gerenciar precisa de M (o envelope de um aparelho ou de um código novo) e de V, do sal e do Argon2id
+  (trocar a senha).
+- Pela API, a passkey só é conferida na sessão de entrada, então não dá para pedi-la de novo com o cofre
+  aberto.
+- Esses segredos ficam na memória só com o cofre aberto e somem ao trancar (a página recarrega).
+- Trocar a senha pede a senha atual.
+- Quem já roda código na página aberta consegue usar a chave do cofre de qualquer jeito, e M sozinho não
+  abre nada sem a senha.
+
+Com a API de verdade (`pagina.suite.ts`):
+- o código novo abre, e o antigo para de valer na hora;
+- trocar a senha: a nova abre e a velha não; a senha atual errada não troca nada;
+- tirar e pôr aparelhos, sem nunca tirar o último, e o aparelho posto de novo abre o cofre;
+- as sessões sem token, o histórico, trancar todos (a sessão para de valer) e apagar o cofre (só com
+  APAGAR).
+
