@@ -6,6 +6,8 @@ import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { EmbedBridge } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
+import { ZoomKnob } from './zoom-knob';
+import { pieceLift } from './piece-lift';
 
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
@@ -22,9 +24,11 @@ import { VolumeKnob } from './volume-knob';
  * O vídeo toca no volume de todo som do site: com o mouse em cima, o adesivo do alto-falante, no
  * canto da foto, abre o volume (ui/volume-knob.ts); o player obedece por mensagem.
  *
- * A imagem se amplia: com o mouse em cima (na ficha do mural, em cima da ficha), o mesmo broche de
- * lata do volume, no mesmo canto, com a seta de ampliar; ele abre a foto no meio da tela
- * (ui/image-viewer.ts, carregado só no toque). Sem mouse, o broche fica sempre à mostra.
+ * A foto e o vídeo se ampliam: com o mouse em cima (na ficha do mural, em cima da ficha), o broche
+ * de ampliar (ui/zoom-knob.ts), no mesmo canto (no vídeo, ao lado do alto-falante). A imagem abre
+ * no visor dela (ui/image-viewer.ts, carregado só no toque); o vídeo sobe inteiro para o meio da
+ * tela (ui/piece-lift.ts), com a moldura e a etiqueta (a figura toda, reta), e o que estava
+ * tocando continua tocando.
  *
  * O tamanho (ver note-widget.ts): a peça inteira (a borda, a faixa da polaroide, a etiqueta) tem a
  * altura do tamanho, `--widget-alto`, e a foto fica com o que sobra dela, na proporção da foto,
@@ -33,12 +37,12 @@ import { VolumeKnob } from './volume-knob';
  */
 @Component({
   selector: 'app-glued-media',
-  imports: [IconModule, VolumeKnob],
+  imports: [IconModule, VolumeKnob, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let m = media();
-    <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span #foto class="foto" data-colado [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
+    <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
+      <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
@@ -51,9 +55,7 @@ import { VolumeKnob } from './volume-knob';
           <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
           <span class="reflexo" aria-hidden="true"></span>
           @if (loaded()) {
-            <button type="button" class="ampliar tocavel" [attr.aria-label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" title="Ampliar" (click)="zoom($event)">
-              <span class="face"><lucide-icon [img]="ZoomIcon" [size]="18" aria-hidden="true" /></span>
-            </button>
+            <app-zoom-knob class="ampliar" [label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" (pressed)="zoom()" />
           }
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
@@ -83,7 +85,11 @@ import { VolumeKnob } from './volume-knob';
           }
         }
         @if (video() && !broken()) {
-          <app-volume-knob class="volume" />
+          <!-- os broches do canto: ampliar e, na quina, o alto-falante -->
+          <span class="broches">
+            <app-zoom-knob [label]="'Ampliar o vídeo' + (m.caption ? ': ' + m.caption : '')" (pressed)="lift.toggle(colagem)" />
+            <app-volume-knob />
+          </span>
         }
         @if (m.frame === 'polaroid') {
           <figcaption class="legenda-polaroide">{{ m.caption }}</figcaption>
@@ -91,13 +97,11 @@ import { VolumeKnob } from './volume-knob';
       </span>
       @if (m.frame !== 'polaroid' && m.caption) {
         <!-- sem a faixa da polaroide, a legenda vai numa etiqueta de papel colada no pé da foto -->
-        <figcaption class="etiqueta-lugar"><span class="etiqueta" data-colado><span class="etiqueta-papel" aria-hidden="true"></span>{{ m.caption }}</span></figcaption>
+        <figcaption class="etiqueta-lugar"><span class="etiqueta" data-colado data-ergue-largura><span class="etiqueta-papel" aria-hidden="true"></span>{{ m.caption }}</span></figcaption>
       }
     </figure>
   `,
   styles: `
-    @use 'broche';
-
     :host {
       display: block;
       /* a foto ocupa linhas inteiras da pauta (a altura final vem do tamanho dela, ver o construtor) */
@@ -278,39 +282,30 @@ import { VolumeKnob } from './volume-knob';
       outline-offset: 4px;
     }
 
-    /* ===== O alto-falante: um adesivo no canto de cima da foto, à direita ===== */
-    .volume {
+    /* ===== Os broches no canto de cima da foto, à direita: ampliar (ui/zoom-knob.ts) e, no
+       vídeo, o alto-falante na quina, com o de ampliar ao lado ===== */
+    .ampliar,
+    .broches {
       grid-area: 1 / 1;
       place-self: start end;
       position: relative;
       z-index: 2;
       margin: 8px;
     }
-
-    /* ===== Ampliar: o broche do volume, no mesmo canto, com a seta de ampliar =====
-       Aparece com o mouse em cima da foto (na ficha do mural, o texto deixa o toque passar, então
-       vale o mouse em cima da ficha) ou com o foco do teclado. Escondido só na opacidade: o teclado
-       chega nele (um broche invisível debaixo do mouse já está à mostra); some com a foto (inherit) */
-    .ampliar {
-      @include broche.escondido;
-      grid-area: 1 / 1;
-      place-self: start end;
-      position: relative;
-      z-index: 2;
-      margin: 8px;
-      visibility: inherit;
-      @include broche.lata(30px);
+    .broches {
+      display: flex;
+      gap: 6px;
     }
-    .foto:hover > .ampliar,
-    :host-context(app-review-card:hover) .ampliar,
-    .ampliar:focus-visible {
-      @include broche.a-mostra;
-    }
-    /* sem mouse (só o toque), sempre à mostra */
-    @media (hover: none) {
-      .ampliar {
-        @include broche.a-mostra;
-      }
+    /* no alto, o player grande tem os botões dele no canto: o alto-falante sai da foto e fica
+       pendurado na beirada de cima, ao lado do X (do tamanho de sempre: a peça cresce com o zoom e
+       os broches não) */
+    .erguida .broches {
+      /* (sem a área da grade: o canto é o da foto, não o de dentro da borda branca) */
+      grid-area: auto;
+      position: absolute;
+      top: calc(-13px / var(--erguida-zoom, 1));
+      right: calc(23px / var(--erguida-zoom, 1));
+      margin: 0;
     }
 
     /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou numa etiqueta ===== */
@@ -422,7 +417,8 @@ export class GluedMedia {
 
   protected readonly BrokenIcon = ICON.semImagem;
   protected readonly VideoIcon = ICON.video;
-  protected readonly ZoomIcon = ICON.aumentar;
+  /** O vídeo no meio da tela. */
+  protected readonly lift = pieceLift();
   private readonly sanitizer = inject(DomSanitizer);
   private readonly env = inject(EnvironmentInjector);
   private readonly app = inject(ApplicationRef);
@@ -508,9 +504,7 @@ export class GluedMedia {
   }
 
   /** Amplia a foto no meio da tela (o visor só carrega agora, no primeiro toque). */
-  protected zoom(e: Event): void {
-    e.preventDefault();
-    e.stopPropagation();
+  protected zoom(): void {
     const from = this.photo()?.nativeElement;
     if (!from) return;
     const { url, caption, frame } = this.media();

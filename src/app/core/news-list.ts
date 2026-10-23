@@ -26,13 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-23-ampliar-imagem',
+    id: '2026-10-23-ampliar-widgets',
     version: '1.31.1',
     kind: 'ajustes',
     date: '2026-10-23',
-    title: 'Ampliar as imagens e minimizar a ficha aberta pelo link',
+    title: 'Ampliar os widgets e minimizar a ficha aberta pelo link',
     melhorias: [
-      'As imagens coladas no texto se ampliam: com o mouse em cima, aparece um broche de ampliar no canto (no celular, ele fica sempre à mostra), que abre a foto no meio da tela, do maior tamanho que cabe.',
+      'Os widgets do texto se ampliam: com o mouse em cima, aparece um broche de ampliar no canto (no celular, ele fica sempre à mostra). A imagem abre no meio da tela, do maior tamanho que cabe; o vídeo, a faixa de áudio, o contador e a nota colada sobem inteiros, e o que estava tocando continua tocando.',
       'A ficha aberta pelo link ganhou o Minimizar, no lugar do X: ela vira a ficha pregada como fica no mural, e um toque nela ou no "Abrir a ficha" abre de novo.',
     ],
   },

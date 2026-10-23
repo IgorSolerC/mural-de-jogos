@@ -188,5 +188,29 @@ describe('a faixa de áudio', () => {
     expect(el.querySelector('.falha')).not.toBeNull();
     expect(el.querySelector('app-volume-knob')).toBeNull();
   });
-});
 
+  it('o broche de ampliar fica ao lado do alto-falante, que continua na quina, nos três jeitos', async () => {
+    TestBed.configureTestingModule({ imports: [AudioTrack], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(AudioTrack);
+    const el = fixture.nativeElement as HTMLElement;
+    for (const look of ['fita', 'vinil', 'simples']) {
+      fixture.componentRef.setInput('args', ['https://exemplo.com.br/faixa.mp3', 'Nome', look]);
+      await fixture.whenStable();
+      const corner = [...el.querySelectorAll('.broches > *')].map((k) => k.tagName.toLowerCase());
+      expect(corner).withContext(look).toEqual(['app-zoom-knob', 'app-volume-knob']);
+      expect(el.querySelector('.broches app-zoom-knob button')!.getAttribute('aria-label')).toBe('Ampliar a faixa: Nome');
+    }
+    // a faixa sobe inteira (a mesma, tocando), e desce
+    document.body.appendChild(el);
+    const audio = el.querySelector('audio');
+    el.querySelector<HTMLButtonElement>('.broches app-zoom-knob button')!.click();
+    const piece = el.querySelector<HTMLElement>('.faixa')!;
+    expect(piece.classList).toContain('erguida');
+    expect(el.querySelector('audio')).toBe(audio);
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    for (let i = 0; i < 100 && piece.classList.contains('erguida'); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(piece.classList).not.toContain('erguida');
+    el.remove();
+    fixture.destroy();
+  });
+});

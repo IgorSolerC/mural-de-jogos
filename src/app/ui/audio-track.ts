@@ -8,6 +8,8 @@ import { EmbedBridge, EmbedReport } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { Warmable, warmups } from './sound-warmup';
 import { VolumeKnob } from './volume-knob';
+import { ZoomKnob } from './zoom-knob';
+import { pieceLift } from './piece-lift';
 
 /** Só uma faixa toca por vez: a que começa para a de antes. */
 let sounding: AudioTrack | null = null;
@@ -60,7 +62,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
  */
 @Component({
   selector: 'app-audio-track',
-  imports: [IconModule, NgTemplateOutlet, VolumeKnob],
+  imports: [IconModule, NgTemplateOutlet, VolumeKnob, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.solta]': 'bare()' },
   template: `
@@ -76,8 +78,10 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       </span>
     } @else {
       <div
+        #faixa
         class="faixa"
-        [class]="'faixa som jeito-' + a.look"
+        data-zoom-max="2.5"
+        [class]="'faixa som amplia jeito-' + a.look"
         [class.tocando]="playing()"
         [class.esperando]="waiting()"
         [style.--p]="share()"
@@ -239,11 +243,14 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       }
     }
 
-    <!-- o alto-falante, num canto da peça (só de quem tem som para tocar) -->
+    <!-- os broches, num canto da peça: ampliar e, na quina, o alto-falante (só de quem tem som para tocar) -->
     <ng-template #volume>
-      @if (playable()) {
-        <app-volume-knob class="volume" />
-      }
+      <span class="broches">
+        <app-zoom-knob [label]="'Ampliar a faixa' + (info().title ? ': ' + info().title : '')" (pressed)="zoom()" />
+        @if (playable()) {
+          <app-volume-knob />
+        }
+      </span>
     </ng-template>
 
     <ng-template #playIcon>
@@ -479,16 +486,28 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
       position: relative;
     }
 
-    /* ===== O alto-falante: um adesivo no canto de cima, à direita (ver ui/volume-knob.ts) =====
+    /* ===== Os broches: no canto de cima, à direita, o alto-falante na quina (ver ui/volume-knob.ts)
+       e o de ampliar ao lado (ui/zoom-knob.ts) =====
        Na tira, meio para fora da quina (o nome e o tempo ficam à mostra); na fita, na quina do
        plástico; no vinil, dentro da capa (que corta o que passa dela) */
-    .volume {
+    .broches {
       position: absolute;
       z-index: 3;
       top: 6px;
       right: 6px;
+      display: flex;
+      gap: 6px;
     }
-    .tira .volume {
+    /* no alto, a peça cresce com o zoom e os broches não: o alto-falante fica no mesmo canto */
+    .erguida .broches {
+      top: calc(6px / var(--erguida-zoom, 1));
+      right: calc(6px / var(--erguida-zoom, 1));
+    }
+    .erguida .tira .broches {
+      top: calc(-11px / var(--erguida-zoom, 1));
+      right: calc(-11px / var(--erguida-zoom, 1));
+    }
+    .tira .broches {
       top: -11px;
       right: -11px;
     }
@@ -901,6 +920,9 @@ export class AudioTrack implements Warmable {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly sound = viewChild<ElementRef<HTMLAudioElement>>('sound');
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
+  private readonly piece = viewChild<ElementRef<HTMLElement>>('faixa');
+  /** A faixa no meio da tela (ui/piece-lift.ts): a mesma, que continua tocando. */
+  protected readonly lift = pieceLift();
 
   protected readonly info = computed(() => readAudio(this.args()));
   // de cada link: trocar o link começa de novo, parado, sem o erro nem o tempo do de antes
@@ -1094,6 +1116,11 @@ export class AudioTrack implements Warmable {
   }
 
   // ===== O que a pessoa faz =====
+
+  protected zoom(): void {
+    const piece = this.piece()?.nativeElement;
+    if (piece) this.lift.toggle(piece);
+  }
 
   protected toggle(e: Event): void {
     e.preventDefault();

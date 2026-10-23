@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { ICON, IconModule } from './icons';
+import { ZoomKnob } from './zoom-knob';
+import { pieceLift } from './piece-lift';
 import { Clock } from '../core/clock';
 import { CountdownLook, Remaining, When, everyText, readCountdown, remaining, repeats, targetOf } from '../core/widgets';
 import { cap } from '../core/text';
@@ -66,11 +68,11 @@ interface Flap {
  */
 @Component({
   selector: 'app-countdown',
-  imports: [IconModule],
+  imports: [IconModule, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
-      <div class="contador" [class]="'jeito-' + s.look" [class.chegou]="s.r.past" role="timer" [attr.aria-label]="spoken()">
+      <div #contador class="contador amplia" data-zoom-max="2.5" [class]="'jeito-' + s.look" [class.chegou]="s.r.past" role="timer" [attr.aria-label]="spoken()">
         @switch (s.look) {
           @case ('neon') {
             <div class="neon" data-colado [style.--celas]="s.cells" aria-hidden="true">
@@ -204,6 +206,9 @@ interface Flap {
             </div>
           }
         }
+        <!-- o broche de ampliar, no canto de cima do quadro (fora dele: o quadro é aria-hidden), metade
+             para fora, como o alto-falante da tira: o contador sobe para o meio da tela, andando -->
+        <app-zoom-knob class="ampliar" [label]="'Ampliar o contador' + (s.title || s.name ? ': ' + (s.title || s.name) : '')" (pressed)="lift.toggle(contador)" />
       </div>
     } @else {
       <!-- sem uma data que exista: o contador em branco diz como escrever -->
@@ -232,11 +237,36 @@ interface Flap {
       white-space: normal;
     }
     .contador {
+      position: relative;
       display: flex;
       align-items: center;
       gap: 0.85em;
       min-width: 0;
       max-width: 100%;
+    }
+    /* o broche de ampliar (ui/zoom-knob.ts), no canto de cima do quadro desenhado (o bloquinho, o
+       recado, a placa), metade para fora dele, como o alto-falante da tira: o nome e os números
+       ficam à mostra. O quadro é aria-hidden, então o broche fica fora dele e se prende no canto
+       dele pela âncora; sem âncora no navegador, no canto do contador */
+    .ampliar {
+      position: absolute;
+      z-index: 3;
+      top: -11px;
+      right: -11px;
+    }
+    @supports (anchor-name: --quadro) {
+      .contador {
+        anchor-scope: --quadro;
+      }
+      :is(.bloco, .recado, .neon, .placar) {
+        anchor-name: --quadro;
+      }
+      .ampliar {
+        position-anchor: --quadro;
+        top: calc(anchor(top) - 11px);
+        right: auto;
+        left: calc(anchor(right) - 19px);
+      }
     }
 
     /* ===== Calendário: papelão vermelho em cima, as folhas embaixo =====
@@ -913,6 +943,8 @@ export class Countdown {
   readonly args = input.required<readonly string[]>();
 
   protected readonly EmptyIcon = ICON.ampulheta;
+  /** O contador no meio da tela (ui/piece-lift.ts). */
+  protected readonly lift = pieceLift();
   protected readonly SEGMENTS = SEGMENTS;
   private readonly clock = inject(Clock);
 

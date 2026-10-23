@@ -2,6 +2,7 @@
 @use 'app/ui/divisorias' as div;
 @use 'app/ui/a11y';
 @use '../shared/eucatex';
+@use 'app/ui/broche';
 
 /* Murall: parede de eucatex com papelaria pregada. Tokens globais e materiais. */
 
@@ -1010,6 +1011,87 @@ dialog.sheet {
 
   &[open]::backdrop {
     animation: fade-in var(--t-ui) var(--ease-ui);
+  }
+}
+
+/* ===== A peça ampliada (ui/piece-lift.ts): o widget no meio da tela, na camada de cima =====
+   É um popover: sem a borda, o fundo, a cor e o corte que o navegador dá a ele (em :where, para o
+   papel da própria peça continuar valendo), reta, no meio, do tamanho que tinha vezes o zoom */
+:where(.erguida) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  overflow: visible;
+}
+.erguida {
+  position: fixed !important;
+  inset: 0 !important;
+  margin: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  rotate: 0deg !important;
+  translate: none !important;
+  transition: none !important;
+  zoom: var(--erguida-zoom, 1);
+  /* no texto da ficha do mural, que deixa o toque passar, ela pega o toque */
+  pointer-events: auto;
+
+  &::backdrop {
+    background: rgb(8 8 10 / 0.72);
+  }
+  /* os broches de dentro (o volume) ficam do tamanho deles, e o player do vídeo cresce na caixa,
+     não por dentro (com o zoom, os botões dele virariam letreiro); o de ampliar dá lugar ao do X */
+  app-volume-knob,
+  iframe,
+  video {
+    zoom: calc(1 / var(--erguida-zoom, 1));
+  }
+  app-zoom-knob {
+    display: none;
+  }
+  /* o filho torto (a foto do vídeo, dentro da figura que sobe) também fica reto */
+  [data-ergue-giro] {
+    rotate: 0deg !important;
+    transition: none !important;
+  }
+}
+/* a peça sem papel próprio (o contador, a fita, a ficha colada) fica numa folha creme, a da leitura,
+   com a margem em volta (a letra dela é tinta no papel, e não pode ficar no escuro) */
+.erguida.erguida-papel {
+  border-radius: 2px;
+  background-color: var(--paper) !important;
+  background-image: var(--paper-grain) !important;
+  background-blend-mode: multiply;
+  box-shadow:
+    0 2px 3px rgb(0 0 0 / 0.4),
+    0 24px 48px -16px rgb(0 0 0 / 0.7) !important;
+}
+/* a peça mais alta que a tela (o texto inteiro de uma nota colada) rola */
+.erguida.erguida-rola {
+  max-height: var(--erguida-alto) !important;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* o broche do X: outro popover, por cima da peça, preso no canto de cima dela (o lugar vem do
+   ui/piece-lift.ts), do tamanho de sempre; sem o que o navegador dá ao popover */
+.erguida-fechar {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  overflow: visible;
+  @include broche.lata(30px);
+
+  svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    translate: 0 -0.5px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 }
 

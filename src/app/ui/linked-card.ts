@@ -15,6 +15,8 @@ import { pinningFor } from '../core/wall-physics';
 import { CardLook, cardLookSized, readCardRef } from '../core/widgets';
 import { GluedReviewCard } from './glued-review-card';
 import { RichText } from './rich-text';
+import { ZoomKnob } from './zoom-knob';
+import { pieceLift } from './piece-lift';
 
 /** A largura da ficha simples de verdade, antes de encolher (a de uma coluna do mural). */
 const CARD_WIDTH = 300;
@@ -68,7 +70,7 @@ const EAR_GAP = 0.2;
 @Component({
   selector: 'app-linked-card',
   // (ela chega por um import() do widget: a ficha do mural desenha o texto, que desenha esta)
-  imports: [IconModule, GluedReviewCard, RichText],
+  imports: [IconModule, GluedReviewCard, RichText, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [{ provide: GLUE, useFactory: () => new GlueLink(inject(GLUE, { skipSelf: true, optional: true })) }],
   host: {
@@ -106,7 +108,7 @@ const EAR_GAP = 0.2;
           <!-- o texto inteiro: a nota como fica aberta, colada inteira na de fora (a faixa da
                cartolina dela com o nome e a folha creme com o texto todo). A seta da faixa fecha o
                texto (fica só o nome); tocar no que não é de tocar abre esta nota, não a de fora -->
-          <article class="inteira" data-colado [class.abre]="openable()" [class.fechada]="folded()" [attr.aria-label]="spoken(f.review)" (click)="sheetClick($event, f.review)">
+          <article #inteira class="inteira amplia" data-colado data-zoom-max="2" [class.abre]="openable()" [class.fechada]="folded()" [attr.aria-label]="spoken(f.review)" (click)="sheetClick($event, f.review)">
             <header class="faixa cartolina" [attr.data-cor]="stock()" [style]="ownPaper()">
               <span class="faixa-textos">
                 @if (overline(f.review); as o) {
@@ -118,6 +120,8 @@ const EAR_GAP = 0.2;
                   <span class="faixa-nome">{{ f.review.game.name }}</span>
                 }
               </span>
+              <!-- o broche de ampliar, ao lado da seta: a nota sobe para o meio da tela, viva -->
+              <app-zoom-knob class="ampliar-faixa" [label]="'Ampliar ' + f.review.game.name" (pressed)="lift.toggle(inteira)" />
               <button
                 type="button"
                 class="dobra"
@@ -141,7 +145,7 @@ const EAR_GAP = 0.2;
           </article>
         }
         @default {
-      <div class="lugar" data-colado [style.width.px]="box().w" [style.height.px]="box().h" [style.margin-top.px]="box().top">
+      <div #lugar class="lugar amplia" data-colado data-papel-proprio [attr.data-zoom-max]="zoomMax()" [style.width.px]="box().w" [style.height.px]="box().h" [style.margin-top.px]="box().top">
         <div class="escala" #escala [style.width.px]="cardWidth()" [style.scale]="box().s">
           <app-review-card
             [review]="f.review"
@@ -154,6 +158,7 @@ const EAR_GAP = 0.2;
             (opened)="open(f.review)"
           />
         </div>
+        <app-zoom-knob class="ampliar" [label]="'Ampliar ' + f.review.game.name" (pressed)="lift.toggle(lugar)" />
       </div>
       @if (!openable()) {
         <span class="sr-only">{{ spoken(f.review) }}</span>
@@ -194,6 +199,18 @@ const EAR_GAP = 0.2;
       position: relative;
       flex: none;
       max-width: 100%;
+    }
+    /* o broche de ampliar (ui/zoom-knob.ts): no canto de cima da ficha; no texto inteiro, na faixa,
+       ao lado da seta */
+    .ampliar {
+      position: absolute;
+      z-index: 3;
+      top: 6px;
+      right: 6px;
+    }
+    .ampliar-faixa {
+      flex: none;
+      margin: -3px 0;
     }
     /* a ficha de verdade, do tamanho dela, encolhida do canto de cima */
     .escala {
@@ -549,6 +566,13 @@ export class LinkedCard {
   readonly lines = input<number | null>(null);
 
   protected readonly LostIcon = ICON.notaSumida;
+  /** A nota no meio da tela (ui/piece-lift.ts). */
+  protected readonly lift = pieceLift();
+  /**
+   * A ficha colada sobe até o tamanho em que a capinha ainda não borra (MAX_SCALE do tamanho dela),
+   * e sempre ao menos um pouco (a que já está no máximo, na leitura, cresce uma vez e meia).
+   */
+  protected readonly zoomMax = computed(() => Math.max(1.5, MAX_SCALE / (this.box().s || 1)).toFixed(3));
   protected readonly PrivateIcon = ICON.privada;
   private readonly finder = inject(CardFinder);
 

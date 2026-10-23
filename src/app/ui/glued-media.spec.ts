@@ -127,12 +127,12 @@ describe('a foto colada na anotação', () => {
       document.querySelector('app-image-viewer')?.remove();
     });
 
-    it('o broche de ampliar só aparece com a foto revelada, e nunca no vídeo', async () => {
+    it('o broche de ampliar só aparece com a foto revelada; no vídeo, fica ao lado do alto-falante', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg']);
       expect(el.querySelector('.ampliar')).toBeNull();
       el.querySelector('img')!.dispatchEvent(new Event('load'));
       await fixture.whenStable();
-      const knob = el.querySelector<HTMLButtonElement>('.foto > button.ampliar.tocavel')!;
+      const knob = el.querySelector<HTMLButtonElement>('.foto > app-zoom-knob.ampliar button.tocavel')!;
       expect(knob).not.toBeNull();
       expect(knob.getAttribute('aria-label')).toBe('Ampliar a imagem');
       // a foto que não abriu não amplia
@@ -140,9 +140,12 @@ describe('a foto colada na anotação', () => {
       await fixture.whenStable();
       expect(el.querySelector('.ampliar')).toBeNull();
       fixture.componentRef.setInput('kind', 'video');
-      fixture.componentRef.setInput('args', ['https://exemplo.com.br/clipe.mp4']);
+      fixture.componentRef.setInput('args', ['https://exemplo.com.br/clipe.mp4', 'Clipe']);
       await fixture.whenStable();
       expect(el.querySelector('.ampliar')).toBeNull();
+      const corner = [...el.querySelectorAll('.foto > .broches > *')].map((k) => k.tagName.toLowerCase());
+      expect(corner).toEqual(['app-zoom-knob', 'app-volume-knob']);
+      expect(el.querySelector('.broches app-zoom-knob button')!.getAttribute('aria-label')).toBe('Ampliar o vídeo: Clipe');
       fixture.destroy();
     });
 
@@ -178,7 +181,7 @@ describe('a foto colada na anotação', () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'polaroide', 'Na praia']);
       el.querySelector('img')!.dispatchEvent(new Event('load'));
       await fixture.whenStable();
-      const knob = el.querySelector<HTMLButtonElement>('.ampliar')!;
+      const knob = el.querySelector<HTMLButtonElement>('.ampliar button')!;
       expect(knob.getAttribute('aria-label')).toBe('Ampliar a imagem: Na praia');
       let opened = false;
       el.addEventListener('click', () => (opened = true));
@@ -209,7 +212,7 @@ describe('a foto colada na anotação', () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'Um bilhete']);
       el.querySelector('img')!.dispatchEvent(new Event('load'));
       await fixture.whenStable();
-      el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+      el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
       let dialog = await viewer();
       expect(dialog.querySelector('.legenda-polaroide')).toBeNull();
       expect(dialog.querySelector('.etiqueta')!.textContent).toBe('Um bilhete');
@@ -217,7 +220,7 @@ describe('a foto colada na anotação', () => {
       await gone();
       expect(document.querySelector('app-image-viewer')).toBeNull();
 
-      el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+      el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
       dialog = await viewer();
       dialog.querySelector<HTMLElement>('.foto')!.click();
       await gone();
@@ -225,5 +228,38 @@ describe('a foto colada na anotação', () => {
       expect(el.querySelector<HTMLElement>('figure.colagem')!.style.opacity).toBe('');
       fixture.destroy();
     });
+  });
+
+  it('o vídeo sobe inteiro para o meio da tela, com a etiqueta e o mesmo player (o que toca continua tocando)', async () => {
+    TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(GluedMedia);
+    fixture.componentRef.setInput('kind', 'video');
+    fixture.componentRef.setInput('args', ['https://exemplo.com.br/clipe.mp4', 'Clipe']);
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    document.body.appendChild(el);
+    const film = el.querySelector('video')!;
+    const glued = el.querySelector<HTMLElement>('figure.colagem')!;
+    expect(getComputedStyle(el.querySelector('.foto')!).rotate).not.toBe('0deg');
+    // o desenhado: a foto e a etiqueta (que pode passar da foto estreita), do canto da figura
+    const left = glued.getBoundingClientRect().left;
+    const drawn = Math.max(...['.foto', '.etiqueta'].map((q) => el.querySelector(q)!.getBoundingClientRect().right - left));
+    expect(drawn).toBeLessThan(el.offsetWidth - 50);
+    el.querySelector<HTMLButtonElement>('.broches app-zoom-knob button')!.click();
+    expect(glued.classList).toContain('erguida');
+    // a figura inteira: a foto, reta, e a etiqueta da legenda junto
+    expect(glued.querySelector('.etiqueta')!.textContent).toBe('Clipe');
+    expect(getComputedStyle(el.querySelector('.foto')!).rotate).toBe('0deg');
+    // da largura do que tem dentro, não da linha
+    expect(parseFloat(glued.style.width)).toBe(Math.ceil(drawn));
+    expect(glued.matches(':popover-open')).toBeTrue();
+    expect(el.querySelector('video')).toBe(film);
+    // a foto do vídeo já é papel: sem a folha creme
+    expect(glued.classList).not.toContain('erguida-papel');
+    (glued.nextElementSibling as HTMLButtonElement).click();
+    for (let i = 0; i < 100 && glued.classList.contains('erguida'); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(glued.classList).not.toContain('erguida');
+    el.remove();
+    fixture.destroy();
   });
 });

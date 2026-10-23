@@ -135,4 +135,19 @@ describe('contador (o bloquinho)', () => {
     expect(text(el, '.quando')).not.toContain('Foi em');
     expect(text(el, '.resto')).toBe('Hoje. Amanhã volta a contar para a semana que vem.');
   });
+
+  it('o broche de ampliar sobe o contador inteiro para o meio da tela, numa folha creme', () => {
+    now.set(at(2026, 10, 17, 12));
+    const el = make(['25/12/2026', 'Natal']);
+    document.body.appendChild(el);
+    const knob = el.querySelector<HTMLButtonElement>('.contador > app-zoom-knob.ampliar button')!;
+    expect(knob.getAttribute('aria-label')).toBe('Ampliar o contador: Natal');
+    knob.click();
+    const piece = el.querySelector<HTMLElement>('.contador')!;
+    expect(piece.classList).toContain('erguida');
+    // o lado escrito é tinta no papel: não fica no escuro
+    expect(piece.classList).toContain('erguida-papel');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    el.remove();
+  });
 });

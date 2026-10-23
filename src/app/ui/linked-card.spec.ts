@@ -67,6 +67,28 @@ describe('a nota colada no texto (o widget Nota)', () => {
     localStorage.clear();
   });
 
+  it('o broche de ampliar sobe a ficha colada (que já é papel) e o texto inteiro para o meio da tela', async () => {
+    await show(['#rjogo1', 'Hollow Knight']);
+    const lugar = el.querySelector<HTMLElement>('.lugar')!;
+    const knob = lugar.querySelector<HTMLButtonElement>(':scope > app-zoom-knob button')!;
+    expect(knob.getAttribute('aria-label')).toBe('Ampliar Hollow Knight');
+    knob.click();
+    expect(lugar.classList).toContain('erguida');
+    expect(lugar.classList).not.toContain('erguida-papel');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    fixture.destroy();
+    el.remove();
+
+    await show(['#rnota1', 'inteira']);
+    const sheet = el.querySelector<HTMLElement>('article.inteira')!;
+    // na faixa, ao lado da seta de recolher
+    const band = [...sheet.querySelectorAll('header > *')].map((k) => k.tagName.toLowerCase() + (k.classList.length ? '.' + k.classList[0] : ''));
+    expect(band.slice(-2)).toEqual(['app-zoom-knob.ampliar-faixa', 'button.dobra']);
+    sheet.querySelector<HTMLButtonElement>('app-zoom-knob button')!.click();
+    expect(sheet.classList).toContain('erguida');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+  });
+
   it('é a ficha simples de verdade, de outro mural, colada (o estrago de fora não a come)', async () => {
     await show(['#rjogo1', 'Hollow Knight']);
     const inner = el.querySelector('app-review-card')!;
