@@ -31,6 +31,7 @@ import {
   VERSAO_CRIPTO,
 } from './crypto';
 import { type Autenticador, autenticadorDoNavegador, ErroPasskey } from './passkey';
+import type { PasskeyDoCofre } from './confirmar';
 
 /**
  * O que gerenciar o cofre precisa (8.5) e só existe com ele aberto: M, para selar o envelope de um aparelho
@@ -61,6 +62,8 @@ export interface CofreAberto {
   readonly aparelho: string;
   /** Para gerenciar; ausente quando quem abriu não passou o desafio (os testes da lista e dos itens). */
   readonly segredos?: SegredosDoAberto;
+  /** As passkeys do cofre (as do desafio de abrir), para pedir uma de novo antes de mostrar uma senha protegida. */
+  readonly passkeys?: readonly PasskeyDoCofre[];
 }
 
 /** A assinatura de uma passkey para abrir, e o segredo do PRF que ela deu (null se não deu). */
@@ -177,7 +180,7 @@ export async function senhaDoDesafio(senha: string, desafio: DesafioDeAbrir): Pr
  * (o sal e o Argon2id), o cofre aberto guarda o que gerenciar precisa (`SegredosDoAberto`), com uma cópia
  * de M.
  */
-export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: Bytes, aparelho: string, desafio?: Pick<DesafioDeAbrir, 'sal' | 'kdf'>): Promise<CofreAberto> {
+export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: Bytes, aparelho: string, desafio?: Pick<DesafioDeAbrir, 'sal' | 'kdf'> & Partial<Pick<DesafioDeAbrir, 'publicKey'>>): Promise<CofreAberto> {
   let kAuth: Bytes | null = null;
   try {
     kAuth = await provaDaSenha(kSenha, m);
@@ -185,6 +188,7 @@ export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: By
     const v = bytes(abertura.v, 'V');
     const chave = await abrirCofre(kSenha, m, usuario, v);
     const manifesto = await decifrarManifesto(chave, usuario, abertura.contador, bytes(abertura.manifesto, 'manifesto'));
+    const passkeys = (desafio?.publicKey?.allowCredentials ?? []).map((c) => ({ id: c.id, ...(c.transports?.length ? { transports: [...c.transports] } : {}) }));
     const segredos = desafio ? { m: m.slice(), v, sal: bytes(desafio.sal, 'sal'), kdf: { m: desafio.kdf.m, t: desafio.kdf.t, p: desafio.kdf.p } } : undefined;
     return {
       usuario,
@@ -196,6 +200,7 @@ export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: By
       paradaMaxima: abertura.paradaMaxima,
       aparelho,
       ...(segredos ? { segredos } : {}),
+      ...(passkeys.length ? { passkeys } : {}),
     };
   } finally {
     zerar(kSenha, m, kAuth);

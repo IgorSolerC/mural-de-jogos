@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import type { CofreAberto } from '../../core/abrir';
 import { ApiCofre, ErroApi, type Gravacao, type ItensDaApi } from '../../core/api';
-import { aleatorios, paraBase64url } from '../../core/bytes';
+import { aleatorios, deBase64url, paraBase64url } from '../../core/bytes';
 import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../../core/crypto';
 import { type CamposDoItem, lerItens, salvarItem } from '../../core/itens';
 import { sha1 } from '../../core/vazadas';
@@ -51,12 +51,20 @@ class ApiNaMemoria extends ApiCofre {
   }
 }
 
-async function montar(recuperada = false, mais: readonly CamposDoItem[] = []) {
+/** A passkey do cofre nos testes, e a assinatura que ela devolve (o byte 32 do authenticatorData são os flags). */
+const PASSKEY = 'cGFzc2tleS1kby10ZXN0ZQ';
+function assinada(flags = 0x05): Credential {
+  const dados = new Uint8Array(37);
+  dados[32] = flags;
+  return { type: 'public-key', rawId: deBase64url(PASSKEY)!.buffer, response: { authenticatorData: dados.buffer }, getClientExtensionResults: () => ({}) } as unknown as Credential;
+}
+
+async function montar(recuperada = false, mais: readonly CamposDoItem[] = [], extra: Partial<CofreAberto> = {}) {
   const api = new ApiNaMemoria();
   const { chave } = await criarCofre(aleatorios(32), novaChaveDoMeio(), USUARIO);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: '2026-10-21T14:32:00.000Z', aparelho: 'Celular' };
   api.manifesto = paraBase64url(await cifrarManifesto(chave, USUARIO, manifesto));
-  const cofre: CofreAberto = { usuario: USUARIO, chave, manifesto, contador: 0, recuperada, expiraEm: new Date(Date.now() + 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC' };
+  const cofre: CofreAberto = { usuario: USUARIO, chave, manifesto, contador: 0, recuperada, expiraEm: new Date(Date.now() + 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC', ...extra };
   // dois itens já guardados, por fora da tela (outra cópia do cofre aberto)
   const outro = { ...cofre, manifesto: { ...manifesto } };
   await salvarItem(api, outro, { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel', url: '', descricao: '' }, null);
@@ -86,13 +94,20 @@ async function montar(recuperada = false, mais: readonly CamposDoItem[] = []) {
       return new Response(String(url).endsWith(h.slice(0, 5)) ? `${h.slice(5)}:42\n` : '', { status: 200 });
     }) as typeof fetch,
   } satisfies Pagina;
-  const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar: async () => null }, rpId: 'cofre.teste', pagina, terminar: terminou };
+  // a passkey de mentira: devolve `passkey.proxima` (uma assinatura, um erro do navegador ou nada) e conta os pedidos
+  const passkey: { proxima: Credential | Error | null; pedidos: number } = { proxima: assinada(), pedidos: 0 };
+  const pegar = async () => {
+    passkey.pedidos++;
+    if (passkey.proxima instanceof Error) throw passkey.proxima;
+    return passkey.proxima;
+  };
+  const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar }, rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Aberto);
   fixture.componentRef.setInput('cofre', cofre);
   fixture.componentRef.setInput('conta', 'K7QFM2XA');
   await estabilizar(fixture);
-  return { fixture, api, cofre, copias, sites, terminou, pedidosFora, el: fixture.nativeElement as HTMLElement };
+  return { fixture, api, cofre, copias, sites, terminou, pedidosFora, passkey, el: fixture.nativeElement as HTMLElement };
 }
 
 async function estabilizar(fixture: ComponentFixture<Aberto>): Promise<void> {
@@ -595,5 +610,198 @@ describe('as pastas do cofre (os grupos)', () => {
       const alarme = await doItem(api, cofre, 'Alarme');
       expect([alarme.grupo, alarme.grupoIcone, alarme.grupoCor]).toEqual(['Bancos', 'moedas', 'verde']);
     });
+  });
+});
+
+describe('várias senhas num item, e as que pedem a passkey de novo', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const facebook: CamposDoItem = {
+    titulo: 'Facebook',
+    rotulo: 'Conta pessoal',
+    usuario: 'eu@email.com',
+    senha: 'pessoal-1',
+    outras: [
+      { rotulo: 'Página da loja', usuario: 'loja@email.com', senha: 'loja-2', protegida: false },
+      { rotulo: 'Códigos de recuperação', usuario: '', senha: 'codigo-3', protegida: true },
+    ],
+    url: '',
+    descricao: '',
+  };
+  const comPasskey = { passkeys: [{ id: PASSKEY }] };
+  const abrir = async (fixture: ComponentFixture<Aberto>, el: HTMLElement, nome: RegExp) => {
+    botao(el, nome).click();
+    await estabilizar(fixture);
+  };
+  const nomes = (el: HTMLElement) => [...el.querySelectorAll('.entrada-nome')].map((h) => h.textContent!.trim());
+  const escrever = (el: HTMLElement, seletor: string, valor: string) => {
+    const campo = el.querySelector<HTMLInputElement>(seletor)!;
+    campo.value = valor;
+    campo.dispatchEvent(new Event('input'));
+  };
+
+  it('cada entrada com o nome dela; copiar a de baixo copia a dela; a lista diz quantas mais e a busca acha as outras', async () => {
+    const { fixture, el, copias } = await montar(false, [facebook], comPasskey);
+    expect(el.querySelector('.mais-senhas')!.textContent).toContain('+2');
+    await abrir(fixture, el, /Facebook/);
+    expect(nomes(el)).toEqual(['Conta pessoal', 'Página da loja', 'Códigos de recuperação']);
+    const loja = el.querySelectorAll('.entrada')[1]!;
+    [...loja.querySelectorAll('button')].filter((b) => b.textContent!.trim() === 'Copiar')[1]!.click();
+    await estabilizar(fixture);
+    expect(copias).toEqual(['loja-2']);
+    expect(el.querySelector('.bilhete')!.textContent).toContain('Senha de Página da loja copiada');
+    // um item de uma senha só continua sem títulos
+    await abrir(fixture, el, /Banco/);
+    expect(nomes(el)).toEqual([]);
+    const busca = el.querySelector<HTMLInputElement>('#busca')!;
+    for (const q of ['loja@', 'recuperacao']) {
+      busca.value = q;
+      busca.dispatchEvent(new Event('input'));
+      await estabilizar(fixture);
+      expect(titulos(el)).withContext(q).toEqual(['Facebook']);
+    }
+  });
+
+  it('a protegida fica travada até a passkey; destravada, aparece e copia; trava de novo pelo botão e ao trocar de item', async () => {
+    const { fixture, el, copias, passkey } = await montar(false, [facebook], comPasskey);
+    await abrir(fixture, el, /Facebook/);
+    const codigos = () => el.querySelectorAll('.entrada')[2]!;
+    expect(codigos().querySelector('.carimbo')!.textContent).toContain('Pede a passkey');
+    expect(codigos().querySelector('[aria-label="Revelar a senha"]')).toBeNull();
+    // cancelou: diz, e oferece tentar de novo (sem a senha mestra: este cofre não tem os segredos)
+    passkey.proxima = new DOMException('não', 'NotAllowedError');
+    botao(el, /Destravar/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.erro-confirmar')!.textContent).toContain('não foi confirmada');
+    expect(botao(el, /Usar a senha mestra/)).toBeUndefined();
+    // a passkey sem a pessoa conferida (sem UV) também não destrava
+    passkey.proxima = assinada(0x01);
+    botao(el, /Tentar a passkey de novo/).click();
+    await estabilizar(fixture);
+    expect(codigos().querySelector('.carimbo')).not.toBeNull();
+    passkey.proxima = assinada();
+    botao(el, /Tentar a passkey de novo/).click();
+    await estabilizar(fixture);
+    expect(passkey.pedidos).toBe(3);
+    expect(codigos().querySelector('.carimbo')).toBeNull();
+    expect(document.activeElement).toBe(codigos().querySelector('.olho'));
+    [...codigos().querySelectorAll('button')].find((b) => b.textContent!.trim() === 'Copiar')!.click();
+    await estabilizar(fixture);
+    expect(copias).toEqual(['codigo-3']);
+    botao(el, /Travar de novo/).click();
+    await estabilizar(fixture);
+    expect(codigos().querySelector('.carimbo')).not.toBeNull();
+    // destrava, troca de item e volta: travada de novo
+    botao(el, /Destravar/).click();
+    await estabilizar(fixture);
+    await abrir(fixture, el, /Banco/);
+    await abrir(fixture, el, /Facebook/);
+    expect(codigos().querySelector('.carimbo')).not.toBeNull();
+    expect(el.textContent).not.toContain('codigo-3');
+  });
+
+  it('destravada, trava sozinha depois de 2 minutos', async () => {
+    const { fixture, el } = await montar(false, [facebook], comPasskey);
+    await abrir(fixture, el, /Facebook/);
+    jasmine.clock().install();
+    try {
+      botao(el, /Destravar/).click();
+      for (let i = 0; i < 6; i++) await Promise.resolve();
+      fixture.detectChanges();
+      expect(el.querySelector('.carimbo')).toBeNull();
+      jasmine.clock().tick(120_000);
+      fixture.detectChanges();
+      expect(el.querySelector('.carimbo')).not.toBeNull();
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+
+  it('sem passkey neste aparelho, a senha mestra destrava; errada, diz', async () => {
+    const segredos = { m: aleatorios(32), v: aleatorios(60), sal: aleatorios(16), kdf: { m: 65536, t: 3, p: 1 } };
+    const { fixture, el } = await montar(false, [facebook], { segredos });
+    await abrir(fixture, el, /Facebook/);
+    botao(el, /Destravar/).click();
+    await estabilizar(fixture);
+    expect(document.activeElement).toBe(el.querySelector('#item-senha-mestra'));
+    expect(el.textContent).toContain('aberto sem passkey neste aparelho');
+    escrever(el, '#item-senha-mestra', 'chute');
+    await estabilizar(fixture);
+    el.querySelector<HTMLFormElement>('.senha-mestra')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    for (let i = 0; i < 40 && !el.querySelector('.erro-confirmar'); i++) await estabilizar(fixture);
+    expect(el.querySelector('.erro-confirmar')!.textContent).toContain('Não é a senha mestra');
+    // "Agora não" fecha o bilhete
+    botao(el, 'Agora não').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.confirmar')).toBeNull();
+  });
+
+  it('a senha protegida da primeira entrada não se copia pela lista: o botão abre o item', async () => {
+    const { fixture, el, copias } = await montar(false, [{ titulo: 'Cofre do banco', usuario: 'eu', senha: 'forte-9', url: '', descricao: '', protegida: true }], comPasskey);
+    const senha = el.querySelector<HTMLButtonElement>('[aria-label="A senha de Cofre do banco pede a passkey: abrir"]')!;
+    senha.click();
+    await estabilizar(fixture);
+    expect(copias).toEqual([]);
+    expect(el.querySelector('h2')!.textContent).toContain('Cofre do banco');
+    expect(el.querySelector('.carimbo')).not.toBeNull();
+  });
+
+  it('Editar pede a passkey antes; a edição põe outra senha com nome, protege e tira, e o salvo guarda tudo', async () => {
+    const { fixture, el, api, cofre, passkey } = await montar(false, [facebook], comPasskey);
+    await abrir(fixture, el, /Facebook/);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    expect(passkey.pedidos).toBe(1);
+    expect(el.querySelector<HTMLInputElement>('#item-senha-2')!.value).toBe('codigo-3');
+    // tira a da loja e põe uma pergunta de segurança, protegida
+    el.querySelector<HTMLButtonElement>('[aria-label="Tirar Página da loja"]')!.click();
+    await estabilizar(fixture);
+    botao(el, /Outra senha neste item/).click();
+    await estabilizar(fixture);
+    expect(document.activeElement).toBe(el.querySelector('#item-rotulo-2'));
+    escrever(el, '#item-rotulo-2', 'Nome do primeiro pet');
+    escrever(el, '#item-senha-2', 'Rex');
+    await estabilizar(fixture);
+    el.querySelectorAll<HTMLButtonElement>('[role=switch]')[2]!.click();
+    await estabilizar(fixture);
+    botao(el, 'Salvar').click();
+    await estabilizar(fixture);
+    const salvo = (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item?.titulo === 'Facebook')!.item!;
+    expect(salvo.outras).toEqual([
+      { rotulo: 'Códigos de recuperação', usuario: '', senha: 'codigo-3', protegida: true },
+      { rotulo: 'Nome do primeiro pet', usuario: '', senha: 'Rex', protegida: true },
+    ]);
+    expect([salvo.rotulo, salvo.usuario, salvo.senha, salvo.protegida]).toEqual(['Conta pessoal', 'eu@email.com', 'pessoal-1', false]);
+    // depois de salvar, continua destravado (os 2 minutos contam de novo)
+    expect(nomes(el)).toEqual(['Conta pessoal', 'Códigos de recuperação', 'Nome do primeiro pet']);
+    expect(el.querySelector('.carimbo')).toBeNull();
+  });
+
+  it('uma senha nova sem nada além de "pede a passkey" não guarda; com uma só entrada, sem campo de nome', async () => {
+    const { fixture, el } = await montar(false, [], comPasskey);
+    botao(el, /Nova senha/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('#item-rotulo-0')).toBeNull();
+    el.querySelector<HTMLButtonElement>('[role=switch]')!.click();
+    await estabilizar(fixture);
+    expect(botao(el, 'Salvar').disabled).toBeTrue();
+  });
+
+  it('conferir as vazadas olha todas as entradas, e o aviso fica na entrada que vazou', async () => {
+    const vazouNaReserva: CamposDoItem = { titulo: 'Jogo', usuario: 'eu', senha: 'nova', url: '', descricao: '', outras: [{ rotulo: 'Reserva', usuario: '', senha: 'segredo-1', protegida: false }] };
+    const { fixture, el } = await montar(false, [vazouNaReserva], comPasskey);
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Senhas vazadas'))!.click();
+    await estabilizar(fixture);
+    botao(el, 'Conferir senhas vazadas').click();
+    for (let i = 0; i < 20 && !el.textContent!.includes('42 vezes'); i++) await estabilizar(fixture);
+    expect(el.querySelector('.bilhete')!.textContent).toContain('2 senhas apareceram em vazamentos');
+    botao(el, 'Voltar às senhas').click();
+    await estabilizar(fixture);
+    await abrir(fixture, el, /Jogo/);
+    const vazadas = [...el.querySelectorAll('.vazada')];
+    expect(vazadas.length).toBe(1);
+    expect(vazadas[0]!.closest('.entrada')!.querySelector('.entrada-nome')!.textContent).toContain('Reserva');
   });
 });

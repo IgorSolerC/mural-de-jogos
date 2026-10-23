@@ -122,6 +122,19 @@ try {
   await digitar('#item-url', 'banco.exemplo');
   await clicar('Salvar');
   await esperar(() => temTexto('Pôr na lixeira'), 20000, 'item salvo');
+  // outra senha no mesmo item, que pede a passkey de novo (17.18): travada até o autenticador conferir a pessoa
+  await clicar('Editar');
+  await clicar('Outra senha neste item');
+  await digitar('#item-rotulo-1', 'Senha reserva');
+  await digitar('#item-senha-1', 'reserva-do-teste-2');
+  await page.evaluate(() => document.querySelectorAll('[role=switch]')[1].click());
+  await clicar('Salvar');
+  await esperar(() => page.$('.carimbo'), 20000, 'a reserva travada');
+  await clicar('Destravar');
+  await esperar(async () => !(await page.$('.carimbo')), 20000, 'a reserva destravada pela passkey');
+  await page.click('[data-senha="1"] .olho');
+  await esperar(() => temTexto('reserva-do-teste-2'), 5000, 'a reserva revelada');
+  passo('outra senha no item, travada até a passkey de novo');
   await foto('4-item');
   await clicar('Voltar à lista');
   await esperar(() => temTexto('Banco do teste'), 10000, 'item na lista');

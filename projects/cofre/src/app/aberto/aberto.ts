@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, i
 import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
-import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, SEM_JEITO, salvarItem } from '../../core/itens';
+import { apagarDeVez, type CamposDoItem, entradasDo, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, SEM_JEITO, salvarItem } from '../../core/itens';
 import { conferirVazadas } from '../../core/vazadas';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
@@ -73,8 +73,8 @@ export class Aberto implements OnInit {
   protected readonly borrado = signal(false);
   /** O que acabou de ser copiado da lista ("id:campo"), para o botão dizer que deu certo. */
   protected readonly copiado = signal<string | null>(null);
-  /** Quantas vezes cada senha apareceu em vazamentos (só depois de "Conferir senhas vazadas"). */
-  protected readonly vazadas = signal<ReadonlyMap<string, number>>(new Map());
+  /** Quantas vezes a senha de cada entrada de cada item apareceu em vazamentos (só depois de "Conferir senhas vazadas"). */
+  protected readonly vazadas = signal<ReadonlyMap<string, readonly number[]>>(new Map());
   protected readonly conferindo = signal(false);
   protected readonly conferidoEm = signal<Date | null>(null);
   private readonly item = viewChild(ItemDoCofre);
@@ -88,7 +88,8 @@ export class Aberto implements OnInit {
   protected readonly naLixeira = computed(() => this.itens().filter((i) => i.naLixeira && i.item));
   protected readonly achados = computed(() => {
     const q = simples(this.busca().trim());
-    return this.noCofre().filter((i) => !q || [i.item!.titulo, i.item!.usuario, i.item!.url, i.item!.grupo].some((c) => simples(c).includes(q)));
+    // as outras entradas também: o nome delas e o user ("a conta do trabalho do Facebook")
+    return this.noCofre().filter((i) => !q || [i.item!.titulo, i.item!.url, i.item!.grupo, ...entradasDo(i.item!).flatMap((e) => [e.rotulo, e.usuario])].some((c) => simples(c).includes(q)));
   });
   /** Os grupos de todas as senhas (as pastas e as sugestões ao editar). */
   protected readonly grupos = computed(() => gruposDoCofre(this.noCofre()));
@@ -116,8 +117,8 @@ export class Aberto implements OnInit {
   protected readonly comDetalhe = computed(() => this.criando() || !!this.selecionado());
   protected readonly listaDeVazadas = computed(() =>
     this.noCofre()
-      .filter((i) => (this.vazadas().get(i.id) ?? 0) > 0)
-      .map((i) => ({ id: i.id, nome: nomeDoItem(i.item!), vezes: this.vazadas().get(i.id)! })),
+      .filter((i) => this.vezesVazada(i.id) > 0)
+      .map((i) => ({ id: i.id, nome: nomeDoItem(i.item!), vezes: this.vezesVazada(i.id) })),
   );
 
   protected readonly nome = nomeDoItem;
@@ -154,6 +155,8 @@ export class Aberto implements OnInit {
       void this.recarregar();
     } else if (e instanceof ErroApi && e.status === 401) {
       this.trancar('parado');
+    } else if (e instanceof ErroCofre && e.motivo === 'grande') {
+      this.erro.set('Esta senha ficou grande demais para o cofre (até 16 kB). Encurte a descrição ou tire uma das senhas do item.');
     } else if (e instanceof ErroCofre) {
       this.erro.set('O que veio do servidor não confere com o cofre. Nada foi mostrado. Tranque e avise quem cuida do cofre.');
       this.itens.set([]);
@@ -237,8 +240,20 @@ export class Aberto implements OnInit {
     this.vista.set(vista);
   }
 
-  /** Copia o User ou a Senha direto da lista, sem abrir o item. */
+  /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
+  protected vezesVazada(id: string): number {
+    return Math.max(0, ...(this.vazadas().get(id) ?? []));
+  }
+
+  /**
+   * Copia o User ou a Senha (da primeira entrada) direto da lista, sem abrir o item. A senha que pede a
+   * passkey não sai daqui: abre o item, onde ela se destrava.
+   */
   protected async copiarRapido(i: ItemNaLista, campo: Campo): Promise<void> {
+    if (campo === 'senha' && i.item!.protegida) {
+      this.abrirItem(i);
+      return;
+    }
     const texto = campo === 'usuario' ? i.item!.usuario : i.item!.senha;
     if (!texto) return;
     try {
@@ -377,7 +392,9 @@ export class Aberto implements OnInit {
 
   /** Confere as senhas na base de vazamentos (só o começo de cada hash sai, seção 10). */
   protected async conferirVazadas(): Promise<void> {
-    const comSenha = this.noCofre().filter((i) => i.item!.senha);
+    // todas as senhas de todas as entradas (as que pedem a passkey também: só o começo do hash sai)
+    const senhas = this.noCofre().flatMap((i) => entradasDo(i.item!).map((e, n) => ({ id: i.id, n, senha: e.senha })));
+    const comSenha = senhas.filter((s) => s.senha);
     if (!comSenha.length) {
       this.avisar('Nenhuma senha guardada para conferir.');
       return;
@@ -385,17 +402,23 @@ export class Aberto implements OnInit {
     this.conferindo.set(true);
     try {
       const vezes = await conferirVazadas(
-        comSenha.map((i) => i.item!.senha),
+        comSenha.map((s) => s.senha),
         this.servicos.pagina.buscarFora,
       );
       if (vezes.some((v) => v === null)) {
         this.avisar('Não deu para conferir agora (sem internet ou a base fora do ar).');
         return;
       }
-      const mapa = new Map(comSenha.map((i, n) => [i.id, vezes[n]!]));
+      const mapa = new Map<string, number[]>();
+      comSenha.forEach((s, k) => {
+        const lista = mapa.get(s.id) ?? [];
+        lista[s.n] = vezes[k]!;
+        mapa.set(s.id, lista);
+      });
+      for (const lista of mapa.values()) for (let n = 0; n < lista.length; n++) lista[n] ??= 0;
       this.vazadas.set(mapa);
       this.conferidoEm.set(new Date());
-      const quantas = [...mapa.values()].filter((v) => v > 0).length;
+      const quantas = vezes.filter((v) => v! > 0).length;
       this.avisar(quantas ? `${quantas} ${quantas === 1 ? 'senha apareceu' : 'senhas apareceram'} em vazamentos. Troque.` : 'Nenhuma senha apareceu em vazamentos.');
     } finally {
       this.conferindo.set(false);

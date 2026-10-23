@@ -27,101 +27,86 @@
           </p>
         }
       </div>
-      <button type="button" class="papel editar" [disabled]="ocupado()" (click)="editar()">
+      <button type="button" class="papel editar" [disabled]="ocupado() || conferindo()" (click)="pedirParaEditar()">
         <cofre-icone nome="lapis" />
         Editar
       </button>
     </header>
+    @if (confirmandoEm() === 'editar') {
+      <ng-container *ngTemplateOutlet="confirmacao; context: { $implicit: 'editar', motivo: 'Editar mostra as senhas que pedem a passkey.' }" />
+    }
 
-    <dl class="campos">
-      @if (i.usuario) {
-        <div class="campo">
-          <dt>User</dt>
-          <dd class="valor" translate="no">{{ i.usuario }}</dd>
-          <dd class="acoes">
-            <button type="button" class="papel" [class.feito]="copiado() === 'usuario'" (click)="copiar(i.usuario, 'User', 'usuario')">
-              <cofre-icone [nome]="copiado() === 'usuario' ? 'feito' : 'copiar'" />
-              Copiar
-            </button>
-          </dd>
-        </div>
-      }
-      @if (i.senha) {
-        <div class="campo" [class.revelada]="revelada()">
-          <dt>Senha</dt>
-          <dd class="valor senha" translate="no">
-            @if (revelada()) {
-              <span class="senha-aberta">
-                @for (t of trechos(); track $index) {
-                  <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
-                }
-              </span>
-            } @else {
-              <span class="pontos" aria-label="Senha escondida">••••••••••••</span>
-            }
-            <button type="button" class="icone olho" [attr.aria-pressed]="revelada()" [attr.aria-label]="revelada() ? 'Esconder a senha' : 'Revelar a senha'" [title]="revelada() ? 'Esconder' : 'Revelar por 15 segundos'" (click)="alternarRevelar()">
-              <cofre-icone [nome]="revelada() ? 'olho-fechado' : 'olho'" />
-            </button>
-            @if (revelada()) {
-              <span class="encolhe" aria-hidden="true"></span>
-            }
-          </dd>
-          <dd class="acoes">
-            <button type="button" class="papel" [class.feito]="copiado() === 'senha'" (click)="copiar(i.senha, 'Senha', 'senha')">
-              <cofre-icone [nome]="copiado() === 'senha' ? 'feito' : 'copiar'" />
-              Copiar
-            </button>
-          </dd>
-          <dd class="extra">
-            <button type="button" class="palavra" (click)="mostrarParaDigitar()">
-              <cofre-icone nome="letras" />
-              Mostrar para digitar
-            </button>
-          </dd>
-          @if (vazada() > 0) {
-            <dd class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazada().toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</dd>
+    @if (comTitulos()) {
+      @for (e of entradas(); track $index; let n = $index) {
+        <section class="entrada" [attr.aria-labelledby]="'entrada-' + n">
+          <h3 class="entrada-nome" [id]="'entrada-' + n">
+            {{ nomeDaEntrada(e, n) }}
+          </h3>
+          @if (e.usuario || e.senha) {
+            <dl class="campos">
+              <ng-container *ngTemplateOutlet="linhas; context: { $implicit: e, n: n }" />
+            </dl>
           }
-        </div>
+        </section>
       }
-      @if (i.url) {
-        <div class="campo">
-          <dt>Site</dt>
-          <dd class="valor" translate="no">{{ i.url }}</dd>
-          <dd class="acoes">
-            @if (site()) {
-              <button type="button" class="papel" (click)="abrirSite()">
-                <cofre-icone nome="abrir" />
-                Abrir o site
-              </button>
-            }
-          </dd>
-        </div>
-      }
-      @if (i.descricao) {
-        <div class="campo descricao-campo">
-          <dt>Descrição</dt>
-          <dd class="valor descricao">{{ i.descricao }}</dd>
-        </div>
-      }
-    </dl>
+    }
+    @if (!comTitulos() || i.url || i.descricao) {
+      <dl class="campos" [class.depois-das-entradas]="comTitulos()">
+        @if (!comTitulos() && entradas()[0]; as e) {
+          <ng-container *ngTemplateOutlet="linhas; context: { $implicit: e, n: 0 }" />
+        }
+        @if (i.url) {
+          <div class="campo">
+            <dt>Site</dt>
+            <dd class="valor" translate="no">{{ i.url }}</dd>
+            <dd class="acoes">
+              @if (site()) {
+                <button type="button" class="papel" (click)="abrirSite()">
+                  <cofre-icone nome="abrir" />
+                  Abrir o site
+                </button>
+              }
+            </dd>
+          </div>
+        }
+        @if (i.descricao) {
+          <div class="campo descricao-campo">
+            <dt>Descrição</dt>
+            <dd class="valor descricao">{{ i.descricao }}</dd>
+          </div>
+        }
+      </dl>
+    }
 
     @if (i.historico.length) {
       <details class="historico">
         <summary>
           <cofre-icone nome="historico" />
-          Senhas anteriores ({{ i.historico.length }})
+          {{ comTitulos() ? 'Senhas anteriores de ' + nomeDaEntrada(entradas()[0]!, 0) : 'Senhas anteriores' }} ({{ i.historico.length }})
         </summary>
         <ul>
           @for (h of i.historico; track $index) {
             <li>
               <span>Usada até {{ dia(h.ate) }}</span>
-              <button type="button" class="papel" [class.feito]="copiado() === 'anterior-' + $index" (click)="copiar(h.senha, 'Senha anterior', 'anterior-' + $index)">
-                <cofre-icone [nome]="copiado() === 'anterior-' + $index ? 'feito' : 'copiar'" />
-                Copiar
-              </button>
+              @if (travada(h)) {
+                <button type="button" class="papel" [disabled]="conferindo()" (click)="destravar('historico')">
+                  <cofre-icone [cartela]="'digital'" />
+                  Destravar
+                </button>
+              } @else {
+                <button type="button" class="papel" [class.feito]="copiado() === 'anterior-' + $index" (click)="copiar(h.senha, 'Senha anterior', 'anterior-' + $index)">
+                  <cofre-icone [nome]="copiado() === 'anterior-' + $index ? 'feito' : 'copiar'" />
+                  Copiar
+                </button>
+              }
             </li>
           }
         </ul>
+        @if (confirmandoEm() === 'historico') {
+          <div class="historico-confirmar">
+            <ng-container *ngTemplateOutlet="confirmacao; context: { $implicit: 'historico' }" />
+          </div>
+        }
       </details>
     }
 
@@ -192,37 +177,101 @@
         </div>
       }
     </div>
-    <div class="campo-bloco">
-      <label class="rotulo" for="item-usuario">User</label>
-      <input id="item-usuario" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.usuario" [value]="campos().usuario" (input)="mudar('usuario', $event)" placeholder="E-mail ou nome de usuário" />
-    </div>
-    <div class="campo-bloco">
-      <label class="rotulo" for="item-senha">Senha</label>
-      <span class="caixa-senha">
-        <input
-          id="item-senha"
-          [type]="mostrarNoCampo() ? 'text' : 'password'"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          translate="no"
-          [attr.maxlength]="limites.senha"
-          [value]="campos().senha"
-          (input)="mudar('senha', $event)"
-        />
-        <button type="button" class="icone" [attr.aria-pressed]="mostrarNoCampo()" [attr.aria-label]="mostrarNoCampo() ? 'Esconder a senha' : 'Mostrar a senha'" [title]="mostrarNoCampo() ? 'Esconder' : 'Mostrar'" (click)="mostrarNoCampo.set(!mostrarNoCampo())">
-          <cofre-icone [nome]="mostrarNoCampo() ? 'olho-fechado' : 'olho'" />
-        </button>
-        <button type="button" class="papel gerar" [attr.aria-expanded]="gerador()" (click)="gerador.set(!gerador())">
-          <cofre-icone nome="gerar" />
-          Gerar
-        </button>
-      </span>
-    </div>
-    @if (gerador()) {
-      <cofre-gerador-painel (usar)="usarGerada($event)" />
+
+    @for (e of entradasEditando(); track $index; let n = $index) {
+      @let sufixo = n === 0 ? '' : '-' + n;
+      <fieldset class="entrada-editando" [class.com-nome]="comTitulosEditando()">
+        <legend class="visivel-so-leitor">{{ nomeDaEntrada(e, n) }}</legend>
+        @if (comTitulosEditando()) {
+          <div class="campo-bloco">
+            <label class="rotulo" [for]="'item-rotulo-' + n">Nome desta senha</label>
+            <span class="linha-nome">
+              <input
+                [id]="'item-rotulo-' + n"
+                autocomplete="off"
+                spellcheck="false"
+                [attr.maxlength]="limites.rotulo"
+                [value]="e.rotulo"
+                (input)="mudarEntrada(n, 'rotulo', $event)"
+                [placeholder]="n === 0 ? 'Conta pessoal, Cartão final 1234…' : 'Senha reserva, Pergunta de segurança…'"
+              />
+              <button type="button" class="icone tirar" [attr.aria-label]="'Tirar ' + nomeDaEntrada(e, n)" title="Tirar esta senha do item" (click)="tirarEntrada(n)">
+                <cofre-icone nome="fechar" />
+              </button>
+            </span>
+          </div>
+        }
+        <div class="campo-bloco">
+          <label class="rotulo" [for]="'item-usuario' + sufixo">User</label>
+          <input
+            [id]="'item-usuario' + sufixo"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            translate="no"
+            [attr.maxlength]="limites.usuario"
+            [value]="e.usuario"
+            (input)="mudarEntrada(n, 'usuario', $event)"
+            placeholder="E-mail ou nome de usuário"
+          />
+        </div>
+        <div class="campo-bloco">
+          <label class="rotulo" [for]="'item-senha' + sufixo">Senha</label>
+          <span class="caixa-senha">
+            <input
+              [id]="'item-senha' + sufixo"
+              [type]="mostrarNoCampo().has(n) ? 'text' : 'password'"
+              autocomplete="off"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              translate="no"
+              [attr.maxlength]="limites.senha"
+              [value]="e.senha"
+              (input)="mudarEntrada(n, 'senha', $event)"
+            />
+            <button
+              type="button"
+              class="icone"
+              [attr.aria-pressed]="mostrarNoCampo().has(n)"
+              [attr.aria-label]="mostrarNoCampo().has(n) ? 'Esconder a senha' : 'Mostrar a senha'"
+              [title]="mostrarNoCampo().has(n) ? 'Esconder' : 'Mostrar'"
+              (click)="alternarMostrarNoCampo(n)"
+            >
+              <cofre-icone [nome]="mostrarNoCampo().has(n) ? 'olho-fechado' : 'olho'" />
+            </button>
+            <button type="button" class="papel gerar" [attr.aria-expanded]="gerador() === n" (click)="gerador.set(gerador() === n ? null : n)">
+              <cofre-icone nome="gerar" />
+              Gerar
+            </button>
+          </span>
+        </div>
+        @if (gerador() === n) {
+          <cofre-gerador-painel (usar)="usarGerada(n, $event)" />
+        }
+        <div class="pede-passkey">
+          <button type="button" class="interruptor" role="switch" [attr.aria-checked]="e.protegida" [attr.aria-labelledby]="'item-protegida-' + n" aria-describedby="item-protegida-dica" (click)="alternarProtegida(n)">
+            <span class="bolinha"></span>
+          </button>
+          <span class="pede-passkey-textos">
+            <span class="pede-passkey-nome" [id]="'item-protegida-' + n">Pedir a passkey para ver</span>
+            @if (n === 0) {
+              <span class="pede-passkey-dica" id="item-protegida-dica">Para ver, copiar ou editar a senha, a digital, o rosto ou o PIN de novo.</span>
+            }
+          </span>
+        </div>
+      </fieldset>
     }
+    @if (entradasEditando().length < maxEntradas) {
+      <button id="item-mais-entrada" type="button" class="papel mais-entrada" (click)="maisUmaEntrada()">
+        <cofre-icone nome="mais" />
+        Outra senha neste item
+      </button>
+    } @else {
+      <p class="nota pequena">Cabem {{ maxEntradas }} senhas num item.</p>
+    }
+
     <div class="campo-bloco">
       <label class="rotulo" for="item-url">Site (URL)</label>
       <input id="item-url" inputmode="url" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" translate="no" [attr.maxlength]="limites.url" [value]="campos().url" (input)="mudar('url', $event)" placeholder="https://" />
@@ -239,11 +288,161 @@
   </form>
 }
 
-@if (paraDigitar() && item(); as i) {
+<!-- As linhas de uma entrada: o User e a Senha (travada, ela pede a passkey no lugar do Copiar). -->
+<ng-template #linhas let-e let-n="n">
+  @if (e.usuario) {
+    <div class="campo">
+      <dt>User</dt>
+      <dd class="valor" translate="no">{{ e.usuario }}</dd>
+      <dd class="acoes">
+        <button type="button" class="papel" [class.feito]="copiado() === 'usuario-' + n" (click)="copiar(e.usuario, oQue('User', n), 'usuario-' + n)">
+          <cofre-icone [nome]="copiado() === 'usuario-' + n ? 'feito' : 'copiar'" />
+          Copiar
+        </button>
+      </dd>
+    </div>
+  }
+  @if (e.senha) {
+    <div class="campo" [class.revelada]="revelada() === n" [class.travada]="travada(e)" [attr.data-senha]="n">
+      <dt>
+        Senha
+        @if (e.protegida) {
+          <span class="pede" [title]="travada(e) ? 'Pede a passkey para aparecer' : 'Destravada por 2 minutos'">
+            <cofre-icone [nome]="travada(e) ? 'cadeado' : 'cadeado-aberto'" />
+            <span class="visivel-so-leitor">{{ travada(e) ? '(pede a passkey)' : '(destravada)' }}</span>
+          </span>
+        }
+      </dt>
+      @if (travada(e)) {
+        <dd class="valor senha">
+          <span class="pontos apagados" aria-hidden="true">••••••••••••</span>
+          <span class="carimbo">Pede a passkey</span>
+        </dd>
+        <dd class="acoes">
+          <button type="button" class="papel destravar" [disabled]="conferindo()" (click)="destravar(n)">
+            <cofre-icone [cartela]="'digital'" />
+            {{ conferindo() && confirmandoEm() === n ? 'Confirme…' : 'Destravar' }}
+          </button>
+        </dd>
+        @if (confirmandoEm() === n) {
+          <dd class="aviso">
+            <ng-container *ngTemplateOutlet="confirmacao; context: { $implicit: n }" />
+          </dd>
+        }
+      } @else {
+        <dd class="valor senha" translate="no">
+          @if (revelada() === n) {
+            <span class="senha-aberta">
+              @for (t of trechos(e.senha); track $index) {
+                <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
+              }
+            </span>
+          } @else {
+            <span class="pontos" aria-label="Senha escondida">••••••••••••</span>
+          }
+          <button
+            type="button"
+            class="icone olho"
+            [attr.aria-pressed]="revelada() === n"
+            [attr.aria-label]="revelada() === n ? 'Esconder a senha' : 'Revelar a senha'"
+            [title]="revelada() === n ? 'Esconder' : 'Revelar por 15 segundos'"
+            (click)="alternarRevelar(n)"
+          >
+            <cofre-icone [nome]="revelada() === n ? 'olho-fechado' : 'olho'" />
+          </button>
+          @if (revelada() === n) {
+            <span class="encolhe" aria-hidden="true"></span>
+          }
+        </dd>
+        <dd class="acoes">
+          <button type="button" class="papel" [class.feito]="copiado() === 'senha-' + n" (click)="copiar(e.senha, oQue('Senha', n), 'senha-' + n)">
+            <cofre-icone [nome]="copiado() === 'senha-' + n ? 'feito' : 'copiar'" />
+            Copiar
+          </button>
+        </dd>
+        <dd class="extra">
+          <button type="button" class="palavra" (click)="mostrarParaDigitar(n)">
+            <cofre-icone nome="letras" />
+            Mostrar para digitar
+          </button>
+          @if (e.protegida) {
+            <button type="button" class="palavra" (click)="travar()">
+              <cofre-icone nome="cadeado" />
+              Travar de novo
+            </button>
+          }
+        </dd>
+        @if (vazadas()[n] > 0) {
+          <dd class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazadas()[n]!.toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</dd>
+        }
+      }
+    </div>
+  }
+</ng-template>
+
+<!-- Confirmar de novo: a passkey (o aparelho abre a janela dele) ou, sem ela, a senha mestra. -->
+<ng-template #confirmacao let-onde let-motivo="motivo">
+  <div class="confirmar" role="group" aria-label="Confirmar que é você">
+    @if (motivo && !erroConfirmar() && !comSenhaMestra()) {
+      <p class="nota pequena">{{ motivo }}</p>
+    }
+    @if (conferindo() && !comSenhaMestra()) {
+      <p class="nota" role="status">Confirme no aparelho: a digital, o rosto ou o PIN.</p>
+    }
+    @if (erroConfirmar(); as erro) {
+      <p class="nota erro-confirmar" role="alert">{{ erro }}</p>
+    }
+    @if (comSenhaMestra()) {
+      <form class="senha-mestra" novalidate (submit)="$event.preventDefault(); $event.stopPropagation(); confirmarSenhaMestra()">
+        <label class="rotulo" for="item-senha-mestra">Senha mestra</label>
+        <span class="caixa-senha">
+          <input
+            #campoSenhaMestra
+            id="item-senha-mestra"
+            type="password"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            [disabled]="conferindo()"
+            [value]="senhaMestra()"
+            (input)="senhaMestra.set($any($event.target).value)"
+          />
+          <button type="submit" class="papel" [disabled]="conferindo() || !senhaMestra()">{{ conferindo() ? 'Conferindo…' : 'Destravar' }}</button>
+        </span>
+        @if (!comPasskey()) {
+          <p class="nota pequena">O cofre foi aberto sem passkey neste aparelho, então vale a senha mestra.</p>
+        }
+      </form>
+    }
+    @if (!conferindo()) {
+      <div class="confirmar-acoes">
+        @if (comPasskey() && (erroConfirmar() || comSenhaMestra())) {
+          <button type="button" class="palavra" (click)="destravar(onde)">
+            <cofre-icone [cartela]="'digital'" />
+            {{ comSenhaMestra() ? 'Usar a passkey' : 'Tentar a passkey de novo' }}
+          </button>
+        }
+        @if (comSenha() && comPasskey() && !comSenhaMestra()) {
+          <button type="button" class="palavra" (click)="usarSenhaMestra()">
+            <cofre-icone nome="chave" />
+            Usar a senha mestra
+          </button>
+        }
+        <button type="button" class="palavra" (click)="fecharConfirmacao()">Agora não</button>
+      </div>
+    }
+  </div>
+</ng-template>
+
+@if (paraDigitar() !== null && entradas()[paraDigitar()!]; as e) {
   <div class="para-digitar" role="dialog" aria-modal="true" aria-label="Senha para digitar">
     <div class="folha-grande">
+      @if (comTitulos()) {
+        <p class="rotulo">{{ nomeDaEntrada(e, paraDigitar()!) }}</p>
+      }
       <p class="grupos" translate="no">
-        @for (g of gruposEmTrechos(); track $index) {
+        @for (g of gruposEmTrechos(e.senha); track $index) {
           <span class="grupo">
             @for (t of g; track $index) {
               <span [class]="'t-' + t.tipo">{{ t.texto }}</span>
@@ -251,8 +450,8 @@
           </span>
         }
       </p>
-      <p class="nota pequena">{{ i.senha.length }} caracteres. Some sozinho em 1 minuto.</p>
-      <button #fecharDigitar type="button" class="tinta" (click)="paraDigitar.set(false)">Fechar</button>
+      <p class="nota pequena">{{ e.senha.length }} caracteres. Some sozinho em 1 minuto.</p>
+      <button #fecharDigitar type="button" class="tinta" (click)="paraDigitar.set(null)">Fechar</button>
     </div>
   </div>
 }

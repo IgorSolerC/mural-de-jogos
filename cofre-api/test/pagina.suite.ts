@@ -194,6 +194,8 @@ export function paginaSuite(label: string, setup: Setup) {
       const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
       expect(cofre.contador).toBe(0);
       expect(cofre.recuperada).toBe(false);
+      // as passkeys do cofre ficam com o aberto, para pedir uma de novo antes de mostrar uma senha protegida (17.18)
+      expect(cofre.passkeys?.length).toBe(2);
       expect(await lerItens(api, cofre)).toEqual([]);
 
       const campos = { titulo: 'Banco', usuario: 'igor', senha: 'senha-1', url: 'https://banco.exemplo', descricao: 'agência 0001' };

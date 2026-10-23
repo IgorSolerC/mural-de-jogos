@@ -459,3 +459,146 @@ textarea {
     flex: none;
   }
 }
+
+/* ===== Várias senhas num item (17.18): cada entrada com o nome dela a pincel, as linhas de sempre embaixo ===== */
+.entrada {
+  display: grid;
+  & + & {
+    padding-top: 18px;
+    border-top: 1.5px solid rgb(21 21 21 / 0.2);
+  }
+}
+.entrada-nome {
+  margin: 0 0 4px;
+  font: 400 1.35rem/1.1 var(--f-marker);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.campos.depois-das-entradas {
+  margin-top: 0;
+  padding-top: 2px;
+  border-top: 1.5px solid rgb(21 21 21 / 0.2);
+}
+dt .pede {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-left: 6px;
+  color: var(--vermelho);
+  cofre-icone {
+    width: 15px;
+    height: 15px;
+  }
+}
+.campo.travada dt .pede {
+  color: var(--erro);
+}
+
+/* travada: os pontos apagados e o carimbo de borracha vermelho, torto, no lugar do olho */
+.pontos.apagados {
+  color: rgb(21 21 21 / 0.28);
+}
+.carimbo {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 4px 8px 3px;
+  border: 2px solid currentColor;
+  border-radius: 3px;
+  color: var(--vermelho);
+  font: 800 0.74rem/1 var(--f-rotulo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  rotate: -3deg;
+  mix-blend-mode: multiply;
+}
+.extra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+
+/* a confirmação: o bilhete amarelo colado embaixo de quem pediu */
+.aviso {
+  grid-area: aviso;
+}
+.confirmar {
+  @include p.bilhete-colado(#fff1b8);
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.confirmar .nota {
+  font-size: 1.02rem;
+}
+.erro-confirmar {
+  color: var(--erro);
+  font-weight: 700;
+}
+.confirmar-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin: -4px 0 -6px -10px;
+}
+.senha-mestra .caixa-senha .papel {
+  min-height: 38px;
+  padding: 6px 12px 5px;
+}
+.historico-confirmar {
+  padding: 0 14px 14px;
+  .confirmar {
+    margin-top: 0;
+  }
+}
+
+/* ===== Editar: cada entrada um bloco; com nome, o fio entre elas e o X para tirar ===== */
+.entrada-editando {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.entrada-editando.com-nome {
+  padding-top: 16px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+}
+.linha-nome {
+  @include p.campo-caixa;
+  padding-right: 5px;
+}
+.linha-nome .tirar {
+  width: 38px;
+  height: 38px;
+}
+.pede-passkey {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  .interruptor {
+    @include p.interruptor;
+    align-self: flex-start;
+  }
+}
+.pede-passkey-textos {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pede-passkey-nome {
+  font: 800 0.92rem/1.25 var(--f-rotulo);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.pede-passkey-dica {
+  font: 500 0.95rem/1.35 var(--f-texto);
+  color: var(--tinta-2);
+  text-wrap: pretty;
+}
+.mais-entrada {
+  justify-self: start;
+}
+.folha-grande .rotulo {
+  margin: 0;
+}

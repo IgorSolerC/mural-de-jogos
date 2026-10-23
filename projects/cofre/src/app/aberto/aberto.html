@@ -129,7 +129,7 @@
                         <ul class="lista">
                           @for (i of p.itens; track i.id) {
                             @let it = i.item!;
-                            @let vezes = vazadas().get(i.id) ?? 0;
+                            @let vezes = vezesVazada(i.id);
                             <li class="linha" [class.aberta]="aberto() === i.id">
                               <button type="button" class="abre" [attr.data-id]="i.id" [attr.aria-current]="aberto() === i.id ? 'true' : null" (click)="abrirItem(i)">
                                 <cofre-monograma [nome]="nome(it)" [icone]="it.icone" [cor]="it.cor" />
@@ -140,7 +140,14 @@
                                       <span class="selo-vazada">Vazada</span>
                                     }
                                   </span>
-                                  @if (it.usuario) {
+                                  @if (it.outras.length) {
+                                    <span class="usuario-linha">
+                                      @if (it.usuario) {
+                                        <span class="usuario" translate="no">{{ it.usuario }}</span>
+                                      }
+                                      <span class="mais-senhas">+{{ it.outras.length }}<span class="visivel-so-leitor"> {{ it.outras.length === 1 ? 'senha' : 'senhas' }}</span></span>
+                                    </span>
+                                  } @else if (it.usuario) {
                                     <span class="usuario" translate="no">{{ it.usuario }}</span>
                                   } @else if (dominio(it.url) && it.titulo) {
                                     <span class="usuario" translate="no">{{ dominio(it.url) }}</span>
@@ -165,12 +172,13 @@
                                   <button
                                     type="button"
                                     class="rapido"
+                                    [class.pede]="it.protegida"
                                     [class.feito]="foiCopiado(i, 'senha')"
-                                    [attr.aria-label]="'Copiar a senha de ' + nome(it)"
-                                    [title]="'Copiar a senha'"
+                                    [attr.aria-label]="it.protegida ? 'A senha de ' + nome(it) + ' pede a passkey: abrir' : 'Copiar a senha de ' + nome(it)"
+                                    [title]="it.protegida ? 'Pede a passkey: abre a senha' : 'Copiar a senha'"
                                     (click)="copiarRapido(i, 'senha')"
                                   >
-                                    <cofre-icone [nome]="foiCopiado(i, 'senha') ? 'feito' : 'chave'" />
+                                    <cofre-icone [nome]="foiCopiado(i, 'senha') ? 'feito' : it.protegida ? 'cadeado' : 'chave'" />
                                     <span class="rapido-nome">Senha</span>
                                   </button>
                                 }
@@ -197,7 +205,8 @@
             @if (criando() || selecionado()) {
               <cofre-item
                 [alvo]="criando() ? null : selecionado()"
-                [vazada]="criando() ? 0 : (vazadas().get(selecionado()?.id ?? '') ?? 0)"
+                [cofre]="cofre()"
+                [vazadas]="criando() ? [] : (vazadas().get(selecionado()?.id ?? '') ?? [])"
                 [grupos]="grupos()"
                 [jeitos]="jeitos()"
                 [ocupado]="ocupado()"

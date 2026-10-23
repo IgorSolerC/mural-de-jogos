@@ -26,15 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-23-mais-icones-e-cores',
+    id: '2026-10-23-varias-senhas-no-cofre',
     version: '1.30.2',
     kind: 'ajustes',
     date: '2026-10-23',
-    title: 'Ícones e grupos do cofre, e mais ícones e cores',
+    title: 'Ícones, grupos e várias senhas por item no cofre, e mais ícones e cores',
     melhorias: [
       'Nos Ajustes do cofre, a parte Grupos renomeia um grupo em todas as senhas dele de uma vez, junta dois grupos (renomeando um com o nome do outro) e apaga um grupo, que só sai das senhas: elas continuam no cofre.',
       'Cada senha do cofre pode ter um ícone, os mesmos dos grupos das anotações e das colunas do Kanban, no lugar da letra, e a cor do quadradinho; e cada grupo do cofre, um ícone e uma cor, que aparecem na orelha da pasta, em papel claro, como nas anotações.',
       '60 ícones novos para os grupos, as colunas e as senhas, de cenários do dia a dia: e-mail, jogos, festa, cartão, Wi-Fi, casa, viagem, saúde e outros. As orelhas com cor ganharam o cinza e o preto, e o quadradinho das senhas, o vermelho, o cinza e o preto.',
+      'Um item do cofre pode guardar várias senhas: outra conta do mesmo site, o PIN de outro cartão, a senha reserva ou as respostas de segurança, cada uma com o nome, o user e o Copiar dela. A lista mostra quantas mais cada item tem, e a busca acha também por elas.',
+      'Cada senha do cofre pode pedir a passkey de novo (a digital, o rosto ou o PIN) para aparecer, ser copiada ou editada, para as mais importantes, como os códigos de recuperação. Destravada, fica à mostra por 2 minutos; sem a passkey no aparelho, vale a senha mestra.',
+    ],
+    correcoes: [
+      'Uma senha do cofre grande demais para guardar dizia que o que veio do servidor não conferia e esvaziava a lista; agora diz que passou do tamanho e o que encurtar.',
     ],
   },
   {

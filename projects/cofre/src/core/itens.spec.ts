@@ -1,7 +1,7 @@
 import type { CofreAberto } from './abrir';
 import { ApiCofre, ErroApi, type Gravacao } from './api';
 import { criarCofre, ErroCofre, novaChaveDoMeio } from './crypto';
-import { ErroConflito, type ItemNaLista, LIMITES, lerItem, mudarGrupo, nomeDoGrupo, salvarItem } from './itens';
+import { comEntradas, entradasDo, ErroConflito, type ItemNaLista, LIMITES, lerItem, MAX_ENTRADAS, mudarGrupo, nomeDaEntrada, nomeDoGrupo, salvarItem, temProtegida } from './itens';
 
 const USUARIO = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
 
@@ -25,7 +25,7 @@ const campos = (senha: string) => ({ titulo: 'Banco', usuario: 'igor', senha, ur
 
 describe('os itens do cofre', () => {
   it('lerItem: todos os campos opcionais, cortados no limite, e o que não é item é recusado', () => {
-    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', icone: '', cor: '', grupo: '', grupoIcone: '', grupoCor: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
+    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', icone: '', cor: '', grupo: '', grupoIcone: '', grupoCor: '', rotulo: '', protegida: false, outras: [], criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
     const grande = lerItem({ titulo: 'x'.repeat(5000), senha: 7, historico: [{ senha: 'a', ate: 'ontem' }, null, { senha: '' }, 'b'] });
     expect(grande.titulo.length).toBe(LIMITES.titulo);
     expect(grande.senha).toBe('');
@@ -99,6 +99,59 @@ describe('os itens do cofre', () => {
     const mesmo = await salvarItem(api, cofre, { ...campos('s7'), titulo: 'Outro' }, item);
     expect(mesmo.item!.historico.map((h) => h.senha)).toEqual(['s6', 's5', 's4', 's3', 's2']);
     expect(mesmo.item!.criadoEm).toBe(item.item!.criadoEm);
+  });
+
+  it('várias entradas: os itens de antes têm uma só; as vazias saem, o nome é limpo, cabem 10 ao todo', () => {
+    const antigo = lerItem({ titulo: 'Banco', usuario: 'igor', senha: 's' });
+    expect(entradasDo(antigo)).toEqual([{ rotulo: '', usuario: 'igor', senha: 's', protegida: false }]);
+    expect(temProtegida(antigo)).toBeFalse();
+    const varias = lerItem({
+      usuario: 'pessoal',
+      senha: 'p',
+      rotulo: '  Conta   pessoal ',
+      protegida: 'sim',
+      outras: [
+        { rotulo: 'Trabalho', usuario: 'trab', senha: 't', protegida: true },
+        { rotulo: '', usuario: '', senha: '', protegida: true },
+        'lixo',
+        null,
+        { rotulo: 'r'.repeat(500), senha: 7 },
+      ],
+    });
+    expect(varias.rotulo).toBe('Conta pessoal');
+    // só true vale: "sim" não protege
+    expect(varias.protegida).toBeFalse();
+    expect(varias.outras.length).toBe(2);
+    expect(varias.outras[0]).toEqual({ rotulo: 'Trabalho', usuario: 'trab', senha: 't', protegida: true });
+    expect(varias.outras[1]!.rotulo.length).toBe(LIMITES.rotulo);
+    expect(varias.outras[1]!.senha).toBe('');
+    expect(temProtegida(varias)).toBeTrue();
+    const muitas = lerItem({ outras: Array.from({ length: 30 }, (_, i) => ({ senha: `s${i}` })) });
+    expect(entradasDo(muitas).length).toBe(MAX_ENTRADAS);
+    // ida e volta: a primeira vira o User e a Senha
+    expect(comEntradas(entradasDo(varias))).toEqual({ rotulo: varias.rotulo, usuario: 'pessoal', senha: 'p', protegida: false, outras: varias.outras });
+    expect(comEntradas([])).toEqual({ rotulo: '', usuario: '', senha: '', protegida: false, outras: [] });
+    expect([nomeDaEntrada({ rotulo: ' ' }, 1), nomeDaEntrada({ rotulo: 'Reserva' }, 1)]).toEqual(['Senha 2', 'Reserva']);
+  });
+
+  it('a senha de antes de uma entrada protegida continua pedindo a passkey no histórico', async () => {
+    const api = new ApiQueAceita();
+    const cofre = await cofreAberto();
+    const outras = [{ rotulo: 'Reserva', usuario: '', senha: 'r', protegida: true }];
+    let item: ItemNaLista = await salvarItem(api, cofre, { ...campos('p0'), protegida: true, outras }, null);
+    item = await salvarItem(api, cofre, { ...campos('p1'), protegida: false, outras }, item);
+    expect(item.item!.historico).toEqual([jasmine.objectContaining({ senha: 'p0', protegida: true })]);
+    expect(item.item!.outras).toEqual(outras);
+    // a primeira saiu (tirada na edição): a segunda vira a primeira, e a de antes vai protegida para o histórico
+    item = await salvarItem(api, cofre, { ...campos('r'), rotulo: 'Reserva', protegida: true, outras: [] }, item);
+    expect(item.item!.historico.map((h) => [h.senha, h.protegida === true])).toEqual([
+      ['p1', false],
+      ['p0', true],
+    ]);
+    expect(temProtegida({ ...item.item!, protegida: false })).toBeTrue();
+    // mudar o grupo de várias leva as entradas junto
+    const mudada = (await mudarGrupo(api, cofre, [{ ...item, item: { ...item.item!, outras } }], 'Casa'))[0]!.item!;
+    expect([mudada.grupo, mudada.rotulo, mudada.protegida, mudada.outras]).toEqual(['Casa', 'Reserva', true, outras]);
   });
 
   it('o 409 de outro aparelho vira ErroConflito e nada muda aqui; outro 409 passa como é', async () => {

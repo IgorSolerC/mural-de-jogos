@@ -1627,3 +1627,40 @@ sem mexer na cripto, na API nem no que fica no aparelho:
   senha, a guarda sem o ícone (e, sendo a mudada por último, tira o jeito do grupo). O cofre não tem
   service worker e recarrega ao trancar, então a janela é só a de uma aba que ficou aberta durante a
   publicação; o mesmo valia para o grupo (17.16).
+
+### 17.18 Várias senhas num item, e as que pedem a passkey de novo (23/10)
+
+Pedido do usuário: guardar mais de um user e senha no mesmo item (duas contas do Facebook, as senhas de
+cartões diferentes do mesmo banco, a senha reserva ou as perguntas de segurança junto da senha) e marcar
+uma caixinha para que a senha só apareça depois de confirmar de novo a passkey do aparelho. Feito sem
+mexer na cripto, na API nem no que fica no aparelho:
+
+- **As entradas.** O User e a Senha de sempre são a primeira entrada, com um nome opcional (`rotulo`) e a
+  marca `protegida`; as outras ficam em `outras` (até 10 entradas ao todo, cada uma com nome, user, senha
+  e a marca), tudo dentro do item cifrado. Os itens de antes são itens de uma entrada, e uma aba antiga
+  continua lendo o User e a Senha onde sempre estiveram. As senhas de antes (o histórico) são só as da
+  primeira entrada, como antes, e levam a marca da entrada de onde saíram: tirar a primeira entrada na
+  edição manda a senha dela, protegida, para o histórico.
+- **Na tela.** Com um nome ou mais de uma entrada, cada uma ganha o título dela a pincel, com o User e a
+  Senha embaixo, nas linhas de sempre; sem, o item é o de antes. A lista mostra "+2" ao lado do user, e a
+  busca acha pelo nome e pelo user das outras entradas. Na edição, cada entrada tem o interruptor "Pedir
+  a passkey para ver", e "Outra senha neste item" põe mais uma (o nome, com o X para tirar, aparece com
+  mais de uma). Conferir as senhas vazadas olha todas as entradas, e o aviso fica na entrada que vazou.
+- **Pedir a passkey de novo** (`core/confirmar.ts`). A senha protegida aparece travada (os pontos apagados
+  e o carimbo "Pede a passkey"), com Destravar no lugar do Copiar. Destravar pede a passkey com a
+  verificação do usuário obrigatória, com as passkeys que o desafio de abrir listou (guardadas no cofre
+  aberto, `passkeys`), e só vale se quem assinou é uma delas e o aparelho conferiu a pessoa (a flag UV).
+  Sem passkey no aparelho (o cofre aberto pelo código de recuperação), vale a senha mestra, que abre V de
+  novo com o Argon2id. Destravado, o item inteiro fica à mostra por 2 minutos (editando, não conta), até
+  "Travar de novo" ou sair do item. Editar um item com senha protegida pede a passkey antes, porque a
+  edição mostra as senhas no campo; a cópia pela lista de uma senha protegida abre o item.
+- **O que isto protege, e o que não.** O cofre decifra os itens todos ao abrir, então a trava é da tela:
+  protege a senha de quem senta na frente do cofre aberto, não de quem já roda código na página (que lê a
+  memória). Por isso a assinatura não vai ao servidor (o desafio é sorteado na página). Uma camada de
+  verdade, com a senha protegida cifrada por uma chave que só a passkey (o PRF) abre, mexeria na cripto e
+  no que o servidor guarda: fica para quando o usuário aprovar.
+- Cuidado conhecido: como em 17.16 e 17.17, uma aba aberta desde antes desta versão grava o item sem as
+  outras entradas e sem as marcas. O cofre recarrega ao trancar e não tem service worker, então a janela
+  é só a de uma aba aberta durante a publicação.
+- Conserto junto: um item grande demais para o servidor (16 kB) dava "O que veio do servidor não confere"
+  e esvaziava a lista; agora diz que passou do tamanho e o que fazer.

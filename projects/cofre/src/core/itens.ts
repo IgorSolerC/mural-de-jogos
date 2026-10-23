@@ -3,7 +3,10 @@
  *
  * Um item tem Título, User, Senha, URL e Descrição, todos opcionais, o ícone, o grupo (a pasta da lista,
  * seção 17.16) com o ícone e a cor dele, mais as datas e as últimas 5 senhas: tudo dentro do cifrado (o
- * servidor não vê nem o grupo). O jeito do grupo (ícone e cor) vai copiado em cada senha dele, como o nome
+ * servidor não vê nem o grupo). O User e a Senha são a primeira entrada; o item pode ter outras (outra
+ * conta, o PIN de outro cartão, a senha reserva, uma pergunta de segurança), cada uma com um nome, e
+ * qualquer entrada pode pedir a passkey de novo para mostrar a senha (seção 17.18). As outras ficam num
+ * campo à parte (`outras`), então o User e a Senha continuam onde sempre estiveram. O jeito do grupo (ícone e cor) vai copiado em cada senha dele, como o nome
  * (seção 17.17): não há outro lugar cifrado para ele, e mudá-lo grava as senhas do grupo.
  * Ao ler, os itens que o servidor manda são conferidos contra o manifesto (faltou, sobrou, repetiu ou
  * mudou a versão: erro, e nada aparece). Toda gravação manda o item
@@ -36,18 +39,72 @@ export interface Item {
   /** O ícone e a cor do grupo (iguais em todas as senhas dele); vazios: a pasta e o manilha liso. */
   readonly grupoIcone: IdDoIcone | '';
   readonly grupoCor: IdDaCor | '';
+  /** O nome da primeira entrada (o User e a Senha); vazio: sem nome. */
+  readonly rotulo: string;
+  /** A senha da primeira entrada pede a passkey de novo para aparecer. */
+  readonly protegida: boolean;
+  /** As outras entradas, depois da primeira (até `MAX_ENTRADAS` ao todo). */
+  readonly outras: readonly Entrada[];
   readonly criadoEm: string;
   readonly mudadoEm: string;
-  /** As últimas senhas trocadas (até 5), da mais nova para a mais velha. */
-  readonly historico: readonly { readonly senha: string; readonly ate: string }[];
+  /** As últimas senhas trocadas da primeira entrada (até 5), da mais nova para a mais velha. */
+  readonly historico: readonly SenhaDeAntes[];
 }
 
+/** Uma entrada do item: um User e uma Senha com nome ("Conta do trabalho", "Senha reserva"). */
+export interface Entrada {
+  readonly rotulo: string;
+  readonly usuario: string;
+  readonly senha: string;
+  /** Pede a passkey (ou a senha mestra) de novo para mostrar ou copiar a senha. */
+  readonly protegida: boolean;
+}
+
+/** Uma senha de antes; `protegida` se a entrada dela pedia a passkey (continua pedindo no histórico). */
+export interface SenhaDeAntes {
+  readonly senha: string;
+  readonly ate: string;
+  readonly protegida?: boolean;
+}
+
+/** Quantas entradas um item pode ter, contando a primeira. */
+export const MAX_ENTRADAS = 10;
+
 /** O que cabe em cada campo (o item inteiro ainda tem de caber nos 16 kB do servidor). */
-export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, descricao: 8000, grupo: 60 } as const;
+export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, descricao: 8000, grupo: 60, rotulo: 80 } as const;
 const HISTORICO = 5;
 
 /** Os campos que a pessoa escreve (sem o grupo, o item fica sem grupo; sem o ícone, com a letra). */
-export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & Partial<Pick<Item, 'grupo' | 'icone' | 'cor' | 'grupoIcone' | 'grupoCor'>>;
+export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> &
+  Partial<Pick<Item, 'grupo' | 'icone' | 'cor' | 'grupoIcone' | 'grupoCor' | 'rotulo' | 'protegida' | 'outras'>>;
+
+export const ENTRADA_VAZIA: Entrada = { rotulo: '', usuario: '', senha: '', protegida: false };
+
+/** Todas as entradas do item, a primeira (o User e a Senha) na frente. */
+export function entradasDo(item: Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'outras'>): Entrada[] {
+  return [{ rotulo: item.rotulo, usuario: item.usuario, senha: item.senha, protegida: item.protegida }, ...item.outras];
+}
+
+/** Os campos de um item com estas entradas: a primeira vai para o User e a Senha, as outras para `outras`. */
+export function comEntradas(entradas: readonly Entrada[]): Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'outras'> {
+  const [primeira = ENTRADA_VAZIA, ...outras] = entradas;
+  return { rotulo: primeira.rotulo, usuario: primeira.usuario, senha: primeira.senha, protegida: primeira.protegida, outras };
+}
+
+/** Uma entrada sem nada escrito (marcar "pede a passkey" sozinho não conta). */
+export function entradaVazia(e: Entrada): boolean {
+  return !e.rotulo.trim() && !e.usuario.trim() && !e.senha;
+}
+
+/** O nome de uma entrada na tela: o que a pessoa escreveu, ou "Senha 2". */
+export function nomeDaEntrada(e: Pick<Entrada, 'rotulo'>, n: number): string {
+  return e.rotulo.trim() || `Senha ${n + 1}`;
+}
+
+/** Alguma senha do item pede a passkey (a da primeira, a de outra entrada ou uma de antes). */
+export function temProtegida(item: Pick<Item, 'protegida' | 'outras' | 'historico'>): boolean {
+  return item.protegida || item.outras.some((e) => e.protegida) || item.historico.some((h) => h.protegida === true);
+}
 
 /** O jeito de um grupo: o ícone e a cor. */
 export interface JeitoDoGrupo {
@@ -82,6 +139,14 @@ export class ErroConflito extends Error {
 }
 
 const texto = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
+const rotulo = (v: unknown) => texto(v, LIMITES.rotulo * 2).replace(/\s+/g, ' ').trim().slice(0, LIMITES.rotulo);
+
+function lerEntrada(bruto: unknown): Entrada | null {
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return null;
+  const e = bruto as Record<string, unknown>;
+  const entrada = { rotulo: rotulo(e['rotulo']), usuario: texto(e['usuario'], LIMITES.usuario), senha: texto(e['senha'], LIMITES.senha), protegida: e['protegida'] === true };
+  return entradaVazia(entrada) ? null : entrada;
+}
 const data = (v: unknown) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : new Date(0).toISOString());
 
 /** Confere e limpa um item vindo de dentro do cifrado (só formato: o conteúdo é da pessoa). */
@@ -91,7 +156,7 @@ export function lerItem(bruto: unknown): Item {
   const historico = Array.isArray(i['historico'])
     ? (i['historico'] as unknown[])
         .filter((h): h is Record<string, unknown> => !!h && typeof h === 'object')
-        .map((h) => ({ senha: texto(h['senha'], LIMITES.senha), ate: data(h['ate']) }))
+        .map((h) => ({ senha: texto(h['senha'], LIMITES.senha), ate: data(h['ate']), ...(h['protegida'] === true ? { protegida: true } : {}) }))
         .filter((h) => h.senha)
         .slice(0, HISTORICO)
     : [];
@@ -108,6 +173,15 @@ export function lerItem(bruto: unknown): Item {
     // o jeito só vale com um grupo
     grupoIcone: grupo && ehIconeDaCartela(i['grupoIcone']) ? i['grupoIcone'] : '',
     grupoCor: grupo && ehCorDaCartela(i['grupoCor']) ? i['grupoCor'] : '',
+    rotulo: rotulo(i['rotulo']),
+    protegida: i['protegida'] === true,
+    // as vazias saem; os itens de antes não têm o campo
+    outras: Array.isArray(i['outras'])
+      ? (i['outras'] as unknown[])
+          .map(lerEntrada)
+          .filter((e): e is Entrada => e !== null)
+          .slice(0, MAX_ENTRADAS - 1)
+      : [],
     criadoEm: data(i['criadoEm']),
     mudadoEm: data(i['mudadoEm']),
     historico,
@@ -171,7 +245,10 @@ async function gravar(cofre: CofreAberto, manifesto: Manifesto, pedido: (gravaca
 export async function salvarItem(api: ApiCofre, cofre: CofreAberto, campos: CamposDoItem, anterior: ItemNaLista | null): Promise<ItemNaLista> {
   const agora = new Date().toISOString();
   const velho = anterior?.item ?? null;
-  const historico = velho && velho.senha && velho.senha !== campos.senha ? [{ senha: velho.senha, ate: agora }, ...velho.historico].slice(0, HISTORICO) : (velho?.historico ?? []);
+  const historico =
+    velho && velho.senha && velho.senha !== campos.senha
+      ? [{ senha: velho.senha, ate: agora, ...(velho.protegida ? { protegida: true } : {}) }, ...velho.historico].slice(0, HISTORICO)
+      : (velho?.historico ?? []);
   const item = lerItem({ ...campos, criadoEm: velho?.criadoEm ?? agora, mudadoEm: agora, historico });
   const id = anterior?.id ?? novoId();
   const versao = anterior ? anterior.versao + 1 : 1;
@@ -236,8 +313,8 @@ export async function mudarGrupo(
   const salvos: ItemNaLista[] = [];
   for (const alvo of alvos) {
     if (alvo.naLixeira || !alvo.item) continue;
-    const { titulo, usuario, senha, url, descricao, icone, cor } = alvo.item;
-    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, icone, cor, grupo, grupoIcone: jeito.icone, grupoCor: jeito.cor }, alvo);
+    const { titulo, usuario, senha, url, descricao, icone, cor, rotulo, protegida, outras } = alvo.item;
+    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, icone, cor, rotulo, protegida, outras, grupo, grupoIcone: jeito.icone, grupoCor: jeito.cor }, alvo);
     salvos.push(salvo);
     aCada?.(salvo);
   }

@@ -1,6 +1,6 @@
 import type { CofreAberto } from '../core/abrir';
 import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
-import { aleatorios, paraBase64url } from '../core/bytes';
+import { aleatorios, deBase64url, paraBase64url } from '../core/bytes';
 import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
 import { type CamposDoItem, salvarItem } from '../core/itens';
 import type { Autenticador } from '../core/passkey';
@@ -11,8 +11,8 @@ import { type Demonstracao, paginaDoNavegador } from './servicos';
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
  * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar` ou
  * `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de entrar aparece
- * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com sete
- * senhas de exemplo, guardadas na memória por uma API de mentira que confere o contador como a de verdade.
+ * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com oito
+ * senhas de exemplo (duas com mais de uma entrada, e uma entrada que pede a passkey), guardadas na memória por uma API de mentira que confere o contador como a de verdade.
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 
@@ -132,9 +132,45 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<Cofre
   const { chave, v } = await criarCofre(aleatorios(32), m, usuario);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString(), aparelho: 'Celular' };
   api.manifesto = paraBase64url(await cifrarManifesto(chave, usuario, manifesto));
-  const cofre: CofreAberto = { usuario, chave, manifesto, contador: 0, recuperada: false, expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC', segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } } };
+  const cofre: CofreAberto = {
+    usuario,
+    chave,
+    manifesto,
+    contador: 0,
+    recuperada: false,
+    expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(),
+    paradaMaxima: 600,
+    aparelho: 'PC',
+    segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } },
+    passkeys: [{ id: PASSKEY_DA_DEMO, transports: ['internal'] }],
+  };
   const exemplos: CamposDoItem[] = [
-    { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6', icone: 'moedas', grupo: 'Bancos', grupoIcone: 'moedas', grupoCor: 'verde' },
+    {
+      titulo: 'Banco',
+      rotulo: 'Internet banking',
+      usuario: 'fulano.silva',
+      senha: 'Xk9#mQ2$vL7!pR4@',
+      outras: [{ rotulo: 'Senha do cartão final 4321', usuario: '', senha: '7342', protegida: true }],
+      url: 'https://banco.exemplo',
+      descricao: 'Agência 0001\nConta 12345-6',
+      icone: 'moedas',
+      grupo: 'Bancos',
+      grupoIcone: 'moedas',
+      grupoCor: 'verde',
+    },
+    {
+      titulo: 'Facebook',
+      rotulo: 'Conta pessoal',
+      usuario: 'fulano.silva@email.com',
+      senha: 'mR7&kT3!xW9#',
+      outras: [
+        { rotulo: 'Página da loja', usuario: 'loja.do.fulano@email.com', senha: 'jaguatirica-azul-sereno', protegida: false },
+        { rotulo: 'Códigos de recuperação', usuario: '', senha: '4821 9930 1174 6605', protegida: true },
+      ],
+      url: 'facebook.com',
+      descricao: '',
+      grupo: 'Pessoal',
+    },
     { titulo: 'Cartão', usuario: '4321', senha: 'tR8!vN2@qK5#', url: 'cartao.exemplo', descricao: '', grupo: 'Bancos', grupoIcone: 'moedas', grupoCor: 'verde' },
     { titulo: 'E-mail', usuario: 'exemplo@email.com', senha: 'vidraceiro-incisivo-convite-mexicano-soprano-mortal', url: 'mail.google.com', descricao: '', grupo: 'Pessoal' },
     { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel-de-feira-2024', url: '', descricao: 'Rede: CASA_5G', icone: 'raio', grupo: 'Casa', grupoCor: 'azul' },
@@ -166,9 +202,17 @@ function autenticadorDeMentira(semPrf: boolean): Autenticador {
         getClientExtensionResults: () => ({ prf: comPrf ? { enabled: true, results: { first: aleatorios(32).buffer } } : { enabled: false } }),
       } as unknown as Credential;
     },
-    pegar: async () => null,
+    // a passkey de novo (17.18): o aparelho confere a pessoa, e a assinatura volta com a flag de usuário verificado
+    pegar: async () => {
+      await espera(900);
+      const dados = new Uint8Array(37);
+      dados[32] = 0x05;
+      return { type: 'public-key', rawId: deBase64url(PASSKEY_DA_DEMO)!.buffer, response: { authenticatorData: dados.buffer }, getClientExtensionResults: () => ({}) } as unknown as Credential;
+    },
   };
 }
+
+const PASSKEY_DA_DEMO = 'cGFzc2tleS1kYS1kZW1vbnN0cmFjYW8';
 
 let feita: Demonstracao | null | undefined;
 
