@@ -4,7 +4,7 @@ import type { CofreAberto } from '../../core/abrir';
 import { ApiCofre, ErroApi, type Gravacao, type ItensDaApi } from '../../core/api';
 import { aleatorios, paraBase64url } from '../../core/bytes';
 import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../../core/crypto';
-import { salvarItem } from '../../core/itens';
+import { type CamposDoItem, lerItens, salvarItem } from '../../core/itens';
 import { sha1 } from '../../core/vazadas';
 import { CHAVE_DA_LIMPEZA } from '../area-de-transferencia';
 import { type Pagina, SERVICOS, type Servicos } from '../servicos';
@@ -51,7 +51,7 @@ class ApiNaMemoria extends ApiCofre {
   }
 }
 
-async function montar(recuperada = false) {
+async function montar(recuperada = false, mais: readonly CamposDoItem[] = []) {
   const api = new ApiNaMemoria();
   const { chave } = await criarCofre(aleatorios(32), novaChaveDoMeio(), USUARIO);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: '2026-10-21T14:32:00.000Z', aparelho: 'Celular' };
@@ -61,6 +61,7 @@ async function montar(recuperada = false) {
   const outro = { ...cofre, manifesto: { ...manifesto } };
   await salvarItem(api, outro, { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel', url: '', descricao: '' }, null);
   await salvarItem(api, outro, { titulo: 'Banco', usuario: 'fulano', senha: 'segredo-1', url: 'banco.exemplo', descricao: 'agência 1' }, null);
+  for (const campos of mais) await salvarItem(api, outro, campos, null);
   const copias: string[] = [];
   const pedidosFora: string[] = [];
   const sites: string[] = [];
@@ -295,5 +296,115 @@ describe('o cofre aberto', () => {
   it('aberto pelo código: avisa para gerar um código novo', async () => {
     const { el } = await montar(true);
     expect(el.querySelector('.aviso-codigo')!.textContent).toContain('código novo');
+  });
+});
+
+describe('as pastas do cofre (os grupos)', () => {
+  afterEach(() => TestBed.resetTestingModule());
+
+  const vazio = { usuario: '', senha: 'x', url: '', descricao: '' };
+  const comGrupos = [
+    { ...vazio, titulo: 'Cartão', grupo: 'Bancos' },
+    { ...vazio, titulo: 'Alarme', grupo: 'Casa' },
+    { ...vazio, titulo: 'Repositório', grupo: 'trabalho' },
+  ];
+  const orelhas = (el: HTMLElement) => [...el.querySelectorAll('.orelha .orelha-nome')].map((o) => o.textContent!.trim());
+  const orelha = (el: HTMLElement, nome: string) => [...el.querySelectorAll<HTMLButtonElement>('.orelha')].find((o) => o.querySelector('.orelha-nome')!.textContent!.trim() === nome)!;
+  const naPasta = (el: HTMLElement, nome: string) => [...orelha(el, nome).closest('.pasta')!.querySelectorAll('.titulo')].map((t) => t.textContent!.trim());
+  const escolhas = (el: HTMLElement) => [...el.querySelectorAll<HTMLButtonElement>('.grupos-existentes button')];
+  const abrir = (el: HTMLElement, titulo: string) => [...el.querySelectorAll<HTMLButtonElement>('.abre')].find((b) => b.querySelector('.titulo')!.textContent!.trim() === titulo)!.click();
+
+  it('sem nenhum grupo, a lista de sempre, sem orelhas', async () => {
+    const { el } = await montar();
+    expect(el.querySelector('.orelha')).toBeNull();
+    expect(el.querySelector('.pastas.com-grupos')).toBeNull();
+    expect(el.querySelector('.contagem')!.textContent).not.toContain('grupo');
+  });
+
+  it('com grupos, uma pasta por grupo em ordem alfabética, as sem grupo por último, cada uma com quantas tem', async () => {
+    const { el } = await montar(false, comGrupos);
+    expect(orelhas(el)).toEqual(['Bancos', 'Casa', 'trabalho', 'Sem grupo']);
+    expect(el.querySelector('.contagem')!.textContent!.replace(/\s+/g, ' ')).toContain('5 senhas em 3 grupos');
+    expect(naPasta(el, 'Sem grupo')).toEqual(['Banco', 'Wi-Fi de casa']);
+    expect(orelha(el, 'Sem grupo').textContent).toContain('2 senhas');
+    expect(orelha(el, 'Casa').textContent).toContain('1 senha');
+  });
+
+  it('a orelha fecha e abre a pasta; a busca acha dentro das fechadas, também pelo nome do grupo', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    orelha(el, 'Casa').click();
+    await estabilizar(fixture);
+    expect(orelha(el, 'Casa').getAttribute('aria-expanded')).toBe('false');
+    expect(titulos(el)).not.toContain('Alarme');
+    const busca = el.querySelector<HTMLInputElement>('#busca')!;
+    busca.value = 'casa';
+    busca.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    // "casa" acha o Alarme pelo grupo (com a pasta fechada) e o Wi-Fi de casa pelo título
+    expect(titulos(el)).toEqual(['Alarme', 'Wi-Fi de casa']);
+    expect(orelha(el, 'Casa').getAttribute('aria-disabled')).toBe('true');
+    busca.value = '';
+    busca.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    expect(titulos(el)).not.toContain('Alarme');
+    orelha(el, 'Casa').click();
+    await estabilizar(fixture);
+    expect(titulos(el)).toContain('Alarme');
+  });
+
+  it('editar: o grupo se escolhe com um toque nos que existem, e a senha vai para a pasta dele, que abre', async () => {
+    const { fixture, el, api, cofre } = await montar(false, comGrupos);
+    orelha(el, 'Casa').click();
+    await estabilizar(fixture);
+    abrir(el, 'Banco');
+    await estabilizar(fixture);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    expect(escolhas(el).map((b) => b.textContent!.trim())).toEqual(['Bancos', 'Casa', 'trabalho']);
+    escolhas(el)[1]!.click();
+    await estabilizar(fixture);
+    expect(el.querySelector<HTMLInputElement>('#item-grupo')!.value).toBe('Casa');
+    expect(escolhas(el)[1]!.getAttribute('aria-pressed')).toBe('true');
+    botao(el, 'Salvar').click();
+    await estabilizar(fixture);
+    expect(orelha(el, 'Casa').getAttribute('aria-expanded')).toBe('true');
+    expect(naPasta(el, 'Casa')).toEqual(['Alarme', 'Banco']);
+    expect(el.querySelector('.grupo-do-item')!.textContent).toContain('Casa');
+    // o grupo vai dentro do cifrado
+    const lidos = await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } });
+    expect(lidos.find((i) => i.item?.titulo === 'Banco')!.item!.grupo).toBe('Casa');
+  });
+
+  it('o mesmo grupo escrito de outro jeito cai na mesma pasta; tocar no escolhido tira o grupo', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    botao(el, /Nova senha/).click();
+    await estabilizar(fixture);
+    const titulo = el.querySelector<HTMLInputElement>('#item-titulo')!;
+    titulo.value = 'Pix';
+    titulo.dispatchEvent(new Event('input'));
+    const grupo = el.querySelector<HTMLInputElement>('#item-grupo')!;
+    grupo.value = '  bancos ';
+    grupo.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    const bancos = () => escolhas(el).find((b) => b.textContent!.includes('Bancos'))!;
+    expect(bancos().getAttribute('aria-pressed')).toBe('true');
+    botao(el, 'Salvar').click();
+    await estabilizar(fixture);
+    expect(orelhas(el)).toEqual(['Bancos', 'Casa', 'trabalho', 'Sem grupo']);
+    expect(naPasta(el, 'Bancos')).toEqual(['Cartão', 'Pix']);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    bancos().click();
+    await estabilizar(fixture);
+    expect(el.querySelector<HTMLInputElement>('#item-grupo')!.value).toBe('');
+  });
+
+  it('só o grupo, sem mais nada, não é uma senha para guardar', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    botao(el, /Nova senha/).click();
+    await estabilizar(fixture);
+    escolhas(el)[0]!.click();
+    await estabilizar(fixture);
+    expect(botao(el, 'Salvar').disabled).toBe(true);
   });
 });

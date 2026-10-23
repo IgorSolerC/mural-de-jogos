@@ -76,6 +76,41 @@ h2 {
 .editar .site {
   max-width: 52ch;
 }
+.ver .site {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+/* o grupo do item: a orelha da pasta dele, pequena, ao lado do site */
+.grupo-do-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 10px 3px 8px;
+  border-radius: 6px 6px 1px 1px;
+  background-color: var(--pasta);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
+  color: var(--tinta);
+  font: 400 1rem/1.15 var(--f-marker);
+  overflow-wrap: anywhere;
+  cofre-icone {
+    width: 15px;
+    height: 15px;
+    flex: none;
+  }
+}
+.visivel-so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 @container corpo (max-width: 480px) {
   .cabeca {
     grid-template-columns: auto minmax(0, 1fr);
@@ -339,4 +374,30 @@ textarea {
 }
 .grupos .grupo {
   white-space: pre;
+}
+
+/* os grupos que já existem, como adesivos para escolher com um toque (o escolhido fica amarelo) */
+.grupos-existentes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.escolha {
+  @include p.botao-quieto;
+  & {
+    min-height: 40px;
+    max-width: 100%;
+    padding: 6px 12px 5px 10px;
+    font: 400 1rem/1.15 var(--f-marker);
+    letter-spacing: 0;
+    text-transform: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  cofre-icone {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
 }

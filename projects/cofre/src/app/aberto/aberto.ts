@@ -13,15 +13,13 @@ import { ItemDoCofre } from './item';
 import { Lixeira } from './lixeira';
 import { MonogramaSelo } from './monograma-selo';
 import { dominio, nomeDoItem } from './monograma';
+import { emPastas, gruposDoCofre, type Pasta, simples } from './pastas';
 import { type MotivoDeTrancar, Trancador } from './trancador';
 
 type Vista = 'senhas' | 'lixeira' | 'ajustes';
 type Campo = 'usuario' | 'senha';
 /** Quanto tempo o botão de copiar fica dizendo "copiado". */
 const COPIADO_MS = 1800;
-
-/** Um texto para comparar sem maiúsculas nem acentos. */
-const simples = (t: string) => t.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
 /** O dia e a hora de um ISO, em palavras curtas ("21/10 às 14:32"). */
 function quando(iso: string): string {
@@ -32,7 +30,8 @@ function quando(iso: string): string {
 /**
  * O cofre aberto (seções 8.1 a 8.2 e 10). Como nos gerenciadores de senha conhecidos: a lista à
  * esquerda, com o User e a Senha de cada item a um clique (sem abrir), e o item escolhido à direita,
- * onde também se edita; numa tela estreita, um de cada vez. Os Ajustes e a lixeira ocupam a ficha
+ * onde também se edita; numa tela estreita, um de cada vez. Com algum grupo, a lista vira pastas, uma
+ * por grupo, que fecham (seção 17.16; quais estão fechadas fica só na memória, como tudo no cofre). Os Ajustes e a lixeira ocupam a ficha
  * inteira. Os itens são conferidos contra o manifesto ao ler (nada aparece se não baterem); um
  * conflito com outro aparelho relê tudo. Trancar avisa o servidor (`sendBeacon`) e recarrega a página,
  * que joga fora a memória.
@@ -87,9 +86,17 @@ export class Aberto implements OnInit {
   protected readonly naLixeira = computed(() => this.itens().filter((i) => i.naLixeira && i.item));
   protected readonly achados = computed(() => {
     const q = simples(this.busca().trim());
-    const lista = this.noCofre().filter((i) => !q || [i.item!.titulo, i.item!.usuario, i.item!.url].some((c) => simples(c).includes(q)));
-    return [...lista].sort((a, b) => simples(nomeDoItem(a.item!)).localeCompare(simples(nomeDoItem(b.item!)), 'pt-BR'));
+    return this.noCofre().filter((i) => !q || [i.item!.titulo, i.item!.usuario, i.item!.url, i.item!.grupo].some((c) => simples(c).includes(q)));
   });
+  /** Os grupos de todas as senhas (as pastas e as sugestões ao editar). */
+  protected readonly grupos = computed(() => gruposDoCofre(this.noCofre()));
+  /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha (a lista de sempre). */
+  protected readonly pastas = computed(() => emPastas(this.achados(), this.grupos()));
+  /** As chaves das pastas fechadas (só nesta aba, enquanto o cofre está aberto). */
+  protected readonly fechadas = signal<ReadonlySet<string>>(new Set());
+  /** A pasta que acabou de ser aberta pela orelha (só ela anima). */
+  protected readonly recemAberta = signal<string | null>(null);
+  protected readonly buscando = computed(() => !!this.busca().trim());
   protected readonly selecionado = computed(() => this.noCofre().find((i) => i.id === this.aberto()) ?? null);
   /** A parte da direita tem algo (numa tela estreita, ela toma o lugar da lista). */
   protected readonly comDetalhe = computed(() => this.criando() || !!this.selecionado());
@@ -163,8 +170,34 @@ export class Aberto implements OnInit {
 
   // --- a lista
 
+  /** A pasta mostra as senhas: aberta, ou com uma busca (a busca acha dentro das fechadas também). */
+  protected pastaAberta(p: Pasta): boolean {
+    return this.buscando() || !this.fechadas().has(p.chave);
+  }
+
+  protected alternarPasta(p: Pasta): void {
+    if (this.buscando()) return;
+    const abrindo = this.fechadas().has(p.chave);
+    this.recemAberta.set(abrindo ? p.chave : null);
+    this.fechadas.update((f) => {
+      const nova = new Set(f);
+      if (!nova.delete(p.chave)) nova.add(p.chave);
+      return nova;
+    });
+  }
+
+  /** Abre a pasta de uma senha (ao abrir pelas vazadas, ou depois de guardar num grupo fechado). */
+  private mostrarNaPasta(id: string): void {
+    const grupo = this.noCofre().find((i) => i.id === id)?.item?.grupo;
+    if (grupo === undefined) return;
+    const chave = simples(grupo);
+    if (this.fechadas().has(chave)) this.fechadas.update((f) => new Set([...f].filter((c) => c !== chave)));
+  }
+
   protected abrirItem(i: ItemNaLista | string): void {
-    this.aberto.set(typeof i === 'string' ? i : i.id);
+    const id = typeof i === 'string' ? i : i.id;
+    this.aberto.set(id);
+    this.mostrarNaPasta(id);
     this.criando.set(false);
     this.erro.set(null);
     this.vista.set('senhas');
@@ -246,6 +279,7 @@ export class Aberto implements OnInit {
       this.itens.update((lista) => [...lista.filter((i) => i.id !== salvo.id), salvo]);
       this.criando.set(false);
       this.aberto.set(salvo.id);
+      this.mostrarNaPasta(salvo.id);
       this.item()?.terminouDeSalvar();
       this.avisar('Guardado.');
     } catch (e) {

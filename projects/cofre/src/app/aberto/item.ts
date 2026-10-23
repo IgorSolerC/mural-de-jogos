@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { type CamposDoItem, type ItemNaLista, LIMITES } from '../../core/itens';
+import { type CamposDoItem, type ItemNaLista, LIMITES, nomeDoGrupo } from '../../core/itens';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
 import { dominio, nomeDoItem, urlSegura } from './monograma';
 import { MonogramaSelo } from './monograma-selo';
+import { simples } from './pastas';
 import { emTrechos } from './trechos';
 
 export { urlSegura } from './monograma';
@@ -26,7 +27,7 @@ export function emGrupos(senha: string): string[] {
  * Um item do cofre (decisão 11): Título, User, Senha, URL e Descrição, à direita da lista. Ver: copiar
  * (a área de transferência é limpa 30 s depois, com o cofre na frente), revelar a senha (15 s, com a linha que encolhe), mostrar
  * para digitar (letras grandes, em grupos) e abrir o site (aba nova, sem dizer de onde veio). Editar no
- * mesmo lugar: os cinco campos, todos opcionais, e o gerador.
+ * mesmo lugar: os cinco campos e o grupo, todos opcionais, e o gerador.
  */
 @Component({
   selector: 'cofre-item',
@@ -46,12 +47,15 @@ export class ItemDoCofre {
   readonly ocupado = input(false);
   /** Quantas vezes a senha apareceu em vazamentos (0: nenhuma, ou ainda não conferida). */
   readonly vazada = input(0);
+  /** Os grupos que já existem no cofre, para escolher com um toque. */
+  readonly grupos = input<readonly string[]>([]);
   readonly salvar = output<CamposDoItem>();
   readonly paraALixeira = output<void>();
   readonly voltar = output<void>();
   readonly avisar = output<string>();
 
   protected readonly limites = LIMITES;
+  protected readonly simples = simples;
   protected readonly editando = signal(false);
   protected readonly revelada = signal(false);
   protected readonly paraDigitar = signal(false);
@@ -59,7 +63,7 @@ export class ItemDoCofre {
   protected readonly mostrarNoCampo = signal(false);
   /** O que acabou de ser copiado ("usuario", "senha", "anterior-2"…), para o botão dizer que deu certo. */
   protected readonly copiado = signal<string | null>(null);
-  protected readonly campos = signal<CamposDoItem>({ titulo: '', usuario: '', senha: '', url: '', descricao: '' });
+  protected readonly campos = signal<Required<CamposDoItem>>({ titulo: '', usuario: '', senha: '', url: '', descricao: '', grupo: '' });
 
   protected readonly item = computed(() => this.alvo()?.item ?? null);
   protected readonly site = computed(() => urlSegura(this.item()?.url ?? ''));
@@ -70,7 +74,13 @@ export class ItemDoCofre {
   protected readonly trechos = computed(() => emTrechos(this.item()?.senha ?? ''));
   protected readonly gruposEmTrechos = computed(() => emGrupos(this.item()?.senha ?? '').map(emTrechos));
   protected readonly novo = computed(() => this.alvo() === null);
-  protected readonly vazio = computed(() => Object.values(this.campos()).every((v) => !v.trim()));
+  /** Sem nada além do grupo, não há o que guardar. */
+  protected readonly vazio = computed(() => {
+    const { grupo: _grupo, ...escritos } = this.campos();
+    return Object.values(escritos).every((v) => !v.trim());
+  });
+  /** O grupo escrito, se já for um dos que existem (o adesivo dele fica marcado). */
+  protected readonly grupoEscolhido = computed(() => simples(nomeDoGrupo(this.campos().grupo)));
   private readonly idDoAlvo = computed(() => this.alvo()?.id ?? null);
   private timerRevelar: ReturnType<typeof setTimeout> | null = null;
   private timerCopiado: ReturnType<typeof setTimeout> | null = null;
@@ -110,7 +120,7 @@ export class ItemDoCofre {
 
   protected editar(): void {
     const i = this.item();
-    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '' });
+    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '' });
     this.revelada.set(false);
     this.editando.set(true);
     setTimeout(() => this.primeiroCampo()?.nativeElement.focus());
@@ -127,6 +137,11 @@ export class ItemDoCofre {
     this.campos.update((c) => ({ ...c, [campo]: valor }));
   }
 
+  /** Um toque num grupo que existe põe a senha nele; no que já está escolhido, tira. */
+  protected escolherGrupo(grupo: string): void {
+    this.campos.update((c) => ({ ...c, grupo: this.grupoEscolhido() === simples(grupo) ? '' : grupo }));
+  }
+
   protected usarGerada(senha: string): void {
     this.campos.update((c) => ({ ...c, senha }));
     this.mostrarNoCampo.set(true);
@@ -135,7 +150,10 @@ export class ItemDoCofre {
 
   protected gravar(): void {
     if (this.vazio() || this.ocupado()) return;
-    this.salvar.emit(this.campos());
+    // escrito de outro jeito ("bancos"), fica com o nome do grupo que já existe ("Bancos")
+    const grupo = nomeDoGrupo(this.campos().grupo);
+    const existente = this.grupos().find((g) => simples(g) === simples(grupo));
+    this.salvar.emit({ ...this.campos(), grupo: existente ?? grupo });
   }
 
   /** Depois de salvar, quem usa volta a mostrar o item. */

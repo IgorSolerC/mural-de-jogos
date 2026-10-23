@@ -11,7 +11,7 @@ import { type Demonstracao, paginaDoNavegador } from './servicos';
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
  * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar` ou
  * `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de entrar aparece
- * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com três
+ * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com sete
  * senhas de exemplo, guardadas na memória por uma API de mentira que confere o contador como a de verdade.
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
@@ -134,9 +134,13 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<Cofre
   api.manifesto = paraBase64url(await cifrarManifesto(chave, usuario, manifesto));
   const cofre: CofreAberto = { usuario, chave, manifesto, contador: 0, recuperada: false, expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC', segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } } };
   for (const campos of [
-    { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6' },
-    { titulo: 'E-mail', usuario: 'exemplo@email.com', senha: 'vidraceiro-incisivo-convite-mexicano-soprano-mortal', url: 'mail.google.com', descricao: '' },
-    { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel-de-feira-2024', url: '', descricao: 'Rede: CASA_5G' },
+    { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6', grupo: 'Bancos' },
+    { titulo: 'Cartão', usuario: '4321', senha: 'tR8!vN2@qK5#', url: 'cartao.exemplo', descricao: '', grupo: 'Bancos' },
+    { titulo: 'E-mail', usuario: 'exemplo@email.com', senha: 'vidraceiro-incisivo-convite-mexicano-soprano-mortal', url: 'mail.google.com', descricao: '', grupo: 'Pessoal' },
+    { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel-de-feira-2024', url: '', descricao: 'Rede: CASA_5G', grupo: 'Casa' },
+    { titulo: 'Alarme', usuario: '', senha: '7319', url: '', descricao: '', grupo: 'Casa' },
+    { titulo: 'Repositório', usuario: 'fulano-dev', senha: 'Zq4$hP9!wM2&', url: 'github.com', descricao: '', grupo: 'Trabalho' },
+    { titulo: 'Loja de jogos', usuario: 'fulano', senha: 'cinema-pipoca-tucano', url: 'loja.exemplo', descricao: '' },
   ]) {
     await salvarItem(api, cofre, campos, null);
   }

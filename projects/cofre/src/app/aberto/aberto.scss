@@ -156,7 +156,7 @@ cofre-icone {
       inset -2px 0 0 rgb(21 21 21 / 0.12),
       inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
   }
-  .lado-lista > :not(.lista) {
+  .lado-lista > :not(.lista, .pastas) {
     margin-right: 16px;
   }
   /* a senha aberta fica à vista enquanto a lista rola (e rola sozinha, se for mais alta que a tela) */
@@ -231,6 +231,132 @@ kbd {
 }
 .sem-achados {
   padding: 8px 2px;
+}
+
+/* --- as pastas: com algum grupo, cada grupo é uma pasta de manilha com a orelha em cima (o nome a
+   pincel e quantas tem); a orelha abre e fecha a pasta, e a fechada fica só com a orelha e a beirada */
+.pastas {
+  display: grid;
+  gap: 8px;
+}
+.pastas.com-grupos {
+  gap: 14px;
+}
+.pasta {
+  --pasta-agora: var(--pasta);
+  display: grid;
+  min-width: 0;
+}
+.orelha-lugar {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+}
+.orelha {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: calc(100% - 28px);
+  min-height: 42px;
+  padding: 9px 12px 7px 12px;
+  border: 0;
+  border-radius: 10px 10px 0 0;
+  background-color: var(--pasta-agora);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: 0 -1px 2px -1px rgb(0 0 0 / 0.3);
+  color: var(--tinta);
+  font: 400 1.12rem/1.1 var(--f-marker);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 160ms var(--curva-ui);
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
+  &[aria-disabled='true'] {
+    cursor: default;
+  }
+  cofre-icone {
+    flex: none;
+    width: 18px;
+    height: 18px;
+  }
+}
+.orelha-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* quantas senhas: um número a lápis num quadradinho de papel colado na orelha */
+.orelha-conta {
+  flex: none;
+  min-width: 24px;
+  padding: 4px 6px 3px;
+  border-radius: 2px;
+  background: rgb(255 253 248 / 0.7);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.16);
+  font: 800 0.8rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.sem-grupo .orelha-nome {
+  color: var(--tinta-2);
+}
+/* passar o mouse clareia a pasta inteira (a orelha e o corpo são um papel só) */
+@media (hover: hover) {
+  .pasta:has(.orelha:hover:not([aria-disabled='true'])) {
+    --pasta-agora: #e0cfa2;
+  }
+}
+.com-grupos .dentro {
+  min-height: 8px;
+  padding: 10px;
+  border-radius: 0 6px 6px 6px;
+  background-color: var(--pasta-agora);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 8px 12px -10px rgb(0 0 0 / 0.5);
+  transition: background-color 160ms var(--curva-ui);
+}
+/* fechada: só a beirada da pasta embaixo da orelha */
+.com-grupos .fechada .dentro {
+  padding: 0;
+}
+/* abrir uma pasta (só a que acabou de ser aberta pela orelha): as etiquetas descem do fundo dela */
+.com-grupos .acabou-de-abrir .lista {
+  animation: sai-da-pasta 320ms var(--curva);
+}
+@keyframes sai-da-pasta {
+  from {
+    translate: 0 -6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .com-grupos .acabou-de-abrir .lista {
+    animation: none;
+  }
+}
+/* estreita: a pasta vai até a beirada da faixa, e as etiquetas ficam com a largura de antes */
+@container corpo (max-width: 480px) {
+  .pastas.com-grupos {
+    margin-inline: -8px;
+  }
+  .com-grupos .dentro {
+    padding: 6px;
+  }
+}
+@container corpo (min-width: 820px) {
+  /* lado a lado, a pasta corre até a folha, para a etiqueta aberta poder entrar nela */
+  .com-grupos .dentro {
+    padding-right: 0;
+    border-radius: 0 0 0 6px;
+  }
 }
 
 /* --- as linhas: uma etiqueta de papel por senha, a aberta amarela, reta e encostada na folha */

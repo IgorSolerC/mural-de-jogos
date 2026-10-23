@@ -9,8 +9,18 @@
       <cofre-monograma [nome]="nome()" [grande]="true" />
       <div class="cabeca-textos">
         <h2>{{ nome() }}</h2>
-        @if (dominio()) {
-          <p class="site" translate="no">{{ dominio() }}</p>
+        @if (i.grupo || dominio()) {
+          <p class="site">
+            @if (i.grupo) {
+              <span class="grupo-do-item">
+                <cofre-icone nome="pasta" />
+                <span class="visivel-so-leitor">Grupo </span>{{ i.grupo }}
+              </span>
+            }
+            @if (dominio()) {
+              <span translate="no">{{ dominio() }}</span>
+            }
+          </p>
         }
       </div>
       <button type="button" class="papel editar" [disabled]="ocupado()" (click)="editar()">
@@ -132,6 +142,20 @@
     <div class="campo-bloco">
       <label class="rotulo" for="item-titulo">Título</label>
       <input #primeiroCampo id="item-titulo" autocomplete="off" spellcheck="false" [attr.maxlength]="limites.titulo" [value]="campos().titulo" (input)="mudar('titulo', $event)" placeholder="Banco, e-mail, Wi-Fi de casa…" />
+    </div>
+    <div class="campo-bloco">
+      <label class="rotulo" for="item-grupo">Grupo</label>
+      <input id="item-grupo" autocomplete="off" spellcheck="false" [attr.maxlength]="limites.grupo" [value]="campos().grupo" (input)="mudar('grupo', $event)" placeholder="Bancos, Trabalho, Casa…" />
+      @if (grupos().length) {
+        <div class="grupos-existentes" role="group" aria-label="Grupos que já existem">
+          @for (g of grupos(); track g) {
+            <button type="button" class="escolha" [attr.aria-pressed]="grupoEscolhido() === simples(g)" (click)="escolherGrupo(g)">
+              <cofre-icone [nome]="grupoEscolhido() === simples(g) ? 'feito' : 'pasta'" />
+              {{ g }}
+            </button>
+          }
+        </div>
+      }
     </div>
     <div class="campo-bloco">
       <label class="rotulo" for="item-usuario">User</label>

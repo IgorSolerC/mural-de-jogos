@@ -1,7 +1,7 @@
 import type { CofreAberto } from './abrir';
 import { ApiCofre, ErroApi, type Gravacao } from './api';
 import { criarCofre, ErroCofre, novaChaveDoMeio } from './crypto';
-import { ErroConflito, type ItemNaLista, LIMITES, lerItem, salvarItem } from './itens';
+import { ErroConflito, type ItemNaLista, LIMITES, lerItem, nomeDoGrupo, salvarItem } from './itens';
 
 const USUARIO = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
 
@@ -25,12 +25,21 @@ const campos = (senha: string) => ({ titulo: 'Banco', usuario: 'igor', senha, ur
 
 describe('os itens do cofre', () => {
   it('lerItem: todos os campos opcionais, cortados no limite, e o que não é item é recusado', () => {
-    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
+    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', grupo: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
     const grande = lerItem({ titulo: 'x'.repeat(5000), senha: 7, historico: [{ senha: 'a', ate: 'ontem' }, null, { senha: '' }, 'b'] });
     expect(grande.titulo.length).toBe(LIMITES.titulo);
     expect(grande.senha).toBe('');
     expect(grande.historico).toEqual([{ senha: 'a', ate: new Date(0).toISOString() }]);
     for (const ruim of [null, 'texto', [1, 2], 3]) expect(() => lerItem(ruim)).toThrowError(ErroCofre);
+  });
+
+  it('o grupo: os itens de antes ficam sem grupo; o nome sem espaços sobrando e cortado no limite', () => {
+    expect(lerItem({ titulo: 'Antigo' }).grupo).toBe('');
+    expect(lerItem({ grupo: '  Bancos   do  Brasil ' }).grupo).toBe('Bancos do Brasil');
+    expect(lerItem({ grupo: 'g'.repeat(500) }).grupo.length).toBe(LIMITES.grupo);
+    expect(lerItem({ grupo: 42 }).grupo).toBe('');
+    expect(nomeDoGrupo('\t Casa \n')).toBe('Casa');
+    expect(nomeDoGrupo('sem  GRUPO')).toBe('');
   });
 
   it('salvar: novo na versão 1, mudado na versão + 1, com o manifesto e o contador que o aparelho viu', async () => {

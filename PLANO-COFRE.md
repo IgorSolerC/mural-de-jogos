@@ -1565,3 +1565,26 @@ Murall. Feito sem mexer na cripto, na API nem no que fica na memória (nada novo
   Murall copiada em `_papelaria.scss`, com os tokens do campo conferidos contra `src/styles.scss`.
 - O teste de ponta a ponta no Chrome (`cofre-api/test/e2e/chrome.mjs`) passou a abrir as partes dos
   Ajustes pelo índice.
+
+### 17.16 As pastas do cofre (22/10)
+
+Pedido do usuário: com muitas senhas, achar a certa exigia digitar na busca; ele quis pôr cada senha num
+grupo, como o grupo das anotações, e ver a lista arrumada por grupo. Feito sem mexer na cripto, na API nem
+no que fica no aparelho:
+
+- **O grupo mora dentro do item cifrado** (`grupo` em `core/itens.ts`, até 60 caracteres, sem espaços
+  sobrando): o servidor não vê nem o nome dos grupos, e nada novo vai no manifesto. Os itens de antes
+  continuam sem grupo. Um grupo existe enquanto alguma senha o usa (não há lista de grupos guardada à
+  parte, nem cor ou ícone escolhidos: isso pediria um lugar cifrado novo).
+- **Mesmo grupo, escrito de outro jeito**: "bancos" e "Bancos" são a mesma pasta (sem maiúscula nem
+  acento); ao salvar, o nome escrito vira o do grupo que já existe. Vindo de outro aparelho, vale a grafia
+  da senha mudada por último (`aberto/pastas.ts`).
+- **A lista em pastas**: com algum grupo, cada um é uma pasta de manilha com a orelha (o nome e quantas
+  tem), em ordem alfabética, e as sem grupo por último; sem nenhum, a lista de antes. A orelha abre e
+  fecha a pasta; quais estão fechadas fica só na memória da aba (some ao trancar, como tudo). A busca acha
+  também pelo nome do grupo e mostra todas as pastas abertas. Abrir uma senha (pelas vazadas, por
+  exemplo) ou guardá-la num grupo fechado abre a pasta dela.
+- **Editar**: o campo Grupo vem logo depois do Título, com os grupos que já existem em adesivos para
+  escolher com um toque (tocar no escolhido tira). Na senha aberta, o grupo aparece ao lado do site.
+- Ficou de fora, para depois se o usuário quiser: renomear ou apagar um grupo de uma vez (hoje, editando
+  as senhas dele) e mover várias senhas juntas.

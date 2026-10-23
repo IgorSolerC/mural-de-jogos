@@ -1,9 +1,10 @@
 /**
  * Os itens do cofre aberto (seções 6.2, 6.3 e 16.5 do PLANO-COFRE.md, decisão 11), sem tela.
  *
- * Um item tem Título, User, Senha, URL e Descrição, todos opcionais, mais as datas e as últimas 5
- * senhas: tudo dentro do cifrado. Ao ler, os itens que o servidor manda são conferidos contra o
- * manifesto (faltou, sobrou, repetiu ou mudou a versão: erro, e nada aparece). Toda gravação manda o item
+ * Um item tem Título, User, Senha, URL e Descrição, todos opcionais, o grupo (a pasta da lista, seção
+ * 17.16), mais as datas e as últimas 5 senhas: tudo dentro do cifrado (o servidor não vê nem o grupo).
+ * Ao ler, os itens que o servidor manda são conferidos contra o manifesto (faltou, sobrou, repetiu ou
+ * mudou a versão: erro, e nada aparece). Toda gravação manda o item
  * e o manifesto novo, com o contador que este aparelho viu; se outro aparelho gravou antes, a API
  * responde 409 e nada muda (`ErroConflito`): quem chama relê os itens e faz de novo.
  *
@@ -22,6 +23,8 @@ export interface Item {
   readonly senha: string;
   readonly url: string;
   readonly descricao: string;
+  /** O grupo (a pasta da lista); vazio: sem grupo. Os itens de antes do grupo não têm o campo. */
+  readonly grupo: string;
   readonly criadoEm: string;
   readonly mudadoEm: string;
   /** As últimas senhas trocadas (até 5), da mais nova para a mais velha. */
@@ -29,11 +32,17 @@ export interface Item {
 }
 
 /** O que cabe em cada campo (o item inteiro ainda tem de caber nos 16 kB do servidor). */
-export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, descricao: 8000 } as const;
+export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, descricao: 8000, grupo: 60 } as const;
 const HISTORICO = 5;
 
-/** Os campos que a pessoa escreve. */
-export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'>;
+/** Os campos que a pessoa escreve (sem o grupo, o item fica sem grupo). */
+export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & { readonly grupo?: string };
+
+/** O nome de um grupo como fica guardado: sem espaços nas pontas nem repetidos ("Sem grupo" é sem grupo). */
+export function nomeDoGrupo(texto: string): string {
+  const nome = texto.replace(/\s+/g, ' ').trim().slice(0, LIMITES.grupo);
+  return nome.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === 'sem grupo' ? '' : nome;
+}
 
 /** Um item como a lista mostra. */
 export interface ItemNaLista {
@@ -74,6 +83,7 @@ export function lerItem(bruto: unknown): Item {
     senha: texto(i['senha'], LIMITES.senha),
     url: texto(i['url'], LIMITES.url),
     descricao: texto(i['descricao'], LIMITES.descricao),
+    grupo: nomeDoGrupo(texto(i['grupo'], LIMITES.grupo * 2)),
     criadoEm: data(i['criadoEm']),
     mudadoEm: data(i['mudadoEm']),
     historico,
