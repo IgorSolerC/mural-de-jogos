@@ -26,6 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-23-grupos-do-cofre',
+    version: '1.30.2',
+    kind: 'ajustes',
+    date: '2026-10-23',
+    title: 'Renomear e apagar os grupos do cofre',
+    melhorias: [
+      'Nos Ajustes do cofre, a parte Grupos renomeia um grupo em todas as senhas dele de uma vez, junta dois grupos (renomeando um com o nome do outro) e apaga um grupo, que só sai das senhas: elas continuam no cofre.',
+    ],
+  },
+  {
     id: '2026-10-22-pastas-no-cofre',
     version: '1.30.1',
     kind: 'ajustes',

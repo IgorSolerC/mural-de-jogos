@@ -3,12 +3,12 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, i
 import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
-import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../core/itens';
+import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, salvarItem } from '../../core/itens';
 import { conferirVazadas } from '../../core/vazadas';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
-import { Gerenciar } from '../gerenciar/gerenciar';
+import { Gerenciar, type MudancaDeGrupo } from '../gerenciar/gerenciar';
 import { ItemDoCofre } from './item';
 import { Lixeira } from './lixeira';
 import { MonogramaSelo } from './monograma-selo';
@@ -77,6 +77,7 @@ export class Aberto implements OnInit {
   protected readonly conferindo = signal(false);
   protected readonly conferidoEm = signal<Date | null>(null);
   private readonly item = viewChild(ItemDoCofre);
+  private readonly ajustes = viewChild(Gerenciar);
   private readonly lixeiraEl = viewChild(Lixeira);
   private readonly campoBusca = viewChild<ElementRef<HTMLInputElement>>('campoBusca');
   private readonly listaEl = viewChild<ElementRef<HTMLElement>>('lista');
@@ -90,6 +91,12 @@ export class Aberto implements OnInit {
   });
   /** Os grupos de todas as senhas (as pastas e as sugestões ao editar). */
   protected readonly grupos = computed(() => gruposDoCofre(this.noCofre()));
+  /** Os grupos com quantas senhas cada um tem (os Ajustes renomeiam e apagam). */
+  protected readonly gruposComConta = computed(() =>
+    this.grupos().map((nome) => ({ nome, senhas: this.noCofre().filter((i) => simples(i.item!.grupo) === simples(nome)).length })),
+  );
+  /** Quantas já mudaram, enquanto um grupo é renomeado ou apagado. */
+  protected readonly mudandoGrupo = signal<{ readonly feitas: number; readonly total: number } | null>(null);
   /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha (a lista de sempre). */
   protected readonly pastas = computed(() => emPastas(this.achados(), this.grupos()));
   /** As chaves das pastas fechadas (só nesta aba, enquanto o cofre está aberto). */
@@ -324,6 +331,35 @@ export class Aberto implements OnInit {
       this.falhou(e);
     } finally {
       this.ocupado.set(false);
+    }
+  }
+
+  /**
+   * Renomeia um grupo (ou junta com outro, se o nome novo já existe) ou o apaga, gravando cada senha dele.
+   * Um conflito no meio relê tudo: as que já mudaram ficam mudadas, e fazer de novo termina o resto.
+   */
+  protected async mudarOGrupo({ de, para }: MudancaDeGrupo): Promise<void> {
+    const alvos = this.noCofre().filter((i) => simples(i.item!.grupo) === simples(de));
+    const outro = para ? this.grupos().find((g) => simples(g) === simples(para) && simples(g) !== simples(de)) : undefined;
+    const destino = outro ?? para;
+    this.ocupado.set(true);
+    this.erro.set(null);
+    this.mudandoGrupo.set({ feitas: 0, total: alvos.length });
+    try {
+      await mudarGrupo(this.servicos.api, this.cofre(), alvos, destino, (salvo) => {
+        this.itens.update((lista) => lista.map((i) => (i.id === salvo.id ? salvo : i)));
+        this.mudandoGrupo.update((m) => (m ? { ...m, feitas: m.feitas + 1 } : m));
+      });
+      // a pasta continua aberta ou fechada com o nome novo
+      if (this.fechadas().has(simples(de))) this.fechadas.update((f) => new Set([...f].filter((c) => c !== simples(de))));
+      const quantas = alvos.length === 1 ? 'a senha' : `as ${alvos.length} senhas`;
+      this.avisar(!destino ? `Grupo ${de} apagado: ${quantas} ficaram sem grupo.` : outro ? `${de} juntado com ${destino}.` : `${de} agora se chama ${destino}.`);
+    } catch (e) {
+      this.falhou(e);
+    } finally {
+      this.ocupado.set(false);
+      this.mudandoGrupo.set(null);
+      this.ajustes()?.terminouGrupo();
     }
   }
 

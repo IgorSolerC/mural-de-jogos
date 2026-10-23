@@ -251,6 +251,77 @@
             }
           }
 
+          @case ('grupos') {
+            <h3>Grupos</h3>
+            <p class="lead">Os grupos das senhas, que viram as pastas da lista. Renomear muda o nome em todas as senhas do grupo; apagar só tira o grupo delas, e elas continuam no cofre, sem grupo.</p>
+            @if (!grupos().length) {
+              <p class="linha-desc">Nenhum grupo ainda. Escolha um ao editar uma senha, no campo Grupo.</p>
+            } @else {
+              <div class="grupo">
+                <p class="grupo-titulo">No cofre</p>
+                @for (g of grupos(); track g.nome) {
+                  @if (renomeando() === g.nome) {
+                    <form class="linha pilha" (submit)="$event.preventDefault(); gravarNomeDoGrupo()">
+                      <div>
+                        <label class="linha-titulo" for="g-grupo-nome">Renomear {{ g.nome }}</label>
+                        <p class="linha-desc">
+                          @if (juntaCom(); as outro) {
+                            Já existe o grupo {{ outro.nome }}: as {{ g.senhas === 1 ? 'senha' : g.senhas + ' senhas' }} de {{ g.nome }} vão para lá, e os dois viram um só.
+                          } @else {
+                            Muda nas {{ g.senhas === 1 ? 'uma senha' : g.senhas + ' senhas' }} do grupo.
+                          }
+                        </p>
+                      </div>
+                      <span class="em-linha">
+                        <input #campoDoGrupo id="g-grupo-nome" autocomplete="off" spellcheck="false" [attr.maxlength]="limiteDoGrupo" [value]="nomeNovo()" (input)="nomeNovo.set(valor($event))" (keydown.escape)="renomeando.set(null)" />
+                        <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="renomeando.set(null)">Cancelar</button>
+                        <button type="submit" class="tinta" [disabled]="!nomeNovoPronto()">
+                          @if (mudandoGrupo(); as m) {
+                            Mudando {{ m.feitas }} de {{ m.total }}…
+                          } @else {
+                            {{ juntaCom() ? 'Juntar' : 'Renomear' }}
+                          }
+                        </button>
+                      </span>
+                    </form>
+                  } @else {
+                    <div class="linha">
+                      <div class="linha-com-icone">
+                        <cofre-icone class="linha-icone" nome="pasta" />
+                        <div>
+                          <p class="linha-titulo nome-do-grupo">{{ g.nome }}</p>
+                          <p class="linha-desc">{{ g.senhas }} {{ g.senhas === 1 ? 'senha' : 'senhas' }}</p>
+                        </div>
+                      </div>
+                      <span class="botoes">
+                        @if (confirmarApagarGrupo() === g.nome) {
+                          <span class="pergunta">Tirar {{ g.nome }} {{ g.senhas === 1 ? 'da senha' : 'das ' + g.senhas + ' senhas' }}?</span>
+                          <button type="button" class="papel perigo" [disabled]="!!mudandoGrupo()" (click)="apagarGrupo(g.nome)">
+                            @if (mudandoGrupo(); as m) {
+                              Mudando {{ m.feitas }} de {{ m.total }}…
+                            } @else {
+                              Apagar o grupo
+                            }
+                          </button>
+                          <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="confirmarApagarGrupo.set(null)">Não</button>
+                        } @else {
+                          <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="renomearGrupo(g.nome)">
+                            <cofre-icone nome="lapis" />
+                            Renomear
+                          </button>
+                          <button type="button" class="papel perigo" [disabled]="!!mudandoGrupo()" (click)="renomeando.set(null); confirmarApagarGrupo.set(g.nome)">
+                            <cofre-icone nome="lixeira" />
+                            Apagar
+                          </button>
+                        }
+                      </span>
+                    </div>
+                  }
+                }
+              </div>
+            }
+          }
+
           @case ('historico') {
             <h3>Histórico</h3>
             <p class="lead">O que aconteceu com o cofre nos últimos 90 dias. Senha errada aparece em vermelho.</p>

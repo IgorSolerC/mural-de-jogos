@@ -194,3 +194,21 @@ export async function limparLapides(api: ApiCofre, cofre: CofreAberto, lista: re
   for (const lapide of lista.filter((i) => i.item === null)) await apagarDeVez(api, cofre, lapide);
   return lista.filter((i) => i.item !== null);
 }
+
+/**
+ * Muda o grupo de várias senhas de uma vez (renomear: o nome novo; apagar o grupo: vazio), uma gravação
+ * por senha, na ordem. Só as que estão no cofre: as da lixeira ficam como estão (gravar uma delas a
+ * tiraria da lixeira). Um conflito no meio para tudo, com as anteriores já gravadas: fazer de novo
+ * continua de onde parou. `aCada` recebe cada uma assim que fica gravada.
+ */
+export async function mudarGrupo(api: ApiCofre, cofre: CofreAberto, alvos: readonly ItemNaLista[], grupo: string, aCada?: (salvo: ItemNaLista) => void): Promise<ItemNaLista[]> {
+  const salvos: ItemNaLista[] = [];
+  for (const alvo of alvos) {
+    if (alvo.naLixeira || !alvo.item) continue;
+    const { titulo, usuario, senha, url, descricao } = alvo.item;
+    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, grupo }, alvo);
+    salvos.push(salvo);
+    aCada?.(salvo);
+  }
+  return salvos;
+}

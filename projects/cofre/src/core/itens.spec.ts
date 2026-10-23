@@ -1,7 +1,7 @@
 import type { CofreAberto } from './abrir';
 import { ApiCofre, ErroApi, type Gravacao } from './api';
 import { criarCofre, ErroCofre, novaChaveDoMeio } from './crypto';
-import { ErroConflito, type ItemNaLista, LIMITES, lerItem, nomeDoGrupo, salvarItem } from './itens';
+import { ErroConflito, type ItemNaLista, LIMITES, lerItem, mudarGrupo, nomeDoGrupo, salvarItem } from './itens';
 
 const USUARIO = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
 
@@ -53,6 +53,22 @@ describe('os itens do cofre', () => {
       [1, 0],
       [2, 1],
     ]);
+  });
+
+  it('mudar o grupo de várias: uma gravação por senha, sem mexer na senha nem no histórico; as da lixeira ficam', async () => {
+    const api = new ApiQueAceita();
+    const cofre = await cofreAberto();
+    let a: ItemNaLista = await salvarItem(api, cofre, { ...campos('s0'), grupo: 'Casa' }, null);
+    a = await salvarItem(api, cofre, { ...campos('s1'), grupo: 'Casa' }, a);
+    const b = await salvarItem(api, cofre, { ...campos('x'), grupo: 'Casa' }, null);
+    const naLixeira: ItemNaLista = { ...b, naLixeira: true, naLixeiraDesde: new Date().toISOString() };
+    const vistos: string[] = [];
+    const salvos = await mudarGrupo(api, cofre, [a, naLixeira], 'Lar', (s) => vistos.push(s.id));
+    expect(salvos.map((s) => [s.id, s.versao, s.item!.grupo, s.item!.senha])).toEqual([[a.id, 3, 'Lar', 's1']]);
+    expect(salvos[0]!.item!.historico.map((h) => h.senha)).toEqual(['s0']);
+    expect(vistos).toEqual([a.id]);
+    // apagar o grupo é mudar para vazio
+    expect((await mudarGrupo(api, cofre, salvos, ''))[0]!.item!.grupo).toBe('');
   });
 
   it('trocar a senha guarda a de antes no histórico, até 5, da mais nova para a mais velha', async () => {

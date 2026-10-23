@@ -1586,5 +1586,10 @@ no que fica no aparelho:
   exemplo) ou guardá-la num grupo fechado abre a pasta dela.
 - **Editar**: o campo Grupo vem logo depois do Título, com os grupos que já existem em adesivos para
   escolher com um toque (tocar no escolhido tira). Na senha aberta, o grupo aparece ao lado do site.
-- Ficou de fora, para depois se o usuário quiser: renomear ou apagar um grupo de uma vez (hoje, editando
-  as senhas dele) e mover várias senhas juntas.
+- **Renomear e apagar um grupo de uma vez** (23/10, a pedido): a parte Grupos dos Ajustes do cofre lista os
+  grupos com quantas senhas têm. Renomear grava cada senha do grupo com o nome novo (`mudarGrupo` em
+  `core/itens.ts`, uma gravação por senha, sem mexer na senha nem no histórico); para o nome de outro
+  grupo, junta os dois. Apagar só tira o grupo das senhas, depois de perguntar. As da lixeira não mudam
+  (gravar uma delas a tiraria da lixeira): se voltarem, voltam com o grupo de antes. Um conflito no meio
+  para tudo com as anteriores já gravadas; fazer de novo termina o resto.
+- Ficou de fora: mover várias senhas juntas.

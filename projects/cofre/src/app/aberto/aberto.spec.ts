@@ -407,4 +407,79 @@ describe('as pastas do cofre (os grupos)', () => {
     await estabilizar(fixture);
     expect(botao(el, 'Salvar').disabled).toBe(true);
   });
+
+  describe('nos Ajustes, a parte Grupos', () => {
+    async function naParte(mais = comGrupos) {
+      const m = await montar(false, mais);
+      botao(m.el, 'Ajustes').click();
+      await estabilizar(m.fixture);
+      [...m.el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Grupos'))!.click();
+      await estabilizar(m.fixture);
+      return m;
+    }
+    const linhaDe = (el: HTMLElement, nome: string) => [...el.querySelectorAll<HTMLElement>('.linha')].find((l) => l.querySelector('.nome-do-grupo')?.textContent!.trim() === nome)!;
+    const escrever = (el: HTMLElement, texto: string) => {
+      const campo = el.querySelector<HTMLInputElement>('#g-grupo-nome')!;
+      campo.value = texto;
+      campo.dispatchEvent(new Event('input'));
+    };
+    const doGrupo = async (api: ApiNaMemoria, cofre: CofreAberto, titulo: string) =>
+      (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item?.titulo === titulo)!.item!.grupo;
+    const doisNaCasa = [...comGrupos, { ...vazio, titulo: 'Portão', grupo: 'Casa' }];
+
+    it('lista os grupos com quantas senhas cada um tem', async () => {
+      const { el } = await naParte(doisNaCasa);
+      expect([...el.querySelectorAll('.nome-do-grupo')].map((n) => n.textContent!.trim())).toEqual(['Bancos', 'Casa', 'trabalho']);
+      expect(linhaDe(el, 'Casa').textContent).toContain('2 senhas');
+    });
+
+    it('renomear muda o nome em todas as senhas do grupo, e a pasta fica com o nome novo', async () => {
+      const { fixture, el, api, cofre } = await naParte(doisNaCasa);
+      botao(linhaDe(el, 'Casa'), /Renomear/).click();
+      await estabilizar(fixture);
+      escrever(el, 'Minha casa');
+      await estabilizar(fixture);
+      const gravar = el.querySelector<HTMLButtonElement>('form.linha button[type=submit]')!;
+      expect(gravar.textContent!.trim()).toBe('Renomear');
+      gravar.click();
+      await estabilizar(fixture);
+      expect(await doGrupo(api, cofre, 'Alarme')).toBe('Minha casa');
+      expect(await doGrupo(api, cofre, 'Portão')).toBe('Minha casa');
+      expect(el.querySelector('.bilhete')!.textContent).toContain('Casa agora se chama Minha casa');
+      expect([...el.querySelectorAll('.nome-do-grupo')].map((n) => n.textContent!.trim())).toEqual(['Bancos', 'Minha casa', 'trabalho']);
+    });
+
+    it('renomear para um grupo que existe junta os dois', async () => {
+      const { fixture, el, api, cofre } = await naParte();
+      botao(linhaDe(el, 'trabalho'), /Renomear/).click();
+      await estabilizar(fixture);
+      escrever(el, 'bancos');
+      await estabilizar(fixture);
+      expect(el.textContent).toContain('Já existe o grupo Bancos');
+      botao(el, 'Juntar').click();
+      await estabilizar(fixture);
+      expect(await doGrupo(api, cofre, 'Repositório')).toBe('Bancos');
+      expect(linhaDe(el, 'Bancos').textContent).toContain('2 senhas');
+      expect(el.querySelector('.bilhete')!.textContent).toContain('trabalho juntado com Bancos');
+    });
+
+    it('apagar pergunta antes e só tira o grupo: as senhas continuam no cofre', async () => {
+      const { fixture, el, api, cofre } = await naParte(doisNaCasa);
+      botao(linhaDe(el, 'Casa'), /Apagar/).click();
+      await estabilizar(fixture);
+      expect(el.textContent).toContain('Tirar Casa das 2 senhas?');
+      expect(await doGrupo(api, cofre, 'Alarme')).toBe('Casa');
+      botao(el, 'Apagar o grupo').click();
+      await estabilizar(fixture);
+      expect(await doGrupo(api, cofre, 'Alarme')).toBe('');
+      expect(await doGrupo(api, cofre, 'Portão')).toBe('');
+      expect(api.guardados.size).toBe(6);
+      expect([...el.querySelectorAll('.nome-do-grupo')].map((n) => n.textContent!.trim())).toEqual(['Bancos', 'trabalho']);
+    });
+
+    it('sem grupos, diz como criar um', async () => {
+      const { el } = await naParte([]);
+      expect(el.textContent).toContain('Nenhum grupo ainda');
+    });
+  });
 });

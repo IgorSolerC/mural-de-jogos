@@ -4,6 +4,8 @@ import { type AparelhoDaApi, ErroApi, type EventoDaApi, type SessaoDaApi } from 
 import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
+import { LIMITES, nomeDoGrupo } from '../../core/itens';
+import { simples } from '../aberto/pastas';
 import { ErroPasskey, type PasskeyRegistrada, registrarPasskey } from '../../core/passkey';
 import { sortearFrase } from '../../core/sorteio';
 import { PassoKit } from '../criar/passo-kit';
@@ -27,7 +29,7 @@ const EVENTOS: Record<string, string> = {
 
 const MAXIMO_DE_APARELHOS = 10;
 
-export type ParteDosAjustes = 'aparelhos' | 'senha' | 'recuperacao' | 'sessoes' | 'vazadas' | 'historico' | 'cuidado';
+export type ParteDosAjustes = 'aparelhos' | 'senha' | 'recuperacao' | 'sessoes' | 'vazadas' | 'grupos' | 'historico' | 'cuidado';
 
 /** As partes dos Ajustes, na ordem do índice (como as Configurações do mural: uma lista e um bloco no template). */
 export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: string; readonly dica: string; readonly icone: NomeDoIcone }[] = [
@@ -36,9 +38,22 @@ export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: str
   { id: 'recuperacao', nome: 'Recuperação', dica: 'O código de emergência', icone: 'boia' },
   { id: 'sessoes', nome: 'Abertos agora', dica: 'Onde o cofre está aberto', icone: 'tela' },
   { id: 'vazadas', nome: 'Senhas vazadas', dica: 'Conferir na base pública', icone: 'escudo' },
+  { id: 'grupos', nome: 'Grupos', dica: 'Renomear e apagar', icone: 'pasta' },
   { id: 'historico', nome: 'Histórico', dica: 'Os últimos 90 dias', icone: 'historico' },
   { id: 'cuidado', nome: 'Cuidado', dica: 'Apagar o cofre', icone: 'perigo' },
 ];
+
+/** Um grupo das senhas (uma pasta da lista), com quantas senhas tem. */
+export interface GrupoDoCofre {
+  readonly nome: string;
+  readonly senhas: number;
+}
+
+/** Renomear um grupo (`para` é o nome novo) ou apagá-lo (`para` vazio): quem usa grava as senhas. */
+export interface MudancaDeGrupo {
+  readonly de: string;
+  readonly para: string;
+}
 
 /** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
 export interface Vazada {
@@ -57,7 +72,8 @@ function mensagem(e: unknown): string {
  * Os Ajustes do cofre aberto (seção 8.5), montados como as Configurações do mural: o índice de etiquetas
  * na faixa de manilha e uma parte aberta por vez. Os aparelhos (pôr, com PRF ou no modo servidor, e
  * tirar, nunca o último), a senha mestra, o código de recuperação, os aparelhos abertos (e trancar
- * todos), as senhas vazadas, o histórico de 90 dias e apagar o cofre (só escrevendo APAGAR).
+ * todos), as senhas vazadas, os grupos (renomear e apagar de uma vez), o histórico de 90 dias e apagar o
+ * cofre (só escrevendo APAGAR).
  */
 @Component({
   selector: 'cofre-gerenciar',
@@ -79,6 +95,11 @@ export class Gerenciar implements OnInit {
   readonly conferidoEm = input<Date | null>(null);
   /** Quantas senhas há no cofre. */
   readonly senhas = input(0);
+  /** Os grupos das senhas, em ordem. */
+  readonly grupos = input<readonly GrupoDoCofre[]>([]);
+  /** Quantas senhas já mudaram de grupo, enquanto um grupo é renomeado ou apagado. */
+  readonly mudandoGrupo = input<{ readonly feitas: number; readonly total: number } | null>(null);
+  readonly mudarGrupo = output<MudancaDeGrupo>();
   readonly avisar = output<string>();
   readonly conferir = output<void>();
   readonly abrirItem = output<string>();
@@ -89,6 +110,7 @@ export class Gerenciar implements OnInit {
   protected readonly partes = PARTES;
   protected readonly parte = signal<ParteDosAjustes>('aparelhos');
   private readonly indice = viewChild<ElementRef<HTMLElement>>('indice');
+  private readonly campoDoGrupo = viewChild<ElementRef<HTMLInputElement>>('campoDoGrupo');
   protected readonly ocupado = signal(false);
   protected readonly erro = signal<string | null>(null);
 
@@ -121,9 +143,51 @@ export class Gerenciar implements OnInit {
   protected readonly confirmarTrancarTodos = signal(false);
   protected readonly palavraApagar = signal('');
 
+  // grupos
+  protected readonly limiteDoGrupo = LIMITES.grupo;
+  /** O grupo sendo renomeado (o nome de agora) e o nome escrito. */
+  protected readonly renomeando = signal<string | null>(null);
+  protected readonly nomeNovo = signal('');
+  protected readonly confirmarApagarGrupo = signal<string | null>(null);
+  /** O grupo que já existe com o nome escrito (renomear para ele junta os dois). */
+  protected readonly juntaCom = computed(() => {
+    const de = this.renomeando();
+    const para = simples(nomeDoGrupo(this.nomeNovo()));
+    return de === null || !para || para === simples(de) ? null : (this.grupos().find((g) => simples(g.nome) === para) ?? null);
+  });
+  protected readonly nomeNovoPronto = computed(() => {
+    const de = this.renomeando();
+    const para = nomeDoGrupo(this.nomeNovo());
+    return !!de && !!para && para !== de && !this.mudandoGrupo();
+  });
+
   async ngOnInit(): Promise<void> {
     this.apelido.set(/Android|iPhone|iPad|Mobile/i.test(this.servicos.pagina.agente) ? 'Celular' : 'PC');
     await this.recarregar();
+  }
+
+  protected renomearGrupo(nome: string): void {
+    this.confirmarApagarGrupo.set(null);
+    this.renomeando.set(nome);
+    this.nomeNovo.set(nome);
+    afterNextRender(() => this.campoDoGrupo()?.nativeElement.select(), { injector: this.injector });
+  }
+
+  protected gravarNomeDoGrupo(): void {
+    const de = this.renomeando();
+    if (!de || !this.nomeNovoPronto()) return;
+    this.mudarGrupo.emit({ de, para: this.juntaCom()?.nome ?? nomeDoGrupo(this.nomeNovo()) });
+  }
+
+  protected apagarGrupo(nome: string): void {
+    if (this.mudandoGrupo()) return;
+    this.mudarGrupo.emit({ de: nome, para: '' });
+  }
+
+  /** Quem usa acabou de renomear ou apagar (deu certo ou não): as perguntas fecham. */
+  terminouGrupo(): void {
+    this.renomeando.set(null);
+    this.confirmarApagarGrupo.set(null);
   }
 
   protected async recarregar(): Promise<void> {
