@@ -4,6 +4,8 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -64,6 +66,7 @@ import { CommentsPanel } from './comments-panel';
 // as folhas das anotações compartilhadas, também em pedaços à parte (cada uma num import só dela)
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
+import { LinkSheet } from './link-sheet';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
@@ -75,10 +78,10 @@ const PATCH_GAP = 8;
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" aria-labelledby="leitura-titulo" (backdropClose)="close()" (keydown)="onKey($event)" (close)="onClosed()">
+    <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" [class.solta]="!!solta()" aria-labelledby="leitura-titulo" (backdropClose)="solta() || close()" (cancel)="onCancel($event)" (keydown)="onKey($event)" (close)="onClosed()">
       @if (review(); as r) {
         <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários -->
         <div class="par" [class.com-grupo]="!!groupEar()">
@@ -98,9 +101,12 @@ const PATCH_GAP = 8;
             @if (note() && r.doneAt) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
             }
-            <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
-              <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
-            </button>
+            <!-- a ficha aberta pelo link é a página inteira: não há para onde fechar -->
+            @if (!solta()) {
+              <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
+                <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+              </button>
+            }
           </header>
 
           <div class="body" appLuz (scroll)="watchSelection()">
@@ -335,7 +341,7 @@ const PATCH_GAP = 8;
               @let name = r.sharedBy?.nome ?? ownerName;
               @if (name === 'Você') {
                 <p>{{ note() ? 'Sua anotação' : 'Sua resenha' }}</p>
-              } @else if (r.sharedBy?.codigo ?? ownerCode(); as code) {
+              } @else if (solta() !== 'visita' && (r.sharedBy?.codigo ?? ownerCode()); as code) {
                 <!-- o nome leva ao perfil de quem escreveu (a compartilhada, ao do dono dela) -->
                 <p>
                   {{ note() ? 'Anotação de' : 'Resenha de' }}
@@ -344,7 +350,9 @@ const PATCH_GAP = 8;
               } @else {
                 <p>{{ (note() ? 'Anotação de ' : 'Resenha de ') + name }}</p>
               }
-              <button type="button" class="btn-ink" (click)="close()">Fechar</button>
+              @if (!solta()) {
+                <button type="button" class="btn-ink" (click)="close()">Fechar</button>
+              }
             } @else {
             <!-- o que se faz de vez em quando (fixar, compartilhar, escrever outra vez, lado a lado, apagar)
                  fica guardado no bilhete do "Mais"; no pé, só o que se usa toda hora -->
@@ -430,7 +438,7 @@ const PATCH_GAP = 8;
                 } @else {
                   <!-- a folha em si (com o editor de texto) chega num pedaço à parte, só para quem abre -->
                   @defer (on immediate) {
-                    <app-comments-panel [target]="ct" [ownerName]="commentOwner()" [own]="owner() === null && !leaves()" [audience]="commentAudience()" [quote]="quote()" (leave)="leaveTo($event)" />
+                    <app-comments-panel [target]="ct" [ownerName]="commentOwner()" [own]="(owner() === null && !leaves()) || (!!ownerCode() && ownerCode() === comments.myCode())" [audience]="commentAudience()" [quote]="quote()" (leave)="leaveTo($event)" />
                   } @placeholder {
                     <p class="abrindo" role="status"><span class="carregando" aria-hidden="true"></span>Abrindo os comentários…</p>
                   }
@@ -448,6 +456,18 @@ const PATCH_GAP = 8;
           </button>
         }
         </div>
+
+        <!-- a ficha aberta pelo link: a assinatura do site, a giz na parede, embaixo dela -->
+        @if (solta()) {
+          <a class="assinatura" href="./">feito no <span class="assinatura-nome">Murall</span></a>
+        }
+
+        <!-- o link da ficha, num pedaço à parte, só quando abre -->
+        @if (linkOpen()) {
+          @defer (on immediate) {
+            <app-link-sheet [review]="r" [code]="linkCode()" (closed)="linkOpen.set(false)" />
+          }
+        }
 
         <!-- as folhas das compartilhadas: cada uma num pedaço à parte, só quando abre -->
         @if (shareOpen()) {
@@ -518,6 +538,7 @@ export class ReviewReader {
   protected readonly GroupIcon = ICON.pasta;
   protected readonly LeaveIcon = ICON.sair;
   protected readonly ConflictIcon = ICON.aviso;
+  protected readonly LinkIcon = ICON.link;
   private readonly store = inject(ReviewStore);
 
   // ===== As anotações compartilhadas (ver core/shared-store.ts) =====
@@ -643,6 +664,8 @@ export class ReviewReader {
       icon: this.leaves() ? this.LeaveIcon : this.TrashIcon,
       danger: true,
     };
+    // o link que abre só esta ficha, para quem não usa o Murall (a privada diz por que não tem)
+    const link: MoreItem = { id: 'link', label: this.note() ? 'Link da anotação' : 'Link da ficha', icon: this.LinkIcon, dialog: true };
     if (this.note()) {
       const pinned = r.noteRank === 'fixada';
       const shared = this.sharedHere();
@@ -652,6 +675,7 @@ export class ReviewReader {
         ...(this.writable() ? [] : [{ id: 'organizar', label: 'Grupo e tags', icon: this.GroupIcon, dialog: true }]),
         // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
         { id: 'compartilhar', label: !shared || shared.manages ? 'Compartilhar' : 'Pessoas', icon: this.SharedIcon, dialog: true },
+        link,
         remove,
       ];
     }
@@ -659,6 +683,7 @@ export class ReviewReader {
       { id: 'outra-vez', label: `Escrever ${this.profile().revisit.one}`, icon: this.RevisitIcon },
       // as rejogadas não entram no lado a lado: lá é uma ficha por obra
       ...(r.revisitOf ? [] : [{ id: 'lado-a-lado', label: 'Lado a lado', icon: this.side.has(r.id) ? this.CheckedIcon : this.UncheckedIcon, pressed: this.side.has(r.id), hint: `Marcar pra comparar com ${this.others()}` }]),
+      link,
       remove,
     ];
   });
@@ -668,6 +693,7 @@ export class ReviewReader {
     if (!r) return;
     if (id === 'fixar') this.togglePin();
     else if (id === 'compartilhar') this.openShare();
+    else if (id === 'link') this.linkOpen.set(true);
     else if (id === 'organizar') this.organizeOpen.set(true);
     else if (id === 'outra-vez') this.revisit.emit(r.id);
     else if (id === 'lado-a-lado') this.side.toggle(r.id);
@@ -712,6 +738,13 @@ export class ReviewReader {
   protected readonly conflictOpen = linkedSignal({ source: this.openId, computation: () => false });
   /** A folha do grupo, do assunto e das tags de quem só lê a compartilhada. */
   protected readonly organizeOpen = linkedSignal({ source: this.openId, computation: () => false });
+  /** A folha do link da ficha (ver ui/link-sheet.ts). */
+  protected readonly linkOpen = linkedSignal({ source: this.openId, computation: () => false });
+  /** De quem é o link: o dono da compartilhada de outra pessoa, ou você. */
+  protected readonly linkCode = computed(() => {
+    const e = this.sharedEntry();
+    return e && e.papel !== 'dono' ? e.dono.codigo : this.reactions.myCode();
+  });
 
   protected closeOrganize(): void {
     this.organizeOpen.set(false);
@@ -793,6 +826,9 @@ export class ReviewReader {
   protected readonly owner = signal<string | null>(null);
   /** O código na nuvem do dono da ficha de outra pessoa (para as reações); null num backup. */
   protected readonly ownerCode = signal<string | null>(null);
+  private readonly injector = inject(Injector);
+  /** Aberta pelo link: a página é só ela (`conta`: quem abriu tem conta; `visita`: não tem). */
+  protected readonly solta = signal<'conta' | 'visita' | null>(null);
   private readonly router = inject(Router);
 
   /** O perfil de quem escreveu a ficha: a leitura fecha e a página da pessoa abre. */
@@ -807,6 +843,8 @@ export class ReviewReader {
     // a compartilhada de outra pessoa: as reações e os comentários são os da ficha do dono
     const e = this.sharedEntry();
     const code = e && e.papel !== 'dono' ? e.dono.codigo : this.owner() === null ? this.reactions.myCode() : (r?.sharedBy?.codigo ?? this.ownerCode());
+    // pelo link, sem conta: só a ficha (nem as reações nem os comentários)
+    if (this.solta() === 'visita') return null;
     return r && code ? { code, ref: r.id, titulo: r.game.name, mural: r.kind } : null;
   });
   /** Pedido por quem abriu: a ficha de outra pessoa sobre algo que você ainda não avaliou ("Evitar spoilers de outros murais"). */
@@ -999,7 +1037,16 @@ export class ReviewReader {
   /** A leitura fechou (pelo X, por Esc ou pelo fundo): a ficha sai e a seleção deixa de ser ouvida. */
   protected onClosed(): void {
     // o aviso de que fechou chega depois: se outra ficha já abriu no lugar, ele não é dela
-    if (this.dialog().nativeElement.open) return;
+    const el = this.dialog().nativeElement;
+    if (el.open) return;
+    // a ficha aberta pelo link é a página: o Esc logo ao abrir (o Chrome só deixa recusar o cancel
+    // depois de um toque) ou o voltar do Android não a fecham. Só fecha quem pediu (`close`)
+    if (this.solta() && !this.closing) {
+      el.showModal();
+      return;
+    }
+    this.closing = false;
+    this.solta.set(null);
     document.removeEventListener('selectionchange', this.onSelectionChange);
     clearTimeout(this.selectionTimer);
     this.picked.set(null);
@@ -1205,7 +1252,9 @@ export class ReviewReader {
     code: string | null = null,
     from: Review | null = null,
     revealed = false,
+    solta: 'conta' | 'visita' | null = null,
   ): void {
+    this.solta.set(solta);
     // pediram a ficha já com os comentários (o remendo da ficha, o "Comentar" do Feed)
     const withComments = this.comments.take(review.id);
     // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
@@ -1244,7 +1293,28 @@ export class ReviewReader {
   }
 
   close(): void {
-    this.dialog().nativeElement.close();
+    const el = this.dialog().nativeElement;
+    if (!el.open) return;
+    this.closing = true;
+    el.close();
+  }
+  /** Quem fechou foi o site (`close`), não o Esc nem o voltar: a ficha aberta pelo link pode sair. */
+  private closing = false;
+
+  /**
+   * A ficha aberta pelo link (ver pages/ficha-page.ts): ela é a página inteira, sem fechar. `signedIn`:
+   * quem abriu tem conta, e vê as reações e os comentários; sem, só a ficha. As outras fichas do dono
+   * (`pool`) servem aos links e às notas coladas no texto.
+   */
+  openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void {
+    this.open(review, owner, pool, false, code, null, false, signedIn ? 'conta' : 'visita');
+    // sem o X, o foco começaria num link do texto (ou na assinatura): começa pelo nome da ficha
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true }), { injector: this.injector });
+  }
+
+  /** O Esc não fecha a ficha aberta pelo link (só as folhas e os menus de cima dela). */
+  protected onCancel(e: Event): void {
+    if (this.solta()) e.preventDefault();
   }
 
 }

@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
+import { CloudSync } from '../core/cloud-sync';
 import { CloudAccount } from '../core/cloud-account';
 import { Comments } from '../core/comments';
 import { FeedItem, Follow, People } from '../core/follow';
@@ -100,6 +101,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
           },
         },
         { provide: Follow, useValue: { items: signal<FeedItem[]>([]), people, follow: async () => undefined, available: () => true, loadPeople: async () => people() } },
+        { provide: CloudSync, useValue: { status: signal('ok'), lastSyncAt: signal(Date.parse('2026-02-01T00:00:00.000Z')) } },
       ],
     });
     fixture = TestBed.createComponent(ReviewReader);
@@ -466,5 +468,118 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     await settle();
     expect(q('.guarda')).toBeNull();
     expect(q('app-comments-panel')).not.toBeNull();
+  });
+  describe('o link da ficha', () => {
+    const items = async () => {
+      if (!q('app-more-menu .bilhete')) q<HTMLButtonElement>('app-more-menu .mais')!.click();
+      await settle();
+      return [...el.querySelectorAll<HTMLButtonElement>('app-more-menu .item')];
+    };
+    const sheet = () => q('app-link-sheet dialog') as HTMLDialogElement | null;
+
+    it('o "Mais" da sua ficha tem o link, que abre a folha com o endereço da ficha', async () => {
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      const link = (await items()).find((b) => b.textContent?.includes('Link da ficha'))!;
+      expect(link).toBeDefined();
+      expect(link.getAttribute('aria-haspopup')).toBe('dialog');
+      link.click();
+      await settle();
+      expect(sheet()?.open).toBeTrue();
+      expect(sheet()!.querySelector('h2')?.textContent).toBe('Link da ficha');
+      expect(sheet()!.querySelector<HTMLInputElement>('input')!.value).toMatch(/#\/ficha\/EEEE-0000\/r-hades$/);
+      // a ficha já está na nuvem: nada de "ainda indo"
+      expect(sheet()!.textContent).not.toContain('ainda está indo');
+    });
+
+    it('na anotação, o nome é "Link da anotação"; a privada diz por que não tem link', async () => {
+      fixture.componentInstance.open(review('nota-1', 'Senhas', { kind: 'anotacoes', private: true }));
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da anotação'))!.click();
+      await settle();
+      expect(sheet()!.querySelector('input')).toBeNull();
+      expect(sheet()!.textContent).toContain('Esta anotação é privada: só você vê, e ela não tem link');
+    });
+
+    it('a ficha mudada depois do último envio avisa que a nuvem ainda tem a de antes', async () => {
+      fixture.componentInstance.open(review('r-hades', 'Hades', { updatedAt: '2026-03-01T00:00:00.000Z' }));
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da ficha'))!.click();
+      await settle();
+      expect(sheet()!.textContent).toContain('ainda está indo para a nuvem');
+    });
+
+    it('sem conta, a folha leva a Ajustes › Conta', async () => {
+      signedIn.set(false);
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da ficha'))!.click();
+      await settle();
+      expect(sheet()!.querySelector('input')).toBeNull();
+      expect(sheet()!.querySelector('.sem-conta .papel')?.textContent).toContain('Entrar em Ajustes › Conta');
+    });
+
+    it('Copiar põe o link na área de transferência e o botão diz "Copiado"', async () => {
+      const write = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da ficha'))!.click();
+      await settle();
+      sheet()!.querySelector<HTMLButtonElement>('.copiar')!.click();
+      await settle();
+      expect(write).toHaveBeenCalledWith(sheet()!.querySelector<HTMLInputElement>('input')!.value);
+      expect(sheet()!.querySelector('.copiar')?.textContent).toContain('Copiado');
+    });
+
+    it('aberta pelo link, sem conta: só a ficha, sem fechar (nem o X, nem o Fechar, nem o Esc), sem reações nem comentários', async () => {
+      counts[ANA] = { 'r-hades': 3 };
+      signedIn.set(false);
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
+      await settle();
+      expect(dialog().open).toBeTrue();
+      expect(dialog().classList.contains('solta')).toBeTrue();
+      expect(q('.faixa-nome .fecha')).toBeNull();
+      expect(q('.foot .btn-ink')).toBeNull();
+      expect(q('.foot')?.textContent?.trim()).toBe('Resenha de Ana');
+      expect(q('.dono-link')).toBeNull();
+      expect(q('.reagir-linha')).toBeNull();
+      expect(q('.orelha')).toBeNull();
+      expect(q('.assinatura')?.textContent).toContain('Murall');
+      const esc = new Event('cancel', { cancelable: true });
+      dialog().dispatchEvent(esc);
+      expect(esc.defaultPrevented).toBeTrue();
+      // o Esc logo ao abrir (sem toque antes) e o voltar do Android fecham o diálogo por fora: ele volta
+      expect(document.activeElement?.id).toBe('leitura-titulo');
+      await new Promise((res) => {
+        dialog().addEventListener('close', res, { once: true });
+        dialog().close();
+      });
+      await settle();
+      expect(dialog().open).toBeTrue();
+      expect(q('#leitura-titulo')?.textContent).toBe('Hades');
+      // só o site fecha (ao sair da página)
+      await new Promise((res) => {
+        dialog().addEventListener('close', res, { once: true });
+        fixture.componentInstance.close();
+      });
+      await settle();
+      expect(dialog().open).toBeFalse();
+      expect(q('#leitura-titulo')).toBeNull();
+    });
+
+    it('aberta pelo link, com conta: os comentários e o nome que leva ao perfil', async () => {
+      counts[ANA] = { 'r-hades': 3 };
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, true);
+      await settle();
+      expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários: 3');
+      expect(q('.dono-link')?.textContent).toBe('Ana');
+      expect(q('.faixa-nome .fecha')).toBeNull();
+      // abrir outra ficha do jeito de sempre volta a ter o fechar
+      await closeReader();
+      fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+      await settle();
+      expect(q('.faixa-nome .fecha')).not.toBeNull();
+      expect(dialog().classList.contains('solta')).toBeFalse();
+    });
   });
 });

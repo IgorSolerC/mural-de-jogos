@@ -41,6 +41,7 @@ import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
 import { NoteDone } from './core/note-done';
 import { TRY_AGAIN } from './ui/follow-toasts';
+import { FichaLinks, isFichaPath } from './core/ficha-link';
 
 @Component({
   selector: 'app-root',
@@ -90,7 +91,8 @@ export class App {
       filter((e) => e instanceof NavigationEnd),
       map((e) => pathOf((e as NavigationEnd).urlAfterRedirects)),
     ),
-    { initialValue: '/' },
+    // o endereço já aberto (o link de uma ficha não pisca o topo antes da primeira navegação)
+    { initialValue: pathOf(location.hash.replace(/^#/, '') || '/') },
   );
 
   /** No Pra depois ou na Wishlist: lá o N e o botão do topo adicionam à lista, não ao mural. */
@@ -108,8 +110,15 @@ export class App {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly wishAdder = viewChild.required(WishAdder);
 
-  /** A parede escolhida no perfil vale no site inteiro (o eucatex é a do próprio site). */
-  protected readonly siteWall = computed(() => this.profiles.profile().page);
+  /** A ficha aberta pelo link: o site fica só com ela (sem o topo, a barra e os avisos). */
+  protected readonly loose = computed(() => isFichaPath(this.path()));
+  private readonly fichaLinks = inject(FichaLinks);
+
+  /**
+   * A parede escolhida no perfil vale no site inteiro (o eucatex é a do próprio site); na ficha aberta
+   * pelo link, a de quem a escreveu.
+   */
+  protected readonly siteWall = computed(() => (this.loose() ? (this.fichaLinks.wall() ?? 'eucatex') : this.profiles.profile().page));
 
   constructor() {
     // a cor de fundo da parede entra na hora (o desenho chega depois, num pedaço à parte)
@@ -174,6 +183,8 @@ export class App {
         const w = this.store.getWish(id);
         if (w) this.editor().open(undefined, undefined, w);
       },
+      openLoose: (review, owner, pool, code, signedIn) => this.reader().openLoose(review, owner, pool, code, signedIn),
+      closeReader: () => this.reader().close(),
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
     afterNextRender(() => {

@@ -96,6 +96,8 @@ export const routes: Routes = [
   { path: 'amigos', title: 'Amigos', loadComponent: () => import('./pages/mail-page').then((m) => m.MailPage) },
   // o primeiro nome da aba
   { path: 'correio', redirectTo: 'amigos' },
+  // a ficha aberta pelo link: só ela, maximizada, para quem não usa o Murall (ver core/ficha-link.ts)
+  { path: 'ficha/:codigo/:id', title: 'Ficha', loadComponent: () => import('./pages/ficha-page').then((m) => m.FichaPage) },
   { path: 'novidades', title: 'Novidades', loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
   { path: '**', redirectTo: '' },
 ];

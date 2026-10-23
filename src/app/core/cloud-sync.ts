@@ -376,11 +376,25 @@ export function publicNotes(notes: unknown, boardOnly: ReadonlySet<string> = new
 }
 
 /**
+ * As anotações públicas que estão só no Kanban: fora do mural (do dono e de quem visita), mas com o
+ * link da ficha (ver core/ficha-link.ts). Vão no público à parte, em `soKanban`, que o mural de quem
+ * visita não lê; não viram aviso nem contam no cartão.
+ */
+export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): unknown[] {
+  if (!Array.isArray(notes)) return [];
+  return notes.filter((n) => {
+    const r = n as { id?: unknown; private?: unknown } | null;
+    return r?.private !== true && typeof r?.id === 'string' && boardOnly.has(r.id);
+  });
+}
+
+/**
  * A regra do que vai para o mural público. Ela entra na impressão do público (ver `publicPrint`):
  * mudar a regra (subir o número) faz cada aparelho reenviar o público uma vez, sem esperar a pessoa
- * mexer em algo. 2: as anotações que estão só no Kanban saem do público.
+ * mexer em algo. 2: as anotações que estão só no Kanban saem do público. 3: elas voltam ao público à
+ * parte (`soKanban`), fora do mural de quem visita, para o link da ficha.
  */
-export const PUBLIC_RULES = 2;
+export const PUBLIC_RULES = 3;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
@@ -1347,9 +1361,9 @@ export class CloudSync {
     const board = this.kanban.boardOnly();
     // as anotações compartilhadas públicas (as de outra pessoa dizem de quem são): não estão no mural
     // privado, mas os outros as veem no seu; as privadas, nem o título nas notas coladas
-    const sharedPublic = this.publicShared(board).map((x) =>
-      x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note),
-    );
+    const asShown = (x: { note: Review; dono: SharedPerson | null }) =>
+      x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note);
+    const sharedPublic = this.publicShared(board).map(asShown);
     const ownNotes = [...publicNotes(doc.notas, board), ...sharedPublic];
     // tudo o que os outros veem; o que é seu e fica de fora não deixa nem o título nas notas coladas
     const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], ownNotes);
@@ -1358,6 +1372,9 @@ export class CloudSync {
     const reviews = publicReviews(doc.reviews).map((r) => shownCard(r, hidden));
     const musicas = publicReviews(doc.musicas ?? []).map((r) => shownCard(r, hidden));
     const notas = ownNotes.map((n) => shownCard(n, hidden));
+    // as só no Kanban: fora do mural, mas o link da ficha as abre (as compartilhadas públicas também)
+    const boardShared = this.shared.publicShared().filter((x) => board.has(x.note.id)).map(asShown);
+    const soKanban = [...boardOnlyNotes(doc.notas, board), ...boardShared].map((n) => shownCard(n, hidden));
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
     const publico = await gzip(
@@ -1371,7 +1388,8 @@ export class CloudSync {
         reviews,
         notas,
         ...(musicas.length ? { musicas } : {}),
-        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, notas) } : {}),
+        ...(soKanban.length ? { soKanban } : {}),
+        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban]) } : {}),
         ...(profile ? { perfil: publicProfile(profile.dados, shownIds) } : {}),
       }),
     );
@@ -1395,8 +1413,9 @@ export class CloudSync {
       murais: new Set([...scored.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,
     };
     form.append('cartao', JSON.stringify(cartao));
-    // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não estão
-    form.append('fichas', JSON.stringify([...shownIds]));
+    // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
+    // estão (as só no Kanban estão, pelo link)
+    form.append('fichas', JSON.stringify([...new Set([...shownIds, ...publicIds([], soKanban)])]));
     this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     this.noteClock(res);
@@ -1417,7 +1436,8 @@ export class CloudSync {
    */
   private async publicPrint(): Promise<string> {
     const board = this.kanban.boardOnly();
-    const list = this.publicShared(board);
+    // todas as compartilhadas públicas: as do mural e as só no Kanban (que vão em `soKanban`)
+    const list = this.shared.publicShared();
     const text = canonicalJson({
       regra: PUBLIC_RULES,
       publicas: list.map((x) => ({ n: storedNote(x.note), d: x.dono?.codigo ?? null })).sort((a, b) => (a.n.id < b.n.id ? -1 : 1)),

@@ -817,23 +817,30 @@ describe('sincronização com a nuvem', () => {
       return (puts[puts.length - 1].args[1] as RequestInit).body as FormData;
     };
 
-    it('ficam fora do mural público, dos avisos e das fichas à mostra, e o título delas some das notas coladas', async () => {
+    it('ficam fora do mural público e dos avisos, à parte só para o link, e o título delas some das notas coladas', async () => {
       const a = device();
       onBoard(a, 'nkan0001', 'Corrigir o login');
       const now = new Date().toISOString();
       a.store.add({ ...review('nmur0001', 'Reunião', now, now), kind: 'anotacoes', category: 'Trabalho', publishedAt: now, text: '{{nota: #nkan0001 | Corrigir o login}}' });
+      // a privada no quadro não vai nem à parte
+      a.store.add({ ...review('npriv001', 'Salário', now, now), kind: 'anotacoes', category: 'Trabalho', private: true });
+      a.kanban.update(a.kanban.boardFor('Trabalho').id, (b, when) => placeCard(b, 'npriv001', b.columns[0].id, when));
       expect(a.kanban.boardOnly().has('nkan0001')).toBeTrue();
       await a.sync.syncNow();
-      const pub = (await cloud.readPublic()) as unknown as { notas: Review[] };
+      const pub = (await cloud.readPublic()) as unknown as { notas: Review[]; soKanban: Review[] };
       expect(pub.notas.map((n) => n.id)).toEqual(['nmur0001']);
-      expect(JSON.stringify(pub)).not.toContain('Corrigir o login');
+      expect(pub.notas[0].text).not.toContain('Corrigir o login');
+      // à parte, para o link da ficha: o mural de quem visita não lê `soKanban`
+      expect(pub.soKanban.map((n) => n.id)).toEqual(['nkan0001']);
+      expect(JSON.stringify(pub)).not.toContain('Salário');
       const form = putOf();
-      expect(JSON.parse(form.get('fichas') as string)).toEqual(['nmur0001']);
+      // as reações e os comentários valem nela (pelo link)
+      expect(JSON.parse(form.get('fichas') as string).sort()).toEqual(['nkan0001', 'nmur0001']);
       expect(JSON.parse(form.get('novas') as string).map((n: { ref: string }) => n.ref)).toEqual(['nmur0001']);
       expect(JSON.parse(form.get('cartao') as string)).toEqual(jasmine.objectContaining({ fichas: 1 }));
-      // o privado continua com ela
+      // o privado continua com elas
       const priv = (await cloud.read()) as unknown as { notas: Review[] };
-      expect(priv.notas.map((n) => n.id).sort()).toEqual(['nkan0001', 'nmur0001']);
+      expect(priv.notas.map((n) => n.id).sort()).toEqual(['nkan0001', 'nmur0001', 'npriv001']);
     });
 
     it('a que vai para o mural também (a dela ou a do grupo) aparece para os outros, e voltar ao só Kanban tira de novo', async () => {

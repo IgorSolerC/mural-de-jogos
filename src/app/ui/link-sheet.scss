@@ -1,0 +1,145 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* A folha do link: a ficha de fichário dos diálogos, com a faixa na cartolina da ficha e a tachinha
+   azul do Compartilhar. Reta: é de ler e mexer. */
+dialog.folha-link {
+  width: 100%;
+  max-width: min(560px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+/* o nome da ficha, escrito à mão embaixo do título */
+.sub {
+  @include sheet.sub-mao;
+}
+
+.body {
+  gap: 20px;
+  padding-top: 18px;
+}
+
+/* ===== O link: a tira branca com a linha de caneta e o botão de tinta ao lado ===== */
+.linha-link {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.campo {
+  @include kit.campo;
+  flex: 1;
+  cursor: text;
+
+  input {
+    font-size: 0.95rem;
+    text-overflow: ellipsis;
+  }
+
+  input::selection {
+    background: rgb(255 218 66 / 0.85);
+    color: var(--ink);
+  }
+}
+
+.copiar {
+  flex: none;
+  gap: 8px;
+  min-width: 168px;
+  min-height: 50px;
+}
+
+/* ===== O que o link faz: linhas à mão, cada uma com o seu desenho ===== */
+.explica-lista {
+  display: grid;
+  gap: 10px;
+}
+
+.explica {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.explica-icone {
+  display: inline-flex;
+  flex: none;
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+.sem-conta {
+  display: grid;
+  justify-items: start;
+  gap: 14px;
+
+  p {
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.45;
+  }
+}
+
+.papel {
+  @include kit.botao-papel;
+  text-decoration: none;
+}
+
+.mais-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.foot .actions {
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .linha-link {
+    flex-direction: column;
+  }
+
+  .copiar {
+    width: 100%;
+  }
+
+  .mais-acoes {
+    flex: 1 1 100%;
+
+    .papel {
+      flex: 1;
+    }
+  }
+
+  .foot .actions {
+    width: 100%;
+    margin-left: 0;
+
+    .btn-quiet {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}

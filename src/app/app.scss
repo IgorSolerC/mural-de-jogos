@@ -14,6 +14,18 @@
   z-index: -1;
 }
 
+/* na ficha aberta pelo link, a parede de quem escreveu chega com a ficha: entra devagar sobre o
+   eucatex, sem trocar de fundo de uma vez */
+.parede-site.parede-solta {
+  animation: fade-in 420ms var(--ease-ui);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .parede-site.parede-solta {
+    animation: none;
+  }
+}
+
 .skip {
   position: absolute;
   left: 12px;

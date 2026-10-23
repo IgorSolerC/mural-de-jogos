@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import type { CardLook } from './card-look';
+import type { Review } from './review';
 import { reducedMotion } from './motion';
 
 export interface DeskHandlers {
@@ -17,6 +18,9 @@ export interface DeskHandlers {
   newDraft(): void;
   /** Começar a resenha de um desejo. */
   openWish(id: string): void;
+  /** A ficha de outra pessoa aberta pelo link: a leitura sem o fechar (ver pages/ficha-page.ts). */
+  openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void;
+  closeReader(): void;
 }
 
 /**
@@ -66,6 +70,14 @@ export class Desk {
 
   openWish(id: string): void {
     this.handlers?.openWish(id);
+  }
+
+  openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void {
+    this.handlers?.openLoose(review, owner, pool, code, signedIn);
+  }
+
+  closeReader(): void {
+    this.handlers?.closeReader();
   }
 
   /** A ficha cai na parede e a tela vai até ela, assim que ela existir na página. */

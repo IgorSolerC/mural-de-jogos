@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-23-link-da-ficha',
+    version: '1.31.0',
+    kind: 'funcionalidade',
+    date: '2026-10-23',
+    title: 'O link de cada ficha',
+    notice: 'Novo: toda ficha que não é privada tem um link que abre só ela, até para quem não usa o Murall. Ele fica no Mais da ficha aberta.',
+    items: [
+      'Toda anotação e análise que não é privada tem um link, no Mais da ficha aberta (Link da anotação, Link da ficha), com Copiar, Abrir e, no celular, Enviar.',
+      'Quem abre o link vê só a ficha, maximizada, na parede do seu perfil, sem precisar de conta nem usar o Murall; quem tem conta também reage e comenta, como no seu mural.',
+      'As anotações que estão só no Kanban também têm link: continuam fora do seu mural, e só quem tiver o link chega nelas.',
+    ],
+  },
+  {
     id: '2026-10-23-apagar-conta-com-cofre',
     version: '1.30.2',
     kind: 'ajustes',

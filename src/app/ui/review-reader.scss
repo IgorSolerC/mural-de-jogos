@@ -1071,3 +1071,56 @@ app-judge-label {
     transition: none;
   }
 }
+
+/* ===== Pelo link (ver pages/ficha-page.ts) =====
+   A ficha é a página inteira: a parede (a de quem escreveu) aparece atrás dela sem o véu escuro das
+   folhas, e logo embaixo vai a assinatura do site, a giz, como os rótulos da própria parede. */
+dialog.reader.solta::backdrop {
+  background: transparent;
+}
+
+.solta .par,
+.solta .par > .ficha {
+  max-height: calc(100dvh - 72px);
+}
+
+.solta .par.com-grupo,
+.solta .par.com-grupo > .ficha {
+  max-height: calc(100dvh - 100px);
+}
+
+.assinatura {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  width: fit-content;
+  min-height: 44px;
+  margin: 4px auto 0;
+  padding: 12px 10px 0;
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    color: var(--wall-ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.assinatura-nome {
+  color: var(--wall-ink);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}

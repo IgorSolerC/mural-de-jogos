@@ -1,0 +1,61 @@
+/* A página do link: a ficha é a leitura, aberta por cima. Aqui só a espera, a giz na parede, e o
+   bilhete do que deu errado, na ficha creme de fichário. */
+:host {
+  /* a página é a tela inteira (o topo do site não aparece aqui): o bilhete fica no meio dela, sem as
+     folgas que o site deixa para o topo e o pé */
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px var(--gutter);
+  overflow-y: auto;
+}
+
+.abrindo {
+  display: inline-flex;
+  align-items: center;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.25rem;
+}
+
+.ficha-erro {
+  width: min(100%, 460px);
+  padding: 30px 28px 24px;
+  border-radius: 2px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  rotate: -0.6deg;
+
+  h1 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  p {
+    margin-top: 12px;
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+
+  a {
+    text-decoration: none;
+  }
+}

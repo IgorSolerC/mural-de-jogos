@@ -77,6 +77,7 @@ import {
   EarOff,
   Earth,
   Ellipsis,
+  ExternalLink,
   Eye,
   EyeOff,
   Feather,
@@ -343,6 +344,8 @@ export const ICON = {
   baixarNoAparelho: HardDriveDownload,
   enviar: Upload,
   link: Link,
+  /** Abrir um link numa aba nova. */
+  abrirFora: ExternalLink,
   linkNota: NOTE_LINK,
   desconectar: Unlink,
   compartilhar: Share2,
