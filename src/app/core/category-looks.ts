@@ -1,4 +1,4 @@
-import { CORES_DA_CARTELA } from '../../../shared/cartela-de-icones';
+import { CORES_DA_CARTELA, CORES_SORTEAVEIS } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES } from './icon-choices';
 import { labelKey } from './text';
 
@@ -33,7 +33,7 @@ export function categoryColorHex(id: CategoryColorId | undefined): string | null
 
 /** Uma das cores, sorteada: a de toda categoria nova das anotações (ver `ReviewEditor`). */
 export function randomCategoryColor(random = Math.random): CategoryColorId {
-  return CATEGORY_COLORS[Math.floor(random() * CATEGORY_COLORS.length) % CATEGORY_COLORS.length].id;
+  return CORES_SORTEAVEIS[Math.floor(random() * CORES_SORTEAVEIS.length) % CORES_SORTEAVEIS.length].id;
 }
 
 /**
@@ -47,7 +47,7 @@ export function bandColor(artist: string): CategoryColorId {
     h ^= ch.codePointAt(0)!;
     h = Math.imul(h, 0x01000193);
   }
-  return CATEGORY_COLORS[(h >>> 0) % CATEGORY_COLORS.length].id;
+  return CORES_SORTEAVEIS[(h >>> 0) % CORES_SORTEAVEIS.length].id;
 }
 
 /** Os jeitos guardados: a categoria sem acento nem caixa → o jeito dela. */

@@ -1618,6 +1618,11 @@ sem mexer na cripto, na API nem no que fica no aparelho:
   cartolinas de `core/selo.ts`); vazia, a cor continua saindo do nome. Escolhe-se na mesma folha do ícone,
   que agora só fecha no Pronto (ou no Esc). A orelha do grupo com cor fica no papel claro das orelhas das
   anotações (`--papel-orelha`, o mesmo do Murall).
+- **Mais cores e ícones** (23/10, a pedido): a cartela única ganhou 60 ícones de cenários do dia a dia
+  (e-mail, jogos, festa, cartão, Wi-Fi, casa, viagem, saúde…), no fim, e o cinza e o preto nas cores das
+  orelhas (as das anotações e das tags também). O selo das senhas ganhou o vermelho, o cinza e o preto
+  (as cartolinas do Murall). Nada já sorteado muda: o grupo novo, a tag nova, o artista e a senha sem cor
+  escolhida continuam sorteando só entre as cores de antes (`CORES_SORTEAVEIS`, `CORES_DO_MONOGRAMA`).
 - Cuidado conhecido: uma aba aberta desde antes desta versão não conhece os campos novos e, ao gravar uma
   senha, a guarda sem o ícone (e, sendo a mudada por último, tira o jeito do grupo). O cofre não tem
   service worker e recarrega ao trancar, então a janela é só a de uma aba que ficou aberta durante a

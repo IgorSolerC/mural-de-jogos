@@ -22,6 +22,8 @@ describe('o monograma e o nome de cada senha', () => {
     const cores = new Set(['Banco', 'E-mail', 'Wi-Fi', 'Streaming', 'Netflix', 'Gov', 'Steam', 'Trabalho'].map(corDoMonograma));
     expect(cores.size).toBeGreaterThan(2);
     for (const c of cores) expect(CORES_DO_MONOGRAMA).toContain(c);
+    // a cor que sai do nome é só entre as seis de antes: o cinza e o preto entraram depois e só se escolhem
+    expect(CORES_DO_MONOGRAMA).toEqual(['amarelo', 'azul', 'verde', 'rosa', 'laranja', 'lilas']);
   });
 
   it('o domínio: só de http e https, sem o www', () => {

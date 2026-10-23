@@ -142,6 +142,9 @@ import { Icone, type NomeDoIcone } from './icone';
     .selo[data-cor='rosa'] { --c: var(--rosa); }
     .selo[data-cor='laranja'] { --c: var(--laranja); }
     .selo[data-cor='lilas'] { --c: var(--lilas); }
+    .selo[data-cor='vermelho'] { --c: var(--vermelho-cartolina); }
+    .selo[data-cor='cinza'] { --c: var(--cinza-cartolina); }
+    .selo[data-cor='preto'] { --c: var(--preto-cartolina); }
     .pelo-nome::before {
       box-shadow: none;
       outline: 1.5px dashed rgb(21 21 21 / 0.55);

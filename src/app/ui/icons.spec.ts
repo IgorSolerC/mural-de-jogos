@@ -5,7 +5,8 @@ import { ICON_CHOICES, isIconChoice } from '../core/icon-choices';
 import { COLUMN_ICONS, sanitizeBoard } from '../core/kanban';
 import { KIND_ICON } from './kind-switcher';
 import { categoryIcon } from './category-label';
-import { CARTELA_DE_ICONES, CORES_DA_CARTELA } from '../../../shared/cartela-de-icones';
+import { AtSign, Baby, BedDouble, Bike, Bus, Cake, Car, Cat, Cctv, ChartLine, Cloud, Code, Coffee, CreditCard, Database, Dices, Dog, Droplet, Dumbbell, FileText, FingerprintPattern, Gamepad2, Gift, Headphones, HeartPulse, House, IdCard, KeyRound, Laptop, Lock, Luggage, Mail, MapPin, MessageCircle, MonitorPlay, Newspaper, PartyPopper, Phone, PiggyBank, Pill, Plug, Printer, Receipt, School, Server, ShieldCheck, ShoppingBag, Smartphone, Sprout, SquareTerminal, Store, Ticket, TreePalm, Tv, UserRound, Utensils, Volleyball, Wallet, Wifi, Wrench } from 'lucide-angular';
+import { CARTELA_DE_ICONES, CORES_DA_CARTELA, CORES_SORTEAVEIS } from '../../../shared/cartela-de-icones';
 import { CATEGORY_COLORS } from '../core/category-looks';
 import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICON_STROKE, IconModule, iconChoiceOf } from './icons';
 
@@ -37,7 +38,9 @@ describe('O acervo de ícones', () => {
     expect(COLUMN_ICONS).toBe(ICON_CHOICES);
     expect(new Set(ICON_CHOICES).size).toBe(ICON_CHOICES.length);
     for (const id of [...OLD_CATEGORY_IDS, ...OLD_COLUMN_IDS]) expect(isIconChoice(id)).withContext(id).toBeTrue();
-    expect(ICON_CHOICES.length as number).toBe(new Set([...OLD_CATEGORY_IDS, ...OLD_COLUMN_IDS]).size);
+    // as de antes primeiro, os cenários novos no fim
+    expect(ICON_CHOICES.slice(0, 50).every((id) => [...OLD_CATEGORY_IDS, ...OLD_COLUMN_IDS].includes(id))).toBeTrue();
+    expect(ICON_CHOICES.length as number).toBe(110);
     expect(isIconChoice('nave')).toBeFalse();
   });
 
@@ -52,9 +55,17 @@ describe('O acervo de ícones', () => {
   it('a cartela mora em shared/ (a mesma do cofre), e cada desenho é o do Lucide que a escolha sempre teve', () => {
     // a cartela de antes deste lugar único: o ícone do acervo de cada escolha
     const antes: Record<string, unknown> = { circulo: ICON.circulo, lista: ICON.tarefas, lapis: ICON.editar, martelo: ICON.martelo, engrenagem: ICON.configurar, olho: ICON.ver, ampulheta: ICON.ampulheta, pausa: ICON.pausa, bloqueio: ICON.nenhum, check: ICON.feito, trofeu: ICON.trofeu, foguete: ICON.foguete, lampada: ICON.lampada, inseto: ICON.inseto, bandeira: ICON.bandeira, estrela: ICON.estrela, caixa: ICON.caixa, calendario: ICON.calendario, relogio: ICON.relogio, pessoas: ICON.pessoas, chama: ICON.chama, raio: ICON.raio, alvo: ICON.alvo, sino: ICON.sino, megafone: ICON.megafone, etiqueta: ICON.etiqueta, pasta: ICON.pasta, maleta: ICON.maleta, capelo: ICON.capelo, caderno: ICON.praDepois, livro: ICON.livros, marcador: ICON.marcador, pena: ICON.pena, carrinho: ICON.carrinho, moedas: ICON.moedas, chapeu: ICON.chapeu, aviao: ICON.aviao, mundo: ICON.mundo, predio: ICON.predio, coracao: ICON.coracao, musica: ICON.musica, filme: ICON.filmes, camera: ICON.camera, paleta: ICON.paleta, cerebro: ICON.cerebro, microscopio: ICON.microscopio, chip: ICON.chip, 'quebra-cabeca': ICON.quebraCabeca, coroa: ICON.coroa, brilho: ICON.brilho };
-    expect(CARTELA_DE_ICONES.map((i) => i.id)).toEqual(Object.keys(antes) as never);
-    for (const i of CARTELA_DE_ICONES) expect(i.desenho as unknown).withContext(i.id).toEqual(antes[i.id]);
+    expect(CARTELA_DE_ICONES.slice(0, 50).map((i) => i.id)).toEqual(Object.keys(antes) as never);
+    for (const i of CARTELA_DE_ICONES.slice(0, 50)) expect(i.desenho as unknown).withContext(i.id).toEqual(antes[i.id]);
+    // os cenários que entraram depois, no fim: cada um com o desenho do Lucide
+    const depois: Record<string, unknown> = { email: Mail, arroba: AtSign, mensagem: MessageCircle, telefone: Phone, celular: Smartphone, computador: Laptop, wifi: Wifi, nuvem: Cloud, servidor: Server, codigo: Code, terminal: SquareTerminal, 'banco-de-dados': Database, impressora: Printer, chave: KeyRound, cadeado: Lock, escudo: ShieldCheck, digital: FingerprintPattern, documento: IdCard, arquivo: FileText, cartao: CreditCard, carteira: Wallet, cofrinho: PiggyBank, grafico: ChartLine, recibo: Receipt, loja: Store, sacola: ShoppingBag, jogos: Gamepad2, dados: Dices, festa: PartyPopper, bolo: Cake, presente: Gift, ingresso: Ticket, tv: Tv, streaming: MonitorPlay, fones: Headphones, jornal: Newspaper, esporte: Volleyball, casa: House, ferramenta: Wrench, energia: Plug, agua: Droplet, seguranca: Cctv, carro: Car, onibus: Bus, bicicleta: Bike, lugar: MapPin, mala: Luggage, hotel: BedDouble, praia: TreePalm, comida: Utensils, cafe: Coffee, saude: HeartPulse, remedio: Pill, academia: Dumbbell, pessoa: UserRound, bebe: Baby, cachorro: Dog, gato: Cat, planta: Sprout, escola: School };
+    expect(CARTELA_DE_ICONES.slice(50).map((i) => i.id)).toEqual(Object.keys(depois) as never);
+    for (const i of CARTELA_DE_ICONES.slice(50)) expect(i.desenho as unknown).withContext(i.id).toEqual(depois[i.id]);
+    expect(ICON_CHOICE_LABEL.email).toBe('E-mail');
     expect(CATEGORY_COLORS).toBe(CORES_DA_CARTELA);
+    // o cinza e o preto se escolhem, mas não se sorteiam (o que já foi sorteado não muda de cor)
+    expect(CORES_DA_CARTELA.map((c) => c.id).slice(-2)).toEqual(['cinza', 'preto']);
+    expect(CORES_SORTEAVEIS.map((c) => c.id)).toEqual(['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'roxo', 'rosa', 'vinho']);
     expect(iconChoiceOf(ICON.configurar)).toBe('engrenagem');
     expect(iconChoiceOf(ICON.fechar)).toBeNull();
   });

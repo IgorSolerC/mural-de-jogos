@@ -496,10 +496,10 @@ describe('as pastas do cofre (os grupos)', () => {
       botao(el, /Escolher ícone e cor/).click();
       await estabilizar(fixture);
       const cartela = () => [...el.querySelectorAll<HTMLButtonElement>('#item-cartela .icone')];
-      expect(cartela().length).toBe(51);
+      expect(cartela().length).toBe(111);
       expect(cartela()[0]!.getAttribute('aria-pressed')).toBe('true');
       const cores = () => [...el.querySelectorAll<HTMLButtonElement>('#item-cartela .selo')];
-      expect(cores().map((b) => b.getAttribute('aria-label'))).toEqual(['Pelo nome', 'Amarelo', 'Azul', 'Verde', 'Rosa', 'Laranja', 'Lilás']);
+      expect(cores().map((b) => b.getAttribute('aria-label'))).toEqual(['Pelo nome', 'Amarelo', 'Azul', 'Verde', 'Rosa', 'Laranja', 'Lilás', 'Vermelho', 'Cinza', 'Preto']);
       expect(cores()[0]!.getAttribute('aria-pressed')).toBe('true');
       cartela().find((b) => b.title === 'Sino')!.click();
       cores().find((b) => b.title === 'Lilás')!.click();

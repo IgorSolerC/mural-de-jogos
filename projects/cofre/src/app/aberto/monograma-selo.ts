@@ -58,6 +58,21 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
       --cor: var(--laranja);
       rotate: -2deg;
     }
+    :host([data-cor='vermelho']) {
+      --cor: var(--vermelho-cartolina);
+      rotate: 1deg;
+    }
+    :host([data-cor='cinza']) {
+      --cor: var(--cinza-cartolina);
+      rotate: -2.5deg;
+    }
+    /* no preto, a letra e o ícone em giz */
+    :host([data-cor='preto']) {
+      --cor: var(--preto-cartolina);
+      color: var(--giz);
+      background-blend-mode: soft-light;
+      rotate: 2deg;
+    }
     :host([data-cor='lilas']) {
       --cor: var(--lilas);
       rotate: 1.5deg;

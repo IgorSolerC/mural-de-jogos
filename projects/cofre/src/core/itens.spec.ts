@@ -46,11 +46,12 @@ describe('os itens do cofre', () => {
     expect(lerItem({ icone: 'foguete', grupo: 'Casa', grupoIcone: 'predio', grupoCor: 'azul' })).toEqual(
       jasmine.objectContaining({ icone: 'foguete', grupo: 'Casa', grupoIcone: 'predio', grupoCor: 'azul' }),
     );
-    expect(lerItem({ icone: 'nave', grupo: 'Casa', grupoIcone: 'casinha', grupoCor: 'cinza' })).toEqual(jasmine.objectContaining({ icone: '', grupoIcone: '', grupoCor: '' }));
+    expect(lerItem({ icone: 'nave', grupo: 'Casa', grupoIcone: 'casinha', grupoCor: 'marrom' })).toEqual(jasmine.objectContaining({ icone: '', grupoIcone: '', grupoCor: '' }));
     expect(lerItem({ icone: 'foguete', grupoIcone: 'predio', grupoCor: 'azul' })).toEqual(jasmine.objectContaining({ icone: 'foguete', grupoIcone: '', grupoCor: '' }));
     // a cor do selo: só as cartolinas
     expect(lerItem({ cor: 'lilas' }).cor).toBe('lilas');
-    expect(lerItem({ cor: 'vermelho' }).cor).toBe('');
+    expect(lerItem({ cor: 'vermelho' }).cor).toBe('vermelho');
+    expect(lerItem({ cor: 'marrom' }).cor).toBe('');
   });
 
   it('salvar: novo na versão 1, mudado na versão + 1, com o manifesto e o contador que o aparelho viu', async () => {
