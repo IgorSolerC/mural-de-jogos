@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { BackupSnapshot, parseBackupSnapshot, readBackupFile } from './backup-file';
+import { CategoryLooks } from './category-looks';
 import { CloudAccount, CloudError } from './cloud-account';
 import { normalizeCode } from './cloud-murals';
 import { PageBackground } from './profile';
@@ -34,6 +35,8 @@ export interface LinkedMural {
   cards: Review[];
   ownerName: string | null;
   profile: BackupSnapshot['profile'];
+  /** O ícone e a cor dos grupos de quem escreveu, para a ficha minimizada ficar como no mural dela. */
+  categoryLooks: CategoryLooks;
 }
 
 /** Lê o mural público (o JSON) com as anotações que estão só no Kanban (`soKanban`) junto das outras. */
@@ -49,7 +52,7 @@ export function readLinkedMural(text: string): LinkedMural {
   const board = Array.isArray(object?.['soKanban']) ? (object['soKanban'] as unknown[]) : [];
   const joined = object && board.length ? JSON.stringify({ ...object, notas: [...notas, ...board] }) : text;
   const snap = parseBackupSnapshot(joined);
-  return { cards: snap.reviews, ownerName: snap.ownerName, profile: snap.profile };
+  return { cards: snap.reviews, ownerName: snap.ownerName, profile: snap.profile, categoryLooks: snap.categoryLooks ?? {} };
 }
 
 /** O que a página do link encontrou. */
@@ -69,6 +72,8 @@ export class FichaLinks {
 
   /** A parede de quem escreveu a ficha, atrás dela na página do link (null: a de sempre). */
   readonly wall = signal<PageBackground | null>(null);
+  /** A ficha minimizada: como ela fica pregada no mural (o "Minimizar" da leitura solta). */
+  readonly minimized = signal(false);
 
   async fetch(rawCode: string, id: string): Promise<LinkedCard> {
     const code = normalizeCode(rawCode);

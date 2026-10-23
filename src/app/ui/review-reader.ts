@@ -67,6 +67,7 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
+import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
@@ -101,8 +102,13 @@ const PATCH_GAP = 8;
             @if (note() && r.doneAt) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
             }
-            <!-- a ficha aberta pelo link é a página inteira: não há para onde fechar -->
-            @if (!solta()) {
+            <!-- a ficha aberta pelo link é a página inteira: não há para onde fechar, só minimizar (ela
+                 vira a ficha pregada no mural, como fica na parede de quem escreveu) -->
+            @if (solta()) {
+              <button type="button" class="icon-btn fecha" (click)="minimize()" aria-label="Minimizar: ver como fica no mural" title="Ver como fica no mural">
+                <lucide-icon [img]="MinimizeIcon" [size]="22" aria-hidden="true" />
+              </button>
+            } @else {
               <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
                 <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
               </button>
@@ -539,6 +545,8 @@ export class ReviewReader {
   protected readonly LeaveIcon = ICON.sair;
   protected readonly ConflictIcon = ICON.aviso;
   protected readonly LinkIcon = ICON.link;
+  protected readonly MinimizeIcon = ICON.diminuir;
+  private readonly fichaLinks = inject(FichaLinks);
   private readonly store = inject(ReviewStore);
 
   // ===== As anotações compartilhadas (ver core/shared-store.ts) =====
@@ -1310,6 +1318,12 @@ export class ReviewReader {
     this.open(review, owner, pool, false, code, null, false, signedIn ? 'conta' : 'visita');
     // sem o X, o foco começaria num link do texto (ou na assinatura): começa pelo nome da ficha
     afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>('#leitura-titulo')?.focus({ preventScroll: true }), { injector: this.injector });
+  }
+
+  /** A ficha aberta pelo link vira a ficha do mural (ver pages/ficha-page.ts), que abre de novo num toque. */
+  protected minimize(): void {
+    this.fichaLinks.minimized.set(true);
+    this.close();
   }
 
   /** O Esc não fecha a ficha aberta pelo link (só as folhas e os menus de cima dela). */

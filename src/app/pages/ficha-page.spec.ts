@@ -32,7 +32,7 @@ describe('A página do link (FichaPage)', () => {
   let found: LinkedCard;
   let myCode: string | null;
   let desk: jasmine.SpyObj<Pick<Desk, 'openLoose' | 'closeReader'>>;
-  let links: { fetch: jasmine.Spy; wall: ReturnType<typeof signal<string | null>> };
+  let links: { fetch: jasmine.Spy; wall: ReturnType<typeof signal<string | null>>; minimized: ReturnType<typeof signal<boolean>> };
 
   const settle = async () => {
     for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r));
@@ -58,11 +58,11 @@ describe('A página do link (FichaPage)', () => {
   beforeEach(() => {
     myCode = null;
     desk = jasmine.createSpyObj('Desk', ['openLoose', 'closeReader']);
-    links = { fetch: jasmine.createSpy('fetch').and.callFake(async () => found), wall: signal<string | null>(null) };
+    links = { fetch: jasmine.createSpy('fetch').and.callFake(async () => found), wall: signal<string | null>(null), minimized: signal(false) };
   });
 
   it('abre a ficha sem conta, na parede de quem escreveu, com o nome na aba', async () => {
-    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: { page: 'lousa' } as never } };
+    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: { page: 'lousa' } as never, categoryLooks: {} } };
     const fixture = create();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Abrindo a ficha');
     await settle();
@@ -75,9 +75,27 @@ describe('A página do link (FichaPage)', () => {
     expect(links.wall()).toBeNull();
   });
 
+  it('minimizada, a ficha aparece como no mural; o "Abrir a ficha" abre de novo', async () => {
+    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: null, categoryLooks: {} } };
+    const fixture = create();
+    await settle();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('app-review-card')).toBeNull();
+    links.minimized.set(true);
+    await settle();
+    fixture.detectChanges();
+    expect(el.querySelector('.no-mural app-review-card')).not.toBeNull();
+    expect(el.querySelector('.ampliar')?.textContent).toContain('Abrir a ficha');
+    el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+    await settle();
+    fixture.detectChanges();
+    expect(desk.openLoose).toHaveBeenCalledTimes(2);
+    expect(el.querySelector('.no-mural')).toBeNull();
+  });
+
   it('com conta, abre com as reações e os comentários; a ficha é sua: "Você"', async () => {
     myCode = 'ABCD-1234';
-    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: null } };
+    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: null, categoryLooks: {} } };
     create();
     await settle();
     expect(desk.openLoose).toHaveBeenCalledWith(hades, 'Você', [hades], 'ABCD-1234', true);
@@ -104,7 +122,7 @@ describe('A página do link (FichaPage)', () => {
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('h1')?.textContent).toBe('Não deu para abrir a ficha agora');
     expect(el.querySelector('p')?.textContent).toBe('Sem conexão com a nuvem agora.');
-    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: null } };
+    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: null, categoryLooks: {} } };
     el.querySelector<HTMLButtonElement>('.btn-ink')!.click();
     await settle();
     expect(links.fetch).toHaveBeenCalledTimes(2);

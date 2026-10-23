@@ -6,6 +6,8 @@ import { Cloud } from '../core/cloud-config';
 import { Desk } from '../core/desk';
 import { FichaLinks, LinkedCard } from '../core/ficha-link';
 import { Reactions } from '../core/reactions';
+import { ICON, IconModule } from '../ui/icons';
+import { ReviewCard } from '../ui/review-card';
 
 type State = { kind: 'abrindo' } | LinkedCard;
 
@@ -17,6 +19,7 @@ type State = { kind: 'abrindo' } | LinkedCard;
  */
 @Component({
   selector: 'app-ficha-page',
+  imports: [IconModule, ReviewCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let s = state();
@@ -26,6 +29,19 @@ type State = { kind: 'abrindo' } | LinkedCard;
       }
       @case ('ok') {
         <h1 class="sr-only">{{ s.card.game.name }}</h1>
+        <!-- minimizada: a ficha como fica pregada no mural de quem escreveu; um toque abre de novo -->
+        @if (links.minimized()) {
+          <div class="no-mural">
+            <div class="ficha-mural">
+              <app-review-card [review]="s.card" [preview]="true" [looks]="s.mural.categoryLooks" [reactCode]="signedIn() ? s.code : null" (opened)="maximize()" />
+            </div>
+            <button type="button" class="ampliar" (click)="maximize()">
+              <lucide-icon [img]="MaximizeIcon" [size]="18" aria-hidden="true" />
+              Abrir a ficha
+            </button>
+            <a class="assinatura" href="./">feito no <span class="assinatura-nome">Murall</span></a>
+          </div>
+        }
       }
       @default {
         <article class="ficha-erro" role="alert">
@@ -45,7 +61,6 @@ type State = { kind: 'abrindo' } | LinkedCard;
 })
 export class FichaPage {
   private readonly route = inject(ActivatedRoute);
-  private readonly links = inject(FichaLinks);
   private readonly desk = inject(Desk);
   private readonly account = inject(CloudAccount);
   private readonly cloud = inject(Cloud);
@@ -53,6 +68,9 @@ export class FichaPage {
   private readonly title = inject(Title);
 
   protected readonly state = signal<State>({ kind: 'abrindo' });
+  protected readonly links = inject(FichaLinks);
+  protected readonly signedIn = signal(false);
+  protected readonly MaximizeIcon = ICON.aumentar;
   private alive = true;
 
   constructor() {
@@ -60,6 +78,7 @@ export class FichaPage {
     inject(DestroyRef).onDestroy(() => {
       this.alive = false;
       this.links.wall.set(null);
+      this.links.minimized.set(false);
       this.desk.closeReader();
     });
   }
@@ -79,7 +98,20 @@ export class FichaPage {
     const mine = this.reactions.myCode() === code;
     const signedIn = !!this.cloud.config() && this.account.signedIn();
     if (!this.alive) return;
-    this.desk.openLoose(card, mine ? 'Você' : (mural.ownerName ?? 'Alguém'), mural.cards, code, signedIn);
+    this.signedIn.set(signedIn);
+    this.owner = mine ? 'Você' : (mural.ownerName ?? 'Alguém');
+    this.links.minimized.set(false);
+    this.desk.openLoose(card, this.owner, mural.cards, code, signedIn);
+  }
+
+  private owner = 'Alguém';
+
+  /** A ficha minimizada abre de novo, maximizada. */
+  protected maximize(): void {
+    const s = this.state();
+    if (s.kind !== 'ok') return;
+    this.links.minimized.set(false);
+    this.desk.openLoose(s.card, this.owner, s.mural.cards, s.code, this.signedIn());
   }
 
   protected errorTitle(s: State): string {

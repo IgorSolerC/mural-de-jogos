@@ -3,6 +3,7 @@ import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testin
 import { provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
 import { CloudSync } from '../core/cloud-sync';
+import { FichaLinks } from '../core/ficha-link';
 import { CloudAccount } from '../core/cloud-account';
 import { Comments } from '../core/comments';
 import { FeedItem, Follow, People } from '../core/follow';
@@ -538,7 +539,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(dialog().open).toBeTrue();
       expect(dialog().classList.contains('solta')).toBeTrue();
-      expect(q('.faixa-nome .fecha')).toBeNull();
+      expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
       expect(q('.foot .btn-ink')).toBeNull();
       expect(q('.foot')?.textContent?.trim()).toBe('Resenha de Ana');
       expect(q('.dono-link')).toBeNull();
@@ -567,18 +568,32 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(q('#leitura-titulo')).toBeNull();
     });
 
+    it('aberta pelo link, o minimizar fecha a leitura e pede a ficha do mural', async () => {
+      const links = TestBed.inject(FichaLinks);
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
+      await settle();
+      await new Promise((res) => {
+        dialog().addEventListener('close', res, { once: true });
+        q<HTMLButtonElement>('.faixa-nome .fecha')!.click();
+      });
+      await settle();
+      expect(links.minimized()).toBeTrue();
+      expect(dialog().open).toBeFalse();
+      links.minimized.set(false);
+    });
+
     it('aberta pelo link, com conta: os comentários e o nome que leva ao perfil', async () => {
       counts[ANA] = { 'r-hades': 3 };
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, true);
       await settle();
       expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários: 3');
       expect(q('.dono-link')?.textContent).toBe('Ana');
-      expect(q('.faixa-nome .fecha')).toBeNull();
+      expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
       // abrir outra ficha do jeito de sempre volta a ter o fechar
       await closeReader();
       fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
       await settle();
-      expect(q('.faixa-nome .fecha')).not.toBeNull();
+      expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Fechar');
       expect(dialog().classList.contains('solta')).toBeFalse();
     });
   });

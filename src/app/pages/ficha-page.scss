@@ -59,3 +59,79 @@
     text-decoration: none;
   }
 }
+
+/* ===== Minimizada: a ficha pregada na parede, como no mural de quem escreveu ===== */
+.no-mural {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  width: 100%;
+}
+
+.ficha-mural {
+  width: min(100%, var(--ficha-w));
+
+  app-review-card {
+    display: block;
+    width: 100%;
+  }
+}
+
+/* "Abrir a ficha": a giz da parede, como a assinatura, um tico mais forte */
+.ampliar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--wall-ink);
+  font-family: var(--f-marker);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.assinatura {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  min-height: 44px;
+  padding: 0 10px;
+  color: var(--wall-ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--wall-ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+.assinatura-nome {
+  color: var(--wall-ink);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+}

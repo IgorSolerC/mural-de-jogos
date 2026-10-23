@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-23-minimizar-ficha-do-link',
+    version: '1.31.1',
+    kind: 'ajustes',
+    date: '2026-10-23',
+    title: 'Minimizar a ficha aberta pelo link',
+    melhorias: ['A ficha aberta pelo link ganhou o Minimizar, no lugar do X: ela vira a ficha pregada como fica no mural, e um toque nela ou no "Abrir a ficha" abre de novo.'],
+  },
+  {
     id: '2026-10-23-link-da-ficha',
     version: '1.31.0',
     kind: 'funcionalidade',
