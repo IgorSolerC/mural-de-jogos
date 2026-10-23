@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { base64url } from '../src/domain/bytes';
 import { cleanup } from '../src/domain/cleanup';
+import { VAULT_TABLES, eraseVaultStatements, hasVault } from '../src/domain/murall';
 import { hashToken } from '../src/domain/session';
 import { DONO, OUTRA } from './harness';
 import { CODIGO, ENV, SENHA, cofrePronto } from './open.suite';
@@ -150,6 +151,20 @@ export function manageSuite(label: string, setup: Setup) {
       expect(await db.first('SELECT 1 AS um FROM cofre_eventos WHERE usuario_id = ?', [OUTRA.id])).toEqual({ um: 1 });
       const t = await entrar();
       expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token: t })).json()).toMatchObject({ existe: false });
+    });
+
+    it('para o Murall: diz se a conta tem cofre, e apagar o cofre dela tira tudo (e nada de outra)', async () => {
+      const { db, pedir } = await aberto();
+      expect(await hasVault(db, DONO.id)).toBe(true);
+      expect(await hasVault(db, OUTRA.id)).toBe(false);
+      // trancado continua tendo cofre
+      await pedir('POST', '/api/cofre/trancar-todos', {});
+      expect(await hasVault(db, DONO.id)).toBe(true);
+      await db.batch([{ sql: "INSERT INTO cofre_eventos (usuario_id, tipo, em) VALUES (?, 'aberto', ?)", params: [OUTRA.id, '2026-10-21T15:00:00.000Z'] }]);
+      await db.batch(eraseVaultStatements(DONO.id));
+      for (const t of VAULT_TABLES) expect(await db.first(`SELECT 1 FROM ${t} WHERE usuario_id = ?`, [DONO.id]), t).toBeNull();
+      expect(await hasVault(db, DONO.id)).toBe(false);
+      expect(await db.first('SELECT 1 AS um FROM cofre_eventos WHERE usuario_id = ?', [OUTRA.id])).toEqual({ um: 1 });
     });
 
     it('nada disso com a sessão de entrada', async () => {

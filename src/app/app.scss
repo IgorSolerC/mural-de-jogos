@@ -143,6 +143,11 @@ main {
   }
 }
 
+/* a conta marcada para sair: sem o X (some só ao cancelar), então sem o espaço dele */
+.aviso-apagar {
+  padding-right: 18px;
+}
+
 /* o convite para entrar: o botão do próprio Google, do tamanho dele */
 .aviso-google {
   flex: 0 0 auto;
@@ -167,6 +172,10 @@ main {
 @media (max-width: 600px) {
   .aviso {
     padding-right: 52px;
+  }
+
+  .aviso-apagar {
+    padding-right: 18px;
   }
 
   /* no celular o desenho do aviso ficaria sozinho numa linha */

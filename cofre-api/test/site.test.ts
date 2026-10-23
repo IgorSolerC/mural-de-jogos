@@ -96,6 +96,24 @@ describe('a porta do Murall (MuralRpc)', () => {
     expect(rpc('*').podeUsar('QUALQUER1')).toBe(true);
   });
 
+  it('uma conta sem cofre: não tem', async () => {
+    expect(await rpc('*').temCofre('2b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c')).toBe(false);
+  });
+
+  it('apagar o cofre pela porta só aceita o id de uma conta, e com o cofre ligado', async () => {
+    const id = '2b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
+    await bindings.DB.prepare("INSERT INTO cofre_eventos (usuario_id, tipo, em) VALUES (?, 'aberto', '2026-10-21T15:00:00.000Z')").bind(id).run();
+    for (const ruim of ['', "x' OR '1'='1", 42 as unknown as string]) {
+      await expect(rpc('*').temCofre(ruim)).rejects.toThrow();
+      await expect(rpc('*').apagarCofre(ruim)).rejects.toThrow();
+    }
+    const desligado = new MuralRpc(createExecutionContext(), workerEnv({ COFRE_CODIGOS: '*', MODO: 'desligado' }));
+    await expect(desligado.apagarCofre(id)).rejects.toThrow();
+    expect(await bindings.DB.prepare('SELECT COUNT(*) AS n FROM cofre_eventos WHERE usuario_id = ?').bind(id).first()).toEqual({ n: 1 });
+    expect(await rpc('*').apagarCofre(id)).toEqual({ apagado: true });
+    expect(await bindings.DB.prepare('SELECT COUNT(*) AS n FROM cofre_eventos WHERE usuario_id = ?').bind(id).first()).toEqual({ n: 0 });
+  });
+
   it('código vazio, enorme ou que não é texto: não', () => {
     expect(rpc('G11TG00D').podeUsar('')).toBe(false);
     expect(rpc('*').podeUsar('X'.repeat(17))).toBe(false);

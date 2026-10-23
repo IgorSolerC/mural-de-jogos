@@ -28,7 +28,7 @@ import { Rabisco } from '../ui/rabisco';
 import { KIND_ICON } from '../ui/kind-switcher';
 import { Busy } from '../ui/busy';
 import { Cloud } from '../core/cloud-config';
-import { CloudAccount, CloudError } from '../core/cloud-account';
+import { CloudAccount, CloudError, eraseDayLabel } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
 import { GoogleButton } from '../ui/google-button';
@@ -573,19 +573,41 @@ export class SettingsPage {
     }
   }
 
-  protected async deleteAccount(name: string, code: string): Promise<void> {
+  protected async deleteAccount(name: string, code: string, vault: boolean): Promise<void> {
     const sure = await this.confirm.ask({
       title: 'Apagar a conta?',
       text:
         `A conta de ${name}, o código ${code} e tudo o que estiver na nuvem vão embora, e quem segue você deixa de seguir. ` +
-        'O mural deste navegador continua aqui. Não dá para desfazer.',
+        'O mural deste navegador continua aqui. Não dá para desfazer.' +
+        // quem pode ter cofre de senhas fica sabendo antes que ele vai junto, e da espera (ver core/cloud-account.ts)
+        (vault ? ' Se você tem um cofre de senhas, ele vai junto, e a conta só sai daqui a 7 dias (até lá, dá para cancelar). Para apagar já, apague o cofre antes, nos Ajustes do cofre.' : ''),
       confirm: 'Apagar a conta',
     });
-    if (sure && (await this.accountAction('apagar', () => this.account.deleteAccount()))) {
+    let until = null as string | null;
+    const waiting = !!this.account.account()?.apagarEm;
+    if (sure && (await this.accountAction('apagar', async () => void (until = await this.account.deleteAccount())))) {
+      // já marcada e o cofre ainda lá: o "Apagar já" só vale depois de apagar o cofre
+      if (until && waiting) {
+        this.toasts.show('O cofre de senhas ainda existe. Apague o cofre antes, nos Ajustes do cofre, e peça de novo.');
+        return;
+      }
+      if (until) {
+        this.toasts.show(`A conta sai em ${eraseDayLabel(until)}, com o cofre de senhas. Até lá, dá para cancelar.`);
+        return;
+      }
       this.sync.forgetAccount();
       this.toasts.show('Conta apagada. O mural continua neste navegador.');
     }
   }
+
+  /** Desmarca o apagar da conta com cofre. */
+  protected async cancelDelete(): Promise<void> {
+    if (await this.accountAction('cancelar-apagar', () => this.account.cancelDelete())) {
+      this.toasts.show('Pronto: a conta não vai mais ser apagada.');
+    }
+  }
+
+  protected readonly eraseDayLabel = eraseDayLabel;
 
   /** Liga ou desliga as duas perguntas do editor (sem categoria, sem tag) de uma vez. */
   protected setAskOnSave(on: boolean): void {

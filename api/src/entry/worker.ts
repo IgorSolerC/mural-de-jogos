@@ -17,6 +17,8 @@ import { Deps } from '../ports';
 /** O que o cofre de senhas oferece ao Murall pelo service binding (a classe `MuralRpc` em `cofre-api/src/entry/worker.ts`). */
 interface VaultRpc {
   podeUsar(codigo: string): Promise<boolean>;
+  temCofre(usuarioId: string): Promise<boolean>;
+  apagarCofre(usuarioId: string): Promise<{ apagado: true }>;
 }
 
 /** As variáveis do wrangler.toml (ver `config.ts`), o banco e o cofre. */
@@ -48,7 +50,15 @@ function deps(env: Env): Deps {
     verifyGoogle: googleVerifier(config.googleClientId, googleKeys),
     catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
     agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
-    ...(env.COFRE ? { vault: { canUse: (code: string) => env.COFRE!.podeUsar(code) } } : {}),
+    ...(env.COFRE
+      ? {
+          vault: {
+            canUse: (code: string) => env.COFRE!.podeUsar(code),
+            has: (userId: string) => env.COFRE!.temCofre(userId),
+            erase: async (userId: string) => void (await env.COFRE!.apagarCofre(userId)),
+          },
+        }
+      : {}),
   };
 }
 

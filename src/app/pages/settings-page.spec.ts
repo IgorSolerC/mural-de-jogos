@@ -6,6 +6,7 @@ import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
+import { Toasts } from '../ui/toast';
 import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { SettingsPage } from './settings-page';
 
@@ -421,5 +422,93 @@ describe('Ajustes: trocar o código', () => {
     await type('abcd-1235');
     expect(note().textContent).toBe('');
     expect(input().hasAttribute('aria-invalid')).toBeFalse();
+  });
+});
+
+describe('Ajustes: apagar a conta com cofre de senhas', () => {
+  const API = 'https://api.teste';
+  const AT = '2026-10-30T15:00:00.000Z';
+  let calls: { url: string; method: string }[];
+  /** A conta está marcada para sair na nuvem. */
+  let marked: string | null;
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  async function open(start: string | null) {
+    marked = start;
+    localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, ...(start ? { apagarEm: start } : {}) }));
+    calls = [];
+    spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url).replace(API, '');
+      const method = init?.method ?? 'GET';
+      calls.push({ url: path, method });
+      if (path === '/v1/eu' && method === 'GET') return json({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, ...(marked ? { apagarEm: marked } : {}) });
+      if (path === '/v1/eu' && method === 'DELETE') return json({ ok: true, apagarEm: (marked ??= AT) }, 202);
+      if (path === '/v1/eu/cancelar-apagar' && method === 'POST') {
+        marked = null;
+        return json({ ok: true });
+      }
+      return json({ erro: 'nao-achei', mensagem: 'Não achei.' }, 404);
+    });
+    const query = new BehaviorSubject(convertToParamMap({}));
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }), notice: () => null } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: query.value }, queryParamMap: query } },
+      ],
+    });
+    const fixture = TestBed.createComponent(SettingsPage);
+    const el = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+    };
+    await settle();
+    const row = () => [...el.querySelectorAll<HTMLElement>('.grupo.cuidado .linha')].find((l) => l.textContent!.includes('Apagar a conta'))!;
+    const button = (text: string) => [...row().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim().endsWith(text));
+    return { el, row, button, settle };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('a pergunta avisa da espera e do cofre; com o sim, a conta fica marcada e a sessão continua', async () => {
+    const { row, button, settle } = await open(null);
+    expect(button('Não apagar')).toBeUndefined();
+    button('Apagar')!.click();
+    await settle();
+    const confirm = TestBed.inject(Confirm);
+    expect(confirm.current()?.text).toContain('a conta só sai daqui a 7 dias');
+    confirm.current()?.resolve('confirm');
+    await settle();
+    await settle();
+    expect(calls.filter((c) => c.method === 'DELETE').length).toBe(1);
+    expect(TestBed.inject(Toasts).current()?.text).toBe('A conta sai em 30 de outubro, com o cofre de senhas. Até lá, dá para cancelar.');
+    expect(localStorage.getItem(SESSION_KEY)).withContext('a sessão fica').not.toBeNull();
+    expect(row().textContent).toContain('Marcada para sair em 30 de outubro');
+    expect(button('Apagar já')).toBeDefined();
+  });
+
+  it('marcada: "Não apagar" desmarca; "Apagar já" com o cofre ainda lá diz para apagar o cofre antes', async () => {
+    const { row, button, settle } = await open(AT);
+    expect(row().textContent).toContain('Marcada para sair em 30 de outubro');
+    button('Apagar já')!.click();
+    await settle();
+    TestBed.inject(Confirm).current()?.resolve('confirm');
+    await settle();
+    await settle();
+    expect(TestBed.inject(Toasts).current()?.text).toContain('O cofre de senhas ainda existe');
+    button('Não apagar')!.click();
+    await settle();
+    await settle();
+    expect(calls.some((c) => c.url === '/v1/eu/cancelar-apagar' && c.method === 'POST')).toBeTrue();
+    expect(row().textContent).not.toContain('Marcada para sair');
+    expect(button('Não apagar')).toBeUndefined();
   });
 });

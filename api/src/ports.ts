@@ -65,8 +65,9 @@ export interface Deps {
    */
   agenda?: { keys: AgendaKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
   /**
-   * O cofre de senhas, pelo service binding (ver `src/domain/vault.ts`): a conta pode usá-lo? Sem isto
-   * (nos testes, ou sem o binding), ninguém vê a aba do cofre.
+   * O cofre de senhas, pelo service binding (ver `src/domain/vault.ts`): a conta pode usá-lo? Tem
+   * cofre? E, quando a conta sai, apagar o cofre dela. Sem isto (nos testes, ou sem o binding), ninguém
+   * vê a aba do cofre e nenhuma conta tem cofre.
    */
-  vault?: { canUse(code: string): Promise<boolean> };
+  vault?: { canUse(code: string): Promise<boolean>; has(userId: string): Promise<boolean>; erase(userId: string): Promise<void> };
 }

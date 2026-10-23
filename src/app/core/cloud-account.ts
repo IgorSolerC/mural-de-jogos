@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
+import { MONTHS_LONG } from './dates';
 import { OWNER_NAME_MAX, Settings } from './settings';
 import { readJson, removeKey, writeJson, writeText } from './storage';
 
@@ -18,6 +19,17 @@ export interface CloudAccountInfo {
   nome: string;
   /** Pode usar o cofre de senhas (o código está na lista do cofre)? Vem do /v1/eu; só mostra a aba do cofre. */
   cofre?: boolean;
+  /**
+   * A conta está marcada para sair nesta hora (ISO): ela tem cofre de senhas, e apagar espera 7 dias, com
+   * o aviso no topo e o Cancelar (ver `deleteAccount`).
+   */
+  apagarEm?: string;
+}
+
+/** O dia em que a conta marcada sai, como o aviso diz: "30 de outubro". */
+export function eraseDayLabel(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? 'daqui a 7 dias' : `${d.getDate()} de ${MONTHS_LONG[d.getMonth()]}`;
 }
 
 /** Um erro da nuvem, com a mensagem pronta para mostrar (a API já responde em português). */
@@ -74,7 +86,13 @@ export function deviceLabel(ua: string): string {
 function readAccount(): CloudAccountInfo | null {
   const raw = readJson<Partial<CloudAccountInfo>>(ACCOUNT_KEY);
   if (!raw || typeof raw.codigo !== 'string' || typeof raw.nome !== 'string') return null;
-  return { ...(typeof raw.id === 'string' ? { id: raw.id } : {}), codigo: raw.codigo, nome: raw.nome, ...(raw.cofre === true ? { cofre: true } : {}) };
+  return {
+    ...(typeof raw.id === 'string' ? { id: raw.id } : {}),
+    codigo: raw.codigo,
+    nome: raw.nome,
+    ...(raw.cofre === true ? { cofre: true } : {}),
+    ...(typeof raw.apagarEm === 'string' ? { apagarEm: raw.apagarEm } : {}),
+  };
 }
 
 function readToken(): string | null {
@@ -162,7 +180,13 @@ export class CloudAccount {
   async refresh(): Promise<void> {
     const me = await this.request<CloudAccountInfo>('/v1/eu');
     const before = this.account()?.nome;
-    this.setAccount({ ...(me.id ? { id: me.id } : {}), codigo: me.codigo, nome: me.nome, ...(me.cofre === true ? { cofre: true } : {}) });
+    this.setAccount({
+      ...(me.id ? { id: me.id } : {}),
+      codigo: me.codigo,
+      nome: me.nome,
+      ...(me.cofre === true ? { cofre: true } : {}),
+      ...(typeof me.apagarEm === 'string' ? { apagarEm: me.apagarEm } : {}),
+    });
     // O nome mudou na nuvem (em outro aparelho) e aqui ninguém mexeu desde a última vez: o "Seu nome"
     // passa a ser o novo. Sem isso, o efeito que acompanha o "Seu nome" mandaria o velho de volta.
     // Um nome trocado aqui e ainda não enviado (sem rede) continua valendo e sobe.
@@ -209,9 +233,30 @@ export class CloudAccount {
     this.forget();
   }
 
-  async deleteAccount(): Promise<void> {
-    await this.request('/v1/eu', { method: 'DELETE' });
+  /**
+   * Apaga a conta. Sem cofre de senhas, ela sai na hora e a sessão daqui vai junto (devolve null). Com
+   * cofre, a nuvem só marca a conta para sair em 7 dias: a sessão continua, com o aviso e o Cancelar
+   * (devolve quando ela sai).
+   */
+  async deleteAccount(): Promise<string | null> {
+    const res = await this.request<{ apagarEm?: unknown } | null>('/v1/eu', { method: 'DELETE' });
+    const account = this.account();
+    if (typeof res?.apagarEm === 'string' && account) {
+      this.setAccount({ ...account, apagarEm: res.apagarEm });
+      return res.apagarEm;
+    }
     this.forget();
+    return null;
+  }
+
+  /** Desmarca o apagar da conta (a que tem cofre e esperava os 7 dias). */
+  async cancelDelete(): Promise<void> {
+    await this.request('/v1/eu/cancelar-apagar', { method: 'POST' });
+    const account = this.account();
+    if (account) {
+      const { apagarEm: _, ...rest } = account;
+      this.setAccount(rest);
+    }
   }
 
   private remember(token: string, account: CloudAccountInfo): void {

@@ -5,6 +5,8 @@ import { createApp } from '../app';
 import { canUseVault, readConfig } from '../config';
 import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleLogin } from '../domain/google';
+import { eraseVaultStatements, hasVault } from '../domain/murall';
+import { write } from '../domain/quota';
 import { Deps } from '../ports';
 import { readSecrets } from '../secrets';
 import { newNonce, withSecurity } from '../site';
@@ -89,14 +91,32 @@ export async function serve(request: Request, env: Env, fazerDeps: (env: Env) =>
 
 /**
  * A porta do Murall (16.13): só por service binding, sem endereço público. A API do Murall chama
- * `env.COFRE.podeUsar(codigo)` para mostrar a aba "Cofre" só a quem está em COFRE_CODIGOS. Responde só
- * isso: nem se a conta tem cofre, nem nada de dentro dele.
+ * `env.COFRE.podeUsar(codigo)` para mostrar a aba "Cofre" só a quem está em COFRE_CODIGOS, sem saber se
+ * a conta tem cofre nem nada de dentro dele. Só para apagar a conta ela pergunta se há cofre
+ * (`temCofre`), e leva o cofre junto quando a conta sai (`apagarCofre`).
  */
 export class MuralRpc extends WorkerEntrypoint<Env> {
   podeUsar(codigo: string): boolean {
     if (typeof codigo !== 'string' || !codigo || codigo.length > 16) return false;
     return canUseVault(readConfig(this.env as unknown as Record<string, unknown>), codigo);
   }
+
+  /** Antes de apagar a conta do Murall (ameaça 23): a conta tem cofre? Só o sim ou o não (ver `domain/murall.ts`). */
+  async temCofre(usuarioId: string): Promise<boolean> {
+    return hasVault(d1Db(this.env.DB), accountId(usuarioId));
+  }
+
+  /** A conta do Murall saiu de vez: o cofre dela vai junto (o backup diário guarda a cópia cifrada por 30 dias). */
+  async apagarCofre(usuarioId: string): Promise<{ apagado: true }> {
+    await write(deps(this.env), eraseVaultStatements(accountId(usuarioId)), 40);
+    return { apagado: true };
+  }
+}
+
+/** O id de uma conta do Murall (um UUID): qualquer outra coisa é erro de quem chamou. */
+function accountId(id: unknown): string {
+  if (typeof id !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) throw new Error('id de conta inválido');
+  return id;
 }
 
 export default {

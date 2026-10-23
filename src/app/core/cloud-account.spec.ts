@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { ACCOUNT_KEY, CloudAccount, CloudError, SESSION_KEY, cleanName, deviceLabel } from './cloud-account';
+import { ACCOUNT_KEY, CloudAccount, CloudError, SESSION_KEY, cleanName, deviceLabel, eraseDayLabel } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { Settings } from './settings';
 import { saveKeys } from './erase-save';
@@ -151,6 +151,41 @@ describe('conta na nuvem', () => {
     await account.deleteAccount();
     expect(calls.at(-1)!.init.method).toBe('DELETE');
     expect(account.signedIn()).toBeFalse();
+  });
+
+  it('com cofre de senhas, apagar só marca a conta: a sessão fica, com a data, e cancelar desmarca', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
+    const at = '2026-10-30T15:00:00.000Z';
+    const calls = fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }), json({ ok: true, apagarEm: at }, 202), json({ ok: true }));
+    const account = setup();
+    await settle();
+    expect(await account.deleteAccount()).toBe(at);
+    expect(account.signedIn()).toBeTrue();
+    expect(account.account()?.apagarEm).toBe(at);
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).apagarEm).toBe(at);
+    await account.cancelDelete();
+    expect(calls.at(-1)!.url).toBe(`${API}/v1/eu/cancelar-apagar`);
+    expect(calls.at(-1)!.init.method).toBe('POST');
+    expect(account.account()).toEqual({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true });
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!)).not.toEqual(jasmine.objectContaining({ apagarEm: jasmine.anything() }));
+  });
+
+  it('a marca de apagar vem do /v1/eu (aberto em outro aparelho) e some quando a nuvem tira', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
+    fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor', apagarEm: '2026-10-30T15:00:00.000Z' }), json({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
+    const account = setup();
+    // a conferência de ao abrir termina sozinha, em algumas voltas
+    for (let i = 0; i < 50 && !account.account()?.apagarEm; i++) await settle();
+    expect(account.account()?.apagarEm).toBe('2026-10-30T15:00:00.000Z');
+    await account.refresh();
+    expect(account.account()?.apagarEm).toBeUndefined();
+  });
+
+  it('o dia do aviso: "30 de outubro"', () => {
+    expect(eraseDayLabel(new Date(2026, 9, 30, 12).toISOString())).toBe('30 de outubro');
+    expect(eraseDayLabel('lixo')).toBe('daqui a 7 dias');
   });
 
   it('"Apagar o save" não tira o login', () => {

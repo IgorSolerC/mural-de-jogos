@@ -1,6 +1,7 @@
 import { Context, Hono } from 'hono';
 import { HISTORY_DAYS } from '../domain/cleanup';
 import { eventStatement } from '../domain/events';
+import { eraseVaultStatements } from '../domain/murall';
 import { resetStatement } from '../domain/password-brake';
 import { proofHash } from '../domain/proofs';
 import { DAY_MS, write } from '../domain/quota';
@@ -157,8 +158,7 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     if (body['confirmacao'] !== DELETE_CONFIRMATION) {
       throw new HttpError(400, 'falta-confirmacao', `Para apagar o cofre, escreva ${DELETE_CONFIRMATION}.`);
     }
-    const tables = ['cofre_itens', 'cofre_envelopes', 'cofre_credenciais', 'cofre_desafios', 'cofre_freio_senha', 'cofre_eventos', 'cofre_sessoes', 'cofre_contas'];
-    await write(deps, tables.map((t) => ({ sql: `DELETE FROM ${t} WHERE usuario_id = ?`, params: [s.userId] })), 40);
+    await write(deps, eraseVaultStatements(s.userId), 40);
     c.header('Clear-Site-Data', '"cache", "storage"');
     return c.json({ apagado: true });
   });

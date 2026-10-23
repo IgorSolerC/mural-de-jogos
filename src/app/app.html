@@ -15,6 +15,20 @@
   </p>
 }
 
+<!-- a conta com cofre de senhas marcada para sair: até a hora, o aviso fica, sem X (ver core/cloud-account.ts) -->
+@if (erasing(); as at) {
+  <aside class="aviso aviso-apagar" aria-label="Conta marcada para ser apagada">
+    <lucide-icon class="aviso-icone" [img]="WarnIcon" [size]="22" aria-hidden="true" />
+    <p>
+      A sua conta do Murall vai ser apagada em {{ eraseDayLabel(at) }}, com o cofre de senhas. Se não foi você que pediu, cancele agora e
+      saia de todos os aparelhos em <a routerLink="/ajustes">Ajustes › Conta</a>.
+    </p>
+    <button type="button" class="btn-ink aviso-ver" (click)="cancelErase()" [disabled]="cancelingErase()">
+      {{ cancelingErase() ? 'Cancelando…' : 'Não apagar' }}
+    </button>
+  </aside>
+}
+
 @let notice = news.notice();
 @if (notice && !onNews()) {
   <aside class="aviso" aria-label="Aviso do Murall">

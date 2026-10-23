@@ -303,12 +303,25 @@
               <div class="linha">
                 <div class="linha-texto">
                   <p class="linha-titulo">Apagar a conta</p>
-                  <p class="linha-desc">Tira da nuvem a conta, o código e tudo o que está lá. O mural deste navegador fica.</p>
+                  @if (acc.apagarEm) {
+                    <!-- com cofre de senhas, a conta espera 7 dias para sair (ver core/cloud-account.ts) -->
+                    <p class="linha-desc">
+                      Marcada para sair em {{ eraseDayLabel(acc.apagarEm) }}, com o cofre de senhas. Para apagar já, apague o cofre antes, nos Ajustes do
+                      cofre, e peça de novo.
+                    </p>
+                  } @else {
+                    <p class="linha-desc">Tira da nuvem a conta, o código e tudo o que está lá. O mural deste navegador fica.</p>
+                  }
                 </div>
                 <div class="acoes">
-                  <button type="button" class="btn-papel perigo" (click)="deleteAccount(acc.nome, acc.codigo)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
+                  @if (acc.apagarEm) {
+                    <button type="button" class="btn-papel" (click)="cancelDelete()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'cancelar-apagar'">
+                      {{ accountBusy() === 'cancelar-apagar' ? 'Cancelando…' : 'Não apagar' }}
+                    </button>
+                  }
+                  <button type="button" class="btn-papel perigo" (click)="deleteAccount(acc.nome, acc.codigo, !!acc.cofre)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
                     <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
-                    {{ accountBusy() === 'apagar' ? 'Apagando…' : 'Apagar' }}
+                    {{ accountBusy() === 'apagar' ? 'Apagando…' : acc.apagarEm ? 'Apagar já' : 'Apagar' }}
                   </button>
                 </div>
               </div>

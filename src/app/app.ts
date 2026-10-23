@@ -15,7 +15,7 @@ import { Mural } from './core/mural';
 import { News } from './core/news';
 import { LoginNudge } from './core/login-nudge';
 import { Cloud } from './core/cloud-config';
-import { CloudAccount, CloudError } from './core/cloud-account';
+import { CloudAccount, CloudError, eraseDayLabel } from './core/cloud-account';
 import { GoogleButton } from './ui/google-button';
 import { ReviewStore } from './core/review-store';
 import { ReactionSheetView } from './ui/reactions';
@@ -100,6 +100,7 @@ export class App {
   protected readonly CloudIcon = ICON.nuvem;
   protected readonly MoveIcon = ICON.mudanca;
   protected readonly CloseIcon = ICON.fechar;
+  protected readonly WarnIcon = ICON.aviso;
   /** Nas Anotações: o N e o botão do topo pregam uma anotação. */
   protected readonly notes = computed(() => areaOf(this.path()) === 'anotacoes');
 
@@ -473,6 +474,24 @@ export class App {
       this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para entrar agora. Tente em Ajustes › Conta.');
     } finally {
       this.signingIn.set(false);
+    }
+  }
+
+  /** A conta (com cofre de senhas) marcada para sair: quando, para o aviso do topo. */
+  protected readonly erasing = computed(() => (this.account.signedIn() ? (this.account.account()?.apagarEm ?? null) : null));
+  protected readonly cancelingErase = signal(false);
+  protected readonly eraseDayLabel = eraseDayLabel;
+
+  protected async cancelErase(): Promise<void> {
+    if (this.cancelingErase()) return;
+    this.cancelingErase.set(true);
+    try {
+      await this.account.cancelDelete();
+      this.toasts.show('Pronto: a conta não vai mais ser apagada.');
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para cancelar agora. Tente em Ajustes › Conta.');
+    } finally {
+      this.cancelingErase.set(false);
     }
   }
 

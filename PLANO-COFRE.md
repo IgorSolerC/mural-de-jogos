@@ -369,8 +369,8 @@ nova e gerar um código novo; o antigo é apagado (uso único).
   você suspeita de algo e está sem o celular na mão.
 - Avisos no correio do Murall: abertura num aparelho novo, sequência de erros, passkey posta ou
   tirada, senha trocada.
-- **Apagar a conta** do Murall com cofre: espera 7 dias com aviso e Cancelar, ou na hora se o
-  cofre for aberto antes.
+- **Apagar a conta** do Murall com cofre: espera 7 dias com aviso e Cancelar, ou na hora depois de
+  apagar o cofre lá dentro (o que pede o cofre aberto). Feito em 17.19.
 
 ## 9. A API (`cofre-api`)
 
@@ -1664,3 +1664,35 @@ mexer na cripto, na API nem no que fica no aparelho:
   é só a de uma aba aberta durante a publicação.
 - Conserto junto: um item grande demais para o servidor (16 kB) dava "O que veio do servidor não confere"
   e esvaziava a lista; agora diz que passou do tamanho e o que fazer.
+
+### 17.19 Apagar a conta do Murall com cofre (23/10)
+
+Achado numa revisão de segurança pedida pelo usuário: o `DELETE /v1/eu` apagava a conta na hora, sem olhar
+o cofre. O cofre mora no id da conta, então ele ficava para trás (a mesma pessoa, entrando de novo com o
+Google, ganhava uma conta nova, com outro id, e o cofre antigo não abria mais), e ficava no banco para
+sempre. Com o token do Murall roubado (90 dias no localStorage), qualquer um fazia isso: é a ameaça 23,
+cuja proteção (8.6) não tinha sido feita.
+
+- **A porta do cofre** (`MuralRpc`, em `cofre-api/src/entry/worker.ts`) ganhou `temCofre(usuarioId)` (só
+  o sim ou o não) e `apagarCofre(usuarioId)` (tudo da conta, as tabelas de `VAULT_TABLES` em
+  `domain/murall.ts`, as mesmas do `DELETE /api/cofre`, pela cota e só com o cofre ligado). Os dois só
+  aceitam um UUID.
+- **No Murall** (`api/src/domain/erase.ts`, migração 0014 `usuarios.apagar_em`): sem cofre, a conta sai
+  na hora, como antes. Com cofre, o `DELETE /v1/eu` responde 202 com `apagarEm` (7 dias depois; pedir
+  de novo não adia) e a conta continua funcionando. `POST /v1/eu/cancelar-apagar` desmarca; o
+  `GET /v1/eu` devolve `apagarEm` enquanto está marcada. A limpeza diária apaga as contas cuja hora
+  passou: o cofre antes, pela porta; se ele não responder, a conta fica para o dia seguinte. Sem resposta
+  do cofre no pedido, 503: na dúvida, não apaga.
+- **Na hora, só sem cofre.** O plano dizia "na hora se o cofre for aberto antes"; ficou "depois de apagar
+  o cofre lá dentro". Aceitar "o cofre está aberto agora" deixaria quem tem só o token do Murall apagar
+  tudo enquanto o dono usa o cofre no celular. Apagar o cofre pede o cofre aberto (senha e passkey) e a
+  palavra APAGAR; depois disso, o Murall não acha cofre e apaga a conta na hora.
+- **No site**: a pergunta de Apagar a conta avisa da espera e do cofre (para quem pode usar o cofre); com
+  a conta marcada, um bilhete no topo de toda página ("vai ser apagada em 30 de outubro, com o cofre de
+  senhas", com o Não apagar e o caminho para sair de todos os aparelhos), sem X, e a linha de Ajustes ›
+  Conta mostra a data, o Não apagar e o Apagar já (que, com o cofre ainda lá, diz para apagar o cofre
+  antes).
+- Ordem do deploy: o cofre primeiro (a `MuralRpc` nova), depois a API do Murall. Com a API nova e o cofre
+  antigo, a pergunta ao cofre falha e apagar a conta responde 503 até o cofre ser publicado.
+- Fica de fora: o aviso dentro do próprio cofre (para quem abre o cofre sem passar pelo Murall nesses 7
+  dias).

@@ -6,14 +6,10 @@ import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { vaultAllowed } from '../domain/vault';
+import { cancelErase, eraseAccount, hasVault, scheduleErase } from '../domain/erase';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
-
-/** Os comentários de uma conta que vai embora: os que ela escreveu e os das fichas dela (dois parâmetros, o id duas vezes). */
-const COMMENTS_OF = 'SELECT id FROM comentarios WHERE autor_id = ? OR dono_id = ?';
-/** As anotações compartilhadas de uma conta que vai embora (um parâmetro, o id). */
-const NOTES_OF = 'SELECT id FROM notas WHERE dono_id = ?';
 
 interface UserRow {
   id: string;
@@ -22,7 +18,7 @@ interface UserRow {
   criado_em: string;
 }
 
-/** Login, sessões e a própria conta: /v1/auth/*, /v1/eu e /v1/eu/codigo. */
+/** Login, sessões e a própria conta: /v1/auth/*, /v1/eu, /v1/eu/codigo e /v1/eu/cancelar-apagar. */
 export function accountRoutes(app: Hono, deps: Deps): void {
   const session = (c: Context) => sessionOf(deps, c);
   const account = (u: Pick<UserRow, 'id' | 'codigo' | 'nome'>) => ({ id: u.id, codigo: formatCode(u.codigo), nome: u.nome });
@@ -88,8 +84,8 @@ export function accountRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu', async (c) => {
     const s = await session(c);
-    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number; pessoas_visiveis: number; comentarios_de: string }>(
-      'SELECT id, codigo, nome, criado_em, pessoas_visiveis, comentarios_de, ' +
+    const user = await deps.db.first<UserRow & { seguidores: number; seguindo: number; pessoas_visiveis: number; comentarios_de: string; apagar_em: string | null }>(
+      'SELECT id, codigo, nome, criado_em, pessoas_visiveis, comentarios_de, apagar_em, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguido_id = usuarios.id) AS seguidores, ' +
         '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = usuarios.id) AS seguindo ' +
         'FROM usuarios WHERE id = ?',
@@ -104,6 +100,8 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
       comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores',
       cofre: await vaultAllowed(deps, user.codigo),
+      // marcada para sair (ver o DELETE): o site mostra o aviso com o Cancelar
+      ...(user.apagar_em ? { apagarEm: user.apagar_em } : {}),
     });
   });
 
@@ -179,49 +177,19 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     return c.json({ codigo: formatCode(code) });
   });
 
+  // Apagar a conta. Com cofre de senhas, ela só fica marcada para sair em 7 dias (202, com `apagarEm`),
+  // com o aviso no site e o Cancelar; sem cofre (ou depois de apagá-lo lá dentro), sai na hora. Ver domain/erase.ts.
   app.delete('/v1/eu', async (c) => {
     const s = await session(c);
-    const id = s.userId;
-    const counts = await deps.db.first<{ n: number }>(
-      'SELECT (SELECT COUNT(*) FROM sessoes WHERE usuario_id = ?) + ' +
-        '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?) + ' +
-        '(SELECT COUNT(*) FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?) + ' +
-        '(SELECT COUNT(*) FROM atividades WHERE autor_id = ? OR alvo_id = ?) + ' +
-        '(SELECT COUNT(*) FROM reacoes WHERE autor_id = ? OR dono_id = ?) + ' +
-        '(SELECT COUNT(*) FROM comentarios WHERE autor_id = ? OR dono_id = ?) + ' +
-        `(SELECT COUNT(*) FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})) + ` +
-        '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) + ' +
-        '(SELECT COUNT(*) FROM notas WHERE dono_id = ?) + ' +
-        `(SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})) AS n`,
-      [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
-    );
-    await write(
-      deps,
-      [
-        { sql: 'DELETE FROM sessoes WHERE usuario_id = ?', params: [id] },
-        { sql: 'DELETE FROM murais WHERE usuario_id = ?', params: [id] },
-        { sql: 'DELETE FROM murais_publicos WHERE usuario_id = ?', params: [id] },
-        { sql: 'DELETE FROM seguindo WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
-        { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? OR seguido_id = ?', params: [id, id] },
-        { sql: 'DELETE FROM atividades WHERE autor_id = ? OR alvo_id = ?', params: [id, id] },
-        { sql: 'DELETE FROM reacoes WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
-        // os comentários que a pessoa escreveu e os das fichas dela, com as reações deles (antes: elas se acham pelo comentário)
-        { sql: `DELETE FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})`, params: [id, id, id] },
-        { sql: 'DELETE FROM comentarios WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
-        { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
-        // a permissão do Google Agenda guardada (a do Google mesmo, a pessoa tira lá)
-        { sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [id] },
-        { sql: 'DELETE FROM agenda_pedidos WHERE usuario_id = ?', params: [id] },
-        // as anotações compartilhadas: as dela somem para todos; nas dos outros, ela sai (e eles veem a lista nova)
-        { sql: 'UPDATE notas SET versao = versao + 1 WHERE id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?)', params: [id] },
-        { sql: `DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref IN (${NOTES_OF})`, params: [id] },
-        { sql: `DELETE FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})`, params: [id, id] },
-        { sql: 'DELETE FROM notas WHERE dono_id = ?', params: [id] },
-        { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
-      ],
-      3 * ((counts?.n ?? 0) + 3),
-      { ignoreBudget: true },
-    );
+    if (await hasVault(deps, s.userId)) return c.json({ ok: true, apagarEm: await scheduleErase(deps, s.userId) }, 202);
+    await eraseAccount(deps, s.userId);
+    return c.json({ ok: true });
+  });
+
+  // Cancelar o apagar marcado (qualquer sessão da conta).
+  app.post('/v1/eu/cancelar-apagar', async (c) => {
+    const s = await session(c);
+    await cancelErase(deps, s.userId);
     return c.json({ ok: true });
   });
 }

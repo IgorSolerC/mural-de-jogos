@@ -385,7 +385,8 @@ export function apiSuite(label: string, getDb: () => Db) {
         const { login, deps } = await setup();
         const { body } = await login({}, { nome: 'Igor' });
         const perguntas: string[] = [];
-        const comCofre = (canUse: (code: string) => Promise<boolean>) => jsonCaller((path, init) => createApp({ ...deps, vault: { canUse } }).request(`https://api.teste${path}`, init));
+        const comCofre = (canUse: (code: string) => Promise<boolean>) =>
+          jsonCaller((path, init) => createApp({ ...deps, vault: { canUse, has: async () => false, erase: async () => {} } }).request(`https://api.teste${path}`, init));
         const sim = comCofre(async (code) => (perguntas.push(code), true));
         expect(((await (await sim('GET', '/v1/eu', undefined, body.token)).json()) as any).cofre).toBe(true);
         expect(perguntas).toEqual([body.conta.codigo.replace('-', '')]);
@@ -481,6 +482,107 @@ export function apiSuite(label: string, getDb: () => Db) {
         await db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = ?', params: [deps.config.dailyRowBudget] }]);
         expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
         expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
+      });
+
+      describe('apagar a conta com cofre de senhas', () => {
+        const DAY = 86_400_000;
+        /** O cofre de mentira: quem tem cofre, e os cofres apagados (`falha`: o cofre não responde). */
+        function fakeVault(withVault: string[] = []) {
+          const state = { has: new Set(withVault), erased: [] as string[], falha: false };
+          const vault = {
+            canUse: async () => true,
+            has: async (id: string) => {
+              if (state.falha) throw new Error('o cofre não respondeu');
+              return state.has.has(id);
+            },
+            erase: async (id: string) => {
+              if (state.falha) throw new Error('o cofre não respondeu');
+              state.erased.push(id);
+              state.has.delete(id);
+            },
+          };
+          return { state, vault };
+        }
+
+        async function comCofre() {
+          const ctx = await setup();
+          const mine = (await ctx.login({ sub: 'eu' })).body;
+          const { state, vault } = fakeVault([mine.conta.id]);
+          const at = (days: number) => ({ ...ctx.deps, vault, now: () => new Date(NOW.getTime() + days * DAY) });
+          const json = (days = 0) => jsonCaller((path, init) => createApp(at(days)).request(`https://api.teste${path}`, init));
+          return { ...ctx, mine, state, at, api: json };
+        }
+
+        it('com cofre, a conta não sai: fica marcada para daqui a 7 dias, e pedir de novo não adia', async () => {
+          const { api, mine, db, state } = await comCofre();
+          const res = await api()('DELETE', '/v1/eu', undefined, mine.token);
+          expect(res.status).toBe(202);
+          const apagarEm = new Date(NOW.getTime() + 7 * DAY).toISOString();
+          expect(await res.json()).toEqual({ ok: true, apagarEm });
+          expect(state.erased).toEqual([]);
+          expect(await db.first('SELECT apagar_em FROM usuarios')).toEqual({ apagar_em: apagarEm });
+          // a conta continua funcionando, com o aviso
+          expect(((await (await api()('GET', '/v1/eu', undefined, mine.token)).json()) as any).apagarEm).toBe(apagarEm);
+          expect(await (await api(2)('DELETE', '/v1/eu', undefined, mine.token)).json()).toEqual({ ok: true, apagarEm });
+        });
+
+        it('cancelar tira a marca, e a limpeza não apaga mais', async () => {
+          const { api, mine, at, db, state } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          expect(await (await api(1)('POST', '/v1/eu/cancelar-apagar', undefined, mine.token)).json()).toEqual({ ok: true });
+          expect(await (await api(1)('GET', '/v1/eu', undefined, mine.token)).json()).not.toHaveProperty('apagarEm');
+          await cleanup(at(8));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+          expect(state.erased).toEqual([]);
+          expect((await api()('POST', '/v1/eu/cancelar-apagar')).status).toBe(401);
+        });
+
+        it('a limpeza apaga a conta quando a hora passa, com o cofre antes', async () => {
+          const { api, mine, at, db, state, login } = await comCofre();
+          const other = (await login({ sub: 'outro' })).body;
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          await cleanup(at(6.9));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(2);
+          await cleanup(at(7));
+          expect(state.erased).toEqual([mine.conta.id]);
+          expect(await db.all('SELECT google_sub FROM usuarios')).toEqual([{ google_sub: 'outro' }]);
+          expect((await api(7)('GET', '/v1/eu', undefined, other.token)).status).toBe(200);
+        });
+
+        it('o cofre fora do ar: a limpeza deixa a conta para o dia seguinte, e o pedido responde 503 sem apagar', async () => {
+          const { api, mine, at, db, state } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          state.falha = true;
+          await cleanup(at(8));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+          const res = await api(8)('DELETE', '/v1/eu', undefined, mine.token);
+          expect(res.status).toBe(503);
+          expect(await res.json()).toMatchObject({ erro: 'cofre-indisponivel' });
+          state.falha = false;
+          await cleanup(at(9));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
+          expect(state.erased).toEqual([mine.conta.id]);
+        });
+
+        it('depois de apagar o cofre lá dentro, a conta sai na hora (mesmo já marcada)', async () => {
+          const { api, mine, db, state } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          state.has.clear();
+          expect(await (await api(1)('DELETE', '/v1/eu', undefined, mine.token)).json()).toEqual({ ok: true });
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
+          // sem cofre, ele nem é chamado para apagar
+          expect(state.erased).toEqual([]);
+        });
+
+        it('sem cofre, sai na hora, como antes', async () => {
+          const { login, deps, db } = await setup();
+          const { token } = (await login()).body;
+          const { state, vault } = fakeVault();
+          const res = await jsonCaller((path, init) => createApp({ ...deps, vault }).request(`https://api.teste${path}`, init))('DELETE', '/v1/eu', undefined, token);
+          expect(await res.json()).toEqual({ ok: true });
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
+          expect(state.erased).toEqual([]);
+        });
       });
 
       it('com a nuvem em só leitura, o GET /v1/eu funciona e o login é recusado', async () => {
