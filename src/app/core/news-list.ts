@@ -26,12 +26,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-23-minimizar-ficha-do-link',
+    id: '2026-10-23-ampliar-imagem',
     version: '1.31.1',
     kind: 'ajustes',
     date: '2026-10-23',
-    title: 'Minimizar a ficha aberta pelo link',
-    melhorias: ['A ficha aberta pelo link ganhou o Minimizar, no lugar do X: ela vira a ficha pregada como fica no mural, e um toque nela ou no "Abrir a ficha" abre de novo.'],
+    title: 'Ampliar as imagens e minimizar a ficha aberta pelo link',
+    melhorias: [
+      'As imagens coladas no texto se ampliam: com o mouse em cima, aparece um broche de ampliar no canto (no celular, ele fica sempre à mostra), que abre a foto no meio da tela, do maior tamanho que cabe.',
+      'A ficha aberta pelo link ganhou o Minimizar, no lugar do X: ela vira a ficha pregada como fica no mural, e um toque nela ou no "Abrir a ficha" abre de novo.',
+    ],
   },
   {
     id: '2026-10-23-link-da-ficha',

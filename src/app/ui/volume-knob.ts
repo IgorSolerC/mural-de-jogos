@@ -94,30 +94,19 @@ let uid = 0;
     </ng-template>
   `,
   styles: `
-    /* escondido até o mouse chegar na peça (ou o foco, no botão); some devagar, para dar tempo de o
-       mouse ir da peça até ele */
+    @use 'broche';
+
+    /* escondido até o mouse chegar na peça (ou o foco, no botão) */
     :host {
       display: block;
       width: 30px;
       height: 30px;
-      opacity: 0;
-      scale: 0.82;
-      visibility: hidden;
-      transition:
-        opacity 140ms var(--ease-ui) 450ms,
-        scale 140ms var(--ease-ui) 450ms,
-        visibility 0s linear 590ms;
+      @include broche.escondido;
     }
     :host-context(.som:hover),
     :host(:focus-within),
     :host(.aberto) {
-      opacity: 1;
-      scale: 1;
-      visibility: visible;
-      transition:
-        opacity 160ms var(--ease-ui),
-        scale 220ms var(--ease-ui),
-        visibility 0s;
+      @include broche.a-mostra;
     }
     /* sem mouse (só o toque): o volume é o dos botões do aparelho */
     @media (hover: none) {
@@ -129,59 +118,9 @@ let uid = 0;
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* ===== O broche: lata redonda com a estampa creme sob a cúpula, como os do topo ===== */
+    /* ===== O broche: lata redonda com a estampa creme sob a cúpula, como os do topo (ui/_broche.scss) ===== */
     .botao {
-      display: grid;
-      place-items: center;
-      width: 100%;
-      height: 100%;
-      padding: 0;
-      border: 0;
-      border-radius: 50%;
-      background: none;
-      color: #151515;
-      cursor: pointer;
-      pointer-events: auto;
-    }
-    .face {
-      position: relative;
-      display: grid;
-      place-items: center;
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: #f6f2e7;
-      /* a cúpula: a borda curva escurece embaixo, clareia em cima; o broche faz sombra no que está atrás */
-      box-shadow:
-        inset 0 -3px 5px rgb(0 0 0 / 0.24),
-        inset 0 2px 2px rgb(255 255 255 / 0.6),
-        inset 0 0 0 1px rgb(0 0 0 / 0.3),
-        0 1px 2px rgb(0 0 0 / 0.45),
-        0 6px 9px -4px rgb(0 0 0 / 0.6);
-      rotate: -8deg;
-      transition:
-        rotate var(--t-physical) var(--ease-physical),
-        translate var(--t-physical) var(--ease-physical),
-        scale var(--t-ui) var(--ease-ui);
-    }
-    /* o anel impresso na estampa */
-    .face::before {
-      content: '';
-      position: absolute;
-      inset: 3px;
-      border: 1.25px solid rgb(21 21 21 / 0.26);
-      border-radius: 50%;
-    }
-    /* o brilho da lâmpada na cúpula, por cima do desenho */
-    .face::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      background:
-        radial-gradient(ellipse 34% 24% at 34% 24%, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0) 100%),
-        linear-gradient(165deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 48%);
-      pointer-events: none;
+      @include broche.lata;
     }
     /* 18 de 30: a mesma folga dos dois lados, em pixel inteiro (com 17, o navegador arredonda o meio
        pixel e o desenho escorrega para baixo e para a direita). E meio pixel acima do meio: a sombra da
@@ -191,30 +130,9 @@ let uid = 0;
       height: 18px;
       translate: 0 -0.5px;
     }
-    .botao:hover .face {
-      rotate: 6deg;
-      translate: 0 -1px;
-    }
-    .botao:active .face {
-      scale: 0.94;
-    }
     /* aberto: o aro do broche fica amarelo, a cor de estado (como os do topo) */
     :host(.aberto) .face {
-      rotate: 0deg;
-      box-shadow:
-        inset 0 -3px 5px rgb(0 0 0 / 0.24),
-        inset 0 2px 2px rgb(255 255 255 / 0.6),
-        inset 0 0 0 1px rgb(0 0 0 / 0.3),
-        0 0 0 2.5px var(--hi),
-        0 1px 2px 2.5px rgb(0 0 0 / 0.45),
-        0 6px 9px -4px rgb(0 0 0 / 0.6);
-    }
-    .botao:focus-visible {
-      outline: none;
-    }
-    .botao:focus-visible .face {
-      outline: 3px solid var(--hi);
-      outline-offset: 3px;
+      @include broche.aro-aceso;
     }
 
     /* o desenho: a caixa cheia de tinta, as ondas a pena, de ponta redonda */
@@ -420,13 +338,6 @@ let uid = 0;
       :host(.aberto) {
         scale: 1;
         transition: opacity 120ms linear;
-      }
-      .face {
-        transition: none;
-      }
-      .botao:hover .face {
-        rotate: -8deg;
-        translate: none;
       }
       .folha.posta {
         animation: none;

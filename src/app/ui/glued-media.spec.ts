@@ -99,5 +99,103 @@ describe('a foto colada na anotação', () => {
     setSoundVolume(before);
     settleSoundVolume();
   });
-});
 
+  describe('ampliar a imagem', () => {
+    /** O visor carrega à parte, no primeiro toque: espera ele aparecer no `body`. */
+    async function viewer(): Promise<HTMLDialogElement> {
+      for (let i = 0; i < 100; i++) {
+        const d = document.querySelector<HTMLDialogElement>('app-image-viewer dialog');
+        if (d) return d;
+        await new Promise((r) => setTimeout(r, 10));
+      }
+      throw new Error('o visor não abriu');
+    }
+    async function gone(): Promise<void> {
+      for (let i = 0; i < 100 && document.querySelector('app-image-viewer'); i++) await new Promise((r) => setTimeout(r, 20));
+    }
+    async function photo(args: string[]) {
+      TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+      const fixture = TestBed.createComponent(GluedMedia);
+      fixture.componentRef.setInput('kind', 'imagem');
+      fixture.componentRef.setInput('args', args);
+      await fixture.whenStable();
+      const el = fixture.nativeElement as HTMLElement;
+      return { fixture, el };
+    }
+    afterEach(async () => {
+      document.querySelector<HTMLDialogElement>('app-image-viewer dialog')?.close();
+      document.querySelector('app-image-viewer')?.remove();
+    });
+
+    it('o broche de ampliar só aparece com a foto revelada, e nunca no vídeo', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg']);
+      expect(el.querySelector('.ampliar')).toBeNull();
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      const knob = el.querySelector<HTMLButtonElement>('.foto > button.ampliar.tocavel')!;
+      expect(knob).not.toBeNull();
+      expect(knob.getAttribute('aria-label')).toBe('Ampliar a imagem');
+      // a foto que não abriu não amplia
+      el.querySelector('img')!.dispatchEvent(new Event('error'));
+      await fixture.whenStable();
+      expect(el.querySelector('.ampliar')).toBeNull();
+      fixture.componentRef.setInput('kind', 'video');
+      fixture.componentRef.setInput('args', ['https://exemplo.com.br/clipe.mp4']);
+      await fixture.whenStable();
+      expect(el.querySelector('.ampliar')).toBeNull();
+      fixture.destroy();
+    });
+
+    it('abre a foto no meio da tela, com a moldura e a legenda, e a colada some até ela voltar', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'polaroide', 'Na praia']);
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      const knob = el.querySelector<HTMLButtonElement>('.ampliar')!;
+      expect(knob.getAttribute('aria-label')).toBe('Ampliar a imagem: Na praia');
+      let opened = false;
+      el.addEventListener('click', () => (opened = true));
+      knob.click();
+      // o toque não sobe (na ficha do mural, abriria a leitura)
+      expect(opened).toBeFalse();
+      const dialog = await viewer();
+      expect(dialog.open).toBeTrue();
+      expect(dialog.getAttribute('aria-label')).toBe('Imagem: Na praia');
+      expect(dialog.querySelector('img')!.getAttribute('src')).toBe('https://i.imgur.com/foto.jpg');
+      expect(dialog.querySelector('.colagem')!.classList).toContain('moldura-polaroid');
+      expect(dialog.querySelector('.legenda-polaroide')!.textContent).toBe('Na praia');
+      // fora do texto: no body, não dentro da foto colada
+      expect(el.contains(dialog)).toBeFalse();
+      expect(document.activeElement).toBe(dialog.querySelector('button.fechar'));
+      // a colada some inteira: a foto, a etiqueta e o broche
+      const glued = el.querySelector<HTMLElement>('figure.colagem')!;
+      expect(glued.style.opacity).toBe('0');
+
+      dialog.querySelector<HTMLButtonElement>('button.fechar')!.click();
+      await gone();
+      expect(document.querySelector('app-image-viewer')).toBeNull();
+      expect(glued.style.opacity).toBe('');
+      fixture.destroy();
+    });
+
+    it('fecha no Esc e tocando na própria foto; sem a faixa da polaroide, a legenda vai na etiqueta', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'Um bilhete']);
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+      let dialog = await viewer();
+      expect(dialog.querySelector('.legenda-polaroide')).toBeNull();
+      expect(dialog.querySelector('.etiqueta')!.textContent).toBe('Um bilhete');
+      dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await gone();
+      expect(document.querySelector('app-image-viewer')).toBeNull();
+
+      el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+      dialog = await viewer();
+      dialog.querySelector<HTMLElement>('.foto')!.click();
+      await gone();
+      expect(document.querySelector('app-image-viewer')).toBeNull();
+      expect(el.querySelector<HTMLElement>('figure.colagem')!.style.opacity).toBe('');
+      fixture.destroy();
+    });
+  });
+});

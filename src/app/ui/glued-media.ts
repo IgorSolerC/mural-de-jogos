@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input, linkedSignal, untracked, viewChild } from '@angular/core';
+import { ApplicationRef, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, EnvironmentInjector, computed, effect, inject, input, linkedSignal, untracked, viewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
@@ -22,6 +22,10 @@ import { VolumeKnob } from './volume-knob';
  * O vídeo toca no volume de todo som do site: com o mouse em cima, o adesivo do alto-falante, no
  * canto da foto, abre o volume (ui/volume-knob.ts); o player obedece por mensagem.
  *
+ * A imagem se amplia: com o mouse em cima (na ficha do mural, em cima da ficha), o mesmo broche de
+ * lata do volume, no mesmo canto, com a seta de ampliar; ele abre a foto no meio da tela
+ * (ui/image-viewer.ts, carregado só no toque). Sem mouse, o broche fica sempre à mostra.
+ *
  * O tamanho (ver note-widget.ts): a peça inteira (a borda, a faixa da polaroide, a etiqueta) tem a
  * altura do tamanho, `--widget-alto`, e a foto fica com o que sobra dela, na proporção da foto,
  * qualquer que seja o tamanho do arquivo; mais larga que a linha, ela encolhe até caber. O vídeo é
@@ -34,7 +38,7 @@ import { VolumeKnob } from './volume-knob';
   template: `
     @let m = media();
     <figure class="colagem" [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span class="foto" data-colado [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
+      <span #foto class="foto" data-colado [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
@@ -46,6 +50,11 @@ import { VolumeKnob } from './volume-knob';
         } @else if (kind() === 'imagem') {
           <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
           <span class="reflexo" aria-hidden="true"></span>
+          @if (loaded()) {
+            <button type="button" class="ampliar tocavel" [attr.aria-label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" title="Ampliar" (click)="zoom($event)">
+              <span class="face"><lucide-icon [img]="ZoomIcon" [size]="18" aria-hidden="true" /></span>
+            </button>
+          }
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
             <video #film class="tocavel" [src]="v.url" controls preload="metadata" playsinline [attr.aria-label]="m.caption || 'Vídeo'" (error)="failed.set(true)"></video>
@@ -87,6 +96,8 @@ import { VolumeKnob } from './volume-knob';
     </figure>
   `,
   styles: `
+    @use 'broche';
+
     :host {
       display: block;
       /* a foto ocupa linhas inteiras da pauta (a altura final vem do tamanho dela, ver o construtor) */
@@ -276,6 +287,38 @@ import { VolumeKnob } from './volume-knob';
       margin: 8px;
     }
 
+    /* ===== Ampliar: o broche do volume, no mesmo canto, com a seta de ampliar =====
+       Aparece com o mouse em cima da foto (na ficha do mural, o texto deixa o toque passar, então
+       vale o mouse em cima da ficha) ou com o foco do teclado. Escondido só na opacidade: o teclado
+       chega nele (um broche invisível debaixo do mouse já está à mostra); some com a foto (inherit) */
+    .ampliar {
+      @include broche.lata;
+      @include broche.escondido;
+      grid-area: 1 / 1;
+      place-self: start end;
+      position: relative;
+      z-index: 2;
+      width: 30px;
+      height: 30px;
+      margin: 8px;
+      visibility: inherit;
+    }
+    .foto:hover > .ampliar,
+    :host-context(app-review-card:hover) .ampliar,
+    .ampliar:focus-visible {
+      @include broche.a-mostra;
+    }
+    /* sem mouse (só o toque), sempre à mostra */
+    @media (hover: none) {
+      .ampliar {
+        @include broche.a-mostra;
+      }
+    }
+    .ampliar lucide-icon {
+      display: block;
+      translate: 0 -0.5px;
+    }
+
     /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou numa etiqueta ===== */
     .legenda-polaroide {
       display: flex;
@@ -385,7 +428,10 @@ export class GluedMedia {
 
   protected readonly BrokenIcon = ICON.semImagem;
   protected readonly VideoIcon = ICON.video;
+  protected readonly ZoomIcon = ICON.aumentar;
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly env = inject(EnvironmentInjector);
+  private readonly app = inject(ApplicationRef);
 
   protected readonly media = computed(() => readMedia(this.args()));
   // de cada link: trocar o link (digitando, ou consertando um erro) começa de novo, sem o "não abriu"
@@ -431,6 +477,7 @@ export class GluedMedia {
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
   });
 
+  private readonly photo = viewChild<ElementRef<HTMLElement>>('foto');
   private readonly film = viewChild<ElementRef<HTMLVideoElement>>('film');
   private readonly frame = viewChild<ElementRef<HTMLIFrameElement>>('frame');
   /** A conversa com o player de fora, enquanto ele toca (só para o volume). */
@@ -464,6 +511,19 @@ export class GluedMedia {
     const img = e.target as HTMLImageElement;
     if (img.naturalWidth && img.naturalHeight) this.ratio.set(img.naturalWidth / img.naturalHeight);
     this.loaded.set(true);
+  }
+
+  /** Amplia a foto no meio da tela (o visor só carrega agora, no primeiro toque). */
+  protected zoom(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const from = this.photo()?.nativeElement;
+    if (!from) return;
+    const { url, caption, frame } = this.media();
+    const ratio = this.ratio() ?? 4 / 3;
+    const file = from.querySelector('img')?.naturalWidth ?? 0;
+    const natural = file && Math.max(file, from.offsetWidth * 1.5);
+    void import('./image-viewer').then((m) => m.showImage({ url, caption, frame, ratio, natural, from }, this.env, this.app));
   }
 
   protected play(e: Event): void {

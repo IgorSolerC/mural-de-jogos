@@ -1,0 +1,115 @@
+// O broche de lata dos widgets: o volume (ui/volume-knob.ts) e o ampliar da foto (ui/glued-media.ts).
+// Uma lata redonda de 30px com a estampa creme sob a cúpula, como os do topo; o desenho, a tinta, vai
+// dentro da `.face` (18px). Quem usa põe `@include broche.lata` no botão, com a `.face` dentro dele.
+
+// escondido até o mouse chegar na peça (ou o foco); some devagar, para dar tempo de o mouse ir da peça até ele
+@mixin escondido {
+  opacity: 0;
+  scale: 0.82;
+  visibility: hidden;
+  transition:
+    opacity 140ms var(--ease-ui) 450ms,
+    scale 140ms var(--ease-ui) 450ms,
+    visibility 0s linear 590ms;
+}
+
+@mixin a-mostra {
+  opacity: 1;
+  scale: 1;
+  visibility: visible;
+  transition:
+    opacity 160ms var(--ease-ui),
+    scale 220ms var(--ease-ui),
+    visibility 0s;
+}
+
+// o aro amarelo do broche aberto (a cor de estado, como os do topo)
+@mixin aro-aceso {
+  rotate: 0deg;
+  box-shadow:
+    inset 0 -3px 5px rgb(0 0 0 / 0.24),
+    inset 0 2px 2px rgb(255 255 255 / 0.6),
+    inset 0 0 0 1px rgb(0 0 0 / 0.3),
+    0 0 0 2.5px var(--hi),
+    0 1px 2px 2.5px rgb(0 0 0 / 0.45),
+    0 6px 9px -4px rgb(0 0 0 / 0.6);
+}
+
+@mixin lata {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #151515;
+  cursor: pointer;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+
+  .face {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: #f6f2e7;
+    /* a cúpula: a borda curva escurece embaixo, clareia em cima; o broche faz sombra no que está atrás */
+    box-shadow:
+      inset 0 -3px 5px rgb(0 0 0 / 0.24),
+      inset 0 2px 2px rgb(255 255 255 / 0.6),
+      inset 0 0 0 1px rgb(0 0 0 / 0.3),
+      0 1px 2px rgb(0 0 0 / 0.45),
+      0 6px 9px -4px rgb(0 0 0 / 0.6);
+    rotate: -8deg;
+    transition:
+      rotate var(--t-physical) var(--ease-physical),
+      translate var(--t-physical) var(--ease-physical),
+      scale var(--t-ui) var(--ease-ui);
+  }
+  /* o anel impresso na estampa */
+  .face::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1.25px solid rgb(21 21 21 / 0.26);
+    border-radius: 50%;
+  }
+  /* o brilho da lâmpada na cúpula, por cima do desenho */
+  .face::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(ellipse 34% 24% at 34% 24%, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0) 100%),
+      linear-gradient(165deg, rgb(255 255 255 / 0.2), rgb(255 255 255 / 0) 48%);
+    pointer-events: none;
+  }
+  &:hover .face {
+    rotate: 6deg;
+    translate: 0 -1px;
+  }
+  &:active .face {
+    scale: 0.94;
+  }
+  &:focus-visible {
+    outline: none;
+  }
+  &:focus-visible .face {
+    outline: 3px solid var(--hi);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .face {
+      transition: none;
+    }
+    &:hover .face {
+      rotate: -8deg;
+      translate: none;
+    }
+  }
+}
