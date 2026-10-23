@@ -102,7 +102,7 @@
               <div #lista class="pastas" [class.com-grupos]="grupos().length">
                 @for (p of pastas(); track p.chave) {
                   @let mostra = pastaAberta(p);
-                  <section class="pasta" [class.fechada]="!mostra" [class.sem-grupo]="!p.chave" [class.acabou-de-abrir]="recemAberta() === p.chave">
+                  <section class="pasta" [class.fechada]="!mostra" [class.sem-grupo]="!p.chave" [class.acabou-de-abrir]="recemAberta() === p.chave" [class.com-cor]="!!p.jeito.cor" [style.--cor-do-grupo]="hexDa(p.jeito.cor)">
                     @if (grupos().length) {
                       <h2 class="orelha-lugar">
                         <button
@@ -114,7 +114,11 @@
                           [title]="buscando() ? 'Com a busca, todas as pastas ficam abertas' : mostra ? 'Fechar a pasta' : 'Abrir a pasta'"
                           (click)="alternarPasta(p)"
                         >
-                          <cofre-icone [nome]="mostra ? 'pasta-aberta' : 'pasta'" />
+                          @if (p.jeito.icone) {
+                            <cofre-icone class="icone-do-grupo" [cartela]="p.jeito.icone" />
+                          } @else {
+                            <cofre-icone [nome]="mostra ? 'pasta-aberta' : 'pasta'" />
+                          }
                           <span class="orelha-nome">{{ p.nome }}</span>
                           <span class="orelha-conta"><span class="visivel-so-leitor">: </span>{{ p.itens.length }}<span class="visivel-so-leitor">{{ p.itens.length === 1 ? ' senha' : ' senhas' }}</span></span>
                         </button>
@@ -128,7 +132,7 @@
                             @let vezes = vazadas().get(i.id) ?? 0;
                             <li class="linha" [class.aberta]="aberto() === i.id">
                               <button type="button" class="abre" [attr.data-id]="i.id" [attr.aria-current]="aberto() === i.id ? 'true' : null" (click)="abrirItem(i)">
-                                <cofre-monograma [nome]="nome(it)" />
+                                <cofre-monograma [nome]="nome(it)" [icone]="it.icone" />
                                 <span class="textos">
                                   <span class="titulo">
                                     {{ nome(it) }}
@@ -195,6 +199,7 @@
                 [alvo]="criando() ? null : selecionado()"
                 [vazada]="criando() ? 0 : (vazadas().get(selecionado()?.id ?? '') ?? 0)"
                 [grupos]="grupos()"
+                [jeitos]="jeitos()"
                 [ocupado]="ocupado()"
                 (salvar)="salvar($event)"
                 (paraALixeira)="lixeira(selecionado()!)"

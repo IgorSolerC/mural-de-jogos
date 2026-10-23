@@ -1,3 +1,4 @@
+import { CORES_DA_CARTELA } from '../../../shared/cartela-de-icones';
 import { ICON_CHOICES } from './icon-choices';
 import { labelKey } from './text';
 
@@ -21,17 +22,8 @@ export interface CategoryLook {
 export const CATEGORY_ICONS = ICON_CHOICES;
 export type CategoryIconId = (typeof CATEGORY_ICONS)[number];
 
-/** As cores da etiqueta: tintas fortes, para a borda fina continuar à vista no manilha. */
-export const CATEGORY_COLORS = [
-  { id: 'vermelho', label: 'Vermelho', hex: '#d63a2f' },
-  { id: 'laranja', label: 'Laranja', hex: '#e46f0c' },
-  { id: 'amarelo', label: 'Amarelo', hex: '#cf9d00' },
-  { id: 'verde', label: 'Verde', hex: '#5e9c1c' },
-  { id: 'azul', label: 'Azul', hex: '#2d8bd6' },
-  { id: 'roxo', label: 'Roxo', hex: '#8c58d8' },
-  { id: 'rosa', label: 'Rosa', hex: '#e2579f' },
-  { id: 'vinho', label: 'Vinho', hex: '#ad2463' },
-] as const;
+/** As cores da etiqueta: as da cartela do site (shared/cartela-de-icones.ts), tintas fortes para a borda fina continuar à vista no manilha. */
+export const CATEGORY_COLORS = CORES_DA_CARTELA;
 export type CategoryColorId = (typeof CATEGORY_COLORS)[number]['id'];
 
 /** O hex da cor, ou null. */

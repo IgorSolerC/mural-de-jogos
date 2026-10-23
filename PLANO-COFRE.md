@@ -1593,3 +1593,28 @@ no que fica no aparelho:
   (gravar uma delas a tiraria da lixeira): se voltarem, voltam com o grupo de antes. Um conflito no meio
   para tudo com as anteriores já gravadas; fazer de novo termina o resto.
 - Ficou de fora: mover várias senhas juntas.
+
+### 17.17 Ícones no cofre (23/10)
+
+Pedido do usuário: escolher um ícone para cada senha, com os mesmos ícones dos grupos e das colunas do
+Kanban, todos num lugar só do código; e ícone e cor para os grupos do cofre, como nas anotações. Feito
+sem mexer na cripto, na API nem no que fica no aparelho:
+
+- **Um lugar só para as escolhas de ícone e cor**: `shared/cartela-de-icones.ts`, só dados (como o topo):
+  os 50 ícones da cartela (id, nome e o desenho do Lucide copiado como dados) e as 8 cores. O Murall lê
+  dali os ícones dos grupos e das colunas e as cores (`core/icon-choices.ts`, `ui/icons.ts`,
+  `core/category-looks.ts`; o teste `ui/icons.spec.ts` confere que cada desenho é o de sempre), e o cofre
+  também (`app/cartela.ts`, `app/icone.ts`). Ícone novo numa escolha entra ali.
+- **O ícone da senha** (`icone`, dentro do item cifrado) fica no lugar da letra do selo, na lista e na
+  senha aberta. Na edição, o selo grande (ou "Escolher um ícone") abre a cartela numa folha solta; a
+  primeira escolha volta para a letra.
+- **O ícone e a cor do grupo** vão copiados em cada senha do grupo (`grupoIcone`, `grupoCor`), como o
+  nome: não há outro lugar cifrado para o grupo, e criar um mexeria no manifesto. Vale o da senha mudada
+  por último. Trocar (Ajustes do cofre › Grupos › Ícone e cor) grava as senhas do grupo, como renomear;
+  a senha posta num grupo leva o jeito dele; juntar dois grupos fica com o jeito do que recebe; apagar o
+  grupo tira o jeito junto. Na lista, a orelha da pasta mostra o ícone, e a cor corre por dentro dela
+  como nas orelhas das anotações.
+- Cuidado conhecido: uma aba aberta desde antes desta versão não conhece os campos novos e, ao gravar uma
+  senha, a guarda sem o ícone (e, sendo a mudada por último, tira o jeito do grupo). O cofre não tem
+  service worker e recarrega ao trancar, então a janela é só a de uma aba que ficou aberta durante a
+  publicação; o mesmo valia para o grupo (17.16).

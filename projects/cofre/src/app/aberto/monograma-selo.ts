@@ -1,16 +1,26 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import type { IdDoIcone } from '../../../../../shared/cartela-de-icones';
+import { Icone } from '../icone';
 import { corDoMonograma, letraDoMonograma } from './monograma';
 
 /**
  * O monograma de uma senha: a primeira letra do nome, a pincel, num quadradinho de cartolina colado
  * torto. Ocupa o lugar do ícone do site (o cofre não busca nada de fora, nem o ícone do site), e a cor
- * sorteada pelo nome ajuda a achar a senha na lista sem ler.
+ * sorteada pelo nome ajuda a achar a senha na lista sem ler. Com um ícone escolhido (da cartela do
+ * site), ele fica no lugar da letra, no mesmo quadradinho.
  */
 @Component({
   selector: 'cofre-monograma',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'aria-hidden': 'true', '[attr.data-cor]': 'cor()', '[class.grande]': 'grande()' },
-  template: `{{ letra() }}`,
+  imports: [Icone],
+  template: `
+    @if (icone(); as i) {
+      <cofre-icone [cartela]="i" />
+    } @else {
+      {{ letra() }}
+    }
+  `,
   styles: `
     :host {
       --cor: var(--amarelo);
@@ -51,6 +61,14 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
       --cor: var(--lilas);
       rotate: 1.5deg;
     }
+    cofre-icone {
+      width: 22px;
+      height: 22px;
+    }
+    :host(.grande) cofre-icone {
+      width: 34px;
+      height: 34px;
+    }
     :host(.grande) {
       width: 64px;
       height: 64px;
@@ -64,6 +82,7 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
 export class MonogramaSelo {
   readonly nome = input.required<string>();
   readonly grande = input(false);
+  readonly icone = input<IdDoIcone | ''>('');
   protected readonly letra = computed(() => letraDoMonograma(this.nome()));
   protected readonly cor = computed(() => corDoMonograma(this.nome()));
 }

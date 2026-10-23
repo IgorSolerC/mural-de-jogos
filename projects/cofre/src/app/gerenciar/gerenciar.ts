@@ -4,7 +4,9 @@ import { type AparelhoDaApi, ErroApi, type EventoDaApi, type SessaoDaApi } from 
 import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
-import { LIMITES, nomeDoGrupo } from '../../core/itens';
+import { CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
+import { type JeitoDoGrupo, LIMITES, nomeDoGrupo } from '../../core/itens';
+import { Cartela } from '../cartela';
 import { simples } from '../aberto/pastas';
 import { ErroPasskey, type PasskeyRegistrada, registrarPasskey } from '../../core/passkey';
 import { sortearFrase } from '../../core/sorteio';
@@ -38,21 +40,26 @@ export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: str
   { id: 'recuperacao', nome: 'Recuperação', dica: 'O código de emergência', icone: 'boia' },
   { id: 'sessoes', nome: 'Abertos agora', dica: 'Onde o cofre está aberto', icone: 'tela' },
   { id: 'vazadas', nome: 'Senhas vazadas', dica: 'Conferir na base pública', icone: 'escudo' },
-  { id: 'grupos', nome: 'Grupos', dica: 'Renomear e apagar', icone: 'pasta' },
+  { id: 'grupos', nome: 'Grupos', dica: 'Nome, ícone e cor', icone: 'pasta' },
   { id: 'historico', nome: 'Histórico', dica: 'Os últimos 90 dias', icone: 'historico' },
   { id: 'cuidado', nome: 'Cuidado', dica: 'Apagar o cofre', icone: 'perigo' },
 ];
 
-/** Um grupo das senhas (uma pasta da lista), com quantas senhas tem. */
+/** Um grupo das senhas (uma pasta da lista), com quantas senhas tem e o ícone e a cor dele. */
 export interface GrupoDoCofre {
   readonly nome: string;
   readonly senhas: number;
+  readonly jeito: JeitoDoGrupo;
 }
 
-/** Renomear um grupo (`para` é o nome novo) ou apagá-lo (`para` vazio): quem usa grava as senhas. */
+/**
+ * Renomear um grupo (`para` é o nome novo), apagá-lo (`para` vazio) ou trocar o ícone e a cor (`para`
+ * igual a `de`, com o `jeito`): quem usa grava as senhas.
+ */
 export interface MudancaDeGrupo {
   readonly de: string;
   readonly para: string;
+  readonly jeito?: JeitoDoGrupo;
 }
 
 /** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
@@ -78,13 +85,14 @@ function mensagem(e: unknown): string {
 @Component({
   selector: 'cofre-gerenciar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [PassoKit, ReguaForca, Icone],
+  imports: [Cartela, PassoKit, ReguaForca, Icone],
   templateUrl: './gerenciar.html',
   styleUrl: './gerenciar.scss',
 })
 export class Gerenciar implements OnInit {
   private readonly servicos = inject(SERVICOS);
   private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly cofre = input.required<CofreAberto>();
   readonly conta = input.required<string>();
@@ -149,6 +157,9 @@ export class Gerenciar implements OnInit {
   protected readonly renomeando = signal<string | null>(null);
   protected readonly nomeNovo = signal('');
   protected readonly confirmarApagarGrupo = signal<string | null>(null);
+  /** O grupo com a cartela de ícone e cor aberta, e o que já foi escolhido nela (vale ao salvar). */
+  protected readonly vestindo = signal<string | null>(null);
+  protected readonly jeitoNovo = signal<JeitoDoGrupo>({ icone: '', cor: '' });
   /** O grupo que já existe com o nome escrito (renomear para ele junta os dois). */
   protected readonly juntaCom = computed(() => {
     const de = this.renomeando();
@@ -168,6 +179,7 @@ export class Gerenciar implements OnInit {
 
   protected renomearGrupo(nome: string): void {
     this.confirmarApagarGrupo.set(null);
+    this.vestindo.set(null);
     this.renomeando.set(nome);
     this.nomeNovo.set(nome);
     afterNextRender(() => this.campoDoGrupo()?.nativeElement.select(), { injector: this.injector });
@@ -184,10 +196,49 @@ export class Gerenciar implements OnInit {
     this.mudarGrupo.emit({ de: nome, para: '' });
   }
 
-  /** Quem usa acabou de renomear ou apagar (deu certo ou não): as perguntas fecham. */
+  protected vestirGrupo(g: GrupoDoCofre): void {
+    this.renomeando.set(null);
+    this.confirmarApagarGrupo.set(null);
+    this.jeitoNovo.set(g.jeito);
+    this.vestindo.set(g.nome);
+  }
+
+  protected escolherIconeDoGrupo(icone: IdDoIcone | ''): void {
+    this.jeitoNovo.update((j) => ({ ...j, icone }));
+  }
+
+  protected escolherCorDoGrupo(cor: IdDaCor | ''): void {
+    this.jeitoNovo.update((j) => ({ ...j, cor }));
+  }
+
+  /** Fecha a cartela do grupo e devolve o foco ao "Ícone e cor" da linha dele. */
+  protected fecharVestir(): void {
+    const nome = this.vestindo();
+    if (nome === null) return;
+    this.vestindo.set(null);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-vestir="${CSS.escape(nome)}"]`)?.focus(), { injector: this.injector });
+  }
+
+  protected gravarJeito(g: GrupoDoCofre): void {
+    const jeito = this.jeitoNovo();
+    if (this.mudandoGrupo()) return;
+    if (jeito.icone === g.jeito.icone && jeito.cor === g.jeito.cor) {
+      this.fecharVestir();
+      return;
+    }
+    this.mudarGrupo.emit({ de: g.nome, para: g.nome, jeito });
+  }
+
+  /** O hex de uma cor da cartela, ou null. */
+  protected hexDa(cor: IdDaCor | ''): string | null {
+    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
+  }
+
+  /** Quem usa acabou de mudar um grupo (deu certo ou não): as perguntas fecham. */
   terminouGrupo(): void {
     this.renomeando.set(null);
     this.confirmarApagarGrupo.set(null);
+    this.fecharVestir();
   }
 
   protected async recarregar(): Promise<void> {

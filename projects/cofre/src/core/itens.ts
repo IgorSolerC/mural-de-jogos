@@ -1,8 +1,10 @@
 /**
  * Os itens do cofre aberto (seções 6.2, 6.3 e 16.5 do PLANO-COFRE.md, decisão 11), sem tela.
  *
- * Um item tem Título, User, Senha, URL e Descrição, todos opcionais, o grupo (a pasta da lista, seção
- * 17.16), mais as datas e as últimas 5 senhas: tudo dentro do cifrado (o servidor não vê nem o grupo).
+ * Um item tem Título, User, Senha, URL e Descrição, todos opcionais, o ícone, o grupo (a pasta da lista,
+ * seção 17.16) com o ícone e a cor dele, mais as datas e as últimas 5 senhas: tudo dentro do cifrado (o
+ * servidor não vê nem o grupo). O jeito do grupo (ícone e cor) vai copiado em cada senha dele, como o nome
+ * (seção 17.17): não há outro lugar cifrado para ele, e mudá-lo grava as senhas do grupo.
  * Ao ler, os itens que o servidor manda são conferidos contra o manifesto (faltou, sobrou, repetiu ou
  * mudou a versão: erro, e nada aparece). Toda gravação manda o item
  * e o manifesto novo, com o contador que este aparelho viu; se outro aparelho gravou antes, a API
@@ -11,6 +13,7 @@
  * A lixeira guarda o item por 30 dias; depois a limpeza do servidor apaga os dados e deixa uma lápide
  * (id e versão), que a página tira do manifesto (`limparLapides`).
  */
+import { ehCorDaCartela, ehIconeDaCartela, type IdDaCor, type IdDoIcone } from '../../../../shared/cartela-de-icones';
 import { type ApiCofre, ErroApi } from './api';
 import type { CofreAberto } from './abrir';
 import { deBase64url, paraBase64url } from './bytes';
@@ -23,8 +26,13 @@ export interface Item {
   readonly senha: string;
   readonly url: string;
   readonly descricao: string;
+  /** O ícone da cartela do site (shared/cartela-de-icones.ts); vazio: a letra do nome. */
+  readonly icone: IdDoIcone | '';
   /** O grupo (a pasta da lista); vazio: sem grupo. Os itens de antes do grupo não têm o campo. */
   readonly grupo: string;
+  /** O ícone e a cor do grupo (iguais em todas as senhas dele); vazios: a pasta e o manilha liso. */
+  readonly grupoIcone: IdDoIcone | '';
+  readonly grupoCor: IdDaCor | '';
   readonly criadoEm: string;
   readonly mudadoEm: string;
   /** As últimas senhas trocadas (até 5), da mais nova para a mais velha. */
@@ -35,8 +43,15 @@ export interface Item {
 export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, descricao: 8000, grupo: 60 } as const;
 const HISTORICO = 5;
 
-/** Os campos que a pessoa escreve (sem o grupo, o item fica sem grupo). */
-export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & { readonly grupo?: string };
+/** Os campos que a pessoa escreve (sem o grupo, o item fica sem grupo; sem o ícone, com a letra). */
+export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & Partial<Pick<Item, 'grupo' | 'icone' | 'grupoIcone' | 'grupoCor'>>;
+
+/** O jeito de um grupo: o ícone e a cor. */
+export interface JeitoDoGrupo {
+  readonly icone: IdDoIcone | '';
+  readonly cor: IdDaCor | '';
+}
+export const SEM_JEITO: JeitoDoGrupo = { icone: '', cor: '' };
 
 /** O nome de um grupo como fica guardado: sem espaços nas pontas nem repetidos ("Sem grupo" é sem grupo). */
 export function nomeDoGrupo(texto: string): string {
@@ -77,13 +92,18 @@ export function lerItem(bruto: unknown): Item {
         .filter((h) => h.senha)
         .slice(0, HISTORICO)
     : [];
+  const grupo = nomeDoGrupo(texto(i['grupo'], LIMITES.grupo * 2));
   return {
     titulo: texto(i['titulo'], LIMITES.titulo),
     usuario: texto(i['usuario'], LIMITES.usuario),
     senha: texto(i['senha'], LIMITES.senha),
     url: texto(i['url'], LIMITES.url),
     descricao: texto(i['descricao'], LIMITES.descricao),
-    grupo: nomeDoGrupo(texto(i['grupo'], LIMITES.grupo * 2)),
+    icone: ehIconeDaCartela(i['icone']) ? i['icone'] : '',
+    grupo,
+    // o jeito só vale com um grupo
+    grupoIcone: grupo && ehIconeDaCartela(i['grupoIcone']) ? i['grupoIcone'] : '',
+    grupoCor: grupo && ehCorDaCartela(i['grupoCor']) ? i['grupoCor'] : '',
     criadoEm: data(i['criadoEm']),
     mudadoEm: data(i['mudadoEm']),
     historico,
@@ -196,17 +216,24 @@ export async function limparLapides(api: ApiCofre, cofre: CofreAberto, lista: re
 }
 
 /**
- * Muda o grupo de várias senhas de uma vez (renomear: o nome novo; apagar o grupo: vazio), uma gravação
- * por senha, na ordem. Só as que estão no cofre: as da lixeira ficam como estão (gravar uma delas a
+ * Muda o grupo de várias senhas de uma vez (renomear: o nome novo; apagar o grupo: vazio; o ícone e a
+ * cor: o mesmo nome com o jeito novo), uma gravação por senha, na ordem. Só as que estão no cofre: as da lixeira ficam como estão (gravar uma delas a
  * tiraria da lixeira). Um conflito no meio para tudo, com as anteriores já gravadas: fazer de novo
  * continua de onde parou. `aCada` recebe cada uma assim que fica gravada.
  */
-export async function mudarGrupo(api: ApiCofre, cofre: CofreAberto, alvos: readonly ItemNaLista[], grupo: string, aCada?: (salvo: ItemNaLista) => void): Promise<ItemNaLista[]> {
+export async function mudarGrupo(
+  api: ApiCofre,
+  cofre: CofreAberto,
+  alvos: readonly ItemNaLista[],
+  grupo: string,
+  jeito: JeitoDoGrupo = SEM_JEITO,
+  aCada?: (salvo: ItemNaLista) => void,
+): Promise<ItemNaLista[]> {
   const salvos: ItemNaLista[] = [];
   for (const alvo of alvos) {
     if (alvo.naLixeira || !alvo.item) continue;
-    const { titulo, usuario, senha, url, descricao } = alvo.item;
-    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, grupo }, alvo);
+    const { titulo, usuario, senha, url, descricao, icone } = alvo.item;
+    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, icone, grupo, grupoIcone: jeito.icone, grupoCor: jeito.cor }, alvo);
     salvos.push(salvo);
     aCada?.(salvo);
   }

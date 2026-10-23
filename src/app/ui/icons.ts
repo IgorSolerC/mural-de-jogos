@@ -235,7 +235,8 @@ import {
   X,
   Zap,
 } from 'lucide-angular';
-import { IconChoice } from '../core/icon-choices';
+import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
+import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
 
 /**
  * O acervo de ícones do site: todo desenho de interface vem daqui, e cada ideia tem um desenho só
@@ -569,113 +570,18 @@ export const ICON = {
   semOuvir: EarOff,
 } as const satisfies Record<string, LucideIconData>;
 
-/** O desenho de cada escolha da cartela dos grupos e das colunas (ver core/icon-choices.ts). */
-export const ICON_CHOICE: Record<IconChoice, LucideIconData> = {
-  circulo: ICON.circulo,
-  lista: ICON.tarefas,
-  lapis: ICON.editar,
-  martelo: ICON.martelo,
-  engrenagem: ICON.configurar,
-  olho: ICON.ver,
-  ampulheta: ICON.ampulheta,
-  pausa: ICON.pausa,
-  bloqueio: ICON.nenhum,
-  check: ICON.feito,
-  trofeu: ICON.trofeu,
-  foguete: ICON.foguete,
-  lampada: ICON.lampada,
-  inseto: ICON.inseto,
-  bandeira: ICON.bandeira,
-  estrela: ICON.estrela,
-  caixa: ICON.caixa,
-  calendario: ICON.calendario,
-  relogio: ICON.relogio,
-  pessoas: ICON.pessoas,
-  chama: ICON.chama,
-  raio: ICON.raio,
-  alvo: ICON.alvo,
-  sino: ICON.sino,
-  megafone: ICON.megafone,
-  etiqueta: ICON.etiqueta,
-  pasta: ICON.pasta,
-  maleta: ICON.maleta,
-  capelo: ICON.capelo,
-  caderno: ICON.praDepois,
-  livro: ICON.livros,
-  marcador: ICON.marcador,
-  pena: ICON.pena,
-  carrinho: ICON.carrinho,
-  moedas: ICON.moedas,
-  chapeu: ICON.chapeu,
-  aviao: ICON.aviao,
-  mundo: ICON.mundo,
-  predio: ICON.predio,
-  coracao: ICON.coracao,
-  musica: ICON.musica,
-  filme: ICON.filmes,
-  camera: ICON.camera,
-  paleta: ICON.paleta,
-  cerebro: ICON.cerebro,
-  microscopio: ICON.microscopio,
-  chip: ICON.chip,
-  'quebra-cabeca': ICON.quebraCabeca,
-  coroa: ICON.coroa,
-  brilho: ICON.brilho,
-};
+/**
+ * O desenho e o nome de cada escolha da cartela dos grupos e das colunas, lidos da cartela do site
+ * (shared/cartela-de-icones.ts, que o cofre também usa): é lá que se escolhe um ícone novo.
+ */
+export const ICON_CHOICE = Object.fromEntries(CARTELA_DE_ICONES.map((i) => [i.id, i.desenho as unknown as LucideIconData])) as Record<IconChoice, LucideIconData>;
+export const ICON_CHOICE_LABEL = Object.fromEntries(CARTELA_DE_ICONES.map((i) => [i.id, i.label])) as Record<IconChoice, string>;
 
-/** O nome de cada escolha, para o leitor de tela e a dica. */
-export const ICON_CHOICE_LABEL: Record<IconChoice, string> = {
-  circulo: 'Círculo',
-  lista: 'Lista de tarefas',
-  lapis: 'Lápis',
-  martelo: 'Martelo',
-  engrenagem: 'Engrenagem',
-  olho: 'Olho (revisão)',
-  ampulheta: 'Ampulheta (esperando)',
-  pausa: 'Pausa',
-  bloqueio: 'Bloqueado',
-  check: 'Feito',
-  trofeu: 'Troféu',
-  foguete: 'Foguete',
-  lampada: 'Lâmpada (ideias)',
-  inseto: 'Inseto (correção)',
-  bandeira: 'Bandeira',
-  estrela: 'Estrela',
-  caixa: 'Caixa',
-  calendario: 'Calendário',
-  relogio: 'Relógio',
-  pessoas: 'Pessoas',
-  chama: 'Chama (urgente)',
-  raio: 'Raio',
-  alvo: 'Alvo',
-  sino: 'Sino',
-  megafone: 'Megafone',
-  etiqueta: 'Etiqueta',
-  pasta: 'Pasta',
-  maleta: 'Maleta',
-  capelo: 'Capelo',
-  caderno: 'Caderno',
-  livro: 'Livro',
-  marcador: 'Marcador de página',
-  pena: 'Pena',
-  carrinho: 'Carrinho de compras',
-  moedas: 'Moedas',
-  chapeu: 'Chapéu de cozinheiro',
-  aviao: 'Avião',
-  mundo: 'Mundo',
-  predio: 'Prédio',
-  coracao: 'Coração',
-  musica: 'Música',
-  filme: 'Filme',
-  camera: 'Câmera',
-  paleta: 'Paleta',
-  cerebro: 'Cérebro',
-  microscopio: 'Microscópio',
-  chip: 'Chip',
-  'quebra-cabeca': 'Quebra-cabeça',
-  coroa: 'Coroa',
-  brilho: 'Brilho',
-};
+/** A escolha da cartela com este desenho (o de um ícone do acervo pode ser o mesmo de uma escolha), ou null. */
+export function iconChoiceOf(icon: LucideIconData): IconChoice | null {
+  const desenho = JSON.stringify(icon);
+  return ICON_CHOICES.find((i) => JSON.stringify(ICON_CHOICE[i]) === desenho) ?? null;
+}
 
 /**
  * Todo `<lucide-icon>` do site desenha a linha com `ICON_STROKE` px, de qualquer tamanho. A

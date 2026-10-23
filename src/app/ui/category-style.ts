@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, input } from '@an
 import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
 import { Settings } from '../core/settings';
 import { CategoryLabel, categoryIcon } from './category-label';
-import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
+import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icons';
 
 /**
  * A folha do ícone e da cor de uma categoria das anotações, no editor (ver core/category-looks.ts):
@@ -215,13 +215,12 @@ export class CategoryStyle {
   protected readonly color = computed(() => categoryColorHex(this.look().color));
   /** O ícone que a categoria mostra agora: o escolhido, ou o de sempre. */
   protected readonly iconId = computed(() => {
-    const now = categoryIcon(this.category(), this.look());
-    return CATEGORY_ICONS.find((i) => ICON_CHOICE[i] === now) ?? null;
+    return iconChoiceOf(categoryIcon(this.category(), this.look()));
   });
 
   /** Troca o ícone; o de sempre não fica guardado (assim "Voltar ao de sempre" some se só ele mudou). */
   protected setIcon(icon: CategoryIconId): void {
-    const same = ICON_CHOICE[icon] === categoryIcon(this.category());
+    const same = iconChoiceOf(categoryIcon(this.category())) === icon;
     this.settings.setCategoryLook(this.category(), { ...this.look(), icon: same ? undefined : icon });
   }
 

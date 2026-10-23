@@ -1,10 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { type CamposDoItem, type ItemNaLista, LIMITES, nomeDoGrupo } from '../../core/itens';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, input, output, signal, untracked, viewChild } from '@angular/core';
+import { CORES_DA_CARTELA, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
+import { type CamposDoItem, type ItemNaLista, type JeitoDoGrupo, LIMITES, nomeDoGrupo, SEM_JEITO } from '../../core/itens';
+import { Cartela } from '../cartela';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
-import { dominio, nomeDoItem, urlSegura } from './monograma';
+import { dominio, letraDoMonograma, nomeDoItem, urlSegura } from './monograma';
 import { MonogramaSelo } from './monograma-selo';
 import { simples } from './pastas';
 import { emTrechos } from './trechos';
@@ -27,20 +29,21 @@ export function emGrupos(senha: string): string[] {
  * Um item do cofre (decisão 11): Título, User, Senha, URL e Descrição, à direita da lista. Ver: copiar
  * (a área de transferência é limpa 30 s depois, com o cofre na frente), revelar a senha (15 s, com a linha que encolhe), mostrar
  * para digitar (letras grandes, em grupos) e abrir o site (aba nova, sem dizer de onde veio). Editar no
- * mesmo lugar: os cinco campos e o grupo, todos opcionais, e o gerador.
+ * mesmo lugar: os cinco campos, o ícone e o grupo, todos opcionais, e o gerador.
  */
 @Component({
   selector: 'cofre-item',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [GeradorPainel, Icone, MonogramaSelo],
+  imports: [Cartela, GeradorPainel, Icone, MonogramaSelo],
   templateUrl: './item.html',
   styleUrl: './item.scss',
-  host: { '(document:keydown.escape)': 'paraDigitar.set(false)' },
+  host: { '(document:keydown.escape)': 'esc()' },
 })
 export class ItemDoCofre {
   private readonly servicos = inject(SERVICOS);
   private readonly area = inject(AreaDeTransferencia);
   private readonly timers: ReturnType<typeof setTimeout>[] = [];
+  private readonly injector = inject(Injector);
 
   /** O item, ou null para um novo. */
   readonly alvo = input<ItemNaLista | null>(null);
@@ -49,6 +52,8 @@ export class ItemDoCofre {
   readonly vazada = input(0);
   /** Os grupos que já existem no cofre, para escolher com um toque. */
   readonly grupos = input<readonly string[]>([]);
+  /** O ícone e a cor de cada grupo (pela chave): a senha posta num grupo leva o jeito dele. */
+  readonly jeitos = input<ReadonlyMap<string, JeitoDoGrupo>>(new Map());
   readonly salvar = output<CamposDoItem>();
   readonly paraALixeira = output<void>();
   readonly voltar = output<void>();
@@ -63,7 +68,17 @@ export class ItemDoCofre {
   protected readonly mostrarNoCampo = signal(false);
   /** O que acabou de ser copiado ("usuario", "senha", "anterior-2"…), para o botão dizer que deu certo. */
   protected readonly copiado = signal<string | null>(null);
-  protected readonly campos = signal<Required<CamposDoItem>>({ titulo: '', usuario: '', senha: '', url: '', descricao: '', grupo: '' });
+  protected readonly campos = signal<Pick<Required<CamposDoItem>, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao' | 'grupo' | 'icone'>>({
+    titulo: '',
+    usuario: '',
+    senha: '',
+    url: '',
+    descricao: '',
+    grupo: '',
+    icone: '',
+  });
+  /** A cartela de ícones aberta, na edição. */
+  protected readonly escolhendoIcone = signal(false);
 
   protected readonly item = computed(() => this.alvo()?.item ?? null);
   protected readonly site = computed(() => urlSegura(this.item()?.url ?? ''));
@@ -76,17 +91,20 @@ export class ItemDoCofre {
   protected readonly novo = computed(() => this.alvo() === null);
   /** Sem nada além do grupo, não há o que guardar. */
   protected readonly vazio = computed(() => {
-    const { grupo: _grupo, ...escritos } = this.campos();
+    const { grupo: _grupo, icone: _icone, ...escritos } = this.campos();
     return Object.values(escritos).every((v) => !v.trim());
   });
   /** O grupo escrito, se já for um dos que existem (o adesivo dele fica marcado). */
   protected readonly grupoEscolhido = computed(() => simples(nomeDoGrupo(this.campos().grupo)));
+  /** A letra que o selo mostra sem ícone (para a primeira escolha da cartela). */
+  protected readonly letraEditando = computed(() => letraDoMonograma(this.nomeEditando() || '?'));
   private readonly idDoAlvo = computed(() => this.alvo()?.id ?? null);
   private timerRevelar: ReturnType<typeof setTimeout> | null = null;
   private timerCopiado: ReturnType<typeof setTimeout> | null = null;
 
   private readonly fecharParaDigitar = viewChild<ElementRef<HTMLButtonElement>>('fecharDigitar');
   private readonly primeiroCampo = viewChild<ElementRef<HTMLInputElement>>('primeiroCampo');
+  private readonly selo = viewChild<ElementRef<HTMLButtonElement>>('selo');
 
   constructor() {
     // o foco vai para a folha da senha quando ela abre (o Esc fecha, de qualquer lugar)
@@ -109,6 +127,17 @@ export class ItemDoCofre {
     });
   }
 
+  /** O Esc fecha o que estiver por cima: a senha grande, ou a cartela de ícones (o foco volta ao selo). */
+  protected esc(): void {
+    this.paraDigitar.set(false);
+    if (this.escolhendoIcone()) this.fecharCartela();
+  }
+
+  private fecharCartela(): void {
+    this.escolhendoIcone.set(false);
+    afterNextRender(() => this.selo()?.nativeElement.focus(), { injector: this.injector });
+  }
+
   /** Editando ou com a senha grande na tela: o Esc é de quem está aberto aqui. */
   ocupadoComAlgo(): boolean {
     return this.editando() || this.paraDigitar();
@@ -120,7 +149,8 @@ export class ItemDoCofre {
 
   protected editar(): void {
     const i = this.item();
-    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '' });
+    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '', icone: i?.icone ?? '' });
+    this.escolhendoIcone.set(false);
     this.revelada.set(false);
     this.editando.set(true);
     setTimeout(() => this.primeiroCampo()?.nativeElement.focus());
@@ -142,6 +172,22 @@ export class ItemDoCofre {
     this.campos.update((c) => ({ ...c, grupo: this.grupoEscolhido() === simples(grupo) ? '' : grupo }));
   }
 
+  protected escolherIcone(icone: IdDoIcone | ''): void {
+    this.campos.update((c) => ({ ...c, icone }));
+    this.fecharCartela();
+  }
+
+  /** O jeito de um grupo que existe (para os adesivos e a orelha do grupo na cabeça). */
+  protected jeitoDe(grupo: string): JeitoDoGrupo {
+    return this.jeitos().get(simples(grupo)) ?? SEM_JEITO;
+  }
+
+  /** O hex da cor de um grupo, ou null. */
+  protected corDe(grupo: string): string | null {
+    const cor = this.jeitoDe(grupo).cor;
+    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
+  }
+
   protected usarGerada(senha: string): void {
     this.campos.update((c) => ({ ...c, senha }));
     this.mostrarNoCampo.set(true);
@@ -153,12 +199,15 @@ export class ItemDoCofre {
     // escrito de outro jeito ("bancos"), fica com o nome do grupo que já existe ("Bancos")
     const grupo = nomeDoGrupo(this.campos().grupo);
     const existente = this.grupos().find((g) => simples(g) === simples(grupo));
-    this.salvar.emit({ ...this.campos(), grupo: existente ?? grupo });
+    const nome = existente ?? grupo;
+    const jeito = this.jeitoDe(nome);
+    this.salvar.emit({ ...this.campos(), grupo: nome, grupoIcone: jeito.icone, grupoCor: jeito.cor });
   }
 
   /** Depois de salvar, quem usa volta a mostrar o item. */
   terminouDeSalvar(): void {
     this.editando.set(false);
+    this.escolhendoIcone.set(false);
     this.gerador.set(false);
     this.mostrarNoCampo.set(false);
   }

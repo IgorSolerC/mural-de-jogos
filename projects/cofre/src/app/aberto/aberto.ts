@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, i
 import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
-import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, salvarItem } from '../../core/itens';
+import { apagarDeVez, type CamposDoItem, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, SEM_JEITO, salvarItem } from '../../core/itens';
 import { conferirVazadas } from '../../core/vazadas';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
@@ -13,7 +13,8 @@ import { ItemDoCofre } from './item';
 import { Lixeira } from './lixeira';
 import { MonogramaSelo } from './monograma-selo';
 import { dominio, nomeDoItem } from './monograma';
-import { emPastas, gruposDoCofre, type Pasta, simples } from './pastas';
+import { CORES_DA_CARTELA, type IdDaCor } from '../../../../../shared/cartela-de-icones';
+import { emPastas, gruposDoCofre, jeitosDosGrupos, type Pasta, simples } from './pastas';
 import { type MotivoDeTrancar, Trancador } from './trancador';
 
 type Vista = 'senhas' | 'lixeira' | 'ajustes';
@@ -91,14 +92,20 @@ export class Aberto implements OnInit {
   });
   /** Os grupos de todas as senhas (as pastas e as sugestões ao editar). */
   protected readonly grupos = computed(() => gruposDoCofre(this.noCofre()));
+  /** O ícone e a cor de cada grupo (pela chave). */
+  protected readonly jeitos = computed(() => jeitosDosGrupos(this.noCofre()));
   /** Os grupos com quantas senhas cada um tem (os Ajustes renomeiam e apagam). */
   protected readonly gruposComConta = computed(() =>
-    this.grupos().map((nome) => ({ nome, senhas: this.noCofre().filter((i) => simples(i.item!.grupo) === simples(nome)).length })),
+    this.grupos().map((nome) => ({
+      nome,
+      senhas: this.noCofre().filter((i) => simples(i.item!.grupo) === simples(nome)).length,
+      jeito: this.jeitos().get(simples(nome)) ?? SEM_JEITO,
+    })),
   );
   /** Quantas já mudaram, enquanto um grupo é renomeado ou apagado. */
   protected readonly mudandoGrupo = signal<{ readonly feitas: number; readonly total: number } | null>(null);
   /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha (a lista de sempre). */
-  protected readonly pastas = computed(() => emPastas(this.achados(), this.grupos()));
+  protected readonly pastas = computed(() => emPastas(this.achados(), this.grupos(), this.jeitos()));
   /** As chaves das pastas fechadas (só nesta aba, enquanto o cofre está aberto). */
   protected readonly fechadas = signal<ReadonlySet<string>>(new Set());
   /** A pasta que acabou de ser aberta pela orelha (só ela anima). */
@@ -335,25 +342,30 @@ export class Aberto implements OnInit {
   }
 
   /**
-   * Renomeia um grupo (ou junta com outro, se o nome novo já existe) ou o apaga, gravando cada senha dele.
+   * Renomeia um grupo (ou junta com outro, se o nome novo já existe), troca o ícone e a cor dele, ou o
+   * apaga, gravando cada senha dele. Juntando, as senhas ficam com o jeito do outro grupo.
    * Um conflito no meio relê tudo: as que já mudaram ficam mudadas, e fazer de novo termina o resto.
    */
-  protected async mudarOGrupo({ de, para }: MudancaDeGrupo): Promise<void> {
+  protected async mudarOGrupo({ de, para, jeito }: MudancaDeGrupo): Promise<void> {
     const alvos = this.noCofre().filter((i) => simples(i.item!.grupo) === simples(de));
     const outro = para ? this.grupos().find((g) => simples(g) === simples(para) && simples(g) !== simples(de)) : undefined;
     const destino = outro ?? para;
+    const jeitoNovo = !destino ? SEM_JEITO : outro ? (this.jeitos().get(simples(outro)) ?? SEM_JEITO) : (jeito ?? this.jeitos().get(simples(de)) ?? SEM_JEITO);
+    const soOJeito = !!jeito && destino === de;
     this.ocupado.set(true);
     this.erro.set(null);
     this.mudandoGrupo.set({ feitas: 0, total: alvos.length });
     try {
-      await mudarGrupo(this.servicos.api, this.cofre(), alvos, destino, (salvo) => {
+      await mudarGrupo(this.servicos.api, this.cofre(), alvos, destino, jeitoNovo, (salvo) => {
         this.itens.update((lista) => lista.map((i) => (i.id === salvo.id ? salvo : i)));
         this.mudandoGrupo.update((m) => (m ? { ...m, feitas: m.feitas + 1 } : m));
       });
       // a pasta continua aberta ou fechada com o nome novo
       if (this.fechadas().has(simples(de))) this.fechadas.update((f) => new Set([...f].filter((c) => c !== simples(de))));
       const quantas = alvos.length === 1 ? 'a senha' : `as ${alvos.length} senhas`;
-      this.avisar(!destino ? `Grupo ${de} apagado: ${quantas} ficaram sem grupo.` : outro ? `${de} juntado com ${destino}.` : `${de} agora se chama ${destino}.`);
+      this.avisar(
+        soOJeito ? `${de} está com o ícone e a cor novos.` : !destino ? `Grupo ${de} apagado: ${quantas} ficaram sem grupo.` : outro ? `${de} juntado com ${destino}.` : `${de} agora se chama ${destino}.`,
+      );
     } catch (e) {
       this.falhou(e);
     } finally {
@@ -400,6 +412,11 @@ export class Aberto implements OnInit {
     }
     this.servicos.api.trancar();
     this.servicos.terminar();
+  }
+
+  /** O hex de uma cor da cartela (para a borda da orelha), ou null. */
+  protected hexDa(cor: IdDaCor | ''): string | null {
+    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
   }
 
   protected valor(evento: Event): string {

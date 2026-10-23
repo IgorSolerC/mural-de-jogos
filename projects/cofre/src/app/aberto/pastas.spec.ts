@@ -1,5 +1,5 @@
 import { type Item, type ItemNaLista, lerItem } from '../../core/itens';
-import { emPastas, gruposDoCofre } from './pastas';
+import { emPastas, gruposDoCofre, jeitosDosGrupos } from './pastas';
 
 let n = 0;
 const na = (campos: Partial<Item>): ItemNaLista => ({ id: `i${++n}`, versao: 1, naLixeira: false, naLixeiraDesde: null, item: lerItem(campos) });
@@ -26,6 +26,21 @@ describe('as pastas da lista', () => {
       ['Sem grupo', ['Solta']],
     ]);
     expect(pastas.map((p) => p.chave)).toEqual(['bancos', 'casa', '']);
+  });
+
+  it('o ícone e a cor de cada grupo: os da senha mudada por último, e a pasta leva o dela', () => {
+    const itens = [
+      na({ titulo: 'a', grupo: 'Casa', grupoIcone: 'predio', grupoCor: 'azul', mudadoEm: '2026-10-01T00:00:00.000Z' }),
+      na({ titulo: 'b', grupo: 'casa', grupoIcone: 'foguete', grupoCor: 'vermelho', mudadoEm: '2026-10-20T00:00:00.000Z' }),
+      na({ titulo: 'c', grupo: 'Bancos' }),
+    ];
+    const jeitos = jeitosDosGrupos(itens);
+    expect(jeitos.get('casa')).toEqual({ icone: 'foguete', cor: 'vermelho' });
+    expect(jeitos.get('bancos')).toEqual({ icone: '', cor: '' });
+    expect(emPastas(itens, gruposDoCofre(itens), jeitos).map((p) => [p.nome, p.jeito.icone])).toEqual([
+      ['Bancos', ''],
+      ['casa', 'foguete'],
+    ]);
   });
 
   it('sem nenhum grupo, uma pasta só com tudo', () => {

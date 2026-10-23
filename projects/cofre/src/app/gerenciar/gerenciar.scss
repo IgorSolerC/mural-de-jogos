@@ -186,6 +186,35 @@ label.linha-titulo {
 .linha.pilha {
   grid-template-columns: minmax(0, 1fr);
 }
+/* a cartela de ícone e cor de um grupo: uma folha solta embaixo da linha dele */
+.vestir {
+  display: grid;
+  gap: 14px;
+  margin: 4px 0 14px;
+  padding: 14px 14px 16px;
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: var(--papel-solto-sombra);
+  animation: folha-desce 320ms var(--curva);
+  .botoes {
+    justify-content: flex-end;
+  }
+}
+.linha.aberta {
+  border-bottom: 0;
+}
+@keyframes folha-desce {
+  from {
+    translate: 0 -6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vestir {
+    animation: none;
+  }
+}
 /* o nome do grupo a pincel, como na orelha da pasta */
 .nome-do-grupo {
   font: 400 1.15rem/1.2 var(--f-marker);

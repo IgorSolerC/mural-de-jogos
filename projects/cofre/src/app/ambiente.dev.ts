@@ -2,7 +2,7 @@ import type { CofreAberto } from '../core/abrir';
 import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
 import { aleatorios, paraBase64url } from '../core/bytes';
 import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
-import { salvarItem } from '../core/itens';
+import { type CamposDoItem, salvarItem } from '../core/itens';
 import type { Autenticador } from '../core/passkey';
 import { type Demonstracao, paginaDoNavegador } from './servicos';
 
@@ -133,15 +133,16 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<Cofre
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString(), aparelho: 'Celular' };
   api.manifesto = paraBase64url(await cifrarManifesto(chave, usuario, manifesto));
   const cofre: CofreAberto = { usuario, chave, manifesto, contador: 0, recuperada: false, expiraEm: new Date(Date.now() + 8 * 3_600_000).toISOString(), paradaMaxima: 600, aparelho: 'PC', segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } } };
-  for (const campos of [
-    { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6', grupo: 'Bancos' },
-    { titulo: 'Cartão', usuario: '4321', senha: 'tR8!vN2@qK5#', url: 'cartao.exemplo', descricao: '', grupo: 'Bancos' },
+  const exemplos: CamposDoItem[] = [
+    { titulo: 'Banco', usuario: 'fulano.silva', senha: 'Xk9#mQ2$vL7!pR4@', url: 'https://banco.exemplo', descricao: 'Agência 0001\nConta 12345-6', icone: 'moedas', grupo: 'Bancos', grupoIcone: 'moedas', grupoCor: 'verde' },
+    { titulo: 'Cartão', usuario: '4321', senha: 'tR8!vN2@qK5#', url: 'cartao.exemplo', descricao: '', grupo: 'Bancos', grupoIcone: 'moedas', grupoCor: 'verde' },
     { titulo: 'E-mail', usuario: 'exemplo@email.com', senha: 'vidraceiro-incisivo-convite-mexicano-soprano-mortal', url: 'mail.google.com', descricao: '', grupo: 'Pessoal' },
-    { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel-de-feira-2024', url: '', descricao: 'Rede: CASA_5G', grupo: 'Casa' },
-    { titulo: 'Alarme', usuario: '', senha: '7319', url: '', descricao: '', grupo: 'Casa' },
-    { titulo: 'Repositório', usuario: 'fulano-dev', senha: 'Zq4$hP9!wM2&', url: 'github.com', descricao: '', grupo: 'Trabalho' },
+    { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel-de-feira-2024', url: '', descricao: 'Rede: CASA_5G', icone: 'raio', grupo: 'Casa', grupoCor: 'azul' },
+    { titulo: 'Alarme', usuario: '', senha: '7319', url: '', descricao: '', grupo: 'Casa', grupoCor: 'azul' },
+    { titulo: 'Repositório', usuario: 'fulano-dev', senha: 'Zq4$hP9!wM2&', url: 'github.com', descricao: '', icone: 'chip', grupo: 'Trabalho', grupoIcone: 'maleta' },
     { titulo: 'Loja de jogos', usuario: 'fulano', senha: 'cinema-pipoca-tucano', url: 'loja.exemplo', descricao: '' },
-  ]) {
+  ];
+  for (const campos of exemplos) {
     await salvarItem(api, cofre, campos, null);
   }
   return cofre;

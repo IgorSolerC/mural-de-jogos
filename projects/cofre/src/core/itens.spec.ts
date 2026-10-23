@@ -25,7 +25,7 @@ const campos = (senha: string) => ({ titulo: 'Banco', usuario: 'igor', senha, ur
 
 describe('os itens do cofre', () => {
   it('lerItem: todos os campos opcionais, cortados no limite, e o que não é item é recusado', () => {
-    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', grupo: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
+    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', icone: '', grupo: '', grupoIcone: '', grupoCor: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
     const grande = lerItem({ titulo: 'x'.repeat(5000), senha: 7, historico: [{ senha: 'a', ate: 'ontem' }, null, { senha: '' }, 'b'] });
     expect(grande.titulo.length).toBe(LIMITES.titulo);
     expect(grande.senha).toBe('');
@@ -40,6 +40,14 @@ describe('os itens do cofre', () => {
     expect(lerItem({ grupo: 42 }).grupo).toBe('');
     expect(nomeDoGrupo('\t Casa \n')).toBe('Casa');
     expect(nomeDoGrupo('sem  GRUPO')).toBe('');
+  });
+
+  it('o ícone e o jeito do grupo: só os da cartela do site, e o jeito só com um grupo', () => {
+    expect(lerItem({ icone: 'foguete', grupo: 'Casa', grupoIcone: 'predio', grupoCor: 'azul' })).toEqual(
+      jasmine.objectContaining({ icone: 'foguete', grupo: 'Casa', grupoIcone: 'predio', grupoCor: 'azul' }),
+    );
+    expect(lerItem({ icone: 'nave', grupo: 'Casa', grupoIcone: 'casinha', grupoCor: 'cinza' })).toEqual(jasmine.objectContaining({ icone: '', grupoIcone: '', grupoCor: '' }));
+    expect(lerItem({ icone: 'foguete', grupoIcone: 'predio', grupoCor: 'azul' })).toEqual(jasmine.objectContaining({ icone: 'foguete', grupoIcone: '', grupoCor: '' }));
   });
 
   it('salvar: novo na versão 1, mudado na versão + 1, com o manifesto e o contador que o aparelho viu', async () => {
@@ -63,12 +71,17 @@ describe('os itens do cofre', () => {
     const b = await salvarItem(api, cofre, { ...campos('x'), grupo: 'Casa' }, null);
     const naLixeira: ItemNaLista = { ...b, naLixeira: true, naLixeiraDesde: new Date().toISOString() };
     const vistos: string[] = [];
-    const salvos = await mudarGrupo(api, cofre, [a, naLixeira], 'Lar', (s) => vistos.push(s.id));
+    const salvos = await mudarGrupo(api, cofre, [a, naLixeira], 'Lar', undefined, (s) => vistos.push(s.id));
     expect(salvos.map((s) => [s.id, s.versao, s.item!.grupo, s.item!.senha])).toEqual([[a.id, 3, 'Lar', 's1']]);
     expect(salvos[0]!.item!.historico.map((h) => h.senha)).toEqual(['s0']);
     expect(vistos).toEqual([a.id]);
-    // apagar o grupo é mudar para vazio
-    expect((await mudarGrupo(api, cofre, salvos, ''))[0]!.item!.grupo).toBe('');
+    // o jeito vai junto, e o ícone da senha fica
+    const comIcone = await salvarItem(api, cofre, { ...campos('s1'), icone: 'chip', grupo: 'Lar' }, salvos[0]!);
+    const vestida = (await mudarGrupo(api, cofre, [comIcone], 'Lar', { icone: 'predio', cor: 'azul' }))[0]!.item!;
+    expect([vestida.icone, vestida.grupoIcone, vestida.grupoCor]).toEqual(['chip', 'predio', 'azul']);
+    // apagar o grupo é mudar para vazio, e o jeito sai junto
+    const solta = (await mudarGrupo(api, cofre, [{ ...comIcone, versao: comIcone.versao + 1, item: vestida }], ''))[0]!.item!;
+    expect([solta.grupo, solta.grupoIcone, solta.grupoCor, solta.icone]).toEqual(['', '', '', 'chip']);
   });
 
   it('trocar a senha guarda a de antes no histórico, até 5, da mais nova para a mais velha', async () => {

@@ -253,7 +253,7 @@
 
           @case ('grupos') {
             <h3>Grupos</h3>
-            <p class="lead">Os grupos das senhas, que viram as pastas da lista. Renomear muda o nome em todas as senhas do grupo; apagar só tira o grupo delas, e elas continuam no cofre, sem grupo.</p>
+            <p class="lead">Os grupos das senhas, que viram as pastas da lista. O nome, o ícone e a cor mudam em todas as senhas do grupo; apagar só tira o grupo delas, e elas continuam no cofre, sem grupo.</p>
             @if (!grupos().length) {
               <p class="linha-desc">Nenhum grupo ainda. Escolha um ao editar uma senha, no campo Grupo.</p>
             } @else {
@@ -285,9 +285,13 @@
                       </span>
                     </form>
                   } @else {
-                    <div class="linha">
+                    <div class="linha" [class.aberta]="vestindo() === g.nome">
                       <div class="linha-com-icone">
-                        <cofre-icone class="linha-icone" nome="pasta" />
+                        @if (g.jeito.icone) {
+                          <cofre-icone class="linha-icone" [cartela]="g.jeito.icone" [style.color]="hexDa(g.jeito.cor)" />
+                        } @else {
+                          <cofre-icone class="linha-icone" nome="pasta" [style.color]="hexDa(g.jeito.cor)" />
+                        }
                         <div>
                           <p class="linha-titulo nome-do-grupo">{{ g.nome }}</p>
                           <p class="linha-desc">{{ g.senhas }} {{ g.senhas === 1 ? 'senha' : 'senhas' }}</p>
@@ -305,17 +309,44 @@
                           </button>
                           <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="confirmarApagarGrupo.set(null)">Não</button>
                         } @else {
+                          <button type="button" class="papel" [disabled]="!!mudandoGrupo()" [attr.data-vestir]="g.nome" [attr.aria-expanded]="vestindo() === g.nome" (click)="vestindo() === g.nome ? fecharVestir() : vestirGrupo(g)">
+                            <cofre-icone [cartela]="'paleta'" />
+                            Ícone e cor
+                          </button>
                           <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="renomearGrupo(g.nome)">
                             <cofre-icone nome="lapis" />
                             Renomear
                           </button>
-                          <button type="button" class="papel perigo" [disabled]="!!mudandoGrupo()" (click)="renomeando.set(null); confirmarApagarGrupo.set(g.nome)">
+                          <button type="button" class="papel perigo" [disabled]="!!mudandoGrupo()" (click)="renomeando.set(null); vestindo.set(null); confirmarApagarGrupo.set(g.nome)">
                             <cofre-icone nome="lixeira" />
                             Apagar
                           </button>
                         }
                       </span>
                     </div>
+                    @if (vestindo() === g.nome) {
+                      <div class="vestir" (keydown.escape)="fecharVestir()">
+                        <cofre-cartela
+                          id="g-jeito"
+                          [icone]="jeitoNovo().icone"
+                          [cor]="jeitoNovo().cor"
+                          [comCores]="true"
+                          deSempre="A pasta"
+                          (escolherIcone)="escolherIconeDoGrupo($event)"
+                          (escolherCor)="escolherCorDoGrupo($event)"
+                        />
+                        <span class="botoes">
+                          <button type="button" class="papel" [disabled]="!!mudandoGrupo()" (click)="fecharVestir()">Cancelar</button>
+                          <button type="button" class="tinta" [disabled]="!!mudandoGrupo()" (click)="gravarJeito(g)">
+                            @if (mudandoGrupo(); as m) {
+                              Mudando {{ m.feitas }} de {{ m.total }}…
+                            } @else {
+                              Salvar
+                            }
+                          </button>
+                        </span>
+                      </div>
+                    }
                   }
                 }
               </div>

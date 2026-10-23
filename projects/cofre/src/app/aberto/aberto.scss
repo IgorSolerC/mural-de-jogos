@@ -290,6 +290,25 @@ kbd {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* o grupo com cor (como as orelhas das anotações): a borda colorida corre por dentro da orelha, a 3px da
+   beirada, e o desenho pega a cor */
+.pasta.com-cor .orelha {
+  position: relative;
+  isolation: isolate;
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 3px 3px 0;
+    z-index: -1;
+    border: 3px solid var(--cor-do-grupo);
+    border-bottom: 0;
+    border-radius: 7px 7px 0 0;
+    pointer-events: none;
+  }
+  cofre-icone {
+    color: var(--cor-do-grupo);
+  }
+}
 /* quantas senhas: um número a lápis num quadradinho de papel colado na orelha */
 .orelha-conta {
   flex: none;

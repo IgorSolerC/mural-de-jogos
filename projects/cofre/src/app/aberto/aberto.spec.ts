@@ -482,4 +482,108 @@ describe('as pastas do cofre (os grupos)', () => {
       expect(el.textContent).toContain('Nenhum grupo ainda');
     });
   });
+
+  describe('os ícones (a cartela do site)', () => {
+    const doItem = async (api: ApiNaMemoria, cofre: CofreAberto, titulo: string) =>
+      (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item?.titulo === titulo)!.item!;
+
+    it('a senha ganha um ícone da cartela, que fica no lugar da letra, e a letra volta pela primeira escolha', async () => {
+      const { fixture, el, api, cofre } = await montar(false, comGrupos);
+      abrir(el, 'Alarme');
+      await estabilizar(fixture);
+      botao(el, 'Editar').click();
+      await estabilizar(fixture);
+      botao(el, /Escolher um ícone/).click();
+      await estabilizar(fixture);
+      const cartela = () => [...el.querySelectorAll<HTMLButtonElement>('#item-cartela .icone')];
+      expect(cartela().length).toBe(51);
+      expect(cartela()[0]!.getAttribute('aria-pressed')).toBe('true');
+      cartela().find((b) => b.title === 'Sino')!.click();
+      await estabilizar(fixture);
+      expect(el.querySelector('#item-cartela')).toBeNull();
+      // o foco volta ao selo, de onde a cartela abriu
+      expect(document.activeElement).toBe(el.querySelector('.selo-botao'));
+      botao(el, 'Salvar').click();
+      await estabilizar(fixture);
+      expect((await doItem(api, cofre, 'Alarme')).icone).toBe('sino');
+      const linha = [...el.querySelectorAll('.linha')].find((l) => l.textContent!.includes('Alarme'))!;
+      expect(linha.querySelector('cofre-monograma cofre-icone')).not.toBeNull();
+      botao(el, 'Editar').click();
+      await estabilizar(fixture);
+      botao(el, /Trocar o ícone/).click();
+      await estabilizar(fixture);
+      cartela()[0]!.click();
+      await estabilizar(fixture);
+      botao(el, 'Salvar').click();
+      await estabilizar(fixture);
+      expect((await doItem(api, cofre, 'Alarme')).icone).toBe('');
+    });
+
+    it('nos Ajustes, o ícone e a cor do grupo vão para todas as senhas dele, e a orelha da pasta os mostra', async () => {
+      const { fixture, el, api, cofre } = await montar(false, [...comGrupos, { ...vazio, titulo: 'Portão', grupo: 'Casa' }]);
+      botao(el, 'Ajustes').click();
+      await estabilizar(fixture);
+      [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Grupos'))!.click();
+      await estabilizar(fixture);
+      const linhaCasa = [...el.querySelectorAll<HTMLElement>('.linha')].find((l) => l.querySelector('.nome-do-grupo')?.textContent!.trim() === 'Casa')!;
+      botao(linhaCasa, /Ícone e cor/).click();
+      await estabilizar(fixture);
+      // o Esc fecha a cartela do grupo e devolve o foco ao botão dela
+      el.querySelector('.vestir')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await estabilizar(fixture);
+      expect(el.querySelector('.vestir')).toBeNull();
+      expect(document.activeElement).toBe(linhaCasa.querySelector('[data-vestir]'));
+      botao(linhaCasa, /Ícone e cor/).click();
+      await estabilizar(fixture);
+      el.querySelector<HTMLButtonElement>('.vestir button[title="Prédio"]')!.click();
+      el.querySelector<HTMLButtonElement>('.vestir button[title="Azul"]')!.click();
+      await estabilizar(fixture);
+      botao(el.querySelector('.vestir')!, 'Salvar').click();
+      await estabilizar(fixture);
+      for (const titulo of ['Alarme', 'Portão']) {
+        const item = await doItem(api, cofre, titulo);
+        expect([item.grupoIcone, item.grupoCor]).withContext(titulo).toEqual(['predio', 'azul']);
+      }
+      expect(el.querySelector('.bilhete')!.textContent).toContain('Casa está com o ícone e a cor novos');
+      botao(el, /Voltar às senhas/).click();
+      await estabilizar(fixture);
+      const pasta = orelha(el, 'Casa').closest<HTMLElement>('.pasta')!;
+      expect(pasta.classList).toContain('com-cor');
+      expect(pasta.style.getPropertyValue('--cor-do-grupo')).toBe('#2d8bd6');
+      expect(orelha(el, 'Casa').querySelector('cofre-icone.icone-do-grupo')).not.toBeNull();
+    });
+
+    it('a senha posta num grupo leva o jeito dele; juntar dois grupos fica com o jeito do que recebe', async () => {
+      const vestidos = [
+        { ...vazio, titulo: 'Cartão', grupo: 'Bancos', grupoIcone: 'moedas' as const, grupoCor: 'verde' as const },
+        { ...vazio, titulo: 'Alarme', grupo: 'Casa', grupoIcone: 'predio' as const, grupoCor: 'azul' as const },
+      ];
+      const { fixture, el, api, cofre } = await montar(false, vestidos);
+      abrir(el, 'Banco');
+      await estabilizar(fixture);
+      botao(el, 'Editar').click();
+      await estabilizar(fixture);
+      escolhas(el).find((b) => b.textContent!.includes('Bancos'))!.click();
+      await estabilizar(fixture);
+      botao(el, 'Salvar').click();
+      await estabilizar(fixture);
+      const banco = await doItem(api, cofre, 'Banco');
+      expect([banco.grupo, banco.grupoIcone, banco.grupoCor]).toEqual(['Bancos', 'moedas', 'verde']);
+      botao(el, 'Ajustes').click();
+      await estabilizar(fixture);
+      [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Grupos'))!.click();
+      await estabilizar(fixture);
+      const linhaCasa = [...el.querySelectorAll<HTMLElement>('.linha')].find((l) => l.querySelector('.nome-do-grupo')?.textContent!.trim() === 'Casa')!;
+      botao(linhaCasa, /Renomear/).click();
+      await estabilizar(fixture);
+      const campo = el.querySelector<HTMLInputElement>('#g-grupo-nome')!;
+      campo.value = 'Bancos';
+      campo.dispatchEvent(new Event('input'));
+      await estabilizar(fixture);
+      botao(el, 'Juntar').click();
+      await estabilizar(fixture);
+      const alarme = await doItem(api, cofre, 'Alarme');
+      expect([alarme.grupo, alarme.grupoIcone, alarme.grupoCor]).toEqual(['Bancos', 'moedas', 'verde']);
+    });
+  });
 });

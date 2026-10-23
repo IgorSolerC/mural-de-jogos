@@ -6,14 +6,18 @@
     </button>
 
     <header class="cabeca">
-      <cofre-monograma [nome]="nome()" [grande]="true" />
+      <cofre-monograma [nome]="nome()" [grande]="true" [icone]="i.icone" />
       <div class="cabeca-textos">
         <h2>{{ nome() }}</h2>
         @if (i.grupo || dominio()) {
           <p class="site">
             @if (i.grupo) {
-              <span class="grupo-do-item">
-                <cofre-icone nome="pasta" />
+              <span class="grupo-do-item" [class.com-cor]="!!corDe(i.grupo)" [style.--cor-do-grupo]="corDe(i.grupo)">
+                @if (jeitoDe(i.grupo).icone; as ic) {
+                  <cofre-icone [cartela]="ic" />
+                } @else {
+                  <cofre-icone nome="pasta" />
+                }
                 <span class="visivel-so-leitor">Grupo </span>{{ i.grupo }}
               </span>
             }
@@ -132,12 +136,24 @@
 } @else if (editando()) {
   <form class="editar" novalidate (submit)="$event.preventDefault(); gravar()">
     <header class="cabeca">
-      <cofre-monograma [nome]="nomeEditando() || '?'" [grande]="true" />
+      <button #selo type="button" class="selo-botao" [attr.aria-expanded]="escolhendoIcone()" aria-controls="item-cartela" title="Escolher o ícone" (click)="escolhendoIcone.set(!escolhendoIcone())">
+        <cofre-monograma [nome]="nomeEditando() || '?'" [grande]="true" [icone]="campos().icone" />
+        <span class="visivel-so-leitor">Escolher o ícone</span>
+      </button>
       <div class="cabeca-textos">
         <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
         <p class="site">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
+        <button type="button" class="palavra trocar-icone" [attr.aria-expanded]="escolhendoIcone()" aria-controls="item-cartela" (click)="escolhendoIcone.set(!escolhendoIcone())">
+          <cofre-icone nome="lapis" />
+          {{ campos().icone ? 'Trocar o ícone' : 'Escolher um ícone' }}
+        </button>
       </div>
     </header>
+    @if (escolhendoIcone()) {
+      <div class="folha-cartela" id="item-cartela">
+        <cofre-cartela id="item-icone" [icone]="campos().icone" deSempre="A letra do nome" [letra]="letraEditando()" (escolherIcone)="escolherIcone($event)" />
+      </div>
+    }
 
     <div class="campo-bloco">
       <label class="rotulo" for="item-titulo">Título</label>
@@ -150,7 +166,13 @@
         <div class="grupos-existentes" role="group" aria-label="Grupos que já existem">
           @for (g of grupos(); track g) {
             <button type="button" class="escolha" [attr.aria-pressed]="grupoEscolhido() === simples(g)" (click)="escolherGrupo(g)">
-              <cofre-icone [nome]="grupoEscolhido() === simples(g) ? 'feito' : 'pasta'" />
+              @if (grupoEscolhido() === simples(g)) {
+                <cofre-icone nome="feito" />
+              } @else if (jeitoDe(g).icone; as ic) {
+                <cofre-icone [cartela]="ic" />
+              } @else {
+                <cofre-icone nome="pasta" />
+              }
               {{ g }}
             </button>
           }

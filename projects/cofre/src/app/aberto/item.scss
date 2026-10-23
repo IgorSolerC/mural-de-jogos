@@ -82,7 +82,7 @@ h2 {
   align-items: center;
   gap: 4px 12px;
 }
-/* o grupo do item: a orelha da pasta dele, pequena, ao lado do site */
+/* o grupo do item: a orelha da pasta dele, pequena, ao lado do site (com a cor e o desenho do grupo) */
 .grupo-do-item {
   display: inline-flex;
   align-items: center;
@@ -101,6 +101,14 @@ h2 {
     width: 15px;
     height: 15px;
     flex: none;
+  }
+}
+.grupo-do-item.com-cor {
+  box-shadow:
+    inset 0 0 0 2px var(--cor-do-grupo),
+    0 1px 1px rgb(0 0 0 / 0.2);
+  cofre-icone {
+    color: var(--cor-do-grupo);
   }
 }
 .visivel-so-leitor {
@@ -374,6 +382,50 @@ textarea {
 }
 .grupos .grupo {
   white-space: pre;
+}
+
+/* o selo da edição é um botão: abre a cartela de ícones */
+.selo-botao {
+  display: inline-grid;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  transition: translate 380ms var(--curva);
+  &:hover {
+    translate: 0 -2px;
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 4px;
+  }
+}
+.trocar-icone {
+  justify-self: start;
+  margin: 2px 0 -6px -10px;
+}
+/* a cartela de ícones: uma folha solta embaixo da cabeça, como a do gerador */
+.folha-cartela {
+  padding: 14px 14px 16px;
+  border-radius: 2px;
+  background-color: var(--campo-papel);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: var(--papel-solto-sombra);
+  rotate: -0.3deg;
+  animation: folha-desce 320ms var(--curva);
+}
+@keyframes folha-desce {
+  from {
+    translate: 0 -6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .folha-cartela {
+    animation: none;
+    rotate: 0deg;
+  }
 }
 
 /* os grupos que já existem, como adesivos para escolher com um toque (o escolhido fica amarelo) */

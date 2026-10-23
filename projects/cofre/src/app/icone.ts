@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { CARTELA_DE_ICONES, type IdDoIcone } from '../../../../shared/cartela-de-icones';
 
 type Elemento = readonly ['path', { readonly d: string }] | readonly ['circle', { readonly cx: number; readonly cy: number; readonly r: number }] | readonly ['rect', { readonly x: number; readonly y: number; readonly width: number; readonly height: number; readonly rx: number }];
 
@@ -137,7 +138,11 @@ export const ICONES = {
 
 export type NomeDoIcone = keyof typeof ICONES;
 
-/** Um ícone do cofre: `<cofre-icone nome="copiar" />`. Sempre decorativo (o botão em volta tem o nome). */
+/**
+ * Um ícone do cofre: `<cofre-icone nome="copiar" />`, ou um da cartela do site, que a pessoa escolhe
+ * para uma senha ou um grupo: `<cofre-icone [cartela]="'foguete'" />`. Sempre decorativo (o botão em
+ * volta tem o nome).
+ */
 @Component({
   selector: 'cofre-icone',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -153,7 +158,19 @@ export type NomeDoIcone = keyof typeof ICONES;
             <circle [attr.cx]="$any(e[1]).cx" [attr.cy]="$any(e[1]).cy" [attr.r]="$any(e[1]).r" />
           }
           @case ('rect') {
-            <rect [attr.x]="$any(e[1]).x" [attr.y]="$any(e[1]).y" [attr.width]="$any(e[1]).width" [attr.height]="$any(e[1]).height" [attr.rx]="$any(e[1]).rx" />
+            <rect [attr.x]="$any(e[1]).x" [attr.y]="$any(e[1]).y" [attr.width]="$any(e[1]).width" [attr.height]="$any(e[1]).height" [attr.rx]="$any(e[1]).rx" [attr.ry]="$any(e[1]).ry" />
+          }
+          @case ('line') {
+            <line [attr.x1]="$any(e[1]).x1" [attr.y1]="$any(e[1]).y1" [attr.x2]="$any(e[1]).x2" [attr.y2]="$any(e[1]).y2" />
+          }
+          @case ('polyline') {
+            <polyline [attr.points]="$any(e[1]).points" />
+          }
+          @case ('polygon') {
+            <polygon [attr.points]="$any(e[1]).points" />
+          }
+          @case ('ellipse') {
+            <ellipse [attr.cx]="$any(e[1]).cx" [attr.cy]="$any(e[1]).cy" [attr.rx]="$any(e[1]).rx" [attr.ry]="$any(e[1]).ry" />
           }
         }
       }
@@ -173,6 +190,12 @@ export type NomeDoIcone = keyof typeof ICONES;
   `,
 })
 export class Icone {
-  readonly nome = input.required<NomeDoIcone>();
-  protected readonly desenho = computed<readonly Elemento[]>(() => ICONES[this.nome()]);
+  readonly nome = input<NomeDoIcone | null>(null);
+  readonly cartela = input<IdDoIcone | null>(null);
+  protected readonly desenho = computed<readonly (readonly [string, object])[]>(() => {
+    const id = this.cartela();
+    if (id) return CARTELA_DE_ICONES.find((i) => i.id === id)?.desenho ?? [];
+    const nome = this.nome();
+    return nome ? ICONES[nome] : [];
+  });
 }
