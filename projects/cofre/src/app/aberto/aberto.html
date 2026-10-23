@@ -132,7 +132,7 @@
                             @let vezes = vazadas().get(i.id) ?? 0;
                             <li class="linha" [class.aberta]="aberto() === i.id">
                               <button type="button" class="abre" [attr.data-id]="i.id" [attr.aria-current]="aberto() === i.id ? 'true' : null" (click)="abrirItem(i)">
-                                <cofre-monograma [nome]="nome(it)" [icone]="it.icone" />
+                                <cofre-monograma [nome]="nome(it)" [icone]="it.icone" [cor]="it.cor" />
                                 <span class="textos">
                                   <span class="titulo">
                                     {{ nome(it) }}

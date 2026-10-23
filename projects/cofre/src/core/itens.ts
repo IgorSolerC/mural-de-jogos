@@ -15,6 +15,7 @@
  */
 import { ehCorDaCartela, ehIconeDaCartela, type IdDaCor, type IdDoIcone } from '../../../../shared/cartela-de-icones';
 import { type ApiCofre, ErroApi } from './api';
+import { type CorDoSelo, ehCorDoSelo } from './selo';
 import type { CofreAberto } from './abrir';
 import { deBase64url, paraBase64url } from './bytes';
 import { cifrarItem, cifrarManifesto, conferirItens, decifrarItem, decifrarManifesto, ErroCofre, type Manifesto, novoId } from './crypto';
@@ -28,6 +29,8 @@ export interface Item {
   readonly descricao: string;
   /** O ícone da cartela do site (shared/cartela-de-icones.ts); vazio: a letra do nome. */
   readonly icone: IdDoIcone | '';
+  /** A cor do selo (as cartolinas, core/selo.ts); vazio: a que sai do nome. */
+  readonly cor: CorDoSelo | '';
   /** O grupo (a pasta da lista); vazio: sem grupo. Os itens de antes do grupo não têm o campo. */
   readonly grupo: string;
   /** O ícone e a cor do grupo (iguais em todas as senhas dele); vazios: a pasta e o manilha liso. */
@@ -44,7 +47,7 @@ export const LIMITES = { titulo: 200, usuario: 320, senha: 1000, url: 2000, desc
 const HISTORICO = 5;
 
 /** Os campos que a pessoa escreve (sem o grupo, o item fica sem grupo; sem o ícone, com a letra). */
-export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & Partial<Pick<Item, 'grupo' | 'icone' | 'grupoIcone' | 'grupoCor'>>;
+export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao'> & Partial<Pick<Item, 'grupo' | 'icone' | 'cor' | 'grupoIcone' | 'grupoCor'>>;
 
 /** O jeito de um grupo: o ícone e a cor. */
 export interface JeitoDoGrupo {
@@ -100,6 +103,7 @@ export function lerItem(bruto: unknown): Item {
     url: texto(i['url'], LIMITES.url),
     descricao: texto(i['descricao'], LIMITES.descricao),
     icone: ehIconeDaCartela(i['icone']) ? i['icone'] : '',
+    cor: ehCorDoSelo(i['cor']) ? i['cor'] : '',
     grupo,
     // o jeito só vale com um grupo
     grupoIcone: grupo && ehIconeDaCartela(i['grupoIcone']) ? i['grupoIcone'] : '',
@@ -232,8 +236,8 @@ export async function mudarGrupo(
   const salvos: ItemNaLista[] = [];
   for (const alvo of alvos) {
     if (alvo.naLixeira || !alvo.item) continue;
-    const { titulo, usuario, senha, url, descricao, icone } = alvo.item;
-    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, icone, grupo, grupoIcone: jeito.icone, grupoCor: jeito.cor }, alvo);
+    const { titulo, usuario, senha, url, descricao, icone, cor } = alvo.item;
+    const salvo = await salvarItem(api, cofre, { titulo, usuario, senha, url, descricao, icone, cor, grupo, grupoIcone: jeito.icone, grupoCor: jeito.cor }, alvo);
     salvos.push(salvo);
     aCada?.(salvo);
   }

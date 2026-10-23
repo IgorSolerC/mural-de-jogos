@@ -1614,6 +1614,10 @@ sem mexer na cripto, na API nem no que fica no aparelho:
   a senha posta num grupo leva o jeito dele; juntar dois grupos fica com o jeito do que recebe; apagar o
   grupo tira o jeito junto. Na lista, a orelha da pasta mostra o ícone, e a cor corre por dentro dela
   como nas orelhas das anotações.
+- **A cor do selo** (23/10, a pedido): a senha guarda também a cor do quadradinho (`cor`, uma das seis
+  cartolinas de `core/selo.ts`); vazia, a cor continua saindo do nome. Escolhe-se na mesma folha do ícone,
+  que agora só fecha no Pronto (ou no Esc). A orelha do grupo com cor fica no papel claro das orelhas das
+  anotações (`--papel-orelha`, o mesmo do Murall).
 - Cuidado conhecido: uma aba aberta desde antes desta versão não conhece os campos novos e, ao gravar uma
   senha, a guarda sem o ícone (e, sendo a mudada por último, tira o jeito do grupo). O cofre não tem
   service worker e recarrega ao trancar, então a janela é só a de uma aba que ficou aberta durante a

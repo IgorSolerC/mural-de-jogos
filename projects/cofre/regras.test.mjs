@@ -129,7 +129,7 @@ test('os tokens do Murall no topo do cofre são os mesmos de src/styles.scss', (
 test('o campo e o papel solto do cofre são os mesmos do Murall (as linhas de src/styles.scss)', () => {
   const murall = readFileSync(join(raiz, '..', '..', 'src', 'styles.scss'), 'utf8');
   const cofre = readFileSync(join(fonte, 'styles.scss'), 'utf8');
-  const linhas = [...cofre.matchAll(/^ {2}(--(?:campo-[a-z-]+|papel-solto-sombra|papel-ficha): .+;)$/gm)].map((m) => m[1]);
+  const linhas = [...cofre.matchAll(/^ {2}(--(?:campo-[a-z-]+|papel-solto-sombra|papel-ficha|papel-orelha): .+;)$/gm)].map((m) => m[1]);
   assert.ok(linhas.length >= 12, `só ${linhas.length} tokens do campo no cofre`);
   for (const l of linhas) assert.ok(murall.includes(l), `diferente do Murall: ${l}`);
 });

@@ -6,7 +6,8 @@ import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
 import { SERVICOS } from '../servicos';
 import { GeradorPainel } from './gerador-painel';
-import { dominio, letraDoMonograma, nomeDoItem, urlSegura } from './monograma';
+import type { CorDoSelo } from '../../core/selo';
+import { corDoMonograma, dominio, letraDoMonograma, nomeDoItem, urlSegura } from './monograma';
 import { MonogramaSelo } from './monograma-selo';
 import { simples } from './pastas';
 import { emTrechos } from './trechos';
@@ -68,7 +69,7 @@ export class ItemDoCofre {
   protected readonly mostrarNoCampo = signal(false);
   /** O que acabou de ser copiado ("usuario", "senha", "anterior-2"…), para o botão dizer que deu certo. */
   protected readonly copiado = signal<string | null>(null);
-  protected readonly campos = signal<Pick<Required<CamposDoItem>, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao' | 'grupo' | 'icone'>>({
+  protected readonly campos = signal<Pick<Required<CamposDoItem>, 'titulo' | 'usuario' | 'senha' | 'url' | 'descricao' | 'grupo' | 'icone' | 'cor'>>({
     titulo: '',
     usuario: '',
     senha: '',
@@ -76,6 +77,7 @@ export class ItemDoCofre {
     descricao: '',
     grupo: '',
     icone: '',
+    cor: '',
   });
   /** A cartela de ícones aberta, na edição. */
   protected readonly escolhendoIcone = signal(false);
@@ -91,13 +93,15 @@ export class ItemDoCofre {
   protected readonly novo = computed(() => this.alvo() === null);
   /** Sem nada além do grupo, não há o que guardar. */
   protected readonly vazio = computed(() => {
-    const { grupo: _grupo, icone: _icone, ...escritos } = this.campos();
+    const { grupo: _grupo, icone: _icone, cor: _cor, ...escritos } = this.campos();
     return Object.values(escritos).every((v) => !v.trim());
   });
   /** O grupo escrito, se já for um dos que existem (o adesivo dele fica marcado). */
   protected readonly grupoEscolhido = computed(() => simples(nomeDoGrupo(this.campos().grupo)));
   /** A letra que o selo mostra sem ícone (para a primeira escolha da cartela). */
   protected readonly letraEditando = computed(() => letraDoMonograma(this.nomeEditando() || '?'));
+  /** A cor que o selo teria pelo nome (a primeira escolha da cartela). */
+  protected readonly corDoNome = computed(() => corDoMonograma(this.nomeEditando() || '?'));
   private readonly idDoAlvo = computed(() => this.alvo()?.id ?? null);
   private timerRevelar: ReturnType<typeof setTimeout> | null = null;
   private timerCopiado: ReturnType<typeof setTimeout> | null = null;
@@ -133,7 +137,7 @@ export class ItemDoCofre {
     if (this.escolhendoIcone()) this.fecharCartela();
   }
 
-  private fecharCartela(): void {
+  protected fecharCartela(): void {
     this.escolhendoIcone.set(false);
     afterNextRender(() => this.selo()?.nativeElement.focus(), { injector: this.injector });
   }
@@ -149,7 +153,7 @@ export class ItemDoCofre {
 
   protected editar(): void {
     const i = this.item();
-    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '', icone: i?.icone ?? '' });
+    this.campos.set({ titulo: i?.titulo ?? '', usuario: i?.usuario ?? '', senha: i?.senha ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '', icone: i?.icone ?? '', cor: i?.cor ?? '' });
     this.escolhendoIcone.set(false);
     this.revelada.set(false);
     this.editando.set(true);
@@ -174,7 +178,10 @@ export class ItemDoCofre {
 
   protected escolherIcone(icone: IdDoIcone | ''): void {
     this.campos.update((c) => ({ ...c, icone }));
-    this.fecharCartela();
+  }
+
+  protected escolherCor(cor: CorDoSelo | ''): void {
+    this.campos.update((c) => ({ ...c, cor }));
   }
 
   /** O jeito de um grupo que existe (para os adesivos e a orelha do grupo na cabeça). */

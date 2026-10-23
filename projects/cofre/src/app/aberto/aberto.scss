@@ -295,6 +295,7 @@ kbd {
 .pasta.com-cor .orelha {
   position: relative;
   isolation: isolate;
+  background-color: var(--papel-orelha);
   &::before {
     content: '';
     position: absolute;

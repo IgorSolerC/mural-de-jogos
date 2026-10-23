@@ -1,12 +1,14 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { CARTELA_DE_ICONES, CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../shared/cartela-de-icones';
+import { CORES_DO_SELO, type CorDoSelo } from '../core/selo';
 import { Icone, type NomeDoIcone } from './icone';
 
 /**
  * A cartela de ícones (e, para os grupos, de cores) do cofre: a mesma do Murall, dos grupos das anotações
  * e das colunas do Kanban (shared/cartela-de-icones.ts). A primeira escolha é a de sempre (a letra da
  * senha, a pasta do grupo); o escolhido fica no marca-texto, e a cor é a orelha em miniatura com a borda
- * colorida por dentro, como nas Configurações do mural.
+ * colorida por dentro, como nas Configurações do mural. Para uma senha, as cores são as do selo: as
+ * cartolinas em quadradinhos, com a que sai do nome primeiro.
  */
 @Component({
   selector: 'cofre-cartela',
@@ -28,6 +30,15 @@ import { Icone, type NomeDoIcone } from './icone';
         </button>
       }
     </div>
+    @if (corDoNome(); as doNome) {
+      <p class="sub" [id]="id() + '-selo'">Cor do quadradinho</p>
+      <div class="ops" role="group" [attr.aria-labelledby]="id() + '-selo'">
+        <button type="button" class="op selo pelo-nome" [attr.data-cor]="doNome" [attr.aria-pressed]="!corDoSelo()" aria-label="Pelo nome" title="Pelo nome: a cor sorteada pelo nome da senha" (click)="escolherCorDoSelo.emit('')"></button>
+        @for (c of coresDoSelo; track c.id) {
+          <button type="button" class="op selo" [attr.data-cor]="c.id" [attr.aria-pressed]="corDoSelo() === c.id" [attr.aria-label]="c.label" [title]="c.label" (click)="escolherCorDoSelo.emit(c.id)"></button>
+        }
+      </div>
+    }
     @if (comCores()) {
       <p class="sub" [id]="id() + '-cores'">Cor da orelha</p>
       <div class="ops" role="group" [attr.aria-labelledby]="id() + '-cores'">
@@ -110,8 +121,31 @@ import { Icone, type NomeDoIcone } from './icone';
       border: 1.5px dashed rgb(21 21 21 / 0.45);
       background: var(--pasta);
     }
-    .cor[aria-pressed='true'] {
+    .cor[aria-pressed='true'],
+    .selo[aria-pressed='true'] {
       background: rgb(255 218 66 / 0.55);
+    }
+    /* a cor do selo: o quadradinho de cartolina, como o da senha; a do nome com o contorno tracejado */
+    .selo::before {
+      content: '';
+      width: 22px;
+      height: 22px;
+      border-radius: 2px;
+      background-color: var(--c, var(--amarelo));
+      background-image: var(--grao);
+      background-blend-mode: multiply;
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.28);
+      rotate: -3deg;
+    }
+    .selo[data-cor='azul'] { --c: var(--azul); }
+    .selo[data-cor='verde'] { --c: var(--verde-cartolina); }
+    .selo[data-cor='rosa'] { --c: var(--rosa); }
+    .selo[data-cor='laranja'] { --c: var(--laranja); }
+    .selo[data-cor='lilas'] { --c: var(--lilas); }
+    .pelo-nome::before {
+      box-shadow: none;
+      outline: 1.5px dashed rgb(21 21 21 / 0.55);
+      outline-offset: 2px;
     }
     @media (pointer: coarse) {
       .op {
@@ -139,7 +173,12 @@ export class Cartela {
   readonly cor = input<IdDaCor | ''>('');
   readonly escolherIcone = output<IdDoIcone | ''>();
   readonly escolherCor = output<IdDaCor | ''>();
+  /** Para uma senha: a cor que sai do nome (liga as cores do selo) e a escolhida. */
+  readonly corDoNome = input<CorDoSelo | null>(null);
+  readonly corDoSelo = input<CorDoSelo | ''>('');
+  readonly escolherCorDoSelo = output<CorDoSelo | ''>();
 
   protected readonly icones = CARTELA_DE_ICONES;
   protected readonly cores = CORES_DA_CARTELA;
+  protected readonly coresDoSelo = CORES_DO_SELO;
 }

@@ -10,9 +10,11 @@ export function urlSegura(texto: string): string | null {
   }
 }
 
+import { CORES_DO_SELO, type CorDoSelo } from '../../core/selo';
+
 /** As cartolinas do Murall para o monograma de cada senha (a mesma senha cai sempre na mesma cor). */
-export const CORES_DO_MONOGRAMA = ['amarelo', 'azul', 'verde', 'rosa', 'laranja', 'lilas'] as const;
-export type CorDoMonograma = (typeof CORES_DO_MONOGRAMA)[number];
+export const CORES_DO_MONOGRAMA: readonly CorDoSelo[] = CORES_DO_SELO.map((c) => c.id);
+export type CorDoMonograma = CorDoSelo;
 
 /** O nome que aparece de um item: o título, senão o site, senão "Sem título". */
 export function nomeDoItem(item: { readonly titulo: string; readonly url: string }): string {

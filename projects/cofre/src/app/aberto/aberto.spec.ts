@@ -487,36 +487,46 @@ describe('as pastas do cofre (os grupos)', () => {
     const doItem = async (api: ApiNaMemoria, cofre: CofreAberto, titulo: string) =>
       (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item?.titulo === titulo)!.item!;
 
-    it('a senha ganha um ícone da cartela, que fica no lugar da letra, e a letra volta pela primeira escolha', async () => {
+    it('a senha ganha um ícone da cartela e uma cor, que ficam no selo; a letra e a cor do nome voltam pelas primeiras escolhas', async () => {
       const { fixture, el, api, cofre } = await montar(false, comGrupos);
       abrir(el, 'Alarme');
       await estabilizar(fixture);
       botao(el, 'Editar').click();
       await estabilizar(fixture);
-      botao(el, /Escolher um ícone/).click();
+      botao(el, /Escolher ícone e cor/).click();
       await estabilizar(fixture);
       const cartela = () => [...el.querySelectorAll<HTMLButtonElement>('#item-cartela .icone')];
       expect(cartela().length).toBe(51);
       expect(cartela()[0]!.getAttribute('aria-pressed')).toBe('true');
+      const cores = () => [...el.querySelectorAll<HTMLButtonElement>('#item-cartela .selo')];
+      expect(cores().map((b) => b.getAttribute('aria-label'))).toEqual(['Pelo nome', 'Amarelo', 'Azul', 'Verde', 'Rosa', 'Laranja', 'Lilás']);
+      expect(cores()[0]!.getAttribute('aria-pressed')).toBe('true');
       cartela().find((b) => b.title === 'Sino')!.click();
+      cores().find((b) => b.title === 'Lilás')!.click();
+      await estabilizar(fixture);
+      // escolher não fecha: são duas escolhas; o selo da edição já mostra as duas
+      expect(el.querySelector('.selo-botao cofre-monograma')!.getAttribute('data-cor')).toBe('lilas');
+      botao(el, /Pronto/).click();
       await estabilizar(fixture);
       expect(el.querySelector('#item-cartela')).toBeNull();
       // o foco volta ao selo, de onde a cartela abriu
       expect(document.activeElement).toBe(el.querySelector('.selo-botao'));
       botao(el, 'Salvar').click();
       await estabilizar(fixture);
-      expect((await doItem(api, cofre, 'Alarme')).icone).toBe('sino');
+      expect([(await doItem(api, cofre, 'Alarme')).icone, (await doItem(api, cofre, 'Alarme')).cor]).toEqual(['sino', 'lilas']);
       const linha = [...el.querySelectorAll('.linha')].find((l) => l.textContent!.includes('Alarme'))!;
       expect(linha.querySelector('cofre-monograma cofre-icone')).not.toBeNull();
+      expect(linha.querySelector('cofre-monograma')!.getAttribute('data-cor')).toBe('lilas');
       botao(el, 'Editar').click();
       await estabilizar(fixture);
-      botao(el, /Trocar o ícone/).click();
+      botao(el, /Trocar o ícone e a cor/).click();
       await estabilizar(fixture);
       cartela()[0]!.click();
+      cores()[0]!.click();
       await estabilizar(fixture);
       botao(el, 'Salvar').click();
       await estabilizar(fixture);
-      expect((await doItem(api, cofre, 'Alarme')).icone).toBe('');
+      expect([(await doItem(api, cofre, 'Alarme')).icone, (await doItem(api, cofre, 'Alarme')).cor]).toEqual(['', '']);
     });
 
     it('nos Ajustes, o ícone e a cor do grupo vão para todas as senhas dele, e a orelha da pasta os mostra', async () => {

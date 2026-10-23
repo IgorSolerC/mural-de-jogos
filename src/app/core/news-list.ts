@@ -26,14 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-23-icones-no-cofre',
+    id: '2026-10-23-cor-do-selo-do-cofre',
     version: '1.30.2',
     kind: 'ajustes',
     date: '2026-10-23',
     title: 'Ícones e grupos do cofre',
     melhorias: [
       'Nos Ajustes do cofre, a parte Grupos renomeia um grupo em todas as senhas dele de uma vez, junta dois grupos (renomeando um com o nome do outro) e apaga um grupo, que só sai das senhas: elas continuam no cofre.',
-      'Cada senha do cofre pode ter um ícone, os mesmos dos grupos das anotações e das colunas do Kanban, no lugar da letra; e cada grupo do cofre, um ícone e uma cor, que aparecem na orelha da pasta, como nas anotações.',
+      'Cada senha do cofre pode ter um ícone, os mesmos dos grupos das anotações e das colunas do Kanban, no lugar da letra, e a cor do quadradinho; e cada grupo do cofre, um ícone e uma cor, que aparecem na orelha da pasta, em papel claro, como nas anotações.',
     ],
   },
   {

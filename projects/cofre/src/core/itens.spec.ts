@@ -25,7 +25,7 @@ const campos = (senha: string) => ({ titulo: 'Banco', usuario: 'igor', senha, ur
 
 describe('os itens do cofre', () => {
   it('lerItem: todos os campos opcionais, cortados no limite, e o que não é item é recusado', () => {
-    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', icone: '', grupo: '', grupoIcone: '', grupoCor: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
+    expect(lerItem({})).toEqual({ titulo: '', usuario: '', senha: '', url: '', descricao: '', icone: '', cor: '', grupo: '', grupoIcone: '', grupoCor: '', criadoEm: new Date(0).toISOString(), mudadoEm: new Date(0).toISOString(), historico: [] });
     const grande = lerItem({ titulo: 'x'.repeat(5000), senha: 7, historico: [{ senha: 'a', ate: 'ontem' }, null, { senha: '' }, 'b'] });
     expect(grande.titulo.length).toBe(LIMITES.titulo);
     expect(grande.senha).toBe('');
@@ -48,6 +48,9 @@ describe('os itens do cofre', () => {
     );
     expect(lerItem({ icone: 'nave', grupo: 'Casa', grupoIcone: 'casinha', grupoCor: 'cinza' })).toEqual(jasmine.objectContaining({ icone: '', grupoIcone: '', grupoCor: '' }));
     expect(lerItem({ icone: 'foguete', grupoIcone: 'predio', grupoCor: 'azul' })).toEqual(jasmine.objectContaining({ icone: 'foguete', grupoIcone: '', grupoCor: '' }));
+    // a cor do selo: só as cartolinas
+    expect(lerItem({ cor: 'lilas' }).cor).toBe('lilas');
+    expect(lerItem({ cor: 'vermelho' }).cor).toBe('');
   });
 
   it('salvar: novo na versão 1, mudado na versão + 1, com o manifesto e o contador que o aparelho viu', async () => {

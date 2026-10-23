@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import type { IdDoIcone } from '../../../../../shared/cartela-de-icones';
 import { Icone } from '../icone';
+import type { CorDoSelo } from '../../core/selo';
 import { corDoMonograma, letraDoMonograma } from './monograma';
 
 /**
@@ -12,7 +13,7 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
 @Component({
   selector: 'cofre-monograma',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'aria-hidden': 'true', '[attr.data-cor]': 'cor()', '[class.grande]': 'grande()' },
+  host: { 'aria-hidden': 'true', '[attr.data-cor]': 'corAgora()', '[class.grande]': 'grande()' },
   imports: [Icone],
   template: `
     @if (icone(); as i) {
@@ -83,6 +84,8 @@ export class MonogramaSelo {
   readonly nome = input.required<string>();
   readonly grande = input(false);
   readonly icone = input<IdDoIcone | ''>('');
+  /** A cor escolhida; vazia, a que sai do nome. */
+  readonly cor = input<CorDoSelo | ''>('');
   protected readonly letra = computed(() => letraDoMonograma(this.nome()));
-  protected readonly cor = computed(() => corDoMonograma(this.nome()));
+  protected readonly corAgora = computed(() => this.cor() || corDoMonograma(this.nome()));
 }

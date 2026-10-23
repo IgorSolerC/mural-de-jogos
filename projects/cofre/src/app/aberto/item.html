@@ -6,7 +6,7 @@
     </button>
 
     <header class="cabeca">
-      <cofre-monograma [nome]="nome()" [grande]="true" [icone]="i.icone" />
+      <cofre-monograma [nome]="nome()" [grande]="true" [icone]="i.icone" [cor]="i.cor" />
       <div class="cabeca-textos">
         <h2>{{ nome() }}</h2>
         @if (i.grupo || dominio()) {
@@ -136,22 +136,35 @@
 } @else if (editando()) {
   <form class="editar" novalidate (submit)="$event.preventDefault(); gravar()">
     <header class="cabeca">
-      <button #selo type="button" class="selo-botao" [attr.aria-expanded]="escolhendoIcone()" aria-controls="item-cartela" title="Escolher o ícone" (click)="escolhendoIcone.set(!escolhendoIcone())">
-        <cofre-monograma [nome]="nomeEditando() || '?'" [grande]="true" [icone]="campos().icone" />
-        <span class="visivel-so-leitor">Escolher o ícone</span>
+      <button #selo type="button" class="selo-botao" [attr.aria-expanded]="escolhendoIcone()" aria-controls="item-cartela" title="Escolher o ícone e a cor" (click)="escolhendoIcone.set(!escolhendoIcone())">
+        <cofre-monograma [nome]="nomeEditando() || '?'" [grande]="true" [icone]="campos().icone" [cor]="campos().cor" />
+        <span class="visivel-so-leitor">Escolher o ícone e a cor</span>
       </button>
       <div class="cabeca-textos">
         <h2>{{ novo() ? 'Nova senha' : 'Editar' }}</h2>
         <p class="site">Todos os campos são opcionais. Tudo é cifrado aqui, antes de sair do aparelho.</p>
         <button type="button" class="palavra trocar-icone" [attr.aria-expanded]="escolhendoIcone()" aria-controls="item-cartela" (click)="escolhendoIcone.set(!escolhendoIcone())">
           <cofre-icone nome="lapis" />
-          {{ campos().icone ? 'Trocar o ícone' : 'Escolher um ícone' }}
+          {{ campos().icone || campos().cor ? 'Trocar o ícone e a cor' : 'Escolher ícone e cor' }}
         </button>
       </div>
     </header>
     @if (escolhendoIcone()) {
       <div class="folha-cartela" id="item-cartela">
-        <cofre-cartela id="item-icone" [icone]="campos().icone" deSempre="A letra do nome" [letra]="letraEditando()" (escolherIcone)="escolherIcone($event)" />
+        <cofre-cartela
+          id="item-icone"
+          [icone]="campos().icone"
+          deSempre="A letra do nome"
+          [letra]="letraEditando()"
+          [corDoNome]="corDoNome()"
+          [corDoSelo]="campos().cor"
+          (escolherIcone)="escolherIcone($event)"
+          (escolherCorDoSelo)="escolherCor($event)"
+        />
+        <button type="button" class="papel pronto" (click)="fecharCartela()">
+          <cofre-icone nome="feito" />
+          Pronto
+        </button>
       </div>
     }
 
