@@ -1,6 +1,8 @@
 // O broche de lata dos widgets: o volume (ui/volume-knob.ts) e o ampliar da foto (ui/glued-media.ts).
 // Uma lata redonda de 30px com a estampa creme sob a cúpula, como os do topo; o desenho, a tinta, vai
-// dentro da `.face` (18px). Quem usa põe `@include broche.lata` no botão, com a `.face` dentro dele.
+// dentro da `.face` (18px). Quem usa põe `@include broche.lata` no botão, com a `.face` dentro dele,
+// depois das próprias declarações (o mixin tem regras dentro; declaração depois delas o Sass reclama).
+// $size: o lado do botão (100%: o de quem o embrulha, como o volume).
 
 // escondido até o mouse chegar na peça (ou o foco); some devagar, para dar tempo de o mouse ir da peça até ele
 @mixin escondido {
@@ -35,11 +37,11 @@
     0 6px 9px -4px rgb(0 0 0 / 0.6);
 }
 
-@mixin lata {
+@mixin lata($size: 100%) {
   display: grid;
   place-items: center;
-  width: 100%;
-  height: 100%;
+  width: $size;
+  height: $size;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -69,6 +71,18 @@
       rotate var(--t-physical) var(--ease-physical),
       translate var(--t-physical) var(--ease-physical),
       scale var(--t-ui) var(--ease-ui);
+  }
+  /* o ícone do Lucide: a caixa do tamanho do desenho, 18 de 30 (a mesma folga dos dois lados, em
+     pixel inteiro), sem a linha de texto em volta: com ela, a caixa ficava mais alta que o desenho e
+     o desenho saía do meio (para cima ou para baixo, conforme a letra de onde o broche está). E meio
+     pixel acima do meio, como o alto-falante do volume: a sombra da cúpula pesa embaixo */
+  .face > lucide-icon {
+    display: grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    line-height: 0;
+    translate: 0 -0.5px;
   }
   /* o anel impresso na estampa */
   .face::before {

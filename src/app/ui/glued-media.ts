@@ -292,16 +292,14 @@ import { VolumeKnob } from './volume-knob';
        vale o mouse em cima da ficha) ou com o foco do teclado. Escondido só na opacidade: o teclado
        chega nele (um broche invisível debaixo do mouse já está à mostra); some com a foto (inherit) */
     .ampliar {
-      @include broche.lata;
       @include broche.escondido;
       grid-area: 1 / 1;
       place-self: start end;
       position: relative;
       z-index: 2;
-      width: 30px;
-      height: 30px;
       margin: 8px;
       visibility: inherit;
+      @include broche.lata(30px);
     }
     .foto:hover > .ampliar,
     :host-context(app-review-card:hover) .ampliar,
@@ -313,10 +311,6 @@ import { VolumeKnob } from './volume-knob';
       .ampliar {
         @include broche.a-mostra;
       }
-    }
-    .ampliar lucide-icon {
-      display: block;
-      translate: 0 -0.5px;
     }
 
     /* ===== As legendas: na faixa da polaroide (a caneta de quem revelou) ou numa etiqueta ===== */

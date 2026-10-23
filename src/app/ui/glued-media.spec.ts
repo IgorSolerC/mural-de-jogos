@@ -146,6 +146,34 @@ describe('a foto colada na anotação', () => {
       fixture.destroy();
     });
 
+    it('o desenho do broche fica no meio da lata, qualquer que seja a letra em volta', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg']);
+      // a letra grande da leitura: com a linha de texto em volta, o ícone subia
+      el.style.fontSize = '22px';
+      el.style.lineHeight = '2';
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      const knob = el.querySelector<HTMLElement>('.ampliar')!;
+      const face = knob.querySelector<HTMLElement>('.face')!;
+      const icon = face.querySelector<HTMLElement>('lucide-icon')!;
+      // sem os giros e o encolhido de escondido, para medir no quadro reto
+      const glued = el.querySelector<HTMLElement>('.foto')!;
+      glued.style.transition = 'none';
+      glued.style.rotate = '0deg';
+      knob.style.transition = 'none';
+      knob.style.scale = '1';
+      face.style.transition = 'none';
+      face.style.rotate = '0deg';
+      const f = face.getBoundingClientRect();
+      const i = icon.getBoundingClientRect();
+      expect(i.width).toBeCloseTo(18, 1);
+      expect(i.height).toBeCloseTo(18, 1);
+      expect(i.left + i.width / 2 - (f.left + f.width / 2)).toBeCloseTo(0, 1);
+      // meio pixel acima do meio, como o alto-falante do volume
+      expect(i.top + i.height / 2 - (f.top + f.height / 2)).toBeCloseTo(-0.5, 1);
+      fixture.destroy();
+    });
+
     it('abre a foto no meio da tela, com a moldura e a legenda, e a colada some até ela voltar', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'polaroide', 'Na praia']);
       el.querySelector('img')!.dispatchEvent(new Event('load'));

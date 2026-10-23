@@ -203,17 +203,11 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
     /* ===== O broche do X: o mesmo de ampliar, preso no canto de cima da foto ===== */
     .fechar {
-      @include broche.lata;
       position: absolute;
       top: -13px;
       right: -13px;
       z-index: 2;
-      width: 30px;
-      height: 30px;
-    }
-    .fechar lucide-icon {
-      display: block;
-      translate: 0 -0.5px;
+      @include broche.lata(30px);
     }
   `,
 })
