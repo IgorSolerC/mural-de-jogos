@@ -66,8 +66,8 @@ describe('a mudança para murall.igorsc.com.br', () => {
     expect(localStorage.getItem('meu-mural:calendario:v1')).toBeNull();
     const resenhas = JSON.stringify([{ id: 'r1' }]);
     post({ tipo: 'murall-ponte', ls: { 'meu-mural:calendario:v1': '{"x":1}', [SESSION_KEY]: 'segredo' }, idb: { 'mural-de-jogos:resenhas:v1': resenhas, migrado: '2026-10-01T00:00:00.000Z' } });
-    await settle();
-    await settle();
+    // a gravação no IndexedDB vem antes do recarregar: com a suíte inteira rodando, ela demora mais que 40 ms
+    for (let i = 0; i < 100 && !reloaded; i++) await settle();
     expect(reloaded).toBe(1);
     expect(localStorage.getItem('meu-mural:calendario:v1')).toBe('{"x":1}');
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();

@@ -58,7 +58,8 @@ describe('a peça ampliada (ui/piece-lift.ts)', () => {
     expect(getComputedStyle(piece).rotate).toBe('0deg');
     expect(Number(piece.style.getPropertyValue('--erguida-zoom'))).toBeGreaterThan(1);
     const r = piece.getBoundingClientRect();
-    expect(Math.abs(r.left + r.width / 2 - innerWidth / 2)).toBeLessThan(2);
+    // o meio da tela sem a barra de rolagem (a camada de cima não conta com ela; outro teste pode deixá-la à mostra)
+    expect(Math.abs(r.left + r.width / 2 - document.documentElement.clientWidth / 2)).toBeLessThan(2);
     // o X, ao lado da peça (dentro do que pode ter foco), preso no canto dela, com o foco
     const shut = piece.nextElementSibling as HTMLButtonElement;
     expect(shut.classList).toContain('erguida-fechar');
