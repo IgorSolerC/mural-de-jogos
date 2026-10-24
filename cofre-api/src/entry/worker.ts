@@ -56,6 +56,7 @@ export function deps(env: Env): Deps {
       },
     },
     googleLogin: googleLogin({ clientId: config.googleClientId, clientSecret: secrets.googleClientSecret, origin: config.origin, keys: googleKeys }),
+    log: (line) => console.warn(line),
   };
 }
 

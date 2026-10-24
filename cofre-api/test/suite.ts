@@ -74,6 +74,17 @@ export function cofreSuite(label: string, getDb: () => Db, extras: ((label: stri
       }
     });
 
+    it('as respostas de erro vão para o log só com o método, o molde da rota, o status e o código', async () => {
+      const { deps } = await setup();
+      const logged: string[] = [];
+      const app = createApp({ ...deps, log: (line) => logged.push(line) });
+      const call = jsonCaller((path, init) => app.request(path, init));
+      await call('GET', '/api/nada?x=segredo');
+      await call('POST', '/api/status', {}, { origin: 'https://atacante.dev' });
+      expect(logged).toEqual(['GET /api/nada 404 nao-encontrado', 'POST /api/status 403 origem-recusada']);
+      expect(logged.join()).not.toContain('segredo');
+    });
+
     it('não responde CORS, e recusa pedido de outra origem', async () => {
       const { call } = await setup();
       const outra = await call('POST', '/api/status', {}, { origin: 'https://murall.igorsc.com.br' });

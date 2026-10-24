@@ -36,5 +36,12 @@ service = "cofre-api"
 entrypoint = "MuralRpc"
 
 # A limpeza diária (src/domain/cleanup.ts), às 06:17 UTC.
+# Os logs no Workers Logs (o Observability, no plano Free: 200 mil por dia, guardados 3 dias): cada
+# pedido (o endereço, o status) e as linhas que a API escreve nas respostas de erro e nas recusas do
+# Google (ver `log` em src/ports.ts). Ver no painel da Cloudflare, Workers › mural-api › Logs.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 [triggers]
 crons = ["17 6 * * *"]

@@ -428,6 +428,10 @@ freios            (como em api/src/domain/brake.ts)
 - **Limites de tamanho**: item até 16 kB, até 2.000 itens, corpo até 64 kB.
 - **Validação** rígida de tudo (formatos base64url, tamanhos exatos de chaves e IVs).
 - **Logs**: nunca o corpo do pedido nem os tokens. Sem `console.log` de dado.
+  Cada resposta de erro deixa uma linha (o método, o molde da rota sem o id, o status e o código do
+  erro, como `PUT /api/itens/:id 409 versao-do-item`), e o Workers Logs (o Observability, grátis) guarda
+  só essas linhas, sem os logs de cada pedido (`invocation_logs = false`): nem o endereço nem os
+  cabeçalhos ficam lá (24/10).
 - **Respostas**: `Cache-Control: no-store`.
 - **Secrets**: `COFRE_PIMENTA`, `COFRE_ENVELOPES` (32 bytes aleatórios cada) e o client secret do
   Google. Um cliente OAuth **próprio do cofre** ("Murall Cofre", só `openid`, redirect só para

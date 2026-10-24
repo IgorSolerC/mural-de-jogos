@@ -38,6 +38,16 @@ entrypoint = "CofreRpc"
 
 # A limpeza diária (src/domain/cleanup.ts), às 06:23 UTC: depois da do Murall (06:17) e antes do
 # backup diário (06:31), que assim não guarda o que já venceu.
+# Os logs no Workers Logs (o Observability, grátis): só as linhas que a API escreve nas respostas de erro
+# (o método, o molde da rota, o status e o código, ver `log` em src/ports.ts). Sem os logs de cada pedido:
+# nem o endereço nem os cabeçalhos ficam guardados (PLANO-COFRE.md 9.3).
+[observability]
+enabled = true
+head_sampling_rate = 1
+
+[observability.logs]
+invocation_logs = false
+
 [triggers]
 crons = ["23 6 * * *"]
 

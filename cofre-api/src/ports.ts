@@ -65,4 +65,9 @@ export interface Deps {
   mural: Mural;
   /** Troca o código do login do Google pelo `sub` (ver `domain/google.ts`). */
   googleLogin: GoogleLogin;
+  /**
+   * Uma linha no log (no Worker, o console, que o Workers Logs guarda): as respostas de erro e as recusas
+   * de quem a API chama, nunca o corpo do pedido nem um token. Sem isto (nos testes), nada se escreve.
+   */
+  log?: (line: string) => void;
 }

@@ -72,11 +72,19 @@ export function createApp(deps: Deps): Hono {
   itemRoutes(app, deps);
   manageRoutes(app, deps);
 
-  app.notFound((c) => c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API do cofre.' }, 404));
+  app.notFound((c) => {
+    deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);
+    return c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API do cofre.' }, 404);
+  });
 
-  // Nunca o corpo do pedido nem o token no log (9.3): só o tipo e a mensagem do erro.
+  // Nunca o corpo do pedido nem o token no log (9.3): só o tipo e a mensagem do erro; nas respostas de
+  // erro, o método, o molde da rota (sem o id que vem nela), o status e o código.
   app.onError((error, c) => {
-    if (error instanceof HttpError) return c.json({ erro: error.code, mensagem: error.message }, error.status);
+    if (error instanceof HttpError) {
+      const route = c.req.routePath && c.req.routePath !== '*' && c.req.routePath !== '/*' ? c.req.routePath : c.req.path;
+      deps.log?.(`${c.req.method} ${route} ${error.status} ${error.code}`);
+      return c.json({ erro: error.code, mensagem: error.message }, error.status);
+    }
     console.error(`erro interno: ${error.name}: ${error.message}`);
     return c.json({ erro: 'erro-interno', mensagem: 'Algo deu errado no cofre.' }, 500);
   });
