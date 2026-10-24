@@ -160,12 +160,13 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(foot.textContent).not.toContain('Remover do mural');
 
     const items = await openMore();
-    expect(items.map(words)).toEqual(['Escrever rejogada', 'Lado a lado', 'Link da ficha', 'Remover do mural']);
+    expect(items.map(words)).toEqual(['Escrever rejogada', 'Lado a lado', 'Link da ficha', 'Salvar como PDF', 'Remover do mural']);
     // o Lado a lado é um ligar e desligar; o link abre uma folha; o que apaga vai por último, na tinta vermelha
     expect(items[1].getAttribute('role')).toBe('menuitemcheckbox');
     expect(items[1].getAttribute('aria-checked')).toBe('false');
     expect(items[2].getAttribute('aria-haspopup')).toBe('dialog');
-    expect(items[3].classList.contains('perigo')).toBeTrue();
+    expect(items[3].classList.contains('perigo')).toBeFalse();
+    expect(items[4].classList.contains('perigo')).toBeTrue();
 
     items[1].click();
     await settle();
@@ -176,7 +177,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     await settle();
     expect(revisits).toEqual(['r-hades']);
 
-    (await openMore())[3].click();
+    (await openMore())[4].click();
     await settle();
     expect(removed).toEqual(['r-hades']);
     // escolher fecha o bilhete
@@ -186,7 +187,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
   it('a rejogada não oferece o Lado a lado', async () => {
     fixture.componentInstance.open(review('r-hades-2', 'Hades', { revisitOf: 'r-hades' }));
     await settle();
-    expect((await openMore()).map(words)).toEqual(['Escrever rejogada', 'Link da ficha', 'Remover do mural']);
+    expect((await openMore()).map(words)).toEqual(['Escrever rejogada', 'Link da ficha', 'Salvar como PDF', 'Remover do mural']);
   });
 
   it('a anotação deixa o Finalizar à mão; fixar, compartilhar e apagar ficam no "Mais"', async () => {
@@ -198,7 +199,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
 
     expect(qa('.foot .actions button').map(words)).toEqual(['Finalizar', 'Editar']);
     const items = await openMore();
-    expect(items.map(words)).toEqual(['Fixar no topo', 'Compartilhar', 'Link da anotação', 'Apagar anotação']);
+    expect(items.map(words)).toEqual(['Fixar no topo', 'Compartilhar', 'Link da anotação', 'Salvar como PDF', 'Apagar anotação']);
     expect(items[1].getAttribute('aria-haspopup')).toBe('dialog');
 
     items[0].click();
@@ -246,7 +247,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     key('ArrowDown');
     expect(document.activeElement).toBe(items[1]);
     key('End');
-    expect(document.activeElement).toBe(items[3]);
+    expect(document.activeElement).toBe(items[items.length - 1]);
     key('ArrowDown');
     expect(document.activeElement).toBe(items[0]);
 

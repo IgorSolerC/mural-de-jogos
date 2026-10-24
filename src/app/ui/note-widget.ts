@@ -1,7 +1,7 @@
 import { NgComponentOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, Type, afterNextRender, effect, inject, input, signal } from '@angular/core';
 import { NoteLinks } from '../core/note-links';
-import { WIDGET_LINES, WidgetSize } from '../core/widgets';
+import { WIDGET_LINES, WidgetSize, readAudio, readMedia } from '../core/widgets';
 import { AudioTrack } from './audio-track';
 import { Countdown } from './countdown';
 import { GluedMedia } from './glued-media';
@@ -76,8 +76,16 @@ import { GluedMedia } from './glued-media';
         }
       }
     }
+    <!-- no papel (o PDF, ver ui/pdf-sheet.ts), o vídeo e o som não tocam: o endereço deles vai
+         embaixo da peça, clicável no PDF. Na tela, nunca aparece -->
+    @if (source(); as s) {
+      <a class="fonte" [href]="s.href" target="_blank" rel="noopener noreferrer" tabindex="-1" aria-hidden="true">{{ s.label }}</a>
+    }
   `,
   styles: `
+    .fonte {
+      display: none;
+    }
     :host {
       display: block;
       /* a altura do tamanho; na caixa que corta, até o fim dela, em linhas inteiras (mas nunca menor
@@ -123,6 +131,19 @@ export class NoteWidget {
   /** Os links do texto: a Nota (a ficha colada) abre por eles e acha a anotação de um título. */
   readonly links = input<NoteLinks | null>(null);
   protected readonly lines = computed(() => WIDGET_LINES[this.size()] ?? WIDGET_LINES.medio);
+  /** O endereço do vídeo ou do som, para o papel: "youtube.com/watch?v=…" (sem o https:// e o www.). */
+  protected readonly source = computed(() => {
+    const name = this.name();
+    const url = name === 'video' ? readMedia(this.args()).url : name === 'audio' ? readAudio(this.args()).url : '';
+    if (!/^https?:\/\//i.test(url)) return null;
+    try {
+      const u = new URL(url);
+      const label = (u.host.replace(/^www\./, '') + u.pathname.replace(/\/$/, '') + u.search).slice(0, 90);
+      return { href: u.href, label };
+    } catch {
+      return null;
+    }
+  });
   /** A ficha colada (o widget Nota), carregada só quando aparece uma (ver o molde). */
   protected readonly linkedCard = signal<Type<unknown> | null>(null);
 

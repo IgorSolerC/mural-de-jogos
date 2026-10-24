@@ -20,6 +20,10 @@
  * O texto continua sendo uma string: as resenhas antigas não mudam, o backup e a nuvem não mudam, e
  * um site antigo mostra as marcas cruas. Nunca vira HTML: quem desenha é o próprio Angular, a partir
  * destes blocos (ver ui/rich-text.ts).
+ *
+ * A REGRA DO PDF: toda marca nova (ou mudada) precisa sair certa no "Salvar como PDF" (ui/pdf-sheet.ts).
+ * Ponha a amostra dela em ui/pdf-sheet.samples.ts (os tipos obrigam), o olhar dela no pdf-sheet.spec.ts
+ * e confira as páginas com `node scripts/pdf-amostra.mjs` (ver DESIGN.md, "Salvar como PDF").
  */
 
 import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';

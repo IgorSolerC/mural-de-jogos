@@ -45,3 +45,6 @@ Thumbs.db
 # Impeccable: o binário que a skill baixa e o estado das sessões ao vivo
 /.claude/skills/impeccable/scripts/bin/
 /.impeccable/live/
+
+# a amostra impressa do "Salvar como PDF" (node scripts/pdf-amostra.mjs)
+/.angular/pdf-amostra

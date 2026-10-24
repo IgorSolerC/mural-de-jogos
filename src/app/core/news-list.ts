@@ -26,6 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-24-salvar-como-pdf',
+    version: '1.32.0',
+    kind: 'funcionalidade',
+    date: '2026-10-24',
+    title: 'Salvar como PDF',
+    notice: 'Novo: a ficha aberta vira um PDF bonito, com o texto formatado e os widgets. Fica no Mais, em Salvar como PDF.',
+    items: [
+      'Toda anotação e análise sua sai em PDF pelo Mais da ficha aberta: o nome, as informações, as tags (e, nas análises, a capa, a Média e as notas) e o texto como um documento limpo, com toda a formatação do site.',
+      'Os widgets saem com a cara deles: a foto colada, a fita, o vinil, o contador, a ficha colada; o vídeo e o som levam o endereço embaixo, que se abre clicando no PDF.',
+      'O arquivo já vem com o nome da ficha; na janela de impressão, escolha Salvar como PDF.',
+    ],
+  },
+  {
     id: '2026-10-24-broche-no-widget',
     version: '1.31.2',
     kind: 'ajustes',

@@ -12,6 +12,10 @@ import { cap } from './text';
  * Cada widget diz quais campos tem (o editor monta o formulário com eles), como lê os parâmetros
  * escritos e como os escreve de volta. Um nome que este site não conhece fica como texto: um site
  * mais novo pode ter widgets que um antigo ainda não sabe desenhar, e o texto continua lá.
+ *
+ * A REGRA DO PDF: todo widget novo (ou jeito novo de um) precisa sair com a cara dele no "Salvar como
+ * PDF" (ui/pdf-sheet.ts): a amostra em ui/pdf-sheet.samples.ts (o spec falha sem ela) e as páginas
+ * conferidas com `node scripts/pdf-amostra.mjs` (ver DESIGN.md, "Salvar como PDF").
  */
 
 /** Um campo do formulário do widget, no editor. */

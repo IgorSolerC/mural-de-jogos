@@ -1,9 +1,11 @@
 import { Router } from '@angular/router';
 import {
+  ApplicationRef,
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
+  EnvironmentInjector,
   Injector,
   afterNextRender,
   computed,
@@ -19,7 +21,7 @@ import { BackdropClose } from './backdrop-close';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -37,6 +39,8 @@ import { JudgeLabel } from './judge-label';
 import { Luz } from './luz';
 import { Pin } from './pin';
 import { MoreItem, MoreMenu } from './more-menu';
+import type { PdfDoc } from './pdf-sheet';
+import { Toasts } from './toast';
 import { StatusLabel } from './status-label';
 import { RichText } from './rich-text';
 import { ReactionBubble, ReactionPicker } from './reactions';
@@ -545,6 +549,7 @@ export class ReviewReader {
   protected readonly LeaveIcon = ICON.sair;
   protected readonly ConflictIcon = ICON.aviso;
   protected readonly LinkIcon = ICON.link;
+  protected readonly PdfIcon = ICON.pdf;
   protected readonly MinimizeIcon = ICON.diminuir;
   private readonly fichaLinks = inject(FichaLinks);
   private readonly store = inject(ReviewStore);
@@ -674,6 +679,9 @@ export class ReviewReader {
     };
     // o link que abre só esta ficha, para quem não usa o Murall (a privada diz por que não tem)
     const link: MoreItem = { id: 'link', label: this.note() ? 'Link da anotação' : 'Link da ficha', icon: this.LinkIcon, dialog: true };
+    // a ficha como documento, pela impressão do navegador (ver ui/pdf-sheet.ts); a ficha em segredo
+    // (a nota e o texto riscados aqui) não sai no papel: revelada, sim
+    const pdf: MoreItem[] = this.masked() ? [] : [{ id: 'pdf', label: 'Salvar como PDF', icon: this.PdfIcon, hint: 'Abre a impressão: escolha “Salvar como PDF”' }];
     if (this.note()) {
       const pinned = r.noteRank === 'fixada';
       const shared = this.sharedHere();
@@ -684,6 +692,7 @@ export class ReviewReader {
         // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
         { id: 'compartilhar', label: !shared || shared.manages ? 'Compartilhar' : 'Pessoas', icon: this.SharedIcon, dialog: true },
         link,
+        ...pdf,
         remove,
       ];
     }
@@ -692,6 +701,7 @@ export class ReviewReader {
       // as rejogadas não entram no lado a lado: lá é uma ficha por obra
       ...(r.revisitOf ? [] : [{ id: 'lado-a-lado', label: 'Lado a lado', icon: this.side.has(r.id) ? this.CheckedIcon : this.UncheckedIcon, pressed: this.side.has(r.id), hint: `Marcar pra comparar com ${this.others()}` }]),
       link,
+      ...pdf,
       remove,
     ];
   });
@@ -706,6 +716,65 @@ export class ReviewReader {
     else if (id === 'outra-vez') this.revisit.emit(r.id);
     else if (id === 'lado-a-lado') this.side.toggle(r.id);
     else if (id === 'remover') this.remove.emit(r.id);
+    else if (id === 'pdf') void this.savePdf();
+  }
+
+  private readonly env = inject(EnvironmentInjector);
+  private readonly app = inject(ApplicationRef);
+  private readonly toasts = inject(Toasts);
+  /** A folha do PDF está sendo montada (um segundo pedido espera). */
+  private printing = false;
+
+  /**
+   * Salva a ficha aberta em PDF: a folha (ui/pdf-sheet.ts, num pedaço à parte, carregado só agora)
+   * com o que se lê aqui: o nome, quem fez, as informações, as tags e o texto com os widgets.
+   */
+  protected async savePdf(): Promise<void> {
+    const r = this.review();
+    if (!r || this.printing) return;
+    this.printing = true;
+    this.toasts.show('Preparando o PDF…', undefined, 20000);
+    try {
+      const m = await import('./pdf-sheet');
+      await m.exportPdf(this.pdfDoc(r), this.env, this.app, () => this.toasts.dismiss());
+    } catch {
+      this.toasts.show('Não deu para preparar o PDF. Tente de novo.');
+    } finally {
+      this.printing = false;
+    }
+  }
+
+  /** A ficha aberta, como o PDF a mostra. */
+  private pdfDoc(r: Review): PdfDoc {
+    const note = isNote(r);
+    const meta: string[] = [];
+    if (note && r.subject) meta.push(r.subject);
+    if (r.completedAt === null) meta.push(this.noDay);
+    else meta.push(note ? this.date() : `${dayLabel(r.kind, r.status)} ${this.date()}`);
+    if (this.hours()) meta.push(this.hours());
+    const g = this.groupEar();
+    const by = this.music() ? `${this.formLabel()}${this.artist() ? ` de ${this.artist()}` : ''}` : r.game.by ? `de ${r.game.by}` : '';
+    const notes = this.linkable();
+    return {
+      title: r.game.name,
+      by: note ? '' : by,
+      meta,
+      group: g ? { label: g.label, color: g.color } : null,
+      tags: note ? (r.tags ?? []).map((t) => ({ label: t, color: this.tagColor(t) })) : [],
+      score: note
+        ? null
+        : {
+            value: formatScore(r.scores.final),
+            verdict: r.verdict ? VERDICT_LABEL[r.verdict] : null,
+            marks: ratedKeys(r.kind)
+              .filter((k) => weightOf(r.weights, k) !== 'nao-tem')
+              .map((k) => ({ label: SCORE_LABEL[k], value: formatScore(scoreOf(r.scores, k)) })),
+          },
+      cover: r.game.coverUrl || null,
+      text: r.text,
+      // os links entre anotações só se mostram (no papel não se toca)
+      links: { resolve: (title) => resolveNote(notes, title) },
+    };
   }
 
   /** Quem não é o dono sai da anotação (em vez de apagar). */

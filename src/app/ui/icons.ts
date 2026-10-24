@@ -81,6 +81,7 @@ import {
   Eye,
   EyeOff,
   Feather,
+  FileDown,
   FilePlus,
   FileQuestion,
   Film,
@@ -342,6 +343,8 @@ export const ICON = {
   ajustar: SlidersHorizontal,
   baixar: Download,
   baixarNoAparelho: HardDriveDownload,
+  /** Salvar a anotação como PDF (a folha impressa). */
+  pdf: FileDown,
   enviar: Upload,
   link: Link,
   /** Abrir um link numa aba nova. */

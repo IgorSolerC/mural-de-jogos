@@ -1,0 +1,525 @@
+// A ficha como documento (ui/pdf-sheet.ts). Sem encapsular: veste o texto que o RichText desenha.
+// Só existe com a folha montada. A régua é a do Obsidian: papel branco, uma letra de leitura, os
+// títulos pelo peso e pelo tamanho, o código e a tabela em cinza claro; o Murall fica nos detalhes
+// (o tique de caneta vermelha das tarefas, o marca-texto, a caneta azul-marinho dos links, a linha
+// das informações em letra de etiqueta e os widgets com a cara deles).
+
+// A Inter (a letra do Obsidian), só a latina, e só baixada quando a folha aparece
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: block;
+  font-weight: 100 900;
+  src: url('../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: italic;
+  font-display: block;
+  font-weight: 100 900;
+  src: url('../../../node_modules/@fontsource-variable/inter/files/inter-latin-wght-italic.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+// A folha A4: a margem do Obsidian, um pouco mais folgada dos lados (a linha não passa de ~90 letras),
+// e no pé a marca do papel e o número da página, em letra de etiqueta
+@page {
+  size: A4 portrait;
+  margin: 18mm 22mm 20mm;
+
+  @bottom-left {
+    content: 'MURALL';
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 600;
+    font-size: 7.5pt;
+    letter-spacing: 0.14em;
+    color: #9a948a;
+    vertical-align: top;
+    padding-top: 6mm;
+  }
+  @bottom-right {
+    content: counter(page) ' / ' counter(pages);
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 600;
+    font-size: 8pt;
+    letter-spacing: 0.06em;
+    color: #9a948a;
+    vertical-align: top;
+    padding-top: 6mm;
+  }
+}
+
+// Na impressão, só a folha: o site some (a leitura aberta junto, que fica no alto da página)
+@media print {
+  // o site é escuro (color-scheme: dark): sem isto, a margem da página sai grafite
+  html.pdf-imprimindo {
+    color-scheme: light !important;
+  }
+  html.pdf-imprimindo,
+  html.pdf-imprimindo body {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  html.pdf-imprimindo body > :not(.pdf-sheet),
+  html.pdf-imprimindo dialog {
+    display: none !important;
+  }
+  html.pdf-imprimindo .pdf-sheet {
+    position: static !important;
+    width: auto !important;
+  }
+}
+
+// Na tela, a folha espera fora dela, já da largura do papel (166 mm, a A4 menos as margens): as
+// peças que se medem pela largura (a ficha colada, a foto) ficam do tamanho que vão ter no papel
+@media screen {
+  .pdf-sheet {
+    position: fixed;
+    top: 0;
+    left: -400mm;
+    width: 166mm;
+    pointer-events: none;
+  }
+}
+
+.pdf-sheet {
+  // a tinta e os cinzas quentes do papel do site (no eixo da fita e da cartolina cinza, não o cinza frio)
+  --pdf-tinta: #1b1916;
+  --pdf-tinta-2: #57524a;
+  --pdf-tinta-3: #8a847a;
+  --pdf-fio: #e2ddd4;
+  --pdf-fundo: #f5f2ec;
+  --pdf-azul: #1d3577;
+  --pdf-letra: 'Inter Variable', 'Inter', system-ui, sans-serif;
+  --pdf-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+  display: block;
+  background: #fff;
+  color: var(--pdf-tinta);
+  font-family: var(--pdf-letra);
+  font-size: 11pt;
+  line-height: 1.6;
+  font-feature-settings: 'cv11', 'ss01';
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  // as cores e os fundos saem no papel (o marca-texto, as tags, a fita, a cartolina da ficha colada)
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  text-rendering: optimizeLegibility;
+}
+
+// ===== O cabeçalho: o nome da ficha, quem fez, a linha das informações, o boletim e as tags; à
+// direita, a Média (as análises) e a capa =====
+.pdf-cabeca {
+  display: grid;
+  // as colunas da Média e da capa só existem quando elas existem (sem o vão delas na anotação sem capa)
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
+  align-items: start;
+  column-gap: 16pt;
+  padding-bottom: 14pt;
+  margin-bottom: 18pt;
+  border-bottom: 1px solid var(--pdf-fio);
+  break-inside: avoid;
+}
+// a capa da obra, pequena, no canto: colada reta, com a borda fina do papel fotográfico
+.pdf-capa {
+  display: block;
+  width: 25mm;
+  max-height: 38mm;
+  margin-top: 2pt;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow:
+    0 0 0 1px rgb(27 25 22 / 0.08),
+    0 2px 6px -2px rgb(27 25 22 / 0.28);
+}
+// a Média como na etiqueta da ficha do mural: o número em Barlow Condensed itálico no papel, o
+// veredito em letra de papel na faixa preta embaixo (impressa, sem brilho nem desgaste)
+.pdf-media {
+  display: grid;
+  min-width: 21mm;
+  margin: 2pt 0 0;
+  border: 1.25px solid var(--pdf-tinta);
+  border-radius: 2px;
+  overflow: hidden;
+  text-align: center;
+}
+.pdf-media-nota {
+  padding: 3pt 8pt 1pt;
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+  font-size: 25pt;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-media-veredito {
+  padding: 2.5pt 7pt 2pt;
+  background: var(--pdf-tinta);
+  color: #fbf8f1;
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-size: 7.5pt;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+// o boletim: cada nota que conta, o nome impresso pequeno em cima do número
+.pdf-boletim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4pt 16pt;
+  margin: 10pt 0 0;
+}
+.pdf-boletim > div {
+  display: grid;
+}
+.pdf-boletim dt {
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-weight: 600;
+  font-size: 7.5pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pdf-tinta-3);
+}
+.pdf-boletim dd {
+  margin: 0;
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-weight: 800;
+  font-size: 13pt;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.pdf-titulo {
+  margin: 0;
+  font-size: 24pt;
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.pdf-de {
+  margin: 4pt 0 0;
+  font-size: 12pt;
+  color: var(--pdf-tinta-2);
+}
+// impressa como a linha da data das folhas do site (letra de etiqueta), separada por pontos
+.pdf-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 9pt 0 0;
+  font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  font-weight: 600;
+  font-size: 9.5pt;
+  line-height: 1.35;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--pdf-tinta-2);
+  font-variant-numeric: tabular-nums;
+}
+.pdf-meta > span + span::before {
+  content: '·';
+  margin: 0 0.5em;
+  color: var(--pdf-tinta-3);
+}
+// o grupo: o quadradinho da cor dele antes do nome (sem cor, o da tinta)
+.pdf-grupo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  color: var(--pdf-tinta);
+}
+.pdf-grupo::before,
+.pdf-tags li::before {
+  content: '';
+  flex: none;
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 1.5px;
+  background: var(--cor, var(--pdf-tinta-3));
+}
+.pdf-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4pt;
+  margin: 8pt 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pdf-tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  padding: 1.5pt 6pt;
+  border-radius: 3px;
+  background: var(--pdf-fundo);
+  font-size: 8.5pt;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+// ===== O texto: as marcas do site (ui/rich-text.ts) na régua do Obsidian. Tudo aqui vale só para o
+// texto da ficha, não para o de dentro de um widget (a ficha colada tem a letra e a cara dela). O
+// caminho comprido (.pdf-sheet .pdf-folha .pdf-texto) pesa mais que os estilos do RichText, que o
+// Angular encapsula com um atributo em cada pedaço do seletor =====
+.pdf-sheet .pdf-folha .pdf-texto {
+  // uma linha da folha; sem recuo de parágrafo (a linha em branco é que separa, como no Obsidian)
+  --line: 1.6em;
+  --recuo: 0;
+  --tarefa-respiro: 0.2em;
+  --corpo-respiro: 0.35em;
+  --citacao-folga: 0.15em;
+  orphans: 3;
+  widows: 3;
+
+  :is(.linha):not(app-note-widget *) {
+    min-height: var(--line);
+  }
+  // a linha em branco é o respiro entre dois parágrafos (o do Obsidian), não uma linha inteira; antes
+  // de um título, o respiro é o dele
+  .linha:empty:not(.divisoria):not(app-note-widget *) {
+    min-height: 0.8em;
+  }
+  .linha:empty:not(app-note-widget *) + .titulo {
+    margin-top: 0.55em;
+  }
+
+  // os títulos: o peso e o tamanho, mais ar em cima que embaixo, e nunca sozinhos no pé da página
+  .titulo:not(app-note-widget *) {
+    margin: 0.9em 0 0.3em;
+    font-family: inherit;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+    text-transform: none;
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  .titulo:first-child:not(app-note-widget *) {
+    margin-top: 0;
+  }
+  .t1:not(app-note-widget *) {
+    font-size: 1.6em;
+    letter-spacing: -0.018em;
+  }
+  .t2:not(app-note-widget *) {
+    font-size: 1.32em;
+  }
+  .t3:not(app-note-widget *) {
+    font-size: 1.12em;
+    font-weight: 650;
+  }
+
+  // a citação: o fio fino de lado, reto, e a letra comum, um tom mais clara
+  .citacao:not(app-note-widget *) {
+    margin: 0.2em 0;
+    padding-left: 1em;
+    font-style: normal;
+    color: var(--pdf-tinta-2);
+  }
+  .citacao:not(app-note-widget *)::before {
+    left: 0;
+    width: 2px;
+    border-radius: 1px;
+    background: #cfc9be;
+    opacity: 1;
+    -webkit-mask: none;
+    mask: none;
+  }
+
+  .sutil:not(app-note-widget *) {
+    color: var(--pdf-tinta-3);
+  }
+
+  // a divisória: um fio, no meio do respiro
+  .divisoria:not(app-note-widget *) {
+    min-height: 0;
+    height: 1px;
+    margin: calc(var(--line) / 2) 0;
+    background: var(--pdf-fio);
+    opacity: 1;
+    -webkit-mask: none;
+    mask: none;
+  }
+
+  // o código: a letra de código do sistema, no cinza quente do papel
+  .cod:not(app-note-widget *),
+  .codigo:not(app-note-widget *) {
+    font-family: var(--pdf-mono);
+    font-weight: 400;
+  }
+  .cod:not(app-note-widget *) {
+    padding: 0.08em 0.36em;
+    border-radius: 3px;
+    background: var(--pdf-fundo);
+    font-size: 0.86em;
+  }
+  .codigo:not(app-note-widget *) {
+    margin: 0.35em 0;
+    padding: 0.85em 1.05em;
+    border-radius: 4px;
+    background: var(--pdf-fundo);
+    box-shadow: inset 0 0 0 1px #ebe6dd;
+    font-size: 0.84em;
+    line-height: 1.55;
+    // o bloco comprido quebra de página, como no Obsidian (o fundo e o fio continuam na outra)
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+
+  // a tabela: o fio fino em toda célula, o cabeçalho em negrito no cinza claro
+  .tabela-rolo:not(app-note-widget *) {
+    margin: 0.4em 0;
+    overflow: visible;
+  }
+  .tabela:not(app-note-widget *) {
+    font-size: 0.94em;
+    line-height: 1.45;
+  }
+  .tabela:not(app-note-widget *) :is(th, td) {
+    padding: 0.38em 0.75em;
+    border: 1px solid var(--pdf-fio);
+    line-height: 1.45;
+  }
+  .tabela:not(app-note-widget *) th {
+    background: var(--pdf-fundo);
+    font-family: inherit;
+    font-weight: 650;
+    font-size: inherit;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .tabela:not(app-note-widget *) tr {
+    break-inside: avoid;
+  }
+
+  // as listas: o ponto e o número na tinta clara, o item pendurado
+  .lista:not(.tarefas, .numerada):not(app-note-widget *) > li::before {
+    color: var(--pdf-tinta-3);
+  }
+  .numerada:not(app-note-widget *) > li::before {
+    color: var(--pdf-tinta-2);
+  }
+  .lista:not(app-note-widget *) > li {
+    break-inside: avoid;
+  }
+
+  // a tarefa: a caixinha de borda fina (sem o giro da caneta) e, feita, o tique de caneta vermelha do site
+  .tarefas:not(app-note-widget *) .caixa {
+    width: 0.92em;
+    height: 0.92em;
+    margin-top: calc((var(--line) - 0.92em) / 2);
+    border: 1.5px solid #a9a296;
+    border-radius: 3px;
+    rotate: 0deg;
+  }
+  .tarefas:not(app-note-widget *) .caixa.marcada {
+    border-color: #c4302b;
+  }
+  .feita:not(app-note-widget *) .tarefa,
+  .feita:not(app-note-widget *) > .corpo {
+    opacity: 1;
+    color: var(--pdf-tinta-3);
+  }
+  .feita:not(app-note-widget *) .tarefa,
+  .feita:not(app-note-widget *) > .corpo :is(.linha, th, td, .codigo) {
+    text-decoration: line-through 1px rgb(138 132 122 / 0.8);
+  }
+
+  // o marca-texto: a passada amarela da altura das letras
+  .marca:not(app-note-widget *) {
+    --marca-cor: rgb(255 212 38 / 0.5);
+    background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 55% / 100% 1.05em;
+  }
+
+  // o link: a caneta azul-marinho, sublinhado reto (o de fora segue clicável no PDF, com a setinha)
+  .elo:not(app-note-widget *) {
+    color: var(--pdf-azul);
+    background: none;
+    text-decoration: underline 1px rgb(29 53 119 / 0.45);
+    text-underline-offset: 0.2em;
+  }
+  .elo.quebrado:not(app-note-widget *) {
+    color: var(--pdf-tinta-2);
+    text-decoration-style: dashed;
+    text-decoration-color: rgb(87 82 74 / 0.6);
+    opacity: 1;
+  }
+
+  // o spoiler: no papel não há o que tocar, então ele aparece, numa caixinha tracejada que diz que era um
+  .spoiler:not(app-note-widget *) {
+    --tarja: transparent;
+    padding: 0 0.2em;
+    border-radius: 3px;
+    outline: 1px dashed #b3ac9f;
+    outline-offset: -1px;
+    color: inherit;
+    user-select: text;
+  }
+  .spoiler:not(.revelado):not(app-note-widget *) .spoiler-texto * {
+    color: inherit !important;
+    text-decoration-color: currentColor !important;
+  }
+  .spoiler:not(app-note-widget *) .spoiler-texto .marca {
+    background: linear-gradient(rgb(255 212 38 / 0.5), rgb(255 212 38 / 0.5)) no-repeat 0 55% / 100% 1.05em !important;
+  }
+
+  // ===== Os widgets: a cara que eles têm na leitura (a letra à mão, a linha da pauta da leitura,
+  // o mesmo tamanho), inteiros na mesma página =====
+  app-note-widget.widget {
+    --line: 1.85rem;
+    margin: 0.5em 0;
+    font-family: var(--f-hand);
+    font-size: 1.18rem;
+    line-height: var(--line);
+    color: var(--ink);
+    break-inside: avoid;
+  }
+  // a ficha colada não tem respiro em volta (a foto e o contador têm o deles): o mesmo vão dos outros,
+  // por dentro da caixa, porque o nome embaixo da capa passa da peça e, no pé da página, ia sozinho
+  // para a seguinte
+  app-note-widget.widget:has(app-linked-card) {
+    margin: 0.4em 0;
+    padding-block: 0.6em 1.5em;
+  }
+  // mais alto que uma página (a nota colada com um texto comprido, ver markLong): quebra, como texto,
+  // com a faixa do nome presa ao começo do texto
+  app-note-widget.widget.pdf-longa {
+    break-inside: auto;
+  }
+  app-note-widget.widget.pdf-longa .inteira > header {
+    break-after: avoid;
+  }
+  // o endereço do vídeo e do som, embaixo da peça (no papel eles não tocam), clicável no PDF
+  app-note-widget.widget .fonte {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 0.15rem;
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 600;
+    font-size: 0.72rem;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
+    color: var(--pdf-tinta-3);
+    text-decoration: underline 1px rgb(138 132 122 / 0.5);
+    text-underline-offset: 0.18em;
+    overflow-wrap: anywhere;
+  }
+  // o que só faz sentido tocando: o relógio da faixa (0:00 / –:––), a barra de arrastar e a seta
+  // de recolher a nota colada (as teclas da fita e o adesivo de tocar ficam: são do objeto)
+  app-note-widget :is(.contagem, .trilho, .dobra) {
+    display: none !important;
+  }
+  // os broches (ampliar, volume) são para tocar: no papel, não
+  :is(app-zoom-knob, app-volume-knob) {
+    display: none !important;
+  }
+}

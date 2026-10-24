@@ -470,6 +470,77 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('.guarda')).toBeNull();
     expect(q('app-comments-panel')).not.toBeNull();
   });
+  describe('Salvar como PDF', () => {
+    const pick = async () => {
+      q<HTMLButtonElement>('app-more-menu .mais')!.click();
+      await settle();
+      const item = [...el.querySelectorAll<HTMLButtonElement>('app-more-menu .item')].find((b) => b.textContent?.includes('Salvar como PDF'));
+      expect(item).withContext('o item do Mais').toBeDefined();
+      item!.click();
+    };
+    /** O que estava na página quando a impressão abriu. */
+    const printed = async (): Promise<{ title: string; sheet: HTMLElement | null; html: string }> => {
+      let seen: { title: string; sheet: HTMLElement | null; html: string } | null = null;
+      spyOn(window, 'print').and.callFake(() => {
+        seen = { title: document.title, sheet: document.querySelector<HTMLElement>('body > .pdf-sheet'), html: document.documentElement.className };
+      });
+      await pick();
+      for (let i = 0; i < 200 && !seen; i++) await wait(25);
+      return seen!;
+    };
+    afterEach(() => {
+      dispatchEvent(new Event('afterprint'));
+      document.querySelectorAll('.pdf-sheet').forEach((n) => n.remove());
+    });
+
+    it('a anotação: a folha com o nome, o grupo, as tags e o texto; o nome do arquivo é o título; a impressão fechada desmonta tudo', async () => {
+      const before = document.title;
+      fixture.componentInstance.open(review('nota-1', 'Viagem: Lisboa', { kind: 'anotacoes', category: 'Viagens', subject: 'Portugal', tags: ['roteiro'], text: '# Dia 1\n- [x] Passagens' }));
+      await settle();
+      const got = await printed();
+      expect(got.title).toBe('Viagem Lisboa');
+      expect(got.html).toContain('pdf-imprimindo');
+      expect(got.sheet!.querySelector('h1')!.textContent).toBe('Viagem: Lisboa');
+      expect([...got.sheet!.querySelectorAll('.pdf-meta > span')].map((s) => s.textContent)).toEqual(['Viagens', 'Portugal', '1 de janeiro de 2026']);
+      expect(got.sheet!.querySelector('.pdf-tags li')!.textContent).toBe('roteiro');
+      expect(got.sheet!.querySelector('.pdf-texto .titulo')!.textContent).toBe('Dia 1');
+      // as feitas aparecem todas, mesmo as que a leitura recolhe
+      expect(got.sheet!.querySelector('.pdf-texto li.feita')).not.toBeNull();
+      dispatchEvent(new Event('afterprint'));
+      expect(document.querySelector('.pdf-sheet')).toBeNull();
+      expect(document.title).toBe(before);
+      expect(document.documentElement.classList).not.toContain('pdf-imprimindo');
+    });
+
+    it('com o modo sem spoilers (a nota e o texto riscados na leitura), a ficha não sai em PDF', async () => {
+      const settings = TestBed.inject(Settings);
+      settings.noSpoilers.set(true);
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      q<HTMLButtonElement>('app-more-menu .mais')!.click();
+      await settle();
+      const names = [...el.querySelectorAll('app-more-menu .item')].map((b) => b.textContent?.trim());
+      expect(names).toContain('Link da ficha');
+      expect(names).not.toContain('Salvar como PDF');
+      settings.noSpoilers.set(false);
+    });
+
+    it('a análise: quem fez, a data do jeito dela, as horas e a média com o veredito', async () => {
+      fixture.componentInstance.open(review('r-hades', 'Hades', { game: { name: 'Hades', by: 'Supergiant Games', coverUrl: null, source: 'manual' }, verdict: 'recomendo', hoursPlayed: 40 }));
+      await settle();
+      const got = await printed();
+      expect(got.sheet!.querySelector('.pdf-de')!.textContent).toBe('de Supergiant Games');
+      const meta = [...got.sheet!.querySelectorAll('.pdf-meta > span')].map((s) => s.textContent);
+      expect(meta[0]).toContain('1 de janeiro de 2026');
+      expect(meta).toContain('40 h jogadas');
+      // a Média como a etiqueta da ficha, e o boletim das notas que contam
+      expect(got.sheet!.querySelector('.pdf-media-nota')!.textContent).toBe('8');
+      expect(got.sheet!.querySelector('.pdf-media-veredito')!.textContent).toBe('Recomendo');
+      expect([...got.sheet!.querySelectorAll('.pdf-boletim dt')].map((d) => d.textContent)).toEqual(['História', 'Diversão', 'Jogabilidade', 'Visual']);
+      expect(got.sheet!.querySelector('.pdf-texto')!.textContent).toContain('Valeu cada hora');
+    });
+  });
+
   describe('o link da ficha', () => {
     const items = async () => {
       if (!q('app-more-menu .bilhete')) q<HTMLButtonElement>('app-more-menu .mais')!.click();
