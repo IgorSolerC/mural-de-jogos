@@ -79,6 +79,27 @@ describe('busca com as chaves do site', () => {
     expect(calls.every((c) => new URL(c.url).searchParams.get('key') === 'k')).toBe(true);
   });
 
+  it('a chave do site nunca volta para o navegador: os endereços da página seguinte saem sem ela', async () => {
+    const key = 'b9035166c0ffee';
+    const { get } = setup({ tmdb: '', rawg: key }, () =>
+      Response.json({
+        next: `https://api.rawg.io/api/games?key=${key}&page=2&search=zelda`,
+        previous: `https://api.rawg.io/api/games?page=1&key=${key}`,
+        results: [{ id: 1, name: 'Zelda', background_image: 'https://media.rawg.io/x.jpg' }],
+      }),
+    );
+    const res = await get('/v1/catalogo/rawg/games?search=zelda');
+    const text = await res.text();
+    expect(text).not.toContain(key);
+    const body = JSON.parse(text);
+    expect(body.next).toBe('https://api.rawg.io/api/games?page=2&search=zelda');
+    expect(body.previous).toBe('https://api.rawg.io/api/games?page=1');
+    expect(body.results[0].name).toBe('Zelda');
+    // a chave curta do TMDB também
+    const tmdb = setup({ tmdb: 'abc123', rawg: '' }, () => Response.json({ link: 'https://api.themoviedb.org/3/x?api_key=abc123&page=2' }));
+    expect(await (await tmdb.get('/v1/catalogo/tmdb/search/movie?query=x')).json()).toEqual({ link: 'https://api.themoviedb.org/3/x?page=2' });
+  });
+
   it('recusa endereços que o site não usa, pedidos de fora do site e parâmetros enormes', async () => {
     const { get, calls } = setup({ tmdb: 't', rawg: 'r' });
     expect((await get('/v1/catalogo/tmdb/account')).status).toBe(404);

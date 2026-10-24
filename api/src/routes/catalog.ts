@@ -33,6 +33,17 @@ export function readCatalogKeys(env: Record<string, unknown>): CatalogKeys {
   return { tmdb: text('TMDB_KEY'), rawg: text('RAWG_KEY') };
 }
 
+/**
+ * A resposta sem a chave do site: a busca da RAWG devolve os endereços da página seguinte e da anterior
+ * (`next`, `previous`) montados com a própria chave, que iria parar no navegador (e no cache dele). Cada
+ * `key=…`/`api_key=…` com a chave sai do endereço, com o `&` que o seguia.
+ */
+export function withoutKey(body: string, key: string): string {
+  if (!key) return body;
+  const safe = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return body.replace(new RegExp(`([?&])(?:api_)?key=${safe}(&?)`, 'g'), (_, sep: string, amp: string) => (amp ? sep : ''));
+}
+
 /** Só os parâmetros conhecidos, sem repetição e curtos. */
 function pickParams(c: Context, allowed: readonly string[]): URLSearchParams {
   const out = new URLSearchParams();
@@ -74,7 +85,7 @@ export function catalogRoutes(app: Hono, deps: Deps): void {
     if (res.status === 429) throw new HttpError(503, 'catalogo-limite', `A busca do site no ${name} chegou ao limite por agora.`);
     if (res.status === 404) throw new HttpError(404, 'nao-encontrado', 'Não está no catálogo.');
     if (!res.ok) throw new HttpError(502, 'catalogo-fora', 'O catálogo não respondeu.');
-    const body = await res.text();
+    const body = withoutKey(await res.text(), keys[which]);
     return c.body(body, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': CACHE });
   };
 
