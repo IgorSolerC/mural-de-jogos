@@ -133,7 +133,15 @@ const SOUNDS: Record<Sound, { label: string; icon: LucideIconData }> = {
           }
         }
         @default {
-          <p class="dica" aria-live="polite">{{ loading() ? 'Procurando no catálogo o que dá para tocar…' : 'O disco fica parado na ficha. Dá para pôr o som depois.' }}</p>
+          <p class="dica" aria-live="polite">
+            {{
+              loading()
+                ? 'Procurando no catálogo o que dá para tocar…'
+                : searchFailed()
+                  ? 'Não deu para buscar as faixas no catálogo agora. Dá para colar o link de um som, ou pôr depois.'
+                  : 'O disco fica parado na ficha. Dá para pôr o som depois.'
+            }}
+          </p>
         }
       }
     </fieldset>
@@ -339,6 +347,8 @@ export class MusicFields {
   /** O que o catálogo tem para tocar deste item: as faixas do álbum, ou o trecho da música. */
   protected readonly tracks = signal<readonly AlbumTrack[]>([]);
   protected readonly loading = signal(false);
+  /** A busca das faixas no catálogo falhou (a dica diz, em vez de parecer que o disco não tem som). */
+  protected readonly searchFailed = signal(false);
   /** "Um link meu" escolhido, com ou sem um link que toque já escrito. */
   private readonly linking = signal(false);
   /** O link como está escrito no campo (só vai para o item quando é um som que toca). */
@@ -396,6 +406,7 @@ export class MusicFields {
     this.abort?.abort();
     this.tracks.set([]);
     this.loading.set(false);
+    this.searchFailed.set(false);
     if (!key) return;
     const ctrl = new AbortController();
     this.abort = ctrl;
@@ -407,7 +418,8 @@ export class MusicFields {
       // o álbum recém-escolhido já sai tocando: a primeira faixa, até a pessoa escolher a preferida
       if (this.fresh() && found.length && !this.game().sample && !this.linking() && this.form() === 'album') this.useTrack(found[0].sample);
     } catch {
-      // sem o catálogo agora: o link colado continua valendo
+      // sem o catálogo agora: a dica diz, e o link colado continua valendo
+      if (!ctrl.signal.aborted) this.searchFailed.set(true);
     } finally {
       if (!ctrl.signal.aborted) this.loading.set(false);
     }

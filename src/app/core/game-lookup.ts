@@ -86,6 +86,11 @@ function rawgResize(url: string): string {
 
 /** Quanto um catálogo tem para responder antes da busca desistir dele. */
 const LOOKUP_DEADLINE_MS = 9000;
+/**
+ * A Open Library é lenta mesmo de pé: a mesma busca leva de 3 a 16 s (medido em 24/10), e com 9 s a busca
+ * de livros falhava sem o catálogo estar fora (e a edição brasileira, a outra busca, sumia sem aviso).
+ */
+export const BOOK_DEADLINE_MS = 25_000;
 
 /**
  * O cancelamento de quem pediu, mais um prazo: um catálogo pendurado (Wi-Fi de hotel, sinal fraco,
@@ -99,6 +104,16 @@ function withDeadline(signal: AbortSignal, ms = LOOKUP_DEADLINE_MS): AbortSignal
   const timer = setTimeout(() => ctrl.abort(new DOMException('O catálogo demorou demais.', 'TimeoutError')), ms);
   ctrl.signal.addEventListener('abort', () => clearTimeout(timer), { once: true });
   return ctrl.signal;
+}
+
+/** O endereço responde, sem ler a resposta (`no-cors`: o que veio sem o cabeçalho de CORS também conta). */
+async function answers(url: string, signal: AbortSignal): Promise<boolean> {
+  try {
+    await fetch(url, { mode: 'no-cors', signal: withDeadline(signal, 5000) });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** O erro de uma chamada: o cancelamento de quem pediu passa direto; o resto vira um aviso legível. */
@@ -738,7 +753,7 @@ export class GameLookup {
     const query = words.join(' ');
     const search = (q: string) => {
       const params = new URLSearchParams({ q, limit: '12', lang: 'pt', fields: BOOK_SEARCH_FIELDS });
-      return this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal);
+      return this.fetchJson(`https://openlibrary.org/search.json?${params}`, signal, undefined, BOOK_DEADLINE_MS);
     };
     const [general, brazil] = await Promise.allSettled([search(query), search(`${query} ${BRAZILIAN_BOOK_FILTER}`)]);
     if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -1060,12 +1075,17 @@ export class GameLookup {
    * aviso para conferir em Ajustes), ou a busca do site ('rawg', 'tmdb': a chave do site que parou de
    * servir sai até recarregar, e quem chamou volta para a Wikipedia).
    */
-  private async fetchJson(url: string, signal: AbortSignal, catalog?: 'rawg-own' | SiteCatalog): Promise<any> {
+  private async fetchJson(url: string, signal: AbortSignal, catalog?: 'rawg-own' | SiteCatalog, ms = LOOKUP_DEADLINE_MS): Promise<any> {
     let res: Response;
-    const deadline = withDeadline(signal);
+    const deadline = withDeadline(signal, ms);
     try {
       res = await fetch(url, { signal: deadline });
     } catch (e) {
+      // a RAWG recusa a chave (401) sem o cabeçalho de CORS: o navegador só vê uma falha de rede. Se o
+      // mesmo endereço responde quando não se lê a resposta, a RAWG está de pé, e o que falhou foi a chave
+      if (catalog === 'rawg-own' && (e as Error)?.name === 'TypeError' && !signal.aborted && (await answers(url, signal))) {
+        throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
+      }
       throw lookupFailure(e, signal);
     }
     if (catalog === 'rawg-own' && (res.status === 401 || res.status === 403)) {

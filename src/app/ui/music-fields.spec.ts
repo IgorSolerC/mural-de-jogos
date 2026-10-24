@@ -179,5 +179,7 @@ describe('os campos da ficha de música no editor', () => {
     expect(radio('Trecho do catálogo')).toBeNull();
     expect(radio('Um link meu')).not.toBeNull();
     expect(el.querySelector('fieldset[aria-busy]')).toBeNull();
+    // e a dica diz que a busca falhou, em vez de parecer que o disco não tem som no catálogo
+    expect(el.querySelector('p.dica[aria-live]')!.textContent).toContain('Não deu para buscar as faixas no catálogo agora');
   });
 });

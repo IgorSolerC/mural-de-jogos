@@ -1,7 +1,7 @@
 import { sameTitle } from './game-lookup';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { GameLookup, LookupError } from './game-lookup';
+import { BOOK_DEADLINE_MS, GameLookup, LookupError } from './game-lookup';
 import { Settings } from './settings';
 import { Cloud } from './cloud-config';
 import { SiteKeys } from './site-keys';
@@ -131,6 +131,32 @@ describe('GameLookup', () => {
     it('não classifica como brasileira uma edição portuguesa devolvida pelo filtro regional', async () => {
       fetchSpy.and.callFake((input: RequestInfo | URL) => json({ docs: brazilianQuery(input) ? [portuguesePrince] : [] }));
       expect(await lookup.search('harry potter', signal, 'livros')).toEqual([]);
+    });
+
+    it('espera a Open Library, que é lenta, mais que os outros catálogos', async () => {
+      jasmine.clock().install();
+      try {
+        const answers: (() => void)[] = [];
+        const signals: AbortSignal[] = [];
+        fetchSpy.and.callFake((_: RequestInfo | URL, init?: RequestInit) => {
+          const sig = init!.signal!;
+          signals.push(sig);
+          return new Promise<Response>((resolve, reject) => {
+            sig.addEventListener('abort', () => reject(sig.reason));
+            answers.push(() => resolve(new Response(JSON.stringify({ docs: [brazilianPrince] }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+          });
+        });
+        const found = lookup.search('principe', signal, 'livros');
+        // passou o prazo dos outros catálogos: a busca de livros continua esperando
+        jasmine.clock().tick(15_000);
+        expect(signals.length).toBe(2);
+        expect(signals.every((x) => !x.aborted)).toBeTrue();
+        answers.forEach((a) => a());
+        expect((await found).length).toBeGreaterThan(0);
+      } finally {
+        jasmine.clock().uninstall();
+      }
+      expect(BOOK_DEADLINE_MS).toBeGreaterThan(15_000);
     });
 
     it('propaga falhas dos dois pedidos e respeita o cancelamento da busca', async () => {
@@ -312,6 +338,20 @@ describe('GameLookup', () => {
       );
       const { notes } = await lookup.coverChoices(hades, 'jogos', signal);
       expect(notes).toEqual(['A chave da RAWG foi recusada. Confira em Ajustes.']);
+    });
+
+    it('a chave recusada sem o cabeçalho de CORS (como a RAWG responde) também é dita, e não vira "sem internet"', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL, init?: RequestInit) => {
+        if (!String(input).includes('rawg')) return json({ query: { pages: [] } });
+        // o navegador não deixa ler o 401 sem CORS; sem ler a resposta (no-cors), o endereço responde
+        return init?.mode === 'no-cors' ? Promise.resolve(new Response(null, { status: 200 })) : Promise.reject(new TypeError('Failed to fetch'));
+      });
+      const { notes } = await lookup.coverChoices(hades, 'jogos', signal);
+      expect(notes).toEqual(['A chave da RAWG foi recusada. Confira em Ajustes.']);
+      // a RAWG fora de verdade (nem sem ler responde): continua sendo a falha de rede
+      fetchSpy.and.callFake((input: RequestInfo | URL) => (String(input).includes('rawg') ? Promise.reject(new TypeError('Failed to fetch')) : json({ query: { pages: [] } })));
+      const fora = await lookup.coverChoices(hades, 'jogos', signal);
+      expect(fora.notes).not.toContain('A chave da RAWG foi recusada. Confira em Ajustes.');
     });
 
     it('sem chave da RAWG, fica só a Wikipedia', async () => {

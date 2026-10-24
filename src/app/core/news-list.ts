@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-24-busca-de-livros-e-chave-da-rawg',
+    version: '1.32.1',
+    kind: 'ajustes',
+    date: '2026-10-24',
+    title: 'A busca de livros, a chave da RAWG e as faixas do álbum',
+    correcoes: [
+      'A busca de livros espera a Open Library, que anda lenta, e não diz mais que o catálogo demorou demais quando ele só estava devagar (nem perde a edição brasileira por isso).',
+      'Com a sua chave da RAWG recusada, a busca e a troca de capa dizem para conferir a chave em Ajustes, em vez de "Não consegui falar com o catálogo".',
+      'No álbum, quando a busca das faixas no catálogo falha, a dica diz, em vez de parecer que o disco não tem som para tocar.',
+    ],
+  },
+  {
     id: '2026-10-24-salvar-como-pdf',
     version: '1.32.0',
     kind: 'funcionalidade',
