@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-24-broche-no-widget',
+    version: '1.31.2',
+    kind: 'ajustes',
+    date: '2026-10-24',
+    title: 'O broche de ampliar só em cima do widget',
+    melhorias: ['Na ficha do mural, o broche de ampliar de um widget aparece com o mouse em cima do próprio widget, e não mais em qualquer lugar da ficha.'],
+  },
+  {
     id: '2026-10-23-quadro-do-cofre',
     version: '1.31.1',
     kind: 'ajustes',

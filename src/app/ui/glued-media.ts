@@ -24,8 +24,8 @@ import { pieceLift } from './piece-lift';
  * O vídeo toca no volume de todo som do site: com o mouse em cima, o adesivo do alto-falante, no
  * canto da foto, abre o volume (ui/volume-knob.ts); o player obedece por mensagem.
  *
- * A foto e o vídeo se ampliam: com o mouse em cima (na ficha do mural, em cima da ficha), o broche
- * de ampliar (ui/zoom-knob.ts), no mesmo canto (no vídeo, ao lado do alto-falante). A imagem abre
+ * A foto e o vídeo se ampliam: com o mouse em cima dela, o broche de ampliar (ui/zoom-knob.ts), no
+ * mesmo canto (no vídeo, ao lado do alto-falante). A imagem abre
  * no visor dela (ui/image-viewer.ts, carregado só no toque); o vídeo sobe inteiro para o meio da
  * tela (ui/piece-lift.ts), com a moldura e a etiqueta (a figura toda, reta), e o que estava
  * tocando continua tocando.

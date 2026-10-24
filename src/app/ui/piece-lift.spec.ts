@@ -1,4 +1,4 @@
-import { Component, provideZonelessChangeDetection } from '@angular/core';
+import { CUSTOM_ELEMENTS_SCHEMA, Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { PieceLift, pieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -172,7 +172,55 @@ describe('a peça ampliada (ui/piece-lift.ts)', () => {
 })
 class Nested {}
 
+/** Uma ficha do mural de mentira: o texto deixa o toque passar, a peça nunca vê o mouse. */
+@Component({
+  imports: [ZoomKnob],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  template: `
+    <app-review-card style="display: block; position: relative; width: 300px; height: 300px">
+      <div style="pointer-events: none; padding: 100px 0 0 100px">
+        <div class="amplia peca" style="position: relative; width: 120px; height: 80px"><app-zoom-knob style="position: absolute; top: -15px; right: -15px" /></div>
+      </div>
+    </app-review-card>
+  `,
+})
+class OnCard {}
+
 describe('o broche de ampliar (ui/zoom-knob.ts)', () => {
+  it('na ficha do mural, acende com o mouse em cima da peça, e não em qualquer canto da ficha', async () => {
+    TestBed.configureTestingModule({ imports: [OnCard], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(OnCard);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const el = fixture.nativeElement as HTMLElement;
+    const card = el.querySelector<HTMLElement>('app-review-card')!;
+    const piece = el.querySelector<HTMLElement>('.peca')!.getBoundingClientRect();
+    const knob = el.querySelector<HTMLElement>('app-zoom-knob')!;
+    const at = (type: string, x: number, y: number): void => {
+      card.dispatchEvent(new PointerEvent(type, { pointerType: 'mouse', clientX: x, clientY: y }));
+      fixture.detectChanges();
+    };
+    // no canto da ficha, longe da peça: apagado
+    at('pointerenter', piece.left - 60, piece.top - 60);
+    expect(knob.classList).not.toContain('perto');
+    // em cima da peça: aceso
+    at('pointermove', piece.left + 20, piece.bottom - 10);
+    expect(knob.classList).toContain('perto');
+    // no próprio broche, que sai para fora da peça: continua
+    const k = knob.getBoundingClientRect();
+    at('pointermove', k.right - 2, k.top + 2);
+    expect(knob.classList).toContain('perto');
+    // de volta ao resto da ficha, e para fora dela
+    at('pointermove', piece.left - 30, piece.bottom + 30);
+    expect(knob.classList).not.toContain('perto');
+    at('pointermove', piece.left + 20, piece.top + 20);
+    card.dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+    fixture.detectChanges();
+    expect(knob.classList).not.toContain('perto');
+    fixture.destroy();
+  });
+
+
   it('acende só com o mouse na peça dele: a foto dentro da nota não acende o da nota de fora, e sim', async () => {
     TestBed.configureTestingModule({ imports: [Nested], providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(Nested);

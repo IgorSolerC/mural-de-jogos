@@ -5,8 +5,10 @@ import { ICON, IconModule } from './icons';
  * O broche de ampliar dos widgets: o broche de lata do volume (ui/_broche.scss), com a seta de
  * ampliar desenhada a tinta. Aparece com o mouse em cima da peça dele (quem o usa põe a classe
  * `amplia` no que conta como "em cima": a mais perto em volta dele, então a foto colada numa nota
- * não acende o broche da nota, nem a nota o da foto; na ficha do mural, onde o texto deixa o toque
- * passar, vale a ficha inteira) ou com o foco do teclado; sem mouse, fica sempre à mostra.
+ * não acende o broche da nota, nem a nota o da foto) ou com o foco do teclado; sem mouse, fica
+ * sempre à mostra. Na ficha do mural, o texto deixa o toque passar (o mouse nunca chega na peça):
+ * lá, a ficha conta onde o mouse anda e o broche acende só com ele dentro do desenho da peça (ou
+ * dele mesmo, que pode sair para fora dela), nunca com o mouse em qualquer canto da ficha.
  * Escondido só na opacidade: o Tab chega nele (e um broche invisível debaixo do mouse já está à
  * mostra); com a peça escondida, ele some junto (`visibility: inherit`).
  *
@@ -34,7 +36,6 @@ import { ICON, IconModule } from './icons';
       visibility: inherit;
     }
     :host(.perto),
-    :host-context(app-review-card:hover),
     :host(:has(:focus-visible)) {
       @include broche.a-mostra;
     }
@@ -63,15 +64,29 @@ export class ZoomKnob {
     const enter = (): void => this.near.set(true);
     const leave = (): void => this.near.set(false);
     let piece: HTMLElement | null = null;
+    // na ficha do mural, quem ouve o mouse é a ficha (o toque passa pelo texto, a peça não o vê)
+    let card: HTMLElement | null = null;
+    const move = (e: Event): void => {
+      const p = e as PointerEvent;
+      if (p.pointerType !== 'touch' && piece) this.near.set(inside(piece, p) || inside(host, p));
+    };
+    const listen = (on: boolean): void => {
+      const go = on ? 'addEventListener' : 'removeEventListener';
+      if (card) {
+        card[go]('pointerenter', move);
+        card[go]('pointermove', move);
+        card[go]('pointerleave', leave);
+      } else {
+        piece?.[go]('pointerenter', enter);
+        piece?.[go]('pointerleave', leave);
+      }
+    };
     afterNextRender(() => {
       piece = host.parentElement?.closest<HTMLElement>('.amplia') ?? null;
-      piece?.addEventListener('pointerenter', enter);
-      piece?.addEventListener('pointerleave', leave);
+      card = piece?.closest<HTMLElement>('app-review-card') ?? null;
+      listen(true);
     });
-    inject(DestroyRef).onDestroy(() => {
-      piece?.removeEventListener('pointerenter', enter);
-      piece?.removeEventListener('pointerleave', leave);
-    });
+    inject(DestroyRef).onDestroy(() => listen(false));
   }
 
   protected press(e: Event): void {
@@ -79,4 +94,10 @@ export class ZoomKnob {
     e.stopPropagation();
     this.pressed.emit();
   }
+}
+
+/** O ponto do mouse cai dentro do desenho do elemento (a caixa dele na tela, com o giro). */
+function inside(el: HTMLElement, e: PointerEvent): boolean {
+  const r = el.getBoundingClientRect();
+  return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
 }
