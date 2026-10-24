@@ -127,6 +127,26 @@ export function cleanEvent(raw: unknown): Record<string, unknown> {
   return out;
 }
 
+/**
+ * O evento para mudar um que já existe (PATCH). No PATCH do Google, um objeto mandado se junta ao que já
+ * está lá, e o que não vai fica como estava: o começo de um evento do dia todo que ganhou horário ficaria
+ * com o `date` velho ao lado do `dateTime` novo, e o Google recusa os dois juntos. Então o jeito que sai vai
+ * como `null` (que apaga), e a repetição e a cor que o Murall tirou também (sem elas, o evento continuaria
+ * repetindo, ou com a cor de antes). A descrição e os avisos ficam como estão quando não vêm.
+ */
+export function patchOf(event: Record<string, unknown>): Record<string, unknown> {
+  const replace = (w: unknown) => ('date' in (w as When) ? { ...(w as object), dateTime: null, timeZone: null } : { ...(w as object), date: null });
+  return { ...event, start: replace(event['start']), end: replace(event['end']), recurrence: event['recurrence'] ?? null, colorId: event['colorId'] ?? null };
+}
+
+/** O porquê de uma recusa do Google (a mensagem do erro, curta), para o site dizer e o log guardar. */
+export async function refusalOf(res: Response): Promise<{ reason: string; message: string }> {
+  const body = (await res.json().catch(() => ({}))) as { error?: { message?: unknown; errors?: { reason?: unknown }[] } };
+  const message = typeof body.error?.message === 'string' ? body.error.message.slice(0, 200) : '';
+  const reason = typeof body.error?.errors?.[0]?.reason === 'string' ? body.error.errors[0].reason.slice(0, 60) : '';
+  return { reason, message };
+}
+
 /** Os avisos do evento: os da agenda (`useDefault`) ou os próprios, até 5, pelo celular (popup) ou por e-mail. */
 function cleanReminders(raw: unknown, bad: () => HttpError): Record<string, unknown> {
   if (!raw || typeof raw !== 'object') throw bad();

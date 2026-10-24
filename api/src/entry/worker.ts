@@ -50,6 +50,7 @@ function deps(env: Env): Deps {
     verifyGoogle: googleVerifier(config.googleClientId, googleKeys),
     catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
     agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
+    log: (line) => console.warn(line),
     ...(env.COFRE
       ? {
           vault: {

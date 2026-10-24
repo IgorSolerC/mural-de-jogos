@@ -4,7 +4,7 @@ import { Reminder } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
 import { GEvent, eventIdFor } from './google-agenda';
-import { GoogleAgenda } from './google-agenda-sync';
+import { GoogleAgenda, refusalMessage } from './google-agenda-sync';
 import { ReviewStore } from './review-store';
 
 /**
@@ -23,6 +23,8 @@ interface FakeCalendar {
   refazer: boolean;
   /** Os ids que o Google recusa (400). */
   refuse: string[];
+  /** Quantas mudanças do fim da próxima ida a API deixa para depois (o limite de pedidos do Workers). */
+  later: number;
 }
 
 describe('o Google Agenda ligado ao Calendário', () => {
@@ -53,12 +55,15 @@ describe('o Google Agenda ligado ao Calendário', () => {
     }
     if (url.pathname === '/v1/agenda/enviar') {
       const { ops } = init.body as { ops: FakeCalendar['ops'] };
-      fake.ops.push(...ops);
+      const now = ops.slice(0, ops.length - fake.later);
+      const later = ops.slice(now.length).map((op) => ({ id: op.id, ok: false, erro: 'depois' }));
+      fake.later = 0;
+      fake.ops.push(...now);
       return {
-        resultados: ops.map((op) => {
+        resultados: [...now.map((op) => {
           fake.version++;
           const updated = `2026-10-18T12:00:00.${String(fake.version).padStart(3, '0')}Z`;
-          if (fake.refuse.includes(op.id)) return { id: op.id, ok: false, erro: 'recusado' };
+          if (fake.refuse.includes(op.id)) return { id: op.id, ok: false, erro: 'recusado', motivo: 'Invalid start time.' };
           // uma vez só de um que repete: tirada ou devolvida (o evento dela não muda)
           if (op.id.includes('_')) return { id: op.id, ok: true };
           if (op.acao === 'apagar') {
@@ -69,7 +74,7 @@ describe('o Google Agenda ligado ao Calendário', () => {
           fake.events.set(op.id, ev);
           fake.changes.push(ev);
           return { id: op.id, ok: true, etag: ev.etag, updated, htmlLink: 'https://www.google.com/calendar/event?eid=' + op.id };
-        }),
+        }), ...later],
       };
     }
     throw new Error('rota desconhecida ' + path);
@@ -87,7 +92,7 @@ describe('o Google Agenda ligado ao Calendário', () => {
   beforeEach(async () => {
     localStorage.clear();
     connected = true;
-    fake = { events: new Map(), changes: [], version: 0, ops: [], refazer: false, refuse: [] };
+    fake = { events: new Map(), changes: [], version: 0, ops: [], refazer: false, refuse: [], later: 0 };
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -283,16 +288,46 @@ describe('o Google Agenda ligado ao Calendário', () => {
     expect(calendar.state().googleTrash).toBeUndefined();
   });
 
-  it('o Google recusou uma mudança: a folha diz, e ela vai de novo na próxima rodada', async () => {
-    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo')], removed: {} });
+  it('o Google recusou uma mudança: a folha diz qual e por quê, e ela sai da fila até o lembrete mudar', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo'), reminder('rfeira00001', 'Feira')], removed: {} });
     fake.refuse = [eventIdFor('rbolo00001')];
     await google.sync();
-    expect(google.error()).toContain('O Google não aceitou 1 mudança');
-    expect(google.pending()).toBe(1);
-    fake.refuse = [];
+    expect(google.error()).toBe('O Google não aceitou a última mudança do lembrete “Bolo”: ela ficou só no Murall. Mude o lembrete de novo para tentar outra vez. (Resposta do Google: Invalid start time.)');
+    // a outra foi; a recusada não fica batendo no Google a cada rodada
+    expect(calendar.get('rfeira00001')!.google).toBeDefined();
+    expect(google.pending()).toBe(0);
+    fake.ops = [];
     await google.sync();
+    expect(fake.ops).toEqual([]);
+    expect(google.error()).toContain('“Bolo”');
+    // o aparelho lembra: noutra visita, continua fora da fila
+    expect(Object.keys(JSON.parse(localStorage.getItem('meu-mural:agenda-google:v1')!).recusados)).toEqual(['rbolo00001']);
+    await google.refresh('u1');
+    expect(google.pending()).toBe(0);
+    // mudou o lembrete: volta para a fila e vai
+    fake.refuse = [];
+    calendar.save({ ...calendar.get('rbolo00001')!, time: '10:00' });
+    expect(google.pending()).toBe(1);
+    await google.sync();
+    expect(fake.ops.map((o) => o.id)).toEqual([eventIdFor('rbolo00001')]);
     expect(google.error()).toBeNull();
     expect(google.pending()).toBe(0);
+  });
+
+  it('o aviso de várias recusas junta os nomes e os porquês', () => {
+    expect(refusalMessage([{ title: 'A', motivo: 'x' }, { title: 'B', motivo: 'x' }, { title: 'C' }])).toBe(
+      'O Google não aceitou a última mudança dos lembretes “A”, “B” e “C”: elas ficaram só no Murall. Mude cada um de novo para tentar outra vez. (Resposta do Google: x)',
+    );
+    expect(refusalMessage([])).toBeNull();
+  });
+
+  it('o que não coube numa ida da API (depois) vai logo em seguida, na mesma sincronização', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo'), reminder('rfeira00001', 'Feira')], removed: {} });
+    fake.later = 1;
+    await google.sync();
+    expect(fake.ops.map((o) => o.id)).toEqual([eventIdFor('rbolo00001'), eventIdFor('rfeira00001')]);
+    expect(calendar.reminders().every((r) => r.google && r.google.at === r.at)).toBeTrue();
+    expect(google.error()).toBeNull();
   });
 
   it('vários dias vão e voltam inteiros', async () => {

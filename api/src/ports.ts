@@ -70,4 +70,9 @@ export interface Deps {
    * vê a aba do cofre e nenhuma conta tem cofre.
    */
   vault?: { canUse(code: string): Promise<boolean>; has(userId: string): Promise<boolean>; erase(userId: string): Promise<void> };
+  /**
+   * Uma linha no log (no Worker, o console, que o Workers Logs guarda): as respostas de erro e as recusas
+   * de quem a API chama, nunca o corpo do pedido nem um token. Sem isto (nos testes), nada se escreve.
+   */
+  log?: (line: string) => void;
 }

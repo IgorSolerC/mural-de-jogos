@@ -24,6 +24,16 @@ interface DeviceState {
   em?: string;
   /** De que ligação é a leitura (o `desde` da API): ligar de novo recomeça. */
   desde?: string;
+  /**
+   * Os lembretes que o Google recusou (pelo id), com o `at` que foi e o porquê: saem da fila até mudarem
+   * de novo aqui (mandar de novo o mesmo seria recusado de novo, a cada sincronização).
+   */
+  recusados?: Record<string, Refusal>;
+}
+
+interface Refusal {
+  at: string;
+  motivo?: string;
 }
 
 export type AgendaStatus = 'fora' | 'indisponivel' | 'desligada' | 'ligando' | 'ligada';
@@ -64,6 +74,23 @@ interface Group {
 
 /** Até quanto tempo atrás um dia tirado ainda vai ao Google como "tirar esta vez". */
 const SKIP_DAYS = 30;
+
+/** A mudança deste lembrete já foi recusada pelo Google (e não mudou desde então). */
+function refusedNow(r: Reminder, refused: Record<string, Refusal>): boolean {
+  return refused[r.id]?.at === r.at;
+}
+
+/** O aviso das mudanças recusadas: quais lembretes, o que isso quer dizer, o que fazer e o porquê que o Google deu. */
+export function refusalMessage(list: { title: string; motivo?: string }[]): string | null {
+  if (!list.length) return null;
+  const names = list.map((x) => `“${x.title}”`);
+  const which = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+  const why = [...new Set(list.map((x) => x.motivo).filter((x): x is string => !!x))];
+  const said = why.length ? ` (Resposta do Google: ${why.join(' / ')})` : '';
+  return list.length === 1
+    ? `O Google não aceitou a última mudança do lembrete ${which}: ela ficou só no Murall. Mude o lembrete de novo para tentar outra vez.${said}`
+    : `O Google não aceitou a última mudança dos lembretes ${which}: elas ficaram só no Murall. Mude cada um de novo para tentar outra vez.${said}`;
+}
 
 /** O evento do lembrete mudou aqui e ainda não foi (o que só o Google muda nunca vai). */
 function eventPending(r: Reminder): boolean {
@@ -134,13 +161,15 @@ export class GoogleAgenda {
     const st = this.calendar.state();
     const done = new Set(this.doneDeletes());
     const today = this.calendar.today();
-    const changed = st.reminders.filter((r) => hasPending(r, today)).length;
+    const refused = this.refused();
+    const changed = st.reminders.filter((r) => hasPending(r, today) && !refusedNow(r, refused)).length;
     // um lembrete ligado ao evento (o apagar desfeito) o segura no Google
     const live = new Set(st.reminders.map((r) => r.google?.id));
     const deletes = Object.keys(st.googleTrash ?? {}).filter((id) => !done.has(id) && !live.has(id)).length;
     return changed + deletes;
   });
   private readonly doneDeletes = signal<string[]>([]);
+  private readonly refused = signal<Record<string, Refusal>>({});
 
   constructor() {
     // a resposta do Google numa janela: o google.html entrega aqui
@@ -174,6 +203,7 @@ export class GoogleAgenda {
     const saved = readJson<DeviceState>(DEVICE_KEY);
     this.device = saved?.conta === conta ? saved : { conta };
     this.doneDeletes.set(this.device.feitos ?? []);
+    this.refused.set(this.device.recusados ?? {});
     this.lastSync.set(this.device.em ?? null);
     try {
       const r = await this.account.request<StatusReply>('/v1/agenda');
@@ -181,8 +211,9 @@ export class GoogleAgenda {
       this.status.set(!r.disponivel && !r.conectada ? 'indisponivel' : r.conectada ? 'ligada' : 'desligada');
       // ligado de novo (noutro aparelho) depois da última leitura daqui: lê tudo de novo
       if (r.conectada && r.desde && this.device.desde !== r.desde) {
-        this.saveDevice({ sync: undefined, feitos: [], desde: r.desde });
+        this.saveDevice({ sync: undefined, feitos: [], desde: r.desde, recusados: {} });
         this.doneDeletes.set([]);
+        this.refused.set({});
       }
     } catch {
       this.status.set('indisponivel');
@@ -232,8 +263,9 @@ export class GoogleAgenda {
       this.status.set('ligada');
       this.error.set(null);
       // uma ligação nova lê tudo de novo
-      this.saveDevice({ sync: undefined, feitos: [], desde: r.desde });
+      this.saveDevice({ sync: undefined, feitos: [], desde: r.desde, recusados: {} });
       this.doneDeletes.set([]);
+      this.refused.set({});
       await this.sync();
     } catch (err) {
       this.status.set('desligada');
@@ -252,6 +284,7 @@ export class GoogleAgenda {
     const conta = this.account.account()?.id;
     this.device = conta ? { conta } : null;
     this.doneDeletes.set([]);
+    this.refused.set({});
     this.lastSync.set(null);
     this.skipped.set({ repeticao: 0, excecao: 0 });
     this.status.set('desligada');
@@ -269,18 +302,15 @@ export class GoogleAgenda {
     this.running = (async () => {
       this.syncing.set(true);
       try {
-        let refused = 0;
         do {
           this.again = false;
           await this.pull();
-          refused = await this.push();
+          await this.push();
         } while (this.again);
         const em = new Date().toISOString();
         this.saveDevice({ em });
         this.lastSync.set(em);
-        this.error.set(
-          refused ? `O Google não aceitou ${refused === 1 ? '1 mudança' : `${refused} mudanças`} do Murall. ${refused === 1 ? 'Ela tenta' : 'Elas tentam'} de novo na próxima sincronização.` : null,
-        );
+        this.error.set(this.refusals());
       } catch (err) {
         if (err instanceof CloudError && err.code === 'agenda-desligada') {
           this.status.set('desligada');
@@ -420,18 +450,30 @@ export class GoogleAgenda {
     this.calendar.applyGoogle([...upserts.values()], removes);
   }
 
+  /** O aviso das recusas que continuam valendo (o lembrete não mudou desde então). */
+  private refusals(): string | null {
+    const refused = this.refused();
+    const list = this.calendar
+      .state()
+      .reminders.filter((r) => refusedNow(r, refused))
+      .map((r) => ({ title: r.title, motivo: refused[r.id].motivo }));
+    return refusalMessage(list);
+  }
+
   /**
    * Manda o que mudou no Murall: o evento de cada lembrete mudado, as vezes tiradas (ou devolvidas) de
-   * cada um que se repete, depois do evento, e os apagados. Devolve quantas mudanças o Google recusou
-   * (elas tentam de novo na próxima rodada).
+   * cada um que se repete, depois do evento, e os apagados. O que o Google recusa sai da fila até mudar de
+   * novo aqui; o que não coube na ida (`depois`) vai na rodada seguinte, logo em seguida.
    */
-  private async push(): Promise<number> {
+  private async push(): Promise<void> {
     const st = this.calendar.state();
     const tz = deviceTimeZone();
     const today = this.calendar.today();
     const done = new Set(this.doneDeletes());
+    const refusedBefore = this.refused();
     const items: (Group | Op)[] = [];
     for (const r of st.reminders) {
+      if (refusedNow(r, refusedBefore)) continue;
       const sendEvent = eventPending(r);
       const { add, back } = skipChanges(r, today);
       if (!sendEvent && !add.length && !back.length) continue;
@@ -453,7 +495,6 @@ export class GoogleAgenda {
     }
     const live = new Set(st.reminders.map((r) => r.google?.id));
     for (const id of Object.keys(st.googleTrash ?? {})) if (!done.has(id) && !live.has(id)) items.push({ acao: 'apagar', id });
-    let refused = 0;
     for (let i = 0; i < items.length; ) {
       // um lembrete não se divide entre duas idas (o evento vai antes das vezes dele)
       const batch: (Group | Op)[] = [];
@@ -465,17 +506,29 @@ export class GoogleAgenda {
         size += n;
       }
       const ops = batch.flatMap((x) => ('ops' in x ? x.ops : [x]));
-      const { resultados } = await this.account.request<{ resultados: { id: string; ok: boolean; etag?: string | null; htmlLink?: string | null; erro?: string }[] }>(
+      const { resultados } = await this.account.request<{
+        resultados: { id: string; ok: boolean; etag?: string | null; htmlLink?: string | null; erro?: string; motivo?: string }[];
+      }>(
         '/v1/agenda/enviar',
         { method: 'POST', body: { ops: ops.map(({ acao, id, evento }) => ({ acao, id, ...(evento ? { evento } : {}) })) } },
       );
       const byId = new Map(resultados.map((x) => [x.id, x]));
-      refused += resultados.filter((x) => !x.ok && x.erro === 'recusado').length;
+      // a API não coube tudo numa ida: a sincronização dá outra volta
+      if (resultados.some((x) => !x.ok && x.erro === 'depois')) this.again = true;
       const deleted: string[] = [];
+      const refused: Record<string, Refusal> = {};
       for (const item of batch) {
         if (!('ops' in item)) {
-          if (byId.get(item.id)?.ok) deleted.push(item.id);
+          // apagar que o Google recusa não adianta mandar de novo: sai da fila
+          const res = byId.get(item.id);
+          if (res?.ok || res?.erro === 'recusado') deleted.push(item.id);
+          if (res?.erro === 'recusado') console.warn(`Google Agenda: o Google não deixou apagar um evento (${res.motivo ?? 'sem motivo'})`);
           continue;
+        }
+        const no = item.ops.map((o) => byId.get(o.id)).find((x) => x && !x.ok && x.erro === 'recusado');
+        if (no) {
+          refused[item.reminder] = { at: item.sent, ...(no.motivo ? { motivo: no.motivo } : {}) };
+          console.warn(`Google Agenda: o Google recusou a mudança de um lembrete (${no.motivo ?? 'sem motivo'})`);
         }
         const eventOp = item.ops.find((o) => o.acao === 'criar' || o.acao === 'mudar');
         const eventRes = eventOp ? byId.get(eventOp.id) : undefined;
@@ -507,9 +560,13 @@ export class GoogleAgenda {
         this.doneDeletes.set(feitos);
         this.saveDevice({ feitos });
       }
+      if (Object.keys(refused).length) {
+        const recusados = { ...this.refused(), ...refused };
+        this.refused.set(recusados);
+        this.saveDevice({ recusados });
+      }
       if (resultados.some((x) => !x.ok && x.erro === 'limite')) throw new CloudError('O Google pediu um tempo: o resto vai daqui a pouco.', 'limite', 429);
     }
-    return refused;
   }
 
   private saveDevice(patch: Partial<DeviceState>): void {

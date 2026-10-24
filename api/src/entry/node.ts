@@ -30,6 +30,7 @@ const deps: Deps = {
   verifyGoogle: googleVerifier(config.googleClientId, createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))),
   catalog: { keys: readCatalogKeys(process.env) },
   agenda: { keys: readAgendaKeys(process.env) },
+  log: (line) => console.warn(line),
 };
 const app = createApp(deps);
 const port = Number(process.env['PORT'] ?? 8787);

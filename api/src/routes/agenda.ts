@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, plainCode, seal, trimEvent } from '../domain/agenda';
+import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, patchOf, plainCode, refusalOf, seal, trimEvent } from '../domain/agenda';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { write } from '../domain/quota';
@@ -26,6 +26,12 @@ const REQUEST_MS = 15 * 60_000;
 const MAX_PAGES = 8;
 /** Quantas mudanças vão ao Google de uma vez. */
 export const MAX_OPS = 25;
+/**
+ * Quantos pedidos ao Google uma ida pode fazer: o plano gratuito do Workers deixa 50 por chamada, e cada
+ * mudança pode levar dois (criar que vira mudar, mudar que vira criar), mais o acesso renovado. O que não
+ * couber volta como `depois`, e o site manda na ida seguinte.
+ */
+export const MAX_CALLS = 46;
 const UPSTREAM_TIMEOUT_MS = 10_000;
 const EVENT_FIELDS =
   'nextPageToken,nextSyncToken,items(id,status,summary,start,end,recurrence,recurringEventId,originalStartTime,colorId,updated,etag,htmlLink,eventType,reminders,organizer(self),attendees(self))';
@@ -36,6 +42,7 @@ const accessCache = new Map<string, { token: string; until: number }>();
 export function agendaRoutes(app: Hono, deps: Deps): void {
   const keys = deps.agenda?.keys ?? { clientSecret: '', key: '', codes: [] };
   const upstream = deps.agenda?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  const warn = (line: string) => deps.log?.(line);
   const configured = () => !!(keys.clientSecret && keys.key && deps.config.googleClientId);
   /** Configurado e, enquanto há a lista de contas (o app em teste no Google), a conta está nela. */
   const available = async (userId: string) => {
@@ -51,7 +58,8 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
   const google = async (url: string, init: RequestInit = {}): Promise<Response> => {
     try {
       return await upstream(url, { ...init, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
-    } catch {
+    } catch (err) {
+      warn(`agenda: o Google não respondeu (${err instanceof Error ? err.name : 'erro'})`);
       throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
     }
   };
@@ -95,7 +103,10 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
       await write(deps, [{ sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [userId] }], 2);
       throw desligada();
     }
-    if (!res.ok) throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
+    if (!res.ok) {
+      warn(`agenda: o Google respondeu ${res.status} ao renovar o acesso`);
+      throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
+    }
     const body = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!body.access_token) throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
     accessCache.set(userId, { token: body.access_token, until: now + Math.max(60, (body.expires_in ?? 3600) - 120) * 1000 });
@@ -221,8 +232,13 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
       if (page) q.set('pageToken', page);
       const res = await calendar(s.userId, `${CALENDAR_URL}?${q}`);
       if (res.status === 410) throw new HttpError(410, 'agenda-refazer', 'A agenda precisa ser lida de novo do começo.');
-      if (res.status === 401 || res.status === 403) throw new HttpError(502, 'google-recusou', 'O Google recusou o pedido à agenda.');
-      if (!res.ok) throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
+      if (!res.ok) {
+        const { reason, message } = await refusalOf(res);
+        warn(`agenda: o Google respondeu ${res.status} à busca (${reason || 'sem motivo'}): ${message}`);
+        if (res.status === 429 || /limit|quota/i.test(reason)) throw new HttpError(429, 'limite', 'O Google pediu um tempo. A agenda tenta de novo daqui a pouco.');
+        if (res.status === 401 || res.status === 403) throw new HttpError(502, 'google-recusou', 'O Google recusou o pedido à agenda.');
+        throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
+      }
       const body = (await res.json()) as { items?: Record<string, unknown>[]; nextPageToken?: string; nextSyncToken?: string };
       // as vezes de um evento que repete (tirada ou mudada só num dia) vêm com o id delas
       for (const item of body.items ?? []) if (isEventId(item['id']) || isInstanceId(item['id'])) eventos.push(trimEvent(item));
@@ -248,49 +264,70 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
     const ops = body['ops'];
     if (!Array.isArray(ops) || ops.length > MAX_OPS) throw new HttpError(400, 'ops-invalidas', 'Mudanças demais de uma vez.');
     const resultados: Record<string, unknown>[] = [];
+    let calls = 0;
+    const call = (url: string, init: RequestInit) => {
+      calls++;
+      return calendar(s.userId, url, init);
+    };
     const done = async (id: string, res: Response) => {
       const ev = (await res.json().catch(() => ({}))) as Record<string, unknown>;
       resultados.push({ id, ok: true, etag: ev['etag'] ?? null, updated: ev['updated'] ?? null, htmlLink: ev['htmlLink'] ?? null });
     };
-    const failed = (id: string, res: Response | null) =>
-      resultados.push({ id, ok: false, erro: !res ? 'google-fora' : res.status === 429 || res.status === 403 ? 'limite' : res.status === 400 ? 'recusado' : 'google-fora' });
+    const failed = async (id: string, acao: string, res: Response | null) => {
+      if (!res || (res.status !== 400 && res.status !== 403 && res.status !== 429)) {
+        if (res) warn(`agenda: o Google respondeu ${res.status} ao ${acao}`);
+        resultados.push({ id, ok: false, erro: 'google-fora' });
+        return;
+      }
+      // o 403 é o limite só quando o Google diz que é (senão, é a permissão que falta: uma recusa)
+      const { reason, message } = await refusalOf(res);
+      const erro = res.status === 429 || (res.status === 403 && /limit|quota/i.test(reason)) ? 'limite' : 'recusado';
+      // a recusa que se repete precisa do porquê: vai para o site dizer e para o log (sem o evento)
+      warn(`agenda: o Google respondeu ${res.status} ao ${acao} (${reason || 'sem motivo'}): ${message}`);
+      resultados.push({ id, ok: false, erro, ...(erro === 'recusado' && message ? { motivo: message } : {}) });
+    };
     for (const op of ops) {
       const o = (op ?? {}) as Record<string, unknown>;
       const id = o['id'];
       const acao = o['acao'];
       const ok = isEventId(id) ? ['criar', 'mudar', 'apagar'].includes(acao as string) : isInstanceId(id) && (acao === 'apagar' || acao === 'voltar');
       if (!ok || typeof id !== 'string') throw new HttpError(400, 'ops-invalidas', 'Uma das mudanças não é válida.');
+      // sem lugar para os dois pedidos que esta pode levar: fica para a próxima ida
+      if (calls + 2 > MAX_CALLS) {
+        resultados.push({ id, ok: false, erro: 'depois' });
+        continue;
+      }
       const url = `${CALENDAR_URL}/${id}`;
       let res: Response | null = null;
       try {
         if (acao === 'voltar') {
-          res = await calendar(s.userId, url, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) });
+          res = await call(url, { method: 'PATCH', body: JSON.stringify({ status: 'confirmed' }) });
           // a vez não existe mais (a repetição mudou): não há o que voltar
           if (res.ok || res.status === 404 || res.status === 410) resultados.push({ id, ok: true });
-          else failed(id, res);
+          else await failed(id, acao, res);
           continue;
         }
         if (acao === 'apagar') {
-          res = await calendar(s.userId, url, { method: 'DELETE' });
+          res = await call(url, { method: 'DELETE' });
           // já apagado lá: está feito
           if (res.ok || res.status === 404 || res.status === 410) resultados.push({ id, ok: true });
-          else failed(id, res);
+          else await failed(id, acao, res);
           continue;
         }
         const event = cleanEvent(o['evento']);
         if (acao === 'criar') {
-          res = await calendar(s.userId, CALENDAR_URL, { method: 'POST', body: JSON.stringify({ ...event, id }) });
+          res = await call(CALENDAR_URL, { method: 'POST', body: JSON.stringify({ ...event, id }) });
           // outro aparelho já criou (o id é o mesmo): vira mudança
-          if (res.status === 409) res = await calendar(s.userId, url, { method: 'PATCH', body: JSON.stringify(event) });
+          if (res.status === 409) res = await call(url, { method: 'PATCH', body: JSON.stringify(patchOf(event)) });
         } else {
-          res = await calendar(s.userId, url, { method: 'PATCH', body: JSON.stringify(event) });
-          if (res.status === 404) res = await calendar(s.userId, CALENDAR_URL, { method: 'POST', body: JSON.stringify({ ...event, id }) });
+          res = await call(url, { method: 'PATCH', body: JSON.stringify(patchOf(event)) });
+          if (res.status === 404) res = await call(CALENDAR_URL, { method: 'POST', body: JSON.stringify({ ...event, id }) });
         }
         if (res.ok) await done(id, res);
-        else failed(id, res);
+        else await failed(id, String(acao), res);
       } catch (err) {
         if (err instanceof HttpError && err.code !== 'google-fora') throw err;
-        failed(id, res);
+        await failed(id, String(acao), null);
       }
     }
     return c.json({ resultados });

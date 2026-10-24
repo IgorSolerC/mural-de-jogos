@@ -7,7 +7,7 @@ import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, open, readAgendaKeys } from '../src/domain/agenda';
 import { googleVerifier } from '../src/domain/google';
-import { forgetAgendaAccess } from '../src/routes/agenda';
+import { MAX_CALLS, MAX_OPS, forgetAgendaAccess } from '../src/routes/agenda';
 import { Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
 
@@ -37,6 +37,7 @@ describe('o Google Agenda', () => {
   let calls: Call[];
   let google: (call: Call) => Response;
   let json: ReturnType<typeof jsonCaller>;
+  let logged: string[];
 
   const reply = (status: number, body: unknown = {}) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -47,6 +48,7 @@ describe('o Google Agenda', () => {
       config,
       now: () => NOW,
       verifyGoogle: googleVerifier(config.googleClientId, createLocalJWKSet({ keys: [jwk] })),
+      log: (line) => logged.push(line),
       agenda: {
         keys: readAgendaKeys(env),
         fetch: async (url, init) => {
@@ -70,6 +72,7 @@ describe('o Google Agenda', () => {
     await db.batch(TABLES.map((t) => ({ sql: `DELETE FROM ${t}` })));
     forgetAgendaAccess();
     calls = [];
+    logged = [];
     google = () => reply(500);
     build();
   });
@@ -229,6 +232,76 @@ describe('o Google Agenda', () => {
     // um evento que não serve, ou um id inventado, recusa o pedido
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'criar', id: 'mu0005', evento: { summary: 'x' } }] }, token)).status).toBe(400);
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'apagar', id: 'X!' }] }, token)).status).toBe(400);
+  });
+
+  it('mudar troca o jeito do horário inteiro: o que sai vai como null (o PATCH do Google junta os objetos)', async () => {
+    const token = await login();
+    await connect(token);
+    google = () => reply(200, { etag: '"m"' });
+    calls = [];
+    const timed = { summary: 'Reset', start: { dateTime: '2026-10-18T23:00:00', timeZone: 'America/Sao_Paulo' }, end: { dateTime: '2026-10-19T00:00:00', timeZone: 'America/Sao_Paulo' }, recurrence: ['RRULE:FREQ=WEEKLY'] };
+    const allDay = { summary: 'Feira', start: { date: '2026-10-20' }, end: { date: '2026-10-21' }, colorId: '4' };
+    const r = await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0001', evento: timed }, { acao: 'mudar', id: 'mu0002', evento: allDay }] }, token);
+    expect(r.status).toBe(200);
+    const [a, b] = calls.filter((c) => c.method === 'PATCH').map((c) => JSON.parse(c.body));
+    // o dia todo que ganhou horário: o `date` de antes sai (senão o Google recusa o começo com os dois)
+    expect(a.start).toEqual({ dateTime: '2026-10-18T23:00:00', timeZone: 'America/Sao_Paulo', date: null });
+    expect(a.end).toEqual({ dateTime: '2026-10-19T00:00:00', timeZone: 'America/Sao_Paulo', date: null });
+    // e a cor da agenda (o branco do Murall) apaga a cor que estava
+    expect(a.colorId).toBeNull();
+    expect(a.recurrence).toEqual(['RRULE:FREQ=WEEKLY']);
+    // o horário que virou dia todo; a repetição tirada no Murall sai de lá
+    expect(b.start).toEqual({ date: '2026-10-20', dateTime: null, timeZone: null });
+    expect(b.recurrence).toBeNull();
+    expect(b.colorId).toBe('4');
+    // criar vai inteiro, sem os null
+    google = () => reply(200, {});
+    calls = [];
+    await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'criar', id: 'mu0003', evento: timed }] }, token);
+    expect(JSON.parse(calls[0]!.body).start).toEqual(timed.start);
+    expect('colorId' in JSON.parse(calls[0]!.body)).toBe(false);
+  });
+
+  it('a recusa do Google volta com o porquê; o 403 é limite só quando o Google diz', async () => {
+    const token = await login();
+    await connect(token);
+    const evento = { summary: 'x', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } };
+    const gerror = (status: number, reason: string, message: string) => reply(status, { error: { code: status, message, errors: [{ reason, message }] } });
+    google = (c) => {
+      const id = c.url.slice(CALENDAR_URL.length + 1);
+      if (id === 'mu0001') return gerror(400, 'invalid', 'Invalid start time.');
+      if (id === 'mu0002') return gerror(403, 'forbiddenForNonOrganizer', 'Shared properties can only be changed by the organizer of the event.');
+      return gerror(403, 'rateLimitExceeded', 'Rate Limit Exceeded');
+    };
+    const r = (await (
+      await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0001', evento }, { acao: 'mudar', id: 'mu0002', evento }, { acao: 'apagar', id: 'mu0003' }] }, token)
+    ).json()) as { resultados: Record<string, unknown>[] };
+    expect(r.resultados).toEqual([
+      { id: 'mu0001', ok: false, erro: 'recusado', motivo: 'Invalid start time.' },
+      { id: 'mu0002', ok: false, erro: 'recusado', motivo: 'Shared properties can only be changed by the organizer of the event.' },
+      { id: 'mu0003', ok: false, erro: 'limite' },
+    ]);
+    // o log guarda o porquê (sem o evento)
+    expect(logged).toEqual([
+      'agenda: o Google respondeu 400 ao mudar (invalid): Invalid start time.',
+      'agenda: o Google respondeu 403 ao mudar (forbiddenForNonOrganizer): Shared properties can only be changed by the organizer of the event.',
+      'agenda: o Google respondeu 403 ao apagar (rateLimitExceeded): Rate Limit Exceeded',
+    ]);
+  });
+
+  it('cabe no limite de pedidos do Workers: o que passa dele volta como depois', async () => {
+    const token = await login();
+    await connect(token);
+    const evento = { summary: 'x', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } };
+    // cada criar vira mudar (outro aparelho criou): dois pedidos por mudança
+    google = (c) => (c.method === 'POST' ? reply(409) : reply(200, { etag: '"e"' }));
+    calls = [];
+    const ops = Array.from({ length: MAX_OPS }, (_, i) => ({ acao: 'criar', id: `mu${String(i).padStart(4, '0')}`, evento }));
+    const r = (await (await json('POST', '/v1/agenda/enviar', { ops }, token)).json()) as { resultados: { ok: boolean; erro?: string }[] };
+    const later = r.resultados.filter((x) => x.erro === 'depois').length;
+    expect(later).toBe(MAX_OPS - Math.floor(MAX_CALLS / 2));
+    expect(r.resultados.filter((x) => x.ok).length).toBe(Math.floor(MAX_CALLS / 2));
+    expect(calls.filter((c) => c.url.startsWith(CALENDAR_URL)).length).toBeLessThanOrEqual(MAX_CALLS);
   });
 
   it('os avisos: a marcação vai sem nenhum, o lembrete com os da agenda; a busca devolve os do Google', async () => {
