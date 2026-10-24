@@ -1,0 +1,137 @@
+@if (comGrupos() && pastas().length > 1) {
+  <!-- estreito: as orelhas de todas as pastas numa fileira, que leva o quadro até a pasta -->
+  <nav #indice class="indice" aria-label="Pastas">
+    @for (p of pastas(); track p.chave) {
+      <button
+        type="button"
+        class="indice-orelha"
+        [class.sem-grupo]="!p.chave"
+        [class.com-cor]="!!p.jeito.cor"
+        [style.--cor-do-grupo]="hexDa(p.jeito.cor)"
+        [attr.aria-current]="atual() === $index ? 'true' : null"
+        (click)="irParaPasta($index)"
+      >
+        @if (p.jeito.icone) {
+          <cofre-icone [cartela]="p.jeito.icone" />
+        } @else {
+          <cofre-icone nome="pasta" />
+        }
+        <span class="indice-nome">{{ p.nome }}</span>
+        <span class="indice-conta"><span class="visivel-so-leitor">: </span>{{ p.itens.length }}</span>
+      </button>
+    }
+  </nav>
+}
+<div class="moldura" [class.com-indice]="comGrupos() && pastas().length > 1" [class.apaga-inicio]="antes() > 0" [class.apaga-fim]="depois() > 0">
+  <div #rolo class="pastas" [class.com-grupos]="comGrupos()" [class.rola]="rola()" (scroll)="medir()" (wheel)="roda($event)" (focusin)="focou($event)">
+    @for (p of pastas(); track p.chave) {
+      <section
+        class="pasta"
+        [class.sozinha]="sozinha()"
+        [class.sem-grupo]="!p.chave"
+        [class.com-cor]="!!p.jeito.cor"
+        [style.--cor-do-grupo]="hexDa(p.jeito.cor)"
+        [attr.aria-labelledby]="comGrupos() ? 'orelha-' + $index : null"
+        [attr.aria-label]="comGrupos() ? null : 'Senhas'"
+      >
+        @if (comGrupos()) {
+          <h2 class="orelha" [id]="'orelha-' + $index" [title]="p.nome">
+            @if (p.jeito.icone) {
+              <cofre-icone class="icone-do-grupo" [cartela]="p.jeito.icone" />
+            } @else {
+              <cofre-icone nome="pasta" />
+            }
+            <span class="orelha-nome">{{ p.nome }}</span>
+            <span class="orelha-conta"><span class="visivel-so-leitor">: </span>{{ p.itens.length }}<span class="visivel-so-leitor">{{ p.itens.length === 1 ? ' senha' : ' senhas' }}</span></span>
+          </h2>
+        }
+        <ul class="lista" role="list">
+          @for (i of p.itens; track i.id) {
+            @let it = i.item!;
+            @let vezes = vezesVazada(i.id);
+            @let segunda = !!(it.usuario || it.outras.length || (dominio(it.url) && it.titulo));
+            <li class="linha" [class.aberta]="aberto() === i.id" [class.uma-linha]="!segunda">
+              @let naVez = daVez() === i.id;
+              <button
+                type="button"
+                class="abre"
+                [attr.data-id]="i.id"
+                [attr.tabindex]="naVez ? 0 : -1"
+                [attr.aria-current]="aberto() === i.id ? 'true' : null"
+                aria-keyshortcuts="U S"
+                (click)="abrir.emit(i)"
+              >
+                <cofre-monograma [nome]="nome(it)" [icone]="it.icone" [cor]="it.cor" [pequeno]="true" />
+                <span class="textos">
+                  <span class="titulo-linha">
+                    <span class="titulo" [title]="nome(it)">{{ nome(it) }}</span>
+                    @if (vezes > 0) {
+                      <span class="selo-vazada">Vazada</span>
+                    }
+                  </span>
+                  @if (segunda) {
+                    <span class="usuario-linha">
+                      @if (it.usuario) {
+                        <span class="usuario" translate="no">{{ it.usuario }}</span>
+                      } @else if (dominio(it.url) && it.titulo) {
+                        <span class="usuario" translate="no">{{ dominio(it.url) }}</span>
+                      }
+                      @if (it.outras.length) {
+                        <span class="mais-senhas">+{{ it.outras.length }}<span class="visivel-so-leitor"> {{ it.outras.length === 1 ? 'senha' : 'senhas' }}</span></span>
+                      }
+                    </span>
+                  }
+                </span>
+              </button>
+              @if (it.usuario || it.senha) {
+                <span class="rapidos">
+                  @if (it.usuario) {
+                    <button
+                      type="button"
+                      class="rapido"
+                      [attr.tabindex]="naVez ? null : -1"
+                      [class.feito]="foiCopiado(i, 'usuario')"
+                      [attr.aria-label]="'Copiar o user de ' + nome(it)"
+                      title="Copiar o user (U)"
+                      (click)="copiar.emit({ item: i, campo: 'usuario' })"
+                    >
+                      <cofre-icone [nome]="foiCopiado(i, 'usuario') ? 'feito' : 'pessoa'" />
+                    </button>
+                  }
+                  @if (it.senha) {
+                    <button
+                      type="button"
+                      class="rapido"
+                      [attr.tabindex]="naVez ? null : -1"
+                      [class.pede]="it.protegida"
+                      [class.feito]="foiCopiado(i, 'senha')"
+                      [attr.aria-label]="it.protegida ? 'A senha de ' + nome(it) + ' pede a passkey: abrir' : 'Copiar a senha de ' + nome(it)"
+                      [title]="it.protegida ? 'Pede a passkey: abre a senha (S)' : 'Copiar a senha (S)'"
+                      (click)="copiar.emit({ item: i, campo: 'senha' })"
+                    >
+                      <cofre-icone [nome]="foiCopiado(i, 'senha') ? 'feito' : it.protegida ? 'cadeado' : 'chave'" />
+                    </button>
+                  }
+                </span>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+    }
+  </div>
+
+  <!-- as setas das beiradas: só com mouse (no toque, o dedo leva o quadro de lado) -->
+  @if (antes()) {
+    <button type="button" class="seta seta-inicio" tabindex="-1" [attr.aria-label]="'Ver as pastas da esquerda (' + antes() + ')'" title="As pastas da esquerda" (click)="virar('antes')">
+      <cofre-icone nome="voltar" />
+      <span class="seta-n" aria-hidden="true">{{ antes() }}</span>
+    </button>
+  }
+  @if (depois()) {
+    <button type="button" class="seta seta-fim" tabindex="-1" [attr.aria-label]="'Ver as pastas da direita (' + depois() + ')'" title="As pastas da direita" (click)="virar('depois')">
+      <cofre-icone nome="avancar" />
+      <span class="seta-n" aria-hidden="true">{{ depois() }}</span>
+    </button>
+  }
+</div>

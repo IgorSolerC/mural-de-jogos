@@ -279,6 +279,9 @@ describe('o cofre aberto', () => {
 
   it('"/" vai para a busca, as setas andam pela lista e o Esc fecha o item aberto', async () => {
     const { fixture, el } = await montar();
+    // estreita: as etiquetas numa coluna só
+    el.style.setProperty('--largura', '420px');
+    await estabilizar(fixture);
     const tecla = (alvo: EventTarget, key: string) => alvo.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     tecla(document.body, '/');
     expect(document.activeElement).toBe(el.querySelector('#busca'));
@@ -324,7 +327,7 @@ describe('as pastas do cofre (os grupos)', () => {
     { ...vazio, titulo: 'Repositório', grupo: 'trabalho' },
   ];
   const orelhas = (el: HTMLElement) => [...el.querySelectorAll('.orelha .orelha-nome')].map((o) => o.textContent!.trim());
-  const orelha = (el: HTMLElement, nome: string) => [...el.querySelectorAll<HTMLButtonElement>('.orelha')].find((o) => o.querySelector('.orelha-nome')!.textContent!.trim() === nome)!;
+  const orelha = (el: HTMLElement, nome: string) => [...el.querySelectorAll<HTMLElement>('.orelha')].find((o) => o.querySelector('.orelha-nome')!.textContent!.trim() === nome)!;
   const naPasta = (el: HTMLElement, nome: string) => [...orelha(el, nome).closest('.pasta')!.querySelectorAll('.titulo')].map((t) => t.textContent!.trim());
   const escolhas = (el: HTMLElement) => [...el.querySelectorAll<HTMLButtonElement>('.grupos-existentes button')];
   const abrir = (el: HTMLElement, titulo: string) => [...el.querySelectorAll<HTMLButtonElement>('.abre')].find((b) => b.querySelector('.titulo')!.textContent!.trim() === titulo)!.click();
@@ -345,32 +348,334 @@ describe('as pastas do cofre (os grupos)', () => {
     expect(orelha(el, 'Casa').textContent).toContain('1 senha');
   });
 
-  it('a orelha fecha e abre a pasta; a busca acha dentro das fechadas, também pelo nome do grupo', async () => {
+  it('o quadro: as pastas lado a lado; a busca tira as que ficam sem nada e acha também pelo nome do grupo', async () => {
     const { fixture, el } = await montar(false, comGrupos);
-    orelha(el, 'Casa').click();
+    el.style.setProperty('--largura', '1200px');
     await estabilizar(fixture);
-    expect(orelha(el, 'Casa').getAttribute('aria-expanded')).toBe('false');
-    expect(titulos(el)).not.toContain('Alarme');
+    const caixas = [...el.querySelectorAll('.pasta')].map((p) => p.getBoundingClientRect());
+    expect(caixas.length).toBe(4);
+    // na mesma altura, uma depois da outra
+    expect(new Set(caixas.map((c) => Math.round(c.top))).size).toBe(1);
+    caixas.slice(1).forEach((c, n) => expect(c.left).toBeGreaterThan(caixas[n]!.right));
     const busca = el.querySelector<HTMLInputElement>('#busca')!;
     busca.value = 'casa';
     busca.dispatchEvent(new Event('input'));
     await estabilizar(fixture);
-    // "casa" acha o Alarme pelo grupo (com a pasta fechada) e o Wi-Fi de casa pelo título
+    // "casa" acha o Alarme pelo grupo e o Wi-Fi de casa pelo título
     expect(titulos(el)).toEqual(['Alarme', 'Wi-Fi de casa']);
-    expect(orelha(el, 'Casa').getAttribute('aria-disabled')).toBe('true');
-    busca.value = '';
+    expect(orelhas(el)).toEqual(['Casa', 'Sem grupo']);
+    expect(el.querySelector('.contagem')!.textContent!.replace(/\s+/g, ' ')).toContain('2 senhas com “casa”');
+    // nada achado: o recado no meio e o Limpar a busca, sem a contagem
+    busca.value = 'zzz';
     busca.dispatchEvent(new Event('input'));
     await estabilizar(fixture);
-    expect(titulos(el)).not.toContain('Alarme');
-    orelha(el, 'Casa').click();
+    expect(el.querySelector('cofre-quadro')).toBeNull();
+    expect(el.querySelector('.contagem')).toBeNull();
+    expect(el.querySelector('.sem-achados')!.textContent).toContain('zzz');
+    botao(el, 'Limpar a busca').click();
     await estabilizar(fixture);
-    expect(titulos(el)).toContain('Alarme');
+    expect(orelhas(el).length).toBe(4);
+    expect(document.activeElement).toBe(busca);
   });
 
-  it('editar: o grupo se escolhe com um toque nos que existem, e a senha vai para a pasta dele, que abre', async () => {
-    const { fixture, el, api, cofre } = await montar(false, comGrupos);
-    orelha(el, 'Casa').click();
+  it('a mesa cabe na tela: começa onde a página mede e acaba antes do pé dela', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
     await estabilizar(fixture);
+    const mesa = el.querySelector<HTMLElement>('.mesa')!;
+    const topo = parseFloat(mesa.style.getPropertyValue('--mesa-topo'));
+    expect(topo).toBeCloseTo(mesa.getBoundingClientRect().top + scrollY, 0);
+    expect(mesa.getBoundingClientRect().height).toBeLessThanOrEqual(innerHeight);
+    expect(el.classList).toContain('na-mesa');
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    expect(el.classList).not.toContain('na-mesa');
+  });
+
+  it('Enter na busca abre a primeira achada, e o foco fica na busca', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    const busca = el.querySelector<HTMLInputElement>('#busca')!;
+    busca.focus();
+    busca.value = 'a';
+    busca.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    busca.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    // a primeira pasta com "a" é a de Bancos (Cartão)
+    expect(el.querySelector('cofre-item h2')!.textContent).toContain('Cartão');
+    expect(el.querySelector('.linha.aberta .titulo')!.textContent).toContain('Cartão');
+    expect(document.activeElement).toBe(busca);
+  });
+
+  it('as setas andam pelo quadro pelo lugar das etiquetas: para os lados, a pasta vizinha', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    const tecla = (key: string) => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const focada = () => document.activeElement!.querySelector('.titulo')?.textContent!.trim();
+    el.querySelector<HTMLInputElement>('#busca')!.focus();
+    tecla('ArrowDown');
+    expect(focada()).toBe('Cartão');
+    tecla('ArrowRight');
+    expect(focada()).toBe('Alarme');
+    tecla('ArrowRight');
+    expect(focada()).toBe('Repositório');
+    tecla('ArrowRight');
+    expect(focada()).toBe('Banco');
+    tecla('ArrowDown');
+    expect(focada()).toBe('Wi-Fi de casa');
+    tecla('ArrowDown');
+    expect(focada()).toBe('Wi-Fi de casa');
+    tecla('Home');
+    expect(focada()).toBe('Banco');
+    tecla('ArrowLeft');
+    expect(focada()).toBe('Repositório');
+  });
+
+  it('o meio da etiqueta abre: os botões de copiar escondidos por cima do fim dela não pegam o clique', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    const linha = [...el.querySelectorAll<HTMLElement>('.linha')].find((l) => l.textContent!.includes('Banco'))!;
+    linha.scrollIntoView({ block: 'center' });
+    const r = linha.getBoundingClientRect();
+    if (matchMedia('(hover: hover)').matches) {
+      // com mouse, os botões só aparecem com o mouse ou o foco na etiqueta
+      expect(getComputedStyle(linha.querySelector('.rapidos')!).opacity).toBe('0');
+      expect(getComputedStyle(linha.querySelector('.rapido')!).pointerEvents).toBe('none');
+    }
+    for (const x of [r.left + r.width * 0.5, r.left + r.width * 0.62]) {
+      const tocado = document.elementFromPoint(x, r.top + r.height / 2) as HTMLElement;
+      expect(tocado.closest('.abre')).withContext(`x = ${Math.round(x - r.left)}`).not.toBeNull();
+    }
+    // com o foco do teclado na etiqueta, eles aparecem
+    linha.querySelector<HTMLElement>('.abre')!.focus();
+    await estabilizar(fixture);
+    expect(getComputedStyle(linha.querySelector('.rapidos')!).opacity).toBe('1');
+  });
+
+  it('larga: a senha abre numa folha ao lado do quadro, com o X que fecha e devolve o foco à etiqueta', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    const quadro = el.querySelector('.lado-lista')!.getBoundingClientRect();
+    const folha = el.querySelector('.lado-item')!.getBoundingClientRect();
+    expect(folha.left).toBeGreaterThanOrEqual(quadro.right - 1);
+    expect(getComputedStyle(el.querySelector('.voltar')!).display).toBe('none');
+    // a aberta não mostra os botões de copiar (a folha tem o Copiar), mesmo com o foco nela
+    const aberta = el.querySelector<HTMLElement>('.linha.aberta')!;
+    aberta.querySelector<HTMLElement>('.abre')!.focus();
+    await estabilizar(fixture);
+    const rapidos = getComputedStyle(aberta.querySelector('.rapidos')!);
+    expect(matchMedia('(hover: hover)').matches ? rapidos.opacity : rapidos.visibility).toBe(matchMedia('(hover: hover)').matches ? '0' : 'hidden');
+    const fechar = el.querySelector<HTMLButtonElement>('[aria-label="Fechar a senha"]')!;
+    expect(getComputedStyle(fechar).display).not.toBe('none');
+    fechar.click();
+    await estabilizar(fixture);
+    await new Promise((ok) => setTimeout(ok, 10));
+    expect(el.querySelector('cofre-item')).toBeNull();
+    expect(document.activeElement!.textContent).toContain('Alarme');
+  });
+
+  it('com a edição mudada e não salva, abrir outra senha, uma nova ou os Ajustes pergunta antes', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    // sem mudar nada, trocar não pergunta
+    abrir(el, 'Cartão');
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-item h2')!.textContent).toContain('Cartão');
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    const titulo = el.querySelector<HTMLInputElement>('#item-titulo')!;
+    titulo.value = 'Cartão novo';
+    titulo.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    await new Promise((ok) => setTimeout(ok, 10));
+    expect(el.querySelector('.aviso-edicao')!.textContent).toContain('Você mudou Cartão');
+    expect(document.activeElement!.textContent!.trim()).toBe('Continuar editando');
+    expect(el.querySelector<HTMLInputElement>('#item-titulo')!.value).toBe('Cartão novo');
+    botao(el, 'Continuar editando').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.aviso-edicao')).toBeNull();
+    expect(el.querySelector<HTMLInputElement>('#item-titulo')!.value).toBe('Cartão novo');
+    // a nova e os Ajustes também esperam
+    botao(el, /Nova senha/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.aviso-edicao')).not.toBeNull();
+    botao(el, 'Continuar editando').click();
+    await estabilizar(fixture);
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-gerenciar')).toBeNull();
+    expect(el.querySelector('.aviso-edicao')).not.toBeNull();
+    // descartar faz o que esperava (aqui, os Ajustes), sem guardar nada
+    botao(el, 'Descartar as mudanças').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-gerenciar')).not.toBeNull();
+    botao(el, /Voltar às senhas/).click();
+    await estabilizar(fixture);
+    expect(titulos(el)).toContain('Cartão');
+    expect(titulos(el)).not.toContain('Cartão novo');
+  });
+
+  it('com o foco numa etiqueta, U copia o user e S a senha', async () => {
+    const { fixture, el, copias } = await montar();
+    const linha = [...el.querySelectorAll<HTMLElement>('.abre')].find((b) => b.textContent!.includes('Banco'))!;
+    linha.focus();
+    linha.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    linha.dispatchEvent(new KeyboardEvent('keydown', { key: 'U', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    expect(copias).toEqual(['segredo-1', 'fulano']);
+    // o Wi-Fi não tem user: o U não faz nada
+    const wifi = [...el.querySelectorAll<HTMLElement>('.abre')].find((b) => b.textContent!.includes('Wi-Fi'))!;
+    wifi.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    expect(copias.length).toBe(2);
+  });
+
+  it('estreito: as orelhas de todas as pastas numa fileira, a da pasta à vista marcada, e o toque leva até a pasta', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '380px');
+    await estabilizar(fixture);
+    const fileira = el.querySelector<HTMLElement>('.indice')!;
+    expect(getComputedStyle(fileira).display).toBe('flex');
+    const orelhasDaFileira = () => [...fileira.querySelectorAll<HTMLButtonElement>('.indice-orelha')];
+    expect(orelhasDaFileira().map((o) => o.querySelector('.indice-nome')!.textContent!.trim())).toEqual(['Bancos', 'Casa', 'trabalho', 'Sem grupo']);
+    expect(orelhasDaFileira()[0]!.getAttribute('aria-current')).toBe('true');
+    const rolo = el.querySelector<HTMLElement>('.pastas')!;
+    rolo.style.scrollBehavior = 'auto';
+    orelhasDaFileira()[2]!.click();
+    await new Promise((ok) => setTimeout(ok, 700));
+    rolo.dispatchEvent(new Event('scroll'));
+    await estabilizar(fixture);
+    const pasta = el.querySelectorAll<HTMLElement>('.pasta')[2]!;
+    expect(Math.abs(rolo.scrollLeft - (pasta.offsetLeft - 12))).toBeLessThan(3);
+    expect(orelhasDaFileira()[2]!.getAttribute('aria-current')).toBe('true');
+  });
+
+  it('larga: sem a fileira de orelhas (as orelhas de cada pasta já estão à vista)', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    expect(getComputedStyle(el.querySelector('.indice')!).display).toBe('none');
+  });
+
+  it('o Tab entra no quadro por uma etiqueta só (a última com o foco), e só os botões de copiar dela entram no Tab', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    const naVez = () => [...el.querySelectorAll<HTMLElement>('.abre')].filter((b) => b.tabIndex === 0).map((b) => b.querySelector('.titulo')!.textContent!.trim());
+    expect(naVez()).toEqual(['Cartão']);
+    const alarme = [...el.querySelectorAll<HTMLElement>('.abre')].find((b) => b.textContent!.includes('Alarme'))!;
+    alarme.focus();
+    await estabilizar(fixture);
+    expect(naVez()).toEqual(['Alarme']);
+    const noTab = [...el.querySelectorAll<HTMLButtonElement>('.rapido')].filter((b) => b.tabIndex === 0).map((b) => b.getAttribute('aria-label'));
+    expect(noTab).toEqual(['Copiar a senha de Alarme']);
+  });
+
+  it('o leitor de tela ouve a cópia (de novo, se repetir) e o que a busca achou, por regiões que ficam na página', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    const status = el.querySelector<HTMLElement>('p[role=status]')!;
+    const copiar = () => el.querySelector<HTMLButtonElement>('[aria-label="Copiar a senha de Banco"]')!.click();
+    copiar();
+    await new Promise((ok) => setTimeout(ok, 100));
+    await estabilizar(fixture);
+    expect(status.textContent).toContain('Senha de Banco copiada');
+    copiar();
+    await estabilizar(fixture);
+    expect(status.textContent!.trim()).toBe('');
+    await new Promise((ok) => setTimeout(ok, 100));
+    await estabilizar(fixture);
+    expect(status.textContent).toContain('Senha de Banco copiada');
+    // o bilhete à vista não é lido duas vezes
+    expect(el.querySelector('.bilhete')!.getAttribute('aria-hidden')).toBe('true');
+    const busca = el.querySelector<HTMLInputElement>('#busca')!;
+    busca.value = 'zzz';
+    busca.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    expect(el.querySelector('p[aria-live=polite]')!.textContent).toContain('Nada com “zzz”');
+  });
+
+  it('o U numa senha sem user diz que ela não tem', async () => {
+    const { fixture, el } = await montar();
+    const wifi = [...el.querySelectorAll<HTMLElement>('.abre')].find((b) => b.textContent!.includes('Wi-Fi'))!;
+    wifi.dispatchEvent(new KeyboardEvent('keydown', { key: 'u', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    expect(el.querySelector('.bilhete')!.textContent).toContain('Wi-Fi de casa não tem user.');
+  });
+
+  it('estreita: abrir pelo teclado põe o foco no Voltar à lista (o quadro, com o foco, sumiu)', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '600px');
+    await estabilizar(fixture);
+    const alarme = [...el.querySelectorAll<HTMLElement>('.abre')].find((b) => b.textContent!.includes('Alarme'))!;
+    alarme.focus();
+    alarme.click();
+    await estabilizar(fixture);
+    expect(document.activeElement!.classList).toContain('voltar');
+  });
+
+  it('com a busca escrita, o Esc só limpa a busca e não fecha a senha aberta', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    const busca = el.querySelector<HTMLInputElement>('#busca')!;
+    busca.focus();
+    busca.value = 'al';
+    busca.dispatchEvent(new Event('input'));
+    busca.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-item')).not.toBeNull();
+  });
+
+  it('depois de salvar, o bilhete da mudança não salva sai', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    const titulo = el.querySelector<HTMLInputElement>('#item-titulo')!;
+    titulo.value = 'Alarme da casa';
+    titulo.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    abrir(el, 'Cartão');
+    await estabilizar(fixture);
+    expect(el.querySelector('.aviso-edicao')).not.toBeNull();
+    botao(el, 'Salvar').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.aviso-edicao')).toBeNull();
+    expect(titulos(el)).toContain('Alarme da casa');
+  });
+
+  it('estreita: a senha toma o lugar do quadro, com o Voltar à lista', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    el.style.setProperty('--largura', '600px');
+    await estabilizar(fixture);
+    abrir(el, 'Alarme');
+    await estabilizar(fixture);
+    expect(getComputedStyle(el.querySelector('.lado-lista')!).display).toBe('none');
+    expect(getComputedStyle(el.querySelector('[aria-label="Fechar a senha"]')!).display).toBe('none');
+    botao(el, /Voltar à lista/).click();
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-quadro')).not.toBeNull();
+  });
+
+  it('editar: o grupo se escolhe com um toque nos que existem, e a senha vai para a pasta dele, aberta', async () => {
+    const { fixture, el, api, cofre } = await montar(false, comGrupos);
     abrir(el, 'Banco');
     await estabilizar(fixture);
     botao(el, 'Editar').click();
@@ -382,8 +687,8 @@ describe('as pastas do cofre (os grupos)', () => {
     expect(escolhas(el)[1]!.getAttribute('aria-pressed')).toBe('true');
     botao(el, 'Salvar').click();
     await estabilizar(fixture);
-    expect(orelha(el, 'Casa').getAttribute('aria-expanded')).toBe('true');
     expect(naPasta(el, 'Casa')).toEqual(['Alarme', 'Banco']);
+    expect(orelha(el, 'Casa').closest('.pasta')!.querySelector('.linha.aberta .titulo')!.textContent).toContain('Banco');
     expect(el.querySelector('.grupo-do-item')!.textContent).toContain('Casa');
     // o grupo vai dentro do cifrado
     const lidos = await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } });

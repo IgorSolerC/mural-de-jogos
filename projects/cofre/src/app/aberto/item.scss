@@ -36,14 +36,36 @@ cofre-icone {
   @include p.rotulo;
 }
 
-/* "Voltar à lista" só existe quando a lista não está ao lado */
+/* "Voltar à lista" só existe quando o quadro não está ao lado; ao lado dele, o X no canto da cabeça */
 .voltar {
   justify-self: start;
   margin: -8px 0 -6px -10px;
 }
-@container corpo (min-width: 820px) {
+.fechar {
+  display: none;
+  margin-right: -8px;
+}
+/* na folha ao lado do quadro, estreita: o X sai da fileira e fica no canto dela, e o nome ganha a largura */
+@container folha (max-width: 520px) {
+  .ver {
+    position: relative;
+  }
+  .ver .cabeca {
+    padding-right: 34px;
+  }
+  .fechar {
+    position: absolute;
+    top: -14px;
+    right: -14px;
+    margin: 0;
+  }
+}
+@container corpo (min-width: 940px) {
   .voltar {
     display: none;
+  }
+  .fechar {
+    display: inline-grid;
   }
 }
 
@@ -56,6 +78,11 @@ cofre-icone {
   padding-bottom: 18px;
   border-bottom: 1.5px solid rgb(21 21 21 / 0.2);
 }
+.cabeca-acoes {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .cabeca-textos {
   display: grid;
   gap: 4px;
@@ -64,7 +91,9 @@ cofre-icone {
 h2 {
   margin: 0;
   font: 400 clamp(1.6rem, 3.4vw, 2.1rem)/1.05 var(--f-marker);
-  overflow-wrap: anywhere;
+  /* quebra entre palavras; só a palavra que não cabe sozinha quebra no meio */
+  overflow-wrap: break-word;
+  hyphens: auto;
   text-wrap: balance;
 }
 .site {
@@ -124,8 +153,9 @@ h2 {
   .cabeca {
     grid-template-columns: auto minmax(0, 1fr);
   }
-  .cabeca .editar {
-    grid-column: 1 / -1;
+  /* o Editar embaixo do nome, na coluna do texto (não solto embaixo do selo) */
+  .cabeca .cabeca-acoes {
+    grid-column: 2;
     justify-self: start;
   }
 }
@@ -162,6 +192,12 @@ dt {
 }
 dd {
   margin: 0;
+}
+/* o site numa linha só, cortado no fim (o Abrir o site leva o endereço inteiro, e o title mostra) */
+.valor.url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .valor {
   grid-area: valor;
@@ -328,9 +364,12 @@ dd {
 /* o Salvar fica sempre à vista, preso no pé da parte que rola */
 .editar .pe {
   position: sticky;
-  bottom: -8px;
+  /* rente ao pé de quem rola: a página (8px abaixo da tela) ou a folha ao lado do quadro (o pé dela) */
+  bottom: calc(-1 * var(--folha-pe, 8px));
   z-index: 1;
-  padding-bottom: 10px;
+  /* um pouco mais largo que os campos, para o fio de volta deles não aparecer dos lados ao passar embaixo */
+  margin-inline: -6px;
+  padding: 16px 6px 10px;
   background: var(--papel);
 }
 .campo-bloco > input {

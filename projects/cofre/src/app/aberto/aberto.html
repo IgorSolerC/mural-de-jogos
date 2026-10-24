@@ -61,148 +61,103 @@
         <cofre-lixeira [itens]="naLixeira()" [ocupado]="ocupado()" (voltar)="irPara('senhas')" (restaurar)="voltarDaLixeira($event)" (apagar)="apagar($event)" />
       }
       @default {
-        <div class="mesa" [class.com-detalhe]="comDetalhe()">
+        <div #mesa class="mesa" [class.com-detalhe]="comDetalhe()" [class.inteira]="inteira()">
           <section class="lado-lista" aria-label="Senhas guardadas">
             <div class="barra">
               <label class="busca">
                 <span class="visivel-so-leitor">Buscar no cofre</span>
                 <cofre-icone nome="busca" />
-                <input #campoBusca id="busca" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar" aria-keyshortcuts="/" [value]="busca()" (input)="busca.set(valor($event))" />
+                <input
+                  #campoBusca
+                  id="busca"
+                  type="search"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Buscar"
+                  aria-keyshortcuts="/"
+                  [value]="busca()"
+                  (input)="busca.set(valor($event))"
+                  (keydown.enter)="abrirPrimeira($event)"
+                />
                 <kbd class="tecla" aria-hidden="true">/</kbd>
               </label>
-              <button type="button" class="tinta nova" [attr.aria-pressed]="criando()" (click)="novo()">
-                <cofre-icone nome="mais" />
-                Nova senha
-              </button>
+              @if (!carregando() && achados().length) {
+                <p class="contagem">
+                  {{ achados().length }} {{ achados().length === 1 ? 'senha' : 'senhas' }}
+                  @if (buscando()) {
+                    com “{{ busca().trim() }}”
+                  } @else if (grupos().length) {
+                    em {{ grupos().length }} {{ grupos().length === 1 ? 'grupo' : 'grupos' }}
+                  }
+                </p>
+              }
+              <span class="barra-fim">
+                @if (naLixeira().length) {
+                  <button type="button" class="palavra lixeira-ir" (click)="irPara('lixeira')">
+                    <cofre-icone nome="lixeira" />
+                    Lixeira ({{ naLixeira().length }})
+                  </button>
+                }
+                <button type="button" class="tinta nova" [class.criando]="criando()" (click)="novo()">
+                  <cofre-icone nome="mais" />
+                  Nova senha
+                </button>
+              </span>
             </div>
 
             @if (carregando()) {
-              <ul class="lista esqueleto" aria-hidden="true">
-                <li></li>
-                <li></li>
-                <li></li>
-              </ul>
+              <div class="esqueleto" aria-hidden="true">
+                @for (linhas of [[1, 2, 3, 4, 5], [1, 2, 3], [1, 2, 3, 4]]; track $index) {
+                  <div class="esqueleto-pasta">
+                    <span class="esqueleto-orelha"></span>
+                    <span class="esqueleto-corpo">
+                      @for (l of linhas; track l) {
+                        <span></span>
+                      }
+                    </span>
+                  </div>
+                }
+              </div>
               <p class="visivel-so-leitor" role="status">Abrindo os itens…</p>
             } @else if (!noCofre().length) {
-              <div class="vazio">
-                <p class="vazio-titulo">Nenhuma senha guardada ainda.</p>
-                <p class="nota">Cada uma pode ter título, grupo, user, senha, site e descrição, e tudo é cifrado neste aparelho antes de sair.</p>
+              <div class="vazio-lugar">
+                <div class="vazio">
+                  <p class="vazio-titulo">Nenhuma senha guardada ainda.</p>
+                  <p class="nota">Cada uma pode ter título, grupo, user, senha, site e descrição, e tudo é cifrado neste aparelho antes de sair. Com grupos, cada um vira uma pasta do quadro.</p>
+                </div>
               </div>
             } @else if (!achados().length) {
-              <p class="nota sem-achados">Nada com “{{ busca() }}”.</p>
-            } @else {
-              <p class="contagem">
-                {{ achados().length }} {{ achados().length === 1 ? 'senha' : 'senhas' }}
-                @if (buscando()) {
-                  com “{{ busca().trim() }}”
-                } @else if (grupos().length) {
-                  em {{ grupos().length }} {{ grupos().length === 1 ? 'grupo' : 'grupos' }}
-                }
-              </p>
-              <div #lista class="pastas" [class.com-grupos]="grupos().length">
-                @for (p of pastas(); track p.chave) {
-                  @let mostra = pastaAberta(p);
-                  <section class="pasta" [class.fechada]="!mostra" [class.sem-grupo]="!p.chave" [class.acabou-de-abrir]="recemAberta() === p.chave" [class.com-cor]="!!p.jeito.cor" [style.--cor-do-grupo]="hexDa(p.jeito.cor)">
-                    @if (grupos().length) {
-                      <h2 class="orelha-lugar">
-                        <button
-                          type="button"
-                          class="orelha"
-                          [attr.aria-expanded]="mostra"
-                          [attr.aria-controls]="'pasta-' + $index"
-                          [attr.aria-disabled]="buscando() ? 'true' : null"
-                          [title]="buscando() ? 'Com a busca, todas as pastas ficam abertas' : mostra ? 'Fechar a pasta' : 'Abrir a pasta'"
-                          (click)="alternarPasta(p)"
-                        >
-                          @if (p.jeito.icone) {
-                            <cofre-icone class="icone-do-grupo" [cartela]="p.jeito.icone" />
-                          } @else {
-                            <cofre-icone [nome]="mostra ? 'pasta-aberta' : 'pasta'" />
-                          }
-                          <span class="orelha-nome">{{ p.nome }}</span>
-                          <span class="orelha-conta"><span class="visivel-so-leitor">: </span>{{ p.itens.length }}<span class="visivel-so-leitor">{{ p.itens.length === 1 ? ' senha' : ' senhas' }}</span></span>
-                        </button>
-                      </h2>
-                    }
-                    <div class="dentro" [id]="'pasta-' + $index">
-                      @if (mostra) {
-                        <ul class="lista">
-                          @for (i of p.itens; track i.id) {
-                            @let it = i.item!;
-                            @let vezes = vezesVazada(i.id);
-                            <li class="linha" [class.aberta]="aberto() === i.id">
-                              <button type="button" class="abre" [attr.data-id]="i.id" [attr.aria-current]="aberto() === i.id ? 'true' : null" (click)="abrirItem(i)">
-                                <cofre-monograma [nome]="nome(it)" [icone]="it.icone" [cor]="it.cor" />
-                                <span class="textos">
-                                  <span class="titulo">
-                                    {{ nome(it) }}
-                                    @if (vezes > 0) {
-                                      <span class="selo-vazada">Vazada</span>
-                                    }
-                                  </span>
-                                  @if (it.outras.length) {
-                                    <span class="usuario-linha">
-                                      @if (it.usuario) {
-                                        <span class="usuario" translate="no">{{ it.usuario }}</span>
-                                      }
-                                      <span class="mais-senhas">+{{ it.outras.length }}<span class="visivel-so-leitor"> {{ it.outras.length === 1 ? 'senha' : 'senhas' }}</span></span>
-                                    </span>
-                                  } @else if (it.usuario) {
-                                    <span class="usuario" translate="no">{{ it.usuario }}</span>
-                                  } @else if (dominio(it.url) && it.titulo) {
-                                    <span class="usuario" translate="no">{{ dominio(it.url) }}</span>
-                                  }
-                                </span>
-                              </button>
-                              <span class="rapidos">
-                                @if (it.usuario) {
-                                  <button
-                                    type="button"
-                                    class="rapido"
-                                    [class.feito]="foiCopiado(i, 'usuario')"
-                                    [attr.aria-label]="'Copiar o user de ' + nome(it)"
-                                    [title]="'Copiar o user'"
-                                    (click)="copiarRapido(i, 'usuario')"
-                                  >
-                                    <cofre-icone [nome]="foiCopiado(i, 'usuario') ? 'feito' : 'pessoa'" />
-                                    <span class="rapido-nome">User</span>
-                                  </button>
-                                }
-                                @if (it.senha) {
-                                  <button
-                                    type="button"
-                                    class="rapido"
-                                    [class.pede]="it.protegida"
-                                    [class.feito]="foiCopiado(i, 'senha')"
-                                    [attr.aria-label]="it.protegida ? 'A senha de ' + nome(it) + ' pede a passkey: abrir' : 'Copiar a senha de ' + nome(it)"
-                                    [title]="it.protegida ? 'Pede a passkey: abre a senha' : 'Copiar a senha'"
-                                    (click)="copiarRapido(i, 'senha')"
-                                  >
-                                    <cofre-icone [nome]="foiCopiado(i, 'senha') ? 'feito' : it.protegida ? 'cadeado' : 'chave'" />
-                                    <span class="rapido-nome">Senha</span>
-                                  </button>
-                                }
-                              </span>
-                            </li>
-                          }
-                        </ul>
-                      }
-                    </div>
-                  </section>
-                }
+              <div class="vazio-lugar">
+                <p class="nota sem-achados">Nada com “{{ busca().trim() }}”.</p>
+                <button type="button" class="palavra" (click)="limparBusca()">Limpar a busca</button>
               </div>
-            }
-
-            @if (naLixeira().length) {
-              <button type="button" class="palavra pe-lixeira" (click)="irPara('lixeira')">
-                <cofre-icone nome="lixeira" />
-                Lixeira ({{ naLixeira().length }})
-              </button>
+            } @else {
+              <cofre-quadro
+                [pastas]="pastas()"
+                [comGrupos]="grupos().length > 0"
+                [aberto]="aberto()"
+                [copiado]="copiado()"
+                [vazadas]="vazadas()"
+                [rola]="inteira()"
+                (abrir)="abrirItem($event)"
+                (copiar)="copiarRapido($event.item, $event.campo)"
+              />
             }
           </section>
 
-          <section class="lado-item" [attr.aria-label]="criando() ? 'Senha nova' : 'Senha escolhida'">
-            @if (criando() || selecionado()) {
+          @if (criando() || selecionado()) {
+            <section class="lado-item" [attr.aria-label]="criando() ? 'Senha nova' : 'Senha escolhida'">
+              @if (pendente(); as p) {
+                @if (item()?.alterado()) {
+                <div class="aviso-edicao" role="alert">
+                  <p>Você mudou <strong>{{ p.nome }}</strong> e ainda não salvou.</p>
+                  <span class="aviso-acoes">
+                    <button #continuar type="button" class="papel forte" (click)="continuarEditando()">Continuar editando</button>
+                    <button type="button" class="papel perigo" (click)="descartarEdicao()">Descartar as mudanças</button>
+                  </span>
+                </div>
+                }
+              }
               <cofre-item
                 [alvo]="criando() ? null : selecionado()"
                 [cofre]="cofre()"
@@ -215,18 +170,8 @@
                 (voltar)="fecharDetalhe()"
                 (avisar)="avisar($event)"
               />
-            } @else {
-              <div class="nada-aberto">
-                <p class="nada-titulo">Escolha uma senha na lista.</p>
-                <p class="nota">O User e a Senha de cada uma já se copiam pela lista, sem abrir. Aqui ficam o site, a descrição, as senhas de antes e a edição.</p>
-                <dl class="teclas">
-                  <div><dt><kbd>/</kbd></dt><dd>Buscar</dd></div>
-                  <div><dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>Andar pela lista</dd></div>
-                  <div><dt><kbd>Esc</kbd></dt><dd>Fechar a senha aberta</dd></div>
-                </dl>
-              </div>
-            }
-          </section>
+            </section>
+          }
         </div>
       }
     }
@@ -234,5 +179,8 @@
 </article>
 
 @if (bilhete()) {
-  <p class="bilhete" role="status">{{ bilhete() }}</p>
+  <p class="bilhete" aria-hidden="true">{{ bilhete() }}</p>
 }
+<!-- o que o leitor de tela ouve: regiões que ficam sempre na página, só o texto muda -->
+<p class="visivel-so-leitor" role="status" aria-atomic="true">{{ anuncio() }}</p>
+<p class="visivel-so-leitor" aria-live="polite" aria-atomic="true">{{ resumoDaBusca() }}</p>

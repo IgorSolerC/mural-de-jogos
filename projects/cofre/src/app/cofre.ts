@@ -81,6 +81,10 @@ import { VigiaDoDom } from './vigia-do-dom';
         padding-top: 22px;
       }
     }
+    /* com o quadro das senhas, a mesa cabe na tela e embaixo dela fica só a folga dela (--mesa-pe, aberto.scss) */
+    :host:has(.na-mesa) {
+      padding-bottom: 20px;
+    }
     .fluxo {
       width: 100%;
     }

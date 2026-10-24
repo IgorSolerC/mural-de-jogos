@@ -323,10 +323,24 @@ export class ItemDoCofre {
     else this.editar();
   }
 
+  /** Põe o foco no primeiro campo da edição (depois do bilhete de mudança não salva). */
+  focarEdicao(): void {
+    if (this.editando()) this.primeiroCampo()?.nativeElement.focus();
+  }
+
+  /** Como a edição começou (para saber se mudou algo). */
+  private comoComecou = '';
+
+  /** Editando, com alguma mudança ainda não salva (trocar de senha no quadro ao lado pergunta antes). */
+  alterado(): boolean {
+    return this.editando() && JSON.stringify([this.campos(), this.entradasEditando()]) !== this.comoComecou;
+  }
+
   protected editar(): void {
     const i = this.item();
     this.campos.set({ titulo: i?.titulo ?? '', url: i?.url ?? '', descricao: i?.descricao ?? '', grupo: i?.grupo ?? '', icone: i?.icone ?? '', cor: i?.cor ?? '' });
     this.entradasEditando.set(i ? entradasDo(i) : [ENTRADA_VAZIA]);
+    this.comoComecou = JSON.stringify([this.campos(), this.entradasEditando()]);
     this.mostrarNoCampo.set(new Set());
     this.gerador.set(null);
     this.escolhendoIcone.set(false);

@@ -13,7 +13,7 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
 @Component({
   selector: 'cofre-monograma',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'aria-hidden': 'true', '[attr.data-cor]': 'corAgora()', '[class.grande]': 'grande()' },
+  host: { 'aria-hidden': 'true', '[attr.data-cor]': 'corAgora()', '[class.grande]': 'grande()', '[class.pequeno]': 'pequeno()' },
   imports: [Icone],
   template: `
     @if (icone(); as i) {
@@ -85,6 +85,16 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
       width: 34px;
       height: 34px;
     }
+    /* na etiqueta de uma linha do quadro */
+    :host(.pequeno) {
+      width: 26px;
+      height: 26px;
+      font-size: 1rem;
+    }
+    :host(.pequeno) cofre-icone {
+      width: 16px;
+      height: 16px;
+    }
     :host(.grande) {
       width: 64px;
       height: 64px;
@@ -98,6 +108,7 @@ import { corDoMonograma, letraDoMonograma } from './monograma';
 export class MonogramaSelo {
   readonly nome = input.required<string>();
   readonly grande = input(false);
+  readonly pequeno = input(false);
   readonly icone = input<IdDoIcone | ''>('');
   /** A cor escolhida; vazia, a que sai do nome. */
   readonly cor = input<CorDoSelo | ''>('');

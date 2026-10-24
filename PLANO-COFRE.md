@@ -1696,3 +1696,25 @@ cuja proteção (8.6) não tinha sido feita.
   antigo, a pergunta ao cofre falha e apagar a conta responde 503 até o cofre ser publicado.
 - Fica de fora: o aviso dentro do próprio cofre (para quem abre o cofre sem passar pelo Murall nesses 7
   dias).
+
+
+### 17.20 As senhas em quadro, como o Kanban (23/10)
+
+Pedido do usuário: com 40 senhas em 6 grupos, a lista em pastas empilhadas ocupava muita altura e a página
+subia e descia; ele quis navegar com calma, a rolagem independente do tamanho da página, "algo semelhante
+ao Kanban". Só a tela mudou (nada na cripto, na API ou no que fica no aparelho):
+
+- **Um quadro de pastas** (`aberto/quadro.ts`): cada grupo é uma pasta em pé, lado a lado, com uma linha
+  por senha; cada pasta rola sozinha, e o quadro rola de lado quando elas não cabem (como o do Kanban,
+  com as beiradas apagadas e as setas de papel com mouse). As pastas não fecham mais (era para encurtar a
+  lista comprida, que não existe mais).
+- **A mesa cabe na tela**: a altura dela é a da janela menos o que vem em cima, medido pela página; a
+  página não rola num computador. No celular e com zoom, a página rola até a mesa, e só então as pastas
+  rolam por dentro.
+- **A senha aberta** fica numa folha ao lado do quadro (tela larga) ou no lugar dele (estreita). Com uma
+  edição mudada e não salva, trocar de senha, criar outra ou ir aos Ajustes pergunta antes (o Trancar não
+  pergunta: é a saída de segurança).
+- **Copiar sem abrir**: os botões de User e Senha aparecem com o mouse ou o foco na linha (pedido do
+  usuário: só no hover, nem na aberta); no toque, sempre. Com o foco numa linha, U e S copiam.
+- **No celular**, uma pasta por vez e uma fileira com as orelhas de todas, que leva até a pasta.
+- Ficou de fora: arrastar uma senha de uma pasta para outra (mudar o grupo arrastando, como no Kanban).

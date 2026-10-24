@@ -113,81 +113,143 @@ cofre-icone {
   font-weight: 600;
 }
 
-/* ===== A mesa: a lista à esquerda (o índice do cofre, na faixa de manilha) e a senha aberta à direita ===== */
+/* ===== A mesa: o quadro das senhas na faixa de manilha e, com uma aberta, a folha dela à direita. A mesa
+   cabe na tela (seção 17.20): começa em --mesa-topo, medido pela página, e acaba na folga do pé, então a
+   página não sobe e desce; quem rola são as pastas e a folha. Com pouca altura (a tela baixa, o zoom, o
+   celular, onde o topo é alto), ela fica com uma altura mínima e a página rola até ela. ===== */
+/* com o quadro, a ficha passa da largura da página numa tela larga (como o quadro do Kanban, que vai de
+   beirada a beirada): até 1800px, com a mesma folga dos lados da página */
+:host(.na-mesa) {
+  --largura: max(100%, min(calc(100vw - 2 * clamp(16px, 4vw, 48px)), 1800px));
+  width: var(--largura);
+  margin-inline: calc((100% - var(--largura)) / 2);
+}
 .mesa {
+  --mesa-pe: 20px;
+  --mesa-min: min(400px, calc(100dvh - 2 * var(--mesa-pe)));
   display: grid;
-  min-height: 460px;
+  grid-template-columns: minmax(0, 1fr);
+  height: max(var(--mesa-min), calc(100dvh - var(--mesa-topo, 0px) - var(--mesa-pe)));
+}
+/* no celular, a mesa enche a tela quando a página chega nela */
+@media (max-width: 600px) {
+  .mesa {
+    --mesa-min: calc(100dvh - 2 * var(--mesa-pe));
+  }
 }
 .lado-lista {
-  display: grid;
-  align-content: start;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   min-width: 0;
-  padding: 20px 16px 22px;
+  min-height: 0;
+  padding-top: 16px;
   background-color: var(--manilha);
   background-image: var(--grao);
   background-blend-mode: multiply;
+  box-shadow: inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
 }
 .lado-item {
+  position: relative;
   min-width: 0;
   padding: 24px clamp(16px, 3.5vw, 36px) 32px;
 }
 
-/* estreita: um de cada vez (a lista, ou a senha aberta no lugar dela) */
-.mesa:not(.com-detalhe) .lado-item,
+/* estreita: um de cada vez; a senha aberta toma o lugar do quadro e a página rola com ela */
+.mesa.com-detalhe {
+  height: auto;
+  min-height: var(--mesa-min);
+}
 .mesa.com-detalhe .lado-lista {
   display: none;
 }
 
-@container corpo (min-width: 820px) {
-  .mesa {
-    grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
-    min-height: 560px;
+/* larga: a folha ao lado do quadro, que estreita e rola de lado; ela rola sozinha, com o pé da edição
+   (Cancelar e Salvar) preso embaixo */
+@container corpo (min-width: 940px) {
+  .mesa.com-detalhe {
+    grid-template-columns: minmax(0, 1fr) clamp(400px, 36%, 520px);
+    height: max(var(--mesa-min), calc(100dvh - var(--mesa-topo, 0px) - var(--mesa-pe)));
   }
   .mesa.com-detalhe .lado-lista {
-    display: grid;
+    display: flex;
   }
-  .mesa:not(.com-detalhe) .lado-item {
-    display: block;
-  }
-  .lado-lista {
-    padding-right: 0;
-    box-shadow:
-      inset -2px 0 0 rgb(21 21 21 / 0.12),
-      inset 0 6px 8px -6px rgb(0 0 0 / 0.25);
-  }
-  .lado-lista > :not(.lista, .pastas) {
-    margin-right: 16px;
-  }
-  /* a senha aberta fica à vista enquanto a lista rola (e rola sozinha, se for mais alta que a tela) */
-  .lado-item > * {
-    position: sticky;
-    top: 16px;
-    max-height: calc(100dvh - 32px);
-    /* a folga para a sombra das etiquetas e o anel de foco não serem cortados pela rolagem */
-    margin: -8px;
-    padding: 8px;
-    overflow-y: auto;
+  .lado-item {
+    --folha-pe: 28px;
+    container: folha / inline-size;
+    padding: 22px clamp(18px, 2.4vw, 30px) 28px;
+    overflow: hidden;
     overscroll-behavior: contain;
+    box-shadow:
+      -2px 0 0 rgb(21 21 21 / 0.12),
+      -10px 0 14px -10px rgb(0 0 0 / 0.35);
     scrollbar-width: thin;
     scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+    animation: folha-chega 380ms var(--curva);
+  }
+  .mesa.inteira .lado-item {
+    overflow-y: auto;
+  }
+}
+@keyframes folha-chega {
+  from {
+    translate: 14px 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lado-item {
+    animation: none !important;
   }
 }
 
-/* --- a busca e a senha nova */
+/* a mudança não salva: um bilhete amarelo colado no alto da folha, que fica à vista mesmo com ela rolada */
+.aviso-edicao {
+  @include p.bilhete-colado(var(--bilhete-amarelo));
+  position: sticky;
+  top: -6px;
+  z-index: 2;
+  display: grid;
+  gap: 10px;
+  margin: -6px 0 16px;
+  p {
+    margin: 0;
+    font: 500 1rem/1.35 var(--f-texto);
+  }
+}
+.aviso-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  > button {
+    @include p.botao-quieto;
+  }
+}
+
+/* --- a barra do quadro: a busca, quantas são, a lixeira e a senha nova */
 .barra {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
+  gap: 10px 16px;
+  padding: 0 16px;
 }
 .busca {
   @include p.campo-caixa;
-  flex: 1 1 180px;
+  flex: 0 1 340px;
+  min-width: min(100%, 220px);
   padding-right: 10px;
   gap: 10px;
   > cofre-icone {
     color: var(--tinta-2);
+  }
+  /* no papel claro, o x de limpar do navegador desenhado para fundo claro (a página é escura) */
+  input {
+    color-scheme: light;
+  }
+  /* o "Buscar" de espera mais escuro que o do kit, para passar de 4,5:1 no papel */
+  input::placeholder {
+    color: rgb(21 21 21 / 0.66);
   }
 }
 .tecla,
@@ -213,399 +275,108 @@ kbd {
     display: none;
   }
 }
-.nova {
-  min-height: 50px;
-  padding: 0 16px;
-  gap: 8px;
-}
-.nova[aria-pressed='true'] {
-  rotate: -1deg;
-}
-
 .contagem {
-  margin: 4px 0 -2px;
+  margin: 0;
   font: 800 0.8rem/1.1 var(--f-rotulo);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgb(21 21 21 / 0.7);
+  color: rgb(21 21 21 / 0.72);
 }
-.sem-achados {
-  padding: 8px 2px;
-}
-
-/* --- as pastas: com algum grupo, cada grupo é uma pasta de manilha com a orelha em cima (o nome a
-   pincel e quantas tem); a orelha abre e fecha a pasta, e a fechada fica só com a orelha e a beirada */
-.pastas {
-  display: grid;
-  gap: 8px;
-}
-.pastas.com-grupos {
-  gap: 14px;
-}
-.pasta {
-  --pasta-agora: var(--pasta);
-  display: grid;
-  min-width: 0;
-}
-.orelha-lugar {
+.barra-fim {
   display: flex;
-  min-width: 0;
-  margin: 0;
-}
-.orelha {
-  display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-  max-width: calc(100% - 28px);
-  min-height: 42px;
-  padding: 9px 12px 7px 12px;
-  border: 0;
-  border-radius: 10px 10px 0 0;
-  background-color: var(--pasta-agora);
-  background-image: var(--grao);
-  background-blend-mode: multiply;
-  box-shadow: 0 -1px 2px -1px rgb(0 0 0 / 0.3);
-  color: var(--tinta);
-  font: 400 1.12rem/1.1 var(--f-marker);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color 160ms var(--curva-ui);
-  &:focus-visible {
-    outline: 3px solid var(--tinta);
-    outline-offset: 2px;
-  }
-  &[aria-disabled='true'] {
-    cursor: default;
-  }
-  cofre-icone {
-    flex: none;
-    width: 18px;
-    height: 18px;
-  }
+  margin-left: auto;
 }
-.orelha-nome {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.nova {
+  min-height: 48px;
+  padding: 0 16px;
+  gap: 8px;
 }
-/* o grupo com cor (como as orelhas das anotações): a borda colorida corre por dentro da orelha, a 3px da
-   beirada, e o desenho pega a cor */
-.pasta.com-cor .orelha {
-  position: relative;
-  isolation: isolate;
-  background-color: var(--papel-orelha);
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 3px 3px 0;
-    z-index: -1;
-    border: 3px solid var(--cor-do-grupo);
-    border-bottom: 0;
-    border-radius: 7px 7px 0 0;
-    pointer-events: none;
-  }
-  cofre-icone {
-    color: var(--cor-do-grupo);
-  }
+.nova.criando {
+  rotate: -1deg;
 }
-/* quantas senhas: um número a lápis num quadradinho de papel colado na orelha */
-.orelha-conta {
-  flex: none;
-  min-width: 24px;
-  padding: 4px 6px 3px;
-  border-radius: 2px;
-  background: rgb(255 253 248 / 0.7);
-  box-shadow: 0 1px 1px rgb(0 0 0 / 0.16);
-  font: 800 0.8rem/1 var(--f-rotulo);
-  letter-spacing: 0.04em;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.sem-grupo .orelha-nome {
-  color: var(--tinta-2);
-}
-/* passar o mouse clareia a pasta inteira (a orelha e o corpo são um papel só) */
-@media (hover: hover) {
-  .pasta:has(.orelha:hover:not([aria-disabled='true'])) {
-    --pasta-agora: #e0cfa2;
-  }
-}
-.com-grupos .dentro {
-  min-height: 8px;
-  padding: 10px;
-  border-radius: 0 6px 6px 6px;
-  background-color: var(--pasta-agora);
-  background-image: var(--grao);
-  background-blend-mode: multiply;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.2),
-    0 8px 12px -10px rgb(0 0 0 / 0.5);
-  transition: background-color 160ms var(--curva-ui);
-}
-/* fechada: só a beirada da pasta embaixo da orelha */
-.com-grupos .fechada .dentro {
-  padding: 0;
-}
-/* abrir uma pasta (só a que acabou de ser aberta pela orelha): as etiquetas descem do fundo dela */
-.com-grupos .acabou-de-abrir .lista {
-  animation: sai-da-pasta 320ms var(--curva);
-}
-@keyframes sai-da-pasta {
-  from {
-    translate: 0 -6px;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .com-grupos .acabou-de-abrir .lista {
-    animation: none;
-  }
-}
-/* estreita: a pasta vai até a beirada da faixa, e as etiquetas ficam com a largura de antes */
-@container corpo (max-width: 480px) {
-  .pastas.com-grupos {
-    margin-inline: -8px;
-  }
-  .com-grupos .dentro {
-    padding: 6px;
-  }
-}
-@container corpo (min-width: 820px) {
-  /* lado a lado, a pasta corre até a folha, para a etiqueta aberta poder entrar nela */
-  .com-grupos .dentro {
-    padding-right: 0;
-    border-radius: 0 0 0 6px;
+/* estreita: a busca na linha toda, e embaixo quantas são, a lixeira e a senha nova */
+@container corpo (max-width: 560px) {
+  .busca {
+    flex: 1 1 100%;
   }
 }
 
-/* --- as linhas: uma etiqueta de papel por senha, a aberta amarela, reta e encostada na folha */
-.lista {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.linha {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  margin-right: 0;
-  border-radius: 2px;
-  background-color: var(--papel-ficha);
-  background-image: var(--grao);
-  background-blend-mode: multiply;
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.22),
-    0 6px 10px -6px rgb(0 0 0 / 0.4);
-  rotate: -0.35deg;
-  transition:
-    translate 380ms var(--curva),
-    rotate 380ms var(--curva),
-    background-color 160ms var(--curva-ui);
-  &:nth-child(2n) {
-    rotate: 0.3deg;
-  }
-  &:hover {
-    translate: 2px 0;
-  }
-  &.aberta {
-    rotate: 0deg;
-    background-color: var(--hi);
-    box-shadow:
-      0 1px 1px rgb(0 0 0 / 0.25),
-      0 8px 12px -8px rgb(0 0 0 / 0.45);
-  }
-}
-@container corpo (min-width: 820px) {
-  .linha {
-    margin-right: 16px;
-  }
-  .linha.aberta {
-    translate: 16px 0;
-    margin-right: 0;
-    border-radius: 2px 0 0 2px;
-  }
-}
-.abre {
+/* --- abrindo: três pastas vazias, respirando, no lugar das de verdade */
+.esqueleto {
   display: flex;
-  align-items: center;
   gap: 12px;
-  min-width: 0;
-  min-height: 62px;
-  padding: 10px 6px 10px 12px;
-  border: 0;
-  border-radius: 2px;
-  background: transparent;
-  color: var(--tinta);
-  text-align: left;
-  cursor: pointer;
-  &:focus-visible {
-    outline: 3px solid var(--tinta);
-    outline-offset: 2px;
-  }
+  min-height: 0;
+  padding: 6px 14px 16px;
+  overflow: hidden;
 }
-.textos {
+.esqueleto-pasta {
   display: grid;
-  gap: 2px;
-  min-width: 0;
+  align-content: start;
+  flex: 1 1 0;
+  min-width: 192px;
+  max-width: 360px;
 }
-.titulo {
-  overflow: hidden;
-  font: 400 1.12rem/1.2 var(--f-marker);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.esqueleto-orelha {
+  width: 52%;
+  height: 34px;
+  border-radius: 9px 9px 0 0;
+  background: rgb(214 195 145 / 0.7);
 }
-.usuario {
-  overflow: hidden;
-  font: 500 0.92rem/1.3 var(--f-texto);
-  color: var(--tinta-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* com mais senhas no item: o user e, logo depois, quantas mais (num quadradinho de papel, como a conta da pasta) */
-.usuario-linha {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-.mais-senhas {
-  flex: none;
-  padding: 2px 5px 1px;
-  border-radius: 2px;
-  background: rgb(21 21 21 / 0.07);
-  color: var(--tinta-2);
-  font: 700 0.8rem/1.2 var(--f-rotulo);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-}
-/* o selo de senha vazada: uma etiqueta vermelha colada torta ao lado do título */
-.selo-vazada {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 4px 6px 3px;
-  border-radius: 2px;
-  background: var(--vermelho);
-  color: #fff;
-  font: 800 0.68rem/1 var(--f-rotulo);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  vertical-align: 3px;
-  rotate: -3deg;
-}
-
-/* copiar sem abrir: duas etiquetas pequenas no fim da linha */
-.rapidos {
-  display: flex;
-  gap: 6px;
-  padding-right: 10px;
-}
-.rapido {
-  @include p.botao-quieto;
-  & {
-    flex-direction: column;
-    gap: 3px;
-    min-width: 52px;
-    min-height: 46px;
-    padding: 6px 7px 5px;
-    font-size: 0.7rem;
-    letter-spacing: 0.08em;
+.esqueleto-corpo {
+  display: grid;
+  gap: 5px;
+  padding: 7px;
+  border-radius: 0 6px 6px 6px;
+  background: rgb(214 195 145 / 0.7);
+  span {
+    height: 48px;
+    border-radius: 2px;
+    background: rgb(251 249 242 / 0.55);
+    animation: respira 1.4s var(--curva-ui) infinite alternate;
   }
-  cofre-icone {
-    width: 17px;
-    height: 17px;
+  span:nth-child(2n) {
+    animation-delay: 0.2s;
   }
-}
-.linha.aberta .rapido:not(.feito) {
-  background-color: #fffdf0;
-}
-@container corpo (max-width: 340px) {
-  .rapido {
-    min-width: 44px;
-  }
-  .rapido-nome {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-}
-
-/* abrindo: três etiquetas vazias no lugar das senhas */
-.esqueleto li {
-  height: 62px;
-  border-radius: 2px;
-  background: rgb(251 249 242 / 0.55);
-  animation: respira 1.4s var(--curva-ui) infinite alternate;
-}
-.esqueleto li:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.esqueleto li:nth-child(3) {
-  animation-delay: 0.4s;
 }
 @keyframes respira {
   to {
     background: rgb(251 249 242 / 0.85);
   }
 }
+@media (prefers-reduced-motion: reduce) {
+  .esqueleto-corpo span {
+    animation: none;
+  }
+}
 
+/* --- o cofre vazio, e a busca sem nada: no meio da manilha */
+.vazio-lugar {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  padding: 24px 16px 48px;
+  text-align: center;
+}
 .vazio {
   display: grid;
   gap: 6px;
-  padding: 18px;
+  max-width: 440px;
+  padding: 20px;
   border-radius: 2px;
   outline: 1.5px dashed rgb(21 21 21 / 0.42);
   outline-offset: -1.5px;
 }
-.vazio-titulo,
-.nada-titulo {
+.vazio-titulo {
   margin: 0;
   font: 400 1.3rem/1.15 var(--f-marker);
 }
-.pe-lixeira {
-  justify-self: start;
-  margin-top: 6px;
-  margin-left: -8px;
-}
-
-/* nada aberto à direita: o que dá para fazer, e os atalhos */
-.nada-aberto {
-  display: grid;
-  gap: 10px;
-  max-width: 46ch;
-  padding-top: 18px;
-}
-.teclas {
-  display: grid;
-  gap: 8px;
-  margin: 14px 0 0;
-  padding-top: 14px;
-  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
-}
-.teclas div {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.teclas dt {
-  display: flex;
-  gap: 4px;
-  min-width: 64px;
-}
-.teclas dd {
+.sem-achados {
   margin: 0;
-  font: 500 0.95rem/1.3 var(--f-texto);
-  color: var(--tinta-2);
-}
-@media (hover: none) {
-  .teclas {
-    display: none;
-  }
 }
 
 /* o bilhete: uma nota de bloco presa embaixo, com a borda serrilhada */

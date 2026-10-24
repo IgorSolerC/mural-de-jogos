@@ -27,10 +27,15 @@
           </p>
         }
       </div>
-      <button type="button" class="papel editar" [disabled]="ocupado() || conferindo()" (click)="pedirParaEditar()">
-        <cofre-icone nome="lapis" />
-        Editar
-      </button>
+      <span class="cabeca-acoes">
+        <button type="button" class="papel editar" [disabled]="ocupado() || conferindo()" (click)="pedirParaEditar()">
+          <cofre-icone nome="lapis" />
+          Editar
+        </button>
+        <button type="button" class="icone fechar" aria-label="Fechar a senha" title="Fechar (Esc)" (click)="voltar.emit()">
+          <cofre-icone nome="fechar" />
+        </button>
+      </span>
     </header>
     @if (confirmandoEm() === 'editar') {
       <ng-container *ngTemplateOutlet="confirmacao; context: { $implicit: 'editar', motivo: 'Editar mostra as senhas que pedem a passkey.' }" />
@@ -58,7 +63,7 @@
         @if (i.url) {
           <div class="campo">
             <dt>Site</dt>
-            <dd class="valor" translate="no">{{ i.url }}</dd>
+            <dd class="valor url" translate="no" [title]="i.url">{{ i.url }}</dd>
             <dd class="acoes">
               @if (site()) {
                 <button type="button" class="papel" (click)="abrirSite()">

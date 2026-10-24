@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-23-ampliar-widgets',
+    id: '2026-10-23-quadro-do-cofre',
     version: '1.31.1',
     kind: 'ajustes',
     date: '2026-10-23',
-    title: 'Ampliar os widgets e minimizar a ficha aberta pelo link',
+    title: 'O cofre em quadro, ampliar os widgets e minimizar a ficha aberta pelo link',
     melhorias: [
+      'As senhas do cofre ficam num quadro, como o Kanban: cada grupo é uma pasta, lado a lado com as outras, com uma linha por senha, e cada pasta rola sozinha, sem a página subir e descer. A senha aberta fica numa folha ao lado do quadro, e os botões de copiar o user e a senha aparecem com o mouse em cima da linha.',
       'Os widgets do texto se ampliam: com o mouse em cima, aparece um broche de ampliar no canto (no celular, ele fica sempre à mostra). A imagem abre no meio da tela, do maior tamanho que cabe; o vídeo, a faixa de áudio, o contador e a nota colada sobem inteiros, e o que estava tocando continua tocando.',
       'A ficha aberta pelo link ganhou o Minimizar, no lugar do X: ela vira a ficha pregada como fica no mural, e um toque nela ou no "Abrir a ficha" abre de novo.',
     ],

@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, inject, input, OnInit, signal, viewChild } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, input, OnInit, signal, viewChild } from '@angular/core';
 import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
 import { ErroCofre } from '../../core/crypto';
@@ -11,14 +11,12 @@ import { SERVICOS } from '../servicos';
 import { Gerenciar, type MudancaDeGrupo } from '../gerenciar/gerenciar';
 import { ItemDoCofre } from './item';
 import { Lixeira } from './lixeira';
-import { MonogramaSelo } from './monograma-selo';
-import { dominio, nomeDoItem } from './monograma';
-import { CORES_DA_CARTELA, type IdDaCor } from '../../../../../shared/cartela-de-icones';
-import { emPastas, gruposDoCofre, jeitosDosGrupos, type Pasta, simples } from './pastas';
+import { nomeDoItem } from './monograma';
+import { emPastas, gruposDoCofre, jeitosDosGrupos, simples } from './pastas';
+import { type CampoRapido, QuadroDeSenhas } from './quadro';
 import { type MotivoDeTrancar, Trancador } from './trancador';
 
 type Vista = 'senhas' | 'lixeira' | 'ajustes';
-type Campo = 'usuario' | 'senha';
 /** Quanto tempo o botão de copiar fica dizendo "copiado". */
 const COPIADO_MS = 1800;
 
@@ -29,27 +27,29 @@ function quando(iso: string): string {
 }
 
 /**
- * O cofre aberto (seções 8.1 a 8.2 e 10). Como nos gerenciadores de senha conhecidos: a lista à
- * esquerda, com o User e a Senha de cada item a um clique (sem abrir), e o item escolhido à direita,
- * onde também se edita; numa tela estreita, um de cada vez. Com algum grupo, a lista vira pastas, uma
- * por grupo, que fecham (seção 17.16; quais estão fechadas fica só na memória, como tudo no cofre). Os Ajustes e a lixeira ocupam a ficha
- * inteira. Os itens são conferidos contra o manifesto ao ler (nada aparece se não baterem); um
+ * O cofre aberto (seções 8.1 a 8.2 e 10). As senhas num quadro como o Kanban do Murall (seção 17.20): uma
+ * pasta por grupo, lado a lado, cada uma rolando sozinha, com o User e a Senha de cada item a um clique
+ * (sem abrir); a mesa cabe na tela, e a página não sobe e desce. A senha escolhida abre numa folha à
+ * direita do quadro, onde também se edita; numa tela estreita, no lugar dele. Os Ajustes e a lixeira
+ * ocupam a ficha inteira. Os itens são conferidos contra o manifesto ao ler (nada aparece se não baterem); um
  * conflito com outro aparelho relê tudo. Trancar avisa o servidor (`sendBeacon`) e recarrega a página,
  * que joga fora a memória.
  */
 @Component({
   selector: 'cofre-aberto',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ItemDoCofre, Gerenciar, Icone, Lixeira, MonogramaSelo],
+  imports: [ItemDoCofre, Gerenciar, Icone, Lixeira, QuadroDeSenhas],
   templateUrl: './aberto.html',
   styleUrl: './aberto.scss',
-  host: { '[class.borrado]': 'borrado()', '(document:keydown)': 'atalho($event)' },
+  host: { '[class.borrado]': 'borrado()', '[class.na-mesa]': "vista() === 'senhas'", '(document:keydown)': 'atalho($event)' },
 })
 export class Aberto implements OnInit {
   private readonly servicos = inject(SERVICOS);
   private readonly area = inject(AreaDeTransferencia);
   private readonly documento = inject(DOCUMENT);
   private readonly destroy = inject(DestroyRef);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private trancador: Trancador | null = null;
   private timerCopiado: ReturnType<typeof setTimeout> | null = null;
 
@@ -68,6 +68,9 @@ export class Aberto implements OnInit {
   protected readonly ocupado = signal(false);
   protected readonly erro = signal<string | null>(null);
   protected readonly bilhete = signal<string | null>(null);
+  /** O que o leitor de tela anuncia (uma região que fica sempre na página: a que nasce já com texto pode não ser lida). */
+  protected readonly anuncio = signal('');
+  private timerBilhete: ReturnType<typeof setTimeout> | null = null;
   /** A última mudança no cofre, na faixa (a tela de abrir não guarda nada, então é aqui que se confere). */
   protected readonly ultimaMudanca = signal('');
   protected readonly borrado = signal(false);
@@ -77,11 +80,17 @@ export class Aberto implements OnInit {
   protected readonly vazadas = signal<ReadonlyMap<string, readonly number[]>>(new Map());
   protected readonly conferindo = signal(false);
   protected readonly conferidoEm = signal<Date | null>(null);
-  private readonly item = viewChild(ItemDoCofre);
+  protected readonly item = viewChild(ItemDoCofre);
   private readonly ajustes = viewChild(Gerenciar);
   private readonly lixeiraEl = viewChild(Lixeira);
   private readonly campoBusca = viewChild<ElementRef<HTMLInputElement>>('campoBusca');
-  private readonly listaEl = viewChild<ElementRef<HTMLElement>>('lista');
+  private readonly quadro = viewChild(QuadroDeSenhas);
+  private readonly mesa = viewChild<ElementRef<HTMLElement>>('mesa');
+  /** A mesa inteira está na tela: as pastas rolam por dentro (antes disso, a página rola até ela). */
+  protected readonly inteira = signal(true);
+  /** O que ficou esperando porque a senha aberta tem mudança não salva (o bilhete pergunta antes). */
+  protected readonly pendente = signal<{ readonly nome: string; readonly fazer: () => void } | null>(null);
+  private readonly continuar = viewChild<ElementRef<HTMLButtonElement>>('continuar');
 
   protected readonly contaFormatada = computed(() => `${this.conta().slice(0, 4)}-${this.conta().slice(4)}`);
   protected readonly noCofre = computed(() => this.itens().filter((i) => !i.naLixeira && i.item));
@@ -105,13 +114,16 @@ export class Aberto implements OnInit {
   );
   /** Quantas já mudaram, enquanto um grupo é renomeado ou apagado. */
   protected readonly mudandoGrupo = signal<{ readonly feitas: number; readonly total: number } | null>(null);
-  /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha (a lista de sempre). */
+  /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha. */
   protected readonly pastas = computed(() => emPastas(this.achados(), this.grupos(), this.jeitos()));
-  /** As chaves das pastas fechadas (só nesta aba, enquanto o cofre está aberto). */
-  protected readonly fechadas = signal<ReadonlySet<string>>(new Set());
-  /** A pasta que acabou de ser aberta pela orelha (só ela anima). */
-  protected readonly recemAberta = signal<string | null>(null);
   protected readonly buscando = computed(() => !!this.busca().trim());
+  /** O que a busca achou, para o leitor de tela (a contagem e o "Nada com" na tela não são regiões vivas). */
+  protected readonly resumoDaBusca = computed(() => {
+    const q = this.busca().trim();
+    if (!q || this.carregando() || !this.noCofre().length) return '';
+    const n = this.achados().length;
+    return n ? `${n} ${n === 1 ? 'senha' : 'senhas'} com “${q}”` : `Nada com “${q}”`;
+  });
   protected readonly selecionado = computed(() => this.noCofre().find((i) => i.id === this.aberto()) ?? null);
   /** A parte da direita tem algo (numa tela estreita, ela toma o lugar da lista). */
   protected readonly comDetalhe = computed(() => this.criando() || !!this.selecionado());
@@ -121,8 +133,30 @@ export class Aberto implements OnInit {
       .map((i) => ({ id: i.id, nome: nomeDoItem(i.item!), vezes: this.vezesVazada(i.id) })),
   );
 
-  protected readonly nome = nomeDoItem;
-  protected readonly dominio = dominio;
+  constructor() {
+    // a mesa cabe na tela: a altura dela é a da tela menos o que vem em cima (o topo, a faixa, os avisos),
+    // medido aqui; e as pastas só rolam por dentro com ela inteira à vista
+    effect((aoLimpar) => {
+      const mesa = this.mesa()?.nativeElement;
+      const janela = this.documento.defaultView;
+      if (!mesa || !janela) return;
+      const medir = () => mesa.style.setProperty('--mesa-topo', `${Math.round(mesa.getBoundingClientRect().top + janela.scrollY)}px`);
+      medir();
+      janela.addEventListener('resize', medir);
+      const ficha = mesa.closest('.ficha');
+      // o topo, a faixa, os avisos, e o aviso da vigia, que aparece em cima da ficha (via a página inteira)
+      const acima = [this.documento.querySelector('cofre-topo'), ficha?.querySelector('.faixa'), ficha?.querySelector('.avisos'), this.documento.querySelector('main')].filter((e) => !!e);
+      const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(medir);
+      for (const e of acima) ro?.observe(e);
+      const io = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(([e]) => this.inteira.set(!!e && e.intersectionRatio >= 0.98), { threshold: [0, 0.5, 0.98, 1] });
+      io?.observe(mesa);
+      aoLimpar(() => {
+        janela.removeEventListener('resize', medir);
+        ro?.disconnect();
+        io?.disconnect();
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     const cofre = this.cofre();
@@ -145,6 +179,7 @@ export class Aberto implements OnInit {
     this.destroy.onDestroy(() => {
       this.trancador?.parar();
       if (this.timerCopiado) clearTimeout(this.timerCopiado);
+      if (this.timerBilhete) clearTimeout(this.timerBilhete);
     });
     await this.recarregar();
   }
@@ -180,47 +215,94 @@ export class Aberto implements OnInit {
 
   protected avisar(texto: string): void {
     this.bilhete.set(texto);
-    setTimeout(() => {
-      if (this.bilhete() === texto) this.bilhete.set(null);
-    }, 6000);
+    // o mesmo texto de novo (copiar a mesma senha duas vezes) também é lido: a região esvazia e volta
+    this.anuncio.set('');
+    setTimeout(() => this.anuncio.set(texto), 60);
+    if (this.timerBilhete) clearTimeout(this.timerBilhete);
+    this.timerBilhete = setTimeout(() => this.bilhete.set(null), 6000);
   }
 
-  // --- a lista
+  // --- o quadro
 
-  /** A pasta mostra as senhas: aberta, ou com uma busca (a busca acha dentro das fechadas também). */
-  protected pastaAberta(p: Pasta): boolean {
-    return this.buscando() || !this.fechadas().has(p.chave);
+  /**
+   * Com a senha aberta sendo editada e alguma mudança não salva, o que tiraria a edição da tela (abrir
+   * outra senha no quadro ao lado, uma nova, os Ajustes, a lixeira) espera: o bilhete no alto da folha
+   * pergunta se continua editando ou joga fora. O Trancar não espera (é a saída de segurança).
+   */
+  private semPerderAEdicao(fazer: () => void): void {
+    if (!this.item()?.alterado()) {
+      this.pendente.set(null);
+      fazer();
+      return;
+    }
+    const alvo = this.selecionado()?.item;
+    this.pendente.set({ nome: alvo ? nomeDoItem(alvo) : 'a senha nova', fazer });
+    setTimeout(() => this.continuar()?.nativeElement.focus());
   }
 
-  protected alternarPasta(p: Pasta): void {
-    if (this.buscando()) return;
-    const abrindo = this.fechadas().has(p.chave);
-    this.recemAberta.set(abrindo ? p.chave : null);
-    this.fechadas.update((f) => {
-      const nova = new Set(f);
-      if (!nova.delete(p.chave)) nova.add(p.chave);
-      return nova;
-    });
+  protected continuarEditando(): void {
+    this.pendente.set(null);
+    // o foco volta para a edição (o botão que tinha o foco sumiu com o bilhete)
+    setTimeout(() => this.item()?.focarEdicao());
   }
 
-  /** Abre a pasta de uma senha (ao abrir pelas vazadas, ou depois de guardar num grupo fechado). */
-  private mostrarNaPasta(id: string): void {
-    const grupo = this.noCofre().find((i) => i.id === id)?.item?.grupo;
-    if (grupo === undefined) return;
-    const chave = simples(grupo);
-    if (this.fechadas().has(chave)) this.fechadas.update((f) => new Set([...f].filter((c) => c !== chave)));
+  protected descartarEdicao(): void {
+    const p = this.pendente();
+    this.pendente.set(null);
+    p?.fazer();
   }
 
   protected abrirItem(i: ItemNaLista | string): void {
     const id = typeof i === 'string' ? i : i.id;
+    if (id === this.aberto() && !this.criando()) return;
+    this.semPerderAEdicao(() => this.mostrarItem(id));
+  }
+
+  private mostrarItem(id: string): void {
     this.aberto.set(id);
-    this.mostrarNaPasta(id);
     this.criando.set(false);
     this.erro.set(null);
     this.vista.set('senhas');
+    // a folha abre ao lado e estreita o quadro: a etiqueta aberta continua à vista
+    this.quadro()?.mostrar(id);
+    this.focoNaFolhaSeOQuadroSumiu();
+  }
+
+  /**
+   * Estreita, a folha toma o lugar do quadro, e o que tinha o foco (a etiqueta, a busca) some com ele: o
+   * foco vai para o "Voltar à lista" da folha. Larga, o foco fica onde estava (para andar pelo quadro).
+   */
+  private focoNaFolhaSeOQuadroSumiu(): void {
+    afterNextRender(
+      () => {
+        const lista = this.host.nativeElement.querySelector<HTMLElement>('.lado-lista');
+        if (lista && getComputedStyle(lista).display !== 'none') return;
+        const ativo = this.documento.activeElement;
+        if (ativo && ativo !== this.documento.body && this.host.nativeElement.querySelector('.lado-item')?.contains(ativo)) return;
+        this.host.nativeElement.querySelector<HTMLElement>('.lado-item .voltar')?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** Enter na busca abre a primeira achada (a de cima, na primeira pasta); o foco fica na busca. */
+  protected abrirPrimeira(e: Event): void {
+    const primeira = this.pastas()[0]?.itens[0];
+    if (!primeira) return;
+    e.preventDefault();
+    this.abrirItem(primeira);
+  }
+
+  protected limparBusca(): void {
+    this.busca.set('');
+    this.campoBusca()?.nativeElement.focus();
   }
 
   protected novo(): void {
+    this.semPerderAEdicao(() => this.comecarNovo());
+  }
+
+  private comecarNovo(): void {
     this.aberto.set(null);
     this.criando.set(true);
     this.erro.set(null);
@@ -232,12 +314,14 @@ export class Aberto implements OnInit {
     const id = this.aberto();
     this.aberto.set(null);
     this.criando.set(false);
-    if (id) setTimeout(() => this.listaEl()?.nativeElement.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)?.focus());
+    if (id) setTimeout(() => this.quadro()?.focar(id));
   }
 
   protected irPara(vista: Vista): void {
-    this.erro.set(null);
-    this.vista.set(vista);
+    this.semPerderAEdicao(() => {
+      this.erro.set(null);
+      this.vista.set(vista);
+    });
   }
 
   /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
@@ -249,13 +333,16 @@ export class Aberto implements OnInit {
    * Copia o User ou a Senha (da primeira entrada) direto da lista, sem abrir o item. A senha que pede a
    * passkey não sai daqui: abre o item, onde ela se destrava.
    */
-  protected async copiarRapido(i: ItemNaLista, campo: Campo): Promise<void> {
+  protected async copiarRapido(i: ItemNaLista, campo: CampoRapido): Promise<void> {
     if (campo === 'senha' && i.item!.protegida) {
       this.abrirItem(i);
       return;
     }
     const texto = campo === 'usuario' ? i.item!.usuario : i.item!.senha;
-    if (!texto) return;
+    if (!texto) {
+      this.avisar(`${nomeDoItem(i.item!)} não tem ${campo === 'usuario' ? 'user' : 'senha'}.`);
+      return;
+    }
     try {
       await this.area.copiar(texto);
       this.copiado.set(`${i.id}:${campo}`);
@@ -267,11 +354,7 @@ export class Aberto implements OnInit {
     }
   }
 
-  protected foiCopiado(i: ItemNaLista, campo: Campo): boolean {
-    return this.copiado() === `${i.id}:${campo}`;
-  }
-
-  /** As setas andam pela lista; "/" vai para a busca (fora de um campo); Esc fecha o item. */
+  /** "/" vai para a busca (fora de um campo); da busca, a seta para baixo entra no quadro (lá dentro, as setas são dele); Esc fecha o item. */
   protected atalho(e: KeyboardEvent): void {
     if (this.vista() !== 'senhas' || e.ctrlKey || e.metaKey || e.altKey) return;
     const alvo = e.target as HTMLElement | null;
@@ -281,21 +364,16 @@ export class Aberto implements OnInit {
       this.campoBusca()?.nativeElement.focus();
       return;
     }
-    if (e.key === 'Escape' && this.comDetalhe() && !this.item()?.ocupadoComAlgo() && !alvo?.closest('dialog, .para-digitar')) {
+    // na busca com texto, o Esc só limpa a busca (o navegador faz isso)
+    const naBuscaComTexto = alvo === this.campoBusca()?.nativeElement && !!this.campoBusca()?.nativeElement.value;
+    if (e.key === 'Escape' && !naBuscaComTexto && this.comDetalhe() && !this.item()?.ocupadoComAlgo() && !alvo?.closest('dialog, .para-digitar')) {
       this.fecharDetalhe();
       return;
     }
-    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-    const lista = this.listaEl()?.nativeElement;
-    const naLista = !!alvo && !!lista?.contains(alvo);
-    const naBusca = alvo === this.campoBusca()?.nativeElement;
-    if (!lista || (!naLista && !naBusca)) return;
-    const linhas = [...lista.querySelectorAll<HTMLElement>('.abre')];
-    if (!linhas.length) return;
-    e.preventDefault();
-    const atual = linhas.findIndex((l) => l === alvo?.closest('li')?.querySelector('.abre'));
-    const proxima = naBusca ? (e.key === 'ArrowDown' ? 0 : linhas.length - 1) : Math.min(linhas.length - 1, Math.max(0, atual + (e.key === 'ArrowDown' ? 1 : -1)));
-    linhas[proxima]!.focus();
+    if (e.key === 'ArrowDown' && alvo === this.campoBusca()?.nativeElement && this.quadro()) {
+      e.preventDefault();
+      this.quadro()!.focarPrimeira();
+    }
   }
 
   // --- guardar e mover
@@ -308,8 +386,9 @@ export class Aberto implements OnInit {
       this.itens.update((lista) => [...lista.filter((i) => i.id !== salvo.id), salvo]);
       this.criando.set(false);
       this.aberto.set(salvo.id);
-      this.mostrarNaPasta(salvo.id);
+      this.quadro()?.mostrar(salvo.id);
       this.item()?.terminouDeSalvar();
+      this.pendente.set(null);
       this.avisar('Guardado.');
     } catch (e) {
       this.falhou(e);
@@ -375,8 +454,6 @@ export class Aberto implements OnInit {
         this.itens.update((lista) => lista.map((i) => (i.id === salvo.id ? salvo : i)));
         this.mudandoGrupo.update((m) => (m ? { ...m, feitas: m.feitas + 1 } : m));
       });
-      // a pasta continua aberta ou fechada com o nome novo
-      if (this.fechadas().has(simples(de))) this.fechadas.update((f) => new Set([...f].filter((c) => c !== simples(de))));
       const quantas = alvos.length === 1 ? 'a senha' : `as ${alvos.length} senhas`;
       this.avisar(
         soOJeito ? `${de} está com o ícone e a cor novos.` : !destino ? `Grupo ${de} apagado: ${quantas} ficaram sem grupo.` : outro ? `${de} juntado com ${destino}.` : `${de} agora se chama ${destino}.`,
@@ -435,11 +512,6 @@ export class Aberto implements OnInit {
     }
     this.servicos.api.trancar();
     this.servicos.terminar();
-  }
-
-  /** O hex de uma cor da cartela (para a borda da orelha), ou null. */
-  protected hexDa(cor: IdDaCor | ''): string | null {
-    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
   }
 
   protected valor(evento: Event): string {

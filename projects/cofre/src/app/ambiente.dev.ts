@@ -5,6 +5,7 @@ import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } fro
 import { type CamposDoItem, salvarItem } from '../core/itens';
 import type { Autenticador } from '../core/passkey';
 import { type Demonstracao, paginaDoNavegador } from './servicos';
+import type { IdDaCor, IdDoIcone } from '../../../../shared/cartela-de-icones';
 
 /**
  * A demonstração das telas, só no `ng serve cofre` (fileReplacements no angular.json): abra
@@ -127,7 +128,7 @@ class ApiDeMentira extends ApiCofre {
 }
 
 /** Um cofre aberto de mentira (chaves sorteadas agora), com três senhas de exemplo. */
-async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<CofreAberto> {
+async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false): Promise<CofreAberto> {
   const m = novaChaveDoMeio();
   const { chave, v } = await criarCofre(aleatorios(32), m, usuario);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString(), aparelho: 'Celular' };
@@ -178,10 +179,58 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string): Promise<Cofre
     { titulo: 'Repositório', usuario: 'fulano-dev', senha: 'Zq4$hP9!wM2&', url: 'github.com', descricao: '', icone: 'chip', grupo: 'Trabalho', grupoIcone: 'maleta' },
     { titulo: 'Loja de jogos', usuario: 'fulano', senha: 'cinema-pipoca-tucano', url: 'loja.exemplo', descricao: '' },
   ];
-  for (const campos of exemplos) {
+  for (const campos of muitas ? [...exemplos, ...outrosExemplos()] : exemplos) {
     await salvarItem(api, cofre, campos, null);
   }
   return cofre;
+}
+
+/** Com `?demo=muitas`: mais 32 senhas, para o cofre ficar com 40 em seis grupos (o tamanho de um cofre de verdade). */
+function outrosExemplos(): CamposDoItem[] {
+  const vazio = { url: '', descricao: '' };
+  const em =
+    (grupo: string, grupoIcone?: IdDoIcone, grupoCor?: IdDaCor) =>
+    (titulo: string, usuario: string, senha: string, url = ''): CamposDoItem => ({ ...vazio, titulo, usuario, senha, url, grupo, grupoIcone, grupoCor });
+  const banco = em('Bancos', 'moedas', 'verde');
+  const pessoal = em('Pessoal');
+  const streaming = em('Streaming', 'tv', 'roxo');
+  const trabalho = em('Trabalho', 'maleta');
+  const casa = em('Casa', undefined, 'azul');
+  const jogos = em('Jogos', 'jogos', 'laranja');
+  return [
+    banco('Corretora', 'fulano.invest', 'Hn4!pW8@zK2#', 'corretora.exemplo'),
+    banco('Banco digital', 'fulano.silva@email.com', 'roxinho-cafe-manha-91', 'nubank.com.br'),
+    banco('Cartão de crédito', '5555 4444', '8812', ''),
+    banco('Imposto de renda', '123.456.789-00', 'Gv7#nB4$tY1!', 'gov.br'),
+    pessoal('Instagram', '@fulano.silva', 'xR2!bN8#mQ4$', 'instagram.com'),
+    pessoal('WhatsApp (PIN)', '', '482913'),
+    pessoal('Spotify', 'fulano.silva@email.com', 'tamborim-lua-cheia', 'spotify.com'),
+    pessoal('Amazon', 'fulano.silva@email.com', 'Lp5$wE9!rT3@', 'amazon.com.br'),
+    pessoal('Mercado Livre', 'fulanosilva', 'Bq8!kM3#vX6$', 'mercadolivre.com.br'),
+    pessoal('iCloud', 'fulano.silva@icloud.com', 'Wd2@hJ7!nP4#', 'icloud.com'),
+    streaming('Netflix', 'fulano.silva@email.com', 'pipoca-sofa-domingo', 'netflix.com'),
+    streaming('Prime Video', 'fulano.silva@email.com', 'Kt6!vB2@mW8#', 'primevideo.com'),
+    streaming('Disney+', 'fulano.silva@email.com', 'castelo-fogos-magia', 'disneyplus.com'),
+    streaming('Max', 'familia.silva@email.com', 'Rz3#qN7!hL5$', 'max.com'),
+    streaming('Globoplay', 'fulano.silva@email.com', 'novela-das-nove-77', 'globoplay.globo.com'),
+    streaming('YouTube Premium', 'fulano.silva@gmail.com', 'Ys9!cV4@bN1#', 'youtube.com'),
+    streaming('Crunchyroll', 'fulano_anime', 'Mf2$gT8!kW5@', 'crunchyroll.com'),
+    trabalho('E-mail do trabalho', 'fulano.silva@empresa.com', 'Jn5#xP2!vR8$', 'outlook.office.com'),
+    trabalho('VPN', 'fsilva', 'Qa7!mZ3@wE9#', 'vpn.empresa.com'),
+    trabalho('Jira', 'fulano.silva@empresa.com', 'Uc4@nH8!tK2$', 'empresa.atlassian.net'),
+    trabalho('Slack', 'fulano.silva@empresa.com', 'Pe6#bL1!xS7@', 'empresa.slack.com'),
+    trabalho('Servidor de testes', 'root', 'Vn8!qW2#zM5$', '10.0.0.12'),
+    trabalho('Portal do RH', '004512', 'Ix3$kD9!pF6@', 'rh.empresa.com'),
+    casa('Roteador', 'admin', 'Tg5!rY8@uI2#', '192.168.0.1'),
+    casa('Câmera da porta', 'casa.silva@email.com', 'olho-magico-2023'),
+    casa('Condomínio', 'apto 42', 'Ob7#lK4!jH1$', 'condominio.exemplo'),
+    jogos('Steam', 'fulano_gamer', 'Hz2!wQ7@eR4#', 'store.steampowered.com'),
+    jogos('PlayStation', 'fulano.silva@email.com', 'Nc8#vB5!mX3$', 'playstation.com'),
+    jogos('Nintendo', 'fulano.silva@email.com', 'cogumelo-estrela-1up', 'nintendo.com'),
+    jogos('Epic Games', 'fulano_gamer', 'Ka4@sD9!fG2#', 'epicgames.com'),
+    jogos('Battle.net', 'fulano#1234', 'Ew6!rT1@yU8$', 'battle.net'),
+    { ...vazio, titulo: 'Academia', usuario: '0071', senha: '2580' },
+  ];
 }
 
 function autenticadorDeMentira(semPrf: boolean): Autenticador {
@@ -227,7 +276,7 @@ export function demonstracao(): Demonstracao | null {
     porta,
     abrir: pedido === 'abrir' || pedido === 'congelado',
     congeladoAte: pedido === 'congelado' ? new Date(Date.now() + 86_400_000).toISOString() : undefined,
-    aberto: pedido === 'aberto' ? () => cofreDeMentira(api, usuario) : undefined,
+    aberto: pedido === 'aberto' || pedido === 'muitas' ? () => cofreDeMentira(api, usuario, pedido === 'muitas') : undefined,
     servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: paginaDoNavegador(), terminar: () => location.reload() },
     entrada: { token: 'demo', expiraEm: new Date(Date.now() + 300_000).toISOString(), usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' },
   });

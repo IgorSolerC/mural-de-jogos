@@ -89,6 +89,11 @@ body {
   font: 1rem/1.5 var(--f-texto);
   caret-color: var(--caneta);
 }
+/* a página nunca rola de lado (a ficha das senhas passa da largura dela numa tela larga, e com a barra de
+   rolagem à mostra o 100vw contaria a barra) */
+html {
+  overflow-x: clip;
+}
 
 /* a parede de eucatex pintada de grafite, com os furos e a luz do tubo fluorescente em cima: a mesma do
    Murall (shared/_eucatex.scss) */

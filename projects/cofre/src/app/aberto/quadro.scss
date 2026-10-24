@@ -1,0 +1,618 @@
+@use '../papelaria' as p;
+
+/* O quadro: as pastas em pé, lado a lado, na faixa de manilha. Ele toma a altura que sobra na mesa, e cada
+   pasta rola por dentro (seção 17.20). */
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  container: quadro / inline-size;
+}
+cofre-icone {
+  width: 18px;
+  height: 18px;
+}
+.visivel-so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.moldura {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.pastas {
+  /* a largura do apagado de cada beirada (só do lado que tem pasta escondida) */
+  --apaga-inicio: 0px;
+  --apaga-fim: 0px;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+  /* em cima, a folga da sombra da orelha; embaixo, a da sombra da pasta */
+  padding: 6px 12px 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  /* a pasta trazida pela seta, a aberta e a do foco do teclado param depois do apagado da beirada */
+  scroll-padding-inline: 58px;
+  /* sem a barra de rolagem de lado, como o quadro do Kanban: o apagado das beiradas mostra que há mais, e
+     o quadro corre pelas setas, pela roda, pelo trackpad e pelo dedo */
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+/* da largura da folga do scroll-padding: o resto da pasta vizinha que fica na beirada, embaixo da seta,
+   já some todo */
+.apaga-inicio .pastas {
+  --apaga-inicio: 58px;
+}
+.apaga-fim .pastas {
+  --apaga-fim: 58px;
+}
+.apaga-inicio .pastas,
+.apaga-fim .pastas {
+  mask-image: linear-gradient(to right, transparent, #000 var(--apaga-inicio), #000 calc(100% - var(--apaga-fim)), transparent);
+}
+
+/* ===== Uma pasta: a orelha no alto e o corpo de manilha, que rola por dentro ===== */
+.pasta {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  /* sete pastas cabem lado a lado num notebook de 1536px; mais estreitas que isso, o quadro rola de lado */
+  min-width: 192px;
+  max-width: 360px;
+  max-height: 100%;
+  min-height: 0;
+}
+.orelha {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  min-width: 0;
+  max-width: calc(100% - 20px);
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 10px 5px;
+  border-radius: 9px 9px 0 0;
+  background-color: var(--pasta);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: 0 -1px 2px -1px rgb(0 0 0 / 0.3);
+  color: var(--tinta);
+  font: 400 1.05rem/1.1 var(--f-marker);
+  cofre-icone {
+    flex: none;
+    width: 17px;
+    height: 17px;
+  }
+}
+.orelha-nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sem-grupo .orelha-nome {
+  color: var(--tinta-2);
+}
+/* o grupo com cor (a orelha das anotações): papel claro com a borda colorida correndo por dentro, a 3px da
+   beirada, no alto e dos lados, e o desenho na cor. Ela não emenda na manilha (um papel virando outro sem
+   razão): é a plaqueta de papel claro enfiada na pasta, que sai de dentro dela; a beirada de cima do corpo
+   passa por cima do pé dela, e a borda colorida some ali dentro. */
+.com-cor .orelha {
+  position: relative;
+  isolation: isolate;
+  /* a mesma folga de cima da orelha de manilha (o nome na mesma altura), e mais 7px que entram na pasta */
+  min-height: 43px;
+  margin-bottom: -7px;
+  padding-bottom: 12px;
+  background-color: var(--papel-orelha);
+  box-shadow:
+    0 -1px 2px -1px rgb(0 0 0 / 0.3),
+    -1px 0 1px -0.5px rgb(0 0 0 / 0.16),
+    1px 0 1px -0.5px rgb(0 0 0 / 0.16);
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 3px 3px 0;
+    z-index: -1;
+    border: 3px solid var(--cor-do-grupo);
+    border-bottom: 0;
+    border-radius: 6px 6px 0 0;
+    pointer-events: none;
+  }
+  cofre-icone {
+    color: var(--cor-do-grupo);
+  }
+}
+/* quantas senhas: um número a lápis num quadradinho de papel colado na orelha */
+.orelha-conta {
+  flex: none;
+  min-width: 22px;
+  padding: 3px 5px 2px;
+  border-radius: 2px;
+  background: rgb(255 253 248 / 0.7);
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.16);
+  font: 800 0.78rem/1 var(--f-rotulo);
+  letter-spacing: 0.04em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.lista {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 7px 5px 9px;
+  list-style: none;
+  border-radius: 0 6px 6px 6px;
+  background-color: var(--pasta);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 8px 12px -10px rgb(0 0 0 / 0.5);
+  overflow: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(21 21 21 / 0.38) transparent;
+}
+/* o corpo, na frente do pé da orelha: a quina de cima também arredondada, e uma sombrinha na beirada de
+   cima, onde a orelha entra */
+.com-cor .lista {
+  position: relative;
+  z-index: 1;
+  border-radius: 6px;
+  box-shadow:
+    0 -1px 1px rgb(0 0 0 / 0.14),
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 8px 12px -10px rgb(0 0 0 / 0.5);
+}
+/* a pasta que rola por dentro: a beirada dela se apaga do lado em que há mais etiquetas */
+.lista.mais-abaixo {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), rgb(0 0 0 / 0.2));
+}
+.lista.mais-acima {
+  mask-image: linear-gradient(to top, #000 calc(100% - 28px), rgb(0 0 0 / 0.2));
+}
+.lista.mais-acima.mais-abaixo {
+  mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.2), #000 28px, #000 calc(100% - 28px), rgb(0 0 0 / 0.2));
+}
+/* a pasta rola por dentro só com o quadro inteiro na tela; antes disso, a roda e o dedo levam a página */
+.rola .lista {
+  overflow-y: auto;
+}
+@media (hover: hover) {
+  .lista {
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* sem nenhum grupo: uma pasta só, sem orelha, as etiquetas em grade direto na manilha */
+.pasta.sozinha {
+  flex: 1 1 auto;
+  max-width: none;
+  align-self: stretch;
+  .lista {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 6px 14px;
+    padding: 4px 4px 10px;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+  }
+}
+
+/* ===== As etiquetas: uma linha de papel por senha, a aberta amarela e reta ===== */
+.linha {
+  --fundo-linha: var(--papel-ficha);
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-radius: 2px;
+  background-color: var(--fundo-linha);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 4px 7px -5px rgb(0 0 0 / 0.42);
+  rotate: -0.25deg;
+  transition:
+    translate 380ms var(--curva),
+    rotate 380ms var(--curva),
+    background-color 160ms var(--curva-ui);
+  &:nth-child(2n) {
+    rotate: 0.2deg;
+  }
+  &.aberta {
+    --fundo-linha: var(--hi);
+    rotate: 0deg;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.25),
+      0 6px 10px -6px rgb(0 0 0 / 0.5);
+  }
+}
+@media (hover: hover) {
+  .linha:hover:not(.aberta) {
+    translate: 2px 0;
+  }
+}
+.abre {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--tinta);
+  text-align: left;
+  cursor: pointer;
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 1px;
+  }
+}
+.textos {
+  display: grid;
+  gap: 1px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.titulo-linha,
+.usuario-linha {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.titulo {
+  min-width: 0;
+  overflow: hidden;
+  font: 400 0.96rem/1.2 var(--f-marker);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.usuario {
+  min-width: 0;
+  overflow: hidden;
+  font: 500 0.84rem/1.25 var(--f-texto);
+  color: var(--tinta-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* com mais senhas no item: quantas mais, num quadradinho de papel, depois do user */
+.mais-senhas {
+  flex: none;
+  padding: 2px 4px 1px;
+  border-radius: 2px;
+  background: rgb(21 21 21 / 0.08);
+  color: var(--tinta-2);
+  font: 700 0.74rem/1.15 var(--f-rotulo);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+/* a senha vazada: uma etiqueta vermelha colada torta depois do nome */
+.selo-vazada {
+  flex: none;
+  padding: 3px 5px 2px;
+  border-radius: 2px;
+  background: var(--vermelho);
+  color: #fff;
+  font: 800 0.62rem/1 var(--f-rotulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  rotate: -3deg;
+}
+
+/* copiar sem abrir: dois adesivos pequenos no fim da etiqueta. Com mouse, aparecem com o mouse ou o foco
+   na etiqueta (só assim, nem na aberta: a folha ao lado já tem o Copiar), na linha de baixo, por cima do
+   fim do user, que se apaga embaixo deles: o nome fica inteiro (sem a linha de baixo, no meio da
+   etiqueta). No toque, sempre, no fim da etiqueta. */
+.rapidos {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding-right: 6px;
+}
+@media (hover: hover) {
+  .rapidos {
+    position: absolute;
+    right: 0;
+    bottom: 3px;
+    height: 24px;
+    gap: 3px;
+    isolation: isolate;
+    padding-left: 16px;
+    opacity: 0;
+    /* só os botões pegam o toque: o apagado e a folga entre eles continuam abrindo a etiqueta */
+    pointer-events: none;
+    transition: opacity 160ms var(--curva-ui);
+  }
+  /* o papel da etiqueta por baixo dos botões, apagando o fim do user (num ::before: uma máscara no
+     próprio .rapidos cortaria o anel de foco dos botões) */
+  .rapidos::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 0 2px 2px 0;
+    background-color: var(--fundo-linha);
+    background-image: var(--grao);
+    background-blend-mode: multiply;
+    mask-image: linear-gradient(to right, transparent, #000 14px);
+  }
+  .rapidos .rapido {
+    pointer-events: none;
+    width: 30px;
+    min-height: 24px;
+    height: 24px;
+  }
+  .uma-linha .rapidos {
+    bottom: auto;
+    top: 50%;
+    height: 34px;
+    translate: 0 -50%;
+  }
+  .uma-linha .rapidos .rapido {
+    height: 32px;
+    min-height: 32px;
+  }
+  /* o foco só do teclado (o clique deixa o foco na etiqueta, e a aberta fica com o foco) */
+  .linha:not(.aberta):is(:hover, :has(:focus-visible)) .rapidos {
+    opacity: 1;
+    .rapido {
+      pointer-events: auto;
+    }
+  }
+}
+.rapido {
+  @include p.botao-quieto;
+  & {
+    width: 34px;
+    min-height: 34px;
+    height: 34px;
+    padding: 0;
+  }
+  &::after {
+    inset: 2px;
+  }
+  cofre-icone {
+    width: 16px;
+    height: 16px;
+  }
+}
+/* no toque (sempre à mostra), também não na aberta: a folha já tem o Copiar */
+@media (hover: none) {
+  .linha.aberta .rapidos {
+    visibility: hidden;
+  }
+}
+@media (hover: none) {
+  .abre {
+    min-height: 54px;
+  }
+  .rapido {
+    width: 38px;
+    height: 44px;
+  }
+}
+
+/* ===== As setas das beiradas: um disco de papel por cima do apagado, que traz as pastas de lá; o
+   adesivo de tinta no canto diz quantas são. Só com mouse. ===== */
+.seta {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  translate: 0 -50%;
+  background-color: var(--papel);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  color: var(--tinta);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 8px 14px -6px rgb(0 0 0 / 0.55);
+  cursor: pointer;
+  animation: seta-chega 380ms var(--curva);
+  transition:
+    scale 160ms var(--curva-ui),
+    box-shadow 160ms var(--curva-ui);
+  cofre-icone {
+    width: 20px;
+    height: 20px;
+  }
+  &:hover {
+    scale: 1.06;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.4),
+      0 12px 18px -6px rgb(0 0 0 / 0.6);
+  }
+  &:active {
+    scale: 0.97;
+  }
+}
+.seta-inicio {
+  left: 6px;
+}
+.seta-fim {
+  right: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .seta {
+    display: grid;
+  }
+}
+.seta-n {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border: 2px solid var(--papel);
+  border-radius: 11px;
+  background: var(--tinta);
+  color: var(--hi);
+  font: 400 0.78rem/1 var(--f-marker);
+  font-variant-numeric: tabular-nums;
+  rotate: -8deg;
+}
+.seta-inicio .seta-n {
+  right: auto;
+  left: -6px;
+  rotate: 8deg;
+}
+@keyframes seta-chega {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seta {
+    animation: none;
+  }
+}
+
+/* ===== A fileira das orelhas (só no estreito): as orelhas de todas as pastas, pequenas, numa tira que rola
+   de lado; a da pasta à vista em amarelo, como a aba aberta. Um toque leva o quadro até a pasta. ===== */
+.indice {
+  display: none;
+  gap: 6px;
+  margin: -6px 0 2px;
+  /* a folga do anel de foco (a fileira rola de lado, então corta em cima e embaixo também) */
+  padding: 6px 12px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+.indice-orelha {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  min-height: 44px;
+  padding: 6px 10px 4px;
+  border: 0;
+  border-radius: 8px 8px 2px 2px;
+  background-color: var(--pasta);
+  background-image: var(--grao);
+  background-blend-mode: multiply;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.2);
+  color: var(--tinta);
+  font: 400 0.98rem/1.1 var(--f-marker);
+  cursor: pointer;
+  transition: background-color 160ms var(--curva-ui);
+  cofre-icone {
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+  &.com-cor {
+    background-color: var(--papel-orelha);
+    box-shadow:
+      inset 0 0 0 2px var(--cor-do-grupo),
+      0 1px 1px rgb(0 0 0 / 0.2);
+    cofre-icone {
+      color: var(--cor-do-grupo);
+    }
+  }
+  &.sem-grupo .indice-nome {
+    color: var(--tinta-2);
+  }
+  &[aria-current='true'] {
+    background-color: var(--hi);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--tinta);
+    outline-offset: 2px;
+  }
+}
+.indice-nome {
+  max-width: 16ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.indice-conta {
+  font: 800 0.76rem/1 var(--f-rotulo);
+  font-variant-numeric: tabular-nums;
+  color: var(--tinta-2);
+}
+
+/* ===== Estreito (o celular): uma pasta por vez, quase da largura toda, e a próxima aparecendo na
+   beirada; o dedo leva de uma para a outra, que para encaixada ===== */
+@container quadro (max-width: 599px) {
+  .indice {
+    display: flex;
+  }
+  .pastas {
+    gap: 10px;
+    padding-inline: 12px;
+    scroll-padding-inline: 12px;
+    scroll-snap-type: x mandatory;
+  }
+  .pasta {
+    flex: 0 0 86%;
+    min-width: 0;
+    max-width: none;
+    scroll-snap-align: start;
+  }
+  .pasta:only-child {
+    flex-basis: 100%;
+  }
+  /* com a fileira de orelhas em cima, ela diz qual é a pasta e que há outras: a pasta ocupa a largura
+     toda, e a orelha dela fica só para o leitor de tela (continua dando nome à seção) */
+  .com-indice .pasta {
+    flex-basis: 100%;
+  }
+  .com-indice .orelha {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .com-indice .lista {
+    border-radius: 6px;
+  }
+  .pasta.sozinha .lista {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
