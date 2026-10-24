@@ -28,6 +28,13 @@ npx wrangler secret put RAWG_KEY   # a chave de rawg.io/apidocs
 ```
 
 Para desligar na hora, apague o secret (`npx wrangler secret delete RAWG_KEY`) ou use o `MODO`.
+
+A resposta sai sem a chave do site: a busca da RAWG devolve os endereços da página seguinte e da
+anterior (`next`, `previous`) com a chave dentro, e o repasse tira todo `key=`/`api_key=` com ela
+(`withoutKey`). **Pendente, do usuário:** até 24/10 a chave ia nesses endereços para o navegador, então
+a RAWG_KEY de agora já vazou. Gere outra em rawg.io/apidocs (entrar, "Get API key"; se a página só
+mostrar a mesma, peça uma nova pelo suporte deles) e grave por cima: `cd api && npx wrangler secret put
+RAWG_KEY`. Não precisa de deploy.
 Limites: a RAWG grátis dá 20 mil pedidos por mês para a chave inteira (cada resenha de jogo gasta uns
 5 a 10: a busca enquanto digita, a capa da Steam e a escolha de capa); o TMDB não tem cota mensal, só um
 limite por segundo. Os dois pedem crédito: está no pé de Ajustes › Busca.
@@ -56,6 +63,16 @@ E, no `wrangler.toml`, `AGENDA_CODIGOS`: os códigos das contas que veem o Googl
 de teste, enquanto o app não é verificado pelo Google); vazio, ninguém; `*`, todo mundo. No Google
 Cloud: a Google Calendar API ativada, o escopo `calendar.events` na tela de permissão e o endereço
 `https://murall.igorsc.com.br/google.html` em "URIs de redirecionamento autorizados" do cliente OAuth.
+
+## Logs
+
+O Workers Logs (o Observability do Cloudflare, grátis no plano Free: 200 mil por dia, guardados 3 dias)
+fica ligado no `wrangler.toml`. Cada pedido aparece com o endereço e o status, e toda resposta de erro
+deixa uma linha com o método, o molde da rota, o status e o código (`GET /v1/agenda 401
+sessao-invalida`); as recusas do Google Agenda deixam o porquê que o Google deu (`agenda: o Google
+respondeu 400 ao mudar (invalid): Invalid start time.`), nunca o evento. Para ler: painel do
+Cloudflare › Workers › mural-api › Logs (filtrar por `level = warn`), ou ao vivo com `npx wrangler tail
+mural-api`. O cofre guarda só as linhas de erro (PLANO-COFRE.md 9.3).
 
 ## Como está montada
 
