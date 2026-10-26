@@ -14,6 +14,8 @@ import { cleanLabel, fold } from './text';
  *   dali em diante (`values`), e um mês pode ficar de fora (`skip`) ou ser o último (`until`);
  * - o **reembolso** (uma entrada) pode dizer de que gasto ele é (`refundOf`): o gasto mostra quanto voltou,
  *   e as contas por categoria usam o que ele custou de verdade;
+ * - um lançamento de uma vez ou parcelado pode **contar noutro mês** (`shift`): a compra do dia 3 de
+ *   outubro que vem na fatura de setembro conta em setembro (o mês de antes ou o de depois do dia dele);
  * - cada saída é **com alguém** (`people`): você, por padrão, e quem mais estava junto. Por pessoa, o gasto
  *   conta dividido em partes iguais (o jantar de R$ 600 com três vale R$ 200 para cada um).
  *
@@ -110,6 +112,11 @@ export interface Entry {
   date: string;
   /** Parcelado: quantas parcelas (2 ou mais). */
   installments?: number;
+  /**
+   * Uma vez só ou parcelado: conta no mês de antes (-1) ou no de depois (1) do mês de `date` (a fatura do
+   * cartão que vira no dia 8). As parcelas seguintes andam junto. Sem nada, no mês do dia.
+   */
+  shift?: Shift;
   /** Fixo: repete todo mês, a partir do mês de `date`. */
   monthly?: true;
   /** Fixo: o último mês ('AAAA-MM'). */
@@ -123,6 +130,9 @@ export interface Entry {
   createdAt: string;
   at: string;
 }
+
+/** Para que mês o lançamento conta, perto do mês do dia dele: o de antes ou o de depois. */
+export type Shift = -1 | 1;
 
 export interface SpendingState {
   entries: Entry[];
@@ -285,9 +295,18 @@ export function fixedValue(e: Pick<Entry, 'amount' | 'values'>, month: string): 
   return best === null ? e.amount : e.values![best];
 }
 
-/** O lançamento num mês, se ele aparece lá. */
+/** O mês em que o lançamento conta pela primeira vez: o do dia, ou o de antes ou de depois (`shift`). */
+export function firstMonth(e: Pick<Entry, 'date' | 'shift' | 'monthly'>): string {
+  const m = monthOfDay(e.date);
+  return e.shift && !e.monthly ? shiftMonth(m, e.shift) : m;
+}
+
+/**
+ * O lançamento num mês, se ele aparece lá. O dia da linha é sempre o de verdade: a compra de 3 de outubro
+ * que conta em setembro aparece em setembro com o dia 3 de outubro (e cada parcela seguinte, um mês depois).
+ */
 export function rowIn(e: Entry, month: string): Row | null {
-  const first = monthOfDay(e.date);
+  const first = firstMonth(e);
   if (e.monthly) {
     if (month < first || (e.until && month > e.until) || e.skip?.includes(month)) return null;
     return { entry: e, day: dayIn(month, e.date), amount: fixedValue(e, month), fixed: true };
@@ -295,7 +314,7 @@ export function rowIn(e: Entry, month: string): Row | null {
   if (e.installments && e.installments > 1) {
     const k = monthsBetween(first, month);
     if (k < 0 || k >= e.installments) return null;
-    return { entry: e, day: dayIn(month, e.date), amount: e.amount, part: { n: k + 1, of: e.installments } };
+    return { entry: e, day: dayIn(shiftMonth(month, -(e.shift ?? 0)), e.date), amount: e.amount, part: { n: k + 1, of: e.installments } };
   }
   return first === month ? { entry: e, day: e.date, amount: e.amount } : null;
 }
@@ -312,7 +331,7 @@ export function rowsIn(entries: readonly Entry[], month: string): Row[] {
 
 /** Os meses em que há algum lançamento lançado de fato (o primeiro mês de cada um), do mais antigo ao mais novo. */
 export function activeMonths(entries: readonly Entry[]): string[] {
-  return [...new Set(entries.map((e) => monthOfDay(e.date)))].sort();
+  return [...new Set(entries.map((e) => firstMonth(e)))].sort();
 }
 
 export interface MonthTotals {
@@ -507,11 +526,16 @@ export interface DayBalance {
 
 /**
  * O saldo do mês dia a dia (o que entrou menos o que saiu, somado até o fim de cada dia), do dia 1 ao
- * último dia do mês (ou até `until`, para o mês corrente parar em hoje).
+ * último dia do mês (ou até `until`, para o mês corrente parar em hoje). O que conta neste mês mas é de
+ * um dia de outro (`shift`) entra no último dia (o do mês seguinte) ou no primeiro (o do anterior).
  */
 export function dailyBalance(rows: readonly Row[], month: string, until?: string): DayBalance[] {
   const byDay = new Map<string, number>();
-  for (const r of rows) byDay.set(r.day, (byDay.get(r.day) ?? 0) + (r.entry.flow === 'entrada' ? r.amount : -r.amount));
+  const last = `${month}-${String(daysIn(month)).padStart(2, '0')}`;
+  for (const r of rows) {
+    const day = r.day > last ? last : r.day < `${month}-01` ? `${month}-01` : r.day;
+    byDay.set(day, (byDay.get(day) ?? 0) + (r.entry.flow === 'entrada' ? r.amount : -r.amount));
+  }
   const out: DayBalance[] = [];
   let balance = 0;
   for (let d = 1; d <= daysIn(month); d++) {
@@ -546,7 +570,7 @@ export function openPlans(entries: readonly Entry[], month: string): OpenPlan[] 
   const out: OpenPlan[] = [];
   for (const e of entries) {
     if (e.monthly || !e.installments || e.installments < 2) continue;
-    const first = monthOfDay(e.date);
+    const first = firstMonth(e);
     const last = shiftMonth(first, e.installments - 1);
     if (last < month) continue;
     const k = Math.max(0, monthsBetween(first, month));
@@ -562,7 +586,7 @@ export function installmentsAhead(entries: readonly Entry[], month: string): { t
   let last: string | null = null;
   for (const e of entries) {
     if (e.monthly || !e.installments || e.installments < 2 || e.flow !== 'saida') continue;
-    const first = monthOfDay(e.date);
+    const first = firstMonth(e);
     const end = shiftMonth(first, e.installments - 1);
     const next = shiftMonth(month, 1);
     const start = next > first ? next : first;
@@ -711,6 +735,7 @@ export function sanitizeEntry(raw: unknown): Entry | null {
     e.installments = Math.min(r['installments'], MAX_INSTALLMENTS);
     e.pay = 'parcelado';
   } else if (e.pay === 'parcelado') e.pay = 'avista';
+  if (!e.monthly && (r['shift'] === -1 || r['shift'] === 1)) e.shift = r['shift'];
   if (flow === 'entrada' && !e.monthly && typeof r['refundOf'] === 'string' && ID_RE.test(r['refundOf']) && r['refundOf'] !== e.id) e.refundOf = r['refundOf'];
   return e;
 }

@@ -255,7 +255,8 @@
    tracejado, ainda na cartela, pedindo para escolher */
 .adivinhada,
 .opcional[aria-pressed='false'],
-.pessoas.opcional {
+.pessoas.opcional,
+.outro-mes.opcional {
   background: transparent;
   box-shadow: none;
   outline: 1.5px dashed rgb(21 21 21 / 0.45);

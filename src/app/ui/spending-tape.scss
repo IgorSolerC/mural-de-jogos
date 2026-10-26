@@ -126,6 +126,16 @@
   small {
     display: none;
   }
+  /* o mês do dia que conta neste pela fatura: escrito sempre, mesmo na fita estreita */
+  small.outro-mes {
+    display: inline;
+    margin-left: 2px;
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink);
+  }
 }
 
 .nome {
@@ -139,11 +149,14 @@
   line-height: 1.2;
 }
 
-/* as marcas ficam logo depois do nome, sem empurrar o valor (só com a fita larga) */
+/* as marcas ficam logo depois do nome, sem empurrar o valor (só com a fita larga). Elas cortam o que não
+   cabe, então ganham uma folga em volta (sem mudar a altura da linha): o carimbo torto não perde as pontas */
 .marcas {
   display: none;
   align-items: center;
   gap: 6px;
+  margin: -4px -3px;
+  padding: 4px 3px;
 }
 
 /* a categoria escrita, mais apagada que o nome e o valor (o selinho sozinho não basta: há cores parecidas) */

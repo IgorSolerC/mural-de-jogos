@@ -26,6 +26,21 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-26-fatura',
+    version: '1.35.1',
+    kind: 'ajustes',
+    date: '2026-10-26',
+    title: 'O mês da fatura nos Gastos',
+    melhorias: [
+      'Nos Gastos, um lançamento pode contar no mês de antes ou no de depois do dia dele (a compra de 3 de outubro que vem na fatura de setembro): no adesivo "+ outro mês" da linha de anotar ou em "Conta em", na edição. Na fita ele aparece com o dia de verdade e o mês ao lado ("3 nov"), e as parcelas andam junto.',
+      'O Lançar da linha de anotar fica sem o contorno enquanto não há o que lançar.',
+    ],
+    correcoes: [
+      'Os carimbos de luxo e conforto da fita dos Gastos não perdem mais as pontas.',
+      'O número de parcelas na edição de um gasto aparece inteiro (o 10 não vira mais 1).',
+    ],
+  },
+  {
     id: '2026-10-26-pessoas',
     version: '1.35.0',
     kind: 'funcionalidade',

@@ -177,10 +177,19 @@
     cursor: pointer;
   }
 
+  /* as parcelas: sem as setinhas do aparelho, que comiam o espaço dos algarismos ("10" virava "1") */
   input[type='number'] {
-    width: 4ch;
+    width: 4.5ch;
+    padding: 0;
     text-align: center;
     cursor: text;
+    appearance: textfield;
+
+    &::-webkit-inner-spin-button,
+    &::-webkit-outer-spin-button {
+      appearance: none;
+      margin: 0;
+    }
   }
 
   input[type='date']::-webkit-calendar-picker-indicator {
@@ -231,6 +240,11 @@ button.caixa {
   .chev {
     opacity: 0.55;
   }
+}
+
+.fatura {
+  display: inline-flex;
+  opacity: 0.7;
 }
 
 .escolha.curto .caixa {

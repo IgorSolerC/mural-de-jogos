@@ -48,6 +48,7 @@ import {
   CheckCheck,
   ChefHat,
   ChevronDown,
+  CreditCard,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -450,6 +451,8 @@ export const ICON = {
   ampulheta: Hourglass,
   historico: History,
   repetir: Repeat,
+  /** A fatura do cartão: o lançamento que conta noutro mês. */
+  fatura: CreditCard,
   clipe: Paperclip,
 
   // ===== O texto =====

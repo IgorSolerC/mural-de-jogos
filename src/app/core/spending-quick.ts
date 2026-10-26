@@ -11,6 +11,7 @@ import {
   PayMethod,
   SpendingCategory,
   SpendingPerson,
+  Shift,
   TITLE_MAX,
   dayIn,
   isDay,
@@ -53,6 +54,8 @@ export interface Quick {
   need?: Need;
   /** Saída: com quem foi, quando não é só você (você primeiro, depois as escritas com @). */
   people?: PersonRef[];
+  /** Uma vez ou parcelado: conta no mês de antes ou no de depois do dia (escolhido no adesivo). */
+  shift?: Shift;
   /** Parcelado: quantas parcelas. */
   installments?: number;
   /** Parcelado: qual parcela é a deste mês (1 é a primeira). */
@@ -380,6 +383,7 @@ export function quickToEntry(q: Quick): Omit<Entry, 'id' | 'createdAt' | 'at'> |
     ...(q.pay ? { pay: q.pay } : {}),
     ...(q.need && q.flow === 'saida' ? { need: q.need } : {}),
     ...(people.length && !(people.length === 1 && people[0] === ME) ? { people } : {}),
+    ...(q.shift && !q.monthly ? { shift: q.shift } : {}),
     ...(q.installments ? { installments: q.installments } : {}),
     ...(q.monthly ? { monthly: true as const } : {}),
     date: q.date,

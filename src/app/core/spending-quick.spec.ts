@@ -112,4 +112,10 @@ describe('Gastos: a linha de anotar', () => {
     expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }])).toBe('Eu, Bruna');
     expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }, { id: 'b', name: 'Biel' }])).toBe('Eu +2');
   });
+
+  it('o mês da fatura vai para o lançamento (nunca num fixo)', () => {
+    const q = readQuick('tênis 399,90', ctx());
+    expect(quickToEntry({ ...q, shift: -1 })!.shift).toBe(-1);
+    expect(quickToEntry({ ...q, shift: -1, monthly: true })!.shift).toBeUndefined();
+  });
 });

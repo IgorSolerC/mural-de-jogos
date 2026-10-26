@@ -165,11 +165,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     campo fora e enviaria o lançamento assim, e a resposta sumiria em todo aparelho.
  * 40: com quem foi cada saída dos Gastos (`people`) e as pessoas do livro (`people` em `gastos`). Um site
  *     da 39 jogaria os dois fora e enviaria assim, e os gastos voltariam a ser só seus em todo aparelho.
+ * 41: o mês em que um lançamento dos Gastos conta (`shift`, a fatura de antes ou a de depois). Um site da 40
+ *     jogaria o campo fora e enviaria assim, e a compra voltaria para o mês do dia em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 40;
+export const SYNC_SCHEMA = 41;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

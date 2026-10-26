@@ -12,9 +12,11 @@ import {
   PAY_METHODS,
   PayMethod,
   Row,
+  Shift,
   TITLE_MAX,
   brl,
   dayIn,
+  firstMonth,
   fixedValue,
   isDay,
   monthLabel,
@@ -22,6 +24,7 @@ import {
   moneyInput,
   parseMoney,
   peopleOf,
+  rowIn,
   rowsIn,
   shiftMonth,
 } from '../core/spending';
@@ -140,6 +143,20 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
           </span>
         </label>
 
+        @if (kind() !== 'fixo') {
+          <label class="escolha">
+            <span>Conta em</span>
+            <span class="caixa">
+              <lucide-icon class="fatura" [img]="BillIcon" [size]="14" aria-hidden="true" />
+              <select (change)="setShift($any($event.target).value)">
+                @for (s of shifts; track s) {
+                  <option [value]="s" [selected]="s === (d.shift ?? 0)">{{ shiftLabel(s) }}</option>
+                }
+              </select>
+            </span>
+          </label>
+        }
+
         @if (kind() !== 'parcelado') {
           <button type="button" class="interruptor-linha" role="switch" [attr.aria-checked]="kind() === 'fixo'" (click)="toggleMonthly()">
             <span class="interruptor" aria-hidden="true"><span class="bolinha"></span></span>
@@ -195,6 +212,8 @@ export class SpendingEditor {
 
   protected readonly DeleteIcon = ICON.apagar;
   protected readonly PeopleIcon = ICON.pessoas;
+  protected readonly BillIcon = ICON.fatura;
+  protected readonly shifts: readonly (Shift | 0)[] = [-1, 0, 1];
   protected readonly ChevIcon = ICON.abrir;
   protected readonly peopleText = peopleText;
   protected readonly brl = brl;
@@ -332,6 +351,22 @@ export class SpendingEditor {
     this.peopleButton()?.nativeElement.focus({ preventScroll: true });
   }
 
+  /** "Setembro (mês anterior)": o mês em que conta, perto do mês do dia escolhido. */
+  protected shiftLabel(s: Shift | 0): string {
+    const name = monthLabel(shiftMonth(monthOfDay(this.draft().date), s)).split(' de ')[0];
+    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'o do dia'})`;
+  }
+
+  protected setShift(v: string): void {
+    const s = Number(v);
+    this.draft.update((d) => {
+      const next: Entry = { ...d };
+      if (s === -1 || s === 1) next.shift = s;
+      else delete next.shift;
+      return next;
+    });
+  }
+
   protected setInstallments(v: string): void {
     const n = Math.round(Number(v));
     if (n >= 2 && n <= MAX_INSTALLMENTS) this.patch({ installments: n });
@@ -354,6 +389,7 @@ export class SpendingEditor {
       } else {
         next.monthly = true;
         delete next.refundOf;
+        delete next.shift;
       }
       return next;
     });
@@ -375,6 +411,10 @@ export class SpendingEditor {
       }
     } else next.amount = a;
     this.store.save(next);
+    // saiu do mês aberto (outro dia, outro mês da fatura): diz para onde foi
+    if (!rowIn(next, this.month())) {
+      this.toasts.show(`“${next.title}” agora conta em ${monthLabel(firstMonth(next)).split(' de ')[0]}`, { label: 'Desfazer', run: () => this.store.restore(was) });
+    }
     this.done.emit();
   }
 

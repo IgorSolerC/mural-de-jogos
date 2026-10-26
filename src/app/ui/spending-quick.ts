@@ -12,8 +12,10 @@ import {
   PAY_LABEL,
   PAY_METHODS,
   PayMethod,
+  Shift,
   brl,
   dayIn,
+  firstMonth,
   monthLabel,
   monthOfDay,
   moneyInput,
@@ -38,6 +40,8 @@ interface Overrides {
   monthly?: boolean;
   /** O dia deste mês (no parcelado, o desta parcela). */
   day?: string;
+  /** O mês em que conta, perto do mês do dia (0: o do dia). */
+  shift?: Shift | 0;
 }
 
 const NEW_CATEGORY = '__nova';
@@ -193,6 +197,18 @@ function dayLabel(day: string, today: string): string {
           <input type="date" aria-label="Dia" [value]="shownDay()" (change)="setDay($any($event.target).value)" />
         </label>
 
+        @if (!q.monthly) {
+          <label class="adesivo escolha outro-mes" [class.opcional]="!q.shift">
+            <lucide-icon [img]="BillIcon" [size]="13" aria-hidden="true" />
+            {{ q.shift ? 'Conta em ' + monthName(q.shift) : '+ outro mês' }}
+            <select aria-label="Mês em que conta" (change)="set({ shift: $any(+$any($event.target).value) })">
+              @for (s of shifts; track s) {
+                <option [value]="s" [selected]="s === (q.shift ?? 0)">{{ shiftLabel(s) }}</option>
+              }
+            </select>
+          </label>
+        }
+
         @if (!q.installments) {
           <button type="button" class="adesivo opcional" [attr.aria-pressed]="!!q.monthly" (click)="set({ monthly: !q.monthly })">
             <lucide-icon [img]="RepeatIcon" [size]="13" aria-hidden="true" />
@@ -236,6 +252,8 @@ export class SpendingQuick {
   protected readonly DayIcon = ICON.calendario;
   protected readonly RepeatIcon = ICON.repetir;
   protected readonly PeopleIcon = ICON.pessoas;
+  protected readonly BillIcon = ICON.fatura;
+  protected readonly shifts: readonly (Shift | 0)[] = [-1, 0, 1];
   protected readonly brl = brl;
   protected readonly peopleText = peopleText;
   protected readonly payLabel = PAY_LABEL;
@@ -317,6 +335,11 @@ export class SpendingQuick {
       if (o.monthly) q.monthly = true;
       else delete q.monthly;
     }
+    if (o.shift !== undefined) {
+      if (o.shift) q.shift = o.shift;
+      else delete q.shift;
+    }
+    if (q.monthly) delete q.shift;
     // o dia: o desta parcela vira o da primeira
     const day = o.day ?? this.dayOfRead(q);
     q.date = q.installments && (q.part ?? 1) > 1 ? dayIn(shiftMonth(monthOfDay(day), -((q.part ?? 1) - 1)), day) : day;
@@ -324,6 +347,9 @@ export class SpendingQuick {
   });
 
   protected readonly entry = computed(() => quickToEntry(this.quick()));
+
+  /** O mês do dia mostrado (o desta parcela, no parcelado). */
+  private readonly shownMonth = computed(() => monthOfDay(this.shownDay()));
 
   /** O dia que o adesivo mostra: o do lançamento neste mês (no parcelado, o da parcela de agora). */
   protected readonly shownDay = computed(() => this.overrides().day ?? this.dayOfRead(this.quick()));
@@ -370,6 +396,16 @@ export class SpendingQuick {
 
   protected set(o: Overrides): void {
     this.overrides.update((x) => ({ ...x, ...o }));
+  }
+
+  /** "setembro": o mês em que conta, andando `s` a partir do mês do dia. */
+  protected monthName(s: Shift | 0): string {
+    return monthLabel(shiftMonth(this.shownMonth(), s)).split(' de ')[0];
+  }
+
+  protected shiftLabel(s: Shift | 0): string {
+    const name = this.monthName(s);
+    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'o do dia'})`;
   }
 
   protected closePicker(): void {
@@ -462,8 +498,8 @@ export class SpendingQuick {
     const now = new Date().toISOString();
     const e = { ...draft, id: newId(), createdAt: now, at: now };
     this.store.save(e);
-    const elsewhere = !e.monthly && !e.installments && monthOfDay(e.date) !== this.store.month();
-    this.toasts.show(`“${e.title}” lançado${elsewhere ? ` em ${monthLabel(monthOfDay(e.date)).split(' de ')[0]}` : ''}`, {
+    const elsewhere = !e.monthly && !e.installments && firstMonth(e) !== this.store.month();
+    this.toasts.show(`“${e.title}” lançado${elsewhere ? ` em ${monthLabel(firstMonth(e)).split(' de ')[0]}` : ''}`, {
       label: 'Desfazer',
       run: () => this.store.remove(e.id),
     });

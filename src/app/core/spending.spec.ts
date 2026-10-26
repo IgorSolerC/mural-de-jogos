@@ -7,6 +7,7 @@ import {
   dailyBalance,
   daysLeft,
   dayIn,
+  firstMonth,
   fixedValue,
   installmentsAhead,
   mergeSpending,
@@ -335,5 +336,41 @@ describe('Gastos: com quem', () => {
     expect(ab).toEqual(mergeSpending(there, here));
     expect(ab.people.map((p) => p.name)).toEqual(['Igor', 'Bru']);
     expect(spendingToSync(here)).not.toBeNull();
+  });
+});
+
+describe('Gastos: o mês da fatura', () => {
+  it('a compra do dia 3 que vem na fatura de antes conta no mês de antes, com o dia de verdade', () => {
+    const tenis = entry({ title: 'Tênis', amount: 39990, date: '2026-11-03', shift: -1 });
+    expect(firstMonth(tenis)).toBe('2026-10');
+    expect(rowIn(tenis, '2026-11')).toBeNull();
+    expect(rowIn(tenis, '2026-10')!.day).toBe('2026-11-03');
+    const late = entry({ amount: 1000, date: '2026-09-30', shift: 1 });
+    expect(rowIn(late, '2026-10')!.day).toBe('2026-09-30');
+    expect(activeMonths([tenis, late])).toEqual(['2026-10']);
+  });
+
+  it('o parcelado anda junto: cada parcela conta um mês antes, no dia de verdade dela', () => {
+    const violao = entry({ amount: 13990, pay: 'parcelado', installments: 3, date: '2026-10-03', shift: -1 });
+    expect(['2026-09', '2026-10', '2026-11', '2026-12'].map((m) => rowIn(violao, m)?.part?.n ?? null)).toEqual([1, 2, 3, null]);
+    expect(rowIn(violao, '2026-10')!.day).toBe('2026-11-03');
+    expect(openPlans([violao], '2026-10')[0].last).toBe('2026-11');
+    expect(installmentsAhead([violao], '2026-09')).toEqual({ total: 27980, nextMonth: 13990, last: '2026-11' });
+  });
+
+  it('no saldo dia a dia, o de depois entra no último dia e o de antes no primeiro', () => {
+    const entries = [entry({ amount: 5000, date: '2026-10-03', shift: -1 }), entry({ amount: 2000, date: '2026-08-31', shift: 1 }), entry({ amount: 1000, date: '2026-09-10' })];
+    const days = dailyBalance(rowsIn(entries, '2026-09'), '2026-09');
+    expect(days[0].balance).toBe(-2000);
+    expect(days[9].balance).toBe(-3000);
+    expect(days[29]).toEqual({ day: '2026-09-30', balance: -8000 });
+    expect(totals(rowsIn(entries, '2026-09')).spent).toBe(8000);
+  });
+
+  it('guarda só -1 ou 1, e nunca no fixo', () => {
+    const st = sanitizeSpending({
+      entries: [entry({ shift: -1 }), { ...entry({}), shift: 2 }, entry({ shift: 1, monthly: true, pay: undefined })],
+    });
+    expect(st.entries.map((e) => e.shift)).toEqual([-1, undefined, undefined]);
   });
 });

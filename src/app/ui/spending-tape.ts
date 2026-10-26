@@ -14,6 +14,8 @@ interface Line {
   firstOfDay: boolean;
   day: number;
   weekday: string;
+  /** O dia é de outro mês (conta neste pela fatura): o mês dele, curto ("nov"). */
+  otherMonth?: string;
   color: string;
   category: string;
   /** Quanto já voltou deste gasto (reembolsos ligados). */
@@ -77,7 +79,12 @@ interface Line {
             >
               <span class="dia" aria-hidden="true">
                 @if (l.firstOfDay || order() === 'valor') {
-                  <b>{{ l.day }}</b><small>{{ l.weekday }}</small>
+                  <b>{{ l.day }}</b>
+                  @if (l.otherMonth) {
+                    <small class="outro-mes">{{ l.otherMonth }}</small>
+                  } @else {
+                    <small>{{ l.weekday }}</small>
+                  }
                 }
               </span>
               <span class="selo" [style.--cor]="l.color" aria-hidden="true"></span>
@@ -189,6 +196,7 @@ export class SpendingTape {
         firstOfDay: this.order() === 'dia' && first,
         day: d.getUTCDate(),
         weekday: WEEKDAYS[d.getUTCDay()],
+        otherMonth: row.day.slice(0, 7) !== this.month() ? MONTHS_SHORT[d.getUTCMonth()] : undefined,
         color: `var(--stock-${c?.color ?? 'cinza'})`,
         category: c?.name ?? 'Sem categoria',
         back: this.refunds().get(row.entry.id) ?? 0,
@@ -227,6 +235,7 @@ export class SpendingTape {
     ];
     if (l.row.part) parts.push(`parcela ${l.row.part.n} de ${l.row.part.of}`);
     if (l.row.fixed) parts.push('todo mês');
+    if (l.otherMonth) parts.push(`do dia ${l.day} de ${l.otherMonth}, conta neste mês`);
     if (e.pay && e.pay !== 'parcelado') parts.push(PAY_LABEL[e.pay]);
     if (e.need) parts.push(NEED_LABEL[e.need]);
     if (l.people) parts.push(`com ${peopleOf(e).map((id) => this.store.person(id)?.name ?? 'alguém').join(', ')}`);
