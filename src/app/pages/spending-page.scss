@@ -236,11 +236,10 @@
   .lado-dir {
     grid-area: dir;
   }
-  /* a fita serrilhada precisa de ar embaixo; os envelopes (na parede) e as peças depois dela, de um pouco */
-  .fita + * {
-    margin-top: 6px;
-  }
-  .envelopes {
+  /* a fita serrilhada precisa de ar embaixo; os envelopes (na parede) e as peças depois deles, de um pouco */
+  .fita + *,
+  .envelopes,
+  .envelopes + * {
     margin-top: 6px;
   }
 

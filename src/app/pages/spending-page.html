@@ -123,8 +123,8 @@
       }
     </div>
   } @else {
-    <!-- um mês: à esquerda a fita (curta, com os gráficos do mês embaixo, quando ligados) e o mês a mês;
-         à direita o que se lê do mês -->
+    <!-- um mês: à esquerda só a fita (curta, com os gráficos do mês embaixo, quando ligados); à direita
+         o que se lê do mês, com o mês a mês e os carnês no fim -->
     <div class="lado lado-esq">
       <app-spending-tape
         class="fita"
@@ -143,12 +143,6 @@
         @if (versus().length) {
           <app-spending-versus class="contra" [items]="versus()" [month]="open()" [before]="previousMonth()" [selected]="focus()" (pick)="pick($event)" />
         }
-      }
-      @if (showMonths()) {
-        <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
-      }
-      @if (plans().length) {
-        <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
       }
     </div>
     <div class="lado lado-dir">
@@ -193,6 +187,13 @@
         (toggleFixed)="noFixed.set(!noFixed())"
         (manage)="managing.set(true)"
       />
+
+      @if (showMonths()) {
+        <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
+      }
+      @if (plans().length) {
+        <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
+      }
     </div>
   }
 </div>
