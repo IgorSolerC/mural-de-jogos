@@ -4,7 +4,6 @@ import { ChangeDetectionStrategy, Component, afterNextRender, computed, effect, 
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
-import { MoveHouse } from './core/move-house';
 import { filter, map } from 'rxjs';
 import { CALENDAR_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
@@ -79,8 +78,6 @@ export class App {
   protected readonly news = inject(News);
   /** O convite para entrar com o Google (ver core/login-nudge.ts). */
   protected readonly loginNudge = inject(LoginNudge);
-  /** A mudança de endereço: trazer o mural deste navegador do endereço antigo (ver core/move-house.ts). */
-  protected readonly move = inject(MoveHouse);
   private readonly account = inject(CloudAccount);
   protected readonly cloudConfig = inject(Cloud).config;
   /** As anotações compartilhadas: entram no mural e sincronizam à parte (ver core/shared-store.ts). */
@@ -103,7 +100,6 @@ export class App {
 
   protected readonly NoticeIcon = ICON.megafone;
   protected readonly CloudIcon = ICON.nuvem;
-  protected readonly MoveIcon = ICON.mudanca;
   protected readonly CloseIcon = ICON.fechar;
   protected readonly WarnIcon = ICON.aviso;
   /** Nas Anotações: o N e o botão do topo pregam uma anotação. */

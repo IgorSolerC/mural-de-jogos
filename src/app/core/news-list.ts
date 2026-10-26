@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-sair-limpa-o-navegador',
+    id: '2026-10-26-sem-faixa-da-mudanca',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
     title: 'Sair da conta, o mês da fatura e os filtros dos Gastos',
     notice: 'Sair da conta agora tira deste navegador tudo o que é dela: na nuvem fica tudo, e aqui não fica nada.',
+    noticeId: '2026-10-26-sair-limpa-o-navegador',
     until: '2026-11-02',
     melhorias: [
       'Sair da conta tira deste navegador tudo o que é dela: resenhas, anotações, Gastos, Calendário, Kanban, ajustes e perfil (na nuvem fica tudo). Vale também para "Sair de todos os aparelhos", para a sessão que acaba e para a conta apagada; com alguma mudança que ainda não subiu, o site avisa antes.',
@@ -42,6 +43,7 @@ export const NEWS: NewsEntry[] = [
       'O Precisava? tem uma segunda régua, pela quantidade de gastos em cada resposta, e cada linha diz quantos gastos foram; o Por pessoa mostra a parte de cada um em porcentagem, e quem ficou com menos de 5% do mês se junta numa linha Outros, que abre com um toque.',
       'Nos Gastos, um lançamento pode contar no mês de antes ou no de depois do dia dele (a compra de 3 de outubro que vem na fatura de setembro): no adesivo "+ outro mês" da linha de anotar ou em "Conta em", na edição. Na fita ele aparece com o dia de verdade e o mês ao lado ("3 nov"), e as parcelas andam junto.',
       'O Lançar da linha de anotar fica sem o contorno enquanto não há o que lançar.',
+      'Saiu a faixa que oferecia trazer o mural do endereço antigo do site (a mudança para murall.igorsc.com.br já tem tempo).',
     ],
     correcoes: [
       '"Só o da conta", ao entrar, deixava os gastos, os lembretes e o perfil deste navegador junto com os da conta; agora fica só o da conta.',
