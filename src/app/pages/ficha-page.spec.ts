@@ -38,11 +38,14 @@ describe('A página do link (FichaPage)', () => {
     for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r));
   };
 
-  function create() {
+  function create(query: Record<string, string> = {}) {
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0001' }) } } },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { paramMap: convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0001' }), queryParamMap: convertToParamMap(query) } },
+        },
         { provide: FichaLinks, useValue: links },
         { provide: Desk, useValue: desk },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
@@ -90,6 +93,24 @@ describe('A página do link (FichaPage)', () => {
     await settle();
     fixture.detectChanges();
     expect(desk.openLoose).toHaveBeenCalledTimes(2);
+    expect(el.querySelector('.no-mural')).toBeNull();
+  });
+
+  it('o link com ?aberta=nao começa com a ficha fechada, como no mural; o "Abrir a ficha" a abre', async () => {
+    found = { kind: 'ok', card: hades, code: 'ABCD-1234', mural: { cards: [hades], ownerName: 'Igor', profile: { page: 'lousa' } as never, categoryLooks: {} } };
+    const fixture = create({ aberta: 'nao' });
+    await settle();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(desk.openLoose).not.toHaveBeenCalled();
+    expect(links.minimized()).toBeTrue();
+    expect(el.querySelector('.no-mural app-review-card')).not.toBeNull();
+    expect(links.wall()).toBe('lousa');
+    expect(TestBed.inject(Title).getTitle()).toBe('Hades · Murall');
+    el.querySelector<HTMLButtonElement>('.ampliar')!.click();
+    await settle();
+    fixture.detectChanges();
+    expect(desk.openLoose).toHaveBeenCalledOnceWith(hades, 'Igor', [hades], 'ABCD-1234', false);
     expect(el.querySelector('.no-mural')).toBeNull();
   });
 

@@ -14,9 +14,20 @@ import { Review, isPrivate } from './review';
  */
 export const FICHA_PATH = '/ficha';
 
-/** O link que abre a ficha `id` do mural de quem tem o código `code`. */
-export function fichaLink(code: string, id: string, base: string = location.origin + location.pathname): string {
-  return `${base}#${FICHA_PATH}/${code}/${encodeURIComponent(id)}`;
+/**
+ * Como o link começa: com a ficha aberta (o de sempre) ou fechada, como ela fica pregada no mural
+ * (`?aberta=nao`), e um toque a abre.
+ */
+export const OPEN_PARAM = 'aberta';
+
+/** O link que abre a ficha `id` do mural de quem tem o código `code`; `open` falso: começa fechada. */
+export function fichaLink(code: string, id: string, base: string = location.origin + location.pathname, open = true): string {
+  return `${base}#${FICHA_PATH}/${code}/${encodeURIComponent(id)}${open ? '' : `?${OPEN_PARAM}=nao`}`;
+}
+
+/** O link pede a ficha fechada? `aberta=nao` (e `não`, `false`, `0`, para quem escreve o link à mão). */
+export function startsClosed(value: string | null): boolean {
+  return value !== null && ['nao', 'não', 'false', '0'].includes(value.trim().toLowerCase());
 }
 
 /** A página aberta é a de uma ficha pelo link (o site fica só com a ficha). */

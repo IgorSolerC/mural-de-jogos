@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { parseBackupSnapshot } from './backup-file';
 import { CloudAccount, CloudError } from './cloud-account';
-import { FichaLinks, fichaLink, hasLink, isFichaPath, readLinkedMural } from './ficha-link';
+import { FichaLinks, fichaLink, hasLink, isFichaPath, readLinkedMural, startsClosed } from './ficha-link';
 
 /**
  * O link de uma ficha: o endereço, o mural público lido com as anotações só no Kanban (que o mural de
@@ -39,6 +39,14 @@ describe('O link da ficha', () => {
     expect(isFichaPath('/ficha/ABCD-1234/nkan0001')).toBeTrue();
     expect(isFichaPath('/fichas')).toBeFalse();
     expect(isFichaPath('/anotacoes')).toBeFalse();
+  });
+
+  it('o link que começa com a ficha fechada leva ?aberta=nao; à mão, também false e 0', () => {
+    const base = 'https://murall.igorsc.com.br/';
+    expect(fichaLink('ABCD-1234', 'nkan0001', base, true)).toBe('https://murall.igorsc.com.br/#/ficha/ABCD-1234/nkan0001');
+    expect(fichaLink('ABCD-1234', 'nkan0001', base, false)).toBe('https://murall.igorsc.com.br/#/ficha/ABCD-1234/nkan0001?aberta=nao');
+    for (const v of ['nao', 'não', 'NAO', 'false', '0', ' nao ']) expect(startsClosed(v)).withContext(v).toBeTrue();
+    for (const v of [null, '', 'sim', 'true', '1', 'qualquer']) expect(startsClosed(v)).withContext(String(v)).toBeFalse();
   });
 
   it('toda ficha que não é privada tem link', () => {

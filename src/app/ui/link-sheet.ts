@@ -6,16 +6,20 @@ import { fichaLink, hasLink } from '../core/ficha-link';
 import { KanbanStore } from '../core/kanban-store';
 import { Review, isNote } from '../core/review';
 import { SharedStore } from '../core/shared-store';
+import { readText, writeText } from '../core/storage';
 import { BackdropClose } from './backdrop-close';
 import { Pin } from './pin';
 
 /** Quanto tempo o "Copiado" fica no botão. */
 const COPIED_MS = 2200;
 
+/** Como o último link começava neste aparelho (`nao`: fechada); o próximo começa igual. */
+export const LINK_START_KEY = 'meu-mural:link-aberta:v1';
+
 /**
  * O link da ficha (o "Link da anotação" do Mais da leitura): o endereço que abre só ela, maximizada,
  * para quem não usa o Murall (ver pages/ficha-page.ts), com Copiar, Abrir e, onde o aparelho deixa,
- * Enviar. Toda ficha que não é privada tem link; a privada diz por que não tem, e quem está sem conta,
+ * Enviar. O link começa com a ficha aberta ou fechada (como no mural), à escolha. Toda ficha que não é privada tem link; a privada diz por que não tem, e quem está sem conta,
  * onde entrar. Chega num pedaço à parte, só quando é aberta (ver a leitura).
  */
 @Component({
@@ -56,6 +60,25 @@ const COPIED_MS = 2200;
               </button>
             </div>
             <p class="sr-only" aria-live="polite">{{ said() }}</p>
+
+            <!-- como quem abrir o link encontra a ficha: aberta para ler, ou fechada como no mural -->
+            <fieldset class="comeco">
+              <legend class="comeco-titulo">Quem abrir o link encontra {{ note() ? 'a anotação' : 'a ficha' }}</legend>
+              <div class="segmentos dois">
+                <label class="segmento">
+                  <input type="radio" name="link-comeco" [checked]="startOpen()" (change)="setStart(true)" />
+                  <lucide-icon class="seg-icone" [img]="OpenStartIcon" [size]="18" aria-hidden="true" />
+                  <span class="seg-nome">Aberta</span>
+                  <span class="seg-sub">Pronta para ler</span>
+                </label>
+                <label class="segmento">
+                  <input type="radio" name="link-comeco" [checked]="!startOpen()" (change)="setStart(false)" />
+                  <lucide-icon class="seg-icone" [img]="ClosedStartIcon" [size]="18" aria-hidden="true" />
+                  <span class="seg-nome">Fechada</span>
+                  <span class="seg-sub">Como no mural</span>
+                </label>
+              </div>
+            </fieldset>
 
             <div class="explica-lista">
               <p class="explica">
@@ -130,13 +153,17 @@ export class LinkSheet {
   protected readonly PublicIcon = ICON.publica;
   protected readonly BoardIcon = ICON.colunas;
   protected readonly CloudIcon = ICON.nuvem;
+  protected readonly OpenStartIcon = ICON.aumentar;
+  protected readonly ClosedStartIcon = ICON.diminuir;
 
   protected readonly note = computed(() => isNote(this.review()));
   protected readonly linked = computed(() => hasLink(this.review()));
   protected readonly shared = computed(() => !!this.sharedStore.get(this.review().id));
+  /** O link começa com a ficha aberta (o de sempre) ou fechada; a escolha fica para o próximo. */
+  protected readonly startOpen = signal(readText(LINK_START_KEY) !== 'nao');
   protected readonly url = computed(() => {
     const code = this.code();
-    return code ? fichaLink(code, this.review().id) : null;
+    return code ? fichaLink(code, this.review().id, undefined, this.startOpen()) : null;
   });
   /** A anotação está só no Kanban: o link é o único jeito de os outros chegarem nela. */
   protected readonly boardOnly = computed(() => this.note() && this.kanban.boardOnly().has(this.review().id));
@@ -164,6 +191,13 @@ export class LinkSheet {
   close(): void {
     const el = this.dialog().nativeElement;
     if (el.open) el.close();
+  }
+
+  protected setStart(open: boolean): void {
+    this.startOpen.set(open);
+    writeText(LINK_START_KEY, open ? 'sim' : 'nao');
+    // o link mudou: o "Copiado" era do outro
+    this.copied.set(false);
   }
 
   protected selectAll(e: Event): void {

@@ -26,12 +26,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-25-cofre-sem-apagado-no-celular',
+    id: '2026-10-25-link-aberta-ou-fechada',
     version: '1.32.2',
     kind: 'ajustes',
     date: '2026-10-25',
-    title: 'O Kanban e o cofre no celular',
-    melhorias: ['No celular, a lista do cofre não se apaga mais nas beiradas: as senhas e os botões de copiar ficam nítidos de ponta a ponta.'],
+    title: 'O link que começa fechado, o Kanban e o cofre no celular',
+    melhorias: [
+      'O link da ficha pode começar com ela aberta, pronta para ler, ou fechada, como fica no mural: a escolha fica na folha do link, e o próximo link começa igual.',
+      'No celular, a lista do cofre não se apaga mais nas beiradas: as senhas e os botões de copiar ficam nítidos de ponta a ponta.',
+    ],
     correcoes: ['No celular, a contagem do Kanban não fica mais por cima da aba Cofre: nas Anotações, ela desce para o lado do logo da seção.'],
   },
   {

@@ -4,7 +4,7 @@ import { ActivatedRoute } from '@angular/router';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { Desk } from '../core/desk';
-import { FichaLinks, LinkedCard } from '../core/ficha-link';
+import { FichaLinks, LinkedCard, OPEN_PARAM, startsClosed } from '../core/ficha-link';
 import { Reactions } from '../core/reactions';
 import { ICON, IconModule } from '../ui/icons';
 import { ReviewCard } from '../ui/review-card';
@@ -15,7 +15,8 @@ type State = { kind: 'abrindo' } | LinkedCard;
  * A ficha aberta pelo link (`#/ficha/CÓDIGO/ID`, ver core/ficha-link.ts): a página é só ela,
  * maximizada, na parede de quem escreveu (o site esconde o topo e os avisos). Quem não tem conta vê só
  * a ficha; com conta, as reações e os comentários, como no mural de quem segue. A ficha é a leitura de
- * sempre (ui/review-reader.ts), aberta sem o fechar; aqui ficam só a espera e o que deu errado.
+ * sempre (ui/review-reader.ts), aberta sem o fechar; aqui ficam a espera, o que deu errado e a ficha
+ * minimizada (o Minimizar da leitura, ou o link que pede a ficha fechada: `?aberta=nao`).
  */
 @Component({
   selector: 'app-ficha-page',
@@ -100,6 +101,11 @@ export class FichaPage {
     if (!this.alive) return;
     this.signedIn.set(signedIn);
     this.owner = mine ? 'Você' : (mural.ownerName ?? 'Alguém');
+    // o link que pede a ficha fechada: ela começa como fica no mural, e um toque a abre
+    if (startsClosed(this.route.snapshot.queryParamMap.get(OPEN_PARAM))) {
+      this.links.minimized.set(true);
+      return;
+    }
     this.links.minimized.set(false);
     this.desk.openLoose(card, this.owner, mural.cards, code, signedIn);
   }

@@ -65,6 +65,51 @@ dialog.folha-link {
   min-height: 50px;
 }
 
+/* ===== Como o link começa: o seletor de adesivos dos Ajustes ===== */
+.comeco {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.comeco-titulo {
+  padding: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.segmentos {
+  @include kit.segmentos;
+  margin-top: 10px;
+}
+
+.segmento {
+  @include kit.segmento;
+
+  &:has(input:checked) .seg-sub {
+    color: rgb(247 244 236 / 0.78);
+  }
+}
+
+.seg-nome {
+  @include kit.seg-nome;
+}
+
+.seg-icone {
+  display: inline-flex;
+}
+
+.seg-sub {
+  font-size: 0.8rem;
+  line-height: 1.1;
+  color: var(--ink-2);
+}
+
 /* ===== O que o link faz: linhas à mão, cada uma com o seu desenho ===== */
 .explica-lista {
   display: grid;

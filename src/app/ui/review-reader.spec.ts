@@ -564,6 +564,35 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(sheet()!.textContent).not.toContain('ainda está indo');
     });
 
+    it('o link começa com a ficha aberta ou fechada, à escolha, e a escolha fica para o próximo link', async () => {
+      localStorage.removeItem('meu-mural:link-aberta:v1');
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da ficha'))!.click();
+      await settle();
+      const field = () => sheet()!.querySelector<HTMLInputElement>('input[type="text"]')!.value;
+      const options = () => [...sheet()!.querySelectorAll<HTMLInputElement>('.comeco input[type="radio"]')];
+      expect(sheet()!.querySelector('.comeco legend')?.textContent?.trim()).toBe('Quem abrir o link encontra a ficha');
+      expect(options().map((o) => o.closest('label')!.querySelector('.seg-nome')!.textContent)).toEqual(['Aberta', 'Fechada']);
+      expect(options().map((o) => o.checked)).toEqual([true, false]);
+      expect(field()).toMatch(/#\/ficha\/EEEE-0000\/r-hades$/);
+      options()[1].click();
+      await settle();
+      expect(field()).toMatch(/#\/ficha\/EEEE-0000\/r-hades\?aberta=nao$/);
+      expect(localStorage.getItem('meu-mural:link-aberta:v1')).toBe('nao');
+      // o próximo link já começa fechado
+      sheet()!.querySelector<HTMLButtonElement>('.fecha')!.click();
+      await settle();
+      (await items()).find((b) => b.textContent?.includes('Link da ficha'))!.click();
+      await settle();
+      expect(options().map((o) => o.checked)).toEqual([false, true]);
+      expect(field()).toMatch(/\?aberta=nao$/);
+      options()[0].click();
+      await settle();
+      expect(field()).toMatch(/r-hades$/);
+      localStorage.removeItem('meu-mural:link-aberta:v1');
+    });
+
     it('na anotação, o nome é "Link da anotação"; a privada diz por que não tem link', async () => {
       fixture.componentInstance.open(review('nota-1', 'Senhas', { kind: 'anotacoes', private: true }));
       await settle();
