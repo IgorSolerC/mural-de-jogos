@@ -14,9 +14,10 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -7px;
-  height: 8px;
-  background: conic-gradient(from 135deg at 50% 0, #fdfcf8 90deg, transparent 0) 0 0 / 12px 8px repeat-x;
+  /* os dentes apontam para baixo, como o pé das folhas de bloquinho das Estatísticas */
+  bottom: -9px;
+  height: 10px;
+  background: conic-gradient(from -45deg at bottom, #0000, #fdfcf8 1deg 89deg, #0000 90deg) 0 0 / 12px 10px repeat-x;
   filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.25));
 }
 

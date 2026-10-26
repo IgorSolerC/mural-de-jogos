@@ -118,7 +118,7 @@
 }
 
 /* cada escolha: o nome impresso pequeno em cima e a caixinha de papel embaixo */
-.rotulo {
+.escolha {
   display: grid;
   gap: 4px;
   min-width: 0;
@@ -193,7 +193,7 @@
   }
 }
 
-.curto .caixa {
+.escolha.curto .caixa {
   padding: 0 4px;
 }
 
@@ -206,7 +206,9 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 38px;
+  /* da altura das caixinhas ao lado, alinhado com elas (não com os nomes de cima) */
+  min-height: 36px;
+  margin: 0;
   padding: 0;
   border: 0;
   background: none;
@@ -217,6 +219,10 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
+
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
 
   .interruptor {
     @include kit.interruptor;

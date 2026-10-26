@@ -18,7 +18,7 @@ const REPEATS_SHOWN = 3;
     @let t = totals();
     <h2 class="sr-only">Resumo do mês</h2>
     <p class="saldo">
-      <span class="rotulo">{{ future() ? 'Saldo previsto' : 'Saldo do mês' }}</span>
+      <span class="saldo-nome">{{ future() ? 'Saldo previsto' : 'Saldo do mês' }}</span>
       <span class="numero" [class.negativo]="t.balance < 0">{{ brl(t.balance) }}</span>
     </p>
     <p class="contas">
@@ -47,7 +47,7 @@ const REPEATS_SHOWN = 3;
           </svg>
           <!-- onde a linha para (no mês de hoje): o dia de hoje -->
           @if (c.today !== null) {
-            <span class="hoje" [style.left.%]="c.today" aria-hidden="true"></span>
+            <span class="hoje" [class.sem-nome]="c.today > 86" [style.left.%]="c.today" aria-hidden="true"></span>
           }
           <!-- o ponto mais baixo, escrito no papel (no celular não há o passar do mouse) -->
           @if (c.low; as low) {
@@ -92,7 +92,7 @@ const REPEATS_SHOWN = 3;
       gap: 2px 10px;
       margin: 0;
     }
-    .rotulo {
+    .saldo-nome {
       @include gk.peca-titulo;
       flex-basis: 100%;
     }
@@ -213,10 +213,14 @@ const REPEATS_SHOWN = 3;
       width: 0;
       border-left: 1.5px solid rgb(21 21 21 / 0.35);
 
+      /* na linha dos nomes do eixo (e sem o nome perto do fim do mês, onde o último dia já está escrito) */
+      &.sem-nome::after {
+        content: none;
+      }
       &::after {
         content: 'hoje';
         position: absolute;
-        bottom: -16px;
+        bottom: -19px;
         left: 0;
         translate: -50% 0;
         font-family: var(--f-label);

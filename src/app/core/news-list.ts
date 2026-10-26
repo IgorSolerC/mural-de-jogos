@@ -26,13 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-envelope-escolhido',
+    id: '2026-10-26-pe-da-fita',
     version: '1.33.1',
     kind: 'ajustes',
     date: '2026-10-26',
     title: 'O cofre nas Utilidades e o envelope escolhido',
     melhorias: ['O cofre de senhas saiu das Anotações e mora nas Utilidades, ao lado dos Gastos (no topo do cofre também).'],
-    correcoes: ['Nos Gastos, o envelope escolhido abre a aba por dentro, marcado pelo tracejado de giz, e não cobre mais o envelope de cima.'],
+    correcoes: [
+      'Nos Gastos, o envelope escolhido fica marcado pelo tracejado de giz, sem a aba virada que cobria o envelope de cima.',
+      'O pé serrilhado da fita dos Gastos tem os dentes para baixo, como uma folha rasgada do bloco, e o "Todo mês" da edição fica na altura das outras escolhas.',
+    ],
   },
   {
     id: '2026-10-26-gastos',

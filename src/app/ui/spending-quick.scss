@@ -235,7 +235,7 @@
 /* a categoria que ninguém escolheu (a de sempre) e o "todo mês" desligado: o recorte tracejado, ainda
    na cartela, pedindo para escolher */
 .adivinhada,
-.opcao[aria-pressed='false'] {
+.opcional[aria-pressed='false'] {
   background: transparent;
   box-shadow: none;
   outline: 1.5px dashed rgb(21 21 21 / 0.45);

@@ -128,8 +128,14 @@ dialog.envelopes {
   grid-template-columns: auto minmax(0, 1fr) 44px;
 }
 
+/* apagar fica quieto numa lista de onze linhas: tinta apagada, vermelho só com o mouse ou o foco */
 .apagar {
-  color: var(--red-deep);
+  color: rgb(21 21 21 / 0.55);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--red-deep);
+  }
 }
 
 .nova {

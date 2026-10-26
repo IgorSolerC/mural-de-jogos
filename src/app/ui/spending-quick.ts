@@ -155,7 +155,7 @@ function dayLabel(day: string, today: string): string {
         </label>
 
         @if (!q.installments) {
-          <button type="button" class="adesivo opcao" [attr.aria-pressed]="!!q.monthly" (click)="set({ monthly: !q.monthly })">
+          <button type="button" class="adesivo opcional" [attr.aria-pressed]="!!q.monthly" (click)="set({ monthly: !q.monthly })">
             <lucide-icon [img]="RepeatIcon" [size]="13" aria-hidden="true" />
             {{ q.monthly ? 'Todo mês' : '+ todo mês' }}
           </button>

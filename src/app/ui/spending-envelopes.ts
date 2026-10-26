@@ -187,8 +187,8 @@ const SHOWN = 6;
         outline: 3px solid var(--hi);
         outline-offset: 3px;
       }
-      /* escolhido: a aba aberta (por dentro do envelope, nada sai dele), o envelope erguido e o
-         tracejado de giz em volta, o mesmo das anotações marcadas; os outros recuam */
+      /* escolhido: o envelope erguido e o tracejado de giz em volta, o mesmo das anotações marcadas;
+         os outros recuam */
       &[aria-pressed='true'] {
         translate: 0 -2px;
         box-shadow: var(--shadow-lift);
@@ -213,13 +213,6 @@ const SHOWN = 6;
       background:
         linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) left / 50% 100% no-repeat,
         linear-gradient(to bottom left, transparent calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) right / 50% 100% no-repeat;
-    }
-    /* aberta: a aba dobrada para trás deixa ver o fundo do envelope, um triângulo mais escuro com a ponta
-       para cima, ainda dentro do papel */
-    .envelope[aria-pressed='true'] .aba {
-      background:
-        linear-gradient(to top right, rgb(21 21 21 / 0.2) calc(50% - 0.5px), rgb(21 21 21 / 0.32) 50%, transparent calc(50% + 1px)) left / 50% 100% no-repeat,
-        linear-gradient(to top left, rgb(21 21 21 / 0.2) calc(50% - 0.5px), rgb(21 21 21 / 0.32) 50%, transparent calc(50% + 1px)) right / 50% 100% no-repeat;
     }
 
     .nome {

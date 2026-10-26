@@ -60,7 +60,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
       </div>
 
       <div class="linha-2">
-        <label class="rotulo">
+        <label class="escolha">
           <span>Categoria</span>
           <span class="caixa">
             <span class="selo" [style.--cor]="'var(--stock-' + (store.category(d.category)?.color ?? 'cinza') + ')'" aria-hidden="true"></span>
@@ -73,7 +73,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
         </label>
 
         @if (d.flow === 'saida') {
-          <label class="rotulo">
+          <label class="escolha">
             <span>Pagamento</span>
             <span class="caixa">
               <select (change)="setPay($any($event.target).value)">
@@ -86,7 +86,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
         }
 
         @if (kind() === 'parcelado') {
-          <label class="rotulo curto">
+          <label class="escolha curto">
             <span>Parcelas</span>
             <span class="caixa">
               <input type="number" inputmode="numeric" min="2" [max]="maxInstallments" [value]="d.installments" (input)="setInstallments($any($event.target).value)" />
@@ -94,7 +94,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
           </label>
         }
 
-        <label class="rotulo">
+        <label class="escolha">
           <span>{{ kind() === 'parcelado' ? 'Primeira parcela' : kind() === 'fixo' ? 'Desde' : 'Dia' }}</span>
           <span class="caixa">
             <input type="date" [value]="d.date" (change)="setDate($any($event.target).value)" />
@@ -110,7 +110,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
       </div>
 
       @if (d.flow === 'entrada' && refundable().length) {
-        <label class="rotulo largo">
+        <label class="escolha largo">
           <span>É a volta de um gasto?</span>
           <span class="caixa">
             <select (change)="patch({ refundOf: $any($event.target).value || undefined })">
