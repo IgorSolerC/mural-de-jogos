@@ -564,6 +564,25 @@ describe('as pastas do cofre (os grupos)', () => {
     expect(orelhasDaFileira()[2]!.getAttribute('aria-current')).toBe('true');
   });
 
+  it('estreito: nada se apaga por cima das senhas (nem a beirada do lado, nem a da pasta que rola); na larga, apaga', async () => {
+    const { fixture, el } = await montar(false, comGrupos);
+    const mascaras = () => {
+      el.querySelector('.moldura')!.classList.add('apaga-inicio', 'apaga-fim');
+      const lista = el.querySelector('.lista')!;
+      lista.classList.add('mais-acima', 'mais-abaixo');
+      const comMascara = (e: Element) => getComputedStyle(e).maskImage !== 'none';
+      const r = [comMascara(el.querySelector('.pastas')!), comMascara(lista)];
+      lista.classList.remove('mais-acima');
+      return [...r, comMascara(lista)];
+    };
+    el.style.setProperty('--largura', '380px');
+    await estabilizar(fixture);
+    expect(mascaras()).toEqual([false, false, false]);
+    el.style.setProperty('--largura', '1200px');
+    await estabilizar(fixture);
+    expect(mascaras()).toEqual([true, true, true]);
+  });
+
   it('larga: sem a fileira de orelhas (as orelhas de cada pasta já estão à vista)', async () => {
     const { fixture, el } = await montar(false, comGrupos);
     el.style.setProperty('--largura', '1200px');

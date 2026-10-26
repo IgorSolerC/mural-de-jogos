@@ -26,11 +26,12 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-25-contagem-do-kanban-no-celular',
+    id: '2026-10-25-cofre-sem-apagado-no-celular',
     version: '1.32.2',
     kind: 'ajustes',
     date: '2026-10-25',
-    title: 'A contagem do Kanban no celular',
+    title: 'O Kanban e o cofre no celular',
+    melhorias: ['No celular, a lista do cofre não se apaga mais nas beiradas: as senhas e os botões de copiar ficam nítidos de ponta a ponta.'],
     correcoes: ['No celular, a contagem do Kanban não fica mais por cima da aba Cofre: nas Anotações, ela desce para o lado do logo da seção.'],
   },
   {

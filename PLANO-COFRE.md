@@ -1720,5 +1720,7 @@ ao Kanban". Só a tela mudou (nada na cripto, na API ou no que fica no aparelho)
   pergunta: é a saída de segurança).
 - **Copiar sem abrir**: os botões de User e Senha aparecem com o mouse ou o foco na linha (pedido do
   usuário: só no hover, nem na aberta); no toque, sempre. Com o foco numa linha, U e S copiam.
-- **No celular**, uma pasta por vez e uma fileira com as orelhas de todas, que leva até a pasta.
+- **No celular**, uma pasta por vez e uma fileira com as orelhas de todas, que leva até a pasta. Nada se apaga no celular
+  (nem as beiradas do quadro, nem a pasta que rola por dentro): o apagado caía em cima das senhas e dos
+  botões de copiar (pedido do usuário, 25/10).
 - Ficou de fora: arrastar uma senha de uma pasta para outra (mudar o grupo arrastando, como no Kanban).

@@ -615,4 +615,14 @@ cofre-icone {
   .pasta.sozinha .lista {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* sem os apagados: a pasta é da largura da tela, e o apagado das beiradas (o de lado e o de quando a
+     pasta rola por dentro) caía em cima das senhas e dos botões de copiar; a fileira de orelhas já diz
+     que há outras pastas */
+  .apaga-inicio .pastas,
+  .apaga-fim .pastas,
+  .lista.mais-acima,
+  .lista.mais-abaixo,
+  .lista.mais-acima.mais-abaixo {
+    mask-image: none;
+  }
 }
