@@ -253,7 +253,7 @@
               <div class="linha">
                 <div class="linha-texto">
                   <p class="linha-titulo">Sair da conta</p>
-                  <p class="linha-desc">Só neste aparelho. O mural continua aqui e na nuvem.</p>
+                  <p class="linha-desc">Só neste aparelho. Na nuvem fica tudo; daqui sai tudo o que é da conta.</p>
                 </div>
                 <div class="acoes">
                   <button type="button" class="btn-papel" (click)="signOut()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair'">
@@ -292,7 +292,7 @@
               <div class="linha">
                 <div class="linha-texto">
                   <p class="linha-titulo">Sair de todos os aparelhos</p>
-                  <p class="linha-desc">Todo aparelho onde você entrou vai precisar entrar de novo.</p>
+                  <p class="linha-desc">Todo aparelho onde você entrou vai precisar entrar de novo, e o mural sai de cada um.</p>
                 </div>
                 <div class="acoes">
                   <button type="button" class="btn-papel perigo" (click)="signOutEverywhere()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'sair-todos'">

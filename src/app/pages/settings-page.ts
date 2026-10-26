@@ -9,6 +9,7 @@ import { ICON, IconModule } from '../ui/icons';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';
+import { takeReset } from '../core/browser-reset';
 import { ReviewStore } from '../core/review-store';
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
@@ -279,6 +280,10 @@ export class SettingsPage {
   constructor() {
     // a página recarregou depois de apagar o save
     if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');
+    // a página recarregou limpa depois de sair da conta (ver core/browser-reset.ts)
+    const reset = takeReset();
+    if (reset === 'saiu') this.toasts.show('Você saiu da conta. Nada dela ficou neste navegador.');
+    else if (reset === 'apagou') this.toasts.show('Conta apagada. Nada dela ficou neste navegador.');
     // a cópia de antes da nuvem nasce na primeira sincronização: confere de novo a cada uma
     effect(() => {
       this.sync.lastSyncAt();
@@ -554,23 +559,13 @@ export class SettingsPage {
     }
   }
 
+  /** Sair limpa o navegador e recarrega a página (o aviso vem depois, ver `takeReset`). */
   protected async signOut(): Promise<void> {
-    let done = false;
-    if (await this.accountAction('sair', async () => void (done = await this.sync.signOut()))) {
-      if (done) this.toasts.show('Você saiu da conta. O mural continua neste navegador.');
-    }
+    await this.accountAction('sair', async () => void (await this.sync.signOut()));
   }
 
   protected async signOutEverywhere(): Promise<void> {
-    const sure = await this.confirm.ask({
-      title: 'Sair de todos os aparelhos?',
-      text: 'Todo aparelho onde você entrou vai precisar entrar de novo. O mural de cada um continua lá.',
-      confirm: 'Sair de todos',
-      icon: null,
-    });
-    if (sure && (await this.accountAction('sair-todos', () => this.account.signOutEverywhere()))) {
-      this.toasts.show('Você saiu de todos os aparelhos.');
-    }
+    await this.accountAction('sair-todos', async () => void (await this.sync.signOut(true)));
   }
 
   protected async deleteAccount(name: string, code: string, vault: boolean): Promise<void> {
@@ -578,7 +573,7 @@ export class SettingsPage {
       title: 'Apagar a conta?',
       text:
         `A conta de ${name}, o código ${code} e tudo o que estiver na nuvem vão embora, e quem segue você deixa de seguir. ` +
-        'O mural deste navegador continua aqui. Não dá para desfazer.' +
+        'O mural sai deste navegador também: baixe um backup antes, se quiser guardar. Não dá para desfazer.' +
         // quem pode ter cofre de senhas fica sabendo antes que ele vai junto, e da espera (ver core/cloud-account.ts)
         (vault ? ' Se você tem um cofre de senhas, ele vai junto, e a conta só sai daqui a 7 dias (até lá, dá para cancelar). Para apagar já, apague o cofre antes, nos Ajustes do cofre.' : ''),
       confirm: 'Apagar a conta',
@@ -596,7 +591,6 @@ export class SettingsPage {
         return;
       }
       this.sync.forgetAccount();
-      this.toasts.show('Conta apagada. O mural continua neste navegador.');
     }
   }
 

@@ -2,8 +2,14 @@ import { isDevMode } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
+import { resetOnBoot, watchOtherTabs } from './app/core/browser-reset';
 
-bootstrapApplication(App, appConfig)
+// Saiu da conta (aqui ou em outra aba), ou o mural daqui é de uma conta que não está mais nele: o
+// navegador é limpo antes de o app ler qualquer coisa (ver core/browser-reset.ts).
+watchOtherTabs();
+void resetOnBoot()
+  .catch(() => false)
+  .then(() => bootstrapApplication(App, appConfig))
   .catch((err) => console.error(err));
 
 // O mural offline (public/sw.js). No `ng serve` fica de fora, para não servir arquivo velho.

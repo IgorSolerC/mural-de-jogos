@@ -16,6 +16,7 @@ import { SETTINGS_KEY, Settings } from './settings';
 import { SHARED_AUTO, SharedStore } from './shared-store';
 import { Confirm } from '../ui/confirm';
 import { SyncConflicts, conflictKey } from './sync-conflicts';
+import { BrowserReset } from './browser-reset';
 
 /**
  * A sincronização entre aparelhos da mesma pessoa, de ponta a ponta, no que se junta por partes: os
@@ -193,6 +194,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
         SyncConflicts,
         { provide: SYNC_STORAGE, useValue: kv },
         { provide: SYNC_AUTO, useValue: false },
+        { provide: BrowserReset, useValue: { pending: null, request: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
         { provide: Confirm, useValue: { choose: async () => 'confirm', ask: async () => true } },
       ],

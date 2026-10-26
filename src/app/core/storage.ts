@@ -5,6 +5,20 @@
  * (as resenhas, no IndexedDB, ver `local-data.ts`) não passa por aqui.
  */
 
+/**
+ * O navegador vai ser limpo (saiu da conta, ver core/browser-reset.ts): nada mais grava até a página
+ * recarregar, senão o que esta aba ainda tem na memória voltaria depois da limpeza.
+ */
+let frozen = false;
+
+export function freezeStorage(): void {
+  frozen = true;
+}
+
+export function storageFrozen(): boolean {
+  return frozen;
+}
+
 /** O texto guardado na chave, ou null (nada guardado, ou sem armazenamento). */
 export function readText(key: string): string | null {
   try {
@@ -25,6 +39,7 @@ export function readJson<T>(key: string): T | null {
 
 /** Guarda o texto; sem armazenamento, fica só nesta visita. */
 export function writeText(key: string, value: string): void {
+  if (frozen) return;
   try {
     localStorage.setItem(key, value);
   } catch {
@@ -34,6 +49,7 @@ export function writeText(key: string, value: string): void {
 
 /** Guarda o valor em JSON; sem armazenamento, fica só nesta visita. */
 export function writeJson(key: string, value: unknown): void {
+  if (frozen) return;
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {

@@ -26,12 +26,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-folha-de-filtros',
+    id: '2026-10-26-sair-limpa-o-navegador',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
-    title: 'O mês da fatura e os filtros dos Gastos',
+    title: 'Sair da conta, o mês da fatura e os filtros dos Gastos',
+    notice: 'Sair da conta agora tira deste navegador tudo o que é dela: na nuvem fica tudo, e aqui não fica nada.',
+    until: '2026-11-02',
     melhorias: [
+      'Sair da conta tira deste navegador tudo o que é dela: resenhas, anotações, Gastos, Calendário, Kanban, ajustes e perfil (na nuvem fica tudo). Vale também para "Sair de todos os aparelhos", para a sessão que acaba e para a conta apagada; com alguma mudança que ainda não subiu, o site avisa antes.',
+      'Entrar numa conta num navegador com o mural de outra nunca mais junta os dois: o da outra sai antes, e a conta desce inteira. O mural de quem nunca entrou continua perguntando se vai para a conta, agora também quando a conta está vazia.',
       'A fita dos Gastos ganhou filtros: saídas ou entradas, uma vez, parcela ou todo mês, pagamento, se precisava, categoria, com quem e marcas (volta de um gasto, voltou dinheiro, de outro mês). Os ligados ficam colados na pasta, cada um com o seu X, e os envelopes, o Precisava? e o Por pessoa escolhem nos mesmos filtros.',
       'Os filtros dos Gastos e das Análises usam a folha dos filtros das Anotações: cada filtro numa linha, com o nome e o que ele faz à esquerda e as escolhas à direita.',
       'O mês dos Gastos fica na pasta de manilha, como no Calendário: Este mês e as setas juntos, antes do nome do mês. A linha de anotar vai de ponta a ponta, e a fita e o saldo começam na mesma altura.',
@@ -40,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'O Lançar da linha de anotar fica sem o contorno enquanto não há o que lançar.',
     ],
     correcoes: [
+      '"Só o da conta", ao entrar, deixava os gastos, os lembretes e o perfil deste navegador junto com os da conta; agora fica só o da conta.',
       'Os carimbos de luxo e conforto da fita dos Gastos não perdem mais as pontas.',
       'O número de parcelas na edição de um gasto aparece inteiro (o 10 não vira mais 1).',
     ],

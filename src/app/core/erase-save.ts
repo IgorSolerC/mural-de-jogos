@@ -17,7 +17,7 @@ import { SETTINGS_KEY } from './settings';
  */
 
 /** As chaves do localStorage que são do mural. */
-const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
+export const PREFIXES = ['mural-de-jogos:', 'meu-mural:'];
 /** Os ajustes, o perfil, o login na nuvem e as novidades vistas. */
 const KEEP = new Set([SETTINGS_KEY, PROFILE_KEY, SESSION_KEY, ACCOUNT_KEY, NEWS_SEEN_KEY]);
 /** Os bancos do IndexedDB: as listas, os backups de colegas e a cópia de antes da nuvem. */
@@ -65,7 +65,7 @@ export function takeErased(): boolean {
  * As conexões abertas (esta aba e as outras) fecham sozinhas quando o banco vai ser apagado; uma aba
  * que demora não segura a página para sempre.
  */
-function deleteDatabase(name: string): Promise<void> {
+export function deleteDatabase(name: string): Promise<void> {
   return new Promise((resolve) => {
     if (typeof indexedDB === 'undefined') return resolve();
     const timer = setTimeout(resolve, 4000);

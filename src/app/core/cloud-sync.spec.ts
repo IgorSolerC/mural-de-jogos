@@ -16,6 +16,7 @@ import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
 import { SyncConflicts } from './sync-conflicts';
+import { BrowserReset, wipeBrowser } from './browser-reset';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -36,6 +37,15 @@ class MemoryData {
   }
   takeForeign(): null {
     return null;
+  }
+}
+
+/** A limpeza do navegador, de mentira: guarda os pedidos (a de verdade recarrega a página). */
+class FakeReset {
+  readonly requests: { motivo: string; keep: string[] }[] = [];
+  pending: unknown = null;
+  request(motivo: string, keep: string[] = []): void {
+    this.requests.push({ motivo, keep });
   }
 }
 
@@ -69,6 +79,7 @@ class FakeCloud {
     const headers = (init.headers ?? {}) as Record<string, string>;
     const now = { 'Mural-Agora': new Date().toISOString() };
     if (u.pathname === '/v1/eu' && method === 'GET') return json({ ...ACCOUNT, seguidores: 0, seguindo: 0 });
+    if ((u.pathname === '/v1/auth/sair' || u.pathname === '/v1/auth/sair-de-todos') && method === 'POST') return json({ ok: true });
     if (u.pathname === '/v1/eu' && method === 'PATCH') return json({ nome: JSON.parse(String(init.body)).nome });
     if (u.pathname === '/v1/eu/mural' && method === 'GET') {
       this.gets++;
@@ -138,6 +149,11 @@ interface Device {
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
+  reset: FakeReset;
+  account: CloudAccount;
+  /** As respostas de confirm.ask, em ordem (sem nenhuma: sim). */
+  askAnswers: boolean[];
+  askedTitles: string[];
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
   answers: Choice[];
   asked: string[];
@@ -168,16 +184,24 @@ describe('sincronização com a nuvem', () => {
     localStorage.clear();
   });
 
-  function device(): Device {
+  /** Um aparelho; o mural dele é desta conta (`anonimo`: de ninguém, de antes de entrar). */
+  function device(opts: { anonimo?: boolean; auto?: boolean } = {}): Device {
     const kv = memoryKv();
+    if (!opts.anonimo) kv.setItem(OWNER_KEY, ACCOUNT.id);
+    const reset = new FakeReset();
     const answers: Choice[] = [];
     const asked: string[] = [];
+    const askAnswers: boolean[] = [];
+    const askedTitles: string[] = [];
     const confirm = {
       choose: async (o: { title?: string }) => {
         asked.push(o.title ?? '');
         return answers.length ? answers.shift()! : null;
       },
-      ask: async () => true,
+      ask: async (o: { title?: string }) => {
+        askedTitles.push(o.title ?? '');
+        return askAnswers.length ? askAnswers.shift()! : true;
+      },
     };
     const injector = createEnvironmentInjector(
       [
@@ -192,9 +216,11 @@ describe('sincronização com a nuvem', () => {
         CloudSync,
         SyncConflicts,
         { provide: SYNC_STORAGE, useValue: kv },
-        { provide: SYNC_AUTO, useValue: false },
-        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
+        { provide: SYNC_AUTO, useValue: !!opts.auto },
+        // com a sincronização sozinha ligada, a nuvem fica sem configurar: só os effects da conta rodam
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => (opts.auto ? null : { api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
         { provide: Confirm, useValue: confirm },
+        { provide: BrowserReset, useValue: reset },
       ],
       parent,
     );
@@ -210,8 +236,12 @@ describe('sincronização com a nuvem', () => {
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
+      reset,
+      account: injector.get(CloudAccount),
       answers,
       asked,
+      askAnswers,
+      askedTitles,
       names: () => store.reviews().map((r) => r.game.name).sort(),
     };
   }
@@ -679,9 +709,9 @@ describe('sincronização com a nuvem', () => {
       await cloud.seed({ app: 'meu-mural', version: 2, reviews: names.map((n, i) => review(`rnuv${i}a`, n)), drafts: [], wishes: [], deleted: {} });
     }
 
-    it('mural sem dono e conta com mural: pergunta; "Juntar" junta e guarda a cópia de antes', async () => {
+    it('mural de ninguém e conta com mural: pergunta; "Juntar" junta e guarda a cópia de antes', async () => {
       await cloudWith('Da nuvem');
-      const a = device();
+      const a = device({ anonimo: true });
       a.store.add(review('rlocal1', 'Daqui'));
       a.answers.push('confirm');
       await a.sync.syncNow();
@@ -690,21 +720,34 @@ describe('sincronização com a nuvem', () => {
       expect((await cloud.read()).reviews.length).toBe(2);
       expect(await readBeforeCloud()).not.toBeNull();
       expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+      expect(a.reset.requests).toEqual([]);
     });
 
-    it('"Só o da conta" troca o daqui pelo da nuvem', async () => {
+    it('"Só o da conta": guarda a cópia, não envia nada e limpa o navegador (menos a sessão e a cópia); na volta, a conta desce', async () => {
       await cloudWith('Da nuvem');
-      const a = device();
+      const a = device({ anonimo: true });
       a.store.add(review('rlocal1', 'Daqui'));
+      a.spending.save({ ...a.spending.blank('saida'), title: 'Gasto daqui', amount: 1000 });
       a.answers.push('secondary');
+      const puts = cloud.puts;
       await a.sync.syncNow();
-      expect(a.names()).toEqual(['Da nuvem']);
+      expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao', 'copia'] }]);
+      expect(cloud.puts).toBe(puts);
       expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Da nuvem']);
+      expect(await readBeforeCloud()).not.toBeNull();
+      expect(a.kv.getItem(OWNER_KEY)).toBeNull();
+      // a página recarregou limpa: o mesmo navegador, vazio
+      await wipeBrowser(['sessao', 'copia']);
+      const b = device({ anonimo: true });
+      await b.sync.syncNow();
+      expect(b.asked).toEqual([]);
+      expect(b.names()).toEqual(['Da nuvem']);
+      expect(b.spending.entries()).toEqual([]);
     });
 
     it('fechar sem escolher não mexe em nada e espera', async () => {
       await cloudWith('Da nuvem');
-      const a = device();
+      const a = device({ anonimo: true });
       a.store.add(review('rlocal1', 'Daqui'));
       const puts = cloud.puts;
       await a.sync.syncNow();
@@ -721,32 +764,138 @@ describe('sincronização com a nuvem', () => {
     it('o mural daqui já era desta conta: junta sem perguntar', async () => {
       await cloudWith('Da nuvem');
       const a = device();
-      a.kv.setItem(OWNER_KEY, ACCOUNT.id);
       a.store.add(review('rlocal1', 'Daqui'));
       await a.sync.syncNow();
       expect(a.asked).toEqual([]);
       expect(a.names()).toEqual(['Da nuvem', 'Daqui']);
     });
 
-    it('o mural daqui é de outra conta e esta conta está vazia: pergunta antes de levar', async () => {
+    it('o mural daqui é de outra conta: nunca se junta; limpa o navegador (menos a sessão) sem perguntar nem baixar', async () => {
+      await cloudWith('Da nuvem');
       const a = device();
       a.kv.setItem(OWNER_KEY, 'outra-conta');
       a.store.add(review('rlocal1', 'Da outra pessoa'));
-      a.store.add({ ...review('nlocal1', 'Anotação da outra pessoa'), kind: 'anotacoes' });
-      a.answers.push('secondary'); // começar vazia
+      const gets = cloud.gets;
+      const puts = cloud.puts;
       await a.sync.syncNow();
-      expect(a.asked).toEqual(['Este mural é de outra conta']);
-      expect(a.names()).toEqual([]);
-      expect((await cloud.read()).reviews).toEqual([]);
+      expect(a.asked).toEqual([]);
+      expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao'] }]);
+      expect(cloud.gets).toBe(gets);
+      expect(cloud.puts).toBe(puts);
+      expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Da nuvem']);
+      expect(a.kv.getItem(OWNER_KEY)).toBe('outra-conta');
+      expect(a.kv.getItem(STATE_KEY)).toBeNull();
+    });
+
+    it('os Gastos e os lembretes de outra conta também não vão para esta, nem com ela vazia', async () => {
+      const a = device();
+      a.kv.setItem(OWNER_KEY, 'outra-conta');
+      a.spending.save({ ...a.spending.blank('saida'), title: 'Jantar dele', amount: 60000 });
+      a.calendar.save({ ...a.calendar.blank('2026-10-30'), title: 'Dentista dele' });
+      await a.sync.syncNow();
+      expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao'] }]);
+      expect(cloud.doc).toBeNull();
+    });
+
+    it('sem nada na conta e o daqui de ninguém: pergunta antes de levar; "Levar" sobe', async () => {
+      const a = device({ anonimo: true });
+      a.store.add(review('rlocal1', 'Daqui'));
+      a.answers.push('confirm');
+      await a.sync.syncNow();
+      expect(a.asked).toEqual(['Levar o mural para a conta?']);
+      expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Daqui']);
+      expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+    });
+
+    it('"Começar vazia": nada sobe, e o navegador é limpo', async () => {
+      const a = device({ anonimo: true });
+      a.store.add(review('rlocal1', 'Daqui'));
+      a.answers.push('secondary');
+      await a.sync.syncNow();
+      expect(a.asked).toEqual(['Levar o mural para a conta?']);
+      expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao', 'copia'] }]);
+      expect(cloud.doc).toBeNull();
       expect(await readBeforeCloud()).not.toBeNull();
     });
 
-    it('sem nada na conta e o daqui sem dono: sobe sem perguntar', async () => {
-      const a = device();
-      a.store.add(review('rlocal1', 'Daqui'));
+    it('só os Gastos de ninguém já contam como mural: pergunta', async () => {
+      await cloudWith('Da nuvem');
+      const a = device({ anonimo: true });
+      a.spending.save({ ...a.spending.blank('saida'), title: 'Gasto daqui', amount: 1000 });
+      await a.sync.syncNow();
+      expect(a.asked).toEqual(['Juntar os murais?']);
+      expect(a.sync.status()).toBe('escolha');
+      expect(a.spending.entries().map((e) => e.title)).toEqual(['Gasto daqui']);
+    });
+
+    it('aparelho vazio, de ninguém, e conta com mural: desce sem perguntar', async () => {
+      await cloudWith('Da nuvem');
+      const a = device({ anonimo: true });
       await a.sync.syncNow();
       expect(a.asked).toEqual([]);
+      expect(a.names()).toEqual(['Da nuvem']);
+      expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+    });
+  });
+
+  describe('sair da conta', () => {
+    it('confirma, envia o que falta e limpa o navegador inteiro', async () => {
+      const a = device();
+      a.store.add(review('rlocal1', 'Daqui'));
+      expect(await a.sync.signOut()).toBeTrue();
+      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
       expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Daqui']);
+      expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+      expect(a.kv.getItem(STATE_KEY)).toBeNull();
+    });
+
+    it('desistir na pergunta não sai nem limpa', async () => {
+      const a = device();
+      a.askAnswers.push(false);
+      expect(await a.sync.signOut()).toBeFalse();
+      expect(a.account.signedIn()).toBeTrue();
+      expect(a.reset.requests).toEqual([]);
+    });
+
+    it('com mudança que não subiu: avisa; "Ficar" não sai, "Sair e perder" sai e limpa', async () => {
+      const a = device();
+      a.store.add(review('rlocal1', 'Daqui'));
+      cloud.offline = true;
+      a.askAnswers.push(true, false);
+      expect(await a.sync.signOut()).toBeFalse();
+      expect(a.askedTitles).toEqual(['Sair da conta?', 'Ainda tem coisa só aqui']);
+      expect(a.account.signedIn()).toBeTrue();
+      expect(a.reset.requests).toEqual([]);
+      a.askAnswers.push(true, true);
+      expect(await a.sync.signOut()).toBeTrue();
+      expect(a.account.signedIn()).toBeFalse();
+      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+    });
+
+    it('de todos os aparelhos: sai na nuvem de todos e limpa este navegador', async () => {
+      const a = device();
+      const fetchSpy = window.fetch as jasmine.Spy;
+      expect(await a.sync.signOut(true)).toBeTrue();
+      expect(a.askedTitles[0]).toBe('Sair de todos os aparelhos?');
+      expect(fetchSpy.calls.allArgs().some(([url]) => String(url).endsWith('/v1/auth/sair-de-todos'))).toBeTrue();
+      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+    });
+
+    it('a conta apagada: nada dela fica neste navegador', () => {
+      const a = device();
+      a.sync.forgetAccount();
+      expect(a.reset.requests).toEqual([{ motivo: 'apagou', keep: [] }]);
+    });
+
+    it('a sessão que acabou (ou "Sair de todos" em outro aparelho) limpa o navegador; o mural de ninguém fica', async () => {
+      const owned = device({ auto: true });
+      const anon = device({ auto: true, anonimo: true });
+      TestBed.tick();
+      owned.account.forget();
+      anon.account.forget();
+      TestBed.tick();
+      expect(owned.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+      expect(anon.reset.requests).toEqual([]);
     });
   });
 

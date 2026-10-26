@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { readText } from './storage';
+import { readText, storageFrozen } from './storage';
 
 /**
  * Onde moram as resenhas, a fila, a wishlist e as apagadas: no IndexedDB, que não tem o teto de uns
@@ -134,6 +134,8 @@ export class LocalData {
    * coube não é erro.
    */
   setItem(key: DataKey, value: string): Promise<void> | void {
+    // o navegador vai ser limpo: gravar agora recriaria o banco que está saindo
+    if (storageFrozen()) return;
     if (this.mode === 'local') {
       localStorage.setItem(key, value);
       return;

@@ -24,6 +24,7 @@ import { Toasts } from '../ui/toast';
 import { isDone } from './review';
 import { categoryIcon } from '../ui/category-label';
 import { ICON, ICON_CHOICE } from '../ui/icons';
+import { BrowserReset } from './browser-reset';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -318,6 +319,7 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
         CloudSync,
         SyncConflicts,
         { provide: SYNC_AUTO, useValue: false },
+        { provide: BrowserReset, useValue: { pending: null, request: () => undefined } },
         { provide: SYNC_STORAGE, useValue: kv() },
         { provide: Confirm, useValue: { choose: async () => 'confirm', ask: async () => true } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },

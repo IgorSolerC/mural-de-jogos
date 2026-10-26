@@ -2,7 +2,7 @@ import { EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDe
 import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { Cloud } from './cloud-config';
-import { CloudSync, KeyValueStore, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
+import { CloudSync, KeyValueStore, OWNER_KEY, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
 import { KanbanStore } from './kanban-store';
 import { placeCard } from './kanban';
 import { LocalData } from './local-data';
@@ -12,6 +12,7 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { SyncConflict, SyncConflicts, conflictKey } from './sync-conflicts';
 import { Confirm } from '../ui/confirm';
+import { BrowserReset } from './browser-reset';
 
 /**
  * A junção de três vias da conta (ver core/sync-merge.ts e core/sync-conflicts.ts), de ponta a ponta:
@@ -38,6 +39,12 @@ class MemoryData {
   takeForeign(): null {
     return null;
   }
+}
+
+function ownedKv(): KeyValueStore {
+  const kv = memoryKv();
+  kv.setItem(OWNER_KEY, ACCOUNT.id);
+  return kv;
 }
 
 function memoryKv(): KeyValueStore {
@@ -128,8 +135,10 @@ describe('sincronização: a junção de três vias de dois aparelhos da mesma c
         CloudAccount,
         CloudSync,
         SyncConflicts,
-        { provide: SYNC_STORAGE, useValue: memoryKv() },
+        // os dois aparelhos são desta conta (o mural de ninguém perguntaria se vai junto)
+        { provide: SYNC_STORAGE, useValue: ownedKv() },
         { provide: SYNC_AUTO, useValue: false },
+        { provide: BrowserReset, useValue: { pending: null, request: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
         { provide: Confirm, useValue: { choose: async () => null, ask: async () => true } },
       ],

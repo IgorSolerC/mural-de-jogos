@@ -3,6 +3,7 @@ import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
+import { BrowserReset, OWNER_KEY } from './browser-reset';
 import { Review, isNote, isPrivate, sanitizeReview, shelfOf, storedNote } from './review';
 import { BUILD } from './build';
 import { Place, SharedStore, sanitizePlaces } from './shared-store';
@@ -58,8 +59,8 @@ import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 
 /** O estado da sincronização neste aparelho (localStorage; "Apagar o save" leva junto). */
 export const STATE_KEY = 'meu-mural:nuvem:sync';
-/** De qual conta é o mural guardado aqui (fica ao sair mantendo o mural; vai com "Apagar o save"). */
-export const OWNER_KEY = 'meu-mural:nuvem:dono';
+/** De qual conta é o mural guardado aqui (ver core/browser-reset.ts: só enquanto ela está nele). */
+export { OWNER_KEY };
 /**
  * A base: a versão (`updatedAt`) de cada ficha que este aparelho e a nuvem tinham juntos na última
  * sincronização, e de qual conta. Fica ao sair mantendo o mural (entrar de novo junta sem perder nada);
@@ -644,6 +645,7 @@ export class CloudSync {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
+  private readonly reset = inject(BrowserReset);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
@@ -684,6 +686,14 @@ export class CloudSync {
       untracked(() => this.captureBase());
     });
     if (!inject(SYNC_AUTO)) return;
+    // Saiu da conta por outro caminho (a sessão venceu, "Sair de todos" em outro aparelho, a conta
+    // apagada): o mural dela não fica neste navegador (ver core/browser-reset.ts)
+    let wasIn = untracked(() => this.account.signedIn());
+    effect(() => {
+      const signedIn = this.account.signedIn();
+      if (wasIn && !signedIn) untracked(() => this.leftAccount());
+      wasIn = signedIn;
+    });
     // Entrou (ou a nuvem ligou): sincroniza já. Saiu: para.
     effect(() => {
       if (this.active()) {
@@ -865,14 +875,21 @@ export class CloudSync {
 
   /**
    * A primeira vez desta conta neste aparelho. Devolve o estado pronto para seguir, ou null quando
-   * ficou esperando a pessoa escolher.
+   * ficou esperando a pessoa escolher (ou quando o navegador vai ser limpo e a página recarrega).
+   *
+   * O mural daqui é de alguém (ver core/browser-reset.ts): o de outra conta nunca se junta com esta (o
+   * navegador é limpo e a conta desce inteira); o de ninguém (de antes de entrar) pergunta se vai junto;
+   * o desta conta se junta sem perguntar.
    */
   private async firstSync(accountId: string): Promise<SyncState | null> {
+    const owner = this.kv.getItem(OWNER_KEY);
+    if (owner !== null && owner !== accountId) {
+      this.reset.request('entrou', ['sessao']);
+      return null;
+    }
     const remote = await this.fetchRemote();
     if (remote.kind === 'doc' && isNewerSchema(remote.data)) throw this.outdated();
-    const localHas = this.store.hasContent();
-    const owner = this.kv.getItem(OWNER_KEY);
-    const otherOwner = owner !== null && owner !== accountId;
+    const localHas = this.localHasContent();
     const remoteHas = remote.kind === 'doc' && this.hasContent(remote.data);
     const base: SyncState = { conta: accountId, rev: remote.kind === 'doc' ? remote.rev : 0, impressao: '', em: null };
     // a base de quando este aparelho saiu da conta mantendo o mural; sem ela, toda diferença conta
@@ -880,12 +897,9 @@ export class CloudSync {
 
     // juntar as fichas (a junção de três vias); sem, elas já desceram trocando as daqui (ou não há o que juntar)
     let mergeFichas = false;
-    if (remoteHas && !localHas) {
-      // aparelho vazio: o mural da conta desce
-      this.apply(() => this.store.importJson((remote as { text: string }).text, 'replace'));
-    } else if (localHas && (otherOwner || (remoteHas && owner !== accountId))) {
-      // os dois têm mural, ou o daqui é de outra conta: a pessoa decide
-      const choice = await this.ask(remoteHas, otherOwner);
+    if (owner === null && localHas) {
+      // o mural de ninguém: a pessoa decide se ele vai para a conta
+      const choice = await this.ask(remoteHas);
       if (choice === null) {
         this.waitingChoice = true;
         this.status.set('escolha');
@@ -894,12 +908,14 @@ export class CloudSync {
       }
       await this.keepCopy();
       if (choice === 'conta') {
-        // vazia de tudo, anotações e músicas também (sem `notas` e `musicas`, o "substituir" guardaria as daqui)
-        const text = remote.kind === 'doc' ? remote.text : JSON.stringify({ reviews: [], notas: [], musicas: [], drafts: [], wishes: [], deleted: {} });
-        this.apply(() => this.store.importJson(text, 'replace'));
-      } else if (remote.kind === 'doc') {
-        mergeFichas = true;
+        // fica só o da conta: o daqui sai inteiro (menos a cópia de antes), e a conta desce na volta
+        this.reset.request('entrou', ['sessao', 'copia']);
+        return null;
       }
+      if (remote.kind === 'doc') mergeFichas = true;
+    } else if (remoteHas && !localHas) {
+      // aparelho vazio: o mural da conta desce
+      this.apply(() => this.store.importJson((remote as { text: string }).text, 'replace'));
     } else if (remoteHas && localHas) {
       // o mural daqui já era desta conta: junta sem perguntar (com a cópia de antes, por garantia)
       await this.keepCopy();
@@ -913,43 +929,63 @@ export class CloudSync {
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
       base.publicas = publicPrintOf(remote.data);
     }
-    // (sem nada na nuvem e o daqui sem dono ou desta conta: sobe como está, logo abaixo)
+    // (sem nada na nuvem e o daqui desta conta, ou de ninguém e levado: sobe como está, logo abaixo)
     this.writeOwner(accountId);
     this.writeState(base);
     return base;
   }
 
-  private async ask(remoteHas: boolean, otherOwner: boolean): Promise<'juntar' | 'conta' | null> {
+  /** O mural de ninguém (de antes de entrar) vai para a conta? */
+  private async ask(remoteHas: boolean): Promise<'juntar' | 'conta' | null> {
     const here = this.describe(this.store.snapshot());
+    const kept = 'As resenhas, as anotações e as listas daqui ficam guardadas como backup por 30 dias, em Ajustes.';
     if (!remoteHas) {
-      // a conta não tem mural e o daqui é de outra conta
       const choice = await this.confirm.choose({
-        title: 'Este mural é de outra conta',
-        text: `Este navegador tem o mural de outra conta (${here}). Levar ele para a sua conta, ou começar a sua conta vazia? Começando vazia, o mural daqui fica guardado como backup por 30 dias, em Ajustes.`,
+        title: 'Levar o mural para a conta?',
+        text: `Este navegador tem ${here}, de antes de você entrar. Levar para a sua conta, ou começar a conta vazia? Começando vazia, tudo isso sai daqui. ${kept}`,
         confirm: 'Levar para a minha conta',
         secondary: 'Começar vazia',
       });
       return choice === 'confirm' ? 'juntar' : choice === 'secondary' ? 'conta' : null;
     }
     const choice = await this.confirm.choose({
-      title: otherOwner ? 'Este mural é de outra conta' : 'Juntar os murais?',
-      text:
-        (otherOwner
-          ? `Este navegador tem o mural de outra conta (${here}), e a sua conta já tem o dela. `
-          : `Este navegador tem ${here}, e a sua conta já tem um mural. `) +
-        'Juntar os dois, ou ficar só com o da conta? O mural daqui fica guardado como backup por 30 dias, em Ajustes.',
+      title: 'Juntar os murais?',
+      text: `Este navegador tem ${here}, de antes de você entrar, e a sua conta já tem um mural. Juntar os dois, ou ficar só com o da conta? Ficando só com o da conta, tudo isso sai daqui. ${kept}`,
       confirm: 'Juntar os dois',
       secondary: 'Só o da conta',
     });
     return choice === 'confirm' ? 'juntar' : choice === 'secondary' ? 'conta' : null;
   }
 
+  /**
+   * O que há neste navegador além do que todo navegador tem: as fichas, os Gastos, os lembretes, o
+   * Kanban com anotações, os ajustes que mudaram aqui.
+   */
+  private localHasContent(): boolean {
+    return (
+      this.store.hasContent() ||
+      this.localSpending() !== null ||
+      this.localCalendar() !== null ||
+      this.kanban.state().boards.some((b) => b.cards.length > 0) ||
+      BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null)
+    );
+  }
+
   private describe(doc: BackupPayload): string {
     const n = payloadReviews(doc).length;
     const notes = Array.isArray(doc.notas) ? doc.notas.length : 0;
     const extra = doc.drafts.length + doc.wishes.length;
-    const reviews = `${plural(n, 'resenha', 'resenhas')}${notes ? `, ${plural(notes, 'anotação', 'anotações')}` : ''}`;
-    return extra ? `${reviews} e mais ${extra} na fila e na wishlist` : reviews;
+    const spent = this.spending.state().entries.length;
+    const reminders = this.calendar.state().reminders.length;
+    const parts = [
+      ...(n ? [plural(n, 'resenha', 'resenhas')] : []),
+      ...(notes ? [plural(notes, 'anotação', 'anotações')] : []),
+      ...(extra ? [`${extra} na fila e na wishlist`] : []),
+      ...(spent ? [plural(spent, 'gasto', 'gastos')] : []),
+      ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
+    ];
+    if (!parts.length) return 'ajustes e um perfil mudados aqui';
+    return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}`;
   }
 
   private hasContent(data: Record<string, unknown>): boolean {
@@ -1547,52 +1583,54 @@ export class CloudSync {
   }
 
   /**
-   * Sair da conta, decidindo o que fica neste navegador. Devolve false se a pessoa desistiu.
-   * Tirar o mural daqui só com tudo já na nuvem.
+   * Sair da conta (`everywhere`: de todos os aparelhos). Nada da conta fica neste navegador: depois de
+   * sair, a página recarrega limpa (ver core/browser-reset.ts). Com mudança que ainda não subiu, avisa
+   * que ela se perde. Devolve false se a pessoa desistiu.
    */
-  async signOut(): Promise<boolean> {
-    const choice = await this.confirm.choose({
-      title: 'Sair da conta?',
-      text: 'Na nuvem o mural continua. Aqui, ele pode ficar (aparelho seu) ou sair (aparelho emprestado).',
-      confirm: 'Sair e manter aqui',
-      secondary: 'Sair e tirar daqui',
-      cancel: 'Cancelar',
+  async signOut(everywhere = false): Promise<boolean> {
+    const sure = await this.confirm.ask({
+      title: everywhere ? 'Sair de todos os aparelhos?' : 'Sair da conta?',
+      text:
+        (everywhere ? 'Todo aparelho onde você entrou vai precisar entrar de novo, e o mural sai de cada um. ' : '') +
+        'Na nuvem fica tudo. Neste navegador não fica nada da conta: as resenhas, as anotações, os Gastos, o Calendário, os ajustes e o perfil saem daqui.',
+      confirm: everywhere ? 'Sair de todos' : 'Sair',
+      tone: everywhere ? 'perigo' : 'neutro',
+      icon: null,
     });
-    if (choice === null) return false;
-    if (choice === 'secondary') {
-      await this.syncNow();
-      if (!(await this.everythingSent())) {
-        await this.confirm.ask({
-          title: 'Ainda tem coisa só aqui',
-          text: 'Há mudanças neste navegador que ainda não subiram para a nuvem, então o mural não pode sair daqui agora. Confira a conexão e tente de novo.',
-          confirm: 'Entendi',
-          cancel: 'Fechar',
-          icon: null,
-        });
-        return false;
-      }
+    if (!sure) return false;
+    await this.syncNow();
+    if (!(await this.everythingSent())) {
+      const lose = await this.confirm.ask({
+        title: 'Ainda tem coisa só aqui',
+        text: 'Há mudanças neste navegador que ainda não subiram para a nuvem. Saindo agora, elas se perdem. Confira a conexão e tente de novo, ou saia mesmo assim.',
+        confirm: 'Sair e perder',
+        cancel: 'Ficar',
+        icon: null,
+      });
+      if (!lose) return false;
     }
-    await this.account.signOut();
+    if (everywhere) await this.account.signOutEverywhere();
+    else await this.account.signOut();
     this.writeState(null);
     this.lastSyncAt.set(null);
-    if (choice === 'secondary') {
-      this.writeOwner(null);
-      this.writeBase(null);
-      this.writeBaseContent(null);
-      const { eraseSave } = await import('./erase-save');
-      await eraseSave();
-      location.reload();
-    }
+    this.reset.request('saiu');
     return true;
   }
 
-  /** Depois de apagar a conta: o mural daqui não é de conta nenhuma. */
+  /** Depois de apagar a conta: nada dela fica neste navegador. */
   forgetAccount(): void {
     this.writeState(null);
-    this.writeOwner(null);
-    this.writeBase(null);
-    this.writeBaseContent(null);
     this.lastSyncAt.set(null);
+    this.reset.request('apagou');
+  }
+
+  /**
+   * A conta saiu deste navegador sem passar por `signOut` (a sessão venceu, "Sair de todos" em outro
+   * aparelho, a conta apagada): o mural dela sai junto. O de ninguém (a pessoa ainda não tinha escolhido
+   * levá-lo para a conta) fica.
+   */
+  private leftAccount(): void {
+    if (this.kv.getItem(OWNER_KEY) !== null) this.reset.request('saiu');
   }
 
   private writeState(state: SyncState | null): void {
@@ -1609,7 +1647,7 @@ export class CloudSync {
   async everythingSent(): Promise<boolean> {
     const state = readState(this.kv);
     const id = this.account.account()?.id;
-    if (!state || state.conta !== id) return !this.store.hasContent();
+    if (!state || state.conta !== id) return !this.localHasContent();
     return (
       (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending())) === state.impressao
     );

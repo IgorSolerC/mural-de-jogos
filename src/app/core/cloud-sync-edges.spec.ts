@@ -8,6 +8,7 @@ import { Review, sanitizeDraft, sanitizeReview, sanitizeWish } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { Choice, Confirm } from '../ui/confirm';
+import { BrowserReset } from './browser-reset';
 import { SyncConflicts } from './sync-conflicts';
 
 /**
@@ -34,6 +35,15 @@ class MemoryData {
   }
   takeForeign(): null {
     return null;
+  }
+}
+
+/** A limpeza do navegador, de mentira: guarda os pedidos (a de verdade recarrega a página). */
+class FakeReset {
+  readonly requests: { motivo: string; keep: string[] }[] = [];
+  pending: unknown = null;
+  request(motivo: string, keep: string[] = []): void {
+    this.requests.push({ motivo, keep });
   }
 }
 
@@ -136,6 +146,7 @@ interface Device {
   sync: CloudSync;
   account: CloudAccount;
   kv: KeyValueStore;
+  reset: FakeReset;
   answers: Choice[];
   names(): string[];
 }
@@ -165,6 +176,8 @@ describe('sincronização: bordas e bugs conhecidos', () => {
 
   function device(confirmAsk = true): Device {
     const kv = memoryKv();
+    kv.setItem(OWNER_KEY, ACCOUNT.id); // o mural deste navegador é desta conta
+    const reset = new FakeReset();
     const answers: Choice[] = [];
     const confirm = {
       choose: async () => (answers.length ? answers.shift()! : null),
@@ -182,6 +195,7 @@ describe('sincronização: bordas e bugs conhecidos', () => {
         { provide: SYNC_AUTO, useValue: false },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
         { provide: Confirm, useValue: confirm },
+        { provide: BrowserReset, useValue: reset },
       ],
       parent,
     );
@@ -193,6 +207,7 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       sync: injector.get(CloudSync),
       account: injector.get(CloudAccount),
       kv,
+      reset,
       answers,
       names: () => store.reviews().map((r) => r.game.name).sort(),
     };
@@ -227,7 +242,8 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       expect(a.names()).toEqual(['Celeste']);
     });
 
-    it('401 (sessão acabou): sai da conta neste navegador e para, sem apagar o mural daqui', async () => {
+    // (o mural sai deste navegador logo depois, pelo effect da conta: ver "a sessão que acabou" em cloud-sync.spec.ts)
+    it('401 (sessão acabou): sai da conta neste navegador e para', async () => {
       const a = device();
       a.store.add(review('raaaa1', 'Celeste'));
       cloud.overrides.push((path) => (path === '/v1/eu/mural' ? cloud.json({ erro: 'sessao-invalida', mensagem: 'Sua sessão acabou.' }, 401) : null));
@@ -286,14 +302,13 @@ describe('sincronização: bordas e bugs conhecidos', () => {
       expect(JSON.parse(a.kv.getItem(STATE_KEY)!).rev).toBe(1);
     });
 
-    it('sem rede ao sair "tirando daqui": não sai e avisa que ainda tem coisa só aqui', async () => {
+    it('sem rede ao sair, aceitando perder o que não subiu: sai mesmo assim e limpa o navegador', async () => {
       const a = device();
       a.store.add(review('raaaa1', 'Celeste'));
       cloud.offline = true;
-      a.answers.push('secondary');
-      expect(await a.sync.signOut()).toBeFalse();
-      expect(a.account.signedIn()).toBeTrue();
-      expect(a.names()).toEqual(['Celeste']);
+      expect(await a.sync.signOut()).toBeTrue();
+      expect(a.account.signedIn()).toBeFalse();
+      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
     });
   });
 
