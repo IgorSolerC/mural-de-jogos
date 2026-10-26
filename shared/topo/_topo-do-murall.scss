@@ -859,9 +859,10 @@ $com-adicionar: true !default;
 
 /* ===== Tela larga: tudo numa fileira só, o varal de ponta a ponta entre o cartaz e os bottons, as
    partes no meio dele. Até 1200px as etiquetas ficam mais justas (e até 1100px os bottons vão sem o
-   nome), para caber já no tablet deitado: uma fileira inteira só para três etiquetas era espaço à
-   toa ===== */
-@container topo (min-width: 920px) {
+   nome), para caber já no tablet deitado: uma fileira inteira só para as etiquetas era espaço à
+   toa. Com as quatro partes (desde as Utilidades), a fileira única começa em 1010px: antes disso a
+   última etiqueta passava do gancho ===== */
+@container topo (min-width: 1010px) {
   .topo {
     grid-template-areas: 'cartaz varal bottons adicionar';
     column-gap: 22px;

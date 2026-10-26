@@ -1,0 +1,158 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+@use 'spending-kit' as gk;
+
+:host {
+  display: contents;
+}
+
+dialog.envelopes {
+  width: 100%;
+  max-width: min(620px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.body {
+  gap: 26px;
+  padding-top: 18px;
+}
+
+.grupo {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.grupo-titulo {
+  @include kit.grupo-titulo;
+}
+
+.dica {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+.lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cat {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(120px, 150px) 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+/* a cor: a amostra da cartolina, um quadradinho colado, com o seletor do aparelho por cima */
+.cor {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 36px;
+  border-radius: 2px;
+  background: var(--cor);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.25),
+    0 1px 2px rgb(0 0 0 / 0.25);
+  rotate: -3deg;
+  cursor: pointer;
+
+  select {
+    @include kit.select-por-cima;
+  }
+
+  &:has(select:focus-visible) {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 3px;
+  }
+}
+
+.campo {
+  @include kit.campo;
+  min-height: 44px;
+
+  input {
+    height: 42px;
+  }
+}
+
+.limite {
+  padding-left: 10px;
+
+  .rs {
+    font-family: var(--f-label);
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+
+  input {
+    @include gk.valor;
+    font-size: 1rem;
+    text-align: right;
+    padding-right: 6px;
+
+    &::placeholder {
+      font-family: var(--f-ui);
+      font-weight: 400;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+/* entradas não têm limite: o nome vai até o fim */
+.grupo:last-child .cat {
+  grid-template-columns: auto minmax(0, 1fr) 44px;
+}
+
+.apagar {
+  color: var(--red-deep);
+}
+
+.nova {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+
+  .campo {
+    flex: 1 1 auto;
+  }
+}
+
+.botao-papel {
+  @include kit.botao-papel;
+}
+
+@media (max-width: 520px) {
+  .cat {
+    grid-template-columns: auto minmax(0, 1fr) 44px;
+  }
+  .limite {
+    grid-column: 2 / 3;
+    grid-row: 2;
+  }
+}

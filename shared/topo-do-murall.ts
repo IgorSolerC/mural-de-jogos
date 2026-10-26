@@ -15,7 +15,7 @@ export const MURALL_URL = 'https://murall.igorsc.com.br';
 /** O endereço do cofre de senhas, uma origem só dele. */
 export const COFRE_URL = 'https://cofre.murall.igorsc.com.br/';
 
-/** O nome da aba do cofre, depois das seções. */
+/** O nome da aba do cofre, depois das seções das Utilidades. */
 export const COFRE_ROTULO = 'Cofre';
 
 /** O endereço completo de uma página do Murall, para quem está fora dele (o cofre). */
@@ -25,14 +25,15 @@ export function enderecoNoMurall(caminho: string): string {
 
 /** Uma etiqueta do varal: uma parte do site. */
 export interface ParteDoSite {
-  readonly area: 'anotacoes' | 'analises' | 'extras';
+  readonly area: 'anotacoes' | 'analises' | 'utilidades' | 'extras';
   readonly label: string;
 }
 
-/** As três partes do site, na ordem do varal. */
+/** As quatro partes do site, na ordem do varal. */
 export const PARTES_DO_SITE: readonly ParteDoSite[] = [
   { area: 'anotacoes', label: 'Anotações' },
   { area: 'analises', label: 'Análises' },
+  { area: 'utilidades', label: 'Utilidades' },
   { area: 'extras', label: 'Extras' },
 ];
 
@@ -51,6 +52,12 @@ export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: 'kanban', label: 'Kanban' },
   { slug: 'calendario', label: 'Calendário' },
 ];
+
+/**
+ * As seções das Utilidades que moram no Murall (`/utilidades/<slug>`); o Cofre vem depois delas, um
+ * link para a origem dele.
+ */
+export const SECOES_DAS_UTILIDADES: readonly SecaoDasAnotacoes[] = [{ slug: 'gastos', label: 'Gastos' }];
 
 /** Um desenho de traço (o formato dos ícones Lucide): a lista de elementos do SVG, 24×24. */
 export type Desenho = readonly (readonly [string, Readonly<Record<string, string>>])[];

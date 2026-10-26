@@ -2,14 +2,14 @@ import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivateFn, RedirectFunction, Router, RouterStateSnapshot } from '@angular/router';
 import { Kind, NOTES, SCORED_KINDS, isNotes } from './kinds';
 import { Mural } from './mural';
-import { COFRE_URL, SECOES_DAS_ANOTACOES } from '../../../shared/topo-do-murall';
+import { COFRE_URL, SECOES_DAS_ANOTACOES, SECOES_DAS_UTILIDADES } from '../../../shared/topo-do-murall';
 
 /**
- * As três partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
- * com o Pra depois e a Wishlist de cada um) e os Extras. O resto (Perfil, Amigos, Ajustes, Novidades)
- * é da pessoa e não mora em parte nenhuma.
+ * As quatro partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
+ * com o Pra depois e a Wishlist de cada um), as Utilidades (os Gastos e o cofre de senhas) e os Extras.
+ * O resto (Perfil, Amigos, Ajustes, Novidades) é da pessoa e não mora em parte nenhuma.
  */
-export type Area = 'anotacoes' | 'analises' | 'extras';
+export type Area = 'anotacoes' | 'analises' | 'utilidades' | 'extras';
 
 /**
  * Uma seção de uma parte: uma aba do índice embaixo do topo. `slug` é o pedaço do caminho depois da
@@ -36,7 +36,16 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
 
 /**
- * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Anotações é só um link
+ * As seções das Utilidades que moram aqui: os Gastos (`/utilidades/gastos`). O cofre vem depois delas,
+ * na barra (ver `VAULT_URL`). A lista mora em `shared/topo-do-murall.ts`, a mesma do topo do cofre.
+ */
+export const UTILITY_SECTIONS: readonly AreaSection[] = SECOES_DAS_UTILIDADES.map((s) => ({ slug: s.slug, label: s.label }));
+
+/** Os Gastos, a primeira das Utilidades (e onde `/utilidades` abre). */
+export const SPENDING_PATH = '/utilidades/gastos';
+
+/**
+ * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Utilidades é só um link
  * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.
  */
 export const VAULT_URL = COFRE_URL;
@@ -72,6 +81,7 @@ export function areaOf(path: string): Area | null {
   const p = pathOf(path);
   if (p === '/anotacoes' || p.startsWith('/anotacoes/')) return 'anotacoes';
   if (p === '/analises' || p.startsWith('/analises/')) return 'analises';
+  if (p === '/utilidades' || p.startsWith('/utilidades/')) return 'utilidades';
   if (EXTRAS.some((x) => p === x || p.startsWith(x + '/'))) return 'extras';
   return null;
 }

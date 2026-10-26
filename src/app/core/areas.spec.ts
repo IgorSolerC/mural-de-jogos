@@ -8,13 +8,14 @@ import { Mural } from './mural';
 @Component({ template: '' })
 class Blank {}
 
-describe('as três partes do site', () => {
+describe('as quatro partes do site', () => {
   it('cada caminho mora numa parte (ou em nenhuma)', () => {
     expect(areaOf('/anotacoes')).toBe('anotacoes');
     expect(areaOf('/analises/livros/pra-depois?x=1')).toBe('analises');
     expect(areaOf('/analises')).toBe('analises');
+    for (const p of ['/utilidades', '/utilidades/gastos?mes=2026-09']) expect(areaOf(p)).withContext(p).toBe('utilidades');
     for (const p of ['/extras', '/extras/muraldle', '/ranking', '/comparar', '/comparar/mural']) expect(areaOf(p)).withContext(p).toBe('extras');
-    for (const p of ['/', '/perfil', '/perfil/ABC123', '/amigos', '/ajustes', '/novidades', '/analisesx']) expect(areaOf(p)).withContext(p).toBeNull();
+    for (const p of ['/', '/perfil', '/perfil/ABC123', '/amigos', '/ajustes', '/novidades', '/analisesx', '/utilidadesx']) expect(areaOf(p)).withContext(p).toBeNull();
   });
 
   it('os endereços das Análises e das paredes', () => {

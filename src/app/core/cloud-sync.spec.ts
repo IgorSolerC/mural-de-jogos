@@ -11,6 +11,7 @@ import { SETTINGS_KEY, Settings } from './settings';
 import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
 import { CalendarStore } from './calendar-store';
+import { SpendingStore } from './spending-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
@@ -133,6 +134,7 @@ interface Device {
   profiles: ProfileStore;
   kanban: KanbanStore;
   calendar: CalendarStore;
+  spending: SpendingStore;
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
@@ -185,6 +187,7 @@ describe('sincronização com a nuvem', () => {
         ProfileStore,
         KanbanStore,
         CalendarStore,
+        SpendingStore,
         CloudAccount,
         CloudSync,
         SyncConflicts,
@@ -203,6 +206,7 @@ describe('sincronização com a nuvem', () => {
       profiles: injector.get(ProfileStore),
       kanban: injector.get(KanbanStore),
       calendar: injector.get(CalendarStore),
+      spending: injector.get(SpendingStore),
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
@@ -428,6 +432,53 @@ describe('sincronização com a nuvem', () => {
       expect(a.calendar.get(bolo.id)).toBeUndefined();
       expect(await settle(a, b)).toBe(1);
       expect(b.calendar.get(bolo.id)).toBeUndefined();
+    });
+  });
+
+  describe('os Gastos', () => {
+    it('vão só no mural privado, lançamento a lançamento, com as categorias, e o apagado fica apagado', async () => {
+      const a = device();
+      const churras = { ...a.spending.blank(), title: 'Churrasco', amount: 42200, category: 'eventos', date: '2026-10-04' };
+      a.spending.save(churras);
+      const sushi = a.spending.addCategory('Sushi', 'saida');
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { gastos?: { entries: { title: string }[]; categories: { name: string }[] } };
+      expect(priv.gastos!.entries.map((e) => e.title)).toEqual(['Churrasco']);
+      expect(priv.gastos!.categories.map((c) => c.name)).toContain('Sushi');
+      // o público e o mural dos outros nunca levam
+      expect((await cloud.readPublic())['gastos']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:gastos:v1');
+      const b = device();
+      expect(b.spending.entries()).toEqual([]);
+      await b.sync.syncNow();
+      expect(b.spending.get(churras.id)?.amount).toBe(42200);
+      expect(b.spending.category(sushi.id)?.name).toBe('Sushi');
+
+      // cada um mexe num lançamento: os dois ficam com as duas mudanças
+      await new Promise((r) => setTimeout(r, 5));
+      const volta = { ...b.spending.blank('entrada'), title: 'Reembolso churras', amount: 7218, category: 'reembolso', refundOf: churras.id };
+      b.spending.save(volta);
+      a.spending.save({ ...a.spending.get(churras.id)!, title: 'Churrasco da firma' });
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(d.spending.entries().map((e) => e.title).sort()).toEqual(['Churrasco da firma', 'Reembolso churras']);
+      }
+
+      // apagar num apaga no outro, e ele não volta
+      await new Promise((r) => setTimeout(r, 5));
+      b.spending.remove(churras.id);
+      await settle(b, a);
+      expect(a.spending.get(churras.id)).toBeUndefined();
+      expect(await settle(a, b)).toBe(1);
+      expect(b.spending.get(churras.id)).toBeUndefined();
+    });
+
+    it('sem gastos nem categoria mudada, o mural privado não ganha a chave', async () => {
+      const a = device();
+      a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
+      await a.sync.syncNow();
+      expect((await cloud.read() as unknown as Record<string, unknown>)['gastos']).toBeUndefined();
     });
   });
 
@@ -1065,6 +1116,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 37, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 38, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
   });
 });

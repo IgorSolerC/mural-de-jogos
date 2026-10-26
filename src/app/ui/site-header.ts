@@ -3,13 +3,14 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
+import { CALENDAR_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath } from '../core/areas';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Follow } from '../core/follow';
 import { Mural } from '../core/mural';
 import { ProfileStore } from '../core/profile-store';
 import { Settings } from '../core/settings';
+import { SpendingStore } from '../core/spending-store';
 import type { LucideIconData } from 'lucide-angular';
 import { BOTTONS, DESENHOS, INCLINACOES, PARTES_DO_SITE } from '../../../shared/topo-do-murall';
 import { Pin } from './pin';
@@ -23,7 +24,7 @@ import { Pin } from './pin';
 /**
  * O topo do site, igual em todas as páginas, em três grupos que não se misturam:
  * - o cartaz, "Murall", que leva à última parede aberta;
- * - o varal: as partes do site (Anotações, Análises, Extras), etiquetas de kraft presas por
+ * - o varal: as partes do site (Anotações, Análises, Utilidades, Extras), etiquetas de kraft presas por
  *   prendedores num barbante. O mural de resenhas e as seções de cada parte ficam no índice da
  *   própria página (ver ui/area-bar.ts), nunca aqui;
  * - os bottons: o que é seu e vale para todos os murais (Perfil, Amigos, Ajustes), broches redondos;
@@ -43,6 +44,7 @@ export class SiteHeader {
   protected readonly mural = inject(Mural);
   protected readonly desk = inject(Desk);
   private readonly calendar = inject(CalendarStore);
+  private readonly spending = inject(SpendingStore);
   protected readonly profiles = inject(ProfileStore);
   private readonly follow = inject(Follow);
   private readonly settings = inject(Settings);
@@ -72,7 +74,7 @@ export class SiteHeader {
     return PARTES_DO_SITE.map((s, i) => ({
       ...s,
       // as Análises abrem direto no último mural de resenhas (sem passar pelo redirecionamento)
-      path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : '/' + s.area,
+      path: s.area === 'analises' ? reviewPath(this.mural.reviewKind()) : s.area === 'utilidades' ? SPENDING_PATH : '/' + s.area,
       on: s.area === open,
       tilt: INCLINACOES[i % INCLINACOES.length],
     }));
@@ -81,13 +83,21 @@ export class SiteHeader {
   /** No Calendário: o botão marca um lembrete, não prega uma anotação. */
   protected readonly onCalendar = computed(() => this.path() === CALENDAR_PATH);
 
-  /** O que o botão de adicionar cria: "Nova resenha", "Nova anotação" ou, no Calendário, "Novo lembrete". */
+  /** Nos Gastos: o botão lança um gasto no livro do mês. */
+  protected readonly onSpending = computed(() => this.path() === SPENDING_PATH);
+
+  /** O que o botão de adicionar cria: "Nova resenha", "Nova anotação", no Calendário "Novo lembrete" e nos Gastos "Novo gasto". */
   protected readonly addLabel = computed(() =>
-    this.onCalendar() ? { verb: 'Novo', noun: 'lembrete' } : { verb: 'Nova', noun: this.notes() ? 'anotação' : 'resenha' },
+    this.onCalendar()
+      ? { verb: 'Novo', noun: 'lembrete' }
+      : this.onSpending()
+        ? { verb: 'Novo', noun: 'gasto' }
+        : { verb: 'Nova', noun: this.notes() ? 'anotação' : 'resenha' },
   );
 
   protected add(): void {
     if (this.onCalendar()) this.calendar.ask();
+    else if (this.onSpending()) this.spending.ask();
     else this.desk.newReview();
   }
 

@@ -8,7 +8,7 @@ import {
   INCLINACOES,
   MURALL_URL,
   PARTES_DO_SITE,
-  SECOES_DAS_ANOTACOES,
+  SECOES_DAS_UTILIDADES,
   enderecoNoMurall,
 } from '../../../../../shared/topo-do-murall';
 
@@ -20,8 +20,8 @@ const TAMANHO = 21;
 const TRACO = (2 * 24) / TAMANHO;
 
 /**
- * O topo do cofre (PLANO-COFRE.md, 17.14): o mesmo do Murall, com as Anotações marcadas no varal e o Cofre
- * na fileira das seções. Os textos, os links e os desenhos vêm de `shared/topo-do-murall.ts`, e o desenho
+ * O topo do cofre (PLANO-COFRE.md, 17.14): o mesmo do Murall, com as Utilidades marcadas no varal e o Cofre
+ * na fileira das seções, depois dos Gastos. Os textos, os links e os desenhos vêm de `shared/topo-do-murall.ts`, e o desenho
  * de `shared/topo/_topo-do-murall.scss`, os mesmos do topo do Murall: os dois nunca se desencontram.
  *
  * O que depende da conta do Murall fica de fora, porque o cofre não tem o login dele e não deve ter: a
@@ -47,7 +47,7 @@ const TRACO = (2 * 24) / TAMANHO;
         </p>
       </div>
 
-      <!-- o varal: as partes do site; o cofre mora nas Anotações -->
+      <!-- o varal: as partes do site; o cofre mora nas Utilidades -->
       <nav class="varal" aria-label="Partes do site">
         <span class="barbante" aria-hidden="true"></span>
         <ul class="etiquetas">
@@ -98,9 +98,9 @@ const TRACO = (2 * 24) / TAMANHO;
       </nav>
     </div>
 
-    <!-- embaixo do topo, como a barra das Anotações do Murall: as seções e o logo da aberta -->
+    <!-- embaixo do topo, como a barra das Utilidades do Murall: as seções e o logo da aberta -->
     <div class="indice">
-      <nav class="secoes" aria-label="Seções das anotações">
+      <nav class="secoes" aria-label="Seções das utilidades">
         <ul>
           @for (s of secoes; track s.label) {
             <li><a class="secao" [href]="s.href" rel="noreferrer">{{ s.label }}</a></li>
@@ -129,9 +129,9 @@ export class Topo {
     area: p.area,
     label: p.label,
     href: enderecoNoMurall('/' + p.area),
-    on: p.area === 'anotacoes',
+    on: p.area === 'utilidades',
     tilt: INCLINACOES[i % INCLINACOES.length],
   }));
   protected readonly bottons = BOTTONS.map((b) => ({ ...b, href: enderecoNoMurall(b.caminho), desenho: DESENHO_DO_BOTTON[b.id] }));
-  protected readonly secoes = SECOES_DAS_ANOTACOES.map((s) => ({ label: s.label, href: enderecoNoMurall('/anotacoes' + (s.slug ? '/' + s.slug : '')) }));
+  protected readonly secoes = SECOES_DAS_UTILIDADES.map((s) => ({ label: s.label, href: enderecoNoMurall('/utilidades/' + s.slug) }));
 }

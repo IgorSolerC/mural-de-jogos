@@ -1,0 +1,261 @@
+@use 'spending-kit' as gk;
+
+/* A fita: papel de bobina (branco quente), reto, com o pé serrilhado de onde foi rasgada */
+:host {
+  @include gk.peca;
+  container: fita / inline-size;
+  display: block;
+  padding: 12px 14px 18px;
+  background-color: #fdfcf8;
+}
+
+:host::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -7px;
+  height: 8px;
+  background: conic-gradient(from 135deg at 50% 0, #fdfcf8 90deg, transparent 0) 0 0 / 12px 8px repeat-x;
+  filter: drop-shadow(0 3px 2px rgb(0 0 0 / 0.25));
+}
+
+.cabeca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.18);
+}
+
+.titulo {
+  @include gk.peca-titulo;
+  margin-right: auto;
+
+  .n {
+    font-weight: 600;
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.filtro {
+  @include gk.tinta-pequena;
+  background: var(--hi);
+
+  &:hover {
+    background: var(--hi);
+    text-decoration: line-through 2px;
+  }
+}
+
+.ordem {
+  display: flex;
+  gap: 2px;
+}
+
+.tinta-pequena {
+  @include gk.tinta-pequena;
+}
+
+.selo {
+  @include gk.selo(10px);
+}
+
+.linhas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* entre um dia e outro, o picote da bobina */
+.linha.novo-dia:not(:first-child) {
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.botao {
+  display: grid;
+  grid-template-columns: 34px auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 9px;
+  width: 100%;
+  min-height: 38px;
+  padding: 3px 6px 3px 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: -1px;
+  }
+}
+
+@media (pointer: coarse) {
+  .botao {
+    min-height: 44px;
+  }
+}
+
+.aberta .botao {
+  background: rgb(255 218 66 / 0.38);
+}
+
+.dia {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 2px;
+  font-family: var(--f-label);
+  line-height: 1;
+
+  b {
+    font-weight: 800;
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+  }
+  small {
+    display: none;
+  }
+}
+
+.nome {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--f-ui);
+  font-weight: 500;
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+/* as marcas ficam logo depois do nome, sem empurrar o valor (só com a fita larga) */
+.marcas {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+/* a categoria escrita, mais apagada que o nome e o valor (o selinho sozinho não basta: há cores parecidas) */
+.cat {
+  font-family: var(--f-label);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(21 21 21 / 0.62);
+  white-space: nowrap;
+}
+
+.valor {
+  @include gk.valor;
+  min-width: 82px;
+  font-size: 1.02rem;
+  text-align: right;
+
+  &.entrada {
+    color: var(--tinta-entrada);
+  }
+}
+
+/* o previsto (um mês que ainda não chegou): a tinta mais clara */
+.prevista .botao {
+  color: rgb(21 21 21 / 0.7);
+}
+
+.vazio {
+  margin: 18px 4px 6px;
+  font-family: var(--f-hand);
+  font-size: 1.06rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+/* Com a fita larga: as marcas ao lado do nome (o canhoto da parcela, o fixo, o Pix, quanto voltou) e o
+   dia da semana na margem */
+@container fita (min-width: 420px) {
+  .botao {
+    grid-template-columns: 48px auto minmax(0, max-content) minmax(0, 1fr) auto auto;
+  }
+  .marcas {
+    display: inline-flex;
+    grid-column: 4;
+    justify-self: start;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .dia small {
+    display: inline;
+    margin-left: 2px;
+    font-weight: 700;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+}
+
+/* Com a fita estreita (o celular): sem a categoria escrita (o selinho diz) e, das marcas, só o canhoto
+   da parcela e o fixo */
+@container fita (max-width: 419px) {
+  .botao {
+    grid-template-columns: 30px auto minmax(0, max-content) minmax(0, 1fr) auto;
+    gap: 0 8px;
+  }
+  .cat,
+  .pix,
+  .voltou,
+  .volta {
+    display: none;
+  }
+  .marcas {
+    display: inline-flex;
+  }
+  .valor {
+    min-width: 0;
+  }
+}
+
+/* o canhoto do carnê: um tiquete picotado com a parcela */
+.canhoto {
+  padding: 2px 5px 1px;
+  border-radius: 2px;
+  background: #f1e3b5;
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.18);
+  border-left: 1.5px dashed rgb(21 21 21 / 0.45);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pix,
+.voltou {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.voltou {
+  color: var(--tinta-entrada);
+}
+
+.fixo,
+.volta {
+  display: inline-flex;
+  opacity: 0.65;
+}

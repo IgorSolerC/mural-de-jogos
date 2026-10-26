@@ -571,3 +571,86 @@ export class CalendarLogo {
   `,
 })
 export class ExtrasLogo {}
+
+/**
+ * O logo dos Gastos: o canto da capa de um livro-caixa de papelaria, de percalina verde com a lombada de
+ * couro vermelho, e o título gravado em dourado dentro de um fio também dourado ("Livro caixa" pequeno
+ * em cima, "Gastos" grande). A sombra fica no host.
+ */
+@Component({
+  selector: 'app-spending-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="capa" aria-hidden="true">
+      <span class="lombada"></span>
+      <span class="gravado">
+        <span class="sobre">Livro caixa</span>
+        <span class="nome">Gastos</span>
+      </span>
+    </span>
+  `,
+  styles: `
+    :host {
+      display: inline-flex;
+      rotate: -1.4deg;
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.4)) drop-shadow(0 6px 8px rgb(0 0 0 / 0.42));
+    }
+    .capa {
+      display: inline-flex;
+      align-items: stretch;
+      box-sizing: border-box;
+      height: 52px;
+      border-radius: 2px 3px 3px 2px;
+      /* a percalina: o verde com a trama do pano */
+      background:
+        repeating-linear-gradient(45deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 3px),
+        repeating-linear-gradient(-45deg, rgb(0 0 0 / 0.12) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, #1d5238, #163f2b);
+    }
+    .lombada {
+      width: 11px;
+      border-radius: 2px 0 0 2px;
+      background:
+        linear-gradient(90deg, rgb(0 0 0 / 0.25), transparent 40%, rgb(255 255 255 / 0.12) 70%, rgb(0 0 0 / 0.3)),
+        #7d2a22;
+      box-shadow: 1px 0 0 rgb(0 0 0 / 0.35);
+    }
+    /* o título gravado, dentro do fio dourado */
+    .gravado {
+      position: relative;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 1px;
+      margin: 5px 7px 5px 8px;
+      padding: 0 13px;
+      border: 1.5px solid #d9b25a;
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 2px #1a4a32, inset 0 0 0 2.5px rgb(217 178 90 / 0.6);
+    }
+    .sobre,
+    .nome {
+      background: var(--foil-gold-word);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .sobre {
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.6rem;
+      letter-spacing: 0.24em;
+      margin-right: -0.24em;
+      text-transform: uppercase;
+    }
+    .nome {
+      font-family: var(--f-didone);
+      font-size: 1.42rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+  `,
+})
+export class SpendingLogo {}

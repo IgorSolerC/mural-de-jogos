@@ -32,7 +32,7 @@ const SCENES: { name: string; kind: Kind; url: string; friends: boolean; unseen:
 type Box = { name: string; r: DOMRect; el: Element };
 
 /** A partir desta largura o topo é uma fileira só (ver site-header.scss). */
-const ONE_ROW = 920;
+const ONE_ROW = 1010;
 
 describe('o topo do site', () => {
   describe('as partes do site', () => {
@@ -59,14 +59,14 @@ describe('o topo do site', () => {
       await fixture.whenStable();
     };
 
-    it('o cartaz é só "Murall", sem trocar de mural, e o varal tem as três partes', async () => {
+    it('o cartaz é só "Murall", sem trocar de mural, e o varal tem as quatro partes', async () => {
       await at('/perfil');
       const el = fixture.nativeElement as HTMLElement;
       expect(el.querySelector('.logo')?.textContent?.trim()).toBe('MurALL');
       expect(el.querySelector('app-kind-switcher')).toBeNull();
-      expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Extras']);
-      // as Análises abrem direto no último mural de resenhas
-      expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/extras']);
+      expect(tags().map((t) => t.textContent?.trim())).toEqual(['Anotações', 'Análises', 'Utilidades', 'Extras']);
+      // as Análises abrem direto no último mural de resenhas, e as Utilidades nos Gastos
+      expect(tags().map((t) => t.getAttribute('href'))).toEqual(['/anotacoes', '/analises/jogos', '/utilidades/gastos', '/extras']);
       expect(tags().some((t) => t.classList.contains('on'))).withContext('no Perfil nenhuma parte acende').toBeFalse();
     });
 

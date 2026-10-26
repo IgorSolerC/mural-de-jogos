@@ -1,13 +1,13 @@
 import { Routes } from '@angular/router';
-import { enterExtras, enterNotes, enterReviews, toLastWall, toReviews } from './core/areas';
+import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
 const calendar = () => import('./pages/calendar-page').then((m) => m.CalendarPage);
 
 /**
- * O site em três partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
- * endereço (`/analises/livros/pra-depois`), e os Extras. O mural aberto sai do endereço; nos Extras,
+ * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
+ * endereço (`/analises/livros/pra-depois`), as Utilidades e os Extras. O mural aberto sai do endereço; nos Extras,
  * do seletor da própria página. O título de cada página ganha o mural (ver core/title.ts).
  */
 export const routes: Routes = [
@@ -32,6 +32,9 @@ export const routes: Routes = [
       },
     ],
   },
+  // as Utilidades: os Gastos aqui, o cofre de senhas na origem dele (um link na barra)
+  { path: 'utilidades', pathMatch: 'full', redirectTo: SPENDING_PATH },
+  { path: 'utilidades/gastos', title: 'Gastos', loadComponent: () => import('./pages/spending-page').then((m) => m.SpendingPage) },
   // os endereços de antes das três partes
   { path: 'fila', redirectTo: toReviews('pra-depois') },
   { path: 'wishlist', redirectTo: toReviews('wishlist') },

@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
 import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
@@ -12,10 +12,11 @@ import { KanbanStore } from '../core/kanban-store';
 import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
-import { CalendarLogo, ExtrasLogo, KanbanLogo, NotesLogo, QueueLogo, ReviewsLogo, WishlistLogo } from './section-logos';
+import { CalendarLogo, ExtrasLogo, KanbanLogo, NotesLogo, QueueLogo, ReviewsLogo, SpendingLogo, WishlistLogo } from './section-logos';
+import { SpendingStore } from '../core/spending-store';
 
 /** Qual logo a barra mostra. */
-type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'calendario' | 'extras';
+type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'calendario' | 'gastos' | 'extras';
 
 /** Uma aba do índice, já com o endereço e se é a aberta. */
 interface Tab {
@@ -45,13 +46,14 @@ interface Summary {
  *
  * - Análises: o mural de resenhas, Mural / Pra depois / Wishlist e a contagem da seção aberta.
  * - Anotações: as seções (Mural, Kanban, Calendário), quando houver mais de uma.
+ * - Utilidades: os Gastos e, para quem pode, o Cofre (um link para a origem dele).
  * - Extras: o mural; nas páginas de dentro, a volta para Extras. O mural de um colega tem o próprio
  *   cabeçalho.
  * - Amigos, um mural por vez: só o mural, com o de anotações também (sem logo).
  */
 @Component({
   selector: 'app-area-bar',
-  imports: [CalendarLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, QueueLogo, ReviewsLogo, RouterLink, WishlistLogo],
+  imports: [CalendarLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, QueueLogo, ReviewsLogo, RouterLink, SpendingLogo, WishlistLogo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.vazio]': '!shown()' },
   template: `
@@ -112,6 +114,9 @@ interface Summary {
               @case ('calendario') {
                 <app-calendar-logo class="logo" [day]="calendar.today()" />
               }
+              @case ('gastos') {
+                <app-spending-logo class="logo" />
+              }
               @case ('extras') {
                 <app-extras-logo class="logo" />
               }
@@ -153,9 +158,9 @@ interface Summary {
       align-items: center;
       gap: 10px 14px;
     }
-    /* sem a etiqueta do mural (nas Anotações): as seções na primeira linha, na largura toda, e a
-       contagem desce para a ponta da faixa do logo (com o cofre, as quatro seções e "135 no quadro" não
-       cabem lado a lado num celular) */
+    /* sem a etiqueta do mural (nas Anotações e nas Utilidades): as seções na primeira linha, na largura
+       toda, e a contagem desce para a ponta da faixa do logo ("135 no quadro" e as seções não cabem lado
+       a lado num celular) */
     .indice.sem-mural {
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
@@ -383,8 +388,8 @@ interface Summary {
       }
     }
 
-    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (as quatro seções não cabem
-       inteiras abaixo de ~342px: o cofre vira só o cadeado e as seções chegam mais perto) */
+    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (o cofre vira só o cadeado e as
+       seções chegam mais perto) */
     .cofre .cadeado {
       display: none;
     }
@@ -454,6 +459,7 @@ export class AreaBar {
   private readonly kanban = inject(KanbanStore);
   protected readonly calendar = inject(CalendarStore);
   private readonly cloudAccount = inject(CloudAccount);
+  private readonly spending = inject(SpendingStore);
 
   protected readonly BackIcon = ICON.voltar;
   protected readonly LockIcon = ICON.privada;
@@ -484,17 +490,16 @@ export class AreaBar {
   protected readonly tabs = computed<Tab[]>(() => {
     const area = this.area();
     const kind = this.mural.kind();
-    const list: readonly AreaSection[] = area === 'analises' ? REVIEW_SECTIONS : area === 'anotacoes' ? NOTE_SECTIONS : [];
-    if (list.length < 2) return [];
+    const list: readonly AreaSection[] = area === 'analises' ? REVIEW_SECTIONS : area === 'anotacoes' ? NOTE_SECTIONS : area === 'utilidades' ? UTILITY_SECTIONS : [];
     const open = sectionOf(this.path(), list);
     const tabs: Tab[] = list.map((s) => ({
       label: s.label,
-      link: area === 'analises' ? reviewPath(kind, s.slug) : '/anotacoes' + (s.slug ? '/' + s.slug : ''),
+      link: area === 'analises' ? reviewPath(kind, s.slug) : `/${area}` + (s.slug ? '/' + s.slug : ''),
       on: s === open,
     }));
-    // o cofre de senhas, depois do Calendário, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
-    if (area === 'anotacoes' && this.cloudAccount.account()?.cofre) tabs.push({ label: COFRE_ROTULO, link: VAULT_URL, on: false, external: true });
-    return tabs;
+    // o cofre de senhas, depois dos Gastos, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
+    if (area === 'utilidades' && this.cloudAccount.account()?.cofre) tabs.push({ label: COFRE_ROTULO, link: VAULT_URL, on: false, external: true });
+    return tabs.length < 2 ? [] : tabs;
   });
 
   /** Quanto há na seção aberta das Análises (nada quando está vazia: a página já diz). */
@@ -510,6 +515,8 @@ export class AreaBar {
       const n = this.calendar.todayCount();
       return n ? { n, long: n === 1 ? 'lembrete hoje' : 'lembretes hoje', short: 'hoje' } : null;
     }
+    // nos Gastos: quanto saiu no mês aberto
+    if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'gastos') return this.spending.barSummary();
     const place = reviewPlace(this.path());
     if (!place) return null;
     const p = this.mural.profile();
@@ -541,10 +548,14 @@ export class AreaBar {
       const slug = sectionOf(this.path(), NOTE_SECTIONS)?.slug;
       return slug === 'kanban' ? 'kanban' : slug === 'calendario' ? 'calendario' : 'notas';
     }
+    if (area === 'utilidades') return 'gastos';
     return this.inExtras() ? 'extras' : null;
   });
 
-  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0);
+  /** Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. */
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades');
 
-  protected readonly navLabel = computed(() => (this.area() === 'analises' ? 'Seções das análises' : 'Seções das anotações'));
+  protected readonly navLabel = computed(() =>
+    this.area() === 'analises' ? 'Seções das análises' : this.area() === 'utilidades' ? 'Seções das utilidades' : 'Seções das anotações',
+  );
 }

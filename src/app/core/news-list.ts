@@ -26,6 +26,30 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-26-cofre-nas-utilidades',
+    version: '1.33.1',
+    kind: 'ajustes',
+    date: '2026-10-26',
+    title: 'O cofre nas Utilidades',
+    melhorias: ['O cofre de senhas saiu das Anotações e mora nas Utilidades, ao lado dos Gastos (no topo do cofre também).'],
+  },
+  {
+    id: '2026-10-26-gastos',
+    version: '1.33.0',
+    kind: 'funcionalidade',
+    date: '2026-10-26',
+    title: 'Gastos',
+    notice: 'Novo: os Gastos, em Utilidades. Escreva "ifood 44,90" ou "violão 10x 139,90" e o mês se monta sozinho, com os envelopes, o saldo dia a dia e o mês a mês.',
+    items: [
+      'Uma parte nova no topo, Utilidades, com os Gastos: o dinheiro de cada mês, o que entrou e o que saiu, numa fita de lançamentos para ver o mês inteiro de uma vez.',
+      'Anote numa linha só, como se fala ("ifood 44,90", "uber 23 pix ontem", "salário +4559 todo mês"): a linha entende o valor, as parcelas, o Pix, o dia e se é todo mês, e o mesmo gasto de antes já vem com a categoria; tudo se troca com um toque antes de lançar.',
+      'Parcelados aparecem sozinhos em cada mês com a parcela ("7/10") e viram carnês com o que falta pagar; fixos se repetem todo mês, e o valor mudado vale dali em diante.',
+      'Os envelopes mostram quanto foi em cada categoria, com um limite do mês se você quiser (passou, ele estoura) e a diferença para o seu costume; um reembolso ligado a um gasto desconta dele.',
+      'O saldo do mês, quanto ainda dá por dia, o saldo dia a dia, o mês a mês dos últimos seis meses (com e sem os fixos) e o que se repetiu no mês.',
+      'Com conta, os Gastos vão para os seus outros aparelhos, só no seu mural privado: nunca aparecem para ninguém.',
+    ],
+  },
+  {
     id: '2026-10-26-seguranca-por-dentro',
     version: '1.32.3',
     kind: 'ajustes',

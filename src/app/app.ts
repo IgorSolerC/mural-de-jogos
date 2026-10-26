@@ -6,7 +6,7 @@ import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router
 import { ICON, IconModule } from './ui/icons';
 import { MoveHouse } from './core/move-house';
 import { filter, map } from 'rxjs';
-import { CALENDAR_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { CALENDAR_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -37,6 +37,7 @@ import { SharedStore } from './core/shared-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
+import { SpendingStore } from './core/spending-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
 import { NoteDone } from './core/note-done';
@@ -59,6 +60,7 @@ export class App {
   protected readonly desk = inject(Desk);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly spending = inject(SpendingStore);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
   private readonly dresser = inject(KanbanDresser);
   private readonly noteDone = inject(NoteDone);
@@ -547,6 +549,7 @@ export class App {
       if (list === 'fila') this.desk.newDraft();
       else if (list === 'wishlist') this.desk.newWish();
       else if (this.path() === CALENDAR_PATH) this.calendar.ask();
+      else if (this.path() === SPENDING_PATH) this.spending.ask();
       else this.newReview();
     }
   }

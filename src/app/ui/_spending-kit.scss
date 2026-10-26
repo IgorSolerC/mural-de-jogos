@@ -1,0 +1,93 @@
+/* A papelaria dos Gastos: as peças de papel da mesa, o título de cada uma e o adesivo de categoria.
+   Quem inclui escolhe os nomes das classes. */
+
+/* Uma peça de papel na mesa: creme, reta (lida e mexida o tempo todo), com a sombra de pendurada */
+@mixin peca {
+  --focus: var(--ink);
+  position: relative;
+  min-width: 0;
+  border-radius: 2px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  box-shadow: var(--shadow-card);
+}
+
+/* O título impresso de uma peça, pequeno, com o que vem ao lado empurrado para a ponta */
+@mixin peca-titulo {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.12em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* O valor em dinheiro: impresso, com os algarismos do mesmo tamanho */
+@mixin valor {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* O selinho da categoria: um quadradinho da cartolina dela, colado torto */
+@mixin selo($tamanho: 10px) {
+  flex: none;
+  display: inline-block;
+  width: $tamanho;
+  height: $tamanho;
+  border-radius: 2px;
+  background: var(--cor, var(--stock-cinza));
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.28),
+    0 1px 1px rgb(0 0 0 / 0.2);
+  rotate: -6deg;
+}
+
+/* Um botão impresso pequeno, de tinta, sem caixa (como os da pasta) */
+@mixin tinta-pequena {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.07);
+  }
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 1px;
+  }
+  &[aria-pressed='true'] {
+    background: var(--hi);
+  }
+  lucide-icon {
+    display: inline-flex;
+  }
+  /* no dedo, o alvo inteiro */
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
+}

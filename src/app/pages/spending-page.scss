@@ -1,0 +1,198 @@
+:host {
+  display: block;
+  container: gastos / inline-size;
+}
+
+/* ===== O mês: escrito a giz na parede, entre as setas ===== */
+.mes {
+  grid-area: mes;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-height: 44px;
+}
+
+.periodo {
+  min-width: 0;
+  margin: 0 6px;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: var(--wall-ink);
+  text-shadow: var(--chalk-shadow);
+}
+
+.giz {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  &.so-icone {
+    padding: 0;
+  }
+  &:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 1px;
+  }
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.previsto {
+  margin-left: 6px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+}
+
+/* ===== A mesa =====
+   Celular: uma coluna (o saldo primeiro, depois anotar e a fita, os envelopes, o mês a mês e os carnês).
+   Tela larga: o que se faz à esquerda (anotar e a fita), o que se vê à direita, numa coluna. */
+.mesa {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'mes'
+    'anotar'
+    'resumo'
+    'fita'
+    'envelopes'
+    'meses'
+    'carnes';
+  gap: 16px;
+  align-items: start;
+}
+
+.anotar {
+  grid-area: anotar;
+  /* os parecidos de antes caem por cima da fita */
+  z-index: 2;
+}
+.fita {
+  grid-area: fita;
+}
+.resumo {
+  grid-area: resumo;
+}
+.envelopes {
+  grid-area: envelopes;
+}
+.meses {
+  grid-area: meses;
+}
+.carnes {
+  grid-area: carnes;
+}
+
+/* sem nenhum lançamento: anotar e a nota de como escrever */
+.mesa.em-branco {
+  grid-template-areas:
+    'mes'
+    'anotar'
+    'comeco';
+}
+
+.comeco {
+  grid-area: comeco;
+  max-width: 520px;
+  padding: 16px 18px;
+  border-radius: 2px;
+  background: #fff1b8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-card);
+  rotate: -0.6deg;
+
+  ul {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0 10px;
+    padding: 0;
+    list-style: none;
+    font-family: var(--f-hand);
+    font-size: 1.04rem;
+    line-height: 1.3;
+  }
+  b {
+    font-family: var(--f-ui);
+    font-weight: 600;
+    margin-right: 6px;
+    padding: 0 4px;
+    border-radius: 2px;
+    background: rgb(255 255 255 / 0.6);
+  }
+}
+
+.comeco-titulo {
+  margin: 0;
+  font-family: var(--f-marker);
+  font-size: 1.3rem;
+}
+
+.comeco-pe {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+
+@container gastos (min-width: 900px) {
+  .mesa {
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+    grid-template-areas:
+      'mes resumo'
+      'anotar resumo'
+      'fita resumo'
+      'fita envelopes'
+      'fita meses'
+      'fita carnes'
+      'fita .';
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+    gap: 16px 28px;
+  }
+  .envelopes,
+  .meses,
+  .carnes {
+    margin-top: 6px;
+  }
+  .mes {
+    margin-bottom: -8px;
+  }
+
+  .mesa.em-branco {
+    grid-template-areas:
+      'mes .'
+      'anotar comeco';
+    grid-template-rows: auto auto;
+  }
+}
+
+@container gastos (min-width: 1240px) {
+  .mesa {
+    grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+  }
+}

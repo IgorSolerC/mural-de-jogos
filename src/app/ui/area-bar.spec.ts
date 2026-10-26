@@ -8,6 +8,7 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { AreaBar } from './area-bar';
 import { CalendarStore } from '../core/calendar-store';
+import { SpendingStore } from '../core/spending-store';
 import { CloudAccount } from '../core/cloud-account';
 import { boardIdFor } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
@@ -168,23 +169,36 @@ describe('o índice embaixo do topo', () => {
     expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/calendario');
   });
 
-  it('a aba Cofre, depois do Calendário, só para quem pode usar o cofre: um link comum para a origem dele', async () => {
+  it('as Utilidades: os Gastos e, só para quem pode usar o cofre, a aba Cofre, um link comum para a origem dele', async () => {
     const conta = TestBed.inject(CloudAccount).account;
     conta.set({ codigo: 'G11T-G00D', nome: 'Igor' });
-    await go('/anotacoes');
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
+    await go('/utilidades/gastos');
+    // sem o cofre, uma seção só: nenhuma aba, mas a barra continua (o logo dos Gastos)
+    expect(tabs().length).toBe(0);
+    expect(fixture.nativeElement.querySelector('app-spending-logo')).not.toBeNull();
     conta.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
     await fixture.whenStable();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário', 'Cofre']);
-    const cofre = tabs()[3];
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Cofre']);
+    expect(tabs()[0].classList).toContain('on');
+    const cofre = tabs()[1];
     expect(cofre.getAttribute('aria-label')).toBe('Cofre de senhas');
     expect(cofre.getAttribute('href')).toBe('https://cofre.murall.igorsc.com.br/');
     expect(cofre.getAttribute('rel')).toBe('noreferrer');
     expect(cofre.hasAttribute('target')).toBe(false);
     expect(cofre.classList).not.toContain('on');
-    // nas Análises, não
-    await go('/analises/jogos');
-    expect(tabs().map((t) => t.textContent!.trim())).not.toContain('Cofre');
+    // o cofre saiu das Anotações
+    await go('/anotacoes');
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
+  });
+
+  it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {
+    const gastos = TestBed.inject(SpendingStore);
+    await go('/utilidades/gastos');
+    expect(summary()).toBeNull();
+    gastos.save({ ...gastos.blank(), title: 'Ifood', amount: 4490 });
+    await fixture.whenStable();
+    expect(summary()).toContain('1');
+    expect(summary()).toContain('lançamento em');
   });
 
   it('no Calendário, quantos lembretes hoje tem', async () => {

@@ -1,0 +1,309 @@
+@use 'paper-kit' as kit;
+@use 'spending-kit' as gk;
+
+:host {
+  display: block;
+}
+
+/* A folhinha do lançamento aberto: um papel branco preso embaixo da linha, um pouco para dentro */
+.folhinha {
+  --focus: var(--ink);
+  display: grid;
+  gap: 12px;
+  margin: 2px 0 10px 34px;
+  padding: 14px 14px 12px;
+  border-radius: 2px;
+  background: #fffefa;
+  box-shadow: var(--papel-solto-sombra);
+  animation: abre var(--t-ui) var(--ease-ui);
+}
+
+@keyframes abre {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
+.linha-1 {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(110px, 150px);
+  gap: 8px;
+  align-items: center;
+}
+
+.segs {
+  display: flex;
+  gap: 4px;
+}
+
+.seg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: 2px;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+  }
+
+  &:hover:not(:has(input:checked)) {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:has(input:checked) {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--paper);
+  }
+  &.entrada:has(input:checked) {
+    background: var(--tinta-entrada);
+    color: #fff;
+  }
+  &:has(input:focus-visible) {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.campo {
+  @include kit.campo;
+  min-height: 42px;
+
+  input {
+    height: 40px;
+  }
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+}
+
+.valor {
+  padding-left: 10px;
+
+  .rs {
+    font-family: var(--f-label);
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+
+  input {
+    @include gk.valor;
+    font-size: 1.06rem;
+    text-align: right;
+    padding-right: 6px;
+  }
+}
+
+.linha-2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+}
+
+/* cada escolha: o nome impresso pequeno em cima e a caixinha de papel embaixo */
+.rotulo {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+
+  > span:first-child {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  &.largo {
+    max-width: 460px;
+  }
+}
+
+/* cada escolha é um adesivo de papel colado (o mesmo da linha de anotar), com o seletor dentro */
+.caixa {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 2px;
+  background-color: #fffdf8;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.1),
+    0 1px 1px rgb(0 0 0 / 0.2),
+    0 2px 4px -2px rgb(0 0 0 / 0.3);
+
+  &:hover {
+    background-color: #fff;
+  }
+  &:focus-within {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  select,
+  input {
+    min-width: 0;
+    height: 34px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.86rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type='number'] {
+    width: 4ch;
+    text-align: center;
+    cursor: text;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+  }
+
+  @media (pointer: coarse) {
+    min-height: 44px;
+  }
+}
+
+.curto .caixa {
+  padding: 0 4px;
+}
+
+.selo {
+  @include gk.selo(11px);
+}
+
+/* o "Todo mês": o interruptor do site, com o nome ao lado */
+.interruptor-linha {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+
+  .interruptor {
+    @include kit.interruptor;
+    scale: 0.82;
+  }
+  &[aria-checked='true'] .interruptor {
+    background: var(--ink);
+
+    &::after {
+      border-color: transparent;
+    }
+    .bolinha {
+      translate: 26px 0;
+      background: var(--hi);
+    }
+  }
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.nota,
+.erro-msg {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.nota {
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  color: var(--ink-2);
+}
+
+.erro-msg {
+  font-weight: 600;
+  color: var(--error-ink);
+}
+
+.pe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+}
+
+.apagar,
+.cancelar {
+  @include gk.tinta-pequena;
+  min-height: 38px;
+}
+
+.apagar {
+  color: var(--red-deep);
+  margin-right: auto;
+}
+
+.salvar {
+  @include kit.tinta;
+  min-height: 40px;
+  padding: 6px 16px 5px;
+  font-size: 1rem;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 600px) {
+  .folhinha {
+    margin-left: 0;
+  }
+  .linha-1 {
+    grid-template-columns: minmax(0, 1fr) minmax(100px, 130px);
+
+    .segs {
+      grid-column: 1 / -1;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .folhinha {
+    animation: none;
+  }
+}

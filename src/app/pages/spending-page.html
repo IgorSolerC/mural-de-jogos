@@ -1,0 +1,82 @@
+<!-- o nome da seção está na barra embaixo do topo (ui/area-bar.ts) -->
+<h1 class="sr-only">Gastos de {{ title() }}</h1>
+
+<div class="mesa" [class.em-branco]="blank()">
+  <!-- o mês, escrito a giz na parede, entre as setas -->
+  <nav class="mes" aria-label="Mês">
+    <button type="button" class="giz so-icone" aria-label="Mês anterior" title="Mês anterior (←)" (click)="step(-1)">
+      <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
+    </button>
+    <h2 class="periodo" aria-live="polite">{{ title() }}</h2>
+    <button type="button" class="giz so-icone" aria-label="Próximo mês" title="Próximo mês (→)" (click)="step(1)">
+      <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
+    </button>
+    @if (!isThisMonth()) {
+      <button type="button" class="giz" aria-keyshortcuts="h" (click)="goToday()">Este mês</button>
+    }
+    @if (future()) {
+      <span class="previsto">Previsto: fixos e parcelas</span>
+    }
+  </nav>
+
+  <app-spending-quick class="anotar" />
+
+  @if (!blank()) {
+    <app-spending-tape
+      class="fita"
+      [rows]="tapeRows()"
+      [month]="open()"
+      [future]="future()"
+      [filter]="focus()"
+      [refunds]="refunds()"
+      (clearFilter)="focus.set(null)"
+    />
+
+    <app-spending-summary
+      class="resumo"
+      [totals]="totals()"
+      [days]="days()"
+      [month]="open()"
+      [daysLeft]="left()"
+      [future]="future()"
+      [repeats]="repeats()"
+    />
+
+    <app-spending-envelopes
+      class="envelopes"
+      [sums]="sums()"
+      [usual]="usual().avg"
+      [seen]="usual().seen"
+      [selected]="focus()"
+      [noFixed]="noFixed()"
+      (pick)="pick($event)"
+      (toggleFixed)="noFixed.set(!noFixed())"
+      (manage)="managing.set(true)"
+    />
+
+    @if (showMonths()) {
+      <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
+    }
+
+    @if (plans().length) {
+      <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
+    }
+  } @else {
+    <!-- a primeira vez: como escrever na linha, numa nota à mão -->
+    <aside class="comeco" aria-label="Como anotar">
+      <p class="comeco-titulo">Escreva como se fala</p>
+      <ul>
+        <li><b>ifood 44,90</b> um gasto de hoje</li>
+        <li><b>violão 10x 139,90</b> parcelado, cada mês a sua parcela</li>
+        <li><b>violão 7/10 139,90</b> um carnê que já estava na 7ª</li>
+        <li><b>salário +4559 todo mês</b> uma entrada fixa</li>
+        <li><b>uber 23 pix ontem</b> o pagamento e o dia</li>
+      </ul>
+      <p class="comeco-pe">Os envelopes, o saldo e o mês a mês aparecem com os primeiros lançamentos. As categorias se ajustam depois, e o que você lançar uma vez vira sugestão.</p>
+    </aside>
+  }
+</div>
+
+@if (managing()) {
+  <app-spending-categories-sheet (closed)="managing.set(false)" />
+}
