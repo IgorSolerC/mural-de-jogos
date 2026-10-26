@@ -3,6 +3,8 @@ import {
   Entry,
   Flow,
   MAX_INSTALLMENTS,
+  NEED_WORDS,
+  Need,
   PayMethod,
   SpendingCategory,
   TITLE_MAX,
@@ -23,6 +25,7 @@ import {
  *   violão 7/10 139,90          → a 7ª de 10 parcelas (a primeira foi 6 meses atrás)
  *   salário +4559 fixo          → entrada, todo mês
  *   uber 23 pix ontem #transporte
+ *   cinema 38 #luxo               → e se precisava: #luxo, #conforto, #indispensável
  *
  * Nada aqui adivinha em silêncio: o que foi entendido volta em `Quick` e a linha mostra, em adesivos que
  * se trocam com um toque, antes de lançar.
@@ -35,6 +38,8 @@ export interface Quick {
   flow: Flow;
   category: string;
   pay?: PayMethod;
+  /** Saída: se precisava (a escrita, ou a do mesmo gasto lançado antes). */
+  need?: Need;
   /** Parcelado: quantas parcelas. */
   installments?: number;
   /** Parcelado: qual parcela é a deste mês (1 é a primeira). */
@@ -74,7 +79,7 @@ function capFirst(s: string): string {
   return s ? s[0].toLocaleUpperCase('pt-BR') + s.slice(1) : s;
 }
 
-/** A categoria pelo nome escrito ("comida", "#luxo", "luxo/item"), em qualquer direção. */
+/** A categoria pelo nome escrito ("comida", "#merc", "item"), em qualquer direção. */
 function categoryByName(word: string, categories: readonly SpendingCategory[]): SpendingCategory | undefined {
   const w = fold(word.replace(/^#/, ''));
   if (w.length < 3) return undefined;
@@ -96,6 +101,7 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
   let monthly = false;
   let date: string | null = null;
   let named: SpendingCategory | undefined;
+  let need: Need | undefined;
   /** Onde estava o "pix": numa entrada ele é o nome ("Pix da Bru"), não o pagamento. */
   let pixAt = -1;
 
@@ -193,8 +199,14 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
       take(i);
       continue;
     }
-    // a categoria marcada: "#comida"
+    // a categoria marcada ("#comida") ou se precisava ("#luxo"); uma categoria com o mesmo nome vale mais
     if (raw.startsWith('#')) {
+      const tag = fold(raw.slice(1)).replace(/[.,;:!]+$/, '');
+      if (NEED_WORDS[tag] && !ctx.categories.some((c) => fold(c.name) === tag)) {
+        need = NEED_WORDS[tag];
+        take(i);
+        continue;
+      }
       const c = categoryByName(raw, ctx.categories);
       if (c) {
         named = c;
@@ -265,7 +277,9 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
     if (installments) pay = 'parcelado';
     else if (pay === 'parcelado') installments = 2;
     else pay ??= before?.pay ?? 'avista';
+    if (before?.flow === 'saida') need ??= before.need;
   } else {
+    need = undefined;
     pay = undefined;
     installments = undefined;
     part = undefined;
@@ -287,6 +301,7 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
     flow,
     category,
     ...(pay ? { pay } : {}),
+    ...(need ? { need } : {}),
     ...(installments ? { installments, part: part ?? 1 } : {}),
     ...(monthly ? { monthly: true as const } : {}),
     date: day,
@@ -303,6 +318,7 @@ export function quickToEntry(q: Quick): Omit<Entry, 'id' | 'createdAt' | 'at'> |
     flow: q.flow,
     category: q.category,
     ...(q.pay ? { pay: q.pay } : {}),
+    ...(q.need && q.flow === 'saida' ? { need: q.need } : {}),
     ...(q.installments ? { installments: q.installments } : {}),
     ...(q.monthly ? { monthly: true as const } : {}),
     date: q.date,

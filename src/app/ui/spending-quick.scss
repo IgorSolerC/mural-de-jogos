@@ -227,6 +227,19 @@
   }
 }
 
+/* se precisava: escrito na tinta da resposta (a mesma do carimbo na fita e da peça Precisava?) */
+.precisava {
+  &[data-need='indispensavel'] {
+    color: var(--tinta-indispensavel);
+  }
+  &[data-need='conforto'] {
+    color: var(--tinta-conforto);
+  }
+  &[data-need='luxo'] {
+    color: var(--tinta-luxo);
+  }
+}
+
 .chev {
   margin-right: -3px;
   opacity: 0.55;

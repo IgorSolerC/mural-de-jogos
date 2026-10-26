@@ -255,6 +255,28 @@
   color: var(--tinta-entrada);
 }
 
+/* o luxo e o conforto: um carimbinho de borracha na tinta deles (o indispensável é o normal, sem carimbo) */
+.carimbo-precisava {
+  padding: 2px 4px 1px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  rotate: -2deg;
+
+  &[data-need='conforto'] {
+    color: var(--tinta-conforto);
+  }
+  &[data-need='luxo'] {
+    color: var(--tinta-luxo);
+  }
+}
+
 .fixo,
 .volta {
   display: inline-flex;

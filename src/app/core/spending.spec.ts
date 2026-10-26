@@ -21,6 +21,7 @@ import {
   shiftMonth,
   spendingToSync,
   spentByCategory,
+  spentByNeed,
   suggestions,
   titleKey,
   totals,
@@ -229,5 +230,44 @@ describe('Gastos: guardar e juntar', () => {
     expect(ab).toEqual(ba);
     expect(ab.entries.map((e) => e.title)).toEqual(['A mudado']);
     expect(ab.categories[0].name).toBe('Rango');
+  });
+});
+
+describe('Gastos: precisava?', () => {
+  it('soma o que saiu em cada resposta, sem o que voltou de reembolso', () => {
+    const cinema = entry({ amount: 4000, need: 'luxo' });
+    const entries = [
+      entry({ amount: 150000, need: 'indispensavel', monthly: true, date: '2026-09-05' }),
+      cinema,
+      entry({ amount: 13000, need: 'conforto' }),
+      entry({ amount: 2500 }),
+      entry({ flow: 'entrada', amount: 1500, category: 'reembolso', refundOf: cinema.id, pay: undefined }),
+    ];
+    const sums = spentByNeed(rowsIn(entries, '2026-10'), entries);
+    expect([sums.get('indispensavel'), sums.get('luxo'), sums.get('conforto'), sums.get(null)]).toEqual([150000, 2500, 13000, 2500]);
+  });
+
+  it('a resposta fica guardada só nas saídas, e uma desconhecida sai', () => {
+    const st = sanitizeSpending({
+      entries: [
+        entry({ need: 'conforto' }),
+        { ...entry({ flow: 'entrada', category: 'renda', pay: undefined }), need: 'indispensavel' },
+        { ...entry({}), need: 'talvez' },
+      ],
+    });
+    expect(st.entries.map((e) => e.need)).toEqual(['conforto', undefined, undefined]);
+  });
+
+  it('o mesmo gasto de antes sugere a resposta dele', () => {
+    expect(suggestions([entry({ title: 'Cinema', need: 'luxo' })], 'cin')[0].need).toBe('luxo');
+  });
+
+  it('"Luxo/Item" virou "Item", guardada ou vinda de um aparelho antigo, e um nome escolhido fica', () => {
+    expect(DEFAULT_CATEGORIES.find((c) => c.id === 'luxo')!.name).toBe('Item');
+    const old = { id: 'luxo', name: 'Luxo/Item', flow: 'saida', color: 'lilas', budget: 50000, at: '2026-10-20T10:00:00.000Z' };
+    const st = sanitizeSpending({ categories: [old] });
+    expect(st.categories.find((c) => c.id === 'luxo')).toEqual(jasmine.objectContaining({ name: 'Item', budget: 50000 }));
+    expect(sanitizeSpending({ categories: [{ ...old, at: '2026-01-01T00:00:00.000Z', budget: undefined }] }).categories.find((c) => c.id === 'luxo')!.name).toBe('Item');
+    expect(sanitizeSpending({ categories: [{ ...old, name: 'Coisas' }] }).categories.find((c) => c.id === 'luxo')!.name).toBe('Coisas');
   });
 });

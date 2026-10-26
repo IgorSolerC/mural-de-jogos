@@ -59,6 +59,11 @@
   --roxo-impossivel: #7a2fd0;
   /* o dinheiro que entrou, nos Gastos: o verde do carimbo de "recebido" (6,6:1 no papel de ficha) */
   --tinta-entrada: #0d6b3c;
+  /* se a saída precisava, nos Gastos: o vermelho do luxo, o magenta do conforto e a caneta azul do
+     indispensável (todas acima de 6:1 no papel de ficha) */
+  --tinta-indispensavel: var(--caneta-azul);
+  --tinta-conforto: #a3245e;
+  --tinta-luxo: var(--red-deep);
   /* papel: todos os neutros claros moram no mesmo eixo quente, do papel à fita */
   --paper: #f7f4ec;
   /* a ficha de fichário creme (Novidades, Ajustes, Amigos, o editor do perfil) */

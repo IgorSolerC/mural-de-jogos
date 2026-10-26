@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { MONTHS_SHORT } from '../core/dates';
-import { PAY_LABEL, Row, brl } from '../core/spending';
+import { NEED_LABEL, Need, PAY_LABEL, Row, brl } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 import { SpendingEditor } from './spending-editor';
 
@@ -42,6 +42,11 @@ interface Line {
           Só {{ f }}
           <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
         </button>
+      } @else if (need() !== undefined) {
+        <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar todos os gastos (agora só ' + needName() + ')'">
+          Só {{ needName() }}
+          <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
+        </button>
       }
       <div class="ordem" role="group" aria-label="Ordem da fita">
         <button type="button" class="tinta-pequena" [attr.aria-pressed]="order() === 'dia'" (click)="order.set('dia')">Por dia</button>
@@ -74,6 +79,9 @@ interface Line {
                 }
                 @if (l.row.fixed) {
                   <lucide-icon class="fixo" [img]="RepeatIcon" [size]="13" title="Todo mês" />
+                }
+                @if (e.need === 'luxo' || e.need === 'conforto') {
+                  <span class="carimbo-precisava" [attr.data-need]="e.need">{{ needLabel[e.need] }}</span>
                 }
                 @if (e.pay === 'pix') {
                   <span class="pix">Pix</span>
@@ -109,6 +117,8 @@ export class SpendingTape {
   readonly future = input(false);
   /** Só esta categoria (escolhida num envelope). */
   readonly filter = input<string | null>(null);
+  /** Só os gastos com esta resposta ao "Precisava?" (`null`: os sem resposta), escolhida na peça dela. */
+  readonly need = input<Need | null | undefined>(undefined);
   /** Quanto já voltou de cada gasto. */
   readonly refunds = input<Map<string, number>>(new Map());
   readonly clearFilter = output<void>();
@@ -117,6 +127,7 @@ export class SpendingTape {
   protected readonly RepeatIcon = ICON.repetir;
   protected readonly BackIcon = ICON.desfazer;
   protected readonly brl = brl;
+  protected readonly needLabel = NEED_LABEL;
 
   protected readonly order = signal<'dia' | 'valor'>('dia');
   protected readonly open = signal<string | null>(null);
@@ -129,6 +140,10 @@ export class SpendingTape {
   protected readonly filterName = computed(() => {
     const f = this.filter();
     return f ? (this.store.category(f)?.name ?? 'Sem categoria') : null;
+  });
+  protected readonly needName = computed(() => {
+    const n = this.need();
+    return n ? NEED_LABEL[n].toLocaleLowerCase('pt-BR') : 'sem resposta';
   });
   protected readonly filterColor = computed(() => `var(--stock-${this.store.category(this.filter() ?? '')?.color ?? 'cinza'})`);
 
@@ -154,7 +169,7 @@ export class SpendingTape {
   });
 
   protected readonly emptyText = computed(() =>
-    this.filter() ? 'Nada nesta categoria no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
+    this.filter() ? 'Nada nesta categoria no mês.' : this.need() !== undefined ? 'Nada assim no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
   );
 
   protected toggle(id: string): void {
@@ -173,6 +188,7 @@ export class SpendingTape {
     if (l.row.part) parts.push(`parcela ${l.row.part.n} de ${l.row.part.of}`);
     if (l.row.fixed) parts.push('todo mês');
     if (e.pay && e.pay !== 'parcelado') parts.push(PAY_LABEL[e.pay]);
+    if (e.need) parts.push(NEED_LABEL[e.need]);
     if (l.back) parts.push(`voltou ${brl(l.back)}`);
     return parts.join(', ');
   }

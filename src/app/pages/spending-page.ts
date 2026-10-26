@@ -7,6 +7,7 @@ import { todayISO } from '../core/dates';
 import { reducedMotion } from '../core/motion';
 import { readText, writeText } from '../core/storage';
 import {
+  Need,
   dailyBalance,
   daysLeft,
   installmentsAhead,
@@ -20,6 +21,7 @@ import {
   rowsIn,
   shiftMonth,
   spentByCategory,
+  spentByNeed,
   totals,
   usualByCategory,
 } from '../core/spending';
@@ -27,6 +29,7 @@ import { SpendingStore } from '../core/spending-store';
 import { SpendingCategoriesSheet } from '../ui/spending-categories-sheet';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
 import { SpendingMonths } from '../ui/spending-months';
+import { SpendingNeeds } from '../ui/spending-needs';
 import { SpendingPlans } from '../ui/spending-plans';
 import { SpendingQuick } from '../ui/spending-quick';
 import { SpendingSummary } from '../ui/spending-summary';
@@ -47,7 +50,7 @@ const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
  */
 @Component({
   selector: 'app-spending-page',
-  imports: [IconModule, SpendingCategoriesSheet, SpendingEnvelopes, SpendingMonths, SpendingPlans, SpendingQuick, SpendingSummary, SpendingTape],
+  imports: [IconModule, SpendingCategoriesSheet, SpendingEnvelopes, SpendingMonths, SpendingNeeds, SpendingPlans, SpendingQuick, SpendingSummary, SpendingTape],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown)': 'onKey($event)' },
   templateUrl: './spending-page.html',
@@ -80,6 +83,8 @@ export class SpendingPage {
 
   /** O envelope escolhido: a fita mostra só ele e o mês a mês, a parte dele. */
   protected readonly focus = signal<string | null>(null);
+  /** A resposta ao "Precisava?" escolhida (`null`: os sem resposta): a fita mostra só esses gastos. */
+  protected readonly needFocus = signal<Need | null | undefined>(undefined);
   protected readonly noFixed = signal(readText(NO_FIXED_KEY) === '1');
   protected readonly managing = signal(false);
 
@@ -93,6 +98,8 @@ export class SpendingPage {
   /** As contas dos envelopes e do mês a mês, sem os fixos quando a pessoa pede. */
   private readonly counted = computed(() => (this.noFixed() ? this.entries().filter((e) => !e.monthly) : this.entries()));
   protected readonly sums = computed(() => spentByCategory(rowsIn(this.counted(), this.open()), this.counted()));
+  protected readonly needSums = computed(() => spentByNeed(rowsIn(this.counted(), this.open()), this.counted()));
+  protected readonly showNeeds = computed(() => [...this.needSums().values()].some((v) => v > 0));
   protected readonly usual = computed(() => usualByCategory(this.counted(), this.open()));
   protected readonly strips = computed(() => monthStrips(this.counted(), this.open(), 6));
   protected readonly showMonths = computed(() => this.strips().filter((s) => s.spent || s.income).length > 1);
@@ -103,13 +110,32 @@ export class SpendingPage {
 
   protected readonly tapeRows = computed(() => {
     const f = this.focus();
-    return f ? this.rows().filter((r) => r.entry.category === f) : this.rows();
+    const n = this.needFocus();
+    if (f) return this.rows().filter((r) => r.entry.category === f);
+    if (n !== undefined) return this.rows().filter((r) => r.entry.flow === 'saida' && (r.entry.need ?? null) === n);
+    return this.rows();
   });
 
   /** Escolher um envelope (ou tirar a escolha). No celular a fita fica longe dos envelopes: ela vem até a vista. */
   protected pick(id: string | null): void {
     this.focus.set(id || null);
-    if (!id) return;
+    this.needFocus.set(undefined);
+    if (id) this.showTape();
+  }
+
+  /** Escolher uma resposta ao "Precisava?" (ou tirar a escolha), como um envelope. */
+  protected pickNeed(n: Need | null | undefined): void {
+    this.needFocus.set(n);
+    this.focus.set(null);
+    if (n !== undefined) this.showTape();
+  }
+
+  protected clearFilters(): void {
+    this.focus.set(null);
+    this.needFocus.set(undefined);
+  }
+
+  private showTape(): void {
     const tape = this.host.nativeElement.querySelector('app-spending-tape');
     const box = tape?.getBoundingClientRect();
     if (tape && box && (box.top > innerHeight - 80 || box.bottom < 80)) tape.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
@@ -129,6 +155,11 @@ export class SpendingPage {
       const sums = this.sums();
       const f = untracked(() => this.focus());
       if (f && !sums.some((s) => s.id === f)) untracked(() => this.focus.set(null));
+    });
+    effect(() => {
+      const sums = this.needSums();
+      const n = untracked(() => this.needFocus());
+      if (n !== undefined && !sums.get(n)) untracked(() => this.needFocus.set(undefined));
     });
     effect(() => writeText(NO_FIXED_KEY, this.noFixed() ? '1' : '0'));
     // o dia vira enquanto a página está aberta

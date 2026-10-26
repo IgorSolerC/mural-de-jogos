@@ -28,8 +28,9 @@
       [month]="open()"
       [future]="future()"
       [filter]="focus()"
+      [need]="needFocus()"
       [refunds]="refunds()"
-      (clearFilter)="focus.set(null)"
+      (clearFilter)="clearFilters()"
     />
 
     <app-spending-summary
@@ -41,6 +42,10 @@
       [future]="future()"
       [repeats]="repeats()"
     />
+
+    @if (showNeeds()) {
+      <app-spending-needs class="precisava" [sums]="needSums()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
+    }
 
     <app-spending-envelopes
       class="envelopes"
@@ -71,6 +76,7 @@
         <li><b>violão 7/10 139,90</b> um carnê que já estava na 7ª</li>
         <li><b>salário +4559 todo mês</b> uma entrada fixa</li>
         <li><b>uber 23 pix ontem</b> o pagamento e o dia</li>
+        <li><b>cinema 38 #luxo</b> se precisava: #luxo, #conforto ou #indispensável</li>
       </ul>
       <p class="comeco-pe">Os envelopes, o saldo e o mês a mês aparecem com os primeiros lançamentos. As categorias se ajustam depois, e o que você lançar uma vez vira sugestão.</p>
     </aside>

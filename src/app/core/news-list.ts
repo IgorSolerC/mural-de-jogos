@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-26-precisava',
+    version: '1.34.0',
+    kind: 'funcionalidade',
+    date: '2026-10-26',
+    title: 'Precisava? nos Gastos',
+    items: [
+      'Cada gasto pode dizer se precisava: Luxo (dava para não ter), Conforto (um luxo que faz falta) ou Indispensável (sem escolha). Escolha no adesivo "Precisava?" da linha de anotar, na edição do gasto ou já escrevendo "#luxo", "#conforto" ou "#indispensável"; o mesmo gasto de antes já vem com a resposta dele.',
+      'A peça Precisava? mostra quanto do mês foi em cada um (e o que ainda está sem resposta); tocar numa linha deixa na fita só aqueles gastos, e a fita carimba o luxo e o conforto.',
+      'A categoria Luxo/Item virou só Item: o luxo agora é a resposta de cada gasto, em qualquer categoria.',
+    ],
+  },
+  {
     id: '2026-10-26-pe-da-fita',
     version: '1.33.1',
     kind: 'ajustes',

@@ -5,7 +5,7 @@ import { cleanLabel, fold } from './text';
 /**
  * Os Gastos (`/utilidades/gastos`): o dinheiro do mês. Cada lançamento é uma saída ou uma entrada de
  * dinheiro, com um nome, o valor, uma categoria e, nas saídas, como foi pago (à vista, Pix ou
- * parcelado).
+ * parcelado) e se precisava (luxo, conforto ou indispensável).
  *
  * O que a planilha pedia à mão vira regra aqui:
  * - **parcelado** guarda o valor de cada parcela e quantas são, a partir do mês da primeira: cada mês
@@ -31,6 +31,29 @@ export const FLOWS: readonly Flow[] = ['saida', 'entrada'];
 export type PayMethod = 'avista' | 'pix' | 'parcelado';
 export const PAY_METHODS: readonly PayMethod[] = ['avista', 'pix', 'parcelado'];
 export const PAY_LABEL: Record<PayMethod, string> = { avista: 'À vista', pix: 'Pix', parcelado: 'Parcelado' };
+
+/**
+ * Se a saída precisava, do supérfluo ao que não tem como contornar: luxo (dava para não ter), conforto
+ * (um luxo, mas que faz falta) ou indispensável (sem escolha). Sem nada, a pessoa ainda não disse.
+ */
+export type Need = 'luxo' | 'conforto' | 'indispensavel';
+export const NEEDS: readonly Need[] = ['luxo', 'conforto', 'indispensavel'];
+export const NEED_LABEL: Record<Need, string> = { luxo: 'Luxo', conforto: 'Conforto', indispensavel: 'Indispensável' };
+
+/** As palavras que marcam a necessidade na linha de anotar ("#luxo", "#conforto"), já sem acento. */
+export const NEED_WORDS: Readonly<Record<string, Need>> = {
+  luxo: 'luxo',
+  superfluo: 'luxo',
+  conforto: 'conforto',
+  indispensavel: 'indispensavel',
+  essencial: 'indispensavel',
+  necessario: 'indispensavel',
+  necessaria: 'indispensavel',
+};
+
+export function isNeed(v: unknown): v is Need {
+  return typeof v === 'string' && (NEEDS as readonly string[]).includes(v);
+}
 
 export const TITLE_MAX = 80;
 export const CATEGORY_NAME_MAX = 24;
@@ -62,6 +85,8 @@ export interface Entry {
   category: string;
   /** Só nas saídas. */
   pay?: PayMethod;
+  /** Só nas saídas: se precisava. */
+  need?: Need;
   /** O dia: no parcelado, o da primeira parcela; no fixo, o do primeiro mês. */
   date: string;
   /** Parcelado: quantas parcelas (2 ou mais). */
@@ -96,7 +121,7 @@ export const DEFAULT_CATEGORIES: readonly SpendingCategory[] = [
   { id: 'mercado', name: 'Mercado', flow: 'saida', color: 'amarelo', at: BORN },
   { id: 'conta', name: 'Conta', flow: 'saida', color: 'azul', at: BORN },
   { id: 'aluguel', name: 'Aluguel', flow: 'saida', color: 'cinza', at: BORN },
-  { id: 'luxo', name: 'Luxo/Item', flow: 'saida', color: 'lilas', at: BORN },
+  { id: 'luxo', name: 'Item', flow: 'saida', color: 'lilas', at: BORN },
   { id: 'eventos', name: 'Eventos', flow: 'saida', color: 'rosa', at: BORN },
   { id: 'presente', name: 'Presente', flow: 'saida', color: 'vermelho', at: BORN },
   { id: 'estudos', name: 'Estudos', flow: 'saida', color: 'verde', at: BORN },
@@ -320,16 +345,28 @@ export interface CategorySum {
  * um gasto tira o valor dele da categoria do gasto, no mês em que o dinheiro voltou (nunca abaixo de zero).
  */
 export function spentByCategory(rows: readonly Row[], entries: readonly Entry[]): CategorySum[] {
+  return [...spentBy(rows, entries, (e) => e.category)].map(([id, amount]) => ({ id, amount })).sort((a, b) => b.amount - a.amount || (a.id < b.id ? -1 : 1));
+}
+
+/** Quanto saiu no mês em cada necessidade (`null`: sem resposta), já sem o que voltou. Só as que tiveram gasto. */
+export function spentByNeed(rows: readonly Row[], entries: readonly Entry[]): Map<Need | null, number> {
+  return spentBy(rows, entries, (e) => e.need ?? null);
+}
+
+/** Quanto saiu no mês em cada pedaço (`keyOf`), já sem o que voltou: o reembolso desconta do pedaço do gasto. */
+function spentBy<K>(rows: readonly Row[], entries: readonly Entry[], keyOf: (e: Entry) => K): Map<K, number> {
   const byId = new Map(entries.map((e) => [e.id, e]));
-  const sums = new Map<string, number>();
+  const sums = new Map<K, number>();
   for (const r of rows) {
-    if (r.entry.flow === 'saida') sums.set(r.entry.category, (sums.get(r.entry.category) ?? 0) + r.amount);
+    if (r.entry.flow === 'saida') sums.set(keyOf(r.entry), (sums.get(keyOf(r.entry)) ?? 0) + r.amount);
   }
   for (const r of rows) {
     const of = r.entry.flow === 'entrada' && r.entry.refundOf ? byId.get(r.entry.refundOf) : undefined;
-    if (of && of.flow === 'saida' && sums.has(of.category)) sums.set(of.category, Math.max(0, sums.get(of.category)! - r.amount));
+    if (!of || of.flow !== 'saida') continue;
+    const k = keyOf(of);
+    if (sums.has(k)) sums.set(k, Math.max(0, sums.get(k)! - r.amount));
   }
-  return [...sums].map(([id, amount]) => ({ id, amount })).sort((a, b) => b.amount - a.amount || (a.id < b.id ? -1 : 1));
+  return sums;
 }
 
 /** O que entrou em cada categoria no mês, do maior para o menor. */
@@ -487,6 +524,7 @@ export interface Suggestion {
   flow: Flow;
   category: string;
   pay?: PayMethod;
+  need?: Need;
   amount: number;
   /** Quantas vezes ele já foi lançado. */
   times: number;
@@ -518,6 +556,7 @@ export function suggestions(entries: readonly Entry[], typed: string, max = 6): 
       flow: last.flow,
       category: last.category,
       ...(last.pay && last.pay !== 'parcelado' ? { pay: last.pay } : {}),
+      ...(last.need ? { need: last.need } : {}),
       amount: last.monthly ? fixedValue(last, '9999-12') : last.amount,
       times,
     }));
@@ -582,6 +621,7 @@ export function sanitizeEntry(raw: unknown): Entry | null {
     at: r['at'],
   };
   if (flow === 'saida' && (PAY_METHODS as readonly unknown[]).includes(r['pay'])) e.pay = r['pay'] as PayMethod;
+  if (flow === 'saida' && isNeed(r['need'])) e.need = r['need'];
   if (r['monthly'] === true) {
     e.monthly = true;
     if (isMonth(r['until']) && r['until'] >= monthOfDay(e.date)) e.until = r['until'];
@@ -607,7 +647,8 @@ export function sanitizeCategory(raw: unknown): SpendingCategory | null {
   const name = typeof r['name'] === 'string' ? cleanLabel(r['name'], CATEGORY_NAME_MAX) : '';
   const flow = r['flow'] === 'entrada' ? 'entrada' : r['flow'] === 'saida' ? 'saida' : null;
   if (!name || !flow || typeof r['id'] !== 'string' || !ID_RE.test(r['id']) || !isStamp(r['at'])) return null;
-  const c: SpendingCategory = { id: r['id'], name, flow, color: isStock(r['color']) ? r['color'] : 'cinza', at: r['at'] };
+  // a de sempre "Luxo/Item" virou "Item": o luxo agora é a resposta de cada gasto ao "Precisava?"
+  const c: SpendingCategory = { id: r['id'], name: r['id'] === 'luxo' && name === 'Luxo/Item' ? 'Item' : name, flow, color: isStock(r['color']) ? r['color'] : 'cinza', at: r['at'] };
   if (flow === 'saida' && isCents(r['budget'])) c.budget = r['budget'];
   return c;
 }

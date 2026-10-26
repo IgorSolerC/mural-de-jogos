@@ -5,6 +5,9 @@ import { newId } from '../core/review';
 import {
   Flow,
   MAX_INSTALLMENTS,
+  NEEDS,
+  NEED_LABEL,
+  Need,
   PAY_LABEL,
   PAY_METHODS,
   PayMethod,
@@ -25,6 +28,8 @@ interface Overrides {
   flow?: Flow;
   category?: string;
   pay?: PayMethod;
+  /** Se precisava (null: tirada à mão). */
+  need?: Need | null;
   installments?: number;
   monthly?: boolean;
   /** O dia deste mês (no parcelado, o desta parcela). */
@@ -32,6 +37,7 @@ interface Overrides {
 }
 
 const NEW_CATEGORY = '__nova';
+const NO_NEED = '';
 
 /** "hoje", "ontem" ou "24 out". */
 function dayLabel(day: string, today: string): string {
@@ -132,6 +138,16 @@ function dayLabel(day: string, today: string): string {
               }
             </select>
           </label>
+          <label class="adesivo escolha precisava" [class.adivinhada]="!q.need" [attr.data-need]="q.need ?? null">
+            {{ q.need ? needLabel[q.need] : 'Precisava?' }}
+            <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
+            <select aria-label="Precisava?" (change)="set({ need: $any($event.target).value || null })">
+              <option [value]="noNeed" [selected]="!q.need">Sem resposta</option>
+              @for (n of needs; track n) {
+                <option [value]="n" [selected]="n === q.need">{{ needLabel[n] }}</option>
+              }
+            </select>
+          </label>
           @if (q.installments) {
             <label class="adesivo parcelas">
               <input
@@ -200,6 +216,9 @@ export class SpendingQuick {
   protected readonly pays = PAY_METHODS;
   protected readonly maxInstallments = MAX_INSTALLMENTS;
   protected readonly newCategory = NEW_CATEGORY;
+  protected readonly needs = NEEDS;
+  protected readonly needLabel = NEED_LABEL;
+  protected readonly noNeed = NO_NEED;
 
   protected readonly text = signal('');
   private readonly overrides = signal<Overrides>({});
@@ -222,6 +241,7 @@ export class SpendingQuick {
       q.category = o.flow === 'saida' ? 'outros' : 'outras-entradas';
       q.from = 'padrao';
       if (o.flow === 'entrada') {
+        delete q.need;
         delete q.pay;
         delete q.installments;
         delete q.part;
@@ -230,6 +250,10 @@ export class SpendingQuick {
     if (o.category) {
       q.category = o.category;
       q.from = 'escrita';
+    }
+    if (q.flow === 'saida' && o.need !== undefined) {
+      if (o.need) q.need = o.need;
+      else delete q.need;
     }
     if (q.flow === 'saida' && o.pay) {
       q.pay = o.pay;
@@ -352,7 +376,7 @@ export class SpendingQuick {
     const text = `${s.title} ${s.flow === 'entrada' ? '+' : ''}${moneyInput(s.amount)}`;
     this.text.set(text);
     this.active.set(-1);
-    this.overrides.update((o) => ({ ...o, flow: s.flow, category: s.category, ...(s.pay ? { pay: s.pay } : {}) }));
+    this.overrides.update((o) => ({ ...o, flow: s.flow, category: s.category, ...(s.pay ? { pay: s.pay } : {}), ...(s.need ? { need: s.need } : {}) }));
     const el = this.field().nativeElement;
     el.value = text;
     el.focus();

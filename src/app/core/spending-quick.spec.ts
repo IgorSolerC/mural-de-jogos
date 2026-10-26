@@ -59,6 +59,26 @@ describe('Gastos: a linha de anotar', () => {
     expect(readQuick('luz 145,05', ctx([], '2026-08')).date).toBe('2026-08-26');
   });
 
+  it('se precisava: "#luxo", "#conforto", "#indispensável", ou o do mesmo gasto de antes', () => {
+    const a = readQuick('cinema 38 #luxo', ctx());
+    expect([a.title, a.need, a.category]).toEqual(['Cinema', 'luxo', 'outros']);
+    expect(quickToEntry(a)!.need).toBe('luxo');
+    expect(readQuick('cadeira 900 #conforto', ctx()).need).toBe('conforto');
+    expect(readQuick('remédio 40 #Indispensável', ctx()).need).toBe('indispensavel');
+    expect(readQuick('luz 145 #essencial', ctx()).need).toBe('indispensavel');
+    expect(readQuick('ifood 44,90', ctx([old({ title: 'iFood', category: 'comida', need: 'conforto' })])).need).toBe('conforto');
+    expect(readQuick('pomada 77', ctx()).need).toBeUndefined();
+  });
+
+  it('numa entrada não há "precisava"; uma categoria com o mesmo nome vale mais', () => {
+    const e = readQuick('salário +4559 #luxo', ctx());
+    expect([e.flow, e.need]).toEqual(['entrada', undefined]);
+    expect(quickToEntry(e)!.need).toBeUndefined();
+    const mine = [...DEFAULT_CATEGORIES, { id: 'casa', name: 'Conforto', flow: 'saida' as const, color: 'rosa' as const, at: '2026-10-01T00:00:00.000Z' }];
+    const q = readQuick('sofá 3000 #conforto', { ...ctx(), categories: mine });
+    expect([q.category, q.need]).toEqual(['casa', undefined]);
+  });
+
   it('sem valor ou sem nome não lança', () => {
     expect(quickToEntry(readQuick('ifood', ctx()))).toBeNull();
     expect(quickToEntry(readQuick('44,90', ctx()))).toBeNull();

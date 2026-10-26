@@ -193,6 +193,22 @@
   }
 }
 
+/* se precisava: a resposta na tinta dela (as opções da lista ficam na tinta de sempre) */
+.precisava {
+  &[data-need='indispensavel'] select {
+    color: var(--tinta-indispensavel);
+  }
+  &[data-need='conforto'] select {
+    color: var(--tinta-conforto);
+  }
+  &[data-need='luxo'] select {
+    color: var(--tinta-luxo);
+  }
+  option {
+    color: var(--ink);
+  }
+}
+
 .escolha.curto .caixa {
   padding: 0 4px;
 }

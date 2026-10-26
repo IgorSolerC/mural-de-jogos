@@ -4,6 +4,9 @@ import {
   Entry,
   Flow,
   MAX_INSTALLMENTS,
+  NEEDS,
+  NEED_LABEL,
+  Need,
   PAY_LABEL,
   PAY_METHODS,
   PayMethod,
@@ -83,6 +86,18 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
               </select>
             </span>
           </label>
+
+          <label class="escolha">
+            <span>Precisava?</span>
+            <span class="caixa precisava" [attr.data-need]="d.need ?? null">
+              <select (change)="setNeed($any($event.target).value)">
+                <option value="" [selected]="!d.need">Sem resposta</option>
+                @for (n of needs; track n) {
+                  <option [value]="n" [selected]="n === d.need">{{ needLabel[n] }}</option>
+                }
+              </select>
+            </span>
+          </label>
         }
 
         @if (kind() === 'parcelado') {
@@ -157,6 +172,8 @@ export class SpendingEditor {
   protected readonly brl = brl;
   protected readonly payLabel = PAY_LABEL;
   protected readonly pays = PAY_METHODS;
+  protected readonly needs = NEEDS;
+  protected readonly needLabel = NEED_LABEL;
   protected readonly titleMax = TITLE_MAX;
   protected readonly maxInstallments = MAX_INSTALLMENTS;
   protected readonly flows: readonly { id: Flow; label: string }[] = [
@@ -226,6 +243,7 @@ export class SpendingEditor {
     this.draft.update((d) => {
       const next: Entry = { ...d, flow, category: flow === 'saida' ? 'outros' : 'outras-entradas' };
       if (flow === 'entrada') {
+        delete next.need;
         delete next.pay;
         delete next.installments;
       } else {
@@ -246,6 +264,15 @@ export class SpendingEditor {
         delete next.skip;
         delete next.until;
       } else delete next.installments;
+      return next;
+    });
+  }
+
+  protected setNeed(v: Need | ''): void {
+    this.draft.update((d) => {
+      const next: Entry = { ...d };
+      if (v) next.need = v;
+      else delete next.need;
       return next;
     });
   }
