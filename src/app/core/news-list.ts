@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-26-seguranca-por-dentro',
+    version: '1.32.3',
+    kind: 'ajustes',
+    date: '2026-10-26',
+    title: 'Segurança por dentro',
+    melhorias: ['O site recebeu as últimas correções de segurança das peças em que é feito, sem mudar nada do que você vê ou guarda.'],
+  },
+  {
     id: '2026-10-25-duas-abas-sem-voltar-atras',
     version: '1.32.2',
     kind: 'ajustes',
