@@ -1,14 +1,10 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, inject, input, output } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { Kind, Status, Verdict } from '../core/review';
-import { isNotes } from '../core/kinds';
 import { Facet, FacetKey, GRADE_SHORT, GradeBand } from '../core/wall-filter';
 import { Skulls } from './difficulty';
-import { BonusSticker } from './bonus';
-import { NoteTag } from './note-tag';
-import { categoryBonus } from '../core/note-labels';
-import { StatusLabel, statusIcon } from './status-label';
+import { statusIcon } from './status-label';
 import { VERDICT_ICON } from './verdict';
 
 export interface FilterToggle {
@@ -16,133 +12,91 @@ export interface FilterToggle {
   value: string;
 }
 
-/** Cada adesivo colado entra com um torto diferente, como colado à mão. */
-const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
+/** O que cada linha faz, embaixo do nome dela (como nos filtros das Anotações). */
+const DESC: Partial<Record<FacetKey, string>> = {
+  verdict: 'O que você achou, numa palavra.',
+  status: 'Em que pé está cada uma.',
+  form: 'O álbum inteiro ou a música solta.',
+  text: 'Com a resenha escrita, ou só as notas.',
+  look: 'Com estampa, rabisco, mancha, estrago ou enfeite, ou a cartolina lisa.',
+  grade: 'A média de cada ficha, por faixa.',
+  difficulty: 'As caveiras de cada ficha.',
+  year: 'O ano da data de cada ficha.',
+};
 
 /**
- * A cartela de filtros: uma folha de adesivos presa com fita-crepe embaixo da régua. Cada opção é o
- * recorte picotado ainda na folha; a ligada sai colada, igual às escolhas do editor. Dentro de um
- * grupo vale qualquer um dos colados; entre grupos, todos juntos. O número ao lado de cada adesivo
- * diz quantas fichas ele mostraria, e a opção que não mostraria nenhuma fica apagada.
+ * A folha dos filtros dos murais de resenhas: a mesma dos filtros das Anotações (ui/filter-card.ts),
+ * presa com fita-crepe embaixo da pasta. Cada filtro uma linha, o nome e o que ele faz à esquerda, os
+ * recortes à direita (o escolhido, o adesivo de tinta, com o desenho dele: o do status, o do veredito,
+ * as caveiras). Dentro de uma linha vale qualquer um dos escolhidos; entre as linhas, todos juntos. Ao
+ * lado de cada recorte, quantas fichas ele mostraria; o que não mostraria nenhuma fica desbotado. No pé,
+ * quantas mostra, Limpar tudo e Pronto.
  */
 @Component({
   selector: 'app-filter-sheet',
-  imports: [IconModule, BonusSticker, NoteTag, Skulls, StatusLabel],
+  imports: [IconModule, Skulls],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { role: 'region', 'aria-label': 'Filtros', '(keydown.escape)': 'onEscape($event)' },
   template: `
     <span class="fita fita-l" aria-hidden="true"></span>
     <span class="fita fita-r" aria-hidden="true"></span>
 
-    <div class="grupos" [class.sem-dificuldade]="!hasDifficulty() && !notesKind()" [class.sem-julgamento]="!hasVerdict() && !notesKind()" [class.anotacoes]="notesKind()">
-      @for (f of facets(); track f.key) {
-        <fieldset class="grupo" [class]="'g-' + f.key">
-          <legend class="cabeca">
-            <span class="rotulo">{{ f.title }}</span>
-            @if (chosenIn(f)) {
-              <button type="button" class="limpar" (click)="clearFacet.emit(f.key)" [attr.aria-label]="'Limpar ' + f.title">
-                limpar
-              </button>
-            }
-          </legend>
-          <div class="opts">
-            @for (o of f.options; track o.value; let i = $index) {
-              <label class="opcao" [class.zerada]="!o.n && !o.on" [title]="hint(f.key, o.value, o.label)">
-                <input
-                  type="checkbox"
-                  [checked]="o.on"
-                  [disabled]="!o.n && !o.on"
-                  (change)="toggle.emit({ key: f.key, value: o.value })"
-                />
-                @switch (f.key) {
-                  @case ('status') {
-                    @if (o.on) {
-                      <app-status-label class="adesivo colado" [style.--cola]="tilt(i)" [status]="$any(o.value)" [kind]="kind()" />
-                    } @else {
-                      <span class="adesivo recorte">
-                        <lucide-icon [img]="statusIconOf(o.value)" [size]="15" aria-hidden="true" />
-                        <span>{{ o.label }}</span>
-                      </span>
-                    }
-                  }
-                  @case ('verdict') {
-                    <span
-                      class="adesivo canhoto"
-                      [class.recorte]="!o.on"
-                      [class.colado]="o.on"
-                      [class.gold]="o.value === 'masterpiece'"
-                      [style.--cola]="tilt(i)"
-                      [style.--v]="o.value === 'sem' ? 'var(--paper)' : 'var(--verdict-' + o.value + '-lit)'"
-                    >
-                      <lucide-icon [img]="verdictIconOf(o.value)" [size]="16" aria-hidden="true" />
-                      <span class="palavra">{{ o.label }}</span>
-                    </span>
-                  }
-                  @case ('grade') {
-                    <span class="adesivo tinta nota" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <span aria-hidden="true">{{ gradeShort(o.value) }}</span>
-                      <span class="sr-only">{{ o.label }}</span>
-                    </span>
-                  }
-                  @case ('difficulty') {
-                    <span class="adesivo tinta caveiras" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      @if (o.value === 'nenhuma') {
-                        <lucide-icon [img]="NoneIcon" [size]="15" aria-hidden="true" />
-                        <span>Nenhuma</span>
-                      } @else {
-                        <app-skulls [value]="$any(o.value)" [size]="15" [showLabel]="false" [ghosts]="false" />
-                      }
-                    </span>
-                  }
-                  @case ('text') {
-                    <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'com' ? WithTextIcon : NoTextIcon" [size]="15" aria-hidden="true" />
-                      <span>{{ o.label }}</span>
-                    </span>
-                  }
-                  @case ('form') {
-                    <!-- o tipo da ficha de música: o álbum inteiro ou a música solta -->
-                    <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'album' ? AlbumIcon : SongIcon" [size]="15" aria-hidden="true" />
-                      <span>{{ o.label }}</span>
-                    </span>
-                  }
-                  @case ('look') {
-                    <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      <lucide-icon [img]="o.value === 'com' ? DecoratedIcon : PlainIcon" [size]="15" aria-hidden="true" />
-                      <span>{{ o.label }}</span>
-                    </span>
-                  }
-                  @case ('category') {
-                    <!-- a categoria: o adesivo da anotação, picotado na folha ou colado -->
-                    @if (o.value === 'sem') {
-                      <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">{{ o.label }}</span>
-                    } @else {
-                      <app-bonus-sticker class="rotulo-nota" [class.colado-nota]="o.on" [bonus]="sticker(o.value)" [ghost]="!o.on" [index]="o.on ? i : null" />
-                    }
-                  }
-                  @case ('tag') {
-                    <!-- a tag: a etiqueta de papel pardo, em branco na folha ou amarrada -->
-                    @if (o.value === 'sem') {
-                      <span class="adesivo tinta" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">{{ o.label }}</span>
-                    } @else {
-                      <app-note-tag class="rotulo-nota" [class.colado-nota]="o.on" [label]="o.label" [ghost]="!o.on" [index]="o.on ? i : null" />
-                    }
-                  }
-                  @default {
-                    <span class="adesivo tinta ano" [class.recorte]="!o.on" [class.colado]="o.on" [style.--cola]="tilt(i)">
-                      {{ o.label }}
-                    </span>
+    @for (f of facets(); track f.key) {
+      <div class="linha" role="group" [attr.aria-labelledby]="'cf-' + f.key">
+        <div class="linha-texto">
+          <p class="linha-titulo" [id]="'cf-' + f.key">{{ f.title }}</p>
+          @if (desc[f.key]; as d) {
+            <p class="linha-desc">{{ d }}</p>
+          }
+        </div>
+        <div class="recortes">
+          @for (o of f.options; track o.value) {
+            <label class="recorte" [class.zero]="!o.n && !o.on" [class.sem]="o.value === 'sem'" [title]="o.label">
+              <input type="checkbox" [checked]="o.on" (change)="toggle.emit({ key: f.key, value: o.value })" />
+              @switch (f.key) {
+                @case ('status') {
+                  <lucide-icon [img]="statusIconOf(o.value)" [size]="15" aria-hidden="true" />
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+                @case ('verdict') {
+                  <lucide-icon [img]="verdictIconOf(o.value)" [size]="15" aria-hidden="true" />
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+                @case ('grade') {
+                  <!-- a faixa da Média: o número em itálico, como na etiqueta da ficha -->
+                  <span class="recorte-nome nota" aria-hidden="true">{{ gradeShort(o.value) }}</span>
+                  <span class="sr-only">{{ o.label }}</span>
+                }
+                @case ('difficulty') {
+                  @if (o.value === 'nenhuma') {
+                    <lucide-icon [img]="NoneIcon" [size]="15" aria-hidden="true" />
+                    <span class="recorte-nome">Nenhuma</span>
+                  } @else {
+                    <app-skulls [value]="$any(o.value)" [size]="15" [showLabel]="false" [ghosts]="false" />
                   }
                 }
-                <span class="n" aria-hidden="true">{{ o.n }}</span>
-                <span class="sr-only">({{ o.n }})</span>
-              </label>
-            }
-          </div>
-        </fieldset>
-      }
-    </div>
+                @case ('text') {
+                  <lucide-icon [img]="o.value === 'com' ? WithTextIcon : NoTextIcon" [size]="15" aria-hidden="true" />
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+                @case ('look') {
+                  <lucide-icon [img]="o.value === 'com' ? DecoratedIcon : PlainIcon" [size]="15" aria-hidden="true" />
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+                @case ('form') {
+                  <lucide-icon [img]="o.value === 'album' ? AlbumIcon : SongIcon" [size]="15" aria-hidden="true" />
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+                @default {
+                  <span class="recorte-nome">{{ o.label }}</span>
+                }
+              }
+              <span class="recorte-n"><span class="sr-only">, </span>{{ o.n }}</span>
+            </label>
+          }
+        </div>
+      </div>
+    }
 
     <footer class="pe">
       <p class="conta" aria-live="polite">{{ summary() }}</p>
@@ -156,307 +110,44 @@ const TILTS = [-2, 1.6, -1.2, 2.2, -1.8, 1.1, -2.4, 1.4];
   `,
   styles: `
     @use 'paper-kit' as kit;
+    @use 'filtro-linhas' as fl;
 
     :host {
       @include kit.cartela;
+      padding-top: 12px;
     }
 
-    /* duas tiras de fita-crepe prendem a folha na régua */
     @include kit.cartela-fitas('.fita-l', '.fita-r');
 
-    /* Veredito e Status em cima, com Resenha e Visual (só dois adesivos cada) empilhados ao lado;
-       Média, Dificuldade e Ano embaixo */
-    .grupos {
-      display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.05fr) minmax(0, 1.1fr);
-      grid-template-areas:
-        'verdict status text'
-        'verdict status look'
-        'grade difficulty year';
-      gap: 22px 44px;
-    }
-    .grupos.sem-dificuldade {
-      grid-template-areas:
-        'verdict status text'
-        'verdict status look'
-        'grade year year';
-    }
-    /* Sem spoilers não há Veredito nem Média: Status puxa a primeira coluna, Resenha e Visual ficam
-       no meio, e o Ano (que tem mais adesivos) ganha a coluna da direita inteira, sem buraco na folha */
-    .grupos.sem-julgamento {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
-      grid-template-areas:
-        'status text year'
-        'difficulty look year';
-    }
-    .grupos.sem-julgamento.sem-dificuldade {
-      grid-template-areas:
-        'status text year'
-        'status look year';
-    }
-    .g-verdict {
-      grid-area: verdict;
-    }
-    .g-status {
-      grid-area: status;
-    }
-    .g-text {
-      grid-area: text;
-    }
-    .g-look {
-      grid-area: look;
-    }
-    .g-grade {
-      grid-area: grade;
-    }
-    .g-difficulty {
-      grid-area: difficulty;
-    }
-    .g-year {
-      grid-area: year;
-    }
-    /* o Tipo das músicas (álbum ou música) fica no lugar da Dificuldade, que o mural delas não tem */
-    .g-form {
-      grid-area: difficulty;
-    }
-    /* Anotações: os grupos correm lado a lado e quebram a linha sozinhos, porque cada aba tem os seus
-       (numa aba de categoria não há o grupo Categoria; Visual e Ano só aparecem quando separam
-       alguma coisa). Categoria e Tags, que têm mais opções, ganham mais largura. */
-    .grupos.anotacoes {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-    }
-    .grupos.anotacoes .grupo {
-      flex: 1 1 200px;
-      grid-area: auto;
-    }
-    .grupos.anotacoes :is(.g-category, .g-tag) {
-      flex: 3 1 340px;
-    }
-    /* o adesivo da categoria e a etiqueta da tag, nas medidas dos outros adesivos */
-    .rotulo-nota {
-      min-height: 30px;
-    }
-    .rotulo-nota.colado-nota {
-      scale: 1.04;
-    }
-    app-bonus-sticker.colado-nota {
-      box-shadow:
-        0 0 0 1px rgb(21 21 21 / 0.2),
-        0 2px 3px rgb(0 0 0 / 0.3),
-        0 6px 10px -4px rgb(0 0 0 / 0.35);
+    .pe {
+      @include kit.cartela-pe;
+      margin-top: 6px;
     }
 
-    .grupo {
-      min-width: 0;
-      margin: 0;
-      padding: 0;
-      border: 0;
-    }
-
-    .cabeca {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      width: 100%;
-      min-height: 26px;
-      margin: 0 0 10px;
-      padding: 0;
-    }
-    .cabeca .rotulo {
-      margin: 0;
-    }
-
-    /* "limpar" do grupo: risco de caneta pequeno, como o "tirar" do veredito no editor */
-    .limpar {
-      min-height: 26px;
-      margin: -4px 0;
-      padding: 2px 6px;
-      border: 0;
-      border-radius: 4px;
-      background: none;
-      color: var(--ink);
-      font-family: var(--f-hand);
-      font-size: 1rem;
-      line-height: 1;
-      text-decoration: underline 1.5px;
-      text-underline-offset: 4px;
-      cursor: pointer;
-      transition: background-color var(--t-ui) var(--ease-ui);
-    }
-    .limpar:hover {
-      background: rgb(21 21 21 / 0.06);
-    }
-    .limpar:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 0;
-    }
-
-    .opts {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 14px;
-    }
-
-    /* a opção é o adesivo e, ao lado, quantas fichas ele mostra */
-    .opcao {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 44px;
-      padding-right: 2px;
-    }
-    .opcao.zerada {
-      cursor: default;
-      opacity: 0.4;
-    }
-    .opcao.zerada:hover .recorte {
-      background: transparent;
-      outline-color: rgb(21 21 21 / 0.42);
-      color: rgb(21 21 21 / 0.74);
-    }
-
-    .n {
-      min-width: 1.4ch;
-      font-family: var(--f-label);
-      font-weight: 600;
-      font-size: 0.86rem;
-      letter-spacing: 0.02em;
-      color: var(--ink-2);
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* as medidas de todo adesivo: recorte e colado ocupam o mesmo lugar, nada pula ao colar */
-    .adesivo {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      height: 34px;
-      padding: 0 11px;
-      border-radius: 2px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.88rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      line-height: 1;
-      white-space: nowrap;
-    }
-    .adesivo lucide-icon {
-      display: inline-flex;
-      margin-top: -1px;
-    }
-
-    /* colado em tinta preta: a palavra em papel, como o canhoto da ficha */
-    .tinta.colado,
-    .canhoto.colado {
-      background: var(--ink);
-      color: var(--paper);
-      box-shadow: 0 2px 3px rgb(0 0 0 / 0.3);
-    }
-    .canhoto.colado lucide-icon {
-      color: var(--v);
-    }
-    /* Masterpiece: palavra e fio da moldura em folha de ouro, como no editor */
-    .canhoto.colado.gold::after {
-      content: '';
-      position: absolute;
-      inset: 3px;
-      border: 1.5px solid #d8ab48;
-      border-radius: 2px;
-      pointer-events: none;
-    }
-    .canhoto.colado.gold .palavra {
-      background: var(--foil-gold-word);
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    /* a etiqueta de status de verdade, nas medidas do recorte */
-    app-status-label.adesivo {
-      padding: 0 11px;
-    }
+    @include fl.linhas;
+    @include fl.recorte-desenho;
 
     /* a faixa da Média: o número em itálico condensado, como na etiqueta da ficha */
     .nota {
-      justify-content: center;
-      min-width: 44px;
-      padding: 0 8px;
-      font-size: 1.12rem;
+      font-size: 1rem;
       font-style: italic;
       letter-spacing: 0;
       font-variant-numeric: tabular-nums;
     }
 
-    .caveiras app-skulls {
+    /* as caveiras: no adesivo de tinta, em papel */
+    app-skulls {
       gap: 0;
+      align-self: center;
     }
-    .caveiras.colado app-skulls {
+    .recorte:has(input:checked) app-skulls {
       color: var(--paper);
     }
 
-    .ano {
-      font-size: 0.95rem;
-      letter-spacing: 0.04em;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* o pé da folha: quantas fichas sobraram e o Pronto, sempre à mão mesmo com a cartela comprida */
-    .pe {
-      @include kit.cartela-pe;
-    }
-
-
-    @media (max-width: 1180px) {
-      .grupos,
-      .grupos.sem-dificuldade {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-areas:
-          'verdict status'
-          'text look'
-          'grade difficulty'
-          'year year';
-      }
-      .grupos.sem-dificuldade {
-        grid-template-areas:
-          'verdict status'
-          'text look'
-          'grade year';
-      }
-      .grupos.sem-julgamento {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        grid-template-areas:
-          'status text'
-          'difficulty look'
-          'year year';
-      }
-      .grupos.sem-julgamento.sem-dificuldade {
-        grid-template-areas:
-          'status text'
-          'status look'
-          'year year';
-      }
-    }
-
-    @media (max-width: 640px) {
-      .grupos,
-      .grupos.sem-dificuldade,
-      .grupos.sem-julgamento,
-      .grupos.sem-julgamento.sem-dificuldade,
-      .grupos.anotacoes {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-areas: none;
-        gap: 18px;
-      }
-      .grupo {
-        grid-area: auto;
-      }
-      .opts {
-        gap: 2px 12px;
-      }
+    /* "Sem veredito", "Sem data": o resto, na mesma letra, mais leve */
+    .sem:not(:has(input:checked)) .recorte-nome {
+      font-weight: 600;
+      color: var(--ink-2);
     }
   `,
 })
@@ -467,46 +158,24 @@ export class FilterSheet {
   readonly summary = input.required<string>();
 
   readonly toggle = output<FilterToggle>();
+  /** (Mantido para quem ainda ouve: a folha nova limpa pelos adesivos embaixo da pasta e pelo Limpar tudo.) */
   readonly clearFacet = output<FacetKey>();
   readonly clearAll = output<void>();
   readonly done = output<void>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
+  protected readonly desc = DESC;
   protected readonly NoneIcon = ICON.nenhum;
   protected readonly WithTextIcon = ICON.escrever;
   protected readonly NoTextIcon = ICON.semTexto;
   protected readonly DecoratedIcon = ICON.brilho;
   protected readonly PlainIcon = ICON.desmarcado;
-
   protected readonly AlbumIcon = ICON.musicas;
   protected readonly SongIcon = ICON.musica;
 
-  /** A Dificuldade, ou o Tipo das músicas, que ocupa o lugar dela na folha. */
-  protected readonly hasDifficulty = computed(() => this.facets().some((f) => f.key === 'difficulty' || f.key === 'form'));
-  /** Sem spoilers, Veredito e Média saem da cartela (ver WallView.facets). */
-  protected readonly hasVerdict = computed(() => this.facets().some((f) => f.key === 'verdict'));
-  /**
-   * O mural de anotações: a cartela é das categorias e das tags. Vem do mural, não dos grupos: numa
-   * aba de categoria o grupo Categoria não existe, e a cartela caía na disposição das resenhas.
-   */
-  protected readonly notesKind = computed(() => isNotes(this.kind()));
-  protected readonly sticker = categoryBonus;
-
-  protected readonly anyChosen = computed(() => this.facets().some((f) => this.chosenIn(f)));
-
-  protected chosenIn(f: Facet): boolean {
-    return f.options.some((o) => o.on);
-  }
-
-  protected tilt(i: number): string {
-    return `${TILTS[i % TILTS.length]}deg`;
-  }
-
-  /** A dica do adesivo: o nome inteiro (a faixa da Média só mostra o número). */
-  protected hint(key: FacetKey, value: string, label: string): string {
-    if (key === 'look') return value === 'com' ? 'Com estampa, rabisco, mancha, estrago ou enfeite' : 'Cartolina lisa, sem nada por cima';
-    return label;
+  protected anyChosen(): boolean {
+    return this.facets().some((f) => f.options.some((o) => o.on));
   }
 
   protected statusIconOf(v: string): LucideIconData {
@@ -521,15 +190,15 @@ export class FilterSheet {
     return GRADE_SHORT[v as GradeBand];
   }
 
-  /** Esc dentro da cartela fecha a folha (e não o modo Marcar, que também ouve o Esc). */
+  /** Esc dentro da folha fecha a folha (e não o modo Marcar, que também ouve o Esc). */
   protected onEscape(e: Event): void {
     e.stopPropagation();
     this.done.emit();
   }
 
-  /** Leva o foco para o primeiro adesivo, quando a folha abre pelo teclado. */
+  /** Leva o foco para o primeiro recorte, quando a folha abre pelo teclado. */
   focusFirst(): void {
-    this.host.nativeElement.querySelector<HTMLInputElement>('input:not(:disabled)')?.focus();
+    this.host.nativeElement.querySelector<HTMLInputElement>('input')?.focus();
   }
 }
 

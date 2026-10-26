@@ -23,7 +23,7 @@
         @if (!blank()) {
           <div class="pasta-controles">
             <div class="pasta-grupo">
-              <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="filtering.set(!filtering())">
+              <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
                 <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
                 <span>Filtrar</span>
                 @if (filterCount()) {
@@ -56,8 +56,8 @@
         [shown]="tapeRows().length"
         [total]="rows().length"
         [active]="filtered()"
+        [focusFirst]="filtersByKeyboard()"
         (toggle)="toggleFilter($event.key, $event.value)"
-        (clearGroup)="clearGroup($event)"
         (clearAll)="clearFilters()"
         (done)="closeFilters()"
       />

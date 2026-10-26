@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ME, brl } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 
@@ -18,8 +18,13 @@ interface Part {
  * estava (o jantar de R$ 600 com três conta R$ 200 para cada), já sem o que voltou de reembolso e sem os
  * fixos quando a pessoa pede. Uma linha por pessoa, a maior primeiro, com uma faixa de kraft do
  * tamanho dela perto da maior, o valor e a parte do mês em porcentagem. Tocar numa linha deixa na fita só os gastos daquela pessoa, com a parte
- * dela; de novo, mostra todos.
+ * dela; de novo, mostra todos. Quem ficou com menos de 5% do mês (dois ou mais) se junta numa linha
+ * Outros, com a soma deles, que abre com um toque (e fecha no "Recolher"); a pessoa escolhida fica
+ * sempre à mostra.
  */
+
+/** Abaixo disto (5% do mês), a pessoa vai para a linha Outros. */
+const SMALL = 0.05;
 @Component({
   selector: 'app-spending-people',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -34,7 +39,7 @@ interface Part {
     <p class="conta">Cada gasto conta em partes iguais para quem estava nele.</p>
 
     <ul class="linhas">
-      @for (p of parts(); track p.id) {
+      @for (p of shown(); track p.id) {
         <li>
           <button
             type="button"
@@ -48,6 +53,26 @@ interface Part {
             <span class="quanto" aria-hidden="true">{{ brl(p.amount) }}</span>
             <span class="parte" aria-hidden="true">{{ pct(p.share) }}</span>
           </button>
+        </li>
+      }
+      @if (others(); as o) {
+        <li>
+          <button
+            type="button"
+            class="linha outros"
+            [attr.aria-expanded]="false"
+            [attr.aria-label]="'Outros, ' + o.n + ' pessoas com menos de 5% cada: ' + brl(o.amount) + ', ' + pct(o.share) + ' do que saiu. Mostrar cada uma'"
+            (click)="expanded.set(true)"
+          >
+            <span class="nome" aria-hidden="true">Outros <span class="quantos">{{ o.n }}</span></span>
+            <span class="trilho" aria-hidden="true"><span class="traco" [style.width.%]="o.scale * 100"></span></span>
+            <span class="quanto" aria-hidden="true">{{ brl(o.amount) }}</span>
+            <span class="parte" aria-hidden="true">{{ pct(o.share) }}</span>
+          </button>
+        </li>
+      } @else if (collapsible()) {
+        <li class="recolher">
+          <button type="button" class="tinta-pequena" [attr.aria-expanded]="true" (click)="expanded.set(false)">Recolher os menores em Outros</button>
         </li>
       }
     </ul>
@@ -166,6 +191,29 @@ interface Part {
       text-align: right;
       color: var(--ink-2);
     }
+    /* Outros: os pequenos juntos, a faixa de kraft com o recorte tracejado em volta (abre com um toque) */
+    .outros .nome {
+      color: var(--ink-2);
+    }
+    .quantos {
+      font-weight: 600;
+      opacity: 0.8;
+      font-variant-numeric: tabular-nums;
+    }
+    .outros .traco {
+      opacity: 0.6;
+    }
+    /* fora da grade das linhas: não alarga a coluna dos nomes */
+    .linhas > li.recolher {
+      display: block;
+      grid-column: 1 / -1;
+      margin-top: 2px;
+
+      /* o texto na linha dos nomes */
+      .tinta-pequena {
+        margin-left: -4px;
+      }
+    }
     .quanto {
       @include gk.valor;
       font-size: 1rem;
@@ -185,6 +233,8 @@ export class SpendingPeople {
   readonly manage = output<void>();
 
   protected readonly brl = brl;
+  /** A linha Outros aberta: cada pessoa pequena na sua linha. */
+  protected readonly expanded = signal(false);
 
   protected pct(share: number): string {
     const p = share * 100;
@@ -199,5 +249,27 @@ export class SpendingPeople {
       .filter(([, amount]) => amount > 0)
       .map(([id, amount]) => ({ id, name: this.store.person(id)?.name ?? (id === ME ? 'Eu' : 'Alguém'), amount, scale: amount / top, share: amount / total }))
       .sort((a, b) => b.amount - a.amount || (a.id === ME ? -1 : b.id === ME ? 1 : a.name.localeCompare(b.name, 'pt-BR')));
+  });
+
+  /** Os pequenos (menos de 5%, fora a escolhida), quando são dois ou mais: só aí vale juntar. */
+  private readonly small = computed(() => {
+    const small = this.parts().filter((p) => p.share < SMALL && p.id !== this.selected());
+    return small.length >= 2 ? small : [];
+  });
+  protected readonly collapsible = computed(() => this.small().length > 0);
+
+  /** As linhas à mostra: todas, ou sem os pequenos enquanto a linha Outros está fechada. */
+  protected readonly shown = computed(() => {
+    const small = new Set(this.small().map((p) => p.id));
+    return this.expanded() ? this.parts() : this.parts().filter((p) => !small.has(p.id));
+  });
+
+  /** A linha Outros (fechada): quantos, a soma, a parte do mês e a faixa do tamanho da soma. */
+  protected readonly others = computed(() => {
+    const small = this.small();
+    if (!small.length || this.expanded()) return null;
+    const amount = small.reduce((a, p) => a + p.amount, 0);
+    const top = Math.max(1, ...this.parts().map((p) => p.amount));
+    return { n: small.length, amount, share: small.reduce((a, p) => a + p.share, 0), scale: Math.min(1, amount / top) };
   });
 }

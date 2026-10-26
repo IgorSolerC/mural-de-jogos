@@ -1,4 +1,5 @@
 @use 'paper-kit' as kit;
+@use 'filtro-linhas' as fl;
 
 /* A folha dos filtros: a cartela branca das resenhas, presa com fita-crepe embaixo da pasta */
 :host {
@@ -13,69 +14,8 @@
   margin-top: 6px;
 }
 
-/* uma linha: o nome e o que ele faz à esquerda, as escolhas à direita, um fio tracejado embaixo */
-.linha {
-  display: grid;
-  grid-template-columns: minmax(150px, 230px) minmax(0, 1fr);
-  align-items: start;
-  gap: 10px 32px;
-  padding: 16px 0;
-  border-bottom: 1.5px dashed rgb(21 21 21 / 0.2);
-
-  /* (o pé tem o picote dele) */
-  &:last-of-type {
-    border-bottom: 0;
-  }
-}
-
-.linha-titulo {
-  @include kit.linha-titulo;
-}
-
-.linha-desc {
-  @include kit.linha-desc;
-  margin-bottom: 0;
-  font-size: 0.88rem;
-}
-
-/* ===== O assunto: os recortes da cartela, o escolhido o adesivo de tinta colado, torto ===== */
-.recortes {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
-.recorte {
-  @include kit.segmento;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  min-height: 40px;
-  padding: 10px 13px 8px;
-}
-
-.recorte-nome {
-  @include kit.seg-nome;
-  font-size: 0.86rem;
-}
-
-.recorte-n {
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 0.86rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-
-.recorte:has(input:checked) .recorte-n {
-  color: var(--hi);
-}
-
-/* o que, com o resto do filtro, não mostraria nada: desbotado (ainda dá para escolher) */
-.recorte.zero:not(:hover) {
-  opacity: 0.5;
-}
+/* as linhas (o nome e o que faz à esquerda, as escolhas à direita) e os recortes: o kit das folhas de filtros */
+@include fl.linhas;
 
 /* "Sem assunto" é o resto: a mesma letra, mais leve */
 .sem:not(:has(input:checked)) .recorte-nome {
@@ -124,17 +64,4 @@
   font-family: var(--f-hand);
   font-size: 1.1rem;
   color: var(--ink-2);
-}
-
-/* ===== No celular: as linhas empilhadas ===== */
-@media (max-width: 720px) {
-  .linha {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-    padding: 14px 0;
-  }
-
-  .recorte {
-    padding: 9px 10px 7px;
-  }
 }

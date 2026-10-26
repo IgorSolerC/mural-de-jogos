@@ -110,8 +110,9 @@ export class SpendingPage {
 
   /** Os filtros da fita (ver core/spending-filter.ts); ficam ao trocar de mês. */
   protected readonly filter = signal<SpendingFilter>({});
-  /** A cartela de filtros está aberta. */
+  /** A cartela de filtros está aberta (e se abriu pelo teclado: o foco vai para ela). */
   protected readonly filtering = signal(false);
+  protected readonly filtersByKeyboard = signal(false);
   /** O envelope escolhido (a Categoria com só ele): o mês a mês mostra a parte dele. */
   protected readonly focus = computed(() => onlyIn(this.filter(), 'category'));
   /** A resposta ao "Precisava?" escolhida (`null`: os sem resposta). */
@@ -170,10 +171,6 @@ export class SpendingPage {
     this.filter.update((f) => toggleFilter(f, key, value));
   }
 
-  protected clearGroup(key: FilterKey): void {
-    this.filter.update((f) => withGroup(f, key, []));
-  }
-
   protected removeChip(c: FilterChip): void {
     this.toggleFilter(c.key as FilterKey, c.value);
     if (this.filtered()) this.showTape();
@@ -184,6 +181,11 @@ export class SpendingPage {
   }
 
   /** Pronto: a cartela fecha e, filtrada, a fita vem até a vista (no celular ela fica bem embaixo). */
+  protected toggleFilters(byKeyboard: boolean): void {
+    this.filtersByKeyboard.set(byKeyboard);
+    this.filtering.set(!this.filtering());
+  }
+
   protected closeFilters(): void {
     this.filtering.set(false);
     this.filterButton()?.nativeElement.focus({ preventScroll: true });
@@ -251,7 +253,7 @@ export class SpendingPage {
     if (e.key === 'ArrowLeft') this.step(-1);
     else if (e.key === 'ArrowRight') this.step(1);
     else if (e.key === 'h' || e.key === 'H') this.goToday();
-    else if ((e.key === 'f' || e.key === 'F') && !this.blank()) this.filtering.set(!this.filtering());
+    else if ((e.key === 'f' || e.key === 'F') && !this.blank()) this.toggleFilters(true);
     else return;
     e.preventDefault();
   }

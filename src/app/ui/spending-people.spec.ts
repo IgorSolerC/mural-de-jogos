@@ -50,4 +50,38 @@ describe('Gastos: a peça Por pessoa', () => {
     lines[1].click();
     expect(picked).toEqual([null, 'b']);
   });
+
+  it('quem tem menos de 5% (dois ou mais) vai para Outros, que abre e recolhe; a escolhida fica à mostra', () => {
+    const f = render(
+      [
+        ['eu', 90000],
+        ['a', 6000],
+        ['b', 2000],
+        ['c', 1000],
+        ['d', 1000],
+      ],
+      'c',
+    );
+    const names = () => [...f.nativeElement.querySelectorAll('.linha .nome')].map((n: Element) => n.textContent!.replace(/\s+/g, ' ').trim());
+    expect(names()).toEqual(['Alguém', 'Alguém', 'Alguém', 'Outros 2'].map((n, i) => (i === 0 ? 'Eu' : n)));
+    const outros = f.nativeElement.querySelector('.outros') as HTMLButtonElement;
+    expect(outros.querySelector('.quanto')!.textContent!.trim()).toBe(brl(3000));
+    expect(outros.querySelector('.parte')!.textContent!.trim()).toBe('3%');
+    outros.click();
+    f.detectChanges();
+    expect(names().length).toBe(5);
+    expect(f.nativeElement.querySelector('.outros')).toBeNull();
+    (f.nativeElement.querySelector('.recolher button') as HTMLButtonElement).click();
+    f.detectChanges();
+    expect(names().length).toBe(4);
+  });
+
+  it('um só pequeno não vira Outros', () => {
+    const f = render([
+      ['eu', 97000],
+      ['a', 3000],
+    ]);
+    expect(f.nativeElement.querySelector('.outros')).toBeNull();
+    expect(f.nativeElement.querySelectorAll('.linha').length).toBe(2);
+  });
 });
