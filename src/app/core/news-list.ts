@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-cofre-nas-utilidades',
+    id: '2026-10-26-envelope-escolhido',
     version: '1.33.1',
     kind: 'ajustes',
     date: '2026-10-26',
-    title: 'O cofre nas Utilidades',
+    title: 'O cofre nas Utilidades e o envelope escolhido',
     melhorias: ['O cofre de senhas saiu das Anotações e mora nas Utilidades, ao lado dos Gastos (no topo do cofre também).'],
+    correcoes: ['Nos Gastos, o envelope escolhido abre a aba por dentro, marcado pelo tracejado de giz, e não cobre mais o envelope de cima.'],
   },
   {
     id: '2026-10-26-gastos',

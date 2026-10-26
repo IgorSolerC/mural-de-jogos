@@ -187,36 +187,39 @@ const SHOWN = 6;
         outline: 3px solid var(--hi);
         outline-offset: 3px;
       }
-      /* escolhido: a aba aberta, o envelope um pouco para cima e o anel amarelo na parede */
+      /* escolhido: a aba aberta (por dentro do envelope, nada sai dele), o envelope erguido e o
+         tracejado de giz em volta, o mesmo das anotações marcadas; os outros recuam */
       &[aria-pressed='true'] {
-        translate: 0 -3px;
+        translate: 0 -2px;
+        box-shadow: var(--shadow-lift);
+        outline: 2.5px dashed var(--wall-ink);
+        outline-offset: 4px;
+      }
+      &[aria-pressed='true']:focus-visible {
         outline: 3px solid var(--hi);
-        outline-offset: 3px;
-
-        .aba {
-          scale: 1 -1;
-          translate: 0 -100%;
-        }
       }
     }
+    .envelopes:has([aria-pressed='true']) .envelope:not([aria-pressed='true']) {
+      opacity: 0.55;
+    }
+    /* a aba fechada: as duas dobras em V, de canto a canto */
     .aba {
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
       height: 16px;
-      transform-origin: top center;
+      overflow: hidden;
       background:
         linear-gradient(to bottom right, transparent calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) left / 50% 100% no-repeat,
         linear-gradient(to bottom left, transparent calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) right / 50% 100% no-repeat;
-      transition:
-        scale var(--t-physical) var(--ease-physical),
-        translate var(--t-physical) var(--ease-physical);
     }
+    /* aberta: a aba dobrada para trás deixa ver o fundo do envelope, um triângulo mais escuro com a ponta
+       para cima, ainda dentro do papel */
     .envelope[aria-pressed='true'] .aba {
       background:
-        linear-gradient(to top right, var(--cor) calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) left / 50% 100% no-repeat,
-        linear-gradient(to top left, var(--cor) calc(50% - 1px), rgb(21 21 21 / 0.28) 50%, transparent calc(50% + 1px)) right / 50% 100% no-repeat;
+        linear-gradient(to top right, rgb(21 21 21 / 0.2) calc(50% - 0.5px), rgb(21 21 21 / 0.32) 50%, transparent calc(50% + 1px)) left / 50% 100% no-repeat,
+        linear-gradient(to top left, rgb(21 21 21 / 0.2) calc(50% - 0.5px), rgb(21 21 21 / 0.32) 50%, transparent calc(50% + 1px)) right / 50% 100% no-repeat;
     }
 
     .nome {
@@ -335,9 +338,7 @@ const SHOWN = 6;
         outline-offset: 2px;
       }
       &[aria-pressed='true'] {
-        translate: 0 -3px;
-        outline: 3px solid var(--hi);
-        outline-offset: 2px;
+        translate: 0 -2px;
       }
     }
     /* com um escolhido, os outros pedaços recuam */
