@@ -405,7 +405,7 @@ export class SpendingQuick {
 
   protected shiftLabel(s: Shift | 0): string {
     const name = this.monthName(s);
-    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'o do dia'})`;
+    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'mesmo mês'})`;
   }
 
   protected closePicker(): void {

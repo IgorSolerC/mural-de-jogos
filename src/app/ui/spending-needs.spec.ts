@@ -3,9 +3,10 @@ import { TestBed } from '@angular/core/testing';
 import { Need, brl } from '../core/spending';
 import { SpendingNeeds } from './spending-needs';
 
-function render(sums: [Need | null, number][], selected?: Need | null) {
+function render(sums: [Need | null, number][], selected?: Need | null, counts?: [Need | null, number][]) {
   const fixture = TestBed.createComponent(SpendingNeeds);
   fixture.componentRef.setInput('sums', new Map(sums));
+  if (counts) fixture.componentRef.setInput('counts', new Map(counts));
   if (selected !== undefined) fixture.componentRef.setInput('selected', selected);
   fixture.detectChanges();
   return fixture;
@@ -48,5 +49,33 @@ describe('Gastos: a peça Precisava?', () => {
     lines[1].click();
     lines[3].click();
     expect(picked).toEqual([undefined, null]);
+  });
+
+  it('com as contas: a segunda régua, pela quantidade de gastos, e quantos em cada linha', () => {
+    const f = render(
+      [
+        ['luxo', 10000],
+        ['indispensavel', 90000],
+      ],
+      undefined,
+      [
+        ['luxo', 6],
+        ['indispensavel', 2],
+      ],
+    );
+    expect([...f.nativeElement.querySelectorAll('.regua-nome')].map((e: Element) => e.textContent!.trim())).toEqual(['Valor', 'Quantidade']);
+    const reguas = [...f.nativeElement.querySelectorAll('.regua')] as HTMLElement[];
+    const grow = (r: HTMLElement) => [...r.querySelectorAll<HTMLElement>('.pedaco')].map((p) => [p.dataset['need'], Number(p.style.flexGrow)]);
+    expect(grow(reguas[0])).toEqual([
+      ['luxo', 0.1],
+      ['indispensavel', 0.9],
+    ]);
+    expect(grow(reguas[1])).toEqual([
+      ['luxo', 0.75],
+      ['indispensavel', 0.25],
+    ]);
+    const lines = [...f.nativeElement.querySelectorAll('.linha')] as HTMLButtonElement[];
+    expect(lines[0].getAttribute('aria-label')).toBe(`Luxo: ${brl(10000)}, 10% do que saiu, 6 gastos`);
+    expect(lines[0].querySelector('.vezes')!.textContent!.trim()).toBe('6 gastos');
   });
 });

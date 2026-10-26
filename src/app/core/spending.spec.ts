@@ -36,7 +36,7 @@ import {
 let seq = 0;
 function entry(over: Partial<Entry>): Entry {
   seq++;
-  const at = `2026-10-01T10:00:${String(seq % 60).padStart(2, '0')}.000Z`;
+  const at = `2026-10-01T10:${String(Math.floor(seq / 60) % 60).padStart(2, '0')}:${String(seq % 60).padStart(2, '0')}.000Z`;
   return { id: `g${seq}`, title: 'Coisa', amount: 1000, flow: 'saida', category: 'outros', pay: 'avista', date: '2026-10-05', createdAt: at, at, ...over };
 }
 

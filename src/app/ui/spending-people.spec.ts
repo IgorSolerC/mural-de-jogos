@@ -27,7 +27,8 @@ describe('Gastos: a peça Por pessoa', () => {
       ['sumiu', 0],
     ]);
     const lines = [...f.nativeElement.querySelectorAll('.linha')] as HTMLButtonElement[];
-    expect(lines.map((b) => b.getAttribute('aria-label'))).toEqual([`Bruna: ${brl(19000)}`, `Eu: ${brl(15000)}`]);
+    expect(lines.map((b) => b.getAttribute('aria-label'))).toEqual([`Bruna: ${brl(19000)}, 56% do que saiu`, `Eu: ${brl(15000)}, 44% do que saiu`]);
+    expect(lines.map((b) => b.querySelector('.parte')!.textContent!.trim())).toEqual(['56%', '44%']);
     const bars = [...f.nativeElement.querySelectorAll('.traco')] as HTMLElement[];
     expect(parseFloat(bars[0].style.width)).toBe(100);
     expect(parseFloat(bars[1].style.width)).toBeCloseTo((15000 / 19000) * 100, 2);

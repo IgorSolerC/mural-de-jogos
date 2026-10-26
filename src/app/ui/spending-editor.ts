@@ -121,9 +121,6 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
               <span id="ge-com-quem-nomes">{{ peopleText(refs()) }}</span>
               <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
             </button>
-            @if (picking()) {
-              <app-spending-people-picker [refs]="refs()" [amount]="amount()" (changed)="setPeople($event)" (closed)="closePicker()" />
-            }
           </div>
         }
 
@@ -164,6 +161,10 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
           </button>
         }
       </div>
+
+      @if (picking() && d.flow === 'saida') {
+        <app-spending-people-picker class="na-folhinha" [refs]="refs()" [amount]="amount()" (changed)="setPeople($event)" (closed)="closePicker()" />
+      }
 
       @if (d.flow === 'entrada' && refundable().length) {
         <label class="escolha largo">
@@ -354,7 +355,7 @@ export class SpendingEditor {
   /** "Setembro (mês anterior)": o mês em que conta, perto do mês do dia escolhido. */
   protected shiftLabel(s: Shift | 0): string {
     const name = monthLabel(shiftMonth(monthOfDay(this.draft().date), s)).split(' de ')[0];
-    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'o do dia'})`;
+    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'mesmo mês'})`;
   }
 
   protected setShift(v: string): void {

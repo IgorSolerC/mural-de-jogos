@@ -110,7 +110,7 @@ describe('Gastos: a linha de anotar', () => {
 
   it('os nomes curtos para o adesivo', () => {
     expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }])).toBe('Eu, Bruna');
-    expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }, { id: 'b', name: 'Biel' }])).toBe('Eu +2');
+    expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }, { id: 'b', name: 'Biel' }])).toBe('Eu e mais 2');
   });
 
   it('o mês da fatura vai para o lançamento (nunca num fixo)', () => {

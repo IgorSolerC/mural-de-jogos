@@ -8,12 +8,16 @@ interface Part {
   amount: number;
   /** A parte do que saiu no mês (0 a 1). */
   share: number;
+  /** Quantos gastos, e a parte deles na quantidade de gastos do mês (0 a 1). */
+  n: number;
+  nShare: number;
 }
 
 /**
  * Precisava?: do que saiu no mês, quanto foi luxo, conforto e indispensável (já sem o que voltou de reembolso,
- * e sem os fixos quando a pessoa pede). Em cima, uma régua dividida na tinta de cada resposta; embaixo, uma
- * linha por resposta com o valor e a parte. Os gastos sem resposta aparecem numa linha tracejada, pedindo
+ * e sem os fixos quando a pessoa pede). Em cima, duas réguas divididas na tinta de cada resposta: pelo valor
+ * e pela quantidade de gastos (muito luxo barato e pouco indispensável caro se vê na diferença entre as
+ * duas); embaixo, uma linha por resposta com o valor, a parte do valor e quantos gastos. Os gastos sem resposta aparecem numa linha tracejada, pedindo
  * para marcar. Tocar numa linha mostra só aqueles gastos na fita; de novo, mostra todos.
  */
 @Component({
@@ -30,11 +34,24 @@ interface Part {
       <p class="conta">{{ s }}</p>
     }
 
-    <div class="regua" aria-hidden="true">
-      @for (p of parts(); track p.need) {
-        @if (p.share >= 0.005) {
-          <span class="pedaco" [attr.data-need]="p.need ?? 'nenhuma'" [style.flex-grow]="p.share"></span>
+    <div class="reguas" aria-hidden="true">
+      <span class="regua-nome">Valor</span>
+      <div class="regua">
+        @for (p of parts(); track p.need) {
+          @if (p.share >= 0.005) {
+            <span class="pedaco" [attr.data-need]="p.need ?? 'nenhuma'" [style.flex-grow]="p.share"></span>
+          }
         }
+      </div>
+      @if (hasCounts()) {
+        <span class="regua-nome">Quantidade</span>
+        <div class="regua">
+          @for (p of parts(); track p.need) {
+            @if (p.nShare >= 0.005) {
+              <span class="pedaco" [attr.data-need]="p.need ?? 'nenhuma'" [style.flex-grow]="p.nShare"></span>
+            }
+          }
+        </div>
       }
     </div>
 
@@ -47,13 +64,16 @@ interface Part {
             [attr.data-need]="p.need ?? 'nenhuma'"
             [attr.aria-pressed]="selected() === p.need"
             [disabled]="!p.amount"
-            [attr.aria-label]="p.name + ': ' + brl(p.amount) + ', ' + pct(p.share) + ' do que saiu'"
+            [attr.aria-label]="p.name + ': ' + brl(p.amount) + ', ' + pct(p.share) + ' do que saiu' + (hasCounts() ? ', ' + p.n + (p.n === 1 ? ' gasto' : ' gastos') : '')"
             (click)="pick.emit(selected() === p.need ? undefined : p.need)"
           >
             <span class="tinta" aria-hidden="true"></span>
             <span class="nome" aria-hidden="true">{{ p.name }}</span>
             <span class="quanto" aria-hidden="true">{{ brl(p.amount) }}</span>
             <span class="parte" aria-hidden="true">{{ pct(p.share) }}</span>
+            @if (hasCounts()) {
+              <span class="vezes" aria-hidden="true">{{ p.n }} {{ p.n === 1 ? 'gasto' : 'gastos' }}</span>
+            }
           </button>
         </li>
       }
@@ -93,12 +113,27 @@ interface Part {
       color: var(--ink-2);
     }
 
-    /* a régua do mês, dividida na tinta de cada resposta (o luxo riscado, como uma faixa de aviso) */
+    /* as réguas do mês, divididas na tinta de cada resposta (o luxo riscado, como uma faixa de aviso):
+       pelo valor e pela quantidade, cada uma com o nome impresso na margem */
+    .reguas {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 5px 10px;
+      margin: 10px 0 6px;
+    }
+    .regua-nome {
+      font-family: var(--f-label);
+      font-weight: 700;
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-2);
+    }
     .regua {
       display: flex;
       gap: 2px;
       height: 12px;
-      margin: 10px 0 6px;
     }
     .pedaco {
       flex-basis: 0;
@@ -135,6 +170,10 @@ interface Part {
     .linha {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr) auto 3.4em;
+
+      &:has(.vezes) {
+        grid-template-columns: auto minmax(0, 1fr) auto 3.4em 4.8em;
+      }
       align-items: center;
       gap: 0 10px;
       width: 100%;
@@ -203,7 +242,8 @@ interface Part {
       @include gk.valor;
       font-size: 1rem;
     }
-    .parte {
+    .parte,
+    .vezes {
       @include gk.valor;
       font-size: 0.82rem;
       text-align: right;
@@ -229,6 +269,8 @@ interface Part {
 export class SpendingNeeds {
   /** Quanto saiu em cada resposta no mês (ver `spentByNeed`). */
   readonly sums = input.required<Map<Need | null, number>>();
+  /** Quantos gastos do mês em cada resposta (a régua da quantidade); sem nada, só a do valor. */
+  readonly counts = input<Map<Need | null, number>>(new Map());
   /** A resposta escolhida (a fita mostra só ela); `undefined`: nenhuma. */
   readonly selected = input<Need | null | undefined>(undefined);
   readonly noFixed = input(false);
@@ -236,12 +278,23 @@ export class SpendingNeeds {
 
   protected readonly brl = brl;
 
+  protected readonly hasCounts = computed(() => this.counts().size > 0);
+
   protected readonly parts = computed<Part[]>(() => {
     const sums = this.sums();
+    const counts = this.counts();
     const total = [...sums.values()].reduce((a, b) => a + b, 0) || 1;
-    const out: Part[] = NEEDS.map((need) => ({ need, name: NEED_LABEL[need], amount: sums.get(need) ?? 0, share: (sums.get(need) ?? 0) / total }));
-    const none = sums.get(null) ?? 0;
-    if (none) out.push({ need: null, name: 'Sem resposta', amount: none, share: none / total });
+    const many = [...counts.values()].reduce((a, b) => a + b, 0) || 1;
+    const part = (need: Need | null, name: string): Part => ({
+      need,
+      name,
+      amount: sums.get(need) ?? 0,
+      share: (sums.get(need) ?? 0) / total,
+      n: counts.get(need) ?? 0,
+      nShare: (counts.get(need) ?? 0) / many,
+    });
+    const out: Part[] = NEEDS.map((need) => part(need, NEED_LABEL[need]));
+    if (sums.get(null) || counts.get(null)) out.push(part(null, 'Sem resposta'));
     return out;
   });
 

@@ -218,9 +218,11 @@
   }
 }
 
-/* com quem: a caixinha é um botão que abre a cartela de pessoas embaixo dela */
-.com-quem {
-  position: relative;
+/* com quem: a caixinha é um botão que abre a cartela de pessoas numa fileira da folhinha, embaixo das
+   escolhas (empurra o pé, em vez de cair por cima do Salvar) */
+.na-folhinha {
+  position: static;
+  max-width: 420px;
 }
 
 button.caixa {

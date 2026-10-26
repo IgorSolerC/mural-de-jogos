@@ -221,9 +221,20 @@
 /* Com a fita estreita (o celular): sem a categoria escrita (o selinho diz) e, das marcas, só o canhoto
    da parcela e o fixo */
 @container fita (max-width: 419px) {
+  /* o nome encurta (com reticências) antes das marcas, que vêm logo depois dele e ficam inteiras */
   .botao {
-    grid-template-columns: 30px auto minmax(0, max-content) minmax(0, 1fr) auto;
+    grid-template-columns: 30px auto minmax(0, max-content) auto minmax(0, 1fr) auto;
     gap: 0 8px;
+  }
+  /* o mês da fatura embaixo do número, dentro da margem */
+  .dia:has(.outro-mes) {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+  }
+  .dia small.outro-mes {
+    margin-left: 0;
+    font-size: 0.6rem;
   }
   .cat,
   .com-nomes,
@@ -235,10 +246,12 @@
   }
   .marcas {
     display: inline-flex;
-    min-width: 0;
-    overflow: hidden;
+    grid-column: 4;
+    flex: none;
+    overflow: visible;
   }
   .valor {
+    grid-column: 6;
     min-width: 0;
   }
 }

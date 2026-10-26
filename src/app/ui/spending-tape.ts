@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { MONTHS_SHORT } from '../core/dates';
-import { ME, NEED_LABEL, Need, PAY_LABEL, Row, brl, peopleOf, shareOf } from '../core/spending';
+import { ME, NEED_LABEL, PAY_LABEL, Row, brl, peopleOf, shareOf } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 import { SpendingEditor } from './spending-editor';
 
@@ -40,22 +40,11 @@ interface Line {
     <header class="cabeca">
       <h2 class="titulo" id="gf-titulo">
         {{ title() }}
-        <span class="n">{{ rows().length }}</span>
+        <span class="n">{{ filtered() ? rows().length + ' de ' + total() : rows().length }}</span>
       </h2>
-      @if (filterName(); as f) {
-        <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar todas as categorias (agora só ' + f + ')'">
-          <span class="selo" [style.--cor]="filterColor()" aria-hidden="true"></span>
-          Só {{ f }}
-          <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
-        </button>
-      } @else if (personName(); as p) {
-        <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar os gastos de todos (agora só os de ' + p + ')'">
-          Só {{ p }}
-          <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
-        </button>
-      } @else if (need() !== undefined) {
-        <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar todos os gastos (agora só ' + needName() + ')'">
-          Só {{ needName() }}
+      @if (filtered()) {
+        <button type="button" class="filtro" (click)="clearFilter.emit()" aria-label="Tirar os filtros e mostrar o mês inteiro">
+          Filtrada
           <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
         </button>
       }
@@ -141,12 +130,12 @@ export class SpendingTape {
   readonly month = input.required<string>();
   /** O mês aberto é depois do de hoje: o que aparece é o previsto (fixos e parcelas). */
   readonly future = input(false);
-  /** Só esta categoria (escolhida num envelope). */
-  readonly filter = input<string | null>(null);
-  /** Só os gastos desta pessoa, escolhida na peça Por pessoa: o valor de cada um é a parte dela. */
+  /** As linhas já vêm filtradas (os filtros moram na pasta): o título diz "3 de 12" e dá para tirar. */
+  readonly filtered = input(false);
+  /** Quantos lançamentos o mês tem, sem os filtros. */
+  readonly total = input(0);
+  /** Com uma só pessoa nos filtros: o valor de cada gasto é a parte dela. */
   readonly person = input<string | null>(null);
-  /** Só os gastos com esta resposta ao "Precisava?" (`null`: os sem resposta), escolhida na peça dela. */
-  readonly need = input<Need | null | undefined>(undefined);
   /** Quanto já voltou de cada gasto. */
   readonly refunds = input<Map<string, number>>(new Map());
   readonly clearFilter = output<void>();
@@ -166,19 +155,10 @@ export class SpendingTape {
     return (this.future() ? 'Previsto em ' : 'Fita de ') + ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][m];
   });
 
-  protected readonly filterName = computed(() => {
-    const f = this.filter();
-    return f ? (this.store.category(f)?.name ?? 'Sem categoria') : null;
-  });
-  protected readonly needName = computed(() => {
-    const n = this.need();
-    return n ? NEED_LABEL[n].toLocaleLowerCase('pt-BR') : 'sem resposta';
-  });
   protected readonly personName = computed(() => {
     const p = this.person();
     return p ? (this.store.person(p)?.name ?? 'Alguém') : null;
   });
-  protected readonly filterColor = computed(() => `var(--stock-${this.store.category(this.filter() ?? '')?.color ?? 'cinza'})`);
 
   protected readonly lines = computed<Line[]>(() => {
     const rows = [...this.rows()];
@@ -207,7 +187,7 @@ export class SpendingTape {
   });
 
   protected readonly emptyText = computed(() =>
-    this.filter() ? 'Nada nesta categoria no mês.' : this.person() ? 'Nada com esta pessoa no mês.' : this.need() !== undefined ? 'Nada assim no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
+    this.filtered() ? 'Nada com esses filtros no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
   );
 
   /** A marca de com quem foi: os outros nomes (sem você, que é o normal); "só Bruna" quando você não estava. */

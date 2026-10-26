@@ -2,22 +2,67 @@
 <h1 class="sr-only">Gastos de {{ title() }}</h1>
 
 <div class="mesa" [class.em-branco]="blank()">
-  <!-- o mês, escrito a giz na parede, entre as setas -->
-  <nav class="mes" aria-label="Mês">
-    <button type="button" class="giz so-icone" aria-label="Mês anterior" title="Mês anterior (←)" (click)="step(-1)">
-      <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
-    </button>
-    <h2 class="periodo" aria-live="polite">{{ title() }}</h2>
-    <button type="button" class="giz so-icone" aria-label="Próximo mês" title="Próximo mês (→)" (click)="step(1)">
-      <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
-    </button>
-    @if (!isThisMonth()) {
-      <button type="button" class="giz" aria-keyshortcuts="h" (click)="goToday()">Este mês</button>
+  <!-- em cima, a pasta de manilha (a do Calendário): Este mês, as setas e o mês; o Filtrar e, embaixo,
+       a cartela e os filtros ligados -->
+  <div class="topo">
+    <div class="pasta solta">
+      <div class="pasta-linha">
+        <div class="navegar" role="group" aria-label="Mês">
+          <button type="button" class="tinta hoje" [attr.aria-current]="isThisMonth() ? 'date' : null" aria-keyshortcuts="h" (click)="goToday()">Este mês</button>
+          <button type="button" class="tinta so-icone" aria-label="Mês anterior" title="Mês anterior (←)" (click)="step(-1)">
+            <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
+          </button>
+          <button type="button" class="tinta so-icone" aria-label="Próximo mês" title="Próximo mês (→)" (click)="step(1)">
+            <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
+          </button>
+        </div>
+        <h2 class="periodo" aria-live="polite">{{ title() }}</h2>
+        @if (future()) {
+          <span class="previsto">Previsto: fixos e parcelas</span>
+        }
+        @if (!blank()) {
+          <div class="pasta-controles">
+            <div class="pasta-grupo">
+              <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="filtering.set(!filtering())">
+                <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+                <span>Filtrar</span>
+                @if (filterCount()) {
+                  <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
+                  <span class="sr-only">({{ filterCount() }} ligados)</span>
+                }
+              </button>
+            </div>
+          </div>
+        }
+      </div>
+      @if (filtered()) {
+        <!-- depois do picote: os filtros ligados, cada um com o seu X, e quantos sobraram -->
+        <div class="pasta-linha pasta-baixo">
+          <div class="pasta-filtros">
+            <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
+          </div>
+          <div class="pasta-estado">
+            <p class="achados" aria-live="polite">Mostrando {{ tapeRows().length }} de {{ rows().length }}</p>
+            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
+          </div>
+        </div>
+      }
+    </div>
+    @if (filtering() && !blank()) {
+      <app-spending-filters
+        id="gastos-filtros"
+        class="cartela"
+        [groups]="filterGroups()"
+        [shown]="tapeRows().length"
+        [total]="rows().length"
+        [active]="filtered()"
+        (toggle)="toggleFilter($event.key, $event.value)"
+        (clearGroup)="clearGroup($event)"
+        (clearAll)="clearFilters()"
+        (done)="closeFilters()"
+      />
     }
-    @if (future()) {
-      <span class="previsto">Previsto: fixos e parcelas</span>
-    }
-  </nav>
+  </div>
 
   <app-spending-quick class="anotar" />
 
@@ -27,8 +72,8 @@
       [rows]="tapeRows()"
       [month]="open()"
       [future]="future()"
-      [filter]="focus()"
-      [need]="needFocus()"
+      [filtered]="filtered()"
+      [total]="rows().length"
       [person]="personFocus()"
       [refunds]="refunds()"
       (clearFilter)="clearFilters()"
@@ -45,7 +90,7 @@
     />
 
     @if (showNeeds()) {
-      <app-spending-needs class="precisava" [sums]="needSums()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
+      <app-spending-needs class="precisava" [sums]="needSums()" [counts]="needCounts()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
     }
 
     @if (showPeople()) {

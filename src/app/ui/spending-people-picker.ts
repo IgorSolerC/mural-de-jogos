@@ -22,7 +22,7 @@ function same(a: PersonRef, b: PersonRef): boolean {
  * alguém novo. Sempre fica ao menos uma pessoa. Embaixo, quanto dá para cada um.
  *
  * Quem usa põe a peça dentro de um invólucro com `position: relative`, ao lado do botão que a abre: tocar
- * no botão não conta como tocar fora. Esc e um toque fora fecham (`closed`).
+ * no botão não conta como tocar fora (na folhinha do gasto, a peça vai solta numa fileira, `position: static`). Esc e um toque fora fecham (`closed`).
  */
 @Component({
   selector: 'app-spending-people-picker',
@@ -246,7 +246,7 @@ export class SpendingPeoplePicker {
     // perto da beirada da tela, o papel puxa para dentro
     afterNextRender(() => {
       const el = this.host.nativeElement;
-      const over = el.getBoundingClientRect().right - (document.documentElement.clientWidth - 8);
+      const over = el.getBoundingClientRect().right - (document.documentElement.clientWidth - 16);
       if (over > 0) el.style.translate = `${-over}px 0`;
       el.querySelector<HTMLInputElement>('.pessoa input')?.focus({ preventScroll: true });
     });

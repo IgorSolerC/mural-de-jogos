@@ -3,69 +3,50 @@
   container: gastos / inline-size;
 }
 
-/* ===== O mês: escrito a giz na parede, entre as setas ===== */
-.mes {
+/* ===== Em cima: a pasta de manilha (a do Calendário) e, embaixo dela, a cartela de filtros ===== */
+.topo {
   grid-area: mes;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 6px;
-  min-height: 44px;
+  display: grid;
+  gap: 30px;
+  min-width: 0;
 }
 
+/* Este mês e as setas juntos, como no Calendário */
+.navegar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* o nome do mês, a pincel, como o título de uma folha */
 .periodo {
   min-width: 0;
-  margin: 0 6px;
+  margin: 0;
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 1.5rem;
   line-height: 1.1;
-  color: var(--wall-ink);
-  text-shadow: var(--chalk-shadow);
+  text-wrap: balance;
 }
 
-.giz {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 40px;
-  min-height: 40px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--wall-ink);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-
-  &.so-icone {
-    padding: 0;
-  }
-  &:hover {
-    background: rgb(255 255 255 / 0.08);
-  }
-  &:focus-visible {
-    outline: 3px solid var(--hi);
-    outline-offset: 1px;
-  }
-  lucide-icon {
-    display: inline-flex;
-  }
+/* Este mês marcado a marca-texto enquanto o mês aberto é o de hoje (como o Hoje do Calendário) */
+.pasta .hoje[aria-current]::before {
+  opacity: 1;
+  scale: 1 1;
 }
 
 .previsto {
-  margin-left: 6px;
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.86rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
+  font-family: var(--f-hand);
+  font-size: 1.04rem;
+  color: var(--ink-2);
+}
+
+@media (max-width: 720px) {
+  .periodo {
+    flex-basis: 100%;
+    order: -1;
+    font-size: 1.32rem;
+  }
 }
 
 /* ===== A mesa =====
@@ -168,12 +149,14 @@
   color: var(--ink-2);
 }
 
+/* Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, a fita à esquerda e o que se lê à
+   direita, as duas começando na mesma altura */
 @container gastos (min-width: 900px) {
   .mesa {
     grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
     grid-template-areas:
-      'mes resumo'
-      'anotar resumo'
+      'mes mes'
+      'anotar anotar'
       'fita resumo'
       'fita precisava'
       'fita pessoas'
@@ -189,13 +172,15 @@
   .carnes {
     margin-top: 6px;
   }
-  .mes {
-    margin-bottom: -8px;
+
+  /* a fita, logo embaixo, já diz "8 de 12": a pasta fica só com os adesivos e o Limpar */
+  .achados {
+    display: none;
   }
 
   .mesa.em-branco {
     grid-template-areas:
-      'mes .'
+      'mes mes'
       'anotar comeco';
     grid-template-rows: auto auto;
   }

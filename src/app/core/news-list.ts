@@ -26,12 +26,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-fatura',
+    id: '2026-10-26-filtros-dos-gastos',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
-    title: 'O mês da fatura nos Gastos',
+    title: 'O mês da fatura e os filtros dos Gastos',
     melhorias: [
+      'A fita dos Gastos ganhou a cartela de filtros do Murall: saídas ou entradas, uma vez, parcela ou todo mês, pagamento, se precisava, categoria, com quem e marcas (reembolso, voltou dinheiro, de outro mês). Os ligados ficam colados na pasta, cada um com o seu X, e os envelopes, o Precisava? e o Por pessoa escolhem nos mesmos filtros.',
+      'O mês dos Gastos fica na pasta de manilha, como no Calendário: Este mês e as setas juntos, antes do nome do mês. A linha de anotar vai de ponta a ponta, e a fita e o saldo começam na mesma altura.',
+      'O Precisava? tem uma segunda régua, pela quantidade de gastos em cada resposta, e cada linha diz quantos gastos foram; o Por pessoa mostra a parte de cada um em porcentagem.',
       'Nos Gastos, um lançamento pode contar no mês de antes ou no de depois do dia dele (a compra de 3 de outubro que vem na fatura de setembro): no adesivo "+ outro mês" da linha de anotar ou em "Conta em", na edição. Na fita ele aparece com o dia de verdade e o mês ao lado ("3 nov"), e as parcelas andam junto.',
       'O Lançar da linha de anotar fica sem o contorno enquanto não há o que lançar.',
     ],

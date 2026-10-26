@@ -108,11 +108,11 @@ function categoryByName(word: string, categories: readonly SpendingCategory[]): 
   );
 }
 
-/** Os nomes de quem estava, curtos para caber num adesivo: "Eu, Bruna", "Eu +2". */
+/** Os nomes de quem estava, curtos para caber num adesivo: "Eu, Bruna", "Eu e mais 2" (o "+" parece dinheiro). */
 export function peopleText(refs: readonly PersonRef[]): string {
   const names = refs.map((r) => r.name);
   const all = names.join(', ');
-  return names.length <= 2 && all.length <= 20 ? all : `${names[0]} +${names.length - 1}`;
+  return names.length <= 2 && all.length <= 20 ? all : `${names[0]} e mais ${names.length - 1}`;
 }
 
 /**

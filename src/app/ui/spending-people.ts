@@ -9,13 +9,15 @@ interface Part {
   amount: number;
   /** Do tamanho da maior (0 a 1), para a barrinha. */
   scale: number;
+  /** A parte dela no que saiu no mês (0 a 1): as partes de todos somam o mês. */
+  share: number;
 }
 
 /**
  * Por pessoa: do que saiu no mês, quanto foi com cada um, cada gasto dividido em partes iguais entre quem
  * estava (o jantar de R$ 600 com três conta R$ 200 para cada), já sem o que voltou de reembolso e sem os
- * fixos quando a pessoa pede. Uma linha por pessoa, a maior primeiro, com uma barrinha de caneta do
- * tamanho dela perto da maior. Tocar numa linha deixa na fita só os gastos daquela pessoa, com a parte
+ * fixos quando a pessoa pede. Uma linha por pessoa, a maior primeiro, com uma faixa de kraft do
+ * tamanho dela perto da maior, o valor e a parte do mês em porcentagem. Tocar numa linha deixa na fita só os gastos daquela pessoa, com a parte
  * dela; de novo, mostra todos.
  */
 @Component({
@@ -38,12 +40,13 @@ interface Part {
             type="button"
             class="linha"
             [attr.aria-pressed]="selected() === p.id"
-            [attr.aria-label]="p.name + ': ' + brl(p.amount)"
+            [attr.aria-label]="p.name + ': ' + brl(p.amount) + ', ' + pct(p.share) + ' do que saiu'"
             (click)="pick.emit(selected() === p.id ? null : p.id)"
           >
             <span class="nome" aria-hidden="true">{{ p.name }}</span>
             <span class="trilho" aria-hidden="true"><span class="traco" [style.width.%]="p.scale * 100"></span></span>
             <span class="quanto" aria-hidden="true">{{ brl(p.amount) }}</span>
+            <span class="parte" aria-hidden="true">{{ pct(p.share) }}</span>
           </button>
         </li>
       }
@@ -87,7 +90,7 @@ interface Part {
     /* uma grade só para todas as linhas: os nomes, as barrinhas e os valores começam e acabam juntos */
     .linhas {
       display: grid;
-      grid-template-columns: minmax(4.5em, max-content) minmax(40px, 1fr) auto;
+      grid-template-columns: minmax(4.5em, max-content) minmax(40px, 1fr) auto 3.4em;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -142,19 +145,26 @@ interface Part {
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
-    /* a barrinha: um traço de caneta do tamanho da parte, perto da maior */
+    /* a parte de cada um: a faixa de kraft do mês a mês, do tamanho dela perto da maior (sem trilho) */
     .trilho {
       display: block;
-      height: 6px;
-      border-radius: 2px;
-      background: rgb(21 21 21 / 0.07);
+      height: 12px;
     }
     .traco {
       display: block;
-      min-width: 3px;
+      min-width: 2px;
       height: 100%;
-      border-radius: 2px;
-      background: var(--ink);
+      border-radius: 1px;
+      background-color: #c9a878;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.25);
+    }
+    .parte {
+      @include gk.valor;
+      font-size: 0.82rem;
+      text-align: right;
+      color: var(--ink-2);
     }
     .quanto {
       @include gk.valor;
@@ -176,12 +186,18 @@ export class SpendingPeople {
 
   protected readonly brl = brl;
 
+  protected pct(share: number): string {
+    const p = share * 100;
+    return p > 0 && p < 1 ? '<1%' : `${Math.round(p)}%`;
+  }
+
   protected readonly parts = computed<Part[]>(() => {
     const sums = this.sums();
     const top = Math.max(1, ...sums.values());
+    const total = [...sums.values()].reduce((a, b) => a + b, 0) || 1;
     return [...sums]
       .filter(([, amount]) => amount > 0)
-      .map(([id, amount]) => ({ id, name: this.store.person(id)?.name ?? (id === ME ? 'Eu' : 'Alguém'), amount, scale: amount / top }))
+      .map(([id, amount]) => ({ id, name: this.store.person(id)?.name ?? (id === ME ? 'Eu' : 'Alguém'), amount, scale: amount / top, share: amount / total }))
       .sort((a, b) => b.amount - a.amount || (a.id === ME ? -1 : b.id === ME ? 1 : a.name.localeCompare(b.name, 'pt-BR')));
   });
 }
