@@ -1,70 +1,22 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { todayISO } from '../core/dates';
-import { newId } from '../core/review';
-import {
-  Flow,
-  MAX_INSTALLMENTS,
-  ME,
-  NEEDS,
-  NEED_LABEL,
-  Need,
-  PAY_LABEL,
-  PAY_METHODS,
-  PayMethod,
-  Shift,
-  brl,
-  dayIn,
-  firstMonth,
-  monthLabel,
-  monthOfDay,
-  moneyInput,
-  shiftMonth,
-  suggestions,
-} from '../core/spending';
-import { PersonRef, Quick, peopleText, quickToEntry, readQuick } from '../core/spending-quick';
+import { brl, moneyInput, suggestions } from '../core/spending';
+import { readQuick } from '../core/spending-quick';
 import { SpendingStore } from '../core/spending-store';
-import { SpendingPeoplePicker } from './spending-people-picker';
-import { Toasts } from './toast';
-
-/** O que a pessoa trocou à mão nos adesivos: vale mais que o que a linha leu. */
-interface Overrides {
-  flow?: Flow;
-  category?: string;
-  pay?: PayMethod;
-  /** Se precisava (null: tirada à mão). */
-  need?: Need | null;
-  /** Com quem foi (as escolhidas no adesivo, no lugar das escritas com @). */
-  people?: PersonRef[];
-  installments?: number;
-  monthly?: boolean;
-  /** O dia deste mês (no parcelado, o desta parcela). */
-  day?: string;
-  /** O mês em que conta, perto do mês do dia (0: o do dia). */
-  shift?: Shift | 0;
-}
-
-const NEW_CATEGORY = '__nova';
-const NO_NEED = '';
-
-/** "hoje", "ontem" ou "24 out". */
-function dayLabel(day: string, today: string): string {
-  if (day === today) return 'hoje';
-  const y = new Date(Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10) - 1)).toISOString().slice(0, 10);
-  if (day === y) return 'ontem';
-  return `${Number(day.slice(8, 10))} ${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(day.slice(5, 7)) - 1]}`;
-}
+import { SpendingEditor } from './spending-editor';
 
 /**
  * A linha de anotar dos Gastos: escreve-se o gasto como se fala ("ifood 44,90", "violão 10x 139,90",
- * "salário +4559 todo mês", "jantar 600 @bruna") e Enter lança. Embaixo, em adesivos, o que a linha entendeu
- * (saiu ou entrou, a categoria, como pagou, se precisava, com quem, as parcelas, o dia, se é todo mês), cada
- * um trocado com um toque. Enquanto o
- * nome é escrito, os gastos parecidos de antes aparecem para escolher (com a categoria e o último valor).
+ * "salário +4559 todo mês", "jantar 600 @bruna") e Enter lança. Embaixo, a mesma folhinha de um lançamento
+ * aberto na fita (ui/spending-editor), já preenchida com o que a linha entendeu: o nome, o valor, a
+ * categoria, como pagou, se precisava, com quem, as parcelas, o dia, o mês em que conta e se é todo mês.
+ * O que for mexido na folhinha fica como a pessoa deixou; o resto segue a linha. Enquanto o nome é escrito,
+ * os gastos parecidos de antes aparecem para escolher (com a categoria e o último valor).
  */
 @Component({
   selector: 'app-spending-quick',
-  imports: [IconModule, SpendingPeoplePicker],
+  imports: [IconModule, SpendingEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="tira" [class.escrevendo]="text()">
@@ -82,15 +34,10 @@ function dayLabel(day: string, today: string): string {
         aria-controls="gs-sugestoes"
         [attr.aria-expanded]="shownSuggestions().length > 0"
         [attr.aria-activedescendant]="active() >= 0 ? 'gs-sug-' + active() : null"
-        [attr.aria-describedby]="text() ? 'gs-leitura' : null"
         [value]="text()"
         (input)="write($any($event.target).value)"
         (keydown)="key($event)"
       />
-      <button type="button" class="lancar" [disabled]="!entry()" (click)="launch()">
-        Lançar
-        <kbd aria-hidden="true">↵</kbd>
-      </button>
     </div>
 
     @if (shownSuggestions().length) {
@@ -118,166 +65,27 @@ function dayLabel(day: string, today: string): string {
     }
 
     @if (text()) {
-      @let q = quick();
-      <div class="leitura" id="gs-leitura" role="group" aria-label="O que vai ser lançado">
-        <button type="button" class="adesivo direcao" [class.entrada]="q.flow === 'entrada'" [attr.aria-label]="(q.flow === 'saida' ? 'Saída' : 'Entrada') + ': trocar'" (click)="set({ flow: q.flow === 'saida' ? 'entrada' : 'saida', category: undefined })">
-          <lucide-icon [img]="q.flow === 'saida' ? OutIcon : InIcon" [size]="14" aria-hidden="true" />
-          {{ q.flow === 'saida' ? 'Saiu' : 'Entrou' }}
-        </button>
-
-        <label class="adesivo escolha" [class.adivinhada]="q.from === 'padrao'">
-          <span class="selo" [style.--cor]="colorOf(q.category)" aria-hidden="true"></span>
-          {{ nameOf(q.category) }}
-          <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
-          <select aria-label="Categoria" [value]="q.category" (change)="chooseCategory($any($event.target).value)">
-            @for (c of categoriesOf(q.flow); track c.id) {
-              <option [value]="c.id" [selected]="c.id === q.category">{{ c.name }}</option>
-            }
-            <option [value]="newCategory">Nova categoria…</option>
-          </select>
-        </label>
-
-        @if (q.flow === 'saida') {
-          <label class="adesivo escolha">
-            {{ payLabel[q.pay ?? 'avista'] }}
-            <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
-            <select aria-label="Como pagou" (change)="choosePay($any($event.target).value)">
-              @for (p of pays; track p) {
-                <option [value]="p" [selected]="p === q.pay">{{ payLabel[p] }}</option>
-              }
-            </select>
-          </label>
-          <label class="adesivo escolha precisava" [class.adivinhada]="!q.need" [attr.data-need]="q.need ?? null">
-            {{ q.need ? needLabel[q.need] : 'Precisava?' }}
-            <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
-            <select aria-label="Precisava?" (change)="set({ need: $any($event.target).value || null })">
-              <option [value]="noNeed" [selected]="!q.need">Sem resposta</option>
-              @for (n of needs; track n) {
-                <option [value]="n" [selected]="n === q.need">{{ needLabel[n] }}</option>
-              }
-            </select>
-          </label>
-          <span class="com-quem">
-            <button
-              #comQuem
-              type="button"
-              class="adesivo pessoas"
-              [class.opcional]="!q.people"
-              aria-haspopup="true"
-              [attr.aria-expanded]="picking()"
-              [attr.aria-label]="'Com quem foi: ' + (q.people ? peopleText(q.people) : 'só você') + '. Trocar'"
-              (click)="picking.set(!picking())"
-            >
-              <lucide-icon [img]="PeopleIcon" [size]="13" aria-hidden="true" />
-              {{ q.people ? peopleText(q.people) : '+ com quem' }}
-            </button>
-            @if (picking()) {
-              <app-spending-people-picker [refs]="q.people ?? [me()]" [amount]="q.amount" (changed)="set({ people: $event })" (closed)="closePicker()" />
-            }
-          </span>
-          @if (q.installments) {
-            <label class="adesivo parcelas">
-              <input
-                type="number"
-                inputmode="numeric"
-                min="2"
-                [max]="maxInstallments"
-                aria-label="Quantas parcelas"
-                [value]="q.installments"
-                (input)="setInstallments($any($event.target).value)"
-              />
-              <span>× {{ q.amount ? 'de ' + brl(q.amount) : '' }}@if ((q.part ?? 1) > 1) { · a {{ q.part }}ª agora }</span>
-            </label>
-          }
-        }
-
-        <label class="adesivo escolha dia">
-          <lucide-icon [img]="DayIcon" [size]="13" aria-hidden="true" />
-          {{ dayText() }}
-          <input type="date" aria-label="Dia" [value]="shownDay()" (change)="setDay($any($event.target).value)" />
-        </label>
-
-        @if (!q.monthly) {
-          <label class="adesivo escolha outro-mes" [class.opcional]="!q.shift">
-            <lucide-icon [img]="BillIcon" [size]="13" aria-hidden="true" />
-            {{ q.shift ? 'Conta em ' + monthName(q.shift) : '+ outro mês' }}
-            <select aria-label="Mês em que conta" (change)="set({ shift: $any(+$any($event.target).value) })">
-              @for (s of shifts; track s) {
-                <option [value]="s" [selected]="s === (q.shift ?? 0)">{{ shiftLabel(s) }}</option>
-              }
-            </select>
-          </label>
-        }
-
-        @if (!q.installments) {
-          <button type="button" class="adesivo opcional" [attr.aria-pressed]="!!q.monthly" (click)="set({ monthly: !q.monthly })">
-            <lucide-icon [img]="RepeatIcon" [size]="13" aria-hidden="true" />
-            {{ q.monthly ? 'Todo mês' : '+ todo mês' }}
-          </button>
-        }
-
-        <span class="lido" [class.falta]="!q.amount">
-          @if (q.amount) {
-            {{ q.flow === 'entrada' ? '+' : '−' }}{{ brl(q.amount) }}
-          } @else {
-            falta o valor
-          }
-        </span>
-      </div>
-
-      @if (naming()) {
-        <form class="nova-cat" (submit)="$event.preventDefault(); createCategory(novaCat.value)">
-          <label class="campo-mini">
-            <span class="sr-only">Nome da categoria nova</span>
-            <input #novaCat type="text" maxlength="24" placeholder="Nome da categoria" autocomplete="off" />
-          </label>
-          <button type="submit" class="tinta-pequena">Criar</button>
-          <button type="button" class="tinta-pequena" (click)="naming.set(false)">Cancelar</button>
-        </form>
-      }
+      <app-spending-editor class="ficha-nova" [seed]="read()" [month]="store.month()" (done)="launched()" />
     }
   `,
   styleUrl: './spending-quick.scss',
 })
 export class SpendingQuick {
-  private readonly store = inject(SpendingStore);
-  private readonly toasts = inject(Toasts);
+  protected readonly store = inject(SpendingStore);
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('campo');
-  private readonly peopleButton = viewChild<ElementRef<HTMLButtonElement>>('comQuem');
+  private readonly editor = viewChild(SpendingEditor);
 
   protected readonly PenIcon = ICON.escrever;
-  protected readonly OutIcon = ICON.abaixo;
-  protected readonly InIcon = ICON.acima;
-  protected readonly ChevIcon = ICON.abrir;
-  protected readonly DayIcon = ICON.calendario;
-  protected readonly RepeatIcon = ICON.repetir;
-  protected readonly PeopleIcon = ICON.pessoas;
-  protected readonly BillIcon = ICON.fatura;
-  protected readonly shifts: readonly (Shift | 0)[] = [-1, 0, 1];
   protected readonly brl = brl;
-  protected readonly peopleText = peopleText;
-  protected readonly payLabel = PAY_LABEL;
-  protected readonly pays = PAY_METHODS;
-  protected readonly maxInstallments = MAX_INSTALLMENTS;
-  protected readonly newCategory = NEW_CATEGORY;
-  protected readonly needs = NEEDS;
-  protected readonly needLabel = NEED_LABEL;
-  protected readonly noNeed = NO_NEED;
 
   protected readonly text = signal('');
-  private readonly overrides = signal<Overrides>({});
   protected readonly active = signal(-1);
   /** Esc fechou os parecidos até a próxima letra. */
   private readonly hideSuggestions = signal(false);
-  protected readonly naming = signal(false);
-  /** A cartela de com quem foi está aberta. */
-  protected readonly picking = signal(false);
   private readonly today = signal(todayISO());
 
-  /** Você, como a cartela mostra quando o gasto é só seu. */
-  protected readonly me = computed<PersonRef>(() => ({ id: ME, name: this.store.person(ME)?.name ?? 'Eu' }));
-
-  private readonly read = computed(() =>
+  /** O que a linha entendeu (a folhinha embaixo parte disso). */
+  protected readonly read = computed(() =>
     readQuick(this.text(), {
       entries: this.store.entries(),
       categories: this.store.categories(),
@@ -286,74 +94,6 @@ export class SpendingQuick {
       month: this.store.month(),
     }),
   );
-
-  /** O que vai ser lançado: o que a linha leu, com o que a pessoa trocou nos adesivos por cima. */
-  protected readonly quick = computed<Quick>(() => {
-    const q = { ...this.read() };
-    const o = this.overrides();
-    if (o.flow && o.flow !== q.flow) {
-      q.flow = o.flow;
-      q.category = o.flow === 'saida' ? 'outros' : 'outras-entradas';
-      q.from = 'padrao';
-      if (o.flow === 'entrada') {
-        delete q.need;
-        delete q.people;
-        delete q.pay;
-        delete q.installments;
-        delete q.part;
-      } else q.pay ??= 'avista';
-    }
-    if (o.category) {
-      q.category = o.category;
-      q.from = 'escrita';
-    }
-    if (q.flow === 'saida' && o.people) {
-      // só você é o padrão: o adesivo volta a ser o recorte "+ com quem"
-      if (o.people.length === 1 && o.people[0].id === ME) delete q.people;
-      else q.people = o.people;
-    }
-    if (q.flow === 'saida' && o.need !== undefined) {
-      if (o.need) q.need = o.need;
-      else delete q.need;
-    }
-    if (q.flow === 'saida' && o.pay) {
-      q.pay = o.pay;
-      if (o.pay === 'parcelado') {
-        q.installments ??= 2;
-        q.part ??= 1;
-        delete q.monthly;
-      } else {
-        delete q.installments;
-        delete q.part;
-      }
-    }
-    if (q.flow === 'saida' && q.installments && o.installments) {
-      q.installments = o.installments;
-      if ((q.part ?? 1) > o.installments) q.part = o.installments;
-    }
-    if (o.monthly !== undefined && !q.installments) {
-      if (o.monthly) q.monthly = true;
-      else delete q.monthly;
-    }
-    if (o.shift !== undefined) {
-      if (o.shift) q.shift = o.shift;
-      else delete q.shift;
-    }
-    if (q.monthly) delete q.shift;
-    // o dia: o desta parcela vira o da primeira
-    const day = o.day ?? this.dayOfRead(q);
-    q.date = q.installments && (q.part ?? 1) > 1 ? dayIn(shiftMonth(monthOfDay(day), -((q.part ?? 1) - 1)), day) : day;
-    return q;
-  });
-
-  protected readonly entry = computed(() => quickToEntry(this.quick()));
-
-  /** O mês do dia mostrado (o desta parcela, no parcelado). */
-  private readonly shownMonth = computed(() => monthOfDay(this.shownDay()));
-
-  /** O dia que o adesivo mostra: o do lançamento neste mês (no parcelado, o da parcela de agora). */
-  protected readonly shownDay = computed(() => this.overrides().day ?? this.dayOfRead(this.quick()));
-  protected readonly dayText = computed(() => dayLabel(this.shownDay(), this.today()));
 
   /** Os parecidos de antes, enquanto o nome é escrito (sem valor ainda). */
   protected readonly shownSuggestions = computed(() => {
@@ -378,72 +118,11 @@ export class SpendingQuick {
     });
   }
 
-  private dayOfRead(q: Quick): string {
-    return q.installments && (q.part ?? 1) > 1 ? dayIn(shiftMonth(monthOfDay(q.date), (q.part ?? 1) - 1), q.date) : q.date;
-  }
-
   protected write(v: string): void {
     this.text.set(v);
     this.active.set(-1);
     this.hideSuggestions.set(false);
     this.today.set(todayISO());
-    if (!v.trim()) {
-      this.overrides.set({});
-      this.naming.set(false);
-      this.picking.set(false);
-    }
-  }
-
-  protected set(o: Overrides): void {
-    this.overrides.update((x) => ({ ...x, ...o }));
-  }
-
-  /** "setembro": o mês em que conta, andando `s` a partir do mês do dia. */
-  protected monthName(s: Shift | 0): string {
-    return monthLabel(shiftMonth(this.shownMonth(), s)).split(' de ')[0];
-  }
-
-  protected shiftLabel(s: Shift | 0): string {
-    const name = this.monthName(s);
-    return `${name[0].toLocaleUpperCase('pt-BR')}${name.slice(1)} (${s < 0 ? 'mês anterior' : s > 0 ? 'mês seguinte' : 'mesmo mês'})`;
-  }
-
-  protected closePicker(): void {
-    this.picking.set(false);
-    this.peopleButton()?.nativeElement.focus({ preventScroll: true });
-  }
-
-  protected setInstallments(v: string): void {
-    const n = Math.round(Number(v));
-    if (n >= 2 && n <= MAX_INSTALLMENTS) this.set({ installments: n });
-  }
-
-  protected setDay(v: string): void {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) this.set({ day: v });
-  }
-
-  protected chooseCategory(id: string): void {
-    if (id === NEW_CATEGORY) {
-      this.naming.set(true);
-      return;
-    }
-    this.set({ category: id });
-  }
-
-  protected choosePay(p: PayMethod): void {
-    this.set({ pay: p });
-  }
-
-  protected createCategory(name: string): void {
-    if (!name.trim()) return;
-    const c = this.store.addCategory(name, this.quick().flow);
-    this.set({ category: c.id });
-    this.naming.set(false);
-    this.field().nativeElement.focus();
-  }
-
-  protected categoriesOf(flow: Flow) {
-    return this.store.categories().filter((c) => c.flow === flow);
   }
 
   protected nameOf(id: string): string {
@@ -454,14 +133,15 @@ export class SpendingQuick {
     return `var(--stock-${this.store.category(id)?.color ?? 'cinza'})`;
   }
 
-  /** Escolher um parecido: o nome e o último valor dele vão para a linha, prontos para Enter (ou para mudar o valor). */
+  /**
+   * Escolher um parecido: o nome e o último valor dele vão para a linha, prontos para Enter (ou para mudar
+   * o valor). A linha já lê do mesmo gasto de antes a categoria, o pagamento e se precisava.
+   */
   protected pick(i: number): void {
     const s = this.shownSuggestions()[i];
     if (!s) return;
     const text = `${s.title} ${s.flow === 'entrada' ? '+' : ''}${moneyInput(s.amount)}`;
-    this.text.set(text);
-    this.active.set(-1);
-    this.overrides.update((o) => ({ ...o, flow: s.flow, category: s.category, ...(s.pay ? { pay: s.pay } : {}), ...(s.need ? { need: s.need } : {}) }));
+    this.write(text);
     const el = this.field().nativeElement;
     el.value = text;
     el.focus();
@@ -482,29 +162,18 @@ export class SpendingQuick {
       this.pick(this.active());
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      this.launch();
-    } else if (e.key === 'Escape') {
+      this.editor()?.save();
+    } else if (e.key === 'Escape' && (n || this.text())) {
+      e.stopPropagation();
       if (n) this.hideSuggestions.set(true);
-      else if (this.text()) this.write('');
+      else this.write('');
     }
   }
 
-  protected launch(): void {
-    if (!this.entry()) return;
-    // quem foi escrito agora com @ e ainda não existe entra no livro ao lançar
-    const q = this.quick();
-    const people = q.people?.map((p) => (p.id ? p : { id: this.store.addPerson(p.name).id, name: p.name }));
-    const draft = quickToEntry({ ...q, ...(people ? { people } : {}) })!;
-    const now = new Date().toISOString();
-    const e = { ...draft, id: newId(), createdAt: now, at: now };
-    this.store.save(e);
-    const elsewhere = !e.monthly && !e.installments && firstMonth(e) !== this.store.month();
-    this.toasts.show(`“${e.title}” lançado${elsewhere ? ` em ${monthLabel(firstMonth(e)).split(' de ')[0]}` : ''}`, {
-      label: 'Desfazer',
-      run: () => this.store.remove(e.id),
-    });
+  /** Lançou (ou limpou) pela folhinha: a linha fica vazia, esperando o próximo. */
+  protected launched(): void {
     this.write('');
     this.field().nativeElement.value = '';
-    this.field().nativeElement.focus();
+    this.field().nativeElement.focus({ preventScroll: true });
   }
 }

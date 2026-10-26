@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-sem-faixa-da-mudanca',
+    id: '2026-10-26-lancar-pela-folhinha',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
@@ -35,6 +35,7 @@ export const NEWS: NewsEntry[] = [
     noticeId: '2026-10-26-sair-limpa-o-navegador',
     until: '2026-11-02',
     melhorias: [
+      'Lançar um gasto novo usa a mesma folhinha de mudar um lançamento: escreva na linha como antes ("ifood 44,90 pix") e, embaixo, cada coisa tem o seu campo, com o valor à parte, a volta de um gasto nas entradas e a categoria nova; o que você mexer na folhinha fica como deixou.',
       'Sair da conta tira deste navegador tudo o que é dela: resenhas, anotações, Gastos, Calendário, Kanban, ajustes e perfil (na nuvem fica tudo). Vale também para "Sair de todos os aparelhos", para a sessão que acaba e para a conta apagada; com alguma mudança que ainda não subiu, o site avisa antes.',
       'Entrar numa conta num navegador com o mural de outra nunca mais junta os dois: o da outra sai antes, e a conta desce inteira. O mural de quem nunca entrou continua perguntando se vai para a conta, agora também quando a conta está vazia.',
       'A fita dos Gastos ganhou filtros: saídas ou entradas, uma vez, parcela ou todo mês, pagamento, se precisava, categoria, com quem e marcas (volta de um gasto, voltou dinheiro, de outro mês). Os ligados ficam colados na pasta, cada um com o seu X, e os envelopes, o Precisava? e o Por pessoa escolhem nos mesmos filtros.',
