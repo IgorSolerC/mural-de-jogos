@@ -8,9 +8,7 @@ import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from '../ui/icons';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
-import { eraseSave, takeErased } from '../core/erase-save';
-import { takeReset } from '../core/browser-reset';
-import { ReviewStore } from '../core/review-store';
+import { eraseSave, takeErased } from '../core/erase-save';import { ReviewStore } from '../core/review-store';
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
 import { Confirm } from '../ui/confirm';
@@ -279,12 +277,7 @@ export class SettingsPage {
 
   constructor() {
     // a página recarregou depois de apagar o save
-    if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');
-    // a página recarregou limpa depois de sair da conta (ver core/browser-reset.ts)
-    const reset = takeReset();
-    if (reset === 'saiu') this.toasts.show('Você saiu da conta. Nada dela ficou neste navegador.');
-    else if (reset === 'apagou') this.toasts.show('Conta apagada. Nada dela ficou neste navegador.');
-    // a cópia de antes da nuvem nasce na primeira sincronização: confere de novo a cada uma
+    if (takeErased()) this.toasts.show('Save apagado. O mural começou do zero.');    // a cópia de antes da nuvem nasce na primeira sincronização: confere de novo a cada uma
     effect(() => {
       this.sync.lastSyncAt();
       void readBeforeCloud().then((copy) => this.beforeCopy.set(copy));
@@ -559,7 +552,7 @@ export class SettingsPage {
     }
   }
 
-  /** Sair limpa o navegador e recarrega a página (o aviso vem depois, ver `takeReset`). */
+  /** Sair limpa o navegador e recarrega a página (o aviso vem depois, no App, ver `takeReset`). */
   protected async signOut(): Promise<void> {
     await this.accountAction('sair', async () => void (await this.sync.signOut()));
   }

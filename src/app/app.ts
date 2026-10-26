@@ -27,6 +27,7 @@ import { ReviewEditor, SavedEvent } from './ui/review-editor';
 import { ReviewReader } from './ui/review-reader';
 import { Confirm, ConfirmDialog } from './ui/confirm';
 import { Toast, Toasts } from './ui/toast';
+import { takeReset } from './core/browser-reset';
 import { SiteHeader } from './ui/site-header';
 import { AreaBar } from './ui/area-bar';
 import { WishAdder } from './ui/wish-adder';
@@ -123,6 +124,10 @@ export class App {
   protected readonly siteWall = computed(() => (this.loose() ? (this.fichaLinks.wall() ?? 'eucatex') : this.profiles.profile().page));
 
   constructor() {
+    // a página recarregou limpa depois de sair da conta, em qualquer parte do site (ver core/browser-reset.ts)
+    const reset = takeReset();
+    if (reset === 'saiu') this.toasts.show('Você saiu da conta. Nada dela ficou neste navegador.');
+    else if (reset === 'apagou') this.toasts.show('Conta apagada. Nada dela ficou neste navegador.');
     // a cor de fundo da parede entra na hora (o desenho chega depois, num pedaço à parte)
     effect(() => {
       const wall = PAGE_BACKGROUNDS.find((w) => w.id === this.siteWall());
