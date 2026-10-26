@@ -26,6 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-25-contagem-do-kanban-no-celular',
+    version: '1.32.2',
+    kind: 'ajustes',
+    date: '2026-10-25',
+    title: 'A contagem do Kanban no celular',
+    correcoes: ['No celular, a contagem do Kanban não fica mais por cima da aba Cofre: nas Anotações, ela desce para o lado do logo da seção.'],
+  },
+  {
     id: '2026-10-24-busca-de-livros-e-chave-da-rawg',
     version: '1.32.1',
     kind: 'ajustes',

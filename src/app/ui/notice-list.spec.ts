@@ -16,7 +16,9 @@ const BIA = { codigo: 'BBBB-2222', nome: 'Bia' };
 const CRIS = { codigo: 'CCCC-3333', nome: 'Cris' };
 
 const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();
-const FEED: FeedItem[] = [
+/** Os avisos, com as horas contadas de agora: montados no começo de cada teste (contados ao carregar o
+ * arquivo, um teste que rodava um minuto depois via "há 6 min" no lugar de "há 5 min"). */
+const feed = (): FeedItem[] => [
   { tipo: 'reagiu', em: minutesAgo(5), pessoa: ANA, ref: 'rminha1', titulo: 'Hades', mural: 'jogos', silenciado: false, reacao: 'fogo' },
   { tipo: 'reagiu', em: minutesAgo(9), pessoa: BIA, ref: 'rminha1', titulo: 'Hades', mural: 'jogos', silenciado: false, reacao: 'amei' },
   { tipo: 'comentou', em: minutesAgo(70), pessoa: BIA, ref: 'nminha2', titulo: 'Compras', mural: 'anotacoes', silenciado: false },
@@ -41,7 +43,7 @@ const FEED: FeedItem[] = [
   `,
 })
 class Host {
-  readonly notices = signal<Notice[]>(groupNotices(FEED));
+  readonly notices = signal<Notice[]>(groupNotices(feed()));
   readonly faces = signal<ReadonlyMap<string, PersonFace>>(new Map());
   readonly fresh = signal<ReadonlySet<string>>(new Set());
   readonly following = signal<string | null>(null);

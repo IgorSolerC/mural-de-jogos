@@ -153,12 +153,14 @@ interface Summary {
       align-items: center;
       gap: 10px 14px;
     }
-    /* sem a etiqueta do mural (nas Anotações): as seções e a contagem dividem a primeira linha */
+    /* sem a etiqueta do mural (nas Anotações): as seções na primeira linha, na largura toda, e a
+       contagem desce para a ponta da faixa do logo (com o cofre, as quatro seções e "135 no quadro" não
+       cabem lado a lado num celular) */
     .indice.sem-mural {
       grid-template-columns: minmax(0, 1fr) auto;
       grid-template-areas:
-        'secoes resumo'
-        'pagina pagina';
+        'secoes secoes'
+        'pagina resumo';
     }
     /* em Extras não há contagem: a volta fica ao lado da etiqueta, e a página de Extras (sem volta) tem
        a mesma altura das de dentro */
@@ -381,8 +383,8 @@ interface Summary {
       }
     }
 
-    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (as quatro seções e a contagem não
-       cabem abaixo de ~342px: o cofre vira só o cadeado e as seções chegam mais perto) */
+    /* a aba do cofre: o nome, e o cadeado só quando a fileira aperta (as quatro seções não cabem
+       inteiras abaixo de ~342px: o cofre vira só o cadeado e as seções chegam mais perto) */
     .cofre .cadeado {
       display: none;
     }
@@ -402,17 +404,6 @@ interface Summary {
         display: block;
       }
     }
-    /* o celular mais estreito (320px): mais um aperto, para a contagem do Calendário caber ao lado */
-    @container indice (max-width: 309px) {
-      .indice:has(.cofre) .secao {
-        padding: 0 4px;
-        letter-spacing: 0.04em;
-      }
-      .indice:has(.cofre) .secoes ul {
-        gap: 0;
-      }
-    }
-
     @container indice (min-width: 860px) {
       .longo {
         display: inline;

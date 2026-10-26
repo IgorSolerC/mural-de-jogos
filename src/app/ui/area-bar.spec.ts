@@ -9,6 +9,9 @@ import { Settings } from '../core/settings';
 import { AreaBar } from './area-bar';
 import { CalendarStore } from '../core/calendar-store';
 import { CloudAccount } from '../core/cloud-account';
+import { boardIdFor } from '../core/kanban';
+import { KanbanStore } from '../core/kanban-store';
+import { Review, sanitizeReview } from '../core/review';
 
 @Component({ template: '' })
 class Blank {}
@@ -46,6 +49,39 @@ describe('o índice embaixo do topo', () => {
   async function go(url: string): Promise<void> {
     await router.navigateByUrl(url);
     await fixture.whenStable();
+  }
+
+  /** Um quadro do Kanban aberto com tantas anotações (o grupo Trabalho). */
+  function fillBoard(n: number): void {
+    const notes = Array.from({ length: n }, (_, i) =>
+      sanitizeReview({
+        id: 'nq' + String(i).padStart(6, '0'),
+        kind: 'anotacoes',
+        category: 'Trabalho',
+        game: { name: 'Nota ' + i, coverUrl: null, source: 'manual' },
+        scores: { final: 0 },
+        text: '',
+        createdAt: '2026-10-01T10:00:00.000Z',
+        updatedAt: '2026-10-01T10:00:00.000Z',
+      }),
+    ) as Review[];
+    TestBed.inject(ReviewStore).reviews.set(notes);
+    const kanban = TestBed.inject(KanbanStore);
+    const id = boardIdFor('trabalho');
+    kanban.state.set({
+      boards: [
+        {
+          id,
+          category: 'trabalho',
+          at: '2026-10-19T10:00:00.000Z',
+          columns: [{ id: 'afazer', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false }],
+          cards: notes.map((r) => ({ note: r.id, column: 'afazer', importance: null })),
+        },
+      ],
+      removed: {},
+      legacy: [],
+    });
+    kanban.openBoard.set(id);
   }
 
   const tabs = () => [...host.querySelectorAll<HTMLAnchorElement>('.secao:not(.volta)')];
@@ -240,14 +276,15 @@ describe('o índice embaixo do topo', () => {
     afterAll(() => still?.remove());
 
     // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta; nas Anotações, as quatro
-    // seções (com a do cofre) e a contagem do Calendário
-    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/anotacoes/calendario']) {
+    // seções (com a do cofre) e a contagem do Calendário e a do Kanban (a mais comprida, com três dígitos)
+    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/anotacoes/calendario', '/anotacoes/kanban']) {
       it(url, async () => {
         fill(135, 1);
         if (url.startsWith('/anotacoes')) {
           TestBed.inject(CloudAccount).account.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
           const calendar = TestBed.inject(CalendarStore);
           calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
+          fillBoard(135);
         }
         TestBed.inject(Mural).kind.set('jogos');
         await go(url);
