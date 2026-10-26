@@ -4,14 +4,12 @@ import {
   categoryLines,
   isSpan,
   kindOf,
-  monthVersus,
   periodLabel,
   periodMonths,
   periodSpends,
   periodTotals,
   previousPeriod,
   spendWays,
-  spentByDay,
 } from './spending-period';
 
 let seq = 0;
@@ -108,35 +106,6 @@ describe('Gastos: vários meses', () => {
       ['TV', 90000, 3, '2026-10'],
       ['Ifood', 4000, 1, '2026-10'],
     ]);
-  });
-
-  it('este mês e o de antes por categoria, as maiores primeiro, com o costume quando há', () => {
-    const entries = [
-      entry({ category: 'comida', amount: 3000, date: '2026-09-02' }),
-      entry({ category: 'comida', amount: 5000, date: '2026-10-02' }),
-      entry({ category: 'presente', amount: 20000, date: '2026-09-03' }),
-    ];
-    expect(monthVersus(entries, '2026-10', new Map([['comida', 2500]]))).toEqual([
-      { id: 'presente', now: 0, before: 20000 },
-      { id: 'comida', now: 5000, before: 3000, usual: 2500 },
-    ]);
-  });
-
-  it('o gasto de cada dia, com o de outro mês no primeiro ou no último dia e o reembolso descontado', () => {
-    const jantar = entry({ amount: 6000, date: '2026-10-02' });
-    const entries = [
-      jantar,
-      entry({ amount: 1000, date: '2026-10-02' }),
-      entry({ amount: 500, date: '2026-11-03', shift: -1 }),
-      entry({ amount: 2000, flow: 'entrada', refundOf: jantar.id, date: '2026-10-05', pay: undefined }),
-      entry({ amount: 9999, flow: 'entrada', date: '2026-10-06', pay: undefined }),
-    ];
-    const days = spentByDay(rowsIn(entries, '2026-10'), '2026-10', entries);
-    expect(days.length).toBe(31);
-    expect(days[1]).toBe(7000);
-    expect(days[4]).toBe(0);
-    expect(days[5]).toBe(0);
-    expect(days[30]).toBe(500);
   });
 
   it('o período de antes, para comparar, só quando lá há lançamento', () => {

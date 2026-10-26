@@ -5,7 +5,6 @@
 
 /* ===== Em cima: a pasta de manilha (a do Calendário) e, embaixo dela, a cartela de filtros ===== */
 .topo {
-  grid-area: mes;
   display: grid;
   gap: 30px;
   min-width: 0;
@@ -66,104 +65,94 @@
 }
 
 /* ===== A mesa =====
-   Celular: uma coluna, na ordem de ler (o saldo primeiro, depois anotar e a fita, e o resto). Os dois lados
-   (`.lado`) somem da conta (`display: contents`) e cada peça vai para a sua área da grade.
-   Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, dois lados que crescem cada um no seu
-   ritmo, sem buracos: o que se faz e se compara à esquerda, o que se lê à direita. */
+   A pasta e a linha de anotar de ponta a ponta; embaixo, as peças numa colagem (ui/collage.ts), como as
+   fichas inteiras das anotações. */
 .mesa {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-areas:
-    'mes'
-    'anotar'
-    'resumo'
-    'fita'
-    'dias'
-    'contra'
-    'jeitos'
-    'precisava'
-    'pessoas'
-    'envelopes'
-    'meses'
-    'carnes';
   gap: 16px;
   align-items: start;
 }
 
-/* vários meses, no celular: o saldo do período, as colunas, como saiu, a tabela, e o resto */
-.mesa.periodo {
-  grid-template-areas:
-    'mes'
-    'anotar'
-    'resumo'
-    'colunas'
-    'jeitos'
-    'tabela'
-    'precisava'
-    'pessoas'
-    'maiores'
-    'carnes';
-}
-
-.lado {
-  display: contents;
-}
-
 .anotar {
-  grid-area: anotar;
-  /* os parecidos de antes caem por cima da fita */
+  /* os parecidos de antes caem por cima das peças */
+  position: relative;
   z-index: 2;
 }
+
+/* ===== A colagem =====
+   Colunas da mesma largura, quantas couberem (no celular, uma), e linhas de 4px: cada peça ocupa as linhas
+   da altura dela mais o vão (medidos em `appColagem`) e a seguinte cai no primeiro lugar livre, embaixo
+   da coluna que acabou antes, sem buraco. A fita e as largas dos vários meses (as colunas, a tabela, os
+   maiores gastos) ocupam duas colunas quando há espaço. */
+.painel {
+  container: painel / inline-size;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  grid-auto-rows: 4px;
+  /* uma peça estreita volta para o buraco que uma larga deixou ao lado de outra (sem buraco na parede) */
+  grid-auto-flow: row dense;
+  column-gap: 20px;
+  align-items: start;
+  /* a coluna é sempre o pedaço de grade da peça: nada sai para o lado */
+  min-width: 0;
+
+  > * {
+    grid-row-end: span var(--linhas, 60);
+    align-self: start;
+    min-width: 0;
+  }
+
+  /* ainda sem medir (o primeiro quadro, ou sem ResizeObserver): uma grade comum, nada se sobrepõe */
+  &:not(.colagem-medida) {
+    grid-auto-rows: auto;
+    row-gap: 20px;
+
+    > * {
+      grid-row-end: auto;
+    }
+  }
+}
+
+/* a fita serrilhada desce 9px abaixo da caixa dela: mais vão embaixo */
 .fita {
-  grid-area: fita;
+  --colagem-pe: 12px;
 }
-.resumo {
-  grid-area: resumo;
+
+/* duas colunas: as largas dos vários meses ocupam as duas */
+@container painel (min-width: 704px) {
+  .larga {
+    grid-column: span 2;
+  }
 }
-.envelopes {
-  grid-area: envelopes;
+
+/* duas colunas nos vários meses: as peças de uma coluna se juntam em pares antes das largas, para
+   nenhuma ficar sozinha ao lado de um buraco */
+@container painel (min-width: 704px) and (max-width: 1067px) {
+  .periodo-painel {
+    .tabela,
+    .maiores {
+      order: 1;
+    }
+  }
 }
-.precisava {
-  grid-area: precisava;
+
+/* três colunas ou mais: a fita também é larga, e as peças correm ao lado dela */
+@container painel (min-width: 1068px) {
+  .fita {
+    grid-column: span 2;
+  }
 }
-.pessoas {
-  grid-area: pessoas;
-}
-.meses {
-  grid-area: meses;
-}
-.carnes {
-  grid-area: carnes;
-}
-.jeitos {
-  grid-area: jeitos;
-}
-.dias {
-  grid-area: dias;
-}
-.contra {
-  grid-area: contra;
-}
-.colunas {
-  grid-area: colunas;
-}
-.tabela {
-  grid-area: tabela;
-}
-.maiores {
-  grid-area: maiores;
+
+/* uma coluna (o celular): o saldo vem antes da fita */
+@container painel (max-width: 703px) {
+  .resumo {
+    order: -1;
+  }
 }
 
 /* sem nenhum lançamento: anotar e a nota de como escrever */
-.mesa.em-branco {
-  grid-template-areas:
-    'mes'
-    'anotar'
-    'comeco';
-}
-
 .comeco {
-  grid-area: comeco;
   max-width: 520px;
   padding: 16px 18px;
   border-radius: 2px;
@@ -207,61 +196,17 @@
   color: var(--ink-2);
 }
 
-/* Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, os dois lados, cada um uma coluna
-   que cresce no seu ritmo, as duas começando na mesma altura */
 @container gastos (min-width: 900px) {
-  .mesa,
-  .mesa.periodo {
-    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
-    grid-template-areas:
-      'mes mes'
-      'anotar anotar'
-      'esq dir';
-    gap: 16px 28px;
-  }
-  .lado {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    align-content: start;
-    gap: 16px;
-    min-width: 0;
-
-    > * {
-      grid-area: auto;
-    }
-  }
-  .lado-esq {
-    grid-area: esq;
-  }
-  .lado-dir {
-    grid-area: dir;
-  }
-  /* a fita serrilhada precisa de ar embaixo; os envelopes (na parede) e as peças depois deles, de um pouco */
-  .fita + *,
-  .envelopes,
-  .envelopes + * {
-    margin-top: 6px;
-  }
-
-  /* vários meses: as colunas e a tabela pedem mais largura */
-  .mesa.periodo {
-    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
-  }
-
   /* a fita, logo embaixo, já diz "8 de 12": a pasta fica só com os adesivos e o Limpar */
   .achados {
     display: none;
   }
 
   .mesa.em-branco {
-    grid-template-areas:
-      'mes mes'
-      'anotar comeco';
-  }
-}
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
 
-@container gastos (min-width: 1240px) {
-  .mesa {
-    grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+    .topo {
+      grid-column: 1 / -1;
+    }
   }
 }

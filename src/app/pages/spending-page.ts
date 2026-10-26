@@ -29,28 +29,24 @@ import {
 import {
   Span,
   addWays,
-  kindOf,
   categoryLines,
   isSpan,
-  monthVersus,
   periodLabel,
   periodMonths,
   periodSpends,
   periodTotals,
   previousPeriod,
   spendWays,
-  spentByDay,
 } from '../core/spending-period';
 import { FilterContext, FilterKey, SpendingFilter, filterChips, filterCount, filterGroups, filterRows, isFiltered, onlyIn, toggleFilter, withGroup } from '../core/spending-filter';
 import { SpendingStore } from '../core/spending-store';
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
+import { Collage } from '../ui/collage';
 import { SpendingCategoriesSheet } from '../ui/spending-categories-sheet';
 import { SpendingColumns } from '../ui/spending-columns';
-import { SpendingDays } from '../ui/spending-days';
 import { SpendingGrid } from '../ui/spending-grid';
 import { SpendingPeriodSummary } from '../ui/spending-period-summary';
 import { SpendingTop } from '../ui/spending-top';
-import { SpendingVersus } from '../ui/spending-versus';
 import { SpendingWays, WayPick } from '../ui/spending-ways';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
 import { SpendingFilters } from '../ui/spending-filters';
@@ -65,10 +61,6 @@ import { SpendingTape } from '../ui/spending-tape';
 
 /** "Sem os fixos" fica lembrado neste aparelho. */
 const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
-/** "Gráficos" (a fita curta e os gráficos do mês) fica lembrado neste aparelho. */
-export const CHARTS_KEY = 'meu-mural:gastos-graficos:v1';
-/** Com os gráficos, quantas linhas a fita mostra antes do "Ver a fita inteira". */
-const SHORT_TAPE = 8;
 
 /** As vistas: um mês, ou os últimos 3, 6 ou 12 até ele. */
 const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
@@ -81,10 +73,10 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
 /**
  * Os Gastos (`/utilidades/gastos?mes=AAAA-MM`): o dinheiro de um mês, numa mesa.
  *
- * À esquerda, o que se faz: a linha de anotar (o gasto escrito como se fala) e a fita do mês, uma linha
- * baixa por lançamento, para ver o mês inteiro. À direita, o que se vê: o saldo (e quanto ainda dá por dia),
- * os envelopes de cada categoria (com o limite, se tiver), o mês a mês e os carnês abertos. No celular,
- * uma coluna: o saldo, a linha de anotar e a fita, e o resto embaixo.
+ * Embaixo da pasta, a linha de anotar (o gasto escrito como se fala); depois, a fita do mês (uma linha
+ * baixa por lançamento, para ver o mês inteiro) e as peças: o saldo (e quanto ainda dá por dia), como
+ * saiu, os envelopes de cada categoria (com o limite, se tiver), o Precisava?, o Por pessoa, o mês a mês
+ * e os carnês abertos. No celular, uma coluna: o saldo, a fita, e o resto embaixo.
  *
  * Em cima, a pasta de manilha do Murall (a mesma do Calendário): Este mês, as setas e o nome do mês, e o
  * Filtrar, que abre embaixo a cartela de filtros da fita; os ligados ficam colados na pasta, cada um com o
@@ -94,26 +86,26 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
  *
  * Em cima da pasta, as divisórias das vistas: **Mês**, ou **3, 6 ou 12 meses** até o mês aberto
  * (`?vista=6`). A de vários meses troca a fita pelos meses lado a lado: as colunas do mês a mês, a tabela
- * das categorias mês a mês e os maiores gastos do período, à esquerda; o saldo do período (contra os
- * mesmos meses antes dele), como saiu, o Precisava?, o Por pessoa e os carnês, à direita. Tocar num mês
- * (ou num gasto) abre aquele mês.
+ * das categorias mês a mês, os maiores gastos do período, o saldo do período (contra os mesmos meses antes
+ * dele), como saiu, o Precisava?, o Por pessoa e os carnês. Tocar num mês (ou num gasto) abre aquele mês.
  *
- * No mês, **Gráficos** (G, lembrado no aparelho) deixa a fita curta (as 8 primeiras linhas, e "Ver a fita
- * inteira") e põe embaixo dela o dia a dia e o mês contra o de antes, por categoria.
+ * As peças ficam numa colagem (ui/collage.ts), como as fichas inteiras do mural de anotações: colunas da
+ * mesma largura, quantas couberem, e cada peça cai no primeiro lugar livre, embaixo da coluna que acabou
+ * antes. No mês, a fita ocupa duas colunas quando cabem três, e as peças caem ao lado dela e, quando ela
+ * acaba, embaixo; nos vários meses, as colunas, a tabela e os maiores gastos são as largas.
  */
 @Component({
   selector: 'app-spending-page',
   imports: [
+    Collage,
     FilterTags,
     IconModule,
     SpendingCategoriesSheet,
     SpendingColumns,
-    SpendingDays,
     SpendingEnvelopes,
     SpendingGrid,
     SpendingPeriodSummary,
     SpendingTop,
-    SpendingVersus,
     SpendingWays,
     SpendingFilters,
     SpendingMonths,
@@ -140,9 +132,7 @@ export class SpendingPage {
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly MonthIcon = ICON.calendario;
   protected readonly ColumnsIcon = ICON.barras;
-  protected readonly ChartsIcon = ICON.importancia;
   protected readonly views = VIEWS;
-  protected readonly shortTape = SHORT_TAPE;
 
   private readonly filterButton = viewChild<ElementRef<HTMLButtonElement>>('filtrar');
 
@@ -184,8 +174,7 @@ export class SpendingPage {
   /** A pessoa escolhida: a fita mostra a parte dela em cada gasto. */
   protected readonly personFocus = computed(() => onlyIn(this.filter(), 'person'));
   protected readonly noFixed = signal(readText(NO_FIXED_KEY) === '1');
-  /** A fita curta e os gráficos do mês. */
-  protected readonly charts = signal(readText(CHARTS_KEY) === '1');
+
   protected readonly managing = signal(false);
   protected readonly managingPeople = signal(false);
 
@@ -224,16 +213,6 @@ export class SpendingPage {
     const rows = rowsIn(this.entries(), this.previousMonth());
     return rows.length ? totals(rows, this.entries()).spent : null;
   });
-  /** Os gráficos do mês: o que saiu em cada dia, e cada categoria contra o mês de antes. */
-  protected readonly dayAmounts = computed(() => spentByDay(this.rows(), this.open(), this.entries()));
-  protected readonly dayPlanned = computed(() =>
-    spentByDay(
-      this.rows().filter((r) => r.entry.flow === 'saida' && kindOf(r.entry) !== 'uma'),
-      this.open(),
-      this.entries(),
-    ),
-  );
-  protected readonly versus = computed(() => monthVersus(this.counted(), this.open(), this.usual().avg));
 
   // ── Vários meses ──
   /** Os meses da vista, a partir do primeiro com lançamento (os de antes do livro não diriam nada). */
@@ -361,7 +340,6 @@ export class SpendingPage {
       untracked(() => this.store.month.set(m));
     });
     effect(() => writeText(NO_FIXED_KEY, this.noFixed() ? '1' : '0'));
-    effect(() => writeText(CHARTS_KEY, this.charts() ? '1' : '0'));
     // o dia vira enquanto a página está aberta
     const tick = setInterval(() => this.today.set(todayISO()), 60_000);
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
@@ -398,7 +376,6 @@ export class SpendingPage {
     else if (e.key === 'ArrowRight') this.step(1);
     else if (e.key === 'h' || e.key === 'H') this.goToday();
     else if ((e.key === 'f' || e.key === 'F') && !this.blank() && !this.span()) this.toggleFilters(true);
-    else if ((e.key === 'g' || e.key === 'G') && !this.blank() && !this.span()) this.charts.set(!this.charts());
     else if (VIEWS.some((v) => v.key === e.key) && !this.blank()) this.setSpan(VIEWS.find((v) => v.key === e.key)!.span);
     else return;
     e.preventDefault();

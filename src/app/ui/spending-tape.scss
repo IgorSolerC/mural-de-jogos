@@ -186,18 +186,6 @@
   color: rgb(21 21 21 / 0.7);
 }
 
-/* a fita curta (com os gráficos): o resto da bobina enrolado, a um toque */
-.inteira {
-  @include gk.tinta-pequena;
-  display: flex;
-  width: 100%;
-  justify-content: center;
-  margin-top: 6px;
-  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
-  border-radius: 0;
-  padding-top: 10px;
-}
-
 .vazio {
   margin: 18px 4px 6px;
   font-family: var(--f-hand);
@@ -217,6 +205,8 @@
     grid-column: 4;
     justify-self: start;
     min-width: 0;
+    /* nunca maior que a faixa dela: o que não cabe é cortado, sem passar por cima da categoria e do valor */
+    max-width: 100%;
     overflow: hidden;
   }
   .dia small {
@@ -227,6 +217,33 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--ink-2);
+  }
+}
+
+/* Com a fita média (a de uma coluna da colagem): as marcas longas saem, para a categoria e o valor
+   ficarem inteiros; das pessoas, só quantas são */
+@container fita (min-width: 420px) and (max-width: 579px) {
+  /* o nome encurta (com reticências) antes das marcas, que ficam inteiras logo depois dele */
+  .botao {
+    grid-template-columns: 48px auto minmax(0, max-content) auto minmax(0, 1fr) auto auto;
+  }
+  .marcas {
+    max-width: none;
+    overflow: visible;
+  }
+  .cat {
+    grid-column: 6;
+  }
+  .valor {
+    grid-column: 7;
+  }
+  .com-nomes,
+  .voltou {
+    display: none;
+  }
+  /* (presa ao .com: a regra de base do .com-n vem depois no arquivo) */
+  .com .com-n {
+    display: inline;
   }
 }
 

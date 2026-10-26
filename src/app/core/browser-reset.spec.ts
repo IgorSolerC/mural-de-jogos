@@ -102,7 +102,7 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
   });
 
-  it('as preferências dos Gastos (sem os fixos, os gráficos) saem junto', async () => {
+  it('as preferências dos Gastos (sem os fixos, e os gráficos de uma versão de antes) saem junto', async () => {
     signedInBrowser();
     localStorage.setItem('meu-mural:gastos-sem-fixos:v1', '1');
     localStorage.setItem('meu-mural:gastos-graficos:v1', '1');

@@ -4,7 +4,6 @@ import { Entry, rowsIn } from '../core/spending';
 import { categoryLines, periodMonths, periodSpends, spendWays } from '../core/spending-period';
 import { SpendingColumns } from './spending-columns';
 import { SpendingGrid } from './spending-grid';
-import { SpendingTape } from './spending-tape';
 import { SpendingTop } from './spending-top';
 import { SpendingWays, WayPick } from './spending-ways';
 
@@ -107,18 +106,5 @@ describe('Gastos: os gráficos e a vista de vários meses', () => {
     f.componentInstance.go.subscribe((m) => gone.push(m));
     lines[0].click();
     expect(gone).toEqual(['2026-10']);
-  });
-
-  it('a fita curta mostra as primeiras linhas e abre inteira a um toque', () => {
-    const many = Array.from({ length: 12 }, (_, i) => entry({ title: `Gasto ${i}`, date: `2026-10-${String(i + 1).padStart(2, '0')}` }));
-    const f = render(SpendingTape, { rows: rowsIn(many, '2026-10'), month: '2026-10', short: 8 });
-    const root = f.nativeElement as HTMLElement;
-    expect(root.querySelectorAll('.linha').length).toBe(8);
-    const more = root.querySelector('.inteira') as HTMLButtonElement;
-    expect(more.textContent).toContain('Ver a fita inteira (12)');
-    more.click();
-    f.detectChanges();
-    expect(root.querySelectorAll('.linha').length).toBe(12);
-    expect(more.textContent).toContain('Recolher a fita');
   });
 });

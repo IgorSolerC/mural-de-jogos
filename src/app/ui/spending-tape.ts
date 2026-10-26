@@ -56,7 +56,7 @@ interface Line {
 
     @if (lines().length) {
       <ol class="linhas" aria-labelledby="gf-titulo">
-        @for (l of shown(); track l.row.entry.id) {
+        @for (l of lines(); track l.row.entry.id) {
           @let e = l.row.entry;
           <li class="linha" [class.novo-dia]="l.firstOfDay" [class.aberta]="open() === e.id" [class.prevista]="future()">
             <button
@@ -117,11 +117,6 @@ interface Line {
           </li>
         }
       </ol>
-      @if (short() && lines().length > short()!) {
-        <button type="button" class="inteira" [attr.aria-expanded]="whole()" (click)="whole.set(!whole())">
-          {{ whole() ? 'Recolher a fita' : 'Ver a fita inteira (' + lines().length + ')' }}
-        </button>
-      }
     } @else {
       <p class="vazio">{{ emptyText() }}</p>
     }
@@ -143,8 +138,6 @@ export class SpendingTape {
   readonly person = input<string | null>(null);
   /** Quanto já voltou de cada gasto. */
   readonly refunds = input<Map<string, number>>(new Map());
-  /** Com os gráficos: a fita mostra só as primeiras linhas, e "Ver a fita inteira" abre o resto. */
-  readonly short = input<number | null>(null);
   readonly clearFilter = output<void>();
 
   protected readonly CloseIcon = ICON.fechar;
@@ -156,8 +149,6 @@ export class SpendingTape {
 
   protected readonly order = signal<'dia' | 'valor'>('dia');
   protected readonly open = signal<string | null>(null);
-  /** A fita curta foi aberta inteira. */
-  protected readonly whole = signal(false);
 
   protected readonly title = computed(() => {
     const m = Number(this.month().slice(5, 7)) - 1;
@@ -193,14 +184,6 @@ export class SpendingTape {
         share: person && peopleOf(row.entry).length > 1 ? { amount: sharedOf(row), of: peopleOf(row.entry).length } : undefined,
       };
     });
-  });
-
-  /** As linhas à mostra: todas, ou as primeiras da fita curta (e a aberta, se estiver mais embaixo). */
-  protected readonly shown = computed(() => {
-    const n = this.short();
-    const lines = this.lines();
-    if (!n || this.whole() || lines.length <= n) return lines;
-    return lines.filter((l, i) => i < n || l.row.entry.id === this.open());
   });
 
   protected readonly emptyText = computed(() =>

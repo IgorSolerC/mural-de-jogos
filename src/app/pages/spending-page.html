@@ -1,9 +1,9 @@
 <!-- o nome da seção está na barra embaixo do topo (ui/area-bar.ts) -->
 <h1 class="sr-only">Gastos de {{ title() }}</h1>
 
-<div class="mesa" [class.em-branco]="blank()" [class.periodo]="span()" [class.graficos]="!span() && charts()">
+<div class="mesa" [class.em-branco]="blank()">
   <!-- em cima, as vistas (as divisórias de manilha, como no Calendário) e a pasta: Este mês, as setas e o
-       nome do mês (ou do período); o Gráficos e o Filtrar e, embaixo, a cartela e os filtros ligados -->
+       nome do mês (ou do período); o Filtrar e, embaixo, a cartela e os filtros ligados -->
   <div class="topo">
     <div class="pasta-com-abas">
       @if (!blank()) {
@@ -33,12 +33,6 @@
           }
           @if (!blank() && !span()) {
             <div class="pasta-controles">
-              <div class="pasta-grupo">
-                <button type="button" class="tinta" aria-keyshortcuts="g" title="Gráficos (G): a fita fica curta e os gráficos do mês aparecem" [attr.aria-pressed]="charts()" (click)="charts.set(!charts())">
-                  <lucide-icon [img]="ChartsIcon" [size]="18" aria-hidden="true" />
-                  <span>Gráficos</span>
-                </button>
-              </div>
               <div class="pasta-grupo">
                 <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
                   <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
@@ -99,22 +93,21 @@
       </ul>
       <p class="comeco-pe">Os envelopes, o saldo e o mês a mês aparecem com os primeiros lançamentos. As categorias se ajustam depois, e o que você lançar uma vez vira sugestão.</p>
     </aside>
-  } @else if (span(); as n) {
-    <!-- vários meses: à esquerda os meses lado a lado (as colunas, a tabela das categorias e os maiores
-         gastos), à direita o que se lê do período -->
-    <div class="lado lado-esq">
-      <app-spending-columns class="colunas" [months]="period()" [month]="open()" [focus]="periodFocus()" (go)="openMonth($event)" />
-      <app-spending-grid class="tabela" [months]="period()" [lines]="categoryLines()" [month]="open()" [focus]="periodFocus()" (pick)="periodFocus.set($event)" />
-      <app-spending-top class="maiores" [spends]="topSpends()" [focus]="periodFocus()" (go)="openMonth($event)" />
-    </div>
-    <div class="lado lado-dir">
+  } @else if (span()) {
+    <!-- vários meses: as peças numa colagem (ui/collage.ts), como as fichas inteiras das anotações: as
+         colunas e a tabela largas, o resto da largura de uma coluna, cada uma caindo embaixo da que
+         acabou antes -->
+    <div class="painel periodo-painel" appColagem>
+      <app-spending-columns class="colunas larga" [months]="period()" [month]="open()" [focus]="periodFocus()" (go)="openMonth($event)" />
       <app-spending-period-summary class="resumo" [totals]="periodTotals()" [previous]="previousPeriod()" [label]="periodName()" [months]="period().length" />
+      <app-spending-grid class="tabela larga" [months]="period()" [lines]="categoryLines()" [month]="open()" [focus]="periodFocus()" (pick)="periodFocus.set($event)" />
       @if (periodWays().total) {
         <app-spending-ways class="jeitos" [ways]="periodWays()" [static]="true" />
       }
       @if (periodShowNeeds()) {
         <app-spending-needs class="precisava" [sums]="periodNeedSums()" [counts]="periodNeedCounts()" [static]="true" />
       }
+      <app-spending-top class="maiores larga" [spends]="topSpends()" [focus]="periodFocus()" (go)="openMonth($event)" />
       @if (periodShowPeople()) {
         <app-spending-people class="pessoas" [sums]="periodPersonSums()" [static]="true" (manage)="managingPeople.set(true)" />
       }
@@ -123,9 +116,10 @@
       }
     </div>
   } @else {
-    <!-- um mês: à esquerda só a fita (curta, com os gráficos do mês embaixo, quando ligados); à direita
-         o que se lê do mês, com o mês a mês e os carnês no fim -->
-    <div class="lado lado-esq">
+    <!-- um mês: a fita e as peças numa colagem (ui/collage.ts), como as fichas inteiras das anotações. A
+         fita larga ocupa duas colunas quando cabem três; as peças caem ao lado dela e, quando ela acaba,
+         embaixo -->
+    <div class="painel" appColagem>
       <app-spending-tape
         class="fita"
         [rows]="tapeRows()"
@@ -135,17 +129,9 @@
         [total]="rows().length"
         [person]="personFocus()"
         [refunds]="refunds()"
-        [short]="charts() ? shortTape : null"
+        [attr.data-colagem-segura]="filtered() || null"
         (clearFilter)="clearFilters()"
       />
-      @if (charts()) {
-        <app-spending-days class="dias" [amounts]="dayAmounts()" [planned]="dayPlanned()" [month]="open()" [today]="isThisMonth() ? today() : null" />
-        @if (versus().length) {
-          <app-spending-versus class="contra" [items]="versus()" [month]="open()" [before]="previousMonth()" [selected]="focus()" (pick)="pick($event)" />
-        }
-      }
-    </div>
-    <div class="lado lado-dir">
       <app-spending-summary
         class="resumo"
         [totals]="totals()"
@@ -156,15 +142,12 @@
         [repeats]="repeats()"
         [previous]="previousSpent()"
       />
-
       @if (ways().total) {
         <app-spending-ways class="jeitos" [ways]="ways()" [pay]="payFocus()" [kind]="kindFocus()" (pick)="pickWay($event)" />
       }
-
       @if (showNeeds()) {
         <app-spending-needs class="precisava" [sums]="needSums()" [counts]="needCounts()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
       }
-
       @if (showPeople()) {
         <app-spending-people
           class="pessoas"
@@ -175,7 +158,6 @@
           (manage)="managingPeople.set(true)"
         />
       }
-
       <app-spending-envelopes
         class="envelopes"
         [sums]="sums()"
@@ -187,7 +169,6 @@
         (toggleFixed)="noFixed.set(!noFixed())"
         (manage)="managing.set(true)"
       />
-
       @if (showMonths()) {
         <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
       }

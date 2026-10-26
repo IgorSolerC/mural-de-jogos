@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-varios-meses',
+    id: '2026-10-26-colagem-dos-gastos',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
@@ -37,7 +37,7 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'Os Gastos ganharam as vistas de 3, 6 e 12 meses, nas abas em cima do mês: as colunas do mês a mês (com o que entrou e a média), as categorias mês a mês numa tabela, os maiores gastos do período e o saldo do período contra os meses antes dele. Tocar num mês ou num gasto abre aquele mês.',
       'A peça Como saiu mostra quanto foi à vista, no Pix e parcelado, e quanto foi de uma vez, em parcelas e todo mês, com a parte de cada um; tocar numa linha deixa na fita só aqueles gastos. O saldo do mês diz quanto saiu a mais ou a menos que no mês de antes.',
-      'Gráficos, na pasta do mês, deixa a fita curta e mostra o dia a dia (o que saiu em cada dia, com os fins de semana e a média) e cada categoria contra o mês de antes.',
+      'A fita e as peças dos Gastos se arrumam sozinhas numa colagem, como as fichas inteiras das Anotações: colunas da mesma largura, quantas couberem, e cada peça cai embaixo da coluna que acabou antes. Com a fita longa, as peças correm ao lado dela; com a fita curta, também embaixo.',
       'Lançar um gasto novo usa a mesma folhinha de mudar um lançamento: escreva na linha como antes ("ifood 44,90 pix") e, embaixo, cada coisa tem o seu campo, com o valor à parte, a volta de um gasto nas entradas e a categoria nova; o que você mexer na folhinha fica como deixou.',
       'Sair da conta tira deste navegador tudo o que é dela: resenhas, anotações, Gastos, Calendário, Kanban, ajustes e perfil (na nuvem fica tudo). Vale também para "Sair de todos os aparelhos", para a sessão que acaba e para a conta apagada; com alguma mudança que ainda não subiu, o site avisa antes.',
       'Entrar numa conta num navegador com o mural de outra nunca mais junta os dois: o da outra sai antes, e a conta desce inteira. O mural de quem nunca entrou continua perguntando se vai para a conta, agora também quando a conta está vazia.',

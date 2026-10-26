@@ -4,7 +4,6 @@ import {
   PAY_METHODS,
   PayMethod,
   Row,
-  monthOfDay,
   rowsIn,
   shiftMonth,
   spentByCategory,
@@ -13,8 +12,7 @@ import {
 
 /**
  * As contas dos Gastos que olham além de um mês só: a vista de vários meses (os últimos 3, 6 ou 12 até o
- * mês aberto), como o dinheiro saiu (à vista, Pix ou parcelado; uma vez, parcela ou todo mês), o mês
- * contra o de antes e o gasto de cada dia. Tudo puro, em centavos, com as mesmas regras do mês: um
+ * mês aberto) e como o dinheiro saiu (à vista, Pix ou parcelado; uma vez, parcela ou todo mês). Tudo puro, em centavos, com as mesmas regras do mês: um
  * reembolso ligado a um gasto desconta do que saiu (nunca abaixo de zero), no pedaço do gasto.
  */
 
@@ -210,49 +208,6 @@ export function periodSpends(months: readonly PeriodMonth[], entries: readonly E
     }
   }
   return [...sums.values()].sort((a, b) => b.total - a.total || (a.entry.createdAt < b.entry.createdAt ? 1 : -1));
-}
-
-/** Uma categoria neste mês, no de antes e no costume. */
-export interface Versus {
-  id: string;
-  now: number;
-  before: number;
-  /** A média dos meses de antes com lançamento (até 3), quando há. */
-  usual?: number;
-}
-
-/** As categorias de saída deste mês e do de antes, lado a lado, as maiores (de qualquer dos dois) primeiro. */
-export function monthVersus(entries: readonly Entry[], month: string, usual?: ReadonlyMap<string, number>): Versus[] {
-  const now = spentByCategory(rowsIn(entries, month), entries);
-  const prev = spentByCategory(rowsIn(entries, shiftMonth(month, -1)), entries);
-  const ids = new Set([...now, ...prev].filter((c) => c.amount > 0).map((c) => c.id));
-  return [...ids]
-    .map((id) => ({
-      id,
-      now: now.find((c) => c.id === id)?.amount ?? 0,
-      before: prev.find((c) => c.id === id)?.amount ?? 0,
-      ...(usual?.get(id) ? { usual: Math.round(usual.get(id)!) } : {}),
-    }))
-    .sort((a, b) => Math.max(b.now, b.before) - Math.max(a.now, a.before) || (a.id < b.id ? -1 : 1));
-}
-
-/** O que saiu em cada dia do mês (índice 0 = dia 1), já sem o que voltou; o que é de um dia de outro mês fica no primeiro ou no último. */
-export function spentByDay(rows: readonly Row[], month: string, entries: readonly Entry[]): number[] {
-  const [y, m] = month.split('-').map(Number);
-  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const out = Array.from({ length: days }, () => 0);
-  const indexOf = (day: string) => (monthOfDay(day) < month ? 0 : monthOfDay(day) > month ? days - 1 : Number(day.slice(8, 10)) - 1);
-  const expenses = new Set(entries.filter((e) => e.flow === 'saida').map((e) => e.id));
-  for (const r of rows) {
-    if (r.entry.flow === 'saida') out[indexOf(r.day)] += r.amount;
-  }
-  for (const r of rows) {
-    if (r.entry.flow === 'entrada' && r.entry.refundOf && expenses.has(r.entry.refundOf)) {
-      const i = indexOf(r.day);
-      out[i] = Math.max(0, out[i] - r.amount);
-    }
-  }
-  return out;
 }
 
 /** Os `n` meses logo antes do período, somados, para comparar (null se lá não há lançamento nenhum). */
