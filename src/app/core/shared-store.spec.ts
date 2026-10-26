@@ -5,6 +5,7 @@ import { Cloud } from './cloud-config';
 import { LocalData } from './local-data';
 import { Review, sanitizeReview, withPin } from './review';
 import { ReviewStore } from './review-store';
+import { toggleCheck } from './rich-text';
 import { Settings } from './settings';
 import { SHARED_AUTO, SharedStore } from './shared-store';
 import { CloudSync, SYNC_AUTO, SYNC_STORAGE } from './cloud-sync';
@@ -432,6 +433,57 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       await sync(ana, bia, ana);
       expect(ana.text('nota-1')).toBe('UM\ndois\nTRÊS');
       expect(bia.text('nota-1')).toBe('UM\ndois\nTRÊS');
+    });
+
+    describe('marcar tarefas', () => {
+      const LIST = '- [ ] Pão\n- [ ] Leite\n- [ ] Café';
+      /** Marca (ou desmarca) a tarefa da linha, como a ficha e a leitura fazem. */
+      const tick = (p: Person, line: number) => p.edit('nota-1', { text: toggleCheck(p.text('nota-1')!, line) });
+      const ticked = (p: Person) => p.text('nota-1')!.split('\n').map((l) => l.startsWith('- [x]'));
+
+      it('as duas marcam tarefas vizinhas ao mesmo tempo: as duas ficam marcadas, sem conflito', async () => {
+        const { ana, bia, cris } = await sharedNote(LIST);
+        tick(ana, 0);
+        tick(bia, 1);
+        await sync(ana, bia, ana, cris);
+        for (const p of [ana, bia, cris]) expect(ticked(p)).toEqual([true, true, false]);
+        expect(ana.shared.conflicts()).toEqual([]);
+        expect(bia.shared.conflicts()).toEqual([]);
+      });
+
+      it('marcadas e desmarcadas várias vezes, cada uma sincronizando numa ordem: fica como ficou por último', async () => {
+        const { ana, bia, cris } = await sharedNote(LIST);
+        const steps: [Person, number][] = [
+          [ana, 0],
+          [bia, 0],
+          [bia, 2],
+          [ana, 1],
+          [ana, 0],
+          [bia, 1],
+        ];
+        for (const [i, [p, line]] of steps.entries()) {
+          tick(p, line);
+          await (i % 2 ? sync(bia, ana) : sync(ana, bia));
+        }
+        await sync(cris);
+        for (const p of [ana, bia, cris]) expect(ticked(p)).toEqual([true, false, true]);
+      });
+
+      it('uma marca enquanto a outra mexe nas tags dela: a marca chega, e as tags de cada uma ficam como cada uma deixou', async () => {
+        const { ana, bia } = await sharedNote(LIST, { tags: ['Feira'] });
+        bia.edit('nota-1', { tags: ['Mercado'] });
+        tick(ana, 2);
+        ana.edit('nota-1', { tags: ['Feira', 'Semana'] });
+        await sync(ana, bia, ana);
+        for (const p of [ana, bia]) expect(ticked(p)).toEqual([false, false, true]);
+        expect(ana.store.get('nota-1')!.tags).toEqual(['Feira', 'Semana']);
+        expect(bia.store.get('nota-1')!.tags).toEqual(['Mercado']);
+        // e mais rodadas não desfazem nada
+        await sync(bia, ana, bia);
+        expect(ticked(bia)).toEqual([false, false, true]);
+        expect(ana.store.get('nota-1')!.tags).toEqual(['Feira', 'Semana']);
+        expect(bia.store.get('nota-1')!.tags).toEqual(['Mercado']);
+      });
     });
 
     it('uma apaga uma linha e a outra mexe em outra: as duas ficam', async () => {

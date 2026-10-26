@@ -753,6 +753,18 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
       }
     });
 
+    it('tarefas vizinhas marcadas ao mesmo tempo, uma em cada aparelho: as duas ficam, sem conflito', async () => {
+      const { a, b } = await withList();
+      tick(a, 'nl01', 0);
+      await later();
+      tick(b, 'nl01', 1);
+      await settle(b, a);
+      for (const d of [a, b]) {
+        expect(ticked(d)).toEqual([true, true, false]);
+        expect(d.conflicts.pending()).toEqual([]);
+      }
+    });
+
     it('marcada sem rede: fica no aparelho e vai quando a rede volta, mesmo com o outro mexendo na mesma anotação', async () => {
       const { a, b } = await withList();
       cloud.offline = true;
