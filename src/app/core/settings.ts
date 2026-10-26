@@ -1,9 +1,9 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { fold } from './review';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategoryLooks, tagColorOf, tagLookKey } from './category-looks';
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden } from './mural-config';
-import { writeJson } from './storage';
+import { onOtherTab, writeJson } from './storage';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -377,6 +377,34 @@ export class Settings {
     this.notesConfigAt.set(at);
   }
 
+  /** Os ajustes como outra aba os gravou. */
+  private reload(): void {
+    const s = readStored();
+    this.rawgKey.set(s.rawgKey);
+    this.tmdbKey.set(s.tmdbKey);
+    this.groupLabels.set(s.groupLabels);
+    this.noSpoilers.set(s.noSpoilers);
+    scoreDisplay.set(s.scoreDisplay);
+    this.ownerName.set(s.ownerName);
+    this.mailCount.set(s.mailCount);
+    this.keysAt.set(s.keysAt);
+    this.friendSpoilers.set(s.friendSpoilers);
+    this.friendKinds.set(s.friendKinds);
+    this.pinnedTags.set(s.pinnedTags);
+    this.pinnedTagsAt.set(s.pinnedTagsAt);
+    this.categoryLooks.set(s.categoryLooks);
+    this.categoryLooksAt.set(s.categoryLooksAt);
+    this.cardLayers.set(s.cardLayers);
+    this.noCutShadows.set(s.noCutShadows);
+    this.plainPencil.set(s.plainPencil);
+    this.stillCards.set(s.stillCards);
+    this.fewCards.set(s.fewCards);
+    this.askNoCategory.set(s.askNoCategory);
+    this.askNoTag.set(s.askNoTag);
+    this.notesConfig.set(s.notesConfig);
+    this.notesConfigAt.set(s.notesConfigAt);
+  }
+
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
   setKey(which: 'rawg' | 'tmdb', value: string): void {
     (which === 'rawg' ? this.rawgKey : this.tmdbKey).set(value);
@@ -419,6 +447,9 @@ export class Settings {
       };
       writeJson(KEY, data);
     });
+    // outra aba mudou os ajustes (a cor de uma tag, um grupo, as tags fixas): esta acompanha, senão a
+    // próxima mudança daqui gravaria por cima, e a sincronização mandaria de volta o que esta tinha
+    inject(DestroyRef).onDestroy(onOtherTab(KEY, () => this.reload()));
     // as escolhas de Desempenho valem no site inteiro: uma classe na raiz para cada uma que o CSS troca
     // (ver styles.scss e pages/wall-board.scss)
     effect(() => {

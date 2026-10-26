@@ -26,16 +26,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-25-link-aberta-ou-fechada',
+    id: '2026-10-25-duas-abas-sem-voltar-atras',
     version: '1.32.2',
     kind: 'ajustes',
     date: '2026-10-25',
-    title: 'O link que começa fechado, o Kanban e o cofre no celular',
+    title: 'Duas abas sem voltar atrás, o link que começa fechado e o celular',
     melhorias: [
       'O link da ficha pode começar com ela aberta, pronta para ler, ou fechada, como fica no mural: a escolha fica na folha do link, e o próximo link começa igual.',
       'No celular, a lista do cofre não se apaga mais nas beiradas: as senhas e os botões de copiar ficam nítidos de ponta a ponta.',
     ],
-    correcoes: ['No celular, a contagem do Kanban não fica mais por cima da aba Cofre: nas Anotações, ela desce para o lado do logo da seção.'],
+    correcoes: [
+      'Com o Murall aberto em duas abas (ou no app e numa aba), o que você muda numa (a cor e o nome das tags e dos grupos, o Kanban, o perfil, os lembretes) não volta mais sozinho pela outra, nem nos outros aparelhos.',
+      'No celular, a contagem do Kanban não fica mais por cima da aba Cofre: nas Anotações, ela desce para o lado do logo da seção.',
+    ],
   },
   {
     id: '2026-10-24-busca-de-livros-e-chave-da-rawg',

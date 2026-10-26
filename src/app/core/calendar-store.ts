@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { CalendarState, GoogleLink, Reminder, drawColor, mergeCalendar, remindersOn, sanitizeCalendar, skipDay } from './calendar';
 import { todayISO } from './dates';
 
@@ -8,7 +8,7 @@ function nowTime(): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 import { newId } from './review';
-import { writeJson } from './storage';
+import { onOtherTab, writeJson } from './storage';
 
 /** Os lembretes deste navegador (vão embora com "Apagar o save", como os quadros do Kanban). */
 export const CALENDAR_KEY = 'meu-mural:calendario:v1';
@@ -67,6 +67,8 @@ export class CalendarStore {
 
   constructor() {
     effect(() => writeJson(CALENDAR_KEY, this.state()));
+    // outra aba mexeu nos lembretes: esta acompanha, sem gravar os de antes por cima
+    inject(DestroyRef).onDestroy(onOtherTab(CALENDAR_KEY, () => this.state.set(read())));
   }
 
   /** Confere se o dia (ou o minuto) virou: a página chama de vez em quando e quando a aba volta. */

@@ -10,6 +10,7 @@ import { LabelEdits } from './label-edits';
 import { LocalData } from './local-data';
 import { PROFILE_KEY, ProfileStore } from './profile-store';
 import { Review, sanitizeReview } from './review';
+import { toggleCheck } from './rich-text';
 import { ReviewStore } from './review-store';
 import { SETTINGS_KEY, Settings } from './settings';
 import { SHARED_AUTO, SharedStore } from './shared-store';
@@ -55,12 +56,32 @@ class FakeCloud {
   doc: Uint8Array | null = null;
   offline = false;
   puts = 0;
+  /**
+   * Segura o próximo download (`GET`) ou envio (`PUT`) do mural no meio do caminho: `held` resolve
+   * quando ele chega, e ele só segue com `release()` (para mexer no aparelho com o pedido a caminho).
+   */
+  private holds: Partial<Record<'GET' | 'PUT', { arrived: () => void; gate: Promise<void> }>> = {};
+
+  hold(method: 'GET' | 'PUT'): { held: Promise<void>; release: () => void } {
+    let arrived!: () => void;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (arrived = r));
+    const gate = new Promise<void>((r) => (release = r));
+    this.holds[method] = { arrived, gate };
+    return { held, release };
+  }
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
     if (this.offline) throw new TypeError('Failed to fetch');
     const u = new URL(url);
     const method = init.method ?? 'GET';
     const headers = (init.headers ?? {}) as Record<string, string>;
+    const hold = u.pathname === '/v1/eu/mural' ? this.holds[method as 'GET' | 'PUT'] : undefined;
+    if (hold) {
+      delete this.holds[method as 'GET' | 'PUT'];
+      hold.arrived();
+      await hold.gate;
+    }
     if (u.pathname === '/v1/eu' && method === 'GET') return json({ ...ACCOUNT, seguidores: 0, seguindo: 0 });
     if (u.pathname === '/v1/eu/notas' && method === 'GET') return json({ notas: [] });
     if (u.pathname === '/v1/eu/mural' && method === 'GET') {
@@ -118,6 +139,8 @@ interface Device {
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
+  /** O armazenamento das fichas deste aparelho (as abas do mesmo aparelho dividem). */
+  data: MemoryData;
   /** O quadro da categoria (guardado ou o de sempre). */
   board(category: string): KanbanBoard;
   /** As anotações de cada coluna do quadro, pelo nome da coluna. */
@@ -147,13 +170,17 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
     localStorage.clear();
   });
 
-  /** Um aparelho novo (os ajustes, o perfil e os quadros de cada um: o localStorage do teste é um só). */
-  function device(): Device {
-    for (const k of [SETTINGS_KEY, PROFILE_KEY, KANBAN_KEY]) localStorage.removeItem(k);
-    const kv = memoryKv();
+  /**
+   * Um aparelho novo (os ajustes, o perfil e os quadros de cada um: o localStorage do teste é um só).
+   * Com `tabOf`, outra aba do mesmo aparelho: o mesmo armazenamento, o mesmo estado da sincronização.
+   */
+  function device(tabOf?: Device): Device {
+    if (!tabOf) for (const k of [SETTINGS_KEY, PROFILE_KEY, KANBAN_KEY]) localStorage.removeItem(k);
+    const kv = tabOf?.kv ?? memoryKv();
+    const data = tabOf?.data ?? new MemoryData();
     const injector = createEnvironmentInjector(
       [
-        { provide: LocalData, useClass: MemoryData },
+        { provide: LocalData, useValue: data },
         ReviewStore,
         Settings,
         ProfileStore,
@@ -183,6 +210,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
       conflicts: injector.get(SyncConflicts),
       sync: injector.get(CloudSync),
       kv,
+      data,
       board,
       layout: (category) => {
         const b = board(category);
@@ -672,6 +700,233 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
         expect(d.store.get('cs01')!.tags).toEqual(['Urgente']);
       }
       expect(await settle(a, b)).toBe(1);
+    });
+  });
+
+  /**
+   * As mexidas pequenas, que a pessoa faz sem abrir o editor e espera que fiquem: marcar uma tarefa na
+   * ficha ou na leitura, e mexer nas tags (o nome, a cor, tirar). Nenhuma pode voltar atrás sozinha,
+   * nem quando o outro aparelho mexe na mesma anotação, nem com o envio ou o download no meio do caminho.
+   */
+  describe('as mexidas pequenas (marcar tarefas, mexer nas tags)', () => {
+    const LIST = '- [ ] Pão\n- [ ] Leite\n- [ ] Café';
+
+    /** Marca (ou desmarca) a tarefa da linha, como a ficha e a leitura fazem. */
+    function tick(d: Device, id: string, line: number): void {
+      const r = d.store.get(id)!;
+      d.store.update({ ...r, text: toggleCheck(r.text, line), updatedAt: new Date().toISOString() });
+    }
+    const ticked = (d: Device, id = 'nl01') => d.store.get(id)!.text.split('\n').map((l) => l.startsWith('- [x]'));
+
+    /** Dois aparelhos sincronizados com a lista de compras (Casa, tag Feira). */
+    async function withList(): Promise<{ a: Device; b: Device }> {
+      const a = device();
+      a.store.add(note('nl01', 'Casa', { text: LIST, tags: ['Feira'] }));
+      await a.sync.syncNow();
+      const b = device();
+      await b.sync.syncNow();
+      expect(b.store.get('nl01')?.text).toBe(LIST);
+      await later();
+      return { a, b };
+    }
+
+    it('marcar uma tarefa chega no outro aparelho, e desmarcar também', async () => {
+      const { a, b } = await withList();
+      tick(a, 'nl01', 1);
+      await settle(a, b);
+      expect(ticked(b)).toEqual([false, true, false]);
+      await later();
+      tick(b, 'nl01', 1);
+      await settle(b, a);
+      for (const d of [a, b]) expect(ticked(d)).toEqual([false, false, false]);
+    });
+
+    it('cada aparelho marca uma tarefa diferente da mesma anotação ao mesmo tempo: as duas ficam marcadas', async () => {
+      const { a, b } = await withList();
+      tick(a, 'nl01', 0);
+      await later();
+      tick(b, 'nl01', 2);
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(ticked(d)).toEqual([true, false, true]);
+        expect(d.conflicts.pending()).toEqual([]);
+      }
+    });
+
+    it('marcada sem rede: fica no aparelho e vai quando a rede volta, mesmo com o outro mexendo na mesma anotação', async () => {
+      const { a, b } = await withList();
+      cloud.offline = true;
+      tick(a, 'nl01', 0);
+      await a.sync.syncNow();
+      expect(ticked(a)).toEqual([true, false, false]);
+      cloud.offline = false;
+      await later();
+      tick(b, 'nl01', 1);
+      await b.sync.syncNow();
+      await settle(a, b);
+      for (const d of [a, b]) expect(ticked(d)).toEqual([true, true, false]);
+    });
+
+    it('marcada com o envio a caminho: vai no envio seguinte, e nada volta atrás', async () => {
+      const { a, b } = await withList();
+      tick(a, 'nl01', 0);
+      const put = cloud.hold('PUT');
+      const run = a.sync.syncNow();
+      await put.held;
+      await later();
+      tick(a, 'nl01', 1);
+      put.release();
+      await run;
+      expect(ticked(a)).toEqual([true, true, false]);
+      await settle(a, b);
+      for (const d of [a, b]) expect(ticked(d)).toEqual([true, true, false]);
+    });
+
+    it('marcada com o download a caminho, que traz a mesma anotação mudada no outro aparelho: as duas marcas ficam', async () => {
+      const { a, b } = await withList();
+      tick(b, 'nl01', 2);
+      await b.sync.syncNow();
+      await later();
+      const get = cloud.hold('GET');
+      const run = a.sync.syncNow();
+      await get.held;
+      tick(a, 'nl01', 0);
+      get.release();
+      await run;
+      expect(ticked(a)).toEqual([true, false, true]);
+      await settle(a, b);
+      for (const d of [a, b]) expect(ticked(d)).toEqual([true, false, true]);
+    });
+
+    it('marcada e desmarcada várias vezes, sincronizando no meio em ordens diferentes: fica como ficou por último', async () => {
+      const { a, b } = await withList();
+      const steps: [Device, number][] = [
+        [a, 0],
+        [b, 0],
+        [a, 1],
+        [b, 2],
+        [a, 0],
+        [b, 1],
+      ];
+      for (const [i, [d, line]] of steps.entries()) {
+        tick(d, 'nl01', line);
+        await (i % 2 ? settle(b, a) : settle(a, b));
+        await later();
+      }
+      // 0: marcada três vezes; 1: duas; 2: uma
+      for (const d of [a, b]) expect(ticked(d)).toEqual([true, false, true]);
+    });
+
+    it('renomear a tag num aparelho e marcar uma tarefa da mesma anotação no outro: as duas coisas ficam', async () => {
+      const { a, b } = await withList();
+      a.settings.setTagColor('Feira', 'azul', 'Casa');
+      await settle(a, b);
+      await later();
+      a.labels.renameTag('Feira', 'Casa', 'Mercado');
+      await later();
+      tick(b, 'nl01', 0);
+      await settle(b, a);
+      for (const d of [a, b]) {
+        expect(d.store.get('nl01')!.tags).toEqual(['Mercado']);
+        expect(ticked(d)).toEqual([true, false, false]);
+        expect(d.settings.tagColor('Mercado', 'Casa')).toBe('azul');
+      }
+    });
+
+    it('tirar a tag num aparelho e marcar uma tarefa no outro: a tag não volta, e a marca fica', async () => {
+      const { a, b } = await withList();
+      a.labels.renameTag('Feira', 'Casa', null);
+      await later();
+      tick(b, 'nl01', 1);
+      await settle(a, b);
+      await settle(b, a);
+      for (const d of [a, b]) {
+        expect(d.store.get('nl01')!.tags ?? []).toEqual([]);
+        expect(ticked(d)).toEqual([false, true, false]);
+      }
+    });
+
+    it('a cor da tag trocada várias vezes, em aparelhos diferentes, com tarefas marcadas no meio: fica a última, nos dois', async () => {
+      const { a, b } = await withList();
+      a.settings.setTagColor('Feira', 'azul', 'Casa');
+      await later();
+      tick(b, 'nl01', 1);
+      await settle(a, b);
+      await later();
+      b.settings.setTagColor('Feira', 'verde', 'Casa');
+      await settle(b, a);
+      await later();
+      a.settings.setTagColor('Feira', 'rosa', 'Casa');
+      await settle(a, b);
+      // mais rodadas sem ninguém mexer não mudam nada
+      expect(await settle(b, a)).toBe(1);
+      for (const d of [a, b]) {
+        expect(d.settings.tagColor('Feira', 'Casa')).toBe('rosa');
+        expect(ticked(d)).toEqual([false, true, false]);
+      }
+    });
+
+    /**
+     * Duas abas abertas no mesmo aparelho dividem o armazenamento e o estado da sincronização (a base
+     * da junção). A aba que ficou aberta desde antes não pode mandar de volta para a nuvem o que a
+     * outra já mudou, nem gravar por cima no aparelho.
+     */
+    describe('duas abas no mesmo aparelho', () => {
+      /** O que o navegador faz nas outras abas quando uma grava no localStorage (depois de gravar). */
+      const otherTabsSee = async (key: string) => {
+        await later();
+        window.dispatchEvent(new StorageEvent('storage', { key, newValue: localStorage.getItem(key), storageArea: localStorage }));
+        await later();
+      };
+
+      it('a cor da tag mudada numa aba não volta pela outra, aberta desde antes; e o que a outra muda depois soma', async () => {
+        const a = device();
+        a.store.add(note('nl01', 'Casa', { text: LIST, tags: ['Feira'] }));
+        await a.sync.syncNow();
+        const t = device(a);
+        await t.sync.syncNow();
+        await later();
+        a.settings.setTagColor('Feira', 'azul', 'Casa');
+        await otherTabsSee(SETTINGS_KEY);
+        await a.sync.syncNow();
+        await t.sync.syncNow();
+        await later();
+        t.settings.setCategoryLook('Trabalho', { color: 'verde' });
+        await otherTabsSee(SETTINGS_KEY);
+        await t.sync.syncNow();
+        await a.sync.syncNow();
+        const c = device();
+        await c.sync.syncNow();
+        for (const d of [a, t, c]) {
+          expect(d.settings.tagColor('Feira', 'Casa')).toBe('azul');
+          expect(d.settings.categoryLook('Trabalho').color).toBe('verde');
+        }
+      });
+
+      it('a anotação movida no Kanban numa aba não volta pela outra; e o que a outra move depois soma', async () => {
+        const a = device();
+        for (const id of ['nt01', 'nt02']) a.store.add(note(id, 'Trabalho'));
+        edit(a, 'Trabalho', (x, at) => ['nt01', 'nt02'].reduce((y, id) => placeCard(y, id, col(y, 'A fazer'), at), x));
+        await a.sync.syncNow();
+        const t = device(a);
+        await t.sync.syncNow();
+        await later();
+        edit(a, 'Trabalho', (x, at) => placeCard(x, 'nt01', col(x, 'Feito'), at));
+        await otherTabsSee(KANBAN_KEY);
+        await a.sync.syncNow();
+        await t.sync.syncNow();
+        await later();
+        edit(t, 'Trabalho', (x, at) => placeCard(x, 'nt02', col(x, 'Fazendo'), at));
+        await otherTabsSee(KANBAN_KEY);
+        await t.sync.syncNow();
+        await a.sync.syncNow();
+        const c = device();
+        await c.sync.syncNow();
+        for (const d of [a, t, c]) {
+          expect(d.layout('Trabalho')['Feito']).toEqual(['nt01']);
+          expect(d.layout('Trabalho')['Fazendo']).toEqual(['nt02']);
+        }
+      });
     });
   });
 });

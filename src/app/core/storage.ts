@@ -49,3 +49,24 @@ export function removeKey(key: string): void {
     /* nada guardado */
   }
 }
+
+/**
+ * Outra aba deste navegador gravou (ou tirou) a chave: `fn` roda, para esta aba acompanhar. Quem guarda
+ * o estado inteiro numa chave e o regrava a cada mudança precisa disto: sem acompanhar, a aba aberta
+ * desde antes regravaria o que tinha por cima do que a outra mudou (e a sincronização o mandaria de
+ * volta para a nuvem). A aba que gravou não ouve a própria gravação. Devolve como parar de ouvir.
+ */
+export function onOtherTab(key: string, fn: () => void): () => void {
+  if (typeof window === 'undefined') return () => undefined;
+  const listen = (e: StorageEvent) => {
+    if (e.key !== key && e.key !== null) return;
+    try {
+      if (e.storageArea && e.storageArea !== localStorage) return;
+    } catch {
+      return;
+    }
+    fn();
+  };
+  window.addEventListener('storage', listen);
+  return () => window.removeEventListener('storage', listen);
+}

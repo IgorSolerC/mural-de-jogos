@@ -1,6 +1,6 @@
-import { Injectable, effect, signal } from '@angular/core';
+import { DestroyRef, Injectable, effect, inject, signal } from '@angular/core';
 import { Profile, defaultProfile, sanitizeProfile } from './profile';
-import { writeJson } from './storage';
+import { onOtherTab, writeJson } from './storage';
 
 /** O perfil deste navegador e quando mudou (fica com "Apagar o save", como os outros ajustes). */
 export const PROFILE_KEY = 'meu-mural:perfil:v1';
@@ -39,6 +39,14 @@ export class ProfileStore {
       const data: StoredProfile = { perfil: this.profile(), em: this.changedAt() };
       writeJson(PROFILE_KEY, data);
     });
+    // outra aba mudou o perfil: esta acompanha, sem gravar o de antes por cima
+    inject(DestroyRef).onDestroy(
+      onOtherTab(PROFILE_KEY, () => {
+        const s = read();
+        this.profile.set(s.perfil);
+        this.changedAt.set(s.em);
+      }),
+    );
   }
 
   /** Muda o perfil (o resultado passa pelo saneamento, com os limites). */

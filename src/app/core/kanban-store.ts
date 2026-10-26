@@ -1,10 +1,10 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { EMPTY_KANBAN, Importance, KanbanBoard, KanbanCard, KanbanState, attachLegacy, boardCategories, boardIdFor, categoryKey, freshBoard, liveCards, mergeKanban, moveBoardCategory, onWall, restoredBoard, sanitizeKanban, setWall } from './kanban';
 import { activeOrder, kanbanOnly } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
-import { writeJson } from './storage';
+import { onOtherTab, writeJson } from './storage';
 
 /** Os quadros deste navegador (vão embora com "Apagar o save", como as anotações). */
 export const KANBAN_KEY = 'meu-mural:kanban:v1';
@@ -119,6 +119,9 @@ export class KanbanStore {
       const data = this.state();
       writeJson(KANBAN_KEY, data);
     });
+    // outra aba mexeu nos quadros: esta acompanha (senão gravaria por cima, e a sincronização mandaria
+    // de volta os quadros de antes)
+    inject(DestroyRef).onDestroy(onOtherTab(KANBAN_KEY, () => this.state.set(read())));
     // os quadros de antes, assim que existem (ao abrir, ou vindos da nuvem)
     effect(() => {
       if (this.state().legacy.length) untracked(() => this.attachLegacy());

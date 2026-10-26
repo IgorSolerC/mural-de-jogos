@@ -640,8 +640,6 @@ export class CloudSync {
   /** O mural local mudou por causa da própria sincronização: não agenda outra por isso. */
   private applying = false;
   private lastAttempt = 0;
-  /** O conteúdo da base da conta (ver core/sync-base.ts), lido uma vez. */
-  private baseCache: BaseContent | null = null;
   /** As fichas e os quadros como estavam na última vez que a base olhou (ver `captureBase`). */
   private seenReviews: readonly Review[] = this.store.reviews();
   private seenBoards: readonly KanbanBoard[] = this.kanban.state().boards;
@@ -1059,14 +1057,16 @@ export class CloudSync {
     return out;
   }
 
-  /** O conteúdo da base desta conta (ver core/sync-base.ts). */
+  /**
+   * O conteúdo da base desta conta (ver core/sync-base.ts), lido de novo a cada vez: outra aba do mesmo
+   * aparelho divide a base com esta e pode tê-la mudado (uma cópia na memória gravaria a de antes por
+   * cima da dela).
+   */
   private baseFor(conta: string): BaseContent {
-    if (this.baseCache?.conta !== conta) this.baseCache = readBaseContent(this.kv, conta);
-    return this.baseCache;
+    return readBaseContent(this.kv, conta);
   }
 
   private writeBaseContent(base: BaseContent | null): void {
-    this.baseCache = base;
     writeBaseContent(this.kv, base);
   }
 
