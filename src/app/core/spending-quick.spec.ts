@@ -1,5 +1,5 @@
-import { DEFAULT_CATEGORIES, Entry } from './spending';
-import { QuickContext, quickToEntry, readQuick } from './spending-quick';
+import { DEFAULT_CATEGORIES, DEFAULT_PERSON, Entry } from './spending';
+import { QuickContext, peopleText, quickToEntry, readQuick } from './spending-quick';
 
 const old = (over: Partial<Entry>): Entry => ({
   id: 'x' + Math.random().toString(36).slice(2, 8),
@@ -82,5 +82,34 @@ describe('Gastos: a linha de anotar', () => {
   it('sem valor ou sem nome não lança', () => {
     expect(quickToEntry(readQuick('ifood', ctx()))).toBeNull();
     expect(quickToEntry(readQuick('44,90', ctx()))).toBeNull();
+  });
+
+  it('com quem: "@bruna @biel" junta as pessoas a você; a do livro pelo nome ou pelo começo; a nova ganha nome', () => {
+    const people = [DEFAULT_PERSON, { id: 'p1', name: 'Bruna', at: '2026-10-01T00:00:00.000Z' }, { id: 'p2', name: 'Bianca', at: '2026-10-01T00:00:00.000Z' }];
+    const q = readQuick('jantar domingo 600 @bru @biel @Bruna', { ...ctx(), people });
+    expect([q.title, q.amount]).toEqual(['Jantar domingo', 60000]);
+    expect(q.people).toEqual([
+      { id: 'eu', name: 'Eu' },
+      { id: 'p1', name: 'Bruna' },
+      { id: null, name: 'Biel' },
+    ]);
+    // as novas são criadas por quem lança; aqui ficam de fora
+    expect(quickToEntry(q)!.people).toEqual(['eu', 'p1']);
+    expect(quickToEntry({ ...q, people: [{ id: 'eu', name: 'Eu' }] })!.people).toBeUndefined();
+    // "@bi" é curto demais para achar alguém pelo começo: vira uma pessoa nova
+    expect(readQuick('pizza 80 @bi', { ...ctx(), people }).people![1]).toEqual({ id: null, name: 'Bi' });
+    expect(readQuick('pizza 80 @ana_paula', ctx()).people![1]).toEqual({ id: null, name: 'Ana paula' });
+  });
+
+  it('sem @, só você (nada guardado); numa entrada não há com quem', () => {
+    expect(readQuick('pomada 77', ctx()).people).toBeUndefined();
+    expect(quickToEntry(readQuick('pomada 77', ctx()))!.people).toBeUndefined();
+    const e = readQuick('pix +50 @bruna', ctx());
+    expect([e.flow, e.people]).toEqual(['entrada', undefined]);
+  });
+
+  it('os nomes curtos para o adesivo', () => {
+    expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }])).toBe('Eu, Bruna');
+    expect(peopleText([{ id: 'eu', name: 'Eu' }, { id: 'a', name: 'Bruna' }, { id: 'b', name: 'Biel' }])).toBe('Eu +2');
   });
 });

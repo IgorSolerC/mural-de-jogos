@@ -13,7 +13,9 @@ import { cleanLabel, fold } from './text';
  * - **fixo** (salário, aluguel, as contas) se repete todo mês desde o primeiro; mudar o valor num mês vale
  *   dali em diante (`values`), e um mês pode ficar de fora (`skip`) ou ser o último (`until`);
  * - o **reembolso** (uma entrada) pode dizer de que gasto ele é (`refundOf`): o gasto mostra quanto voltou,
- *   e as contas por categoria usam o que ele custou de verdade.
+ *   e as contas por categoria usam o que ele custou de verdade;
+ * - cada saída é **com alguém** (`people`): você, por padrão, e quem mais estava junto. Por pessoa, o gasto
+ *   conta dividido em partes iguais (o jantar de R$ 600 com três vale R$ 200 para cada um).
  *
  * Os valores são em centavos (inteiros, sempre positivos; a direção diz o sinal), os dias 'AAAA-MM-DD' e
  * os meses 'AAAA-MM'. Tudo aqui é puro.
@@ -57,11 +59,15 @@ export function isNeed(v: unknown): v is Need {
 
 export const TITLE_MAX = 80;
 export const CATEGORY_NAME_MAX = 24;
+export const PERSON_NAME_MAX = 24;
+/** Até quantas pessoas num gasto. */
+export const MAX_PEOPLE = 20;
 /** Até R$ 10 milhões num lançamento. */
 export const AMOUNT_MAX = 1_000_000_000;
 export const MAX_INSTALLMENTS = 72;
 const MAX_ENTRIES = 20_000;
 const MAX_CATEGORIES = 80;
+const MAX_PERSONS = 120;
 
 export interface SpendingCategory {
   id: string;
@@ -75,6 +81,17 @@ export interface SpendingCategory {
   at: string;
 }
 
+/** Alguém com quem se gasta (a Bruna, o Biel). Você é a pessoa `eu`, que está em todo livro. */
+export interface SpendingPerson {
+  id: string;
+  name: string;
+  /** Quando mudou por último (a junção entre aparelhos). */
+  at: string;
+}
+
+/** Você: a pessoa de todo gasto que não diz outra coisa. */
+export const ME = 'eu';
+
 export interface Entry {
   id: string;
   title: string;
@@ -87,6 +104,8 @@ export interface Entry {
   pay?: PayMethod;
   /** Só nas saídas: se precisava. */
   need?: Need;
+  /** Só nas saídas: com quem foi (ids das pessoas, ao menos uma). Sem nada, só você (`[ME]`). */
+  people?: string[];
   /** O dia: no parcelado, o da primeira parcela; no fixo, o do primeiro mês. */
   date: string;
   /** Parcelado: quantas parcelas (2 ou mais). */
@@ -108,7 +127,9 @@ export interface Entry {
 export interface SpendingState {
   entries: Entry[];
   categories: SpendingCategory[];
-  /** Os lançamentos e as categorias apagados (id → quando). */
+  /** As pessoas dos gastos; você (`ME`) está sempre. */
+  people: SpendingPerson[];
+  /** Os lançamentos, as categorias e as pessoas apagados (id → quando). */
   removed: Record<string, string>;
 }
 
@@ -134,7 +155,10 @@ export const DEFAULT_CATEGORIES: readonly SpendingCategory[] = [
   { id: 'outras-entradas', name: 'Outros', flow: 'entrada', color: 'cinza', at: BORN },
 ];
 
-export const EMPTY_SPENDING: SpendingState = { entries: [], categories: [...DEFAULT_CATEGORIES], removed: {} };
+/** Você, como nasce em todo livro (o nome pode mudar; apagar, não). */
+export const DEFAULT_PERSON: SpendingPerson = { id: ME, name: 'Eu', at: BORN };
+
+export const EMPTY_SPENDING: SpendingState = { entries: [], categories: [...DEFAULT_CATEGORIES], people: [DEFAULT_PERSON], removed: {} };
 
 // ── Dinheiro ────────────────────────────────────────────────────────────────────────────────────────
 
@@ -351,6 +375,51 @@ export function spentByCategory(rows: readonly Row[], entries: readonly Entry[])
 /** Quanto saiu no mês em cada necessidade (`null`: sem resposta), já sem o que voltou. Só as que tiveram gasto. */
 export function spentByNeed(rows: readonly Row[], entries: readonly Entry[]): Map<Need | null, number> {
   return spentBy(rows, entries, (e) => e.need ?? null);
+}
+
+/** Com quem foi a saída: as pessoas dela, ou só você. */
+export function peopleOf(e: Pick<Entry, 'people'>): string[] {
+  return e.people?.length ? e.people : [ME];
+}
+
+/**
+ * Um valor dividido em partes iguais entre `n` pessoas, em centavos inteiros que somam o valor: os centavos
+ * que sobram vão um para cada, a começar pela primeira (R$ 100 entre três: 33,34 + 33,33 + 33,33).
+ */
+export function splitAmount(amount: number, n: number): number[] {
+  const base = Math.floor(amount / n);
+  return Array.from({ length: n }, (_, i) => base + (i < amount - base * n ? 1 : 0));
+}
+
+/** A parte de uma pessoa num gasto (0 se ela não estava). */
+export function shareOf(e: Pick<Entry, 'people'>, amount: number, person: string): number {
+  const people = peopleOf(e);
+  const i = people.indexOf(person);
+  return i < 0 ? 0 : splitAmount(amount, people.length)[i];
+}
+
+/**
+ * Quanto saiu no mês com cada pessoa (id → centavos), cada gasto dividido em partes iguais entre as pessoas
+ * dele, já sem o que voltou: o reembolso ligado desconta das mesmas pessoas, na mesma divisão (nunca abaixo
+ * de zero). Só as pessoas que tiveram gasto.
+ */
+export function spentByPerson(rows: readonly Row[], entries: readonly Entry[]): Map<string, number> {
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const sums = new Map<string, number>();
+  for (const r of rows) {
+    if (r.entry.flow !== 'saida') continue;
+    const people = peopleOf(r.entry);
+    splitAmount(r.amount, people.length).forEach((v, i) => sums.set(people[i], (sums.get(people[i]) ?? 0) + v));
+  }
+  for (const r of rows) {
+    const of = r.entry.flow === 'entrada' && r.entry.refundOf ? byId.get(r.entry.refundOf) : undefined;
+    if (!of || of.flow !== 'saida') continue;
+    const people = peopleOf(of);
+    splitAmount(r.amount, people.length).forEach((v, i) => {
+      if (sums.has(people[i])) sums.set(people[i], Math.max(0, sums.get(people[i])! - v));
+    });
+  }
+  return sums;
 }
 
 /** Quanto saiu no mês em cada pedaço (`keyOf`), já sem o que voltou: o reembolso desconta do pedaço do gasto. */
@@ -622,6 +691,11 @@ export function sanitizeEntry(raw: unknown): Entry | null {
   };
   if (flow === 'saida' && (PAY_METHODS as readonly unknown[]).includes(r['pay'])) e.pay = r['pay'] as PayMethod;
   if (flow === 'saida' && isNeed(r['need'])) e.need = r['need'];
+  if (flow === 'saida' && Array.isArray(r['people'])) {
+    const people = [...new Set(r['people'].filter((p): p is string => typeof p === 'string' && ID_RE.test(p)))].slice(0, MAX_PEOPLE);
+    // só você é o padrão: não precisa ser guardado
+    if (people.length && !(people.length === 1 && people[0] === ME)) e.people = people;
+  }
   if (r['monthly'] === true) {
     e.monthly = true;
     if (isMonth(r['until']) && r['until'] >= monthOfDay(e.date)) e.until = r['until'];
@@ -653,6 +727,14 @@ export function sanitizeCategory(raw: unknown): SpendingCategory | null {
   return c;
 }
 
+export function sanitizePerson(raw: unknown): SpendingPerson | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const name = typeof r['name'] === 'string' ? cleanLabel(r['name'], PERSON_NAME_MAX) : '';
+  if (!name || typeof r['id'] !== 'string' || !ID_RE.test(r['id']) || !isStamp(r['at'])) return null;
+  return { id: r['id'], name, at: r['at'] };
+}
+
 function byCreation(a: Entry, b: Entry): number {
   return a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
@@ -664,10 +746,11 @@ function newer<T extends { at: string }>(a: T | undefined, b: T): boolean {
 
 /**
  * O livro como foi guardado (ou veio da nuvem), conferido peça por peça. As categorias de sempre que
- * faltam voltam (a não ser que tenham sido apagadas).
+ * faltam voltam (a não ser que tenham sido apagadas), e você (`ME`) está sempre. Uma pessoa apagada sai dos
+ * gastos dela (o gasto que fica sem ninguém volta a ser só seu).
  */
 export function sanitizeSpending(raw: unknown): SpendingState {
-  if (!raw || typeof raw !== 'object') return { ...EMPTY_SPENDING, categories: [...DEFAULT_CATEGORIES] };
+  if (!raw || typeof raw !== 'object') return { ...EMPTY_SPENDING, categories: [...DEFAULT_CATEGORIES], people: [DEFAULT_PERSON] };
   const r = raw as Record<string, unknown>;
   const removed: Record<string, string> = {};
   if (r['removed'] && typeof r['removed'] === 'object') {
@@ -684,7 +767,22 @@ export function sanitizeSpending(raw: unknown): SpendingState {
     if (c && newer(categories.get(c.id), c)) categories.set(c.id, c);
   }
   for (const [id, c] of categories) if (removed[id] && removed[id] >= c.at) categories.delete(id);
-  return { entries: [...entries.values()].sort(byCreation), categories: [...categories.values()], removed };
+  const people = new Map<string, SpendingPerson>([[ME, DEFAULT_PERSON]]);
+  for (const item of Array.isArray(r['people']) ? r['people'].slice(0, MAX_PERSONS) : []) {
+    const p = sanitizePerson(item);
+    if (p && newer(people.get(p.id), p)) people.set(p.id, p);
+  }
+  for (const [id, p] of people) if (id !== ME && removed[id] && removed[id] >= p.at) people.delete(id);
+  // quem não está mais no livro sai dos gastos dele (o gasto que fica sem ninguém volta a ser só seu)
+  for (const [id, e] of entries) {
+    if (!e.people?.some((p) => !people.has(p))) continue;
+    const kept = e.people.filter((p) => people.has(p));
+    const next = { ...e };
+    if (kept.length && !(kept.length === 1 && kept[0] === ME)) next.people = kept;
+    else delete next.people;
+    entries.set(id, next);
+  }
+  return { entries: [...entries.values()].sort(byCreation), categories: [...categories.values()], people: [...people.values()], removed };
 }
 
 /**
@@ -697,13 +795,15 @@ export function mergeSpending(here: SpendingState, there: SpendingState): Spendi
   return sanitizeSpending({
     entries: [...here.entries, ...there.entries],
     categories: [...here.categories, ...there.categories],
+    people: [...here.people, ...there.people],
     removed,
   });
 }
 
 /** O que vai para a nuvem: null sem nada além das categorias de sempre (o mural de antes dos Gastos fica com a mesma impressão). */
 export function spendingToSync(state: SpendingState): SpendingState | null {
-  const untouched = state.categories.length === DEFAULT_CATEGORIES.length && state.categories.every((c) => c.at === BORN);
+  const untouched =
+    state.categories.length === DEFAULT_CATEGORIES.length && state.categories.every((c) => c.at === BORN) && state.people.every((p) => p.at === BORN);
   return state.entries.length || Object.keys(state.removed).length || !untouched ? state : null;
 }
 

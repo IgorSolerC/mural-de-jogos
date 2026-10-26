@@ -3,7 +3,9 @@ import { todayISO } from './dates';
 import { newId } from './review';
 import {
   Entry,
+  ME,
   SpendingCategory,
+  SpendingPerson,
   SpendingState,
   drawCategoryColor,
   mergeSpending,
@@ -13,6 +15,7 @@ import {
   sanitizeSpending,
   shiftMonth,
   Flow,
+  PERSON_NAME_MAX,
 } from './spending';
 import { onOtherTab, writeJson } from './storage';
 
@@ -43,6 +46,11 @@ export class SpendingStore {
   readonly state = signal<SpendingState>(read());
   readonly entries = computed(() => this.state().entries);
   readonly categories = computed(() => this.state().categories);
+  /** As pessoas dos gastos: você primeiro, as outras pelo nome. */
+  readonly people = computed(() => {
+    const [me, ...rest] = [...this.state().people].sort((a, b) => (a.id === ME ? -1 : b.id === ME ? 1 : a.name.localeCompare(b.name, 'pt-BR')));
+    return me ? [me, ...rest] : rest;
+  });
   /** Quando o livro mudou aqui (para a sincronização enviar). */
   readonly changedAt = signal(0);
 
@@ -75,6 +83,43 @@ export class SpendingStore {
 
   category(id: string): SpendingCategory | undefined {
     return this.categories().find((c) => c.id === id);
+  }
+
+  person(id: string): SpendingPerson | undefined {
+    return this.state().people.find((p) => p.id === id);
+  }
+
+  /** Uma pessoa nova (ou a que já tem esse nome, sem criar outra). */
+  addPerson(name: string): SpendingPerson {
+    const clean = name.trim().replace(/\s+/g, ' ').slice(0, PERSON_NAME_MAX);
+    const same = this.state().people.find((p) => p.name.localeCompare(clean, 'pt-BR', { sensitivity: 'base' }) === 0);
+    if (same) return same;
+    const p: SpendingPerson = { id: newId(), name: clean, at: new Date().toISOString() };
+    this.savePerson(p);
+    return p;
+  }
+
+  savePerson(p: SpendingPerson): void {
+    const st = this.state();
+    const i = st.people.findIndex((x) => x.id === p.id);
+    const next = { ...p, at: stampAfter(i >= 0 ? st.people[i].at : undefined) };
+    const people = i >= 0 ? st.people.map((x, j) => (j === i ? next : x)) : [...st.people, next];
+    const removed = { ...st.removed };
+    delete removed[p.id];
+    this.set({ ...st, people, removed });
+  }
+
+  /** Apaga a pessoa: ela sai dos gastos dela (o que fica sem ninguém volta a ser só seu). Você fica sempre. */
+  removePerson(id: string): void {
+    const st = this.state();
+    if (id === ME || !st.people.some((p) => p.id === id)) return;
+    const entries = st.entries.map((e) => {
+      if (!e.people?.includes(id)) return e;
+      const next = { ...e, people: e.people.filter((p) => p !== id), at: stampAfter(e.at) };
+      if (!next.people.length) delete (next as Partial<Entry>).people;
+      return next;
+    });
+    this.set({ ...st, entries, people: st.people.filter((p) => p.id !== id), removed: { ...st.removed, [id]: new Date().toISOString() } });
   }
 
   /** Um lançamento em branco, num dia do mês aberto (hoje, se hoje é dele; senão o primeiro dia). */

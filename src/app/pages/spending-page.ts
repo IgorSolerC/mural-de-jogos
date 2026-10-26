@@ -16,12 +16,14 @@ import {
   monthOfDay,
   monthStrips,
   openPlans,
+  peopleOf,
   refundsByExpense,
   repeatsIn,
   rowsIn,
   shiftMonth,
   spentByCategory,
   spentByNeed,
+  spentByPerson,
   totals,
   usualByCategory,
 } from '../core/spending';
@@ -30,6 +32,8 @@ import { SpendingCategoriesSheet } from '../ui/spending-categories-sheet';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
 import { SpendingMonths } from '../ui/spending-months';
 import { SpendingNeeds } from '../ui/spending-needs';
+import { SpendingPeople } from '../ui/spending-people';
+import { SpendingPeopleSheet } from '../ui/spending-people-sheet';
 import { SpendingPlans } from '../ui/spending-plans';
 import { SpendingQuick } from '../ui/spending-quick';
 import { SpendingSummary } from '../ui/spending-summary';
@@ -50,7 +54,19 @@ const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
  */
 @Component({
   selector: 'app-spending-page',
-  imports: [IconModule, SpendingCategoriesSheet, SpendingEnvelopes, SpendingMonths, SpendingNeeds, SpendingPlans, SpendingQuick, SpendingSummary, SpendingTape],
+  imports: [
+    IconModule,
+    SpendingCategoriesSheet,
+    SpendingEnvelopes,
+    SpendingMonths,
+    SpendingNeeds,
+    SpendingPeople,
+    SpendingPeopleSheet,
+    SpendingPlans,
+    SpendingQuick,
+    SpendingSummary,
+    SpendingTape,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown)': 'onKey($event)' },
   templateUrl: './spending-page.html',
@@ -85,8 +101,11 @@ export class SpendingPage {
   protected readonly focus = signal<string | null>(null);
   /** A resposta ao "Precisava?" escolhida (`null`: os sem resposta): a fita mostra só esses gastos. */
   protected readonly needFocus = signal<Need | null | undefined>(undefined);
+  /** A pessoa escolhida na peça Por pessoa: a fita mostra só os gastos dela, com a parte dela. */
+  protected readonly personFocus = signal<string | null>(null);
   protected readonly noFixed = signal(readText(NO_FIXED_KEY) === '1');
   protected readonly managing = signal(false);
+  protected readonly managingPeople = signal(false);
 
   private readonly entries = computed(() => this.store.entries());
   protected readonly rows = computed(() => rowsIn(this.entries(), this.open()));
@@ -100,6 +119,9 @@ export class SpendingPage {
   protected readonly sums = computed(() => spentByCategory(rowsIn(this.counted(), this.open()), this.counted()));
   protected readonly needSums = computed(() => spentByNeed(rowsIn(this.counted(), this.open()), this.counted()));
   protected readonly showNeeds = computed(() => [...this.needSums().values()].some((v) => v > 0));
+  protected readonly personSums = computed(() => spentByPerson(rowsIn(this.counted(), this.open()), this.counted()));
+  /** Por pessoa só diz algo quando algum gasto do mês foi com mais alguém (ou sem você). */
+  protected readonly showPeople = computed(() => this.rows().some((r) => r.entry.flow === 'saida' && !!r.entry.people));
   protected readonly usual = computed(() => usualByCategory(this.counted(), this.open()));
   protected readonly strips = computed(() => monthStrips(this.counted(), this.open(), 6));
   protected readonly showMonths = computed(() => this.strips().filter((s) => s.spent || s.income).length > 1);
@@ -111,28 +133,38 @@ export class SpendingPage {
   protected readonly tapeRows = computed(() => {
     const f = this.focus();
     const n = this.needFocus();
+    const p = this.personFocus();
     if (f) return this.rows().filter((r) => r.entry.category === f);
+    if (p) return this.rows().filter((r) => r.entry.flow === 'saida' && peopleOf(r.entry).includes(p));
     if (n !== undefined) return this.rows().filter((r) => r.entry.flow === 'saida' && (r.entry.need ?? null) === n);
     return this.rows();
   });
 
   /** Escolher um envelope (ou tirar a escolha). No celular a fita fica longe dos envelopes: ela vem até a vista. */
   protected pick(id: string | null): void {
+    this.clearFilters();
     this.focus.set(id || null);
-    this.needFocus.set(undefined);
     if (id) this.showTape();
   }
 
   /** Escolher uma resposta ao "Precisava?" (ou tirar a escolha), como um envelope. */
   protected pickNeed(n: Need | null | undefined): void {
+    this.clearFilters();
     this.needFocus.set(n);
-    this.focus.set(null);
     if (n !== undefined) this.showTape();
+  }
+
+  /** Escolher uma pessoa (ou tirar a escolha), como um envelope. */
+  protected pickPerson(id: string | null): void {
+    this.clearFilters();
+    this.personFocus.set(id);
+    if (id) this.showTape();
   }
 
   protected clearFilters(): void {
     this.focus.set(null);
     this.needFocus.set(undefined);
+    this.personFocus.set(null);
   }
 
   private showTape(): void {
@@ -160,6 +192,11 @@ export class SpendingPage {
       const sums = this.needSums();
       const n = untracked(() => this.needFocus());
       if (n !== undefined && !sums.get(n)) untracked(() => this.needFocus.set(undefined));
+    });
+    effect(() => {
+      const sums = this.personSums();
+      const p = untracked(() => this.personFocus());
+      if (p && !sums.get(p)) untracked(() => this.personFocus.set(null));
     });
     effect(() => writeText(NO_FIXED_KEY, this.noFixed() ? '1' : '0'));
     // o dia vira enquanto a página está aberta

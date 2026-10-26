@@ -213,6 +213,8 @@
     gap: 0 8px;
   }
   .cat,
+  .com-nomes,
+  .parte,
   .pix,
   .voltou,
   .volta {
@@ -220,6 +222,8 @@
   }
   .marcas {
     display: inline-flex;
+    min-width: 0;
+    overflow: hidden;
   }
   .valor {
     min-width: 0;
@@ -275,6 +279,50 @@
   &[data-need='luxo'] {
     color: var(--tinta-luxo);
   }
+}
+
+/* com quem foi: as cabecinhas e os outros nomes (na fita estreita, quantos são) */
+.com {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  white-space: nowrap;
+
+  lucide-icon {
+    display: inline-flex;
+    flex: none;
+    opacity: 0.8;
+  }
+}
+.com-nomes {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.com-n {
+  display: none;
+  font-variant-numeric: tabular-nums;
+}
+@container fita (max-width: 419px) {
+  .com-n {
+    display: inline;
+  }
+}
+
+/* com uma pessoa escolhida: de quanto é a parte dela */
+.parte {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
 }
 
 .fixo,

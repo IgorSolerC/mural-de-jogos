@@ -5,6 +5,7 @@ import { newId } from '../core/review';
 import {
   Flow,
   MAX_INSTALLMENTS,
+  ME,
   NEEDS,
   NEED_LABEL,
   Need,
@@ -19,8 +20,9 @@ import {
   shiftMonth,
   suggestions,
 } from '../core/spending';
-import { Quick, quickToEntry, readQuick } from '../core/spending-quick';
+import { PersonRef, Quick, peopleText, quickToEntry, readQuick } from '../core/spending-quick';
 import { SpendingStore } from '../core/spending-store';
+import { SpendingPeoplePicker } from './spending-people-picker';
 import { Toasts } from './toast';
 
 /** O que a pessoa trocou à mão nos adesivos: vale mais que o que a linha leu. */
@@ -30,6 +32,8 @@ interface Overrides {
   pay?: PayMethod;
   /** Se precisava (null: tirada à mão). */
   need?: Need | null;
+  /** Com quem foi (as escolhidas no adesivo, no lugar das escritas com @). */
+  people?: PersonRef[];
   installments?: number;
   monthly?: boolean;
   /** O dia deste mês (no parcelado, o desta parcela). */
@@ -49,13 +53,14 @@ function dayLabel(day: string, today: string): string {
 
 /**
  * A linha de anotar dos Gastos: escreve-se o gasto como se fala ("ifood 44,90", "violão 10x 139,90",
- * "salário +4559 todo mês") e Enter lança. Embaixo, em adesivos, o que a linha entendeu (saiu ou entrou,
- * a categoria, como pagou, as parcelas, o dia, se é todo mês), cada um trocado com um toque. Enquanto o
+ * "salário +4559 todo mês", "jantar 600 @bruna") e Enter lança. Embaixo, em adesivos, o que a linha entendeu
+ * (saiu ou entrou, a categoria, como pagou, se precisava, com quem, as parcelas, o dia, se é todo mês), cada
+ * um trocado com um toque. Enquanto o
  * nome é escrito, os gastos parecidos de antes aparecem para escolher (com a categoria e o último valor).
  */
 @Component({
   selector: 'app-spending-quick',
-  imports: [IconModule],
+  imports: [IconModule, SpendingPeoplePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="tira" [class.escrevendo]="text()">
@@ -148,6 +153,24 @@ function dayLabel(day: string, today: string): string {
               }
             </select>
           </label>
+          <span class="com-quem">
+            <button
+              #comQuem
+              type="button"
+              class="adesivo pessoas"
+              [class.opcional]="!q.people"
+              aria-haspopup="true"
+              [attr.aria-expanded]="picking()"
+              [attr.aria-label]="'Com quem foi: ' + (q.people ? peopleText(q.people) : 'só você') + '. Trocar'"
+              (click)="picking.set(!picking())"
+            >
+              <lucide-icon [img]="PeopleIcon" [size]="13" aria-hidden="true" />
+              {{ q.people ? peopleText(q.people) : '+ com quem' }}
+            </button>
+            @if (picking()) {
+              <app-spending-people-picker [refs]="q.people ?? [me()]" [amount]="q.amount" (changed)="set({ people: $event })" (closed)="closePicker()" />
+            }
+          </span>
           @if (q.installments) {
             <label class="adesivo parcelas">
               <input
@@ -204,6 +227,7 @@ export class SpendingQuick {
   private readonly store = inject(SpendingStore);
   private readonly toasts = inject(Toasts);
   private readonly field = viewChild.required<ElementRef<HTMLInputElement>>('campo');
+  private readonly peopleButton = viewChild<ElementRef<HTMLButtonElement>>('comQuem');
 
   protected readonly PenIcon = ICON.escrever;
   protected readonly OutIcon = ICON.abaixo;
@@ -211,7 +235,9 @@ export class SpendingQuick {
   protected readonly ChevIcon = ICON.abrir;
   protected readonly DayIcon = ICON.calendario;
   protected readonly RepeatIcon = ICON.repetir;
+  protected readonly PeopleIcon = ICON.pessoas;
   protected readonly brl = brl;
+  protected readonly peopleText = peopleText;
   protected readonly payLabel = PAY_LABEL;
   protected readonly pays = PAY_METHODS;
   protected readonly maxInstallments = MAX_INSTALLMENTS;
@@ -226,10 +252,21 @@ export class SpendingQuick {
   /** Esc fechou os parecidos até a próxima letra. */
   private readonly hideSuggestions = signal(false);
   protected readonly naming = signal(false);
+  /** A cartela de com quem foi está aberta. */
+  protected readonly picking = signal(false);
   private readonly today = signal(todayISO());
 
+  /** Você, como a cartela mostra quando o gasto é só seu. */
+  protected readonly me = computed<PersonRef>(() => ({ id: ME, name: this.store.person(ME)?.name ?? 'Eu' }));
+
   private readonly read = computed(() =>
-    readQuick(this.text(), { entries: this.store.entries(), categories: this.store.categories(), today: this.today(), month: this.store.month() }),
+    readQuick(this.text(), {
+      entries: this.store.entries(),
+      categories: this.store.categories(),
+      people: this.store.people(),
+      today: this.today(),
+      month: this.store.month(),
+    }),
   );
 
   /** O que vai ser lançado: o que a linha leu, com o que a pessoa trocou nos adesivos por cima. */
@@ -242,6 +279,7 @@ export class SpendingQuick {
       q.from = 'padrao';
       if (o.flow === 'entrada') {
         delete q.need;
+        delete q.people;
         delete q.pay;
         delete q.installments;
         delete q.part;
@@ -250,6 +288,11 @@ export class SpendingQuick {
     if (o.category) {
       q.category = o.category;
       q.from = 'escrita';
+    }
+    if (q.flow === 'saida' && o.people) {
+      // só você é o padrão: o adesivo volta a ser o recorte "+ com quem"
+      if (o.people.length === 1 && o.people[0].id === ME) delete q.people;
+      else q.people = o.people;
     }
     if (q.flow === 'saida' && o.need !== undefined) {
       if (o.need) q.need = o.need;
@@ -321,11 +364,17 @@ export class SpendingQuick {
     if (!v.trim()) {
       this.overrides.set({});
       this.naming.set(false);
+      this.picking.set(false);
     }
   }
 
   protected set(o: Overrides): void {
     this.overrides.update((x) => ({ ...x, ...o }));
+  }
+
+  protected closePicker(): void {
+    this.picking.set(false);
+    this.peopleButton()?.nativeElement.focus({ preventScroll: true });
   }
 
   protected setInstallments(v: string): void {
@@ -405,8 +454,11 @@ export class SpendingQuick {
   }
 
   protected launch(): void {
-    const draft = this.entry();
-    if (!draft) return;
+    if (!this.entry()) return;
+    // quem foi escrito agora com @ e ainda não existe entra no livro ao lançar
+    const q = this.quick();
+    const people = q.people?.map((p) => (p.id ? p : { id: this.store.addPerson(p.name).id, name: p.name }));
+    const draft = quickToEntry({ ...q, ...(people ? { people } : {}) })!;
     const now = new Date().toISOString();
     const e = { ...draft, id: newId(), createdAt: now, at: now };
     this.store.save(e);

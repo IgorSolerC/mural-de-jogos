@@ -81,6 +81,7 @@
     'fita'
     'envelopes'
     'precisava'
+    'pessoas'
     'meses'
     'carnes';
   gap: 16px;
@@ -103,6 +104,9 @@
 }
 .precisava {
   grid-area: precisava;
+}
+.pessoas {
+  grid-area: pessoas;
 }
 .meses {
   grid-area: meses;
@@ -172,11 +176,12 @@
       'anotar resumo'
       'fita resumo'
       'fita precisava'
+      'fita pessoas'
       'fita envelopes'
       'fita meses'
       'fita carnes'
       'fita .';
-    grid-template-rows: auto auto auto auto auto auto auto 1fr;
+    grid-template-rows: auto auto auto auto auto auto auto auto 1fr;
     gap: 16px 28px;
   }
   .envelopes,

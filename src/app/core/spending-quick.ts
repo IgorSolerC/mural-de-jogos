@@ -3,10 +3,14 @@ import {
   Entry,
   Flow,
   MAX_INSTALLMENTS,
+  MAX_PEOPLE,
+  ME,
   NEED_WORDS,
+  PERSON_NAME_MAX,
   Need,
   PayMethod,
   SpendingCategory,
+  SpendingPerson,
   TITLE_MAX,
   dayIn,
   isDay,
@@ -26,10 +30,17 @@ import {
  *   salário +4559 fixo          → entrada, todo mês
  *   uber 23 pix ontem #transporte
  *   cinema 38 #luxo               → e se precisava: #luxo, #conforto, #indispensável
+ *   jantar 600 @bruna @biel       → com quem foi (você está sempre, a não ser que tire no adesivo)
  *
  * Nada aqui adivinha em silêncio: o que foi entendido volta em `Quick` e a linha mostra, em adesivos que
  * se trocam com um toque, antes de lançar.
  */
+
+/** Uma pessoa do gasto: uma do livro (`id`) ou uma nova, escrita agora (`id` null, criada ao lançar). */
+export interface PersonRef {
+  id: string | null;
+  name: string;
+}
 
 export interface Quick {
   title: string;
@@ -40,6 +51,8 @@ export interface Quick {
   pay?: PayMethod;
   /** Saída: se precisava (a escrita, ou a do mesmo gasto lançado antes). */
   need?: Need;
+  /** Saída: com quem foi, quando não é só você (você primeiro, depois as escritas com @). */
+  people?: PersonRef[];
   /** Parcelado: quantas parcelas. */
   installments?: number;
   /** Parcelado: qual parcela é a deste mês (1 é a primeira). */
@@ -54,6 +67,8 @@ export interface Quick {
 export interface QuickContext {
   entries: readonly Entry[];
   categories: readonly SpendingCategory[];
+  /** As pessoas do livro (para achar "@bru"); sem elas, toda pessoa escrita é nova. */
+  people?: readonly SpendingPerson[];
   /** Hoje, 'AAAA-MM-DD'. */
   today: string;
   /** O mês aberto na página. */
@@ -90,6 +105,28 @@ function categoryByName(word: string, categories: readonly SpendingCategory[]): 
   );
 }
 
+/** Os nomes de quem estava, curtos para caber num adesivo: "Eu, Bruna", "Eu +2". */
+export function peopleText(refs: readonly PersonRef[]): string {
+  const names = refs.map((r) => r.name);
+  const all = names.join(', ');
+  return names.length <= 2 && all.length <= 20 ? all : `${names[0]} +${names.length - 1}`;
+}
+
+/**
+ * A pessoa escrita depois do @ ("@bruna", "@Bru", "@ana_paula"): a do livro com esse nome, ou a única cujo
+ * nome começa assim (com 3 letras ou mais); senão, uma pessoa nova com o nome escrito.
+ */
+function personByName(word: string, people: readonly SpendingPerson[]): PersonRef | null {
+  const name = word.replace(/^@+/, '').replace(/[.,;:!]+$/, '').replace(/_+/g, ' ').trim().slice(0, PERSON_NAME_MAX);
+  const w = fold(name);
+  if (!w) return null;
+  const same = people.find((p) => fold(p.name) === w);
+  if (same) return { id: same.id, name: same.name };
+  const starts = w.length >= 3 ? people.filter((p) => fold(p.name).startsWith(w)) : [];
+  if (starts.length === 1) return { id: starts[0].id, name: starts[0].name };
+  return { id: null, name: capFirst(name) };
+}
+
 export function readQuick(text: string, ctx: QuickContext): Quick {
   const tokens = text.trim().split(/\s+/).filter(Boolean);
   const used = new Array<boolean>(tokens.length).fill(false);
@@ -102,6 +139,7 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
   let date: string | null = null;
   let named: SpendingCategory | undefined;
   let need: Need | undefined;
+  const mentioned: PersonRef[] = [];
   /** Onde estava o "pix": numa entrada ele é o nome ("Pix da Bru"), não o pagamento. */
   let pixAt = -1;
 
@@ -199,6 +237,15 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
       take(i);
       continue;
     }
+    // com quem foi: "@bruna"
+    if (/^@\S/.test(raw)) {
+      const ref = personByName(raw, ctx.people ?? []);
+      if (ref) {
+        mentioned.push(ref);
+        take(i);
+        continue;
+      }
+    }
     // a categoria marcada ("#comida") ou se precisava ("#luxo"); uma categoria com o mesmo nome vale mais
     if (raw.startsWith('#')) {
       const tag = fold(raw.slice(1)).replace(/[.,;:!]+$/, '');
@@ -279,6 +326,7 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
     else pay ??= before?.pay ?? 'avista';
     if (before?.flow === 'saida') need ??= before.need;
   } else {
+    mentioned.length = 0;
     need = undefined;
     pay = undefined;
     installments = undefined;
@@ -295,6 +343,13 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
   // a 7ª de 10 neste mês: o lançamento começa 6 meses antes
   if (installments && part && part > 1) day = dayIn(shiftMonth(monthOfDay(day), -(part - 1)), day);
 
+  // você está em todo gasto (tirar é no adesivo); as escritas vêm depois, uma vez cada
+  const people: PersonRef[] = [{ id: ME, name: ctx.people?.find((p) => p.id === ME)?.name ?? 'Eu' }];
+  for (const m of mentioned) {
+    const seen = people.some((p) => (m.id ? p.id === m.id : !p.id && fold(p.name) === fold(m.name)));
+    if (!seen && people.length < MAX_PEOPLE) people.push(m);
+  }
+
   return {
     title,
     amount,
@@ -302,6 +357,7 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
     category,
     ...(pay ? { pay } : {}),
     ...(need ? { need } : {}),
+    ...(people.length > 1 ? { people } : {}),
     ...(installments ? { installments, part: part ?? 1 } : {}),
     ...(monthly ? { monthly: true as const } : {}),
     date: day,
@@ -309,9 +365,13 @@ export function readQuick(text: string, ctx: QuickContext): Quick {
   };
 }
 
-/** O lançamento que a linha vai criar (sem o id nem as datas de criação). */
+/**
+ * O lançamento que a linha vai criar (sem o id nem as datas de criação). As pessoas novas (sem id) ficam de
+ * fora: quem lança as cria antes (`SpendingStore.addPerson`) e passa os ids.
+ */
 export function quickToEntry(q: Quick): Omit<Entry, 'id' | 'createdAt' | 'at'> | null {
   if (!q.title || !q.amount) return null;
+  const people = q.flow === 'saida' ? (q.people ?? []).flatMap((p) => (p.id ? [p.id] : [])) : [];
   return {
     title: q.title,
     amount: q.amount,
@@ -319,6 +379,7 @@ export function quickToEntry(q: Quick): Omit<Entry, 'id' | 'createdAt' | 'at'> |
     category: q.category,
     ...(q.pay ? { pay: q.pay } : {}),
     ...(q.need && q.flow === 'saida' ? { need: q.need } : {}),
+    ...(people.length && !(people.length === 1 && people[0] === ME) ? { people } : {}),
     ...(q.installments ? { installments: q.installments } : {}),
     ...(q.monthly ? { monthly: true as const } : {}),
     date: q.date,

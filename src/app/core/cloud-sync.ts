@@ -163,11 +163,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     antigo enviaria o mural sem ele, e os gastos sumiriam da nuvem.
  * 39: se cada saída dos Gastos precisava (`need`: luxo, conforto ou indispensável). Um site da 38 jogaria o
  *     campo fora e enviaria o lançamento assim, e a resposta sumiria em todo aparelho.
+ * 40: com quem foi cada saída dos Gastos (`people`) e as pessoas do livro (`people` em `gastos`). Um site
+ *     da 39 jogaria os dois fora e enviaria assim, e os gastos voltariam a ser só seus em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 39;
+export const SYNC_SCHEMA = 40;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

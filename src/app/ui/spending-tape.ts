@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { MONTHS_SHORT } from '../core/dates';
-import { NEED_LABEL, Need, PAY_LABEL, Row, brl } from '../core/spending';
+import { ME, NEED_LABEL, Need, PAY_LABEL, Row, brl, peopleOf, shareOf } from '../core/spending';
 import { SpendingStore } from '../core/spending-store';
 import { SpendingEditor } from './spending-editor';
 
@@ -18,6 +18,10 @@ interface Line {
   category: string;
   /** Quanto já voltou deste gasto (reembolsos ligados). */
   back: number;
+  /** Com quem foi, quando não é só você: os outros nomes ("Bruna, Biel"; "só Bruna" sem você) e quantos são. */
+  people?: { names: string; n: number };
+  /** Com uma pessoa escolhida: a parte dela neste gasto ("1/3"). */
+  share?: { amount: number; of: number };
 }
 
 /**
@@ -40,6 +44,11 @@ interface Line {
         <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar todas as categorias (agora só ' + f + ')'">
           <span class="selo" [style.--cor]="filterColor()" aria-hidden="true"></span>
           Só {{ f }}
+          <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
+        </button>
+      } @else if (personName(); as p) {
+        <button type="button" class="filtro" (click)="clearFilter.emit()" [attr.aria-label]="'Mostrar os gastos de todos (agora só os de ' + p + ')'">
+          Só {{ p }}
           <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
         </button>
       } @else if (need() !== undefined) {
@@ -83,6 +92,16 @@ interface Line {
                 @if (e.need === 'luxo' || e.need === 'conforto') {
                   <span class="carimbo-precisava" [attr.data-need]="e.need">{{ needLabel[e.need] }}</span>
                 }
+                @if (l.people; as p) {
+                  <span class="com" [title]="'Com ' + p.names">
+                    <lucide-icon [img]="PeopleIcon" [size]="13" />
+                    <span class="com-nomes">{{ p.names }}</span>
+                    <span class="com-n">{{ p.n }}</span>
+                  </span>
+                }
+                @if (l.share; as s) {
+                  <span class="parte">1/{{ s.of }} de {{ brl(l.row.amount) }}</span>
+                }
                 @if (e.pay === 'pix') {
                   <span class="pix">Pix</span>
                 }
@@ -94,7 +113,7 @@ interface Line {
                 }
               </span>
               <span class="cat" aria-hidden="true">{{ l.category }}</span>
-              <span class="valor" [class.entrada]="e.flow === 'entrada'" aria-hidden="true">{{ e.flow === 'entrada' ? '+' : '' }}{{ brl(l.row.amount) }}</span>
+              <span class="valor" [class.entrada]="e.flow === 'entrada'" aria-hidden="true">{{ e.flow === 'entrada' ? '+' : '' }}{{ brl(l.share?.amount ?? l.row.amount) }}</span>
             </button>
             @if (open() === e.id) {
               <app-spending-editor [row]="l.row" [month]="month()" (done)="open.set(null)" />
@@ -117,6 +136,8 @@ export class SpendingTape {
   readonly future = input(false);
   /** Só esta categoria (escolhida num envelope). */
   readonly filter = input<string | null>(null);
+  /** Só os gastos desta pessoa, escolhida na peça Por pessoa: o valor de cada um é a parte dela. */
+  readonly person = input<string | null>(null);
   /** Só os gastos com esta resposta ao "Precisava?" (`null`: os sem resposta), escolhida na peça dela. */
   readonly need = input<Need | null | undefined>(undefined);
   /** Quanto já voltou de cada gasto. */
@@ -126,6 +147,7 @@ export class SpendingTape {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly RepeatIcon = ICON.repetir;
   protected readonly BackIcon = ICON.desfazer;
+  protected readonly PeopleIcon = ICON.pessoas;
   protected readonly brl = brl;
   protected readonly needLabel = NEED_LABEL;
 
@@ -145,11 +167,17 @@ export class SpendingTape {
     const n = this.need();
     return n ? NEED_LABEL[n].toLocaleLowerCase('pt-BR') : 'sem resposta';
   });
+  protected readonly personName = computed(() => {
+    const p = this.person();
+    return p ? (this.store.person(p)?.name ?? 'Alguém') : null;
+  });
   protected readonly filterColor = computed(() => `var(--stock-${this.store.category(this.filter() ?? '')?.color ?? 'cinza'})`);
 
   protected readonly lines = computed<Line[]>(() => {
     const rows = [...this.rows()];
-    if (this.order() === 'valor') rows.sort((a, b) => b.amount - a.amount);
+    const person = this.person();
+    const sharedOf = (r: Row) => (person ? shareOf(r.entry, r.amount, person) : r.amount);
+    if (this.order() === 'valor') rows.sort((a, b) => sharedOf(b) - sharedOf(a));
     let last = '';
     return rows.map((row) => {
       const c = this.store.category(row.entry.category);
@@ -164,13 +192,24 @@ export class SpendingTape {
         color: `var(--stock-${c?.color ?? 'cinza'})`,
         category: c?.name ?? 'Sem categoria',
         back: this.refunds().get(row.entry.id) ?? 0,
+        people: this.peopleMark(row),
+        share: person && peopleOf(row.entry).length > 1 ? { amount: sharedOf(row), of: peopleOf(row.entry).length } : undefined,
       };
     });
   });
 
   protected readonly emptyText = computed(() =>
-    this.filter() ? 'Nada nesta categoria no mês.' : this.need() !== undefined ? 'Nada assim no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
+    this.filter() ? 'Nada nesta categoria no mês.' : this.person() ? 'Nada com esta pessoa no mês.' : this.need() !== undefined ? 'Nada assim no mês.' : this.future() ? 'Nada previsto para este mês ainda.' : 'Nada lançado neste mês ainda. Anote o primeiro aí em cima.',
   );
+
+  /** A marca de com quem foi: os outros nomes (sem você, que é o normal); "só Bruna" quando você não estava. */
+  private peopleMark(row: Row): Line['people'] {
+    const ids = peopleOf(row.entry);
+    if (row.entry.flow !== 'saida' || (ids.length === 1 && ids[0] === ME)) return undefined;
+    const others = ids.filter((id) => id !== ME).map((id) => this.store.person(id)?.name ?? 'Alguém');
+    const names = others.length > 2 ? `${others[0]} +${others.length - 1}` : others.join(', ');
+    return { names: ids.includes(ME) ? names : `só ${names}`, n: ids.length };
+  }
 
   protected toggle(id: string): void {
     this.open.set(this.open() === id ? null : id);
@@ -183,12 +222,14 @@ export class SpendingTape {
       `${l.day} de ${MONTHS_SHORT[Number(l.row.day.slice(5, 7)) - 1]}`,
       e.title,
       `${e.flow === 'entrada' ? 'entrou' : 'saiu'} ${brl(l.row.amount)}`,
+      ...(l.share ? [`a parte de ${this.personName()}: ${brl(l.share.amount)}`] : []),
       l.category,
     ];
     if (l.row.part) parts.push(`parcela ${l.row.part.n} de ${l.row.part.of}`);
     if (l.row.fixed) parts.push('todo mês');
     if (e.pay && e.pay !== 'parcelado') parts.push(PAY_LABEL[e.pay]);
     if (e.need) parts.push(NEED_LABEL[e.need]);
+    if (l.people) parts.push(`com ${peopleOf(e).map((id) => this.store.person(id)?.name ?? 'alguém').join(', ')}`);
     if (l.back) parts.push(`voltou ${brl(l.back)}`);
     return parts.join(', ');
   }

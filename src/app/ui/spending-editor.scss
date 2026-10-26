@@ -209,6 +209,30 @@
   }
 }
 
+/* com quem: a caixinha é um botão que abre a cartela de pessoas embaixo dela */
+.com-quem {
+  position: relative;
+}
+
+button.caixa {
+  border: 0;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+  .chev {
+    opacity: 0.55;
+  }
+}
+
 .escolha.curto .caixa {
   padding: 0 4px;
 }

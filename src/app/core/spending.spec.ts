@@ -18,10 +18,13 @@ import {
   rowIn,
   rowsIn,
   sanitizeSpending,
+  shareOf,
   shiftMonth,
   spendingToSync,
+  splitAmount,
   spentByCategory,
   spentByNeed,
+  spentByPerson,
   suggestions,
   titleKey,
   totals,
@@ -269,5 +272,68 @@ describe('Gastos: precisava?', () => {
     expect(st.categories.find((c) => c.id === 'luxo')).toEqual(jasmine.objectContaining({ name: 'Item', budget: 50000 }));
     expect(sanitizeSpending({ categories: [{ ...old, at: '2026-01-01T00:00:00.000Z', budget: undefined }] }).categories.find((c) => c.id === 'luxo')!.name).toBe('Item');
     expect(sanitizeSpending({ categories: [{ ...old, name: 'Coisas' }] }).categories.find((c) => c.id === 'luxo')!.name).toBe('Coisas');
+  });
+});
+
+describe('Gastos: com quem', () => {
+  it('divide em partes iguais, em centavos que somam o valor', () => {
+    expect(splitAmount(60000, 3)).toEqual([20000, 20000, 20000]);
+    expect(splitAmount(10000, 3)).toEqual([3334, 3333, 3333]);
+    expect(shareOf({ people: ['eu', 'bruna', 'biel'] }, 60000, 'biel')).toBe(20000);
+    expect(shareOf({}, 60000, 'eu')).toBe(60000);
+    expect(shareOf({}, 60000, 'biel')).toBe(0);
+  });
+
+  it('por pessoa: cada gasto conta a parte de cada um, sem o que voltou; sem ninguém, só você', () => {
+    const jantar = entry({ title: 'Jantar', amount: 60000, people: ['eu', 'bruna', 'biel'] });
+    const entries = [
+      jantar,
+      entry({ amount: 5000 }),
+      entry({ amount: 9000, people: ['bruna'] }),
+      entry({ flow: 'entrada', amount: 30000, category: 'reembolso', refundOf: jantar.id, pay: undefined }),
+      entry({ flow: 'entrada', amount: 400000, category: 'renda', pay: undefined }),
+    ];
+    const sums = spentByPerson(rowsIn(entries, '2026-10'), entries);
+    expect(Object.fromEntries(sums)).toEqual({ eu: 15000, bruna: 19000, biel: 10000 });
+  });
+
+  it('guarda as pessoas só nas saídas, sem repetir; só você não é guardado', () => {
+    const st = sanitizeSpending({
+      people: [{ id: 'bruna', name: '  Bruna ', at: '2026-10-02T00:00:00.000Z' }],
+      entries: [
+        entry({ people: ['eu', 'bruna', 'bruna', 'x y'] as string[] }),
+        entry({ people: ['eu'] }),
+        { ...entry({ flow: 'entrada', category: 'renda', pay: undefined }), people: ['bruna'] },
+      ],
+    });
+    expect(st.entries.map((e) => e.people)).toEqual([['eu', 'bruna'], undefined, undefined]);
+    expect(st.people.map((p) => [p.id, p.name])).toEqual([
+      ['eu', 'Eu'],
+      ['bruna', 'Bruna'],
+    ]);
+  });
+
+  it('você está sempre; uma pessoa apagada sai dos gastos, e o que fica sem ninguém volta a ser seu', () => {
+    const st = sanitizeSpending({
+      people: [
+        { id: 'bruna', name: 'Bruna', at: '2026-10-02T00:00:00.000Z' },
+        { id: 'biel', name: 'Biel', at: '2026-10-02T00:00:00.000Z' },
+      ],
+      entries: [entry({ people: ['eu', 'biel', 'bruna'] }), entry({ people: ['biel'] }), entry({ people: ['ninguem'] })],
+      removed: { biel: '2026-10-03T00:00:00.000Z', eu: '2026-10-03T00:00:00.000Z' },
+    });
+    expect(st.people.map((p) => p.id)).toEqual(['eu', 'bruna']);
+    expect(st.entries.map((e) => e.people)).toEqual([['eu', 'bruna'], undefined, undefined]);
+  });
+
+  it('junta as pessoas de dois aparelhos, e só vai para a nuvem com alguém além de você', () => {
+    const base = sanitizeSpending(null);
+    expect(spendingToSync(base)).toBeNull();
+    const here = sanitizeSpending({ people: [{ id: 'bruna', name: 'Bruna', at: '2026-10-02T00:00:00.000Z' }] });
+    const there = sanitizeSpending({ people: [{ id: 'bruna', name: 'Bru', at: '2026-10-04T00:00:00.000Z' }, { id: 'eu', name: 'Igor', at: '2026-10-01T00:00:00.000Z' }] });
+    const ab = mergeSpending(here, there);
+    expect(ab).toEqual(mergeSpending(there, here));
+    expect(ab.people.map((p) => p.name)).toEqual(['Igor', 'Bru']);
+    expect(spendingToSync(here)).not.toBeNull();
   });
 });

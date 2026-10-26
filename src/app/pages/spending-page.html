@@ -29,6 +29,7 @@
       [future]="future()"
       [filter]="focus()"
       [need]="needFocus()"
+      [person]="personFocus()"
       [refunds]="refunds()"
       (clearFilter)="clearFilters()"
     />
@@ -45,6 +46,17 @@
 
     @if (showNeeds()) {
       <app-spending-needs class="precisava" [sums]="needSums()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
+    }
+
+    @if (showPeople()) {
+      <app-spending-people
+        class="pessoas"
+        [sums]="personSums()"
+        [selected]="personFocus()"
+        [noFixed]="noFixed()"
+        (pick)="pickPerson($event)"
+        (manage)="managingPeople.set(true)"
+      />
     }
 
     <app-spending-envelopes
@@ -77,6 +89,7 @@
         <li><b>salário +4559 todo mês</b> uma entrada fixa</li>
         <li><b>uber 23 pix ontem</b> o pagamento e o dia</li>
         <li><b>cinema 38 #luxo</b> se precisava: #luxo, #conforto ou #indispensável</li>
+        <li><b>jantar 600 &#64;bruna &#64;biel</b> com quem foi: cada um conta a sua parte</li>
       </ul>
       <p class="comeco-pe">Os envelopes, o saldo e o mês a mês aparecem com os primeiros lançamentos. As categorias se ajustam depois, e o que você lançar uma vez vira sugestão.</p>
     </aside>
@@ -85,4 +98,7 @@
 
 @if (managing()) {
   <app-spending-categories-sheet (closed)="managing.set(false)" />
+}
+@if (managingPeople()) {
+  <app-spending-people-sheet (closed)="managingPeople.set(false)" />
 }

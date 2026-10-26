@@ -4,6 +4,7 @@ import {
   Entry,
   Flow,
   MAX_INSTALLMENTS,
+  ME,
   NEEDS,
   NEED_LABEL,
   Need,
@@ -20,11 +21,14 @@ import {
   monthOfDay,
   moneyInput,
   parseMoney,
+  peopleOf,
   rowsIn,
   shiftMonth,
 } from '../core/spending';
+import { PersonRef, peopleText } from '../core/spending-quick';
 import { SpendingStore } from '../core/spending-store';
 import { Confirm } from './confirm';
+import { SpendingPeoplePicker } from './spending-people-picker';
 import { Toasts } from './toast';
 
 /** O jeito do lançamento: uma vez só, parcelado ou todo mês. */
@@ -37,7 +41,7 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
  */
 @Component({
   selector: 'app-spending-editor',
-  imports: [IconModule],
+  imports: [IconModule, SpendingPeoplePicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let d = draft();
@@ -98,6 +102,26 @@ type Kind = 'uma' | 'parcelado' | 'fixo';
               </select>
             </span>
           </label>
+
+          <div class="escolha com-quem">
+            <span id="ge-com-quem">Com quem</span>
+            <button
+              #comQuem
+              type="button"
+              class="caixa pessoas"
+              aria-haspopup="true"
+              aria-labelledby="ge-com-quem ge-com-quem-nomes"
+              [attr.aria-expanded]="picking()"
+              (click)="picking.set(!picking())"
+            >
+              <lucide-icon [img]="PeopleIcon" [size]="14" aria-hidden="true" />
+              <span id="ge-com-quem-nomes">{{ peopleText(refs()) }}</span>
+              <lucide-icon class="chev" [img]="ChevIcon" [size]="13" aria-hidden="true" />
+            </button>
+            @if (picking()) {
+              <app-spending-people-picker [refs]="refs()" [amount]="amount()" (changed)="setPeople($event)" (closed)="closePicker()" />
+            }
+          </div>
         }
 
         @if (kind() === 'parcelado') {
@@ -167,8 +191,12 @@ export class SpendingEditor {
   readonly done = output<void>();
 
   private readonly nameField = viewChild.required<ElementRef<HTMLInputElement>>('nome');
+  private readonly peopleButton = viewChild<ElementRef<HTMLButtonElement>>('comQuem');
 
   protected readonly DeleteIcon = ICON.apagar;
+  protected readonly PeopleIcon = ICON.pessoas;
+  protected readonly ChevIcon = ICON.abrir;
+  protected readonly peopleText = peopleText;
   protected readonly brl = brl;
   protected readonly payLabel = PAY_LABEL;
   protected readonly pays = PAY_METHODS;
@@ -184,6 +212,17 @@ export class SpendingEditor {
   protected readonly draft = signal<Entry>(null!);
   protected readonly amountText = signal('');
   protected readonly tried = signal(false);
+  /** A cartela de com quem foi está aberta. */
+  protected readonly picking = signal(false);
+
+  /** Com quem foi, com os nomes (uma pessoa que sumiu do livro fica de fora). */
+  protected readonly refs = computed<PersonRef[]>(() => {
+    const out = peopleOf(this.draft()).flatMap((id) => {
+      const p = this.store.person(id);
+      return p ? [{ id, name: p.name }] : [];
+    });
+    return out.length ? out : [{ id: ME, name: this.store.person(ME)?.name ?? 'Eu' }];
+  });
 
   constructor() {
     afterNextRender(() => this.nameField().nativeElement.focus({ preventScroll: true }));
@@ -244,6 +283,7 @@ export class SpendingEditor {
       const next: Entry = { ...d, flow, category: flow === 'saida' ? 'outros' : 'outras-entradas' };
       if (flow === 'entrada') {
         delete next.need;
+        delete next.people;
         delete next.pay;
         delete next.installments;
       } else {
@@ -275,6 +315,21 @@ export class SpendingEditor {
       else delete next.need;
       return next;
     });
+  }
+
+  protected setPeople(refs: PersonRef[]): void {
+    const ids = refs.flatMap((r) => (r.id ? [r.id] : []));
+    this.draft.update((d) => {
+      const next: Entry = { ...d };
+      if (ids.length && !(ids.length === 1 && ids[0] === ME)) next.people = ids;
+      else delete next.people;
+      return next;
+    });
+  }
+
+  protected closePicker(): void {
+    this.picking.set(false);
+    this.peopleButton()?.nativeElement.focus({ preventScroll: true });
   }
 
   protected setInstallments(v: string): void {

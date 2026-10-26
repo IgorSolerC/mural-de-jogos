@@ -47,11 +47,11 @@
     opacity: 0.7;
   }
 
-  /* sem o que lançar: só o contorno do botão, esperando */
+  /* sem o que lançar: só a palavra apagada, sem caixa, esperando */
   &:disabled {
     background: transparent;
     color: rgb(21 21 21 / 0.5);
-    box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.2);
+    box-shadow: none;
     cursor: default;
     translate: none;
     rotate: none;
@@ -245,10 +245,17 @@
   opacity: 0.55;
 }
 
-/* a categoria que ninguém escolheu (a de sempre) e o "todo mês" desligado: o recorte tracejado, ainda
-   na cartela, pedindo para escolher */
+/* com quem foi: o adesivo e, embaixo dele, a cartela de pessoas */
+.com-quem {
+  position: relative;
+  display: inline-flex;
+}
+
+/* a categoria que ninguém escolheu (a de sempre), o "todo mês" desligado e o gasto só seu: o recorte
+   tracejado, ainda na cartela, pedindo para escolher */
 .adivinhada,
-.opcional[aria-pressed='false'] {
+.opcional[aria-pressed='false'],
+.pessoas.opcional {
   background: transparent;
   box-shadow: none;
   outline: 1.5px dashed rgb(21 21 21 / 0.45);

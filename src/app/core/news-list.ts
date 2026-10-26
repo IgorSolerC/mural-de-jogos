@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-26-pessoas',
+    version: '1.35.0',
+    kind: 'funcionalidade',
+    date: '2026-10-26',
+    title: 'Com quem nos Gastos',
+    items: [
+      'Cada gasto pode ser com mais gente: escreva "jantar 600 @bruna @biel" ou escolha no adesivo "Com quem" (você está em todo gasto, mas pode sair dele). As pessoas novas entram no livro sozinhas.',
+      'A peça Por pessoa mostra quanto do mês foi com cada um, cada gasto dividido em partes iguais (o jantar de R$ 600 com três conta R$ 200 para cada); tocar numa pessoa deixa na fita só os gastos dela, com a parte dela.',
+      'As pessoas se ajustam em Ajustar, na peça: o nome de cada uma e apagar.',
+    ],
+  },
+  {
     id: '2026-10-26-precisava',
     version: '1.34.0',
     kind: 'funcionalidade',

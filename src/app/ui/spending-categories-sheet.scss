@@ -128,6 +128,26 @@ dialog.envelopes {
   grid-template-columns: auto minmax(0, 1fr) 44px;
 }
 
+/* as pessoas (a folha delas usa esta): o nome e o apagar; você, no lugar do apagar, "você" escrito */
+.pessoa-linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.voce {
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.dica b {
+  font-weight: 600;
+  color: var(--ink);
+}
+
 /* apagar fica quieto numa lista de onze linhas: tinta apagada, vermelho só com o mouse ou o foco */
 .apagar {
   color: rgb(21 21 21 / 0.55);
