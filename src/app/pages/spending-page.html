@@ -1,54 +1,72 @@
 <!-- o nome da seção está na barra embaixo do topo (ui/area-bar.ts) -->
 <h1 class="sr-only">Gastos de {{ title() }}</h1>
 
-<div class="mesa" [class.em-branco]="blank()">
-  <!-- em cima, a pasta de manilha (a do Calendário): Este mês, as setas e o mês; o Filtrar e, embaixo,
-       a cartela e os filtros ligados -->
+<div class="mesa" [class.em-branco]="blank()" [class.periodo]="span()" [class.graficos]="!span() && charts()">
+  <!-- em cima, as vistas (as divisórias de manilha, como no Calendário) e a pasta: Este mês, as setas e o
+       nome do mês (ou do período); o Gráficos e o Filtrar e, embaixo, a cartela e os filtros ligados -->
   <div class="topo">
-    <div class="pasta solta">
-      <div class="pasta-linha">
-        <div class="navegar" role="group" aria-label="Mês">
-          <button type="button" class="tinta hoje" [attr.aria-current]="isThisMonth() ? 'date' : null" aria-keyshortcuts="h" (click)="goToday()">Este mês</button>
-          <button type="button" class="tinta so-icone" aria-label="Mês anterior" title="Mês anterior (←)" (click)="step(-1)">
-            <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
-          </button>
-          <button type="button" class="tinta so-icone" aria-label="Próximo mês" title="Próximo mês (→)" (click)="step(1)">
-            <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
-          </button>
+    <div class="pasta-com-abas">
+      @if (!blank()) {
+        <div class="divisorias vistas" role="group" aria-label="Quantos meses ver">
+          @for (v of views; track v.label) {
+            <button type="button" class="divisoria" [attr.aria-pressed]="span() === v.span" [attr.aria-keyshortcuts]="v.key" (click)="setSpan(v.span)">
+              <lucide-icon class="divisoria-icone" [img]="v.span ? ColumnsIcon : MonthIcon" [size]="16" aria-hidden="true" />
+              <span class="divisoria-nome">{{ v.label }}</span>
+            </button>
+          }
         </div>
-        <h2 class="periodo" aria-live="polite">{{ title() }}</h2>
-        @if (future()) {
-          <span class="previsto">Previsto: fixos e parcelas</span>
-        }
-        @if (!blank()) {
-          <div class="pasta-controles">
-            <div class="pasta-grupo">
-              <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
-                <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
-                <span>Filtrar</span>
-                @if (filterCount()) {
-                  <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
-                  <span class="sr-only">({{ filterCount() }} ligados)</span>
-                }
-              </button>
+      }
+      <div class="pasta" [class.solta]="blank()">
+        <div class="pasta-linha">
+          <div class="navegar" role="group" aria-label="Mês">
+            <button type="button" class="tinta hoje" [attr.aria-current]="isThisMonth() ? 'date' : null" aria-keyshortcuts="h" (click)="goToday()">Este mês</button>
+            <button type="button" class="tinta so-icone" aria-label="Mês anterior" title="Mês anterior (←)" (click)="step(-1)">
+              <lucide-icon [img]="PrevIcon" [size]="20" aria-hidden="true" />
+            </button>
+            <button type="button" class="tinta so-icone" aria-label="Próximo mês" title="Próximo mês (→)" (click)="step(1)">
+              <lucide-icon [img]="NextIcon" [size]="20" aria-hidden="true" />
+            </button>
+          </div>
+          <h2 class="periodo-nome" aria-live="polite">{{ title() }}</h2>
+          @if (future()) {
+            <span class="previsto">{{ span() ? 'Os meses que vêm são previstos' : 'Previsto: fixos e parcelas' }}</span>
+          }
+          @if (!blank() && !span()) {
+            <div class="pasta-controles">
+              <div class="pasta-grupo">
+                <button type="button" class="tinta" aria-keyshortcuts="g" title="Gráficos (G): a fita fica curta e os gráficos do mês aparecem" [attr.aria-pressed]="charts()" (click)="charts.set(!charts())">
+                  <lucide-icon [img]="ChartsIcon" [size]="18" aria-hidden="true" />
+                  <span>Gráficos</span>
+                </button>
+              </div>
+              <div class="pasta-grupo">
+                <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
+                  <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+                  <span>Filtrar</span>
+                  @if (filterCount()) {
+                    <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
+                    <span class="sr-only">({{ filterCount() }} ligados)</span>
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+        @if (filtered() && !span()) {
+          <!-- depois do picote: os filtros ligados, cada um com o seu X, e quantos sobraram -->
+          <div class="pasta-linha pasta-baixo">
+            <div class="pasta-filtros">
+              <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
+            </div>
+            <div class="pasta-estado">
+              <p class="achados" aria-live="polite">Mostrando {{ tapeRows().length }} de {{ rows().length }}</p>
+              <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
             </div>
           </div>
         }
       </div>
-      @if (filtered()) {
-        <!-- depois do picote: os filtros ligados, cada um com o seu X, e quantos sobraram -->
-        <div class="pasta-linha pasta-baixo">
-          <div class="pasta-filtros">
-            <app-filter-tags class="atalhos" [tags]="chips()" (remove)="removeChip($event)" />
-          </div>
-          <div class="pasta-estado">
-            <p class="achados" aria-live="polite">Mostrando {{ tapeRows().length }} de {{ rows().length }}</p>
-            <button type="button" class="tinta-link" (click)="clearFilters()">Limpar</button>
-          </div>
-        </div>
-      }
     </div>
-    @if (filtering() && !blank()) {
+    @if (filtering() && !blank() && !span()) {
       <app-spending-filters
         id="gastos-filtros"
         class="cartela"
@@ -66,64 +84,7 @@
 
   <app-spending-quick class="anotar" />
 
-  @if (!blank()) {
-    <app-spending-tape
-      class="fita"
-      [rows]="tapeRows()"
-      [month]="open()"
-      [future]="future()"
-      [filtered]="filtered()"
-      [total]="rows().length"
-      [person]="personFocus()"
-      [refunds]="refunds()"
-      (clearFilter)="clearFilters()"
-    />
-
-    <app-spending-summary
-      class="resumo"
-      [totals]="totals()"
-      [days]="days()"
-      [month]="open()"
-      [daysLeft]="left()"
-      [future]="future()"
-      [repeats]="repeats()"
-    />
-
-    @if (showNeeds()) {
-      <app-spending-needs class="precisava" [sums]="needSums()" [counts]="needCounts()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
-    }
-
-    @if (showPeople()) {
-      <app-spending-people
-        class="pessoas"
-        [sums]="personSums()"
-        [selected]="personFocus()"
-        [noFixed]="noFixed()"
-        (pick)="pickPerson($event)"
-        (manage)="managingPeople.set(true)"
-      />
-    }
-
-    <app-spending-envelopes
-      class="envelopes"
-      [sums]="sums()"
-      [usual]="usual().avg"
-      [seen]="usual().seen"
-      [selected]="focus()"
-      [noFixed]="noFixed()"
-      (pick)="pick($event)"
-      (toggleFixed)="noFixed.set(!noFixed())"
-      (manage)="managing.set(true)"
-    />
-
-    @if (showMonths()) {
-      <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
-    }
-
-    @if (plans().length) {
-      <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
-    }
-  } @else {
+  @if (blank()) {
     <!-- a primeira vez: como escrever na linha, numa nota à mão -->
     <aside class="comeco" aria-label="Como anotar">
       <p class="comeco-titulo">Escreva como se fala</p>
@@ -138,6 +99,101 @@
       </ul>
       <p class="comeco-pe">Os envelopes, o saldo e o mês a mês aparecem com os primeiros lançamentos. As categorias se ajustam depois, e o que você lançar uma vez vira sugestão.</p>
     </aside>
+  } @else if (span(); as n) {
+    <!-- vários meses: à esquerda os meses lado a lado (as colunas, a tabela das categorias e os maiores
+         gastos), à direita o que se lê do período -->
+    <div class="lado lado-esq">
+      <app-spending-columns class="colunas" [months]="period()" [month]="open()" [focus]="periodFocus()" (go)="openMonth($event)" />
+      <app-spending-grid class="tabela" [months]="period()" [lines]="categoryLines()" [month]="open()" [focus]="periodFocus()" (pick)="periodFocus.set($event)" />
+      <app-spending-top class="maiores" [spends]="topSpends()" [focus]="periodFocus()" (go)="openMonth($event)" />
+    </div>
+    <div class="lado lado-dir">
+      <app-spending-period-summary class="resumo" [totals]="periodTotals()" [previous]="previousPeriod()" [label]="periodName()" [months]="period().length" />
+      @if (periodWays().total) {
+        <app-spending-ways class="jeitos" [ways]="periodWays()" [static]="true" />
+      }
+      @if (periodShowNeeds()) {
+        <app-spending-needs class="precisava" [sums]="periodNeedSums()" [counts]="periodNeedCounts()" [static]="true" />
+      }
+      @if (periodShowPeople()) {
+        <app-spending-people class="pessoas" [sums]="periodPersonSums()" [static]="true" (manage)="managingPeople.set(true)" />
+      }
+      @if (plans().length) {
+        <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
+      }
+    </div>
+  } @else {
+    <!-- um mês: à esquerda a fita (curta, com os gráficos do mês embaixo, quando ligados) e o mês a mês;
+         à direita o que se lê do mês -->
+    <div class="lado lado-esq">
+      <app-spending-tape
+        class="fita"
+        [rows]="tapeRows()"
+        [month]="open()"
+        [future]="future()"
+        [filtered]="filtered()"
+        [total]="rows().length"
+        [person]="personFocus()"
+        [refunds]="refunds()"
+        [short]="charts() ? shortTape : null"
+        (clearFilter)="clearFilters()"
+      />
+      @if (charts()) {
+        <app-spending-days class="dias" [amounts]="dayAmounts()" [planned]="dayPlanned()" [month]="open()" [today]="isThisMonth() ? today() : null" />
+        @if (versus().length) {
+          <app-spending-versus class="contra" [items]="versus()" [month]="open()" [before]="previousMonth()" [selected]="focus()" (pick)="pick($event)" />
+        }
+      }
+      @if (showMonths()) {
+        <app-spending-months class="meses" [strips]="strips()" [month]="open()" [focus]="focus()" (go)="go($event)" />
+      }
+      @if (plans().length) {
+        <app-spending-plans class="carnes" [plans]="plans()" [ahead]="ahead()" [month]="open()" />
+      }
+    </div>
+    <div class="lado lado-dir">
+      <app-spending-summary
+        class="resumo"
+        [totals]="totals()"
+        [days]="days()"
+        [month]="open()"
+        [daysLeft]="left()"
+        [future]="future()"
+        [repeats]="repeats()"
+        [previous]="previousSpent()"
+      />
+
+      @if (ways().total) {
+        <app-spending-ways class="jeitos" [ways]="ways()" [pay]="payFocus()" [kind]="kindFocus()" (pick)="pickWay($event)" />
+      }
+
+      @if (showNeeds()) {
+        <app-spending-needs class="precisava" [sums]="needSums()" [counts]="needCounts()" [selected]="needFocus()" [noFixed]="noFixed()" (pick)="pickNeed($event)" />
+      }
+
+      @if (showPeople()) {
+        <app-spending-people
+          class="pessoas"
+          [sums]="personSums()"
+          [selected]="personFocus()"
+          [noFixed]="noFixed()"
+          (pick)="pickPerson($event)"
+          (manage)="managingPeople.set(true)"
+        />
+      }
+
+      <app-spending-envelopes
+        class="envelopes"
+        [sums]="sums()"
+        [usual]="usual().avg"
+        [seen]="usual().seen"
+        [selected]="focus()"
+        [noFixed]="noFixed()"
+        (pick)="pick($event)"
+        (toggleFixed)="noFixed.set(!noFixed())"
+        (manage)="managing.set(true)"
+      />
+    </div>
   }
 </div>
 

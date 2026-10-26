@@ -11,6 +11,22 @@
   min-width: 0;
 }
 
+/* as vistas: as divisórias de manilha (globais, `.divisorias`) emendadas na pasta, como no Calendário */
+.vistas .divisoria {
+  align-items: center;
+}
+
+.divisoria-icone {
+  display: inline-flex;
+  margin-top: -1px;
+}
+
+@container gastos (max-width: 480px) {
+  .divisoria-icone {
+    display: none;
+  }
+}
+
 /* Este mês e as setas juntos, como no Calendário */
 .navegar {
   display: flex;
@@ -19,7 +35,7 @@
 }
 
 /* o nome do mês, a pincel, como o título de uma folha */
-.periodo {
+.periodo-nome {
   min-width: 0;
   margin: 0;
   font-family: var(--f-marker);
@@ -42,7 +58,7 @@
 }
 
 @media (max-width: 720px) {
-  .periodo {
+  .periodo-nome {
     flex-basis: 100%;
     order: -1;
     font-size: 1.32rem;
@@ -50,8 +66,10 @@
 }
 
 /* ===== A mesa =====
-   Celular: uma coluna (o saldo primeiro, depois anotar e a fita, os envelopes, o mês a mês e os carnês).
-   Tela larga: o que se faz à esquerda (anotar e a fita), o que se vê à direita, numa coluna. */
+   Celular: uma coluna, na ordem de ler (o saldo primeiro, depois anotar e a fita, e o resto). Os dois lados
+   (`.lado`) somem da conta (`display: contents`) e cada peça vai para a sua área da grade.
+   Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, dois lados que crescem cada um no seu
+   ritmo, sem buracos: o que se faz e se compara à esquerda, o que se lê à direita. */
 .mesa {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -60,13 +78,35 @@
     'anotar'
     'resumo'
     'fita'
-    'envelopes'
+    'dias'
+    'contra'
+    'jeitos'
     'precisava'
     'pessoas'
+    'envelopes'
     'meses'
     'carnes';
   gap: 16px;
   align-items: start;
+}
+
+/* vários meses, no celular: o saldo do período, as colunas, como saiu, a tabela, e o resto */
+.mesa.periodo {
+  grid-template-areas:
+    'mes'
+    'anotar'
+    'resumo'
+    'colunas'
+    'jeitos'
+    'tabela'
+    'precisava'
+    'pessoas'
+    'maiores'
+    'carnes';
+}
+
+.lado {
+  display: contents;
 }
 
 .anotar {
@@ -94,6 +134,24 @@
 }
 .carnes {
   grid-area: carnes;
+}
+.jeitos {
+  grid-area: jeitos;
+}
+.dias {
+  grid-area: dias;
+}
+.contra {
+  grid-area: contra;
+}
+.colunas {
+  grid-area: colunas;
+}
+.tabela {
+  grid-area: tabela;
+}
+.maiores {
+  grid-area: maiores;
 }
 
 /* sem nenhum lançamento: anotar e a nota de como escrever */
@@ -149,28 +207,46 @@
   color: var(--ink-2);
 }
 
-/* Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, a fita à esquerda e o que se lê à
-   direita, as duas começando na mesma altura */
+/* Tela larga: a pasta e a linha de anotar de ponta a ponta; embaixo, os dois lados, cada um uma coluna
+   que cresce no seu ritmo, as duas começando na mesma altura */
 @container gastos (min-width: 900px) {
-  .mesa {
+  .mesa,
+  .mesa.periodo {
     grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
     grid-template-areas:
       'mes mes'
       'anotar anotar'
-      'fita resumo'
-      'fita precisava'
-      'fita pessoas'
-      'fita envelopes'
-      'fita meses'
-      'fita carnes'
-      'fita .';
-    grid-template-rows: auto auto auto auto auto auto auto auto 1fr;
+      'esq dir';
     gap: 16px 28px;
   }
-  .envelopes,
-  .meses,
-  .carnes {
+  .lado {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 16px;
+    min-width: 0;
+
+    > * {
+      grid-area: auto;
+    }
+  }
+  .lado-esq {
+    grid-area: esq;
+  }
+  .lado-dir {
+    grid-area: dir;
+  }
+  /* a fita serrilhada precisa de ar embaixo; os envelopes (na parede) e as peças depois dela, de um pouco */
+  .fita + * {
     margin-top: 6px;
+  }
+  .envelopes {
+    margin-top: 6px;
+  }
+
+  /* vários meses: as colunas e a tabela pedem mais largura */
+  .mesa.periodo {
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.85fr);
   }
 
   /* a fita, logo embaixo, já diz "8 de 12": a pasta fica só com os adesivos e o Limpar */
@@ -182,7 +258,6 @@
     grid-template-areas:
       'mes mes'
       'anotar comeco';
-    grid-template-rows: auto auto;
   }
 }
 

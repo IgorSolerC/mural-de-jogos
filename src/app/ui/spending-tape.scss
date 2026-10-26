@@ -186,6 +186,18 @@
   color: rgb(21 21 21 / 0.7);
 }
 
+/* a fita curta (com os gráficos): o resto da bobina enrolado, a um toque */
+.inteira {
+  @include gk.tinta-pequena;
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  margin-top: 6px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.2);
+  border-radius: 0;
+  padding-top: 10px;
+}
+
 .vazio {
   margin: 18px 4px 6px;
   font-family: var(--f-hand);

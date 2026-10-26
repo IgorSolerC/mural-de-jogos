@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { map } from 'rxjs';
 import { ICON, IconModule } from '../ui/icons';
 import { todayISO } from '../core/dates';
 import { reducedMotion } from '../core/motion';
 import { readText, writeText } from '../core/storage';
 import {
   Need,
+  activeMonths,
   dailyBalance,
   daysLeft,
   installmentsAhead,
@@ -26,10 +26,32 @@ import {
   totals,
   usualByCategory,
 } from '../core/spending';
+import {
+  Span,
+  addWays,
+  kindOf,
+  categoryLines,
+  isSpan,
+  monthVersus,
+  periodLabel,
+  periodMonths,
+  periodSpends,
+  periodTotals,
+  previousPeriod,
+  spendWays,
+  spentByDay,
+} from '../core/spending-period';
 import { FilterContext, FilterKey, SpendingFilter, filterChips, filterCount, filterGroups, filterRows, isFiltered, onlyIn, toggleFilter, withGroup } from '../core/spending-filter';
 import { SpendingStore } from '../core/spending-store';
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { SpendingCategoriesSheet } from '../ui/spending-categories-sheet';
+import { SpendingColumns } from '../ui/spending-columns';
+import { SpendingDays } from '../ui/spending-days';
+import { SpendingGrid } from '../ui/spending-grid';
+import { SpendingPeriodSummary } from '../ui/spending-period-summary';
+import { SpendingTop } from '../ui/spending-top';
+import { SpendingVersus } from '../ui/spending-versus';
+import { SpendingWays, WayPick } from '../ui/spending-ways';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
 import { SpendingFilters } from '../ui/spending-filters';
 import { SpendingMonths } from '../ui/spending-months';
@@ -43,6 +65,18 @@ import { SpendingTape } from '../ui/spending-tape';
 
 /** "Sem os fixos" fica lembrado neste aparelho. */
 const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
+/** "Gráficos" (a fita curta e os gráficos do mês) fica lembrado neste aparelho. */
+export const CHARTS_KEY = 'meu-mural:gastos-graficos:v1';
+/** Com os gráficos, quantas linhas a fita mostra antes do "Ver a fita inteira". */
+const SHORT_TAPE = 8;
+
+/** As vistas: um mês, ou os últimos 3, 6 ou 12 até ele. */
+const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
+  { span: null, label: 'Mês', key: 'm' },
+  { span: 3, label: '3 meses', key: '3' },
+  { span: 6, label: '6 meses', key: '6' },
+  { span: 12, label: '12 meses', key: '1' },
+];
 
 /**
  * Os Gastos (`/utilidades/gastos?mes=AAAA-MM`): o dinheiro de um mês, numa mesa.
@@ -57,6 +91,15 @@ const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
  * seu X. Os envelopes, o Precisava? e o Por pessoa escolhem o grupo deles nesses mesmos filtros.
  *
  * O mês mora no endereço (Voltar volta ao mês de antes); sem ele, o de hoje. ← e → trocam de mês.
+ *
+ * Em cima da pasta, as divisórias das vistas: **Mês**, ou **3, 6 ou 12 meses** até o mês aberto
+ * (`?vista=6`). A de vários meses troca a fita pelos meses lado a lado: as colunas do mês a mês, a tabela
+ * das categorias mês a mês e os maiores gastos do período, à esquerda; o saldo do período (contra os
+ * mesmos meses antes dele), como saiu, o Precisava?, o Por pessoa e os carnês, à direita. Tocar num mês
+ * (ou num gasto) abre aquele mês.
+ *
+ * No mês, **Gráficos** (G, lembrado no aparelho) deixa a fita curta (as 8 primeiras linhas, e "Ver a fita
+ * inteira") e põe embaixo dela o dia a dia e o mês contra o de antes, por categoria.
  */
 @Component({
   selector: 'app-spending-page',
@@ -64,7 +107,14 @@ const NO_FIXED_KEY = 'meu-mural:gastos-sem-fixos:v1';
     FilterTags,
     IconModule,
     SpendingCategoriesSheet,
+    SpendingColumns,
+    SpendingDays,
     SpendingEnvelopes,
+    SpendingGrid,
+    SpendingPeriodSummary,
+    SpendingTop,
+    SpendingVersus,
+    SpendingWays,
     SpendingFilters,
     SpendingMonths,
     SpendingNeeds,
@@ -88,21 +138,32 @@ export class SpendingPage {
   protected readonly PrevIcon = ICON.anterior;
   protected readonly NextIcon = ICON.proximo;
   protected readonly FilterIcon = ICON.filtrar;
+  protected readonly MonthIcon = ICON.calendario;
+  protected readonly ColumnsIcon = ICON.barras;
+  protected readonly ChartsIcon = ICON.importancia;
+  protected readonly views = VIEWS;
+  protected readonly shortTape = SHORT_TAPE;
 
   private readonly filterButton = viewChild<ElementRef<HTMLButtonElement>>('filtrar');
 
-  private readonly today = signal(todayISO());
+  protected readonly today = signal(todayISO());
   private readonly thisMonth = computed(() => monthOfDay(this.today()));
 
   /** O mês do endereço, ou o de hoje. */
-  protected readonly month = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map((q) => q.get('mes'))), { initialValue: null });
+  private readonly query = toSignal(inject(ActivatedRoute).queryParamMap, { initialValue: null });
+  protected readonly month = computed(() => this.query()?.get('mes') ?? null);
+  /** Quantos meses a vista mostra (null: um mês só). */
+  protected readonly span = computed<Span | null>(() => {
+    const v = Number(this.query()?.get('vista'));
+    return isSpan(v) ? v : null;
+  });
   protected readonly open = computed(() => {
     const m = this.month();
     return isMonth(m) ? m : this.thisMonth();
   });
 
   protected readonly title = computed(() => {
-    const label = monthLabel(this.open());
+    const label = this.span() ? this.periodName() : monthLabel(this.open());
     return label[0].toLocaleUpperCase('pt-BR') + label.slice(1);
   });
   protected readonly isThisMonth = computed(() => this.open() === this.thisMonth());
@@ -123,6 +184,8 @@ export class SpendingPage {
   /** A pessoa escolhida: a fita mostra a parte dela em cada gasto. */
   protected readonly personFocus = computed(() => onlyIn(this.filter(), 'person'));
   protected readonly noFixed = signal(readText(NO_FIXED_KEY) === '1');
+  /** A fita curta e os gráficos do mês. */
+  protected readonly charts = signal(readText(CHARTS_KEY) === '1');
   protected readonly managing = signal(false);
   protected readonly managingPeople = signal(false);
 
@@ -150,6 +213,70 @@ export class SpendingPage {
   protected readonly usual = computed(() => usualByCategory(this.counted(), this.open()));
   protected readonly strips = computed(() => monthStrips(this.counted(), this.open(), 6));
   protected readonly showMonths = computed(() => this.strips().filter((s) => s.spent || s.income).length > 1);
+
+  /** Como saiu no mês (à vista, Pix, parcelado; uma vez, parcelas, todo mês). */
+  protected readonly ways = computed(() => spendWays(this.rows(), this.entries()));
+  protected readonly payFocus = computed(() => onlyIn(this.filter(), 'pay'));
+  protected readonly kindFocus = computed(() => onlyIn(this.filter(), 'kind'));
+  /** O mês de antes, e quanto saiu nele (null sem lançamento lá). */
+  protected readonly previousMonth = computed(() => shiftMonth(this.open(), -1));
+  protected readonly previousSpent = computed(() => {
+    const rows = rowsIn(this.entries(), this.previousMonth());
+    return rows.length ? totals(rows, this.entries()).spent : null;
+  });
+  /** Os gráficos do mês: o que saiu em cada dia, e cada categoria contra o mês de antes. */
+  protected readonly dayAmounts = computed(() => spentByDay(this.rows(), this.open(), this.entries()));
+  protected readonly dayPlanned = computed(() =>
+    spentByDay(
+      this.rows().filter((r) => r.entry.flow === 'saida' && kindOf(r.entry) !== 'uma'),
+      this.open(),
+      this.entries(),
+    ),
+  );
+  protected readonly versus = computed(() => monthVersus(this.counted(), this.open(), this.usual().avg));
+
+  // ── Vários meses ──
+  /** Os meses da vista, a partir do primeiro com lançamento (os de antes do livro não diriam nada). */
+  protected readonly period = computed(() => {
+    const n = this.span();
+    if (!n) return [];
+    const first = activeMonths(this.counted())[0];
+    const months = periodMonths(this.counted(), this.open(), n);
+    const from = months.findIndex((m) => !first || m.month >= first);
+    return from > 0 ? months.slice(from) : months;
+  });
+  protected readonly periodName = computed(() => periodLabel(this.open(), Math.max(1, this.period().length)));
+  protected readonly periodTotals = computed(() => periodTotals(this.period()));
+  protected readonly previousPeriod = computed(() => {
+    const n = this.span();
+    return n ? previousPeriod(this.counted(), this.open(), n) : null;
+  });
+  protected readonly periodWays = computed(() => addWays(this.period().map((m) => spendWays(m.rows, this.counted()))));
+  /** A categoria escolhida na tabela: as colunas mostram a parte dela, e os maiores gastos ficam só nela. */
+  protected readonly periodFocus = signal<string | null>(null);
+  protected readonly categoryLines = computed(() => categoryLines(this.period()));
+  protected readonly topSpends = computed(() => {
+    const f = this.periodFocus();
+    const all = periodSpends(this.period(), this.counted());
+    return f ? all.filter((s) => s.entry.category === f) : all;
+  });
+  protected readonly periodNeedSums = computed(() => {
+    const out = new Map<Need | null, number>();
+    for (const m of this.period()) for (const [k, v] of spentByNeed(m.rows, this.counted())) out.set(k, (out.get(k) ?? 0) + v);
+    return out;
+  });
+  protected readonly periodNeedCounts = computed(() => {
+    const out = new Map<Need | null, number>();
+    for (const m of this.period()) for (const r of m.rows) if (r.entry.flow === 'saida') out.set(r.entry.need ?? null, (out.get(r.entry.need ?? null) ?? 0) + 1);
+    return out;
+  });
+  protected readonly periodShowNeeds = computed(() => [...this.periodNeedSums().values()].some((v) => v > 0));
+  protected readonly periodPersonSums = computed(() => {
+    const out = new Map<string, number>();
+    for (const m of this.period()) for (const [k, v] of spentByPerson(m.rows, this.counted())) out.set(k, (out.get(k) ?? 0) + v);
+    return out;
+  });
+  protected readonly periodShowPeople = computed(() => this.period().some((m) => m.rows.some((r) => r.entry.flow === 'saida' && !!r.entry.people)));
 
   protected readonly plans = computed(() => openPlans(this.entries(), this.open()));
   protected readonly ahead = computed(() => installmentsAhead(this.entries(), this.open()).total);
@@ -208,6 +335,11 @@ export class SpendingPage {
     this.choose('need', n === undefined ? null : (n ?? 'sem'));
   }
 
+  /** Escolher um pagamento ou um jeito no "Como saiu" (ou tirar a escolha). */
+  protected pickWay(p: WayPick): void {
+    this.choose(p.group, p.value);
+  }
+
   /** Escolher uma pessoa (ou tirar a escolha). */
   protected pickPerson(id: string | null): void {
     this.choose('person', id);
@@ -229,6 +361,7 @@ export class SpendingPage {
       untracked(() => this.store.month.set(m));
     });
     effect(() => writeText(NO_FIXED_KEY, this.noFixed() ? '1' : '0'));
+    effect(() => writeText(CHARTS_KEY, this.charts() ? '1' : '0'));
     // o dia vira enquanto a página está aberta
     const tick = setInterval(() => this.today.set(todayISO()), 60_000);
     inject(DestroyRef).onDestroy(() => clearInterval(tick));
@@ -236,6 +369,17 @@ export class SpendingPage {
 
   protected go(month: string): void {
     void this.router.navigate([], { queryParams: { mes: month === this.thisMonth() ? null : month }, queryParamsHandling: 'merge' });
+  }
+
+  /** Abrir um mês na vista de um mês (de uma coluna ou de um gasto da vista de vários meses). */
+  protected openMonth(month: string): void {
+    void this.router.navigate([], { queryParams: { mes: month === this.thisMonth() ? null : month, vista: null }, queryParamsHandling: 'merge' });
+  }
+
+  /** Trocar a vista: um mês, ou os últimos 3, 6 ou 12 até o aberto. */
+  protected setSpan(n: Span | null): void {
+    if (n) this.filtering.set(false);
+    void this.router.navigate([], { queryParams: { vista: n }, queryParamsHandling: 'merge' });
   }
 
   protected goToday(): void {
@@ -253,7 +397,9 @@ export class SpendingPage {
     if (e.key === 'ArrowLeft') this.step(-1);
     else if (e.key === 'ArrowRight') this.step(1);
     else if (e.key === 'h' || e.key === 'H') this.goToday();
-    else if ((e.key === 'f' || e.key === 'F') && !this.blank()) this.toggleFilters(true);
+    else if ((e.key === 'f' || e.key === 'F') && !this.blank() && !this.span()) this.toggleFilters(true);
+    else if ((e.key === 'g' || e.key === 'G') && !this.blank() && !this.span()) this.charts.set(!this.charts());
+    else if (VIEWS.some((v) => v.key === e.key) && !this.blank()) this.setSpan(VIEWS.find((v) => v.key === e.key)!.span);
     else return;
     e.preventDefault();
   }

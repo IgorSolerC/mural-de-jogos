@@ -23,6 +23,7 @@ interface Part {
 @Component({
   selector: 'app-spending-needs',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.so-ler]': 'static()' },
   template: `
     <header class="cabeca">
       <h2 class="titulo">Precisava?</h2>
@@ -62,8 +63,8 @@ interface Part {
             type="button"
             class="linha"
             [attr.data-need]="p.need ?? 'nenhuma'"
-            [attr.aria-pressed]="selected() === p.need"
-            [disabled]="!p.amount"
+            [attr.aria-pressed]="static() ? null : selected() === p.need"
+            [disabled]="static() || !p.amount"
             [attr.aria-label]="p.name + ': ' + brl(p.amount) + ', ' + pct(p.share) + ' do que saiu' + (hasCounts() ? ', ' + p.n + (p.n === 1 ? ' gasto' : ' gastos') : '')"
             (click)="pick.emit(selected() === p.need ? undefined : p.need)"
           >
@@ -79,7 +80,7 @@ interface Part {
       }
     </ul>
 
-    @if (untouched()) {
+    @if (untouched() && !static()) {
       <p class="nota">Marque cada gasto na fita, ou já ao anotar: <b>cinema 38 #luxo</b>.</p>
     }
   `,
@@ -90,8 +91,8 @@ interface Part {
       @include gk.peca;
       display: block;
       padding: 12px 16px 12px;
+      container: precisava / inline-size;
     }
-
     .cabeca {
       display: flex;
       align-items: baseline;
@@ -250,6 +251,34 @@ interface Part {
       color: var(--ink-2);
     }
 
+    /* só para ler (vários meses): as linhas com a tinta de sempre, sem parecer apagadas */
+    :host(.so-ler) .linha:disabled {
+      color: var(--ink);
+
+      .nome {
+        color: var(--tinta);
+      }
+      .tinta {
+        opacity: 1;
+      }
+    }
+
+    /* peça estreita (celular): sem a contagem, para o nome e o valor caberem */
+    @container precisava (max-width: 380px) {
+      .linha:has(.vezes) {
+        grid-template-columns: auto minmax(0, 1fr) auto 3em;
+      }
+      .vezes {
+        display: none;
+      }
+    }
+    .nome {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     .nota {
       margin: 8px 0 0;
       font-family: var(--f-hand);
@@ -274,6 +303,8 @@ export class SpendingNeeds {
   /** A resposta escolhida (a fita mostra só ela); `undefined`: nenhuma. */
   readonly selected = input<Need | null | undefined>(undefined);
   readonly noFixed = input(false);
+  /** Só mostra, sem escolher na fita (na vista de vários meses). */
+  readonly static = input(false);
   readonly pick = output<Need | null | undefined>();
 
   protected readonly brl = brl;

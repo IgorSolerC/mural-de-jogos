@@ -28,6 +28,7 @@ const SMALL = 0.05;
 @Component({
   selector: 'app-spending-people',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.so-ler]': 'static()' },
   template: `
     <header class="cabeca">
       <h2 class="titulo">Por pessoa</h2>
@@ -44,7 +45,8 @@ const SMALL = 0.05;
           <button
             type="button"
             class="linha"
-            [attr.aria-pressed]="selected() === p.id"
+            [attr.aria-pressed]="static() ? null : selected() === p.id"
+            [disabled]="static()"
             [attr.aria-label]="p.name + ': ' + brl(p.amount) + ', ' + pct(p.share) + ' do que saiu'"
             (click)="pick.emit(selected() === p.id ? null : p.id)"
           >
@@ -142,7 +144,7 @@ const SMALL = 0.05;
       text-align: left;
       cursor: pointer;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background: rgb(21 21 21 / 0.05);
       }
       &:focus-visible {
@@ -152,9 +154,13 @@ const SMALL = 0.05;
       &[aria-pressed='true'] {
         background: rgb(255 218 66 / 0.38);
       }
+      /* só para ler (vários meses) */
+      &:disabled {
+        cursor: default;
+      }
     }
     @media (pointer: coarse) {
-      .linha {
+      .linha:not(:disabled) {
         min-height: 44px;
       }
     }
@@ -229,6 +235,8 @@ export class SpendingPeople {
   /** A pessoa escolhida (a fita mostra só os gastos dela); `null`: nenhuma. */
   readonly selected = input<string | null>(null);
   readonly noFixed = input(false);
+  /** Só mostra, sem escolher na fita (na vista de vários meses). */
+  readonly static = input(false);
   readonly pick = output<string | null>();
   readonly manage = output<void>();
 

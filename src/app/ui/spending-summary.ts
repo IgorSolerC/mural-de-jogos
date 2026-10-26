@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
-import { MONTHS_SHORT } from '../core/dates';
+import { MONTHS_LONG, MONTHS_SHORT } from '../core/dates';
 import { DayBalance, MonthTotals, Repeat, brl, brlShort } from '../core/spending';
 
 /** Quantos do "Repetiu" cabem na linha. */
@@ -27,6 +27,9 @@ const REPEATS_SHOWN = 3;
     </p>
     @if (advice(); as a) {
       <p class="conselho">{{ a }}</p>
+    }
+    @if (versus(); as v) {
+      <p class="conselho">{{ v }}</p>
     }
 
     @if (chart(); as c) {
@@ -71,9 +74,6 @@ const REPEATS_SHOWN = 3;
 
     @if (repeatLine(); as r) {
       <p class="nota repetiu"><b>Repetiu:</b> {{ r }}</p>
-    }
-    @if (t.committed) {
-      <p class="nota">{{ brlShort(t.committed) }} do que saiu {{ t.committed >= t.spent ? 'eram' : 'já eram' }} fixos e parcelas.</p>
     }
   `,
   styles: `
@@ -302,6 +302,8 @@ export class SpendingSummary {
   readonly future = input(false);
   /** O que saiu mais de uma vez no mês. */
   readonly repeats = input<Repeat[]>([]);
+  /** O que saiu no mês de antes (null sem lançamento lá): a linha que compara os dois. */
+  readonly previous = input<number | null>(null);
 
   protected readonly brl = brl;
   protected readonly brlShort = brlShort;
@@ -318,6 +320,18 @@ export class SpendingSummary {
     const left = this.daysLeft();
     if (!left || t.balance <= 0) return null;
     return `Dá ${brlShort(Math.floor(t.balance / left))} por dia até o fim do mês (${left} ${left === 1 ? 'dia' : 'dias'}).`;
+  });
+
+  /** Este mês contra o de antes: quanto saiu a mais ou a menos. */
+  protected readonly versus = computed(() => {
+    const before = this.previous();
+    const now = this.totals().spent;
+    if (!before || !now || this.future()) return null;
+    const name = MONTHS_LONG[(Number(this.month().slice(5, 7)) + 10) % 12];
+    const diff = now - before;
+    if (Math.abs(diff) < 100) return `Saiu o mesmo que em ${name}.`;
+    const pct = Math.round((Math.abs(diff) / before) * 100);
+    return `Saiu ${brlShort(Math.abs(diff))} ${diff > 0 ? 'a mais' : 'a menos'} que em ${name} (${diff > 0 ? '+' : '−'}${pct}%)${this.daysLeft() ? ', e o mês ainda não acabou' : ''}.`;
   });
 
   /** "Ifood 3× (R$ 279) · Uber 2× (R$ 50)". */

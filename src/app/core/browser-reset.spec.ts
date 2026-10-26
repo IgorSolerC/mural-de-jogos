@@ -102,6 +102,17 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
   });
 
+  it('as preferências dos Gastos (sem os fixos, os gráficos) saem junto', async () => {
+    signedInBrowser();
+    localStorage.setItem('meu-mural:gastos-sem-fixos:v1', '1');
+    localStorage.setItem('meu-mural:gastos-graficos:v1', '1');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem('meu-mural:gastos-sem-fixos:v1')).toBeNull();
+    expect(localStorage.getItem('meu-mural:gastos-graficos:v1')).toBeNull();
+  });
+
   it('as capas guardadas saem junto', async () => {
     const cache = await caches.open(COVERS_CACHE);
     await cache.put('https://exemplo.test/capa.jpg', new Response('x'));
