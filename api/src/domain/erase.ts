@@ -62,11 +62,12 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       `(SELECT COUNT(*) FROM comentario_reacoes WHERE autor_id = ? OR comentario_id IN (${COMMENTS_OF})) + ` +
       '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM api_chaves WHERE usuario_id = ?) + ' +
+      '(SELECT COUNT(*) FROM oauth_codigos WHERE chave_id IN (SELECT id FROM api_chaves WHERE usuario_id = ?)) + ' +
       '(SELECT COUNT(*) FROM api_espelho WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM notas WHERE dono_id = ?) + ' +
       `(SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})) AS n`,
-    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
+    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
   );
   await write(
     deps,
@@ -83,6 +84,7 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       { sql: 'DELETE FROM comentarios WHERE autor_id = ? OR dono_id = ?', params: [id, id] },
       { sql: 'DELETE FROM freios WHERE usuario_id = ?', params: [id] },
       // as chaves de API e os conectores (PLANO-API.md)
+      { sql: 'DELETE FROM oauth_codigos WHERE chave_id IN (SELECT id FROM api_chaves WHERE usuario_id = ?)', params: [id] },
       { sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM api_espelho WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM api_espelho_estado WHERE usuario_id = ?', params: [id] },

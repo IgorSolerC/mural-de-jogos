@@ -1241,11 +1241,17 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      limite de 20 das chaves, dá à chave o nome do cliente se a pessoa não der outro, e as gravações
      só acontecem se o pedido ainda existe (`WHERE EXISTS`, então dois cliques criam uma chave só); a
      chave nasce sem `hash` (o token só nasce na troca do código).
-  3. API, tokens: `POST /oauth/token` (`authorization_code` com o `code_verifier`; `refresh_token`
+  3. [feito] API, tokens: `POST /oauth/token` (`authorization_code` com o `code_verifier`; `refresh_token`
      trocado a cada uso, a velha repetida corta a chave), o `authenticateKey` respeitando
      `hash_expira_em`, `POST /oauth/revogar` (RFC 7009), a limpeza (clientes sem autorização em 24 h,
      pedidos e códigos vencidos, chave de conector sem renovar há 90 dias) e apagar a conta levando
-     tudo. Depois do deploy, conferir no ar os dois `/.well-known` e o 401 do `/mcp`.
+     tudo. Depois do deploy, conferir no ar os dois `/.well-known` e o 401 do `/mcp`. Feito assim: o
+     token aceita formulário (o normal) ou JSON, e o `client_id` também no `Basic`; na renovação o
+     `client_id` pode faltar (vale o da chave); a renovação velha repetida **em até 30 segundos** é
+     corrida do próprio cliente e só perde (sem cortar), depois disso corta a chave e recusa os pedidos
+     abertos dela; revogar aceita o acesso ou a renovação e apaga a chave (sempre 200); o 401 do `/mcp`
+     com um token que não vale traz `error="invalid_token"`. A limpeza não tira o cliente que já foi
+     autorizado (o claude.ai guarda o `client_id`).
   4. API, cliente por documento (CIMD): `client_id` que é um endereço `https://` com o JSON do cliente
      (busca com prazo e tamanho máximo, `client_id` igual ao endereço, `redirect_uris` dele), guardado
      em `oauth_clientes` com `tipo = 'cimd'`; `client_id_metadata_document_supported` nos metadados.

@@ -4,7 +4,9 @@ import {
   ESCOPOS_DO_OAUTH,
   MAX_RETORNOS,
   NOME_DO_CLIENTE_MAX,
+  DIAS_DA_RENOVACAO,
   PEDIDOS_POR_IP,
+  PRAZO_DO_ACESSO_S,
   PRAZO_DO_CODIGO_MS,
   PRAZO_DO_PEDIDO_MS,
   REGISTROS_POR_IP,
@@ -14,14 +16,15 @@ import {
   retornoConhecido,
   retornoLocal,
 } from '../../../contrato/api-v1/oauth';
-import { KeyRow, MAX_KEYS_PER_DAY, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, readKeyInput } from '../domain/api-key';
+import { KeyRow, MAX_KEYS_PER_DAY, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, newSecret, readKeyInput } from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
-import { base64url } from '../domain/bytes';
-import { write } from '../domain/quota';
+import { base64url, sha256 } from '../domain/bytes';
+import { DAY_MS, write } from '../domain/quota';
 import { hashToken } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from '../routes/http';
+import { refuseOpen } from '../routes/keys';
 
 /**
  * O OAuth 2.1 dos conectores (PLANO-API.md, seção 11): os metadados (RFC 9728 e 8414) e o registro de
@@ -50,6 +53,14 @@ const REQUEST_ID_RE = /^op_[A-Za-z0-9_-]{16}$/;
 /** O code_challenge do S256: o SHA-256 do verificador em base64url, sempre 43 letras. */
 const CHALLENGE_RE = /^[A-Za-z0-9_-]{43}$/;
 const STATE_MAX = 512;
+/** O code_verifier do PKCE (RFC 7636, 4.1). */
+const VERIFIER_RE = /^[A-Za-z0-9._~-]{43,128}$/;
+/** O corpo do token e da revogação. */
+const FORM_MAX = 8_192;
+/** Dois pedidos de renovação com a mesma renovação dentro disto são corrida do cliente, não roubo. */
+const RENOVACAO_EM_CORRIDA_MS = 30_000;
+/** As respostas com token nunca ficam em cache (RFC 6749, 5.1). */
+const NO_STORE = { 'Cache-Control': 'no-store', Pragma: 'no-cache' };
 
 interface ClientRow {
   id: string;
@@ -392,4 +403,187 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
       para: backTo(p.retorno, { error: 'access_denied', error_description: 'A pessoa não permitiu o acesso ao Murall.', state: p.estado_cliente, iss: origin(c) }),
     });
   });
+
+  // Os tokens (RFC 6749 + OAuth 2.1): o código vira o par acesso + renovação; a renovação vira outro par,
+  // e a velha não serve mais (se voltar, a chave inteira é cortada: alguém copiou).
+  app.post(
+    '/oauth/token',
+    oauth(async (c) => {
+      const form = await readForm(c);
+      const now = deps.now();
+      const grant = form.get('grant_type');
+      if (grant === 'authorization_code') return c.json(await exchangeCode(form, origin(c), now), 200, NO_STORE);
+      if (grant === 'refresh_token') return c.json(await refresh(form, now), 200, NO_STORE);
+      throw new OAuthError(400, 'unsupported_grant_type', 'Os grant_type aceitos são authorization_code e refresh_token.');
+    }),
+  );
+
+  /** O par novo: o acesso (no formato das chaves, 1 hora) e a renovação (opaca). */
+  async function newPair(now: Date) {
+    const access = newSecret();
+    const renewal = `mr_${base64url(crypto.getRandomValues(new Uint8Array(32)))}`;
+    return {
+      access,
+      renewal,
+      accessHash: await hashToken(access),
+      renewalHash: await hashToken(renewal),
+      accessUntil: new Date(now.getTime() + PRAZO_DO_ACESSO_S * 1000).toISOString(),
+    };
+  }
+
+  const tokenReply = (pair: { access: string; renewal: string }, scopes: string) => ({
+    access_token: pair.access,
+    token_type: 'Bearer',
+    expires_in: PRAZO_DO_ACESSO_S,
+    refresh_token: pair.renewal,
+    scope: (JSON.parse(scopes) as string[]).join(' '),
+  });
+
+  const badGrant = (message: string) => new OAuthError(400, 'invalid_grant', message);
+
+  async function exchangeCode(form: URLSearchParams, here: string, now: Date) {
+    const code = form.get('code') ?? '';
+    const verifier = form.get('code_verifier') ?? '';
+    if (!code || !VERIFIER_RE.test(verifier)) throw new OAuthError(400, 'invalid_request', 'Mande o code e o code_verifier (PKCE).');
+    const at = now.toISOString();
+    const hash = await hashToken(code);
+    const row = await deps.db.first<{ chave_id: string; cliente_id: string; retorno: string; desafio: string; recurso: string | null; escopos: string }>(
+      'SELECT o.chave_id, o.cliente_id, o.retorno, o.desafio, o.recurso, k.escopos FROM oauth_codigos o ' +
+        'JOIN api_chaves k ON k.id = o.chave_id WHERE o.hash = ? AND o.expira_em > ? AND k.expira_em > ?',
+      [hash, at, at],
+    );
+    if (!row) throw badGrant('O código venceu, já foi usado ou a autorização foi apagada. Conecte de novo.');
+    const clientId = clientOf(form);
+    if (clientId !== row.cliente_id) throw badGrant('O código é de outro client_id.');
+    const redirect = form.get('redirect_uri');
+    if (redirect !== null && redirect !== row.retorno) throw badGrant('O redirect_uri não é o mesmo da autorização.');
+    const resource = form.get('resource');
+    if (resource !== null && !isThisResource(resource, here)) throw new OAuthError(400, 'invalid_target', `O resource é ${here}/mcp.`);
+    if (base64url(await sha256(verifier)) !== row.desafio) throw badGrant('O code_verifier não confere com o code_challenge (PKCE).');
+    const pair = await newPair(now);
+    const [updated] = await write(
+      deps,
+      [
+        // o código ainda existe: dois pedidos com o mesmo código dão um par só
+        {
+          sql:
+            'UPDATE api_chaves SET hash = ?, hash_expira_em = ?, renovacao_hash = ?, renovacao_velha_hash = NULL, renovada_em = ? ' +
+            'WHERE id = ? AND EXISTS (SELECT 1 FROM oauth_codigos WHERE hash = ?)',
+          params: [pair.accessHash, pair.accessUntil, pair.renewalHash, at, row.chave_id, hash],
+        },
+        { sql: 'DELETE FROM oauth_codigos WHERE hash = ?', params: [hash] },
+      ],
+      4,
+    );
+    if (!updated?.changes) throw badGrant('O código já foi usado.');
+    return tokenReply(pair, row.escopos);
+  }
+
+  async function refresh(form: URLSearchParams, now: Date) {
+    const token = form.get('refresh_token') ?? '';
+    if (!token) throw new OAuthError(400, 'invalid_request', 'Mande o refresh_token.');
+    const hash = await hashToken(token);
+    const at = now.toISOString();
+    const row = await deps.db.first<{ id: string; usuario_id: string; cliente_id: string | null; escopos: string; expira_em: string; renovada_em: string | null }>(
+      "SELECT id, usuario_id, cliente_id, escopos, expira_em, renovada_em FROM api_chaves WHERE renovacao_hash = ? AND origem = 'oauth'",
+      [hash],
+    );
+    if (!row) {
+      const reused = await deps.db.first<{ id: string; usuario_id: string; renovada_em: string | null }>(
+        "SELECT id, usuario_id, renovada_em FROM api_chaves WHERE renovacao_velha_hash = ? AND origem = 'oauth'",
+        [hash],
+      );
+      if (!reused) throw badGrant('Essa renovação não vale (vencida, apagada ou copiada errada). Conecte de novo.');
+      // dois pedidos de renovação ao mesmo tempo (o mesmo cliente): o segundo só perde, sem cortar
+      if (reused.renovada_em && now.getTime() - Date.parse(reused.renovada_em) < RENOVACAO_EM_CORRIDA_MS) {
+        throw badGrant('Essa renovação acabou de ser trocada; use a nova.');
+      }
+      // a renovação velha voltou: alguém tem uma cópia. A chave inteira sai (RFC 9700, 4.14.2)
+      await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE id = ?', params: [reused.id] }, refuseOpen(reused.usuario_id, now, reused.id)], 6, {
+        ignoreBudget: true,
+      });
+      deps.log?.('POST /oauth/token renovacao-repetida chave-cortada');
+      throw badGrant('Essa renovação já tinha sido usada: por segurança, o conector foi cortado. Conecte de novo.');
+    }
+    const clientId = clientOf(form, row.cliente_id);
+    if (clientId !== row.cliente_id) throw badGrant('A renovação é de outro client_id.');
+    const lastUse = Date.parse(row.renovada_em ?? '') || 0;
+    if (Date.parse(row.expira_em) <= now.getTime() || now.getTime() - lastUse > DIAS_DA_RENOVACAO * DAY_MS) {
+      throw badGrant('O conector venceu. Conecte de novo.');
+    }
+    const pair = await newPair(now);
+    const [updated] = await write(
+      deps,
+      [
+        {
+          sql:
+            'UPDATE api_chaves SET hash = ?, hash_expira_em = ?, renovacao_hash = ?, renovacao_velha_hash = ?, renovada_em = ? ' +
+            'WHERE id = ? AND renovacao_hash = ?',
+          params: [pair.accessHash, pair.accessUntil, pair.renewalHash, hash, at, row.id, hash],
+        },
+      ],
+      4,
+    );
+    if (!updated?.changes) throw badGrant('Essa renovação acabou de ser trocada; use a nova.');
+    return tokenReply(pair, row.escopos);
+  }
+
+  // Revogar (RFC 7009): o token de acesso ou a renovação de um conector. A chave inteira sai (é o
+  // "desconectar" do cliente). Sempre 200, ache ou não (a resposta não diz se o token existia).
+  app.post(
+    '/oauth/revogar',
+    oauth(async (c) => {
+      const form = await readForm(c);
+      const token = form.get('token') ?? '';
+      if (!token) throw new OAuthError(400, 'invalid_request', 'Mande o token.');
+      const hash = await hashToken(token);
+      const row = await deps.db.first<{ id: string; usuario_id: string }>(
+        "SELECT id, usuario_id FROM api_chaves WHERE origem = 'oauth' AND (hash = ? OR renovacao_hash = ? OR renovacao_velha_hash = ?)",
+        [hash, hash, hash],
+      );
+      if (row) {
+        await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE id = ?', params: [row.id] }, refuseOpen(row.usuario_id, deps.now(), row.id)], 6, {
+          ignoreBudget: true,
+        });
+      }
+      return c.json({}, 200, NO_STORE);
+    }),
+  );
+}
+
+/** O corpo do token e da revogação: formulário (o normal do OAuth) ou JSON (alguns clientes mandam). */
+async function readForm(c: Context): Promise<URLSearchParams> {
+  const text = await c.req.text();
+  if (text.length > FORM_MAX) throw new OAuthError(400, 'invalid_request', 'O pedido é grande demais.');
+  const form = (c.req.header('Content-Type') ?? '').includes('application/json') ? fromJson(text) : new URLSearchParams(text);
+  // o client_id também pode vir no Basic (cliente público: a senha vem vazia ou é ignorada)
+  const basic = /^Basic (\S+)$/i.exec(c.req.header('Authorization') ?? '');
+  if (basic && !form.has('client_id')) {
+    try {
+      const id = decodeURIComponent(atob(basic[1]!).split(':')[0] ?? '');
+      if (id) form.set('client_id', id);
+    } catch {
+      throw new OAuthError(401, 'invalid_client', 'O cabeçalho Basic não serve.');
+    }
+  }
+  return form;
+}
+
+function fromJson(text: string): URLSearchParams {
+  try {
+    const data: unknown = JSON.parse(text || '{}');
+    const out = new URLSearchParams();
+    if (data && typeof data === 'object') for (const [k, v] of Object.entries(data)) if (typeof v === 'string') out.set(k, v);
+    return out;
+  } catch {
+    throw new OAuthError(400, 'invalid_request', 'O corpo não é um JSON válido.');
+  }
+}
+
+/** O client_id do pedido (na renovação pode faltar: vale o da chave). */
+function clientOf(form: URLSearchParams, fallback?: string | null): string {
+  const id = form.get('client_id');
+  if (id === null && fallback) return fallback;
+  if (!id) throw new OAuthError(401, 'invalid_client', 'Faltou o client_id.');
+  return id;
 }

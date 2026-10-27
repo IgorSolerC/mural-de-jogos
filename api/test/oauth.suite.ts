@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_IP } from '../../contrato/api-v1/oauth';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
+import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
 import { base64url, sha256 } from '../src/domain/bytes';
 import { Db, Deps } from '../src/ports';
@@ -71,7 +72,22 @@ export function oauthSuite(label: string, getDb: () => Db) {
       const location = res.headers.get('Location') ?? '';
       return { clientId: id, pedido: /pedido=(op_[\w-]+)/.exec(location)?.[1] ?? '', location };
     };
-    return { db, clock, call, json, body, register, login, client, authorize, openRequest };
+    /** O conector inteiro: registra, autoriza, a pessoa permite e devolve o código e o resto. */
+    const permitted = async (choice: Record<string, unknown> = { escopos: ['notas:ler', 'notas:criar'], validade: 30 }) => {
+      const r = await openRequest();
+      const session = await login();
+      const out = await body(json('POST', `/v1/eu/oauth/pedidos/${r.pedido}/permitir`, choice, session));
+      return { ...r, session, keyId: out.chave.id as string, code: new URL(out.para).searchParams.get('code')! };
+    };
+    /** O POST de formulário do token (ou da revogação). */
+    const form = (path: string, fields: Record<string, string>) =>
+      call(path, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields).toString() });
+    const exchange = (code: string, clientId: string, extra: Record<string, string> = {}) =>
+      form('/oauth/token', { grant_type: 'authorization_code', code, code_verifier: VERIFIER, client_id: clientId, redirect_uri: CLAUDE, ...extra });
+    const renew = (token: string, clientId: string) => form('/oauth/token', { grant_type: 'refresh_token', refresh_token: token, client_id: clientId });
+    const mcp = (token: string) =>
+      call('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' });
+    return { db, deps, clock, call, json, body, register, login, client, authorize, openRequest, permitted, form, exchange, renew, mcp };
   }
 
   describe(`${label}: o OAuth, descoberta e registro`, () => {
@@ -276,6 +292,143 @@ export function oauthSuite(label: string, getDb: () => Db) {
       const id = await t.client();
       const res = await t.authorize({ client_id: id });
       expect(res.status).toBe(503);
+    });
+  });
+
+  describe(`${label}: o OAuth, tokens`, () => {
+    it('o código vira o par de tokens, e o token de acesso abre o MCP com as permissões escolhidas', async () => {
+      const t = await setup();
+      const { clientId, code, keyId } = await t.permitted();
+      const res = await t.exchange(code, clientId, { resource: `${API}/mcp` });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Cache-Control')).toBe('no-store');
+      const tok = (await res.json()) as any;
+      expect(tok).toMatchObject({ token_type: 'Bearer', expires_in: 3600, scope: 'notas:ler notas:criar' });
+      expect(tok.access_token).toMatch(/^murall_/);
+      expect(tok.refresh_token).toMatch(/^mr_[A-Za-z0-9_-]{43}$/);
+      const tools = (await t.body(t.mcp(tok.access_token))).result.tools.map((x: any) => x.name);
+      expect(tools).toContain('criar_nota');
+      expect(tools).not.toContain('editar_nota');
+      const eu = await t.body(t.call('/ext/v1/eu', { headers: { Authorization: `Bearer ${tok.access_token}` } }));
+      expect(eu.chave).toMatchObject({ id: keyId, origem: 'oauth' });
+      // o código vale uma vez
+      const again = await t.exchange(code, clientId);
+      expect(again.status).toBe(400);
+      expect(((await again.json()) as any).error).toBe('invalid_grant');
+    });
+
+    it('o PKCE, o client_id, o retorno e o prazo do código são conferidos', async () => {
+      const t = await setup();
+      const { clientId, code } = await t.permitted();
+      const error = async (res: Response | Promise<Response>) => ((await (await res).json()) as any).error;
+      expect(await error(t.exchange(code, clientId, { code_verifier: 'x'.repeat(43) }))).toBe('invalid_grant');
+      expect(await error(t.exchange(code, 'oc_AAAAAAAAAAAAAAAA'))).toBe('invalid_grant');
+      expect(await error(t.exchange(code, clientId, { redirect_uri: 'https://claude.ai/outro' }))).toBe('invalid_grant');
+      expect(await error(t.exchange(code, clientId, { resource: 'https://outro.exemplo' }))).toBe('invalid_target');
+      expect(await error(t.exchange(code, clientId, { code_verifier: 'curto' }))).toBe('invalid_request');
+      expect(await error(t.form('/oauth/token', { grant_type: 'password' }))).toBe('unsupported_grant_type');
+      // nenhuma tentativa errada gastou o código, mas o prazo dele gasta
+      t.clock.t += 5 * 60 * 1000 + 1;
+      expect(await error(t.exchange(code, clientId))).toBe('invalid_grant');
+    });
+
+    it('o token de acesso vence em 1 hora; a renovação troca o par e o velho para de valer', async () => {
+      const t = await setup();
+      const { clientId, code } = await t.permitted();
+      const first = (await t.body(t.exchange(code, clientId))) as any;
+      t.clock.t += 3600 * 1000;
+      const late = await t.mcp(first.access_token);
+      expect(late.status).toBe(401);
+      expect(late.headers.get('WWW-Authenticate')).toContain('error="invalid_token"');
+      const res = await t.renew(first.refresh_token, clientId);
+      expect(res.status).toBe(200);
+      const second = (await res.json()) as any;
+      expect(second.refresh_token).not.toBe(first.refresh_token);
+      expect((await t.mcp(second.access_token)).status).toBe(200);
+      // o client_id pode faltar na renovação (vale o da chave), mas outro não serve
+      const third = (await t.body(t.form('/oauth/token', { grant_type: 'refresh_token', refresh_token: second.refresh_token }))) as any;
+      expect(third.access_token).toMatch(/^murall_/);
+      expect(((await t.body(t.renew(third.refresh_token, 'oc_AAAAAAAAAAAAAAAA'))) as any).error).toBe('invalid_grant');
+    });
+
+    it('a renovação velha repetida corta o conector (menos na corrida de 30 segundos)', async () => {
+      const t = await setup();
+      const { clientId, code, keyId } = await t.permitted();
+      const first = (await t.body(t.exchange(code, clientId))) as any;
+      const second = (await t.body(t.renew(first.refresh_token, clientId))) as any;
+      // logo depois: corrida do próprio cliente, perde sem cortar
+      expect(((await t.body(t.renew(first.refresh_token, clientId))) as any).error).toBe('invalid_grant');
+      expect(await t.db.first('SELECT id FROM api_chaves WHERE id = ?', [keyId])).not.toBeNull();
+      t.clock.t += 60_000;
+      const stolen = (await t.body(t.renew(first.refresh_token, clientId))) as any;
+      expect(stolen.error).toBe('invalid_grant');
+      expect(stolen.error_description).toContain('cortado');
+      expect(await t.db.first('SELECT id FROM api_chaves WHERE id = ?', [keyId])).toBeNull();
+      expect((await t.mcp(second.access_token)).status).toBe(401);
+      expect(((await t.body(t.renew(second.refresh_token, clientId))) as any).error).toBe('invalid_grant');
+    });
+
+    it('a renovação parada por 90 dias, ou a chave vencida, não renova', async () => {
+      const t = await setup();
+      const { clientId, code } = await t.permitted({ escopos: ['notas:ler'], validade: 365 });
+      const first = (await t.body(t.exchange(code, clientId))) as any;
+      t.clock.t += 91 * 86_400_000;
+      expect(((await t.body(t.renew(first.refresh_token, clientId))) as any).error).toBe('invalid_grant');
+      const u = await setup();
+      const other = await u.permitted({ escopos: ['notas:ler'], validade: 7 });
+      const tok = (await u.body(u.exchange(other.code, other.clientId))) as any;
+      u.clock.t += 7 * 86_400_000;
+      expect(((await u.body(u.renew(tok.refresh_token, other.clientId))) as any).error).toBe('invalid_grant');
+    });
+
+    it('revogar corta o conector; um token que não existe também dá 200', async () => {
+      const t = await setup();
+      const { clientId, code, keyId } = await t.permitted();
+      const tok = (await t.body(t.exchange(code, clientId))) as any;
+      expect((await t.form('/oauth/revogar', { token: 'mr_nada', client_id: clientId })).status).toBe(200);
+      expect(await t.db.first('SELECT id FROM api_chaves WHERE id = ?', [keyId])).not.toBeNull();
+      const res = await t.form('/oauth/revogar', { token: tok.refresh_token, token_type_hint: 'refresh_token', client_id: clientId });
+      expect(res.status).toBe(200);
+      expect(await t.db.first('SELECT id FROM api_chaves WHERE id = ?', [keyId])).toBeNull();
+      expect((await t.mcp(tok.access_token)).status).toBe(401);
+    });
+
+    it('a chave apagada em Acessos derruba o token na hora', async () => {
+      const t = await setup();
+      const { clientId, code, keyId, session } = await t.permitted();
+      const tok = (await t.body(t.exchange(code, clientId))) as any;
+      expect((await t.call(`/v1/eu/chaves/${keyId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session}` } })).status).toBe(200);
+      expect((await t.mcp(tok.access_token)).status).toBe(401);
+      expect(((await t.body(t.renew(tok.refresh_token, clientId))) as any).error).toBe('invalid_grant');
+    });
+
+    it('a limpeza tira pedidos, códigos, clientes sem uso e conectores parados', async () => {
+      const t = await setup();
+      const unused = await t.client();
+      const { clientId, code, keyId } = await t.permitted();
+      const pending = await t.openRequest();
+      await t.authorize({ client_id: clientId });
+      t.clock.t += 24 * 60 * 60 * 1000 + 1000;
+      await cleanup(t.deps);
+      expect(await t.db.first('SELECT id FROM oauth_pedidos')).toBeNull();
+      expect(await t.db.first('SELECT hash FROM oauth_codigos')).toBeNull();
+      expect(await t.db.first('SELECT id FROM oauth_clientes WHERE id = ?', [unused])).toBeNull();
+      // o cliente que já foi autorizado fica (o claude.ai guarda o client_id), e o do pedido aberto também saiu sem uso
+      expect(await t.db.first('SELECT id FROM oauth_clientes WHERE id = ?', [clientId])).not.toBeNull();
+      expect(await t.db.first('SELECT id FROM oauth_clientes WHERE id = ?', [pending.clientId])).toBeNull();
+      // a autorização cujo código ninguém trocou em um dia
+      expect(await t.db.first('SELECT id FROM api_chaves WHERE id = ?', [keyId])).toBeNull();
+      expect(code).toBeTruthy();
+
+      const u = await setup();
+      const live = await u.permitted({ escopos: ['notas:ler'], validade: 365 });
+      await u.exchange(live.code, live.clientId);
+      u.clock.t += 89 * 86_400_000;
+      await cleanup(u.deps);
+      expect(await u.db.first('SELECT id FROM api_chaves WHERE id = ?', [live.keyId])).not.toBeNull();
+      u.clock.t += 2 * 86_400_000;
+      await cleanup(u.deps);
+      expect(await u.db.first('SELECT id FROM api_chaves WHERE id = ?', [live.keyId])).toBeNull();
     });
   });
 }

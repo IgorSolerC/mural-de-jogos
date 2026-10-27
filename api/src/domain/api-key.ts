@@ -194,13 +194,15 @@ export async function authenticateKey(deps: Deps, header: string | undefined): P
         : 'Essa chave de API não vale: confira se ela foi copiada inteira (começa com murall_).',
     );
   }
-  const row = await deps.db.first<KeyRow & { codigo: string; nome_conta: string; apagar_em: string | null }>(
-    `SELECT k.${KEY_COLUMNS.split(', ').join(', k.')}, u.codigo, u.nome AS nome_conta, u.apagar_em ` +
+  const row = await deps.db.first<KeyRow & { hash_expira_em: string | null; codigo: string; nome_conta: string; apagar_em: string | null }>(
+    `SELECT k.${KEY_COLUMNS.split(', ').join(', k.')}, k.hash_expira_em, u.codigo, u.nome AS nome_conta, u.apagar_em ` +
       'FROM api_chaves k JOIN usuarios u ON u.id = k.usuario_id WHERE k.hash = ?',
     [await hashToken(secret)],
   );
   const now = deps.now();
   if (!row || Date.parse(row.expira_em) <= now.getTime()) throw badKey();
+  // o token de acesso de um conector (OAuth) vale 1 hora; o cliente renova sozinho
+  if (row.hash_expira_em && Date.parse(row.hash_expira_em) <= now.getTime()) throw badKey('O token do conector venceu; o aplicativo renova sozinho.');
   // a conta marcada para sair para de responder às chaves já (ameaça A5 do plano)
   if (row.apagar_em) throw badKey('Esta conta está marcada para sair; as chaves dela pararam.');
   if (!apiAllowed(deps, row.codigo)) throw apiUnavailable();

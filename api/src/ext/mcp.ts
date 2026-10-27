@@ -101,7 +101,7 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
       if (error instanceof HttpError && error.status === 401) {
         return c.json({ erro: error.code, mensagem: error.message }, 401, {
           // o resource_metadata é o que faz o cliente (claude.ai, Claude Code) abrir o login do OAuth
-          'WWW-Authenticate': `Bearer realm="murall", resource_metadata="${resourceMetadataUrl(new URL(c.req.url).origin)}"`,
+          'WWW-Authenticate': `Bearer realm="murall", ${c.req.header('Authorization') ? 'error="invalid_token", ' : ''}resource_metadata="${resourceMetadataUrl(new URL(c.req.url).origin)}"`,
         });
       }
       throw error;
