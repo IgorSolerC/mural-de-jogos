@@ -19,7 +19,10 @@ import {
   type OpNota,
   type TarefasV1,
 } from '../../../contrato/api-v1/operacoes';
+import { OPS_DE_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { ApiMirror } from './api-mirror';
+import { SpendingResult, applySpendingRequest, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
+import { SpendingStore } from './spending-store';
 import { BUILD } from './build';
 import { CloudAccount } from './cloud-account';
 import { DataKey, LocalData } from './local-data';
@@ -30,7 +33,8 @@ import { Review, audienceFields, formatReviewDateLong, isNote, sanitizeReview, s
 import { ReviewStore } from './review-store';
 
 /**
- * Os pedidos da API das AIs, pelo lado do site (PLANO-API.md, seção 9). A nuvem nunca abre o mural:
+ * Os pedidos da API das AIs, pelo lado do site (PLANO-API.md, seção 9; os dos Gastos em
+ * core/api-requests-spending.ts). A nuvem nunca abre o mural:
  * cada escrita de uma AI vira um pedido, e o Murall aberto em algum aparelho logado na conta pega,
  * aplica pelas mesmas funções da tela (as lojas, as conferências de sempre), sincroniza como uma
  * edição comum e só então conclui o pedido na nuvem, com o resultado e a nota de antes (o Desfazer).
@@ -69,12 +73,13 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null } | { erro: string; nota?: NotaV1 };
+export type RequestResult = { nota: NotaV1 | null } | { erro: string; nota?: NotaV1 } | SpendingResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
   id: string;
-  op: OpNota;
+  /** A operação (das Anotações ou dos Gastos). */
+  op: string;
   alvo: string;
   /** A chave que pediu (para o bilhete dizer quem, e o Ver abrir o histórico dela). */
   chave: string;
@@ -276,9 +281,9 @@ function fits(item: AppliedItem): AppliedItem {
 /** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
 export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
 
-/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", ou o que tem a nota de antes). */
+/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", ou o que tem o de antes). */
 export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
-  return t.estado === 'aplicado' && (t.op === 'nota.criar' || (t.antes !== null && t.antes !== undefined));
+  return t.estado === 'aplicado' && (t.op === 'nota.criar' || t.op === 'gasto.lancar' || (t.antes !== null && t.antes !== undefined));
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -297,6 +302,8 @@ const FIELD_WORDS: Record<string, string> = {
  * texto de “Reunião”" (no histórico, `past`). `title` é o nome da nota, já resolvido.
  */
 export function requestWords(op: string, dados: unknown, title: string, past = false): string {
+  const spending = spendingWords(op, dados, title, past);
+  if (spending) return spending;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -443,6 +450,7 @@ export class ApiRequests {
   private readonly store = inject(ReviewStore);
   private readonly mirror = inject(ApiMirror);
   private readonly data = inject(LocalData);
+  private readonly spending = inject(SpendingStore);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -500,8 +508,10 @@ export class ApiRequests {
       const items = this.readItems();
       const stamps = new Set(items.filter((i) => i.carimbo).map((i) => `${i.alvo}@${i.carimbo}`));
       const now = new Date().toISOString();
-      const out = applyNoteRequest(this.store, req, { now, today: todayISO(), stamps, v1: (r) => this.mirror.notaOf(r) });
-      this.writeItems([...items, fits({ id: req.id, op: req.op as OpNota, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
+      const out = req.op.startsWith('nota.')
+        ? applyNoteRequest(this.store, req, { now, today: todayISO(), stamps, v1: (r) => this.mirror.notaOf(r) })
+        : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
+      this.writeItems([...items, fits({ id: req.id, op: req.op, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
       any = true;
     }
     return any;
@@ -571,6 +581,10 @@ export class ApiRequests {
    */
   async undo(t: UndoTarget): Promise<void> {
     await this.account.request(`/v1/eu/pedidos/${t.id}/desfazer`, { method: 'POST' });
+    if (!t.op.startsWith('nota.')) {
+      undoSpending(this.spending, t);
+      return;
+    }
     const shared = this.store.sharedIds();
     const found = this.store.get(t.alvo);
     const cur = found && isNote(found) && !shared.has(found.id) ? found : undefined;
@@ -590,6 +604,7 @@ export class ApiRequests {
 
   /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
+    if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);
     if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
     return (
       this.store.get(t.alvo)?.game.name ??
@@ -601,6 +616,8 @@ export class ApiRequests {
 
   /** A nota agora e como fica se o pedido entrar (null: não existe / sai do mural), para a folha mostrar o que muda. */
   preview(r: Pick<SiteRequest, 'op' | 'alvo' | 'dados'>): { before: NotaV1 | null; after: NotaV1 | null } {
+    // os dos Gastos não mostram a nota: a frase diz o que muda
+    if (!r.op.startsWith('nota.')) return { before: null, after: null };
     const now = new Date().toISOString();
     const checked = conferirOp(r.op as OpNota, r.dados);
     if (!checked.ok) return { before: null, after: null };
@@ -614,7 +631,19 @@ export class ApiRequests {
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */
   private due(list: readonly SiteRequest[]): SiteRequest[] {
     const done = new Set(this.readItems().map((i) => i.id));
-    return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && (OPS_DE_NOTA as readonly string[]).includes(r.op));
+    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO];
+    return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && known.includes(r.op));
+  }
+
+  /**
+   * O pedido dos Gastos cujo alvo já não existe aqui (o lançamento, o envelope, a pessoa apagados):
+   * aprovado, ele não entra. Lançar e criar não têm alvo para sumir.
+   */
+  spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'>): boolean {
+    if (r.op === 'gasto.editar' || r.op === 'gasto.apagar') return !this.spending.get(r.alvo);
+    if (r.op === 'envelope.editar') return !this.spending.category(r.alvo);
+    if (r.op === 'pessoa.editar') return !this.spending.person(r.alvo);
+    return false;
   }
 
   /** Os abertos na nuvem (atualiza a contagem e a lista); null sem rede. */

@@ -1388,9 +1388,19 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      id, a mudança aparece aplicada com a lista `pedidos`, as frases vêm à parte em `frases_abertas`, e
      o mês traz `pedidos_abertos` (a visão é a do Murall agora). O site de hoje ainda não aplica
      pedidos dos Gastos (só os das Anotações): eles esperam o passo 5.
-  5. Site aplica os pedidos dos Gastos (`core/api-requests.ts`, pelo `SpendingStore`), com o
+  5. [feito, BUILD 581] Site aplica os pedidos dos Gastos (`core/api-requests.ts`, pelo `SpendingStore`), com o
      Desfazer e as frases em palavras na folha dos pedidos e no histórico ("Lançar Mercado, R$ 230,50
-     em 26/10"). Testes. BUILD + 1.
+     em 26/10"). Testes. BUILD + 1. Feito assim: `core/api-requests-spending.ts`
+     (`applySpendingRequest`, `spendingWords`, `spendingTitle`, `undoSpending`), chamado pelo
+     `ApiRequests` para toda operação que não é `nota.*`. A frase passa pela linha de anotar com o
+     histórico (o envelope e o pagamento do mesmo gasto lançado antes, o dia "ontem", as pessoas com
+     @); um @ de alguém que não existe só entra com `criar_pessoas`. Mudar com a versão velha é
+     `conflito`, a não ser que a mudança do meio tenha sido um pedido aplicado aqui (como nas notas).
+     O Desfazer tira o lançado, põe de volta o mudado ou apagado (o `antes`), e devolve o nome e o
+     limite de antes a envelopes e pessoas; criar envelope ou pessoa não tem Desfazer por aqui. A folha
+     dos pedidos ganhou os ícones dos Gastos (moedas, etiqueta, pessoa), "O lançamento não existe mais"
+     e a frase do apagar ("Ele sai dos Gastos; o Desfazer do histórico põe de volta"). O bundle inicial
+     foi a 1,88 MB (o livro dos Gastos entrou no serviço dos pedidos, que sobe com o site).
   6. MCP e guia: as ferramentas `ver_gastos_do_mes`, `listar_lancamentos`, `lancar_gastos`,
      `editar_lancamento`, `apagar_lancamento`, `criar_envelope`, `editar_envelope`, `criar_pessoa`,
      `editar_pessoa`; a parte dos gastos no guia; o OpenAPI e as cópias em `docs/api` regerados; as

@@ -20,6 +20,7 @@ import { CloudAccount, CloudError } from './cloud-account';
 import { LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
+import { SpendingStore } from './spending-store';
 
 /**
  * Os pedidos da API das AIs pelo lado do site (core/api-requests.ts): cada operação aplicada pelas
@@ -251,6 +252,17 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
     failConclude = false;
     await s.conclude();
     expect(concluded.map((i) => i.id)).toEqual(['pd_a']);
+  });
+
+  it('os pedidos dos Gastos também: o lançamento entra no livro e o resultado diz como ficou', async () => {
+    const { s } = setup();
+    open = [req('pd_g', 'gasto.lancar', 'rg0001', { titulo: 'Padaria', centavos: 1850, envelope: 'comida' })];
+    s.noteHeads(heads(1));
+    expect(await s.applyOpen('aparelho1')).toBeTrue();
+    const book = TestBed.inject(SpendingStore);
+    expect(book.get('rg0001')).toEqual(jasmine.objectContaining({ title: 'Padaria', amount: 1850, category: 'comida' }));
+    await s.conclude();
+    expect(concluded.map((i) => [i.id, i.estado, i.resultado.lancamento.titulo])).toEqual([['pd_g', 'aplicado', 'Padaria']]);
   });
 
   it('o guardado de outra conta não vale aqui', async () => {

@@ -53,6 +53,13 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
   'nota.fixar': 'fixar',
   'nota.desafixar': 'desafixar',
   'nota.apagar': 'apagar',
+  'gasto.lancar': 'moedas',
+  'gasto.editar': 'editar',
+  'gasto.apagar': 'apagar',
+  'envelope.criar': 'etiqueta',
+  'envelope.editar': 'etiqueta',
+  'pessoa.criar': 'pessoa',
+  'pessoa.editar': 'pessoa',
 };
 
 /**
@@ -154,10 +161,13 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
                       <p class="pedido-meta">Pediu {{ w.when }}</p>
 
                       @if (w.gone) {
-                        <p class="porque">A nota não existe mais: aprovado, o pedido não vai entrar.</p>
+                        <p class="porque">{{ goneWords(w.r.op) }} não existe mais: aprovado, o pedido não vai entrar.</p>
                       }
                       @if (w.r.op === 'nota.apagar' && !w.gone) {
                         <p class="porque">Ela sai do mural e fica guardada em Ajustes › Backup por 30 dias.</p>
+                      }
+                      @if (w.r.op === 'gasto.apagar' && !w.gone) {
+                        <p class="porque">Ele sai dos Gastos; o Desfazer do histórico põe de volta.</p>
                       }
                       @if (w.fields.length) {
                         <dl class="campos">
@@ -269,7 +279,7 @@ export class ApiRequestsSheet {
         when: agoLabel(r.criado_em, now),
         fields: after ? fieldChanges(before, after) : [],
         diff: after && (before?.texto ?? '') !== after.texto ? textDiff(before?.texto ?? '', after.texto) : [],
-        gone: r.op !== 'nota.criar' && !before,
+        gone: r.op.startsWith('nota.') ? r.op !== 'nota.criar' && !before : this.requests.spendingGone(r),
       });
     }
     return [...groups.values()];
@@ -331,6 +341,11 @@ export class ApiRequestsSheet {
 
   protected iconOf(op: string) {
     return ICON[OP_ICONS[op] ?? 'editar'];
+  }
+
+  /** "A nota", "O lançamento", "O envelope", "A pessoa": o que sumiu. */
+  protected goneWords(op: string): string {
+    return op.startsWith('gasto.') ? 'O lançamento' : op.startsWith('envelope.') ? 'O envelope' : op.startsWith('pessoa.') ? 'A pessoa' : 'A nota';
   }
 
   protected titleOf(r: SiteRequest): string {
