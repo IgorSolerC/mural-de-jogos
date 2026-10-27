@@ -18,7 +18,7 @@ import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { hashToken } from '../domain/session';
 import { HttpError } from '../errors';
-import { Deps } from '../ports';
+import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
 
 /**
@@ -26,6 +26,19 @@ import { readJson, sessionOf } from './http';
  * muda outra. `GET/POST /v1/eu/chaves`, `PATCH/DELETE /v1/eu/chaves/:id` e `DELETE /v1/eu/chaves`
  * (cortar todas).
  */
+/**
+ * Os pedidos abertos das chaves apagadas (uma, `keyId`, ou todas da conta) ficam recusados. Sempre
+ * dentro da conta: o id de uma chave de outra pessoa nunca mexe nos pedidos dela.
+ */
+export function refuseOpen(userId: string, at: Date, keyId?: string): Statement {
+  return {
+    sql:
+      "UPDATE api_pedidos SET estado = 'recusado', resultado = ?, resolvido_em = ? WHERE usuario_id = ? " +
+      `${keyId ? 'AND chave_id = ? ' : ''}AND estado IN ('pendente', 'aguardando-aprovacao')`,
+    params: [JSON.stringify({ motivo: 'A chave foi apagada.' }), at.toISOString(), userId, ...(keyId ? [keyId] : [])],
+  };
+}
+
 export function keyRoutes(app: Hono, deps: Deps): void {
   const notFound = () => new HttpError(404, 'chave-nao-encontrada', 'Não achei essa chave nesta conta.');
   const userCode = async (userId: string) =>
@@ -113,7 +126,7 @@ export function keyRoutes(app: Hono, deps: Deps): void {
     const s = await sessionOf(deps, c);
     const id = c.req.param('id');
     if (!KEY_ID_RE.test(id)) throw notFound();
-    const [result] = await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE id = ? AND usuario_id = ?', params: [id, s.userId] }], 4);
+    const [result] = await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE id = ? AND usuario_id = ?', params: [id, s.userId] }, refuseOpen(s.userId, deps.now(), id)], 8);
     if (!result?.changes) throw notFound();
     return c.json({ ok: true });
   });
@@ -121,7 +134,7 @@ export function keyRoutes(app: Hono, deps: Deps): void {
   // "Cortar todos os acessos": todas as chaves e conectores da conta, de uma vez
   app.delete('/v1/eu/chaves', async (c) => {
     const s = await sessionOf(deps, c);
-    const [result] = await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [s.userId] }], 4 * MAX_CHAVES);
+    const [result] = await write(deps, [{ sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [s.userId] }, refuseOpen(s.userId, deps.now())], 4 * MAX_CHAVES + 20);
     return c.json({ ok: true, apagadas: result?.changes ?? 0 });
   });
 }

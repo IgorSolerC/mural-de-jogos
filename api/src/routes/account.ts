@@ -7,6 +7,7 @@ import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { vaultAllowed } from '../domain/vault';
 import { apiAllowed } from '../domain/api-key';
+import { refuseOpen } from './keys';
 import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
 import { cancelErase, eraseAccount, hasVault, scheduleErase } from '../domain/erase';
 import { HttpError } from '../errors';
@@ -88,7 +89,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       deps,
       [
         { sql: 'DELETE FROM sessoes WHERE usuario_id = ?', params: [s.userId] },
-        ...(keys ? [{ sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [s.userId] }] : []),
+        ...(keys ? [{ sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [s.userId] }, refuseOpen(s.userId, deps.now())] : []),
       ],
       3 * MAX_SESSIONS + (keys ? 4 * MAX_CHAVES : 0),
     );

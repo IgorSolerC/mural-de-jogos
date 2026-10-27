@@ -4,6 +4,7 @@ import { CONTEXTO_NOTAS, resumo, type ContextoNotasV1, type NotaResumoV1, type N
 import { formatCode } from '../domain/code';
 import { KeyCaller, authenticateKey, keyOut, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
+import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 
@@ -113,16 +114,34 @@ export function extRoutes(app: Hono, deps: Deps): void {
       `SELECT dados FROM api_espelho WHERE ${where.join(' AND ')}${limitSql.sql} ORDER BY ${order} LIMIT ? OFFSET ?`,
       [...params, ...limitSql.params, limit + 1, offset],
     );
-    const itens: NotaResumoV1[] = [];
-    let chars = 0;
-    for (const row of rows.slice(0, limit)) {
-      if (itens.length && chars + row.dados.length > PAGE_MAX_CHARS) break;
-      chars += row.dados.length;
-      const { texto, ...rest } = JSON.parse(row.dados) as NotaV1;
-      itens.push({ ...rest, resumo: resumo(texto), ...(withText ? { texto } : {}) });
+    // os pedidos abertos por cima: as notas mudadas aparecem como vão ficar; as criadas (ainda não
+    // aplicadas) vêm no começo da primeira página, se couberem nos grupos da chave e no grupo pedido
+    const pending = await pendingOf(deps, me.key.userId);
+    const now = deps.now();
+    const summary = (n: NotaComPedidos): NotaResumoV1 & { pedidos?: NotaComPedidos['pedidos'] } => {
+      const { texto, ...rest } = n;
+      return { ...rest, resumo: resumo(texto), ...(withText ? { texto } : {}) };
+    };
+    const itens: ReturnType<typeof summary>[] = [];
+    if (offset === 0) {
+      for (const r of pending.created) {
+        const n = createdNote(r, pending, now);
+        const allowed = !me.key.groups?.length || (n.grupo !== null && me.key.groups.some((g) => dobra(g) === dobra(n.grupo!)));
+        const inGroup = group === undefined || (group === '-' ? n.grupo === null : n.grupo !== null && dobra(n.grupo) === dobra(group));
+        if (allowed && inGroup) itens.push(summary(n));
+      }
     }
-    const more = rows.length > itens.length;
-    return c.json({ itens, ...(more ? { depois: String(offset + itens.length) } : {}), espelho: await mirrorState(deps, me.key.userId) });
+    let chars = 0;
+    let taken = 0;
+    for (const row of rows.slice(0, limit)) {
+      if (taken && chars + row.dados.length > PAGE_MAX_CHARS) break;
+      chars += row.dados.length;
+      taken++;
+      const n = JSON.parse(row.dados) as NotaV1;
+      itens.push(summary(overlay(n, pending.byNote.get(n.id), now)));
+    }
+    const more = rows.length > taken;
+    return c.json({ itens, ...(more ? { depois: String(offset + taken) } : {}), espelho: await mirrorState(deps, me.key.userId) });
   });
 
   app.get('/ext/v1/notas/:id', async (c) => {
@@ -136,8 +155,14 @@ export function extRoutes(app: Hono, deps: Deps): void {
       id,
       ...limitSql.params,
     ]);
-    if (!row) throw notFound();
-    return c.json({ nota: JSON.parse(row.dados) as NotaV1 });
+    const pending = await pendingOf(deps, me.key.userId);
+    const now = deps.now();
+    if (row) return c.json({ nota: overlay(JSON.parse(row.dados) as NotaV1, pending.byNote.get(id), now) });
+    // a nota que só existe num pedido de criar (o Murall ainda não aplicou)
+    const created = pending.created.find((r) => r.alvo === id);
+    const n = created ? createdNote(created, pending, now) : null;
+    if (!n || (me.key.groups?.length && (n.grupo === null || !me.key.groups.some((g) => dobra(g) === dobra(n.grupo!))))) throw notFound();
+    return c.json({ nota: n });
   });
 
   // ===== O vocabulário da conta (o que a AI deve usar em vez de inventar) =====

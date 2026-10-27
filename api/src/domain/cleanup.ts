@@ -27,6 +27,12 @@ export async function cleanup(deps: Deps): Promise<void> {
     // o espelho de quem não tem mais nenhuma chave viva que lê as Anotações (PLANO-API.md, 8.1)
     { sql: `DELETE FROM api_espelho WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
     { sql: `DELETE FROM api_espelho_estado WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
+    // os pedidos que ninguém aplicou (nem aprovou) a tempo; os resolvidos há mais de 30 dias
+    {
+      sql: "UPDATE api_pedidos SET estado = 'expirado', resolvido_em = ? WHERE estado IN ('pendente', 'aguardando-aprovacao') AND expira_em <= ?",
+      params: [now.toISOString(), now.toISOString()],
+    },
+    { sql: 'DELETE FROM api_pedidos WHERE resolvido_em IS NOT NULL AND resolvido_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
   ]);
   await eraseDue(deps);
 }

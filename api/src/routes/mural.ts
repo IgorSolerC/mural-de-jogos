@@ -108,9 +108,18 @@ export function muralRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu/mural', async (c) => {
     const s = await sessionOf(deps, c);
-    const head = await deps.db.first<{ rev: number }>('SELECT rev FROM murais WHERE usuario_id = ?', [s.userId]);
+    const head = await deps.db.first<{ rev: number; pendentes: number; aprovar: number }>(
+      'SELECT rev, ' +
+        "(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = murais.usuario_id AND estado = 'pendente' AND expira_em > ?) AS pendentes, " +
+        "(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = murais.usuario_id AND estado = 'aguardando-aprovacao' AND expira_em > ?) AS aprovar " +
+        'FROM murais WHERE usuario_id = ?',
+      [deps.now().toISOString(), deps.now().toISOString(), s.userId],
+    );
     if (!head) throw new HttpError(404, 'sem-mural', 'Ainda não há mural na nuvem.');
     c.header('Mural-Rev', String(head.rev));
+    // os pedidos da API das AIs esperando (PLANO-API.md, 3.2): o site aplica sem precisar perguntar
+    if (head.pendentes) c.header('Mural-Pedidos', String(head.pendentes));
+    if (head.aprovar) c.header('Mural-Pedidos-Aprovar', String(head.aprovar));
     if (c.req.query('rev') === String(head.rev)) return c.body(null, 204);
     const row = await deps.db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM murais WHERE usuario_id = ?', [s.userId]);
     if (!row) throw new HttpError(404, 'sem-mural', 'Ainda não há mural na nuvem.');

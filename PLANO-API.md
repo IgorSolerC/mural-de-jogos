@@ -1069,3 +1069,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   - **Ainda não**: o espelho só enche com o site aberto (como o plano diz); a busca é por `LIKE` (o
     FTS5 fica para quando as leituras pesarem); a paginação é por posição, então uma nota que muda entre
     duas páginas pode aparecer duas vezes ou nenhuma (a ordem por "mudou" é a mais sujeita a isso).
+
+- **27/out/2026, rodada 3, parte 1 (a API dos pedidos)**: feita, sem o lado do site ainda.
+  `contrato/api-v1/operacoes.ts` (9 operações, `conferirOp`, `acrescentar`, `mexerNasTarefas`,
+  `aplicarNaNotaV1`, `notaDoPedido`, `idDeFicha`); migração `0017_pedidos.sql`; `domain/requests.ts`
+  (criar com Idempotency-Key, 300/chave e 1000/conta por 24 h, a API para em 85% da cota do dia, estado
+  pela aprovação da chave); `ext/notes-write.ts` (POST/PATCH/DELETE das notas, 202 com a nota como vai
+  ficar; 409 `versao-velha`, 422 `grupo-novo` e `tarefa-nao-encontrada`; GET /ext/v1/pedidos e
+  /pedidos/:id); `ext/overlay.ts` (as leituras mostram os pedidos abertos por cima, com `pedidos`);
+  `routes/requests.ts` (GET /v1/eu/pedidos e `?estado=historico`, pegar por 2 min, concluir, aprovar,
+  recusar, desfazer); `Mural-Pedidos`/`Mural-Pedidos-Aprovar` no GET do mural; apagar a chave recusa os
+  abertos dela (sempre dentro da conta); a limpeza expira em 30 dias. Ordem dos pedidos pela gravação
+  (`rowid`). **Falta (parte 2)**: o site pegar, aplicar pelas lojas (`ReviewStore.add/update/remove`,
+  `withDone`, `withPin`, `relinkAfterRename`, nascendo privada), concluir depois de sincronizar
+  (`CloudSync.pullAndPush`, como o espelho), conferir a cada 60 s com a aba escondida (D2); depois
+  (parte 3, Impeccable) a folha de aprovar, o histórico com Desfazer e o bilhete.

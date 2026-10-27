@@ -4,6 +4,7 @@ import { migrate, sqliteDb } from '../src/adapters/sqlite-node';
 import { amigosSuite } from './amigos.suite';
 import { chavesSuite } from './chaves.suite';
 import { espelhoSuite } from './espelho.suite';
+import { pedidosSuite } from './pedidos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -16,3 +17,4 @@ amigosSuite('Node + SQLite', () => db);
 notasSuite('Node + SQLite', () => db);
 chavesSuite('Node + SQLite', () => db);
 espelhoSuite('Node + SQLite', () => db);
+pedidosSuite('Node + SQLite', () => db);

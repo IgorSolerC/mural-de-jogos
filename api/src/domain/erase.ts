@@ -63,9 +63,10 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       '(SELECT COUNT(*) FROM freios WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM api_chaves WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM api_espelho WHERE usuario_id = ?) + ' +
+      '(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ?) + ' +
       '(SELECT COUNT(*) FROM notas WHERE dono_id = ?) + ' +
       `(SELECT COUNT(*) FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})) AS n`,
-    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
+    [id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id, id],
   );
   await write(
     deps,
@@ -85,6 +86,7 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       { sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM api_espelho WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM api_espelho_estado WHERE usuario_id = ?', params: [id] },
+      { sql: 'DELETE FROM api_pedidos WHERE usuario_id = ?', params: [id] },
       // a permissão do Google Agenda guardada (a do Google mesmo, a pessoa tira lá)
       { sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM agenda_pedidos WHERE usuario_id = ?', params: [id] },

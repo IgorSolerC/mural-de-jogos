@@ -11,6 +11,8 @@ import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
 import { keyRoutes } from './routes/keys';
 import { mirrorRoutes } from './routes/mirror';
+import { requestRoutes } from './routes/requests';
+import { notesWriteRoutes } from './ext/notes-write';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -37,8 +39,8 @@ export function createApp(deps: Deps): Hono {
       // a API das AIs (`/ext`) aceita qualquer origem: ela só anda com a chave no cabeçalho, sem cookie
       origin: (origin, c) => (c.req.path.startsWith('/ext/') ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base'],
-      exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo'],
+      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Idempotency-Key'],
+      exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo', 'Mural-Pedidos', 'Mural-Pedidos-Aprovar'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
     }),
@@ -87,7 +89,9 @@ export function createApp(deps: Deps): Hono {
   agendaRoutes(app, deps);
   keyRoutes(app, deps);
   mirrorRoutes(app, deps);
+  requestRoutes(app, deps);
   extRoutes(app, deps);
+  notesWriteRoutes(app, deps);
 
   app.notFound((c) => {
     deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);

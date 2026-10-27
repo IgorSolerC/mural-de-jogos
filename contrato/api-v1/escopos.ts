@@ -40,7 +40,7 @@ export const ESCOPO_BASICO = 'conta:ler';
 
 export const ESCOPOS: readonly Escopo[] = [
   { id: 'notas:ler', area: 'notas', nome: 'Ler anotações', verbo: 'ver', inclui: 'Listar, buscar e ler; ver os grupos, os assuntos e as tags.' },
-  { id: 'notas:criar', area: 'notas', nome: 'Cadastrar notas', verbo: 'criar', inclui: 'Criar anotações, que nascem privadas (ou no padrão do grupo).' },
+  { id: 'notas:criar', area: 'notas', nome: 'Cadastrar notas', verbo: 'criar', inclui: 'Criar anotações. Elas nascem privadas; tornar pública pede "Mudar quem vê".' },
   {
     id: 'notas:editar', area: 'notas', nome: 'Alterar notas', verbo: 'mudar', muda: true,
     inclui: 'Título, texto, grupo, assunto, tags, data e capa; acrescentar texto, marcar tarefas, finalizar, reabrir e fixar.',
