@@ -117,7 +117,7 @@ Fatos do código (BUILD 569), com onde estão:
 | | A. A nuvem abre e regrava o mural | B. Pedidos aplicados pelo app (recomendada) | C. Guardar o mural em tabelas na nuvem |
 | --- | --- | --- | --- |
 | Como | O Worker baixa o gzip, abre, muda, fecha, grava com `rev + 1` | A API guarda o pedido; o Murall aberto aplica, sincroniza e avisa | Trocar o arquivo único por linhas por item |
-| CPU (10 ms) | Não cabe: abrir e fechar um mural de alguns MB passa fácil de 10 ms | Cabe: a API só lê e grava linhas pequenas | Cabe |
+| CPU (10 ms) | Não cabe: medido na rodada 0, abrir e regravar um mural de 59 kB gzip custa 19–34 ms; de 193 kB, 57–87 ms; de 1 MB, 320–344 ms | Cabe: a API só lê e grava linhas pequenas (1–2 ms medidos) | Cabe |
 | Regras de dados | Duplicadas no Worker (conferências, migrações, lápides, carimbos, público, `novas`) e quebram a cada `SYNC_SCHEMA` | Só no site, onde já estão | Reescrever a sincronização inteira |
 | Mural público, Google Agenda, `novas` | Ficariam velhos ou errados | Saem certos: é uma edição comum do app | Reescrever |
 | Quando aparece | Na hora | Quando o Murall estiver aberto em algum aparelho (com a aba em segundo plano, em até ~1 min) | Na hora |
@@ -461,15 +461,19 @@ CREATE TABLE api_espelho_estado (
 );
 ```
 
-Só a chave primária como índice (cada índice conta linha gravada no D1). Se a Fase 0 mostrar que a
-busca por `LIKE` fica lenta, entra FTS5 (o D1 tem), medindo antes o custo em linhas gravadas.
+Só a chave primária como índice (cada índice conta linha gravada no D1). A busca começa com `LIKE` na
+coluna `busca`: na rodada 0, procurar em 2 mil notas custou 1 ms de CPU e 2 mil linhas lidas (as 5
+milhões por dia dão folga). O FTS5 funciona no D1 (1 ms, ~50 linhas lidas por busca), mas guarda o
+texto outra vez; fica para quando as leituras pesarem.
 
 ### 8.3 Como o site enche e mantém
 
 1. Depois de um `PUT /v1/eu/mural` que valeu (ou de um pull que trouxe mudança), o site monta o v1 das
    áreas pedidas, calcula o hash de cada item e pede `GET /v1/eu/espelho/hashes?tipo=` (só ids e
    hashes; poucas leituras).
-2. Manda `POST /v1/eu/espelho` com `{rev, poe: [...], tira: [ids]}`, em lotes de até 200 itens. A API
+2. Manda `POST /v1/eu/espelho` com `{rev, poe: [...], tira: [ids]}`, em lotes de até 50 itens (na
+   rodada 0, montar e gravar 100 notas falsas num pedido gastou 7–106 ms de CPU; parte disso é a
+   montagem, que de verdade é feita no site, mas 50 deixa folga). A API
    aceita só se `rev` é a rev do mural agora (um aparelho atrasado não sobrescreve o espelho com coisa
    velha); se não for, responde 409 e o aparelho deixa para a próxima rodada.
 3. Nenhum estado novo no navegador: quem guarda "o que já foi" é a nuvem (os hashes). Assim não há
@@ -575,8 +579,10 @@ Nota, ficha, desejo, pra depois: antes da lápide, a cópia vai para Versões gu
   `application/json` (sem stream, que não precisamos). `GET /mcp` responde 405. Nada de Durable Objects.
 - **Implementação própria** (~300 linhas: `initialize`, `ping`, `tools/list`, `tools/call`,
   `resources/list`, `resources/read`, `prompts/list`, `prompts/get`, negociação de versão), como foi a
-  conferência WebAuthn do cofre. Motivos: o SDK oficial puxa o zod e muda rápido; os 3 MB e os 10 ms
-  pesam. A Fase 0 mede o SDK oficial no Worker; se couber folgado, a decisão pode virar.
+  conferência WebAuthn do cofre. **Confirmado na rodada 0**: com 25 ferramentas, o SDK oficial
+  (1.32.2 + zod 4.6.7) gastou 10–36 ms de CPU por `tools/list` e 6–30 ms por `tools/call` na
+  Cloudflare (acima dos 10 ms toda vez) e somou 190 KiB compactados; a versão própria, com os esquemas
+  já prontos, gastou 0–1 ms e 1 KiB, e o MCP Inspector oficial conversou com ela sem problema.
 - Conferido com o MCP Inspector (`npx @modelcontextprotocol/inspector --cli`) e com testes próprios.
 - 401 com `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource"` (é o que
   faz o claude.ai abrir o login).
@@ -687,7 +693,8 @@ CREATE TABLE oauth_aparelhos (hash TEXT PRIMARY KEY, codigo_usuario TEXT NOT NUL
 - Pasta `cli/` no repositório; TypeScript compilado para um arquivo só; **sem dependências** (Node 22:
   `fetch`, `util.parseArgs`, `readline`). Publicada no npm (grátis) com proveniência
   (`npm publish --provenance`) por um workflow com Actions fixadas por hash (regra do repositório).
-  Nome: `murall` se estiver livre (Fase 0), senão `@igorsc/murall`.
+  Nome: `murall` (livre no npm em 27/out; existe um `mural`, 0.0.6, então o npm pode recusar por
+  parecido: a reserva fica para a rodada 10, com `@igorsc/murall` de reserva).
 - **Entrar**: `murall login` abre o navegador no fluxo de aparelho (11.1), mostra o código, você aprova
   na página do Murall. A credencial fica em `~/.config/murall/credenciais.json` (no Windows,
   `%APPDATA%\murall\`) com permissão só do dono. `MURALL_TOKEN` no ambiente vence o arquivo (para
@@ -903,7 +910,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 
 | # | Rodada | Pronta quando |
 | --- | --- | --- |
-| 0 | **Medir** (sem mudar o produto) | Tamanho real do seu mural (o arquivo do Backup e a contagem de notas, lançamentos e lembretes), o custo de CPU de uma página de espelho num Worker de teste (`mural-api-teste`, D1 próprio, grátis), o tamanho do bundle com e sem o SDK do MCP, FTS5 × LIKE, o nome `murall` no npm, o claude.ai conectando a um MCP mínimo no Worker de teste |
+| 0 | **Medir** (sem mudar o produto) — feita em 27/out (seção 23) | Tamanho real do seu mural (o arquivo do Backup e a contagem de notas, lançamentos e lembretes), o custo de CPU de uma página de espelho num Worker de teste (`mural-api-teste`, D1 próprio, grátis), o tamanho do bundle com e sem o SDK do MCP, FTS5 × LIKE, o nome `murall` no npm, o claude.ai conectando a um MCP mínimo no Worker de teste |
 | 1 | **Chaves** | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
 | 2 | **Ler as Anotações** | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
 | 3 | **Escrever nas Anotações** | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
@@ -940,8 +947,9 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 
 ## 21. Riscos e perguntas abertas
 
-- **R1. Os 10 ms.** Toda rota foi pensada para não abrir o mural, mas a página do espelho e a validação
-  de um lote de 50 precisam ser medidas no Worker de verdade (rodada 0). Se apertar: páginas menores.
+- **R1. Os 10 ms.** Medido na rodada 0 (seção 23): página de 100 notas (130 kB) 2 ms, lista curta de
+  500 notas 1–3 ms, busca 1 ms, validar um lote de 50 lançamentos 0–2 ms. A Cloudflare tolerou pedidos
+  bem acima (até 758 ms) sem erro, mas a regra diz que quem passa sempre é cortado: não contar com isso.
 - **R2. O claude.ai e o OAuth.** Há relatos de falhas recentes no conector com DCR. Por isso o Worker de
   teste e a rodada 5 isolada; o MCP com chave (rodada 4) já resolve o Claude Code mesmo se o conector
   do claude.ai atrasar.
@@ -972,4 +980,35 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 
 ## 23. Andamento
 
-- **27/out/2026**: plano escrito e decisões D1–D11 aceitas. Rodada 0 começando.
+- **27/out/2026**: plano escrito e decisões D1–D11 aceitas.
+- **27/out/2026, rodada 0 (medir)**: feita num Worker de teste, `mural-api-teste`
+  (`https://mural-api-teste.igorsoler.workers.dev`, com o D1 `mural-api-teste`,
+  id `fb73759e-a2bd-4595-a3f2-253b8f73fccc`, ENAM), fora do repositório. A CPU de cada pedido veio do
+  `wrangler tail --format json` (`cpuTime`). Dados falsos: 2 mil notas, 70% com 300–1500 letras, 25%
+  com 1500–6000, 5% com 6 mil–20 mil.
+
+  | Medida | Resultado |
+  | --- | --- |
+  | Worker de hoje | 209 KiB, 52 KiB compactado (o teto grátis é 3 MB) |
+  | MCP com o SDK oficial (25 ferramentas) | +190 KiB compactado; `tools/list` 10–36 ms, `tools/call` 6–30 ms de CPU |
+  | MCP próprio (as mesmas 25) | 1 KiB; 0–1 ms; o MCP Inspector oficial (`--cli`, `tools/list` e `tools/call`) conversou sem problema |
+  | Abrir, mudar uma nota e regravar o mural (opção A) | 59 kB gzip: 19–34 ms · 193 kB: 57–87 ms · 1 MB: 320–344 ms |
+  | Página do espelho: 100 notas inteiras (130 kB) | 2 ms, 100 linhas lidas |
+  | Lista curta: 500 notas sem o texto (`json_extract`) | 1–3 ms, 500 linhas lidas |
+  | Busca com `LIKE` em 2 mil notas | 1 ms; 49 a 2 mil linhas lidas (2 mil quando não acha) |
+  | Busca com FTS5 | 0–1 ms; ~50 linhas lidas (0 quando não acha); o D1 contou 1 linha gravada por nota |
+  | Validar um lote de 50 lançamentos (JSON Schema próprio) | 0–2 ms |
+  | Banco `mural` inteiro hoje (`wrangler d1 list`) | 608 KiB com todas as contas: o seu mural compactado é menor que isso, então o espelho dele cabe em poucos dias de carga |
+
+  Conclusões: a opção A está descartada com números; o MCP fica próprio (seção 10.1); a busca começa
+  com `LIKE` (seção 8.2); o espelho sobe em lotes de 50 (seção 8.3); o nome `murall` está livre no npm.
+  A Cloudflare não cortou nenhum pedido (nem o de 758 ms), mas isso não é garantido.
+
+  Depois de medir, as tabelas de teste foram apagadas e o `mural-api-teste` ficou só com um MCP mínimo,
+  sem banco, em `/mcp` (as rotas que gravavam saíram: a cota do D1 grátis é da conta inteira). Ele serve
+  para testar o conector do claude.ai antes da rodada 5. O código das medições ficou no rascunho da
+  sessão, não no repositório.
+
+  Não medido: a contagem exata das suas notas, lançamentos e lembretes (ler o banco de produção foi
+  bloqueado; o teto acima basta para o plano) e o claude.ai ligando no MCP de teste (precisa de você:
+  Ajustes › Conectores › Adicionar conector personalizado › `https://mural-api-teste.igorsoler.workers.dev/mcp`).
