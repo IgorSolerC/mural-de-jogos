@@ -7,6 +7,7 @@
 
 import { dobra, textoLimpo } from './escopos';
 import type { NotaV1 } from './notas';
+import { lerNoQuadro, type NoQuadroV1 } from './operacoes-kanban';
 
 export type OpNota =
   | 'nota.criar'
@@ -46,10 +47,10 @@ export const ESCOPO_DA_OP: Record<OpNota, string> = {
 
 /**
  * O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não (a nota,
- * e nos Gastos o lançamento, o envelope e a pessoa: ver operacoes-gastos.ts).
+ * nos Gastos o lançamento, o envelope e a pessoa, ver operacoes-gastos.ts; no Kanban, a coluna).
  */
 export function opMuda(op: string): boolean {
-  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar';
+  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar' && op !== 'coluna.criar';
 }
 
 /** Em que pé está um pedido. */
@@ -71,6 +72,8 @@ export interface CamposDaNota {
 export interface CriarNotaV1 extends CamposDaNota {
   titulo: string;
   fixada?: boolean;
+  /** A nota já nasce no quadro do grupo dela (pede também `kanban:mover`), como o "Nova nota" de uma coluna. */
+  kanban?: NoQuadroV1;
 }
 
 export interface EditarNotaV1 extends CamposDaNota {
@@ -169,7 +172,15 @@ export function conferirOp(op: OpNota, raw: unknown): Conferido<DadosDaOp> {
       const c = lerCampos(r, true);
       if (!c.ok) return c;
       if (r['fixada'] !== undefined && typeof r['fixada'] !== 'boolean') return falha('fixada', 'fixada é true ou false.');
-      return { ok: true, dados: { ...c.dados, titulo: c.dados.titulo!, ...(r['fixada'] === true ? { fixada: true } : {}) } };
+      let kanban: NoQuadroV1 | undefined;
+      if (r['kanban'] !== undefined && r['kanban'] !== null) {
+        const k = r['kanban'];
+        if (typeof k !== 'object' || Array.isArray(k)) return falha('kanban', 'kanban é {coluna, importancia, status}: onde a nota nasce no quadro do grupo.');
+        const lugar = lerNoQuadro(k as Record<string, unknown>);
+        if (!lugar.ok) return { ...lugar, campo: `kanban.${lugar.campo}` };
+        kanban = lugar.dados;
+      }
+      return { ok: true, dados: { ...c.dados, titulo: c.dados.titulo!, ...(r['fixada'] === true ? { fixada: true } : {}), ...(kanban ? { kanban } : {}) } };
     }
     case 'nota.editar': {
       if (typeof r['versao'] !== 'string' || Number.isNaN(Date.parse(r['versao']))) {

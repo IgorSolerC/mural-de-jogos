@@ -286,4 +286,132 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       expect((await t.body(t.ext(notes.segredo, '/ext/v1/contexto'))).kanban).toBeNull();
     });
   });
+
+  describe(`${label}: escrever no Kanban com a chave`, () => {
+    const ALL = ['kanban:ler', 'kanban:mover', 'kanban:colunas', 'notas:ler', 'notas:criar'];
+    const NOTAS = [
+      nota('trab-5', { grupo: 'Trabalho', titulo: 'Orçamento', tags: ['cliente'] }),
+      nota('estu-2', { grupo: 'Estudos', titulo: 'Derivadas' }),
+      nota('solta', { titulo: 'Sem grupo' }),
+    ];
+    const put = (t: Awaited<ReturnType<typeof setup>>, secret: string, path: string, data: unknown, headers: Record<string, string> = {}) =>
+      t.ext(secret, path, { method: 'PUT', body: JSON.stringify(data), headers });
+    const board = async (t: Awaited<ReturnType<typeof setup>>, secret: string, ref = 'Trabalho') => (await t.body(t.ext(secret, `/ext/v1/kanban/${ref}`))).quadro as QuadroV1 & { pedidos?: { op: string }[] };
+    const where = (q: QuadroV1) => q.colunas.map((c) => `${c.nome}: ${q.cartoes.filter((x) => x.coluna === c.id).map((x) => x.nota).join(' ')}`);
+    const stored = async (t: Awaited<ReturnType<typeof setup>>, id: string) => JSON.parse((await t.db.first<{ dados: string }>('SELECT dados FROM api_pedidos WHERE id = ?', [id]))!.dados);
+
+    it('mover pede kanban:mover; o quadro fora dos grupos da chave não existe para ela', async () => {
+      const t = await setup();
+      const { me } = await t.ready(ALL, {}, NOTAS);
+      const reader = await t.newKey(me.token, ['kanban:ler']);
+      expect((await put(t, reader.segredo, '/ext/v1/kanban/Trabalho/cartoes/trab-1', { coluna: 'Feito' })).status).toBe(403);
+      const limited = await t.newKey(me.token, ['kanban:mover'], { grupos: ['Estudos'] });
+      const res = await put(t, limited.segredo, '/ext/v1/kanban/Trabalho/cartoes/trab-1', { coluna: 'Feito' });
+      expect(res.status).toBe(404);
+      expect((await t.body(res)).erro).toBe('quadro-nao-encontrado');
+    });
+
+    it('mover um cartão: o pedido guarda a coluna pelo id, responde o cartão como vai ficar, e a leitura já mostra no lugar', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      const res = await put(t, secret, '/ext/v1/kanban/trabalho/cartoes/trab-1', { coluna: 'feito', posicao: 0, status: 'Entregue' });
+      expect(res.status).toBe(202);
+      const out = await t.body(res);
+      expect(out.pedido).toEqual(expect.objectContaining({ op: 'cartao.mover', alvo: 'trab-1', estado: 'pendente' }));
+      expect(out.cartao).toEqual(expect.objectContaining({ nota: 'trab-1', coluna: 'c-feito', posicao: 0, finalizada: true, status: 'Entregue', importancia: 'importante' }));
+      expect(await stored(t, out.pedido.id)).toEqual({ quadro: QUADRO_TRABALHO.id, coluna: 'c-feito', posicao: 0, status: 'Entregue' });
+      const q = await board(t, secret);
+      expect(where(q)).toEqual(['A fazer: trab-3', 'Fazendo: trab-4', 'Feito: trab-1 trab-2']);
+      expect(q.pedidos).toEqual([expect.objectContaining({ id: out.pedido.id, op: 'cartao.mover', alvo: 'trab-1', estado: 'pendente' })]);
+      // o outro quadro não vê o pedido deste
+      expect((await board(t, secret, 'Estudos')).pedidos).toBeUndefined();
+    });
+
+    it('pôr no quadro uma nota do grupo; a de outro grupo, a que não existe, a coluna que não existe e nada para mudar são recusadas', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      const ok = await put(t, secret, '/ext/v1/kanban/Trabalho/cartoes/trab-5', { importancia: 'medio' });
+      expect(ok.status).toBe(202);
+      expect((await t.body(ok)).cartao).toEqual(expect.objectContaining({ titulo: 'Orçamento', coluna: 'c-afazer', posicao: 2, importancia: 'medio', tags: ['cliente'] }));
+      expect(where(await board(t, secret))[0]).toBe('A fazer: trab-1 trab-3 trab-5');
+      const err = async (path: string, data: unknown) => {
+        const res = await put(t, secret, path, data);
+        return [res.status, (await t.body(res)).erro];
+      };
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/estu-2', { coluna: 'A fazer' })).toEqual([422, 'nota-de-outro-grupo']);
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/solta', {})).toEqual([422, 'nota-de-outro-grupo']);
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/nao-existe', {})).toEqual([404, 'nota-nao-encontrada']);
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/trab-1', { coluna: 'Revisão' })).toEqual([422, 'coluna-desconhecida']);
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/trab-1', { depende_de: ['trab-1'] })).toEqual([400, 'pedido-invalido']);
+      expect(await err('/ext/v1/kanban/Trabalho/cartoes/trab-1', {})).toEqual([400, 'pedido-invalido']);
+    });
+
+    it('tirar do quadro: só o que está nele', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      expect((await t.ext(secret, '/ext/v1/kanban/Trabalho/cartoes/trab-5', { method: 'DELETE' })).status).toBe(404);
+      const res = await t.ext(secret, '/ext/v1/kanban/Trabalho/cartoes/trab-3', { method: 'DELETE' });
+      expect(res.status).toBe(202);
+      expect((await t.body(res)).pedido.op).toBe('cartao.tirar');
+      expect(where(await board(t, secret))[0]).toBe('A fazer: trab-1');
+    });
+
+    it('as colunas: criar (e já mover para ela), mudar, apagar; nome repetido, a última coluna e o destino que não existe são recusados', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      const made = await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas', { method: 'POST', body: JSON.stringify({ nome: 'Revisão', depois_de: 'fazendo' }) });
+      expect(made.status).toBe(202);
+      const col = (await t.body(made)).coluna;
+      expect(col).toEqual(expect.objectContaining({ nome: 'Revisão', finaliza: false, cartoes: 0 }));
+      // a coluna que ainda vai entrar já serve para mover
+      expect((await put(t, secret, '/ext/v1/kanban/Trabalho/cartoes/trab-4', { coluna: 'revisao' })).status).toBe(202);
+      expect(where(await board(t, secret))).toEqual(['A fazer: trab-1 trab-3', 'Fazendo: ', 'Revisão: trab-4', 'Feito: trab-2']);
+      const dup = await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas', { method: 'POST', body: JSON.stringify({ nome: 'FEITO' }) });
+      expect([dup.status, (await t.body(dup)).erro]).toEqual([409, 'coluna-existe']);
+      const renamed = await t.ext(secret, `/ext/v1/kanban/Trabalho/colunas/${col.id}`, { method: 'PATCH', body: JSON.stringify({ nome: 'Fazendo' }) });
+      expect(renamed.status).toBe(409);
+      const moved = await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas/Feito', { method: 'PATCH', body: JSON.stringify({ nome: 'Pronto', posicao: 0 }) });
+      expect((await t.body(moved)).coluna).toEqual(expect.objectContaining({ id: 'c-feito', nome: 'Pronto' }));
+      expect((await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas/Fazendo?para=Lixo', { method: 'DELETE' })).status).toBe(422);
+      const gone = await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas/Fazendo?para=-', { method: 'DELETE' });
+      expect(gone.status).toBe(202);
+      expect(await stored(t, (await t.body(gone)).pedido.id)).toEqual({ quadro: QUADRO_TRABALHO.id, para: null });
+      expect((await board(t, secret)).colunas.map((c) => c.nome)).toEqual(['Pronto', 'A fazer', 'Revisão']);
+      expect((await t.ext(secret, '/ext/v1/kanban/Trabalho/colunas/Lixo', { method: 'PATCH', body: JSON.stringify({ nome: 'X' }) })).status).toBe(404);
+      // o quadro dos Estudos tem duas: apagar uma deixa a outra, que não sai
+      expect((await t.ext(secret, '/ext/v1/kanban/Estudos/colunas/Feito', { method: 'DELETE' })).status).toBe(202);
+      const last = await t.ext(secret, '/ext/v1/kanban/Estudos/colunas/A fazer', { method: 'DELETE' });
+      expect([last.status, (await t.body(last)).erro]).toEqual([422, 'ultima-coluna']);
+    });
+
+    it('com a aprovação "mudancas", criar coluna entra direto e mexer no cartão espera', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, {}, NOTAS);
+      const made = await t.body(t.ext(secret, '/ext/v1/kanban/Trabalho/colunas', { method: 'POST', body: JSON.stringify({ nome: 'Revisão' }) }));
+      expect(made.pedido.estado).toBe('pendente');
+      expect((await t.body(put(t, secret, '/ext/v1/kanban/Trabalho/cartoes/trab-1', { coluna: 'Feito' }))).pedido.estado).toBe('aguardando-aprovacao');
+    });
+
+    it('a nota nova já nasce no quadro: pede kanban:mover e um grupo, confere a coluna e aparece no quadro', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      const create = (s: string, data: unknown) => t.ext(s, '/ext/v1/notas', { method: 'POST', body: JSON.stringify(data) });
+      const noKanban = await t.newKey(me.token, ['notas:criar']);
+      expect((await create(noKanban.segredo, { titulo: 'A', grupo: 'Trabalho', kanban: { coluna: 'Fazendo' } })).status).toBe(403);
+      const noGroup = await create(secret, { titulo: 'A', kanban: { coluna: 'Fazendo' } });
+      expect([noGroup.status, (await t.body(noGroup)).erro]).toEqual([422, 'kanban-sem-grupo']);
+      const badCol = await create(secret, { titulo: 'A', grupo: 'Trabalho', kanban: { coluna: 'Revisão' } });
+      expect([badCol.status, (await t.body(badCol)).erro]).toEqual([422, 'coluna-desconhecida']);
+      const res = await create(secret, { titulo: 'Reunião com o time', grupo: 'trabalho', kanban: { coluna: 'fazendo', importancia: 'critico' } });
+      expect(res.status).toBe(202);
+      const out = await t.body(res);
+      expect((await stored(t, out.pedido.id)).kanban).toEqual({ coluna: 'c-fazendo', importancia: 'critico' });
+      const q = await board(t, secret);
+      expect(where(q)[1]).toBe(`Fazendo: trab-4 ${out.nota.id}`);
+      expect(q.cartoes.find((c) => c.nota === out.nota.id)).toEqual(expect.objectContaining({ titulo: 'Reunião com o time', importancia: 'critico', finalizada: false }));
+      // e já dá para mexer nela (ela existe num pedido de criar)
+      expect((await put(t, secret, `/ext/v1/kanban/Trabalho/cartoes/${out.nota.id}`, { coluna: 'Feito' })).status).toBe(202);
+      expect(where(await board(t, secret))[2]).toBe(`Feito: trab-2 ${out.nota.id}`);
+    });
+  });
 }

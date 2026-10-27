@@ -1,12 +1,15 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import { CONTEXTO_NOTAS, type ContextoNotasV1, type NotaV1 } from '../../../contrato/api-v1/notas';
-import { ESCOPO_DA_OP, TEXTO_MAX, acrescentar, conferirOp, idDeFicha, mexerNasTarefas, type AcrescentarV1, type CamposDaNota, type EditarNotaV1, type OpNota, type TarefasV1 } from '../../../contrato/api-v1/operacoes';
+import { ESCOPO_DA_OP, TEXTO_MAX, acrescentar, conferirOp, idDeFicha, mexerNasTarefas, type AcrescentarV1, type CamposDaNota, type CriarNotaV1, type EditarNotaV1, type OpNota, type TarefasV1 } from '../../../contrato/api-v1/operacoes';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
 import { REQUEST_COLUMNS, REQUEST_ID_RE, createRequest, randomBase36, readIdem, requestOut, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { createdNote, overlay, pendingOf } from './overlay';
+import { acharColuna } from '../../../contrato/api-v1/operacoes-kanban';
+import { findBoard } from './kanban-read';
+import { unknownColumn } from './kanban-write';
 import { readJson } from '../routes/http';
 
 /**
@@ -72,6 +75,19 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
       alvo = idDeFicha(now.getTime(), randomBase36());
       if (!inKeyGroups(me, fields.grupo ?? null)) throw outsideGroups();
       await checkNewGroup(userId, fields.grupo, allowNew);
+      // a nota que já nasce no quadro do grupo (como o "Nova nota" de dentro de uma coluna)
+      const k = (checked.dados as CriarNotaV1).kanban;
+      if (k) {
+        requireScope(me, 'kanban:mover');
+        if (!fields.grupo) throw new HttpError(422, 'kanban-sem-grupo', 'Uma nota sem grupo não tem quadro: mande o grupo junto com o kanban.');
+        // o quadro de um grupo novo ainda não existe (nasce com A fazer, Fazendo e Feito): o site confere
+        const q = await findBoard(deps, me, fields.grupo);
+        if (q && k.coluna) {
+          const col = acharColuna(q, k.coluna);
+          if (!col) throw unknownColumn(q, k.coluna);
+          k.coluna = col.id;
+        }
+      }
     } else {
       if (!id || !/^[\w-]{1,64}$/.test(id)) throw notFound();
       alvo = id;

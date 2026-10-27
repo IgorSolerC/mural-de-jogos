@@ -1484,10 +1484,23 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      o contexto traz as colunas para qualquer permissão do Kanban (quem só move precisa dos nomes); o
      quadro que não existe (ou fora dos grupos da chave) é 404 `quadro-nao-encontrado` com os que a
      chave alcança; sem espelho ainda, `quadro: null` com o aviso. Os pedidos por cima entram no passo 4.
-  4. Contrato das operações e API, escrever: `cartao.mover` (`PUT /ext/v1/kanban/:grupo/cartoes/:nota`:
+  4. [feito] Contrato das operações e API, escrever: `cartao.mover` (`PUT /ext/v1/kanban/:grupo/cartoes/:nota`:
      coluna, posicao, importancia, status, depende_de, no_mural), `cartao.tirar` (`DELETE`),
      `coluna.criar`, `coluna.editar` e `coluna.apagar` (`/ext/v1/kanban/:grupo/colunas…`), e o
      `kanban` do `nota.criar`; os pedidos abertos por cima da leitura do quadro. Testes.
+     Feito assim: o contrato em `contrato/api-v1/operacoes-kanban.ts` (`conferirOpKanban`,
+     `lerNoQuadro`, `acharColuna`, `vizinha` e a prévia `aplicarNoQuadroV1`); as rotas em
+     `api/src/ext/kanban-write.ts`. A rota põe o id do quadro nos dados e guarda a coluna pelo id (um
+     nome que muda depois não desvia o cartão); toda conferência é feita no quadro como vai ficar, então
+     a coluna criada num pedido ainda aberto já serve para mover, e a nota de um pedido de criar já
+     pode ir para o quadro. Pôr no quadro uma nota que não está nele pede que ela seja do grupo dele
+     (422 `nota-de-outro-grupo`, que manda usar editar_nota para mudar o grupo); a coluna que não existe
+     é 422 com as que existem; o nome repetido é 409 `coluna-existe`; a última coluna não sai (422
+     `ultima-coluna`); apagar coluna leva os cartões para a vizinha da esquerda (ou a da direita na
+     primeira), para `?para=` ou, com `?para=-`, tira do quadro. `criar_nota` com `kanban` pede
+     `kanban:mover` e um grupo (422 `kanban-sem-grupo`); o quadro de um grupo novo ainda não existe, e
+     então o site confere a coluna. A coluna nova não espera a aprovação "mudancas" (`opMuda`). O site
+     de hoje ainda não aplica os pedidos do Kanban: eles esperam o passo 5.
   5. Site aplica os pedidos do Kanban (pelo `KanbanStore` e as funções de `core/kanban.ts`), com o
      Desfazer e as frases na folha dos pedidos e no histórico. Testes. BUILD + 1.
   6. MCP e guia: `ver_kanban`, `mover_cartao`, `tirar_do_quadro`, `criar_coluna`, `editar_coluna`,
