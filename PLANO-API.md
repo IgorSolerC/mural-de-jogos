@@ -1177,3 +1177,9 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      (depende do usuário). **Próximo**: a rodada 5 (OAuth), seção 11; o `resource_metadata` do
      `WWW-Authenticate` e o `/.well-known/oauth-protected-resource` entram nela.
 
+- **27/out/2026, o MCP usado de verdade no Claude Code** (pelo usuário, com uma chave de produção criada
+  em Acessos e o comando de Como usar): `ver_contexto` listou o contexto, `criar_nota` criou a nota
+  "Teste do MCP" no grupo Dev Murall (pedido `pd_O-f0qMMYfaKuM86a`, pendente até o Murall ser aberto num
+  aparelho) e a AI não pôde pôr a nota na coluna "TODO: Rápido" do Kanban, porque ainda não há
+  ferramenta de Kanban (rodada 8). Com isso, a rodada 4 está feita por inteiro.
+
