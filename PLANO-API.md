@@ -1183,3 +1183,74 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   aparelho) e a AI não pôde pôr a nota na coluna "TODO: Rápido" do Kanban, porque ainda não há
   ferramenta de Kanban (rodada 8). Com isso, a rodada 4 está feita por inteiro.
 
+
+- **27/out/2026, rodada 5 (OAuth)**: em andamento. Pedido do usuário: começar a rodada 5 "como na rodada
+  4: primeiro o roteiro em passos na seção 23, depois um commit com push por passo, marcando [feito],
+  para outra sessão poder continuar". **Quem continuar: leia esta lista, faça o primeiro passo sem
+  [feito], marque e commite** (as mesmas regras da rodada 4: CLAUDE.md, BUILD + 1 só quando o site
+  muda, commit no nome do usuário sem Co-Authored-By, push logo depois; site: `npx ng test
+  mural-de-jogos --watch=false --browsers=ChromeHeadless`, `npx ng build` e fotos de perto nas telas,
+  telas pelo Impeccable sem rodada de escolha; API: `cd api && npm run typecheck && npm test`). Todo
+  push que mexe em `api/` ou `contrato/` publica a API e aplica as migrações (o `api.yml`): cada passo
+  tem de deixar o que já funciona funcionando (a chave manual no Claude Code continua valendo).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo a seção 11):
+  - **Sem JWT e sem secret novo**: o token de acesso tem o mesmo formato das chaves (`murall_…`) e mora
+    na coluna `hash` da própria linha da chave do conector, com o prazo de 1 hora em `hash_expira_em`
+    (nula nas chaves manuais). Assim o `authenticateKey` continua sendo o único porteiro (uma leitura por
+    pedido, como a seção 11.3 pedia), a revogação vale na hora, e não há `API_JWT_CHAVE` para o usuário
+    criar. A renovação é opaca (`mr_` + 43 letras), guardada só o hash, **trocada a cada uso**; a velha
+    fica em `renovacao_velha_hash` e, se voltar, corta a chave inteira (sinal de roubo).
+  - Uma autorização = uma linha em `api_chaves` com `origem = 'oauth'` e `cliente_id`, que aparece em
+    Acessos e se apaga como as outras. A validade é a que a pessoa escolhe na página (a da chave, D4); a
+    renovação vale 90 dias desde o último uso, nunca além da validade.
+  - Escopos do OAuth = os nomes de `contrato/api-v1/escopos.ts` (`notas:ler notas:criar …`); o que o
+    cliente pedir vem marcado na página, e a pessoa decide. Sem `scope`, vem marcado o atalho de ler e
+    escrever as Anotações.
+  - Clientes públicos só (`token_endpoint_auth_method: none`), **PKCE S256 obrigatório**, `state` e
+    `resource` (RFC 8707: o endereço do `/mcp` ou a raiz da API). O código vale 5 minutos e uma vez.
+  - O login de aparelho (RFC 8628, `oauth_aparelhos`) fica para a rodada 10, com a CLI que o usa. A
+    migração é a `0018_oauth.sql` (a 0017 foi a dos pedidos).
+  - A página Autorizar mora no site (`#/autorizar?pedido=…`); a API sabe o endereço dele pela variável
+    nova `SITE` do wrangler.toml.
+
+  Passos:
+  1. API, descoberta e registro: `contrato/api-v1/oauth.ts` (prazos, retornos aceitos e conhecidos,
+     os escopos anunciados), migração `0018_oauth.sql` (`oauth_clientes`, `oauth_pedidos`,
+     `oauth_codigos`; em `api_chaves`: `cliente_id`, `hash_expira_em`, `renovacao_hash`,
+     `renovacao_velha_hash`, `renovada_em`), `api/src/ext/oauth.ts` com
+     `GET /.well-known/oauth-protected-resource` (e o mesmo em `…/mcp`),
+     `GET /.well-known/oauth-authorization-server` e `POST /oauth/registrar` (RFC 7591, retornos
+     `https://` ou `http://localhost`/`127.0.0.1`, freio de 20 registros por dia por IP na tabela
+     `freios`, com o IP em hash); o 401 do `/mcp` ganha o `resource_metadata`. Testes em
+     `api/test/oauth.suite.ts` (nos dois bancos).
+  2. API, autorizar: `GET /oauth/autorizar` (confere cliente, retorno, PKCE S256, `state`, `resource`,
+     `scope`; grava o pedido por 10 minutos e manda para `SITE/#/autorizar?pedido=…`; erro antes de
+     conferir o retorno vira uma página simples, depois volta ao cliente com `error=`), e, só com a
+     sessão do site, `GET /v1/eu/oauth/pedidos/:id` (o nome do cliente, o domínio do retorno, o selo
+     "conhecido", os escopos pedidos), `POST /v1/eu/oauth/pedidos/:id/permitir` (cria a chave do
+     conector com o que a pessoa marcou e o código de 5 minutos; devolve o endereço de volta com `code`,
+     `state` e `iss`) e `POST …/recusar` (devolve o endereço com `error=access_denied`). Só para quem
+     está em `API_CODIGOS`.
+  3. API, tokens: `POST /oauth/token` (`authorization_code` com o `code_verifier`; `refresh_token`
+     trocado a cada uso, a velha repetida corta a chave), o `authenticateKey` respeitando
+     `hash_expira_em`, `POST /oauth/revogar` (RFC 7009), a limpeza (clientes sem autorização em 24 h,
+     pedidos e códigos vencidos, chave de conector sem renovar há 90 dias) e apagar a conta levando
+     tudo. Depois do deploy, conferir no ar os dois `/.well-known` e o 401 do `/mcp`.
+  4. API, cliente por documento (CIMD): `client_id` que é um endereço `https://` com o JSON do cliente
+     (busca com prazo e tamanho máximo, `client_id` igual ao endereço, `redirect_uris` dele), guardado
+     em `oauth_clientes` com `tipo = 'cimd'`; `client_id_metadata_document_supported` nos metadados.
+  5. Site, a página Autorizar pelo Impeccable: rota `autorizar`, entrar com o Google se precisar,
+     "**Nome** quer acesso ao seu Murall" com o domínio do retorno em destaque (o nome não é confiável)
+     e o selo "conhecido", as caixinhas da folha de chave (atalhos), grupos, aprovação e validade,
+     Permitir / Não permitir; recusa abrir dentro de iframe (`window.top`). Em Acessos, a chave de um
+     conector mostra o domínio e "Conector". Como usar ganha o jeito sem chave (o conector do claude.ai
+     e o `claude mcp add` sem o cabeçalho). BUILD + 1, fotos de perto.
+  6. API + site, o aviso no Correio (D11, que veio da rodada 1): uma atividade quando uma chave é criada
+     ou um conector é autorizado, e o quadro de avisos mostra ("Claude ganhou acesso ao seu Murall ·
+     Ver os acessos"). BUILD + 1.
+  7. Ponta a ponta: local (`wrangler dev` + `ng serve` + puppeteer, como nas rodadas 2 e 4: registrar,
+     autorizar, permitir na página, trocar o código, chamar o `/mcp` com o token, renovar, repetir a
+     renovação velha e ver a chave cortada) e no ar (os metadados, o registro e o 401). Anotar aqui.
+     Ligar o conector no claude.ai e o `claude mcp add` sem chave dependem do usuário (o login do
+     Google é dele).
