@@ -1316,3 +1316,62 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      `claude mcp add --transport http murall https://mural-api.igorsoler.workers.dev/mcp` sem o
      cabeçalho, entrando com o Google na página. **Próximo**: a rodada 6 (Gastos), seção 19, ou a 8
      (Kanban), se o usuário quiser mover cartões pelo MCP antes.
+
+- **27/out/2026, rodada 6 (Gastos)**: em andamento. Pedido do usuário: "Quero que faça a próxima rodada
+  (acredito que seja a 6)", do jeito das rodadas 4 e 5: o roteiro aqui, um commit com push por passo,
+  marcando [feito]. **Quem continuar: leia esta lista, faça o primeiro passo sem [feito], marque e
+  commite** (as mesmas regras: CLAUDE.md, BUILD + 1 só quando o site muda, commit no nome do usuário
+  sem Co-Authored-By, push logo depois; site: `npx ng test mural-de-jogos --watch=false
+  --browsers=ChromeHeadless`, `npx ng build`, fotos de perto e smoke quando há tela; API: `cd api &&
+  npm run typecheck && npm test`; o push em `api/` ou `contrato/` publica a API).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 7, 8, 9 e 10):
+  - **A regra dos gastos fica no site.** As contas do mês (parcelas, fixos, o mês da fatura, os
+    reembolsos, o Precisava?, a divisão por pessoa) são as de `core/spending.ts`; a API não refaz
+    nada. O site manda ao espelho cada lançamento em v1 e, pronta, a **visão** de cada mês
+    (`visao`, id `gastos-AAAA-MM`: os 24 meses mais recentes com lançamento e os 3 próximos), feita
+    com as mesmas funções da tela. Envelopes e pessoas vão no contexto dos gastos (`contexto`, id
+    `gastos`). Área nova do espelho: `gastos`, quando alguma chave viva tem `gastos:ler`.
+  - Na v1, a categoria se chama **envelope** (o nome da tela) e o valor vai em **centavos**
+    (inteiro). Você é a pessoa com `eu: true`.
+  - **A frase rápida** ("mercado 230,50 ontem @bruna #luxo") é entendida pelo site na hora de
+    aplicar (`readQuick` + `quickToEntry`, com o histórico, como na linha de anotar): o pedido guarda
+    a frase, e o resultado diz o lançamento que saiu. A API só confere o tamanho.
+  - **Lote**: `{itens: [...]}` ou `{frases: [...]}` com até 50, um pedido por lançamento (a mesma
+    `Idempotency-Key` com o índice no fim), para a aprovação e o Desfazer serem um a um.
+  - Envelope e pessoa são citados pelo nome (sem ligar para acento e caixa) ou pelo id. Um nome que
+    não existe faz o pedido `falhar` com os que existem, a não ser que venha `criar_envelope: true` /
+    `criar_pessoas: true`, que pedem também `gastos:editar`.
+  - Editar e apagar pedem a `versao` (o `at` do lançamento). Lançar dispensa (nunca briga).
+  - Apagar um lançamento guarda o lançamento inteiro no `antes` do pedido: o Desfazer põe de volta.
+
+  Passos:
+  1. Contrato e API do espelho: `contrato/api-v1/gastos.ts` (`LancamentoV1`, `EnvelopeV1`,
+     `PessoaV1`, `ContextoGastosV1`, `MesV1`, os ids das linhas), os tipos novos do espelho
+     (`lancamento`, `visao`; o `contexto` ganha o id `gastos`) e a conferência da forma em
+     `api/src/domain/mirror.ts` (a área `gastos` com `gastos:ler`; colunas `data` = o dia do
+     lançamento ou o mês da visão, `busca` = o título sem acento). Testes em `espelho.suite.ts`.
+  2. Site manda o espelho dos Gastos: `core/api-mirror.ts` monta os lançamentos, o contexto e as
+     visões com as funções da tela (`rowsIn`, `totals`, `spentByCategory`, `spentByNeed`,
+     `spentByPerson`, `openPlans`, `installmentsAhead`), só quando a nuvem pede a área `gastos`.
+     Testes. BUILD + 1.
+  3. API, ler: `GET /ext/v1/gastos/meses/:mes` (a visão), `GET /ext/v1/gastos/lancamentos`
+     (`de`/`ate` em meses ou dias, `envelope`, `pessoa`, `tipo`, `q`, `limite`, `depois`),
+     `GET /ext/v1/gastos/lancamentos/:id`, e o `GET /ext/v1/contexto` com `gastos` (envelopes,
+     pessoas, os meses com lançamento) para a chave que lê os gastos. Testes.
+  4. Contrato das operações e API, escrever: `gasto.lancar` (um, `itens` ou `frase`/`frases`),
+     `gasto.editar`, `gasto.apagar`, `envelope.criar`, `envelope.editar`, `pessoa.criar`,
+     `pessoa.editar`, nas rotas `POST /ext/v1/gastos/lancamentos`, `PATCH`/`DELETE
+     /ext/v1/gastos/lancamentos/:id`, `POST`/`PATCH /ext/v1/gastos/envelopes…` e `/pessoas…`; os
+     pedidos abertos por cima das leituras. Testes.
+  5. Site aplica os pedidos dos Gastos (`core/api-requests.ts`, pelo `SpendingStore`), com o
+     Desfazer e as frases em palavras na folha dos pedidos e no histórico ("Lançar Mercado, R$ 230,50
+     em 26/10"). Testes. BUILD + 1.
+  6. MCP e guia: as ferramentas `ver_gastos_do_mes`, `listar_lancamentos`, `lancar_gastos`,
+     `editar_lancamento`, `apagar_lancamento`, `criar_envelope`, `editar_envelope`, `criar_pessoa`,
+     `editar_pessoa`; a parte dos gastos no guia; o OpenAPI e as cópias em `docs/api` regerados; as
+     frases do site que dizem o que a chave faz ("lê e escreve nas anotações e nos gastos"). BUILD + 1
+     se o site mudar.
+  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave com os gastos, o espelho enchendo,
+     ler o mês, lançar por frase e por lote, aplicar, desfazer) e no ar (as rotas novas respondendo).
+     Anotar aqui.
