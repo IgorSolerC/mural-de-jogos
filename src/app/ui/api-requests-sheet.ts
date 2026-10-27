@@ -60,6 +60,11 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
   'envelope.editar': 'etiqueta',
   'pessoa.criar': 'pessoa',
   'pessoa.editar': 'pessoa',
+  'cartao.mover': 'ir',
+  'cartao.tirar': 'tirar',
+  'coluna.criar': 'colunas',
+  'coluna.editar': 'colunas',
+  'coluna.apagar': 'colunas',
 };
 
 /**
@@ -275,7 +280,7 @@ export class ApiRequestsSheet {
       groups.set(r.chave.id, g);
       g.items.push({
         r,
-        words: requestWords(r.op, r.dados, this.requests.titleOf(r)),
+        words: requestWords(r.op, r.dados, this.requests.titleOf(r), false, this.requests.columnNames(r)),
         when: agoLabel(r.criado_em, now),
         fields: after ? fieldChanges(before, after) : [],
         diff: after && (before?.texto ?? '') !== after.texto ? textDiff(before?.texto ?? '', after.texto) : [],
@@ -299,7 +304,7 @@ export class ApiRequestsSheet {
     const today = localDay(now);
     return list.map((r) => {
       // o que entrou (ou entrou e foi desfeito) no passado; o que não entrou, como foi pedido
-      const said = requestWords(r.op, r.dados, this.requests.titleOf(r), r.estado === 'aplicado' || r.estado === 'desfeito');
+      const said = requestWords(r.op, r.dados, this.requests.titleOf(r), r.estado === 'aplicado' || r.estado === 'desfeito', this.requests.columnNames(r));
       const res = r.resultado as { erro?: string } | null | undefined;
       return {
         r,
@@ -343,8 +348,10 @@ export class ApiRequestsSheet {
     return ICON[OP_ICONS[op] ?? 'editar'];
   }
 
-  /** "A nota", "O lançamento", "O envelope", "A pessoa": o que sumiu. */
+  /** "A nota", "O lançamento", "O envelope", "A pessoa", "A coluna": o que sumiu. */
   protected goneWords(op: string): string {
+    if (op === 'coluna.editar' || op === 'coluna.apagar') return 'A coluna (ou o quadro)';
+    if (op === 'coluna.criar') return 'O quadro';
     return op.startsWith('gasto.') ? 'O lançamento' : op.startsWith('envelope.') ? 'O envelope' : op.startsWith('pessoa.') ? 'A pessoa' : 'A nota';
   }
 

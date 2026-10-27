@@ -593,7 +593,7 @@ export function mergeBoards(o: KanbanBoard, a: KanbanBoard, b: KanbanBoard): Kan
 const sameCard = (x: KanbanCard, y: KanbanCard) => canonicalJson(x) === canonicalJson(y);
 
 /** O que muda um quadro: o resultado com `at` novo (a mudança mais nova, na junção). */
-function touch<T extends { at: string }>(b: T, patch: Partial<T>, at: string): T {
+export function touch<T extends { at: string }>(b: T, patch: Partial<T>, at: string): T {
   return { ...b, ...patch, at: at > b.at ? at : new Date(Date.parse(b.at) + 1).toISOString() };
 }
 
@@ -637,12 +637,15 @@ export function moveBoardCategory(st: KanbanState, from: string, to: string | nu
   return { ...st, boards, removed: { ...st.removed, [fromId]: at }, ...(movedTo ? { movedTo } : {}) };
 }
 
-/** Uma coluna nova no fim (ou depois de `after`), com uma cor que ainda não está no quadro, se houver. */
-export function addColumn(b: KanbanBoard, name: string, at: string, after?: string): { board: KanbanBoard; id: string } {
+/**
+ * Uma coluna nova no fim (ou depois de `after`), com uma cor que ainda não está no quadro, se houver.
+ * `id`: o da coluna, quando ele já nasceu fora daqui (um pedido da API); sem ele, sorteado.
+ */
+export function addColumn(b: KanbanBoard, name: string, at: string, after?: string, id?: string): { board: KanbanBoard; id: string } {
   if (b.columns.length >= MAX_COLUMNS) return { board: b, id: '' };
   const used = new Set(b.columns.map((c) => c.color));
   const color = LIGHT_STOCKS.find((s) => s !== 'branco' && !used.has(s)) ?? 'cinza';
-  const col: KanbanColumn = { id: newId(), name: cleanName(name, NAME_MAX) || 'Nova coluna', icon: 'circulo', color, finishes: false };
+  const col: KanbanColumn = { id: (id && cleanId(id)) || newId(), name: cleanName(name, NAME_MAX) || 'Nova coluna', icon: 'circulo', color, finishes: false };
   const at0 = after ? b.columns.findIndex((c) => c.id === after) : -1;
   const columns = [...b.columns];
   columns.splice(at0 >= 0 ? at0 + 1 : columns.length, 0, col);

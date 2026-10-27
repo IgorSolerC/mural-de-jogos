@@ -21,6 +21,8 @@ import { LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { SpendingStore } from './spending-store';
+import { boardIdFor } from './kanban';
+import { KanbanStore } from './kanban-store';
 
 /**
  * Os pedidos da API das AIs pelo lado do site (core/api-requests.ts): cada operação aplicada pelas
@@ -263,6 +265,33 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
     expect(book.get('rg0001')).toEqual(jasmine.objectContaining({ title: 'Padaria', amount: 1850, category: 'comida' }));
     await s.conclude();
     expect(concluded.map((i) => [i.id, i.estado, i.resultado.lancamento.titulo])).toEqual([['pd_g', 'aplicado', 'Padaria']]);
+  });
+
+  it('os pedidos do Kanban também: a coluna nova, o cartão que vai para ela e a nota que já nasce numa coluna', async () => {
+    const { s, store } = setup();
+    store.add(note('r0002', 'Relatório', { category: 'Trabalho' }));
+    const quadro = boardIdFor('Trabalho');
+    open = [
+      req('pd_k1', 'coluna.criar', 'rcolrev', { quadro, nome: 'Revisão' }),
+      req('pd_k2', 'cartao.mover', 'r0002', { quadro, coluna: 'rcolrev' }),
+      req('pd_k3', 'nota.criar', 'r0003', { titulo: 'Reunião', grupo: 'Trabalho', kanban: { coluna: `${quadro}-fazendo`, importancia: 'critico' } }),
+    ];
+    s.noteHeads(heads(3));
+    expect(await s.applyOpen('aparelho1')).toBeTrue();
+    const b = TestBed.inject(KanbanStore).boardFor('Trabalho');
+    expect(b.columns.map((c) => c.name)).toEqual(['A fazer', 'Fazendo', 'Feito', 'Revisão']);
+    expect(b.cards.map((c) => [c.note, c.column, c.importance])).toEqual([
+      ['r0002', 'rcolrev', null],
+      ['r0003', `${quadro}-fazendo`, 'critico'],
+    ]);
+    await s.conclude();
+    expect(concluded.map((i) => [i.id, i.estado])).toEqual([
+      ['pd_k1', 'aplicado'],
+      ['pd_k2', 'aplicado'],
+      ['pd_k3', 'aplicado'],
+    ]);
+    expect(concluded[1].resultado.cartao).toEqual(jasmine.objectContaining({ nota: 'r0002', coluna: 'rcolrev', titulo: 'Relatório' }));
+    expect(concluded[2].resultado.nota.kanban).toEqual(jasmine.objectContaining({ coluna: 'Fazendo', importancia: 'critico' }));
   });
 
   it('o guardado de outra conta não vale aqui', async () => {

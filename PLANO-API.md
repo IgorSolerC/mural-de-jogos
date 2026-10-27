@@ -1501,8 +1501,23 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      `kanban:mover` e um grupo (422 `kanban-sem-grupo`); o quadro de um grupo novo ainda não existe, e
      então o site confere a coluna. A coluna nova não espera a aprovação "mudancas" (`opMuda`). O site
      de hoje ainda não aplica os pedidos do Kanban: eles esperam o passo 5.
-  5. Site aplica os pedidos do Kanban (pelo `KanbanStore` e as funções de `core/kanban.ts`), com o
-     Desfazer e as frases na folha dos pedidos e no histórico. Testes. BUILD + 1.
+  5. [feito, BUILD 584] Site aplica os pedidos do Kanban (pelo `KanbanStore` e as funções de `core/kanban.ts`), com o
+     Desfazer e as frases na folha dos pedidos e no histórico. Testes. BUILD + 1. Feito assim:
+     `core/api-requests-kanban.ts` (`applyKanbanRequest`, `placeNewNote`, `undoKanban`, `kanbanWords`,
+     `kanbanTitle`, `columnNames`), chamado pelo `ApiRequests` para `cartao.*` e `coluna.*`, e o
+     `place` do contexto das notas para o `kanban` de `nota.criar`. Mover pelas funções da tela
+     (`placeCard`, `setImportance`, `setStatus`, `setDeps`, `setWall`); chegar numa coluna que finaliza
+     finaliza a nota (e sair abre), como o arrastar, e a hora nova da nota vira o carimbo (a próxima
+     edição da AI não é conflito por causa dele). A posição conta entre os cartões que a v1 mostra (sem
+     as compartilhadas); a coluna que se arruma sozinha ignora. A dependência que não existe ou faria
+     uma roda (por qualquer quadro, `dependsOn`) fica de fora e o resultado traz o `aviso`. A coluna
+     nova nasce com o id do pedido (`addColumn` ganhou o `id`), então aplicar duas vezes dá a mesma. O
+     Desfazer devolve o cartão ao lugar como era (e o check da nota), tira a coluna criada (os cartões
+     dela vão para a vizinha), volta o nome, o lugar e as marcas da coluna mudada, e põe de volta a
+     coluna apagada com os cartões dela. A folha dos pedidos ganhou os ícones do Kanban e as frases com
+     os nomes das colunas ("Levar “Teste do MCP” para TODO: Rápido e mudar a importância (Crítico)").
+     Fotos de perto da folha (esperando e histórico, computador e celular) e o smoke na build de
+     produção. O bundle inicial foi a 1,89 MB.
   6. MCP e guia: `ver_kanban`, `mover_cartao`, `tirar_do_quadro`, `criar_coluna`, `editar_coluna`,
      `apagar_coluna`, o `kanban` do `criar_nota`; a parte do Kanban no guia; o OpenAPI e as cópias em
      `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.

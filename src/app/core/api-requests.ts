@@ -20,6 +20,9 @@ import {
   type TarefasV1,
 } from '../../../contrato/api-v1/operacoes';
 import { OPS_DE_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
+import { OPS_DO_KANBAN, type NoQuadroV1 } from '../../../contrato/api-v1/operacoes-kanban';
+import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
+import { KanbanStore } from './kanban-store';
 import { ApiMirror } from './api-mirror';
 import { SpendingResult, applySpendingRequest, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
 import { SpendingStore } from './spending-store';
@@ -34,7 +37,7 @@ import { ReviewStore } from './review-store';
 
 /**
  * Os pedidos da API das AIs, pelo lado do site (PLANO-API.md, seção 9; os dos Gastos em
- * core/api-requests-spending.ts). A nuvem nunca abre o mural:
+ * core/api-requests-spending.ts, os do Kanban em core/api-requests-kanban.ts). A nuvem nunca abre o mural:
  * cada escrita de uma AI vira um pedido, e o Murall aberto em algum aparelho logado na conta pega,
  * aplica pelas mesmas funções da tela (as lojas, as conferências de sempre), sincroniza como uma
  * edição comum e só então conclui o pedido na nuvem, com o resultado e a nota de antes (o Desfazer).
@@ -73,7 +76,7 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null } | { erro: string; nota?: NotaV1 } | SpendingResult;
+export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
@@ -99,6 +102,8 @@ export interface ApplyContext {
   /** As edições que vieram de pedidos aplicados aqui (`id@updatedAt`): não contam como mudança de outra pessoa. */
   stamps: ReadonlySet<string>;
   v1(r: Review): NotaV1;
+  /** Põe a nota nova no quadro do grupo dela (o `kanban` de `nota.criar`); devolve o aviso, se houver. */
+  place?(r: Review, k: NoQuadroV1): string | null;
 }
 
 /** O nome como já existe no mural (sem ligar para caixa e acento), ou o novo, limpo. */
@@ -199,8 +204,10 @@ export function applyNoteRequest(
     );
     if (!note || note.id !== req.alvo) return { ...failed('A nota não pôde ser criada.'), antes: null };
     store.add(note);
+    // já no quadro do grupo, na coluna pedida (como o "Nova nota" de dentro de uma coluna)
+    const aviso = d.kanban && ctx.place ? ctx.place(store.get(note.id) ?? note, d.kanban) : null;
     const born = store.get(note.id) ?? note;
-    return { estado: 'aplicado', resultado: { nota: ctx.v1(born) }, antes: null, carimbo: born.updatedAt };
+    return { estado: 'aplicado', resultado: { nota: ctx.v1(born), ...(aviso ? { aviso } : {}) }, antes: null, carimbo: born.updatedAt };
   }
 
   const before = mine(req.alvo);
@@ -281,9 +288,9 @@ function fits(item: AppliedItem): AppliedItem {
 /** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
 export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
 
-/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", ou o que tem o de antes). */
+/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", a coluna nova, ou o que tem o de antes). */
 export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
-  return t.estado === 'aplicado' && (t.op === 'nota.criar' || t.op === 'gasto.lancar' || (t.antes !== null && t.antes !== undefined));
+  return t.estado === 'aplicado' && (t.op === 'nota.criar' || t.op === 'gasto.lancar' || t.op === 'coluna.criar' || (t.antes !== null && t.antes !== undefined));
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -299,11 +306,14 @@ const FIELD_WORDS: Record<string, string> = {
 
 /**
  * O pedido em palavras: "Mudar o título e o texto de “Reunião”" (esperando) ou "mudou o título e o
- * texto de “Reunião”" (no histórico, `past`). `title` é o nome da nota, já resolvido.
+ * texto de “Reunião”" (no histórico, `past`). `title` é o nome da nota, já resolvido; `cols`, os nomes
+ * das colunas de um pedido do Kanban.
  */
-export function requestWords(op: string, dados: unknown, title: string, past = false): string {
+export function requestWords(op: string, dados: unknown, title: string, past = false, cols: ColumnNames = { target: null, of: () => null }): string {
   const spending = spendingWords(op, dados, title, past);
   if (spending) return spending;
+  const kanban = kanbanWords(op, dados, title, past, cols);
+  if (kanban) return kanban;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -439,6 +449,11 @@ export function appliedWords(items: readonly Pick<AppliedItem, 'estado' | 'chave
   return `${plural(ok, 'pedido', 'pedidos')}${who} ${ok === 1 ? 'entrou' : 'entraram'}${not ? `; ${not} não` : ''}`;
 }
 
+/** É um pedido do Kanban (o cartão ou a coluna)? */
+export function isKanbanOp(op: string): boolean {
+  return op.startsWith('cartao.') || op.startsWith('coluna.');
+}
+
 interface AppliedRecord {
   conta: string;
   itens: AppliedItem[];
@@ -451,6 +466,7 @@ export class ApiRequests {
   private readonly mirror = inject(ApiMirror);
   private readonly data = inject(LocalData);
   private readonly spending = inject(SpendingStore);
+  private readonly kanban = inject(KanbanStore);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -509,8 +525,16 @@ export class ApiRequests {
       const stamps = new Set(items.filter((i) => i.carimbo).map((i) => `${i.alvo}@${i.carimbo}`));
       const now = new Date().toISOString();
       const out = req.op.startsWith('nota.')
-        ? applyNoteRequest(this.store, req, { now, today: todayISO(), stamps, v1: (r) => this.mirror.notaOf(r) })
-        : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
+        ? applyNoteRequest(this.store, req, {
+            now,
+            today: todayISO(),
+            stamps,
+            v1: (r) => this.mirror.notaOf(r),
+            place: (r, k) => placeNewNote(this.kanban, this.store, r, k, now),
+          })
+        : isKanbanOp(req.op)
+          ? applyKanbanRequest(this.kanban, this.store, req, now)
+          : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
       this.writeItems([...items, fits({ id: req.id, op: req.op, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
       any = true;
     }
@@ -581,6 +605,10 @@ export class ApiRequests {
    */
   async undo(t: UndoTarget): Promise<void> {
     await this.account.request(`/v1/eu/pedidos/${t.id}/desfazer`, { method: 'POST' });
+    if (isKanbanOp(t.op)) {
+      undoKanban(this.kanban, this.store, t, new Date().toISOString());
+      return;
+    }
     if (!t.op.startsWith('nota.')) {
       undoSpending(this.spending, t);
       return;
@@ -604,6 +632,7 @@ export class ApiRequests {
 
   /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
+    if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
     if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);
     if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
     return (
@@ -628,10 +657,15 @@ export class ApiRequests {
     return { before, after: aplicarNaNotaV1(before, r.op as OpNota, checked.dados, now) };
   }
 
+  /** Os nomes das colunas de um pedido do Kanban (para as frases da folha e do histórico). */
+  columnNames(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { antes?: unknown }): ColumnNames {
+    return columnNames(this.kanban, t);
+  }
+
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */
   private due(list: readonly SiteRequest[]): SiteRequest[] {
     const done = new Set(this.readItems().map((i) => i.id));
-    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO];
+    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN];
     return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && known.includes(r.op));
   }
 
@@ -639,10 +673,21 @@ export class ApiRequests {
    * O pedido dos Gastos cujo alvo já não existe aqui (o lançamento, o envelope, a pessoa apagados):
    * aprovado, ele não entra. Lançar e criar não têm alvo para sumir.
    */
-  spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'>): boolean {
+  spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'> & { dados?: unknown }): boolean {
+    if (isKanbanOp(r.op)) return this.kanbanGone(r);
     if (r.op === 'gasto.editar' || r.op === 'gasto.apagar') return !this.spending.get(r.alvo);
     if (r.op === 'envelope.editar') return !this.spending.category(r.alvo);
     if (r.op === 'pessoa.editar') return !this.spending.person(r.alvo);
+    return false;
+  }
+
+  /** O pedido do Kanban cujo quadro, nota (cartão) ou coluna já não existe aqui. Criar coluna só precisa do quadro. */
+  private kanbanGone(r: Pick<SiteRequest, 'op' | 'alvo'> & { dados?: unknown }): boolean {
+    const quadro = (r.dados as { quadro?: string } | null | undefined)?.quadro;
+    const b = quadro ? boardById(this.kanban, quadro) : undefined;
+    if (!b) return true;
+    if (r.op.startsWith('cartao.')) return !this.store.get(r.alvo);
+    if (r.op === 'coluna.editar' || r.op === 'coluna.apagar') return !b.columns.some((c) => c.id === r.alvo);
     return false;
   }
 

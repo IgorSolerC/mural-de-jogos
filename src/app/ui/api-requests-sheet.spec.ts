@@ -30,6 +30,7 @@ describe('a folha dos pedidos da API (ApiRequestsSheet)', () => {
       refresh: async () => waiting,
       history: async () => history,
       titleOf: () => 'Reunião',
+      columnNames: () => ({ target: null, of: () => null }),
       preview: (r: SiteRequest) =>
         r.op === 'nota.editar' ? { before: nota, after: { ...nota, titulo: 'Reunião geral', texto: 'Pauta\n- [x] Ligar' } } : { before: nota, after: null },
       approve: async (id: string) => void calls.push(`aprovar ${id}`),
