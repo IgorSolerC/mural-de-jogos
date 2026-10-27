@@ -30,6 +30,7 @@ import { DeviceTag, sanitizeDevice } from './device';
 import { BLOCK_KINDS, BaseContent, BlockKind, readBaseContent, writeBaseContent } from './sync-base';
 import { SyncConflict, SyncConflicts, blockDefault, sanitizeConflicts, storedConflicts } from './sync-conflicts';
 import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
+import { ApiMirror } from './api-mirror';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -643,6 +644,8 @@ export class CloudSync {
   /** As anotações compartilhadas: as públicas vão no mural que os outros veem (ver `push`). */
   private readonly shared = inject(SharedStore);
   private readonly kanban = inject(KanbanStore);
+  /** O espelho da API das AIs (PLANO-API.md, seção 8): sobe depois de cada rodada que deixou tudo igual. */
+  private readonly apiMirror = inject(ApiMirror);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
   private readonly reset = inject(BrowserReset);
@@ -871,6 +874,9 @@ export class CloudSync {
     const now = Date.now();
     this.writeState({ ...state, em: now });
     this.lastSyncAt.set(now);
+    // aqui o aparelho e a nuvem estão iguais na rev de agora: o espelho reflete essa (sem esperar, e
+    // sem nunca atrapalhar a sincronização)
+    void this.apiMirror.afterSync(state.rev);
   }
 
   /**

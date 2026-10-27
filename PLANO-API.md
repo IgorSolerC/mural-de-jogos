@@ -913,7 +913,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | --- | --- | --- |
 | 0 | **Medir** (sem mudar o produto) — feita em 27/out (seção 23) | Tamanho real do seu mural (o arquivo do Backup e a contagem de notas, lançamentos e lembretes), o custo de CPU de uma página de espelho num Worker de teste (`mural-api-teste`, D1 próprio, grátis), o tamanho do bundle com e sem o SDK do MCP, FTS5 × LIKE, o nome `murall` no npm, o claude.ai conectando a um MCP mínimo no Worker de teste |
 | 1 | **Chaves** — feita em 27/out (seção 23) | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
-| 2 | **Ler as Anotações** | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
+| 2 | **Ler as Anotações** — feita em 27/out (seção 23) | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
 | 3 | **Escrever nas Anotações** | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
 | 4 | **MCP com chave + guia** | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
@@ -1038,3 +1038,34 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   - **Ficou para depois** (de propósito): o aviso no Correio ao criar uma chave (D11) pede um tipo novo
     no quadro de avisos e entra junto com a rodada 5 (OAuth), quando a autorização de um conector
     também avisa; até lá, só a sessão do site cria chaves.
+
+- **27/out/2026, rodada 2 (ler as Anotações)**: feita. O que entrou:
+  - **Contrato** `contrato/api-v1/notas.ts`: `NotaV1`, `NotaResumoV1`, `ContextoNotasV1` (grupos com notas,
+    assuntos e tags; sem grupo; tags fixas), `resumo()` (280 letras sem cortar palavra), os tipos do
+    espelho (`nota`, `contexto`) e os 50 itens por envio.
+  - **API**: migração `0016_espelho.sql` (`api_espelho`, sem rowid e só com a chave primária;
+    `api_espelho_estado` com a rev, o fuso e a cota do dia), `domain/mirror.ts` (as áreas que alguma
+    chave viva lê, a conferência da forma v1, que deixa de fora o campo a mais, e as colunas de filtro
+    tiradas do próprio item: grupo e busca sem acento), `routes/mirror.ts` (`GET /v1/eu/espelho` com as
+    áreas e as impressões; `POST /v1/eu/espelho` com `{rev, fuso, poe, tira}`, só na rev do mural de
+    agora, conferida de novo dentro do mesmo lote, e até 3 mil linhas por conta e dia) e a leitura em
+    `ext/routes.ts`: `GET /ext/v1/notas` (grupo, sem grupo com `-`, assunto, tag, finalizadas, fixadas,
+    `q`, `mudou_depois_de`, ordem mudou/criada/titulo/data, `limite` até 100, `depois`, `com_texto`; a
+    página para antes de 256 mil letras), `GET /ext/v1/notas/:id`, `GET /ext/v1/contexto` (a conta,
+    "hoje" no fuso dela, a chave e o vocabulário) e `GET /ext/v1/busca` (título e texto sem acento, com o
+    trecho). A chave limitada a grupos nunca vê as notas, os nomes nem as tags dos outros grupos. Toda
+    resposta diz o estado do espelho (`vazio` com o aviso de abrir o site, ou `pronto` com a hora). A
+    limpeza tira o espelho de quem não tem mais chave que lê; apagar a conta também. Testes:
+    `test/espelho.suite.ts` (nos dois bancos).
+  - **Site**: `core/api-mirror.ts` (a nota e o contexto em v1, as impressões, os lotes de até 50 itens e
+    480 mil letras, e o serviço `ApiMirror`), chamado no fim de cada rodada de sincronização em que o
+    aparelho e a nuvem ficaram iguais (`CloudSync.pullAndPush`) e quando uma chave é criada ou mudada
+    (`kick`). Pergunta à nuvem só uma vez por rev, manda só o que mudou e tira o que sumiu (as notas
+    compartilhadas ficam de fora); um 409 ou a cota fica para a próxima, sem atrapalhar a sincronização.
+    Nada novo no navegador. O "quem vê" da nota é o de verdade (só no Kanban conta como privada).
+  - **Ponta a ponta local**: a API no `wrangler dev` com o D1 local, o site sincronizando com ela
+    (`ng serve`, com o `cloud.json` trocado e a CSP desligada só no teste), uma chave lendo as três notas
+    que o site espelhou, o contexto e a busca. O script ficou no rascunho da sessão.
+  - **Ainda não**: o espelho só enche com o site aberto (como o plano diz); a busca é por `LIKE` (o
+    FTS5 fica para quando as leituras pesarem); a paginação é por posição, então uma nota que muda entre
+    duas páginas pode aparecer duas vezes ou nenhuma (a ordem por "mudou" é a mais sujeita a isso).

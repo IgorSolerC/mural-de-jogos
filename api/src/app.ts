@@ -10,6 +10,7 @@ import { extRoutes } from './ext/routes';
 import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
 import { keyRoutes } from './routes/keys';
+import { mirrorRoutes } from './routes/mirror';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -85,6 +86,7 @@ export function createApp(deps: Deps): Hono {
   catalogRoutes(app, deps);
   agendaRoutes(app, deps);
   keyRoutes(app, deps);
+  mirrorRoutes(app, deps);
   extRoutes(app, deps);
 
   app.notFound((c) => {

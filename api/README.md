@@ -24,6 +24,12 @@ todo mundo).
 - Erros: `401 chave-invalida` (sem, copiada errada, vencida, apagada, conta marcada para sair),
   `403 api-indisponivel` (fora de `API_CODIGOS`), `400 chave-invalida` (corpo que não serve).
 - As permissões (os `escopos`) estão em `contrato/api-v1/escopos.ts`, que o site também usa.
+- **Ler as Anotações** (rodada 2): a API não abre o mural; lê do espelho (`api_espelho`, migração 0016),
+  que o site enche depois de sincronizar (`GET`/`POST /v1/eu/espelho`, com a sessão, só na rev do mural
+  de agora, até 50 itens por envio e 3 mil linhas por conta e dia). Com a chave e `notas:ler`:
+  `GET /ext/v1/notas` (filtros `grupo`, `assunto`, `tag`, `finalizadas`, `fixadas`, `q`,
+  `mudou_depois_de`, `ordem`, `limite`, `depois`, `com_texto`), `GET /ext/v1/notas/:id`,
+  `GET /ext/v1/contexto` e `GET /ext/v1/busca?q=`. Os formatos estão em `contrato/api-v1/notas.ts`.
 
 ## Busca com as chaves do site
 

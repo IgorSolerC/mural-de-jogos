@@ -4,6 +4,7 @@ import { beforeAll } from 'vitest';
 import { d1Db } from '../src/adapters/d1';
 import { amigosSuite } from './amigos.suite';
 import { chavesSuite } from './chaves.suite';
+import { espelhoSuite } from './espelho.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -15,3 +16,4 @@ apiSuite('Cloudflare D1', () => d1Db(bindings.DB));
 amigosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 notasSuite('Cloudflare D1', () => d1Db(bindings.DB));
 chavesSuite('Cloudflare D1', () => d1Db(bindings.DB));
+espelhoSuite('Cloudflare D1', () => d1Db(bindings.DB));

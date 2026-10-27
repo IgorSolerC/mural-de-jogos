@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { AREAS_DA_API, ESCOPOS, type Aprovacao } from '../../../contrato/api-v1/escopos';
+import { ApiMirror } from './api-mirror';
 import { CloudAccount } from './cloud-account';
 import { MONTHS_LONG } from './dates';
 
@@ -89,6 +90,7 @@ export function groupsLabel(key: Pick<ApiKeyInfo, 'grupos' | 'escopos'>): string
 @Injectable({ providedIn: 'root' })
 export class ApiKeys {
   private readonly account = inject(CloudAccount);
+  private readonly mirror = inject(ApiMirror);
   /** A lista, como veio da nuvem; null antes de carregar. */
   readonly list = signal<ApiKeyInfo[] | null>(null);
 
@@ -102,12 +104,15 @@ export class ApiKeys {
   async create(input: ApiKeyInput): Promise<{ chave: ApiKeyInfo; segredo: string }> {
     const res = await this.account.request<{ chave: ApiKeyInfo; segredo: string }>('/v1/eu/chaves', { method: 'POST', body: input });
     this.list.update((l) => [res.chave, ...(l ?? [])]);
+    // uma chave que lê pode ser a primeira: o espelho enche já, sem esperar a próxima mudança
+    void this.mirror.kick();
     return res;
   }
 
   async update(id: string, input: Omit<ApiKeyInput, 'validade'>): Promise<ApiKeyInfo> {
     const res = await this.account.request<{ chave: ApiKeyInfo }>(`/v1/eu/chaves/${encodeURIComponent(id)}`, { method: 'PATCH', body: input });
     this.list.update((l) => (l ?? []).map((k) => (k.id === id ? res.chave : k)));
+    void this.mirror.kick();
     return res.chave;
   }
 

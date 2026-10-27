@@ -7,6 +7,9 @@ import { DAY_MS, utcDay } from './quota';
  * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos), e as contas
  * marcadas para sair cuja hora passou (ver `domain/erase.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
+/** Quem tem alguma chave viva que lê o espelho (um parâmetro: agora). */
+const READERS = `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND escopos LIKE '%"notas:ler"%'`;
+
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
   const now = deps.now();
@@ -21,6 +24,9 @@ export async function cleanup(deps: Deps): Promise<void> {
     { sql: 'DELETE FROM agenda_pedidos WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     // as chaves de API vencidas há mais de 30 dias (até lá, a lista mostra "venceu", para a pessoa entender)
     { sql: 'DELETE FROM api_chaves WHERE expira_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
+    // o espelho de quem não tem mais nenhuma chave viva que lê as Anotações (PLANO-API.md, 8.1)
+    { sql: `DELETE FROM api_espelho WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
+    { sql: `DELETE FROM api_espelho_estado WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
   ]);
   await eraseDue(deps);
 }

@@ -12,7 +12,7 @@
 # Trancado com AES-256 (openssl, chave derivada da senha por PBKDF2 com 600 mil voltas).
 set -euo pipefail
 
-TABELAS=(usuarios sessoes murais murais_publicos seguindo seguindo_desfeito atividades reacoes comentarios comentario_reacoes freios notas nota_membros agenda_google agenda_pedidos uso_diario api_chaves)
+TABELAS=(usuarios sessoes murais murais_publicos seguindo seguindo_desfeito atividades reacoes comentarios comentario_reacoes freios notas nota_membros agenda_google agenda_pedidos uso_diario api_chaves api_espelho api_espelho_estado)
 if [ -n "${BACKUP_TABELAS:-}" ]; then
   read -r -a TABELAS <<< "$BACKUP_TABELAS"
 fi
