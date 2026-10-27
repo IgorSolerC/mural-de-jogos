@@ -53,6 +53,29 @@ export function retornoAceito(raw: unknown): raw is string {
   return url.protocol === 'http:' && LOCAIS.has(url.hostname);
 }
 
+/**
+ * O `client_id` é o endereço de um documento de cliente (CIMD, o rascunho da IETF que o claude.ai usa)?
+ * `https://`, com caminho, sem fragmento, sem usuário e senha, sem `.` ou `..` no caminho, e com um nome
+ * de domínio (não um IP nem `localhost`).
+ */
+export function ehDocumentoDeCliente(raw: unknown): raw is string {
+  if (typeof raw !== 'string' || raw.length > RETORNO_MAX || !raw.startsWith('https://')) return false;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.href !== raw || url.hash || url.username || url.password || url.port || url.pathname === '/') return false;
+  if (/(^|\/)\.\.?(\/|$)/.test(raw.slice(url.origin.length))) return false;
+  const host = url.hostname;
+  return host.includes('.') && !/^[\d.]+$/.test(host) && !host.startsWith('[') && host !== 'localhost';
+}
+
+/** O documento do cliente: até 5 KB (o rascunho recomenda), buscado de novo depois de um dia. */
+export const DOCUMENTO_MAX = 5 * 1024;
+export const DOCUMENTO_VALE_MS = 24 * 60 * 60 * 1000;
+
 /** O retorno é no próprio computador (uma CLI)? A página explica isso. */
 export function retornoLocal(url: string): boolean {
   try {

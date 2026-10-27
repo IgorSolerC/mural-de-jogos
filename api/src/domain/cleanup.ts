@@ -34,12 +34,12 @@ export async function cleanup(deps: Deps): Promise<void> {
       params: [now.toISOString(), now.toISOString()],
     },
     { sql: 'DELETE FROM api_pedidos WHERE resolvido_em IS NOT NULL AND resolvido_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
-    // o OAuth dos conectores: pedidos e códigos vencidos; clientes registrados que nunca foram autorizados
-    // em 24 horas; a autorização cujo código ninguém trocou em um dia; o conector sem renovar há 90 dias
+    // o OAuth dos conectores: pedidos e códigos vencidos; clientes (registrados ou por documento) que nunca
+    // foram autorizados em 24 horas; a autorização cujo código ninguém trocou em um dia; o conector sem renovar há 90 dias
     { sql: 'DELETE FROM oauth_pedidos WHERE expira_em < ?', params: [now.toISOString()] },
     { sql: 'DELETE FROM oauth_codigos WHERE expira_em < ?', params: [now.toISOString()] },
     {
-      sql: "DELETE FROM oauth_clientes WHERE tipo = 'dcr' AND usado_em IS NULL AND criado_em < ?",
+      sql: 'DELETE FROM oauth_clientes WHERE usado_em IS NULL AND criado_em < ?',
       params: [new Date(now.getTime() - CLIENTE_SEM_USO_MS).toISOString()],
     },
     {

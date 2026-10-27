@@ -1,6 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_IP } from '../../contrato/api-v1/oauth';
+import { ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_IP, ehDocumentoDeCliente } from '../../contrato/api-v1/oauth';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
@@ -31,12 +31,12 @@ export function oauthSuite(label: string, getDb: () => Db) {
     challenge = base64url(await sha256(VERIFIER));
   });
 
-  async function setup(env: Record<string, string> = ENV) {
+  async function setup(env: Record<string, string> = ENV, extra: Partial<Deps> = {}) {
     const db = getDb();
     await db.batch(TABLES.map((t) => ({ sql: `DELETE FROM ${t}` })));
     const clock = { t: NOW.getTime() };
     const config = readConfig(env);
-    const deps: Deps = { db, config, now: () => new Date(clock.t), verifyGoogle: googleVerifier(config.googleClientId, createLocalJWKSet({ keys: [jwk] })) };
+    const deps: Deps = { db, config, now: () => new Date(clock.t), verifyGoogle: googleVerifier(config.googleClientId, createLocalJWKSet({ keys: [jwk] })), ...extra };
     const app = createApp(deps);
     const call = (path: string, init?: RequestInit) => app.request(`${API}${path}`, init);
     const json = jsonCaller(call);
@@ -429,6 +429,85 @@ export function oauthSuite(label: string, getDb: () => Db) {
       u.clock.t += 2 * 86_400_000;
       await cleanup(u.deps);
       expect(await u.db.first('SELECT id FROM api_chaves WHERE id = ?', [live.keyId])).toBeNull();
+    });
+  });
+
+  describe(`${label}: o OAuth, cliente por documento (CIMD)`, () => {
+    const DOC = 'https://claude.ai/oauth/mcp-oauth-client-metadata';
+    const doc = (over: Record<string, unknown> = {}) => ({
+      client_id: DOC,
+      client_name: 'Claude',
+      redirect_uris: [CLAUDE],
+      grant_types: ['authorization_code', 'refresh_token'],
+      token_endpoint_auth_method: 'none',
+      ...over,
+    });
+    /** Um `fetch` de mentira que serve o documento e conta as buscas. */
+    const serving = (reply: () => Response) => {
+      const seen: string[] = [];
+      return { seen, fetch: async (url: string) => (seen.push(url), reply()) };
+    };
+
+    it('o endereço do documento: https, com caminho, com nome de domínio', () => {
+      expect(ehDocumentoDeCliente(DOC)).toBe(true);
+      for (const bad of ['http://claude.ai/x', 'https://claude.ai/', 'https://claude.ai', 'https://10.0.0.1/x', 'https://localhost/x', 'https://[::1]/x',
+        'https://claude.ai:8443/x', 'https://claude.ai/x#y', 'https://a:b@claude.ai/x', 'https://claude.ai/a/../x', 'oc_AAAAAAAAAAAAAAAA']) {
+        expect(ehDocumentoDeCliente(bad), bad).toBe(false);
+      }
+    });
+
+    it('os metadados anunciam o CIMD', async () => {
+      const t = await setup();
+      expect((await t.body(t.call('/.well-known/oauth-authorization-server'))).client_id_metadata_document_supported).toBe(true);
+    });
+
+    it('o documento vira o cliente, guardado por um dia, e o conector anda até o token', async () => {
+      const f = serving(() => Response.json(doc()));
+      const t = await setup(ENV, { oauthFetch: f.fetch });
+      const res = await t.authorize({ client_id: DOC });
+      expect(res.headers.get('Location')).toMatch(/^https:\/\/site\.teste\/#\/autorizar\?pedido=op_/);
+      expect(f.seen).toEqual([DOC]);
+      expect(await t.db.first('SELECT nome, tipo, retornos FROM oauth_clientes WHERE id = ?', [DOC])).toEqual({ nome: 'Claude', tipo: 'cimd', retornos: `["${CLAUDE}"]` });
+      // o mesmo dia: sem buscar de novo; depois de um dia, busca
+      await t.authorize({ client_id: DOC });
+      expect(f.seen.length).toBe(1);
+      t.clock.t += 24 * 60 * 60 * 1000 + 1;
+      const last = await t.authorize({ client_id: DOC });
+      expect(f.seen.length).toBe(2);
+      const pedido = /pedido=(op_[\w-]+)/.exec(last.headers.get('Location')!)![1]!;
+      const session = await t.login();
+      const out = await t.body(t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, session));
+      const code = new URL(out.para).searchParams.get('code')!;
+      const tok = (await t.body(t.exchange(code, DOC))) as any;
+      expect(tok.access_token).toMatch(/^murall_/);
+      expect((await t.mcp(tok.access_token)).status).toBe(200);
+    });
+
+    it('o documento que não serve vira página de erro, com o porquê', async () => {
+      const cases: [() => Response, string][] = [
+        [() => Response.json(doc({ client_id: 'https://outro.exemplo/doc' })), 'próprio endereço'],
+        [() => Response.json(doc({ redirect_uris: ['http://exemplo.com/cb'] })), 'redirect_uris'],
+        [() => Response.json(doc({ token_endpoint_auth_method: 'private_key_jwt' })), 'públicos'],
+        [() => new Response('nada', { status: 404 }), '404'],
+        [() => new Response(null, { status: 302, headers: { Location: 'https://outro.exemplo/' } }), '302'],
+        [() => new Response('x'.repeat(6000)), 'grande demais'],
+        [() => new Response('<html>'), 'JSON'],
+        [() => { throw new Error('rede'); }, 'não respondeu'],
+      ];
+      for (const [reply, why] of cases) {
+        const t = await setup(ENV, { oauthFetch: serving(reply).fetch });
+        const res = await t.authorize({ client_id: DOC });
+        expect(res.status, why).toBe(400);
+        expect(await res.text(), why).toContain(why);
+        expect(await t.db.first('SELECT id FROM oauth_clientes'), why).toBeNull();
+      }
+    });
+
+    it('o retorno tem de estar no documento', async () => {
+      const t = await setup(ENV, { oauthFetch: serving(() => Response.json(doc())).fetch });
+      const res = await t.authorize({ client_id: DOC, redirect_uri: 'https://claude.ai/outro' });
+      expect(res.status).toBe(400);
+      expect(res.headers.get('Location')).toBeNull();
     });
   });
 }

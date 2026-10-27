@@ -5,12 +5,15 @@ import {
   MAX_RETORNOS,
   NOME_DO_CLIENTE_MAX,
   DIAS_DA_RENOVACAO,
+  DOCUMENTO_MAX,
+  DOCUMENTO_VALE_MS,
   PEDIDOS_POR_IP,
   PRAZO_DO_ACESSO_S,
   PRAZO_DO_CODIGO_MS,
   PRAZO_DO_PEDIDO_MS,
   REGISTROS_POR_IP,
   dominioDoRetorno,
+  ehDocumentoDeCliente,
   escoposDoPedido,
   retornoAceito,
   retornoConhecido,
@@ -123,8 +126,67 @@ async function ipKey(c: Context): Promise<string> {
 
 export function oauthRoutes(app: Hono, deps: Deps): void {
   const origin = (c: Context) => new URL(c.req.url).origin;
-  const findClient = (id: string) =>
-    CLIENT_ID_RE.test(id) ? deps.db.first<ClientRow>('SELECT id, nome, retornos, tipo FROM oauth_clientes WHERE id = ?', [id]) : Promise.resolve(null);
+  /**
+   * O cliente do pedido: o registrado (`oc_…`) ou o do documento (CIMD), buscado no endereço do próprio
+   * `client_id` e guardado por um dia. Um documento que não serve é erro (`OAuthError`), com o porquê.
+   */
+  async function findClient(id: string): Promise<ClientRow | null> {
+    if (CLIENT_ID_RE.test(id)) return deps.db.first<ClientRow>('SELECT id, nome, retornos, tipo FROM oauth_clientes WHERE id = ?', [id]);
+    if (!ehDocumentoDeCliente(id)) return null;
+    const known = await deps.db.first<ClientRow & { criado_em: string }>(
+      "SELECT id, nome, retornos, tipo, criado_em FROM oauth_clientes WHERE id = ? AND tipo = 'cimd'",
+      [id],
+    );
+    const now = deps.now();
+    if (known && now.getTime() - Date.parse(known.criado_em) < DOCUMENTO_VALE_MS) return known;
+    const doc = await fetchClientDocument(id);
+    const name = textoLimpo(doc['client_name'], NOME_DO_CLIENTE_MAX) || dominioDoRetorno(id);
+    const redirects = JSON.stringify([...new Set(doc['redirect_uris'] as string[])]);
+    await write(
+      deps,
+      [
+        {
+          sql:
+            "INSERT INTO oauth_clientes (id, nome, retornos, tipo, criado_em) VALUES (?, ?, ?, 'cimd', ?) " +
+            'ON CONFLICT (id) DO UPDATE SET nome = excluded.nome, retornos = excluded.retornos, criado_em = excluded.criado_em',
+          params: [id, name, redirects, now.toISOString()],
+        },
+      ],
+      2,
+    );
+    return { id, nome: name, retornos: redirects, tipo: 'cimd' };
+  }
+
+  /** Busca e confere o documento do cliente (sem seguir redirecionamento, com prazo e tamanho máximo). */
+  async function fetchClientDocument(url: string): Promise<Record<string, unknown>> {
+    const bad = (why: string) => new OAuthError(400, 'invalid_client', `O documento do aplicativo (${url}) não serve: ${why}`);
+    let res: Response;
+    try {
+      res = await (deps.oauthFetch ?? fetch)(url, { headers: { Accept: 'application/json' }, redirect: 'manual', signal: AbortSignal.timeout(5_000) });
+    } catch {
+      throw bad('não respondeu.');
+    }
+    if (res.status !== 200) throw bad(`respondeu ${res.status}.`);
+    if (Number(res.headers.get('Content-Length') ?? 0) > DOCUMENTO_MAX) throw bad('é grande demais.');
+    const text = await res.text();
+    if (text.length > DOCUMENTO_MAX) throw bad('é grande demais.');
+    let doc: unknown;
+    try {
+      doc = JSON.parse(text);
+    } catch {
+      throw bad('não é JSON.');
+    }
+    if (!doc || typeof doc !== 'object' || Array.isArray(doc)) throw bad('não é um objeto JSON.');
+    const d = doc as Record<string, unknown>;
+    if (d['client_id'] !== url) throw bad('o client_id dele não é o próprio endereço.');
+    const uris = d['redirect_uris'];
+    if (!Array.isArray(uris) || !uris.length || uris.length > MAX_RETORNOS || !uris.every(retornoAceito)) {
+      throw bad(`faltam redirect_uris (de 1 a ${MAX_RETORNOS}, https:// ou http://localhost).`);
+    }
+    const auth = d['token_endpoint_auth_method'];
+    if (auth !== undefined && auth !== 'none') throw bad('só clientes públicos (token_endpoint_auth_method: none).');
+    return d;
+  }
   const cached = { 'Cache-Control': 'public, max-age=300' };
 
   /** Roda a rota e transforma os erros no formato do OAuth. */
@@ -179,6 +241,8 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
         token_endpoint_auth_methods_supported: ['none'],
         revocation_endpoint_auth_methods_supported: ['none'],
         authorization_response_iss_parameter_supported: true,
+        // o client_id pode ser o endereço do documento do cliente (CIMD)
+        client_id_metadata_document_supported: true,
         service_documentation: `${origin(c)}/llms.txt`,
       },
       200,
@@ -250,7 +314,14 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
   app.get('/oauth/autorizar', async (c) => {
     const q = (k: string) => c.req.query(k);
     if (!deps.config.site) return errorPage(c, 503, 'A autorização de conectores ainda não está ligada nesta API.');
-    const client = await findClient(q('client_id') ?? '');
+    let client: ClientRow | null;
+    try {
+      client = await findClient(q('client_id') ?? '');
+    } catch (error) {
+      if (error instanceof OAuthError) return errorPage(c, 400, error.message);
+      if (error instanceof HttpError) return errorPage(c, 503, error.message);
+      throw error;
+    }
     if (!client) return errorPage(c, 400, 'Esse aplicativo não está registrado no Murall (client_id desconhecido). Volte a ele e conecte de novo.');
     const retornos = parseList(client.retornos);
     const asked = q('redirect_uri');

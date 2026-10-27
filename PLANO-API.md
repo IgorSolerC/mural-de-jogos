@@ -1251,10 +1251,17 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      corrida do próprio cliente e só perde (sem cortar), depois disso corta a chave e recusa os pedidos
      abertos dela; revogar aceita o acesso ou a renovação e apaga a chave (sempre 200); o 401 do `/mcp`
      com um token que não vale traz `error="invalid_token"`. A limpeza não tira o cliente que já foi
-     autorizado (o claude.ai guarda o `client_id`).
-  4. API, cliente por documento (CIMD): `client_id` que é um endereço `https://` com o JSON do cliente
+     autorizado (o claude.ai guarda o `client_id`). Conferido no ar depois do deploy: os dois
+     `/.well-known` respondem com o endereço de produção e o `POST /mcp` sem chave dá 401 com o
+     `resource_metadata`.
+  4. [feito] API, cliente por documento (CIMD): `client_id` que é um endereço `https://` com o JSON do cliente
      (busca com prazo e tamanho máximo, `client_id` igual ao endereço, `redirect_uris` dele), guardado
      em `oauth_clientes` com `tipo = 'cimd'`; `client_id_metadata_document_supported` nos metadados.
+     Feito assim: o endereço tem de ser `https://` com caminho e nome de domínio (sem IP, `localhost`,
+     porta, fragmento ou `..`; `ehDocumentoDeCliente` no contrato); a busca não segue redirecionamento,
+     espera 5 s e lê até 5 KB; o documento fica guardado um dia (depois é buscado de novo no próximo
+     autorizar); um documento que não serve vira a página de erro com o porquê; o `fetch` entra por
+     `deps.oauthFetch` nos testes; a limpeza tira também o cliente por documento nunca autorizado.
   5. Site, a página Autorizar pelo Impeccable: rota `autorizar`, entrar com o Google se precisar,
      "**Nome** quer acesso ao seu Murall" com o domínio do retorno em destaque (o nome não é confiável)
      e o selo "conhecido", as caixinhas da folha de chave (atalhos), grupos, aprovação e validade,

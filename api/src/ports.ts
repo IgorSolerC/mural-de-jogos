@@ -75,6 +75,11 @@ export interface Deps {
    */
   agenda?: { keys: AgendaKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
   /**
+   * A busca do documento de um cliente do OAuth (CIMD: o `client_id` é um endereço https com o JSON do
+   * cliente, ver `src/ext/oauth.ts`). Sem isto, o `fetch` de sempre; só muda nos testes.
+   */
+  oauthFetch?: (url: string, init?: RequestInit) => Promise<Response>;
+  /**
    * O cofre de senhas, pelo service binding (ver `src/domain/vault.ts`): a conta pode usá-lo? Tem
    * cofre? E, quando a conta sai, apagar o cofre dela. Sem isto (nos testes, ou sem o binding), ninguém
    * vê a aba do cofre e nenhuma conta tem cofre.
