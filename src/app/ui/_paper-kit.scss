@@ -666,3 +666,81 @@
   -webkit-mask: $camadas;
   mask: $camadas;
 }
+
+/* O seletor em botões (`aria-pressed`): o mesmo adesivo do `segmento`, para as escolhas que já são
+   botões (as folhas de regras de Extras). Cada um é o recorte tracejado ainda na cartela; o escolhido,
+   o adesivo de tinta colado, torto, com a conta em amarelo (o par do adesivo de marcar). */
+@mixin adesivo-escolha {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 14px 7px;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  outline: 1.5px dashed rgb(21 21 21 / 0.42);
+  outline-offset: -1.5px;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.92rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    outline-color var(--t-ui) var(--ease-ui),
+    rotate var(--t-physical) var(--ease-physical),
+    scale var(--t-physical) var(--ease-physical);
+
+  .count {
+    font-weight: 700;
+    opacity: 0.62;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &:hover:not([aria-pressed='true']):not(:disabled) {
+    background: rgb(21 21 21 / 0.06);
+    outline-color: rgb(21 21 21 / 0.72);
+  }
+
+  &[aria-pressed='true'] {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--paper);
+    rotate: -1.5deg;
+    scale: 1.02;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+
+    .count {
+      color: var(--hi);
+      opacity: 1;
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+
+    &[aria-pressed='true'] {
+      rotate: 0deg;
+      scale: 1;
+    }
+  }
+}

@@ -5,7 +5,7 @@ import {
   readBackupFile,
 } from './backup-file';
 import { newId, sanitizeReview } from './review';
-import { sanitizeProfile } from './profile';
+import { PageBackground, sanitizeProfile } from './profile';
 import { readText, writeText } from './storage';
 
 /** O banco do IndexedDB com os backups de colegas. */
@@ -24,6 +24,14 @@ export interface Colleague extends BackupSnapshot {
   rev?: number;
   /** Com que `MURAL_READER` ele foi lido (sem: por um site de antes das anotações). */
   leitor?: number;
+}
+
+/**
+ * A parede de quem se visita: a do perfil da pessoa; sem perfil (um backup, ou alguém de antes dos
+ * perfis), o eucatex do próprio site, nunca a sua.
+ */
+export function wallOf(colleague: Colleague | null | undefined): PageBackground {
+  return colleague?.profile?.page ?? 'eucatex';
 }
 
 /** Coleções recebidas ficam em um banco separado; nunca entram no backup ou nas resenhas próprias. */

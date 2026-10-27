@@ -1,104 +1,217 @@
 /*
- * O mural de outra pessoa: no alto a placa com o nome dela na faixa azul (a cor do colega em toda a
- * comparação), o resumo, os outros murais e o seguir. Embaixo, a régua e a parede são as do seu mural
- * (WallToolbar e WallBoard).
+ * O mural de outra pessoa, na parede dela (o app troca a parede do site: ver `siteWall` em app.ts).
+ * No alto, a ficha da dona: o papel de ficha das Configurações do perfil, com uma orelha de cartolina
+ * por mural dela em pé em cima (as orelhas de pasta das anotações, ver _divisorias.scss: a aberta é o
+ * próprio papel da ficha, as de trás um creme mais escuro, com o pé escondido atrás da borda). No
+ * papel, a foto do perfil, "O mural de Marina" a pincel com o risco vermelho, a linha dela, quanto tem
+ * aqui, o perfil e o seguir. Embaixo, a régua e a parede são as do seu mural (WallToolbar e WallBoard).
  */
 @use './comparison/shelf';
+@use '../ui/divisorias' as div;
+@use '../ui/paper-kit' as kit;
 
 :host {
   display: block;
 }
 
 .voltar {
-  margin: -6px 0 22px -12px;
+  margin: -6px 0 18px -12px;
   color: var(--wall-ink);
   text-decoration: none;
 }
 
-.cabeca {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px 24px;
-  margin-bottom: 36px;
+/* ===== A ficha da dona: as orelhas e o papel são uma peça só, com uma sombra só ===== */
+.dona {
+  position: relative;
+  margin-bottom: 40px;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 14px rgb(0 0 0 / 0.42));
 }
 
-/* Seguir: o botão de pincel na parede, ao lado da placa; seguindo, vira a fita amarela de estado */
-.seguir {
-  align-self: center;
+/* as orelhas, em pé na borda de cima da ficha */
+.orelhas {
+  @include div.pasta;
+  /* a borda e a orelha aberta são o papel da ficha */
+  --manilha: var(--papel-ficha);
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 6px 18px 0;
 
-  &.seguindo {
-    background: var(--hi);
-    color: var(--ink);
+  &::after {
+    @include div.borda-da-pasta;
+    /* a ficha tem a sombra dela inteira: a fina da borda sobre o pé das de trás fica */
   }
 }
 
-/* a placa: um crachá grande, faixa azul impressa e o nome a pincel azul */
-.placa {
+.orelha {
+  @include div.aba('.on');
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  /* as de trás: um creme mais escuro que a ficha, como as orelhas de grupo com cor */
+  background-color: #d9cdab;
+  font: inherit;
+
+  &:hover:not(.on):not(:disabled) {
+    background-color: #e8dec3;
+  }
+
+  &.on {
+    background-color: var(--papel-ficha);
+    cursor: default;
+  }
+}
+
+.orelha-ico {
+  display: inline-flex;
+  flex: none;
+  /* o desenho no meio da parte que aparece (o pé fica atrás da borda) */
+  align-self: center;
+}
+
+.orelha-nome {
+  @include div.nome-de-grupo;
+  min-width: 0;
+}
+
+.orelha-n {
+  @include div.numero-de-grupo;
+  flex: none;
+}
+
+.orelha:not(.on) {
+  .orelha-nome {
+    opacity: 0.82;
+  }
+
+  .orelha-n {
+    opacity: 0.85;
+  }
+}
+
+/* o papel: a foto, quem é, e as ações na ponta */
+.ficha-dona {
   position: relative;
   display: grid;
-  min-width: min(100%, 300px);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px 26px;
+  padding: 22px 28px 24px 26px;
+  border-radius: 0 0 6px 6px;
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+}
+
+.foto {
+  --foto: 84px;
+  position: relative;
+  display: grid;
+  border-radius: 2px;
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  /* um pedaço de fita-crepe prende a foto na ficha, como a polaroid do perfil */
+  &::after {
+    content: '';
+    position: absolute;
+    top: -9px;
+    left: calc(50% - 22px);
+    width: 44px;
+    height: 17px;
+    background: var(--paper-grain), rgb(222 205 160 / 0.86);
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.12);
+    rotate: -5deg;
+    pointer-events: none;
+  }
+}
+
+a.foto:hover {
+  translate: 0 -2px;
+}
+
+.quem {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* "O mural de Marina": a mesma frase do cartaz, o nome maior com o risco vermelho */
+.titulo {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1.15;
+  color: var(--ink-2);
+}
+
+.nome {
+  display: inline-block;
   max-width: 100%;
-  overflow: hidden;
-  padding-bottom: 10px;
-  border-radius: 10px;
-  background:
-    linear-gradient(to top, var(--caneta-azul) 0 10px, transparent 10px),
-    #fdfcf8;
-  color: var(--caneta-azul);
-  box-shadow: var(--shadow-card);
-  rotate: -1.6deg;
+  margin-left: 0.15em;
+  padding-bottom: 0.06em;
+  font-size: clamp(2rem, 4.4vw, 2.75rem);
+  line-height: 1.05;
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-decoration: none;
 }
 
-.placa::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, transparent 38%, rgb(255 255 255 / 0.42) 46%, transparent 56%);
-  pointer-events: none;
-}
-
-.placa-faixa {
-  display: block;
-  padding: 8px 18px 6px;
-  background: var(--caneta-azul);
-  color: #fdfcf8;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.92rem;
-  letter-spacing: 0.18em;
-  line-height: 1.1;
-  text-transform: uppercase;
-  text-align: center;
-}
-
-/* o nome da pessoa (pelo código, um link para o perfil dela, sublinhado como os outros nomes) */
-.placa-link {
-  color: inherit;
-  text-decoration: underline 3px;
-  text-underline-offset: 8px;
+a.nome {
+  border-radius: 2px;
+  transition: rotate var(--t-ui) var(--ease-ui);
 
   &:hover {
-    text-decoration-thickness: 4px;
+    rotate: -1deg;
   }
 
   &:focus-visible {
     outline: 3px solid var(--ink);
-    outline-offset: -6px;
+    outline-offset: 4px;
   }
 }
 
-.placa-nome {
-  display: block;
-  overflow: hidden;
-  padding: 12px 28px 8px;
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: clamp(2rem, 5vw, 3rem);
-  line-height: 1.05;
-  text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.linha {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+}
+
+.resumo {
+  margin-top: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.perfil {
+  @include kit.botao-papel;
+
+  & {
+    text-decoration: none;
+  }
+}
+
+/* seguindo: a fita amarela de estado */
+.seguir.seguindo {
+  background: var(--hi);
+  color: var(--ink);
 }
 
 .giz {
@@ -109,19 +222,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--wall-ink-2);
-  font-variant-numeric: tabular-nums;
   text-shadow: var(--chalk-shadow);
-}
-
-/* o resumo e os outros murais da pessoa, ao lado da placa */
-.cabeca-info {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-
-  .murais {
-    margin-bottom: 0;
-  }
 }
 
 /* a régua do mural, como no seu: a cartela de filtros abre por cima das fichas */
@@ -131,15 +232,68 @@
   margin-bottom: 44px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .foto,
+  a.nome {
+    transition: none;
+  }
+
+  a.foto:hover {
+    translate: none;
+  }
+
+  a.nome:hover {
+    rotate: none;
+  }
+}
+
+/* as ações descem para uma linha delas */
+@media (max-width: 760px) {
+  .ficha-dona {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .acoes {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 720px) {
   .toolbar {
     margin-bottom: 34px;
   }
 }
 
+/* no celular: as de trás só com o desenho e a conta (o nome fica na leitura de tela) */
 @media (max-width: 559px) {
-  .placa {
-    min-width: 0;
-    width: 100%;
+  .orelhas {
+    padding-inline: 8px;
+  }
+
+  .orelha {
+    gap: 5px;
+    padding-inline: 10px;
+
+    &:not(.on) .orelha-nome {
+      display: none;
+    }
+  }
+
+  .ficha-dona {
+    gap: 14px 16px;
+    padding: 18px 16px 18px;
+  }
+
+  .foto {
+    --foto: 62px;
+  }
+
+  .titulo {
+    font-size: 1.1rem;
+  }
+
+  .acoes > * {
+    flex: 1 1 auto;
   }
 }

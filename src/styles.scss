@@ -77,8 +77,6 @@
   --hi: #ffda42;
 
   /* Abas de divisória: plástico marfim, do mesmo eixo quente do papel; ativa em amarelo */
-  --tab-plastic: #dcd6c8;
-  --tab-plastic-hover: #ebe6da;
 
   /* Anel de foco: amarelo sobre a parede, tinta preta sobre cartolina */
   --focus: var(--hi);
@@ -349,70 +347,32 @@ p {
   }
 }
 
-/* ===== Plaquinha de categoria: aba de divisória de fichário, plástico impresso ===== */
+/* ===== A orelha: uma aba de pasta de papel manilha =====
+   Toda escolha de aba fora das pastas (Extras, Estatísticas, Lado a lado, o kit da ficha) é a mesma
+   orelha das anotações (ver _divisorias.scss): cantos de cima redondos, as de trás num manilha mais
+   escuro com o pé escondido atrás da borda, a aberta clara, emendada na tira de baixo (`div.fileira`
+   no lugar delas). O nome a pincel, a conta impressa miúda. */
 .plate {
-  --tab: var(--tab-plastic);
-  --tab-ink: var(--ink);
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
+  --manilha-atras: #ae9a6c;
+  --borda: 7px;
+  @include div.aba(":is([aria-pressed='true'], .is-active)");
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 7px 16px 6px;
-  border: 0;
-  background: none;
-  color: var(--tab-ink);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.98rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  line-height: 1;
-  white-space: nowrap;
-  transition:
-    translate var(--t-ui) var(--ease-ui),
-    color var(--t-ui) var(--ease-ui);
-
-  /* a aba em si: trapézio com cantos de cima chanfrados, cor chapada */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background: var(--tab);
-    clip-path: polygon(7px 0, calc(100% - 7px) 0, 100% 100%, 0 100%);
-    transition: background-color var(--t-ui) var(--ease-ui);
-  }
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.08rem;
+  line-height: 1.1;
 
   .count {
-    font-weight: 600;
-    opacity: 0.62;
-    font-variant-numeric: tabular-nums;
+    @include div.numero-de-grupo;
   }
 
-  &:hover:not(:disabled, [aria-pressed='true'], .is-active) {
-    --tab: var(--tab-plastic-hover);
-    translate: 0 -2px;
-  }
-
-  &[aria-pressed='true'],
-  &.is-active {
-    --tab: var(--hi);
-    --tab-ink: var(--ink);
-    translate: 0 -4px;
-
-    .count {
-      opacity: 0.75;
-    }
-  }
-
-  &:focus-visible {
-    border-radius: 2px;
+  &:not(:is([aria-pressed='true'], .is-active)) .count {
+    opacity: 0.85;
   }
 
   &:disabled {
-    opacity: 0.45;
+    cursor: default;
+    opacity: 0.5;
   }
 }
 
@@ -479,31 +439,16 @@ select optgroup {
   color: var(--ink);
 }
 
-/* ===== Prateleira: abas de divisória em pé na régua de alumínio =====
+/* ===== Prateleira: orelhas de pasta em pé na tira de manilha =====
    Nas abas de Amigos, dos Ajustes e das Estatísticas. `.prateleira-quebra` manda o resto para a régua. */
 .prateleira {
-  position: relative;
+  @include div.fileira;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 16px 22px;
   margin-bottom: 48px;
-  padding: 0 12px;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -8px;
-    height: 8px;
-    border-radius: 1px;
-    background: #76726b;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.28),
-      inset 0 -2px 0 rgb(0 0 0 / 0.3),
-      0 6px 10px -3px rgb(0 0 0 / 0.6);
-  }
+  padding: 6px 12px 0;
 
   .prateleira-quebra {
     flex-basis: 100%;
@@ -513,12 +458,12 @@ select optgroup {
   .prateleira-abas {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 3px;
   }
 
   @media (max-width: 559px) {
     gap: 14px 10px;
-    padding: 0 6px;
+    padding: 6px 6px 0;
 
     .plate {
       padding-inline: 11px;

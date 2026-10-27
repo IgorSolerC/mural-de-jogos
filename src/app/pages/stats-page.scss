@@ -1,3 +1,4 @@
+@use "../ui/divisorias" as div;
 @use '../ui/paper-kit' as kit;
 
 /*
@@ -47,6 +48,16 @@
   gap: 6px;
 }
 
+/* de quem e quando, na fileira de cima: cada grupo com a sua tira de manilha embaixo das orelhas */
+.grupo > .abas-linha {
+  @include div.fileira;
+}
+
+.grupo > .abas-linha {
+  gap: 3px;
+  padding: 6px 8px 0;
+}
+
 .giz {
   font-family: var(--f-label);
   font-weight: 800;
@@ -60,7 +71,8 @@
 .abas-linha {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  align-items: flex-end;
+  gap: 3px;
 }
 
 .num-aba {
@@ -89,7 +101,8 @@
 .chev {
   position: absolute;
   right: 11px;
-  top: calc(50% - 8px);
+  /* no meio da parte que aparece: o pé da orelha fica atrás da borda */
+  top: calc(50% - 8px - var(--borda) / 2);
   display: inline-flex;
 }
 

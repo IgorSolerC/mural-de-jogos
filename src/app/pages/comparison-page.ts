@@ -194,20 +194,23 @@ export class ComparisonPage {
   }
 
   /** Os outros murais onde há o que comparar: "Livros · 3 em comum". */
-  protected readonly otherWalls = computed(() => {
+  /** As orelhas dos murais: o aberto e os outros com algo para comparar, na ordem de sempre. */
+  protected readonly walls = computed(() => {
     const c = this.colleague();
     if (!c) return [];
     const all = compareCollections(distinctReviews(originalsOf(this.store.reviews())), distinctReviews(originalsOf(c.reviews))).pairs;
+    const open = this.mural.kind();
     // anotação não tem nota para comparar
-    return SCORED_KINDS.filter((k) => k !== this.mural.kind())
-      .map((kind) => ({
-        kind,
-        label: cap(profileOf(kind).plural),
-        common: all.filter((p) => p.mine.kind === kind).length,
-        theirs: c.reviews.some((r) => r.kind === kind),
-      }))
-      .filter((w) => w.common || w.theirs);
+    return SCORED_KINDS.map((kind) => ({
+      kind,
+      label: cap(profileOf(kind).plural),
+      common: all.filter((p) => p.mine.kind === kind).length,
+      theirs: c.reviews.some((r) => r.kind === kind),
+      on: kind === open,
+    })).filter((w) => w.on || w.common || w.theirs);
   });
+  /** Os outros murais com algo para comparar: sem eles, as orelhas nem aparecem. */
+  protected readonly otherWalls = computed(() => this.walls().filter((w) => !w.on));
 
   // ===== As fichas =====
   protected readonly tab = linkedSignal<string | undefined, Tab>({
@@ -454,6 +457,7 @@ export class ComparisonPage {
   }
 
   protected switchWall(kind: Kind): void {
+    if (kind === this.mural.kind()) return;
     this.vt.run(() => {
       this.side.picking.set(false);
       this.view.clearFilters();

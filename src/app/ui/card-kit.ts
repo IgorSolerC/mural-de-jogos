@@ -309,6 +309,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
   `,
   styles: `
     @use 'a11y';
+    @use 'divisorias' as div;
 
     :host {
       display: grid;
@@ -336,24 +337,28 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       }
     }
 
-    /* ===== Abas de fichário em pé em duas réguas de alumínio: sete numa fileira, em dois grupos ===== */
+    /* ===== Orelhas de pasta em pé em duas bordas de manilha: sete numa fileira, em dois grupos =====
+       A borda fica na mesma linha das orelhas, por cima do pé delas (como nas pastas: ver
+       _divisorias.scss); a aberta vem para a frente, emendada. */
     .abas {
       display: grid;
       /* a Decoração tem o nome mais comprido: a coluna dela é um pouco mais larga */
       grid-template-columns: repeat(3, minmax(0, 1fr)) 10px repeat(3, minmax(0, 1fr)) minmax(0, 1.4fr);
-      grid-template-rows: auto 7px;
       column-gap: 3px;
       padding: 0 4px;
       margin-bottom: 11px;
+      isolation: isolate;
+      --borda: 7px;
+      /* o pé das orelhas de trás (que descem 3px) não passa da borda */
+      clip-path: inset(-60px -60px 0 -60px);
     }
     .regua {
-      grid-row: 2;
-      border-radius: 1px;
-      background: #76726b;
-      box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.28),
-        inset 0 -2px 0 rgb(0 0 0 / 0.3),
-        0 5px 8px -3px rgb(0 0 0 / 0.6);
+      @include div.borda-da-pasta;
+      position: relative;
+      grid-row: 1;
+      align-self: end;
+      left: auto;
+      right: auto;
     }
     .regua.um {
       grid-column: 1 / 4;
@@ -365,14 +370,18 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
     }
     /* o desenho em cima, o nome embaixo: a fileira cabe inteira até no celular */
     .plate {
+      grid-row: 1;
       flex-direction: column;
       justify-content: center;
       gap: 3px;
       min-width: 0;
       min-height: 50px;
-      padding: 7px 2px 5px;
+      padding: 8px 2px calc(5px + var(--borda));
+      font-family: var(--f-label);
+      font-weight: 800;
       font-size: 0.7rem;
       letter-spacing: 0.03em;
+      text-transform: uppercase;
       cursor: pointer;
 
       span {
@@ -381,8 +390,27 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
         text-overflow: ellipsis;
       }
     }
+    /* cada orelha na coluna dela: as bordas ocupam a mesma linha, e a colocação automática pularia as células */
+    .plate:nth-child(1) {
+      grid-column: 1;
+    }
+    .plate:nth-child(2) {
+      grid-column: 2;
+    }
+    .plate:nth-child(3) {
+      grid-column: 3;
+    }
     .plate:nth-child(4) {
       grid-column: 5;
+    }
+    .plate:nth-child(5) {
+      grid-column: 6;
+    }
+    .plate:nth-child(6) {
+      grid-column: 7;
+    }
+    .plate:nth-child(7) {
+      grid-column: 8;
     }
     .aba-icone {
       display: inline-flex;

@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, VISIT_PATH, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
 import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
@@ -475,7 +475,7 @@ export class AreaBar {
   private readonly area = computed(() => areaOf(this.path()));
 
   /** Em Extras, fora o mural de um colega (que tem o próprio cabeçalho). */
-  protected readonly inExtras = computed(() => this.area() === 'extras' && this.path() !== '/comparar/mural');
+  protected readonly inExtras = computed(() => this.area() === 'extras' && this.path() !== VISIT_PATH);
   /** A própria página de Extras (lá não há volta). */
   protected readonly extrasHome = computed(() => this.path() === '/extras');
 

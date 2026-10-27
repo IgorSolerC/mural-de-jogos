@@ -14,9 +14,9 @@
 
     <fieldset>
       <legend class="rotulo">Comparar pelo quê?</legend>
-      <div class="plates" role="group" aria-label="Comparar pelo quê">
+      <div class="escolhas" role="group" aria-label="Comparar pelo quê">
         @for (m of measures(); track m.key) {
-          <button type="button" class="plate" [attr.aria-pressed]="measure().key === m.key" [disabled]="countMeasure(m) < 2" (click)="chooseMeasure(m)">
+          <button type="button" class="escolha" [attr.aria-pressed]="measure().key === m.key" [disabled]="countMeasure(m) < 2" (click)="chooseMeasure(m)">
             {{ m.label }}
           </button>
         }

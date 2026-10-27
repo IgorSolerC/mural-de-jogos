@@ -1,27 +1,16 @@
+@use "../../ui/divisorias" as div;
+
 /* Peças que a comparação e o mural do colega dividem: atalhos de mural e a cartolina de vazio. */
 
-/* ===== Atalhos para os outros murais ===== */
+/* ===== Os murais para comparar: orelhas de pasta em pé na tira de manilha (ver _divisorias.scss) ===== */
 .murais {
+  @include div.fileira;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 8px;
+  align-items: flex-end;
+  gap: 3px;
   margin-bottom: 44px;
-}
-
-.murais-giz {
-  margin-right: 6px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.86rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--wall-ink-2);
-}
-
-.murais .count {
-  text-transform: none;
-  letter-spacing: 0.02em;
+  padding: 6px 12px 0;
 }
 
 /* ===== Nada por aqui: a cartolina verde de sempre ===== */

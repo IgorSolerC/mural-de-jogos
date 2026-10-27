@@ -26,15 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-26-colagem-dos-gastos',
+    id: '2026-10-26-visita-ao-mural',
     version: '1.35.1',
     kind: 'ajustes',
     date: '2026-10-26',
-    title: 'Vários meses nos Gastos, sair da conta e os filtros',
+    title: 'O mural de quem você visita, vários meses nos Gastos e sair da conta',
     notice: 'Sair da conta agora tira deste navegador tudo o que é dela: na nuvem fica tudo, e aqui não fica nada.',
     noticeId: '2026-10-26-sair-limpa-o-navegador',
     until: '2026-11-02',
     melhorias: [
+      'O mural de outra pessoa foi refeito: em cima, uma ficha com a foto do perfil, "O mural de" e o nome a pincel, a linha que a pessoa escreveu, quanto ela tem ali, Ver o perfil e Seguir; os murais dela são orelhas de pasta em cima da ficha, e o site inteiro fica na parede que ela escolheu no perfil.',
+      'As abas cinza em trapézio saíram do site: o Ranking, as Estatísticas, o Lado a lado, o Comparar e o estojo da ficha usam as orelhas de pasta das Anotações, e as escolhas das folhas de regras dos Extras (Mural de quem?, Quantos duelos?, Comparar pelo quê?) são os adesivos dos Ajustes.',
       'Os Gastos ganharam as vistas de 3, 6 e 12 meses, nas abas em cima do mês: as colunas do mês a mês (com o que entrou e a média), as categorias mês a mês numa tabela, os maiores gastos do período e o saldo do período contra os meses antes dele. Tocar num mês ou num gasto abre aquele mês.',
       'A peça Como saiu mostra quanto foi à vista, no Pix e parcelado, e quanto foi de uma vez, em parcelas e todo mês, com a parte de cada um; tocar numa linha deixa na fita só aqueles gastos. O saldo do mês diz quanto saiu a mais ou a menos que no mês de antes.',
       'A fita e as peças dos Gastos se arrumam sozinhas numa colagem, como as fichas inteiras das Anotações: colunas da mesma largura, quantas couberem, e cada peça cai embaixo da coluna que acabou antes. Com a fita longa, as peças correm ao lado dela; com a fita curta, também embaixo.',

@@ -70,10 +70,10 @@
 
   @if (colleague(); as c) {
     @if (otherWalls().length) {
+      <!-- uma orelha por mural com algo para comparar; a aberta é o mural de agora -->
       <nav class="murais" aria-label="Comparar em outro mural">
-        <span class="murais-giz">Nos outros murais:</span>
-        @for (w of otherWalls(); track w.kind) {
-          <button type="button" class="plate" (click)="switchWall(w.kind)">
+        @for (w of walls(); track w.kind) {
+          <button type="button" class="plate" [attr.aria-pressed]="w.on" (click)="switchWall(w.kind)">
             {{ w.label }}
             <span class="count">{{ w.common ? w.common + ' em comum' : 'só ' + c.name }}</span>
           </button>

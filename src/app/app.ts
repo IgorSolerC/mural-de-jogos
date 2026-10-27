@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
-import { CALENDAR_PATH, SPENDING_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { CALENDAR_PATH, SPENDING_PATH, VISIT_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -31,7 +31,8 @@ import { SiteHeader } from './ui/site-header';
 import { AreaBar } from './ui/area-bar';
 import { WishAdder } from './ui/wish-adder';
 import { PageWall } from './ui/page-wall';
-import { PAGE_BACKGROUNDS } from './core/profile';
+import { PAGE_BACKGROUNDS, PageBackground } from './core/profile';
+import { ColleagueStore, wallOf } from './core/colleague-store';
 import { ProfileStore } from './core/profile-store';
 import { SharedStore } from './core/shared-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
@@ -113,11 +114,19 @@ export class App {
   protected readonly loose = computed(() => isFichaPath(this.path()));
   private readonly fichaLinks = inject(FichaLinks);
 
+  /** No mural de outra pessoa (pages/colleague-wall-page): a casa é dela, a parede também. */
+  protected readonly visiting = computed(() => this.path() === VISIT_PATH);
+  private readonly colleagues = inject(ColleagueStore);
+
   /**
    * A parede escolhida no perfil vale no site inteiro (o eucatex é a do próprio site); na ficha aberta
-   * pelo link, a de quem a escreveu.
+   * pelo link, a de quem a escreveu; no mural de outra pessoa, a dela (sem perfil, um backup, o eucatex).
    */
-  protected readonly siteWall = computed(() => (this.loose() ? (this.fichaLinks.wall() ?? 'eucatex') : this.profiles.profile().page));
+  protected readonly siteWall = computed<PageBackground>(() => {
+    if (this.loose()) return this.fichaLinks.wall() ?? 'eucatex';
+    if (this.visiting()) return wallOf(this.colleagues.selected());
+    return this.profiles.profile().page;
+  });
 
   constructor() {
     // a página recarregou limpa depois de sair da conta, em qualquer parte do site (ver core/browser-reset.ts)

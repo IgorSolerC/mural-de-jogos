@@ -21,19 +21,23 @@ import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
 import { plural } from '../core/text';
 import { failedText, FollowToasts } from '../ui/follow-toasts';
+import { KIND_ICON } from '../ui/kind-switcher';
+import { PersonFace, PersonPhoto } from '../ui/person-photo';
 
 const NO_PICKS: ReadonlyMap<string, number> = new Map();
 
 /**
- * O mural de outra pessoa (aberto em Comparar, em Amigos ou pelo link), só dela. Em cima, a placa com
- * o nome, o seguir e os outros murais dela; embaixo, a mesma régua e a mesma parede do seu mural
- * (WallToolbar e WallBoard, sobre a vista `VisitView`): busca, filtros, abas, tags, ordens, tipos de
- * ficha e seções que fecham, tudo como o dono vê. Só se lê: tocar numa ficha abre a leitura com o
- * nome dela. Segue o mural aberto no cartaz (jogos, livros…), como as outras páginas.
+ * O mural de outra pessoa (aberto em Comparar, em Amigos ou pelo link), só dela, na parede dela (o app
+ * troca a parede do site enquanto se visita: ver `siteWall` em app.ts). Em cima, a ficha da dona: uma
+ * orelha de cartolina por mural em que ela tem fichas (a aberta emendada no papel) e, no papel, a foto
+ * do perfil, "O mural de Marina", a linha dela, quanto tem aqui, o perfil e o seguir. Embaixo, a mesma
+ * régua e a mesma parede do seu mural (WallToolbar e WallBoard, sobre a vista `VisitView`): busca,
+ * filtros, abas, tags, ordens, tipos de ficha e seções que fecham, tudo como o dono vê. Só se lê:
+ * tocar numa ficha abre a leitura com o nome dela.
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, IconModule, ReviewReader, RouterLink, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -51,6 +55,7 @@ export class ColleagueWallPage {
   protected readonly BackIcon = ICON.voltar;
   protected readonly FollowIcon = ICON.seguir;
   protected readonly FollowingIcon = ICON.seguindo;
+  protected readonly ProfileIcon = ICON.pessoa;
 
   protected readonly colleague = this.visit.colleague;
   protected readonly name = this.visit.owner;
@@ -114,15 +119,28 @@ export class ColleagueWallPage {
     return `${countOf(this.profile(), list.length)} · média ${avgFmt.format(avg)}`;
   });
 
-  /** Os outros murais onde a pessoa tem fichas. */
-  protected readonly otherWalls = computed(() => {
+  /** As orelhas: os murais onde a pessoa tem fichas, na ordem de sempre, e o aberto mesmo vazio. */
+  protected readonly walls = computed(() => {
     const c = this.colleague();
     if (!c) return [];
-    return KINDS.filter((k) => k !== this.mural.kind())
+    const open = this.mural.kind();
+    return KINDS.map((kind) => ({
+      kind,
+      label: cap(profileOf(kind).plural),
+      icon: KIND_ICON[kind],
       // as anotações finalizadas não estão no mural
-      .map((kind) => ({ kind, label: cap(profileOf(kind).plural), n: c.reviews.filter((r) => r.kind === kind && !r.revisitOf && !r.doneAt).length }))
-      .filter((w) => w.n);
+      n: c.reviews.filter((r) => r.kind === kind && !r.revisitOf && !r.doneAt).length,
+      on: kind === open,
+    })).filter((w) => w.n || w.on);
   });
+
+  /** A foto do perfil dela (sem perfil, um backup: a inicial numa cartolina). */
+  protected readonly face = computed<PersonFace | null>(() => {
+    const p = this.colleague()?.profile;
+    return p ? { emoji: p.emoji, cor: p.photo } : null;
+  });
+  /** A linha curta do perfil ("Curadora · SP"). */
+  protected readonly tagline = computed(() => this.colleague()?.profile?.tagline.trim() ?? '');
 
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
@@ -157,6 +175,7 @@ export class ColleagueWallPage {
   }
 
   protected switchWall(kind: Kind): void {
+    if (kind === this.mural.kind()) return;
     this.vt.run(() => {
       this.side.picking.set(false);
       this.mural.kind.set(kind);

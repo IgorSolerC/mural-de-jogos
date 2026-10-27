@@ -175,3 +175,17 @@
     padding-right: 30px;
   }
 }
+
+/* ===== Uma fileira de orelhas soltas =====
+   Para trocar de aba fora das pastas (as páginas de Extras, as Estatísticas, o Lado a lado, o kit da
+   ficha): as orelhas (`.plate`, em styles.scss) em pé numa tira de papel manilha, a borda de uma pasta
+   que continua para baixo. A aberta emenda na tira. Quem inclui escolhe o espaço em volta. */
+@mixin fileira {
+  @include pasta;
+  /* sem pasta embaixo da tira, o pé das orelhas de trás (que descem 3px) não pode passar dela */
+  clip-path: inset(-60px -60px 0 -60px);
+
+  &::after {
+    @include borda-da-pasta;
+  }
+}

@@ -6,55 +6,91 @@
 @if (colleagues.loading()) {
   <p class="giz" role="status">Abrindo os envelopes guardados…</p>
 } @else if (colleague(); as c) {
-  <header class="cabeca">
-    <h1 class="placa">
-      <span class="placa-faixa">O mural de</span>
-      @if (c.codigo) {
-        <!-- veio pelo código: o nome leva ao perfil da pessoa -->
-        <a class="placa-nome placa-link" [routerLink]="['/perfil', c.codigo]" [attr.aria-label]="c.name + ': ver o perfil'">{{ c.name }}</a>
-      } @else {
-        <span class="placa-nome">{{ c.name }}</span>
-      }
-    </h1>
-    <div class="cabeca-info">
-      @if (summary()) {
-        <p class="giz">{{ summary() }}</p>
-      }
-      @if (otherWalls().length) {
-        <nav class="murais" [attr.aria-label]="'Outros murais de ' + c.name">
-          <span class="murais-giz">Outros murais:</span>
-          @for (w of otherWalls(); track w.kind) {
-            <button type="button" class="plate" (click)="switchWall(w.kind)">{{ w.label }} <span class="count">{{ w.n }}</span></button>
-          }
-        </nav>
+  <!-- a ficha da dona: em cima, uma orelha por mural que ela tem; no papel, quem ela é e o que tem aqui -->
+  <header class="dona">
+    <div class="orelhas" role="group" [attr.aria-label]="'Murais de ' + c.name">
+      @for (w of walls(); track w.kind) {
+        <button
+          type="button"
+          class="orelha"
+          [class.on]="w.on"
+          [attr.aria-pressed]="w.on"
+          [attr.aria-label]="w.label + ', ' + w.n"
+          (click)="switchWall(w.kind)"
+        >
+          <lucide-icon class="orelha-ico" [img]="w.icon" [size]="18" aria-hidden="true" />
+          <span class="orelha-nome" aria-hidden="true">{{ w.label }}</span>
+          <span class="orelha-n" aria-hidden="true">{{ w.n }}</span>
+        </button>
       }
     </div>
-    <!-- aberto pelo código e com conta: seguir a pessoa (as resenhas novas aparecem em Amigos) -->
-    @if (canFollow()) {
-      <button
-        type="button"
-        class="btn-ink seguir"
-        [class.seguindo]="following()"
-        [attr.aria-pressed]="following()"
-        [disabled]="followBusy() || followState() === null"
-        [appBusy]="followBusy() || followState() === null"
-        (click)="toggleFollow()"
-      >
-        <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" aria-hidden="true" />
-        @if (followBusy()) {
-          {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
-        } @else {
-          {{ following() ? 'Seguindo' : 'Seguir ' + c.name }}
+
+    <div class="ficha-dona">
+      @if (c.codigo) {
+        <a class="foto" [routerLink]="['/perfil', c.codigo]" tabindex="-1" aria-hidden="true">
+          <app-person-photo [code]="c.codigo" [name]="c.name" [face]="face()" />
+        </a>
+      } @else {
+        <span class="foto">
+          <app-person-photo [code]="c.id" [name]="c.name" [face]="face()" />
+        </span>
+      }
+
+      <div class="quem">
+        <h1 class="titulo">
+          O mural de
+          @if (c.codigo) {
+            <!-- veio pelo código: o nome leva ao perfil da pessoa -->
+            <a class="nome scribble" [routerLink]="['/perfil', c.codigo]" [attr.aria-label]="c.name + ': ver o perfil'">{{ c.name }}</a>
+          } @else {
+            <span class="nome scribble">{{ c.name }}</span>
+          }
+        </h1>
+        @if (tagline(); as t) {
+          <p class="linha">{{ t }}</p>
         }
-      </button>
-    }
+        @if (summary()) {
+          <p class="resumo">{{ summary() }}</p>
+        }
+      </div>
+
+      @if (c.codigo || canFollow()) {
+        <div class="acoes">
+          @if (c.codigo) {
+            <a class="perfil" [routerLink]="['/perfil', c.codigo]">
+              <lucide-icon [img]="ProfileIcon" [size]="18" aria-hidden="true" />
+              Ver o perfil
+            </a>
+          }
+          <!-- aberto pelo código e com conta: seguir a pessoa (as resenhas novas aparecem em Amigos) -->
+          @if (canFollow()) {
+            <button
+              type="button"
+              class="btn-ink seguir"
+              [class.seguindo]="following()"
+              [attr.aria-pressed]="following()"
+              [disabled]="followBusy() || followState() === null"
+              [appBusy]="followBusy() || followState() === null"
+              (click)="toggleFollow()"
+            >
+              <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" aria-hidden="true" />
+              @if (followBusy()) {
+                {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
+              } @else {
+                {{ following() ? 'Seguindo' : 'Seguir' }}
+              }
+            </button>
+          }
+        </div>
+      }
+    </div>
   </header>
 
   @if (!visit.wall().length) {
     <section class="vazio cartolina" aria-labelledby="vazio-titulo">
       <span class="fita-vazio" aria-hidden="true"></span>
       <h2 id="vazio-titulo">{{ c.name }} não tem {{ profile().plural }} no mural</h2>
-      <p>As fichas de {{ c.name }} estão em outros murais.{{ otherWalls().length ? ' Toque num dos murais acima.' : '' }}</p>
+      <p>As fichas de {{ c.name }} estão em outros murais.{{ walls().length > 1 ? ' Toque numa das orelhas da ficha acima.' : '' }}</p>
     </section>
   } @else {
     <!-- a mesma régua e a mesma parede do seu mural, sobre as fichas da pessoa -->

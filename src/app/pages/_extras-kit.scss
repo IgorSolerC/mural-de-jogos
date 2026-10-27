@@ -1,3 +1,5 @@
+@use "../ui/paper-kit" as kit;
+
 /* O que os jogos de Extras têm em comum: a folha de regras (bloquinho de súmula), as
    plaquinhas de escolha, o placar, a régua de progresso, o adesivo VS e os botões de baixo.
    Cada página de jogo faz `@use 'extras-kit';` no próprio scss. */
@@ -70,17 +72,19 @@ fieldset {
   text-transform: uppercase;
 }
 
-.plates {
+/* as escolhas da folha de regras: os adesivos da cartela, como nos Ajustes (ver _paper-kit.scss) */
+.escolhas {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding-top: 4px;
-  border-bottom: 3px solid var(--ink);
+  gap: 8px;
 }
 
-.plate.opcao {
+.escolha {
+  @include kit.adesivo-escolha;
+}
+
+.escolha.curta {
   min-width: 64px;
-  justify-content: center;
 }
 
 .nota,

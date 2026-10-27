@@ -44,6 +44,9 @@ export const UTILITY_SECTIONS: readonly AreaSection[] = SECOES_DAS_UTILIDADES.ma
 /** Os Gastos, a primeira das Utilidades (e onde `/utilidades` abre). */
 export const SPENDING_PATH = '/utilidades/gastos';
 
+/** O mural de outra pessoa (pages/colleague-wall-page): fora das partes, com o cabeçalho e a parede dela. */
+export const VISIT_PATH = '/comparar/mural';
+
 /**
  * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Utilidades é só um link
  * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.

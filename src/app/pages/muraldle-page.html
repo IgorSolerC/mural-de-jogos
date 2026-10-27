@@ -13,9 +13,9 @@
   <app-player-picker [min]="minCards" />
   <fieldset>
     <legend class="rotulo">Qual ficha?</legend>
-    <div class="plates" role="group" aria-label="Qual ficha">
-      <button type="button" class="plate" [attr.aria-pressed]="mode() === 'dia'" (click)="setMode('dia')">Ficha do dia</button>
-      <button type="button" class="plate" [attr.aria-pressed]="mode() === 'treino'" (click)="setMode('treino')">Treino</button>
+    <div class="escolhas" role="group" aria-label="Qual ficha">
+      <button type="button" class="escolha" [attr.aria-pressed]="mode() === 'dia'" (click)="setMode('dia')">Ficha do dia</button>
+      <button type="button" class="escolha" [attr.aria-pressed]="mode() === 'treino'" (click)="setMode('treino')">Treino</button>
     </div>
   </fieldset>
   @if (mode() === 'dia' && stats(); as st) {

@@ -13,11 +13,11 @@ import { Player, Players } from '../core/players';
   template: `
     <fieldset>
       <legend class="rotulo">Mural de quem?</legend>
-      <div class="plates" role="group" aria-label="Mural de quem">
+      <div class="escolhas" role="group" aria-label="Mural de quem">
         @for (p of players.all(); track p.id) {
           <button
             type="button"
-            class="plate"
+            class="escolha"
             [attr.aria-pressed]="players.selected().id === p.id"
             [disabled]="count(p) < min()"
             (click)="players.select(p.id)"
@@ -32,6 +32,8 @@ import { Player, Players } from '../core/players';
     </fieldset>
   `,
   styles: `
+    @use 'paper-kit' as kit;
+
     :host {
       display: block;
     }
@@ -52,12 +54,15 @@ import { Player, Players } from '../core/players';
       text-transform: uppercase;
     }
 
-    .plates {
+    /* as escolhas: os adesivos da cartela, como nos Ajustes (ver _paper-kit.scss) */
+    .escolhas {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      padding-top: 4px;
-      border-bottom: 3px solid var(--ink);
+      gap: 8px;
+    }
+
+    .escolha {
+      @include kit.adesivo-escolha;
     }
 
     .nota {

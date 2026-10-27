@@ -1,3 +1,4 @@
+@use "../ui/divisorias" as div;
 @use '../ui/paper-kit' as kit;
 
 :host {
@@ -27,35 +28,23 @@
   color: var(--wall-ink);
 }
 
-/* ===== Trilho: ordem e tipo de ficha, iguais aos do mural ===== */
+/* ===== Ordem e tipo de ficha: orelhas de pasta, em pé na borda de manilha (ver _divisorias.scss) ===== */
 .shelf {
-  position: relative;
+  @include div.fileira;
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px 22px;
   margin-bottom: 52px;
-  padding: 0 12px;
-
-  &::after {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -8px;
-    height: 8px;
-    border-radius: 1px;
-    background: #76726b;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.28),
-      inset 0 -2px 0 rgb(0 0 0 / 0.3),
-      0 6px 10px -3px rgb(0 0 0 / 0.6);
-  }
+  padding: 6px 12px 0;
 }
 
 .group {
+  @include div.fileira;
   display: flex;
-  gap: 6px;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 6px 8px 0;
 }
 
 .density {
@@ -89,7 +78,8 @@
 .chev {
   position: absolute;
   right: 11px;
-  top: calc(50% - 8px);
+  /* no meio da parte que aparece: o pé da orelha fica atrás da borda */
+  top: calc(50% - 8px - var(--borda) / 2);
   display: inline-flex;
 }
 
