@@ -5,6 +5,7 @@ import { formatCode } from '../domain/code';
 import { KeyCaller, authenticateKey, keyOut, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
 import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
+import { KANBAN_SCOPES, kanbanContext } from './kanban-read';
 import { spendingContext } from './spending-read';
 import type { ContextoGastosV1, LancamentoV1 } from '../../../contrato/api-v1/gastos';
 import { HttpError } from '../errors';
@@ -45,7 +46,7 @@ export async function mirrorState(deps: Deps, userId: string) {
 }
 
 /** A condição dos grupos da chave (sem grupo, a nota fica de fora quando a chave é limitada). */
-function groupLimit(caller: KeyCaller): { sql: string; params: SqlValue[] } {
+export function groupLimit(caller: KeyCaller): { sql: string; params: SqlValue[] } {
   const groups = caller.key.groups;
   if (!groups?.length) return { sql: '', params: [] };
   return { sql: ` AND grupo IN (${groups.map(() => '?').join(', ')})`, params: groups.map(dobra) };
@@ -196,6 +197,8 @@ export function extRoutes(app: Hono, deps: Deps): void {
       notas,
       // os envelopes e as pessoas dos Gastos (os nomes a usar ao lançar), para a chave que os lê
       gastos: me.key.scopes.includes('gastos:ler') ? ((await spendingContext(deps, me.key.userId)) satisfies ContextoGastosV1 | null) : null,
+      // os quadros do Kanban e as colunas de cada um (os nomes a usar ao mover), para a chave do Kanban
+      kanban: KANBAN_SCOPES.some((s) => me.key.scopes.includes(s)) ? await kanbanContext(deps, me) : null,
       espelho: state,
     });
   });

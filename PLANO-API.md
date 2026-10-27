@@ -1476,9 +1476,14 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      ninguém mexeu vai com as três colunas de sempre (a versão é a hora zero); a dependência de uma
      nota que a API não alcança (apagada, compartilhada) fica de fora; o quadro do grupo que ficou sem
      nota sai do espelho. Nada novo no navegador.
-  3. API, ler: `GET /ext/v1/kanban` (os quadros com as colunas, sem os cartões), `GET
+  3. [feito] API, ler: `GET /ext/v1/kanban` (os quadros com as colunas, sem os cartões), `GET
      /ext/v1/kanban/:grupo` (o quadro inteiro, pelo grupo ou pelo id), e o `GET /ext/v1/contexto` com
      `kanban` (os quadros e as colunas) para a chave do Kanban. Limite de grupos da chave. Testes.
+     Feito assim: as rotas em `api/src/ext/kanban-read.ts`; a lista vem de A a Z pelo grupo e sem os
+     cartões (o banco tira com `json_remove`, sem a API abrir cada quadro); ler pede `kanban:ler`, mas
+     o contexto traz as colunas para qualquer permissão do Kanban (quem só move precisa dos nomes); o
+     quadro que não existe (ou fora dos grupos da chave) é 404 `quadro-nao-encontrado` com os que a
+     chave alcança; sem espelho ainda, `quadro: null` com o aviso. Os pedidos por cima entram no passo 4.
   4. Contrato das operações e API, escrever: `cartao.mover` (`PUT /ext/v1/kanban/:grupo/cartoes/:nota`:
      coluna, posicao, importancia, status, depende_de, no_mural), `cartao.tirar` (`DELETE`),
      `coluna.criar`, `coluna.editar` e `coluna.apagar` (`/ext/v1/kanban/:grupo/colunas…`), e o

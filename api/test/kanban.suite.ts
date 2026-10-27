@@ -208,4 +208,82 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       expect(await t.db.first('SELECT 1 AS x FROM api_espelho_estado WHERE usuario_id = ?', [me.id])).toBeNull();
     });
   });
+
+  describe(`${label}: ler o Kanban com a chave`, () => {
+    it('pede kanban:ler (a que só move cartões não lê o quadro)', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      for (const scopes of [['notas:ler'], ['kanban:mover']]) {
+        const other = await t.newKey(me.token, scopes);
+        const res = await t.ext(other.segredo, '/ext/v1/kanban');
+        expect(res.status, scopes.join()).toBe(403);
+        expect((await t.body(res)).erro).toBe('sem-permissao');
+      }
+    });
+
+    it('os quadros com as colunas, de A a Z, sem os cartões', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const got = await t.body(t.ext(secret, '/ext/v1/kanban'));
+      const { cartoes: _a, ...estudos } = QUADRO_ESTUDOS;
+      const { cartoes: _b, ...trabalho } = QUADRO_TRABALHO;
+      expect(got.quadros).toEqual([estudos, trabalho]);
+      expect(got.espelho.estado).toBe('pronto');
+    });
+
+    it('um quadro inteiro pelo grupo (sem ligar para acento e caixa) ou pelo id; o que não existe diz os que existem', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      expect((await t.body(t.ext(secret, '/ext/v1/kanban/Trabalho'))).quadro).toEqual(QUADRO_TRABALHO);
+      expect((await t.body(t.ext(secret, '/ext/v1/kanban/TRABALHO'))).quadro).toEqual(QUADRO_TRABALHO);
+      expect((await t.body(t.ext(secret, `/ext/v1/kanban/${QUADRO_ESTUDOS.id}`))).quadro).toEqual(QUADRO_ESTUDOS);
+      const res = await t.ext(secret, `/ext/v1/kanban/${encodeURIComponent('Lazer à toa')}`);
+      expect(res.status).toBe(404);
+      const err = await t.body(res);
+      expect(err.erro).toBe('quadro-nao-encontrado');
+      expect(err.mensagem).toContain('Estudos, Trabalho');
+    });
+
+    it('sem espelho ainda, avisa em vez de dizer que não existe', async () => {
+      const t = await setup();
+      const me = await t.login('bia');
+      const k = await t.newKey(me.token, ['kanban:ler']);
+      const got = await t.body(t.ext(k.segredo, '/ext/v1/kanban/Trabalho'));
+      expect(got.quadro).toBeNull();
+      expect(got.espelho.estado).toBe('vazio');
+      expect((await t.body(t.ext(k.segredo, '/ext/v1/kanban'))).quadros).toEqual([]);
+    });
+
+    it('a chave limitada a alguns grupos só vê os quadros deles', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(['kanban:ler'], { grupos: ['estudos'] });
+      expect((await t.body(t.ext(secret, '/ext/v1/kanban'))).quadros.map((q: { grupo: string }) => q.grupo)).toEqual(['Estudos']);
+      const res = await t.ext(secret, '/ext/v1/kanban/Trabalho');
+      expect(res.status).toBe(404);
+      expect((await t.body(res)).mensagem).not.toContain('Trabalho,');
+      expect((await t.body(t.ext(secret, `/ext/v1/kanban/${QUADRO_TRABALHO.id}`))).erro).toBe('quadro-nao-encontrado');
+    });
+
+    it('o contexto traz os quadros e as colunas para qualquer chave do Kanban, e nada para as outras', async () => {
+      const t = await setup();
+      const { me } = await t.ready(['kanban:mover']);
+      const k = await t.newKey(me.token, ['kanban:mover']);
+      const ctx = await t.body(t.ext(k.segredo, '/ext/v1/contexto'));
+      expect(ctx.kanban).toEqual([
+        { id: QUADRO_ESTUDOS.id, grupo: 'Estudos', so_no_kanban: true, colunas: [{ id: 'e-afazer', nome: 'A fazer', finaliza: false, pula: false }, { id: 'e-feito', nome: 'Feito', finaliza: true, pula: false }] },
+        {
+          id: QUADRO_TRABALHO.id,
+          grupo: 'Trabalho',
+          so_no_kanban: false,
+          colunas: [
+            { id: 'c-afazer', nome: 'A fazer', finaliza: false, pula: false },
+            { id: 'c-fazendo', nome: 'Fazendo', finaliza: false, pula: false },
+            { id: 'c-feito', nome: 'Feito', finaliza: true, pula: false },
+          ],
+        },
+      ]);
+      const notes = await t.newKey(me.token, ['notas:ler']);
+      expect((await t.body(t.ext(notes.segredo, '/ext/v1/contexto'))).kanban).toBeNull();
+    });
+  });
 }
