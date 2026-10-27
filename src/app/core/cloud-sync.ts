@@ -714,6 +714,12 @@ export class CloudSync {
       }
     });
 
+    // um pedido da API aprovado aqui: uma rodada já, para ele entrar na hora
+    effect(() => {
+      if (!this.requests.wake()) return;
+      untracked(() => this.active() && this.schedule(0));
+    });
+
     // Mudou algo no mural, uma chave de busca, as tags fixas, o jeito das categorias ou o perfil:
     // envia uns segundos depois da última mudança.
     let first = true;

@@ -338,6 +338,17 @@
           chave abre o cofre de senhas, fala com os seus amigos ou mexe na sua conta.
         </p>
 
+        @if (waitingLine(); as w) {
+          <div class="estado cartao problema pedidos-esperando">
+            <lucide-icon class="estado-icone" [img]="AlertIcon" [size]="22" aria-hidden="true" />
+            <div class="pedidos-texto">
+              <p class="estado-linha" role="status">{{ w }}</p>
+              <p class="linha-desc">Nada entra antes de você ver o que muda e aprovar.</p>
+            </div>
+            <button type="button" class="btn-papel forte" aria-haspopup="dialog" (click)="openWaiting()">Ver os pedidos</button>
+          </div>
+        }
+
         <div class="grupo" role="group" aria-labelledby="g-chaves">
           <h3 class="grupo-titulo" id="g-chaves">Suas chaves</h3>
           @if (apiKeys.list(); as list) {
@@ -362,6 +373,9 @@
                       </p>
                     </div>
                     <div class="acoes chave-acoes">
+                      <button type="button" class="btn-papel" aria-haspopup="dialog" [attr.aria-label]="'Histórico da chave ' + k.nome" (click)="openHistory(k)">
+                        Histórico
+                      </button>
                       @if (!keyExpired(k)) {
                         <button type="button" class="btn-papel" aria-haspopup="dialog" [attr.aria-label]="'Mudar a chave ' + k.nome" [disabled]="!!keysBusy()" (click)="editKey(k)">
                           Mudar
@@ -406,8 +420,9 @@
             <div class="linha-texto">
               <p class="linha-titulo">Num programa ou no terminal</p>
               <p class="linha-desc">
-                Guarde a chave numa variável de ambiente (MURALL_TOKEN) e mande no cabeçalho Authorization. Por enquanto ela só diz de quem é a conta; as
-                anotações, os gastos e o calendário chegam aos poucos.
+                Guarde a chave numa variável de ambiente (MURALL_TOKEN) e mande no cabeçalho Authorization. Hoje ela lê e escreve nas anotações; o que ela
+                escreve entra quando o Murall está aberto em algum aparelho seu, e fica no Histórico, com Desfazer. Os gastos e o calendário chegam aos
+                poucos.
               </p>
             </div>
           </div>
@@ -439,6 +454,12 @@
         @if (keySheet(); as ks) {
           @defer (on immediate) {
             <app-api-key-sheet [editing]="ks.editing" (closed)="keySheet.set(null)" />
+          }
+        }
+
+        @if (requestsSheet(); as rs) {
+          @defer (on immediate) {
+            <app-api-requests-sheet [mode]="rs" (closed)="requestsSheet.set(null)" />
           }
         }
       }

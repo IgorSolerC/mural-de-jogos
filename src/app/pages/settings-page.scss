@@ -650,6 +650,35 @@ fieldset.linha {
   align-self: center;
 }
 
+/* pedidos da API esperando você: o bilhete amarelo de recado no alto da parte, com o Ver ao lado */
+.pedidos-esperando {
+  align-items: center;
+  margin-bottom: 18px;
+
+  .pedidos-texto {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .estado-icone {
+    align-self: flex-start;
+  }
+
+  > .btn-papel {
+    flex: none;
+  }
+}
+
+@container folha (max-width: 559px) {
+  .pedidos-esperando {
+    flex-wrap: wrap;
+
+    > .btn-papel {
+      flex: 1 1 100%;
+    }
+  }
+}
+
 /* embaixo do título do grupo, a primeira chave não leva o pontilhado de cima (a linha do título já separa) */
 .chaves > .chave:first-child {
   border-top: 0;

@@ -914,7 +914,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 0 | **Medir** (sem mudar o produto) — feita em 27/out (seção 23) | Tamanho real do seu mural (o arquivo do Backup e a contagem de notas, lançamentos e lembretes), o custo de CPU de uma página de espelho num Worker de teste (`mural-api-teste`, D1 próprio, grátis), o tamanho do bundle com e sem o SDK do MCP, FTS5 × LIKE, o nome `murall` no npm, o claude.ai conectando a um MCP mínimo no Worker de teste |
 | 1 | **Chaves** — feita em 27/out (seção 23) | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
 | 2 | **Ler as Anotações** — feita em 27/out (seção 23) | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
-| 3 | **Escrever nas Anotações** | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
+| 3 | **Escrever nas Anotações** — feita em 27/out (seção 23) | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
 | 4 | **MCP com chave + guia** | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
@@ -1105,3 +1105,20 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   `npx ng build` (inicial 1,85 MB) e o smoke na build de produção com a nuvem interceptada (dois
   pedidos, um envio, os dois concluídos, sem erro na página). **Falta (parte 3)**: a folha Pedidos
   (aprovar/recusar), o histórico com Desfazer e o bilhete.
+
+- **27/out/2026, rodada 3, parte 3 (as telas)**: feita, pelo Impeccable (sem rodada de escolha), com
+  fotos de perto no computador e no celular. `ui/api-requests-sheet` (em `@defer`): **Pedidos
+  esperando**, por chave, cada um em palavras (`requestWords`), com os campos que mudam (o de antes
+  riscado, o de depois no marca-texto da busca) e o texto como a folha pautada da leitura, só com as
+  linhas que mudam e uma em volta (`textDiff`, sobre o `commonPairs` da junção); Aprovar (vira
+  pendente e o aparelho aplica na hora: `ApiRequests.wake` pede uma rodada), Recusar e "Aprovar os N".
+  **Histórico** de cada chave (`GET /v1/eu/pedidos?estado=historico&chave=`), com o carimbo do que não
+  entrou e o porquê, Desfazer (a nuvem anota primeiro; a nota de antes volta carimbada agora, o
+  "criar" desfeito apaga, e o que mudou depois do pedido fica em Versões guardadas) e "Desfazer tudo
+  de hoje". Em Acessos: o botão Histórico em cada chave, o bilhete amarelo do que espera com "Ver os
+  pedidos" e o "!" na etiqueta; o endereço `?aba=acessos&pedidos=esperando` ou `&historico=ID` abre a
+  folha. Bilhetes: "3 pedidos de Claude entraram · Ver · Desfazer" (o bilhete ganhou um segundo botão)
+  e "Claude quer mudar 2 anotações · Ver" (uma vez por pedido novo, e não com Acessos aberta). As
+  frases de "Como usar" e do segredo dizem o que a chave faz hoje. Conferido: a suíte inteira (2230 do
+  site, 241 do cofre, as 9 regras), `npx ng build` (inicial 1,86 MB) e o smoke na build de produção.
+  **Próximo**: a rodada 4 (seção 19).

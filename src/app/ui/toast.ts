@@ -4,6 +4,8 @@ export interface ToastMsg {
   id: number;
   text: string;
   action?: { label: string; run: () => void };
+  /** Um segundo botão, depois do primeiro ("Ver · Desfazer"). */
+  also?: { label: string; run: () => void };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -12,9 +14,9 @@ export class Toasts {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private seq = 0;
 
-  show(text: string, action?: ToastMsg['action'], ms = 5200): void {
+  show(text: string, action?: ToastMsg['action'], ms = 5200, also?: ToastMsg['also']): void {
     clearTimeout(this.timer);
-    this.current.set({ id: ++this.seq, text, action });
+    this.current.set({ id: ++this.seq, text, action, ...(also ? { also } : {}) });
     this.timer = setTimeout(() => this.current.set(null), ms);
   }
 
@@ -66,6 +68,9 @@ export class Toasts {
           <p>{{ t.text }}</p>
           @if (t.action; as a) {
             <button type="button" (click)="toasts.dismiss(); a.run()">{{ a.label }}</button>
+          }
+          @if (t.also; as b) {
+            <button type="button" class="tambem" (click)="toasts.dismiss(); b.run()">{{ b.label }}</button>
           }
         </div>
       }
@@ -122,6 +127,10 @@ export class Toasts {
       font-size: 1rem;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+    }
+    /* o segundo botão fica junto do primeiro: os dois são do mesmo recado */
+    .tambem {
+      margin-left: -8px;
     }
     @keyframes print {
       from {

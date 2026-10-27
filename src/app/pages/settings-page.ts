@@ -40,6 +40,8 @@ import { DAY_MS, daysAgoLabel, localDay } from '../core/dates';
 import { tabStep } from '../ui/focus';
 import { ApiKeyInfo, ApiKeys, approvalLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from '../core/api-keys';
 import { ApiKeySheet } from '../ui/api-key-sheet';
+import { ApiRequests, waitingWords } from '../core/api-requests';
+import { ApiRequestsSheet, RequestsSheetMode } from '../ui/api-requests-sheet';
 
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'acessos' | 'busca' | 'desempenho';
@@ -65,7 +67,7 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet],
+  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet, ApiRequestsSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -209,6 +211,12 @@ export class SettingsPage {
   protected readonly keyUsed = (k: ApiKeyInfo) => usedLabel(k);
   protected readonly keyApproval = (k: ApiKeyInfo) => approvalLabel(k.aprovacao);
   protected readonly keyGroups = (k: ApiKeyInfo) => groupsLabel(k);
+  /** Os pedidos da API (PLANO-API.md, 9.4 e 9.5): os que esperam você e o histórico de cada chave. */
+  protected readonly apiRequests = inject(ApiRequests);
+  protected readonly requestsSheet = signal<RequestsSheetMode | null>(null);
+  protected readonly HistoryIcon = ICON.historico;
+  /** Os que esperam aprovação: "Claude quer mudar 2 anotações", ou de várias chaves. */
+  protected readonly waitingLine = computed(() => waitingWords(this.apiRequests.open(), this.apiRequests.counts().aprovar));
   /** Quem você segue e quem te segue, no seu perfil: as listas ou só os números (fica na nuvem). */
   protected readonly peoplePrivacy = inject(ProfilePeople);
   protected readonly privacyBusy = signal(false);
@@ -296,6 +304,7 @@ export class SettingsPage {
   protected readonly attention = computed<Partial<Record<Tab, string>>>(() => ({
     ...(this.syncTrouble() && this.account.signedIn() ? { conta: 'a sincronização precisa de atenção' } : {}),
     ...(this.overdue() ? { backup: 'hora de baixar um backup' } : {}),
+    ...(this.apiOn() && this.waitingLine() ? { acessos: 'há pedidos esperando você aprovar' } : {}),
   }));
   protected readonly importMsg = signal<{ text: string; error: boolean } | null>(null);
   protected readonly erasing = signal(false);
@@ -323,7 +332,7 @@ export class SettingsPage {
       // antes de o cloud.json chegar, ainda não dá para saber se a parte existe
       if (this.tab() !== 'acessos' || !this.cloudRead()) return;
       if (!this.apiOn()) untracked(() => this.tab.set('conta'));
-      else untracked(() => void this.loadKeys());
+      else untracked(() => void this.loadKeys().then(() => this.openFromLink()));
     });
   }
 
@@ -334,6 +343,29 @@ export class SettingsPage {
     } catch (err) {
       this.keysError.set(err instanceof CloudError ? err.message : 'Não deu para trazer as chaves agora.');
     }
+  }
+
+  /**
+   * O bilhete leva para cá com o que abrir: `?pedidos=esperando` (os que esperam aprovação) ou
+   * `?historico=ID` (o histórico da chave). Abre uma vez e o endereço volta a ser só a parte.
+   */
+  private openFromLink(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const keyId = q.get('historico');
+    if (q.get('pedidos') === 'esperando') this.requestsSheet.set({ kind: 'esperando' });
+    else if (keyId) {
+      const key = this.apiKeys.list()?.find((k) => k.id === keyId);
+      this.requestsSheet.set({ kind: 'historico', key: { id: keyId, nome: key?.nome ?? q.get('nome') ?? 'Chave apagada' } });
+    } else return;
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { aba: 'acessos' }, replaceUrl: true });
+  }
+
+  protected openWaiting(): void {
+    this.requestsSheet.set({ kind: 'esperando' });
+  }
+
+  protected openHistory(k: ApiKeyInfo): void {
+    this.requestsSheet.set({ kind: 'historico', key: { id: k.id, nome: k.nome } });
   }
 
   protected newKey(): void {

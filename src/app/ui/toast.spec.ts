@@ -22,6 +22,19 @@ describe('Toasts.copy', () => {
     toasts.dismiss();
   });
 
+  it('com dois botões ("Ver · Desfazer"), os dois aparecem e cada um faz o seu', async () => {
+    const fixture = TestBed.createComponent(Toast);
+    const toasts = TestBed.inject(Toasts);
+    const ran: string[] = [];
+    toasts.show('3 pedidos de Claude entraram', { label: 'Ver', run: () => ran.push('ver') }, 9000, { label: 'Desfazer', run: () => ran.push('desfazer') });
+    await fixture.whenStable();
+    const buttons = [...(fixture.nativeElement as HTMLElement).querySelectorAll('button')];
+    expect(buttons.map((b) => b.textContent!.trim())).toEqual(['Ver', 'Desfazer']);
+    buttons[1]!.click();
+    expect(ran).toEqual(['desfazer']);
+    expect(toasts.current()).toBeNull();
+  });
+
   it('com uma folha modal aberta, o bilhete aparece dentro dela e volta quando ela fecha', async () => {
     const fixture = TestBed.createComponent(Toast);
     document.body.appendChild(fixture.nativeElement);

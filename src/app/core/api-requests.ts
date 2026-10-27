@@ -1,4 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { andList } from './api-keys';
+import { plural } from './text';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { NotaV1 } from '../../../contrato/api-v1/notas';
 import {
@@ -7,6 +9,8 @@ import {
   acrescentar,
   conferirOp,
   mexerNasTarefas,
+  aplicarNaNotaV1,
+  notaDoPedido,
   type AcrescentarV1,
   type CamposDaNota,
   type CriarNotaV1,
@@ -19,9 +23,10 @@ import { ApiMirror } from './api-mirror';
 import { BUILD } from './build';
 import { CloudAccount } from './cloud-account';
 import { DataKey, LocalData } from './local-data';
+import { commonPairs } from './merge3';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { relinkAfterRename } from './note-links';
-import { Review, audienceFields, isNote, sanitizeReview, storedNote, todayISO, withDone, withPin } from './review';
+import { Review, audienceFields, formatReviewDateLong, isNote, sanitizeReview, storedNote, todayISO, withDone, withPin } from './review';
 import { ReviewStore } from './review-store';
 
 /**
@@ -71,8 +76,9 @@ export interface AppliedItem {
   id: string;
   op: OpNota;
   alvo: string;
-  /** O nome da chave que pediu (para o bilhete dizer quem). */
+  /** A chave que pediu (para o bilhete dizer quem, e o Ver abrir o histórico dela). */
   chave: string;
+  chaveId: string;
   estado: Concluded;
   resultado: RequestResult;
   /** A anotação como era (guardada), para o Desfazer; null no criar e no que não mudou nada. */
@@ -152,7 +158,7 @@ export function applyNoteRequest(
   store: ReviewStore,
   req: Pick<SiteRequest, 'op' | 'alvo' | 'dados'>,
   ctx: ApplyContext,
-): Omit<AppliedItem, 'id' | 'chave' | 'op' | 'alvo'> {
+): Omit<AppliedItem, 'id' | 'chave' | 'chaveId' | 'op' | 'alvo'> {
   const op = req.op as OpNota;
   const checked = conferirOp(op, req.dados);
   if (!checked.ok) return { ...failed(`${checked.erro} (campo ${checked.campo})`), antes: null };
@@ -267,6 +273,165 @@ function fits(item: AppliedItem): AppliedItem {
   return { ...item, resultado: { ...item.resultado, nota: { ...r.nota, texto: '' } } as RequestResult };
 }
 
+/** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
+export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
+
+/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", ou o que tem a nota de antes). */
+export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
+  return t.estado === 'aplicado' && (t.op === 'nota.criar' || (t.antes !== null && t.antes !== undefined));
+}
+
+const FIELD_WORDS: Record<string, string> = {
+  titulo: 'o título',
+  texto: 'o texto',
+  grupo: 'o grupo',
+  assunto: 'o assunto',
+  tags: 'as tags',
+  data: 'a data',
+  capa: 'a capa',
+  visibilidade: 'quem vê',
+};
+
+/**
+ * O pedido em palavras: "Mudar o título e o texto de “Reunião”" (esperando) ou "mudou o título e o
+ * texto de “Reunião”" (no histórico, `past`). `title` é o nome da nota, já resolvido.
+ */
+export function requestWords(op: string, dados: unknown, title: string, past = false): string {
+  const t = `“${title}”`;
+  const d = (dados ?? {}) as Record<string, unknown>;
+  const v = (now: string, then: string) => (past ? then : now);
+  switch (op) {
+    case 'nota.criar':
+      return `${v('Criar', 'criou')} a nota ${t}`;
+    case 'nota.editar': {
+      const fields = Object.keys(FIELD_WORDS).filter((k) => d[k] !== undefined);
+      return fields.length ? `${v('Mudar', 'mudou')} ${andList(fields.map((k) => FIELD_WORDS[k]!))} de ${t}` : `${v('Mudar', 'mudou')} ${t}`;
+    }
+    case 'nota.acrescentar':
+      return `${v('Acrescentar', 'acrescentou')} um trecho ${d['onde'] === 'inicio' ? 'no começo' : 'no fim'} de ${t}`;
+    case 'nota.tarefas': {
+      const n = (k: string) => (Array.isArray(d[k]) ? (d[k] as unknown[]).length : 0);
+      const parts = [
+        ...(n('marcar') ? [`${v('marcar', 'marcou')} ${plural(n('marcar'), 'tarefa', 'tarefas')}`] : []),
+        ...(n('desmarcar') ? [`${v('desmarcar', 'desmarcou')} ${plural(n('desmarcar'), 'tarefa', 'tarefas')}`] : []),
+        ...(n('novas') ? [`${v('acrescentar', 'acrescentou')} ${plural(n('novas'), 'tarefa', 'tarefas')}`] : []),
+      ];
+      const said = `${andList(parts)} em ${t}`;
+      return past ? said : said.charAt(0).toUpperCase() + said.slice(1);
+    }
+    case 'nota.finalizar':
+      return `${v('Finalizar', 'finalizou')} ${t}`;
+    case 'nota.reabrir':
+      return `${v('Abrir de novo', 'abriu de novo')} ${t}`;
+    case 'nota.fixar':
+      return `${v('Fixar', 'fixou')} ${t} no topo`;
+    case 'nota.desafixar':
+      return `${v('Desafixar', 'desafixou')} ${t}`;
+    case 'nota.apagar':
+      return `${v('Apagar', 'apagou')} ${t}`;
+    default:
+      return v('Um pedido que este site ainda não conhece', 'fez um pedido que este site ainda não conhece');
+  }
+}
+
+/** Uma linha da diferença entre dois textos: igual, entrou, saiu, ou o pedaço igual que ficou de fora. */
+export interface DiffRow {
+  kind: 'same' | 'add' | 'del' | 'gap';
+  text: string;
+}
+
+/**
+ * O que muda no texto, linha por linha (a maior subsequência comum, a mesma da junção): as linhas que
+ * saem e as que entram, com `context` linhas iguais em volta; o resto igual vira um "⋯ N linhas" só.
+ * Passando de `max` linhas, o fim vira um aviso de quantas faltam.
+ */
+export function textDiff(before: string, after: string, context = 1, max = 40): DiffRow[] {
+  const a = before ? before.replace(/\r\n?/g, '\n').split('\n') : [];
+  const b = after ? after.replace(/\r\n?/g, '\n').split('\n') : [];
+  const rows: DiffRow[] = [];
+  let i = 0;
+  let j = 0;
+  for (const [pi, pj] of [...commonPairs(a, b), [a.length, b.length] as [number, number]]) {
+    while (i < pi) rows.push({ kind: 'del', text: a[i++]! });
+    while (j < pj) rows.push({ kind: 'add', text: b[j++]! });
+    if (pi < a.length) rows.push({ kind: 'same', text: a[pi]! });
+    i = pi + 1;
+    j = pj + 1;
+  }
+  // só o igual perto de uma mudança fica; o resto vira um aviso de quantas linhas
+  const near = rows.map((r, k) => r.kind !== 'same' || rows.slice(Math.max(0, k - context), k + context + 1).some((x) => x.kind !== 'same'));
+  const out: DiffRow[] = [];
+  let skipped = 0;
+  rows.forEach((r, k) => {
+    if (near[k]) {
+      if (skipped) out.push({ kind: 'gap', text: plural(skipped, 'linha igual', 'linhas iguais') });
+      skipped = 0;
+      out.push(r);
+    } else skipped++;
+  });
+  if (skipped && out.length) out.push({ kind: 'gap', text: plural(skipped, 'linha igual', 'linhas iguais') });
+  if (out.length > max) {
+    const rest = out.length - max;
+    return [...out.slice(0, max), { kind: 'gap', text: `e mais ${plural(rest, 'linha', 'linhas')}` }];
+  }
+  return out;
+}
+
+/** Um campo da nota que muda com o pedido: o nome dele, como está e como fica (null: sem). */
+export interface FieldChange {
+  label: string;
+  before: string | null;
+  after: string;
+}
+
+/** Os campos (fora o texto) que mudam de `before` para `after`; na nota nova, os que vêm preenchidos. */
+export function fieldChanges(before: NotaV1 | null, after: NotaV1): FieldChange[] {
+  const show: [string, (n: NotaV1) => string | null][] = [
+    ['Título', (n) => n.titulo],
+    ['Grupo', (n) => n.grupo],
+    ['Assunto', (n) => n.assunto],
+    ['Tags', (n) => (n.tags.length ? n.tags.join(', ') : null)],
+    ['Data', (n) => (n.data ? formatReviewDateLong(n.data) : null)],
+    ['Quem vê', (n) => (n.visibilidade === 'publica' ? 'Pública' : 'Privada')],
+    ['No topo', (n) => (n.fixada ? 'Fixada' : null)],
+    ['Situação', (n) => (n.finalizada_em ? 'Finalizada' : 'Aberta')],
+    ['Capa', (n) => (n.capa ? 'Com capa' : null)],
+  ];
+  const out: FieldChange[] = [];
+  for (const [label, read] of show) {
+    const now = read(after);
+    if (!before) {
+      // a nota nova: o título já está na frase; a situação e quem vê só quando fogem do comum
+      if (label === 'Título' || label === 'Situação' || (label === 'Quem vê' && now === 'Privada') || now === null) continue;
+      out.push({ label, before: null, after: now });
+      continue;
+    }
+    const was = read(before);
+    if (was !== now) out.push({ label, before: was, after: now ?? 'sem' });
+  }
+  return out;
+}
+
+/** Os que esperam aprovação numa frase: "Claude quer mudar 2 anotações", ou "3 pedidos esperam você aprovar". */
+export function waitingWords(open: readonly Pick<SiteRequest, 'estado' | 'op' | 'chave'>[], counted = 0): string | null {
+  const waiting = open.filter((r) => r.estado === 'aguardando-aprovacao');
+  const n = waiting.length || counted;
+  if (!n) return null;
+  const keys = new Set(waiting.map((r) => r.chave.nome));
+  const what = waiting.length && waiting.every((r) => r.op === 'nota.criar') ? 'criar' : 'mudar';
+  return keys.size === 1 ? `${[...keys][0]} quer ${what} ${plural(n, 'anotação', 'anotações')}` : `${plural(n, 'pedido espera', 'pedidos esperam')} você aprovar`;
+}
+
+/** Os que acabaram de entrar numa frase: "3 pedidos de Claude entraram", "2 entraram; 1 não". */
+export function appliedWords(items: readonly Pick<AppliedItem, 'estado' | 'chave'>[]): string {
+  const keys = new Set(items.map((i) => i.chave));
+  const who = keys.size === 1 ? ` de ${[...keys][0]}` : '';
+  const ok = items.filter((i) => i.estado === 'aplicado').length;
+  const not = items.length - ok;
+  if (!ok) return `${plural(not, 'pedido', 'pedidos')}${who} não ${not === 1 ? 'entrou' : 'entraram'}`;
+  return `${plural(ok, 'pedido', 'pedidos')}${who} ${ok === 1 ? 'entrou' : 'entraram'}${not ? `; ${not} não` : ''}`;
+}
+
 interface AppliedRecord {
   conta: string;
   itens: AppliedItem[];
@@ -287,13 +452,18 @@ export class ApiRequests {
   readonly lastApplied = signal<{ itens: readonly AppliedItem[]; at: number } | null>(null);
   /** A última vez que algo pediu atenção (um pedido novo, a aba à mostra). */
   private lastSeen = Date.now();
+  /** Pede uma rodada de sincronização já (um pedido aprovado aqui é aplicado na hora; ver core/cloud-sync.ts). */
+  readonly wake = signal(0);
 
   /** O cabeçalho do mural (`Mural-Pedidos`, `Mural-Pedidos-Aprovar`): sem ele, nada esperando. */
   noteHeads(headers: Headers): void {
     const n = (h: string) => Math.max(0, Number(headers.get(h)) || 0);
     const counts = { pendentes: n('Mural-Pedidos'), aprovar: n('Mural-Pedidos-Aprovar') };
     if (counts.pendentes || counts.aprovar) this.lastSeen = Date.now();
+    // chegou (ou saiu) pedido para aprovar: a lista vem, para o bilhete dizer de quem e quantos
+    const changed = counts.aprovar !== this.counts().aprovar;
     this.counts.set(counts);
+    if (changed && this.account.account()?.api) void this.list();
   }
 
   /** O relógio de 60 s confere agora? Só com a API liberada, e na aba escondida só até 2 h sem nada novo. */
@@ -331,7 +501,7 @@ export class ApiRequests {
       const stamps = new Set(items.filter((i) => i.carimbo).map((i) => `${i.alvo}@${i.carimbo}`));
       const now = new Date().toISOString();
       const out = applyNoteRequest(this.store, req, { now, today: todayISO(), stamps, v1: (r) => this.mirror.notaOf(r) });
-      this.writeItems([...items, fits({ id: req.id, op: req.op as OpNota, alvo: req.alvo, chave: req.chave.nome, ...out })]);
+      this.writeItems([...items, fits({ id: req.id, op: req.op as OpNota, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
       any = true;
     }
     return any;
@@ -364,6 +534,81 @@ export class ApiRequests {
     this.counts.update((c) => ({ ...c, pendentes: 0 }));
     this.open.update((l) => l.filter((r) => !gone.has(r.id)));
     this.lastApplied.set({ itens: done, at: Date.now() });
+  }
+
+  // ===== A pessoa decide (a folha Pedidos) e volta atrás (o Histórico) =====
+
+  /** Aprova um pedido que esperava: ele vira pendente e este aparelho aplica na hora. */
+  async approve(id: string): Promise<void> {
+    await this.account.request(`/v1/eu/pedidos/${id}/aprovar`, { method: 'POST' });
+    this.open.update((l) => l.map((r) => (r.id === id ? { ...r, estado: 'pendente' as const } : r)));
+    this.counts.update((c) => ({ pendentes: c.pendentes + 1, aprovar: Math.max(0, c.aprovar - 1) }));
+    this.wake.update((n) => n + 1);
+  }
+
+  /** Recusa um pedido aberto (a AI vê que foi recusado). */
+  async refuse(id: string): Promise<void> {
+    await this.account.request(`/v1/eu/pedidos/${id}/recusar`, { method: 'POST' });
+    this.open.update((l) => l.filter((r) => r.id !== id));
+    this.counts.update((c) => ({ ...c, aprovar: Math.max(0, c.aprovar - 1) }));
+  }
+
+  /** Confere de novo os abertos (a folha Pedidos, ao abrir). Null sem rede. */
+  refresh(): Promise<SiteRequest[] | null> {
+    return this.list();
+  }
+
+  /** Os resolvidos de uma chave, do mais novo para o mais velho (até 100). */
+  async history(keyId: string): Promise<SiteRequest[]> {
+    const { itens } = await this.account.request<{ itens: SiteRequest[] }>(`/v1/eu/pedidos?estado=historico&chave=${encodeURIComponent(keyId)}`);
+    return itens;
+  }
+
+  /**
+   * Desfaz um pedido aplicado: a nota de antes volta como uma edição nova (carimbada agora, para valer
+   * nos outros aparelhos); o "criar" desfeito apaga a nota. O que estava no lugar, se mudou depois do
+   * pedido, fica em Versões guardadas. A nuvem anota primeiro: sem rede, nada muda aqui.
+   */
+  async undo(t: UndoTarget): Promise<void> {
+    await this.account.request(`/v1/eu/pedidos/${t.id}/desfazer`, { method: 'POST' });
+    const shared = this.store.sharedIds();
+    const found = this.store.get(t.alvo);
+    const cur = found && isNote(found) && !shared.has(found.id) ? found : undefined;
+    const after = (t.resultado as { nota?: NotaV1 | null } | null | undefined)?.nota;
+    // mexida depois do pedido (por você, ou por outro pedido): a de agora não se perde
+    if (cur && cur.updatedAt !== after?.versao) this.store.keepVersions([cur], 'api', false);
+    if (t.op === 'nota.criar') {
+      if (cur) this.store.remove(cur.id);
+      return;
+    }
+    const before = sanitizeReview(t.antes, BUILD);
+    if (!before) return;
+    const back = { ...before, updatedAt: new Date().toISOString() };
+    if (cur) this.store.update(back);
+    else this.store.restore(back);
+  }
+
+  /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */
+  titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
+    if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
+    return (
+      this.store.get(t.alvo)?.game.name ??
+      (t.resultado as { nota?: NotaV1 | null } | null | undefined)?.nota?.titulo ??
+      (t.antes as Review | null | undefined)?.game?.name ??
+      'uma nota que não existe mais'
+    );
+  }
+
+  /** A nota agora e como fica se o pedido entrar (null: não existe / sai do mural), para a folha mostrar o que muda. */
+  preview(r: Pick<SiteRequest, 'op' | 'alvo' | 'dados'>): { before: NotaV1 | null; after: NotaV1 | null } {
+    const now = new Date().toISOString();
+    const checked = conferirOp(r.op as OpNota, r.dados);
+    if (!checked.ok) return { before: null, after: null };
+    if (r.op === 'nota.criar') return { before: null, after: notaDoPedido(r.alvo, checked.dados as CriarNotaV1, now) };
+    const cur = this.store.get(r.alvo);
+    if (!cur || !isNote(cur)) return { before: null, after: null };
+    const before = this.mirror.notaOf(cur);
+    return { before, after: aplicarNaNotaV1(before, r.op as OpNota, checked.dados, now) };
   }
 
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */

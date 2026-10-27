@@ -1,7 +1,21 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ApiMirror } from './api-mirror';
-import { APPLIED_KEY, ApiRequests, IDLE_MS, SiteRequest, applyNoteRequest, type ApplyContext } from './api-requests';
+import {
+  APPLIED_KEY,
+  ApiRequests,
+  IDLE_MS,
+  SiteRequest,
+  appliedWords,
+  applyNoteRequest,
+  fieldChanges,
+  requestWords,
+  textDiff,
+  undoable,
+  waitingWords,
+  type ApplyContext,
+} from './api-requests';
+import type { NotaV1 } from '../../../contrato/api-v1/notas';
 import { CloudAccount, CloudError } from './cloud-account';
 import { LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
@@ -267,5 +281,161 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
     open = [req('pd_a', 'nota.fixar', 'r0001')];
     expect(await s.peek()).toBeTrue();
     expect(s.counts()).toEqual({ pendentes: 1, aprovar: 0 });
+  });
+});
+
+describe('os pedidos da API: em palavras e o que muda', () => {
+  it('a frase de cada pedido, esperando e no histórico', () => {
+    expect(requestWords('nota.criar', { titulo: 'Ideia' }, 'Ideia')).toBe('Criar a nota “Ideia”');
+    expect(requestWords('nota.editar', { versao: 'x', titulo: 'B', texto: 't' }, 'A')).toBe('Mudar o título e o texto de “A”');
+    expect(requestWords('nota.editar', { versao: 'x', grupo: null }, 'A', true)).toBe('mudou o grupo de “A”');
+    expect(requestWords('nota.tarefas', { marcar: ['a', 'b'], novas: ['c'] }, 'A')).toBe('Marcar 2 tarefas e acrescentar 1 tarefa em “A”');
+    expect(requestWords('nota.acrescentar', { texto: 'x', onde: 'inicio' }, 'A', true)).toBe('acrescentou um trecho no começo de “A”');
+    expect(requestWords('nota.apagar', {}, 'A')).toBe('Apagar “A”');
+  });
+
+  it('o que espera e o que entrou, numa frase', () => {
+    const w = (op: string, nome = 'Claude') => ({ estado: 'aguardando-aprovacao' as const, op, chave: { id: nome, nome } });
+    expect(waitingWords([w('nota.editar'), w('nota.apagar')])).toBe('Claude quer mudar 2 anotações');
+    expect(waitingWords([w('nota.criar')])).toBe('Claude quer criar 1 anotação');
+    expect(waitingWords([w('nota.editar'), w('nota.editar', 'Script')])).toBe('2 pedidos esperam você aprovar');
+    expect(waitingWords([])).toBeNull();
+    expect(waitingWords([], 3)).withContext('só a contagem do cabeçalho').toBe('3 pedidos esperam você aprovar');
+    expect(appliedWords([{ estado: 'aplicado', chave: 'Claude' }, { estado: 'aplicado', chave: 'Claude' }, { estado: 'aplicado', chave: 'Claude' }])).toBe(
+      '3 pedidos de Claude entraram',
+    );
+    expect(appliedWords([{ estado: 'aplicado', chave: 'Claude' }, { estado: 'falhou', chave: 'Claude' }])).toBe('1 pedido de Claude entrou; 1 não');
+    expect(appliedWords([{ estado: 'conflito', chave: 'Claude' }])).toBe('1 pedido de Claude não entrou');
+  });
+
+  it('a diferença do texto: o que sai, o que entra, e o igual de longe vira um aviso', () => {
+    const before = ['a', 'b', 'c', 'd', 'e', 'f'].join('\n');
+    const after = ['a', 'b', 'c', 'd', 'E', 'f', 'g'].join('\n');
+    expect(textDiff(before, after)).toEqual([
+      { kind: 'gap', text: '3 linhas iguais' },
+      { kind: 'same', text: 'd' },
+      { kind: 'del', text: 'e' },
+      { kind: 'add', text: 'E' },
+      { kind: 'same', text: 'f' },
+      { kind: 'add', text: 'g' },
+    ]);
+    expect(textDiff('', 'x\ny')).toEqual([
+      { kind: 'add', text: 'x' },
+      { kind: 'add', text: 'y' },
+    ]);
+    const long = Array.from({ length: 60 }, (_, i) => `l${i}`).join('\n');
+    const rows = textDiff('', long);
+    expect(rows.length).toBe(41);
+    expect(rows.at(-1)).toEqual({ kind: 'gap', text: 'e mais 20 linhas' });
+  });
+
+  it('os campos que mudam; na nota nova, os que vêm preenchidos', () => {
+    const n: NotaV1 = {
+      id: 'r1', titulo: 'A', texto: '', grupo: 'Trabalho', assunto: null, tags: [], data: '2026-10-27', finalizada_em: null, fixada: false,
+      visibilidade: 'privada', capa: null, tarefas: { feitas: 0, total: 0 }, kanban: null, criada_em: NOW, versao: NOW,
+    };
+    expect(fieldChanges(n, { ...n, titulo: 'B', grupo: null, fixada: true })).toEqual([
+      { label: 'Título', before: 'A', after: 'B' },
+      { label: 'Grupo', before: 'Trabalho', after: 'sem' },
+      { label: 'No topo', before: null, after: 'Fixada' },
+    ]);
+    expect(fieldChanges(null, { ...n, tags: ['x', 'y'] }).map((f) => f.label)).toEqual(['Grupo', 'Tags', 'Data']);
+  });
+
+  it('dá para desfazer só o que entrou e mudou algo', () => {
+    expect(undoable({ estado: 'aplicado', op: 'nota.criar', antes: null })).toBeTrue();
+    expect(undoable({ estado: 'aplicado', op: 'nota.fixar', antes: null })).toBeFalse();
+    expect(undoable({ estado: 'aplicado', op: 'nota.fixar', antes: {} })).toBeTrue();
+    expect(undoable({ estado: 'recusado', op: 'nota.criar' })).toBeFalse();
+  });
+});
+
+describe('os pedidos da API: aprovar, recusar e desfazer', () => {
+  let calls: string[];
+
+  function setup(): { s: ApiRequests; store: ReviewStore } {
+    localStorage.clear();
+    calls = [];
+    const account = {
+      account: () => ({ id: 'conta-igor', codigo: 'G11T-G00D', nome: 'Igor', api: true }),
+      request: async (path: string, init: { method?: string } = {}) => {
+        calls.push(`${init.method ?? 'GET'} ${path}`);
+        if (path.startsWith('/v1/eu/pedidos?')) return { itens: [] };
+        return { ok: true };
+      },
+    };
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: CloudAccount, useValue: account }] });
+    const store = TestBed.inject(ReviewStore);
+    store.add(note('r0001', 'Reunião', { text: 'Pauta' }));
+    return { s: TestBed.inject(ApiRequests), store };
+  }
+  afterEach(() => localStorage.clear());
+
+  const site = (id: string, op: string, alvo: string, extra: Partial<SiteRequest> = {}): SiteRequest =>
+    ({ id, op, alvo, dados: {}, estado: 'aplicado', criado_em: NOW, expira_em: NOW, resolvido_em: NOW, chave: { id: 'k1', nome: 'Claude' }, ...extra }) as SiteRequest;
+
+  it('aprovar conta à nuvem, vira pendente e pede uma rodada já', async () => {
+    const { s } = setup();
+    s.open.set([site('pd_a', 'nota.fixar', 'r0001', { estado: 'aguardando-aprovacao' })]);
+    s.counts.set({ pendentes: 0, aprovar: 1 });
+    const wake = s.wake();
+    await s.approve('pd_a');
+    expect(calls).toEqual(['POST /v1/eu/pedidos/pd_a/aprovar']);
+    expect(s.open()[0]!.estado).toBe('pendente');
+    expect(s.counts()).toEqual({ pendentes: 1, aprovar: 0 });
+    expect(s.wake()).toBe(wake + 1);
+  });
+
+  it('recusar tira da lista', async () => {
+    const { s } = setup();
+    s.open.set([site('pd_a', 'nota.fixar', 'r0001', { estado: 'aguardando-aprovacao' })]);
+    await s.refuse('pd_a');
+    expect(calls).toEqual(['POST /v1/eu/pedidos/pd_a/recusar']);
+    expect(s.open()).toEqual([]);
+  });
+
+  it('desfazer uma edição põe a nota de antes de volta (carimbada agora)', async () => {
+    const { s, store } = setup();
+    const before = store.get('r0001')!;
+    const changed = { ...before, text: 'Pauta\nMais', updatedAt: '2026-10-27T15:00:00.000Z' };
+    store.update(changed);
+    const { scores: _s, ...antes } = before;
+    await s.undo(site('pd_a', 'nota.acrescentar', 'r0001', { antes, resultado: { nota: { versao: changed.updatedAt } } }));
+    expect(calls).toEqual(['POST /v1/eu/pedidos/pd_a/desfazer']);
+    expect(store.get('r0001')!.text).toBe('Pauta');
+    expect(store.get('r0001')!.updatedAt > changed.updatedAt).toBeTrue();
+    expect(store.versions()).withContext('a de agora era a do pedido: nada a guardar').toEqual([]);
+  });
+
+  it('desfazer um criar apaga a nota; mexida depois, a de agora fica guardada', async () => {
+    const { s, store } = setup();
+    store.update({ ...store.get('r0001')!, text: 'mexida por você', updatedAt: '2026-10-27T16:00:00.000Z' });
+    await s.undo(site('pd_a', 'nota.criar', 'r0001', { resultado: { nota: { versao: '2026-10-27T15:00:00.000Z' } } }));
+    expect(store.get('r0001')).toBeUndefined();
+    expect(store.versions().map((v) => [v.ficha.text, v.motivo])).toEqual([['mexida por você', 'api']]);
+  });
+
+  it('desfazer um apagar devolve a nota', async () => {
+    const { s, store } = setup();
+    const before = store.get('r0001')!;
+    store.remove('r0001');
+    await s.undo(site('pd_a', 'nota.apagar', 'r0001', { antes: before, resultado: { nota: null } }));
+    expect(store.get('r0001')?.game.name).toBe('Reunião');
+  });
+
+  it('sem rede, desfazer não mexe em nada aqui', async () => {
+    const { s, store } = setup();
+    const account = TestBed.inject(CloudAccount) as unknown as { request: () => Promise<never> };
+    account.request = async () => {
+      throw new CloudError('Sem rede.', 'sem-rede', 0);
+    };
+    await expectAsync(s.undo(site('pd_a', 'nota.criar', 'r0001'))).toBeRejected();
+    expect(store.get('r0001')).toBeDefined();
+  });
+
+  it('o histórico de uma chave pede só os resolvidos dela', async () => {
+    const { s } = setup();
+    await s.history('ch_A B');
+    expect(calls).toEqual(['GET /v1/eu/pedidos?estado=historico&chave=ch_A%20B']);
   });
 });

@@ -9,6 +9,7 @@ import { CALENDAR_PATH, SPENDING_PATH, VISIT_PATH, areaOf, listOf, pathOf, revie
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
+import { AppliedItem, ApiRequests, appliedWords, undoable, waitingWords } from './core/api-requests';
 import { NOTES, cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
 import { Mural } from './core/mural';
 import { News } from './core/news';
@@ -67,6 +68,10 @@ export class App {
   private readonly noteDone = inject(NoteDone);
   private readonly vt = inject(ViewTransitions);
   private readonly toasts = inject(Toasts);
+  /** Os pedidos da API das AIs (PLANO-API.md, 9.7): o bilhete do que entrou e do que espera você. */
+  private readonly apiRequests = inject(ApiRequests);
+  /** Os pedidos esperando aprovação que o bilhete já mostrou nesta aba (não repete a cada minuto). */
+  private readonly announced = new Set<string>();
   private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
   private readonly side = inject(SideBySide);
@@ -147,6 +152,37 @@ export class App {
       untracked(() =>
         this.toasts.show(keptMessage(kept.n, kept.motivo), { label: 'Ver', run: () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'backup' } }) }, 9000),
       );
+    });
+    // pedidos de uma chave de API entraram neste aparelho: um bilhete por rodada, com Ver e Desfazer
+    effect(() => {
+      const done = this.apiRequests.lastApplied();
+      if (!done?.itens.length) return;
+      untracked(() => {
+        const items = done.itens;
+        const one = items.every((i) => i.chaveId === items[0]!.chaveId);
+        const back = items.filter(undoable);
+        const see = {
+          label: 'Ver',
+          run: () =>
+            void this.router.navigate(['/ajustes'], {
+              queryParams: one ? { aba: 'acessos', historico: items[0]!.chaveId, nome: items[0]!.chave } : { aba: 'acessos' },
+            }),
+        };
+        this.toasts.show(appliedWords(items), see, 9000, back.length ? { label: 'Desfazer', run: () => void this.undoRequests(back) } : undefined);
+      });
+    });
+    // uma chave quer mudar algo e espera você: avisa uma vez por pedido novo
+    effect(() => {
+      const open = this.apiRequests.open();
+      untracked(() => {
+        const fresh = open.filter((r) => r.estado === 'aguardando-aprovacao' && !this.announced.has(r.id));
+        if (!fresh.length) return;
+        for (const r of fresh) this.announced.add(r.id);
+        const said = waitingWords(open);
+        // em Ajustes › Acessos o aviso amarelo já diz isso, com o Ver ao lado
+        if (!said || /^\/ajustes\?(.*&)?aba=acessos/.test(this.router.url)) return;
+        this.toasts.show(said, { label: 'Ver', run: () => void this.router.navigate(['/ajustes'], { queryParams: { aba: 'acessos', pedidos: 'esperando' } }) }, 12000);
+      });
     });
     // o que aconteceu com uma compartilhada sem a pessoa pedir: um conflito chegou, alguém escolheu antes, saiu do mural
     effect(() => {
@@ -325,6 +361,16 @@ export class App {
     if (!r) return;
     this.reader().close();
     this.editor().open(undefined, undefined, undefined, r);
+  }
+
+  /** O Desfazer do bilhete: cada pedido volta, do mais novo para o mais velho. */
+  private async undoRequests(items: readonly AppliedItem[]): Promise<void> {
+    try {
+      for (const i of [...items].reverse()) await this.apiRequests.undo(i);
+      this.toasts.show(items.length === 1 ? 'Pedido desfeito.' : `${items.length} pedidos desfeitos.`);
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para desfazer agora. Tente pelo histórico, em Ajustes › Acessos.');
+    }
   }
 
   protected async removeReview(id: string): Promise<void> {
