@@ -1355,10 +1355,15 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      áreas não se misturarem; `READ_SCOPE_OF` em `domain/mirror.ts` diz a permissão de cada área, e a
      limpeza tira cada área de quem não tem mais chave que a lê (o estado sai quando nenhuma fica).
      Testes numa suíte nova, `api/test/gastos.suite.ts` (os passos 3 e 4 continuam nela).
-  2. Site manda o espelho dos Gastos: `core/api-mirror.ts` monta os lançamentos, o contexto e as
+  2. [feito, BUILD 580] Site manda o espelho dos Gastos: `core/api-mirror.ts` monta os lançamentos, o contexto e as
      visões com as funções da tela (`rowsIn`, `totals`, `spentByCategory`, `spentByNeed`,
      `spentByPerson`, `openPlans`, `installmentsAhead`), só quando a nuvem pede a área `gastos`.
-     Testes. BUILD + 1.
+     Testes. BUILD + 1. Feito assim: as funções puras em `core/api-mirror-spending.ts`
+     (`lancamentoV1`, `contextoGastosV1`, `mesV1`, `mirrorMonths`, `spendingMirror`); o `ApiMirror`
+     espelha as áreas que a nuvem pede e entende (`notas`, `gastos`) e tira o que sumiu daqui (a nota,
+     o lançamento, o mês que saiu da janela). O mês leva o dia de verdade de cada linha (a compra que
+     conta na fatura de outro mês), o reembolso descontando do envelope e das pessoas do gasto, e você
+     primeiro em `por_pessoa`. Nada novo no navegador.
   3. API, ler: `GET /ext/v1/gastos/meses/:mes` (a visão), `GET /ext/v1/gastos/lancamentos`
      (`de`/`ate` em meses ou dias, `envelope`, `pessoa`, `tipo`, `q`, `limite`, `depois`),
      `GET /ext/v1/gastos/lancamentos/:id`, e o `GET /ext/v1/contexto` com `gastos` (envelopes,

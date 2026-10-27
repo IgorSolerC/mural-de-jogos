@@ -1,6 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { dobra } from '../../../contrato/api-v1/escopos';
+import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
 import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type GrupoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { spendingMirror } from './api-mirror-spending';
 import { lookKey } from './category-looks';
 import { CloudAccount, CloudError } from './cloud-account';
 import { KanbanCard, boardCategories } from './kanban';
@@ -9,13 +11,16 @@ import { Review, shownToOthers } from './review';
 import { ReviewStore } from './review-store';
 import { checkCount } from './rich-text';
 import { Settings } from './settings';
+import { todayISO } from './dates';
+import { SpendingStore } from './spending-store';
 import { nameCollator } from './text';
 
 /**
  * O espelho da API das AIs, pelo lado do site (PLANO-API.md, seção 8): depois de cada sincronização
- * que deixou o aparelho igual à nuvem, o site traduz as anotações para o formato público v1 e manda à
- * nuvem só o que mudou (a nuvem guarda as impressões do que já tem). A API lê dali, sem abrir o
- * mural. Só para a conta que pode usar a API, e só quando alguma chave dela lê as Anotações.
+ * que deixou o aparelho igual à nuvem, o site traduz as anotações e os gastos para o formato público v1
+ * e manda à nuvem só o que mudou (a nuvem guarda as impressões do que já tem). A API lê dali, sem abrir
+ * o mural. Só para a conta que pode usar a API, e só as áreas que alguma chave dela lê (as Anotações,
+ * os Gastos; ver core/api-mirror-spending.ts).
  *
  * Nada fica no navegador: o "o que já foi" mora na nuvem, e o resto vive na memória desta aba.
  */
@@ -27,8 +32,12 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaV1 | ContextoNotasV1;
+  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1;
 }
+
+/** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
+const AREAS = ['notas', 'gastos'] as const;
+const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = { notas: ['nota'], gastos: ['lancamento', 'visao'] };
 
 /** O cartão da nota no Kanban, como a v1 mostra. */
 export interface CardView {
@@ -132,6 +141,7 @@ export class ApiMirror {
   private readonly store = inject(ReviewStore);
   private readonly kanban = inject(KanbanStore);
   private readonly settings = inject(Settings);
+  private readonly spending = inject(SpendingStore);
   /** A última rev que o espelho alcançou nesta aba (a mesma rev não pede a nuvem de novo). */
   private doneRev: number | null = null;
   /** A última rev em sincronia que esta aba viu (para o `kick` depois de criar uma chave). */
@@ -156,8 +166,20 @@ export class ApiMirror {
     return this.seenRev === null ? Promise.resolve() : this.afterSync(this.seenRev);
   }
 
-  /** Os itens das Anotações no formato v1, com as impressões: as notas da conta (as compartilhadas não) e o contexto. */
-  async items(): Promise<MirrorItem[]> {
+  /**
+   * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (as
+   * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto.
+   */
+  async items(areas: readonly string[] = ['notas']): Promise<MirrorItem[]> {
+    const out: MirrorItem[] = [];
+    if (areas.includes('notas')) out.push(...(await this.noteItems()));
+    if (areas.includes('gastos')) {
+      for (const i of spendingMirror(this.spending.state(), todayISO())) out.push({ ...i, hash: await hashOf(i.dados) });
+    }
+    return out;
+  }
+
+  private async noteItems(): Promise<MirrorItem[]> {
     const shared = this.store.sharedIds();
     const notes = this.store.notes().filter((n) => !shared.has(n.id));
     const boardOnly = this.kanban.boardOnly();
@@ -184,19 +206,25 @@ export class ApiMirror {
     if (rev === this.doneRev) return;
     try {
       const remote = await this.account.request<RemoteMirror>('/v1/eu/espelho');
-      if (!remote.areas.includes('notas')) {
+      const areas = AREAS.filter((a) => remote.areas.includes(a));
+      if (!areas.length) {
         this.doneRev = rev;
         return;
       }
-      const local = await this.items();
+      const local = await this.items(areas);
       const put = local.filter((i) => remote.hashes[i.tipo]?.[i.id] !== i.hash);
-      const ids = new Set(local.filter((i) => i.tipo === 'nota').map((i) => i.id));
-      const drop = Object.keys(remote.hashes.nota ?? {})
-        .filter((id) => !ids.has(id))
-        .map((id) => ({ tipo: 'nota' as const, id }));
+      // o que está lá e sumiu daqui (a nota apagada, o lançamento apagado, o mês que saiu da janela)
+      const drop = areas.flatMap((a) =>
+        DROPPABLE[a].flatMap((tipo) => {
+          const ids = new Set(local.filter((i) => i.tipo === tipo).map((i) => i.id));
+          return Object.keys(remote.hashes[tipo] ?? {})
+            .filter((id) => !ids.has(id))
+            .map((id) => ({ tipo, id }));
+        }),
+      );
       const fuso = Intl.DateTimeFormat().resolvedOptions().timeZone;
       // tirar não pesa: vai junto com o primeiro lote (ou sozinho, quando não há o que pôr)
-      const batches = lots<MirrorItem | { tipo: 'nota'; id: string }>([...drop, ...put], (i) => ('dados' in i ? JSON.stringify(i.dados).length : 40));
+      const batches = lots<MirrorItem | { tipo: TipoDoEspelho; id: string }>([...drop, ...put], (i) => ('dados' in i ? JSON.stringify(i.dados).length : 40));
       if (!batches.length && remote.rev !== rev) batches.push([]);
       for (const batch of batches) {
         await this.account.request('/v1/eu/espelho', {

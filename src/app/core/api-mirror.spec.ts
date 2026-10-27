@@ -7,6 +7,8 @@ import { KanbanStore } from './kanban-store';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { EMPTY_SPENDING } from './spending';
+import { SpendingStore } from './spending-store';
 
 /**
  * O espelho da API das AIs pelo lado do site (core/api-mirror.ts): a anotação e o vocabulário no
@@ -142,6 +144,7 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
         { provide: ReviewStore, useValue: { notes, sharedIds: shared } },
         { provide: KanbanStore, useValue: { boardOnly: signal(new Set()), cardOf: () => null, isOnWall: () => false } },
         { provide: Settings, useValue: { notesConfig: signal({ subjects: {} }), pinnedTags: signal([]) } },
+        { provide: SpendingStore, useValue: { state: signal(EMPTY_SPENDING) } },
       ],
     });
     return TestBed.inject(ApiMirror);
