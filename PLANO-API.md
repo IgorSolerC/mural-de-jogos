@@ -1215,7 +1215,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
     nova `SITE` do wrangler.toml.
 
   Passos:
-  1. API, descoberta e registro: `contrato/api-v1/oauth.ts` (prazos, retornos aceitos e conhecidos,
+  1. [feito] API, descoberta e registro: `contrato/api-v1/oauth.ts` (prazos, retornos aceitos e conhecidos,
      os escopos anunciados), migração `0018_oauth.sql` (`oauth_clientes`, `oauth_pedidos`,
      `oauth_codigos`; em `api_chaves`: `cliente_id`, `hash_expira_em`, `renovacao_hash`,
      `renovacao_velha_hash`, `renovada_em`), `api/src/ext/oauth.ts` com
@@ -1223,7 +1223,11 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      `GET /.well-known/oauth-authorization-server` e `POST /oauth/registrar` (RFC 7591, retornos
      `https://` ou `http://localhost`/`127.0.0.1`, freio de 20 registros por dia por IP na tabela
      `freios`, com o IP em hash); o 401 do `/mcp` ganha o `resource_metadata`. Testes em
-     `api/test/oauth.suite.ts` (nos dois bancos).
+     `api/test/oauth.suite.ts` (nos dois bancos). Feito assim: os erros do OAuth saem no formato dele
+     (`error`, `error_description`, classe `OAuthError` em `api/src/ext/oauth.ts`); quem pede registro
+     com segredo recebe um cliente público (`token_endpoint_auth_method: none`, RFC 7591 3.2.1); sem
+     `client_name`, o nome é "Um aplicativo"; o CORS `*` vale também em `/oauth/` e `/.well-known/`
+     (`isOpenPath` em `app.ts`); o freio guarda `ip:` + 32 letras do SHA-256 do `CF-Connecting-IP`.
   2. API, autorizar: `GET /oauth/autorizar` (confere cliente, retorno, PKCE S256, `state`, `resource`,
      `scope`; grava o pedido por 10 minutos e manda para `SITE/#/autorizar?pedido=…`; erro antes de
      conferir o retorno vira uma página simples, depois volta ao cliente com `error=`), e, só com a

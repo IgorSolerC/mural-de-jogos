@@ -3,6 +3,7 @@ import { ARGUMENTOS_DE_FORA, FERRAMENTAS, type Ferramenta } from '../../../contr
 import { INSTRUCOES, guia } from '../../../contrato/api-v1/guia';
 import { KeyCaller, authenticateKey } from '../domain/api-key';
 import { HttpError } from '../errors';
+import { resourceMetadataUrl } from './oauth';
 import { Deps } from '../ports';
 
 /**
@@ -98,7 +99,10 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
       caller = await authenticateKey(deps, c.req.header('Authorization'));
     } catch (error) {
       if (error instanceof HttpError && error.status === 401) {
-        return c.json({ erro: error.code, mensagem: error.message }, 401, { 'WWW-Authenticate': 'Bearer realm="murall"' });
+        return c.json({ erro: error.code, mensagem: error.message }, 401, {
+          // o resource_metadata é o que faz o cliente (claude.ai, Claude Code) abrir o login do OAuth
+          'WWW-Authenticate': `Bearer realm="murall", resource_metadata="${resourceMetadataUrl(new URL(c.req.url).origin)}"`,
+        });
       }
       throw error;
     }

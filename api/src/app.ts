@@ -15,6 +15,7 @@ import { requestRoutes } from './routes/requests';
 import { notesWriteRoutes } from './ext/notes-write';
 import { mcpRoutes } from './ext/mcp';
 import { docsRoutes } from './ext/docs';
+import { oauthRoutes } from './ext/oauth';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -22,6 +23,11 @@ import { reactionRoutes } from './routes/reactions';
 /** O molde da rota que respondeu; o erro de um middleware (sem rota ainda) fica com o caminho. */
 export function routeOf(routePath: string | undefined, path: string): string {
   return routePath && routePath !== '*' && routePath !== '/*' ? routePath : path;
+}
+
+/** Os caminhos que qualquer origem chama (a API das AIs, o MCP e o OAuth dos conectores). */
+export function isOpenPath(path: string): boolean {
+  return path.startsWith('/ext/') || path === '/mcp' || path.startsWith('/oauth/') || path.startsWith('/.well-known/');
 }
 
 /** A versão da API que o /v1/status informa (mude junto com mudanças que o site precise saber). */
@@ -38,8 +44,9 @@ export function createApp(deps: Deps): Hono {
   app.use(
     '*',
     cors({
-      // a API das AIs (`/ext` e o MCP) aceita qualquer origem: ela só anda com a chave no cabeçalho, sem cookie
-      origin: (origin, c) => (c.req.path.startsWith('/ext/') || c.req.path === '/mcp' ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
+      // a API das AIs (`/ext`, o MCP e o OAuth) aceita qualquer origem: ela só anda com a chave ou o token no
+      // cabeçalho, sem cookie
+      origin: (origin, c) => (isOpenPath(c.req.path) ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Idempotency-Key', 'Mcp-Protocol-Version'],
       exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo', 'Mural-Pedidos', 'Mural-Pedidos-Aprovar'],
@@ -95,6 +102,7 @@ export function createApp(deps: Deps): Hono {
   extRoutes(app, deps);
   notesWriteRoutes(app, deps);
   mcpRoutes(app, deps);
+  oauthRoutes(app, deps);
   docsRoutes(app);
 
   app.notFound((c) => {
