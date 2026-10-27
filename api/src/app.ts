@@ -13,6 +13,7 @@ import { keyRoutes } from './routes/keys';
 import { mirrorRoutes } from './routes/mirror';
 import { requestRoutes } from './routes/requests';
 import { notesWriteRoutes } from './ext/notes-write';
+import { mcpRoutes } from './ext/mcp';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -36,10 +37,10 @@ export function createApp(deps: Deps): Hono {
   app.use(
     '*',
     cors({
-      // a API das AIs (`/ext`) aceita qualquer origem: ela só anda com a chave no cabeçalho, sem cookie
-      origin: (origin, c) => (c.req.path.startsWith('/ext/') ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
+      // a API das AIs (`/ext` e o MCP) aceita qualquer origem: ela só anda com a chave no cabeçalho, sem cookie
+      origin: (origin, c) => (c.req.path.startsWith('/ext/') || c.req.path === '/mcp' ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Idempotency-Key'],
+      allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base', 'Idempotency-Key', 'Mcp-Protocol-Version'],
       exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo', 'Mural-Pedidos', 'Mural-Pedidos-Aprovar'],
       // O Chrome limita a 2 horas, o Firefox a 1 dia: menos pré-consultas, menos requisições na cota.
       maxAge: 86_400,
@@ -92,6 +93,7 @@ export function createApp(deps: Deps): Hono {
   requestRoutes(app, deps);
   extRoutes(app, deps);
   notesWriteRoutes(app, deps);
+  mcpRoutes(app, deps);
 
   app.notFound((c) => {
     deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);

@@ -6,6 +6,7 @@ import { amigosSuite } from './amigos.suite';
 import { chavesSuite } from './chaves.suite';
 import { espelhoSuite } from './espelho.suite';
 import { pedidosSuite } from './pedidos.suite';
+import { mcpSuite } from './mcp.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -19,3 +20,4 @@ notasSuite('Cloudflare D1', () => d1Db(bindings.DB));
 chavesSuite('Cloudflare D1', () => d1Db(bindings.DB));
 espelhoSuite('Cloudflare D1', () => d1Db(bindings.DB));
 pedidosSuite('Cloudflare D1', () => d1Db(bindings.DB));
+mcpSuite('Cloudflare D1', () => d1Db(bindings.DB));

@@ -1149,11 +1149,13 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   1. [feito] Contrato: `contrato/api-v1/ferramentas.ts` (as 15 ferramentas) e `contrato/api-v1/guia.ts` (o
      guia curto, as regras de ouro da seção 13.4, o markdown e os widgets em poucas linhas, o modelo de
      pedidos).
-  2. API: `api/src/ext/mcp.ts` com `POST /mcp` (JSON-RPC sem sessão: `initialize` com `instructions`,
+  2. [feito] API: `api/src/ext/mcp.ts` com `POST /mcp` (JSON-RPC sem sessão: `initialize` com `instructions`,
      `ping`, `notifications/*` com 202, `tools/list` filtrado pelos escopos da chave, `tools/call`,
      `resources/list`, `resources/read`, `prompts/list` vazio), `GET /mcp` 405, 401 com
      `WWW-Authenticate: Bearer`; CORS `*` em `/mcp`. Testes em `api/test/mcp.suite.ts` (nos dois bancos,
-     registrar em `node.test.ts` e `workers.test.ts`).
+     registrar em `node.test.ts` e `workers.test.ts`). Feito assim: o `WWW-Authenticate` diz só `Bearer realm="murall"`
+     (o `resource_metadata` do OAuth entra na rodada 5, quando o endereço existir); `CORS *` e o
+     cabeçalho `Mcp-Protocol-Version` liberados em `/mcp`; 6 testes nos dois bancos.
   3. Guia na API: `GET /llms.txt`, `GET /llms-full.txt` e `GET /ext/v1/openapi.json` (gerado);
      `docs/api/guia.md` e `docs/api/openapi.json` como cópias, com teste que quebra se ficarem velhas
      (`npm run docs` na API regenera).

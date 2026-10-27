@@ -5,6 +5,7 @@ import { amigosSuite } from './amigos.suite';
 import { chavesSuite } from './chaves.suite';
 import { espelhoSuite } from './espelho.suite';
 import { pedidosSuite } from './pedidos.suite';
+import { mcpSuite } from './mcp.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -18,3 +19,4 @@ notasSuite('Node + SQLite', () => db);
 chavesSuite('Node + SQLite', () => db);
 espelhoSuite('Node + SQLite', () => db);
 pedidosSuite('Node + SQLite', () => db);
+mcpSuite('Node + SQLite', () => db);
