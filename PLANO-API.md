@@ -1146,7 +1146,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   - O texto das notas volta dentro de `<conteudo_do_usuario>` (seção 10.4).
 
   Passos:
-  1. Contrato: `contrato/api-v1/ferramentas.ts` (as 15 ferramentas) e `contrato/api-v1/guia.ts` (o
+  1. [feito] Contrato: `contrato/api-v1/ferramentas.ts` (as 15 ferramentas) e `contrato/api-v1/guia.ts` (o
      guia curto, as regras de ouro da seção 13.4, o markdown e os widgets em poucas linhas, o modelo de
      pedidos).
   2. API: `api/src/ext/mcp.ts` com `POST /mcp` (JSON-RPC sem sessão: `initialize` com `instructions`,
