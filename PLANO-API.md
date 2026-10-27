@@ -1281,9 +1281,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      (`IN_FRAME`), voltando. A API passou a dizer o domínio do conector em `GET /v1/eu/chaves`
      (`conector`), e Acessos mostra "Conector em claude.ai" com o ícone de link. Como usar ganhou "No
      claude.ai (conector)" com o endereço do `/mcp` e a frase do Claude Code sem chave.
-  6. API + site, o aviso no Correio (D11, que veio da rodada 1): uma atividade quando uma chave é criada
+  6. [feito, BUILD 579] API + site, o aviso no Correio (D11, que veio da rodada 1): uma atividade quando uma chave é criada
      ou um conector é autorizado, e o quadro de avisos mostra ("Claude ganhou acesso ao seu Murall ·
      Ver os acessos"). BUILD + 1.
+     Feito assim: a atividade `acesso` (a conta é autora e alvo, `ref` = a chave, `resumo` = nome e
+     domínio do conector) nasce no mesmo lote da chave (`accessNotice` em `domain/api-key.ts`; no
+     "Permitir", só se o pedido ainda está aberto) e sai no `GET /v1/eu/notificacoes` dentro da parte
+     que já lia as atividades da conta (o D1 aceita no máximo 5 partes num `UNION`). Conta no número
+     de Amigos como os outros avisos. No quadro de avisos: um disco de tinta com o ícone (link para o
+     conector, chave para a chave) no lugar da foto, "O conector **Claude** ganhou acesso ao seu Murall
+     (claude.ai)" ou "Chave de API criada: **Script dos gastos**", a hora, e embaixo "Não foi você?
+     Apague em Acessos."; a linha inteira abre Ajustes › Acessos. A linha de meta dos avisos agora
+     quebra inteira em lista estreita (a hora nunca se parte).
   7. Ponta a ponta: local (`wrangler dev` + `ng serve` + puppeteer, como nas rodadas 2 e 4: registrar,
      autorizar, permitir na página, trocar o código, chamar o `/mcp` com o token, renovar, repetir a
      renovação velha e ver a chave cortada) e no ar (os metadados, o registro e o 401). Anotar aqui.

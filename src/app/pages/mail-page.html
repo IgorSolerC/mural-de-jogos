@@ -113,6 +113,7 @@
                   [leaving]="leavingNote()"
                   (sharedNote)="openShared($event)"
                   (leave)="leaveShared($event)"
+                  (access)="openAccess()"
                 />
                 @if (notices().length > boardNotices().length) {
                   <button type="button" class="btn-papel quieto ver-todos" (click)="go('avisos')">Ver os {{ notices().length }} avisos</button>
@@ -178,6 +179,7 @@
                 [leaving]="leavingNote()"
                 (sharedNote)="openShared($event)"
                 (leave)="leaveShared($event)"
+                (access)="openAccess()"
               />
             } @else {
               <p class="nada">Nenhum aviso por enquanto. Quando alguém seguir você, reagir ou comentar numa ficha sua, aparece aqui.</p>

@@ -58,7 +58,12 @@ export type FeedItem =
    */
   | { tipo: 'respondeu'; em: string; pessoa: Person; ref: string; titulo: string; mural: Kind; silenciado: boolean; dono: string; comentario: string | null }
   /** Alguém compartilhou comigo a anotação `ref`, com um papel (ver core/shared-notes.ts). Nunca silenciado. */
-  | { tipo: 'compartilhou'; em: string; pessoa: Person; ref: string; titulo: string; mural: 'anotacoes'; silenciado: boolean; papel: MemberRole; euSigo: boolean };
+  | { tipo: 'compartilhou'; em: string; pessoa: Person; ref: string; titulo: string; mural: 'anotacoes'; silenciado: boolean; papel: MemberRole; euSigo: boolean }
+  /**
+   * Nasceu um acesso a esta conta (PLANO-API.md, D11): a chave de API `ref` foi criada, ou um conector
+   * (`conector`, o domínio dele) foi autorizado. A pessoa é a própria conta. Nunca silenciado.
+   */
+  | { tipo: 'acesso'; em: string; pessoa: Person; ref: string; nome: string; conector: string | null; silenciado: boolean };
 
 /** Ver de novo a cada 15 minutos, com a aba à vista. */
 export const CHECK_EVERY_MS = 15 * 60_000;
@@ -84,7 +89,11 @@ export function parseFeed(raw: unknown): FeedItem[] {
     const pessoa = person(r?.['pessoa']);
     if (!em || !pessoa) continue;
     if (r['tipo'] === 'seguiu') out.push({ tipo: 'seguiu', em, pessoa, euSigo: r['euSigo'] === true });
-    else if (r['tipo'] === 'compartilhou') {
+    else if (r['tipo'] === 'acesso') {
+      const ref = typeof r['ref'] === 'string' && /^ch_[\w-]{16}$/.test(r['ref']) ? r['ref'] : null;
+      if (!ref) continue;
+      out.push({ tipo: 'acesso', em, pessoa, ref, nome: text(r['nome'], 60) ?? 'Uma chave', conector: text(r['conector'], 120), silenciado: false });
+    } else if (r['tipo'] === 'compartilhou') {
       const ref = typeof r['ref'] === 'string' && /^[\w-]{4,64}$/.test(r['ref']) ? r['ref'] : null;
       if (!ref) continue;
       const papel = isMemberRole(r['papel']) ? r['papel'] : 'leitor';
@@ -132,11 +141,11 @@ export function parsePeople(raw: unknown): People {
 }
 
 /**
- * O que aparece: tudo (misturado) ou só as resenhas do mural aberto (separado). Quem começou a seguir e
- * quem compartilhou uma anotação aparecem sempre: são com a pessoa, não com um mural.
+ * O que aparece: tudo (misturado) ou só as resenhas do mural aberto (separado). Quem começou a seguir,
+ * quem compartilhou uma anotação e um acesso novo aparecem sempre: são com a pessoa, não com um mural.
  */
 export function visibleFeed(items: readonly FeedItem[], mode: FriendKinds, kind: Kind): FeedItem[] {
-  return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.tipo === 'compartilhou' || i.mural === kind);
+  return mode === 'misturado' ? [...items] : items.filter((i) => i.tipo === 'seguiu' || i.tipo === 'compartilhou' || i.tipo === 'acesso' || i.mural === kind);
 }
 
 /** Um item do correio, para lembrar que foi visto (ver `Follow.seenKeys`). */

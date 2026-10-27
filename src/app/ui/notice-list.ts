@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, input, output } from '@angu
 import { ICON, IconModule } from './icons';
 import { CloudAccount } from '../core/cloud-account';
 import { Follow, Person, agoLabel, fullWhen } from '../core/follow';
-import { CardNotice, Notice, SharedNotice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
+import { AccessNotice, CardNotice, Notice, SharedNotice, noticeSpoken, noticeVerb, noticeWhere } from '../core/notices';
 import { ROLE_LABEL } from '../core/shared-notes';
 import { reactionOf } from '../core/reaction-kinds';
 import { ReviewStore } from '../core/review-store';
@@ -44,6 +44,8 @@ export class NoticeList {
   readonly sharedNote = output<SharedNotice>();
   /** Sair da anotação que compartilharam com você. */
   readonly leave = output<SharedNotice>();
+  /** Ver os acessos (Ajustes › Acessos) de uma chave ou um conector que nasceu. */
+  readonly access = output<AccessNotice>();
 
   private readonly follow = inject(Follow);
   private readonly store = inject(ReviewStore);
@@ -56,6 +58,8 @@ export class NoticeList {
   protected readonly FollowIcon = ICON.seguir;
   protected readonly SharedIcon = ICON.pessoas;
   protected readonly CheckIcon = ICON.pronto;
+  protected readonly KeyIcon = ICON.chave;
+  protected readonly ConnectorIcon = ICON.link;
   protected readonly verb = noticeVerb;
   protected readonly where = noticeWhere;
   protected readonly spoken = noticeSpoken;

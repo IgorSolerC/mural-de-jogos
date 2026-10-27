@@ -490,6 +490,11 @@ export class MailPage {
   private readonly shared = inject(SharedStore);
 
   /** O aviso de uma anotação compartilhada com você: ela abre no seu mural (já está nele). */
+  /** Um acesso novo à conta (chave ou conector): os acessos, em Ajustes, onde se apaga. */
+  protected openAccess(): void {
+    void this.router.navigate(['/ajustes'], { queryParams: { aba: 'acessos' } });
+  }
+
   protected openShared(n: SharedNotice): void {
     if (this.store.get(n.item.ref)) this.desk.openReview(n.item.ref);
     else this.shared.refreshSoon();

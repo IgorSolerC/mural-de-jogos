@@ -1,7 +1,7 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FeedItem, Follow, Person } from '../core/follow';
-import { CardNotice, Notice, groupNotices } from '../core/notices';
+import { AccessNotice, CardNotice, Notice, groupNotices } from '../core/notices';
 import { ReviewStore } from '../core/review-store';
 import { NoticeList } from './notice-list';
 import { PersonFace } from './person-photo';
@@ -39,6 +39,7 @@ const feed = (): FeedItem[] => [
       (profile)="profiles.push($event)"
       (card)="cards.push($event)"
       (followBack)="followed.push($event)"
+      (access)="accessed.push($event)"
     />
   `,
 })
@@ -50,6 +51,7 @@ class Host {
   readonly profiles: Person[] = [];
   readonly cards: CardNotice[] = [];
   readonly followed: Person[] = [];
+  readonly accessed: AccessNotice[] = [];
 }
 
 describe('A lista de avisos (NoticeList)', () => {
@@ -193,5 +195,23 @@ describe('A lista de avisos (NoticeList)', () => {
     expect(button.classList).toContain('forte');
     expect(getComputedStyle(button).opacity).toBe('1');
     expect(getComputedStyle(button).backgroundColor).toBe('rgb(21, 21, 21)');
+  });
+
+  it('um acesso novo (conector ou chave): o disco com o ícone, a frase, o "Não foi você?" e a linha abre Acessos', async () => {
+    const IGOR = { codigo: 'EEEE-0000', nome: 'Igor' };
+    host.notices.set(
+      groupNotices([
+        { tipo: 'acesso', em: minutesAgo(2), pessoa: IGOR, ref: 'ch_AAAAAAAAAAAAAAAA', nome: 'Claude', conector: 'claude.ai', silenciado: false },
+        { tipo: 'acesso', em: minutesAgo(4), pessoa: IGOR, ref: 'ch_BBBBBBBBBBBBBBBB', nome: 'Script dos gastos', conector: null, silenciado: false },
+      ]),
+    );
+    await refresh();
+    expect(rows().map(seen)).toEqual(['O conector Claude ganhou acesso ao seu Murall (claude.ai)', 'Chave de API criada: Script dos gastos']);
+    expect(rows()[0].querySelector('.texto .sr-only')?.textContent).toBe('O conector Claude (claude.ai) ganhou acesso ao seu Murall. ');
+    expect(rows()[0].querySelector('.disco-acesso')).not.toBeNull();
+    expect(rows()[0].querySelector('app-person-photo')).toBeNull();
+    expect(rows()[1].querySelector('.cuidado-acesso')!.textContent).toBe('Não foi você? Apague em Acessos.');
+    rows()[1].querySelector<HTMLButtonElement>('button.abre')!.click();
+    expect(host.accessed.map((n) => n.item.ref)).toEqual(['ch_BBBBBBBBBBBBBBBB']);
   });
 });

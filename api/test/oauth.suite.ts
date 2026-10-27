@@ -262,6 +262,25 @@ export function oauthSuite(label: string, getDb: () => Db) {
       expect((await t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, token)).status).toBe(404);
     });
 
+    it('o Correio avisa a conta do conector autorizado e da chave criada (D11)', async () => {
+      const t = await setup();
+      const { pedido } = await t.openRequest();
+      const token = await t.login();
+      t.clock.t += 1000;
+      await t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, token);
+      t.clock.t += 1000;
+      const manual = await t.body(t.json('POST', '/v1/eu/chaves', { nome: 'Script dos gastos', escopos: ['gastos:ler'], validade: 30 }, token));
+      const feed = await t.body(t.call('/v1/eu/notificacoes', { headers: { Authorization: `Bearer ${token}` } }));
+      const access = feed.itens.filter((i: any) => i.tipo === 'acesso');
+      expect(access.map((i: any) => [i.nome, i.conector])).toEqual([
+        ['Script dos gastos', null],
+        ['Claude', 'claude.ai'],
+      ]);
+      expect(access[0].ref).toBe(manual.chave.id);
+      expect(access[0].pessoa.nome).toBe('ana');
+      expect(feed.naoVistas).toBe(2);
+    });
+
     it('Permitir confere a escolha como a de uma chave, e só para quem pode usar a API', async () => {
       const t = await setup();
       const { pedido } = await t.openRequest();

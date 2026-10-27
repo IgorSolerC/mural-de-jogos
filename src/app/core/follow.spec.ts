@@ -167,4 +167,18 @@ describe('quem eu sigo, sem esperar a nuvem', () => {
     expect(follow.isFollowing('AAAA-1111')).toBeTrue();
     expect(JSON.parse(localStorage.getItem(KEY)!).pessoas.seguindo[0].codigo).toBe('AAAA-1111');
   });
+
+  it('o aviso de acesso (chave criada ou conector autorizado) passa com o nome e o domínio, e aparece em todo mural', () => {
+    const p = { codigo: 'EEEE0000', nome: 'Igor' };
+    const items = parseFeed([
+      { tipo: 'acesso', em: '2026-10-27T12:00:00.000Z', pessoa: p, ref: 'ch_AAAAAAAAAAAAAAAA', nome: 'Claude', conector: 'claude.ai' },
+      { tipo: 'acesso', em: '2026-10-27T11:00:00.000Z', pessoa: p, ref: 'ch_BBBBBBBBBBBBBBBB', nome: 'Script', conector: null },
+      { tipo: 'acesso', em: '2026-10-27T10:00:00.000Z', pessoa: p, ref: 'nao-e-chave', nome: 'X' },
+    ]);
+    expect(items.map((i) => (i.tipo === 'acesso' ? [i.nome, i.conector] : null))).toEqual([
+      ['Claude', 'claude.ai'],
+      ['Script', null],
+    ]);
+    expect(visibleFeed(items, 'separado', 'livros').length).toBe(2);
+  });
 });

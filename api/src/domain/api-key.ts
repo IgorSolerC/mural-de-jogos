@@ -12,7 +12,7 @@ import {
 } from '../../../contrato/api-v1/escopos';
 import { montarSegredo, segredoConfere } from '../../../contrato/api-v1/segredo';
 import { HttpError } from '../errors';
-import { Deps } from '../ports';
+import { Deps, Statement } from '../ports';
 import { plainCode } from './agenda';
 import { base64url } from './bytes';
 import { DAY_MS, write } from './quota';
@@ -248,3 +248,24 @@ export function requireScope(caller: KeyCaller, scope: string): void {
   if (scope === ESCOPO_BASICO || caller.key.scopes.includes(scope)) return;
   throw new HttpError(403, 'sem-permissao', `Esta chave não tem a permissão "${scope}". Mude a chave em Ajustes › Acessos.`);
 }
+
+/**
+ * O aviso no Correio de que um acesso nasceu (decisão D11 do PLANO-API.md): uma chave criada no site
+ * ou um conector autorizado. Vai no mesmo lote da gravação da chave; a conta é autora e alvo. Se não
+ * foi a pessoa, ela vê no quadro de avisos e apaga em Acessos.
+ */
+export function accessNotice(
+  userId: string,
+  keyId: string,
+  name: string,
+  connector: string | null,
+  at: string,
+  /** Só grava se isto valer (um `EXISTS (…)`: o pedido do OAuth ainda aberto). */
+  onlyIf?: { sql: string; params: string[] },
+): Statement {
+  return {
+    sql: `INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) SELECT 'acesso', ?, ?, ?, ?, ?${onlyIf ? ` WHERE ${onlyIf.sql}` : ''}`,
+    params: [userId, userId, keyId, JSON.stringify({ nome: name, conector: connector }), at, ...(onlyIf?.params ?? [])],
+  };
+}
+

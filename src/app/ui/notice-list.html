@@ -2,6 +2,14 @@
   @for (n of notices(); track n.key) {
     @let isNew = fresh().has(n.key);
     <li class="aviso" [class.de-agora]="isNew">
+      @if (n.tipo === 'acesso') {
+        <!-- um acesso novo à conta: não é de uma pessoa, é a chave (ou o link do conector) num disco de tinta -->
+        <span class="fotos" aria-hidden="true">
+          <span class="disco-acesso">
+            <lucide-icon [img]="n.item.conector ? ConnectorIcon : KeyIcon" [size]="19" aria-hidden="true" />
+          </span>
+        </span>
+      } @else {
       <!-- quem foi (até duas fotos, cada uma levando ao perfil da pessoa) e, no remendo, o que fez -->
       <span class="fotos" aria-hidden="true">
         @for (p of n.people.slice(0, 2); track p.codigo) {
@@ -31,8 +39,22 @@
           }
         </span>
       </span>
+      }
 
       <div class="corpo">
+        @if (n.tipo === 'acesso') {
+          <p class="texto">
+            <span class="sr-only">{{ spoken(n) }}. </span>
+            <span aria-hidden="true">
+              @if (n.item.conector) {
+                O conector <span class="obra">{{ n.item.nome }}</span> ganhou acesso ao seu Murall
+                <span class="dominio-acesso">({{ n.item.conector }})</span>
+              } @else {
+                Chave de API criada: <span class="obra">{{ n.item.nome }}</span>
+              }
+            </span>
+          </p>
+        } @else {
         <p class="texto">
           <span class="sr-only">{{ spoken(n) }}. </span>
           <!-- cada nome (até dois) leva ao perfil da pessoa, por cima do botão da linha -->
@@ -54,6 +76,7 @@
             }
           </span>
         </p>
+        }
         <p class="meta">
           <time [attr.datetime]="n.item.em" [title]="full(n)">{{ ago(n) }}</time>
           @if (n.tipo === 'compartilhou') {
@@ -63,6 +86,9 @@
             <span class="novo">Novo</span>
           }
         </p>
+        @if (n.tipo === 'acesso') {
+          <p class="cuidado-acesso">Não foi você? Apague em Acessos.</p>
+        }
       </div>
 
       <!-- o que a linha abre: a minha ficha, ou o perfil de quem começou a seguir (o botão cobre a linha) -->
@@ -85,6 +111,8 @@
             {{ following() === n.item.pessoa.codigo ? 'Seguindo…' : 'Seguir de volta' }}
           </button>
         }
+      } @else if (n.tipo === 'acesso') {
+        <button type="button" class="abre" aria-label="Ver os acessos em Ajustes" (click)="access.emit(n)"></button>
       } @else if (n.tipo === 'compartilhou') {
         <!-- a anotação compartilhada: a linha abre; "Sair" tira ela do seu mural -->
         @if (hasShared(n)) {

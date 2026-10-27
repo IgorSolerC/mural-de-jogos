@@ -152,6 +152,37 @@
   }
 }
 
+/* o acesso novo (uma chave, um conector): o disco de tinta com o ícone em amarelo, do tamanho da foto */
+.disco-acesso {
+  display: grid;
+  place-items: center;
+  width: var(--foto);
+  height: var(--foto);
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--hi);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+/* embaixo da hora: o que fazer se o acesso não foi você (a linha toda abre Acessos) */
+.cuidado-acesso {
+  margin-top: 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.76rem;
+  letter-spacing: 0.09em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.dominio-acesso {
+  font-family: var(--f-mono);
+  font-weight: 700;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
 /* o título da ficha, sublinhado a lápis */
 .obra {
   font-weight: 700;
@@ -161,8 +192,10 @@
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  /* numa lista estreita, o que não cabe desce inteiro (a hora nunca se parte) */
+  gap: 6px 8px;
   margin-top: 5px;
   font-family: var(--f-label);
   font-weight: 800;
@@ -171,6 +204,10 @@
   line-height: 1;
   text-transform: uppercase;
   color: var(--ink-2);
+}
+
+time {
+  white-space: nowrap;
 }
 
 /* "Novo": o adesivo de tinta com a letra amarela, pequeno, ao lado da hora */

@@ -19,7 +19,7 @@ import {
   retornoConhecido,
   retornoLocal,
 } from '../../../contrato/api-v1/oauth';
-import { KeyRow, MAX_KEYS_PER_DAY, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, newSecret, readKeyInput } from '../domain/api-key';
+import { KeyRow, MAX_KEYS_PER_DAY, accessNotice, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, newSecret, readKeyInput } from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { DAY_MS, write } from '../domain/quota';
@@ -459,9 +459,10 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
       },
       { sql: `UPDATE oauth_clientes SET usado_em = ? WHERE id = ? AND ${open.sql}`, params: [at, p.cliente_id, ...open.params] },
       brakeStatement(s.userId, 'chave', now),
+      accessNotice(s.userId, row.id, row.nome, dominioDoRetorno(p.retorno), at, open),
       { sql: 'DELETE FROM oauth_pedidos WHERE id = ?', params: [p.id] },
     ];
-    const [created] = await write(deps, statements, 10);
+    const [created] = await write(deps, statements, 15);
     if (!created?.changes) throw requestGone();
     return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row), { dominio: dominioDoRetorno(p.retorno) }) }, 201);
   });

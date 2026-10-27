@@ -41,7 +41,7 @@ interface Person {
 }
 
 interface FeedRow {
-  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'respondeu' | 'compartilhou';
+  tipo: 'seguiu' | 'resenha' | 'reagiu' | 'comentou' | 'respondeu' | 'compartilhou' | 'acesso';
   criado_em: string;
   ref: string | null;
   resumo: string | null;
@@ -65,6 +65,19 @@ function isoParam(value: unknown): string | null {
  */
 async function pairKey(followerId: string, followedId: string): Promise<string> {
   return base64url((await sha256(`seguindo:${followerId}:${followedId}`)).slice(0, 12));
+}
+
+/** O que o aviso de acesso guardou: o nome da chave e, num conector, o domínio dele. */
+function accessSummary(raw: string | null): { nome: string; conector: string | null } {
+  try {
+    const d = JSON.parse(raw ?? '{}') as Record<string, unknown>;
+    return {
+      nome: typeof d['nome'] === 'string' && d['nome'] ? d['nome'].slice(0, 60) : 'Uma chave',
+      conector: typeof d['conector'] === 'string' && d['conector'] ? d['conector'].slice(0, 120) : null,
+    };
+  } catch {
+    return { nome: 'Uma chave', conector: null };
+  }
 }
 
 function summary(raw: string | null): { titulo: string; mural: string; reacao?: string; papel?: string; dono?: string; comentario?: string } | null {
@@ -296,7 +309,9 @@ export function followRoutes(app: Hono, deps: Deps): void {
           'LEFT JOIN seguindo m ON m.seguidor_id = a.alvo_id AND m.seguido_id = a.autor_id ' +
           // (o comentário do dono numa anotação compartilhada é aviso só para os outros dela)
           // (e quem respondeu a um comentário meu, em qualquer ficha)
-          "WHERE a.tipo IN ('reagiu', 'comentou', 'respondeu') AND a.alvo_id = ? AND a.autor_id <> a.alvo_id AND a.criado_em > ? " +
+          // (e uma chave de API criada ou um conector autorizado nesta conta, PLANO-API.md D11: a conta é autora
+          // e alvo; fica aqui porque o D1 aceita no máximo 5 partes num UNION)
+          "WHERE ((a.tipo IN ('reagiu', 'comentou', 'respondeu') AND a.autor_id <> a.alvo_id) OR a.tipo = 'acesso') AND a.alvo_id = ? AND a.criado_em > ? " +
           'UNION ALL ' +
           // quem comentou numa anotação em que eu estou (de outra pessoa), enquanto eu ainda estou nela
           "SELECT 'comentou' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(f.silenciado, 0) AS silenciado, " +
@@ -332,6 +347,10 @@ export function followRoutes(app: Hono, deps: Deps): void {
       itens: rows.map((r) => {
         const base = { tipo: r.tipo, em: r.criado_em, pessoa: personOut(r) };
         if (r.tipo === 'seguiu') return { ...base, euSigo: !!r.eu_sigo };
+        if (r.tipo === 'acesso') {
+          const a = accessSummary(r.resumo);
+          return { ...base, ref: r.ref, nome: a.nome, conector: a.conector };
+        }
         const sum = summary(r.resumo);
         if (r.tipo === 'compartilhou') {
           return { ...base, ref: r.ref, titulo: (sum?.titulo || 'Anotação').slice(0, 120), mural: 'anotacoes', papel: sum?.papel ?? 'leitor', euSigo: !!r.eu_sigo };

@@ -5,6 +5,7 @@ import {
   KEY_ID_RE,
   KeyRow,
   MAX_KEYS_PER_DAY,
+  accessNotice,
   apiAllowed,
   apiUnavailable,
   connectorDomain,
@@ -96,8 +97,9 @@ export function keyRoutes(app: Hono, deps: Deps): void {
           params: [row.id, row.usuario_id, row.nome, row.origem, row.escopos, row.grupos, row.aprovacao, row.criada_em, row.expira_em, null, await hashToken(secret)],
         },
         brakeStatement(s.userId, 'chave', now),
+        accessNotice(s.userId, row.id, row.nome, null, at),
       ],
-      6,
+      11,
     );
     // o segredo só existe nesta resposta: a nuvem guarda o hash
     return c.json({ chave: keyOut(keyOf(row)), segredo: secret }, 201);
