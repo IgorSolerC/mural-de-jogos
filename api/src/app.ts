@@ -16,6 +16,7 @@ import { notesWriteRoutes } from './ext/notes-write';
 import { mcpRoutes } from './ext/mcp';
 import { docsRoutes } from './ext/docs';
 import { oauthRoutes } from './ext/oauth';
+import { spendingReadRoutes } from './ext/spending-read';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -100,6 +101,7 @@ export function createApp(deps: Deps): Hono {
   mirrorRoutes(app, deps);
   requestRoutes(app, deps);
   extRoutes(app, deps);
+  spendingReadRoutes(app, deps);
   notesWriteRoutes(app, deps);
   mcpRoutes(app, deps);
   oauthRoutes(app, deps);

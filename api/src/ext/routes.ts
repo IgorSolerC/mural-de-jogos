@@ -5,6 +5,8 @@ import { formatCode } from '../domain/code';
 import { KeyCaller, authenticateKey, keyOut, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
 import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
+import { spendingContext } from './spending-read';
+import type { ContextoGastosV1, LancamentoV1 } from '../../../contrato/api-v1/gastos';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 
@@ -28,7 +30,7 @@ const ORDERS: Record<string, string> = {
 const notFound = () => new HttpError(404, 'nota-nao-encontrada', 'Não achei essa nota (ou ela está num grupo que esta chave não alcança).');
 
 /** O estado do espelho da conta, para a AI saber se a lista vazia é "não tem nada" ou "ainda não chegou". */
-async function mirrorState(deps: Deps, userId: string) {
+export async function mirrorState(deps: Deps, userId: string) {
   const row = await deps.db.first<{ atualizado_em: string; fuso: string | null }>('SELECT atualizado_em, fuso FROM api_espelho_estado WHERE usuario_id = ?', [
     userId,
   ]);
@@ -192,18 +194,23 @@ export function extRoutes(app: Hono, deps: Deps): void {
       fuso: state.fuso ?? 'America/Sao_Paulo',
       chave: keyOut(me.key),
       notas,
+      // os envelopes e as pessoas dos Gastos (os nomes a usar ao lançar), para a chave que os lê
+      gastos: me.key.scopes.includes('gastos:ler') ? ((await spendingContext(deps, me.key.userId)) satisfies ContextoGastosV1 | null) : null,
       espelho: state,
     });
   });
 
-  // ===== A busca (por ora, nas Anotações) =====
+  // ===== A busca: nas Anotações e nos títulos dos lançamentos =====
 
   app.get('/ext/v1/busca', async (c) => {
     const me = await caller(c);
     const raw = c.req.query('q')?.trim() ?? '';
     if (raw.length < 2 || raw.length > 200) throw new HttpError(400, 'busca-invalida', 'Escreva de 2 a 200 letras para buscar.');
     const areas = (c.req.query('areas') ?? 'notas').split(',').map((a) => a.trim());
-    const itens: { tipo: 'nota'; id: string; titulo: string; grupo: string | null; trecho: string }[] = [];
+    const itens: (
+      | { tipo: 'nota'; id: string; titulo: string; grupo: string | null; trecho: string }
+      | { tipo: 'lancamento'; id: string; titulo: string; dia: string; centavos: number; envelope: string | null }
+    )[] = [];
     if (areas.includes('notas')) {
       requireScope(me, 'notas:ler');
       const term = dobra(raw);
@@ -215,6 +222,17 @@ export function extRoutes(app: Hono, deps: Deps): void {
       for (const row of rows) {
         const n = JSON.parse(row.dados) as NotaV1;
         itens.push({ tipo: 'nota', id: n.id, titulo: n.titulo, grupo: n.grupo, trecho: excerpt(n, term) });
+      }
+    }
+    if (areas.includes('gastos')) {
+      requireScope(me, 'gastos:ler');
+      const rows = await deps.db.all<{ dados: string }>(
+        `SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lancamento' AND busca LIKE ? ESCAPE '\\' ORDER BY data DESC LIMIT ?`,
+        [me.key.userId, `%${dobra(raw).replace(/[%_\\]/g, (m) => `\\${m}`)}%`, SEARCH_MAX],
+      );
+      for (const row of rows) {
+        const l = JSON.parse(row.dados) as LancamentoV1;
+        itens.push({ tipo: 'lancamento', id: l.id, titulo: l.titulo, dia: l.dia, centavos: l.centavos, envelope: l.envelope?.nome ?? null });
       }
     }
     return c.json({ itens, espelho: await mirrorState(deps, me.key.userId) });

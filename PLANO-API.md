@@ -1364,10 +1364,15 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      o lançamento, o mês que saiu da janela). O mês leva o dia de verdade de cada linha (a compra que
      conta na fatura de outro mês), o reembolso descontando do envelope e das pessoas do gasto, e você
      primeiro em `por_pessoa`. Nada novo no navegador.
-  3. API, ler: `GET /ext/v1/gastos/meses/:mes` (a visão), `GET /ext/v1/gastos/lancamentos`
+  3. [feito] API, ler: `GET /ext/v1/gastos/meses/:mes` (a visão), `GET /ext/v1/gastos/lancamentos`
      (`de`/`ate` em meses ou dias, `envelope`, `pessoa`, `tipo`, `q`, `limite`, `depois`),
      `GET /ext/v1/gastos/lancamentos/:id`, e o `GET /ext/v1/contexto` com `gastos` (envelopes,
-     pessoas, os meses com lançamento) para a chave que lê os gastos. Testes.
+     pessoas, os meses com lançamento) para a chave que lê os gastos. Testes. Feito assim: as rotas em
+     `api/src/ext/spending-read.ts`; o mês fora da janela é 404 `mes-fora` (com a dica de listar com
+     `de`/`ate`); `de`/`ate` filtram pelo dia do lançamento (no parcelado, o da primeira parcela; o que
+     conta em cada mês é a visão); envelope e pessoa são achados pelo nome sem acento no contexto (e
+     "eu"/"você" é você), e um nome que não existe dá 400 com os que existem; a busca ganhou
+     `areas=gastos` (os títulos dos lançamentos). Os pedidos por cima entram no passo 4.
   4. Contrato das operações e API, escrever: `gasto.lancar` (um, `itens` ou `frase`/`frases`),
      `gasto.editar`, `gasto.apagar`, `envelope.criar`, `envelope.editar`, `pessoa.criar`,
      `pessoa.editar`, nas rotas `POST /ext/v1/gastos/lancamentos`, `PATCH`/`DELETE

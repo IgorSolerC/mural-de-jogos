@@ -229,4 +229,75 @@ export function gastosSuite(label: string, getDb: () => Db) {
       expect(await t.db.first('SELECT 1 AS x FROM api_espelho_estado WHERE usuario_id = ?', [me.id])).toBeNull();
     });
   });
+
+  describe(`${label}: ler os Gastos com a chave`, () => {
+    it('pede gastos:ler', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      const other = await t.newKey(me.token, ['notas:ler']);
+      const res = await t.ext(other.segredo, '/ext/v1/gastos/meses/2026-10');
+      expect(res.status).toBe(403);
+      expect((await t.body(res)).erro).toBe('sem-permissao');
+    });
+
+    it('o mês como o app mostra; fora da janela, 404 com o que fazer; espelho vazio, avisa', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const got = await t.body(t.ext(secret, '/ext/v1/gastos/meses/2026-10'));
+      expect(got.mes).toEqual(mes('2026-10'));
+      expect(got.espelho.estado).toBe('pronto');
+      const out = await t.ext(secret, '/ext/v1/gastos/meses/2020-01');
+      expect(out.status).toBe(404);
+      expect((await t.body(out)).erro).toBe('mes-fora');
+      expect((await t.ext(secret, '/ext/v1/gastos/meses/2026-13')).status).toBe(400);
+      const u = await setup();
+      const me = await u.login('bia');
+      const k = await u.newKey(me.token, ['gastos:ler']);
+      const empty = await u.body(u.ext(k.segredo, '/ext/v1/gastos/meses/2026-10'));
+      expect(empty.mes).toBeNull();
+      expect(empty.espelho.estado).toBe('vazio');
+    });
+
+    it('os lançamentos, do dia mais recente para o mais antigo, com os filtros', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const ids = async (query = '') => ((await t.body(t.ext(secret, `/ext/v1/gastos/lancamentos${query}`))).itens as { id: string }[]).map((l) => l.id);
+      expect(await ids()).toEqual(['merc-1', 'sal-1', 'viol-1']);
+      expect(await ids('?de=2026-10')).toEqual(['merc-1', 'sal-1']);
+      expect(await ids('?ate=2026-09')).toEqual(['viol-1']);
+      expect(await ids('?de=2026-10-02&ate=2026-10-31')).toEqual(['merc-1']);
+      expect(await ids('?tipo=entrada')).toEqual(['sal-1']);
+      expect(await ids('?envelope=item')).toEqual(['viol-1']);
+      expect(await ids('?envelope=mercado')).toEqual(['merc-1']);
+      expect(await ids('?pessoa=bruna')).toEqual(['viol-1']);
+      expect(await ids('?pessoa=eu')).toEqual(['merc-1', 'viol-1']);
+      expect(await ids('?q=MERC')).toEqual(['merc-1']);
+      const page = await t.body(t.ext(secret, '/ext/v1/gastos/lancamentos?limite=1'));
+      expect([page.itens.length, page.depois]).toEqual([1, '1']);
+      expect(await ids('?limite=2&depois=1')).toEqual(['sal-1', 'viol-1']);
+      const unknown = await t.ext(secret, '/ext/v1/gastos/lancamentos?envelope=Farmacia');
+      expect(unknown.status).toBe(400);
+      expect((await t.body(unknown)).mensagem).toContain('Mercado, Item, Renda');
+      expect((await t.ext(secret, '/ext/v1/gastos/lancamentos?de=ontem')).status).toBe(400);
+      expect((await t.ext(secret, '/ext/v1/gastos/lancamentos?tipo=gasto')).status).toBe(400);
+    });
+
+    it('um lançamento pelo id', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      expect((await t.body(t.ext(secret, '/ext/v1/gastos/lancamentos/viol-1'))).lancamento).toEqual(LANCAMENTOS[1]);
+      expect((await t.ext(secret, '/ext/v1/gastos/lancamentos/nao-existe')).status).toBe(404);
+    });
+
+    it('o contexto traz os envelopes e as pessoas para a chave que lê os gastos; a busca acha lançamentos', async () => {
+      const t = await setup();
+      const { secret, me } = await t.ready();
+      expect((await t.body(t.ext(secret, '/ext/v1/contexto'))).gastos).toEqual(CONTEXTO);
+      const notesOnly = await t.newKey(me.token, ['notas:ler']);
+      expect((await t.body(t.ext(notesOnly.segredo, '/ext/v1/contexto'))).gastos).toBeNull();
+      const found = await t.body(t.ext(secret, '/ext/v1/busca?q=viol&areas=gastos'));
+      expect(found.itens).toEqual([{ tipo: 'lancamento', id: 'viol-1', titulo: 'Violão', dia: '2026-09-10', centavos: 13990, envelope: 'Item' }]);
+      expect((await t.ext(notesOnly.segredo, '/ext/v1/busca?q=viol&areas=gastos')).status).toBe(403);
+    });
+  });
 }
