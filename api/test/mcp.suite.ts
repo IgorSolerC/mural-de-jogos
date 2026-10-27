@@ -1,6 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FERRAMENTAS } from '../../contrato/api-v1/ferramentas';
+import { FERRAMENTAS, alcanca } from '../../contrato/api-v1/ferramentas';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { googleVerifier } from '../src/domain/google';
@@ -94,7 +94,10 @@ export function mcpSuite(label: string, getDb: () => Db) {
       expect((await t.body(t.rpc('tools/call', { name: 'criar_nota', arguments: { titulo: 'x' } }))).error.code).toBe(-32602);
       const all = await setup(['notas:ler', 'notas:criar', 'notas:editar', 'notas:apagar']);
       const names = ((await all.body(all.rpc('tools/list'))).result.tools as { name: string }[]).map((x) => x.name);
-      expect(names).toEqual(FERRAMENTAS.map((f) => f.nome));
+      // todas as das Anotações (as dos Gastos pedem as permissões deles)
+      expect(names).toEqual(FERRAMENTAS.filter((f) => alcanca(f, ['notas:ler', 'notas:criar', 'notas:editar', 'notas:apagar'])).map((f) => f.nome));
+      expect(names).toContain('apagar_nota');
+      expect(names).not.toContain('lancar_gastos');
     });
 
     it('ler: o texto da nota volta marcado como conteúdo do usuário', async () => {

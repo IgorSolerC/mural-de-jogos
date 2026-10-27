@@ -1401,11 +1401,20 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      dos pedidos ganhou os ícones dos Gastos (moedas, etiqueta, pessoa), "O lançamento não existe mais"
      e a frase do apagar ("Ele sai dos Gastos; o Desfazer do histórico põe de volta"). O bundle inicial
      foi a 1,88 MB (o livro dos Gastos entrou no serviço dos pedidos, que sobe com o site).
-  6. MCP e guia: as ferramentas `ver_gastos_do_mes`, `listar_lancamentos`, `lancar_gastos`,
+  6. [feito, BUILD 582] MCP e guia: as ferramentas `ver_gastos_do_mes`, `listar_lancamentos`, `lancar_gastos`,
      `editar_lancamento`, `apagar_lancamento`, `criar_envelope`, `editar_envelope`, `criar_pessoa`,
      `editar_pessoa`; a parte dos gastos no guia; o OpenAPI e as cópias em `docs/api` regerados; as
      frases do site que dizem o que a chave faz ("lê e escreve nas anotações e nos gastos"). BUILD + 1
      se o site mudar.
+     Feito assim: mais `ler_lancamento`; as dez ferramentas dos Gastos em `FERRAMENTAS_DOS_GASTOS`
+     (`contrato/api-v1/ferramentas.ts`); a permissão de uma ferramenta pode ser uma lista (qualquer
+     uma: `ver_contexto` e `buscar` valem para quem lê as notas ou os gastos; `alcanca`,
+     `escopoEmPalavras`); cada `:nome` do caminho sai do argumento de mesmo nome (o `:mes`), e no
+     DELETE o resto vai na consulta (a `versao` de `apagar_lancamento`), no MCP e no OpenAPI; o
+     resumo do MCP diz "N pedidos feitos" no lote e "alvo" no que não é nota; a busca sem `areas`
+     busca em tudo que a chave lê; o guia ganhou "Os gastos" (centavos, envelope, o mês pronto, a
+     frase rápida, os nomes que existem) e as regras de ouro falam também dos lançamentos. As cópias
+     em `docs/api/` foram regeradas (`cd api && npm run docs`).
   7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave com os gastos, o espelho enchendo,
      ler o mês, lançar por frase e por lote, aplicar, desfazer) e no ar (as rotas novas respondendo).
      Anotar aqui.

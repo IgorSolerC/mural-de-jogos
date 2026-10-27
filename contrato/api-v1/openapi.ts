@@ -4,22 +4,23 @@
  * revisada no repositório (um teste da API confere). Só funções puras.
  */
 
-import { ARGUMENTOS_DE_FORA, FERRAMENTAS, type Esquema, type Ferramenta } from './ferramentas';
+import { ARGUMENTOS_DE_FORA, FERRAMENTAS, escopoEmPalavras, type Esquema, type Ferramenta } from './ferramentas';
 
 const fora = ARGUMENTOS_DE_FORA as readonly string[];
 
-/** Uma operação do OpenAPI para a ferramenta, na rota `path` (com ou sem o id). */
-function operacao(f: Ferramenta, comId: boolean) {
+/** Uma operação do OpenAPI para a ferramenta, na rota `caminho` (com ou sem o id). */
+function operacao(f: Ferramenta, caminho: string, comId: boolean) {
   const props = f.entrada.properties ?? {};
   const required = f.entrada.required ?? [];
-  const campos = Object.entries(props).filter(([k]) => !fora.includes(k));
+  const inPath = [...caminho.matchAll(/:(\w+)/g)].map((m) => m[1]!);
+  const campos = Object.entries(props).filter(([k]) => !fora.includes(k) && !inPath.includes(k));
   const parameters: unknown[] = [];
-  if (comId) parameters.push({ name: 'id', in: 'path', required: true, schema: props['id'] ?? { type: 'string' } });
+  for (const name of inPath) parameters.push({ name, in: 'path', required: true, schema: props[name] ?? { type: 'string' } });
   if (props['chave_idempotencia']) {
     parameters.push({ name: 'Idempotency-Key', in: 'header', required: false, description: props['chave_idempotencia'].description, schema: { type: 'string', maxLength: 100 } });
   }
   let requestBody: unknown;
-  if (f.metodo === 'GET') {
+  if (f.metodo === 'GET' || f.metodo === 'DELETE') {
     for (const [name, schema] of campos) parameters.push({ name, in: 'query', required: required.includes(name), ...(schema.description ? { description: schema.description } : {}), schema: semDescricao(schema) });
   } else if (campos.length) {
     const body: Esquema = { type: 'object', properties: Object.fromEntries(campos), additionalProperties: false };
@@ -31,7 +32,7 @@ function operacao(f: Ferramenta, comId: boolean) {
   return {
     operationId: comId || !f.caminhoSemId ? f.nome : `${f.nome}_todos`,
     summary: f.titulo,
-    description: f.descricao + (f.escopo ? ` Permissão: ${f.escopo}.` : ''),
+    description: f.descricao + (f.escopo ? ` Permissão: ${escopoEmPalavras(f.escopo)}.` : ''),
     ...(parameters.length ? { parameters } : {}),
     ...(requestBody ? { requestBody } : {}),
     responses: { ...ok, default: { description: 'Erro: {"erro": "codigo", "mensagem": "..."}' } },
@@ -46,8 +47,8 @@ function semDescricao(s: Esquema): Esquema {
 export function openapi(api: string) {
   const paths: Record<string, Record<string, unknown>> = {};
   const add = (caminho: string, f: Ferramenta, comId: boolean) => {
-    const p = caminho.replace(':id', '{id}');
-    (paths[p] ??= {})[f.metodo.toLowerCase()] = operacao(f, comId);
+    const p = caminho.replace(/:(\w+)/g, '{$1}');
+    (paths[p] ??= {})[f.metodo.toLowerCase()] = operacao(f, caminho, comId);
   };
   for (const f of FERRAMENTAS) {
     if (!f.caminho.startsWith('/ext/')) continue;

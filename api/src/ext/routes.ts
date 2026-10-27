@@ -206,7 +206,9 @@ export function extRoutes(app: Hono, deps: Deps): void {
     const me = await caller(c);
     const raw = c.req.query('q')?.trim() ?? '';
     if (raw.length < 2 || raw.length > 200) throw new HttpError(400, 'busca-invalida', 'Escreva de 2 a 200 letras para buscar.');
-    const areas = (c.req.query('areas') ?? 'notas').split(',').map((a) => a.trim());
+    // sem areas, tudo que a chave lê
+    const readable = [...(me.key.scopes.includes('notas:ler') ? ['notas'] : []), ...(me.key.scopes.includes('gastos:ler') ? ['gastos'] : [])];
+    const areas = (c.req.query('areas') ?? (readable.join(',') || 'notas')).split(',').map((a) => a.trim());
     const itens: (
       | { tipo: 'nota'; id: string; titulo: string; grupo: string | null; trecho: string }
       | { tipo: 'lancamento'; id: string; titulo: string; dia: string; centavos: number; envelope: string | null }

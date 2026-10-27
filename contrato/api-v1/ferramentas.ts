@@ -7,13 +7,13 @@
 
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
-  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'null')[];
+  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'integer' | 'null')[];
   description?: string;
   properties?: Record<string, Esquema>;
   required?: string[];
   additionalProperties?: boolean;
   items?: Esquema;
-  enum?: readonly (string | null)[];
+  enum?: readonly (string | number | null)[];
   minimum?: number;
   maximum?: number;
   maxLength?: number;
@@ -30,13 +30,19 @@ export interface Ferramenta {
   /** Um nome curto para gente (o cliente mostra). */
   titulo: string;
   descricao: string;
-  /** A permissão que a chave precisa; null: qualquer chave. A ferramenta some do tools/list sem ela. */
-  escopo: string | null;
+  /**
+   * A permissão que a chave precisa (uma lista: qualquer uma delas); null: qualquer chave. A ferramenta
+   * some do tools/list sem ela.
+   */
+  escopo: string | readonly string[] | null;
   somenteLeitura: boolean;
   /** Apaga ou some com algo: o cliente pede confirmação. */
   destrutiva: boolean;
   entrada: Esquema;
-  /** A rota de `/ext/v1` que faz o trabalho. `:id` sai do argumento `id`; sem `id`, vale `caminhoSemId`. */
+  /**
+   * A rota de `/ext/v1` que faz o trabalho. Cada `:nome` sai do argumento de mesmo nome (`:id`, `:mes`);
+   * sem `id`, vale `caminhoSemId`. No GET e no DELETE, o resto dos argumentos vai na consulta.
+   */
   metodo: Metodo;
   caminho: string;
   caminhoSemId?: string;
@@ -69,6 +75,196 @@ const obj = (properties: Record<string, Esquema>, required: string[] = []): Esqu
   additionalProperties: false,
 });
 
+// ===== Os Gastos (rodada 6) =====
+
+const idLanc: Esquema = { type: 'string', description: 'O id do lançamento.', pattern: '^[\\w-]{1,64}$' };
+const versao: Esquema = { type: 'string', description: 'A versao do lançamento que você leu (o campo versao).' };
+const mesArg: Esquema = { type: 'string', pattern: '^\\d{4}-(0[1-9]|1[0-2])$', description: 'O mês, AAAA-MM.' };
+
+/** Os campos de um lançamento que se escrevem (a forma que `conferirOpGasto` confere de novo). */
+const CAMPOS_DO_GASTO: Record<string, Esquema> = {
+  titulo: { type: 'string', minLength: 1, maxLength: 80, description: 'O que foi ("Mercado", "Uber").' },
+  centavos: { type: 'integer', minimum: 1, maximum: 1000000000, description: 'O valor em centavos, inteiro (R$ 230,50 = 23050). No parcelado, o de cada parcela.' },
+  tipo: { type: 'string', enum: ['saida', 'entrada'], description: 'saida (o padrão) ou entrada.' },
+  envelope: { type: 'string', maxLength: 64, description: 'O envelope (a categoria), pelo nome de ver_contexto. Sem ele, Outros.' },
+  pagamento: { type: 'string', enum: ['avista', 'pix', 'parcelado'], description: 'Só na saída (o padrão é avista).' },
+  parcelas: { type: 'integer', minimum: 2, maximum: 72, description: 'Parcelado em quantas vezes (vira pagamento parcelado).' },
+  precisava: { type: ['string', 'null'], enum: ['luxo', 'conforto', 'indispensavel', null], description: 'Precisava? Só na saída.' },
+  pessoas: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 64 }, description: 'Com quem foi, pelos nomes ("eu" é você). Sem nada, só você.' },
+  dia: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'O dia, AAAA-MM-DD (sem ele, hoje no fuso da pessoa). No parcelado, o da primeira parcela.' },
+  fatura: { type: 'integer', enum: [-1, 0, 1], description: 'A fatura do cartão: conta no mês do dia (0), no de antes (-1) ou no de depois (1).' },
+  mensal: { type: 'boolean', description: 'Repete todo mês, a partir do mês do dia.' },
+  ate: { type: ['string', 'null'], pattern: '^\\d{4}-\\d{2}$', description: 'Mensal: o último mês (AAAA-MM), ou null para sem fim.' },
+  reembolso_de: { type: ['string', 'null'], description: 'Entrada que paga de volta um gasto: o id dele.' },
+};
+const criarEnvelope: Esquema = { type: 'boolean', description: 'Cria o envelope se não existir (pede a permissão gastos:editar). Prefira os que existem.' };
+const criarPessoas: Esquema = { type: 'boolean', description: 'Cria as pessoas que não existirem (pede a permissão gastos:editar).' };
+
+export const FERRAMENTAS_DOS_GASTOS: readonly Ferramenta[] = [
+  {
+    nome: 'ver_gastos_do_mes',
+    titulo: 'Ver os gastos do mês',
+    descricao:
+      'O mês como o app mostra: entradas, saídas e saldo, quanto foi em cada envelope (com o limite), Precisava?, por pessoa, os carnês e as linhas do mês (cada parcela e cada mensal no mês em que conta). Valores em centavos.',
+    escopo: 'gastos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ mes: mesArg }, ['mes']),
+    metodo: 'GET',
+    caminho: '/ext/v1/gastos/meses/:mes',
+  },
+  {
+    nome: 'listar_lancamentos',
+    titulo: 'Listar lançamentos',
+    descricao: 'Os lançamentos, do dia mais recente para o mais antigo, com filtros. de/ate olham o dia do lançamento (no parcelado, o da primeira parcela); para o que conta num mês, use ver_gastos_do_mes. Pagine com depois.',
+    escopo: 'gastos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      de: { type: 'string', description: 'A partir de: um mês (AAAA-MM) ou um dia (AAAA-MM-DD).' },
+      ate: { type: 'string', description: 'Até: um mês (AAAA-MM) ou um dia (AAAA-MM-DD).' },
+      tipo: { type: 'string', enum: ['saida', 'entrada'], description: 'Só saídas ou só entradas.' },
+      envelope: { type: 'string', description: 'Só deste envelope (nome ou id).' },
+      pessoa: { type: 'string', description: 'Só com esta pessoa ("eu" é você).' },
+      q: { type: 'string', maxLength: 200, description: 'Busca no título.' },
+      limite: { type: 'integer', minimum: 1, maximum: 200, description: 'Quantos (padrão 50).' },
+      depois: { type: 'string', description: 'Para a próxima página: o depois que veio na anterior.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/gastos/lancamentos',
+  },
+  {
+    nome: 'ler_lancamento',
+    titulo: 'Ler um lançamento',
+    descricao: 'Um lançamento inteiro, com a versao (para mudar ou apagar).',
+    escopo: 'gastos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ id: idLanc }, ['id']),
+    metodo: 'GET',
+    caminho: '/ext/v1/gastos/lancamentos/:id',
+  },
+  {
+    nome: 'lancar_gastos',
+    titulo: 'Lançar gastos',
+    descricao:
+      'Lança saídas e entradas: uma lista em itens (até 50, cada um com titulo e centavos) ou frases como na linha de anotar do app ("mercado 230,50 ontem", "violão 10x 139,90 @bruna #luxo", "salário +4559 fixo"). Um pedido por lançamento. Use os envelopes e as pessoas de ver_contexto.',
+    escopo: 'gastos:lancar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({
+      itens: {
+        type: 'array',
+        maxItems: 50,
+        description: 'Os lançamentos (até 50).',
+        items: { ...obj({ ...CAMPOS_DO_GASTO, criar_envelope: criarEnvelope, criar_pessoas: criarPessoas }, ['titulo', 'centavos']) },
+      },
+      frases: { type: 'array', maxItems: 50, items: { type: 'string', minLength: 1, maxLength: 200 }, description: 'Ou frases, uma por lançamento (o Murall entende cada uma como na tela).' },
+      criar_pessoas: criarPessoas,
+      chave_idempotencia: idem,
+    }),
+    metodo: 'POST',
+    caminho: '/ext/v1/gastos/lancamentos',
+  },
+  {
+    nome: 'editar_lancamento',
+    titulo: 'Mudar um lançamento',
+    descricao: 'Muda os campos mandados de um lançamento. Mande a versao que você leu; se voltar conflito, leia de novo.',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ id: idLanc, versao, ...CAMPOS_DO_GASTO, criar_envelope: criarEnvelope, criar_pessoas: criarPessoas, chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/gastos/lancamentos/:id',
+  },
+  {
+    nome: 'apagar_lancamento',
+    titulo: 'Apagar um lançamento',
+    descricao: 'Apaga um lançamento (a pessoa pode desfazer pelo histórico). Mande a versao que você leu. Pergunte ao usuário antes.',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ id: idLanc, versao, chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/gastos/lancamentos/:id',
+  },
+  {
+    nome: 'criar_envelope',
+    titulo: 'Criar um envelope',
+    descricao: 'Cria um envelope (categoria) nos Gastos. Só se a pessoa pediu: prefira os que existem (ver_contexto).',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        nome: { type: 'string', minLength: 1, maxLength: 24, description: 'O nome.' },
+        tipo: { type: 'string', enum: ['saida', 'entrada'], description: 'De saída (o padrão) ou de entrada.' },
+        limite_centavos: { type: ['integer', 'null'], minimum: 0, description: 'O limite do mês, em centavos (só na saída).' },
+        chave_idempotencia: idem,
+      },
+      ['nome'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/gastos/envelopes',
+  },
+  {
+    nome: 'editar_envelope',
+    titulo: 'Mudar um envelope',
+    descricao: 'Muda o nome ou o limite do mês de um envelope (pelo nome ou pelo id).',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        id: { type: 'string', maxLength: 64, description: 'O envelope: o nome ou o id.' },
+        nome: { type: 'string', minLength: 1, maxLength: 24, description: 'O nome novo.' },
+        limite_centavos: { type: ['integer', 'null'], minimum: 0, description: 'O limite do mês, em centavos (null tira).' },
+        chave_idempotencia: idem,
+      },
+      ['id'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/gastos/envelopes/:id',
+  },
+  {
+    nome: 'criar_pessoa',
+    titulo: 'Pôr uma pessoa nos gastos',
+    descricao: 'Põe alguém com quem a pessoa gasta (para dividir os gastos).',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ nome: { type: 'string', minLength: 1, maxLength: 24, description: 'O nome.' }, chave_idempotencia: idem }, ['nome']),
+    metodo: 'POST',
+    caminho: '/ext/v1/gastos/pessoas',
+  },
+  {
+    nome: 'editar_pessoa',
+    titulo: 'Mudar o nome de uma pessoa',
+    descricao: 'Muda o nome de uma pessoa dos gastos ("eu" é você).',
+    escopo: 'gastos:editar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      { id: { type: 'string', maxLength: 64, description: 'A pessoa: o nome, o id ou "eu".' }, nome: { type: 'string', minLength: 1, maxLength: 24, description: 'O nome novo.' }, chave_idempotencia: idem },
+      ['id', 'nome'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/gastos/pessoas/:id',
+  },
+];
+
+/** A permissão em palavras (para o guia e o OpenAPI). */
+export function escopoEmPalavras(escopo: Ferramenta['escopo']): string | null {
+  if (escopo === null) return null;
+  return typeof escopo === 'string' ? escopo : escopo.join(' ou ');
+}
+
+/** A chave com estes escopos alcança a ferramenta? */
+export function alcanca(f: Pick<Ferramenta, 'escopo'>, escopos: readonly string[]): boolean {
+  if (f.escopo === null) return true;
+  return typeof f.escopo === 'string' ? escopos.includes(f.escopo) : f.escopo.some((e) => escopos.includes(e));
+}
+
 export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'guia_do_murall',
@@ -84,8 +280,9 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
-    descricao: 'A conta, o dia de hoje no fuso dela, o que esta chave pode, e o vocabulário das Anotações (grupos com assuntos e tags, tags fixas). Chame antes de criar ou mudar notas, e use os nomes que já existem.',
-    escopo: 'notas:ler',
+    descricao:
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.',
+    escopo: ['notas:ler', 'gastos:ler'],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj({}),
@@ -95,11 +292,17 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'buscar',
     titulo: 'Buscar',
-    descricao: 'Busca nas notas pelo título e pelo texto (sem ligar para acento e caixa). Devolve id, título, grupo e o trecho.',
-    escopo: 'notas:ler',
+    descricao: 'Busca nas notas (título e texto) e nos títulos dos lançamentos, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.',
+    escopo: ['notas:ler', 'gastos:ler'],
     somenteLeitura: true,
     destrutiva: false,
-    entrada: obj({ q: { type: 'string', minLength: 2, maxLength: 200, description: 'O que buscar.' } }, ['q']),
+    entrada: obj(
+      {
+        q: { type: 'string', minLength: 2, maxLength: 200, description: 'O que buscar.' },
+        areas: { type: 'string', description: 'Onde: notas, gastos, ou notas,gastos.' },
+      },
+      ['q'],
+    ),
     metodo: 'GET',
     caminho: '/ext/v1/busca',
   },
@@ -246,6 +449,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     metodo: 'DELETE',
     caminho: '/ext/v1/notas/:id',
   },
+  ...FERRAMENTAS_DOS_GASTOS,
   {
     nome: 'ver_pedidos',
     titulo: 'Ver os pedidos',

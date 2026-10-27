@@ -431,4 +431,54 @@ export function gastosSuite(label: string, getDb: () => Db) {
       expect((await t.body(patch('/ext/v1/gastos/pessoas/eu', { nome: 'Igor' }))).pedido.alvo).toBe('eu');
     });
   });
+
+  describe(`${label}: os Gastos pelo MCP`, () => {
+    const ALL = ['gastos:ler', 'gastos:lancar', 'gastos:editar'];
+    let seq = 0;
+    const rpc = (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, params?: unknown) =>
+      t.body(
+        t.call('/mcp', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, ...(params ? { params } : {}) }),
+        }),
+      );
+    const tool = async (t: Awaited<ReturnType<typeof setup>>, secret: string, name: string, args: Record<string, unknown> = {}) =>
+      (await rpc(t, secret, 'tools/call', { name, arguments: args })).result;
+
+    it('a chave dos gastos vê as ferramentas dos gastos (e o contexto e a busca), não as das notas', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const names = (await rpc(t, secret, 'tools/list')).result.tools.map((x: { name: string }) => x.name);
+      expect(names).toEqual(expect.arrayContaining(['ver_contexto', 'buscar', 'ver_gastos_do_mes', 'listar_lancamentos', 'ler_lancamento', 'lancar_gastos', 'editar_lancamento', 'apagar_lancamento', 'criar_envelope', 'editar_envelope', 'criar_pessoa', 'editar_pessoa', 'ver_pedidos']));
+      expect(names).not.toContain('listar_notas');
+    });
+
+    it('ler o mês e a lista pelo MCP: o caminho com o mês, os filtros na consulta, o texto marcado como dado', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const month = await tool(t, secret, 'ver_gastos_do_mes', { mes: '2026-10' });
+      expect(month.structuredContent.mes.saldo).toBe(418860);
+      expect(month.content[0].text).toContain('<conteudo_do_usuario>');
+      const list = await tool(t, secret, 'listar_lancamentos', { envelope: 'item' });
+      expect(list.structuredContent.itens.map((l: { id: string }) => l.id)).toEqual(['viol-1']);
+      const found = await tool(t, secret, 'buscar', { q: 'violão' });
+      expect(found.structuredContent.itens.map((i: { tipo: string }) => i.tipo)).toEqual(['lancamento']);
+      expect((await tool(t, secret, 'ver_gastos_do_mes', {})).isError).toBe(true);
+    });
+
+    it('lançar por frases vira um pedido por lançamento; apagar leva a versão na consulta', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const out = await tool(t, secret, 'lancar_gastos', { frases: ['ifood 44,90', 'cinema 38 #luxo'] });
+      expect(out.isError).toBeUndefined();
+      expect(out.content[0].text).toMatch(/^2 pedidos feitos/);
+      const del = await tool(t, secret, 'apagar_lancamento', { id: 'viol-1', versao: LANCAMENTOS[1]!.versao });
+      expect(del.structuredContent.pedido).toEqual(expect.objectContaining({ op: 'gasto.apagar', estado: 'aguardando-aprovacao' }));
+      expect(del.content[0].text).toContain('alvo viol-1');
+      const unknown = await tool(t, secret, 'lancar_gastos', { itens: [{ titulo: 'Remédio', centavos: 3000, envelope: 'Farmácia' }] });
+      expect(unknown.isError).toBe(true);
+      expect(unknown.content[0].text).toContain('envelope-desconhecido');
+    });
+  });
 }

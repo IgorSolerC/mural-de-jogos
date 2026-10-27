@@ -1,5 +1,5 @@
 import { Context, Hono } from 'hono';
-import { ARGUMENTOS_DE_FORA, FERRAMENTAS, type Ferramenta } from '../../../contrato/api-v1/ferramentas';
+import { ARGUMENTOS_DE_FORA, FERRAMENTAS, alcanca, type Ferramenta } from '../../../contrato/api-v1/ferramentas';
 import { INSTRUCOES, guia } from '../../../contrato/api-v1/guia';
 import { KeyCaller, authenticateKey } from '../domain/api-key';
 import { HttpError } from '../errors';
@@ -25,7 +25,7 @@ const fail = (id: Id, code: number, message: string) => ({ jsonrpc: '2.0', id, e
 
 /** A ferramenta aparece para esta chave? (Sem a permissão, nem existe para ela.) */
 export function visivel(f: Ferramenta, caller: KeyCaller): boolean {
-  return f.escopo === null || caller.key.scopes.includes(f.escopo);
+  return alcanca(f, caller.key.scopes);
 }
 
 /** A ferramenta como o `tools/list` mostra. */
@@ -45,15 +45,24 @@ function comoDado(json: unknown): string {
 }
 
 /** O resumo de um pedido feito, para a AI não achar que falhou. */
-function resumoDoPedido(data: { pedido?: { id?: string; estado?: string; alvo?: string }; repetido?: boolean }): string {
+function resumoDoPedido(data: { pedido?: Pedido; pedidos?: Pedido[]; repetido?: boolean }): string {
+  // o lote dos Gastos: um pedido por lançamento
+  if (data.pedidos?.length) {
+    const waiting = data.pedidos.filter((p) => p.estado === 'aguardando-aprovacao').length;
+    return `${data.pedidos.length} pedidos feitos (${data.pedidos.map((p) => p.id).join(', ')}). ${
+      waiting ? `${waiting} esperam a pessoa aprovar no Murall; o resto entra` : 'Eles entram'
+    } quando o Murall estiver aberto em algum aparelho da pessoa (confira com ver_pedidos).`;
+  }
   const p = data.pedido;
   if (!p) return 'Feito.';
   const quando =
     p.estado === 'aguardando-aprovacao'
       ? 'Ele espera a pessoa aprovar no Murall.'
       : 'Ele entra quando o Murall estiver aberto em algum aparelho da pessoa (confira com ver_pedidos).';
-  return `Pedido ${p.id} feito${data.repetido ? ' (o mesmo de antes: Idempotency-Key repetido)' : ''}, estado ${p.estado}, nota ${p.alvo}. ${quando}`;
+  return `Pedido ${p.id} feito${data.repetido ? ' (o mesmo de antes: Idempotency-Key repetido)' : ''}, estado ${p.estado}, ${p.op?.startsWith('nota.') === false ? 'alvo' : 'nota'} ${p.alvo}. ${quando}`;
 }
+
+type Pedido = { id?: string; op?: string; estado?: string; alvo?: string };
 
 export function mcpRoutes(app: Hono, deps: Deps): void {
   /** Chama a ferramenta: monta o pedido à rota de /ext/v1 e traduz a resposta. */
@@ -61,21 +70,24 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
     const origin = new URL(c.req.url).origin;
     if (f.nome === 'guia_do_murall') return { content: [{ type: 'text', text: guia(origin) }] };
     let path = f.caminho;
-    if (path.includes(':id')) {
-      if (typeof args['id'] === 'string' && args['id']) path = path.replace(':id', encodeURIComponent(args['id']));
-      else if (f.caminhoSemId) path = f.caminhoSemId;
-      else return { isError: true, content: [{ type: 'text', text: 'Faltou o id.' }] };
+    if (path.includes(':id') && !(typeof args['id'] === 'string' && args['id']) && f.caminhoSemId) path = f.caminhoSemId;
+    // cada :nome do caminho sai do argumento de mesmo nome (o id, o mês)
+    const inPath = [...path.matchAll(/:(\w+)/g)].map((m) => m[1]!);
+    for (const name of inPath) {
+      const v = args[name];
+      if (typeof v !== 'string' || !v) return { isError: true, content: [{ type: 'text', text: `Faltou o ${name}.` }] };
+      path = path.replace(`:${name}`, encodeURIComponent(v));
     }
-    const rest = Object.fromEntries(Object.entries(args).filter(([k]) => !(ARGUMENTOS_DE_FORA as readonly string[]).includes(k)));
+    const rest = Object.fromEntries(Object.entries(args).filter(([k]) => !(ARGUMENTOS_DE_FORA as readonly string[]).includes(k) && !inPath.includes(k)));
     const headers: Record<string, string> = { Authorization: c.req.header('Authorization') ?? '' };
     if (typeof args['chave_idempotencia'] === 'string') headers['Idempotency-Key'] = args['chave_idempotencia'];
     let url = origin + path;
     let body: string | undefined;
-    if (f.metodo === 'GET') {
+    if (f.metodo === 'GET' || f.metodo === 'DELETE') {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(rest)) if (v !== undefined && v !== null) q.set(k, typeof v === 'boolean' ? (v ? 'sim' : 'nao') : String(v));
       if ([...q].length) url += `?${q}`;
-    } else if (f.metodo !== 'DELETE') {
+    } else {
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(rest);
     }
