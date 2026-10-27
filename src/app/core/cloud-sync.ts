@@ -31,6 +31,7 @@ import { BLOCK_KINDS, BaseContent, BlockKind, readBaseContent, writeBaseContent 
 import { SyncConflict, SyncConflicts, blockDefault, sanitizeConflicts, storedConflicts } from './sync-conflicts';
 import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 import { ApiMirror } from './api-mirror';
+import { ApiRequests } from './api-requests';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -646,6 +647,8 @@ export class CloudSync {
   private readonly kanban = inject(KanbanStore);
   /** O espelho da API das AIs (PLANO-API.md, seção 8): sobe depois de cada rodada que deixou tudo igual. */
   private readonly apiMirror = inject(ApiMirror);
+  /** Os pedidos da API das AIs (PLANO-API.md, seção 9): aplicados aqui, depois de uma rodada que deixou tudo igual. */
+  private readonly requests = inject(ApiRequests);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
   private readonly reset = inject(BrowserReset);
@@ -750,10 +753,17 @@ export class CloudSync {
       const every = setInterval(() => {
         if (document.visibilityState === 'visible' && this.active()) this.schedule(0);
       }, 5 * MINUTE);
+      // os pedidos da API das AIs: a cada minuto, também com a aba escondida (decisão D2 do plano); com
+      // algum pendente, uma rodada aplica
+      const requests = setInterval(() => {
+        if (!this.active() || !this.requests.watching(document.visibilityState === 'visible')) return;
+        void this.requests.peek().then((due) => due && this.schedule(0));
+      }, MINUTE);
       destroy.onDestroy(() => {
         document.removeEventListener('visibilitychange', onVisible);
         window.removeEventListener('online', onOnline);
         clearInterval(every);
+        clearInterval(requests);
       });
     }
   }
@@ -816,7 +826,10 @@ export class CloudSync {
         state = await this.firstSync(accountId);
         if (!state) return;
       }
-      await this.pullAndPush(state);
+      state = await this.pullAndPush(state);
+      // os pedidos da API das AIs entram pelas lojas, sobem numa rodada a mais e só então são concluídos
+      if (await this.requests.applyOpen(this.device.id)) state = await this.pullAndPush(state);
+      await this.requests.conclude();
       this.failures = 0;
       this.status.set('ok');
     } catch (err) {
@@ -825,7 +838,7 @@ export class CloudSync {
   }
 
   /** Baixa o que mudou na nuvem, junta, e envia se o mural daqui ficou diferente do de lá. */
-  private async pullAndPush(state: SyncState): Promise<void> {
+  private async pullAndPush(state: SyncState): Promise<SyncState> {
     let remote = await this.fetchRemote(state.rev);
     for (let attempt = 0; ; attempt++) {
       if (remote.kind === 'doc') {
@@ -877,6 +890,7 @@ export class CloudSync {
     // aqui o aparelho e a nuvem estão iguais na rev de agora: o espelho reflete essa (sem esperar, e
     // sem nunca atrapalhar a sincronização)
     void this.apiMirror.afterSync(state.rev);
+    return { ...state, em: now };
   }
 
   /**
@@ -1389,6 +1403,7 @@ export class CloudSync {
       throw err;
     }
     this.noteClock(res);
+    this.requests.noteHeads(res.headers);
     if (res.status === 204) return { kind: 'same' };
     const remoteRev = Number(res.headers.get('Mural-Rev'));
     const text = await readBackupFile(await res.blob());

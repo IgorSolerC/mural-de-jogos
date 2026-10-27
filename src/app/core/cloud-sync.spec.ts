@@ -17,6 +17,8 @@ import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
 import { SyncConflicts } from './sync-conflicts';
 import { BrowserReset, wipeBrowser } from './browser-reset';
+import { ApiMirror } from './api-mirror';
+import { ApiRequests, SiteRequest } from './api-requests';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -71,6 +73,11 @@ class FakeCloud {
   offline = false;
   puts = 0;
   gets = 0;
+  /** Os pedidos da API das AIs, e quando cada um foi concluído (quantos envios do mural já tinham ido). */
+  pedidos: SiteRequest[] = [];
+  /** A conta pode usar a API das AIs? */
+  api = false;
+  concluded: { id: string; estado: string; puts: number; resultado: unknown }[] = [];
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
     if (this.offline) throw new TypeError('Failed to fetch');
@@ -78,14 +85,27 @@ class FakeCloud {
     const method = init.method ?? 'GET';
     const headers = (init.headers ?? {}) as Record<string, string>;
     const now = { 'Mural-Agora': new Date().toISOString() };
-    if (u.pathname === '/v1/eu' && method === 'GET') return json({ ...ACCOUNT, seguidores: 0, seguindo: 0 });
+    if (u.pathname === '/v1/eu' && method === 'GET') return json({ ...ACCOUNT, ...(this.api ? { api: true } : {}), seguidores: 0, seguindo: 0 });
     if ((u.pathname === '/v1/auth/sair' || u.pathname === '/v1/auth/sair-de-todos') && method === 'POST') return json({ ok: true });
     if (u.pathname === '/v1/eu' && method === 'PATCH') return json({ nome: JSON.parse(String(init.body)).nome });
     if (u.pathname === '/v1/eu/mural' && method === 'GET') {
       this.gets++;
       if (!this.doc) return json({ erro: 'sem-mural', mensagem: 'Ainda não há mural na nuvem.' }, 404);
-      if (u.searchParams.get('rev') === String(this.rev)) return new Response(null, { status: 204, headers: { 'Mural-Rev': String(this.rev), ...now } });
-      return new Response(this.doc.slice(), { status: 200, headers: { 'Mural-Rev': String(this.rev), 'Content-Type': 'application/gzip', ...now } });
+      const waiting = this.pedidos.filter((p) => p.estado === 'pendente').length;
+      const asks: Record<string, string> = waiting ? { 'Mural-Pedidos': String(waiting) } : {};
+      if (u.searchParams.get('rev') === String(this.rev)) return new Response(null, { status: 204, headers: { 'Mural-Rev': String(this.rev), ...now, ...asks } });
+      return new Response(this.doc.slice(), { status: 200, headers: { 'Mural-Rev': String(this.rev), 'Content-Type': 'application/gzip', ...now, ...asks } });
+    }
+    if (u.pathname === '/v1/eu/pedidos' && method === 'GET') return json({ itens: this.pedidos.filter((p) => p.estado === 'pendente') });
+    if (/^\/v1\/eu\/pedidos\/[^/]+\/pegar$/.test(u.pathname) && method === 'POST') return json({ ok: true });
+    if (u.pathname === '/v1/eu/pedidos/concluir' && method === 'POST') {
+      const itens = JSON.parse(String(init.body)).itens as { id: string; estado: string; resultado: unknown }[];
+      for (const it of itens) {
+        const p = this.pedidos.find((x) => x.id === it.id);
+        if (p) p.estado = it.estado as SiteRequest['estado'];
+        this.concluded.push({ id: it.id, estado: it.estado, puts: this.puts, resultado: it.resultado });
+      }
+      return json({ itens: itens.map((i) => ({ id: i.id, ok: true })) });
     }
     if (u.pathname === '/v1/eu/mural' && method === 'PUT') {
       const base = Number(headers['Mural-Rev-Base']);
@@ -215,6 +235,8 @@ describe('sincronização com a nuvem', () => {
         CloudAccount,
         CloudSync,
         SyncConflicts,
+        ApiMirror,
+        ApiRequests,
         { provide: SYNC_STORAGE, useValue: kv },
         { provide: SYNC_AUTO, useValue: !!opts.auto },
         // com a sincronização sozinha ligada, a nuvem fica sem configurar: só os effects da conta rodam
@@ -1098,6 +1120,53 @@ describe('sincronização com a nuvem', () => {
       await b.sync.syncNow();
       expect(cloud.puts).toBe(puts + 1);
       expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
+    });
+  });
+
+  describe('os pedidos da API das AIs', () => {
+    it('o aparelho aplica o pedido, envia o mural e só então conclui; o outro aparelho recebe a nota', async () => {
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ ...ACCOUNT, api: true }));
+      cloud.api = true;
+      const a = device();
+      a.store.add(review('rhades01', 'Hades'));
+      await a.sync.syncNow();
+      const puts = cloud.puts;
+      cloud.pedidos = [
+        {
+          id: 'pd_aaaaaaaaaaaaaaaa',
+          op: 'nota.criar',
+          alvo: 'rnotaapi000000000',
+          estado: 'pendente',
+          dados: { titulo: 'Da AI', texto: '- [ ] Ligar' },
+          criado_em: '2026-10-27T15:00:00.000Z',
+          expira_em: '2026-11-26T15:00:00.000Z',
+          resolvido_em: null,
+          chave: { id: 'k1', nome: 'Claude' },
+        },
+      ];
+      await a.sync.syncNow();
+      expect(a.store.get('rnotaapi000000000')?.game.name).toBe('Da AI');
+      expect(cloud.puts).withContext('a nota subiu numa rodada só').toBe(puts + 1);
+      expect(cloud.concluded.map((c) => [c.id, c.estado, c.puts])).withContext('concluído depois do envio').toEqual([['pd_aaaaaaaaaaaaaaaa', 'aplicado', puts + 1]]);
+      expect(a.sync.status()).toBe('ok');
+      const b = device();
+      await b.sync.syncNow();
+      expect(b.store.get('rnotaapi000000000')?.text).toBe('- [ ] Ligar');
+      // nada mais pendente: a próxima rodada não pergunta pelos pedidos
+      const asked = cloud.gets;
+      await a.sync.syncNow();
+      expect(cloud.gets).toBe(asked + 1);
+    });
+
+    it('sem a API liberada na conta, o aparelho não aplica nada', async () => {
+      const a = device();
+      await a.sync.syncNow();
+      cloud.pedidos = [
+        { id: 'pd_bbbbbbbbbbbbbbbb', op: 'nota.criar', alvo: 'rnotaapi000000001', estado: 'pendente', dados: { titulo: 'X' }, criado_em: '', expira_em: '', resolvido_em: null, chave: { id: 'k1', nome: 'Claude' } },
+      ];
+      await a.sync.syncNow();
+      expect(a.store.get('rnotaapi000000001')).toBeUndefined();
+      expect(cloud.concluded).toEqual([]);
     });
   });
 

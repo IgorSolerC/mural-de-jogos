@@ -39,6 +39,8 @@ export const DATA_KEYS = [
   'meu-mural:compartilhadas:v1',
   // os conflitos da sincronização da conta que esperam a pessoa escolher (ver core/sync-conflicts.ts)
   'meu-mural:conflitos:v1',
+  // os pedidos da API das AIs aplicados aqui e ainda não concluídos na nuvem (ver core/api-requests.ts)
+  'meu-mural:api:aplicados',
 ] as const;
 export type DataKey = (typeof DATA_KEYS)[number];
 

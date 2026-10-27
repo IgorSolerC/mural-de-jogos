@@ -1084,3 +1084,24 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   `withDone`, `withPin`, `relinkAfterRename`, nascendo privada), concluir depois de sincronizar
   (`CloudSync.pullAndPush`, como o espelho), conferir a cada 60 s com a aba escondida (D2); depois
   (parte 3, Impeccable) a folha de aprovar, o histórico com Desfazer e o bilhete.
+
+- **27/out/2026, rodada 3, parte 2 (o site aplica os pedidos)**: feita, sem telas ainda.
+  `core/api-requests.ts`: `applyNoteRequest` aplica cada operação pelas lojas (`ReviewStore.add/update/
+  remove`, `withDone`, `withPin`, `relinkAfterRename`), confere a forma de novo (`conferirOp`) e a nota
+  por `sanitizeReview`; nasce **privada** (só a visibilidade dita, que pede `publicar`, muda isso; o
+  padrão do grupo é coisa da tela), com a data de hoje se a AI não mandou, e grupo, assunto e tags com
+  a grafia que o mural já usa ("trabalho" vira "Trabalho"). Editar com a versão velha vira `conflito`
+  (com a nota de agora no resultado), a não ser que a mudança do meio tenha sido um pedido aplicado aqui
+  mesmo; apagar guarda a nota em Versões guardadas com o motivo novo `api`; o que já está assim
+  (finalizar a finalizada) é `aplicado` sem `antes`. O serviço `ApiRequests` lê o `Mural-Pedidos` de cada
+  `GET /v1/eu/mural`, confere `GET /v1/eu/pedidos` a cada 60 s também com a aba escondida (para depois
+  de 2 h sem nada novo e volta quando a aba aparece), pega cada pendente (2 min), aplica e guarda o
+  aplicado em `meu-mural:api:aplicados` (no banco `meu-mural:dados`, com a conta; sai na limpeza, com
+  teste em `browser-reset.spec.ts`); a sincronização roda mais uma rodada e só então
+  `POST /v1/eu/pedidos/concluir` (até 50 por vez) com o resultado (a nota v1 como ficou) e o `antes`.
+  Um pedido aplicado e não concluído (sem rede, aba fechada) nunca é aplicado de novo. Conferido: a
+  suíte inteira (2211 do site, 241 do cofre, as 9 regras), um ponta a ponta na sincronização de mentira
+  (`cloud-sync.spec.ts`: o pedido sobe num envio e é concluído depois dele, o outro aparelho recebe), o
+  `npx ng build` (inicial 1,85 MB) e o smoke na build de produção com a nuvem interceptada (dois
+  pedidos, um envio, os dois concluídos, sem erro na página). **Falta (parte 3)**: a folha Pedidos
+  (aprovar/recusar), o histórico com Desfazer e o bilhete.

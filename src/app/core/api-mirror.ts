@@ -163,16 +163,21 @@ export class ApiMirror {
     const boardOnly = this.kanban.boardOnly();
     const out: MirrorItem[] = [];
     for (const n of notes) {
-      const found = this.kanban.cardOf(n.id);
-      const card = found
-        ? { coluna: found.board.columns.find((c) => c.id === found.card.column)?.name ?? '', card: found.card, onWall: this.kanban.isOnWall(found.card, n.category) }
-        : null;
-      const dados = notaV1(n, card, boardOnly);
+      const dados = this.notaOf(n, boardOnly);
       out.push({ tipo: 'nota', id: n.id, hash: await hashOf(dados), dados });
     }
     const ctx = contextoV1(notes, this.settings.notesConfig().subjects, this.settings.pinnedTags());
     out.push({ tipo: 'contexto', id: CONTEXTO_NOTAS, hash: await hashOf(ctx), dados: ctx });
     return out;
+  }
+
+  /** Uma anotação no formato v1, com o cartão do Kanban (também o resultado de um pedido aplicado). */
+  notaOf(n: Review, boardOnly: ReadonlySet<string> = this.kanban.boardOnly()): NotaV1 {
+    const found = this.kanban.cardOf(n.id);
+    const card = found
+      ? { coluna: found.board.columns.find((c) => c.id === found.card.column)?.name ?? '', card: found.card, onWall: this.kanban.isOnWall(found.card, n.category) }
+      : null;
+    return notaV1(n, card, boardOnly);
   }
 
   private async mirror(rev: number): Promise<void> {

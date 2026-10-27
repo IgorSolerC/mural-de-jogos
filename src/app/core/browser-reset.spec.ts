@@ -2,6 +2,7 @@ import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
 import { COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
+import { APPLIED_KEY } from './api-requests';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -111,6 +112,17 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem('meu-mural:gastos-sem-fixos:v1')).toBeNull();
     expect(localStorage.getItem('meu-mural:gastos-graficos:v1')).toBeNull();
+  });
+
+  it('os pedidos da API aplicados aqui e ainda não concluídos saem junto (o banco e a cópia)', async () => {
+    signedInBrowser();
+    await openDb(DATA_DB);
+    localStorage.setItem(APPLIED_KEY, JSON.stringify({ conta: 'conta-ela', itens: [{ id: 'pd_aaaaaaaaaaaaaaaa' }] }));
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(APPLIED_KEY)).toBeNull();
+    expect(await databases()).not.toContain(DATA_DB);
   });
 
   it('as capas guardadas saem junto', async () => {

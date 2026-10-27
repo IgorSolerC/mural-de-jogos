@@ -29,7 +29,9 @@ export type KeptReason =
   /** Uma edição numa anotação compartilhada que não pôde mais subir (ela foi apagada, ou você saiu dela ou não pode mais editar). */
   | 'compartilhada'
   /** A versão que ficou de fora quando você escolheu a outra num conflito da sincronização (ver core/sync-conflicts.ts). */
-  | 'conflito';
+  | 'conflito'
+  /** Apagada (ou desfeita) por um pedido da API das AIs (ver core/api-requests.ts). */
+  | 'api';
 
 export interface KeptVersion {
   /** A ficha como era. */
@@ -43,7 +45,7 @@ export interface KeptVersion {
 export const KEEP_VERSION_DAYS = 30;
 /** Quantas versões ficam, no máximo (as mais novas). */
 export const MAX_VERSIONS = 60;
-const REASONS: readonly KeptReason[] = ['juntou', 'apagada', 'editor', 'trocada', 'compartilhada', 'conflito'];
+const REASONS: readonly KeptReason[] = ['juntou', 'apagada', 'editor', 'trocada', 'compartilhada', 'conflito', 'api'];
 
 /** O bilhete de quando versões acabaram de ficar guardadas. */
 export function keptMessage(n: number, motivo: KeptReason): string {

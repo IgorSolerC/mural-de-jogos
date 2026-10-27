@@ -521,6 +521,7 @@ export class SettingsPage {
     trocada: 'saiu quando você restaurou outra',
     compartilhada: 'de uma anotação compartilhada, não pôde subir',
     conflito: 'ficou de fora quando você escolheu a outra',
+    api: 'saiu por um pedido de uma chave de API',
   };
   /** As versões guardadas (ver core/kept-versions.ts), com o que a lista mostra de cada uma. */
   protected readonly keptVersions = computed(() =>
