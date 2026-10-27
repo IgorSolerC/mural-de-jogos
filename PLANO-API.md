@@ -915,7 +915,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 1 | **Chaves** — feita em 27/out (seção 23) | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
 | 2 | **Ler as Anotações** — feita em 27/out (seção 23) | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
 | 3 | **Escrever nas Anotações** — feita em 27/out (seção 23) | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
-| 4 | **MCP com chave + guia** | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
+| 4 | **MCP com chave + guia** — feita em 27/out (seção 23) | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
@@ -1164,8 +1164,16 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   4. [feito, BUILD 577] Site: Ajustes › Acessos › Como usar com o comando do Claude Code
      (`claude mcp add --transport http murall <api>/mcp --header "Authorization: Bearer $MURALL_TOKEN"`)
      e o endereço do guia, com Copiar; BUILD + 1.
-  5. Ponta a ponta local: `wrangler dev` + D1 local com uma chave (como na rodada 2, memória
+  5. [feito] Ponta a ponta local: `wrangler dev` + D1 local com uma chave (como na rodada 2, memória
      api-mcp-cli-plan) e o MCP Inspector (`npx @modelcontextprotocol/inspector --cli`), `tools/list` e
      `tools/call` de verdade; anotar aqui. Usar no Claude Code com uma chave de produção depende do
      usuário (criar a chave em Acessos e rodar o comando do passo 4).
+     Feito em 27/out: o MCP Inspector pelo `npx` foi barrado pelo classificador (baixar e rodar pacote);
+     no lugar, o JSON-RPC direto com `curl` contra o `wrangler dev` (workerd, D1 local da rodada 2, chave
+     criada pela rota do site com a sessão local): `initialize` (2025-06-18), `tools/list` com as 14 que
+     a chave alcança, `listar_notas` com as notas espelhadas e `criar_nota` virando pedido pendente. Em
+     produção, o deploy passou: `/llms.txt` responde e `POST /mcp` sem chave dá 401 com
+     `WWW-Authenticate`. **Rodada 4 feita**, menos o uso de verdade no Claude Code com uma chave sua
+     (depende do usuário). **Próximo**: a rodada 5 (OAuth), seção 11; o `resource_metadata` do
+     `WWW-Authenticate` e o `/.well-known/oauth-protected-resource` entram nela.
 
