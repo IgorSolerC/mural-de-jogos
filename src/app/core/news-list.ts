@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-comparar-com-amigos',
+    id: '2026-10-27-comentar-na-sua-anotacao',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
@@ -36,6 +36,7 @@ export const NEWS: NewsEntry[] = [
       'O alto do Comparar ficou como a ficha do mural de quem você visita: a sua foto e a da pessoa, "Você e" o nome a pincel, quanto vocês têm em comum, os murais em orelhas de pasta e, embaixo, todos os amigos para trocar de pessoa.',
       'O ano das Estatísticas e a ordem do Lado a lado são escolhidos a giz, como o Ordenar da pasta; as orelhas do mural de outra pessoa ficaram um pouco maiores que as dos grupos, com o perfil e o Seguir logo ao lado do nome.',
       'O Mata-mata diz, embaixo das escolhas, quantas fichas pedem os números de duelos que ainda não dá para escolher.',
+      'Na leitura de uma anotação sua, o "Comentar" embaixo do texto saiu: os comentários abrem pela orelha da direita, que mostra quantos ela tem.',
     ],
     correcoes: [
       'A roda do mouse em cima de uma fileira de orelhas rola a página, não a fileira, e o toque no pé de uma orelha de trás chega nela.',

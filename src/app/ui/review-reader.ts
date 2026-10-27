@@ -329,12 +329,12 @@ const PATCH_GAP = 8;
 
             <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir; e a porta dos comentários -->
             @if (reactTarget(); as t) {
-              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length || commentable()) {
+              @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length || commentButton()) {
                 <div class="reagir-linha">
                   @if (reactions.canReact(t.code)) {
                     <app-reaction-picker [target]="t" />
                   }
-                  @if (commentable()) {
+                  @if (commentButton()) {
                     <button type="button" class="acao-caneta comentar" [attr.aria-expanded]="commentsOpen()" aria-controls="leitura-comentarios" (click)="toggleComments()">
                       <lucide-icon [img]="CommentIcon" [size]="17" aria-hidden="true" />
                       {{ commentCount() ? commentsLabel() : 'Comentar' }}
@@ -981,6 +981,11 @@ export class ReviewReader {
    * primeiro (na ficha de outra pessoa ou na sua: o dono também comenta nas dele).
    */
   protected readonly commentable = computed(() => !!this.commentTarget() && (this.commentCount() > 0 || this.commentsOpen() || !!this.comments.myCode()));
+  /**
+   * O "Comentar" embaixo do texto: na anotação de que você é dono, só a orelha (o botão poluía a
+   * leitura). Na compartilhada por outra pessoa e nas resenhas, os dois.
+   */
+  protected readonly commentButton = computed(() => this.commentable() && !(this.note() && this.owner() === null && (this.sharedEntry()?.papel ?? 'dono') === 'dono'));
   /** Quem escreveu a ficha, para a folha dizer quem precisa ser seguido. */
   protected readonly commentOwner = computed(() => this.owner() ?? this.account.account()?.nome ?? 'Você');
   /** A ficha em segredo: a pessoa aceitou ver os comentários mesmo assim (só nesta ficha). */

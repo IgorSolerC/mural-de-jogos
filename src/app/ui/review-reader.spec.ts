@@ -286,6 +286,27 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(q('app-comments-panel .abrir')).not.toBeNull();
   });
 
+  it('na sua anotação: só a orelha, sem o "Comentar" embaixo do texto, com ou sem comentários', async () => {
+    counts[ME.codigo] = { 'nota-2': 2 };
+    await settle();
+    await TestBed.inject(Comments).loadCounts(ME.codigo, true);
+    const reader = fixture.componentInstance;
+    reader.open(review('nota-quieta', 'Lista do mercado', { kind: 'anotacoes' }));
+    await settle();
+    expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários');
+    expect(q('.comentar')).toBeNull();
+    expect(q('.reagir-linha')).toBeNull();
+    await closeReader();
+
+    reader.open(review('nota-2', 'Ideias', { kind: 'anotacoes' }));
+    await settle();
+    expect(q('.orelha-n')?.textContent).toBe('2');
+    expect(q('.comentar')).toBeNull();
+    q<HTMLButtonElement>('.orelha')!.click();
+    await settle();
+    expect(side()).not.toBeNull();
+  });
+
   it('na anotação privada que a Ana compartilhou com você: os comentários são os da ficha dela, e a folha diz quem vê', async () => {
     counts[ANA] = { 'nota-1': 2 };
     const note = review('nota-1', 'Lista do mercado', { kind: 'anotacoes', private: true });
