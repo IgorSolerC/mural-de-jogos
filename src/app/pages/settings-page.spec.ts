@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
@@ -510,5 +510,148 @@ describe('Ajustes: apagar a conta com cofre de senhas', () => {
     expect(calls.some((c) => c.url === '/v1/eu/cancelar-apagar' && c.method === 'POST')).toBeTrue();
     expect(row().textContent).not.toContain('Marcada para sair');
     expect(button('Não apagar')).toBeUndefined();
+  });
+});
+
+describe('Ajustes: Acessos (as chaves de API)', () => {
+  const API = 'https://api.teste';
+  const KEY = {
+    id: 'ch_AAAAAAAAAAAAAAAA',
+    nome: 'Claude, os gastos',
+    origem: 'manual',
+    escopos: ['gastos:ler', 'gastos:lancar'],
+    grupos: null,
+    aprovacao: 'mudancas',
+    criadaEm: '2026-10-27T12:00:00.000Z',
+    expiraEm: '2999-01-25T12:00:00.000Z',
+    usadaEm: null,
+  };
+  let calls: { url: string; method: string }[];
+  let keys: (typeof KEY)[];
+
+  const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  async function open(api: boolean, aba = 'acessos', late = false) {
+    localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'G11T-G00D', nome: 'Igor', ...(api ? { api: true } : {}) }));
+    calls = [];
+    keys = [KEY, { ...KEY, id: 'ch_BBBBBBBBBBBBBBBB', nome: 'Velha', expiraEm: '2020-01-01T00:00:00.000Z' }];
+    spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(url).replace(API, '');
+      const method = init?.method ?? 'GET';
+      calls.push({ url: path, method });
+      if (path === '/v1/eu' && method === 'GET') return json({ codigo: 'G11T-G00D', nome: 'Igor', ...(api ? { api: true } : {}) });
+      if (path === '/v1/eu/chaves' && method === 'GET') return json({ disponivel: api, chaves: keys });
+      if (path.startsWith('/v1/eu/chaves/') && method === 'DELETE') {
+        keys = keys.filter((k) => !path.endsWith(k.id));
+        return json({ ok: true });
+      }
+      if (path === '/v1/eu/chaves' && method === 'DELETE') return json({ ok: true, apagadas: keys.length });
+      return json({ erro: 'nao-achei', mensagem: 'Não achei.' }, 404);
+    });
+    const query = new BehaviorSubject(convertToParamMap({ aba }));
+    let arrive = () => {};
+    const config = signal<{ api: string; googleClientId: string } | null>(late ? null : { api: API, googleClientId: 'x.apps.googleusercontent.com' });
+    const cloud = { ready: late ? new Promise<void>((r) => (arrive = r)) : Promise.resolve(), config, notice: () => null };
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        { provide: Cloud, useValue: cloud },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: query.value }, queryParamMap: query } },
+      ],
+    });
+    const fixture = TestBed.createComponent(SettingsPage);
+    const el = fixture.nativeElement as HTMLElement;
+    const settle = async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      fixture.detectChanges();
+    };
+    await settle();
+    // o cloud.json chegando depois de a página abrir (a primeira visita, a rede lenta)
+    if (late) {
+      config.set({ api: API, googleClientId: 'x.apps.googleusercontent.com' });
+      arrive();
+    }
+    await settle();
+    await settle();
+    const tabs = () => [...el.querySelectorAll('[role=tab]')].map((t) => t.querySelector('.etiqueta-nome')!.textContent!.trim());
+    const button = (text: string, root: ParentNode = el) => [...root.querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim() === text);
+    return { el, settle, tabs, button };
+  }
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    document.querySelectorAll('dialog[open]').forEach((d) => (d as HTMLDialogElement).close());
+  });
+
+  it('sem a API liberada, a parte não aparece e o endereço dela abre a Conta', async () => {
+    const { el, tabs } = await open(false);
+    expect(tabs()).not.toContain('Acessos');
+    expect(el.querySelector('h2')!.textContent).toBe('Conta');
+    expect(calls.some((c) => c.url === '/v1/eu/chaves')).toBeFalse();
+  });
+
+  it('o endereço da parte vale mesmo com o cloud.json chegando depois', async () => {
+    const { el } = await open(true, 'acessos', true);
+    expect(el.querySelector('h2')!.textContent).toBe('Acessos');
+  });
+
+  it('liberada: a etiqueta depois de Backup e a lista das chaves, com o resumo em palavras', async () => {
+    const { el, tabs } = await open(true);
+    expect(tabs()).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Acessos', 'Busca', 'Desempenho']);
+    expect(el.querySelector('h2')!.textContent).toBe('Acessos');
+    const rows = [...el.querySelectorAll<HTMLElement>('li.chave')];
+    expect(rows.length).toBe(2);
+    expect(rows[0]!.querySelector('.chave-pode')!.textContent).toBe('Gastos: ver e lançar');
+    expect(rows[0]!.textContent).toContain('Nunca usada');
+    expect(rows[0]!.textContent).toContain('Espera você aprovar o que muda ou apaga');
+    // a vencida: carimbo, sem o Mudar
+    expect(rows[1]!.classList).toContain('vencida');
+    expect(rows[1]!.textContent).toContain('venceu');
+    expect(rows[1]!.querySelector('[aria-label="Mudar a chave Velha"]')).toBeNull();
+    expect(el.textContent).toContain('Cortar todos os acessos');
+  });
+
+  it('apagar pergunta antes e tira da lista', async () => {
+    const { el, settle } = await open(true);
+    el.querySelector<HTMLButtonElement>('[aria-label="Apagar a chave Claude, os gastos"]')!.click();
+    await settle();
+    const confirm = TestBed.inject(Confirm);
+    expect(confirm.current()?.title).toBe('Apagar a chave?');
+    confirm.answer(true);
+    await settle();
+    await settle();
+    expect(calls).toContain({ url: `/v1/eu/chaves/${KEY.id}`, method: 'DELETE' });
+    expect(el.querySelectorAll('li.chave').length).toBe(1);
+    expect(TestBed.inject(Toasts).current()?.text).toBe('A chave “Claude, os gastos” foi apagada.');
+  });
+
+  it('"Nova chave" abre a folha', async () => {
+    const { el, settle, button } = await open(true);
+    button('Nova chave')!.click();
+    await settle();
+    await settle();
+    const dialog = el.querySelector<HTMLDialogElement>('dialog.folha-chave');
+    expect(dialog?.open).toBeTrue();
+    expect(dialog!.querySelector('h2')!.textContent).toBe('Nova chave');
+  });
+
+  it('"Sair de todos" pergunta com a caixa de cortar as chaves já marcada (as que valem)', async () => {
+    const { settle, button } = await open(true, 'conta');
+    button('Sair de todos')!.click();
+    await settle();
+    await settle();
+    const confirm = TestBed.inject(Confirm);
+    expect(confirm.current()?.title).toBe('Sair de todos os aparelhos?');
+    expect(confirm.current()?.check).toBe('Cortar também a chave de API (o acesso das AIs)');
+    expect(confirm.checked()).toBeTrue();
+    confirm.answer(false);
+    await settle();
+    expect(calls.some((c) => c.url === '/v1/auth/sair-de-todos')).toBeFalse();
   });
 });

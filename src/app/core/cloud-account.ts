@@ -19,6 +19,8 @@ export interface CloudAccountInfo {
   nome: string;
   /** Pode usar o cofre de senhas (o código está na lista do cofre)? Vem do /v1/eu; só mostra a aba do cofre. */
   cofre?: boolean;
+  /** Pode usar a API das AIs (o código está em API_CODIGOS)? Vem do /v1/eu; só mostra a parte Acessos dos Ajustes. */
+  api?: boolean;
   /**
    * A conta está marcada para sair nesta hora (ISO): ela tem cofre de senhas, e apagar espera 7 dias, com
    * o aviso no topo e o Cancelar (ver `deleteAccount`).
@@ -91,6 +93,7 @@ function readAccount(): CloudAccountInfo | null {
     codigo: raw.codigo,
     nome: raw.nome,
     ...(raw.cofre === true ? { cofre: true } : {}),
+    ...(raw.api === true ? { api: true } : {}),
     ...(typeof raw.apagarEm === 'string' ? { apagarEm: raw.apagarEm } : {}),
   };
 }
@@ -185,6 +188,7 @@ export class CloudAccount {
       codigo: me.codigo,
       nome: me.nome,
       ...(me.cofre === true ? { cofre: true } : {}),
+      ...(me.api === true ? { api: true } : {}),
       ...(typeof me.apagarEm === 'string' ? { apagarEm: me.apagarEm } : {}),
     });
     // O nome mudou na nuvem (em outro aparelho) e aqui ninguém mexeu desde a última vez: o "Seu nome"
@@ -228,8 +232,9 @@ export class CloudAccount {
     }
   }
 
-  async signOutEverywhere(): Promise<void> {
-    await this.request('/v1/auth/sair-de-todos', { method: 'POST' });
+  /** Sai de todos os aparelhos; com `keys`, corta também as chaves de API e os conectores. */
+  async signOutEverywhere(keys = false): Promise<void> {
+    await this.request('/v1/auth/sair-de-todos', { method: 'POST', ...(keys ? { body: { chaves: true } } : {}) });
     this.forget();
   }
 

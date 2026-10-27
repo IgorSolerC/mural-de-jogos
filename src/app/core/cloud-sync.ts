@@ -1587,17 +1587,28 @@ export class CloudSync {
    * sair, a página recarrega limpa (ver core/browser-reset.ts). Com mudança que ainda não subiu, avisa
    * que ela se perde. Devolve false se a pessoa desistiu.
    */
-  async signOut(everywhere = false): Promise<boolean> {
-    const sure = await this.confirm.ask({
+  async signOut(everywhere = false, keys = 0): Promise<boolean> {
+    const question = {
       title: everywhere ? 'Sair de todos os aparelhos?' : 'Sair da conta?',
       text:
         (everywhere ? 'Todo aparelho onde você entrou vai precisar entrar de novo, e o mural sai de cada um. ' : '') +
         'Na nuvem fica tudo. Neste navegador não fica nada da conta: as resenhas, as anotações, os Gastos, o Calendário, os ajustes e o perfil saem daqui.',
       confirm: everywhere ? 'Sair de todos' : 'Sair',
-      tone: everywhere ? 'perigo' : 'neutro',
+      tone: everywhere ? ('perigo' as const) : ('neutro' as const),
       icon: null,
-    });
-    if (!sure) return false;
+    };
+    // com chaves de API, sair de todos pergunta se corta também os acessos das AIs, com a caixa já
+    // marcada (PLANO-API.md, D5): quem sai de todos costuma estar fechando as portas
+    let cutKeys = false;
+    if (everywhere && keys > 0) {
+      const answer = await this.confirm.askChecked({
+        ...question,
+        check: keys === 1 ? 'Cortar também a chave de API (o acesso das AIs)' : `Cortar também as ${keys} chaves de API (o acesso das AIs)`,
+        checkedAtStart: true,
+      });
+      if (!answer.ok) return false;
+      cutKeys = answer.checked;
+    } else if (!(await this.confirm.ask(question))) return false;
     await this.syncNow();
     if (!(await this.everythingSent())) {
       const lose = await this.confirm.ask({
@@ -1609,7 +1620,7 @@ export class CloudSync {
       });
       if (!lose) return false;
     }
-    if (everywhere) await this.account.signOutEverywhere();
+    if (everywhere) await this.account.signOutEverywhere(cutKeys);
     else await this.account.signOut();
     this.writeState(null);
     this.lastSyncAt.set(null);

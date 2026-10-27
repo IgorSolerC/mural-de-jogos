@@ -6,8 +6,10 @@ import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
 import { agendaRoutes } from './routes/agenda';
 import { catalogRoutes } from './routes/catalog';
+import { extRoutes } from './ext/routes';
 import { commentRoutes } from './routes/comments';
 import { followRoutes } from './routes/follow';
+import { keyRoutes } from './routes/keys';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -31,7 +33,8 @@ export function createApp(deps: Deps): Hono {
   app.use(
     '*',
     cors({
-      origin: (origin) => (config.allowedOrigins.includes(origin) ? origin : null),
+      // a API das AIs (`/ext`) aceita qualquer origem: ela só anda com a chave no cabeçalho, sem cookie
+      origin: (origin, c) => (c.req.path.startsWith('/ext/') ? '*' : config.allowedOrigins.includes(origin) ? origin : null),
       allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowHeaders: ['Authorization', 'Content-Type', 'Mural-Rev-Base'],
       exposeHeaders: ['Mural-Rev', 'Mural-Agora', 'Mural-Codigo'],
@@ -81,6 +84,8 @@ export function createApp(deps: Deps): Hono {
   noteRoutes(app, deps);
   catalogRoutes(app, deps);
   agendaRoutes(app, deps);
+  keyRoutes(app, deps);
+  extRoutes(app, deps);
 
   app.notFound((c) => {
     deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);

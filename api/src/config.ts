@@ -1,3 +1,4 @@
+import { plainCode } from './domain/agenda';
 import { Config, Mode } from './ports';
 
 const MODES: readonly Mode[] = ['ligado', 'so-leitura', 'desligado'];
@@ -21,5 +22,10 @@ export function readConfig(env: Record<string, unknown>): Config {
     googleClientId: text('GOOGLE_CLIENT_ID'),
     // na dúvida, só logados (o mais fechado)
     publicMurals: text('VER_MURAIS') === 'todos' ? 'todos' : 'logados',
+    // o código como aparece (K7QF-M2XA) ou como fica no banco: vale sem o traço; vazio, ninguém
+    apiCodes: text('API_CODIGOS')
+      .split(',')
+      .map((c) => (c.trim() === '*' ? '*' : plainCode(c)))
+      .filter(Boolean),
   };
 }

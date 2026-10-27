@@ -27,7 +27,7 @@
   <div class="papelao">
     <div class="lado">
     <div class="indice" role="tablist" aria-label="Partes dos ajustes" (keydown)="onTabKey($event)">
-      @for (t of tabs; track t.id; let i = $index) {
+      @for (t of visibleTabs(); track t.id; let i = $index) {
         <button
           type="button"
           role="tab"
@@ -326,6 +326,119 @@
                 </div>
               </div>
             </div>
+          }
+        }
+      }
+
+      <!-- ===== Acessos: as chaves de API (PLANO-API.md, seções 5 e 14) ===== -->
+      @if (tab() === 'acessos' && apiOn()) {
+        <h2>Acessos</h2>
+        <p class="lead">
+          Chaves que deixam uma AI (o Claude, o ChatGPT) ou um programa seu falar com o seu Murall, só com as permissões que você marcar. Nenhuma
+          chave abre o cofre de senhas, fala com os seus amigos ou mexe na sua conta.
+        </p>
+
+        <div class="grupo" role="group" aria-labelledby="g-chaves">
+          <h3 class="grupo-titulo" id="g-chaves">Suas chaves</h3>
+          @if (apiKeys.list(); as list) {
+            @if (list.length) {
+              <ul class="versoes chaves" aria-labelledby="g-chaves">
+                @for (k of list; track k.id) {
+                  <li class="versao chave" [class.vencida]="keyExpired(k)">
+                    <lucide-icon class="versao-mural" [img]="KeyIcon" [size]="20" aria-hidden="true" />
+                    <div class="versao-texto">
+                      <p class="versao-nome">
+                        {{ k.nome }}
+                        @if (keyExpired(k)) {
+                          <span class="carimbo-vencida">venceu</span>
+                        }
+                      </p>
+                      <p class="chave-pode">{{ keySummary(k).join(' · ') }}</p>
+                      <p class="versao-meta">
+                        <span>{{ keyValidity(k) }}</span><span>{{ keyUsed(k) }}</span><span>{{ keyApproval(k) }}</span>
+                        @if (keyGroups(k); as g) {
+                          <span>{{ g }}</span>
+                        }
+                      </p>
+                    </div>
+                    <div class="acoes chave-acoes">
+                      @if (!keyExpired(k)) {
+                        <button type="button" class="btn-papel" aria-haspopup="dialog" [attr.aria-label]="'Mudar a chave ' + k.nome" [disabled]="!!keysBusy()" (click)="editKey(k)">
+                          Mudar
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="btn-papel perigo"
+                        [attr.aria-label]="'Apagar a chave ' + k.nome"
+                        [disabled]="!!keysBusy()"
+                        [appBusy]="keysBusy() === k.id"
+                        (click)="removeKey(k)"
+                      >
+                        {{ keysBusy() === k.id ? 'Apagando…' : 'Apagar' }}
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="vazio-chaves">Nenhuma chave ainda. Crie uma para cada AI ou programa: assim, cortar o acesso de um não mexe nos outros.</p>
+            }
+            <div class="nova-chave">
+              <button type="button" class="btn-papel forte" aria-haspopup="dialog" (click)="newKey()">
+                <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
+                Nova chave
+              </button>
+            </div>
+          } @else if (keysError(); as m) {
+            <p class="msg erro" role="alert">{{ m }}</p>
+            <div class="nova-chave">
+              <button type="button" class="btn-papel" (click)="loadKeys()">Tentar de novo</button>
+            </div>
+          } @else {
+            <p class="linha-desc carregando-chaves" role="status"><span class="carregando" aria-hidden="true"></span>Trazendo as chaves…</p>
+          }
+        </div>
+
+        <div class="grupo" role="group" aria-labelledby="g-como-usar">
+          <h3 class="grupo-titulo" id="g-como-usar">Como usar</h3>
+          <div class="linha">
+            <div class="linha-texto">
+              <p class="linha-titulo">Num programa ou no terminal</p>
+              <p class="linha-desc">
+                Guarde a chave numa variável de ambiente (MURALL_TOKEN) e mande no cabeçalho Authorization. Por enquanto ela só diz de quem é a conta; as
+                anotações, os gastos e o calendário chegam aos poucos.
+              </p>
+            </div>
+          </div>
+          <div class="linha">
+            <div class="linha-texto">
+              <p class="linha-titulo">No Claude, no ChatGPT e em outras AIs</p>
+              <p class="linha-desc">O conector do Murall chega numa próxima etapa: aí é só colar um endereço e entrar com o Google, sem copiar chave nenhuma.</p>
+            </div>
+          </div>
+        </div>
+
+        @if (apiKeys.list()?.length) {
+          <div class="grupo cuidado" role="group" aria-labelledby="g-cuidado-acessos">
+            <h3 class="grupo-titulo" id="g-cuidado-acessos">Cuidado</h3>
+            <div class="linha">
+              <div class="linha-texto">
+                <p class="linha-titulo">Cortar todos os acessos</p>
+                <p class="linha-desc">Apaga todas as chaves de uma vez: toda AI e todo programa param na hora.</p>
+              </div>
+              <div class="acoes">
+                <button type="button" class="btn-papel perigo" [disabled]="!!keysBusy()" [appBusy]="keysBusy() === 'todas'" (click)="cutAllKeys()">
+                  {{ keysBusy() === 'todas' ? 'Cortando…' : 'Cortar todos' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        }
+
+        @if (keySheet(); as ks) {
+          @defer (on immediate) {
+            <app-api-key-sheet [editing]="ks.editing" (closed)="keySheet.set(null)" />
           }
         }
       }

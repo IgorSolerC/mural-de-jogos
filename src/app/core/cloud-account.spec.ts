@@ -89,6 +89,33 @@ describe('conta na nuvem', () => {
     expect(account.account()?.cofre).toBeUndefined();
   });
 
+  it('o /v1/eu diz se a conta pode usar a API das AIs (a parte Acessos)', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'G11T-G00D', nome: 'Igor' }));
+    fakeFetch(json({ codigo: 'G11T-G00D', nome: 'Igor', api: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', api: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', api: false }));
+    const account = setup();
+    await settle();
+    await account.refresh();
+    expect(account.account()?.api).toBeTrue();
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).api).toBeTrue();
+    await account.refresh();
+    expect(account.account()?.api).toBeUndefined();
+  });
+
+  for (const keys of [false, true]) {
+    it(`sair de todos ${keys ? 'pede' : 'não pede'} para cortar as chaves de API`, async () => {
+      localStorage.setItem(SESSION_KEY, TOKEN);
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
+      const calls = fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor' }), json({ ok: true }));
+      const account = setup();
+      await settle();
+      await account.signOutEverywhere(keys);
+      expect(calls[1].url).toBe(`${API}/v1/auth/sair-de-todos`);
+      expect(calls[1].init.body === undefined ? undefined : JSON.parse(calls[1].init.body as string)).toEqual(keys ? { chaves: true } : undefined);
+      expect(account.signedIn()).toBeFalse();
+    });
+  }
+
   it('sessão recusada pela nuvem (401) sai da conta neste navegador', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));

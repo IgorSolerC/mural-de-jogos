@@ -38,10 +38,12 @@ import { SiteKeys } from '../core/site-keys';
 import { plural } from '../core/text';
 import { DAY_MS, daysAgoLabel, localDay } from '../core/dates';
 import { tabStep } from '../ui/focus';
+import { ApiKeyInfo, ApiKeys, approvalLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from '../core/api-keys';
+import { ApiKeySheet } from '../ui/api-key-sheet';
 
 
-type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'busca' | 'desempenho';
-const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'busca', 'desempenho'];
+type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'acessos' | 'busca' | 'desempenho';
+const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'acessos', 'busca', 'desempenho'];
 
 /** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
 function when(ms: number): string {
@@ -63,7 +65,7 @@ function when(ms: number): string {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet],
+  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -77,6 +79,8 @@ export class SettingsPage {
     { id: 'mural', label: 'Mural', hint: 'Notas, seções e spoilers', icon: ICON.simples },
     { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: ICON.pessoas },
     { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: ICON.baixarNoAparelho },
+    // só para a conta que pode usar a API das AIs (API_CODIGOS; PLANO-API.md)
+    { id: 'acessos', label: 'Acessos', hint: 'Chaves para AIs', icon: ICON.chave },
     { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: ICON.buscar },
     { id: 'desempenho', label: 'Desempenho', hint: 'Qualidade ou leveza', icon: ICON.desempenho },
   ];
@@ -126,7 +130,7 @@ export class SettingsPage {
     },
   ];
   /** As etiquetas no papelão, cada uma presa num ângulo (a aberta fica reta). */
-  protected readonly tilts = ['-1.2deg', '0.9deg', '-0.6deg', '1.1deg', '-0.9deg', '0.7deg'];
+  protected readonly tilts = ['-1.2deg', '0.9deg', '-0.6deg', '1.1deg', '-0.8deg', '-0.9deg', '0.7deg'];
   protected readonly tab = signal<Tab>(this.tabFrom(this.route.snapshot.queryParamMap.get('aba')));
   /** Um link para outra aba (o "Baixar backup" do aviso) com a página já aberta também troca a aba. */
   private readonly followTabParam = this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe((q) => this.tab.set(this.tabFrom(q.get('aba'))));
@@ -155,11 +159,12 @@ export class SettingsPage {
 
   /** Setas, Home e End andam entre as partes (o padrão das abas para teclado; o índice fica de pé ou deitado). */
   protected onTabKey(e: KeyboardEvent): void {
-    const next = tabStep(e.key, TABS.indexOf(this.tab()), TABS.length);
+    const ids = this.visibleTabs().map((t) => t.id);
+    const next = tabStep(e.key, ids.indexOf(this.tab()), ids.length);
     if (next < 0) return;
     e.preventDefault();
-    this.go(TABS[next]);
-    queueMicrotask(() => document.getElementById(`aba-${TABS[next]}`)?.focus());
+    this.go(ids[next]!);
+    queueMicrotask(() => document.getElementById(`aba-${ids[next]}`)?.focus());
   }
 
   protected readonly store = inject(ReviewStore);
@@ -184,6 +189,26 @@ export class SettingsPage {
   private readonly lookup = inject(GameLookup);
   private readonly siteKeys = inject(SiteKeys);
   protected readonly account = inject(CloudAccount);
+  /** O `cloud.json` já foi lido (com a nuvem ligada ou não). */
+  private readonly cloudRead = signal(false);
+  /** A conta pode usar a API das AIs: a parte Acessos aparece. */
+  protected readonly apiOn = computed(() => !!this.cloud.config() && !!this.account.account()?.api);
+  /** As partes no índice (Acessos só para quem pode). */
+  protected readonly visibleTabs = computed(() => this.tabs.filter((t) => t.id !== 'acessos' || this.apiOn()));
+  protected readonly apiKeys = inject(ApiKeys);
+  /** A lista das chaves não veio (a mensagem da nuvem). */
+  protected readonly keysError = signal<string | null>(null);
+  /** A folha da chave aberta: criar (sem `editing`) ou mudar. */
+  protected readonly keySheet = signal<{ editing: ApiKeyInfo | null } | null>(null);
+  protected readonly keysBusy = signal<string | null>(null);
+  protected readonly KeyIcon = ICON.chave;
+  protected readonly AddIcon = ICON.adicionar;
+  protected readonly keySummary = (k: ApiKeyInfo) => scopeSummary(k.escopos);
+  protected readonly keyExpired = (k: ApiKeyInfo) => expired(k);
+  protected readonly keyValidity = (k: ApiKeyInfo) => validityLabel(k);
+  protected readonly keyUsed = (k: ApiKeyInfo) => usedLabel(k);
+  protected readonly keyApproval = (k: ApiKeyInfo) => approvalLabel(k.aprovacao);
+  protected readonly keyGroups = (k: ApiKeyInfo) => groupsLabel(k);
   /** Quem você segue e quem te segue, no seu perfil: as listas ou só os números (fica na nuvem). */
   protected readonly peoplePrivacy = inject(ProfilePeople);
   protected readonly privacyBusy = signal(false);
@@ -291,6 +316,80 @@ export class SettingsPage {
         });
       }
     });
+    // Acessos sem poder (um link antigo, a conta que saiu de API_CODIGOS): abre a Conta; podendo, a
+    // lista das chaves vem da nuvem a cada vez que a parte abre
+    void this.cloud.ready.then(() => this.cloudRead.set(true));
+    effect(() => {
+      // antes de o cloud.json chegar, ainda não dá para saber se a parte existe
+      if (this.tab() !== 'acessos' || !this.cloudRead()) return;
+      if (!this.apiOn()) untracked(() => this.tab.set('conta'));
+      else untracked(() => void this.loadKeys());
+    });
+  }
+
+  protected async loadKeys(): Promise<void> {
+    this.keysError.set(null);
+    try {
+      await this.apiKeys.load();
+    } catch (err) {
+      this.keysError.set(err instanceof CloudError ? err.message : 'Não deu para trazer as chaves agora.');
+    }
+  }
+
+  protected newKey(): void {
+    this.keySheet.set({ editing: null });
+  }
+
+  protected editKey(k: ApiKeyInfo): void {
+    this.keySheet.set({ editing: k });
+  }
+
+  protected async removeKey(k: ApiKeyInfo): Promise<void> {
+    const sure = await this.confirm.ask({
+      title: 'Apagar a chave?',
+      text: `“${k.nome}” para de funcionar na hora: quem usa recebe uma recusa no próximo pedido. Não dá para desfazer; para voltar a dar acesso, crie outra.`,
+      confirm: 'Apagar a chave',
+    });
+    if (!sure) return;
+    this.keysBusy.set(k.id);
+    try {
+      await this.apiKeys.remove(k.id);
+      this.toasts.show(`A chave “${k.nome}” foi apagada.`);
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para apagar agora. Tente de novo.');
+    } finally {
+      this.keysBusy.set(null);
+    }
+  }
+
+  protected async cutAllKeys(): Promise<void> {
+    const n = this.apiKeys.list()?.length ?? 0;
+    const sure = await this.confirm.ask({
+      title: 'Cortar todos os acessos?',
+      text: `${n === 1 ? 'A chave para' : `As ${n} chaves param`} de funcionar na hora: toda AI e todo programa que usava perde o acesso. Não dá para desfazer.`,
+      confirm: 'Cortar todos',
+    });
+    if (!sure) return;
+    this.keysBusy.set('todas');
+    try {
+      await this.apiKeys.removeAll();
+      this.toasts.show('Pronto: nenhuma AI nem programa tem acesso ao seu Murall.');
+    } catch (err) {
+      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para cortar agora. Tente de novo.');
+    } finally {
+      this.keysBusy.set(null);
+    }
+  }
+
+  /** Quantas chaves ainda valem (para a pergunta do "Sair de todos"); sem resposta da nuvem, nenhuma. */
+  private async liveKeys(): Promise<number> {
+    if (!this.apiOn()) return 0;
+    try {
+      const list = this.apiKeys.list() ?? (await this.apiKeys.load());
+      return list.filter((k) => !expired(k)).length;
+    } catch {
+      return 0;
+    }
   }
 
   protected async setCommentsFrom(value: CommentsFrom): Promise<void> {
@@ -558,7 +657,7 @@ export class SettingsPage {
   }
 
   protected async signOutEverywhere(): Promise<void> {
-    await this.accountAction('sair-todos', async () => void (await this.sync.signOut(true)));
+    await this.accountAction('sair-todos', async () => void (await this.sync.signOut(true, await this.liveKeys())));
   }
 
   protected async deleteAccount(name: string, code: string, vault: boolean): Promise<void> {

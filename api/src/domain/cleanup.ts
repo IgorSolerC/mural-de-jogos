@@ -19,6 +19,8 @@ export async function cleanup(deps: Deps): Promise<void> {
     { sql: 'DELETE FROM freios WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     // os pedidos para ligar o Google Agenda que ninguém terminou (valem 15 minutos)
     { sql: 'DELETE FROM agenda_pedidos WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
+    // as chaves de API vencidas há mais de 30 dias (até lá, a lista mostra "venceu", para a pessoa entender)
+    { sql: 'DELETE FROM api_chaves WHERE expira_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
   ]);
   await eraseDue(deps);
 }

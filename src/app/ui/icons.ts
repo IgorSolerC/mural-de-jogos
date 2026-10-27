@@ -24,6 +24,7 @@ import {
   BookmarkCheck,
   BookmarkPlus,
   Bot,
+  KeyRound,
   Brain,
   BrainCog,
   BrickWall,
@@ -575,6 +576,7 @@ export const ICON = {
   joia: Gem,
   bateriaFraca: BatteryLow,
   robo: Bot,
+  chave: KeyRound,
   ondas: Waves,
   semOuvir: EarOff,
 } as const satisfies Record<string, LucideIconData>;

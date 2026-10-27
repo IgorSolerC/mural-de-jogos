@@ -3,6 +3,7 @@ import { env } from 'cloudflare:workers';
 import { beforeAll } from 'vitest';
 import { d1Db } from '../src/adapters/d1';
 import { amigosSuite } from './amigos.suite';
+import { chavesSuite } from './chaves.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -13,3 +14,4 @@ beforeAll(() => applyD1Migrations(bindings.DB, bindings.TEST_MIGRATIONS));
 apiSuite('Cloudflare D1', () => d1Db(bindings.DB));
 amigosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 notasSuite('Cloudflare D1', () => d1Db(bindings.DB));
+chavesSuite('Cloudflare D1', () => d1Db(bindings.DB));

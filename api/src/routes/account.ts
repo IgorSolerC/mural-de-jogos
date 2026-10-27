@@ -6,6 +6,8 @@ import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { vaultAllowed } from '../domain/vault';
+import { apiAllowed } from '../domain/api-key';
+import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
 import { cancelErase, eraseAccount, hasVault, scheduleErase } from '../domain/erase';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -76,9 +78,20 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     return c.json({ ok: true });
   });
 
+  // Com `{"chaves": true}`, corta também as chaves de API e os conectores (PLANO-API.md, D5: o site
+  // pergunta, com a caixa marcada).
   app.post('/v1/auth/sair-de-todos', async (c) => {
     const s = await session(c);
-    await write(deps, [{ sql: 'DELETE FROM sessoes WHERE usuario_id = ?', params: [s.userId] }], 3 * MAX_SESSIONS);
+    const body = await readJson(c);
+    const keys = body['chaves'] === true;
+    await write(
+      deps,
+      [
+        { sql: 'DELETE FROM sessoes WHERE usuario_id = ?', params: [s.userId] },
+        ...(keys ? [{ sql: 'DELETE FROM api_chaves WHERE usuario_id = ?', params: [s.userId] }] : []),
+      ],
+      3 * MAX_SESSIONS + (keys ? 4 * MAX_CHAVES : 0),
+    );
     return c.json({ ok: true });
   });
 
@@ -100,6 +113,8 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       pessoas: user.pessoas_visiveis ? 'listas' : 'numeros',
       comentarios: user.comentarios_de === 'seguidos' ? 'seguidos' : 'seguidores',
       cofre: await vaultAllowed(deps, user.codigo),
+      // pode usar a API das AIs (API_CODIGOS)? Só mostra a parte Acessos dos Ajustes
+      api: apiAllowed(deps, user.codigo),
       // marcada para sair (ver o DELETE): o site mostra o aviso com o Cancelar
       ...(user.apagar_em ? { apagarEm: user.apagar_em } : {}),
     });

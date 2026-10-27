@@ -6,7 +6,7 @@ import { DAY_MS } from './quota';
  * e continuam contando mesmo quando o que elas criaram some. Assim, tirar a reação ou sair da sessão
  * não devolve a vaga.
  */
-export type BrakeAction = 'reagir' | 'entrar' | 'comentar' | 'codigo' | 'compartilhar' | 'agenda';
+export type BrakeAction = 'reagir' | 'entrar' | 'comentar' | 'codigo' | 'compartilhar' | 'agenda' | 'chave';
 
 /** Quantas vezes a conta fez `action` nas últimas 24 horas. */
 export async function usedToday(deps: Deps, userId: string, action: BrakeAction, now: Date): Promise<number> {

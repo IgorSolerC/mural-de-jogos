@@ -32,6 +32,8 @@ export interface ConfirmOptions {
 export interface CheckedOptions extends ConfirmOptions {
   /** A caixinha embaixo da pergunta ("Nunca mais me perguntar isso"); `askChecked` devolve se ficou marcada. */
   check: string;
+  /** A caixinha já começa marcada (o que se espera que a pessoa queira, como cortar as chaves ao sair de todos). */
+  checkedAtStart?: boolean;
 }
 
 /** O que a pessoa respondeu, e se marcou a caixinha (vale com qualquer resposta). */
@@ -62,12 +64,12 @@ interface Question extends Required<ConfirmOptions> {
 @Injectable({ providedIn: 'root' })
 export class Confirm {
   readonly current = signal<Question | null>(null);
-  /** A caixinha da pergunta aberta (cada pergunta começa desmarcada). */
+  /** A caixinha da pergunta aberta (cada pergunta começa desmarcada, salvo `checkedAtStart`). */
   readonly checked = signal(false);
   private seq = 0;
 
-  private open(q: Question): void {
-    this.checked.set(false);
+  private open(q: Question, checked = false): void {
+    this.checked.set(checked);
     this.current.set(q);
   }
 
@@ -102,7 +104,7 @@ export class Confirm {
         tone: options.tone ?? 'perigo',
         id: ++this.seq,
         resolve: (choice) => resolve({ ok: choice === 'confirm', checked: this.checked() }),
-      }),
+      }, options.checkedAtStart === true),
     );
   }
 

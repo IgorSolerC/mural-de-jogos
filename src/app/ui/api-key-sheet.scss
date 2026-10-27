@@ -1,0 +1,395 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* A folha da chave: a ficha de fichário dos diálogos, com a faixa azul e a tachinha clara. Reta: é de
+   preencher. Larga o bastante para as áreas em duas colunas. */
+dialog.folha-chave {
+  width: 100%;
+  max-width: min(680px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.sub-mao {
+  @include sheet.sub-mao;
+}
+
+.body {
+  gap: 26px;
+  padding-top: 18px;
+}
+
+/* ===== Cada parte: o título em letra de etiqueta, a frase embaixo, o controle ===== */
+.parte {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.parte-titulo {
+  padding: 0;
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+/* a legenda de um fieldset não entra no grid: o espaço embaixo dela vem daqui */
+legend.parte-titulo {
+  margin-bottom: 8px;
+}
+
+.parte-desc {
+  max-width: 62ch;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+.campo {
+  @include kit.campo;
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+}
+
+/* o que falta para salvar: a caneta vermelha do erro, sem caixa */
+.falta,
+.msg-erro {
+  font-weight: 600;
+  font-size: 0.94rem;
+  line-height: 1.4;
+  color: var(--error-ink);
+}
+
+.msg-erro {
+  padding: 10px 12px;
+  border-radius: 2px;
+  background: #fbe7e3;
+}
+
+/* ===== Os atalhos: adesivos que preenchem as caixas (o que bate com o marcado fica colado) ===== */
+.atalhos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.atalho {
+  @include kit.adesivo-escolha;
+}
+
+/* ===== As áreas: duas colunas de caixinhas a caneta, cada uma com o que inclui embaixo ===== */
+.areas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 28px;
+  margin-top: 14px;
+}
+
+.area {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.area-nome {
+  padding-bottom: 5px;
+  margin-bottom: 4px;
+  border-bottom: 1.5px solid rgb(21 21 21 / 0.18);
+  font-family: var(--f-marker);
+  font-size: 1.12rem;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+/* a caixinha a caneta das tarefas (a da confirmação): marcada, ganha o tique vermelho */
+.caixa {
+  display: grid;
+  grid-template-columns: 1.1em minmax(0, 1fr);
+  column-gap: 10px;
+  align-items: start;
+  padding: 7px 0;
+  cursor: pointer;
+
+  input {
+    grid-row: 1 / span 2;
+    appearance: none;
+    width: 1.1em;
+    height: 1.1em;
+    margin: 0.12em 0 0;
+    border: 2px solid var(--ink);
+    border-radius: 2px 3px 2px 4px;
+    rotate: -3deg;
+    background: transparent;
+    cursor: pointer;
+    transition: background-color var(--t-ui) var(--ease-ui);
+
+    &:hover {
+      background-color: rgb(21 21 21 / 0.06);
+    }
+
+    &:checked {
+      background: no-repeat center / 120% 120%
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 3px;
+    }
+  }
+
+  /* os grupos: só o nome, numa fileira que quebra */
+  &.curta {
+    padding: 4px 0;
+  }
+}
+
+.caixa-nome {
+  font-weight: 700;
+  font-size: 0.98rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.caixa-inclui {
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* o especial (mudar quem vê) avisa a caneta vermelha */
+.caixa.cuidado {
+  .caixa-nome,
+  .caixa-inclui {
+    color: var(--red-deep);
+  }
+}
+
+.grupos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 22px;
+  margin-top: 6px;
+}
+
+/* ===== Os seletores de adesivo dos Ajustes ===== */
+.segmentos {
+  @include kit.segmentos;
+  max-width: none;
+  margin-top: 2px;
+
+  &.quatro {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    max-width: 480px;
+  }
+}
+
+.segmento {
+  @include kit.segmento;
+
+  &:has(input:checked) .seg-sub {
+    color: rgb(247 244 236 / 0.78);
+  }
+}
+
+.seg-nome {
+  @include kit.seg-nome;
+  padding: 0 4px;
+  text-wrap: balance;
+}
+
+.seg-num {
+  font-family: var(--f-marker);
+  font-size: 1.4rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.seg-sub {
+  font-size: 0.8rem;
+  line-height: 1.1;
+  color: var(--ink-2);
+}
+
+/* ===== O segredo: o bilhete amarelo do aviso, a tira com a chave e o Copiar de tinta ===== */
+.aviso {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 2px;
+  background: #fff1b8;
+  box-shadow: var(--campo-sombra);
+  font-size: 0.98rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+
+  strong {
+    font-weight: 800;
+  }
+}
+
+.aviso-icone {
+  display: inline-flex;
+  flex: none;
+  margin-top: 2px;
+}
+
+.linha-segredo {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.campo.segredo {
+  flex: 1;
+  min-width: 0;
+  cursor: text;
+
+  input {
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 0.92rem;
+    letter-spacing: 0.02em;
+    text-overflow: ellipsis;
+  }
+
+  input::selection {
+    background: rgb(255 218 66 / 0.85);
+    color: var(--ink);
+  }
+}
+
+.copiar {
+  flex: none;
+  gap: 8px;
+  min-width: 176px;
+  min-height: 50px;
+}
+
+/* o teste: o comando no papel do código do texto (régua mono), com o Copiar no canto; o comando
+   longo rola dentro do papel, nunca para fora da folha */
+.codigo {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 2px;
+  background: rgb(21 21 21 / 0.05);
+  box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.1);
+
+  pre {
+    margin: 0;
+    padding: 14px 16px;
+    padding-right: 120px;
+    font-family: var(--f-mono);
+    font-size: 0.84rem;
+    line-height: 1.55;
+    /* o comando quebra dentro do papel, ao lado do Copiar (que copia o texto exato) */
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+
+    &::selection,
+    *::selection {
+      background: rgb(255 218 66 / 0.85);
+    }
+  }
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.copiar-codigo {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-height: 40px;
+  padding: 6px 12px 5px;
+}
+
+.explica-lista {
+  display: grid;
+  gap: 10px;
+}
+
+.explica {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.explica-icone {
+  display: inline-flex;
+  flex: none;
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+@media (max-width: 560px) {
+  .areas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .segmentos {
+    grid-template-columns: minmax(0, 1fr);
+
+    &.dois {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    &.quatro {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  .linha-segredo {
+    flex-direction: column;
+  }
+
+  .copiar {
+    width: 100%;
+  }
+
+  .codigo pre {
+    padding-right: 16px;
+    padding-top: 56px;
+  }
+}

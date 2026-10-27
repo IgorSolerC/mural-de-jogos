@@ -610,6 +610,72 @@ fieldset.linha {
   white-space: nowrap;
 }
 
+/* ===== Acessos: as chaves de API, no jeito das versões guardadas ===== */
+/* o que a chave pode, em palavras ("Gastos: ver e lançar"): a linha de cima, em tinta */
+.chave-pode {
+  margin: 3px 0 0;
+  font-size: 0.94rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* vencida: a linha desbota e ganha o carimbo; só sobra o Apagar */
+.chave.vencida {
+  .versao-mural,
+  .chave-pode {
+    opacity: 0.55;
+  }
+}
+
+.carimbo-vencida {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px 0;
+  border: 2px solid var(--red-deep);
+  border-radius: 3px;
+  rotate: -3deg;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--red-deep);
+  vertical-align: 2px;
+}
+
+.chave-acoes {
+  align-self: center;
+}
+
+/* embaixo do título do grupo, a primeira chave não leva o pontilhado de cima (a linha do título já separa) */
+.chaves > .chave:first-child {
+  border-top: 0;
+}
+
+.vazio-chaves {
+  max-width: 62ch;
+  padding: 16px 0 4px;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.nova-chave {
+  display: flex;
+  padding: 14px 0 4px;
+}
+
+.carregando-chaves {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 0;
+}
+
 /* os conflitos da sincronização: o mesmo jeito das versões guardadas, com o aviso a caneta vermelha */
 .conflitos-icone {
   vertical-align: -3px;
@@ -1062,7 +1128,8 @@ fieldset.linha {
     align-items: start;
 
     > .btn-papel,
-    > .versao-agora {
+    > .versao-agora,
+    > .chave-acoes {
       grid-column: 2;
       justify-self: start;
       margin-top: 6px;

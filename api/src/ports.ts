@@ -40,6 +40,11 @@ export interface Config {
   googleClientId: string;
   /** Quem pode abrir um mural pelo código: qualquer um, ou só quem está logado (se alguém abusar). */
   publicMurals: 'todos' | 'logados';
+  /**
+   * Quem pode usar a API das AIs (as chaves, PLANO-API.md): os códigos das contas, sem o traço; `*` é
+   * todo mundo; vazio, ninguém.
+   */
+  apiCodes: string[];
 }
 
 /** As chaves do site nos catálogos (secrets do Worker). Vazia: aquele catálogo fica sem a chave do site. */

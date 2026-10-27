@@ -177,9 +177,10 @@ Angular (seção 21, risco R3): não entra agora.
 
 - **O mesmo Worker**: um Worker a mais não traz nada (o limite de 10 ms é por pedido) e dividiria o
   banco. O código fica em pastas novas: `api/src/ext/` (REST), `api/src/mcp/`, `api/src/oauth/`.
-- **Contrato público em `shared/api-v1/`**: TypeScript puro, sem Angular, importado pelo Worker (para
-  validar), pelo site (para aplicar e montar o espelho) e pela CLI. É o mesmo truque do `shared/` do
-  cofre. Contém os tipos v1, os esquemas JSON Schema, as permissões e os textos de ajuda.
+- **Contrato público em `contrato/api-v1/`**: TypeScript puro, sem Angular, importado pelo Worker (para
+  validar), pelo site (para aplicar e montar o espelho) e pela CLI. Contém os tipos v1, os esquemas JSON
+  Schema, as permissões e os textos de ajuda. Não mora em `shared/`: aquela pasta é a que o Murall
+  divide com o cofre, e o cofre tem regras próprias para ela (nenhum import; `regras.test.mjs`).
 - **O site é o tradutor.** `src/app/core/api-v1/` tem os dois mapas: interno → v1 (para o espelho) e
   pedido v1 → chamadas nas lojas (para aplicar). Mudou o formato interno (`SYNC_SCHEMA` 42, 43...)?
   Só o mapa muda; a API pública continua igual.
@@ -439,7 +440,7 @@ Cloudflare; ele só existe porque abrir o arquivo inteiro não cabe nos 10 ms.
 ### 8.2 Tabelas
 
 ```sql
--- 0016_espelho.sql
+-- 0016_espelho.sql (o número pode andar: cada rodada leva a sua migração)
 CREATE TABLE api_espelho (
   usuario_id TEXT NOT NULL,
   tipo TEXT NOT NULL,          -- nota | cartao | lembrete | lancamento | envelope | pessoa | desejo | pra-depois | ficha | visao
@@ -722,7 +723,7 @@ CREATE TABLE oauth_aparelhos (hash TEXT PRIMARY KEY, codigo_usuario TEXT NOT NUL
 
 ### 13.1 Uma fonte só
 
-`shared/api-v1/esquemas.ts` define cada recurso e cada operação em **JSON Schema** (o subconjunto:
+`contrato/api-v1/esquemas.ts` define cada recurso e cada operação em **JSON Schema** (o subconjunto:
 `type`, `enum`, `minimum`/`maximum`, `maxLength`, `pattern`, `required`, `items`, `maxItems`,
 `additionalProperties: false`), com `description` em português. Dali saem:
 
@@ -889,7 +890,7 @@ espelho sem chave que leia, coisas do OAuth vencidas.
 | `api/src/domain/` | `erase.ts`, `cleanup.ts`, `brake.ts` (ações novas), `quota.ts` (a fatia da API) |
 | `api/src/app.ts` | as rotas novas; CORS de `/ext` e `/mcp` com `*` (só portador, sem cookie) |
 | `api/wrangler.toml` | `API_CODIGOS`, `API_JWT_CHAVE` (secret), domínio próprio (D6) |
-| `shared/api-v1/` | tipos, esquemas, escopos, textos do guia |
+| `contrato/api-v1/` | tipos, esquemas, escopos, o segredo, textos do guia |
 | `src/app/core/api-v1/` | `mirror.ts` (interno → v1), `apply.ts` (pedido → lojas), `requests.ts` (o ciclo da 9.1) |
 | `src/app/core/cloud-sync.ts` | depois do push: aplicar pedidos e atualizar o espelho; ler `Mural-Pedidos` |
 | `src/app/core/browser-reset.ts` | nada novo além de `meu-mural:api:aplicados` dentro da IndexedDB que já é limpa (teste) |
@@ -911,7 +912,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | # | Rodada | Pronta quando |
 | --- | --- | --- |
 | 0 | **Medir** (sem mudar o produto) — feita em 27/out (seção 23) | Tamanho real do seu mural (o arquivo do Backup e a contagem de notas, lançamentos e lembretes), o custo de CPU de uma página de espelho num Worker de teste (`mural-api-teste`, D1 próprio, grátis), o tamanho do bundle com e sem o SDK do MCP, FTS5 × LIKE, o nome `murall` no npm, o claude.ai conectando a um MCP mínimo no Worker de teste |
-| 1 | **Chaves** | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
+| 1 | **Chaves** — feita em 27/out (seção 23) | Migração 0015; criar/listar/apagar no site (tela simples, já pelo Impeccable); `GET /ext/v1/eu` com `curl`; testes de escopo, validade, revogação, isolamento, sessão × chave; erase e limpeza |
 | 2 | **Ler as Anotações** | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
 | 3 | **Escrever nas Anotações** | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
 | 4 | **MCP com chave + guia** | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
@@ -1012,3 +1013,28 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   Não medido: a contagem exata das suas notas, lançamentos e lembretes (ler o banco de produção foi
   bloqueado; o teto acima basta para o plano) e o claude.ai ligando no MCP de teste (precisa de você:
   Ajustes › Conectores › Adicionar conector personalizado › `https://mural-api-teste.igorsoler.workers.dev/mcp`).
+
+- **27/out/2026, rodada 1 (chaves)**: feita. O que entrou:
+  - **Contrato** em `contrato/api-v1/`: `escopos.ts` (as 20 permissões com nome, verbo curto e o que
+    incluem; os atalhos; aprovação; validades; limites; `limparGrupos`) e `segredo.ts` (o formato
+    `murall_` + 43 + 6 com CRC32 em base 62). A pasta saiu de `shared/` porque a regra do cofre proíbe
+    import ali e acusava "importância" como import (o `` do JavaScript não conhece acento).
+  - **API**: migração `0015_chaves.sql` (só `api_chaves`; os pedidos ganham a migração deles na rodada
+    3, e os números seguintes andam um), `domain/api-key.ts`, `routes/keys.ts` (`GET/POST /v1/eu/chaves`,
+    `PATCH/DELETE /v1/eu/chaves/:id`, `DELETE /v1/eu/chaves`), `ext/routes.ts` (`GET /ext/v1/eu`),
+    `API_CODIGOS` no wrangler.toml (só o dono), `api` no `GET /v1/eu`, `{"chaves": true}` no
+    `POST /v1/auth/sair-de-todos`, CORS `*` só em `/ext`, freio `chave` (20 por dia), até 20 chaves vivas,
+    "usada em" no máximo 1×/hora, conta marcada para sair para de responder, apagar a conta e a limpeza
+    (vencidas há 30 dias) levam as chaves, `api_chaves` no backup. O `api.yml` agora também roda com
+    mudança em `contrato/`. Testes: `test/chaves.suite.ts` (nos dois bancos) e `test/segredo.test.ts`.
+  - **Site**: Ajustes › **Acessos** (só com `api` na conta; espera o `cloud.json` antes de decidir), a
+    lista no jeito das Versões guardadas (o que pode em palavras, validade, uso, aprovação, grupos;
+    vencida com carimbo), Nova chave / Mudar / Apagar / Cortar todos, a folha `ui/api-key-sheet`
+    (atalhos, caixinhas a caneta por área, grupos só quando há anotações ou Kanban, aprovação,
+    validade; o segredo uma vez, com Copiar, o teste no terminal e a pergunta ao fechar sem copiar) e o
+    "Sair de todos" com a caixa "Cortar também as chaves" já marcada (`checkedAtStart` no Confirm).
+    Nada novo no armazenamento do navegador (há teste). Sem Novidades enquanto só o dono usa (como foi
+    com o Google Agenda).
+  - **Ficou para depois** (de propósito): o aviso no Correio ao criar uma chave (D11) pede um tipo novo
+    no quadro de avisos e entra junto com a rodada 5 (OAuth), quando a autorização de um conector
+    também avisa; até lá, só a sessão do site cria chaves.
