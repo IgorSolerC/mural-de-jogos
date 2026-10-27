@@ -26,6 +26,8 @@
   background-blend-mode: multiply;
   /* a sombra fina que a borda da pasta faz no pé das abas de trás */
   box-shadow: 0 -2px 3px -1px rgb(0 0 0 / 0.35);
+  /* é só desenho: o toque no pé de uma aba de trás chega nela */
+  pointer-events: none;
 }
 
 /* Uma aba; `$aberta` é o seletor da aberta ('.on', '[aria-pressed="true"]') */

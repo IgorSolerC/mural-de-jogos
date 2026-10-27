@@ -8,21 +8,25 @@
 } @else if (colleague(); as c) {
   <!-- a ficha da dona: em cima, uma orelha por mural que ela tem; no papel, quem ela é e o que tem aqui -->
   <header class="dona">
-    <div class="orelhas" role="group" [attr.aria-label]="'Murais de ' + c.name">
-      @for (w of walls(); track w.kind) {
-        <button
-          type="button"
-          class="orelha"
-          [class.on]="w.on"
-          [attr.aria-pressed]="w.on"
-          [attr.aria-label]="w.label + ', ' + w.n"
-          (click)="switchWall(w.kind)"
-        >
-          <lucide-icon class="orelha-ico" [img]="w.icon" [size]="18" aria-hidden="true" />
-          <span class="orelha-nome" aria-hidden="true">{{ w.label }}</span>
-          <span class="orelha-n" aria-hidden="true">{{ w.n }}</span>
-        </button>
-      }
+    <div class="orelhas">
+      <!-- as que não cabem (no celular) rolam de lado, sobre a borda que fica parada -->
+      <div class="trilho" role="group" [attr.aria-label]="'Murais de ' + c.name">
+        @for (w of walls(); track w.kind) {
+          <button
+            type="button"
+            class="orelha"
+            [class.on]="w.on"
+            [attr.aria-pressed]="w.on"
+            [attr.aria-label]="w.label + ', ' + w.n"
+            [title]="w.label"
+            (click)="switchWall(w.kind)"
+          >
+            <lucide-icon class="orelha-ico" [img]="w.icon" [size]="18" aria-hidden="true" />
+            <span class="orelha-nome" aria-hidden="true">{{ w.label }}</span>
+            <span class="orelha-n" aria-hidden="true">{{ w.n }}</span>
+          </button>
+        }
+      </div>
     </div>
 
     <div class="ficha-dona">
@@ -37,15 +41,8 @@
       }
 
       <div class="quem">
-        <h1 class="titulo">
-          O mural de
-          @if (c.codigo) {
-            <!-- veio pelo código: o nome leva ao perfil da pessoa -->
-            <a class="nome scribble" [routerLink]="['/perfil', c.codigo]" [attr.aria-label]="c.name + ': ver o perfil'">{{ c.name }}</a>
-          } @else {
-            <span class="nome scribble">{{ c.name }}</span>
-          }
-        </h1>
+        <!-- o perfil é um caminho só, o "Ver o perfil" (e a foto, para o mouse) -->
+        <h1 class="titulo">O mural de <span class="nome scribble">{{ c.name }}</span></h1>
         @if (tagline(); as t) {
           <p class="linha">{{ t }}</p>
         }
@@ -75,7 +72,7 @@
             >
               <lucide-icon [img]="following() ? FollowingIcon : FollowIcon" [size]="20" aria-hidden="true" />
               @if (followBusy()) {
-                {{ following() ? 'Deixando de seguir…' : 'Seguindo…' }}
+                {{ following() ? 'Deixando de seguir…' : 'Começando a seguir…' }}
               } @else {
                 {{ following() ? 'Seguindo' : 'Seguir' }}
               }

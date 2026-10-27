@@ -7,7 +7,7 @@ import { SavedKnockout, loadKnockout, saveKnockout } from '../core/knockout-save
 import { Mural } from '../core/mural';
 import { ME, Player, Players } from '../core/players';
 import { Review, formatScore, shownFinal } from '../core/review';
-import { DUEL_OPTIONS, DuelOption, MIN_GAP, agreement, drawEntrants, ensureDraws, entrantsFor, makeBracket, playOut, podium } from '../core/tournament';
+import { DUEL_OPTIONS, DuelOption, MIN_GAP, agreement, drawEntrants, ensureDraws, entrantsFor, lockedReason, makeBracket, playOut, podium } from '../core/tournament';
 import { PlayerPicker } from '../ui/player-picker';
 import { ReviewCard } from '../ui/review-card';
 import { ReviewReader } from '../ui/review-reader';
@@ -119,7 +119,9 @@ export class KnockoutPage {
         : byes === 1
           ? ` ${g(p, 'O', 'A')} de nota mais alta passa direto da primeira rodada.`
           : ` ${g(p, 'Os', 'As')} ${byes} de nota mais alta passam direto da primeira rodada.`;
-    return `${picked}, ${plural(n - 1, 'duelo', 'duelos')} até ${g(p, 'o campeão', 'a campeã')}.${skip}`;
+    // as opções que não dá para escolher dizem por quê (o title do botão desligado só aparece no mouse)
+    const why = lockedReason(who.reviews.length, p.plural);
+    return `${picked}, ${plural(n - 1, 'duelo', 'duelos')} até ${g(p, 'o campeão', 'a campeã')}.${skip}${why ? ` ${why}` : ''}`;
   });
 
   /** O duelo da vez tem a distância? (num mural de notas parecidas, às vezes não dá) */

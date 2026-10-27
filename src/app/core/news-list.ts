@@ -26,6 +26,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-27-escolhas-a-giz',
+    version: '1.35.2',
+    kind: 'ajustes',
+    date: '2026-10-27',
+    title: 'Escolhas a giz e o Mata-mata',
+    melhorias: [
+      'O ano das Estatísticas e a ordem do Lado a lado são escolhidos a giz, como o Ordenar da pasta; as orelhas do mural de outra pessoa ficaram um pouco maiores que as dos grupos, com o perfil e o Seguir logo ao lado do nome.',
+      'O Mata-mata diz, embaixo das escolhas, quantas fichas pedem os números de duelos que ainda não dá para escolher.',
+    ],
+    correcoes: [
+      'A roda do mouse em cima de uma fileira de orelhas rola a página, não a fileira, e o toque no pé de uma orelha de trás chega nela.',
+    ],
+  },
+  {
     id: '2026-10-26-visita-ao-mural',
     version: '1.35.1',
     kind: 'ajustes',

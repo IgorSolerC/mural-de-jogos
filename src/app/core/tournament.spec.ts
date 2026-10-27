@@ -1,4 +1,4 @@
-import { MIN_GAP, agreement, drawEntrants, ensureDraws, entrantsFor, makeBracket, pairUp, playOut, podium } from './tournament';
+import { MIN_GAP, agreement, drawEntrants, ensureDraws, entrantsFor, lockedReason, makeBracket, pairUp, playOut, podium } from './tournament';
 
 /** Um sorteio previsível. */
 function seeded(seed: number): () => number {
@@ -187,5 +187,17 @@ describe('mata-mata', () => {
       const out = playDrawn(slots, score, seeded(1), (a) => a);
       expect(out.champion).not.toBeNull();
     });
+  });
+});
+
+describe('por que um número de duelos não dá (lockedReason)', () => {
+  it('cada opção desligada pede as próprias fichas', () => {
+    expect(lockedReason(6, 'jogos')).toBe('15 duelos pedem pelo menos 16 jogos; 30, pelo menos 31.');
+    expect(lockedReason(3, 'livros')).toBe('5 duelos pedem pelo menos 6 livros; 15, pelo menos 16; 30, pelo menos 31.');
+    expect(lockedReason(20, 'filmes')).toBe('30 duelos pedem pelo menos 31 filmes.');
+  });
+
+  it('com fichas para todas, nada a dizer', () => {
+    expect(lockedReason(31, 'jogos')).toBe('');
   });
 });

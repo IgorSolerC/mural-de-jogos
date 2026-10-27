@@ -8,6 +8,9 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewReader } from '../ui/review-reader';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { ViewTransitions } from '../core/view-transitions';
+import { CloudAccount } from '../core/cloud-account';
+import { Follow } from '../core/follow';
+import { FollowToasts } from '../ui/follow-toasts';
 import { ColleagueWallPage } from './colleague-wall-page';
 import { WallBoard } from './wall-board';
 
@@ -73,9 +76,10 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     for (let i = 0; i < 3; i++) await new Promise((r) => setTimeout(r));
   };
 
-  function create(c: Colleague | null) {
+  function create(c: Colleague | null, extra: unknown[] = []) {
     TestBed.configureTestingModule({
       providers: [
+        ...(extra as never[]),
         provideZonelessChangeDetection(),
         provideRouter([]),
         // a troca de mural sem a transição: na hora
@@ -106,7 +110,7 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     // a anotação finalizada não está no mural: conta só uma
     expect(ears(el).map(earText)).toEqual(['Jogos, 2', 'Livros, 1', 'Anotações, 1']);
     expect(ears(el).map((b) => b.getAttribute('aria-pressed'))).toEqual(['true', 'false', 'false']);
-    expect(el.querySelector('.orelhas')!.getAttribute('aria-label')).toBe('Murais de Marina');
+    expect(el.querySelector('.trilho')!.getAttribute('aria-label')).toBe('Murais de Marina');
   });
 
   it('tocar numa orelha troca o mural; a aberta não faz nada', async () => {
@@ -138,13 +142,51 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     await settle();
     const el = fixture.nativeElement as HTMLElement;
     expect(el.querySelector('h1')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('O mural de Marina');
-    expect(el.querySelector('.nome')!.getAttribute('href')).toBe('/perfil/K7QFM2XA');
+    // um caminho só para o perfil: o nome não é link, o "Ver o perfil" é
+    expect(el.querySelector('a.nome')).toBeNull();
+    expect(el.querySelector('.perfil')!.getAttribute('href')).toBe('/perfil/K7QFM2XA');
     expect(el.querySelector('.linha')!.textContent).toBe('Jogos lentos e livros longos');
     expect(el.querySelector('.resumo')!.textContent).toContain('2 jogos');
     expect(el.querySelector('app-person-photo')!.textContent).toContain('🌻');
     expect(el.querySelector('.perfil')!.textContent).toContain('Ver o perfil');
     // sem trapézio nenhum na página
     expect(el.querySelector('.plate')).toBeNull();
+  });
+
+  it('com conta: Seguir ao lado do perfil; enquanto pede, "Começando a seguir…"; seguindo, a fita amarela', async () => {
+    const following = signal<boolean | null>(false);
+    let release!: () => void;
+    const toasts = {
+      start: jasmine.createSpy('start').and.callFake(() => new Promise<void>((r) => (release = () => (following.set(true), r())))),
+      stop: jasmine.createSpy('stop'),
+    };
+    const fixture = create(marina(), [
+      // o resto do Follow (a lista, os avisos) fica vazio
+      {
+        provide: Follow,
+        useValue: new Proxy({ available: signal(true), isFollowing: () => following() } as Record<string | symbol, unknown>, {
+          get: (t, k) => (k in t ? t[k] : () => []),
+        }),
+      },
+      { provide: CloudAccount, useValue: { account: signal({ codigo: 'OUTRO123' }) } },
+      { provide: FollowToasts, useValue: toasts },
+    ]);
+    await settle();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    const seguir = el.querySelector<HTMLButtonElement>('.acoes .seguir')!;
+    expect(el.querySelector('.acoes .perfil')).not.toBeNull();
+    expect(seguir.textContent!.trim()).toBe('Seguir');
+    expect(seguir.getAttribute('aria-pressed')).toBe('false');
+    seguir.click();
+    fixture.detectChanges();
+    expect(toasts.start).toHaveBeenCalledWith('K7QFM2XA', 'Marina');
+    expect(seguir.textContent!.trim()).toBe('Começando a seguir…');
+    release();
+    await settle();
+    fixture.detectChanges();
+    expect(seguir.textContent!.trim()).toBe('Seguindo');
+    expect(seguir.classList).toContain('seguindo');
   });
 
   it('um backup, sem código nem perfil: a inicial na foto, sem linha e sem o perfil', async () => {

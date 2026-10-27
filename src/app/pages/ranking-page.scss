@@ -7,8 +7,11 @@
 /* ===== As orelhas das notas, em pé na borda de uma pasta (ver _divisorias.scss) ===== */
 .rail {
   @include div.fileira;
-  margin-bottom: 44px;
-  padding: 6px 12px 0;
+
+  & {
+    margin-bottom: 32px;
+    padding: 6px 12px 0;
+  }
 }
 
 .plates {
@@ -379,16 +382,27 @@ h1 {
 }
 
 @media (max-width: 720px) {
+  /* a ponta some aos poucos só enquanto há orelhas escondidas do lado: a rolagem das orelhas leva a
+     máscara para fora até o fim (sem rolagem, a linha do tempo fica parada e a máscara, fora) */
   .rail {
-    margin-bottom: 34px;
+    margin-bottom: 26px;
     padding: 0 6px;
+    timeline-scope: --orelhas;
+    mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    mask-repeat: no-repeat;
+    mask-size: calc(100% + 32px) 100%;
+    animation: some-a-ponta linear both;
+    animation-timeline: --orelhas;
   }
 
-  /* as orelhas que não cabem rolam de lado, sobre a borda que fica parada (sem máscara: ela
-     separaria as orelhas da borda, e a aberta não emendaria mais) */
+  /* as orelhas que não cabem rolam de lado, sobre a borda que fica parada (a máscara fica na régua
+     inteira, não aqui: aqui ela separaria as orelhas da borda, e a aberta não emendaria mais) */
   .plates {
     flex-wrap: nowrap;
     overflow-x: auto;
+    /* o pé das de trás desce 3px: sem isso, a roda do mouse em cima delas rolaria a fileira, não a página */
+    overflow-y: hidden;
+    scroll-timeline: --orelhas inline;
     padding-top: 6px;
     scrollbar-width: none;
 
@@ -433,5 +447,14 @@ h1 {
 
   .score {
     font-size: 1.45rem;
+  }
+}
+
+@keyframes some-a-ponta {
+  from {
+    mask-size: 100% 100%;
+  }
+  to {
+    mask-size: calc(100% + 32px) 100%;
   }
 }

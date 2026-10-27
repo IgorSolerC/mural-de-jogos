@@ -156,7 +156,14 @@
         <legend class="rotulo">Quantos duelos?</legend>
         <div class="escolhas" role="group" aria-label="Quantos duelos">
           @for (o of options; track o) {
-            <button type="button" class="escolha curta" [attr.aria-pressed]="option() === o" [disabled]="!entrants(o)" (click)="option.set(o)">
+            <button
+              type="button"
+              class="escolha curta"
+              [attr.aria-pressed]="option() === o"
+              [disabled]="!entrants(o)"
+              [attr.title]="entrants(o) ? null : 'Precisa de ' + (+o + 1) + ' fichas no mural'"
+              (click)="option.set(o)"
+            >
               {{ optionLabel(o) }}
             </button>
           }

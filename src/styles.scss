@@ -72,6 +72,9 @@
   --papel-orelha: #fffcf2;
   /* a cartolina parda das pastas e das abas de divisória */
   --manilha: #f3e5bb;
+  /* as orelhas de trás numa ficha de papel claro (a da dona, na visita): um creme mais escuro que ela */
+  --orelha-clara-atras: #d9cdab;
+  --orelha-clara-hover: #e1d6b8;
   /* o erro escrito no papel, embaixo do campo */
   --error-ink: #6b0000;
   --hi: #ffda42;
@@ -357,6 +360,8 @@ p {
   --borda: 7px;
   @include div.aba(":is([aria-pressed='true'], .is-active)");
   align-items: center;
+  /* 44px para o dedo (o pé escondido atrás da borda conta) */
+  min-height: 44px;
   font-family: var(--f-marker);
   font-weight: 400;
   font-size: 1.08rem;
@@ -368,6 +373,12 @@ p {
 
   &:not(:is([aria-pressed='true'], .is-active)) .count {
     opacity: 0.85;
+  }
+
+  /* o anel de tinta: o amarelo some no manilha claro da aberta */
+  &:focus-visible {
+    outline-color: var(--ink);
+    outline-offset: -5px;
   }
 
   &:disabled {

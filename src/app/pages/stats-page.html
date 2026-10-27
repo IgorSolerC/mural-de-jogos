@@ -53,18 +53,16 @@
     @if (years().length) {
       <div class="grupo">
         <span class="giz" aria-hidden="true">Quando</span>
-        <div class="abas-linha">
-          <label class="plate pick">
-            <span class="pick-val" aria-hidden="true">{{ year() ?? 'Todos os anos' }}</span>
-            <select aria-label="Ano de conclusão" [value]="year() ?? ''" (change)="setYear($any($event.target).value)">
-              <option value="" [selected]="year() === null">Todos os anos</option>
-              @for (y of years(); track y) {
-                <option [value]="y" [selected]="year() === y">{{ y }}</option>
-              }
-            </select>
-            <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
-          </label>
-        </div>
+        <label class="pick">
+          <span class="pick-val" aria-hidden="true">{{ year() ?? 'Todos os anos' }}</span>
+          <select aria-label="Ano de conclusão" [value]="year() ?? ''" (change)="setYear($any($event.target).value)">
+            <option value="" [selected]="year() === null">Todos os anos</option>
+            @for (y of years(); track y) {
+              <option [value]="y" [selected]="year() === y">{{ y }}</option>
+            }
+          </select>
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="16" aria-hidden="true" />
+        </label>
       </div>
     }
     <span class="prateleira-quebra" aria-hidden="true"></span>

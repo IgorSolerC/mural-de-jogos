@@ -28,15 +28,13 @@
   color: var(--wall-ink);
 }
 
-/* ===== Ordem e tipo de ficha: orelhas de pasta, em pé na borda de manilha (ver _divisorias.scss) ===== */
+/* ===== Ordem (a giz) e tipo de ficha (orelhas de pasta na borda de manilha: ver _divisorias.scss) ===== */
 .shelf {
-  @include div.fileira;
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   gap: 12px 22px;
-  margin-bottom: 52px;
-  padding: 6px 12px 0;
+  margin-bottom: 40px;
 }
 
 .group {
@@ -55,32 +53,9 @@
   padding-inline: 11px;
 }
 
+/* ordenar: a escolha a giz, como na pasta do mural (ver _paper-kit.scss) */
 .pick {
-  padding-right: 34px;
-  cursor: pointer;
-
-  select {
-    @include kit.select-por-cima;
-  }
-
-  &:has(select:focus-visible) {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-    border-radius: 2px;
-  }
-}
-
-.pick-pre {
-  font-weight: 600;
-  opacity: 0.6;
-}
-
-.chev {
-  position: absolute;
-  right: 11px;
-  /* no meio da parte que aparece: o pé da orelha fica atrás da borda */
-  top: calc(50% - 8px - var(--borda) / 2);
-  display: inline-flex;
+  @include kit.escolha-de-giz;
 }
 
 /* ===== As fichas marcadas: depois da folha, com a etiqueta de fita do mural e o tipo de ficha ===== */

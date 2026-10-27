@@ -40,22 +40,31 @@
 /* ===== A régua: de quem, quando e as páginas ===== */
 .estat-prateleira {
   align-items: flex-end;
-  margin-bottom: 52px;
+  margin-bottom: 34px;
 }
 
 .grupo {
   display: grid;
+  grid-template-rows: auto 1fr;
+  align-self: stretch;
   gap: 6px;
+}
+
+/* o "Quando" a giz no pé do grupo, na altura do nome das orelhas ao lado (acima da borda delas) */
+.grupo > .pick {
+  align-self: end;
+  margin-bottom: 4px;
 }
 
 /* de quem e quando, na fileira de cima: cada grupo com a sua tira de manilha embaixo das orelhas */
 .grupo > .abas-linha {
   @include div.fileira;
-}
 
-.grupo > .abas-linha {
-  gap: 3px;
-  padding: 6px 8px 0;
+  & {
+    align-self: end;
+    gap: 3px;
+    padding: 6px 8px 0;
+  }
 }
 
 .giz {
@@ -82,28 +91,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* o seletor de ano: o <select> nativo, invisível, cobre a aba inteira */
+/* o ano: a escolha a giz, como o ordenar da pasta (ver _paper-kit.scss) */
 .pick {
-  padding-right: 34px;
-  cursor: pointer;
-
-  select {
-    @include kit.select-por-cima;
-  }
-
-  &:has(select:focus-visible) {
-    outline: 3px solid var(--focus);
-    outline-offset: 3px;
-    border-radius: 2px;
-  }
-}
-
-.chev {
-  position: absolute;
-  right: 11px;
-  /* no meio da parte que aparece: o pé da orelha fica atrás da borda */
-  top: calc(50% - 8px - var(--borda) / 2);
-  display: inline-flex;
+  @include kit.escolha-de-giz;
 }
 
 /* ===== O quadro: doze colunas, cada papel ocupa as suas ===== */
@@ -964,7 +954,7 @@
 
 @media (max-width: 720px) {
   .estat-prateleira {
-    margin-bottom: 42px;
+    margin-bottom: 28px;
   }
 
   .paginas {
@@ -973,8 +963,15 @@
     width: calc(100% + 12px);
     margin-inline: -6px;
     padding: 6px 6px 0;
+    /* o pé das de trás desce 3px: sem isso, a roda do mouse em cima delas rolaria a fileira */
+    overflow-y: hidden;
     scrollbar-width: none;
+    /* a ponta some aos poucos só enquanto há abas escondidas do lado (ver some-a-ponta) */
     mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+    mask-repeat: no-repeat;
+    mask-size: calc(100% + 32px) 100%;
+    animation: some-a-ponta linear both;
+    animation-timeline: scroll(self inline);
 
     &::-webkit-scrollbar {
       display: none;
@@ -1037,5 +1034,14 @@
   .quadro > *,
   .bh-fill {
     animation: none;
+  }
+}
+
+@keyframes some-a-ponta {
+  from {
+    mask-size: 100% 100%;
+  }
+  to {
+    mask-size: calc(100% + 32px) 100%;
   }
 }

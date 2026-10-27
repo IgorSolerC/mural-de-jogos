@@ -22,6 +22,16 @@ export function entrantsFor(option: DuelOption, available: number): number {
   return available >= option + 1 ? option + 1 : 0;
 }
 
+/**
+ * Por que as opções desligadas não dão, dito por extenso (o title do botão só aparece no mouse): cada
+ * uma pede as próprias fichas. "15 duelos pedem pelo menos 16 jogos; 30, pelo menos 31." Vazio quando
+ * todas dão.
+ */
+export function lockedReason(available: number, plural: string): string {
+  const locked = DUEL_OPTIONS.filter((o): o is Exclude<DuelOption, 'todos'> => o !== 'todos' && !entrantsFor(o, available));
+  return locked.map((o, i) => (i === 0 ? `${o} duelos pedem pelo menos ${o + 1} ${plural}` : `${o}, pelo menos ${o + 1}`)).join('; ') + (locked.length ? '.' : '');
+}
+
 /** Uma vaga do chaveamento: o id da ficha, ou null para a folga (quem cai com ela passa direto). */
 export type Slot = string | null;
 

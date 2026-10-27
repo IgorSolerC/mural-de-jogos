@@ -18,42 +18,68 @@
   margin: -6px 0 18px -12px;
   color: var(--wall-ink);
   text-decoration: none;
+  /* o giz de sempre, legível em qualquer parede da dona */
+  text-shadow: var(--chalk-shadow);
 }
 
 /* ===== A ficha da dona: as orelhas e o papel são uma peça só, com uma sombra só ===== */
 .dona {
   position: relative;
-  margin-bottom: 40px;
+  margin-bottom: 28px;
   filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 14px rgb(0 0 0 / 0.42));
 }
 
-/* as orelhas, em pé na borda de cima da ficha */
+/* as orelhas, em pé na borda de cima da ficha. Elas trocam o mural inteiro, então são um pouco
+   maiores que as dos grupos, na pasta logo embaixo */
 .orelhas {
   @include div.pasta;
   /* a borda e a orelha aberta são o papel da ficha */
   --manilha: var(--papel-ficha);
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 6px 18px 0;
+  padding: 0 22px;
 
   &::after {
     @include div.borda-da-pasta;
-    /* a ficha tem a sombra dela inteira: a fina da borda sobre o pé das de trás fica */
+  }
+}
+
+/* a fileira que rola de lado quando não cabe (a borda, no ::after de fora, fica parada) */
+.trilho {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  overflow-x: auto;
+  /* o pé das de trás desce 3px: sem isso, a roda do mouse em cima delas rolaria a fileira */
+  overflow-y: hidden;
+  padding-top: 6px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
 .orelha {
   @include div.aba('.on');
-  flex: 0 1 auto;
-  min-width: 0;
-  align-items: center;
-  /* as de trás: um creme mais escuro que a ficha, como as orelhas de grupo com cor */
-  background-color: #d9cdab;
-  font: inherit;
 
+  & {
+    flex: none;
+    align-items: center;
+    min-height: 46px;
+    padding-inline: 16px;
+    /* as de trás: um creme mais escuro que a ficha, como as orelhas de grupo com cor */
+    background-color: var(--orelha-clara-atras);
+    font: inherit;
+  }
+
+  /* no mouse ela sobe só um pouco: de pé inteira, só a aberta */
   &:hover:not(.on):not(:disabled) {
-    background-color: #e8dec3;
+    background-color: var(--orelha-clara-hover);
+    translate: 0 1.5px;
+  }
+
+  &:focus-visible {
+    outline-color: var(--ink);
+    outline-offset: -5px;
   }
 
   &.on {
@@ -71,12 +97,18 @@
 
 .orelha-nome {
   @include div.nome-de-grupo;
-  min-width: 0;
+
+  & {
+    font-size: 1.2rem;
+  }
 }
 
 .orelha-n {
   @include div.numero-de-grupo;
-  flex: none;
+
+  & {
+    flex: none;
+  }
 }
 
 .orelha:not(.on) {
@@ -89,14 +121,14 @@
   }
 }
 
-/* o papel: a foto, quem é, e as ações na ponta */
+/* o papel: a foto, quem é e, logo ao lado, o perfil e o seguir */
 .ficha-dona {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
   align-items: center;
   gap: 16px 26px;
-  padding: 22px 28px 24px 26px;
+  padding: 22px 28px 24px 22px;
   border-radius: 0 0 6px 6px;
   background-color: var(--papel-ficha);
   background-image: var(--paper-grain);
@@ -157,21 +189,6 @@ a.foto:hover {
   color: var(--ink);
   white-space: normal;
   overflow-wrap: anywhere;
-  text-decoration: none;
-}
-
-a.nome {
-  border-radius: 2px;
-  transition: rotate var(--t-ui) var(--ease-ui);
-
-  &:hover {
-    rotate: -1deg;
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: 4px;
-  }
 }
 
 .linha {
@@ -195,9 +212,12 @@ a.nome {
 .acoes {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   align-items: center;
   gap: 10px;
+  /* perto de quem elas agem: um respiro do nome e um risco de lápis separando */
+  padding-left: 26px;
+  /* um traço de lápis (o "Ver o perfil" já é tracejado) */
+  border-left: 1.5px solid rgb(21 21 21 / 0.14);
 }
 
 .perfil {
@@ -233,29 +253,26 @@ a.nome {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .foto,
-  a.nome {
+  .foto {
     transition: none;
   }
 
-  a.foto:hover {
+  a.foto:hover,
+  .orelha:hover:not(.on) {
     translate: none;
-  }
-
-  a.nome:hover {
-    rotate: none;
   }
 }
 
-/* as ações descem para uma linha delas */
+/* as ações descem para uma linha delas, embaixo de quem é */
 @media (max-width: 760px) {
   .ficha-dona {
     grid-template-columns: auto minmax(0, 1fr);
   }
 
   .acoes {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
+    grid-column: 2;
+    padding-left: 0;
+    border-left: 0;
   }
 }
 
@@ -265,35 +282,49 @@ a.nome {
   }
 }
 
-/* no celular: as de trás só com o desenho e a conta (o nome fica na leitura de tela) */
+/* no celular: a ficha mais baixa, para as fichas da pessoa chegarem logo */
 @media (max-width: 559px) {
+  .dona {
+    margin-bottom: 22px;
+  }
+
   .orelhas {
     padding-inline: 8px;
   }
 
   .orelha {
     gap: 5px;
-    padding-inline: 10px;
+    min-height: 44px;
+    padding-inline: 11px;
+  }
 
-    &:not(.on) .orelha-nome {
-      display: none;
-    }
+  .orelha-nome {
+    font-size: 1.04rem;
+  }
+
+  /* as de trás só com o desenho e a conta: o nome fica na leitura de tela e na dica */
+  .orelha:not(.on) .orelha-nome {
+    display: none;
   }
 
   .ficha-dona {
-    gap: 14px 16px;
-    padding: 18px 16px 18px;
+    gap: 12px 14px;
+    padding: 16px 14px 16px;
   }
 
   .foto {
-    --foto: 62px;
+    --foto: 56px;
   }
 
   .titulo {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
   }
 
-  .acoes > * {
-    flex: 1 1 auto;
+  .linha {
+    font-size: 1.02rem;
+  }
+
+  .acoes {
+    grid-column: 1 / -1;
   }
 }

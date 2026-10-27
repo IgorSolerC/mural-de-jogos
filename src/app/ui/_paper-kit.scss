@@ -744,3 +744,51 @@
     }
   }
 }
+
+/* A escolha a giz direto na parede: "QUANDO Todos os anos ▾", como o "ORDENAR DATA ▾" da pasta, mas
+   em giz. O nome miúdo, o valor sublinhado em pontinhos e a setinha; o <select> nativo, invisível,
+   cobre tudo (`select-por-cima`). Os nomes de dentro: `.pick-pre`, `.pick-val`, `.chev`. */
+@mixin escolha-de-giz {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 2px;
+  color: var(--wall-ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-shadow: var(--chalk-shadow);
+  cursor: pointer;
+  transition: color var(--t-ui) var(--ease-ui);
+
+  .pick-pre {
+    color: var(--wall-ink-2);
+  }
+
+  .pick-val {
+    padding-bottom: 1px;
+    border-bottom: 2px dotted var(--wall-ink-2);
+  }
+
+  .chev {
+    display: inline-flex;
+  }
+
+  select {
+    @include select-por-cima;
+  }
+
+  &:hover {
+    color: #fff;
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+}
