@@ -426,10 +426,36 @@
               </p>
             </div>
           </div>
-          <div class="linha">
+          <div class="linha linha-pilha">
             <div class="linha-texto">
-              <p class="linha-titulo">No Claude, no ChatGPT e em outras AIs</p>
-              <p class="linha-desc">O conector do Murall chega numa próxima etapa: aí é só colar um endereço e entrar com o Google, sem copiar chave nenhuma.</p>
+              <p class="linha-titulo">No Claude Code (MCP)</p>
+              <p class="linha-desc">
+                Com a chave em MURALL_TOKEN, rode este comando uma vez no terminal: o Claude passa a ler e escrever nas suas anotações pelas
+                ferramentas do Murall.
+              </p>
+            </div>
+            <div class="comando">
+              <code>{{ mcpCommand() }}</code>
+              <button type="button" class="btn-papel" (click)="copyText(mcpCommand(), 'Comando copiado.')">
+                <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
+                Copiar
+              </button>
+            </div>
+          </div>
+          <div class="linha linha-pilha">
+            <div class="linha-texto">
+              <p class="linha-titulo">O guia para AIs</p>
+              <p class="linha-desc">
+                Tudo o que uma AI precisa saber para usar o Murall (as regras, os pedidos, o markdown), num endereço só. Outras AIs e programas leem
+                daqui; o conector do claude.ai e do ChatGPT, sem copiar chave, chega numa próxima etapa.
+              </p>
+            </div>
+            <div class="comando">
+              <code>{{ guideUrl() }}</code>
+              <button type="button" class="btn-papel" (click)="copyText(guideUrl(), 'Endereço copiado.')">
+                <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
+                Copiar
+              </button>
             </div>
           </div>
         </div>

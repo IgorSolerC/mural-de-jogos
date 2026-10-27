@@ -527,7 +527,8 @@ a {
 }
 
 /* com seletor, tudo empilha: o nome, o que ele faz, e o seletor embaixo */
-fieldset.linha {
+fieldset.linha,
+.linha.linha-pilha {
   @include kit.linha-pilha;
 }
 
@@ -650,6 +651,32 @@ fieldset.linha {
   align-self: center;
 }
 
+/* o comando do Claude Code e o endereço do guia: a letra de código numa tira de papel, com o Copiar */
+.comando {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  margin-top: 8px;
+
+  code {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 2px;
+    background: rgb(21 21 21 / 0.05);
+    font-family: var(--f-mono);
+    font-size: 0.86rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    user-select: all;
+  }
+
+  > .btn-papel {
+    flex: none;
+  }
+}
+
 /* pedidos da API esperando você: o bilhete amarelo de recado no alto da parte, com o Ver ao lado */
 .pedidos-esperando {
   align-items: center;
@@ -670,6 +697,15 @@ fieldset.linha {
 }
 
 @container folha (max-width: 559px) {
+  .comando {
+    flex-wrap: wrap;
+
+    code,
+    > .btn-papel {
+      flex: 1 1 100%;
+    }
+  }
+
   .pedidos-esperando {
     flex-wrap: wrap;
 

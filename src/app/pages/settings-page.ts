@@ -215,6 +215,13 @@ export class SettingsPage {
   protected readonly apiRequests = inject(ApiRequests);
   protected readonly requestsSheet = signal<RequestsSheetMode | null>(null);
   protected readonly HistoryIcon = ICON.historico;
+  /** O comando do Claude Code e o guia (PLANO-API.md, rodada 4): o MCP em <api>/mcp, com a chave no cabeçalho. */
+  private readonly apiBase = computed(() => this.cloud.config()?.api ?? 'https://mural-api.igorsoler.workers.dev');
+  protected readonly mcpCommand = computed(() => `claude mcp add --transport http murall ${this.apiBase()}/mcp --header "Authorization: Bearer $MURALL_TOKEN"`);
+  protected readonly guideUrl = computed(() => `${this.apiBase()}/llms-full.txt`);
+  protected copyText(text: string, done: string): void {
+    void this.toasts.copy(text, done, `Não deu para copiar. Selecione e copie: ${text}`);
+  }
   /** Os que esperam aprovação: "Claude quer mudar 2 anotações", ou de várias chaves. */
   protected readonly waitingLine = computed(() => waitingWords(this.apiRequests.open(), this.apiRequests.counts().aprovar));
   /** Quem você segue e quem te segue, no seu perfil: as listas ou só os números (fica na nuvem). */

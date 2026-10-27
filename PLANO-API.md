@@ -1161,7 +1161,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      (`npm run docs` na API regenera). Feito: o OpenAPI sai das ferramentas (`contrato/api-v1/openapi.ts`),
      as rotas em `api/src/ext/docs.ts`, o teste em `api/test/docs.test.ts`, o endereço das cópias é
      `API_DO_MURALL` (em `contrato/api-v1/guia.ts`).
-  4. Site: Ajustes › Acessos › Como usar com o comando do Claude Code
+  4. [feito, BUILD 577] Site: Ajustes › Acessos › Como usar com o comando do Claude Code
      (`claude mcp add --transport http murall <api>/mcp --header "Authorization: Bearer $MURALL_TOKEN"`)
      e o endereço do guia, com Copiar; BUILD + 1.
   5. Ponta a ponta local: `wrangler dev` + D1 local com uma chave (como na rodada 2, memória
