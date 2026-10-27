@@ -21,6 +21,23 @@ export interface ApiKeyInfo {
   criadaEm: string;
   expiraEm: string;
   usadaEm: string | null;
+  /** Numa chave de conector (OAuth): o domínio dele ("claude.ai", "localhost:33418"). */
+  conector?: { dominio: string } | null;
+}
+
+/** O pedido de um conector (OAuth) que a página Autorizar mostra (PLANO-API.md, 11.2). */
+export interface ConnectorRequest {
+  id: string;
+  /** O nome que o aplicativo diz ter (não é confiável: o domínio do retorno é o que vale). */
+  cliente: string;
+  retorno: string;
+  dominio: string;
+  /** O nome do aplicativo conhecido daquele retorno ("Claude"), ou null. */
+  conhecido: string | null;
+  /** O retorno é no próprio computador (uma CLI, como o Claude Code). */
+  local: boolean;
+  escopos: string[];
+  expiraEm: string;
 }
 
 /** O que se escolhe ao criar (a validade, em dias, só ao criar). */
@@ -76,6 +93,12 @@ export function usedLabel(key: Pick<ApiKeyInfo, 'usadaEm'>, now = new Date()): s
   return `Usada em ${dayLabel(key.usadaEm, now)}`;
 }
 
+/** "Conector em claude.ai" (só numa chave que um aplicativo ganhou pela página Autorizar). */
+export function connectorLabel(key: Pick<ApiKeyInfo, 'origem' | 'conector'>): string | null {
+  if (key.origem !== 'oauth') return null;
+  return key.conector?.dominio ? `Conector em ${key.conector.dominio}` : 'Conector';
+}
+
 /** A aprovação numa frase curta da lista. */
 export function approvalLabel(a: Aprovacao): string {
   return a === 'tudo' ? 'Espera você aprovar tudo' : a === 'mudancas' ? 'Espera você aprovar o que muda ou apaga' : 'Não espera aprovação';
@@ -119,6 +142,27 @@ export class ApiKeys {
   async remove(id: string): Promise<void> {
     await this.account.request(`/v1/eu/chaves/${encodeURIComponent(id)}`, { method: 'DELETE' });
     this.list.update((l) => (l ?? []).filter((k) => k.id !== id));
+  }
+
+  /** O pedido de autorização de um conector; `disponivel` diz se esta conta pode usar a API. */
+  connectorRequest(id: string): Promise<{ disponivel: boolean; pedido: ConnectorRequest }> {
+    return this.account.request(`/v1/eu/oauth/pedidos/${encodeURIComponent(id)}`);
+  }
+
+  /** Permite: a nuvem cria a chave do conector e devolve o endereço de volta ao aplicativo (com o código). */
+  async permit(id: string, input: ApiKeyInput): Promise<{ para: string; chave: ApiKeyInfo }> {
+    const res = await this.account.request<{ para: string; chave: ApiKeyInfo }>(`/v1/eu/oauth/pedidos/${encodeURIComponent(id)}/permitir`, {
+      method: 'POST',
+      body: input,
+    });
+    this.list.update((l) => (l ? [res.chave, ...l] : l));
+    void this.mirror.kick();
+    return res;
+  }
+
+  /** Não permite: o endereço de volta ao aplicativo, com o "não". */
+  refuse(id: string): Promise<{ para: string }> {
+    return this.account.request(`/v1/eu/oauth/pedidos/${encodeURIComponent(id)}/recusar`, { method: 'POST' });
   }
 
   /** "Cortar todos os acessos". */

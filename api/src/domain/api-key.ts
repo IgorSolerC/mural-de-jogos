@@ -86,9 +86,33 @@ export function keyOf(row: KeyRow): ApiKey {
   };
 }
 
-/** A chave como o site e a própria chave veem (nunca o hash). */
-export function keyOut(key: ApiKey) {
+/**
+ * O domínio de um conector (OAuth), para a lista de Acessos: o do documento do cliente (CIMD) ou o do
+ * primeiro endereço de volta registrado.
+ */
+export function connectorDomain(clientId: string, retornos: string | null): string {
+  const first = (() => {
+    try {
+      const list: unknown = JSON.parse(retornos ?? '[]');
+      return Array.isArray(list) && typeof list[0] === 'string' ? list[0] : '';
+    } catch {
+      return '';
+    }
+  })();
+  for (const url of [clientId, first]) {
+    try {
+      if (/^https?:\/\//.test(url)) return new URL(url).host;
+    } catch {
+      // segue para o próximo
+    }
+  }
+  return '';
+}
+
+/** A chave como o site e a própria chave veem (nunca o hash). `conector`: o domínio, numa chave de OAuth. */
+export function keyOut(key: ApiKey, connector?: { dominio: string } | null) {
   return {
+    ...(key.origin === 'oauth' ? { conector: connector ?? null } : {}),
     id: key.id,
     nome: key.name,
     origem: key.origin,

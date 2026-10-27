@@ -256,6 +256,8 @@ export function oauthSuite(label: string, getDb: () => Db) {
       // a lista de Acessos mostra o conector
       const list = await t.body(t.call('/v1/eu/chaves', { headers: { Authorization: `Bearer ${token}` } }));
       expect(list.chaves.map((k: any) => k.origem)).toEqual(['oauth']);
+      expect(list.chaves[0].conector).toEqual({ dominio: 'claude.ai' });
+      expect(out.chave.conector).toEqual({ dominio: 'claude.ai' });
       // o mesmo pedido não vale duas vezes
       expect((await t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, token)).status).toBe(404);
     });

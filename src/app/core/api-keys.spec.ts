@@ -1,5 +1,5 @@
 import { ESCOPOS } from '../../../contrato/api-v1/escopos';
-import { andList, approvalLabel, dayLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from './api-keys';
+import { andList, approvalLabel, connectorLabel, dayLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from './api-keys';
 
 /** O que a lista de Ajustes › Acessos diz de cada chave (core/api-keys.ts). */
 describe('as chaves de API em palavras', () => {
@@ -52,5 +52,11 @@ describe('as chaves de API em palavras', () => {
     expect(groupsLabel({ escopos: ['notas:ler'], grupos: null })).toBe('Em todos os grupos');
     expect(groupsLabel({ escopos: ['kanban:ler'], grupos: ['Trabalho'] })).toBe('Só no grupo Trabalho');
     expect(groupsLabel({ escopos: ['notas:ler'], grupos: ['Trabalho', 'Estudos', 'Casa'] })).toBe('Só nos grupos Trabalho, Estudos e Casa');
+  });
+
+  it('a chave de um conector diz de onde ele é', () => {
+    expect(connectorLabel({ origem: 'oauth', conector: { dominio: 'claude.ai' } })).toBe('Conector em claude.ai');
+    expect(connectorLabel({ origem: 'oauth', conector: null })).toBe('Conector');
+    expect(connectorLabel({ origem: 'manual' })).toBeNull();
   });
 });

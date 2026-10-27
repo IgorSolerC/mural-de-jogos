@@ -1,0 +1,201 @@
+/* A página Autorizar: a ficha da chave (a faixa azul, a tachinha clara, as mesmas escolhas) pregada
+   sozinha na parede, sem o topo do site. Ela é a página: cresce com o que tem e a parede rola. */
+:host {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  padding: 52px var(--gutter) 40px;
+  overflow-y: auto;
+}
+
+.ficha {
+  width: min(100%, 680px);
+  max-height: none;
+}
+
+.body {
+  overflow: visible;
+}
+
+/* o título da página é o h1, com a letra do título das folhas */
+.head h1 {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1.08;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+/* a frase embaixo do título quebra sem deixar a última palavra sozinha */
+.sub-mao {
+  text-wrap: pretty;
+}
+
+/* ===== Para onde a resposta volta: o que de fato diz quem pediu ===== */
+.destino {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 4px 14px;
+  padding: 14px 16px 15px;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: #fff;
+
+  /* o endereço que o Murall não conhece: o bilhete amarelo dos avisos */
+  &.estranho {
+    background: #fff1b8;
+  }
+}
+
+.destino-icone {
+  margin-top: 2px;
+  color: var(--ink);
+}
+
+.destino-texto {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.destino-titulo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.dominio {
+  font-family: var(--f-mono);
+  font-weight: 700;
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+.destino-diz {
+  max-width: 62ch;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* o selo do endereço conhecido: o adesivo de tinta com a letra amarela, colado meio torto */
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px 4px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  rotate: -3deg;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.conta {
+  font-size: 0.94rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+
+  strong {
+    color: var(--ink);
+  }
+}
+
+/* ===== A espera, a giz na parede ===== */
+.giz {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 18vh;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.25rem;
+}
+
+/* ===== O bilhete do que não é o pedido (entrar, venceu, voltando): a ficha creme de fichário ===== */
+.bilhete {
+  width: min(100%, 460px);
+  margin-top: 12vh;
+  padding: 30px 28px 24px;
+  border-radius: 2px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  box-shadow: var(--shadow-lift);
+  rotate: -0.6deg;
+
+  h1 {
+    font-family: var(--f-marker);
+    font-weight: 400;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    text-wrap: balance;
+  }
+
+  p {
+    margin-top: 12px;
+    font-family: var(--f-hand);
+    font-size: 1.12rem;
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+}
+
+.google {
+  margin-top: 18px;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 2px dashed rgb(21 21 21 / 0.25);
+
+  a {
+    text-decoration: none;
+  }
+}
+
+@media (max-width: 560px) {
+  :host {
+    padding-top: 30px;
+  }
+
+  .head h1 {
+    font-size: 1.6rem;
+  }
+
+  /* o selo desce para baixo do endereço, sem apertar o texto */
+  .destino {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .selo {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 6px;
+  }
+
+  .conta {
+    width: 100%;
+  }
+}

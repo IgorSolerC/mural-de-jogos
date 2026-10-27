@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
-import { CALENDAR_PATH, SPENDING_PATH, VISIT_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, VISIT_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -115,8 +115,11 @@ export class App {
   private readonly reader = viewChild.required(ReviewReader);
   private readonly wishAdder = viewChild.required(WishAdder);
 
-  /** A ficha aberta pelo link: o site fica só com ela (sem o topo, a barra e os avisos). */
-  protected readonly loose = computed(() => isFichaPath(this.path()));
+  /**
+   * A ficha aberta pelo link e a página Autorizar (um conector pedindo acesso): o site fica só com elas
+   * (sem o topo, a barra e os avisos).
+   */
+  protected readonly loose = computed(() => isFichaPath(this.path()) || this.path() === AUTHORIZE_PATH);
   private readonly fichaLinks = inject(FichaLinks);
 
   /** No mural de outra pessoa (pages/colleague-wall-page): a casa é dela, a parede também. */
@@ -128,7 +131,7 @@ export class App {
    * pelo link, a de quem a escreveu; no mural de outra pessoa, a dela (sem perfil, um backup, o eucatex).
    */
   protected readonly siteWall = computed<PageBackground>(() => {
-    if (this.loose()) return this.fichaLinks.wall() ?? 'eucatex';
+    if (isFichaPath(this.path())) return this.fichaLinks.wall() ?? 'eucatex';
     if (this.visiting()) return wallOf(this.colleagues.selected());
     return this.profiles.profile().page;
   });

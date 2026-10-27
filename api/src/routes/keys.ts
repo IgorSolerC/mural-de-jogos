@@ -7,6 +7,7 @@ import {
   MAX_KEYS_PER_DAY,
   apiAllowed,
   apiUnavailable,
+  connectorDomain,
   expiresIn,
   keyOf,
   keyOut,
@@ -46,8 +47,15 @@ export function keyRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu/chaves', async (c) => {
     const s = await sessionOf(deps, c);
-    const rows = await deps.db.all<KeyRow>(`SELECT ${KEY_COLUMNS} FROM api_chaves WHERE usuario_id = ? ORDER BY criada_em DESC, id`, [s.userId]);
-    return c.json({ disponivel: apiAllowed(deps, await userCode(s.userId)), chaves: rows.map((r) => keyOut(keyOf(r))) });
+    const rows = await deps.db.all<KeyRow & { cliente_id: string | null; retornos: string | null }>(
+      `SELECT k.${KEY_COLUMNS.split(', ').join(', k.')}, k.cliente_id, c.retornos FROM api_chaves k ` +
+        'LEFT JOIN oauth_clientes c ON c.id = k.cliente_id WHERE k.usuario_id = ? ORDER BY k.criada_em DESC, k.id',
+      [s.userId],
+    );
+    return c.json({
+      disponivel: apiAllowed(deps, await userCode(s.userId)),
+      chaves: rows.map((r) => keyOut(keyOf(r), r.cliente_id ? { dominio: connectorDomain(r.cliente_id, r.retornos) } : null)),
+    });
   });
 
   app.post('/v1/eu/chaves', async (c) => {

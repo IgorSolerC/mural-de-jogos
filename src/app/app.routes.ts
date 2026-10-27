@@ -101,6 +101,8 @@ export const routes: Routes = [
   { path: 'correio', redirectTo: 'amigos' },
   // a ficha aberta pelo link: só ela, maximizada, para quem não usa o Murall (ver core/ficha-link.ts)
   { path: 'ficha/:codigo/:id', title: 'Ficha', loadComponent: () => import('./pages/ficha-page').then((m) => m.FichaPage) },
+  // um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2)
+  { path: 'autorizar', title: 'Autorizar', loadComponent: () => import('./pages/authorize-page').then((m) => m.AuthorizePage) },
   { path: 'novidades', title: 'Novidades', loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
   { path: '**', redirectTo: '' },
 ];

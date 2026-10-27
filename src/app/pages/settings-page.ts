@@ -38,7 +38,7 @@ import { SiteKeys } from '../core/site-keys';
 import { plural } from '../core/text';
 import { DAY_MS, daysAgoLabel, localDay } from '../core/dates';
 import { tabStep } from '../ui/focus';
-import { ApiKeyInfo, ApiKeys, approvalLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from '../core/api-keys';
+import { ApiKeyInfo, ApiKeys, approvalLabel, connectorLabel, expired, groupsLabel, scopeSummary, usedLabel, validityLabel } from '../core/api-keys';
 import { ApiKeySheet } from '../ui/api-key-sheet';
 import { ApiRequests, waitingWords } from '../core/api-requests';
 import { ApiRequestsSheet, RequestsSheetMode } from '../ui/api-requests-sheet';
@@ -204,6 +204,7 @@ export class SettingsPage {
   protected readonly keySheet = signal<{ editing: ApiKeyInfo | null } | null>(null);
   protected readonly keysBusy = signal<string | null>(null);
   protected readonly KeyIcon = ICON.chave;
+  protected readonly ConnectorIcon = ICON.link;
   protected readonly AddIcon = ICON.adicionar;
   protected readonly keySummary = (k: ApiKeyInfo) => scopeSummary(k.escopos);
   protected readonly keyExpired = (k: ApiKeyInfo) => expired(k);
@@ -211,6 +212,7 @@ export class SettingsPage {
   protected readonly keyUsed = (k: ApiKeyInfo) => usedLabel(k);
   protected readonly keyApproval = (k: ApiKeyInfo) => approvalLabel(k.aprovacao);
   protected readonly keyGroups = (k: ApiKeyInfo) => groupsLabel(k);
+  protected readonly keyConnector = (k: ApiKeyInfo) => connectorLabel(k);
   /** Os pedidos da API (PLANO-API.md, 9.4 e 9.5): os que esperam você e o histórico de cada chave. */
   protected readonly apiRequests = inject(ApiRequests);
   protected readonly requestsSheet = signal<RequestsSheetMode | null>(null);
@@ -219,6 +221,7 @@ export class SettingsPage {
   private readonly apiBase = computed(() => this.cloud.config()?.api ?? 'https://mural-api.igorsoler.workers.dev');
   protected readonly mcpCommand = computed(() => `claude mcp add --transport http murall ${this.apiBase()}/mcp --header "Authorization: Bearer $MURALL_TOKEN"`);
   protected readonly guideUrl = computed(() => `${this.apiBase()}/llms-full.txt`);
+  protected readonly mcpUrl = computed(() => `${this.apiBase()}/mcp`);
   protected copyText(text: string, done: string): void {
     void this.toasts.copy(text, done, `Não deu para copiar. Selecione e copie: ${text}`);
   }

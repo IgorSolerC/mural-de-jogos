@@ -356,7 +356,7 @@
               <ul class="versoes chaves" aria-labelledby="g-chaves">
                 @for (k of list; track k.id) {
                   <li class="versao chave" [class.vencida]="keyExpired(k)">
-                    <lucide-icon class="versao-mural" [img]="KeyIcon" [size]="20" aria-hidden="true" />
+                    <lucide-icon class="versao-mural" [img]="k.origem === 'oauth' ? ConnectorIcon : KeyIcon" [size]="20" aria-hidden="true" />
                     <div class="versao-texto">
                       <p class="versao-nome">
                         {{ k.nome }}
@@ -366,6 +366,9 @@
                       </p>
                       <p class="chave-pode">{{ keySummary(k).join(' · ') }}</p>
                       <p class="versao-meta">
+                        @if (keyConnector(k); as conn) {
+                          <span>{{ conn }}</span>
+                        }
                         <span>{{ keyValidity(k) }}</span><span>{{ keyUsed(k) }}</span><span>{{ keyApproval(k) }}</span>
                         @if (keyGroups(k); as g) {
                           <span>{{ g }}</span>
@@ -431,7 +434,8 @@
               <p class="linha-titulo">No Claude Code (MCP)</p>
               <p class="linha-desc">
                 Com a chave em MURALL_TOKEN, rode este comando uma vez no terminal: o Claude passa a ler e escrever nas suas anotações pelas
-                ferramentas do Murall.
+                ferramentas do Murall. Sem chave: rode o comando sem o pedaço do fim (o cabeçalho com o Authorization), e o Claude Code
+                abre o Murall no navegador para você permitir.
               </p>
             </div>
             <div class="comando">
@@ -444,10 +448,26 @@
           </div>
           <div class="linha linha-pilha">
             <div class="linha-texto">
+              <p class="linha-titulo">No claude.ai (conector)</p>
+              <p class="linha-desc">
+                Sem chave para copiar: em Configurações › Conectores › Adicionar conector personalizado, cole este endereço. O Murall abre aqui
+                para você escolher o que o Claude pode, e ele aparece nesta lista como conector.
+              </p>
+            </div>
+            <div class="comando">
+              <code>{{ mcpUrl() }}</code>
+              <button type="button" class="btn-papel" (click)="copyText(mcpUrl(), 'Endereço copiado.')">
+                <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
+                Copiar
+              </button>
+            </div>
+          </div>
+          <div class="linha linha-pilha">
+            <div class="linha-texto">
               <p class="linha-titulo">O guia para AIs</p>
               <p class="linha-desc">
                 Tudo o que uma AI precisa saber para usar o Murall (as regras, os pedidos, o markdown), num endereço só. Outras AIs e programas leem
-                daqui; o conector do claude.ai e do ChatGPT, sem copiar chave, chega numa próxima etapa.
+                daqui.
               </p>
             </div>
             <div class="comando">

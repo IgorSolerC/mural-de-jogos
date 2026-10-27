@@ -463,7 +463,7 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
     ];
     const [created] = await write(deps, statements, 10);
     if (!created?.changes) throw requestGone();
-    return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row)) }, 201);
+    return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row), { dominio: dominioDoRetorno(p.retorno) }) }, 201);
   });
 
   app.post('/v1/eu/oauth/pedidos/:id/recusar', async (c) => {

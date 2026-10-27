@@ -47,6 +47,9 @@ export const SPENDING_PATH = '/utilidades/gastos';
 /** O mural de outra pessoa (pages/colleague-wall-page): fora das partes, com o cabeçalho e a parede dela. */
 export const VISIT_PATH = '/comparar/mural';
 
+/** A página Autorizar: um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2). */
+export const AUTHORIZE_PATH = '/autorizar';
+
 /**
  * O cofre de senhas (PLANO-COFRE.md, 8.6): uma origem só dele. A aba "Cofre" das Utilidades é só um link
  * para lá, na mesma aba do navegador, e só aparece para quem pode usar o cofre.

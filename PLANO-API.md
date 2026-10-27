@@ -1262,12 +1262,25 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      espera 5 s e lê até 5 KB; o documento fica guardado um dia (depois é buscado de novo no próximo
      autorizar); um documento que não serve vira a página de erro com o porquê; o `fetch` entra por
      `deps.oauthFetch` nos testes; a limpeza tira também o cliente por documento nunca autorizado.
-  5. Site, a página Autorizar pelo Impeccable: rota `autorizar`, entrar com o Google se precisar,
+  5. [feito, BUILD 578] Site, a página Autorizar pelo Impeccable: rota `autorizar`, entrar com o Google se precisar,
      "**Nome** quer acesso ao seu Murall" com o domínio do retorno em destaque (o nome não é confiável)
      e o selo "conhecido", as caixinhas da folha de chave (atalhos), grupos, aprovação e validade,
      Permitir / Não permitir; recusa abrir dentro de iframe (`window.top`). Em Acessos, a chave de um
      conector mostra o domínio e "Conector". Como usar ganha o jeito sem chave (o conector do claude.ai
      e o `claude mcp add` sem o cabeçalho). BUILD + 1, fotos de perto.
+     Feito assim: as escolhas da folha da chave saíram para `ui/api-key-choices` (o mesmo HTML e o
+     mesmo SCSS, então a folha não mudou de cara; `read()` devolve o escolhido ou mostra o que falta),
+     usadas pela folha e pela página `pages/authorize-page` (rota `autorizar`, `AUTHORIZE_PATH` em
+     `core/areas.ts`, sem o topo do site como a ficha do link). A página é a ficha da chave pregada
+     sozinha: "Claude quer acesso ao seu Murall", o bloco "Depois, você volta para" com o domínio em
+     letra de máquina (o selo "Conhecido" nos retornos de `RETORNOS_CONHECIDOS`; o bilhete amarelo e o
+     aviso de que o nome é o que o aplicativo diz de si quando o endereço é desconhecido; "um programa
+     neste computador" no localhost), as escolhas começando com o que o aplicativo pediu e o nome
+     dele, "Na conta de …", Não permitir / Permitir. Bilhetes: entrar (com o botão do Google; o pedido
+     abre sozinho depois), venceu, ainda não para esta conta, nenhum pedido, dentro de iframe
+     (`IN_FRAME`), voltando. A API passou a dizer o domínio do conector em `GET /v1/eu/chaves`
+     (`conector`), e Acessos mostra "Conector em claude.ai" com o ícone de link. Como usar ganhou "No
+     claude.ai (conector)" com o endereço do `/mcp` e a frase do Claude Code sem chave.
   6. API + site, o aviso no Correio (D11, que veio da rodada 1): uma atividade quando uma chave é criada
      ou um conector é autorizado, e o quadro de avisos mostra ("Claude ganhou acesso ao seu Murall ·
      Ver os acessos"). BUILD + 1.
