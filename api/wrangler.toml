@@ -22,6 +22,8 @@ AGENDA_CODIGOS = "*"
 # Quem pode usar a API das AIs (as chaves de API, PLANO-API.md): os códigos das contas, separados por
 # vírgula; vazio, ninguém; "*", todo mundo. Começa só com o dono (decisão D8), até a rodada 11.
 API_CODIGOS = "G11TG00D"
+# O endereço do site: o OAuth dos conectores manda a pessoa para a página Autorizar dele.
+SITE = "https://murall.igorsc.com.br"
 # Público (vai também no site); é o `aud` que o login confere.
 GOOGLE_CLIENT_ID = "891037362218-0d8ncsj5p4n6pmvqlei60qs7l1oo7f4t.apps.googleusercontent.com"
 

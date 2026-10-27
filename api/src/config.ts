@@ -27,5 +27,17 @@ export function readConfig(env: Record<string, unknown>): Config {
       .split(',')
       .map((c) => (c.trim() === '*' ? '*' : plainCode(c)))
       .filter(Boolean),
+    site: siteUrl(text('SITE')),
   };
+}
+
+/** O endereço do site (sem a barra do fim): https, ou http só no próprio computador; outro valor, vazio. */
+function siteUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    return url.protocol === 'https:' || (url.protocol === 'http:' && local) ? url.origin + url.pathname.replace(/\/+$/, '') : '';
+  } catch {
+    return '';
+  }
 }

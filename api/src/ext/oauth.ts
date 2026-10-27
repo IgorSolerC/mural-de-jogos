@@ -1,13 +1,27 @@
 import { Context, Hono } from 'hono';
-import { textoLimpo } from '../../../contrato/api-v1/escopos';
-import { ESCOPOS_DO_OAUTH, MAX_RETORNOS, NOME_DO_CLIENTE_MAX, REGISTROS_POR_IP, retornoAceito } from '../../../contrato/api-v1/oauth';
+import { MAX_CHAVES, textoLimpo } from '../../../contrato/api-v1/escopos';
+import {
+  ESCOPOS_DO_OAUTH,
+  MAX_RETORNOS,
+  NOME_DO_CLIENTE_MAX,
+  PEDIDOS_POR_IP,
+  PRAZO_DO_CODIGO_MS,
+  PRAZO_DO_PEDIDO_MS,
+  REGISTROS_POR_IP,
+  dominioDoRetorno,
+  escoposDoPedido,
+  retornoAceito,
+  retornoConhecido,
+  retornoLocal,
+} from '../../../contrato/api-v1/oauth';
+import { KeyRow, MAX_KEYS_PER_DAY, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, readKeyInput } from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url } from '../domain/bytes';
 import { write } from '../domain/quota';
 import { hashToken } from '../domain/session';
 import { HttpError } from '../errors';
-import { Deps } from '../ports';
-import { readJson } from '../routes/http';
+import { Deps, Statement } from '../ports';
+import { readJson, sessionOf } from '../routes/http';
 
 /**
  * O OAuth 2.1 dos conectores (PLANO-API.md, seção 11): os metadados (RFC 9728 e 8414) e o registro de
@@ -32,6 +46,63 @@ export function resourceMetadataUrl(origin: string): string {
 }
 
 export const CLIENT_ID_RE = /^oc_[A-Za-z0-9_-]{16}$/;
+const REQUEST_ID_RE = /^op_[A-Za-z0-9_-]{16}$/;
+/** O code_challenge do S256: o SHA-256 do verificador em base64url, sempre 43 letras. */
+const CHALLENGE_RE = /^[A-Za-z0-9_-]{43}$/;
+const STATE_MAX = 512;
+
+interface ClientRow {
+  id: string;
+  nome: string;
+  retornos: string;
+  tipo: string;
+}
+
+interface RequestRow {
+  id: string;
+  cliente_id: string;
+  retorno: string;
+  desafio: string;
+  estado_cliente: string | null;
+  recurso: string | null;
+  escopos_pedidos: string;
+  expira_em: string;
+  nome: string;
+}
+
+function parseList(text: string): string[] {
+  try {
+    const list: unknown = JSON.parse(text);
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** O endereço de volta com os parâmetros da resposta (os que vierem vazios ficam de fora). */
+export function backTo(retorno: string, params: Record<string, string | null | undefined>): string {
+  const url = new URL(retorno);
+  for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== null) url.searchParams.set(k, v);
+  return url.toString();
+}
+
+/** O `resource` (RFC 8707) é este servidor: a raiz da API ou o `/mcp`. */
+function isThisResource(resource: string, origin: string): boolean {
+  const plain = resource.replace(/\/+$/, '');
+  return plain === origin || plain === `${origin}/mcp`;
+}
+
+/** A página de erro de quando não dá para voltar ao cliente (ele não é conhecido, ou o retorno não confere). */
+function errorPage(c: Context, status: 400 | 503, message: string): Response {
+  const safe = message.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
+  return c.html(
+    `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Murall</title>` +
+      `<body style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:3rem auto;padding:0 1rem;color:#2b2622;background:#f6f1e7">` +
+      `<h1 style="font-size:1.25rem">Não deu para conectar ao Murall</h1><p>${safe}</p></body></html>`,
+    status,
+    { 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'", 'X-Frame-Options': 'DENY' },
+  );
+}
 
 /** O IP de quem chama, em hash (o freio do registro guarda isto, nunca o IP). */
 async function ipKey(c: Context): Promise<string> {
@@ -41,6 +112,8 @@ async function ipKey(c: Context): Promise<string> {
 
 export function oauthRoutes(app: Hono, deps: Deps): void {
   const origin = (c: Context) => new URL(c.req.url).origin;
+  const findClient = (id: string) =>
+    CLIENT_ID_RE.test(id) ? deps.db.first<ClientRow>('SELECT id, nome, retornos, tipo FROM oauth_clientes WHERE id = ?', [id]) : Promise.resolve(null);
   const cached = { 'Cache-Control': 'public, max-age=300' };
 
   /** Roda a rota e transforma os erros no formato do OAuth. */
@@ -159,4 +232,164 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
       );
     }),
   );
+
+  // Autorizar (PLANO-API.md, 11.1): confere o pedido, guarda por 10 minutos e manda a pessoa para a
+  // página Autorizar do site. Até o retorno conferir, o erro é uma página daqui (voltar a um endereço
+  // não conferido seria um redirecionamento aberto); depois, o erro volta ao cliente.
+  app.get('/oauth/autorizar', async (c) => {
+    const q = (k: string) => c.req.query(k);
+    if (!deps.config.site) return errorPage(c, 503, 'A autorização de conectores ainda não está ligada nesta API.');
+    const client = await findClient(q('client_id') ?? '');
+    if (!client) return errorPage(c, 400, 'Esse aplicativo não está registrado no Murall (client_id desconhecido). Volte a ele e conecte de novo.');
+    const retornos = parseList(client.retornos);
+    const asked = q('redirect_uri');
+    const retorno = asked === undefined ? (retornos.length === 1 ? retornos[0]! : '') : retornos.includes(asked) ? asked : '';
+    if (!retorno) return errorPage(c, 400, 'O endereço de volta (redirect_uri) não é um dos que esse aplicativo registrou.');
+    const state = q('state');
+    const back = (error: string, description: string) =>
+      c.redirect(backTo(retorno, { error, error_description: description, state: state?.slice(0, STATE_MAX), iss: origin(c) }), 302);
+    if (q('response_type') !== 'code') return back('unsupported_response_type', 'Só response_type=code.');
+    if (q('code_challenge_method') !== 'S256' || !CHALLENGE_RE.test(q('code_challenge') ?? '')) {
+      return back('invalid_request', 'O PKCE é obrigatório: code_challenge com code_challenge_method=S256.');
+    }
+    if (state !== undefined && state.length > STATE_MAX) return back('invalid_request', `O state passa de ${STATE_MAX} letras.`);
+    const resource = q('resource');
+    if (resource !== undefined && !isThisResource(resource, origin(c))) return back('invalid_target', `O resource é ${origin(c)}/mcp.`);
+    const now = deps.now();
+    const ip = await ipKey(c);
+    try {
+      if ((await usedToday(deps, ip, 'oauth-pedido', now)) >= PEDIDOS_POR_IP) {
+        return back('temporarily_unavailable', 'Pedidos demais deste endereço hoje. Tente de novo amanhã.');
+      }
+      const id = `op_${base64url(crypto.getRandomValues(new Uint8Array(12)))}`;
+      await write(
+        deps,
+        [
+          {
+            sql:
+              'INSERT INTO oauth_pedidos (id, cliente_id, retorno, desafio, estado_cliente, recurso, escopos_pedidos, expira_em) ' +
+              'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            params: [
+              id,
+              client.id,
+              retorno,
+              q('code_challenge')!,
+              state ?? null,
+              resource ?? null,
+              JSON.stringify(escoposDoPedido(q('scope'))),
+              new Date(now.getTime() + PRAZO_DO_PEDIDO_MS).toISOString(),
+            ],
+          },
+          brakeStatement(ip, 'oauth-pedido', now),
+        ],
+        4,
+      );
+      return c.redirect(`${deps.config.site}/#/autorizar?pedido=${id}`, 302);
+    } catch (error) {
+      if (error instanceof HttpError) return back('temporarily_unavailable', error.message);
+      throw error;
+    }
+  });
+
+  // O que a página Autorizar lê e responde, só com a sessão do site.
+  const requestGone = () => new HttpError(404, 'pedido-nao-encontrado', 'Este pedido venceu ou já foi respondido. Volte ao aplicativo e conecte de novo.');
+  async function openRequest(id: string): Promise<RequestRow> {
+    if (!REQUEST_ID_RE.test(id)) throw requestGone();
+    const row = await deps.db.first<RequestRow>(
+      'SELECT p.id, p.cliente_id, p.retorno, p.desafio, p.estado_cliente, p.recurso, p.escopos_pedidos, p.expira_em, c.nome ' +
+        'FROM oauth_pedidos p JOIN oauth_clientes c ON c.id = p.cliente_id WHERE p.id = ? AND p.expira_em > ?',
+      [id, deps.now().toISOString()],
+    );
+    if (!row) throw requestGone();
+    return row;
+  }
+  const userCode = async (userId: string) =>
+    (await deps.db.first<{ codigo: string }>('SELECT codigo FROM usuarios WHERE id = ?', [userId]))?.codigo ?? '';
+  /** O pedido ainda está aberto (vai em cada gravação: dois "Permitir" ao mesmo tempo criam uma chave só). */
+  const stillOpen = (id: string, at: string) => ({ sql: 'EXISTS (SELECT 1 FROM oauth_pedidos WHERE id = ? AND expira_em > ?)', params: [id, at] });
+
+  app.get('/v1/eu/oauth/pedidos/:id', async (c) => {
+    const s = await sessionOf(deps, c);
+    const p = await openRequest(c.req.param('id'));
+    return c.json({
+      disponivel: apiAllowed(deps, await userCode(s.userId)),
+      pedido: {
+        id: p.id,
+        cliente: p.nome,
+        retorno: p.retorno,
+        dominio: dominioDoRetorno(p.retorno),
+        conhecido: retornoConhecido(p.retorno),
+        local: retornoLocal(p.retorno),
+        escopos: parseList(p.escopos_pedidos),
+        expiraEm: p.expira_em,
+      },
+    });
+  });
+
+  app.post('/v1/eu/oauth/pedidos/:id/permitir', async (c) => {
+    const s = await sessionOf(deps, c);
+    const p = await openRequest(c.req.param('id'));
+    if (!apiAllowed(deps, await userCode(s.userId))) throw apiUnavailable();
+    // o nome da chave é o do cliente, se a pessoa não der outro
+    const input = readKeyInput({ nome: p.nome, ...(await readJson(c)) }, true);
+    const now = deps.now();
+    const at = now.toISOString();
+    const live = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM api_chaves WHERE usuario_id = ? AND expira_em > ?', [s.userId, at]);
+    if ((live?.n ?? 0) >= MAX_CHAVES) {
+      throw new HttpError(409, 'chaves-demais', `Já são ${MAX_CHAVES} chaves e conectores nesta conta. Apague um que não usa mais em Ajustes › Acessos.`);
+    }
+    if ((await usedToday(deps, s.userId, 'chave', now)) >= MAX_KEYS_PER_DAY) {
+      throw new HttpError(429, 'chaves-devagar', 'Muitas chaves e conectores criados hoje. Tente de novo amanhã.');
+    }
+    const row: KeyRow = {
+      id: newKeyId(),
+      usuario_id: s.userId,
+      nome: input.name!,
+      origem: 'oauth',
+      escopos: JSON.stringify(input.scopes),
+      grupos: input.groups ? JSON.stringify(input.groups) : null,
+      aprovacao: input.approval!,
+      criada_em: at,
+      expira_em: expiresIn(now, input.days!),
+      usada_em: null,
+    };
+    const code = base64url(crypto.getRandomValues(new Uint8Array(32)));
+    const open = stillOpen(p.id, at);
+    const statements: Statement[] = [
+      {
+        sql:
+          'INSERT INTO api_chaves (id, usuario_id, nome, origem, escopos, grupos, aprovacao, criada_em, expira_em, cliente_id) ' +
+          `SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ? WHERE ${open.sql}`,
+        params: [row.id, row.usuario_id, row.nome, row.origem, row.escopos, row.grupos, row.aprovacao, row.criada_em, row.expira_em, p.cliente_id, ...open.params],
+      },
+      {
+        sql: `INSERT INTO oauth_codigos (hash, chave_id, cliente_id, retorno, desafio, recurso, expira_em) SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${open.sql}`,
+        params: [
+          await hashToken(code),
+          row.id,
+          p.cliente_id,
+          p.retorno,
+          p.desafio,
+          p.recurso,
+          new Date(now.getTime() + PRAZO_DO_CODIGO_MS).toISOString(),
+          ...open.params,
+        ],
+      },
+      { sql: `UPDATE oauth_clientes SET usado_em = ? WHERE id = ? AND ${open.sql}`, params: [at, p.cliente_id, ...open.params] },
+      brakeStatement(s.userId, 'chave', now),
+      { sql: 'DELETE FROM oauth_pedidos WHERE id = ?', params: [p.id] },
+    ];
+    const [created] = await write(deps, statements, 10);
+    if (!created?.changes) throw requestGone();
+    return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row)) }, 201);
+  });
+
+  app.post('/v1/eu/oauth/pedidos/:id/recusar', async (c) => {
+    await sessionOf(deps, c);
+    const p = await openRequest(c.req.param('id'));
+    await write(deps, [{ sql: 'DELETE FROM oauth_pedidos WHERE id = ?', params: [p.id] }], 1);
+    return c.json({
+      para: backTo(p.retorno, { error: 'access_denied', error_description: 'A pessoa não permitiu o acesso ao Murall.', state: p.estado_cliente, iss: origin(c) }),
+    });
+  });
 }

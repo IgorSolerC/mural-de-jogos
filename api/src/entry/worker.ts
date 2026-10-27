@@ -30,6 +30,8 @@ interface Env {
   COTA_LINHAS_DIA?: string;
   GOOGLE_CLIENT_ID?: string;
   VER_MURAIS?: string;
+  API_CODIGOS?: string;
+  SITE?: string;
   /** Secrets (`wrangler secret put`), nunca no wrangler.toml: as chaves do site na busca. */
   TMDB_KEY?: string;
   RAWG_KEY?: string;

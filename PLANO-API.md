@@ -1228,14 +1228,19 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      com segredo recebe um cliente público (`token_endpoint_auth_method: none`, RFC 7591 3.2.1); sem
      `client_name`, o nome é "Um aplicativo"; o CORS `*` vale também em `/oauth/` e `/.well-known/`
      (`isOpenPath` em `app.ts`); o freio guarda `ip:` + 32 letras do SHA-256 do `CF-Connecting-IP`.
-  2. API, autorizar: `GET /oauth/autorizar` (confere cliente, retorno, PKCE S256, `state`, `resource`,
+  2. [feito] API, autorizar: `GET /oauth/autorizar` (confere cliente, retorno, PKCE S256, `state`, `resource`,
      `scope`; grava o pedido por 10 minutos e manda para `SITE/#/autorizar?pedido=…`; erro antes de
      conferir o retorno vira uma página simples, depois volta ao cliente com `error=`), e, só com a
      sessão do site, `GET /v1/eu/oauth/pedidos/:id` (o nome do cliente, o domínio do retorno, o selo
      "conhecido", os escopos pedidos), `POST /v1/eu/oauth/pedidos/:id/permitir` (cria a chave do
      conector com o que a pessoa marcou e o código de 5 minutos; devolve o endereço de volta com `code`,
      `state` e `iss`) e `POST …/recusar` (devolve o endereço com `error=access_denied`). Só para quem
-     está em `API_CODIGOS`.
+     está em `API_CODIGOS`. Feito assim: `SITE` no wrangler.toml (`config.site`, só https ou
+     localhost); sem `redirect_uri`, vale o único registrado; a página de erro tem CSP `default-src
+     'none'`; freio de 60 pedidos por IP por dia (`oauth-pedido`); "Permitir" conta no freio e no
+     limite de 20 das chaves, dá à chave o nome do cliente se a pessoa não der outro, e as gravações
+     só acontecem se o pedido ainda existe (`WHERE EXISTS`, então dois cliques criam uma chave só); a
+     chave nasce sem `hash` (o token só nasce na troca do código).
   3. API, tokens: `POST /oauth/token` (`authorization_code` com o `code_verifier`; `refresh_token`
      trocado a cada uso, a velha repetida corta a chave), o `authenticateKey` respeitando
      `hash_expira_em`, `POST /oauth/revogar` (RFC 7009), a limpeza (clientes sem autorização em 24 h,

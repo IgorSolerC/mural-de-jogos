@@ -45,6 +45,11 @@ export interface Config {
    * todo mundo; vazio, ninguém.
    */
   apiCodes: string[];
+  /**
+   * O endereço do site (`https://murall.igorsc.com.br`), para onde o OAuth manda a pessoa autorizar um
+   * conector; vazio, autorizar fica indisponível.
+   */
+  site: string;
 }
 
 /** As chaves do site nos catálogos (secrets do Worker). Vazia: aquele catálogo fica sem a chave do site. */

@@ -16,6 +16,8 @@ export const PRAZO_DO_ACESSO_S = 60 * 60;
 export const DIAS_DA_RENOVACAO = 90;
 /** Registros de cliente (RFC 7591) por IP em 24 horas. */
 export const REGISTROS_POR_IP = 20;
+/** Pedidos de autorização por IP em 24 horas (cada um é uma linha no banco até a pessoa decidir). */
+export const PEDIDOS_POR_IP = 60;
 /** Um cliente registrado sem nenhuma autorização em 24 horas sai na limpeza. */
 export const CLIENTE_SEM_USO_MS = 24 * 60 * 60 * 1000;
 
@@ -49,6 +51,15 @@ export function retornoAceito(raw: unknown): raw is string {
   if (url.hash || raw.includes('#') || url.username || url.password) return false;
   if (url.protocol === 'https:') return true;
   return url.protocol === 'http:' && LOCAIS.has(url.hostname);
+}
+
+/** O retorno é no próprio computador (uma CLI)? A página explica isso. */
+export function retornoLocal(url: string): boolean {
+  try {
+    return LOCAIS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
 }
 
 /** O cliente conhecido daquele retorno, ou null. */
