@@ -1122,3 +1122,46 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   frases de "Como usar" e do segredo dizem o que a chave faz hoje. Conferido: a suíte inteira (2230 do
   site, 241 do cofre, as 9 regras), `npx ng build` (inicial 1,86 MB) e o smoke na build de produção.
   **Próximo**: a rodada 4 (seção 19).
+
+- **27/out/2026, rodada 4 (MCP com chave + guia)**: em andamento. Pedido do usuário: "Pode começar a
+  rodada 4 (MCP com chave + guia) do PLANO-API.md" e "faça isso de uma forma que dê para uma outra AI
+  em outra conta continuar quando acabar seus tokens". Por isso a rodada vai em passos pequenos, cada
+  um com commit + push e a linha dele marcada aqui. **Quem continuar: leia esta lista, faça o primeiro
+  passo sem [feito], marque e commite** (regras do repositório: CLAUDE.md, BUILD + 1 por commit em
+  `src/app/core/build.ts` só quando o site muda, commit no nome do usuário, `npx ng build` e smoke
+  quando o site muda; a API testa com `cd api && npm test`, que roda a suíte nos dois bancos).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 10 e 13):
+  - O MCP **não duplica regra**: cada ferramenta vira um pedido interno às rotas `/ext/v1` que já
+    existem (`app.request` com o mesmo `Authorization`), então permissão, grupos da chave, validação,
+    Idempotency-Key e pedidos continuam num lugar só. A resposta da rota vira o `structuredContent`, e
+    um texto curto em português vai em `content`.
+  - As definições das ferramentas (nome, descrição, `inputSchema` em JSON Schema, escopo, rota,
+    `readOnlyHint`/`destructiveHint`) moram em `contrato/api-v1/ferramentas.ts`; o guia (o texto que
+    vira `llms.txt`, a ferramenta `guia_do_murall`, o recurso `murall://guia` e o `instructions`) em
+    `contrato/api-v1/guia.ts`. O OpenAPI sai das duas coisas.
+  - Só as ferramentas das Anotações nesta rodada: `guia_do_murall`, `ver_contexto`, `buscar`,
+    `listar_notas`, `ler_nota`, `criar_nota`, `editar_nota`, `acrescentar_na_nota`, `marcar_tarefas`,
+    `finalizar_nota`, `reabrir_nota`, `fixar_nota`, `desafixar_nota`, `apagar_nota`, `ver_pedidos`.
+  - O texto das notas volta dentro de `<conteudo_do_usuario>` (seção 10.4).
+
+  Passos:
+  1. Contrato: `contrato/api-v1/ferramentas.ts` (as 15 ferramentas) e `contrato/api-v1/guia.ts` (o
+     guia curto, as regras de ouro da seção 13.4, o markdown e os widgets em poucas linhas, o modelo de
+     pedidos).
+  2. API: `api/src/ext/mcp.ts` com `POST /mcp` (JSON-RPC sem sessão: `initialize` com `instructions`,
+     `ping`, `notifications/*` com 202, `tools/list` filtrado pelos escopos da chave, `tools/call`,
+     `resources/list`, `resources/read`, `prompts/list` vazio), `GET /mcp` 405, 401 com
+     `WWW-Authenticate: Bearer`; CORS `*` em `/mcp`. Testes em `api/test/mcp.suite.ts` (nos dois bancos,
+     registrar em `node.test.ts` e `workers.test.ts`).
+  3. Guia na API: `GET /llms.txt`, `GET /llms-full.txt` e `GET /ext/v1/openapi.json` (gerado);
+     `docs/api/guia.md` e `docs/api/openapi.json` como cópias, com teste que quebra se ficarem velhas
+     (`npm run docs` na API regenera).
+  4. Site: Ajustes › Acessos › Como usar com o comando do Claude Code
+     (`claude mcp add --transport http murall <api>/mcp --header "Authorization: Bearer $MURALL_TOKEN"`)
+     e o endereço do guia, com Copiar; BUILD + 1.
+  5. Ponta a ponta local: `wrangler dev` + D1 local com uma chave (como na rodada 2, memória
+     api-mcp-cli-plan) e o MCP Inspector (`npx @modelcontextprotocol/inspector --cli`), `tools/list` e
+     `tools/call` de verdade; anotar aqui. Usar no Claude Code com uma chave de produção depende do
+     usuário (criar a chave em Acessos e rodar o comando do passo 4).
+
