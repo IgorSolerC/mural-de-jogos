@@ -25,7 +25,7 @@ export const INSTRUCOES = `Você está ligado ao Murall de uma pessoa (um mural 
 export function llmsTxt(api: string): string {
   return `# Murall
 
-> A API do Murall para AIs e programas: ler e escrever nas Anotações e nos Gastos de uma pessoa, com uma chave que ela criou em Ajustes › Acessos (ou um conector que ela autorizou).
+> A API do Murall para AIs e programas: ler e escrever nas Anotações, no Kanban e nos Gastos de uma pessoa, com uma chave que ela criou em Ajustes › Acessos (ou um conector que ela autorizou).
 
 - [Guia inteiro](${api}/llms-full.txt): como funciona, os pedidos, o markdown, as regras.
 - [OpenAPI](${api}/ext/v1/openapi.json): as rotas REST em /ext/v1.
@@ -38,7 +38,7 @@ export function guia(api: string): string {
   const tools = FERRAMENTAS.map((f) => `- \`${f.nome}\`${f.escopo ? ` (${escopoEmPalavras(f.escopo)})` : ''}: ${f.descricao}`).join('\n');
   return `# O Murall, para AIs
 
-O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas e um Kanban), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações** e nos **Gastos**, só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
+O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas e um Kanban), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações**, no **Kanban** e nos **Gastos**, só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
 
 ## Regras de ouro
 
@@ -67,6 +67,15 @@ O servidor nunca abre o mural da pessoa. Toda escrita (criar, editar, acrescenta
 Campos: \`titulo\` (até 200 letras), \`texto\` (até 20 mil), \`grupo\` e \`assunto\` (até 32), \`tags\` (até 12, de até 32), \`data\` (AAAA, AAAA-MM ou AAAA-MM-DD), \`capa\` (https), \`visibilidade\` (\`privada\` ou \`publica\`; só com a permissão publicar), \`fixada\`, \`finalizada_em\`, \`tarefas\` (contadas do texto), \`kanban\`, \`criada_em\`, \`versao\`.
 
 Uma nota nova nasce privada. Um grupo que não existe é recusado (422 \`grupo-novo\`, com os grupos que existem), a não ser com \`criar_grupo: true\`.
+
+## O Kanban
+
+- **Cada grupo das Anotações tem o seu quadro**, e só as notas dele entram nele (uma nota de Estudos nunca vai para o quadro do Trabalho; para levar, mude o grupo dela com editar_nota). O cartão é a própria nota: não existe cartão sem nota.
+- Os quadros e as colunas estão em \`ver_contexto\`; o quadro inteiro, com os cartões na ordem da tela, em \`ver_kanban\` com o grupo. Cite o quadro pelo nome do grupo e a coluna pelo nome (sem ligar para acento e caixa) ou pelo id.
+- \`mover_cartao\` põe uma nota do grupo no quadro (sem coluna, na primeira) ou muda o cartão: \`coluna\`, \`posicao\` (0 é o de cima), \`importancia\` (\`critico\`, \`importante\`, \`medio\`, \`baixo\`, \`baixissimo\`), \`status\` (até 28 letras), \`depende_de\` (a lista inteira dos ids) e \`no_mural\`. Mande só o que muda. Sem versão: mover é "pôr ali".
+- **A coluna que finaliza** (\`finaliza: true\`, como "Feito") finaliza a nota que chega nela, e sair dela abre a nota de novo, como no arrastar da tela. A coluna que se arruma sozinha (\`ordem\`) ignora a posição.
+- Para criar uma nota já numa coluna, use \`criar_nota\` com \`kanban: {"coluna": "A fazer"}\` (pede a permissão kanban:mover e um grupo).
+- As colunas: \`criar_coluna\`, \`editar_coluna\` (nome, finaliza, pula, posicao) e \`apagar_coluna\` (os cartões vão para a vizinha da esquerda, ou para \`para\`; nenhuma nota é apagada). Uma coluna criada já serve para mover antes de o pedido entrar.
 
 ## Os gastos
 

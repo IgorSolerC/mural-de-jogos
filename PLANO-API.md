@@ -1518,9 +1518,17 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      os nomes das colunas ("Levar “Teste do MCP” para TODO: Rápido e mudar a importância (Crítico)").
      Fotos de perto da folha (esperando e histórico, computador e celular) e o smoke na build de
      produção. O bundle inicial foi a 1,89 MB.
-  6. MCP e guia: `ver_kanban`, `mover_cartao`, `tirar_do_quadro`, `criar_coluna`, `editar_coluna`,
+  6. [feito, BUILD 585] MCP e guia: `ver_kanban`, `mover_cartao`, `tirar_do_quadro`, `criar_coluna`, `editar_coluna`,
      `apagar_coluna`, o `kanban` do `criar_nota`; a parte do Kanban no guia; o OpenAPI e as cópias em
      `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+     Feito assim: as seis em `FERRAMENTAS_DO_KANBAN` (`contrato/api-v1/ferramentas.ts`), com o método
+     `PUT` no contrato; `ver_kanban` sem grupo vai à lista (o `caminhoSemId` agora vale quando falta
+     qualquer `:nome` do caminho, no MCP e no OpenAPI, e o argumento do caminho não vira campo da
+     lista); `apagar_coluna` é destrutiva (o cliente pede confirmação) e leva o `para` na consulta;
+     `ver_contexto` vale para qualquer permissão do Kanban. O guia ganhou "O Kanban" (um quadro por
+     grupo, o cartão é a nota, a coluna que finaliza, sem versão, a nota que já nasce numa coluna) e o
+     `llms.txt` e o OpenAPI dizem Anotações, Kanban e Gastos. No site, Como usar e a folha da chave
+     dizem que ela lê e escreve no Kanban também.
   7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Kanban, o espelho enchendo, ler
      o quadro, criar uma nota já numa coluna, mover, criar coluna, aplicar) e no ar (as rotas novas
      respondendo). Anotar aqui.

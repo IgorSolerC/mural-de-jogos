@@ -3,7 +3,7 @@
   "info": {
     "title": "Murall: API para AIs e programas",
     "version": "1",
-    "description": "Ler e escrever nas Anotações de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
+    "description": "Ler e escrever nas Anotações, no Kanban e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
   },
   "servers": [
     {
@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -204,7 +204,7 @@
       "post": {
         "operationId": "criar_nota",
         "summary": "Criar uma nota",
-        "description": "Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Permissão: notas:criar.",
+        "description": "Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo. Permissão: notas:criar.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -292,6 +292,42 @@
                   "criar_grupo": {
                     "type": "boolean",
                     "description": "true: aceita um grupo que ainda não existe."
+                  },
+                  "kanban": {
+                    "type": "object",
+                    "description": "Opcional: a nota já nasce no quadro do grupo dela (pede a permissão kanban:mover e um grupo). Sem coluna, na primeira.",
+                    "properties": {
+                      "coluna": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "description": "A coluna: o nome (como em ver_contexto) ou o id."
+                      },
+                      "importancia": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "enum": [
+                          "critico",
+                          "importante",
+                          "medio",
+                          "baixo",
+                          "baixissimo",
+                          null
+                        ],
+                        "description": "A importância no quadro, da mais alta para a mais baixa (null tira)."
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 28,
+                        "description": "Umas palavras ao lado da importância (\"Em revisão\", \"Com o Sérgio\"); null tira."
+                      }
+                    },
+                    "additionalProperties": false
                   }
                 },
                 "additionalProperties": false,
@@ -773,6 +809,430 @@
             "schema": {
               "type": "string",
               "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/kanban/{grupo}": {
+      "get": {
+        "operationId": "ver_kanban",
+        "summary": "Ver o Kanban",
+        "description": "Sem grupo: os quadros (um por grupo das Anotações) com as colunas. Com grupo: o quadro inteiro, com os cartões de cada coluna na ordem da tela (cada cartão é uma nota: o título, as tags, se está finalizada, a importância, o status, as dependências e se aparece também no mural). Permissão: kanban:ler.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "Opcional: o quadro (o nome do grupo ou o id). Sem ele, a lista dos quadros."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/kanban": {
+      "get": {
+        "operationId": "ver_kanban_todos",
+        "summary": "Ver o Kanban",
+        "description": "Sem grupo: os quadros (um por grupo das Anotações) com as colunas. Com grupo: o quadro inteiro, com os cartões de cada coluna na ordem da tela (cada cartão é uma nota: o título, as tags, se está finalizada, a importância, o status, as dependências e se aparece também no mural). Permissão: kanban:ler.",
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/kanban/{grupo}/cartoes/{nota}": {
+      "put": {
+        "operationId": "mover_cartao",
+        "summary": "Pôr ou mover no Kanban",
+        "description": "Põe uma nota do grupo no quadro dele, ou muda o cartão: a coluna, o lugar, a importância, o status, as dependências e se aparece também no mural. Mande só o que muda. Chegar numa coluna que finaliza finaliza a nota (e sair dela abre de novo). Para criar uma nota já numa coluna, use criar_nota com kanban. Permissão: kanban:mover.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro."
+            }
+          },
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da nota (ela tem de ser do grupo do quadro)."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "coluna": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "A coluna de destino: o nome (como em ver_contexto) ou o id."
+                  },
+                  "posicao": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "O lugar na coluna: 0 é o de cima (sem ele, embaixo). A coluna que se arruma sozinha ignora."
+                  },
+                  "importancia": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "critico",
+                      "importante",
+                      "medio",
+                      "baixo",
+                      "baixissimo",
+                      null
+                    ],
+                    "description": "A importância no quadro, da mais alta para a mais baixa (null tira)."
+                  },
+                  "status": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 28,
+                    "description": "Umas palavras ao lado da importância (\"Em revisão\", \"Com o Sérgio\"); null tira."
+                  },
+                  "depende_de": {
+                    "type": "array",
+                    "maxItems": 30,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[\\w-]{1,64}$"
+                    },
+                    "description": "A lista inteira das notas (ids) que precisam estar finalizadas antes desta; [] tira todas."
+                  },
+                  "no_mural": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "true: aparece também no mural; false: só no Kanban; null: segue o grupo."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "grupo",
+                  "nota"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "tirar_do_quadro",
+        "summary": "Tirar do quadro",
+        "description": "Tira a nota do quadro (ela continua nas Anotações e volta para o mural). Permissão: kanban:mover.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro."
+            }
+          },
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da nota."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/kanban/{grupo}/colunas": {
+      "post": {
+        "operationId": "criar_coluna",
+        "summary": "Criar uma coluna",
+        "description": "Cria uma coluna no quadro (no fim, ou depois de outra). Já dá para mover cartões para ela antes de o pedido entrar. Permissão: kanban:colunas.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "O nome da coluna."
+                  },
+                  "depois_de": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Depois de qual coluna (sem ela, no fim): o nome (como em ver_contexto) ou o id."
+                  },
+                  "finaliza": {
+                    "type": "boolean",
+                    "description": "A nota que chega nela é finalizada."
+                  },
+                  "pula": {
+                    "type": "boolean",
+                    "description": "A seta de avançar das colunas da esquerda pula esta (uma coluna de entrada)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "grupo",
+                  "nome"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/kanban/{grupo}/colunas/{coluna}": {
+      "patch": {
+        "operationId": "editar_coluna",
+        "summary": "Mudar uma coluna",
+        "description": "Muda o nome, se a coluna finaliza, se a seta pula, ou o lugar dela. Mande só o que muda. Permissão: kanban:colunas.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro."
+            }
+          },
+          {
+            "name": "coluna",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "A coluna: o nome (como em ver_contexto) ou o id."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "O nome novo."
+                  },
+                  "finaliza": {
+                    "type": "boolean",
+                    "description": "A nota que chega nela é finalizada."
+                  },
+                  "pula": {
+                    "type": "boolean",
+                    "description": "A seta de avançar pula esta coluna."
+                  },
+                  "posicao": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "O lugar da coluna: 0 é a primeira, à esquerda."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "grupo",
+                  "coluna"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "apagar_coluna",
+        "summary": "Apagar uma coluna",
+        "description": "Apaga a coluna; os cartões dela vão para a vizinha da esquerda (ou para a coluna em para; \"-\" tira do quadro). As notas nunca são apagadas. Pergunte ao usuário antes. Permissão: kanban:colunas.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro."
+            }
+          },
+          {
+            "name": "coluna",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "A coluna a apagar: o nome (como em ver_contexto) ou o id."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "para",
+            "in": "query",
+            "required": false,
+            "description": "Para onde vão os cartões dela (nome ou id); \"-\" tira do quadro. Sem ele, a vizinha da esquerda.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
             }
           }
         ],

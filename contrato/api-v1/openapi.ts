@@ -13,7 +13,9 @@ function operacao(f: Ferramenta, caminho: string, comId: boolean) {
   const props = f.entrada.properties ?? {};
   const required = f.entrada.required ?? [];
   const inPath = [...caminho.matchAll(/:(\w+)/g)].map((m) => m[1]!);
-  const campos = Object.entries(props).filter(([k]) => !fora.includes(k) && !inPath.includes(k));
+  // os do caminho com o :nome não viram campo nem no caminho sem ele (a lista dos quadros não tem grupo)
+  const ofPath = [...f.caminho.matchAll(/:(\w+)/g)].map((m) => m[1]!);
+  const campos = Object.entries(props).filter(([k]) => !fora.includes(k) && !ofPath.includes(k));
   const parameters: unknown[] = [];
   for (const name of inPath) parameters.push({ name, in: 'path', required: true, schema: props[name] ?? { type: 'string' } });
   if (props['chave_idempotencia']) {
@@ -52,7 +54,7 @@ export function openapi(api: string) {
   };
   for (const f of FERRAMENTAS) {
     if (!f.caminho.startsWith('/ext/')) continue;
-    add(f.caminho, f, f.caminho.includes(':id'));
+    add(f.caminho, f, true);
     if (f.caminhoSemId) add(f.caminhoSemId, f, false);
   }
   return {
@@ -60,7 +62,7 @@ export function openapi(api: string) {
     info: {
       title: 'Murall: API para AIs e programas',
       version: '1',
-      description: `Ler e escrever nas Anotações de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: ${api}/llms-full.txt`,
+      description: `Ler e escrever nas Anotações, no Kanban e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: ${api}/llms-full.txt`,
     },
     servers: [{ url: api }],
     security: [{ chave: [] }],

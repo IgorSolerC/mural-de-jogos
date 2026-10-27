@@ -7,7 +7,7 @@
 
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
-  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'integer' | 'null')[];
+  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'integer' | 'boolean' | 'null')[];
   description?: string;
   properties?: Record<string, Esquema>;
   required?: string[];
@@ -22,7 +22,7 @@ export interface Esquema {
   pattern?: string;
 }
 
-export type Metodo = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type Metodo = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface Ferramenta {
   /** O nome que a AI chama (em português, decisão D9). */
@@ -40,8 +40,9 @@ export interface Ferramenta {
   destrutiva: boolean;
   entrada: Esquema;
   /**
-   * A rota de `/ext/v1` que faz o trabalho. Cada `:nome` sai do argumento de mesmo nome (`:id`, `:mes`);
-   * sem `id`, vale `caminhoSemId`. No GET e no DELETE, o resto dos argumentos vai na consulta.
+   * A rota de `/ext/v1` que faz o trabalho. Cada `:nome` sai do argumento de mesmo nome (`:id`, `:mes`,
+   * `:grupo`); faltando um deles, vale `caminhoSemId`. No GET e no DELETE, o resto dos argumentos vai na
+   * consulta.
    */
   metodo: Metodo;
   caminho: string;
@@ -253,6 +254,139 @@ export const FERRAMENTAS_DOS_GASTOS: readonly Ferramenta[] = [
   },
 ];
 
+// ===== O Kanban (rodada 8) =====
+
+const grupoArg: Esquema = { type: 'string', minLength: 1, maxLength: 64, description: 'O quadro: o nome do grupo das Anotações (cada grupo tem o seu) ou o id do quadro.' };
+const colunaArg = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 64, description: `${o}: o nome (como em ver_contexto) ou o id.` });
+const importancia: Esquema = {
+  type: ['string', 'null'],
+  enum: ['critico', 'importante', 'medio', 'baixo', 'baixissimo', null],
+  description: 'A importância no quadro, da mais alta para a mais baixa (null tira).',
+};
+const status: Esquema = { type: ['string', 'null'], maxLength: 28, description: 'Umas palavras ao lado da importância ("Em revisão", "Com o Sérgio"); null tira.' };
+
+/** Onde a nota nova nasce no quadro do grupo dela (o `kanban` de criar_nota). */
+const NO_QUADRO: Esquema = {
+  type: 'object',
+  description: 'Opcional: a nota já nasce no quadro do grupo dela (pede a permissão kanban:mover e um grupo). Sem coluna, na primeira.',
+  properties: { coluna: colunaArg('A coluna'), importancia, status },
+  additionalProperties: false,
+};
+
+export const FERRAMENTAS_DO_KANBAN: readonly Ferramenta[] = [
+  {
+    nome: 'ver_kanban',
+    titulo: 'Ver o Kanban',
+    descricao:
+      'Sem grupo: os quadros (um por grupo das Anotações) com as colunas. Com grupo: o quadro inteiro, com os cartões de cada coluna na ordem da tela (cada cartão é uma nota: o título, as tags, se está finalizada, a importância, o status, as dependências e se aparece também no mural).',
+    escopo: 'kanban:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ grupo: { ...grupoArg, description: 'Opcional: o quadro (o nome do grupo ou o id). Sem ele, a lista dos quadros.' } }),
+    metodo: 'GET',
+    caminho: '/ext/v1/kanban/:grupo',
+    caminhoSemId: '/ext/v1/kanban',
+  },
+  {
+    nome: 'mover_cartao',
+    titulo: 'Pôr ou mover no Kanban',
+    descricao:
+      'Põe uma nota do grupo no quadro dele, ou muda o cartão: a coluna, o lugar, a importância, o status, as dependências e se aparece também no mural. Mande só o que muda. Chegar numa coluna que finaliza finaliza a nota (e sair dela abre de novo). Para criar uma nota já numa coluna, use criar_nota com kanban.',
+    escopo: 'kanban:mover',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        grupo: grupoArg,
+        nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'O id da nota (ela tem de ser do grupo do quadro).' },
+        coluna: colunaArg('A coluna de destino'),
+        posicao: { type: 'integer', minimum: 0, maximum: 1000, description: 'O lugar na coluna: 0 é o de cima (sem ele, embaixo). A coluna que se arruma sozinha ignora.' },
+        importancia,
+        status,
+        depende_de: { type: 'array', maxItems: 30, items: { type: 'string', pattern: '^[\\w-]{1,64}$' }, description: 'A lista inteira das notas (ids) que precisam estar finalizadas antes desta; [] tira todas.' },
+        no_mural: { type: ['boolean', 'null'], description: 'true: aparece também no mural; false: só no Kanban; null: segue o grupo.' },
+        chave_idempotencia: idem,
+      },
+      ['grupo', 'nota'],
+    ),
+    metodo: 'PUT',
+    caminho: '/ext/v1/kanban/:grupo/cartoes/:nota',
+  },
+  {
+    nome: 'tirar_do_quadro',
+    titulo: 'Tirar do quadro',
+    descricao: 'Tira a nota do quadro (ela continua nas Anotações e volta para o mural).',
+    escopo: 'kanban:mover',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ grupo: grupoArg, nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'O id da nota.' }, chave_idempotencia: idem }, ['grupo', 'nota']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/kanban/:grupo/cartoes/:nota',
+  },
+  {
+    nome: 'criar_coluna',
+    titulo: 'Criar uma coluna',
+    descricao: 'Cria uma coluna no quadro (no fim, ou depois de outra). Já dá para mover cartões para ela antes de o pedido entrar.',
+    escopo: 'kanban:colunas',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        grupo: grupoArg,
+        nome: { type: 'string', minLength: 1, maxLength: 40, description: 'O nome da coluna.' },
+        depois_de: colunaArg('Depois de qual coluna (sem ela, no fim)'),
+        finaliza: { type: 'boolean', description: 'A nota que chega nela é finalizada.' },
+        pula: { type: 'boolean', description: 'A seta de avançar das colunas da esquerda pula esta (uma coluna de entrada).' },
+        chave_idempotencia: idem,
+      },
+      ['grupo', 'nome'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/kanban/:grupo/colunas',
+  },
+  {
+    nome: 'editar_coluna',
+    titulo: 'Mudar uma coluna',
+    descricao: 'Muda o nome, se a coluna finaliza, se a seta pula, ou o lugar dela. Mande só o que muda.',
+    escopo: 'kanban:colunas',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        grupo: grupoArg,
+        coluna: colunaArg('A coluna'),
+        nome: { type: 'string', minLength: 1, maxLength: 40, description: 'O nome novo.' },
+        finaliza: { type: 'boolean', description: 'A nota que chega nela é finalizada.' },
+        pula: { type: 'boolean', description: 'A seta de avançar pula esta coluna.' },
+        posicao: { type: 'integer', minimum: 0, maximum: 1000, description: 'O lugar da coluna: 0 é a primeira, à esquerda.' },
+        chave_idempotencia: idem,
+      },
+      ['grupo', 'coluna'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/kanban/:grupo/colunas/:coluna',
+  },
+  {
+    nome: 'apagar_coluna',
+    titulo: 'Apagar uma coluna',
+    descricao: 'Apaga a coluna; os cartões dela vão para a vizinha da esquerda (ou para a coluna em para; "-" tira do quadro). As notas nunca são apagadas. Pergunte ao usuário antes.',
+    escopo: 'kanban:colunas',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj(
+      {
+        grupo: grupoArg,
+        coluna: colunaArg('A coluna a apagar'),
+        para: { type: 'string', minLength: 1, maxLength: 64, description: 'Para onde vão os cartões dela (nome ou id); "-" tira do quadro. Sem ele, a vizinha da esquerda.' },
+        chave_idempotencia: idem,
+      },
+      ['grupo', 'coluna'],
+    ),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/kanban/:grupo/colunas/:coluna',
+  },
+];
+
 /** A permissão em palavras (para o guia e o OpenAPI). */
 export function escopoEmPalavras(escopo: Ferramenta['escopo']): string | null {
   if (escopo === null) return null;
@@ -281,8 +415,8 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.',
-    escopo: ['notas:ler', 'gastos:ler'],
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.',
+    escopo: ['notas:ler', 'gastos:ler', 'kanban:ler', 'kanban:mover', 'kanban:colunas'],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj({}),
@@ -343,7 +477,8 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'criar_nota',
     titulo: 'Criar uma nota',
-    descricao: 'Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true.',
+    descricao:
+      'Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo.',
     escopo: 'notas:criar',
     somenteLeitura: false,
     destrutiva: false,
@@ -352,6 +487,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
         ...CAMPOS,
         fixada: { type: 'boolean', description: 'true: fixada no topo do mural.' },
         criar_grupo: { type: 'boolean', description: 'true: aceita um grupo que ainda não existe.' },
+        kanban: NO_QUADRO,
         chave_idempotencia: idem,
       },
       ['titulo'],
@@ -449,6 +585,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     metodo: 'DELETE',
     caminho: '/ext/v1/notas/:id',
   },
+  ...FERRAMENTAS_DO_KANBAN,
   ...FERRAMENTAS_DOS_GASTOS,
   {
     nome: 'ver_pedidos',

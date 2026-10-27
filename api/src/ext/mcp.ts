@@ -70,7 +70,9 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
     const origin = new URL(c.req.url).origin;
     if (f.nome === 'guia_do_murall') return { content: [{ type: 'text', text: guia(origin) }] };
     let path = f.caminho;
-    if (path.includes(':id') && !(typeof args['id'] === 'string' && args['id']) && f.caminhoSemId) path = f.caminhoSemId;
+    // faltando um :nome do caminho (o id do pedido, o grupo do quadro), o caminho sem ele
+    const given = (name: string) => typeof args[name] === 'string' && !!args[name];
+    if (f.caminhoSemId && [...path.matchAll(/:(\w+)/g)].some((m) => !given(m[1]!))) path = f.caminhoSemId;
     // cada :nome do caminho sai do argumento de mesmo nome (o id, o mês)
     const inPath = [...path.matchAll(/:(\w+)/g)].map((m) => m[1]!);
     for (const name of inPath) {

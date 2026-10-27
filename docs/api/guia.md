@@ -1,6 +1,6 @@
 # O Murall, para AIs
 
-O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas e um Kanban), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações** e nos **Gastos**, só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
+O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas e um Kanban), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações**, no **Kanban** e nos **Gastos**, só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
 
 ## Regras de ouro
 
@@ -34,6 +34,15 @@ Campos: `titulo` (até 200 letras), `texto` (até 20 mil), `grupo` e `assunto` (
 
 Uma nota nova nasce privada. Um grupo que não existe é recusado (422 `grupo-novo`, com os grupos que existem), a não ser com `criar_grupo: true`.
 
+## O Kanban
+
+- **Cada grupo das Anotações tem o seu quadro**, e só as notas dele entram nele (uma nota de Estudos nunca vai para o quadro do Trabalho; para levar, mude o grupo dela com editar_nota). O cartão é a própria nota: não existe cartão sem nota.
+- Os quadros e as colunas estão em `ver_contexto`; o quadro inteiro, com os cartões na ordem da tela, em `ver_kanban` com o grupo. Cite o quadro pelo nome do grupo e a coluna pelo nome (sem ligar para acento e caixa) ou pelo id.
+- `mover_cartao` põe uma nota do grupo no quadro (sem coluna, na primeira) ou muda o cartão: `coluna`, `posicao` (0 é o de cima), `importancia` (`critico`, `importante`, `medio`, `baixo`, `baixissimo`), `status` (até 28 letras), `depende_de` (a lista inteira dos ids) e `no_mural`. Mande só o que muda. Sem versão: mover é "pôr ali".
+- **A coluna que finaliza** (`finaliza: true`, como "Feito") finaliza a nota que chega nela, e sair dela abre a nota de novo, como no arrastar da tela. A coluna que se arruma sozinha (`ordem`) ignora a posição.
+- Para criar uma nota já numa coluna, use `criar_nota` com `kanban: {"coluna": "A fazer"}` (pede a permissão kanban:mover e um grupo).
+- As colunas: `criar_coluna`, `editar_coluna` (nome, finaliza, pula, posicao) e `apagar_coluna` (os cartões vão para a vizinha da esquerda, ou para `para`; nenhuma nota é apagada). Uma coluna criada já serve para mover antes de o pedido entrar.
+
 ## Os gastos
 
 - Valores sempre em **centavos**, inteiros (R$ 230,50 = 23050). A categoria se chama **envelope** (o nome na tela). Você é a pessoa com `eu: true` (ou "eu" nos pedidos).
@@ -55,11 +64,11 @@ Sempre JSON: `{"erro": "codigo", "mensagem": "em português"}`. 401 (chave invá
 ## As ferramentas do MCP
 
 - `guia_do_murall`: O guia curto: como o Murall funciona, as regras para mexer nele, o markdown das notas e como os pedidos entram. Leia antes de escrever.
-- `ver_contexto` (notas:ler ou gastos:ler): A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.
+- `ver_contexto` (notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas): A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.
 - `buscar` (notas:ler ou gastos:ler): Busca nas notas (título e texto) e nos títulos dos lançamentos, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.
 - `listar_notas` (notas:ler): As notas, com filtros. Cada uma vem com um resumo do texto (com_texto: true traz inteiro). Pagine com depois.
 - `ler_nota` (notas:ler): Uma nota inteira, com a versao (mande ela ao editar) e os pedidos abertos sobre ela.
-- `criar_nota` (notas:criar): Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true.
+- `criar_nota` (notas:criar): Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo.
 - `editar_nota` (notas:editar): Muda os campos mandados (os outros ficam). Exige a versao que você leu: se a nota mudou depois, volta conflito com a nota de agora; leia de novo e refaça. Para só acrescentar texto, use acrescentar_na_nota.
 - `acrescentar_na_nota` (notas:editar): Acrescenta um trecho no fim (ou no começo) do texto, sem precisar da versao.
 - `marcar_tarefas` (notas:editar): Marca, desmarca e acrescenta tarefas (- [ ]) de uma nota, achando cada uma pelo texto. Uma tarefa que não existe (ou que aparece duas vezes) volta como erro, com as que existem.
@@ -68,6 +77,12 @@ Sempre JSON: `{"erro": "codigo", "mensagem": "em português"}`. 401 (chave invá
 - `fixar_nota` (notas:editar): Fixa a nota no topo do mural.
 - `desafixar_nota` (notas:editar): Tira a nota do topo do mural.
 - `apagar_nota` (notas:apagar): Apaga a nota (ela fica 30 dias em Ajustes › Backup do usuário). Pergunte ao usuário antes.
+- `ver_kanban` (kanban:ler): Sem grupo: os quadros (um por grupo das Anotações) com as colunas. Com grupo: o quadro inteiro, com os cartões de cada coluna na ordem da tela (cada cartão é uma nota: o título, as tags, se está finalizada, a importância, o status, as dependências e se aparece também no mural).
+- `mover_cartao` (kanban:mover): Põe uma nota do grupo no quadro dele, ou muda o cartão: a coluna, o lugar, a importância, o status, as dependências e se aparece também no mural. Mande só o que muda. Chegar numa coluna que finaliza finaliza a nota (e sair dela abre de novo). Para criar uma nota já numa coluna, use criar_nota com kanban.
+- `tirar_do_quadro` (kanban:mover): Tira a nota do quadro (ela continua nas Anotações e volta para o mural).
+- `criar_coluna` (kanban:colunas): Cria uma coluna no quadro (no fim, ou depois de outra). Já dá para mover cartões para ela antes de o pedido entrar.
+- `editar_coluna` (kanban:colunas): Muda o nome, se a coluna finaliza, se a seta pula, ou o lugar dela. Mande só o que muda.
+- `apagar_coluna` (kanban:colunas): Apaga a coluna; os cartões dela vão para a vizinha da esquerda (ou para a coluna em para; "-" tira do quadro). As notas nunca são apagadas. Pergunte ao usuário antes.
 - `ver_gastos_do_mes` (gastos:ler): O mês como o app mostra: entradas, saídas e saldo, quanto foi em cada envelope (com o limite), Precisava?, por pessoa, os carnês e as linhas do mês (cada parcela e cada mensal no mês em que conta). Valores em centavos.
 - `listar_lancamentos` (gastos:ler): Os lançamentos, do dia mais recente para o mais antigo, com filtros. de/ate olham o dia do lançamento (no parcelado, o da primeira parcela); para o que conta num mês, use ver_gastos_do_mes. Pagine com depois.
 - `ler_lancamento` (gastos:ler): Um lançamento inteiro, com a versao (para mudar ou apagar).

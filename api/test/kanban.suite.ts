@@ -414,4 +414,59 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       expect(where(await board(t, secret))[2]).toBe(`Feito: trab-2 ${out.nota.id}`);
     });
   });
+
+  describe(`${label}: o Kanban pelo MCP`, () => {
+    const ALL = ['kanban:ler', 'kanban:mover', 'kanban:colunas', 'notas:ler', 'notas:criar'];
+    let seq = 0;
+    const rpc = async (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, params?: unknown) =>
+      t.body(
+        t.call('/mcp', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, ...(params ? { params } : {}) }),
+        }),
+      );
+    const tool = async (t: Awaited<ReturnType<typeof setup>>, secret: string, name: string, args: Record<string, unknown> = {}) =>
+      (await rpc(t, secret, 'tools/call', { name, arguments: args })).result;
+
+    it('cada permissão do Kanban mostra as ferramentas dela; o contexto vale para qualquer uma', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      const names = async (scopes: string[]) => (await rpc(t, (await t.newKey(me.token, scopes)).segredo, 'tools/list')).result.tools.map((x: { name: string }) => x.name);
+      expect(await names(['kanban:ler'])).toEqual(['guia_do_murall', 'ver_contexto', 'ver_kanban', 'ver_pedidos']);
+      expect(await names(['kanban:mover'])).toEqual(['guia_do_murall', 'ver_contexto', 'mover_cartao', 'tirar_do_quadro', 'ver_pedidos']);
+      expect(await names(['kanban:colunas'])).toEqual(['guia_do_murall', 'ver_contexto', 'criar_coluna', 'editar_coluna', 'apagar_coluna', 'ver_pedidos']);
+      const list = (await rpc(t, (await t.newKey(me.token, ['kanban:colunas'])).segredo, 'tools/list')).result.tools as { name: string; annotations: { destructiveHint: boolean } }[];
+      expect(list.find((x) => x.name === 'apagar_coluna')!.annotations.destructiveHint).toBe(true);
+    });
+
+    it('ver_kanban sem grupo lista os quadros; com grupo, o quadro inteiro, marcado como dado', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const list = await tool(t, secret, 'ver_kanban');
+      expect(list.structuredContent.quadros.map((q: { grupo: string }) => q.grupo)).toEqual(['Estudos', 'Trabalho']);
+      const one = await tool(t, secret, 'ver_kanban', { grupo: 'Trabalho' });
+      expect(one.structuredContent.quadro).toEqual(QUADRO_TRABALHO);
+      expect(one.content[0].text).toContain('<conteudo_do_usuario>');
+    });
+
+    it('mover pelo PUT, apagar coluna com o destino na consulta, e criar a nota já numa coluna', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, [nota('trab-5', { grupo: 'Trabalho', titulo: 'Orçamento' })]);
+      const moved = await tool(t, secret, 'mover_cartao', { grupo: 'Trabalho', nota: 'trab-5', coluna: 'Fazendo', importancia: 'critico', no_mural: null });
+      expect(moved.isError).toBeUndefined();
+      expect(moved.content[0].text).toContain('alvo trab-5');
+      expect(moved.structuredContent.cartao).toEqual(expect.objectContaining({ coluna: 'c-fazendo', importancia: 'critico' }));
+      const gone = await tool(t, secret, 'apagar_coluna', { grupo: 'Trabalho', coluna: 'Fazendo', para: '-' });
+      expect(gone.structuredContent.pedido.op).toBe('coluna.apagar');
+      const made = await tool(t, secret, 'criar_nota', { titulo: 'Reunião', grupo: 'Trabalho', kanban: { coluna: 'Feito' } });
+      expect(made.isError).toBeUndefined();
+      const q = (await tool(t, secret, 'ver_kanban', { grupo: 'Trabalho' })).structuredContent.quadro as QuadroV1;
+      expect(q.colunas.map((c) => c.nome)).toEqual(['A fazer', 'Feito']);
+      expect(q.cartoes.find((c) => c.nota === made.structuredContent.nota.id)).toEqual(expect.objectContaining({ coluna: 'c-feito', finalizada: true }));
+      const bad = await tool(t, secret, 'mover_cartao', { grupo: 'Trabalho', nota: 'trab-1', coluna: 'Revisão' });
+      expect(bad.isError).toBe(true);
+      expect(bad.content[0].text).toContain('coluna-desconhecida');
+    });
+  });
 }
