@@ -14,6 +14,7 @@ import { mirrorRoutes } from './routes/mirror';
 import { requestRoutes } from './routes/requests';
 import { notesWriteRoutes } from './ext/notes-write';
 import { mcpRoutes } from './ext/mcp';
+import { docsRoutes } from './ext/docs';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
@@ -94,6 +95,7 @@ export function createApp(deps: Deps): Hono {
   extRoutes(app, deps);
   notesWriteRoutes(app, deps);
   mcpRoutes(app, deps);
+  docsRoutes(app);
 
   app.notFound((c) => {
     deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);

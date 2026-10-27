@@ -6,6 +6,9 @@
 
 import { FERRAMENTAS } from './ferramentas';
 
+/** O endereço da API no ar (o das cópias em docs/api/). */
+export const API_DO_MURALL = 'https://mural-api.igorsoler.workers.dev';
+
 /** As regras de ouro (seção 13.4). */
 export const REGRAS_DE_OURO = [
   'Chame ver_contexto antes de criar ou mudar: use os grupos, assuntos e tags que já existem, em vez de inventar.',

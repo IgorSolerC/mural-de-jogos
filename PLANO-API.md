@@ -1156,9 +1156,11 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      registrar em `node.test.ts` e `workers.test.ts`). Feito assim: o `WWW-Authenticate` diz só `Bearer realm="murall"`
      (o `resource_metadata` do OAuth entra na rodada 5, quando o endereço existir); `CORS *` e o
      cabeçalho `Mcp-Protocol-Version` liberados em `/mcp`; 6 testes nos dois bancos.
-  3. Guia na API: `GET /llms.txt`, `GET /llms-full.txt` e `GET /ext/v1/openapi.json` (gerado);
+  3. [feito] Guia na API: `GET /llms.txt`, `GET /llms-full.txt` e `GET /ext/v1/openapi.json` (gerado);
      `docs/api/guia.md` e `docs/api/openapi.json` como cópias, com teste que quebra se ficarem velhas
-     (`npm run docs` na API regenera).
+     (`npm run docs` na API regenera). Feito: o OpenAPI sai das ferramentas (`contrato/api-v1/openapi.ts`),
+     as rotas em `api/src/ext/docs.ts`, o teste em `api/test/docs.test.ts`, o endereço das cópias é
+     `API_DO_MURALL` (em `contrato/api-v1/guia.ts`).
   4. Site: Ajustes › Acessos › Como usar com o comando do Claude Code
      (`claude mcp add --transport http murall <api>/mcp --header "Authorization: Bearer $MURALL_TOKEN"`)
      e o endereço do guia, com Copiar; BUILD + 1.

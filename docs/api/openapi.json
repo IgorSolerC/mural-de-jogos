@@ -1,0 +1,865 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Murall: API para AIs e programas",
+    "version": "1",
+    "description": "Ler e escrever nas Anotações de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
+  },
+  "servers": [
+    {
+      "url": "https://mural-api.igorsoler.workers.dev"
+    }
+  ],
+  "security": [
+    {
+      "chave": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "chave": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A chave murall_… criada em Ajustes › Acessos."
+      }
+    }
+  },
+  "paths": {
+    "/ext/v1/contexto": {
+      "get": {
+        "operationId": "ver_contexto",
+        "summary": "Ver o contexto",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, e o vocabulário das Anotações (grupos com assuntos e tags, tags fixas). Chame antes de criar ou mudar notas, e use os nomes que já existem. Permissão: notas:ler.",
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/busca": {
+      "get": {
+        "operationId": "buscar",
+        "summary": "Buscar",
+        "description": "Busca nas notas pelo título e pelo texto (sem ligar para acento e caixa). Devolve id, título, grupo e o trecho. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "O que buscar.",
+            "schema": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas": {
+      "get": {
+        "operationId": "listar_notas",
+        "summary": "Listar notas",
+        "description": "As notas, com filtros. Cada uma vem com um resumo do texto (com_texto: true traz inteiro). Pagine com depois. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "description": "Só as deste grupo (\"-\" para as sem grupo).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assunto",
+            "in": "query",
+            "required": false,
+            "description": "Só as deste assunto.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "description": "Só as com esta tag.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "finalizadas",
+            "in": "query",
+            "required": false,
+            "description": "true: só as finalizadas; false: só as abertas.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "fixadas",
+            "in": "query",
+            "required": false,
+            "description": "true: só as fixadas no topo.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Texto a buscar no título e no texto.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mudou_depois_de",
+            "in": "query",
+            "required": false,
+            "description": "Só as que mudaram depois desta hora (ISO).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ordem",
+            "in": "query",
+            "required": false,
+            "description": "A ordem (padrão: mudou, a mais nova primeiro).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "mudou",
+                "criada",
+                "titulo",
+                "data"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantas por página (padrão 30).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Quantas pular (a paginação).",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "com_texto",
+            "in": "query",
+            "required": false,
+            "description": "true: o texto inteiro de cada nota.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "criar_nota",
+        "summary": "Criar uma nota",
+        "description": "Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Permissão: notas:criar.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titulo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O título da nota."
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "O texto, no markdown do Murall (veja guia_do_murall)."
+                  },
+                  "grupo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 32,
+                    "description": "O grupo (use um de ver_contexto; null tira o grupo)."
+                  },
+                  "assunto": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 32,
+                    "description": "O assunto, dentro do grupo (null tira)."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "description": "As tags (até 12, de até 32 letras). Prefira as que já existem."
+                  },
+                  "data": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$",
+                    "description": "A data da nota: AAAA, AAAA-MM ou AAAA-MM-DD (null: sem data)."
+                  },
+                  "capa": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "Uma imagem https para a capa (null tira)."
+                  },
+                  "visibilidade": {
+                    "type": "string",
+                    "enum": [
+                      "privada",
+                      "publica"
+                    ],
+                    "description": "Quem vê. Só com a permissão publicar; sem dizer, a nota nasce privada."
+                  },
+                  "fixada": {
+                    "type": "boolean",
+                    "description": "true: fixada no topo do mural."
+                  },
+                  "criar_grupo": {
+                    "type": "boolean",
+                    "description": "true: aceita um grupo que ainda não existe."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "titulo"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}": {
+      "get": {
+        "operationId": "ler_nota",
+        "summary": "Ler uma nota",
+        "description": "Uma nota inteira, com a versao (mande ela ao editar) e os pedidos abertos sobre ela. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (de listar_notas ou buscar).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "editar_nota",
+        "summary": "Editar uma nota",
+        "description": "Muda os campos mandados (os outros ficam). Exige a versao que você leu: se a nota mudou depois, volta conflito com a nota de agora; leia de novo e refaça. Para só acrescentar texto, use acrescentar_na_nota. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a ser mudada).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versao": {
+                    "type": "string",
+                    "description": "A versao da nota que você leu (de ler_nota)."
+                  },
+                  "titulo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O título da nota."
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "O texto, no markdown do Murall (veja guia_do_murall)."
+                  },
+                  "grupo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 32,
+                    "description": "O grupo (use um de ver_contexto; null tira o grupo)."
+                  },
+                  "assunto": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 32,
+                    "description": "O assunto, dentro do grupo (null tira)."
+                  },
+                  "tags": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    "description": "As tags (até 12, de até 32 letras). Prefira as que já existem."
+                  },
+                  "data": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}(-\\d{2}(-\\d{2})?)?$",
+                    "description": "A data da nota: AAAA, AAAA-MM ou AAAA-MM-DD (null: sem data)."
+                  },
+                  "capa": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "Uma imagem https para a capa (null tira)."
+                  },
+                  "visibilidade": {
+                    "type": "string",
+                    "enum": [
+                      "privada",
+                      "publica"
+                    ],
+                    "description": "Quem vê. Só com a permissão publicar; sem dizer, a nota nasce privada."
+                  },
+                  "criar_grupo": {
+                    "type": "boolean",
+                    "description": "true: aceita um grupo que ainda não existe."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "versao"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "apagar_nota",
+        "summary": "Apagar uma nota",
+        "description": "Apaga a nota (ela fica 30 dias em Ajustes › Backup do usuário). Pergunte ao usuário antes. Permissão: notas:apagar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a apagar).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/acrescentar": {
+      "post": {
+        "operationId": "acrescentar_na_nota",
+        "summary": "Acrescentar na nota",
+        "description": "Acrescenta um trecho no fim (ou no começo) do texto, sem precisar da versao. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (onde acrescentar).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "texto": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000,
+                    "description": "O trecho, no markdown do Murall."
+                  },
+                  "onde": {
+                    "type": "string",
+                    "enum": [
+                      "fim",
+                      "inicio"
+                    ],
+                    "description": "Onde (padrão: fim)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "texto"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/tarefas": {
+      "post": {
+        "operationId": "marcar_tarefas",
+        "summary": "Marcar tarefas",
+        "description": "Marca, desmarca e acrescenta tarefas (- [ ]) de uma nota, achando cada uma pelo texto. Uma tarefa que não existe (ou que aparece duas vezes) volta como erro, com as que existem. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (das tarefas).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "marcar": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "description": "O texto das tarefas a marcar como feitas."
+                  },
+                  "desmarcar": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "description": "O texto das tarefas a abrir de novo."
+                  },
+                  "novas": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 500
+                    },
+                    "description": "Tarefas novas (entram depois da última)."
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/finalizar": {
+      "post": {
+        "operationId": "finalizar_nota",
+        "summary": "Finalizar uma nota",
+        "description": "Finaliza a nota (ela sai do mural e vai para as finalizadas). Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a nota).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/reabrir": {
+      "post": {
+        "operationId": "reabrir_nota",
+        "summary": "Abrir de novo",
+        "description": "Abre de novo uma nota finalizada. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a nota).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/fixar": {
+      "post": {
+        "operationId": "fixar_nota",
+        "summary": "Fixar no topo",
+        "description": "Fixa a nota no topo do mural. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a nota).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/notas/{id}/desafixar": {
+      "post": {
+        "operationId": "desafixar_nota",
+        "summary": "Desafixar",
+        "description": "Tira a nota do topo do mural. Permissão: notas:editar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da nota (a nota).",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/pedidos/{id}": {
+      "get": {
+        "operationId": "ver_pedidos",
+        "summary": "Ver os pedidos",
+        "description": "Em que pé está o que esta chave pediu: pendente (espera o Murall abrir), aguardando-aprovacao, aplicado, conflito, recusado, falhou, expirado ou desfeito. Com id, um só.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^pd_[A-Za-z0-9_-]{16}$",
+              "description": "Opcional: o id de um pedido."
+            }
+          },
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "description": "Só os neste estado.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantos (padrão 30).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/pedidos": {
+      "get": {
+        "operationId": "ver_pedidos_todos",
+        "summary": "Ver os pedidos",
+        "description": "Em que pé está o que esta chave pediu: pendente (espera o Murall abrir), aguardando-aprovacao, aplicado, conflito, recusado, falhou, expirado ou desfeito. Com id, um só.",
+        "parameters": [
+          {
+            "name": "estado",
+            "in": "query",
+            "required": false,
+            "description": "Só os neste estado.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantos (padrão 30).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    }
+  }
+}

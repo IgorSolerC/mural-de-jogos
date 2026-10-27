@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "dev:node": "tsx src/entry/node.ts",
+    "docs": "tsx scripts/docs.ts",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json",
     "test": "npm run test:node && npm run test:workers",
     "test:node": "vitest run --config vitest.node.config.ts",
