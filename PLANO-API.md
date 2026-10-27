@@ -919,7 +919,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 5 | **OAuth** — feita em 27/out (seção 23) | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
-| 8 | **Kanban** | Quadros, mover, colunas, dependências |
+| 8 | **Kanban** — feita em 27/out (seção 23) | Quadros, mover, colunas, dependências |
 | 9 | **Wishlist, Pra depois e fichas** | Com a busca da capa no app |
 | 10 | **CLI** | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
 | 11 | **Fechar** | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
@@ -1432,7 +1432,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      **Rodada 6 feita.** Para usar: em Acessos, marcar os Gastos na chave (ou no conector) que já
      existe, ou criar outra. **Próximo**: a rodada 7 (Calendário), seção 19.
 
-- **27/out/2026, rodada 8 (Kanban)**: em andamento. Pedido do usuário: "implemente a rodada de integração
+- **27/out/2026, rodada 8 (Kanban)**: feita. Pedido do usuário: "implemente a rodada de integração
   com o Kanban (acredito que seja a rodada 9)" (é a 8; a 7, Calendário, ficou para depois), do jeito das
   rodadas 4 a 6: o roteiro aqui, um commit com push por passo, marcando [feito]. **Quem continuar: leia
   esta lista, faça o primeiro passo sem [feito], marque e commite** (as mesmas regras: CLAUDE.md, BUILD
@@ -1529,6 +1529,21 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      grupo, o cartão é a nota, a coluna que finaliza, sem versão, a nota que já nasce numa coluna) e o
      `llms.txt` e o OpenAPI dizem Anotações, Kanban e Gastos. No site, Como usar e a folha da chave
      dizem que ela lê e escreve no Kanban também.
-  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Kanban, o espelho enchendo, ler
+  7. [feito] Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Kanban, o espelho enchendo, ler
      o quadro, criar uma nota já numa coluna, mover, criar coluna, aplicar) e no ar (as rotas novas
      respondendo). Anotar aqui.
+     Feito em 27/out. **Local** (`.angular/pptr/kanban-e2e.mjs`, fora do repositório; a API no
+     `wrangler dev` 8795, o site no `ng serve` 5139, a conta `u-e2e`): uma chave com as Anotações (ler,
+     criar) e o Kanban inteiro, aprovação "nunca"; o site aberto com três notas do grupo Dev Murall e o
+     quadro dele (A fazer, TODO: Rápido, Fazendo, Feito); o quadro e o contexto chegando ao espelho; e
+     cinco pedidos: pelo MCP, `criar_nota` com `kanban: {coluna: "todo: rapido", importancia:
+     "critico"}` (o caso do teste do usuário no Claude Code), uma nota levada para Feito com status,
+     a coluna Revisão criada depois de Fazendo e, pelo MCP, outra nota posta nela antes de a coluna
+     entrar, e a seta passando a pular TODO: Rápido. A leitura mostrou os cinco por cima na hora; o site
+     aplicou os cinco sozinho, concluiu, e o quadro no espelho ficou como devia (a nota nova em TODO:
+     Rápido, crítica; a de Feito finalizada, com o status, e a nota v1 dela dizendo Feito; a outra na
+     Revisão; a seta pulando). **No ar**: as rotas do Kanban dão 401 sem chave, o OpenAPI tem os cinco
+     caminhos novos e o `/llms-full.txt` tem a parte do Kanban. O Desfazer do Kanban ficou conferido
+     nos testes do site (ele começa na folha do histórico). **Rodada 8 feita.** Para usar: em Acessos,
+     marcar o Kanban na chave (ou no conector) que já existe, ou criar outra. **Próximo**: a rodada 7
+     (Calendário), seção 19.
