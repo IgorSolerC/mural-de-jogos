@@ -1,360 +1,324 @@
 <header class="topo">
   <h1 class="tape-label big">Comparar murais</h1>
-  @if (!colleagues.loading() && colleague(); as c) {
-    <app-name-tags
-      [colleague]="c"
-      [colleagues]="colleagues.colleagues()"
-      [busy]="busy()"
-      [naming]="naming()"
-      [secrets]="unseenCount()"
-      [revealed]="revealed()"
-      (reveal)="toggleReveal()"
-      (selected)="choose($event)"
-      (renamed)="rename($event)"
-      (replaced)="replace($event)"
-      (added)="adding.set(true); error.set('')"
-      (removed)="remove()"
-    />
-  }
 </header>
 
-@if (colleagues.storageError(); as problem) {
-  <p class="aviso" role="alert">{{ problem }}</p>
-}
-
-@if (colleagues.loading()) {
-  <p class="abrindo" role="status">Abrindo os envelopes guardados…</p>
+@if (!follow.available()) {
+  <!-- só com conta: o mural de alguém vem pela nuvem, pelo código ou pela lista de amigos -->
+  <section class="folha sem-conta" aria-labelledby="sem-conta-titulo">
+    <app-pin class="pin" />
+    <h2 class="folha-titulo" id="sem-conta-titulo">Compare o seu mural com o dos amigos</h2>
+    @if (cloudOn()) {
+      <p class="lead">
+        Entre com a sua conta em Ajustes › Conta. Aí é só escolher um amigo, ou digitar o código de alguém, para ver onde
+        vocês combinam e o que cada um recomenda.
+      </p>
+      <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'conta' }">Ir para a Conta</a>
+    } @else {
+      <p class="lead">A nuvem está desligada agora. O seu mural continua salvo neste aparelho.</p>
+    }
+  </section>
 } @else {
-  @if (!colleague() || adding()) {
-    <div class="chegada">
-      <app-backup-envelope
-        [busy]="busy()"
-        [error]="error()"
-        [again]="!!colleague()"
-        [withCode]="!!cloud.config()"
-        [owner]="account.account()"
-        [codeBusy]="codeBusy()"
-        [codeError]="codeError()"
-        (code)="openCode($event)"
-        (file)="load($event)"
-        (cancel)="adding.set(false); error.set(''); codeError.set('')"
-      />
-      <aside class="como" aria-labelledby="como-titulo">
-        <span class="como-fita" aria-hidden="true"></span>
-        <h2 id="como-titulo">Como pedir o mural de alguém</h2>
-        @if (cloud.config()) {
-          <ol>
-            <li>Peça o <strong>código</strong> ou o <strong>link</strong> do mural: ficam em <strong>Ajustes › Conta</strong>, no Murall da pessoa.</li>
-            <li>Digite o código no envelope (o link já abre sozinho).</li>
-            <li>Sem conta? Ela toca em <strong>Baixar backup</strong> e manda o arquivo, que você solta no envelope.</li>
-          </ol>
-          <p>
-            Quer que ela compare também? Mande o seu código: <a routerLink="/ajustes" [queryParams]="{ aba: 'conta' }">Ajustes › Conta</a>.
-          </p>
-        } @else {
-          <ol>
-            <li>Seu colega abre o Murall dele e vai em <strong>Ajustes</strong>.</li>
-            <li>Toca em <strong>Baixar backup</strong>.</li>
-            <li>Manda o arquivo pra você, do jeito que for.</li>
-            <li>Você solta o arquivo no envelope.</li>
-          </ol>
-          <p>
-            Quer que ele compare também? Mande o seu: <a routerLink="/ajustes" [queryParams]="{ aba: 'backup' }">Ajustes → Baixar backup</a>.
-          </p>
-        }
-      </aside>
-    </div>
-  } @else if (error()) {
-    <p class="aviso" role="alert">{{ error() }}</p>
+  @if (colleagues.storageError(); as problem) {
+    <p class="aviso" role="alert">{{ problem }}</p>
   }
 
-  @if (colleague(); as c) {
-    @if (otherWalls().length) {
-      <!-- uma orelha por mural com algo para comparar; a aberta é o mural de agora -->
-      <nav class="murais" aria-label="Comparar em outro mural">
-        @for (w of walls(); track w.kind) {
-          <button type="button" class="plate" [attr.aria-pressed]="w.on" (click)="switchWall(w.kind)">
-            {{ w.label }}
-            <span class="count">{{ w.common ? w.common + ' em comum' : 'só ' + c.name }}</span>
-          </button>
-        }
-      </nav>
-    }
+  @if (colleagues.loading()) {
+    <p class="abrindo" role="status">Abrindo os murais guardados…</p>
+  } @else {
+    <app-dupla
+      class="ficha-topo"
+      [colleague]="colleague()"
+      [me]="me()"
+      [walls]="walls()"
+      [summary]="summary()"
+      [secrets]="unseenCount()"
+      [revealed]="revealed()"
+      [people]="people()"
+      [opening]="opening()"
+      [error]="pickError()?.text ?? ''"
+      [codeError]="!!pickError()?.code"
+      (wall)="switchWall($event)"
+      (reveal)="toggleReveal()"
+      (pick)="pick($event, true)"
+      (code)="pick($event)"
+    />
 
-    @if (nothingHere()) {
-      <section class="vazio cartolina" aria-labelledby="vazio-titulo">
-        <span class="fita-vazio" aria-hidden="true"></span>
-        <h2 id="vazio-titulo">{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} por aqui</h2>
-        <p>
-          Nem você nem {{ c.name }} têm {{ profile().plural }} no mural. Troque de mural na etiqueta lá em cima
-          @if (otherWalls().length) {
-            ou toque num dos murais acima
-          }
-          para comparar.
-        </p>
-      </section>
-    } @else {
-      <app-caderno
-        [you]="you()"
-        [them]="them()"
-        [affinity]="affinity()"
-        [pairs]="collections().pairs"
-        [name]="c.name"
-        [profile]="profile()"
-        [hidden]="hidden()"
-        (opened)="open($event)"
-        (showPair)="focusPair($event)"
-      />
+    @if (colleague(); as c) {
+      @if (nothingHere()) {
+        <section class="vazio cartolina" aria-labelledby="vazio-titulo">
+          <span class="fita-vazio" aria-hidden="true"></span>
+          <h2 id="vazio-titulo">{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} por aqui</h2>
+          <p>
+            Nem você nem {{ c.name }} têm {{ profile().plural }} no mural. Troque de mural na etiqueta lá em cima
+            @if (otherWalls().length) {
+              ou numa das orelhas da ficha
+            }
+            para comparar.
+          </p>
+        </section>
+      } @else {
+        <app-caderno
+          [you]="you()"
+          [them]="them()"
+          [affinity]="affinity()"
+          [pairs]="collections().pairs"
+          [name]="c.name"
+          [profile]="profile()"
+          [hidden]="hidden()"
+          (opened)="open($event)"
+          (showPair)="focusPair($event)"
+        />
 
-      <section id="fichas" class="fichas" aria-labelledby="fichas-titulo">
-        <h2 id="fichas-titulo" class="tape-label">As fichas</h2>
+        <section id="fichas" class="fichas" aria-labelledby="fichas-titulo">
+          <h2 id="fichas-titulo" class="tape-label">As fichas</h2>
 
-        <!-- a pasta, como a das anotações: as divisórias em cima trocam a lista; no corpo, a busca e
-             os controles em tinta e, depois do picote, o que a busca achou -->
-        <div class="divisorias" role="group" aria-label="Mostrar">
-          <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'comum'" (click)="tab.set('comum')">
-            <span class="divisoria-nome">Em comum</span><span class="divisoria-n">{{ collections().pairs.length }}</span>
-          </button>
-          <button type="button" class="divisoria encolhe" [attr.aria-pressed]="tab() === 'dicas'" (click)="tab.set('dicas')" [title]="'Dicas de ' + c.name">
-            <span class="divisoria-nome"><span class="divisoria-longo">Dicas de</span><span class="divisoria-curto">De</span> {{ c.name }}</span><span class="divisoria-n">{{ collections().onlyTheirs.length }}</span>
-          </button>
-          <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'minhas'" (click)="tab.set('minhas')">
-            <span class="divisoria-nome">Suas dicas</span><span class="divisoria-n">{{ collections().onlyMine.length }}</span>
-          </button>
-        </div>
+          <!-- a pasta, como a das anotações: as divisórias em cima trocam a lista; no corpo, a busca e
+               os controles em tinta e, depois do picote, o que a busca achou -->
+          <div class="divisorias" role="group" aria-label="Mostrar">
+            <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'comum'" (click)="tab.set('comum')">
+              <span class="divisoria-nome">Em comum</span><span class="divisoria-n">{{ collections().pairs.length }}</span>
+            </button>
+            <button type="button" class="divisoria encolhe" [attr.aria-pressed]="tab() === 'dicas'" (click)="tab.set('dicas')" [title]="'Dicas de ' + c.name">
+              <span class="divisoria-nome"><span class="divisoria-longo">Dicas de</span><span class="divisoria-curto">De</span> {{ c.name }}</span><span class="divisoria-n">{{ collections().onlyTheirs.length }}</span>
+            </button>
+            <button type="button" class="divisoria" [attr.aria-pressed]="tab() === 'minhas'" (click)="tab.set('minhas')">
+              <span class="divisoria-nome">Suas dicas</span><span class="divisoria-n">{{ collections().onlyMine.length }}</span>
+            </button>
+          </div>
 
-        <div class="pasta">
-          <div class="pasta-linha">
-            <app-search-strip
-              class="pasta-busca"
-              inputId="busca-comparar"
-              [glued]="true"
-              label="Procurar nas fichas"
-              placeholder="Procurar uma obra…"
-              [value]="query()"
-              (valueChange)="query.set($event)"
-            />
+          <div class="pasta">
+            <div class="pasta-linha">
+              <app-search-strip
+                class="pasta-busca"
+                inputId="busca-comparar"
+                [glued]="true"
+                label="Procurar nas fichas"
+                placeholder="Procurar uma obra…"
+                [value]="query()"
+                (valueChange)="query.set($event)"
+              />
 
-            <div class="pasta-controles">
-              <div class="pasta-grupo" role="group" aria-label="Ordenar">
-                <label class="tinta campo">
-                  <span class="campo-pre">Ordenar</span>
-                  <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
-                  <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
-                  @if (tab() === 'comum') {
-                    <select aria-label="Ordenar as obras em comum" [value]="pairSort()" (change)="pairSort.set($any($event.target).value)">
-                      <option value="briga">Maior briga</option>
-                      <option value="minha">Maior nota sua</option>
-                      <option value="colega">Maior nota de {{ c.name }}</option>
-                      <option value="nome">A–Z</option>
-                    </select>
-                  } @else {
-                    <select aria-label="Ordenar as dicas" [value]="tab() === 'dicas' ? tipSort() : listSort()" (change)="listSort.set($any($event.target).value)">
-                      <!-- com dicas em segredo, ordenar por nota contaria o segredo -->
-                      @if (!(tab() === 'dicas' && hidden().size)) {
-                        <option value="nota">Maior nota</option>
-                      }
-                      <option value="recente">Mais recentes</option>
-                      <option value="nome">A–Z</option>
-                    </select>
-                  }
-                </label>
+              <div class="pasta-controles">
+                <div class="pasta-grupo" role="group" aria-label="Ordenar">
+                  <label class="tinta campo">
+                    <span class="campo-pre">Ordenar</span>
+                    <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+                    <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+                    @if (tab() === 'comum') {
+                      <select aria-label="Ordenar as obras em comum" [value]="pairSort()" (change)="pairSort.set($any($event.target).value)">
+                        <option value="briga">Maior briga</option>
+                        <option value="minha">Maior nota sua</option>
+                        <option value="colega">Maior nota de {{ c.name }}</option>
+                        <option value="nome">A–Z</option>
+                      </select>
+                    } @else {
+                      <select aria-label="Ordenar as dicas" [value]="tab() === 'dicas' ? tipSort() : listSort()" (change)="listSort.set($any($event.target).value)">
+                        <!-- com dicas em segredo, ordenar por nota contaria o segredo -->
+                        @if (!(tab() === 'dicas' && hidden().size)) {
+                          <option value="nota">Maior nota</option>
+                        }
+                        <option value="recente">Mais recentes</option>
+                        <option value="nome">A–Z</option>
+                      </select>
+                    }
+                  </label>
+                </div>
+
+                <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">
+                  <button type="button" class="tinta so-icone" [attr.aria-pressed]="!simple()" (click)="setDensity(false)" aria-label="Fichas comuns" title="Fichas comuns">
+                    <lucide-icon [img]="FullIcon" [size]="18" aria-hidden="true" />
+                  </button>
+                  <button type="button" class="tinta so-icone" [attr.aria-pressed]="simple()" (click)="setDensity(true)" aria-label="Fichas simples" title="Fichas simples">
+                    <lucide-icon [img]="CompactIcon" [size]="18" aria-hidden="true" />
+                  </button>
+                </div>
               </div>
+            </div>
 
-              <div class="pasta-grupo" role="group" aria-label="Tipo de ficha">
-                <button type="button" class="tinta so-icone" [attr.aria-pressed]="!simple()" (click)="setDensity(false)" aria-label="Fichas comuns" title="Fichas comuns">
-                  <lucide-icon [img]="FullIcon" [size]="18" aria-hidden="true" />
-                </button>
-                <button type="button" class="tinta so-icone" [attr.aria-pressed]="simple()" (click)="setDensity(true)" aria-label="Fichas simples" title="Fichas simples">
-                  <lucide-icon [img]="CompactIcon" [size]="18" aria-hidden="true" />
-                </button>
-              </div>
+            <div class="pasta-linha pasta-baixo">
+              @if (query().trim()) {
+                <div class="pasta-estado">
+                  <p class="achados" aria-live="polite">
+                    <span>Mostrando {{ total() }} de {{ tabTotal() }}</span>
+                    <button type="button" class="tinta-link" (click)="query.set('')">Limpar</button>
+                  </p>
+                </div>
+              }
             </div>
           </div>
 
-          <div class="pasta-linha pasta-baixo">
-            @if (query().trim()) {
-              <div class="pasta-estado">
-                <p class="achados" aria-live="polite">
-                  <span>Mostrando {{ total() }} de {{ tabTotal() }}</span>
-                  <button type="button" class="tinta-link" (click)="query.set('')">Limpar</button>
-                </p>
-              </div>
-            }
-          </div>
-        </div>
-
-        @switch (tab()) {
-          @case ('comum') {
-            @if (shownPairs().length) {
-              <p class="giz-lista">Os mesmos {{ profile().plural }}, cada um pregado do seu jeito: a sua ficha à esquerda, a de {{ c.name }} à direita.</p>
-              <div class="lados" aria-hidden="true">
-                <span class="lado voce"><span class="lado-faixa">Olá, eu sou</span>Você</span>
-                <span></span>
-                <span class="lado colega"><span class="lado-faixa">Olá, eu sou</span>{{ c.name }}</span>
-              </div>
-              <ol class="pares" [class.simples]="simple()">
-                @for (pair of shownPairs(); track pair.key) {
-                  <li class="par">
-                    <h3 class="sr-only">{{ pair.mine.game.name }}</h3>
-                    <div class="lado-a" role="group" aria-label="Sua ficha">
-                      <app-review-card [review]="pair.mine" [preview]="true" [compact]="simple()" [paired]="paired()" (opened)="openReview(pair.mine, true)" />
-                    </div>
-                    <div class="meio">
-                      <p class="diferenca" [class.minha]="gap(pair) > 0" [class.dela]="gap(pair) < 0">
-                        <span class="sr-only">{{ spoken(pair) }}</span>
-                        @if (gap(pair) === 0) {
-                          <span class="dif-num" aria-hidden="true">=</span>
-                          <span class="dif-txt" aria-hidden="true">mesma nota</span>
-                        } @else {
-                          <span class="dif-num" aria-hidden="true">+{{ fmt(abs(gap(pair))) }}</span>
-                          <span class="dif-txt" aria-hidden="true">{{ gap(pair) > 0 ? 'pra você' : 'pra ' + c.name }}</span>
-                        }
-                      </p>
-                      <button
-                        type="button"
-                        class="nota-a-nota"
-                        [attr.aria-expanded]="notesOpen() === pair.key"
-                        [attr.aria-controls]="'notas-' + pair.key"
-                        (click)="toggleNotes(pair.key)"
-                      >
-                        Nota a nota
-                        <lucide-icon [img]="ChevronIcon" [size]="16" aria-hidden="true" />
-                      </button>
-                    </div>
-                    <div class="lado-b" role="group" [attr.aria-label]="'Ficha de ' + c.name">
-                      <app-review-card [review]="pair.theirs" [preview]="true" [compact]="simple()" [paired]="paired()" (opened)="openReview(pair.theirs, false)" />
-                    </div>
-
-                    @if (notesOpen() === pair.key) {
-                      <div class="notas" [id]="'notas-' + pair.key">
-                        <table>
-                          <caption class="sr-only">Nota a nota de {{ pair.mine.game.name }}</caption>
-                          <colgroup>
-                            <col class="col-rotulo" />
-                            <col />
-                            <col />
-                          </colgroup>
-                          <thead>
-                            <tr>
-                              <td></td>
-                              <th scope="col" class="voce">Você</th>
-                              <th scope="col" class="colega">{{ c.name }}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (row of noteRows(); track row.id) {
-                              <tr [class]="'k-' + row.kind" [class.final]="row.kind === 'final'" [class.split]="row.split">
-                                <th scope="row">{{ row.label }}</th>
-                                @if (row.kind === 'final' || row.kind === 'score') {
-                                  <td class="voce">
-                                    <span class="valor" [class.melhor]="row.best === 'mine'">{{ row.mine === null ? '–' : fmt(row.mine) }}</span>
-                                    @if (row.weightA) {
-                                      <small>{{ row.weightA }}</small>
-                                    }
-                                  </td>
-                                  <td class="colega">
-                                    <span class="valor" [class.melhor]="row.best === 'theirs'">{{ row.theirs === null ? '–' : fmt(row.theirs) }}</span>
-                                    @if (row.weightB) {
-                                      <small>{{ row.weightB }}</small>
-                                    }
-                                  </td>
-                                } @else if (row.same) {
-                                  <!-- igual nos dois lados: uma vez só, no meio, com o sinal de igual a lápis -->
-                                  <td colspan="2" class="igual">
-                                    <span class="igual-marca" aria-hidden="true">=</span>
-                                    <ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" />
-                                    <span class="sr-only">(igual para os dois)</span>
-                                  </td>
-                                } @else {
-                                  <td class="voce"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" /></td>
-                                  <td class="colega"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.theirs, row: row }" /></td>
-                                }
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                        <p class="notas-legenda">Circulado a caneta: a maior nota de cada linha. Com <b>=</b>, os dois marcaram igual.</p>
+          @switch (tab()) {
+            @case ('comum') {
+              @if (shownPairs().length) {
+                <p class="giz-lista">Os mesmos {{ profile().plural }}, cada um pregado do seu jeito: a sua ficha à esquerda, a de {{ c.name }} à direita.</p>
+                <div class="lados" aria-hidden="true">
+                  <span class="lado voce"><span class="lado-faixa">Olá, eu sou</span>Você</span>
+                  <span></span>
+                  <span class="lado colega"><span class="lado-faixa">Olá, eu sou</span>{{ c.name }}</span>
+                </div>
+                <ol class="pares" [class.simples]="simple()">
+                  @for (pair of shownPairs(); track pair.key) {
+                    <li class="par">
+                      <h3 class="sr-only">{{ pair.mine.game.name }}</h3>
+                      <div class="lado-a" role="group" aria-label="Sua ficha">
+                        <app-review-card [review]="pair.mine" [preview]="true" [compact]="simple()" [paired]="paired()" (opened)="openReview(pair.mine, true)" />
                       </div>
-                    }
-                  </li>
-                }
-              </ol>
-            } @else if (query().trim()) {
-              <p class="nada">{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} em comum tem “{{ query().trim() }}” no nome.</p>
-            } @else {
-              <div class="nada">
-                <p>{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} em comum ainda.</p>
-                @if (collections().onlyTheirs.length) {
-                  <button type="button" class="btn-quiet" (click)="tab.set('dicas')">
-                    {{ collections().onlyTheirs.length === 1 ? 'Ver a dica' : 'Ver as ' + collections().onlyTheirs.length + ' dicas' }} de {{ c.name }}
-                  </button>
-                }
-              </div>
+                      <div class="meio">
+                        <p class="diferenca" [class.minha]="gap(pair) > 0" [class.dela]="gap(pair) < 0">
+                          <span class="sr-only">{{ spoken(pair) }}</span>
+                          @if (gap(pair) === 0) {
+                            <span class="dif-num" aria-hidden="true">=</span>
+                            <span class="dif-txt" aria-hidden="true">mesma nota</span>
+                          } @else {
+                            <span class="dif-num" aria-hidden="true">+{{ fmt(abs(gap(pair))) }}</span>
+                            <span class="dif-txt" aria-hidden="true">{{ gap(pair) > 0 ? 'pra você' : 'pra ' + c.name }}</span>
+                          }
+                        </p>
+                        <button
+                          type="button"
+                          class="nota-a-nota"
+                          [attr.aria-expanded]="notesOpen() === pair.key"
+                          [attr.aria-controls]="'notas-' + pair.key"
+                          (click)="toggleNotes(pair.key)"
+                        >
+                          Nota a nota
+                          <lucide-icon [img]="ChevronIcon" [size]="16" aria-hidden="true" />
+                        </button>
+                      </div>
+                      <div class="lado-b" role="group" [attr.aria-label]="'Ficha de ' + c.name">
+                        <app-review-card [review]="pair.theirs" [preview]="true" [compact]="simple()" [paired]="paired()" (opened)="openReview(pair.theirs, false)" />
+                      </div>
+
+                      @if (notesOpen() === pair.key) {
+                        <div class="notas" [id]="'notas-' + pair.key">
+                          <table>
+                            <caption class="sr-only">Nota a nota de {{ pair.mine.game.name }}</caption>
+                            <colgroup>
+                              <col class="col-rotulo" />
+                              <col />
+                              <col />
+                            </colgroup>
+                            <thead>
+                              <tr>
+                                <td></td>
+                                <th scope="col" class="voce">Você</th>
+                                <th scope="col" class="colega">{{ c.name }}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              @for (row of noteRows(); track row.id) {
+                                <tr [class]="'k-' + row.kind" [class.final]="row.kind === 'final'" [class.split]="row.split">
+                                  <th scope="row">{{ row.label }}</th>
+                                  @if (row.kind === 'final' || row.kind === 'score') {
+                                    <td class="voce">
+                                      <span class="valor" [class.melhor]="row.best === 'mine'">{{ row.mine === null ? '–' : fmt(row.mine) }}</span>
+                                      @if (row.weightA) {
+                                        <small>{{ row.weightA }}</small>
+                                      }
+                                    </td>
+                                    <td class="colega">
+                                      <span class="valor" [class.melhor]="row.best === 'theirs'">{{ row.theirs === null ? '–' : fmt(row.theirs) }}</span>
+                                      @if (row.weightB) {
+                                        <small>{{ row.weightB }}</small>
+                                      }
+                                    </td>
+                                  } @else if (row.same) {
+                                    <!-- igual nos dois lados: uma vez só, no meio, com o sinal de igual a lápis -->
+                                    <td colspan="2" class="igual">
+                                      <span class="igual-marca" aria-hidden="true">=</span>
+                                      <ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" />
+                                      <span class="sr-only">(igual para os dois)</span>
+                                    </td>
+                                  } @else {
+                                    <td class="voce"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.mine, row: row }" /></td>
+                                    <td class="colega"><ng-container *ngTemplateOutlet="fato; context: { $implicit: pair.theirs, row: row }" /></td>
+                                  }
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                          <p class="notas-legenda">Circulado a caneta: a maior nota de cada linha. Com <b>=</b>, os dois marcaram igual.</p>
+                        </div>
+                      }
+                    </li>
+                  }
+                </ol>
+              } @else if (query().trim()) {
+                <p class="nada">{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} em comum tem “{{ query().trim() }}” no nome.</p>
+              } @else {
+                <div class="nada">
+                  <p>{{ g(profile(), 'Nenhum', 'Nenhuma') }} {{ profile().singular }} em comum ainda.</p>
+                  @if (collections().onlyTheirs.length) {
+                    <button type="button" class="btn-quiet" (click)="tab.set('dicas')">
+                      {{ collections().onlyTheirs.length === 1 ? 'Ver a dica' : 'Ver as ' + collections().onlyTheirs.length + ' dicas' }} de {{ c.name }}
+                    </button>
+                  }
+                </div>
+              }
+            }
+
+            @case ('dicas') {
+              @if (shownTips().length) {
+                <p class="giz-lista">{{ cap(profile().plural) }} que {{ c.name }} resenhou e você ainda não. Gostou de alguma? Mande para a sua wishlist.</p>
+                <ul class="soltas" [class.simples]="simple()">
+                  @for (r of shownTips(); track r.id) {
+                    <li class="solta">
+                      <app-review-card [review]="r" [preview]="true" [compact]="simple()" [masked]="hidden().has(r.id)" (opened)="openReview(r, false)" />
+                      @if (isWished(r)) {
+                        <p class="quero feito">
+                          <lucide-icon [img]="DoneIcon" [size]="17" aria-hidden="true" />
+                          Na sua wishlist
+                        </p>
+                      } @else {
+                        <button type="button" class="quero btn-quiet" (click)="wish(r)" [attr.aria-label]="'Quero ' + profile().verb + ' ' + r.game.name + ': pôr na wishlist'">
+                          <lucide-icon [img]="WishIcon" [size]="17" aria-hidden="true" />
+                          Quero {{ profile().verb }}
+                        </button>
+                      }
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="nada">
+                  @if (query().trim()) {
+                    Nenhuma dica de {{ c.name }} tem “{{ query().trim() }}” no nome.
+                  } @else {
+                    Tudo o que {{ c.name }} resenhou aqui você também já resenhou.
+                  }
+                </p>
+              }
+            }
+
+            @case ('minhas') {
+              @if (shownMine().length) {
+                <p class="giz-lista">{{ cap(profile().plural) }} que você resenhou e {{ c.name }} ainda não. Boas pra indicar.</p>
+                <ul class="soltas" [class.simples]="simple()">
+                  @for (r of shownMine(); track r.id) {
+                    <li class="solta">
+                      <app-review-card [review]="r" [preview]="true" [compact]="simple()" (opened)="openReview(r, true)" />
+                    </li>
+                  }
+                </ul>
+              } @else {
+                <p class="nada">
+                  @if (query().trim()) {
+                    Nenhuma dica sua tem “{{ query().trim() }}” no nome.
+                  } @else {
+                    {{ c.name }} já resenhou tudo o que você tem aqui.
+                  }
+                </p>
+              }
             }
           }
 
-          @case ('dicas') {
-            @if (shownTips().length) {
-              <p class="giz-lista">{{ cap(profile().plural) }} que {{ c.name }} resenhou e você ainda não. Gostou de alguma? Mande para a sua wishlist.</p>
-              <ul class="soltas" [class.simples]="simple()">
-                @for (r of shownTips(); track r.id) {
-                  <li class="solta">
-                    <app-review-card [review]="r" [preview]="true" [compact]="simple()" [masked]="hidden().has(r.id)" (opened)="openReview(r, false)" />
-                    @if (isWished(r)) {
-                      <p class="quero feito">
-                        <lucide-icon [img]="DoneIcon" [size]="17" aria-hidden="true" />
-                        Na sua wishlist
-                      </p>
-                    } @else {
-                      <button type="button" class="quero btn-quiet" (click)="wish(r)" [attr.aria-label]="'Quero ' + profile().verb + ' ' + r.game.name + ': pôr na wishlist'">
-                        <lucide-icon [img]="WishIcon" [size]="17" aria-hidden="true" />
-                        Quero {{ profile().verb }}
-                      </button>
-                    }
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="nada">
-                @if (query().trim()) {
-                  Nenhuma dica de {{ c.name }} tem “{{ query().trim() }}” no nome.
-                } @else {
-                  Tudo o que {{ c.name }} resenhou aqui você também já resenhou.
-                }
-              </p>
-            }
+          @if (shown() < total()) {
+            <div class="mais">
+              <button type="button" class="btn-ink" (click)="limit.set(limit() + PAGE)">Mostrar mais</button>
+              <p>{{ shown() }} de {{ total() }}</p>
+            </div>
           }
-
-          @case ('minhas') {
-            @if (shownMine().length) {
-              <p class="giz-lista">{{ cap(profile().plural) }} que você resenhou e {{ c.name }} ainda não. Boas pra indicar.</p>
-              <ul class="soltas" [class.simples]="simple()">
-                @for (r of shownMine(); track r.id) {
-                  <li class="solta">
-                    <app-review-card [review]="r" [preview]="true" [compact]="simple()" (opened)="openReview(r, true)" />
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="nada">
-                @if (query().trim()) {
-                  Nenhuma dica sua tem “{{ query().trim() }}” no nome.
-                } @else {
-                  {{ c.name }} já resenhou tudo o que você tem aqui.
-                }
-              </p>
-            }
-          }
-        }
-
-        @if (shown() < total()) {
-          <div class="mais">
-            <button type="button" class="btn-ink" (click)="limit.set(limit() + PAGE)">Mostrar mais</button>
-            <p>{{ shown() }} de {{ total() }}</p>
-          </div>
-        }
-      </section>
+        </section>
+      }
     }
   }
 }

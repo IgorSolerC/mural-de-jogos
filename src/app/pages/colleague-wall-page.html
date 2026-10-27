@@ -4,7 +4,7 @@
 </a>
 
 @if (colleagues.loading()) {
-  <p class="giz" role="status">Abrindo os envelopes guardados…</p>
+  <p class="giz" role="status">Abrindo os murais guardados…</p>
 } @else if (colleague(); as c) {
   <!-- a ficha da dona: em cima, uma orelha por mural que ela tem; no papel, quem ela é e o que tem aqui -->
   <header class="dona">
@@ -98,7 +98,7 @@
   <section class="vazio cartolina" aria-labelledby="vazio-titulo">
     <span class="fita-vazio" aria-hidden="true"></span>
     <h2 id="vazio-titulo">Nenhum mural aberto</h2>
-    <p>Abra o mural de alguém em Amigos, ou o backup de alguém em Comparar, e ele aparece aqui.</p>
+    <p>Abra o mural de um amigo em Amigos ou em Comparar, e ele aparece aqui.</p>
     <a class="btn-ink" routerLink="/comparar">Ir para Comparar</a>
   </section>
 }

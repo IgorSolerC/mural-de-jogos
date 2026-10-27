@@ -26,12 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-escolhas-a-giz',
+    id: '2026-10-27-comparar-com-amigos',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
-    title: 'Escolhas a giz e o Mata-mata',
+    title: 'O Comparar com os amigos, escolhas a giz e o Mata-mata',
     melhorias: [
+      'O Comparar agora é só com a conta, e sem backup de colega: escolha um dos seus amigos (quem você segue e quem segue você, cada um com a foto do perfil) ou digite o código de alguém. Os backups de colegas guardados neste navegador saem.',
+      'O alto do Comparar ficou como a ficha do mural de quem você visita: a sua foto e a da pessoa, "Você e" o nome a pincel, quanto vocês têm em comum, os murais em orelhas de pasta e, embaixo, todos os amigos para trocar de pessoa.',
       'O ano das Estatísticas e a ordem do Lado a lado são escolhidos a giz, como o Ordenar da pasta; as orelhas do mural de outra pessoa ficaram um pouco maiores que as dos grupos, com o perfil e o Seguir logo ao lado do nome.',
       'O Mata-mata diz, embaixo das escolhas, quantas fichas pedem os números de duelos que ainda não dá para escolher.',
     ],

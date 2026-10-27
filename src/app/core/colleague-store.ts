@@ -1,14 +1,10 @@
 import { Injectable, computed, signal } from '@angular/core';
-import {
-  BackupSnapshot,
-  parseBackupSnapshot,
-  readBackupFile,
-} from './backup-file';
-import { newId, sanitizeReview } from './review';
+import { BackupSnapshot } from './backup-file';
+import { sanitizeReview } from './review';
 import { PageBackground, sanitizeProfile } from './profile';
-import { readText, writeText } from './storage';
+import { readText, storageFrozen, writeText } from './storage';
 
-/** O banco do IndexedDB com os backups de colegas. */
+/** O banco do IndexedDB com os murais de outras pessoas. */
 export const COLLEAGUES_DB = 'meu-mural:colegas';
 
 const CHOSEN_KEY = 'meu-mural:colega-aberto';
@@ -34,7 +30,11 @@ export function wallOf(colleague: Colleague | null | undefined): PageBackground 
   return colleague?.profile?.page ?? 'eucatex';
 }
 
-/** Coleções recebidas ficam em um banco separado; nunca entram no backup ou nas resenhas próprias. */
+/**
+ * Os murais de outras pessoas abertos pelo código (ver `cloud-murals.ts`), num banco separado: nunca
+ * entram no backup ou nas resenhas próprias. Backup de colega não entra mais (desde 27/out/2026, a
+ * comparação é só pelo código ou pelos amigos): o que tinha vindo de um arquivo sai ao abrir.
+ */
 @Injectable({ providedIn: 'root' })
 export class ColleagueStore {
   readonly colleagues = signal<Colleague[]>([]);
@@ -45,7 +45,7 @@ export class ColleagueStore {
 
   /** O colega aberto na comparação, lembrado entre as visitas (só o id, neste navegador). */
   private readonly chosenId = signal<string | null>(readText(CHOSEN_KEY));
-  /** O escolhido, ou o backup aberto mais recentemente quando a escolha sumiu. */
+  /** O escolhido, ou o mural aberto mais recentemente quando a escolha sumiu. */
   readonly selected = computed<Colleague | null>(() => {
     const list = this.colleagues();
     return list.find((c) => c.id === this.chosenId()) ?? list[0] ?? null;
@@ -54,50 +54,6 @@ export class ColleagueStore {
   select(id: string): void {
     this.chosenId.set(id);
     writeText(CHOSEN_KEY, id);
-  }
-
-  /** `name` é o palpite (do nome do arquivo, ou "Colega"): o nome que veio dentro do backup vence. */
-  async add(file: File, name: string): Promise<Colleague> {
-    await this.ready;
-    const snapshot = parseBackupSnapshot(await readBackupFile(file));
-    const colleague: Colleague = {
-      ...snapshot,
-      id: newId(),
-      name: (snapshot.ownerName ?? name).trim().slice(0, 60) || 'Colega',
-      fileName: file.name,
-      loadedAt: new Date().toISOString(),
-    };
-    await this.put(colleague);
-    this.colleagues.update((list) => [colleague, ...list]);
-    this.select(colleague.id);
-    return colleague;
-  }
-
-  /** Um backup mais novo do mesmo colega: troca as fichas, mantém o nome e a vez na lista. */
-  async replace(id: string, file: File): Promise<Colleague> {
-    await this.ready;
-    const old = this.colleagues().find((c) => c.id === id);
-    if (!old) throw new Error('Esse colega não está mais na comparação. Carregue o arquivo de novo.');
-    const snapshot = parseBackupSnapshot(await readBackupFile(file));
-    const colleague: Colleague = {
-      ...old,
-      ...snapshot,
-      fileName: file.name,
-      loadedAt: new Date().toISOString(),
-    };
-    await this.put(colleague);
-    this.colleagues.update((list) => list.map((c) => (c.id === id ? colleague : c)));
-    return colleague;
-  }
-
-  async rename(id: string, name: string): Promise<void> {
-    const old = this.colleagues().find((c) => c.id === id);
-    if (!old || !name.trim()) return;
-    const colleague = { ...old, name: name.trim().slice(0, 60) };
-    await this.put(colleague);
-    this.colleagues.update((list) =>
-      list.map((c) => (c.id === id ? colleague : c)),
-    );
   }
 
   async remove(id: string): Promise<void> {
@@ -170,6 +126,8 @@ export class ColleagueStore {
   }
 
   private async put(colleague: Colleague): Promise<void> {
+    // a página está recarregando para limpar o navegador (ver core/browser-reset.ts): nada se grava
+    if (storageFrozen()) return;
     try {
       await this.transaction(await this.open(), (store) =>
         store.put(colleague),
@@ -177,7 +135,7 @@ export class ColleagueStore {
       this.storageError.set(null);
     } catch {
       throw new Error(
-        'O navegador não deixou guardar esse backup. Libere espaço e carregue o arquivo novamente. Seus cards continuam salvos.',
+        'O navegador não deixou guardar esse mural. Libere espaço e tente de novo. Seus cards continuam salvos.',
       );
     }
   }
@@ -193,12 +151,16 @@ export class ColleagueStore {
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
+      // o que veio de um arquivo de backup (sem código) sai do banco
+      const files = rows.filter((c) => c && typeof c.id === 'string' && !c.codigo);
+      if (files.length && !storageFrozen()) await this.transaction(db, (store) => files.forEach((c) => store.delete(c.id)));
       this.colleagues.set(
         rows
           .filter(
             (c) =>
               c &&
               typeof c.id === 'string' &&
+              typeof c.codigo === 'string' &&
               typeof c.name === 'string' &&
               Array.isArray(c.reviews),
           )
@@ -211,7 +173,7 @@ export class ColleagueStore {
       );
     } catch {
       this.storageError.set(
-        'Não consegui abrir os backups de colegas. Tente recarregar a página; seus cards continuam no mural.',
+        'Não consegui abrir os murais guardados dos amigos. Tente recarregar a página; seus cards continuam no mural.',
       );
     } finally {
       this.loading.set(false);

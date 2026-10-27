@@ -1,0 +1,228 @@
+/*
+ * A ficha de uma pessoa no alto da página: o papel de ficha das Configurações do perfil, com uma
+ * orelha de cartolina por mural em pé em cima (as orelhas de pasta das anotações, ver
+ * _divisorias.scss: a aberta é o próprio papel da ficha, as de trás um creme mais escuro, com o pé
+ * escondido atrás da borda), e a foto do perfil presa com fita. Nasceu na visita ao mural de alguém
+ * (colleague-wall-page) e é a mesma no Comparar (comparison/dupla). Quem inclui escolhe as classes.
+ */
+@use '../ui/divisorias' as div;
+
+/* as orelhas e o papel são uma peça só, com uma sombra só */
+@mixin peca {
+  position: relative;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 14px rgb(0 0 0 / 0.42));
+}
+
+/* as orelhas, em pé na borda de cima da ficha. Elas trocam o mural inteiro, então são um pouco
+   maiores que as dos grupos, na pasta logo embaixo */
+@mixin orelhas {
+  @include div.pasta;
+  /* a borda e a orelha aberta são o papel da ficha */
+  --manilha: var(--papel-ficha);
+  padding: 0 22px;
+
+  &::after {
+    @include div.borda-da-pasta;
+  }
+}
+
+/* a fileira que rola de lado quando não cabe (a borda, no ::after de fora, fica parada) */
+@mixin trilho {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  overflow-x: auto;
+  /* o pé das de trás desce 3px: sem isso, a roda do mouse em cima delas rolaria a fileira */
+  overflow-y: hidden;
+  padding-top: 6px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* uma orelha: dentro, `$ico`, `$nome` e `$n` */
+@mixin orelha($ico, $nome, $n) {
+  @include div.aba('.on');
+
+  & {
+    flex: none;
+    align-items: center;
+    min-height: 46px;
+    padding-inline: 16px;
+    /* as de trás: um creme mais escuro que a ficha, como as orelhas de grupo com cor */
+    background-color: var(--orelha-clara-atras);
+    font: inherit;
+  }
+
+  /* no mouse ela sobe só um pouco: de pé inteira, só a aberta */
+  &:hover:not(.on):not(:disabled) {
+    background-color: var(--orelha-clara-hover);
+    translate: 0 1.5px;
+  }
+
+  &:focus-visible {
+    outline-color: var(--ink);
+    outline-offset: -5px;
+  }
+
+  &.on {
+    background-color: var(--papel-ficha);
+    cursor: default;
+  }
+
+  #{$ico} {
+    display: inline-flex;
+    flex: none;
+    /* o desenho no meio da parte que aparece (o pé fica atrás da borda) */
+    align-self: center;
+  }
+
+  #{$nome} {
+    @include div.nome-de-grupo;
+
+    & {
+      font-size: 1.2rem;
+    }
+  }
+
+  #{$n} {
+    @include div.numero-de-grupo;
+
+    & {
+      flex: none;
+    }
+  }
+
+  &:not(.on) {
+    #{$nome} {
+      opacity: 0.82;
+    }
+
+    #{$n} {
+      opacity: 0.85;
+    }
+  }
+
+  /* sem movimento: no mouse ela só troca de cor, parada onde estava (o pé, 3px atrás da borda) */
+  @media (prefers-reduced-motion: reduce) {
+    &:hover:not(.on):not(:disabled) {
+      translate: 0 3px;
+    }
+  }
+
+  /* no celular as de trás ficam só com o desenho e a conta: o nome fica na leitura de tela e na dica */
+  @media (max-width: 559px) {
+    & {
+      gap: 5px;
+      min-height: 44px;
+      padding-inline: 11px;
+    }
+
+    #{$nome} {
+      font-size: 1.04rem;
+    }
+
+    &:not(.on) #{$nome} {
+      display: none;
+    }
+  }
+}
+
+/* o papel, embaixo das orelhas (ou sozinho, com as bordas de cima redondas: `$solto`) */
+@mixin papel($solto: false) {
+  position: relative;
+  @if $solto {
+    border-radius: 6px;
+  } @else {
+    border-radius: 0 0 6px 6px;
+  }
+  background-color: var(--papel-ficha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+}
+
+/* a foto do perfil, presa na ficha por um pedaço de fita-crepe, como a polaroid do perfil */
+@mixin foto($lado: 84px) {
+  --foto: #{$lado};
+  position: relative;
+  display: grid;
+  border-radius: 2px;
+  transition: translate var(--t-physical) var(--ease-physical);
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: -9px;
+    left: calc(50% - 22px);
+    width: 44px;
+    height: 17px;
+    background: var(--paper-grain), rgb(222 205 160 / 0.86);
+    box-shadow: 0 1px 1px rgb(0 0 0 / 0.12);
+    rotate: -5deg;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    & {
+      transition: none;
+    }
+  }
+}
+
+/* "O mural de Marina": a frase a pincel, com o nome maior (o risco vermelho vem do `.scribble`) */
+@mixin titulo {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.3rem;
+  line-height: 1.15;
+  color: var(--ink-2);
+
+  @media (max-width: 559px) {
+    & {
+      font-size: 1.05rem;
+    }
+  }
+}
+
+@mixin nome {
+  display: inline-block;
+  max-width: 100%;
+  margin-left: 0.15em;
+  padding-bottom: 0.06em;
+  font-size: clamp(2rem, 4.4vw, 2.75rem);
+  line-height: 1.05;
+  color: var(--ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* a linha curta do perfil ("Curadora · SP") */
+@mixin linha {
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.35;
+  color: var(--ink-2);
+
+  @media (max-width: 559px) {
+    & {
+      font-size: 1.02rem;
+    }
+  }
+}
+
+/* quanto tem aqui: em versalete, com os números alinhados */
+@mixin resumo {
+  margin-top: 2px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}

@@ -3,11 +3,14 @@ import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
 import { ColleagueStore } from '../core/colleague-store';
 import { Cloud } from '../core/cloud-config';
-import { CloudMurals } from '../core/cloud-murals';
+import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
 import { CloudAccount } from '../core/cloud-account';
 import { ReviewPair, compareCollections, distinctReviews } from '../core/comparison';
-import { affinity, nameFromFile, portrait } from '../core/comparison-stats';
-import { SCORED_KINDS, Kind, cap, g, profileOf } from '../core/kinds';
+import { affinity, portrait } from '../core/comparison-stats';
+import { SCORED_KINDS, Kind, cap, countOf, g, profileOf } from '../core/kinds';
+import { Follow } from '../core/follow';
+import { ProfilePeople } from '../core/profile-people';
+import { ProfileStore } from '../core/profile-store';
 import { mediaSignal } from '../core/media';
 import { Mural } from '../core/mural';
 import {
@@ -41,10 +44,12 @@ import { SearchStrip } from '../ui/search-strip';
 import { StatusLabel } from '../ui/status-label';
 import { Toasts } from '../ui/toast';
 import { VerdictStamp } from '../ui/verdict';
-import { BackupEnvelope } from './comparison/envelope';
 import { Caderno, OpenRequest } from './comparison/caderno';
-import { NameTags } from './comparison/name-tags';
-import { nameCollator, plural } from '../core/text';
+import { Dupla, DuplaWall, PickPerson } from './comparison/dupla';
+import { KIND_ICON } from '../ui/kind-switcher';
+import { PersonFace } from '../ui/person-photo';
+import { Pin } from '../ui/pin';
+import { nameCollator } from '../core/text';
 import { reducedMotion } from '../core/motion';
 
 type Tab = 'comum' | 'dicas' | 'minhas';
@@ -73,20 +78,22 @@ const PAGE = 12;
 const byName = (a: Review, b: Review) => nameCollator.compare(a.game.name, b.game.name) || a.id.localeCompare(b.id);
 
 /**
- * Comparar murais: o backup de um colega aberto ao lado do seu mural, sem se misturar com ele.
- * Chega num envelope, se apresenta num crachá, responde o caderno de perguntas (o gosto de cada um)
- * e, embaixo, as fichas: as obras em comum lado a lado e as dicas de cada um para o outro.
- * Segue o mural aberto no cartaz, como o Ranking; os outros murais ficam a um toque.
+ * Comparar murais: o mural de um amigo aberto ao lado do seu, sem se misturar com ele. Só com conta:
+ * a pessoa vem da nuvem, escolhida na lista de amigos (quem você segue e quem segue você) ou pelo
+ * código; backup de colega não entra mais. No alto, a ficha da dupla (como a da visita ao mural de
+ * alguém); depois, o caderno de perguntas (o gosto de cada um) e, embaixo, as fichas: as obras em
+ * comum lado a lado e as dicas de cada um para o outro. Segue o mural aberto no cartaz, como o
+ * Ranking; os outros murais ficam nas orelhas da ficha.
  */
 @Component({
   selector: 'app-comparison-page',
   imports: [
-    BackupEnvelope,
     BonusSticker,
     Caderno,
+    Dupla,
     IconModule,
-    NameTags,
     NgTemplateOutlet,
+    Pin,
     ReviewCard,
     ReviewReader,
     RouterLink,
@@ -103,13 +110,23 @@ export class ComparisonPage {
   protected readonly colleagues = inject(ColleagueStore);
   protected readonly cloud = inject(Cloud);
   protected readonly account = inject(CloudAccount);
+  protected readonly follow = inject(Follow);
   private readonly cloudMurals = inject(CloudMurals);
-  protected readonly codeBusy = signal(false);
-  protected readonly codeError = signal('');
-  /** O colega aberto pelo código se atualiza da nuvem ao aparecer aqui (a cada 2 minutos, no máximo). */
+  private readonly profilePeople = inject(ProfilePeople);
+  private readonly profiles = inject(ProfileStore);
+  protected readonly cloudOn = computed(() => !!this.cloud.config());
+  /** O código de quem está sendo aberto agora, e o que deu errado na última tentativa. */
+  protected readonly opening = signal<string | null>(null);
+  protected readonly pickError = signal<{ text: string; code: boolean } | null>(null);
+  /** O colega aberto se atualiza da nuvem ao aparecer aqui (a cada 2 minutos, no máximo). */
   private readonly refreshCloud = effect(() => {
-    const c = this.colleagues.selected();
-    untracked(() => void this.cloudMurals.refresh(c));
+    const c = this.colleague();
+    if (c) untracked(() => void this.cloudMurals.refresh(c));
+  });
+  /** As fotos dos amigos vêm com as listas do seu perfil. */
+  private readonly loadFaces = effect(() => {
+    const code = this.account.account()?.codigo;
+    if (code && this.follow.available()) untracked(() => void this.profilePeople.load(code, true));
   });
   protected readonly mural = inject(Mural);
   private readonly store = inject(ReviewStore);
@@ -134,14 +151,42 @@ export class ComparisonPage {
   private readonly phone = mediaSignal('(max-width: 699px)');
 
   // ===== O colega =====
-  protected readonly colleague = this.colleagues.selected;
-  /** O envelope aberto para mais um colega (com um já na mesa). */
-  protected readonly adding = signal(false);
-  /** O colega acabou de chegar com um nome provisório: o crachá já abre pedindo o nome. */
-  protected readonly naming = signal(false);
-  protected readonly busy = signal(false);
-  protected readonly error = signal('');
+  /** Só com conta: sem ela, nada guardado de antes aparece (ver a folha de entrar). */
+  protected readonly colleague = computed(() => (this.follow.available() ? this.colleagues.selected() : null));
   protected readonly name = computed(() => this.colleague()?.name ?? 'Colega');
+
+  /** Você na ficha: o código, o nome e a foto do seu perfil. */
+  protected readonly me = computed(() => {
+    const a = this.account.account();
+    const p = this.profiles.profile();
+    const face: PersonFace = { emoji: p.emoji, cor: p.photo };
+    return { codigo: a?.codigo ?? 'eu', nome: a?.nome ?? 'Você', face };
+  });
+
+  /**
+   * Com quem comparar: os amigos (quem você segue e quem segue você, cada um uma vez, pelo nome) e,
+   * depois, quem foi aberto pelo código e não é amigo. null enquanto a lista de amigos não chegou.
+   */
+  protected readonly people = computed<PickPerson[] | null>(() => {
+    const list = this.follow.people();
+    if (!list) return null;
+    const me = this.account.account()?.codigo;
+    const cards = me ? this.profilePeople.of(me)?.listas : undefined;
+    const faces = new Map<string, PersonFace>();
+    for (const p of [...(cards?.seguindo ?? []), ...(cards?.seguidores ?? [])]) if (p.cartao) faces.set(p.codigo, { emoji: p.cartao.emoji, cor: p.cartao.cor });
+    const saved = new Map(this.colleagues.colleagues().flatMap((c) => (c.codigo ? [[c.codigo, c] as const] : [])));
+    for (const [code, c] of saved) if (c.profile) faces.set(code, { emoji: c.profile.emoji, cor: c.profile.photo });
+    const out = new Map<string, PickPerson>();
+    const add = (codigo: string, nome: string, relacao: string) => out.set(codigo, { codigo, nome, relacao, face: faces.get(codigo) ?? null });
+    const followers = new Set(list.seguidores.map((p) => p.codigo));
+    for (const p of list.seguindo) add(p.codigo, p.nome, followers.has(p.codigo) ? 'Vocês se seguem' : 'Você segue');
+    for (const p of list.seguidores) if (!out.has(p.codigo)) add(p.codigo, p.nome, 'Segue você');
+    const friends = [...out.values()].sort((a, b) => nameCollator.compare(a.nome, b.nome));
+    const others = [...saved.entries()]
+      .filter(([code]) => !out.has(code) && code !== me)
+      .map<PickPerson>(([code, c]) => ({ codigo: code, nome: c.name, relacao: 'Aberto pelo código', face: faces.get(code) ?? null }));
+    return [...friends, ...others];
+  });
 
   // ===== O que se compara: o mural aberto, uma ficha por obra =====
   protected readonly profile = this.mural.profile;
@@ -193,21 +238,28 @@ export class ComparisonPage {
     });
   }
 
-  /** Os outros murais onde há o que comparar: "Livros · 3 em comum". */
-  /** As orelhas dos murais: o aberto e os outros com algo para comparar, na ordem de sempre. */
-  protected readonly walls = computed(() => {
+  /** As orelhas da ficha: o mural aberto e os outros com algo para comparar, na ordem de sempre. */
+  protected readonly walls = computed<DuplaWall[]>(() => {
     const c = this.colleague();
     if (!c) return [];
     const all = compareCollections(distinctReviews(originalsOf(this.store.reviews())), distinctReviews(originalsOf(c.reviews))).pairs;
     const open = this.mural.kind();
     // anotação não tem nota para comparar
-    return SCORED_KINDS.map((kind) => ({
-      kind,
-      label: cap(profileOf(kind).plural),
-      common: all.filter((p) => p.mine.kind === kind).length,
-      theirs: c.reviews.some((r) => r.kind === kind),
-      on: kind === open,
-    })).filter((w) => w.on || w.common || w.theirs);
+    return SCORED_KINDS.filter((kind) => kind === open || c.reviews.some((r) => r.kind === kind) || all.some((p) => p.mine.kind === kind)).map(
+      (kind) => ({
+        kind,
+        label: cap(profileOf(kind).plural),
+        icon: KIND_ICON[kind],
+        common: all.filter((p) => p.mine.kind === kind).length,
+        on: kind === open,
+      }),
+    );
+  });
+  /** "12 jogos em comum", ou "Nenhum livro em comum". */
+  protected readonly summary = computed(() => {
+    const n = this.collections().pairs.length;
+    const p = this.profile();
+    return n ? `${countOf(p, n)} em comum` : `${g(p, 'Nenhum', 'Nenhuma')} ${p.singular} em comum`;
   });
   /** Os outros murais com algo para comparar: sem eles, as orelhas nem aparecem. */
   protected readonly otherWalls = computed(() => this.walls().filter((w) => !w.on));
@@ -365,95 +417,43 @@ export class ComparisonPage {
   }
 
   // ===== Ações =====
-  /** O código digitado no envelope: traz o mural público da pessoa e já compara. */
-  protected async openCode(value: string): Promise<void> {
-    if (this.codeBusy()) return;
-    this.codeBusy.set(true);
-    this.codeError.set('');
+  /**
+   * Compara com alguém: um amigo da lista ou o código digitado. Quem já está guardado aparece na hora
+   * (e se atualiza da nuvem por trás); quem não está vem da nuvem antes.
+   */
+  protected async pick(value: string, fromList = false): Promise<void> {
+    if (this.opening()) return;
+    const code = normalizeCode(value);
+    this.pickError.set(null);
+    if (!code) {
+      this.pickError.set({ text: 'Esse código não existe. Confira: ele tem 8 letras e números.', code: true });
+      return;
+    }
+    const saved = this.colleagues.colleagues().find((c) => c.id === cloudColleagueId(code));
+    if (saved) {
+      this.choose(saved.id);
+      return;
+    }
+    this.opening.set(code);
     try {
-      const c = await this.cloudMurals.open(value);
-      this.adding.set(false);
-      this.query.set('');
-      this.naming.set(false);
-      this.toasts.show(`O mural de ${c.name} chegou`);
+      const c = await this.cloudMurals.open(code);
+      this.choose(c.id);
     } catch (err) {
-      this.codeError.set(err instanceof Error ? err.message : 'Não consegui abrir esse mural.');
+      const text = err instanceof Error ? err.message : 'Não consegui abrir esse mural.';
+      // um amigo da lista: a mensagem diz de quem é o mural (o campo do código não tem nada a ver)
+      const who = fromList ? this.people()?.find((p) => p.codigo === code)?.nome : undefined;
+      // a nuvem não achou o mural: o amigo ainda não publicou (conferir as letras não serve aqui)
+      const why = /Não achei mural/.test(text) ? `${who} ainda não tem um mural publicado.` : `Não deu para abrir o mural de ${who}. ${text}`;
+      this.pickError.set(who ? { text: why, code: false } : { text, code: true });
     } finally {
-      this.codeBusy.set(false);
+      this.opening.set(null);
     }
   }
 
-  protected async load(file: File): Promise<void> {
-    if (this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    const guess = nameFromFile(file.name);
-    const n = this.colleagues.colleagues().length;
-    try {
-      const c = await this.colleagues.add(file, guess || (n ? `Colega ${n + 1}` : 'Colega'));
-      this.adding.set(false);
-      this.query.set('');
-      // só pergunta o nome quando nem o backup nem o nome do arquivo disseram
-      this.naming.set(!guess && !c.ownerName);
-      this.toasts.show(`O mural de ${c.name} chegou`);
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Não consegui abrir esse backup. Tente outro arquivo.');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  protected async replace(file: File): Promise<void> {
-    const c = this.colleague();
-    if (!c || this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      const fresh = await this.colleagues.replace(c.id, file);
-      this.toasts.show(`Backup de ${fresh.name} atualizado: ${plural(fresh.reviews.length, 'resenha', 'resenhas')}`);
-    } catch (e) {
-      this.error.set(e instanceof Error ? e.message : 'Não consegui ler esse backup. O anterior continua aqui.');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  protected async rename(name: string): Promise<void> {
-    const c = this.colleague();
-    this.naming.set(false);
-    if (!c) return;
-    try {
-      await this.colleagues.rename(c.id, name);
-    } catch {
-      this.error.set('Não consegui guardar o nome. Tente de novo.');
-    }
-  }
-
-  protected choose(id: string): void {
-    this.naming.set(false);
-    this.error.set('');
+  private choose(id: string): void {
     this.query.set('');
     this.notesOpen.set(null);
     this.colleagues.select(id);
-  }
-
-  protected async remove(): Promise<void> {
-    const c = this.colleague();
-    if (!c || this.busy()) return;
-    this.busy.set(true);
-    this.error.set('');
-    try {
-      await this.colleagues.remove(c.id);
-      this.naming.set(false);
-      this.toasts.show(`${c.name} saiu da comparação`, {
-        label: 'Desfazer',
-        run: () => void this.colleagues.restore(c).catch(() => this.error.set('Não consegui trazer de volta. Abra o arquivo de novo.')),
-      });
-    } catch {
-      this.error.set('Não consegui tirar esse backup. Tente de novo.');
-    } finally {
-      this.busy.set(false);
-    }
   }
 
   protected switchWall(kind: Kind): void {

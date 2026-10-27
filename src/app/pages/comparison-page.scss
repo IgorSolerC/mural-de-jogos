@@ -1,21 +1,54 @@
 /*
- * Comparar murais. A página só arruma o que já existe no mural: fita, crachás, o caderno, as abas
- * na régua e as fichas de verdade. O colega escreve de azul em todo lugar; você, de preto.
+ * Comparar murais. A página só arruma o que já existe no mural: fita, a ficha da dupla, o caderno, as
+ * abas na régua e as fichas de verdade. O colega escreve de azul em todo lugar; você, de preto.
  */
 @use './comparison/shelf';
-
-/* o caminho de volta para Extras, como nas outras páginas de lá */
+@use '../ui/paper-kit' as kit;
 
 :host {
   display: block;
 }
 
-/* ===== Topo: a etiqueta da página e os crachás ===== */
+/* ===== Topo: a etiqueta da página e, embaixo, a ficha da dupla ===== */
 .topo {
-  display: grid;
-  justify-items: start;
-  gap: 26px;
-  margin-bottom: 40px;
+  margin-bottom: 26px;
+}
+
+.ficha-topo {
+  margin-bottom: 44px;
+}
+
+/* sem conta: a folha sozinha, pregada na parede, como a de Amigos */
+.folha {
+  @include kit.folha;
+  --pad: 30px;
+  max-width: 560px;
+  padding: 32px var(--pad) 30px;
+
+  .pin {
+    top: -10px;
+    left: calc(50% - 13px);
+  }
+
+  .btn-ink {
+    margin-top: 20px;
+  }
+}
+
+.folha-titulo {
+  margin: 0 calc(-1 * var(--pad)) 6px;
+  padding: 0 var(--pad) 12px;
+  border-bottom: 2px solid rgb(206 58 48 / 0.6);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.9rem;
+  line-height: 1.05;
+}
+
+.lead {
+  max-width: 56ch;
+  margin-top: 16px;
+  line-height: 1.5;
 }
 
 .aviso {
@@ -37,81 +70,6 @@
   font-family: var(--f-hand);
   font-size: 1.15rem;
   color: var(--wall-ink-2);
-}
-
-/* ===== Primeiro uso: o envelope e, ao lado, o bilhete de como pedir o arquivo ===== */
-.chegada {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 48px 64px;
-  margin-bottom: 64px;
-}
-
-.como {
-  position: relative;
-  width: min(100%, 360px);
-  padding: 26px 26px 22px;
-  background:
-    repeating-linear-gradient(transparent 0 29px, rgb(64 110 190 / 0.28) 29px 30.5px),
-    linear-gradient(rgb(255 255 255 / 0.4), rgb(255 255 255 / 0.4)),
-    var(--paper-grain),
-    var(--paper);
-  /* as linhas caem no pé de cada linha de texto (30px) */
-  background-position: 0 20px, 0 0, 0 0, 0 0;
-  color: var(--ink);
-  rotate: 1.6deg;
-  box-shadow: var(--shadow-card);
-}
-
-.como-fita {
-  position: absolute;
-  top: -12px;
-  left: calc(50% - 46px);
-  width: 92px;
-  height: 26px;
-  background: var(--paper-grain), rgb(222 205 160 / 0.88);
-  clip-path: polygon(0 10%, 5px 50%, 0 90%, 100% 100%, calc(100% - 5px) 48%, 100% 0);
-  rotate: -3deg;
-}
-
-.como h2 {
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.28rem;
-  line-height: 30px;
-}
-
-.como ol {
-  margin: 0;
-  padding-left: 1.3em;
-  font-family: var(--f-hand);
-  font-size: 1.08rem;
-  line-height: 30px;
-}
-
-.como li::marker {
-  font-family: var(--f-marker);
-}
-
-.como strong {
-  font-weight: 700;
-}
-
-.como p {
-  margin-top: 30px;
-  font-family: var(--f-hand);
-  font-size: 1rem;
-  line-height: 30px;
-}
-
-.como a {
-  color: var(--ink);
-  font-weight: 700;
-  text-decoration: underline;
-  text-decoration-color: var(--red);
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
 }
 
 /* ===== O caderno ===== */

@@ -44,7 +44,7 @@ const SHELVES: Shelf[] = [
       {
         path: '/comparar',
         name: 'Comparar',
-        blurb: 'Abra o backup de um colega e veja onde vocês combinam e o que ele recomenda.',
+        blurb: 'Escolha um amigo, ou digite o código de alguém, e veja onde vocês combinam e o que cada um recomenda.',
         icon: ICON.pessoas,
         stock: 'var(--stock-verde)',
         pin: '#ffd23f',

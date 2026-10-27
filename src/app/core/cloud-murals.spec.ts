@@ -114,7 +114,8 @@ describe('murais pela nuvem (código e link)', () => {
 
   it('o nome que a pessoa deu aqui fica quando o mural se atualiza', async () => {
     const c = await murals.open('K7QF-M2XA');
-    await colleagues.rename(c.id, 'Má');
+    // um nome dado aqui por um site de antes (o Comparar renomeava)
+    await colleagues.restore({ ...c, name: 'Má' });
     published.set('K7QF-M2XA', { rev: 5, doc: { app: 'meu-mural', version: 2, owner: { name: 'Marina' }, reviews: [] } });
     expect((await murals.open('K7QF-M2XA')).name).toBe('Má');
   });

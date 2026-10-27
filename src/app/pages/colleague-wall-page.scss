@@ -7,7 +7,7 @@
  * aqui, o perfil e o seguir. Embaixo, a régua e a parede são as do seu mural (WallToolbar e WallBoard).
  */
 @use './comparison/shelf';
-@use '../ui/divisorias' as div;
+@use './ficha-dona' as ficha;
 @use '../ui/paper-kit' as kit;
 
 :host {
@@ -24,140 +24,34 @@
 
 /* ===== A ficha da dona: as orelhas e o papel são uma peça só, com uma sombra só ===== */
 .dona {
-  position: relative;
+  @include ficha.peca;
   margin-bottom: 28px;
-  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 10px 14px rgb(0 0 0 / 0.42));
 }
 
-/* as orelhas, em pé na borda de cima da ficha. Elas trocam o mural inteiro, então são um pouco
-   maiores que as dos grupos, na pasta logo embaixo */
 .orelhas {
-  @include div.pasta;
-  /* a borda e a orelha aberta são o papel da ficha */
-  --manilha: var(--papel-ficha);
-  padding: 0 22px;
-
-  &::after {
-    @include div.borda-da-pasta;
-  }
+  @include ficha.orelhas;
 }
 
-/* a fileira que rola de lado quando não cabe (a borda, no ::after de fora, fica parada) */
 .trilho {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  overflow-x: auto;
-  /* o pé das de trás desce 3px: sem isso, a roda do mouse em cima delas rolaria a fileira */
-  overflow-y: hidden;
-  padding-top: 6px;
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  @include ficha.trilho;
 }
 
 .orelha {
-  @include div.aba('.on');
-
-  & {
-    flex: none;
-    align-items: center;
-    min-height: 46px;
-    padding-inline: 16px;
-    /* as de trás: um creme mais escuro que a ficha, como as orelhas de grupo com cor */
-    background-color: var(--orelha-clara-atras);
-    font: inherit;
-  }
-
-  /* no mouse ela sobe só um pouco: de pé inteira, só a aberta */
-  &:hover:not(.on):not(:disabled) {
-    background-color: var(--orelha-clara-hover);
-    translate: 0 1.5px;
-  }
-
-  &:focus-visible {
-    outline-color: var(--ink);
-    outline-offset: -5px;
-  }
-
-  &.on {
-    background-color: var(--papel-ficha);
-    cursor: default;
-  }
-}
-
-.orelha-ico {
-  display: inline-flex;
-  flex: none;
-  /* o desenho no meio da parte que aparece (o pé fica atrás da borda) */
-  align-self: center;
-}
-
-.orelha-nome {
-  @include div.nome-de-grupo;
-
-  & {
-    font-size: 1.2rem;
-  }
-}
-
-.orelha-n {
-  @include div.numero-de-grupo;
-
-  & {
-    flex: none;
-  }
-}
-
-.orelha:not(.on) {
-  .orelha-nome {
-    opacity: 0.82;
-  }
-
-  .orelha-n {
-    opacity: 0.85;
-  }
+  @include ficha.orelha('.orelha-ico', '.orelha-nome', '.orelha-n');
 }
 
 /* o papel: a foto, quem é e, logo ao lado, o perfil e o seguir */
 .ficha-dona {
-  position: relative;
+  @include ficha.papel;
   display: grid;
   grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
   align-items: center;
   gap: 16px 26px;
   padding: 22px 28px 24px 22px;
-  border-radius: 0 0 6px 6px;
-  background-color: var(--papel-ficha);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  color: var(--ink);
-  color-scheme: light;
-  --focus: var(--ink);
 }
 
 .foto {
-  --foto: 84px;
-  position: relative;
-  display: grid;
-  border-radius: 2px;
-  transition: translate var(--t-physical) var(--ease-physical);
-
-  /* um pedaço de fita-crepe prende a foto na ficha, como a polaroid do perfil */
-  &::after {
-    content: '';
-    position: absolute;
-    top: -9px;
-    left: calc(50% - 22px);
-    width: 44px;
-    height: 17px;
-    background: var(--paper-grain), rgb(222 205 160 / 0.86);
-    box-shadow: 0 1px 1px rgb(0 0 0 / 0.12);
-    rotate: -5deg;
-    pointer-events: none;
-  }
+  @include ficha.foto;
 }
 
 a.foto:hover {
@@ -170,43 +64,20 @@ a.foto:hover {
   min-width: 0;
 }
 
-/* "O mural de Marina": a mesma frase do cartaz, o nome maior com o risco vermelho */
 .titulo {
-  font-family: var(--f-marker);
-  font-weight: 400;
-  font-size: 1.3rem;
-  line-height: 1.15;
-  color: var(--ink-2);
+  @include ficha.titulo;
 }
 
 .nome {
-  display: inline-block;
-  max-width: 100%;
-  margin-left: 0.15em;
-  padding-bottom: 0.06em;
-  font-size: clamp(2rem, 4.4vw, 2.75rem);
-  line-height: 1.05;
-  color: var(--ink);
-  white-space: normal;
-  overflow-wrap: anywhere;
+  @include ficha.nome;
 }
 
 .linha {
-  font-family: var(--f-hand);
-  font-size: 1.12rem;
-  line-height: 1.35;
-  color: var(--ink-2);
+  @include ficha.linha;
 }
 
 .resumo {
-  margin-top: 2px;
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.9rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
+  @include ficha.resumo;
 }
 
 .acoes {
@@ -253,12 +124,7 @@ a.foto:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .foto {
-    transition: none;
-  }
-
-  a.foto:hover,
-  .orelha:hover:not(.on) {
+  a.foto:hover {
     translate: none;
   }
 }
@@ -292,21 +158,6 @@ a.foto:hover {
     padding-inline: 8px;
   }
 
-  .orelha {
-    gap: 5px;
-    min-height: 44px;
-    padding-inline: 11px;
-  }
-
-  .orelha-nome {
-    font-size: 1.04rem;
-  }
-
-  /* as de trás só com o desenho e a conta: o nome fica na leitura de tela e na dica */
-  .orelha:not(.on) .orelha-nome {
-    display: none;
-  }
-
   .ficha-dona {
     gap: 12px 14px;
     padding: 16px 14px 16px;
@@ -314,14 +165,6 @@ a.foto:hover {
 
   .foto {
     --foto: 56px;
-  }
-
-  .titulo {
-    font-size: 1.05rem;
-  }
-
-  .linha {
-    font-size: 1.02rem;
   }
 
   .acoes {

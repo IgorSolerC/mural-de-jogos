@@ -1,0 +1,151 @@
+@let c = colleague();
+<!-- uma orelha por mural com algo para comparar; a aberta é o próprio papel da ficha -->
+@if (c && walls().length) {
+  <div class="orelhas">
+    <div class="trilho" role="group" aria-label="Comparar em outro mural">
+      @for (w of walls(); track w.kind) {
+        <button
+          type="button"
+          class="orelha"
+          [class.on]="w.on"
+          [attr.aria-pressed]="w.on"
+          [attr.aria-label]="w.label + ', ' + w.common + ' em comum'"
+          [title]="w.label + ': ' + w.common + ' em comum'"
+          (click)="wall.emit(w.kind)"
+        >
+          <lucide-icon class="orelha-ico" [img]="w.icon" [size]="18" aria-hidden="true" />
+          <span class="orelha-nome" aria-hidden="true">{{ w.label }}</span>
+          <span class="orelha-n" [class.zero]="!w.common" aria-hidden="true">{{ w.common }}</span>
+        </button>
+      }
+    </div>
+  </div>
+}
+
+<div class="ficha-dupla" [class.solto]="!c || !walls().length">
+  <div class="dupla" [class.sozinho]="!c">
+    <!-- as duas fotos: a sua atrás, a da pessoa na frente, presa com fita -->
+    <div class="fotos">
+      <span class="foto eu">
+        <app-person-photo [code]="me().codigo" [name]="me().nome" [face]="me().face" />
+      </span>
+      @if (c?.codigo; as code) {
+        <a class="foto ela" [routerLink]="['/perfil', code]" tabindex="-1" aria-hidden="true">
+          <app-person-photo [code]="code" [name]="c!.name" [face]="face()" />
+        </a>
+      }
+    </div>
+
+    <div class="quem">
+      @if (c) {
+        <h2 class="titulo">Você e <span class="nome scribble">{{ c.name }}</span></h2>
+        @if (tagline(); as t) {
+          <p class="linha">{{ t }}</p>
+        }
+        @if (summary()) {
+          <p class="resumo">{{ summary() }}</p>
+        }
+      } @else {
+        <h2 class="titulo">Comparar com <span class="nome scribble">quem?</span></h2>
+        <p class="linha">Escolha um amigo, ou digite o código de alguém, e veja onde vocês combinam.</p>
+      }
+    </div>
+
+    @if (c) {
+      <div class="acoes">
+        <a class="papel-btn" routerLink="/comparar/mural">
+          <lucide-icon [img]="WallIcon" [size]="18" aria-hidden="true" />
+          Ver o mural
+        </a>
+        @if (c.codigo) {
+          <a class="papel-btn" [routerLink]="['/perfil', c.codigo]">
+            <lucide-icon [img]="ProfileIcon" [size]="18" aria-hidden="true" />
+            Ver o perfil
+          </a>
+        }
+        <!-- sem spoilers: as notas dela sobre o que você não avaliou, só enquanto a página estiver aberta -->
+        @if (secrets()) {
+          <button
+            type="button"
+            class="papel-btn notas"
+            [attr.aria-pressed]="revealed()"
+            (click)="reveal.emit()"
+            [title]="revealed() ? 'As notas voltam ao segredo' : 'O que você ainda não avaliou está em segredo. Mostra só enquanto esta página estiver aberta.'"
+          >
+            <lucide-icon [img]="revealed() ? HideIcon : RevealIcon" [size]="18" aria-hidden="true" />
+            {{ revealed() ? 'Esconder as notas' : secrets() === 1 ? 'Mostrar 1 nota em segredo' : 'Mostrar ' + secrets() + ' notas em segredo' }}
+          </button>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- com quem comparar: os amigos, cada um com a foto do perfil, e o código para qualquer outra pessoa -->
+  <section class="escolha" aria-labelledby="escolha-titulo">
+    <h3 class="escolha-titulo" id="escolha-titulo">{{ c ? 'Comparar com outra pessoa' : 'Seus amigos' }}</h3>
+    <div class="escolha-corpo">
+      @if (people(); as list) {
+        @if (list.length) {
+          <ul class="pessoas" role="list">
+            @for (p of list; track p.codigo) {
+              @let on = p.codigo === selectedCode();
+              @let busy = p.codigo === opening();
+              <li>
+                <button
+                  type="button"
+                  class="pessoa"
+                  [class.on]="on"
+                  [attr.aria-pressed]="on"
+                  [attr.aria-busy]="busy ? 'true' : null"
+                  [attr.aria-label]="busy ? 'Abrindo o mural de ' + p.nome : null"
+                  [attr.aria-disabled]="!!opening() && !busy ? 'true' : null"
+                  [title]="p.nome + ' · ' + p.relacao"
+                  (click)="choose(p)"
+                >
+                  <app-person-photo [code]="p.codigo" [name]="p.nome" [face]="p.face" />
+                  <span class="pessoa-nome">{{ busy ? 'Abrindo…' : p.nome }}</span>
+                </button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="nada">
+            Você ainda não segue ninguém. Siga um amigo em
+            <a routerLink="/amigos" [queryParams]="{ aba: 'pessoas' }">Amigos › Pessoas</a>, ou digite o código ao lado.
+          </p>
+        }
+      } @else {
+        <p class="nada" role="status">Buscando seus amigos…</p>
+      }
+
+      <form class="codigo" (submit)="submitCode($event)">
+        <label class="codigo-rotulo" for="comparar-codigo">Pelo código</label>
+        <div class="codigo-linha">
+          <span class="codigo-campo" [class.erro]="codeError()">
+            <input
+              id="comparar-codigo"
+              name="codigo"
+              type="text"
+              autocapitalize="characters"
+              autocomplete="off"
+              spellcheck="false"
+              maxlength="11"
+              placeholder="A1B2-C3D4"
+              [value]="typed()"
+              (input)="typed.set($any($event.target).value)"
+              [attr.aria-invalid]="codeError()"
+              [attr.aria-describedby]="codeError() ? 'comparar-erro' : null"
+            />
+          </span>
+          <button type="submit" class="papel-btn abrir" [disabled]="!!opening() || !typed().trim()" [appBusy]="!!opening() && !!typed().trim()">
+            <lucide-icon [img]="OpenIcon" [size]="18" aria-hidden="true" />
+            Abrir
+          </button>
+        </div>
+      </form>
+    </div>
+    @if (error()) {
+      <p class="erro" id="comparar-erro" role="alert">{{ error() }}</p>
+    }
+  </section>
+</div>

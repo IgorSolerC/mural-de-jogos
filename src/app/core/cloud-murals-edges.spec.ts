@@ -113,11 +113,21 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
   });
 
   it('ensure não troca quem está escolhido no Comparar', async () => {
-    const file = new File([await gz(muralOf('Colega do arquivo', review('rarq01', 'Hollow Knight')))], 'colega.json.gz');
-    const fromFile = await colleagues.add(file, 'Colega');
-    expect(colleagues.selected()!.id).toBe(fromFile.id);
+    const other: Colleague = {
+      id: CLOUD_COLLEAGUE_PREFIX + 'Q1W2E3R4',
+      name: 'Carla',
+      codigo: 'Q1W2-E3R4',
+      fileName: 'Código Q1W2-E3R4',
+      loadedAt: new Date().toISOString(),
+      reviews: [],
+      exportedAt: null,
+      skipped: 0,
+      ownerName: 'Carla',
+    };
+    await colleagues.restore(other);
+    expect(colleagues.selected()!.id).toBe(other.id);
     await murals.ensure(MARINA);
-    expect(colleagues.selected()!.id).toBe(fromFile.id);
+    expect(colleagues.selected()!.id).toBe(other.id);
     expect(colleagues.colleagues().length).toBe(2);
   });
 
@@ -141,7 +151,8 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
     expect((await murals.ensure(MARINA))!.name).toBe('Marina Souza');
 
     const id = CLOUD_COLLEAGUE_PREFIX + MARINA.replace('-', '');
-    await colleagues.rename(id, 'Mari (faculdade)');
+    // um nome dado aqui por um site de antes (o Comparar renomeava)
+    await colleagues.restore({ ...colleagues.colleagues().find((c) => c.id === id)!, name: 'Mari (faculdade)' });
     await age(MARINA, 3 * 60_000);
     published.set(MARINA, { rev: 5, doc: muralOf('Marina S.', review('rmar01', 'Celeste')) });
     expect((await murals.ensure(MARINA))!.name).toBe('Mari (faculdade)');
@@ -168,8 +179,18 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
   });
 
   it('a pessoa trocou o código: o mural guardado passa para o novo, sem duplicar, e o "mudou?" continua valendo', async () => {
-    const file = new File([await gz(muralOf('Colega do arquivo', review('rarq01', 'Hollow Knight')))], 'colega.json.gz');
-    await colleagues.add(file, 'Colega');
+    const other: Colleague = {
+      id: CLOUD_COLLEAGUE_PREFIX + 'Q1W2E3R4',
+      name: 'Carla',
+      codigo: 'Q1W2-E3R4',
+      fileName: 'Código Q1W2-E3R4',
+      loadedAt: new Date().toISOString(),
+      reviews: [],
+      exportedAt: null,
+      skipped: 0,
+      ownerName: 'Carla',
+    };
+    await colleagues.restore(other);
     const saved = await murals.ensure(MARINA);
     colleagues.select(saved!.id);
     const NEW = 'P9RT-4VWX';

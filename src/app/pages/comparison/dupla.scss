@@ -1,0 +1,387 @@
+/*
+ * A ficha da dupla, no alto do Comparar: a mesma ficha da visita ao mural de alguém (orelhas de
+ * cartolina em pé em cima, o papel de ficha, a foto presa com fita: ver ../_ficha-dona.scss), com duas
+ * fotos em vez de uma. Embaixo de um risco de lápis, a escolha de com quem comparar: os amigos em
+ * fotos pequenas, o nome escrito embaixo (a escolhida com a fita amarela de estado), e o campo do
+ * código com a linha de caneta.
+ */
+@use '../ficha-dona' as ficha;
+@use '../../ui/paper-kit' as kit;
+
+:host {
+  @include ficha.peca;
+  display: block;
+}
+
+.orelhas {
+  @include ficha.orelhas;
+}
+
+.trilho {
+  @include ficha.trilho;
+}
+
+.orelha {
+  @include ficha.orelha('.orelha-ico', '.orelha-nome', '.orelha-n');
+}
+
+/* nada em comum naquele mural (só as dicas): o número mais apagado, para não parecer uma aba quebrada */
+.orelha .orelha-n.zero {
+  opacity: 0.5;
+}
+
+.ficha-dupla {
+  @include ficha.papel;
+  padding: 24px 28px 22px 26px;
+
+  &.solto {
+    border-radius: 6px;
+  }
+}
+
+/* ===== Quem compara: as duas fotos, "Você e Marina" e, ao lado, o que dá para fazer ===== */
+.dupla {
+  display: grid;
+  grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px 26px;
+}
+
+/* a sua foto atrás, menor e para o outro lado; a dela na frente, presa com a fita */
+.fotos {
+  display: flex;
+  align-items: flex-end;
+  padding-top: 6px;
+}
+
+.foto {
+  @include ficha.foto;
+}
+
+.foto.eu {
+  --foto: 62px;
+  z-index: 0;
+  margin-right: -14px;
+  margin-bottom: -4px;
+
+  /* a fita é só da dela */
+  &::after {
+    display: none;
+  }
+}
+
+.foto.ela {
+  z-index: 1;
+}
+
+a.foto:hover {
+  translate: 0 -2px;
+}
+
+/* sozinho, sem ninguém escolhido: a sua foto do tamanho de uma foto, com a fita */
+.sozinho .foto.eu {
+  --foto: 84px;
+  margin: 0;
+
+  &::after {
+    display: block;
+  }
+}
+
+.quem {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.titulo {
+  @include ficha.titulo;
+
+  & {
+    text-wrap: balance;
+  }
+}
+
+.nome {
+  @include ficha.nome;
+}
+
+.linha {
+  @include ficha.linha;
+
+  & {
+    max-width: 52ch;
+  }
+}
+
+.resumo {
+  @include ficha.resumo;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding-left: 26px;
+  /* um traço de lápis separando quem é do que dá para fazer */
+  border-left: 1.5px solid rgb(21 21 21 / 0.14);
+}
+
+.papel-btn {
+  @include kit.botao-papel;
+
+  & {
+    text-decoration: none;
+  }
+}
+
+/* as notas à mostra: a fita amarela de estado */
+.notas[aria-pressed='true'] {
+  background-color: var(--hi);
+}
+
+/* ===== Com quem comparar ===== */
+.escolha {
+  margin-top: 22px;
+  padding-top: 18px;
+  /* o risco de lápis que separa a dupla da escolha */
+  border-top: 1.5px solid rgb(21 21 21 / 0.14);
+}
+
+.escolha-titulo {
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.escolha-corpo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 28px;
+  margin-top: 12px;
+}
+
+/* todos os amigos, sem rolar: quantos forem, em quantas linhas precisar */
+.pessoas {
+  flex: 1 1 320px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pessoa {
+  --foto: 52px;
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  width: 86px;
+  padding: 8px 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+
+  app-person-photo {
+    transition: translate var(--t-physical) var(--ease-physical);
+  }
+
+  &:hover:not(.on):not([aria-disabled='true']) app-person-photo {
+    translate: 0 -3px;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &[aria-disabled='true'] {
+    cursor: default;
+    opacity: 0.55;
+  }
+
+  &[aria-busy='true'] app-person-photo {
+    opacity: 0.6;
+  }
+
+  &.on {
+    cursor: default;
+  }
+}
+
+/* o nome a mão, embaixo da foto; o da escolhida na fita amarela */
+.pessoa-nome {
+  max-width: 100%;
+  /* sem respiro embaixo: o corte das duas linhas não deixa aparecer o topo da terceira */
+  padding: 1px 6px 0;
+  overflow: hidden;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  /* um nome comprido quebra em duas linhas, e só então corta */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.pessoa.on .pessoa-nome {
+  background: var(--hi);
+  font-weight: 700;
+  rotate: -1.5deg;
+  box-shadow: 0 1px 1px rgb(0 0 0 / 0.14);
+}
+
+.nada {
+  flex: 1 1 320px;
+  max-width: 56ch;
+  padding-bottom: 12px;
+  font-size: 0.96rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+
+  a {
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: var(--red);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+/* o código: a tira com a linha de caneta e o botão de papel, depois de um traço de lápis */
+.codigo {
+  display: grid;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0 0 6px 26px;
+  border-left: 1.5px solid rgb(21 21 21 / 0.14);
+}
+
+.codigo-rotulo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.codigo-linha {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.codigo-campo {
+  @include kit.campo;
+
+  & {
+    width: 12.5rem;
+  }
+
+  input {
+    font-family: var(--f-label);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+
+    &::placeholder {
+      font-weight: 700;
+    }
+  }
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+}
+
+.erro:not(.codigo-campo) {
+  margin-top: 10px;
+  color: var(--error-ink);
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  a.foto:hover,
+  .pessoa:hover:not(.on):not([aria-disabled='true']) app-person-photo {
+    translate: none;
+  }
+}
+
+/* as ações descem para uma linha delas, embaixo de quem é */
+@media (max-width: 760px) {
+  .dupla {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .acoes {
+    grid-column: 2;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .codigo {
+    flex-basis: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .codigo-campo {
+    flex: 1;
+    width: auto;
+  }
+}
+
+/* no celular: a ficha mais baixa, as fotos menores */
+@media (max-width: 559px) {
+  .orelhas {
+    padding-inline: 8px;
+  }
+
+  .ficha-dupla {
+    padding: 16px 14px 16px;
+  }
+
+  .dupla {
+    gap: 12px 14px;
+  }
+
+  .foto {
+    --foto: 56px;
+  }
+
+  .foto.eu {
+    --foto: 42px;
+    margin-right: -10px;
+  }
+
+  .sozinho .foto.eu {
+    --foto: 56px;
+  }
+
+  .acoes {
+    grid-column: 1 / -1;
+  }
+
+  .pessoa {
+    --foto: 46px;
+    width: 78px;
+  }
+}
