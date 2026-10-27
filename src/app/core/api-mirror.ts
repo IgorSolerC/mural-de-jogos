@@ -1,7 +1,9 @@
 import { Injectable, inject } from '@angular/core';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
+import type { QuadroV1 } from '../../../contrato/api-v1/kanban';
 import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type GrupoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
+import { kanbanMirror } from './api-mirror-kanban';
 import { spendingMirror } from './api-mirror-spending';
 import { lookKey } from './category-looks';
 import { CloudAccount, CloudError } from './cloud-account';
@@ -20,7 +22,7 @@ import { nameCollator } from './text';
  * que deixou o aparelho igual à nuvem, o site traduz as anotações e os gastos para o formato público v1
  * e manda à nuvem só o que mudou (a nuvem guarda as impressões do que já tem). A API lê dali, sem abrir
  * o mural. Só para a conta que pode usar a API, e só as áreas que alguma chave dela lê (as Anotações,
- * os Gastos; ver core/api-mirror-spending.ts).
+ * os Gastos, o Kanban; ver core/api-mirror-spending.ts e core/api-mirror-kanban.ts).
  *
  * Nada fica no navegador: o "o que já foi" mora na nuvem, e o resto vive na memória desta aba.
  */
@@ -32,12 +34,12 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1;
+  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
-const AREAS = ['notas', 'gastos'] as const;
-const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = { notas: ['nota'], gastos: ['lancamento', 'visao'] };
+const AREAS = ['notas', 'gastos', 'kanban'] as const;
+const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = { notas: ['nota'], gastos: ['lancamento', 'visao'], kanban: ['quadro'] };
 
 /** O cartão da nota no Kanban, como a v1 mostra. */
 export interface CardView {
@@ -168,13 +170,20 @@ export class ApiMirror {
 
   /**
    * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (as
-   * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto.
+   * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto; no
+   * Kanban, o quadro de cada grupo com nota.
    */
   async items(areas: readonly string[] = ['notas']): Promise<MirrorItem[]> {
     const out: MirrorItem[] = [];
     if (areas.includes('notas')) out.push(...(await this.noteItems()));
     if (areas.includes('gastos')) {
       for (const i of spendingMirror(this.spending.state(), todayISO())) out.push({ ...i, hash: await hashOf(i.dados) });
+    }
+    if (areas.includes('kanban')) {
+      const shared = this.store.sharedIds();
+      const notes = new Map(this.store.notes().filter((n) => !shared.has(n.id)).map((n) => [n.id, n]));
+      const src = { categories: this.kanban.categories(), boardFor: (l: string) => this.kanban.boardFor(l), kanbanOnly: (l: string) => this.kanban.groupKanbanOnly(l) };
+      for (const q of kanbanMirror(src, notes)) out.push({ tipo: 'quadro', id: q.id, hash: await hashOf(q), dados: q });
     }
     return out;
   }
@@ -213,7 +222,8 @@ export class ApiMirror {
       }
       const local = await this.items(areas);
       const put = local.filter((i) => remote.hashes[i.tipo]?.[i.id] !== i.hash);
-      // o que está lá e sumiu daqui (a nota apagada, o lançamento apagado, o mês que saiu da janela)
+      // o que está lá e sumiu daqui (a nota apagada, o lançamento apagado, o mês que saiu da janela, o
+      // quadro do grupo que ficou sem nota)
       const drop = areas.flatMap((a) =>
         DROPPABLE[a].flatMap((tipo) => {
           const ids = new Set(local.filter((i) => i.tipo === tipo).map((i) => i.id));

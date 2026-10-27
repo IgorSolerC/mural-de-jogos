@@ -1469,9 +1469,13 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      tamanhos do app, `renumerar`), o tipo `quadro` no espelho, a área `kanban` e a conferência da
      forma em `api/src/domain/mirror.ts` (cada cartão numa coluna que existe, só os campos da v1).
      Testes numa suíte nova, `api/test/kanban.suite.ts` (os passos 3 e 4 continuam nela).
-  2. Site manda o espelho do Kanban: `core/api-mirror-kanban.ts` monta cada quadro com o que a tela
+  2. [feito, BUILD 583] Site manda o espelho do Kanban: `core/api-mirror-kanban.ts` monta cada quadro com o que a tela
      mostra (`liveCards`, a ordem da coluna por `sortCards`, `isOnWall`, `groupKanbanOnly`,
-     `sortSentence`), só quando a nuvem pede a área `kanban`. Testes. BUILD + 1.
+     `sortSentence`), só quando a nuvem pede a área `kanban`. Testes. BUILD + 1. Feito assim:
+     `quadroV1` e `kanbanMirror` (puras) e o `ApiMirror` com a área `kanban`; o quadro do grupo em que
+     ninguém mexeu vai com as três colunas de sempre (a versão é a hora zero); a dependência de uma
+     nota que a API não alcança (apagada, compartilhada) fica de fora; o quadro do grupo que ficou sem
+     nota sai do espelho. Nada novo no navegador.
   3. API, ler: `GET /ext/v1/kanban` (os quadros com as colunas, sem os cartões), `GET
      /ext/v1/kanban/:grupo` (o quadro inteiro, pelo grupo ou pelo id), e o `GET /ext/v1/contexto` com
      `kanban` (os quadros e as colunas) para a chave do Kanban. Limite de grupos da chave. Testes.
