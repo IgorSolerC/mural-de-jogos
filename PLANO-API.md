@@ -917,7 +917,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 3 | **Escrever nas Anotações** — feita em 27/out (seção 23) | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
 | 4 | **MCP com chave + guia** — feita em 27/out (seção 23) | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** — feita em 27/out (seção 23) | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
-| 6 | **Gastos** | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
+| 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** | Quadros, mover, colunas, dependências |
 | 9 | **Wishlist, Pra depois e fichas** | Com a busca da capa no app |
@@ -1415,6 +1415,19 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      busca em tudo que a chave lê; o guia ganhou "Os gastos" (centavos, envelope, o mês pronto, a
      frase rápida, os nomes que existem) e as regras de ouro falam também dos lançamentos. As cópias
      em `docs/api/` foram regeradas (`cd api && npm run docs`).
-  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave com os gastos, o espelho enchendo,
+  7. [feito] Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave com os gastos, o espelho enchendo,
      ler o mês, lançar por frase e por lote, aplicar, desfazer) e no ar (as rotas novas respondendo).
      Anotar aqui.
+     Feito em 27/out. **Local** (`.angular/pptr/gastos-e2e.mjs`, fora do repositório; a API no
+     `wrangler dev` 8795, o site no `ng serve` 5139, a conta `u-e2e`): uma chave dos gastos com
+     aprovação "nunca", o site aberto com um livro de dois lançamentos (com a marca de dono
+     `meu-mural:nuvem:dono` da conta: sem ela, o livro é "de ninguém" e a sincronização espera a
+     pessoa escolher), o espelho enchendo (o mês, o contexto, o lançamento pelo id), e cinco pedidos:
+     uma frase ("ifood 39,90 ontem", que virou Ifood no envelope Comida do Ifood de antes, no dia de
+     ontem), um lote de dois (um parcelado em 10x), uma mudança com a versão e um apagar. O site
+     aplicou os cinco sozinho, concluiu, e o mês no espelho mostrou o resultado (a Padaria, o Mercado
+     em R$ 250,00, o Violão nos carnês, o Ifood apagado fora). **No ar**: as rotas dos Gastos dão 401
+     sem chave, o OpenAPI tem os sete caminhos novos e o `/llms-full.txt` tem a parte dos gastos. O
+     Desfazer dos Gastos ficou conferido só nos testes do site (ele começa na folha do histórico).
+     **Rodada 6 feita.** Para usar: em Acessos, marcar os Gastos na chave (ou no conector) que já
+     existe, ou criar outra. **Próximo**: a rodada 7 (Calendário), seção 19.
