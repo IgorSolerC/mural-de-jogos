@@ -1,4 +1,4 @@
-import { opMuda, type EstadoDoPedido, type OpNota } from '../../../contrato/api-v1/operacoes';
+import { opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { KeyCaller } from './api-key';
@@ -114,7 +114,7 @@ export function openRequests(deps: Deps, userId: string, limit = 200): Promise<R
 export async function createRequest(
   deps: Deps,
   caller: KeyCaller,
-  op: OpNota,
+  op: string,
   alvo: string,
   dados: unknown,
   idem: string | null,
@@ -124,7 +124,7 @@ export async function createRequest(
   if (idem) {
     const same = await deps.db.first<RequestRow>(`SELECT ${REQUEST_COLUMNS} FROM api_pedidos WHERE chave_id = ? AND chave_idem = ?`, [key.id, idem]);
     if (same) {
-      if (same.op !== op || same.alvo !== alvo && op !== 'nota.criar') {
+      if (same.op !== op || (same.alvo !== alvo && !op.endsWith('.criar') && op !== 'gasto.lancar')) {
         throw new HttpError(409, 'idempotencia', 'Esse Idempotency-Key já foi usado num pedido diferente desta chave.');
       }
       return { row: same, repeated: true };

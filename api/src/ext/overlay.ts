@@ -29,6 +29,8 @@ export async function pendingOf(deps: Deps, userId: string): Promise<Pending> {
   const byNote = new Map<string, RequestRow[]>();
   const created: RequestRow[] = [];
   for (const r of rows) {
+    // só os das Anotações (os dos Gastos têm a prévia deles, em ext/spending-read.ts)
+    if (!r.op.startsWith('nota.')) continue;
     if (r.op === 'nota.criar') created.push(r);
     else byNote.set(r.alvo, [...(byNote.get(r.alvo) ?? []), r]);
   }

@@ -44,9 +44,12 @@ export const ESCOPO_DA_OP: Record<OpNota, string> = {
   'nota.apagar': 'notas:apagar',
 };
 
-/** O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não. */
-export function opMuda(op: OpNota): boolean {
-  return op !== 'nota.criar';
+/**
+ * O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não (a nota,
+ * e nos Gastos o lançamento, o envelope e a pessoa: ver operacoes-gastos.ts).
+ */
+export function opMuda(op: string): boolean {
+  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar';
 }
 
 /** Em que pé está um pedido. */

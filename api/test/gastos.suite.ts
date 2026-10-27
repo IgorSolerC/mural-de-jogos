@@ -300,4 +300,135 @@ export function gastosSuite(label: string, getDb: () => Db) {
       expect((await t.ext(notesOnly.segredo, '/ext/v1/busca?q=viol&areas=gastos')).status).toBe(403);
     });
   });
+
+  describe(`${label}: escrever nos Gastos com a chave`, () => {
+    const ALL = ['gastos:ler', 'gastos:lancar', 'gastos:editar'];
+    const post = (t: Awaited<ReturnType<typeof setup>>, secret: string, path: string, payload: unknown, headers: Record<string, string> = {}) =>
+      t.ext(secret, path, { method: 'POST', body: JSON.stringify(payload), headers });
+    const count = async (t: Awaited<ReturnType<typeof setup>>) => (await t.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM api_pedidos'))!.n;
+
+    it('lançar um: o pedido entra direto e o lançamento vem como vai ficar (envelope pelo nome, você, hoje)', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const res = await post(t, secret, '/ext/v1/gastos/lancamentos', { titulo: 'Padaria', centavos: 1850, envelope: 'mercado' });
+      expect(res.status).toBe(202);
+      const out = await t.body(res);
+      expect(out.pedido).toEqual(expect.objectContaining({ op: 'gasto.lancar', estado: 'pendente' }));
+      expect(out.lancamento).toEqual(
+        expect.objectContaining({ titulo: 'Padaria', centavos: 1850, tipo: 'saida', envelope: { id: 'mercado', nome: 'Mercado' }, pessoas: ['Eu'], dia: '2026-10-06', mes: '2026-10', pagamento: 'avista' }),
+      );
+      // aparece na lista (no começo) e pelo id, com o pedido marcado
+      const list = await t.body(t.ext(secret, '/ext/v1/gastos/lancamentos'));
+      expect(list.itens[0].id).toBe(out.lancamento.id);
+      expect(list.itens[0].pedidos).toEqual([expect.objectContaining({ op: 'gasto.lancar', estado: 'pendente' })]);
+      expect((await t.body(t.ext(secret, `/ext/v1/gastos/lancamentos/${out.lancamento.id}`))).lancamento.titulo).toBe('Padaria');
+      // e o mês diz que há pedidos abertos
+      expect((await t.body(t.ext(secret, '/ext/v1/gastos/meses/2026-10'))).pedidos_abertos).toEqual([expect.objectContaining({ op: 'gasto.lancar', alvo: out.lancamento.id })]);
+    });
+
+    it('lançar pede gastos:lancar; criar envelope ou pessoa junto pede gastos:editar', async () => {
+      const t = await setup();
+      const { secret, me } = await t.ready(['gastos:ler']);
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', { titulo: 'X', centavos: 100 })).status).toBe(403);
+      const launcher = (await t.newKey(me.token, ['gastos:ler', 'gastos:lancar'])).segredo;
+      expect((await post(t, launcher, '/ext/v1/gastos/lancamentos', { titulo: 'X', centavos: 100, envelope: 'Farmácia', criar_envelope: true })).status).toBe(403);
+      expect((await post(t, launcher, '/ext/v1/gastos/lancamentos', { titulo: 'X', centavos: 100 })).status).toBe(202);
+    });
+
+    it('o envelope e as pessoas têm de existir (e ser do tipo certo), a não ser que se peça para criar', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const err = async (payload: unknown) => {
+        const res = await post(t, secret, '/ext/v1/gastos/lancamentos', payload);
+        return [res.status, (await t.body(res)) as { erro: string; mensagem: string }] as const;
+      };
+      const [s1, b1] = await err({ titulo: 'Remédio', centavos: 3000, envelope: 'Farmácia' });
+      expect([s1, b1.erro]).toEqual([422, 'envelope-desconhecido']);
+      expect(b1.mensagem).toContain('Mercado, Item');
+      expect((await err({ titulo: 'Remédio', centavos: 3000, envelope: 'Renda' }))[1].erro).toBe('envelope-de-outro-tipo');
+      const [s3, b3] = await err({ titulo: 'Jantar', centavos: 9000, pessoas: ['eu', 'Caio'] });
+      expect([s3, b3.erro]).toEqual([422, 'pessoa-desconhecida']);
+      expect(b3.mensagem).toContain('"Caio"');
+      expect((await err({ titulo: 'Volta', centavos: 500, tipo: 'entrada', envelope: 'renda', reembolso_de: 'nao-existe' }))[1].erro).toBe('gasto-nao-encontrado');
+      expect((await err({ titulo: 'X', centavos: 10.5 }))[1].erro).toBe('pedido-invalido');
+      expect((await err({ titulo: 'X', centavos: 100, tipo: 'entrada', pessoas: ['eu'] }))[1].erro).toBe('pedido-invalido');
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', { titulo: 'Jantar', centavos: 9000, pessoas: ['Bruna', 'Caio'], criar_pessoas: true })).status).toBe(202);
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', { titulo: 'Volta', centavos: 500, tipo: 'entrada', envelope: 'renda', reembolso_de: 'merc-1' })).status).toBe(202);
+    });
+
+    it('a frase rápida vira pedido (o site entende ao aplicar) e aparece à parte na lista', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const out = await t.body(post(t, secret, '/ext/v1/gastos/lancamentos', { frase: 'uber 23,90 ontem #transporte' }));
+      expect(out.lancamento).toBeNull();
+      expect(out.pedido.estado).toBe('pendente');
+      const list = await t.body(t.ext(secret, '/ext/v1/gastos/lancamentos'));
+      expect(list.frases_abertas).toEqual([{ pedido: out.pedido.id, estado: 'pendente', frase: 'uber 23,90 ontem #transporte' }]);
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', { frase: '' })).status).toBe(400);
+    });
+
+    it('o lote: um pedido por lançamento; um item errado e nada entra; o mesmo Idempotency-Key não repete', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const itens = [
+        { titulo: 'Mercado', centavos: 10000, envelope: 'Mercado' },
+        { titulo: 'Item', centavos: 5000, envelope: 'Item', parcelas: 3 },
+      ];
+      const bad = await post(t, secret, '/ext/v1/gastos/lancamentos', { itens: [...itens, { titulo: 'Sem valor' }] });
+      expect(bad.status).toBe(400);
+      expect((await t.body(bad)).mensagem).toContain('Item 3');
+      expect(await count(t)).toBe(0);
+      const ok = await t.body(post(t, secret, '/ext/v1/gastos/lancamentos', { itens }, { 'Idempotency-Key': 'fatura-out' }));
+      expect(ok.pedidos.length).toBe(2);
+      expect(ok.lancamentos.map((l: LancamentoV1) => [l.titulo, l.pagamento, l.parcelas])).toEqual([
+        ['Mercado', 'avista', null],
+        ['Item', 'parcelado', 3],
+      ]);
+      await post(t, secret, '/ext/v1/gastos/lancamentos', { itens }, { 'Idempotency-Key': 'fatura-out' });
+      expect(await count(t)).toBe(2);
+      const phrases = await t.body(post(t, secret, '/ext/v1/gastos/lancamentos', { frases: ['ifood 44,90', 'cinema 38 #luxo'] }));
+      expect(phrases.pedidos.length).toBe(2);
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', { itens: Array.from({ length: 51 }, () => itens[0]) })).status).toBe(400);
+    });
+
+    it('mudar e apagar pedem a versão de agora e esperam a aprovação; a mudança aparece por cima', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const old = await t.ext(secret, '/ext/v1/gastos/lancamentos/merc-1', { method: 'PATCH', body: JSON.stringify({ centavos: 25000, versao: '2026-01-01T00:00:00.000Z' }) });
+      expect(old.status).toBe(409);
+      expect((await t.body(old)).lancamento.id).toBe('merc-1');
+      const res = await t.ext(secret, '/ext/v1/gastos/lancamentos/merc-1', {
+        method: 'PATCH',
+        body: JSON.stringify({ centavos: 25000, precisava: 'indispensavel', versao: LANCAMENTOS[0]!.versao }),
+      });
+      expect(res.status).toBe(202);
+      const out = await t.body(res);
+      expect(out.pedido.estado).toBe('aguardando-aprovacao');
+      expect([out.lancamento.centavos, out.lancamento.precisava]).toEqual([25000, 'indispensavel']);
+      const shown = (await t.body(t.ext(secret, '/ext/v1/gastos/lancamentos/merc-1'))).lancamento;
+      expect([shown.centavos, shown.pedidos.length]).toEqual([25000, 1]);
+      expect((await t.ext(secret, '/ext/v1/gastos/lancamentos/viol-1', { method: 'DELETE' })).status).toBe(400);
+      const del = await t.ext(secret, `/ext/v1/gastos/lancamentos/viol-1?versao=${encodeURIComponent(LANCAMENTOS[1]!.versao)}`, { method: 'DELETE' });
+      expect(del.status).toBe(202);
+      expect((await t.body(del)).pedido).toEqual(expect.objectContaining({ op: 'gasto.apagar', estado: 'aguardando-aprovacao' }));
+      expect((await t.ext(secret, '/ext/v1/gastos/lancamentos/nao-existe', { method: 'PATCH', body: JSON.stringify({ centavos: 1, versao: LANCAMENTOS[0]!.versao }) })).status).toBe(404);
+    });
+
+    it('envelopes e pessoas: criar (sem repetir nome) e mudar pelo nome ou pelo id', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const created = await post(t, secret, '/ext/v1/gastos/envelopes', { nome: 'Farmácia', tipo: 'saida', limite_centavos: 20000 });
+      expect(created.status).toBe(202);
+      expect((await t.body(created)).pedido.op).toBe('envelope.criar');
+      expect((await post(t, secret, '/ext/v1/gastos/envelopes', { nome: 'mercado' })).status).toBe(409);
+      const patch = (path: string, payload: unknown) => t.ext(secret, path, { method: 'PATCH', body: JSON.stringify(payload) });
+      const edited = await t.body(patch('/ext/v1/gastos/envelopes/mercado', { limite_centavos: 90000 }));
+      expect(edited.pedido).toEqual(expect.objectContaining({ op: 'envelope.editar', alvo: 'mercado' }));
+      expect((await patch('/ext/v1/gastos/envelopes/Renda', { limite_centavos: 100 })).status).toBe(422);
+      expect((await patch('/ext/v1/gastos/envelopes/Nada', { nome: 'Outro' })).status).toBe(404);
+      expect((await post(t, secret, '/ext/v1/gastos/pessoas', { nome: 'bruna' })).status).toBe(409);
+      expect((await post(t, secret, '/ext/v1/gastos/pessoas', { nome: 'Caio' })).status).toBe(202);
+      expect((await t.body(patch('/ext/v1/gastos/pessoas/eu', { nome: 'Igor' }))).pedido.alvo).toBe('eu');
+    });
+  });
 }

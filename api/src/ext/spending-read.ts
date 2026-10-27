@@ -1,7 +1,20 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import { CONTEXTO_GASTOS, DIA_RE, MES_RE, visaoDoMes, type ContextoGastosV1, type LancamentoV1, type MesV1 } from '../../../contrato/api-v1/gastos';
+import {
+  OPS_DE_GASTO,
+  acharEnvelope as findEnvelope,
+  acharPessoa as findPerson,
+  conferirOpGasto,
+  editarLancamentoV1,
+  lancamentoDoPedido,
+  type EditarLancamentoV1,
+  type LancarV1,
+  type OpGasto,
+} from '../../../contrato/api-v1/operacoes-gastos';
 import { authenticateKey, requireScope } from '../domain/api-key';
+import { todayIn } from '../domain/mirror';
+import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 import { mirrorState } from './routes';
@@ -22,17 +35,61 @@ export async function spendingContext(deps: Deps, userId: string): Promise<Conte
   return row ? (JSON.parse(row.dados) as ContextoGastosV1) : null;
 }
 
-/** O envelope pelo id ou pelo nome (sem ligar para acento e caixa), ou null. */
-export function findEnvelope(ctx: ContextoGastosV1 | null, raw: string) {
-  return ctx?.envelopes.find((e) => e.id === raw) ?? ctx?.envelopes.find((e) => dobra(e.nome) === dobra(raw)) ?? null;
+/** Um pedido aberto, como a AI vê por cima do lançamento. */
+interface PedidoNoGasto {
+  id: string;
+  op: OpGasto;
+  estado: ReturnType<typeof stateOf>;
+}
+export type LancamentoComPedidos = LancamentoV1 & { pedidos?: PedidoNoGasto[] };
+
+/** Os pedidos abertos dos Gastos (PLANO-API.md, 8.5): os lançamentos que vão entrar, as mudanças e as frases. */
+async function pendingSpending(deps: Deps, userId: string) {
+  const rows = (await openRequests(deps, userId)).filter((r) => (OPS_DE_GASTO as readonly string[]).includes(r.op));
+  const created: RequestRow[] = [];
+  const phrases: RequestRow[] = [];
+  const byEntry = new Map<string, RequestRow[]>();
+  for (const r of rows) {
+    if (r.op === 'gasto.lancar') ('frase' in (JSON.parse(r.dados) as LancarV1) ? phrases : created).push(r);
+    else if (r.op === 'gasto.editar' || r.op === 'gasto.apagar') byEntry.set(r.alvo, [...(byEntry.get(r.alvo) ?? []), r]);
+  }
+  return { rows, created, phrases, byEntry };
 }
 
-/** A pessoa pelo id ou pelo nome (sem ligar para acento e caixa); "eu" e "você" são você. */
-export function findPerson(ctx: ContextoGastosV1 | null, raw: string) {
-  const k = dobra(raw);
-  if (k === 'eu' || k === 'voce') return ctx?.pessoas.find((p) => p.eu) ?? null;
-  return ctx?.pessoas.find((p) => p.id === raw) ?? ctx?.pessoas.find((p) => dobra(p.nome) === k) ?? null;
+const marker = (r: RequestRow, now: Date): PedidoNoGasto => ({ id: r.id, op: r.op as OpGasto, estado: stateOf(r, now) });
+
+/** O lançamento com as mudanças abertas por cima (o de apagar fica, com o pedido na lista). */
+function overlayEntry(l: LancamentoV1, rows: readonly RequestRow[] | undefined, ctx: ContextoGastosV1 | null, now: Date): LancamentoComPedidos {
+  if (!rows?.length) return l;
+  let out = l;
+  for (const r of rows) {
+    if (r.op !== 'gasto.editar') continue;
+    const c = conferirOpGasto('gasto.editar', JSON.parse(r.dados));
+    if (c.ok) out = editarLancamentoV1(out, c.dados as EditarLancamentoV1, ctx, r.criado_em);
+  }
+  return { ...out, pedidos: rows.map((r) => marker(r, now)) };
 }
+
+/** O lançamento de agora: o do espelho, ou o de um pedido de lançar ainda não aplicado; com os pedidos por cima. */
+export async function currentEntry(deps: Deps, userId: string, id: string): Promise<LancamentoComPedidos | null> {
+  const [row, pending, ctx, state] = await Promise.all([
+    deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lancamento' AND id = ?", [userId, id]),
+    pendingSpending(deps, userId),
+    spendingContext(deps, userId),
+    mirrorState(deps, userId),
+  ]);
+  const now = deps.now();
+  if (row) return overlayEntry(JSON.parse(row.dados) as LancamentoV1, pending.byEntry.get(id), ctx, now);
+  const created = pending.created.find((r) => r.alvo === id);
+  const base = created ? lancamentoDoPedido(id, JSON.parse(created.dados) as LancarV1, ctx, todayIn(state.fuso, now), created.criado_em) : null;
+  if (!base || !created) return null;
+  const shown = overlayEntry(base, pending.byEntry.get(id), ctx, now);
+  return { ...shown, pedidos: [marker(created, now), ...(shown.pedidos ?? [])] };
+}
+
+/** As frases que ainda vão virar lançamento (o site entende cada uma ao aplicar). */
+const phrasesOut = (rows: readonly RequestRow[], now: Date) =>
+  rows.map((r) => ({ pedido: r.id, estado: stateOf(r, now), frase: (JSON.parse(r.dados) as { frase: string }).frase }));
 
 const names = (list: readonly { nome: string }[]) => list.map((x) => x.nome).join(', ');
 
@@ -61,7 +118,14 @@ export function spendingReadRoutes(app: Hono, deps: Deps): void {
         'Este mês não está pronto: vão os 24 meses mais recentes com lançamento e os 3 próximos. Para outro mês, liste os lançamentos com de e ate.',
       );
     }
-    return c.json({ mes: JSON.parse(row.dados) as MesV1, espelho });
+    const pending = await pendingSpending(deps, me.key.userId);
+    const now = deps.now();
+    return c.json({
+      mes: JSON.parse(row.dados) as MesV1,
+      // o mês é o do Murall agora: o que ainda não entrou vem aqui à parte
+      ...(pending.rows.length ? { pedidos_abertos: pending.rows.map((r) => ({ ...marker(r, now), alvo: r.alvo })) } : {}),
+      espelho,
+    });
   });
 
   // Os lançamentos, do dia mais recente para o mais antigo.
@@ -106,6 +170,8 @@ export function spendingReadRoutes(app: Hono, deps: Deps): void {
       }
     }
     const text = q('q');
+    // com filtro, os lançamentos que ainda vão entrar não aparecem (a prévia não passa por eles)
+    const filtered = [q('de'), q('ate'), flow, envelope, person, text].some((v) => v !== undefined);
     if (text) {
       where.push("busca LIKE ? ESCAPE '\\'");
       params.push(`%${dobra(text).replace(/[%_\\]/g, (m) => `\\${m}`)}%`);
@@ -114,23 +180,43 @@ export function spendingReadRoutes(app: Hono, deps: Deps): void {
       `SELECT dados FROM api_espelho WHERE ${where.join(' AND ')} ORDER BY data DESC, json_extract(dados, '$.criado_em') DESC, id LIMIT ? OFFSET ?`,
       [...params, limit + 1, offset],
     );
-    const itens: LancamentoV1[] = [];
-    let chars = 0;
-    for (const row of rows.slice(0, limit)) {
-      if (itens.length && chars + row.dados.length > PAGE_MAX_CHARS) break;
-      chars += row.dados.length;
-      itens.push(JSON.parse(row.dados) as LancamentoV1);
+    const pending = await pendingSpending(deps, me.key.userId);
+    const ctx = await spendingContext(deps, me.key.userId);
+    const espelho = await mirrorState(deps, me.key.userId);
+    const now = deps.now();
+    const itens: LancamentoComPedidos[] = [];
+    if (offset === 0 && !filtered) {
+      const hoje = todayIn(espelho.fuso, now);
+      for (const r of pending.created) {
+        const l = lancamentoDoPedido(r.alvo, JSON.parse(r.dados) as LancarV1, ctx, hoje, r.criado_em);
+        const later = pending.byEntry.get(r.alvo);
+        if (l) itens.push({ ...overlayEntry(l, later, ctx, now), pedidos: [marker(r, now), ...(later ?? []).map((x) => marker(x, now))] });
+      }
     }
-    const more = rows.length > itens.length;
-    return c.json({ itens, ...(more ? { depois: String(offset + itens.length) } : {}), espelho: await mirrorState(deps, me.key.userId) });
+    let chars = 0;
+    let taken = 0;
+    for (const row of rows.slice(0, limit)) {
+      if (taken && chars + row.dados.length > PAGE_MAX_CHARS) break;
+      chars += row.dados.length;
+      taken++;
+      const l = JSON.parse(row.dados) as LancamentoV1;
+      itens.push(overlayEntry(l, pending.byEntry.get(l.id), ctx, now));
+    }
+    const more = rows.length > taken;
+    return c.json({
+      itens,
+      ...(more ? { depois: String(offset + taken) } : {}),
+      ...(offset === 0 && pending.phrases.length ? { frases_abertas: phrasesOut(pending.phrases, now) } : {}),
+      espelho,
+    });
   });
 
   app.get('/ext/v1/gastos/lancamentos/:id', async (c) => {
     const me = await caller(c);
     const id = c.req.param('id');
     if (!/^[\w-]{1,64}$/.test(id)) throw notFound();
-    const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lancamento' AND id = ?", [me.key.userId, id]);
-    if (!row) throw notFound();
-    return c.json({ lancamento: JSON.parse(row.dados) as LancamentoV1 });
+    const l = await currentEntry(deps, me.key.userId, id);
+    if (!l) throw notFound();
+    return c.json({ lancamento: l });
   });
 }

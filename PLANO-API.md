@@ -1373,11 +1373,21 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      conta em cada mês é a visão); envelope e pessoa são achados pelo nome sem acento no contexto (e
      "eu"/"você" é você), e um nome que não existe dá 400 com os que existem; a busca ganhou
      `areas=gastos` (os títulos dos lançamentos). Os pedidos por cima entram no passo 4.
-  4. Contrato das operações e API, escrever: `gasto.lancar` (um, `itens` ou `frase`/`frases`),
+  4. [feito] Contrato das operações e API, escrever: `gasto.lancar` (um, `itens` ou `frase`/`frases`),
      `gasto.editar`, `gasto.apagar`, `envelope.criar`, `envelope.editar`, `pessoa.criar`,
      `pessoa.editar`, nas rotas `POST /ext/v1/gastos/lancamentos`, `PATCH`/`DELETE
      /ext/v1/gastos/lancamentos/:id`, `POST`/`PATCH /ext/v1/gastos/envelopes…` e `/pessoas…`; os
-     pedidos abertos por cima das leituras. Testes.
+     pedidos abertos por cima das leituras. Testes. Feito assim: o contrato em
+     `contrato/api-v1/operacoes-gastos.ts` (`conferirOpGasto`, `acharEnvelope`/`acharPessoa`, e as
+     prévias `lancamentoDoPedido` e `editarLancamentoV1`); as rotas em `api/src/ext/spending-write.ts`;
+     o lote confere todos os itens antes de guardar qualquer um (um errado e nada entra, a mensagem diz
+     "Item 3"); sem `envelope`, a prévia usa o de fábrica (Outros / Outras entradas); apagar leva a
+     versão em `?versao=`; envelope de entrada não tem limite; criar envelope, lançar e criar pessoa
+     não esperam a aprovação "mudancas" (`opMuda` agora vale para as duas áreas). Por cima das
+     leituras: o lançamento que vai entrar aparece no começo da primeira página (sem filtro) e pelo
+     id, a mudança aparece aplicada com a lista `pedidos`, as frases vêm à parte em `frases_abertas`, e
+     o mês traz `pedidos_abertos` (a visão é a do Murall agora). O site de hoje ainda não aplica
+     pedidos dos Gastos (só os das Anotações): eles esperam o passo 5.
   5. Site aplica os pedidos dos Gastos (`core/api-requests.ts`, pelo `SpendingStore`), com o
      Desfazer e as frases em palavras na folha dos pedidos e no histórico ("Lançar Mercado, R$ 230,50
      em 26/10"). Testes. BUILD + 1.
