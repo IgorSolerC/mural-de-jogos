@@ -67,8 +67,11 @@ export function resumo(texto: string, max = RESUMO_MAX): string {
   return `${(espaco > max * 0.6 ? corte.slice(0, espaco) : corte).trimEnd()}…`;
 }
 
-/** Os tipos de linha que o espelho guarda (por ora, só os das Anotações). */
-export const TIPOS_DO_ESPELHO = ['nota', 'contexto'] as const;
+/**
+ * Os tipos de linha que o espelho guarda: os das Anotações (`nota`, `contexto`) e os dos Gastos
+ * (`lancamento`, `visao` de cada mês, `contexto-gastos`; ver contrato/api-v1/gastos.ts).
+ */
+export const TIPOS_DO_ESPELHO = ['nota', 'contexto', 'lancamento', 'visao', 'contexto-gastos'] as const;
 export type TipoDoEspelho = (typeof TIPOS_DO_ESPELHO)[number];
 
 /** O id da linha de contexto das Anotações. */

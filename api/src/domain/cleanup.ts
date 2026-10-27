@@ -1,6 +1,7 @@
 import { CLIENTE_SEM_USO_MS, DIAS_DA_RENOVACAO } from '../../../contrato/api-v1/oauth';
 import { Deps } from '../ports';
 import { eraseDue } from './erase';
+import { READ_SCOPE_OF, TYPES_OF } from './mirror';
 import { DAY_MS, utcDay } from './quota';
 
 /**
@@ -8,8 +9,8 @@ import { DAY_MS, utcDay } from './quota';
  * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos), e as contas
  * marcadas para sair cuja hora passou (ver `domain/erase.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
-/** Quem tem alguma chave viva que lê o espelho (um parâmetro: agora). */
-const READERS = `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND escopos LIKE '%"notas:ler"%'`;
+/** Quem tem alguma chave viva que lê uma área (um parâmetro: agora). */
+const readers = (scope: string) => `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND escopos LIKE '%"${scope}"%'`;
 
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
@@ -25,9 +26,18 @@ export async function cleanup(deps: Deps): Promise<void> {
     { sql: 'DELETE FROM agenda_pedidos WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     // as chaves de API vencidas há mais de 30 dias (até lá, a lista mostra "venceu", para a pessoa entender)
     { sql: 'DELETE FROM api_chaves WHERE expira_em < ?', params: [new Date(now.getTime() - 30 * DAY_MS).toISOString()] },
-    // o espelho de quem não tem mais nenhuma chave viva que lê as Anotações (PLANO-API.md, 8.1)
-    { sql: `DELETE FROM api_espelho WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
-    { sql: `DELETE FROM api_espelho_estado WHERE usuario_id NOT IN (${READERS})`, params: [now.toISOString()] },
+    // o espelho de cada área de quem não tem mais nenhuma chave viva que a lê (PLANO-API.md, 8.1); o
+    // estado sai quando nenhuma área fica
+    ...Object.entries(TYPES_OF).map(([area, types]) => ({
+      sql: `DELETE FROM api_espelho WHERE tipo IN (${types.map(() => '?').join(', ')}) AND usuario_id NOT IN (${readers(READ_SCOPE_OF[area]!)})`,
+      params: [...types, now.toISOString()],
+    })),
+    {
+      sql: `DELETE FROM api_espelho_estado WHERE ${Object.values(READ_SCOPE_OF)
+        .map((scope) => `usuario_id NOT IN (${readers(scope)})`)
+        .join(' AND ')}`,
+      params: Object.values(READ_SCOPE_OF).map(() => now.toISOString()),
+    },
     // os pedidos que ninguém aplicou (nem aprovou) a tempo; os resolvidos há mais de 30 dias
     {
       sql: "UPDATE api_pedidos SET estado = 'expirado', resolvido_em = ? WHERE estado IN ('pendente', 'aguardando-aprovacao') AND expira_em <= ?",

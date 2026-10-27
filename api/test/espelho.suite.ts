@@ -120,7 +120,7 @@ export function espelhoSuite(label: string, getDb: () => Db) {
     it('sem chave que lê, não há áreas e o site não espelha nada', async () => {
       const t = await setup();
       const me = await t.login('ana');
-      await t.newKey(me.token, { escopos: ['gastos:ler'] });
+      await t.newKey(me.token, { escopos: ['desejos:ler'] });
       expect(await t.body(t.json('GET', '/v1/eu/espelho', undefined, me.token))).toEqual({ areas: [], rev: null, hashes: {} });
       const res = await t.mirror(me.token, { rev: 1, poe: [t.item(NOTAS[0]!)] });
       expect(res.status).toBe(409);

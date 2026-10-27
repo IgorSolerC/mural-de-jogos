@@ -1346,11 +1346,15 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
   - Apagar um lançamento guarda o lançamento inteiro no `antes` do pedido: o Desfazer põe de volta.
 
   Passos:
-  1. Contrato e API do espelho: `contrato/api-v1/gastos.ts` (`LancamentoV1`, `EnvelopeV1`,
+  1. [feito] Contrato e API do espelho: `contrato/api-v1/gastos.ts` (`LancamentoV1`, `EnvelopeV1`,
      `PessoaV1`, `ContextoGastosV1`, `MesV1`, os ids das linhas), os tipos novos do espelho
      (`lancamento`, `visao`; o `contexto` ganha o id `gastos`) e a conferência da forma em
      `api/src/domain/mirror.ts` (a área `gastos` com `gastos:ler`; colunas `data` = o dia do
      lançamento ou o mês da visão, `busca` = o título sem acento). Testes em `espelho.suite.ts`.
+     Feito assim: o contexto dos Gastos é um tipo próprio, `contexto-gastos` (id `gastos`), para as
+     áreas não se misturarem; `READ_SCOPE_OF` em `domain/mirror.ts` diz a permissão de cada área, e a
+     limpeza tira cada área de quem não tem mais chave que a lê (o estado sai quando nenhuma fica).
+     Testes numa suíte nova, `api/test/gastos.suite.ts` (os passos 3 e 4 continuam nela).
   2. Site manda o espelho dos Gastos: `core/api-mirror.ts` monta os lançamentos, o contexto e as
      visões com as funções da tela (`rowsIn`, `totals`, `spentByCategory`, `spentByNeed`,
      `spentByPerson`, `openPlans`, `installmentsAhead`), só quando a nuvem pede a área `gastos`.

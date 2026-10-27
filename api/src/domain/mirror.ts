@@ -1,4 +1,13 @@
 import { dobra } from '../../../contrato/api-v1/escopos';
+import {
+  CONTEXTO_GASTOS,
+  DIA_RE,
+  MES_RE,
+  visaoDoMes,
+  type ContextoGastosV1,
+  type LancamentoV1,
+  type MesV1,
+} from '../../../contrato/api-v1/gastos';
 import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
@@ -16,7 +25,7 @@ export const MIRROR_MAX_CHARS = 640_000;
 export const ITEM_ID_RE = /^[\w-]{1,64}$/;
 const HASH_RE = /^[0-9a-f]{16,64}$/;
 
-/** As áreas que alguma chave viva da conta lê (por ora, só as Anotações). */
+/** As áreas que alguma chave viva da conta lê: as Anotações (`notas:ler`) e os Gastos (`gastos:ler`). */
 export async function mirrorAreas(deps: Deps, userId: string): Promise<string[]> {
   const rows = await deps.db.all<{ escopos: string }>('SELECT escopos FROM api_chaves WHERE usuario_id = ? AND expira_em > ?', [
     userId,
@@ -30,11 +39,14 @@ export async function mirrorAreas(deps: Deps, userId: string): Promise<string[]>
       /* uma linha estragada só não conta */
     }
   }
-  return scopes.has('notas:ler') ? ['notas'] : [];
+  return Object.keys(READ_SCOPE_OF).filter((area) => scopes.has(READ_SCOPE_OF[area]!));
 }
 
+/** A permissão que faz cada área ir ao espelho. */
+export const READ_SCOPE_OF: Record<string, string> = { notas: 'notas:ler', gastos: 'gastos:ler' };
+
 /** Os tipos de linha de cada área. */
-export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = { notas: ['nota', 'contexto'] };
+export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = { notas: ['nota', 'contexto'], gastos: ['lancamento', 'visao', 'contexto-gastos'] };
 
 export interface MirrorRow {
   tipo: TipoDoEspelho;
@@ -112,6 +124,104 @@ function checkContexto(c: Record<string, unknown>): ContextoNotasV1 {
   return c as unknown as ContextoNotasV1;
 }
 
+const isCents = (v: unknown) => Number.isSafeInteger(v) && Math.abs(v as number) <= 1e12;
+const isFlow = (v: unknown) => v === 'saida' || v === 'entrada';
+
+/** O lançamento v1 tem a forma certa? Só os campos da v1 entram. */
+function checkLancamento(l: Record<string, unknown>): LancamentoV1 {
+  const env = l['envelope'] as Record<string, unknown> | null;
+  const m = l['mensal'] as Record<string, unknown> | null;
+  const ok =
+    isStr(l['id'], 64) &&
+    isStr(l['titulo'], 200) &&
+    isCents(l['centavos']) &&
+    isFlow(l['tipo']) &&
+    (env === null || (!!env && isStr(env['id'], 64) && isStr(env['nome'], 40))) &&
+    (l['pagamento'] === null || l['pagamento'] === 'avista' || l['pagamento'] === 'pix' || l['pagamento'] === 'parcelado') &&
+    (l['parcelas'] === null || (Number.isInteger(l['parcelas']) && (l['parcelas'] as number) >= 2 && (l['parcelas'] as number) <= 120)) &&
+    (l['precisava'] === null || l['precisava'] === 'luxo' || l['precisava'] === 'conforto' || l['precisava'] === 'indispensavel') &&
+    strList(l['pessoas'], 40, 40) &&
+    typeof l['dia'] === 'string' &&
+    DIA_RE.test(l['dia']) &&
+    typeof l['mes'] === 'string' &&
+    MES_RE.test(l['mes']) &&
+    (l['fatura'] === -1 || l['fatura'] === 0 || l['fatura'] === 1) &&
+    (m === null ||
+      (!!m &&
+        (m['ate'] === null || (typeof m['ate'] === 'string' && MES_RE.test(m['ate']))) &&
+        !!m['valores'] &&
+        typeof m['valores'] === 'object' &&
+        Object.entries(m['valores'] as object).length <= 240 &&
+        Object.entries(m['valores'] as object).every(([k, v]) => MES_RE.test(k) && isCents(v)) &&
+        Array.isArray(m['pulados']) &&
+        (m['pulados'] as unknown[]).length <= 240 &&
+        (m['pulados'] as unknown[]).every((x) => typeof x === 'string' && MES_RE.test(x)))) &&
+    isStrOrNull(l['reembolso_de'], 64) &&
+    isIso(l['criado_em']) &&
+    isIso(l['versao']);
+  if (!ok) throw bad(`O lançamento "${String(l['id']).slice(0, 64)}" não tem a forma da v1.`);
+  const v = l as unknown as LancamentoV1;
+  return {
+    id: v.id,
+    titulo: v.titulo,
+    centavos: v.centavos,
+    tipo: v.tipo,
+    envelope: v.envelope && { id: v.envelope.id, nome: v.envelope.nome },
+    pagamento: v.pagamento,
+    parcelas: v.parcelas,
+    precisava: v.precisava,
+    pessoas: v.pessoas,
+    dia: v.dia,
+    mes: v.mes,
+    fatura: v.fatura,
+    mensal: v.mensal && { ate: v.mensal.ate, valores: v.mensal.valores, pulados: v.mensal.pulados },
+    reembolso_de: v.reembolso_de,
+    criado_em: v.criado_em,
+    versao: v.versao,
+  };
+}
+
+/** A visão de um mês: confere a forma por cima (os números são contas do site). */
+function checkVisao(v: Record<string, unknown>, id: string): MesV1 {
+  const list = (x: unknown, n: number) => Array.isArray(x) && x.length <= n && x.every((i) => i && typeof i === 'object' && !Array.isArray(i));
+  const p = v['precisava'] as Record<string, unknown> | null;
+  const a = v['parcelas_a_frente'] as Record<string, unknown> | null;
+  const ok =
+    typeof v['mes'] === 'string' &&
+    MES_RE.test(v['mes']) &&
+    visaoDoMes(v['mes']) === id &&
+    ['entradas', 'saidas', 'saldo', 'comprometido'].every((k) => isCents(v[k])) &&
+    list(v['por_envelope'], 200) &&
+    list(v['entradas_por_envelope'], 200) &&
+    !!p &&
+    ['luxo', 'conforto', 'indispensavel', 'sem_resposta'].every((k) => isCents(p[k])) &&
+    list(v['por_pessoa'], 200) &&
+    list(v['carnes'], 2_000) &&
+    !!a &&
+    isCents(a['total']) &&
+    isCents(a['proximo_mes']) &&
+    list(v['linhas'], 5_000);
+  if (!ok) throw bad(`A visão "${id}" não tem a forma da v1.`);
+  return v as unknown as MesV1;
+}
+
+function checkContextoGastos(c: Record<string, unknown>): ContextoGastosV1 {
+  const envs = c['envelopes'];
+  const people = c['pessoas'];
+  const ok =
+    Array.isArray(envs) &&
+    envs.length <= 200 &&
+    envs.every((e: Record<string, unknown>) => e && isStr(e['id'], 64) && isStr(e['nome'], 40) && isFlow(e['tipo'])) &&
+    Array.isArray(people) &&
+    people.length <= 300 &&
+    people.every((p: Record<string, unknown>) => p && isStr(p['id'], 64) && isStr(p['nome'], 40) && typeof p['eu'] === 'boolean') &&
+    Array.isArray(c['meses']) &&
+    (c['meses'] as unknown[]).length <= 2_400 &&
+    (c['meses'] as unknown[]).every((m) => typeof m === 'string' && MES_RE.test(m));
+  if (!ok) throw bad('O contexto dos Gastos não tem a forma da v1.');
+  return { envelopes: envs as ContextoGastosV1['envelopes'], pessoas: people as ContextoGastosV1['pessoas'], meses: c['meses'] as string[] };
+}
+
 /**
  * Lê um envio ao espelho: `{rev, fuso?, poe: [{tipo, id, hash, dados}], tira: [{tipo, id}]}`, com no
  * máximo `ESPELHO_POR_ENVIO` itens ao todo, só dos tipos das áreas pedidas.
@@ -145,6 +255,19 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
         busca: dobra(`${n.titulo}\n${n.texto}`),
         dados: JSON.stringify(n),
       };
+    }
+    if (item['tipo'] === 'lancamento') {
+      const l = checkLancamento(dados);
+      if (l.id !== item['id']) throw bad('O id do lançamento não bate com o do item.');
+      return { tipo: 'lancamento', id: l.id, versao: l.versao, hash: item['hash'], grupo: null, data: l.dia, busca: dobra(l.titulo), dados: JSON.stringify(l) };
+    }
+    if (item['tipo'] === 'visao') {
+      const v = checkVisao(dados, item['id']);
+      return { tipo: 'visao', id: item['id'], versao: null, hash: item['hash'], grupo: null, data: v.mes, busca: null, dados: JSON.stringify(v) };
+    }
+    if (item['tipo'] === 'contexto-gastos') {
+      if (item['id'] !== CONTEXTO_GASTOS) throw bad('O contexto dos Gastos tem o id "gastos".');
+      return { tipo: 'contexto-gastos', id: CONTEXTO_GASTOS, versao: null, hash: item['hash'], grupo: null, data: null, busca: null, dados: JSON.stringify(checkContextoGastos(dados)) };
     }
     if (item['id'] !== CONTEXTO_NOTAS) throw bad('O contexto das Anotações tem o id "notas".');
     return { tipo: 'contexto', id: CONTEXTO_NOTAS, versao: null, hash: item['hash'], grupo: null, data: null, busca: null, dados: JSON.stringify(checkContexto(dados)) };

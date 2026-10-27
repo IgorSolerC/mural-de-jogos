@@ -8,6 +8,7 @@ import { espelhoSuite } from './espelho.suite';
 import { pedidosSuite } from './pedidos.suite';
 import { mcpSuite } from './mcp.suite';
 import { oauthSuite } from './oauth.suite';
+import { gastosSuite } from './gastos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -23,3 +24,4 @@ espelhoSuite('Cloudflare D1', () => d1Db(bindings.DB));
 pedidosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 mcpSuite('Cloudflare D1', () => d1Db(bindings.DB));
 oauthSuite('Cloudflare D1', () => d1Db(bindings.DB));
+gastosSuite('Cloudflare D1', () => d1Db(bindings.DB));

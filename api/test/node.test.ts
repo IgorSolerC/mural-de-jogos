@@ -7,6 +7,7 @@ import { espelhoSuite } from './espelho.suite';
 import { pedidosSuite } from './pedidos.suite';
 import { mcpSuite } from './mcp.suite';
 import { oauthSuite } from './oauth.suite';
+import { gastosSuite } from './gastos.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -22,3 +23,4 @@ espelhoSuite('Node + SQLite', () => db);
 pedidosSuite('Node + SQLite', () => db);
 mcpSuite('Node + SQLite', () => db);
 oauthSuite('Node + SQLite', () => db);
+gastosSuite('Node + SQLite', () => db);
