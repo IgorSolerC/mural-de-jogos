@@ -916,7 +916,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 2 | **Ler as Anotações** — feita em 27/out (seção 23) | Espelho (0016) só de notas e contexto; `GET /ext/v1/notas`, `/contexto`, `/busca`; mapa interno → v1 com testes de ida e volta (fuzz com semente, como o do Kanban) |
 | 3 | **Escrever nas Anotações** — feita em 27/out (seção 23) | `api_pedidos`; criar, editar, acrescentar, tarefas, finalizar, fixar, apagar; o ciclo de aplicar no site com a trava; aprovação; Histórico com Desfazer; bilhetes; testes de dois aparelhos (o harness de `sync-devices.spec.ts`) |
 | 4 | **MCP com chave + guia** — feita em 27/out (seção 23) | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
-| 5 | **OAuth** | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
+| 5 | **OAuth** — feita em 27/out (seção 23) | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** | Quadros, mover, colunas, dependências |
@@ -1293,8 +1293,26 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      (claude.ai)" ou "Chave de API criada: **Script dos gastos**", a hora, e embaixo "Não foi você?
      Apague em Acessos."; a linha inteira abre Ajustes › Acessos. A linha de meta dos avisos agora
      quebra inteira em lista estreita (a hora nunca se parte).
-  7. Ponta a ponta: local (`wrangler dev` + `ng serve` + puppeteer, como nas rodadas 2 e 4: registrar,
+  7. [feito] Ponta a ponta: local (`wrangler dev` + `ng serve` + puppeteer, como nas rodadas 2 e 4: registrar,
      autorizar, permitir na página, trocar o código, chamar o `/mcp` com o token, renovar, repetir a
      renovação velha e ver a chave cortada) e no ar (os metadados, o registro e o 401). Anotar aqui.
      Ligar o conector no claude.ai e o `claude mcp add` sem chave dependem do usuário (o login do
      Google é dele).
+     Feito em 27/out. **Local**: a API no `wrangler dev` (porta 8795, `SITE` e `ORIGENS` apontando para o
+     `ng serve` na 5139, `API_CODIGOS:*`, a migração 0018 aplicada no D1 local, a conta `u-e2e` com a
+     sessão `'A'*43` da rodada 2) e um cliente de mentira como o Claude Code (retorno em
+     `http://localhost:33418/callback`, servidor local que recebe o código), com o puppeteer na página
+     de verdade (o `cloud.json` interceptado, a CSP desligada só no teste). Passou tudo: o 401 do `/mcp`
+     aponta o metadado, o registro, o autorizar manda para a página, a página mostra
+     `localhost:33418` e as 2 permissões pedidas marcadas, Permitir volta com `code`, `state` e `iss`,
+     a troca dá o token com `notas:ler notas:criar`, o `tools/list` mostra só o permitido, o
+     `listar_notas` responde, a renovação troca o par (o acesso velho para), a renovação velha repetida
+     depois de 31 s corta o conector inteiro, e o Correio tem o aviso. O script ficou fora do
+     repositório (`.angular/pptr/oauth-e2e.mjs`). **No ar**: os metadados, o registro (um cliente de
+     teste, que a limpeza tira em 24 h), o autorizar (302 para `https://murall.igorsc.com.br/#/autorizar`),
+     o token com código falso (`invalid_grant`), o revogar (200) e a página Autorizar desenhando no site.
+     **Rodada 5 feita**, menos o que depende do usuário: ligar o conector no claude.ai (Configurações ›
+     Conectores › Adicionar conector personalizado › `https://mural-api.igorsoler.workers.dev/mcp`) e o
+     `claude mcp add --transport http murall https://mural-api.igorsoler.workers.dev/mcp` sem o
+     cabeçalho, entrando com o Google na página. **Próximo**: a rodada 6 (Gastos), seção 19, ou a 8
+     (Kanban), se o usuário quiser mover cartões pelo MCP antes.
