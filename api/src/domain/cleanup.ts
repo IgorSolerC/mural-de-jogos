@@ -1,7 +1,7 @@
 import { CLIENTE_SEM_USO_MS, DIAS_DA_RENOVACAO } from '../../../contrato/api-v1/oauth';
 import { Deps } from '../ports';
 import { eraseDue } from './erase';
-import { READ_SCOPE_OF, TYPES_OF } from './mirror';
+import { SCOPES_OF_AREA, TYPES_OF } from './mirror';
 import { DAY_MS, utcDay } from './quota';
 
 /**
@@ -9,8 +9,9 @@ import { DAY_MS, utcDay } from './quota';
  * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos), e as contas
  * marcadas para sair cuja hora passou (ver `domain/erase.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
-/** Quem tem alguma chave viva que lê uma área (um parâmetro: agora). */
-const readers = (scope: string) => `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND escopos LIKE '%"${scope}"%'`;
+/** Quem tem alguma chave viva que alcança uma área, por qualquer uma das permissões dela (um parâmetro: agora). */
+const readers = (scopes: readonly string[]) =>
+  `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND (${scopes.map((s) => `escopos LIKE '%"${s}"%'`).join(' OR ')})`;
 
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
@@ -29,14 +30,14 @@ export async function cleanup(deps: Deps): Promise<void> {
     // o espelho de cada área de quem não tem mais nenhuma chave viva que a lê (PLANO-API.md, 8.1); o
     // estado sai quando nenhuma área fica
     ...Object.entries(TYPES_OF).map(([area, types]) => ({
-      sql: `DELETE FROM api_espelho WHERE tipo IN (${types.map(() => '?').join(', ')}) AND usuario_id NOT IN (${readers(READ_SCOPE_OF[area]!)})`,
+      sql: `DELETE FROM api_espelho WHERE tipo IN (${types.map(() => '?').join(', ')}) AND usuario_id NOT IN (${readers(SCOPES_OF_AREA[area]!)})`,
       params: [...types, now.toISOString()],
     })),
     {
-      sql: `DELETE FROM api_espelho_estado WHERE ${Object.values(READ_SCOPE_OF)
-        .map((scope) => `usuario_id NOT IN (${readers(scope)})`)
+      sql: `DELETE FROM api_espelho_estado WHERE ${Object.values(SCOPES_OF_AREA)
+        .map((scopes) => `usuario_id NOT IN (${readers(scopes)})`)
         .join(' AND ')}`,
-      params: Object.values(READ_SCOPE_OF).map(() => now.toISOString()),
+      params: Object.values(SCOPES_OF_AREA).map(() => now.toISOString()),
     },
     // os pedidos que ninguém aplicou (nem aprovou) a tempo; os resolvidos há mais de 30 dias
     {

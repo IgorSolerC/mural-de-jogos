@@ -1431,3 +1431,59 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      Desfazer dos Gastos ficou conferido só nos testes do site (ele começa na folha do histórico).
      **Rodada 6 feita.** Para usar: em Acessos, marcar os Gastos na chave (ou no conector) que já
      existe, ou criar outra. **Próximo**: a rodada 7 (Calendário), seção 19.
+
+- **27/out/2026, rodada 8 (Kanban)**: em andamento. Pedido do usuário: "implemente a rodada de integração
+  com o Kanban (acredito que seja a rodada 9)" (é a 8; a 7, Calendário, ficou para depois), do jeito das
+  rodadas 4 a 6: o roteiro aqui, um commit com push por passo, marcando [feito]. **Quem continuar: leia
+  esta lista, faça o primeiro passo sem [feito], marque e commite** (as mesmas regras: CLAUDE.md, BUILD
+  + 1 só quando o site muda, commit no nome do usuário sem Co-Authored-By, push logo depois; site: `npx
+  ng test mural-de-jogos --watch=false --browsers=ChromeHeadless`, `npx ng build`, fotos de perto e
+  smoke quando há tela; API: `cd api && npm run typecheck && npm test`; o push em `api/` ou `contrato/`
+  publica a API).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 5.2, 7, 8, 9 e 10):
+  - **Um quadro por grupo, como no app.** A linha do espelho é o quadro inteiro (`quadro`, id = o do
+    app, `kb…`), com as colunas e os cartões na ordem em que a tela mostra (a coluna que se arruma
+    sozinha já vai arrumada). Só os grupos com nota; só os cartões das notas que estão no quadro de
+    verdade; as notas compartilhadas ficam de fora (como no espelho das notas). A coluna `grupo` do
+    espelho é o nome sem acento, então o limite de grupos da chave vale igual para o quadro.
+  - **Qualquer permissão do Kanban leva os quadros ao espelho** (`SCOPES_OF_AREA` em
+    `api/src/domain/mirror.ts`): quem só move cartões também precisa das colunas para a API conferir o
+    pedido. A limpeza tira a área quando nenhuma chave viva tem nenhuma delas.
+  - O cartão leva o título, as tags e "finalizada" da nota (para a AI ler o quadro sem abrir cada nota),
+    a importância, o status, as dependências (só os ids), o "no mural" e o lugar na coluna.
+  - **Sem versão no Kanban**: mover um cartão é "pôr ali", e o app junta cartão a cartão pela hora
+    da mexida (`KanbanCard.at`); não há texto a perder. Coluna e cartão que sumiram fazem o pedido
+    `falhar` com o porquê.
+  - Coluna citada pelo id ou pelo nome (sem acento e caixa); o quadro no caminho, pelo grupo ou pelo id.
+  - Chegar numa coluna que finaliza finaliza a nota (e sair dela abre de novo), como na tela; a
+    pergunta das dependências abertas não bloqueia (não há tela para responder): o resultado conta.
+  - Criar coluna não espera a aprovação "mudancas" (é criar); mover, tirar, mudar e apagar coluna
+    esperam.
+  - `criar_nota` ganha `kanban: {coluna, importancia, status}` (pede também `kanban:mover`): a nota já
+    nasce no quadro, como o "Nova nota" de dentro de uma coluna. É o que faltou no teste do usuário
+    no Claude Code (a nota criada que não pôde ir para a coluna "TODO: Rápido").
+
+  Passos:
+  1. [feito] Contrato e API do espelho: `contrato/api-v1/kanban.ts` (`QuadroV1`, `ColunaV1`, `CartaoV1`, os
+     tamanhos do app, `renumerar`), o tipo `quadro` no espelho, a área `kanban` e a conferência da
+     forma em `api/src/domain/mirror.ts` (cada cartão numa coluna que existe, só os campos da v1).
+     Testes numa suíte nova, `api/test/kanban.suite.ts` (os passos 3 e 4 continuam nela).
+  2. Site manda o espelho do Kanban: `core/api-mirror-kanban.ts` monta cada quadro com o que a tela
+     mostra (`liveCards`, a ordem da coluna por `sortCards`, `isOnWall`, `groupKanbanOnly`,
+     `sortSentence`), só quando a nuvem pede a área `kanban`. Testes. BUILD + 1.
+  3. API, ler: `GET /ext/v1/kanban` (os quadros com as colunas, sem os cartões), `GET
+     /ext/v1/kanban/:grupo` (o quadro inteiro, pelo grupo ou pelo id), e o `GET /ext/v1/contexto` com
+     `kanban` (os quadros e as colunas) para a chave do Kanban. Limite de grupos da chave. Testes.
+  4. Contrato das operações e API, escrever: `cartao.mover` (`PUT /ext/v1/kanban/:grupo/cartoes/:nota`:
+     coluna, posicao, importancia, status, depende_de, no_mural), `cartao.tirar` (`DELETE`),
+     `coluna.criar`, `coluna.editar` e `coluna.apagar` (`/ext/v1/kanban/:grupo/colunas…`), e o
+     `kanban` do `nota.criar`; os pedidos abertos por cima da leitura do quadro. Testes.
+  5. Site aplica os pedidos do Kanban (pelo `KanbanStore` e as funções de `core/kanban.ts`), com o
+     Desfazer e as frases na folha dos pedidos e no histórico. Testes. BUILD + 1.
+  6. MCP e guia: `ver_kanban`, `mover_cartao`, `tirar_do_quadro`, `criar_coluna`, `editar_coluna`,
+     `apagar_coluna`, o `kanban` do `criar_nota`; a parte do Kanban no guia; o OpenAPI e as cópias em
+     `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Kanban, o espelho enchendo, ler
+     o quadro, criar uma nota já numa coluna, mover, criar coluna, aplicar) e no ar (as rotas novas
+     respondendo). Anotar aqui.

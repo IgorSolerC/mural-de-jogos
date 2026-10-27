@@ -8,6 +8,7 @@ import { pedidosSuite } from './pedidos.suite';
 import { mcpSuite } from './mcp.suite';
 import { oauthSuite } from './oauth.suite';
 import { gastosSuite } from './gastos.suite';
+import { kanbanSuite } from './kanban.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
 
@@ -24,3 +25,4 @@ pedidosSuite('Node + SQLite', () => db);
 mcpSuite('Node + SQLite', () => db);
 oauthSuite('Node + SQLite', () => db);
 gastosSuite('Node + SQLite', () => db);
+kanbanSuite('Node + SQLite', () => db);

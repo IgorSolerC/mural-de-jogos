@@ -8,6 +8,7 @@ import {
   type LancamentoV1,
   type MesV1,
 } from '../../../contrato/api-v1/gastos';
+import { CARTOES_MAX, COLUNAS_MAX, DEPENDENCIAS_MAX, IMPORTANCIAS, NOME_DA_COLUNA_MAX, STATUS_MAX, type QuadroV1 } from '../../../contrato/api-v1/kanban';
 import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
@@ -25,7 +26,7 @@ export const MIRROR_MAX_CHARS = 640_000;
 export const ITEM_ID_RE = /^[\w-]{1,64}$/;
 const HASH_RE = /^[0-9a-f]{16,64}$/;
 
-/** As áreas que alguma chave viva da conta lê: as Anotações (`notas:ler`) e os Gastos (`gastos:ler`). */
+/** As áreas que alguma chave viva da conta alcança (ver `SCOPES_OF_AREA`). */
 export async function mirrorAreas(deps: Deps, userId: string): Promise<string[]> {
   const rows = await deps.db.all<{ escopos: string }>('SELECT escopos FROM api_chaves WHERE usuario_id = ? AND expira_em > ?', [
     userId,
@@ -39,14 +40,26 @@ export async function mirrorAreas(deps: Deps, userId: string): Promise<string[]>
       /* uma linha estragada só não conta */
     }
   }
-  return Object.keys(READ_SCOPE_OF).filter((area) => scopes.has(READ_SCOPE_OF[area]!));
+  return Object.keys(SCOPES_OF_AREA).filter((area) => SCOPES_OF_AREA[area]!.some((s) => scopes.has(s)));
 }
 
-/** A permissão que faz cada área ir ao espelho. */
-export const READ_SCOPE_OF: Record<string, string> = { notas: 'notas:ler', gastos: 'gastos:ler' };
+/**
+ * As permissões que fazem cada área ir ao espelho (qualquer uma delas): ler as Anotações, ler os
+ * Gastos, e qualquer uma do Kanban (quem só move cartões também precisa das colunas, para a API
+ * conferir o pedido).
+ */
+export const SCOPES_OF_AREA: Record<string, readonly string[]> = {
+  notas: ['notas:ler'],
+  gastos: ['gastos:ler'],
+  kanban: ['kanban:ler', 'kanban:mover', 'kanban:colunas'],
+};
 
 /** Os tipos de linha de cada área. */
-export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = { notas: ['nota', 'contexto'], gastos: ['lancamento', 'visao', 'contexto-gastos'] };
+export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = {
+  notas: ['nota', 'contexto'],
+  gastos: ['lancamento', 'visao', 'contexto-gastos'],
+  kanban: ['quadro'],
+};
 
 export interface MirrorRow {
   tipo: TipoDoEspelho;
@@ -222,6 +235,73 @@ function checkContextoGastos(c: Record<string, unknown>): ContextoGastosV1 {
   return { envelopes: envs as ContextoGastosV1['envelopes'], pessoas: people as ContextoGastosV1['pessoas'], meses: c['meses'] as string[] };
 }
 
+const ID_RE = /^[\w-]{1,64}$/;
+
+/** O quadro v1 tem a forma certa? Só os campos da v1 entram, e cada cartão numa coluna que existe. */
+function checkQuadro(q: Record<string, unknown>, id: string): QuadroV1 {
+  const cols = q['colunas'];
+  const cards = q['cartoes'];
+  const colOk = (c: Record<string, unknown>) =>
+    !!c &&
+    isStr(c['id'], 64) &&
+    ID_RE.test(c['id']) &&
+    isStr(c['nome'], NOME_DA_COLUNA_MAX) &&
+    typeof c['finaliza'] === 'boolean' &&
+    typeof c['pula'] === 'boolean' &&
+    isStrOrNull(c['ordem'], 400) &&
+    Number.isInteger(c['cartoes']);
+  const ok =
+    isStr(q['id'], 64) &&
+    q['id'] === id &&
+    isStr(q['grupo'], 32) &&
+    !!q['grupo'].trim() &&
+    typeof q['so_no_kanban'] === 'boolean' &&
+    Array.isArray(cols) &&
+    cols.length >= 1 &&
+    cols.length <= COLUNAS_MAX &&
+    cols.every(colOk) &&
+    Array.isArray(cards) &&
+    cards.length <= CARTOES_MAX &&
+    isIso(q['versao']);
+  if (!ok) throw bad(`O quadro "${String(q['id']).slice(0, 64)}" não tem a forma da v1.`);
+  const colIds = new Set((cols as { id: string }[]).map((c) => c.id));
+  const cardOk = (c: Record<string, unknown>) =>
+    !!c &&
+    isStr(c['nota'], 64) &&
+    ID_RE.test(c['nota']) &&
+    isStr(c['titulo'], 200) &&
+    typeof c['coluna'] === 'string' &&
+    colIds.has(c['coluna']) &&
+    Number.isInteger(c['posicao']) &&
+    typeof c['finalizada'] === 'boolean' &&
+    (c['importancia'] === null || (IMPORTANCIAS as readonly unknown[]).includes(c['importancia'])) &&
+    isStrOrNull(c['status'], STATUS_MAX) &&
+    strList(c['depende_de'], DEPENDENCIAS_MAX, 64) &&
+    typeof c['no_mural'] === 'boolean' &&
+    strList(c['tags'], 12, 32);
+  if (colIds.size !== cols.length || !cards.every(cardOk)) throw bad(`O quadro "${id}" não tem a forma da v1.`);
+  const v = q as unknown as QuadroV1;
+  return {
+    id: v.id,
+    grupo: v.grupo,
+    so_no_kanban: v.so_no_kanban,
+    colunas: v.colunas.map((c) => ({ id: c.id, nome: c.nome, finaliza: c.finaliza, pula: c.pula, ordem: c.ordem, cartoes: c.cartoes })),
+    cartoes: v.cartoes.map((c) => ({
+      nota: c.nota,
+      titulo: c.titulo,
+      coluna: c.coluna,
+      posicao: c.posicao,
+      finalizada: c.finalizada,
+      importancia: c.importancia,
+      status: c.status,
+      depende_de: c.depende_de,
+      no_mural: c.no_mural,
+      tags: c.tags,
+    })),
+    versao: v.versao,
+  };
+}
+
 /**
  * Lê um envio ao espelho: `{rev, fuso?, poe: [{tipo, id, hash, dados}], tira: [{tipo, id}]}`, com no
  * máximo `ESPELHO_POR_ENVIO` itens ao todo, só dos tipos das áreas pedidas.
@@ -264,6 +344,11 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
     if (item['tipo'] === 'visao') {
       const v = checkVisao(dados, item['id']);
       return { tipo: 'visao', id: item['id'], versao: null, hash: item['hash'], grupo: null, data: v.mes, busca: null, dados: JSON.stringify(v) };
+    }
+    if (item['tipo'] === 'quadro') {
+      const q = checkQuadro(dados, item['id']);
+      // o grupo sem acento, como o das notas: o limite de grupos da chave vale igual para o quadro
+      return { tipo: 'quadro', id: q.id, versao: q.versao, hash: item['hash'], grupo: dobra(q.grupo), data: null, busca: dobra(q.grupo), dados: JSON.stringify(q) };
     }
     if (item['tipo'] === 'contexto-gastos') {
       if (item['id'] !== CONTEXTO_GASTOS) throw bad('O contexto dos Gastos tem o id "gastos".');
