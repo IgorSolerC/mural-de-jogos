@@ -242,6 +242,8 @@ export class SettingsPage {
   protected readonly exporting = signal(false);
   protected readonly importing = signal(false);
   protected readonly accountMsg = signal<string | null>(null);
+  /** Disse sim a apagar a conta e falta confirmar com o login do Google (o botão do Google na linha). */
+  protected readonly deleteStep = signal(false);
 
   protected readonly DownloadIcon = ICON.baixar;
   protected readonly UploadIcon = ICON.enviar;
@@ -703,33 +705,43 @@ export class SettingsPage {
     await this.accountAction('sair-todos', async () => void (await this.sync.signOut(true, await this.liveKeys())));
   }
 
+  /**
+   * Apagar a conta, a pergunta: com o sim, a linha mostra o botão do Google, porque só a sessão daqui não
+   * basta (ver `confirmDelete` e o `DELETE /v1/eu`). Toda conta espera 7 dias, com o "Não apagar".
+   */
   protected async deleteAccount(name: string, code: string, vault: boolean): Promise<void> {
     const sure = await this.confirm.ask({
       title: 'Apagar a conta?',
       text:
-        `A conta de ${name}, o código ${code} e tudo o que estiver na nuvem vão embora, e quem segue você deixa de seguir. ` +
-        'O mural sai deste navegador também: baixe um backup antes, se quiser guardar. Não dá para desfazer.' +
-        // quem pode ter cofre de senhas fica sabendo antes que ele vai junto, e da espera (ver core/cloud-account.ts)
-        (vault ? ' Se você tem um cofre de senhas, ele vai junto, e a conta só sai daqui a 7 dias (até lá, dá para cancelar). Para apagar já, apague o cofre antes, nos Ajustes do cofre.' : ''),
-      confirm: 'Apagar a conta',
+        `A conta de ${name}, o código ${code} e tudo o que estiver na nuvem` +
+        // quem pode ter cofre de senhas fica sabendo antes que ele vai junto
+        (vault ? ', com o cofre de senhas, se você tiver um,' : '') +
+        ' vão embora daqui a 7 dias, e quem segue você deixa de seguir. Até lá, a conta continua funcionando e dá para cancelar. ' +
+        'No dia, o mural sai também dos aparelhos onde você entrou: baixe um backup antes, se quiser guardar. ' +
+        'Para confirmar, entre de novo com o Google.',
+      confirm: 'Continuar',
     });
+    if (sure) {
+      this.accountMsg.set(null);
+      this.deleteStep.set(true);
+    }
+  }
+
+  /** O login do Google que confirma o apagar: a nuvem marca a conta para sair em 7 dias. */
+  protected async confirmDelete(credential: string): Promise<void> {
     let until = null as string | null;
-    const waiting = !!this.account.account()?.apagarEm;
-    if (sure && (await this.accountAction('apagar', async () => void (until = await this.account.deleteAccount())))) {
-      // já marcada e o cofre ainda lá: o "Apagar já" só vale depois de apagar o cofre
-      if (until && waiting) {
-        this.toasts.show('O cofre de senhas ainda existe. Apague o cofre antes, nos Ajustes do cofre, e peça de novo.');
-        return;
-      }
+    if (await this.accountAction('apagar', async () => void (until = await this.account.deleteAccount(credential)))) {
+      this.deleteStep.set(false);
       if (until) {
-        this.toasts.show(`A conta sai em ${eraseDayLabel(until)}, com o cofre de senhas. Até lá, dá para cancelar.`);
+        this.toasts.show(`A conta sai em ${eraseDayLabel(until)}. Até lá, dá para cancelar.`);
         return;
       }
+      // uma nuvem antiga, que apagava na hora
       this.sync.forgetAccount();
     }
   }
 
-  /** Desmarca o apagar da conta com cofre. */
+  /** Desmarca o apagar da conta. */
   protected async cancelDelete(): Promise<void> {
     if (await this.accountAction('cancelar-apagar', () => this.account.cancelDelete())) {
       this.toasts.show('Pronto: a conta não vai mais ser apagada.');

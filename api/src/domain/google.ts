@@ -5,6 +5,8 @@ import { HttpError } from '../errors';
 export interface GoogleIdentity {
   sub: string;
   givenName: string | null;
+  /** Quando o Google fez o login (o `iat`): confirmar o apagar da conta pede um de agora há pouco. */
+  issuedAt?: Date;
 }
 
 export type VerifyGoogle = (credential: string) => Promise<GoogleIdentity>;
@@ -30,7 +32,8 @@ export function googleVerifier(clientId: string, keys: JWTVerifyGetKey): VerifyG
       const sub = payload.sub;
       if (typeof sub !== 'string' || !/^[0-9A-Za-z_-]{1,255}$/.test(sub)) throw new Error('sub inválido');
       const givenName = typeof payload['given_name'] === 'string' ? payload['given_name'] : null;
-      return { sub, givenName };
+      const issuedAt = typeof payload.iat === 'number' ? new Date(payload.iat * 1000) : undefined;
+      return { sub, givenName, ...(issuedAt ? { issuedAt } : {}) };
     } catch {
       throw new HttpError(401, 'login-invalido', 'Não consegui confirmar o login com o Google. Tente entrar de novo.');
     }

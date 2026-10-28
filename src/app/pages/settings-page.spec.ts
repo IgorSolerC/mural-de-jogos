@@ -1,11 +1,13 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { BehaviorSubject } from 'rxjs';
 import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Settings } from '../core/settings';
 import { Confirm } from '../ui/confirm';
+import { GoogleButton } from '../ui/google-button';
 import { Toasts } from '../ui/toast';
 import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { SettingsPage } from './settings-page';
@@ -425,26 +427,31 @@ describe('Ajustes: trocar o código', () => {
   });
 });
 
-describe('Ajustes: apagar a conta com cofre de senhas', () => {
+describe('Ajustes: apagar a conta (login do Google de novo e 7 dias)', () => {
   const API = 'https://api.teste';
   const AT = '2026-10-30T15:00:00.000Z';
-  let calls: { url: string; method: string }[];
+  let calls: { url: string; method: string; body: string | null }[];
   /** A conta está marcada para sair na nuvem. */
   let marked: string | null;
+  /** A resposta do DELETE /v1/eu (sem ela, marca). */
+  let refuse: Response | null;
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
   async function open(start: string | null) {
     marked = start;
+    refuse = null;
     localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, ...(start ? { apagarEm: start } : {}) }));
     calls = [];
+    // o botão do Google sem o script de verdade (nada sai para accounts.google.com)
+    window.google = { accounts: { id: { initialize: () => undefined, renderButton: () => undefined } } };
     spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
       const path = String(url).replace(API, '');
       const method = init?.method ?? 'GET';
-      calls.push({ url: path, method });
+      calls.push({ url: path, method, body: typeof init?.body === 'string' ? init.body : null });
       if (path === '/v1/eu' && method === 'GET') return json({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, ...(marked ? { apagarEm: marked } : {}) });
-      if (path === '/v1/eu' && method === 'DELETE') return json({ ok: true, apagarEm: (marked ??= AT) }, 202);
+      if (path === '/v1/eu' && method === 'DELETE') return refuse ?? json({ ok: true, apagarEm: (marked ??= AT) }, 202);
       if (path === '/v1/eu/cancelar-apagar' && method === 'POST') {
         marked = null;
         return json({ ok: true });
@@ -472,44 +479,83 @@ describe('Ajustes: apagar a conta com cofre de senhas', () => {
     await settle();
     const row = () => [...el.querySelectorAll<HTMLElement>('.grupo.cuidado .linha')].find((l) => l.textContent!.includes('Apagar a conta'))!;
     const button = (text: string) => [...row().querySelectorAll<HTMLButtonElement>('button')].find((b) => b.textContent!.trim().endsWith(text));
-    return { el, row, button, settle };
+    /** O botão do Google da linha, se estiver na tela. */
+    const google = () => fixture.debugElement.query(By.directive(GoogleButton))?.componentInstance as GoogleButton | undefined;
+    /** A pessoa escolhe a conta no botão do Google. */
+    const signInWithGoogle = async (credential: string) => {
+      (google() as unknown as { credential: { emit(c: string): void } }).credential.emit(credential);
+      await settle();
+      await settle();
+    };
+    return { el, row, button, google, signInWithGoogle, settle };
   }
 
   beforeEach(() => localStorage.clear());
-  afterEach(() => localStorage.clear());
+  afterEach(() => {
+    localStorage.clear();
+    delete window.google;
+  });
 
-  it('a pergunta avisa da espera e do cofre; com o sim, a conta fica marcada e a sessão continua', async () => {
-    const { row, button, settle } = await open(null);
+  it('a pergunta avisa da espera; o sim pede o login do Google, e só com ele a conta fica marcada', async () => {
+    const { row, button, google, signInWithGoogle, settle } = await open(null);
     expect(button('Não apagar')).toBeUndefined();
+    expect(google()).withContext('sem o botão do Google antes de pedir').toBeUndefined();
     button('Apagar')!.click();
     await settle();
     const confirm = TestBed.inject(Confirm);
-    expect(confirm.current()?.text).toContain('a conta só sai daqui a 7 dias');
+    expect(confirm.current()?.text).toContain('vão embora daqui a 7 dias');
+    expect(confirm.current()?.text).toContain('com o cofre de senhas, se você tiver um');
+    expect(confirm.current()?.text).toContain('entre de novo com o Google');
     confirm.current()?.resolve('confirm');
     await settle();
     await settle();
-    expect(calls.filter((c) => c.method === 'DELETE').length).toBe(1);
-    expect(TestBed.inject(Toasts).current()?.text).toBe('A conta sai em 30 de outubro, com o cofre de senhas. Até lá, dá para cancelar.');
+    // o sim sozinho não pede nada à nuvem: falta o login do Google
+    expect(calls.filter((c) => c.method === 'DELETE').length).toBe(0);
+    expect(row().textContent).toContain('Para confirmar, entre com a mesma conta do Google');
+    expect(google()).toBeDefined();
+    await signInWithGoogle('login-de-agora');
+    const deletes = calls.filter((c) => c.method === 'DELETE');
+    expect(deletes.length).toBe(1);
+    expect(JSON.parse(deletes[0]!.body!)).toEqual({ credential: 'login-de-agora' });
+    expect(TestBed.inject(Toasts).current()?.text).toBe('A conta sai em 30 de outubro. Até lá, dá para cancelar.');
     expect(localStorage.getItem(SESSION_KEY)).withContext('a sessão fica').not.toBeNull();
     expect(row().textContent).toContain('Marcada para sair em 30 de outubro');
-    expect(button('Apagar já')).toBeDefined();
+    expect(google()).toBeUndefined();
+    // marcada, não há "Apagar já": só o "Não apagar"
+    expect(button('Apagar')).toBeUndefined();
+    expect(button('Não apagar')).toBeDefined();
   });
 
-  it('marcada: "Não apagar" desmarca; "Apagar já" com o cofre ainda lá diz para apagar o cofre antes', async () => {
-    const { row, button, settle } = await open(AT);
-    expect(row().textContent).toContain('Marcada para sair em 30 de outubro');
-    button('Apagar já')!.click();
+  it('o login de outra conta Google: o erro fica na linha, com o botão do Google para tentar de novo; Voltar sai', async () => {
+    const { row, button, google, signInWithGoogle, settle } = await open(null);
+    button('Apagar')!.click();
     await settle();
     TestBed.inject(Confirm).current()?.resolve('confirm');
     await settle();
     await settle();
-    expect(TestBed.inject(Toasts).current()?.text).toContain('O cofre de senhas ainda existe');
+    refuse = json({ erro: 'outra-conta-google', mensagem: 'Esse login do Google é de outra conta.' }, 403);
+    await signInWithGoogle('login-de-outra-conta');
+    expect(row().querySelector('.msg.erro')?.textContent).toContain('Esse login do Google é de outra conta.');
+    expect(google()).toBeDefined();
+    expect(localStorage.getItem(SESSION_KEY)).withContext('o 403 não derruba a sessão').not.toBeNull();
+    button('Voltar')!.click();
+    await settle();
+    expect(google()).toBeUndefined();
+    expect(row().querySelector('.msg.erro')).toBeNull();
+    expect(button('Apagar')).toBeDefined();
+  });
+
+  it('marcada: "Não apagar" desmarca', async () => {
+    const { row, button, settle } = await open(AT);
+    expect(row().textContent).toContain('Marcada para sair em 30 de outubro');
+    expect(button('Apagar')).toBeUndefined();
     button('Não apagar')!.click();
     await settle();
     await settle();
     expect(calls.some((c) => c.url === '/v1/eu/cancelar-apagar' && c.method === 'POST')).toBeTrue();
     expect(row().textContent).not.toContain('Marcada para sair');
     expect(button('Não apagar')).toBeUndefined();
+    expect(button('Apagar')).toBeDefined();
   });
 });
 

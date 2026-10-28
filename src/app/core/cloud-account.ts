@@ -22,8 +22,8 @@ export interface CloudAccountInfo {
   /** Pode usar a API das AIs (o código está em API_CODIGOS)? Vem do /v1/eu; só mostra a parte Acessos dos Ajustes. */
   api?: boolean;
   /**
-   * A conta está marcada para sair nesta hora (ISO): ela tem cofre de senhas, e apagar espera 7 dias, com
-   * o aviso no topo e o Cancelar (ver `deleteAccount`).
+   * A conta está marcada para sair nesta hora (ISO): apagar espera 7 dias, com o aviso no topo e o
+   * "Não apagar" (ver `deleteAccount`).
    */
   apagarEm?: string;
 }
@@ -251,12 +251,13 @@ export class CloudAccount {
   }
 
   /**
-   * Apaga a conta. Sem cofre de senhas, ela sai na hora e a sessão daqui vai junto (devolve null). Com
-   * cofre, a nuvem só marca a conta para sair em 7 dias: a sessão continua, com o aviso e o Cancelar
-   * (devolve quando ela sai).
+   * Pede para apagar a conta, com o `credential` de um login do Google de agora, da mesma conta (só a
+   * sessão daqui não basta). A nuvem só marca a conta para sair em 7 dias: a sessão continua, com o aviso
+   * e o "Não apagar" (devolve quando ela sai). Uma nuvem antiga, que apagava na hora, devolve sem a data:
+   * a sessão daqui vai junto (devolve null).
    */
-  async deleteAccount(): Promise<string | null> {
-    const res = await this.request<{ apagarEm?: unknown } | null>('/v1/eu', { method: 'DELETE' });
+  async deleteAccount(credential: string): Promise<string | null> {
+    const res = await this.request<{ apagarEm?: unknown } | null>('/v1/eu', { method: 'DELETE', body: { credential } });
     if (typeof res?.apagarEm === 'string') {
       // marcada para sair em 7 dias (não apagada): mesmo que a sessão daqui tenha caído no meio
       const account = this.account();
@@ -267,7 +268,7 @@ export class CloudAccount {
     return null;
   }
 
-  /** Desmarca o apagar da conta (a que tem cofre e esperava os 7 dias). */
+  /** Desmarca o apagar da conta (que esperava os 7 dias). */
   async cancelDelete(): Promise<void> {
     await this.request('/v1/eu/cancelar-apagar', { method: 'POST' });
     const account = this.account();

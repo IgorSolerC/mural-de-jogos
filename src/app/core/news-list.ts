@@ -26,11 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-analises',
+    id: '2026-10-28-apagar-a-conta',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
     title: 'O texto formatado, o Google Agenda, as anotações compartilhadas e a API',
+    melhorias: [
+      'Apagar a conta pede para entrar de novo com o Google, com a mesma conta, e toda conta (não só a com cofre de senhas) espera 7 dias para sair, com o aviso no topo e o "Não apagar"; o "Apagar já" saiu.',
+    ],
     correcoes: [
       'Um texto longo cheio de marcas sem par (como "**" ou "((" repetidos), um "[[" sem fecho ou um widget sem o "}}" não trava mais a página; e milhares de marcas escapadas numa linha (como "\\*") aparecem como foram escritas, sem virar outros sinais.',
       'O marca-texto da busca não pinta mais o trecho escondido de um spoiler, que aparecia por baixo dele.',

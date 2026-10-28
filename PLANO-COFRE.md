@@ -1715,6 +1715,14 @@ cuja proteção (8.6) não tinha sido feita.
   minutos) continuava valendo e criava um cofre preso a uma conta que não existe mais, para sempre no
   banco (e um cofre criado entre a pergunta e o apagar ficava igual). Com a conta já fora, ninguém
   entra de novo com ela; se o cofre não responder, a conta já saiu e fica só a linha no log.
+- **Toda conta espera, e com o login do Google** (28/10, decisão do usuário numa revisão): só o token da
+  sessão (roubado por um XSS, por exemplo) ainda apagava na hora uma conta sem cofre, sem volta. Agora o
+  `DELETE /v1/eu` pede no corpo o `credential` de um login do Google feito há no máximo 10 minutos, da
+  mesma conta (o mesmo `sub`; `confirmByGoogle` em `api/src/domain/erase.ts`: 400 `sem-credencial`, 403
+  `confirmar-invalido`, `outra-conta-google` ou `confirmar-antigo`, nunca 401, que derrubaria a sessão), e
+  toda conta, com ou sem cofre, fica marcada para sair em 7 dias, com o aviso e o "Não apagar". Não há
+  mais "Apagar já" (nem depois de apagar o cofre lá dentro): quem apaga é só a limpeza diária. O pedido
+  também não pergunta mais ao cofre (o 503 do pedido saiu; a limpeza continua perguntando).
 
 
 ### 17.20 As senhas em quadro, como o Kanban (23/10)

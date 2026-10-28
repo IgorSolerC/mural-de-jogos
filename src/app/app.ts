@@ -549,7 +549,7 @@ export class App {
     }
   }
 
-  /** A conta (com cofre de senhas) marcada para sair: quando, para o aviso do topo. */
+  /** A conta marcada para sair: quando, para o aviso do topo. */
   protected readonly erasing = computed(() => (this.account.signedIn() ? (this.account.account()?.apagarEm ?? null) : null));
   protected readonly cancelingErase = signal(false);
   protected readonly eraseDayLabel = eraseDayLabel;

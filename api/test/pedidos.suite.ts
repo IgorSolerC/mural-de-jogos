@@ -8,7 +8,7 @@ import { googleVerifier } from '../src/domain/google';
 import { PER_KEY_DAY } from '../src/domain/requests';
 import { utcDay } from '../src/domain/quota';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, gzip, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, gzip, jsonCaller, eraseNow } from './harness';
 
 /**
  * Escrever nas Anotações (PLANO-API.md, rodada 3): a chave pede, a nuvem guarda o pedido e mostra a
@@ -340,7 +340,7 @@ export function pedidosSuite(label: string, getDb: () => Db) {
       const k = await t.newKey(again.token);
       await t.json('POST', '/v1/eu/espelho', { rev: 1, poe: [] }, again.token);
       await t.ai(k.segredo, 'POST', '/ext/v1/notas', { titulo: 'Duas' });
-      expect((await t.json('DELETE', '/v1/eu', undefined, again.token)).status).toBe(200);
+      await eraseNow(t.deps, again.token);
       expect((await t.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM api_pedidos'))!.n).toBe(0);
     });
   });

@@ -7,7 +7,7 @@ import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
 import { MIRROR_ROWS_PER_DAY } from '../src/domain/mirror';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, gzip, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, gzip, jsonCaller, eraseNow } from './harness';
 
 /**
  * O espelho e a leitura das Anotações (PLANO-API.md, rodada 2): o site enche o espelho pela sessão,
@@ -198,7 +198,7 @@ export function espelhoSuite(label: string, getDb: () => Db) {
       await t.newKey(me.token);
       expect((await t.mirror(me.token, { rev: 1, poe: [t.item(NOTAS[0]!)] })).status).toBe(200);
       expect(await count()).toBe(1);
-      expect((await t.json('DELETE', '/v1/eu', undefined, me.token)).status).toBe(200);
+      await eraseNow(t.deps, me.token);
       expect(await count()).toBe(0);
     });
   });

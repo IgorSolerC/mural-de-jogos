@@ -8,7 +8,7 @@ import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } fr
 import { MAX_REACTIONS_PER_DAY } from '../src/routes/reactions';
 import { MAX_COMMENTS_LISTED, MAX_COMMENTS_PER_DAY } from '../src/routes/comments';
 import { Config, Db, Deps, SqlValue } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, eraseNow } from './harness';
 
 /**
  * Seguir, o correio (aba Amigos) e a gravação do mural, com mais detalhe que `suite.ts`: limites,
@@ -377,7 +377,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const cris = await login('cris', 'Cris');
         await follow(cris.token, ana.codigo);
         await unfollow(cris.token, ana.codigo);
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         expect(await db.all('SELECT 1 FROM seguindo_desfeito')).toEqual([]);
       });
 
@@ -497,12 +497,12 @@ export function amigosSuite(label: string, getDb: () => Db) {
       });
 
       it('a pessoa seguida apaga a conta: some do correio e da lista de quem eu sigo', async () => {
-        const { json, follow, push, feed, people, advance, ana, bia } = await two();
+        const { deps, json, follow, push, feed, people, advance, ana, bia } = await two();
         await follow(bia.token, ana.codigo);
         await follow(ana.token, bia.codigo);
         advance(1000);
         await push(ana.token, 0, { novas: [review('res0001')] });
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         expect((await feed(bia.token)).body.itens).toEqual([]);
         const p = await people(bia.token);
         expect(p.seguindo).toEqual([]);
@@ -934,9 +934,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
       });
 
       it('apagar a conta leva as reações que ela deu', async () => {
-        const { react, list, json, db, ana, bia } = await reacting();
+        const { deps, react, list, json, db, ana, bia } = await reacting();
         await react(bia.token, ana.codigo, 'r-hades', 'fogo');
-        expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
+        await eraseNow(deps, bia.token);
         expect((await list(ana.codigo)).body.reacoes).toEqual({});
         // e os freios dela (as reações dadas no dia)
         expect(await db.all('SELECT 1 FROM freios WHERE usuario_id = ?', [bia.id])).toEqual([]);
@@ -945,9 +945,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
       });
 
       it('apagar a conta leva as reações que ela recebeu (e os avisos delas)', async () => {
-        const { react, json, db, ana, bia } = await reacting();
+        const { deps, react, json, db, ana, bia } = await reacting();
         await react(bia.token, ana.codigo, 'r-hades', 'fogo');
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         const left = await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes', []);
         expect(left?.n).toBe(0);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'reagiu'")).toEqual([]);
@@ -1419,7 +1419,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
       });
 
       it('apagar a conta leva o que ela escreveu, o que escreveram nas fichas dela e as reações de tudo isso', async () => {
-        const { db, comment, thread, react, follow, json, notices, ana, bia, caio } = await commenting();
+        const { deps, db, comment, thread, react, follow, json, notices, ana, bia, caio } = await commenting();
         const fromBia = (await comment(bia.token, ana.codigo, 'r-hades', 'Da Bia.')).body.comentario.id;
         const fromCaio = (await comment(caio.token, ana.codigo, 'r-hades', 'Do Caio.')).body.comentario.id;
         await follow(ana.token, bia.codigo);
@@ -1428,7 +1428,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         await react(bia.token, fromCaio, 'fogo');
         await react(caio.token, fromBia, 'rindo');
 
-        expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
+        await eraseNow(deps, bia.token);
         const left = (await thread(ana.codigo, 'r-hades')).body.comentarios;
         expect(left.map((k: any) => k.texto)).toEqual(['Do Caio.']);
         expect(left[0].reacoes.map((r: any) => r.nome)).toEqual(['Ana']);
@@ -1436,26 +1436,26 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const count = async (table: string) => (await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`, []))?.n;
         expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([1, 1]);
 
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([0, 0]);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'comentou'")).toEqual([]);
       });
 
       it('apagar a conta leva os avisos de resposta entre os outros nas fichas dela (com o código e o título dela)', async () => {
-        const { db, comment, reply, json, answers, ana, bia, caio } = await commenting();
+        const { deps, db, comment, reply, json, answers, ana, bia, caio } = await commenting();
         const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
         await reply(caio.token, ana.codigo, 'r-hades', root, 'Concordo.');
         expect(await answers(bia.token)).toHaveLength(1);
         // um resumo que não é JSON (de antes, ou estragado) não quebra a limpeza
         await db.batch([{ sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('respondeu', ?, ?, 'r-x', 'não é json', ?)", params: [caio.id, bia.id, NOW.toISOString()] }]);
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         // (o de mentira, sem a resposta que o daria, não aparece no correio, mas continua no banco)
         expect(await answers(bia.token)).toEqual([]);
         expect(await db.all("SELECT ref FROM atividades WHERE tipo = 'respondeu'")).toEqual([{ ref: 'r-x' }]);
       });
 
       it('apagar a conta leva o lugar apagado que ficava só pela resposta dela', async () => {
-        const { db, comment, reply, erase, thread, json, ana, bia, caio } = await commenting();
+        const { deps, db, comment, reply, erase, thread, json, ana, bia, caio } = await commenting();
         const root = (await comment(caio.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
         await reply(bia.token, ana.codigo, 'r-hades', root, 'Concordo.');
         // e outro, que continua com a resposta de outra pessoa
@@ -1464,7 +1464,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         await reply(ana.token, ana.codigo, 'r-hades', kept, 'Da Ana.');
         expect((await erase(caio.token, root)).body).toEqual({ ok: true, apagado: true });
         expect((await erase(caio.token, kept)).body).toEqual({ ok: true, apagado: true });
-        expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
+        await eraseNow(deps, bia.token);
         const left = (await thread(ana.codigo, 'r-hades')).body.comentarios;
         expect(left.map((k: any) => [k.id === kept, k.apagado ?? false, k.texto])).toEqual([
           [true, true, ''],

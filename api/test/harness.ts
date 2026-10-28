@@ -1,4 +1,7 @@
+import { eraseAccount } from '../src/domain/erase';
 import { VerifyGoogle } from '../src/domain/google';
+import { hashToken } from '../src/domain/session';
+import { Deps } from '../src/ports';
 
 /** O que as duas suítes (`suite.ts` e `amigos.suite.ts`) usam igual. */
 
@@ -37,4 +40,14 @@ export function jsonCaller(call: (path: string, init?: RequestInit) => Response 
       headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
+}
+
+/**
+ * Apaga a conta de quem tem este token como a limpeza diária apaga, depois dos 7 dias (o DELETE /v1/eu só
+ * marca: o pedido e a espera são conferidos em `suite.ts`). Para os testes do que sai junto com a conta.
+ */
+export async function eraseNow(deps: Deps, token: string): Promise<void> {
+  const row = await deps.db.first<{ usuario_id: string }>('SELECT usuario_id FROM sessoes WHERE hash = ?', [await hashToken(token)]);
+  if (!row) throw new Error('a sessão não existe');
+  await eraseAccount(deps, row.usuario_id);
 }

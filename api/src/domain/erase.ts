@@ -1,18 +1,23 @@
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { revokeAgenda } from './agenda';
+import { GoogleIdentity } from './google';
 import { DAY_MS, write } from './quota';
 
 /**
- * Apagar a conta (o `DELETE /v1/eu` e a limpeza diária). Com cofre de senhas, a conta não sai na hora
- * (ameaça 23 do PLANO-COFRE.md): quem roubou o token do Murall apagaria o cofre junto, ou o deixaria
- * para trás, preso ao id da conta que sumiu. Ela fica marcada para sair em `ERASE_DAYS` dias, com o
- * aviso no site e o Cancelar; na hora, só depois de a pessoa apagar o cofre lá dentro (o que pede o
- * cofre aberto). Quando a conta sai, o cofre vai antes: se ele falhar, a conta fica para a próxima vez.
+ * Apagar a conta (o `DELETE /v1/eu` e a limpeza diária). Só o token da sessão não basta: quem o roubou
+ * (um XSS, por exemplo) apagaria a conta, e com ela o cofre de senhas (ameaça 23 do PLANO-COFRE.md).
+ * Por isso o pedido leva o login do Google de agora há pouco, da mesma conta (`confirmByGoogle`), e mesmo
+ * assim a conta não sai na hora: toda conta, com ou sem cofre, fica marcada para sair em `ERASE_DAYS`
+ * dias, com o aviso no site e o "Não apagar". Quem apaga é a limpeza diária (`eraseDue`); com cofre, ele
+ * vai antes, e se falhar a conta fica para a próxima vez.
  */
 
-/** Quantos dias a conta com cofre espera para sair. */
+/** Quantos dias a conta espera para sair. */
 export const ERASE_DAYS = 7;
+
+/** Até quanto tempo depois do login do Google ele ainda confirma o apagar (o Google o faz valer 1 hora). */
+export const CONFIRM_MAX_AGE_MS = 10 * 60_000;
 
 /** Os comentários de uma conta que vai embora: os que ela escreveu e os das fichas dela (dois parâmetros, o id duas vezes). */
 const COMMENTS_OF = 'SELECT id FROM comentarios WHERE autor_id = ? OR dono_id = ?';
@@ -41,6 +46,34 @@ export async function hasVault(deps: Deps, userId: string): Promise<boolean> {
   }
 }
 
+/**
+ * Confere o login do Google que confirma o apagar: válido, da mesma conta (o mesmo `sub`) e feito há no
+ * máximo `CONFIRM_MAX_AGE_MS` (um antigo, guardado de outra vez, não serve). Um login que não confere é
+ * 403, e não 401: este não é um problema da sessão, que continua valendo.
+ */
+export async function confirmByGoogle(deps: Deps, userId: string, credential: unknown): Promise<void> {
+  if (typeof credential !== 'string' || !credential || credential.length > 8_192) {
+    throw new HttpError(400, 'sem-credencial', 'Para apagar a conta, confirme com o login do Google.');
+  }
+  let google: GoogleIdentity;
+  try {
+    google = await deps.verifyGoogle(credential);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 401) {
+      throw new HttpError(403, 'confirmar-invalido', 'Não consegui confirmar o login com o Google. Tente de novo.');
+    }
+    throw error;
+  }
+  const row = await deps.db.first<{ google_sub: string }>('SELECT google_sub FROM usuarios WHERE id = ?', [userId]);
+  if (!row || row.google_sub !== google.sub) {
+    throw new HttpError(403, 'outra-conta-google', 'Esse login do Google é de outra conta. Entre com a mesma conta com que você usa o Murall.');
+  }
+  const age = google.issuedAt ? deps.now().getTime() - google.issuedAt.getTime() : Infinity;
+  if (!(age <= CONFIRM_MAX_AGE_MS)) {
+    throw new HttpError(403, 'confirmar-antigo', 'Esse login do Google é de antes. Entre de novo com o Google para confirmar.');
+  }
+}
+
 /** Marca a conta para sair daqui a `ERASE_DAYS` dias (pedir de novo não adia) e devolve quando. */
 export async function scheduleErase(deps: Deps, userId: string): Promise<string> {
   const at = new Date(deps.now().getTime() + ERASE_DAYS * DAY_MS).toISOString();
@@ -57,7 +90,10 @@ export async function cancelErase(deps: Deps, userId: string): Promise<void> {
   await write(deps, [{ sql: 'UPDATE usuarios SET apagar_em = NULL WHERE id = ? AND apagar_em IS NOT NULL', params: [userId] }], 3, { ignoreBudget: true });
 }
 
-/** Apaga a conta e tudo dela (o cofre antes, se ela tiver um; sem cofre, o que sobrar lá depois, `sweepVault`). */
+/**
+ * Apaga a conta e tudo dela (o cofre antes, se ela tiver um; sem cofre, o que sobrar lá depois, `sweepVault`).
+ * Só a limpeza diária chama, depois dos `ERASE_DAYS` dias.
+ */
 export async function eraseAccount(deps: Deps, id: string, vault = false): Promise<void> {
   if (vault) {
     try {
@@ -138,9 +174,9 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
 }
 
 /**
- * Sem cofre, a conta sai na hora, mas o cofre ainda pode ter algo do id dela: a sessão de entrada (até 20
- * minutos, a de criar) com que a pessoa ainda criaria um cofre preso a uma conta que não existe mais, ou
- * um cofre criado entre a pergunta e o apagar. Com a conta já fora (ninguém entra mais no cofre com ela),
+ * Sem cofre, a conta sai sem passar por ele, mas o cofre ainda pode ter algo do id dela: a sessão de entrada
+ * (até 20 minutos, a de criar) com que a pessoa ainda criaria um cofre preso a uma conta que não existe mais,
+ * ou um cofre criado entre a pergunta e o apagar. Com a conta já fora (ninguém entra mais no cofre com ela),
  * o cofre leva o que tiver dela. Se ele não responder, a conta já saiu: fica só a linha no log.
  */
 async function sweepVault(deps: Deps, id: string): Promise<void> {

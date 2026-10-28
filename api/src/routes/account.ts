@@ -9,7 +9,7 @@ import { vaultAllowed } from '../domain/vault';
 import { apiAllowed } from '../domain/api-key';
 import { refuseOpen } from './keys';
 import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
-import { cancelErase, eraseAccount, hasVault, scheduleErase } from '../domain/erase';
+import { cancelErase, confirmByGoogle, scheduleErase } from '../domain/erase';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -116,7 +116,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       cofre: await vaultAllowed(deps, user.codigo),
       // pode usar a API das AIs (API_CODIGOS)? Só mostra a parte Acessos dos Ajustes
       api: apiAllowed(deps, user.codigo),
-      // marcada para sair (ver o DELETE): o site mostra o aviso com o Cancelar
+      // marcada para sair (ver o DELETE): o site mostra o aviso com o "Não apagar"
       ...(user.apagar_em ? { apagarEm: user.apagar_em } : {}),
     });
   });
@@ -193,13 +193,14 @@ export function accountRoutes(app: Hono, deps: Deps): void {
     return c.json({ codigo: formatCode(code) });
   });
 
-  // Apagar a conta. Com cofre de senhas, ela só fica marcada para sair em 7 dias (202, com `apagarEm`),
-  // com o aviso no site e o Cancelar; sem cofre (ou depois de apagá-lo lá dentro), sai na hora. Ver domain/erase.ts.
+  // Apagar a conta: o corpo leva o login do Google de agora há pouco, da mesma conta (`{"credential": …}`;
+  // só o token da sessão, roubado, não basta), e mesmo assim ela só fica marcada para sair em 7 dias (202,
+  // com `apagarEm`), com o aviso no site e o "Não apagar". Quem apaga é a limpeza diária. Ver domain/erase.ts.
   app.delete('/v1/eu', async (c) => {
     const s = await session(c);
-    if (await hasVault(deps, s.userId)) return c.json({ ok: true, apagarEm: await scheduleErase(deps, s.userId) }, 202);
-    await eraseAccount(deps, s.userId);
-    return c.json({ ok: true });
+    const body = await readJson(c);
+    await confirmByGoogle(deps, s.userId, body['credential']);
+    return c.json({ ok: true, apagarEm: await scheduleErase(deps, s.userId) }, 202);
   });
 
   // Cancelar o apagar marcado (qualquer sessão da conta).

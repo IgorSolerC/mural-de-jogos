@@ -6,7 +6,7 @@ import { googleVerifier } from '../src/domain/google';
 import { MAX_MEMBERS, MAX_NOTES_PER_USER, MAX_NOTE_CHARS, structureOf } from '../src/domain/shared-note';
 import { MAX_SHARES_PER_DAY, MIN_EDIT_MS } from '../src/routes/notes';
 import { Config, Db, Deps, SqlValue } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, jsonCaller, eraseNow } from './harness';
 
 /**
  * As anotações compartilhadas (migração 0011): os papéis (dono, gestor, editor, leitor), a vez de
@@ -81,7 +81,7 @@ export function notasSuite(label: string, getDb: () => Db) {
     const details = async (token: string, ids: string[]) =>
       (await res(json('GET', `/v1/eu/notas/detalhes?ids=${ids.join(',')}`, undefined, token))).body.notas as any[];
     const feed = async (token: string) => (await res(json('GET', '/v1/eu/notificacoes', undefined, token))).body;
-    return { db, app, call, json, res, login, share, put, setRole, drop, index, details, feed, advance };
+    return { db, deps, app, call, json, res, login, share, put, setRole, drop, index, details, feed, advance };
   }
 
   /** Ana (dona), Bia e Cris. */
@@ -605,9 +605,9 @@ export function notasSuite(label: string, getDb: () => Db) {
       });
 
       it('a dona apaga a conta: as anotações dela somem para todos', async () => {
-        const { share, index, res, json, db, ana, bia } = await three();
+        const { deps, share, index, db, ana, bia } = await three();
         await share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'editor' }]);
-        expect((await res(json('DELETE', '/v1/eu', undefined, ana.token))).status).toBe(200);
+        await eraseNow(deps, ana.token);
         expect(await index(bia.token)).toEqual([]);
         expect(await db.all('SELECT * FROM notas')).toEqual([]);
         expect(await db.all('SELECT * FROM nota_membros')).toEqual([]);
@@ -615,13 +615,13 @@ export function notasSuite(label: string, getDb: () => Db) {
       });
 
       it('uma pessoa apaga a conta: sai das anotações dos outros, e eles veem a lista nova', async () => {
-        const { share, index, details, res, json, ana, bia, cris } = await three();
+        const { deps, share, index, details, ana, bia, cris } = await three();
         await share(ana.token, 'nota-1', [
           { codigo: bia.codigo, papel: 'editor' },
           { codigo: cris.codigo, papel: 'leitor' },
         ]);
         const before = (await index(ana.token))[0]!.versao;
-        await res(json('DELETE', '/v1/eu', undefined, bia.token));
+        await eraseNow(deps, bia.token);
         expect((await index(ana.token))[0]?.versao).toBe(before + 1);
         const [d] = await details(ana.token, ['nota-1']);
         expect(d.membros.map((m: any) => m.nome)).toEqual(['Cris']);

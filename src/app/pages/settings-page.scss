@@ -942,6 +942,19 @@ fieldset.linha,
   gap: 8px;
 }
 
+/* o botão do Google que confirma o apagar a conta, com o Voltar embaixo */
+.confirmar-google {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  width: 100%;
+  max-width: 320px;
+
+  app-google-button {
+    width: 100%;
+  }
+}
+
 /* ===== Backup ===== */
 .acoes-backup {
   display: flex;

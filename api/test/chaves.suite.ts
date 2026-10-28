@@ -9,7 +9,7 @@ import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
 import { hashToken } from '../src/domain/session';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, jsonCaller, eraseNow } from './harness';
 
 /**
  * As chaves de API (PLANO-API.md, rodada 1): criar, listar, mudar e apagar com a sessão do site; o
@@ -336,7 +336,7 @@ export function chavesSuite(label: string, getDb: () => Db) {
       expect((await t.body(marked)).mensagem).toContain('marcada para sair');
       await t.db.batch([{ sql: 'UPDATE usuarios SET apagar_em = NULL WHERE id = ?', params: [me.id] }]);
       expect((await t.ext(body.segredo)).status).toBe(200);
-      expect((await t.json('DELETE', '/v1/eu', undefined, me.token)).status).toBe(200);
+      await eraseNow(t.deps, me.token);
       expect(await t.keyRows(me.id)).toHaveLength(0);
       expect((await t.ext(body.segredo)).status).toBe(401);
     });

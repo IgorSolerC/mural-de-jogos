@@ -9,7 +9,7 @@ import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, open, 
 import { googleVerifier } from '../src/domain/google';
 import { MAX_CALLS, MAX_OPS, forgetAgendaAccess } from '../src/routes/agenda';
 import { Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
+import { BASE_ENV, NOW, TABLES, jsonCaller, eraseNow } from './harness';
 
 /**
  * O Google Agenda do Calendário (migração 0013): ligar (o endereço do Google, o código trocado pela
@@ -38,12 +38,13 @@ describe('o Google Agenda', () => {
   let google: (call: Call) => Response;
   let json: ReturnType<typeof jsonCaller>;
   let logged: string[];
+  let deps: Deps;
 
   const reply = (status: number, body: unknown = {}) => new Response(status === 204 ? null : JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
   function build(env: Record<string, string> = ENV) {
     const config = readConfig(env);
-    const deps: Deps = {
+    deps = {
       db,
       config,
       now: () => NOW,
@@ -456,7 +457,7 @@ describe('o Google Agenda', () => {
     await connect(token);
     google = () => reply(200);
     calls = [];
-    expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
+    await eraseNow(deps, token);
     expect(await db.first('SELECT 1 AS x FROM agenda_google')).toBeNull();
     const revoke = calls.find((c) => c.url.startsWith(GOOGLE_REVOKE_URL))!;
     // a permissão vai no corpo, nunca no endereço
@@ -470,7 +471,7 @@ describe('o Google Agenda', () => {
     google = () => {
       throw new Error('sem rede');
     };
-    expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
+    await eraseNow(deps, token);
     expect(await db.first('SELECT 1 AS x FROM usuarios')).toBeNull();
     expect(logged.some((l) => l.includes('devolver a permissão'))).toBe(true);
   });

@@ -187,14 +187,14 @@ describe('conta na nuvem', () => {
     expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull();
   });
 
-  it('apagar com cofre marca a conta mesmo se a sessão daqui caiu no meio (não diz que apagou)', async () => {
+  it('apagar marca a conta mesmo se a sessão daqui caiu no meio (não diz que apagou)', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
     const net = heldFetch();
     const account = setup();
     await settle();
     await net.answer(json({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
-    const deleting = account.deleteAccount();
+    const deleting = account.deleteAccount('login-do-google');
     account.forget();
     await net.answer(json({ ok: true, apagarEm: '2026-10-30T15:00:00.000Z' }, 202));
     expect(await deleting).toBe('2026-10-30T15:00:00.000Z');
@@ -241,32 +241,36 @@ describe('conta na nuvem', () => {
     expect(account.account()?.codigo).toBe('ABCD-1234');
   });
 
-  it('apagar a conta sai dela neste navegador', async () => {
+  it('uma nuvem antiga, que apaga a conta na hora: sai dela neste navegador', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
     const calls = fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor' }), json({ ok: true }));
     const account = setup();
     await settle();
-    await account.deleteAccount();
+    await account.deleteAccount('login-do-google');
     expect(calls.at(-1)!.init.method).toBe('DELETE');
     expect(account.signedIn()).toBeFalse();
   });
 
-  it('com cofre de senhas, apagar só marca a conta: a sessão fica, com a data, e cancelar desmarca', async () => {
+  it('apagar leva o login do Google e só marca a conta: a sessão fica, com a data, e cancelar desmarca', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
-    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));
     const at = '2026-10-30T15:00:00.000Z';
-    const calls = fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }), json({ ok: true, apagarEm: at }, 202), json({ ok: true }));
+    const calls = fakeFetch(json({ codigo: 'K7QF-M2XA', nome: 'Igor' }), json({ ok: true, apagarEm: at }, 202), json({ ok: true }));
     const account = setup();
     await settle();
-    expect(await account.deleteAccount()).toBe(at);
+    expect(await account.deleteAccount('login-do-google')).toBe(at);
+    expect(calls.at(-1)!.url).toBe(`${API}/v1/eu`);
+    expect(calls.at(-1)!.init.method).toBe('DELETE');
+    // só a sessão daqui não basta: o login do Google de agora vai no corpo
+    expect(JSON.parse(calls.at(-1)!.init.body as string)).toEqual({ credential: 'login-do-google' });
     expect(account.signedIn()).toBeTrue();
     expect(account.account()?.apagarEm).toBe(at);
     expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).apagarEm).toBe(at);
     await account.cancelDelete();
     expect(calls.at(-1)!.url).toBe(`${API}/v1/eu/cancelar-apagar`);
     expect(calls.at(-1)!.init.method).toBe('POST');
-    expect(account.account()).toEqual({ codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true });
+    expect(account.account()).toEqual({ codigo: 'K7QF-M2XA', nome: 'Igor' });
     expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!)).not.toEqual(jasmine.objectContaining({ apagarEm: jasmine.anything() }));
   });
 

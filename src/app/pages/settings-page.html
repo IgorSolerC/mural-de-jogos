@@ -281,7 +281,8 @@
                 </p>
               </div>
             }
-            @if (accountMsg(); as m) {
+            <!-- o erro de confirmar o apagar aparece na linha dele, junto do botão do Google -->
+            @if (deleteStep() ? null : accountMsg(); as m) {
               <p class="msg erro" role="alert">{{ m }}</p>
             }
           </div>
@@ -300,17 +301,20 @@
                   </button>
                 </div>
               </div>
-              <div class="linha">
+              <!-- toda conta espera 7 dias para sair, e o pedido pede o login do Google de novo (ver core/cloud-account.ts) -->
+              @let confirming = deleteStep() && !acc.apagarEm;
+              <div class="linha" [class.larga]="confirming">
                 <div class="linha-texto">
                   <p class="linha-titulo">Apagar a conta</p>
                   @if (acc.apagarEm) {
-                    <!-- com cofre de senhas, a conta espera 7 dias para sair (ver core/cloud-account.ts) -->
-                    <p class="linha-desc">
-                      Marcada para sair em {{ eraseDayLabel(acc.apagarEm) }}, com o cofre de senhas. Para apagar já, apague o cofre antes, nos Ajustes do
-                      cofre, e peça de novo.
-                    </p>
+                    <p class="linha-desc">Marcada para sair em {{ eraseDayLabel(acc.apagarEm) }}. Até lá, a conta continua funcionando e dá para cancelar.</p>
+                  } @else if (confirming) {
+                    <p class="linha-desc">Para confirmar, entre com a mesma conta do Google. A conta sai daqui a 7 dias, e até lá dá para cancelar.</p>
+                    @if (accountMsg(); as m) {
+                      <p class="msg erro" role="alert">{{ m }}</p>
+                    }
                   } @else {
-                    <p class="linha-desc">Tira da nuvem a conta, o código e tudo o que está lá. O mural deste navegador fica.</p>
+                    <p class="linha-desc">Tira da nuvem a conta, o código e tudo o que está lá, 7 dias depois do pedido. Até lá, dá para cancelar.</p>
                   }
                 </div>
                 <div class="acoes">
@@ -318,11 +322,21 @@
                     <button type="button" class="btn-papel" (click)="cancelDelete()" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'cancelar-apagar'">
                       {{ accountBusy() === 'cancelar-apagar' ? 'Cancelando…' : 'Não apagar' }}
                     </button>
+                  } @else if (confirming) {
+                    <div class="confirmar-google">
+                      @if (accountBusy() === 'apagar') {
+                        <p class="linha-desc entrando" role="status"><span class="carregando" aria-hidden="true"></span>Confirmando…</p>
+                      } @else {
+                        <app-google-button [clientId]="cfg.googleClientId" (credential)="confirmDelete($event)" />
+                      }
+                      <button type="button" class="btn-quiet" (click)="deleteStep.set(false); accountMsg.set(null)" [disabled]="!!accountBusy()">Voltar</button>
+                    </div>
+                  } @else {
+                    <button type="button" class="btn-papel perigo" (click)="deleteAccount(acc.nome, acc.codigo, !!acc.cofre)" [disabled]="!!accountBusy()">
+                      <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
+                      Apagar
+                    </button>
                   }
-                  <button type="button" class="btn-papel perigo" (click)="deleteAccount(acc.nome, acc.codigo, !!acc.cofre)" [disabled]="!!accountBusy()" [appBusy]="accountBusy() === 'apagar'">
-                    <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
-                    {{ accountBusy() === 'apagar' ? 'Apagando…' : acc.apagarEm ? 'Apagar já' : 'Apagar' }}
-                  </button>
                 </div>
               </div>
             </div>

@@ -8,7 +8,7 @@ import { write } from '../src/domain/quota';
 import { accountByGoogle } from '../src/domain/vault';
 import { toBytes } from '../src/routes/mural';
 import { Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, noGoogle } from './harness';
+import { BASE_ENV, NOW, TABLES, eraseNow, gunzip, gzip, jsonCaller, noGoogle } from './harness';
 
 /**
  * A mesma suíte roda em dois bancos: o D1 (simulado pelo Miniflare, `workers.test.ts`) e o SQLite do
@@ -458,42 +458,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect(await db.first('SELECT nome FROM usuarios')).toEqual({ nome: 'x'.repeat(40) });
       });
 
-      it('apagar a conta tira tudo dela e só dela', async () => {
-        const { login, json, db } = await setup();
-        const mine = (await login({ sub: 'eu' })).body;
-        const other = (await login({ sub: 'outro' })).body;
-        const ids = await db.all<{ id: string; google_sub: string }>('SELECT id, google_sub FROM usuarios');
-        const me = ids.find((u) => u.google_sub === 'eu')!.id;
-        const them = ids.find((u) => u.google_sub === 'outro')!.id;
-        await db.batch([
-          { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
-          { sql: "INSERT INTO murais_publicos VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
-          { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
-          { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [me, them] },
-          { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [them, me] },
-          { sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, '2026-10-06')", params: [them, me] },
-          { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r1', '2026-10-06')", params: [me] },
-          { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r2', '2026-10-06')", params: [them] },
-        ]);
-        expect((await json('DELETE', '/v1/eu', undefined, mine.token)).status).toBe(200);
-        expect(await db.all('SELECT google_sub FROM usuarios')).toEqual([{ google_sub: 'outro' }]);
-        expect(await db.all('SELECT usuario_id FROM sessoes')).toEqual([{ usuario_id: them }]);
-        expect(await db.all('SELECT usuario_id FROM murais')).toEqual([{ usuario_id: them }]);
-        expect(await db.all('SELECT * FROM murais_publicos')).toHaveLength(0);
-        expect(await db.all('SELECT * FROM seguindo')).toHaveLength(0);
-        expect(await db.all('SELECT ref FROM atividades')).toEqual([{ ref: 'r2' }]);
-        expect((await json('GET', '/v1/eu', undefined, other.token)).status).toBe(200);
-      });
-
-      it('apagar a conta funciona mesmo com a cota do dia esgotada', async () => {
-        const { login, json, db, deps } = await setup();
-        const { token } = (await login()).body;
-        await db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = ?', params: [deps.config.dailyRowBudget] }]);
-        expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
-        expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
-      });
-
-      describe('apagar a conta com cofre de senhas', () => {
+      describe('apagar a conta', () => {
         const DAY = 86_400_000;
         /** O cofre de mentira: quem tem cofre, e os cofres apagados (`falha`: o cofre não responde). */
         function fakeVault(withVault: string[] = []) {
@@ -513,31 +478,106 @@ export function apiSuite(label: string, getDb: () => Db) {
           return { state, vault };
         }
 
-        async function comCofre() {
+        /** A conta "eu", o cofre de mentira (com o cofre dela só com `vault`), e a API e a limpeza daqui a `days` dias. */
+        async function account(o: { vault?: boolean } = {}) {
           const ctx = await setup();
           const mine = (await ctx.login({ sub: 'eu' })).body;
-          const { state, vault } = fakeVault([mine.conta.id]);
+          const { state, vault } = fakeVault(o.vault ? [mine.conta.id] : []);
           const at = (days: number) => ({ ...ctx.deps, vault, now: () => new Date(NOW.getTime() + days * DAY) });
-          const json = (days = 0) => jsonCaller((path, init) => createApp(at(days)).request(`https://api.teste${path}`, init));
-          return { ...ctx, mine, state, vault, at, api: json };
+          const api = (days = 0) => jsonCaller((path, init) => createApp(at(days)).request(`https://api.teste${path}`, init));
+          /** O login do Google feito `days` dias depois de NOW, que confirma o apagar. */
+          const confirmation = (days = 0, t: TokenOptions = {}) => googleToken({ sub: 'eu', issuedAt: new Date(NOW.getTime() + days * DAY), ...t });
+          /** Pede para apagar a conta, com o login do Google de agora. */
+          const erase = async (days = 0, token: string = mine.token) => api(days)('DELETE', '/v1/eu', { credential: await confirmation(days) }, token);
+          return { ...ctx, mine, state, vault, at, api, confirmation, erase };
         }
 
-        it('com cofre, a conta não sai: fica marcada para daqui a 7 dias, e pedir de novo não adia', async () => {
-          const { api, mine, db, state } = await comCofre();
-          const res = await api()('DELETE', '/v1/eu', undefined, mine.token);
+        it('só o token da sessão não apaga: pede o login do Google de agora, da mesma conta', async () => {
+          const { api, mine, db, confirmation, login } = await account();
+          await login({ sub: 'outro' });
+          const tries: [unknown, number, string][] = [
+            [undefined, 400, 'sem-credencial'],
+            [{}, 400, 'sem-credencial'],
+            [{ credential: '' }, 400, 'sem-credencial'],
+            [{ credential: 'x'.repeat(9_000) }, 400, 'sem-credencial'],
+            // uma assinatura que não é do Google, um login feito para outro site, e o de outra conta Google
+            [{ credential: await confirmation(0, { key: 'outra' }) }, 403, 'confirmar-invalido'],
+            [{ credential: await confirmation(0, { aud: 'outro.apps.googleusercontent.com' }) }, 403, 'confirmar-invalido'],
+            [{ credential: await confirmation(0, { sub: 'outro' }) }, 403, 'outra-conta-google'],
+            // um login antigo (o de quando entrou, guardado), da mesma conta e ainda dentro da hora do Google
+            [{ credential: await confirmation(-11 / 1440) }, 403, 'confirmar-antigo'],
+          ];
+          for (const [body, status, erro] of tries) {
+            const res = await api()('DELETE', '/v1/eu', body, mine.token);
+            expect(res.status).toBe(status);
+            expect(((await res.json()) as any).erro).toBe(erro);
+          }
+          expect(await db.all('SELECT apagar_em FROM usuarios WHERE apagar_em IS NOT NULL')).toEqual([]);
+          // o login que não confere não derruba a sessão (um 401 limparia o navegador)
+          expect((await api()('GET', '/v1/eu', undefined, mine.token)).status).toBe(200);
+          // sem a sessão, nem com o login do Google
+          expect((await api()('DELETE', '/v1/eu', { credential: await confirmation() })).status).toBe(401);
+          // o de 9 minutos atrás ainda vale
+          expect((await api()('DELETE', '/v1/eu', { credential: await confirmation(-9 / 1440) }, mine.token)).status).toBe(202);
+        });
+
+        it('sem cofre também: a conta fica marcada para daqui a 7 dias, continua funcionando, e pedir de novo não adia', async () => {
+          const { mine, db, state, api, erase } = await account();
+          const res = await erase();
           expect(res.status).toBe(202);
           const apagarEm = new Date(NOW.getTime() + 7 * DAY).toISOString();
           expect(await res.json()).toEqual({ ok: true, apagarEm });
-          expect(state.erased).toEqual([]);
           expect(await db.first('SELECT apagar_em FROM usuarios')).toEqual({ apagar_em: apagarEm });
+          expect(state.erased).toEqual([]);
           // a conta continua funcionando, com o aviso
           expect(((await (await api()('GET', '/v1/eu', undefined, mine.token)).json()) as any).apagarEm).toBe(apagarEm);
-          expect(await (await api(2)('DELETE', '/v1/eu', undefined, mine.token)).json()).toEqual({ ok: true, apagarEm });
+          expect(await (await erase(2)).json()).toEqual({ ok: true, apagarEm });
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+        });
+
+        it('a limpeza tira tudo dela e só dela quando a hora passa', async () => {
+          const { login, db, mine, at, api, erase } = await account();
+          const other = (await login({ sub: 'outro' })).body;
+          const ids = await db.all<{ id: string; google_sub: string }>('SELECT id, google_sub FROM usuarios');
+          const me = ids.find((u) => u.google_sub === 'eu')!.id;
+          const them = ids.find((u) => u.google_sub === 'outro')!.id;
+          await db.batch([
+            { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
+            { sql: "INSERT INTO murais_publicos VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
+            { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
+            { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [me, them] },
+            { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [them, me] },
+            { sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, '2026-10-06')", params: [them, me] },
+            { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r1', '2026-10-06')", params: [me] },
+            { sql: "INSERT INTO atividades (tipo, autor_id, ref, criado_em) VALUES ('resenha', ?, 'r2', '2026-10-06')", params: [them] },
+          ]);
+          expect((await erase()).status).toBe(202);
+          await cleanup(at(6.9));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(2);
+          await cleanup(at(7));
+          expect(await db.all('SELECT google_sub FROM usuarios')).toEqual([{ google_sub: 'outro' }]);
+          expect(await db.all('SELECT usuario_id FROM sessoes')).toEqual([{ usuario_id: them }]);
+          expect(await db.all('SELECT usuario_id FROM murais')).toEqual([{ usuario_id: them }]);
+          expect(await db.all('SELECT * FROM murais_publicos')).toHaveLength(0);
+          expect(await db.all('SELECT * FROM seguindo')).toHaveLength(0);
+          expect(await db.all('SELECT ref FROM atividades')).toEqual([{ ref: 'r2' }]);
+          expect((await api(7)('GET', '/v1/eu', undefined, other.token)).status).toBe(200);
+          expect((await api(7)('GET', '/v1/eu', undefined, mine.token)).status).toBe(401);
+        });
+
+        it('pedir e apagar funcionam mesmo com a cota do dia esgotada', async () => {
+          const { db, deps, at, erase } = await account();
+          const exhaust = () => db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = ?', params: [deps.config.dailyRowBudget] }]);
+          await exhaust();
+          expect((await erase()).status).toBe(202);
+          await exhaust();
+          await cleanup(at(8));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
         });
 
         it('cancelar tira a marca, e a limpeza não apaga mais', async () => {
-          const { api, mine, at, db, state } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const { api, mine, at, db, state, erase } = await account({ vault: true });
+          await erase();
           expect(await (await api(1)('POST', '/v1/eu/cancelar-apagar', undefined, mine.token)).json()).toEqual({ ok: true });
           expect(await (await api(1)('GET', '/v1/eu', undefined, mine.token)).json()).not.toHaveProperty('apagarEm');
           await cleanup(at(8));
@@ -546,46 +586,38 @@ export function apiSuite(label: string, getDb: () => Db) {
           expect((await api()('POST', '/v1/eu/cancelar-apagar')).status).toBe(401);
         });
 
-        it('a limpeza apaga a conta quando a hora passa, com o cofre antes', async () => {
-          const { api, mine, at, db, state, login } = await comCofre();
-          const other = (await login({ sub: 'outro' })).body;
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
-          await cleanup(at(6.9));
-          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(2);
+        it('com cofre, o pedido não mexe no cofre, e a limpeza o apaga antes da conta', async () => {
+          const { mine, at, db, state, erase } = await account({ vault: true });
+          expect((await erase()).status).toBe(202);
+          expect(state.erased).toEqual([]);
           await cleanup(at(7));
           expect(state.erased).toEqual([mine.conta.id]);
-          expect(await db.all('SELECT google_sub FROM usuarios')).toEqual([{ google_sub: 'outro' }]);
-          expect((await api(7)('GET', '/v1/eu', undefined, other.token)).status).toBe(200);
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
         });
 
-        it('o cofre fora do ar: a limpeza deixa a conta para o dia seguinte, e o pedido responde 503 sem apagar', async () => {
-          const { api, mine, at, db, state } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
+        it('apagar o cofre lá dentro não adianta o dia: a conta espera do mesmo jeito', async () => {
+          const { db, state, erase } = await account({ vault: true });
+          await erase();
+          state.has.clear();
+          expect((await erase(1)).status).toBe(202);
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+        });
+
+        it('o cofre fora do ar: o pedido marca do mesmo jeito, e a limpeza deixa a conta para o dia seguinte', async () => {
+          const { mine, at, db, state, erase } = await account({ vault: true });
           state.falha = true;
+          expect((await erase()).status).toBe(202);
           await cleanup(at(8));
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
-          const res = await api(8)('DELETE', '/v1/eu', undefined, mine.token);
-          expect(res.status).toBe(503);
-          expect(await res.json()).toMatchObject({ erro: 'cofre-indisponivel' });
           state.falha = false;
           await cleanup(at(9));
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
           expect(state.erased).toEqual([mine.conta.id]);
         });
 
-        it('depois de apagar o cofre lá dentro, a conta sai na hora (mesmo já marcada)', async () => {
-          const { api, mine, db, state } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
-          state.has.clear();
-          expect(await (await api(1)('DELETE', '/v1/eu', undefined, mine.token)).json()).toEqual({ ok: true });
-          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
-          // sem cofre, ele é chamado só depois de a conta sair, para levar o que sobrou (as sessões de lá)
-          expect(state.erased).toEqual([mine.conta.id]);
-        });
-
         it('"Não apagar" funciona mesmo com a cota do dia esgotada', async () => {
-          const { api, mine, at, db, deps, state } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const { api, mine, at, db, deps, state, erase } = await account({ vault: true });
+          await erase();
           await db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = ?', params: [deps.config.dailyRowBudget] }]);
           expect((await api()('POST', '/v1/eu/cancelar-apagar', undefined, mine.token)).status).toBe(200);
           await cleanup(at(8));
@@ -594,8 +626,8 @@ export function apiSuite(label: string, getDb: () => Db) {
         });
 
         it('o "Não apagar" que chega enquanto a limpeza pergunta ao cofre vale: a conta fica', async () => {
-          const { api, mine, at, db, state, vault } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const { api, mine, at, db, state, vault, erase } = await account({ vault: true });
+          await erase();
           const has = vault.has;
           vault.has = async (id: string) => {
             await api(8)('POST', '/v1/eu/cancelar-apagar', undefined, mine.token);
@@ -607,8 +639,8 @@ export function apiSuite(label: string, getDb: () => Db) {
         });
 
         it('a faxina do dia que falha não segura as contas marcadas', async () => {
-          const { api, mine, at, db, state } = await comCofre();
-          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const { mine, at, db, state, erase } = await account({ vault: true });
+          await erase();
           const broken: Db = {
             first: (sql, params) => db.first(sql, params),
             all: (sql, params) => db.all(sql, params),
@@ -620,22 +652,18 @@ export function apiSuite(label: string, getDb: () => Db) {
           expect(state.erased).toEqual([mine.conta.id]);
         });
 
-        it('sem cofre, sai na hora, como antes', async () => {
-          const { login, deps, db } = await setup();
-          const { token, conta } = (await login()).body;
-          const { state, vault } = fakeVault();
-          const res = await jsonCaller((path, init) => createApp({ ...deps, vault }).request(`https://api.teste${path}`, init))('DELETE', '/v1/eu', undefined, token);
-          expect(await res.json()).toEqual({ ok: true });
+        it('sem cofre, depois de a conta sair o cofre leva o que tiver do id dela', async () => {
+          const { mine, at, db, state, erase } = await account();
+          await erase();
+          await cleanup(at(8));
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
-          // depois de a conta sair, o cofre leva o que tiver do id dela (a sessão de entrada de quem estava
-          // criando um cofre, ou um cofre criado entre a pergunta e o apagar)
-          expect(state.erased).toEqual([conta.id]);
+          // a sessão de entrada de quem estava criando um cofre, ou um cofre criado entre a pergunta e o apagar
+          expect(state.erased).toEqual([mine.conta.id]);
         });
 
-        it('sem cofre, a conta sai na hora mesmo com o cofre fora do ar depois (o que sobrou lá fica no log)', async () => {
-          const { login, deps, db } = await setup();
-          const { token } = (await login()).body;
-          const { state, vault } = fakeVault();
+        it('sem cofre, a conta sai mesmo com o cofre fora do ar depois (o que sobrou lá fica no log)', async () => {
+          const { at, db, state, vault, erase } = await account();
+          await erase();
           let perguntou = false;
           const has = vault.has;
           vault.has = async (id: string) => {
@@ -644,9 +672,8 @@ export function apiSuite(label: string, getDb: () => Db) {
             state.falha = true;
             return r;
           };
-          const res = await jsonCaller((path, init) => createApp({ ...deps, vault }).request(`https://api.teste${path}`, init))('DELETE', '/v1/eu', undefined, token);
+          await cleanup(at(8));
           expect(perguntou).toBe(true);
-          expect(await res.json()).toEqual({ ok: true });
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
         });
       });
@@ -983,10 +1010,10 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
 
       it('apagar a conta tira quem ela segue, quem a segue e os avisos', async () => {
-        const { json, db, ana, bia } = await two();
+        const { json, db, deps, ana, bia } = await two();
         await json('POST', '/v1/seguindo', { codigo: ana.conta.codigo }, bia.token);
         await json('POST', '/v1/seguindo', { codigo: bia.conta.codigo }, ana.token);
-        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        await eraseNow(deps, ana.token);
         expect(await db.all('SELECT 1 FROM seguindo')).toEqual([]);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu'")).toEqual([]);
       });
