@@ -160,6 +160,8 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem('mural-de-jogos:resenhas:v1', '[]');
     localStorage.setItem('meu-mural:gastos:v1', '{"entries":[]}');
     localStorage.setItem('meu-mural:agenda-google:v1', '{"conta":"conta-ela"}');
+    // a volta do Google Agenda que ficou esperando (public/google.js): um código de permissão
+    localStorage.setItem('meu-mural:google-retorno', '{"tipo":"murall-google","codigo":"4/abc","estado":"xyz","erro":""}');
     localStorage.setItem('outro-site:coisa', 'fica');
     await openDb(DATA_DB);
     // a sessão acabou (401): a conta sai daqui, e a limpeza é pedida como no Sair

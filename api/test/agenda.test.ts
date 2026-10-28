@@ -229,8 +229,7 @@ describe('o Google Agenda', () => {
     // os convidados não passam: o Murall só escreve o que é dele
     expect(body.attendees).toBeUndefined();
     expect(body).toEqual({ id: 'mu0002', summary: 'Bolo', start: { date: '2026-10-20' }, end: { date: '2026-10-21' }, status: 'confirmed', recurrence: ['RRULE:FREQ=YEARLY'], colorId: '4' });
-    // um evento que não serve, ou um id inventado, recusa o pedido
-    expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'criar', id: 'mu0005', evento: { summary: 'x' } }] }, token)).status).toBe(400);
+    // um id inventado recusa o pedido
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'apagar', id: 'X!' }] }, token)).status).toBe(400);
   });
 
@@ -325,7 +324,8 @@ describe('o Google Agenda', () => {
     const sent = calls.filter((c) => c.method === 'PATCH').map((c) => JSON.parse(c.body).reminders);
     expect(sent).toEqual([{ useDefault: false, overrides: [] }, { useDefault: true }]);
     const bad = { ...base, reminders: { useDefault: false, overrides: [{ method: 'sms', minutes: 10 }] } };
-    expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0003', evento: bad }] }, token)).status).toBe(400);
+    const refused = (await (await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0003', evento: bad }] }, token)).json()) as { resultados: unknown[] };
+    expect(refused.resultados).toEqual([{ id: 'mu0003', ok: false, erro: 'recusado' }]);
     const list = (await (await json('GET', '/v1/agenda/eventos', undefined, token)).json()) as { eventos: Record<string, unknown>[] };
     expect(list.eventos[0]!['reminders']).toEqual({ useDefault: false });
     expect(new URL(calls.find((c) => c.method === 'GET' && c.url.startsWith(CALENDAR_URL))!.url).searchParams.get('fields')).toContain('reminders');
@@ -369,6 +369,69 @@ describe('o Google Agenda', () => {
     expect((await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'voltar', id: 'mu0001' }] }, token)).status).toBe(400);
   });
 
+  it('um lembrete que não vira evento válido é recusado sozinho: as outras mudanças da ida vão', async () => {
+    const token = await login();
+    await connect(token);
+    google = (c) => (c.method === 'POST' ? reply(200, { etag: '"n"' }) : reply(500));
+    calls = [];
+    const good = { summary: 'Bolo', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } };
+    // um "todo dia" com dias tirados demais: a linha do EXDATE passa do limite
+    const long = { ...good, recurrence: ['RRULE:FREQ=DAILY', `EXDATE;VALUE=DATE:${Array.from({ length: 500 }, () => '20261020').join(',')}`] };
+    const r = await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'criar', id: 'mu0001', evento: good }, { acao: 'criar', id: 'mu0002', evento: long }, { acao: 'criar', id: 'mu0003', evento: good }] }, token);
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { resultados: unknown[] }).resultados).toEqual([
+      { id: 'mu0001', ok: true, etag: '"n"', updated: null, htmlLink: null },
+      { id: 'mu0002', ok: false, erro: 'recusado' },
+      { id: 'mu0003', ok: true, etag: '"n"', updated: null, htmlLink: null },
+    ]);
+    expect(calls.filter((c) => c.url === CALENDAR_URL).length).toBe(2);
+  });
+
+  it('a busca do zero traz também os apagados (os que sumiram do Google enquanto o site não lia)', async () => {
+    const token = await login();
+    await connect(token);
+    google = () => reply(200, { items: [{ id: 'evento1', status: 'cancelled' }], nextSyncToken: 's' });
+    calls = [];
+    const r = (await (await json('GET', '/v1/agenda/eventos', undefined, token)).json()) as { eventos: Record<string, unknown>[] };
+    expect(r.eventos.map((e) => [e['id'], e['status']])).toEqual([['evento1', 'cancelled']]);
+    expect(new URL(calls[0]!.url).searchParams.get('showDeleted')).toBe('true');
+  });
+
+  it('o client secret errado (invalid_client) não desliga a agenda de ninguém', async () => {
+    const token = await login();
+    await connect(token);
+    forgetAgendaAccess();
+    google = (c) => (c.url === GOOGLE_TOKEN_URL ? reply(401, { error: 'invalid_client' }) : reply(500));
+    const r = await json('GET', '/v1/agenda/eventos', undefined, token);
+    expect(r.status).toBe(502);
+    expect(await db.first('SELECT 1 AS x FROM agenda_google')).not.toBeNull();
+    expect(logged.some((l) => l.includes('invalid_client'))).toBe(true);
+    // e o 400 que não é invalid_grant também não
+    google = (c) => (c.url === GOOGLE_TOKEN_URL ? reply(400, { error: 'invalid_request' }) : reply(500));
+    expect((await json('GET', '/v1/agenda/eventos', undefined, token)).status).toBe(502);
+    expect(await db.first('SELECT 1 AS x FROM agenda_google')).not.toBeNull();
+  });
+
+  it('o acesso guardado é da ligação: desligada ou ligada de novo por outro Worker, ele não vale mais', async () => {
+    const token = await login();
+    await connect(token);
+    google = (c) => (c.url === GOOGLE_TOKEN_URL ? reply(200, { access_token: 'acesso-novo', expires_in: 3600 }) : reply(200, { items: [], nextSyncToken: 's' }));
+    calls = [];
+    // o acesso da ligação (acesso-1) ainda vale, e só uma leitura do banco por chamada
+    expect((await json('GET', '/v1/agenda/eventos', undefined, token)).status).toBe(200);
+    expect(calls.map((c) => c.auth)).toEqual(['Bearer acesso-1']);
+    // desligada noutro Worker (o banco sem a ligação): nada vai ao Google com o acesso velho
+    const row = await db.first<{ usuario_id: string; refresh: string }>('SELECT usuario_id, refresh FROM agenda_google');
+    await db.batch([{ sql: 'DELETE FROM agenda_google' }]);
+    calls = [];
+    expect((await json('GET', '/v1/agenda/eventos', undefined, token)).status).toBe(409);
+    expect(calls).toEqual([]);
+    // ligada de novo noutro Worker (outra ligação): o acesso é renovado com a permissão nova
+    await db.batch([{ sql: 'INSERT INTO agenda_google (usuario_id, refresh, conectada_em) VALUES (?, ?, ?)', params: [row!.usuario_id, row!.refresh, '2026-10-28T00:00:00.000Z'] }]);
+    expect((await json('GET', '/v1/agenda/eventos', undefined, token)).status).toBe(200);
+    expect(calls.filter((c) => c.url.startsWith(CALENDAR_URL)).map((c) => c.auth)).toEqual(['Bearer acesso-novo']);
+  });
+
   it('a permissão tirada no Google: a agenda fica desligada; desligar devolve a permissão ao Google', async () => {
     const token = await login();
     await connect(token);
@@ -382,7 +445,9 @@ describe('o Google Agenda', () => {
     google = () => reply(200);
     expect((await json('DELETE', '/v1/agenda', undefined, token)).status).toBe(200);
     const revoke = calls.find((c) => c.url.startsWith(GOOGLE_REVOKE_URL))!;
-    expect(new URL(revoke.url).searchParams.get('token')).toBe('renova-1');
+    // a permissão vai no corpo, nunca no endereço
+    expect(revoke.url).toBe(GOOGLE_REVOKE_URL);
+    expect(new URLSearchParams(revoke.body).get('token')).toBe('renova-1');
     expect(await db.first('SELECT 1 AS x FROM agenda_google')).toBeNull();
   });
 
@@ -394,7 +459,9 @@ describe('o Google Agenda', () => {
     expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
     expect(await db.first('SELECT 1 AS x FROM agenda_google')).toBeNull();
     const revoke = calls.find((c) => c.url.startsWith(GOOGLE_REVOKE_URL))!;
-    expect(new URL(revoke.url).searchParams.get('token')).toBe('renova-1');
+    // a permissão vai no corpo, nunca no endereço
+    expect(revoke.url).toBe(GOOGLE_REVOKE_URL);
+    expect(new URLSearchParams(revoke.body).get('token')).toBe('renova-1');
   });
 
   it('o Google fora não impede apagar a conta', async () => {

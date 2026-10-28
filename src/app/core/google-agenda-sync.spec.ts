@@ -4,7 +4,7 @@ import { Reminder } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
 import { GEvent, eventIdFor } from './google-agenda';
-import { GoogleAgenda, refusalMessage } from './google-agenda-sync';
+import { GoogleAgenda, RETURN_KEY, refusalMessage } from './google-agenda-sync';
 import { ReviewStore } from './review-store';
 
 /**
@@ -32,6 +32,8 @@ describe('o Google Agenda ligado ao Calendário', () => {
   let calendar: CalendarStore;
   let fake: FakeCalendar;
   let connected: boolean;
+  /** Os códigos do Google entregues à API (a volta de ligar). */
+  let retornos: string[];
 
   const reminder = (id: string, title: string, over: Partial<Reminder> = {}): Reminder => ({ id, title, date: '2026-10-20', color: 'rosa', notes: [], skip: [], createdAt: T0, at: T0, ...over });
 
@@ -42,6 +44,14 @@ describe('o Google Agenda ligado ao Calendário', () => {
     if (url.pathname === '/v1/agenda' && init.method === 'DELETE') {
       connected = false;
       return { ok: true };
+    }
+    if (url.pathname === '/v1/agenda/conectar') return { url: 'https://accounts.google.com/o/oauth2/v2/auth?state=s1' };
+    if (url.pathname === '/v1/agenda/retorno') {
+      const { codigo } = init.body as { codigo: string };
+      retornos.push(codigo);
+      if (retornos.length > 1) throw new CloudError('O pedido para ligar o Google Agenda venceu.', 'retorno-vencido', 400);
+      connected = true;
+      return { conectada: true, desde: T0 };
     }
     if (!connected) throw new CloudError('desligada', 'agenda-desligada', 409);
     if (url.pathname === '/v1/agenda/eventos') {
@@ -92,6 +102,7 @@ describe('o Google Agenda ligado ao Calendário', () => {
   beforeEach(async () => {
     localStorage.clear();
     connected = true;
+    retornos = [];
     fake = { events: new Map(), changes: [], version: 0, ops: [], refazer: false, refuse: [], later: 0 };
     TestBed.configureTestingModule({
       providers: [
@@ -362,6 +373,59 @@ describe('o Google Agenda ligado ao Calendário', () => {
     await google.sync();
     expect(fake.ops).toEqual([]);
     expect(google.pending()).toBe(0);
+  });
+
+  /** A volta do Google, guardada pela janela que perdeu o `opener` (public/google.js), como as outras abas veem. */
+  function googleReturns(codigo: string): void {
+    const value = JSON.stringify({ tipo: 'murall-google', codigo, estado: 's1', erro: '' });
+    localStorage.setItem(RETURN_KEY, value);
+    window.dispatchEvent(new StorageEvent('storage', { key: RETURN_KEY, newValue: value }));
+  }
+
+  it('a volta do Google pelo localStorage chega a todas as abas, mas só a que pediu para ligar entrega o código', async () => {
+    connected = false;
+    await google.refresh('u1');
+    expect(google.status()).toBe('desligada');
+    // outra aba ligou: esta não entrega o código (senão uma das duas daria "venceu")
+    googleReturns('codigo-de-outra-aba');
+    await new Promise((r) => setTimeout(r));
+    expect(retornos).toEqual([]);
+    localStorage.removeItem(RETURN_KEY);
+    spyOn(window, 'open').and.returnValue({ location: { href: '' }, close: () => undefined } as unknown as Window);
+    await google.connect();
+    expect(google.status()).toBe('ligando');
+    googleReturns('codigo-1');
+    await new Promise((r) => setTimeout(r));
+    await google.sync();
+    expect(retornos).toEqual(['codigo-1']);
+    expect(google.status()).toBe('ligada');
+    expect(localStorage.getItem(RETURN_KEY)).toBeNull();
+  });
+
+  it('a janela do Google fechada sem terminar: de volta à página, o botão de ligar volta (e a volta atrasada ainda liga)', async () => {
+    connected = false;
+    await google.refresh('u1');
+    spyOn(window, 'open').and.returnValue({ location: { href: '' }, close: () => undefined } as unknown as Window);
+    jasmine.clock().install();
+    try {
+      await google.connect();
+      expect(google.status()).toBe('ligando');
+      // ainda esperando: clicar de novo não abre outra
+      await google.connect();
+      expect(window.open).toHaveBeenCalledTimes(1);
+      window.dispatchEvent(new Event('focus'));
+      jasmine.clock().tick(2_100);
+      expect(google.status()).toBe('desligada');
+      await google.connect();
+      expect(window.open).toHaveBeenCalledTimes(2);
+      expect(google.status()).toBe('ligando');
+    } finally {
+      jasmine.clock().uninstall();
+    }
+    googleReturns('codigo-1');
+    await new Promise((r) => setTimeout(r));
+    await google.sync();
+    expect(google.status()).toBe('ligada');
   });
 
   it('o Google esqueceu o ponto: lê tudo de novo; a permissão saiu: fica desligado', async () => {

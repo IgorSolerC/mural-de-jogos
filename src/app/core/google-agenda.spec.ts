@@ -177,6 +177,15 @@ describe('Google Agenda: do evento para o lembrete', () => {
     expect(x.time).toBeUndefined();
   });
 
+  it('sem cor no Google: a cor tirada lá vira a de sempre, o branco continua branco, e o convite guarda a daqui', () => {
+    const color = (ev: GEvent, r: Reminder) => (fromEvent(ev, r, today) as { reminder: Reminder }).reminder.color;
+    // o vermelho que o Murall mandou e a pessoa trocou pela cor da agenda no Google
+    expect(color(event(), reminder({ id: 'gabc123def456', color: 'vermelho' }))).toBe('azul');
+    expect(color(event(), reminder({ id: 'gabc123def456', color: 'branco' }))).toBe('branco');
+    expect(color(event({ seu: false }), reminder({ id: 'gabc123def456', color: 'rosa' }))).toBe('rosa');
+    expect(color(event({ colorId: '11' }), reminder({ id: 'gabc123def456', color: 'branco' }))).toBe('vermelho');
+  });
+
   it('com horário, no fuso daqui, e a hora do fim quando não dura uma hora', () => {
     const start = new Date(2026, 9, 20, 15, 0);
     const end = new Date(2026, 9, 20, 15, 30);

@@ -84,9 +84,11 @@ export async function revokeAgenda(deps: Deps, sealed: string): Promise<void> {
   const upstream = deps.agenda?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
   try {
     const refresh = await open(key, sealed);
-    await upstream(`${GOOGLE_REVOKE_URL}?token=${encodeURIComponent(refresh)}`, {
+    // a permissão vai no corpo, e não no endereço (que fica nos logs de quem estiver no caminho)
+    await upstream(GOOGLE_REVOKE_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: refresh }),
       signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
     });
   } catch (err) {

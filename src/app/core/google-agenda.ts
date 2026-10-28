@@ -356,6 +356,18 @@ export function parseRecurrence(lines: readonly string[] | undefined, date: stri
   return base;
 }
 
+/**
+ * A cor do lembrete de um evento. Sem cor no Google é a da agenda: o branco do Murall (que vai sem cor)
+ * continua branco, e a cor que o Murall mandou e a pessoa tirou lá vira a de sempre (a cor de antes ficaria
+ * diferente do Google, e voltaria para lá na próxima mudança daqui). Um convite ou um evento especial, que
+ * o Murall nunca manda, guarda a cor escolhida aqui.
+ */
+function colorOf(ev: GEvent, existing: Reminder | undefined, lock: GoogleLink['lock']): LightStock {
+  if (ev.colorId && STOCK_OF[ev.colorId]) return STOCK_OF[ev.colorId];
+  if (existing && (lock || COLOR_OF[existing.color] === null)) return existing.color;
+  return DEFAULT_STOCK;
+}
+
 /** O que fazer com um evento que veio do Google. */
 export type Incoming =
   | { kind: 'upsert'; reminder: Reminder }
@@ -428,7 +440,7 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     ...(endTime ? { endTime } : {}),
     ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, nth: rule.nth, strict: rule.strict, weekStart: rule.weekStart, until: rule.until, count: rule.count, skip } : {}),
     ...(quiet ? { quiet: true } : {}),
-    color: ev.colorId && STOCK_OF[ev.colorId] ? STOCK_OF[ev.colorId] : (existing?.color ?? DEFAULT_STOCK),
+    color: colorOf(ev, existing, lock),
     notes: existing?.notes ?? [],
     createdAt: existing?.createdAt ?? updated,
     at: updated,

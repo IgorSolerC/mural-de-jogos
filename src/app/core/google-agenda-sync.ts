@@ -16,6 +16,10 @@ const BATCH = 25;
 const EVERY_MS = 10 * 60_000;
 /** Depois de uma mudança no Murall, quanto espera antes de mandar (junta as que vêm em seguida). */
 const AFTER_CHANGE_MS = 3_000;
+/** Quanto a aba que pediu para ligar espera a volta do Google (o mesmo tempo do pedido na API). */
+const AWAIT_MS = 15 * 60_000;
+/** De volta à página sem a resposta do Google (a janela fechada antes do fim): quanto espera antes de desistir. */
+const GIVE_UP_MS = 2_000;
 
 interface DeviceState {
   conta: string;
@@ -154,6 +158,10 @@ export class GoogleAgenda {
   private running: Promise<void> | null = null;
   /** As respostas do Google já entregues (pelo `state`). */
   private readonly handled = new Set<string>();
+  /** Quando esta aba pediu para ligar: só ela termina a volta que chega pelo localStorage. */
+  private awaitingSince = 0;
+  /** Esperando a volta do Google: a página de volta (a janela fechada) sem ela desiste. */
+  private stopWaiting: (() => void) | null = null;
   private again = false;
 
   /** O que o Murall tem para mandar ao Google (lembretes mudados e apagados). */
@@ -179,9 +187,11 @@ export class GoogleAgenda {
         const d = e.data as { tipo?: string; codigo?: string; estado?: string; erro?: string } | null;
         if (d?.tipo === 'murall-google') void this.finish(d);
       });
-      // a janela do Google pode ter perdido o `opener`: a resposta chega pelo localStorage
+      // a janela do Google pode ter perdido o `opener`: a resposta chega pelo localStorage. O aviso chega a
+      // todas as abas do Murall, mas o código vale uma vez: só a aba que pediu para ligar o entrega
       window.addEventListener('storage', (e) => {
         if (e.key !== RETURN_KEY || !e.newValue) return;
+        if (!this.awaitingSince || Date.now() - this.awaitingSince > AWAIT_MS) return;
         const d = readJson<{ codigo?: string; estado?: string; erro?: string }>(RETURN_KEY);
         if (d) void this.finish(d);
       });
@@ -232,24 +242,54 @@ export class GoogleAgenda {
     this.error.set(null);
     const win = window.open('', 'murall-google', 'popup,width=520,height=680');
     this.status.set('ligando');
+    this.awaitingSince = Date.now();
     try {
       const retorno = new URL('google.html', document.baseURI).href;
       const { url } = await this.account.request<{ url: string }>('/v1/agenda/conectar', { method: 'POST', body: { retorno } });
-      if (win) win.location.href = url;
-      else location.href = url;
+      if (win) {
+        win.location.href = url;
+        this.waitForReturn();
+      } else location.href = url;
     } catch (err) {
       win?.close();
+      this.awaitingSince = 0;
       this.status.set('desligada');
       this.error.set(err instanceof CloudError ? err.message : 'Não deu para abrir o Google agora. Tente de novo.');
     }
   }
 
+  /**
+   * A janela do Google fechada antes do fim: a página volta a ter o foco e a resposta não chega. O botão
+   * volta a ligar (a resposta que ainda chegar depois termina a ligação do mesmo jeito). O `closed` da
+   * janela não serve: o Google corta o `opener`, e ela parece fechada logo que abre.
+   */
+  private waitForReturn(): void {
+    this.stopWaiting?.();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onFocus = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (this.status() !== 'ligando') return;
+        this.stopWaiting?.();
+        this.status.set('desligada');
+      }, GIVE_UP_MS);
+    };
+    window.addEventListener('focus', onFocus);
+    this.stopWaiting = () => {
+      clearTimeout(timer);
+      window.removeEventListener('focus', onFocus);
+      this.stopWaiting = null;
+    };
+  }
+
   /** O Google voltou: entrega o código à API e, ligado, sincroniza. */
   private async finish(d: { codigo?: string; estado?: string; erro?: string }): Promise<void> {
-    // a mesma resposta chega pela mensagem e pelo localStorage: vale uma vez
-    const key = d.estado || d.erro || '';
-    if (this.handled.has(key)) return;
-    this.handled.add(key);
+    // a mesma resposta chega pela mensagem e pelo localStorage: vale uma vez (a sem `state` não tem código)
+    const key = d.estado ?? '';
+    if (key && this.handled.has(key)) return;
+    if (key) this.handled.add(key);
+    this.stopWaiting?.();
+    this.awaitingSince = 0;
     removeKey(RETURN_KEY);
     if (d.erro || !d.codigo || !d.estado) {
       this.status.set('desligada');

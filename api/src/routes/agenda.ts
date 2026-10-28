@@ -36,8 +36,12 @@ const UPSTREAM_TIMEOUT_MS = 10_000;
 const EVENT_FIELDS =
   'nextPageToken,nextSyncToken,items(id,status,summary,start,end,recurrence,recurringEventId,originalStartTime,colorId,updated,etag,htmlLink,eventType,reminders,organizer(self),attendees(self))';
 
-/** O acesso de cada conta enquanto o Worker está de pé (vale ~1 hora): poupa um pedido ao Google por chamada. */
-const accessCache = new Map<string, { token: string; until: number }>();
+/**
+ * O acesso de cada conta enquanto o Worker está de pé (vale ~1 hora): poupa um pedido ao Google por chamada.
+ * Cada um é de uma ligação (o `conectada_em` dela): desligada ou ligada de novo (talvez com outra conta do
+ * Google) por outro Worker, o acesso guardado aqui não vale mais.
+ */
+const accessCache = new Map<string, { token: string; until: number; desde: string }>();
 
 export function agendaRoutes(app: Hono, deps: Deps): void {
   const keys = deps.agenda?.keys ?? { clientSecret: '', key: '', codes: [] };
@@ -80,13 +84,19 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
 
   const desligada = () => new HttpError(409, 'agenda-desligada', 'O Google Agenda não está ligado. Ligue de novo no Calendário.');
 
-  /** O acesso ao Google da conta (renovado com o refresh token guardado). */
+  /**
+   * O acesso ao Google da conta (renovado com o refresh token guardado). A ligação é conferida no banco a
+   * cada pedido do site: o acesso guardado só vale enquanto ela é a mesma.
+   */
   const access = async (userId: string): Promise<string> => {
+    const row = await deps.db.first<{ refresh: string; conectada_em: string }>('SELECT refresh, conectada_em FROM agenda_google WHERE usuario_id = ?', [userId]);
+    if (!row) {
+      accessCache.delete(userId);
+      throw desligada();
+    }
     const cached = accessCache.get(userId);
     const now = deps.now().getTime();
-    if (cached && cached.until > now) return cached.token;
-    const row = await deps.db.first<{ refresh: string }>('SELECT refresh FROM agenda_google WHERE usuario_id = ?', [userId]);
-    if (!row) throw desligada();
+    if (cached && cached.desde === row.conectada_em && cached.until > now) return cached.token;
     let refresh: string;
     try {
       refresh = await open(keys.key, row.refresh);
@@ -98,24 +108,38 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: deps.config.googleClientId, client_secret: keys.clientSecret, refresh_token: refresh, grant_type: 'refresh_token' }),
     });
-    if (res.status === 400 || res.status === 401) {
-      // a pessoa tirou a permissão no Google (ou ela venceu, no modo de teste): fica desligada
-      await write(deps, [{ sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [userId] }], 2);
-      throw desligada();
-    }
     if (!res.ok) {
-      warn(`agenda: o Google respondeu ${res.status} ao renovar o acesso`);
+      const body = (await res.json().catch(() => ({}))) as { error?: unknown };
+      if (res.status === 400 && body.error === 'invalid_grant') {
+        // a pessoa tirou a permissão no Google (ou ela venceu, no modo de teste): fica desligada. Só o
+        // invalid_grant diz isso; um client secret errado (invalid_client) é do servidor, e a permissão fica
+        await write(deps, [{ sql: 'DELETE FROM agenda_google WHERE usuario_id = ? AND conectada_em = ?', params: [userId, row.conectada_em] }], 2);
+        accessCache.delete(userId);
+        throw desligada();
+      }
+      warn(`agenda: o Google respondeu ${res.status} ao renovar o acesso (${typeof body.error === 'string' ? body.error.slice(0, 60) : 'sem motivo'})`);
       throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
     }
     const body = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!body.access_token) throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');
-    accessCache.set(userId, { token: body.access_token, until: now + Math.max(60, (body.expires_in ?? 3600) - 120) * 1000 });
+    accessCache.set(userId, { token: body.access_token, until: now + Math.max(60, (body.expires_in ?? 3600) - 120) * 1000, desde: row.conectada_em });
     return body.access_token;
   };
 
-  const calendar = async (userId: string, url: string, init: RequestInit = {}) => {
-    const token = await access(userId);
-    return google(url, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+  /**
+   * Os pedidos à agenda de uma chamada do site: o acesso é buscado uma vez (uma leitura do banco por
+   * chamada, e não uma por pedido ao Google); se falhar, o próximo pedido tenta de novo.
+   */
+  const calendarOf = (userId: string) => {
+    let token: Promise<string> | null = null;
+    return async (url: string, init: RequestInit = {}) => {
+      token ??= access(userId).catch((err: unknown) => {
+        token = null;
+        throw err;
+      });
+      const t = await token;
+      return google(url, { ...init, headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json', ...(init.headers ?? {}) } });
+    };
   };
 
   app.get('/v1/agenda', async (c) => {
@@ -192,7 +216,7 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
       ],
       4,
     );
-    accessCache.set(s.userId, { token: token.access_token, until: now.getTime() + Math.max(60, (token.expires_in ?? 3600) - 120) * 1000 });
+    accessCache.set(s.userId, { token: token.access_token, until: now.getTime() + Math.max(60, (token.expires_in ?? 3600) - 120) * 1000, desde: now.toISOString() });
     return c.json({ conectada: true, desde: now.toISOString() });
   });
 
@@ -218,12 +242,15 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
     let page = c.req.query('pagina') ?? '';
     if (sync.length > 2048 || page.length > 2048) throw new HttpError(400, 'parametro-grande', 'O pedido é grande demais.');
     const eventos: Record<string, unknown>[] = [];
+    const calendar = calendarOf(s.userId);
     for (let i = 0; i < MAX_PAGES; i++) {
       const q = new URLSearchParams({ maxResults: '250', fields: EVENT_FIELDS });
+      // do zero também com os apagados: o evento apagado no Google enquanto o site não lia (o sync token
+      // venceu, ou ligou de novo) sai do Murall, e a vez tirada de um que repete ("Só este evento") chega
       if (sync) q.set('syncToken', sync);
-      else q.set('showDeleted', 'false');
+      else q.set('showDeleted', 'true');
       if (page) q.set('pageToken', page);
-      const res = await calendar(s.userId, `${CALENDAR_URL}?${q}`);
+      const res = await calendar(`${CALENDAR_URL}?${q}`);
       if (res.status === 410) throw new HttpError(410, 'agenda-refazer', 'A agenda precisa ser lida de novo do começo.');
       if (!res.ok) {
         const { reason, message } = await refusalOf(res);
@@ -258,9 +285,10 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
     if (!Array.isArray(ops) || ops.length > MAX_OPS) throw new HttpError(400, 'ops-invalidas', 'Mudanças demais de uma vez.');
     const resultados: Record<string, unknown>[] = [];
     let calls = 0;
+    const calendar = calendarOf(s.userId);
     const call = (url: string, init: RequestInit) => {
       calls++;
-      return calendar(s.userId, url, init);
+      return calendar(url, init);
     };
     const done = async (id: string, res: Response) => {
       const ev = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -319,6 +347,13 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
         if (res.ok) await done(id, res);
         else await failed(id, String(acao), res);
       } catch (err) {
+        // o lembrete que não vira um evento válido (a lista de dias tirados longa demais, por exemplo) é
+        // uma recusa só dele: as outras mudanças da ida seguem, e o site o tira da fila até ele mudar
+        if (err instanceof HttpError && err.code === 'evento-invalido') {
+          warn(`agenda: um lembrete não virou um evento válido ao ${String(acao)}`);
+          resultados.push({ id, ok: false, erro: 'recusado' });
+          continue;
+        }
         if (err instanceof HttpError && err.code !== 'google-fora') throw err;
         await failed(id, String(acao), null);
       }
