@@ -129,6 +129,8 @@ function lookupFailure(e: unknown, signal: AbortSignal): unknown {
 /** Nem todo jogo da Steam tem a arte vertical: confere se a imagem existe antes de usar. */
 export function imageLoads(url: string, signal: AbortSignal, timeoutMs = 8000): Promise<boolean> {
   return new Promise((resolve) => {
+    // já cancelado: o abort não dispara de novo, e a espera iria até o prazo
+    if (signal.aborted) return resolve(false);
     const img = new Image();
     const done = (ok: boolean) => {
       clearTimeout(timer);
@@ -644,6 +646,8 @@ export class GameLookup {
 
   /** Os pôsteres do título no TMDB: português, inglês e sem texto, os mais votados primeiro. */
   private async tmdbPosters(game: PickedGame, via: Via, signal: AbortSignal): Promise<PickedGame[]> {
+    // o número vem da ficha guardada: só "movie/123" ou "tv/123" vira caminho na API de lá
+    if (!/^(movie|tv)\/\d{1,10}$/.test(game.sourceId ?? '')) return [];
     const params = new URLSearchParams({ include_image_language: 'pt,en,null' });
     const data = await this.tmdbJson(`${game.sourceId}/images`, params, via, signal);
     const order: Record<string, number> = { pt: 0, en: 1 };
@@ -864,7 +868,7 @@ export class GameLookup {
     return media
       .map((m) => ({
         name: String(m?.title?.english || m?.title?.romaji || '').trim(),
-        coverUrl: m?.coverImage?.extraLarge || m?.coverImage?.large || null,
+        coverUrl: [m?.coverImage?.extraLarge, m?.coverImage?.large].find((u): u is string => typeof u === 'string' && HTTPS.test(u)) ?? null,
         source: 'anilist' as const,
         sourceId: String(m?.id ?? '') || undefined,
         year: m?.startDate?.year ? String(m.startDate.year) : undefined,
@@ -1090,6 +1094,10 @@ export class GameLookup {
     }
     if (catalog === 'rawg-own' && (res.status === 401 || res.status === 403)) {
       throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
+    }
+    // muitas buscas seguidas deste aparelho (o freio da nuvem): só esta vai para a Wikipedia, sem largar a chave do site
+    if ((catalog === 'rawg' || catalog === 'tmdb') && res.status === 429) {
+      throw new LookupError('A busca do site pediu um tempo.', 'site-key');
     }
     if ((catalog === 'rawg' || catalog === 'tmdb') && (res.status === 503 || res.status === 403)) {
       this.siteKeys.drop(catalog);

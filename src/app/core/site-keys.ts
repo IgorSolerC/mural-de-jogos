@@ -53,8 +53,12 @@ export class SiteKeys {
       this.tmdb.set(false);
       return;
     }
+    // o prazo à mão: o AbortSignal.timeout não existe no Safari antes do 16 (iPhones mais velhos), e lá a
+    // pergunta falhava sempre, e quem nunca tinha visitado ficava só com a Wikipedia
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ASK_TIMEOUT_MS);
     try {
-      const res = await fetch(`${api}/v1/catalogo`, { signal: AbortSignal.timeout(ASK_TIMEOUT_MS) });
+      const res = await fetch(`${api}/v1/catalogo`, { signal: ctrl.signal });
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as Record<string, unknown>;
       this.rawg.set(data['rawg'] === true);
@@ -62,6 +66,8 @@ export class SiteKeys {
       writeJson(CACHE_KEY, { rawg: this.rawg(), tmdb: this.tmdb() });
     } catch {
       // sem resposta (offline, nuvem fora): fica o que ela disse da última vez; se falhar, a busca volta sozinha
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

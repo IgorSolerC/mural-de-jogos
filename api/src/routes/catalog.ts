@@ -1,6 +1,6 @@
 import { Context, Hono } from 'hono';
 import { HttpError } from '../errors';
-import { CatalogKeys, Deps } from '../ports';
+import { CatalogBrake, CatalogKeys, Deps } from '../ports';
 
 /**
  * A busca com as chaves do site: jogos na RAWG, filmes e séries no TMDB. As chaves ficam nos secrets do
@@ -26,6 +26,44 @@ const MAX_PARAM = 120;
 const CACHE = 'public, max-age=86400';
 
 const UPSTREAM_TIMEOUT_MS = 8_000;
+
+/**
+ * Quantas buscas um IP faz por minuto. A origem (`fromSite`) só barra o navegador: um script escreve o
+ * cabeçalho que quiser, e sem freio gastaria a cota inteira das chaves do site (a RAWG grátis dá 20 mil
+ * pedidos por mês para todo mundo). Quem escreve uma resenha gasta uns 5 a 10 pedidos; 60 por minuto
+ * sobram para quem digita rápido e trocam várias capas.
+ */
+export const CATALOG_PER_MINUTE = 60;
+const CATALOG_WINDOW_MS = 60_000;
+/** Quantos IPs o freio lembra de cada vez (os mais antigos saem primeiro). */
+const CATALOG_TRACKED = 5_000;
+
+/**
+ * O freio por IP, só na memória (sem banco, que gastaria a cota de gravações a cada busca): conta por
+ * janela de um minuto. No Worker, cada instância tem o seu, então o limite vale por instância; quem
+ * insiste do mesmo lugar costuma cair na mesma, e o que passar ainda esbarra no limite do catálogo.
+ */
+export function catalogBrake(perMinute = CATALOG_PER_MINUTE, windowMs = CATALOG_WINDOW_MS, tracked = CATALOG_TRACKED): CatalogBrake {
+  const seen = new Map<string, { start: number; n: number }>();
+  return {
+    take(ip, now) {
+      let slot = seen.get(ip);
+      if (!slot || now - slot.start >= windowMs) {
+        seen.delete(ip);
+        slot = { start: now, n: 0 };
+        seen.set(ip, slot);
+        // a lista não cresce sem fim: sai o IP mais antigo (a ordem do Map é a de entrada)
+        if (seen.size > tracked) seen.delete(seen.keys().next().value!);
+      }
+      if (slot.n >= perMinute) return false;
+      slot.n++;
+      return true;
+    },
+  };
+}
+
+/** Um freio por instância (fora do `createApp`, que no Worker roda a cada pedido). */
+const sharedBrake = catalogBrake();
 
 /** Os secrets do Worker (ou as variáveis do Node). Vazio: aquele catálogo fica sem a chave do site. */
 export function readCatalogKeys(env: Record<string, unknown>): CatalogKeys {
@@ -59,6 +97,7 @@ function pickParams(c: Context, allowed: readonly string[]): URLSearchParams {
 export function catalogRoutes(app: Hono, deps: Deps): void {
   const keys = deps.catalog?.keys ?? { tmdb: '', rawg: '' };
   const upstream = deps.catalog?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  const brake = deps.catalog?.brake ?? sharedBrake;
 
   /** O site pergunta uma vez quais catálogos têm a chave do site. */
   app.get('/v1/catalogo', (c) => {
@@ -70,6 +109,12 @@ export function catalogRoutes(app: Hono, deps: Deps): void {
   const fromSite = (c: Context) => {
     const origin = c.req.header('Origin')?.replace(/\/+$/, '') ?? '';
     if (!deps.config.allowedOrigins.includes(origin)) throw new HttpError(403, 'origem', 'Só o site do Murall usa esta busca.');
+    // o IP que a Cloudflare viu; sem ele (o Node atrás de outro proxy, os testes) não há por quem contar
+    const ip = c.req.header('CF-Connecting-IP');
+    if (ip && !brake.take(ip, deps.now().getTime())) {
+      c.header('Retry-After', '60');
+      throw new HttpError(429, 'catalogo-devagar', 'Muitas buscas seguidas. Espere um minuto.');
+    }
   };
 
   const forward = async (c: Context, which: 'tmdb' | 'rawg', url: string, headers: Record<string, string>) => {

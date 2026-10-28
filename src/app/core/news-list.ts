@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-cofre-confirma-de-novo',
+    id: '2026-10-28-busca-do-site',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
@@ -54,6 +54,7 @@ export const NEWS: NewsEntry[] = [
       'Em Amigos, o número do botão não conta mais o aviso de quem começou a seguir você e já deixou de seguir (nem a resenha que virou privada); deixar de seguir tira na hora as resenhas da pessoa do Feed, e tirar um seguidor tira o aviso dele; o Desfazer que não dá certo diz por quê, em vez de ficar calado; e seguir muita gente ao mesmo tempo não passa mais do limite do dia.',
       'No perfil, o fundo por link com parênteses no endereço (como as imagens da Wikipédia) não deixa mais o seu cartão parado no Seguindo/Seguidores dos outros; o texto de uma pasta escondida não vai mais para o mural público; a imagem de um link apagado ou trocado enquanto abria não vira mais o fundo; as Configurações contam as pastas como o perfil (sem as releituras e as anotações finalizadas); o número de seguidores logo depois de Seguir não volta mais para o de antes; um emoji no limite da linha não fica pela metade; o nome com um tab entre as palavras não fica mais grudado; e o perfil de alguém, quando a nuvem só mostra os murais para quem tem conta, pede para entrar em vez de culpar a conexão.',
       'Nos murais de análises, a música com o nome do álbum (do mesmo artista) não vira mais reescuta dele; a releitura cuja original foi apagada em outro aparelho volta ao ranking na hora, sem esperar recarregar, e a releitura à mostra de uma original privada conta no mural de quem visita (no ranking, no Comparar e nos Extras); o Desfazer de apagar a original não perde o que você escreveu numa releitura nesse meio-tempo; e um endereço que não existe (ou uma parte que o mural não tem) abre a última parede, em vez de uma página em branco.',
+      'A busca de jogos, filmes e séries pela RAWG e pelo TMDB, sem chave própria, volta a funcionar nos iPhones com o Safari anterior ao 16, que só procuravam na Wikipedia.',
       'Na leitura, a anotação num quadro cuja coluna saiu mostra o desenho do quadro (era o do Calendário), e a compartilhada aberta por um link recebe as mudanças de quem escreve nela tão rápido quanto a primeira; e a mudança feita aqui no mesmo instante em que outra aba grava não se perde mais.',
     ],
   },

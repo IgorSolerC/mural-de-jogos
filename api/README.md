@@ -43,6 +43,12 @@ responde `503 sem-chave` e o site volta para a Wikipedia; a chave recusada ou no
 503, e o site para de usar a do site até recarregar. Quem cola a própria chave nos Ajustes continua
 indo direto ao catálogo.
 
+A origem só barra o navegador (um script escreve o `Origin` que quiser), então há também um freio por IP
+(`CF-Connecting-IP`): 60 buscas por minuto, contadas só na memória (`catalogBrake`, sem banco nem cota),
+por instância do Worker. Passou disso, `429 catalogo-devagar` com `Retry-After: 60`, e o site faz só
+aquela busca na Wikipedia, sem largar a chave do site. Sem o cabeçalho (o Node atrás de outro proxy)
+não há freio.
+
 Para ligar (uma vez; os secrets ficam entre deploys e nunca vão para o git):
 
 ```bash

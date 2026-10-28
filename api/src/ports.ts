@@ -58,6 +58,11 @@ export interface CatalogKeys {
   rawg: string;
 }
 
+/** O freio da busca do site: `true` se aquele IP ainda pode buscar agora (e conta a vez). */
+export interface CatalogBrake {
+  take(ip: string, now: number): boolean;
+}
+
 export interface Deps {
   db: Db;
   config: Config;
@@ -66,9 +71,9 @@ export interface Deps {
   verifyGoogle: VerifyGoogle;
   /**
    * A busca com as chaves do site (ver `src/routes/catalog.ts`). Sem isto, os catálogos respondem que
-   * estão sem chave. `fetch` só muda nos testes.
+   * estão sem chave. `fetch` e `brake` (o freio por IP, um só por instância) só mudam nos testes.
    */
-  catalog?: { keys: CatalogKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
+  catalog?: { keys: CatalogKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response>; brake?: CatalogBrake };
   /**
    * O Google Agenda do Calendário (ver `src/routes/agenda.ts`): o client secret e a chave que cifra a
    * permissão guardada. Sem isto, ele fica indisponível. `fetch` só muda nos testes.

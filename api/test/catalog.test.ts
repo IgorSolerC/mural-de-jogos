@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
-import { readCatalogKeys } from '../src/routes/catalog';
+import { CATALOG_PER_MINUTE, catalogBrake, readCatalogKeys } from '../src/routes/catalog';
 import { CatalogKeys, Db } from '../src/ports';
 import { BASE_ENV, NOW, noGoogle } from './harness';
 
@@ -27,9 +27,11 @@ function setup(keys: CatalogKeys, reply: (url: string, init?: RequestInit) => Re
         calls.push({ url, init });
         return reply(url, init);
       },
+      brake: catalogBrake(),
     },
   });
-  const get = (path: string, origin: string | null = SITE) => app.request(`https://api.teste${path}`, { headers: origin ? { Origin: origin } : {} });
+  const get = (path: string, origin: string | null = SITE, ip?: string) =>
+    app.request(`https://api.teste${path}`, { headers: { ...(origin ? { Origin: origin } : {}), ...(ip ? { 'CF-Connecting-IP': ip } : {}) } });
   return { get, calls };
 }
 
@@ -131,6 +133,35 @@ describe('busca com as chaves do site', () => {
       throw new Error('rede');
     });
     expect((await down.get('/v1/catalogo/rawg/games?search=x')).status).toBe(502);
+  });
+
+  it('um IP que busca demais espera um minuto, sem gastar a cota das chaves; os outros IPs seguem', async () => {
+    const { get, calls } = setup({ tmdb: 't', rawg: 'r' });
+    for (let i = 0; i < CATALOG_PER_MINUTE; i++) expect((await get(`/v1/catalogo/rawg/games?search=x${i}`, SITE, '203.0.113.7')).status).toBe(200);
+    const res = await get('/v1/catalogo/tmdb/search/movie?query=duna', SITE, '203.0.113.7');
+    expect(res.status).toBe(429);
+    expect(((await res.json()) as { erro: string }).erro).toBe('catalogo-devagar');
+    expect(res.headers.get('Retry-After')).toBe('60');
+    // a recusa não é guardada no navegador
+    expect(res.headers.get('Cache-Control')).toBe('no-store');
+    expect(calls.length).toBe(CATALOG_PER_MINUTE);
+    expect((await get('/v1/catalogo/rawg/games?search=y', SITE, '198.51.100.2')).status).toBe(200);
+    // o pedido de fora do site não conta na vaga de ninguém
+    expect((await get('/v1/catalogo/rawg/games?search=y', 'https://outro.site', '198.51.100.3')).status).toBe(403);
+  });
+
+  it('o freio conta por janela de um minuto e não lembra IPs sem fim', () => {
+    const brake = catalogBrake(2, 60_000, 3);
+    expect([brake.take('a', 0), brake.take('a', 1), brake.take('a', 2)]).toEqual([true, true, false]);
+    // passou o minuto: a vaga volta
+    expect(brake.take('a', 60_000)).toBe(true);
+    // com mais IPs que o freio lembra, o mais antigo sai (e recomeça do zero)
+    brake.take('b', 60_001);
+    brake.take('c', 60_002);
+    brake.take('a', 60_003);
+    brake.take('d', 60_004);
+    // o "a" já tinha gastado as duas vezes deste minuto: esquecido, ganha a vaga de novo
+    expect([brake.take('a', 60_005), brake.take('a', 60_006), brake.take('a', 60_007)]).toEqual([true, true, false]);
   });
 
   it('com a nuvem desligada, a busca do site também para', async () => {

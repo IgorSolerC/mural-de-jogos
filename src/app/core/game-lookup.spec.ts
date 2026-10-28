@@ -1,7 +1,7 @@
 import { sameTitle } from './game-lookup';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BOOK_DEADLINE_MS, GameLookup, LookupError } from './game-lookup';
+import { BOOK_DEADLINE_MS, GameLookup, LookupError, imageLoads } from './game-lookup';
 import { Settings } from './settings';
 import { Cloud } from './cloud-config';
 import { SiteKeys } from './site-keys';
@@ -208,6 +208,25 @@ describe('GameLookup', () => {
       expect(url(1)).toContain('anilist');
       expect(hits).toEqual([jasmine.objectContaining({ name: 'Sousou no Frieren', source: 'anilist', year: '2023', coverUrl: 'https://s4.anilist.co/x.jpg' })]);
     });
+
+    it('a capa do AniList só com https, como a do Kitsu (a grande sem https cede a vez à menor)', async () => {
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input).includes('kitsu')
+          ? json({ errors: [] }, 503)
+          : json({
+              data: {
+                Page: {
+                  media: [
+                    { id: 1, title: { romaji: 'A' }, coverImage: { extraLarge: 'http://s4.anilist.co/a.jpg', large: 'https://s4.anilist.co/a-m.jpg' } },
+                    { id: 2, title: { romaji: 'B' }, coverImage: { extraLarge: 'javascript:alert(1)', large: 7 } },
+                  ],
+                },
+              },
+            }),
+      );
+      const hits = await lookup.search('frieren', signal, 'animes');
+      expect(hits.map((h) => h.coverUrl)).toEqual(['https://s4.anilist.co/a-m.jpg', null]);
+    });
   });
 
   describe('jogos na Wikipedia', () => {
@@ -260,6 +279,19 @@ describe('GameLookup', () => {
       const init = fetchSpy.calls.argsFor(0)[1] as RequestInit;
       expect((init.headers as Record<string, string>)['Authorization']).toBe('Bearer eyJhbGciOi.token');
       expect(hits[0]).toEqual(jasmine.objectContaining({ name: 'Breaking Bad', year: '2008', coverUrl: null }));
+    });
+
+    it('os pôsteres só pedem o caminho de um filme ou série: um número estranho na ficha não vira outro endereço', async () => {
+      settings.tmdbKey.set('abc123');
+      fetchSpy.and.callFake(() => json({ posters: [{ file_path: '/p2.jpg', iso_639_1: 'pt' }], query: { pages: [] } }));
+      const film = { name: 'Duna', coverUrl: 'https://image.tmdb.org/t/p/w500/p.jpg', source: 'tmdb' as const, sourceId: 'account/1/../../x' };
+      const { choices } = await lookup.coverChoices(film, 'filmes', signal);
+      expect(fetchSpy.calls.allArgs().map(([u]) => String(u)).filter((u) => u.includes('themoviedb'))).toEqual([]);
+      expect(choices.map((c) => c.coverUrl)).toEqual(['https://image.tmdb.org/t/p/w500/p.jpg']);
+      fetchSpy.calls.reset();
+      const ok = await lookup.coverChoices({ ...film, sourceId: 'movie/438631' }, 'filmes', signal);
+      expect(fetchSpy.calls.allArgs().map(([u]) => String(u)).find((u) => u.includes('themoviedb'))).toContain('/3/movie/438631/images?');
+      expect(ok.choices.map((c) => c.coverUrl)).toContain('https://image.tmdb.org/t/p/w500/p2.jpg');
     });
 
     it('chave recusada vira um aviso para conferir em Ajustes', async () => {
@@ -415,6 +447,40 @@ describe('GameLookup', () => {
       expect(lookup.gamesSource().name).toBe('Wikipedia');
     });
 
+    it('muitas buscas seguidas (o freio da nuvem): só aquela vai para a Wikipedia, e a chave do site continua', async () => {
+      await keys.ready;
+      fetchSpy.and.callFake((input: RequestInfo | URL) =>
+        String(input).includes('/v1/catalogo/') ? json({ erro: 'catalogo-devagar' }, 429) : json({ query: { pages: [] } }),
+      );
+      expect(await lookup.search('hades', signal, 'jogos')).toEqual([]);
+      expect(calls()[1]).toContain('wikipedia.org');
+      expect(keys.rawg()).toBeTrue();
+      expect(lookup.gamesSource()).toEqual({ name: 'RAWG', own: false });
+    });
+
+    it('pergunta pelas chaves do site também no navegador sem AbortSignal.timeout (Safari antes do 16)', async () => {
+      const original = AbortSignal.timeout;
+      (AbortSignal as unknown as { timeout?: unknown }).timeout = undefined;
+      try {
+        // sem o que a nuvem disse da outra vez: só a pergunta de agora pode ligar as chaves
+        await keys.ready;
+        localStorage.clear();
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule({
+          providers: [
+            provideZonelessChangeDetection(),
+            { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
+          ],
+        });
+        const fresh = TestBed.inject(SiteKeys);
+        await fresh.ready;
+        expect(fresh.rawg()).toBeTrue();
+        expect(fresh.tmdb()).toBeTrue();
+      } finally {
+        AbortSignal.timeout = original;
+      }
+    });
+
     it('a nuvem sem as chaves: Wikipedia, como sempre', async () => {
       fetchSpy.and.callFake((input: RequestInfo | URL) =>
         String(input) === `${API}/v1/catalogo` ? json({ rawg: false, tmdb: false }) : json({ query: { pages: [] } }),
@@ -438,6 +504,16 @@ describe('GameLookup', () => {
     expect(lookup.sourceName('filmes')).toBe('Wikipedia');
     settings.tmdbKey.set('abc');
     expect(lookup.sourceName('series')).toBe('TMDB');
+  });
+});
+
+describe('imageLoads', () => {
+  it('já cancelado, responde na hora, sem esperar o prazo', async () => {
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const started = performance.now();
+    expect(await imageLoads('https://exemplo.invalid/capa.jpg', ctrl.signal, 5000)).toBeFalse();
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });
 
