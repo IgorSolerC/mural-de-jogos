@@ -36,7 +36,8 @@ jobs:
     defaults:
       run:
         working-directory: api
-    # Os secrets só nos passos que os usam, nunca no job: o `npm ci` não vê nem o token nem a senha.
+    # Os secrets só nos passos que os usam, nunca no job: o `npm ci` não vê nem o token nem a senha
+    # (nem o GITHUB_TOKEN: o checkout não o deixa no .git/config).
     steps:
       - name: Confere a senha antes de tudo
         # roda antes do checkout: a pasta api ainda não existe, e o passo falhava ao começar
@@ -53,6 +54,9 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # sem o GITHUB_TOKEN guardado no .git/config: o npm ci (e os scripts das dependências) não o leem
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
@@ -124,6 +128,9 @@ jobs:
             exit 1
           fi
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # sem o GITHUB_TOKEN guardado no .git/config: o npm ci (e os scripts das dependências) não o leem
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22

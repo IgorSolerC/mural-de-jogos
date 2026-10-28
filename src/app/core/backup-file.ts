@@ -79,6 +79,12 @@ export function ownerNameOf(data: unknown): string | null {
   return name || null;
 }
 
+/**
+ * O `app` que um backup do Murall diz: o de agora e o do Mural de Jogos, o nome do site até os cinco
+ * murais (os backups versão 1 saíam com ele, e precisam continuar abrindo).
+ */
+const BACKUP_APPS: readonly unknown[] = ['meu-mural', 'mural-de-jogos'];
+
 /** As listas de um backup, ainda cruas (ver `backupLists`). */
 export interface BackupLists {
   /** O arquivo inteiro, já lido do JSON. */
@@ -104,7 +110,7 @@ export function backupLists(text: string, hint = 'Escolha o backup baixado pelo 
     throw new Error(`Esse arquivo não é um JSON válido. ${hint}`);
   }
   const object = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
-  if (object?.['app'] !== undefined && object['app'] !== 'meu-mural') {
+  if (object?.['app'] !== undefined && !BACKUP_APPS.includes(object['app'])) {
     throw new Error(`Esse arquivo é de outro aplicativo. ${hint}`);
   }
   if (typeof object?.['version'] === 'number' && object['version'] > 2) {

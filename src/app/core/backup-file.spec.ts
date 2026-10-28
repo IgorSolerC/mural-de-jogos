@@ -66,6 +66,11 @@ describe('leitura independente de backup', () => {
     ).toThrowError(/versão mais nova/);
     expect(parseBackupSnapshot('{"reviews":[]}').reviews).toEqual([]);
   });
+  it('abre no Comparar o backup versão 1, do tempo do Mural de Jogos', () => {
+    const v1 = { app: 'mural-de-jogos', version: 1, reviews: [{ id: 'rv1aaa', game: { name: 'Celeste', coverUrl: null, source: 'manual' }, scores: { historia: 8, diversao: 9, jogabilidade: 9, grafico: 7 }, updatedAt: '2024-01-02T00:00:00Z' }] };
+    const [r] = parseBackupSnapshot(JSON.stringify(v1)).reviews;
+    expect([r.id, r.kind, r.scores.visual]).toEqual(['rv1aaa', 'jogos', 7]);
+  });
   it('lê gzip pelo cabeçalho e mantém caracteres pt-BR', async () => {
     const text = JSON.stringify([
       { ...entry, game: { name: 'Pokémon — coração' } },

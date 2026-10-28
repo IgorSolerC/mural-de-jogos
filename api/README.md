@@ -155,7 +155,7 @@ GitHub como o secret `CF_ANALYTICS_TOKEN`; o `CLOUDFLARE_ACCOUNT_ID` é o mesmo 
 
 `.github/workflows/backup.yml` roda todo dia às 03h31 de Brasília (06:31 UTC, depois da limpeza) e
 quando quiser (Actions → Backup da nuvem → Run workflow): exporta o banco inteiro do D1, confere que
-vieram todas as tabelas, compacta, **tranca com senha** (AES-256) e guarda o arquivo nos artefatos da
+vieram todas as tabelas (e alguma conta em `usuarios`: o banco vazio falha), compacta, **tranca com senha** (AES-256) e guarda o arquivo nos artefatos da
 execução por 30 dias. A Cloudflare só volta o banco até 7 dias no plano gratuito (Time Travel); este
 backup cobre o resto e fica fora da Cloudflare. Se falhar, o GitHub manda e-mail.
 

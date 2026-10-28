@@ -67,6 +67,38 @@ describe('ReviewStore', () => {
     expect(store.count()).toBe(0);
   });
 
+  it('abre o backup versão 1, do tempo do Mural de Jogos', () => {
+    // como o exportJson da primeira versão gravava (app 'mural-de-jogos', sem os campos novos)
+    const v1 = { app: 'mural-de-jogos', version: 1, exportedAt: '2026-09-01T00:00:00.000Z', reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')], drafts: [] };
+    const res = store.importJson(JSON.stringify(v1, null, 2), 'merge');
+    expect(res.added).toBe(1);
+    expect(store.reviews().map((r) => [r.id, r.kind])).toEqual([['raaaa1', 'jogos']]);
+  });
+
+  it('o mesmo id duas vezes no arquivo vira uma ficha só, a mexida por último (também ao substituir)', () => {
+    const old = '2024-01-02T00:00:00Z';
+    const later = '2024-03-02T00:00:00Z';
+    const twice = JSON.stringify({
+      reviews: [review('raaaa1', 'A velha', old), review('rbbbb1', 'B', old), review('raaaa1', 'A nova', later), review('raaaa1', 'A velha de novo', old)],
+      drafts: [
+        { id: 'rcccc1', kind: 'jogos', game: { name: 'C', source: 'manual' }, createdAt: old, updatedAt: later },
+        { id: 'rcccc1', kind: 'jogos', game: { name: 'C velho', source: 'manual' }, createdAt: old, updatedAt: old },
+      ],
+      wishes: [
+        { id: 'rdddd1', kind: 'jogos', game: { name: 'D velho', source: 'manual' }, createdAt: old, updatedAt: old },
+        { id: 'rdddd1', kind: 'jogos', game: { name: 'D', source: 'manual' }, createdAt: old, updatedAt: later },
+      ],
+    });
+    for (const mode of ['replace', 'merge'] as const) {
+      localStorage.clear();
+      store.importJson(JSON.stringify({ reviews: [] }), 'replace');
+      store.importJson(twice, mode);
+      expect(store.reviews().map((r) => r.game.name).sort()).withContext(mode).toEqual(['A nova', 'B']);
+      expect(store.drafts().map((d) => d.game.name)).withContext(mode).toEqual(['C']);
+      expect(store.wishes().map((w) => w.game.name)).withContext(mode).toEqual(['D']);
+    }
+  });
+
   it('substituir troca o mural inteiro', () => {
     store.add(sanitizeReview(review('rzzzz1', 'Z', '2024-01-02T00:00:00Z'))!);
     store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', '2024-01-02T00:00:00Z')] }), 'replace');

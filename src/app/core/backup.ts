@@ -1,10 +1,10 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { ReviewStore } from './review-store';
 import { CloudSync } from './cloud-sync';
 import { Settings } from './settings';
 import { Toasts } from '../ui/toast';
 import { DAY_MS, localDay } from './dates';
-import { writeJson } from './storage';
+import { onOtherTab, writeJson } from './storage';
 
 const KEY = 'mural-de-jogos:backup:v1';
 /** Depois de quantos dias sem backup, com coisa nova no mural, o bilhete aparece. */
@@ -90,6 +90,8 @@ export class Backup {
 
   constructor() {
     void navigator.storage?.persisted?.().then((p) => this.persisted.set(p), () => undefined);
+    // o backup baixado (ou o Depois) em outra aba: sem ler de novo, um Depois aqui regravaria o lastAt velho por cima
+    inject(DestroyRef).onDestroy(onOtherTab(KEY, () => this.state.set(read())));
   }
 
   async download(): Promise<void> {
@@ -108,7 +110,8 @@ export class Backup {
     // o dia daqui, não o de Greenwich: depois das 21h o nome já sairia com a data de amanhã
     a.download = backupFileName(this.settings.ownerName(), localDay(new Date()), ext);
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // com folga: num mural grande, o navegador ainda lê o arquivo depois do clique (o mesmo prazo da cópia de antes da nuvem)
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
     this.save({ lastAt: new Date().toISOString(), snoozeUntil: null });
   }
 
@@ -123,7 +126,11 @@ export class Backup {
    */
   async protect(): Promise<void> {
     if (this.persisted() !== false || !navigator.storage?.persist) return;
-    this.persisted.set(await navigator.storage.persist());
+    try {
+      this.persisted.set(await navigator.storage.persist());
+    } catch {
+      // o navegador recusou perguntar (janela anônima): segue como estava, sem erro solto em quem chamou
+    }
   }
 
   private save(next: Stored): void {

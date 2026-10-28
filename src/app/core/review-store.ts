@@ -549,19 +549,26 @@ export class ReviewStore {
     const listOf = (field: string) => (Array.isArray(object?.[field]) ? (object[field] as unknown[]) : null);
     // Backups antigos não têm pendentes: nesse caso a fila atual fica como está.
     const rawDrafts = listOf('drafts');
-    const incomingDrafts = (rawDrafts ?? []).map(sanitizeDraft).filter((d): d is Draft => d !== null);
+    const incomingDrafts = newestById((rawDrafts ?? []).map((x) => sanitizeDraft(x)).filter((d): d is Draft => d !== null));
     // Nem a wishlist: backups de antes dela deixam a de agora como está.
     const rawWishes = listOf('wishes');
-    const incomingWishes = (rawWishes ?? []).map(sanitizeWish).filter((w): w is Wish => w !== null);
-    const incoming: Review[] = [];
+    const incomingWishes = newestById((rawWishes ?? []).map((x) => sanitizeWish(x)).filter((w): w is Wish => w !== null));
+    // uma ficha por id: o mesmo id duas vezes no arquivo (um backup mexido à mão, a mesma ficha em
+    // `reviews` e em `notas`) fica só com a mexida por último, senão o Substituir punha as duas no mural
+    const byIncoming = new Map<string, Review>();
     let skipped = 0;
     // as fichas convertidas do formato da build que gravou o backup (ver core/migrations.ts)
     const from = buildOf(object);
     for (const raw of [...rawList, ...(rawNotes ?? []), ...(rawMusic ?? [])]) {
       const r = sanitizeReview(raw, from);
-      if (r) incoming.push(r);
-      else skipped++;
+      const had = r && byIncoming.get(r.id);
+      if (!r || (had && !isNewer(r, had))) skipped++;
+      else {
+        if (had) skipped++;
+        byIncoming.set(r.id, r);
+      }
     }
+    const incoming = [...byIncoming.values()];
     const theirs = sanitizeDeleted(object?.['deleted']);
     // as versões guardadas nunca saem numa junção, nem ao trocar o mural pelo de lá
     const theirVersions = sanitizeVersions(object?.['versoes'], from);
@@ -888,6 +895,16 @@ export function isNewer(a: { updatedAt: string }, b: { updatedAt: string }): boo
   return canonicalJson(a) > canonicalJson(b);
 }
 
+
+/** Um de cada id, o mexido por último (no lugar do primeiro): um arquivo com o mesmo id duas vezes não duplica. */
+function newestById<T extends { id: string; updatedAt: string }>(list: readonly T[]): T[] {
+  const out = new Map<string, T>();
+  for (const x of list) {
+    const had = out.get(x.id);
+    if (!had || isNewer(x, had)) out.set(x.id, x);
+  }
+  return [...out.values()];
+}
 
 /** O apagamento mais recente de cada id, dos dois lados. */
 function mergeDeleted(a: Deleted, b: Deleted): Deleted {

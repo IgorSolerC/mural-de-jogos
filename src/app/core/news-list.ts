@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Pelo MCP, uma nota com a marca de fim do conteúdo escrita no texto não se passa mais por instrução do Murall para a AI, e um argumento que não serve (uma chave de idempotência com acento, um id ".") volta como erro da ferramenta, não como falha da conexão.',
       'No cofre, a régua da senha mestra não conta mais como forte uma senha feita de repetições (a mesma letra ou palavra várias vezes, tudo em maiúsculas), e pôr um aparelho sem PRF confere se a senha digitada é mesmo a do cofre; se a resposta ao criar o cofre se perder no caminho com ele já criado, o kit de emergência aparece assim mesmo. Um erro no segundo toque da passkey (o que tira a chave do PRF) não a joga mais fora, o que deixava uma passkey a mais no aparelho a cada tentativa; e o histórico do cofre chama o iPad de iPad e reconhece o Chrome, o Firefox e o Edge do iPhone.',
       'No cofre, várias tentativas de senha ao mesmo tempo não passam mais do freio (5 erros seguidos e a espera, 20 por dia), e o Congelar funciona também quando o cofre está só para leitura.',
+      'O backup baixado no começo do site, ainda no tempo do Mural de Jogos, volta a abrir em Restaurar de um arquivo (dizia que era de outro aplicativo); um arquivo com a mesma ficha duas vezes não a põe mais duas vezes no mural; e o backup baixado em outra aba conta também para o lembrete desta.',
     ],
   },
   {
