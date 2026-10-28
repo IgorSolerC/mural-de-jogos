@@ -89,6 +89,19 @@ export interface AssinaturaJson {
   readonly userHandle?: string;
 }
 
+/** O desafio para confirmar de novo com a passkey (`POST /api/cofre/confirmar`), com as passkeys de agora. */
+export interface DesafioDeConfirmar {
+  readonly desafio: string;
+  readonly publicKey: DesafioDeAbrir['publicKey'];
+}
+
+/**
+ * A confirmação de agora, que o servidor confere antes de trocar a senha, pôr ou tirar um aparelho, gerar
+ * um código novo ou apagar o cofre: a assinatura nova de uma passkey do cofre (sobre o desafio de
+ * confirmar) ou a prova da senha mestra.
+ */
+export type Confirmacao = { readonly desafio: string; readonly assinatura: AssinaturaJson } | { readonly kAuth: string };
+
 /** O envelope do aparelho que assinou (`POST /api/cofre/chave`); no modo servidor, com o S_i. */
 export interface ChaveDoAparelho {
   readonly envelope: { readonly id: string; readonly dados: string };
@@ -279,20 +292,25 @@ export class ApiCofre {
     return this.pedir('GET', '/api/cofre/aparelhos');
   }
 
-  porAparelho(aparelho: unknown): Promise<{ readonly id: string; readonly apelido: string; readonly prf: boolean }> {
-    return this.pedir('POST', '/api/cofre/aparelhos', { aparelho });
+  /** O desafio para confirmar de novo com a passkey (uso único, 5 minutos). */
+  desafioDeConfirmar(): Promise<DesafioDeConfirmar> {
+    return this.pedir('POST', '/api/cofre/confirmar', {});
   }
 
-  tirarAparelho(id: string): Promise<{ readonly tirado: true }> {
-    return this.pedir('DELETE', `/api/cofre/aparelhos/${encodeURIComponent(id)}`);
+  porAparelho(aparelho: unknown, confirmar: Confirmacao): Promise<{ readonly id: string; readonly apelido: string; readonly prf: boolean }> {
+    return this.pedir('POST', '/api/cofre/aparelhos', { aparelho, confirmar });
   }
 
-  trocarSenha(corpo: unknown): Promise<{ readonly trocada: true }> {
-    return this.pedir('PUT', '/api/cofre/senha', corpo);
+  tirarAparelho(id: string, confirmar: Confirmacao): Promise<{ readonly tirado: true }> {
+    return this.pedir('DELETE', `/api/cofre/aparelhos/${encodeURIComponent(id)}`, { confirmar });
   }
 
-  novoCodigo(corpo: unknown): Promise<{ readonly trocado: true }> {
-    return this.pedir('PUT', '/api/cofre/recuperacao', corpo);
+  trocarSenha(corpo: object, confirmar: Confirmacao): Promise<{ readonly trocada: true }> {
+    return this.pedir('PUT', '/api/cofre/senha', { ...corpo, confirmar });
+  }
+
+  novoCodigo(corpo: object, confirmar: Confirmacao): Promise<{ readonly trocado: true }> {
+    return this.pedir('PUT', '/api/cofre/recuperacao', { ...corpo, confirmar });
   }
 
   sessoes(): Promise<{ readonly sessoes: readonly SessaoDaApi[] }> {
@@ -314,8 +332,8 @@ export class ApiCofre {
     return this.pedir('GET', '/api/cofre/eventos');
   }
 
-  apagarCofre(confirmacao: string): Promise<{ readonly apagado: true }> {
-    return this.pedir('DELETE', '/api/cofre', { confirmacao });
+  apagarCofre(confirmacao: string, confirmar: Confirmacao): Promise<{ readonly apagado: true }> {
+    return this.pedir('DELETE', '/api/cofre', { confirmacao, confirmar });
   }
 
   /**

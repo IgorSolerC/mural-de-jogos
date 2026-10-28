@@ -1,9 +1,10 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injector, input, OnInit, output, signal, viewChild } from '@angular/core';
 import type { CofreAberto } from '../../core/abrir';
-import { type AparelhoDaApi, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
+import { type AparelhoDaApi, type Confirmacao, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
-import { confirmarComSenha } from '../../core/confirmar';
+import { confirmacaoPelaPasskey, confirmacaoPelaSenha } from '../../core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
 import { CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
 import { type JeitoDoGrupo, LIMITES, nomeDoGrupo } from '../../core/itens';
@@ -63,6 +64,12 @@ export interface MudancaDeGrupo {
   readonly jeito?: JeitoDoGrupo;
 }
 
+/**
+ * O que espera a confirmação de agora (a passkey de novo ou a senha mestra): o servidor só faz com ela
+ * (PLANO-COFRE.md, 17.21). Trocar a senha não entra: a senha atual, que ela já pede, confirma.
+ */
+type PedidoConfirmado = { readonly acao: 'por' } | { readonly acao: 'tirar'; readonly aparelho: AparelhoDaApi } | { readonly acao: 'codigo' } | { readonly acao: 'apagar' };
+
 /** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
 export interface Vazada {
   readonly id: string;
@@ -81,12 +88,13 @@ function mensagem(e: unknown): string {
  * na faixa de manilha e uma parte aberta por vez. Os aparelhos (pôr, com PRF ou no modo servidor, e
  * tirar, nunca o último), a senha mestra, o código de recuperação, os aparelhos abertos (e trancar
  * todos), as senhas vazadas, os grupos (renomear e apagar de uma vez), o histórico de 90 dias e apagar o
- * cofre (só escrevendo APAGAR).
+ * cofre (só escrevendo APAGAR). Pôr e tirar aparelho, o código novo e apagar pedem antes a passkey de novo
+ * (ou a senha mestra), que vai junto ao servidor.
  */
 @Component({
   selector: 'cofre-gerenciar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Cartela, PassoKit, ReguaForca, Icone],
+  imports: [Cartela, PassoKit, ReguaForca, Icone, NgTemplateOutlet],
   templateUrl: './gerenciar.html',
   styleUrl: './gerenciar.scss',
 })
@@ -122,6 +130,24 @@ export class Gerenciar implements OnInit {
   private readonly campoDoGrupo = viewChild<ElementRef<HTMLInputElement>>('campoDoGrupo');
   protected readonly ocupado = signal(false);
   protected readonly erro = signal<string | null>(null);
+
+  // confirmar de novo (a passkey ou a senha mestra), antes do que o servidor só faz com ela
+  protected readonly pedindo = signal<PedidoConfirmado | null>(null);
+  protected readonly confirmando = signal(false);
+  protected readonly comSenhaMestra = signal(false);
+  protected readonly senhaMestra = signal('');
+  protected readonly erroConfirmar = signal<string | null>(null);
+  private readonly campoConfirmar = viewChild<ElementRef<HTMLInputElement>>('campoConfirmar');
+  /** Aberto pelo código de recuperação, o aparelho pode não ter passkey nenhuma: começa pela senha. */
+  protected readonly comecaPelaSenha = computed(() => this.cofre().recuperada || !this.aparelhos().length);
+  protected readonly motivoDaConfirmacao = computed(() => {
+    const p = this.pedindo();
+    if (!p) return '';
+    const para = { por: 'pôr um aparelho', tirar: `tirar ${p.acao === 'tirar' ? p.aparelho.apelido : ''} do cofre`, codigo: 'gerar o código novo', apagar: 'apagar o cofre' }[p.acao];
+    return this.cofre().recuperada
+      ? `Para ${para}, digite a senha mestra (você abriu o cofre com o código de recuperação).`
+      : `Para ${para}, use a passkey de um aparelho do cofre (a digital, o rosto ou o PIN) ou a senha mestra.`;
+  });
 
   // aparelhos
   protected readonly aparelhos = signal<readonly AparelhoDaApi[]>([]);
@@ -286,8 +312,95 @@ export class Gerenciar implements OnInit {
   }
 
   protected escolher(parte: ParteDosAjustes): void {
+    this.cancelarConfirmacao();
     this.parte.set(parte);
     this.erro.set(null);
+  }
+
+  // --- confirmar de novo
+
+  /** O aparelho que espera a confirmação para sair (o id), ou null. */
+  protected tirando(): string | null {
+    const p = this.pedindo();
+    return p?.acao === 'tirar' ? p.aparelho.id : null;
+  }
+
+  /** Abre a confirmação de `pedido`: a passkey já pede (o aparelho abre a janela dele), ou o campo da senha. */
+  protected pedirConfirmacao(pedido: PedidoConfirmado): void {
+    if (this.ocupado() || this.confirmando()) return;
+    this.erro.set(null);
+    this.erroConfirmar.set(null);
+    this.senhaMestra.set('');
+    this.pedindo.set(pedido);
+    if (this.comecaPelaSenha()) this.usarSenhaMestra();
+    else void this.pelaPasskey();
+  }
+
+  protected async pelaPasskey(): Promise<void> {
+    const pedido = this.pedindo();
+    if (!pedido || this.confirmando()) return;
+    this.comSenhaMestra.set(false);
+    this.erroConfirmar.set(null);
+    this.confirmando.set(true);
+    let confirmacao: Confirmacao;
+    try {
+      confirmacao = await confirmacaoPelaPasskey(this.servicos.api, this.servicos.rpId, this.servicos.autenticador);
+    } catch (e) {
+      if (e instanceof ErroApi && e.status === 401) this.terminar.emit();
+      else this.erroConfirmar.set(e instanceof ErroPasskey && e.motivo === 'cancelada' ? 'A passkey não foi confirmada.' : e instanceof ErroPasskey || e instanceof ErroApi ? e.message : 'Não deu para confirmar. Tente de novo.');
+      return;
+    } finally {
+      this.confirmando.set(false);
+    }
+    await this.executar(pedido, confirmacao);
+  }
+
+  protected usarSenhaMestra(): void {
+    this.erroConfirmar.set(null);
+    this.comSenhaMestra.set(true);
+    afterNextRender(() => this.campoConfirmar()?.nativeElement.focus(), { injector: this.injector });
+  }
+
+  protected async confirmarComASenha(): Promise<void> {
+    const pedido = this.pedindo();
+    if (!pedido || this.confirmando() || !this.senhaMestra()) return;
+    this.confirmando.set(true);
+    this.erroConfirmar.set(null);
+    // o Argon2id trava a página um pouco: o "Conferindo…" aparece antes
+    await new Promise<void>((ok) => requestAnimationFrame(() => setTimeout(ok, 0)));
+    let confirmacao: Confirmacao;
+    try {
+      confirmacao = await confirmacaoPelaSenha(this.cofre(), this.senhaMestra());
+    } catch (e) {
+      this.erroConfirmar.set(e instanceof ErroCofre && e.motivo === 'abrir' ? 'Não é a senha mestra deste cofre.' : 'Não deu para conferir. Tente de novo.');
+      this.senhaMestra.set('');
+      return;
+    } finally {
+      this.confirmando.set(false);
+    }
+    await this.executar(pedido, confirmacao);
+  }
+
+  protected cancelarConfirmacao(): void {
+    this.pedindo.set(null);
+    this.comSenhaMestra.set(false);
+    this.senhaMestra.set('');
+    this.erroConfirmar.set(null);
+  }
+
+  /** Confirmado: a confirmação fecha e o pedido vai, com ela, ao servidor. */
+  private async executar(pedido: PedidoConfirmado, confirmacao: Confirmacao): Promise<void> {
+    this.cancelarConfirmacao();
+    switch (pedido.acao) {
+      case 'por':
+        return this.registrarCom(confirmacao);
+      case 'tirar':
+        return this.tirarCom(pedido.aparelho, confirmacao);
+      case 'codigo':
+        return this.gerarCodigoCom(confirmacao);
+      case 'apagar':
+        return this.apagarCom(confirmacao);
+    }
   }
 
   /** O índice é uma lista de abas: as setas andam, Home e End vão às pontas (a aberta leva o foco). */
@@ -308,11 +421,17 @@ export class Gerenciar implements OnInit {
 
   // --- aparelhos
 
-  protected async registrar(): Promise<void> {
+  protected registrar(): void {
+    this.pedirConfirmacao({ acao: 'por' });
+  }
+
+  /** Confirmado antes (o desafio de confirmar vale 5 minutos, o de registrar só 2): agora a passkey nova. */
+  private async registrarCom(confirmacao: Confirmacao): Promise<void> {
     await this.fazer(async () => {
       const desafio = await this.servicos.api.desafioDeRegistro();
       const passkey = await registrarPasskey(desafio, this.servicos.rpId, this.servicos.autenticador);
-      if (passkey.prf) await this.gravarAparelho(passkey);
+      if (passkey.prf) await this.gravarAparelho(passkey, confirmacao);
+      // sem PRF, a senha mestra digitada para o modo servidor é a que confirma
       else this.pendente.set(passkey);
     });
   }
@@ -331,19 +450,20 @@ export class Gerenciar implements OnInit {
       return;
     }
     await this.fazer(async () => {
+      let confirmacao: Confirmacao;
       try {
-        await confirmarComSenha(this.cofre(), senha);
+        confirmacao = await confirmacaoPelaSenha(this.cofre(), senha);
       } catch (e) {
         if (!(e instanceof ErroCofre && e.motivo === 'abrir')) throw e;
         this.erro.set('Esta não é a senha mestra do cofre.');
         return;
       }
-      await this.gravarAparelho(passkey);
+      await this.gravarAparelho(passkey, confirmacao);
     });
   }
 
-  private async gravarAparelho(passkey: PasskeyRegistrada): Promise<void> {
-    await porAparelho(this.servicos.api, this.cofre(), { passkey, apelido: this.apelido().trim() || 'Aparelho' });
+  private async gravarAparelho(passkey: PasskeyRegistrada, confirmacao: Confirmacao): Promise<void> {
+    await porAparelho(this.servicos.api, this.cofre(), { passkey, apelido: this.apelido().trim() || 'Aparelho' }, confirmacao);
     this.pendente.set(null);
     this.senhaDoModoServidor.set('');
     this.avisar.emit('Aparelho posto no cofre.');
@@ -355,9 +475,13 @@ export class Gerenciar implements OnInit {
     this.senhaDoModoServidor.set('');
   }
 
-  protected async tirar(a: AparelhoDaApi): Promise<void> {
+  protected tirar(a: AparelhoDaApi): void {
+    this.pedirConfirmacao({ acao: 'tirar', aparelho: a });
+  }
+
+  private async tirarCom(a: AparelhoDaApi, confirmacao: Confirmacao): Promise<void> {
     await this.fazer(async () => {
-      await this.servicos.api.tirarAparelho(a.id);
+      await this.servicos.api.tirarAparelho(a.id, confirmacao);
       this.confirmarTirar.set(null);
       this.avisar.emit(`${a.apelido} saiu do cofre. A passkey continua no aparelho; pode apagá-la lá.`);
       await this.recarregar();
@@ -388,9 +512,13 @@ export class Gerenciar implements OnInit {
 
   // --- código
 
-  protected async gerarCodigo(): Promise<void> {
+  protected gerarCodigo(): void {
+    this.pedirConfirmacao({ acao: 'codigo' });
+  }
+
+  private async gerarCodigoCom(confirmacao: Confirmacao): Promise<void> {
     await this.fazer(async () => {
-      this.codigo.set(await novoCodigo(this.servicos.api, this.cofre()));
+      this.codigo.set(await novoCodigo(this.servicos.api, this.cofre(), confirmacao));
       this.confirmarCodigo.set(false);
       await this.recarregar();
     });
@@ -405,10 +533,15 @@ export class Gerenciar implements OnInit {
     });
   }
 
-  protected async apagar(): Promise<void> {
+  protected apagar(): void {
+    if (this.palavraApagar() !== 'APAGAR') return;
+    this.pedirConfirmacao({ acao: 'apagar' });
+  }
+
+  private async apagarCom(confirmacao: Confirmacao): Promise<void> {
     if (this.palavraApagar() !== 'APAGAR') return;
     await this.fazer(async () => {
-      await this.servicos.api.apagarCofre('APAGAR');
+      await this.servicos.api.apagarCofre('APAGAR', confirmacao);
       this.terminar.emit();
     });
   }

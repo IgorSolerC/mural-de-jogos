@@ -215,6 +215,19 @@ label.linha-titulo {
     animation: none;
   }
 }
+/* confirmar de novo: a mesma folha solta, embaixo do que pediu */
+.confirmar-de-novo {
+  max-width: 560px;
+  .linha-titulo {
+    gap: 8px;
+  }
+  .linha-icone {
+    margin-top: 0;
+  }
+  .aviso {
+    margin: 0;
+  }
+}
 /* o nome do grupo a pincel, como na orelha da pasta */
 .nome-do-grupo {
   font: 400 1.15rem/1.2 var(--f-marker);

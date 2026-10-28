@@ -1,10 +1,14 @@
 import { Context, Hono } from 'hono';
+import { LIMITS, reserve } from '../domain/brake';
+import { base64url } from '../domain/bytes';
+import { CONFIRM_CHALLENGE_MS, newChallenge } from '../domain/challenge';
 import { HISTORY_DAYS } from '../domain/cleanup';
 import { eventStatement } from '../domain/events';
 import { eraseVaultStatements } from '../domain/murall';
 import { resetStatement } from '../domain/password-brake';
 import { proofHash } from '../domain/proofs';
 import { DAY_MS, write } from '../domain/quota';
+import { reconfirm, sessionKey } from '../domain/reconfirm';
 import { authenticate } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
@@ -14,6 +18,10 @@ import { country, readJson } from './http';
 /**
  * Gerenciar o cofre aberto (8.5): a senha, os aparelhos, o código de recuperação, os aparelhos abertos,
  * o histórico e apagar o cofre. Nada aqui lê ou muda os itens; cada mudança entra no histórico.
+ *
+ * Trocar a senha, pôr e tirar aparelhos, o código novo e apagar o cofre pedem, além da sessão, a
+ * confirmação de agora (a passkey ou a senha mestra, `domain/reconfirm.ts`): com só o token, ninguém
+ * tranca o dono fora nem apaga o cofre.
  */
 
 /** Quantas passkeys um cofre pode ter. */
@@ -24,6 +32,25 @@ export const DELETE_CONFIRMATION = 'APAGAR';
 
 export function manageRoutes(app: Hono, deps: Deps): void {
   const vault = (c: Context) => authenticate(deps, c.req.header('Authorization'), ['cofre']);
+
+  // O desafio para confirmar de novo com a passkey (uso único, 5 minutos), com as passkeys de agora.
+  app.post('/api/cofre/confirmar', async (c) => {
+    const s = await vault(c);
+    await reserve(deps, sessionKey(s), 'confirmar', LIMITS.confirmar.account);
+    const devices = await deps.db.all<{ id: string; transportes: string }>('SELECT id, transportes FROM cofre_credenciais WHERE usuario_id = ? ORDER BY criado_em', [s.userId]);
+    const { id, challenge, statements } = newChallenge(s.userId, 'assinatura', deps.now(), CONFIRM_CHALLENGE_MS);
+    await write(deps, statements, 4);
+    return c.json({
+      desafio: id,
+      publicKey: {
+        challenge: base64url(challenge),
+        rpId: deps.config.rpId,
+        allowCredentials: devices.map((d) => ({ type: 'public-key', id: d.id, ...(d.transportes ? { transports: d.transportes.split(',') } : {}) })),
+        userVerification: 'required',
+        timeout: 120_000,
+      },
+    });
+  });
 
   app.get('/api/cofre/aparelhos', async (c) => {
     const s = await vault(c);
@@ -41,6 +68,7 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     const device = deviceField(body['aparelho'], 'aparelho');
     const count = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM cofre_credenciais WHERE usuario_id = ?', [s.userId]);
     if ((count?.n ?? 0) >= MAX_DEVICES) throw new HttpError(409, 'aparelhos-demais', `O cofre já tem ${MAX_DEVICES} aparelhos. Tire um antes de pôr outro.`);
+    await reconfirm(deps, s, body, country(c));
     const [verified] = await verifyDevices(deps, s.userId, [device]);
     const now = deps.now();
     await write(deps, [...(await deviceStatements(deps, s.userId, device, verified!, now.toISOString())), eventStatement(s.userId, 'aparelho-posto', now, s.device, country(c))], 12);
@@ -50,10 +78,16 @@ export function manageRoutes(app: Hono, deps: Deps): void {
   // Tirar um aparelho: a passkey e o envelope dele. Nunca o último (o cofre ficaria sem como abrir, 8.5).
   app.delete('/api/cofre/aparelhos/:id', async (c) => {
     const s = await vault(c);
+    // sem corpo (a página de antes desta regra), a resposta é a de falta a confirmação
+    const body = c.req.raw.body ? await readJson(c, 16_384) : {};
     const id = c.req.param('id');
     if (!(await deps.db.first('SELECT 1 FROM cofre_credenciais WHERE id = ? AND usuario_id = ?', [id, s.userId]))) {
       throw new HttpError(404, 'aparelho-nao-encontrado', 'Este aparelho não está no cofre.');
     }
+    const lastOne = () => new HttpError(409, 'ultimo-aparelho', 'Este é o único aparelho do cofre: ponha outro antes de tirar este.');
+    const count = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM cofre_credenciais WHERE usuario_id = ?', [s.userId]);
+    if ((count?.n ?? 0) <= 1) throw lastOne();
+    await reconfirm(deps, s, body, country(c));
     const now = deps.now();
     // a condição vai em cada parte do lote: dois "tirar" ao mesmo tempo não deixam o cofre sem nenhum
     const others = '(SELECT COUNT(*) FROM cofre_credenciais WHERE usuario_id = ?) > 1';
@@ -66,7 +100,7 @@ export function manageRoutes(app: Hono, deps: Deps): void {
       ],
       10,
     );
-    if (credential?.changes !== 1 || envelope?.changes !== 1) throw new HttpError(409, 'ultimo-aparelho', 'Este é o único aparelho do cofre: ponha outro antes de tirar este.');
+    if (credential?.changes !== 1 || envelope?.changes !== 1) throw lastOne();
     return c.json({ tirado: true });
   });
 
@@ -77,7 +111,9 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     const { m, t, p } = kdfField(body);
     const salt = bytesField(body['sal'], 'sal', exactly(16));
     const v = bytesField(body['v'], 'V', exactly(SEALED_KEY));
-    const auth = await proofHash(deps, 'auth', bytesField(body['kAuth'], 'prova da senha', exactly(KEY)));
+    const newProof = bytesField(body['kAuth'], 'prova da senha', exactly(KEY));
+    await reconfirm(deps, s, body, country(c));
+    const auth = await proofHash(deps, 'auth', newProof);
     const now = deps.now();
     await write(
       deps,
@@ -102,6 +138,7 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     const envelope = bytesField(body['envelope'], 'envelope do código', exactly(SEALED_KEY));
     const rec = await proofHash(deps, 'rec', bytesField(body['kRec'], 'prova do código', exactly(KEY)));
     if (await deps.db.first('SELECT 1 FROM cofre_envelopes WHERE id = ?', [id])) throw new HttpError(400, 'pedido-invalido', 'Envelope com um id que já existe.');
+    await reconfirm(deps, s, body, country(c));
     const now = deps.now();
     await write(
       deps,
@@ -150,14 +187,15 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     return c.json({ eventos: rows });
   });
 
-  // Apagar o cofre (só aberto, com a palavra escrita): tudo da conta, sem volta. O backup diário guarda
-  // a cópia cifrada por 30 dias (16.3).
+  // Apagar o cofre (só aberto, com a palavra escrita e a confirmação de agora): tudo da conta, sem volta.
+  // O backup diário guarda a cópia cifrada por 30 dias (16.3).
   app.delete('/api/cofre', async (c) => {
     const s = await vault(c);
-    const body = await readJson(c, 1024);
+    const body = await readJson(c, 16_384);
     if (body['confirmacao'] !== DELETE_CONFIRMATION) {
       throw new HttpError(400, 'falta-confirmacao', `Para apagar o cofre, escreva ${DELETE_CONFIRMATION}.`);
     }
+    await reconfirm(deps, s, body, country(c));
     await write(deps, eraseVaultStatements(s.userId), 40);
     c.header('Clear-Site-Data', '"cache", "storage"');
     return c.json({ apagado: true });

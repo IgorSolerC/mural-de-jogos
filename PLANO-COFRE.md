@@ -417,6 +417,7 @@ freios            (como em api/src/domain/brake.ts)
 | `GET  /api/cofre/eventos` | Histórico |
 | `POST /api/cofre/trancar` | Mata a sessão (com `Clear-Site-Data`) |
 | `DELETE /api/cofre` | Apagar o cofre (só aberto, com confirmação) |
+| `POST /api/cofre/confirmar` | Desafio para confirmar de novo com a passkey (17.21) |
 
 ### 9.3 Regras da API
 
@@ -1747,3 +1748,33 @@ ao Kanban". Só a tela mudou (nada na cripto, na API ou no que fica no aparelho)
   (nem as beiradas do quadro, nem a pasta que rola por dentro): o apagado caía em cima das senhas e dos
   botões de copiar (pedido do usuário, 25/10).
 - Ficou de fora: arrastar uma senha de uma pasta para outra (mudar o grupo arrastando, como no Kanban).
+
+### 17.21 Confirmar de novo antes do que tranca o dono fora (28/10)
+
+Achado de revisão (pendente desde a de 23/10, e de novo na de 28/10, 57e8e4a): trocar a senha, pôr e tirar
+aparelhos, gerar um código de recuperação novo e apagar o cofre pediam só a sessão do cofre aberto. Quem
+roubasse esse token trocava V (e o dono não abria mais), punha a passkey dele, tirava a do dono ou apagava
+tudo. O usuário escolheu pedir a passkey de novo (ou a senha) no servidor, com um toque a mais.
+
+- **No servidor** (`cofre-api/src/domain/reconfirm.ts`): essas rotas pedem no corpo `confirmar`, conferido
+  depois do resto do pedido e antes de gravar. Ou `{ desafio, assinatura }`, uma assinatura nova de uma
+  passkey do cofre, com a verificação do usuário, sobre o desafio de `POST /api/cofre/confirmar` (com a
+  sessão do cofre; uso único, 5 minutos, porque pôr um aparelho confirma antes e registra depois; o
+  contador da passkey sobe como ao abrir); ou `{ kAuth }`, a mesma prova da senha de abrir. Sem ela, 403
+  `falta-confirmar`; a senha errada, 403 `senha-errada` com "Senha errada" no histórico; nunca 401, que
+  tranca a página.
+- **Nunca trancar o dono fora.** A senha vale sempre, porque é a saída de quem abriu pelo código de
+  recuperação sem nenhum aparelho à mão: ele tira o perdido, põe um novo e gera o código novo só com ela.
+  Os aparelhos sem PRF (modo servidor) confirmam pela assinatura, como os outros. Os erros da senha aqui
+  contam num freio da sessão (5 por cofre aberto, na tabela `freios`, chave `sessao:<hash>`; acertar não
+  conta), e **não** no freio de abrir: senão, quem tem só o token gastaria os 20 erros do dia e o dono não
+  abriria o cofre. Os desafios de confirmar também têm freio próprio da sessão (10 por hora), separado
+  dos 30 por hora de abrir.
+- **Na página** (`core/confirmar.ts`, `app/gerenciar`): Pôr um aparelho, Tirar, Gerar (o código) e Apagar o
+  cofre abrem a folha "Confirme que é você" embaixo do que pediu. A passkey já pede (com "Usar a senha
+  mestra" ao lado); aberto pelo código, começa pela senha. A senha é conferida na página antes (abrindo V),
+  então um erro de digitação não gasta as tentativas do servidor. Trocar a senha não ganhou toque: a senha
+  atual que ela já pedia vai como a confirmação. No aparelho sem PRF, a senha do modo servidor confirma.
+- Uma aba aberta de antes desta versão recebe "Confirme de novo…" ao gerenciar: recarregar resolve.
+- Nada mudou na cripto nem no banco (sem migração): o desafio usa o tipo `assinatura` que já existia.
+

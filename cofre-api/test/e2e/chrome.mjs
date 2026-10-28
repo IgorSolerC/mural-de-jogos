@@ -25,7 +25,7 @@ page.on('pageerror', (e) => erros.push(`pageerror: ${e.message}`));
 
 const cdp = await page.createCDPSession();
 await cdp.send('WebAuthn.enable');
-await cdp.send('WebAuthn.addVirtualAuthenticator', {
+const { authenticatorId } = await cdp.send('WebAuthn.addVirtualAuthenticator', {
   options: { protocol: 'ctap2', ctap2Version: 'ctap2_1', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, hasPrf: true, automaticPresenceSimulation: true },
 });
 
@@ -162,6 +162,11 @@ try {
   await aba('Recuperação');
   await clicar('Gerar um código novo');
   await clicar('Gerar');
+  // aberto pelo código: a confirmação de agora começa pela senha mestra (17.21)
+  await page.waitForSelector('#g-confirmar-senha', { timeout: 20000 });
+  await foto('6b-confirmar-pela-senha');
+  await digitar('#g-confirmar-senha', frase);
+  await clicar('Confirmar');
   await page.waitForSelector('.kit-codigo', { timeout: 30000 });
   const codigoNovo = await page.$$eval('.kit-codigo span', (s) => s.map((x) => x.textContent).join('-'));
   await page.click('.guardei input');
@@ -193,6 +198,28 @@ try {
   const bilhete = await esperar(() => page.$eval('.bilhete', (e) => e.textContent).catch(() => null), 20000, 'resposta da base de vazadas');
   if (/Não deu/.test(bilhete)) throw new Error(`a base de vazadas não respondeu de dentro do cofre: ${bilhete}`);
   passo(`base de vazadas: ${bilhete.trim()}`);
+  // com o cofre aberto pela passkey, o código novo pede a passkey de novo, e o servidor confere (17.21)
+  await aba('Recuperação');
+  await clicar('Gerar um código novo');
+  await clicar('Gerar');
+  await page.waitForSelector('.kit-codigo', { timeout: 30000 });
+  await page.click('.guardei input');
+  await clicar('Terminar');
+  passo('código novo confirmado pela passkey (a assinatura conferida no servidor)');
+  // a passkey que não confere a pessoa: a folha fica, com a senha mestra ao lado, e Cancelar não apaga nada
+  await aba('Cuidado');
+  await digitar('#g-apagar-palavra', 'APAGAR');
+  await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: false });
+  await clicar('Apagar o cofre');
+  await page.waitForSelector('.confirmar-de-novo .aviso', { timeout: 30000 });
+  await foto('7b-confirmar-passkey-falhou');
+  await clicar('Usar a senha mestra');
+  await page.waitForSelector('#g-confirmar-senha');
+  await foto('7c-confirmar-pela-senha');
+  await clicar('Cancelar');
+  await cdp.send('WebAuthn.setUserVerified', { authenticatorId, isUserVerified: true });
+  if (await page.$('.confirmar-de-novo')) throw new Error('Cancelar não fechou a confirmação');
+  passo('apagar sem a passkey conferida não apaga; Cancelar fecha');
   if (await page.$('.vigia')) throw new Error('a vigia do DOM disparou à toa');
   passo('a vigia do DOM ficou quieta o tempo todo');
   // e pega o que uma extensão injetar

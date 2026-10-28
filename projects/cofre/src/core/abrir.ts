@@ -80,6 +80,18 @@ function bytes(texto: string | undefined, oQue: string): Bytes {
 
 const b64 = (buffer: ArrayBuffer) => paraBase64url(new Uint8Array(buffer));
 
+/** A assinatura de uma passkey como a API confere (os bytes em base64url). */
+export function assinaturaDe(cred: PublicKeyCredential): AssinaturaJson {
+  const r = cred.response as AuthenticatorAssertionResponse;
+  return {
+    id: b64(cred.rawId),
+    clientDataJSON: b64(r.clientDataJSON),
+    authenticatorData: b64(r.authenticatorData),
+    signature: b64(r.signature),
+    ...(r.userHandle ? { userHandle: b64(r.userHandle) } : {}),
+  };
+}
+
 /** A passkey assina o desafio da API, com o PRF pedido. */
 export async function assinar(desafio: DesafioDeAbrir, rpId: string, autenticador: Autenticador = autenticadorDoNavegador): Promise<Assinada> {
   const pk = desafio.publicKey;
@@ -108,19 +120,8 @@ export async function assinar(desafio: DesafioDeAbrir, rpId: string, autenticado
     if (e instanceof ErroPasskey || e instanceof ErroCofre) throw e;
     traduzir(e);
   }
-  const r = cred.response as AuthenticatorAssertionResponse;
   const segredo = segredoDoPrf((cred.getClientExtensionResults() as { prf?: { results?: { first?: BufferSource } } }).prf?.results?.first);
-  return {
-    desafio: desafio.desafio,
-    assinatura: {
-      id: b64(cred.rawId),
-      clientDataJSON: b64(r.clientDataJSON),
-      authenticatorData: b64(r.authenticatorData),
-      signature: b64(r.signature),
-      ...(r.userHandle ? { userHandle: b64(r.userHandle) } : {}),
-    },
-    prf: segredo,
-  };
+  return { desafio: desafio.desafio, assinatura: assinaturaDe(cred), prf: segredo };
 }
 
 /**

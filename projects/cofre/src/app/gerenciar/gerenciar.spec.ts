@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import type { CofreAberto } from '../../core/abrir';
-import { type AparelhoDaApi, ApiCofre, type DesafioDeRegistro, type EventoDaApi, type SessaoDaApi } from '../../core/api';
+import { type AparelhoDaApi, ApiCofre, type Confirmacao, type DesafioDeConfirmar, type DesafioDeRegistro, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { aleatorios, paraBase64url } from '../../core/bytes';
 import { chaveDaSenha, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../../core/crypto';
 import { sortearFrase } from '../../core/sorteio';
@@ -19,6 +19,19 @@ class ApiDeGerenciar extends ApiCofre {
   ];
   pedidos: string[] = [];
   postos: { apelido: string; prf: boolean }[] = [];
+  /** As confirmações que foram com cada pedido: "senha" (a prova da senha mestra) ou "passkey". */
+  confirmacoes: string[] = [];
+  desafios = 0;
+  private anotar(c: Confirmacao): void {
+    this.confirmacoes.push('kAuth' in c ? `senha ${c.kAuth.length}` : `passkey ${c.desafio}`);
+  }
+  override async desafioDeConfirmar(): Promise<DesafioDeConfirmar> {
+    this.desafios++;
+    return {
+      desafio: `d${this.desafios}`,
+      publicKey: { challenge: paraBase64url(aleatorios(32)), rpId: 'cofre.teste', allowCredentials: this.lista.map((a) => ({ type: 'public-key' as const, id: paraBase64url(aleatorios(16)) })) },
+    };
+  }
   override async aparelhos() {
     return { aparelhos: this.lista };
   }
@@ -28,16 +41,19 @@ class ApiDeGerenciar extends ApiCofre {
   override async eventos(): Promise<{ eventos: readonly EventoDaApi[] }> {
     return { eventos: [{ tipo: 'erro-senha', em: '2026-10-21T09:00:00.000Z', aparelho: 'Safari no iPhone', pais: 'BR' }] };
   }
-  override async tirarAparelho(id: string) {
+  override async tirarAparelho(id: string, confirmar: Confirmacao) {
+    this.anotar(confirmar);
     this.pedidos.push(`tirar ${id}`);
     this.lista = this.lista.filter((a) => a.id !== id);
     return { tirado: true as const };
   }
-  override async trocarSenha() {
+  override async trocarSenha(_corpo: object, confirmar: Confirmacao) {
+    this.anotar(confirmar);
     this.pedidos.push('senha');
     return { trocada: true as const };
   }
-  override async novoCodigo() {
+  override async novoCodigo(_corpo: object, confirmar: Confirmacao) {
+    this.anotar(confirmar);
     this.pedidos.push('codigo');
     return { trocado: true as const };
   }
@@ -45,7 +61,8 @@ class ApiDeGerenciar extends ApiCofre {
     this.pedidos.push('trancar-todos');
     return { trancados: true as const };
   }
-  override async apagarCofre(confirmacao: string) {
+  override async apagarCofre(confirmacao: string, confirmar: Confirmacao) {
+    this.anotar(confirmar);
     this.pedidos.push(`apagar ${confirmacao}`);
     return { apagado: true as const };
   }
@@ -55,7 +72,8 @@ class ApiDeGerenciar extends ApiCofre {
       publicKey: { challenge: paraBase64url(aleatorios(32)), rp: { id: 'cofre.teste', name: 'x' }, user: { id: paraBase64url(aleatorios(16)), name: 'x', displayName: 'x' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] },
     };
   }
-  override async porAparelho(aparelho: unknown) {
+  override async porAparelho(aparelho: unknown, confirmar: Confirmacao) {
+    this.anotar(confirmar);
     const a = aparelho as { apelido: string; prf: boolean };
     this.postos.push({ apelido: a.apelido, prf: a.prf });
     return { id: 'novo', apelido: a.apelido, prf: a.prf };
@@ -74,7 +92,16 @@ const semPrf: Autenticador = {
   pegar: async () => null,
 };
 
-async function montar() {
+/** Uma assinatura de passkey com a verificação do usuário (o servidor de mentira não confere). */
+const assinada = (): Credential =>
+  ({
+    type: 'public-key',
+    rawId: aleatorios(16).buffer,
+    response: { clientDataJSON: aleatorios(32).buffer, authenticatorData: aleatorios(37).buffer, signature: aleatorios(64).buffer },
+    getClientExtensionResults: () => ({}),
+  }) as unknown as Credential;
+
+async function montar(opcoes: { recuperada?: boolean; autenticador?: Autenticador } = {}) {
   const sal = novoSal();
   const m = novaChaveDoMeio();
   const { chave, v } = await criarCofre(await chaveDaSenha(SENHA, sal, KDF_PADRAO), m, USUARIO);
@@ -83,14 +110,14 @@ async function montar() {
     chave,
     manifesto: { contador: 0, itens: {}, lixeira: {}, mudadoEm: '2026-10-21T10:00:00.000Z', aparelho: 'PC' },
     contador: 0,
-    recuperada: false,
+    recuperada: opcoes.recuperada ?? false,
     expiraEm: '',
     paradaMaxima: 600,
     aparelho: 'PC',
     segredos: { m, v, sal, kdf: { ...KDF_PADRAO } },
   };
   const api = new ApiDeGerenciar();
-  const servicos: Servicos = { api, autenticador: semPrf, rpId: 'cofre.teste', pagina: { agente: 'Chrome no Windows' } as Pagina, terminar: () => undefined };
+  const servicos: Servicos = { api, autenticador: opcoes.autenticador ?? semPrf, rpId: 'cofre.teste', pagina: { agente: 'Chrome no Windows' } as Pagina, terminar: () => undefined };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Gerenciar);
   fixture.componentRef.setInput('cofre', cofre);
@@ -130,6 +157,19 @@ function digitar(el: HTMLElement, seletor: string, valor: string): void {
   const i = el.querySelector<HTMLInputElement>(seletor)!;
   i.value = valor;
   i.dispatchEvent(new Event('input'));
+}
+
+/** Na confirmação aberta: "Usar a senha mestra" (se a passkey veio primeiro), a senha e Confirmar. */
+async function confirmarComSenha(fixture: ComponentFixture<Gerenciar>, senha: string): Promise<void> {
+  const el = fixture.nativeElement as HTMLElement;
+  await ate(fixture, () => !!el.querySelector('#g-confirmar-senha') || !!botao(el, 'Usar a senha mestra'));
+  if (!el.querySelector('#g-confirmar-senha')) {
+    botao(el, 'Usar a senha mestra').click();
+    await estabilizar(fixture);
+  }
+  digitar(el, '#g-confirmar-senha', senha);
+  await estabilizar(fixture);
+  botao(el, 'Confirmar').click();
 }
 
 describe('gerenciar o cofre', () => {
@@ -191,8 +231,22 @@ describe('gerenciar o cofre', () => {
     expect(el.textContent).toContain('Tirar Celular do cofre?');
     expect(api.pedidos).toEqual([]);
     botao(el, 'Tirar').click();
-    await estabilizar(fixture);
+    // a passkey é pedida antes (aqui o aparelho não devolve nada), e nada vai ao servidor
+    await ate(fixture, () => !!el.querySelector('.confirmar-de-novo .aviso'));
+    expect(el.querySelector('.confirmar-de-novo')!.textContent).toContain('Para tirar Celular do cofre');
+    expect(api.pedidos).toEqual([]);
+    expect(botao(el, 'Tentar a passkey de novo')).toBeDefined();
+    // a senha errada é conferida aqui, sem ir ao servidor
+    await confirmarComSenha(fixture, 'errada');
+    await ate(fixture, () => !!el.querySelector('.confirmar-de-novo .aviso')?.textContent?.includes('Não é a senha mestra'));
+    expect(api.pedidos).toEqual([]);
+    await confirmarComSenha(fixture, SENHA);
+    await ate(fixture, () => api.pedidos.length === 1);
     expect(api.pedidos).toEqual(['tirar a1']);
+    // a prova da senha (32 bytes em base64url) foi junto
+    expect(api.confirmacoes).toEqual(['senha 43']);
+    await estabilizar(fixture);
+    expect(el.querySelector('.confirmar-de-novo')).toBeNull();
     expect(botao(el, 'Tirar')).toBeUndefined();
     expect(el.textContent).toContain('Só um aparelho');
   });
@@ -215,6 +269,9 @@ describe('gerenciar o cofre', () => {
     botao(el, 'Trocar a senha').click();
     await ate(fixture, () => api.pedidos.includes('senha'));
     await ate(fixture, () => avisos.includes('Senha mestra trocada.'));
+    // a senha atual, que já foi digitada, é a confirmação de agora: nenhum toque a mais
+    expect(api.confirmacoes).toEqual(['senha 43']);
+    expect(api.desafios).toBe(0);
   });
 
   it('um código novo mostra o kit, e terminar volta', async () => {
@@ -223,6 +280,7 @@ describe('gerenciar o cofre', () => {
     botao(el, 'Gerar um código novo').click();
     await estabilizar(fixture);
     botao(el, 'Gerar').click();
+    await confirmarComSenha(fixture, SENHA);
     await ate(fixture, () => !!el.querySelector('.kit-codigo'));
     expect(api.pedidos).toEqual(['codigo']);
     expect(el.querySelector('h2')!.textContent).toContain('O código novo');
@@ -236,6 +294,7 @@ describe('gerenciar o cofre', () => {
   it('um aparelho sem PRF só entra no modo servidor com uma senha que sirva', async () => {
     const { fixture, api, el } = await montar();
     botao(el, 'Pôr um aparelho').click();
+    await confirmarComSenha(fixture, SENHA);
     await ate(fixture, () => !!el.querySelector('#g-senha-servidor'));
     digitar(el, '#g-senha-servidor', 'senha123');
     await estabilizar(fixture);
@@ -254,6 +313,8 @@ describe('gerenciar o cofre', () => {
     botao(el, 'Pôr no modo servidor').click();
     await ate(fixture, () => api.postos.length === 1);
     expect(api.postos).toEqual([{ apelido: 'PC', prf: false }]);
+    // a senha do modo servidor é a confirmação que foi junto
+    expect(api.confirmacoes).toEqual(['senha 43']);
   });
 
   it('trancar todos e apagar (só com APAGAR) terminam a sessão', async () => {
@@ -276,7 +337,58 @@ describe('gerenciar o cofre', () => {
     await estabilizar(b.fixture);
     botao(b.el, 'Apagar o cofre').click();
     await estabilizar(b.fixture);
+    expect(b.api.pedidos).toEqual([]);
+    // Cancelar fecha a confirmação sem apagar
+    await ate(b.fixture, () => !!botao(b.el, 'Cancelar'));
+    botao(b.el, 'Cancelar').click();
+    await estabilizar(b.fixture);
+    expect(b.el.querySelector('.confirmar-de-novo')).toBeNull();
+    botao(b.el, 'Apagar o cofre').click();
+    await confirmarComSenha(b.fixture, SENHA);
+    await ate(b.fixture, () => b.api.pedidos.length === 1);
     expect(b.api.pedidos).toEqual(['apagar APAGAR']);
     expect(b.terminou).toHaveBeenCalled();
+  });
+
+  it('pela passkey: a assinatura sobre o desafio do servidor vai junto do pedido', async () => {
+    let pedidas = 0;
+    const comPasskey: Autenticador = { ...semPrf, pegar: async () => (pedidas++, assinada()) };
+    const { fixture, api, el } = await montar({ autenticador: comPasskey });
+    await parte(fixture, 'Recuperação');
+    botao(el, 'Gerar um código novo').click();
+    await estabilizar(fixture);
+    botao(el, 'Gerar').click();
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(pedidas).toBe(1);
+    expect(api.confirmacoes).toEqual(['passkey d1']);
+  });
+
+  it('aberto pelo código de recuperação, a confirmação começa pela senha mestra (o aparelho pode não ter passkey)', async () => {
+    let pedidas = 0;
+    const { fixture, api, el } = await montar({ recuperada: true, autenticador: { ...semPrf, pegar: async () => (pedidas++, null) } });
+    await parte(fixture, 'Recuperação');
+    botao(el, 'Gerar um código novo').click();
+    await estabilizar(fixture);
+    botao(el, 'Gerar').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('#g-confirmar-senha')).not.toBeNull();
+    expect(el.querySelector('.confirmar-de-novo')!.textContent).toContain('código de recuperação');
+    expect(pedidas).toBe(0);
+    expect(botao(el, 'Usar a passkey')).toBeDefined();
+    await confirmarComSenha(fixture, SENHA);
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(api.confirmacoes).toEqual(['senha 43']);
+  });
+
+  it('trocar de parte fecha a confirmação aberta', async () => {
+    const { fixture, el } = await montar({ recuperada: true });
+    botao(el, 'Tirar').click();
+    await estabilizar(fixture);
+    botao(el, 'Tirar').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.confirmar-de-novo')).not.toBeNull();
+    await parte(fixture, 'Recuperação');
+    await parte(fixture, 'Aparelhos');
+    expect(el.querySelector('.confirmar-de-novo')).toBeNull();
   });
 });

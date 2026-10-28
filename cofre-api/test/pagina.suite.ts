@@ -5,6 +5,7 @@ import { montarCofre } from '../../projects/cofre/src/core/criar';
 import { abrirCofre, abrirEnvelope, abrirRecuperacao, chaveDaSenha, decifrarManifesto, KDF_PADRAO, provaDaSenha, provaDoCodigo } from '../../projects/cofre/src/core/crypto';
 import { abrir, assinar, chaveDoMeio, chaveDoMeioPeloCodigo, senhaDoDesafio } from '../../projects/cofre/src/core/abrir';
 import { ApiCofre } from '../../projects/cofre/src/core/api';
+import { confirmacaoPelaPasskey, confirmacaoPelaSenha } from '../../projects/cofre/src/core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../projects/cofre/src/core/gerenciar';
 import { apagarDeVez, ErroConflito, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../projects/cofre/src/core/itens';
 import type { Autenticador, PasskeyRegistrada } from '../../projects/cofre/src/core/passkey';
@@ -185,7 +186,7 @@ export function paginaSuite(label: string, setup: Setup) {
       const m = await chaveDoMeioPeloCodigo(api, codigoTexto, DONO.id);
       return { api, cofre: await abrir(api, DONO.id, await senhaDoDesafio(senha, desafio), m, 'PC', desafio) };
     };
-    return { ...ctx, novaApi, abrirPelaPagina, abrirPeloCodigo };
+    return { ...ctx, novaApi, abrirPelaPagina, abrirPeloCodigo, autenticador };
   }
 
   describe(`Abrir e usar o cofre pela página (${label})`, () => {
@@ -286,7 +287,7 @@ export function paginaSuite(label: string, setup: Setup) {
     it('um código novo abre; o antigo para de valer na hora', async () => {
       const { abrirPelaPagina, abrirPeloCodigo, codigo } = await paraAbrir();
       const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
-      const novo = await novoCodigo(api, cofre);
+      const novo = await novoCodigo(api, cofre, await confirmacaoPelaSenha(cofre, SENHA));
       expect(novo).not.toBe(codigo);
       expect((await abrirPeloCodigo(novo)).cofre.recuperada).toBe(true);
       await expect(abrirPeloCodigo(codigo)).rejects.toMatchObject({ status: expect.any(Number) });
@@ -308,13 +309,13 @@ export function paginaSuite(label: string, setup: Setup) {
         ['Celular', true],
         ['PC', false],
       ]);
-      await api.tirarAparelho(VETORES.rs256.reg.id);
-      await expect(api.tirarAparelho(VETORES.es256.reg.id)).rejects.toMatchObject({ codigo: 'ultimo-aparelho' });
+      await api.tirarAparelho(VETORES.rs256.reg.id, await confirmacaoPelaSenha(cofre, SENHA));
+      await expect(api.tirarAparelho(VETORES.es256.reg.id, await confirmacaoPelaSenha(cofre, SENHA))).rejects.toMatchObject({ codigo: 'ultimo-aparelho' });
       // pôr de novo o PC (modo servidor), com o desafio de registro trocado pelos bytes do vetor
       const desafio = await api.desafioDeRegistro();
       await db.batch([{ sql: "UPDATE cofre_desafios SET desafio = ? WHERE tipo = 'registro'", params: [seq(32, 1)] }]);
       const passkey: PasskeyRegistrada = { desafio: desafio.desafio, credencial: { ...VETORES.rs256.reg, transports: ['internal'] }, prf: null, prfLigado: false };
-      expect(await porAparelho(api, cofre, { passkey, apelido: 'PC de novo' })).toEqual({ id: VETORES.rs256.reg.id, prf: false });
+      expect(await porAparelho(api, cofre, { passkey, apelido: 'PC de novo' }, await confirmacaoPelaSenha(cofre, SENHA))).toEqual({ id: VETORES.rs256.reg.id, prf: false });
       expect((await api.aparelhos()).aparelhos.map((a) => a.apelido)).toEqual(['Celular', 'PC de novo']);
       // e o PC posto agora abre o cofre
       expect((await abrirPelaPagina('rs256', 0, 'PC')).cofre.contador).toBe(0);
@@ -332,11 +333,50 @@ export function paginaSuite(label: string, setup: Setup) {
       await expect(api.itens()).rejects.toMatchObject({ status: 401 });
 
       const outro = await abrirPelaPagina('es256', 1, 'Celular');
-      await expect(outro.api.apagarCofre('apagar')).rejects.toMatchObject({ codigo: 'falta-confirmacao' });
-      await outro.api.apagarCofre('APAGAR');
+      const confirmar = await confirmacaoPelaSenha(outro.cofre, SENHA);
+      await expect(outro.api.apagarCofre('apagar', confirmar)).rejects.toMatchObject({ codigo: 'falta-confirmacao' });
+      await outro.api.apagarCofre('APAGAR', confirmar);
       const depois = novaApi();
       depois.usarToken((await entrar()).token);
       expect(await depois.estado()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0 });
+    });
+
+    it('confirmar de novo: a passkey pelo desafio do servidor, ou a senha (conferida aqui antes, sem gastar tentativas)', async () => {
+      const { abrirPelaPagina, autenticador, db } = await paraAbrir();
+      const { api, cofre } = await abrirPelaPagina('es256', 0, 'Celular');
+      // sem a confirmação, o servidor não troca nada (a página de antes desta regra)
+      await expect(api.novoCodigo({ id: crypto.randomUUID(), envelope: base64url(seq(61, 1)), kRec: base64url(seq(32, 2)) }, undefined as never)).rejects.toMatchObject({
+        status: 403,
+        codigo: 'falta-confirmar',
+      });
+      // a senha errada nem sai da página
+      await expect(confirmacaoPelaSenha(cofre, 'nao-e-esta')).rejects.toMatchObject({ motivo: 'abrir' });
+      expect(await db.first("SELECT 1 AS um FROM freios WHERE acao = 'confirmar-senha'")).toBeNull();
+      // a passkey do PC (modo servidor, sem PRF) confirma
+      const pelaPasskey = await confirmacaoPelaPasskey(api, RP_ID, autenticador('rs256', 0, null));
+      expect(Object.keys(pelaPasskey).sort()).toEqual(['assinatura', 'desafio']);
+      expect(typeof (await novoCodigo(api, cofre, pelaPasskey))).toBe('string');
+      // e não serve duas vezes
+      await expect(novoCodigo(api, cofre, pelaPasskey)).rejects.toMatchObject({ codigo: 'desafio-invalido' });
+      const pelaSenha = await confirmacaoPelaSenha(cofre, SENHA);
+      expect(typeof (await novoCodigo(api, cofre, pelaSenha))).toBe('string');
+      // o desafio de outro endereço não vai para a passkey
+      await expect(confirmacaoPelaPasskey(api, 'outro.exemplo', autenticador('rs256', 1, null))).rejects.toMatchObject({ motivo: 'formato' });
+    });
+
+    it('aberto pelo código, sem passkey nenhuma à mão: a senha mestra põe um aparelho e gera o código novo', async () => {
+      const { abrirPeloCodigo, abrirPelaPagina, codigo, db } = await paraAbrir();
+      const { api, cofre } = await abrirPeloCodigo(codigo);
+      expect(cofre.recuperada).toBe(true);
+      await api.tirarAparelho(VETORES.rs256.reg.id, await confirmacaoPelaSenha(cofre, SENHA));
+      const desafio = await api.desafioDeRegistro();
+      await db.batch([{ sql: "UPDATE cofre_desafios SET desafio = ? WHERE tipo = 'registro'", params: [seq(32, 1)] }]);
+      const passkey: PasskeyRegistrada = { desafio: desafio.desafio, credencial: { ...VETORES.rs256.reg, transports: ['internal'] }, prf: null, prfLigado: false };
+      await porAparelho(api, cofre, { passkey, apelido: 'PC novo' }, await confirmacaoPelaSenha(cofre, SENHA));
+      const novo = await novoCodigo(api, cofre, await confirmacaoPelaSenha(cofre, SENHA));
+      // o aparelho novo abre, e o código novo também
+      expect((await abrirPelaPagina('rs256', 0, 'PC')).cofre.contador).toBe(0);
+      expect((await abrirPeloCodigo(novo)).cofre.recuperada).toBe(true);
     });
   });
 }

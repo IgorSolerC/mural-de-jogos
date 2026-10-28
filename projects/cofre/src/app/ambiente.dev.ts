@@ -1,5 +1,5 @@
 import type { CofreAberto } from '../core/abrir';
-import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
+import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeConfirmar, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
 import { aleatorios, deBase64url, paraBase64url } from '../core/bytes';
 import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
 import { type CamposDoItem, salvarItem } from '../core/itens';
@@ -33,6 +33,14 @@ class ApiDeMentira extends ApiCofre {
         user: { id: paraBase64url(aleatorios(16)), name: 'Cofre do Murall (K7QF-M2XA)', displayName: 'Cofre do Murall (K7QF-M2XA)' },
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
       },
+    };
+  }
+
+  override async desafioDeConfirmar(): Promise<DesafioDeConfirmar> {
+    await espera(150);
+    return {
+      desafio: crypto.randomUUID(),
+      publicKey: { challenge: paraBase64url(aleatorios(32)), rpId: location.hostname, allowCredentials: [{ type: 'public-key', id: PASSKEY_DA_DEMO }], userVerification: 'required' },
     };
   }
 
@@ -256,7 +264,12 @@ function autenticadorDeMentira(semPrf: boolean): Autenticador {
       await espera(900);
       const dados = new Uint8Array(37);
       dados[32] = 0x05;
-      return { type: 'public-key', rawId: deBase64url(PASSKEY_DA_DEMO)!.buffer, response: { authenticatorData: dados.buffer }, getClientExtensionResults: () => ({}) } as unknown as Credential;
+      return {
+        type: 'public-key',
+        rawId: deBase64url(PASSKEY_DA_DEMO)!.buffer,
+        response: { authenticatorData: dados.buffer, clientDataJSON: aleatorios(64).buffer, signature: aleatorios(64).buffer },
+        getClientExtensionResults: () => ({}),
+      } as unknown as Credential;
     },
   };
 }

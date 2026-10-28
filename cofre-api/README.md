@@ -37,7 +37,10 @@ nunca decifra nada: não tem a chave para isso.
   - Gerenciar (com o cofre aberto): `GET`/`POST /api/cofre/aparelhos`, `DELETE
     /api/cofre/aparelhos/:id` (nunca o último), `PUT /api/cofre/senha`, `PUT /api/cofre/recuperacao`,
     `GET /api/cofre/sessoes`, `POST /api/cofre/trancar-todos`, `GET /api/cofre/eventos` (90 dias) e
-    `DELETE /api/cofre` (com `{ "confirmacao": "APAGAR" }`).
+    `DELETE /api/cofre` (com `{ "confirmacao": "APAGAR" }`). Pôr e tirar aparelho, a senha, o código
+    novo e apagar pedem também `confirmar` (PLANO-COFRE.md, 17.21): `{ desafio, assinatura }`, uma
+    passkey do cofre sobre o desafio de `POST /api/cofre/confirmar` (uso único, 5 minutos), ou
+    `{ kAuth }`, a prova da senha (5 erros por cofre aberto, fora do freio de abrir). Sem ela, 403.
   - A limpeza diária (`src/domain/cleanup.ts`, Cron Trigger às 06:23 UTC, antes do backup das 06:31).
 
   Ainda **não foi publicada**: o domínio, o banco D1 e os secrets entram na Fase 3, com a aprovação

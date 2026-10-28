@@ -6,6 +6,7 @@ import { eventStatement } from '../domain/events';
 import { assertCanTry, attemptStatements, successStatements, waitAfterError } from '../domain/password-brake';
 import { openServerSecret, proofHash } from '../domain/proofs';
 import { write } from '../domain/quota';
+import { verifyPasskey } from '../domain/reconfirm';
 import {
   Session,
   VAULT_IDLE_MS,
@@ -17,7 +18,6 @@ import {
   sessionOfToken,
   vaultSessionStatements,
 } from '../domain/session';
-import { AssertionInput, WebAuthnError, verifyAssertion } from '../domain/webauthn';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { currentPepper } from '../secrets';
@@ -108,37 +108,10 @@ export function openRoutes(app: Hono, deps: Deps): void {
     const body = await readJson(c, 16_384);
     await vaultOf(deps, s.userId);
     const challenge = await consumeChallenge(deps, body['desafio'], s.userId, 'assinatura');
-    const raw = (body['assinatura'] ?? {}) as Record<string, unknown>;
-    const assertion: AssertionInput = {
-      id: raw['id'] as string,
-      clientDataJSON: raw['clientDataJSON'] as string,
-      authenticatorData: raw['authenticatorData'] as string,
-      signature: raw['signature'] as string,
-    };
-    const rejected = (detail: string) => new HttpError(400, 'passkey-invalida', `A passkey não foi aceita (${detail}).`);
-    if (typeof assertion.id !== 'string' || assertion.id.length > 1400) throw rejected('outra passkey');
-    const credential = await deps.db.first<{ id: string; chave_publica: Blob; contador_assinatura: number }>(
-      'SELECT id, chave_publica, contador_assinatura FROM cofre_credenciais WHERE id = ? AND usuario_id = ?',
-      [assertion.id, s.userId],
-    );
-    if (!credential) throw rejected('esta passkey não é do seu cofre');
-    let signCount: number;
-    try {
-      ({ signCount } = await verifyAssertion(assertion, {
-        challenge,
-        origin: config.origin,
-        rpId: config.rpId,
-        credentialId: credential.id,
-        publicKey: blob(credential.chave_publica),
-        storedSignCount: credential.contador_assinatura,
-      }));
-    } catch (e) {
-      if (e instanceof WebAuthnError) throw rejected(e.message);
-      throw e;
-    }
+    const credentialId = await verifyPasskey(deps, s.userId, challenge, body['assinatura']);
     const envelope = await deps.db.first<{ id: string; tipo: 'prf' | 'servidor'; envelope: Blob; s_cifrado: Blob | null; s_versao: number | null }>(
       'SELECT id, tipo, envelope, s_cifrado, s_versao FROM cofre_envelopes WHERE credencial_id = ? AND usuario_id = ?',
-      [credential.id, s.userId],
+      [credentialId, s.userId],
     );
     if (!envelope) throw new HttpError(409, 'sem-envelope', 'Esta passkey não tem envelope no cofre.');
     // no modo servidor, o S_i só sai depois da assinatura conferida (6.1)
@@ -147,21 +120,6 @@ export function openRoutes(app: Hono, deps: Deps): void {
         ? await openServerSecret(deps, s.userId, envelope.id, blob(envelope.s_cifrado), envelope.s_versao)
         : null;
     const now = deps.now();
-    // o contador só sobe: a conferência acima leu o guardado antes, e duas assinaturas ao mesmo tempo
-    // (5 e 6 sobre 4) passariam as duas, com a última a gravar podendo pôr 5 depois de 6. Gravado à parte
-    // e com a condição no banco, a que chega depois de uma maior é recusada como a que não sobe.
-    const [counted] = await write(
-      deps,
-      [
-        {
-          sql: 'UPDATE cofre_credenciais SET contador_assinatura = ?, usado_em = ? WHERE id = ? AND (contador_assinatura < ? OR (? = 0 AND contador_assinatura = 0))',
-          params: [signCount, now.toISOString(), credential.id, signCount, signCount],
-        },
-      ],
-      2,
-      { session: true },
-    );
-    if (counted?.changes !== 1) throw rejected('o contador da passkey voltou (pode ser uma cópia)');
     await write(
       deps,
       [

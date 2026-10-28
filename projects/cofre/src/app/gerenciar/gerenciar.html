@@ -58,7 +58,7 @@
                       <p class="linha-desc">Usado pela última vez: {{ quando(a.usadoEm) }}</p>
                     </div>
                   </div>
-                  @if (aparelhos().length > 1) {
+                  @if (aparelhos().length > 1 && tirando() !== a.id) {
                     <span class="botoes">
                       @if (confirmarTirar() === a.id) {
                         <span class="pergunta">Tirar {{ a.apelido }} do cofre?</span>
@@ -70,6 +70,9 @@
                     </span>
                   }
                 </div>
+                @if (tirando() === a.id) {
+                  <ng-container [ngTemplateOutlet]="confirmacao" />
+                }
               }
             </div>
 
@@ -90,6 +93,8 @@
                     <button type="button" class="tinta" [disabled]="ocupado() || !senhaDoModoServidor()" (click)="usarModoServidor()">Pôr no modo servidor</button>
                   </span>
                 </div>
+              } @else if (pedindo()?.acao === 'por') {
+                <ng-container [ngTemplateOutlet]="confirmacao" />
               } @else if (aparelhos().length < maximo) {
                 <div class="linha pilha">
                   <div>
@@ -155,7 +160,9 @@
                   </button>
                 }
               </div>
-              @if (confirmarCodigo()) {
+              @if (pedindo()?.acao === 'codigo') {
+                <ng-container [ngTemplateOutlet]="confirmacao" />
+              } @else if (confirmarCodigo()) {
                 <div class="confirma">
                   <span class="pergunta">O código de hoje vai parar de valer. Gerar um novo?</span>
                   <span class="botoes">
@@ -384,10 +391,13 @@
                   <label class="rotulo" for="g-apagar-palavra">Para apagar, escreva APAGAR</label>
                   <span class="em-linha">
                     <input id="g-apagar-palavra" autocomplete="off" spellcheck="false" [value]="palavraApagar()" (input)="palavraApagar.set(valor($event))" />
-                    <button type="button" class="apagar" [disabled]="ocupado() || palavraApagar() !== 'APAGAR'" (click)="apagar()">Apagar o cofre</button>
+                    <button type="button" class="apagar" [disabled]="ocupado() || !!pedindo() || palavraApagar() !== 'APAGAR'" (click)="apagar()">Apagar o cofre</button>
                   </span>
                 </div>
               </div>
+              @if (pedindo()?.acao === 'apagar') {
+                <ng-container [ngTemplateOutlet]="confirmacao" />
+              }
             </div>
           }
         }
@@ -395,3 +405,65 @@
     </div>
   </div>
 }
+
+<!-- Confirmar de novo (17.21): a passkey (o aparelho abre a janela dele) ou a senha mestra; o servidor confere. -->
+<ng-template #confirmacao>
+  <div class="vestir confirmar-de-novo" role="group" aria-labelledby="g-confirmar-titulo" (keydown.escape)="confirmando() || cancelarConfirmacao()">
+    <div>
+      <p class="linha-titulo" id="g-confirmar-titulo">
+        <cofre-icone class="linha-icone" nome="cadeado" />
+        Confirme que é você
+      </p>
+      <p class="linha-desc">{{ motivoDaConfirmacao() }}</p>
+    </div>
+    @if (confirmando() && !comSenhaMestra()) {
+      <p class="linha-desc" role="status">Confirme no aparelho: a digital, o rosto ou o PIN.</p>
+    }
+    @if (erroConfirmar(); as e) {
+      <p class="aviso" role="alert">{{ e }}</p>
+    }
+    @if (comSenhaMestra()) {
+      <form class="campo-com-rotulo" novalidate (submit)="$event.preventDefault(); confirmarComASenha()">
+        <label class="rotulo" for="g-confirmar-senha">Senha mestra</label>
+        <span class="em-linha">
+          <input
+            #campoConfirmar
+            id="g-confirmar-senha"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            translate="no"
+            [disabled]="confirmando()"
+            [value]="senhaMestra()"
+            (input)="senhaMestra.set(valor($event))"
+          />
+          <button type="submit" class="tinta" [disabled]="confirmando() || !senhaMestra()">{{ confirmando() ? 'Conferindo…' : 'Confirmar' }}</button>
+        </span>
+      </form>
+    }
+    @if (!confirmando()) {
+      <span class="botoes">
+        @if (comSenhaMestra()) {
+          @if (aparelhos().length) {
+            <button type="button" class="papel" (click)="pelaPasskey()">
+              <cofre-icone [cartela]="'digital'" />
+              Usar a passkey
+            </button>
+          }
+        } @else {
+          @if (erroConfirmar()) {
+            <button type="button" class="papel" (click)="pelaPasskey()">
+              <cofre-icone [cartela]="'digital'" />
+              Tentar a passkey de novo
+            </button>
+          }
+          <button type="button" class="papel" (click)="usarSenhaMestra()">
+            <cofre-icone nome="chave" />
+            Usar a senha mestra
+          </button>
+        }
+        <button type="button" class="papel" (click)="cancelarConfirmacao()">Cancelar</button>
+      </span>
+    }
+  </div>
+</ng-template>

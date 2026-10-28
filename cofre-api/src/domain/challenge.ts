@@ -8,8 +8,15 @@ export type ChallengeKind = 'registro' | 'assinatura';
 
 export const CHALLENGE_MS = 2 * 60_000;
 
+/**
+ * Quanto vale o desafio de confirmar de novo (`POST /api/cofre/confirmar`): a pessoa confirma antes e o
+ * pedido sai depois, e no meio pode vir o registro de um aparelho novo (que tem o desafio dele, de 2
+ * minutos).
+ */
+export const CONFIRM_CHALLENGE_MS = 5 * 60_000;
+
 /** Um desafio novo para a conta (e o apagar dos vencidos dela, no mesmo lote). Contam 4 linhas. */
-export function newChallenge(userId: string, kind: ChallengeKind, now: Date): { id: string; challenge: Bytes; statements: Statement[] } {
+export function newChallenge(userId: string, kind: ChallengeKind, now: Date, ttlMs = CHALLENGE_MS): { id: string; challenge: Bytes; statements: Statement[] } {
   const id = crypto.randomUUID();
   const challenge = crypto.getRandomValues(new Uint8Array(32));
   return {
@@ -19,7 +26,7 @@ export function newChallenge(userId: string, kind: ChallengeKind, now: Date): { 
       { sql: 'DELETE FROM cofre_desafios WHERE usuario_id = ? AND expira_em <= ?', params: [userId, now.toISOString()] },
       {
         sql: 'INSERT INTO cofre_desafios (id, usuario_id, tipo, desafio, expira_em) VALUES (?, ?, ?, ?, ?)',
-        params: [id, userId, kind, challenge, new Date(now.getTime() + CHALLENGE_MS).toISOString()],
+        params: [id, userId, kind, challenge, new Date(now.getTime() + ttlMs).toISOString()],
       },
     ],
   };
