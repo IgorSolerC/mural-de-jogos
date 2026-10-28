@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, patchOf, plainCode, refusalOf, seal, trimEvent } from '../domain/agenda';
+import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, patchOf, plainCode, refusalOf, revokeAgenda, seal, trimEvent } from '../domain/agenda';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { write } from '../domain/quota';
@@ -199,15 +199,8 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
   app.delete('/v1/agenda', async (c) => {
     const s = await sessionOf(deps, c);
     const row = await deps.db.first<{ refresh: string }>('SELECT refresh FROM agenda_google WHERE usuario_id = ?', [s.userId]);
-    if (row && keys.key) {
-      // devolve a permissão ao Google (sem esperar: desligar aqui vale de qualquer jeito)
-      try {
-        const refresh = await open(keys.key, row.refresh);
-        await google(`${GOOGLE_REVOKE_URL}?token=${encodeURIComponent(refresh)}`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-      } catch {
-        /* o Google fora não impede desligar */
-      }
-    }
+    // devolve a permissão ao Google (o Google fora não impede desligar)
+    if (row) await revokeAgenda(deps, row.refresh);
     await write(deps, [{ sql: 'DELETE FROM agenda_google WHERE usuario_id = ?', params: [s.userId] }, { sql: 'DELETE FROM agenda_pedidos WHERE usuario_id = ?', params: [s.userId] }], 4);
     accessCache.delete(s.userId);
     return c.json({ ok: true });

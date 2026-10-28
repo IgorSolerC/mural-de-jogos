@@ -1264,6 +1264,36 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([0, 0]);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'comentou'")).toEqual([]);
       });
+
+      it('apagar a conta leva os avisos de resposta entre os outros nas fichas dela (com o código e o título dela)', async () => {
+        const { db, comment, reply, json, answers, ana, bia, caio } = await commenting();
+        const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        await reply(caio.token, ana.codigo, 'r-hades', root, 'Concordo.');
+        expect(await answers(bia.token)).toHaveLength(1);
+        // um resumo que não é JSON (de antes, ou estragado) não quebra a limpeza
+        await db.batch([{ sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('respondeu', ?, ?, 'r-x', 'não é json', ?)", params: [caio.id, bia.id, NOW.toISOString()] }]);
+        expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
+        expect((await answers(bia.token)).map((i: any) => i.ref)).toEqual(['r-x']);
+      });
+
+      it('apagar a conta leva o lugar apagado que ficava só pela resposta dela', async () => {
+        const { db, comment, reply, erase, thread, json, ana, bia, caio } = await commenting();
+        const root = (await comment(caio.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        await reply(bia.token, ana.codigo, 'r-hades', root, 'Concordo.');
+        // e outro, que continua com a resposta de outra pessoa
+        const kept = (await comment(caio.token, ana.codigo, 'r-hades', 'Outro.')).body.comentario.id;
+        await reply(bia.token, ana.codigo, 'r-hades', kept, 'Da Bia.');
+        await reply(ana.token, ana.codigo, 'r-hades', kept, 'Da Ana.');
+        expect((await erase(caio.token, root)).body).toEqual({ ok: true, apagado: true });
+        expect((await erase(caio.token, kept)).body).toEqual({ ok: true, apagado: true });
+        expect((await json('DELETE', '/v1/eu', undefined, bia.token)).status).toBe(200);
+        const left = (await thread(ana.codigo, 'r-hades')).body.comentarios;
+        expect(left.map((k: any) => [k.id === kept, k.apagado ?? false, k.texto])).toEqual([
+          [true, true, ''],
+          [false, false, 'Da Ana.'],
+        ]);
+        expect(await db.all('SELECT 1 FROM comentarios WHERE id = ?', [root])).toEqual([]);
+      });
     });
 
     describe('fichas que não estão à mostra', () => {

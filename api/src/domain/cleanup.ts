@@ -16,7 +16,16 @@ const readers = (scopes: readonly string[]) =>
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
   const now = deps.now();
-  // direto no banco, fora da cota (`write`): a limpeza tem de rodar mesmo num dia sem cota
+  // as contas marcadas saem mesmo se a faxina de baixo falhar (o erro dela segue para o log do Worker)
+  try {
+    await housekeeping(deps, now);
+  } finally {
+    await eraseDue(deps);
+  }
+}
+
+/** A faxina de cada dia, direto no banco e fora da cota (`write`): ela tem de rodar mesmo num dia sem cota. */
+async function housekeeping(deps: Deps, now: Date): Promise<void> {
   await deps.db.batch([
     { sql: 'DELETE FROM sessoes WHERE expira_em < ?', params: [now.toISOString()] },
     { sql: 'DELETE FROM atividades WHERE criado_em < ?', params: [new Date(now.getTime() - 90 * DAY_MS).toISOString()] },
@@ -58,5 +67,4 @@ export async function cleanup(deps: Deps): Promise<void> {
       params: [new Date(now.getTime() - DAY_MS).toISOString(), new Date(now.getTime() - DIAS_DA_RENOVACAO * DAY_MS).toISOString()],
     },
   ]);
-  await eraseDue(deps);
 }

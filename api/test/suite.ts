@@ -519,7 +519,7 @@ export function apiSuite(label: string, getDb: () => Db) {
           const { state, vault } = fakeVault([mine.conta.id]);
           const at = (days: number) => ({ ...ctx.deps, vault, now: () => new Date(NOW.getTime() + days * DAY) });
           const json = (days = 0) => jsonCaller((path, init) => createApp(at(days)).request(`https://api.teste${path}`, init));
-          return { ...ctx, mine, state, at, api: json };
+          return { ...ctx, mine, state, vault, at, api: json };
         }
 
         it('com cofre, a conta não sai: fica marcada para daqui a 7 dias, e pedir de novo não adia', async () => {
@@ -581,6 +581,43 @@ export function apiSuite(label: string, getDb: () => Db) {
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
           // sem cofre, ele nem é chamado para apagar
           expect(state.erased).toEqual([]);
+        });
+
+        it('"Não apagar" funciona mesmo com a cota do dia esgotada', async () => {
+          const { api, mine, at, db, deps, state } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          await db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = ?', params: [deps.config.dailyRowBudget] }]);
+          expect((await api()('POST', '/v1/eu/cancelar-apagar', undefined, mine.token)).status).toBe(200);
+          await cleanup(at(8));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+          expect(state.erased).toEqual([]);
+        });
+
+        it('o "Não apagar" que chega enquanto a limpeza pergunta ao cofre vale: a conta fica', async () => {
+          const { api, mine, at, db, state, vault } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const has = vault.has;
+          vault.has = async (id: string) => {
+            await api(8)('POST', '/v1/eu/cancelar-apagar', undefined, mine.token);
+            return has(id);
+          };
+          await cleanup(at(8));
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(1);
+          expect(state.erased).toEqual([]);
+        });
+
+        it('a faxina do dia que falha não segura as contas marcadas', async () => {
+          const { api, mine, at, db, state } = await comCofre();
+          await api()('DELETE', '/v1/eu', undefined, mine.token);
+          const broken: Db = {
+            first: (sql, params) => db.first(sql, params),
+            all: (sql, params) => db.all(sql, params),
+            batch: (statements) =>
+              statements.some((x) => x.sql.startsWith('DELETE FROM sessoes WHERE expira_em')) ? Promise.reject(new Error('o banco engasgou')) : db.batch(statements),
+          };
+          await expect(cleanup({ ...at(8), db: broken })).rejects.toThrow('o banco engasgou');
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
+          expect(state.erased).toEqual([mine.conta.id]);
         });
 
         it('sem cofre, sai na hora, como antes', async () => {

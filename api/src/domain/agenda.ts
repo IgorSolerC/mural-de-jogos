@@ -1,4 +1,5 @@
 import { HttpError } from '../errors';
+import type { Deps } from '../ports';
 import { base64url } from './bytes';
 
 /**
@@ -67,6 +68,30 @@ export async function open(secret: string, sealed: string): Promise<string> {
   const [iv = '', data = ''] = sealed.split('.');
   const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromBase64(iv) }, await aesKey(secret), fromBase64(data));
   return new TextDecoder().decode(plain);
+}
+
+/** Quanto esperar o Google ao devolver a permissão. */
+const REVOKE_TIMEOUT_MS = 10_000;
+
+/**
+ * Devolve ao Google a permissão guardada (`sealed`, o refresh token cifrado): ao desligar o Google Agenda
+ * e ao apagar a conta. Sem a chave, ou com o Google fora, segue em frente: tirar a permissão daqui vale de
+ * qualquer jeito, e a do Google a pessoa ainda tira lá.
+ */
+export async function revokeAgenda(deps: Deps, sealed: string): Promise<void> {
+  const key = deps.agenda?.keys.key;
+  if (!key) return;
+  const upstream = deps.agenda?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  try {
+    const refresh = await open(key, sealed);
+    await upstream(`${GOOGLE_REVOKE_URL}?token=${encodeURIComponent(refresh)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
+    });
+  } catch (err) {
+    deps.log?.(`agenda: não deu para devolver a permissão ao Google (${err instanceof Error ? err.name : 'erro'})`);
+  }
 }
 
 // ===== O que vai para o Google =====

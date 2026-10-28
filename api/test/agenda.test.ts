@@ -386,11 +386,26 @@ describe('o Google Agenda', () => {
     expect(await db.first('SELECT 1 AS x FROM agenda_google')).toBeNull();
   });
 
-  it('apagar a conta leva a permissão guardada', async () => {
+  it('apagar a conta leva a permissão guardada e a devolve ao Google', async () => {
     const token = await login();
     await connect(token);
+    google = () => reply(200);
+    calls = [];
     expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
     expect(await db.first('SELECT 1 AS x FROM agenda_google')).toBeNull();
+    const revoke = calls.find((c) => c.url.startsWith(GOOGLE_REVOKE_URL))!;
+    expect(new URL(revoke.url).searchParams.get('token')).toBe('renova-1');
+  });
+
+  it('o Google fora não impede apagar a conta', async () => {
+    const token = await login();
+    await connect(token);
+    google = () => {
+      throw new Error('sem rede');
+    };
+    expect((await json('DELETE', '/v1/eu', undefined, token)).status).toBe(200);
+    expect(await db.first('SELECT 1 AS x FROM usuarios')).toBeNull();
+    expect(logged.some((l) => l.includes('devolver a permissão'))).toBe(true);
   });
 });
 
