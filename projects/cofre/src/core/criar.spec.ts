@@ -1,6 +1,6 @@
 import { deBase64url, type Bytes } from './bytes';
 import { lerCodigo } from './codigo';
-import { type AparelhoParaCriar, montarCofre } from './criar';
+import { type AparelhoParaCriar, corpoDoAparelho, montarCofre } from './criar';
 import { abrirCofre, abrirEnvelope, abrirRecuperacao, chaveDaSenha, decifrarManifesto, ErroCofre, KDF_PADRAO, provaDaSenha, provaDoCodigo, SOBRA_SELADO } from './crypto';
 import type { PasskeyRegistrada } from './passkey';
 
@@ -78,6 +78,19 @@ describe('montar o cofre novo', () => {
     const p = passkey(segredo, 1);
     await expectAsync(montarCofre({ usuario: USUARIO, senha: SENHA, aparelhos: [{ passkey: p, apelido: 'Celular' }], aparelhoAgora: 'x'.repeat(81) })).toBeRejectedWithError(ErroCofre);
     expect(p.prf).toEqual(seq(32, 100));
+  });
+
+  it('o S_i sorteado para um aparelho sem PRF é zerado também quando o envelope não sela', async () => {
+    const sorteados: Uint8Array[] = [];
+    const original = crypto.getRandomValues.bind(crypto);
+    spyOn(crypto, 'getRandomValues').and.callFake(<T extends ArrayBufferView | null>(b: T): T => {
+      if (b instanceof Uint8Array) sorteados.push(b);
+      return original(b as ArrayBufferView) as unknown as T;
+    });
+    await expectAsync(corpoDoAparelho({ passkey: passkey(null, 1), apelido: 'PC' }, 'K7QFM2XA', seq(32, 1))).toBeRejectedWithError(ErroCofre);
+    const segredos = sorteados.filter((s) => s.length === 32);
+    expect(segredos.length).toBe(1);
+    expect(segredos[0]!.every((x) => x === 0)).toBe(true);
   });
 
   it('recusa nenhum aparelho, três aparelhos, senha vazia e usuário fora do formato', async () => {

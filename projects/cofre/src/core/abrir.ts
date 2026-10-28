@@ -27,10 +27,9 @@ import {
   type Manifesto,
   provaDaSenha,
   provaDoCodigo,
-  TAM_CHAVE,
   VERSAO_CRIPTO,
 } from './crypto';
-import { type Autenticador, autenticadorDoNavegador, ErroPasskey } from './passkey';
+import { type Autenticador, autenticadorDoNavegador, ErroPasskey, segredoDoPrf } from './passkey';
 import type { PasskeyDoCofre } from './confirmar';
 
 /**
@@ -112,12 +111,7 @@ export async function assinar(desafio: DesafioDeAbrir, rpId: string, autenticado
     throw new ErroPasskey(nome === 'NotAllowedError' || nome === 'AbortError' ? 'cancelada' : nome === 'SecurityError' ? 'endereco' : 'falhou');
   }
   const r = cred.response as AuthenticatorAssertionResponse;
-  const prf = (cred.getClientExtensionResults() as { prf?: { results?: { first?: BufferSource } } }).prf?.results?.first;
-  let segredo: Bytes | null = null;
-  if (prf) {
-    const copia = new Uint8Array(ArrayBuffer.isView(prf) ? prf.buffer.slice(prf.byteOffset, prf.byteOffset + prf.byteLength) : prf.slice(0));
-    segredo = copia.length === TAM_CHAVE ? copia : null;
-  }
+  const segredo = segredoDoPrf((cred.getClientExtensionResults() as { prf?: { results?: { first?: BufferSource } } }).prf?.results?.first);
   return {
     desafio: desafio.desafio,
     assinatura: {
@@ -172,6 +166,27 @@ export async function chaveDoMeioPeloCodigo(api: ApiCofre, codigoDigitado: strin
 export async function senhaDoDesafio(senha: string, desafio: DesafioDeAbrir): Promise<Bytes> {
   if (desafio.versao !== VERSAO_CRIPTO) throw new ErroCofre('versao', `versão do cofre desconhecida: ${desafio.versao}`);
   return chaveDaSenha(senha, bytes(desafio.sal, 'sal'), desafio.kdf, desafio.versao);
+}
+
+/**
+ * A passkey e o Argon2id ao mesmo tempo (8.1): a pessoa confirma no aparelho enquanto a chave da senha é
+ * feita. Se um dos dois falhar, o erro vem na hora (como no `Promise.all`), e o segredo que o outro der
+ * (o do PRF ou kSenha) é zerado quando ele terminar, em vez de ficar solto na memória.
+ */
+export async function assinarComSenha(desafio: DesafioDeAbrir, senha: string, rpId: string, autenticador: Autenticador = autenticadorDoNavegador): Promise<{ assinada: Assinada; kSenha: Bytes }> {
+  const assinando = assinar(desafio, rpId, autenticador);
+  const derivando = senhaDoDesafio(senha, desafio);
+  try {
+    const [assinada, kSenha] = await Promise.all([assinando, derivando]);
+    return { assinada, kSenha };
+  } catch (e) {
+    assinando.then((a) => {
+      zerar(a.prf);
+      a.prf = null;
+    }, () => undefined);
+    derivando.then((k) => zerar(k), () => undefined);
+    throw e;
+  }
 }
 
 /**

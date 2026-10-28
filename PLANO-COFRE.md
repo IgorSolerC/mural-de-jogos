@@ -1171,11 +1171,14 @@ para menos:
   - 3 ou mais letras seguidas (palavra de outra língua, nome): 2 bits por letra;
   - uma palavra de 1 ou 2 letras sozinha (eu, de): 5 bits;
   - letras soltas: 4,7 bits cada.
-- Algarismos: 3,3 bits; símbolos: 5; cada maiúscula: +1; separador (espaço, hífen, ponto): 1; acentos
-  não contam.
-- Repetição, sequência e fileira do teclado: 1 bit por caractere; um ano (19xx/20xx): 7 bits.
+- Algarismos: 3,3 bits; símbolos: 5; cada maiúscula: +1, até o número de minúsculas (tudo em
+  maiúsculas: 1); separador (espaço, hífen, ponto): 1; acentos não contam.
+- Repetição, sequência e fileira do teclado: 1 bit por caractere (também dentro das letras fora da
+  lista); o mesmo caractere muitas vezes seguidas: dois e mais o log do tamanho; um ano (19xx/20xx):
+  7 bits.
 - Letra trocada por número numa palavra da lista (p3dr4): +1 bit por troca.
-- Repetir a senha inteira quase não soma.
+- Uma palavra, um trecho de letras ou um número que já apareceu antes: 2 bits.
+- Repetir a senha inteira (ou um pedaço do começo ao fim, como aba-aba-aba) quase não soma.
 - As senhas mais comuns: no máximo 10 bits.
 
 Mínimo de 70 bits; com algum aparelho no modo servidor, 78, o de uma frase sorteada. Na prática:
@@ -1397,7 +1400,8 @@ Parte 2, a tela (`app/gerenciar/`, aberta por "Gerenciar o cofre" no pé da list
   - "Pôr um aparelho" registra a passkey com o nome escolhido.
   - **Para o usuário conferir**: um aparelho sem PRF só entra no modo servidor se a senha de hoje servir
     para isso. Como não dá para saber se ela foi a frase sorteada, ela serve com 78 bits estimados ou no
-    formato da sorteada (6 ou mais palavras da lista com hífens); a pessoa digita a senha para conferir.
+    formato da sorteada (6 ou mais palavras da lista com hífens, pelo menos 5 diferentes); a pessoa
+    digita a senha, que é conferida abrindo V (uma senha forte que não é a do cofre não serve).
 - **Senha mestra**: a atual (conferida abrindo V), a nova (escrita ou "Sortear frase", com a régua, e o
   mínimo do modo servidor se houver um aparelho assim) e a confirmação.
 - **Código de recuperação**: "Gerar um código novo" pede confirmação (o de hoje para de valer) e mostra o

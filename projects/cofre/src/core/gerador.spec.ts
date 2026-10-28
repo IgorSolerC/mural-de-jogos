@@ -35,6 +35,9 @@ describe('o gerador de senhas', () => {
     expect(() => gerarCaracteres({ tamanho: 7, tipos: ['numeros'] })).toThrowError(RangeError);
     expect(() => gerarCaracteres({ tamanho: 65, tipos: ['numeros'] })).toThrowError(RangeError);
     expect(() => gerarCaracteres({ tamanho: 12, tipos: [] })).toThrowError(RangeError);
+    // um tipo que não existe não vira "undefined" no alfabeto
+    expect(() => gerarCaracteres({ tamanho: 12, tipos: ['numeros', 'emoji' as Tipo] })).toThrowError(RangeError);
+    expect(() => gerarCaracteres({ tamanho: 12, tipos: ['toString' as Tipo] })).toThrowError(RangeError);
   });
 
   it('frase: palavras da lista do cofre, com hífens', () => {

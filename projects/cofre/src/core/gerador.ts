@@ -30,6 +30,8 @@ export const PALAVRAS_MAXIMAS = 10;
 export function gerarCaracteres(pedido: PedidoDeCaracteres): string {
   const tipos = [...new Set(pedido.tipos)];
   if (!tipos.length) throw new RangeError('escolha pelo menos um tipo de caractere');
+  // um tipo desconhecido entraria no alfabeto como as letras de "undefined"
+  if (!tipos.every((t) => Object.hasOwn(TIPOS, t))) throw new RangeError('tipo de caractere desconhecido');
   if (!Number.isInteger(pedido.tamanho) || pedido.tamanho < Math.max(TAMANHO_MINIMO, tipos.length) || pedido.tamanho > TAMANHO_MAXIMO) {
     throw new RangeError('tamanho fora do intervalo');
   }

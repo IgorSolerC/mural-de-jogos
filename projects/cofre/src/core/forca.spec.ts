@@ -64,8 +64,34 @@ describe('a força da senha mestra', () => {
     expect(estimarBits('Pedra')).toBe(estimarBits('pedra') + 1);
   });
 
+  it('repetir dentro da senha não engorda a conta (o mesmo pedaço, a mesma letra, tudo em maiúsculas)', () => {
+    // a mesma letra muitas vezes e um número no fim: a régua dava 73 bits ("boa")
+    expect(estimarBits('a'.repeat(35) + '1')).toBeLessThan(20);
+    expect(estimarBits('a'.repeat(70) + '1')).toBeLessThan(20);
+    // o alfabeto em ordem é uma sequência, não 26 letras quaisquer
+    expect(estimarBits('abcdefghijklmnopqrstuvwxyz')).toBeLessThan(30);
+    // a mesma palavra com separadores, sem o último: 71 e 83 bits antes
+    expect(estimarBits('aba-aba-aba-aba-aba-aba')).toBeLessThan(20);
+    expect(estimarBits('aba aba aba aba aba aba aba')).toBeLessThan(20);
+    // tudo em maiúsculas é uma escolha só (dava 74 bits)
+    expect(estimarBits('ABA-ABA-ABA-ABA-ABA')).toBeLessThan(20);
+    expect(estimarBits('GATO-AZUL-PEDRA-CHUVA-LIVRO-MESA-PORTA')).toBe(estimarBits('gato-azul-pedra-chuva-livro-mesa-porta') + 1);
+    // palavras e números que voltam no meio custam pouco
+    expect(estimarBits('gato-azul-gato-azul-gato-azul-x')).toBeLessThan(estimarBits('gato-azul-pedra-chuva-livro-mesa-x'));
+    expect(estimarBits('1987-1987-1987-x')).toBeLessThan(25);
+    for (const fraca of ['a'.repeat(35) + '1', 'aba-aba-aba-aba-aba-aba', 'ABA-ABA-ABA-ABA-ABA', 'aba aba aba aba aba aba aba']) {
+      expect(avaliarSenha(fraca).situacao).withContext(fraca).toBe('fraca');
+      expect(serveParaModoServidor(fraca)).withContext(fraca).toBe(false);
+    }
+  });
+
   it('pôr um aparelho sem PRF depois: serve a frase no formato da sorteada, ou uma senha de 78 bits', () => {
     expect(serveParaModoServidor(sortearFrase())).toBe(true);
+    // no formato, mas a mesma palavra seis vezes não é frase
+    expect(serveParaModoServidor('aba-aba-aba-aba-aba-aba')).toBe(false);
+    expect(serveParaModoServidor('gato-gato-gato-azul-azul-azul')).toBe(false);
+    // uma palavra repetida acontece numa frase sorteada (1 em ~500): ainda serve
+    expect(serveParaModoServidor('gato-gato-azul-pedra-chuva-livro')).toBe(true);
     expect(serveParaModoServidor('Xk9#mQ2$vL7!pR4@')).toBe(false);
     expect(serveParaModoServidor('Xk9#mQ2$vL7!pR4@Zt8%')).toBe(true);
     expect(serveParaModoServidor('gato-azul-pedra-chuva-livro')).toBe(false);

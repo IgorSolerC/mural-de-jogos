@@ -141,8 +141,9 @@ export async function chaveDaSenha(senha: string, sal: Uint8Array, kdf: Kdf, ver
   conferirTamanho(sal, TAM_SAL, 'sal');
   if (typeof senha !== 'string' || !senha) throw new ErroCofre('formato', 'senha vazia');
   const senhaBytes = utf8(senha.normalize('NFC'));
+  let saida: Uint8Array | null = null;
   try {
-    const saida = await argon2id({
+    saida = await argon2id({
       password: senhaBytes,
       salt: sal,
       iterations: kdf.t,
@@ -151,9 +152,10 @@ export async function chaveDaSenha(senha: string, sal: Uint8Array, kdf: Kdf, ver
       hashLength: TAM_CHAVE,
       outputType: 'binary',
     });
+    // a cópia é de quem chamou; a saída do hash-wasm é zerada aqui, para kSenha não ficar em dois lugares
     return new Uint8Array(saida);
   } finally {
-    zerar(senhaBytes);
+    zerar(senhaBytes, saida);
   }
 }
 

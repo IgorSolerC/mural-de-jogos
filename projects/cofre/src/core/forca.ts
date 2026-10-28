@@ -11,18 +11,21 @@
  *   escolhida por uma pessoa (uma sorteada valeria 12,9, mas a escolhida é mais previsível);
  * - um trecho de 3 ou mais letras fora da lista (uma palavra de outra língua, um nome): 2 bits por letra;
  * - uma palavra de 1 ou 2 letras sozinha entre separadores (eu, de, um): 5 bits;
- * - letras soltas: 4,7 bits cada; algarismos: 3,3; símbolos: 5; cada maiúscula: +1; acentos não contam;
+ * - letras soltas: 4,7 bits cada; algarismos: 3,3; símbolos: 5; acentos não contam;
+ * - maiúsculas: +1 bit por maiúscula, até o número de minúsculas (tudo em maiúsculas é uma escolha só: 1 bit);
  * - espaço, hífen, ponto ou sublinhado entre pedaços: 1 bit;
  * - repetição (aaa), sequência (abc, 321) e fileira do teclado (qwer, asdf): 1 bit por caractere depois do
- *   primeiro;
+ *   primeiro, também dentro de um trecho de letras fora da lista; o mesmo caractere muitas vezes seguidas
+ *   (aaaaaaaa) vale como duas vezes e mais o log do tamanho;
  * - um ano (19xx, 20xx): 7 bits;
  * - letra trocada por número ou símbolo (s3nh4, @mor): lida como a letra quando forma uma palavra da
  *   lista, +1 bit por troca; fora de palavra, conta como número ou símbolo;
- * - um pedaço repetido inteiro (abcabcabc): os bits do pedaço e mais quase nada;
+ * - uma palavra, um trecho de letras ou um número que já apareceu antes na senha: 2 bits;
+ * - um pedaço repetido do começo ao fim (abcabcabc, aba-aba-aba): os bits do pedaço e mais quase nada;
  * - uma das senhas mais comuns: no máximo 10 bits.
  */
 import { PALAVRAS } from './palavras';
-import { bitsDaFrase } from './sorteio';
+import { bitsDaFrase, PALAVRAS_DA_FRASE } from './sorteio';
 
 /** O mínimo para uma senha escrita à mão. */
 export const BITS_MINIMOS = 70;
@@ -49,6 +52,8 @@ const BITS_SEPARADOR = 1;
 const BITS_PALAVRA_CURTA = 5;
 const BITS_PREVISIVEL = 1;
 const BITS_ANO = 7;
+/** Um pedaço (palavra, trecho de letras, número) igual a um que já apareceu na senha. */
+const BITS_REPETIDO = 2;
 const SEPARADORES = new Set([' ', '-', '.', '_']);
 const TROCAS: Record<string, string> = { '4': 'a', '@': 'a', '3': 'e', '1': 'i', '!': 'i', '0': 'o', '5': 's', $: 's', '7': 't' };
 const FILEIRAS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm', '1234567890', 'abcdefghijklmnopqrstuvwxyz'].flatMap((f) => [f, [...f].reverse().join('')]);
@@ -99,10 +104,20 @@ function bitsDoTexto(original: string): number {
   const comCaixa = [...semAcento(original)];
   const a = comCaixa.map((c) => c.toLowerCase());
   const n = a.length;
-  // cada maiúscula: 1 bit (a pessoa podia tê-la posto em outro lugar)
-  let bits = comCaixa.filter((c, x) => c !== a[x]).length;
+  // cada maiúscula: 1 bit (a pessoa podia tê-la posto em outro lugar), até o número de minúsculas: o que
+  // conta é o desenho de onde elas estão, e tudo em maiúsculas é uma escolha só
+  const maiusculas = comCaixa.filter((c, x) => c !== a[x]).length;
+  const minusculas = comCaixa.filter((c) => c !== c.toUpperCase() && c === c.toLowerCase()).length;
+  let bits = maiusculas ? Math.max(1, Math.min(maiusculas, minusculas)) : 0;
   const separa = (x: number) => x < 0 || x >= n || SEPARADORES.has(a[x]!);
   const pareceLetra = (c: string) => ehLetra(c) || c in TROCAS;
+  // os pedaços que já apareceram: repetir um custa só a escolha de qual repetir
+  const vistos = new Set<string>();
+  const repetido = (pedaco: string): boolean => {
+    if (vistos.has(pedaco)) return true;
+    vistos.add(pedaco);
+    return false;
+  };
 
   let i = 0;
   while (i < n) {
@@ -132,10 +147,11 @@ function bitsDoTexto(original: string): number {
           k++;
           continue;
         }
-        bits += BITS_PALAVRA;
+        const deNovo = repetido(lido.slice(k, k + achou).join(''));
+        bits += deNovo ? BITS_REPETIDO : BITS_PALAVRA;
         for (let x = k; x < k + achou; x++) {
           naPalavra[x] = true;
-          if (lido[x] !== trecho[x]) bits += 1;
+          if (!deNovo && lido[x] !== trecho[x]) bits += 1;
         }
         k += achou;
       }
@@ -148,8 +164,16 @@ function bitsDoTexto(original: string): number {
         let f = k;
         while (f < trecho.length && !naPalavra[f] && ehLetra(trecho[f]!)) f++;
         const letras = f - k;
-        if (letras >= 3) bits += letras * BITS_LETRA_EM_PALAVRA;
-        else if (letras > 0 && separa(i + k - 1) && separa(i + f)) bits += BITS_PALAVRA_CURTA;
+        if (letras >= 3 && repetido(trecho.slice(k, f).join(''))) bits += BITS_REPETIDO;
+        else if (letras >= 3) {
+          // a letra que repete a anterior ou fecha uma sequência vale pouco, também aqui
+          const comeco = i + k;
+          for (let x = comeco; x < i + f; x++) {
+            const antes = x > comeco ? a[x - 1] : undefined;
+            const antes2 = x > comeco + 1 ? a[x - 2] : undefined;
+            bits += previsivel(antes2, antes, a[x]!) ? BITS_PREVISIVEL : BITS_LETRA_EM_PALAVRA;
+          }
+        } else if (letras > 0 && separa(i + k - 1) && separa(i + f)) bits += BITS_PALAVRA_CURTA;
         else if (letras > 0) for (let x = k; x < f; x++) bits += bitsDoCaractere(a, i + x);
         else {
           bits += bitsDoCaractere(a, i + k);
@@ -163,7 +187,9 @@ function bitsDoTexto(original: string): number {
     if (ehAlgarismo(c)) {
       let f = i;
       while (f < n && ehAlgarismo(a[f]!)) f++;
-      if (/^(19|20)\d\d$/.test(a.slice(i, f).join(''))) bits += BITS_ANO;
+      const numero = a.slice(i, f).join('');
+      if (numero.length >= 3 && repetido(numero)) bits += BITS_REPETIDO;
+      else if (/^(19|20)\d\d$/.test(numero)) bits += BITS_ANO;
       else for (let x = i; x < f; x++) bits += bitsDoCaractere(a, x);
       i = f;
       continue;
@@ -178,15 +204,25 @@ function bitsDoTexto(original: string): number {
 export function estimarBits(senha: string): number {
   const texto = senha.normalize('NFC');
   if (!texto) return 0;
-  // um pedaço repetido inteiro (abcabc, senhasenha): conta o pedaço uma vez e quase nada pelas repetições
+  // um pedaço repetido do começo ao fim (abcabc, senhasenha, aba-aba-aba, que não fecha no último
+  // separador): conta o pedaço uma vez e quase nada pelas repetições
   let bits = Infinity;
   for (let p = 1; p <= texto.length / 2; p++) {
-    if (texto.length % p === 0 && texto.slice(0, p).repeat(texto.length / p) === texto) {
-      bits = bitsDoTexto(texto.slice(0, p)) + Math.log2(texto.length / p);
+    const pedaco = texto.slice(0, p);
+    if (pedaco.repeat(Math.ceil(texto.length / p)).slice(0, texto.length) === texto) {
+      bits = bitsDoTexto(pedaco) + Math.log2(texto.length / p);
       break;
     }
   }
-  if (bits === Infinity) bits = bitsDoTexto(texto);
+  if (bits === Infinity) {
+    // o mesmo caractere muitas vezes seguidas (aaaaaaaa): conta como dois e mais o log do tamanho
+    let extra = 0;
+    const encurtado = texto.replace(/(.)\1{2,}/gsu, (seguidos: string, c: string) => {
+      extra += Math.log2([...seguidos].length);
+      return c + c;
+    });
+    bits = bitsDoTexto(encurtado) + extra;
+  }
   const reduzida = texto
     .toLowerCase()
     .normalize('NFD')
@@ -212,12 +248,14 @@ export function avaliarSenha(senha: string, opcoes: { sugerida?: string | null; 
 /**
  * Pôr um aparelho sem PRF depois de criado (Gerenciar): a senha de hoje precisa servir para o modo
  * servidor, mas não dá para saber se ela foi a frase sorteada. Serve com os bits de uma frase sorteada
- * estimados, ou no formato dela: 6 ou mais palavras da lista do cofre, com hífens.
+ * estimados, ou no formato dela: 6 ou mais palavras da lista do cofre, com hífens, e pelo menos 5 delas
+ * diferentes (uma frase sorteada repete uma palavra só em 1 de cada ~500 vezes; a mesma palavra seis vezes
+ * não é frase nenhuma).
  */
 export function serveParaModoServidor(senha: string): boolean {
   const normalizada = senha.normalize('NFC');
   const partes = normalizada.split('-');
   const dic = palavras();
-  if (partes.length >= 6 && partes.every((p) => dic.has(p))) return true;
+  if (partes.length >= PALAVRAS_DA_FRASE && new Set(partes).size >= PALAVRAS_DA_FRASE - 1 && partes.every((p) => dic.has(p))) return true;
   return estimarBits(normalizada) >= BITS_MINIMOS_MODO_SERVIDOR;
 }

@@ -1,11 +1,13 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { ApiCofre, type CofreCriado, type DesafioDeRegistro, type Entrada, ErroApi } from '../../core/api';
+import { ApiCofre, type CofreCriado, type DesafioDeRegistro, type Entrada, ErroApi, type EstadoDoCofre } from '../../core/api';
 import { aleatorios, paraBase64url } from '../../core/bytes';
 import type { CorpoDeCriar } from '../../core/criar';
 import type { Autenticador } from '../../core/passkey';
 import { type Pagina, SERVICOS, type Servicos } from '../servicos';
+import { By } from '@angular/platform-browser';
 import { Criar } from './criar';
+import { PassoAparelhos } from './passo-aparelhos';
 
 const ENTRADA: Entrada = { token: 'a'.repeat(43), expiraEm: '2026-10-21T15:05:00.000Z', usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' };
 
@@ -25,10 +27,19 @@ class ApiDeTeste extends ApiCofre {
       },
     };
   }
+  /** A nuvem grava o cofre, mas a resposta se perde no caminho (vira este erro). */
+  perdeResposta: ErroApi | null = null;
+  /** O que o `GET /api/cofre` responde depois (um ErroApi é recusa). */
+  estadoDepois: boolean | ErroApi = false;
   override async criarCofre(corpo: unknown): Promise<CofreCriado> {
     if (this.falha) throw this.falha;
     this.corpos.push(corpo as CorpoDeCriar);
+    if (this.perdeResposta) throw this.perdeResposta;
     return { criado: true, aparelhos: [] };
+  }
+  override async estado(): Promise<EstadoDoCofre> {
+    if (this.estadoDepois instanceof ErroApi) throw this.estadoDepois;
+    return { existe: this.estadoDepois, congeladoAte: null, aparelhos: this.estadoDepois ? 1 : 0 };
   }
 }
 
@@ -49,7 +60,7 @@ function autenticador(prf: boolean[]): Autenticador {
   };
 }
 
-async function montar(prf: boolean[]) {
+async function montar(prf: boolean[], entrada: Entrada = ENTRADA) {
   const api = new ApiDeTeste();
   const terminou = jasmine.createSpy('terminar');
   const pagina: Pagina = {
@@ -69,7 +80,7 @@ async function montar(prf: boolean[]) {
   const servicos: Servicos = { api, autenticador: autenticador(prf), rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Criar);
-  fixture.componentRef.setInput('entrada', ENTRADA);
+  fixture.componentRef.setInput('entrada', entrada);
   await fixture.whenStable();
   return { fixture, api, terminou, el: fixture.nativeElement as HTMLElement };
 }
@@ -191,6 +202,53 @@ describe('as telas de criar o cofre', () => {
     expect(el.querySelector('.erro')!.textContent).toContain('O desafio venceu. Registre os aparelhos de novo.');
     expect(el.querySelectorAll('.aparelho').length).toBe(0);
     expect(botao(el, /primeiro aparelho/)).toBeTruthy();
+  });
+
+  it('a resposta do criar se perde mas o cofre foi criado (a entrada já não vale): mostra o kit com o código dele', async () => {
+    const entrada = { ...ENTRADA, expiraEm: new Date(Date.now() + 15 * 60_000).toISOString() };
+    const { fixture, api, el } = await montar([true], entrada);
+    await usarFraseSorteada(fixture, el);
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => el.querySelectorAll('.etiqueta').length === 1);
+    api.perdeResposta = new ErroApi(0, 'sem-rede', 'Sem conexão com o cofre.');
+    api.estadoDepois = new ErroApi(401, 'sessao-invalida', 'Sua sessão acabou. Entre de novo.');
+    botao(el, 'Criar o cofre').click();
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(api.corpos.length).toBe(1);
+    expect(el.querySelector('.erro')).toBeNull();
+    // o código na tela é o do envelope que foi para a nuvem
+    expect([...el.querySelectorAll('.kit-codigo span')].length).toBe(7);
+  });
+
+  it('a resposta do criar se perde e o cofre não existe: recomeça, dizendo que não deu para saber', async () => {
+    const { fixture, api, el } = await montar([true]);
+    await usarFraseSorteada(fixture, el);
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => el.querySelectorAll('.etiqueta').length === 1);
+    api.perdeResposta = new ErroApi(502, 'resposta-estranha', 'O cofre está fora do ar.');
+    api.estadoDepois = false;
+    botao(el, 'Criar o cofre').click();
+    await ate(fixture, () => !!el.querySelector('.erro'));
+    expect(el.querySelector('.erro')!.textContent).toContain('Não deu para saber se o cofre foi criado');
+    expect(el.querySelector('.erro')!.textContent).toContain('Ajustes › Recuperação');
+    expect(el.querySelector('.kit-codigo')).toBeNull();
+    expect(el.querySelectorAll('.aparelho').length).toBe(0);
+  });
+
+  it('tirar um aparelho da lista zera o segredo do PRF dele', async () => {
+    const { fixture, el } = await montar([true]);
+    await usarFraseSorteada(fixture, el);
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => el.querySelectorAll('.etiqueta').length === 1);
+    const passo = fixture.debugElement.query(By.directive(PassoAparelhos)).componentInstance as PassoAparelhos;
+    const passkey = (passo as unknown as { aparelhos: () => { passkey: { prf: Uint8Array | null } }[] }).aparelhos()[0]!.passkey;
+    const segredo = passkey.prf!;
+    expect(segredo.some((x) => x !== 0)).toBe(true);
+    el.querySelector<HTMLButtonElement>('button.tirar')!.click();
+    await fixture.whenStable();
+    expect(el.querySelectorAll('.aparelho').length).toBe(0);
+    expect(passkey.prf).toBeNull();
+    expect(segredo.every((x) => x === 0)).toBe(true);
   });
 
   it('a entrada que acaba no meio (20 minutos): pede para entrar de novo', async () => {

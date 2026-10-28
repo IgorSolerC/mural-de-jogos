@@ -5,12 +5,18 @@
  * é conferido aqui mesmo. Só roda quando a pessoa pede (nada é guardado: a conferência se repete a cada
  * vez). Sem rede ou com a base fora do ar, não avisa nada e não atrapalha o cofre.
  */
+import { paraHex, utf8, zerar } from './bytes';
+
 const BASE = 'https://api.pwnedpasswords.com/range/';
 
-/** O SHA-1 da senha, em hexadecimal maiúsculo (o formato da base). */
+/** O SHA-1 da senha, em hexadecimal maiúsculo (o formato da base). Os bytes da senha são zerados depois. */
 export async function sha1(senha: string): Promise<string> {
-  const h = new Uint8Array(await crypto.subtle.digest('SHA-1', new TextEncoder().encode(senha)));
-  return [...h].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+  const bytes = utf8(senha);
+  try {
+    return paraHex(new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))).toUpperCase();
+  } finally {
+    zerar(bytes);
+  }
 }
 
 /** Lê a resposta da base: "SUFIXO:VEZES" por linha (as de preenchimento têm 0 vezes). */

@@ -15,7 +15,7 @@
  * endereço do cofre, a verificação do usuário é obrigatória, o atestado é "none" e só ES256 e RS256.
  */
 import type { DesafioDeRegistro, OpcoesDeRegistroJson } from './api';
-import { aleatorios, type Bytes, deBase64url, paraBase64url } from './bytes';
+import { aleatorios, type Bytes, deBase64url, paraBase64url, zerar } from './bytes';
 import { entradaPrf, ErroCofre, TAM_CHAVE } from './crypto';
 
 /** Quem cria e usa as passkeys: o navegador, ou um de mentira nos testes. */
@@ -133,12 +133,20 @@ function resultadoPrf(cred: PublicKeyCredential): ResultadoPrf | undefined {
   return (cred.getClientExtensionResults() as { prf?: ResultadoPrf }).prf;
 }
 
-/** O segredo do PRF numa cópia própria, se veio com o tamanho certo. */
-function segredo(prf: ResultadoPrf | undefined): Bytes | null {
-  const bruto = prf?.results?.first;
+/**
+ * O segredo do PRF (o `prf.results.first` de uma credencial) numa cópia própria, se veio com o tamanho
+ * certo; a cópia de tamanho errado é zerada. Serve ao registro e à assinatura de abrir.
+ */
+export function segredoDoPrf(bruto: BufferSource | undefined): Bytes | null {
   if (!bruto) return null;
   const bytes = new Uint8Array(ArrayBuffer.isView(bruto) ? bruto.buffer.slice(bruto.byteOffset, bruto.byteOffset + bruto.byteLength) : bruto.slice(0));
-  return bytes.length === TAM_CHAVE ? bytes : null;
+  if (bytes.length === TAM_CHAVE) return bytes;
+  zerar(bytes);
+  return null;
+}
+
+function segredo(prf: ResultadoPrf | undefined): Bytes | null {
+  return segredoDoPrf(prf?.results?.first);
 }
 
 function comoPasskey(cred: Credential | null): PublicKeyCredential {
@@ -162,6 +170,8 @@ export async function registrarPasskey(desafio: DesafioDeRegistro, rpId: string,
   }
   const resposta = cred.response as AuthenticatorAttestationResponse;
   const prf = resultadoPrf(cred);
+  // uma cópia só do segredo (outra, jogada fora sem zerar, ficaria na memória)
+  const segredoNoRegistro = segredo(prf);
   const passkey: PasskeyRegistrada = {
     desafio: desafio.desafio,
     credencial: {
@@ -170,8 +180,8 @@ export async function registrarPasskey(desafio: DesafioDeRegistro, rpId: string,
       attestationObject: paraBase64url(new Uint8Array(resposta.attestationObject)),
       transports: typeof resposta.getTransports === 'function' ? resposta.getTransports() : [],
     },
-    prf: segredo(prf),
-    prfLigado: prf?.enabled === true || segredo(prf) !== null,
+    prf: segredoNoRegistro,
+    prfLigado: prf?.enabled === true || segredoNoRegistro !== null,
   };
   if (!passkey.prf && passkey.prfLigado) {
     try {

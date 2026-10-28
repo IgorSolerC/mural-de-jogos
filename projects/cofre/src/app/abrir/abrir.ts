@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ErroApi, type Entrada } from '../../core/api';
-import { abrir, assinar, chaveDoMeio, chaveDoMeioPeloCodigo, type CofreAberto, senhaDoDesafio } from '../../core/abrir';
+import { abrir, assinarComSenha, chaveDoMeio, chaveDoMeioPeloCodigo, type CofreAberto, senhaDoDesafio } from '../../core/abrir';
+import { type Bytes, zerar } from '../../core/bytes';
 import { ErroCofre } from '../../core/crypto';
 import { ErroPasskey } from '../../core/passkey';
 import { SERVICOS } from '../servicos';
@@ -197,15 +198,16 @@ export class Abrir {
     const usuario = this.entrada().usuario;
     this.erro.set(null);
     this.ocupado.set(true);
+    // os segredos do caminho: abrir() zera os dois quando chega lá; se algo falhar antes, o finally zera
+    let kSenha: Bytes | null = null;
+    let m: Bytes | null = null;
     try {
       this.etapa.set('Pedindo o desafio ao cofre…');
       const desafio = await api.desafioDeAbrir();
-      let kSenha;
-      let m;
       if (this.jeito() === 'passkey') {
         this.etapa.set('Confirme no aparelho…');
         // a passkey e o Argon2id ao mesmo tempo (8.1): a pessoa confirma enquanto a chave da senha é feita
-        const [assinada, chave] = await Promise.all([assinar(desafio, rpId, autenticador), senhaDoDesafio(this.senha(), desafio)]);
+        const { assinada, kSenha: chave } = await assinarComSenha(desafio, this.senha(), rpId, autenticador);
         kSenha = chave;
         this.etapa.set('Abrindo…');
         m = await chaveDoMeio(api, assinada, usuario);
@@ -229,6 +231,7 @@ export class Abrir {
         this.erro.set(mensagem(e));
       }
     } finally {
+      zerar(kSenha, m);
       this.ocupado.set(false);
       this.etapa.set('');
     }

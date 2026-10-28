@@ -3,6 +3,7 @@ import type { CofreAberto } from '../../core/abrir';
 import { type AparelhoDaApi, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
+import { confirmarComSenha } from '../../core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
 import { CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
 import { type JeitoDoGrupo, LIMITES, nomeDoGrupo } from '../../core/itens';
@@ -316,15 +317,29 @@ export class Gerenciar implements OnInit {
     });
   }
 
-  /** Um aparelho sem PRF entra no modo servidor só se a senha de hoje servir para isso (seção 5). */
+  /**
+   * Um aparelho sem PRF entra no modo servidor só se a senha de hoje servir para isso (seção 5). A senha
+   * digitada é conferida abrindo V: sem isso, qualquer senha forte digitada ali passava, mesmo com a do
+   * cofre fraca.
+   */
   protected async usarModoServidor(): Promise<void> {
     const passkey = this.pendente();
     if (!passkey) return;
-    if (!serveParaModoServidor(this.senhaDoModoServidor())) {
+    const senha = this.senhaDoModoServidor();
+    if (!serveParaModoServidor(senha)) {
       this.erro.set('No modo servidor, a senha mestra precisa ser a frase sorteada (ou ter pelo menos 78 bits). Troque a senha antes de pôr este aparelho.');
       return;
     }
-    await this.fazer(() => this.gravarAparelho(passkey));
+    await this.fazer(async () => {
+      try {
+        await confirmarComSenha(this.cofre(), senha);
+      } catch (e) {
+        if (!(e instanceof ErroCofre && e.motivo === 'abrir')) throw e;
+        this.erro.set('Esta não é a senha mestra do cofre.');
+        return;
+      }
+      await this.gravarAparelho(passkey);
+    });
   }
 
   private async gravarAparelho(passkey: PasskeyRegistrada): Promise<void> {

@@ -8,6 +8,14 @@ import { type SenhaEscolhida, PassoSenha } from './passo-senha';
 
 type Passo = 'senha' | 'aparelhos' | 'criando' | 'kit';
 
+/** Para quem pode ter ficado com um cofre sem ver o kit: o código novo sai dos Ajustes. */
+const SEM_KIT = 'Se o kit de emergência não apareceu, abra o cofre e gere um código novo em Ajustes › Recuperação.';
+
+/** Um erro em que o pedido pode ter chegado à nuvem e só a resposta se perdeu. */
+function respostaIncerta(e: unknown): boolean {
+  return !(e instanceof ErroApi) || e.status === 0 || e.status >= 500;
+}
+
 const PASSOS: readonly { readonly id: 'senha' | 'aparelhos' | 'kit'; readonly nome: string }[] = [
   { id: 'senha', nome: 'Senha' },
   { id: 'aparelhos', nome: 'Aparelhos' },
@@ -110,24 +118,31 @@ export class Criar {
     this.passo.set('criando');
     // deixa a tela mostrar "Fazendo a chave do cofre…" antes de o Argon2id ocupar o navegador
     await new Promise<void>((ok) => requestAnimationFrame(() => setTimeout(ok, 0)));
+    const agora = new Date();
+    let codigo: string | null = null;
     try {
-      const agora = new Date();
-      const { corpo, codigo } = await montarCofre({
+      const montado = await montarCofre({
         usuario: this.entrada().usuario,
         senha: senha.senha,
         aparelhos,
         aparelhoAgora: /Android|iPhone|iPad|Mobile/i.test(this.servicos.pagina.agente) ? 'Celular' : 'PC',
         agora,
       });
-      await this.servicos.api.criarCofre(corpo);
-      // a senha não serve para mais nada aqui
-      this.senha.set(null);
-      this.codigo.set(codigo);
-      this.criadoEm.set(agora);
-      this.passo.set('kit');
+      codigo = montado.codigo;
+      await this.servicos.api.criarCofre(montado.corpo);
+      this.mostrarKit(codigo, agora);
     } catch (e) {
+      // a resposta se perdeu (sem rede, a nuvem fora do ar): o cofre pode ter sido criado assim mesmo, e o
+      // código deste kit seria o único que abre o envelope de recuperação dele
+      if (codigo !== null && respostaIncerta(e) && (await this.foiCriado())) {
+        this.mostrarKit(codigo, agora);
+        return;
+      }
       if (e instanceof ErroApi && e.codigo === 'cofre-existe') {
-        this.erro.set('Esta conta já tem um cofre. Recarregue a página para abrir.');
+        this.erro.set(`Esta conta já tem um cofre. Recarregue a página para abrir. ${SEM_KIT}`);
+      } else if (codigo !== null && respostaIncerta(e)) {
+        this.erro.set(`Não deu para saber se o cofre foi criado. Registre os aparelhos de novo; se a conta já tiver um cofre, recarregue a página para abrir. ${SEM_KIT}`);
+        this.aparelhos()?.recomecar();
       } else if (e instanceof ErroApi && e.status === 401) {
         this.acabou();
         this.aparelhos()?.recomecar();
@@ -139,6 +154,26 @@ export class Criar {
         this.aparelhos()?.recomecar();
       }
       this.passo.set('aparelhos');
+    }
+  }
+
+  private mostrarKit(codigo: string, criadoEm: Date): void {
+    // a senha não serve para mais nada aqui
+    this.senha.set(null);
+    this.codigo.set(codigo);
+    this.criadoEm.set(criadoEm);
+    this.passo.set('kit');
+  }
+
+  /**
+   * Depois de uma resposta que se perdeu: o cofre existe? A entrada de criar é apagada junto com o cofre
+   * criado, então ela recusada (401) antes da hora de vencer quer dizer que ele foi criado.
+   */
+  private async foiCriado(): Promise<boolean> {
+    try {
+      return (await this.servicos.api.estado()).existe;
+    } catch (e) {
+      return e instanceof ErroApi && e.status === 401 && Date.now() < Date.parse(this.entrada().expiraEm);
     }
   }
 

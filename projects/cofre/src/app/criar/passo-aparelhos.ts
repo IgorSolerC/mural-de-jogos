@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { ErroApi } from '../../core/api';
 import { APARELHOS_NA_CRIACAO, type AparelhoParaCriar } from '../../core/criar';
+import { zerar } from '../../core/bytes';
 import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, BITS_MINIMOS_MODO_SERVIDOR } from '../../core/forca';
 import { ErroPasskey, type PasskeyRegistrada, pedirSegredoPrf, registrarPasskey } from '../../core/passkey';
@@ -19,6 +20,12 @@ interface Aparelho {
 }
 
 type Estado = 'prf' | 'servidor' | 'pendente';
+
+/** O aparelho saiu da lista: o segredo do PRF dele não serve para mais nada (ele abre o envelope daquela passkey). */
+function esquecerPrf(a: Aparelho): void {
+  zerar(a.passkey.prf);
+  a.passkey.prf = null;
+}
 
 /** É o celular? Pelo QR code, sim; senão, é o aparelho onde a página está. */
 function ehCelular(passkey: PasskeyRegistrada, agente: string): boolean {
@@ -194,12 +201,14 @@ export class PassoAparelhos {
     this.atualizar();
   }
 
-  /** Tira todos os aparelhos (depois de um erro ao criar, eles não servem mais). */
+  /** Tira todos os aparelhos (depois de um erro ao criar, eles não servem mais), zerando o segredo do PRF de cada um. */
   recomecar(): void {
+    for (const a of this.aparelhos()) esquecerPrf(a);
     this.aparelhos.set([]);
   }
 
   protected tirar(a: Aparelho): void {
+    esquecerPrf(a);
     this.aparelhos.update((lista) => lista.filter((x) => x !== a));
   }
 

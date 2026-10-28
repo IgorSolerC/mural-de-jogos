@@ -92,6 +92,14 @@ export async function corpoDoAparelho(aparelho: AparelhoParaCriar, usuario: stri
   // sem PRF, o segredo do aparelho é sorteado aqui e vai para o servidor (o modo servidor, 5)
   const segredo = passkey.prf ?? novoSegredoDeAparelho();
   const envelopeId = novoId();
+  let envelope: Bytes;
+  try {
+    envelope = await selarEnvelope(segredo, usuario, envelopeId, m);
+  } catch (e) {
+    // o S_i sorteado aqui ainda não foi entregue a ninguém: se não selou, é daqui zerar
+    if (!comPrf) zerar(segredo);
+    throw e;
+  }
   return {
     corpo: {
       desafio: passkey.desafio,
@@ -99,7 +107,7 @@ export async function corpoDoAparelho(aparelho: AparelhoParaCriar, usuario: stri
       apelido,
       prf: comPrf,
       envelopeId,
-      envelope: paraBase64url(await selarEnvelope(segredo, usuario, envelopeId, m)),
+      envelope: paraBase64url(envelope),
       ...(comPrf ? {} : { s: paraBase64url(segredo) }),
     },
     segredo,

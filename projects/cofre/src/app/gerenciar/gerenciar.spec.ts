@@ -243,6 +243,12 @@ describe('gerenciar o cofre', () => {
     await estabilizar(fixture);
     expect(el.querySelector('.erro')!.textContent).toContain('frase sorteada');
     expect(api.postos).toEqual([]);
+    // uma senha forte que não é a do cofre não serve: a conferida abre V com ela
+    digitar(el, '#g-senha-servidor', sortearFrase());
+    await estabilizar(fixture);
+    botao(el, 'Pôr no modo servidor').click();
+    await ate(fixture, () => !!el.querySelector('.erro')?.textContent?.includes('não é a senha mestra'));
+    expect(api.postos).toEqual([]);
     digitar(el, '#g-senha-servidor', SENHA);
     await estabilizar(fixture);
     botao(el, 'Pôr no modo servidor').click();
