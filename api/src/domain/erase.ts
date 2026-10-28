@@ -3,6 +3,7 @@ import { Deps } from '../ports';
 import { revokeAgenda } from './agenda';
 import { GoogleIdentity } from './google';
 import { DAY_MS, write } from './quota';
+import { markStatements } from './shared-public';
 
 /**
  * Apagar a conta (o `DELETE /v1/eu` e a limpeza diária). Só o token da sessão não basta: quem o roubou
@@ -162,6 +163,8 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       // as anotações compartilhadas: as dela somem para todos; nas dos outros, ela sai (e eles veem a lista nova)
       { sql: 'UPDATE notas SET versao = versao + 1 WHERE id IN (SELECT nota_id FROM nota_membros WHERE usuario_id = ?)', params: [id] },
       { sql: `DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref IN (${NOTES_OF})`, params: [id] },
+      // as dela saem também do mural público de quem estava nelas (ver domain/shared-public.ts)
+      ...markStatements({ sql: `SELECT usuario_id FROM nota_membros WHERE nota_id IN (${NOTES_OF})`, params: [id] }, deps.now()),
       { sql: `DELETE FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})`, params: [id, id] },
       { sql: 'DELETE FROM notas WHERE dono_id = ?', params: [id] },
       { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },

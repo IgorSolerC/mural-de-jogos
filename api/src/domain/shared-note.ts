@@ -89,6 +89,11 @@ export function structureOf(stored: string): string {
   });
 }
 
+/** A anotação guardada é privada (só quem está nela vê)? */
+export function isPrivateNote(stored: string): boolean {
+  return (JSON.parse(structureOf(stored)) as { private: boolean }).private;
+}
+
 /** A data como o site a guarda (ISO; a que não é data o site joga fora), para comparar do mesmo jeito. */
 function isoOrNull(v: unknown): string | null {
   const t = typeof v === 'string' ? Date.parse(v) : NaN;

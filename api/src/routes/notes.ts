@@ -11,12 +11,14 @@ import {
   Role,
   canManage,
   canWrite,
+  isPrivateNote,
   isRole,
   noteData,
   noteId,
   structureOf,
   titleOf,
 } from '../domain/shared-note';
+import { Who, markStatements } from '../domain/shared-public';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -104,6 +106,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     if (!p) throw new HttpError(404, 'pessoa-nao-encontrada', `Não achei ninguém com o código ${formatCode(code)}.`);
     return p;
   }
+
+  /** O dono e todo mundo que está na anotação (para marcar o mural público de cada um). */
+  const everyone = (id: string): Who => ({ sql: 'SELECT dono_id FROM notas WHERE id = ? UNION SELECT usuario_id FROM nota_membros WHERE nota_id = ?', params: [id, id] });
 
   const idInUse = () => new HttpError(409, 'nota-id-em-uso', 'Essa anotação não pode ser compartilhada assim. Faça uma cópia dela e tente de novo.');
 
@@ -318,6 +323,10 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     } else if (body['resolver'] === true) {
       conflict = null;
     }
+    // virou privada: some do mural público de todos que estão nela (a cópia de cada um só muda quando o
+    // site dele abre; ver domain/shared-public.ts), se a gravação entrou mesmo
+    const hiding = !isPrivateNote(n.dados) && isPrivateNote(dados);
+    const people = hiding ? ((await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM nota_membros WHERE nota_id = ?', [id]))?.n ?? 0) + 1 : 0;
     const [result] = await write(
       deps,
       [
@@ -327,8 +336,14 @@ export function noteRoutes(app: Hono, deps: Deps): void {
             'WHERE id = ? AND rev = ?',
           params: [dados, conflict, at, s.userId, id, base],
         },
+        ...(hiding
+          ? markStatements(everyone(id), now, id, {
+              sql: 'SELECT 1 FROM notas WHERE id = ? AND rev = ? AND atualizado_em = ? AND atualizado_por = ?',
+              params: [id, base + 1, at, s.userId],
+            })
+          : []),
       ],
-      2,
+      2 + 2 * people,
     );
     if (!result || result.changes === 0) {
       // outra gravação entrou entre a leitura e esta: a de agora volta para juntar
@@ -404,8 +419,10 @@ export function noteRoutes(app: Hono, deps: Deps): void {
         { sql: 'DELETE FROM nota_membros WHERE nota_id = ? AND usuario_id = ?', params: [id, target] },
         { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou' AND alvo_id = ? AND ref = ?", params: [target, id] },
         { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] },
+        // a anotação sai do mural público de quem saiu (ver domain/shared-public.ts)
+        ...markStatements({ sql: 'SELECT ?', params: [target] }, deps.now(), id),
       ],
-      8,
+      10,
     );
     if (target === s.userId) return c.json({ ok: true });
     const saved = await note(id);
@@ -423,11 +440,13 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     await write(
       deps,
       [
+        // antes de as pessoas saírem: a anotação sai do mural público de cada uma (e do da dona)
+        ...markStatements(everyone(id), deps.now(), id),
         { sql: 'DELETE FROM nota_membros WHERE nota_id = ?', params: [id] },
         { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref = ?", params: [id] },
         { sql: 'DELETE FROM notas WHERE id = ?', params: [id] },
       ],
-      4 + 6 * (members?.n ?? 0),
+      6 + 8 * (members?.n ?? 0),
     );
     return c.json({ ok: true });
   });

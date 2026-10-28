@@ -543,7 +543,7 @@ export function apiSuite(label: string, getDb: () => Db) {
           const them = ids.find((u) => u.google_sub === 'outro')!.id;
           await db.batch([
             { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
-            { sql: "INSERT INTO murais_publicos VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
+            { sql: "INSERT INTO murais_publicos (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [me] },
             { sql: "INSERT INTO murais (usuario_id, rev, dados, bytes, atualizado_em) VALUES (?, 1, x'1f8b', 2, '2026-10-06')", params: [them] },
             { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [me, them] },
             { sql: "INSERT INTO seguindo (seguidor_id, seguido_id, criado_em) VALUES (?, ?, '2026-10-06')", params: [them, me] },

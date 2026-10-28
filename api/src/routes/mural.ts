@@ -3,6 +3,7 @@ import { utcDayStart, write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
 import { cleanCard, parseCard, parsePhoto } from '../domain/photo';
 import { MURAL_RE, REF_RE, cleanTitle } from '../domain/review';
+import { gunzipText, gzipText, relatedNotes, withoutGone } from '../domain/shared-public';
 import { MAX_SHOWN_CHARS, parseShown } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -76,6 +77,61 @@ function parseNew(raw: ReturnType<FormData['get']>): NewReview[] {
   return out;
 }
 
+/**
+ * O mural público de `userId` conferido (ver domain/shared-public.ts): sem as compartilhadas que a pessoa
+ * não pode mais mostrar. Só roda com a marca `publico_conferir`; grava o conferido (a `versao` sobe, e
+ * quem visita baixa de novo) e desmarca. Se a gravação não der (a cota do dia, outro envio no meio),
+ * entrega o conferido assim mesmo, e a marca fica para a próxima.
+ */
+async function checkedPublic(deps: Deps, userId: string, row: { versao: number; dados: unknown }): Promise<{ versao: number; dados: Uint8Array; changed: boolean }> {
+  const bytes = toBytes(row.dados);
+  let result: { text: string; dropped: string[] } | null = null;
+  try {
+    result = withoutGone(await gunzipText(bytes), await relatedNotes(deps.db, userId));
+  } catch (error) {
+    // um mural que não abre (gzip estragado) não tem o que tirar: desmarca, para não tentar a cada visita
+    deps.log?.(`mural-publico conferir falhou: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  // desmarca só se o mural ainda é o conferido (um envio no meio pede outra conferência)
+  const done = (versao: number): Statement => ({
+    sql: 'UPDATE usuarios SET publico_conferir = 0 WHERE id = ? AND (SELECT versao FROM murais_publicos WHERE usuario_id = ?) = ?',
+    params: [userId, userId, versao],
+  });
+  if (!result) {
+    await write(deps, [done(row.versao)], 1).catch(() => undefined);
+    return { versao: row.versao, dados: bytes, changed: false };
+  }
+  const dados = await gzipText(result.text);
+  try {
+    const [saved] = await write(
+      deps,
+      [{ sql: 'UPDATE murais_publicos SET dados = ?, bytes = ?, versao = versao + 1 WHERE usuario_id = ? AND versao = ?', params: [dados, dados.length, userId, row.versao] }],
+      1,
+    );
+    if (!saved || saved.changes === 0) return { versao: row.versao, dados, changed: true };
+  } catch {
+    // a cota do dia, a nuvem só para leitura: entrega o conferido sem gravar
+    return { versao: row.versao, dados, changed: true };
+  }
+  // depois de gravado (e só então): desmarca, e as que saíram saem também das fichas à mostra (as
+  // reações e os comentários delas)
+  await write(
+    deps,
+    [
+      done(row.versao + 1),
+      {
+        sql:
+          'UPDATE usuarios SET fichas_publicas = (SELECT json_group_array(value) FROM json_each(usuarios.fichas_publicas) ' +
+          'WHERE value NOT IN (SELECT value FROM json_each(?))) WHERE id = ? AND fichas_publicas IS NOT NULL ' +
+          'AND (SELECT versao FROM murais_publicos WHERE usuario_id = ?) = ?',
+        params: [JSON.stringify(result.dropped), userId, userId, row.versao + 1],
+      },
+    ],
+    2,
+  ).catch(() => undefined);
+  return { versao: row.versao + 1, dados, changed: true };
+}
+
 /** O mural de outra pessoa, pelo código: só o público (resenhas e nome). */
 function publicRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/murais/:codigo', async (c) => {
@@ -84,20 +140,28 @@ function publicRoutes(app: Hono, deps: Deps): void {
     const notFound = () =>
       new HttpError(404, 'mural-nao-encontrado', 'Não achei mural com esse código. Confira as letras: são 8, entre letras e números.');
     if (!code) throw notFound();
-    const head = await deps.db.first<{ usuario_id: string; rev: number }>(
-      'SELECT p.usuario_id, p.rev FROM usuarios u JOIN murais_publicos p ON p.usuario_id = u.id WHERE u.codigo = ?',
+    const head = await deps.db.first<{ usuario_id: string; versao: number; conferir: number }>(
+      'SELECT p.usuario_id, p.versao, u.publico_conferir AS conferir FROM usuarios u JOIN murais_publicos p ON p.usuario_id = u.id WHERE u.codigo = ?',
       [code],
     );
     if (!head) throw notFound();
-    c.header('Mural-Rev', String(head.rev));
     c.header('Mural-Codigo', formatCode(code));
-    if (c.req.query('rev') === String(head.rev)) return c.body(null, 204);
-    // a rev de novo, junto com os dados: um envio entre as duas leituras não pode sair com a rev de antes
-    const row = await deps.db.first<{ rev: number; dados: unknown }>('SELECT rev, dados FROM murais_publicos WHERE usuario_id = ?', [
-      head.usuario_id,
-    ]);
+    // a versão de novo, junto com os dados: um envio entre as duas leituras não pode sair com a de antes
+    const read = () => deps.db.first<{ versao: number; dados: unknown }>('SELECT versao, dados FROM murais_publicos WHERE usuario_id = ?', [head.usuario_id]);
+    if (head.conferir) {
+      const row = await read();
+      if (!row) throw notFound();
+      const checked = await checkedPublic(deps, head.usuario_id, row);
+      c.header('Mural-Rev', String(checked.versao));
+      // o conferido que não foi gravado vai inteiro: quem tem a versão de antes guardou a cópia velha
+      if (!checked.changed && c.req.query('rev') === String(checked.versao)) return c.body(null, 204);
+      return gzipBody(c, checked.dados);
+    }
+    c.header('Mural-Rev', String(head.versao));
+    if (c.req.query('rev') === String(head.versao)) return c.body(null, 204);
+    const row = await read();
     if (!row) throw notFound();
-    c.header('Mural-Rev', String(row.rev));
+    c.header('Mural-Rev', String(row.versao));
     return gzipBody(c, row.dados);
   });
 }
@@ -197,9 +261,11 @@ export function muralRoutes(app: Hono, deps: Deps): void {
       privateWrite,
       {
         sql:
-          'INSERT INTO murais_publicos (usuario_id, rev, dados, bytes, atualizado_em) ' +
-          'SELECT usuario_id, rev, ?, ?, ? FROM murais WHERE usuario_id = ? AND gravacao = ? ' +
-          'ON CONFLICT (usuario_id) DO UPDATE SET rev = excluded.rev, dados = excluded.dados, bytes = excluded.bytes, atualizado_em = excluded.atualizado_em',
+          // a `versao` (o que quem visita guarda) sobe a cada envio, e a conferência também a sobe
+          'INSERT INTO murais_publicos (usuario_id, rev, versao, dados, bytes, atualizado_em) ' +
+          'SELECT usuario_id, rev, rev, ?, ?, ? FROM murais WHERE usuario_id = ? AND gravacao = ? ' +
+          'ON CONFLICT (usuario_id) DO UPDATE SET rev = excluded.rev, versao = murais_publicos.versao + 1, dados = excluded.dados, ' +
+          'bytes = excluded.bytes, atualizado_em = excluded.atualizado_em',
         params: [publicDoc, publicDoc.length, at, s.userId, mark],
       },
       ...fresh.map(
@@ -213,8 +279,12 @@ export function muralRoutes(app: Hono, deps: Deps): void {
       {
         sql:
           'UPDATE usuarios SET ultima_gravacao_em = ?, foto = COALESCE(?, foto), cartao = COALESCE(?, cartao), ' +
-          `fichas_publicas = COALESCE(?, fichas_publicas) WHERE id = ? AND EXISTS (${ours})`,
-        params: [at, photo, card, shown, s.userId, s.userId, mark],
+          // logo depois de uma compartilhada sair (domain/shared-public.ts), o site que ainda não soube
+          // pode mandar a cópia velha: a próxima entrega confere de novo
+          'fichas_publicas = COALESCE(?, fichas_publicas), ' +
+          'publico_conferir = CASE WHEN publico_conferir_ate > ? THEN 1 ELSE publico_conferir END ' +
+          `WHERE id = ? AND EXISTS (${ours})`,
+        params: [at, photo, card, shown, at, s.userId, s.userId, mark],
       },
     ];
     const [result] = await write(deps, statements, 6 + 4 * fresh.length);

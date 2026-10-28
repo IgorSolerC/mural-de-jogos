@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-apagar-a-conta',
+    id: '2026-10-28-compartilhadas-no-publico',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
@@ -40,7 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Trocar pela folha do widget um widget que fica embaixo de um item da lista não o tira mais do item; e, ao recolher o texto inteiro de uma nota colada, a faixa ou o vídeo que tocava nele para junto (seguia tocando, escondido).',
       'O texto sem formatação vindo de fora com as quebras de linha antigas (só "\\r") mostra cada linha no seu lugar, como o formatado.',
       'No Google Agenda, o evento apagado lá enquanto o Murall não lia sai também daqui, a cor tirada lá vira a da agenda, um lembrete que não vira evento não segura mais os outros, e fechar a janela do Google antes do fim (ou ligar com duas abas abertas) não deixa mais o botão de ligar preso nem dá "venceu".',
-      'Numa anotação compartilhada, quem só escreve nela não a faz mais aparecer no seu mural público como sendo de outra pessoa, nem a põe de novo no Feed de quem segue; e o id de uma ficha à mostra no mural de outra pessoa (o de uma cópia) não é mais aceito ao compartilhar, o que tirava a ficha dela do lugar.',
+      'Numa anotação compartilhada, quem só escreve nela não a faz mais aparecer no seu mural público como sendo de outra pessoa, nem a põe de novo no Feed de quem segue; o id de uma ficha à mostra no mural de outra pessoa (o de uma cópia) não é mais aceito ao compartilhar, o que tirava a ficha dela do lugar; e a anotação que vira privada ou é apagada, ou de que a pessoa sai (ou é tirada), não fica mais à mostra no mural público dela até ela abrir o Murall de novo.',
       'Nos Acessos, tirar uma permissão ou um grupo de uma chave (ou passar a pedir aprovação) vale também para os pedidos dela que ainda não entraram; a nota que uma chave já cria pública espera a sua aprovação quando a chave pede aprovação das mudanças; e a chave limitada a alguns grupos não descobre mais, pelas mensagens de erro, o nome dos outros grupos nem o título das notas deles.',
       'Uma chave ou um conector com "Só alguns" grupos, sem nenhum grupo para marcar, não ganha mais acesso a todos eles (a tela dizia que não alcançaria nenhuma anotação): agora ela pede para voltar a Todos os grupos. O conector recém-permitido aparece nos Acessos com o mesmo endereço de depois de recarregar.',
       'Pelo MCP, uma nota com a marca de fim do conteúdo escrita no texto não se passa mais por instrução do Murall para a AI, e um argumento que não serve (uma chave de idempotência com acento, um id ".") volta como erro da ferramenta, não como falha da conexão.',

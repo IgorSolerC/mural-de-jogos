@@ -6,7 +6,9 @@ import { googleVerifier } from '../src/domain/google';
 import { MAX_MEMBERS, MAX_NOTES_PER_USER, MAX_NOTE_CHARS, structureOf } from '../src/domain/shared-note';
 import { MAX_SHARES_PER_DAY, MIN_EDIT_MS } from '../src/routes/notes';
 import { Config, Db, Deps, SqlValue } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, jsonCaller, eraseNow } from './harness';
+import { utcDay } from '../src/domain/quota';
+import { CHECK_WINDOW_MS } from '../src/domain/shared-public';
+import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller, eraseNow } from './harness';
 
 /**
  * As anotações compartilhadas (migração 0011): os papéis (dono, gestor, editor, leitor), a vez de
@@ -590,6 +592,171 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect(await notices(bia.token)).toHaveLength(1);
         expect((await res(json('DELETE', `/v1/comentarios/${id}`, undefined, ana.token))).status).toBe(200);
         expect(await notices(bia.token)).toEqual([]);
+      });
+    });
+
+    describe('o mural público de cada um', () => {
+      /** O mural público como o site manda: a compartilhada de outra pessoa leva o `sharedBy`. */
+      const publico = (notas: Record<string, unknown>[]) => JSON.stringify({ app: 'meu-mural', version: 2, reviews: [], notas });
+      const deOutra = (id: string, dono: { codigo: string; nome: string }) => ({ ...nota(id), sharedBy: { codigo: dono.codigo, nome: dono.nome } });
+
+      async function world() {
+        const t = await three();
+        const revs = new Map<string, number>();
+        /** Envia o mural de quem tem o token (como o site), com as fichas à mostra. */
+        const push = async (token: string, notas: Record<string, unknown>[]) => {
+          const form = new FormData();
+          form.append('privado', new Blob([await gzip('{"reviews":[]}')], { type: 'application/gzip' }));
+          form.append('publico', new Blob([await gzip(publico(notas))], { type: 'application/gzip' }));
+          form.append('fichas', JSON.stringify(notas.map((n) => n['id'])));
+          const base = revs.get(token) ?? 0;
+          const r = await t.call('/v1/eu/mural', { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Mural-Rev-Base': String(base) }, body: form });
+          expect(r.status).toBe(200);
+          revs.set(token, ((await r.json()) as { rev: number }).rev);
+          t.advance(5_000);
+        };
+        /** O mural público de alguém, como quem visita vê. */
+        const visit = async (codigo: string, rev?: number) => {
+          const r = await t.call(`/v1/murais/${codigo}${rev === undefined ? '' : `?rev=${rev}`}`);
+          const ids = r.status === 200 ? (JSON.parse(await gunzip(await r.arrayBuffer())).notas as { id: string }[]).map((n) => n.id) : null;
+          return { status: r.status, rev: Number(r.headers.get('Mural-Rev')), ids };
+        };
+        const shownOf = async (userId: string) =>
+          JSON.parse((await t.db.first<{ fichas_publicas: string }>('SELECT fichas_publicas FROM usuarios WHERE id = ?', [userId]))!.fichas_publicas) as string[];
+        const flagOf = async (userId: string) => (await t.db.first<{ f: number }>('SELECT publico_conferir AS f FROM usuarios WHERE id = ?', [userId]))!.f;
+        return { ...t, push, visit, shownOf, flagOf };
+      }
+
+      it('quem é tirado: a anotação sai do mural público dele na próxima visita, sem esperar o site dele abrir', async () => {
+        const w = await world();
+        const { ana, bia, cris } = w;
+        await w.share(ana.token, 'nota-1', [
+          { codigo: bia.codigo, papel: 'editor' },
+          { codigo: cris.codigo, papel: 'leitor' },
+        ]);
+        await w.push(bia.token, [deOutra('nota-1', ana), nota('minha-1')]);
+        await w.push(cris.token, [deOutra('nota-1', ana)]);
+        const before = await w.visit(bia.codigo);
+        expect(before.ids).toEqual(['nota-1', 'minha-1']);
+
+        expect((await w.drop(ana.token, 'nota-1', bia.codigo)).status).toBe(200);
+        // as reações e os comentários dela saem na hora, das fichas à mostra
+        expect(await w.shownOf(bia.id)).toEqual(['minha-1']);
+        // quem guardou a versão de antes baixa de novo, já sem ela; a anotação comum fica
+        const after = await w.visit(bia.codigo, before.rev);
+        expect(after.status).toBe(200);
+        expect(after.ids).toEqual(['minha-1']);
+        expect(after.rev).toBe(before.rev + 1);
+        expect(await w.flagOf(bia.id)).toBe(0);
+        // a próxima visita não confere de novo: a versão é a mesma, e nada muda
+        expect((await w.visit(bia.codigo, after.rev)).status).toBe(204);
+        // Cris continua nela: o mural dela não muda
+        expect((await w.visit(cris.codigo)).ids).toEqual(['nota-1']);
+      });
+
+      it('quem sai sozinho também', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana)]);
+        await w.drop(bia.token, 'nota-1', 'eu');
+        expect((await w.visit(bia.codigo)).ids).toEqual([]);
+      });
+
+      it('a que vira privada sai do mural público de todos, também do da dona (um gestor mudou quem vê)', async () => {
+        const w = await world();
+        const { ana, bia, cris } = w;
+        await w.share(ana.token, 'nota-1', [
+          { codigo: bia.codigo, papel: 'gestor' },
+          { codigo: cris.codigo, papel: 'leitor' },
+        ]);
+        await w.push(ana.token, [nota('nota-1'), nota('dela-1')]);
+        await w.push(cris.token, [deOutra('nota-1', ana)]);
+        expect((await w.put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { private: true }) })).status).toBe(200);
+        expect(await w.shownOf(ana.id)).toEqual(['dela-1']);
+        expect((await w.visit(ana.codigo)).ids).toEqual(['dela-1']);
+        expect((await w.visit(cris.codigo)).ids).toEqual([]);
+      });
+
+      it('uma edição que não muda quem vê não marca ninguém', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'editor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana)]);
+        const before = await w.visit(bia.codigo);
+        await w.put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'arroz' }) });
+        expect(await w.flagOf(bia.id)).toBe(0);
+        expect(await w.flagOf(ana.id)).toBe(0);
+        expect((await w.visit(bia.codigo, before.rev)).status).toBe(204);
+      });
+
+      it('a gravação que perdeu a vez não marca nada (a anotação continua pública)', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'gestor' }]);
+        await w.push(ana.token, [nota('nota-1')]);
+        await w.put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'outra' }) });
+        expect((await w.put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { private: true }) })).status).toBe(409);
+        expect(await w.flagOf(ana.id)).toBe(0);
+        expect(await w.shownOf(ana.id)).toEqual(['nota-1']);
+      });
+
+      it('a apagada pela dona sai do mural público de quem estava nela', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana), nota('minha-1')]);
+        expect((await w.res(w.json('DELETE', '/v1/notas/nota-1', undefined, ana.token))).status).toBe(200);
+        expect((await w.visit(bia.codigo)).ids).toEqual(['minha-1']);
+      });
+
+      it('a dona apaga a conta: as anotações dela saem do mural público de quem estava nelas', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana), nota('minha-1')]);
+        await eraseNow(w.deps, ana.token);
+        expect((await w.visit(bia.codigo)).ids).toEqual(['minha-1']);
+      });
+
+      it('o site que ainda não soube manda a cópia velha de novo: nos 7 dias, a entrega confere outra vez', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana)]);
+        await w.drop(ana.token, 'nota-1', bia.codigo);
+        expect((await w.visit(bia.codigo)).ids).toEqual([]);
+        await w.push(bia.token, [deOutra('nota-1', ana)]);
+        expect((await w.visit(bia.codigo)).ids).toEqual([]);
+        // depois da janela, o envio não marca mais (o site dela já soube há muito tempo)
+        w.advance(CHECK_WINDOW_MS);
+        await w.push(bia.token, [nota('minha-1')]);
+        expect(await w.flagOf(bia.id)).toBe(0);
+      });
+
+      it('sem a cota do dia para gravar, quem visita recebe o mural conferido assim mesmo, e a marca fica', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana), nota('minha-1')]);
+        const before = await w.visit(bia.codigo);
+        await w.drop(ana.token, 'nota-1', bia.codigo);
+        await w.db.batch([{ sql: 'UPDATE uso_diario SET linhas_gravadas = 100000 WHERE dia = ?', params: [utcDay(w.deps.now())] }]);
+        const after = await w.visit(bia.codigo, before.rev);
+        expect(after.status).toBe(200);
+        expect(after.ids).toEqual(['minha-1']);
+        expect(await w.flagOf(bia.id)).toBe(1);
+      });
+
+      it('a compartilhada em que a pessoa continua (e a dela, pública) fica, mesmo com o mural conferido', async () => {
+        const w = await world();
+        const { ana, bia } = w;
+        await w.share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.share(ana.token, 'nota-2', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        await w.share(bia.token, 'dela-1', [{ codigo: ana.codigo, papel: 'leitor' }]);
+        await w.push(bia.token, [deOutra('nota-1', ana), deOutra('nota-2', ana), nota('dela-1'), nota('minha-1')]);
+        await w.drop(ana.token, 'nota-2', bia.codigo);
+        expect((await w.visit(bia.codigo)).ids).toEqual(['nota-1', 'dela-1', 'minha-1']);
       });
     });
 
