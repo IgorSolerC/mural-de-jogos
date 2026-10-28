@@ -3,6 +3,7 @@ import { BEFORE_CLOUD_DB } from './cloud-before';
 import { ACCOUNT_KEY, SESSION_KEY, readAccount, readToken } from './cloud-account';
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
+import { IMAGES_DB } from './image-store';
 import { PREFIXES, deleteDatabase } from './erase-save';
 import { freezeStorage } from './storage';
 
@@ -12,7 +13,7 @@ import { freezeStorage } from './storage';
  *
  * - Sair da conta (por aqui, por "Sair de todos" em outro aparelho, ou a conta apagada) limpa o
  *   navegador inteiro: as listas, os Gastos, o Calendário, o Kanban, os ajustes, o perfil, as capas
- *   guardadas. Na nuvem fica tudo.
+ *   guardadas, as imagens coladas. Na nuvem fica tudo.
  * - O de uma conta sem a sessão dela (um site de antes, que deixava o mural ficar ao sair) é limpo ao
  *   abrir.
  * - Entrar com o mural de outra conta aqui limpa antes (ver `firstSync` em core/cloud-sync.ts); o de
@@ -84,7 +85,7 @@ export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void
   } catch {
     /* sem sessionStorage, idem */
   }
-  const databases = [DATA_DB, COLLEAGUES_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
+  const databases = [DATA_DB, COLLEAGUES_DB, IMAGES_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
   await Promise.all(databases.map(deleteDatabase));
   try {
     if (typeof caches !== 'undefined') await caches.delete(COVERS_CACHE);

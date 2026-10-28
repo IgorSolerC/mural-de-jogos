@@ -13,6 +13,9 @@ import { WIDGET_ICONS } from './widget-icons';
 import { MarkupGuide } from './markup-guide';
 import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, widgetLines } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
+import { ImageProblem, imageFileOf, localImageUrl } from '../core/images';
+import { ImageStore } from '../core/image-store';
+import { Toasts } from './toast';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
@@ -351,9 +354,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           (keyup)="onKeyUp($event, area, big)"
           (keydown)="onKey($event, area, big)"
           (paste)="onPaste($event, area)"
+          (dragover)="onDragOver($event)"
+          (drop)="onDrop($event, area)"
           (blur)="onAreaBlur($event, regua)"
         ></textarea>
       </div>
+      @if (savingImage()) {
+        <!-- a imagem colada (ou solta) sendo encolhida e guardada: logo vira a linha do widget -->
+        <p class="guardando" role="status">Guardando a imagem…</p>
+      }
       @if (max(); as m) {
         <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
         <p class="contagem" [id]="areaId + '-conta' + (big ? '-grande' : '')" [class.perto]="value().length > m * 0.9" [class.passou]="value().length > m">
@@ -1664,6 +1673,13 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     .contagem.passou {
       color: var(--error-ink);
     }
+    .guardando {
+      flex: none;
+      margin: 4px 2px 0;
+      font-family: var(--f-ui);
+      font-size: 0.8rem;
+      color: var(--ink-2);
+    }
     textarea.grande {
       --line: 2rem;
       flex: 1 1 auto;
@@ -2656,15 +2672,66 @@ export class RichEditor {
     }
   }
 
-  /** Colou um endereço com um texto selecionado: o texto vira o link. */
+  /**
+   * Colou um endereço com um texto selecionado: o texto vira o link. Colou uma imagem (sem texto junto:
+   * as células copiadas de uma planilha também trazem a foto delas, e o que vale ali é o texto): ela é
+   * encolhida, guardada e vira o widget de imagem numa linha só dela.
+   */
   protected onPaste(e: ClipboardEvent, area: HTMLTextAreaElement): void {
     const pasted = e.clipboardData?.getData('text/plain')?.trim() ?? '';
+    const file = pasted ? null : imageFileOf(e.clipboardData);
+    if (file) {
+      e.preventDefault();
+      void this.putImage(area, file);
+      return;
+    }
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     if (!sel.trim() || sel.includes('\n') || !/^(https?:\/\/|mailto:)\S+$/i.test(pasted)) return;
     e.preventDefault();
     const piece = `[${sel.trim().replace(/[[\]]/g, '')}](${pasted})`;
     const start = area.selectionStart;
     this.replace(area, start, area.selectionEnd, piece, start + piece.length, start + piece.length);
+  }
+
+  /** Arrastando um arquivo por cima da folha: ela aceita (sem isto, o navegador abriria o arquivo). */
+  protected onDragOver(e: DragEvent): void {
+    if (Array.from(e.dataTransfer?.types ?? []).includes('Files')) e.preventDefault();
+  }
+
+  /** Soltou uma imagem na folha: vira o widget de imagem, como colada. */
+  protected onDrop(e: DragEvent, area: HTMLTextAreaElement): void {
+    const file = imageFileOf(e.dataTransfer);
+    if (!file) {
+      // outro arquivo: não abre por cima do Murall (o texto arrastado continua do jeito do navegador)
+      if (e.dataTransfer?.files.length) e.preventDefault();
+      return;
+    }
+    e.preventDefault();
+    void this.putImage(area, file);
+  }
+
+  private readonly images = inject(ImageStore);
+  private readonly toasts = inject(Toasts);
+  /** Uma imagem colada sendo encolhida e guardada. */
+  protected readonly savingImage = signal(false);
+
+  /**
+   * Encolhe e guarda a imagem (core/image-store.ts) e põe o widget dela numa linha só dele, onde estava o
+   * cursor; se o texto mudou enquanto ela era guardada, onde o cursor está agora.
+   */
+  private async putImage(area: HTMLTextAreaElement, file: Blob): Promise<void> {
+    const before = area.value;
+    let at = { start: area.selectionStart, end: area.selectionEnd, swap: false };
+    this.savingImage.set(true);
+    try {
+      const image = await this.images.add(file);
+      if (area.value !== before) at = { start: area.selectionStart, end: area.selectionEnd, swap: false };
+      this.writeWidget(area, at, widgetLines('imagem', [localImageUrl(image.id)]).join('\n'));
+    } catch (error) {
+      this.toasts.show(error instanceof ImageProblem ? error.message : 'A imagem não entrou. Tente de novo.');
+    } finally {
+      this.savingImage.set(false);
+    }
   }
 
   private panelInput(big: boolean, selector: string): HTMLInputElement | null {

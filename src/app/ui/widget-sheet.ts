@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { NoteLinks, resolveNote } from '../core/note-links';
@@ -16,6 +16,8 @@ import { Pin } from './pin';
 import { RichText } from './rich-text';
 import { TableGrid } from './table-grid';
 import { WIDGET_ICONS } from './widget-icons';
+import { ImageProblem, imageFileOf, localImageId, localImageUrl, sizeLabel } from '../core/images';
+import { ImageStore } from '../core/image-store';
 
 
 /** O que a folha devolve ao editor: o widget pronto para virar a linha do texto. */
@@ -81,6 +83,7 @@ export class WidgetSheet {
   protected readonly LinkIcon = ICON.link;
   protected readonly CardIcon = ICON.anotacoes;
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly UploadIcon = ICON.enviar;
   protected readonly ids = 'wf-' + ++uid;
 
   /** O desenho de cada tamanho: a peça na ficha, da altura das linhas dele (3, 5, 7, 10), larga como um vídeo. */
@@ -178,7 +181,73 @@ export class WidgetSheet {
 
   private cardJustPicked = false;
 
+  // ===== a imagem do aparelho (o campo com `upload`: ver core/images.ts) =====
+
+  private readonly images = inject(ImageStore);
+  /** Uma imagem escolhida (ou colada no campo) sendo encolhida e guardada. */
+  protected readonly savingImage = signal(false);
+  protected readonly imageError = signal<string | null>(null);
+  /** A guardada que o campo tem agora: a fotinho (quando chega) e o tamanho; null se é um link. */
+  protected readonly localImage = signal<{ src: string | null; meta: string } | null>(null);
+
+  /** Abre a escolha de arquivo do aparelho (no celular, a galeria e a câmera). */
+  protected chooseFile(): void {
+    this.dialog().nativeElement.querySelector<HTMLInputElement>('.escolher-arquivo')?.click();
+  }
+
+  protected fromDevice(key: string, e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    // a mesma foto escolhida de novo também avisa
+    input.value = '';
+    if (file) void this.saveImage(key, file);
+  }
+
+  /** Colou uma imagem no campo do link (sem texto junto): ela vira a imagem do aparelho. */
+  protected pasteImage(key: string, e: ClipboardEvent): void {
+    if (e.clipboardData?.getData('text/plain')?.trim()) return;
+    const file = imageFileOf(e.clipboardData);
+    if (!file) return;
+    e.preventDefault();
+    void this.saveImage(key, file);
+  }
+
+  /** Volta para o link: o campo esvazia e ganha o foco. */
+  protected useLink(key: string): void {
+    this.set(key, '');
+    this.imageError.set(null);
+    afterNextRender(() => this.dialog().nativeElement.querySelector<HTMLElement>(`input[data-campo="${key}"]`)?.focus(), { injector: this.injector });
+  }
+
+  private async saveImage(key: string, file: Blob): Promise<void> {
+    this.savingImage.set(true);
+    this.imageError.set(null);
+    try {
+      const image = await this.images.add(file);
+      this.set(key, localImageUrl(image.id));
+    } catch (error) {
+      this.imageError.set(error instanceof ImageProblem ? error.message : 'A imagem não entrou. Tente de novo.');
+    } finally {
+      this.savingImage.set(false);
+    }
+  }
+
   constructor() {
+    // a guardada do campo: a fotinho e o tamanho, do IndexedDB
+    effect((onCleanup) => {
+      const field = this.shown().find((f) => f.upload);
+      const id = field ? localImageId(this.values()[field.key] ?? '') : null;
+      this.images.version();
+      if (!id) return this.localImage.set(null);
+      // a parte da guardada aparece já (sem piscar o campo do link), e a fotinho chega depois
+      this.localImage.update((v) => v ?? { src: null, meta: '' });
+      let alive = true;
+      onCleanup(() => (alive = false));
+      void Promise.all([this.images.get(id), this.images.url(id)]).then(([image, src]) => {
+        if (!alive) return;
+        this.localImage.set({ src, meta: image ? `${image.largura} × ${image.altura} px · ${sizeLabel(image.bytes)}` : 'Ainda não chegou a este aparelho' });
+      });
+    });
     afterNextRender(() => {
       const s = this.start();
       this.name.set(widgetDef(s.name)?.name ?? WIDGETS[0].name);

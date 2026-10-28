@@ -1,8 +1,10 @@
-import { ApplicationRef, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, EnvironmentInjector, computed, effect, inject, input, linkedSignal, untracked, viewChild } from '@angular/core';
+import { ApplicationRef, ChangeDetectionStrategy, Component, DestroyRef, ElementRef, EnvironmentInjector, computed, effect, inject, input, linkedSignal, signal, untracked, viewChild } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
 import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { localImageId } from '../core/images';
+import { ImageStore } from '../core/image-store';
 import { EmbedBridge } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
@@ -52,7 +54,10 @@ import { pieceLift } from './piece-lift';
             }
           </span>
         } @else if (kind() === 'imagem') {
-          <img [src]="m.url" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
+          <!-- a guardada pelo Murall espera o endereço dela (um src vazio daria "não abriu") -->
+          @if (src()) {
+            <img [src]="src()" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
+          }
           <span class="reflexo" aria-hidden="true"></span>
           @if (loaded()) {
             <app-zoom-knob class="ampliar" [label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" (pressed)="zoom()" />
@@ -424,6 +429,16 @@ export class GluedMedia {
   private readonly app = inject(ApplicationRef);
 
   protected readonly media = computed(() => readMedia(this.args()));
+  private readonly images = inject(ImageStore);
+  /** A imagem guardada pelo Murall (`murall://imagem/ID`, ver core/images.ts), ou null (um link comum). */
+  private readonly localId = computed(() => (this.kind() === 'imagem' ? localImageId(this.media().url) : null));
+  /**
+   * O endereço `blob:` da guardada, quando ela chega do IndexedDB; `undefined` enquanto procura, null se
+   * ela não está neste aparelho (colada em outro, e ainda não veio da nuvem).
+   */
+  private readonly localSrc = signal<string | null | undefined>(undefined);
+  /** O que vai no `<img>`: o link, ou o endereço da guardada. */
+  protected readonly src = computed(() => (this.localId() ? (this.localSrc() ?? '') : this.media().url));
   // de cada link: trocar o link (digitando, ou consertando um erro) começa de novo, sem o "não abriu"
   // do link de antes nem o vídeo dele tocando
   private readonly url = computed(() => this.media().url);
@@ -439,12 +454,17 @@ export class GluedMedia {
   protected readonly broken = computed(() => {
     const { url } = this.media();
     if (!url) return this.kind() === 'video' ? 'Vídeo sem link' : 'Imagem sem link';
+    if (this.localId()) {
+      if (this.localSrc() === null) return 'A imagem ainda não chegou a este aparelho';
+      if (this.failed()) return 'A imagem não abriu';
+      return '';
+    }
     if (!httpsUrl(url)) return 'O link precisa começar com https://';
     if (this.kind() === 'video' && !this.video()) return 'Esse vídeo não toca aqui';
     if (this.failed()) return this.kind() === 'video' ? 'O vídeo não abriu' : 'A imagem não abriu';
     return '';
   });
-  protected readonly host = computed(() => hostOf(this.media().url));
+  protected readonly host = computed(() => (this.localId() ? '' : hostOf(this.media().url)));
 
   /** O giro da foto, do link: entre 0,6 e 1,8 grau, para um lado ou para o outro. */
   protected readonly tilt = computed(() => {
@@ -476,6 +496,15 @@ export class GluedMedia {
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
+    // a guardada pelo Murall: procura no IndexedDB (de novo quando outra imagem é guardada nesta aba)
+    effect((onCleanup) => {
+      const id = this.localId();
+      this.images.version();
+      if (!id) return untracked(() => this.localSrc.set(undefined));
+      let alive = true;
+      onCleanup(() => (alive = false));
+      void this.images.url(id).then((url) => alive && this.localSrc.set(url));
+    });
     // o player de fora entrou (ou saiu, trocando o link): a conversa com ele começa de novo
     effect(() => {
       const v = this.video();
@@ -507,7 +536,9 @@ export class GluedMedia {
   protected zoom(): void {
     const from = this.photo()?.nativeElement;
     if (!from) return;
-    const { url, caption, frame } = this.media();
+    const { caption, frame } = this.media();
+    // a guardada pelo Murall abre pelo endereço dela nesta aba
+    const url = this.src();
     const ratio = this.ratio() ?? 4 / 3;
     const file = from.querySelector('img')?.naturalWidth ?? 0;
     const natural = file && Math.max(file, from.offsetWidth * 1.5);

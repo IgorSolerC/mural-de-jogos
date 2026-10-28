@@ -1,6 +1,7 @@
 import { DAY_MS } from './dates';
 import { DEFAULT_TABLE_LOOK, TABLE_LOOKS, parseTableText, tableIsEmpty, tableLookOf, tableLookWord, writeTable } from './tables';
 import { cap } from './text';
+import { localImageId } from './images';
 /**
  * Os widgets das anotações: peças vivas que moram no próprio texto, numa linha só delas, como as
  * outras marcas (ver core/rich-text.ts):
@@ -47,6 +48,8 @@ export interface WidgetField {
   row?: string;
   /** O que a folha diz quando ele falta ("Falta o dia"). */
   missing?: string;
+  /** O link também pode ser uma imagem do aparelho (colada, solta ou escolhida): a folha oferece "Do aparelho". */
+  upload?: true;
 }
 
 export type WidgetValues = Record<string, string>;
@@ -642,6 +645,11 @@ export function hostOf(url: string): string {
   }
 }
 
+/** A imagem: um link https, ou uma guardada pelo Murall (`murall://imagem/ID`, ver core/images.ts). */
+export function imageUrlOk(url: string): boolean {
+  return !!httpsUrl(url) || localImageId(url) !== null;
+}
+
 /** Só https: a imagem e o vídeo vêm de qualquer lugar da internet, mas nunca de um endereço sem cadeado. */
 export function httpsUrl(raw: string): string | null {
   const t = raw.trim();
@@ -747,21 +755,22 @@ const IMAGE: WidgetDef = {
   name: 'imagem',
   aliases: ['foto', 'image', 'img'],
   label: 'Imagem',
-  about: 'Uma imagem de um link, colada como foto.',
-  hint: 'Uma foto de um link',
+  about: 'Uma imagem do aparelho ou de um link, colada como foto.',
+  hint: 'Uma foto do aparelho ou de um link',
   what: 'A imagem',
   put: 'Colar a imagem',
   swap: 'Salvar a imagem',
-  fields: MEDIA_FIELDS({ key: 'url', label: 'Link da imagem', kind: 'url', placeholder: 'https://…/foto.jpg', required: true, missing: 'Falta o link' }),
+  fields: MEDIA_FIELDS({ key: 'url', label: 'Link da imagem', kind: 'url', placeholder: 'https://…/foto.jpg', required: true, missing: 'Falta a imagem', upload: true }),
   read: readMediaValues,
-  write: (v) => writeMedia(v, (url) => !!httpsUrl(url)),
+  write: (v) => writeMedia(v, imageUrlOk),
   plain: (args) => readMedia(args).caption,
   copy: copyMedia,
   problem(v) {
     const url = (v['url'] ?? '').trim();
-    return url && !httpsUrl(url) ? 'O link precisa começar com https://' : null;
+    return url && !imageUrlOk(url) ? 'O link precisa começar com https://' : null;
   },
   found(v) {
+    if (localImageId(v['url'] ?? '')) return 'Imagem guardada no Murall';
     const url = httpsUrl(v['url'] ?? '');
     return url ? `Imagem de ${hostOf(url)}` : null;
   },

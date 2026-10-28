@@ -75,6 +75,8 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
   sejam: Desempenho, volume, configurações do mural de anotações.
 - Mostrar num lugar novo o que já existia em outro é melhoria (M4/M5): os amigos no perfil, Seguindo e
   Seguidores.
+- Uma origem nova para um widget que já existia é melhoria (M4), mesmo quando o site passa a guardar
+  algo que não guardava: a imagem colada do aparelho, no widget de imagem que já mostrava a de um link.
 
 ---
 

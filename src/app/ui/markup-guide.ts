@@ -50,7 +50,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
     title: 'Widgets, cada um numa linha só dele',
     items: [
       { what: 'Contador', mark: '{{contador: 19/11/2026 18:00 | Nome}}', note: 'Sem o ano, todo ano. Repetindo: todo dia 7:00, toda sexta 18:00, todo dia 5. Outros jeitos: neon, placar, riscado.' },
-      { what: 'Imagem', mark: '{{imagem: https://… | legenda}}', note: 'Colada como foto; polaroid ou recorte no fim trocam a moldura.' },
+      { what: 'Imagem', mark: '{{imagem: https://… | legenda}}', note: 'Colada como foto; polaroid ou recorte no fim trocam a moldura. Uma imagem colada (Ctrl+V) ou solta no texto vira esta marca sozinha, sem link.' },
       { what: 'Vídeo', mark: '{{video: https://youtu.be/… | legenda}}', note: 'YouTube, Vimeo ou um .mp4, que toca ali.' },
       { what: 'Áudio', mark: '{{audio: https://… | nome}}', note: 'Um .mp3, YouTube, Vimeo ou .mp4. Outros jeitos: simples, vinil.' },
       { what: 'Nota', mark: '{{nota: Título}}', note: 'A ficha colada em miniatura. Pelo Inserir, qualquer ficha, de qualquer mural.' },

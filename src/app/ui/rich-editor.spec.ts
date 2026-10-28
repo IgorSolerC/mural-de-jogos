@@ -5,6 +5,10 @@ import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { closeDialog } from '../testing/dialog-close.spec';
 import { WidgetDef, WidgetSize, widgetDef } from '../core/widgets';
+import { deleteDatabase } from '../core/erase-save';
+import { IMAGES_DB, ImageStore } from '../core/image-store';
+import { samplePng } from '../core/images.spec';
+import { Toasts } from './toast';
 
 describe('a régua de formatação do texto', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -43,6 +47,74 @@ describe('a régua de formatação do texto', () => {
   }
   const value = () => fixture.componentInstance.value();
   const key = (k: string, extra: KeyboardEventInit = {}) => area.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
+
+  describe('a imagem colada ou solta na folha', () => {
+    beforeEach(() => deleteDatabase(IMAGES_DB));
+    afterAll(() => deleteDatabase(IMAGES_DB));
+
+    async function until(check: () => boolean): Promise<void> {
+      for (let i = 0; i < 200 && !check(); i++) await new Promise((r) => setTimeout(r, 10));
+      fixture.detectChanges();
+    }
+    const imageLine = /^\{\{imagem: murall:\/\/imagem\/[A-Za-z0-9_-]{22}\}\}$/;
+
+    it('colar uma imagem: ela é guardada e vira o widget numa linha só dele, depois da linha do cursor', async () => {
+      write('a praia| de ontem\nfim');
+      const data = new DataTransfer();
+      data.items.add(new File([await samplePng(1200, 800)], 'print.png', { type: 'image/png' }));
+      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+      area.dispatchEvent(paste);
+      expect(paste.defaultPrevented).toBeTrue();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.guardando')?.textContent).toContain('Guardando a imagem');
+      await until(() => value().includes('{{imagem'));
+      const lines = value().split('\n');
+      expect(lines[0]).toBe('a praia de ontem');
+      expect(lines[1]).toMatch(imageLine);
+      expect(lines[2]).toBe('fim');
+      expect(fixture.nativeElement.querySelector('.guardando')).toBeNull();
+      const id = /imagem\/([\w-]{22})/.exec(lines[1])![1];
+      expect((await TestBed.inject(ImageStore).get(id))?.largura).toBe(900);
+    });
+
+    it('colar o que traz texto junto (as células de uma planilha trazem a foto delas): vale o texto', () => {
+      write('|');
+      const data = new DataTransfer();
+      data.setData('text/plain', 'a\tb');
+      data.items.add(new File(['x'], 'celulas.png', { type: 'image/png' }));
+      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+      area.dispatchEvent(paste);
+      expect(paste.defaultPrevented).toBeFalse();
+    });
+
+    it('soltar uma imagem na folha também; outro arquivo não abre por cima do Murall', async () => {
+      write('|');
+      const data = new DataTransfer();
+      data.items.add(new File([await samplePng(300, 200)], 'foto.png', { type: 'image/png' }));
+      const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: data });
+      area.dispatchEvent(over);
+      expect(over.defaultPrevented).toBeTrue();
+      area.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }));
+      await until(() => value().includes('{{imagem'));
+      expect(value()).toMatch(imageLine);
+      const other = new DataTransfer();
+      other.items.add(new File(['x'], 'nota.pdf', { type: 'application/pdf' }));
+      const drop = new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: other });
+      area.dispatchEvent(drop);
+      expect(drop.defaultPrevented).toBeTrue();
+    });
+
+    it('o que não abre avisa no bilhete, e o texto fica como estava', async () => {
+      write('oi|');
+      const toasts = TestBed.inject(Toasts);
+      const data = new DataTransfer();
+      data.items.add(new File([new Uint8Array([1, 2, 3])], 'foto.heic', { type: 'image/heic' }));
+      area.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+      await until(() => !!toasts.current());
+      expect(toasts.current()?.text).toContain('não abre aqui');
+      expect(value()).toBe('oi');
+    });
+  });
 
   it('negrito em volta da seleção, sem pegar os espaços das pontas; de novo, tira', () => {
     write('um |ótimo |jogo');
@@ -855,6 +927,14 @@ describe('a folha do widget no editor', () => {
     localStorage.clear();
   });
 
+  /** Espera o que é guardado aos poucos (encolher a imagem leva um tempo). */
+  async function until(check: () => boolean): Promise<void> {
+    for (let i = 0; i < 400 && !check(); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+  }
+
   async function choose(label: string): Promise<void> {
     el.querySelector<HTMLButtonElement>('.menu-botao[data-menu="inserir"]')!.click();
     await fixture.whenStable();
@@ -890,6 +970,51 @@ describe('a folha do widget no editor', () => {
     await wait();
     expect(sheet()).toBeNull();
     expect(fixture.componentInstance.value()).toBe('{{imagem: https://ex.com/praia.jpg | polaroid}}');
+  });
+
+  it('a imagem do aparelho: Escolher do aparelho guarda, mostra a fotinho e o tamanho, e Usar um link volta ao campo', async () => {
+    await deleteDatabase(IMAGES_DB);
+    await choose('Imagem');
+    const pick = el.querySelector<HTMLInputElement>('.wfolha .escolher-arquivo')!;
+    const clicked = spyOn(pick, 'click');
+    el.querySelector<HTMLButtonElement>('.wfolha .botao-aparelho')!.click();
+    expect(clicked).toHaveBeenCalled();
+    const data = new DataTransfer();
+    data.items.add(new File([await samplePng(1600, 1200)], 'praia.png', { type: 'image/png' }));
+    pick.files = data.files;
+    pick.dispatchEvent(new Event('change'));
+    await until(() => !!el.querySelector('.wfolha .guardada-mini img'));
+    expect(el.querySelector('.wfolha .guardada-nome')?.textContent).toBe('Imagem do aparelho');
+    expect(el.querySelector('.wfolha .guardada-meta')?.textContent).toMatch(/^900 × 675 px · \d+ KB$/);
+    expect(el.querySelector('.wfolha input[data-campo="url"]')).withContext('o campo do link sai').toBeNull();
+    // o palco mostra a foto de verdade
+    expect(el.querySelector('.wfolha app-glued-media img')?.getAttribute('src')).toMatch(/^blob:/);
+    Array.from(el.querySelectorAll<HTMLButtonElement>('.wfolha .guardada-acoes button')).find((b) => b.textContent!.trim() === 'Usar um link')!.click();
+    await wait();
+    expect(el.querySelector('.wfolha .guardada')).toBeNull();
+    expect(document.activeElement).toBe(el.querySelector('.wfolha input[data-campo="url"]'));
+    // de novo, e Colar escreve a marca com o endereço do Murall
+    // a escolha de antes esvaziou a lista de arquivos (o mesmo arquivo de novo também avisa): uma nova
+    const second = new DataTransfer();
+    second.items.add(new File([await samplePng(1600, 1200)], 'praia.png', { type: 'image/png' }));
+    const again = el.querySelector<HTMLInputElement>('.wfolha .escolher-arquivo')!;
+    again.files = second.files;
+    again.dispatchEvent(new Event('change'));
+    await until(() => !!el.querySelector('.wfolha .guardada'));
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toMatch(/^\{\{imagem: murall:\/\/imagem\/[\w-]{22}\}\}$/);
+  }, 20_000);
+
+  it('a imagem que não abre avisa na folha (o bilhete ficaria por baixo dela)', async () => {
+    await choose('Imagem');
+    const pick = el.querySelector<HTMLInputElement>('.wfolha .escolher-arquivo')!;
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([1, 2, 3])], 'foto.heic', { type: 'image/heic' }));
+    pick.files = data.files;
+    pick.dispatchEvent(new Event('change'));
+    await until(() => !!el.querySelector('.wfolha .dica.ruim'));
+    expect(el.querySelector('.wfolha .dica.ruim')?.textContent).toContain('não abre aqui');
   });
 
   /** Escreve numa célula da grade da tabela. */

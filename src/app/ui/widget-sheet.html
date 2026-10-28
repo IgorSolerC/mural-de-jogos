@@ -139,6 +139,31 @@
                       }
                     }
                     @default {
+                      @let local = f.upload ? localImage() : null;
+                      @if (f.upload) {
+                        <input class="escolher-arquivo" type="file" accept="image/*" tabindex="-1" aria-hidden="true" (change)="fromDevice(f.key, $event)" />
+                      }
+                      @if (local) {
+                        <!-- a imagem do aparelho: a fotinho dela, o tamanho guardado, e trocar ou voltar para um link -->
+                        <div class="campo-bloco largo">
+                          <span class="rotulo" [id]="ids + '-guardada'">A imagem</span>
+                          <div class="guardada" role="group" [attr.aria-labelledby]="ids + '-guardada'">
+                            <span class="guardada-mini" aria-hidden="true">
+                              @if (local.src) {
+                                <img [src]="local.src" alt="" />
+                              }
+                            </span>
+                            <span class="guardada-texto">
+                              <span class="guardada-nome">Imagem do aparelho</span>
+                              <span class="guardada-meta">{{ local.meta }}</span>
+                            </span>
+                            <span class="guardada-acoes">
+                              <button type="button" class="btn-quiet" [attr.data-campo]="f.key" (click)="chooseFile()">Trocar</button>
+                              <button type="button" class="btn-quiet" (click)="useLink(f.key)">Usar um link</button>
+                            </span>
+                          </div>
+                        </div>
+                      } @else {
                       <label class="campo-bloco" [class.largo]="f.kind === 'url' || f.kind === 'text'" [class.curto]="f.kind !== 'url' && f.kind !== 'text'">
                         <span class="rotulo">{{ f.label }}</span>
                         <span class="campo" [class.erro]="isMissing(f) || (f.kind === 'url' && !!problem())" [class.com-icone]="f.kind === 'url'">
@@ -160,6 +185,7 @@
                             [attr.aria-invalid]="isMissing(f) || (f.kind === 'url' && !!problem()) ? true : null"
                             [value]="values()[f.key] || ''"
                             (input)="set(f.key, $any($event.target).value)"
+                            (paste)="f.upload && pasteImage(f.key, $event)"
                             (keydown.enter)="$event.preventDefault(); put()"
                           />
                         </span>
@@ -176,6 +202,24 @@
                           </span>
                         }
                       </label>
+                      }
+                      @if (f.upload) {
+                        @if (!local) {
+                          <!-- a outra porta: uma imagem do aparelho (colar no campo também serve) -->
+                          <p class="do-aparelho">
+                            <span>ou</span>
+                            <button type="button" class="botao-aparelho" [disabled]="savingImage()" (click)="chooseFile()">
+                              <lucide-icon [img]="UploadIcon" [size]="17" aria-hidden="true" />
+                              Escolher do aparelho
+                            </button>
+                          </p>
+                        }
+                        @if (savingImage()) {
+                          <p class="dica" role="status">Guardando a imagem…</p>
+                        } @else if (imageError(); as err) {
+                          <p class="dica ruim" role="alert">{{ err }}</p>
+                        }
+                      }
                     }
                   }
                 }
@@ -312,7 +356,7 @@
       } @else {
         <lucide-icon [img]="iconOf(name())" [size]="28" aria-hidden="true" />
       }
-      <span>{{ name() === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : name() === 'tabela' ? 'Escreva numa célula para ver como fica.' : 'Cole o link para ver como fica.' }}</span>
+      <span>{{ name() === 'nota' ? 'Escolha a ficha para ver como ela fica colada.' : name() === 'tabela' ? 'Escreva numa célula para ver como fica.' : name() === 'imagem' ? 'Cole o link ou escolha uma imagem do aparelho para ver como fica.' : 'Cole o link para ver como fica.' }}</span>
     </div>
   }
 </ng-template>

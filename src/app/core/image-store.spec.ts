@@ -1,0 +1,86 @@
+import { deleteDatabase } from './erase-save';
+import { IMAGES_DB, ImageStore } from './image-store';
+import { ImageProblem, MAX_SIDE } from './images';
+import { samplePng } from './images.spec';
+import { freezeStorage, thawStorage } from './storage';
+
+describe('as imagens guardadas no aparelho (core/image-store.ts)', () => {
+  let store: ImageStore;
+
+  beforeEach(async () => {
+    await deleteDatabase(IMAGES_DB);
+    store = new ImageStore();
+  });
+  afterAll(() => deleteDatabase(IMAGES_DB));
+
+  it('guarda a encolhida, com um id novo, e mostra por um endereço blob: desta aba', async () => {
+    const image = await store.add(await samplePng(1800, 1200));
+    expect(image.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(image.largura).toBe(MAX_SIDE);
+    expect(image.estado).toBe('local');
+    const url = await store.url(image.id);
+    expect(url).toMatch(/^blob:/);
+    expect(await store.url(image.id)).withContext('o mesmo endereço da segunda vez').toBe(url);
+    expect((await store.get(image.id))?.bytes).toBe(image.bytes);
+  });
+
+  it('a mesma imagem colada de novo reaproveita o id (não guarda duas vezes)', async () => {
+    const png = await samplePng(400, 300);
+    const a = await store.add(png);
+    const b = await store.add(png);
+    expect(b.id).toBe(a.id);
+    expect((await store.all()).length).toBe(1);
+  });
+
+  it('a que não está neste aparelho: null', async () => {
+    expect(await store.url('naoexisteaqui' + 'x'.repeat(9))).toBeNull();
+  });
+
+  it('cada imagem guardada avisa (quem procurava uma que faltava procura de novo)', async () => {
+    const before = store.version();
+    await store.add(await samplePng(50, 50));
+    expect(store.version()).toBe(before + 1);
+  });
+
+  it('enquanto a página recarrega para limpar o navegador, nada é guardado', async () => {
+    const png = await samplePng(50, 50);
+    freezeStorage();
+    try {
+      await expectAsync(store.add(png)).toBeRejectedWith(jasmine.any(ImageProblem));
+    } finally {
+      thawStorage();
+    }
+    expect(await store.all()).toEqual([]);
+  });
+
+  it('o backup baixado leva as imagens em base64, e restaurar traz de volta as que faltam', async () => {
+    const image = await store.add(await samplePng(320, 240));
+    const backup = await store.forBackup();
+    expect(backup.length).toBe(1);
+    expect(backup[0]).toEqual(jasmine.objectContaining({ id: image.id, tipo: image.tipo, largura: 320, altura: 240 }));
+    await deleteDatabase(IMAGES_DB);
+    const fresh = new ImageStore();
+    expect(await fresh.fromBackup({ imagens: backup })).toBe(1);
+    const back = await fresh.get(image.id);
+    expect(back?.bytes).toBe(image.bytes);
+    expect(back?.hash).toBe(image.hash);
+    // de novo: nada muda
+    expect(await fresh.fromBackup({ imagens: backup })).toBe(0);
+  });
+
+  it('do backup, só entra o que serve: o id, o tipo, o tamanho e os bytes conferidos', async () => {
+    const ok = { id: 'imagemboa' + 'x'.repeat(13), tipo: 'image/webp', largura: 10, altura: 10, criada: '2026-10-28T00:00:00Z', dados: btoa('abc') };
+    const bad = [
+      { ...ok, id: 'curto' },
+      { ...ok, id: 'svgsvgsvg' + 'y'.repeat(13), tipo: 'image/svg+xml' },
+      { ...ok, id: 'grandegrande' + 'z'.repeat(10), largura: MAX_SIDE + 1 },
+      { ...ok, id: 'quebradaaaa' + 'w'.repeat(11), dados: '%%%' },
+      { ...ok, id: 'pesadaaaaaa' + 'v'.repeat(11), dados: 'A'.repeat(400_000) },
+      null,
+    ];
+    expect(await store.fromBackup({ imagens: [...bad, ok] })).toBe(1);
+    expect((await store.all()).map((i) => i.id)).toEqual([ok.id]);
+    expect(await store.fromBackup({ imagens: 'x' })).toBe(0);
+    expect(await store.fromBackup(null)).toBe(0);
+  });
+});

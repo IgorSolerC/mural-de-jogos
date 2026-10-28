@@ -288,6 +288,20 @@ describe('widgets das anotações', () => {
       expect(vid.problem!({ url: '' })).toBeNull();
       expect(widgetLine('video', vid.write({ url: 'https://youtu.be/dQw4w9WgXcQ', caption: 'Clipe' })!)).toBe('{{video: https://youtu.be/dQw4w9WgXcQ | Clipe}}');
     });
+
+    it('a imagem do aparelho (murall://imagem/ID): vale como o link, com a legenda e a moldura; o vídeo não aceita', () => {
+      const img = widgetDef('imagem')!;
+      const url = 'murall://imagem/' + 'A'.repeat(22);
+      expect(img.write({ url, caption: 'Praia', frame: 'polaroid' })).toEqual([url, 'Praia', 'polaroid']);
+      expect(img.problem!({ url })).toBeNull();
+      expect(img.found!({ url })).toBe('Imagem guardada no Murall');
+      expect(img.fields.find((f) => f.key === 'url')?.upload).toBeTrue();
+      expect(parseWidgetLine(widgetLine('imagem', [url, 'Praia']))).toEqual({ name: 'imagem', args: [url, 'Praia'], size: 'medio' });
+      expect(plainText(`{{imagem: ${url} | Praia}}`)).toBe('Praia');
+      // um id quebrado não vale
+      expect(img.write({ url: 'murall://imagem/curto' })).toBeNull();
+      expect(widgetDef('video')!.write({ url })).toBeNull();
+    });
   });
   describe('o áudio', () => {
     it('os sons que tocam: arquivo de som ou de vídeo, YouTube e Vimeo', () => {

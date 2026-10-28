@@ -801,3 +801,96 @@ div.bloco {
     animation: none;
   }
 }
+
+/* ===== A imagem do aparelho: a outra porta do campo do link, e a guardada no lugar dele ===== */
+.escolher-arquivo {
+  @include a11y.escondido;
+}
+
+/* "ou Escolher do aparelho", embaixo do link, na largura da linha */
+.do-aparelho {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 2px 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-2);
+}
+
+.botao-aparelho {
+  @include kit.botao-papel;
+
+  & {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 8px 14px;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+/* a guardada: a fotinho colada de leve, o que ela é, e as duas saídas (trocar, voltar para o link) */
+/* a tira de papel do campo, sem a linha de caneta: aqui não se escreve */
+.guardada {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 8px 8px 10px;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  box-shadow: var(--campo-sombra);
+}
+
+.guardada-mini {
+  flex: none;
+  display: block;
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border: 3px solid #fff;
+  border-radius: 1px;
+  background: var(--campo-fundo-foco);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  rotate: -2deg;
+
+  img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.guardada-texto {
+  display: grid;
+  flex: 1 1 10rem;
+  min-width: 0;
+  gap: 2px;
+}
+
+.guardada-nome {
+  font-family: var(--f-marker);
+  font-size: 1.08rem;
+  line-height: 1.15;
+}
+
+.guardada-meta {
+  font-size: 0.84rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.guardada-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}

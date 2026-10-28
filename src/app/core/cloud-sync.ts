@@ -32,6 +32,7 @@ import { SyncConflict, SyncConflicts, blockDefault, sanitizeConflicts, storedCon
 import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
+import { ImageStore } from './image-store';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -664,6 +665,7 @@ export class CloudSync {
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
   private readonly reset = inject(BrowserReset);
+  private readonly images = inject(ImageStore);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
@@ -1712,10 +1714,16 @@ export class CloudSync {
       cutKeys = answer.checked;
     } else if (!(await this.confirm.ask(question))) return false;
     await this.syncNow();
-    if (!(await this.everythingSent())) {
+    const sent = await this.everythingSent();
+    // as imagens coladas ainda não sobem para a nuvem (PLANO-IMAGENS.md, rodada 3): sair as apaga daqui
+    const images = await this.images.unsent();
+    if (!sent || images) {
+      const lostImages = images === 1 ? 'Uma imagem colada nas anotações está só neste aparelho' : `${images} imagens coladas nas anotações estão só neste aparelho`;
       const lose = await this.confirm.ask({
         title: 'Ainda tem coisa só aqui',
-        text: 'Há mudanças neste navegador que ainda não subiram para a nuvem. Saindo agora, elas se perdem. Confira a conexão e tente de novo, ou saia mesmo assim.',
+        text: !sent
+          ? `Há mudanças neste navegador que ainda não subiram para a nuvem${images ? `, e ${lostImages.charAt(0).toLowerCase() + lostImages.slice(1)}` : ''}. Saindo agora, elas se perdem. Confira a conexão e tente de novo, ou saia mesmo assim.`
+          : `${lostImages}: as imagens ainda não sobem para a nuvem. Saindo agora, ${images === 1 ? 'ela se perde' : 'elas se perdem'}, e as anotações ficam sem ${images === 1 ? 'ela' : 'elas'}.`,
         confirm: 'Sair e perder',
         cancel: 'Ficar',
         icon: null,

@@ -2,6 +2,7 @@ import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
 import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
+import { IMAGES_DB, ImageStore } from './image-store';
 import { APPLIED_KEY } from './api-requests';
 import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 import { LINK_START_KEY } from '../ui/link-sheet';
@@ -246,6 +247,35 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(APPLIED_KEY)).toBeNull();
     expect(await databases()).not.toContain(DATA_DB);
+  });
+
+  it('as imagens coladas nas anotações (o banco delas) saem junto, mesmo com a conexão aberta nesta aba', async () => {
+    signedInBrowser();
+    const store = new ImageStore();
+    const id = 'imagemdaconta' + 'x'.repeat(9);
+    await store.restore([
+      { id, blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 10, altura: 10, bytes: 1, hash: 'h', criada: '2026-10-28T00:00:00Z', estado: 'local' },
+    ]);
+    expect(await store.get(id)).not.toBeNull();
+    expect(await databases()).toContain(IMAGES_DB);
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(await databases()).not.toContain(IMAGES_DB);
+    expect(await new ImageStore().get(id)).toBeNull();
+  });
+
+  it('enquanto a página recarrega para limpar, nenhuma imagem é guardada', async () => {
+    const store = new ImageStore();
+    freezeStorage();
+    try {
+      await store.restore([
+        { id: 'congelada' + 'x'.repeat(13), blob: new Blob(['x']), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'c', criada: '2026-10-28T00:00:00Z', estado: 'local' },
+      ]);
+    } finally {
+      thawStorage();
+    }
+    expect(await store.all()).toEqual([]);
   });
 
   it('as capas guardadas saem junto', async () => {

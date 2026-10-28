@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { KINDS } from './kinds';
 import { backupLists, gzip } from './backup-file';
+import { ImageStore } from './image-store';
 import { BUILD } from './build';
 import { buildOf } from './migrations';
 import { DataKey, LocalData } from './local-data';
@@ -105,6 +106,7 @@ export type KnownVersion = (id: string, updatedAt: string) => boolean;
 export class ReviewStore {
   /** Onde as listas moram: o IndexedDB, com uma cópia no localStorage (ver `LocalData`). Vem antes de tudo: as listas leem dele. */
   private readonly data = inject(LocalData);
+  private readonly images = inject(ImageStore);
   readonly reviews = signal<Review[]>(this.read());
   /**
    * As anotações compartilhadas que estão na lista (ver `SharedSink` e `setShared`): id → a anotação
@@ -507,8 +509,10 @@ export class ReviewStore {
    * da pessoa, ele vai junto (`owner.name`): quem abrir em Comparar já sabe de quem é.
    */
   async exportBackup(ownerName = ''): Promise<{ blob: Blob; ext: string }> {
-    // as compartilhadas de que a pessoa é dona vão no arquivo dela (as dos outros, não)
-    const text = JSON.stringify(this.snapshot(ownerName, this.sharedSink?.owned()));
+    // as compartilhadas de que a pessoa é dona vão no arquivo dela (as dos outros, não); as imagens
+    // coladas também (em base64), para o mural sem conta não perder nada: no mural da nuvem elas não vão
+    const imagens = await this.images.forBackup();
+    const text = JSON.stringify({ ...this.snapshot(ownerName, this.sharedSink?.owned()), ...(imagens.length ? { imagens } : {}) });
     if (typeof CompressionStream === 'undefined') return { blob: new Blob([text], { type: 'application/json' }), ext: 'json' };
     return { blob: new Blob([await gzip(text)], { type: 'application/gzip' }), ext: 'json.gz' };
   }

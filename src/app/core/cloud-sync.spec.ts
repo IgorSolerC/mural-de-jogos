@@ -19,6 +19,8 @@ import { SyncConflicts } from './sync-conflicts';
 import { BrowserReset, wipeBrowser } from './browser-reset';
 import { ApiMirror } from './api-mirror';
 import { ApiRequests, SiteRequest } from './api-requests';
+import { IMAGES_DB, ImageStore } from './image-store';
+import { deleteDatabase } from './erase-save';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -178,6 +180,8 @@ interface Device {
   /** As respostas de confirm.ask, em ordem (sem nenhuma: sim). */
   askAnswers: boolean[];
   askedTitles: string[];
+  /** O texto de cada pergunta de confirm.ask, na mesma ordem. */
+  askedTexts: string[];
   /** As respostas que a pessoa daria às perguntas, em ordem (null: fechou sem escolher). */
   answers: Choice[];
   asked: string[];
@@ -217,13 +221,15 @@ describe('sincronização com a nuvem', () => {
     const asked: string[] = [];
     const askAnswers: boolean[] = [];
     const askedTitles: string[] = [];
+    const askedTexts: string[] = [];
     const confirm = {
       choose: async (o: { title?: string }) => {
         asked.push(o.title ?? '');
         return answers.length ? answers.shift()! : null;
       },
-      ask: async (o: { title?: string }) => {
+      ask: async (o: { title?: string; text?: string }) => {
         askedTitles.push(o.title ?? '');
+        askedTexts.push(o.text ?? '');
         return askAnswers.length ? askAnswers.shift()! : true;
       },
     };
@@ -268,6 +274,7 @@ describe('sincronização com a nuvem', () => {
       asked,
       askAnswers,
       askedTitles,
+      askedTexts,
       names: () => store.reviews().map((r) => r.game.name).sort(),
     };
   }
@@ -1007,6 +1014,24 @@ describe('sincronização com a nuvem', () => {
       expect(await a.sync.signOut()).toBeTrue();
       expect(a.account.signedIn()).toBeFalse();
       expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+    });
+
+    it('com imagens coladas só neste aparelho: avisa que elas se perdem, mesmo com tudo enviado', async () => {
+      // só esta imagem: outros testes também guardam no mesmo banco
+      await deleteDatabase(IMAGES_DB);
+      const a = device();
+      await TestBed.inject(ImageStore).restore([
+        { id: 'sohaquinesteaparelho12', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'h', criada: '', estado: 'local' },
+      ]);
+      a.askAnswers.push(true, false);
+      expect(await a.sync.signOut()).toBeFalse();
+      expect(a.askedTitles).toEqual(['Sair da conta?', 'Ainda tem coisa só aqui']);
+      expect(a.askedTexts.at(-1)).toBe('Uma imagem colada nas anotações está só neste aparelho: as imagens ainda não sobem para a nuvem. Saindo agora, ela se perde, e as anotações ficam sem ela.');
+      expect(a.reset.requests).toEqual([]);
+      a.askAnswers.push(true, true);
+      expect(await a.sync.signOut()).toBeTrue();
+      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+      await deleteDatabase(IMAGES_DB);
     });
 
     it('de todos os aparelhos: sai na nuvem de todos e limpa este navegador', async () => {

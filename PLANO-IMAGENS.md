@@ -320,6 +320,19 @@ Novidades).
   bytes (um id só existe no banco dos bytes depois de existir em `imagens`), há a coluna `pronta` e a
   tabela `imagens_uso` (a cota sem somar a tabela inteira); `nota_imagens` fica para a rodada 4.
   Próximo: rodada 2 (no aparelho, sem nuvem).
+- 28/out/2026, rodada 2 (no aparelho): `src/app/core/images.ts` (o endereço `murall://imagem/ID`, o id
+  sorteado, o encolher em 900 px: WebP 0,8 → 0,7 → 0,6 → 720 px → 560 px até 120 KB, nunca mais de 200
+  KB; JPEG com fundo branco onde o canvas não gera WebP; o original acima de 40 MB nem abre) e
+  `src/app/core/image-store.ts` (o IndexedDB `meu-mural:imagens`, a mesma imagem pelo SHA-256 reaproveita
+  o id, o endereço `blob:` da aba, `unsent`, o backup). Colar (sem texto junto: as células de planilha
+  trazem a foto delas) e soltar no texto viram a linha do widget; a folha da Imagem ganhou "Escolher do
+  aparelho" e, com a guardada, a fotinho, o tamanho, Trocar e Usar um link; colar no campo do link também
+  serve. A foto colada mostra a guardada, ou "A imagem ainda não chegou a este aparelho". A limpeza do
+  Sair e o Apagar o save levam o banco; o backup baixado leva as imagens em base64 (só no arquivo, nunca
+  no mural da nuvem) e Restaurar as traz de volta. Adiantado da rodada 3: o Sair pergunta antes quando há
+  imagens só neste aparelho ("Ainda tem coisa só aqui"), porque até a rodada 3 nenhuma sobe. Ficou para a
+  rodada 3: `localHasContent` (o de ninguém indo para a conta com imagens), a fila de envio e o baixar.
+  Próximo: rodada 3 (sincronizar).
 
 ## 11. A conferir (riscos)
 

@@ -2,6 +2,10 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { setSoundVolume, settleSoundVolume, soundVolume } from '../core/volume';
 import { GluedMedia } from './glued-media';
+import { deleteDatabase } from '../core/erase-save';
+import { IMAGES_DB, ImageStore } from '../core/image-store';
+import { localImageUrl } from '../core/images';
+import { samplePng } from '../core/images.spec';
 
 
 /** Conta quantas vezes o `src` do iframe é escrito (escrever o mesmo endereço recarrega o player). */
@@ -35,6 +39,51 @@ describe('a foto colada na anotação', () => {
     await fixture.whenStable();
     expect(el.querySelector('.falha')).toBeNull();
     expect(el.querySelector('img')?.getAttribute('src')).toBe('https://i.imgur.com/foto.jpg');
+  });
+
+  describe('a imagem guardada no aparelho (murall://imagem/ID)', () => {
+    beforeEach(() => deleteDatabase(IMAGES_DB));
+    afterAll(() => deleteDatabase(IMAGES_DB));
+
+    async function waitFor(check: () => boolean, fixture: { whenStable(): Promise<unknown>; detectChanges(): void }): Promise<void> {
+      for (let i = 0; i < 100 && !check(); i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        fixture.detectChanges();
+        await fixture.whenStable();
+      }
+    }
+
+    it('aparece pelo endereço blob: dela, sem o site no lugar da falha', async () => {
+      TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+      const image = await TestBed.inject(ImageStore).add(await samplePng(400, 300));
+      const fixture = TestBed.createComponent(GluedMedia);
+      fixture.componentRef.setInput('kind', 'imagem');
+      fixture.componentRef.setInput('args', [localImageUrl(image.id), 'Praia']);
+      await fixture.whenStable();
+      const el = fixture.nativeElement as HTMLElement;
+      await waitFor(() => !!el.querySelector('img'), fixture);
+      expect(el.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
+      expect(el.querySelector('img')?.getAttribute('alt')).toBe('Praia');
+      expect(el.querySelector('.falha')).toBeNull();
+    });
+
+    it('a que não está neste aparelho diz que ainda não chegou; colada aqui depois, aparece', async () => {
+      TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+      const store = TestBed.inject(ImageStore);
+      const png = await samplePng(200, 100);
+      const fixture = TestBed.createComponent(GluedMedia);
+      fixture.componentRef.setInput('kind', 'imagem');
+      const id = 'deoutroaparelho' + 'x'.repeat(7);
+      fixture.componentRef.setInput('args', [localImageUrl(id)]);
+      await fixture.whenStable();
+      const el = fixture.nativeElement as HTMLElement;
+      await waitFor(() => !!el.querySelector('.falha'), fixture);
+      expect(el.querySelector('.falha-nome')?.textContent).toBe('A imagem ainda não chegou a este aparelho');
+      expect(el.querySelector('.falha-host')).toBeNull();
+      await store.restore([{ id, blob: png, tipo: 'image/png', largura: 200, altura: 100, bytes: png.size, hash: 'h', criada: '', estado: 'local' }]);
+      await waitFor(() => !!el.querySelector('img'), fixture);
+      expect(el.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
+    });
   });
 
   it('mexer na legenda não remonta o player do vídeo tocando', async () => {
