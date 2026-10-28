@@ -128,20 +128,29 @@ export function followRoutes(app: Hono, deps: Deps): void {
     // O limite do dia conta as pessoas DISTINTAS que comecei a seguir hoje, mesmo as que já deixei de
     // seguir (o aviso delas já foi): senão, seguir e deixar de seguir abriria vaga sem fim. Seguir de
     // novo quem já recebeu o aviso (o "Desfazer") não avisa ninguém, então não gasta o limite.
-    const counts = await deps.db.first<{ total: number; hoje: number; avisada: number }>(
-      'SELECT (SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ?) AS total, ' +
-        '(SELECT COUNT(*) FROM (' +
-        "SELECT alvo_id FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND criado_em >= ? " +
-        'UNION SELECT seguido_id FROM seguindo WHERE seguidor_id = ? AND criado_em >= ?)) AS hoje, ' +
-        "(SELECT COUNT(*) FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND alvo_id = ?) AS avisada",
-      [s.userId, s.userId, today, s.userId, today, s.userId, target.id],
-    );
-    if ((counts?.total ?? 0) >= MAX_FOLLOWING) {
-      throw new HttpError(429, 'seguindo-demais', `Você já segue ${MAX_FOLLOWING} pessoas, o máximo. Deixe de seguir alguém antes.`);
-    }
-    if (!counts?.avisada && (counts?.hoje ?? 0) >= MAX_FOLLOWS_PER_DAY) {
-      throw new HttpError(429, 'seguir-devagar', 'Você começou a seguir muita gente hoje. Tente de novo amanhã.');
-    }
+    const totalSql = '(SELECT COUNT(*) FROM seguindo WHERE seguidor_id = ?)';
+    const todaySql =
+      '(SELECT COUNT(*) FROM (' +
+      "SELECT alvo_id FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND criado_em >= ? " +
+      'UNION SELECT seguido_id FROM seguindo WHERE seguidor_id = ? AND criado_em >= ?))';
+    const warnedSql = "(SELECT COUNT(*) FROM atividades WHERE tipo = 'seguiu' AND autor_id = ? AND alvo_id = ?)";
+    const limitParams = [s.userId, s.userId, today, s.userId, today, s.userId, target.id];
+    /** O limite que barra seguir agora, ou null (lido antes, para a resposta; e de novo, se o lote não entrou). */
+    const blocked = async (): Promise<HttpError | null> => {
+      const counts = await deps.db.first<{ total: number; hoje: number; avisada: number }>(
+        `SELECT ${totalSql} AS total, ${todaySql} AS hoje, ${warnedSql} AS avisada`,
+        limitParams,
+      );
+      if ((counts?.total ?? 0) >= MAX_FOLLOWING) {
+        return new HttpError(429, 'seguindo-demais', `Você já segue ${MAX_FOLLOWING} pessoas, o máximo. Deixe de seguir alguém antes.`);
+      }
+      if (!counts?.avisada && (counts?.hoje ?? 0) >= MAX_FOLLOWS_PER_DAY) {
+        return new HttpError(429, 'seguir-devagar', 'Você começou a seguir muita gente hoje. Tente de novo amanhã.');
+      }
+      return null;
+    };
+    const before = await blocked();
+    if (before) throw before;
     const at = now.toISOString();
     // deixou de seguir há pouco (o "Desfazer"): volta como era
     const undone = await deps.db.first<{ criado_em: string; silenciado: number }>(
@@ -151,22 +160,40 @@ export function followRoutes(app: Hono, deps: Deps): void {
     const muted = undone?.silenciado ? 1 : 0;
     // a data de antes: o correio continua com as resenhas que já tinham chegado
     const since = undone?.criado_em ?? at;
-    await write(
+    // Os limites lidos acima não bastam: pedidos ao mesmo tempo (seguir em massa por um script) leem
+    // todos a mesma contagem velha e passariam juntos. Dentro do lote (uma transação) a contagem é a do
+    // banco na hora; o resto do lote só vale se o seguir entrou.
+    const followed = 'EXISTS (SELECT 1 FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?)';
+    const [inserted] = await write(
       deps,
       [
         {
-          sql: 'INSERT OR IGNORE INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, ?)',
-          params: [s.userId, target.id, since, muted],
+          sql:
+            'INSERT OR IGNORE INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) SELECT ?, ?, ?, ? ' +
+            `WHERE ${totalSql} < ? AND (${warnedSql} > 0 OR ${todaySql} < ?)`,
+          params: [s.userId, target.id, since, muted, s.userId, MAX_FOLLOWING, s.userId, target.id, s.userId, today, s.userId, today, MAX_FOLLOWS_PER_DAY],
         },
-        { sql: 'DELETE FROM seguindo_desfeito WHERE seguidor_id = ? AND seguido_id = ?', params: [s.userId, target.id] },
+        {
+          sql: `DELETE FROM seguindo_desfeito WHERE seguidor_id = ? AND seguido_id = ? AND ${followed}`,
+          params: [s.userId, target.id, s.userId, target.id],
+        },
         // o aviso para quem foi seguido: uma vez só por pessoa (o índice único ignora a repetição)
         {
-          sql: "INSERT OR IGNORE INTO atividades (tipo, autor_id, alvo_id, criado_em) VALUES ('seguiu', ?, ?, ?)",
-          params: [s.userId, target.id, at],
+          sql: `INSERT OR IGNORE INTO atividades (tipo, autor_id, alvo_id, criado_em) SELECT 'seguiu', ?, ?, ? WHERE ${followed}`,
+          params: [s.userId, target.id, at, s.userId, target.id],
         },
       ],
       11,
     );
+    if (!inserted || inserted.changes === 0) {
+      // outro pedido ao mesmo tempo seguiu a mesma pessoa: vale o dele
+      const current = await deps.db.first<{ criado_em: string; silenciado: number }>(
+        'SELECT criado_em, silenciado FROM seguindo WHERE seguidor_id = ? AND seguido_id = ?',
+        [s.userId, target.id],
+      );
+      if (current) return c.json({ pessoa: personOut(target), desde: current.criado_em, silenciado: !!current.silenciado });
+      throw (await blocked()) ?? new HttpError(429, 'seguir-devagar', 'Você começou a seguir muita gente hoje. Tente de novo amanhã.');
+    }
     return c.json({ pessoa: personOut(target), desde: since, silenciado: !!muted }, 201);
   });
 

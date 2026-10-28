@@ -142,14 +142,30 @@ describe('Amigos: o serviço (Follow)', () => {
       expect(cache.agora).toBe('2026-10-06T12:00:00.000Z');
     });
 
-    it('com o correio guardado: o número aparece antes da nuvem, e a conferência pergunta só "depois do mais novo"', async () => {
-      const h = make({ cache: { conta: 'u-eu', itens: [resenha('r0002', '2026-10-05T10:00:00.000Z'), resenha('r0001', '2026-10-04T10:00:00.000Z')], vistasEm: null, agora: null } });
+    it('com o correio guardado e tudo visto: a conferência pergunta só "depois do mais novo"', async () => {
+      const h = make({
+        cache: { conta: 'u-eu', itens: [resenha('r0002', '2026-10-05T10:00:00.000Z'), resenha('r0001', '2026-10-04T10:00:00.000Z')], vistasEm: '2026-10-05T10:00:00.000Z', agora: null },
+      });
       TestBed.tick();
-      expect(h.follow.unseen()).toBe(2);
+      expect(h.follow.unseen()).toBe(0);
       await flush();
       expect(h.feedCalls[0]).toBe(`/v1/eu/notificacoes?depois=${encodeURIComponent('2026-10-05T10:00:00.000Z')}`);
       // 204: nada muda
       expect(h.follow.items().length).toBe(2);
+    });
+
+    // Antes o "depois do mais novo" valia sempre: o aviso de quem seguiu e já deixou de seguir (ou a
+    // resenha que virou privada) saía da nuvem, mas aqui continuava contando no número até abrir Amigos.
+    it('com algo contando no número, o número aparece antes da nuvem e a conferência pede tudo: o que saiu de lá sai daqui', async () => {
+      const h = make({ cache: { conta: 'u-eu', itens: [resenha('r0002', '2026-10-05T10:00:00.000Z'), seguiu('2026-10-04T10:00:00.000Z')], vistasEm: null, agora: null } });
+      h.feedReplies.push(feedResponse([resenha('r0002', '2026-10-05T10:00:00.000Z')], null));
+      TestBed.tick();
+      expect(h.follow.unseen()).toBe(2);
+      await flush();
+      await flush();
+      expect(h.feedCalls[0]).toBe('/v1/eu/notificacoes');
+      expect(h.follow.unseen()).toBe(1);
+      expect(h.follow.items().some((i) => i.tipo === 'seguiu')).toBeFalse();
     });
 
     it('com o correio vazio, a pergunta usa a hora da nuvem da última conferência', async () => {
@@ -169,15 +185,17 @@ describe('Amigos: o serviço (Follow)', () => {
     });
 
     it('check(true) com uma conferência curta no meio não é engolido: pede tudo depois dela', async () => {
-      const h = make({ cache: { conta: 'u-eu', itens: [resenha('r0001', '2026-10-05T10:00:00.000Z')], vistasEm: null, agora: null } });
+      const h = make({ cache: { conta: 'u-eu', itens: [resenha('r0001', '2026-10-05T10:00:00.000Z')], vistasEm: '2026-10-05T10:00:00.000Z', agora: null } });
       await start();
       const before = h.feedCalls.length;
       const short = h.follow.check();
-      h.feedReplies.push(feedResponse([resenha('r0001', '2026-10-05T10:00:00.000Z')], '2026-10-05T10:00:00.000Z'));
+      h.feedReplies.push(feedResponse([resenha('r0002', '2026-10-06T10:00:00.000Z'), resenha('r0001', '2026-10-05T10:00:00.000Z')], '2026-10-06T10:00:00.000Z'));
       await h.follow.check(true);
       await short;
       expect(h.feedCalls.length).toBe(before + 2);
+      expect(h.feedCalls.at(-2)).toContain('?depois=');
       expect(h.feedCalls.at(-1)).toBe('/v1/eu/notificacoes');
+      expect(h.follow.items().length).toBe(2);
       expect(h.follow.unseen()).toBe(0);
     });
 
@@ -283,6 +301,44 @@ describe('Amigos: o serviço (Follow)', () => {
       expect(h.calls.filter((c) => c.path === '/v1/seguindo')).toEqual([]);
       await h.follow.follow('aaaa-ilil'); // I e L viram 1
       expect(h.calls.find((c) => c.path === '/v1/seguindo')!.body).toEqual({ codigo: 'AAAA-1111' });
+    });
+
+    it('deixar de seguir tira as resenhas da pessoa do correio na hora (como a nuvem), e o Desfazer as traz de volta', async () => {
+      const h = make({
+        cache: { conta: 'u-eu', itens: [resenha('r0002', '2026-10-05T10:00:00.000Z'), seguiu('2026-10-04T10:00:00.000Z', ana, true), resenha('r0003', '2026-10-03T10:00:00.000Z', { pessoa: bia })], vistasEm: null, agora: null },
+      });
+      await start();
+      // a conferência que viria depois falha (sem rede): o correio daqui já está certo
+      h.feedReplies.push(new CloudError('Sem conexão', 'sem-rede', 0));
+      await h.follow.unfollow(ana.codigo);
+      await flush();
+      expect(h.follow.items().map((i) => `${i.tipo}:${i.pessoa.codigo}`)).toEqual([`seguiu:${ana.codigo}`, `resenha:${bia.codigo}`]);
+      expect((h.follow.items()[0] as Extract<FeedItem, { tipo: 'seguiu' }>).euSigo).toBeFalse();
+      expect(JSON.parse(localStorage.getItem(CACHE_KEY)!).itens.length).toBe(2);
+      // o Desfazer (seguir de novo) pede o correio inteiro, que traz a resenha de volta
+      h.feedReplies.push(feedResponse([resenha('r0002', '2026-10-05T10:00:00.000Z'), seguiu('2026-10-04T10:00:00.000Z', ana, true)], null));
+      await h.follow.follow(ana.codigo);
+      await flush();
+      await flush();
+      expect(h.follow.items().filter((i) => i.tipo === 'resenha').map((i) => i.pessoa.codigo)).toEqual([ana.codigo]);
+    });
+
+    it('tirar um seguidor tira o aviso de que ele começou a me seguir (como a nuvem)', async () => {
+      const h = make({
+        cache: {
+          conta: 'u-eu',
+          itens: [seguiu('2026-10-05T10:00:00.000Z', bia), seguiu('2026-10-04T10:00:00.000Z', ana)],
+          vistasEm: null,
+          agora: null,
+          pessoas: { seguindo: [], seguidores: [{ ...bia, desde: '2026-10-05T10:00:00.000Z', euSigo: false }, { ...ana, desde: '2026-10-04T10:00:00.000Z', euSigo: false }] },
+        },
+      });
+      await start();
+      h.feedReplies.push(new CloudError('Sem conexão', 'sem-rede', 0));
+      await h.follow.removeFollower(bia.codigo);
+      await flush();
+      expect(h.follow.items().map((i) => i.pessoa.codigo)).toEqual([ana.codigo]);
+      expect(h.follow.unseen()).toBe(1);
     });
 
     it('tirar um seguidor atualiza as duas listas na hora', async () => {

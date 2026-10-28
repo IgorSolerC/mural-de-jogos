@@ -184,6 +184,81 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu' AND alvo_id = ?", [ana.id])).toHaveLength(1);
       });
 
+      /**
+       * Pedidos ao mesmo tempo de verdade: cada leitura espera a vez dos outros (como na rede), para todos
+       * conferirem antes de algum gravar. Sem isso, um pedido aqui corre inteiro antes do próximo.
+       */
+      const together = async <T>(db: Db, run: () => Promise<T>): Promise<T> => {
+        const first = db.first;
+        db.first = async <R>(sql: string, params?: SqlValue[]) => {
+          await new Promise((r) => setTimeout(r, 0));
+          return first.call(db, sql, params) as Promise<R | null>;
+        };
+        try {
+          return await run();
+        } finally {
+          db.first = first;
+        }
+      };
+
+      // Antes os limites eram lidos antes de gravar: um script seguindo muita gente ao mesmo tempo
+      // passava do limite do dia (e cada pessoa recebia um aviso).
+      it('o limite do dia vale com pedidos ao mesmo tempo (conferido no banco, no mesmo lote)', async () => {
+        const { db, follow, login, bia } = await two();
+        await db.batch(
+          Array.from({ length: MAX_FOLLOWS_PER_DAY - 2 }, (_, i) => ({
+            sql: 'INSERT INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, 0)',
+            params: [bia.id, `fantasma-${i}`, NOW.toISOString()],
+          })),
+        );
+        const others: { codigo: string }[] = [];
+        for (let i = 0; i < 6; i++) others.push(await login(`pessoa-${i}`, `Pessoa ${i}`));
+        const all = await together(db, () =>
+          Promise.all(
+            others.map(async (o) => {
+              const res = await follow(bia.token, o.codigo);
+              return { status: res.status, body: (await res.json()) as any };
+            }),
+          ),
+        );
+        expect(all.map((r) => r.status).sort()).toEqual([201, 201, 429, 429, 429, 429]);
+        for (const r of all.filter((r) => r.status === 429)) expect(r.body.erro).toBe('seguir-devagar');
+        expect((await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM seguindo WHERE seguidor_id = ?', [bia.id]))?.n).toBe(MAX_FOLLOWS_PER_DAY);
+        // só quem foi seguido de verdade recebeu o aviso
+        expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM atividades WHERE tipo = 'seguiu' AND autor_id = ?", [bia.id]))?.n).toBe(2);
+      });
+
+      it(`o máximo de ${MAX_FOLLOWING} pessoas vale com pedidos ao mesmo tempo`, async () => {
+        const { db, follow, login, bia } = await two();
+        const old = new Date(NOW.getTime() - 7 * DAY).toISOString();
+        await db.batch(
+          Array.from({ length: MAX_FOLLOWING - 1 }, (_, i) => ({
+            sql: 'INSERT INTO seguindo (seguidor_id, seguido_id, criado_em, silenciado) VALUES (?, ?, ?, 0)',
+            params: [bia.id, `fantasma-${i}`, old],
+          })),
+        );
+        const others: { codigo: string }[] = [];
+        for (let i = 0; i < 3; i++) others.push(await login(`pessoa-${i}`, `Pessoa ${i}`));
+        const all = await together(db, () =>
+          Promise.all(
+            others.map(async (o) => {
+              const res = await follow(bia.token, o.codigo);
+              return { status: res.status, body: (await res.json()) as any };
+            }),
+          ),
+        );
+        expect(all.map((r) => r.status).sort()).toEqual([201, 429, 429]);
+        for (const r of all.filter((r) => r.status === 429)) expect(r.body.erro).toBe('seguindo-demais');
+        expect((await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM seguindo WHERE seguidor_id = ?', [bia.id]))?.n).toBe(MAX_FOLLOWING);
+      });
+
+      it('seguir a mesma pessoa duas vezes ao mesmo tempo: um 201, um 200, e um aviso só', async () => {
+        const { db, follow, ana, bia } = await two();
+        const all = await together(db, () => Promise.all([follow(bia.token, ana.codigo), follow(bia.token, ana.codigo)]));
+        expect(all.map((r) => r.status).sort()).toEqual([200, 201]);
+        expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'seguiu' AND alvo_id = ?", [ana.id])).toHaveLength(1);
+      });
+
       it('o limite do dia recomeça no dia UTC seguinte, mesmo com os avisos de ontem', async () => {
         const { db, follow, login, advance, ana, bia } = await two();
         await db.batch(

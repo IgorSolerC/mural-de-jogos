@@ -24,13 +24,14 @@ export class FollowToasts {
     await this.follow.follow(code);
     this.toasts.show(
       `Agora você segue ${name}. As resenhas novas aparecem em Amigos.`,
-      undo ? { label: 'Desfazer', run: () => void this.follow.unfollow(code).catch(() => undefined) } : undefined,
+      undo ? { label: 'Desfazer', run: () => void this.follow.unfollow(code).catch((err) => this.toasts.show(failedText(err))) } : undefined,
     );
   }
 
   /** Deixa de seguir, com o Desfazer (seguir de novo não manda outro aviso para a pessoa). */
   async stop(code: string, name: string): Promise<void> {
     await this.follow.unfollow(code);
-    this.toasts.show(`Você deixou de seguir ${name}`, { label: 'Desfazer', run: () => void this.follow.follow(code).catch(() => undefined) });
+    // o Desfazer que a nuvem recusa (o limite do dia, sem rede) diz por quê: calado, parecia ter voltado a seguir
+    this.toasts.show(`Você deixou de seguir ${name}`, { label: 'Desfazer', run: () => void this.follow.follow(code).catch((err) => this.toasts.show(failedText(err))) });
   }
 }

@@ -67,7 +67,8 @@ export type FeedItem =
 
 /** Ver de novo a cada 15 minutos, com a aba à vista. */
 export const CHECK_EVERY_MS = 15 * 60_000;
-const CACHE_KEY = 'meu-mural:correio';
+/** O correio guardado neste navegador (de uma conta só; sai na limpeza do Sair, ver core/browser-reset.ts). */
+export const FEED_CACHE_KEY = 'meu-mural:correio';
 
 const text = (v: unknown, max: number): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 const iso = (v: unknown): string | null => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null);
@@ -240,7 +241,7 @@ interface Cache {
 
 function readCache(): Cache | null {
   try {
-    const raw = JSON.parse(localStorage.getItem(CACHE_KEY) ?? 'null') as Partial<Cache> | null;
+    const raw = JSON.parse(localStorage.getItem(FEED_CACHE_KEY) ?? 'null') as Partial<Cache> | null;
     return raw && typeof raw.conta === 'string'
       ? { conta: raw.conta, itens: raw.itens, vistasEm: iso(raw.vistasEm), vistos: raw.vistos, agora: iso(raw.agora), pessoas: raw.pessoas }
       : null;
@@ -334,10 +335,13 @@ export class Follow {
 
   /**
    * Pergunta à nuvem se chegou algo depois do mais novo que já está aqui. `full` busca tudo de novo
-   * (ao abrir o correio: pega também o "visto" feito em outro aparelho).
+   * (ao abrir o correio: pega também o "visto" feito em outro aparelho). Com algo contando no número,
+   * busca tudo também: o "chegou algo depois?" não diz o que saiu (quem seguiu e já deixou de seguir, a
+   * ficha que virou privada), e o número ficaria contando um aviso que não existe mais.
    */
   check(full = false): Promise<void> {
     if (!this.available()) return Promise.resolve();
+    full ||= untracked(this.unseen) > 0;
     if (this.checking) {
       // a do meio é só "chegou algo?": a completa vem depois dela, senão o visto de outro aparelho não chega
       return full && !this.checkingFull ? this.checking.then(() => this.check(true)) : this.checking;
@@ -444,7 +448,11 @@ export class Follow {
       seguindo: list.seguindo.filter((f) => f.codigo !== code),
       seguidores: list.seguidores.map((f) => (f.codigo === code ? { ...f, euSigo: false } : f)),
     }));
-    this.items.update((list) => list.map((i) => (i.tipo === 'seguiu' && i.pessoa.codigo === code ? { ...i, euSigo: false } : i)));
+    // as resenhas da pessoa saem do correio na nuvem (só chegam a quem segue): aqui também, sem esperar
+    // a conferência (que pode não vir, sem rede); o Desfazer as traz de volta com ela
+    this.items.update((list) =>
+      list.flatMap((i) => (i.pessoa.codigo !== code ? [i] : i.tipo === 'resenha' ? [] : i.tipo === 'seguiu' ? [{ ...i, euSigo: false }] : [i])),
+    );
     this.save();
     this.refreshLater();
   }
@@ -470,6 +478,8 @@ export class Follow {
       seguindo: list.seguindo.map((f) => (f.codigo === code ? { ...f, meSegue: false } : f)),
       seguidores: list.seguidores.filter((f) => f.codigo !== code),
     }));
+    // o aviso de que a pessoa começou a me seguir sai do correio na nuvem: aqui também
+    this.items.update((list) => list.filter((i) => !(i.tipo === 'seguiu' && i.pessoa.codigo === code)));
     this.save();
     this.refreshLater();
   }
@@ -510,7 +520,7 @@ export class Follow {
     this.people.set(null);
     this.serverNow = null;
     if (dropCache) {
-      removeKey(CACHE_KEY);
+      removeKey(FEED_CACHE_KEY);
     }
   }
 
@@ -525,6 +535,6 @@ export class Follow {
       agora: this.serverNow,
       pessoas: this.people() ?? undefined,
     };
-    writeJson(CACHE_KEY, cache);
+    writeJson(FEED_CACHE_KEY, cache);
   }
 }

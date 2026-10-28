@@ -5,6 +5,7 @@ import { DATA_DB } from './local-data';
 import { APPLIED_KEY } from './api-requests';
 import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 import { LINK_START_KEY } from '../ui/link-sheet';
+import { FEED_CACHE_KEY } from './follow';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -214,6 +215,15 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(LINK_START_KEY)).toBeNull();
+  });
+
+  it('o correio de Amigos guardado (os avisos, as resenhas e quem a conta segue) sai junto', async () => {
+    signedInBrowser();
+    writeJson(FEED_CACHE_KEY, { conta: 'conta-ela', itens: [], vistasEm: null, agora: null, pessoas: { seguindo: [], seguidores: [] } });
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(FEED_CACHE_KEY)).toBeNull();
   });
 
   it('as preferências dos Gastos (sem os fixos, e os gráficos de uma versão de antes) saem junto', async () => {
