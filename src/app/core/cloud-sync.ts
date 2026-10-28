@@ -862,6 +862,9 @@ export class CloudSync {
   /** Baixa o que mudou na nuvem, junta, e envia se o mural daqui ficou diferente do de lá. */
   private async pullAndPush(state: SyncState): Promise<SyncState> {
     let remote = await this.fetchRemote(state.rev);
+    // quando o mural daqui foi lido para comparar e enviar: o que mudou depois (durante o envio) ainda
+    // não está na nuvem, e o "salvo em" não pode passar por cima disso (ver o aviso do link da ficha)
+    let takenAt = Date.now();
     for (let attempt = 0; ; attempt++) {
       if (remote.kind === 'doc') {
         if (isNewerSchema(remote.data)) throw this.outdated();
@@ -877,6 +880,7 @@ export class CloudSync {
         this.writeState(state);
       }
 
+      takenAt = Date.now();
       const doc = this.store.snapshot(this.account.account()?.nome ?? '');
       const keys = this.localKeys();
       const tags = this.localTags();
@@ -906,7 +910,7 @@ export class CloudSync {
         remote = await this.fetchRemote(); // outro aparelho gravou antes: baixa tudo, junta e tenta de novo
       }
     }
-    const now = Date.now();
+    const now = takenAt;
     this.writeState({ ...state, em: now });
     this.lastSyncAt.set(now);
     // aqui o aparelho e a nuvem estão iguais na rev de agora: o espelho reflete essa (sem esperar, e

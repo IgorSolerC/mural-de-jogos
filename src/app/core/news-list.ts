@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-widgets',
+    id: '2026-10-28-link-da-ficha',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'No cofre, a régua da senha mestra não conta mais como forte uma senha feita de repetições (a mesma letra ou palavra várias vezes, tudo em maiúsculas), e pôr um aparelho sem PRF confere se a senha digitada é mesmo a do cofre; se a resposta ao criar o cofre se perder no caminho com ele já criado, o kit de emergência aparece assim mesmo. Um erro no segundo toque da passkey (o que tira a chave do PRF) não a joga mais fora, o que deixava uma passkey a mais no aparelho a cada tentativa; e o histórico do cofre chama o iPad de iPad e reconhece o Chrome, o Firefox e o Edge do iPhone.',
       'No cofre, várias tentativas de senha ao mesmo tempo não passam mais do freio (5 erros seguidos e a espera, 20 por dia), e o Congelar funciona também quando o cofre está só para leitura.',
       'O backup baixado no começo do site, ainda no tempo do Mural de Jogos, volta a abrir em Restaurar de um arquivo (dizia que era de outro aplicativo); um arquivo com a mesma ficha duas vezes não a põe mais duas vezes no mural; e o backup baixado em outra aba conta também para o lembrete desta.',
+      'O link de uma ficha trocado na mesma aba (outra ficha, ou o ?aberta=nao) abre a ficha nova, em vez de continuar na de antes; o "Entrar em Ajustes › Conta" da folha do link fecha também a leitura, que ficava por cima da conta; e a folha volta a avisar que a última mudança ainda está indo para a nuvem quando ela foi feita durante um envio.',
     ],
   },
   {

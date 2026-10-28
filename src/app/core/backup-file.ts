@@ -98,16 +98,25 @@ export interface BackupLists {
   music: unknown[] | null;
 }
 
+/** Um backup já lido do JSON (quem já o abriu para juntar partes não o lê de novo). */
+export interface ParsedBackup {
+  parsed: unknown;
+}
+
 /**
  * Lê o JSON de um backup e confere se ele serve: é do Murall, de uma versão que este site sabe
  * ler, e tem as resenhas. Se não serve, lança o porquê, terminando com `hint` (o que escolher).
  */
-export function backupLists(text: string, hint = 'Escolha o backup baixado pelo Murall.'): BackupLists {
+export function backupLists(text: string | ParsedBackup, hint = 'Escolha o backup baixado pelo Murall.'): BackupLists {
   let data: unknown;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`Esse arquivo não é um JSON válido. ${hint}`);
+  if (typeof text === 'string') {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Esse arquivo não é um JSON válido. ${hint}`);
+    }
+  } else {
+    data = text.parsed;
   }
   const object = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
   if (object?.['app'] !== undefined && !BACKUP_APPS.includes(object['app'])) {
@@ -124,7 +133,7 @@ export function backupLists(text: string, hint = 'Escolha o backup baixado pelo 
 }
 
 /** Só lê e sanitiza: não toca nos dados pessoais nem aplica exclusões ao mural do usuário. */
-export function parseBackupSnapshot(text: string): BackupSnapshot {
+export function parseBackupSnapshot(text: string | ParsedBackup): BackupSnapshot {
   const { object, reviews: found, notes, music } = backupLists(text, 'Escolha um backup do Murall.');
   const list = [...found, ...(notes ?? []), ...(music ?? [])];
   const deleted = object?.['deleted'] as

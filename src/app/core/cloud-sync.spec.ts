@@ -685,6 +685,27 @@ describe('sincronização com a nuvem', () => {
     await first;
   });
 
+  it('o "salvo em" é de quando o mural foi lido para o envio: a ficha mudada durante o envio continua mais nova', async () => {
+    const a = device();
+    a.store.add(review('rjogo1', 'Hades'));
+    let edited = '';
+    const handle = cloud.handle.bind(cloud);
+    cloud.handle = async (url, init) => {
+      if (init?.method === 'PUT' && !edited) {
+        await new Promise((r) => setTimeout(r, 5));
+        // a pessoa mexe na ficha enquanto o envio está no caminho
+        edited = new Date().toISOString();
+        a.store.update({ ...a.store.get('rjogo1')!, game: { ...a.store.get('rjogo1')!.game, name: 'Hades II' }, updatedAt: edited });
+        await new Promise((r) => setTimeout(r, 5));
+      }
+      return handle(url, init);
+    };
+    await a.sync.syncNow();
+    expect(edited).not.toBe('');
+    // o link da ficha (e quem mais olha) sabe que essa mudança ainda não está na nuvem
+    expect(a.sync.lastSyncAt()!).toBeLessThan(Date.parse(edited));
+  });
+
   it('o pra depois editado num aparelho chega no outro', async () => {
     const a = device();
     a.store.saveDraft(sanitizeDraft({ id: 'rdddd1', kind: 'jogos', game: { name: 'Silksong' }, createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z' })!);

@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute } from '@angular/router';
+import { combineLatest } from 'rxjs';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { Desk } from '../core/desk';
@@ -51,6 +53,8 @@ type State = { kind: 'abrindo' } | LinkedCard;
           <div class="acoes">
             @if (s.kind === 'erro') {
               <button type="button" class="btn-ink" (click)="load()">Tentar de novo</button>
+            } @else if (s.kind === 'entrar') {
+              <a class="btn-ink" href="./#/ajustes?aba=conta">Entrar no Murall</a>
             }
             <a class="btn-quiet" href="./">Conhecer o Murall</a>
           </div>
@@ -73,9 +77,20 @@ export class FichaPage {
   protected readonly signedIn = signal(false);
   protected readonly MaximizeIcon = ICON.aumentar;
   private alive = true;
+  /** O que o link pede: o código, a ficha e se ela começa fechada (`?aberta=nao`). */
+  private wanted = { code: '', id: '', closed: false };
+  /** A busca de agora: a resposta de uma anterior (o link trocado no meio) não entra. */
+  private loads = 0;
+  private owner = 'Alguém';
 
   constructor() {
-    void this.load();
+    // o link trocado na mesma aba (outra ficha, ou o ?aberta) usa a mesma página: ela segue o endereço
+    combineLatest([this.route.paramMap, this.route.queryParamMap])
+      .pipe(takeUntilDestroyed())
+      .subscribe(([params, query]) => {
+        this.wanted = { code: params.get('codigo') ?? '', id: params.get('id') ?? '', closed: startsClosed(query.get(OPEN_PARAM)) };
+        void this.load();
+      });
     inject(DestroyRef).onDestroy(() => {
       this.alive = false;
       this.links.wall.set(null);
@@ -85,10 +100,15 @@ export class FichaPage {
   }
 
   protected async load(): Promise<void> {
+    const run = ++this.loads;
+    const { code: wantedCode, id, closed } = this.wanted;
+    // a ficha de antes (o link trocado na mesma aba) sai antes de a nova chegar
+    this.desk.closeReader();
+    this.links.minimized.set(false);
+    this.links.wall.set(null);
     this.state.set({ kind: 'abrindo' });
-    const params = this.route.snapshot.paramMap;
-    const found = await this.links.fetch(params.get('codigo') ?? '', params.get('id') ?? '');
-    if (!this.alive) return;
+    const found = await this.links.fetch(wantedCode, id);
+    if (!this.alive || run !== this.loads) return;
     this.state.set(found);
     if (found.kind !== 'ok') return;
     const { card, mural, code } = found;
@@ -98,19 +118,16 @@ export class FichaPage {
     await this.cloud.ready;
     const mine = this.reactions.myCode() === code;
     const signedIn = !!this.cloud.config() && this.account.signedIn();
-    if (!this.alive) return;
+    if (!this.alive || run !== this.loads) return;
     this.signedIn.set(signedIn);
     this.owner = mine ? 'Você' : (mural.ownerName ?? 'Alguém');
     // o link que pede a ficha fechada: ela começa como fica no mural, e um toque a abre
-    if (startsClosed(this.route.snapshot.queryParamMap.get(OPEN_PARAM))) {
+    if (closed) {
       this.links.minimized.set(true);
       return;
     }
-    this.links.minimized.set(false);
-    this.desk.openLoose(card, this.owner, mural.cards, code, signedIn);
+    this.maximize();
   }
-
-  private owner = 'Alguém';
 
   /** A ficha minimizada abre de novo, maximizada. */
   protected maximize(): void {
@@ -123,12 +140,14 @@ export class FichaPage {
   protected errorTitle(s: State): string {
     if (s.kind === 'sem-ficha') return 'Esta ficha não está à mostra';
     if (s.kind === 'sem-codigo') return 'Este link não abre nada';
+    if (s.kind === 'entrar') return 'Entre para ver esta ficha';
     return 'Não deu para abrir a ficha agora';
   }
 
   protected errorText(s: State): string {
     if (s.kind === 'sem-ficha') return 'Quem escreveu pode ter apagado esta ficha ou deixado a ficha privada.';
-    if (s.kind === 'sem-codigo') return 'O link veio cortado, ou quem mandou trocou o código do mural. Peça o link de novo.';
+    if (s.kind === 'sem-codigo') return 'O link veio cortado, quem mandou trocou o código do mural, ou o mural dessa pessoa não está mais na nuvem. Peça o link de novo.';
+    if (s.kind === 'entrar') return 'Os murais daqui só aparecem para quem tem conta. Entre com o Google e abra o link de novo.';
     return s.kind === 'erro' ? s.message : '';
   }
 }

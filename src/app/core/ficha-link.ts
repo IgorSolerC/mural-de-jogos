@@ -61,8 +61,8 @@ export function readLinkedMural(text: string): LinkedMural {
   const object = data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : null;
   const notas = Array.isArray(object?.['notas']) ? (object['notas'] as unknown[]) : [];
   const board = Array.isArray(object?.['soKanban']) ? (object['soKanban'] as unknown[]) : [];
-  const joined = object && board.length ? JSON.stringify({ ...object, notas: [...notas, ...board] }) : text;
-  const snap = parseBackupSnapshot(joined);
+  // junta já lido: o mural pode ter megas, e o texto não precisa ir e voltar do JSON outra vez
+  const snap = parseBackupSnapshot({ parsed: object && board.length ? { ...object, notas: [...notas, ...board] } : data });
   return { cards: snap.reviews, ownerName: snap.ownerName, profile: snap.profile, categoryLooks: snap.categoryLooks ?? {} };
 }
 
@@ -71,6 +71,8 @@ export type LinkedCard =
   | { kind: 'ok'; card: Review; mural: LinkedMural; code: string }
   | { kind: 'sem-ficha' }
   | { kind: 'sem-codigo' }
+  /** A nuvem só mostra os murais para quem entrou (`VER_MURAIS=logados`), e quem abriu não entrou. */
+  | { kind: 'entrar' }
   | { kind: 'erro'; message: string };
 
 /**
@@ -94,6 +96,8 @@ export class FichaLinks {
       res = await this.account.requestRaw(`/v1/murais/${code}`);
     } catch (err) {
       if (err instanceof CloudError && err.status === 404) return { kind: 'sem-codigo' };
+      // a nuvem que só mostra os murais com conta: tentar de novo não adianta, entrar sim
+      if (err instanceof CloudError && err.status === 401) return { kind: 'entrar' };
       // a nuvem fora, a cota, a internet: a frase é sempre a mesma, em português
       return { kind: 'erro', message: 'Não deu para falar com a nuvem. Confira a internet e toque em Tentar de novo.' };
     }

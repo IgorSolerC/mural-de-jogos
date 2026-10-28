@@ -4,6 +4,7 @@ import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeRese
 import { DATA_DB } from './local-data';
 import { APPLIED_KEY } from './api-requests';
 import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
+import { LINK_START_KEY } from '../ui/link-sheet';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -204,6 +205,15 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     await resetOnBoot();
     expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
+  });
+
+  it('o jeito do último link da ficha (aberta ou fechada) sai junto', async () => {
+    signedInBrowser();
+    writeText(LINK_START_KEY, 'nao');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(LINK_START_KEY)).toBeNull();
   });
 
   it('as preferências dos Gastos (sem os fixos, e os gráficos de uma versão de antes) saem junto', async () => {

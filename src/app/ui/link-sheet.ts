@@ -136,6 +136,8 @@ export class LinkSheet {
   /** O código de quem o link mostra (o dono da ficha); null sem conta. */
   readonly code = input<string | null>(null);
   readonly closed = output<void>();
+  /** Foi para outra página (Ajustes › Conta): quem abriu a folha fecha a leitura também. */
+  readonly left = output<void>();
 
   private readonly sync = inject(CloudSync);
   private readonly kanban = inject(KanbanStore);
@@ -232,6 +234,8 @@ export class LinkSheet {
 
   protected goSignIn(): void {
     this.close();
+    // a leitura é um diálogo modal: aberta, ela cobriria a página da conta
+    this.left.emit();
     void this.router.navigate(['/ajustes'], { queryParams: { aba: 'conta' } });
   }
 }

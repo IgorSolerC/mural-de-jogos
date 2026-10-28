@@ -475,7 +475,7 @@ const PATCH_GAP = 8;
         <!-- o link da ficha, num pedaço à parte, só quando abre -->
         @if (linkOpen()) {
           @defer (on immediate) {
-            <app-link-sheet [review]="r" [code]="linkCode()" (closed)="linkOpen.set(false)" />
+            <app-link-sheet [review]="r" [code]="linkCode()" (closed)="linkOpen.set(false)" (left)="close()" />
           }
         }
 

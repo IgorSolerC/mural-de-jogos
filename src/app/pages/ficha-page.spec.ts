@@ -8,6 +8,7 @@ import { Desk } from '../core/desk';
 import { FichaLinks, LinkedCard } from '../core/ficha-link';
 import { Reactions } from '../core/reactions';
 import { Review, sanitizeReview } from '../core/review';
+import { BehaviorSubject } from 'rxjs';
 import { FichaPage } from './ficha-page';
 
 /**
@@ -33,18 +34,22 @@ describe('A página do link (FichaPage)', () => {
   let myCode: string | null;
   let desk: jasmine.SpyObj<Pick<Desk, 'openLoose' | 'closeReader'>>;
   let links: { fetch: jasmine.Spy; wall: ReturnType<typeof signal<string | null>>; minimized: ReturnType<typeof signal<boolean>> };
+  let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+  let queries: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
   const settle = async () => {
     for (let i = 0; i < 4; i++) await new Promise((r) => setTimeout(r));
   };
 
   function create(query: Record<string, string> = {}) {
+    params = new BehaviorSubject(convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0001' }));
+    queries = new BehaviorSubject(convertToParamMap(query));
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0001' }), queryParamMap: convertToParamMap(query) } },
+          useValue: { paramMap: params, queryParamMap: queries },
         },
         { provide: FichaLinks, useValue: links },
         { provide: Desk, useValue: desk },
@@ -147,5 +152,56 @@ describe('A página do link (FichaPage)', () => {
     el.querySelector<HTMLButtonElement>('.btn-ink')!.click();
     await settle();
     expect(links.fetch).toHaveBeenCalledTimes(2);
+  });
+  const celeste = sanitizeReview({ ...hades, id: 'rjogo0002', game: { name: 'Celeste', coverUrl: null, source: 'manual' } }) as Review;
+  const okWith = (card: Review): LinkedCard => ({ kind: 'ok', card, code: 'ABCD-1234', mural: { cards: [hades, celeste], ownerName: 'Igor', profile: null, categoryLooks: {} } });
+
+  it('o link trocado na mesma aba (outra ficha, ou o ?aberta) abre o novo: a página é a mesma, a ficha não', async () => {
+    found = okWith(hades);
+    create();
+    await settle();
+    expect(desk.openLoose).toHaveBeenCalledOnceWith(hades, 'Igor', [hades, celeste], 'ABCD-1234', false);
+    desk.closeReader.calls.reset();
+    found = okWith(celeste);
+    params.next(convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0002' }));
+    await settle();
+    expect(links.fetch).toHaveBeenCalledWith('ABCD-1234', 'rjogo0002');
+    expect(desk.closeReader).toHaveBeenCalled();
+    expect(desk.openLoose).toHaveBeenCalledWith(celeste, 'Igor', [hades, celeste], 'ABCD-1234', false);
+    expect(TestBed.inject(Title).getTitle()).toBe('Celeste · Murall');
+    // o mesmo link, agora pedindo a ficha fechada
+    desk.openLoose.calls.reset();
+    queries.next(convertToParamMap({ aberta: 'nao' }));
+    await settle();
+    expect(links.minimized()).toBeTrue();
+    expect(desk.openLoose).not.toHaveBeenCalled();
+  });
+
+  it('a resposta atrasada do link de antes não passa por cima da do link novo', async () => {
+    const replies: Record<string, (v: LinkedCard) => void> = {};
+    links.fetch.and.callFake((_code: string, id: string) => new Promise<LinkedCard>((resolve) => (replies[id] = resolve)));
+    create();
+    await settle();
+    params.next(convertToParamMap({ codigo: 'ABCD-1234', id: 'rjogo0002' }));
+    await settle();
+    replies['rjogo0002'](okWith(celeste));
+    await settle();
+    replies['rjogo0001'](okWith(hades));
+    await settle();
+    expect(desk.openLoose).toHaveBeenCalledOnceWith(celeste, 'Igor', [hades, celeste], 'ABCD-1234', false);
+    expect(TestBed.inject(Title).getTitle()).toBe('Celeste · Murall');
+  });
+
+  it('a nuvem que só mostra os murais para quem tem conta: o bilhete leva a entrar, sem o "Tentar de novo"', async () => {
+    found = { kind: 'entrar' };
+    const fixture = create();
+    await settle();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('h1')?.textContent).toBe('Entre para ver esta ficha');
+    expect(el.querySelector('p')?.textContent).toContain('só aparecem para quem tem conta');
+    expect(el.querySelector('a.btn-ink')?.getAttribute('href')).toBe('./#/ajustes?aba=conta');
+    expect(el.querySelector('button.btn-ink')).toBeNull();
+    expect(desk.openLoose).not.toHaveBeenCalled();
   });
 });

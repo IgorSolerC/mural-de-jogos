@@ -105,6 +105,11 @@ describe('O link da ficha', () => {
         throw new CloudError('Não achei mural com esse código.', 'mural-nao-encontrado', 404);
       };
       expect((await links.fetch('ABCD-1234', 'nkan0001')).kind).toBe('sem-codigo');
+      // a nuvem que só mostra os murais com conta (VER_MURAIS=logados): entrar, não "confira a internet"
+      reply = async () => {
+        throw new CloudError('Sua sessão acabou. Entre de novo para usar a nuvem.', 'sessao-invalida', 401);
+      };
+      expect(await links.fetch('ABCD-1234', 'nkan0001')).toEqual({ kind: 'entrar' });
       reply = async () => {
         throw new CloudError('Sem conexão com a nuvem agora.', 'sem-rede', 0);
       };

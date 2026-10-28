@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, DeferBlockState, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
 import { CloudSync } from '../core/cloud-sync';
 import { FichaLinks } from '../core/ficha-link';
@@ -639,6 +639,12 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(sheet()!.querySelector('input')).toBeNull();
       expect(sheet()!.querySelector('.sem-conta .papel')?.textContent).toContain('Entrar em Ajustes › Conta');
+      // o caminho para a conta fecha a leitura também: o diálogo modal cobriria a página de Ajustes
+      const go = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      sheet()!.querySelector<HTMLButtonElement>('.sem-conta .papel')!.click();
+      await settle();
+      expect(go).toHaveBeenCalledWith(['/ajustes'], { queryParams: { aba: 'conta' } });
+      expect(q<HTMLDialogElement>('dialog.reader')!.open).toBeFalse();
     });
 
     it('Copiar põe o link na área de transferência e o botão diz "Copiado"', async () => {
