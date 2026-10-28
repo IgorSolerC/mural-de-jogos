@@ -271,6 +271,13 @@ describe('anotações compartilhadas: a folha do conflito', () => {
     expect(differences(note(), note())).toEqual([]);
   });
 
+  it('toda a aparência conta (o espaço da estampa, a tinta do rabisco), e a ordem das chaves não', () => {
+    const look = (extra: Record<string, unknown>) => ({ ...note(), ...extra }) as unknown as Review;
+    expect(differences(look({ pattern: 'bolinhas', patternSpacing: 1 }), look({ pattern: 'bolinhas', patternSpacing: 2 }))).toEqual(['aparencia']);
+    expect(differences(look({ scribble: 'espiral', scribbleInk: 1 }), look({ scribble: 'espiral', scribbleInk: 2 }))).toEqual(['aparencia']);
+    expect(differences(look({ stains: [{ stain: 'cafe', seed: 4 }] }), look({ stains: [{ seed: 4, stain: 'cafe' }] }))).toEqual([]);
+  });
+
   it('mostra as duas versões com quem fez cada uma; "Manter esta" escolhe', async () => {
     const chosen: Review[] = [];
     const conflito = { a: note('O gato branco.'), b: note('O gato cinza.'), autorA: { ...ANA, foto: null }, autorB: { ...BIA, foto: null }, em: new Date().toISOString() };

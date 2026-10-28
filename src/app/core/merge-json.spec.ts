@@ -1,4 +1,5 @@
 import { mergeJson } from './merge-json';
+import { mergeFields } from './merge-parts';
 
 describe('mergeJson (a junção de três vias de um valor qualquer)', () => {
   it('campos diferentes mudados dos dois lados entram os dois, sem conflito', () => {
@@ -74,5 +75,34 @@ describe('mergeJson (a junção de três vias de um valor qualquer)', () => {
     expect(m.conflicts).toEqual([[]]);
     expect(m.a).toEqual([1, 1, 2]);
     expect(m.b).toEqual([1, 1, 3]);
+  });
+
+  it('a ordem das chaves não muda o resultado nem cria conflito', () => {
+    const o = { a: { x: 1, y: [{ id: 'p', v: 1, w: 2 }] }, b: 2 };
+    const one = { b: 2, a: { y: [{ w: 2, v: 5, id: 'p' }], x: 1 } };
+    const two = { a: { x: 3, y: [{ id: 'p', w: 2, v: 1 }] }, b: 2 };
+    const m = mergeJson(o, one, two);
+    const n = mergeJson({ b: 2, a: { y: [{ w: 2, id: 'p', v: 1 }], x: 1 } }, two, one);
+    expect(m.conflicts).toEqual([]);
+    expect(n.conflicts).toEqual([]);
+    expect(m.a).toEqual({ a: { x: 3, y: [{ id: 'p', v: 5, w: 2 }] }, b: 2 });
+    expect(n.a).toEqual(m.a);
+  });
+
+  it('um lado sem o campo e o outro com null: fica o null, dos dois jeitos (os dois aparelhos chegam ao mesmo)', () => {
+    expect(mergeJson({ n: 1 }, { n: 1, q: null }, { n: 2 }).a).toEqual({ n: 2, q: null });
+    expect(mergeJson({ n: 1 }, { n: 2 }, { n: 1, q: null }).a).toEqual({ n: 2, q: null });
+    expect(mergeFields<Record<string, unknown>>({ n: 1 }, { n: 2 }, { n: 1, q: null }, true)).toEqual({ n: 2, q: null });
+    expect(mergeFields<Record<string, unknown>>({ n: 1 }, { n: 1, q: null }, { n: 2 }, true)).toEqual({ n: 2, q: null });
+  });
+
+  it('o que um lado apagou e o outro não mexeu não volta (campo e item de lista)', () => {
+    const o = { tags: ['a', 'b'], cols: [{ id: 'x', n: 1 }, { id: 'y', n: 2 }], cor: 'azul' };
+    const a = { tags: ['a'], cols: [{ id: 'y', n: 2 }] };
+    const b = { tags: ['a', 'b', 'c'], cols: [{ id: 'x', n: 1 }, { id: 'y', n: 3 }], cor: 'azul' };
+    const m = mergeJson(o, a, b);
+    expect(m.conflicts).toEqual([]);
+    expect(m.a).toEqual({ tags: ['a', 'c'], cols: [{ id: 'y', n: 3 }] });
+    expect(mergeJson(o, b, a).a).toEqual(m.a);
   });
 });

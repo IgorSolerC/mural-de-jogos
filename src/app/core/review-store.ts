@@ -372,7 +372,7 @@ export class ReviewStore {
     if (!found || this.sharedIds().has(id)) return undefined;
     const revisits = found.revisitOf ? [] : this.revisitsOf(id);
     this.reviews.update((list) => list.filter((r) => r.id !== id));
-    this.mark('reviews', id);
+    this.mark('reviews', id, found.updatedAt);
     if (!revisits.length) return found;
     this.settle(revisits[0].id);
     const heir = revisits.find((r) => !this.get(r.id)?.revisitOf)?.id;
@@ -441,7 +441,7 @@ export class ReviewStore {
     const found = this.getDraft(id);
     if (found) {
       this.drafts.update((list) => list.filter((d) => d.id !== id));
-      if (forget) this.mark('drafts', id);
+      if (forget) this.mark('drafts', id, found.updatedAt);
     }
     return found;
   }
@@ -479,7 +479,7 @@ export class ReviewStore {
     const found = this.getWish(id);
     if (found) {
       this.wishes.update((list) => list.filter((w) => w.id !== id));
-      if (forget) this.mark('wishes', id);
+      if (forget) this.mark('wishes', id, found.updatedAt);
     }
     return found;
   }
@@ -707,14 +707,14 @@ export class ReviewStore {
     if (next.size === before.size && [...next].every(([id, r]) => before.get(id) === r)) return;
     const absorbed: Review[] = [];
     const renamed: Review[] = [];
-    const renamedFrom: string[] = [];
+    const renamedFrom: Review[] = [];
     const own: Review[] = [];
     for (const r of this.reviews()) {
       if (before.has(r.id)) continue;
       if (!next.has(r.id)) own.push(r);
       else if (foreign.has(r.id)) {
         renamed.push({ ...r, id: newId(), updatedAt: new Date().toISOString() });
-        renamedFrom.push(r.id);
+        renamedFrom.push(r);
       } else absorbed.push(r);
     }
     const stale = absorbed.filter((r) => isNewer(r, next.get(r.id)!) && !sameContent(withoutRank(r), withoutRank(next.get(r.id)!)));
@@ -723,7 +723,7 @@ export class ReviewStore {
     const shared = [...next.values()].sort((a, b) => (order.get(a.id) ?? -1) - (order.get(b.id) ?? -1));
     this.sharedNotes.set(next);
     this.reviews.set(withStocks([...renamed, ...shared, ...own]));
-    for (const id of [...absorbed.map((r) => r.id), ...renamedFrom]) this.mark('reviews', id);
+    for (const r of [...absorbed, ...renamedFrom]) this.mark('reviews', r.id, r.updatedAt);
     if (stale.length) this.keep(stale, 'juntou');
   }
 
@@ -733,8 +733,13 @@ export class ReviewStore {
     return new Date(Math.max(Date.now(), Number.isFinite(when) ? when + 1 : 0)).toISOString();
   }
 
-  private mark(kind: keyof Deleted, id: string): void {
-    const when = new Date().toISOString();
+  /**
+   * Marca como apagado agora, mas sempre depois da versão que saiu (`after`): apagada num aparelho de
+   * relógio atrasado, a versão de lá (a mesma, mexida antes pelo relógio de outro) não volta ao juntar.
+   */
+  private mark(kind: keyof Deleted, id: string, after?: string): void {
+    const at = Date.parse(after ?? '');
+    const when = new Date(Math.max(Date.now(), Number.isFinite(at) ? at + 1 : 0)).toISOString();
     this.deleted.update((d) => ({ ...d, [kind]: { ...d[kind], [id]: when } }));
   }
 

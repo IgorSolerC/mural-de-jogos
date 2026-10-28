@@ -247,6 +247,26 @@ describe('ReviewStore', () => {
       expect(store.get('ryyyy1')).toBeDefined();
     });
 
+    it('apagada num aparelho de relógio atrasado: a mesma versão vinda de outro não volta ao juntar', () => {
+      // a versão foi mexida num aparelho com o relógio adiantado (uma hora depois de agora daqui)
+      const ahead = new Date(Date.now() + 3_600_000).toISOString();
+      const same = review('rwwww2', 'W', ahead);
+      store.add(sanitizeReview(same)!);
+      store.remove('rwwww2');
+      expect(Date.parse(store.snapshot().deleted.reviews['rwwww2'])).toBeGreaterThan(Date.parse(ahead));
+      store.importJson(JSON.stringify({ reviews: [same] }), 'merge');
+      expect(store.get('rwwww2')).toBeUndefined();
+    });
+
+    it('o pendente e o desejo tirados também ficam apagados depois da versão que saiu', () => {
+      const ahead = new Date(Date.now() + 3_600_000).toISOString();
+      store.saveWish(wish('rwwww3', 'W', ahead) as any);
+      store.removeWish('rwwww3');
+      expect(Date.parse(store.snapshot().deleted.wishes['rwwww3'])).toBeGreaterThan(Date.parse(ahead));
+      store.importJson(JSON.stringify({ reviews: [], wishes: [wish('rwwww3', 'W', ahead)] }), 'merge');
+      expect(store.getWish('rwwww3')).toBeUndefined();
+    });
+
     it('a falha ao salvar as resenhas não some quando outra lista salva', () => {
       const real = localStorage.setItem.bind(localStorage);
       spyOn(localStorage, 'setItem').and.callFake((k: string, v: string) => {

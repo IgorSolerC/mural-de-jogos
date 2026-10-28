@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
+import { canonicalJson } from '../core/canonical-json';
 import { CloudAccount } from '../core/cloud-account';
 import { DeviceTag } from '../core/device';
-import { FICHA_PART_LABEL, FichaPart } from '../core/ficha-merge';
+import { FICHA_PART_LABEL, FichaPart, LOOK_KEYS } from '../core/ficha-merge';
 import { agoLabel, fullWhen } from '../core/follow';
 import { commonPairs } from '../core/merge3';
 import { Review, isNote } from '../core/review';
@@ -289,15 +290,16 @@ function iconOf(nome: string): LucideIconData {
 /** O que muda entre duas versões da mesma anotação (o texto, o título…). */
 export function differences(a: Review, b: Review): ConflictPart[] {
   const out: ConflictPart[] = [];
-  const j = (x: unknown) => JSON.stringify(x ?? null);
+  // com as chaves em ordem: a mesma aparência vinda da nuvem e daqui não pode parecer outra
+  const j = (x: unknown) => canonicalJson(x ?? null);
   if (a.game.name !== b.game.name) out.push('titulo');
   if ((a.game.coverUrl ?? null) !== (b.game.coverUrl ?? null)) out.push('capa');
   if (a.text !== b.text) out.push('texto');
   if ((a.category ?? '') !== (b.category ?? '') || (a.subject ?? '') !== (b.subject ?? '')) out.push('categoria');
   if (!!a.private !== !!b.private || !!a.quiet !== !!b.quiet) out.push('publico');
   if ((a.completedAt ?? null) !== (b.completedAt ?? null)) out.push('data');
-  const look = (r: Review) =>
-    j([r.stock, r.paper, r.paperSeed, r.pattern, r.patternSeed, r.patternInk, r.scribble, r.scribbleSeed, r.damage, r.damageSeed, r.stains, r.decors]);
+  // todos os campos da aparência (o espaço e o tamanho da estampa, a tinta do rabisco também)
+  const look = (r: Review) => j(LOOK_KEYS.map((k) => (r as unknown as Record<string, unknown>)[k] ?? null));
   if (look(a) !== look(b)) out.push('aparencia');
   return out;
 }
@@ -305,7 +307,7 @@ export function differences(a: Review, b: Review): ConflictPart[] {
 /** O que muda entre duas versões de uma ficha da conta: o mesmo das anotações, e a nota. */
 function fichaDifferences(a: Review, b: Review): FichaPart[] {
   const out: FichaPart[] = differences(a, b);
-  if (JSON.stringify(a.scores) !== JSON.stringify(b.scores)) out.push('nota');
+  if (canonicalJson(a.scores ?? null) !== canonicalJson(b.scores ?? null)) out.push('nota');
   return out.length ? out : ['outros'];
 }
 

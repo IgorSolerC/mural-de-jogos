@@ -74,6 +74,39 @@ describe('planFichas (o passo da junção de três vias)', () => {
     expect(plan.conflicts).toEqual([]);
   });
 
+  describe('só um lado mudou, num aparelho de relógio atrasado (a mudança é mais velha que a base)', () => {
+    const late = ficha('rnota01', 'um\ndois\ntrês', T1);
+    const knownLate = (id: string, at: string) => id === 'rnota01' && at === T1;
+
+    it('a mudança de lá não perde para a base daqui: volta mais nova', () => {
+      const plan = planFichas({
+        local: [late],
+        localDeleted: {},
+        remote: [ficha('rnota01', 'mudei lá', T0)],
+        remoteDeleted: {},
+        known: knownLate,
+        base: () => undefined,
+        now: NOW,
+      });
+      expect(plan.replace.map((r) => [r.text, r.updatedAt])).toEqual([['mudei lá', NOW]]);
+      expect(plan.conflicts).toEqual([]);
+    });
+
+    it('a mudança daqui não perde para a base que veio de lá: vai no lugar dela, mais nova', () => {
+      const plan = planFichas({
+        local: [ficha('rnota01', 'mudei aqui', T0)],
+        localDeleted: {},
+        remote: [late],
+        remoteDeleted: {},
+        known: knownLate,
+        base: () => late,
+        now: NOW,
+      });
+      expect(plan.replace.map((r) => [r.text, r.updatedAt])).toEqual([['mudei aqui', NOW]]);
+      expect(plan.conflicts).toEqual([]);
+    });
+  });
+
   it('sem o conteúdo da base, também fica para a junção de sempre', () => {
     const plan = planFichas({
       local: [ficha('rnota01', 'a', T2)],

@@ -62,7 +62,12 @@ export function mergeJson(o: unknown, a: unknown, b: unknown): JsonMerge {
 }
 
 function walk(o: unknown, a: unknown, b: unknown, path: string[], conflicts: string[][]): [unknown, unknown] {
-  if (same(a, b) || same(b, o)) return [a, a];
+  if (same(a, b)) {
+    // um lado sem o campo e o outro com null dizem o mesmo: fica o null, venha de que lado vier
+    const v = a === undefined ? b : a;
+    return [v, v];
+  }
+  if (same(b, o)) return [a, a];
   if (same(a, o)) return [b, b];
   if (isObject(a) && isObject(b) && (o === undefined || o === null || isObject(o))) {
     const base = (o ?? {}) as Record<string, unknown>;

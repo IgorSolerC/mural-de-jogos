@@ -43,6 +43,8 @@ const GROUPS: readonly { keys: readonly string[]; part: FichaPart }[] = [
   { keys: ['noteRank'], part: 'lugar' },
 ];
 const GROUPED = new Set(GROUPS.flatMap((g) => g.keys));
+/** Os campos da aparência da ficha (o papel, a estampa, o rabisco…), para comparar duas versões. */
+export const LOOK_KEYS: readonly string[] = GROUPS.filter((g) => g.part === 'aparencia').flatMap((g) => g.keys);
 /** Os campos tratados à parte; o resto vai por `mergeJson`, campo a campo. */
 const SPECIAL = new Set(['id', 'kind', 'text', 'doneAt', 'createdAt', 'updatedAt', ...GROUPED]);
 

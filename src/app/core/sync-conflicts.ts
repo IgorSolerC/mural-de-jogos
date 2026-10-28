@@ -73,8 +73,9 @@ const PARTS = Object.keys(FICHA_PART_LABEL) as FichaPart[];
 
 /** Uma versão de um conflito, conferida pelo que ela é (`undefined`: não serve). */
 function sanitizeSide(alvo: string, raw: unknown, from: number): unknown {
-  if (raw === null) return null;
   const [tipo, id] = splitTarget(alvo);
+  // só a ficha tem o lado apagado: um quadro ou um ajuste sem versão não serve (escolher "apagado" zeraria o ajuste)
+  if (raw === null) return tipo === 'ficha' ? null : undefined;
   if (tipo === 'ficha') {
     const r = sanitizeReview(raw, from);
     return r && r.id === id ? r : undefined;

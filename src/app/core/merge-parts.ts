@@ -21,7 +21,7 @@ export function mergeFields<T extends object>(o: T | undefined, a: T, b: T, pref
   const y = b as Record<string, unknown>;
   const out: Record<string, unknown> = {};
   for (const key of new Set([...Object.keys(x), ...Object.keys(y)])) {
-    const v = same(x[key], y[key]) ? x[key] : same(base[key], x[key]) ? y[key] : same(base[key], y[key]) ? x[key] : preferA ? x[key] : y[key];
+    const v = same(x[key], y[key]) ? (x[key] === undefined ? y[key] : x[key]) : same(base[key], x[key]) ? y[key] : same(base[key], y[key]) ? x[key] : preferA ? x[key] : y[key];
     if (v !== undefined) out[key] = v;
   }
   return out as T;

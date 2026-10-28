@@ -14,7 +14,9 @@ import { sameContent, versionKey } from './kept-versions';
  * (a mais nova fica) então as escolhe sozinha, e todo o resto dela (as apagadas, a fila, a wishlist)
  * continua igual.
  *
- * O que só um lado mudou não passa por aqui: a junção de sempre já fica com ele.
+ * O que só um lado mudou não passa por aqui, a junção de sempre já fica com ele; menos quando ele é mais
+ * velho que a base (o relógio do aparelho que o mudou estava atrasado): aí volta mais novo, para a
+ * mudança não perder para a versão que ninguém mexeu.
  */
 
 /** Um conflito achado: `a` é a versão que estava na nuvem, `b` a deste aparelho (null: apagada). */
@@ -89,7 +91,17 @@ export function planFichas(input: FichaPlanInput): FichaPlan {
       }
       continue;
     }
-    if (sameContent(l, r) || known(id, l.updatedAt) || known(id, r.updatedAt)) continue;
+    if (sameContent(l, r)) continue;
+    const lBase = known(id, l.updatedAt);
+    const rBase = known(id, r.updatedAt);
+    if (lBase || rBase) {
+      // só um lado mudou desde a base: a junção de sempre fica com a mais nova, e a mudança feita num
+      // aparelho de relógio atrasado (mais velha que a da base) perderia para a base, que ninguém mexeu
+      const moved = lBase ? (rBase ? null : r) : l;
+      const still = moved === l ? r : l;
+      if (moved && !isNewer(moved, still)) plan.replace.push({ ...moved, updatedAt: stampAfter(now, l.updatedAt, r.updatedAt) });
+      continue;
+    }
     // os dois mudaram desde a base: junta a partir dela, se este aparelho a tem
     const o = input.base(id);
     if (!o || !known(id, o.updatedAt)) continue;
