@@ -105,20 +105,26 @@ export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void
 export async function resetOnBoot(): Promise<boolean> {
   let request: ResetRequest | null;
   let orphan: boolean;
+  let foreign: boolean;
   try {
     request = readRequest(localStorage.getItem(RESET_KEY));
+    const owner = localStorage.getItem(OWNER_KEY);
+    const account = readAccount();
     // sem a sessão ou sem a conta inteira (uma das duas não coube ao entrar, ou se estragou), ninguém
     // está neste navegador: o app abre como fora da conta, e o mural dela não pode ficar à mostra
-    orphan = localStorage.getItem(OWNER_KEY) !== null && (readToken() === null || readAccount() === null);
+    orphan = owner !== null && (readToken() === null || account === null);
+    // a sessão é de outra conta (entrou noutra aba, que fechou antes da primeira sincronização): o mural
+    // daqui não é dela e sai, ficando só a sessão, como ao entrar (ver `firstSync` em core/cloud-sync.ts)
+    foreign = !orphan && owner !== null && account?.id !== undefined && account.id !== owner;
   } catch {
     return false;
   }
-  if (!request && !orphan) return false;
+  if (!request && !orphan && !foreign) return false;
   // sem a sessão, não há conta para deixar
-  const keep = orphan ? (request?.keep ?? []).filter((k) => k !== 'sessao') : request!.keep;
+  const keep = orphan ? (request?.keep ?? []).filter((k) => k !== 'sessao') : (request?.keep ?? ['sessao']);
   await wipeBrowser(keep);
   try {
-    sessionStorage.setItem(DONE_KEY, request?.motivo ?? 'saiu');
+    sessionStorage.setItem(DONE_KEY, request?.motivo ?? (foreign ? 'entrou' : 'saiu'));
   } catch {
     /* fica sem o aviso */
   }

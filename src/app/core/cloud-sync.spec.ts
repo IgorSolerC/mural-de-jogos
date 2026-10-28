@@ -933,6 +933,28 @@ describe('sincronização com a nuvem', () => {
       expect(owned.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
       expect(anon.reset.requests).toEqual([]);
     });
+
+    it('a sessão que acabou antes de escolher o que fazer com o mural de ninguém: o nome da conta não fica nele', () => {
+      const anon = device({ auto: true, anonimo: true });
+      TestBed.tick();
+      // o entrar pôs o nome da conta no "Seu nome"
+      anon.settings.ownerName.set(ACCOUNT.nome);
+      TestBed.tick();
+      anon.account.forget();
+      TestBed.tick();
+      expect(anon.reset.requests).toEqual([]);
+      expect(anon.settings.ownerName()).toBe('');
+    });
+
+    it('um "Seu nome" diferente do da conta (escrito depois) fica no mural de ninguém', () => {
+      const anon = device({ auto: true, anonimo: true });
+      TestBed.tick();
+      anon.settings.ownerName.set('Outro nome');
+      TestBed.tick();
+      anon.account.forget();
+      TestBed.tick();
+      expect(anon.settings.ownerName()).toBe('Outro nome');
+    });
   });
 
   it('mural salvo por uma versão mais nova do site: para, sem juntar nem enviar', async () => {

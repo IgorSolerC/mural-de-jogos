@@ -426,6 +426,15 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect((await get(93)).status).toBe(401);
       });
 
+      it('sessão com a data de vencer estragada não entra (na dúvida, venceu)', async () => {
+        const { login, json, db } = await setup();
+        const { body } = await login();
+        await db.batch([{ sql: "UPDATE sessoes SET expira_em = 'nunca'" }]);
+        const res = await json('GET', '/v1/eu', undefined, body.token);
+        expect(res.status).toBe(401);
+        expect(((await res.json()) as any).erro).toBe('sessao-invalida');
+      });
+
       it('sair encerra só esta sessão; sair de todos encerra todas', async () => {
         const { login, json } = await setup();
         const a = (await login()).body.token;

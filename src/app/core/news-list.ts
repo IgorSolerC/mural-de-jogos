@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-kanban-chega-em-cima',
+    id: '2026-10-27-conta-ao-entrar',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
@@ -41,6 +41,7 @@ export const NEWS: NewsEntry[] = [
     ],
     correcoes: [
       'A roda do mouse em cima de uma fileira de orelhas rola a página, não a fileira, e o toque no pé de uma orelha de trás chega nela.',
+      'Ao entrar na conta, o Cofre, a parte Acessos dos Ajustes e o aviso da conta marcada para sair aparecem na hora, sem recarregar a página; e a resposta atrasada de um pedido de antes de entrar não tira mais da conta quem acabou de entrar.',
     ],
   },
   {

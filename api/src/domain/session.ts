@@ -60,7 +60,8 @@ export async function authenticate(deps: Deps, header: string | undefined): Prom
     [hash],
   );
   const now = deps.now();
-  if (!row || Date.parse(row.expira_em) <= now.getTime()) throw invalidSession();
+  // uma data que não se lê (NaN) não vale para sempre: só entra quem vence depois de agora
+  if (!row || !(Date.parse(row.expira_em) > now.getTime())) throw invalidSession();
   if (now.getTime() - Date.parse(row.usada_em) > DAY_MS && deps.config.mode === 'ligado') {
     try {
       await write(

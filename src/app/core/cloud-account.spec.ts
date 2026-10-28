@@ -128,6 +128,78 @@ describe('conta na nuvem', () => {
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();
   });
 
+  it('ao entrar, o resto da conta (o cofre, a marca de apagar) vem do /v1/eu sem precisar recarregar', async () => {
+    const account = setup();
+    const at = '2026-10-30T15:00:00.000Z';
+    const calls = fakeFetch(
+      json({ token: TOKEN, conta: { id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', nova: false } }),
+      json({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, apagarEm: at }),
+    );
+    await account.signIn('jwt');
+    for (let i = 0; i < 50 && !account.account()?.apagarEm; i++) await settle();
+    expect(calls[1].url).toBe(`${API}/v1/eu`);
+    expect(account.account()).toEqual({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true, apagarEm: at });
+  });
+
+  /** Um `fetch` que só responde quando o teste manda (`answer`), na ordem das chamadas. */
+  function heldFetch() {
+    const waiting: ((r: Response) => void)[] = [];
+    const calls: RequestInit[] = [];
+    spyOn(window, 'fetch').and.callFake((_url: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(init ?? {});
+      return new Promise<Response>((resolve) => waiting.push(resolve));
+    });
+    let next = 0;
+    /** Responde a chamada `at` (sem ele, a próxima na ordem). */
+    const answer = async (r: Response, at = next++) => {
+      for (let i = 0; i < 50 && waiting.length <= at; i++) await settle();
+      waiting[at]!(r);
+    };
+    return { calls, answer };
+  }
+
+  it('o 401 atrasado de um pedido feito antes de entrar não derruba a sessão que acabou de entrar', async () => {
+    const account = setup();
+    const net = heldFetch();
+    // um pedido sem sessão, que a nuvem vai recusar
+    const before = account.request('/v1/eu').catch((e: unknown) => e);
+    const signing = account.signIn('jwt');
+    await net.answer(json({ token: TOKEN, conta: { id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', nova: false } }), 1);
+    await signing;
+    await net.answer(json({ erro: 'sessao-invalida', mensagem: 'Sua sessão acabou.' }, 401), 0);
+    // na ordem trocada: a resposta do pedido de antes chega depois de entrar
+    expect(await before).toBeInstanceOf(CloudError);
+    expect(account.signedIn()).toBeTrue();
+    expect(localStorage.getItem(SESSION_KEY)).toBe(TOKEN);
+  });
+
+  it('o /v1/eu que chega depois de sair não põe a conta de volta no navegador', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor' }));
+    const net = heldFetch();
+    const account = setup();
+    await settle();
+    // a conferência de ao abrir está no ar quando a sessão sai daqui
+    account.forget();
+    await net.answer(json({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
+    for (let i = 0; i < 5; i++) await settle();
+    expect(account.account()).toBeNull();
+    expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull();
+  });
+
+  it('apagar com cofre marca a conta mesmo se a sessão daqui caiu no meio (não diz que apagou)', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
+    const net = heldFetch();
+    const account = setup();
+    await settle();
+    await net.answer(json({ id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor', cofre: true }));
+    const deleting = account.deleteAccount();
+    account.forget();
+    await net.answer(json({ ok: true, apagarEm: '2026-10-30T15:00:00.000Z' }, 202));
+    expect(await deleting).toBe('2026-10-30T15:00:00.000Z');
+  });
+
   it('sair sem internet tira a sessão daqui do mesmo jeito', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'K7QF-M2XA', nome: 'Igor' }));

@@ -2,7 +2,7 @@ import { DestroyRef, Injectable, InjectionToken, computed, effect, inject, signa
 import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
-import { CloudAccount, CloudError } from './cloud-account';
+import { CloudAccount, CloudAccountInfo, CloudError, cleanName } from './cloud-account';
 import { BrowserReset, OWNER_KEY } from './browser-reset';
 import { Review, isNote, isPrivate, sanitizeReview, shelfOf, storedNote } from './review';
 import { BUILD } from './build';
@@ -694,11 +694,13 @@ export class CloudSync {
     if (!inject(SYNC_AUTO)) return;
     // Saiu da conta por outro caminho (a sessão venceu, "Sair de todos" em outro aparelho, a conta
     // apagada): o mural dela não fica neste navegador (ver core/browser-reset.ts)
-    let wasIn = untracked(() => this.account.signedIn());
+    const inside = () => (this.account.signedIn() ? this.account.account() : null);
+    let was = untracked(inside);
     effect(() => {
-      const signedIn = this.account.signedIn();
-      if (wasIn && !signedIn) untracked(() => this.leftAccount());
-      wasIn = signedIn;
+      const now = inside();
+      const left = was;
+      if (left && !now) untracked(() => this.leftAccount(left));
+      was = now;
     });
     // Entrou (ou a nuvem ligou): sincroniza já. Saiu: para.
     effect(() => {
@@ -1669,10 +1671,12 @@ export class CloudSync {
   /**
    * A conta saiu deste navegador sem passar por `signOut` (a sessão venceu, "Sair de todos" em outro
    * aparelho, a conta apagada): o mural dela sai junto. O de ninguém (a pessoa ainda não tinha escolhido
-   * levá-lo para a conta) fica.
+   * levá-lo para a conta) fica, sem o nome da conta que o entrar pôs no "Seu nome": ele não é de
+   * ninguém, e iria para a próxima conta que entrasse.
    */
-  private leftAccount(): void {
+  private leftAccount(left: CloudAccountInfo): void {
     if (this.kv.getItem(OWNER_KEY) !== null) this.reset.request('saiu');
+    else if (cleanName(this.settings.ownerName()) === left.nome) this.settings.ownerName.set('');
   }
 
   private writeState(state: SyncState | null): void {

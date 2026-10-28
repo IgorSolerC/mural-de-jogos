@@ -92,6 +92,38 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();
   });
 
+  it('a sessão de outra conta por cima do mural desta (entrou noutra aba, que fechou antes de sincronizar): o mural sai, a sessão fica', async () => {
+    signedInBrowser();
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-outra', codigo: 'K7QF-M2XA', nome: 'Outra' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+    expect(localStorage.getItem(OWNER_KEY)).toBeNull();
+    expect(localStorage.getItem(SESSION_KEY)).not.toBeNull();
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).id).toBe('conta-outra');
+    expect(takeReset()).toBe('entrou');
+  });
+
+  it('a conta guardada sem o id (de antes dele) não é tomada por outra: não mexe em nada', async () => {
+    signedInBrowser();
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'TMY1-BJMW', nome: 'Ela' }));
+    expect(await resetOnBoot()).toBeFalse();
+    expect(localStorage.getItem('meu-mural:gastos:v1')).not.toBeNull();
+  });
+
+  it('ler a cópia de antes da nuvem depois da limpeza não traz o banco de volta', async () => {
+    await wipeBrowser();
+    expect(await readBeforeCloud()).toBeNull();
+    expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
+    // e com a página recarregando para limpar, nem abre
+    expect(await saveBeforeCloud(new Blob(['{}']))).toBeTrue();
+    freezeStorage();
+    try {
+      expect(await readBeforeCloud()).toBeNull();
+    } finally {
+      thawStorage();
+    }
+  });
+
   it('o que o mural guardou na sessão da aba sai junto; o de outro site fica', async () => {
     sessionStorage.setItem('meu-mural:coisa-da-aba', '1');
     sessionStorage.setItem('mural-de-jogos:coisa-antiga', '1');

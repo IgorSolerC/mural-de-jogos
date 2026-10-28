@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { MONTHS_LONG } from './dates';
 import { OWNER_NAME_MAX, Settings } from './settings';
-import { readJson, removeKey, writeJson, writeText } from './storage';
+import { readJson, readText, removeKey, writeJson, writeText } from './storage';
 
 /**
  * A conta na nuvem: entrar com o Google, sair e apagar. A sessão é um token da nossa API (não o do
@@ -101,12 +101,8 @@ export function readAccount(): CloudAccountInfo | null {
 
 /** A sessão guardada neste navegador, se tem o formato de uma (sem ela, ninguém está nele). */
 export function readToken(): string | null {
-  try {
-    const token = localStorage.getItem(SESSION_KEY);
-    return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
-  } catch {
-    return null;
-  }
+  const token = readText(SESSION_KEY);
+  return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -157,7 +153,9 @@ export class CloudAccount {
     }
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { erro?: string; mensagem?: string } | null;
-      if (res.status === 401 && data?.erro === 'sessao-invalida') this.forget();
+      // só a sessão que foi recusada sai: a resposta atrasada de um pedido feito antes de entrar (sem
+      // token) ou com a sessão de antes não derruba a que acabou de entrar
+      if (res.status === 401 && data?.erro === 'sessao-invalida' && token !== null && this.token() === token) this.forget();
       throw new CloudError(data?.mensagem ?? `A nuvem respondeu com um erro (${res.status}).`, data?.erro ?? 'erro', res.status, data);
     }
     return res;
@@ -179,11 +177,16 @@ export class CloudAccount {
     this.remember(res.token, { ...(res.conta.id ? { id: res.conta.id } : {}), codigo: res.conta.codigo, nome: res.conta.nome });
     // numa conta que já existia, o nome dela vale aqui também
     this.settings.ownerName.set(res.conta.nome);
+    // o resto da conta (o cofre, a API, a marca de apagar) vem do /v1/eu: sem isso, só ao recarregar
+    this.refresh().catch(() => undefined);
     return { nova: res.conta.nova };
   }
 
   async refresh(): Promise<void> {
+    const token = this.token();
     const me = await this.request<CloudAccountInfo>('/v1/eu');
+    // saiu (ou trocou de conta) enquanto a resposta vinha: a conta não volta para o navegador
+    if (!token || this.token() !== token) return;
     const before = this.account()?.nome;
     this.setAccount({
       ...(me.id ? { id: me.id } : {}),
@@ -247,9 +250,10 @@ export class CloudAccount {
    */
   async deleteAccount(): Promise<string | null> {
     const res = await this.request<{ apagarEm?: unknown } | null>('/v1/eu', { method: 'DELETE' });
-    const account = this.account();
-    if (typeof res?.apagarEm === 'string' && account) {
-      this.setAccount({ ...account, apagarEm: res.apagarEm });
+    if (typeof res?.apagarEm === 'string') {
+      // marcada para sair em 7 dias (não apagada): mesmo que a sessão daqui tenha caído no meio
+      const account = this.account();
+      if (account) this.setAccount({ ...account, apagarEm: res.apagarEm });
       return res.apagarEm;
     }
     this.forget();
