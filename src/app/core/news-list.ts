@@ -26,16 +26,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-google-agenda',
+    id: '2026-10-28-anotacoes-compartilhadas',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
-    title: 'O texto formatado, o spoiler na busca e o Google Agenda',
+    title: 'O texto formatado, o Google Agenda e as anotações compartilhadas',
     correcoes: [
       'Um texto longo cheio de marcas sem par (como "**" ou "((" repetidos), um "[[" sem fecho ou um widget sem o "}}" não trava mais a página; e milhares de marcas escapadas numa linha (como "\\*") aparecem como foram escritas, sem virar outros sinais.',
       'O marca-texto da busca não pinta mais o trecho escondido de um spoiler, que aparecia por baixo dele.',
       'O texto sem formatação vindo de fora com as quebras de linha antigas (só "\\r") mostra cada linha no seu lugar, como o formatado.',
       'No Google Agenda, o evento apagado lá enquanto o Murall não lia sai também daqui, a cor tirada lá vira a da agenda, um lembrete que não vira evento não segura mais os outros, e fechar a janela do Google antes do fim (ou ligar com duas abas abertas) não deixa mais o botão de ligar preso nem dá "venceu".',
+      'Numa anotação compartilhada, quem só escreve nela não a faz mais aparecer no seu mural público como sendo de outra pessoa, nem a põe de novo no Feed de quem segue; e o id de uma ficha à mostra no mural de outra pessoa (o de uma cópia) não é mais aceito ao compartilhar, o que tirava a ficha dela do lugar.',
     ],
   },
   {

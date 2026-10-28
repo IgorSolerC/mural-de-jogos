@@ -36,8 +36,12 @@ export const MAX_NOTE_CHARS = 450_000;
 /** O maior pedido aceito numa gravação: a anotação e, num conflito, a outra versão. */
 export const MAX_NOTE_BODY_CHARS = 2 * MAX_NOTE_CHARS + 4_096;
 
-/** O que é de cada pessoa e não vai na anotação guardada (ver o topo do arquivo). */
-const PERSONAL = ['category', 'subject', 'tags', 'noteRank'] as const;
+/**
+ * O que não vai na anotação guardada: o que é de cada pessoa (ver o topo do arquivo) e o `sharedBy`,
+ * que só o mural público de cada um põe (de quem é a anotação). Guardado, ele viraria um "de outra
+ * pessoa" falso no mural público do dono, mandado por qualquer um que escreve.
+ */
+const PERSONAL = ['category', 'subject', 'tags', 'noteRank', 'sharedBy'] as const;
 
 /**
  * A anotação que veio do site, pronta para guardar (JSON), sem o que é de cada pessoa (`PERSONAL`).
@@ -66,8 +70,9 @@ export function noteId(raw: unknown): string {
 }
 
 /**
- * O que é da estrutura na anotação guardada: quem vê. Um editor não muda isso. O grupo, o assunto e as
- * tags de uma anotação gravada antes deles serem de cada pessoa não contam.
+ * O que é da estrutura na anotação guardada: quem vê (privada, pública sem aviso, e desde quando ela
+ * está publicada, que a põe de novo no Feed de quem segue). Um editor não muda isso. O grupo, o assunto
+ * e as tags de uma anotação gravada antes deles serem de cada pessoa não contam.
  */
 export function structureOf(stored: string): string {
   let r: Record<string, unknown> = {};
@@ -80,7 +85,14 @@ export function structureOf(stored: string): string {
   return JSON.stringify({
     private: r['private'] === true,
     quiet: r['quiet'] === true,
+    publishedAt: isoOrNull(r['publishedAt']),
   });
+}
+
+/** A data como o site a guarda (ISO; a que não é data o site joga fora), para comparar do mesmo jeito. */
+function isoOrNull(v: unknown): string | null {
+  const t = typeof v === 'string' ? Date.parse(v) : NaN;
+  return Number.isNaN(t) ? null : new Date(t).toISOString();
 }
 
 /** O título da anotação guardada, para o aviso. */

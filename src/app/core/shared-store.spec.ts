@@ -76,9 +76,9 @@ class FakeNotes {
   /** A lista das anotações volta como uma página qualquer (um wi-fi de hotel), com 200. */
   brokenList = false;
 
-  /** A anotação como a API guarda: sem o que é de cada pessoa (ver `noteData` em api/src/domain/shared-note.ts). */
+  /** A anotação como a API guarda: sem o que é de cada pessoa nem o "de quem é" (ver `noteData` em api/src/domain/shared-note.ts). */
   private stored(d: Record<string, unknown>): Record<string, unknown> {
-    const { category, subject, tags, noteRank, ...rest } = d;
+    const { category, subject, tags, noteRank, sharedBy: _b, ...rest } = d;
     if (category !== undefined || subject !== undefined || tags !== undefined || noteRank !== undefined) this.leaks++;
     return rest;
   }
@@ -118,7 +118,7 @@ class FakeNotes {
   }
 
   private structure(d: Record<string, unknown>) {
-    return JSON.stringify({ p: !!d['private'], q: !!d['quiet'] });
+    return JSON.stringify({ p: !!d['private'], q: !!d['quiet'], w: d['publishedAt'] ?? null });
   }
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
@@ -753,6 +753,25 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
       expect(dela.fichas).toContain('nota-1');
       expect(delas.novas.map((n) => n.ref)).toContain('nota-1');
       expect(dela.novas.map((n) => n.ref)).not.toContain('nota-1');
+    });
+
+    it('um "de quem é" (sharedBy) dentro do conteúdo da nuvem não faz a da dona parecer de outra pessoa no mural público dela', async () => {
+      const { ana, bia } = await sharedNote('a', { private: undefined, publishedAt: undefined });
+      // uma gravação com o campo, guardada na nuvem antes de ela o tirar (ou por um site que o manda)
+      later();
+      const n = cloud.notes.get('nota-1')!;
+      n.dados = { ...n.dados, text: 'b', updatedAt: new Date().toISOString(), sharedBy: { codigo: USERS['cris'].codigo, nome: 'Cris' } };
+      n.rev++;
+      n.versao++;
+      // logo depois de chegar (antes de outra conferida reler o que ficou guardado)
+      for (const p of [ana, bia]) {
+        await p.shared.sync();
+        TestBed.tick();
+        expect(p.store.get('nota-1')!.sharedBy).toBeUndefined();
+        await p.mural.syncNow();
+      }
+      expect(cloud.murals.get(USERS['ana'].id)!.publico.notas[0]['sharedBy']).toBeUndefined();
+      expect(cloud.murals.get(USERS['bia'].id)!.publico.notas[0]['sharedBy']).toEqual({ codigo: USERS['ana'].codigo, nome: 'Ana' });
     });
 
     it('tornar privada pede um envio novo do mural, e ela sai do público', async () => {

@@ -105,6 +105,15 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     return p;
   }
 
+  const idInUse = () => new HttpError(409, 'nota-id-em-uso', 'Essa anotação não pode ser compartilhada assim. Faça uma cópia dela e tente de novo.');
+
+  /** Recusa pôr `p` em mais uma anotação se ela já está no máximo. */
+  async function roomFor(p: Person): Promise<void> {
+    if ((await countFor(p.id)) >= MAX_NOTES_PER_USER) {
+      throw new HttpError(429, 'notas-demais', `${p.nome} já está em ${MAX_NOTES_PER_USER} anotações compartilhadas, o máximo.`);
+    }
+  }
+
   const personOut = (p: Pick<Person, 'codigo' | 'nome' | 'foto'>) => {
     const foto = photoOut(p.foto);
     return { codigo: formatCode(p.codigo), nome: p.nome, ...(foto ? { foto } : {}) };
@@ -222,10 +231,17 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     if (existing) {
       // já compartilhada (o pedido de antes chegou e a resposta se perdeu): devolve como está
       if (existing.dono_id === s.userId) return c.json({ nota: await detail(existing, 'dono') }, 200);
-      throw new HttpError(409, 'nota-id-em-uso', 'Essa anotação não pode ser compartilhada assim. Faça uma cópia dela e tente de novo.');
+      throw idInUse();
     }
     if ((await countFor(s.userId)) >= MAX_NOTES_PER_USER) {
       throw new HttpError(429, 'notas-demais', `Você já tem ${MAX_NOTES_PER_USER} anotações compartilhadas, o máximo.`);
+    }
+    // O id é o de uma ficha à mostra no mural de outra pessoa: só pode ser cópia (o id nasce sorteado
+    // em cada mural). Compartilhada com a dona do id, a ficha dela ganharia um id novo (as duas não
+    // cabem no mesmo mural) e perderia os comentários, as reações e os links; e ninguém toma de
+    // antemão o id de uma ficha que ela ainda vai compartilhar.
+    if (await deps.db.first('SELECT 1 AS x FROM usuarios WHERE id <> ? AND fichas_publicas IS NOT NULL AND instr(fichas_publicas, ?) > 0 LIMIT 1', [s.userId, JSON.stringify(id)])) {
+      throw idInUse();
     }
     const wanted = Array.isArray(body['membros']) ? body['membros'].slice(0, MAX_MEMBERS + 1) : [];
     const people = new Map<string, { p: Person; role: Role }>();
@@ -237,6 +253,8 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       if (p.id !== s.userId) people.set(p.id, { p, role });
     }
     if (people.size > MAX_MEMBERS) throw new HttpError(400, 'gente-demais', `Uma anotação tem até ${MAX_MEMBERS} pessoas além de você.`);
+    // o limite de cada pessoa vale também para quem entra junto (como ao pôr alguém depois)
+    for (const { p } of people.values()) await roomFor(p);
     const now = deps.now();
     await shareBrake(s.userId, now, people.size);
     const at = now.toISOString();
@@ -340,18 +358,28 @@ export function noteRoutes(app: Hono, deps: Deps): void {
     if (!current) {
       const members = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM nota_membros WHERE nota_id = ?', [id]);
       if ((members?.n ?? 0) >= MAX_MEMBERS) throw new HttpError(400, 'gente-demais', `Uma anotação tem até ${MAX_MEMBERS} pessoas além do dono.`);
-      if ((await countFor(p.id)) >= MAX_NOTES_PER_USER) {
-        throw new HttpError(429, 'notas-demais', `${p.nome} já está em ${MAX_NOTES_PER_USER} anotações compartilhadas, o máximo.`);
-      }
+      await roomFor(p);
       await shareBrake(s.userId, now, 1);
     }
     const at = now.toISOString();
-    await write(
-      deps,
-      [...memberStatements(n, p, role, s.userId, !current, at, now), { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] }],
-      current ? 3 : 12,
-    );
-    return c.json({ nota: await detail((await note(id))!, access) }, current ? 200 : 201);
+    try {
+      await write(
+        deps,
+        [...memberStatements(n, p, role, s.userId, !current, at, now), { sql: 'UPDATE notas SET versao = versao + 1 WHERE id = ?', params: [id] }],
+        current ? 3 : 12,
+      );
+    } catch (error) {
+      // dois pedidos para pôr a mesma pessoa ao mesmo tempo: o outro já a pôs (a chave da tabela
+      // recusou este); devolve a anotação como ficou, em vez de um erro
+      if (error instanceof HttpError || current) throw error;
+      const now2 = await note(id);
+      const joined = now2 ? await deps.db.first('SELECT 1 AS x FROM nota_membros WHERE nota_id = ? AND usuario_id = ?', [id, p.id]) : null;
+      if (!now2 || !joined) throw error;
+      return c.json({ nota: await detail(now2, access) }, 200);
+    }
+    const saved = await note(id);
+    if (!saved) throw notFound();
+    return c.json({ nota: await detail(saved, access) }, current ? 200 : 201);
   });
 
   // Tirar alguém (o dono e os gestores), ou sair (`eu`, qualquer um menos o dono).
@@ -365,6 +393,11 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       throw new HttpError(400, 'e-o-dono', target === s.userId ? 'Você é o dono: para tirar a anotação de todos, apague-a.' : 'Ninguém tira o dono da anotação.');
     }
     if (target !== s.userId && !canManage(access)) throw new HttpError(403, 'so-gestor', 'Só o dono e os gestores tiram alguém desta anotação.');
+    // quem já não está (tirado por outro gestor, o mesmo pedido de novo): nada a gravar, e a versão de
+    // todos não sobe à toa (cada um baixaria a anotação inteira de novo)
+    if (target !== s.userId && !(await deps.db.first('SELECT 1 AS x FROM nota_membros WHERE nota_id = ? AND usuario_id = ?', [id, target]))) {
+      return c.json({ nota: await detail(n, access) });
+    }
     await write(
       deps,
       [
@@ -375,7 +408,9 @@ export function noteRoutes(app: Hono, deps: Deps): void {
       8,
     );
     if (target === s.userId) return c.json({ ok: true });
-    return c.json({ nota: await detail((await note(id))!, access) });
+    const saved = await note(id);
+    if (!saved) throw notFound();
+    return c.json({ nota: await detail(saved, access) });
   });
 
   // Apagar para todos: só o dono.

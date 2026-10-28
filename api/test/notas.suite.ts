@@ -3,9 +3,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { googleVerifier } from '../src/domain/google';
-import { MAX_MEMBERS, MAX_NOTE_CHARS, structureOf } from '../src/domain/shared-note';
+import { MAX_MEMBERS, MAX_NOTES_PER_USER, MAX_NOTE_CHARS, structureOf } from '../src/domain/shared-note';
 import { MAX_SHARES_PER_DAY, MIN_EDIT_MS } from '../src/routes/notes';
-import { Config, Db, Deps } from '../src/ports';
+import { Config, Db, Deps, SqlValue } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
 
 /**
@@ -37,13 +37,14 @@ export function notasSuite(label: string, getDb: () => Db) {
     jwk = { ...(await exportJWK(pair.publicKey)), kid: 'notas', alg: 'RS256' };
   });
 
-  async function setup() {
+  /** `wrap`: o banco que a API usa, por cima do de verdade (para encaixar uma corrida no meio de um pedido). */
+  async function setup(wrap: (db: Db) => Db = (db) => db) {
     const db = getDb();
     await db.batch(TABLES.map((t) => ({ sql: `DELETE FROM ${t}` })));
     const config: Config = readConfig(ENV);
     const clock = { t: NOW.getTime() };
     const deps: Deps = {
-      db,
+      db: wrap(db),
       config,
       now: () => new Date(clock.t),
       verifyGoogle: googleVerifier(config.googleClientId, createLocalJWKSet({ keys: [jwk] })),
@@ -84,8 +85,8 @@ export function notasSuite(label: string, getDb: () => Db) {
   }
 
   /** Ana (dona), Bia e Cris. */
-  async function three() {
-    const t = await setup();
+  async function three(wrap?: (db: Db) => Db) {
+    const t = await setup(wrap);
     const ana = await t.login('ana', 'Ana');
     const bia = await t.login('bia', 'Bia');
     const cris = await t.login('cris', 'Cris');
@@ -189,6 +190,33 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect(more.body.erro).toBe('gente-demais');
       });
 
+      it(`quem entra junto ao compartilhar também tem o limite de ${MAX_NOTES_PER_USER} anotações`, async () => {
+        const { db, share, index, ana, bia } = await three();
+        await db.batch(
+          Array.from({ length: MAX_NOTES_PER_USER }, (_, i) => ({
+            sql: 'INSERT INTO notas (id, dono_id, rev, versao, dados, criado_em, atualizado_em, atualizado_por) VALUES (?, ?, 1, 1, ?, ?, ?, ?)',
+            params: [`cheia-${i}`, bia.id, JSON.stringify(nota(`cheia-${i}`)), NOW.toISOString(), NOW.toISOString(), bia.id],
+          })),
+        );
+        const r = await share(ana.token, 'nota-1', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        expect(r.status).toBe(429);
+        expect(r.body.erro).toBe('notas-demais');
+        expect(await index(ana.token)).toEqual([]);
+      });
+
+      it('o id de uma ficha à mostra no mural de outra pessoa não serve (a ficha dela ganharia um id novo)', async () => {
+        const { db, share, ana, bia } = await three();
+        await db.batch([
+          { sql: 'UPDATE usuarios SET fichas_publicas = ? WHERE id = ?', params: [JSON.stringify(['outra', 'ficha-da-bia']), bia.id] },
+          { sql: 'UPDATE usuarios SET fichas_publicas = ? WHERE id = ?', params: [JSON.stringify(['ficha-da-ana']), ana.id] },
+        ]);
+        const r = await share(ana.token, 'ficha-da-bia', [{ codigo: bia.codigo, papel: 'leitor' }]);
+        expect(r.status).toBe(409);
+        expect(r.body.erro).toBe('nota-id-em-uso');
+        expect((await share(ana.token, 'ficha-da')).status).toBe(201); // só o id inteiro conta
+        expect((await share(ana.token, 'ficha-da-ana')).status).toBe(201); // a ficha à mostra é da própria Ana
+      });
+
       it(`o freio do dia: até ${MAX_SHARES_PER_DAY} pessoas novas`, async () => {
         const { db, setRole, share, ana, bia } = await three();
         await db.batch(
@@ -250,6 +278,26 @@ export function notasSuite(label: string, getDb: () => Db) {
         expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { text: 'x' }) })).status).toBe(200);
       });
 
+      it('o editor não muda desde quando a anotação está publicada (o Feed de quem segue); o gestor muda', async () => {
+        const { put, setRole, ana, bia } = await shared();
+        const bump = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { publishedAt: '2026-10-20T10:00:00.000Z' }) });
+        expect(bump.status).toBe(403);
+        expect(bump.body.erro).toBe('so-gestor');
+        await setRole(ana.token, 'nota-1', bia.codigo, 'gestor');
+        expect((await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { publishedAt: '2026-10-20T10:00:00.000Z' }) })).status).toBe(200);
+        await setRole(ana.token, 'nota-1', bia.codigo, 'editor');
+        // a mesma data escrita de outro jeito é a mesma (o site guarda em ISO)
+        expect((await put(bia.token, 'nota-1', { base: 2, dados: nota('nota-1', { publishedAt: '2026-10-20T10:00:00Z', text: 'x' }) })).status).toBe(200);
+      });
+
+      it('"de quem é" (sharedBy) não fica guardado: ninguém faz a anotação parecer de outra pessoa', async () => {
+        const { put, details, ana, bia, cris } = await shared();
+        const r = await put(bia.token, 'nota-1', { base: 1, dados: nota('nota-1', { sharedBy: { codigo: cris.codigo, nome: 'Cris' }, text: 'x' }) });
+        expect(r.status).toBe(200);
+        expect(r.body.nota.dados.sharedBy).toBeUndefined();
+        expect((await details(ana.token, ['nota-1']))[0].dados.sharedBy).toBeUndefined();
+      });
+
       it('o grupo, o assunto e as tags são de cada pessoa: nunca ficam guardados, e o editor manda qualquer um', async () => {
         const { put, details, ana, bia } = await shared();
         expect((await put(ana.token, 'nota-1', { base: 1, dados: nota('nota-1', { category: 'Casa', subject: 'Feira', tags: ['a'], noteRank: 'fixada' }) })).status).toBe(200);
@@ -264,7 +312,7 @@ export function notasSuite(label: string, getDb: () => Db) {
       });
 
       it('a estrutura é só quem vê: o grupo, o assunto e as tags de uma anotação de antes não contam', () => {
-        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira', tags: ['b', 'a'] }))).toBe(JSON.stringify({ private: false, quiet: false }));
+        expect(structureOf(JSON.stringify({ category: 'Casa', subject: 'Feira', tags: ['b', 'a'] }))).toBe(JSON.stringify({ private: false, quiet: false, publishedAt: null }));
         expect(structureOf(JSON.stringify({ private: true }))).not.toBe(structureOf(JSON.stringify({})));
       });
 
@@ -304,6 +352,44 @@ export function notasSuite(label: string, getDb: () => Db) {
         const before = (await index(cris.token))[0]!.versao;
         await setRole(ana.token, 'nota-1', bia.codigo, 'leitor');
         expect((await index(cris.token))[0]?.versao).toBe(before + 1);
+      });
+
+      it('tirar quem já não está não grava nada nem sobe a versão de todos', async () => {
+        const { drop, index, login, ana, cris } = await shared();
+        const davi = await login('davi', 'Davi');
+        const before = (await index(cris.token))[0]!.versao;
+        const r = await drop(ana.token, 'nota-1', davi.codigo);
+        expect(r.status).toBe(200);
+        expect(r.body.nota.versao).toBe(before);
+        expect((await index(cris.token))[0]?.versao).toBe(before);
+        // tirar duas vezes a mesma pessoa (o pedido repetido): a segunda não muda nada
+        await drop(ana.token, 'nota-1', cris.codigo);
+        const after = (await index(ana.token))[0]!.versao;
+        expect((await drop(ana.token, 'nota-1', cris.codigo)).body.nota.versao).toBe(after);
+      });
+
+      it('dois pedidos para pôr a mesma pessoa ao mesmo tempo: o segundo devolve a anotação, sem erro', async () => {
+        const race = { on: false, run: async (): Promise<unknown> => undefined };
+        const t = await three((db) => ({
+          first: async <T>(sql: string, params?: SqlValue[]) => {
+            if (race.on && sql.startsWith('SELECT papel FROM nota_membros')) {
+              race.on = false;
+              const out = await db.first<T>(sql, params);
+              await race.run(); // o outro pedido entra entre a leitura e a gravação deste
+              return out;
+            }
+            return db.first<T>(sql, params);
+          },
+          all: (sql, params) => db.all(sql, params),
+          batch: (st) => db.batch(st),
+        }));
+        await t.share(t.ana.token, 'nota-1');
+        race.run = () => t.setRole(t.ana.token, 'nota-1', t.bia.codigo, 'editor');
+        race.on = true;
+        const r = await t.setRole(t.ana.token, 'nota-1', t.bia.codigo, 'editor');
+        expect(r.status).toBe(200);
+        expect(r.body.nota.membros.map((m: any) => [m.nome, m.papel])).toEqual([['Bia', 'editor']]);
+        expect(await t.index(t.bia.token)).toEqual([{ id: 'nota-1', versao: 2, papel: 'editor' }]);
       });
 
       it('sair e ser posto de novo avisa de novo', async () => {

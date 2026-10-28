@@ -161,11 +161,16 @@ export function samePersonal(a: Personal, b: Personal): boolean {
   return canonicalJson(pick(a as Obj, PERSONAL_KEYS)) === canonicalJson(pick(b as Obj, PERSONAL_KEYS));
 }
 
-/** O conteúdo de uma anotação que veio da nuvem (só uma anotação com o id certo serve). */
+/**
+ * O conteúdo de uma anotação que veio da nuvem (só uma anotação com o id certo serve). Sem o
+ * `sharedBy`: de quem ela é quem diz é a nuvem (o dono), nunca o conteúdo, que qualquer um que escreve
+ * manda; vindo nele, a anotação iria para o mural público do dono como sendo de outra pessoa.
+ */
 export function noteFrom(raw: unknown, id: string): Review | null {
   const r = sanitizeReview(raw);
   if (!r || r.id !== id || !isNote(r)) return null;
-  return withPersonal(r, {});
+  const { sharedBy: _b, ...content } = r;
+  return withPersonal(content as Review, {});
 }
 
 /** As duas anotações dizem a mesma coisa (sem contar quando foram mexidas nem o lugar no mural)? */

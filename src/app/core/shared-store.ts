@@ -605,7 +605,10 @@ export class SharedStore implements SharedSink {
       if (err.status === 403) {
         // não pode mais escrever (virou leitor) ou mudou o que não podia: a edição fica guardada
         this.store.keepVersions([withPersonal(sent, e.pessoal)], 'compartilhada');
-        this.put({ ...this.entries().get(e.id)!, local: null, outra: null, resolver: false });
+        // (saiu dela enquanto o pedido ia: não há mais o que limpar nem baixar)
+        const now = this.entries().get(e.id);
+        if (!now) return true;
+        this.put({ ...now, local: null, outra: null, resolver: false });
         await this.refetch(e.id);
         return true;
       }
@@ -836,7 +839,7 @@ function withStructureOf(r: Review, from: Review): Review {
 }
 
 /** A estrutura da anotação como a nuvem confere (ver `structureOf` em api/src/domain/shared-note.ts). */
-const structureKey = (r: Review) => JSON.stringify([!!r.private, !!r.quiet]);
+const structureKey = (r: Review) => JSON.stringify([!!r.private, !!r.quiet, r.publishedAt ?? null]);
 const sameView = (a: Review, b: Review) => a.updatedAt === b.updatedAt && sameShared(a, b) && samePersonal(personalOf(a), personalOf(b));
 const conflictKey = (e: SharedEntry) => `${e.id}@${e.conflito?.em ?? ''}`;
 
