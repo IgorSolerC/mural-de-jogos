@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { canUseVault } from '../config';
-import { LIMITS, accountKey, assertUnderLimit, brakeStatement, ipKey } from '../domain/brake';
+import { LIMITS, accountKey, ipKey, reserve } from '../domain/brake';
 import { eventStatement } from '../domain/events';
 import { readLoginBody } from '../domain/google';
 import { write } from '../domain/quota';
@@ -17,9 +17,7 @@ export function entryRoutes(app: Hono, deps: Deps): void {
     const now = deps.now();
 
     // o freio por IP vem antes de falar com o Google, e conta mesmo quando o login dá errado
-    const ip = await ipKey(deps, clientIp(c));
-    await assertUnderLimit(deps, ip, 'entrar', LIMITS.entrar.ip!);
-    await write(deps, [brakeStatement(ip, 'entrar', now)], 2, { session: true });
+    await reserve(deps, await ipKey(deps, clientIp(c)), 'entrar', LIMITS.entrar.ip!, { session: true });
 
     const sub = await deps.googleLogin(code, verifier);
     const account = await deps.mural.accountByGoogle(sub);
@@ -29,12 +27,12 @@ export function entryRoutes(app: Hono, deps: Deps): void {
     if (!canUseVault(deps.config, account.code)) {
       throw new HttpError(403, 'cofre-fechado', 'O cofre de senhas ainda não está aberto para a sua conta.');
     }
-    await assertUnderLimit(deps, accountKey(account.id), 'entrar', LIMITS.entrar.account);
+    await reserve(deps, accountKey(account.id), 'entrar', LIMITS.entrar.account, { session: true });
 
     const token = newToken();
     // 5 minutos para abrir; 20 para criar, quando ainda não há cofre (ENTRY_CREATE_MS)
     const ttl = (await deps.db.first('SELECT 1 FROM cofre_contas WHERE usuario_id = ?', [account.id])) ? ENTRY_MS : ENTRY_CREATE_MS;
-    await write(deps, [brakeStatement(accountKey(account.id), 'entrar', now), ...entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now, ttl)], 7, { session: true });
+    await write(deps, entrySessionStatements(await hashToken(token), account.id, account.code, deviceOf(body), now, ttl), 5, { session: true });
     // a página precisa do id da conta: ele entra no AAD de tudo o que ela sela (6.1); e o código, para mostrar
     return c.json({ token, expiraEm: new Date(now.getTime() + ttl).toISOString(), usuario: account.id, codigo: account.code });
   });

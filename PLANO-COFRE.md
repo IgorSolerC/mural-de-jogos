@@ -930,7 +930,12 @@ Detalhes da parte 4:
 - `POST /api/cofre/abrir` (`kAuth`): **só logo depois de uma passkey ou do código**, e a marca é
   gasta de forma atômica **antes** de conferir a senha: cada palpite custa um toque no aparelho
   (ameaça 15), e duas tentativas ao mesmo tempo não aproveitam o mesmo toque. Freio: 5 erros seguidos,
-  espera de 1 minuto que dobra a cada sequência (no máximo 1 dia); 20 erros por dia. Comparação em
+  espera de 1 minuto que dobra a cada sequência (no máximo 1 dia); 20 erros por dia. A tentativa conta
+  como erro antes de a senha ser conferida, na mesma gravação que gasta a marca e com a condição do
+  freio no banco (sem espera, menos de 20 erros nas 24 horas); acertar desfaz (28/10: conferir antes e
+  anotar depois deixava várias tentativas ao mesmo tempo, uma por sessão de entrada com a sua passkey,
+  lerem o mesmo "0 erros" e passarem da espera e do limite do dia). Os outros freios (entrar, desafios,
+  código) também contam e anotam numa gravação só, com a conta lida antes para recusar sem gravar. Comparação em
   tempo constante. Com a pimenta trocada, a prova passa para a versão nova na abertura certa (16.2).
   Devolve a sessão do cofre (10 minutos parada, renovada de minuto em minuto pelo uso; 8 horas no
   máximo), V, o manifesto e o contador; a sessão de entrada some.
@@ -1705,6 +1710,11 @@ cuja proteção (8.6) não tinha sido feita.
   antigo, a pergunta ao cofre falha e apagar a conta responde 503 até o cofre ser publicado.
 - Fica de fora: o aviso dentro do próprio cofre (para quem abre o cofre sem passar pelo Murall nesses 7
   dias).
+- **Sem cofre, o que sobrou lá sai depois** (28/10): a conta sem cofre sai na hora, e depois o Murall
+  chama `apagarCofre` assim mesmo. Antes, a sessão de entrada de quem estava criando um cofre (20
+  minutos) continuava valendo e criava um cofre preso a uma conta que não existe mais, para sempre no
+  banco (e um cofre criado entre a pergunta e o apagar ficava igual). Com a conta já fora, ninguém
+  entra de novo com ela; se o cofre não responder, a conta já saiu e fica só a linha no log.
 
 
 ### 17.20 As senhas em quadro, como o Kanban (23/10)

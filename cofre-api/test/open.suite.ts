@@ -164,6 +164,49 @@ export function openSuite(label: string, setup: Setup) {
       expect(await (await post('/api/cofre/abrir', { kAuth: SENHA }, await marcar(t))).json()).toMatchObject({ erro: 'senha-limite-dia' });
     });
 
+    it('várias tentativas ao mesmo tempo (cada uma com a sua passkey) não passam do freio: 5 erros, e a espera', async () => {
+      const { entrar, post, marcar, db } = await cofre();
+      const tokens: string[] = [];
+      for (let i = 0; i < 8; i++) tokens.push(await entrar());
+      await marcar(tokens[0]!);
+      const respostas = await Promise.all(tokens.map(async (t) => (await post('/api/cofre/abrir', { kAuth: b(32, 99) }, t)).json() as Promise<{ erro: string }>));
+      const erros = respostas.map((r) => r.erro).sort();
+      expect(erros).toEqual([...Array(5).fill('senha-errada'), ...Array(3).fill('senha-espera')]);
+      expect(await db.first('SELECT erros_seguidos, sequencias, espera_ate FROM cofre_freio_senha')).toEqual({ erros_seguidos: 0, sequencias: 1, espera_ate: '2026-10-21T15:01:00.000Z' });
+      expect(await db.first("SELECT COUNT(*) AS n FROM freios WHERE acao = 'erro-senha'")).toEqual({ n: 5 });
+      // a espera aparece também na resposta do erro que fechou a sequência
+      expect(respostas.some((r) => (r as { mensagem?: string }).mensagem?.includes('2026-10-21T15:01:00.000Z'))).toBe(true);
+    });
+
+    it('o limite do dia vale com tentativas ao mesmo tempo: no máximo 20 erros', async () => {
+      const { entrar, post, marcar, db, deps } = await cofre();
+      const antes = new Date(deps.now().getTime() - 60_000).toISOString();
+      await db.batch(Array.from({ length: 18 }, () => ({ sql: "INSERT INTO freios (chave, acao, criado_em) VALUES (?, 'erro-senha', ?)", params: [`conta:${DONO.id}`, antes] })));
+      const tokens: string[] = [];
+      for (let i = 0; i < 4; i++) tokens.push(await entrar());
+      await marcar(tokens[0]!);
+      const erros = (await Promise.all(tokens.map(async (t) => ((await (await post('/api/cofre/abrir', { kAuth: b(32, 99) }, t)).json()) as { erro: string }).erro))).sort();
+      expect(erros).toEqual(['senha-errada', 'senha-errada', 'senha-limite-dia', 'senha-limite-dia']);
+      expect(await db.first("SELECT COUNT(*) AS n FROM freios WHERE acao = 'erro-senha'")).toEqual({ n: 20 });
+    });
+
+    it('a tentativa conta como erro antes de conferir, e acertar desfaz: o erro do dia não fica', async () => {
+      const { entrar, post, marcar, db } = await cofre();
+      const t = await entrar();
+      for (let i = 0; i < 3; i++) expect((await post('/api/cofre/abrir', { kAuth: b(32, 99) }, await marcar(t))).status).toBe(401);
+      expect((await post('/api/cofre/abrir', { kAuth: SENHA }, await marcar(t))).status).toBe(200);
+      expect(await db.first("SELECT COUNT(*) AS n FROM freios WHERE acao = 'erro-senha'")).toEqual({ n: 3 });
+      expect(await db.first('SELECT * FROM cofre_freio_senha')).toBeNull();
+    });
+
+    it('congelar funciona também no modo só leitura (é o freio de emergência)', async () => {
+      const { withEnv, entrar, post, db } = await cofre();
+      const leitura = withEnv({ MODO: 'so-leitura' });
+      const res = await post('/api/cofre/congelar', {}, await entrar(), leitura);
+      expect(res.status).toBe(200);
+      expect(await db.first('SELECT congelado_ate FROM cofre_contas')).toEqual({ congelado_ate: '2026-10-22T15:00:00.000Z' });
+    });
+
     it('a mesma assinatura duas vezes: recusada (o contador não subiu)', async () => {
       const { chave, entrar } = await cofre();
       const t = await entrar();

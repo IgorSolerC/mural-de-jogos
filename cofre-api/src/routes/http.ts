@@ -11,8 +11,7 @@ export const MAX_BODY_BYTES = 65_536;
 export async function readJson(c: Context, max = MAX_BODY_BYTES): Promise<Record<string, unknown>> {
   const length = Number(c.req.header('Content-Length') ?? 0);
   if (length > max) throw tooBig();
-  const body = await c.req.arrayBuffer();
-  if (body.byteLength > max) throw tooBig();
+  const body = await readCapped(c.req.raw.body, max);
   let data: unknown;
   try {
     data = JSON.parse(new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(body));
@@ -24,6 +23,34 @@ export async function readJson(c: Context, max = MAX_BODY_BYTES): Promise<Record
 }
 
 const tooBig = () => new HttpError(413, 'grande-demais', 'O pedido é grande demais.');
+
+/**
+ * O corpo aos pedaços, cortado logo que passa de `max` bytes. Sem `Content-Length` (o corpo em partes),
+ * ler tudo antes de medir deixava um corpo sem fim encher a memória do Worker.
+ */
+async function readCapped(stream: ReadableStream<Uint8Array> | null, max: number): Promise<Uint8Array> {
+  if (!stream) return new Uint8Array(0);
+  const reader = stream.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      throw tooBig();
+    }
+    parts.push(value);
+  }
+  const out = new Uint8Array(size);
+  let at = 0;
+  for (const part of parts) {
+    out.set(part, at);
+    at += part.byteLength;
+  }
+  return out;
+}
 
 /** O IP de quem chama, como a Cloudflare informa; fora dela (Node, testes), um valor fixo. */
 export function clientIp(c: Context): string {

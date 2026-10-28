@@ -1,8 +1,8 @@
 import { HttpError } from '../errors';
-import { Deps, Statement } from '../ports';
+import { Deps } from '../ports';
 import { currentPepper } from '../secrets';
 import { hex, hmac, utf8 } from './bytes';
-import { utcDay } from './quota';
+import { utcDay, write } from './quota';
 
 /**
  * Os freios (9.3 e 16.6): cada tentativa fica anotada na tabela `freios`, pela conta ou pelo IP, e
@@ -46,12 +46,31 @@ export async function countRecent(deps: Deps, key: string, action: BrakeAction):
 
 /** Recusa (429) se `key` já chegou ao limite. */
 export async function assertUnderLimit(deps: Deps, key: string, action: BrakeAction, limit: number): Promise<void> {
-  if ((await countRecent(deps, key, action)) >= limit) {
-    throw new HttpError(429, 'muitas-tentativas', 'Muitas tentativas seguidas. Espere um pouco e tente de novo.');
-  }
+  if ((await countRecent(deps, key, action)) >= limit) throw tooMany();
 }
 
-/** A anotação de mais uma vez (conta 2 linhas na cota: a linha e o índice). */
-export function brakeStatement(key: string, action: BrakeAction, now: Date): Statement {
-  return { sql: 'INSERT INTO freios (chave, acao, criado_em) VALUES (?, ?, ?)', params: [key, action, now.toISOString()] };
+/**
+ * Anota mais uma vez de `action` para `key`, só se ainda cabe no limite; senão, 429. Contar e anotar vão
+ * na mesma gravação, com a condição no banco: pedidos ao mesmo tempo não passam juntos do limite, como
+ * passariam contando antes e anotando depois (cada um contaria antes de o outro anotar). A conta lida
+ * antes fica, para recusar sem gravar nada quem já passou do limite (senão cada recusa gastaria a cota).
+ */
+export async function reserve(deps: Deps, key: string, action: BrakeAction, limit: number, options: { session?: boolean } = {}): Promise<void> {
+  await assertUnderLimit(deps, key, action, limit);
+  const now = deps.now();
+  const since = new Date(now.getTime() - LIMITS[action].windowMs).toISOString();
+  const [added] = await write(
+    deps,
+    [
+      {
+        sql: 'INSERT INTO freios (chave, acao, criado_em) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM freios WHERE chave = ? AND acao = ? AND criado_em > ?) < ?',
+        params: [key, action, now.toISOString(), key, action, since, limit],
+      },
+    ],
+    2,
+    options,
+  );
+  if (added?.changes !== 1) throw tooMany();
 }
+
+const tooMany = () => new HttpError(429, 'muitas-tentativas', 'Muitas tentativas seguidas. Espere um pouco e tente de novo.');

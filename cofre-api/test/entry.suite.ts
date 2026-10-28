@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { createApp } from '../src/app';
 import { hashToken } from '../src/domain/session';
-import { BASE_ENV, DONO, VERIFIER } from './harness';
+import type { Db } from '../src/ports';
+import { BASE_ENV, DONO, VERIFIER, jsonCaller } from './harness';
 import type { Setup } from './suite';
 
 /** O login com o Google (`POST /api/entrar`) e o `GET /api/cofre`. */
@@ -119,6 +121,17 @@ export function entrySuite(label: string, setup: Setup) {
       // passada a hora, volta a entrar
       advance(3_600_000);
       expect((await call('POST', '/api/entrar', entrar('codigo-sub-dono'), { ip: '203.0.113.5' })).status).toBe(200);
+    });
+
+    it('freio por IP com pedidos ao mesmo tempo: nunca passa de 30', async () => {
+      const { db, deps } = await setup();
+      // o banco que demora a responder as leituras: todos os pedidos contam antes de algum anotar
+      const devagar: Db = { ...db, first: async (sql, params) => (await new Promise((r) => setTimeout(r, 5)), db.first(sql, params)) };
+      const app = createApp({ ...deps, db: devagar });
+      const call = jsonCaller((path, init) => app.request(path, init));
+      const res = await Promise.all(Array.from({ length: 36 }, () => call('POST', '/api/entrar', entrar('codigo-ruim'), { ip: '203.0.113.9' })));
+      expect(res.filter((r) => r.status === 429).length).toBe(6);
+      expect(await db.first("SELECT COUNT(*) AS n FROM freios WHERE acao = 'entrar'")).toEqual({ n: 30 });
     });
 
     it('freio por conta: 30 entradas por hora, de qualquer IP', async () => {

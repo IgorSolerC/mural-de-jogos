@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { LIMITS, accountKey, assertUnderLimit, brakeStatement } from '../domain/brake';
+import { LIMITS, accountKey, reserve } from '../domain/brake';
 import { base64url, blob } from '../domain/bytes';
 import { newChallenge } from '../domain/challenge';
 import { eventStatement } from '../domain/events';
@@ -29,13 +29,13 @@ export function createRoutes(app: Hono, deps: Deps): void {
 
   app.post('/api/cofre/registro', async (c) => {
     const s = await authenticate(deps, c.req.header('Authorization'), ['entrada', 'cofre']);
-    await assertUnderLimit(deps, accountKey(s.userId), 'desafio', LIMITS.desafio.account);
+    await reserve(deps, accountKey(s.userId), 'desafio', LIMITS.desafio.account);
     const now = deps.now();
     const account = await deps.db.first<{ usuario_passkey: Uint8Array | ArrayBuffer | number[] }>('SELECT usuario_passkey FROM cofre_contas WHERE usuario_id = ?', [s.userId]);
     const handle = account ? blob(account.usuario_passkey) : await derivedUserHandle(deps, s.userId);
     const existing = await deps.db.all<{ id: string; transportes: string }>('SELECT id, transportes FROM cofre_credenciais WHERE usuario_id = ?', [s.userId]);
     const { id, challenge, statements } = newChallenge(s.userId, 'registro', now);
-    await write(deps, [brakeStatement(accountKey(s.userId), 'desafio', now), ...statements], 6);
+    await write(deps, statements, 4);
     const name = `Cofre do Murall (${s.code.slice(0, 4)}-${s.code.slice(4)})`;
     return c.json({
       desafio: id,

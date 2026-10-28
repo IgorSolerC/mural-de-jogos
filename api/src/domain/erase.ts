@@ -57,7 +57,7 @@ export async function cancelErase(deps: Deps, userId: string): Promise<void> {
   await write(deps, [{ sql: 'UPDATE usuarios SET apagar_em = NULL WHERE id = ? AND apagar_em IS NOT NULL', params: [userId] }], 3, { ignoreBudget: true });
 }
 
-/** Apaga a conta e tudo dela (o cofre antes, se ela tiver um). */
+/** Apaga a conta e tudo dela (o cofre antes, se ela tiver um; sem cofre, o que sobrar lá depois, `sweepVault`). */
 export async function eraseAccount(deps: Deps, id: string, vault = false): Promise<void> {
   if (vault) {
     try {
@@ -134,6 +134,22 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
     { ignoreBudget: true },
   );
   await dropGoneParents(deps, parents.map((p) => p.resposta_a));
+  if (!vault) await sweepVault(deps, id);
+}
+
+/**
+ * Sem cofre, a conta sai na hora, mas o cofre ainda pode ter algo do id dela: a sessão de entrada (até 20
+ * minutos, a de criar) com que a pessoa ainda criaria um cofre preso a uma conta que não existe mais, ou
+ * um cofre criado entre a pergunta e o apagar. Com a conta já fora (ninguém entra mais no cofre com ela),
+ * o cofre leva o que tiver dela. Se ele não responder, a conta já saiu: fica só a linha no log.
+ */
+async function sweepVault(deps: Deps, id: string): Promise<void> {
+  if (!deps.vault) return;
+  try {
+    await deps.vault.erase(id);
+  } catch (error) {
+    console.error(`apagar a conta: o cofre não levou o que sobrou dela (${error instanceof Error ? error.message : 'erro'})`);
+  }
 }
 
 /**

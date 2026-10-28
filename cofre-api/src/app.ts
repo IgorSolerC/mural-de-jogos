@@ -11,8 +11,20 @@ import { openRoutes } from './routes/open';
 /** A versão da API que o /api/status informa. */
 const API_VERSION = 1;
 
-/** As rotas que só mexem na sessão, e por isso valem também no "só leitura". */
-const SESSION_PATHS = new Set(['/api/entrar', '/api/cofre/desafio', '/api/cofre/chave', '/api/cofre/abrir', '/api/cofre/recuperar', '/api/cofre/trancar', '/api/cofre/trancar-todos']);
+/**
+ * As rotas que só mexem na sessão, e por isso valem também no "só leitura". Congelar entra junto: é o
+ * freio de emergência (tranca todas as sessões), e a rota já grava como sessão.
+ */
+const SESSION_PATHS = new Set([
+  '/api/entrar',
+  '/api/cofre/desafio',
+  '/api/cofre/chave',
+  '/api/cofre/abrir',
+  '/api/cofre/recuperar',
+  '/api/cofre/trancar',
+  '/api/cofre/trancar-todos',
+  '/api/cofre/congelar',
+]);
 
 /**
  * A API do cofre inteira, montada a partir das dependências prontas. Mora na mesma origem da página

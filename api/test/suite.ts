@@ -579,8 +579,8 @@ export function apiSuite(label: string, getDb: () => Db) {
           state.has.clear();
           expect(await (await api(1)('DELETE', '/v1/eu', undefined, mine.token)).json()).toEqual({ ok: true });
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
-          // sem cofre, ele nem é chamado para apagar
-          expect(state.erased).toEqual([]);
+          // sem cofre, ele é chamado só depois de a conta sair, para levar o que sobrou (as sessões de lá)
+          expect(state.erased).toEqual([mine.conta.id]);
         });
 
         it('"Não apagar" funciona mesmo com a cota do dia esgotada', async () => {
@@ -622,12 +622,32 @@ export function apiSuite(label: string, getDb: () => Db) {
 
         it('sem cofre, sai na hora, como antes', async () => {
           const { login, deps, db } = await setup();
-          const { token } = (await login()).body;
+          const { token, conta } = (await login()).body;
           const { state, vault } = fakeVault();
           const res = await jsonCaller((path, init) => createApp({ ...deps, vault }).request(`https://api.teste${path}`, init))('DELETE', '/v1/eu', undefined, token);
           expect(await res.json()).toEqual({ ok: true });
           expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
-          expect(state.erased).toEqual([]);
+          // depois de a conta sair, o cofre leva o que tiver do id dela (a sessão de entrada de quem estava
+          // criando um cofre, ou um cofre criado entre a pergunta e o apagar)
+          expect(state.erased).toEqual([conta.id]);
+        });
+
+        it('sem cofre, a conta sai na hora mesmo com o cofre fora do ar depois (o que sobrou lá fica no log)', async () => {
+          const { login, deps, db } = await setup();
+          const { token } = (await login()).body;
+          const { state, vault } = fakeVault();
+          let perguntou = false;
+          const has = vault.has;
+          vault.has = async (id: string) => {
+            perguntou = true;
+            const r = await has(id);
+            state.falha = true;
+            return r;
+          };
+          const res = await jsonCaller((path, init) => createApp({ ...deps, vault }).request(`https://api.teste${path}`, init))('DELETE', '/v1/eu', undefined, token);
+          expect(perguntou).toBe(true);
+          expect(await res.json()).toEqual({ ok: true });
+          expect(await db.all('SELECT * FROM usuarios')).toHaveLength(0);
         });
       });
 

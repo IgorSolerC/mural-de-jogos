@@ -1,9 +1,9 @@
 import { Context, Hono } from 'hono';
-import { LIMITS, accountKey, assertUnderLimit, brakeStatement } from '../domain/brake';
+import { LIMITS, accountKey, reserve } from '../domain/brake';
 import { Bytes, base64url, blob, fromBase64url, sameBytes } from '../domain/bytes';
 import { consumeChallenge, newChallenge } from '../domain/challenge';
 import { eventStatement } from '../domain/events';
-import { assertCanTry, errorStatements, resetStatement } from '../domain/password-brake';
+import { assertCanTry, attemptStatements, successStatements, waitAfterError } from '../domain/password-brake';
 import { openServerSecret, proofHash } from '../domain/proofs';
 import { write } from '../domain/quota';
 import {
@@ -15,7 +15,6 @@ import {
   hashToken,
   newToken,
   sessionOfToken,
-  spendFactorStatement,
   vaultSessionStatements,
 } from '../domain/session';
 import { AssertionInput, WebAuthnError, verifyAssertion } from '../domain/webauthn';
@@ -79,14 +78,14 @@ export function openRoutes(app: Hono, deps: Deps): void {
   app.post('/api/cofre/desafio', async (c) => {
     const s = await entry(c);
     const vault = await vaultOf(deps, s.userId);
-    await assertUnderLimit(deps, accountKey(s.userId), 'desafio', LIMITS.desafio.account);
+    await reserve(deps, accountKey(s.userId), 'desafio', LIMITS.desafio.account, { session: true });
     const now = deps.now();
     const devices = await deps.db.all<{ id: string; transportes: string; apelido: string; prf: number }>(
       'SELECT id, transportes, apelido, prf FROM cofre_credenciais WHERE usuario_id = ? ORDER BY criado_em',
       [s.userId],
     );
     const { id, challenge, statements } = newChallenge(s.userId, 'assinatura', now);
-    await write(deps, [brakeStatement(accountKey(s.userId), 'desafio', now), ...statements], 6, { session: true });
+    await write(deps, statements, 4, { session: true });
     return c.json({
       desafio: id,
       publicKey: {
@@ -184,7 +183,6 @@ export function openRoutes(app: Hono, deps: Deps): void {
     const s = await entry(c);
     const body = await readJson(c, 4096);
     await vaultOf(deps, s.userId);
-    await assertUnderLimit(deps, accountKey(s.userId), 'recuperar', LIMITS.recuperar.account);
     const kRec = proofField(body['kRec'], 'prova do código');
     const rec = await deps.db.first<{ id: string; envelope: Blob; rec_hash: Blob; rec_pimenta: number; usado_em: string | null }>(
       "SELECT id, envelope, rec_hash, rec_pimenta, usado_em FROM cofre_envelopes WHERE usuario_id = ? AND tipo = 'recuperacao'",
@@ -192,17 +190,12 @@ export function openRoutes(app: Hono, deps: Deps): void {
     );
     // uso único (8.4): o código que já abriu o cofre não abre de novo; um novo sai em Ajustes
     if (rec?.usado_em) throw new HttpError(410, 'codigo-ja-usado', 'Este código de recuperação já foi usado. Gere outro nos Ajustes do cofre.');
+    // a tentativa fica anotada antes de conferir, e conta mesmo quando dá errado
+    await reserve(deps, accountKey(s.userId), 'recuperar', LIMITS.recuperar.account, { session: true });
     const now = deps.now();
     const ok = rec !== null && sameBytes((await proofHash(deps, 'rec', kRec, rec.rec_pimenta)).hash, blob(rec.rec_hash));
-    const statements: Statement[] = [brakeStatement(accountKey(s.userId), 'recuperar', now)];
-    if (ok) {
-      statements.push(
-        factorStatement(s, 'recuperacao', now),
-        eventStatement(s.userId, 'codigo-usado', now, s.device, country(c)),
-      );
-    }
-    await write(deps, statements, ok ? 8 : 2, { session: true });
     if (!ok) throw new HttpError(401, 'codigo-errado', 'O código de recuperação não confere.');
+    await write(deps, [factorStatement(s, 'recuperacao', now), eventStatement(s.userId, 'codigo-usado', now, s.device, country(c))], 6, { session: true });
     return c.json({ envelope: { id: rec.id, dados: base64url(blob(rec.envelope)) } });
   });
 
@@ -214,22 +207,26 @@ export function openRoutes(app: Hono, deps: Deps): void {
     await assertCanTry(deps, s.userId);
     const kAuth = proofField(body['kAuth'], 'prova da senha');
     const now = deps.now();
-    // a marca da passkey é gasta antes de conferir: duas tentativas ao mesmo tempo com a mesma passkey,
-    // só uma apaga a marca e chega à senha
-    const [spent] = await write(deps, [spendFactorStatement(s, now)], 2, { session: true });
-    if (spent?.changes !== 1) throw needsFactor();
+    // a marca da passkey é gasta antes de conferir, e a tentativa já conta como erro no freio, tudo numa
+    // gravação com a condição no banco: duas tentativas ao mesmo tempo com a mesma passkey, só uma chega
+    // à senha; e várias ao mesmo tempo (cada uma com a sua) não passam juntas do freio
+    const [spent] = await write(deps, attemptStatements(s.hash, s.userId, now), 6, { session: true });
+    if (spent?.changes !== 1) {
+      await assertCanTry(deps, s.userId);
+      throw needsFactor();
+    }
     const ok = sameBytes((await proofHash(deps, 'auth', kAuth, vault.auth_pimenta)).hash, blob(vault.auth_hash));
 
     if (!ok) {
-      const { statements, waitUntil } = await errorStatements(deps, s.userId);
-      await write(deps, [...statements, eventStatement(s.userId, 'erro-senha', now, s.device, country(c))], 8, { session: true });
+      await write(deps, [eventStatement(s.userId, 'erro-senha', now, s.device, country(c))], 3, { session: true });
+      const waitUntil = await waitAfterError(deps, s.userId);
       throw new HttpError(401, 'senha-errada', waitUntil ? `A senha não confere. Muitos erros seguidos: tente de novo depois de ${waitUntil}.` : 'A senha não confere.');
     }
 
     const token = newToken();
     const recovered = s.factor === 'recuperacao';
     const statements: Statement[] = [
-      resetStatement(s.userId),
+      ...successStatements(s.userId, now.toISOString()),
       ...vaultSessionStatements(s, await hashToken(token), recovered, now),
       eventStatement(s.userId, recovered ? 'aberto-com-codigo' : 'aberto', now, s.device, country(c)),
     ];
@@ -241,7 +238,7 @@ export function openRoutes(app: Hono, deps: Deps): void {
       const fresh = await proofHash(deps, 'auth', kAuth);
       statements.push({ sql: 'UPDATE cofre_contas SET auth_hash = ?, auth_pimenta = ? WHERE usuario_id = ?', params: [fresh.hash, fresh.version, s.userId] });
     }
-    await write(deps, statements, 14, { session: true });
+    await write(deps, statements, 16, { session: true });
     return c.json({
       token,
       expiraEm: new Date(now.getTime() + VAULT_MAX_MS).toISOString(),

@@ -66,6 +66,23 @@ export function cofreSuite(label: string, getDb: () => Db, extras: ((label: stri
       expect(await res.json()).toEqual({ versao: 1, modo: 'ligado', dia: '2026-10-21', gravacoes: 0, linhasGravadas: 0, cotaLinhas: 1000, googleClientId: 'cofre.apps.googleusercontent.com' });
     });
 
+    it('corpo em partes, sem Content-Length: cortado logo que passa do limite (413), sem ler o resto', async () => {
+      const { deps } = await setup();
+      const app = createApp(deps);
+      let sent = 0;
+      const body = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (sent >= 8 * 1024 * 1024) return controller.close();
+          sent += 65_536;
+          controller.enqueue(new Uint8Array(65_536).fill(32));
+        },
+      });
+      const init = { method: 'POST', headers: { Origin: BASE_ENV.COFRE_ORIGEM, 'Content-Type': 'application/json' }, body, duplex: 'half' };
+      const res = await app.request('/api/entrar', init as RequestInit);
+      expect(res.status).toBe(413);
+      expect(sent).toBeLessThan(1024 * 1024);
+    });
+
     it('nada fica em cache, e o tipo não é adivinhado', async () => {
       const { call } = await setup();
       for (const res of [await call('GET', '/api/status'), await call('GET', '/api/nada')]) {

@@ -83,17 +83,6 @@ export function factorStatement(session: Session, factor: Factor, now: Date): St
   };
 }
 
-/**
- * Gasta a marca do segundo fator: cada tentativa de senha precisa de outra passkey (ameaça 15). Só muda
- * a linha se a marca ainda vale: quem chama confere que mudou exatamente uma.
- */
-export function spendFactorStatement(session: Session, now: Date): Statement {
-  return {
-    sql: 'UPDATE cofre_sessoes SET fator = NULL, fator_ate = NULL WHERE hash = ? AND fator IS NOT NULL AND fator_ate > ?',
-    params: [session.hash, now.toISOString()],
-  };
-}
-
 export const invalidSession = () => new HttpError(401, 'sessao-invalida', 'Sua sessão acabou. Entre de novo.');
 
 interface SessionRow {
