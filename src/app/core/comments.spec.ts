@@ -236,12 +236,18 @@ describe('comentários', () => {
     let items: ReturnType<typeof signal<FeedItem[]>>;
     let toasts: string[];
     let thread: unknown[];
+    /** Segura a resposta de um pedido (a do GET já pronta, com a conversa de quando foi pedido). */
+    let gate: ((path: string, method: string) => Promise<void> | undefined) | null;
+    /** A recusa que chega só depois de o pedido ser segurado. */
+    let lateFail: ((path: string, method: string) => CloudError | undefined) | null;
     const HADES = { code: ANA, ref: 'r-hades', titulo: 'Hades', mural: 'jogos' as const };
 
     function make(): Comments {
       TestBed.resetTestingModule();
       calls = [];
       fail = null;
+      gate = null;
+      lateFail = null;
       toasts = [];
       thread = [raw(1, 'Bia', 'Que final!'), raw(2, 'Caio', 'Concordo.', { reacoes: [{ codigo: 'BBBB-1111', nome: 'Bia', reacao: 'amei', em: at }] })];
       cloud = signal<{ api: string } | null>({ api: 'https://api.teste' });
@@ -260,11 +266,18 @@ describe('comentários', () => {
                 const method = init.method ?? 'GET';
                 calls.push({ path, method, body: init.body });
                 if (fail) throw fail;
-                if (method === 'POST') return { comentario: raw(9, 'Eu', String((init.body as { texto: string }).texto).trim()) };
-                if (path === '/v1/eu') return method === 'GET' ? { comentarios: 'seguidos' } : init.body;
-                if (path === `/v1/murais/${ANA}/comentarios`) return { contagem: { 'r-hades': 2, 'r-celeste': 7 }, quem: 'seguidores', pode: true };
-                if (path === `/v1/murais/${ANA}/comentarios/r-hades`) return { comentarios: thread, maisAntigos: false, quem: 'seguidores', pode: true };
-                return { contagem: {}, comentarios: [], quem: 'seguidores', pode: false };
+                const answer = (() => {
+                  if (method === 'POST') return { comentario: raw(9, 'Eu', String((init.body as { texto: string }).texto).trim()) };
+                  if (path === '/v1/eu') return method === 'GET' ? { comentarios: 'seguidos' } : init.body;
+                  if (path === `/v1/murais/${ANA}/comentarios`) return { contagem: { 'r-hades': 2, 'r-celeste': 7 }, quem: 'seguidores', pode: true };
+                  if (path === `/v1/murais/${ANA}/comentarios/r-hades`) return { comentarios: [...thread], maisAntigos: false, quem: 'seguidores', pode: true };
+                  return { contagem: {}, comentarios: [], quem: 'seguidores', pode: false };
+                })();
+                const held = gate?.(path, method);
+                if (held) await held;
+                const late = lateFail?.(path, method);
+                if (late) throw late;
+                return answer;
               },
             },
           },
@@ -426,6 +439,79 @@ describe('comentários', () => {
       const before = calls.length;
       await s.react(HADES, id(1), 'fogo');
       expect(calls.length).toBe(before);
+    });
+
+    describe('a busca que volta atrasada', () => {
+      const GET = `/v1/murais/${ANA}/comentarios/r-hades`;
+      const ids = (s: Comments) => s.thread(ANA, 'r-hades')!.comentarios.map((k) => k.id);
+      const gets = () => calls.filter((c) => c.path === GET && c.method === 'GET').length;
+      /** Segura os pedidos de `method` (em `path`, se vier) até `release`. */
+      function holding(method: string, path?: string) {
+        let release!: () => void;
+        const until = new Promise<void>((res) => (release = res));
+        gate = (p, m) => (m === method && (!path || p === path) ? until : undefined);
+        return () => release();
+      }
+
+      it('não tira da conversa o comentário que entrou enquanto ela vinha: busca de novo', async () => {
+        const s = make();
+        await s.loadThread(HADES);
+        const release = holding('GET');
+        const loading = s.loadThread(HADES, true);
+        gate = null;
+        await s.post(HADES, 'Novo');
+        thread = [...thread, raw(9, 'Eu', 'Novo')];
+        expect(ids(s)).toEqual([id(1), id(2), id(9)]);
+        release();
+        await loading;
+        expect(ids(s)).toEqual([id(1), id(2), id(9)]);
+        expect(gets()).toBe(3);
+      });
+
+      it('não traz de volta o comentário apagado enquanto ela vinha', async () => {
+        const s = make();
+        await s.loadThread(HADES);
+        const release = holding('GET');
+        const loading = s.loadThread(HADES, true);
+        gate = null;
+        await s.remove(HADES, id(1));
+        thread = thread.slice(1);
+        release();
+        await loading;
+        expect(ids(s)).toEqual([id(2)]);
+      });
+
+      it('a que volta com o apagar ainda indo fica de fora, e a conversa é buscada quando ele termina', async () => {
+        const s = make();
+        await s.loadThread(HADES);
+        const release = holding('DELETE');
+        const removing = s.remove(HADES, id(1));
+        await s.loadThread(HADES, true);
+        expect(ids(s)).toEqual([id(2)]);
+        thread = thread.slice(1);
+        const before = gets();
+        release();
+        expect(await removing).toBeTrue();
+        await s.loadThread(HADES);
+        expect(gets()).toBe(before + 1);
+        expect(ids(s)).toEqual([id(2)]);
+      });
+
+      it('a reação recusada não desfaz o comentário que entrou enquanto ela ia', async () => {
+        const s = make();
+        await s.loadThread(HADES);
+        const release = holding('PUT');
+        lateFail = (_, m) => (m === 'PUT' ? new CloudError('Você reagiu a muita coisa hoje. Tente de novo amanhã.', 'reagir-devagar', 429) : undefined);
+        const reacting = s.react(HADES, id(1), 'fogo');
+        await s.post(HADES, 'Novo');
+        thread = [...thread, raw(9, 'Eu', 'Novo')];
+        release();
+        await reacting;
+        await s.loadThread(HADES);
+        expect(ids(s)).toEqual([id(1), id(2), id(9)]);
+        expect(s.thread(ANA, 'r-hades')!.comentarios[0].reacoes).toEqual([]);
+        expect(toasts).toEqual(['Você reagiu a muita coisa hoje. Tente de novo amanhã.']);
+      });
     });
 
     it('os comentários nas minhas fichas chegam ao entrar, e de novo com um aviso no correio', async () => {

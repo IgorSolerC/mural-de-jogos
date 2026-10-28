@@ -1,5 +1,5 @@
 import { Context, Hono } from 'hono';
-import { brakeStatement, usedToday } from '../domain/brake';
+import { brakeRoom, brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { formatCode, normalizeCode } from '../domain/code';
 import { Photo, photoOut } from '../domain/photo';
@@ -89,23 +89,27 @@ export function reactionRoutes(app: Hono, deps: Deps): void {
     const mural = typeof body['mural'] === 'string' && MURAL_RE.test(body['mural']) ? body['mural'] : 'jogos';
     const resumo = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural, reacao: reaction });
     const at = now.toISOString();
-    await write(
+    // tudo só com vaga no freio, conferida no banco, no mesmo lote (ver brakeRoom): pedidos ao mesmo tempo
+    // não passam juntos do limite
+    const room = brakeRoom(s.userId, 'reagir', now, MAX_REACTIONS_PER_DAY);
+    const results = await write(
       deps,
       [
         {
-          sql: 'INSERT OR REPLACE INTO reacoes (dono_id, ref, autor_id, reacao, criado_em) VALUES (?, ?, ?, ?, ?)',
-          params: [who.id, ref, s.userId, reaction, at],
+          sql: `INSERT OR REPLACE INTO reacoes (dono_id, ref, autor_id, reacao, criado_em) SELECT ?, ?, ?, ?, ? WHERE ${room.sql}`,
+          params: [who.id, ref, s.userId, reaction, at, ...room.params],
         },
         // o aviso: o de antes sai e entra o novo, com a reação de agora
-        { sql: "DELETE FROM atividades WHERE tipo = 'reagiu' AND autor_id = ? AND alvo_id = ? AND ref = ?", params: [s.userId, who.id, ref] },
+        { sql: `DELETE FROM atividades WHERE tipo = 'reagiu' AND autor_id = ? AND alvo_id = ? AND ref = ? AND ${room.sql}`, params: [s.userId, who.id, ref, ...room.params] },
         {
-          sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('reagiu', ?, ?, ?, ?, ?)",
-          params: [s.userId, who.id, ref, resumo, at],
+          sql: `INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) SELECT 'reagiu', ?, ?, ?, ?, ? WHERE ${room.sql}`,
+          params: [s.userId, who.id, ref, resumo, at, ...room.params],
         },
-        brakeStatement(s.userId, 'reagir', now),
+        brakeStatement(s.userId, 'reagir', now, MAX_REACTIONS_PER_DAY),
       ],
       14,
     );
+    if (!results[0]?.changes) throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
     return c.json({ reacao: reaction }, before ? 200 : 201);
   });
 

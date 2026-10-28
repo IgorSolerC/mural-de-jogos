@@ -49,7 +49,11 @@ class FakeComments {
   focus: string | null = null;
   loads = 0;
   refuse: CloudError | null = null;
-  private draft = '';
+  /** O comentário fica indo para a nuvem até esta promessa resolver. */
+  hold: Promise<void> | null = null;
+  /** De que ficha saiu cada apagar. */
+  readonly removedFrom: string[] = [];
+  private readonly drafts = new Map<string, string>();
 
   thread = () => this.threads();
   hasFailed = () => this.failed();
@@ -60,17 +64,19 @@ class FakeComments {
     this.focus = null;
     return f;
   };
-  draftOf = () => this.draft;
-  setDraft = (_: unknown, text: string) => void (this.draft = text.trim() ? text : '');
+  draftOf = (t: Pick<CommentTarget, 'ref'> = HADES) => this.drafts.get(t.ref) ?? '';
+  setDraft = (t: Pick<CommentTarget, 'ref'>, text: string) => void (text.trim() ? this.drafts.set(t.ref, text) : this.drafts.delete(t.ref));
   loadCounts = async () => undefined;
   loadThread = async () => void this.loads++;
   mineOn = (k: Comment) => k.reacoes.find((r) => r.codigo === this.me())?.reacao ?? null;
   react = async (_: unknown, comment: string, reaction: string | null) => void this.reacted.push([comment, reaction]);
-  remove = async (_: unknown, comment: string) => {
+  remove = async (t: Pick<CommentTarget, 'ref'>, comment: string) => {
     this.removed.push(comment);
+    this.removedFrom.push(t.ref);
     return true;
   };
   post = async (_: unknown, text: string, replyTo?: string) => {
+    if (this.hold) await this.hold;
     if (this.refuse) throw this.refuse;
     this.posted.push(text);
     this.replies.push(replyTo);
@@ -311,6 +317,47 @@ describe('A folha de comentários (CommentsPanel)', () => {
     expect(el.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Você comentou bastante hoje. Tente de novo amanhã.');
     expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Posso?');
     expect(fake.posted).toEqual([]);
+  });
+
+  it('a folha passou para outra ficha enquanto o comentário ia: o rascunho de lá fica, e o que foi sai da outra', async () => {
+    const CELESTE: CommentTarget = { code: ANA, ref: 'r-celeste', titulo: 'Celeste', mural: 'jogos' };
+    const { fixture, el, host } = await open();
+    fake.setDraft(CELESTE, 'Rascunho da Celeste');
+    el.querySelector<HTMLButtonElement>('.abrir')!.click();
+    await settle(fixture);
+    const area = el.querySelector<HTMLTextAreaElement>('textarea')!;
+    area.value = 'Para o Hades';
+    area.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    let release!: () => void;
+    fake.hold = new Promise((res) => (release = res));
+    el.querySelector<HTMLButtonElement>('.acoes .tinta')!.click();
+    await settle(fixture);
+    host.target.set(CELESTE);
+    await settle(fixture);
+    expect(el.querySelector('.abrir')?.textContent?.trim()).toBe('Continuar o comentário…');
+    release();
+    await settle(fixture);
+    expect(fake.posted).toEqual(['Para o Hades']);
+    expect(fake.draftOf(CELESTE)).toBe('Rascunho da Celeste');
+    expect(fake.draftOf(HADES)).toBe('');
+    el.querySelector<HTMLButtonElement>('.abrir')!.click();
+    await settle(fixture);
+    expect(el.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('Rascunho da Celeste');
+  });
+
+  it('apagar vale para a ficha do comentário, mesmo se a folha mudar de ficha com a pergunta aberta', async () => {
+    const { fixture, el, host } = await open();
+    let reply!: (yes: boolean) => void;
+    TestBed.inject(Confirm).ask = () => new Promise<boolean>((res) => (reply = res));
+    el.querySelector<HTMLButtonElement>('.apagar')!.click();
+    await settle(fixture);
+    host.target.set({ code: ANA, ref: 'r-celeste', titulo: 'Celeste', mural: 'jogos' });
+    await settle(fixture);
+    reply(true);
+    await settle(fixture);
+    expect(fake.removed).toEqual([id(2)]);
+    expect(fake.removedFrom).toEqual(['r-hades']);
   });
 
   it('citar: o trecho entra como citação no fim do rascunho e o campo abre para responder', async () => {

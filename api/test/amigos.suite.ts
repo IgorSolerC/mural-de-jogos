@@ -7,7 +7,7 @@ import { cleanup } from '../src/domain/cleanup';
 import { FEED_DAYS, FEED_LIMIT, MAX_FOLLOWING, MAX_FOLLOWS_PER_DAY, UNDO_MS } from '../src/routes/follow';
 import { MAX_REACTIONS_PER_DAY } from '../src/routes/reactions';
 import { MAX_COMMENTS_LISTED, MAX_COMMENTS_PER_DAY } from '../src/routes/comments';
-import { Config, Db, Deps } from '../src/ports';
+import { Config, Db, Deps, SqlValue } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, gunzip, gzip, jsonCaller } from './harness';
 
 /**
@@ -898,7 +898,23 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const accept = (token: string, comentarios: unknown) => read(t.json('PATCH', '/v1/eu', { comentarios }, token));
         const notices = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'comentou');
         const answers = async (token: string) => (await t.feed(token)).body.itens.filter((i: any) => i.tipo === 'respondeu');
-        return { ...t, ana, bia, caio, comment, reply, thread, counts, erase, react, unreact, accept, notices, answers };
+        /**
+         * Pedidos ao mesmo tempo de verdade: cada leitura espera a vez dos outros (como na rede), para todos
+         * conferirem antes de algum gravar. Sem isso, um pedido aqui corre inteiro antes do próximo.
+         */
+        const together = async <T>(run: () => Promise<T>): Promise<T> => {
+          const first = t.db.first;
+          t.db.first = async <R>(sql: string, params?: SqlValue[]) => {
+            await new Promise((r) => setTimeout(r, 0));
+            return first.call(t.db, sql, params) as Promise<R | null>;
+          };
+          try {
+            return await run();
+          } finally {
+            t.db.first = first;
+          }
+        };
+        return { ...t, ana, bia, caio, comment, reply, thread, counts, erase, react, unreact, accept, notices, answers, together };
       }
 
       it('quem segue a dona comenta; todo mundo vê, do mais antigo para o mais novo, com o nome e a foto', async () => {
@@ -1229,6 +1245,69 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await erase(bia.token, last.body.comentario.id)).status).toBe(200);
         const res = await comment(bia.token, ana.codigo, 'r-hades', 'Mais um.');
         expect([res.status, res.body.erro]).toEqual([429, 'comentar-devagar']);
+      });
+
+      it('o freio dos comentários vale com pedidos ao mesmo tempo (conferido no banco, no mesmo lote)', async () => {
+        const { db, comment, thread, notices, together, ana, bia } = await commenting();
+        await db.batch(
+          Array.from({ length: MAX_COMMENTS_PER_DAY - 2 }, () => ({
+            sql: "INSERT INTO freios (usuario_id, acao, criado_em) VALUES (?, 'comentar', ?)",
+            params: [bia.id, NOW.toISOString()],
+          })),
+        );
+        const all = await together(() => Promise.all(Array.from({ length: 6 }, (_, i) => comment(bia.token, ana.codigo, 'r-hades', `Junto ${i}.`))));
+        expect(all.map((r) => r.status).sort()).toEqual([201, 201, 429, 429, 429, 429]);
+        for (const r of all.filter((r) => r.status === 429)) expect(r.body.erro).toBe('comentar-devagar');
+        expect((await thread(ana.codigo, 'r-hades')).body.comentarios).toHaveLength(2);
+        expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM freios WHERE usuario_id = ? AND acao = 'comentar'", [bia.id]))?.n).toBe(MAX_COMMENTS_PER_DAY);
+        // o aviso é um só, do comentário que entrou por último
+        expect(await notices(ana.token)).toHaveLength(1);
+      });
+
+      it('o freio das reações (às fichas e aos comentários) vale com pedidos ao mesmo tempo', async () => {
+        const { db, json, comment, thread, react, together, ana, bia, caio } = await commenting();
+        const ids: string[] = [];
+        for (let i = 0; i < 3; i++) ids.push((await comment(bia.token, ana.codigo, 'r-hades', `Oi ${i}.`)).body.comentario.id);
+        await db.batch(
+          Array.from({ length: MAX_REACTIONS_PER_DAY - 2 }, () => ({
+            sql: "INSERT INTO freios (usuario_id, acao, criado_em) VALUES (?, 'reagir', ?)",
+            params: [caio.id, NOW.toISOString()],
+          })),
+        );
+        const all = await together(() =>
+          Promise.all([
+            ...ids.map((id) => react(caio.token, id, 'fogo')),
+            ...['r-hades', 'r-celeste', 'r-tunic'].map(async (ref) => {
+              const r = await json('PUT', `/v1/murais/${ana.codigo}/reacoes/${ref}`, { reacao: 'fogo', titulo: 'Hades', mural: 'jogos' }, caio.token);
+              return { status: r.status, body: (await r.json()) as any };
+            }),
+          ]),
+        );
+        expect(all.filter((r) => r.status === 201)).toHaveLength(2);
+        expect(all.filter((r) => r.status === 429).map((r) => r.body.erro)).toEqual(Array(4).fill('reagir-devagar'));
+        const onComments = (await thread(ana.codigo, 'r-hades')).body.comentarios.reduce((n: number, k: any) => n + k.reacoes.length, 0);
+        const onCards = (await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM reacoes WHERE autor_id = ?', [caio.id]))?.n ?? 0;
+        expect(onComments + onCards).toBe(2);
+        // o aviso das reações às fichas só fica para a que entrou
+        expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM atividades WHERE tipo = 'reagiu' AND autor_id = ?", [caio.id]))?.n).toBe(onCards);
+        expect((await db.first<{ n: number }>("SELECT COUNT(*) AS n FROM freios WHERE usuario_id = ? AND acao = 'reagir'", [caio.id]))?.n).toBe(MAX_REACTIONS_PER_DAY);
+      });
+
+      it('apagar e responder ao mesmo tempo não deixa resposta solta, sem o comentário de cima', async () => {
+        const { db, comment, reply, erase, together, ana, bia, caio } = await commenting();
+        for (let round = 0; round < 4; round++) {
+          const root = (await comment(bia.token, ana.codigo, 'r-hades', `Raiz ${round}.`)).body.comentario.id;
+          const [gone, answered] = await together(() => Promise.all([erase(bia.token, root), reply(caio.token, ana.codigo, 'r-hades', root, `Resposta ${round}.`)]));
+          expect(gone.status).toBe(200);
+          expect([201, 404]).toContain(answered.status);
+          // ou a resposta entrou e a raiz ficou como apagada, ou a resposta foi recusada e a raiz saiu
+          const rootRow = await db.first<{ apagado: number }>('SELECT apagado FROM comentarios WHERE id = ?', [root]);
+          if (answered.status === 201) {
+            expect(rootRow?.apagado).toBe(1);
+            expect(gone.body).toEqual({ ok: true, apagado: true });
+          } else expect(rootRow).toBeNull();
+        }
+        expect((await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentarios r WHERE r.resposta_a IS NOT NULL AND NOT EXISTS (SELECT 1 FROM comentarios p WHERE p.id = r.resposta_a)', []))?.n).toBe(0);
       });
 
       it('reagir a comentários conta no mesmo freio das reações às fichas', async () => {

@@ -284,6 +284,15 @@ export class Comments {
   private readonly threadsLoading = new Map<string, Promise<void>>();
   /** As fichas cuja conversa não veio (sem rede, nuvem fora). */
   private readonly failed = signal<ReadonlySet<string>>(new Set());
+  /**
+   * As mudanças daqui em cada conversa (comentar, apagar, reagir): quantas já houve (`edits`, conta no
+   * começo e no fim de cada uma) e quantas estão indo para a nuvem (`editing`). A busca que volta
+   * depois de uma delas começar traz a conversa de antes dela, e não passa por cima (ver `loadThread`).
+   */
+  private readonly edits = new Map<string, number>();
+  private readonly editing = new Map<string, number>();
+  /** As conversas cuja busca voltou no meio de uma mudança: buscam de novo quando ela termina. */
+  private readonly dropped = new Set<string>();
 
   /** A nuvem ligada: sem ela não há comentário nenhum. */
   readonly available = computed(() => !!this.cloud.config());
@@ -395,10 +404,24 @@ export class Comments {
     if (!force && Date.now() - (this.threadsAt.get(key) ?? 0) < THREAD_FRESH_MS) return Promise.resolve();
     const job = (async () => {
       try {
-        const data = parseThread(await this.account.request<unknown>(`/v1/murais/${target.code}/comentarios/${encodeURIComponent(target.ref)}`));
-        this.threadsAt.set(key, Date.now());
-        this.setThread(key, data);
-        this.setFailed(key, false);
+        for (let tries = 0; ; tries++) {
+          const seen = this.edits.get(key) ?? 0;
+          const data = parseThread(await this.account.request<unknown>(`/v1/murais/${target.code}/comentarios/${encodeURIComponent(target.ref)}`));
+          // uma mudança daqui ainda indo: a conversa da tela é a certa; busca de novo quando ela termina
+          if (this.editing.get(key)) {
+            this.dropped.add(key);
+            return;
+          }
+          // uma mudança daqui terminou enquanto esta vinha: ela pode não estar no que veio; busca de novo
+          if ((this.edits.get(key) ?? 0) !== seen) {
+            if (tries < 2) continue;
+            return;
+          }
+          this.threadsAt.set(key, Date.now());
+          this.setThread(key, data);
+          this.setFailed(key, false);
+          return;
+        }
       } catch {
         // a conversa de antes, se há uma, continua na tela
         this.setFailed(key, !this.threads().has(key));
@@ -415,36 +438,41 @@ export class Comments {
    * (o texto volta limpo de lá); se ela recusar, o erro sobe com a mensagem pronta, e quem chamou
    * mantém o rascunho.
    */
-  async post(target: CommentTarget, text: string, replyTo?: string): Promise<Comment> {
-    const res = await this.account.request<{ comentario?: unknown }>(`/v1/murais/${target.code}/comentarios/${encodeURIComponent(target.ref)}`, {
-      method: 'POST',
-      body: { texto: text, titulo: target.titulo, mural: target.mural, ...(replyTo ? { respostaA: replyTo } : {}) },
-    });
-    const made = parseComment(res?.comentario);
-    if (!made) throw new CloudError('A nuvem respondeu de um jeito estranho. Confira se o comentário entrou.', 'resposta-estranha', 0);
+  post(target: CommentTarget, text: string, replyTo?: string): Promise<Comment> {
     const key = keyOf(target.code, target.ref);
-    this.changeThread(key, (t) => ({ ...t, comentarios: [...t.comentarios.filter((k) => k.id !== made.id), made] }));
-    return made;
+    return this.edit(target, async () => {
+      const res = await this.account.request<{ comentario?: unknown }>(`/v1/murais/${target.code}/comentarios/${encodeURIComponent(target.ref)}`, {
+        method: 'POST',
+        body: { texto: text, titulo: target.titulo, mural: target.mural, ...(replyTo ? { respostaA: replyTo } : {}) },
+      });
+      const made = parseComment(res?.comentario);
+      if (!made) throw new CloudError('A nuvem respondeu de um jeito estranho. Confira se o comentário entrou.', 'resposta-estranha', 0);
+      this.changeThread(key, (t) => ({ ...t, comentarios: [...t.comentarios.filter((k) => k.id !== made.id), made] }));
+      return made;
+    });
   }
 
   /**
    * Apaga um comentário (o seu, ou qualquer um da sua ficha). Some na hora (com respostas, fica o lugar
    * dele, como "Comentário apagado"); se a nuvem recusar, volta.
    */
-  async remove(target: Pick<CommentTarget, 'code' | 'ref'>, id: string): Promise<boolean> {
+  remove(target: Pick<CommentTarget, 'code' | 'ref'>, id: string): Promise<boolean> {
     const key = keyOf(target.code, target.ref);
-    const before = this.threads().get(key);
-    this.changeThread(key, (t) => ({ ...t, comentarios: withoutComment(t.comentarios, id) }));
-    try {
-      await this.account.request(`/v1/comentarios/${id}`, { method: 'DELETE' });
-      return true;
-    } catch (err) {
-      // já não existia lá: fica apagado aqui também
-      if (err instanceof CloudError && err.status === 404) return true;
-      if (before) this.setThread(key, before);
-      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para apagar agora. Tente de novo.');
-      return false;
-    }
+    return this.edit(target, async () => {
+      const before = this.threads().get(key);
+      this.changeThread(key, (t) => ({ ...t, comentarios: withoutComment(t.comentarios, id) }));
+      const after = this.threads().get(key);
+      try {
+        await this.account.request(`/v1/comentarios/${id}`, { method: 'DELETE' });
+        return true;
+      } catch (err) {
+        // já não existia lá: fica apagado aqui também
+        if (err instanceof CloudError && err.status === 404) return true;
+        this.undo(target, key, before, after);
+        this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para apagar agora. Tente de novo.');
+        return false;
+      }
+    });
   }
 
   /** A minha reação a um comentário, se dei uma. */
@@ -461,23 +489,26 @@ export class Comments {
     const me = this.myCode();
     if (!me) return;
     const key = keyOf(target.code, target.ref);
-    const before = this.threads().get(key);
     const name = this.account.account()?.nome ?? 'Você';
-    this.changeThread(key, (t) => ({
-      ...t,
-      comentarios: t.comentarios.map((k) => {
-        if (k.id !== id) return k;
-        const others = k.reacoes.filter((r) => r.codigo !== me);
-        return { ...k, reacoes: reaction ? [{ codigo: me, nome: name, reacao: reaction, em: new Date().toISOString() }, ...others] : others };
-      }),
-    }));
-    try {
-      if (reaction) await this.account.request(`/v1/comentarios/${id}/reacao`, { method: 'PUT', body: { reacao: reaction } });
-      else await this.account.request(`/v1/comentarios/${id}/reacao`, { method: 'DELETE' });
-    } catch (err) {
-      if (before) this.setThread(key, before);
-      this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para reagir agora. Tente de novo.');
-    }
+    await this.edit(target, async () => {
+      const before = this.threads().get(key);
+      this.changeThread(key, (t) => ({
+        ...t,
+        comentarios: t.comentarios.map((k) => {
+          if (k.id !== id) return k;
+          const others = k.reacoes.filter((r) => r.codigo !== me);
+          return { ...k, reacoes: reaction ? [{ codigo: me, nome: name, reacao: reaction, em: new Date().toISOString() }, ...others] : others };
+        }),
+      }));
+      const after = this.threads().get(key);
+      try {
+        if (reaction) await this.account.request(`/v1/comentarios/${id}/reacao`, { method: 'PUT', body: { reacao: reaction } });
+        else await this.account.request(`/v1/comentarios/${id}/reacao`, { method: 'DELETE' });
+      } catch (err) {
+        this.undo(target, key, before, after);
+        this.toasts.show(err instanceof CloudError ? err.message : 'Não deu para reagir agora. Tente de novo.');
+      }
+    });
   }
 
   /** A sua escolha de quem comenta, de Ajustes › Amigos. */
@@ -509,6 +540,31 @@ export class Comments {
       this.from.set(before);
       throw err;
     }
+  }
+
+  /** Uma mudança daqui na conversa (ver `edits`): a busca que voltar no meio dela não passa por cima. */
+  private async edit<T>(target: Pick<CommentTarget, 'code' | 'ref'>, run: () => Promise<T>): Promise<T> {
+    const key = keyOf(target.code, target.ref);
+    const bump = (map: Map<string, number>, by: number) => map.set(key, (map.get(key) ?? 0) + by);
+    bump(this.edits, 1);
+    bump(this.editing, 1);
+    try {
+      return await run();
+    } finally {
+      bump(this.edits, 1);
+      bump(this.editing, -1);
+      if (!this.editing.get(key) && this.dropped.delete(key)) void this.loadThread(target, true);
+    }
+  }
+
+  /**
+   * A nuvem recusou a mudança: a conversa volta a ser a de antes dela, se nada mais mudou nela
+   * enquanto isso; se mudou (outro comentário entrou, outro saiu), voltar à de antes desfaria isso
+   * também, e a conversa é buscada de novo.
+   */
+  private undo(target: Pick<CommentTarget, 'code' | 'ref'>, key: string, before: Thread | undefined, after: Thread | undefined): void {
+    if (before && this.threads().get(key) === after) this.setThread(key, before);
+    else void this.loadThread(target, true);
   }
 
   private changeThread(key: string, fn: (t: Thread) => Thread): void {

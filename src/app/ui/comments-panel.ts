@@ -107,11 +107,13 @@ export class CommentsPanel {
     return t.quem === 'seguidos' ? 'seguidos' : 'seguir';
   });
 
+  /** A ficha da folha: a mesma enquanto a chave é a mesma. */
+  private readonly key = computed(() => `${this.target().code}/${this.target().ref}`);
+
   constructor() {
     // outra ficha (ou a primeira): a conversa dela, o rascunho que ficou, o campo fechado
-    const key = computed(() => `${this.target().code}/${this.target().ref}`);
     effect(() => {
-      key();
+      this.key();
       untracked(() => {
         const t = this.target();
         this.text.set(this.comments.draftOf(t));
@@ -228,9 +230,15 @@ export class CommentsPanel {
     this.busy.set(true);
     this.error.set(null);
     const target = this.target();
+    const key = this.key();
     const reply = this.replyTo();
     try {
       const made = await this.comments.post(target, this.text(), reply?.id);
+      // a folha passou para outra ficha enquanto ia: o rascunho que foi é o daquela, e o desta fica
+      if (this.key() !== key) {
+        this.comments.setDraft(target, '');
+        return;
+      }
       this.text.set('');
       this.writing.set(false);
       this.replyTo.set(null);
@@ -238,7 +246,10 @@ export class CommentsPanel {
       if (reply) this.show(made.id);
       else this.toEnd();
     } catch (err) {
-      this.error.set(err instanceof CloudError ? err.message : 'Não deu para comentar agora. Tente de novo.');
+      const message = err instanceof CloudError ? err.message : 'Não deu para comentar agora. Tente de novo.';
+      // (de outra ficha, o erro não é desta: vai no bilhete, e o rascunho continua lá)
+      if (this.key() === key) this.error.set(message);
+      else this.toasts.show(message);
       // a regra pode ter mudado com a folha aberta (deixou de seguir, a pessoa trocou a escolha)
       if (err instanceof CloudError && err.status === 403) void this.comments.loadThread(target, true);
     } finally {
@@ -253,11 +264,12 @@ export class CommentsPanel {
   /** "Seguir" no pé da folha: segue o dono e confere de novo se já dá para comentar. */
   protected async followOwner(): Promise<void> {
     if (this.following()) return;
+    const target = this.target();
     this.following.set(true);
     this.error.set(null);
     try {
-      await this.follow.follow(this.target().code);
-      await this.comments.loadThread(this.target(), true);
+      await this.follow.follow(target.code);
+      await this.comments.loadThread(target, true);
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : 'Não deu para seguir agora. Tente de novo.');
     } finally {
@@ -301,6 +313,8 @@ export class CommentsPanel {
 
   protected async erase(n: CommentNode): Promise<void> {
     const k = n.k;
+    // a ficha do comentário: a de agora, não a que estiver aberta quando a pergunta fechar
+    const target = this.target();
     const mine = k.autor.codigo === this.me();
     // com respostas, ele fica como "Comentário apagado" e as respostas continuam
     const kids = n.kids.length ? ' As respostas a ele continuam, com “Comentário apagado” no lugar dele.' : '';
@@ -311,7 +325,7 @@ export class CommentsPanel {
     });
     if (!ok) return;
     if (this.replyTo()?.id === k.id) this.replyTo.set(null);
-    void this.comments.remove(this.target(), k.id);
+    void this.comments.remove(target, k.id);
   }
 
   protected stockOf(k: Comment): Stock {

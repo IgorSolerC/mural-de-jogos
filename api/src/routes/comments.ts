@@ -1,5 +1,5 @@
 import { Context, Hono } from 'hono';
-import { brakeStatement, usedToday } from '../domain/brake';
+import { brakeRoom, usedToday } from '../domain/brake';
 import { formatCode, normalizeCode } from '../domain/code';
 import { COMMENT_ID_RE, COMMENT_MAX, CommentsFrom, cleanComment } from '../domain/comment';
 import { photoOut } from '../domain/photo';
@@ -307,37 +307,51 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const answered = parent && parent.autor_id !== s.userId ? parent.autor_id : null;
     const notify = shared || (who.id !== s.userId && answered !== who.id);
     const replyNote = JSON.stringify({ titulo: cleanTitle(body['titulo']), mural, dono: formatCode(who.codigo), comentario: id });
-    await write(
+    // O comentário só entra se ainda há vaga no freio e (na resposta) o respondido ainda está na ficha,
+    // conferidos no banco, no mesmo lote: dois pedidos ao mesmo tempo não passam juntos do limite, e a
+    // resposta não fica solta, sem o comentário de cima, que saiu entre a conferência e a gravação.
+    // Todo o resto do lote só vale se ele entrou.
+    const room = brakeRoom(s.userId, 'comentar', now, MAX_COMMENTS_PER_DAY);
+    const made = 'EXISTS (SELECT 1 FROM comentarios WHERE id = ?)';
+    const results = await write(
       deps,
       [
         {
-          sql: 'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em, resposta_a) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          params: [id, who.id, ref, s.userId, text, at, parent?.id ?? null],
+          sql:
+            'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em, resposta_a) SELECT ?, ?, ?, ?, ?, ?, ? ' +
+            `WHERE ${room.sql} AND (? IS NULL OR EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND dono_id = ? AND ref = ? AND apagado = 0))`,
+          params: [id, who.id, ref, s.userId, text, at, parent?.id ?? null, ...room.params, parent?.id ?? null, parent?.id ?? null, who.id, ref],
         },
         // o aviso para quem foi respondido: o de antes sai e entra o de agora
         ...(!answered
           ? []
           : [
-              { sql: "DELETE FROM atividades WHERE tipo = 'respondeu' AND autor_id = ? AND alvo_id = ? AND ref = ?", params: [s.userId, answered, ref] },
+              { sql: `DELETE FROM atividades WHERE tipo = 'respondeu' AND autor_id = ? AND alvo_id = ? AND ref = ? AND ${made}`, params: [s.userId, answered, ref, id] },
               {
-                sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('respondeu', ?, ?, ?, ?, ?)",
-                params: [s.userId, answered, ref, replyNote, at],
+                sql: `INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) SELECT 'respondeu', ?, ?, ?, ?, ? WHERE ${made}`,
+                params: [s.userId, answered, ref, replyNote, at, id],
               },
             ]),
         // o aviso: o de antes sai e entra o de agora
         ...(!notify
           ? []
           : [
-              { sql: "DELETE FROM atividades WHERE tipo = 'comentou' AND autor_id = ? AND alvo_id = ? AND ref = ?", params: [s.userId, who.id, ref] },
+              { sql: `DELETE FROM atividades WHERE tipo = 'comentou' AND autor_id = ? AND alvo_id = ? AND ref = ? AND ${made}`, params: [s.userId, who.id, ref, id] },
               {
-                sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('comentou', ?, ?, ?, ?, ?)",
-                params: [s.userId, who.id, ref, resumo, at],
+                sql: `INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) SELECT 'comentou', ?, ?, ?, ?, ? WHERE ${made}`,
+                params: [s.userId, who.id, ref, resumo, at, id],
               },
             ]),
-        brakeStatement(s.userId, 'comentar', now),
+        { sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'comentar', ? WHERE ${made}`, params: [s.userId, at, id] },
       ],
       20,
     );
+    if (!results[0]?.changes) {
+      if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
+        throw new HttpError(429, 'comentar-devagar', 'Você comentou bastante hoje. Tente de novo amanhã.');
+      }
+      throw new HttpError(404, 'comentario-nao-encontrado', 'O comentário que você ia responder não existe mais.');
+    }
     return c.json({ comentario: commentOut({ id, texto: text, criado_em: at, resposta_a: parent?.id ?? null, apagado: 0, ...author }, []) }, 201);
   });
 
@@ -353,20 +367,20 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       throw new HttpError(403, 'comentario-de-outro', 'Só quem escreveu ou o dono da ficha apaga um comentário.');
     }
     const reactions = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentario_reacoes WHERE comentario_id = ?', [k.id]);
-    const replies = await deps.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentarios WHERE resposta_a = ?', [k.id]);
-    const keep = (replies?.n ?? 0) > 0;
-    await write(
+    // com respostas, fica como apagado; sem, sai. Decidido no banco, no mesmo lote: uma resposta que
+    // chegue entre a conferência e a gravação não fica solta, sem o comentário de cima
+    const results = await write(
       deps,
       [
         { sql: 'DELETE FROM comentario_reacoes WHERE comentario_id = ?', params: [k.id] },
-        keep
-          ? { sql: "UPDATE comentarios SET apagado = 1, texto = '' WHERE id = ?", params: [k.id] }
-          : { sql: 'DELETE FROM comentarios WHERE id = ?', params: [k.id] },
+        { sql: "UPDATE comentarios SET apagado = 1, texto = '' WHERE id = ? AND EXISTS (SELECT 1 FROM comentarios WHERE resposta_a = ?)", params: [k.id, k.id] },
+        { sql: 'DELETE FROM comentarios WHERE id = ? AND apagado = 0', params: [k.id] },
         // os avisos só saem com o último comentário (ou a última resposta) da pessoa ali
         ...(await noticesGone(k)),
       ],
       12 + 2 * (reactions?.n ?? 0),
     );
+    const keep = !!results[1]?.changes;
     // o apagado de cima que ficou só por causa deste sai também (e o de cima dele, e assim por diante)
     let up = keep ? null : k.resposta_a;
     while (up) {
@@ -393,17 +407,30 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     if ((await usedToday(deps, s.userId, 'reagir', now)) >= MAX_REACTIONS_PER_DAY) {
       throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
     }
-    await write(
+    const room = brakeRoom(s.userId, 'reagir', now, MAX_REACTIONS_PER_DAY);
+    const results = await write(
       deps,
       [
+        // só com vaga no freio, conferida no banco (ver brakeRoom); o comentário que saiu enquanto isso não ganha reação
         {
-          sql: 'INSERT OR REPLACE INTO comentario_reacoes (comentario_id, autor_id, reacao, criado_em) VALUES (?, ?, ?, ?)',
-          params: [k.id, s.userId, reaction, now.toISOString()],
+          sql:
+            'INSERT OR REPLACE INTO comentario_reacoes (comentario_id, autor_id, reacao, criado_em) SELECT ?, ?, ?, ? ' +
+            `WHERE ${room.sql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
+          params: [k.id, s.userId, reaction, now.toISOString(), ...room.params, k.id],
         },
-        brakeStatement(s.userId, 'reagir', now),
+        {
+          sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'reagir', ? WHERE ${room.sql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
+          params: [s.userId, now.toISOString(), ...room.params, k.id],
+        },
       ],
       6,
     );
+    if (!results[0]?.changes) {
+      if (await deps.db.first('SELECT 1 AS x FROM comentarios WHERE id = ? AND apagado = 0', [k.id])) {
+        throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
+      }
+      throw new HttpError(404, 'comentario-nao-encontrado', 'Esse comentário não existe mais.');
+    }
     return c.json({ reacao: reaction }, before ? 200 : 201);
   });
 
