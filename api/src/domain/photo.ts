@@ -67,7 +67,7 @@ function background(raw: unknown): Background | null {
 /** Uma linha só, sem invisíveis, até `max` caracteres. */
 function line(v: unknown, max: number): string {
   return typeof v === 'string'
-    ? Array.from(v.replace(/\s+/g, ' ').replace(/[\p{Cc}\p{Cf}]/gu, '').trim())
+    ? Array.from(v.replace(/\s+/g, ' ').replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/ {2,}/g, ' ').trim())
         .slice(0, max)
         .join('')
         .trim()

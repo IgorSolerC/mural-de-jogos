@@ -11,7 +11,7 @@ import { SharedPerson } from './shared-notes';
 import { MAX_PINNED_TAGS, sanitizeTags } from './note-labels';
 import { CategoryLooks, lookKey, sanitizeCategoryLooks, tagLookKey } from './category-looks';
 import { NotesConfig, sanitizeNotesConfig } from './mural-config';
-import { Profile, defaultProfile, publicProfile, sanitizeProfile } from './profile';
+import { Profile, cardBackground, defaultProfile, publicProfile, sanitizeProfile } from './profile';
 import { ProfileStore } from './profile-store';
 import { KanbanBoard, KanbanState, sanitizeKanban } from './kanban';
 import { KanbanStore } from './kanban-store';
@@ -1576,7 +1576,7 @@ export class CloudSync {
     const cartao = {
       emoji: shown.emoji,
       cor: shown.photo,
-      fundo: shown.background,
+      fundo: cardBackground(shown.background),
       linha: shown.tagline,
       fichas: scored.length + notas.length,
       murais: new Set([...scored.map((r) => r.kind), ...(notas.length ? ['anotacoes'] : [])]).size,

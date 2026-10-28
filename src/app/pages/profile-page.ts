@@ -4,7 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { ICON, IconModule } from '../ui/icons';
-import { CloudAccount } from '../core/cloud-account';
+import { CloudAccount, CloudError } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { CloudMurals, cloudColleagueId, normalizeCode } from '../core/cloud-murals';
 import { Colleague, ColleagueStore } from '../core/colleague-store';
@@ -104,6 +104,8 @@ export class ProfilePage {
   /** Buscando na nuvem (o guardado, se houver, já aparece enquanto isso). */
   protected readonly loading = signal(false);
   protected readonly failed = signal(false);
+  /** A nuvem só mostra os perfis para quem entrou (`VER_MURAIS=logados`), e quem abriu não entrou. */
+  protected readonly mustSignIn = signal(false);
   private readonly fetched = signal<Colleague | null>(null);
   /** O guardado neste navegador (de uma visita antes), enquanto a nuvem não responde. */
   private readonly stored = computed(() => {
@@ -122,13 +124,18 @@ export class ProfilePage {
     const seq = ++this.loadSeq;
     this.fetched.set(null);
     this.failed.set(false);
+    this.mustSignIn.set(false);
+    this.loading.set(false);
     if (who.kind !== 'other') return;
     await this.cloud.ready;
     if (seq !== this.loadSeq || !this.cloud.config()) return;
     this.loading.set(true);
-    const c = await this.cloudMurals.ensure(who.code);
+    let signIn = false;
+    const c = await this.cloudMurals.ensure(who.code, [], (err) => (signIn = err instanceof CloudError && err.status === 401));
     if (seq !== this.loadSeq) return;
     this.loading.set(false);
+    // tentar de novo não adianta: entrar sim (o guardado de uma visita antes, se houver, aparece)
+    this.mustSignIn.set(signIn);
     if (c) {
       this.fetched.set(c);
       if (c.codigo) void this.reactions.load(c.codigo);

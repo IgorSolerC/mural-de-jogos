@@ -727,6 +727,12 @@ export function amigosSuite(label: string, getDb: () => Db) {
         await t.follow(bia.token, ana.codigo);
         const res = await t.json('GET', `/v1/murais/${ana.codigo}/pessoas?listas=1`);
         expect(await res.json()).toEqual({ seguindo: 0, seguidores: 0, listasVisiveis: true, listas: { seguindo: [], seguidores: [] } });
+        // o código de Bia, sem mural público, não mostra nada aos outros (nem os números); a ela, sim
+        expect((await t.json('GET', `/v1/murais/${bia.codigo}/pessoas?listas=1`)).status).toBe(404);
+        expect((await t.json('GET', `/v1/murais/${bia.codigo}/pessoas?listas=1`, undefined, ana.token)).status).toBe(404);
+        const own = await t.json('GET', `/v1/murais/${bia.codigo}/pessoas?listas=1`, undefined, bia.token);
+        expect(own.status).toBe(200);
+        expect(((await own.json()) as any).listas.seguindo.map((p: any) => p.codigo)).toEqual([ana.codigo]);
       });
 
       it('o cartão vem com o envio do mural, arrumado; o que não serve não apaga o de antes', async () => {

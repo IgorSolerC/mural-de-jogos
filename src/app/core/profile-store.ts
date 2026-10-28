@@ -52,7 +52,9 @@ export class ProfileStore {
   /** Muda o perfil (o resultado passa pelo saneamento, com os limites). */
   update(change: (p: Profile) => Profile): void {
     const next = sanitizeProfile(change(this.profile()));
-    if (!next) return;
+    // nada mudou de verdade (o espaço no fim que o saneamento tira, a mesma cor de novo): a data fica,
+    // senão este perfil passava a ser o mais novo e vencia, na nuvem, a mudança feita em outro aparelho
+    if (!next || JSON.stringify(next) === JSON.stringify(this.profile())) return;
     this.profile.set(next);
     this.changedAt.set(new Date().toISOString());
   }

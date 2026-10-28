@@ -195,12 +195,56 @@ export function defaultProfile(): Profile {
   };
 }
 
-const text = (v: unknown, max: number): string => (typeof v === 'string' ? v.replace(/\r\n?/g, '\n').trim().slice(0, max) : '');
+/**
+ * O que não se vê e bagunça o texto em volta: os caracteres de controle (fora a quebra e o tab) e os
+ * que viram o sentido da escrita (U+202A–U+202E, U+2066–U+2069), que no perfil de alguém viravam
+ * também o que vem depois. Os outros invisíveis ficam: o U+200D junta os emojis de família, e os de
+ * tag fazem as bandeiras.
+ */
+const INVISIBLE = /(?![\n\t])[\p{Cc}‪-‮⁦-⁩]/gu;
+
+/** Corta em `max` (contado como o maxlength dos campos), sem deixar meio emoji no fim. */
+export function cut(s: string, max: number): string {
+  const out = s.slice(0, max);
+  return /[\uD800-\uDBFF]$/.test(out) ? out.slice(0, -1) : out;
+}
+
+const text = (v: unknown, max: number): string => (typeof v === 'string' ? cut(v.replace(/\r\n?/g, '\n').replace(INVISIBLE, '').trim(), max) : '');
 /** Uma linha só: sem quebras, espaços juntos. */
-const line = (v: unknown, max: number): string => text(v, max * 2).replace(/\s+/g, ' ').slice(0, max).trim();
+const line = (v: unknown, max: number): string => cut(text(v, max * 2).replace(/\s+/g, ' '), max).trim();
 
 function isStock(v: unknown): v is Stock {
   return (STOCKS as readonly unknown[]).includes(v);
+}
+
+/**
+ * O link do fundo como a nuvem aceita no cartão da pessoa (Seguindo/Seguidores): https, sem espaço,
+ * aspas, sinais de menor/maior, parênteses nem barra invertida (o mesmo de `api/src/domain/photo.ts`).
+ */
+export const CARD_URL_RE = /^https:\/\/[^\s"'<>()\\]{3,600}$/;
+
+/**
+ * O link do fundo como vai no cartão: o mesmo endereço, com os sinais que a nuvem recusa escritos com
+ * % (a imagem da Wikipédia tem parênteses no nome). Null se nem assim serve.
+ */
+export function cardImageUrl(url: string): string | null {
+  if (CARD_URL_RE.test(url)) return url;
+  try {
+    const href = new URL(url).href.replace(/[()'"<>\s\\]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'));
+    return CARD_URL_RE.test(href) ? href : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * O fundo como vai no cartão: o link que nem assim serve vai como a cortiça (o mesmo que aparece
+ * quando a imagem não abre), em vez de a nuvem recusar o cartão inteiro e ficar com o de antes.
+ */
+export function cardBackground(b: ProfileBackground): ProfileBackground {
+  if (b.kind !== 'link') return b;
+  const url = cardImageUrl(b.url);
+  return url ? { kind: 'link', url } : { kind: 'material', material: 'cortica' };
 }
 
 /** Um link de imagem que serve: https e curto. */
@@ -318,10 +362,14 @@ export function sanitizeProfile(raw: unknown): Profile | null {
 
 /**
  * O perfil que vai no mural público: as seções só com as fichas que os outros veem (`shown`, os ids
- * das fichas e anotações públicas), para o id de uma ficha privada nunca sair daqui.
+ * das fichas e anotações públicas), para o id de uma ficha privada nunca sair daqui, e as pastas
+ * escondidas sem o texto delas.
  */
 export function publicProfile(p: Profile, shown: ReadonlySet<string>): Profile {
-  return { ...p, sections: p.sections.map((s) => ({ ...s, items: s.items.filter((id) => shown.has(id)) })) };
+  // a pasta escondida vai sem o texto: o que a pessoa escreveu nela saiu da vista junto
+  const walls: Partial<Record<Kind, ProfileWall>> = {};
+  for (const [kind, wall] of Object.entries(p.walls) as [Kind, ProfileWall][]) walls[kind] = wall.hidden ? { hidden: true } : wall;
+  return { ...p, walls, sections:p.sections.map((s) => ({ ...s, items: s.items.filter((id) => shown.has(id)) })) };
 }
 
 /** Os números do quadro de cima, contados das fichas que aparecem (as públicas, para quem visita). */

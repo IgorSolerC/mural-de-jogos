@@ -49,7 +49,14 @@ export class CloudError extends Error {
 
 /** O nome como a API guarda: sem invisíveis, espaços juntos, até 40 caracteres. */
 export function cleanName(input: string): string | null {
-  const name = Array.from(input.replace(/[\p{Cc}\p{Cf}]/gu, '').replace(/\s+/g, ' ').trim())
+  // os espaços (o tab e a quebra também) viram um espaço antes de os invisíveis saírem: "Ana\tMaria" é "Ana Maria"
+  const name = Array.from(
+    input
+      .replace(/\s+/g, ' ')
+      .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '')
+      .replace(/ {2,}/g, ' ')
+      .trim(),
+  )
     .slice(0, OWNER_NAME_MAX)
     .join('')
     .trim();

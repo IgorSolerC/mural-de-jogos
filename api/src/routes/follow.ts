@@ -242,23 +242,27 @@ export function followRoutes(app: Hono, deps: Deps): void {
   /**
    * Seguindo e Seguidores no perfil de alguém: os números sempre; com `?listas=1`, quem são (os mais
    * novos primeiro, até `MAX_FOLLOWING` de cada), se a pessoa deixa ver ou se é ela mesma pedindo. Só
-   * conta e lista quem tem mural público (o perfil de quem não tem nem abre). Cada um vem com o cartão
-   * (a foto, o fundo do perfil e os números), quando já veio. Aberto a quem pode abrir o mural
-   * (`VER_MURAIS`); a sessão, se vier, só diz se é a própria pessoa.
+   * conta e lista quem tem mural público (o perfil de quem não tem nem abre), e quem não tem mural
+   * público só vê os próprios: para os outros, é 404, como o mural (`GET /v1/murais/:codigo`). Cada um
+   * vem com o cartão (a foto, o fundo do perfil e os números), quando já veio. Aberto a quem pode abrir
+   * o mural (`VER_MURAIS`); a sessão, se vier, só diz se é a própria pessoa.
    */
   app.get('/v1/murais/:codigo/pessoas', async (c) => {
     const mustSignIn = deps.config.publicMurals === 'logados';
     const viewer = mustSignIn ? await session(c) : c.req.header('Authorization') ? await session(c).catch(() => null) : null;
     const code = normalizeCode(c.req.param('codigo'));
-    const owner = code
-      ? await deps.db.first<{ id: string; visiveis: number; seguindo: number; seguidores: number }>(
+    const found = code
+      ? await deps.db.first<{ id: string; visiveis: number; publico: number; seguindo: number; seguidores: number }>(
           'SELECT u.id, u.pessoas_visiveis AS visiveis, ' +
+            '(SELECT COUNT(*) FROM murais_publicos WHERE usuario_id = u.id) AS publico, ' +
             '(SELECT COUNT(*) FROM seguindo s JOIN murais_publicos p ON p.usuario_id = s.seguido_id WHERE s.seguidor_id = u.id) AS seguindo, ' +
             '(SELECT COUNT(*) FROM seguindo s JOIN murais_publicos p ON p.usuario_id = s.seguidor_id WHERE s.seguido_id = u.id) AS seguidores ' +
             'FROM usuarios u WHERE u.codigo = ?',
           [code],
         )
       : null;
+    // sem mural público, o código não mostra nada a ninguém além da dona: nem os números, nem as listas
+    const owner = found && (found.publico || viewer?.userId === found.id) ? found : null;
     if (!owner) throw new HttpError(404, 'pessoa-nao-encontrada', 'Não achei ninguém com esse código.');
     const out = { seguindo: owner.seguindo, seguidores: owner.seguidores, listasVisiveis: !!owner.visiveis };
     if (c.req.query('listas') !== '1' || !(owner.visiveis || viewer?.userId === owner.id)) return c.json(out);

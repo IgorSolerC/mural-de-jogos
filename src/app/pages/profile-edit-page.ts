@@ -29,7 +29,7 @@ import {
   updatedLabel,
 } from '../core/profile';
 import { ProfileStore } from '../core/profile-store';
-import { LIGHT_STOCKS, DARK_STOCKS, Review, STOCK_LABEL, Stock, isNote, shownToOthers } from '../core/review';
+import { LIGHT_STOCKS, DARK_STOCKS, Review, STOCK_LABEL, Stock, isDone, isNote, shownToOthers } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { KanbanStore } from '../core/kanban-store';
 import { OWNER_NAME_MAX, Settings } from '../core/settings';
@@ -361,12 +361,18 @@ export class ProfileEditPage {
 
   protected setBackground(background: ProfileBackground): void {
     this.profiles.update((p) => ({ ...p, background }));
-    if (background.kind !== 'link') this.linkError.set(null);
+    if (background.kind !== 'link') {
+      this.linkError.set(null);
+      // a imagem de um link que ainda estava abrindo não vira o fundo por cima do escolhido agora
+      this.linkTry++;
+    }
   }
 
   /** O link: só vale https; antes de virar o fundo, a imagem precisa abrir. */
   protected onLink(value: string): void {
     this.linkDraft.set(value);
+    // o link de antes, se ainda estiver abrindo, não vale mais (o campo vazio ou o link que não serve)
+    this.linkTry++;
     const text = value.trim();
     if (!text) {
       this.linkError.set(null);
@@ -405,7 +411,8 @@ export class ProfileEditPage {
   /** Os murais com as fichas públicas de cada um (os sem nenhuma não aparecem para ninguém). */
   protected readonly walls = computed(() =>
     KINDS.map((kind) => {
-      const count = this.publicCards().filter((r) => r.kind === kind).length;
+      // as que a pasta conta (ver ProfileWalls): uma ficha por obra, sem as anotações finalizadas
+      const count = this.publicCards().filter((r) => r.kind === kind && !r.revisitOf && !isDone(r)).length;
       const wall = this.profile().walls[kind] ?? {};
       return {
         kind,

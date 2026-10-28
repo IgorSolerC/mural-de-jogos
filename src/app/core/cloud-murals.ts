@@ -71,7 +71,9 @@ export class CloudMurals {
       // o código não leva mais a mural nenhum (a conta foi apagada, ou o código trocou e a pessoa não é
       // seguida daqui): o guardado sai deste navegador, em vez de continuar mostrando o que ela tirou
       if (err instanceof CloudError && err.code === 'mural-nao-encontrado' && existing) await this.colleagues.remove(id).catch(() => undefined);
-      if (err instanceof CloudError) throw new Error(err.message);
+      // o 401 sobe como veio: com a nuvem mostrando os murais só para quem entrou, quem abriu precisa
+      // entrar (não adianta tentar de novo); a mensagem é a mesma
+      if (err instanceof CloudError) throw err.status === 401 ? err : new Error(err.message);
       throw err;
     }
     const now = new Date().toISOString();
@@ -116,9 +118,10 @@ export class CloudMurals {
    * O mural de alguém que eu sigo, para o correio: o guardado se foi aberto há pouco; senão pergunta
    * à nuvem se mudou. `need`: as fichas que o correio anunciou; se o guardado não tem alguma, ele é de
    * antes delas e a nuvem é consultada mesmo dentro dos 2 minutos. Não troca quem está escolhido no
-   * Comparar. Sem rede, fica o guardado (ou null).
+   * Comparar. Sem rede, fica o guardado (ou null); `failed` fica sabendo do erro (o perfil diz para
+   * entrar quando a nuvem só mostra os murais para quem entrou).
    */
-  async ensure(input: string, need: readonly string[] = []): Promise<Colleague | null> {
+  async ensure(input: string, need: readonly string[] = [], failed?: (err: unknown) => void): Promise<Colleague | null> {
     const code = normalizeCode(input);
     if (!code) return null;
     await this.colleagues.ready;
@@ -129,7 +132,8 @@ export class CloudMurals {
     const selected = this.colleagues.selected()?.id;
     try {
       return await this.open(code);
-    } catch {
+    } catch (err) {
+      failed?.(err);
       // sem rede, fica o guardado; o que a nuvem disse que não existe mais já saiu (ver `open`)
       return this.colleagues.colleagues().find((c) => c.id === id) ?? null;
     } finally {

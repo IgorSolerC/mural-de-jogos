@@ -94,6 +94,13 @@
         <h1 id="aviso-titulo">A nuvem está desligada</h1>
         <p>Os perfis dos outros chegam pela nuvem, e ela está desligada neste site agora.</p>
       </section>
+    } @else if (failed() && mustSignIn()) {
+      <section class="aviso cartolina" data-cor="laranja" aria-labelledby="aviso-titulo">
+        <app-pin class="pin" color="#f4f4f0" />
+        <h1 id="aviso-titulo">Entre para ver esse perfil</h1>
+        <p>Os perfis daqui só aparecem para quem tem conta. Entre com o Google e abra o perfil de novo.</p>
+        <a class="btn-ink" routerLink="/ajustes" [queryParams]="{ aba: 'conta' }">Entrar no Murall</a>
+      </section>
     } @else if (failed()) {
       <section class="aviso cartolina" data-cor="laranja" aria-labelledby="aviso-titulo">
         <app-pin class="pin" color="#f4f4f0" />

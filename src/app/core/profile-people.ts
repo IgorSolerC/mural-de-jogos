@@ -2,7 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { CloudAccount } from './cloud-account';
 import { normalizeCode } from './cloud-murals';
 import { isEmoji } from './emoji';
-import { PROFILE_MATERIALS, ProfileBackground, ProfileMaterial } from './profile';
+import { CARD_URL_RE, PROFILE_MATERIALS, ProfileBackground, ProfileMaterial, cut } from './profile';
 import { LIGHT_STOCKS, STOCKS, Stock } from './review';
 
 /**
@@ -51,7 +51,7 @@ function background(raw: unknown): ProfileBackground | null {
   if (!b || typeof b !== 'object') return null;
   if (b['kind'] === 'material' && PROFILE_MATERIALS.some((m) => m.id === b['material'])) return { kind: 'material', material: b['material'] as ProfileMaterial };
   if (b['kind'] === 'cartolina' && isStock(b['stock'])) return { kind: 'cartolina', stock: b['stock'] };
-  if (b['kind'] === 'link' && typeof b['url'] === 'string' && /^https:\/\/[^\s"'<>()\\]{3,600}$/.test(b['url'])) return { kind: 'link', url: b['url'] };
+  if (b['kind'] === 'link' && typeof b['url'] === 'string' && CARD_URL_RE.test(b['url'])) return { kind: 'link', url: b['url'] };
   return null;
 }
 
@@ -62,7 +62,7 @@ function card(raw: unknown): PersonCard | null {
     emoji: c['emoji'],
     cor: c['cor'],
     fundo: background(c['fundo']),
-    linha: typeof c['linha'] === 'string' ? c['linha'].trim().slice(0, 60) : '',
+    linha: typeof c['linha'] === 'string' ? cut(c['linha'].trim(), 60).trim() : '',
     fichas: count(c['fichas']),
     murais: count(c['murais']),
   };
@@ -75,7 +75,7 @@ function people(raw: unknown): ListedPerson[] {
   for (const item of raw.slice(0, 300)) {
     const r = item as Record<string, unknown> | null;
     const codigo = typeof r?.['codigo'] === 'string' ? normalizeCode(r['codigo']) : null;
-    const nome = typeof r?.['nome'] === 'string' ? r['nome'].trim().slice(0, 40) : '';
+    const nome = typeof r?.['nome'] === 'string' ? cut(r['nome'].trim(), 40).trim() : '';
     if (!codigo || !nome || seen.has(codigo)) continue;
     seen.add(codigo);
     out.push({ codigo, nome, cartao: card(r?.['cartao']) });
@@ -130,8 +130,14 @@ export class ProfilePeople {
 
   /** O que já veio de cada código (sem a entrada: ainda não veio, ou a nuvem não respondeu). */
   private readonly byCode = signal<ReadonlyMap<string, PeopleOf>>(new Map());
-  private readonly loadedAt = new Map<string, { at: number; lists: boolean }>();
-  private readonly loading = new Map<string, Promise<void>>();
+  /**
+   * Por código: o número do pedido que deu os números de agora (`counts`) e as listas de agora
+   * (`lists`), e quando vieram. Os pedidos voltam em qualquer ordem: o que saiu antes de outro que já
+   * voltou não passa por cima dele.
+   */
+  private readonly marks = new Map<string, { counts: number; lists: number; at: number; listsAt: number }>();
+  private readonly loading = new Map<string, { n: number; job: Promise<void> }>();
+  private seq = 0;
 
   /** A sua escolha em Ajustes › Amigos (null: ainda não se sabe). */
   readonly privacy = signal<PeoplePrivacy | null>(null);
@@ -142,32 +148,49 @@ export class ProfilePeople {
 
   /**
    * Pede os números de quem tem esse código, e as listas com `lists`. Sem rede ou sem nuvem: fica sem,
-   * sem barulho (o perfil só não mostra). `force` pede de novo mesmo se acabou de vir.
+   * sem barulho (o perfil só não mostra). `force` pede de novo mesmo se acabou de vir, ou se um pedido
+   * igual já está indo (ele saiu antes do que mudou: depois de Seguir, o número de seguidores).
    */
   load(code: string, lists = false, force = false): Promise<void> {
     const key = `${code}:${lists}`;
     const pending = this.loading.get(key);
-    if (pending) return pending;
-    const last = this.loadedAt.get(code);
-    if (!force && last && Date.now() - last.at < FRESH_MS && (last.lists || !lists)) return Promise.resolve();
+    if (pending && !force) return pending.job;
+    const last = this.marks.get(code);
+    const now = Date.now();
+    if (!force && last && now - last.at < FRESH_MS && (!lists || now - last.listsAt < FRESH_MS)) return Promise.resolve();
+    const n = ++this.seq;
     const job = (async () => {
       try {
         const data = parsePeopleOf(await this.account.request<unknown>(`/v1/murais/${code}/pessoas${lists ? '?listas=1' : ''}`));
         if (!data) return;
+        const mark = this.marks.get(code) ?? { counts: 0, lists: 0, at: 0, listsAt: 0 };
+        const newCounts = n > mark.counts;
         // pediu as listas e elas não vieram (a pessoa mostra só os números): conta como pedidas
-        this.loadedAt.set(code, { at: Date.now(), lists });
+        const newLists = lists && n > mark.lists;
+        const at = Date.now();
+        this.marks.set(code, {
+          counts: newCounts ? n : mark.counts,
+          at: newCounts ? at : mark.at,
+          // os números pedidos de novo (depois de Seguir) deixam as listas de antes velhas: a próxima
+          // vez que a folha abrir, elas vêm de novo (e as que saíram antes deste pedido não entram mais)
+          lists: newLists || (force && !lists) ? Math.max(n, mark.lists) : mark.lists,
+          listsAt: newLists ? at : force && !lists ? 0 : mark.listsAt,
+        });
+        if (!newCounts && !newLists) return;
         this.byCode.update((all) => {
           const before = all.get(code);
+          const counts = newCounts || !before ? data : before;
           // os números sem as listas não apagam as listas que já vieram
-          return new Map(all).set(code, !lists && before?.listas ? { ...data, listas: before.listas } : data);
+          const listas = newLists ? data.listas : before?.listas;
+          return new Map(all).set(code, { seguindo: counts.seguindo, seguidores: counts.seguidores, listasVisiveis: counts.listasVisiveis, ...(listas ? { listas } : {}) });
         });
       } catch {
         /* sem os números */
       } finally {
-        this.loading.delete(key);
+        if (this.loading.get(key)?.n === n) this.loading.delete(key);
       }
     })();
-    this.loading.set(key, job);
+    this.loading.set(key, { n, job });
     return job;
   }
 

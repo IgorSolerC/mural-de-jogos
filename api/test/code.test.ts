@@ -31,4 +31,10 @@ describe('nome público', () => {
     expect(cleanName('   ')).toBeNull();
     expect(cleanName(42)).toBeNull();
   });
+
+  it('o tab e a quebra entre as palavras viram espaço, não juntam o nome', () => {
+    expect(cleanName('Ana\tMaria')).toBe('Ana Maria');
+    expect(cleanName('Ana\nMaria Souza')).toBe('Ana Maria Souza');
+    expect(cleanName('Ana ​ Maria')).toBe('Ana Maria');
+  });
 });

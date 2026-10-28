@@ -297,6 +297,10 @@ describe('conta na nuvem', () => {
   it('limpa o nome como a nuvem e reconhece o aparelho', () => {
     expect(cleanName('  Igor \n Soler​ ')).toBe('Igor Soler');
     expect(cleanName('   ')).toBeNull();
+    // o tab e a quebra entre as palavras viram espaço, não juntam o nome (o mesmo na nuvem)
+    expect(cleanName('Ana\tMaria')).toBe('Ana Maria');
+    expect(cleanName('Ana\nMaria Souza')).toBe('Ana Maria Souza');
+    expect(cleanName('Ana ​ Maria')).toBe('Ana Maria');
     expect(deviceLabel('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0 Safari/537.36')).toBe('Chrome no Windows');
     expect(deviceLabel('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile Safari/604.1')).toBe('Safari no iPhone');
     expect(deviceLabel('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/140.0 Safari/537.36 Edg/140.0')).toBe('Edge no Windows');

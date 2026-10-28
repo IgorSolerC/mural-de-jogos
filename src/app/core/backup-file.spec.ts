@@ -170,3 +170,15 @@ describe('mural de fora com conteúdo malicioso', () => {
     expect(r.text).toBe(`Texto ${P}`);
   });
 });
+
+describe('o nome de quem enviou o mural', () => {
+  it('numa linha, sem os invisíveis nem os que viram o sentido da escrita', () => {
+    const name = (n: unknown) => parseBackupSnapshot(JSON.stringify({ app: 'meu-mural', version: 2, owner: { name: n }, reviews: [] })).ownerName;
+    expect(name('Ana‮ aiaM')).toBe('Ana aiaM');
+    expect(name('Ana\tMaria​')).toBe('Ana Maria');
+    expect(name('Ana\n⁦Maria')).toBe('Ana Maria');
+    expect(name('​‮ ')).toBeNull();
+    expect(name('n'.repeat(80))).toBe('n'.repeat(60));
+    expect(name(42)).toBeNull();
+  });
+});

@@ -72,10 +72,24 @@ export interface BackupSnapshot {
   profile?: Profile | null;
 }
 
-/** O nome de quem fez o backup, se ele veio no arquivo. */
+/**
+ * O nome de quem fez o backup, se ele veio no arquivo. No mural público ele vem de quem enviou (a
+ * nuvem não abre o mural): limpo como o nome da conta, numa linha, sem os invisíveis nem os que viram
+ * o sentido da escrita (que bagunçariam o "Seguir Fulano" e o que vem depois dele).
+ */
 export function ownerNameOf(data: unknown): string | null {
   const owner = (data as { owner?: { name?: unknown } } | null)?.owner;
-  const name = typeof owner?.name === 'string' ? owner.name.trim().slice(0, 60) : '';
+  if (typeof owner?.name !== 'string') return null;
+  const name = Array.from(
+    owner.name
+      .replace(/\s+/g, ' ')
+      .replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu, '')
+      .replace(/ {2,}/g, ' ')
+      .trim(),
+  )
+    .slice(0, 60)
+    .join('')
+    .trim();
   return name || null;
 }
 

@@ -137,6 +137,15 @@ describe('murais pela nuvem (código e link)', () => {
     expect(colleagues.colleagues().length).toBe(0);
   });
 
+  it('a nuvem que só mostra os murais para quem entrou: o 401 chega a quem pediu (o perfil diz para entrar)', async () => {
+    (window.fetch as jasmine.Spy).and.callFake(async () => new Response(JSON.stringify({ erro: 'sessao-invalida', mensagem: 'Entre para usar a nuvem.' }), { status: 401 }));
+    let failure: unknown = null;
+    expect(await murals.ensure('K7QF-M2XA', [], (err) => (failure = err))).toBeNull();
+    expect(failure).toEqual(jasmine.objectContaining({ status: 401 }));
+    // o open também: a mensagem é a mesma
+    await expectAsync(murals.open('K7QF-M2XA')).toBeRejectedWithError(/Entre para usar a nuvem/);
+  });
+
   it('o link ?mural= abre o mural, vai para ele e sai do endereço', async () => {
     const before = location.href;
     history.replaceState(null, '', `${location.pathname}?mural=K7QF-M2XA${location.hash}`);
