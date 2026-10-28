@@ -190,6 +190,18 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     for (const a of links) expect(css(a).display).toBe('block');
   });
 
+  it('a tabela branca vira a do PDF; os outros jeitos saem com a cara deles, sem partir uma linha', async () => {
+    const { el } = await sheet({ text: [PDF_BLOCK_SAMPLES.table.text, '', ...PDF_WIDGET_SAMPLES['tabela'].flatMap((t) => [t, ''])].join('\n') });
+    const rolos = [...el.querySelectorAll<HTMLElement>('.pdf-texto .tabela-rolo')];
+    expect(rolos.map((r) => [...r.classList].find((c) => c.startsWith('jeito-')))).toEqual(['jeito-branca', 'jeito-listrada', 'jeito-quadriculada', 'jeito-caneta', 'jeito-recibo']);
+    // a branca: sem o papel colado da tela
+    expect(css(rolos[0].querySelector('.tabela-papel')!).boxShadow).toBe('none');
+    // a listrada continua com a faixa de tinta no cabeçalho, e o recibo com a letra de máquina
+    expect(css(rolos[1].querySelector('th')!).backgroundColor).toBe('rgb(34, 32, 29)');
+    expect(css(rolos[4].querySelector('td')!).fontFamily).toMatch(MONO);
+    for (const tr of el.querySelectorAll('.pdf-texto .tabela tr')) expect(css(tr).breakInside).toBe('avoid');
+  });
+
   it('fora do PDF, o endereço do vídeo nunca aparece', async () => {
     const { el } = await sheet({ text: PDF_WIDGET_SAMPLES['video'][0] });
     const a = el.querySelector('a.fonte')!;

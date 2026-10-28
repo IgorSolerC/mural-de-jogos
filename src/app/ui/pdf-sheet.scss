@@ -374,21 +374,48 @@
     box-decoration-break: clone;
   }
 
-  // a tabela: o fio fino em toda célula, o cabeçalho em negrito no cinza claro
+  // a tabela branca (a de sempre) vira a do PDF: o fio fino em toda célula, o cabeçalho em negrito no
+  // cinza claro, sem o papel colado da tela. Os outros jeitos (listrada, quadriculada, caneta, recibo)
+  // saem com a cara deles, como os widgets; só ganham o respiro e não partem uma linha no meio
   .tabela-rolo:not(app-note-widget *) {
     margin: 0.4em 0;
     overflow: visible;
+    filter: none;
   }
-  .tabela:not(app-note-widget *) {
+  .tabela-rolo:not(.jeito-branca, app-note-widget *) {
+    margin: 0.6em 0;
+    padding: 0;
+    // os papéis com um fio no lugar da sombra (o PDF desenharia a sombra em bitmap)
+    .tabela-papel {
+      box-shadow: 0 0 0 1px var(--pdf-fio);
+    }
+  }
+  // a caneta não tem papel; ela e a quadriculada continuam escritas à mão, como na leitura
+  .jeito-caneta:not(app-note-widget *) .tabela-papel {
+    box-shadow: none;
+  }
+  :is(.jeito-caneta, .jeito-quadriculada):not(app-note-widget *) .tabela {
+    font-family: var(--f-hand);
+    font-size: 1.04em;
+  }
+  .jeito-branca:not(app-note-widget *) .tabela-papel {
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+  .jeito-branca:not(app-note-widget *) .tabela {
+    font-family: inherit;
     font-size: 0.94em;
     line-height: 1.45;
   }
-  .tabela:not(app-note-widget *) :is(th, td) {
+  .jeito-branca:not(app-note-widget *) :is(th, td) {
     padding: 0.38em 0.75em;
     border: 1px solid var(--pdf-fio);
+    background-image: none;
     line-height: 1.45;
   }
-  .tabela:not(app-note-widget *) th {
+  .jeito-branca:not(app-note-widget *) th {
     background: var(--pdf-fundo);
     font-family: inherit;
     font-weight: 650;

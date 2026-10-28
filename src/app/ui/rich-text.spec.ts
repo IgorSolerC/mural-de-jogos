@@ -84,6 +84,31 @@ describe('o texto formatado na leitura', () => {
     expect(parseFloat(getComputedStyle(inner[0]).paddingLeft)).toBeGreaterThan(parseFloat(getComputedStyle(outer).paddingLeft));
   });
 
+  it('a tabela no jeito dela (sem a marca, a branca): cada fileira numa linha da pauta, e o texto de baixo nas linhas da folha', async () => {
+    const T = '| A | B |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |';
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    for (const look of ['', 'listrada', 'quadriculada', 'caneta', 'recibo']) {
+      const fixture = TestBed.createComponent(RichText);
+      fixture.componentRef.setInput('text', `antes\n${look ? `{{tabela: ${look}}}\n` : ''}${T}\ndepois`);
+      const el: HTMLElement = fixture.nativeElement;
+      el.style.setProperty('--line', '24px');
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      const rolo = el.querySelector<HTMLElement>('.tabela-rolo')!;
+      expect(rolo.classList).withContext(look).toContain('jeito-' + (look || 'branca'));
+      // a marca não aparece
+      expect(el.textContent).not.toContain('{{');
+      const rows = Array.from(el.querySelectorAll<HTMLElement>('.tabela tr'));
+      expect(rows.length).withContext(look).toBe(3);
+      for (const r of rows) expect(Math.round(r.getBoundingClientRect().height)).withContext(look).toBe(24);
+      // o que vem depois começa numa linha inteira da pauta (o papel leva meia linha de cada lado)
+      const [antes, depois] = Array.from(el.querySelectorAll<HTMLElement>('.linha.paragrafo'));
+      const gap = depois.getBoundingClientRect().top - antes.getBoundingClientRect().top;
+      expect(Math.abs(gap / 24 - Math.round(gap / 24))).withContext(look + ': ' + gap).toBeLessThan(0.05);
+      el.remove();
+    }
+  });
+
   it('o texto sutil ("-# ") é menor e mais claro, na mesma altura de linha', async () => {
     const el = await render('normal\n-# um **detalhe**');
     const [plain, subtle] = Array.from(el.querySelectorAll<HTMLElement>('.linha'));

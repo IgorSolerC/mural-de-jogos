@@ -58,6 +58,10 @@ export const PDF_WIDGET_SAMPLES: Record<string, readonly string[]> = {
   video: ['{{video: https://www.youtube.com/watch?v=dQw4w9WgXcQ | O clipe}}'],
   audio: ['{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | Fado}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | vinil | Fado | pequeno}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | simples | Fado | mini}}'],
   nota: ['{{nota: #amostra-malas | Lista de malas}}', '{{nota: #amostra-malas | Lista de malas | capa | pequeno}}', '{{nota: #amostra-malas | Lista de malas | inteira}}'],
+  // a tabela branca é a do bloco `table`; aqui, os outros jeitos (a marca em cima da tabela)
+  tabela: ['listrada', 'quadriculada', 'caneta', 'recibo'].map(
+    (jeito) => `{{tabela: ${jeito}}}\n| Trem | Sai | Preço |\n| --- | :---: | ---: |\n| Sintra | 9h10 | 2,30 € |\n| Cascais | 10h05 | 2,30 € |`,
+  ),
 };
 
 /** A anotação colada pela amostra do widget Nota (o script da amostra a põe no mural). */

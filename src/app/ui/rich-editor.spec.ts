@@ -487,23 +487,18 @@ describe('a régua de formatação do texto', () => {
       expect(value()).toBe('- [ ] leite');
     });
 
-    it('a tabela pela grade (no "Inserir"); Tab anda nas células e cria a linha nova; Enter numa linha vazia termina', () => {
-      write('|');
-      pick('inserir', 'Tabela');
-      const squares = fixture.nativeElement.querySelectorAll('.quadrado') as NodeListOf<HTMLButtonElement>;
-      // 3 colunas, 1 linha: o terceiro quadrado da primeira fileira
-      squares[2].click();
+    it('a tabela escrita à mão: Tab anda nas células e cria a linha nova; Enter numa linha vazia termina', () => {
+      // (sem o `write`, que lê o "|" como o cursor)
+      fixture.componentInstance.value.set('| Coluna 1 | Coluna 2 | Coluna 3 |\n| --- | --- | --- |\n|   |   |   |');
       fixture.detectChanges();
-      expect(value()).toBe('| Coluna 1 | Coluna 2 | Coluna 3 |\n| --- | --- | --- |\n|   |   |   |');
-      expect(value().slice(area.selectionStart, area.selectionEnd)).toBe('Coluna 1');
+      area.focus();
+      area.setSelectionRange(2, 10);
       key('Tab');
       expect(value().slice(area.selectionStart, area.selectionEnd)).toBe('Coluna 2');
       key('Tab');
       key('Tab');
       // pulou a linha de traços: a primeira célula da linha de baixo
-      const line = value().split('\n')[2];
       expect(value().lastIndexOf('\n') < area.selectionStart).toBeTrue();
-      expect(line.startsWith('|')).toBeTrue();
       key('Tab');
       key('Tab');
       key('Tab');
@@ -765,6 +760,19 @@ describe('o painel aberto pelo clique na folha', () => {
     expect(fixture.nativeElement.querySelector('app-widget-sheet')).toBeNull();
   });
 
+  it('numa tabela (em qualquer linha dela, ou na marca do jeito): a tirinha da tabela, com as colunas, as linhas e o jeito', async () => {
+    const text = 'antes\n{{tabela: recibo}}\n| A | B |\n| --- | --- |\n| 1 | 2 |\ndepois';
+    await clickAt(text, text.indexOf('| 1'));
+    const tira = panel('.widget-tira');
+    expect(tira?.querySelector('.widget-tira-nome')?.textContent).toBe('Tabela');
+    expect(tira?.querySelector('.widget-tira-resumo')?.textContent).toBe('2 colunas, 2 linhas · Recibo');
+    expect(document.activeElement).toBe(area);
+    // o Tirar leva a tabela inteira, com a marca
+    panel('.widget-tira-tirar')!.click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.value()).toBe('antes\ndepois');
+  });
+
   it('o Tirar da tirinha tira a linha do widget, com a quebra dela', async () => {
     await clickAt('antes\n{{contador: 2026-12-25 | Natal}}\ndepois', 9);
     panel('.widget-tira-tirar')!.click();
@@ -882,6 +890,68 @@ describe('a folha do widget no editor', () => {
     await wait();
     expect(sheet()).toBeNull();
     expect(fixture.componentInstance.value()).toBe('{{imagem: https://ex.com/praia.jpg | polaroid}}');
+  });
+
+  /** Escreve numa célula da grade da tabela. */
+  async function typeCell(r: number, c: number, text: string): Promise<void> {
+    const input = el.querySelector<HTMLInputElement>(`.wfolha input[data-r="${r}"][data-c="${c}"]`)!;
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    await wait();
+  }
+
+  it('a tabela no Inserir abre a folha com a grade: vazia, ela diz o que falta; escrita, o palco mostra e "Pôr" escreve o markdown', async () => {
+    fixture.componentInstance.value.set('Um texto');
+    await fixture.whenStable();
+    const area = el.querySelector('textarea')!;
+    area.focus();
+    area.setSelectionRange(8, 8);
+    await choose('Tabela');
+    expect(el.querySelector('.wfolha h2')?.textContent?.trim()).toBe('Tabela');
+    expect(el.querySelector('.wfolha .sub')?.textContent?.trim()).toBe('Widget novo, com as linhas que quiser');
+    // a primeira célula do cabeçalho leva o foco; a tabela não tem tamanho
+    expect(document.activeElement).toBe(el.querySelector('.wfolha [data-campo="table"]'));
+    expect(el.querySelector('.wfolha .tamanhos')).toBeNull();
+    expect(el.querySelector('.wfolha .tamanho-fixo')).toBeNull();
+    expect(el.querySelectorAll('.wfolha .jeito').length).toBe(5);
+    expect(el.querySelector('.wfolha .falta')?.textContent?.trim()).toBe('Falta escrever na tabela');
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(sheet()?.open).toBeTrue();
+    expect(el.querySelector('.wfolha app-table-grid .tg.falta')).not.toBeNull();
+    await typeCell(-1, 0, 'Dia');
+    await typeCell(0, 0, 'Seg');
+    // o palco desenha a tabela de verdade, no jeito escolhido
+    expect(el.querySelector('.wfolha .palco app-rich-text .tabela-rolo.jeito-branca')).not.toBeNull();
+    el.querySelector<HTMLInputElement>('.wfolha .jeito input[value="listrada"]')!.click();
+    await wait();
+    expect(el.querySelector('.wfolha .palco .tabela-rolo.jeito-listrada')).not.toBeNull();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(sheet()).toBeNull();
+    expect(fixture.componentInstance.value()).toBe('Um texto\n{{tabela: listrada}}\n| Dia |  |  |\n| --- | --- | --- |\n| Seg |  |  |\n|  |  |  |');
+  });
+
+  it('o Editar da tabela abre a folha com ela; salvar troca só ela, com o recuo do item, e a branca não escreve a marca', async () => {
+    const text = '- Roteiro\n  {{tabela: caneta}}\n  | A | B |\n  | --- | ---: |\n  | 1 | 2 |\nfim';
+    fixture.componentInstance.value.set(text);
+    await fixture.whenStable();
+    const area = el.querySelector('textarea')!;
+    area.focus();
+    area.setSelectionRange(text.indexOf('| A'), text.indexOf('| A'));
+    area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    await wait();
+    el.querySelector<HTMLButtonElement>('.widget-tira-editar')!.click();
+    await wait();
+    expect(el.querySelector('.wfolha .sub')?.textContent?.trim()).toBe('Mexendo no widget do texto');
+    expect(el.querySelector<HTMLInputElement>('.wfolha input[data-r="0"][data-c="1"]')?.value).toBe('2');
+    expect(el.querySelector('.wfolha .jeito.on .jeito-nome')?.textContent).toBe('Caneta');
+    await typeCell(0, 1, '3');
+    el.querySelector<HTMLInputElement>('.wfolha .jeito input[value="branca"]')!.click();
+    await wait();
+    el.querySelector<HTMLButtonElement>('.wfolha .pe .ok')!.click();
+    await wait();
+    expect(fixture.componentInstance.value()).toBe('- Roteiro\n  | A | B |\n  | --- | ---: |\n  | 1 | 3 |\nfim');
   });
 
   it('sem o que ele precisa, o botão diz o que falta e leva o foco ao campo', async () => {

@@ -460,6 +460,7 @@ describe('a cópia de cada widget, como texto', () => {
       expect(tiles('video')).toEqual(['frame']);
       expect(tiles('audio')).toEqual(['look']);
       expect(tiles('nota')).toEqual(['look']);
+      expect(tiles('tabela')).toEqual(['look']);
       // o repete, o dia e a hora do contador numa linha só
       const quando = widgetDef('contador')!.fields.filter((f) => f.row === 'quando').map((f) => f.key);
       expect(quando).toEqual(['repeat', 'date', 'monthDay', 'time', 'time']);

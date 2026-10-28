@@ -26,12 +26,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-busca-do-site',
+    id: '2026-10-28-tabela-widget',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
-    title: 'O texto formatado, o Google Agenda, as anotações compartilhadas e a API',
+    title: 'As tabelas, o texto formatado, o Google Agenda e as anotações compartilhadas',
     melhorias: [
+      'A tabela das anotações virou um widget: pelo Inserir › Tabela (ou tocando nela no texto e em Editar) ela abre numa folha como a de uma planilha, para escrever nas células, pôr, mover, tirar e alinhar linhas e colunas e colar células de uma planilha, sem mexer nas barras do markdown. E ganhou cinco jeitos: Branca (a folha de impresso, agora a de sempre), Listrada, Quadriculada, Caneta (a de antes) e Recibo.',
       'Apagar a conta pede para entrar de novo com o Google, com a mesma conta, e toda conta (não só a com cofre de senhas) espera 7 dias para sair, com o aviso no topo e o "Não apagar"; o "Apagar já" saiu.',
       'No cofre, pôr ou tirar um aparelho, gerar um código de recuperação novo e apagar o cofre pedem a passkey de novo (ou a senha mestra), e o servidor confere: só o cofre aberto não basta mais. Trocar a senha mestra é confirmado pela senha atual, que ela já pedia.',
     ],

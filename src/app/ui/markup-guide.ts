@@ -42,7 +42,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
     items: [
       { what: 'Link para um endereço', mark: '[texto](https://…)', keys: 'Ctrl+K', note: 'Colar um endereço com um texto selecionado também faz o link.' },
       { what: 'Link para outra anotação', mark: '[[Título]]', notes: true, note: '[[Título|texto]] mostra o texto no lugar do título.' },
-      { what: 'Tabela', mark: '| a | b |', note: 'A segunda linha é | --- | --- |. Na tabela, Tab anda entre as células.' },
+      { what: 'Tabela', mark: '| a | b |', note: 'Pelo Inserir › Tabela, escrita como numa planilha. À mão, a segunda linha é | --- | --- |, e Tab anda entre as células. Em cima dela, {{tabela: listrada}} troca o jeito (também quadriculada, caneta e recibo).' },
       { what: 'Divisória', mark: '---' },
     ],
   },

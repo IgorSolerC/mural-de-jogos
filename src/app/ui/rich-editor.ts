@@ -2,7 +2,8 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableCells, toggleCheck, withNumber } from '../core/rich-text';
+import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, toggleCheck, withNumber } from '../core/rich-text';
+import { DEFAULT_TABLE_LOOK, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
@@ -10,14 +11,14 @@ import { WidgetSheet } from './widget-sheet';
 import type { WidgetDone } from './widget-sheet';
 import { WIDGET_ICONS } from './widget-icons';
 import { MarkupGuide } from './markup-guide';
-import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, widgetLine } from '../core/widgets';
+import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, widgetLines } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
 type MenuName = 'formatar' | 'inserir';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'table' | 'rule';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'sutil' | 'codigo';
 
@@ -34,7 +35,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  *
  * - "Formatar": o texto (negrito, itálico, riscado, marca-texto, spoiler, código, com o atalho de
  *   cada um) e o parágrafo (os estilos e as listas);
- * - "Inserir": link para um endereço, link para outra anotação, tabela, divisória e os widgets;
+ * - "Inserir": link para um endereço, link para outra anotação, divisória e os widgets (a tabela é um deles);
  * - os botões de toda hora (desfazer e refazer, negrito, itálico, riscado, marca-texto, as listas, o
  *   link). Sem lugar, os que também estão nos menus saem primeiro, e no fim os que sobram rolam de
  *   lado; nada some, tudo continua no "Formatar" e no "Inserir".
@@ -219,7 +220,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               aria-haspopup="menu"
               [attr.aria-expanded]="isOpen('inserir', big)"
               [attr.aria-controls]="isOpen('inserir', big) ? areaId + '-inserir' : null"
-              title="Inserir: link, tabela, divisória e widgets (contador, imagem, vídeo…)"
+              title="Inserir: link, divisória e widgets (contador, imagem, tabela…)"
               (pointerdown)="$event.preventDefault()"
               (click)="toggleMenu('inserir', big, $event, area)"
               (keydown.arrowdown)="$event.preventDefault(); openMenu('inserir', big, true)"
@@ -231,7 +232,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             @if (isOpen('inserir', big)) {
               <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-inserir'" aria-label="Inserir" (keydown)="onMenuKey($event, area)">
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-links'">
-                  <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e tabelas</p>
+                  <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e divisória</p>
                   @for (o of inserts(); track o.act) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
                       <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
@@ -388,37 +389,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               <button type="button" class="acao-caneta" (click)="closeUrl(null, area)">Cancelar</button>
               <button type="button" class="painel-ok" [disabled]="!urlOk()" (click)="putUrl(area)">{{ u.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
             </div>
-          </div>
-        }
-      }
-      <!-- a tabela: escolhida numa grade, como numa folha quadriculada -->
-      @if (tablePick(); as t) {
-        @if (t.big === big) {
-          <div class="painel tabela-painel" (keydown.escape)="closeTable($event, area)">
-            <div class="painel-topo">
-              <p class="painel-titulo" aria-live="polite">Tabela {{ t.cols }} × {{ t.rows }}</p>
-              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeTable(null, area)"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
-            </div>
-            <div class="grade" role="grid" aria-label="Tamanho da tabela: colunas por linhas" (keydown)="onGridKey($event)">
-              @for (r of gridRows; track r) {
-                <div class="grade-linha" role="row">
-                  @for (c of gridCols; track c) {
-                    <button
-                      type="button"
-                      role="gridcell"
-                      class="quadrado"
-                      [class.dentro]="c <= t.cols && r <= t.rows"
-                      [attr.aria-label]="c + ' colunas e ' + r + ' linhas'"
-                      [attr.tabindex]="c === t.cols && r === t.rows ? 0 : -1"
-                      (pointerenter)="tablePick.set({ big: t.big, cols: c, rows: r })"
-                      (focus)="tablePick.set({ big: t.big, cols: c, rows: r })"
-                      (click)="putTable(area, c, r)"
-                    ></button>
-                  }
-                </div>
-              }
-            </div>
-            <p class="painel-dica">Na tabela, Tab anda entre as células e Enter no fim de uma linha cria a próxima.</p>
           </div>
         }
       }
@@ -1187,38 +1157,6 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         padding-block: 11px;
       }
     }
-    /* a grade da tabela: papel quadriculado, os quadrados escolhidos em marca-texto */
-    .grade {
-      display: inline-grid;
-      gap: 3px;
-    }
-    .grade-linha {
-      display: flex;
-      gap: 3px;
-    }
-    .quadrado {
-      width: 24px;
-      height: 24px;
-      padding: 0;
-      border: 1.5px solid rgb(21 21 21 / 0.35);
-      border-radius: 2px;
-      background: #fff;
-      cursor: pointer;
-    }
-    .quadrado.dentro {
-      border-color: var(--ink);
-      background: rgb(255 218 66 / 0.75);
-    }
-    .quadrado:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: 1px;
-    }
-    @media (pointer: coarse) {
-      .quadrado {
-        width: 32px;
-        height: 32px;
-      }
-    }
     /* ===== O widget tocado na folha: uma tirinha só, com o desenho, o nome, o que ele mostra e as duas
        ações (Tirar, à caneta; Editar, a etiqueta de tinta), como o menu de um bloco nos editores ===== */
     .widget-tira {
@@ -1891,10 +1829,6 @@ export class RichEditor {
   protected readonly urlLink = signal<{ big: boolean; start: number; end: number; text: string; url: string; swap?: boolean } | null>(null);
   /** O endereço do painel serve (com "https://" se faltou). */
   protected readonly urlOk = computed(() => !!normalizeUrl(this.urlLink()?.url ?? ''));
-  /** A grade da tabela aberta, com o tamanho apontado. */
-  protected readonly tablePick = signal<{ big: boolean; cols: number; rows: number } | null>(null);
-  protected readonly gridCols = [1, 2, 3, 4, 5, 6];
-  protected readonly gridRows = [1, 2, 3, 4, 5, 6];
 
   /** O painel que acabou de abrir entra na tela (no celular, a régua pode já ter saído dela). */
   private showPanel(selector: string): void {
@@ -1935,7 +1869,6 @@ export class RichEditor {
     const all: { act: Action; name: string; icon: LucideIconData; keys: string; aria: string | null; typed: string }[] = [
       { act: 'url', name: 'Link para um endereço', icon: ICON.link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
       { act: 'note', name: 'Link para outra anotação', icon: ICON.linkNota, keys: '', aria: null, typed: '[[' },
-      { act: 'table', name: 'Tabela', icon: ICON.tabela, keys: '', aria: null, typed: '' },
       { act: 'rule', name: 'Divisória', icon: ICON.tirar, keys: '', aria: null, typed: '---' },
     ];
     return this.notes() ? all : all.filter((o) => o.act !== 'note');
@@ -2052,8 +1985,6 @@ export class RichEditor {
         return this.startUrl(area, big);
       case 'note':
         return this.startLink(area, big);
-      case 'table':
-        return this.startTable(big);
       case 'rule':
         return this.rule(area);
       case 'inside':
@@ -2631,7 +2562,7 @@ export class RichEditor {
     const from = text.lastIndexOf('\n', at - 1) + 1;
     const endAt = text.indexOf('\n', at);
     const line = text.slice(from, endAt === -1 ? text.length : endAt);
-    const w = parseWidgetLine(line);
+    const w = this.tableAt(text, at) ? { name: 'tabela' } : parseWidgetLine(line);
     const def = w && widgetDef(w.name);
     if (def) {
       this.startWidget(area, big, def, false);
@@ -2692,7 +2623,6 @@ export class RichEditor {
     this.passive = false;
     this.linking.set(null);
     this.urlLink.set(null);
-    this.tablePick.set(null);
     this.menu.set(null);
     this.guide.set(null);
     this.widgetPick.set(null);
@@ -2776,11 +2706,12 @@ export class RichEditor {
     return widgetDef(name) ?? WIDGETS[0];
   }
 
-  /** O que a tirinha diz do widget tocado: o título, a legenda ou o site do link. */
+  /** O que a tirinha diz do widget tocado: o título, a legenda ou o site do link (a tabela: quantas colunas e linhas). */
   protected readonly widgetSummary = computed(() => {
     const w = this.widgetPick();
     if (!w) return '';
     const def = this.widgetOf(w.name);
+    if (def.summary) return def.summary(w.values);
     const args = def.write(w.values);
     const words = args ? def.plain(args).trim() : '';
     return words || hostOf(w.values['url'] ?? '');
@@ -2794,13 +2725,21 @@ export class RichEditor {
   private startWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef, openSheet = true): void {
     this.closePanels();
     const { from, lines } = this.linesAt(area);
+    const table = def.name === 'tabela' || !openSheet ? this.tableAt(area.value, area.selectionStart) : null;
     const here = lines.length === 1 ? parseWidgetLine(lines[0]) : null;
-    if (here && (here.name === def.name || !openSheet)) {
+    if (table) {
+      // a tabela do cursor (com a marca do jeito em cima, se tiver): ela inteira é o trecho
+      this.widgetPick.set({ big, name: 'tabela', values: { look: table.look, table: table.text }, start: table.start, end: table.end, swap: true });
+    } else if (here && (here.name === def.name || !openSheet)) {
       const known = this.widgetOf(here.name);
       this.widgetPick.set({ big, name: known.name, values: { ...known.read(here.args), size: here.size }, start: from, end: from + lines[0].length, swap: true });
     } else {
-      this.widgetPick.set({ big, name: def.name, values: { size: 'medio' }, start: area.selectionStart, end: area.selectionEnd, swap: false });
+      const fresh: WidgetValues = def.name === 'tabela' ? { look: DEFAULT_TABLE_LOOK, table: tableText(emptyTable()) } : {};
+      this.widgetPick.set({ big, name: def.name, values: { size: 'medio', ...fresh }, start: area.selectionStart, end: area.selectionEnd, swap: false });
     }
+    // a marca do jeito da tabela sozinha (a tabela de baixo saiu): a folha começa uma tabela nova embaixo dela
+    const w = this.widgetPick();
+    if (w?.name === 'tabela' && !w.values['table']) this.widgetPick.set({ ...w, values: { ...w.values, table: tableText(emptyTable()) } });
     if (openSheet) this.widgetSheet.set(true);
     else {
       this.passive = true;
@@ -2822,7 +2761,22 @@ export class RichEditor {
   private widgetOrder: { line: string } | 'tirar' | null = null;
 
   protected onWidgetDone(done: WidgetDone): void {
-    this.widgetOrder = { line: widgetLine(done.name, done.args, done.size) };
+    this.widgetOrder = { line: widgetLines(done.name, done.args, done.size, done.body).join('\n') };
+  }
+
+  /**
+   * A tabela onde está a posição `at` do texto (a marca do jeito em cima dela também conta): o trecho
+   * dela inteira, do começo da primeira linha ao fim da última, o jeito e a tabela como a folha a lê.
+   */
+  private tableAt(text: string, at: number): { start: number; end: number; look: string; text: string } | null {
+    const line = text.slice(0, at).split('\n').length - 1;
+    const block = tableBlockAt(text, line);
+    if (!block) return null;
+    const lines = linesOf(text);
+    const start = lines.slice(0, block.from).reduce((n, l) => n + l.length + 1, 0);
+    const end = start + lines.slice(block.from, block.to + 1).join('\n').length;
+    const rows = lines.slice(block.from + (block.look ? 1 : 0), block.to + 1);
+    return { start, end, look: block.look ?? DEFAULT_TABLE_LOOK, text: tableText(readTable(rows)) };
   }
 
   protected onWidgetRemoved(): void {
@@ -2871,9 +2825,11 @@ export class RichEditor {
    */
   protected writeWidget(area: HTMLTextAreaElement, w: { start: number; end: number; swap: boolean }, line: string): void {
     const text = area.value;
+    // o widget de várias linhas (a tabela): cada uma delas com o recuo
+    const indented = (indent: string) => line.split('\n').map((l) => indent + l).join('\n');
     if (w.swap) {
       // a linha trocada fica com o recuo que tinha: o widget embaixo de um item continua no item
-      const own = /^[ \t]*/.exec(text.slice(w.start, w.end))![0] + line;
+      const own = indented(/^[ \t]*/.exec(text.slice(w.start, w.end))![0]);
       this.replace(area, w.start, w.end, own, w.start + own.length, w.start + own.length);
       return;
     }
@@ -2884,11 +2840,11 @@ export class RichEditor {
     const indent = bodyIndent(linesOf(text), text.slice(0, lineStart).split('\n').length - 1) ?? '';
     if (!text.slice(lineStart, lineEnd).trim()) {
       // na linha vazia, com o recuo que ela já tinha
-      const own = /^[ \t]*/.exec(text.slice(lineStart, lineEnd))![0] + line;
+      const own = indented(/^[ \t]*/.exec(text.slice(lineStart, lineEnd))![0]);
       this.replace(area, lineStart, lineEnd, own, lineStart + own.length, lineStart + own.length);
       return;
     }
-    const piece = '\n' + indent + line;
+    const piece = '\n' + indented(indent);
     this.replace(area, lineEnd, lineEnd, piece, lineEnd + piece.length, lineEnd + piece.length);
   }
 
@@ -2903,64 +2859,11 @@ export class RichEditor {
 
   // ===== A tabela =====
 
-  protected startTable(big: boolean): void {
-    // a grade aberta nesta folha: o botão fecha
-    const open = this.tablePick()?.big === big;
-    this.closePanels();
-    if (open) return;
-    this.tablePick.set({ big, cols: 2, rows: 2 });
-    this.showPanel('.tabela-painel');
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
-  }
-
-  /** Setas andam na grade, Enter (ou espaço) põe a tabela do tamanho apontado. */
-  protected onGridKey(e: KeyboardEvent): void {
-    const t = this.tablePick();
-    if (!t) return;
-    const move: Record<string, [number, number]> = { ArrowRight: [1, 0], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowUp: [0, -1] };
-    const d = move[e.key];
-    if (!d) return;
-    e.preventDefault();
-    const cols = Math.min(6, Math.max(1, t.cols + d[0]));
-    const rows = Math.min(6, Math.max(1, t.rows + d[1]));
-    this.tablePick.set({ ...t, cols, rows });
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.quadrado[tabindex="0"]')?.focus());
-  }
-
-  protected closeTable(e: Event | null, area: HTMLTextAreaElement): void {
-    e?.preventDefault();
-    e?.stopPropagation();
-    this.tablePick.set(null);
-    area.focus();
-  }
-
   protected closeGuide(e: Event | null, area: HTMLTextAreaElement): void {
     e?.preventDefault();
     e?.stopPropagation();
     this.guide.set(null);
     area.focus();
-  }
-
-  /**
-   * Põe a tabela (colunas × linhas, sem contar o cabeçalho) numa linha só dela, com o cabeçalho
-   * "Coluna 1, Coluna 2…" e o primeiro nome já selecionado para ser trocado.
-   */
-  protected putTable(area: HTMLTextAreaElement, cols: number, rows: number): void {
-    this.tablePick.set(null);
-    const text = area.value;
-    const at = area.selectionEnd;
-    const lineStart = text.lastIndexOf('\n', at - 1) + 1;
-    const lineEndAt = text.indexOf('\n', at);
-    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
-    const onEmpty = !text.slice(lineStart, lineEnd).trim();
-    const pos = onEmpty ? lineStart : lineEnd;
-    const head = '| ' + Array.from({ length: cols }, (_, i) => `Coluna ${i + 1}`).join(' | ') + ' |';
-    const sep = '|' + ' --- |'.repeat(cols);
-    const row = '|' + '   |'.repeat(cols);
-    const before = onEmpty ? '' : '\n';
-    const piece = before + [head, sep, ...Array.from({ length: rows }, () => row)].join('\n') + (onEmpty ? '' : '\n');
-    const first = pos + before.length + 2;
-    this.replace(area, pos, onEmpty ? lineEnd : pos, piece, first, first + 'Coluna 1'.length);
   }
 
   /** A linha do cursor é uma linha de tabela ("| … |")? */

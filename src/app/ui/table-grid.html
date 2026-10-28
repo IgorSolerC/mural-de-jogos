@@ -1,0 +1,132 @@
+@let d = data();
+@let here = at();
+<div class="tg" [class.falta]="missing()">
+  <!-- a régua: mexe na linha e na coluna da célula do cursor (o foco fica na célula) -->
+  <div class="tg-regua" role="toolbar" aria-label="Linhas e colunas" [attr.aria-controls]="ids() + '-grade'">
+    <div class="tg-grupo" role="group" [attr.aria-labelledby]="ids() + '-linha'">
+      <span class="tg-grupo-nome" [id]="ids() + '-linha'">{{ here.r < 0 ? 'Cabeçalho' : 'Linha ' + (here.r + 1) }}</span>
+      <span class="tg-teclas">
+        <button type="button" class="tg-tecla" title="Pôr uma linha em cima" aria-label="Pôr uma linha em cima" [disabled]="here.r < 0 || d.rows.length >= maxRows" (pointerdown)="$event.preventDefault()" (click)="addRow(here.r)">
+          <lucide-icon [img]="AddRowAbove" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Pôr uma linha embaixo" aria-label="Pôr uma linha embaixo" [disabled]="d.rows.length >= maxRows" (pointerdown)="$event.preventDefault()" (click)="addRow(here.r + 1)">
+          <lucide-icon [img]="AddRowBelow" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Subir a linha" aria-label="Subir a linha" [disabled]="here.r <= 0" (pointerdown)="$event.preventDefault()" (click)="moveRow(-1)">
+          <lucide-icon [img]="UpIcon" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Descer a linha" aria-label="Descer a linha" [disabled]="here.r < 0 || here.r >= d.rows.length - 1" (pointerdown)="$event.preventDefault()" (click)="moveRow(1)">
+          <lucide-icon [img]="DownIcon" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla perigo" title="Tirar a linha" aria-label="Tirar a linha" [disabled]="here.r < 0 || d.rows.length <= 1" (pointerdown)="$event.preventDefault()" (click)="removeRow()">
+          <lucide-icon [img]="RemoveIcon" [size]="17" aria-hidden="true" />
+        </button>
+      </span>
+    </div>
+    <div class="tg-grupo" role="group" [attr.aria-labelledby]="ids() + '-coluna'">
+      <span class="tg-grupo-nome" [id]="ids() + '-coluna'">Coluna {{ letters()[here.c] }}</span>
+      <span class="tg-teclas">
+        <button type="button" class="tg-tecla" title="Pôr uma coluna antes" aria-label="Pôr uma coluna antes" [disabled]="d.head.length >= maxCols" (pointerdown)="$event.preventDefault()" (click)="addCol(here.c)">
+          <lucide-icon [img]="AddColLeft" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Pôr uma coluna depois" aria-label="Pôr uma coluna depois" [disabled]="d.head.length >= maxCols" (pointerdown)="$event.preventDefault()" (click)="addCol(here.c + 1)">
+          <lucide-icon [img]="AddColRight" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Levar a coluna para a esquerda" aria-label="Levar a coluna para a esquerda" [disabled]="here.c <= 0" (pointerdown)="$event.preventDefault()" (click)="moveCol(-1)">
+          <lucide-icon [img]="LeftIcon" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla" title="Levar a coluna para a direita" aria-label="Levar a coluna para a direita" [disabled]="here.c >= d.head.length - 1" (pointerdown)="$event.preventDefault()" (click)="moveCol(1)">
+          <lucide-icon [img]="RightIcon" [size]="18" aria-hidden="true" />
+        </button>
+        <button type="button" class="tg-tecla perigo" title="Tirar a coluna" aria-label="Tirar a coluna" [disabled]="d.head.length <= 1" (pointerdown)="$event.preventDefault()" (click)="removeCol()">
+          <lucide-icon [img]="RemoveIcon" [size]="17" aria-hidden="true" />
+        </button>
+      </span>
+    </div>
+    <div class="tg-grupo" role="radiogroup" [attr.aria-label]="'Alinhar a coluna ' + letters()[here.c]">
+      <span class="tg-grupo-nome" aria-hidden="true">Alinhar</span>
+      <span class="tg-teclas">
+        @for (a of ALIGNS; track a.label) {
+          @let on = alignHere() === a.value || (a.value === null && alignHere() === 'left');
+          <button type="button" role="radio" class="tg-tecla" [class.on]="on" [attr.aria-checked]="on" [title]="a.label" [attr.aria-label]="a.label" (pointerdown)="$event.preventDefault()" (click)="align(a.value)">
+            <lucide-icon [img]="a.icon" [size]="18" aria-hidden="true" />
+          </button>
+        }
+      </span>
+    </div>
+  </div>
+
+  <!-- a grade: as letras das colunas em cima, o número das linhas ao lado, o cabeçalho na primeira -->
+  <div class="tg-folha">
+    <div class="tg-rolo">
+      <table class="tg-grade" [id]="ids() + '-grade'">
+        <thead>
+          <tr>
+            <td class="tg-canto"></td>
+            @for (c of cols(); track c) {
+              <th scope="col" class="tg-letra" [class.aqui]="here.c === c">{{ letters()[c] }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="tg-cabecalho">
+            <th scope="row" class="tg-num" [class.aqui]="here.r === -1">Títulos</th>
+            @for (c of cols(); track c) {
+              <td class="tg-celula">
+                <input
+                  type="text"
+                  autocomplete="off"
+                  maxlength="200"
+                  placeholder="Título"
+                  [attr.data-r]="-1"
+                  [attr.data-c]="c"
+                  [attr.data-campo]="c === 0 ? 'table' : null"
+                  [attr.aria-label]="nameOf(-1, c)"
+                  [attr.aria-invalid]="missing() && c === 0 ? true : null"
+                  [style.text-align]="textAlign(c)"
+                  [value]="shown(cellOf(-1, c))"
+                  (focus)="focused(-1, c)"
+                  (input)="write(-1, c, $any($event.target).value)"
+                  (keydown)="onKey($event, -1, c)"
+                  (paste)="onPaste($event, -1, c)"
+                />
+              </td>
+            }
+          </tr>
+          @for (row of d.rows; track $index; let r = $index) {
+            <tr>
+              <th scope="row" class="tg-num" [class.aqui]="here.r === r">{{ r + 1 }}</th>
+              @for (c of cols(); track c) {
+                <td class="tg-celula">
+                  <input
+                    type="text"
+                    autocomplete="off"
+                    maxlength="200"
+                    [attr.data-r]="r"
+                    [attr.data-c]="c"
+                    [attr.aria-label]="nameOf(r, c)"
+                    [style.text-align]="textAlign(c)"
+                    [value]="shown(cellOf(r, c))"
+                    (focus)="focused(r, c)"
+                    (input)="write(r, c, $any($event.target).value)"
+                    (keydown)="onKey($event, r, c)"
+                    (paste)="onPaste($event, r, c)"
+                  />
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+      <button type="button" class="tg-mais tg-mais-coluna" title="Pôr uma coluna no fim" aria-label="Pôr uma coluna no fim" [disabled]="d.head.length >= maxCols" (click)="addCol(d.head.length)">
+        <lucide-icon [img]="PlusIcon" [size]="18" aria-hidden="true" />
+      </button>
+    </div>
+    <button type="button" class="tg-mais tg-mais-linha" [disabled]="d.rows.length >= maxRows" (click)="addRow(d.rows.length, 0)">
+      <lucide-icon [img]="PlusIcon" [size]="17" aria-hidden="true" />
+      Linha
+    </button>
+  </div>
+  <p class="tg-dica">Enter desce para a linha de baixo (na última, cria outra). Dá para colar células de uma planilha.</p>
+  <p class="sr-only" aria-live="polite">{{ said() }}</p>
+</div>

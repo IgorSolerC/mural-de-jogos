@@ -1,4 +1,5 @@
 import { DAY_MS } from './dates';
+import { DEFAULT_TABLE_LOOK, TABLE_LOOKS, parseTableText, tableIsEmpty, tableLookOf, tableLookWord, writeTable } from './tables';
 import { cap } from './text';
 /**
  * Os widgets das anotações: peças vivas que moram no próprio texto, numa linha só delas, como as
@@ -22,7 +23,7 @@ import { cap } from './text';
 export interface WidgetField {
   key: string;
   label: string;
-  kind: 'text' | 'url' | 'date' | 'time' | 'number' | 'toggle' | 'choice' | 'card';
+  kind: 'text' | 'url' | 'date' | 'time' | 'number' | 'toggle' | 'choice' | 'card' | 'table';
   placeholder?: string;
   /** O campo só aparece (e só é pedido) quando isto diz que sim, pelos valores de agora; sem ele, sempre. */
   shown?(values: WidgetValues): boolean;
@@ -88,6 +89,15 @@ export interface WidgetDef {
    * frase que a folha diz no lugar do tamanho. Sem ele (ou null), o tamanho vale como sempre.
    */
   fixedSize?(values: WidgetValues): string | null;
+  /** O widget nunca tem tamanho (a tabela tem a altura das linhas dela): a folha nem mostra a parte do tamanho. */
+  unsized?: true;
+  /**
+   * O widget que mora em várias linhas (a tabela): as linhas que vão embaixo da marca dele. A marca
+   * sem parâmetros não se escreve (a tabela branca é só o markdown dela; ver `widgetLines`).
+   */
+  body?(values: WidgetValues): string[] | null;
+  /** O que a tirinha do editor diz do widget tocado, quando não é o texto dele (a tabela: "3 colunas, 4 linhas"). */
+  summary?(values: WidgetValues): string;
 }
 
 /** Os campos que o painel mostra agora (os de `shown` só quando valem para os valores de agora). */
@@ -209,6 +219,16 @@ export function widgetLine(name: string, args: readonly string[], size: WidgetSi
   if (clash !== -1) parts.splice(clash, 0, size);
   else if (size !== 'medio') parts.push(size);
   return parts.length ? `{{${name}: ${parts.join(' | ')}}}` : `{{${name}}}`;
+}
+
+/**
+ * As linhas que o widget ocupa no texto: a marca e, no que mora em várias linhas (a tabela), as de
+ * baixo. A marca de um desses sem parâmetros não se escreve: a tabela de sempre é só o markdown dela.
+ */
+export function widgetLines(name: string, args: readonly string[], size: WidgetSize = 'medio', body?: readonly string[] | null): string[] {
+  const def = widgetDef(name);
+  if (!def?.body) return [widgetLine(name, args, size)];
+  return [...(args.length ? [widgetLine(def.name, args)] : []), ...(body ?? [])];
 }
 
 // ===== O contador =====
@@ -1062,8 +1082,53 @@ const CARD: WidgetDef = {
   },
 };
 
+// ===== A tabela: as linhas e colunas do markdown, editadas como numa planilha =====
+
+/**
+ * A tabela mora em várias linhas: a marca "{{tabela: listrada}}" (só o jeito, e só quando não é o de
+ * sempre) e, logo embaixo, a tabela do markdown (ver core/tables.ts). Na folha, o campo `table` guarda
+ * o markdown dela inteiro; quem lê a marca e a tabela do texto é o editor.
+ */
+const TABLE: WidgetDef = {
+  name: 'tabela',
+  aliases: ['table', 'tabelas', 'planilha'],
+  label: 'Tabela',
+  about: 'Linhas e colunas, escritas como numa planilha, em cinco jeitos.',
+  hint: 'Linhas e colunas',
+  what: 'A tabela',
+  put: 'Pôr a tabela',
+  swap: 'Salvar a tabela',
+  fields: [
+    { key: 'table', label: 'A tabela', kind: 'table', required: true, missing: 'Falta escrever na tabela' },
+    { key: 'look', label: 'Jeito', kind: 'choice', options: TABLE_LOOKS, display: 'tiles' },
+  ],
+  read(args) {
+    return { look: tableLookOf(args) };
+  },
+  write(v) {
+    if (tableIsEmpty(parseTableText(v['table'] ?? ''))) return null;
+    const look = tableLookWord(v['look'] ?? '') ?? DEFAULT_TABLE_LOOK;
+    return look === DEFAULT_TABLE_LOOK ? [] : [look];
+  },
+  body(v) {
+    const t = parseTableText(v['table'] ?? '');
+    return tableIsEmpty(t) ? null : writeTable(t);
+  },
+  unsized: true,
+  summary(v) {
+    const t = parseTableText(v['table'] ?? '');
+    const cols = t.head.length;
+    const rows = t.rows.length + 1;
+    const look = TABLE_LOOKS.find((o) => o.value === (tableLookWord(v['look'] ?? '') ?? DEFAULT_TABLE_LOOK))?.label ?? '';
+    return `${cols} ${cols === 1 ? 'coluna' : 'colunas'}, ${rows} ${rows === 1 ? 'linha' : 'linhas'} · ${look}`;
+  },
+  // o texto dela é lido pela própria tabela (ver `plainText` em core/rich-text.ts); a marca sozinha não diz nada
+  plain: () => '',
+  copy: () => '',
+};
+
 /** Todos os widgets, na ordem da régua. */
-export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CARD];
+export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CARD, TABLE];
 
 /** O widget por um dos nomes dele (com ou sem acento, maiúsculas). */
 export function widgetDef(name: string): WidgetDef | null {

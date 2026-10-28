@@ -27,6 +27,10 @@
  */
 
 import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';
+import { Align, TableLook, alignOf, continuesTable, startsTable, tableCells, tableLookOf } from './tables';
+
+export type { Align } from './tables';
+export { isTableSep, tableCells } from './tables';
 
 /** Um pedaço de texto corrido, com as marcas que valem para ele. */
 export interface Span {
@@ -99,9 +103,6 @@ export interface ListItem {
   body?: Block[];
 }
 
-/** O alinhamento de uma coluna da tabela (":--", ":-:", "--:"); null, o de sempre. */
-export type Align = 'left' | 'center' | 'right' | null;
-
 /**
  * Os blocos do texto. O de texto corrido guarda cada linha como foi escrita, as em branco também
  * (uma linha da pauta cada): sem marcas, a leitura sai igual à de sempre.
@@ -121,7 +122,11 @@ export type Block =
   | { kind: 'code'; text: string }
   /** Um widget (ver core/widgets.ts): o nome do registro, os parâmetros como foram escritos e o tamanho. */
   | { kind: 'widget'; name: string; args: string[]; size: WidgetSize }
-  | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][] };
+  /**
+   * A tabela; `look`, o jeito escrito na marca de cima ("{{tabela: listrada}}", ver core/tables.ts):
+   * sem a marca, ele não vem (é a branca, a de sempre).
+   */
+  | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][]; look?: TableLook };
 
 const CHECK = /^\s*[-*+•]\s+\[([ xX])\]\s?(.*)$/;
 const BULLET = /^\s*[-*+•]\s+(.*)$/;
@@ -272,14 +277,6 @@ export function renumberAfter(lines: readonly string[], i: number, was?: string)
     next++;
   }
   return out;
-}
-
-/** A linha de traços embaixo do cabeçalho da tabela: "| --- | :-: |". */
-const TABLE_SEP = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/;
-
-/** A linha de traços da tabela ("| --- | :-: |"). */
-export function isTableSep(line: string): boolean {
-  return line.includes('-') && TABLE_SEP.test(line);
 }
 
 /** No item numerado, `pre` é o número do pai escrito antes do dele: "1." em "1.2. item" ("" em "2. item"). */
@@ -571,25 +568,6 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
   return out;
 }
 
-/** As células de uma linha de tabela ("| a | b |" ou "a | b"), sem as barras das pontas; "\|" fica na célula. */
-export function tableCells(line: string): string[] {
-  const t = line.trim().replace(/^\|/, '').replace(/(?<!\\)\|$/, '');
-  return t.split(/(?<!\\)\|/).map((c) => c.trim());
-}
-
-function alignOf(cell: string): Align {
-  const l = cell.startsWith(':');
-  const r = cell.endsWith(':');
-  return l && r ? 'center' : r ? 'right' : l ? 'left' : null;
-}
-
-/** A linha começa uma tabela: ela tem "|" e a de baixo é a de traços, com o mesmo número de colunas. */
-function startsTable(lines: readonly string[], i: number): boolean {
-  const head = lines[i];
-  const sep = lines[i + 1];
-  return !!sep && head.includes('|') && sep.includes('|') && isTableSep(sep) && tableCells(head).length === tableCells(sep).length;
-}
-
 /**
  * A linha do texto onde cada bloco começa, guardada fora dele (os blocos continuam iguais nas
  * comparações): o texto corrido, a citação e o sutil seguem uma linha por linha a partir dela; o
@@ -601,6 +579,30 @@ const STARTS = new WeakMap<Block, number>();
 /** A linha do texto onde o bloco começa (ver `STARTS`); null no que não saiu de `parseRich`. */
 export function blockLine(b: Block): number | null {
   return STARTS.get(b) ?? null;
+}
+
+/**
+ * A tabela onde está a linha `line` do texto (a marca do jeito em cima dela também conta): da
+ * primeira linha dela (a marca, se tiver) até a última, e o jeito escrito (sem a marca, null). Também
+ * a de dentro de um item. Null se a linha não é de tabela nenhuma.
+ */
+export function tableBlockAt(text: string, line: number): { from: number; to: number; look: TableLook | null } | null {
+  const find = (blocks: readonly Block[]): { from: number; to: number; look: TableLook | null } | null => {
+    for (const b of blocks) {
+      if (b.kind === 'table') {
+        const from = blockLine(b) ?? -1;
+        const to = from + (b.look ? 1 : 0) + 1 + b.rows.length;
+        if (line >= from && line <= to) return { from, to, look: b.look ?? null };
+      } else if (b.kind === 'ul' || b.kind === 'ol' || b.kind === 'check') {
+        for (const it of b.items) {
+          const hit = it.body && find(it.body);
+          if (hit) return hit;
+        }
+      }
+    }
+    return null;
+  };
+  return find(parseRich(text));
 }
 
 /** O texto em blocos: o texto corrido (linha a linha), as listas seguidas, os títulos, as citações, as tabelas… */
@@ -628,22 +630,25 @@ function parseLines(lines: readonly string[], base: number): Block[] {
       continue;
     }
     const w = parseWidgetLine(line);
-    if (w) {
+    // a marca do jeito da tabela vale com a tabela logo embaixo; sozinha, fica como texto
+    const marked = w?.name === 'tabela' && startsTable(lines, i + 1);
+    if (w && w.name !== 'tabela') {
       push({ kind: 'widget', ...w }, at);
       continue;
     }
-    if (startsTable(lines, i)) {
-      const head = tableCells(line);
+    if (marked || startsTable(lines, i)) {
+      if (marked) i++;
+      const head = tableCells(lines[i]);
       const align = tableCells(lines[i + 1]).map(alignOf);
       const rows: Span[][][] = [];
       i += 2;
-      for (; i < lines.length && lines[i].includes('|') && lines[i].trim(); i++) {
+      for (; i < lines.length && continuesTable(lines[i]); i++) {
         // cada linha com o número de colunas do cabeçalho: a que tem menos ganha células vazias
         const cells = tableCells(lines[i]);
         rows.push(head.map((_, c) => parseInline(cells[c] ?? '')));
       }
       i--;
-      push({ kind: 'table', align, head: head.map(parseInline), rows }, at);
+      push({ kind: 'table', align, head: head.map(parseInline), rows, ...(marked ? { look: tableLookOf(w!.args) } : {}) }, at);
       continue;
     }
     if (RULE.test(line)) {

@@ -7,12 +7,14 @@ import { cap, profileOf } from '../core/kinds';
 import { Review, isNote } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { DAY_MS } from '../core/dates';
-import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetField, WidgetSize, WidgetValues, fieldsFor, widgetDef } from '../core/widgets';
+import { WIDGETS, WIDGET_SIZES, WidgetDef, WidgetField, WidgetSize, WidgetValues, fieldsFor, widgetDef, widgetLines } from '../core/widgets';
 import { BackdropClose } from './backdrop-close';
 import { CardPicker } from './card-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
+import { RichText } from './rich-text';
+import { TableGrid } from './table-grid';
 import { WIDGET_ICONS } from './widget-icons';
 
 
@@ -21,6 +23,8 @@ export interface WidgetDone {
   name: string;
   args: string[];
   size: WidgetSize;
+  /** O widget que mora em várias linhas (a tabela): as de baixo da marca (ver `WidgetDef.body`). */
+  body?: string[];
 }
 
 /** Uma linha de campos da folha: um campo sozinho, ou os de mesmo `row` lado a lado. */
@@ -41,7 +45,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, RichText, TableGrid],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',
@@ -103,7 +107,7 @@ export class WidgetSheet {
   /** O jeito escolhido não tem tamanho (a tira e o texto inteiro da nota): o que a folha diz no lugar dele. */
   protected readonly fixedSize = computed(() => this.def().fixedSize?.(this.values()) ?? null);
   /** O tamanho; sem tamanho, o de sempre (que não se escreve no texto). */
-  protected readonly size = computed<WidgetSize>(() => (this.fixedSize() ? 'medio' : (this.values()['size'] as WidgetSize | undefined) || 'medio'));
+  protected readonly size = computed<WidgetSize>(() => (this.fixedSize() || this.def().unsized ? 'medio' : (this.values()['size'] as WidgetSize | undefined) || 'medio'));
   protected readonly sizeHint = computed(() => WIDGET_SIZES.find((o) => o.value === this.size())?.hint ?? '');
   protected readonly cardView = computed(() => this.onCard() && this.view() === 'ficha');
 
@@ -143,6 +147,13 @@ export class WidgetSheet {
     const pad = (n: number) => String(n).padStart(2, '0');
     const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
     return this.def().write({ ...v, date, time: v['time'] || '08:00', monthDay: '5', title: v['title'] || 'Exemplo' });
+  });
+  /** O widget de várias linhas (a tabela), no palco: o texto dele inteiro, desenhado como na leitura. */
+  protected readonly blockText = computed(() => {
+    const def = this.def();
+    const args = this.args();
+    if (!def.body || !args) return null;
+    return widgetLines(def.name, args, 'medio', def.body(this.values())).join('\n');
   });
   protected readonly problem = computed(() => this.def().problem?.(this.values()) ?? null);
   protected readonly found = computed(() => (this.problem() ? null : (this.def().found?.(this.values()) ?? null)));
@@ -258,7 +269,8 @@ export class WidgetSheet {
       else this.dialog().nativeElement.querySelector<HTMLElement>(`[data-campo="${f?.key ?? ''}"]`)?.focus();
       return;
     }
-    this.done.emit({ name: this.name(), args, size: this.size() });
+    const body = this.def().body?.(this.values());
+    this.done.emit({ name: this.name(), args, size: this.size(), ...(body ? { body } : {}) });
     this.close();
   }
 
