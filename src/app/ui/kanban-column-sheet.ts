@@ -41,6 +41,16 @@ const SORT_ICON: Record<SortKey, LucideIconData> = {
  * empate, por outro, cada um no seu sentido), a posição e tirar a coluna. Vale na hora; a etiqueta de prévia
  * em cima é a mesma da coluna.
  */
+/**
+ * O que tirar a coluna faz com o check das anotações que vão para a vizinha: nada (ir para lá não é
+ * arrastar), e a frase diz isso quando a vizinha finaliza e esta não, ou o contrário.
+ */
+function keeps(from: boolean, to: boolean): string {
+  if (from && !to) return ', e as finalizadas continuam finalizadas';
+  if (!from && to) return ', e as abertas continuam abertas';
+  return '';
+}
+
 @Component({
   selector: 'app-kanban-column-sheet',
   imports: [BackdropClose, KanbanReviewCard, KanbanTemplateSheet, IconModule, Pin],
@@ -293,7 +303,8 @@ export class KanbanColumnSheet {
     const index = board?.columns.findIndex((c) => c.id === this.columnId()) ?? -1;
     if (!board || index < 0) return null;
     const col = board.columns[index];
-    return { board, col, index, count: cardsIn(board, col.id).length };
+    // (só as que estão no quadro de verdade: a apagada, ou levada para outro grupo, não conta)
+    return { board, col, index, count: cardsIn({ ...board, cards: this.kanban.live(board) }, col.id).length };
   });
 
   /** O que pular a coluna faz: para onde a seta das colunas da esquerda leva no lugar dela. */
@@ -310,7 +321,7 @@ export class KanbanColumnSheet {
   protected readonly sample = computed(() => {
     const d = this.data();
     if (!d?.col.look) return null;
-    const first = d.board.cards.find((c) => c.column === d.col.id);
+    const first = this.kanban.live(d.board).find((c) => c.column === d.col.id);
     const name = (first && this.kanban.notesById().get(first.note)?.game.name) || 'Anotação de exemplo';
     return sampleNote(`modelo${d.col.id}`.slice(0, 40), name, d.col.look);
   });
@@ -426,7 +437,7 @@ export class KanbanColumnSheet {
     const yes = await this.confirm.ask({
       title: `Tirar a coluna ${d.col.name}?`,
       text: d.count
-        ? `${d.count === 1 ? 'A anotação dela vai' : `As ${d.count} anotações dela vão`} para ${into.name}. Nenhuma anotação sai do mural.`
+        ? `${d.count === 1 ? 'A anotação dela vai' : `As ${d.count} anotações dela vão`} para ${into.name}. Nenhuma anotação sai do mural${keeps(d.col.finishes, into.finishes)}.`
         : 'Ela está vazia. Nenhuma anotação sai do mural.',
       confirm: 'Tirar a coluna',
       cancel: 'Deixar',

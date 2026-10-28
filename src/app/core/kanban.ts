@@ -629,7 +629,8 @@ export function moveBoardCategory(st: KanbanState, from: string, to: string | nu
       const moved = old.cards
         .filter((c) => !there.has(c.note))
         .map((c) => ({ ...c, column: byName.get(nameOf.get(c.column) ?? '') ?? target.columns[0].id }));
-      boards = boards.map((b) => (b === target ? { ...b, cards: [...b.cards, ...moved], at } : b));
+      // (pelo `touch`: a hora do quadro só anda para a frente, mesmo com o relógio daqui atrasado)
+      boards = boards.map((b) => (b === target ? touch(b, { cards: [...b.cards, ...moved].slice(0, MAX_CARDS) }, at) : b));
     }
   }
   // para a junção levar ao quadro novo o que outro aparelho mexer no de antes sem saber da troca
@@ -669,9 +670,11 @@ export function sortAllColumns(b: KanbanBoard, sort: readonly SortRule[], at: st
 /** Leva a coluna para a posição `to` (as outras andam). */
 export function moveColumn(b: KanbanBoard, id: string, to: number, at: string): KanbanBoard {
   const from = b.columns.findIndex((c) => c.id === id);
-  if (from < 0) return b;
+  const at0 = Math.max(0, Math.min(to, b.columns.length - 1));
+  // não saiu do lugar: nada muda (nem a hora do quadro)
+  if (from < 0 || at0 === from) return b;
   const columns = b.columns.filter((c) => c.id !== id);
-  columns.splice(Math.max(0, Math.min(to, columns.length)), 0, b.columns[from]);
+  columns.splice(at0, 0, b.columns[from]);
   return touch(b, { columns }, at);
 }
 
@@ -735,6 +738,9 @@ export function removeCard(b: KanbanBoard, note: string, at: string): KanbanBoar
 }
 
 export function setImportance(b: KanbanBoard, note: string, importance: Importance | null, at: string): KanbanBoard {
+  const card = b.cards.find((c) => c.note === note);
+  // fora do quadro, ou a mesma: nada muda (nem a hora do quadro e da anotação, que na junção diz quem mexeu por último)
+  if (!card || card.importance === importance) return b;
   return touch(b, { cards: b.cards.map((c) => (c.note === note ? { ...c, importance, at } : c)) }, at);
 }
 

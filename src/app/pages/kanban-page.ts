@@ -841,22 +841,33 @@ export class KanbanPage {
       this.nudgeSorted(b, here, note, n, e.key === 'ArrowUp' ? -1 : 1);
       return;
     }
-    const list = cardsIn(b, column);
+    // pelas que aparecem (as do filtro, na ordem da coluna): a vizinha escondida pelo filtro, ou de uma
+    // anotação apagada ou levada para outro grupo, não gasta o toque (a ficha andaria sem sair do lugar)
+    const shownIn = (id: string) => this.view().find((v) => v.col.id === id)?.list ?? [];
+    const list = shownIn(column);
     const at = list.findIndex((c) => c.note === note);
+    if (at < 0) return;
+    // a posição entre todas as guardadas da coluna (sem ela), antes da anotação `other`; sem ela, no fim
+    const before = (id: string, other: string | undefined) => {
+      const stored = cardsIn(b, id).filter((c) => c.note !== note);
+      const i = other ? stored.findIndex((c) => c.note === other) : -1;
+      return i < 0 ? stored.length : i;
+    };
     let to = column;
-    let index: number | undefined = at;
+    let index: number;
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       const next = cols[ci + (e.key === 'ArrowLeft' ? -1 : 1)];
       if (!next) return;
       to = next.id;
-      // numa coluna em ordem, ela cai no lugar dela (no fim da ordem à mão, para o empate)
-      index = next.sort?.length ? cardsIn(b, to).length : Math.min(at, cardsIn(b, to).length);
+      // na mesma altura em que estava; numa coluna em ordem, no lugar dela (no fim da ordem à mão, para o empate)
+      index = before(to, next.sort?.length ? undefined : shownIn(to)[at]?.note);
     } else if (e.key === 'ArrowUp') {
       if (at <= 0) return;
-      index = at - 1;
+      index = before(column, list[at - 1].note);
     } else if (e.key === 'ArrowDown') {
       if (at >= list.length - 1) return;
-      index = at + 1;
+      // depois da vizinha de baixo: antes da que vem logo depois dela entre as guardadas
+      index = before(column, list[at + 1].note) + 1;
     } else return;
     e.preventDefault();
     this.actions.move(b.id, note, to, index, () => {
@@ -1337,8 +1348,9 @@ export class KanbanPage {
     const col = b.columns.find((c) => c.id === d.over);
     let before: string | undefined = shown[d.index]?.note;
     if (col?.sort?.length) {
-      // em ordem: soltar onde estava não mexe em nada (nem na ordem à mão guardada)
-      if (d.over === d.from && d.index === d.start) return;
+      // em ordem: soltar onde estava não mexe em nada (nem na ordem à mão guardada); com as marcadas
+      // juntas, as de outras colunas ainda vêm para esta
+      if (!d.group.length && d.over === d.from && d.index === d.start) return;
       // a vaga ficou entre as empatadas: antes da que vem depois dela, se também empata; senão, depois de todas
       const card = b.cards.find((c) => c.note === d.note);
       const cmp = sortComparator(col.sort, (id) => this.notes().get(id));

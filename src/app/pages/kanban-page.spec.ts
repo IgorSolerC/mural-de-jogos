@@ -424,6 +424,64 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nsync001']);
   });
 
+  it('Shift e as setas pulam as vizinhas que não aparecem (apagadas, de outro grupo ou fora do filtro): um toque, um lugar', async () => {
+    store.reviews.update((list) => [...list, note('nalfa001', 'Alfa', { category: 'Trabalho' }), note('nmeio001', 'Meio', { category: 'Trabalho' })]);
+    const b = board();
+    // em Fazendo, entre as duas que aparecem, a de outro grupo; antes delas, a apagada
+    kanban.state.set(
+      state({
+        ...b,
+        cards: [
+          { note: 'nalfa001', column: 'afazer', importance: null },
+          { note: 'nmeio001', column: 'afazer', importance: null },
+          { note: 'nsumiu01', column: 'fazendo', importance: null },
+          { note: 'nlogin01', column: 'fazendo', importance: null },
+          { note: 'nprova01', column: 'fazendo', importance: null },
+          { note: 'nsync001', column: 'fazendo', importance: null },
+        ],
+      }),
+    );
+    await go(TRAB_URL);
+    const press = async (id: string, key: string) => {
+      host.querySelector(`[data-nota="${id}"] .hit`)!.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey: true, bubbles: true }));
+      await settle();
+    };
+    expect(namesIn('fazendo')).toEqual(['nlogin01', 'nsync001']);
+    await press('nsync001', 'ArrowUp');
+    expect(namesIn('fazendo')).toEqual(['nsync001', 'nlogin01']);
+    await press('nsync001', 'ArrowDown');
+    expect(namesIn('fazendo')).toEqual(['nlogin01', 'nsync001']);
+    // para o lado, na mesma altura em que aparecia (a segunda), e não na das guardadas (a quarta)
+    await press('nsync001', 'ArrowLeft');
+    expect(namesIn('afazer')).toEqual(['nalfa001', 'nsync001', 'nmeio001']);
+  });
+
+  it('os ajustes da coluna contam só as anotações que estão nela de verdade (sem a apagada nem a de outro grupo)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    column('fazendo').querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+    await settle();
+    expect(host.querySelector('app-kanban-column-sheet .sub')!.textContent).toContain('0 anotações');
+    const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
+    [...host.querySelectorAll<HTMLButtonElement>('app-kanban-column-sheet .perigo')].find((x) => x.textContent!.includes('Tirar a coluna'))!.click();
+    await settle();
+    expect(ask.calls.mostRecent().args[0].text).toBe('Ela está vazia. Nenhuma anotação sai do mural.');
+  });
+
+  it('tirar uma coluna que não finaliza com a vizinha que finaliza: a pergunta diz que as abertas continuam abertas', async () => {
+    const b = board();
+    kanban.state.set(state({ ...b, columns: [b.columns[2], b.columns[0]] }));
+    await go(TRAB_URL);
+    column('afazer').querySelector<HTMLButtonElement>('.etiqueta-btn')!.click();
+    await settle();
+    const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(true);
+    [...host.querySelectorAll<HTMLButtonElement>('app-kanban-column-sheet .perigo')].find((x) => x.textContent!.includes('Tirar a coluna'))!.click();
+    await settle();
+    expect(ask.calls.mostRecent().args[0].text).toBe('As 2 anotações dela vão para Feito. Nenhuma anotação sai do mural, e as abertas continuam abertas.');
+    expect(cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note)).toEqual(['nlogin01', 'nsync001']);
+    expect(isDone(store.get('nlogin01')!)).toBeFalse();
+  });
+
   it('a anotação sem descrição avisa na linha da data (e, na vista Só os títulos, com o lápis na tira)', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
@@ -1250,6 +1308,48 @@ describe('página do Kanban', () => {
       expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nmeio001', 'nsync001']);
       expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toEqual(['nlogin01', 'nsync001', 'nalfa001', 'nmeio001']);
     });
+  });
+
+  it('arrastar as marcadas e soltar no lugar de onde saiu, numa coluna em ordem: as de outras colunas vêm junto', async () => {
+    store.reviews.update((list) => [...list, note('nalfa001', 'Alfa', { category: 'Trabalho' }), note('nmeio001', 'Meio', { category: 'Trabalho' })]);
+    const b = board();
+    kanban.state.set(
+      state({
+        ...b,
+        columns: b.columns.map((c) => (c.id === 'afazer' ? { ...c, sort: [{ by: 'importancia' as const }] } : c)),
+        cards: [
+          { note: 'nlogin01', column: 'afazer', importance: 'critico' },
+          { note: 'nsync001', column: 'afazer', importance: null },
+          { note: 'nalfa001', column: 'afazer', importance: 'critico' },
+          { note: 'nmeio001', column: 'fazendo', importance: 'critico' },
+        ],
+      }),
+    );
+    await go(TRAB_URL);
+    const card = (id: string) => host.querySelector<HTMLElement>(`.lugar[data-nota="${id}"]`)!;
+    const ctrlClick = (el: HTMLElement) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    };
+    ctrlClick(card('nalfa001').querySelector<HTMLElement>('.hit')!);
+    ctrlClick(card('nmeio001').querySelector<HTMLElement>('.hit')!);
+    await settle();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nsync001']);
+    const grab = card('nalfa001').querySelector<HTMLElement>('.hit')!;
+    const r = grab.getBoundingClientRect();
+    const at = (x: number, y: number) => ({ bubbles: true, cancelable: true, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+    grab.dispatchEvent(new PointerEvent('pointerdown', at(r.left + 20, r.top + 10)));
+    window.dispatchEvent(new PointerEvent('pointermove', at(r.left + 30, r.top + 20)));
+    await settle();
+    // a vaga ficou onde ela estava (entre a crítica e a sem importância)
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nalfa001', 'nsync001']);
+    expect(card('nalfa001').classList).toContain('vaga');
+    window.dispatchEvent(new PointerEvent('pointerup', at(r.left + 30, r.top + 20)));
+    grab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0 }));
+    await settle();
+    expect(namesIn('fazendo')).toEqual([]);
+    expect(cardsIn(kanban.get(TRAB)!, 'afazer').map((c) => c.note)).toContain('nmeio001');
   });
 
   it('mover uma anotação não desliga o filtro das tags (só trocar de quadro)', async () => {

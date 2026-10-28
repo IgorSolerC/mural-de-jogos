@@ -52,6 +52,8 @@ export class KanbanActions {
     this.kanban.update(boardId, (b, at) => placeCard(b, note, column, at, index ?? 0));
     const change = doneChange(board, before?.column ?? null, column);
     const wasDone = isDone(r);
+    // o dia em que tinha sido finalizada: o Desfazer de "aberta de novo" a finaliza nele, e não hoje
+    const wasAt = r.doneAt ?? null;
     if (change === 'finalizar' && !wasDone) this.noteDone.set(note, true, { quiet: true });
     else if (change === 'abrir' && wasDone) this.noteDone.set(note, false, { quiet: true });
     else return;
@@ -64,7 +66,7 @@ export class KanbanActions {
       run: () => {
         if (before) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, note, before.column, at, beforeIndex), [note]));
         else this.kanban.update(boardId, (b, at) => removeCard(b, note, at));
-        this.noteDone.set(note, wasDone, { quiet: true });
+        this.undoDone(note, wasDone, wasAt);
       },
     });
   }
@@ -103,6 +105,7 @@ export class KanbanActions {
           index: card ? cardsIn(board, card.column).findIndex((c) => c.note === r!.id) : -1,
           order: card ? board.cards.indexOf(card) : Infinity,
           done: isDone(r!),
+          doneAt: r!.doneAt ?? null,
         };
       })
       .sort((a, b) => a.order - b.order);
@@ -134,8 +137,7 @@ export class KanbanActions {
         for (const w of was) {
           if (w.column) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, w.note, w.column!, at, w.index), [w.note]));
           else this.kanban.update(boardId, (b, at) => removeCard(b, w.note, at));
-          const r = this.store.get(w.note);
-          if (r && isDone(r) !== w.done) this.noteDone.set(w.note, w.done, { quiet: true });
+          this.undoDone(w.note, w.done, w.doneAt);
         }
       },
     });
@@ -159,8 +161,20 @@ export class KanbanActions {
       run: () =>
         this.kanban.update(board.id, (b, at) => {
           const placed = placeCard(b, note, card.column, at, index);
-          return { ...placed, cards: placed.cards.map((c) => (c.note === note ? { ...back } : c)) };
+          // tudo como era, com a hora de agora: desfazer é mexer agora (na junção, vale mais que o tirar)
+          return placed === b ? b : { ...placed, cards: placed.cards.map((c) => (c.note === note ? { ...back, at } : c)) };
         }),
     });
+  }
+
+  /**
+   * O check como era antes de andar (o Desfazer): aberta de novo, a anotação volta a ser finalizada no
+   * dia em que tinha sido (`doneAt`), sem carimbo; finalizada, volta a ficar aberta.
+   */
+  private undoDone(note: string, done: boolean, doneAt: string | null): void {
+    const r = this.store.get(note);
+    if (!r || isDone(r) === done) return;
+    if (done && doneAt) this.noteDone.restore(note, doneAt);
+    else this.noteDone.set(note, done, { quiet: true });
   }
 }

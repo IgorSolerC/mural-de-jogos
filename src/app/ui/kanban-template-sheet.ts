@@ -97,7 +97,11 @@ export class KanbanTemplateSheet {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly column = computed(() => this.kanban.get(this.boardId())?.columns.find((c) => c.id === this.columnId()) ?? null);
-  protected readonly count = computed(() => this.kanban.get(this.boardId())?.cards.filter((c) => c.column === this.columnId()).length ?? 0);
+  /** Quantas anotações a coluna tem de verdade (a apagada, ou levada para outro grupo, não veste nem conta). */
+  protected readonly count = computed(() => {
+    const b = this.kanban.get(this.boardId());
+    return b ? this.kanban.live(b).filter((c) => c.column === this.columnId()).length : 0;
+  });
 
   // o estojo, como no editor: começa no card guardado, ou na cor da etiqueta da coluna
   protected readonly stock = signal<Stock>('amarelo');
@@ -143,7 +147,7 @@ export class KanbanTemplateSheet {
   protected readonly pinColor = computed(() => pinningFor(this.sampleId(), this.stock()).pinColor);
   private readonly sampleName = computed(() => {
     const b = this.kanban.get(this.boardId());
-    const first = b?.cards.find((c) => c.column === this.columnId());
+    const first = b && this.kanban.live(b).find((c) => c.column === this.columnId());
     return (first && this.kanban.notesById().get(first.note)?.game.name) || 'Anotação de exemplo';
   });
 

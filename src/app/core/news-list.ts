@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-link-da-ficha',
+    id: '2026-10-28-kanban',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
@@ -45,6 +45,7 @@ export const NEWS: NewsEntry[] = [
       'No cofre, várias tentativas de senha ao mesmo tempo não passam mais do freio (5 erros seguidos e a espera, 20 por dia), e o Congelar funciona também quando o cofre está só para leitura.',
       'O backup baixado no começo do site, ainda no tempo do Mural de Jogos, volta a abrir em Restaurar de um arquivo (dizia que era de outro aplicativo); um arquivo com a mesma ficha duas vezes não a põe mais duas vezes no mural; e o backup baixado em outra aba conta também para o lembrete desta.',
       'O link de uma ficha trocado na mesma aba (outra ficha, ou o ?aberta=nao) abre a ficha nova, em vez de continuar na de antes; o "Entrar em Ajustes › Conta" da folha do link fecha também a leitura, que ficava por cima da conta; e a folha volta a avisar que a última mudança ainda está indo para a nuvem quando ela foi feita durante um envio.',
+      'No Kanban, o Desfazer de uma anotação aberta de novo (saindo da coluna que finaliza, também por um pedido da API) a finaliza no dia em que tinha sido, e não hoje; Shift e as setas não gastam mais o toque numa vizinha que não aparece (apagada, de outro grupo ou fora do filtro); soltar as marcadas no lugar de onde saíram, numa coluna em ordem, traz também as das outras colunas; e os ajustes da coluna contam só as anotações que estão nela.',
     ],
   },
   {

@@ -89,7 +89,7 @@ describe('os pedidos do Kanban: os cartões', () => {
     expect(k.where()).toEqual(['A fazer: r-pauta', 'Fazendo: r-plan', 'Feito: r-relat']);
     expect(n.get('r-relat')!.doneAt).toBeTruthy();
     expect(out.carimbo).toBe(n.get('r-relat')!.updatedAt);
-    expect(out.antes).toEqual({ quadro: TRAB, card: jasmine.objectContaining({ note: 'r-relat', column: AFAZER }), index: 1, done: false });
+    expect(out.antes).toEqual({ quadro: TRAB, card: jasmine.objectContaining({ note: 'r-relat', column: AFAZER }), index: 1, done: false, doneAt: null });
     expect((out.resultado as { cartao: { coluna: string; finalizada: boolean } }).cartao).toEqual(jasmine.objectContaining({ coluna: FEITO, finalizada: true }));
     // e saindo dela, abre de novo
     applyKanbanRequest(k, n, mover('r-relat', { coluna: 'a fazer' }), NOW);
@@ -165,6 +165,24 @@ describe('os pedidos do Kanban: os cartões', () => {
     const out = applyKanbanRequest(k, n, { op: 'cartao.tirar', alvo: 'r-plan', dados: { quadro: TRAB } }, NOW);
     undoKanban(k, n, { op: 'cartao.tirar', alvo: 'r-plan', antes: out.antes }, NOW);
     expect(k.where()[1]).toBe('Fazendo: r-plan');
+  });
+
+  it('o Desfazer de uma nota aberta de novo (saindo da que finaliza) a finaliza no dia de antes, e não hoje', () => {
+    const { k, n } = setup();
+    const DIA = '2026-10-05T10:00:00.000Z';
+    k.update(TRAB, (b, at) => placeCard(b, 'r-plan', FEITO, at));
+    n.update({ ...n.get('r-plan')!, doneAt: DIA });
+    const out = applyKanbanRequest(k, n, mover('r-plan', { coluna: FAZENDO }), NOW);
+    expect(n.get('r-plan')!.doneAt).toBeFalsy();
+    expect(out.antes).toEqual(jasmine.objectContaining({ done: true, doneAt: DIA }));
+    // o antes volta da nuvem como JSON
+    undoKanban(k, n, { op: 'cartao.mover', alvo: 'r-plan', antes: JSON.parse(JSON.stringify(out.antes)) }, NOW);
+    expect(n.get('r-plan')!.doneAt).toBe(DIA);
+    expect(k.where()[2]).toBe('Feito: r-plan');
+    // um antes de antes desta mudança (sem o dia), ou com um dia que não é data: finalizada agora
+    applyKanbanRequest(k, n, mover('r-plan', { coluna: FAZENDO }), NOW);
+    undoKanban(k, n, { op: 'cartao.mover', alvo: 'r-plan', antes: { ...(out.antes as object), doneAt: 'ontem' } }, NOW);
+    expect(n.get('r-plan')!.doneAt).toBe(NOW);
   });
 });
 

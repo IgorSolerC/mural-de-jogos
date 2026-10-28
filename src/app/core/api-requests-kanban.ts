@@ -78,6 +78,8 @@ export interface CardBefore {
   card: KanbanCard | null;
   index: number;
   done: boolean;
+  /** O dia em que estava finalizada (o Desfazer de uma reaberta a finaliza nele, e não hoje). */
+  doneAt?: string | null;
 }
 
 /** A coluna antes do pedido, o lugar dela e (no apagar) os cartões que estavam nela. */
@@ -197,7 +199,7 @@ export function applyKanbanRequest(book: KanbanBook, notes: NoteBook, req: { op:
       return {
         estado: 'aplicado',
         resultado: { cartao: cardV1(book, notes, b.id, note), ...(aviso ? { aviso } : {}) },
-        antes: { quadro: b.id, card: cur, index, done: isDone(r) },
+        antes: { quadro: b.id, card: cur, index, done: isDone(r), doneAt: r.doneAt ?? null },
         ...(carimbo ? { carimbo } : {}),
       };
     }
@@ -206,7 +208,7 @@ export function applyKanbanRequest(book: KanbanBook, notes: NoteBook, req: { op:
       if (!cur) return { estado: 'aplicado', resultado: { cartao: null }, antes: null };
       const index = cardsIn(b, cur.column).findIndex((c) => c.note === req.alvo);
       book.update(b.id, (x, when) => removeCard(x, req.alvo, when));
-      return { estado: 'aplicado', resultado: { cartao: null }, antes: { quadro: b.id, card: cur, index, done: !!known.get(req.alvo)?.doneAt } };
+      return { estado: 'aplicado', resultado: { cartao: null }, antes: { quadro: b.id, card: cur, index, done: !!known.get(req.alvo)?.doneAt, doneAt: known.get(req.alvo)?.doneAt ?? null } };
     }
     case 'coluna.criar': {
       const d = checked.dados as CriarColunaV1;
@@ -301,7 +303,11 @@ export function undoKanban(book: KanbanBook, notes: NoteBook, t: { op: string; a
       });
     }
     const r = notes.get(note);
-    if (r && isNote(r) && isDone(r) !== was.done) notes.update(withDone(r, was.done, now), r);
+    if (r && isNote(r) && isDone(r) !== was.done) {
+      // finalizada de novo no dia de antes (o `antes` volta da nuvem: só uma data de verdade vale)
+      const at = typeof was.doneAt === 'string' && Number.isFinite(Date.parse(was.doneAt)) ? was.doneAt : null;
+      notes.update(was.done && at ? { ...withDone(r, true, now), doneAt: at } : withDone(r, was.done, now), r);
+    }
     return;
   }
   const was = t.antes as ColumnBefore | null | undefined;

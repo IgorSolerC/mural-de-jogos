@@ -93,8 +93,11 @@ export class NoteDone {
     this.motion.run(() => this.set(id, false, { quiet: true }));
   }
 
-  /** Desfazer o "abrir de novo": finalizada outra vez, no dia de antes, sem carimbo nem saída animada. */
-  private restore(id: string, doneAt: string): void {
+  /**
+   * Desfazer o "abrir de novo": finalizada outra vez, no dia de antes, sem carimbo nem saída animada
+   * (também o Desfazer do Kanban, ver KanbanActions).
+   */
+  restore(id: string, doneAt: string): void {
     const r = this.store.get(id);
     if (!r || isDone(r)) return;
     this.motion.run(() => this.store.update({ ...withDone(r, true, new Date().toISOString()), doneAt }));

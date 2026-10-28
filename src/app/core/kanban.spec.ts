@@ -16,6 +16,7 @@ import {
   freshBoard,
   liveCards,
   mergeKanban,
+  moveBoardCategory,
   moveColumn,
   nextStop,
   placeCard,
@@ -244,6 +245,29 @@ describe('Kanban', () => {
       b = removeColumn(b, 'afazer', null, T1);
       expect(b.cards).toEqual([]);
       expect(removeColumn(b, 'feito', null, T2)).toBe(b);
+    });
+
+    it('a mesma importância, a anotação fora do quadro ou a coluna no lugar em que já estava: nada muda (nem a hora)', () => {
+      const b = setImportance(placeCard(board(), 'n1', 'afazer', T1), 'n1', 'medio', T1);
+      expect(setImportance(b, 'n1', 'medio', T2)).toBe(b);
+      expect(setImportance(b, 'n9', 'critico', T2)).toBe(b);
+      expect(setImportance(b, 'n1', 'critico', T2).cards[0]).toEqual(jasmine.objectContaining({ importance: 'critico', at: T2 }));
+      expect(moveColumn(b, 'fazendo', 1, T2)).toBe(b);
+      expect(moveColumn(b, 'feito', 9, T2)).toBe(b);
+      expect(moveColumn(b, 'nenhuma', 0, T2)).toBe(b);
+      expect(moveColumn(b, 'feito', 9, T2).columns.map((c) => c.id)).toEqual(['afazer', 'fazendo', 'feito']);
+      expect(moveColumn(b, 'afazer', 9, T2).columns.map((c) => c.id)).toEqual(['fazendo', 'feito', 'afazer']);
+    });
+
+    it('o grupo renomeado para um que já tinha quadro: as anotações vão para ele, e o quadro fica mais novo mesmo com o relógio atrasado', () => {
+      const old = placeCard(board('trabalho', T1), 'n1', 'fazendo', T1);
+      const target = placeCard(board('servico', T2), 'n2', 'afazer', T2);
+      const out = moveBoardCategory(state([old, target]), 'trabalho', 'servico', T0);
+      const moved = out.boards.find((b) => b.id === target.id)!;
+      expect(out.boards.length).toBe(1);
+      expect(notesIn(moved, 'fazendo')).toEqual(['n1']);
+      expect(moved.at > T2).withContext(moved.at).toBeTrue();
+      expect(out.removed[old.id]).toBe(T0);
     });
 
     it('recomeçar: as três colunas de sempre, sem anotação nenhuma, e mais novo', () => {
@@ -600,6 +624,25 @@ describe('Kanban', () => {
       expect(TestBed.inject(Toasts).current()!.text).toBe('2 anotações levadas para Fazendo');
     });
 
+    it('o Desfazer de uma anotação aberta de novo (saindo de Feito) a finaliza no dia em que tinha sido, e não hoje', () => {
+      const DIA = '2026-10-05T10:00:00.000Z';
+      kanban.update(TRAB, (b, at) => placeCard(b, 'nfeita01', 'feito', at));
+      actions.move(TRAB, 'nfeita01', 'fazendo');
+      expect(isDone(store.get('nfeita01')!)).toBeFalse();
+      TestBed.inject(Toasts).current()!.action!.run();
+      expect(store.get('nfeita01')!.doneAt).toBe(DIA);
+      expect(notesIn(kanban.get(TRAB)!, 'feito')).toEqual(['nfeita01']);
+      // várias juntas: cada uma volta no dia dela
+      store.update({ ...store.get('nlogin01')!, doneAt: '2026-10-06T10:00:00.000Z' });
+      actions.move(TRAB, 'nlogin01', 'feito', 1);
+      actions.moveMany(TRAB, ['nfeita01', 'nlogin01'], 'afazer', null);
+      expect(isDone(store.get('nfeita01')!) || isDone(store.get('nlogin01')!)).toBeFalse();
+      TestBed.inject(Toasts).current()!.action!.run();
+      expect(store.get('nfeita01')!.doneAt).toBe(DIA);
+      expect(store.get('nlogin01')!.doneAt).toBe('2026-10-06T10:00:00.000Z');
+      expect(notesIn(kanban.get(TRAB)!, 'feito')).toEqual(['nfeita01', 'nlogin01']);
+    });
+
     it('tirar de Feito para outra coluna abre a anotação de novo; entre colunas comuns, nada muda', () => {
       kanban.update(TRAB, (b, at) => placeCard(b, 'nfeita01', 'feito', at));
       actions.move(TRAB, 'nfeita01', 'fazendo');
@@ -616,6 +659,16 @@ describe('Kanban', () => {
       expect(store.get('nlogin01')).toBeTruthy();
       TestBed.inject(Toasts).current()!.action!.run();
       expect(kanban.get(TRAB)!.cards).toEqual([{ note: 'nlogin01', column: 'fazendo', importance: 'importante', at: jasmine.any(String) }]);
+    });
+
+    it('o Desfazer de tirar do quadro põe a anotação de volta com a hora de agora (na junção, vale mais que o tirar)', () => {
+      kanban.update(TRAB, (b) => ({ ...b, cards: [{ note: 'nlogin01', column: 'fazendo', importance: 'medio', at: T0 }] }));
+      actions.remove(kanban.get(TRAB)!, 'nlogin01');
+      const removedAt = kanban.get(TRAB)!.at;
+      TestBed.inject(Toasts).current()!.action!.run();
+      const back = kanban.get(TRAB)!.cards[0];
+      expect(back).toEqual(jasmine.objectContaining({ note: 'nlogin01', column: 'fazendo', importance: 'medio' }));
+      expect(back.at! > T0 && back.at! >= removedAt).withContext(back.at!).toBeTrue();
     });
 
     it('a anotação nova pedida de uma coluna cai no quadro da categoria dela, uma vez só', () => {
