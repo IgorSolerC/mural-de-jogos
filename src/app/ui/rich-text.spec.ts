@@ -48,6 +48,15 @@ describe('o texto formatado na leitura', () => {
     expect(reached).toBe(1);
   });
 
+  it('o texto sem marcas quebra a linha no "\\r" sozinho, como o formatado (cada linha a sua)', async () => {
+    const plain = await render('um\rdois\r\ntrês');
+    expect(Array.from(plain.querySelectorAll('.linha')).map((l) => l.textContent)).toEqual(['um', 'dois', 'três']);
+    document.querySelectorAll('app-rich-text').forEach((e) => e.remove());
+    TestBed.resetTestingModule();
+    const formatted = await render('**um**\rdois\r\ntrês');
+    expect(Array.from(formatted.querySelectorAll('.linha')).map((l) => l.textContent)).toEqual(['um', 'dois', 'três']);
+  });
+
   it('o spoiler revela também com Enter; outro spoiler na linha continua escondido', async () => {
     const el = await render('||um|| e ||dois||');
     const [a, b] = Array.from(el.querySelectorAll<HTMLElement>('.spoiler'));

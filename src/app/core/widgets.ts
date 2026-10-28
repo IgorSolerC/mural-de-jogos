@@ -119,8 +119,12 @@ function joinCopy(...parts: string[]): string {
   return parts.filter(Boolean).join(' | ');
 }
 
-/** Uma linha que é só um widget: "{{nome: a | b}}" (ou "{{nome}}"). */
-const LINE = /^\s*\{\{\s*([\p{L}][\p{L}\p{N}_-]*)\s*(?::([^\n]*?))?\s*\}\}\s*$/u;
+/**
+ * Uma linha que é só um widget: "{{nome: a | b}}" (ou "{{nome}}"). Os parâmetros vão até o último
+ * "}}" (os espaços do fim saem em `splitArgs`): com o fim procurado a cada letra, uma linha longa sem
+ * o "}}" travava a página.
+ */
+const LINE = /^\s*\{\{\s*([\p{L}][\p{L}\p{N}_-]*)\s*(?::([^\n]*))?\}\}\s*$/u;
 
 /** "Contagem" → "contagem": sem acento, em minúsculas. */
 function key(name: string): string {

@@ -40,6 +40,17 @@ describe('rangesIn', () => {
     host = html('<div contenteditable="true">zelda</div>');
     expect(rangesIn(host, 'zelda')).toEqual([]);
   });
+
+  it('não realça o spoiler escondido (o marca-texto pintava a letra e contava o segredo), nem emenda por cima dele', () => {
+    host = html(
+      '<p>o fim: <span class="spoiler"><span class="spoiler-texto" inert>zelda <b>morre</b></span></span> e zel<span class="spoiler"><span class="spoiler-texto" inert>x</span></span>da</p>',
+    );
+    expect(rangesIn(host, 'morre')).toEqual([]);
+    expect(rangesIn(host, 'zelda')).toEqual([]);
+    // revelado (sem o inert), aparece como o resto
+    host.querySelector('.spoiler-texto')!.removeAttribute('inert');
+    expect(rangesIn(host, 'morre').map((r) => r.toString())).toEqual(['morre']);
+  });
 });
 
 @Component({

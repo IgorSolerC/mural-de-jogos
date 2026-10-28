@@ -50,13 +50,40 @@ export interface Span {
   href?: string;
 }
 
-/** "[[título]]": sem colchetes nem quebra de linha dentro, e com algo além de espaços. */
-export const LINK = /\[\[([^[\]\n]*[^[\]\s][^[\]\n]*)\]\]/g;
+/**
+ * "[[título]]": sem colchetes nem quebra de linha dentro, e com algo além de espaços. Os espaços do
+ * começo, depois a primeira letra, depois o resto: escrito de um jeito só (antes, um "[[" sem fecho
+ * numa linha longa era tentado de cada jeito de partir o texto, e travava a página).
+ */
+export const LINK = /\[\[([^[\]\S\n]*[^[\]\s][^[\]\n]*)\]\]/g;
 export const HAS_LINK = new RegExp(LINK.source);
 /** Um endereço para fora: [texto](https://…), <https://…> ou um https:// (ou www.) solto. */
 const HAS_URL = /\]\((?:https?:\/\/|mailto:)|<(?:https?:\/\/|mailto:)|https?:\/\/\S|(?<![\w@./-])www\.\S/;
-/** Cada pedaço lido inteiro (link, código, marca escapada) vira um caractere de uso privado enquanto as ênfases são lidas. */
-const SLOT = 0xe000;
+/**
+ * Cada pedaço lido inteiro (link, código, marca escapada) vira um caractere de uso privado enquanto as
+ * ênfases são lidas: os da faixa do começo (U+E000–U+F8FF) e, se não bastarem, os dos dois planos de
+ * uso privado (U+F0000–U+10FFFD). Antes só a faixa do começo, contada além do fim: com mais de 8 mil
+ * pedaços numa linha, eles davam a volta e viravam letras, sinais e até marcas de ênfase.
+ */
+const SLOT_RANGES: readonly (readonly [number, number])[] = [
+  [0xe000, 0xf8ff],
+  [0xf0000, 0xffffd],
+  [0x100000, 0x10fffd],
+];
+
+/** `n` caracteres de uso privado que não aparecem em `text`, ou null se não houver tantos livres. */
+function slotsFor(text: string, n: number): string[] | null {
+  const used = new Set(text);
+  const out: string[] = [];
+  for (const [from, to] of SLOT_RANGES) {
+    for (let c = from; c <= to && out.length < n; c++) {
+      const ch = String.fromCodePoint(c);
+      if (!used.has(ch)) out.push(ch);
+    }
+    if (out.length === n) return out;
+  }
+  return null;
+}
 
 /** Uma linha de lista; `line` é o número da linha no texto (para marcar a tarefa no lugar certo). */
 export interface ListItem {
@@ -279,7 +306,7 @@ export function lineKind(line: string): LineKind {
  * fica de fora), o endereço entre "<>" e o endereço solto (https:// ou www.).
  */
 const ATOMS =
-  /\\(?<lit>[!-/:-@[-`{-~])|(?<!`)(?<tick>`+)(?!`)(?<code>[^\n]+?)(?<!`)\k<tick>(?!`)|\[\[(?<note>[^[\]\n]*[^[\]\s][^[\]\n]*)\]\]|\[(?<label>[^[\]\n]+)\]\((?<href>(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+)(?:\s+"[^"\n]*")?\)|<(?<auto>(?:https?:\/\/|mailto:)[^\s<>]+)>|(?<bare>(?:https?:\/\/|(?<![\w@./-])www\.)(?:[^\s<>()[\]]|\([^\s<>()[\]]*\))*(?:[^\s<>()[\].,;:!?'"’”]|\([^\s<>()[\]]*\)))/g;
+  /\\(?<lit>[!-/:-@[-`{-~])|(?<!`)(?<tick>`+)(?!`)(?<code>[^\n]+?)(?<!`)\k<tick>(?!`)|\[\[(?<note>[^[\]\S\n]*[^[\]\s][^[\]\n]*)\]\]|\[(?<label>[^[\]\n]+)\]\((?<href>(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+)(?:\s+"[^"\n]*")?\)|<(?<auto>(?:https?:\/\/|mailto:)[^\s<>]+)>|(?<bare>(?:https?:\/\/|(?<![\w@./-])www\.)(?:[^\s<>()[\]]|\([^\s<>()[\]]*\))*(?:[^\s<>()[\].,;:!?'"’”]|\([^\s<>()[\]]*\)))/g;
 
 type AtomGroups = Partial<Record<'lit' | 'tick' | 'code' | 'note' | 'label' | 'href' | 'auto' | 'bare', string>>;
 
@@ -373,12 +400,13 @@ export function parseInline(text: string): Span[] {
     else atoms.push({ kind: 'url', text: g.bare!, href: bareHref(g.bare!) });
   }
   if (!atoms.length) return parseMarks(typeset(text));
-  // cada pedaço vira um caractere de uso privado, de uma faixa que não aparece no texto (um emoji
-  // antigo de celular japonês, por exemplo, mora nessa área)
-  let base = SLOT;
-  while ([...text].some((ch) => ch.charCodeAt(0) >= base && ch.charCodeAt(0) < base + atoms.length)) base += atoms.length;
+  // cada pedaço vira um caractere de uso privado que não aparece no texto (um emoji antigo de
+  // celular japonês, por exemplo, mora nessa área)
+  const slots = slotsFor(text, atoms.length);
+  if (!slots) return [{ text }];
+  const atomOf = new Map(slots.map((s, i) => [s, atoms[i]]));
   let at = 0;
-  const slotted = text.replace(ATOMS, () => String.fromCharCode(base + at++));
+  const slotted = text.replace(ATOMS, () => slots[at++]);
   const out: Span[] = [];
   const push = (s: Span) => {
     const last = out.at(-1);
@@ -393,7 +421,7 @@ export function parseInline(text: string): Span[] {
       plain = '';
     };
     for (const ch of t) {
-      const a = atoms[ch.charCodeAt(0) - base];
+      const a = atomOf.get(ch);
       if (!a) {
         plain += ch;
       } else if (a.kind === 'lit') {
@@ -422,6 +450,89 @@ function sameMarks(a: Marks, b: Marks): boolean {
   return FLAGS.every((k) => !!a[k] === !!b[k]);
 }
 
+/**
+ * As marcas de ênfase, na ordem em que são tentadas num mesmo lugar: ***os dois*** (ou ___),
+ * **negrito** (ou __), ~~riscado~~, ==marca-texto==, *itálico* (ou _), ||spoiler|| (ou >!…!<),
+ * ((sutil)) (fecha no último "))" de uma fila de parênteses, como o "**": "(((um aparte)))" é sutil
+ * com os parênteses dentro). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
+ * que fecha não pode ser metade de outra marca ("*um **dois** três*" é um itálico só, com o negrito
+ * dentro, e "**muito *bom***", um negrito com o itálico no fim).
+ *
+ * `open` é o sinal que abre e `close`, o que fecha (com o que ele confere em volta): a marca só pode
+ * valer num lugar se o sinal que a fecha aparece depois dele, na mesma linha (ver `emphases`).
+ */
+const EMPHASES: readonly { open: string; src: string; close: string }[] = [
+  { open: '***', src: String.raw`\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*`, close: String.raw`(?<=\S)\*\*\*` },
+  { open: '___', src: String.raw`(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])`, close: String.raw`(?<=\S)___(?![\p{L}\p{N}_])` },
+  { open: '**', src: String.raw`\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)`, close: String.raw`(?<=\S)\*\*(?!\*)` },
+  { open: '__', src: String.raw`(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])`, close: String.raw`(?<=\S)__(?![\p{L}\p{N}_])` },
+  { open: '~~', src: String.raw`~~(?=\S)(?<s>.+?)(?<=\S)~~`, close: String.raw`(?<=\S)~~` },
+  { open: '==', src: String.raw`==(?=\S)(?<m>.+?)(?<=\S)==`, close: String.raw`(?<=\S)==` },
+  { open: '*', src: String.raw`\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)`, close: String.raw`(?<=[^\s*])\*(?!\*)` },
+  { open: '_', src: String.raw`(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])`, close: String.raw`(?<=[^\s_])_(?![\p{L}\p{N}_])` },
+  { open: '||', src: String.raw`\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\|`, close: String.raw`(?<=\S)\|\|` },
+  { open: '>!', src: String.raw`>!(?=\S)(?<sp2>.+?)(?<=\S)!<`, close: String.raw`(?<=\S)!<` },
+  { open: '((', src: String.raw`\(\((?=\S)(?<sub>.+?)(?<=\S)\)\)(?!\))`, close: String.raw`(?<=\S)\)\)(?!\))` },
+];
+/** Onde cada marca fecha, ou a quebra de linha (o "." das marcas não passa dela): a busca anda só para a frente. */
+const CLOSERS = EMPHASES.map((e) => new RegExp(`(?<close>${e.close})|[\\n\\r\\u2028\\u2029]`, 'gu'));
+const OPENERS = new Set(EMPHASES.map((e) => e.open[0]));
+/** A expressão das marcas que ainda podem fechar (cada conjunto, uma vez). */
+const EMPHASIS_RE = new Map<number, RegExp>();
+
+/**
+ * As ênfases da linha, da esquerda para a direita, como `text.matchAll` de todas as marcas juntas.
+ * Mas cada marca só é tentada num lugar se o sinal que a fecha ainda aparece depois dele: sem isso,
+ * cada "**" sem par lia a linha até o fim, e uma linha longa cheia deles ("**a **a **a…", "((((…")
+ * travava a página (o tempo crescia com o quadrado do tamanho). Quem não tem como fechar falharia do
+ * mesmo jeito; o resultado é o mesmo.
+ */
+function* emphases(text: string): Generator<RegExpExecArray> {
+  // por marca: até onde a busca do fecho já foi e se achou um fecho (ou a quebra de linha) ali
+  const seen = EMPHASES.map(() => ({ at: -1, close: false }));
+  const canClose = (k: number, from: number): boolean => {
+    const s = seen[k];
+    if (from > s.at) {
+      const re = CLOSERS[k];
+      re.lastIndex = from;
+      const m = re.exec(text);
+      s.at = m ? m.index : Infinity;
+      s.close = !!m?.groups?.['close'];
+    }
+    return s.close;
+  };
+  let p = 0;
+  while (p < text.length) {
+    if (!OPENERS.has(text[p])) {
+      p++;
+      continue;
+    }
+    let mask = 0;
+    for (let k = 0; k < EMPHASES.length; k++) {
+      const open = EMPHASES[k].open;
+      // o que vem dentro tem pelo menos um caractere: o fecho começa depois dele
+      if (text.startsWith(open, p) && canClose(k, p + open.length + 1)) mask |= 1 << k;
+    }
+    let re = mask ? EMPHASIS_RE.get(mask) : undefined;
+    if (mask && !re) {
+      re = new RegExp(
+        EMPHASES.filter((_, k) => mask & (1 << k))
+          .map((e) => e.src)
+          .join('|'),
+        'yu',
+      );
+      EMPHASIS_RE.set(mask, re);
+    }
+    const m = re ? ((re.lastIndex = p), re.exec(text)) : null;
+    if (!m) {
+      p++;
+      continue;
+    }
+    yield m;
+    p = m.index + m[0].length;
+  }
+}
+
 /** As ênfases (os pedaços inteiros já viraram um caractere só). */
 function parseMarks(text: string, inherit: Marks = {}): Span[] {
   const out: Span[] = [];
@@ -431,15 +542,8 @@ function parseMarks(text: string, inherit: Marks = {}): Span[] {
     if (last && sameMarks(last, marks)) last.text += t;
     else out.push({ text: t, ...marks });
   };
-  // ***os dois*** (ou ___), **negrito** (ou __), ~~riscado~~, ==marca-texto==, *itálico* (ou _),
-  // ||spoiler|| (ou >!…!<), ((sutil)) (fecha no último "))" de uma fila de parênteses, como o "**":
-  // "(((um aparte)))" é sutil com os parênteses dentro). O "_" só vale fora das palavras ("snake_case" e "a__b__c" ficam); o "*"
-  // que fecha não pode ser metade de outra marca ("*um **dois** três*" é um itálico só, com o negrito
-  // dentro, e "**muito *bom***", um negrito com o itálico no fim)
-  const re =
-    /\*\*\*(?=\S)(?<bi>.+?)(?<=\S)\*\*\*|(?<![\p{L}\p{N}_])___(?=\S)(?<bi2>.+?)(?<=\S)___(?![\p{L}\p{N}_])|\*\*(?=\S)(?<b>.+?)(?<=\S)\*\*(?!\*)|(?<![\p{L}\p{N}_])__(?=\S)(?<b2>.+?)(?<=\S)__(?![\p{L}\p{N}_])|~~(?=\S)(?<s>.+?)(?<=\S)~~|==(?=\S)(?<m>.+?)(?<=\S)==|\*(?=[^\s*])(?<i>.+?)(?<=[^\s*])\*(?!\*)|(?<![\p{L}\p{N}_])_(?=[^\s_])(?<i2>.+?)(?<=[^\s_])_(?![\p{L}\p{N}_])|\|\|(?=\S)(?<sp>.+?)(?<=\S)\|\||>!(?=\S)(?<sp2>.+?)(?<=\S)!<|\(\((?=\S)(?<sub>.+?)(?<=\S)\)\)(?!\))/gu;
   let at = 0;
-  for (const m of text.matchAll(re)) {
+  for (const m of emphases(text)) {
     push(text.slice(at, m.index), inherit);
     const g = m.groups as Partial<Record<'bi' | 'bi2' | 'b' | 'b2' | 's' | 'm' | 'i' | 'i2' | 'sp' | 'sp2' | 'sub', string>>;
     const [inner, add]: [string, Marks] =

@@ -232,4 +232,33 @@ describe('a linha do texto de cada bloco (a prévia do editor acompanha o cursor
     expect(folded.filter((b) => b.kind === 'p').map((b) => blockLine(b))).toEqual([0, 2]);
     expect(blockLine({ kind: 'hr' })).toBeNull();
   });
+
+  it('linha longa cheia de marcas sem par não trava a leitura (cada uma lia a linha até o fim)', () => {
+    // 60 mil letras: antes, cada caso levava segundos (o tempo crescia com o quadrado do tamanho)
+    const n = 60_000;
+    const cases = ['**a '.repeat(n / 4), '(('.repeat(n / 2), '_a '.repeat(n / 3), '||a '.repeat(n / 4), '>!a '.repeat(n / 4), '[[' + 'a'.repeat(n), 'https://' + '('.repeat(n)];
+    for (const text of cases) {
+      const t = performance.now();
+      parseRich(text);
+      hasFormatting(text);
+      expect(performance.now() - t).withContext(text.slice(0, 12)).toBeLessThan(400);
+    }
+    // e o resultado continua o de sempre: a marca que fecha no fim vale, a sem par fica escrita
+    expect(parseInline('**a '.repeat(3) + 'b**')).toEqual([{ text: 'a **a **a b', bold: true }]);
+    expect(parseInline('((a ((b))')).toEqual([{ text: 'a ((b', subtle: true }]);
+    expect(parseInline('((a ((b ((c')).toEqual([{ text: '((a ((b ((c' }]);
+    // o "." das marcas não passa da quebra de linha U+2028
+    expect(parseInline('**a \u2028b**')).toEqual([{ text: '**a \u2028b**' }]);
+  });
+
+  it('muitos pedaços inteiros numa linha (mais de 8 mil marcas escapadas) não viram outros sinais', () => {
+    const many = '\\*'.repeat(9000);
+    expect(parseInline(many)).toEqual([{ text: '*'.repeat(9000) }]);
+    const mixed = '\\_'.repeat(8300) + ' a <= b **ok**';
+    expect(parseInline(mixed)).toEqual([{ text: '_'.repeat(8300) + ' a ≤ b ' }, { text: 'ok', bold: true }]);
+    // os caracteres de uso privado do próprio texto continuam como são
+    let pua = '';
+    for (let c = 0xe000; c <= 0xf8ff; c++) pua += String.fromCharCode(c);
+    expect(parseInline(pua + ' `x` *i*')).toEqual([{ text: pua + ' ' }, { text: 'x', code: true }, { text: ' ' }, { text: 'i', italic: true }]);
+  });
 });

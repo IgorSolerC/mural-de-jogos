@@ -10,6 +10,8 @@ const INLINE = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'CODE', 'DEL', 'EM', 'I'
 const SKIP = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'NOSCRIPT']);
 /** Onde moram as tags: a busca por "#tag" só realça ali, como só procura ali (ver matchesQuery). */
 const TAGS = 'app-note-tag, .tag';
+/** O spoiler ainda escondido (ver ui/rich-text.ts): o marca-texto pinta a letra e contaria o segredo. */
+const HIDDEN = '.spoiler-texto[inert]';
 
 /** Os realces de cada parede na tela; o CSS tem um só, com todos juntos. */
 const live = new Map<object, Range[]>();
@@ -124,6 +126,12 @@ export function rangesIn(host: Element, needle: string, scope = ''): Range[] {
     text = '';
   };
   for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+    // o spoiler escondido não é realçado e corta a frase (a busca não emenda o antes com o depois dele)
+    if (n.parentElement!.closest(HIDDEN)) {
+      flush();
+      block = null;
+      continue;
+    }
     const b = blockOf(n, host);
     if (b !== block) {
       flush();

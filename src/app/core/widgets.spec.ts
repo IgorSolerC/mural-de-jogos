@@ -6,6 +6,11 @@ describe('widgets das anotações', () => {
     expect(parseWidgetLine('{{contador: 19/11/2026 18:00 | GTA VI}}')).toEqual({ name: 'contador', args: ['19/11/2026 18:00', 'GTA VI'], size: 'medio' });
     expect(parseWidgetLine('  {{ Contagem :25/12}}  ')).toEqual({ name: 'contador', args: ['25/12'], size: 'medio' });
     expect(parseWidgetLine('{{contador}}')).toEqual({ name: 'contador', args: [], size: 'medio' });
+    // a linha longa que não fecha não trava (o fim era procurado de novo a cada letra)
+    const t = performance.now();
+    expect(parseWidgetLine('{{contador:' + ' '.repeat(60_000) + 'x')).toBeNull();
+    expect(performance.now() - t).toBeLessThan(400);
+    expect(parseWidgetLine('{{contador: 25/12 | Natal   }}  ')).toEqual({ name: 'contador', args: ['25/12', 'Natal'], size: 'medio' });
     // um nome que o site não conhece, ou a marca no meio do texto, fica como texto
     expect(parseWidgetLine('{{relogio: 10:00}}')).toBeNull();
     expect(parseWidgetLine('faltam {{contador: 19/11/2026}} dias')).toBeNull();

@@ -26,6 +26,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-28-texto-formatado',
+    version: '1.35.3',
+    kind: 'ajustes',
+    date: '2026-10-28',
+    title: 'O texto formatado e o spoiler na busca',
+    correcoes: [
+      'Um texto longo cheio de marcas sem par (como "**" ou "((" repetidos), um "[[" sem fecho ou um widget sem o "}}" não trava mais a página; e milhares de marcas escapadas numa linha (como "\\*") aparecem como foram escritas, sem virar outros sinais.',
+      'O marca-texto da busca não pinta mais o trecho escondido de um spoiler, que aparecia por baixo dele.',
+      'O texto sem formatação vindo de fora com as quebras de linha antigas (só "\\r") mostra cada linha no seu lugar, como o formatado.',
+    ],
+  },
+  {
     id: '2026-10-27-o-que-vai-para-o-publico',
     version: '1.35.2',
     kind: 'ajustes',

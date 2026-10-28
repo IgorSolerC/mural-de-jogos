@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
-import { Block, blockLine, foldDone, hasFormatting, parseRich, snapshotDone } from '../core/rich-text';
+import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
@@ -649,7 +649,8 @@ export class RichText {
   }
 
   protected readonly formatted = computed(() => hasFormatting(this.text()));
-  protected readonly plainLines = computed(() => this.text().split(/\r?\n/));
+  // contadas como no texto formatado (o "\r" sozinho também quebra a linha, ver core/rich-text.ts)
+  protected readonly plainLines = computed(() => linesOf(this.text()));
   private readonly doneThen = linkedSignal({ source: this.text, computation: snapshotDone });
   protected readonly blocks = computed(() => {
     const blocks = parseRich(this.text());
