@@ -12,6 +12,12 @@ export function readConfig(env: Record<string, unknown>): Config {
   const text = (key: string) => (typeof env[key] === 'string' ? (env[key] as string).trim() : '');
   const mode = text('MODO') as Mode;
   const budget = Number(text('COTA_LINHAS_DIA'));
+  // um número inteiro e positivo; qualquer outra coisa é zero (as imagens param, nunca ficam sem limite)
+  const count = (key: string) => {
+    const n = Number(text(key));
+    return Number.isSafeInteger(n) && n > 0 ? n : 0;
+  };
+  const mb = (key: string) => count(key) * 1024 * 1024;
   return {
     mode: MODES.includes(mode) ? mode : 'desligado',
     allowedOrigins: text('ORIGENS')
@@ -28,6 +34,9 @@ export function readConfig(env: Record<string, unknown>): Config {
       .map((c) => (c.trim() === '*' ? '*' : plainCode(c)))
       .filter(Boolean),
     site: siteUrl(text('SITE')),
+    imagesTotalBytes: mb('IMAGENS_MB_TOTAL'),
+    imagesUserBytes: mb('IMAGENS_MB_PESSOA'),
+    imagesPerDay: count('IMAGENS_POR_DIA'),
   };
 }
 

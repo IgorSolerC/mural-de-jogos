@@ -21,9 +21,11 @@ interface VaultRpc {
   apagarCofre(usuarioId: string): Promise<{ apagado: true }>;
 }
 
-/** As variáveis do wrangler.toml (ver `config.ts`), o banco e o cofre. */
+/** As variáveis do wrangler.toml (ver `config.ts`), os bancos e o cofre. */
 interface Env {
   DB: D1Database;
+  /** Só os bytes das imagens (o banco `mural-imagens`, PLANO-IMAGENS.md). */
+  IMAGENS?: D1Database;
   COFRE?: VaultRpc;
   MODO?: string;
   ORIGENS?: string;
@@ -32,6 +34,9 @@ interface Env {
   VER_MURAIS?: string;
   API_CODIGOS?: string;
   SITE?: string;
+  IMAGENS_MB_TOTAL?: string;
+  IMAGENS_MB_PESSOA?: string;
+  IMAGENS_POR_DIA?: string;
   /** Secrets (`wrangler secret put`), nunca no wrangler.toml: as chaves do site na busca. */
   TMDB_KEY?: string;
   RAWG_KEY?: string;
@@ -47,6 +52,7 @@ function deps(env: Env): Deps {
   const config = readConfig(env as unknown as Record<string, unknown>);
   return {
     db: d1Db(env.DB),
+    ...(env.IMAGENS ? { imagesDb: d1Db(env.IMAGENS) } : {}),
     config,
     now: () => new Date(),
     verifyGoogle: googleVerifier(config.googleClientId, googleKeys),

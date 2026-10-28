@@ -10,8 +10,9 @@
     "test": "npm run test:node && npm run test:workers",
     "test:node": "vitest run --config vitest.node.config.ts",
     "test:workers": "vitest run --config vitest.workers.config.ts",
-    "deploy": "wrangler d1 migrations apply mural --remote && wrangler deploy",
-    "backup": "wrangler d1 export mural --remote --output=backup-mural.sql"
+    "deploy": "wrangler d1 migrations apply mural --remote && wrangler d1 migrations apply mural-imagens --remote && wrangler deploy",
+    "backup": "wrangler d1 export mural --remote --output=backup-mural.sql",
+    "backup:imagens": "wrangler d1 export mural-imagens --remote --output=backup-mural-imagens.sql"
   },
   "dependencies": {
     "hono": "^4.13.13",

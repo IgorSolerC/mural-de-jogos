@@ -8,14 +8,14 @@ hostear (talvez diminuindo a resolução das imagens?) [...] Faça isso de forma
 estrapolar os usos do cloudflare e google api."
 
 Este arquivo é o plano inteiro, escrito para ser lido também por outras AIs (como o PLANO-API.md). As
-decisões que esperam o usuário estão na seção 8. O andamento fica na seção 10.
+decisões do usuário estão na seção 8 (todas tomadas em 28/out). O andamento fica na seção 10.
 
 ---
 
 ## 0. Resumo em uma página
 
 - **Colar e pronto.** A pessoa cola (ou arrasta, ou escolhe do aparelho) uma imagem na descrição. O site
-  encolhe a imagem **no próprio aparelho** (lado maior de 1600 px, WebP, uns 150–250 KB; tira o GPS e
+  encolhe a imagem **no próprio aparelho** (lado maior de **900 px**, WebP, uns 40–120 KB; tira o GPS e
   os outros dados da foto), guarda no IndexedDB e escreve no texto o widget de sempre com um endereço
   novo: `{{imagem: murall://imagem/ID}}`. Funciona sem internet e sem conta.
 - **A nuvem guarda num banco D1 à parte.** Os bytes vão para um banco novo, `mural-imagens` (o D1
@@ -31,7 +31,7 @@ decisões que esperam o usuário estão na seção 8. O andamento fica na seçã
   Um envio custa 1 pedido ao Worker e umas 4 linhas gravadas; ver custa 1 pedido e 2 linhas lidas.
 - **Privada por padrão.** A imagem de uma anotação privada só abre com a sessão do dono (ou de quem está
   na anotação compartilhada que a usa). Abre sem login só a que está numa ficha do mural público.
-- **Travas.** Teto de 300 KB por imagem, cota por pessoa (25 MB, umas 100 a 170 imagens), 30 envios por dia,
+- **Travas.** Teto de 200 KB e 900 px por imagem (conferidos pela nuvem nos próprios bytes), cota por pessoa (25 MB, umas 300 imagens), 30 envios por dia,
   cota global a 80% do banco, freio por IP nas visitas, e a checagem diária avisa a 70%. Passou do
   limite, o envio espera; nada é cobrado (seção 6).
 - **A regra do logout vale inteira.** As imagens guardadas no aparelho saem na limpeza; antes de sair,
@@ -80,8 +80,8 @@ quando um encher, sem migrar nada.
    imagem (ao lado do Link), com `<input type="file" accept="image/*">` (no celular abre a câmera e a
    galeria; o iPhone já entrega HEIC como JPEG).
 2. **Encolher** (`core/images.ts`, novo, sem dependência): `createImageBitmap` com a orientação do EXIF
-   aplicada → canvas com o lado maior em **1600 px** (nunca aumenta) → `toBlob('image/webp', 0.8)`.
-   Passou de 250 KB: qualidade 0,7, depois 0,6, depois 1280 px. O Safari não gera WebP no canvas
+   aplicada → canvas com o lado maior em **900 px** (nunca aumenta) → `toBlob('image/webp', 0.8)`.
+   Passou de 120 KB: qualidade 0,7, depois 0,6, depois 720 px. O Safari não gera WebP no canvas
    (conferir na hora com um teste de 1×1): lá vai JPEG 0,8 com fundo branco no lugar da transparência.
    O GIF animado vira a primeira imagem (decisão D4). SVG não entra (vira PNG pelo canvas, ou é recusado
    se não decodificar). Redesenhar no canvas apaga o EXIF inteiro, inclusive o GPS da foto.
@@ -133,11 +133,11 @@ CREATE TABLE bytes (id TEXT PRIMARY KEY, dados BLOB NOT NULL) WITHOUT ROWID;
 **Rotas** (`api/src/routes/images.ts`, novo; o núcleo continua sem saber que é Cloudflare: a porta
 `Deps` ganha `imagesDb`, nos dois adaptadores):
 
-- `PUT /v1/imagens/:id` (sessão; o corpo são os bytes, `Content-Type` da imagem, `Imagem-Tamanho:
-  1600x1200`): confere o id (22 letras), o teto (300 KB, `413 imagem-grande`), o tipo pelos primeiros
-  bytes (`RIFF….WEBP`, `FF D8 FF`, `89 PNG`; outro é `415 imagem-tipo`), a cota da pessoa
+- `PUT /v1/imagens/:id` (sessão; o corpo são os bytes): confere o id (22 letras), o teto (200 KB,
+  `413 imagem-grande`), o tipo e o tamanho lendo o cabeçalho dos bytes (`RIFF….WEBP`, `FF D8 FF`,
+  `89 PNG`; outro é `415 imagem-tipo`; mais de 900 px no lado maior, `413`), a cota da pessoa
   (`403 cota-imagens`), os envios do dia (`429`, na tabela `freios`) e a global (`507 imagens-cheio`).
-  Grava os bytes primeiro e os dados depois (a limpeza tira bytes sem dados). Repetir o mesmo id do
+  Grava os dados primeiro (com as cotas conferidas no mesmo lote) e os bytes depois; se o banco dos bytes recusar, os dados saem (feito: ver seção 10). Repetir o mesmo id do
   mesmo dono responde 200 (o envio pode cair no meio e voltar); o id de outra pessoa, 409.
 - `GET /v1/imagens/:id`: os bytes. Pública, sem sessão; privada, com a sessão do dono ou de quem está
   numa compartilhada que a usa (`nota_imagens` + `nota_membros`); senão **404** (nunca confirma que
@@ -224,12 +224,12 @@ O servidor não abre o mural, então quem sabe o que está em uso é o site:
 
 | Coisa | Conta | Folga |
 | --- | --- | --- |
-| Espaço | 500 MB por banco; cota global a 80% = 400 MB; ~150–250 KB por imagem → **1.600 a 2.700 imagens** no primeiro banco | Cada banco novo soma outro tanto (o `banco` já existe na tabela); a conta dá 5 GB somando todos. |
-| Por pessoa | 25 MB ≈ 100 a 170 imagens | Ajustável no `wrangler.toml` (`IMAGENS_MB_PESSOA`). |
+| Espaço | 500 MB por banco; cota global a 80% = 400 MB; ~40–120 KB por imagem → **3.400 a 10.000 imagens** no primeiro banco | Cada banco novo soma outro tanto (o `banco` já existe na tabela); a conta dá 5 GB somando todos. |
+| Por pessoa | 25 MB ≈ 210 a 640 imagens (umas 300) | Ajustável no `wrangler.toml` (`IMAGENS_MB_PESSOA`). |
 | Pedidos ao Worker | Enviar: 1. Ver: 1 por imagem por aparelho, uma vez na vida (logado) ou a cada 7 dias (visita) | Um mural público com 30 imagens visto por 200 pessoas num dia gasta no máximo 6 mil dos 100 mil, e só as que rolarem até a tela (lazy). |
-| Linhas gravadas | Por envio: os dados (1 + índice), os bytes (1), o freio (1) e o uso (1), ~5 | 30 envios por pessoa por dia = 150 linhas; nada perto de 60 mil. |
+| Linhas gravadas | Por envio: os dados e os índices, os bytes, o freio, as duas contas, a marca de pronta: ~10, contadas na `COTA_LINHAS_DIA` | 30 envios por pessoa por dia = 300 linhas; nada perto de 60 mil. |
 | Linhas lidas | Por imagem vista: os dados com a conferência de quem vê (1–3) + os bytes (1) | 5 milhões por dia. |
-| CPU | Ler 300 KB do corpo e gravar, ou ler e devolver: só cópia, sem decodificar | Medir na rodada 0 (`wrangler tail`, campo `cpuTime`), como no PLANO-API. |
+| CPU | Ler até 200 KB do corpo e gravar, ou ler e devolver: só cópia e o cabeçalho, sem decodificar | O mural (até 1,9 MB) já passa pelo mesmo caminho todo dia; medir com `wrangler tail` (campo `cpuTime`) quando o site mandar (rodada 3). |
 | Google | Nada novo | — |
 
 ## 5. Segurança
@@ -245,13 +245,13 @@ O servidor não abre o mural, então quem sabe o que está em uso é o site:
 
 | Freio | Onde | Ao passar |
 | --- | --- | --- |
-| 300 KB por imagem | API (o site já manda menor) | `413 imagem-grande`; o site encolhe mais e tenta de novo. |
+| 200 KB e 900 px por imagem | API, lendo os bytes (o site já manda menor) | `413 imagem-grande`; o site encolhe mais e tenta de novo. |
 | 25 MB por pessoa | API (`IMAGENS_MB_PESSOA`) | `403 cota-imagens`; a imagem fica no aparelho, com o aviso e o caminho para Ajustes › Imagens. |
 | 30 envios por pessoa por dia | `freios` | `429`; a fila tenta no dia seguinte, a imagem aparece neste aparelho. |
 | 400 MB no banco | API (`IMAGENS_MB_TOTAL`) | `507 imagens-cheio`; idem, e a checagem diária já tinha avisado a 70%. |
 | Visitas por IP | na memória, como o `catalogBrake` (300 por minuto) | `429` para aquele IP; o resto segue. |
 | `MODO` | `wrangler.toml` | `so-leitura`/`desligado` param os envios, como o mural. |
-| Checagem diária | `scripts/saude.ts` | Soma o tamanho do `mural-imagens` e falha (e-mail) a 70%. |
+| Checagem diária | `scripts/saude.ts` | Mostra quanto as imagens guardam e quanto falta para a cota (pelo `/v1/status`) e o tamanho do `mural-imagens`; falha (e-mail) a 70% de um ou de outro. |
 
 ## 7. O que fica de fora (de propósito)
 
@@ -262,14 +262,16 @@ O servidor não abre o mural, então quem sabe o que está em uso é o site:
   primeiro. Os outros podem vir depois sem mudar a nuvem.
 - Galeria de todas as imagens.
 
-## 8. Decisões que esperam o usuário
+## 8. Decisões
 
-| # | Pergunta | Recomendado | Outras |
+Tomadas em 28/out/2026: a D1 pelo usuário ("Diminua para 900px o maior lado"), as outras como recomendado.
+
+| # | Pergunta | Decidido | Outras |
 | --- | --- | --- | --- |
-| D1 | Tamanho da imagem guardada | **1600 px no lado maior, ~150–250 KB** (nítida no Ampliar e numa tela 2×) | 1280 px, ~100–150 KB (cabe ~60% a mais, mais mole no Ampliar); 2048 px, ~300–450 KB (teto de 500 KB, cabe metade) |
+| D1 | Tamanho da imagem guardada | **900 px no lado maior, ~40–120 KB, teto de 200 KB** (pedido do usuário) | 1600 px (a recomendação de antes, ~150–250 KB); 2048 px |
 | D2 | Cota por pessoa | **25 MB e 30 envios por dia** | 10 MB; 50 MB |
 | D3 | Quem vê a imagem privada | **Só o dono e quem está na compartilhada que a usa**; colar o texto de outra pessoa copia a imagem como sua | Qualquer um com o endereço (mais simples, mas o endereço vazado continua abrindo) |
-| D4 | GIF animado | **Vira a primeira imagem, parada** | Recusar; guardar como veio se couber em 300 KB (sem encolher) |
+| D4 | GIF animado | **Vira a primeira imagem, parada** | Recusar; guardar como veio se couber em 200 KB (sem encolher) |
 | D5 | Backup das imagens | **Uma vez por semana no Actions, com senha**, mais o Time Travel de 7 dias | Só o Time Travel |
 | D6 | Imagem que nenhuma anotação usa | **Apagada 30 dias depois** | 7 dias; nunca (até a pessoa apagar em Ajustes) |
 | D7 | Domínio próprio para as imagens (`img.murall.igorsc.com.br`) | **Não agora** (não muda a conta dos pedidos) | Sim, junto da rodada 4 |
@@ -281,7 +283,7 @@ Um commit por passo, como no PLANO-API (cada um com a BUILD e, quando aparece pa
 Novidades).
 
 0. **Medir.** O uso de ontem e hoje pela checagem diária (pedidos ao Worker, tamanho do banco
-   principal), para confirmar a folga da seção 4. Um Worker de teste com `PUT`/`GET` de 300 KB num D1 de
+   principal), para confirmar a folga da seção 4. Um Worker de teste com `PUT`/`GET` de 200 KB num D1 de
    teste, o `cpuTime` no `wrangler tail`. Colar uma imagem no Chrome, no Safari do iPhone e no Chrome do
    Android (o evento `paste` traz o arquivo? o Safari gera WebP?).
 1. **A nuvem.** Migração 0020, banco `mural-imagens` (criar com `wrangler d1 create`, binding no
@@ -302,7 +304,22 @@ Novidades).
 
 ## 10. Andamento
 
-- 28/out/2026: plano escrito; nada implementado. Esperando as decisões D1–D8.
+- 28/out/2026: plano escrito.
+- 28/out/2026, rodada 0 (medir): a checagem diária de 27/out deu 5.610 pedidos ao Worker (5,6% dos 100
+  mil), 1.485 linhas gravadas (1,5%), 57.590 lidas (1,2%), e o banco `mural` com 2,1 MB de 500. Folga
+  de sobra para as contas da seção 4. O Worker de teste e o colar nos aparelhos ficaram para quando o
+  site mandar de verdade (rodada 3), onde a medida vale mais.
+- 28/out/2026, rodada 1 (a nuvem): banco `mural-imagens` criado (40d84093-…, região ENAM), migrações
+  `0020_imagens.sql` e `migrations-imagens/0001_bytes.sql`, `api/src/domain/image.ts` (o tipo e o
+  tamanho lidos do cabeçalho do WebP, do JPEG e do PNG; o teto e os 900 px conferidos pela nuvem),
+  `api/src/routes/images.ts` (PUT, GET, DELETE e `/v1/eu/imagens`), as cotas dentro do lote, o freio do
+  dia em `freios` (`imagem`), o freio por IP na memória, os dados que saem se o banco dos bytes recusar,
+  a conta que sai leva as imagens, a limpeza diária termina os envios no meio e reconta `imagens_uso`,
+  `/v1/status` com `imagens`, e a checagem diária com a linha das imagens e o tamanho do `mural-imagens`
+  (só o banco: os pedidos do Worker não contam duas vezes). Mudou do desenho: os dados vão antes dos
+  bytes (um id só existe no banco dos bytes depois de existir em `imagens`), há a coluna `pronta` e a
+  tabela `imagens_uso` (a cota sem somar a tabela inteira); `nota_imagens` fica para a rodada 4.
+  Próximo: rodada 2 (no aparelho, sem nuvem).
 
 ## 11. A conferir (riscos)
 

@@ -12,10 +12,14 @@ import { gastosSuite } from './gastos.suite';
 import { kanbanSuite } from './kanban.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
+import { imagensSuite } from './imagens.suite';
 
-const bindings = env as unknown as { DB: D1Database; TEST_MIGRATIONS: D1Migration[] };
+const bindings = env as unknown as { DB: D1Database; IMAGENS: D1Database; TEST_MIGRATIONS: D1Migration[]; TEST_MIGRATIONS_IMAGENS: D1Migration[] };
 
-beforeAll(() => applyD1Migrations(bindings.DB, bindings.TEST_MIGRATIONS));
+beforeAll(async () => {
+  await applyD1Migrations(bindings.DB, bindings.TEST_MIGRATIONS);
+  await applyD1Migrations(bindings.IMAGENS, bindings.TEST_MIGRATIONS_IMAGENS);
+});
 
 apiSuite('Cloudflare D1', () => d1Db(bindings.DB));
 amigosSuite('Cloudflare D1', () => d1Db(bindings.DB));
@@ -27,3 +31,4 @@ mcpSuite('Cloudflare D1', () => d1Db(bindings.DB));
 oauthSuite('Cloudflare D1', () => d1Db(bindings.DB));
 gastosSuite('Cloudflare D1', () => d1Db(bindings.DB));
 kanbanSuite('Cloudflare D1', () => d1Db(bindings.DB));
+imagensSuite('Cloudflare D1', () => d1Db(bindings.DB), () => d1Db(bindings.IMAGENS));

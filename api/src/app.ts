@@ -23,6 +23,8 @@ import { spendingWriteRoutes } from './ext/spending-write';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
+import { imageRoutes } from './routes/images';
+import { ALL, room, usageOf } from './domain/image';
 
 /** O molde da rota que respondeu; o erro de um middleware (sem rota ainda) fica com o caminho. */
 export function routeOf(routePath: string | undefined, path: string): string {
@@ -77,8 +79,10 @@ export function createApp(deps: Deps): Hono {
 
   app.get('/v1/status', async (c) => {
     let usage;
+    let images;
     try {
       usage = await usageToday(deps);
+      images = await usageOf(deps.db, ALL);
     } catch {
       throw new HttpError(503, 'banco-indisponivel', 'O banco da nuvem não respondeu.');
     }
@@ -89,6 +93,8 @@ export function createApp(deps: Deps): Hono {
       gravacoes: usage.writes,
       linhasGravadas: usage.rowsWritten,
       cotaLinhas: config.dailyRowBudget,
+      // quanto as imagens guardam e quanto falta para a cota da nuvem (a checagem diária avisa a 70%)
+      imagens: room(images, config.imagesTotalBytes),
     });
   });
 
@@ -98,6 +104,7 @@ export function createApp(deps: Deps): Hono {
   reactionRoutes(app, deps);
   commentRoutes(app, deps);
   noteRoutes(app, deps);
+  imageRoutes(app, deps);
   catalogRoutes(app, deps);
   agendaRoutes(app, deps);
   keyRoutes(app, deps);

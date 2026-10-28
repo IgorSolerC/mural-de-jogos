@@ -94,6 +94,43 @@ de teste, enquanto o app não é verificado pelo Google); vazio, ninguém; `*`, 
 Cloud: a Google Calendar API ativada, o escopo `calendar.events` na tela de permissão e o endereço
 `https://murall.igorsc.com.br/google.html` em "URIs de redirecionamento autorizados" do cliente OAuth.
 
+## Imagens coladas nas anotações
+
+O plano está em `PLANO-IMAGENS.md`, na raiz (rodada 1: a nuvem). O site encolhe a imagem no aparelho
+(900 px no lado maior, WebP ou JPEG) e manda os bytes; a nuvem não abre nem encolhe nada, só confere
+pelos primeiros bytes o tipo e o tamanho de verdade (`src/domain/image.ts`) e guarda.
+
+- **Dois bancos.** Os bytes ficam no D1 `mural-imagens` (binding `IMAGENS`, migrações em
+  `migrations-imagens/`), à parte: se ele encher, só as imagens param, e o mural continua gravando. Os
+  dados de cada imagem (`imagens`) e quanto cada conta guarda (`imagens_uso`, com a linha `*` da nuvem
+  inteira) ficam no banco de sempre (migração 0020). Um id só existe no banco dos bytes depois de existir
+  em `imagens`, e sai de lá antes: nunca sobra byte sem dono.
+- `PUT /v1/imagens/:id` (sessão; o corpo são os bytes): o id são as 22 letras que o site sorteou. Só WebP,
+  JPEG ou PNG (`415 imagem-tipo`), até 900 px no lado maior e até 200 KB (`413 imagem-grande`). Repetir o
+  envio responde 200 sem contar de novo; o id de outra conta é `409 imagem-id-em-uso`.
+- `GET /v1/imagens/:id`: os bytes, com o tipo guardado, `nosniff` e uma CSP fechada. A privada só com a
+  sessão do dono (`private, no-store`); a pública (rodada 4) sem login, com 7 dias de cache. Quem não pode
+  ver recebe 404, igual à que não existe (nunca 401). Freio por IP na memória: 300 por minuto (`429
+  imagens-devagar`).
+- `DELETE /v1/imagens/:id`: o dono apaga (os bytes e os dados; a conta desce).
+- `GET /v1/eu/imagens`: `uso` (da conta: imagens, bytes, cota, livre), `nuvem` (o mesmo da nuvem
+  inteira), `hoje` (enviadas e o limite) e a lista.
+- O `GET /v1/status` leva `imagens` (o uso e a cota da nuvem inteira), que a checagem diária lê.
+
+As travas, no `wrangler.toml` (zero ou um valor que não é número recusa todo envio):
+
+| Variável | Valor | O que segura | Ao passar |
+| --- | --- | --- | --- |
+| `IMAGENS_MB_TOTAL` | 400 | a nuvem inteira, abaixo dos 500 MB do `mural-imagens` | `507 imagens-cheio` |
+| `IMAGENS_MB_PESSOA` | 25 | cada conta (umas 300 imagens de 900 px) | `403 cota-imagens` |
+| `IMAGENS_POR_DIA` | 30 | os envios de cada conta em 24 horas (apagar não devolve a vaga) | `429 imagens-hoje` |
+
+Cada envio conta umas 10 linhas na `COTA_LINHAS_DIA` (os bytes do outro banco também: o limite de linhas
+do D1 é da conta), e as cotas são conferidas dentro do lote que grava, então dois envios ao mesmo tempo
+não passam juntos. Se o banco das imagens recusar os bytes, os dados saem e a conta desce. A limpeza
+diária termina os envios que ficaram no meio há mais de um dia e reconta `imagens_uso` a partir de
+`imagens`; a conta que sai leva as imagens dela.
+
 ## Logs
 
 O Workers Logs (o Observability do Cloudflare, grátis no plano Free: 200 mil por dia, guardados 3 dias)
@@ -112,11 +149,11 @@ está na Cloudflare. Só dois arquivos sabem; outros dois fazem o mesmo papel nu
 | Arquivo | Papel |
 | --- | --- |
 | `src/entry/worker.ts` | a entrada do Worker (`fetch` e o Cron da limpeza) |
-| `src/adapters/d1.ts` | o banco em cima do D1 |
+| `src/adapters/d1.ts` | os bancos em cima do D1 |
 | `src/entry/node.ts` | a mesma API num Node comum |
-| `src/adapters/sqlite-node.ts` | o banco em cima do SQLite embutido no Node |
+| `src/adapters/sqlite-node.ts` | os bancos em cima do SQLite embutido no Node |
 
-As suítes de testes (`test/suite.ts` e `test/amigos.suite.ts`) rodam duas vezes: no simulador do D1 e no SQLite do Node.
+As suítes de testes (`test/*.suite.ts`) rodam duas vezes: no simulador do D1 e no SQLite do Node; a das imagens com um segundo banco, o dos bytes.
 
 ## Comandos
 
@@ -125,11 +162,12 @@ npm ci
 npm run typecheck
 npm test               # Node + SQLite e simulador do D1
 npm run dev            # wrangler dev, em http://localhost:8787 (D1 local)
-npm run dev:node       # a mesma API no Node, com o arquivo mural.sqlite
+npm run dev:node       # a mesma API no Node, com os arquivos mural.sqlite e mural-imagens.sqlite
 npm run backup         # baixa o banco de produção para backup-mural.sql (fica fora do git)
+npm run backup:imagens # o banco das imagens, para backup-mural-imagens.sql (fica fora do git)
 ```
 
-O deploy é feito pelo GitHub Actions (`.github/workflows/api.yml`): testes, migrações e `wrangler deploy`,
+O deploy é feito pelo GitHub Actions (`.github/workflows/api.yml`): testes, migrações dos dois bancos e `wrangler deploy`,
 com os secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
 
 ## Proteção contra cobrança
@@ -142,14 +180,19 @@ com os secrets `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID`.
   Para desligar na hora sem deploy: painel da Cloudflare → Workers & Pages → mural-api → Settings →
   Variables.
 - `VER_MURAIS` (wrangler.toml): `todos` (qualquer um abre um mural pelo código) ou `logados` (só quem tem conta). Qualquer outro valor vale `logados`.
-- Nada de KV, R2, Durable Objects ou Queues: só Workers e D1.
+- `IMAGENS_MB_TOTAL`, `IMAGENS_MB_PESSOA` e `IMAGENS_POR_DIA` (wrangler.toml) seguram as imagens (ver
+  "Imagens coladas nas anotações"); o banco delas é à parte, então encher não para o mural.
+- Nada de KV, R2, Durable Objects ou Queues: só Workers e D1 (dois bancos: `mural` e `mural-imagens`).
+  O R2 pede uma assinatura e cobra o que passar do grátis.
 
 ## Checagem diária
 
 `.github/workflows/saude.yml` roda todo dia às 20h47 de Brasília (e quando quiser, em Actions → Saúde da
-nuvem → Run workflow) o `scripts/saude.ts`: confere se `GET /v1/status` responde e, com o token, quanto
-do plano gratuito foi usado ontem e hoje (pedidos ao Worker, linhas lidas e gravadas no D1, tamanho do
-banco). Se a API não responde ou algo passou de 70% do gratuito, a execução falha e o GitHub manda
+nuvem → Run workflow) o `scripts/saude.ts`: confere se `GET /v1/status` responde, quanto as imagens
+guardam e quanto falta para a cota delas e, com o token, quanto do plano gratuito foi usado ontem e hoje
+(pedidos ao Worker, linhas lidas e gravadas no D1, tamanho de cada banco, o `mural-imagens` também; o
+id dele vem do `wrangler.toml`). Se a API não responde, algo passou de 70% do gratuito ou as imagens
+passaram de 70% da cota delas, a execução falha e o GitHub manda
 e-mail; o resumo fica na página da execução. Para rodar aqui: `npx tsx scripts/saude.ts` (com
 `API_URL=http://localhost:8787` para a API local).
 
@@ -191,10 +234,11 @@ Cloudflare é mais simples: `npx wrangler d1 time-travel restore mural --timesta
 
 ## Sair da Cloudflare
 
-1. `npm run backup` (ou `wrangler d1 export mural --remote --output=mural.sql`).
-2. `sqlite3 mural.sqlite < mural.sql`.
+1. `npm run backup` e `npm run backup:imagens` (ou `wrangler d1 export mural --remote --output=mural.sql`,
+   e o mesmo com `mural-imagens`).
+2. `sqlite3 mural.sqlite < mural.sql` e `sqlite3 mural-imagens.sqlite < mural-imagens.sql`.
 3. Rodar `npm run dev:node` (ou `tsx src/entry/node.ts`) no host novo, com as mesmas variáveis do
-   wrangler.toml mais `BANCO=mural.sqlite` e `PORT`.
+   wrangler.toml mais `BANCO=mural.sqlite`, `BANCO_IMAGENS=mural-imagens.sqlite` e `PORT`.
 4. Trocar o endereço da API no `cloud.json` do site e na lista `connect-src` da política de conteúdo
    (o `<meta http-equiv="Content-Security-Policy">` em `src/index.html`), no mesmo commit.
 

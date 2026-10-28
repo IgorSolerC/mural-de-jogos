@@ -11,10 +11,14 @@ import { gastosSuite } from './gastos.suite';
 import { kanbanSuite } from './kanban.suite';
 import { apiSuite } from './suite';
 import { notasSuite } from './notas.suite';
+import { imagensSuite } from './imagens.suite';
 
 const sqlite = new DatabaseSync(':memory:');
 migrate(sqlite, fileURLToPath(new URL('../migrations', import.meta.url)));
 const db = sqliteDb(sqlite);
+const imagesSqlite = new DatabaseSync(':memory:');
+migrate(imagesSqlite, fileURLToPath(new URL('../migrations-imagens', import.meta.url)));
+const imagesDb = sqliteDb(imagesSqlite);
 
 apiSuite('Node + SQLite', () => db);
 amigosSuite('Node + SQLite', () => db);
@@ -26,3 +30,4 @@ mcpSuite('Node + SQLite', () => db);
 oauthSuite('Node + SQLite', () => db);
 gastosSuite('Node + SQLite', () => db);
 kanbanSuite('Node + SQLite', () => db);
+imagensSuite('Node + SQLite', () => db, () => imagesDb);

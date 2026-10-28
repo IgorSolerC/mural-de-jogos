@@ -117,6 +117,8 @@ export function apiSuite(label: string, getDb: () => Db) {
         gravacoes: 0,
         linhasGravadas: 0,
         cotaLinhas: 1000,
+        // sem IMAGENS_MB_TOTAL, a cota das imagens é zero (recusa todo envio)
+        imagens: { imagens: 0, bytes: 0, cota: 0, livre: 0 },
       });
       expect(res.headers.get('Cache-Control')).toBe('no-store');
       expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');

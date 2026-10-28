@@ -50,6 +50,14 @@ export interface Config {
    * conector; vazio, autorizar fica indisponível.
    */
   site: string;
+  /**
+   * As imagens coladas nas anotações (PLANO-IMAGENS.md): quanto a nuvem inteira guarda (bem abaixo dos
+   * 500 MB do banco `mural-imagens`), quanto cada conta guarda e quantas cada conta manda por dia. Zero
+   * recusa todo envio.
+   */
+  imagesTotalBytes: number;
+  imagesUserBytes: number;
+  imagesPerDay: number;
 }
 
 /** As chaves do site nos catálogos (secrets do Worker). Vazia: aquele catálogo fica sem a chave do site. */
@@ -65,6 +73,13 @@ export interface CatalogBrake {
 
 export interface Deps {
   db: Db;
+  /**
+   * O banco só dos bytes das imagens (`mural-imagens`, binding IMAGENS): à parte, para ele encher sem
+   * parar o mural. Sem isto, as imagens respondem que estão fora do ar.
+   */
+  imagesDb?: Db;
+  /** O freio das imagens por IP (só muda nos testes; ver `routes/images.ts`). */
+  imageBrake?: CatalogBrake;
   config: Config;
   now: () => Date;
   /** Confere o ID token do login do Google (ver `src/domain/google.ts`). */

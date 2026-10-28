@@ -1,13 +1,14 @@
 import { CLIENTE_SEM_USO_MS, DIAS_DA_RENOVACAO } from '../../../contrato/api-v1/oauth';
 import { Deps } from '../ports';
 import { eraseDue } from './erase';
+import { finishHalfSent, recountStatements } from './image';
 import { SCOPES_OF_AREA, TYPES_OF } from './mirror';
 import { DAY_MS, utcDay } from './quota';
 
 /**
  * A limpeza diária: sessões vencidas, atividades com mais de 90 dias, o uso de mais de 30 dias
  * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos), e as contas
- * marcadas para sair cuja hora passou (ver `domain/erase.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
+ * marcadas para sair cuja hora passou (ver `domain/erase.ts`), e as imagens (ver `domain/image.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
 /** Quem tem alguma chave viva que alcança uma área, por qualquer uma das permissões dela (um parâmetro: agora). */
 const readers = (scopes: readonly string[]) =>
@@ -20,8 +21,21 @@ export async function cleanup(deps: Deps): Promise<void> {
   try {
     await housekeeping(deps, now);
   } finally {
-    await eraseDue(deps);
+    try {
+      await eraseDue(deps);
+    } finally {
+      await images(deps, now);
+    }
   }
+}
+
+/**
+ * As imagens (PLANO-IMAGENS.md): as que ficaram no meio do envio há mais de um dia (os bytes chegaram ou
+ * não), e a conta de quanto cada um guarda refeita a partir de `imagens`, depois das contas que saíram.
+ */
+async function images(deps: Deps, now: Date): Promise<void> {
+  await finishHalfSent(deps, now);
+  await deps.db.batch(recountStatements());
 }
 
 /** A faxina de cada dia, direto no banco e fora da cota (`write`): ela tem de rodar mesmo num dia sem cota. */

@@ -22,6 +22,12 @@ AGENDA_CODIGOS = "*"
 # Quem pode usar a API das AIs (as chaves de API, PLANO-API.md): os códigos das contas, separados por
 # vírgula; vazio, ninguém; "*", todo mundo. Começa só com o dono (decisão D8), até a rodada 11.
 API_CODIGOS = "G11TG00D"
+# As imagens (PLANO-IMAGENS.md): o banco mural-imagens tem 500 MB no plano grátis; a nuvem para em 400
+# (o resto é a folga do próprio banco), cada conta guarda até 25 MB (umas 300 imagens de 900 px) e manda
+# até 30 por dia. Zero (ou um valor que não é número) recusa todo envio.
+IMAGENS_MB_TOTAL = "400"
+IMAGENS_MB_PESSOA = "25"
+IMAGENS_POR_DIA = "30"
 # O endereço do site: o OAuth dos conectores manda a pessoa para a página Autorizar dele.
 SITE = "https://murall.igorsc.com.br"
 # Público (vai também no site); é o `aud` que o login confere.
@@ -32,6 +38,14 @@ binding = "DB"
 database_name = "mural"
 database_id = "c2c789d6-f0f3-4f37-b53a-f049aa02a530"
 migrations_dir = "migrations"
+
+# Só os bytes das imagens coladas nas anotações (PLANO-IMAGENS.md): à parte, para ele encher sem parar o
+# mural. Os dados de cada imagem ficam no banco de cima (migração 0020).
+[[d1_databases]]
+binding = "IMAGENS"
+database_name = "mural-imagens"
+database_id = "40d84093-1785-4d43-859d-e454d0708003"
+migrations_dir = "migrations-imagens"
 
 # O cofre de senhas, por RPC (sem endereço público): a conta pode usá-lo? (16.13). A aba "Cofre" das
 # Anotações só aparece para quem pode.

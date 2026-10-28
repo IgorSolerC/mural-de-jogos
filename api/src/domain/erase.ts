@@ -4,6 +4,7 @@ import { revokeAgenda } from './agenda';
 import { GoogleIdentity } from './google';
 import { DAY_MS, write } from './quota';
 import { markStatements } from './shared-public';
+import { ALL, dropBytes } from './image';
 
 /**
  * Apagar a conta (o `DELETE /v1/eu` e a limpeza diária). Só o token da sessão não basta: quem o roubou
@@ -132,6 +133,9 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
     'SELECT DISTINCT resposta_a FROM comentarios WHERE autor_id = ? AND resposta_a IS NOT NULL LIMIT ?',
     [id, MAX_GONE_PARENTS],
   );
+  // as imagens: os bytes saem antes, do outro banco (nunca sobra byte sem dono); os dados, no lote de baixo
+  const images = await deps.db.all<{ id: string }>('SELECT id FROM imagens WHERE dono_id = ?', [id]);
+  await dropBytes(deps, images.map((i) => i.id));
   // a permissão do Google Agenda volta ao Google (antes de a apagar daqui, senão não há como)
   const agenda = await deps.db.first<{ refresh: string }>('SELECT refresh FROM agenda_google WHERE usuario_id = ?', [id]);
   if (agenda) await revokeAgenda(deps, agenda.refresh);
@@ -167,9 +171,16 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       ...markStatements({ sql: `SELECT usuario_id FROM nota_membros WHERE nota_id IN (${NOTES_OF})`, params: [id] }, deps.now()),
       { sql: `DELETE FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})`, params: [id, id] },
       { sql: 'DELETE FROM notas WHERE dono_id = ?', params: [id] },
+      // as imagens dela: a conta da nuvem desce antes de a dela sair
+      {
+        sql: 'UPDATE imagens_uso SET imagens = imagens - (SELECT COUNT(*) FROM imagens WHERE dono_id = ?), bytes = bytes - (SELECT COALESCE(SUM(bytes), 0) FROM imagens WHERE dono_id = ?) WHERE usuario_id = ?',
+        params: [id, id, ALL],
+      },
+      { sql: 'DELETE FROM imagens WHERE dono_id = ?', params: [id] },
+      { sql: 'DELETE FROM imagens_uso WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },
     ],
-    3 * ((counts?.n ?? 0) + 3),
+    3 * ((counts?.n ?? 0) + images.length + 3),
     { ignoreBudget: true },
   );
   await dropGoneParents(deps, parents.map((p) => p.resposta_a));

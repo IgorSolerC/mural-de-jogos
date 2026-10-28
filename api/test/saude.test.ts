@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FREE, databaseIdOf, evaluate, parseStatus, sumUsage, usageFrom, utcDay, type Status } from '../scripts/saude';
+import { FREE, QUERY_DB_ONLY, databaseIdOf, evaluate, parseStatus, sumUsage, usageFrom, utcDay, type Status } from '../scripts/saude';
 
 const status = { modo: 'ligado', dia: '2026-10-06', linhasGravadas: 1200, cotaLinhas: 60000 };
 const day = (over: Partial<{ workerRequests: number; workerErrors: number; d1RowsRead: number; d1RowsWritten: number }> = {}) => ({
@@ -113,6 +113,39 @@ describe('checagem diária', () => {
     expect(databaseIdOf('# nada aqui\n')).toBeNull();
     // o wrangler.toml de verdade tem a linha no formato que databaseIdOf lê (com o id real ou o de mentira)
     expect(readFileSync(new URL('../../cofre-api/wrangler.toml', import.meta.url), 'utf8')).toMatch(/^database_id = "[0-9a-f-]{36}"$/m);
+  });
+
+  it('as imagens: quanto guardam, quanto falta, e o aviso a 70% da cota própria', () => {
+    const img = (bytes: number, cota = 400 * 1024 * 1024) => ({ ...status, imagens: { imagens: 12, bytes, cota } });
+    const ok = evaluate(murall(img(100 * 1024 * 1024)), null, null);
+    expect(ok.problems).toEqual([]);
+    expect(ok.lines).toContain('| Imagens guardadas do Murall (12) | 100,0 MB de 400,0 MB, faltam 300,0 MB | 25,0% |');
+    expect(evaluate(murall(img(280 * 1024 * 1024)), null, null).problems).toEqual(['As imagens do Murall já ocupam 280,0 MB, 70,0% da cota própria (400,0 MB).']);
+    expect(evaluate(murall(img(0, 0)), null, null).notes).toContain('A cota das imagens do Murall está zerada: nenhuma imagem é aceita.');
+    // o status de uma API de antes (sem as imagens) continua valendo
+    expect(parseStatus({ ...status, imagens: { imagens: 1, bytes: 2, cota: 3, livre: 1 } })).toEqual({ ...status, imagens: { imagens: 1, bytes: 2, cota: 3 } });
+    expect(parseStatus({ ...status, imagens: 'x' })).toEqual(status);
+  });
+
+  it('o banco das imagens entra só com o tamanho e as linhas: os pedidos do Worker não contam duas vezes', () => {
+    expect(QUERY_DB_ONLY).not.toContain('workers');
+    expect(QUERY_DB_ONLY).not.toContain('$script');
+    expect(QUERY_DB_ONLY).not.toContain('$fromTime');
+    expect(QUERY_DB_ONLY).toContain('d1AnalyticsAdaptiveGroups');
+    expect(QUERY_DB_ONLY).toContain('d1StorageAdaptiveGroups');
+    const u = usageFrom({ d1: [{ sum: { rowsRead: 9, rowsWritten: 3 }, dimensions: { date: '2026-10-06' } }], storage: [{ max: { databaseSizeBytes: 999 } }] }, ['2026-10-06'], 'mural-imagens');
+    expect(u.days[0]).toMatchObject({ workerRequests: 0, d1RowsWritten: 3 });
+    // o 70% do banco das imagens avisa como o de qualquer banco
+    const big = sumUsage([usage([day()], 1024), { days: [day()], databases: [{ name: 'mural-imagens', bytes: 351 * 1024 * 1024 }] }]);
+    expect(evaluate(murall(status), big, null).problems).toEqual(['O banco mural-imagens já tem 351,0 MB, 70,2% do gratuito.']);
+  });
+
+  it('o id do banco das imagens vem do wrangler.toml da API, pelo nome', () => {
+    const toml = readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8');
+    expect(databaseIdOf(toml, 'mural')).toBe('c2c789d6-f0f3-4f37-b53a-f049aa02a530');
+    expect(databaseIdOf(toml, 'mural-imagens')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(databaseIdOf(toml, 'mural-imagens')).not.toBe(databaseIdOf(toml, 'mural'));
+    expect(databaseIdOf(toml, 'nao-existe')).toBeNull();
   });
 
   it('dia UTC', () => {

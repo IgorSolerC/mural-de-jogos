@@ -1,11 +1,13 @@
 /**
  * A checagem diária da nuvem (roda no GitHub Actions, `.github/workflows/saude.yml`).
  *
- * 1. A API responde? `GET /v1/status`, e a cota própria de gravações do dia. Com COFRE_URL, também a
- *    API do cofre de senhas (`GET /api/status`, PLANO-COFRE.md 16.7).
+ * 1. A API responde? `GET /v1/status`, a cota própria de gravações do dia e quanto falta para as imagens
+ *    encherem a cota delas (PLANO-IMAGENS.md). Com COFRE_URL, também a API do cofre de senhas
+ *    (`GET /api/status`, PLANO-COFRE.md 16.7).
  * 2. Com o token de leitura da Cloudflare: quanto do plano gratuito foi usado ontem e hoje (pedidos
- *    aos Workers, linhas lidas e gravadas no D1, tamanho de cada banco). Os limites de pedidos e de
- *    linhas valem para a conta toda, então o Murall e o cofre somam; o de tamanho é por banco.
+ *    aos Workers, linhas lidas e gravadas no D1, tamanho de cada banco, o mural-imagens também). Os
+ *    limites de pedidos e de linhas valem para a conta toda, então o Murall, as imagens e o cofre somam;
+ *    o de tamanho é por banco.
  *
  * Termina com erro (e o GitHub manda e-mail) se a API não responde ou se algum número passou de 70%
  * do gratuito. Nada aqui grava em lugar nenhum: o token só precisa de "Account Analytics: Read".
@@ -33,6 +35,8 @@ export interface Status {
   dia: string;
   linhasGravadas: number;
   cotaLinhas: number;
+  /** As imagens coladas nas anotações (só a API do Murall): quantas, quanto guardam e a cota da nuvem. */
+  imagens?: { imagens: number; bytes: number; cota: number };
 }
 
 export interface DayUsage {
@@ -67,6 +71,7 @@ export interface Report {
 
 const pct = (n: number, of: number) => `${((n / of) * 100).toFixed(1).replace('.', ',')}%`;
 const int = (n: number) => n.toLocaleString('pt-BR');
+const mb = (bytes: number) => (bytes / 1024 / 1024).toFixed(1).replace('.', ',');
 
 /** Lê o que veio de `/v1/status`; null se não é o que a API manda. */
 export function parseStatus(data: unknown): Status | null {
@@ -74,7 +79,12 @@ export function parseStatus(data: unknown): Status | null {
   const s = data as Record<string, unknown>;
   if (typeof s['modo'] !== 'string' || typeof s['dia'] !== 'string') return null;
   if (typeof s['linhasGravadas'] !== 'number' || typeof s['cotaLinhas'] !== 'number') return null;
-  return { modo: s['modo'], dia: s['dia'], linhasGravadas: s['linhasGravadas'], cotaLinhas: s['cotaLinhas'] };
+  const out: Status = { modo: s['modo'], dia: s['dia'], linhasGravadas: s['linhasGravadas'], cotaLinhas: s['cotaLinhas'] };
+  const img = s['imagens'] as Record<string, unknown> | null | undefined;
+  if (img && typeof img['imagens'] === 'number' && typeof img['bytes'] === 'number' && typeof img['cota'] === 'number') {
+    out.imagens = { imagens: img['imagens'], bytes: img['bytes'], cota: img['cota'] };
+  }
+  return out;
 }
 
 export function evaluate(apis: Checked[], usage: Usage | null, usageError: string | null): Report {
@@ -97,6 +107,16 @@ export function evaluate(apis: Checked[], usage: Usage | null, usageError: strin
     } else {
       notes.push(`A cota própria da API ${name} está zerada: ela não grava nada.`);
     }
+    // quanto falta para as imagens encherem a cota da nuvem (bem abaixo dos 500 MB do banco mural-imagens)
+    if (status.imagens) {
+      const { imagens, bytes, cota } = status.imagens;
+      if (cota > 0) {
+        lines.push(`| Imagens guardadas ${name} (${int(imagens)}) | ${mb(bytes)} MB de ${mb(cota)} MB, faltam ${mb(Math.max(0, cota - bytes))} MB | ${pct(bytes, cota)} |`);
+        if (bytes >= cota * ALERT) problems.push(`As imagens ${name} já ocupam ${mb(bytes)} MB, ${pct(bytes, cota)} da cota própria (${mb(cota)} MB).`);
+      } else {
+        notes.push(`A cota das imagens ${name} está zerada: nenhuma imagem é aceita.`);
+      }
+    }
   }
 
   if (usage) {
@@ -116,9 +136,8 @@ export function evaluate(apis: Checked[], usage: Usage | null, usageError: strin
     }
     for (const { name, bytes } of usage.databases) {
       if (bytes === null) continue;
-      const mb = (bytes / 1024 / 1024).toFixed(1).replace('.', ',');
-      lines.push(`| Tamanho do banco ${name} | ${mb} MB de 500 MB | ${pct(bytes, FREE.d1DatabaseBytes)} |`);
-      if (bytes >= FREE.d1DatabaseBytes * ALERT) problems.push(`O banco ${name} já tem ${mb} MB, ${pct(bytes, FREE.d1DatabaseBytes)} do gratuito.`);
+      lines.push(`| Tamanho do banco ${name} | ${mb(bytes)} MB de 500 MB | ${pct(bytes, FREE.d1DatabaseBytes)} |`);
+      if (bytes >= FREE.d1DatabaseBytes * ALERT) problems.push(`O banco ${name} já tem ${mb(bytes)} MB, ${pct(bytes, FREE.d1DatabaseBytes)} do gratuito.`);
     }
   } else if (usageError) {
     problems.push(`Não consegui ler o uso na Cloudflare: ${usageError}.`);
@@ -152,6 +171,14 @@ const QUERY = `query Uso($account: string!, $script: string!, $db: string!, $fro
     }
   }
 }`;
+
+/**
+ * Só o banco, sem o Worker: o mural-imagens é usado pelo mesmo Worker do mural, e os pedidos dele não
+ * podem contar duas vezes.
+ */
+export const QUERY_DB_ONLY = QUERY.replace('$script: string!, ', '')
+  .replace(', $fromTime: Time!, $toTime: Time!', '')
+  .replace(/\n {6}workers: [^\n]*\n[^\n]*\n[^\n]*\n {6}\}/, '');
 
 interface GraphQLAccount {
   workers?: { sum?: { requests?: number; errors?: number }; dimensions?: { datetime?: string } }[];
@@ -194,9 +221,13 @@ export function sumUsage(parts: Usage[]): Usage {
   return { days: [...byDay.values()], databases: parts.flatMap((p) => p.databases) };
 }
 
-/** O id do D1 no wrangler.toml (null se ainda é o de mentira, antes do `wrangler d1 create`). */
-export function databaseIdOf(toml: string): string | null {
-  const id = /^database_id = "([0-9a-f-]{36})"$/m.exec(toml)?.[1];
+/**
+ * O id do D1 no wrangler.toml (null se ainda é o de mentira, antes do `wrangler d1 create`). Com `name`,
+ * o do banco com esse `database_name` (o wrangler.toml do Murall tem dois: o mural e o das imagens).
+ */
+export function databaseIdOf(toml: string, name?: string): string | null {
+  const block = name === undefined ? toml : (toml.split('[[d1_databases]]').find((b) => b.split(/\r?\n/).includes(`database_name = "${name}"`)) ?? '');
+  const id = /^database_id = "([0-9a-f-]{36})"$/m.exec(block)?.[1];
   return id && !/^[0-]+$/.test(id) ? id : null;
 }
 
@@ -219,21 +250,20 @@ async function readStatus(url: string): Promise<{ status: Status | null; error: 
   return { status: null, error: last };
 }
 
-async function readUsage(token: string, account: string, script: string, db: string, name: string, now: Date): Promise<Usage> {
+/** O uso de um Worker e do banco dele; sem o Worker (`script` null), só do banco. */
+async function readUsage(token: string, account: string, script: string | null, db: string, name: string, now: Date): Promise<Usage> {
   const days = [utcDay(now, 1), utcDay(now)];
   const res = await fetch('https://api.cloudflare.com/client/v4/graphql', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      query: QUERY,
+      query: script === null ? QUERY_DB_ONLY : QUERY,
       variables: {
         account,
-        script,
         db,
         from: days[0],
         to: days[1],
-        fromTime: `${days[0]}T00:00:00Z`,
-        toTime: now.toISOString(),
+        ...(script === null ? {} : { script, fromTime: `${days[0]}T00:00:00Z`, toTime: now.toISOString() }),
       },
     }),
     signal: AbortSignal.timeout(30_000),
@@ -257,7 +287,12 @@ async function main(): Promise<void> {
   const apis: Checked[] = [{ name: 'do Murall', ...(await readStatus(`${api}/v1/status`)) }];
   if (cofre) apis.push({ name: 'do cofre', ...(await readStatus(`${cofre}/api/status`)) });
 
-  const targets = [{ script: env['WORKER_NAME'] || 'mural-api', db: env['D1_DATABASE_ID'] || 'c2c789d6-f0f3-4f37-b53a-f049aa02a530', name: 'mural' }];
+  const targets: { script: string | null; db: string; name: string }[] = [
+    { script: env['WORKER_NAME'] || 'mural-api', db: env['D1_DATABASE_ID'] || 'c2c789d6-f0f3-4f37-b53a-f049aa02a530', name: 'mural' },
+  ];
+  // o banco só dos bytes das imagens: do mesmo Worker do mural, então só o banco (as linhas e o tamanho)
+  const imagesDb = databaseIdOf(readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8'), 'mural-imagens');
+  if (imagesDb) targets.push({ script: null, db: imagesDb, name: 'mural-imagens' });
   const cofreDb = cofre ? databaseIdOf(readFileSync(new URL('../../cofre-api/wrangler.toml', import.meta.url), 'utf8')) : null;
   if (cofreDb) targets.push({ script: 'cofre-api', db: cofreDb, name: 'cofre' });
   let usage: Usage | null = null;

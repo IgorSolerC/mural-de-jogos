@@ -6,7 +6,7 @@ export default defineConfig({
     cloudflareTest(async () => ({
       wrangler: { configPath: './wrangler.toml' },
       miniflare: {
-        bindings: { TEST_MIGRATIONS: await readD1Migrations('./migrations') },
+        bindings: { TEST_MIGRATIONS: await readD1Migrations('./migrations'), TEST_MIGRATIONS_IMAGENS: await readD1Migrations('./migrations-imagens') },
         // o Worker do cofre não existe aqui: os testes passam o cofre de mentira nas deps (test/suite.ts)
         serviceBindings: { COFRE: () => new Response('sem cofre nos testes', { status: 503 }) },
       },

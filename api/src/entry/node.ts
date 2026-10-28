@@ -15,16 +15,22 @@ import { Deps } from '../ports';
 /**
  * A entrada fora da Cloudflare: o mesmo app num servidor Node comum, com um arquivo SQLite.
  * Variáveis: as mesmas do wrangler.toml (MODO, ORIGENS, COTA_LINHAS_DIA, GOOGLE_CLIENT_ID, VER_MURAIS), mais
- * TMDB_KEY e RAWG_KEY (as chaves do site na busca, opcionais), GOOGLE_CLIENT_SECRET e AGENDA_CHAVE (o Google Agenda, opcionais), BANCO (o arquivo, padrão `mural.sqlite`) e PORT (padrão 8787).
+ * TMDB_KEY e RAWG_KEY (as chaves do site na busca, opcionais), GOOGLE_CLIENT_SECRET e AGENDA_CHAVE (o Google Agenda, opcionais), BANCO (o arquivo, padrão `mural.sqlite`),
+ * BANCO_IMAGENS (o arquivo só dos bytes das imagens, padrão `mural-imagens.sqlite`) e PORT (padrão 8787).
  */
 const file = process.env['BANCO'] ?? 'mural.sqlite';
 const sqlite = new DatabaseSync(file);
 const applied = migrate(sqlite, fileURLToPath(new URL('../../migrations', import.meta.url)));
 if (applied.length) console.log(`Migrações aplicadas: ${applied.join(', ')}`);
+const imagesFile = process.env['BANCO_IMAGENS'] ?? 'mural-imagens.sqlite';
+const imagesSqlite = new DatabaseSync(imagesFile);
+const imagesApplied = migrate(imagesSqlite, fileURLToPath(new URL('../../migrations-imagens', import.meta.url)));
+if (imagesApplied.length) console.log(`Migrações das imagens aplicadas: ${imagesApplied.join(', ')}`);
 
 const config = readConfig(process.env);
 const deps: Deps = {
   db: sqliteDb(sqlite),
+  imagesDb: sqliteDb(imagesSqlite),
   config,
   now: () => new Date(),
   verifyGoogle: googleVerifier(config.googleClientId, createRemoteJWKSet(new URL(GOOGLE_CERTS_URL))),
