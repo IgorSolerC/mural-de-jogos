@@ -170,12 +170,17 @@ describe('murais dos amigos pela nuvem: bordas e bugs conhecidos', () => {
     expect(calls).toEqual([`/v1/murais/${MARINA}?rev=3`]);
   });
 
-  it('a pessoa apagou o mural (404): ensure devolve o guardado e o open avisa com a mensagem da nuvem', async () => {
+  it('a pessoa apagou o mural (404): o guardado sai deste navegador, ensure devolve null e o open avisa com a mensagem da nuvem', async () => {
     await murals.ensure(MARINA);
     await age(MARINA, 3 * 60_000);
     published.delete(MARINA);
-    expect((await murals.ensure(MARINA))!.reviews.length).toBe(1);
+    expect(await murals.ensure(MARINA)).toBeNull();
+    expect(colleagues.colleagues()).toEqual([]);
     await expectAsync(murals.open(MARINA)).toBeRejectedWithError('Não achei mural com esse código.');
+    // e não volta ao abrir de novo (saiu do IndexedDB também)
+    const again = TestBed.runInInjectionContext(() => new ColleagueStore());
+    await again.ready;
+    expect(again.colleagues()).toEqual([]);
   });
 
   it('a pessoa trocou o código: o mural guardado passa para o novo, sem duplicar, e o "mudou?" continua valendo', async () => {

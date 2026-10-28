@@ -68,6 +68,9 @@ export class CloudMurals {
     try {
       res = await this.account.requestRaw(`/v1/murais/${code}${known ? `?rev=${known}` : ''}`);
     } catch (err) {
+      // o código não leva mais a mural nenhum (a conta foi apagada, ou o código trocou e a pessoa não é
+      // seguida daqui): o guardado sai deste navegador, em vez de continuar mostrando o que ela tirou
+      if (err instanceof CloudError && err.code === 'mural-nao-encontrado' && existing) await this.colleagues.remove(id).catch(() => undefined);
       if (err instanceof CloudError) throw new Error(err.message);
       throw err;
     }
@@ -127,7 +130,8 @@ export class CloudMurals {
     try {
       return await this.open(code);
     } catch {
-      return existing;
+      // sem rede, fica o guardado; o que a nuvem disse que não existe mais já saiu (ver `open`)
+      return this.colleagues.colleagues().find((c) => c.id === id) ?? null;
     } finally {
       if (selected && this.colleagues.selected()?.id !== selected) this.colleagues.select(selected);
     }

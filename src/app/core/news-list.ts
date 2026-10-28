@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-apagar-a-conta-revisado',
+    id: '2026-10-27-o-que-vai-para-o-publico',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
@@ -47,6 +47,7 @@ export const NEWS: NewsEntry[] = [
       'A sincronização que passou uns minutos sem conexão (ou com a nuvem recusando) não para mais com "envios demais", e a resposta atrasada de uma sessão de antes não a deixa parada como fora da conta.',
       'Uma ficha mudada ou apagada num aparelho com o relógio atrasado não perde mais, ao sincronizar, para a versão que ninguém mexeu: a mudança fica e a apagada não volta. A pergunta de um conflito nota também a mudança no espaço da estampa e na tinta do rabisco.',
       'Apagar a conta devolve ao Google a permissão do Google Agenda e leva também os avisos de resposta entre outras pessoas nas fichas dela; o "Não apagar" da conta com cofre funciona mesmo no dia em que a nuvem chegou ao limite.',
+      'A nota colada que os outros não veem vai sem o título também quando foi apagada, quando é de outra pessoa numa anotação compartilhada e no "Sobre mim" do perfil; o aviso de resposta numa ficha que virou privada sai dos Avisos de quem não é o dono, e o mural de quem apagou a conta sai deste navegador.',
     ],
   },
   {

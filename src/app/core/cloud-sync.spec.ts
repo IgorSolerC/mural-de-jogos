@@ -1222,6 +1222,28 @@ describe('sincronização com a nuvem', () => {
     });
   });
 
+  it('a nota colada que não está à mostra perde o título no público: a privada, a apagada e a do "Sobre mim" do perfil', async () => {
+    const a = device();
+    const now = new Date().toISOString();
+    a.store.add({ ...review('npriv001', 'Salário', now, now), kind: 'anotacoes', private: true });
+    a.store.add({ ...review('napag001', 'Diário secreto', now, now), kind: 'anotacoes', private: true });
+    a.store.add({ ...review('npub0001', 'Mercado', now, now), kind: 'anotacoes', publishedAt: now });
+    const glued = ['{{nota: #npriv001 | Salário}}', '- Item', '    {{nota: #napag001 | Diário secreto}}', '{{nota: #npub0001 | Mercado}}'].join('\n');
+    a.store.add({ ...review('nmur0001', 'Reunião', now, now), kind: 'anotacoes', publishedAt: now, text: glued });
+    // a privada apagada: o título dela continua escrito na marca, e não pode ir para os outros
+    a.store.remove('napag001');
+    a.profiles.update((p) => ({ ...p, about: 'Oi!\n{{nota: #npriv001 | Salário}}\n{{nota: #npub0001 | Mercado}}' }));
+    await a.sync.syncNow();
+    const pub = (await cloud.readPublic()) as unknown as { notas: Review[]; perfil: { about: string } };
+    const text = pub.notas.find((n) => n.id === 'nmur0001')!.text;
+    expect(text).toBe(['{{nota: #npriv001 | 🔒}}', '- Item', '    {{nota: #napag001 | 🔒}}', '{{nota: #npub0001 | Mercado}}'].join('\n'));
+    expect(pub.perfil.about).toBe('Oi!\n{{nota: #npriv001 | 🔒}}\n{{nota: #npub0001 | Mercado}}');
+    expect(JSON.stringify(pub)).not.toContain('Salário');
+    expect(JSON.stringify(pub)).not.toContain('Diário secreto');
+    // o privado e o perfil daqui continuam com os títulos
+    expect(a.profiles.profile().about).toContain('Salário');
+  });
+
   describe('os pedidos da API das AIs', () => {
     it('o aparelho aplica o pedido, envia o mural e só então conclui; o outro aparelho recebe a nota', async () => {
       localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ ...ACCOUNT, api: true }));

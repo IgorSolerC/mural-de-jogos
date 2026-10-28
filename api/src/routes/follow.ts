@@ -312,6 +312,13 @@ export function followRoutes(app: Hono, deps: Deps): void {
           // (e uma chave de API criada ou um conector autorizado nesta conta, PLANO-API.md D11: a conta é autora
           // e alvo; fica aqui porque o D1 aceita no máximo 5 partes num UNION)
           "WHERE ((a.tipo IN ('reagiu', 'comentou', 'respondeu') AND a.autor_id <> a.alvo_id) OR a.tipo = 'acesso') AND a.alvo_id = ? AND a.criado_em > ? " +
+          // a resposta numa ficha de outra pessoa que virou privada (ou foi apagada) sai do correio, como a
+          // ficha nova: o aviso leva o título dela. Fica para o dono e para quem está na anotação compartilhada
+          // (a resposta que deu o aviso diz de quem é a ficha)
+          "AND (a.tipo <> 'respondeu' OR EXISTS (SELECT 1 FROM comentarios r JOIN usuarios d ON d.id = r.dono_id " +
+          'WHERE r.ref = a.ref AND r.autor_id = a.autor_id AND r.apagado = 0 AND r.resposta_a IS NOT NULL ' +
+          `AND (d.id = a.alvo_id OR ${shownSql('d', 'a.ref')} ` +
+          'OR EXISTS (SELECT 1 FROM nota_membros nm2 JOIN notas n2 ON n2.id = nm2.nota_id WHERE n2.id = a.ref AND n2.dono_id = d.id AND nm2.usuario_id = a.alvo_id)))) ' +
           'UNION ALL ' +
           // quem comentou numa anotação em que eu estou (de outra pessoa), enquanto eu ainda estou nela
           "SELECT 'comentou' AS tipo, a.criado_em AS criado_em, a.ref, a.resumo, u.codigo, u.nome, COALESCE(f.silenciado, 0) AS silenciado, " +

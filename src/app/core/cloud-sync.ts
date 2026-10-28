@@ -362,14 +362,24 @@ export function publicCategoryLooks(looks: CategoryLooks, notes: readonly unknow
 }
 
 /**
- * A ficha como vai para quem visita: as notas coladas no texto que são fichas suas fora da vista
- * (`hidden`, as privadas) perdem o título (ver `hideCardTitles`).
+ * A ficha como vai para quem visita: as notas coladas no texto que são fichas fora da vista
+ * (`hidden`: os ids, ou quem diz se um id está fora) perdem o título (ver `hideCardTitles`).
  */
-export function shownCard<T>(card: T, hidden: ReadonlySet<string>): T {
+export function shownCard<T>(card: T, hidden: ReadonlySet<string> | ((id: string) => boolean)): T {
   const text = (card as { text?: unknown } | null)?.text;
   if (typeof text !== 'string') return card;
   const next = hideCardTitles(text, hidden);
   return next === text ? card : { ...card, text: next };
+}
+
+/**
+ * O perfil como vai para quem visita: as seções só com as fichas à mostra (`shown`, ver
+ * `publicProfile`) e, no "Sobre mim", as notas coladas que não estão à mostra sem o título.
+ */
+export function shownProfile(p: Profile, shown: ReadonlySet<string>): Profile {
+  const out = publicProfile(p, shown);
+  const about = hideCardTitles(out.about, (id) => !shown.has(id));
+  return about === out.about ? out : { ...out, about };
 }
 
 /** Qual chave vale: a mais nova; sem data aqui, vale a da nuvem. */
@@ -421,9 +431,11 @@ export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): 
  * A regra do que vai para o mural público. Ela entra na impressão do público (ver `publicPrint`):
  * mudar a regra (subir o número) faz cada aparelho reenviar o público uma vez, sem esperar a pessoa
  * mexer em algo. 2: as anotações que estão só no Kanban saem do público. 3: elas voltam ao público à
- * parte (`soKanban`), fora do mural de quem visita, para o link da ficha.
+ * parte (`soKanban`), fora do mural de quem visita, para o link da ficha. 4: a nota colada perde o
+ * título sempre que não está à mostra (também a apagada e a de outra pessoa numa compartilhada) e
+ * também no "Sobre mim" do perfil.
  */
-export const PUBLIC_RULES = 3;
+export const PUBLIC_RULES = 4;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
@@ -1516,10 +1528,11 @@ export class CloudSync {
       x.dono ? { ...storedNote(x.note), sharedBy: { codigo: x.dono.codigo, nome: x.dono.nome } } : storedNote(x.note);
     const sharedPublic = this.publicShared(board).map(asShown);
     const ownNotes = [...publicNotes(doc.notas, board), ...sharedPublic];
-    // tudo o que os outros veem; o que é seu e fica de fora não deixa nem o título nas notas coladas
+    // tudo o que os outros veem; a nota colada que fica de fora não deixa nem o título: a privada, a só
+    // no Kanban, a apagada (o título dela continua escrito na marca) e a de outra pessoa colada numa
+    // compartilhada (a privada dela iria para o seu público)
     const shownIds = publicIds([...publicReviews(doc.reviews), ...publicReviews(doc.musicas ?? [])], ownNotes);
-    const allIds = publicIds(payloadReviews(doc), [...(Array.isArray(doc.notas) ? doc.notas : []), ...this.shared.allShared()]);
-    const hidden = new Set([...allIds].filter((id) => !shownIds.has(id)));
+    const hidden = (id: string) => !shownIds.has(id);
     const reviews = publicReviews(doc.reviews).map((r) => shownCard(r, hidden));
     const musicas = publicReviews(doc.musicas ?? []).map((r) => shownCard(r, hidden));
     const notas = ownNotes.map((n) => shownCard(n, hidden));
@@ -1541,7 +1554,8 @@ export class CloudSync {
         ...(musicas.length ? { musicas } : {}),
         ...(soKanban.length ? { soKanban } : {}),
         ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban]) } : {}),
-        ...(profile ? { perfil: publicProfile(profile.dados, shownIds) } : {}),
+        // o "Sobre mim" também cola notas: a que não está à mostra vai sem o título
+        ...(profile ? { perfil: shownProfile(profile.dados, shownIds) } : {}),
       }),
     );
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha

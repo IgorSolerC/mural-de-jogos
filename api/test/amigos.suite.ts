@@ -1113,6 +1113,22 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(await answers(caio.token)).toEqual([]);
       });
 
+      it('a resposta numa ficha que saiu da vista some do correio de quem não é o dono, e volta com ela', async () => {
+        const { comment, reply, answers, push, ana, bia, caio } = await commenting();
+        const fromBia = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        const fromAna = (await comment(ana.token, ana.codigo, 'r-hades', 'Obrigada!')).body.comentario.id;
+        await reply(ana.token, ana.codigo, 'r-hades', fromBia, 'Valeu!');
+        await reply(caio.token, ana.codigo, 'r-hades', fromAna, 'Também achei.');
+        expect((await answers(bia.token)).map((i: any) => [i.pessoa.nome, i.titulo])).toEqual([['Ana', 'Hades']]);
+        // a Ana deixa r-hades privada: a Bia não vê mais o aviso (com o título); a dona vê sempre
+        let rev = (await push(ana.token, 0, { fichas: JSON.stringify(['r-celeste']) })).body.rev as number;
+        expect(await answers(bia.token)).toEqual([]);
+        expect((await answers(ana.token)).map((i: any) => i.pessoa.nome)).toEqual(['Caio']);
+        rev = (await push(ana.token, rev, { fichas: JSON.stringify(['r-celeste', 'r-hades']) })).body.rev as number;
+        expect(await answers(bia.token)).toHaveLength(1);
+        expect(rev).toBe(2);
+      });
+
       it('apagar um comentário com respostas deixa o lugar dele; a última resposta que sai leva o apagado junto', async () => {
         const { comment, reply, thread, counts, erase, react, answers, ana, bia, caio } = await commenting();
         const root = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
@@ -1273,7 +1289,9 @@ export function amigosSuite(label: string, getDb: () => Db) {
         // um resumo que não é JSON (de antes, ou estragado) não quebra a limpeza
         await db.batch([{ sql: "INSERT INTO atividades (tipo, autor_id, alvo_id, ref, resumo, criado_em) VALUES ('respondeu', ?, ?, 'r-x', 'não é json', ?)", params: [caio.id, bia.id, NOW.toISOString()] }]);
         expect((await json('DELETE', '/v1/eu', undefined, ana.token)).status).toBe(200);
-        expect((await answers(bia.token)).map((i: any) => i.ref)).toEqual(['r-x']);
+        // (o de mentira, sem a resposta que o daria, não aparece no correio, mas continua no banco)
+        expect(await answers(bia.token)).toEqual([]);
+        expect(await db.all("SELECT ref FROM atividades WHERE tipo = 'respondeu'")).toEqual([{ ref: 'r-x' }]);
       });
 
       it('apagar a conta leva o lugar apagado que ficava só pela resposta dela', async () => {

@@ -984,21 +984,28 @@ export function cardRefsIn(text: string): { id: string; title: string }[] {
  * perde o título, que ia escrito na marca só para você reconhecer; fica o id e, no lugar do título, a
  * marca `PRIVATE_CARD`: quem visita vê que a nota colada é privada (e não que ela foi apagada). A
  * escrita à mão, só com o título, é o que você escreveu, e fica como está (como um link "[[…]]").
+ *
+ * `hidden`: os ids fora da vista, ou quem diz se um id está fora (o envio do mural esconde tudo o que
+ * não está à mostra, até a ficha apagada ou a de outra pessoa colada numa compartilhada). As linhas
+ * são as da leitura (um "\r" sozinho também separa, ver `linesOf` em core/rich-text.ts), e o recuo da
+ * linha fica (a nota colada embaixo de um item continua no item).
  */
-export function hideCardTitles(text: string, hidden: ReadonlySet<string>): string {
-  if (!text.includes('{{') || !hidden.size) return text;
+export function hideCardTitles(text: string, hidden: ReadonlySet<string> | ((id: string) => boolean)): string {
+  if (!text.includes('{{') || (typeof hidden !== 'function' && !hidden.size)) return text;
+  const isHidden = typeof hidden === 'function' ? hidden : (id: string) => hidden.has(id);
   let changed = false;
-  const lines = text.split('\n').map((line) => {
+  const next = text.replace(/[^\r\n]+/g, (line) => {
     if (!line.includes('{{')) return line;
     const w = parseWidgetLine(line);
     if (w?.name !== 'nota') return line;
     const ref = readCardRef(w.args);
-    if (!ref.id || !hidden.has(ref.id) || (ref.hidden && !ref.title)) return line;
+    if (!ref.id || !isHidden(ref.id) || (ref.hidden && !ref.title)) return line;
     changed = true;
+    const indent = /^\s*/.exec(line)![0];
     // o jeito vai junto (a privada colada como tira continua uma tira)
-    return widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD, ...(ref.look === 'ficha' ? [] : [ref.look]), ...(ref.look === 'inteira' && ref.fold === 'fechada' ? [ref.fold] : [])], w.size);
+    return indent + widgetLine('nota', [`#${ref.id}`, PRIVATE_CARD, ...(ref.look === 'ficha' ? [] : [ref.look]), ...(ref.look === 'inteira' && ref.fold === 'fechada' ? [ref.fold] : [])], w.size);
   });
-  return changed ? lines.join('\n') : text;
+  return changed ? next : text;
 }
 
 const CARD: WidgetDef = {

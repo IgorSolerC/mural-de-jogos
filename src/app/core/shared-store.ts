@@ -303,11 +303,6 @@ export class SharedStore implements SharedSink {
     return [...this.entries().values()].filter((e) => !e.view.private).map((e) => ({ note: e.view, dono: e.papel === 'dono' ? null : e.dono }));
   }
 
-  /** Todas as compartilhadas no mural (as privadas também), para esconder o título delas onde forem coladas. */
-  allShared(): Review[] {
-    return [...this.entries().values()].map((e) => e.view);
-  }
-
   /**
    * Os lugares que vieram de outro aparelho da pessoa (pelo mural privado): cada um fica se for o
    * mudado por último, e a anotação que já está aqui vai para ele.

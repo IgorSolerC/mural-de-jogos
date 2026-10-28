@@ -399,6 +399,17 @@ describe('a nota colada (o widget Nota)', () => {
     expect(readCardRef(['#rabc123', '🔒', 'inteira'])).toEqual({ id: 'rabc123', title: '', hidden: true, look: 'inteira', fold: 'aberta' });
   });
 
+  it('a privada perde o título também embaixo de um item (o recuo fica) e com um "\r" sozinho separando as linhas', () => {
+    const hidden = new Set(['rabc123']);
+    // embaixo do item, recuada: continua no item, como no texto do dono
+    expect(hideCardTitles('- [ ] Ler\n    {{nota: #rabc123 | Diário}}\n- Outro', hidden)).toBe('- [ ] Ler\n    {{nota: #rabc123 | 🔒}}\n- Outro');
+    // a leitura conta o "\r" sozinho (de um texto de fora) como quebra de linha: o título não pode passar
+    expect(hideCardTitles('Antes\r{{nota: #rabc123 | Diário}}\r\nDepois', hidden)).toBe('Antes\r{{nota: #rabc123 | 🔒}}\r\nDepois');
+    // quem diz o que está fora pode ser uma função (o envio do mural esconde tudo o que não está à mostra)
+    expect(hideCardTitles('{{nota: #routra | Outra}}', (id) => id !== 'rabc123')).toBe('{{nota: #routra | 🔒}}');
+    expect(hideCardTitles('{{nota: #rabc123 | Diário}}', (id) => id !== 'rabc123')).toBe('{{nota: #rabc123 | Diário}}');
+  });
+
   it('o texto dela é o título (a busca, a contagem de palavras); as do texto, na ordem', () => {
     expect(plainText('antes\n{{nota: #rabc123 | Celeste}}')).toBe('antes\nCeleste');
     expect(cardRefsIn('a\n{{nota: #r1 | Um}}\n- {{nota: #r2}}\r\n{{ficha: Dois}}\n{{contador: 25/12}}')).toEqual([
