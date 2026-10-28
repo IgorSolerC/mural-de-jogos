@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-sessao-que-acaba-limpa',
+    id: '2026-10-27-sincronizacao-revisada',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
@@ -43,6 +43,8 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'A roda do mouse em cima de uma fileira de orelhas rola a página, não a fileira, e o toque no pé de uma orelha de trás chega nela.',
       'Ao entrar na conta, o Cofre, a parte Acessos dos Ajustes e o aviso da conta marcada para sair aparecem na hora, sem recarregar a página; e a resposta atrasada de um pedido de antes de entrar não tira mais da conta quem acabou de entrar.',
+      'Ao entrar com o mural deste navegador, a pergunta é a de juntar também quando a conta tem só Gastos, lembretes ou Kanban, e as versões guardadas daqui contam como mural; sem espaço para guardar a cópia de antes da nuvem, "Só o da conta" e "Começar vazia" perguntam antes de apagar o daqui sem cópia.',
+      'A sincronização que passou uns minutos sem conexão (ou com a nuvem recusando) não para mais com "envios demais", e a resposta atrasada de uma sessão de antes não a deixa parada como fora da conta.',
     ],
   },
   {

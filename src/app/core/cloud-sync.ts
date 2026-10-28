@@ -828,6 +828,10 @@ export class CloudSync {
     try {
       let state = readState(this.kv);
       if (state && state.conta !== accountId) state = null;
+      // o mural que já sincroniza com esta conta sem o dono marcado (um aparelho que entrou antes de o dono
+      // existir): ele é desta conta. Sem a marca, a subida não o limparia se a sessão sumisse, e ele ficaria
+      // como de ninguém, podendo ir para outra conta (ver core/browser-reset.ts)
+      if (state && this.kv.getItem(OWNER_KEY) === null) this.writeOwner(accountId);
       if (!state) {
         state = await this.firstSync(accountId);
         if (!state) return;
@@ -932,8 +936,15 @@ export class CloudSync {
         this.message.set('Falta escolher o que fazer com o mural deste navegador.');
         return null;
       }
-      await this.keepCopy();
+      const copied = await this.keepCopy();
       if (choice === 'conta') {
+        // a pergunta prometeu a cópia: sem ela, o daqui só sai se a pessoa confirmar
+        if (!copied && !(await this.loseWithoutCopy())) {
+          this.waitingChoice = true;
+          this.status.set('escolha');
+          this.message.set('Falta escolher o que fazer com o mural deste navegador.');
+          return null;
+        }
         // fica só o da conta: o daqui sai inteiro (menos a cópia de antes), e a conta desce na volta
         this.reset.request('entrou', ['sessao', 'copia']);
         return null;
@@ -987,13 +998,26 @@ export class CloudSync {
     return choice === 'confirm' ? 'juntar' : choice === 'secondary' ? 'conta' : null;
   }
 
+  /** A cópia de antes da nuvem não foi guardada: o mural daqui sai mesmo assim? */
+  private loseWithoutCopy(): Promise<boolean> {
+    return this.confirm.ask({
+      title: 'Não deu para guardar a cópia',
+      text: 'O navegador não deixou guardar a cópia do mural daqui. Ficando só com o da conta, ele sai deste navegador sem cópia. Baixe um backup em Ajustes antes, ou apague mesmo assim.',
+      confirm: 'Apagar daqui mesmo assim',
+      cancel: 'Voltar',
+      tone: 'perigo',
+      icon: null,
+    });
+  }
+
   /**
    * O que há neste navegador além do que todo navegador tem: as fichas, os Gastos, os lembretes, o
-   * Kanban com anotações, os ajustes que mudaram aqui.
+   * Kanban com anotações, as versões guardadas, os ajustes que mudaram aqui.
    */
   private localHasContent(): boolean {
     return (
       this.store.hasContent() ||
+      this.store.versions().length > 0 ||
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
@@ -1007,12 +1031,14 @@ export class CloudSync {
     const extra = doc.drafts.length + doc.wishes.length;
     const spent = this.spending.state().entries.length;
     const reminders = this.calendar.state().reminders.length;
+    const kept = this.store.versions().length;
     const parts = [
       ...(n ? [plural(n, 'resenha', 'resenhas')] : []),
       ...(notes ? [plural(notes, 'anotação', 'anotações')] : []),
       ...(extra ? [`${extra} na fila e na wishlist`] : []),
       ...(spent ? [plural(spent, 'gasto', 'gastos')] : []),
       ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
+      ...(kept ? [plural(kept, 'versão guardada', 'versões guardadas')] : []),
     ];
     if (!parts.length) return 'ajustes e um perfil mudados aqui';
     return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} e ${parts[parts.length - 1]}`;
@@ -1022,14 +1048,30 @@ export class CloudSync {
     const len = (k: string) => (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0);
     const deleted = (data['deleted'] ?? {}) as Record<string, Record<string, unknown> | undefined>;
     const tombs = ['reviews', 'drafts', 'wishes'].reduce((n, k) => n + Object.keys(deleted[k] ?? {}).length, 0);
-    return len('reviews') + len('notas') + len('musicas') + len('drafts') + len('wishes') + tombs > 0;
+    if (len('reviews') + len('notas') + len('musicas') + len('drafts') + len('wishes') + tombs > 0) return true;
+    // os Gastos, os lembretes e o Kanban com anotações da conta também são mural (a pergunta não diz
+    // "começar a conta vazia" para quem já tem gastos nela)
+    const spent = spendingOf(data);
+    const reminders = calendarOf(data);
+    return (
+      (spent !== null && spendingToSync(spent) !== null) ||
+      (reminders !== null && calendarToSync(reminders) !== null) ||
+      (kanbanOf(data)?.boards.some((b) => b.cards.length > 0) ?? false)
+    );
   }
 
-  /** A cópia de antes da nuvem (ver cloud-before.ts). */
-  private async keepCopy(): Promise<void> {
-    if (!this.store.hasContent()) return;
-    const { blob } = await this.store.exportBackup(this.settings.ownerName());
-    await saveBeforeCloud(blob);
+  /**
+   * A cópia de antes da nuvem (ver cloud-before.ts). Devolve se ela ficou guardada (ou se não havia o
+   * que copiar): sem espaço ou sem IndexedDB, não fica.
+   */
+  private async keepCopy(): Promise<boolean> {
+    if (!this.store.hasContent()) return true;
+    try {
+      const { blob } = await this.store.exportBackup(this.settings.ownerName());
+      return await saveBeforeCloud(blob);
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -1525,8 +1567,10 @@ export class CloudSync {
     // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
     // estão (as só no Kanban estão, pelo link)
     form.append('fichas', JSON.stringify([...new Set([...shownIds, ...publicIds([], soKanban)])]));
-    this.pushes.push({ at: now, print });
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
+    // só o envio que a nuvem gravou conta para a válvula: sem rede, o 409, o 429 ou a nuvem fora do ar já
+    // esperam do jeito deles, e contá-los trocava o "sem conexão" por "envios demais" depois de 3 tentativas
+    this.pushes.push({ at: now, print });
     this.noteClock(res);
     const body = (await res.json()) as { rev: number };
     return body.rev;
@@ -1577,8 +1621,17 @@ export class CloudSync {
       return;
     }
     if (e.status === 401) {
-      this.status.set('fora');
+      if (!this.active()) {
+        this.status.set('fora');
+        this.message.set(null);
+        return;
+      }
+      // a recusa era de outra sessão (o pedido saiu antes de entrar de novo) e esta continua: tenta de novo,
+      // em vez de parar como fora da conta até a próxima mudança
+      this.status.set('sincronizando');
       this.message.set(null);
+      this.failures++;
+      this.schedule(Math.min(30 * MINUTE, 5_000 * 2 ** (this.failures - 1)));
       return;
     }
     if (e.status === 0 && e.code === 'sem-rede') {

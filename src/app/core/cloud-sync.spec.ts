@@ -71,6 +71,8 @@ class FakeCloud {
   /** O mural público do último envio (o que os outros veem). */
   pub: Uint8Array | null = null;
   offline = false;
+  /** Os próximos envios do mural que a nuvem recusa com este erro (sem gravar). */
+  putErrors: { status: number; erro: string }[] = [];
   puts = 0;
   gets = 0;
   /** Os pedidos da API das AIs, e quando cada um foi concluído (quantos envios do mural já tinham ido). */
@@ -108,6 +110,8 @@ class FakeCloud {
       return json({ itens: itens.map((i) => ({ id: i.id, ok: true })) });
     }
     if (u.pathname === '/v1/eu/mural' && method === 'PUT') {
+      const refused = this.putErrors.shift();
+      if (refused) return json({ erro: refused.erro, mensagem: `Recusado (${refused.status}).` }, refused.status);
       const base = Number(headers['Mural-Rev-Base']);
       if (base !== this.rev) return json({ erro: 'conflito', mensagem: 'Outro aparelho gravou antes.', rev: this.rev }, 409);
       const form = init.body as FormData;
@@ -711,6 +715,41 @@ describe('sincronização com a nuvem', () => {
     expect(await a.sync.everythingSent()).toBeTrue();
   });
 
+  it('envios que a nuvem não gravou não contam para a válvula de "envios demais"', async () => {
+    const a = device();
+    a.store.add(review('raaaa1', 'Celeste'));
+    cloud.putErrors = [1, 2, 3, 4].map(() => ({ status: 500, erro: 'erro' }));
+    for (let i = 0; i < 4; i++) {
+      await a.sync.syncNow();
+      expect(a.sync.status()).toBe('erro');
+      expect(a.sync.message()).not.toContain('envios demais');
+    }
+    await a.sync.syncNow();
+    expect(a.sync.status()).toBe('ok');
+    expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Celeste']);
+  });
+
+  it('uma recusa 401 de outra sessão, com a conta ainda aqui, tenta de novo em vez de ficar "fora"', async () => {
+    const a = device();
+    a.store.add(review('raaaa1', 'Celeste'));
+    cloud.putErrors = [{ status: 401, erro: 'outra-sessao' }];
+    await a.sync.syncNow();
+    expect(a.account.signedIn()).toBeTrue();
+    expect(a.sync.status()).toBe('sincronizando');
+    await a.sync.syncNow();
+    expect(a.sync.status()).toBe('ok');
+  });
+
+  it('o mural que já sincronizava com a conta sem o dono marcado (de antes do dono) ganha o dono', async () => {
+    const a = device();
+    a.store.add(review('raaaa1', 'Celeste'));
+    await a.sync.syncNow();
+    a.kv.removeItem(OWNER_KEY);
+    await a.sync.syncNow();
+    expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+    expect(a.reset.requests).toEqual([]);
+  });
+
   it('juntar o que veio da nuvem não gera reenvio', async () => {
     const a = device();
     a.store.add(review('raaaa1', 'Celeste'));
@@ -838,6 +877,47 @@ describe('sincronização com a nuvem', () => {
       expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao', 'copia'] }]);
       expect(cloud.doc).toBeNull();
       expect(await readBeforeCloud()).not.toBeNull();
+    });
+
+    it('"Só o da conta" sem conseguir guardar a cópia: pergunta antes de apagar; "Voltar" não mexe em nada', async () => {
+      await cloudWith('Da nuvem');
+      const a = device({ anonimo: true });
+      a.store.add(review('rlocal1', 'Daqui'));
+      spyOn(a.store, 'exportBackup').and.rejectWith(new Error('sem espaço'));
+      a.answers.push('secondary');
+      a.askAnswers.push(false);
+      await a.sync.syncNow();
+      expect(a.askedTitles).toEqual(['Não deu para guardar a cópia']);
+      expect(a.reset.requests).toEqual([]);
+      expect(a.sync.status()).toBe('escolha');
+      expect(a.names()).toEqual(['Daqui']);
+      // confirmando, sai mesmo assim
+      a.answers.push('secondary');
+      a.askAnswers.push(true);
+      await a.sync.syncNow();
+      expect(a.reset.requests).toEqual([{ motivo: 'entrou', keep: ['sessao', 'copia'] }]);
+    });
+
+    it('só as versões guardadas de ninguém já contam como mural: pergunta', async () => {
+      await cloudWith('Da nuvem');
+      const a = device({ anonimo: true });
+      a.store.versions.set([{ ficha: review('rvelha1', 'Versão velha'), em: new Date().toISOString(), motivo: 'juntou' }]);
+      await a.sync.syncNow();
+      expect(a.asked).toEqual(['Juntar os murais?']);
+      expect(a.sync.status()).toBe('escolha');
+    });
+
+    it('a conta só com Gastos já tem mural: a pergunta é a de juntar, não a de começar vazia', async () => {
+      const b = device();
+      b.spending.save({ ...b.spending.blank('saida'), title: 'Gasto da conta', amount: 1000 });
+      await b.sync.syncNow();
+      // outro navegador: sem os gastos que o primeiro guardou
+      localStorage.removeItem('meu-mural:gastos:v1');
+      const a = device({ anonimo: true });
+      a.store.add(review('rlocal1', 'Daqui'));
+      expect(a.spending.entries()).toEqual([]);
+      await a.sync.syncNow();
+      expect(a.asked).toEqual(['Juntar os murais?']);
     });
 
     it('só os Gastos de ninguém já contam como mural: pergunta', async () => {
