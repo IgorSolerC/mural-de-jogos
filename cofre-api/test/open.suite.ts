@@ -171,6 +171,52 @@ export function openSuite(label: string, setup: Setup) {
       expect(await (await chave(t, 'es256', 0)).json()).toMatchObject({ erro: 'passkey-invalida' });
     });
 
+    it('duas assinaturas ao mesmo tempo: o contador guardado nunca volta (a menor, depois da maior, é recusada)', async () => {
+      const { chave, entrar, db } = await cofre();
+      const t = await entrar();
+      const maior = VETORES.es256.assinaturas[1];
+      const contadorDe = (a: { authenticatorData: string }) => {
+        const dados = Uint8Array.from(atob(a.authenticatorData.replace(/-/g, '+').replace(/_/g, '/')), (ch) => ch.charCodeAt(0));
+        return new DataView(dados.buffer, 33, 4).getUint32(0);
+      };
+      expect(contadorDe(maior)).toBeGreaterThan(contadorDe(VETORES.es256.assinaturas[0]));
+      const [a, b0] = await Promise.all([chave(t, 'es256', 1), chave(t, 'es256', 0)]);
+      const guardado = await db.first<{ contador_assinatura: number }>('SELECT contador_assinatura FROM cofre_credenciais WHERE id = ?', [VETORES.es256.reg.id]);
+      expect(guardado!.contador_assinatura).toBe(contadorDe(maior));
+      expect(a.status).toBe(200);
+      // a menor só passa se gravou antes da maior; depois dela, é recusada
+      if (b0.status !== 200) expect(await b0.json()).toMatchObject({ erro: 'passkey-invalida' });
+      expect((await db.all("SELECT tipo FROM cofre_eventos WHERE tipo = 'passkey-usada'")).length).toBe(b0.status === 200 ? 2 : 1);
+    });
+
+    it('a assinatura que chega depois de o contador subir por outra é recusada e não marca a passkey', async () => {
+      const { entrar, post, desafio, db } = await cofre();
+      const t = await entrar();
+      const id = await desafio('assinatura', seq(32, 33));
+      // outra abertura gravou um contador maior entre a leitura e a gravação desta
+      const original = db.first.bind(db);
+      let mexeu = false;
+      (db as { first: typeof db.first }).first = async (sql: string, params?: unknown[]) => {
+        const row = await original(sql, params as never);
+        if (!mexeu && /SELECT id, chave_publica, contador_assinatura FROM cofre_credenciais/.test(sql)) {
+          mexeu = true;
+          await db.batch([{ sql: 'UPDATE cofre_credenciais SET contador_assinatura = 1000000 WHERE id = ?', params: [VETORES.es256.reg.id] }]);
+        }
+        return row as never;
+      };
+      let res: Response;
+      try {
+        res = await post('/api/cofre/chave', { desafio: id, assinatura: VETORES.es256.assinaturas[0] }, t);
+      } finally {
+        (db as { first: typeof db.first }).first = original;
+      }
+      expect(mexeu).toBe(true);
+      expect(await res.json()).toMatchObject({ erro: 'passkey-invalida' });
+      expect(await db.first('SELECT contador_assinatura FROM cofre_credenciais WHERE id = ?', [VETORES.es256.reg.id])).toEqual({ contador_assinatura: 1000000 });
+      expect(await db.all("SELECT tipo FROM cofre_eventos WHERE tipo = 'passkey-usada'")).toHaveLength(0);
+      expect((await post('/api/cofre/abrir', { kAuth: SENHA }, t)).status).toBe(403);
+    });
+
     it('desafio de registro não serve para abrir; desafio usado não serve de novo', async () => {
       const { entrar, post, desafio } = await cofre();
       const t = await entrar();

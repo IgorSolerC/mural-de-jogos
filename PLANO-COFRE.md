@@ -923,8 +923,9 @@ Detalhes da parte 4:
 
 - `POST /api/cofre/desafio` (sessão de entrada): o desafio de assinatura, o sal, o Argon2id, as
   passkeys (com o apelido e se têm PRF) e `mudadoEm`. Cofre congelado: 423.
-- `POST /api/cofre/chave`: confere a assinatura com a chave guardada e o contador (que tem de subir),
-  devolve o envelope do aparelho e, no modo servidor, o S_i (só depois da assinatura), e marca na
+- `POST /api/cofre/chave`: confere a assinatura com a chave guardada e o contador (que tem de subir;
+  a gravação dele é condicionada no banco, para duas assinaturas ao mesmo tempo não o fazerem voltar:
+  a que chega depois de uma maior é recusada e não marca a passkey), devolve o envelope do aparelho e, no modo servidor, o S_i (só depois da assinatura), e marca na
   sessão de entrada que a passkey foi conferida, por 2 minutos.
 - `POST /api/cofre/abrir` (`kAuth`): **só logo depois de uma passkey ou do código**, e a marca é
   gasta de forma atômica **antes** de conferir a senha: cada palpite custa um toque no aparelho

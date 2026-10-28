@@ -69,5 +69,11 @@ describe('o login com o Google na página', () => {
     expect(descreverAparelho('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36')).toBe('Chrome no Android');
     expect(descreverAparelho('Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/141.0 Safari/537.36 Edg/141.0')).toBe('Edge no Windows');
     expect(descreverAparelho('curl/8')).toBe('Navegador no outro sistema');
+    // no iPad e no iPhone, o Chrome, o Firefox e o Edge têm nome próprio (e o "Safari/" de todos)
+    expect(descreverAparelho('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1')).toBe('Safari no iPad');
+    expect(descreverAparelho('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0 Mobile/15E148 Safari/604.1')).toBe('Chrome no iPhone');
+    expect(descreverAparelho('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/141.0 Mobile/15E148 Safari/605.1.15')).toBe('Firefox no iPhone');
+    expect(descreverAparelho('Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 EdgiOS/141.0 Mobile/15E148 Safari/605.1.15')).toBe('Edge no iPhone');
+    expect(descreverAparelho('Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0 Mobile Safari/537.36 EdgA/141.0')).toBe('Edge no Android');
   });
 });

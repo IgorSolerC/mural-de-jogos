@@ -11,7 +11,7 @@
 import type { CofreAberto } from './abrir';
 import { aleatorios, deBase64url, paraBase64url, zerar } from './bytes';
 import { abrirCofre, chaveDaSenha, ErroCofre } from './crypto';
-import { type Autenticador, autenticadorDoNavegador, ErroPasskey } from './passkey';
+import { type Autenticador, autenticadorDoNavegador, comoPasskey, ErroPasskey, traduzir } from './passkey';
 
 /** Uma passkey do cofre, como o desafio de abrir lista (`allowCredentials`). */
 export interface PasskeyDoCofre {
@@ -54,12 +54,10 @@ export async function confirmarComPasskey(cofre: Pick<CofreAberto, 'passkeys'>, 
         timeout: 120_000,
       },
     });
-    if (!c || c.type !== 'public-key') throw new ErroPasskey('falhou');
-    cred = c as PublicKeyCredential;
+    cred = comoPasskey(c);
   } catch (e) {
     if (e instanceof ErroPasskey) throw e;
-    const nome = e instanceof DOMException ? e.name : '';
-    throw new ErroPasskey(nome === 'NotAllowedError' || nome === 'AbortError' ? 'cancelada' : nome === 'SecurityError' ? 'endereco' : 'falhou');
+    traduzir(e);
   }
   if (!passkeys.some((p) => p.id === paraBase64url(new Uint8Array(cred.rawId)))) throw new ErroPasskey('falhou');
   const dados = new Uint8Array((cred.response as AuthenticatorAssertionResponse).authenticatorData);

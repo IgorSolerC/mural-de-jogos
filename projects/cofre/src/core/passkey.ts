@@ -60,7 +60,8 @@ export class ErroPasskey extends Error {
   }
 }
 
-function traduzir(e: unknown): never {
+/** O erro do navegador numa passkey (criar ou usar), no motivo que a tela mostra. */
+export function traduzir(e: unknown): never {
   const nome = e instanceof DOMException ? e.name : '';
   const motivo: MotivoPasskey =
     nome === 'NotAllowedError' || nome === 'AbortError'
@@ -139,7 +140,10 @@ function resultadoPrf(cred: PublicKeyCredential): ResultadoPrf | undefined {
  */
 export function segredoDoPrf(bruto: BufferSource | undefined): Bytes | null {
   if (!bruto) return null;
-  const bytes = new Uint8Array(ArrayBuffer.isView(bruto) ? bruto.buffer.slice(bruto.byteOffset, bruto.byteOffset + bruto.byteLength) : bruto.slice(0));
+  const original = ArrayBuffer.isView(bruto) ? new Uint8Array(bruto.buffer, bruto.byteOffset, bruto.byteLength) : new Uint8Array(bruto);
+  const bytes = original.slice();
+  // o que o navegador deu também é zerado: senão o segredo ficava em duas cópias na memória
+  zerar(original);
   if (bytes.length === TAM_CHAVE) return bytes;
   zerar(bytes);
   return null;
@@ -149,15 +153,18 @@ function segredo(prf: ResultadoPrf | undefined): Bytes | null {
   return segredoDoPrf(prf?.results?.first);
 }
 
-function comoPasskey(cred: Credential | null): PublicKeyCredential {
+/** A resposta do navegador como passkey (`public-key`), ou `ErroPasskey`. */
+export function comoPasskey(cred: Credential | null): PublicKeyCredential {
   if (!cred || cred.type !== 'public-key') throw new ErroPasskey('falhou');
   return cred as PublicKeyCredential;
 }
 
 /**
  * Registra uma passkey com o desafio da API. Se o aparelho tem PRF mas não deu o segredo no registro,
- * pede logo uma assinatura para tirá-lo; se a pessoa cancelar essa segunda confirmação, a passkey
- * volta com `prf: null` e `prfLigado: true`, e a tela oferece `pedirSegredoPrf` de novo.
+ * pede logo uma assinatura para tirá-lo; se essa segunda confirmação não der (cancelada ou outro erro
+ * do navegador), a passkey volta com `prf: null` e `prfLigado: true`, e a tela oferece `pedirSegredoPrf`
+ * de novo (ou o modo servidor). A passkey já existe no aparelho: jogá-la fora por um erro do segundo
+ * toque deixaria uma passkey órfã nele a cada nova tentativa.
  */
 export async function registrarPasskey(desafio: DesafioDeRegistro, rpId: string, autenticador: Autenticador = autenticadorDoNavegador): Promise<PasskeyRegistrada> {
   const entrada = await entradaPrf();
@@ -187,7 +194,7 @@ export async function registrarPasskey(desafio: DesafioDeRegistro, rpId: string,
     try {
       passkey.prf = await pedirSegredoPrf(passkey, rpId, autenticador);
     } catch (e) {
-      if (!(e instanceof ErroPasskey && e.motivo === 'cancelada')) throw e;
+      if (!(e instanceof ErroPasskey)) throw e;
     }
   }
   return passkey;
@@ -217,6 +224,10 @@ export async function pedirSegredoPrf(passkey: PasskeyRegistrada, rpId: string, 
     if (e instanceof ErroPasskey) throw e;
     traduzir(e);
   }
-  if (paraBase64url(new Uint8Array(cred.rawId)) !== passkey.credencial.id) throw new ErroPasskey('falhou');
-  return segredo(resultadoPrf(cred));
+  const tirado = segredo(resultadoPrf(cred));
+  if (paraBase64url(new Uint8Array(cred.rawId)) !== passkey.credencial.id) {
+    zerar(tirado);
+    throw new ErroPasskey('falhou');
+  }
+  return tirado;
 }

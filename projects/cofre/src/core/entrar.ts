@@ -106,19 +106,32 @@ export const MENSAGENS_DO_LOGIN: Record<MotivoLogin, string> = {
   incompleto: 'O Google não mandou o código. Entre de novo.',
 };
 
-/** O aparelho, em palavras, para o histórico do cofre ("Chrome no Windows"). */
+/**
+ * O aparelho, em palavras, para o histórico do cofre ("Chrome no Windows"). No iPhone e no iPad, o Chrome,
+ * o Firefox e o Edge têm nome próprio no agente (CriOS, FxiOS, EdgiOS) e o "Safari/" de todos.
+ */
 export function descreverAparelho(agente: string): string {
-  const navegador = /Edg\//.test(agente) ? 'Edge' : /Firefox\//.test(agente) ? 'Firefox' : /Chrome\//.test(agente) ? 'Chrome' : /Safari\//.test(agente) ? 'Safari' : 'Navegador';
+  const navegador = /Edg(A|iOS)?\//.test(agente)
+    ? 'Edge'
+    : /(Firefox|FxiOS)\//.test(agente)
+      ? 'Firefox'
+      : /(Chrome|CriOS)\//.test(agente)
+        ? 'Chrome'
+        : /Safari\//.test(agente)
+          ? 'Safari'
+          : 'Navegador';
   const sistema = /Android/.test(agente)
     ? 'Android'
-    : /iPhone|iPad/.test(agente)
-      ? 'iPhone'
-      : /Windows/.test(agente)
-        ? 'Windows'
-        : /Mac OS X/.test(agente)
-          ? 'Mac'
-          : /Linux/.test(agente)
-            ? 'Linux'
-            : 'outro sistema';
+    : /iPad/.test(agente)
+      ? 'iPad'
+      : /iPhone|iPod/.test(agente)
+        ? 'iPhone'
+        : /Windows/.test(agente)
+          ? 'Windows'
+          : /Mac OS X/.test(agente)
+            ? 'Mac'
+            : /Linux/.test(agente)
+              ? 'Linux'
+              : 'outro sistema';
   return `${navegador} no ${sistema}`;
 }

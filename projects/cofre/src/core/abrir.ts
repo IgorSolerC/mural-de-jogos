@@ -29,7 +29,7 @@ import {
   provaDoCodigo,
   VERSAO_CRIPTO,
 } from './crypto';
-import { type Autenticador, autenticadorDoNavegador, ErroPasskey, segredoDoPrf } from './passkey';
+import { type Autenticador, autenticadorDoNavegador, comoPasskey, ErroPasskey, segredoDoPrf, traduzir } from './passkey';
 import type { PasskeyDoCofre } from './confirmar';
 
 /**
@@ -103,12 +103,10 @@ export async function assinar(desafio: DesafioDeAbrir, rpId: string, autenticado
         extensions: { prf: { eval: { first: await entradaPrf() } } } as AuthenticationExtensionsClientInputs,
       },
     });
-    if (!c || c.type !== 'public-key') throw new ErroPasskey('falhou');
-    cred = c as PublicKeyCredential;
+    cred = comoPasskey(c);
   } catch (e) {
     if (e instanceof ErroPasskey || e instanceof ErroCofre) throw e;
-    const nome = e instanceof DOMException ? e.name : '';
-    throw new ErroPasskey(nome === 'NotAllowedError' || nome === 'AbortError' ? 'cancelada' : nome === 'SecurityError' ? 'endereco' : 'falhou');
+    traduzir(e);
   }
   const r = cred.response as AuthenticatorAssertionResponse;
   const segredo = segredoDoPrf((cred.getClientExtensionResults() as { prf?: { results?: { first?: BufferSource } } }).prf?.results?.first);

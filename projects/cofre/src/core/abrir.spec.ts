@@ -112,19 +112,23 @@ describe('abrir o cofre na página', () => {
   });
 
   it('a passkey e a senha juntas: se a senha falhar, o segredo do PRF que a passkey deu é zerado', async () => {
-    const copias: ArrayBuffer[] = [];
-    const slice = ArrayBuffer.prototype.slice;
-    spyOn(ArrayBuffer.prototype, 'slice').and.callFake(function (this: ArrayBuffer, ...args: [number?, number?]) {
+    const copias: Uint8Array[] = [];
+    const slice = Uint8Array.prototype.slice;
+    spyOn(Uint8Array.prototype, 'slice').and.callFake(function (this: Uint8Array, ...args: [number?, number?]) {
       const copia = slice.apply(this, args);
-      if (copia.byteLength === 32) copias.push(copia);
+      // as cópias do segredo do PRF (os bytes 100..131)
+      if (copia.length === 32 && copia.every((x, i) => x === 100 + i)) copias.push(copia);
       return copia;
     });
-    const aut = autenticador(assinatura(seq(32, 100).buffer));
+    const doNavegador = seq(32, 100).buffer;
+    const aut = autenticador(assinatura(doNavegador));
     await falha(assinarComSenha({ ...DESAFIO, kdf: { m: 1024, t: 3, p: 1 } }, 'senha', RP, aut), ErroCofre, 'kdf-fraco');
     await new Promise((ok) => setTimeout(ok, 50));
     expect(aut.pedidos.length).toBe(1);
     expect(copias.length).toBe(1);
-    expect(new Uint8Array(copias[0]!).every((x) => x === 0)).toBe(true);
+    expect(copias[0]!.every((x) => x === 0)).toBe(true);
+    // e o que o navegador deu também
+    expect(new Uint8Array(doNavegador).every((x) => x === 0)).toBe(true);
   });
 
   it('recusa versão desconhecida e Argon2id fraco vindos do servidor', async () => {

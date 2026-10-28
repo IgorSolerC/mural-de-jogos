@@ -1,7 +1,7 @@
 import type { DesafioDeRegistro } from './api';
 import { paraBase64url } from './bytes';
 import { entradaPrf, ErroCofre } from './crypto';
-import { type Autenticador, ErroPasskey, type MotivoPasskey, opcoesDeRegistro, pedirSegredoPrf, registrarPasskey } from './passkey';
+import { type Autenticador, ErroPasskey, type MotivoPasskey, opcoesDeRegistro, pedirSegredoPrf, registrarPasskey, segredoDoPrf } from './passkey';
 
 const RP = 'cofre.murall.igorsc.com.br';
 const seq = (n: number, ini: number) => Uint8Array.from({ length: n }, (_, i) => (ini + i) & 255);
@@ -108,9 +108,12 @@ describe('registrar a passkey do cofre', () => {
   });
 
   it('com PRF mas sem o segredo no registro: pede uma assinatura da mesma passkey, com desafio sorteado aqui', async () => {
-    const { a, visto } = autenticador(credencial({ enabled: true }), credencial({ results: { first: SEGREDO } }));
+    const dado = SEGREDO.slice();
+    const { a, visto } = autenticador(credencial({ enabled: true }), credencial({ results: { first: dado } }));
     const p = await registrarPasskey(DESAFIO, RP, a);
     expect(p.prf).toEqual(SEGREDO);
+    // a cópia do navegador não fica com o segredo
+    expect(dado).toEqual(new Uint8Array(32));
     const pedido = visto.pegar[0]!.publicKey!;
     expect(pedido.rpId).toBe(RP);
     expect(pedido.userVerification).toBe('required');
@@ -133,15 +136,44 @@ describe('registrar a passkey do cofre', () => {
     const { a } = autenticador(credencial({ enabled: true }), new DOMException('cancelou', 'NotAllowedError'));
     const p = await registrarPasskey(DESAFIO, RP, a);
     expect([p.prf, p.prfLigado]).toEqual([null, true]);
-    const outra = autenticador(credencial({ enabled: true }), credencial({ results: { first: SEGREDO } }));
+    const outra = autenticador(credencial({ enabled: true }), credencial({ results: { first: SEGREDO.slice() } }));
     expect(await pedirSegredoPrf(p, RP, outra.a)).toEqual(SEGREDO);
   });
 
+  it('outro erro na segunda confirmação também não joga fora a passkey já criada no aparelho', async () => {
+    for (const erro of [new DOMException('x', 'SecurityError'), new DOMException('x', 'UnknownError')]) {
+      const { a, visto } = autenticador(credencial({ enabled: true }), erro);
+      const p = await registrarPasskey(DESAFIO, RP, a);
+      expect([p.prf, p.prfLigado, p.credencial.id]).toEqual([null, true, paraBase64url(ID)]);
+      expect(visto.criar.length).toBe(1);
+    }
+  });
+
   it('o segredo de outra passkey ou de tamanho errado não vale', async () => {
-    const { a } = autenticador(credencial({ enabled: true }), credencial({ results: { first: SEGREDO } }, seq(24, 70)));
-    await falhaPasskey(registrarPasskey(DESAFIO, RP, a), 'falhou');
+    const deOutra = SEGREDO.slice();
+    const { a } = autenticador(credencial({ enabled: true }), credencial({ results: { first: deOutra } }, seq(24, 70)));
+    const p = await registrarPasskey(DESAFIO, RP, a);
+    expect([p.prf, p.prfLigado]).toEqual([null, true]);
+    expect(deOutra).toEqual(new Uint8Array(32));
+    const outraDeNovo = autenticador(credencial({ enabled: true }), credencial({ results: { first: SEGREDO.slice() } }, seq(24, 70)));
+    await falhaPasskey(pedirSegredoPrf(p, RP, outraDeNovo.a), 'falhou');
     const curto = autenticador(credencial({ enabled: true, results: { first: seq(16, 1) } }), credencial({ results: { first: seq(31, 1) } }));
     expect((await registrarPasskey(DESAFIO, RP, curto.a)).prf).toBeNull();
+  });
+
+  it('o segredo do PRF sai numa cópia própria, e o que o navegador deu é zerado (inteiro, numa vista, ou de tamanho errado)', () => {
+    const buffer = SEGREDO.slice().buffer;
+    expect(segredoDoPrf(buffer)).toEqual(SEGREDO);
+    expect(new Uint8Array(buffer)).toEqual(new Uint8Array(32));
+    const grande = new Uint8Array(40);
+    grande.set(SEGREDO, 4);
+    const vista = new Uint8Array(grande.buffer, 4, 32);
+    expect(segredoDoPrf(vista)).toEqual(SEGREDO);
+    expect(grande).toEqual(new Uint8Array(40));
+    const curto = seq(16, 1);
+    expect(segredoDoPrf(curto)).toBeNull();
+    expect(curto).toEqual(new Uint8Array(16));
+    expect(segredoDoPrf(undefined)).toBeNull();
   });
 
   it('os erros do navegador viram mensagens em português', async () => {

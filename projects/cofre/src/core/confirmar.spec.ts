@@ -61,6 +61,8 @@ describe('confirmar de novo para ver uma senha protegida', () => {
     expect(await motivo(confirmarComPasskey(cofre, RP, autenticador(assinada(PC, 0x01))))).toBe('cancelada');
     expect(await motivo(confirmarComPasskey(cofre, RP, autenticador(new DOMException('não', 'NotAllowedError'))))).toBe('cancelada');
     expect(await motivo(confirmarComPasskey(cofre, RP, autenticador(new DOMException('não', 'SecurityError'))))).toBe('endereco');
+    // os mesmos motivos de criar a passkey (um lugar só traduz os erros do navegador)
+    expect(await motivo(confirmarComPasskey(cofre, RP, autenticador(new DOMException('não', 'NotSupportedError'))))).toBe('sem-suporte');
     expect(await motivo(confirmarComPasskey(cofre, RP, autenticador(null)))).toBe('falhou');
     expect(await motivo(confirmarComPasskey({ passkeys: [] }, RP, autenticador(assinada(PC, 0x05))))).toBe('sem-suporte');
     expect([podeConfirmarComPasskey(cofre), podeConfirmarComPasskey({})]).toEqual([true, false]);

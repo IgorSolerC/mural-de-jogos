@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-cofre-senha-mestra',
+    id: '2026-10-28-cofre-passkeys',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
@@ -40,7 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Nos Acessos, tirar uma permissão ou um grupo de uma chave (ou passar a pedir aprovação) vale também para os pedidos dela que ainda não entraram; a nota que uma chave já cria pública espera a sua aprovação quando a chave pede aprovação das mudanças; e a chave limitada a alguns grupos não descobre mais, pelas mensagens de erro, o nome dos outros grupos nem o título das notas deles.',
       'Uma chave ou um conector com "Só alguns" grupos, sem nenhum grupo para marcar, não ganha mais acesso a todos eles (a tela dizia que não alcançaria nenhuma anotação): agora ela pede para voltar a Todos os grupos. O conector recém-permitido aparece nos Acessos com o mesmo endereço de depois de recarregar.',
       'Pelo MCP, uma nota com a marca de fim do conteúdo escrita no texto não se passa mais por instrução do Murall para a AI, e um argumento que não serve (uma chave de idempotência com acento, um id ".") volta como erro da ferramenta, não como falha da conexão.',
-      'No cofre, a régua da senha mestra não conta mais como forte uma senha feita de repetições (a mesma letra ou palavra várias vezes, tudo em maiúsculas), e pôr um aparelho sem PRF confere se a senha digitada é mesmo a do cofre; se a resposta ao criar o cofre se perder no caminho com ele já criado, o kit de emergência aparece assim mesmo.',
+      'No cofre, a régua da senha mestra não conta mais como forte uma senha feita de repetições (a mesma letra ou palavra várias vezes, tudo em maiúsculas), e pôr um aparelho sem PRF confere se a senha digitada é mesmo a do cofre; se a resposta ao criar o cofre se perder no caminho com ele já criado, o kit de emergência aparece assim mesmo. Um erro no segundo toque da passkey (o que tira a chave do PRF) não a joga mais fora, o que deixava uma passkey a mais no aparelho a cada tentativa; e o histórico do cofre chama o iPad de iPad e reconhece o Chrome, o Firefox e o Edge do iPhone.',
     ],
   },
   {

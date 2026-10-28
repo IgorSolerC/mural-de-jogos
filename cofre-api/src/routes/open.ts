@@ -148,15 +148,29 @@ export function openRoutes(app: Hono, deps: Deps): void {
         ? await openServerSecret(deps, s.userId, envelope.id, blob(envelope.s_cifrado), envelope.s_versao)
         : null;
     const now = deps.now();
+    // o contador só sobe: a conferência acima leu o guardado antes, e duas assinaturas ao mesmo tempo
+    // (5 e 6 sobre 4) passariam as duas, com a última a gravar podendo pôr 5 depois de 6. Gravado à parte
+    // e com a condição no banco, a que chega depois de uma maior é recusada como a que não sobe.
+    const [counted] = await write(
+      deps,
+      [
+        {
+          sql: 'UPDATE cofre_credenciais SET contador_assinatura = ?, usado_em = ? WHERE id = ? AND (contador_assinatura < ? OR (? = 0 AND contador_assinatura = 0))',
+          params: [signCount, now.toISOString(), credential.id, signCount, signCount],
+        },
+      ],
+      2,
+      { session: true },
+    );
+    if (counted?.changes !== 1) throw rejected('o contador da passkey voltou (pode ser uma cópia)');
     await write(
       deps,
       [
-        { sql: 'UPDATE cofre_credenciais SET contador_assinatura = ?, usado_em = ? WHERE id = ?', params: [signCount, now.toISOString(), credential.id] },
         { sql: 'UPDATE cofre_envelopes SET usado_em = ? WHERE id = ?', params: [now.toISOString(), envelope.id] },
         factorStatement(s, 'passkey', now),
         eventStatement(s.userId, 'passkey-usada', now, s.device, country(c)),
       ],
-      8,
+      6,
       { session: true },
     );
     return c.json({
