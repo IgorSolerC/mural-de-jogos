@@ -1,6 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type CryptoKey, type JWK } from 'jose';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_IP, ehDocumentoDeCliente } from '../../contrato/api-v1/oauth';
+import { DOCUMENTOS_POR_IP, ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_IP, ehDocumentoDeCliente } from '../../contrato/api-v1/oauth';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
@@ -308,6 +308,41 @@ export function oauthSuite(label: string, getDb: () => Db) {
       expect(await t.db.first('SELECT id FROM api_chaves')).toBeNull();
     });
 
+    it('o Permitir que chega com o pedido já respondido não gasta a vaga de chaves do dia', async () => {
+      // o pedido some entre a leitura e a gravação (o outro clique, outra aba, ganhou a corrida)
+      const base = getDb();
+      let sneak = false;
+      const db: Db = {
+        first: async (sql, params) => {
+          const row = await base.first(sql, params);
+          if (sneak && sql.includes('FROM oauth_pedidos p JOIN')) await base.batch([{ sql: 'DELETE FROM oauth_pedidos' }]);
+          return row as any;
+        },
+        all: (sql, params) => base.all(sql, params),
+        batch: (statements) => base.batch(statements),
+      };
+      const t = await setup(ENV, { db });
+      const { pedido } = await t.openRequest();
+      const token = await t.login();
+      sneak = true;
+      const late = await t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, token);
+      expect(late.status).toBe(404);
+      expect(await t.db.first('SELECT id FROM api_chaves')).toBeNull();
+      expect(await t.db.first("SELECT COUNT(*) AS n FROM freios WHERE acao = 'chave'")).toEqual({ n: 0 });
+    });
+
+    it('o domínio do conector na resposta do Permitir é o mesmo da lista de Acessos (com a porta)', async () => {
+      const t = await setup();
+      const id = await t.client(['http://localhost:33418/callback']);
+      const res = await t.authorize({ client_id: id, redirect_uri: 'http://localhost:33418/callback' });
+      const pedido = /pedido=(op_[\w-]+)/.exec(res.headers.get('Location')!)![1]!;
+      const token = await t.login();
+      const out = await t.body(t.json('POST', `/v1/eu/oauth/pedidos/${pedido}/permitir`, { escopos: ['notas:ler'], validade: 30 }, token));
+      const list = await t.body(t.call('/v1/eu/chaves', { headers: { Authorization: `Bearer ${token}` } }));
+      expect(list.chaves[0].conector).toEqual({ dominio: 'localhost:33418' });
+      expect(out.chave.conector).toEqual(list.chaves[0].conector);
+    });
+
     it('sem o endereço do site, autorizar fica indisponível', async () => {
       const t = await setup({ ...ENV, SITE: '' });
       const id = await t.client();
@@ -481,7 +516,10 @@ export function oauthSuite(label: string, getDb: () => Db) {
     it('o endereço do documento: https, com caminho, com nome de domínio', () => {
       expect(ehDocumentoDeCliente(DOC)).toBe(true);
       for (const bad of ['http://claude.ai/x', 'https://claude.ai/', 'https://claude.ai', 'https://10.0.0.1/x', 'https://localhost/x', 'https://[::1]/x',
-        'https://claude.ai:8443/x', 'https://claude.ai/x#y', 'https://a:b@claude.ai/x', 'https://claude.ai/a/../x', 'oc_AAAAAAAAAAAAAAAA']) {
+        'https://claude.ai:8443/x', 'https://claude.ai/x#y', 'https://a:b@claude.ai/x', 'https://claude.ai/a/../x', 'oc_AAAAAAAAAAAAAAAA',
+        // nomes de rede de dentro (SSRF): o ponto no fim, *.localhost, *.internal, *.local
+        'https://localhost./x', 'https://claude.ai./x', 'https://api.localhost/x', 'https://metadata.google.internal/computeMetadata/v1',
+        'https://impressora.local/x', 'https://roteador.home.arpa/x', 'https://servidor.lan/x']) {
         expect(ehDocumentoDeCliente(bad), bad).toBe(false);
       }
     });
@@ -531,6 +569,46 @@ export function oauthSuite(label: string, getDb: () => Db) {
         expect(await res.text(), why).toContain(why);
         expect(await t.db.first('SELECT id FROM oauth_clientes'), why).toBeNull();
       }
+    });
+
+    it('o documento sem Content-Length é lido aos pedaços e cortado logo que passa do tamanho', async () => {
+      let pulled = 0;
+      const endless = () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            pull(ctl) {
+              pulled++;
+              if (pulled > 2_000) return ctl.close();
+              ctl.enqueue(new Uint8Array(64 * 1024).fill(0x20));
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      const t = await setup(ENV, { oauthFetch: serving(endless).fetch });
+      const res = await t.authorize({ client_id: DOC });
+      expect(res.status).toBe(400);
+      expect(await res.text()).toContain('grande demais');
+      // 2 mil pedaços de 64 KB (125 MB) à espera; só os primeiros foram lidos
+      expect(pulled).toBeLessThan(5);
+    });
+
+    it(`${DOCUMENTOS_POR_IP} buscas de documento por IP em 24 horas, as que falham também`, async () => {
+      const f = serving(() => new Response('nada', { status: 404 }));
+      const t = await setup(ENV, { oauthFetch: f.fetch });
+      const go = (n: number, ip = '203.0.113.9') =>
+        t.call(`/oauth/autorizar?client_id=${encodeURIComponent(`https://app.exemplo/doc-${n}`)}&response_type=code`, { redirect: 'manual', headers: { 'CF-Connecting-IP': ip } });
+      for (let n = 0; n < DOCUMENTOS_POR_IP; n++) expect((await go(n)).status).toBe(400);
+      expect(f.seen.length).toBe(DOCUMENTOS_POR_IP);
+      const over = await go(999);
+      expect(over.status).toBe(429);
+      expect(await over.text()).toContain('demais');
+      expect(f.seen.length).toBe(DOCUMENTOS_POR_IP);
+      // outro IP segue; o documento já guardado do dia não busca nem conta
+      expect((await go(1000, '198.51.100.4')).status).toBe(400);
+      expect(f.seen.length).toBe(DOCUMENTOS_POR_IP + 1);
+      const ok = await setup(ENV, { oauthFetch: serving(() => Response.json(doc())).fetch });
+      expect((await ok.authorize({ client_id: DOC })).status).toBe(302);
+      for (let n = 0; n < DOCUMENTOS_POR_IP + 2; n++) expect((await ok.authorize({ client_id: DOC })).status).toBe(302);
     });
 
     it('o retorno tem de estar no documento', async () => {

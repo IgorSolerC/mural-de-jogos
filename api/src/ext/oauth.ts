@@ -7,6 +7,7 @@ import {
   DIAS_DA_RENOVACAO,
   DOCUMENTO_MAX,
   DOCUMENTO_VALE_MS,
+  DOCUMENTOS_POR_IP,
   PEDIDOS_POR_IP,
   PRAZO_DO_ACESSO_S,
   PRAZO_DO_CODIGO_MS,
@@ -19,7 +20,20 @@ import {
   retornoConhecido,
   retornoLocal,
 } from '../../../contrato/api-v1/oauth';
-import { KeyRow, MAX_KEYS_PER_DAY, accessNotice, apiAllowed, apiUnavailable, expiresIn, keyOf, keyOut, newKeyId, newSecret, readKeyInput } from '../domain/api-key';
+import {
+  KeyRow,
+  MAX_KEYS_PER_DAY,
+  accessNotice,
+  apiAllowed,
+  apiUnavailable,
+  connectorDomain,
+  expiresIn,
+  keyOf,
+  keyOut,
+  newKeyId,
+  newSecret,
+  readKeyInput,
+} from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
 import { DAY_MS, write } from '../domain/quota';
@@ -82,6 +96,7 @@ interface RequestRow {
   escopos_pedidos: string;
   expira_em: string;
   nome: string;
+  retornos: string;
 }
 
 function parseList(text: string): string[] {
@@ -107,7 +122,7 @@ function isThisResource(resource: string, origin: string): boolean {
 }
 
 /** A página de erro de quando não dá para voltar ao cliente (ele não é conhecido, ou o retorno não confere). */
-function errorPage(c: Context, status: 400 | 503, message: string): Response {
+function errorPage(c: Context, status: 400 | 429 | 503, message: string): Response {
   const safe = message.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
   return c.html(
     `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Murall</title>` +
@@ -129,8 +144,9 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
   /**
    * O cliente do pedido: o registrado (`oc_…`) ou o do documento (CIMD), buscado no endereço do próprio
    * `client_id` e guardado por um dia. Um documento que não serve é erro (`OAuthError`), com o porquê.
+   * Cada busca (a que dá certo e a que não) conta no freio do IP, antes de sair daqui.
    */
-  async function findClient(id: string): Promise<ClientRow | null> {
+  async function findClient(id: string, c: Context): Promise<ClientRow | null> {
     if (CLIENT_ID_RE.test(id)) return deps.db.first<ClientRow>('SELECT id, nome, retornos, tipo FROM oauth_clientes WHERE id = ?', [id]);
     if (!ehDocumentoDeCliente(id)) return null;
     const known = await deps.db.first<ClientRow & { criado_em: string }>(
@@ -139,7 +155,18 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
     );
     const now = deps.now();
     if (known && now.getTime() - Date.parse(known.criado_em) < DOCUMENTO_VALE_MS) return known;
-    const doc = await fetchClientDocument(id);
+    const ip = await ipKey(c);
+    if ((await usedToday(deps, ip, 'oauth-documento', now)) >= DOCUMENTOS_POR_IP) {
+      throw new OAuthError(429, 'too_many_requests', 'Documentos de aplicativo demais buscados deste endereço hoje. Tente de novo amanhã.');
+    }
+    let doc: Record<string, unknown>;
+    try {
+      doc = await fetchClientDocument(id);
+    } catch (error) {
+      // a busca que falhou também conta (senão o mesmo endereço quebrado seria buscado sem fim)
+      await write(deps, [brakeStatement(ip, 'oauth-documento', now)], 2).catch(() => undefined);
+      throw error;
+    }
     const name = textoLimpo(doc['client_name'], NOME_DO_CLIENTE_MAX) || dominioDoRetorno(id);
     const redirects = JSON.stringify([...new Set(doc['redirect_uris'] as string[])]);
     await write(
@@ -151,8 +178,9 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
             'ON CONFLICT (id) DO UPDATE SET nome = excluded.nome, retornos = excluded.retornos, criado_em = excluded.criado_em',
           params: [id, name, redirects, now.toISOString()],
         },
+        brakeStatement(ip, 'oauth-documento', now),
       ],
-      2,
+      4,
     );
     return { id, nome: name, retornos: redirects, tipo: 'cimd' };
   }
@@ -168,8 +196,11 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
     }
     if (res.status !== 200) throw bad(`respondeu ${res.status}.`);
     if (Number(res.headers.get('Content-Length') ?? 0) > DOCUMENTO_MAX) throw bad('é grande demais.');
-    const text = await res.text();
-    if (text.length > DOCUMENTO_MAX) throw bad('é grande demais.');
+    // lido aos pedaços: sem Content-Length, um corpo sem fim não enche a memória antes de ser recusado
+    const text = await readCapped(res, DOCUMENTO_MAX).catch(() => {
+      throw bad('não respondeu.');
+    });
+    if (text === null) throw bad('é grande demais.');
     let doc: unknown;
     try {
       doc = JSON.parse(text);
@@ -316,9 +347,9 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
     if (!deps.config.site) return errorPage(c, 503, 'A autorização de conectores ainda não está ligada nesta API.');
     let client: ClientRow | null;
     try {
-      client = await findClient(q('client_id') ?? '');
+      client = await findClient(q('client_id') ?? '', c);
     } catch (error) {
-      if (error instanceof OAuthError) return errorPage(c, 400, error.message);
+      if (error instanceof OAuthError) return errorPage(c, error.status === 429 ? 429 : 400, error.message);
       if (error instanceof HttpError) return errorPage(c, 503, error.message);
       throw error;
     }
@@ -378,7 +409,7 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
   async function openRequest(id: string): Promise<RequestRow> {
     if (!REQUEST_ID_RE.test(id)) throw requestGone();
     const row = await deps.db.first<RequestRow>(
-      'SELECT p.id, p.cliente_id, p.retorno, p.desafio, p.estado_cliente, p.recurso, p.escopos_pedidos, p.expira_em, c.nome ' +
+      'SELECT p.id, p.cliente_id, p.retorno, p.desafio, p.estado_cliente, p.recurso, p.escopos_pedidos, p.expira_em, c.nome, c.retornos ' +
         'FROM oauth_pedidos p JOIN oauth_clientes c ON c.id = p.cliente_id WHERE p.id = ? AND p.expira_em > ?',
       [id, deps.now().toISOString()],
     );
@@ -458,13 +489,16 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
         ],
       },
       { sql: `UPDATE oauth_clientes SET usado_em = ? WHERE id = ? AND ${open.sql}`, params: [at, p.cliente_id, ...open.params] },
-      brakeStatement(s.userId, 'chave', now),
+      // o freio também só conta o Permitir que criou (o segundo clique, ou outra aba, não gasta a vaga do dia)
+      { sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'chave', ? WHERE ${open.sql}`, params: [s.userId, at, ...open.params] },
       accessNotice(s.userId, row.id, row.nome, dominioDoRetorno(p.retorno), at, open),
       { sql: 'DELETE FROM oauth_pedidos WHERE id = ?', params: [p.id] },
     ];
     const [created] = await write(deps, statements, 15);
     if (!created?.changes) throw requestGone();
-    return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row), { dominio: dominioDoRetorno(p.retorno) }) }, 201);
+    // o domínio como a lista de Acessos mostra (o do documento, ou o do primeiro retorno, com a porta)
+    const dominio = connectorDomain(p.cliente_id, p.retornos);
+    return c.json({ para: backTo(p.retorno, { code, state: p.estado_cliente, iss: origin(c) }), chave: keyOut(keyOf(row), { dominio }) }, 201);
   });
 
   app.post('/v1/eu/oauth/pedidos/:id/recusar', async (c) => {
@@ -621,6 +655,34 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
       return c.json({}, 200, NO_STORE);
     }),
   );
+}
+
+/**
+ * O corpo da resposta, até `max` bytes: lido aos pedaços, e cortado assim que passa (null). Um corpo
+ * maior nunca fica inteiro na memória.
+ */
+export async function readCapped(res: Response, max: number): Promise<string | null> {
+  if (!res.body) return '';
+  const reader = res.body.getReader();
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > max) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    parts.push(value);
+  }
+  const all = new Uint8Array(size);
+  let at = 0;
+  for (const part of parts) {
+    all.set(part, at);
+    at += part.byteLength;
+  }
+  return new TextDecoder().decode(all);
 }
 
 /** O corpo do token e da revogação: formulário (o normal do OAuth) ou JSON (alguns clientes mandam). */

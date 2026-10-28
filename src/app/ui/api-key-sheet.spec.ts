@@ -31,7 +31,9 @@ describe('a folha da chave de API (ApiKeySheet)', () => {
   let updated: { id: string; input: unknown }[];
   let failNext: string | null;
 
-  async function open(editing: ApiKeyInfo | null = null) {
+  const GROUPS = [{ key: 'trabalho', label: 'Trabalho', notes: 3 }, { key: 'estudos', label: 'Estudos', notes: 1 }];
+
+  async function open(editing: ApiKeyInfo | null = null, categories: { key: string; label: string; notes: number }[] = GROUPS) {
     created = [];
     updated = [];
     failNext = null;
@@ -50,7 +52,7 @@ describe('a folha da chave de API (ApiKeySheet)', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: ApiKeys, useValue: keys },
-        { provide: KanbanStore, useValue: { categories: signal([{ key: 'trabalho', label: 'Trabalho', notes: 3 }, { key: 'estudos', label: 'Estudos', notes: 1 }]) } },
+        { provide: KanbanStore, useValue: { categories: signal(categories) } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: 'https://api.teste', googleClientId: 'x' }), notice: () => null } },
       ],
     });
@@ -153,6 +155,25 @@ describe('a folha da chave de API (ApiKeySheet)', () => {
     for (const store of [localStorage, sessionStorage]) {
       for (let i = 0; i < store.length; i++) expect(store.getItem(store.key(i)!) ?? '').not.toContain(SECRET.slice(7, 30));
     }
+  });
+
+  it('"Só alguns" sem grupo nenhum para marcar não cria (null seria todos os grupos)', async () => {
+    const t = await open(null, []);
+    t.typeName('Só um grupo');
+    t.box('Ler anotações').click();
+    await t.settle();
+    [...t.el.querySelectorAll<HTMLInputElement>('input[name=chave-grupos]')][1]!.click();
+    await t.settle();
+    expect(t.el.textContent).toContain('não há o que marcar');
+    expect(t.el.textContent).not.toContain('não alcança nenhuma anotação');
+    await t.submit();
+    expect(created).toEqual([]);
+    expect(t.el.querySelector('.falta')!.textContent).toContain('Volte para Todos os grupos');
+    // de volta a Todos os grupos, cria para todos
+    [...t.el.querySelectorAll<HTMLInputElement>('input[name=chave-grupos]')][0]!.click();
+    await t.settle();
+    await t.submit();
+    expect(created.map((c) => c.grupos)).toEqual([null]);
   });
 
   it('copiar a chave e o teste; depois de copiar, fecha sem perguntar e o segredo some', async () => {

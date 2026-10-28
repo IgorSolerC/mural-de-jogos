@@ -18,6 +18,11 @@ export const DIAS_DA_RENOVACAO = 90;
 export const REGISTROS_POR_IP = 20;
 /** Pedidos de autorização por IP em 24 horas (cada um é uma linha no banco até a pessoa decidir). */
 export const PEDIDOS_POR_IP = 60;
+/**
+ * Buscas do documento de um cliente (CIMD) por IP em 24 horas: cada `client_id` novo, ou vencido, faz a
+ * API pedir um endereço de fora, antes de haver pedido nenhum (sem isto, ela virava um repetidor de graça).
+ */
+export const DOCUMENTOS_POR_IP = 20;
 /** Um cliente registrado sem nenhuma autorização em 24 horas sai na limpeza. */
 export const CLIENTE_SEM_USO_MS = 24 * 60 * 60 * 1000;
 
@@ -69,8 +74,13 @@ export function ehDocumentoDeCliente(raw: unknown): raw is string {
   if (url.href !== raw || url.hash || url.username || url.password || url.port || url.pathname === '/') return false;
   if (/(^|\/)\.\.?(\/|$)/.test(raw.slice(url.origin.length))) return false;
   const host = url.hostname;
-  return host.includes('.') && !/^[\d.]+$/.test(host) && !host.startsWith('[') && host !== 'localhost';
+  if (!host.includes('.') || host.endsWith('.') || /^[\d.]+$/.test(host) || host.startsWith('[')) return false;
+  // os nomes que só valem numa rede de dentro (ou neste computador) nunca são de um aplicativo de fora
+  return !NOMES_DE_DENTRO.some((tld) => host === tld || host.endsWith(`.${tld}`));
 }
+
+/** Os fins de nome de rede de dentro: a API nunca busca um documento neles (seria um SSRF). */
+const NOMES_DE_DENTRO = ['localhost', 'local', 'internal', 'intranet', 'lan', 'home', 'home.arpa', 'corp', 'private', 'test', 'invalid', 'example'];
 
 /** O documento do cliente: até 5 KB (o rascunho recomenda), buscado de novo depois de um dia. */
 export const DOCUMENTO_MAX = 5 * 1024;

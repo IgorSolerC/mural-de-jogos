@@ -106,10 +106,12 @@ export interface KeyChoiceStart {
               }
             </div>
           } @else {
-            <p class="parte-desc">Você ainda não tem anotações com grupo. Sem nenhum marcado, {{ connector() ? 'o conector' : 'a chave' }} não alcança nenhuma anotação.</p>
+            <p class="parte-desc">Você ainda não tem anotações com grupo, então não há o que marcar aqui.</p>
           }
-          @if (!groups().length && groupOptions().length) {
-            <p class="falta" role="alert">Marque pelo menos um grupo, ou volte para Todos os grupos.</p>
+          @if (!groups().length && (groupOptions().length || tried())) {
+            <p class="falta" role="alert">
+              {{ groupOptions().length ? 'Marque pelo menos um grupo, ou volte para Todos os grupos.' : 'Volte para Todos os grupos, ou tire as permissões das Anotações e do Kanban.' }}
+            </p>
           }
         }
       </fieldset>
@@ -171,7 +173,7 @@ export class ApiKeyChoices {
   protected readonly approval = signal<Aprovacao>(APROVACAO_PADRAO);
   protected readonly days = signal<number>(VALIDADE_PADRAO);
   /** Tentou salvar: só então o que falta aparece. */
-  private readonly tried = signal(false);
+  protected readonly tried = signal(false);
 
   protected readonly nameMissing = computed(() => this.tried() && !textoLimpo(this.name(), NOME_DA_CHAVE_MAX));
   protected readonly scopesMissing = computed(() => this.tried() && this.scopes().size === 0);
@@ -199,7 +201,8 @@ export class ApiKeyChoices {
   read(): ApiKeyInput | null {
     this.tried.set(true);
     const nome = textoLimpo(this.name(), NOME_DA_CHAVE_MAX);
-    const missingGroups = this.touchesNotes() && this.someGroups() && !this.groups().length && this.groupOptions().length > 0;
+    // "Só alguns" sem nenhum marcado não vai como null: na API, null é "todos os grupos" (o contrário)
+    const missingGroups = this.touchesNotes() && this.someGroups() && !this.groups().length;
     if (!nome || !this.scopes().size || missingGroups) {
       this.focusFirstProblem();
       return null;
