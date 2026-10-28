@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-27-comentar-na-sua-anotacao',
+    id: '2026-10-27-kanban-chega-em-cima',
     version: '1.35.2',
     kind: 'ajustes',
     date: '2026-10-27',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'O ano das Estatísticas e a ordem do Lado a lado são escolhidos a giz, como o Ordenar da pasta; as orelhas do mural de outra pessoa ficaram um pouco maiores que as dos grupos, com o perfil e o Seguir logo ao lado do nome.',
       'O Mata-mata diz, embaixo das escolhas, quantas fichas pedem os números de duelos que ainda não dá para escolher.',
       'Na leitura de uma anotação sua, o "Comentar" embaixo do texto saiu: os comentários abrem pela orelha da direita, que mostra quantos ela tem.',
+      'No Kanban, a anotação que chega a uma coluna sem um lugar escolhido (pela folha dela, pelo editor, pela Nova nota da coluna ou por um pedido da API, como levar para Feito) entra em cima, não mais embaixo; arrastar para um ponto da coluna continua deixando ali.',
     ],
     correcoes: [
       'A roda do mouse em cima de uma fileira de orelhas rola a página, não a fileira, e o toque no pé de uma orelha de trás chega nela.',

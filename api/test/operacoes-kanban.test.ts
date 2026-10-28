@@ -50,13 +50,13 @@ describe('as operações no Kanban', () => {
     expect(vizinha(Q, 'c-afazer')?.id).toBe('c-fazendo');
   });
 
-  it('mover: muda de coluna (no lugar pedido ou embaixo), finaliza ao chegar na que finaliza e abre ao sair', () => {
+  it('mover: muda de coluna (no lugar pedido ou, sem ele, em cima), finaliza ao chegar na que finaliza e abre ao sair', () => {
     const toDone = aplicarNoQuadroV1(Q, 'cartao.mover', 'trab-1', { quadro: Q.id, coluna: 'c-feito', posicao: 0 });
     expect(placeOf(toDone)).toEqual(['A fazer: trab-3', 'Fazendo: trab-4', 'Feito: trab-1 trab-2']);
     expect(toDone.cartoes.find((c) => c.nota === 'trab-1')).toEqual(expect.objectContaining({ finalizada: true, posicao: 0 }));
     expect(toDone.colunas.map((c) => c.cartoes)).toEqual([1, 1, 2]);
     const back = aplicarNoQuadroV1(Q, 'cartao.mover', 'trab-2', { quadro: Q.id, coluna: 'c-afazer' });
-    expect(placeOf(back)).toEqual(['A fazer: trab-1 trab-3 trab-2', 'Fazendo: trab-4', 'Feito: ']);
+    expect(placeOf(back)).toEqual(['A fazer: trab-2 trab-1 trab-3', 'Fazendo: trab-4', 'Feito: ']);
     expect(back.cartoes.find((c) => c.nota === 'trab-2')?.finalizada).toBe(false);
     // sem coluna: o lugar na mesma coluna
     expect(placeOf(aplicarNoQuadroV1(Q, 'cartao.mover', 'trab-3', { quadro: Q.id, posicao: 0 }))[0]).toBe('A fazer: trab-3 trab-1');
@@ -72,15 +72,17 @@ describe('as operações no Kanban', () => {
   it('mover a nota que chega ao quadro: só com o que mostrar dela; sem coluna, a primeira', () => {
     expect(aplicarNoQuadroV1(Q, 'cartao.mover', 'nova', { quadro: Q.id })).toBe(Q);
     const q = aplicarNoQuadroV1(Q, 'cartao.mover', 'nova', { quadro: Q.id, importancia: 'medio' }, { titulo: 'Nova', finalizada: false, tags: ['x'] });
-    expect(placeOf(q)[0]).toBe('A fazer: trab-1 trab-3 nova');
+    expect(placeOf(q)[0]).toBe('A fazer: nova trab-1 trab-3');
     expect(q.cartoes.find((c) => c.nota === 'nova')).toEqual({
-      nota: 'nova', titulo: 'Nova', coluna: 'c-afazer', posicao: 2, finalizada: false, importancia: 'medio', status: null, depende_de: [], no_mural: true, tags: ['x'],
+      nota: 'nova', titulo: 'Nova', coluna: 'c-afazer', posicao: 0, finalizada: false, importancia: 'medio', status: null, depende_de: [], no_mural: true, tags: ['x'],
     });
   });
 
-  it('a coluna que se arruma sozinha põe embaixo (o app arruma de verdade)', () => {
+  it('quem chega sem posicao vai para cima; com ela, no lugar; a coluna que se arruma sozinha ignora o lugar e põe em cima (o app arruma de verdade)', () => {
+    expect(placeOf(aplicarNoQuadroV1(Q, 'cartao.mover', 'trab-4', { quadro: Q.id, coluna: 'c-afazer' }))[0]).toBe('A fazer: trab-4 trab-1 trab-3');
+    expect(placeOf(aplicarNoQuadroV1(Q, 'cartao.mover', 'trab-4', { quadro: Q.id, coluna: 'c-afazer', posicao: 9 }))[0]).toBe('A fazer: trab-1 trab-3 trab-4');
     const sorted: QuadroV1 = { ...Q, colunas: Q.colunas.map((c) => (c.id === 'c-afazer' ? { ...c, ordem: 'Por importância.' } : c)) };
-    expect(placeOf(aplicarNoQuadroV1(sorted, 'cartao.mover', 'trab-4', { quadro: Q.id, coluna: 'c-afazer', posicao: 0 }))[0]).toBe('A fazer: trab-1 trab-3 trab-4');
+    expect(placeOf(aplicarNoQuadroV1(sorted, 'cartao.mover', 'trab-4', { quadro: Q.id, coluna: 'c-afazer', posicao: 2 }))[0]).toBe('A fazer: trab-4 trab-1 trab-3');
   });
 
   it('tirar, e as colunas: criar (depois de outra), mudar (o nome, o lugar), apagar (os cartões vão para a vizinha, para outra, ou saem)', () => {

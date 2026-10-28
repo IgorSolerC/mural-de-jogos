@@ -850,7 +850,7 @@ export class KanbanPage {
       if (!next) return;
       to = next.id;
       // numa coluna em ordem, ela cai no lugar dela (no fim da ordem à mão, para o empate)
-      index = next.sort?.length ? undefined : Math.min(at, cardsIn(b, to).length);
+      index = next.sort?.length ? cardsIn(b, to).length : Math.min(at, cardsIn(b, to).length);
     } else if (e.key === 'ArrowUp') {
       if (at <= 0) return;
       index = at - 1;
@@ -1356,7 +1356,7 @@ export class KanbanPage {
     const all = cardsIn(b, d.over).filter((c) => c.note !== d.note);
     const index = before ? all.findIndex((c) => c.note === before) : all.length;
     const note = d.note;
-    this.actions.move(b.id, note, d.over, index < 0 ? undefined : index, () => {
+    this.actions.move(b.id, note, d.over, index < 0 ? all.length : index, () => {
       this.reveal(note);
       const n = this.store.get(note)?.game.name ?? 'A anotação';
       this.said.set(`${n}: ${col?.name ?? ''}.`);

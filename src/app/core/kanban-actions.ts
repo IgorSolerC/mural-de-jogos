@@ -23,7 +23,8 @@ export class KanbanActions {
   private readonly deps = inject(KanbanDeps);
 
   /**
-   * Leva a anotação para a coluna, na posição `index` dela (no fim, sem `index`). Só a anotação da
+   * Leva a anotação para a coluna, na posição `index` dela (em cima, sem `index`: quem chega sem
+   * lugar escolhido, pela folha, pelo editor ou pelo "Pôr no quadro", vai para o topo). Só a anotação da
    * categoria do quadro entra nele: a de outra categoria (ou sem nenhuma) fica onde está. Indo para
    * uma coluna que finaliza com alguma dependência ainda aberta, pergunta antes (ver `KanbanDeps`); sem
    * o sim, ela fica onde estava. `then` roda depois que ela andou (na hora, ou depois do sim).
@@ -48,7 +49,7 @@ export class KanbanActions {
     if (!board || !r || !belongs(board, r)) return;
     const before = board.cards.find((c) => c.note === note) ?? null;
     const beforeIndex = before ? cardsIn(board, before.column).findIndex((c) => c.note === note) : -1;
-    this.kanban.update(boardId, (b, at) => placeCard(b, note, column, at, index));
+    this.kanban.update(boardId, (b, at) => placeCard(b, note, column, at, index ?? 0));
     const change = doneChange(board, before?.column ?? null, column);
     const wasDone = isDone(r);
     if (change === 'finalizar' && !wasDone) this.noteDone.set(note, true, { quiet: true });

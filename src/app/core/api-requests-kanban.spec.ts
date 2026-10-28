@@ -114,8 +114,19 @@ describe('os pedidos do Kanban: os cartões', () => {
   it('pôr no quadro a nota do grupo que estava fora: na primeira coluna, sem dizer outra', () => {
     const { k, n } = setup();
     expect(applyKanbanRequest(k, n, mover('r-orc', { importancia: 'baixo' }), NOW).estado).toBe('aplicado');
-    expect(k.where()[0]).toBe('A fazer: r-pauta r-relat r-orc');
+    expect(k.where()[0]).toBe('A fazer: r-orc r-pauta r-relat');
     expect(k.board().cards.find((c) => c.note === 'r-orc')!.importance).toBe('baixo');
+  });
+
+  it('quem chega a uma coluna sem posicao vai para cima (também na que finaliza); posicao depois do último, embaixo; sem mudar de coluna, fica no lugar', () => {
+    const { k, n } = setup();
+    applyKanbanRequest(k, n, mover('r-plan', { coluna: FEITO }), NOW);
+    applyKanbanRequest(k, n, mover('r-relat', { coluna: FEITO }), NOW);
+    expect(k.where()[2]).toBe('Feito: r-relat r-plan');
+    applyKanbanRequest(k, n, mover('r-pauta', { coluna: FEITO, posicao: 9 }), NOW);
+    expect(k.where()[2]).toBe('Feito: r-relat r-plan r-pauta');
+    applyKanbanRequest(k, n, mover('r-pauta', { importancia: 'critico' }), NOW);
+    expect(k.where()[2]).toBe('Feito: r-relat r-plan r-pauta');
   });
 
   it('não entra: a nota de outro grupo, a compartilhada, a que sumiu, a coluna que sumiu, o quadro que sumiu', () => {
@@ -204,7 +215,7 @@ describe('os pedidos do Kanban: a nota nova no quadro e as frases', () => {
     const { k, n } = setup();
     n.list.update((l) => [...l, note('r-nova', 'Nova'), note('r-nova2', 'Nova 2'), note('r-nova3', 'Nova 3')]);
     expect(placeNewNote(k, n, n.get('r-nova')!, { coluna: 'fazendo', importancia: 'critico', status: 'Já' }, NOW)).toBeNull();
-    expect(k.where()[1]).toBe('Fazendo: r-plan r-nova');
+    expect(k.where()[1]).toBe('Fazendo: r-nova r-plan');
     expect(k.board().cards.find((c) => c.note === 'r-nova')).toEqual(jasmine.objectContaining({ importance: 'critico', status: 'Já' }));
     expect(placeNewNote(k, n, n.get('r-nova2')!, { coluna: 'Revisão' }, NOW)).toContain('entrou em A fazer');
     expect(placeNewNote(k, n, n.get('r-nova3')!, { coluna: FEITO }, NOW)).toBeNull();

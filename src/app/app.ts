@@ -501,7 +501,7 @@ export class App {
   }
 
   /**
-   * A anotação nova foi pedida de dentro de uma coluna do Kanban ("Nova nota"): ela cai no fim da
+   * A anotação nova foi pedida de dentro de uma coluna do Kanban ("Nova nota"): ela cai em cima na
    * coluna, e a tela fica no quadro. Numa coluna que finaliza, já nasce finalizada. Trocada a
    * categoria no editor, cai na primeira coluna do quadro da categoria nova; sem categoria, em
    * nenhum (não há quadro solto). Devolve se caiu.
@@ -511,7 +511,7 @@ export class App {
     const board = spot && this.kanban.get(spot.board);
     if (!spot || !board) return false;
     this.kanban.update(spot.board, (b, at) => {
-      const placed = placeCard(b, id, spot.column, at);
+      const placed = placeCard(b, id, spot.column, at, 0);
       // a importância e o status escolhidos na parte Quadro do editor
       const ranked = spot.importance ? setImportance(placed, id, spot.importance, at) : placed;
       const told = spot.status ? setStatus(ranked, id, spot.status, at) : ranked;

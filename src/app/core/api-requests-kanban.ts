@@ -129,10 +129,11 @@ function columnV1(book: KanbanBook, notes: NoteBook, boardId: string, column: st
 
 /**
  * Onde `posicao` (o lugar entre os cartões que a v1 mostra na coluna) cai entre todos os da coluna:
- * antes do cartão que está ali agora. A coluna que se arruma sozinha não tem lugar: embaixo.
+ * antes do cartão que está ali agora; depois do último, embaixo. Sem `posicao` (e na coluna que se
+ * arruma sozinha, que não tem lugar), em cima, como tudo o que chega sem lugar escolhido.
  */
 function indexFor(b: KanbanBoard, col: KanbanColumn, note: string, posicao: number | undefined, notes: ReadonlyMap<string, Review>): number | undefined {
-  if (posicao === undefined || col.sort?.length) return undefined;
+  if (posicao === undefined || col.sort?.length) return 0;
   const shown = cardsIn(b, col.id).filter((c) => c.note !== note && belongs(b, notes.get(c.note)));
   const before = shown[posicao]?.note;
   if (!before) return undefined;
@@ -264,7 +265,7 @@ export function placeNewNote(book: KanbanBook, notes: NoteBook, note: Review, k:
   const b = book.boardFor(category);
   const col = (k.coluna ? columnOf(b, k.coluna) : undefined) ?? b.columns[0]!;
   book.update(b.id, (x, when) => {
-    let y = placeCard(x, note.id, col.id, when);
+    let y = placeCard(x, note.id, col.id, when, 0);
     if (k.importancia !== undefined) y = setImportance(y, note.id, k.importancia, when);
     if (k.status) y = setStatus(y, note.id, k.status, when);
     return y;

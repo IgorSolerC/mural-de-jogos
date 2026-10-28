@@ -37,7 +37,7 @@ export interface NoQuadroV1 {
 export interface MoverCartaoV1 extends NoQuadroV1 {
   /** O id do quadro (a rota põe, pelo grupo do caminho). */
   quadro: string;
-  /** O lugar na coluna (0 = em cima); sem ele, embaixo. A coluna que se arruma sozinha ignora. */
+  /** O lugar na coluna (0 = em cima); sem ele, em cima também. A coluna que se arruma sozinha ignora. */
   posicao?: number;
   /** As notas que precisam estar finalizadas antes desta (a lista inteira; vazia tira todas). */
   depende_de?: string[];
@@ -208,12 +208,12 @@ export interface NotaParaOQuadro {
 
 /**
  * O cartão no lugar pedido: na coluna `para`, na posição `pos` entre os dela (sem ela, ou na coluna que
- * se arruma sozinha, embaixo). Puro: devolve a lista nova.
+ * se arruma sozinha, em cima, como no site). Puro: devolve a lista nova.
  */
 function porNoLugar(cartoes: readonly CartaoV1[], card: CartaoV1, para: ColunaV1, pos: number | undefined): CartaoV1[] {
   const others = cartoes.filter((c) => c.nota !== card.nota);
   const inCol = others.filter((c) => c.coluna === para.id);
-  const i = para.ordem !== null || pos === undefined ? inCol.length : Math.min(pos, inCol.length);
+  const i = para.ordem !== null || pos === undefined ? 0 : Math.min(pos, inCol.length);
   // (só a ordem dentro da coluna conta: `renumerar` arruma as colunas)
   const at = i < inCol.length ? others.indexOf(inCol[i]!) : inCol.length ? others.indexOf(inCol[inCol.length - 1]!) + 1 : others.length;
   const out = [...others];

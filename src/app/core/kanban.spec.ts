@@ -566,6 +566,16 @@ describe('Kanban', () => {
       expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nlogin01']);
     });
 
+    it('quem chega sem lugar escolhido vai para cima da coluna (também em Feito); com o lugar, fica nele', () => {
+      store.update({ ...store.get('nprova01')!, category: 'Trabalho' });
+      kanban.update(TRAB, (b, at) => placeCard(b, 'nfeita01', 'feito', at));
+      actions.move(TRAB, 'nlogin01', 'feito');
+      expect(notesIn(kanban.get(TRAB)!, 'feito')).toEqual(['nlogin01', 'nfeita01']);
+      expect(isDone(store.get('nlogin01')!)).toBeTrue();
+      actions.move(TRAB, 'nprova01', 'feito', 2);
+      expect(notesIn(kanban.get(TRAB)!, 'feito')).toEqual(['nlogin01', 'nfeita01', 'nprova01']);
+    });
+
     it('várias juntas para Feito: todas finalizadas, um bilhete só, e o Desfazer devolve cada uma ao lugar', () => {
       store.update({ ...store.get('nprova01')!, category: 'Trabalho' });
       actions.move(TRAB, 'nlogin01', 'afazer');
@@ -579,7 +589,8 @@ describe('Kanban', () => {
       const toast = TestBed.inject(Toasts).current()!;
       expect(toast.text).toBe('2 anotações finalizadas em Feito');
       toast.action!.run();
-      expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nlogin01', 'nprova01']);
+      // (a nprova01 chegou depois, sem lugar escolhido: ficou em cima)
+      expect(notesIn(kanban.get(TRAB)!, 'afazer')).toEqual(['nprova01', 'nlogin01']);
       expect(notesIn(kanban.get(TRAB)!, 'fazendo')).toEqual(['nfeita01']);
       expect(isDone(store.get('nlogin01')!)).toBeFalse();
       expect(isDone(store.get('nfeita01')!)).toBeFalse();

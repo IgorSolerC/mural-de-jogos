@@ -332,8 +332,8 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       const { secret } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
       const ok = await put(t, secret, '/ext/v1/kanban/Trabalho/cartoes/trab-5', { importancia: 'medio' });
       expect(ok.status).toBe(202);
-      expect((await t.body(ok)).cartao).toEqual(expect.objectContaining({ titulo: 'Orçamento', coluna: 'c-afazer', posicao: 2, importancia: 'medio', tags: ['cliente'] }));
-      expect(where(await board(t, secret))[0]).toBe('A fazer: trab-1 trab-3 trab-5');
+      expect((await t.body(ok)).cartao).toEqual(expect.objectContaining({ titulo: 'Orçamento', coluna: 'c-afazer', posicao: 0, importancia: 'medio', tags: ['cliente'] }));
+      expect(where(await board(t, secret))[0]).toBe('A fazer: trab-5 trab-1 trab-3');
       const err = async (path: string, data: unknown) => {
         const res = await put(t, secret, path, data);
         return [res.status, (await t.body(res)).erro];
@@ -407,11 +407,11 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       const out = await t.body(res);
       expect((await stored(t, out.pedido.id)).kanban).toEqual({ coluna: 'c-fazendo', importancia: 'critico' });
       const q = await board(t, secret);
-      expect(where(q)[1]).toBe(`Fazendo: trab-4 ${out.nota.id}`);
+      expect(where(q)[1]).toBe(`Fazendo: ${out.nota.id} trab-4`);
       expect(q.cartoes.find((c) => c.nota === out.nota.id)).toEqual(expect.objectContaining({ titulo: 'Reunião com o time', importancia: 'critico', finalizada: false }));
       // e já dá para mexer nela (ela existe num pedido de criar)
       expect((await put(t, secret, `/ext/v1/kanban/Trabalho/cartoes/${out.nota.id}`, { coluna: 'Feito' })).status).toBe(202);
-      expect(where(await board(t, secret))[2]).toBe(`Feito: trab-2 ${out.nota.id}`);
+      expect(where(await board(t, secret))[2]).toBe(`Feito: ${out.nota.id} trab-2`);
     });
   });
 

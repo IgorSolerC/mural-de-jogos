@@ -300,7 +300,7 @@ export const FERRAMENTAS_DO_KANBAN: readonly Ferramenta[] = [
         grupo: grupoArg,
         nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'O id da nota (ela tem de ser do grupo do quadro).' },
         coluna: colunaArg('A coluna de destino'),
-        posicao: { type: 'integer', minimum: 0, maximum: 1000, description: 'O lugar na coluna: 0 é o de cima (sem ele, embaixo). A coluna que se arruma sozinha ignora.' },
+        posicao: { type: 'integer', minimum: 0, maximum: 1000, description: 'O lugar na coluna: 0 é o de cima (sem ele, em cima também). A coluna que se arruma sozinha ignora.' },
         importancia,
         status,
         depende_de: { type: 'array', maxItems: 30, items: { type: 'string', pattern: '^[\\w-]{1,64}$' }, description: 'A lista inteira das notas (ids) que precisam estar finalizadas antes desta; [] tira todas.' },
