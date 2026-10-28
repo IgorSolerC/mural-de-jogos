@@ -344,4 +344,124 @@ export function pedidosSuite(label: string, getDb: () => Db) {
       expect((await t.db.first<{ n: number }>('SELECT COUNT(*) AS n FROM api_pedidos'))!.n).toBe(0);
     });
   });
+
+  describe(`${label}: a revisão da API das AIs (28/out)`, () => {
+    type T = Awaited<ReturnType<typeof setup>>;
+    const insert = (t: T, rows: { id: string; userId: string; keyId: string; op: string; estado: string; criado: string; expira: string; pegoAte?: string }[]) =>
+      t.db.batch(
+        rows.map((r) => ({
+          sql: 'INSERT INTO api_pedidos (id, usuario_id, chave_id, chave_nome, op, alvo, dados, estado, pego_por, pego_ate, criado_em, expira_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          params: [r.id, r.userId, r.keyId, 'AI', r.op, 'trab-1', '{}', r.estado, r.pegoAte ? 'aparelho-A' : null, r.pegoAte ?? null, r.criado, r.expira],
+        })),
+      );
+    const state = async (t: T, id: string) => (await t.db.first<{ estado: string }>('SELECT estado FROM api_pedidos WHERE id = ?', [id]))!.estado;
+
+    it('limite e depois com fração ou grandes demais não dão erro 500; a ordem que não é da lista é recusada', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      for (const q of ['limite=2.5', 'depois=1.5', 'depois=1e20', 'limite=1e400', 'limite=abc&depois=-3']) {
+        const res = await t.ai(secret, 'GET', `/ext/v1/notas?${q}`);
+        expect(res.status, q).toBe(200);
+      }
+      expect((await t.body(t.ai(secret, 'GET', '/ext/v1/notas?limite=1.9'))).itens.length).toBe(1);
+      expect((await t.ai(secret, 'GET', '/ext/v1/pedidos?limite=2.5')).status).toBe(200);
+      for (const ordem of ['constructor', '__proto__', 'toString']) {
+        const res = await t.ai(secret, 'GET', `/ext/v1/notas?ordem=${ordem}`);
+        expect([res.status, (await t.body(res)).erro], ordem).toEqual([400, 'ordem-invalida']);
+      }
+    });
+
+    it('a nota que só existe num pedido de criar passa pelos mesmos filtros da lista', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const made = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Compras do mês', texto: 'leite', grupo: 'Trabalho', tags: ['casa'], assunto: 'Mercado' }))).nota;
+      const ids = async (q: string) => (await t.body(t.ai(secret, 'GET', `/ext/v1/notas?${q}`))).itens.map((n: NotaV1) => n.id);
+      expect(await ids('')).toContain(made.id);
+      expect(await ids('finalizadas=sim')).not.toContain(made.id);
+      expect(await ids('finalizadas=nao')).toContain(made.id);
+      expect(await ids('fixadas=sim')).not.toContain(made.id);
+      expect(await ids('tag=outra')).not.toContain(made.id);
+      expect(await ids('tag=%23Casa')).toContain(made.id);
+      expect(await ids('assunto=viagem')).not.toContain(made.id);
+      expect(await ids('assunto=mercado')).toContain(made.id);
+      expect(await ids('q=xyz')).not.toContain(made.id);
+      expect(await ids('q=LEITE')).toContain(made.id);
+      expect(await ids('mudou_depois_de=2030-01-01T00:00:00Z')).not.toContain(made.id);
+    });
+
+    it('os pedidos da chave filtram pelo estado antes do limite; o estado que não existe é recusado; o aberto vencido é expirado', async () => {
+      const t = await setup();
+      const { secret, me, keyId } = await t.ready();
+      const later = new Date(NOW.getTime() + 30 * DAY).toISOString();
+      const past = new Date(NOW.getTime() - DAY).toISOString();
+      await insert(t, [
+        { id: 'pd_pendente000000001', userId: me.id, keyId, op: 'nota.fixar', estado: 'pendente', criado: '2026-01-01T00:00:00.000Z', expira: later },
+        { id: 'pd_vencido0000000001', userId: me.id, keyId, op: 'nota.fixar', estado: 'pendente', criado: '2026-01-02T00:00:00.000Z', expira: past },
+        ...Array.from({ length: 5 }, (_, i) => ({ id: `pd_aplicado00000000${i}`, userId: me.id, keyId, op: 'nota.fixar', estado: 'aplicado', criado: `2026-02-0${i + 1}T00:00:00.000Z`, expira: later })),
+      ]);
+      const list = async (q: string) => (await t.body(t.ai(secret, 'GET', `/ext/v1/pedidos?${q}`))).itens.map((p: { id: string; estado: string }) => [p.id, p.estado]);
+      expect(await list('estado=pendente&limite=2')).toEqual([['pd_pendente000000001', 'pendente']]);
+      expect(await list('estado=expirado')).toEqual([['pd_vencido0000000001', 'expirado']]);
+      expect((await list('estado=aplicado&limite=3')).length).toBe(3);
+      const bad = await t.ai(secret, 'GET', '/ext/v1/pedidos?estado=feito');
+      expect([bad.status, (await t.body(bad)).erro]).toEqual([400, 'estado-invalido']);
+    });
+
+    it('a chave limitada não vê o nome dos outros grupos no erro do grupo novo', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      const limited = (await t.newKey(me.token, { grupos: ['Trabalho', 'Viagens'], escopos: ['notas:criar'] })).segredo;
+      const res = await t.ai(limited, 'POST', '/ext/v1/notas', { titulo: 'x', grupo: 'Viagens' });
+      const b = await t.body(res);
+      expect([res.status, b.erro]).toEqual([422, 'grupo-novo']);
+      expect(b.mensagem).toContain('Trabalho');
+      expect(b.mensagem).not.toContain('Estudos');
+    });
+
+    it('com a aprovação "mudancas", a nota que já nasce pública espera; a privada entra direto', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      const pub = (await t.newKey(me.token, { escopos: ['notas:criar', 'publicar'] })).segredo;
+      expect((await t.body(t.ai(pub, 'POST', '/ext/v1/notas', { titulo: 'x', visibilidade: 'publica' }))).pedido.estado).toBe('aguardando-aprovacao');
+      expect((await t.body(t.ai(pub, 'POST', '/ext/v1/notas', { titulo: 'y', visibilidade: 'privada' }))).pedido.estado).toBe('pendente');
+      const never = (await t.newKey(me.token, { escopos: ['notas:criar', 'publicar'], aprovacao: 'nunca' })).segredo;
+      expect((await t.body(t.ai(never, 'POST', '/ext/v1/notas', { titulo: 'z', visibilidade: 'publica' }))).pedido.estado).toBe('pendente');
+    });
+
+    it('apertar a chave recusa os pedidos abertos dela que perderam a permissão, e faz o pendente esperar a aprovação nova', async () => {
+      const t = await setup();
+      const { me, secret, keyId } = await t.ready({ aprovacao: 'nunca', escopos: ['notas:ler', 'notas:criar', 'notas:editar', 'publicar'] });
+      const edit = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas/trab-1/fixar'))).pedido;
+      const create = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Nova', grupo: 'Trabalho' }))).pedido;
+      const publish = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Pública', grupo: 'Trabalho', visibilidade: 'publica' }))).pedido;
+      expect([edit.estado, create.estado, publish.estado]).toEqual(['pendente', 'pendente', 'pendente']);
+      const patch = (payload: unknown) => t.json('PATCH', `/v1/eu/chaves/${keyId}`, payload, me.token);
+      const all = async () => [await state(t, edit.id), await state(t, create.id), await state(t, publish.id)];
+      // só o nome: nada muda
+      expect((await patch({ nome: 'Outro nome' })).status).toBe(200);
+      expect(await all()).toEqual(['pendente', 'pendente', 'pendente']);
+      // tirar "Mudar quem vê": só o pedido que publicava sai
+      expect((await patch({ escopos: ['notas:ler', 'notas:criar', 'notas:editar'] })).status).toBe(200);
+      expect(await all()).toEqual(['pendente', 'pendente', 'recusado']);
+      expect((await t.body(t.ai(secret, 'GET', `/ext/v1/pedidos/${publish.id}`))).pedido.resultado.motivo).toContain('permissão');
+      // passar a pedir aprovação das mudanças: a edição pendente passa a esperar; criar segue direto
+      expect((await patch({ aprovacao: 'mudancas' })).status).toBe(200);
+      expect(await all()).toEqual(['aguardando-aprovacao', 'pendente', 'recusado']);
+      // limitar os grupos: os das Anotações saem
+      expect((await patch({ grupos: ['Estudos'] })).status).toBe(200);
+      expect(await all()).toEqual(['recusado', 'recusado', 'recusado']);
+    });
+
+    it('apertar a aprovação não mexe no pedido que um aparelho está aplicando agora', async () => {
+      const t = await setup();
+      const { me, keyId } = await t.ready({ aprovacao: 'nunca' });
+      const later = new Date(NOW.getTime() + 30 * DAY).toISOString();
+      await insert(t, [
+        { id: 'pd_aplicando00000001', userId: me.id, keyId, op: 'nota.fixar', estado: 'pendente', criado: NOW.toISOString(), expira: later, pegoAte: new Date(NOW.getTime() + 60 * 60_000).toISOString() },
+        { id: 'pd_livre000000000001', userId: me.id, keyId, op: 'nota.fixar', estado: 'pendente', criado: NOW.toISOString(), expira: later },
+      ]);
+      expect((await t.json('PATCH', `/v1/eu/chaves/${keyId}`, { aprovacao: 'tudo' }, me.token)).status).toBe(200);
+      expect([await state(t, 'pd_aplicando00000001'), await state(t, 'pd_livre000000000001')]).toEqual(['pendente', 'aguardando-aprovacao']);
+    });
+  });
 }

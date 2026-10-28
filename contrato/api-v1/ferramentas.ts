@@ -5,6 +5,8 @@
  * validação e pedidos continuam num lugar só. Só tipos e dados.
  */
 
+import { ESTADOS } from './operacoes';
+
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
   type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'integer' | 'boolean' | 'null')[];
@@ -596,7 +598,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     destrutiva: false,
     entrada: obj({
       id: { type: 'string', pattern: '^pd_[A-Za-z0-9_-]{16}$', description: 'Opcional: o id de um pedido.' },
-      estado: { type: 'string', description: 'Só os neste estado.' },
+      estado: { type: 'string', enum: [...ESTADOS], description: 'Só os neste estado.' },
       limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantos (padrão 30).' },
     }),
     metodo: 'GET',

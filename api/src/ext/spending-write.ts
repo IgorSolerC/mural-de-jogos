@@ -17,7 +17,7 @@ import {
 } from '../../../contrato/api-v1/operacoes-gastos';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
-import { createRequest, randomBase36, readIdem, requestOut } from '../domain/requests';
+import { assertRoom, createRequest, randomBase36, readIdem, requestOut } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson } from '../routes/http';
@@ -87,6 +87,12 @@ export function spendingWriteRoutes(app: Hono, deps: Deps): void {
       if (!('frase' in d)) await checkRefs(me, ctx, d, d.tipo ?? 'saida', where);
       checked.push(d);
     }
+    // a vaga do lote inteiro, antes de guardar o primeiro (os que o Idempotency-Key já guardou não contam)
+    const idems = idem ? checked.map((_, i) => (batch ? `${idem}:${i}` : idem)) : [];
+    const stored = idems.length
+      ? ((await deps.db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM api_pedidos WHERE chave_id = ? AND chave_idem IN (${idems.map(() => '?').join(', ')})`, [me.key.id, ...idems]))?.n ?? 0)
+      : 0;
+    await assertRoom(deps, me, checked.length - stored);
     const now = deps.now();
     const state = await mirrorState(deps, userId);
     const hoje = todayIn(state.fuso, now);
@@ -175,7 +181,8 @@ export function spendingWriteRoutes(app: Hono, deps: Deps): void {
   }
 
   app.post('/ext/v1/gastos/envelopes', (c) => vocab(c, 'envelope.criar', null));
-  app.patch('/ext/v1/gastos/envelopes/:id', (c) => vocab(c, 'envelope.editar', decodeURIComponent(c.req.param('id'))));
+  // o Hono já devolve o :id decodificado (decodificar de novo dava erro 500 num nome com "%")
+  app.patch('/ext/v1/gastos/envelopes/:id', (c) => vocab(c, 'envelope.editar', c.req.param('id')));
   app.post('/ext/v1/gastos/pessoas', (c) => vocab(c, 'pessoa.criar', null));
-  app.patch('/ext/v1/gastos/pessoas/:id', (c) => vocab(c, 'pessoa.editar', decodeURIComponent(c.req.param('id'))));
+  app.patch('/ext/v1/gastos/pessoas/:id', (c) => vocab(c, 'pessoa.editar', c.req.param('id')));
 }

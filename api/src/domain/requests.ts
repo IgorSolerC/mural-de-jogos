@@ -1,4 +1,7 @@
-import { opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
+import type { Aprovacao } from '../../../contrato/api-v1/escopos';
+import { ESCOPO_DA_OP, opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
+import { ESCOPO_DA_OP_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
+import { ESCOPO_DA_OP_KANBAN } from '../../../contrato/api-v1/operacoes-kanban';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { KeyCaller } from './api-key';
@@ -107,6 +110,55 @@ export function openRequests(deps: Deps, userId: string, limit = 200): Promise<R
 }
 
 /**
+ * Cabem mais `n` pedidos? Confere os freios (por chave e por conta, nas últimas 24 horas) e a fatia da
+ * cota do dia que a API das AIs pode usar. Um lote confere a vaga de todos antes de guardar o primeiro:
+ * sem isso, o freio cortava o lote no meio (uns guardados, os outros não) e a AI, ao repetir, dobrava os
+ * que já tinham entrado.
+ */
+export async function assertRoom(deps: Deps, caller: KeyCaller, n: number): Promise<void> {
+  if (n <= 0) return;
+  const key = caller.key;
+  const since = new Date(deps.now().getTime() - DAY_MS).toISOString();
+  const counts = await deps.db.first<{ chave: number; conta: number }>(
+    'SELECT (SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ? AND chave_id = ? AND criado_em > ?) AS chave, ' +
+      '(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ? AND criado_em > ?) AS conta',
+    [key.userId, key.id, since, key.userId, since],
+  );
+  if ((counts?.chave ?? 0) + n > PER_KEY_DAY) throw new HttpError(429, 'pedidos-demais', `Esta chave já fez ${counts?.chave ?? 0} de ${PER_KEY_DAY} pedidos nas últimas 24 horas.`);
+  if ((counts?.conta ?? 0) + n > PER_ACCOUNT_DAY) throw new HttpError(429, 'pedidos-demais', `Esta conta já recebeu ${counts?.conta ?? 0} de ${PER_ACCOUNT_DAY} pedidos nas últimas 24 horas.`);
+  const usage = await usageToday(deps);
+  if (usage.rowsWritten >= deps.config.dailyRowBudget * API_SHARE) {
+    throw new HttpError(503, 'cota-api', 'A API das AIs chegou ao limite de hoje (o resto da cota fica para a sincronização). Tente depois das 21h.');
+  }
+}
+
+/**
+ * O pedido espera a pessoa aprovar? Com "mudancas", espera o que muda ou apaga, e também o que usa a
+ * permissão "Mudar quem vê" (marcada como mudança e cuidado): uma nota que já nasce pública não entra
+ * sem a pessoa ver.
+ */
+export function waitsForApproval(approval: Aprovacao, op: string, dados: unknown): boolean {
+  if (approval === 'tudo') return true;
+  if (approval !== 'mudancas') return false;
+  const publishes = op === 'nota.criar' && (dados as { visibilidade?: unknown } | null)?.visibilidade === 'publica';
+  return opMuda(op) || publishes;
+}
+
+/**
+ * As permissões que um pedido usou (a da operação e as que os dados pedem a mais): quando a pessoa tira
+ * uma delas da chave, o pedido aberto não entra mais.
+ */
+export function scopesOfRequest(op: string, dados: unknown): string[] {
+  const d = (dados && typeof dados === 'object' ? dados : {}) as Record<string, unknown>;
+  const base = (ESCOPO_DA_OP as Record<string, string>)[op] ?? (ESCOPO_DA_OP_KANBAN as Record<string, string>)[op] ?? (ESCOPO_DA_OP_GASTO as Record<string, string>)[op];
+  const out = new Set<string>(base ? [base] : []);
+  if (d['visibilidade'] !== undefined) out.add('publicar');
+  if (op === 'nota.criar' && d['kanban']) out.add('kanban:mover');
+  if (d['criar_envelope'] || d['criar_pessoas']) out.add('gastos:editar');
+  return [...out];
+}
+
+/**
  * Guarda um pedido. Com o mesmo `Idempotency-Key` da mesma chave, devolve o que já existia (sem criar
  * outro). Confere os freios (por chave e por conta, nas últimas 24 horas) e a fatia da cota do dia que
  * a API das AIs pode usar. O estado sai da aprovação da chave.
@@ -130,19 +182,8 @@ export async function createRequest(
       return { row: same, repeated: true };
     }
   }
-  const since = new Date(now.getTime() - DAY_MS).toISOString();
-  const counts = await deps.db.first<{ chave: number; conta: number }>(
-    'SELECT (SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ? AND chave_id = ? AND criado_em > ?) AS chave, ' +
-      '(SELECT COUNT(*) FROM api_pedidos WHERE usuario_id = ? AND criado_em > ?) AS conta',
-    [key.userId, key.id, since, key.userId, since],
-  );
-  if ((counts?.chave ?? 0) >= PER_KEY_DAY) throw new HttpError(429, 'pedidos-demais', `Esta chave já fez ${PER_KEY_DAY} pedidos nas últimas 24 horas.`);
-  if ((counts?.conta ?? 0) >= PER_ACCOUNT_DAY) throw new HttpError(429, 'pedidos-demais', `Esta conta já recebeu ${PER_ACCOUNT_DAY} pedidos nas últimas 24 horas.`);
-  const usage = await usageToday(deps);
-  if (usage.rowsWritten >= deps.config.dailyRowBudget * API_SHARE) {
-    throw new HttpError(503, 'cota-api', 'A API das AIs chegou ao limite de hoje (o resto da cota fica para a sincronização). Tente depois das 21h.');
-  }
-  const waits = key.approval === 'tudo' || (key.approval === 'mudancas' && opMuda(op));
+  await assertRoom(deps, caller, 1);
+  const waits = waitsForApproval(key.approval, op, dados);
   const row: RequestRow = {
     id: newRequestId(),
     usuario_id: key.userId,

@@ -107,12 +107,12 @@ export const ATALHOS: readonly Atalho[] = [
 ];
 
 /**
- * Quando um pedido espera você: nunca; só as mudanças (editar e apagar: criar entra direto, o padrão);
- * ou tudo.
+ * Quando um pedido espera você: nunca; só as mudanças (editar, apagar e publicar: criar entra direto, o
+ * padrão); ou tudo.
  */
 export type Aprovacao = 'nunca' | 'mudancas' | 'tudo';
 export const APROVACOES: readonly { id: Aprovacao; nome: string; explica: string }[] = [
-  { id: 'mudancas', nome: 'Antes de mudar ou apagar', explica: 'O que ela cria entra direto; o que muda ou apaga espera você aprovar.' },
+  { id: 'mudancas', nome: 'Antes de mudar ou apagar', explica: 'O que ela cria entra direto; o que muda, apaga ou publica espera você aprovar.' },
   { id: 'tudo', nome: 'Antes de tudo', explica: 'Nada entra sem você aprovar.' },
   { id: 'nunca', nome: 'Nunca', explica: 'Tudo entra direto. Ainda dá para desfazer pelo histórico.' },
 ];

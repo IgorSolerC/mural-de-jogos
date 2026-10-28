@@ -6,6 +6,7 @@ import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
 import { googleVerifier } from '../src/domain/google';
+import { PER_KEY_DAY } from '../src/domain/requests';
 import { Config, Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, gzip, jsonCaller } from './harness';
 
@@ -429,6 +430,40 @@ export function gastosSuite(label: string, getDb: () => Db) {
       expect((await post(t, secret, '/ext/v1/gastos/pessoas', { nome: 'bruna' })).status).toBe(409);
       expect((await post(t, secret, '/ext/v1/gastos/pessoas', { nome: 'Caio' })).status).toBe(202);
       expect((await t.body(patch('/ext/v1/gastos/pessoas/eu', { nome: 'Igor' }))).pedido.alvo).toBe('eu');
+    });
+
+    it('o envelope com "%" no nome se muda pelo nome (o caminho não é decodificado duas vezes)', async () => {
+      const t = await setup();
+      const { me, secret, rev } = await t.ready(ALL);
+      const ctx = { ...CONTEXTO, envelopes: [...CONTEXTO.envelopes, { id: 'poup', nome: 'Poupança 10%', tipo: 'saida', cor: 'verde', limite_centavos: null, versao: '2026-01-01T00:00:00.000Z' }] };
+      expect((await t.mirror(me.token, { rev, poe: [t.item('contexto-gastos', CONTEXTO_GASTOS, ctx)] })).status).toBe(200);
+      const res = await t.ext(secret, `/ext/v1/gastos/envelopes/${encodeURIComponent('Poupança 10%')}`, { method: 'PATCH', body: JSON.stringify({ limite_centavos: 5000 }) });
+      expect(res.status).toBe(202);
+      expect((await t.body(res)).pedido.alvo).toBe('poup');
+      // "%25" no nome é "%25", não "%"
+      expect((await t.ext(secret, '/ext/v1/gastos/envelopes/100%2525', { method: 'PATCH', body: JSON.stringify({ nome: 'x' }) })).status).toBe(404);
+    });
+
+    it('o lote que não cabe no freio da chave não entra pela metade', async () => {
+      const t = await setup();
+      const { me, secret, keyId } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const at = NOW.toISOString();
+      await t.db.batch(
+        Array.from({ length: PER_KEY_DAY - 1 }, (_, i) => ({
+          sql: 'INSERT INTO api_pedidos (id, usuario_id, chave_id, chave_nome, op, alvo, dados, estado, criado_em, expira_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          params: [`pd_${String(i).padStart(16, '0')}`, me.id, keyId, 'AI', 'gasto.lancar', 'x', '{}', 'aplicado', at, at],
+        })),
+      );
+      const before = await count(t);
+      const itens = [
+        { titulo: 'Mercado', centavos: 10000, envelope: 'Mercado' },
+        { titulo: 'Padaria', centavos: 1500, envelope: 'Mercado' },
+      ];
+      const res = await post(t, secret, '/ext/v1/gastos/lancamentos', { itens });
+      expect([res.status, (await t.body(res)).erro]).toEqual([429, 'pedidos-demais']);
+      expect(await count(t)).toBe(before);
+      // um só ainda cabe
+      expect((await post(t, secret, '/ext/v1/gastos/lancamentos', itens[0])).status).toBe(202);
     });
   });
 

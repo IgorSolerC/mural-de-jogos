@@ -66,6 +66,9 @@ export function kanbanWriteRoutes(app: Hono, deps: Deps): void {
       const d = created ? (JSON.parse(created.dados) as CriarNotaV1) : null;
       if (d) found = { titulo: d.titulo, grupo: d.grupo ?? null, finalizada: false, tags: d.tags ?? [] };
     }
+    // a nota de um grupo que a chave não alcança não existe para ela (nem o título, nem o grupo)
+    const limits = me.key.groups;
+    if (found && limits?.length && (!found.grupo || !limits.some((g) => dobra(g) === dobra(found!.grupo!)))) found = null;
     if (!found) {
       throw new HttpError(404, 'nota-nao-encontrada', `Não achei a nota ${id.slice(0, 64)}. Para pôr uma nota no quadro, ela tem de ser do grupo ${q.grupo} (veja listar_notas).`);
     }

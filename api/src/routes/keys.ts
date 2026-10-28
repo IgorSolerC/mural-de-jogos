@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
-import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
+import { MAX_CHAVES, dobra, type Aprovacao } from '../../../contrato/api-v1/escopos';
+import { OPS_DO_KANBAN } from '../../../contrato/api-v1/operacoes-kanban';
 import {
   KEY_COLUMNS,
   KEY_ID_RE,
   KeyRow,
+  type ApiKey,
   MAX_KEYS_PER_DAY,
   accessNotice,
   apiAllowed,
@@ -18,6 +20,7 @@ import {
 } from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
+import { scopesOfRequest, waitsForApproval } from '../domain/requests';
 import { hashToken } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
@@ -39,6 +42,59 @@ export function refuseOpen(userId: string, at: Date, keyId?: string): Statement 
       `${keyId ? 'AND chave_id = ? ' : ''}AND estado IN ('pendente', 'aguardando-aprovacao')`,
     params: [JSON.stringify({ motivo: 'A chave foi apagada.' }), at.toISOString(), userId, ...(keyId ? [keyId] : [])],
   };
+}
+
+const APPROVAL_RANK: Record<Aprovacao, number> = { nunca: 0, mudancas: 1, tudo: 2 };
+
+/**
+ * Os pedidos abertos de uma chave que a pessoa acabou de apertar (tirou uma permissão, um grupo, ou
+ * passou a pedir aprovação): o pedido que usava a permissão tirada fica recusado; com os grupos
+ * apertados, os das Anotações e do Kanban também (a nuvem não sabe de que grupo é cada nota, e uma
+ * nota de um grupo tirado não pode mudar); e o pendente que agora espera aprovação passa a esperar
+ * (menos o que um aparelho está aplicando agora, que entraria duas vezes). Sem isso, mudar a chave não
+ * parava o que ela já tinha pedido.
+ */
+async function narrowOpen(deps: Deps, before: ApiKey, after: ApiKey, at: Date): Promise<{ statements: Statement[]; rows: number }> {
+  const lostScope = before.scopes.some((x) => !after.scopes.includes(x));
+  const fold = (list: string[] | null) => (list ? new Set(list.map(dobra)) : null);
+  const was = fold(before.groups);
+  const now = fold(after.groups);
+  const lostGroup = now !== null && (was === null || [...was].some((g) => !now.has(g)));
+  const stricter = APPROVAL_RANK[after.approval] > APPROVAL_RANK[before.approval];
+  if (!lostScope && !lostGroup && !stricter) return { statements: [], rows: 0 };
+  const rows = await deps.db.all<{ id: string; op: string; dados: string; estado: string; pego_ate: string | null }>(
+    "SELECT id, op, dados, estado, pego_ate FROM api_pedidos WHERE usuario_id = ? AND chave_id = ? AND estado IN ('pendente', 'aguardando-aprovacao') AND expira_em > ?",
+    [after.userId, after.id, at.toISOString()],
+  );
+  const refuse: string[] = [];
+  const hold: string[] = [];
+  for (const r of rows) {
+    let dados: unknown = null;
+    try {
+      dados = JSON.parse(r.dados);
+    } catch {
+      // um pedido que não se lê não ganha passe livre
+    }
+    const scopeGone = scopesOfRequest(r.op, dados).some((x) => !after.scopes.includes(x));
+    const groupGone = lostGroup && (r.op.startsWith('nota.') || (OPS_DO_KANBAN as readonly string[]).includes(r.op));
+    if (scopeGone || groupGone) refuse.push(r.id);
+    else if (r.estado === 'pendente' && waitsForApproval(after.approval, r.op, dados) && !(r.pego_ate && Date.parse(r.pego_ate) > at.getTime())) hold.push(r.id);
+  }
+  const marks = (ids: string[]) => ids.map(() => '?').join(', ');
+  const out: Statement[] = [];
+  if (refuse.length) {
+    out.push({
+      sql: `UPDATE api_pedidos SET estado = 'recusado', resultado = ?, resolvido_em = ? WHERE usuario_id = ? AND estado IN ('pendente', 'aguardando-aprovacao') AND id IN (${marks(refuse)})`,
+      params: [JSON.stringify({ motivo: 'A chave perdeu a permissão deste pedido.' }), at.toISOString(), after.userId, ...refuse],
+    });
+  }
+  if (hold.length) {
+    out.push({
+      sql: `UPDATE api_pedidos SET estado = 'aguardando-aprovacao' WHERE usuario_id = ? AND estado = 'pendente' AND (pego_ate IS NULL OR pego_ate < ?) AND id IN (${marks(hold)})`,
+      params: [after.userId, at.toISOString(), ...hold],
+    });
+  }
+  return { statements: out, rows: refuse.length + hold.length };
 }
 
 export function keyRoutes(app: Hono, deps: Deps): void {
@@ -119,6 +175,7 @@ export function keyRoutes(app: Hono, deps: Deps): void {
       ...(input.groups !== undefined ? { grupos: input.groups ? JSON.stringify(input.groups) : null } : {}),
       ...(input.approval !== undefined ? { aprovacao: input.approval } : {}),
     };
+    const narrowed = await narrowOpen(deps, keyOf(current), keyOf(next), deps.now());
     await write(
       deps,
       [
@@ -126,8 +183,9 @@ export function keyRoutes(app: Hono, deps: Deps): void {
           sql: 'UPDATE api_chaves SET nome = ?, escopos = ?, grupos = ?, aprovacao = ? WHERE id = ? AND usuario_id = ?',
           params: [next.nome, next.escopos, next.grupos, next.aprovacao, id, s.userId],
         },
+        ...narrowed.statements,
       ],
-      2,
+      2 + narrowed.rows,
     );
     return c.json({ chave: keyOut(keyOf(next)) });
   });

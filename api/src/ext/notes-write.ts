@@ -1,11 +1,12 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import { CONTEXTO_NOTAS, type ContextoNotasV1, type NotaV1 } from '../../../contrato/api-v1/notas';
-import { ESCOPO_DA_OP, TEXTO_MAX, acrescentar, conferirOp, idDeFicha, mexerNasTarefas, type AcrescentarV1, type CamposDaNota, type CriarNotaV1, type EditarNotaV1, type OpNota, type TarefasV1 } from '../../../contrato/api-v1/operacoes';
+import { ESCOPO_DA_OP, ESTADOS, ESTADOS_ABERTOS, TEXTO_MAX, acrescentar, conferirOp, idDeFicha, mexerNasTarefas, type AcrescentarV1, type CamposDaNota, type CriarNotaV1, type EditarNotaV1, type OpNota, type TarefasV1 } from '../../../contrato/api-v1/operacoes';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
 import { REQUEST_COLUMNS, REQUEST_ID_RE, createRequest, randomBase36, readIdem, requestOut, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
-import { Deps } from '../ports';
+import { Deps, SqlValue } from '../ports';
+import { intQuery } from './routes';
 import { createdNote, overlay, pendingOf } from './overlay';
 import { acharColuna } from '../../../contrato/api-v1/operacoes-kanban';
 import { findBoard } from './kanban-read';
@@ -43,13 +44,14 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
   }
 
   /** O grupo existe nas Anotações? Sem o contexto no espelho ainda, não dá para saber: passa. */
-  async function checkNewGroup(userId: string, grupo: string | null | undefined, allowNew: boolean): Promise<void> {
+  async function checkNewGroup(me: KeyCaller, grupo: string | null | undefined, allowNew: boolean): Promise<void> {
     if (!grupo || allowNew) return;
-    const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'contexto' AND id = ?", [userId, CONTEXTO_NOTAS]);
+    const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'contexto' AND id = ?", [me.key.userId, CONTEXTO_NOTAS]);
     if (!row) return;
     const ctx = JSON.parse(row.dados) as ContextoNotasV1;
     if (ctx.grupos.some((g) => dobra(g.nome) === dobra(grupo))) return;
-    const names = ctx.grupos.map((g) => g.nome);
+    // só os grupos que a chave alcança (a limitada nunca vê o nome dos outros, como no contexto)
+    const names = ctx.grupos.map((g) => g.nome).filter((g) => inKeyGroups(me, g));
     throw new HttpError(
       422,
       'grupo-novo',
@@ -74,7 +76,7 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
     if (op === 'nota.criar') {
       alvo = idDeFicha(now.getTime(), randomBase36());
       if (!inKeyGroups(me, fields.grupo ?? null)) throw outsideGroups();
-      await checkNewGroup(userId, fields.grupo, allowNew);
+      await checkNewGroup(me, fields.grupo, allowNew);
       // a nota que já nasce no quadro do grupo (como o "Nova nota" de dentro de uma coluna)
       const k = (checked.dados as CriarNotaV1).kanban;
       if (k) {
@@ -96,7 +98,7 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
       if (op === 'nota.editar') {
         const e = checked.dados as EditarNotaV1;
         if (e.grupo !== undefined && !inKeyGroups(me, e.grupo)) throw outsideGroups();
-        if (e.grupo !== undefined && (!cur.shown.grupo || dobra(e.grupo ?? '') !== dobra(cur.shown.grupo))) await checkNewGroup(userId, e.grupo, allowNew);
+        if (e.grupo !== undefined && (!cur.shown.grupo || dobra(e.grupo ?? '') !== dobra(cur.shown.grupo))) await checkNewGroup(me, e.grupo, allowNew);
         // a versão que a AI leu não é a de agora: outra mudança passou na frente (ela relê e tenta de novo)
         if (cur.mirrored && cur.mirrored.versao !== e.versao) {
           return c.json(
@@ -135,15 +137,32 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
 
   app.get('/ext/v1/pedidos', async (c) => {
     const me = await authenticateKey(deps, c.req.header('Authorization'));
-    const limit = Math.min(100, Math.max(1, Number(c.req.query('limite') ?? 30) || 30));
-    const rows = await deps.db.all<RequestRow>(
-      `SELECT ${REQUEST_COLUMNS} FROM api_pedidos WHERE usuario_id = ? AND chave_id = ? ORDER BY criado_em DESC, rowid DESC LIMIT ?`,
-      [me.key.userId, me.key.id, limit],
-    );
+    const limit = intQuery(c.req.query('limite'), 30, 1, 100);
     const now = deps.now();
-    const estado = c.req.query('estado');
-    const itens = rows.map((r) => requestOut(r, now)).filter((r) => !estado || r.estado === estado);
-    return c.json({ itens });
+    const at = now.toISOString();
+    // o estado filtra no banco, antes do LIMIT (filtrado depois, os 30 mais novos podiam não ter nenhum
+    // pendente e a lista vinha vazia); "expirado" também é o aberto que passou do prazo (stateOf)
+    const estado = c.req.query('estado')?.trim() || undefined;
+    let filter = '';
+    const params: SqlValue[] = [me.key.userId, me.key.id];
+    if (estado !== undefined) {
+      if (!(ESTADOS as readonly string[]).includes(estado)) throw new HttpError(400, 'estado-invalido', `O estado é um destes: ${ESTADOS.join(', ')}.`);
+      if (estado === 'expirado') {
+        filter = " AND (estado = 'expirado' OR (estado IN ('pendente', 'aguardando-aprovacao') AND expira_em <= ?))";
+        params.push(at);
+      } else if ((ESTADOS_ABERTOS as readonly string[]).includes(estado)) {
+        filter = ' AND estado = ? AND expira_em > ?';
+        params.push(estado, at);
+      } else {
+        filter = ' AND estado = ?';
+        params.push(estado);
+      }
+    }
+    const rows = await deps.db.all<RequestRow>(
+      `SELECT ${REQUEST_COLUMNS} FROM api_pedidos WHERE usuario_id = ? AND chave_id = ?${filter} ORDER BY criado_em DESC, rowid DESC LIMIT ?`,
+      [...params, limit],
+    );
+    return c.json({ itens: rows.map((r) => requestOut(r, now)) });
   });
 
   app.get('/ext/v1/pedidos/:id', async (c) => {

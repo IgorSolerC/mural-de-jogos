@@ -142,5 +142,18 @@ export function mcpSuite(label: string, getDb: () => Db) {
       expect(read.contents[0].text).toContain('https://api.teste/mcp');
       expect((await t.body(t.rpc('prompts/list'))).result.prompts).toEqual([]);
     });
+
+    it('um corpo gigante nem é lido; ver_pedidos só aceita os estados que existem', async () => {
+      const t = await setup(['notas:ler']);
+      const huge = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping', params: { lixo: 'x'.repeat(400_000) } });
+      const res = await t.call('/mcp', { method: 'POST', headers: { Authorization: `Bearer ${t.secret}`, 'Content-Type': 'application/json' }, body: huge });
+      expect(res.status).toBe(413);
+      expect((await t.body(res)).error.code).toBe(-32600);
+      const tools = (await t.body(t.rpc('tools/list'))).result.tools as { name: string; inputSchema: { properties: Record<string, { enum?: string[] }> } }[];
+      expect(tools.find((x) => x.name === 'ver_pedidos')!.inputSchema.properties['estado']!.enum).toContain('aguardando-aprovacao');
+      const wrong = await t.tool('ver_pedidos', { estado: 'feito' });
+      expect(wrong.isError).toBe(true);
+      expect(wrong.content[0].text).toContain('estado-invalido');
+    });
   });
 }

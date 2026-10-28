@@ -28,6 +28,19 @@ const ORDERS: Record<string, string> = {
   data: 'data IS NULL, data DESC, id',
 };
 
+/** Até onde se pula numa lista (um OFFSET maior que isso nunca é uma página de verdade). */
+export const OFFSET_MAX = 1_000_000;
+
+/**
+ * Um número inteiro da consulta (`limite`, `depois`) entre `min` e `max`; o que não é número vira o
+ * padrão. Inteiro de verdade: o SQLite recusa um LIMIT ou OFFSET com fração (2.5) ou grande demais
+ * para 64 bits (1e20), e a lista caía em erro 500.
+ */
+export function intQuery(raw: string | undefined, fallback: number, min: number, max: number): number {
+  const n = Math.trunc(Number(raw ?? fallback)) || fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 const notFound = () => new HttpError(404, 'nota-nao-encontrada', 'Não achei essa nota (ou ela está num grupo que esta chave não alcança).');
 
 /** O estado do espelho da conta, para a AI saber se a lista vazia é "não tem nada" ou "ainda não chegou". */
@@ -68,9 +81,11 @@ export function extRoutes(app: Hono, deps: Deps): void {
     const me = await caller(c);
     requireScope(me, 'notas:ler');
     const q = (k: string) => c.req.query(k)?.trim() || undefined;
-    const limit = Math.min(LIST_MAX, Math.max(1, Number(q('limite') ?? 30) || 30));
-    const offset = Math.max(0, Number(q('depois') ?? 0) || 0);
-    const order = ORDERS[q('ordem') ?? 'mudou'];
+    const limit = intQuery(q('limite'), 30, 1, LIST_MAX);
+    const offset = intQuery(q('depois'), 0, 0, OFFSET_MAX);
+    const orderName = q('ordem') ?? 'mudou';
+    // só as ordens da lista (um "constructor" ou "__proto__" vinha do protótipo e virava erro 500)
+    const order = Object.hasOwn(ORDERS, orderName) ? ORDERS[orderName] : undefined;
     if (!order) throw new HttpError(400, 'ordem-invalida', `A ordem é uma destas: ${Object.keys(ORDERS).join(', ')}.`);
     const done = bool(q('finalizadas'));
     const pinned = bool(q('fixadas'));
@@ -127,11 +142,22 @@ export function extRoutes(app: Hono, deps: Deps): void {
     };
     const itens: ReturnType<typeof summary>[] = [];
     if (offset === 0) {
+      // os mesmos filtros da consulta, na nota que ainda não está no espelho
+      const sinceIso = since ? new Date(since).toISOString() : null;
+      const lower = (v: string) => v.toLowerCase();
+      const tagWanted = tag ? lower(tag.replace(/^#+/, '')) : null;
+      const matches = (n: NotaComPedidos) =>
+        (!subject || (n.assunto !== null && lower(n.assunto) === lower(subject))) &&
+        (tagWanted === null || n.tags.some((t) => lower(t) === tagWanted)) &&
+        (done === null || (n.finalizada_em !== null) === done) &&
+        (pinned === null || n.fixada === pinned) &&
+        (sinceIso === null || n.versao > sinceIso) &&
+        (!text || dobra(`${n.titulo}\n${n.texto}`).includes(dobra(text)));
       for (const r of pending.created) {
         const n = createdNote(r, pending, now);
         const allowed = !me.key.groups?.length || (n.grupo !== null && me.key.groups.some((g) => dobra(g) === dobra(n.grupo!)));
         const inGroup = group === undefined || (group === '-' ? n.grupo === null : n.grupo !== null && dobra(n.grupo) === dobra(group));
-        if (allowed && inGroup) itens.push(summary(n));
+        if (allowed && inGroup && matches(n)) itens.push(summary(n));
       }
     }
     let chars = 0;

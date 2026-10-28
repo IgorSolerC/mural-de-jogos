@@ -413,6 +413,21 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       expect((await put(t, secret, `/ext/v1/kanban/Trabalho/cartoes/${out.nota.id}`, { coluna: 'Feito' })).status).toBe(202);
       expect(where(await board(t, secret))[2]).toBe(`Feito: ${out.nota.id} trab-2`);
     });
+
+    it('a chave limitada não descobre o título nem o grupo de uma nota de fora dos grupos dela', async () => {
+      const t = await setup();
+      const { me } = await t.ready(ALL, { aprovacao: 'nunca' }, NOTAS);
+      const limited = await t.newKey(me.token, ['kanban:mover'], { grupos: ['Trabalho'] });
+      for (const id of ['estu-2', 'solta']) {
+        const res = await put(t, limited.segredo, `/ext/v1/kanban/Trabalho/cartoes/${id}`, { coluna: 'A fazer' });
+        const b = await t.body(res);
+        expect([res.status, b.erro], id).toEqual([404, 'nota-nao-encontrada']);
+        expect(b.mensagem).not.toContain('Derivadas');
+        expect(b.mensagem).not.toContain('Estudos');
+      }
+      // a do grupo dela continua entrando
+      expect((await put(t, limited.segredo, '/ext/v1/kanban/Trabalho/cartoes/trab-5', { coluna: 'A fazer' })).status).toBe(202);
+    });
   });
 
   describe(`${label}: o Kanban pelo MCP`, () => {

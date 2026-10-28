@@ -55,6 +55,8 @@ export function opMuda(op: string): boolean {
 
 /** Em que pé está um pedido. */
 export type EstadoDoPedido = 'aguardando-aprovacao' | 'pendente' | 'aplicado' | 'conflito' | 'recusado' | 'falhou' | 'expirado' | 'desfeito';
+/** Todos, na ordem do caminho de um pedido. */
+export const ESTADOS: readonly EstadoDoPedido[] = ['pendente', 'aguardando-aprovacao', 'aplicado', 'conflito', 'recusado', 'falhou', 'expirado', 'desfeito'];
 export const ESTADOS_ABERTOS: readonly EstadoDoPedido[] = ['aguardando-aprovacao', 'pendente'];
 
 /** Os campos de uma nota que se escrevem (a visibilidade só com o escopo `publicar`). */

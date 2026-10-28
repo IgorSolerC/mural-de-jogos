@@ -17,7 +17,7 @@ import { todayIn } from '../domain/mirror';
 import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
-import { mirrorState } from './routes';
+import { OFFSET_MAX, intQuery, mirrorState } from './routes';
 
 /**
  * Ler os Gastos com a chave (PLANO-API.md, 7.4; rodada 6): o mês como o app mostra (a visão que o site
@@ -132,8 +132,8 @@ export function spendingReadRoutes(app: Hono, deps: Deps): void {
   app.get('/ext/v1/gastos/lancamentos', async (c) => {
     const me = await caller(c);
     const q = (k: string) => c.req.query(k)?.trim() || undefined;
-    const limit = Math.min(LIST_MAX, Math.max(1, Number(q('limite') ?? 50) || 50));
-    const offset = Math.max(0, Number(q('depois') ?? 0) || 0);
+    const limit = intQuery(q('limite'), 50, 1, LIST_MAX);
+    const offset = intQuery(q('depois'), 0, 0, OFFSET_MAX);
     const where: string[] = ['usuario_id = ?', "tipo = 'lancamento'"];
     const params: SqlValue[] = [me.key.userId];
     const bound = (k: 'de' | 'ate') => {

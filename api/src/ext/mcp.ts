@@ -16,6 +16,9 @@ import { Deps } from '../ports';
 /** As versões do protocolo que este servidor fala, da mais nova para a mais velha. */
 export const PROTOCOLOS = ['2025-06-18', '2025-03-26', '2024-11-05'] as const;
 
+/** O corpo de um pedido ao MCP: o lote dos Gastos (256 mil letras) e o envelope do JSON-RPC. */
+const MCP_MAX_CHARS = 300_000;
+
 /** O recurso do guia. */
 const GUIA_URI = 'murall://guia';
 
@@ -121,8 +124,12 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
       throw error;
     }
     let msg: { jsonrpc?: unknown; id?: Id; method?: unknown; params?: Record<string, unknown> };
+    // o maior pedido de uma ferramenta (um lote dos Gastos) cabe folgado; um corpo gigante nem é lido
+    if (Number(c.req.header('Content-Length') ?? 0) > MCP_MAX_CHARS * 4) return c.json(fail(null, -32600, 'O pedido é grande demais.'), 413);
     try {
-      msg = await c.req.json();
+      const text = await c.req.text();
+      if (text.length > MCP_MAX_CHARS) return c.json(fail(null, -32600, 'O pedido é grande demais.'), 413);
+      msg = JSON.parse(text);
     } catch {
       return c.json(fail(null, -32700, 'O corpo não é JSON.'), 400);
     }
