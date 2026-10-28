@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
+import { writeJson } from './storage';
 
 /** O que a nuvem disse da última vez (para a primeira busca de uma visita não esperar a resposta). */
 const CACHE_KEY = 'mural-de-jogos:chaves-do-site:v1';
@@ -58,7 +59,7 @@ export class SiteKeys {
       const data = (await res.json()) as Record<string, unknown>;
       this.rawg.set(data['rawg'] === true);
       this.tmdb.set(data['tmdb'] === true);
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ rawg: this.rawg(), tmdb: this.tmdb() }));
+      writeJson(CACHE_KEY, { rawg: this.rawg(), tmdb: this.tmdb() });
     } catch {
       // sem resposta (offline, nuvem fora): fica o que ela disse da última vez; se falhar, a busca volta sozinha
     }

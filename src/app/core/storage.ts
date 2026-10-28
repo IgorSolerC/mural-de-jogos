@@ -19,6 +19,11 @@ export function storageFrozen(): boolean {
   return frozen;
 }
 
+/** Só para os testes: destrava (no site, só recarregar a página destrava). */
+export function thawStorage(): void {
+  frozen = false;
+}
+
 /** O texto guardado na chave, ou null (nada guardado, ou sem armazenamento). */
 export function readText(key: string): string | null {
   try {

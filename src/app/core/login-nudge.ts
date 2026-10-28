@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { CloudAccount } from './cloud-account';
 import { Cloud } from './cloud-config';
 import { ReviewStore } from './review-store';
-import { readText } from './storage';
+import { readText, writeText } from './storage';
 
 /**
  * O convite para entrar com o Google, na faixa de avisos: para quem tem um mural só neste navegador
@@ -20,12 +20,9 @@ export function nudgeDue(next: string | null, now: number): boolean {
 }
 
 
+/** Sem armazenamento, aparece a cada abertura, o que ainda é melhor que nunca. */
 function writeNext(at: number): void {
-  try {
-    localStorage.setItem(KEY, new Date(at).toISOString());
-  } catch {
-    /* sem armazenamento: aparece a cada abertura, o que ainda é melhor que nunca */
-  }
+  writeText(KEY, new Date(at).toISOString());
 }
 
 @Injectable({ providedIn: 'root' })

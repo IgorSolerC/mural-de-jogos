@@ -939,13 +939,18 @@ export class CloudSync {
         return null;
       }
       if (remote.kind === 'doc') mergeFichas = true;
-    } else if (remoteHas && !localHas) {
-      // aparelho vazio: o mural da conta desce
-      this.apply(() => this.store.importJson((remote as { text: string }).text, 'replace'));
     } else if (remoteHas && localHas) {
       // o mural daqui já era desta conta: junta sem perguntar (com a cópia de antes, por garantia)
       await this.keepCopy();
       mergeFichas = true;
+    }
+    // Daqui em diante o mural daqui é desta conta: o dono vem antes de qualquer coisa dela descer. Se a
+    // sessão cair (ou a aba fechar) no meio, o que desceu já tem dono e sai na limpeza, em vez de ficar
+    // como de ninguém e poder ir para outra conta.
+    this.writeOwner(accountId);
+    if (remoteHas && !localHas) {
+      // aparelho vazio: o mural da conta desce
+      this.apply(() => this.store.importJson((remote as { text: string }).text, 'replace'));
     }
     // as chaves: a da nuvem vale se for mais nova (a conferência seguinte é "mudou?", e não traria)
     if (remote.kind === 'doc') {
@@ -956,7 +961,6 @@ export class CloudSync {
       base.publicas = publicPrintOf(remote.data);
     }
     // (sem nada na nuvem e o daqui desta conta, ou de ninguém e levado: sobe como está, logo abaixo)
-    this.writeOwner(accountId);
     this.writeState(base);
     return base;
   }

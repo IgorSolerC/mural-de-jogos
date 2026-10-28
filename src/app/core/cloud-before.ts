@@ -1,4 +1,5 @@
 import { DAY_MS } from './dates';
+import { storageFrozen } from './storage';
 /**
  * A cópia de antes da nuvem: na primeira vez que um aparelho junta (ou troca) o mural com o da conta,
  * o mural que estava aqui fica guardado inteiro, compactado, por 30 dias. Ajustes oferece para
@@ -43,7 +44,8 @@ async function run<T>(mode: IDBTransactionMode, body: (store: IDBObjectStore) =>
 
 /** Guarda a cópia (troca a anterior). Sem IndexedDB, não guarda: quem chama segue mesmo assim. */
 export async function saveBeforeCloud(blob: Blob, now = new Date()): Promise<boolean> {
-  if (typeof indexedDB === 'undefined') return false;
+  // a página está recarregando para limpar o navegador (ver core/browser-reset.ts): gravar recriaria o banco
+  if (typeof indexedDB === 'undefined' || storageFrozen()) return false;
   try {
     await run('readwrite', (s) => s.put({ blob, at: now.toISOString() } satisfies BeforeCloudCopy, KEY));
     return true;

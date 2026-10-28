@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BEFORE_CLOUD_DB } from './cloud-before';
-import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
+import { ACCOUNT_KEY, SESSION_KEY, readAccount, readToken } from './cloud-account';
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
 import { PREFIXES, deleteDatabase } from './erase-save';
@@ -78,6 +78,12 @@ export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void
   } catch {
     /* sem localStorage, não há o que tirar dele */
   }
+  try {
+    // o da aba também (o aviso de depois da limpeza é gravado depois dela, em `resetOnBoot`)
+    for (const key of resetKeys(sessionStorage)) sessionStorage.removeItem(key);
+  } catch {
+    /* sem sessionStorage, idem */
+  }
   const databases = [DATA_DB, COLLEAGUES_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
   await Promise.all(databases.map(deleteDatabase));
   try {
@@ -101,7 +107,9 @@ export async function resetOnBoot(): Promise<boolean> {
   let orphan: boolean;
   try {
     request = readRequest(localStorage.getItem(RESET_KEY));
-    orphan = localStorage.getItem(OWNER_KEY) !== null && localStorage.getItem(SESSION_KEY) === null;
+    // sem a sessão ou sem a conta inteira (uma das duas não coube ao entrar, ou se estragou), ninguém
+    // está neste navegador: o app abre como fora da conta, e o mural dela não pode ficar à mostra
+    orphan = localStorage.getItem(OWNER_KEY) !== null && (readToken() === null || readAccount() === null);
   } catch {
     return false;
   }
@@ -150,13 +158,21 @@ export class BrowserReset {
 
   request(motivo: ResetReason, keep: ResetKeep[] = []): void {
     if (this.pending) return;
-    this.pending = { keep, motivo };
-    try {
-      localStorage.setItem(RESET_KEY, JSON.stringify(this.pending));
-    } catch {
-      /* sem armazenamento, não há o que limpar */
-    }
+    const pending: ResetRequest = { keep, motivo };
+    this.pending = pending;
     this.freeze();
+    try {
+      localStorage.setItem(RESET_KEY, JSON.stringify(pending));
+    } catch {
+      // Não coube nem o pedido (o armazenamento cheio, com o espelho do mural): sem ele, a subida não
+      // limparia o que não tem dono marcado. A limpeza começa daqui; com espaço, o pedido vai depois,
+      // para as outras abas recarregarem e a subida terminar e avisar.
+      void wipeBrowser(keep)
+        .then(() => localStorage.setItem(RESET_KEY, JSON.stringify(pending)))
+        .catch(() => undefined)
+        .finally(() => this.reload());
+      return;
+    }
     this.reload();
   }
 }

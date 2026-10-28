@@ -85,7 +85,8 @@ export function deviceLabel(ua: string): string {
   return system ? `${browser} no ${system}` : browser;
 }
 
-function readAccount(): CloudAccountInfo | null {
+/** A conta guardada neste navegador, se está inteira (sem ela, ninguém está nele). */
+export function readAccount(): CloudAccountInfo | null {
   const raw = readJson<Partial<CloudAccountInfo>>(ACCOUNT_KEY);
   if (!raw || typeof raw.codigo !== 'string' || typeof raw.nome !== 'string') return null;
   return {
@@ -98,7 +99,8 @@ function readAccount(): CloudAccountInfo | null {
   };
 }
 
-function readToken(): string | null {
+/** A sessão guardada neste navegador, se tem o formato de uma (sem ela, ninguém está nele). */
+export function readToken(): string | null {
   try {
     const token = localStorage.getItem(SESSION_KEY);
     return token && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : null;

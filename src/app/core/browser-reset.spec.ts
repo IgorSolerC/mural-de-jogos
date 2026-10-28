@@ -1,8 +1,9 @@
 import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
-import { COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
+import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
 import { APPLIED_KEY } from './api-requests';
+import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -74,6 +75,50 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull();
   });
 
+  it('o mural de uma conta com a sessão mas sem a conta guardada (não coube ao entrar) é limpo ao abrir', async () => {
+    signedInBrowser();
+    localStorage.removeItem(ACCOUNT_KEY);
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(localStorage.getItem(OWNER_KEY)).toBeNull();
+  });
+
+  it('o mural de uma conta com a sessão estragada é limpo ao abrir (o app abriria fora da conta)', async () => {
+    signedInBrowser();
+    localStorage.setItem(SESSION_KEY, 'estragada');
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem('meu-mural:calendario:v1')).toBeNull();
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+  });
+
+  it('o que o mural guardou na sessão da aba sai junto; o de outro site fica', async () => {
+    sessionStorage.setItem('meu-mural:coisa-da-aba', '1');
+    sessionStorage.setItem('mural-de-jogos:coisa-antiga', '1');
+    sessionStorage.setItem('outro-site:coisa', 'fica');
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(sessionStorage.getItem('meu-mural:coisa-da-aba')).toBeNull();
+    expect(sessionStorage.getItem('mural-de-jogos:coisa-antiga')).toBeNull();
+    expect(sessionStorage.getItem('outro-site:coisa')).toBe('fica');
+    // o aviso de que limpou é gravado depois da limpeza
+    expect(takeReset()).toBe('saiu');
+  });
+
+  it('enquanto a página recarrega para limpar, nada grava: nem as chaves, nem a cópia de antes da nuvem', async () => {
+    freezeStorage();
+    try {
+      writeText('meu-mural:lembrete-conta', 'x');
+      writeJson('mural-de-jogos:chaves-do-site:v1', { rawg: true });
+      expect(await saveBeforeCloud(new Blob(['{}']))).toBeFalse();
+    } finally {
+      thawStorage();
+    }
+    expect(localStorage.getItem('meu-mural:lembrete-conta')).toBeNull();
+    expect(localStorage.getItem('mural-de-jogos:chaves-do-site:v1')).toBeNull();
+    expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
+  });
+
   it('o mural de ninguém, sem conta, fica', async () => {
     localStorage.setItem('meu-mural:gastos:v1', '{"entries":[]}');
     expect(await resetOnBoot()).toBeFalse();
@@ -139,6 +184,34 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(SESSION_KEY)).toBeNull();
     expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+  });
+
+  it('sem espaço nem para o pedido (armazenamento cheio): limpa antes de recarregar, e o pedido vai depois', async () => {
+    signedInBrowser();
+    await openDb(DATA_DB);
+    // o dono não chegou a ser gravado: sem a limpeza daqui, a subida deixaria o mural como de ninguém
+    localStorage.removeItem(OWNER_KEY);
+    const setItem = Storage.prototype.setItem;
+    let full = true;
+    spyOn(Storage.prototype, 'setItem').and.callFake(function (this: Storage, key: string, value: string) {
+      if (full && key === RESET_KEY) {
+        full = false;
+        throw new DOMException('cheio', 'QuotaExceededError');
+      }
+      setItem.call(this, key, value);
+    });
+    const reset = new BrowserReset();
+    const freeze = jasmine.createSpy('freeze');
+    const reloaded = new Promise<void>((resolve) => (reset.reload = resolve));
+    reset.freeze = freeze;
+    reset.request('saiu');
+    expect(freeze).toHaveBeenCalled();
+    await reloaded;
+    expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+    expect(localStorage.getItem(SESSION_KEY)).toBeNull();
+    expect(await databases()).not.toContain(DATA_DB);
+    expect(JSON.parse(localStorage.getItem(RESET_KEY)!)).toEqual({ keep: [], motivo: 'saiu' });
+    expect(localStorage.getItem('outro-site:coisa')).toBe('fica');
   });
 
   it('outra aba pediu a limpeza: esta para de gravar e recarrega', () => {

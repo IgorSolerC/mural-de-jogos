@@ -850,6 +850,20 @@ describe('sincronização com a nuvem', () => {
       expect(a.spending.entries().map((e) => e.title)).toEqual(['Gasto daqui']);
     });
 
+    it('aparelho vazio: o dono é gravado antes de o mural da conta descer (a sessão caindo no meio, ele sai na limpeza)', async () => {
+      await cloudWith('Da nuvem');
+      const a = device({ anonimo: true });
+      let ownerWhenImported: string | null | undefined;
+      const importJson = a.store.importJson.bind(a.store);
+      spyOn(a.store, 'importJson').and.callFake((...args: Parameters<typeof importJson>) => {
+        ownerWhenImported = a.kv.getItem(OWNER_KEY);
+        return importJson(...args);
+      });
+      await a.sync.syncNow();
+      expect(ownerWhenImported).toBe(ACCOUNT.id);
+      expect(a.names()).toEqual(['Da nuvem']);
+    });
+
     it('aparelho vazio, de ninguém, e conta com mural: desce sem perguntar', async () => {
       await cloudWith('Da nuvem');
       const a = device({ anonimo: true });
