@@ -138,6 +138,8 @@ describe('limpar o navegador (sair da conta)', () => {
   });
 
   it('enquanto a página recarrega para limpar, nada grava: nem as chaves, nem a cópia de antes da nuvem', async () => {
+    // (um teste de outro arquivo, rodado antes na ordem aleatória, pode ter deixado o banco)
+    await wipeBrowser();
     freezeStorage();
     try {
       writeText('meu-mural:lembrete-conta', 'x');
@@ -149,6 +151,28 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(localStorage.getItem('meu-mural:lembrete-conta')).toBeNull();
     expect(localStorage.getItem('mural-de-jogos:chaves-do-site:v1')).toBeNull();
     expect(await databases()).not.toContain(BEFORE_CLOUD_DB);
+  });
+
+  it('a sessão que acabou antes de escolher o que fazer com o mural de ninguém: sai tudo, o de ninguém e o que a conta trouxe', async () => {
+    // entrou, a pergunta "Levar o mural para a conta?" ficou sem resposta (sem dono), e a conta já trouxe coisas dela
+    localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-ela', codigo: 'TMY1-BJMW', nome: 'Ela' }));
+    localStorage.setItem('mural-de-jogos:resenhas:v1', '[]');
+    localStorage.setItem('meu-mural:gastos:v1', '{"entries":[]}');
+    localStorage.setItem('meu-mural:agenda-google:v1', '{"conta":"conta-ela"}');
+    localStorage.setItem('outro-site:coisa', 'fica');
+    await openDb(DATA_DB);
+    // a sessão acabou (401): a conta sai daqui, e a limpeza é pedida como no Sair
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(ACCOUNT_KEY);
+    const reset = new BrowserReset();
+    reset.freeze = () => undefined;
+    reset.reload = () => undefined;
+    reset.request('saiu');
+    expect(await resetOnBoot()).toBeTrue();
+    expect(Object.keys(localStorage)).toEqual(['outro-site:coisa']);
+    expect(await databases()).not.toContain(DATA_DB);
+    expect(takeReset()).toBe('saiu');
   });
 
   it('o mural de ninguém, sem conta, fica', async () => {

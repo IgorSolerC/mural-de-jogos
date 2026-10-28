@@ -372,6 +372,15 @@ export function oauthSuite(label: string, getDb: () => Db) {
       expect(((await t.body(t.renew(third.refresh_token, 'oc_AAAAAAAAAAAAAAAA'))) as any).error).toBe('invalid_grant');
     });
 
+    it('o token de acesso com a data de vencer estragada não entra (na dúvida, venceu)', async () => {
+      const t = await setup();
+      const { clientId, code, keyId } = await t.permitted();
+      const first = (await t.body(t.exchange(code, clientId))) as any;
+      expect((await t.mcp(first.access_token)).status).toBe(200);
+      await t.db.batch([{ sql: "UPDATE api_chaves SET hash_expira_em = 'nunca' WHERE id = ?", params: [keyId] }]);
+      expect((await t.mcp(first.access_token)).status).toBe(401);
+    });
+
     it('a renovação velha repetida corta o conector (menos na corrida de 30 segundos)', async () => {
       const t = await setup();
       const { clientId, code, keyId } = await t.permitted();

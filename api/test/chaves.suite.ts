@@ -231,6 +231,17 @@ export function chavesSuite(label: string, getDb: () => Db) {
       expect(await t.keyRows(me.id)).toHaveLength(0);
     });
 
+    it('a chave com a data de vencer estragada não entra (na dúvida, venceu)', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      const { body } = await t.create(me.token);
+      expect((await t.ext(body.segredo)).status).toBe(200);
+      await t.db.batch([{ sql: "UPDATE api_chaves SET expira_em = 'nunca'" }]);
+      const res = await t.ext(body.segredo);
+      expect(res.status).toBe(401);
+      expect((await t.body(res)).erro).toBe('chave-invalida');
+    });
+
     it('a conta que sai de API_CODIGOS para de responder às chaves', async () => {
       const t = await setup();
       const me = await t.login('ana');
