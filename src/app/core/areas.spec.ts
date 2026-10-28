@@ -82,6 +82,17 @@ describe('as quatro partes do site', () => {
       expect(router.url).toBe('/analises/filmes');
     });
 
+    it('um endereço que não existe (ou uma seção que o mural não tem) leva à última parede aberta, não a uma página em branco', async () => {
+      await router.navigateByUrl('/analises/livros');
+      for (const url of ['/qualquer', '/analises/xyz/lixo', '/analises/jogos/lixo', '/anotacoes/nada/mais']) {
+        await router.navigateByUrl(url);
+        expect(router.url).withContext(url).toBe('/analises/livros');
+      }
+      await router.navigateByUrl('/anotacoes');
+      await router.navigateByUrl('/qualquer');
+      expect(router.url).toBe('/anotacoes');
+    });
+
     it('"Murall" leva à última parede aberta', async () => {
       await router.navigateByUrl('/anotacoes');
       await router.navigateByUrl('/perfil');

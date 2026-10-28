@@ -533,12 +533,13 @@ function workKey(s: string | undefined): string {
 
 /**
  * São a mesma obra? O mesmo mural e o mesmo nome (sem diferença de maiúsculas, acentos e espaços); na
- * música, também o mesmo artista. Dois títulos iguais que se sabe que são obras diferentes (anos,
+ * música, também o mesmo artista e a mesma forma (álbum ou música). Dois títulos iguais que se sabe que são obras diferentes (anos,
  * autores ou ids da busca diferentes, como um remake) não contam. Anotação não tem outra vez.
  */
 export function sameWork(a: Review, b: Review): boolean {
   if (a.kind !== b.kind || isNote(a) || workKey(a.game.name) !== workKey(b.game.name)) return false;
-  if (isMusicReview(a) && workKey(a.category) !== workKey(b.category)) return false;
+  // na música, também o mesmo artista e a mesma forma: o álbum e a faixa-título dele são duas obras
+  if (isMusicReview(a) && (workKey(a.category) !== workKey(b.category) || musicFormOf(a.game) !== musicFormOf(b.game))) return false;
   const differ = (x: string | undefined, y: string | undefined) => !!x && !!y && workKey(x) !== workKey(y);
   if (differ(a.game.year, b.game.year) || differ(a.game.by, b.game.by)) return false;
   return !(a.game.source === b.game.source && differ(a.game.sourceId, b.game.sourceId));

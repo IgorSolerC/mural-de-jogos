@@ -1,7 +1,7 @@
 import { CategoryLooks, sanitizeCategoryLooks } from './category-looks';
 import { Profile, sanitizeProfile } from './profile';
 import { buildOf } from './migrations';
-import { Review, sanitizeReview } from './review';
+import { Review, linkSameWorks, sanitizeReview } from './review';
 
 /** Limita também o conteúdo descompactado, antes de tentar interpretar o JSON. */
 const MAX_BYTES = 32 * 1024 * 1024;
@@ -175,8 +175,13 @@ export function parseBackupSnapshot(text: string | ParsedBackup): BackupSnapshot
       reviews.set(r.id, r);
   }
   const exportedAt = object?.['exportedAt'];
+  // a rejogada à mostra cuja original ficou com a dona (privada) ou saiu: a vez mais antiga à mostra é
+  // a original aqui, como no aparelho dela quando a original sai (senão a obra sumia do ranking, das
+  // contas e dos Extras de quem visita). Só na leitura: nada muda de hora.
+  const kept = [...reviews.values()];
+  const linked = new Map(linkSameWorks(kept, '').map((r) => [r.id, r]));
   return {
-    reviews: [...reviews.values()],
+    reviews: linked.size ? kept.map((r) => (linked.has(r.id) ? { ...linked.get(r.id)!, updatedAt: r.updatedAt } : r)) : kept,
     skipped,
     ownerName: ownerNameOf(object),
     categoryLooks: sanitizeCategoryLooks(object?.['categorias']),

@@ -397,6 +397,31 @@ describe('ReviewStore', () => {
       expect(store.reviews().filter((r) => r.game.name === 'A' && !r.revisitOf).map((r) => r.id)).toEqual(['raaaa1']);
     });
 
+    it('o Desfazer de apagar a original não perde o que foi escrito na rejogada depois de apagar', () => {
+      const before = [store.get('raaaa1')!, ...store.revisitsOf('raaaa1')];
+      store.remove('raaaa1');
+      const heir = store.get('rvez01')!;
+      store.update({ ...heir, text: 'escrito depois de apagar', updatedAt: '2024-05-01T00:00:00Z' });
+      store.undoRemove(before);
+      expect(store.get('rvez01')!.text).toBe('escrito depois de apagar');
+      expect(store.get('rvez01')!.revisitOf).toBe('raaaa1');
+      expect(store.get('rvez01')!.artFrom).toBeUndefined();
+      expect(store.get('raaaa1')!.revisitOf).toBeUndefined();
+    });
+
+    it('a junção que deixa a rejogada sem a original (apagada no outro aparelho) já a faz original, sem esperar o F5', () => {
+      const t = '2030-01-01T00:00:00Z';
+      const rev = store.get('rvez01')!;
+      store.importJson(
+        JSON.stringify({ reviews: [{ ...rev, text: 'mexida lá', updatedAt: t }], deleted: { reviews: { raaaa1: t }, drafts: {}, wishes: {} } }),
+        'merge',
+      );
+      expect(store.get('raaaa1')).toBeUndefined();
+      expect(store.get('rvez01')!.revisitOf).toBeUndefined();
+      expect(store.get('rvez01')!.text).toBe('mexida lá');
+      expect(store.get('rvez01')!.artFrom).toBe('raaaa1');
+    });
+
     it('a ficha nova com o nome de uma obra que já está no mural entra como rejogada dela, com o papel que ganhou', () => {
       const swap = store.add(sanitizeReview(review('rnova1', ' a ', '2024-06-01T00:00:00Z', { completedAt: '2024-06-01' }))!);
       expect(swap).toBeNull();
@@ -494,5 +519,18 @@ describe('ReviewStore: junção para a sincronização', () => {
     store.update({ ...store.get('raaaa1')!, game: { ...store.get('raaaa1')!.game, name: 'A editada aqui' }, updatedAt: '2024-02-01T00:00:00Z' });
     TestBed.tick();
     expect(localStorage.getItem(NOTES)).toBe(theirs);
+  });
+
+  it('a mudança daqui que chega junto com a de outra aba (antes de o efeito passar) é gravada', () => {
+    const t = '2024-01-02T00:00:00Z';
+    store.importJson(JSON.stringify({ reviews: [review('raaaa1', 'A', t), review('rbbbb1', 'B', t)] }), 'replace');
+    TestBed.tick();
+    const KEY = 'mural-de-jogos:resenhas:v1';
+    // a outra aba regrava a lista e avisa; logo depois, antes da passada do efeito, uma mudança daqui
+    localStorage.setItem(KEY, localStorage.getItem(KEY)!);
+    window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+    store.update({ ...store.get('raaaa1')!, game: { ...store.get('raaaa1')!.game, name: 'A editada aqui' }, updatedAt: '2024-02-01T00:00:00Z' });
+    TestBed.tick();
+    expect(localStorage.getItem(KEY)).toContain('A editada aqui');
   });
 });

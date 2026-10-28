@@ -136,10 +136,11 @@ export class WallBoard {
 
   /**
    * O id da seção a partir da chave dela (que pode ter espaço, acento, ":"): continua o mesmo quando a
-   * seção muda de lugar, para a etiqueta deslizar junto (ver WallMotion).
+   * seção muda de lugar, para a etiqueta deslizar junto (ver WallMotion). O "_" também é trocado e o
+   * código fecha com "_": duas chaves diferentes nunca dão o mesmo id ("c:x" e "c_3ax", ":b" e "Ϋ").
    */
   protected idOf(key: string): string {
-    return key.replace(/[^a-zA-Z0-9_-]/g, (c) => `_${c.codePointAt(0)!.toString(16)}`);
+    return key.replace(/[^a-zA-Z0-9-]/gu, (c) => `_${c.codePointAt(0)!.toString(16)}_`);
   }
 
   /** Fecha ou abre uma seção; as de baixo deslizam para o lugar novo. */

@@ -513,6 +513,19 @@ describe('rejogadas', () => {
       expect(sameWork(b, named('Duna', { by: 'Outra Pessoa' }))).toBeFalse();
     });
 
+    it('na música, o álbum e a faixa-título dele (o mesmo nome e artista) são duas obras', () => {
+      const scores = { envolvimento: 9, letra: 9, vocal: 9, instrumental: 9 };
+      const song = (id: string, form: 'album' | 'faixa') =>
+        at(id, '2021', { kind: 'musicas', scores, category: 'Michael Jackson', game: { name: 'Thriller', coverUrl: null, source: 'manual', form } });
+      const album = at('ralb01', '2020', { kind: 'musicas', scores, category: 'Michael Jackson', game: { name: 'Thriller', coverUrl: null, source: 'itunes', sourceId: '1', form: 'album' } });
+      expect(sameWork(album, song('rfx001', 'faixa'))).toBeFalse();
+      expect(sameWork(album, song('ral002', 'album'))).toBeTrue();
+      // a faixa nova não vira reescuta do álbum, nem é ligada a ele ao abrir
+      expect(asRevisit([album], song('rfx001', 'faixa')).revisitOf).toBeUndefined();
+      expect(linkSameWorks([album, song('rfx001', 'faixa')], now)).toEqual([]);
+      expect(asRevisit([album], song('ral002', 'album')).revisitOf).toBe('ralb01');
+    });
+
     it('a ficha nova de uma obra que já está no mural vira rejogada da original dela', () => {
       const list = [at('ro0001', '2020'), at('rv0001', '2021', { revisitOf: 'ro0001' })];
       const fresh = at('rn0001', '2022', { game: { ...list[0].game } });

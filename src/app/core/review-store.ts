@@ -173,8 +173,18 @@ export class ReviewStore {
 
   /** O que foi gravado por último em cada lista (ver o efeito das resenhas). */
   private written: Record<Shelf, readonly Review[]> = shelved(this.reviews());
-  /** As listas que acabaram de vir de outra aba: a próxima passada do efeito delas não grava. */
-  private readonly skipNext = new Set<DataKey>();
+  /**
+   * O que acabou de vir de outra aba, em cada lista: a passada do efeito que vê exatamente isto não
+   * grava. Pela referência, e não por uma marca de "pule a próxima": uma mudança daqui que chegue antes
+   * da passada (as duas juntas numa só) é gravada.
+   */
+  private readonly fromOutside = new Map<DataKey, unknown>();
+  /** A lista acabou de vir de outra aba, como está? (e esquece: só vale para a próxima passada) */
+  private cameFromOutside(key: DataKey, value: unknown): boolean {
+    const outside = this.fromOutside.get(key);
+    this.fromOutside.delete(key);
+    return outside !== undefined && outside === value;
+  }
   /**
    * As listas como foram lidas ao abrir. Enquanto nada mudou, não há o que gravar, e gravar ali
    * apagaria um texto corrompido (ou uma entrada que não abriu) antes de alguém poder salvá-lo.
@@ -201,7 +211,7 @@ export class ReviewStore {
       const now = shelved(list);
       // vindo de outra aba, o que está gravado já é isto: anota sem gravar (senão a próxima mudança
       // daqui regravaria as outras listas também, por cima do que a outra aba pode ter gravado depois)
-      if (this.skipNext.delete(KEY)) {
+      if (this.cameFromOutside(KEY, all)) {
         this.written = now;
         return;
       }
@@ -220,22 +230,15 @@ export class ReviewStore {
     // Outra aba mexeu no mural: acompanha sem sobrescrever.
     if (typeof window !== 'undefined') {
       this.data.onExternalChange((key) => {
-        if (key === KEY || key === NOTES_KEY || key === MUSIC_KEY) {
-          this.skipNext.add(KEY);
-          this.reviews.set(this.read());
-        } else if (key === DRAFTS_KEY) {
-          this.skipNext.add(DRAFTS_KEY);
-          this.drafts.set(this.readDrafts());
-        } else if (key === WISHES_KEY) {
-          this.skipNext.add(WISHES_KEY);
-          this.wishes.set(this.readWishes());
-        } else if (key === DELETED_KEY) {
-          this.skipNext.add(DELETED_KEY);
-          this.deleted.set(this.readDeleted());
-        } else if (key === VERSIONS_KEY) {
-          this.skipNext.add(VERSIONS_KEY);
-          this.versions.set(this.readVersions());
-        }
+        const take = <T>(k: DataKey, value: T, into: { set(v: T): void }) => {
+          this.fromOutside.set(k, value);
+          into.set(value);
+        };
+        if (key === KEY || key === NOTES_KEY || key === MUSIC_KEY) take(KEY, this.read(), this.reviews);
+        else if (key === DRAFTS_KEY) take(DRAFTS_KEY, this.readDrafts(), this.drafts);
+        else if (key === WISHES_KEY) take(WISHES_KEY, this.readWishes(), this.wishes);
+        else if (key === DELETED_KEY) take(DELETED_KEY, this.readDeleted(), this.deleted);
+        else if (key === VERSIONS_KEY) take(VERSIONS_KEY, this.readVersions(), this.versions);
       });
     }
 
@@ -385,7 +388,16 @@ export class ReviewStore {
    */
   undoRemove(before: readonly Review[]): void {
     const now = new Date().toISOString();
-    const back = new Map(before.filter((r) => this.get(r.id)).map((r) => [r.id, { ...r, updatedAt: now }]));
+    // as rejogadas voltam a apontar para ela como antes, mas com o que foi escrito nelas depois de
+    // apagar (o remove só mexeu em quem aponta para quem: `revisitOf` e `artFrom`)
+    const back = new Map(
+      before.flatMap((r) => {
+        const current = this.get(r.id);
+        if (!current) return [];
+        const { revisitOf: _r, artFrom: _a, ...rest } = current;
+        return [[r.id, { ...rest, ...(r.revisitOf ? { revisitOf: r.revisitOf } : {}), ...(r.artFrom ? { artFrom: r.artFrom } : {}), updatedAt: now }] as const];
+      }),
+    );
     if (back.size) this.reviews.update((list) => list.map((r) => back.get(r.id) ?? r));
     for (const r of before) if (!back.has(r.id)) this.restore(r);
   }
@@ -579,6 +591,7 @@ export class ReviewStore {
       const shared = this.sharedIds();
       const kept = this.reviews().filter((r) => shared.has(r.id) || (isNote(r) && !rawNotes) || (isMusicReview(r) && !rawMusic));
       this.reviews.set(withStocks([...incoming.filter((r) => !shared.has(r.id)), ...kept]));
+      this.linkSameWorks();
       if (rawDrafts) this.drafts.set(incomingDrafts);
       if (rawWishes) this.wishes.set(incomingWishes);
       this.deleted.set(theirs);
@@ -639,6 +652,9 @@ export class ReviewStore {
       }
     }
     this.reviews.set(withStocks([...byId.values()]));
+    // a junção pode deixar uma rejogada sem a original (apagada lá, e a rejogada mexida aqui) ou duas
+    // fichas soltas da mesma obra: ligadas já, como ao abrir, e não só no próximo F5
+    this.linkSameWorks();
     if (lost.length) {
       const em = new Date().toISOString();
       this.versions.update((v) => mergeVersions(lost.map((l) => ({ ...l, em })), v));
@@ -794,7 +810,7 @@ export class ReviewStore {
   private persist<T>(list: () => T, key: DataKey, loaded: T, stored: (value: T) => unknown = (v) => v): void {
     effect(() => {
       const value = list();
-      if (this.skipNext.delete(key)) return;
+      if (this.cameFromOutside(key, value)) return;
       if (value === loaded) return;
       this.write(key, stored(value));
     });

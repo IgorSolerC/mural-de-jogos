@@ -104,5 +104,7 @@ export const routes: Routes = [
   // um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2)
   { path: 'autorizar', title: 'Autorizar', loadComponent: () => import('./pages/authorize-page').then((m) => m.AuthorizePage) },
   { path: 'novidades', title: 'Novidades', loadComponent: () => import('./pages/news-page').then((m) => m.NewsPage) },
-  { path: '**', redirectTo: '' },
+  // um endereço que não existe (ou uma seção que um mural não tem): a última parede aberta. Pela função, e
+  // não por '' (que redireciona de novo): o Router não segue a segunda e a página ficava em branco em "/"
+  { path: '**', redirectTo: toLastWall },
 ];

@@ -236,7 +236,7 @@ const PATCH_GAP = 8;
                     @if (board(); as b) {
                       <div class="lugar no-quadro" [attr.data-cor]="b.color">
                         <span class="sr-only">No Kanban: </span>
-                        <lucide-icon class="lugar-icone" [img]="b.icon ?? CalendarIcon" [size]="16" aria-hidden="true" />
+                        <lucide-icon class="lugar-icone" [img]="b.icon" [size]="16" aria-hidden="true" />
                         <button type="button" class="parte-de" [title]="'Abrir o quadro de ' + r.category + ' no Kanban'" (click)="openBoard(b.id)">{{ b.column }}</button>
                         @if (b.importance; as imp) {
                           <span class="etq imp" [attr.data-imp]="imp">
@@ -625,7 +625,8 @@ export class ReviewReader {
     return {
       id: spot.board.id,
       column: column?.name ?? 'No quadro',
-      icon: column ? ICON_CHOICE[column.icon] : null,
+      // a coluna que não está mais no quadro (ou um desenho que não existe): o do quadro, nunca o do Calendário ao lado
+      icon: (column && ICON_CHOICE[column.icon]) || ICON.colunas,
       color: column?.color ?? null,
       importance: spot.card.importance,
       status: spot.card.status ?? null,
@@ -1254,6 +1255,8 @@ export class ReviewReader {
   private show(n: Review): void {
     this.review.set(n);
     this.stampedNow.set(false);
+    // a conferida mais seguido passa para a que abriu (a de antes, fora da tela, volta ao normal)
+    this.watchShared(this.owner() === null ? n.id : null);
     const dialog = this.dialog().nativeElement;
     dialog.scrollTop = 0;
     // o foco no título: o leitor de tela anuncia a anotação que abriu

@@ -35,6 +35,31 @@ describe('leitura independente de backup', () => {
     );
     expect(snapshot.reviews.map((r) => r.id).sort()).toEqual(['nota0001', 'review1']);
   });
+  it('a rejogada à mostra cuja original é privada conta como a obra (a mais antiga à mostra vira a original)', () => {
+    const vez = (id: string, completedAt: string, extra: Record<string, unknown> = {}) => ({
+      ...entry,
+      id,
+      completedAt,
+      updatedAt: '2024-02-01T00:00:00Z',
+      ...extra,
+    });
+    const snapshot = parseBackupSnapshot(
+      JSON.stringify({
+        reviews: [
+          vez('review1', '2020', { private: true }),
+          vez('review2', '2022', { revisitOf: 'review1' }),
+          vez('review3', '2023', { revisitOf: 'review1' }),
+        ],
+      }),
+    );
+    const byId = new Map(snapshot.reviews.map((r) => [r.id, r]));
+    expect(byId.has('review1')).toBeFalse();
+    expect(byId.get('review2')!.revisitOf).toBeUndefined();
+    expect(byId.get('review3')!.revisitOf).toBe('review2');
+    // o papel continua o mesmo (o da original), e a hora não muda
+    expect(byId.get('review2')!.artFrom).toBe('review1');
+    expect(byId.get('review2')!.updatedAt).toBe('2024-02-01T00:00:00.000Z');
+  });
   it('ignora registros inválidos, pendentes e exclusões anteriores à avaliação mais recente', () => {
     const snapshot = parseBackupSnapshot(
       JSON.stringify({

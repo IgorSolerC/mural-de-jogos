@@ -55,3 +55,17 @@ describe('a parede abre lugar para as orelhas', () => {
     });
   }
 });
+
+/** O id de cada seção vem da chave dela (WallMotion e os aria-* dependem dele): chaves diferentes, ids diferentes. */
+describe('o id da seção', () => {
+  it('nunca é o mesmo para duas chaves diferentes', () => {
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    const board = TestBed.createComponent(WallBoard).componentInstance as unknown as { idOf(key: string): string };
+    const keys = ['c:x', 'c_3ax', 'c_3a_x', ':b', 'Ϋ', 'a b', 'a_20b', 'Ação 🎮', 'abc-1'];
+    const ids = keys.map((k) => board.idOf(k));
+    expect(new Set(ids).size).toBe(keys.length);
+    for (const id of ids) expect(id).toMatch(/^[a-zA-Z0-9_-]+$/);
+    // o que já é seguro fica igual
+    expect(board.idOf('abc-1')).toBe('abc-1');
+  });
+});

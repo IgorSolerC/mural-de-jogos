@@ -309,3 +309,46 @@ describe('o editor: a cor da categoria nova', () => {
     expect(settings.categoryLook('Viagens')).toEqual({});
   });
 });
+
+/** A anotação é salva a partir da prévia: o jeito e a semente de uma camada que saiu não vão junto. */
+describe('o editor: anotação sem estampa', () => {
+  it('não leva o espaço da estampa nem as sementes das camadas que não tem', async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [ReviewEditor], providers: [provideZonelessChangeDetection()] });
+    const store = TestBed.inject(ReviewStore);
+    const fixture = TestBed.createComponent(ReviewEditor);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    fixture.componentInstance.openNote('Estampa que saiu');
+    await fixture.whenStable();
+    type Sig<T> = { set(v: T): void };
+    const inside = fixture.componentInstance as unknown as {
+      noteCategory: Sig<string | null>;
+      noteTags: Sig<string[]>;
+      pattern: Sig<string | null>;
+      patternLook: Sig<{ spacing: number; size: number; jitter: number; ink?: string }>;
+      patternSeed: Sig<number | null>;
+      scribbleSeed: Sig<number | null>;
+      damageSeed: Sig<number | null>;
+      save(e: Event | null): void;
+    };
+    inside.noteCategory.set('Casa');
+    inside.noteTags.set(['ideia']);
+    // escolheu uma estampa, mexeu no espaço e tirou a estampa (as sementes ficam no editor)
+    inside.pattern.set(null);
+    inside.patternLook.set({ spacing: 7, size: 3, jitter: 2 });
+    inside.patternSeed.set(123);
+    inside.scribbleSeed.set(456);
+    inside.damageSeed.set(789);
+    inside.save(null);
+    await new Promise((r) => setTimeout(r));
+    await fixture.whenStable();
+    const note = store.notes().find((n) => n.game.name === 'Estampa que saiu')!;
+    expect(note).toBeDefined();
+    for (const k of ['patternSpacing', 'patternSize', 'patternJitter', 'patternInk', 'patternSeed', 'scribbleSeed', 'damageSeed']) {
+      expect(k in note).withContext(k).toBeFalse();
+    }
+    fixture.nativeElement.remove();
+    localStorage.clear();
+  });
+});

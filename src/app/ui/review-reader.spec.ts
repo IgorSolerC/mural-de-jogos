@@ -13,6 +13,8 @@ import { SHARED_AUTO, SharedEntry, SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { nextClose } from '../testing/dialog-close.spec';
+import { KanbanStore } from '../core/kanban-store';
+import { ICON } from './icons';
 import { ReviewReader } from './review-reader';
 
 /**
@@ -412,6 +414,60 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     await settle();
     expect(q('[data-citavel]')?.textContent).toContain('mudou na nuvem');
     expect(people.isConnected && people.open).toBeTrue();
+  });
+
+  it('seguir um link para outra compartilhada passa a conferir mais seguido a que abriu, não a de antes', async () => {
+    const entry = (id: string, name: string): SharedEntry => {
+      const note = review(id, name, { kind: 'anotacoes', private: true });
+      return {
+        id,
+        dono: { codigo: ANA, nome: 'Ana', foto: null },
+        papel: 'editor',
+        membros: [{ codigo: ME.codigo, nome: ME.nome, foto: null, papel: 'editor', desde: '' }],
+        rev: 1,
+        versao: 1,
+        base: note,
+        local: null,
+        outra: null,
+        resolver: false,
+        conflito: null,
+        atualizadoEm: note.updatedAt,
+        atualizadoPor: null,
+        pessoal: {},
+        view: note,
+      };
+    };
+    const shared = TestBed.inject(SharedStore);
+    shared.entries.set(new Map([['nota-1', entry('nota-1', 'Viagem')], ['nota-2', entry('nota-2', 'Hotel')]]));
+    await settle();
+    const store = TestBed.inject(ReviewStore);
+    const watching = () => [...(shared as unknown as { watching(): ReadonlySet<string> }).watching()];
+    fixture.componentInstance.open(store.get('nota-1')!);
+    await settle();
+    expect(watching()).toEqual(['nota-1']);
+    (fixture.componentInstance as unknown as { follow(n: Review): void }).follow(store.get('nota-2')!);
+    await settle();
+    expect(watching()).toEqual(['nota-2']);
+    // e o Voltar devolve a conferência para a de antes
+    (fixture.componentInstance as unknown as { back(): void }).back();
+    await settle();
+    expect(watching()).toEqual(['nota-1']);
+    await closeReader();
+    expect(watching()).toEqual([]);
+  });
+
+  it('a anotação num quadro cuja coluna sumiu mostra o desenho do quadro, não o do Calendário', async () => {
+    const note = review('nota-9', 'Sem coluna', { kind: 'anotacoes' });
+    TestBed.inject(ReviewStore).add(note);
+    spyOn(TestBed.inject(KanbanStore), 'cardOf').and.returnValue({
+      board: { id: 'quadro-1', columns: [] },
+      card: { note: 'nota-9', column: 'coluna-que-saiu' },
+    } as unknown as ReturnType<KanbanStore['cardOf']>);
+    fixture.componentInstance.open(TestBed.inject(ReviewStore).get('nota-9')!);
+    await settle();
+    const board = (fixture.componentInstance as unknown as { board(): { column: string; icon: unknown } | null }).board();
+    expect(board?.column).toBe('No quadro');
+    expect(board?.icon).toBe(ICON.colunas);
   });
 
   it('uma ficha sem código (um backup aberto em Comparar) não tem comentários', async () => {

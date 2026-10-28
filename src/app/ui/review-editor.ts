@@ -976,14 +976,16 @@ export class ReviewEditor {
       stock: this.stock(),
       paper: this.paper(),
       paperSeed: this.paperSeed() ?? undefined,
+      // o jeito, a semente e a tinta de uma camada só vão com ela: a anotação é salva a partir daqui, e a
+      // leitura (sanitizeReview) os tira sem a camada, o que faria a de cada aparelho diferir da salva
       pattern: this.pattern() ?? undefined,
-      ...this.lookFields(),
-      patternSeed: this.patternSeed() ?? undefined,
+      ...(this.pattern() ? this.lookFields() : {}),
+      patternSeed: (this.pattern() && this.patternSeed()) || undefined,
       scribble: this.scribble() ?? undefined,
-      scribbleSeed: this.scribbleSeed() ?? undefined,
+      scribbleSeed: (this.scribble() && this.scribbleSeed()) || undefined,
       scribbleInk: this.scribbleInk(),
       damage: this.damage() ?? undefined,
-      damageSeed: this.damageSeed() ?? undefined,
+      damageSeed: (this.damage() && this.damageSeed()) || undefined,
       stains: this.stains().length ? this.stains() : undefined,
       decors: this.decors().length ? this.decors() : undefined,
       text: this.text(),
@@ -1170,18 +1172,7 @@ export class ReviewEditor {
     // dela, ver artIdOf); a pessoa muda no estojo se quiser
     const look = review ?? (root ? (rootReview ?? revisitOf) : undefined);
     this.stock.set(look?.stock ?? this.store.nextStock(kind));
-    this.paper.set(look?.paper ?? 'cartolina');
-    this.paperSeed.set(look?.paperSeed ?? null);
-    this.pattern.set(look?.pattern ?? null);
-    this.patternLook.set(lookOf(look ?? {}));
-    this.patternSeed.set(look?.patternSeed ?? null);
-    this.scribble.set(look?.scribble ?? null);
-    this.scribbleSeed.set(look?.scribbleSeed ?? null);
-    this.scribbleInk.set(look?.scribbleInk ?? DEFAULT_SCRIBBLE_INK);
-    this.damage.set(look?.damage ?? null);
-    this.damageSeed.set(look?.damageSeed ?? null);
-    this.stains.set(look?.stains ?? []);
-    this.decors.set(look?.decors ?? []);
+    this.setLook(look ?? {});
     this.overrideOn.set(review?.finalOverride !== undefined);
     // a nota como foi dada: com "Inteiros" em Ajustes, um 8,5 escrito como 9 viraria 9 ao salvar
     this.overrideText.set(review?.finalOverride !== undefined ? formatRawScore(review.finalOverride) : '');
