@@ -2870,11 +2870,13 @@ export class RichEditor {
    * cursor, ou numa linha nova logo depois da do cursor.
    */
   protected writeWidget(area: HTMLTextAreaElement, w: { start: number; end: number; swap: boolean }, line: string): void {
+    const text = area.value;
     if (w.swap) {
-      this.replace(area, w.start, w.end, line, w.start + line.length, w.start + line.length);
+      // a linha trocada fica com o recuo que tinha: o widget embaixo de um item continua no item
+      const own = /^[ \t]*/.exec(text.slice(w.start, w.end))![0] + line;
+      this.replace(area, w.start, w.end, own, w.start + own.length, w.start + own.length);
       return;
     }
-    const text = area.value;
     const lineStart = text.lastIndexOf('\n', w.start - 1) + 1;
     const lineEndAt = text.indexOf('\n', w.end);
     const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;

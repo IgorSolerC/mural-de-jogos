@@ -4,6 +4,7 @@ import { RichEditor, styleAt } from './rich-editor';
 import { sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { closeDialog } from '../testing/dialog-close.spec';
+import { WidgetDef, WidgetSize, widgetDef } from '../core/widgets';
 
 describe('a régua de formatação do texto', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -255,6 +256,25 @@ describe('a régua de formatação do texto', () => {
     expect(value()).toBe('- [ ] Mandolin\n      {{imagem: https://ex.com/a.jpg}}');
     put('texto|');
     expect(value()).toBe('texto\n{{imagem: https://ex.com/a.jpg}}');
+  });
+
+  it('o widget de um item, trocado pela folha, continua recuado (continua no item)', () => {
+    write('- [ ] Mandolin\n      {{imagem: https://ex.com/a.jpg}}|\ndepois');
+    const ed = fixture.componentInstance as unknown as {
+      startWidget(a: HTMLTextAreaElement, big: boolean, def: WidgetDef, openSheet: boolean): void;
+      onWidgetDone(d: { name: string; args: string[]; size: WidgetSize }): void;
+      onWidgetClosed(): void;
+    };
+    ed.startWidget(area, false, widgetDef('imagem')!, false);
+    ed.onWidgetDone({ name: 'imagem', args: ['https://ex.com/b.jpg', 'polaroid'], size: 'grande' });
+    ed.onWidgetClosed();
+    expect(value()).toBe('- [ ] Mandolin\n      {{imagem: https://ex.com/b.jpg | polaroid | grande}}\ndepois');
+    // e o widget fora de item continua sem recuo
+    write('{{imagem: https://ex.com/a.jpg}}|');
+    ed.startWidget(area, false, widgetDef('imagem')!, false);
+    ed.onWidgetDone({ name: 'imagem', args: ['https://ex.com/c.jpg'], size: 'medio' });
+    ed.onWidgetClosed();
+    expect(value()).toBe('{{imagem: https://ex.com/c.jpg}}');
   });
 
   it('Enter fora de lista é um Enter comum', () => {

@@ -1,13 +1,16 @@
 import { EmbedBridge, EmbedReport } from './embed-bridge';
 
-/** Um iframe vazio no lugar do player: o que vai para ele fica anotado, e ele "responde" por mensagem. */
-function fakePlayer() {
+/**
+ * Um iframe vazio no lugar do player: o que vai para ele fica anotado, e ele "responde" por mensagem,
+ * do endereço do player (o do YouTube sem cookies, ou o do Vimeo).
+ */
+function fakePlayer(origin = 'https://www.youtube-nocookie.com') {
   const frame = document.createElement('iframe');
   document.body.appendChild(frame);
   const win = frame.contentWindow!;
   const sent: unknown[] = [];
   spyOn(win, 'postMessage').and.callFake((msg: unknown) => void sent.push(typeof msg === 'string' ? JSON.parse(msg) : msg));
-  const say = (data: unknown) => window.dispatchEvent(new MessageEvent('message', { data, source: win }));
+  const say = (data: unknown) => window.dispatchEvent(new MessageEvent('message', { data, source: win, origin }));
   return { frame, sent, say, done: () => frame.remove() };
 }
 
@@ -45,7 +48,7 @@ describe('a conversa com o player de fora', () => {
   });
 
   it('Vimeo: o "play" chega antes do som; tocando, só quando o tempo anda', () => {
-    const p = fakePlayer();
+    const p = fakePlayer('https://player.vimeo.com');
     const got: EmbedReport[] = [];
     const b = new EmbedBridge('vimeo', () => p.frame, (r) => got.push(r));
     // o fim de um carregamento sem estar tocando não é tocar
@@ -63,7 +66,7 @@ describe('a conversa com o player de fora', () => {
   });
 
   it('Vimeo: o volume vai como volume e mudo', () => {
-    const p = fakePlayer();
+    const p = fakePlayer('https://player.vimeo.com');
     const b = new EmbedBridge('vimeo', () => p.frame, () => {});
     p.say({ event: 'ready' });
     p.sent.length = 0;
@@ -87,5 +90,22 @@ describe('a conversa com o player de fora', () => {
     expect(b.isReady).toBeFalse();
     b.destroy();
     p.done();
+  });
+
+  it('não ouve o iframe do player que foi parar em outro endereço (nem o player do outro site)', () => {
+    for (const [kind, origin] of [
+      ['youtube', 'https://evil.example'],
+      ['youtube', 'https://player.vimeo.com'],
+      ['vimeo', 'https://www.youtube-nocookie.com'],
+    ] as const) {
+      const p = fakePlayer(origin);
+      const got: EmbedReport[] = [];
+      const b = new EmbedBridge(kind, () => p.frame, (r) => got.push(r));
+      p.say(kind === 'youtube' ? JSON.stringify({ event: 'onReady' }) : { event: 'ready' });
+      expect(got).withContext(`${kind} de ${origin}`).toEqual([]);
+      expect(b.isReady).toBeFalse();
+      b.destroy();
+      p.done();
+    }
   });
 });

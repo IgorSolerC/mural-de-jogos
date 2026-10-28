@@ -6,6 +6,12 @@
 
 export type EmbedKind = 'youtube' | 'vimeo';
 
+/** De onde cada player fala: o pedido vai só para lá, e só o que vem de lá é ouvido. */
+const ORIGIN: Record<EmbedKind, string> = {
+  youtube: 'https://www.youtube-nocookie.com',
+  vimeo: 'https://player.vimeo.com',
+};
+
 /** O que se pede ao player. O volume vai de 0 a 1; em 0, ele fica calado. */
 export type EmbedCommand = { do: 'play' } | { do: 'pause' } | { do: 'seek'; t: number } | { do: 'volume'; v: number };
 
@@ -100,7 +106,8 @@ export class EmbedBridge {
 
   private readonly onMessage = (e: MessageEvent): void => {
     const frame = this.frame();
-    if (!frame || e.source !== frame.contentWindow) return;
+    // a janela do iframe e o endereço do player: o iframe que foi parar em outra página não fala por ele
+    if (!frame || e.source !== frame.contentWindow || e.origin !== ORIGIN[this.kind]) return;
     let d: unknown = e.data;
     if (typeof d === 'string') {
       try {
@@ -185,8 +192,8 @@ export class EmbedBridge {
   private post(msg: object): void {
     const win = this.frame()?.contentWindow;
     if (!win) return;
-    if (this.kind === 'youtube') win.postMessage(JSON.stringify(msg), 'https://www.youtube-nocookie.com');
-    else win.postMessage(msg, 'https://player.vimeo.com');
+    if (this.kind === 'youtube') win.postMessage(JSON.stringify(msg), ORIGIN.youtube);
+    else win.postMessage(msg, ORIGIN.vimeo);
   }
 }
 

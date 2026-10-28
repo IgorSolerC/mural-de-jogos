@@ -340,6 +340,23 @@ describe('a nota colada no texto (o widget Nota)', () => {
       expect(opened).toEqual([]);
     });
 
+    it('texto inteiro: fechada, o texto sai da página (a faixa que tocava nele para junto) e volta ao abrir', async () => {
+      const store = TestBed.inject(ReviewStore);
+      store.update({ ...store.get('rnota1')!, text: 'Ouvir:\n{{audio: https://ex.com/faixa.mp3 | Lado A}}' });
+      await show(['#rnota1', 'inteira']);
+      expect(el.querySelector('.folha app-note-widget')).not.toBeNull();
+      el.querySelector<HTMLButtonElement>('button.dobra')!.click();
+      await fixture.whenStable();
+      const folha = el.querySelector<HTMLElement>('.folha')!;
+      expect(folha.hidden).toBeTrue();
+      // o lugar do texto (o aria-controls da seta) fica; o que estava nele, não
+      expect(folha.id).toBe(el.querySelector('button.dobra')!.getAttribute('aria-controls')!);
+      expect(folha.querySelector('app-rich-text, app-note-widget, audio, iframe, video')).toBeNull();
+      el.querySelector<HTMLButtonElement>('button.dobra')!.click();
+      await fixture.whenStable();
+      expect(el.querySelector('.folha app-note-widget')).not.toBeNull();
+    });
+
     it('texto inteiro escrito "fechada" começa fechado; a seta abre só ali (a marca não muda)', async () => {
       await show(['#rnota1', 'inteira', 'fechada']);
       const arrow = el.querySelector<HTMLButtonElement>('button.dobra')!;
