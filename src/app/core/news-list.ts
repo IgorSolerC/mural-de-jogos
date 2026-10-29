@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-faixa-so-de-funcionalidade',
+    id: '2026-10-29-copiar-uma-anotacao',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
       'Na cartolina do mural, o título fica um pouco afastado do texto de cima e do de baixo (mais que uma quebra de linha, menos que uma linha em branco); e o parágrafo começa na margem em todo lugar, sem a primeira linha entrar sozinha (quem quiser o recuo escreve os espaços).',
       'A faixa no topo do site só aparece para uma funcionalidade nova: as melhorias e as correções ficam só na página de Novidades.',
+      'Copiar uma anotação só (Ctrl+C) não põe mais o "1." na frente: o número fica para quando são duas ou mais.',
     ],
     correcoes: [
       'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa (antes o toque abria a anotação em vez de ampliar) e não sai mais cortado no widget do alto do texto.',
