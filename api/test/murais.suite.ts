@@ -267,4 +267,94 @@ export function muraisSuite(label: string, getDb: () => Db) {
       expect(await count('contexto-fichas')).toBe(1);
     });
   });
+
+  describe(`${label}: ler os murais com a chave`, () => {
+    const READ = ['desejos:ler', 'pra-depois:ler', 'fichas:ler'];
+
+    it('cada lista pede a permissão de ler dela (a de escrever não lê)', async () => {
+      const t = await setup();
+      const { me } = await t.ready(READ);
+      const paths: [string, string][] = [
+        ['/ext/v1/desejos', 'desejos:escrever'],
+        [`/ext/v1/desejos/${SILKSONG.id}`, 'desejos:escrever'],
+        ['/ext/v1/pra-depois', 'pra-depois:escrever'],
+        ['/ext/v1/fichas', 'fichas:escrever'],
+        [`/ext/v1/fichas/${OUTER_WILDS.id}`, 'notas:ler'],
+      ];
+      for (const [path, scope] of paths) {
+        const other = await t.newKey(me.token, [scope]);
+        const res = await t.ext(other.segredo, path);
+        expect(res.status, `${scope} ${path}`).toBe(403);
+      }
+    });
+
+    it('a wishlist como a tela: MUST na frente, LATER no fim; por mural, relevância e busca', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(READ);
+      expect((await t.body(t.ext(secret, '/ext/v1/desejos'))).itens).toEqual([SILKSONG, DUNA, HADES]);
+      expect((await t.body(t.ext(secret, '/ext/v1/desejos?mural=livros'))).itens).toEqual([DUNA]);
+      expect((await t.body(t.ext(secret, '/ext/v1/desejos?relevancia=later'))).itens).toEqual([HADES]);
+      expect((await t.body(t.ext(secret, '/ext/v1/desejos?q=herbert'))).itens).toEqual([DUNA]);
+      const page = await t.body(t.ext(secret, '/ext/v1/desejos?limite=2'));
+      expect(page.itens).toEqual([SILKSONG, DUNA]);
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos?limite=2&depois=${page.depois}`))).itens).toEqual([HADES]);
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${DUNA.id}`))).desejo).toEqual(DUNA);
+      expect((await t.ext(secret, '/ext/v1/desejos?mural=anotacoes')).status).toBe(400);
+      expect((await t.ext(secret, '/ext/v1/desejos?relevancia=urgente')).status).toBe(400);
+      expect((await t.ext(secret, '/ext/v1/desejos/dj-nenhum')).status).toBe(404);
+    });
+
+    it('o Pra depois, e um item pelo id', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(READ);
+      expect((await t.body(t.ext(secret, '/ext/v1/pra-depois?mural=jogos'))).itens).toEqual([PRA_CELESTE]);
+      expect((await t.body(t.ext(secret, '/ext/v1/pra-depois?mural=filmes'))).itens).toEqual([]);
+      expect((await t.body(t.ext(secret, `/ext/v1/pra-depois/${PRA_CELESTE.id}`))).pra_depois).toEqual(PRA_CELESTE);
+    });
+
+    it('as fichas: resumo no lugar do texto, filtros, ordens e a ficha inteira pelo id', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(READ);
+      const list = await t.body(t.ext(secret, '/ext/v1/fichas'));
+      const { texto, ...outer } = OUTER_WILDS;
+      expect(list.itens[0]).toEqual({ ...outer, resumo: texto });
+      expect(list.itens.map((f: FichaV1) => f.id)).toEqual([OUTER_WILDS.id, COSMOS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?com_texto=sim'))).itens[0].texto).toBe(texto);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?mural=livros'))).itens.map((f: FichaV1) => f.id)).toEqual([COSMOS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?veredito=masterpiece'))).itens.map((f: FichaV1) => f.id)).toEqual([OUTER_WILDS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?status=finalizado'))).itens.map((f: FichaV1) => f.id)).toEqual([COSMOS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?nota_min=9'))).itens.map((f: FichaV1) => f.id)).toEqual([OUTER_WILDS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?q=exploracao'))).itens.map((f: FichaV1) => f.id)).toEqual([OUTER_WILDS.id]);
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?ordem=nome'))).itens.map((f: FichaV1) => f.id)).toEqual([COSMOS.id, OUTER_WILDS.id]);
+      expect((await t.ext(secret, '/ext/v1/fichas?ordem=constructor')).status).toBe(400);
+      expect((await t.ext(secret, '/ext/v1/fichas?status=zerado')).status).toBe(400);
+      expect((await t.body(t.ext(secret, `/ext/v1/fichas/${COSMOS.id}`))).ficha).toEqual(COSMOS);
+      expect((await t.ext(secret, '/ext/v1/fichas/rf-nenhuma')).status).toBe(404);
+    });
+
+    it('o contexto traz cada parte só para quem a alcança', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(READ);
+      const ctx = await t.body(t.ext(secret, '/ext/v1/contexto'));
+      expect(ctx.desejos).toEqual({ por_mural: { jogos: 2, livros: 1, filmes: 0, series: 0, animes: 0, musicas: 0 }, relevancias: ['must', 'comum', 'later'] });
+      expect(ctx.pra_depois).toEqual({ por_mural: { jogos: 1, livros: 0, filmes: 0, series: 0, animes: 0, musicas: 0 } });
+      expect(ctx.fichas).toEqual(CONTEXTO);
+      const writer = await t.newKey(me.token, ['fichas:escrever']);
+      const only = await t.body(t.ext(writer.segredo, '/ext/v1/contexto'));
+      expect(only.fichas).toEqual(CONTEXTO);
+      expect(only.desejos).toBeNull();
+      expect(only.pra_depois).toBeNull();
+    });
+
+    it('a busca acha nos murais que a chave lê', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(READ);
+      const got = await t.body(t.ext(secret, '/ext/v1/busca?q=hollow'));
+      expect(got.itens).toEqual([{ tipo: 'desejo', id: SILKSONG.id, nome: SILKSONG.nome, mural: 'jogos' }]);
+      const f = await t.body(t.ext(secret, '/ext/v1/busca?q=sagan&areas=fichas'));
+      expect(f.itens).toEqual([{ tipo: 'ficha', id: COSMOS.id, nome: 'Cosmos', mural: 'livros', nota_final: 8.4, concluida_em: '2026-07-01' }]);
+      const wishes = await t.newKey(me.token, ['desejos:ler']);
+      expect((await t.ext(wishes.segredo, '/ext/v1/busca?q=cosmos&areas=fichas')).status).toBe(403);
+    });
+  });
 }

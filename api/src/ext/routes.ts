@@ -7,6 +7,7 @@ import { todayIn } from '../domain/mirror';
 import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
 import { CALENDAR_SCOPES, calendarContext } from './calendar-read';
 import { KANBAN_SCOPES, kanbanContext } from './kanban-read';
+import { muralsContext, searchMurals } from './murals-read';
 import { spendingContext } from './spending-read';
 import type { LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoGastosV1, LancamentoV1 } from '../../../contrato/api-v1/gastos';
@@ -229,23 +230,26 @@ export function extRoutes(app: Hono, deps: Deps): void {
       kanban: KANBAN_SCOPES.some((s) => me.key.scopes.includes(s)) ? await kanbanContext(deps, me) : null,
       // as cores e a janela da agenda (os meses que ver_agenda alcança), para a chave do Calendário
       calendario: CALENDAR_SCOPES.some((s) => me.key.scopes.includes(s)) ? await calendarContext(deps, me) : null,
+      // quantos desejos e pra depois em cada mural, e o que cada mural tem (as notas de cada um, para escrever fichas)
+      ...(await muralsContext(deps, me)),
       espelho: state,
     });
   });
 
-  // ===== A busca: nas Anotações e nos títulos dos lançamentos e dos lembretes =====
+  // ===== A busca: nas Anotações, nos títulos dos lançamentos e dos lembretes, e nos murais =====
 
   app.get('/ext/v1/busca', async (c) => {
     const me = await caller(c);
     const raw = c.req.query('q')?.trim() ?? '';
     if (raw.length < 2 || raw.length > 200) throw new HttpError(400, 'busca-invalida', 'Escreva de 2 a 200 letras para buscar.');
     // sem areas, tudo que a chave lê
-    const readable = (['notas', 'gastos', 'calendario'] as const).filter((a) => me.key.scopes.includes(`${a}:ler`));
+    const readable = (['notas', 'gastos', 'calendario', 'desejos', 'pra-depois', 'fichas'] as const).filter((a) => me.key.scopes.includes(`${a}:ler`));
     const areas = (c.req.query('areas') ?? (readable.join(',') || 'notas')).split(',').map((a) => a.trim());
     const itens: (
       | { tipo: 'nota'; id: string; titulo: string; grupo: string | null; trecho: string }
       | { tipo: 'lancamento'; id: string; titulo: string; dia: string; centavos: number; envelope: string | null }
       | { tipo: 'lembrete'; id: string; titulo: string; dia: string; repete: string | null }
+      | Awaited<ReturnType<typeof searchMurals>>[number]
     )[] = [];
     if (areas.includes('notas')) {
       requireScope(me, 'notas:ler');
@@ -282,6 +286,7 @@ export function extRoutes(app: Hono, deps: Deps): void {
         itens.push({ tipo: 'lembrete', id: l.id, titulo: l.titulo, dia: l.dia, repete: l.repete ? l.em_palavras : null });
       }
     }
+    itens.push(...(await searchMurals(deps, me, raw, areas, SEARCH_MAX)));
     return c.json({ itens, espelho: await mirrorState(deps, me.key.userId) });
   });
 }

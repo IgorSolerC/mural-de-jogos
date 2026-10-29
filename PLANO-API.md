@@ -1733,11 +1733,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      `muralsMirror` (puras); o `ApiMirror` com as três áreas (o que sai daqui sai do espelho). A ficha
      leva a final que já guarda (a média, ou a dada na mão, com `nota_final_na_mao`), as notas só do
      mural dela e o "quem vê" de verdade (`shownToOthers`). Nada novo no navegador.
-  3. API, ler: `GET /ext/v1/desejos` (`mural`, `relevancia`, `q`, `limite`, `depois`) e `/:id`, `GET
+  3. [feito] API, ler: `GET /ext/v1/desejos` (`mural`, `relevancia`, `q`, `limite`, `depois`) e `/:id`, `GET
      /ext/v1/pra-depois` (`mural`, `q`) e `/:id`, `GET /ext/v1/fichas` (`mural`, `status`, `veredito`,
      `q`, `ordem`, `com_texto`) e `/:id`; o contexto com `desejos`, `pra_depois` (quantos em cada mural)
      e `fichas` (os murais com as notas de cada um); a busca com `areas=desejos,pra-depois,fichas`.
-     Testes.
+     Testes. Feito assim: as rotas em `api/src/ext/murals-read.ts`; a wishlist vem como a tela (MUST
+     na frente, LATER no fim, o que entrou por último primeiro), o Pra depois do mais novo ao mais
+     velho; as fichas com `resumo` no lugar do texto (`com_texto=sim` traz inteiro), filtros `mural`,
+     `status`, `veredito`, `nota_min` e `q` (nome, autor, artista e texto, sem acento) e as ordens
+     `concluida` (padrão), `nota`, `nome` e `mudou`; o mural das anotações é 400 `mural-invalido`. O
+     contexto ganhou `desejos` e `pra_depois` (quantos em cada mural) e `fichas` (o que cada mural
+     tem), cada um para quem alcança a área; a busca sem `areas` entra também nos murais que a chave
+     lê. Os pedidos por cima entram nos passos 4 e 5.
   4. Contrato das operações e API, escrever na Wishlist e no Pra depois: `desejo.por`, `desejo.editar`,
      `desejo.tirar`, `pra-depois.por`, `pra-depois.tirar`; os pedidos abertos por cima das leituras.
      Testes.
