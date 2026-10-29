@@ -7,12 +7,17 @@ import {
   conferirOpMural,
   desejoDoPedido,
   editarDesejoV1,
+  editarFichaV1,
+  fichaDoPedido,
   itemDoPedido,
+  type CriarFichaV1,
   type EditarDesejoV1,
+  type EditarFichaV1,
   type OpMural,
   type PorItemV1,
 } from '../../../contrato/api-v1/operacoes-murais';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
+import { todayIn } from '../domain/mirror';
 import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
@@ -64,9 +69,10 @@ const PUT_OF: Partial<Record<OpMural, 'desejo' | 'pra-depois'>> = { 'desejo.por'
 async function pendingMurals(deps: Deps, userId: string) {
   const rows = (await openRequests(deps, userId)).filter((r) => (OPS_DOS_MURAIS as readonly string[]).includes(r.op));
   const created = rows.filter((r) => PUT_OF[r.op as OpMural]);
+  const createdReviews = rows.filter((r) => r.op === 'ficha.criar');
   const byItem = new Map<string, RequestRow[]>();
-  for (const r of rows) if (!PUT_OF[r.op as OpMural]) byItem.set(r.alvo, [...(byItem.get(r.alvo) ?? []), r]);
-  return { rows, created, byItem };
+  for (const r of rows) if (!PUT_OF[r.op as OpMural] && r.op !== 'ficha.criar') byItem.set(r.alvo, [...(byItem.get(r.alvo) ?? []), r]);
+  return { rows, created, createdReviews, byItem };
 }
 
 const marker = (r: RequestRow, now: Date): PedidoNoItem => ({ id: r.id, op: r.op as OpMural, estado: stateOf(r, now) });
@@ -105,6 +111,39 @@ export async function arrivingItems(deps: Deps, userId: string, tipo: 'desejo' |
   const pending = await pendingMurals(deps, userId);
   const now = deps.now();
   return pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo).map((r) => createdItem(r, pending.byItem.get(r.alvo), now));
+}
+
+/** A ficha com as mudanças abertas por cima. */
+function overlayReview(f: FichaV1, rows: readonly RequestRow[] | undefined, now: Date): ComPedidos<FichaV1> {
+  if (!rows?.length) return f;
+  let out = f;
+  for (const r of rows) {
+    const c = conferirOpMural('ficha.editar', JSON.parse(r.dados));
+    if (r.op === 'ficha.editar' && c.ok) out = editarFichaV1(out, c.dados as EditarFichaV1, r.criado_em);
+  }
+  return { ...out, pedidos: rows.map((r) => marker(r, now)) };
+}
+
+/** O que a prévia de uma ficha nova precisa: o perfil de cada mural e o dia de hoje no fuso da conta. */
+async function reviewPreview(deps: Deps, userId: string) {
+  const [ctx, state] = await Promise.all([reviewContext(deps, userId), mirrorState(deps, userId)]);
+  return { perfil: (mural: string) => ctx?.murais.find((m) => m.mural === mural) ?? null, hoje: todayIn(state.fuso, deps.now()) };
+}
+
+/** A ficha de um pedido de criar ainda não aplicado, com as mudanças de depois por cima. */
+function createdReview(row: RequestRow, later: readonly RequestRow[] | undefined, now: Date, preview: Awaited<ReturnType<typeof reviewPreview>>): ComPedidos<FichaV1> {
+  const d = JSON.parse(row.dados) as CriarFichaV1;
+  const shown = overlayReview(fichaDoPedido(row.alvo, d, preview.perfil(d.mural), preview.hoje, row.criado_em), later, now);
+  return { ...shown, pedidos: [marker(row, now), ...(shown.pedidos ?? [])] };
+}
+
+/** A ficha de agora: a do espelho, ou a de um pedido de criar; com os pedidos por cima. */
+export async function currentReview(deps: Deps, userId: string, id: string): Promise<ComPedidos<FichaV1> | null> {
+  const [found, pending] = await Promise.all([mirroredItem<FichaV1>(deps, userId, 'ficha', id), pendingMurals(deps, userId)]);
+  const now = deps.now();
+  if (found) return overlayReview(found, pending.byItem.get(id), now);
+  const created = pending.createdReviews.find((r) => r.alvo === id);
+  return created ? createdReview(created, pending.byItem.get(id), now, await reviewPreview(deps, userId)) : null;
 }
 
 /** O item do espelho pelo id, ou null. */
@@ -259,16 +298,30 @@ export function muralsReadRoutes(app: Hono, deps: Deps): void {
     }
     const withText = q(c, 'com_texto') === 'sim' || q(c, 'com_texto') === 'true';
     const rows = await deps.db.all<{ dados: string }>(`SELECT dados FROM api_espelho WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
-    const shown = page(rows, limit, offset, (raw) => {
-      const { texto, ...rest } = JSON.parse(raw) as FichaV1;
+    const pending = await pendingMurals(deps, me.key.userId);
+    const now = deps.now();
+    const summary = (f: ComPedidos<FichaV1>) => {
+      const { texto, ...rest } = f;
       return { ...rest, resumo: resumo(texto), ...(withText ? { texto } : {}) };
+    };
+    const shown = page(rows, limit, offset, (raw) => {
+      const f = JSON.parse(raw) as FichaV1;
+      return summary(overlayReview(f, pending.byItem.get(f.id), now));
     });
-    return c.json({ ...shown, espelho: await mirrorState(deps, me.key.userId) });
+    // as que vão nascer, no começo da primeira página (só o filtro do mural vale para elas)
+    const filtered = [q(c, 'status'), q(c, 'veredito'), min, text].some((v) => v !== undefined);
+    const preview = offset === 0 && !filtered && pending.createdReviews.length ? await reviewPreview(deps, me.key.userId) : null;
+    const arriving = preview
+      ? pending.createdReviews
+          .filter((r) => mural === undefined || (JSON.parse(r.dados) as CriarFichaV1).mural === mural)
+          .map((r) => summary(createdReview(r, pending.byItem.get(r.alvo), now, preview)))
+      : [];
+    return c.json({ ...shown, itens: [...arriving, ...shown.itens], espelho: await mirrorState(deps, me.key.userId) });
   });
 
   app.get('/ext/v1/fichas/:id', async (c) => {
     const me = await caller(c, 'fichas:ler');
-    const f = await mirroredItem<FichaV1>(deps, me.key.userId, 'ficha', c.req.param('id'));
+    const f = await currentReview(deps, me.key.userId, c.req.param('id'));
     if (!f) throw NOT_FOUND.ficha;
     return c.json({ ficha: f });
   });
@@ -278,7 +331,7 @@ export function muralsReadRoutes(app: Hono, deps: Deps): void {
 export async function searchMurals(deps: Deps, me: KeyCaller, raw: string, areas: readonly string[], max: number) {
   const out: (
     | { tipo: 'desejo' | 'pra-depois'; id: string; nome: string; mural: string }
-    | { tipo: 'ficha'; id: string; nome: string; mural: string; nota_final: number; concluida_em: string | null }
+    | { tipo: 'ficha'; id: string; nome: string; mural: string; nota_final: number | null; concluida_em: string | null }
   )[] = [];
   const parts: [string, ListKind, string][] = [
     ['desejos', 'desejo', 'desejos:ler'],

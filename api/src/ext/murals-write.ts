@@ -1,6 +1,6 @@
 import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
-import type { DesejoV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
+import type { DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import { idDeFicha } from '../../../contrato/api-v1/operacoes';
 import {
   ESCOPO_DA_OP_MURAL,
@@ -8,22 +8,30 @@ import {
   conferirOpMural,
   desejoDoPedido,
   editarDesejoV1,
+  editarFichaV1,
+  fichaDoPedido,
   itemDoPedido,
+  regrasDaFicha,
+  type CriarFichaV1,
   type EditarDesejoV1,
+  type EditarFichaV1,
   type OpMural,
   type PorItemV1,
   type TirarV1,
 } from '../../../contrato/api-v1/operacoes-murais';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
+import { todayIn } from '../domain/mirror';
 import { assertRoom, createRequest, randomBase36, readIdem, requestOut } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson } from '../routes/http';
-import { arrivingItems, currentItem } from './murals-read';
+import { arrivingItems, currentItem, currentReview, reviewContext } from './murals-read';
+import { mirrorState } from './routes';
 
 /**
- * Escrever na Wishlist e no Pra depois (PLANO-API.md, 7.4; rodada 9): pôr (um, ou um lote com um pedido
- * por item), mudar o desejo (a relevância, o nome, o ano, o por, a capa) e tirar. Cada rota confere a
+ * Escrever na Wishlist, no Pra depois e nas fichas (PLANO-API.md, 7.4; rodada 9): pôr (um, ou um lote
+ * com um pedido por item), mudar o desejo (a relevância, o nome, o ano, o por, a capa) e tirar; criar e
+ * mudar fichas (as notas conferidas com as do mural, pelo contexto que o site mandou). Cada rota confere a
  * forma (contrato/api-v1/operacoes-murais.ts), a permissão, o nome repetido no mesmo mural e a versão,
  * e guarda o pedido; quem aplica (e procura a capa) é o Murall aberto.
  */
@@ -148,5 +156,49 @@ export function muralsWriteRoutes(app: Hono, deps: Deps): void {
     const { row, repeated } = await createRequest(deps, me, 'desejo.editar', cur.id, d, idem);
     const { pedidos: _p, ...after } = editarDesejoV1(cur as DesejoV1, d, row.criado_em) as DesejoV1 & { pedidos?: unknown };
     return c.json({ pedido: requestOut(row, deps.now()), desejo: after, ...(repeated ? { repetido: true } : {}) }, 202);
+  });
+
+  // ===== As fichas =====
+
+  /** O que não combina com o mural da ficha (sem o contexto ainda, passa: o site confere de novo). */
+  async function checkReview(me: KeyCaller, mural: string, d: Parameters<typeof regrasDaFicha>[0]) {
+    if (d.visibilidade !== undefined) requireScope(me, 'publicar');
+    const perfil = (await reviewContext(deps, me.key.userId))?.murais.find((m) => m.mural === mural) ?? null;
+    const broken = perfil ? regrasDaFicha(d, perfil) : null;
+    if (broken) throw new HttpError(422, 'ficha-invalida', `${broken.erro} (campo ${broken.campo})`);
+    return perfil;
+  }
+
+  app.post('/ext/v1/fichas', async (c) => {
+    const me = await authenticateKey(deps, c.req.header('Authorization'));
+    requireScope(me, ESCOPO_DA_OP_MURAL['ficha.criar']);
+    const idem = readIdem(c.req.header('Idempotency-Key'));
+    const r = conferirOpMural('ficha.criar', await readJson(c, 64_000));
+    if (!r.ok) throw new HttpError(400, 'pedido-invalido', `${r.erro} (campo ${r.campo})`);
+    const d = r.dados as CriarFichaV1;
+    const perfil = await checkReview(me, d.mural, d);
+    const now = deps.now();
+    const { row, repeated } = await createRequest(deps, me, 'ficha.criar', idDeFicha(now.getTime(), randomBase36()), d, idem);
+    const hoje = todayIn((await mirrorState(deps, me.key.userId)).fuso, now);
+    const ficha = fichaDoPedido(row.alvo, JSON.parse(row.dados) as CriarFichaV1, perfil, hoje, row.criado_em);
+    return c.json({ pedido: requestOut(row, deps.now()), ficha, ...(repeated ? { repetido: true } : {}) }, 202);
+  });
+
+  app.patch('/ext/v1/fichas/:id', async (c) => {
+    const me = await authenticateKey(deps, c.req.header('Authorization'));
+    requireScope(me, ESCOPO_DA_OP_MURAL['ficha.editar']);
+    const idem = readIdem(c.req.header('Idempotency-Key'));
+    const r = conferirOpMural('ficha.editar', await readJson(c, 64_000));
+    if (!r.ok) throw new HttpError(400, 'pedido-invalido', `${r.erro} (campo ${r.campo})`);
+    const d = r.dados as EditarFichaV1;
+    const cur = await currentReview(deps, me.key.userId, c.req.param('id'));
+    if (!cur) throw new HttpError(404, 'ficha-nao-encontrada', 'Não achei essa ficha.');
+    if (cur.versao !== d.versao) {
+      return c.json({ erro: 'versao-velha', mensagem: 'A ficha mudou depois que você a leu. Leia de novo (a de agora vai aqui) e mande a versao nova.', ficha: cur }, 409);
+    }
+    await checkReview(me, cur.mural, d);
+    const { row, repeated } = await createRequest(deps, me, 'ficha.editar', cur.id, d, idem);
+    const { pedidos: _p, ...after } = editarFichaV1(cur, d, row.criado_em) as FichaV1 & { pedidos?: unknown };
+    return c.json({ pedido: requestOut(row, deps.now()), ficha: after, ...(repeated ? { repetido: true } : {}) }, 202);
   });
 }

@@ -438,4 +438,65 @@ export function muraisSuite(label: string, getDb: () => Db) {
       expect((await t.body(send(t, secret, 'DELETE', `/ext/v1/desejos/${DUNA.id}?versao=${DUNA.versao}`))).pedido.estado).toBe('aguardando-aprovacao');
     });
   });
+
+  describe(`${label}: criar e mudar fichas`, () => {
+    const ALL = ['fichas:ler', 'fichas:escrever'];
+    const send = (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, path: string, payload?: unknown) =>
+      t.ext(secret, path, { method, ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}) });
+
+    it('criar pede fichas:escrever; a ficha nasce privada, sem a nota final, e aparece na lista e pelo id', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const reader = await t.newKey(me.token, ['fichas:ler']);
+      expect((await send(t, reader.segredo, 'POST', '/ext/v1/fichas', { mural: 'jogos', nome: 'Tunic', notas: { diversao: 9 } })).status).toBe(403);
+      const res = await send(t, secret, 'POST', '/ext/v1/fichas', { mural: 'jogos', nome: 'Tunic', notas: { historia: 7, diversao: 9 }, status: 'platinado', quantidade: 30, texto: 'A raposa.' });
+      expect(res.status).toBe(202);
+      const got = await t.body(res);
+      expect(got.pedido).toEqual(expect.objectContaining({ op: 'ficha.criar', estado: 'pendente' }));
+      expect(got.ficha).toEqual(
+        expect.objectContaining({ id: got.pedido.alvo, nota_final: null, notas: { historia: 7, diversao: 9, jogabilidade: null, visual: null }, visibilidade: 'privada', status: 'platinado', quantidade: 30 }),
+      );
+      const list = await t.body(t.ext(secret, '/ext/v1/fichas'));
+      expect(list.itens[0]).toEqual(expect.objectContaining({ id: got.pedido.alvo, resumo: 'A raposa.', pedidos: [{ id: got.pedido.id, op: 'ficha.criar', estado: 'pendente' }] }));
+      expect((await t.body(t.ext(secret, '/ext/v1/fichas?mural=livros'))).itens.map((f: FichaV1) => f.id)).toEqual([COSMOS.id]);
+      expect((await t.body(t.ext(secret, `/ext/v1/fichas/${got.pedido.alvo}`))).ficha.nome).toBe('Tunic');
+    });
+
+    it('as notas e os campos de outro mural são 422 (pelo contexto); quem vê pede publicar', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL);
+      const wrong = await send(t, secret, 'POST', '/ext/v1/fichas', { mural: 'jogos', nome: 'Tunic', notas: { escrita: 9 } });
+      expect(wrong.status).toBe(422);
+      const err = await t.body(wrong);
+      expect(err.erro).toBe('ficha-invalida');
+      expect(err.mensagem).toContain('historia, diversao, jogabilidade, visual');
+      expect((await send(t, secret, 'PATCH', `/ext/v1/fichas/${COSMOS.id}`, { versao: COSMOS.versao, quantidade: 396.5 })).status).toBe(422);
+      expect((await send(t, secret, 'POST', '/ext/v1/fichas', { mural: 'jogos', nome: 'Tunic', notas: { diversao: 9 }, visibilidade: 'publica' })).status).toBe(403);
+      const pub = await t.newKey(me.token, [...ALL, 'publicar']);
+      expect((await send(t, pub.segredo, 'POST', '/ext/v1/fichas', { mural: 'jogos', nome: 'Tunic', notas: { diversao: 9 }, visibilidade: 'publica' })).status).toBe(202);
+    });
+
+    it('mudar com a versão de agora (409 com a de agora); mudar uma nota deixa a final para o Murall', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const old = await send(t, secret, 'PATCH', `/ext/v1/fichas/${OUTER_WILDS.id}`, { versao: '2026-01-01T00:00:00.000Z', veredito: 'recomendo' });
+      expect(old.status).toBe(409);
+      expect((await t.body(old)).ficha).toEqual(OUTER_WILDS);
+      const text = await t.body(send(t, secret, 'PATCH', `/ext/v1/fichas/${OUTER_WILDS.id}`, { versao: OUTER_WILDS.versao, texto: 'Revi e continua o melhor.' }));
+      expect(text.ficha).toEqual({ ...OUTER_WILDS, texto: 'Revi e continua o melhor.', versao: text.pedido.criado_em });
+      const notes = await t.body(send(t, secret, 'PATCH', `/ext/v1/fichas/${OUTER_WILDS.id}`, { versao: text.ficha.versao, notas: { visual: 10 } }));
+      expect(notes.ficha.nota_final).toBeNull();
+      const now = (await t.body(t.ext(secret, `/ext/v1/fichas/${OUTER_WILDS.id}`))).ficha;
+      expect(now.pedidos.map((p: { op: string }) => p.op)).toEqual(['ficha.editar', 'ficha.editar']);
+      expect(now.notas.visual).toBe(10);
+      expect((await send(t, secret, 'PATCH', '/ext/v1/fichas/rf-nenhuma', { versao: AT, texto: 'x' })).status).toBe(404);
+    });
+
+    it('com a aprovação "mudancas", criar entra direto e mudar espera', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      expect((await t.body(send(t, secret, 'POST', '/ext/v1/fichas', { mural: 'livros', nome: 'Torto Arado', notas: { envolvimento: 10 } }))).pedido.estado).toBe('pendente');
+      expect((await t.body(send(t, secret, 'PATCH', `/ext/v1/fichas/${COSMOS.id}`, { versao: COSMOS.versao, veredito: 'masterpiece' }))).pedido.estado).toBe('aguardando-aprovacao');
+    });
+  });
 }

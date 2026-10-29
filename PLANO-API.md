@@ -1758,8 +1758,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      da primeira página (o filtro do mural vale para ele) e pelo id, a mudança aplicada com `pedidos`,
      o que vai sair com o pedido na lista. `opMuda` agora é uma lista das operações que criam (pôr
      também). O site de hoje ainda não aplica estes pedidos: eles esperam o passo 6.
-  5. Contrato das operações e API, escrever fichas: `ficha.criar`, `ficha.editar` (as notas conferidas
-     com as do mural, pelo contexto); por cima das leituras. Testes.
+  5. [feito] Contrato das operações e API, escrever fichas: `ficha.criar`, `ficha.editar` (as notas conferidas
+     com as do mural, pelo contexto); por cima das leituras. Testes. Feito assim: no mesmo
+     `contrato/api-v1/operacoes-murais.ts` (`regrasDaFicha`, `fichaDoPedido`, `editarFichaV1`) e em
+     `api/src/ext/murals-write.ts` (`POST /ext/v1/fichas`, `PATCH /ext/v1/fichas/:id`). As notas se
+     mandam pelo id (as do mural, em `ver_contexto`), inteiras de 0 a 10, e mudando vão só as
+     mandadas; criar pede pelo menos uma. As regras do mural (as notas dele, a dificuldade e a
+     quantidade onde há, a quantidade inteira em páginas, a forma e o artista só nas músicas) vêm do
+     `contexto-fichas`: 422 `ficha-invalida` com as que existem (sem o contexto ainda, passa, e o site
+     confere ao aplicar). Quem vê pede `publicar`. Na prévia, a `nota_final` é null quando o pedido
+     mexe nas notas (o tipo `FichaV1` agora diz `number | null`: só o Murall faz a conta, com os pesos
+     e os bônus que a v1 não mostra); a ficha nova nasce privada, no dia de hoje do fuso da conta, sem
+     capa. Por cima das leituras, como nos desejos. Criar ficha não espera a aprovação "mudancas".
   6. Site aplica os pedidos (pelo `ReviewStore`: `saveWish`, `setRelevance`, `removeWish`,
      `saveDraft`, `removeDraft`, `add`, `update`), com a busca da capa, o Desfazer e as frases na folha
      dos pedidos e no histórico. Testes. BUILD + 1.

@@ -67,8 +67,11 @@ export interface FichaV1 {
   forma: 'album' | 'faixa' | null;
   /** Só nas músicas: o artista (a aba dela no mural). */
   artista: string | null;
-  /** A média, de 0 a 10 com uma casa: sempre calculada pelo Murall (ou dada na mão pela pessoa). */
-  nota_final: number;
+  /**
+   * A média, de 0 a 10 com uma casa: sempre calculada pelo Murall (ou dada na mão pela pessoa). null
+   * num pedido que ainda não entrou e muda as notas (o Murall é quem faz a conta).
+   */
+  nota_final: number | null;
   /** As notas do mural (de 0 a 10, inteiras); null é sem nota. */
   notas: Record<string, number | null>;
   /** A pessoa deu a nota final na mão, no lugar da média. */
