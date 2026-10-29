@@ -1597,9 +1597,13 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      `calendario` com qualquer permissão dele; `data` = o dia do lembrete ou o mês da agenda, `busca` =
      o título sem acento). Testes numa suíte nova, `api/test/calendario.suite.ts` (os passos 3 e 4
      continuam nela).
-  2. Site manda o espelho do Calendário: `core/api-mirror-calendar.ts` monta os lembretes e as agendas
+  2. [feito, BUILD 634] Site manda o espelho do Calendário: `core/api-mirror-calendar.ts` monta os lembretes e as agendas
      com as funções da tela (`repeatSentence`, `occurrenceStart`, `spanOf`, `compareInDay`), só quando
-     a nuvem pede a área `calendario`. Testes. BUILD + 1.
+     a nuvem pede a área `calendario`. Testes. BUILD + 1. Feito assim: `lembreteV1`, `agendaV1`,
+     `agendaMonths` e `calendarMirror` (puras); o `ApiMirror` com a área `calendario` (o lembrete
+     apagado sai do espelho; o mês que sai da janela também). A agenda acha cada vez pelo primeiro dia
+     dela (`occurrenceStart` em cada dia do mês), então a de vários dias que vem do mês de antes aparece
+     uma vez em cada mês por que passa. Nada novo no navegador.
   3. API, ler: `GET /ext/v1/agenda?de=&ate=`, `GET /ext/v1/lembretes` (`de`/`ate` pelo primeiro dia,
      `q`, `limite`, `depois`), `GET /ext/v1/lembretes/:id`, e o `GET /ext/v1/contexto` com `calendario`
      (as cores, a janela, quantos lembretes) para a chave do Calendário; a busca com `areas=calendario`.
