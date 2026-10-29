@@ -1048,9 +1048,36 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     próprio. (3) O ProseMirror ignora o Enter do Chrome do Android no `keydown` (lê da mudança no DOM) e,
     no iPhone, espera 200 ms pelo Enter: o nosso Enter continua sendo chamado, mas é o que mais precisa
     do aparelho de verdade.
-- Próximo: o usuário abre a prova no celular (o mesmo Wi-Fi do computador, `http://192.168.15.10:5241`),
-  segue o roteiro da página e toca em "Mandar para o computador"; com os relatórios, fecha a rodada 0
-  (o Android com o Gboard; o iPhone e o tipo próprio no Safari, se tiver um à mão). Depois, a rodada 1.
+- 29/out/2026, o primeiro relatório do celular do usuário (Android 10, Chrome 155, Gboard, 384×734):
+  os 13 itens do roteiro marcados "Deu certo" (acentos, sugestão, ditado, apagar, negrito pela régua com
+  a seleção mantida, lista, caixinha, peça, título na peça, tabela, régua presa, copiar e colar, menu do
+  sistema), a tela igual ao documento em 80 conferências, e o tipo `text/x-murall-markdown` chegou ao
+  colar no Chrome do Android. Mas as notas dele trouxeram três defeitos:
+  - **O Enter dentro do item não pulava de linha** ("fiquei preso na linha") e **na célula virava um
+    espaço**. O registro mostrou o porquê: o Gboard manda o Enter (keydown 13 e `insertParagraph`), e o
+    ProseMirror, no Chrome do Android, ignora o keydown e espera o navegador partir o bloco no DOM para
+    ler a mudança. Na linha comum (`<p>`) dá certo; dentro da peça do item (o `contentDOM` num `<span>`)
+    e da célula, o que o navegador faz não parece um Enter: nada muda, ou vira espaço. Reproduzido no
+    puppeteer com a identidade do Pixel 5 ("Segundo" + Enter + "meio" deu "Segundomeio"). **Conserto**:
+    um plugin cancela o `insertParagraph` e o `insertLineBreak` no `beforeinput` e chama o nosso Enter (e
+    o Shift+Enter), em todo aparelho, depois de pôr no documento a composição que acabou de terminar
+    (`domObserver.flush()`); durante a composição, fica com o ProseMirror; no iPhone, zera o
+    `input.lastIOSEnter` para o ProseMirror não chamar o Enter de novo 200 ms depois. Os dois são
+    internos do `prosemirror-view` 1.42.6: conferir a cada versão (o R11). **Regra para a rodada 2 em
+    diante**: o Enter do Visual sempre pelo `beforeinput`, nunca confiando na leitura do DOM.
+  - **Segurar o apagar quebrou a tabela.** O registro (então só os últimos 400 eventos; agora 4.000) já
+    não tinha esse trecho. Com a célula sendo ela mesma a linha de texto (`cellContent: 'inline*'`), as
+    bordas da tabela ficam frágeis para os comandos de sempre (`joinBackward` e `selectNodeBackward`
+    olham a célula como um bloco qualquer, e um apagar segurado seleciona e apaga peças). **Conserto**:
+    no começo de uma célula o Backspace não faz nada (e o Delete no fim), e na linha logo depois da tabela
+    ele leva o cursor para o fim da última célula (a linha vazia sai), como no Docs; o Delete antes da
+    tabela, o espelho. A tabela só sai inteira selecionada de propósito.
+  - O roteiro do puppeteer ganhou as conferências do Android (o Enter no item, no item vazio, na linha,
+    na célula e na última fileira, o Shift+Enter no item, o apagar segurado no começo da célula e depois
+    da tabela, o Delete antes dela): 46 conferências, todas passando.
+- Próximo: o usuário recarrega a prova no celular e repete o Enter no item, o Enter na tabela e o apagar
+  segurado perto dela, e manda o relatório de novo; com ele, fecha a rodada 0 (o iPhone e o tipo
+  próprio no Safari, se tiver um à mão). Depois, a rodada 1.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
