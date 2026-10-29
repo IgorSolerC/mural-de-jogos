@@ -16,6 +16,7 @@ import { notesWriteRoutes } from './ext/notes-write';
 import { mcpRoutes } from './ext/mcp';
 import { docsRoutes } from './ext/docs';
 import { oauthRoutes } from './ext/oauth';
+import { calendarReadRoutes } from './ext/calendar-read';
 import { kanbanReadRoutes } from './ext/kanban-read';
 import { kanbanWriteRoutes } from './ext/kanban-write';
 import { spendingReadRoutes } from './ext/spending-read';
@@ -123,6 +124,7 @@ export function createApp(deps: Deps): Hono {
   extRoutes(app, deps);
   spendingReadRoutes(app, deps);
   kanbanReadRoutes(app, deps);
+  calendarReadRoutes(app, deps);
   kanbanWriteRoutes(app, deps);
   spendingWriteRoutes(app, deps);
   notesWriteRoutes(app, deps);

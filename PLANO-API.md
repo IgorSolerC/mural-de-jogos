@@ -1604,10 +1604,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      apagado sai do espelho; o mês que sai da janela também). A agenda acha cada vez pelo primeiro dia
      dela (`occurrenceStart` em cada dia do mês), então a de vários dias que vem do mês de antes aparece
      uma vez em cada mês por que passa. Nada novo no navegador.
-  3. API, ler: `GET /ext/v1/agenda?de=&ate=`, `GET /ext/v1/lembretes` (`de`/`ate` pelo primeiro dia,
+  3. [feito] API, ler: `GET /ext/v1/agenda?de=&ate=`, `GET /ext/v1/lembretes` (`de`/`ate` pelo primeiro dia,
      `q`, `limite`, `depois`), `GET /ext/v1/lembretes/:id`, e o `GET /ext/v1/contexto` com `calendario`
      (as cores, a janela, quantos lembretes) para a chave do Calendário; a busca com `areas=calendario`.
-     Testes.
+     Testes. Feito assim: as rotas em `api/src/ext/calendar-read.ts`; `de`/`ate` aceitam dia ou
+     mês (o mês inteiro); sem `de`, a agenda começa hoje no fuso da conta e vai por 31 dias; a janela
+     sai das linhas de agenda que existem (o primeiro e o último mês), e pedir fora dela é 400
+     `fora-da-janela` (com a janela na mensagem e a dica de listar os lembretes); a vez de vários dias
+     que passa de um mês para o outro vem uma vez só; sem espelho ainda, a agenda vem vazia com o aviso.
+     A lista dos lembretes vai do primeiro dia mais novo para o mais antigo (`de`/`ate` pelo primeiro
+     dia, `q` no título sem acento). O contexto traz `calendario` (`cores`, `janela`, `lembretes`) para
+     qualquer permissão do Calendário, e a busca sem `areas` entra também nos lembretes de quem os lê
+     (com a repetição em palavras). Os pedidos por cima entram no passo 4.
   4. Contrato das operações e API, escrever: `lembrete.criar`, `lembrete.editar`, `lembrete.apagar`
      (com `dia`, só aquela vez), nas rotas `POST /ext/v1/lembretes`, `PATCH`/`DELETE
      /ext/v1/lembretes/:id`; os pedidos abertos por cima das leituras. Testes.

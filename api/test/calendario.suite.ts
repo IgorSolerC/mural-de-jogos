@@ -229,4 +229,112 @@ export function calendarioSuite(label: string, getDb: () => Db) {
       expect(await t.db.first('SELECT 1 AS x FROM api_espelho_estado WHERE usuario_id = ?', [me.id])).toBeNull();
     });
   });
+
+  describe(`${label}: ler o Calendário com a chave`, () => {
+    it('pede calendario:ler (a que só escreve ou só apaga não lê)', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      for (const scopes of [['notas:ler'], ['calendario:escrever'], ['calendario:apagar']]) {
+        const other = await t.newKey(me.token, scopes);
+        for (const path of ['/ext/v1/agenda', '/ext/v1/lembretes', `/ext/v1/lembretes/${DENTISTA.id}`]) {
+          const res = await t.ext(other.segredo, path);
+          expect(res.status, `${scopes.join()} ${path}`).toBe(403);
+          expect((await t.body(res)).erro).toBe('sem-permissao');
+        }
+      }
+    });
+
+    it('a agenda entre dois dias: as vezes que passam pelo intervalo, a de vários dias uma vez só', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const got = await t.body(t.ext(secret, '/ext/v1/agenda?de=2026-10-20&ate=2026-10-28'));
+      expect(got.de).toBe('2026-10-20');
+      expect(got.vezes.map((v: VezV1) => `${v.dia} ${v.titulo}`)).toEqual([
+        '2026-10-21 Academia',
+        '2026-10-22 Dentista',
+        '2026-10-26 Academia',
+        '2026-10-28 Academia',
+      ]);
+      // as férias começam em novembro e acabam em dezembro: aparecem uma vez, e também em quem pede só dezembro
+      const end = await t.body(t.ext(secret, '/ext/v1/agenda?de=2026-11&ate=2026-12'));
+      expect(end.de).toBe('2026-11-01');
+      expect(end.ate).toBe('2026-12-31');
+      expect(end.vezes.filter((v: VezV1) => v.lembrete === FERIAS.id)).toEqual([NOVEMBRO.vezes[2]]);
+      const dec = await t.body(t.ext(secret, '/ext/v1/agenda?de=2026-12-01&ate=2026-12-01'));
+      expect(dec.vezes.map((v: VezV1) => v.lembrete)).toEqual([FERIAS.id]);
+    });
+
+    it('sem de, a agenda começa hoje (no fuso da conta) e vai por um mês', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const got = await t.body(t.ext(secret, '/ext/v1/agenda'));
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(t.deps.now());
+      expect(got.de).toBe(today);
+      expect(Date.parse(got.ate) - Date.parse(got.de)).toBe(30 * 86_400_000);
+    });
+
+    it('fora da janela, o dia que não existe e o ate antes do de são recusados', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const out = await t.ext(secret, '/ext/v1/agenda?de=2026-01-01&ate=2026-01-31');
+      expect(out.status).toBe(400);
+      const err = await t.body(out);
+      expect(err.erro).toBe('fora-da-janela');
+      expect(err.mensagem).toContain('2026-07 a 2027-10');
+      expect((await t.ext(secret, '/ext/v1/agenda?de=2026-10-32')).status).toBe(400);
+      expect((await t.ext(secret, '/ext/v1/agenda?de=2026-10-20&ate=2026-10-01')).status).toBe(400);
+    });
+
+    it('sem espelho ainda, a agenda vem vazia com o aviso', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      const k = await t.newKey(me.token, ['calendario:ler']);
+      const got = await t.body(t.ext(k.segredo, '/ext/v1/agenda'));
+      expect(got.vezes).toEqual([]);
+      expect(got.espelho.estado).toBe('vazio');
+    });
+
+    it('os lembretes como estão guardados: do dia mais novo para o mais antigo, com de, ate, q e páginas', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      const all = await t.body(t.ext(secret, '/ext/v1/lembretes'));
+      expect(all.itens).toEqual([FERIAS, DENTISTA, ACADEMIA]);
+      expect((await t.body(t.ext(secret, '/ext/v1/lembretes?de=2026-10-10&ate=2026-10'))).itens).toEqual([DENTISTA]);
+      expect((await t.body(t.ext(secret, '/ext/v1/lembretes?q=FERIAS'))).itens).toEqual([FERIAS]);
+      const page = await t.body(t.ext(secret, '/ext/v1/lembretes?limite=2'));
+      expect(page.itens.map((l: LembreteV1) => l.id)).toEqual([FERIAS.id, DENTISTA.id]);
+      expect((await t.body(t.ext(secret, `/ext/v1/lembretes?limite=2&depois=${page.depois}`))).itens).toEqual([ACADEMIA]);
+      expect((await t.ext(secret, '/ext/v1/lembretes?de=amanha')).status).toBe(400);
+    });
+
+    it('um lembrete pelo id; o que não existe é 404', async () => {
+      const t = await setup();
+      const { secret } = await t.ready();
+      expect((await t.body(t.ext(secret, `/ext/v1/lembretes/${ACADEMIA.id}`))).lembrete).toEqual(ACADEMIA);
+      const res = await t.ext(secret, '/ext/v1/lembretes/lb-nenhum');
+      expect(res.status).toBe(404);
+      expect((await t.body(res)).erro).toBe('lembrete-nao-encontrado');
+    });
+
+    it('o contexto traz as cores e a janela para qualquer chave do Calendário, e nada para as outras', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready();
+      const ctx = await t.body(t.ext(secret, '/ext/v1/contexto'));
+      expect(ctx.calendario).toEqual({ cores: ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'], janela: { de: '2026-07', ate: '2027-10' }, lembretes: 3 });
+      const writer = await t.newKey(me.token, ['calendario:apagar']);
+      expect((await t.body(t.ext(writer.segredo, '/ext/v1/contexto'))).calendario.lembretes).toBe(3);
+      const notes = await t.newKey(me.token, ['notas:ler']);
+      expect((await t.body(t.ext(notes.segredo, '/ext/v1/contexto'))).calendario).toBeNull();
+    });
+
+    it('a busca acha os lembretes pelo título, com a repetição em palavras; sem areas, entra no que a chave lê', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready();
+      const got = await t.body(t.ext(secret, '/ext/v1/busca?q=academia'));
+      expect(got.itens).toEqual([{ tipo: 'lembrete', id: ACADEMIA.id, titulo: 'Academia', dia: '2026-10-05', repete: ACADEMIA.em_palavras }]);
+      expect((await t.body(t.ext(secret, '/ext/v1/busca?q=dentista&areas=calendario'))).itens[0]).toEqual({ tipo: 'lembrete', id: DENTISTA.id, titulo: 'Dentista', dia: '2026-10-22', repete: null });
+      const notes = await t.newKey(me.token, ['notas:ler']);
+      expect((await t.ext(notes.segredo, '/ext/v1/busca?q=academia&areas=calendario')).status).toBe(403);
+    });
+  });
 }

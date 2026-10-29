@@ -5,8 +5,10 @@ import { formatCode } from '../domain/code';
 import { KeyCaller, authenticateKey, keyOut, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
 import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay';
+import { CALENDAR_SCOPES, calendarContext } from './calendar-read';
 import { KANBAN_SCOPES, kanbanContext } from './kanban-read';
 import { spendingContext } from './spending-read';
+import type { LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoGastosV1, LancamentoV1 } from '../../../contrato/api-v1/gastos';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
@@ -225,22 +227,25 @@ export function extRoutes(app: Hono, deps: Deps): void {
       gastos: me.key.scopes.includes('gastos:ler') ? ((await spendingContext(deps, me.key.userId)) satisfies ContextoGastosV1 | null) : null,
       // os quadros do Kanban e as colunas de cada um (os nomes a usar ao mover), para a chave do Kanban
       kanban: KANBAN_SCOPES.some((s) => me.key.scopes.includes(s)) ? await kanbanContext(deps, me) : null,
+      // as cores e a janela da agenda (os meses que ver_agenda alcança), para a chave do Calendário
+      calendario: CALENDAR_SCOPES.some((s) => me.key.scopes.includes(s)) ? await calendarContext(deps, me) : null,
       espelho: state,
     });
   });
 
-  // ===== A busca: nas Anotações e nos títulos dos lançamentos =====
+  // ===== A busca: nas Anotações e nos títulos dos lançamentos e dos lembretes =====
 
   app.get('/ext/v1/busca', async (c) => {
     const me = await caller(c);
     const raw = c.req.query('q')?.trim() ?? '';
     if (raw.length < 2 || raw.length > 200) throw new HttpError(400, 'busca-invalida', 'Escreva de 2 a 200 letras para buscar.');
     // sem areas, tudo que a chave lê
-    const readable = [...(me.key.scopes.includes('notas:ler') ? ['notas'] : []), ...(me.key.scopes.includes('gastos:ler') ? ['gastos'] : [])];
+    const readable = (['notas', 'gastos', 'calendario'] as const).filter((a) => me.key.scopes.includes(`${a}:ler`));
     const areas = (c.req.query('areas') ?? (readable.join(',') || 'notas')).split(',').map((a) => a.trim());
     const itens: (
       | { tipo: 'nota'; id: string; titulo: string; grupo: string | null; trecho: string }
       | { tipo: 'lancamento'; id: string; titulo: string; dia: string; centavos: number; envelope: string | null }
+      | { tipo: 'lembrete'; id: string; titulo: string; dia: string; repete: string | null }
     )[] = [];
     if (areas.includes('notas')) {
       requireScope(me, 'notas:ler');
@@ -264,6 +269,17 @@ export function extRoutes(app: Hono, deps: Deps): void {
       for (const row of rows) {
         const l = JSON.parse(row.dados) as LancamentoV1;
         itens.push({ tipo: 'lancamento', id: l.id, titulo: l.titulo, dia: l.dia, centavos: l.centavos, envelope: l.envelope?.nome ?? null });
+      }
+    }
+    if (areas.includes('calendario')) {
+      requireScope(me, 'calendario:ler');
+      const rows = await deps.db.all<{ dados: string }>(
+        `SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lembrete' AND busca LIKE ? ESCAPE '\\' ORDER BY data DESC LIMIT ?`,
+        [me.key.userId, `%${dobra(raw).replace(/[%_\\]/g, (m) => `\\${m}`)}%`, SEARCH_MAX],
+      );
+      for (const row of rows) {
+        const l = JSON.parse(row.dados) as LembreteV1;
+        itens.push({ tipo: 'lembrete', id: l.id, titulo: l.titulo, dia: l.dia, repete: l.repete ? l.em_palavras : null });
       }
     }
     return c.json({ itens, espelho: await mirrorState(deps, me.key.userId) });
