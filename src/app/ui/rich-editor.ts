@@ -13,8 +13,9 @@ import { WIDGET_ICONS } from './widget-icons';
 import { MarkupGuide } from './markup-guide';
 import { WIDGETS, WidgetDef, WidgetValues, hostOf, parseWidgetLine, widgetDef, widgetLines } from '../core/widgets';
 import { watchVisualViewport } from './visual-viewport';
-import { ImageProblem, imageFileOf, localImageUrl } from '../core/images';
+import { ImageProblem, imageFileOf, localImageIds, localImageUrl } from '../core/images';
 import { ImageStore } from '../core/image-store';
+import { ImageSync } from '../core/image-sync';
 import { Toasts } from './toast';
 
 type ListKind = 'ul' | 'ol' | 'check';
@@ -2675,14 +2676,21 @@ export class RichEditor {
   /**
    * Colou um endereço com um texto selecionado: o texto vira o link. Colou uma imagem (sem texto junto:
    * as células copiadas de uma planilha também trazem a foto delas, e o que vale ali é o texto): ela é
-   * encolhida, guardada e vira o widget de imagem numa linha só dela.
+   * encolhida, guardada e vira o widget de imagem numa linha só dela. Colou um texto com a imagem de
+   * outra pessoa (copiado de uma compartilhada): a imagem vira uma cópia sua (`adoptImages`).
    */
   protected onPaste(e: ClipboardEvent, area: HTMLTextAreaElement): void {
-    const pasted = e.clipboardData?.getData('text/plain')?.trim() ?? '';
+    const raw = e.clipboardData?.getData('text/plain') ?? '';
+    const pasted = raw.trim();
     const file = pasted ? null : imageFileOf(e.clipboardData);
     if (file) {
       e.preventDefault();
       void this.putImage(area, file);
+      return;
+    }
+    if (localImageIds(raw).length) {
+      e.preventDefault();
+      void this.adoptImages(area, raw);
       return;
     }
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
@@ -2732,6 +2740,43 @@ export class RichEditor {
     } finally {
       this.savingImage.set(false);
     }
+  }
+
+  private readonly imageSync = inject(ImageSync);
+
+  /**
+   * Cola o texto com as imagens do Murall que ele traz (PLANO-IMAGENS.md, decisão D3): a de outra pessoa
+   * vira uma cópia sua (a que não está aqui desce antes, com a conta), e o texto colado leva o id da cópia;
+   * senão, colada numa anotação sua, ela pararia de abrir quando você saísse da compartilhada. A sua e a
+   * que não deu para trazer ficam como vieram. Vai onde estava o cursor (ou onde está, se o texto mudou).
+   */
+  private async adoptImages(area: HTMLTextAreaElement, raw: string): Promise<void> {
+    const before = area.value;
+    let at = { start: area.selectionStart, end: area.selectionEnd };
+    let text = raw;
+    let copied = 0;
+    try {
+      for (const id of localImageIds(raw)) {
+        try {
+          const here = await this.images.get(id);
+          if (here && !here.alheia) continue;
+          // só o que precisa descer ou ser copiado mostra o "Guardando a imagem…"
+          this.savingImage.set(true);
+          if (!here) await this.imageSync.fetch(id);
+          const mine = await this.images.adopt(id);
+          if (!mine || mine.id === id) continue;
+          text = text.split(localImageUrl(id)).join(localImageUrl(mine.id));
+          copied++;
+        } catch {
+          // a que não deu para copiar fica como veio
+        }
+      }
+    } finally {
+      this.savingImage.set(false);
+    }
+    if (area.value !== before) at = { start: area.selectionStart, end: area.selectionEnd };
+    this.replace(area, at.start, at.end, text, at.start + text.length, at.start + text.length);
+    if (copied) this.toasts.show(copied === 1 ? 'A imagem era de outra pessoa: guardei uma cópia sua.' : `As ${copied} imagens eram de outra pessoa: guardei cópias suas.`);
   }
 
   private panelInput(big: boolean, selector: string): HTMLInputElement | null {

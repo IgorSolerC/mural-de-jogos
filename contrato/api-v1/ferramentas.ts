@@ -49,6 +49,8 @@ export interface Ferramenta {
   metodo: Metodo;
   caminho: string;
   caminhoSemId?: string;
+  /** A rota devolve os bytes de uma imagem, não JSON: o MCP manda como imagem para a AI ver. */
+  devolveImagem?: true;
 }
 
 const id = (o: string): Esquema => ({ type: 'string', description: `O id da nota (${o}).`, pattern: '^[\\w-]{1,64}$' });
@@ -475,6 +477,19 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     entrada: obj({ id: id('de listar_notas ou buscar') }, ['id']),
     metodo: 'GET',
     caminho: '/ext/v1/notas/:id',
+  },
+  {
+    nome: 'ver_imagem',
+    titulo: 'Ver uma imagem',
+    descricao:
+      'Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}). Só as das notas que esta chave lê.',
+    escopo: 'notas:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ id: { type: 'string', pattern: '^[A-Za-z0-9_-]{22}$', description: 'O id da imagem (as 22 letras depois de murall://imagem/).' } }, ['id']),
+    metodo: 'GET',
+    caminho: '/ext/v1/imagens/:id',
+    devolveImagem: true,
   },
   {
     nome: 'criar_nota',

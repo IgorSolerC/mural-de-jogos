@@ -29,6 +29,12 @@ describe('os widgets na cópia das anotações', () => {
     expect(copy('{{audio: https://x.com/a.mp3 | vinil}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {audio: https://x.com/a.mp3}');
   });
 
+  it('a imagem colada do aparelho não leva o endereço murall:// (fora do Murall ele não abre)', () => {
+    const id = 'AbCdEfGhIjKlMnOpQrStUv';
+    expect(copy(`{{imagem: murall://imagem/${id}}}`)).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {imagem: imagem guardada no Murall}');
+    expect(copy(`{{imagem: murall://imagem/${id} | polaroid | A praia}}`)).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {imagem: imagem guardada no Murall | A praia}');
+  });
+
   it('o contador vira quanto falta, as duas maiores unidades, com o título', () => {
     expect(copy('{{contador: 20/11/2026 22:00 | Viagem}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 34 dias e 12h faltantes | Viagem}');
     expect(copy('{{contador: 17/10/2026 13:20}}')).toBe('1.\nTÍTULO: N\nDESCRIÇÃO: {contador: 3h e 20min faltantes}');

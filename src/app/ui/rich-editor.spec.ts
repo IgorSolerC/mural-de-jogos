@@ -104,6 +104,41 @@ describe('a régua de formatação do texto', () => {
       expect(drop.defaultPrevented).toBeTrue();
     });
 
+    it('colar um texto com a imagem de outra pessoa: ela vira uma cópia sua, e o texto colado leva o id da cópia', async () => {
+      const store = TestBed.inject(ImageStore);
+      const mine = await store.add(await samplePng(200, 100));
+      const theirs = 'DaBiaDaCompartilhada03';
+      await store.fromCloud(theirs, await samplePng(300, 200), 300, 200, true);
+      const toasts = TestBed.inject(Toasts);
+      write('antes |depois');
+      const data = new DataTransfer();
+      data.setData('text/plain', `{{imagem: murall://imagem/${theirs} | foto | Dela}}\n{{imagem: murall://imagem/${mine.id}}}\n`);
+      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+      area.dispatchEvent(paste);
+      expect(paste.defaultPrevented).toBeTrue();
+      await until(() => value().includes('{{imagem'));
+      const copy = /imagem\/([\w-]{22}) \| foto \| Dela/.exec(value())?.[1];
+      expect(copy).toBeDefined();
+      expect(copy).not.toBe(theirs);
+      expect((await store.get(copy!))?.alheia).toBeUndefined();
+      expect(value()).withContext('a sua fica como veio').toContain(`murall://imagem/${mine.id}}}`);
+      expect(value().startsWith('antes {{imagem')).toBeTrue();
+      expect(value().endsWith('\ndepois')).toBeTrue();
+      expect(toasts.current()?.text).toContain('guardei uma cópia sua');
+    });
+
+    it('colar um texto só com as suas imagens: entra como veio, sem bilhete', async () => {
+      const mine = await TestBed.inject(ImageStore).add(await samplePng(200, 100));
+      const toasts = TestBed.inject(Toasts);
+      write('|');
+      const data = new DataTransfer();
+      data.setData('text/plain', `{{imagem: murall://imagem/${mine.id}}}`);
+      area.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
+      await until(() => value().includes('{{imagem'));
+      expect(value()).toBe(`{{imagem: murall://imagem/${mine.id}}}`);
+      expect(toasts.current()).toBeNull();
+    });
+
     it('o que não abre avisa no bilhete, e o texto fica como estava', async () => {
       write('oi|');
       const toasts = TestBed.inject(Toasts);

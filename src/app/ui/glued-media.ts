@@ -46,7 +46,7 @@ import { CloudAccount } from '../core/cloud-account';
   template: `
     @let m = media();
     <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
-      <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [style.--prop]="ratio()">
+      <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [attr.data-esperando]="seeking() ? '' : null" [style.--prop]="ratio()">
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
@@ -443,6 +443,8 @@ export class GluedMedia {
   private readonly localSrc = signal<string | null | undefined>(undefined);
   /** O que vai no `<img>`: o link, ou o endereço da guardada. */
   protected readonly src = computed(() => (this.localId() ? (this.localSrc() ?? '') : this.media().url));
+  /** A guardada ainda procurando o endereço (no aparelho, ou descendo da nuvem): o PDF espera (ui/pdf-sheet.ts). */
+  protected readonly seeking = computed(() => !!this.localId() && this.localSrc() === undefined);
   // de cada link: trocar o link (digitando, ou consertando um erro) começa de novo, sem o "não abriu"
   // do link de antes nem o vídeo dele tocando
   private readonly url = computed(() => this.media().url);

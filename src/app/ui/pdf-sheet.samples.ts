@@ -64,6 +64,16 @@ export const PDF_WIDGET_SAMPLES: Record<string, readonly string[]> = {
   ),
 };
 
+/**
+ * A foto colada do aparelho (`murall://`, guardada pelo Murall: PLANO-IMAGENS.md). O script da amostra
+ * guarda no aparelho uma imagem com este id antes de abrir a anotação; a folha espera ela sair do
+ * IndexedDB para imprimir.
+ */
+export const PDF_LOCAL_IMAGE = {
+  id: 'AmostraDoPdfColada0001',
+  text: '{{imagem: murall://imagem/AmostraDoPdfColada0001 | polaroid | Colada do aparelho | pequeno}}',
+};
+
 /** A anotação colada pela amostra do widget Nota (o script da amostra a põe no mural). */
 export const PDF_SAMPLE_CARD = {
   id: 'amostra-malas',
@@ -103,5 +113,6 @@ export function pdfSampleText(): string {
     '',
     '## Os widgets',
     ...Object.values(PDF_WIDGET_SAMPLES).flatMap((xs) => [...xs, '']),
+    PDF_LOCAL_IMAGE.text,
   ].join('\n');
 }

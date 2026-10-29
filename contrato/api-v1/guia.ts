@@ -89,7 +89,7 @@ Uma nota nova nasce privada. Um grupo que não existe é recusado (422 \`grupo-n
 
 - Na linha: \`**negrito**\`, \`*itálico*\`, \`~~riscado~~\`, \`==marca-texto==\`, \`||spoiler||\`, \`((sutil))\`, código entre crases,\`[texto](https://...)\` e \`[[Título de outra nota]]\` (um link para ela).
 - Em blocos: títulos (\`# \`, \`## \`, \`### \`), listas (\`- item\`, \`1. item\`), tarefas (\`- [ ] fazer\`, \`- [x] feito\`), citações (\`> \`), a divisória (\`---\`), tabelas (linhas com \`|\`, a segunda só de traços), blocos de código e o texto sutil (\`-# texto\`).
-- Widgets, numa linha só deles: \`{{nome: parâmetro | outro}}\`. Por exemplo \`{{contador: 19/11/2026 18:00 | Lançamento}}\` (uma contagem até a data), \`{{nota: Título de outra nota}}\` (a nota colada no texto). Um widget que você não conhece fica como texto: prefira texto comum.
+- Widgets, numa linha só deles: \`{{nome: parâmetro | outro}}\`. Por exemplo \`{{contador: 19/11/2026 18:00 | Lançamento}}\` (uma contagem até a data), \`{{nota: Título de outra nota}}\` (a nota colada no texto). \`{{imagem: murall://imagem/ID}}\` é uma imagem colada pela pessoa: veja com \`ver_imagem\` (o id são as 22 letras depois de \`murall://imagem/\`). Você não manda imagens; um link \`https://\` de uma imagem serve. Um widget que você não conhece fica como texto: prefira texto comum.
 
 ## Erros
 

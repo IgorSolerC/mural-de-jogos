@@ -93,4 +93,46 @@ describe('as imagens guardadas no aparelho (core/image-store.ts)', () => {
     expect(await store.fromBackup({ imagens: 'x' })).toBe(0);
     expect(await store.fromBackup(null)).toBe(0);
   });
+
+  it('a de outra pessoa vira sua com um id novo (os mesmos bytes, para subir); a sua volta como está', async () => {
+    const png = await samplePng(300, 200);
+    const theirs = 'DaBiaDaCompartilhada01';
+    await store.fromCloud(theirs, png, 300, 200, true);
+    const before = store.count();
+    const mine = (await store.adopt(theirs))!;
+    expect(mine.id).not.toBe(theirs);
+    expect(mine.alheia).toBeUndefined();
+    expect(mine.estado).withContext('ainda não subiu').toBe('local');
+    expect(mine.bytes).toBe(png.size);
+    expect(store.count()).toBe(before + 1);
+    expect((await store.get(theirs))?.alheia).withContext('a dela continua, para mostrar a anotação dela').toBeTrue();
+    // de novo: a mesma cópia, sem guardar outra
+    expect((await store.adopt(theirs))!.id).toBe(mine.id);
+    expect((await store.adopt(mine.id))!.id).toBe(mine.id);
+    expect(await store.adopt('NaoEstaNesteAparelho01')).toBeNull();
+  });
+
+  it('colar a mesma foto que outra pessoa colou guarda uma sua (a dela não serve: some quando você sai da compartilhada)', async () => {
+    const png = await samplePng(400, 300);
+    const first = await store.add(png);
+    // a mesma foto, baixada como de outra pessoa
+    const db = (await store.all())[0];
+    await store.remove(first.id);
+    await store.restore([{ ...db, id: 'DaBiaComAMesmaFoto0001', alheia: true, estado: 'na-nuvem' }]);
+    const mine = await store.add(png);
+    expect(mine.id).not.toBe('DaBiaComAMesmaFoto0001');
+    expect(mine.alheia).toBeUndefined();
+    expect((await store.add(png)).id).toBe(mine.id);
+  });
+
+  it('com a página congelada, a de outra pessoa não vira sua', async () => {
+    await store.fromCloud('DaBiaDaCompartilhada02', await samplePng(100, 100), 100, 100, true);
+    freezeStorage();
+    try {
+      expect(await store.adopt('DaBiaDaCompartilhada02')).toBeNull();
+    } finally {
+      thawStorage();
+    }
+    expect((await store.all()).length).toBe(1);
+  });
 });

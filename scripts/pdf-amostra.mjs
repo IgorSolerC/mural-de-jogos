@@ -21,7 +21,7 @@ mkdirSync(out, { recursive: true });
 const tmp = mkdtempSync(join(tmpdir(), 'pdf-amostra-'));
 const bundle = join(tmp, 'samples.mjs');
 await build({ entryPoints: [join(root, 'src/app/ui/pdf-sheet.samples.ts')], bundle: true, format: 'esm', platform: 'node', outfile: bundle, logLevel: 'error' });
-const { pdfSampleText, PDF_SAMPLE_CARD } = await import(pathToFileURL(bundle).href);
+const { pdfSampleText, PDF_SAMPLE_CARD, PDF_LOCAL_IMAGE } = await import(pathToFileURL(bundle).href);
 rmSync(tmp, { recursive: true, force: true });
 
 const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find((p) => existsSync(p));
@@ -89,6 +89,37 @@ try {
   const print = async (route, name, fileName) => {
     await page.emulateMediaType('screen');
     await page.goto(`${base}#/${route}`, { waitUntil: 'networkidle0' });
+    // a foto colada do aparelho (murall://): guardada no IndexedDB do site, como o colar guarda
+    await page.evaluate(async (id) => {
+      const canvas = new OffscreenCanvas(900, 600);
+      const ctx = canvas.getContext('2d');
+      const sky = ctx.createLinearGradient(0, 0, 0, 600);
+      sky.addColorStop(0, '#f2b880');
+      sky.addColorStop(0.55, '#e07a5f');
+      sky.addColorStop(0.56, '#3d5a80');
+      sky.addColorStop(1, '#293241');
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, 900, 600);
+      ctx.fillStyle = '#fbe3a1';
+      ctx.beginPath();
+      ctx.arc(450, 330, 90, Math.PI, 0);
+      ctx.fill();
+      const blob = await canvas.convertToBlob({ type: 'image/webp', quality: 0.8 });
+      const db = await new Promise((ok, no) => {
+        const req = indexedDB.open('meu-mural:imagens', 1);
+        req.onupgradeneeded = () => req.result.createObjectStore('imagens', { keyPath: 'id' }).createIndex('hash', 'hash');
+        req.onsuccess = () => ok(req.result);
+        req.onerror = () => no(req.error);
+      });
+      const image = { id, blob, tipo: blob.type, largura: 900, altura: 600, bytes: blob.size, hash: 'amostra-pdf', criada: new Date().toISOString(), estado: 'local' };
+      await new Promise((ok, no) => {
+        const tx = db.transaction('imagens', 'readwrite');
+        tx.objectStore('imagens').put(image);
+        tx.oncomplete = ok;
+        tx.onerror = () => no(tx.error);
+      });
+      db.close();
+    }, PDF_LOCAL_IMAGE.id);
     await page.reload({ waitUntil: 'networkidle0' });
     await page.waitForSelector('app-review-card');
     await page.evaluate((title) => {

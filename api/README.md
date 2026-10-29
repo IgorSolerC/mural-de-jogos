@@ -131,6 +131,10 @@ pelos primeiros bytes o tipo e o tamanho de verdade (`src/domain/image.ts`) e gu
   `imagensFaltam`: as usadas que a nuvem não tem (o site que ainda as tem manda de novo).
 - `GET /v1/eu/imagens` diz, de cada solta, `soltaDesde` e `saiEm`; a limpeza diária apaga (bytes e dados)
   as soltas há mais de 30 dias que nenhuma compartilhada usa, até 500 por dia.
+- `GET /ext/v1/imagens/:id` (a API das AIs, com a chave e `notas:ler`): os bytes de uma imagem que está
+  numa nota que a chave lê no espelho (a chave limitada a grupos não vê a de outro grupo) e que a pessoa
+  da chave pode ver; senão, 404. Sem cache, com o mesmo freio por IP. No MCP, é a ferramenta
+  `ver_imagem`, que devolve a imagem para a AI ver (aceita também o endereço `murall://imagem/ID`).
 
 As travas, no `wrangler.toml` (zero ou um valor que não é número recusa todo envio):
 

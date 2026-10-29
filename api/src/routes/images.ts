@@ -9,6 +9,8 @@ import { CatalogBrake, Deps, Statement } from '../ports';
 import { catalogBrake } from './catalog';
 import { sessionOf } from './http';
 import { toBytes } from './mural';
+import { authenticateKey, requireScope } from '../domain/api-key';
+import { groupLimit } from '../ext/routes';
 
 /**
  * As imagens coladas nas anotações (PLANO-IMAGENS.md, rodada 1):
@@ -20,6 +22,8 @@ import { toBytes } from './mural';
  *   Quem não pode ver recebe 404, igual à que não existe. `Imagem-Sua: 1` quando quem pede é o dono.
  * - `DELETE /v1/imagens/:id`: o dono apaga (os bytes antes, os dados depois).
  * - `GET /v1/eu/imagens`: quanto a conta usa, quanto falta, e a lista.
+ * - `GET /ext/v1/imagens/:id` (a API das AIs, `notas:ler`; rodada 6): a imagem de uma nota que a chave lê
+ *   no espelho, para a AI ver (a ferramenta `ver_imagem` do MCP).
  *
  * Cada envio gasta 1 pedido ao Worker e umas 10 linhas gravadas (contadas na cota do dia, os bytes do
  * outro banco também: o limite do D1 é da conta); cada imagem vista, 1 pedido e 2 ou 3 linhas lidas.
@@ -200,6 +204,35 @@ export function imageRoutes(app: Hono, deps: Deps): void {
     if (viewer !== null) c.header('Imagem-Sua', own ? '1' : '0');
     c.header('Content-Security-Policy', "default-src 'none'; sandbox");
     c.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    c.header('Content-Disposition', 'inline');
+    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+  });
+
+  app.get('/ext/v1/imagens/:id', async (c) => {
+    if (braked(c, deps, brake)) {
+      c.header('Retry-After', '60');
+      throw new HttpError(429, 'imagens-devagar', 'Muitas imagens seguidas. As outras vêm daqui a pouco.');
+    }
+    const me = await authenticateKey(deps, c.req.header('Authorization'));
+    requireScope(me, 'notas:ler');
+    const imagesDb = imagesDbOf(deps);
+    const id = idOf(c);
+    // só a de uma nota que a chave lê: a chave limitada a alguns grupos não vê a imagem de outro grupo
+    const limit = groupLimit(me);
+    const inNote = await deps.db.first<{ um: number }>(
+      `SELECT 1 AS um FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota' AND instr(dados, ?) > 0${limit.sql} LIMIT 1`,
+      [me.key.userId, `murall://imagem/${id}`, ...limit.params],
+    );
+    if (!inNote) throw notFound();
+    // e que a pessoa da chave pode ver (a de outra pessoa numa compartilhada da qual ela saiu, não)
+    const row = await imageAccess(deps.db, id, me.key.userId);
+    if (!row || !row.pronta || (!row.publica && !row.membro && row.dono_id !== me.key.userId)) throw notFound();
+    const stored = await imagesDb.first<{ dados: unknown }>('SELECT dados FROM bytes WHERE id = ?', [id]);
+    if (!stored) throw notFound();
+    const bytes = toBytes(stored.dados);
+    c.header('Content-Type', row.tipo);
+    c.header('Cache-Control', 'private, no-store');
+    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
     c.header('Content-Disposition', 'inline');
     return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
   });

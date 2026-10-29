@@ -2,7 +2,10 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { WIDGETS } from '../core/widgets';
 import { PdfDoc, PdfSheet, footerStamp, markLong, pdfFileName, sheetReady } from './pdf-sheet';
-import { PDF_BLOCK_SAMPLES, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, PdfSample, pdfSampleText } from './pdf-sheet.samples';
+import { PDF_BLOCK_SAMPLES, PDF_LOCAL_IMAGE, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, PdfSample, pdfSampleText } from './pdf-sheet.samples';
+import { deleteDatabase } from '../core/erase-save';
+import { IMAGES_DB, ImageStore } from '../core/image-store';
+import { samplePng } from '../core/images.spec';
 
 /**
  * A regra do PDF: toda marca do texto (bloco, marca na linha, widget) sai na folha, e com a cara do
@@ -235,6 +238,24 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     expect(css(inner).fontFamily).not.toMatch(INTER);
   });
 
+  it('a foto colada do aparelho: a folha espera ela sair do IndexedDB e imprime a foto', async () => {
+    await deleteDatabase(IMAGES_DB);
+    try {
+      const blob = await samplePng(300, 200);
+      // guardada antes de a folha montar (o TestBed ainda não foi configurado: a loja aqui é outra, o banco é o mesmo)
+      await new ImageStore().restore([
+        { id: PDF_LOCAL_IMAGE.id, blob, tipo: blob.type, largura: 300, altura: 200, bytes: blob.size, hash: 'amostra', criada: new Date().toISOString(), estado: 'local' },
+      ]);
+      const { el } = await sheet({ text: PDF_LOCAL_IMAGE.text });
+      const img = el.querySelector<HTMLImageElement>('app-glued-media img');
+      expect(img?.src).toMatch(/^blob:/);
+      expect(img?.complete && img.naturalWidth).toBe(300);
+      expect(el.querySelector('[data-esperando]')).toBeNull();
+    } finally {
+      await deleteDatabase(IMAGES_DB);
+    }
+  });
+
   it('as tarefas feitas aparecem todas (no papel não há o que tocar para abrir)', async () => {
     const { el } = await sheet({ text: '- [x] Uma\n- [x] Duas\n- [ ] Três' });
     expect(el.querySelectorAll('.tarefas li.feita').length).toBe(2);
@@ -245,6 +266,7 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     const text = pdfSampleText();
     for (const s of [...Object.values(PDF_BLOCK_SAMPLES), ...Object.values(PDF_SPAN_SAMPLES)]) for (const line of s.text.split('\n')) expect(text).toContain(line);
     for (const xs of Object.values(PDF_WIDGET_SAMPLES)) for (const x of xs) expect(text).toContain(x);
+    expect(text).toContain(PDF_LOCAL_IMAGE.text);
   });
 
   it('o nome do arquivo é o título, sem o que o sistema não aceita', () => {

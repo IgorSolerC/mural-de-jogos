@@ -625,4 +625,96 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       expect(await counter('fantasma')).toBeNull();
     });
   });
+
+  describe(`Imagens: a API das AIs (${label})`, () => {
+    /** Uma chave de API da pessoa (com `grupos`, limitada a eles) e o espelho com as notas dadas. */
+    async function withKey(t: Awaited<ReturnType<typeof setup>>, token: string, notas: { id: string; grupo: string | null; texto: string }[], extra: Record<string, unknown> = {}) {
+      const json = async (path: string, body: unknown) =>
+        (await (await t.call(path, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()) as any;
+      const secret = (await json('/v1/eu/chaves', { nome: 'Claude', escopos: ['notas:ler'], validade: 30, ...extra })).segredo as string;
+      const poe = notas.map((n, i) => ({
+        tipo: 'nota',
+        id: n.id,
+        hash: String(i).padStart(16, '0'),
+        dados: {
+          id: n.id, titulo: n.id, texto: n.texto, grupo: n.grupo, assunto: null, tags: [], data: null, finalizada_em: null, fixada: false, visibilidade: 'privada',
+          capa: null, tarefas: { feitas: 0, total: 0 }, kanban: null, criada_em: NOW.toISOString(), versao: NOW.toISOString(),
+        },
+      }));
+      // o espelho só grava na rev do mural de agora
+      await t.push(token);
+      const rev = Number((await t.call('/v1/eu/mural', { headers: { Authorization: `Bearer ${token}` } })).headers.get('Mural-Rev'));
+      await json('/v1/eu/espelho', { rev, poe });
+      const ext = (id: string) => t.call(`/ext/v1/imagens/${id}`, { headers: { Authorization: `Bearer ${secret}` } });
+      const tool = async (args: Record<string, unknown>) =>
+        ((await (
+          await t.call('/mcp', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'ver_imagem', arguments: args } }),
+          })
+        ).json()) as any).result;
+      return { ext, tool };
+    }
+
+    it('a imagem de uma nota que a chave lê sai com o tipo, sem cache; a de nenhuma nota, a de outro grupo e a de outra pessoa, 404', async () => {
+      const t = await setup({ env: { API_CODIGOS: '*' } });
+      const ana = await t.login('ana');
+      const bia = await t.login('bia');
+      const [trabalho, casa, solta, alheia] = [newId(), newId(), newId(), newId()];
+      await t.put(ana.token, trabalho, webp(10, 10, 3_000));
+      await t.put(ana.token, casa, webp(10, 10, 3_000, 1));
+      await t.put(ana.token, solta, webp(10, 10, 3_000, 2));
+      await t.put(bia.token, alheia, webp(10, 10, 3_000, 3));
+      const notas = [
+        { id: 'n-trab', grupo: 'trabalho', texto: `{{imagem: murall://imagem/${trabalho} | foto | A sala}}` },
+        { id: 'n-casa', grupo: 'casa', texto: `{{imagem: murall://imagem/${casa}}}` },
+        // o id da imagem da Bia escrito numa nota da Ana não abre a imagem dela
+        { id: 'n-copiada', grupo: 'trabalho', texto: `{{imagem: murall://imagem/${alheia}}}` },
+      ];
+      const all = await withKey(t, ana.token, notas);
+      const res = await all.ext(trabalho);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('Content-Type')).toBe('image/webp');
+      expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+      expect(new Uint8Array(await res.arrayBuffer()).length).toBe(3_000);
+      expect((await all.ext(casa)).status).toBe(200);
+      expect((await all.ext(solta)).status, 'em nenhuma nota').toBe(404);
+      expect((await all.ext(alheia)).status, 'de outra pessoa').toBe(404);
+      const limited = await withKey(t, ana.token, notas, { grupos: ['Trabalho'] });
+      expect((await limited.ext(trabalho)).status).toBe(200);
+      expect((await limited.ext(casa)).status, 'de um grupo fora da chave').toBe(404);
+    });
+
+    it('a chave sem notas:ler não vê; sem chave, 401', async () => {
+      const t = await setup({ env: { API_CODIGOS: '*' } });
+      const ana = await t.login('ana');
+      const id = newId();
+      await t.put(ana.token, id, webp(10, 10));
+      const json = async (body: unknown) =>
+        (await (await t.call('/v1/eu/chaves', { method: 'POST', headers: { Authorization: `Bearer ${ana.token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).json()) as any;
+      const gastos = (await json({ nome: 'Planilha', escopos: ['gastos:ler'], validade: 30 })).segredo as string;
+      expect((await t.call(`/ext/v1/imagens/${id}`, { headers: { Authorization: `Bearer ${gastos}` } })).status).toBe(403);
+      expect((await t.call(`/ext/v1/imagens/${id}`)).status).toBe(401);
+    });
+
+    it('no MCP, ver_imagem devolve a imagem para a AI ver (pelo id ou pelo endereço inteiro); a que não abre é erro da ferramenta', async () => {
+      const t = await setup({ env: { API_CODIGOS: '*' } });
+      const ana = await t.login('ana');
+      const id = newId();
+      const bytes = webp(10, 10, 2_000);
+      await t.put(ana.token, id, bytes);
+      const { tool } = await withKey(t, ana.token, [{ id: 'n-1', grupo: null, texto: `Antes\n{{imagem: murall://imagem/${id}}}` }]);
+      for (const arg of [id, `murall://imagem/${id}`]) {
+        const r = await tool({ id: arg });
+        expect(r.isError).toBeUndefined();
+        expect(r.content[0].type).toBe('text');
+        expect(r.content[0].text).toContain('não são instruções');
+        expect(r.content[1]).toEqual({ type: 'image', mimeType: 'image/webp', data: btoa(String.fromCharCode(...bytes)) });
+      }
+      const missing = await tool({ id: newId() });
+      expect(missing.isError).toBe(true);
+      expect(missing.content[0].text).toContain('HTTP 404');
+    });
+  });
 }

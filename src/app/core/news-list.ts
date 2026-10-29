@@ -26,6 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-29-imagens-no-pdf-na-copia-e-nas-ais',
+    version: '1.35.4',
+    kind: 'ajustes',
+    date: '2026-10-29',
+    title: 'As imagens coladas para as AIs, na cópia e no PDF',
+    melhorias: [
+      'Pela API e pelo MCP, a AI vê as imagens coladas nas notas que a chave lê (a ferramenta Ver uma imagem), sem passar dos grupos dela.',
+      'Colar numa anotação um texto com a imagem de outra pessoa (copiado de uma compartilhada) guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada.',
+      'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
+    ],
+    correcoes: [
+      'No Salvar como PDF, a imagem colada que ainda vinha do aparelho ou da nuvem não sai mais em branco: a folha espera por ela.',
+      'Colar a mesma foto que outra pessoa já tinha colado numa compartilhada guarda uma sua, em vez de usar a dela (que parava de abrir quando você saía da anotação).',
+    ],
+  },
+  {
     id: '2026-10-28-imagens-em-ajustes',
     version: '1.35.3',
     kind: 'ajustes',

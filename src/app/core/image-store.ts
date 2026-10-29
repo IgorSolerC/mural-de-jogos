@@ -67,19 +67,35 @@ export class ImageStore {
     if (storageFrozen()) throw new ImageProblem('O Murall está recarregando. Cole a imagem de novo daqui a pouco.');
     const hash = await hashOf(shrunk.blob);
     const db = await this.open();
-    const same = await request<StoredImage | undefined>(db.transaction(STORE).objectStore(STORE).index('hash').get(hash));
+    const same = await this.ownByHash(db, hash);
     if (same) return same;
-    const image: StoredImage = {
-      id: newImageId(),
-      blob: shrunk.blob,
-      tipo: shrunk.tipo,
-      largura: shrunk.largura,
-      altura: shrunk.altura,
-      bytes: shrunk.blob.size,
-      hash,
-      criada: new Date().toISOString(),
-      estado: 'local',
-    };
+    return this.keep(db, { id: newImageId(), blob: shrunk.blob, tipo: shrunk.tipo, largura: shrunk.largura, altura: shrunk.altura, bytes: shrunk.blob.size, hash, criada: new Date().toISOString(), estado: 'local' });
+  }
+
+  /**
+   * A imagem de outra pessoa (de uma anotação compartilhada) vira sua: os mesmos bytes com um id novo, que
+   * sobe como sua (PLANO-IMAGENS.md, decisão D3). Colada numa anotação sua, ela não some quando você sai
+   * da compartilhada. A que já é sua volta como está; a que não está aqui (ou com a página congelada), null.
+   */
+  async adopt(id: string): Promise<StoredImage | null> {
+    const theirs = await this.get(id);
+    if (!theirs?.alheia) return theirs;
+    if (storageFrozen()) return null;
+    const db = await this.open();
+    const same = await this.ownByHash(db, theirs.hash);
+    if (same) return same;
+    const { alheia: _, ...rest } = theirs;
+    return this.keep(db, { ...rest, id: newImageId(), criada: new Date().toISOString(), estado: 'local' });
+  }
+
+  /** A sua com estes bytes (a de outra pessoa com a mesma foto não serve: ela some quando você sai da compartilhada). */
+  private async ownByHash(db: IDBDatabase, hash: string): Promise<StoredImage | null> {
+    const same = await request<StoredImage[]>(db.transaction(STORE).objectStore(STORE).index('hash').getAll(hash));
+    return same.find((i) => !i.alheia) ?? null;
+  }
+
+  /** Guarda uma imagem nova, sua. */
+  private async keep(db: IDBDatabase, image: StoredImage): Promise<StoredImage> {
     await this.write(db, (store) => store.put(image));
     this.version.update((v) => v + 1);
     this.count.update((n) => n + 1);

@@ -530,6 +530,53 @@
         }
       }
     },
+    "/ext/v1/imagens/{id}": {
+      "get": {
+        "operationId": "ver_imagem",
+        "summary": "Ver uma imagem",
+        "description": "Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}). Só as das notas que esta chave lê. Permissão: notas:ler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{22}$",
+              "description": "O id da imagem (as 22 letras depois de murall://imagem/)."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Os bytes da imagem.",
+            "content": {
+              "image/webp": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
     "/ext/v1/notas/{id}/acrescentar": {
       "post": {
         "operationId": "acrescentar_na_nota",

@@ -208,8 +208,9 @@ export async function sheetReady(host: HTMLElement, ms = READY_MS): Promise<void
   const settled = <T>(p: Promise<T>, t: number) => Promise.race([p.then(() => undefined, () => undefined), wait(t)]);
   // duas voltas: a ficha colada (o widget Nota) traz widgets e fotos dela
   for (let round = 0; round < 2; round++) {
-    // os widgets vêm em pedaços à parte: o lugar deles espera até eles chegarem
-    while (host.querySelector('.esperando') && left()) await wait(40);
+    // os widgets vêm em pedaços à parte: o lugar deles espera até eles chegarem; a foto guardada pelo
+    // Murall, até sair do aparelho (ou descer da nuvem)
+    while (host.querySelector('.esperando, [data-esperando]') && left()) await wait(40);
     // as capas que esperam a tela chegar perto: no papel, todas
     const imgs = [...host.querySelectorAll('img')];
     for (const img of imgs) if (img.loading === 'lazy') img.loading = 'eager';

@@ -89,7 +89,7 @@ export function mcpSuite(label: string, getDb: () => Db) {
     it('tools/list mostra só o que a chave pode, com os esquemas e as marcas', async () => {
       const t = await setup(['notas:ler']);
       const tools = (await t.body(t.rpc('tools/list'))).result.tools as { name: string; annotations: { readOnlyHint: boolean } }[];
-      expect(tools.map((x) => x.name)).toEqual(['guia_do_murall', 'ver_contexto', 'buscar', 'listar_notas', 'ler_nota', 'ver_pedidos']);
+      expect(tools.map((x) => x.name)).toEqual(['guia_do_murall', 'ver_contexto', 'buscar', 'listar_notas', 'ler_nota', 'ver_imagem', 'ver_pedidos']);
       expect(tools.every((x) => x.annotations.readOnlyHint)).toBe(true);
       // sem a permissão, chamar também não dá
       expect((await t.body(t.rpc('tools/call', { name: 'criar_nota', arguments: { titulo: 'x' } }))).error.code).toBe(-32602);

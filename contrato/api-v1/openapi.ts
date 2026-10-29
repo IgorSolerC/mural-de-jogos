@@ -30,7 +30,11 @@ function operacao(f: Ferramenta, caminho: string, comId: boolean) {
     if (req.length) body.required = req;
     requestBody = { required: req.length > 0, content: { 'application/json': { schema: body } } };
   }
-  const ok = f.somenteLeitura ? { '200': { description: 'O que foi pedido, em JSON.' } } : { '202': { description: 'O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto).' } };
+  const ok = f.devolveImagem
+    ? { '200': { description: 'Os bytes da imagem.', content: Object.fromEntries(['image/webp', 'image/jpeg', 'image/png'].map((t) => [t, { schema: { type: 'string', format: 'binary' } }])) } }
+    : f.somenteLeitura
+      ? { '200': { description: 'O que foi pedido, em JSON.' } }
+      : { '202': { description: 'O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto).' } };
   return {
     operationId: comId || !f.caminhoSemId ? f.nome : `${f.nome}_todos`,
     summary: f.titulo,

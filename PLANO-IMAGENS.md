@@ -379,6 +379,18 @@ Novidades).
   entrou no `backup.yml` (job `imagens`, domingo, a mesma senha); a exportação do D1 leva os bytes em
   hexadecimal (conferido no banco local). Falta, de rodadas de antes: medir o `cpuTime` em produção.
   Próximo: rodada 6 (as pontas: PDF, cópia, API das AIs).
+- 29/out/2026, rodada 6 (as pontas): o PDF espera a foto guardada sair do aparelho (ou descer da nuvem):
+  a foto marca `data-esperando` enquanto procura, e a folha espera como espera os widgets; a amostra do
+  PDF (`PDF_LOCAL_IMAGE`) e o script guardam uma foto no IndexedDB antes de abrir a anotação. A cópia
+  (Ctrl+C nas marcadas) escreve `{imagem: imagem guardada no Murall}` no lugar do `murall://`, que fora
+  do Murall não abre. A API das AIs ganhou `GET /ext/v1/imagens/:id` (`notas:ler`): só a imagem de uma
+  nota que a chave lê no espelho (a chave limitada a grupos não vê a de outro grupo) e que a pessoa pode
+  ver; no MCP, a ferramenta `ver_imagem` devolve a imagem para a AI ver (aceita também o endereço
+  inteiro). Colar um texto com a imagem de outra pessoa guarda uma cópia sua (`ImageStore.adopt`, com
+  um id novo, que sobe como sua); a que não está no aparelho desce antes, com a conta. Mudou do
+  desenho: a mesma foto colada só reaproveita o id de uma imagem sua (antes, achava a de outra pessoa
+  pelo SHA-256 e a usava). A busca continua lendo a legenda (o endereço não tem palavra). Falta, de
+  rodadas de antes: medir o `cpuTime` em produção. As 6 rodadas do plano terminaram.
 
 ## 11. A conferir (riscos)
 
