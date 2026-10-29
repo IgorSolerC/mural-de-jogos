@@ -1093,9 +1093,23 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   nas bordas sempre pelo `beforeinput`; o ProseMirror lendo o DOM só para as letras e a composição. O
   roteiro do puppeteer ganhou a rajada de `deleteContentBackward` do Gboard (o evento sintético; o que
   conta é quem trata) e o apagar andando de célula: 47 conferências, todas passando.
-- Próximo: o usuário recarrega a prova no celular e repete o apagar segurado perto e dentro da tabela;
-  com isso, fecha a rodada 0 (o iPhone e o tipo próprio no Safari, se tiver um à mão). Depois, a
-  rodada 1.
+- 29/out/2026, o terceiro relatório do Android ("zoou legal a tabela"): segurando o apagar, as três
+  fileiras da tabela se fundiram numa só, com as nove células vazias lado a lado. As repetições na
+  borda já vinham para o nosso apagar, mas as do meio das letras ainda ficavam com o navegador, e com o
+  apagar rápido a seleção que o ProseMirror conhece e o cursor no DOM se desencontram: o navegador
+  apagou um `</tr><tr>` (a cara do apagar nativo do `contenteditable`). O puppeteer não reproduz (o
+  apagar nativo dele não é o do Gboard). **Conserto**: fora da composição, nenhum apagar fica com o
+  navegador. Todo `beforeinput` `delete*` (menos o recortar e o arrastar) é cancelado: no meio das
+  letras, sai exatamente o trecho que o navegador apagaria (o `getTargetRanges` do evento, se cabe numa
+  linha só) ou uma letra inteira pelo `Intl.Segmenter` (o acento combinado e o emoji com tom de pele saem
+  de uma vez); numa borda ou com seleção, o nosso apagar; logo depois de um atalho de digitação, o
+  desfazer dele. Durante a composição (a palavra sublinhada do teclado), fica com o ProseMirror. **A
+  regra para a rodada 2 em diante fica mais forte**: o navegador não apaga nem parte bloco nenhum no
+  Visual; ele só põe letras (e compõe), e o resto é do editor, pelo `beforeinput`. O roteiro ganhou a
+  rajada no meio da célula e a letra inteira: 49 conferências, todas passando.
+- Próximo: o usuário recarrega a prova no celular e repete o apagar segurado (dentro da tabela, perto
+  dela e no meio do texto, que agora também é nosso); com isso, fecha a rodada 0 (o iPhone e o tipo
+  próprio no Safari, se tiver um à mão). Depois, a rodada 1.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
