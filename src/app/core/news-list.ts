@@ -16,8 +16,9 @@ import type { NewsEntry } from './news';
  *   de ajustes de hoje no topo, a mudança pequena nova entra nela (e ela troca de `id`).
  * A primeira versão do site é a 1.0.0; o teste confere a conta e a junção.
  *
- * Com `notice`, a entrada aparece também na faixa do topo do site (com um X para fechar) até a
- * pessoa fechar, abrir a página de novidades ou passar a data de `until`. Sem `notice`, só na página.
+ * Com `notice` (só numa funcionalidade: melhorias e correções nunca viram faixa), a entrada aparece
+ * também na faixa do topo do site (com um X para fechar) até a pessoa fechar, abrir a página de
+ * novidades ou passar a data de `until`. Sem `notice`, só na página.
  *
  * Um aviso urgente que não pode esperar uma versão nova (manutenção, a nuvem fora do ar) vai no
  * `public/cloud.json`, no campo `aviso` (ver `parseCloudNotice` em `cloud-config.ts`).
@@ -26,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-titulos-na-cartolina',
+    id: '2026-10-29-faixa-so-de-funcionalidade',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -40,6 +41,7 @@ export const NEWS: NewsEntry[] = [
       'Colar numa anotação sua (ou no perfil) um texto com a imagem de outra pessoa, copiado de uma compartilhada, guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada. Dentro da própria compartilhada e nos comentários, ela fica como veio.',
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
       'Na cartolina do mural, o título fica um pouco afastado do texto de cima e do de baixo (mais que uma quebra de linha, menos que uma linha em branco); e o parágrafo começa na margem em todo lugar, sem a primeira linha entrar sozinha (quem quiser o recuo escreve os espaços).',
+      'A faixa no topo do site só aparece para uma funcionalidade nova: as melhorias e as correções ficam só na página de Novidades.',
     ],
     correcoes: [
       'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa (antes o toque abria a anotação em vez de ampliar) e não sai mais cortado no widget do alto do texto.',
@@ -122,9 +124,6 @@ export const NEWS: NewsEntry[] = [
     kind: 'ajustes',
     date: '2026-10-26',
     title: 'O mural de quem você visita, vários meses nos Gastos e sair da conta',
-    notice: 'Sair da conta agora tira deste navegador tudo o que é dela: na nuvem fica tudo, e aqui não fica nada.',
-    noticeId: '2026-10-26-sair-limpa-o-navegador',
-    until: '2026-11-02',
     melhorias: [
       'O mural de outra pessoa foi refeito: em cima, uma ficha com a foto do perfil, "O mural de" e o nome a pincel, a linha que a pessoa escreveu, quanto ela tem ali, Ver o perfil e Seguir; os murais dela são orelhas de pasta em cima da ficha, e o site inteiro fica na parede que ela escolheu no perfil.',
       'As abas cinza em trapézio saíram do site: o Ranking, as Estatísticas, o Lado a lado, o Comparar e o estojo da ficha usam as orelhas de pasta das Anotações, e as escolhas das folhas de regras dos Extras (Mural de quem?, Quantos duelos?, Comparar pelo quê?) são os adesivos dos Ajustes.',
@@ -190,6 +189,8 @@ export const NEWS: NewsEntry[] = [
     kind: 'funcionalidade',
     date: '2026-10-26',
     title: 'Gastos',
+    // a faixa durou o dia: a dos ajustes do mesmo dia a cobriu, e ela não volta para quem fechou aquela
+    until: '2026-10-26',
     notice: 'Novo: os Gastos, em Utilidades. Escreva "ifood 44,90" ou "violão 10x 139,90" e o mês se monta sozinho, com os envelopes, o saldo dia a dia e o mês a mês.',
     items: [
       'Uma parte nova no topo, Utilidades, com os Gastos: o dinheiro de cada mês, o que entrou e o que saiu, numa fita de lançamentos para ver o mês inteiro de uma vez.',
@@ -693,8 +694,6 @@ export const NEWS: NewsEntry[] = [
     kind: 'ajustes',
     date: '2026-10-15',
     title: 'Murall, a sincronização sem perdas e a privacidade das fichas',
-    notice: 'O Meu Mural agora se chama Murall: o mural de tudo. Veja o cartaz novo no topo.',
-    noticeId: '2026-10-15-murall',
     melhorias: [
       'O site agora se chama Murall: no cartaz, o "Mur" a pincel e o "ALL" num recorte de revista rosa. O nome vale também na aba do navegador e no app instalado; nada muda nos seus murais.',
       'Versões guardadas, em Ajustes › Backup: quando a mesma ficha muda em dois aparelhos, a versão que não ficou fica guardada por 30 dias, em todos os aparelhos da conta, com um botão para restaurar.',
@@ -738,8 +737,6 @@ export const NEWS: NewsEntry[] = [
     kind: 'ajustes',
     date: '2026-10-14',
     title: 'O site em três partes, o volume e as manchas',
-    notice: 'O topo mudou: Anotações, Análises e Extras. O mural de resenhas agora se escolhe dentro de Análises.',
-    noticeId: '2026-10-14-anotacoes-analises-extras',
     melhorias: [
       'O topo mostra as partes do site, iguais em todas as páginas: Anotações, Análises e Extras. O mural de resenhas se escolhe numa etiqueta logo embaixo do topo, só onde ele importa, e cada mural tem o seu endereço.',
       'A etiqueta do mural, as abas Mural, Pra depois e Wishlist, o logo e a contagem ficam numa linha só embaixo do topo.',
@@ -860,9 +857,6 @@ export const NEWS: NewsEntry[] = [
     kind: 'ajustes',
     date: '2026-10-11',
     title: 'O topo, os Ajustes e o perfil arrumados',
-    notice: 'O topo do site mudou: as partes do mural estão no varal, e Perfil, Amigos e Ajustes nos bottons do canto.',
-    noticeId: '2026-10-11-topo-varal-e-bottons',
-    until: '2026-10-25',
     melhorias: [
       'O topo do site virou um varal de etiquetas de papel kraft com as partes do mural, e Perfil, Amigos e Ajustes viraram bottons.',
       'Os Ajustes viraram um quadro de madeira com cinco partes (Conta, Mural, Amigos, Backup e Busca). Cada ajuste mostra como fica, e "Voltar ao padrão" desfaz as escolhas de Mural e Amigos.',

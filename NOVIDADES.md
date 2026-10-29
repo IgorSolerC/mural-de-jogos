@@ -104,8 +104,6 @@ Na prática, a cada mudança nova:
    item na lista certa dessa entrada (não crie outra). Depois:
    - troque o `id` dela para o da mudança nova (`AAAA-MM-DD-slug-da-mudanca`), para quem já a tinha
      visto ver de novo que ela cresceu;
-   - se ela tem `notice` sem `noticeId`, ponha `noticeId` com o id antigo, para a faixa do topo não
-     voltar para quem já a fechou;
    - ajuste o `title` se a mudança nova for das maiores do dia.
 3. Senão (o topo é uma funcionalidade, ou é de outro dia): entrada de ajustes nova, `X.Y.(Z+1)`.
 
@@ -120,8 +118,10 @@ Na prática, a cada mudança nova:
 - **Junte** as mudanças do mesmo assunto num item só. Um detalhe pequeno entra num item maior ou sai.
   Uma mudança desfeita no mesmo dia não aparece: a entrada conta como o dia terminou.
 - **Melhorias primeiro, as maiores em cima**; correções depois, na mesma ordem.
-- A faixa do topo (`notice`) é rara: uma funcionalidade grande ou uma mudança que todo mundo precisa ver
-  (o site mudou de nome, o topo mudou de lugar).
+- A faixa do topo (`notice`) é só de **funcionalidade**, e rara: uma funcionalidade grande. Melhorias e
+  correções nunca viram faixa (pedido do usuário em 29/out/2026: uma faixa a cada ajuste polui o uso),
+  nem as que todo mundo precisa ver; elas ficam na página. O teste não deixa `notice` numa entrada de
+  ajustes.
 
 ## 5. Antes do commit
 
@@ -138,7 +138,7 @@ Na prática, a cada mudança nova:
 - Ao juntar entradas antigas, a junta fica com o `id` da mais nova: quem viu a mais nova viu todas.
 - `was`: a entrada que saiu de outra que já existia (um item tirado de uma funcionalidade) aponta para
   ela, e quem viu aquela já viu esta.
-- `noticeId`: o id da faixa do topo, quando não é o da entrada. Fechar a faixa guarda esse id.
+- Fechar a faixa do topo guarda o `id` da funcionalidade dela, que nunca troca.
 
 ## 7. A recontagem de 15/out/2026
 

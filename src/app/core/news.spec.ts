@@ -70,8 +70,6 @@ describe('novidades', () => {
     const news = [entry('c', '2026-10-03'), entry('b', '2026-10-02'), entry('a', '2026-10-01')];
     expect(firstSeen(news, false)).toEqual(['c', 'b', 'a']);
     expect(firstSeen(news, true)).toEqual(['b', 'a']);
-    // a faixa de uma entrada juntada conta como vista junto com ela
-    expect(firstSeen([fixes('d', '2026-10-04', { notice: 'D', noticeId: 'x' }), ...news], false)).toEqual(['d', 'x', 'c', 'b', 'a']);
   });
 
   describe('a faixa do topo', () => {
@@ -91,12 +89,14 @@ describe('novidades', () => {
       expect(noticeOf([entry('d', '2026-10-04'), ...news], null, new Set(['c']), '2026-10-05')).toBeNull();
     });
 
-    it('a faixa de uma entrada juntada (ou que trocou de id) não volta para quem já a fechou', () => {
-      const merged = [fixes('d', '2026-10-04', { notice: 'Saiu a C', noticeId: 'c' })];
-      expect(noticeOf(merged, null, new Set(), '2026-10-05')).toEqual({ key: 'c', text: 'Saiu a C', news: true });
-      // fechou a faixa quando ela era da entrada c: a entrada d continua nova, mas a faixa não volta
-      expect(noticeOf(merged, null, new Set(['c']), '2026-10-05')).toBeNull();
-      expect(noticeOf(merged, null, new Set(['d']), '2026-10-05')).toBeNull();
+    it('melhorias e correções nunca viram faixa, nem escondem a da funcionalidade de antes', () => {
+      const withFixes = [fixes('d', '2026-10-04', { notice: 'Ajustes' }), ...news];
+      expect(noticeOf(withFixes, null, new Set(), '2026-10-05')).toEqual({ key: 'c', text: 'Saiu a C', news: true });
+      expect(noticeOf([fixes('d', '2026-10-04', { notice: 'Ajustes' })], null, new Set(), '2026-10-05')).toBeNull();
+    });
+
+    it('na lista, só as funcionalidades têm faixa', () => {
+      for (const n of NEWS) if (n.kind === 'ajustes') expect(n.notice).withContext(n.id).toBeUndefined();
     });
 
     it('respeita o prazo, inclusive o próprio dia', () => {
@@ -152,17 +152,16 @@ describe('novidades', () => {
       const news = await make(false);
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();
-      // cada novidade e, nas juntadas, a faixa dela
-      expect(readSeen(localStorage.getItem(KEY))?.length).toBe(NEWS.reduce((sum, n) => sum + (n.noticeId ? 2 : 1), 0));
+      expect(readSeen(localStorage.getItem(KEY))?.length).toBe(NEWS.length);
     });
 
     it('quem já tinha mural vê a mais nova; abrir a página conta tudo como visto', async () => {
       const news = await make(true);
       expect(news.unseen()).toBe(1);
       expect([...news.unseenIds()]).toEqual([NEWS[0].id]);
-      // a mais nova pode não ter aviso; a faixa é a da mais nova que tem, se ainda não foi vista
-      const withNotice = NEWS.find((n) => n.notice);
-      expect(news.notice()?.key).toBe(withNotice && withNotice.id === NEWS[0].id ? (withNotice.noticeId ?? withNotice.id) : undefined);
+      // a mais nova pode não ter aviso; a faixa é a da funcionalidade mais nova que tem, se ainda não foi vista
+      const withNotice = NEWS.find((n) => n.kind === 'funcionalidade' && n.notice);
+      expect(news.notice()?.key).toBe(withNotice && withNotice.id === NEWS[0].id ? withNotice.id : undefined);
       news.seeAll();
       expect(news.unseen()).toBe(0);
       expect(news.notice()).toBeNull();

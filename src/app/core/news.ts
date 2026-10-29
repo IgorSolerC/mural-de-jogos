@@ -29,13 +29,11 @@ export interface NewsEntry {
   melhorias?: string[];
   /** Ajustes: o que não funcionava como devia e agora funciona. */
   correcoes?: string[];
-  /** A frase da faixa no topo do site. Sem ela, a novidade só aparece na página. */
-  notice?: string;
   /**
-   * O id da faixa, quando não é o da entrada: a faixa que nasceu numa entrada que depois foi juntada a
-   * outras (ou trocou de id) não volta para quem já a fechou.
+   * A frase da faixa no topo do site, só numa funcionalidade: melhorias e correções ficam só na página
+   * (uma faixa a cada ajuste atrapalharia quem está usando). Sem ela, a novidade só aparece na página.
    */
-  noticeId?: string;
+  notice?: string;
   /** Até quando a faixa aparece (AAAA-MM-DD, inclusive). */
   until?: string;
   /**
@@ -59,14 +57,9 @@ export function nextVersion(prev: string, kind: NewsKind): string {
   return kind === 'funcionalidade' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
 }
 
-/** O que ver uma entrada guarda: ela e a faixa dela. */
-function seenKeys(n: NewsEntry): string[] {
-  return n.noticeId ? [n.id, n.noticeId] : [n.id];
-}
-
-/** Tudo o que é dela na lista de vistas: o que ver guarda e a entrada de onde ela saiu. */
+/** Tudo o que é dela na lista de vistas: ela e a entrada de onde ela saiu. */
 function keysOf(n: NewsEntry): string[] {
-  return n.was ? [...seenKeys(n), n.was] : seenKeys(n);
+  return n.was ? [n.id, n.was] : [n.id];
 }
 
 /** Já foi vista: ela mesma, ou a entrada antiga de onde ela saiu. */
@@ -104,23 +97,22 @@ export function seenToSave(seen: ReadonlySet<string>, news: readonly NewsEntry[]
  * quem já tinha um mural antes desta página existir vê só a mais nova.
  */
 export function firstSeen(news: readonly NewsEntry[], hadWall: boolean): string[] {
-  return (hadWall ? news.slice(1) : news).flatMap(seenKeys);
+  return (hadWall ? news.slice(1) : news).map((n) => n.id);
 }
 
 /**
- * A faixa da vez: o aviso da nuvem, se houver um não visto e no prazo; senão, a novidade mais nova
- * que tem aviso (uma atualização pequena, sem aviso, não esconde a faixa da anterior). Só essa:
- * fechar a faixa nunca faz uma mais velha aparecer no lugar.
+ * A faixa da vez: o aviso da nuvem, se houver um não visto e no prazo; senão, a funcionalidade mais
+ * nova que tem aviso (os ajustes nunca viram faixa, nem escondem a da funcionalidade de antes). Só
+ * essa: fechar a faixa nunca faz uma mais velha aparecer no lugar.
  */
 export function noticeOf(news: readonly NewsEntry[], cloud: CloudNotice | null, seen: ReadonlySet<string>, day: string): Notice | null {
   if (cloud && !seen.has(`nuvem:${cloud.id}`) && (!cloud.until || cloud.until >= day)) {
     return { key: `nuvem:${cloud.id}`, text: cloud.text, news: false };
   }
-  const latest = news.find((n) => n.notice);
+  const latest = news.find((n) => n.kind === 'funcionalidade' && n.notice);
   if (!latest?.notice) return null;
-  const key = latest.noticeId ?? latest.id;
-  if (isSeen(latest, seen) || seen.has(key) || (latest.until && latest.until < day)) return null;
-  return { key, text: latest.notice, news: true };
+  if (isSeen(latest, seen) || (latest.until && latest.until < day)) return null;
+  return { key: latest.id, text: latest.notice, news: true };
 }
 
 /** Lê o que ficou guardado; null se nunca foi gravado (ou não serve). */
@@ -182,7 +174,7 @@ export class News {
 
   /** Abriu a página: tudo conta como visto, e a faixa de novidade vai embora. */
   seeAll(): void {
-    this.mark(this.entries().flatMap(seenKeys));
+    this.mark(this.entries().map((n) => n.id));
   }
 
   private mark(keys: string[]): void {
