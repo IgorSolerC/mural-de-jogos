@@ -454,4 +454,49 @@ export function calendarioSuite(label: string, getDb: () => Db) {
       expect(b.repetido).toBe(true);
     });
   });
+
+  describe(`${label}: o Calendário pelo MCP`, () => {
+    const ALL = ['calendario:ler', 'calendario:escrever', 'calendario:apagar'];
+    let seq = 0;
+    const rpc = async (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, params?: unknown) =>
+      t.body(
+        t.call('/mcp', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, ...(params ? { params } : {}) }),
+        }),
+      );
+    const tool = async (t: Awaited<ReturnType<typeof setup>>, secret: string, name: string, args: Record<string, unknown> = {}) =>
+      (await rpc(t, secret, 'tools/call', { name, arguments: args })).result;
+
+    it('cada permissão do Calendário mostra as ferramentas dela; o contexto vale para qualquer uma, a busca só para quem lê', async () => {
+      const t = await setup();
+      const { me } = await t.ready();
+      const names = async (scopes: string[]) => (await rpc(t, (await t.newKey(me.token, scopes)).segredo, 'tools/list')).result.tools.map((x: { name: string }) => x.name);
+      expect(await names(['calendario:ler'])).toEqual(['guia_do_murall', 'ver_contexto', 'buscar', 'ver_agenda', 'listar_lembretes', 'ler_lembrete', 'ver_pedidos']);
+      expect(await names(['calendario:escrever'])).toEqual(['guia_do_murall', 'ver_contexto', 'criar_lembrete', 'editar_lembrete', 'ver_pedidos']);
+      expect(await names(['calendario:apagar'])).toEqual(['guia_do_murall', 'ver_contexto', 'apagar_lembrete', 'ver_pedidos']);
+      const list = (await rpc(t, (await t.newKey(me.token, ['calendario:apagar'])).segredo, 'tools/list')).result.tools as { name: string; annotations: { destructiveHint: boolean } }[];
+      expect(list.find((x) => x.name === 'apagar_lembrete')!.annotations.destructiveHint).toBe(true);
+    });
+
+    it('ver_agenda e ler_lembrete, marcados como dado; criar com a repetição; tirar um dia com a versão e o dia na consulta', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const agenda = await tool(t, secret, 'ver_agenda', { de: '2026-10-20', ate: '2026-10-22' });
+      expect(agenda.structuredContent.vezes.map((v: VezV1) => v.titulo)).toEqual(['Academia', 'Dentista']);
+      expect(agenda.content[0].text).toContain('<conteudo_do_usuario>');
+      expect((await tool(t, secret, 'ler_lembrete', { id: ACADEMIA.id })).structuredContent.lembrete).toEqual(ACADEMIA);
+      const made = await tool(t, secret, 'criar_lembrete', { titulo: 'Aula de violão', dia: '2026-11-03', hora: '19:00', repete: { cada: 'semana', intervalo: 2 }, chave_idempotencia: 'violao-1' });
+      expect(made.isError).toBeUndefined();
+      expect(made.content[0].text).toContain(`alvo ${made.structuredContent.lembrete.id}`);
+      expect(made.structuredContent.lembrete.repete).toEqual({ cada: 'semana', intervalo: 2, dias_da_semana: [], vez_no_mes: null, so_nos_meses_com_o_dia: false, ate: null, vezes: null });
+      const day = await tool(t, secret, 'apagar_lembrete', { id: ACADEMIA.id, versao: ACADEMIA.versao, dia: '2026-10-26' });
+      expect(day.isError).toBeUndefined();
+      expect(day.structuredContent.lembrete.pulados).toEqual(['2026-10-12', '2026-10-26']);
+      const locked = await tool(t, secret, 'editar_lembrete', { id: DENTISTA.id, versao: '2026-01-01T00:00:00.000Z', cor: 'rosa' });
+      expect(locked.isError).toBe(true);
+      expect(locked.content[0].text).toContain('versao-velha');
+    });
+  });
 }

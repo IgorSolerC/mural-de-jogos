@@ -1649,9 +1649,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      às 9h, toda semana", "Tirar “Academia” de 19 de outubro") e o que acontece ao apagar (só a vez, ou
      o lembrete, também do Google). Fotos de perto da folha (esperando e histórico, computador e
      celular) na build de produção. O bundle inicial foi a 1,94 MB.
-  6. MCP e guia: `ver_agenda`, `listar_lembretes`, `ler_lembrete`, `criar_lembrete`,
+  6. [feito, BUILD 636] MCP e guia: `ver_agenda`, `listar_lembretes`, `ler_lembrete`, `criar_lembrete`,
      `editar_lembrete`, `apagar_lembrete`; a parte do Calendário no guia; o OpenAPI e as cópias em
      `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+     Feito assim: as seis em `FERRAMENTAS_DO_CALENDARIO` (`contrato/api-v1/ferramentas.ts`); a
+     repetição tem o esquema dela (`repete`, objeto ou null: o `Esquema` agora aceita `object` na lista
+     de tipos); `apagar_lembrete` é destrutiva e leva a `versao` e o `dia` na consulta; `ver_contexto`
+     vale para qualquer permissão do Calendário e `buscar` também para quem lê os lembretes. O guia
+     ganhou "O Calendário" (o lembrete guarda o primeiro dia e a repetição, a agenda abre as vezes, a
+     janela, o `repete` campo a campo, tirar só uma vez, o Google travado) e as regras de ouro falam
+     também dos lembretes; o `llms.txt` e o OpenAPI dizem Calendário. No site, Como usar e a folha da
+     chave dizem que ela lê e escreve no calendário também (a wishlist, o Pra depois e as fichas
+     chegam depois). As cópias em `docs/api/` foram regeradas (`cd api && npm run docs`).
   7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Calendário, o espelho enchendo,
      ler a agenda, criar, mudar, tirar um dia, aplicar) e no ar (as rotas novas respondendo). Anotar
      aqui.

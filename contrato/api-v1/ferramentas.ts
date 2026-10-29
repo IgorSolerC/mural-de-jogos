@@ -9,7 +9,7 @@ import { ESTADOS } from './operacoes';
 
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
-  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('string' | 'integer' | 'boolean' | 'null')[];
+  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('object' | 'string' | 'integer' | 'boolean' | 'null')[];
   description?: string;
   properties?: Record<string, Esquema>;
   required?: string[];
@@ -392,6 +392,122 @@ export const FERRAMENTAS_DO_KANBAN: readonly Ferramenta[] = [
 ];
 
 /** A permissão em palavras (para o guia e o OpenAPI). */
+// ===== O Calendário (rodada 7) =====
+
+const idLembrete: Esquema = { type: 'string', description: 'O id do lembrete.', pattern: '^[\\w-]{1,64}$' };
+const versaoLembrete: Esquema = { type: 'string', description: 'A versao do lembrete que você leu (o campo versao).' };
+const diaArg = (o: string): Esquema => ({ type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: o });
+const horaArg = (o: string): Esquema => ({ type: ['string', 'null'], pattern: '^([01]\\d|2[0-3]):[0-5]\\d$', description: o });
+
+/** Os campos de um lembrete que se escrevem (a forma que `conferirOpLembrete` confere de novo). */
+const CAMPOS_DO_LEMBRETE: Record<string, Esquema> = {
+  titulo: { type: 'string', minLength: 1, maxLength: 120, description: 'O nome ("Dentista", "Pagar o aluguel").' },
+  dia: diaArg('O dia, AAAA-MM-DD (o primeiro, quando se repete).'),
+  hora: horaArg('A hora, HH:MM; null é o dia todo.'),
+  fim: { type: ['string', 'null'], pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'Mais de um dia: o último dia de cada vez (depois do dia); null é um dia só.' },
+  hora_fim: horaArg('Com hora: a hora em que acaba (no último dia, quando são vários); null tira.'),
+  repete: {
+    type: ['object', 'null'],
+    description: 'Como se repete (troca a repetição inteira); null: não se repete.',
+    properties: {
+      cada: { type: 'string', enum: ['dia', 'semana', 'mes', 'ano'], description: 'De quanto em quanto.' },
+      intervalo: { type: 'integer', minimum: 1, maximum: 99, description: 'A cada quantos (padrão 1: "a cada 2 semanas" é 2).' },
+      dias_da_semana: { type: 'array', maxItems: 7, items: { type: 'integer', minimum: 0, maximum: 6 }, description: 'Só na semana: os dias (0 é domingo, 6 é sábado). Sem eles, o dia da semana do dia.' },
+      vez_no_mes: { type: ['integer', 'null'], enum: [1, 2, 3, 4, 5, -1, null], description: 'Só no mês e no ano: a vez do dia da semana do dia no mês ("a terceira terça" é 3; -1 é a última).' },
+      so_nos_meses_com_o_dia: { type: 'boolean', description: 'Só no mês e no ano, num dia 29, 30 ou 31: só nos meses que têm o dia (senão, cai no último dia dos mais curtos).' },
+      ate: { type: ['string', 'null'], pattern: '^\\d{4}-\\d{2}-\\d{2}$', description: 'O último dia em que pode aparecer (null: sem fim).' },
+      vezes: { type: ['integer', 'null'], minimum: 1, maximum: 999, description: 'Ou quantas vezes acontece (no lugar de ate).' },
+    },
+    required: ['cada'],
+    additionalProperties: false,
+  },
+  cor: { type: 'string', enum: ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'], description: 'A cor (sem ela, o Murall sorteia, como na tela).' },
+  silencioso: { type: 'boolean', description: 'Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa.' },
+  notas: { type: 'array', maxItems: 12, items: { type: 'string', pattern: '^[\\w-]{1,64}$' }, description: 'As anotações presas nele (os ids das notas, até 12).' },
+};
+
+export const FERRAMENTAS_DO_CALENDARIO: readonly Ferramenta[] = [
+  {
+    nome: 'ver_agenda',
+    titulo: 'Ver a agenda',
+    descricao:
+      'O que acontece entre dois dias, como o Calendário do app mostra: cada vez de cada lembrete, com as repetições já abertas (a semana com vários dias, "a terceira terça", os dias tirados). Sem de, de hoje a um mês. Vai de 3 meses antes do atual a 12 depois; para mais longe, use listar_lembretes. O que ainda não entrou vem em pedidos_abertos.',
+    escopo: 'calendario:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      de: { type: 'string', description: 'A partir de: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).' },
+      ate: { type: 'string', description: 'Até: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/agenda',
+  },
+  {
+    nome: 'listar_lembretes',
+    titulo: 'Listar lembretes',
+    descricao: 'Os lembretes como estão guardados (cada um com a repetição, em palavras também), do primeiro dia mais novo para o mais antigo. de/ate olham o primeiro dia; para o que acontece num dia, use ver_agenda. Pagine com depois.',
+    escopo: 'calendario:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      de: { type: 'string', description: 'O primeiro dia a partir de: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).' },
+      ate: { type: 'string', description: 'O primeiro dia até: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).' },
+      q: { type: 'string', maxLength: 200, description: 'Busca no nome.' },
+      limite: { type: 'integer', minimum: 1, maximum: 200, description: 'Quantos (padrão 50).' },
+      depois: { type: 'string', description: 'Para a próxima página: o depois que veio na anterior.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/lembretes',
+  },
+  {
+    nome: 'ler_lembrete',
+    titulo: 'Ler um lembrete',
+    descricao: 'Um lembrete inteiro, com a versao (para mudar ou apagar).',
+    escopo: 'calendario:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ id: idLembrete }, ['id']),
+    metodo: 'GET',
+    caminho: '/ext/v1/lembretes/:id',
+  },
+  {
+    nome: 'criar_lembrete',
+    titulo: 'Criar um lembrete',
+    descricao:
+      'Marca um lembrete no Calendário (vai ao Google Agenda, se a pessoa ligou). titulo e dia são obrigatórios; sem hora, é o dia todo. Para repetir, repete com o cada ("toda segunda e quarta": cada semana, dias_da_semana [1, 3]).',
+    escopo: 'calendario:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ ...CAMPOS_DO_LEMBRETE, chave_idempotencia: idem }, ['titulo', 'dia']),
+    metodo: 'POST',
+    caminho: '/ext/v1/lembretes',
+  },
+  {
+    nome: 'editar_lembrete',
+    titulo: 'Mudar um lembrete',
+    descricao:
+      'Muda os campos mandados de um lembrete (mudar o dia leva o fim junto; repete troca a repetição inteira). Mande a versao que você leu; se voltar conflito, leia de novo. O lembrete travado pelo Google (google.travado) só muda a cor e as notas.',
+    escopo: 'calendario:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ id: idLembrete, versao: versaoLembrete, ...CAMPOS_DO_LEMBRETE, chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/lembretes/:id',
+  },
+  {
+    nome: 'apagar_lembrete',
+    titulo: 'Apagar um lembrete',
+    descricao:
+      'Apaga um lembrete (e o evento dele no Google Agenda); com dia, tira só aquela vez de um lembrete que se repete (o dia em que a vez começa, como em ver_agenda). A pessoa pode desfazer pelo histórico. Mande a versao que você leu. Pergunte ao usuário antes.',
+    escopo: 'calendario:apagar',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ id: idLembrete, versao: versaoLembrete, dia: diaArg('Só esta vez (AAAA-MM-DD), num lembrete que se repete.'), chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/lembretes/:id',
+  },
+];
+
 export function escopoEmPalavras(escopo: Ferramenta['escopo']): string | null {
   if (escopo === null) return null;
   return typeof escopo === 'string' ? escopo : escopo.join(' ou ');
@@ -419,8 +535,8 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem.',
-    escopo: ['notas:ler', 'gastos:ler', 'kanban:ler', 'kanban:mover', 'kanban:colunas'],
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento) e o do Calendário (as cores e os meses que ver_agenda alcança). Chame antes de criar ou mudar, e use os nomes que já existem.',
+    escopo: ['notas:ler', 'gastos:ler', 'kanban:ler', 'kanban:mover', 'kanban:colunas', 'calendario:ler', 'calendario:escrever', 'calendario:apagar'],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj({}),
@@ -430,14 +546,14 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'buscar',
     titulo: 'Buscar',
-    descricao: 'Busca nas notas (título e texto) e nos títulos dos lançamentos, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.',
-    escopo: ['notas:ler', 'gastos:ler'],
+    descricao: 'Busca nas notas (título e texto) e nos nomes dos lançamentos e dos lembretes, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.',
+    escopo: ['notas:ler', 'gastos:ler', 'calendario:ler'],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj(
       {
         q: { type: 'string', minLength: 2, maxLength: 200, description: 'O que buscar.' },
-        areas: { type: 'string', description: 'Onde: notas, gastos, ou notas,gastos.' },
+        areas: { type: 'string', description: 'Onde, separado por vírgula: notas, gastos, calendario.' },
       },
       ['q'],
     ),
@@ -609,6 +725,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     caminho: '/ext/v1/notas/:id',
   },
   ...FERRAMENTAS_DO_KANBAN,
+  ...FERRAMENTAS_DO_CALENDARIO,
   ...FERRAMENTAS_DOS_GASTOS,
   {
     nome: 'ver_pedidos',

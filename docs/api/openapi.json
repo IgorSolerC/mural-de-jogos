@@ -3,7 +3,7 @@
   "info": {
     "title": "Murall: API para AIs e programas",
     "version": "1",
-    "description": "Ler e escrever nas Anotações, no Kanban e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
+    "description": "Ler e escrever nas Anotações, no Kanban, no Calendário e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
   },
   "servers": [
     {
@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas) e o dos Gastos (envelopes, pessoas, os meses com lançamento). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento) e o do Calendário (as cores e os meses que ver_agenda alcança). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -44,7 +44,7 @@
       "get": {
         "operationId": "buscar",
         "summary": "Buscar",
-        "description": "Busca nas notas (título e texto) e nos títulos dos lançamentos, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê. Permissão: notas:ler ou gastos:ler.",
+        "description": "Busca nas notas (título e texto) e nos nomes dos lançamentos e dos lembretes, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê. Permissão: notas:ler ou gastos:ler ou calendario:ler.",
         "parameters": [
           {
             "name": "q",
@@ -61,7 +61,7 @@
             "name": "areas",
             "in": "query",
             "required": false,
-            "description": "Onde: notas, gastos, ou notas,gastos.",
+            "description": "Onde, separado por vírgula: notas, gastos, calendario.",
             "schema": {
               "type": "string"
             }
@@ -1290,6 +1290,562 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/agenda": {
+      "get": {
+        "operationId": "ver_agenda",
+        "summary": "Ver a agenda",
+        "description": "O que acontece entre dois dias, como o Calendário do app mostra: cada vez de cada lembrete, com as repetições já abertas (a semana com vários dias, \"a terceira terça\", os dias tirados). Sem de, de hoje a um mês. Vai de 3 meses antes do atual a 12 depois; para mais longe, use listar_lembretes. O que ainda não entrou vem em pedidos_abertos. Permissão: calendario:ler.",
+        "parameters": [
+          {
+            "name": "de",
+            "in": "query",
+            "required": false,
+            "description": "A partir de: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "required": false,
+            "description": "Até: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/lembretes": {
+      "get": {
+        "operationId": "listar_lembretes",
+        "summary": "Listar lembretes",
+        "description": "Os lembretes como estão guardados (cada um com a repetição, em palavras também), do primeiro dia mais novo para o mais antigo. de/ate olham o primeiro dia; para o que acontece num dia, use ver_agenda. Pagine com depois. Permissão: calendario:ler.",
+        "parameters": [
+          {
+            "name": "de",
+            "in": "query",
+            "required": false,
+            "description": "O primeiro dia a partir de: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ate",
+            "in": "query",
+            "required": false,
+            "description": "O primeiro dia até: um dia (AAAA-MM-DD) ou um mês (AAAA-MM).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Busca no nome.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantos (padrão 50).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Para a próxima página: o depois que veio na anterior.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "criar_lembrete",
+        "summary": "Criar um lembrete",
+        "description": "Marca um lembrete no Calendário (vai ao Google Agenda, se a pessoa ligou). titulo e dia são obrigatórios; sem hora, é o dia todo. Para repetir, repete com o cada (\"toda segunda e quarta\": cada semana, dias_da_semana [1, 3]). Permissão: calendario:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titulo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "O nome (\"Dentista\", \"Pagar o aluguel\")."
+                  },
+                  "dia": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "O dia, AAAA-MM-DD (o primeiro, quando se repete)."
+                  },
+                  "hora": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "description": "A hora, HH:MM; null é o dia todo."
+                  },
+                  "fim": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Mais de um dia: o último dia de cada vez (depois do dia); null é um dia só."
+                  },
+                  "hora_fim": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "description": "Com hora: a hora em que acaba (no último dia, quando são vários); null tira."
+                  },
+                  "repete": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "description": "Como se repete (troca a repetição inteira); null: não se repete.",
+                    "properties": {
+                      "cada": {
+                        "type": "string",
+                        "enum": [
+                          "dia",
+                          "semana",
+                          "mes",
+                          "ano"
+                        ],
+                        "description": "De quanto em quanto."
+                      },
+                      "intervalo": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99,
+                        "description": "A cada quantos (padrão 1: \"a cada 2 semanas\" é 2)."
+                      },
+                      "dias_da_semana": {
+                        "type": "array",
+                        "maxItems": 7,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6
+                        },
+                        "description": "Só na semana: os dias (0 é domingo, 6 é sábado). Sem eles, o dia da semana do dia."
+                      },
+                      "vez_no_mes": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "enum": [
+                          1,
+                          2,
+                          3,
+                          4,
+                          5,
+                          -1,
+                          null
+                        ],
+                        "description": "Só no mês e no ano: a vez do dia da semana do dia no mês (\"a terceira terça\" é 3; -1 é a última)."
+                      },
+                      "so_nos_meses_com_o_dia": {
+                        "type": "boolean",
+                        "description": "Só no mês e no ano, num dia 29, 30 ou 31: só nos meses que têm o dia (senão, cai no último dia dos mais curtos)."
+                      },
+                      "ate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "O último dia em que pode aparecer (null: sem fim)."
+                      },
+                      "vezes": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 1,
+                        "maximum": 999,
+                        "description": "Ou quantas vezes acontece (no lugar de ate)."
+                      }
+                    },
+                    "required": [
+                      "cada"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "cor": {
+                    "type": "string",
+                    "enum": [
+                      "vermelho",
+                      "laranja",
+                      "amarelo",
+                      "verde",
+                      "azul",
+                      "lilas",
+                      "rosa",
+                      "cinza",
+                      "branco"
+                    ],
+                    "description": "A cor (sem ela, o Murall sorteia, como na tela)."
+                  },
+                  "silencioso": {
+                    "type": "boolean",
+                    "description": "Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa."
+                  },
+                  "notas": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[\\w-]{1,64}$"
+                    },
+                    "description": "As anotações presas nele (os ids das notas, até 12)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "titulo",
+                  "dia"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/lembretes/{id}": {
+      "get": {
+        "operationId": "ler_lembrete",
+        "summary": "Ler um lembrete",
+        "description": "Um lembrete inteiro, com a versao (para mudar ou apagar). Permissão: calendario:ler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do lembrete.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "editar_lembrete",
+        "summary": "Mudar um lembrete",
+        "description": "Muda os campos mandados de um lembrete (mudar o dia leva o fim junto; repete troca a repetição inteira). Mande a versao que você leu; se voltar conflito, leia de novo. O lembrete travado pelo Google (google.travado) só muda a cor e as notas. Permissão: calendario:escrever.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do lembrete.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versao": {
+                    "type": "string",
+                    "description": "A versao do lembrete que você leu (o campo versao)."
+                  },
+                  "titulo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "O nome (\"Dentista\", \"Pagar o aluguel\")."
+                  },
+                  "dia": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "O dia, AAAA-MM-DD (o primeiro, quando se repete)."
+                  },
+                  "hora": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "description": "A hora, HH:MM; null é o dia todo."
+                  },
+                  "fim": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Mais de um dia: o último dia de cada vez (depois do dia); null é um dia só."
+                  },
+                  "hora_fim": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+                    "description": "Com hora: a hora em que acaba (no último dia, quando são vários); null tira."
+                  },
+                  "repete": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "description": "Como se repete (troca a repetição inteira); null: não se repete.",
+                    "properties": {
+                      "cada": {
+                        "type": "string",
+                        "enum": [
+                          "dia",
+                          "semana",
+                          "mes",
+                          "ano"
+                        ],
+                        "description": "De quanto em quanto."
+                      },
+                      "intervalo": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 99,
+                        "description": "A cada quantos (padrão 1: \"a cada 2 semanas\" é 2)."
+                      },
+                      "dias_da_semana": {
+                        "type": "array",
+                        "maxItems": 7,
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 6
+                        },
+                        "description": "Só na semana: os dias (0 é domingo, 6 é sábado). Sem eles, o dia da semana do dia."
+                      },
+                      "vez_no_mes": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "enum": [
+                          1,
+                          2,
+                          3,
+                          4,
+                          5,
+                          -1,
+                          null
+                        ],
+                        "description": "Só no mês e no ano: a vez do dia da semana do dia no mês (\"a terceira terça\" é 3; -1 é a última)."
+                      },
+                      "so_nos_meses_com_o_dia": {
+                        "type": "boolean",
+                        "description": "Só no mês e no ano, num dia 29, 30 ou 31: só nos meses que têm o dia (senão, cai no último dia dos mais curtos)."
+                      },
+                      "ate": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "description": "O último dia em que pode aparecer (null: sem fim)."
+                      },
+                      "vezes": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "minimum": 1,
+                        "maximum": 999,
+                        "description": "Ou quantas vezes acontece (no lugar de ate)."
+                      }
+                    },
+                    "required": [
+                      "cada"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "cor": {
+                    "type": "string",
+                    "enum": [
+                      "vermelho",
+                      "laranja",
+                      "amarelo",
+                      "verde",
+                      "azul",
+                      "lilas",
+                      "rosa",
+                      "cinza",
+                      "branco"
+                    ],
+                    "description": "A cor (sem ela, o Murall sorteia, como na tela)."
+                  },
+                  "silencioso": {
+                    "type": "boolean",
+                    "description": "Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa."
+                  },
+                  "notas": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[\\w-]{1,64}$"
+                    },
+                    "description": "As anotações presas nele (os ids das notas, até 12)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "versao"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "apagar_lembrete",
+        "summary": "Apagar um lembrete",
+        "description": "Apaga um lembrete (e o evento dele no Google Agenda); com dia, tira só aquela vez de um lembrete que se repete (o dia em que a vez começa, como em ver_agenda). A pessoa pode desfazer pelo histórico. Mande a versao que você leu. Pergunte ao usuário antes. Permissão: calendario:apagar.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do lembrete.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "versao",
+            "in": "query",
+            "required": true,
+            "description": "A versao do lembrete que você leu (o campo versao).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dia",
+            "in": "query",
+            "required": false,
+            "description": "Só esta vez (AAAA-MM-DD), num lembrete que se repete.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
             }
           }
         ],
