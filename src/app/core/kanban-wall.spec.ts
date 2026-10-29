@@ -137,6 +137,13 @@ describe('só no Kanban: o mural', () => {
     expect(view.hiddenBoard()).toBe(0);
   });
 
+  it('onBoard tem as do quadro, só no Kanban ou também no mural (a base das sugestões de tag e assunto)', () => {
+    expect([...kanban.onBoard()].sort()).toEqual(['ntarefa1', 'ntarefa2']);
+    kanban.setOnWall('ntarefa1', true);
+    expect([...kanban.onBoard()].sort()).toEqual(['ntarefa1', 'ntarefa2']);
+    expect([...kanban.boardOnly()]).toEqual(['ntarefa2']);
+  });
+
   it('a anotação pode escolher o mural também; o grupo pode pôr todas no mural, e a anotação escolher o contrário', () => {
     kanban.setOnWall('ntarefa1', true);
     expect(kanban.get(TRAB)!.cards[0].wall).toBeTrue();

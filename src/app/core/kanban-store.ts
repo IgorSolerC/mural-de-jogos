@@ -82,6 +82,14 @@ export class KanbanStore {
     return out;
   });
 
+  /** As anotações que estão em algum quadro (pelo id), só no Kanban ou também no mural. */
+  readonly onBoard = computed<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    const byId = this.notesById();
+    for (const b of this.boards()) for (const c of liveCards(b, byId)) out.add(c.note);
+    return out;
+  });
+
   /** As anotações do quadro deste grupo ficam só no Kanban (a escolha do grupo)? */
   groupKanbanOnly(category: string | null | undefined): boolean {
     return !!category?.trim() && kanbanOnly(this.settings.notesConfig(), category);

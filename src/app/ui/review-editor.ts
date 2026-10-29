@@ -806,10 +806,21 @@ export class ReviewEditor {
   }
 
   /** Os assuntos à mão: os criados nas configurações e os das outras anotações do mesmo grupo. */
-  protected readonly subjectLib = computed(() => subjectLibrary(this.store.notes(), savedSubjects(this.settings.notesConfig(), this.noteCategory()), this.noteCategory()));
+  /**
+   * As anotações do mesmo lugar desta (o mural, o Kanban ou os dois): as sugestões de assunto e de tag
+   * vêm só delas.
+   */
+  private readonly samePlaceNotes = computed(() => {
+    const board = !!this.kbBoard() && this.kbColumn() !== null;
+    const wall = !board || this.kbWall();
+    const only = this.kanban.boardOnly();
+    const onBoard = this.kanban.onBoard();
+    return this.store.notes().filter((n) => ((wall && !only.has(n.id)) || (board && onBoard.has(n.id))));
+  });
+  protected readonly subjectLib = computed(() => subjectLibrary(this.samePlaceNotes(), savedSubjects(this.settings.notesConfig(), this.noteCategory()), this.noteCategory()));
 
   /** As tags à mão: as fixas e as das outras anotações da mesma categoria. */
-  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.noteCategory()));
+  protected readonly tagLib = computed(() => tagLibrary(this.samePlaceNotes(), this.settings.pinnedTags(), this.noteCategory()));
 
   /** No celular a prévia é a ficha simples, que cabe no alto do estojo sem empurrar o resto. */
   protected readonly phone = signal(false);
