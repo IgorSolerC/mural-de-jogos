@@ -5,6 +5,7 @@ import { soundVolume } from '../core/volume';
 import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
 import { localImageId } from '../core/images';
 import { ImageStore } from '../core/image-store';
+import { ImageSync } from '../core/image-sync';
 import { EmbedBridge } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
@@ -430,6 +431,7 @@ export class GluedMedia {
 
   protected readonly media = computed(() => readMedia(this.args()));
   private readonly images = inject(ImageStore);
+  private readonly imageSync = inject(ImageSync);
   /** A imagem guardada pelo Murall (`murall://imagem/ID`, ver core/images.ts), ou null (um link comum). */
   private readonly localId = computed(() => (this.kind() === 'imagem' ? localImageId(this.media().url) : null));
   /**
@@ -496,14 +498,19 @@ export class GluedMedia {
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
-    // a guardada pelo Murall: procura no IndexedDB (de novo quando outra imagem é guardada nesta aba)
+    // a guardada pelo Murall: procura no IndexedDB; sem ela aqui, desce da nuvem (com a sessão) e fica
+    // guardada; de novo quando outra imagem é guardada nesta aba ou a sincronização termina uma rodada
     effect((onCleanup) => {
       const id = this.localId();
       this.images.version();
+      this.imageSync.round();
       if (!id) return untracked(() => this.localSrc.set(undefined));
       let alive = true;
       onCleanup(() => (alive = false));
-      void this.images.url(id).then((url) => alive && this.localSrc.set(url));
+      void this.images
+        .url(id)
+        .then((url) => url ?? this.imageSync.fetch(id))
+        .then((url) => alive && this.localSrc.set(url));
     });
     // o player de fora entrou (ou saiu, trocando o link): a conversa com ele começa de novo
     effect(() => {

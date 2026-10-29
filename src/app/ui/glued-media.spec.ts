@@ -6,6 +6,8 @@ import { deleteDatabase } from '../core/erase-save';
 import { IMAGES_DB, ImageStore } from '../core/image-store';
 import { localImageUrl } from '../core/images';
 import { samplePng } from '../core/images.spec';
+import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
+import { Cloud } from '../core/cloud-config';
 
 
 /** Conta quantas vezes o `src` do iframe é escrito (escrever o mesmo endereço recarrega o player). */
@@ -65,6 +67,37 @@ describe('a foto colada na anotação', () => {
       expect(el.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
       expect(el.querySelector('img')?.getAttribute('alt')).toBe('Praia');
       expect(el.querySelector('.falha')).toBeNull();
+    });
+
+    it('com a conta, a que não está neste aparelho desce da nuvem e aparece (e fica guardada aqui)', async () => {
+      localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-1', codigo: 'K7QF-M2XA', nome: 'Igor' }));
+      const png = await samplePng(320, 240);
+      const id = 'veiodanuvemparaca' + 'x'.repeat(5);
+      const asked: string[] = [];
+      spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL) => {
+        asked.push(String(url));
+        if (String(url).endsWith(`/v1/imagens/${id}`)) return new Response(png, { headers: { 'Content-Type': 'image/png' } });
+        return new Response('{}', { headers: { 'Content-Type': 'application/json' } });
+      });
+      try {
+        TestBed.configureTestingModule({
+          imports: [GluedMedia],
+          providers: [provideZonelessChangeDetection(), { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: 'https://api.teste', googleClientId: 'x' }) } }],
+        });
+        const fixture = TestBed.createComponent(GluedMedia);
+        fixture.componentRef.setInput('kind', 'imagem');
+        fixture.componentRef.setInput('args', [localImageUrl(id)]);
+        await fixture.whenStable();
+        const el = fixture.nativeElement as HTMLElement;
+        await waitFor(() => !!el.querySelector('img'), fixture);
+        expect(el.querySelector('img')?.getAttribute('src')).toMatch(/^blob:/);
+        expect(asked.filter((u) => u.includes('/v1/imagens/'))).toEqual([`https://api.teste/v1/imagens/${id}`]);
+        expect((await TestBed.inject(ImageStore).get(id))?.estado).toBe('na-nuvem');
+      } finally {
+        localStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(ACCOUNT_KEY);
+      }
     });
 
     it('a que não está neste aparelho diz que ainda não chegou; colada aqui depois, aparece', async () => {

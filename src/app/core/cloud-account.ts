@@ -145,7 +145,10 @@ export class CloudAccount {
     if (!config) throw new CloudError('A nuvem não está disponível agora.', 'sem-nuvem', 0);
     const headers: Record<string, string> = { ...init.headers };
     const isForm = typeof FormData !== 'undefined' && init.body instanceof FormData;
-    if (init.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
+    // os bytes de uma imagem vão como vieram, com o tipo dela (ver core/image-sync.ts)
+    const isBlob = typeof Blob !== 'undefined' && init.body instanceof Blob;
+    if (isBlob) headers['Content-Type'] ??= (init.body as Blob).type || 'application/octet-stream';
+    else if (init.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
     const token = this.token();
     if (token) headers['Authorization'] = `Bearer ${token}`;
     let res: Response;
@@ -153,7 +156,7 @@ export class CloudAccount {
       res = await fetch(config.api + path, {
         method: init.method ?? 'GET',
         headers,
-        body: init.body === undefined ? undefined : isForm ? (init.body as FormData) : JSON.stringify(init.body),
+        body: init.body === undefined ? undefined : isForm ? (init.body as FormData) : isBlob ? (init.body as Blob) : JSON.stringify(init.body),
       });
     } catch {
       throw new CloudError('Sem conexão com a nuvem agora. Tente de novo daqui a pouco.', 'sem-rede', 0);

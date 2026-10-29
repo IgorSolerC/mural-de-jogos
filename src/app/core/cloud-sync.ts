@@ -33,6 +33,7 @@ import { planBlock, planBoards, planFichas, stampAfter } from './sync-merge';
 import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
 import { ImageStore } from './image-store';
+import { ImageSync, shortReason } from './image-sync';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -666,6 +667,7 @@ export class CloudSync {
   private readonly spending = inject(SpendingStore);
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
+  private readonly imageSync = inject(ImageSync);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
@@ -726,6 +728,13 @@ export class CloudSync {
           this.waitingChoice = false;
         });
       }
+    });
+
+    // uma imagem colada (ou guardada) aqui: sobe logo, sem esperar a próxima rodada do mural
+    effect((onCleanup) => {
+      this.images.version();
+      const timer = setTimeout(() => void this.sendImages().catch(() => undefined), 800);
+      onCleanup(() => clearTimeout(timer));
     });
 
     // um pedido da API aprovado aqui: uma rodada já, para ele entrar na hora
@@ -791,6 +800,8 @@ export class CloudSync {
   /** Sincroniza agora (o botão em Ajustes). Também é a volta da primeira sincronização adiada. */
   async syncNow(): Promise<void> {
     this.waitingChoice = false;
+    // quem pediu agora (o botão, o Sair) quer as imagens tentadas de novo, mesmo esperando um "não" de antes
+    this.imageSync.retry();
     clearTimeout(this.timer);
     // uma rodada no meio: espera ela e roda outra (quem chama quer o que mudou até agora já enviado)
     while (this.current) await this.current.catch(() => undefined);
@@ -847,6 +858,8 @@ export class CloudSync {
       // como de ninguém, podendo ir para outra conta (ver core/browser-reset.ts)
       if (state && this.kv.getItem(OWNER_KEY) === null) this.writeOwner(accountId);
       if (!state) {
+        // as imagens guardadas aqui contam como mural de ninguém (ver `localHasContent`)
+        await this.images.ready;
         state = await this.firstSync(accountId);
         if (!state) return;
       }
@@ -854,8 +867,11 @@ export class CloudSync {
       // os pedidos da API das AIs entram pelas lojas, sobem numa rodada a mais e só então são concluídos
       if (await this.requests.applyOpen(this.device.id)) state = await this.pullAndPush(state);
       await this.requests.conclude();
+      // as imagens coladas aqui sobem depois do mural (o texto que as usa já está lá)
+      await this.sendImages();
       this.failures = 0;
       this.status.set('ok');
+      this.imageSync.synced();
     } catch (err) {
       this.fail(err);
     }
@@ -1039,8 +1055,19 @@ export class CloudSync {
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
-      BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null)
+      BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
+      this.images.count() > 0
     );
+  }
+
+  /**
+   * As imagens coladas sobem só com a conta dona do mural deste navegador (o de ninguém espera a
+   * escolha de ir para a conta, e o de outra conta nunca sobe nesta: ver core/browser-reset.ts).
+   */
+  private sendImages(): Promise<void> {
+    const id = this.account.account()?.id;
+    if (!this.active() || !id || this.kv.getItem(OWNER_KEY) !== id || readState(this.kv)?.conta !== id) return Promise.resolve();
+    return this.imageSync.send();
   }
 
   private describe(doc: BackupPayload): string {
@@ -1715,15 +1742,16 @@ export class CloudSync {
     } else if (!(await this.confirm.ask(question))) return false;
     await this.syncNow();
     const sent = await this.everythingSent();
-    // as imagens coladas ainda não sobem para a nuvem (PLANO-IMAGENS.md, rodada 3): sair as apaga daqui
+    // as imagens coladas que não subiram (sem rede, o limite do dia, a cota cheia): sair as apaga daqui
     const images = await this.images.unsent();
     if (!sent || images) {
-      const lostImages = images === 1 ? 'Uma imagem colada nas anotações está só neste aparelho' : `${images} imagens coladas nas anotações estão só neste aparelho`;
+      const lostImages = images === 1 ? 'Uma imagem colada nas anotações ainda não subiu' : `${images} imagens coladas nas anotações ainda não subiram`;
+      const why = shortReason(this.imageSync.problem());
       const lose = await this.confirm.ask({
         title: 'Ainda tem coisa só aqui',
         text: !sent
           ? `Há mudanças neste navegador que ainda não subiram para a nuvem${images ? `, e ${lostImages.charAt(0).toLowerCase() + lostImages.slice(1)}` : ''}. Saindo agora, elas se perdem. Confira a conexão e tente de novo, ou saia mesmo assim.`
-          : `${lostImages}: as imagens ainda não sobem para a nuvem. Saindo agora, ${images === 1 ? 'ela se perde' : 'elas se perdem'}, e as anotações ficam sem ${images === 1 ? 'ela' : 'elas'}.`,
+          : `${lostImages} para a nuvem${why ? ` (${why})` : ''}. Saindo agora, ${images === 1 ? 'ela se perde' : 'elas se perdem'}, e as anotações ficam sem ${images === 1 ? 'ela' : 'elas'}.`,
         confirm: 'Sair e perder',
         cancel: 'Ficar',
         icon: null,

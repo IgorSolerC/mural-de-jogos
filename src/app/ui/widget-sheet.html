@@ -156,6 +156,9 @@
                             <span class="guardada-texto">
                               <span class="guardada-nome">Imagem do aparelho</span>
                               <span class="guardada-meta">{{ local.meta }}</span>
+                              @if (local.where) {
+                                <span class="guardada-onde">{{ local.where }}</span>
+                              }
                             </span>
                             <span class="guardada-acoes">
                               <button type="button" class="btn-quiet" [attr.data-campo]="f.key" (click)="chooseFile()">Trocar</button>

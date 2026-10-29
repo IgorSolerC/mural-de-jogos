@@ -986,6 +986,8 @@ describe('a folha do widget no editor', () => {
     await until(() => !!el.querySelector('.wfolha .guardada-mini img'));
     expect(el.querySelector('.wfolha .guardada-nome')?.textContent).toBe('Imagem do aparelho');
     expect(el.querySelector('.wfolha .guardada-meta')?.textContent).toMatch(/^900 × 675 px · \d+ KB$/);
+    // fora da conta, ela fica só aqui (com a conta, sobe: ver core/image-sync.spec.ts)
+    expect(el.querySelector('.wfolha .guardada-onde')?.textContent).toBe('Só neste aparelho (fora da conta)');
     expect(el.querySelector('.wfolha input[data-campo="url"]')).withContext('o campo do link sai').toBeNull();
     // o palco mostra a foto de verdade
     expect(el.querySelector('.wfolha app-glued-media img')?.getAttribute('src')).toMatch(/^blob:/);

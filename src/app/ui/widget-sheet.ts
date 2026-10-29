@@ -17,7 +17,9 @@ import { RichText } from './rich-text';
 import { TableGrid } from './table-grid';
 import { WIDGET_ICONS } from './widget-icons';
 import { ImageProblem, imageFileOf, localImageId, localImageUrl, sizeLabel } from '../core/images';
-import { ImageStore } from '../core/image-store';
+import { ImageStore, StoredImage } from '../core/image-store';
+import { ImageSync, shortReason } from '../core/image-sync';
+import { CloudAccount } from '../core/cloud-account';
 
 
 /** O que a folha devolve ao editor: o widget pronto para virar a linha do texto. */
@@ -184,11 +186,16 @@ export class WidgetSheet {
   // ===== a imagem do aparelho (o campo com `upload`: ver core/images.ts) =====
 
   private readonly images = inject(ImageStore);
+  private readonly imageSync = inject(ImageSync);
+  private readonly account = inject(CloudAccount);
   /** Uma imagem escolhida (ou colada no campo) sendo encolhida e guardada. */
   protected readonly savingImage = signal(false);
   protected readonly imageError = signal<string | null>(null);
-  /** A guardada que o campo tem agora: a fotinho (quando chega) e o tamanho; null se é um link. */
-  protected readonly localImage = signal<{ src: string | null; meta: string } | null>(null);
+  /**
+   * A guardada que o campo tem agora: a fotinho (quando chega), o tamanho e onde ela está (na nuvem, ou
+   * só neste aparelho e por quê); null se é um link.
+   */
+  protected readonly localImage = signal<{ src: string | null; meta: string; where: string } | null>(null);
 
   /** Abre a escolha de arquivo do aparelho (no celular, a galeria e a câmera). */
   protected chooseFile(): void {
@@ -238,15 +245,19 @@ export class WidgetSheet {
       const field = this.shown().find((f) => f.upload);
       const id = field ? localImageId(this.values()[field.key] ?? '') : null;
       this.images.version();
+      const problem = this.imageSync.problem();
+      this.account.signedIn();
       if (!id) return this.localImage.set(null);
-      // a parte da guardada aparece já (sem piscar o campo do link), e a fotinho chega depois
-      this.localImage.update((v) => v ?? { src: null, meta: '' });
+      // a parte da guardada aparece já (sem piscar o campo do link), e a fotinho chega depois; a que
+      // está em outro aparelho desce da nuvem
+      this.localImage.update((v) => v ?? { src: null, meta: '', where: '' });
       let alive = true;
       onCleanup(() => (alive = false));
-      void Promise.all([this.images.get(id), this.images.url(id)]).then(([image, src]) => {
-        if (!alive) return;
-        this.localImage.set({ src, meta: image ? `${image.largura} × ${image.altura} px · ${sizeLabel(image.bytes)}` : 'Ainda não chegou a este aparelho' });
-      });
+      void (async () => {
+        const src = (await this.images.url(id)) ?? (await this.imageSync.fetch(id));
+        const image = await this.images.get(id);
+        if (alive) this.localImage.set({ src, meta: image ? `${image.largura} × ${image.altura} px · ${sizeLabel(image.bytes)}` : 'Ainda não chegou a este aparelho', where: whereOf(image, problem, this.account.signedIn()) });
+      })();
     });
     afterNextRender(() => {
       const s = this.start();
@@ -350,3 +361,13 @@ export class WidgetSheet {
 }
 
 let uid = 0;
+
+/** Onde a imagem guardada está, numa frase curta (vazia: ela não está neste aparelho). */
+function whereOf(image: StoredImage | null, problem: { code: string; message: string } | null, signedIn: boolean): string {
+  if (!image) return '';
+  if (image.estado === 'na-nuvem') return 'Guardada na nuvem';
+  if (image.estado === 'recusada') return 'Só neste aparelho: a nuvem não aceitou esta imagem';
+  if (!signedIn) return 'Só neste aparelho (fora da conta)';
+  const why = shortReason(problem);
+  return why ? `Só neste aparelho por enquanto (${why})` : 'Subindo para a nuvem…';
+}

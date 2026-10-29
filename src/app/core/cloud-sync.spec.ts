@@ -20,6 +20,7 @@ import { BrowserReset, wipeBrowser } from './browser-reset';
 import { ApiMirror } from './api-mirror';
 import { ApiRequests, SiteRequest } from './api-requests';
 import { IMAGES_DB, ImageStore } from './image-store';
+import { ImageSync } from './image-sync';
 import { deleteDatabase } from './erase-save';
 
 const API = 'https://api.teste';
@@ -82,6 +83,8 @@ class FakeCloud {
   /** A conta pode usar a API das AIs? */
   api = false;
   concluded: { id: string; estado: string; puts: number; resultado: unknown }[] = [];
+  /** As imagens coladas que subiram (PUT /v1/imagens/:id), pelo id. */
+  images = new Map<string, Blob>();
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
     if (this.offline) throw new TypeError('Failed to fetch');
@@ -90,6 +93,15 @@ class FakeCloud {
     const headers = (init.headers ?? {}) as Record<string, string>;
     const now = { 'Mural-Agora': new Date().toISOString() };
     if (u.pathname === '/v1/eu' && method === 'GET') return json({ ...ACCOUNT, ...(this.api ? { api: true } : {}), seguidores: 0, seguindo: 0 });
+    const image = /^\/v1\/imagens\/([\w-]{22})$/.exec(u.pathname)?.[1];
+    if (image && method === 'PUT') {
+      this.images.set(image, init.body as Blob);
+      return json({ id: image }, 201);
+    }
+    if (image && method === 'GET') {
+      const blob = this.images.get(image);
+      return blob ? new Response(blob, { headers: { 'Content-Type': blob.type } }) : json({ erro: 'imagem-nao-encontrada', mensagem: 'Essa imagem não existe, ou não é sua.' }, 404);
+    }
     if ((u.pathname === '/v1/auth/sair' || u.pathname === '/v1/auth/sair-de-todos') && method === 'POST') return json({ ok: true });
     if (u.pathname === '/v1/eu' && method === 'PATCH') return json({ nome: JSON.parse(String(init.body)).nome });
     if (u.pathname === '/v1/eu/mural' && method === 'GET') {
@@ -244,6 +256,8 @@ describe('sincronização com a nuvem', () => {
         SpendingStore,
         CloudAccount,
         CloudSync,
+        // as imagens sobem com a conta deste aparelho (a da raiz é outra)
+        ImageSync,
         SyncConflicts,
         ApiMirror,
         ApiRequests,
@@ -1016,21 +1030,44 @@ describe('sincronização com a nuvem', () => {
       expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
     });
 
-    it('com imagens coladas só neste aparelho: avisa que elas se perdem, mesmo com tudo enviado', async () => {
-      // só esta imagem: outros testes também guardam no mesmo banco
+    it('as imagens coladas sobem antes de sair; a que não sobe (sem conexão) faz perguntar', async () => {
+      // só estas imagens: outros testes também guardam no mesmo banco
       await deleteDatabase(IMAGES_DB);
       const a = device();
-      await TestBed.inject(ImageStore).restore([
-        { id: 'sohaquinesteaparelho12', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'h', criada: '', estado: 'local' },
-      ]);
-      a.askAnswers.push(true, false);
-      expect(await a.sync.signOut()).toBeFalse();
-      expect(a.askedTitles).toEqual(['Sair da conta?', 'Ainda tem coisa só aqui']);
-      expect(a.askedTexts.at(-1)).toBe('Uma imagem colada nas anotações está só neste aparelho: as imagens ainda não sobem para a nuvem. Saindo agora, ela se perde, e as anotações ficam sem ela.');
-      expect(a.reset.requests).toEqual([]);
-      a.askAnswers.push(true, true);
+      const store = TestBed.inject(ImageStore);
+      const pasted = (id: string) => ({ id, blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: id, criada: '', estado: 'local' as const });
+      await store.restore([pasted('subiuantesdesairxxxxx1')]);
       expect(await a.sync.signOut()).toBeTrue();
-      expect(a.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+      expect(a.askedTitles).toEqual(['Sair da conta?']);
+      expect([...cloud.images.keys()]).toEqual(['subiuantesdesairxxxxx1']);
+      await deleteDatabase(IMAGES_DB);
+
+      const b = device();
+      await store.restore([pasted('sohaquinesteaparelho12')]);
+      cloud.offline = true;
+      b.askAnswers.push(true, false);
+      expect(await b.sync.signOut()).toBeFalse();
+      expect(b.askedTitles).toEqual(['Sair da conta?', 'Ainda tem coisa só aqui']);
+      expect(b.askedTexts.at(-1)).toContain('uma imagem colada nas anotações ainda não subiu');
+      expect(b.reset.requests).toEqual([]);
+      b.askAnswers.push(true, true);
+      expect(await b.sync.signOut()).toBeTrue();
+      expect(b.reset.requests).toEqual([{ motivo: 'saiu', keep: [] }]);
+      await deleteDatabase(IMAGES_DB);
+    });
+
+    it('as imagens sobem só com a conta dona do mural deste navegador', async () => {
+      await deleteDatabase(IMAGES_DB);
+      const a = device({ anonimo: true });
+      await TestBed.inject(ImageStore).restore([
+        { id: 'deninguemesperaaescol1', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'n', criada: '', estado: 'local' },
+      ]);
+      await TestBed.inject(ImageStore).ready;
+      // o mural de ninguém só com uma imagem tem conteúdo: a pergunta de levar para a conta aparece
+      a.answers.push(null);
+      await a.sync.syncNow();
+      expect(a.asked.length).toBe(1);
+      expect(cloud.images.size).toBe(0);
       await deleteDatabase(IMAGES_DB);
     });
 

@@ -333,6 +333,24 @@ Novidades).
   imagens só neste aparelho ("Ainda tem coisa só aqui"), porque até a rodada 3 nenhuma sobe. Ficou para a
   rodada 3: `localHasContent` (o de ninguém indo para a conta com imagens), a fila de envio e o baixar.
   Próximo: rodada 3 (sincronizar).
+- 28/out/2026, rodada 3 (sincronizar): `src/app/core/image-sync.ts`. A fila manda as que só estão aqui
+  (`PUT`, uma por vez, das mais velhas), logo depois de colar (800 ms) e no fim de cada rodada da
+  sincronização, só com a conta dona do mural deste navegador (o de ninguém espera a escolha; o de outra
+  conta nunca sobe). Um "não" que não passa logo para a fila: o limite do dia, a cota da conta e a cota de
+  gravações por uma hora, a nuvem cheia por seis, as imagens fora do ar por quinze minutos (Sincronizar
+  agora e o Sair tentam de novo na hora); o que a nuvem nunca aceita (o tipo, o tamanho, o id de outra
+  conta) fica `recusada`, só aqui, sem tentar de novo. A que falta neste aparelho desce com a sessão
+  (`GET`, até quatro ao mesmo tempo, o mesmo id uma vez), fica guardada como `na-nuvem`, e a que a nuvem
+  não tem só é pedida de novo depois de um minuto (a cada rodada da sincronização). As imagens contam em
+  `localHasContent`. O Sair manda antes e pergunta com o porquê curto quando sobra alguma ("sem
+  conexão", "chegou ao limite de imagens do dia"). A folha da imagem diz onde ela está ("Guardada na
+  nuvem", "Subindo para a nuvem…", "Só neste aparelho (fora da conta)", ou só neste aparelho e por quê).
+  Ponta a ponta local (`.angular/pptr/imagens-e2e.mjs`, API no wrangler dev com os dois D1 locais e o
+  `ng serve`): o aparelho A cola, a imagem sobe sozinha (PUT 201), o mural sobe com o texto; o B, vazio,
+  recebe a anotação, baixa a foto uma vez (GET 200) e não pede de novo ao reabrir. Cada imagem custa, em
+  pedidos ao Worker, 2 ao subir e 2 por aparelho ao descer (o `OPTIONS` da sessão no cabeçalho conta).
+  Falta medir o `cpuTime` em produção com uma imagem de verdade (`npx wrangler tail mural-api --format
+  json`). Próximo: rodada 4 (público e compartilhadas).
 
 ## 11. A conferir (riscos)
 

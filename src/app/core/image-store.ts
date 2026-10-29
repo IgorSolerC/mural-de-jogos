@@ -8,7 +8,8 @@ const STORE = 'imagens';
 
 /**
  * Uma imagem guardada neste aparelho: os bytes já encolhidos e o que se sabe deles. `estado` diz se
- * ela já subiu para a nuvem (rodada 3 do PLANO-IMAGENS.md): `local` ainda não.
+ * ela já está na nuvem (ver core/image-sync.ts): `local` ainda não subiu; `na-nuvem` subiu daqui ou
+ * desceu de lá; `recusada`, a nuvem não aceitou de jeito nenhum (não tenta de novo, e só existe aqui).
  */
 export interface StoredImage {
   id: string;
@@ -20,8 +21,10 @@ export interface StoredImage {
   /** SHA-256 dos bytes: a mesma imagem colada de novo reaproveita o id. */
   hash: string;
   criada: string;
-  estado: 'local' | 'na-nuvem';
+  estado: ImageState;
 }
+
+export type ImageState = 'local' | 'na-nuvem' | 'recusada';
 
 /** Uma imagem no backup baixado: os bytes em base64 (o backup é um JSON). */
 export interface BackupImage {
@@ -44,9 +47,13 @@ const TYPES = ['image/webp', 'image/jpeg', 'image/png'];
 export class ImageStore {
   /** Sobe a cada imagem guardada aqui: quem procurou uma que faltava procura de novo. */
   readonly version = signal(0);
+  /** Quantas estão guardadas aqui (o mural de ninguém com imagens tem conteúdo: ver core/cloud-sync.ts). */
+  readonly count = signal(0);
   private database: Promise<IDBDatabase> | undefined;
   /** Os endereços `blob:` já feitos nesta aba, por id. */
   private readonly urls = new Map<string, string>();
+  /** A contagem lida pela primeira vez (ao criar, nunca no nível do módulo; depois dos campos de cima). */
+  readonly ready: Promise<void> = this.recount();
 
   /** Encolhe e guarda a imagem colada; devolve a guardada (a mesma de antes, se já estava aqui). */
   async add(file: Blob): Promise<StoredImage> {
@@ -70,7 +77,32 @@ export class ImageStore {
     };
     await this.write(db, (store) => store.put(image));
     this.version.update((v) => v + 1);
+    this.count.update((n) => n + 1);
     return image;
+  }
+
+  /** As que ainda não subiram para a nuvem, das mais velhas para as mais novas. */
+  async pending(): Promise<StoredImage[]> {
+    return (await this.all()).filter((i) => i.estado === 'local').sort((a, b) => a.criada.localeCompare(b.criada));
+  }
+
+  /** Muda o estado de uma guardada (subiu, ou a nuvem recusou). */
+  async mark(id: string, estado: ImageState): Promise<void> {
+    if (storageFrozen()) return;
+    const image = await this.get(id);
+    if (!image || image.estado === estado) return;
+    await this.write(await this.open(), (store) => store.put({ ...image, estado }));
+    // quem mostra onde ela está (a folha da imagem) olha de novo
+    this.version.update((v) => v + 1);
+  }
+
+  /** Guarda a que desceu da nuvem (de outro aparelho), já como `na-nuvem`. */
+  async fromCloud(id: string, blob: Blob, largura: number, altura: number): Promise<void> {
+    if (storageFrozen() || (await this.get(id))) return;
+    const image: StoredImage = { id, blob, tipo: blob.type, largura, altura, bytes: blob.size, hash: await hashOf(blob), criada: new Date().toISOString(), estado: 'na-nuvem' };
+    await this.write(await this.open(), (store) => store.put(image));
+    this.version.update((v) => v + 1);
+    this.count.update((n) => n + 1);
   }
 
   /** A imagem guardada aqui, ou null. */
@@ -94,9 +126,9 @@ export class ImageStore {
     return url;
   }
 
-  /** Quantas estão só neste aparelho (ainda não subiram para a nuvem): sair da conta as leva junto. */
+  /** Quantas estão só neste aparelho (não subiram, ou a nuvem recusou): sair da conta as leva junto. */
   async unsent(): Promise<number> {
-    return (await this.all()).filter((i) => i.estado === 'local').length;
+    return (await this.all()).filter((i) => i.estado !== 'na-nuvem').length;
   }
 
   /** Todas as guardadas aqui (para o backup baixado). */
@@ -153,6 +185,16 @@ export class ImageStore {
     if (fresh.length === 0) return;
     await this.write(db, (store) => fresh.forEach((i) => store.put(i)));
     this.version.update((v) => v + 1);
+    this.count.update((n) => n + fresh.length);
+  }
+
+  private async recount(): Promise<void> {
+    try {
+      const db = await this.open();
+      this.count.set(await request<number>(db.transaction(STORE).objectStore(STORE).count()));
+    } catch {
+      this.count.set(0);
+    }
   }
 
   private open(): Promise<IDBDatabase> {
