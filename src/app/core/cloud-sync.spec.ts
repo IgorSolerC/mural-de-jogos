@@ -87,6 +87,8 @@ class FakeCloud {
   images = new Map<string, Blob>();
   /** A parte `imagens` do último envio do mural (null: não veio). */
   published: string | null = null;
+  /** Os ids que a nuvem diz que faltam na resposta do próximo envio do mural. */
+  missing: string[] = [];
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
     if (this.offline) throw new TypeError('Failed to fetch');
@@ -136,7 +138,7 @@ class FakeCloud {
       this.published = form.get('imagens') as string | null;
       this.rev++;
       this.puts++;
-      return json({ rev: this.rev, novas: 0 });
+      return json({ rev: this.rev, novas: 0, ...(this.missing.length ? { imagensFaltam: this.missing } : {}) });
     }
     return json({ erro: 'nao-encontrado', mensagem: url }, 404);
   }
@@ -1316,7 +1318,26 @@ describe('sincronização com a nuvem', () => {
     a.store.add({ ...review('nfotpub1', 'Praia', now, now), kind: 'anotacoes', publishedAt: now, text: `Olha:\n{{imagem: murall://imagem/${pub} | polaroid}}` });
     a.store.add({ ...review('nfotpri1', 'Exame', now, now), kind: 'anotacoes', private: true, text: `{{imagem: murall://imagem/${priv}}}` });
     await a.sync.syncNow();
-    expect(JSON.parse(cloud.published!)).toEqual({ publicas: [pub] });
+    // as usadas: todas as do mural, as privadas também (as outras ficam soltas na nuvem)
+    expect(JSON.parse(cloud.published!)).toEqual({ publicas: [pub], usadas: jasmine.arrayWithExactContents([pub, priv]) });
+  });
+
+  it('a imagem que o mural usa e a nuvem perdeu sobe de novo deste aparelho', async () => {
+    await deleteDatabase(IMAGES_DB);
+    const a = device();
+    const id = 'perdidanuvem' + 'x'.repeat(10);
+    await TestBed.inject(ImageStore).restore([
+      { id, blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: id, criada: '', estado: 'na-nuvem' },
+    ]);
+    const now = new Date().toISOString();
+    a.store.add({ ...review('nperdida', 'Perdida', now, now), kind: 'anotacoes', text: `{{imagem: murall://imagem/${id}}}` });
+    cloud.missing = [id];
+    await a.sync.syncNow();
+    cloud.missing = [];
+    for (let i = 0; i < 50 && (await TestBed.inject(ImageStore).get(id))?.estado !== 'local'; i++) await new Promise((r) => setTimeout(r, 10));
+    await a.sync.syncNow();
+    expect([...cloud.images.keys()]).toContain(id);
+    await deleteDatabase(IMAGES_DB);
   });
 
   it('a nota colada que não está à mostra perde o título no público: a privada, a apagada e a do "Sobre mim" do perfil', async () => {

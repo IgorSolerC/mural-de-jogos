@@ -53,10 +53,19 @@ describe('a conferência do backup', () => {
     expect(conferir(tables, { BACKUP_TABELAS: 'usuarios murais' }).status).toBe(0);
   });
 
-  it('o workflow faz o checkout sem deixar o token para o npm ci', () => {
+  it('o workflow faz o checkout sem deixar o token para o npm ci (o mural, o cofre e as imagens)', () => {
     const workflow = read('../../.github/workflows/backup.yml');
     const checkouts = workflow.split('uses: actions/checkout@').slice(1);
-    expect(checkouts.length).toBe(2);
+    expect(checkouts.length).toBe(3);
     for (const c of checkouts) expect(c.slice(0, 300)).toMatch(/with:\s*\n(?:\s*#[^\n]*\n)*\s*persist-credentials: false/);
+  });
+
+  it('o banco das imagens vai uma vez por semana, com a mesma senha, e o diário não roda de novo nessa hora', () => {
+    const workflow = read('../../.github/workflows/backup.yml');
+    expect(workflow).toContain("- cron: '41 6 * * 0'");
+    expect(workflow).toContain("if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 6 * * 0'");
+    expect(workflow).toContain("if: github.event.schedule != '41 6 * * 0'");
+    expect(workflow).toContain('npx wrangler d1 export mural-imagens --remote --output=backup-mural-imagens.sql');
+    expect(workflow).toContain('BACKUP_TABELAS: bytes');
   });
 });

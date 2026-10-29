@@ -147,6 +147,19 @@ export class ImageStore {
     return (await this.all()).filter((i) => i.estado !== 'na-nuvem').length;
   }
 
+  /** Tira a imagem deste aparelho (apagada em Ajustes › Imagens). */
+  async remove(id: string): Promise<void> {
+    if (storageFrozen()) return;
+    const image = await this.get(id);
+    if (!image) return;
+    await this.write(await this.open(), (store) => store.delete(id));
+    const url = this.urls.get(id);
+    if (url) URL.revokeObjectURL(url);
+    this.urls.delete(id);
+    this.version.update((v) => v + 1);
+    if (!image.alheia) this.count.update((n) => Math.max(0, n - 1));
+  }
+
   /** Todas as guardadas aqui (para o backup baixado). */
   async all(): Promise<StoredImage[]> {
     try {

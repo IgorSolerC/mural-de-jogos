@@ -26,13 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-28-imagem-publica',
+    id: '2026-10-28-imagens-em-ajustes',
     version: '1.35.3',
     kind: 'ajustes',
     date: '2026-10-28',
     title: 'As imagens coladas, as tabelas, o Google Agenda e as anotações compartilhadas',
     melhorias: [
       'A imagem colada (ou solta) no texto de uma anotação vira o widget de imagem, sem precisar de link: ela é encolhida, guardada e, com a conta, sobe para a nuvem e aparece nos seus outros aparelhos, para quem visita a anotação pública e para quem está na compartilhada; a privada fica só para você. A folha da Imagem ganhou o "Escolher do aparelho" e diz se ela já está na nuvem; fora da conta, ela fica só neste aparelho (e vai no backup baixado).',
+      'Ajustes ganhou a parte Imagens: quanto as suas ocupam e quanto falta, em quais fichas cada uma está, e Apagar; a imagem que nenhuma ficha usa mais sai da nuvem sozinha 30 dias depois, e a lista diz quando.',
       'A tabela das anotações virou um widget: pelo Inserir › Tabela (ou tocando nela no texto e em Editar) ela abre numa folha como a de uma planilha, para escrever nas células, pôr, mover, tirar e alinhar linhas e colunas e colar células de uma planilha, sem mexer nas barras do markdown. E ganhou cinco jeitos: Branca (a folha de impresso, agora a de sempre), Listrada, Quadriculada, Caneta (a de antes) e Recibo.',
       'Apagar a conta pede para entrar de novo com o Google, com a mesma conta, e toda conta (não só a com cofre de senhas) espera 7 dias para sair, com o aviso no topo e o "Não apagar"; o "Apagar já" saiu.',
       'No cofre, pôr ou tirar um aparelho, gerar um código de recuperação novo e apagar o cofre pedem a passkey de novo (ou a senha mestra), e o servidor confere: só o cofre aberto não basta mais. Trocar a senha mestra é confirmado pela senha atual, que ela já pedia.',

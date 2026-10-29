@@ -11,6 +11,11 @@ import { GoogleButton } from '../ui/google-button';
 import { Toasts } from '../ui/toast';
 import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { SettingsPage } from './settings-page';
+import { deleteDatabase } from '../core/erase-save';
+import { IMAGES_DB, ImageStore, StoredImage } from '../core/image-store';
+import { ReviewStore } from '../core/review-store';
+import { sanitizeReview } from '../core/review';
+import { SYNC_AUTO } from '../core/cloud-sync';
 
 /**
  * Os Ajustes, desenhados de verdade: as seis partes no índice, o endereço que abre cada uma (com o
@@ -60,9 +65,9 @@ describe('Ajustes (SettingsPage)', () => {
   const tabs = (el: HTMLElement) => [...el.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
   const opened = (el: HTMLElement) => el.querySelector('[role="tab"][aria-selected="true"]')?.id;
 
-  it('mostra as seis partes, cada uma com o que tem dentro, e abre na Conta', async () => {
+  it('mostra as sete partes, cada uma com o que tem dentro, e abre na Conta', async () => {
     const { el } = await open(null);
-    expect(tabs(el).map((t) => t.querySelector('.etiqueta-nome')?.textContent?.trim())).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Busca', 'Desempenho']);
+    expect(tabs(el).map((t) => t.querySelector('.etiqueta-nome')?.textContent?.trim())).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Imagens', 'Busca', 'Desempenho']);
     expect(tabs(el).every((t) => !!t.querySelector('.etiqueta-dica')?.textContent?.trim())).toBeTrue();
     expect(opened(el)).toBe('aba-conta');
     expect(el.querySelector('h2')?.textContent).toContain('Conta');
@@ -649,7 +654,7 @@ describe('Ajustes: Acessos (as chaves de API)', () => {
 
   it('liberada: a etiqueta depois de Backup e a lista das chaves, com o resumo em palavras', async () => {
     const { el, tabs } = await open(true);
-    expect(tabs()).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Acessos', 'Busca', 'Desempenho']);
+    expect(tabs()).toEqual(['Conta', 'Mural', 'Amigos', 'Backup', 'Imagens', 'Acessos', 'Busca', 'Desempenho']);
     expect(el.querySelector('h2')!.textContent).toBe('Acessos');
     const rows = [...el.querySelectorAll<HTMLElement>('li.chave')];
     expect(rows.length).toBe(2);
@@ -699,5 +704,122 @@ describe('Ajustes: Acessos (as chaves de API)', () => {
     confirm.answer(false);
     await settle();
     expect(calls.some((c) => c.url === '/v1/auth/sair-de-todos')).toBeFalse();
+  });
+});
+
+describe('Ajustes: Imagens (as coladas nas anotações)', () => {
+  const API = 'https://api.teste';
+  const image = (id: string, estado: StoredImage['estado'] = 'local', criada = '2026-10-20T10:00:00.000Z'): StoredImage => ({
+    id,
+    blob: new Blob(['x'.repeat(2048)], { type: 'image/webp' }),
+    tipo: 'image/webp',
+    largura: 900,
+    altura: 600,
+    bytes: 2048,
+    hash: id,
+    criada,
+    estado,
+  });
+  const usada = 'usadanumanota' + 'x'.repeat(9);
+  const solta = 'semusoaqui' + 'y'.repeat(12);
+
+  async function open(signedIn: boolean, calls: { url: string; method: string }[] = []) {
+    await deleteDatabase(IMAGES_DB);
+    localStorage.clear();
+    if (signedIn) {
+      localStorage.setItem(SESSION_KEY, 'A'.repeat(43));
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-1', codigo: 'K7QF-M2XA', nome: 'Igor' }));
+      spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(url);
+        calls.push({ url: u, method: init?.method ?? 'GET' });
+        const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } });
+        if (u.endsWith('/v1/eu/imagens')) {
+          return json({
+            uso: { imagens: 2, bytes: 4096, cota: 25 * 1024 * 1024, livre: 25 * 1024 * 1024 - 4096 },
+            nuvem: {},
+            hoje: { enviadas: 1, limite: 30 },
+            imagens: [
+              { id: usada, bytes: 2048, largura: 900, altura: 600, criadaEm: '2026-10-21T10:00:00.000Z' },
+              { id: solta, bytes: 2048, largura: 640, altura: 480, criadaEm: '2026-10-20T10:00:00.000Z', soltaDesde: '2026-10-25T10:00:00.000Z', saiEm: '2026-11-24T10:00:00.000Z' },
+            ],
+          });
+        }
+        if (u.includes('/v1/imagens/') && init?.method === 'DELETE') return json({ uso: {} });
+        if (u.endsWith('/v1/eu')) return json({ id: 'conta-1', codigo: 'K7QF-M2XA', nome: 'Igor' });
+        // o resto não é desta parte: um 404 rápido (uma resposta qualquer prenderia a sincronização)
+        return new Response(JSON.stringify({ erro: 'nao-achei', mensagem: 'Não achei.' }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+      });
+    }
+    TestBed.configureTestingModule({
+      providers: [
+        provideZonelessChangeDetection(),
+        provideRouter([]),
+        { provide: LocalData, useClass: MemoryData },
+        // a sincronização automática fica de fora: ela segura a trava da página (navigator.locks), que
+        // vale entre os testes, e esta parte não precisa dela
+        { provide: SYNC_AUTO, useValue: false },
+        { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => (signedIn ? { api: API, googleClientId: 'x.apps.googleusercontent.com' } : null), notice: () => null } },
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({ aba: 'imagens' }) }, queryParamMap: new BehaviorSubject(convertToParamMap({ aba: 'imagens' })) } },
+      ],
+    });
+    await TestBed.inject(ImageStore).restore([image(usada, signedIn ? 'na-nuvem' : 'local', '2026-10-21T10:00:00.000Z'), ...(signedIn ? [] : [image(solta)])]);
+    TestBed.inject(ReviewStore).add(
+      sanitizeReview({
+        id: 'nfoto001',
+        kind: 'anotacoes',
+        game: { name: 'Praia', coverUrl: null, source: 'manual' },
+        text: `{{imagem: murall://imagem/${usada}}}`,
+        createdAt: '2026-10-21T10:00:00.000Z',
+        updatedAt: '2026-10-21T10:00:00.000Z',
+      })!,
+    );
+    const fixture = TestBed.createComponent(SettingsPage);
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    for (let i = 0; i < 100 && el.querySelectorAll('.versao.imagem').length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+    return { fixture, el };
+  }
+
+  afterEach(async () => {
+    localStorage.clear();
+    await deleteDatabase(IMAGES_DB);
+  });
+
+  // os pedaços da linha de baixo, como aparecem (o ponto entre eles vem do CSS)
+  const rows = (el: HTMLElement) => [...el.querySelectorAll('.versao.imagem')].map((li) => [...li.querySelectorAll('.versao-meta > span')].map((s) => s.textContent!.trim()).join(' · '));
+
+  it('sem conta: as deste aparelho, onde cada uma é usada, e Apagar tira daqui (sem falar com a nuvem)', async () => {
+    const { fixture, el } = await open(false);
+    expect(el.querySelector('h2')?.textContent).toContain('Imagens');
+    expect(el.querySelector('.estado-linha')?.textContent).toBe('2 imagens neste aparelho, 4 KB');
+    expect(rows(el)).toEqual(['colada em 21 de out. de 2026 · só neste aparelho · em Praia', 'colada em 20 de out. de 2026 · só neste aparelho · sem uso aqui']);
+    expect(el.querySelectorAll('.imagem-mini img').length).toBe(2);
+    spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(true);
+    el.querySelectorAll<HTMLButtonElement>('.versao.imagem button')[1].click();
+    for (let i = 0; i < 100 && el.querySelectorAll('.versao.imagem').length > 1; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+    expect(rows(el).length).toBe(1);
+    expect(await TestBed.inject(ImageStore).get(solta)).toBeNull();
+  });
+
+  it('com a conta: quanto ocupa na nuvem, quando a solta sai, e Apagar pede à nuvem; a usada avisa quais fichas ficam sem ela', async () => {
+    const calls: { url: string; method: string }[] = [];
+    const { fixture, el } = await open(true, calls);
+    expect(el.querySelector('.estado-linha')?.textContent).toBe('4 KB de 25,0 MB na nuvem, 2 imagens');
+    expect(el.querySelector('.estado .linha-desc')?.textContent).toContain('Hoje: 1 de 30 enviadas.');
+    expect(rows(el)).toEqual(['colada em 21 de out. de 2026 · em Praia', 'colada em 20 de out. de 2026 · sem uso, sai em 24 de nov. de 2026']);
+    const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(true);
+    el.querySelectorAll<HTMLButtonElement>('.versao.imagem button')[0].click();
+    for (let i = 0; i < 100 && !calls.some((c) => c.method === 'DELETE'); i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+    expect((ask.calls.mostRecent().args[0] as { text: string }).text).toContain('Ela está em 1 ficha (Praia), que ficam sem ela.');
+    expect(calls.some((c) => c.method === 'DELETE' && c.url === `${API}/v1/imagens/${usada}`)).toBeTrue();
   });
 });

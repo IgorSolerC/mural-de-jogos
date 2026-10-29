@@ -32,6 +32,16 @@ describe('as imagens guardadas no aparelho (core/image-store.ts)', () => {
     expect((await store.all()).length).toBe(1);
   });
 
+  it('tirar a imagem daqui: some, o endereço blob: deixa de valer e a contagem desce', async () => {
+    const image = await store.add(await samplePng(200, 100));
+    await store.url(image.id);
+    const before = store.count();
+    await store.remove(image.id);
+    expect(await store.get(image.id)).toBeNull();
+    expect(await store.url(image.id)).toBeNull();
+    expect(store.count()).toBe(before - 1);
+  });
+
   it('a que não está neste aparelho: null', async () => {
     expect(await store.url('naoexisteaqui' + 'x'.repeat(9))).toBeNull();
   });

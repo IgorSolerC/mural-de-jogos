@@ -366,6 +366,19 @@ Novidades).
   visita sem conta usa o cache do navegador, e o que está lá é público e de ninguém. Ponta a ponta local:
   a anotação pública abre a imagem sem sessão e o link da ficha, sem conta, mostra a foto (GET 200, sem
   OPTIONS) sem guardar nada. Próximo: rodada 5 (limpeza e Ajustes).
+- 28/out/2026, rodada 5 (limpeza e Ajustes): a parte `imagens` do envio do mural ganhou `usadas` (os ids
+  de todo o privado e do público: as fichas, as versões guardadas, os conflitos, o perfil). As imagens do
+  dono fora dela e de toda compartilhada, subidas há mais de um dia, ficam soltas; de volta à lista, não.
+  A limpeza diária apaga as soltas há mais de 30 dias que nenhuma compartilhada usa (os bytes antes). A
+  resposta do envio diz `imagensFaltam`, e o site que ainda tem a imagem a manda de novo (o aparelho que
+  ficou mais de 30 dias fora com uma nota usando ela). Ajustes › Imagens: o cartão com quanto ocupa e
+  quanto falta (na conta, ou neste aparelho), a lista das mais novas para as mais velhas com a fotinho
+  (só a que está no aparelho: nenhuma é baixada para a lista), onde cada uma é usada (pelo texto das
+  fichas daqui), quando a solta sai, e Apagar (pergunta quais fichas ficam sem ela; tira da nuvem e do
+  aparelho, e a fila tenta de novo as que esperavam pela cota). O backup semanal do `mural-imagens`
+  entrou no `backup.yml` (job `imagens`, domingo, a mesma senha); a exportação do D1 leva os bytes em
+  hexadecimal (conferido no banco local). Falta, de rodadas de antes: medir o `cpuTime` em produção.
+  Próximo: rodada 6 (as pontas: PDF, cópia, API das AIs).
 
 ## 11. A conferir (riscos)
 

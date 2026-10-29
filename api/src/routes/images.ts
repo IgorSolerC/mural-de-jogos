@@ -1,7 +1,8 @@
 import { Context, Hono } from 'hono';
 import { HttpError } from '../errors';
 import { brakeRoom, usedToday } from '../domain/brake';
-import { ALL, IMAGE_ID, MAX_IMAGE_BYTES, checkImage, dropBytes, dropStatements, imageAccess, imagesDbOf, room, tooBig, usageOf } from '../domain/image';
+import { ALL, IMAGE_ID, LOOSE_DAYS, MAX_IMAGE_BYTES, checkImage, dropBytes, dropStatements, imageAccess, imagesDbOf, room, tooBig, usageOf } from '../domain/image';
+import { DAY_MS } from '../domain/quota';
 import { assertWritable, write } from '../domain/quota';
 import { authenticate } from '../domain/session';
 import { CatalogBrake, Deps, Statement } from '../ports';
@@ -217,8 +218,9 @@ export function imageRoutes(app: Hono, deps: Deps): void {
 
   app.get('/v1/eu/imagens', async (c) => {
     const s = await sessionOf(deps, c);
-    const list = await deps.db.all<{ id: string; tipo: string; bytes: number; largura: number; altura: number; publica: number; pronta: number; criada_em: string }>(
-      'SELECT id, tipo, bytes, largura, altura, publica, pronta, criada_em FROM imagens WHERE dono_id = ? ORDER BY criada_em DESC LIMIT 2000',
+    const list = await deps.db.all<{ id: string; tipo: string; bytes: number; largura: number; altura: number; publica: number; pronta: number; criada_em: string; solta_desde: string | null }>(
+      'SELECT id, tipo, bytes, largura, altura, EXISTS (SELECT 1 FROM imagem_publica p WHERE p.imagem_id = imagens.id AND p.usuario_id = imagens.dono_id) AS publica, ' +
+        'pronta, criada_em, solta_desde FROM imagens WHERE dono_id = ? ORDER BY criada_em DESC LIMIT 2000',
       [s.userId],
     );
     return c.json({
@@ -235,6 +237,8 @@ export function imageRoutes(app: Hono, deps: Deps): void {
         publica: !!r.publica,
         pronta: !!r.pronta,
         criadaEm: r.criada_em,
+        // nenhuma anotação usa: sai da nuvem 30 dias depois disto
+        ...(r.solta_desde ? { soltaDesde: r.solta_desde, saiEm: new Date(Date.parse(r.solta_desde) + LOOSE_DAYS * DAY_MS).toISOString() } : {}),
       })),
     });
   });

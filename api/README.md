@@ -123,9 +123,14 @@ pelos primeiros bytes o tipo e o tamanho de verdade (`src/domain/image.ts`) e gu
 - `GET /v1/eu/imagens`: `uso` (da conta: imagens, bytes, cota, livre), `nuvem` (o mesmo da nuvem
   inteira), `hoje` (enviadas e o limite) e a lista.
 - O `GET /v1/status` leva `imagens` (o uso e a cota da nuvem inteira), que a checagem diária lê.
-- O `PUT /v1/eu/mural` leva a parte opcional `imagens` (`{"publicas": [ids]}`, até 1.000): as imagens
-  que aparecem no mural público. Só o que mudou é gravado (e contado na cota); sem a parte, fica a lista
-  de antes; um id que ainda não subiu espera por ele.
+- O `PUT /v1/eu/mural` leva a parte opcional `imagens` (`{"publicas": [ids], "usadas": [ids]}`):
+  `publicas` (até 1.000), as que aparecem no mural público; `usadas` (até 3.000), todas as que o mural usa.
+  Só o que mudou é gravado (e contado na cota); a lista que não veio não muda nada; um id público que
+  ainda não subiu espera por ele. As imagens do dono fora de `usadas` e de toda compartilhada, subidas há
+  mais de um dia, ficam soltas (`solta_desde`); voltando à lista, perdem a marca. A resposta traz
+  `imagensFaltam`: as usadas que a nuvem não tem (o site que ainda as tem manda de novo).
+- `GET /v1/eu/imagens` diz, de cada solta, `soltaDesde` e `saiEm`; a limpeza diária apaga (bytes e dados)
+  as soltas há mais de 30 dias que nenhuma compartilhada usa, até 500 por dia.
 
 As travas, no `wrangler.toml` (zero ou um valor que não é número recusa todo envio):
 
@@ -211,6 +216,12 @@ permissão **Account → Account Analytics → Read** e a sua conta em Account R
 GitHub como o secret `CF_ANALYTICS_TOKEN`; o `CLOUDFLARE_ACCOUNT_ID` é o mesmo do deploy.
 
 ## Backup diário
+
+O banco das imagens (`mural-imagens`) tem o job `imagens` no mesmo `backup.yml`: uma vez por semana
+(domingo, 06:41 UTC) e quando quiser, trancado com a mesma senha, artefato de 30 dias. Os dados de cada
+imagem (dono, tamanho, quem vê) estão no backup diário do mural. Para restaurar: `sqlite3
+mural-imagens.sqlite < mural-imagens.sql`, ou `npx wrangler d1 execute mural-imagens --remote
+--file=...` num banco vazio.
 
 `.github/workflows/backup.yml` roda todo dia às 03h31 de Brasília (06:31 UTC, depois da limpeza) e
 quando quiser (Actions → Backup da nuvem → Run workflow): exporta o banco inteiro do D1, confere que

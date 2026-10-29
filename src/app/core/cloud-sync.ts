@@ -1549,7 +1549,8 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privado = await gzip(JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } }));
+    const privateText = JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } });
+    const privado = await gzip(privateText);
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
     }
@@ -1615,14 +1616,17 @@ export class CloudSync {
     // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
     // estão (as só no Kanban estão, pelo link)
     form.append('fichas', JSON.stringify([...new Set([...shownIds, ...publicIds([], soKanban)])]));
-    // as imagens coladas que estão à mostra: a nuvem as entrega a quem visita (as outras, só a quem pode)
-    form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText) }));
+    // as imagens coladas: as que estão à mostra (a nuvem as entrega a quem visita) e todas as que o mural
+    // usa (as outras ficam soltas e saem da nuvem em 30 dias)
+    form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText), usadas: localImageIds(privateText + publicText) }));
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     // só o envio que a nuvem gravou conta para a válvula: sem rede, o 409, o 429 ou a nuvem fora do ar já
     // esperam do jeito deles, e contá-los trocava o "sem conexão" por "envios demais" depois de 3 tentativas
     this.pushes.push({ at: now, print });
     this.noteClock(res);
-    const body = (await res.json()) as { rev: number };
+    const body = (await res.json()) as { rev: number; imagensFaltam?: unknown };
+    // imagens que o mural usa e a nuvem não tem: as que estão aqui sobem de novo
+    if (Array.isArray(body.imagensFaltam)) void this.imageSync.lost(body.imagensFaltam.filter((x): x is string => typeof x === 'string'));
     return body.rev;
   }
 

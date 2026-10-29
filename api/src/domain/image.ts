@@ -171,17 +171,86 @@ export function publishStatements(userId: string, ids: readonly string[], guard:
   ];
 }
 
-/** A parte `imagens` do envio do mural: `{ "publicas": [ids] }`; null se não veio ou não serve (nada muda). */
-export function parsePublished(raw: unknown): string[] | null {
-  if (typeof raw !== 'string' || raw.length > 40_000) return null;
+/**
+ * A parte `imagens` do envio do mural: `{ "publicas": [ids], "usadas": [ids] }` (as do mural público, e
+ * todas as que o mural usa). Cada lista que não veio (ou não serve) é null: aquilo não muda.
+ */
+export function parseImagesPart(raw: unknown): { publicas: string[] | null; usadas: string[] | null } {
+  const none = { publicas: null, usadas: null };
+  if (typeof raw !== 'string' || raw.length > 120_000) return none;
   try {
-    const data = JSON.parse(raw) as { publicas?: unknown } | null;
-    const list = data?.publicas;
-    if (!Array.isArray(list)) return null;
-    return [...new Set(list.filter((x): x is string => typeof x === 'string' && IMAGE_ID.test(x)))].slice(0, 1000);
+    const data = JSON.parse(raw) as { publicas?: unknown; usadas?: unknown } | null;
+    const ids = (list: unknown, max: number) =>
+      Array.isArray(list) ? [...new Set(list.filter((x): x is string => typeof x === 'string' && IMAGE_ID.test(x)))].slice(0, max) : null;
+    return { publicas: ids(data?.publicas, 1000), usadas: ids(data?.usadas, 3000) };
   } catch {
-    return null;
+    return none;
   }
+}
+
+/** Uma imagem que nenhuma anotação usa há mais que isto sai (a limpeza diária), com os bytes. */
+export const LOOSE_DAYS = 30;
+/** A imagem subida há menos que isto nunca é marcada solta (o texto que a usa pode ainda estar chegando). */
+export const LOOSE_GRACE_MS = DAY_MS;
+
+/**
+ * As imagens do dono que o mural não usa mais (nem uma compartilhada) ficam marcadas soltas desde agora;
+ * as que voltaram a ser usadas perdem a marca. Só as do dono, e só as subidas há mais de um dia.
+ * `guard`: a condição de a gravação do mural ter valido.
+ */
+export function looseStatements(userId: string, used: readonly string[], now: Date, guard: { sql: string; params: SqlValue[] }): Statement[] {
+  const list = JSON.stringify(used);
+  return [
+    {
+      sql:
+        'UPDATE imagens SET solta_desde = ? WHERE dono_id = ? AND solta_desde IS NULL AND criada_em < ? ' +
+        'AND id NOT IN (SELECT value FROM json_each(?)) AND id NOT IN (SELECT imagem_id FROM nota_imagens) ' +
+        `AND EXISTS (${guard.sql})`,
+      params: [now.toISOString(), userId, new Date(now.getTime() - LOOSE_GRACE_MS).toISOString(), list, ...guard.params],
+    },
+    {
+      sql:
+        'UPDATE imagens SET solta_desde = NULL WHERE dono_id = ? AND solta_desde IS NOT NULL ' +
+        `AND (id IN (SELECT value FROM json_each(?)) OR id IN (SELECT imagem_id FROM nota_imagens)) AND EXISTS (${guard.sql})`,
+      params: [userId, list, ...guard.params],
+    },
+  ];
+}
+
+/** Quantas imagens do dono `looseStatements` muda (para contar na cota só o que muda). */
+export async function looseChanges(db: Db, userId: string, used: readonly string[], now: Date): Promise<number> {
+  const rows = await db.all<{ id: string; solta_desde: string | null; criada_em: string; na_nota: number }>(
+    'SELECT id, solta_desde, criada_em, EXISTS (SELECT 1 FROM nota_imagens ni WHERE ni.imagem_id = imagens.id) AS na_nota FROM imagens WHERE dono_id = ?',
+    [userId],
+  );
+  const set = new Set(used);
+  const grace = now.getTime() - LOOSE_GRACE_MS;
+  return rows.filter((r) => {
+    const inUse = set.has(r.id) || !!r.na_nota;
+    return r.solta_desde === null ? !inUse && Date.parse(r.criada_em) < grace : inUse;
+  }).length;
+}
+
+/** Das imagens que o mural usa, as que não estão na nuvem (o site que ainda as tem manda de novo). */
+export async function missingOf(db: Db, used: readonly string[]): Promise<string[]> {
+  if (used.length === 0) return [];
+  const rows = await db.all<{ id: string }>('SELECT value AS id FROM json_each(?) WHERE value NOT IN (SELECT id FROM imagens)', [JSON.stringify(used)]);
+  return rows.map((r) => r.id);
+}
+
+/**
+ * Apaga as imagens soltas há mais de `LOOSE_DAYS` dias que nenhuma compartilhada usa (a limpeza diária):
+ * os bytes antes, os dados depois. Até 500 por dia.
+ */
+export async function dropLoose(deps: Deps, now: Date): Promise<number> {
+  const old = await deps.db.all<{ id: string; dono_id: string; bytes: number }>(
+    'SELECT id, dono_id, bytes FROM imagens WHERE solta_desde IS NOT NULL AND solta_desde < ? AND id NOT IN (SELECT imagem_id FROM nota_imagens) LIMIT 500',
+    [new Date(now.getTime() - LOOSE_DAYS * DAY_MS).toISOString()],
+  );
+  if (old.length === 0) return 0;
+  await dropBytes(deps, old.map((o) => o.id));
+  await deps.db.batch(dropStatements(old));
+  return old.length;
 }
 
 /**

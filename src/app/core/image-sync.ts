@@ -93,6 +93,21 @@ export class ImageSync {
     }
   }
 
+  /**
+   * A nuvem disse que o mural usa estas imagens e ela não as tem (apagadas por estarem soltas enquanto um
+   * aparelho que as usava ficou fora): as que estão aqui, suas, voltam para a fila e sobem de novo.
+   */
+  async lost(ids: readonly string[]): Promise<number> {
+    let again = 0;
+    for (const id of ids) {
+      const image = await this.images.get(id);
+      if (!image || image.alheia || image.estado !== 'na-nuvem') continue;
+      await this.images.mark(id, 'local');
+      again++;
+    }
+    return again;
+  }
+
   /** Começa a próxima rodada: a fila pode tentar de novo depois de esperar (a pessoa pediu, ou apagou uma). */
   retry(): void {
     this.waitUntil = 0;

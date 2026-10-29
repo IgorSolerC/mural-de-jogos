@@ -1,7 +1,7 @@
 import { CLIENTE_SEM_USO_MS, DIAS_DA_RENOVACAO } from '../../../contrato/api-v1/oauth';
 import { Deps } from '../ports';
 import { eraseDue } from './erase';
-import { finishHalfSent, recountStatements } from './image';
+import { dropLoose, finishHalfSent, recountStatements } from './image';
 import { SCOPES_OF_AREA, TYPES_OF } from './mirror';
 import { DAY_MS, utcDay } from './quota';
 
@@ -31,10 +31,12 @@ export async function cleanup(deps: Deps): Promise<void> {
 
 /**
  * As imagens (PLANO-IMAGENS.md): as que ficaram no meio do envio há mais de um dia (os bytes chegaram ou
- * não), e a conta de quanto cada um guarda refeita a partir de `imagens`, depois das contas que saíram.
+ * não), as que nenhuma anotação usa há mais de 30 dias, e a conta de quanto cada um guarda refeita a
+ * partir de `imagens`, depois das contas que saíram.
  */
 async function images(deps: Deps, now: Date): Promise<void> {
   await finishHalfSent(deps, now);
+  await dropLoose(deps, now);
   await deps.db.batch(recountStatements());
 }
 

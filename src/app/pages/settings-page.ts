@@ -30,7 +30,7 @@ import { Cloud } from '../core/cloud-config';
 import { CloudAccount, CloudError, eraseDayLabel } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
-import { ImageStore } from '../core/image-store';
+import { ImageStore, StoredImage } from '../core/image-store';
 import { GoogleButton } from '../ui/google-button';
 import { muralLink, normalizeCode } from '../core/cloud-murals';
 import { News } from '../core/news';
@@ -43,10 +43,12 @@ import { ApiKeyInfo, ApiKeys, approvalLabel, connectorLabel, expired, groupsLabe
 import { ApiKeySheet } from '../ui/api-key-sheet';
 import { ApiRequests, waitingWords } from '../core/api-requests';
 import { ApiRequestsSheet, RequestsSheetMode } from '../ui/api-requests-sheet';
+import { ImageSync, shortReason } from '../core/image-sync';
+import { localImageIds, sizeLabel } from '../core/images';
 
 
-type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'acessos' | 'busca' | 'desempenho';
-const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'acessos', 'busca', 'desempenho'];
+type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'imagens' | 'acessos' | 'busca' | 'desempenho';
+const TABS: readonly Tab[] = ['conta', 'mural', 'amigos', 'backup', 'imagens', 'acessos', 'busca', 'desempenho'];
 
 /** "às 14:32" hoje; "em 3 de outubro às 14:32" antes. */
 function when(ms: number): string {
@@ -55,6 +57,27 @@ function when(ms: number): string {
   return d.toDateString() === new Date().toDateString()
     ? `às ${time}`
     : `em ${d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })} às ${time}`;
+}
+
+/** O que `GET /v1/eu/imagens` responde (api/src/routes/images.ts). */
+interface CloudImages {
+  uso: { imagens: number; bytes: number; cota: number; livre: number };
+  hoje: { enviadas: number; limite: number };
+  imagens: { id: string; bytes: number; largura: number; altura: number; criadaEm: string; saiEm?: string }[];
+}
+
+/** Uma linha da lista de Ajustes › Imagens. */
+interface ImageRow {
+  id: string;
+  size: string;
+  at: string;
+  /** Na nuvem, só neste aparelho, ou recusada pela nuvem. */
+  where: 'na-nuvem' | 'aqui' | 'recusada';
+  /** Os títulos das fichas que a usam (neste aparelho). */
+  used: string[];
+  /** Solta: quando sai da nuvem. */
+  leaves: string | null;
+  thumb: string | null;
 }
 
 /**
@@ -82,6 +105,7 @@ export class SettingsPage {
     { id: 'mural', label: 'Mural', hint: 'Notas, seções e spoilers', icon: ICON.simples },
     { id: 'amigos', label: 'Amigos', hint: 'O que chega dos outros', icon: ICON.pessoas },
     { id: 'backup', label: 'Backup', hint: 'Baixar e restaurar', icon: ICON.baixarNoAparelho },
+    { id: 'imagens', label: 'Imagens', hint: 'Coladas nas anotações', icon: ICON.imagem },
     // só para a conta que pode usar a API das AIs (API_CODIGOS; PLANO-API.md)
     { id: 'acessos', label: 'Acessos', hint: 'Chaves para AIs', icon: ICON.chave },
     { id: 'busca', label: 'Busca', hint: 'De onde vêm as capas', icon: ICON.buscar },
@@ -877,6 +901,143 @@ export class SettingsPage {
       if (total) this.toasts.show(`${plural(total, 'resenha voltou', 'resenhas voltaram')} para os murais`);
     } catch (err) {
       this.importMsg.set({ text: (err as Error).message, error: true });
+    }
+  }
+
+  // ===== Imagens: as coladas nas anotações (PLANO-IMAGENS.md, rodada 5) =====
+
+  protected readonly ImageIcon = ICON.imagem;
+  private readonly imageSync = inject(ImageSync);
+  /** O que a nuvem diz das suas imagens (null: fora da conta, ou ainda não leu). */
+  protected readonly imagesCloud = signal<CloudImages | null>(null);
+  /** As guardadas neste aparelho (as de outras pessoas, só baixadas para mostrar, ficam de fora). */
+  protected readonly imagesHere = signal<StoredImage[]>([]);
+  /** A fotinho de cada uma que está aqui (o endereço blob: da aba). */
+  protected readonly imageThumbs = signal<ReadonlyMap<string, string>>(new Map());
+  protected readonly imagesMsg = signal<{ text: string; error: boolean } | null>(null);
+  protected readonly imagesBusy = signal<string | null>(null);
+
+  /** Lê as imagens ao abrir a parte (e de novo quando uma é guardada ou apagada aqui). */
+  private readonly loadImages = effect(() => {
+    if (this.tab() !== 'imagens') return;
+    this.images.version();
+    const signedIn = this.account.signedIn() && !!this.cloud.config();
+    untracked(() => void this.readImages(signedIn));
+  });
+
+  private async readImages(signedIn: boolean): Promise<void> {
+    const here = (await this.images.all()).filter((i) => !i.alheia);
+    const thumbs = new Map<string, string>();
+    for (const i of here) {
+      const url = await this.images.url(i.id);
+      if (url) thumbs.set(i.id, url);
+    }
+    this.imagesHere.set(here);
+    this.imageThumbs.set(thumbs);
+    if (!signedIn) return this.imagesCloud.set(null);
+    try {
+      this.imagesCloud.set(await this.account.request<CloudImages>('/v1/eu/imagens'));
+    } catch (err) {
+      this.imagesMsg.set({ text: err instanceof CloudError ? err.message : 'Não consegui ler as imagens da nuvem agora.', error: true });
+    }
+  }
+
+  /** Em quais fichas cada imagem aparece (pelo texto, neste aparelho): o título de cada uma. */
+  private readonly imageUse = computed(() => {
+    const out = new Map<string, string[]>();
+    for (const r of this.store.reviews()) {
+      for (const id of localImageIds(r.text ?? '')) out.set(id, [...(out.get(id) ?? []), r.game.name]);
+    }
+    return out;
+  });
+
+  /** As linhas da lista: as da nuvem e as que só estão aqui, das mais novas para as mais velhas. */
+  protected readonly imageRows = computed<ImageRow[]>(() => {
+    const cloud = this.imagesCloud()?.imagens ?? [];
+    const here = new Map(this.imagesHere().map((i) => [i.id, i]));
+    const use = this.imageUse();
+    const rows: ImageRow[] = cloud.map((c) => ({
+      id: c.id,
+      size: `${c.largura} × ${c.altura} px · ${sizeLabel(c.bytes)}`,
+      at: c.criadaEm,
+      where: 'na-nuvem',
+      used: use.get(c.id) ?? [],
+      leaves: c.saiEm ?? null,
+      thumb: this.imageThumbs().get(c.id) ?? null,
+    }));
+    const inCloud = new Set(cloud.map((c) => c.id));
+    for (const i of here.values()) {
+      if (inCloud.has(i.id)) continue;
+      // fora da conta, a que já subiu também conta como daqui (a nuvem não é lida)
+      rows.push({
+        id: i.id,
+        size: `${i.largura} × ${i.altura} px · ${sizeLabel(i.bytes)}`,
+        at: i.criada,
+        where: i.estado === 'recusada' ? 'recusada' : this.imagesCloud() ? 'aqui' : i.estado === 'na-nuvem' ? 'na-nuvem' : 'aqui',
+        used: use.get(i.id) ?? [],
+        leaves: null,
+        thumb: this.imageThumbs().get(i.id) ?? null,
+      });
+    }
+    return rows.sort((a, b) => b.at.localeCompare(a.at));
+  });
+
+  /** O cartão do alto: quanto as imagens ocupam (na conta, ou neste aparelho) e o que falta. */
+  protected readonly imagesSummary = computed(() => {
+    const cloud = this.imagesCloud();
+    const problem = shortReason(this.imageSync.problem());
+    if (cloud) {
+      const { uso, hoje } = cloud;
+      return {
+        line: `${sizeLabel(uso.bytes)} de ${sizeLabel(uso.cota)} na nuvem, ${plural(uso.imagens, 'imagem', 'imagens')}`,
+        desc: `Faltam ${sizeLabel(uso.livre)}. Hoje: ${hoje.enviadas} de ${hoje.limite} enviadas.${problem ? ` Parou de subir: ${problem}.` : ''}`,
+        tight: uso.livre < uso.cota * 0.1 || !!problem,
+      };
+    }
+    const here = this.imagesHere();
+    const bytes = here.reduce((n, i) => n + i.bytes, 0);
+    return {
+      line: here.length ? `${plural(here.length, 'imagem', 'imagens')} neste aparelho, ${sizeLabel(bytes)}` : 'Nenhuma imagem colada ainda',
+      desc: this.account.signedIn() ? 'A nuvem não respondeu agora.' : 'Sem conta, elas ficam só neste navegador (e vão no backup baixado).',
+      tight: false,
+    };
+  });
+
+  protected imageWhen(at: string): string {
+    return new Date(at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  protected async deleteImage(row: ImageRow): Promise<void> {
+    const used = row.used.length;
+    const sure = await this.confirm.ask({
+      title: 'Apagar a imagem?',
+      text: used
+        ? `Ela está em ${plural(used, 'ficha', 'fichas')} (${row.used.slice(0, 3).join(', ')}${used > 3 ? '…' : ''}), que ficam sem ela. Sai da nuvem e deste aparelho.`
+        : 'Nenhuma ficha deste aparelho a usa. Sai da nuvem e deste aparelho.',
+      confirm: 'Apagar',
+      tone: 'perigo',
+      icon: null,
+    });
+    if (!sure) return;
+    this.imagesBusy.set(row.id);
+    this.imagesMsg.set(null);
+    try {
+      if (row.where === 'na-nuvem' && this.account.signedIn()) {
+        await this.account.request(`/v1/imagens/${row.id}`, { method: 'DELETE' }).catch((err: unknown) => {
+          // já não estava lá: segue tirando daqui
+          if (!(err instanceof CloudError && err.status === 404)) throw err;
+        });
+        // o lugar que ela ocupava: a fila pode tentar de novo as que esperavam pela cota
+        this.imageSync.retry();
+      }
+      await this.images.remove(row.id);
+      this.imagesCloud.update((c) => (c ? { ...c, imagens: c.imagens.filter((i) => i.id !== row.id) } : c));
+      this.toasts.show('Imagem apagada');
+      if (this.account.signedIn()) void this.readImages(true);
+    } catch (err) {
+      this.imagesMsg.set({ text: err instanceof CloudError ? err.message : 'Não deu para apagar agora. Tente de novo.', error: true });
+    } finally {
+      this.imagesBusy.set(null);
     }
   }
 }

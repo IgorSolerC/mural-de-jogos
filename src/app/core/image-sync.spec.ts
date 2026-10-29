@@ -40,8 +40,10 @@ describe('as imagens coladas e a nuvem (core/image-sync.ts)', () => {
     calls = [];
     answer = () => json({ id: 'x' }, 201);
     spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL, init?: RequestInit) => {
-      // a conferência da sessão ao abrir a conta não conta
+      // só as imagens contam: a conferência da sessão e o que outro teste ainda vivo pedir (a
+      // sincronização dele) ficam de fora, com um 404 rápido
       if (String(url).endsWith('/v1/eu')) return json({ id: 'conta-1', codigo: 'K7QF-M2XA', nome: 'Igor' });
+      if (!String(url).includes('/v1/imagens/')) return json({ erro: 'nao-achei', mensagem: 'x' }, 404);
       calls.push({ url: String(url), init: init ?? {} });
       return answer(String(url), init ?? {});
     });
@@ -123,6 +125,17 @@ describe('as imagens coladas e a nuvem (core/image-sync.ts)', () => {
     answer = () => json({ id: 'x' }, 201);
     await sync.send();
     expect(await store.unsent()).toBe(0);
+  });
+
+  it('a que a nuvem perdeu (apagada como solta) e está aqui volta para a fila e sobe de novo; a alheia e a ausente, não', async () => {
+    const { sync, store } = await setup();
+    const alheia = { ...pasted(3, 'na-nuvem'), alheia: true as const };
+    await store.restore([pasted(1, 'na-nuvem'), alheia]);
+    expect(await sync.lost([pasted(1).id, alheia.id, 'naoestaaqui' + 'x'.repeat(11)])).toBe(1);
+    expect((await store.get(pasted(1).id))?.estado).toBe('local');
+    expect((await store.get(alheia.id))?.estado).toBe('na-nuvem');
+    await sync.send();
+    expect(calls.map((c) => c.url)).toEqual([`${API}/v1/imagens/${pasted(1).id}`]);
   });
 
   it('duas chamadas ao mesmo tempo mandam cada imagem uma vez', async () => {

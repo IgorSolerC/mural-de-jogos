@@ -344,6 +344,80 @@
         }
       }
 
+      <!-- ===== Imagens: as coladas nas anotações (PLANO-IMAGENS.md, rodada 5) ===== -->
+      @if (tab() === 'imagens') {
+        <h2>Imagens</h2>
+        <p class="lead">
+          As imagens que você colou nas anotações, encolhidas para 900 px.
+          @if (account.signedIn() && cloud.config()) {
+            Com a conta, elas ficam na nuvem; a que nenhuma ficha usa mais sai sozinha 30 dias depois.
+          } @else {
+            Sem conta, elas moram só neste navegador.
+          }
+        </p>
+
+        <div class="grupo">
+          @let sum = imagesSummary();
+          <div class="estado cartao" [class.problema]="sum.tight">
+            <lucide-icon class="estado-icone" [img]="sum.tight ? AlertIcon : ImageIcon" [size]="22" aria-hidden="true" />
+            <div>
+              <p class="estado-linha">{{ sum.line }}</p>
+              <p class="linha-desc">{{ sum.desc }}</p>
+            </div>
+          </div>
+          @if (imagesMsg(); as m) {
+            <p class="msg" [class.erro]="m.error" role="status">{{ m.text }}</p>
+          }
+
+          @if (imageRows().length) {
+            <ul class="versoes imagens" aria-label="Imagens coladas">
+              @for (r of imageRows(); track r.id) {
+                <li class="versao imagem" [class.solta]="!!r.leaves">
+                  <span class="imagem-mini" aria-hidden="true">
+                    @if (r.thumb) {
+                      <img [src]="r.thumb" alt="" />
+                    } @else {
+                      <lucide-icon [img]="ImageIcon" [size]="20" />
+                    }
+                  </span>
+                  <div class="versao-texto">
+                    <p class="versao-nome">{{ r.size }}</p>
+                    <p class="versao-meta">
+                      <span>colada em {{ imageWhen(r.at) }}</span>
+                      @if (r.where === 'aqui') {
+                        <span>só neste aparelho</span>
+                      } @else if (r.where === 'recusada') {
+                        <span>a nuvem não aceitou</span>
+                      }
+                      @if (r.used.length) {
+                        <span class="imagem-uso">em {{ r.used.length === 1 ? r.used[0] : r.used.length + ' fichas' }}</span>
+                      } @else if (r.leaves) {
+                        <span><strong>sem uso, sai em {{ imageWhen(r.leaves) }}</strong></span>
+                      } @else {
+                        <span>sem uso aqui</span>
+                      }
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-papel"
+                    (click)="deleteImage(r)"
+                    [disabled]="imagesBusy() !== null"
+                    [appBusy]="imagesBusy() === r.id"
+                    [attr.aria-label]="'Apagar a imagem de ' + r.size + ', colada em ' + imageWhen(r.at)"
+                  >
+                    <lucide-icon [img]="TrashIcon" [size]="17" aria-hidden="true" />
+                    Apagar
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="nota-rodape">Cole uma imagem no texto de uma anotação (ou use "Escolher do aparelho" na folha da Imagem) e ela aparece aqui.</p>
+          }
+        </div>
+      }
+
       <!-- ===== Acessos: as chaves de API (PLANO-API.md, seções 5 e 14) ===== -->
       @if (tab() === 'acessos' && apiOn()) {
         <h2>Acessos</h2>

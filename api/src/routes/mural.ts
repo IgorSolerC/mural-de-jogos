@@ -8,7 +8,7 @@ import { MAX_SHOWN_CHARS, parseShown } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { sessionOf } from './http';
-import { parsePublished, publishStatements } from '../domain/image';
+import { looseChanges, looseStatements, missingOf, parseImagesPart, publishStatements } from '../domain/image';
 
 /** Teto de cada mural compactado. O D1 aceita 2 MB por linha; o site recusa antes, em 1,8 MB. */
 const MAX_MURAL_BYTES = 1_900_000;
@@ -218,9 +218,11 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const photo = cardData ? JSON.stringify({ emoji: cardData.emoji, cor: cardData.cor }) : parsePhoto(form.get('foto'));
     // as fichas à mostra (ver domain/shown.ts): sem a parte, fica a lista de antes
     const shown = parseShown(form.get('fichas'));
-    // as imagens do mural público (PLANO-IMAGENS.md, rodada 4): sem a parte, fica a lista de antes; só
-    // o que mudou é gravado (e contado na cota do dia), então a lista de agora é lida antes
-    const published = parsePublished(form.get('imagens'));
+    // as imagens (PLANO-IMAGENS.md): as do mural público (rodada 4) e todas as que o mural usa (rodada 5,
+    // as outras ficam soltas e saem em 30 dias). Sem a parte, nada muda; só o que mudou é gravado (e
+    // contado na cota do dia), então o de agora é lido antes
+    const { publicas: published, usadas: used } = parseImagesPart(form.get('imagens'));
+    const looseCount = used ? await looseChanges(deps.db, s.userId, used, deps.now()) : 0;
     let publishChanges = 0;
     if (published) {
       const before = new Set((await deps.db.all<{ imagem_id: string }>('SELECT imagem_id FROM imagem_publica WHERE usuario_id = ?', [s.userId])).map((r) => r.imagem_id));
@@ -297,9 +299,10 @@ export function muralRoutes(app: Hono, deps: Deps): void {
         params: [at, photo, card, shown, at, s.userId, s.userId, mark],
       },
       ...(published && publishChanges ? publishStatements(s.userId, published, { sql: ours, params: [s.userId, mark] }) : []),
+      ...(used && looseCount ? looseStatements(s.userId, used, now, { sql: ours, params: [s.userId, mark] }) : []),
     ];
-    // as imagens mostradas: a linha e o índice de cada uma que entrou ou saiu
-    const [result] = await write(deps, statements, 6 + 4 * fresh.length + 2 * publishChanges);
+    // as imagens mostradas: a linha e o índice de cada uma que entrou ou saiu; as soltas: a linha e o índice
+    const [result] = await write(deps, statements, 6 + 4 * fresh.length + 2 * publishChanges + 2 * looseCount);
     if (!result || result.changes === 0) {
       const current = await deps.db.first<{ rev: number }>('SELECT rev FROM murais WHERE usuario_id = ?', [s.userId]);
       return c.json(
@@ -307,6 +310,8 @@ export function muralRoutes(app: Hono, deps: Deps): void {
         409,
       );
     }
-    return c.json({ rev: base + 1, novas: fresh.length });
+    // as imagens que o mural usa e não estão na nuvem (o aparelho que ainda as tem manda de novo)
+    const missing = used ? await missingOf(deps.db, used) : [];
+    return c.json({ rev: base + 1, novas: fresh.length, ...(missing.length ? { imagensFaltam: missing } : {}) });
   });
 }

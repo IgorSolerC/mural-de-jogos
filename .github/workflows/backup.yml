@@ -14,12 +14,18 @@ name: Backup da nuvem
 #
 # O job "cofre" faz o mesmo com o banco do cofre de senhas (o D1 cofre, do cofre-api), num arquivo
 # próprio; ele só roda com a variável COFRE_NO_AR = sim. Como voltar: cofre-api/README.md.
+#
+# O job "imagens" faz o mesmo com o banco dos bytes das imagens coladas (o D1 mural-imagens,
+# PLANO-IMAGENS.md), uma vez por semana (domingo) e quando quiser: ele é grande e muda pouco, e o Time
+# Travel da Cloudflare cobre os últimos 7 dias. Os dados de cada imagem estão no backup diário do mural.
 on:
   schedule:
     # 06:31 UTC (03h31 em Brasília): depois das limpezas diárias (a do Murall às 06:17 UTC, a do cofre
     # às 06:23) e fora do horário de uso.
     # A exportação trava o banco enquanto roda; com o tamanho dele, são segundos.
     - cron: '31 6 * * *'
+    # domingo, 06:41 UTC: só o banco das imagens (o diário não roda de novo nessa hora)
+    - cron: '41 6 * * 0'
   workflow_dispatch:
 
 permissions:
@@ -31,6 +37,7 @@ concurrency:
 
 jobs:
   backup:
+    if: github.event.schedule != '41 6 * * 0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -107,7 +114,7 @@ jobs:
   # está dentro já é cifrado no aparelho; trancar o backup é uma segunda camada. Só roda depois de o
   # cofre ir ao ar (a variável COFRE_NO_AR = sim, a mesma do vigia).
   cofre:
-    if: vars.COFRE_NO_AR == 'sim'
+    if: vars.COFRE_NO_AR == 'sim' && github.event.schedule != '41 6 * * 0'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -174,4 +181,75 @@ jobs:
             echo ""
             echo "Arquivo trancado: \`$ARQUIVO\` ($(du -h "$ARQUIVO" | cut -f1)), guardado por 30 dias nos artefatos desta execução."
             echo "Para abrir: \`bash api/scripts/backup.sh abrir $ARQUIVO > cofre.sql\` (com a BACKUP_SENHA no ambiente)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Os bytes das imagens coladas (o D1 mural-imagens), toda semana, num arquivo próprio, com a mesma
+  # senha. Pode estar vazio de verdade (nenhuma imagem ainda): o "conferir" só exige a tabela.
+  imagens:
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '41 6 * * 0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: api
+    env:
+      BACKUP_TABELAS: bytes
+    # os secrets só nos passos que os usam, como no job do mural
+    steps:
+      - name: Confere a senha antes de tudo
+        working-directory: .
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          if [ -z "$BACKUP_SENHA" ] || [ "${#BACKUP_SENHA}" -lt 16 ]; then
+            echo "::error::Falta o secret BACKUP_SENHA (pelo menos 16 caracteres). Sem ele o backup não é feito, para nunca subir o banco aberto."
+            exit 1
+          fi
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # sem o GITHUB_TOKEN guardado no .git/config: o npm ci (e os scripts das dependências) não o leem
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - name: Exporta o banco das imagens
+        run: npx wrangler d1 export mural-imagens --remote --output=backup-mural-imagens.sql
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Confere o que veio
+        run: bash scripts/backup.sh conferir backup-mural-imagens.sql
+      - name: Compacta e tranca
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          DIA=$(date -u +%F)
+          bash scripts/backup.sh trancar backup-mural-imagens.sql "backup-mural-imagens-$DIA.sql.gz.enc"
+          rm -f backup-mural-imagens.sql
+          echo "ARQUIVO=backup-mural-imagens-$DIA.sql.gz.enc" >> "$GITHUB_ENV"
+          echo "DIA=$DIA" >> "$GITHUB_ENV"
+      - name: Confere que abre com a senha (e que o que abre é o banco inteiro)
+        env:
+          BACKUP_SENHA: ${{ secrets.BACKUP_SENHA }}
+        run: |
+          bash scripts/backup.sh abrir "$ARQUIVO" > volta.sql
+          bash scripts/backup.sh conferir volta.sql
+          rm -f volta.sql
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backup-mural-imagens-${{ env.DIA }}
+          path: api/${{ env.ARQUIVO }}
+          retention-days: 30
+          if-no-files-found: error
+          compression-level: 0
+      - name: Resumo
+        run: |
+          {
+            echo "### Backup das imagens de $DIA"
+            echo ""
+            echo "Arquivo trancado: \`$ARQUIVO\` ($(du -h "$ARQUIVO" | cut -f1)), guardado por 30 dias nos artefatos desta execução."
+            echo "Para abrir: \`bash api/scripts/backup.sh abrir $ARQUIVO > mural-imagens.sql\` (com a BACKUP_SENHA no ambiente)."
           } >> "$GITHUB_STEP_SUMMARY"

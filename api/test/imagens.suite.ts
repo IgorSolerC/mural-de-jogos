@@ -70,6 +70,18 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       clock.t += 5_000;
       return res.status;
     };
+    /** Envia o mural com a lista das imagens que ele usa (e, se vier, a do público); devolve a resposta. */
+    const pushUsed = async (token: string, usadas: string[], publicas?: string[]) => {
+      const pulled = await call('/v1/eu/mural', { headers: auth(token) });
+      const base = Number(pulled.headers.get('Mural-Rev') ?? 0);
+      const form = new FormData();
+      form.append('privado', new Blob([await gzip('{"reviews":[]}')], { type: 'application/gzip' }));
+      form.append('publico', new Blob([await gzip('{"reviews":[]}')], { type: 'application/gzip' }));
+      form.append('imagens', JSON.stringify({ usadas, ...(publicas ? { publicas } : {}) }));
+      const res = await call('/v1/eu/mural', { method: 'PUT', headers: { ...auth(token), 'Mural-Rev-Base': String(base) }, body: form });
+      clock.t += 5_000;
+      return { status: res.status, body: (await res.json()) as any };
+    };
     /** Uma anotação compartilhada com a imagem no texto (`texto`), e as pessoas nela. */
     const nota = (id: string, texto: string) => ({
       id,
@@ -113,7 +125,7 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
     const counter = (who: string) => db.first<{ imagens: number; bytes: number }>('SELECT imagens, bytes FROM imagens_uso WHERE usuario_id = ?', [who]);
     const storedBytes = async () => (await imagesDb.first<{ n: number }>('SELECT COUNT(*) AS n FROM bytes'))!.n;
     const advance = (ms: number) => void (clock.t += ms);
-    return { db, imagesDb, deps, call, login, put, get, del, mine, counter, storedBytes, advance, push, share, editNote };
+    return { db, imagesDb, deps, call, login, put, get, del, mine, counter, storedBytes, advance, push, pushUsed, share, editNote };
   }
 
   describe(`Imagens: enviar e ver (${label})`, () => {
@@ -517,6 +529,86 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       expect((await db.first<{ pronta: number }>('SELECT pronta FROM imagens WHERE id = ?', [recent]))!.pronta).toBe(0);
       expect(await counter(ana.id)).toEqual({ imagens: 2, bytes: 3_000 });
       expect(await counter(ALL)).toEqual({ imagens: 2, bytes: 3_000 });
+    });
+
+    it('a imagem que o mural não usa fica solta (a lista diz quando ela sai); usada de novo, perde a marca', async () => {
+      const { login, put, mine, pushUsed, advance } = await setup();
+      const ana = await login('ana');
+      const usada = newId();
+      const solta = newId();
+      await put(ana.token, usada, webp(10, 10));
+      await put(ana.token, solta, webp(10, 10, 2_000, 1));
+      advance(DAY_MS + 1);
+      expect((await pushUsed(ana.token, [usada])).status).toBe(200);
+      const list = (await mine(ana.token)).imagens as any[];
+      const loose = list.find((i) => i.id === solta);
+      expect(loose.soltaDesde).toBeDefined();
+      expect(Date.parse(loose.saiEm) - Date.parse(loose.soltaDesde)).toBe(30 * DAY_MS);
+      expect(list.find((i) => i.id === usada).soltaDesde).toBeUndefined();
+      // de volta no texto: não sai mais
+      expect((await pushUsed(ana.token, [usada, solta])).status).toBe(200);
+      expect(((await mine(ana.token)).imagens as any[]).every((i) => i.soltaDesde === undefined)).toBe(true);
+    });
+
+    it('a recém-subida (menos de um dia) e a usada numa compartilhada nunca ficam soltas; a de outra pessoa não muda', async () => {
+      const { login, put, mine, pushUsed, share, advance } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const naNota = newId();
+      await put(ana.token, naNota, webp(10, 10));
+      await share(ana.token, 'nota-com-foto', `{{imagem: murall://imagem/${naNota}}}`, [{ codigo: bia.codigo, papel: 'leitor' }]);
+      const daBia = newId();
+      await put(bia.token, daBia, webp(10, 10, 2_000, 2));
+      advance(DAY_MS + 1);
+      const nova = newId();
+      await put(ana.token, nova, webp(10, 10, 2_000, 3));
+      expect((await pushUsed(ana.token, [])).status).toBe(200);
+      expect(((await mine(ana.token)).imagens as any[]).filter((i) => i.soltaDesde)).toEqual([]);
+      expect(((await mine(bia.token)).imagens as any[]).filter((i) => i.soltaDesde)).toEqual([]);
+    });
+
+    it('o envio sem a lista das usadas não muda nada', async () => {
+      const { login, put, mine, push, advance } = await setup();
+      const ana = await login('ana');
+      await put(ana.token, newId(), webp(10, 10));
+      advance(DAY_MS + 1);
+      expect(await push(ana.token, [])).toBe(200);
+      expect(((await mine(ana.token)).imagens as any[]).filter((i) => i.soltaDesde)).toEqual([]);
+    });
+
+    it('a resposta do envio diz quais imagens usadas não estão na nuvem (o aparelho que as tem manda de novo)', async () => {
+      const { login, put, pushUsed } = await setup();
+      const ana = await login('ana');
+      const here = newId();
+      const gone = newId();
+      await put(ana.token, here, webp(10, 10));
+      const res = await pushUsed(ana.token, [here, gone]);
+      expect(res.body.imagensFaltam).toEqual([gone]);
+      expect((await pushUsed(ana.token, [here])).body.imagensFaltam).toBeUndefined();
+    });
+
+    it('a limpeza apaga a solta há mais de 30 dias (dados, bytes e conta), não a de menos, nem a que uma compartilhada passou a usar', async () => {
+      const { deps, db, login, put, get, pushUsed, share, counter, storedBytes, advance } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const velha = newId();
+      const salva = newId();
+      await put(ana.token, velha, webp(10, 10, 3_000));
+      await put(ana.token, salva, webp(10, 10, 4_000, 1));
+      advance(DAY_MS + 1);
+      await pushUsed(ana.token, []);
+      // a salva entra numa compartilhada depois de marcada solta
+      await share(ana.token, 'nota-salva', `{{imagem: murall://imagem/${salva}}}`, [{ codigo: bia.codigo, papel: 'leitor' }]);
+      advance(29 * DAY_MS);
+      await cleanup(deps);
+      expect((await get(velha, ana.token)).status, 'com 29 dias, fica').toBe(200);
+      advance(2 * DAY_MS);
+      await cleanup(deps);
+      expect((await get(velha, ana.token)).status).toBe(404);
+      expect(await db.first('SELECT 1 FROM imagens WHERE id = ?', [velha])).toBeNull();
+      expect((await get(salva, ana.token)).status).toBe(200);
+      expect(await storedBytes()).toBe(1);
+      expect(await counter(ana.id)).toEqual({ imagens: 1, bytes: 4_000 });
     });
 
     it('reconta o uso a partir das imagens guardadas: uma conta errada não fica', async () => {
