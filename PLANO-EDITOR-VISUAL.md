@@ -1107,9 +1107,22 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   regra para a rodada 2 em diante fica mais forte**: o navegador não apaga nem parte bloco nenhum no
   Visual; ele só põe letras (e compõe), e o resto é do editor, pelo `beforeinput`. O roteiro ganhou a
   rajada no meio da célula e a letra inteira: 49 conferências, todas passando.
+- 29/out/2026, o quarto relatório do Android ("segue bugado"): todo apagar já era nosso, e mesmo assim a
+  tabela virou uma fileira de cinco células e a linha de cima sumiu. O registro mostrou o último jeito
+  do Gboard: **no apagar rápido (a tecla 229) ele não apaga letra a letra; seleciona um pedaço para trás e
+  manda apagar a seleção**. O pedaço cresceu de dentro da tabela até a linha de cima, e apagar uma seleção
+  que corta a tabela pelo meio (o `deleteSelection` de sempre) desmancha as fileiras. Entre duas células
+  da mesma tabela isso não acontece (o `prosemirror-tables` vira a seleção numa de células, que só
+  esvazia); acontece quando uma ponta está fora. Reproduzido no puppeteer com a seleção do meio da linha
+  de cima até o meio de uma célula (sem o conserto, da tabela sobram duas células). **Conserto**: uma
+  seleção que toca uma tabela (começa ou acaba nela, ou a atravessa) tira só o texto de cada linha e de
+  cada célula do trecho; fileiras e colunas nunca saem por um apagar (a tabela inteira sai selecionada
+  como peça, ou pelo menu dela). Vale para o Backspace, o Delete e o `beforeinput`. **Fica para a rodada
+  6**: escrever por cima de uma seleção assim (a letra que substitui) e colar por cima dela precisam da
+  mesma regra. 51 conferências, todas passando.
 - Próximo: o usuário recarrega a prova no celular e repete o apagar segurado (dentro da tabela, perto
-  dela e no meio do texto, que agora também é nosso); com isso, fecha a rodada 0 (o iPhone e o tipo
-  próprio no Safari, se tiver um à mão). Depois, a rodada 1.
+  dela e no meio do texto); com isso, fecha a rodada 0 (o iPhone e o tipo próprio no Safari, se tiver
+  um à mão). Depois, a rodada 1.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
