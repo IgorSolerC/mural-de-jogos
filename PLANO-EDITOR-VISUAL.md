@@ -1120,9 +1120,53 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   como peça, ou pelo menu dela). Vale para o Backspace, o Delete e o `beforeinput`. **Fica para a rodada
   6**: escrever por cima de uma seleção assim (a letra que substitui) e colar por cima dela precisam da
   mesma regra. 51 conferências, todas passando.
-- Próximo: o usuário recarrega a prova no celular e repete o apagar segurado (dentro da tabela, perto
-  dela e no meio do texto); com isso, fecha a rodada 0 (o iPhone e o tipo próprio no Safari, se tiver
-  um à mão). Depois, a rodada 1.
+- 29/out/2026, **a rodada 0 fechada** a pedido do usuário ("Ir à rodada 1"), sem o reteste do quarto
+  conserto no aparelho. Fica para a rodada 2 (a primeira com aparelho de verdade): repetir o apagar
+  segurado perto e dentro da tabela, e o iPhone com o tipo próprio no Safari, que não foi testado (não
+  houve iPhone). O ProseMirror passa no Android: as letras, a composição, o ditado e as sugestões vão
+  bem; o que precisou de conserto foi o Enter e o apagar, e a regra que saiu daqui vale para o Visual
+  inteiro: **o navegador só põe letras e compõe; partir linha e apagar são do editor, pelo
+  `beforeinput`; uma seleção que toca uma tabela só tira texto**.
+- 29/out/2026, **a rodada 1, o tradutor** (`core/rich-doc.ts` + `.spec.ts`, `scripts/visual-ida-e-volta.mjs`;
+  o site não muda):
+  - **O papel de cada linha vem do próprio `parseRich`**, não de uma cópia das regras: o tradutor anda
+    pelos blocos que o leitor devolve (com `blockLine` e o `line` de cada item, e o `bodyOf` para o corpo
+    dos itens, já que o leitor lê o corpo à parte, sem o recuo, e a mesma linha "  # x" é título no corpo
+    de um item e texto fora dele) e tira das linhas cruas só o que o leitor não guarda: o recuo (em
+    colunas, como `indentOf`), o número escrito, a cerca do código e a margem do corpo onde ele mora, e
+    as células de sobra da tabela. Do `rich-text.ts` passaram a ser exportados `fenceOf`, `closes`,
+    `indentOf`, `bodyOf` e `SYMBOLS` (sem mudar o que fazem); o `dedent` não precisou.
+  - **As linhas** (`LinhaDoc`): `linha`, `titulo`, `item`, `citacao`, `sutil`, `divisoria`, `codigo`,
+    `tabela`, `widget` e `cru`, como em 5.1, com os pedaços (`Span`) do próprio leitor. Cada uma guarda a
+    `fonte` (o trecho do texto, a quebra depois dele e a chave do que foi lido); sem mudança, sai ela.
+  - **A escrita** (`docToText`): a linha mexida é escrita com todos os sinais escapados e cada jeito de
+    marcar (negrito `**`/`__`, itálico `*`/`_`, spoiler `||`/`>!…!<`, e dois jeitos de aninhar), e o
+    primeiro que o leitor lê igual é enxugado: cada barra sai se o leitor ainda lê igual sem ela; o link,
+    pelo jeito mais curto (solto, `<…>`, `[…](…)`). Depois o texto inteiro é lido de volta (a trava); se
+    não volta, as linhas escritas ganham a barra no sinal do começo (a linha de traços embaixo de uma
+    com "|"), depois todas; se nem assim, `exato: false` e o documento que o leitor leu (a tela se
+    ajusta). `normalizarLinha` aplica o que o texto não guarda (a marca solta o espaço da ponta, o
+    espaço do começo vira recuo, dois códigos colados viram um) e a tela vai usar a mesma.
+  - **O trecho cru**: a linha que nenhum jeito escreve de volta igual (lida sozinha). No fuzz, só linhas
+    com cara de widget e lixo depois ("{{contador: …}}))->{{x}}", que o leitor lê como widget de
+    argumentos estranhos).
+  - **O cursor**: `alinhar`, `posicaoNoTexto` e `posicaoNoDoc` (as letras na mesma ordem, os símbolos
+    contando como os sinais que os escrevem), com a volta ao mesmo lugar conferida.
+  - **Os números**: o corpus do spec (as amostras do PDF, uma amostra por bloco da REGRA DO VISUAL, os
+    casos F1–F21) volta byte a byte, sem trecho cru, reescrito do zero volta igual, e mexer em cada linha
+    muda só ela. O fuzz: 3.000 textos sorteados sem nenhuma falha de I1 nem de reescrita; 4.000 linhas
+    sorteadas com marcas sobrepostas, 3 inexatas fora do caso do "~=" (abaixo). **As notas reais do
+    usuário** (as 290 do conector do Murall, 274 com texto, 2.554 linhas): nenhum trecho cru, nenhuma
+    mudança ao abrir e sair, nenhuma reescrita inexata. 20 mil caracteres: ler 27 ms, escrever com uma
+    linha mexida 21 ms.
+  - **Os casos sabidos** (a escrita diz que não é exata; a tela vai mostrar o que o leitor lê): (1) **o
+    leitor troca "~=" por "≈" antes de ler as marcas**, então um riscado que termina colado num
+    marca-texto ("~~==") não tem escrita, e quem escreve "~~==x==~~" no Markdown hoje já vê lixo: é um
+    defeito do leitor, para consertar à parte (os símbolos não deviam atravessar as marcas); (2) o
+    itálico de uma letra colado num negrito no meio da palavra ("x*a***b**y"); (3) o título vazio; (4) o
+    rótulo de um link para fora com colchete, o título de uma anotação com "|" ou colchete; (5) uma crase
+    solta colada antes de um código; (6) um código de três crases no começo da linha (vira cerca).
+- Próximo: a rodada 2, a folha básica "em teste".
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

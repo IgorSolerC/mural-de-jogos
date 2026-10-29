@@ -145,18 +145,18 @@ const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
 const FENCE = /^\s*(`{3,}|~{3,})/;
 
 /** A cerca que a linha abre ("```", "~~~~"), ou null. */
-function fenceOf(line: string): string | null {
+export function fenceOf(line: string): string | null {
   return FENCE.exec(line)?.[1] ?? null;
 }
 
 /** A linha fecha o bloco aberto por `open`: a mesma marca, pelo menos do mesmo tamanho. */
-function closes(line: string, open: string): boolean {
+export function closes(line: string, open: string): boolean {
   const f = fenceOf(line);
   return !!f && f[0] === open[0] && f.length >= open.length;
 }
 
 /** A largura do recuo da linha (o tab vai até a próxima parada de 4, como no markdown). */
-function indentOf(line: string): number {
+export function indentOf(line: string): number {
   let w = 0;
   for (const ch of line) {
     if (ch === ' ') w++;
@@ -179,7 +179,7 @@ function dedent(line: string, n: number): string {
  * começo do item e as em branco entre elas (a em branco seguida de uma linha sem o recuo termina o
  * item). Onde elas acabam (a última delas) e o recuo que todas têm; null, o item não tem nada embaixo.
  */
-function bodyOf(lines: readonly string[], i: number): { end: number; indent: number } | null {
+export function bodyOf(lines: readonly string[], i: number): { end: number; indent: number } | null {
   const min = indentOf(lines[i]) + 2;
   let end = i;
   let indent = Infinity;
@@ -353,7 +353,7 @@ export function splitLink(inner: string): { title: string; label: string } {
 }
 
 /** Os sinais que viram símbolo, do mais comprido para o mais curto ("<=>" antes de "<="). */
-const SYMBOLS: Record<string, string> = {
+export const SYMBOLS: Readonly<Record<string, string>> = {
   '<=>': '⇔',
   '<->': '↔',
   '-->': '⟶',
