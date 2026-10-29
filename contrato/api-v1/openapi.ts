@@ -66,7 +66,7 @@ export function openapi(api: string) {
     info: {
       title: 'Murall: API para AIs e programas',
       version: '1',
-      description: `Ler e escrever nas Anotações, no Kanban, no Calendário e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: ${api}/llms-full.txt`,
+      description: `Ler e escrever nas Anotações, no Kanban, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: ${api}/llms-full.txt`,
     },
     servers: [{ url: api }],
     security: [{ chave: [] }],

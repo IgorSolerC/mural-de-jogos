@@ -1788,10 +1788,20 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      (marcador, Pra depois, ficha nova) e as frases ("Pôr “Silksong” na wishlist dos jogos (MUST
      PLAY)", "Criar a ficha de “Torto Arado” nos livros"). Fotos de perto da folha (esperando e
      histórico, computador e celular) na build de produção. O bundle inicial foi a 1,95 MB.
-  7. MCP e guia: `ver_wishlist`, `por_na_wishlist`, `mudar_desejo`, `tirar_da_wishlist`,
+  7. [feito, BUILD 639] MCP e guia: `ver_wishlist`, `por_na_wishlist`, `mudar_desejo`, `tirar_da_wishlist`,
      `ver_pra_depois`, `por_no_pra_depois`, `tirar_do_pra_depois`, `listar_fichas`, `ler_ficha`,
      `criar_ficha`, `editar_ficha`; a parte dos murais no guia; o OpenAPI e as cópias em `docs/api`
      regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+     Feito assim: as onze em `FERRAMENTAS_DOS_MURAIS` (`contrato/api-v1/ferramentas.ts`);
+     `por_na_wishlist` e `por_no_pra_depois` aceitam um item ou `itens`; `tirar_da_wishlist` e
+     `tirar_do_pra_depois` são destrutivas e levam a versão na consulta; o `Esquema` ganhou `number`
+     (as horas com fração). `ver_contexto` vale para qualquer permissão dos murais e `buscar` também
+     para quem lê a wishlist, o Pra depois ou as fichas. O guia ganhou "Os murais" (os seis murais, o
+     desejo e a capa que o Murall procura, olhar as fichas antes de sugerir, o Pra depois que tira da
+     wishlist, a ficha com as notas do mural e a nota final que nunca vem da AI, a releitura pelo
+     nome); o `llms.txt`, o OpenAPI e as regras de ouro dizem os murais. No site, Como usar e a folha
+     da chave dizem que ela lê e escreve em tudo (o "chegam depois" saiu). As cópias em `docs/api/`
+     foram regeradas.
   8. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave dos murais, o espelho enchendo, pôr
      na wishlist com a busca da capa, mudar a relevância, pôr e tirar do Pra depois, criar e mudar uma
      ficha, aplicar) e no ar (as rotas novas respondendo). Anotar aqui.

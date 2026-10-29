@@ -9,7 +9,7 @@ import { ESTADOS } from './operacoes';
 
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
-  type?: 'object' | 'string' | 'integer' | 'boolean' | 'array' | 'null' | ('object' | 'string' | 'integer' | 'boolean' | 'null')[];
+  type?: 'object' | 'string' | 'integer' | 'number' | 'boolean' | 'array' | 'null' | ('object' | 'string' | 'integer' | 'number' | 'boolean' | 'null')[];
   description?: string;
   properties?: Record<string, Esquema>;
   required?: string[];
@@ -508,6 +508,209 @@ export const FERRAMENTAS_DO_CALENDARIO: readonly Ferramenta[] = [
   },
 ];
 
+// ===== Os murais de resenhas: a Wishlist, o Pra depois e as fichas (rodada 9) =====
+
+const MURAIS_ENUM = ['jogos', 'livros', 'filmes', 'series', 'animes', 'musicas'];
+const muralArg = (o: string): Esquema => ({ type: 'string', enum: MURAIS_ENUM, description: o });
+const idItem = (o: string): Esquema => ({ type: 'string', description: o, pattern: '^[\\w-]{1,64}$' });
+const versaoDe = (o: string): Esquema => ({ type: 'string', description: `A versao ${o} que você leu (o campo versao).` });
+const relevancia: Esquema = { type: 'string', enum: ['must', 'comum', 'later'], description: 'Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim).' };
+
+/** O item a pôr na wishlist ou no Pra depois (a forma que `conferirOpMural` confere de novo). */
+const CAMPOS_DO_ITEM: Record<string, Esquema> = {
+  mural: muralArg('O mural.'),
+  nome: { type: 'string', minLength: 1, maxLength: 200, description: 'O nome, como no catálogo ("Hollow Knight: Silksong").' },
+  ano: { type: 'string', pattern: '^\\d{4}$', description: 'O ano de lançamento, AAAA (ajuda a achar a capa certa).' },
+  por: { type: 'string', maxLength: 120, description: 'Quem escreveu (livros) ou quem toca (músicas).' },
+  capa: { type: 'string', maxLength: 2000, pattern: '^https://', description: 'A capa (https). Sem ela, o Murall procura no catálogo do mural.' },
+  buscar_capa: { type: 'boolean', description: 'false: entra sem capa, sem procurar.' },
+};
+
+/** Os campos de uma ficha que se escrevem (a forma que `conferirOpMural` confere de novo). */
+const CAMPOS_DA_FICHA: Record<string, Esquema> = {
+  nome: { type: 'string', minLength: 1, maxLength: 200, description: 'O nome da obra.' },
+  por: { type: ['string', 'null'], maxLength: 120, description: 'Quem escreveu (livros) ou quem toca (músicas).' },
+  ano: { type: ['string', 'null'], pattern: '^\\d{4}$', description: 'O ano de lançamento, AAAA.' },
+  capa: { type: ['string', 'null'], maxLength: 2000, pattern: '^https://', description: 'A capa (https). Sem ela, ao criar, o Murall procura no catálogo.' },
+  notas: {
+    type: 'object',
+    description: 'As notas de 0 a 10 (inteiras), pelo id das notas do mural (ver_contexto, fichas): {"historia": 9, "diversao": 10}. null tira uma. A nota final o Murall calcula.',
+  },
+  status: { type: 'string', enum: ['incompleto', 'finalizado', 'platinado'], description: 'Não terminou, terminou ou foi além (os nomes de cada mural em ver_contexto).' },
+  dificuldade: { type: 'string', enum: ['nenhuma', 'facil', 'media', 'dificil', 'impossivel', 'infernal'], description: 'Só nos murais com dificuldade (jogos, livros).' },
+  veredito: { type: ['string', 'null'], enum: ['masterpiece', 'recomendo', 'legalzinho', 'meh', 'chato', null], description: 'O carimbo do veredito (null tira).' },
+  quantidade: { type: ['number', 'null'], minimum: 0, maximum: 99999, description: 'Horas jogadas (com fração, em número) ou páginas lidas; só nos murais que anotam.' },
+  texto: { type: 'string', maxLength: 20000, description: 'O texto da resenha, no markdown do Murall.' },
+  concluida_em: { type: ['string', 'null'], pattern: '^\\d{4}(-\\d{2}-\\d{2})?$', description: 'O dia em que terminou (AAAA-MM-DD), só o ano, ou null (não lembra). Sem ele, ao criar, hoje.' },
+  visibilidade: { type: 'string', enum: ['privada', 'publica'], description: 'Quem vê. Só com a permissão publicar; sem dizer, a ficha nasce privada.' },
+  forma: { type: 'string', enum: ['album', 'faixa'], description: 'Só nas músicas: álbum ou música.' },
+  artista: { type: ['string', 'null'], maxLength: 60, description: 'Só nas músicas: o artista.' },
+};
+
+export const FERRAMENTAS_DOS_MURAIS: readonly Ferramenta[] = [
+  {
+    nome: 'ver_wishlist',
+    titulo: 'Ver a wishlist',
+    descricao: 'Os desejos de cada mural, como a tela: MUST na frente, LATER no fim. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu).',
+    escopo: 'desejos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      mural: muralArg('Só deste mural.'),
+      relevancia,
+      q: { type: 'string', maxLength: 200, description: 'Busca no nome e no autor.' },
+      limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantos (padrão 50).' },
+      depois: { type: 'string', description: 'Para a próxima página: o depois que veio na anterior.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/desejos',
+  },
+  {
+    nome: 'por_na_wishlist',
+    titulo: 'Pôr na wishlist',
+    descricao:
+      'Põe um desejo na wishlist (mural e nome), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá.',
+    escopo: 'desejos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({
+      ...CAMPOS_DO_ITEM,
+      relevancia,
+      itens: { type: 'array', maxItems: 50, description: 'Ou vários desejos (até 50).', items: obj({ ...CAMPOS_DO_ITEM, relevancia }, ['mural', 'nome']) },
+      chave_idempotencia: idem,
+    }),
+    metodo: 'POST',
+    caminho: '/ext/v1/desejos',
+  },
+  {
+    nome: 'mudar_desejo',
+    titulo: 'Mudar um desejo',
+    descricao: 'Muda a relevância (must, comum, later), o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu.',
+    escopo: 'desejos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        id: idItem('O id do desejo.'),
+        versao: versaoDe('do desejo'),
+        relevancia,
+        nome: CAMPOS_DO_ITEM['nome']!,
+        ano: { type: ['string', 'null'], pattern: '^\\d{4}$', description: 'O ano (null tira).' },
+        por: { type: ['string', 'null'], maxLength: 120, description: 'O autor (null tira).' },
+        capa: { type: ['string', 'null'], maxLength: 2000, pattern: '^https://', description: 'A capa (null tira).' },
+        chave_idempotencia: idem,
+      },
+      ['id', 'versao'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/desejos/:id',
+  },
+  {
+    nome: 'tirar_da_wishlist',
+    titulo: 'Tirar da wishlist',
+    descricao: 'Tira um desejo da wishlist (a pessoa pode desfazer pelo histórico). Mande a versao que você leu. Pergunte ao usuário antes.',
+    escopo: 'desejos:escrever',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ id: idItem('O id do desejo.'), versao: versaoDe('do desejo'), chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/desejos/:id',
+  },
+  {
+    nome: 'ver_pra_depois',
+    titulo: 'Ver o Pra depois',
+    descricao: 'O que a pessoa terminou e ainda vai resenhar (só o nome e a capa), do mais novo ao mais velho.',
+    escopo: 'pra-depois:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      mural: muralArg('Só deste mural.'),
+      q: { type: 'string', maxLength: 200, description: 'Busca no nome.' },
+      limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantos (padrão 50).' },
+      depois: { type: 'string', description: 'Para a próxima página.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/pra-depois',
+  },
+  {
+    nome: 'por_no_pra_depois',
+    titulo: 'Pôr no Pra depois',
+    descricao: 'Guarda algo para resenhar depois (mural e nome), ou vários em itens. Se estava na wishlist, sai de lá (como na tela).',
+    escopo: 'pra-depois:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ ...CAMPOS_DO_ITEM, itens: { type: 'array', maxItems: 50, description: 'Ou vários (até 50).', items: obj(CAMPOS_DO_ITEM, ['mural', 'nome']) }, chave_idempotencia: idem }),
+    metodo: 'POST',
+    caminho: '/ext/v1/pra-depois',
+  },
+  {
+    nome: 'tirar_do_pra_depois',
+    titulo: 'Tirar do Pra depois',
+    descricao: 'Tira um item do Pra depois (a pessoa pode desfazer pelo histórico). Mande a versao que você leu. Pergunte ao usuário antes.',
+    escopo: 'pra-depois:escrever',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ id: idItem('O id do item.'), versao: versaoDe('do item'), chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/pra-depois/:id',
+  },
+  {
+    nome: 'listar_fichas',
+    titulo: 'Listar fichas',
+    descricao: 'As fichas (resenhas) dos murais, com a nota final do Murall, as notas, o status, o veredito e um resumo do texto (com_texto: true traz inteiro). Pagine com depois.',
+    escopo: 'fichas:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      mural: muralArg('Só deste mural.'),
+      status: { type: 'string', enum: ['incompleto', 'finalizado', 'platinado'], description: 'Só neste status.' },
+      veredito: { type: 'string', enum: ['masterpiece', 'recomendo', 'legalzinho', 'meh', 'chato'], description: 'Só com este veredito.' },
+      nota_min: { type: 'integer', minimum: 0, maximum: 10, description: 'Só com a nota final a partir desta.' },
+      q: { type: 'string', maxLength: 200, description: 'Busca no nome, no autor, no artista e no texto.' },
+      ordem: { type: 'string', enum: ['concluida', 'nota', 'nome', 'mudou'], description: 'A ordem (padrão concluida: as mais recentes primeiro).' },
+      com_texto: { type: 'boolean', description: 'true traz o texto inteiro.' },
+      limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantas (padrão 30).' },
+      depois: { type: 'string', description: 'Para a próxima página.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/fichas',
+  },
+  {
+    nome: 'ler_ficha',
+    titulo: 'Ler uma ficha',
+    descricao: 'Uma ficha inteira, com o texto e a versao (para mudar).',
+    escopo: 'fichas:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ id: idItem('O id da ficha.') }, ['id']),
+    metodo: 'GET',
+    caminho: '/ext/v1/fichas/:id',
+  },
+  {
+    nome: 'criar_ficha',
+    titulo: 'Criar uma ficha',
+    descricao:
+      'Cria uma ficha (resenha) num mural: mural, nome e pelo menos uma nota (as do mural, em ver_contexto). A nota final o Murall calcula. Nasce privada; com o nome de outra ficha do mural, vira a releitura (rejogada) dela. O Murall procura a capa.',
+    escopo: 'fichas:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ mural: muralArg('O mural.'), ...CAMPOS_DA_FICHA, buscar_capa: CAMPOS_DO_ITEM['buscar_capa']!, chave_idempotencia: idem }, ['mural', 'nome', 'notas']),
+    metodo: 'POST',
+    caminho: '/ext/v1/fichas',
+  },
+  {
+    nome: 'editar_ficha',
+    titulo: 'Mudar uma ficha',
+    descricao: 'Muda os campos mandados de uma ficha (as notas mandadas vão por cima das outras). Mande a versao que você leu; se voltar conflito, leia de novo.',
+    escopo: 'fichas:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ id: idItem('O id da ficha.'), versao: versaoDe('da ficha'), ...CAMPOS_DA_FICHA, chave_idempotencia: idem }, ['id', 'versao']),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/fichas/:id',
+  },
+];
+
 export function escopoEmPalavras(escopo: Ferramenta['escopo']): string | null {
   if (escopo === null) return null;
   return typeof escopo === 'string' ? escopo : escopo.join(' ou ');
@@ -535,8 +738,23 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento) e o do Calendário (as cores e os meses que ver_agenda alcança). Chame antes de criar ou mudar, e use os nomes que já existem.',
-    escopo: ['notas:ler', 'gastos:ler', 'kanban:ler', 'kanban:mover', 'kanban:colunas', 'calendario:ler', 'calendario:escrever', 'calendario:apagar'],
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
+    escopo: [
+      'notas:ler',
+      'gastos:ler',
+      'kanban:ler',
+      'kanban:mover',
+      'kanban:colunas',
+      'calendario:ler',
+      'calendario:escrever',
+      'calendario:apagar',
+      'desejos:ler',
+      'desejos:escrever',
+      'pra-depois:ler',
+      'pra-depois:escrever',
+      'fichas:ler',
+      'fichas:escrever',
+    ],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj({}),
@@ -546,14 +764,14 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   {
     nome: 'buscar',
     titulo: 'Buscar',
-    descricao: 'Busca nas notas (título e texto) e nos nomes dos lançamentos e dos lembretes, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.',
-    escopo: ['notas:ler', 'gastos:ler', 'calendario:ler'],
+    descricao: 'Busca nas notas (título e texto), nos nomes dos lançamentos e dos lembretes, na wishlist, no Pra depois e nas fichas, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.',
+    escopo: ['notas:ler', 'gastos:ler', 'calendario:ler', 'desejos:ler', 'pra-depois:ler', 'fichas:ler'],
     somenteLeitura: true,
     destrutiva: false,
     entrada: obj(
       {
         q: { type: 'string', minLength: 2, maxLength: 200, description: 'O que buscar.' },
-        areas: { type: 'string', description: 'Onde, separado por vírgula: notas, gastos, calendario.' },
+        areas: { type: 'string', description: 'Onde, separado por vírgula: notas, gastos, calendario, desejos, pra-depois, fichas.' },
       },
       ['q'],
     ),
@@ -727,6 +945,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
   ...FERRAMENTAS_DO_KANBAN,
   ...FERRAMENTAS_DO_CALENDARIO,
   ...FERRAMENTAS_DOS_GASTOS,
+  ...FERRAMENTAS_DOS_MURAIS,
   {
     nome: 'ver_pedidos',
     titulo: 'Ver os pedidos',

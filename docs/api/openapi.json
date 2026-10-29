@@ -3,7 +3,7 @@
   "info": {
     "title": "Murall: API para AIs e programas",
     "version": "1",
-    "description": "Ler e escrever nas Anotações, no Kanban, no Calendário e nos Gastos de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
+    "description": "Ler e escrever nas Anotações, no Kanban, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
   },
   "servers": [
     {
@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento) e o do Calendário (as cores e os meses que ver_agenda alcança). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -44,7 +44,7 @@
       "get": {
         "operationId": "buscar",
         "summary": "Buscar",
-        "description": "Busca nas notas (título e texto) e nos nomes dos lançamentos e dos lembretes, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê. Permissão: notas:ler ou gastos:ler ou calendario:ler.",
+        "description": "Busca nas notas (título e texto), nos nomes dos lançamentos e dos lembretes, na wishlist, no Pra depois e nas fichas, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê. Permissão: notas:ler ou gastos:ler ou calendario:ler ou desejos:ler ou pra-depois:ler ou fichas:ler.",
         "parameters": [
           {
             "name": "q",
@@ -61,7 +61,7 @@
             "name": "areas",
             "in": "query",
             "required": false,
-            "description": "Onde, separado por vírgula: notas, gastos, calendario.",
+            "description": "Onde, separado por vírgula: notas, gastos, calendario, desejos, pra-depois, fichas.",
             "schema": {
               "type": "string"
             }
@@ -2603,6 +2603,1115 @@
                 "additionalProperties": false,
                 "required": [
                   "nome"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/desejos": {
+      "get": {
+        "operationId": "ver_wishlist",
+        "summary": "Ver a wishlist",
+        "description": "Os desejos de cada mural, como a tela: MUST na frente, LATER no fim. Antes de sugerir, veja também listar_fichas (o que a pessoa já jogou, leu ou viu). Permissão: desejos:ler.",
+        "parameters": [
+          {
+            "name": "mural",
+            "in": "query",
+            "required": false,
+            "description": "Só deste mural.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jogos",
+                "livros",
+                "filmes",
+                "series",
+                "animes",
+                "musicas"
+              ]
+            }
+          },
+          {
+            "name": "relevancia",
+            "in": "query",
+            "required": false,
+            "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "must",
+                "comum",
+                "later"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Busca no nome e no autor.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantos (padrão 50).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Para a próxima página: o depois que veio na anterior.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "por_na_wishlist",
+        "summary": "Pôr na wishlist",
+        "description": "Põe um desejo na wishlist (mural e nome), ou vários em itens (até 50, um pedido por item). O Murall procura a capa no catálogo do mural. O mesmo nome no mesmo mural volta 409 com o que já está lá. Permissão: desejos:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mural": {
+                    "type": "string",
+                    "enum": [
+                      "jogos",
+                      "livros",
+                      "filmes",
+                      "series",
+                      "animes",
+                      "musicas"
+                    ],
+                    "description": "O mural."
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O nome, como no catálogo (\"Hollow Knight: Silksong\")."
+                  },
+                  "ano": {
+                    "type": "string",
+                    "pattern": "^\\d{4}$",
+                    "description": "O ano de lançamento, AAAA (ajuda a achar a capa certa)."
+                  },
+                  "por": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                  },
+                  "capa": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "A capa (https). Sem ela, o Murall procura no catálogo do mural."
+                  },
+                  "buscar_capa": {
+                    "type": "boolean",
+                    "description": "false: entra sem capa, sem procurar."
+                  },
+                  "relevancia": {
+                    "type": "string",
+                    "enum": [
+                      "must",
+                      "comum",
+                      "later"
+                    ],
+                    "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim)."
+                  },
+                  "itens": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "description": "Ou vários desejos (até 50).",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "mural": {
+                          "type": "string",
+                          "enum": [
+                            "jogos",
+                            "livros",
+                            "filmes",
+                            "series",
+                            "animes",
+                            "musicas"
+                          ],
+                          "description": "O mural."
+                        },
+                        "nome": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "O nome, como no catálogo (\"Hollow Knight: Silksong\")."
+                        },
+                        "ano": {
+                          "type": "string",
+                          "pattern": "^\\d{4}$",
+                          "description": "O ano de lançamento, AAAA (ajuda a achar a capa certa)."
+                        },
+                        "por": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                        },
+                        "capa": {
+                          "type": "string",
+                          "maxLength": 2000,
+                          "pattern": "^https://",
+                          "description": "A capa (https). Sem ela, o Murall procura no catálogo do mural."
+                        },
+                        "buscar_capa": {
+                          "type": "boolean",
+                          "description": "false: entra sem capa, sem procurar."
+                        },
+                        "relevancia": {
+                          "type": "string",
+                          "enum": [
+                            "must",
+                            "comum",
+                            "later"
+                          ],
+                          "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim)."
+                        }
+                      },
+                      "required": [
+                        "mural",
+                        "nome"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/desejos/{id}": {
+      "patch": {
+        "operationId": "mudar_desejo",
+        "summary": "Mudar um desejo",
+        "description": "Muda a relevância (must, comum, later), o nome, o ano, o autor ou a capa de um desejo. Mande a versao que você leu. Permissão: desejos:escrever.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do desejo.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versao": {
+                    "type": "string",
+                    "description": "A versao do desejo que você leu (o campo versao)."
+                  },
+                  "relevancia": {
+                    "type": "string",
+                    "enum": [
+                      "must",
+                      "comum",
+                      "later"
+                    ],
+                    "description": "Quanta vontade: must (MUST PLAY/READ/WATCH, na frente), comum ou later (no fim)."
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O nome, como no catálogo (\"Hollow Knight: Silksong\")."
+                  },
+                  "ano": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}$",
+                    "description": "O ano (null tira)."
+                  },
+                  "por": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120,
+                    "description": "O autor (null tira)."
+                  },
+                  "capa": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "A capa (null tira)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "versao"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "tirar_da_wishlist",
+        "summary": "Tirar da wishlist",
+        "description": "Tira um desejo da wishlist (a pessoa pode desfazer pelo histórico). Mande a versao que você leu. Pergunte ao usuário antes. Permissão: desejos:escrever.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do desejo.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "versao",
+            "in": "query",
+            "required": true,
+            "description": "A versao do desejo que você leu (o campo versao).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/pra-depois": {
+      "get": {
+        "operationId": "ver_pra_depois",
+        "summary": "Ver o Pra depois",
+        "description": "O que a pessoa terminou e ainda vai resenhar (só o nome e a capa), do mais novo ao mais velho. Permissão: pra-depois:ler.",
+        "parameters": [
+          {
+            "name": "mural",
+            "in": "query",
+            "required": false,
+            "description": "Só deste mural.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jogos",
+                "livros",
+                "filmes",
+                "series",
+                "animes",
+                "musicas"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Busca no nome.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantos (padrão 50).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Para a próxima página.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "por_no_pra_depois",
+        "summary": "Pôr no Pra depois",
+        "description": "Guarda algo para resenhar depois (mural e nome), ou vários em itens. Se estava na wishlist, sai de lá (como na tela). Permissão: pra-depois:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mural": {
+                    "type": "string",
+                    "enum": [
+                      "jogos",
+                      "livros",
+                      "filmes",
+                      "series",
+                      "animes",
+                      "musicas"
+                    ],
+                    "description": "O mural."
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O nome, como no catálogo (\"Hollow Knight: Silksong\")."
+                  },
+                  "ano": {
+                    "type": "string",
+                    "pattern": "^\\d{4}$",
+                    "description": "O ano de lançamento, AAAA (ajuda a achar a capa certa)."
+                  },
+                  "por": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                  },
+                  "capa": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "A capa (https). Sem ela, o Murall procura no catálogo do mural."
+                  },
+                  "buscar_capa": {
+                    "type": "boolean",
+                    "description": "false: entra sem capa, sem procurar."
+                  },
+                  "itens": {
+                    "type": "array",
+                    "maxItems": 50,
+                    "description": "Ou vários (até 50).",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "mural": {
+                          "type": "string",
+                          "enum": [
+                            "jogos",
+                            "livros",
+                            "filmes",
+                            "series",
+                            "animes",
+                            "musicas"
+                          ],
+                          "description": "O mural."
+                        },
+                        "nome": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200,
+                          "description": "O nome, como no catálogo (\"Hollow Knight: Silksong\")."
+                        },
+                        "ano": {
+                          "type": "string",
+                          "pattern": "^\\d{4}$",
+                          "description": "O ano de lançamento, AAAA (ajuda a achar a capa certa)."
+                        },
+                        "por": {
+                          "type": "string",
+                          "maxLength": 120,
+                          "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                        },
+                        "capa": {
+                          "type": "string",
+                          "maxLength": 2000,
+                          "pattern": "^https://",
+                          "description": "A capa (https). Sem ela, o Murall procura no catálogo do mural."
+                        },
+                        "buscar_capa": {
+                          "type": "boolean",
+                          "description": "false: entra sem capa, sem procurar."
+                        }
+                      },
+                      "required": [
+                        "mural",
+                        "nome"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/pra-depois/{id}": {
+      "delete": {
+        "operationId": "tirar_do_pra_depois",
+        "summary": "Tirar do Pra depois",
+        "description": "Tira um item do Pra depois (a pessoa pode desfazer pelo histórico). Mande a versao que você leu. Pergunte ao usuário antes. Permissão: pra-depois:escrever.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id do item.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "versao",
+            "in": "query",
+            "required": true,
+            "description": "A versao do item que você leu (o campo versao).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/fichas": {
+      "get": {
+        "operationId": "listar_fichas",
+        "summary": "Listar fichas",
+        "description": "As fichas (resenhas) dos murais, com a nota final do Murall, as notas, o status, o veredito e um resumo do texto (com_texto: true traz inteiro). Pagine com depois. Permissão: fichas:ler.",
+        "parameters": [
+          {
+            "name": "mural",
+            "in": "query",
+            "required": false,
+            "description": "Só deste mural.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "jogos",
+                "livros",
+                "filmes",
+                "series",
+                "animes",
+                "musicas"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Só neste status.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "incompleto",
+                "finalizado",
+                "platinado"
+              ]
+            }
+          },
+          {
+            "name": "veredito",
+            "in": "query",
+            "required": false,
+            "description": "Só com este veredito.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "masterpiece",
+                "recomendo",
+                "legalzinho",
+                "meh",
+                "chato"
+              ]
+            }
+          },
+          {
+            "name": "nota_min",
+            "in": "query",
+            "required": false,
+            "description": "Só com a nota final a partir desta.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Busca no nome, no autor, no artista e no texto.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "ordem",
+            "in": "query",
+            "required": false,
+            "description": "A ordem (padrão concluida: as mais recentes primeiro).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "concluida",
+                "nota",
+                "nome",
+                "mudou"
+              ]
+            }
+          },
+          {
+            "name": "com_texto",
+            "in": "query",
+            "required": false,
+            "description": "true traz o texto inteiro.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantas (padrão 30).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Para a próxima página.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "criar_ficha",
+        "summary": "Criar uma ficha",
+        "description": "Cria uma ficha (resenha) num mural: mural, nome e pelo menos uma nota (as do mural, em ver_contexto). A nota final o Murall calcula. Nasce privada; com o nome de outra ficha do mural, vira a releitura (rejogada) dela. O Murall procura a capa. Permissão: fichas:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mural": {
+                    "type": "string",
+                    "enum": [
+                      "jogos",
+                      "livros",
+                      "filmes",
+                      "series",
+                      "animes",
+                      "musicas"
+                    ],
+                    "description": "O mural."
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O nome da obra."
+                  },
+                  "por": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120,
+                    "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                  },
+                  "ano": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}$",
+                    "description": "O ano de lançamento, AAAA."
+                  },
+                  "capa": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "A capa (https). Sem ela, ao criar, o Murall procura no catálogo."
+                  },
+                  "notas": {
+                    "type": "object",
+                    "description": "As notas de 0 a 10 (inteiras), pelo id das notas do mural (ver_contexto, fichas): {\"historia\": 9, \"diversao\": 10}. null tira uma. A nota final o Murall calcula."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "incompleto",
+                      "finalizado",
+                      "platinado"
+                    ],
+                    "description": "Não terminou, terminou ou foi além (os nomes de cada mural em ver_contexto)."
+                  },
+                  "dificuldade": {
+                    "type": "string",
+                    "enum": [
+                      "nenhuma",
+                      "facil",
+                      "media",
+                      "dificil",
+                      "impossivel",
+                      "infernal"
+                    ],
+                    "description": "Só nos murais com dificuldade (jogos, livros)."
+                  },
+                  "veredito": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "masterpiece",
+                      "recomendo",
+                      "legalzinho",
+                      "meh",
+                      "chato",
+                      null
+                    ],
+                    "description": "O carimbo do veredito (null tira)."
+                  },
+                  "quantidade": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 99999,
+                    "description": "Horas jogadas (com fração, em número) ou páginas lidas; só nos murais que anotam."
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "O texto da resenha, no markdown do Murall."
+                  },
+                  "concluida_em": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}(-\\d{2}-\\d{2})?$",
+                    "description": "O dia em que terminou (AAAA-MM-DD), só o ano, ou null (não lembra). Sem ele, ao criar, hoje."
+                  },
+                  "visibilidade": {
+                    "type": "string",
+                    "enum": [
+                      "privada",
+                      "publica"
+                    ],
+                    "description": "Quem vê. Só com a permissão publicar; sem dizer, a ficha nasce privada."
+                  },
+                  "forma": {
+                    "type": "string",
+                    "enum": [
+                      "album",
+                      "faixa"
+                    ],
+                    "description": "Só nas músicas: álbum ou música."
+                  },
+                  "artista": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 60,
+                    "description": "Só nas músicas: o artista."
+                  },
+                  "buscar_capa": {
+                    "type": "boolean",
+                    "description": "false: entra sem capa, sem procurar."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "mural",
+                  "nome",
+                  "notas"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/fichas/{id}": {
+      "get": {
+        "operationId": "ler_ficha",
+        "summary": "Ler uma ficha",
+        "description": "Uma ficha inteira, com o texto e a versao (para mudar). Permissão: fichas:ler.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da ficha.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "editar_ficha",
+        "summary": "Mudar uma ficha",
+        "description": "Muda os campos mandados de uma ficha (as notas mandadas vão por cima das outras). Mande a versao que você leu; se voltar conflito, leia de novo. Permissão: fichas:escrever.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "O id da ficha.",
+              "pattern": "^[\\w-]{1,64}$"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "versao": {
+                    "type": "string",
+                    "description": "A versao da ficha que você leu (o campo versao)."
+                  },
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "O nome da obra."
+                  },
+                  "por": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 120,
+                    "description": "Quem escreveu (livros) ou quem toca (músicas)."
+                  },
+                  "ano": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}$",
+                    "description": "O ano de lançamento, AAAA."
+                  },
+                  "capa": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "A capa (https). Sem ela, ao criar, o Murall procura no catálogo."
+                  },
+                  "notas": {
+                    "type": "object",
+                    "description": "As notas de 0 a 10 (inteiras), pelo id das notas do mural (ver_contexto, fichas): {\"historia\": 9, \"diversao\": 10}. null tira uma. A nota final o Murall calcula."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "incompleto",
+                      "finalizado",
+                      "platinado"
+                    ],
+                    "description": "Não terminou, terminou ou foi além (os nomes de cada mural em ver_contexto)."
+                  },
+                  "dificuldade": {
+                    "type": "string",
+                    "enum": [
+                      "nenhuma",
+                      "facil",
+                      "media",
+                      "dificil",
+                      "impossivel",
+                      "infernal"
+                    ],
+                    "description": "Só nos murais com dificuldade (jogos, livros)."
+                  },
+                  "veredito": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "masterpiece",
+                      "recomendo",
+                      "legalzinho",
+                      "meh",
+                      "chato",
+                      null
+                    ],
+                    "description": "O carimbo do veredito (null tira)."
+                  },
+                  "quantidade": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 99999,
+                    "description": "Horas jogadas (com fração, em número) ou páginas lidas; só nos murais que anotam."
+                  },
+                  "texto": {
+                    "type": "string",
+                    "maxLength": 20000,
+                    "description": "O texto da resenha, no markdown do Murall."
+                  },
+                  "concluida_em": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\d{4}(-\\d{2}-\\d{2})?$",
+                    "description": "O dia em que terminou (AAAA-MM-DD), só o ano, ou null (não lembra). Sem ele, ao criar, hoje."
+                  },
+                  "visibilidade": {
+                    "type": "string",
+                    "enum": [
+                      "privada",
+                      "publica"
+                    ],
+                    "description": "Quem vê. Só com a permissão publicar; sem dizer, a ficha nasce privada."
+                  },
+                  "forma": {
+                    "type": "string",
+                    "enum": [
+                      "album",
+                      "faixa"
+                    ],
+                    "description": "Só nas músicas: álbum ou música."
+                  },
+                  "artista": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 60,
+                    "description": "Só nas músicas: o artista."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "versao"
                 ]
               }
             }

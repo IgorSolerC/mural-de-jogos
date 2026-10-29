@@ -84,7 +84,7 @@ const COPIED_MS = 2200;
               </p>
               <p class="explica">
                 <lucide-icon class="explica-icone" [img]="SoonIcon" [size]="18" aria-hidden="true" />
-                <span>Hoje a chave lê e escreve nas anotações, no Kanban, no calendário e nos gastos; o que ela escreve entra quando o Murall está aberto em algum aparelho seu. A wishlist, o Pra depois e as fichas chegam depois, e cada parte respeita o que você marcou aqui.</span>
+                <span>A chave lê e escreve nas anotações, no Kanban, no calendário, nos gastos, na wishlist, no Pra depois e nas fichas; o que ela escreve entra quando o Murall está aberto em algum aparelho seu, e cada parte respeita o que você marcou aqui.</span>
               </p>
             </div>
             <p class="sr-only" aria-live="polite">{{ said() }}</p>

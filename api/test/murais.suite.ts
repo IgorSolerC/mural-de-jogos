@@ -499,4 +499,53 @@ export function muraisSuite(label: string, getDb: () => Db) {
       expect((await t.body(send(t, secret, 'PATCH', `/ext/v1/fichas/${COSMOS.id}`, { versao: COSMOS.versao, veredito: 'masterpiece' }))).pedido.estado).toBe('aguardando-aprovacao');
     });
   });
+
+  describe(`${label}: os murais pelo MCP`, () => {
+    const ALL = ['desejos:ler', 'desejos:escrever', 'pra-depois:ler', 'pra-depois:escrever', 'fichas:ler', 'fichas:escrever'];
+    let seq = 0;
+    const rpc = async (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, params?: unknown) =>
+      t.body(
+        t.call('/mcp', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, ...(params ? { params } : {}) }),
+        }),
+      );
+    const tool = async (t: Awaited<ReturnType<typeof setup>>, secret: string, name: string, args: Record<string, unknown> = {}) =>
+      (await rpc(t, secret, 'tools/call', { name, arguments: args })).result;
+
+    it('cada permissão mostra as ferramentas dela; tirar é destrutiva', async () => {
+      const t = await setup();
+      const { me } = await t.ready(['desejos:ler']);
+      const names = async (scopes: string[]) => (await rpc(t, (await t.newKey(me.token, scopes)).segredo, 'tools/list')).result.tools.map((x: { name: string }) => x.name);
+      expect(await names(['desejos:ler'])).toEqual(['guia_do_murall', 'ver_contexto', 'buscar', 'ver_wishlist', 'ver_pedidos']);
+      expect(await names(['desejos:escrever'])).toEqual(['guia_do_murall', 'ver_contexto', 'por_na_wishlist', 'mudar_desejo', 'tirar_da_wishlist', 'ver_pedidos']);
+      expect(await names(['pra-depois:escrever'])).toEqual(['guia_do_murall', 'ver_contexto', 'por_no_pra_depois', 'tirar_do_pra_depois', 'ver_pedidos']);
+      expect(await names(['fichas:ler'])).toEqual(['guia_do_murall', 'ver_contexto', 'buscar', 'listar_fichas', 'ler_ficha', 'ver_pedidos']);
+      expect(await names(['fichas:escrever'])).toEqual(['guia_do_murall', 'ver_contexto', 'criar_ficha', 'editar_ficha', 'ver_pedidos']);
+      const list = (await rpc(t, (await t.newKey(me.token, ['desejos:escrever'])).segredo, 'tools/list')).result.tools as { name: string; annotations: { destructiveHint: boolean } }[];
+      expect(list.find((x) => x.name === 'tirar_da_wishlist')!.annotations.destructiveHint).toBe(true);
+    });
+
+    it('ler marcado como dado; pôr um lote na wishlist, mudar a relevância, tirar do Pra depois e criar uma ficha', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const fichas = await tool(t, secret, 'listar_fichas', { veredito: 'masterpiece' });
+      expect(fichas.structuredContent.itens.map((f: FichaV1) => f.nome)).toEqual(['Outer Wilds']);
+      expect(fichas.content[0].text).toContain('<conteudo_do_usuario>');
+      const lot = await tool(t, secret, 'por_na_wishlist', { itens: [{ mural: 'jogos', nome: 'Tunic', ano: '2022' }, { mural: 'livros', nome: 'Torto Arado', relevancia: 'must' }] });
+      expect(lot.isError).toBeUndefined();
+      expect(lot.content[0].text).toContain('2 pedidos feitos');
+      const changed = await tool(t, secret, 'mudar_desejo', { id: HADES.id, versao: HADES.versao, relevancia: 'must' });
+      expect(changed.structuredContent.desejo.relevancia).toBe('must');
+      const gone = await tool(t, secret, 'tirar_do_pra_depois', { id: PRA_CELESTE.id, versao: PRA_CELESTE.versao });
+      expect(gone.structuredContent.pedido.op).toBe('pra-depois.tirar');
+      const made = await tool(t, secret, 'criar_ficha', { mural: 'livros', nome: 'Torto Arado', notas: { historia: 9, envolvimento: 10 }, quantidade: 264 });
+      expect(made.isError).toBeUndefined();
+      expect(made.structuredContent.ficha.nota_final).toBeNull();
+      const dup = await tool(t, secret, 'por_na_wishlist', { mural: 'jogos', nome: 'Tunic' });
+      expect(dup.isError).toBe(true);
+      expect(dup.content[0].text).toContain('desejo-existe');
+    });
+  });
 }
