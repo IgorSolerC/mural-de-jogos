@@ -11,7 +11,7 @@ em tudo que pode dar errado [...] e tudo que é necessário para que a experiên
 
 Este arquivo é o plano inteiro, escrito para ser lido também por outras AIs (como o PLANO-API.md e o
 PLANO-IMAGENS.md). **Nada foi implementado.** As decisões estão na seção 9 (as minhas, com o porquê, e
-cinco perguntas que são do usuário); as rodadas, na seção 11; o andamento, na 12.
+as cinco perguntas ao usuário, respondidas em 29/out); as rodadas, na seção 11; o andamento, na 12.
 
 ---
 
@@ -48,7 +48,7 @@ cinco perguntas que são do usuário); as rodadas, na seção 11; o andamento, n
   o menu "Tabela" (linhas, colunas, alinhar, jeito) enquanto o cursor está nela. A folha da tabela
   continua no "Editar".
 - **As abas do editor viram "Visual" e "Markdown".** O "Ver como fica" só de leitura dá lugar ao Visual,
-  que é ele mesmo, editável (pergunta P1). Em Ajustes › Mural, "Jeito de escrever" escolhe qual abre
+  que é ele mesmo, editável (decisão P1). Em Ajustes › Mural, "Jeito de escrever" escolhe qual abre
   primeiro; trocar de aba leva o cursor para o mesmo lugar do texto.
 - **Por partes**, em 10 rodadas, começando por uma prova no celular de verdade (seção 11). O Visual
   aparece como "em teste" desde a rodada 2, para o usuário experimentar cada parte.
@@ -324,15 +324,16 @@ faz sentido com a conta exata de colunas. Essas linhas viram um nó `cru`:
 - **As abas.** "Escrever" e "Ver como fica" dão lugar a **"Visual"** e **"Markdown"**, sempre nessa
   ordem, com os mesmos papéis de tab do ARIA e as mesmas setas de hoje (`onTabKey`). A "Ajuda" e a
   "Tela cheia" ficam onde estão. No celular, só os desenhos (um documento e um `#`), como hoje.
-  A pergunta P1 é se o "Ver como fica" pode sumir (a minha recomendação: sim; o Visual já é ele,
-  editável, e a ficha ao lado da edição já mostra a cara final).
+  O "Ver como fica" sai (decisão P1): o Visual já é ele, editável, e a ficha ao lado da edição já
+  mostra a cara final.
 - **A opção.** Ajustes › Mural, uma linha nova "Jeito de escrever", com o seletor de recortes dos
   outros ajustes: "Visual (como no Docs)" e "Markdown (as marcas à vista)". Ela escolhe qual aba abre
   quando um editor aparece, em todo lugar que tem o texto com formatação (a anotação, a resenha, o
   comentário, o "Sobre mim"). Trocar de aba no editor vale só para aquele editor enquanto ele estiver
   aberto (como no Docs, a preferência não muda por um clique). Mora em `Settings` (o `Stored` de
   `core/settings.ts`), entra no "Voltar ao padrão" (`PREFERENCE_DEFAULTS`) e no `reload` de outra aba.
-  Por aparelho ou por conta: pergunta P3. O padrão: pergunta P2.
+  Vale por aparelho, como o Desempenho, sem sincronizar (decisão P3). Para quem nunca escolheu, abre
+  o Markdown enquanto o Visual está "em teste" e o Visual a partir da rodada 9 (decisão P2).
 - **A troca de modo com o cursor.** Do Visual para o Markdown: o nó do cursor dá a linha do texto (o
   tradutor sabe onde cada nó começa), e a posição dentro da linha vem do mapa letra-a-letra que a
   escrita produz (cada letra da tela sabe em que posição do texto caiu). Do Markdown para o Visual: a
@@ -423,7 +424,7 @@ que o último sinal entra; um endereço (`https://…`, `www.…`) vira link no 
 a lista das anotações (como hoje).
 
 **Não** viram formatação, no Visual, as marcas de linha digitadas (`**x**`, `*x*`, `~~x~~`): o pedido
-é que o que se escreve seja lido como texto, não como markdown. Fica como pergunta (P4), porque o Notion faz e há quem goste.
+é que o que se escreve seja lido como texto, não como markdown. Decidido na P4 (o Notion faz, mas aqui não).
 
 ### 5.11 Links
 
@@ -541,7 +542,7 @@ a lista das anotações (como hoje).
 4. Texto puro com tab em várias linhas (planilha): fora de uma tabela, uma tabela nova, como o Docs
    faz; dentro de uma, espalha a partir da célula (5.14).
 5. Texto puro: lido como markdown do Murall (é o que vem de uma nota antiga, de uma AI, do Markdown
-   de outro aparelho). **Ctrl+Shift+V** cola como letras, sem ler nada. Pergunta P5.
+   de outro aparelho). **Ctrl+Shift+V** cola como letras, sem ler nada (decisão P5).
 
 Colar um endereço com texto selecionado: o link (5.11). Colar com o limite de caracteres perto: 5.18.
 
@@ -675,9 +676,7 @@ editor abrindo outra ficha (`reset`).
   sai (a regra pede o teste mesmo assim).
 - O estado do ProseMirror (o documento e o histórico) vive só na memória; nada vai para o
   `localStorage`, o `sessionStorage` ou o IndexedDB. A área de transferência não é armazenamento do site.
-- Se a pergunta P3 escolher "por conta", a escolha passa a sincronizar como os outros ajustes com data
-  (`…At`), seguindo a regra 2 do CLAUDE.md (o de uma conta nunca se junta com o de outra); não é
-  conteúdo da conta (não entra em `localHasContent`).
+- A escolha é por aparelho (decisão P3): não sincroniza, não entra na nuvem nem em `localHasContent`.
 
 ### 5.26 Arquivos
 
@@ -846,7 +845,7 @@ Cada linha: o defeito, como ele aparece para a pessoa, o que o evita e o teste q
 | R3 | Texto grande lento | Digitação arrastada | Medida na rodada 8 | Medida |
 | R4 | Os dois modos se separam com o tempo (feature nova só no Markdown) | Uma coisa existe num modo e não no outro | A REGRA DO VISUAL + o spec | Spec |
 | R5 | A pessoa não acha mais o markdown | Pedido do usuário | Aba sempre à vista | — |
-| R6 | Quem sentia falta do "Ver como fica" (tarefas dobradas, spoiler tapado, links que abrem) | Perde algo | Pergunta P1; a ficha ao lado já mostra | — |
+| R6 | Quem sentia falta do "Ver como fica" (tarefas dobradas, spoiler tapado, links que abrem) | Perde algo | Decisão P1 (sai); a ficha ao lado já mostra a cara final, e o Ctrl+clique abre os links | — |
 | R7 | A Ajuda fala de asteriscos no Visual | Confunde | Ajuda por modo | Spec |
 | R8 | O contador anda mais que o que se vê | Confunde | `title` explica | — |
 | R9 | Testes do ProseMirror instáveis no Karma (foco assíncrono, seleção) | Rodada vermelha à toa | Despachar transações e eventos direto na vista; semente fixa; as lições dos testes instáveis de outubro (o foco assíncrono, a semente do Jasmine) | Rodar 3 vezes |
@@ -911,7 +910,7 @@ Cada linha: o defeito, como ele aparece para a pessoa, o que o evita e o teste q
   continua juntando por versões.
 - **A folha de conflito** (`conflict-sheet`) e a lista de versões guardadas mostrando o texto formatado:
   continuam mostrando o markdown; pode virar outra rodada depois.
-- **O "Ver como fica" só de leitura**, se a P1 disser que pode sair.
+- **O "Ver como fica" só de leitura**: sai (decisão P1).
 - **Arrastar itens de lista pela alça** (reordenar como no Notion): o arrastar do ProseMirror já move o
   texto selecionado; uma alça é outra rodada.
 - **Corretor ortográfico próprio**: fica o do navegador (que funciona no `contenteditable`).
@@ -941,11 +940,13 @@ Cada linha: o defeito, como ele aparece para a pessoa, o que o evita e o teste q
 | D14 | **"Em teste" desde a rodada 2**, para o usuário experimentar cada parte | O jeito por partes; o retorno chega cedo | Esconder até o fim |
 | D15 | **O Markdown não muda** (só as abas e o tipo próprio ao copiar e colar) | Quem gosta do Markdown não perde nada | — |
 
-### 9.2 Perguntas que são do usuário
+### 9.2 Perguntas que eram do usuário
 
-| # | Pergunta | A minha recomendação |
+Respondidas em 29/out/2026: o usuário ficou com as recomendações ("Sim, use as suas").
+
+| # | Pergunta | Decidido |
 | --- | --- | --- |
-| P1 | O "Ver como fica" (só leitura) pode sumir, ficando as abas **Visual** e **Markdown**? | Sim. O Visual é ele, editável, e a ficha ao lado já mostra a cara final. Se não, três abas (Visual, Markdown, Ver como fica), apertadas no celular. |
+| P1 | O "Ver como fica" (só leitura) pode sumir, ficando as abas **Visual** e **Markdown**? | Sim. O Visual é ele, editável, e a ficha ao lado já mostra a cara final. |
 | P2 | Qual abre primeiro para quem nunca escolheu? | O **Visual**, depois da rodada 9 (antes, o Markdown). É o jeito que a maioria espera; o Markdown fica a um toque. |
 | P3 | A escolha é **por aparelho** (como o Desempenho) ou **da conta** (vale em todos)? | Por aparelho: no celular e no computador as pessoas escrevem diferente, e é mais simples. |
 | P4 | No Visual, digitar `**x**` vira negrito (como no Notion)? | Não: o pedido é que o que se escreve seja lido como texto, não como markdown; só os atalhos de bloco e os símbolos, como no Docs. |
@@ -1003,8 +1004,9 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
 
 ## 12. Andamento
 
-Nada feito ainda. Esperando as respostas das perguntas P1 a P5 (seção 9.2) e o "pode começar" da
-rodada 0.
+- 29/out/2026: o plano (40a8a16, BUILD 640) e as respostas das perguntas P1 a P5, todas como
+  recomendado (seção 9.2).
+- Próximo: a rodada 0, a prova no celular do usuário, quando ele disser para começar.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
