@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-widgets-e-quem-ve',
+    id: '2026-10-29-broche-do-widget-no-alto',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -39,7 +39,7 @@ export const NEWS: NewsEntry[] = [
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
     ],
     correcoes: [
-      'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa: antes o toque abria a anotação em vez de ampliar.',
+      'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa (antes o toque abria a anotação em vez de ampliar) e não sai mais cortado no widget do alto do texto.',
       'Na ficha do mural, dois widgets do mesmo tamanho ficam do mesmo tamanho: o de baixo não encolhe mais para caber no fim da ficha, e o que passa dela fica escondido, como o texto.',
       'O selo das dependências no Kanban e o link para outra anotação não mostram mais "null" com o mouse em cima.',
       'No Salvar como PDF, a imagem colada que ainda vinha do aparelho ou da nuvem não sai mais em branco: a folha espera por ela.',

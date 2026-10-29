@@ -968,9 +968,14 @@ export const CARD_STYLES = `
     .nota-texto {
       --line: 1.4rem;
       --linhas: 8;
+      --broche-folga: 12px;
       position: relative;
-      margin-top: 14px;
-      max-height: calc(var(--line) * var(--linhas));
+      /* a folga em cima e dos lados (desfeita na margem, o texto fica onde sempre esteve): o broche
+         de ampliar de um widget sai metade para fora do canto dele (ui/zoom-knob.ts), e o corte da
+         caixa o cortava no widget do alto do texto. Embaixo não: lá o texto é cortado */
+      margin: calc(14px - var(--broche-folga)) calc(-1 * var(--broche-folga)) 0;
+      padding: var(--broche-folga) var(--broche-folga) 0;
+      max-height: calc(var(--line) * var(--linhas) + var(--broche-folga));
       /* clip, e não hidden: com hidden a caixa rola quando o Tab chega numa tarefa lá embaixo, e as
          primeiras linhas somem da ficha */
       overflow: clip;

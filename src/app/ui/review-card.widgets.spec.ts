@@ -94,12 +94,36 @@ describe('os widgets na ficha do mural', () => {
       expect(getComputedStyle(knob).pointerEvents).toBe('auto');
       const r = knob.getBoundingClientRect();
       expect(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('app-zoom-knob')).not.toBeNull();
+      // o widget é o primeiro do texto: o broche, metade para fora do canto dele, cabe inteiro no
+      // corte da caixa do texto (a folga dela), sem perder a metade de cima
+      const clip = el.querySelector<HTMLElement>('.nota-texto')!.getBoundingClientRect();
+      const host = knob.closest('app-zoom-knob')!.getBoundingClientRect();
+      expect(host.top).toBeGreaterThanOrEqual(clip.top);
+      expect(host.right).toBeLessThanOrEqual(clip.right);
+      expect(document.elementFromPoint(r.left + r.width / 2, r.top + 2)?.closest('app-zoom-knob')).not.toBeNull();
       let opened = 0;
       fixture.componentInstance.opened.subscribe(() => opened++);
       knob.click();
       expect(opened).toBe(0);
     });
   }
+
+  it('a folga do broche não tira o texto do lugar: ele começa e acaba onde sempre, com as mesmas linhas', async () => {
+    await show(card('anotacoes', 'Uma linha\nOutra'), { checkable: true });
+    const box = el.querySelector<HTMLElement>('.nota-texto')!;
+    // (sem o giro da ficha: pelos offsets, do canto dela)
+    const where = () => {
+      const t = box.querySelector<HTMLElement>('app-rich-text')!;
+      return { top: box.offsetTop + t.offsetTop, left: box.offsetLeft + t.offsetLeft, width: t.offsetWidth, cut: box.offsetTop + box.offsetHeight, card: el.offsetHeight };
+    };
+    const with12 = where();
+    // sem a folga: tudo igual
+    box.style.setProperty('--broche-folga', '0px');
+    expect(where()).toEqual(with12);
+    expect(parseFloat(getComputedStyle(box).paddingTop)).toBe(0);
+    box.style.removeProperty('--broche-folga');
+    expect(parseFloat(getComputedStyle(box).paddingTop)).toBe(12);
+  });
 
   it('o spoiler se revela tocando na própria ficha, sem abrir a leitura; revelado, o toque volta a abrir', async () => {
     await show(card('anotacoes', 'O final: ||ele volta|| e pronto.'), { checkable: false });
