@@ -1770,9 +1770,24 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      mexe nas notas (o tipo `FichaV1` agora diz `number | null`: só o Murall faz a conta, com os pesos
      e os bônus que a v1 não mostra); a ficha nova nasce privada, no dia de hoje do fuso da conta, sem
      capa. Por cima das leituras, como nos desejos. Criar ficha não espera a aprovação "mudancas".
-  6. Site aplica os pedidos (pelo `ReviewStore`: `saveWish`, `setRelevance`, `removeWish`,
+  6. [feito, BUILD 638] Site aplica os pedidos (pelo `ReviewStore`: `saveWish`, `setRelevance`, `removeWish`,
      `saveDraft`, `removeDraft`, `add`, `update`), com a busca da capa, o Desfazer e as frases na folha
-     dos pedidos e no histórico. Testes. BUILD + 1.
+     dos pedidos e no histórico. Testes. BUILD + 1. Feito assim: `core/api-requests-murals.ts`
+     (`applyMuralRequest`, assíncrono por causa da capa; `undoMural`, `muralWords`, `muralTitle`,
+     `isMuralOp`), chamado pelo `ApiRequests`. A capa: `ApiRequests.findCover` usa
+     `GameLookup.search` do mural (8 s de teto), fica com o de nome igual (e ano, se veio) ou o
+     primeiro e, na RAWG, troca pela capa da Steam (`withSteamCover`), como a tela; o nome, o ano e o
+     por da AI ficam por cima do que veio do catálogo. O nome repetido (`sameGame`) não entra; pôr no
+     Pra depois tira o mesmo da wishlist, como o wish-adder. A ficha nova passa por `sanitizeReview`
+     (a nota final é `computeFinal`) e `ReviewStore.add` (a cartolina da vez; com o nome de outra do
+     mural, vira a releitura dela), privada, no dia de hoje; as regras do mural vêm do mesmo
+     `contextoFichasV1` do espelho. Mudar a ficha põe as notas mandadas por cima (os pesos, os bônus e
+     a final na mão ficam). Mudar com a versão velha é `conflito`, a não ser pela corrente de pedidos
+     daqui. O Desfazer tira o posto e a ficha criada (guardada em Versões guardadas se mudou depois),
+     devolve o tirado (`restoreWish`/`restoreDraft`) e o mudado. A folha dos pedidos ganhou os ícones
+     (marcador, Pra depois, ficha nova) e as frases ("Pôr “Silksong” na wishlist dos jogos (MUST
+     PLAY)", "Criar a ficha de “Torto Arado” nos livros"). Fotos de perto da folha (esperando e
+     histórico, computador e celular) na build de produção. O bundle inicial foi a 1,95 MB.
   7. MCP e guia: `ver_wishlist`, `por_na_wishlist`, `mudar_desejo`, `tirar_da_wishlist`,
      `ver_pra_depois`, `por_no_pra_depois`, `tirar_do_pra_depois`, `listar_fichas`, `ler_ficha`,
      `criar_ficha`, `editar_ficha`; a parte dos murais no guia; o OpenAPI e as cópias em `docs/api`

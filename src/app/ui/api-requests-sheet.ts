@@ -68,6 +68,13 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
   'lembrete.criar': 'novoNoCalendario',
   'lembrete.editar': 'calendario',
   'lembrete.apagar': 'apagar',
+  'desejo.por': 'querer',
+  'desejo.editar': 'naWishlist',
+  'desejo.tirar': 'tirar',
+  'pra-depois.por': 'praDepois',
+  'pra-depois.tirar': 'tirar',
+  'ficha.criar': 'novaNota',
+  'ficha.editar': 'editar',
 };
 
 /**
@@ -176,6 +183,9 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
                       }
                       @if (w.r.op === 'gasto.apagar' && !w.gone) {
                         <p class="porque">Ele sai dos Gastos; o Desfazer do histórico põe de volta.</p>
+                      }
+                      @if ((w.r.op === 'desejo.tirar' || w.r.op === 'pra-depois.tirar') && !w.gone) {
+                        <p class="porque">Ele sai da lista; o Desfazer do histórico põe de volta.</p>
                       }
                       @if (w.r.op === 'lembrete.apagar' && !w.gone) {
                         <p class="porque">{{ $any(w.r.dados)?.dia ? 'Só esta vez sai; o lembrete continua nos outros dias.' : 'Ele sai do Calendário (e do Google Agenda, se estiver ligado); o Desfazer do histórico põe de volta.' }}</p>
@@ -359,6 +369,9 @@ export class ApiRequestsSheet {
     if (op === 'coluna.editar' || op === 'coluna.apagar') return 'A coluna (ou o quadro)';
     if (op === 'coluna.criar') return 'O quadro';
     if (op.startsWith('lembrete.')) return 'O lembrete';
+    if (op.startsWith('desejo.')) return 'O desejo';
+    if (op.startsWith('pra-depois.')) return 'O item do Pra depois';
+    if (op.startsWith('ficha.')) return 'A ficha';
     return op.startsWith('gasto.') ? 'O lançamento' : op.startsWith('envelope.') ? 'O envelope' : op.startsWith('pessoa.') ? 'A pessoa' : 'A nota';
   }
 

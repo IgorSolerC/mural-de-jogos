@@ -21,9 +21,13 @@ import {
 } from '../../../contrato/api-v1/operacoes';
 import { OPS_DO_CALENDARIO } from '../../../contrato/api-v1/operacoes-calendario';
 import { OPS_DE_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
+import { OPS_DOS_MURAIS } from '../../../contrato/api-v1/operacoes-murais';
 import { OPS_DO_KANBAN, type NoQuadroV1 } from '../../../contrato/api-v1/operacoes-kanban';
 import { CalendarResult, applyCalendarRequest, calendarTitle, calendarWords, isCalendarOp, undoCalendar } from './api-requests-calendar';
 import { CalendarStore } from './calendar-store';
+import { MuralResult, applyMuralRequest, isMuralOp, muralTitle, muralWords, undoMural } from './api-requests-murals';
+import { GameLookup } from './game-lookup';
+import { fold } from './text';
 import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
 import { ApiMirror } from './api-mirror';
@@ -35,13 +39,13 @@ import { DataKey, LocalData } from './local-data';
 import { commonPairs } from './merge3';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { relinkAfterRename } from './note-links';
-import { Review, audienceFields, formatReviewDateLong, isNote, sanitizeReview, storedNote, todayISO, withDone, withPin } from './review';
+import { Kind, PickedGame, Review, audienceFields, formatReviewDateLong, isNote, sanitizeReview, storedNote, todayISO, withDone, withPin } from './review';
 import { ReviewStore } from './review-store';
 
 /**
  * Os pedidos da API das AIs, pelo lado do site (PLANO-API.md, seção 9; os dos Gastos em
  * core/api-requests-spending.ts, os do Kanban em core/api-requests-kanban.ts, os do Calendário em
- * core/api-requests-calendar.ts). A nuvem nunca abre o mural:
+ * core/api-requests-calendar.ts, os da Wishlist, do Pra depois e das fichas em core/api-requests-murals.ts). A nuvem nunca abre o mural:
  * cada escrita de uma AI vira um pedido, e o Murall aberto em algum aparelho logado na conta pega,
  * aplica pelas mesmas funções da tela (as lojas, as conferências de sempre), sincroniza como uma
  * edição comum e só então conclui o pedido na nuvem, com o resultado e a nota de antes (o Desfazer).
@@ -57,6 +61,8 @@ import { ReviewStore } from './review-store';
 
 /** Onde ficam os aplicados aqui e ainda não concluídos (sai na limpeza do navegador, com o banco). */
 export const APPLIED_KEY: DataKey = 'meu-mural:api:aplicados';
+/** Quanto a busca da capa de um item pedido pela AI espera o catálogo (depois, ele entra sem capa). */
+const COVER_WAIT_MS = 8000;
 /** Sem nenhum pedido novo há tanto tempo, a aba escondida para de conferir (volta ao aparecer). */
 export const IDLE_MS = 2 * 60 * 60 * 1000;
 /** O teto de cada JSON guardado num pedido concluído (o mesmo da API, `RESULT_MAX_CHARS`). */
@@ -80,7 +86,7 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult;
+export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult | MuralResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
@@ -303,12 +309,12 @@ export function fits(item: AppliedItem): AppliedItem {
 /** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
 export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
 
-/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", a coluna nova, o lembrete novo, ou o que tem o de antes). */
+/** O que cria algo (o Desfazer tira): a nota, o lançamento, a coluna, o lembrete, o desejo, o pra depois, a ficha. */
+const CREATES = new Set(['nota.criar', 'gasto.lancar', 'coluna.criar', 'lembrete.criar', 'desejo.por', 'pra-depois.por', 'ficha.criar']);
+
+/** Dá para desfazer? Só o que entrou e mudou algo (o que cria, ou o que tem o de antes). */
 export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
-  return (
-    t.estado === 'aplicado' &&
-    (t.op === 'nota.criar' || t.op === 'gasto.lancar' || t.op === 'coluna.criar' || t.op === 'lembrete.criar' || (t.antes !== null && t.antes !== undefined))
-  );
+  return t.estado === 'aplicado' && (CREATES.has(t.op) || (t.antes !== null && t.antes !== undefined));
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -334,6 +340,8 @@ export function requestWords(op: string, dados: unknown, title: string, past = f
   if (kanban) return kanban;
   const calendar = calendarWords(op, dados, title, past);
   if (calendar) return calendar;
+  const mural = muralWords(op, dados, title, past);
+  if (mural) return mural;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -488,6 +496,7 @@ export class ApiRequests {
   private readonly spending = inject(SpendingStore);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly lookup = inject(GameLookup);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -559,7 +568,15 @@ export class ApiRequests {
           ? applyKanbanRequest(this.kanban, this.store, req, now)
           : isCalendarOp(req.op)
             ? applyCalendarRequest(this.calendar, req, { now, stamps, noteExists: (id) => this.ownNote(id) })
-            : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
+            : isMuralOp(req.op)
+              ? await applyMuralRequest(this.store, req, {
+                  now,
+                  today: todayISO(),
+                  stamps,
+                  boardOnly: this.kanban.boardOnly(),
+                  findCover: (kind, name, year) => this.findCover(kind, name, year),
+                })
+              : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
       this.writeItems([...items, fits({ id: req.id, op: req.op, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
       any = true;
     }
@@ -638,6 +655,10 @@ export class ApiRequests {
       undoCalendar(this.calendar, t);
       return;
     }
+    if (isMuralOp(t.op)) {
+      undoMural(this.store, t);
+      return;
+    }
     if (!t.op.startsWith('nota.')) {
       undoSpending(this.spending, t);
       return;
@@ -680,6 +701,7 @@ export class ApiRequests {
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
     if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
     if (isCalendarOp(t.op)) return calendarTitle(this.calendar, t);
+    if (isMuralOp(t.op)) return muralTitle(this.store, t);
     if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);
     if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
     return (
@@ -712,7 +734,7 @@ export class ApiRequests {
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */
   private due(list: readonly SiteRequest[]): SiteRequest[] {
     const done = new Set(this.readItems().map((i) => i.id));
-    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN, ...OPS_DO_CALENDARIO];
+    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN, ...OPS_DO_CALENDARIO, ...OPS_DOS_MURAIS];
     return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && known.includes(r.op));
   }
 
@@ -723,6 +745,9 @@ export class ApiRequests {
   spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'> & { dados?: unknown }): boolean {
     if (isKanbanOp(r.op)) return this.kanbanGone(r);
     if (r.op === 'lembrete.editar' || r.op === 'lembrete.apagar') return !this.calendar.get(r.alvo);
+    if (r.op === 'desejo.editar' || r.op === 'desejo.tirar') return !this.store.getWish(r.alvo);
+    if (r.op === 'pra-depois.tirar') return !this.store.getDraft(r.alvo);
+    if (r.op === 'ficha.editar') return !this.store.get(r.alvo);
     if (r.op === 'gasto.editar' || r.op === 'gasto.apagar') return !this.spending.get(r.alvo);
     if (r.op === 'envelope.editar') return !this.spending.category(r.alvo);
     if (r.op === 'pessoa.editar') return !this.spending.person(r.alvo);
@@ -737,6 +762,28 @@ export class ApiRequests {
     if (r.op.startsWith('cartao.')) return !this.store.get(r.alvo);
     if (r.op === 'coluna.editar' || r.op === 'coluna.apagar') return !b.columns.some((c) => c.id === r.alvo);
     return false;
+  }
+
+  /**
+   * O item do catálogo do mural com este nome, para a capa de um desejo, pra depois ou ficha pedido pela
+   * AI: a busca da tela, ficando com o de nome igual (e ano igual, se veio), ou o primeiro. Sem achar,
+   * sem internet ou depois de 8 segundos, null (o item entra sem capa).
+   */
+  private async findCover(kind: Kind, name: string, year: string | undefined): Promise<PickedGame | null> {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), COVER_WAIT_MS);
+    try {
+      const hits = await this.lookup.search(name, ctrl.signal, kind);
+      const want = fold(name);
+      const best = hits.find((h) => fold(h.name) === want && (!year || h.year === year)) ?? hits.find((h) => fold(h.name) === want) ?? hits[0];
+      if (!best) return null;
+      // a imagem da RAWG é uma arte de fundo: a capa vertical da Steam, quando há (como na tela)
+      return best.source === 'rawg' ? await this.lookup.withSteamCover(best, ctrl.signal) : best;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** A anotação é sua (não compartilhada) e existe: as que um lembrete pode prender. */
