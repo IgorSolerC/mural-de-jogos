@@ -15,8 +15,10 @@ import {
   sanitizeSpending,
   shiftMonth,
   Flow,
+  CATEGORY_NAME_MAX,
   PERSON_NAME_MAX,
 } from './spending';
+import { cleanLabel } from './text';
 import { onOtherTab, writeJson } from './storage';
 
 /** Os gastos deste navegador (vão embora com "Apagar o save", como os lembretes do Calendário). */
@@ -89,10 +91,13 @@ export class SpendingStore {
     return this.state().people.find((p) => p.id === id);
   }
 
-  /** Uma pessoa nova (ou a que já tem esse nome, sem criar outra). */
+  /**
+   * Uma pessoa nova (ou a que já tem esse nome, sem criar outra). O nome é o que será guardado (o mesmo
+   * corte e a mesma limpeza de `sanitizePerson`), para a próxima vez achar a mesma; sem nome, você.
+   */
   addPerson(name: string): SpendingPerson {
-    const clean = name.trim().replace(/\s+/g, ' ').slice(0, PERSON_NAME_MAX);
-    const same = this.state().people.find((p) => p.name.localeCompare(clean, 'pt-BR', { sensitivity: 'base' }) === 0);
+    const clean = cleanLabel(name, PERSON_NAME_MAX);
+    const same = clean ? this.state().people.find((p) => p.name.localeCompare(clean, 'pt-BR', { sensitivity: 'base' }) === 0) : this.person(ME);
     if (same) return same;
     const p: SpendingPerson = { id: newId(), name: clean, at: new Date().toISOString() };
     this.savePerson(p);
@@ -119,7 +124,9 @@ export class SpendingStore {
       if (!next.people.length) delete (next as Partial<Entry>).people;
       return next;
     });
-    this.set({ ...st, entries, people: st.people.filter((p) => p.id !== id), removed: { ...st.removed, [id]: new Date().toISOString() } });
+    const gone = st.people.find((p) => p.id === id)!;
+    // depois da última mudança dela, mesmo vinda de um aparelho com o relógio adiantado: senão ela volta na junção
+    this.set({ ...st, entries, people: st.people.filter((p) => p.id !== id), removed: { ...st.removed, [id]: stampAfter(gone.at) } });
   }
 
   /** Um lançamento em branco, num dia do mês aberto (hoje, se hoje é dele; senão o primeiro dia). */
@@ -145,7 +152,8 @@ export class SpendingStore {
     const st = this.state();
     const gone = st.entries.find((e) => e.id === id);
     if (!gone) return undefined;
-    this.set({ ...st, entries: st.entries.filter((e) => e.id !== id), removed: { ...st.removed, [id]: new Date().toISOString() } });
+    // depois da última mudança dele, mesmo vinda de um aparelho com o relógio adiantado: senão ele volta na junção
+    this.set({ ...st, entries: st.entries.filter((e) => e.id !== id), removed: { ...st.removed, [id]: stampAfter(gone.at) } });
     return gone;
   }
 
@@ -169,10 +177,15 @@ export class SpendingStore {
     else this.save({ ...e, until: shiftMonth(month, -1) });
   }
 
-  /** Uma categoria nova (ou o nome de uma que já existe na mesma direção, sem criar outra). */
+  /**
+   * Uma categoria nova (ou o nome de uma que já existe na mesma direção, sem criar outra). O nome é o que
+   * será guardado (o mesmo corte e a mesma limpeza de `sanitizeCategory`), para a próxima vez achar a
+   * mesma; sem nome, os "Outros" da direção.
+   */
   addCategory(name: string, flow: Flow): SpendingCategory {
-    const clean = name.trim().replace(/\s+/g, ' ');
-    const same = this.categories().find((c) => c.flow === flow && c.name.localeCompare(clean, 'pt-BR', { sensitivity: 'base' }) === 0);
+    const clean = cleanLabel(name, CATEGORY_NAME_MAX);
+    const fallback = flow === 'saida' ? 'outros' : 'outras-entradas';
+    const same = this.categories().find((c) => c.flow === flow && (clean ? c.name.localeCompare(clean, 'pt-BR', { sensitivity: 'base' }) === 0 : c.id === fallback));
     if (same) return same;
     const c: SpendingCategory = { id: newId(), name: clean, flow, color: drawCategoryColor(this.categories(), flow), at: new Date().toISOString() };
     this.saveCategory(c);
@@ -196,7 +209,8 @@ export class SpendingStore {
     // os "Outros" de cada direção recebem os lançamentos das apagadas: ficam sempre
     if (!gone || id === 'outros' || id === 'outras-entradas') return;
     const fallback = gone.flow === 'saida' ? 'outros' : 'outras-entradas';
-    const at = new Date().toISOString();
+    // depois da última mudança dela, mesmo vinda de um aparelho com o relógio adiantado: senão ela volta na junção
+    const at = stampAfter(gone.at);
     const entries = st.entries.map((e) => (e.category === id ? { ...e, category: fallback, at: stampAfter(e.at) } : e));
     this.set({ ...st, entries, categories: st.categories.filter((c) => c.id !== id), removed: { ...st.removed, [id]: at } });
   }

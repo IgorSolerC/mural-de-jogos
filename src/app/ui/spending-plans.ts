@@ -23,12 +23,14 @@ const SHOWN = 5;
           <span class="nome" aria-hidden="true">{{ p.entry.title }}</span>
           <span class="canhotos" aria-hidden="true">
             @for (i of stubs(p.of); track i) {
-              <span class="canhoto" [class.pago]="i < p.current" [class.agora]="i === p.current"></span>
+              <span class="canhoto" [class.pago]="!p.upcoming && i < p.current" [class.agora]="!p.upcoming && i === p.current"></span>
             }
           </span>
           <span class="conta" aria-hidden="true">
             <b>{{ p.current }}/{{ p.of }}</b>
-            @if (p.left) {
+            @if (p.upcoming) {
+              começa em {{ short(p.upcoming.first) }} · até {{ short(p.last) }}
+            } @else if (p.left) {
               faltam {{ brlShort(p.left) }} · até {{ short(p.last) }}
             } @else {
               última
@@ -158,7 +160,8 @@ export class SpendingPlans {
   /** Todos os carnês, ou só os que acabam primeiro. */
   protected readonly all = signal(false);
   protected readonly shown = computed(() => (this.all() ? this.plans() : this.plans().slice(0, SHOWN)));
-  protected readonly perMonth = computed(() => this.plans().reduce((t, p) => t + p.entry.amount, 0));
+  /** O que sai em parcelas neste mês: os carnês que ainda vão começar não contam. */
+  protected readonly perMonth = computed(() => this.plans().reduce((t, p) => t + (p.upcoming ? 0 : p.entry.amount), 0));
 
   protected stubs(n: number): number[] {
     return Array.from({ length: n }, (_, i) => i + 1);
@@ -169,6 +172,7 @@ export class SpendingPlans {
   }
 
   protected label(p: OpenPlan): string {
+    if (p.upcoming) return `${p.entry.title}: ${p.of} parcelas de ${brl(p.entry.amount)}, começa em ${this.short(p.upcoming.first)} e vai até ${this.short(p.last)}`;
     return `${p.entry.title}: parcela ${p.current} de ${p.of}, ${brl(p.entry.amount)} cada${p.left ? `, faltam ${brl(p.left)} até ${this.short(p.last)}` : ', a última'}`;
   }
 }

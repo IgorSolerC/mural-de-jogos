@@ -185,18 +185,24 @@ export class SpendingPage {
   protected readonly left = computed(() => daysLeft(this.open(), this.today()));
   protected readonly refunds = computed(() => refundsByExpense(this.entries()));
 
-  /** As contas dos envelopes e do mês a mês, sem os fixos quando a pessoa pede. */
-  private readonly counted = computed(() => (this.noFixed() ? this.entries().filter((e) => !e.monthly) : this.entries()));
-  protected readonly sums = computed(() => spentByCategory(rowsIn(this.counted(), this.open()), this.counted()));
-  protected readonly needSums = computed(() => spentByNeed(rowsIn(this.counted(), this.open()), this.counted()));
+  /**
+   * As contas dos envelopes e do mês a mês, sem os fixos de saída (aluguel, contas…) quando a pessoa pede
+   * na vista de um mês. As entradas fixas (o salário) ficam: o botão é dos gastos. A vista de vários meses
+   * não tem o botão, e conta tudo.
+   */
+  private readonly counted = computed(() => (this.noFixed() ? this.entries().filter((e) => !(e.monthly && e.flow === 'saida')) : this.entries()));
+  /** As linhas do mês aberto nessas contas (uma passada só para os envelopes, o Precisava? e o Por pessoa). */
+  private readonly countedRows = computed(() => rowsIn(this.counted(), this.open()));
+  protected readonly sums = computed(() => spentByCategory(this.countedRows(), this.counted()));
+  protected readonly needSums = computed(() => spentByNeed(this.countedRows(), this.counted()));
   /** Quantos gastos do mês em cada resposta ao "Precisava?" (a segunda régua da peça). */
   protected readonly needCounts = computed(() => {
     const out = new Map<Need | null, number>();
-    for (const r of rowsIn(this.counted(), this.open())) if (r.entry.flow === 'saida') out.set(r.entry.need ?? null, (out.get(r.entry.need ?? null) ?? 0) + 1);
+    for (const r of this.countedRows()) if (r.entry.flow === 'saida') out.set(r.entry.need ?? null, (out.get(r.entry.need ?? null) ?? 0) + 1);
     return out;
   });
   protected readonly showNeeds = computed(() => [...this.needSums().values()].some((v) => v > 0));
-  protected readonly personSums = computed(() => spentByPerson(rowsIn(this.counted(), this.open()), this.counted()));
+  protected readonly personSums = computed(() => spentByPerson(this.countedRows(), this.counted()));
   /** Por pessoa só diz algo quando algum gasto do mês foi com mais alguém (ou sem você). */
   protected readonly showPeople = computed(() => this.rows().some((r) => r.entry.flow === 'saida' && !!r.entry.people));
   protected readonly usual = computed(() => usualByCategory(this.counted(), this.open()));
@@ -219,8 +225,8 @@ export class SpendingPage {
   protected readonly period = computed(() => {
     const n = this.span();
     if (!n) return [];
-    const first = activeMonths(this.counted())[0];
-    const months = periodMonths(this.counted(), this.open(), n);
+    const first = activeMonths(this.entries())[0];
+    const months = periodMonths(this.entries(), this.open(), n);
     const from = months.findIndex((m) => !first || m.month >= first);
     return from > 0 ? months.slice(from) : months;
   });
@@ -228,20 +234,20 @@ export class SpendingPage {
   protected readonly periodTotals = computed(() => periodTotals(this.period()));
   protected readonly previousPeriod = computed(() => {
     const n = this.span();
-    return n ? previousPeriod(this.counted(), this.open(), n) : null;
+    return n ? previousPeriod(this.entries(), this.open(), n) : null;
   });
-  protected readonly periodWays = computed(() => addWays(this.period().map((m) => spendWays(m.rows, this.counted()))));
+  protected readonly periodWays = computed(() => addWays(this.period().map((m) => spendWays(m.rows, this.entries()))));
   /** A categoria escolhida na tabela: as colunas mostram a parte dela, e os maiores gastos ficam só nela. */
   protected readonly periodFocus = signal<string | null>(null);
   protected readonly categoryLines = computed(() => categoryLines(this.period()));
   protected readonly topSpends = computed(() => {
     const f = this.periodFocus();
-    const all = periodSpends(this.period(), this.counted());
+    const all = periodSpends(this.period(), this.entries());
     return f ? all.filter((s) => s.entry.category === f) : all;
   });
   protected readonly periodNeedSums = computed(() => {
     const out = new Map<Need | null, number>();
-    for (const m of this.period()) for (const [k, v] of spentByNeed(m.rows, this.counted())) out.set(k, (out.get(k) ?? 0) + v);
+    for (const m of this.period()) for (const [k, v] of spentByNeed(m.rows, this.entries())) out.set(k, (out.get(k) ?? 0) + v);
     return out;
   });
   protected readonly periodNeedCounts = computed(() => {
@@ -252,7 +258,7 @@ export class SpendingPage {
   protected readonly periodShowNeeds = computed(() => [...this.periodNeedSums().values()].some((v) => v > 0));
   protected readonly periodPersonSums = computed(() => {
     const out = new Map<string, number>();
-    for (const m of this.period()) for (const [k, v] of spentByPerson(m.rows, this.counted())) out.set(k, (out.get(k) ?? 0) + v);
+    for (const m of this.period()) for (const [k, v] of spentByPerson(m.rows, this.entries())) out.set(k, (out.get(k) ?? 0) + v);
     return out;
   });
   protected readonly periodShowPeople = computed(() => this.period().some((m) => m.rows.some((r) => r.entry.flow === 'saida' && !!r.entry.people)));
@@ -304,9 +310,11 @@ export class SpendingPage {
     if (value) this.showTape();
   }
 
-  /** Escolher um envelope (ou tirar a escolha). */
-  protected pick(id: string | null): void {
-    this.choose('category', id || null);
+  /** Escolher um envelope (ou tirar a escolha). "Sem categoria" escolhe todas as categorias que sumiram do livro. */
+  protected pick(id: string | readonly string[] | null): void {
+    const ids = id === null ? [] : typeof id === 'string' ? [id] : [...id];
+    this.filter.update((f) => withGroup(f, 'category', ids));
+    if (ids.length) this.showTape();
   }
 
   /** Escolher uma resposta ao "Precisava?" (`null`: os sem resposta; `undefined`: tirar a escolha). */

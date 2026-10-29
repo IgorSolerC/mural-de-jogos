@@ -227,8 +227,9 @@ export function isMonth(v: unknown): v is string {
   return typeof v === 'string' && MONTH_RE.test(v);
 }
 
+/** Um dia que existe ('2026-02-28' sim; '2026-02-31' não). */
 export function isDay(v: unknown): v is string {
-  return typeof v === 'string' && DAY_RE.test(v);
+  return typeof v === 'string' && DAY_RE.test(v) && Number(v.slice(8, 10)) <= daysIn(v.slice(0, 7));
 }
 
 /** O mês de um dia. */
@@ -335,7 +336,10 @@ export function activeMonths(entries: readonly Entry[]): string[] {
 }
 
 export interface MonthTotals {
-  /** Quanto entrou (sem os reembolsos ligados a um gasto: esses descontam do que saiu). */
+  /**
+   * Quanto entrou (sem os reembolsos ligados a um gasto: esses descontam do que saiu; só o que passa do que
+   * saiu na categoria do gasto no mês conta aqui).
+   */
   income: number;
   /** Quanto saiu, já sem o que voltou. */
   spent: number;
@@ -347,22 +351,30 @@ export interface MonthTotals {
 
 /**
  * Os totais do mês. Um reembolso ligado a um gasto (de qualquer mês) não é dinheiro novo: ele desconta do
- * que saiu, como nos envelopes e no mês a mês, e o saldo fica o mesmo. Sem `entries`, todo reembolso conta
- * como entrada.
+ * que saiu na categoria do gasto, como nos envelopes e no mês a mês (o que saiu é sempre a soma deles), e
+ * nunca abaixo de zero: o que passa do que saiu naquela categoria no mês conta como entrada. O saldo é o
+ * mesmo de um jeito ou de outro. Sem `entries`, todo reembolso conta como entrada.
  */
 export function totals(rows: readonly Row[], entries: readonly Entry[] = []): MonthTotals {
-  const expenses = new Set(entries.filter((e) => e.flow === 'saida').map((e) => e.id));
+  const byId = new Map(entries.map((e) => [e.id, e]));
+  const byCategory = new Map<string, number>();
   let income = 0;
   let spent = 0;
   let committed = 0;
   for (const r of rows) {
-    if (r.entry.flow === 'entrada') {
-      if (r.entry.refundOf && expenses.has(r.entry.refundOf)) spent -= r.amount;
-      else income += r.amount;
-    } else {
-      spent += r.amount;
-      if (r.fixed || (r.part && r.part.n > 1)) committed += r.amount;
-    }
+    if (r.entry.flow !== 'saida') continue;
+    spent += r.amount;
+    byCategory.set(r.entry.category, (byCategory.get(r.entry.category) ?? 0) + r.amount);
+    if (r.fixed || (r.part && r.part.n > 1)) committed += r.amount;
+  }
+  // na mesma ordem de spentBy: cada reembolso desconta o que ainda sobra na categoria do gasto
+  for (const r of rows) {
+    if (r.entry.flow !== 'entrada') continue;
+    const of = r.entry.refundOf ? byId.get(r.entry.refundOf) : undefined;
+    const back = of?.flow === 'saida' ? Math.min(r.amount, byCategory.get(of.category) ?? 0) : 0;
+    if (back) byCategory.set(of!.category, byCategory.get(of!.category)! - back);
+    spent -= back;
+    income += r.amount - back;
   }
   return { income, spent, balance: income - spent, committed };
 }
@@ -556,13 +568,15 @@ export function daysLeft(month: string, today: string): number {
 /** Uma compra parcelada que ainda não acabou: o carnê aberto. */
 export interface OpenPlan {
   entry: Entry;
-  /** A parcela deste mês (ou a próxima, se começa depois). */
+  /** A parcela deste mês (ou a primeira, se começa depois). */
   current: number;
   of: number;
   /** Quanto ainda falta pagar depois deste mês. */
   left: number;
   /** O mês da última parcela. */
   last: string;
+  /** Começa depois deste mês: nenhuma parcela é deste mês. */
+  upcoming?: { first: string };
 }
 
 /** Os carnês abertos no mês: as compras parceladas com parcela neste mês ou depois, a que acaba antes primeiro. */
@@ -573,8 +587,9 @@ export function openPlans(entries: readonly Entry[], month: string): OpenPlan[] 
     const first = firstMonth(e);
     const last = shiftMonth(first, e.installments - 1);
     if (last < month) continue;
-    const k = Math.max(0, monthsBetween(first, month));
-    out.push({ entry: e, current: k + 1, of: e.installments, left: (e.installments - k - 1) * e.amount, last });
+    const k = monthsBetween(first, month);
+    if (k < 0) out.push({ entry: e, current: 1, of: e.installments, left: e.installments * e.amount, last, upcoming: { first } });
+    else out.push({ entry: e, current: k + 1, of: e.installments, left: (e.installments - k - 1) * e.amount, last });
   }
   return out.sort((a, b) => (a.last !== b.last ? (a.last < b.last ? -1 : 1) : b.left - a.left));
 }
@@ -701,7 +716,7 @@ export function sanitizeEntry(raw: unknown): Entry | null {
   const flow = r['flow'] === 'entrada' ? 'entrada' : r['flow'] === 'saida' ? 'saida' : null;
   const title = typeof r['title'] === 'string' ? cleanLabel(r['title'], TITLE_MAX) : '';
   if (!flow || !title || typeof r['id'] !== 'string' || !ID_RE.test(r['id'])) return null;
-  if (!isCents(r['amount']) || !isDay(r['date']) || !isStamp(r['at'])) return null;
+  if (!isCents(r['amount']) || typeof r['date'] !== 'string' || !DAY_RE.test(r['date']) || !isStamp(r['at'])) return null;
   const category = typeof r['category'] === 'string' && ID_RE.test(r['category']) ? r['category'] : flow === 'saida' ? 'outros' : 'outras-entradas';
   const e: Entry = {
     id: r['id'],
@@ -709,7 +724,8 @@ export function sanitizeEntry(raw: unknown): Entry | null {
     amount: r['amount'],
     flow,
     category,
-    date: r['date'],
+    // um dia que não existe (o 31 de fevereiro de antes) cai no último dia do mês dele
+    date: dayIn(monthOfDay(r['date']), r['date']),
     createdAt: isStamp(r['createdAt']) ? r['createdAt'] : r['at'],
     at: r['at'],
   };
@@ -817,12 +833,20 @@ export function sanitizeSpending(raw: unknown): SpendingState {
 export function mergeSpending(here: SpendingState, there: SpendingState): SpendingState {
   const removed: Record<string, string> = { ...here.removed };
   for (const [id, at] of Object.entries(there.removed)) if (!removed[id] || at > removed[id]) removed[id] = at;
+  // cada id uma vez, antes de sanitizeSpending cortar no limite: o limite é do livro, não dos dois lados somados
   return sanitizeSpending({
-    entries: [...here.entries, ...there.entries],
-    categories: [...here.categories, ...there.categories],
-    people: [...here.people, ...there.people],
+    entries: newest([...here.entries, ...there.entries]),
+    categories: newest([...here.categories, ...there.categories]),
+    people: newest([...here.people, ...there.people]),
     removed,
   });
+}
+
+/** Cada id uma vez, na versão que ganha (`newer`), na ordem em que apareceu primeiro. */
+function newest<T extends { id: string; at: string }>(list: readonly T[]): T[] {
+  const out = new Map<string, T>();
+  for (const x of list) if (newer(out.get(x.id), x)) out.set(x.id, x);
+  return [...out.values()];
 }
 
 /** O que vai para a nuvem: null sem nada além das categorias de sempre (o mural de antes dos Gastos fica com a mesma impressão). */
@@ -834,9 +858,11 @@ export function spendingToSync(state: SpendingState): SpendingState | null {
 
 /** A cor de uma categoria nova: a cartolina menos usada pelas outras da mesma direção. */
 export function drawCategoryColor(categories: readonly SpendingCategory[], flow: Flow, random = Math.random): Stock {
-  const used = new Map<Stock, number>(STOCKS.map((s) => [s, 0]));
-  for (const c of categories) if (c.flow === flow) used.set(c.color, (used.get(c.color) ?? 0) + 1);
+  // preto e branco nunca: a menos usada é a das outras cartolinas
+  const stocks = STOCKS.filter((s) => s !== 'preto' && s !== 'branco');
+  const used = new Map<Stock, number>(stocks.map((s) => [s, 0]));
+  for (const c of categories) if (c.flow === flow && used.has(c.color)) used.set(c.color, used.get(c.color)! + 1);
   const least = Math.min(...used.values());
-  const pool = STOCKS.filter((s) => used.get(s) === least && s !== 'preto' && s !== 'branco');
-  return (pool.length ? pool : STOCKS)[Math.floor(random() * (pool.length || STOCKS.length))];
+  const pool = stocks.filter((s) => used.get(s) === least);
+  return pool[Math.floor(random() * pool.length)];
 }

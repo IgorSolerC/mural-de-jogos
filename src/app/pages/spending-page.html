@@ -163,7 +163,7 @@
         [sums]="sums()"
         [usual]="usual().avg"
         [seen]="usual().seen"
-        [selected]="focus()"
+        [selected]="filter().category ?? []"
         [noFixed]="noFixed()"
         (pick)="pick($event)"
         (toggleFixed)="noFixed.set(!noFixed())"

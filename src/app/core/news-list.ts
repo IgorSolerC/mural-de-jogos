@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-imagens-no-pdf-na-copia-e-nas-ais',
+    id: '2026-10-29-revisao-dos-gastos',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -39,6 +39,8 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'No Salvar como PDF, a imagem colada que ainda vinha do aparelho ou da nuvem não sai mais em branco: a folha espera por ela.',
       'Colar a mesma foto que outra pessoa já tinha colado numa compartilhada guarda uma sua, em vez de usar a dela (que parava de abrir quando você saía da anotação).',
+      'Nos Gastos, o "Saiu" do mês é sempre a soma dos envelopes: um reembolso maior que o gasto da categoria no mês não deixa mais o Saiu negativo (o que passa conta como entrada); o "Sem os fixos" não tira mais o salário nem vale na vista de vários meses, que não tem o botão; e o carnê que ainda vai começar não entra mais no "/mês" nem marca a parcela deste mês.',
+      'Nos Gastos, o envelope "Sem categoria" mostra os gastos dele na fita (tirava o filtro); um dia que não existe, como 31 de fevereiro, não é mais aceito; a categoria nova pela API com um nome comprido não se repete a cada pedido; a cor de uma categoria nova não sai mais preta nem branca; e o que foi apagado num aparelho não volta pelo outro de relógio adiantado, nem se perde um lançamento novo ao juntar livros grandes.',
     ],
   },
   {

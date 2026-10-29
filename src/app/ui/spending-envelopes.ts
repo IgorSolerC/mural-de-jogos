@@ -7,6 +7,8 @@ import { SpendingStore } from '../core/spending-store';
 /** Um envelope pronto para desenhar. */
 interface Envelope {
   id: string;
+  /** As categorias dele: a dele, ou, no "Sem categoria", todas as que sumiram do livro. */
+  ids: string[];
   name: string;
   color: string;
   dark: boolean;
@@ -56,10 +58,10 @@ const SHOWN = 6;
               class="pedaco"
               [style.flex-grow]="e.share"
               [style.--cor]="e.color"
-              [attr.aria-pressed]="selected() === e.id"
+              [attr.aria-pressed]="isOn(e)"
               [attr.aria-label]="e.name + ': ' + pct(e.share) + ' do mês'"
               [title]="e.name + ' · ' + pct(e.share)"
-              (click)="pick.emit(selected() === e.id ? null : e.id)"
+              (click)="pick.emit(isOn(e) ? null : e.ids)"
             ></button>
           }
         }
@@ -73,9 +75,9 @@ const SHOWN = 6;
               [class.escuro]="e.dark"
               [class.estourou]="(e.used ?? 0) > 1"
               [style.--cor]="e.color"
-              [attr.aria-pressed]="selected() === e.id"
+              [attr.aria-pressed]="isOn(e)"
               [attr.aria-label]="label(e)"
-              (click)="pick.emit(selected() === e.id ? null : e.id)"
+              (click)="pick.emit(isOn(e) ? null : e.ids)"
             >
               <span class="aba" aria-hidden="true"></span>
               <span class="nome" aria-hidden="true">{{ e.name }}</span>
@@ -359,9 +361,10 @@ export class SpendingEnvelopes {
   readonly usual = input<Map<string, number>>(new Map());
   /** Em quantos dos meses de antes cada categoria teve gasto. */
   readonly seen = input<Map<string, number>>(new Map());
-  readonly selected = input<string | null>(null);
+  /** As categorias escolhidas nos filtros (o envelope escolhido é a Categoria com só ele). */
+  readonly selected = input<readonly string[]>([]);
   readonly noFixed = input(false);
-  readonly pick = output<string | null>();
+  readonly pick = output<readonly string[] | null>();
   readonly toggleFixed = output<void>();
   readonly manage = output<void>();
 
@@ -387,6 +390,7 @@ export class SpendingEnvelopes {
       const delta = usualDelta(amount, usual.get(c.id), this.seen().get(c.id));
       out.push({
         id: c.id,
+        ids: [c.id],
         name: c.name,
         color: `var(--stock-${c.color})`,
         dark: isDarkStock(c.color),
@@ -399,7 +403,7 @@ export class SpendingEnvelopes {
     }
     // gastos de uma categoria que foi apagada: um envelope só, "Sem categoria"
     const orphan = [...sums.values()].reduce((a, b) => a + b, 0);
-    if (orphan) out.push({ id: '', name: 'Sem categoria', color: 'var(--stock-branco)', dark: false, amount: orphan, share: orphan / total });
+    if (orphan) out.push({ id: '', ids: [...sums.keys()].sort(), name: 'Sem categoria', color: 'var(--stock-branco)', dark: false, amount: orphan, share: orphan / total });
     return out.sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'pt-BR'));
   });
 
@@ -408,9 +412,15 @@ export class SpendingEnvelopes {
     const list = this.envelopes();
     if (this.all() || list.length <= SHOWN) return list;
     const top = list.slice(0, SHOWN);
-    const picked = list.find((e) => e.id === this.selected());
+    const picked = list.find((e) => this.isOn(e));
     return picked && !top.includes(picked) ? [...top.slice(0, SHOWN - 1), picked] : top;
   });
+
+  /** O envelope é a escolha dos filtros: a Categoria com exatamente as dele. */
+  protected isOn(e: Envelope): boolean {
+    const on = this.selected();
+    return on.length === e.ids.length && e.ids.every((id) => on.includes(id));
+  }
 
   protected pct(v: number): string {
     return `${Math.round(v * 100)}%`;

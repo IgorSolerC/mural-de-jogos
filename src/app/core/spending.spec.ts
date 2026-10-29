@@ -1,3 +1,4 @@
+import { STOCKS } from './review';
 import {
   DEFAULT_CATEGORIES,
   Entry,
@@ -7,9 +8,11 @@ import {
   dailyBalance,
   daysLeft,
   dayIn,
+  drawCategoryColor,
   firstMonth,
   fixedValue,
   installmentsAhead,
+  isDay,
   mergeSpending,
   monthStrips,
   monthsBetween,
@@ -120,9 +123,10 @@ describe('Gastos: o mês', () => {
       entry({ title: 'Show', amount: 6700, category: 'eventos' }),
     ];
     expect(spentByCategory(rowsIn(list, '2026-10'), list)).toEqual([{ id: 'eventos', amount: 0 }]);
-    // nos totais também: desconta do que saiu, não conta como entrada, e o saldo é o mesmo
+    // nos totais também: desconta do que saiu (o mesmo que os envelopes somam, nunca abaixo de zero); o que
+    // passa do que saiu na categoria conta como entrada, e o saldo é o mesmo
     const t = totals(rowsIn(list, '2026-10'), list);
-    expect([t.income, t.spent, t.balance]).toEqual([0, 42200 + 6700 - 57218, -(42200 + 6700) + 57218]);
+    expect([t.income, t.spent, t.balance]).toEqual([57218 - 48900, 0, -(42200 + 6700) + 57218]);
     expect(totals(rowsIn(list, '2026-10')).income).toBe(57218);
   });
 
@@ -164,7 +168,7 @@ describe('Gastos: o mês', () => {
       ['Steam', 3, 3, 0, '2026-10'],
       // no mesmo último mês, o que ainda deve mais primeiro
       ['Violão', 7, 10, 3 * 13990, '2027-01'],
-      ['Mic', 1, 2, 14308, '2027-01'],
+      ['Mic', 1, 2, 2 * 14308, '2027-01'],
     ]);
     expect(installmentsAhead(list, '2026-10')).toEqual({ total: 3 * 13990 + 2 * 14308, nextMonth: 13990, last: '2027-01' });
   });
@@ -372,5 +376,66 @@ describe('Gastos: o mês da fatura', () => {
       entries: [entry({ shift: -1 }), { ...entry({}), shift: 2 }, entry({ shift: 1, monthly: true, pay: undefined })],
     });
     expect(st.entries.map((e) => e.shift)).toEqual([-1, undefined, undefined]);
+  });
+});
+
+describe('Gastos: revisão (28/out)', () => {
+  it('o que saiu nos totais é a soma dos envelopes, mesmo com o reembolso de um gasto de outro mês', () => {
+    const comida = entry({ title: 'Jantar', amount: 20000, category: 'comida', date: '2026-10-05' });
+    const list = [
+      comida,
+      entry({ title: 'Volta', amount: 5000, flow: 'entrada', category: 'reembolso', refundOf: comida.id, date: '2026-11-03', pay: undefined }),
+      entry({ title: 'Mercado', amount: 30000, category: 'mercado', date: '2026-11-04' }),
+    ];
+    const rows = rowsIn(list, '2026-11');
+    const t = totals(rows, list);
+    const envelopes = spentByCategory(rows, list).reduce((s, c) => s + c.amount, 0);
+    expect(t.spent).toBe(envelopes);
+    expect([t.income, t.spent, t.balance]).toEqual([5000, 30000, -25000]);
+    expect(monthStrips(list, '2026-11', 1)[0].spent).toBe(t.spent);
+    // só o reembolso no mês: nunca uma saída negativa
+    const alone = [comida, list[1]];
+    expect(totals(rowsIn(alone, '2026-11'), alone)).toEqual({ income: 5000, spent: 0, balance: 5000, committed: 0 });
+  });
+
+  it('um dia que não existe não passa, e o guardado de antes cai no último dia do mês', () => {
+    expect(isDay('2026-02-28')).toBeTrue();
+    expect(isDay('2028-02-29')).toBeTrue();
+    expect(isDay('2026-02-29')).toBeFalse();
+    expect(isDay('2026-02-31')).toBeFalse();
+    expect(isDay('2026-04-31')).toBeFalse();
+    const st = sanitizeSpending({ entries: [entry({ title: 'Uber', date: '2026-02-31' })] });
+    expect(st.entries.map((e) => e.date)).toEqual(['2026-02-28']);
+  });
+
+  it('a junção não corta o que veio do outro aparelho quando os dois juntos passam do limite', () => {
+    const shared = Array.from({ length: 10_500 }, (_, i) => entry({ id: `s${i}`, title: `S${i}` }));
+    const fresh = [entry({ id: 'novo1', title: 'Novo 1' }), entry({ id: 'novo2', title: 'Novo 2' })];
+    const here: SpendingState = { ...sanitizeSpending(null), entries: shared };
+    const there: SpendingState = { ...sanitizeSpending(null), entries: [...shared, ...fresh] };
+    const ids = new Set(mergeSpending(here, there).entries.map((e) => e.id));
+    expect(ids.size).toBe(10_502);
+    expect(ids.has('novo1') && ids.has('novo2')).toBeTrue();
+  });
+
+  it('a cor de uma categoria nova é a menos usada, nunca preto nem branco', () => {
+    const others = STOCKS.filter((s) => s !== 'preto' && s !== 'branco');
+    const all = others.map((color, i) => ({ id: `c${i}`, name: `C${i}`, flow: 'saida' as const, color, at: '2026-10-01T00:00:00.000Z' }));
+    // todas as outras já usadas uma vez, e uma delas duas: a nova é uma das usadas só uma vez
+    const used = [...all, { ...all[0], id: 'dup' }];
+    for (const r of [0, 0.3, 0.6, 0.99]) {
+      const c = drawCategoryColor(used, 'saida', () => r);
+      expect(c).not.toBe('preto');
+      expect(c).not.toBe('branco');
+      expect(c).not.toBe(others[0]);
+    }
+  });
+
+  it('o carnê que ainda vai começar não tem parcela neste mês', () => {
+    const list = [entry({ title: 'Mic', amount: 14308, installments: 2, pay: 'parcelado', date: '2026-12-01' })];
+    const [p] = openPlans(list, '2026-10');
+    expect(p.upcoming).toEqual({ first: '2026-12' });
+    expect([p.current, p.left]).toEqual([1, 2 * 14308]);
+    expect(openPlans(list, '2026-12')[0].upcoming).toBeUndefined();
   });
 });
