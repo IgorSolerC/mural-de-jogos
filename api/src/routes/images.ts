@@ -7,7 +7,7 @@ import { assertWritable, write } from '../domain/quota';
 import { authenticate } from '../domain/session';
 import { CatalogBrake, Db, Deps, Statement } from '../ports';
 import { catalogBrake } from './catalog';
-import { sessionOf } from './http';
+import { readBody, sessionOf } from './http';
 import { toBytes } from './mural';
 import { authenticateKey, requireScope } from '../domain/api-key';
 import { groupLimit } from '../ext/routes';
@@ -73,9 +73,8 @@ export function imageRoutes(app: Hono, deps: Deps): void {
     assertWritable(deps);
     const imagesDb = imagesDbOf(deps);
     const id = idOf(c);
-    // o tamanho antes de ler o corpo: um envio enorme não chega a ser lido
-    if (Number(c.req.header('Content-Length') ?? 0) > MAX_IMAGE_BYTES) throw tooBig();
-    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    // um envio enorme não chega a ser lido inteiro (nem o que vem aos pedaços, sem o tamanho antes)
+    const bytes = await readBody(c, MAX_IMAGE_BYTES, tooBig);
     const info = checkImage(bytes);
 
     const before = await deps.db.first<ImageRow>('SELECT id, dono_id, tipo, bytes, publica, pronta FROM imagens WHERE id = ?', [id]);

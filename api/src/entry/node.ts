@@ -42,4 +42,7 @@ const app = createApp(deps);
 const port = Number(process.env['PORT'] ?? 8787);
 serve({ fetch: app.fetch, port }, () => console.log(`API em http://localhost:${port} (banco: ${file}, modo: ${deps.config.mode})`));
 
-setInterval(() => void cleanup(deps).catch((e) => console.error('limpeza falhou', e)), DAY_MS);
+// a limpeza na subida e depois a cada dia: um servidor que reinicia antes de 24 horas também limpa
+const daily = () => void cleanup(deps).catch((e) => console.error('limpeza falhou', e));
+daily();
+setInterval(daily, DAY_MS);

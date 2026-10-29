@@ -3,6 +3,7 @@ import { ARGUMENTOS_DE_FORA, FERRAMENTAS, alcanca, type Ferramenta } from '../..
 import { INSTRUCOES, guia } from '../../../contrato/api-v1/guia';
 import { KeyCaller, authenticateKey } from '../domain/api-key';
 import { HttpError } from '../errors';
+import { readText } from '../routes/http';
 import { resourceMetadataUrl } from './oauth';
 import { Deps } from '../ports';
 
@@ -174,11 +175,15 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
       throw error;
     }
     let msg: { jsonrpc?: unknown; id?: Id; method?: unknown; params?: Record<string, unknown> };
-    // o maior pedido de uma ferramenta (um lote dos Gastos) cabe folgado; um corpo gigante nem é lido
-    if (Number(c.req.header('Content-Length') ?? 0) > MCP_MAX_CHARS * 4) return c.json(fail(null, -32600, 'O pedido é grande demais.'), 413);
+    // o maior pedido de uma ferramenta (um lote dos Gastos) cabe folgado; um corpo gigante nem é lido inteiro
+    let text: string;
     try {
-      const text = await c.req.text();
-      if (text.length > MCP_MAX_CHARS) return c.json(fail(null, -32600, 'O pedido é grande demais.'), 413);
+      text = await readText(c, MCP_MAX_CHARS);
+    } catch (error) {
+      if (error instanceof HttpError && error.status === 413) return c.json(fail(null, -32600, 'O pedido é grande demais.'), 413);
+      throw error;
+    }
+    try {
       msg = JSON.parse(text);
     } catch {
       return c.json(fail(null, -32700, 'O corpo não é JSON.'), 400);

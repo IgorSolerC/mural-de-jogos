@@ -24,4 +24,15 @@ describe('o log das respostas de erro', () => {
     expect(logged).toEqual(['GET /v1/agenda 401 sessao-invalida', 'GET /v1/catalogo/rawg/* 403 origem', 'GET /v1/nada/aqui 404 nao-encontrado']);
     expect(logged.join()).not.toContain('segredo');
   });
+
+  it('o caminho desconhecido entra sem quebra de linha e cortado (ninguém escreve uma linha falsa no log)', async () => {
+    const logged: string[] = [];
+    const app = createApp({ db: noDb, config: readConfig(BASE_ENV), now: () => NOW, verifyGoogle: noGoogle, log: (line) => logged.push(line) });
+    await app.request('https://api.teste/v1/nada%0AGET%20/v1/eu%20200%20ok');
+    await app.request(`https://api.teste/v1/${'a'.repeat(500)}`);
+    expect(logged).toHaveLength(2);
+    expect(logged[0]).toBe('GET /v1/nada?GET /v1/eu 200 ok 404 nao-encontrado');
+    expect(logged.join()).not.toContain('\n');
+    expect(logged[1]!.length).toBeLessThan(260);
+  });
 });

@@ -1,4 +1,5 @@
 import { Db, SqlValue, Statement } from '../ports';
+import { readCappedBytes } from './bytes';
 import { DAY_MS } from './quota';
 
 /**
@@ -122,9 +123,17 @@ export function withoutGone(text: string, related: Related): { text: string; dro
   return { text: JSON.stringify(out), dropped: [...new Set(dropped)] };
 }
 
-export async function gunzipText(bytes: Uint8Array): Promise<string> {
+/**
+ * O maior mural que a nuvem abre descompactado. O envio tem até 1,9 MB compactado (uns 20 MB de JSON),
+ * mas uma "bomba" de gzip desse tamanho abriria em 2 GB e derrubaria o Worker (128 MB) a cada visita.
+ */
+export const MAX_GUNZIP_BYTES = 32 * 1024 * 1024;
+
+export async function gunzipText(bytes: Uint8Array, max = MAX_GUNZIP_BYTES): Promise<string> {
   const stream = new Blob([bytes as Uint8Array<ArrayBuffer>]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return new Response(stream).text();
+  const out = await readCappedBytes(stream, max);
+  if (!out) throw new Error(`o mural passa de ${max} bytes descompactado`);
+  return new TextDecoder().decode(out);
 }
 
 export async function gzipText(text: string): Promise<Uint8Array> {

@@ -26,9 +26,19 @@ import { reactionRoutes } from './routes/reactions';
 import { imageRoutes } from './routes/images';
 import { ALL, room, usageOf } from './domain/image';
 
-/** O molde da rota que respondeu; o erro de um middleware (sem rota ainda) fica com o caminho. */
+/** O molde da rota que respondeu; o erro de um middleware (sem rota ainda) fica com o caminho (ver `logPath`). */
 export function routeOf(routePath: string | undefined, path: string): string {
-  return routePath && routePath !== '*' && routePath !== '/*' ? routePath : path;
+  return routePath && routePath !== '*' && routePath !== '/*' ? routePath : logPath(path);
+}
+
+/**
+ * Um caminho que veio de fora, para o log: o Hono decodifica o `%0A`, então uma quebra de linha no
+ * endereço escreveria uma linha falsa no log; e um endereço enorme encheria a linha. Até 200 letras,
+ * sem os caracteres de controle.
+ */
+export function logPath(path: string): string {
+  const clean = path.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g, '?');
+  return clean.length > 200 ? `${clean.slice(0, 200)}…` : clean;
 }
 
 /** Os caminhos que qualquer origem chama (a API das AIs, o MCP e o OAuth dos conectores). */
@@ -121,7 +131,7 @@ export function createApp(deps: Deps): Hono {
   docsRoutes(app);
 
   app.notFound((c) => {
-    deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);
+    deps.log?.(`${c.req.method} ${logPath(c.req.path)} 404 nao-encontrado`);
     return c.json({ erro: 'nao-encontrado', mensagem: 'Esse endereço não existe na API.' }, 404);
   });
 
@@ -131,7 +141,8 @@ export function createApp(deps: Deps): Hono {
       deps.log?.(`${c.req.method} ${routeOf(c.req.routePath, c.req.path)} ${error.status} ${error.code}`);
       return c.json({ erro: error.code, mensagem: error.message }, error.status);
     }
-    console.error(error);
+    // o molde da rota, para achar de onde veio (o erro em si pode ter a pilha, nunca o corpo do pedido)
+    console.error(`${c.req.method} ${routeOf(c.req.routePath, c.req.path)} 500 erro-interno`, error);
     return c.json({ erro: 'erro-interno', mensagem: 'Algo deu errado na nuvem.' }, 500);
   });
 

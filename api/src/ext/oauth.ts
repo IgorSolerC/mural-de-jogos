@@ -35,12 +35,12 @@ import {
   readKeyInput,
 } from '../domain/api-key';
 import { brakeStatement, usedToday } from '../domain/brake';
-import { base64url, sha256 } from '../domain/bytes';
+import { base64url, readCappedBytes, sha256 } from '../domain/bytes';
 import { DAY_MS, write } from '../domain/quota';
 import { hashToken } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
-import { readJson, sessionOf } from '../routes/http';
+import { readJson, readText, sessionOf } from '../routes/http';
 import { refuseOpen } from '../routes/keys';
 
 /**
@@ -662,33 +662,13 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
  * maior nunca fica inteiro na memória.
  */
 export async function readCapped(res: Response, max: number): Promise<string | null> {
-  if (!res.body) return '';
-  const reader = res.body.getReader();
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > max) {
-      await reader.cancel().catch(() => undefined);
-      return null;
-    }
-    parts.push(value);
-  }
-  const all = new Uint8Array(size);
-  let at = 0;
-  for (const part of parts) {
-    all.set(part, at);
-    at += part.byteLength;
-  }
-  return new TextDecoder().decode(all);
+  const bytes = await readCappedBytes(res.body, max);
+  return bytes && new TextDecoder().decode(bytes);
 }
 
 /** O corpo do token e da revogação: formulário (o normal do OAuth) ou JSON (alguns clientes mandam). */
 async function readForm(c: Context): Promise<URLSearchParams> {
-  const text = await c.req.text();
-  if (text.length > FORM_MAX) throw new OAuthError(400, 'invalid_request', 'O pedido é grande demais.');
+  const text = await readText(c, FORM_MAX, () => new OAuthError(400, 'invalid_request', 'O pedido é grande demais.'));
   const form = (c.req.header('Content-Type') ?? '').includes('application/json') ? fromJson(text) : new URLSearchParams(text);
   // o client_id também pode vir no Basic (cliente público: a senha vem vazia ou é ignorada)
   const basic = /^Basic (\S+)$/i.exec(c.req.header('Authorization') ?? '');

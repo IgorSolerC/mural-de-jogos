@@ -7,6 +7,7 @@ import { googleVerifier } from '../src/domain/google';
 import { write } from '../src/domain/quota';
 import { accountByGoogle } from '../src/domain/vault';
 import { toBytes } from '../src/routes/mural';
+import { gunzipText } from '../src/domain/shared-public';
 import { Config, Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, eraseNow, gunzip, gzip, jsonCaller, noGoogle } from './harness';
 
@@ -196,6 +197,52 @@ export function apiSuite(label: string, getDb: () => Db) {
       });
     });
 
+    describe('corpo do pedido', () => {
+      /**
+       * Um corpo enviado aos pedaços, sem Content-Length (Transfer-Encoding: chunked); sem `text`, um
+       * corpo que nunca acaba (só para de ser lido se a API cortar).
+       */
+      const chunked = (text?: string, size = 4096) => {
+        const bytes = new TextEncoder().encode(text ?? '{"credential":"');
+        let at = 0;
+        let sent = 0;
+        const stream = new ReadableStream<Uint8Array>({
+          pull(controller) {
+            if (at < bytes.length) return controller.enqueue(bytes.slice(at, (at += size)));
+            if (text !== undefined) return controller.close();
+            sent += size;
+            controller.enqueue(new Uint8Array(size).fill(0x78));
+          },
+        });
+        return { stream, sent: () => sent };
+      };
+      const send = (call: (path: string, init?: RequestInit) => Response | Promise<Response>, body: ReadableStream<Uint8Array>) =>
+        call('/v1/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, duplex: 'half' } as RequestInit);
+
+      it('sem Content-Length, o corpo grande demais é cortado com 413 (não é lido até o fim)', async () => {
+        const { call } = await setup();
+        const endless = chunked();
+        const res = await send(call, endless.stream);
+        expect(res.status).toBe(413);
+        expect(await res.json()).toMatchObject({ erro: 'grande-demais' });
+        // o limite do JSON é 16 mil letras: a leitura parou perto dos 48 KB, não no fim (que não existe)
+        expect(endless.sent()).toBeLessThan(200_000);
+      });
+
+      it('sem Content-Length, o corpo que cabe é lido normalmente', async () => {
+        const { call } = await setup();
+        const res = await send(call, chunked(JSON.stringify({ credential: await googleToken() }), 64).stream);
+        expect(res.status).toBe(200);
+        expect(await res.json()).toMatchObject({ token: expect.any(String) });
+      });
+
+      it('o mural público que abre grande demais (uma bomba de gzip) é recusado sem abrir tudo', async () => {
+        const bomb = await gzip('0'.repeat(200_000));
+        await expect(gunzipText(bomb, 100_000)).rejects.toThrow('descompactado');
+        expect(await gunzipText(bomb, 200_000)).toHaveLength(200_000);
+      });
+    });
+
     describe('cota de gravações', () => {
       const insert = (codigo: string) => ({
         sql: 'INSERT INTO usuarios (id, google_sub, codigo, nome, criado_em) VALUES (?, ?, ?, ?, ?)',
@@ -266,6 +313,33 @@ export function apiSuite(label: string, getDb: () => Db) {
         expect(await db.all('SELECT hash FROM sessoes')).toEqual([{ hash: 'nova' }]);
         expect(await db.all('SELECT alvo_id FROM atividades')).toEqual([{ alvo_id: 'c' }]);
         expect(await db.all('SELECT dia FROM uso_diario')).toEqual([{ dia: '2026-10-01' }]);
+      });
+
+      it('uma parte que falha não segura as outras, e a limpeza falha com todos os erros', async () => {
+        const { deps, db } = await setup();
+        await db.batch([{ sql: "INSERT INTO freios VALUES ('u', 'reagir', '2026-10-04T00:00:00Z')" }]);
+        let erased = 0;
+        const broken: Db = {
+          first: (sql, params) => db.first(sql, params),
+          all: (sql, params) => {
+            if (sql.includes('apagar_em')) erased++;
+            return db.all(sql, params);
+          },
+          batch: (statements) =>
+            statements.some((x) => x.sql.startsWith('DELETE FROM sessoes WHERE expira_em'))
+              ? Promise.reject(new Error('a faxina engasgou'))
+              : statements.some((x) => x.sql === 'DELETE FROM imagens_uso')
+                ? Promise.reject(new Error('a conta das imagens engasgou'))
+                : db.batch(statements),
+        };
+        const error = await cleanup({ ...deps, db: broken }).then(
+          () => null,
+          (e: unknown) => e,
+        );
+        expect(error).toBeInstanceOf(AggregateError);
+        expect((error as AggregateError).errors.map((e: Error) => e.message)).toEqual(['a faxina engasgou', 'a conta das imagens engasgou']);
+        // as contas marcadas foram procuradas no meio, mesmo com a faxina falhando antes
+        expect(erased).toBeGreaterThan(0);
       });
 
       it('não roda com a nuvem desligada', async () => {

@@ -71,9 +71,22 @@ function deps(env: Env): Deps {
   };
 }
 
+/**
+ * O app de cada `env`, montado uma vez enquanto o Worker está de pé: montar as rotas (e o roteador
+ * compilar as expressões delas na primeira busca) gasta quase 1 ms de CPU, que cada pedido pagava de novo
+ * no plano grátis de 10 ms. O `env` é o mesmo objeto entre os pedidos da mesma instância.
+ */
+const apps = new WeakMap<Env, ReturnType<typeof createApp>>();
+
+function appOf(env: Env): ReturnType<typeof createApp> {
+  let app = apps.get(env);
+  if (!app) apps.set(env, (app = createApp(deps(env))));
+  return app;
+}
+
 export default {
   fetch(request, env) {
-    return createApp(deps(env)).fetch(request);
+    return appOf(env).fetch(request);
   },
   scheduled(_controller, env, ctx) {
     ctx.waitUntil(cleanup(deps(env)));

@@ -7,7 +7,7 @@ import { gunzipText, gzipText, relatedNotes, withoutGone } from '../domain/share
 import { MAX_SHOWN_CHARS, parseShown } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
-import { sessionOf } from './http';
+import { readBody, sessionOf } from './http';
 import { looseChanges, looseStatements, missingOf, parseImagesPart, publishStatements } from '../domain/image';
 
 /** Teto de cada mural compactado. O D1 aceita 2 MB por linha; o site recusa antes, em 1,8 MB. */
@@ -198,13 +198,15 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const rawBase = c.req.header('Mural-Rev-Base')?.trim() ?? '';
     const base = /^\d{1,16}$/.test(rawBase) ? Number(rawBase) : NaN;
     if (!Number.isSafeInteger(base)) throw new HttpError(400, 'sem-rev', 'Faltou dizer em qual versão do mural o envio se baseia.');
-    const length = Number(c.req.header('Content-Length') ?? 0);
-    if (length > 2 * MAX_MURAL_BYTES + MAX_SHOWN_CHARS + 64_000) {
-      throw new HttpError(413, 'mural-grande-demais', 'O mural ficou grande demais para a nuvem.');
-    }
+    // o tamanho antes de ler (e o que vem aos pedaços, sem o tamanho, é cortado assim que passa)
+    const body = await readBody(
+      c,
+      2 * MAX_MURAL_BYTES + MAX_SHOWN_CHARS + 64_000,
+      () => new HttpError(413, 'mural-grande-demais', 'O mural ficou grande demais para a nuvem.'),
+    );
     let form: FormData;
     try {
-      form = await c.req.raw.formData();
+      form = await new Response(body, { headers: { 'Content-Type': c.req.header('Content-Type') ?? '' } }).formData();
     } catch {
       throw new HttpError(400, 'mural-invalido', 'O envio do mural veio quebrado.');
     }

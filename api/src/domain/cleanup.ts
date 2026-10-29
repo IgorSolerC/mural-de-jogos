@@ -17,16 +17,25 @@ const readers = (scopes: readonly string[]) =>
 export async function cleanup(deps: Deps): Promise<void> {
   if (deps.config.mode !== 'ligado') return;
   const now = deps.now();
-  // as contas marcadas saem mesmo se a faxina de baixo falhar (o erro dela segue para o log do Worker)
-  try {
-    await housekeeping(deps, now);
-  } finally {
+  // Cada parte roda mesmo se a de antes falhou (as contas marcadas saem mesmo se a faxina falhar). Todo
+  // erro vai para o log, e no fim a limpeza falha com eles: o Cron Trigger fica marcado como falho, em vez
+  // de um erro de uma parte sumir atrás do da outra.
+  const failed: unknown[] = [];
+  const steps: [string, () => Promise<void>][] = [
+    ['a faxina do dia', () => housekeeping(deps, now)],
+    ['as contas marcadas', () => eraseDue(deps)],
+    ['as imagens', () => images(deps, now)],
+  ];
+  for (const [name, step] of steps) {
     try {
-      await eraseDue(deps);
-    } finally {
-      await images(deps, now);
+      await step();
+    } catch (error) {
+      console.error(`limpeza: ${name} falhou`, error);
+      failed.push(error);
     }
   }
+  if (failed.length === 1) throw failed[0];
+  if (failed.length > 1) throw new AggregateError(failed, `A limpeza falhou em ${failed.length} partes.`);
 }
 
 /**
