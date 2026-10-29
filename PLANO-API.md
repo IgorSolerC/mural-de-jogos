@@ -922,11 +922,11 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 4 | **MCP com chave + guia** — feita em 27/out (seção 23) | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** — feita em 27/out (seção 23) | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
-| 7 | **Calendário** | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
+| 7 | **Calendário** — em andamento em 29/out (seção 23) | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** — feita em 27/out (seção 23) | Quadros, mover, colunas, dependências |
 | 9 | **Wishlist, Pra depois e fichas** | Com a busca da capa no app |
-| 10 | **CLI** | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
-| 11 | **Fechar** | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
+| 10 | **CLI** — fora por enquanto (pedido do usuário em 29/out: sem npm) | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
+| 11 | **Fechar** — fora por enquanto (pedido do usuário em 29/out: sem domínio novo) | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
 
 ---
 
@@ -1551,3 +1551,67 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      nos testes do site (ele começa na folha do histórico). **Rodada 8 feita.** Para usar: em Acessos,
      marcar o Kanban na chave (ou no conector) que já existe, ou criar outra. **Próximo**: a rodada 7
      (Calendário), seção 19.
+
+- **29/out/2026, rodada 7 (Calendário)**: em andamento. Pedido do usuário: "encontre o PLANO-API.md e
+  continue de onde fala", e depois "Deixe as rodadas 10 e 11 de fora por enquanto. Não quero NPM e nem
+  novo domínio" (a seção 19 marca as duas como fora). Do jeito das rodadas 6 e 8: o roteiro aqui, um
+  commit com push por passo, marcando [feito]. **Quem continuar: leia esta lista, faça o primeiro passo
+  sem [feito], marque e commite** (as mesmas regras: CLAUDE.md, BUILD + 1 só quando o site muda, commit
+  no nome do usuário sem Co-Authored-By, push logo depois; site: `npx ng test mural-de-jogos
+  --watch=false --browsers=ChromeHeadless`, `npx ng build`, fotos de perto e smoke quando há tela; API:
+  `cd api && npm run typecheck && npm test`; o push em `api/` ou `contrato/` publica a API).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 5.2, 7, 8, 9 e 10):
+  - **A regra das repetições fica no site.** Quando um lembrete aparece (a semana com dois dias, "a
+    terceira terça", o dia 31 nos meses curtos, os dias tirados, "depois de 10 vezes") é conta de
+    `core/calendar.ts`; a API não refaz. O site manda ao espelho cada lembrete em v1 (`lembrete`, com a
+    repetição em palavras, `em_palavras`, pela mesma frase da folha) e, pronta, a **agenda** de cada
+    mês (`agenda`, id `agenda-AAAA-MM`: as vezes que passam pelo mês, na ordem da folhinha), de 3 meses
+    antes do atual a 12 depois (16 linhas, sempre, mesmo vazias: a API sabe a janela por elas).
+  - **Qualquer permissão do Calendário leva a área ao espelho** (como no Kanban): quem só muda ou apaga
+    precisa do lembrete de agora para a API conferir a versão.
+  - Na v1, `dia`/`hora`/`fim`/`hora_fim`, `repete` com `cada`, `intervalo`, `dias_da_semana` (0 é
+    domingo), `vez_no_mes` (1 a 5, -1 a última), `so_nos_meses_com_o_dia`, `ate` e `vezes`; `pulados`
+    (os dias tirados), `cor` (as cartolinas claras), `silencioso` (a marcação, que o Google não avisa),
+    `notas` (os ids das anotações presas) e `google` (o link e, no convite ou no aniversário do Google,
+    `travado`). O "semana começa no domingo" que só o Google usa não vai à v1 (fica como está; trocar a
+    repetição o tira).
+  - **Editar e apagar pedem a `versao`** (o `at` do lembrete); criar dispensa. Apagar com `dia` tira só
+    aquela vez de um lembrete que se repete ("Apagar só neste dia" da folha).
+  - **O lembrete travado pelo Google** (convite de outra pessoa, aniversário) só muda a cor e as notas,
+    como na folha; o resto é 422 `lembrete-do-google`. Apagar pode (a folha deixa).
+  - Sem cor, o site sorteia ao aplicar (`drawColor`, como a folha); a prévia mostra `cor: null`.
+  - Uma anotação presa que não existe faz o pedido `falhar` com o porquê (a API não lê as notas: a
+    chave do Calendário pode não ter `notas:ler`).
+  - A agenda (`GET /ext/v1/agenda?de=&ate=`) junta as agendas dos meses do intervalo, sem repetir a vez
+    de vários dias que passa de um mês para o outro; fora da janela é 400 `fora-da-janela`. Os pedidos
+    abertos vêm à parte em `pedidos_abertos`, com o lembrete como vai ficar (a agenda é a do Murall
+    agora, como o mês dos Gastos).
+  - Criar lembrete não espera a aprovação "mudancas" (é criar); mudar e apagar esperam.
+  - O Google Agenda vai sozinho depois, como numa edição da folha (o `changedAt` do `CalendarStore`).
+
+  Passos:
+  1. [feito] Contrato e API do espelho: `contrato/api-v1/calendario.ts` (`LembreteV1`, `RepeteV1`,
+     `VezV1`, `AgendaDoMesV1`, as cores, a janela, `ehDia`, `regrasDoLembrete`), os tipos novos do
+     espelho (`lembrete`, `agenda`) e a conferência da forma em `api/src/domain/mirror.ts` (a área
+     `calendario` com qualquer permissão dele; `data` = o dia do lembrete ou o mês da agenda, `busca` =
+     o título sem acento). Testes numa suíte nova, `api/test/calendario.suite.ts` (os passos 3 e 4
+     continuam nela).
+  2. Site manda o espelho do Calendário: `core/api-mirror-calendar.ts` monta os lembretes e as agendas
+     com as funções da tela (`repeatSentence`, `occurrenceStart`, `spanOf`, `compareInDay`), só quando
+     a nuvem pede a área `calendario`. Testes. BUILD + 1.
+  3. API, ler: `GET /ext/v1/agenda?de=&ate=`, `GET /ext/v1/lembretes` (`de`/`ate` pelo primeiro dia,
+     `q`, `limite`, `depois`), `GET /ext/v1/lembretes/:id`, e o `GET /ext/v1/contexto` com `calendario`
+     (as cores, a janela, quantos lembretes) para a chave do Calendário; a busca com `areas=calendario`.
+     Testes.
+  4. Contrato das operações e API, escrever: `lembrete.criar`, `lembrete.editar`, `lembrete.apagar`
+     (com `dia`, só aquela vez), nas rotas `POST /ext/v1/lembretes`, `PATCH`/`DELETE
+     /ext/v1/lembretes/:id`; os pedidos abertos por cima das leituras. Testes.
+  5. Site aplica os pedidos do Calendário (pelo `CalendarStore`), com o Desfazer e as frases na folha
+     dos pedidos e no histórico. Testes. BUILD + 1.
+  6. MCP e guia: `ver_agenda`, `listar_lembretes`, `ler_lembrete`, `criar_lembrete`,
+     `editar_lembrete`, `apagar_lembrete`; a parte do Calendário no guia; o OpenAPI e as cópias em
+     `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Calendário, o espelho enchendo,
+     ler a agenda, criar, mudar, tirar um dia, aplicar) e no ar (as rotas novas respondendo). Anotar
+     aqui.

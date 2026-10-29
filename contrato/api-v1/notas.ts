@@ -69,10 +69,11 @@ export function resumo(texto: string, max = RESUMO_MAX): string {
 
 /**
  * Os tipos de linha que o espelho guarda: os das Anotações (`nota`, `contexto`), os dos Gastos
- * (`lancamento`, `visao` de cada mês, `contexto-gastos`; ver contrato/api-v1/gastos.ts) e o do Kanban
- * (`quadro`, um por grupo; ver contrato/api-v1/kanban.ts).
+ * (`lancamento`, `visao` de cada mês, `contexto-gastos`; ver contrato/api-v1/gastos.ts), o do Kanban
+ * (`quadro`, um por grupo; ver contrato/api-v1/kanban.ts) e os do Calendário (`lembrete`, `agenda` de
+ * cada mês; ver contrato/api-v1/calendario.ts).
  */
-export const TIPOS_DO_ESPELHO = ['nota', 'contexto', 'lancamento', 'visao', 'contexto-gastos', 'quadro'] as const;
+export const TIPOS_DO_ESPELHO = ['nota', 'contexto', 'lancamento', 'visao', 'contexto-gastos', 'quadro', 'lembrete', 'agenda'] as const;
 export type TipoDoEspelho = (typeof TIPOS_DO_ESPELHO)[number];
 
 /** O id da linha de contexto das Anotações. */

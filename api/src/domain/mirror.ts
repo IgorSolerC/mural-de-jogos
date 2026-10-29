@@ -1,3 +1,19 @@
+import {
+  CADAS,
+  CORES,
+  INTERVALO_MAX,
+  NOTAS_DO_LEMBRETE_MAX,
+  PULADOS_MAX,
+  TITULO_DO_LEMBRETE_MAX,
+  VEZES_MAX,
+  VEZES_NO_MES_MAX,
+  agendaDoMes,
+  ehDia,
+  ehHora,
+  type AgendaDoMesV1,
+  type LembreteV1,
+  type VezV1,
+} from '../../../contrato/api-v1/calendario';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import {
   CONTEXTO_GASTOS,
@@ -45,13 +61,14 @@ export async function mirrorAreas(deps: Deps, userId: string): Promise<string[]>
 
 /**
  * As permissões que fazem cada área ir ao espelho (qualquer uma delas): ler as Anotações, ler os
- * Gastos, e qualquer uma do Kanban (quem só move cartões também precisa das colunas, para a API
- * conferir o pedido).
+ * Gastos, e qualquer uma do Kanban e do Calendário (quem só move cartões precisa das colunas, e quem só
+ * muda ou apaga lembretes precisa do lembrete de agora, para a API conferir o pedido).
  */
 export const SCOPES_OF_AREA: Record<string, readonly string[]> = {
   notas: ['notas:ler'],
   gastos: ['gastos:ler'],
   kanban: ['kanban:ler', 'kanban:mover', 'kanban:colunas'],
+  calendario: ['calendario:ler', 'calendario:escrever', 'calendario:apagar'],
 };
 
 /** Os tipos de linha de cada área. */
@@ -59,6 +76,7 @@ export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = {
   notas: ['nota', 'contexto'],
   gastos: ['lancamento', 'visao', 'contexto-gastos'],
   kanban: ['quadro'],
+  calendario: ['lembrete', 'agenda'],
 };
 
 export interface MirrorRow {
@@ -308,6 +326,114 @@ function checkQuadro(q: Record<string, unknown>, id: string): QuadroV1 {
   };
 }
 
+const isDayOrNull = (v: unknown) => v === null || ehDia(v);
+const isTimeOrNull = (v: unknown) => v === null || ehHora(v);
+const isColor = (v: unknown) => (CORES as readonly unknown[]).includes(v);
+const idList = (v: unknown, n: number) => Array.isArray(v) && v.length <= n && v.every((x) => typeof x === 'string' && ID_RE.test(x));
+
+/** O lembrete v1 tem a forma certa? Só os campos da v1 entram. */
+function checkLembrete(l: Record<string, unknown>): LembreteV1 {
+  const r = l['repete'] as Record<string, unknown> | null;
+  const g = l['google'] as Record<string, unknown> | null;
+  const repeatOk =
+    r === null ||
+    (!!r &&
+      (CADAS as readonly unknown[]).includes(r['cada']) &&
+      Number.isInteger(r['intervalo']) &&
+      (r['intervalo'] as number) >= 1 &&
+      (r['intervalo'] as number) <= INTERVALO_MAX &&
+      Array.isArray(r['dias_da_semana']) &&
+      (r['dias_da_semana'] as unknown[]).length <= 7 &&
+      (r['dias_da_semana'] as unknown[]).every((d) => Number.isInteger(d) && (d as number) >= 0 && (d as number) <= 6) &&
+      (r['vez_no_mes'] === null || [1, 2, 3, 4, 5, -1].includes(r['vez_no_mes'] as number)) &&
+      typeof r['so_nos_meses_com_o_dia'] === 'boolean' &&
+      isDayOrNull(r['ate']) &&
+      (r['vezes'] === null || (Number.isInteger(r['vezes']) && (r['vezes'] as number) >= 1 && (r['vezes'] as number) <= VEZES_MAX)));
+  const ok =
+    isStr(l['id'], 64) &&
+    ID_RE.test(l['id']) &&
+    isStr(l['titulo'], TITULO_DO_LEMBRETE_MAX) &&
+    ehDia(l['dia']) &&
+    isTimeOrNull(l['hora']) &&
+    isDayOrNull(l['fim']) &&
+    isTimeOrNull(l['hora_fim']) &&
+    repeatOk &&
+    isStrOrNull(l['em_palavras'], 400) &&
+    Array.isArray(l['pulados']) &&
+    (l['pulados'] as unknown[]).length <= PULADOS_MAX &&
+    (l['pulados'] as unknown[]).every(ehDia) &&
+    isColor(l['cor']) &&
+    typeof l['silencioso'] === 'boolean' &&
+    idList(l['notas'], NOTAS_DO_LEMBRETE_MAX) &&
+    (g === null || (!!g && isStrOrNull(g['link'], 600) && (g['travado'] === null || g['travado'] === 'convite' || g['travado'] === 'google'))) &&
+    isIso(l['criado_em']) &&
+    isIso(l['versao']);
+  if (!ok) throw bad(`O lembrete "${String(l['id']).slice(0, 64)}" não tem a forma da v1.`);
+  const v = l as unknown as LembreteV1;
+  return {
+    id: v.id,
+    titulo: v.titulo,
+    dia: v.dia,
+    hora: v.hora,
+    fim: v.fim,
+    hora_fim: v.hora_fim,
+    repete: v.repete && {
+      cada: v.repete.cada,
+      intervalo: v.repete.intervalo,
+      dias_da_semana: v.repete.dias_da_semana,
+      vez_no_mes: v.repete.vez_no_mes,
+      so_nos_meses_com_o_dia: v.repete.so_nos_meses_com_o_dia,
+      ate: v.repete.ate,
+      vezes: v.repete.vezes,
+    },
+    em_palavras: v.em_palavras,
+    pulados: v.pulados,
+    cor: v.cor,
+    silencioso: v.silencioso,
+    notas: v.notas,
+    google: v.google && { link: v.google.link, travado: v.google.travado },
+    criado_em: v.criado_em,
+    versao: v.versao,
+  };
+}
+
+/** A agenda de um mês: cada vez com a forma da v1, num mês que bate com o id. */
+function checkAgenda(a: Record<string, unknown>, id: string): AgendaDoMesV1 {
+  const vezOk = (x: Record<string, unknown>) =>
+    !!x &&
+    isStr(x['lembrete'], 64) &&
+    ID_RE.test(x['lembrete']) &&
+    isStr(x['titulo'], TITULO_DO_LEMBRETE_MAX) &&
+    ehDia(x['dia']) &&
+    isDayOrNull(x['fim']) &&
+    (x['fim'] === null || (x['fim'] as string) > (x['dia'] as string)) &&
+    isTimeOrNull(x['hora']) &&
+    isTimeOrNull(x['hora_fim']) &&
+    isColor(x['cor']) &&
+    typeof x['silencioso'] === 'boolean' &&
+    typeof x['repete'] === 'boolean' &&
+    idList(x['notas'], NOTAS_DO_LEMBRETE_MAX);
+  const vezes = a['vezes'];
+  const ok =
+    typeof a['mes'] === 'string' && MES_RE.test(a['mes']) && agendaDoMes(a['mes']) === id && Array.isArray(vezes) && vezes.length <= VEZES_NO_MES_MAX && vezes.every(vezOk);
+  if (!ok) throw bad(`A agenda "${id}" não tem a forma da v1.`);
+  return {
+    mes: a['mes'] as string,
+    vezes: (vezes as VezV1[]).map((x) => ({
+      lembrete: x.lembrete,
+      titulo: x.titulo,
+      dia: x.dia,
+      fim: x.fim,
+      hora: x.hora,
+      hora_fim: x.hora_fim,
+      cor: x.cor,
+      silencioso: x.silencioso,
+      repete: x.repete,
+      notas: x.notas,
+    })),
+  };
+}
+
 /**
  * Lê um envio ao espelho: `{rev, fuso?, poe: [{tipo, id, hash, dados}], tira: [{tipo, id}]}`, com no
  * máximo `ESPELHO_POR_ENVIO` itens ao todo, só dos tipos das áreas pedidas.
@@ -355,6 +481,15 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
       const q = checkQuadro(dados, item['id']);
       // o grupo sem acento, como o das notas: o limite de grupos da chave vale igual para o quadro
       return { tipo: 'quadro', id: q.id, versao: q.versao, hash: item['hash'], grupo: dobra(q.grupo), data: null, busca: dobra(q.grupo), dados: JSON.stringify(q) };
+    }
+    if (item['tipo'] === 'lembrete') {
+      const l = checkLembrete(dados);
+      if (l.id !== item['id']) throw bad('O id do lembrete não bate com o do item.');
+      return { tipo: 'lembrete', id: l.id, versao: l.versao, hash: item['hash'], grupo: null, data: l.dia, busca: dobra(l.titulo), dados: JSON.stringify(l) };
+    }
+    if (item['tipo'] === 'agenda') {
+      const a = checkAgenda(dados, item['id']);
+      return { tipo: 'agenda', id: item['id'], versao: null, hash: item['hash'], grupo: null, data: a.mes, busca: null, dados: JSON.stringify(a) };
     }
     if (item['tipo'] === 'contexto-gastos') {
       if (item['id'] !== CONTEXTO_GASTOS) throw bad('O contexto dos Gastos tem o id "gastos".');
