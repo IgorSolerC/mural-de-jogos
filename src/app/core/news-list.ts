@@ -26,17 +26,22 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-revisao-do-estojo-da-ficha',
+    id: '2026-10-29-widgets-e-quem-ve',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
-    title: 'As imagens coladas para as AIs, na cópia e no PDF',
+    title: 'As imagens coladas para as AIs, quem vê em toda ficha e os widgets na ficha fechada',
     melhorias: [
+      'O olho (pública) e o cadeado (privada) aparecem em toda ficha do seu mural e na ficha aberta, nas anotações e nas análises: antes, só a anotação pública e a análise privada levavam o desenho.',
+      'Na ficha aberta, o papel da cartolina fica só na faixa do nome, e a folha de baixo é creme lisa em toda cor (as claras tinham textura nela); e o nome na faixa ficou menor, para ela ocupar menos espaço.',
       'Pela API e pelo MCP, a AI vê as imagens coladas nas notas que a chave lê (a ferramenta Ver uma imagem), sem passar dos grupos dela.',
       'Colar numa anotação sua (ou no perfil) um texto com a imagem de outra pessoa, copiado de uma compartilhada, guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada. Dentro da própria compartilhada e nos comentários, ela fica como veio.',
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
     ],
     correcoes: [
+      'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa: antes o toque abria a anotação em vez de ampliar.',
+      'Na ficha do mural, dois widgets do mesmo tamanho ficam do mesmo tamanho: o de baixo não encolhe mais para caber no fim da ficha, e o que passa dela fica escondido, como o texto.',
+      'O selo das dependências no Kanban e o link para outra anotação não mostram mais "null" com o mouse em cima.',
       'No Salvar como PDF, a imagem colada que ainda vinha do aparelho ou da nuvem não sai mais em branco: a folha espera por ela.',
       'Colar a mesma foto que outra pessoa já tinha colado numa compartilhada guarda uma sua, em vez de usar a dela (que parava de abrir quando você saía da anotação).',
       'Nos Gastos, o "Saiu" do mês é sempre a soma dos envelopes: um reembolso maior que o gasto da categoria no mês não deixa mais o Saiu negativo (o que passa conta como entrada); o "Sem os fixos" não tira mais o salário nem vale na vista de vários meses, que não tem o botão; e o carnê que ainda vai começar não entra mais no "/mês" nem marca a parcela deste mês.',

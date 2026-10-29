@@ -112,6 +112,19 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(q('header.head .fecha')?.getAttribute('aria-label')).toBe('Fechar');
   });
 
+  it('o papel da cartolina fica só na faixa: a folha é creme lisa nas claras e nas escuras, e o nome é menor que o do editor', async () => {
+    for (const stock of ['amarelo', 'branco', 'lilas-escuro'] as const) {
+      fixture.componentInstance.open(note(`n-${stock}`, 'Mercado', { stock, paper: 'linho', pattern: 'estrelas' }));
+      await settle();
+      const ficha = q('article.ficha')!;
+      expect(getComputedStyle(ficha).backgroundImage).withContext(stock).toBe('none');
+      expect(getComputedStyle(q('header.faixa-nome')!).backgroundImage).withContext(stock).not.toBe('none');
+    }
+    const size = parseFloat(getComputedStyle(q('header.faixa-nome .title')!).fontSize);
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    expect(size).toBeLessThan(1.9 * rem);
+  });
+
   it('a análise privada mostra só o cadeado antes da data, sem a frase comprida', async () => {
     fixture.componentInstance.open(review('r-hades', 'Hades', { private: true }));
     await settle();
@@ -122,10 +135,16 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(el.textContent).not.toContain('Ninguém foi avisado');
   });
 
-  it('a anotação (que nasce privada) não leva desenho; a publicada leva o olho, e a sem aviso o sino cortado', async () => {
+  it('a análise pública leva o olho', async () => {
+    fixture.componentInstance.open(review('r-hades', 'Hades'));
+    await settle();
+    expect(q('.meta .quem-ve')?.getAttribute('title')).toBe('Publicada: quem abre o seu mural vê');
+  });
+
+  it('a anotação privada leva o cadeado; a publicada, o olho; e a sem aviso, o sino cortado', async () => {
     fixture.componentInstance.open(note('n-mercado', 'Mercado', { private: true }));
     await settle();
-    expect(q('.quem-ve')).toBeNull();
+    expect(q('.quem-ve')?.getAttribute('title')).toBe('Privada: só você vê');
 
     fixture.componentInstance.open(note('n-mercado-2', 'Mercado'));
     await settle();

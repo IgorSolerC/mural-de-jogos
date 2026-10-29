@@ -731,8 +731,6 @@ export class LinkedCard {
         if (piece) ro.observe(piece);
       };
       watchCard();
-      const teto = host.closest<HTMLElement>('[data-widget-teto]');
-      if (teto) ro.observe(teto);
       // a ficha aparece depois (achada mais tarde, quando o mural da pessoa chega)
       const mo = new MutationObserver(() => {
         watchCard();

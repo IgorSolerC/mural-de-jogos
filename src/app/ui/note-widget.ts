@@ -1,5 +1,5 @@
 import { NgComponentOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, ElementRef, Type, afterNextRender, effect, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, Type, effect, inject, input, signal } from '@angular/core';
 import { NoteLinks } from '../core/note-links';
 import { WIDGET_LINES, WidgetSize, readAudio, readMedia } from '../core/widgets';
 import { AudioTrack } from './audio-track';
@@ -17,9 +17,9 @@ import { GluedMedia } from './glued-media';
  * o disco, a tira. O que é letra de apoio (a legenda, o lado do contador) cresce pouco
  * (`--letra-tam`), para não virar letreiro. Uma peça mais larga que a linha encolhe até caber.
  *
- * Numa caixa que corta o texto (a ficha do mural, marcada com `data-widget-teto`, que dá a altura
- * dela em `--widget-teto`), o widget mede quanto texto vem antes dele (`--widget-acima`) e não passa
- * do fim da caixa, mas nunca fica menor que o mini.
+ * Numa caixa que corta o texto (a ficha do mural), o widget fica do tamanho dele, como os outros
+ * do mesmo tamanho: o que passa do fim da caixa fica escondido, como o texto (antes ele encolhia até
+ * caber no que sobrava, e dois contadores iguais saíam de tamanhos diferentes).
  */
 @Component({
   selector: 'app-note-widget',
@@ -88,25 +88,9 @@ import { GluedMedia } from './glued-media';
     }
     :host {
       display: block;
-      /* a altura do tamanho; na caixa que corta, até o fim dela, em linhas inteiras (mas nunca menor
-         que o mini) */
-      --widget-alto: max(
-        calc(var(--line, 1.5em) * 3),
-        min(calc(var(--line, 1.5em) * var(--widget-linhas, 7)), calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px)))
-      );
+      /* a altura do tamanho, em linhas da pauta: a mesma em toda parte */
+      --widget-alto: calc(var(--line, 1.5em) * var(--widget-linhas, 7));
       --letra-tam: 1;
-    }
-    /* (com round(): num navegador sem ele, a variável registrada com var() dentro viraria 0px) */
-    @supports (width: round(down, 5px, 2px)) {
-      :host {
-        --widget-alto: max(
-          calc(var(--line, 1.5em) * 3),
-          min(
-            calc(var(--line, 1.5em) * var(--widget-linhas, 7)),
-            round(down, calc(var(--widget-teto, 100000px) - var(--widget-acima, 0px) + 1px), var(--line, 1.5em))
-          )
-        );
-      }
     }
     :host(.tam-mini) {
       --letra-tam: 0.9;
@@ -148,39 +132,11 @@ export class NoteWidget {
   protected readonly linkedCard = signal<Type<unknown> | null>(null);
 
   constructor() {
-    const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
     const destroy = inject(DestroyRef);
     effect(() => {
       if (this.name() !== 'nota' || this.linkedCard()) return;
       void import('./linked-card').then((m) => {
         if (!destroy.destroyed) this.linkedCard.set(m.LinkedCard);
-      });
-    });
-    afterNextRender(() => {
-      const box = host.closest<HTMLElement>('[data-widget-teto]');
-      if (!box || typeof ResizeObserver === 'undefined') return;
-      // do alto da página, pela soma dos offsetTop: o giro da ficha (transform) não entra na conta
-      const top = (el: HTMLElement | null) => {
-        let y = 0;
-        for (; el; el = el.offsetParent as HTMLElement | null) y += el.offsetTop;
-        return y;
-      };
-      let frame = 0;
-      const fit = () => {
-        frame = 0;
-        const above = `${Math.max(0, top(host) - top(box))}px`;
-        if (host.style.getPropertyValue('--widget-acima') !== above) host.style.setProperty('--widget-acima', above);
-      };
-      // o texto de antes muda (escrevendo, marcando uma tarefa): a caixa não muda de altura (ela corta),
-      // mas o que está dentro dela, sim
-      const ro = new ResizeObserver(() => {
-        if (!frame) frame = requestAnimationFrame(fit);
-      });
-      ro.observe(box);
-      if (box.firstElementChild) ro.observe(box.firstElementChild);
-      destroy.onDestroy(() => {
-        ro.disconnect();
-        cancelAnimationFrame(frame);
       });
     });
   }

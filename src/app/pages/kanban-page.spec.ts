@@ -570,6 +570,8 @@ describe('página do Kanban', () => {
       expect(selo('nlogin01')!.textContent!.trim()).toBe('1/2');
       expect(selo('nlogin01')!.getAttribute('aria-label')).toBe('Dependências: 1 de 2 finalizadas. Ver');
       expect(selo('nlogin01')!.classList).not.toContain('prontas');
+      // sem a dica do navegador na ficha grande (a tira faz esse papel): nada de um title "null"
+      expect(selo('nlogin01')!.hasAttribute('title')).toBeFalse();
       // sem dependência, sem selo (e sem importância, sem o pé)
       expect(selo('nsync001')).toBeNull();
       expect(host.querySelector('[data-nota="nsync001"] .pe')).toBeNull();
@@ -582,6 +584,7 @@ describe('página do Kanban', () => {
       host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
       await settle();
       expect(host.querySelector('[data-nota="nlogin01"] .tira app-kanban-deps.mini .selo')!.textContent!.trim()).toBe('2/2');
+      expect(host.querySelector('[data-nota="nlogin01"] .tira app-kanban-deps.mini .selo')!.getAttribute('title')).toBe('Dependências: 2 de 2');
     });
 
     it('com o mouse parado no selo, a tira mostra cada uma: o check, o nome que abre a leitura e onde ela está', async () => {

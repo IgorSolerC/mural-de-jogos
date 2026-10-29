@@ -10,6 +10,13 @@ dialog.reader {
   max-width: min(760px, calc(100vw - 24px));
 }
 
+/* Aberta, a folha é creme lisa em toda cor de cartolina: o papel escolhido (a textura, a estampa, a
+   fibra) fica só na faixa do alto. Sem isto, a ficha herdava o fundo inteiro da .cartolina e as claras
+   (com o reforço da fibra) ficavam com a folha granulada, e as escuras não. */
+.ficha.cartolina {
+  background-image: none;
+}
+
 /* O cabeçalho da folha de comentários é só a faixa da cartolina, onde a tachinha fura */
 .head {
   justify-content: flex-end;
@@ -35,7 +42,7 @@ dialog.reader {
   justify-content: flex-start;
   gap: 4px;
   min-height: 0;
-  padding: 24px 14px 15px 26px;
+  padding: 24px 14px 12px 26px;
 }
 
 .faixa-nome.com-volta {
@@ -48,8 +55,9 @@ dialog.reader {
   outline: none;
   font-family: var(--f-marker);
   font-weight: 400;
-  font-size: 2.15rem;
-  line-height: 1.04;
+  /* menor que o nome no editor: na leitura, quem ocupa a ficha é o texto, não a faixa */
+  font-size: 1.62rem;
+  line-height: 1.06;
   letter-spacing: 0.005em;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -58,8 +66,8 @@ dialog.reader {
 
 /* um nome comprido desce um tanto, para a faixa não comer a folha */
 .faixa-nome .title.longo {
-  font-size: 1.72rem;
-  line-height: 1.08;
+  font-size: 1.38rem;
+  line-height: 1.1;
 }
 
 .ficha:is([data-cor$='-escuro'], [data-cor='preto']) .faixa-nome .title {
@@ -610,7 +618,7 @@ app-judge-label {
   }
 
   .par > article > .faixa-nome {
-    padding: 21px 8px 12px 16px;
+    padding: 21px 8px 10px 16px;
   }
 
   .faixa-nome.com-volta {
@@ -618,11 +626,11 @@ app-judge-label {
   }
 
   .faixa-nome .title {
-    font-size: 1.6rem;
+    font-size: 1.36rem;
   }
 
   .faixa-nome .title.longo {
-    font-size: 1.36rem;
+    font-size: 1.18rem;
   }
 
   .faixa-nome.feita .title {

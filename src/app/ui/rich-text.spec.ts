@@ -251,6 +251,13 @@ describe('o texto formatado na leitura', () => {
       expect(el.querySelector('.elo')).toBeNull();
       expect(el.textContent).toContain('veja [[Hades]]');
     });
+
+    it('sem achar as anotações, o link com outro nome mostra o da anotação no title; o sem, não tem title (nada de "null")', async () => {
+      const el = await render('[[Hades]] e [[Celeste|o jogo]]', {});
+      const [plain, named] = Array.from(el.querySelectorAll<HTMLElement>('.elo'));
+      expect(plain.hasAttribute('title')).toBeFalse();
+      expect(named.getAttribute('title')).toBe('Celeste');
+    });
   });
 });
 

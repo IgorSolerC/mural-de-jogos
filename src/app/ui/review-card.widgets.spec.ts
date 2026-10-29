@@ -5,6 +5,7 @@ import { ReviewCard } from './review-card';
 
 const AUDIO = '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | simples}}';
 const COUNTDOWN = '{{contador: 25/12 | Natal}}';
+const TABLE = '{{tabela: listrada}}\n| a | b |\n| - | - |\n| 1 | 2 |';
 
 function card(kind: 'anotacoes' | 'jogos', text: string, extra: Partial<Review> = {}): Review {
   return {
@@ -57,12 +58,48 @@ describe('os widgets na ficha do mural', () => {
     expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
   });
 
-  it('o widget sem nada para tocar fica na camada dos adesivos, na frente do estrago (2)', async () => {
-    await show(card('anotacoes', `Falta:\n${COUNTDOWN}`), { checkable: true });
-    const box = el.querySelector<HTMLElement>('.nota-texto')!;
-    expect(box.classList).not.toContain('marcavel');
-    expect(getComputedStyle(box).zIndex).toBe('3');
+  it('a tabela, sem nada para tocar, não sobe o texto por cima do botão da ficha', async () => {
+    await show(card('anotacoes', `Falta:\n${TABLE}`), { checkable: true });
+    expect(el.querySelector('.nota-texto table')).not.toBeNull();
+    expect(el.querySelector('.nota-texto')!.classList).not.toContain('marcavel');
   });
+
+  it('na ficha que corta o texto, dois widgets do mesmo tamanho ficam iguais: o que passa do fim fica escondido, sem encolher', async () => {
+    await show(card('anotacoes', `Antes\nmais uma linha\n${COUNTDOWN}\n{{contador: 31/12 | Ano novo}}`), { checkable: true });
+    const widgets = () => Array.from(el.querySelectorAll<HTMLElement>('.nota-texto app-note-widget'));
+    for (let i = 0; i < 100 && el.querySelectorAll('.nota-texto app-countdown').length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      await fixture.whenStable();
+    }
+    await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 50)));
+    const [a, b] = widgets();
+    const box = el.querySelector<HTMLElement>('.nota-texto')!;
+    // o segundo começa depois do fim da ficha (ou perto dele): passa da caixa, que corta
+    expect(b.getBoundingClientRect().bottom).toBeGreaterThan(box.getBoundingClientRect().bottom);
+    expect(getComputedStyle(b).getPropertyValue('--widget-alto')).toBe(getComputedStyle(a).getPropertyValue('--widget-alto'));
+    expect(b.offsetHeight).toBe(a.offsetHeight);
+  });
+
+  for (const checkable of [true, false]) {
+    it(`a nota só de contadores, sem link nem tarefa, amplia na ficha fechada (${checkable ? 'no seu mural' : 'no dos outros'})`, async () => {
+      await show(card('anotacoes', `${COUNTDOWN}\n{{contador: 31/12 | neon | Ano novo | pequeno}}`), { checkable });
+      expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
+      // o contador vem num @defer: espera ele chegar
+      for (let i = 0; i < 100 && !el.querySelector('app-zoom-knob button'); i++) {
+        await new Promise((r) => setTimeout(r, 20));
+        await fixture.whenStable();
+      }
+      // o broche de ampliar fica por cima do botão da ficha: o toque chega nele, não na ficha
+      const knob = el.querySelector<HTMLElement>('app-zoom-knob button')!;
+      expect(getComputedStyle(knob).pointerEvents).toBe('auto');
+      const r = knob.getBoundingClientRect();
+      expect(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)?.closest('app-zoom-knob')).not.toBeNull();
+      let opened = 0;
+      fixture.componentInstance.opened.subscribe(() => opened++);
+      knob.click();
+      expect(opened).toBe(0);
+    });
+  }
 
   it('o spoiler se revela tocando na própria ficha, sem abrir a leitura; revelado, o toque volta a abrir', async () => {
     await show(card('anotacoes', 'O final: ||ele volta|| e pronto.'), { checkable: false });

@@ -37,7 +37,7 @@
               <!-- na ficha do mural: um pedaço da cartolina da anotação, pregado, do tamanho do texto dela -->
               <div class="mini-ficha cartolina" [style.--stock]="'var(--stock-' + (stock() || 'amarelo') + ')'" [attr.data-cor]="stock() || 'amarelo'">
                 <app-pin class="mini-pin" />
-                <div class="mini-texto" data-widget-teto>
+                <div class="mini-texto">
                   <ng-container *ngTemplateOutlet="vivo" />
                 </div>
               </div>

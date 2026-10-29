@@ -1,4 +1,4 @@
-import { hasFormatting, parseRich, plainText } from './rich-text';
+import { hasFormatting, hasTouchableWidget, parseRich, plainText } from './rich-text';
 import { CARD_LOOKS, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
@@ -436,6 +436,17 @@ describe('a nota colada (o widget Nota)', () => {
       { id: '', title: 'Dois' },
     ]);
     expect(cardRefsIn('sem nada')).toEqual([]);
+  });
+
+  it('hasTouchableWidget: todo widget tem o que tocar na ficha, menos a tabela', () => {
+    for (const w of ['{{contador: 25/12 | neon | pequeno}}', '{{imagem: https://a.com/b.png}}', '{{video: https://youtu.be/dQw4w9WgXcQ}}', '{{audio: https://youtu.be/dQw4w9WgXcQ}}', '{{nota: #r1 | Um}}'])
+      expect(hasTouchableWidget(`antes\r\n${w}\nfim`)).withContext(w).toBeTrue();
+    expect(hasTouchableWidget('{{tabela: listrada}}\n| a |\n| - |\n| 1 |')).toBeFalse();
+    expect(hasTouchableWidget('texto com {{contador: 25/12}} no meio')).toBeFalse();
+    // dentro de um bloco de código, é texto
+    expect(hasTouchableWidget('```\n{{contador: 25/12}}\n```')).toBeFalse();
+    expect(hasTouchableWidget('{{nao-existe: x}}')).toBeFalse();
+    expect(hasTouchableWidget('só texto')).toBeFalse();
   });
 
   it('hostOf: o site do link, sem o www; vazio se não for link', () => {

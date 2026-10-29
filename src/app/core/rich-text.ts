@@ -706,6 +706,20 @@ export function hasInteractive(text: string): boolean {
   return HAS_LINK.test(text) || HAS_URL.test(text) || checkCount(text).total > 0;
 }
 
+/**
+ * O texto tem um widget que se toca na ficha do mural: o broche de ampliar (o contador, a foto, o
+ * vídeo, a fita, a nota colada) e o tocar do vídeo e da fita. Só a tabela não tem nada para tocar, e
+ * o que está dentro de um bloco de código é texto.
+ */
+export function hasTouchableWidget(text: string): boolean {
+  if (!text.includes('{{')) return false;
+  return proseLines(text).some(({ line }) => {
+    if (!line.includes('{{')) return false;
+    const w = parseWidgetLine(line);
+    return !!w && w.name !== 'tabela';
+  });
+}
+
 /** Os pedaços de texto de um bloco (de todas as linhas, itens, células e o que vem embaixo dos itens). */
 function spansOf(b: Block): Span[] {
   switch (b.kind) {

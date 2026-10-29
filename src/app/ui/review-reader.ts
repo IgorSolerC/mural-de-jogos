@@ -584,16 +584,16 @@ export class ReviewReader {
   });
   /**
    * Quem vê, como na ficha do mural: só um desenho antes da data, e o que ele quer dizer no título e
-   * para o leitor de tela. A análise mostra o cadeado quando é privada; a anotação (que nasce privada),
-   * o olho quando foi publicada. A sem aviso, nas duas, o sino cortado. Só no seu mural; a
-   * compartilhada diz com quem está na mesma linha.
+   * para o leitor de tela. Em toda ficha, anotação ou análise: o cadeado da privada, o olho da
+   * publicada; a sem aviso, o sino cortado. Só no seu mural; a compartilhada diz com quem está na
+   * mesma linha.
    */
   protected readonly audience = computed<{ icon: LucideIconData; title: string } | null>(() => {
     const r = this.review();
     if (!r || this.owner() !== null || this.sharedEntry()) return null;
     if (r.quiet) return { icon: this.QuietIcon, title: 'Pública, sem aviso: está no seu mural, mas não foi para o Feed' };
-    if (isPrivate(r)) return this.note() ? null : { icon: this.PrivateIcon, title: 'Privada: só você vê' };
-    return this.note() ? { icon: this.PublicIcon, title: 'Publicada: quem abre o seu mural vê' } : null;
+    if (isPrivate(r)) return { icon: this.PrivateIcon, title: 'Privada: só você vê' };
+    return { icon: this.PublicIcon, title: 'Publicada: quem abre o seu mural vê' };
   });
 
   // ===== Onde mais a anotação está: o quadro do Kanban e os dias do Calendário =====

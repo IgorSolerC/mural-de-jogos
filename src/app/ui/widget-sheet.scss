@@ -170,7 +170,6 @@ dialog.wfolha {
 .mini-texto {
   --line: 1.4rem;
   --linhas: 8;
-  --widget-teto: calc(var(--line) * var(--linhas));
   height: calc(var(--line) * var(--linhas));
   overflow: clip;
   color: var(--ink);

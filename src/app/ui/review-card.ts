@@ -30,7 +30,7 @@ import { cutsPaper, decorCuts, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import { pinningFor } from '../core/wall-physics';
 import { scramble } from '../core/spoiler';
-import { checkCount, hasInteractive, hasSpoiler, plainText } from '../core/rich-text';
+import { checkCount, hasInteractive, hasSpoiler, hasTouchableWidget, plainText } from '../core/rich-text';
 import { cardRefsIn } from '../core/widgets';
 import { Rabisco } from './rabisco';
 import { BonusSticker, BonusTally, spokenTally } from './bonus';
@@ -71,6 +71,10 @@ import { reducedMotion } from '../core/motion';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
+
+/** Quem vê a ficha (ver `ReviewCard.audience`): o desenho e o que ele diz. */
+const PRIVATE_MARK = { kind: 'privada', icon: ICON.privada, text: 'Privada: só você vê' } as const;
+const PUBLIC_MARK = { kind: 'publica', icon: ICON.publica, text: 'Publicada: quem abre o seu mural vê' } as const;
 
 /**
  * Marca as fichas longe da tela (`data-longe`), meia tela para cima e para baixo de folga: o que
@@ -168,21 +172,15 @@ export const CARD_TEMPLATE = `
           </app-cover-sleeve>
           }
           <!-- Só capa e nome, que não tem a linha da data: os selinhos da foto, colados um embaixo do
-               outro no canto, cada um um pouco por cima do de cima: quem vê (o cadeado da privada, as
-               pessoas da anotação pública), o "outra vez" que distingue a rejogada da original e o de
-               feito. Um selo novo entra no fim. Nas outras vistas, quem vê é o desenho antes da data -->
-          @if (capas() && (lockBadge() || publicBadge() || review().revisitOf || doneAt()) && !bare()) {
+               outro no canto, cada um um pouco por cima do de cima: quem vê (o cadeado da privada, o
+               olho da pública), o "outra vez" que distingue a rejogada da original e o de feito. Um
+               selo novo entra no fim. Nas outras vistas, quem vê é o desenho antes da data -->
+          @if (capas() && (audience() || review().revisitOf || doneAt()) && !bare()) {
             <span class="selos">
-              @if (lockBadge()) {
-                <span class="selo privada-selo" title="Privada: só você vê">
-                  <lucide-icon [img]="PrivateIcon" [size]="13" aria-hidden="true" />
-                  <span class="sr-only">Privada: só você vê</span>
-                </span>
-              }
-              @if (publicBadge()) {
-                <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
-                  <lucide-icon [img]="PublicIcon" [size]="13" aria-hidden="true" />
-                  <span class="sr-only">Publicada: quem abre o seu mural vê</span>
+              @if (audience(); as q) {
+                <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
+                  <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
+                  <span class="sr-only">{{ q.text }}</span>
                 </span>
               }
               @if (capas() && review().revisitOf) {
@@ -196,14 +194,13 @@ export const CARD_TEMPLATE = `
           }
         </div>
       </div>
-      } @else if (capas() && (publicBadge() || doneAt()) && !bare()) {
-        <!-- anotação sem capa, só capa e nome: os selinhos ficam no canto da ficha. A anotação nasce
-             privada: o cadeado em todas não diria nada, então quem ganha selo é a publicada -->
+      } @else if (capas() && (audience() || doneAt()) && !bare()) {
+        <!-- anotação sem capa, só capa e nome: os selinhos ficam no canto da ficha -->
         <span class="selos selos-ficha">
-          @if (publicBadge()) {
-            <span class="selo publica-selo" title="Publicada: quem abre o seu mural vê">
-              <lucide-icon [img]="PublicIcon" [size]="13" aria-hidden="true" />
-              <span class="sr-only">Publicada: quem abre o seu mural vê</span>
+          @if (audience(); as q) {
+            <span class="selo" [class.privada-selo]="q.kind === 'privada'" [class.publica-selo]="q.kind === 'publica'" [title]="q.text">
+              <lucide-icon [img]="q.icon" [size]="13" aria-hidden="true" />
+              <span class="sr-only">{{ q.text }}</span>
             </span>
           }
           @if (capas() && doneAt()) {
@@ -223,15 +220,15 @@ export const CARD_TEMPLATE = `
             @if (review().subject; as s) {
               <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span>
             }
-            <!-- quem vê (a pública, no seu mural) e a data; sem data, o lugar dela fica vazio (a linha
+            <!-- quem vê (o cadeado ou o olho) e a data; sem data, o lugar dela fica vazio (a linha
                  continua, do mesmo tamanho) -->
-            @if (review().completedAt || publicBadge()) {
+            @if (review().completedAt || audience()) {
               @if (review().subject) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="quando">
-                @if (publicBadge()) {
-                  <span class="quem-ve" title="Publicada: quem abre o seu mural vê"><lucide-icon class="quem-ve-icone" [img]="PublicIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Publicada: quem abre o seu mural vê. </span></span>
+                @if (audience(); as q) {
+                  <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
                 }
                 @if (review().completedAt; as day) {
                   <time [attr.datetime]="day">{{ date() }}</time>
@@ -240,14 +237,14 @@ export const CARD_TEMPLATE = `
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (review().completedAt || publicBadge() || review().subject) {
+              @if (review().completedAt || audience() || review().subject) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
-              @if (review().completedAt || publicBadge() || tasks() || review().subject) {
+              @if (review().completedAt || audience() || tasks() || review().subject) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
@@ -264,9 +261,9 @@ export const CARD_TEMPLATE = `
             <span class="vez-marca"><lucide-icon class="vez-icone" [img]="AgainIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span [class.sr-only]="compact()">{{ revisitWord() }}</span></span><span aria-hidden="true"> · </span>
           }
           <span class="quando">
-            <!-- a resenha privada (só no seu mural): o cadeado antes da data -->
-            @if (lockBadge()) {
-              <span class="quem-ve" title="Privada: só você vê"><lucide-icon class="quem-ve-icone" [img]="PrivateIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Privada: só você vê. </span></span>
+            <!-- quem vê: o cadeado ou o olho antes da data -->
+            @if (audience(); as q) {
+              <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
             }
             @if (review().completedAt; as day) {
               <time [attr.datetime]="day">{{ date() }}</time>
@@ -369,7 +366,7 @@ export const CARD_TEMPLATE = `
       @if (review().text.trim()) {
         <!-- o começo da anotação, já formatado (listas, tarefas): a parede mostra o que tem nela -->
         <!-- o estrago queima o texto de dentro: o esmaecido do fim fica na caixa (os dois juntos) -->
-        <div class="nota-texto" [class.marcavel]="interactive()" data-widget-teto appCorta>
+        <div class="nota-texto" [class.marcavel]="interactive()" appCorta>
           <app-rich-text data-queima [text]="review().text" [fold]="true" [foldKey]="review().id" [checkable]="ticks()" [links]="noteLinks()" [anchors]="preview()" (toggled)="toggleTask($event)" />
         </div>
       }
@@ -982,9 +979,6 @@ export const CARD_STYLES = `
       line-height: var(--line);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      /* o widget não passa do fim da ficha: ele encolhe até caber no que sobra dela (ver
-         ui/note-widget.ts). A ficha não cresce por causa dele */
-      --widget-teto: calc(var(--line) * var(--linhas));
       /* as tarefas um pouco afastadas umas das outras, sem precisar de linha em branco entre elas
          (menos que uma linha inteira, e a com descrição embaixo também: a ficha não tem pauta) */
       --tarefa-respiro: 0.45em;
@@ -1007,8 +1001,6 @@ export const CARD_STYLES = `
     /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
     :host(.inteira) .nota-texto {
       max-height: none;
-      /* sem corte, o widget não tem teto */
-      --widget-teto: initial;
     }
     :host(.inteira) .nota-texto[data-corta] {
       -webkit-mask-image: none;
@@ -1027,8 +1019,11 @@ export const CARD_STYLES = `
     .texto-inteiro app-rich-text {
       display: block;
     }
-    /* com tarefas ou links: o texto fica por cima do botão da ficha, mas só as caixinhas e os links
-       pegam o toque; o resto do texto deixa o toque passar e abre a leitura como sempre */
+    /* com tarefas, links ou widgets: o texto fica por cima do botão da ficha, mas só as caixinhas, os
+       links e o que se toca nos widgets (o broche de ampliar, o tocar) pegam o toque; o resto do
+       texto deixa o toque passar e abre a leitura como sempre. O widget, adesivo colado no texto,
+       fica assim na frente do estrago, como a foto e os bônus (e o estrago não o corta, ver
+       STICKERS em paper-layer.ts) */
     /* (o mesmo na resenha inteira: os widgets dela tocam no mural, como os da anotação) */
     :is(.nota-texto, .texto-inteiro).marcavel {
       z-index: 5;
@@ -1040,15 +1035,6 @@ export const CARD_STYLES = `
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .tocavel,
     :is(.nota-texto, .texto-inteiro).marcavel ::ng-deep .spoiler:not(.revelado) {
       pointer-events: auto;
-    }
-    /* o widget é um adesivo colado no texto: fica na frente do estrago, como a foto e os bônus (e
-       o estrago não o corta, ver STICKERS em paper-layer.ts). O texto em que ele está colado sobe
-       junto, para a camada dos adesivos (com a orelha, que dobra os adesivos, a de baixo dela) */
-    :is(.nota-texto, .texto-inteiro):has(app-note-widget):not(.marcavel) {
-      z-index: 3;
-    }
-    :host(.orelha) :is(.nota-texto, .texto-inteiro):has(app-note-widget):not(.marcavel) {
-      z-index: 2;
     }
 
     /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
@@ -1687,14 +1673,15 @@ export class ReviewCard {
 
   /** Quando a anotação foi finalizada (o carimbo), ou null. */
   protected readonly doneAt = computed(() => (this.note() && !this.bare() ? (this.review().doneAt ?? null) : null));
-  /** O cadeado das resenhas privadas (a anotação nasce privada: nela, quem ganha selo é a publicada). */
-  protected readonly lockBadge = computed(() => !this.note() && !!this.review().private);
   /**
-   * A anotação pública, no seu mural: quem abre o seu mural vê (tenha ido para o Feed ou não; isso
-   * fica na leitura). A resenha nasce pública: nela, quem ganha selo é a privada.
+   * Quem vê a ficha, em toda ficha, anotação ou resenha: o cadeado da privada (só você vê) e o olho
+   * da pública (quem abre o seu mural vê, tenha ido para o Feed ou não; isso fica na leitura). O olho
+   * só no seu mural: no dos outros, tudo o que se vê é público.
    */
-  protected readonly publicBadge = computed(() => this.note() && !isPrivate(this.review()) && this.checkable());
-  protected readonly PublicIcon = ICON.publica;
+  protected readonly audience = computed(() => {
+    if (isPrivate(this.review())) return PRIVATE_MARK;
+    return this.checkable() || this.picking() ? PUBLIC_MARK : null;
+  });
   protected readonly TasksIcon = ICON.tarefas;
   protected readonly NoTextIcon = ICON.escrever;
   protected readonly SubjectIcon = ICON.assunto;
@@ -1711,13 +1698,15 @@ export class ReviewCard {
   protected readonly DoneIcon = ICON.feito;
   protected readonly BoardIcon = ICON.colunas;
   /**
-   * O texto tem o que tocar (tarefas, links, um spoiler)? Só então ele sobe por cima do botão da ficha;
+   * O texto tem o que tocar (tarefas, links, um spoiler, um widget)? Só então ele sobe por cima do botão da ficha;
    * sem nada para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
    */
   protected readonly interactive = computed(() => {
     const t = this.review().text;
-    // o spoiler se revela tocando nele direto na ficha, em qualquer mural (sem abrir a leitura)
-    if (hasSpoiler(t)) return true;
+    // o spoiler se revela tocando nele direto na ficha, em qualquer mural (sem abrir a leitura); o
+    // broche de ampliar dos widgets também se toca em qualquer mural (sem ele, ficava por baixo do
+    // botão da ficha na nota só de contadores ou de fotos, sem link nenhum)
+    if (hasSpoiler(t) || hasTouchableWidget(t)) return true;
     // a ficha colada (o widget Nota) só abre no seu mural, como os links entre anotações
     if (this.checkable() && cardRefsIn(t).length) return true;
     // os links para fora e a conta das feitas (que as mostra) valem em qualquer mural; as tarefas e
@@ -1862,7 +1851,6 @@ export class ReviewCard {
   });
 
   protected readonly AgainIcon = ICON.repetir;
-  protected readonly PrivateIcon = ICON.privada;
   /** O papel da rejogada é desenhado com o id da original (ver artIdOf). */
   protected readonly artId = computed(() => artIdOf(this.review()));
   protected readonly pin = computed(() => pinningFor(this.review().id, this.review().stock));

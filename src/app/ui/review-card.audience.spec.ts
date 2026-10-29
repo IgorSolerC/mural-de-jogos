@@ -18,17 +18,20 @@ function card(kind: 'anotacoes' | 'jogos', extra: Record<string, unknown> = {}):
   })!;
 }
 
-/** Quem vê, no seu mural: o desenho antes da data (o selinho só em capa e nome). Fora do Feed ou não, a pública é a pública. */
+/**
+ * Quem vê, no seu mural: o desenho antes da data (o selinho só em capa e nome), em toda ficha: o
+ * cadeado da privada e o olho da pública, anotação ou resenha. Fora do Feed ou não, a pública é a pública.
+ */
 describe('quem vê, na ficha', () => {
   let fixture: ComponentFixture<ReviewCard>;
   let el: HTMLElement;
 
-  async function show(review: Review): Promise<void> {
+  async function show(review: Review, mine = true): Promise<void> {
     localStorage.clear();
     TestBed.configureTestingModule({ imports: [ReviewCard], providers: [provideZonelessChangeDetection()] });
     fixture = TestBed.createComponent(ReviewCard);
     fixture.componentRef.setInput('review', review);
-    fixture.componentRef.setInput('checkable', true);
+    fixture.componentRef.setInput('checkable', mine);
     await fixture.whenStable();
     el = fixture.nativeElement as HTMLElement;
   }
@@ -48,7 +51,7 @@ describe('quem vê, na ficha', () => {
     expect(el.querySelector('.hit')!.getAttribute('aria-label')).toContain('pública');
   });
 
-  it('a anotação publicada leva o desenho de pessoas antes da data, sem selo na ficha; a privada, nada', async () => {
+  it('a anotação publicada leva o olho antes da data, sem selo na ficha; a privada, o cadeado', async () => {
     await show(card('anotacoes'));
     const quando = el.querySelector('.meta .quando')!;
     expect(quando.firstElementChild!.classList).toContain('quem-ve');
@@ -58,9 +61,16 @@ describe('quem vê, na ficha', () => {
     expect(el.querySelector('.selo')).toBeNull();
     fixture.componentRef.setInput('review', card('anotacoes', { private: true }));
     await fixture.whenStable();
-    expect(mark()).toBeNull();
+    expect(mark()!.getAttribute('title')).toBe('Privada: só você vê');
+    expect(mark()!.textContent).toContain('Privada');
     expect(el.querySelector('.selo')).toBeNull();
     expect(el.querySelector('.hit')!.getAttribute('aria-label')).not.toContain('pública');
+  });
+
+  it('a anotação privada sem data também fica com o cadeado no lugar da data', async () => {
+    await show(card('anotacoes', { private: true, completedAt: null }));
+    expect(mark()!.getAttribute('title')).toBe('Privada: só você vê');
+    expect(el.querySelector('.meta time')).toBeNull();
   });
 
   it('a anotação publicada sem data fica só com o desenho no lugar da data', async () => {
@@ -96,11 +106,32 @@ describe('quem vê, na ficha', () => {
     fixture.componentRef.setInput('review', card('anotacoes'));
     await fixture.whenStable();
     expect(el.querySelector('.publica-selo')).not.toBeNull();
+    expect(el.querySelector('.privada-selo')).toBeNull();
+    // a resenha pública e a anotação privada também
+    fixture.componentRef.setInput('review', card('jogos'));
+    await fixture.whenStable();
+    expect(el.querySelector('.publica-selo')).not.toBeNull();
+    fixture.componentRef.setInput('review', card('anotacoes', { private: true }));
+    await fixture.whenStable();
+    expect(el.querySelector('.privada-selo')).not.toBeNull();
+    expect(el.querySelector('.publica-selo')).toBeNull();
   });
 
-  it('a resenha fora do Feed fica como a publicada: sem desenho nem selo', async () => {
-    await show(card('jogos', { quiet: true }));
+  it('a resenha pública leva o olho, e a de fora do Feed fica como a publicada', async () => {
+    for (const extra of [{}, { quiet: true }]) {
+      await show(card('jogos', extra));
+      expect(mark()!.getAttribute('title')).toBe('Publicada: quem abre o seu mural vê');
+      expect(el.querySelector('.selo')).toBeNull();
+      fixture.destroy();
+      TestBed.resetTestingModule();
+    }
+  });
+
+  it('no mural dos outros, tudo é público: sem o olho; marcando para o lado a lado, o olho fica', async () => {
+    await show(card('jogos'), false);
     expect(mark()).toBeNull();
-    expect(el.querySelector('.selo')).toBeNull();
+    fixture.componentRef.setInput('picking', true);
+    await fixture.whenStable();
+    expect(mark()).not.toBeNull();
   });
 });

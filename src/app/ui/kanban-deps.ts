@@ -39,7 +39,7 @@ const CLOSE_DELAY = 260;
       [class.prontas]="ready()"
       [attr.popovertarget]="panelId"
       [attr.aria-label]="'Dependências: ' + p().done + ' de ' + p().total + (p().total === 1 ? ' finalizada' : ' finalizadas') + '. Ver'"
-      [title]="mini() ? 'Dependências: ' + p().done + ' de ' + p().total : null"
+      [attr.title]="mini() ? 'Dependências: ' + p().done + ' de ' + p().total : null"
       (click)="toggle($event)"
     >
       <lucide-icon [img]="DepsIcon" [size]="mini() ? 13 : 14" aria-hidden="true" />
