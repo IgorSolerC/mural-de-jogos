@@ -108,14 +108,24 @@ pelos primeiros bytes o tipo e o tamanho de verdade (`src/domain/image.ts`) e gu
 - `PUT /v1/imagens/:id` (sessão; o corpo são os bytes): o id são as 22 letras que o site sorteou. Só WebP,
   JPEG ou PNG (`415 imagem-tipo`), até 900 px no lado maior e até 200 KB (`413 imagem-grande`). Repetir o
   envio responde 200 sem contar de novo; o id de outra conta é `409 imagem-id-em-uso`.
-- `GET /v1/imagens/:id`: os bytes, com o tipo guardado, `nosniff` e uma CSP fechada. A privada só com a
-  sessão do dono (`private, no-store`); a pública (rodada 4) sem login, com 7 dias de cache. Quem não pode
-  ver recebe 404, igual à que não existe (nunca 401). Freio por IP na memória: 300 por minuto (`429
-  imagens-devagar`).
+- `GET /v1/imagens/:id`: os bytes, com o tipo guardado, `nosniff` e uma CSP fechada. Quem vê é conferido
+  na entrega (migração 0021), sem limpeza nenhuma quando algo muda:
+  - **pública**: alguém a mostra no mural público (`imagem_publica`, da parte `imagens` do envio do mural)
+    e pode mostrar: o dono, ou quem está numa anotação compartilhada que a usa. Abre sem login, com 7 dias
+    de cache (`public, max-age=604800`);
+  - **privada**: o dono, ou quem está numa compartilhada que a usa (`nota_imagens`, que o servidor acha no
+    texto da anotação ao gravá-la). Sair da anotação, ser tirado dela ou ela ser apagada tira o acesso na
+    hora.
+  Com sessão, `private, no-store` e `Imagem-Sua: 1|0` (o site guarda a de outra pessoa sem pô-la no
+  backup). Quem não pode ver recebe 404, igual à que não existe (nunca 401). Freio por IP na memória: 300
+  por minuto (`429 imagens-devagar`).
 - `DELETE /v1/imagens/:id`: o dono apaga (os bytes e os dados; a conta desce).
 - `GET /v1/eu/imagens`: `uso` (da conta: imagens, bytes, cota, livre), `nuvem` (o mesmo da nuvem
   inteira), `hoje` (enviadas e o limite) e a lista.
 - O `GET /v1/status` leva `imagens` (o uso e a cota da nuvem inteira), que a checagem diária lê.
+- O `PUT /v1/eu/mural` leva a parte opcional `imagens` (`{"publicas": [ids]}`, até 1.000): as imagens
+  que aparecem no mural público. Só o que mudou é gravado (e contado na cota); sem a parte, fica a lista
+  de antes; um id que ainda não subiu espera por ele.
 
 As travas, no `wrangler.toml` (zero ou um valor que não é número recusa todo envio):
 

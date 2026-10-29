@@ -170,12 +170,16 @@ export async function eraseAccount(deps: Deps, id: string, vault = false): Promi
       // as dela saem também do mural público de quem estava nelas (ver domain/shared-public.ts)
       ...markStatements({ sql: `SELECT usuario_id FROM nota_membros WHERE nota_id IN (${NOTES_OF})`, params: [id] }, deps.now()),
       { sql: `DELETE FROM nota_membros WHERE usuario_id = ? OR nota_id IN (${NOTES_OF})`, params: [id, id] },
+      { sql: `DELETE FROM nota_imagens WHERE nota_id IN (${NOTES_OF})`, params: [id] },
       { sql: 'DELETE FROM notas WHERE dono_id = ?', params: [id] },
       // as imagens dela: a conta da nuvem desce antes de a dela sair
       {
         sql: 'UPDATE imagens_uso SET imagens = imagens - (SELECT COUNT(*) FROM imagens WHERE dono_id = ?), bytes = bytes - (SELECT COALESCE(SUM(bytes), 0) FROM imagens WHERE dono_id = ?) WHERE usuario_id = ?',
         params: [id, id, ALL],
       },
+      // quem mostrava as imagens dela, o que ela mostrava, e as anotações que usavam as imagens dela
+      { sql: 'DELETE FROM imagem_publica WHERE usuario_id = ? OR imagem_id IN (SELECT id FROM imagens WHERE dono_id = ?)', params: [id, id] },
+      { sql: 'DELETE FROM nota_imagens WHERE imagem_id IN (SELECT id FROM imagens WHERE dono_id = ?)', params: [id] },
       { sql: 'DELETE FROM imagens WHERE dono_id = ?', params: [id] },
       { sql: 'DELETE FROM imagens_uso WHERE usuario_id = ?', params: [id] },
       { sql: 'DELETE FROM usuarios WHERE id = ?', params: [id] },

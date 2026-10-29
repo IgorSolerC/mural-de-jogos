@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { CloudAccount, CloudError } from './cloud-account';
 import { ImageStore } from './image-store';
+import { Cloud } from './cloud-config';
 
 /** Por que as imagens pararam de subir, para a folha da imagem e o Sair dizerem. */
 export interface ImageSendProblem {
@@ -51,6 +52,7 @@ const PARALLEL = 4;
 export class ImageSync {
   private readonly account = inject(CloudAccount);
   private readonly images = inject(ImageStore);
+  private readonly cloud = inject(Cloud);
 
   /** O último "não" da nuvem para a fila (null: subindo, ou nada a subir). */
   readonly problem = signal<ImageSendProblem | null>(null);
@@ -116,7 +118,8 @@ export class ImageSync {
       const res = await this.account.requestRaw(`/v1/imagens/${id}`);
       const blob = await res.blob();
       const { width, height } = await sizeOf(blob);
-      await this.images.fromCloud(id, blob, width, height);
+      // de outra pessoa (a nuvem diz): fica para mostrar, mas não é mural seu
+      await this.images.fromCloud(id, blob, width, height, res.headers.get('Imagem-Sua') === '0');
       this.missing.delete(id);
       return this.images.url(id);
     } catch {
@@ -135,6 +138,15 @@ export class ImageSync {
       this.active--;
       this.queue.shift()?.();
     }
+  }
+
+  /**
+   * O endereço da imagem para quem visita sem conta: um `<img>` comum direto na nuvem, sem sessão e sem
+   * guardar nada (o navegador guarda 7 dias); a nuvem só entrega a que está à mostra. Null sem nuvem.
+   */
+  publicUrl(id: string): string | null {
+    const api = this.cloud.config()?.api;
+    return api ? `${api}/v1/imagens/${id}` : null;
   }
 
   /** A sincronização terminou uma rodada: as que faltavam são procuradas de novo. */

@@ -11,6 +11,7 @@ import { snapToLines } from './line-snap';
 import { VolumeKnob } from './volume-knob';
 import { ZoomKnob } from './zoom-knob';
 import { pieceLift } from './piece-lift';
+import { CloudAccount } from '../core/cloud-account';
 
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
@@ -432,6 +433,7 @@ export class GluedMedia {
   protected readonly media = computed(() => readMedia(this.args()));
   private readonly images = inject(ImageStore);
   private readonly imageSync = inject(ImageSync);
+  private readonly account = inject(CloudAccount);
   /** A imagem guardada pelo Murall (`murall://imagem/ID`, ver core/images.ts), ou null (um link comum). */
   private readonly localId = computed(() => (this.kind() === 'imagem' ? localImageId(this.media().url) : null));
   /**
@@ -458,7 +460,8 @@ export class GluedMedia {
     if (!url) return this.kind() === 'video' ? 'Vídeo sem link' : 'Imagem sem link';
     if (this.localId()) {
       if (this.localSrc() === null) return 'A imagem ainda não chegou a este aparelho';
-      if (this.failed()) return 'A imagem não abriu';
+      // a da nuvem sem conta: a nuvem só entrega a que está à mostra
+      if (this.failed()) return this.localSrc()?.startsWith('http') ? 'Esta imagem não está à mostra' : 'A imagem não abriu';
       return '';
     }
     if (!httpsUrl(url)) return 'O link precisa começar com https://';
@@ -504,12 +507,16 @@ export class GluedMedia {
       const id = this.localId();
       this.images.version();
       this.imageSync.round();
+      this.account.signedIn();
       if (!id) return untracked(() => this.localSrc.set(undefined));
       let alive = true;
       onCleanup(() => (alive = false));
+      const signedIn = this.account.signedIn();
       void this.images
         .url(id)
-        .then((url) => url ?? this.imageSync.fetch(id))
+        .then((url) => url ?? (signedIn ? this.imageSync.fetch(id) : null))
+        // sem conta (a visita a um mural público): o endereço da nuvem, num <img> comum
+        .then((url) => url ?? (signedIn ? null : this.imageSync.publicUrl(id)))
         .then((url) => alive && this.localSrc.set(url));
     });
     // o player de fora entrou (ou saiu, trocando o link): a conversa com ele começa de novo

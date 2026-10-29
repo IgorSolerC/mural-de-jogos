@@ -14,7 +14,7 @@ export const BASE_ENV = {
 };
 
 /** Todas as tabelas das migrações: cada teste começa com elas vazias. */
-export const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'comentarios', 'comentario_reacoes', 'freios', 'notas', 'nota_membros', 'agenda_google', 'agenda_pedidos', 'api_chaves', 'api_espelho', 'api_espelho_estado', 'api_pedidos', 'oauth_clientes', 'oauth_pedidos', 'oauth_codigos', 'imagens', 'imagens_uso', 'uso_diario'];
+export const TABLES = ['usuarios', 'sessoes', 'murais', 'murais_publicos', 'seguindo', 'seguindo_desfeito', 'atividades', 'reacoes', 'comentarios', 'comentario_reacoes', 'freios', 'notas', 'nota_membros', 'agenda_google', 'agenda_pedidos', 'api_chaves', 'api_espelho', 'api_espelho_estado', 'api_pedidos', 'oauth_clientes', 'oauth_pedidos', 'oauth_codigos', 'imagens', 'imagens_uso', 'imagem_publica', 'nota_imagens', 'uso_diario'];
 export const NOW = new Date('2026-10-06T15:00:00Z');
 
 export async function gzip(text: string): Promise<Uint8Array<ArrayBuffer>> {

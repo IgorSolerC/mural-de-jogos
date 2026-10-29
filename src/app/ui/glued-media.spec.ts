@@ -100,6 +100,31 @@ describe('a foto colada na anotação', () => {
       }
     });
 
+    it('sem conta (a visita a um mural público): a foto vem da nuvem num <img> comum; a que não está à mostra diz isso', async () => {
+      const asked: string[] = [];
+      spyOn(window, 'fetch').and.callFake(async (url: RequestInfo | URL) => {
+        asked.push(String(url));
+        return new Response('{}', { headers: { 'Content-Type': 'application/json' } });
+      });
+      TestBed.configureTestingModule({
+        imports: [GluedMedia],
+        providers: [provideZonelessChangeDetection(), { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: 'https://api.teste', googleClientId: 'x' }) } }],
+      });
+      const fixture = TestBed.createComponent(GluedMedia);
+      const id = 'domuralpublico' + 'x'.repeat(8);
+      fixture.componentRef.setInput('kind', 'imagem');
+      fixture.componentRef.setInput('args', [localImageUrl(id)]);
+      await fixture.whenStable();
+      const el = fixture.nativeElement as HTMLElement;
+      await waitFor(() => !!el.querySelector('img'), fixture);
+      expect(el.querySelector('img')?.getAttribute('src')).toBe(`https://api.teste/v1/imagens/${id}`);
+      // nada pedido com a sessão, nada guardado
+      expect(asked.filter((u) => u.includes('/v1/imagens/'))).toEqual([]);
+      el.querySelector('img')!.dispatchEvent(new Event('error'));
+      await fixture.whenStable();
+      expect(el.querySelector('.falha-nome')?.textContent).toBe('Esta imagem não está à mostra');
+    });
+
     it('a que não está neste aparelho diz que ainda não chegou; colada aqui depois, aparece', async () => {
       TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
       const store = TestBed.inject(ImageStore);

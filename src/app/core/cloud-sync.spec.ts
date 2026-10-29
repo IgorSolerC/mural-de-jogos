@@ -85,6 +85,8 @@ class FakeCloud {
   concluded: { id: string; estado: string; puts: number; resultado: unknown }[] = [];
   /** As imagens coladas que subiram (PUT /v1/imagens/:id), pelo id. */
   images = new Map<string, Blob>();
+  /** A parte `imagens` do último envio do mural (null: não veio). */
+  published: string | null = null;
 
   async handle(url: string, init: RequestInit = {}): Promise<Response> {
     if (this.offline) throw new TypeError('Failed to fetch');
@@ -131,6 +133,7 @@ class FakeCloud {
       const form = init.body as FormData;
       this.doc = new Uint8Array(await (form.get('privado') as Blob).arrayBuffer());
       this.pub = new Uint8Array(await (form.get('publico') as Blob).arrayBuffer());
+      this.published = form.get('imagens') as string | null;
       this.rev++;
       this.puts++;
       return json({ rev: this.rev, novas: 0 });
@@ -1303,6 +1306,17 @@ describe('sincronização com a nuvem', () => {
       expect(cloud.puts).toBe(puts + 1);
       expect(((await cloud.readPublic()) as unknown as { notas: Review[] }).notas).toEqual([]);
     });
+  });
+
+  it('o envio do mural diz quais imagens coladas estão à mostra: as das fichas públicas, nunca as das privadas', async () => {
+    const a = device();
+    const now = new Date().toISOString();
+    const pub = 'P'.repeat(22);
+    const priv = 'Q'.repeat(22);
+    a.store.add({ ...review('nfotpub1', 'Praia', now, now), kind: 'anotacoes', publishedAt: now, text: `Olha:\n{{imagem: murall://imagem/${pub} | polaroid}}` });
+    a.store.add({ ...review('nfotpri1', 'Exame', now, now), kind: 'anotacoes', private: true, text: `{{imagem: murall://imagem/${priv}}}` });
+    await a.sync.syncNow();
+    expect(JSON.parse(cloud.published!)).toEqual({ publicas: [pub] });
   });
 
   it('a nota colada que não está à mostra perde o título no público: a privada, a apagada e a do "Sobre mim" do perfil', async () => {

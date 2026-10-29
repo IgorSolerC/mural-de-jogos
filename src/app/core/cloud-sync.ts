@@ -34,6 +34,7 @@ import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
 import { ImageStore } from './image-store';
 import { ImageSync, shortReason } from './image-sync';
+import { localImageIds } from './images';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -1574,7 +1575,7 @@ export class CloudSync {
     const soKanban = [...boardOnlyNotes(doc.notas, board), ...boardShared].map((n) => shownCard(n, hidden));
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
-    const publico = await gzip(
+    const publicText =
       // o que os outros veem: sem as fichas privadas (nem o id delas nas seções do perfil)
       JSON.stringify({
         app: 'meu-mural',
@@ -1589,8 +1590,8 @@ export class CloudSync {
         ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban]) } : {}),
         // o "Sobre mim" também cola notas: a que não está à mostra vai sem o título
         ...(profile ? { perfil: shownProfile(profile.dados, shownIds) } : {}),
-      }),
-    );
+      });
+    const publico = await gzip(publicText);
     // as anotações também: a que nasce pública ou deixa de ser privada vira aviso, como a resenha
     // (das compartilhadas, só as suas: a dos outros é aviso para quem segue o dono)
     const ownShared = this.publicShared(board).filter((x) => !x.dono).map((x) => x.note);
@@ -1614,6 +1615,8 @@ export class CloudSync {
     // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
     // estão (as só no Kanban estão, pelo link)
     form.append('fichas', JSON.stringify([...new Set([...shownIds, ...publicIds([], soKanban)])]));
+    // as imagens coladas que estão à mostra: a nuvem as entrega a quem visita (as outras, só a quem pode)
+    form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText) }));
     const res = await this.account.requestRaw('/v1/eu/mural', { method: 'PUT', headers: { 'Mural-Rev-Base': String(base) }, body: form });
     // só o envio que a nuvem gravou conta para a válvula: sem rede, o 409, o 429 ou a nuvem fora do ar já
     // esperam do jeito deles, e contá-los trocava o "sem conexão" por "envios demais" depois de 3 tentativas

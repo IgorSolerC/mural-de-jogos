@@ -22,6 +22,7 @@ import { Who, markStatements } from '../domain/shared-public';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { readJson, sessionOf } from './http';
+import { imageIdsIn, noteImageStatements } from '../domain/image';
 
 /**
  * As anotações compartilhadas (ver `domain/shared-note.ts` e a migração 0011).
@@ -273,8 +274,10 @@ export function noteRoutes(app: Hono, deps: Deps): void {
             params: [id, s.userId, dados, at, at, s.userId],
           },
           ...[...people.values()].flatMap(({ p, role }) => memberStatements(row, p, role, s.userId, true, at, now)),
+          // as imagens coladas nela: quem está na anotação passa a vê-las (ver domain/image.ts)
+          ...noteImageStatements(id, [dados]),
         ],
-        3 + 9 * people.size,
+        3 + 9 * people.size + 2 * imageIdsIn(dados, 200).length,
       );
     } catch (error) {
       // dois pedidos iguais ao mesmo tempo: o outro criou; devolve a de agora
@@ -342,8 +345,13 @@ export function noteRoutes(app: Hono, deps: Deps): void {
               params: [id, base + 1, at, s.userId],
             })
           : []),
+        // as imagens coladas nela (e na versão em conflito), se a gravação entrou
+        ...noteImageStatements(id, [dados, ...(conflict ? [conflict] : [])], {
+          sql: 'SELECT 1 FROM notas WHERE id = ? AND rev = ? AND atualizado_em = ? AND atualizado_por = ?',
+          params: [id, base + 1, at, s.userId],
+        }),
       ],
-      2 + 2 * people,
+      2 + 2 * people + 2 * imageIdsIn(dados + (conflict ?? ''), 200).length,
     );
     if (!result || result.changes === 0) {
       // outra gravação entrou entre a leitura e esta: a de agora volta para juntar
@@ -444,6 +452,7 @@ export function noteRoutes(app: Hono, deps: Deps): void {
         ...markStatements(everyone(id), deps.now(), id),
         { sql: 'DELETE FROM nota_membros WHERE nota_id = ?', params: [id] },
         { sql: "DELETE FROM atividades WHERE tipo = 'compartilhou' AND ref = ?", params: [id] },
+        { sql: 'DELETE FROM nota_imagens WHERE nota_id = ?', params: [id] },
         { sql: 'DELETE FROM notas WHERE id = ?', params: [id] },
       ],
       6 + 8 * (members?.n ?? 0),

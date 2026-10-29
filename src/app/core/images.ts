@@ -30,6 +30,11 @@ export function localImageId(url: string): string | null {
   return LOCAL.exec(url.trim())?.[1] ?? null;
 }
 
+/** Os ids das imagens do Murall num texto (o mural público em JSON, por exemplo), sem repetir. */
+export function localImageIds(text: string): string[] {
+  return [...new Set(Array.from(text.matchAll(/murall:\/\/imagem\/([A-Za-z0-9_-]{22})(?![A-Za-z0-9_-])/g), (m) => m[1]))];
+}
+
 export function localImageUrl(id: string): string {
   if (!ID.test(id)) throw new Error(`id de imagem inválido: ${id}`);
   return LOCAL_IMAGE + id;

@@ -1,5 +1,5 @@
 import { HttpError } from '../errors';
-import { Db, Deps, Statement } from '../ports';
+import { Db, Deps, SqlValue, Statement } from '../ports';
 import { DAY_MS } from './quota';
 
 /**
@@ -118,6 +118,86 @@ export function room(used: ImageUsage, quota: number): { imagens: number; bytes:
   return { imagens: used.imagens, bytes: used.bytes, cota: quota, livre: Math.max(0, quota - used.bytes) };
 }
 
+/** Os ids de imagem do Murall num texto (`murall://imagem/ID`), sem repetir, até `max`. */
+export function imageIdsIn(text: string, max = 1000): string[] {
+  const out = new Set<string>();
+  for (const m of text.matchAll(/murall:\/\/imagem\/([A-Za-z0-9_-]{22})(?![A-Za-z0-9_-])/g)) {
+    out.add(m[1]!);
+    if (out.size >= max) break;
+  }
+  return [...out];
+}
+
+/** A pessoa está na anotação (é a dona, ou está entre as pessoas): o pedaço de SQL, com o id da pessoa em `?` duas vezes. */
+const IN_NOTE = '(n.dono_id = ? OR EXISTS (SELECT 1 FROM nota_membros m WHERE m.nota_id = n.id AND m.usuario_id = ?))';
+
+/**
+ * A imagem e quem pode vê-la, conferido agora (rodada 4): `publica`, alguém a mostra no mural público e
+ * pode mostrar (o dono, ou quem está numa compartilhada que a usa); `membro`, quem pede está numa
+ * compartilhada que a usa (com `viewer` null, falso).
+ */
+export async function imageAccess(
+  db: Db,
+  id: string,
+  viewer: string | null,
+): Promise<{ dono_id: string; tipo: string; pronta: number; publica: number; membro: number } | null> {
+  return db.first(
+    'SELECT i.dono_id, i.tipo, i.pronta, ' +
+      'EXISTS (SELECT 1 FROM imagem_publica p WHERE p.imagem_id = i.id AND (p.usuario_id = i.dono_id OR EXISTS (' +
+      'SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ' +
+      '(n.dono_id = p.usuario_id OR EXISTS (SELECT 1 FROM nota_membros m WHERE m.nota_id = n.id AND m.usuario_id = p.usuario_id))))) AS publica, ' +
+      `EXISTS (SELECT 1 FROM nota_imagens ni JOIN notas n ON n.id = ni.nota_id WHERE ni.imagem_id = i.id AND ${IN_NOTE}) AS membro ` +
+      'FROM imagens i WHERE i.id = ?',
+    [viewer ?? '', viewer ?? '', id],
+  );
+}
+
+/**
+ * As imagens que a pessoa mostra no mural público passam a ser estas (a parte `imagens` do envio do
+ * mural): sai o que não está na lista, entra o que falta. Só grava o que mudou. `guard`: a condição de
+ * a gravação do mural ter valido (a marca dele). Quem pode mostrar é conferido na entrega.
+ */
+export function publishStatements(userId: string, ids: readonly string[], guard: { sql: string; params: SqlValue[] }): Statement[] {
+  const list = JSON.stringify(ids);
+  return [
+    {
+      sql: `DELETE FROM imagem_publica WHERE usuario_id = ? AND imagem_id NOT IN (SELECT value FROM json_each(?)) AND EXISTS (${guard.sql})`,
+      params: [userId, list, ...guard.params],
+    },
+    {
+      sql: `INSERT OR IGNORE INTO imagem_publica (imagem_id, usuario_id) SELECT value, ? FROM json_each(?) WHERE EXISTS (${guard.sql})`,
+      params: [userId, list, ...guard.params],
+    },
+  ];
+}
+
+/** A parte `imagens` do envio do mural: `{ "publicas": [ids] }`; null se não veio ou não serve (nada muda). */
+export function parsePublished(raw: unknown): string[] | null {
+  if (typeof raw !== 'string' || raw.length > 40_000) return null;
+  try {
+    const data = JSON.parse(raw) as { publicas?: unknown } | null;
+    const list = data?.publicas;
+    if (!Array.isArray(list)) return null;
+    return [...new Set(list.filter((x): x is string => typeof x === 'string' && IMAGE_ID.test(x)))].slice(0, 1000);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * As imagens que a anotação compartilhada usa passam a ser as do texto dela (e da versão em conflito):
+ * sai o que não está, entra o que falta. `guard`: a condição de a gravação da anotação ter valido.
+ */
+export function noteImageStatements(noteId: string, texts: readonly string[], guard?: { sql: string; params: SqlValue[] }): Statement[] {
+  const list = JSON.stringify([...new Set(texts.flatMap((t) => imageIdsIn(t, 200)))]);
+  const when = guard ? ` AND EXISTS (${guard.sql})` : '';
+  const extra = guard?.params ?? [];
+  return [
+    { sql: `DELETE FROM nota_imagens WHERE nota_id = ? AND imagem_id NOT IN (SELECT value FROM json_each(?))${when}`, params: [noteId, list, ...extra] },
+    { sql: `INSERT OR IGNORE INTO nota_imagens (nota_id, imagem_id) SELECT ?, value FROM json_each(?) WHERE 1${when}`, params: [noteId, list, ...extra] },
+  ];
+}
+
 /**
  * Tirar imagens (os dados e a conta delas). Os bytes saem antes, do outro banco (`dropBytes`), para nunca
  * sobrar byte sem dono. A conta só desce se a linha ainda existe (dois apagares ao mesmo tempo descontam
@@ -130,6 +210,9 @@ export function dropStatements(images: readonly { id: string; dono_id: string; b
       params: [img.bytes, img.dono_id, ALL, img.id],
     },
     { sql: 'DELETE FROM imagens WHERE id = ?', params: [img.id] },
+    // quem a mostrava e as anotações que a usavam
+    { sql: 'DELETE FROM imagem_publica WHERE imagem_id = ?', params: [img.id] },
+    { sql: 'DELETE FROM nota_imagens WHERE imagem_id = ?', params: [img.id] },
   ]);
 }
 

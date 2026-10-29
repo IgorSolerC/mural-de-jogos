@@ -8,6 +8,7 @@ import { MAX_SHOWN_CHARS, parseShown } from '../domain/shown';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { sessionOf } from './http';
+import { parsePublished, publishStatements } from '../domain/image';
 
 /** Teto de cada mural compactado. O D1 aceita 2 MB por linha; o site recusa antes, em 1,8 MB. */
 const MAX_MURAL_BYTES = 1_900_000;
@@ -217,6 +218,15 @@ export function muralRoutes(app: Hono, deps: Deps): void {
     const photo = cardData ? JSON.stringify({ emoji: cardData.emoji, cor: cardData.cor }) : parsePhoto(form.get('foto'));
     // as fichas à mostra (ver domain/shown.ts): sem a parte, fica a lista de antes
     const shown = parseShown(form.get('fichas'));
+    // as imagens do mural público (PLANO-IMAGENS.md, rodada 4): sem a parte, fica a lista de antes; só
+    // o que mudou é gravado (e contado na cota do dia), então a lista de agora é lida antes
+    const published = parsePublished(form.get('imagens'));
+    let publishChanges = 0;
+    if (published) {
+      const before = new Set((await deps.db.all<{ imagem_id: string }>('SELECT imagem_id FROM imagem_publica WHERE usuario_id = ?', [s.userId])).map((r) => r.imagem_id));
+      const next = new Set(published);
+      publishChanges = [...next].filter((x) => !before.has(x)).length + [...before].filter((x) => !next.has(x)).length;
+    }
 
     const now = deps.now();
     const at = now.toISOString();
@@ -286,8 +296,10 @@ export function muralRoutes(app: Hono, deps: Deps): void {
           `WHERE id = ? AND EXISTS (${ours})`,
         params: [at, photo, card, shown, at, s.userId, s.userId, mark],
       },
+      ...(published && publishChanges ? publishStatements(s.userId, published, { sql: ours, params: [s.userId, mark] }) : []),
     ];
-    const [result] = await write(deps, statements, 6 + 4 * fresh.length);
+    // as imagens mostradas: a linha e o índice de cada uma que entrou ou saiu
+    const [result] = await write(deps, statements, 6 + 4 * fresh.length + 2 * publishChanges);
     if (!result || result.changes === 0) {
       const current = await deps.db.first<{ rev: number }>('SELECT rev FROM murais WHERE usuario_id = ?', [s.userId]);
       return c.json(

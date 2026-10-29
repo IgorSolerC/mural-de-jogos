@@ -7,7 +7,7 @@ import { googleVerifier } from '../src/domain/google';
 import { ALL, HALF_SENT_MS, MAX_IMAGE_BYTES } from '../src/domain/image';
 import { DAY_MS } from '../src/domain/quota';
 import { CatalogBrake, Config, Db, Deps } from '../src/ports';
-import { BASE_ENV, NOW, TABLES, eraseNow } from './harness';
+import { BASE_ENV, NOW, TABLES, eraseNow, gzip } from './harness';
 import { jpeg, png, svg, webp } from './imagens-amostras';
 
 /**
@@ -58,6 +58,34 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
     };
     const app = createApp(deps);
     const call = (path: string, init?: RequestInit) => app.request(`https://api.teste${path}`, init);
+    /** Envia o mural como o site, com a lista das imagens do público (`publicas`; sem ela, a parte não vai). */
+    const push = async (token: string, publicas?: string[]) => {
+      const pulled = await call('/v1/eu/mural', { headers: auth(token) });
+      const base = Number(pulled.headers.get('Mural-Rev') ?? 0);
+      const form = new FormData();
+      form.append('privado', new Blob([await gzip('{"reviews":[]}')], { type: 'application/gzip' }));
+      form.append('publico', new Blob([await gzip('{"reviews":[]}')], { type: 'application/gzip' }));
+      if (publicas) form.append('imagens', JSON.stringify({ publicas }));
+      const res = await call('/v1/eu/mural', { method: 'PUT', headers: { ...auth(token), 'Mural-Rev-Base': String(base) }, body: form });
+      clock.t += 5_000;
+      return res.status;
+    };
+    /** Uma anotação compartilhada com a imagem no texto (`texto`), e as pessoas nela. */
+    const nota = (id: string, texto: string) => ({
+      id,
+      kind: 'anotacoes',
+      game: { name: 'Viagem', coverUrl: null, source: 'manual' },
+      text: texto,
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    });
+    const share = async (token: string, id: string, texto: string, membros: { codigo: string; papel: string }[]) =>
+      (await call('/v1/notas', { method: 'POST', headers: { ...auth(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ id, dados: nota(id, texto), membros }) })).status;
+    const editNote = async (token: string, id: string, texto: string) => {
+      const detail = (await (await call(`/v1/eu/notas/detalhes?ids=${id}`, { headers: auth(token) })).json()) as any;
+      clock.t += 2_000;
+      return (await call(`/v1/notas/${id}`, { method: 'PUT', headers: { ...auth(token), 'Content-Type': 'application/json' }, body: JSON.stringify({ base: detail.notas[0].rev, dados: nota(id, texto) }) })).status;
+    };
     const login = async (sub: string) => {
       const credential = await new SignJWT({ given_name: sub })
         .setProtectedHeader({ alg: 'RS256', kid: 'imagens' })
@@ -69,7 +97,7 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
         .sign(key);
       const res = await call('/v1/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential }) });
       const b = (await res.json()) as any;
-      return { token: b.token as string, id: b.conta.id as string };
+      return { token: b.token as string, id: b.conta.id as string, codigo: b.conta.codigo as string };
     };
     const auth = (token?: string): Record<string, string> => (token ? { Authorization: `Bearer ${token}` } : {});
     const put = async (token: string, id: string, bytes: Uint8Array<ArrayBuffer>, type = 'image/webp') => {
@@ -85,7 +113,7 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
     const counter = (who: string) => db.first<{ imagens: number; bytes: number }>('SELECT imagens, bytes FROM imagens_uso WHERE usuario_id = ?', [who]);
     const storedBytes = async () => (await imagesDb.first<{ n: number }>('SELECT COUNT(*) AS n FROM bytes'))!.n;
     const advance = (ms: number) => void (clock.t += ms);
-    return { db, imagesDb, deps, call, login, put, get, del, mine, counter, storedBytes, advance };
+    return { db, imagesDb, deps, call, login, put, get, del, mine, counter, storedBytes, advance, push, share, editNote };
   }
 
   describe(`Imagens: enviar e ver (${label})`, () => {
@@ -135,15 +163,97 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       expect((await get('curto', ana.token)).status).toBe(404);
     });
 
-    it('a pública abre sem login, com 7 dias de cache', async () => {
-      const { db, login, put, get } = await setup();
+    it('a que está no mural público abre sem login, com 7 dias de cache; tirada da lista, volta a ser privada', async () => {
+      const { login, put, get, push } = await setup();
       const ana = await login('ana');
       const id = newId();
       await put(ana.token, id, webp(100, 100));
-      await db.batch([{ sql: 'UPDATE imagens SET publica = 1 WHERE id = ?', params: [id] }]);
+      expect(await push(ana.token, [id])).toBe(200);
       const res = await get(id);
       expect(res.status).toBe(200);
       expect(res.headers.get('Cache-Control')).toBe('public, max-age=604800');
+      // com a sessão de alguém: sem cache no navegador, e diz de quem é
+      const bia = await login('bia');
+      const seen = await get(id, bia.token);
+      expect(seen.headers.get('Cache-Control')).toBe('private, no-store');
+      expect(seen.headers.get('Imagem-Sua')).toBe('0');
+      expect((await get(id, ana.token)).headers.get('Imagem-Sua')).toBe('1');
+      // o envio sem a parte não muda a lista; com a lista vazia, ela sai
+      expect(await push(ana.token)).toBe(200);
+      expect((await get(id)).status).toBe(200);
+      expect(await push(ana.token, [])).toBe(200);
+      expect((await get(id)).status).toBe(404);
+    });
+
+    it('a lista do público vale antes de a imagem subir (ela chega depois, já pública)', async () => {
+      const { login, put, get, push } = await setup();
+      const ana = await login('ana');
+      const id = newId();
+      expect(await push(ana.token, [id])).toBe(200);
+      await put(ana.token, id, webp(10, 10));
+      expect((await get(id)).status).toBe(200);
+    });
+
+    it('pôr a imagem de outra pessoa na lista do público não a mostra', async () => {
+      const { login, put, get, push } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const id = newId();
+      await put(ana.token, id, webp(10, 10));
+      expect(await push(bia.token, [id, 'nao e um id', 7 as never])).toBe(200);
+      expect((await get(id)).status).toBe(404);
+      expect((await get(id, bia.token)).status).toBe(404);
+    });
+
+    it('na anotação compartilhada: quem está nela vê a imagem privada de outra pessoa; quem sai, ou com a anotação apagada, não', async () => {
+      const { db, login, put, get, share, call } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const cris = await login('cris');
+      const id = newId();
+      await put(ana.token, id, webp(10, 10));
+      expect(await share(ana.token, 'nota-foto', `Olha: {{imagem: murall://imagem/${id}}}`, [{ codigo: bia.codigo, papel: 'leitor' }])).toBe(201);
+      expect((await get(id, bia.token)).status).toBe(200);
+      expect((await get(id, cris.token)).status, 'quem não está nela').toBe(404);
+      expect((await get(id)).status).toBe(404);
+      // a Bia sai: deixa de ver
+      expect((await call(`/v1/notas/nota-foto/membros/eu`, { method: 'DELETE', headers: { Authorization: `Bearer ${bia.token}` } })).status).toBe(200);
+      expect((await get(id, bia.token)).status).toBe(404);
+      // apagada para todos: o registro das imagens dela sai junto
+      expect((await call('/v1/notas/nota-foto', { method: 'DELETE', headers: { Authorization: `Bearer ${ana.token}` } })).status).toBe(200);
+      expect(await db.first('SELECT 1 FROM nota_imagens WHERE nota_id = ?', ['nota-foto'])).toBeNull();
+    });
+
+    it('mudar o texto da compartilhada muda quais imagens ela usa', async () => {
+      const { login, put, get, share, editNote } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const um = newId();
+      const dois = newId();
+      await put(ana.token, um, webp(10, 10));
+      await put(ana.token, dois, webp(10, 10, 2_000, 1));
+      await share(ana.token, 'nota-troca', `{{imagem: murall://imagem/${um}}}`, [{ codigo: bia.codigo, papel: 'editor' }]);
+      expect((await get(um, bia.token)).status).toBe(200);
+      expect((await get(dois, bia.token)).status).toBe(404);
+      // quem escreve nela (a Bia, editora) troca a imagem
+      expect(await editNote(bia.token, 'nota-troca', `{{imagem: murall://imagem/${dois}}}`)).toBe(200);
+      expect((await get(um, bia.token)).status).toBe(404);
+      expect((await get(dois, bia.token)).status).toBe(200);
+    });
+
+    it('a compartilhada pública no mural de quem está nela mostra a imagem enquanto a pessoa está na anotação', async () => {
+      const { login, put, get, share, push, call } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const id = newId();
+      await put(ana.token, id, webp(10, 10));
+      await share(ana.token, 'nota-publica', `{{imagem: murall://imagem/${id}}}`, [{ codigo: bia.codigo, papel: 'leitor' }]);
+      // a Bia mostra a anotação no mural público dela (a dona não)
+      expect(await push(bia.token, [id])).toBe(200);
+      expect((await get(id)).status).toBe(200);
+      // a dona tira a Bia: a imagem deixa de estar à mostra, sem esperar o site dela
+      expect((await call(`/v1/notas/nota-publica/membros/${bia.codigo.replace('-', '')}`, { method: 'DELETE', headers: { Authorization: `Bearer ${ana.token}` } })).status).toBe(200);
+      expect((await get(id)).status).toBe(404);
     });
 
     it('repetir o envio responde 200 sem contar de novo; o id de outra conta é 409', async () => {
@@ -354,6 +464,19 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       expect(await storedBytes()).toBe(0);
       expect(await counter(ALL)).toEqual({ imagens: 0, bytes: 0 });
       expect((await del(ana.token, id)).status).toBe(404);
+    });
+
+    it('apagar a imagem tira também quem a mostrava e as anotações que a usavam', async () => {
+      const { db, login, put, del, push, share } = await setup();
+      const ana = await login('ana');
+      const bia = await login('bia');
+      const id = newId();
+      await put(ana.token, id, webp(10, 10));
+      await push(ana.token, [id]);
+      await share(ana.token, 'nota-x', `{{imagem: murall://imagem/${id}}}`, [{ codigo: bia.codigo, papel: 'leitor' }]);
+      await del(ana.token, id);
+      expect(await db.first('SELECT 1 FROM imagem_publica WHERE imagem_id = ?', [id])).toBeNull();
+      expect(await db.first('SELECT 1 FROM nota_imagens WHERE imagem_id = ?', [id])).toBeNull();
     });
 
     it('a conta que sai leva as imagens dela (dados, bytes e conta), e só as dela', async () => {

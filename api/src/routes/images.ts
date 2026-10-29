@@ -1,7 +1,7 @@
 import { Context, Hono } from 'hono';
 import { HttpError } from '../errors';
 import { brakeRoom, usedToday } from '../domain/brake';
-import { ALL, IMAGE_ID, MAX_IMAGE_BYTES, checkImage, dropBytes, dropStatements, imagesDbOf, room, tooBig, usageOf } from '../domain/image';
+import { ALL, IMAGE_ID, MAX_IMAGE_BYTES, checkImage, dropBytes, dropStatements, imageAccess, imagesDbOf, room, tooBig, usageOf } from '../domain/image';
 import { assertWritable, write } from '../domain/quota';
 import { authenticate } from '../domain/session';
 import { CatalogBrake, Deps, Statement } from '../ports';
@@ -14,8 +14,9 @@ import { toBytes } from './mural';
  *
  * - `PUT /v1/imagens/:id`: o site manda os bytes já encolhidos, com o id que ele sorteou. Repetir o mesmo
  *   envio responde 200 (a conexão pode cair no meio); o id de outra conta é 409.
- * - `GET /v1/imagens/:id`: os bytes. A privada só com a sessão do dono; a pública (rodada 4) sem login.
- *   Quem não pode ver recebe 404, igual à que não existe.
+ * - `GET /v1/imagens/:id`: os bytes. A pública (mostrada no mural público por quem pode mostrar) sem
+ *   login; a privada com a sessão do dono ou de quem está numa anotação compartilhada que a usa.
+ *   Quem não pode ver recebe 404, igual à que não existe. `Imagem-Sua: 1` quando quem pede é o dono.
  * - `DELETE /v1/imagens/:id`: o dono apaga (os bytes antes, os dados depois).
  * - `GET /v1/eu/imagens`: quanto a conta usa, quanto falta, e a lista.
  *
@@ -172,26 +173,30 @@ export function imageRoutes(app: Hono, deps: Deps): void {
     }
     const imagesDb = imagesDbOf(deps);
     const id = idOf(c);
-    const row = await deps.db.first<ImageRow>('SELECT id, dono_id, tipo, bytes, publica, pronta FROM imagens WHERE id = ?', [id]);
+    // quem pede (a sessão, se veio); sem sessão, vencida ou inválida: como quem visita (nunca 401: a
+    // imagem não derruba a sessão do site)
+    const header = c.req.header('Authorization');
+    const viewer = header
+      ? await authenticate(deps, header).then(
+          (s) => s.userId,
+          () => null,
+        )
+      : null;
+    const row = await imageAccess(deps.db, id, viewer);
     if (!row || !row.pronta) throw notFound();
-    if (!row.publica) {
-      // a privada só com a sessão do dono; sem sessão, vencida ou de outra conta, 404 (nunca 401: a
-      // imagem não derruba a sessão do site, e não confirma que existe)
-      const header = c.req.header('Authorization');
-      if (!header) throw notFound();
-      const owner = await authenticate(deps, header).then(
-        (s) => s.userId === row.dono_id,
-        () => false,
-      );
-      if (!owner) throw notFound();
-    }
+    const own = viewer !== null && viewer === row.dono_id;
+    // a privada: o dono, ou quem está numa compartilhada que a usa; senão, 404 (não confirma que existe)
+    if (!row.publica && !own && !row.membro) throw notFound();
     const stored = await imagesDb.first<{ dados: unknown }>('SELECT dados FROM bytes WHERE id = ?', [id]);
     if (!stored) throw notFound();
     const bytes = toBytes(stored.dados);
     c.header('Content-Type', row.tipo);
     // a pública pode voltar a ser privada: 7 dias no cache de quem visita; a privada não fica no cache do
     // navegador (o site guarda no IndexedDB, que a limpeza do Sair alcança)
-    c.header('Cache-Control', row.publica ? 'public, max-age=604800' : 'private, no-store');
+    // a pública pedida sem sessão fica 7 dias no cache de quem visita (pode voltar a ser privada); com
+    // sessão (o site guarda no IndexedDB, que a limpeza do Sair alcança), nada fica no cache do navegador
+    c.header('Cache-Control', row.publica && viewer === null ? 'public, max-age=604800' : 'private, no-store');
+    if (viewer !== null) c.header('Imagem-Sua', own ? '1' : '0');
     c.header('Content-Security-Policy', "default-src 'none'; sandbox");
     c.header('Cross-Origin-Resource-Policy', 'cross-origin');
     c.header('Content-Disposition', 'inline');

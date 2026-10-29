@@ -351,6 +351,21 @@ Novidades).
   pedidos ao Worker, 2 ao subir e 2 por aparelho ao descer (o `OPTIONS` da sessão no cabeçalho conta).
   Falta medir o `cpuTime` em produção com uma imagem de verdade (`npx wrangler tail mural-api --format
   json`). Próximo: rodada 4 (público e compartilhadas).
+- 28/out/2026, rodada 4 (público e compartilhadas): migração 0021 (`imagem_publica`, `nota_imagens`). Quem
+  vê é conferido na entrega (`imageAccess` em `api/src/domain/image.ts`), sem limpeza quando algo muda: a
+  pública, se alguém a mostra e pode mostrar (o dono, ou quem está numa compartilhada que a usa); a
+  privada, o dono e quem está numa compartilhada que a usa. O envio do mural leva a parte `imagens` (os
+  ids que o site acha no próprio mural público); só o que mudou é gravado e contado na cota (a lista de
+  antes é lida). As compartilhadas anotam as imagens do texto (e da versão em conflito) ao gravar; apagar
+  a anotação, a imagem ou a conta tira as linhas. A entrega com sessão diz `Imagem-Sua`, e o site guarda
+  a de outra pessoa como `alheia` (fora do backup e da contagem do mural de ninguém). Quem visita sem
+  conta vê a pública por um `<img>` direto na nuvem (sem sessão, sem pré-consulta do CORS, sem guardar
+  nada; o navegador guarda 7 dias), e a que não está à mostra diz "Esta imagem não está à mostra".
+  Mudou do desenho: a coluna `imagens.publica` ficou sem uso, e o `Clear-Site-Data` saiu: com conta, as
+  imagens passam pelo IndexedDB (que a limpeza do Sair leva) e a entrega com sessão é `no-store`; só a
+  visita sem conta usa o cache do navegador, e o que está lá é público e de ninguém. Ponta a ponta local:
+  a anotação pública abre a imagem sem sessão e o link da ficha, sem conta, mostra a foto (GET 200, sem
+  OPTIONS) sem guardar nada. Próximo: rodada 5 (limpeza e Ajustes).
 
 ## 11. A conferir (riscos)
 

@@ -145,6 +145,20 @@ describe('as imagens coladas e a nuvem (core/image-sync.ts)', () => {
     expect(await store.url(id)).toBe(url);
   });
 
+  it('a de outra pessoa (a nuvem diz Imagem-Sua: 0) fica para mostrar, mas não conta como mural seu nem vai no backup', async () => {
+    const { sync, store } = await setup();
+    await store.ready;
+    const png = await samplePng(120, 80);
+    const id = 'deoutrapessoa' + 'y'.repeat(9);
+    answer = () => new Response(png, { headers: { 'Content-Type': 'image/png', 'Imagem-Sua': '0' } });
+    expect(await sync.fetch(id)).toMatch(/^blob:/);
+    expect((await store.get(id))?.alheia).toBeTrue();
+    expect(store.count()).toBe(0);
+    expect(await store.forBackup()).toEqual([]);
+    expect(await store.unsent()).toBe(0);
+    expect(sync.publicUrl(id)).toBe(`${API}/v1/imagens/${id}`);
+  });
+
   it('a que a nuvem não tem (ou não é sua) só é pedida de novo depois de um minuto', async () => {
     const { sync } = await setup();
     const id = 'naoestanuvem' + 'z'.repeat(10);

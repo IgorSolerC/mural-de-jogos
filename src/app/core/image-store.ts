@@ -22,6 +22,11 @@ export interface StoredImage {
   hash: string;
   criada: string;
   estado: ImageState;
+  /**
+   * De outra pessoa (de uma anotação compartilhada, ou do mural de quem você visita), baixada para mostrar:
+   * não vai no backup baixado nem conta como mural seu.
+   */
+  alheia?: true;
 }
 
 export type ImageState = 'local' | 'na-nuvem' | 'recusada';
@@ -96,13 +101,24 @@ export class ImageStore {
     this.version.update((v) => v + 1);
   }
 
-  /** Guarda a que desceu da nuvem (de outro aparelho), já como `na-nuvem`. */
-  async fromCloud(id: string, blob: Blob, largura: number, altura: number): Promise<void> {
+  /** Guarda a que desceu da nuvem (de outro aparelho, ou de outra pessoa: `alheia`), já como `na-nuvem`. */
+  async fromCloud(id: string, blob: Blob, largura: number, altura: number, alheia = false): Promise<void> {
     if (storageFrozen() || (await this.get(id))) return;
-    const image: StoredImage = { id, blob, tipo: blob.type, largura, altura, bytes: blob.size, hash: await hashOf(blob), criada: new Date().toISOString(), estado: 'na-nuvem' };
+    const image: StoredImage = {
+      id,
+      blob,
+      tipo: blob.type,
+      largura,
+      altura,
+      bytes: blob.size,
+      hash: await hashOf(blob),
+      criada: new Date().toISOString(),
+      estado: 'na-nuvem',
+      ...(alheia ? { alheia: true as const } : {}),
+    };
     await this.write(await this.open(), (store) => store.put(image));
     this.version.update((v) => v + 1);
-    this.count.update((n) => n + 1);
+    if (!alheia) this.count.update((n) => n + 1);
   }
 
   /** A imagem guardada aqui, ou null. */
@@ -143,7 +159,8 @@ export class ImageStore {
 
   /** As guardadas aqui, para irem no backup baixado (nunca no mural da nuvem: elas sobem à parte). */
   async forBackup(): Promise<BackupImage[]> {
-    const all = await this.all();
+    // as de outras pessoas (só baixadas para mostrar) ficam de fora
+    const all = (await this.all()).filter((i) => !i.alheia);
     return Promise.all(
       all.map(async (i) => ({ id: i.id, tipo: i.tipo, largura: i.largura, altura: i.altura, criada: i.criada, dados: toBase64(new Uint8Array(await i.blob.arrayBuffer())) })),
     );
@@ -191,7 +208,7 @@ export class ImageStore {
   private async recount(): Promise<void> {
     try {
       const db = await this.open();
-      this.count.set(await request<number>(db.transaction(STORE).objectStore(STORE).count()));
+      this.count.set((await request<StoredImage[]>(db.transaction(STORE).objectStore(STORE).getAll())).filter((i) => !i.alheia).length);
     } catch {
       this.count.set(0);
     }
