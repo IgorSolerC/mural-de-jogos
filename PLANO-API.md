@@ -922,7 +922,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 4 | **MCP com chave + guia** — feita em 27/out (seção 23) | `/mcp` com as ferramentas das anotações; `llms.txt`, OpenAPI gerado e testado, página Como usar; usado de verdade no Claude Code com a chave |
 | 5 | **OAuth** — feita em 27/out (seção 23) | Conector no claude.ai e no Claude Code sem copiar nada; a página Autorizar; renovação trocada; testado de ponta a ponta no Worker de teste e depois no ar |
 | 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
-| 7 | **Calendário** — em andamento em 29/out (seção 23) | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
+| 7 | **Calendário** — feita em 29/out (seção 23) | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** — feita em 27/out (seção 23) | Quadros, mover, colunas, dependências |
 | 9 | **Wishlist, Pra depois e fichas** | Com a busca da capa no app |
 | 10 | **CLI** — fora por enquanto (pedido do usuário em 29/out: sem npm) | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
@@ -1552,7 +1552,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      marcar o Kanban na chave (ou no conector) que já existe, ou criar outra. **Próximo**: a rodada 7
      (Calendário), seção 19.
 
-- **29/out/2026, rodada 7 (Calendário)**: em andamento. Pedido do usuário: "encontre o PLANO-API.md e
+- **29/out/2026, rodada 7 (Calendário)**: feita. Pedido do usuário: "encontre o PLANO-API.md e
   continue de onde fala", e depois "Deixe as rodadas 10 e 11 de fora por enquanto. Não quero NPM e nem
   novo domínio" (a seção 19 marca as duas como fora). Do jeito das rodadas 6 e 8: o roteiro aqui, um
   commit com push por passo, marcando [feito]. **Quem continuar: leia esta lista, faça o primeiro passo
@@ -1661,6 +1661,24 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      também dos lembretes; o `llms.txt` e o OpenAPI dizem Calendário. No site, Como usar e a folha da
      chave dizem que ela lê e escreve no calendário também (a wishlist, o Pra depois e as fichas
      chegam depois). As cópias em `docs/api/` foram regeradas (`cd api && npm run docs`).
-  7. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Calendário, o espelho enchendo,
+  7. [feito] Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave do Calendário, o espelho enchendo,
      ler a agenda, criar, mudar, tirar um dia, aplicar) e no ar (as rotas novas respondendo). Anotar
      aqui.
+     Feito em 29/out. **Local** (`.angular/pptr/calendario-e2e.mjs`, fora do repositório; a API no
+     `wrangler dev` 8795, o site no `ng serve` 5139, a conta `u-e2e`): uma chave do Calendário com
+     aprovação "nunca"; o site aberto com três lembretes (a academia de segunda e quarta, o dentista, um
+     velho) e uma anotação; os lembretes, o contexto (a janela de julho/2026 a outubro/2027) e a agenda
+     chegando ao espelho (a academia aberta em quatro dias de duas semanas); e quatro pedidos: pelo MCP,
+     `criar_lembrete` de uma reunião de terça e quinta com a anotação presa; a hora do dentista mudada
+     com a versão; pelo MCP, uma vez da academia tirada; e o velho apagado. A agenda trouxe os quatro em
+     `pedidos_abertos` na hora; o site aplicou os quatro sozinho (a reunião nasceu com a cor sorteada e
+     "Toda semana, na terça e quinta, a partir de 3 de novembro de 2026."), concluiu, e a agenda no
+     espelho ficou como devia (a reunião às terças e quintas, a academia sem o dia tirado, o dentista
+     às 15h30, o velho fora, 404 pelo id). **No ar**: as rotas do Calendário dão 401 sem chave, o
+     OpenAPI tem os três caminhos novos, o `/llms-full.txt` tem a parte do Calendário e o `/llms.txt`
+     diz Calendário. O Desfazer do Calendário ficou conferido nos testes do site (ele começa na folha do
+     histórico), e o Google Agenda seguindo os pedidos fica para o uso de verdade (os testes de
+     `google-agenda-sync` já cobrem a edição pelo `CalendarStore`, que é o caminho dos pedidos).
+     **Rodada 7 feita.** Para usar: em Acessos, marcar o Calendário na chave (ou no conector) que já
+     existe, ou criar outra. **Próximo**: a rodada 9 (Wishlist, Pra depois e fichas), seção 19; as
+     rodadas 10 (CLI no npm) e 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
