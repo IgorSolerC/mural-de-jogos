@@ -214,6 +214,25 @@ describe('o espelho da API: o serviço (ApiMirror)', () => {
     expect(posts().length).withContext('a mesma rev tenta de novo, porque não chegou').toBe(2);
   });
 
+  it('um lote que a nuvem recusa (400) não prende os outros', async () => {
+    const m = setup();
+    notes.set(Array.from({ length: 120 }, (_, i) => note(`r${String(i).padStart(4, '0')}`, `N${i}`)));
+    const account = TestBed.inject(CloudAccount) as unknown as { request: (p: string, i?: { method?: string; body?: any }) => Promise<unknown> };
+    const real = account.request;
+    let n = 0;
+    account.request = async (path, init = {}) => {
+      if (init.method === 'POST' && n++ === 0) {
+        calls.push({ path, method: 'POST', body: init.body });
+        throw new CloudError('A nota "r0007" não tem a forma da v1.', 'espelho-invalido', 400);
+      }
+      return real(path, init);
+    };
+    spyOn(console, 'warn');
+    await m.afterSync(3);
+    expect(posts().map((p) => p.body.poe.length)).withContext('o primeiro recusado, os outros dois vão').toEqual([50, 50, 21]);
+    expect(Object.keys(remote.hashes['nota']!).length).toBe(70);
+  });
+
   it('uma chave nova faz conferir de novo na rev de agora', async () => {
     const m = setup();
     remote.areas = [];

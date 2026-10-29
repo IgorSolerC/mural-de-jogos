@@ -73,6 +73,12 @@ export interface MirrorRow {
 }
 
 const bad = (message: string) => new HttpError(400, 'espelho-invalido', message);
+/**
+ * O status de um cartão em unidades do JS: o site guarda até `STATUS_MAX` letras (cada emoji é uma letra
+ * e duas unidades), então aqui cabem até o dobro. Com o teto em unidades, um status de emoji válido no
+ * site barrava o espelho inteiro.
+ */
+const STATUS_UNITS = STATUS_MAX * 2;
 const isStr = (v: unknown, max: number): v is string => typeof v === 'string' && v.length <= max;
 const isStrOrNull = (v: unknown, max: number) => v === null || isStr(v, max);
 const isIso = (v: unknown) => typeof v === 'string' && v.length <= 40 && !Number.isNaN(Date.parse(v));
@@ -97,7 +103,7 @@ function checkNota(n: Record<string, unknown>): NotaV1 {
     !!t &&
     Number.isInteger(t['feitas']) &&
     Number.isInteger(t['total']) &&
-    (k === null || (!!k && isStr(k['coluna'], 40) && isStrOrNull(k['importancia'], 16) && isStrOrNull(k['status'], 28) && typeof k['no_mural'] === 'boolean')) &&
+    (k === null || (!!k && isStr(k['coluna'], 40) && isStrOrNull(k['importancia'], 16) && isStrOrNull(k['status'], STATUS_UNITS) && typeof k['no_mural'] === 'boolean')) &&
     isIso(n['criada_em']) &&
     isIso(n['versao']);
   if (!ok) throw bad(`A nota "${String(n['id']).slice(0, 64)}" não tem a forma da v1.`);
@@ -275,7 +281,7 @@ function checkQuadro(q: Record<string, unknown>, id: string): QuadroV1 {
     Number.isInteger(c['posicao']) &&
     typeof c['finalizada'] === 'boolean' &&
     (c['importancia'] === null || (IMPORTANCIAS as readonly unknown[]).includes(c['importancia'])) &&
-    isStrOrNull(c['status'], STATUS_MAX) &&
+    isStrOrNull(c['status'], STATUS_UNITS) &&
     strList(c['depende_de'], DEPENDENCIAS_MAX, 64) &&
     typeof c['no_mural'] === 'boolean' &&
     strList(c['tags'], 12, 32);

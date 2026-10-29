@@ -70,6 +70,8 @@ export interface KanbanApplied {
   /** Como estava (o Desfazer): o cartão e o lugar dele, ou a coluna; null no que não mudou nada e no criar. */
   antes: CardBefore | ColumnBefore | null;
   carimbo?: string;
+  /** A versão da nota antes do carimbo (a coluna que finaliza mudou a nota). */
+  desde?: string | null;
 }
 
 /** O cartão antes do pedido: onde estava (null: fora do quadro) e se a nota estava finalizada. */
@@ -200,7 +202,7 @@ export function applyKanbanRequest(book: KanbanBook, notes: NoteBook, req: { op:
         estado: 'aplicado',
         resultado: { cartao: cardV1(book, notes, b.id, note), ...(aviso ? { aviso } : {}) },
         antes: { quadro: b.id, card: cur, index, done: isDone(r), doneAt: r.doneAt ?? null },
-        ...(carimbo ? { carimbo } : {}),
+        ...(carimbo ? { carimbo, desde: r.updatedAt } : {}),
       };
     }
     case 'cartao.tirar': {

@@ -182,6 +182,21 @@ export function kanbanSuite(label: string, getDb: () => Db) {
       expect(await bad({ ...QUADRO_ESTUDOS, colunas: [...QUADRO_ESTUDOS.colunas, QUADRO_ESTUDOS.colunas[0]] })).toBe('espelho-invalido');
     });
 
+    it('o status de emoji que o site guarda (28 letras, 56 unidades) entra, no quadro e na nota', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token, ['kanban:ler', 'notas:ler']);
+      const rev = await t.push(me.token, 0);
+      const status = '🔥'.repeat(28);
+      expect(status.length).toBe(56);
+      const quadro = { ...QUADRO_ESTUDOS, cartoes: [{ ...QUADRO_ESTUDOS.cartoes[0]!, status }] };
+      const n = { ...nota('estu-1', { grupo: 'Estudos' }), kanban: { coluna: 'A fazer', importancia: null, status, no_mural: false } };
+      expect((await t.mirror(me.token, { rev, poe: [t.item('quadro', QUADRO_ESTUDOS.id, quadro), t.item('nota', 'estu-1', n)] })).status).toBe(200);
+      // mais que isso ainda não entra
+      const long = { ...QUADRO_ESTUDOS, cartoes: [{ ...QUADRO_ESTUDOS.cartoes[0]!, status: 'x'.repeat(57) }] };
+      expect((await t.mirror(me.token, { rev, poe: [t.item('quadro', QUADRO_ESTUDOS.id, long)] })).status).toBe(400);
+    });
+
     it('a chave que só lê as Anotações não deixa os quadros entrarem', async () => {
       const t = await setup();
       const me = await t.login('ana');

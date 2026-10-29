@@ -237,10 +237,18 @@ export class ApiMirror {
       const batches = lots<MirrorItem | { tipo: TipoDoEspelho; id: string }>([...drop, ...put], (i) => ('dados' in i ? JSON.stringify(i.dados).length : 40));
       if (!batches.length && remote.rev !== rev) batches.push([]);
       for (const batch of batches) {
-        await this.account.request('/v1/eu/espelho', {
-          method: 'POST',
-          body: { rev, fuso, poe: batch.filter((i): i is MirrorItem => 'dados' in i), tira: batch.filter((i) => !('dados' in i)) },
-        });
+        try {
+          await this.account.request('/v1/eu/espelho', {
+            method: 'POST',
+            body: { rev, fuso, poe: batch.filter((i): i is MirrorItem => 'dados' in i), tira: batch.filter((i) => !('dados' in i)) },
+          });
+        } catch (err) {
+          // um lote que a nuvem não aceita (um item fora da forma) não prende os outros: os lotes vão
+          // sempre na mesma ordem, e um só travava o espelho inteiro para sempre. Ele tenta de novo na
+          // próxima rev; o resto (sem rede, rev atrasada, a cota do dia) para aqui
+          if (!(err instanceof CloudError && err.status === 400)) throw err;
+          console.warn('o espelho da API recusou um lote', err.message);
+        }
       }
       this.doneRev = rev;
     } catch (err) {

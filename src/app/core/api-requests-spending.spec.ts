@@ -11,7 +11,7 @@ import type { SpendingStore } from './spending-store';
 
 const AT = '2026-10-05T10:00:00.000Z';
 const NOW = '2026-10-27T12:00:00.000Z';
-const CTX = { now: NOW, today: '2026-10-27', stamps: new Set<string>() };
+const CTX = { now: NOW, today: '2026-10-27', stamps: new Map<string, string | null>() };
 
 /** Um livro de mentira com as mesmas operações do SpendingStore (sem armazenamento). */
 class FakeBook {
@@ -124,7 +124,7 @@ describe('os pedidos dos Gastos aplicados pelo site', () => {
     expect([fake.get('merc')!.amount, fake.get('merc')!.category]).toEqual([25000, 'comida']);
     expect((ok.antes as Entry).amount).toBe(23050);
     // a próxima mudança da AI, com a versão que ela leu antes, passa: a do meio foi um pedido aplicado aqui
-    const stamps = new Set([`merc@${ok.carimbo}`]);
+    const stamps = new Map([[`merc@${ok.carimbo}`, ok.desde ?? null]]);
     expect(applySpendingRequest(store, { op: 'gasto.editar', alvo: 'merc', dados: { titulo: 'Feira', versao: AT } }, { ...CTX, stamps }).estado).toBe('aplicado');
     const del = applySpendingRequest(store, { op: 'gasto.apagar', alvo: 'ifood', dados: { versao: AT } }, CTX);
     expect(del.estado).toBe('aplicado');
@@ -155,6 +155,56 @@ describe('os pedidos dos Gastos aplicados pelo site', () => {
     expect(fake.person('eu')!.name).toBe('Igor');
     expect(applySpendingRequest(store, { op: 'pessoa.criar', alvo: 'x', dados: { nome: 'Caio' } }, CTX).estado).toBe('aplicado');
     expect(applySpendingRequest(store, { op: 'envelope.editar', alvo: 'nada', dados: { nome: 'X' } }, CTX).estado).toBe('falhou');
+  });
+
+  it('o pedido que não entra não deixa envelope nem pessoa criados para trás', () => {
+    const { fake, store } = bookOf();
+    const before = fake.state();
+    const refund = applySpendingRequest(
+      store,
+      { op: 'gasto.lancar', alvo: 'r1', dados: { titulo: 'Volta', centavos: 500, envelope: 'Viagem', criar_envelope: true, pessoas: ['Ana'], criar_pessoas: true, reembolso_de: 'nada' } },
+      CTX,
+    );
+    expect(refund.estado).toBe('falhou');
+    const missing = applySpendingRequest(store, { op: 'gasto.lancar', alvo: 'r2', dados: { titulo: 'X', centavos: 100, envelope: 'Viagem', criar_envelope: true, pessoas: ['Zeca'] } }, CTX);
+    expect(missing.estado).toBe('falhou');
+    const phrase = applySpendingRequest(store, { op: 'gasto.lancar', alvo: 'r3', dados: { frase: 'só um nome @caio', criar_pessoas: true } }, CTX);
+    expect(phrase.estado).toBe('falhou');
+    expect(fake.state().categories).withContext('nenhum envelope novo').toEqual(before.categories);
+    expect(fake.state().people).withContext('nenhuma pessoa nova').toEqual(before.people);
+    // o mesmo pedido que entra cria os dois, uma vez
+    const ok = applySpendingRequest(store, { op: 'gasto.lancar', alvo: 'r4', dados: { titulo: 'Hotel', centavos: 500, envelope: 'Viagem', criar_envelope: true, pessoas: ['Ana'], criar_pessoas: true } }, CTX);
+    expect(ok.estado).toBe('aplicado');
+    expect([fake.get('r4')!.category, fake.get('r4')!.people]).toEqual(['c-viagem', ['p-ana']]);
+  });
+
+  it('desfazer a mudança de um envelope tira o limite que o pedido pôs', () => {
+    const { fake, store } = bookOf();
+    expect(fake.category('mercado')!.budget).toBeUndefined();
+    const ed = applySpendingRequest(store, { op: 'envelope.editar', alvo: 'mercado', dados: { nome: 'Feira', limite_centavos: 50000 } }, CTX);
+    expect(fake.category('mercado')!.budget).toBe(50000);
+    undoSpending(store, { op: 'envelope.editar', alvo: 'mercado', antes: ed.antes });
+    expect([fake.category('mercado')!.name, fake.category('mercado')!.budget]).toEqual(['Mercado', undefined]);
+    // com limite antes, o de antes volta
+    fake.saveCategory({ ...fake.category('mercado')!, budget: 30000 });
+    const ed2 = applySpendingRequest(store, { op: 'envelope.editar', alvo: 'mercado', dados: { limite_centavos: null } }, CTX);
+    expect(fake.category('mercado')!.budget).toBeUndefined();
+    undoSpending(store, { op: 'envelope.editar', alvo: 'mercado', antes: ed2.antes });
+    expect(fake.category('mercado')!.budget).toBe(30000);
+  });
+
+  it('uma mudança sua entre a leitura da AI e um pedido dela aplicado aqui é conflito', () => {
+    const { fake, store } = bookOf();
+    // você mexeu no Mercado depois que a AI leu (na versão AT)
+    fake.save({ ...fake.get('merc')!, title: 'Mercado do mês' });
+    const mine = fake.get('merc')!.at;
+    const ok = applySpendingRequest(store, { op: 'gasto.editar', alvo: 'merc', dados: { centavos: 25000, versao: mine } }, CTX);
+    expect(ok.estado).toBe('aplicado');
+    const stamps = new Map([[`merc@${ok.carimbo}`, ok.desde ?? null]]);
+    const stale = applySpendingRequest(store, { op: 'gasto.editar', alvo: 'merc', dados: { titulo: 'Feira', versao: AT } }, { ...CTX, stamps });
+    expect(stale.estado).toBe('conflito');
+    expect(fake.get('merc')!.title).toBe('Mercado do mês');
+    expect(applySpendingRequest(store, { op: 'gasto.editar', alvo: 'merc', dados: { titulo: 'Feira', versao: mine } }, { ...CTX, stamps }).estado).toBe('aplicado');
   });
 
   it('em palavras, para a folha e o histórico, e o nome que a pessoa reconhece', () => {

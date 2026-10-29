@@ -9,6 +9,7 @@ import {
   appliedWords,
   applyNoteRequest,
   fieldChanges,
+  fits,
   requestWords,
   textDiff,
   undoable,
@@ -54,7 +55,7 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     store = TestBed.inject(ReviewStore);
     store.add(note('r0001', 'Reunião', { category: 'Trabalho', subject: 'Time', tags: ['Urgente'], text: 'Pauta\n- [ ] Ligar\n- [ ] Mandar ata' }));
     store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião]]' }));
-    ctx = { now: NOW, today: '2026-10-27', stamps: new Set(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r) };
+    ctx = { now: NOW, today: '2026-10-27', stamps: new Map(), v1: (r) => TestBed.inject(ApiMirror).notaOf(r) };
   });
   afterEach(() => localStorage.clear());
 
@@ -113,10 +114,39 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
 
   it('editar depois de um pedido aplicado aqui (com a versão de antes dele) não é conflito', () => {
     const first = apply('nota.acrescentar', 'r0001', { texto: 'Fim' });
-    ctx = { ...ctx, now: '2026-10-27T15:00:01.000Z', stamps: new Set([`r0001@${first.carimbo}`]) };
+    ctx = { ...ctx, now: '2026-10-27T15:00:01.000Z', stamps: new Map([[`r0001@${first.carimbo}`, first.desde ?? null]]) };
     const out = apply('nota.editar', 'r0001', { versao: '2026-10-02T10:00:00.000Z', assunto: 'Outro' });
     expect(out.estado).toBe('aplicado');
     expect(store.get('r0001')!.subject).toBe('Outro');
+  });
+
+  it('com uma mudança sua entre a leitura da AI e o pedido dela aplicado aqui, a versão velha é conflito', () => {
+    // a AI leu a de 02/10; você mexeu depois; um pedido dela entrou por cima da sua
+    store.update({ ...store.get('r0001')!, text: 'Pauta sua', updatedAt: '2026-10-20T10:00:00.000Z' });
+    const first = apply('nota.acrescentar', 'r0001', { texto: 'Fim' });
+    expect(first.desde).toBe('2026-10-20T10:00:00.000Z');
+    ctx = { ...ctx, now: '2026-10-27T15:00:01.000Z', stamps: new Map([[`r0001@${first.carimbo}`, first.desde ?? null]]) };
+    const stale = apply('nota.editar', 'r0001', { versao: '2026-10-02T10:00:00.000Z', texto: 'por cima' });
+    expect(stale.estado).withContext('a sua mudança venceu').toBe('conflito');
+    expect(store.get('r0001')!.text).toBe('Pauta sua\nFim');
+    // com a versão que já tinha a sua mudança, a corrente é só de pedidos daqui: entra
+    expect(apply('nota.editar', 'r0001', { versao: '2026-10-20T10:00:00.000Z', assunto: 'Outro' }).estado).toBe('aplicado');
+  });
+
+  it('o que vai à nuvem cabe no teto: sem o texto grande no resultado, e sem o antes grande (sem Desfazer)', () => {
+    const big = 'x'.repeat(70_000);
+    const item = {
+      id: 'pd_a', op: 'coluna.apagar', alvo: 'c1', chave: 'Claude', chaveId: 'k1', estado: 'aplicado' as const,
+      resultado: { coluna: null }, antes: { quadro: 'q', column: { id: 'c1' }, index: 0, cards: [{ note: big }] },
+    };
+    const out = fits(item);
+    expect(out.antes).toBeNull();
+    expect(undoable(out)).toBeFalse();
+    const nota = { id: 'r1', texto: big } as unknown as NotaV1;
+    const trimmed = fits({ ...item, op: 'nota.editar', resultado: { nota }, antes: { text: 'pequeno' } });
+    expect((trimmed.resultado as { nota: NotaV1 }).nota.texto).toBe('');
+    expect(trimmed.antes).toEqual({ text: 'pequeno' });
+    expect(fits({ ...item, antes: { small: true } })).withContext('o que cabe vai como está').toEqual({ ...item, antes: { small: true } });
   });
 
   it('acrescentar no fim e no começo; passar de 20 mil letras falha', () => {
@@ -313,6 +343,22 @@ describe('os pedidos da API: o serviço (ApiRequests)', () => {
     expect(store.get('r0001')!.noteRank).toBeUndefined();
   });
 
+  it('o pedido que outro aparelho pegou segura os de depois (a ordem de chegada vale)', async () => {
+    const { s, store } = setup();
+    store.add(note('r0002', 'Lista', { text: 'Itens' }));
+    open = [req('pd_a', 'nota.tarefas', 'r0002', { novas: ['Pão'] }), req('pd_b', 'nota.tarefas', 'r0002', { marcar: ['Pão'] })];
+    busy.add('pd_a');
+    s.noteHeads(heads(2));
+    expect(await s.applyOpen('aparelho1')).toBeFalse();
+    expect(calls.filter((c) => c.path.endsWith('/pegar')).map((c) => c.path)).toEqual(['/v1/eu/pedidos/pd_a/pegar']);
+    expect(store.get('r0002')!.text).toBe('Itens');
+    // o outro aparelho largou (ou o prazo passou): os dois entram, na ordem
+    busy.clear();
+    s.noteHeads(heads(2));
+    expect(await s.applyOpen('aparelho1')).toBeTrue();
+    expect(store.get('r0002')!.text).toBe('Itens\n- [x] Pão');
+  });
+
   it('o relógio: confere com a aba à mostra; escondida, para depois de 2 horas sem nada novo', async () => {
     const { s } = setup();
     const t = Date.now();
@@ -446,6 +492,18 @@ describe('os pedidos da API: aprovar, recusar e desfazer', () => {
     expect(store.get('r0001')!.text).toBe('Pauta');
     expect(store.get('r0001')!.updatedAt > changed.updatedAt).toBeTrue();
     expect(store.versions()).withContext('a de agora era a do pedido: nada a guardar').toEqual([]);
+  });
+
+  it('desfazer a troca de título volta os [[links]] das outras notas para o título de antes', async () => {
+    const { s, store } = setup();
+    const before = store.get('r0001')!;
+    store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião geral]]' }));
+    const changed = { ...before, game: { ...before.game, name: 'Reunião geral' }, updatedAt: '2026-10-27T15:00:00.000Z' };
+    store.update(changed);
+    const { scores: _s, ...antes } = before;
+    await s.undo(site('pd_a', 'nota.editar', 'r0001', { antes, resultado: { nota: { versao: changed.updatedAt } } }));
+    expect(store.get('r0001')!.game.name).toBe('Reunião');
+    expect(store.get('r0002')!.text).toBe('Ver [[Reunião]]');
   });
 
   it('desfazer um criar apaga a nota; mexida depois, a de agora fica guardada', async () => {

@@ -24,7 +24,7 @@ import { OPS_DO_KANBAN, type NoQuadroV1 } from '../../../contrato/api-v1/operaco
 import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
 import { ApiMirror } from './api-mirror';
-import { SpendingResult, applySpendingRequest, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
+import { type RequestStamps, SpendingResult, applySpendingRequest, onlyOwnSince, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
 import { SpendingStore } from './spending-store';
 import { BUILD } from './build';
 import { CloudAccount } from './cloud-account';
@@ -93,14 +93,16 @@ export interface AppliedItem {
   antes: unknown;
   /** Quando a anotação ficou carimbada pelo pedido (a próxima edição da AI não é "conflito" por causa dele). */
   carimbo?: string;
+  /** A versão de antes do carimbo (null: o pedido criou): só a corrente de pedidos daqui passa sem conflito. */
+  desde?: string | null;
 }
 
 /** O que a aplicação precisa saber do mural: a anotação de agora, o vocabulário, a hora. */
 export interface ApplyContext {
   now: string;
   today: string;
-  /** As edições que vieram de pedidos aplicados aqui (`id@updatedAt`): não contam como mudança de outra pessoa. */
-  stamps: ReadonlySet<string>;
+  /** As edições que vieram de pedidos aplicados aqui (ver `RequestStamps`): não contam como mudança de outra pessoa. */
+  stamps: RequestStamps;
   v1(r: Review): NotaV1;
   /** Põe a nota nova no quadro do grupo dela (o `kanban` de `nota.criar`); devolve o aviso, se houver. */
   place?(r: Review, k: NoQuadroV1): string | null;
@@ -207,7 +209,7 @@ export function applyNoteRequest(
     // já no quadro do grupo, na coluna pedida (como o "Nova nota" de dentro de uma coluna)
     const aviso = d.kanban && ctx.place ? ctx.place(store.get(note.id) ?? note, d.kanban) : null;
     const born = store.get(note.id) ?? note;
-    return { estado: 'aplicado', resultado: { nota: ctx.v1(born), ...(aviso ? { aviso } : {}) }, antes: null, carimbo: born.updatedAt };
+    return { estado: 'aplicado', resultado: { nota: ctx.v1(born), ...(aviso ? { aviso } : {}) }, antes: null, carimbo: born.updatedAt, desde: null };
   }
 
   const before = mine(req.alvo);
@@ -219,7 +221,7 @@ export function applyNoteRequest(
     const stamped = sanitizeReview({ ...next, updatedAt: now }, BUILD) ?? { ...next, updatedAt: now };
     store.update(stamped, before);
     const after = store.get(before.id) ?? stamped;
-    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after) }, antes, carimbo: after.updatedAt };
+    return { estado: 'aplicado' as const, resultado: { nota: ctx.v1(after) }, antes, carimbo: after.updatedAt, desde: before.updatedAt };
   };
   /** Nada a mudar (já finalizada, já fixada): aplicado, sem carimbo nem antes. */
   const same = () => ({ estado: 'aplicado' as const, resultado: { nota: ctx.v1(before) }, antes: null });
@@ -227,8 +229,8 @@ export function applyNoteRequest(
   switch (op) {
     case 'nota.editar': {
       const e = checked.dados as EditarNotaV1;
-      // a nota mudou depois que a AI leu (e não por um pedido dela aplicado aqui): a pessoa venceu
-      if (before.updatedAt !== e.versao && !ctx.stamps.has(`${before.id}@${before.updatedAt}`)) {
+      // a nota mudou depois que a AI leu (e não só por pedidos aplicados aqui desde a versão dela): a pessoa venceu
+      if (!onlyOwnSince(before.id, before.updatedAt, e.versao, ctx.stamps)) {
         return {
           estado: 'conflito',
           resultado: { erro: 'A nota mudou depois que você a leu. Leia de novo e mande a versao nova.', nota: ctx.v1(before) },
@@ -278,11 +280,20 @@ export function applyNoteRequest(
   }
 }
 
-/** O que cabe num pedido concluído: sem o texto da nota no resultado, se ele passar do teto. */
-function fits(item: AppliedItem): AppliedItem {
-  const r = item.resultado as { nota?: NotaV1 | null };
-  if (JSON.stringify(item.resultado).length <= RESULT_MAX_CHARS || !r.nota) return item;
-  return { ...item, resultado: { ...item.resultado, nota: { ...r.nota, texto: '' } } as RequestResult };
+const overMax = (v: unknown) => v !== undefined && v !== null && JSON.stringify(v).length > RESULT_MAX_CHARS;
+
+/**
+ * O que cabe num pedido concluído (a nuvem recusa o lote inteiro com um só grande demais, e o lote
+ * ficava preso aqui para sempre, até o prazo do pedido passar e outro aparelho aplicar de novo): sem o
+ * texto da nota no resultado, e sem o `antes` que passa do teto (a coluna apagada com centenas de
+ * cartões; aí o pedido fica sem Desfazer, e a nota apagada continua em Versões guardadas).
+ */
+export function fits(item: AppliedItem): AppliedItem {
+  let out = item;
+  const r = out.resultado as { nota?: NotaV1 | null };
+  if (overMax(out.resultado) && r.nota) out = { ...out, resultado: { ...out.resultado, nota: { ...r.nota, texto: '' } } as RequestResult };
+  if (overMax(out.antes)) out = { ...out, antes: null };
+  return out;
 }
 
 /** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
@@ -519,10 +530,12 @@ export class ApiRequests {
         // só um aparelho por vez (2 minutos); outro já pegou: fica com ele
         await this.account.request(`/v1/eu/pedidos/${req.id}/pegar`, { method: 'POST', body: { aparelho: device } });
       } catch {
-        continue;
+        // e os de depois também (a próxima rodada tenta de novo): pular este e aplicar o seguinte trocava a
+        // ordem de chegada ("marcar a tarefa" antes de "acrescentar a tarefa")
+        break;
       }
       const items = this.readItems();
-      const stamps = new Set(items.filter((i) => i.carimbo).map((i) => `${i.alvo}@${i.carimbo}`));
+      const stamps: RequestStamps = new Map(items.filter((i) => i.carimbo).map((i) => [`${i.alvo}@${i.carimbo}`, i.desde ?? null]));
       const now = new Date().toISOString();
       const out = req.op.startsWith('nota.')
         ? applyNoteRequest(this.store, req, {
@@ -625,9 +638,26 @@ export class ApiRequests {
     }
     const before = sanitizeReview(t.antes, BUILD);
     if (!before) return;
-    const back = { ...before, updatedAt: new Date().toISOString() };
-    if (cur) this.store.update(back);
-    else this.store.restore(back);
+    const now = new Date().toISOString();
+    const back = { ...before, updatedAt: now };
+    if (!cur) {
+      this.store.restore(back);
+      return;
+    }
+    // o título de antes volta, e os [[links]] das outras anotações (e das resenhas) voltam junto, como no
+    // editor: sem isso, os que o pedido levou para o título novo ficavam apontando para nada
+    const relinked =
+      cur.game.name !== before.game.name
+        ? relinkAfterRename(
+            this.store.notes().filter((n) => !shared.has(n.id)),
+            cur,
+            before.game.name,
+            now,
+            this.store.reviews().filter((r) => !isNote(r)),
+          )
+        : [];
+    this.store.update(back);
+    for (const n of relinked) this.store.update(n);
   }
 
   /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */

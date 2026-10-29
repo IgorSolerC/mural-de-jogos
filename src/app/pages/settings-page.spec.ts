@@ -660,7 +660,7 @@ describe('Ajustes: Acessos (as chaves de API)', () => {
     expect(rows.length).toBe(2);
     expect(rows[0]!.querySelector('.chave-pode')!.textContent).toBe('Gastos: ver e lançar');
     expect(rows[0]!.textContent).toContain('Nunca usada');
-    expect(rows[0]!.textContent).toContain('Espera você aprovar o que muda ou apaga');
+    expect(rows[0]!.textContent).toContain('Espera você aprovar o que muda, apaga ou publica');
     // a vencida: carimbo, sem o Mudar
     expect(rows[1]!.classList).toContain('vencida');
     expect(rows[1]!.textContent).toContain('venceu');

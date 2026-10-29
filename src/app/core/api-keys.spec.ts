@@ -45,7 +45,7 @@ describe('as chaves de API em palavras', () => {
   });
 
   it('a aprovação e os grupos (só quando a chave mexe em anotações ou no Kanban)', () => {
-    expect(approvalLabel('mudancas')).toBe('Espera você aprovar o que muda ou apaga');
+    expect(approvalLabel('mudancas')).toBe('Espera você aprovar o que muda, apaga ou publica');
     expect(approvalLabel('tudo')).toBe('Espera você aprovar tudo');
     expect(approvalLabel('nunca')).toBe('Não espera aprovação');
     expect(groupsLabel({ escopos: ['gastos:ler'], grupos: ['Trabalho'] })).toBeNull();

@@ -314,6 +314,28 @@ export function pedidosSuite(label: string, getDb: () => Db) {
       expect((await t.body(t.ai(secret, 'GET', '/ext/v1/notas/trab-1'))).nota.pedidos).toEqual([{ id: a.id, op: 'nota.fixar', estado: 'pendente' }]);
     });
 
+    it('recusado enquanto um aparelho o aplicava: o aparelho conclui e o histórico conta o que aconteceu', async () => {
+      const t = await setup();
+      const { secret, me, keyId } = await t.ready();
+      const a = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Uma' }))).pedido;
+      const b = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Duas' }))).pedido;
+      const c = (await t.body(t.ai(secret, 'POST', '/ext/v1/notas', { titulo: 'Três' }))).pedido;
+      expect((await t.json('POST', `/v1/eu/pedidos/${a.id}/pegar`, { aparelho: 'aparelho-A' }, me.token)).status).toBe(200);
+      expect((await t.json('POST', `/v1/eu/pedidos/${b.id}/pegar`, { aparelho: 'aparelho-A' }, me.token)).status).toBe(200);
+      // você recusa um na folha; e apaga a chave (o outro fica recusado também), com o aparelho no meio
+      expect((await t.body(t.json('POST', `/v1/eu/pedidos/${a.id}/recusar`, undefined, me.token))).pedido.estado).toBe('recusado');
+      await t.json('DELETE', `/v1/eu/chaves/${keyId}`, undefined, me.token);
+      const done = await t.body(
+        t.json('POST', '/v1/eu/pedidos/concluir', { itens: [a, b, c].map((p) => ({ id: p.id, estado: 'aplicado', resultado: { nota: { id: p.alvo } } })) }, me.token),
+      );
+      // o que ninguém tinha pego continua recusado
+      expect(done.itens.map((i: { ok: boolean }) => i.ok)).toEqual([true, true, false]);
+      const estado = async (id: string) => (await t.db.first<{ estado: string; pego_por: string | null }>('SELECT estado, pego_por FROM api_pedidos WHERE id = ?', [id]))!;
+      expect(await estado(a.id)).toEqual({ estado: 'aplicado', pego_por: null });
+      expect(await estado(b.id)).toEqual({ estado: 'aplicado', pego_por: null });
+      expect((await estado(c.id)).estado).toBe('recusado');
+    });
+
     it('apagar a chave recusa os pedidos abertos dela; a de outra conta não mexe em nada', async () => {
       const t = await setup();
       const { secret, me, keyId } = await t.ready();

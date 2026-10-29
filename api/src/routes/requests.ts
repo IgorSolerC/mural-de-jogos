@@ -75,8 +75,13 @@ export function requestRoutes(app: Hono, deps: Deps): void {
         if (t.length > RESULT_MAX_CHARS) throw new HttpError(413, 'grande-demais', 'O resultado de um pedido é grande demais.');
         return t;
       };
+      // o pendente, e também o recusado (a pessoa recusou, ou a chave perdeu a permissão ou foi apagada)
+      // enquanto um aparelho já o tinha pego: o aparelho aplicou, e o histórico conta o que de fato
+      // aconteceu (com o Desfazer), em vez de "recusado" com a mudança no mural
       return {
-        sql: "UPDATE api_pedidos SET estado = ?, resultado = ?, antes = ?, resolvido_em = ?, pego_por = NULL, pego_ate = NULL WHERE id = ? AND usuario_id = ? AND estado = 'pendente'",
+        sql:
+          'UPDATE api_pedidos SET estado = ?, resultado = ?, antes = ?, resolvido_em = ?, pego_por = NULL, pego_ate = NULL ' +
+          "WHERE id = ? AND usuario_id = ? AND (estado = 'pendente' OR (estado = 'recusado' AND pego_por IS NOT NULL))",
         params: [estado, json(it['resultado']), json(it['antes']), at, it['id'], s.userId],
       };
     });

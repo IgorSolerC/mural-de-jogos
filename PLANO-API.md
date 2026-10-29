@@ -505,11 +505,15 @@ mundo como vai ficar.
 
 1. O site sabe que há pedidos (`Mural-Pedidos`, ou o relógio de 60 s) e lê `GET /v1/eu/pedidos?estado=pendente`.
 2. **Pega** cada um: `POST /v1/eu/pedidos/:id/pegar` (vale 2 minutos; só um aparelho por vez). Um
-   pedido pego por um aparelho que fechou volta a ficar livre depois do prazo.
+   pedido pego por um aparelho que fechou volta a ficar livre depois do prazo. O que não dá para pegar
+   segura os de depois até a próxima rodada (a ordem de chegada vale).
 3. Aplica pelas **mesmas funções da tela** (9.2), dentro da trava `navigator.locks` `meu-mural:sync`
    que a sincronização já usa.
 4. Sincroniza como hoje (o push leva junto o mural público, `novas`, `fichas`, o Google Agenda).
 5. Só depois do push que valeu: `POST /v1/eu/pedidos/concluir` com `[{id, estado, resultado, antes}]`.
+   O pedido recusado (pela folha, ou pela chave apertada ou apagada) enquanto um aparelho já o tinha
+   pego também se conclui: o aparelho aplicou, e o histórico conta o que aconteceu. Cada `resultado` e
+   `antes` cabe no teto de 64 mil (o `antes` maior sai, e o pedido fica sem Desfazer).
 6. Atualiza o espelho (seção 8.3).
 
 Um aparelho só aplica se está logado na conta do pedido **e** o mural dele é dessa conta (a mesma

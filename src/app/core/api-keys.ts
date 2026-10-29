@@ -101,7 +101,7 @@ export function connectorLabel(key: Pick<ApiKeyInfo, 'origem' | 'conector'>): st
 
 /** A aprovação numa frase curta da lista. */
 export function approvalLabel(a: Aprovacao): string {
-  return a === 'tudo' ? 'Espera você aprovar tudo' : a === 'mudancas' ? 'Espera você aprovar o que muda ou apaga' : 'Não espera aprovação';
+  return a === 'tudo' ? 'Espera você aprovar tudo' : a === 'mudancas' ? 'Espera você aprovar o que muda, apaga ou publica' : 'Não espera aprovação';
 }
 
 /** Onde a chave alcança nas Anotações e no Kanban (só quando ela mexe neles). */

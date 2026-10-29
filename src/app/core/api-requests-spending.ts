@@ -12,6 +12,7 @@ import {
   type OpGasto,
   type PessoaV1Escrita,
 } from '../../../contrato/api-v1/operacoes-gastos';
+import { andList } from './api-keys';
 import { contextoGastosV1, envelopeV1, lancamentoV1 } from './api-mirror-spending';
 import { ME, type Entry, type Flow, type SpendingState, money, monthOfDay, sanitizeEntry } from './spending';
 import { quickToEntry, readQuick } from './spending-quick';
@@ -32,54 +33,97 @@ export interface SpendingApplied {
   /** O lançamento, o envelope ou a pessoa como era (o Desfazer); null no lançar e no criar. */
   antes: unknown;
   carimbo?: string;
+  /** A versão de antes do carimbo (null: o pedido criou a coisa). */
+  desde?: string | null;
+}
+
+/**
+ * As mudanças feitas aqui por pedidos ainda não concluídos: `id@versão depois` → a versão de antes
+ * (null: o pedido criou). Elas não contam como mudança de outra pessoa.
+ */
+export type RequestStamps = ReadonlyMap<string, string | null>;
+
+/**
+ * A versão `versao` que a AI leu chega à de agora (`current`) só por pedidos aplicados aqui? Então não
+ * é conflito. Uma mudança da pessoa no meio quebra a corrente: aí a pessoa venceu, mesmo que um pedido
+ * tenha mexido depois dela.
+ */
+export function onlyOwnSince(id: string, current: string, versao: string, stamps: RequestStamps): boolean {
+  let v: string | null | undefined = current;
+  // a corrente é curta (os pedidos de uma rodada); o teto só protege de uma roda
+  for (let i = 0; i <= stamps.size && v; i++) {
+    if (v === versao) return true;
+    v = stamps.get(`${id}@${v}`);
+  }
+  return false;
 }
 
 export interface SpendingApplyContext {
   now: string;
   /** Hoje, `AAAA-MM-DD` (o dia de um lançamento que não diz qual). */
   today: string;
-  /** As mudanças feitas aqui por pedidos (`id@at`): não contam como mudança de outra pessoa. */
-  stamps: ReadonlySet<string>;
+  /** As mudanças feitas aqui por pedidos (ver `RequestStamps`). */
+  stamps: RequestStamps;
 }
 
 const failed = (erro: string, lancamento?: LancamentoV1): SpendingApplied => ({ estado: 'falhou', resultado: lancamento ? { erro, lancamento } : { erro }, antes: null });
 
+/** O id que fica no lugar de um envelope ou pessoa a criar, enquanto o pedido só é conferido (`dry`). */
+const TO_CREATE = 'a-criar';
+
 /** O envelope (id) do pedido: o achado pelo nome, um criado agora (se pedido), ou o erro. */
-function envelopeOf(store: SpendingStore, raw: string | undefined, flow: Flow, create: boolean): string | { erro: string } {
+function envelopeOf(store: SpendingStore, raw: string | undefined, flow: Flow, create: boolean, dry: boolean): string | { erro: string } {
   if (!raw) return ENVELOPE_PADRAO[flow];
   const st = store.state();
   const found = acharEnvelope(contextoGastosV1(st), raw);
   if (found) return found.tipo === flow ? found.id : { erro: `O envelope "${found.nome}" é de ${found.tipo === 'saida' ? 'saída' : 'entrada'}.` };
   if (!create) return { erro: `O envelope "${raw}" não existe. Os que existem: ${st.categories.filter((c) => c.flow === flow).map((c) => c.name).join(', ')}.` };
-  return store.addCategory(raw, flow).id;
+  return dry ? TO_CREATE : store.addCategory(raw, flow).id;
 }
 
 /** As pessoas (ids) do pedido: as achadas pelo nome, as criadas agora (se pedido), ou o erro. Só você: nada. */
-function peopleOf(store: SpendingStore, names: readonly string[] | undefined, create: boolean): string[] | undefined | { erro: string } {
+function peopleOf(store: SpendingStore, names: readonly string[] | undefined, create: boolean, dry: boolean): string[] | undefined | { erro: string } {
   if (!names?.length) return undefined;
   const ids: string[] = [];
   for (const n of names) {
     const found = acharPessoa(contextoGastosV1(store.state()), n);
     if (found) ids.push(found.id);
-    else if (create) ids.push(store.addPerson(n).id);
+    else if (create) ids.push(dry ? `${TO_CREATE}-${ids.length}` : store.addPerson(n).id);
     else return { erro: `Não há "${n}" nas pessoas dos Gastos. As que existem: ${store.state().people.map((p) => p.name).join(', ')}.` };
   }
   const unique = [...new Set(ids)];
   return unique.length === 1 && unique[0] === ME ? undefined : unique;
 }
 
-/** O lançamento com os campos do pedido (no lançar, a partir de um em branco). */
+/**
+ * O lançamento com os campos do pedido (no lançar, a partir de um em branco). Primeiro conferido sem
+ * criar nada: só o pedido que vai entrar cria o envelope e as pessoas novas, e o que falha (o reembolso
+ * de um gasto que não existe, um campo que não combina) não deixa nada para trás.
+ */
 function withFields(
   store: SpendingStore,
   base: Entry,
   c: CamposDoLancamento & { criar_envelope?: true; criar_pessoas?: true },
+): Entry | { erro: string } {
+  const tried = fieldsOn(store, base, c, true);
+  if ('erro' in tried) return tried;
+  if (!sanitizeEntry(tried)) return { erro: 'O lançamento não pôde ser gravado (algum campo não combina).' };
+  return fieldsOn(store, base, c, false);
+}
+
+/** Os campos do pedido no lançamento; `dry`: sem criar o envelope e as pessoas novas (só conferir). */
+function fieldsOn(
+  store: SpendingStore,
+  base: Entry,
+  c: CamposDoLancamento & { criar_envelope?: true; criar_pessoas?: true },
+  dry: boolean,
 ): Entry | { erro: string } {
   const flow = c.tipo ?? base.flow;
   const next: Entry = { ...base, flow };
   if (c.titulo !== undefined) next.title = c.titulo;
   if (c.centavos !== undefined) next.amount = c.centavos;
   if (c.envelope !== undefined || flow !== base.flow) {
-    const cat = envelopeOf(store, c.envelope, flow, !!c.criar_envelope);
+    const cat = envelopeOf(store, c.envelope, flow, !!c.criar_envelope, dry);
     if (typeof cat !== 'string') return cat;
     next.category = cat;
   }
@@ -95,7 +139,7 @@ function withFields(
     else delete next.need;
   }
   if (c.pessoas !== undefined) {
-    const people = peopleOf(store, c.pessoas, !!c.criar_pessoas);
+    const people = peopleOf(store, c.pessoas, !!c.criar_pessoas, dry);
     if (people && !Array.isArray(people)) return people;
     if (people) next.people = people;
     else delete next.people;
@@ -146,7 +190,7 @@ export function applySpendingRequest(store: SpendingStore, req: { op: string; al
     if (!clean) return failed('O lançamento não pôde ser gravado (algum campo não combina).');
     store.save(clean);
     const after = store.get(clean.id) ?? clean;
-    return { estado: 'aplicado', resultado: { lancamento: v1(after) }, antes, carimbo: after.at };
+    return { estado: 'aplicado', resultado: { lancamento: v1(after) }, antes, carimbo: after.at, desde: antes?.at ?? null };
   };
 
   switch (op) {
@@ -164,10 +208,12 @@ export function applySpendingRequest(store: SpendingStore, req: { op: string; al
         if (newPeople.length && !d.criar_pessoas) {
           return failed(`Não há ${newPeople.map((p) => `"${p.name}"`).join(', ')} nas pessoas dos Gastos. Mande "criar_pessoas": true para criar.`);
         }
+        // conferida antes de criar as pessoas novas: a frase que não entra não deixa ninguém para trás
+        const tried = quickToEntry(q);
+        if (!tried) return failed(`Não entendi o valor em “${d.frase}”. Escreva como na linha de anotar: "mercado 230,50 ontem".`);
+        if (!sanitizeEntry({ ...blank, ...tried })) return failed('O lançamento não pôde ser gravado (algum campo não combina).');
         const people = (q.people ?? []).map((p) => (p.id ? p : { id: store.addPerson(p.name).id, name: p.name }));
-        const entry = quickToEntry({ ...q, people });
-        if (!entry) return failed(`Não entendi o valor em “${d.frase}”. Escreva como na linha de anotar: "mercado 230,50 ontem".`);
-        return save({ ...blank, ...entry }, null);
+        return save({ ...blank, ...quickToEntry({ ...q, people })! }, null);
       }
       const next = withFields(store, blank, d);
       if ('erro' in next) return failed(next.erro);
@@ -179,7 +225,7 @@ export function applySpendingRequest(store: SpendingStore, req: { op: string; al
       if (!before) return failed('O lançamento não existe mais (foi apagado).');
       const versao = (checked.dados as { versao: string }).versao;
       // mudou depois que a AI leu (e não por um pedido dela aplicado aqui): a pessoa venceu
-      if (before.at !== versao && !ctx.stamps.has(`${before.id}@${before.at}`)) {
+      if (!onlyOwnSince(before.id, before.at, versao, ctx.stamps)) {
         return { estado: 'conflito', resultado: { erro: 'O lançamento mudou depois que você o leu. Leia de novo e mande a versao nova.', lancamento: v1(before) }, antes: null };
       }
       if (op === 'gasto.apagar') {
@@ -251,9 +297,6 @@ const FIELD_WORDS: Record<string, string> = {
   reembolso_de: 'o reembolso',
 };
 
-/** "a, b e c". */
-const andList = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
-
 /**
  * O pedido dos Gastos em palavras: "Lançar “Padaria”, R$ 18,50" (esperando) ou "lançou “Padaria”,
  * R$ 18,50" (no histórico, `past`). `title` é o nome do lançamento, do envelope ou da pessoa.
@@ -317,9 +360,14 @@ export function undoSpending(store: SpendingStore, t: { op: string; alvo: string
     return;
   }
   if (t.op === 'envelope.editar') {
-    const before = t.antes as { id?: string } | null;
+    const before = t.antes as { id?: string; name?: unknown; budget?: unknown } | null;
     const cur = before?.id ? store.category(before.id) : undefined;
-    if (cur && before) store.saveCategory({ ...cur, ...(before as object) });
+    if (!cur || !before) return;
+    // o nome e o limite de antes: sem limite antes, o que o pedido pôs sai (espalhar o de antes o deixava)
+    const back = { ...cur, ...(typeof before.name === 'string' && before.name ? { name: before.name } : {}) };
+    if (typeof before.budget === 'number') back.budget = before.budget;
+    else delete back.budget;
+    store.saveCategory(back);
     return;
   }
   if (t.op === 'pessoa.editar') {
