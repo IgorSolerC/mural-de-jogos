@@ -163,16 +163,15 @@ import { NoteWidget } from './note-widget';
   `,
   imports: [NgTemplateOutlet, NoteWidget],
   styles: `
+    @use 'formatado';
+
     :host {
       display: block;
     }
     :host(.formatado) {
       white-space: normal;
     }
-    .linha {
-      min-height: var(--line, 1.5em);
-      white-space: pre-wrap;
-    }
+    @include formatado.linha;
     /* o texto comum desce na linha o quanto quem usa pedir (a leitura, para a letra à mão assentar na
        pauta); o título e a divisória ficam onde estão. Só se vê: o lugar de cada linha não muda. O
        corpo de um item sobe o que o item desceu, e cada linha dele desce por conta própria */
@@ -185,30 +184,7 @@ import { NoteWidget } from './note-widget';
       top: calc(var(--texto-desce, 0px) * -1);
     }
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
-    /* ===== As ênfases ===== */
-    .negrito {
-      font-weight: 700;
-    }
-    .italico {
-      font-style: italic;
-    }
-    /* riscado a lápis, por cima da letra */
-    .riscado {
-      text-decoration: line-through 2px;
-      text-decoration-color: color-mix(in srgb, currentColor 62%, transparent);
-    }
-    /* o marca-texto: uma passada da ponta chanfrada, cada linha com a sua, na altura das letras
-       baixas e um pouco acima, sem descer nas pernas do g e do p. A faixa tem altura própria (em em),
-       e não a da caixa da fonte: a da letra à mão é bem mais alta que a linha e cobria a de cima e a
-       de baixo, e as faixas de duas linhas seguidas se encostavam */
-    .marca {
-      --marca-cor: rgb(255 218 66 / 0.62);
-      background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 52% / 100% 0.7em;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-      padding: 0 0.1em;
-      border-radius: 2px;
-    }
+    @include formatado.enfases;
     :host-context(app-review-card[data-cor='amarelo']) .marca {
       --marca-cor: rgb(255 112 168 / 0.45);
     }
@@ -280,112 +256,15 @@ import { NoteWidget } from './note-widget';
         transition: none;
       }
     }
-    /* o código: letra de máquina de escrever, num retalho de papel mais escuro */
-    .cod,
-    .codigo {
-      font-family: var(--f-mono);
-      font-weight: 600;
-    }
-    .cod {
-      padding: 0 0.28em;
-      border-radius: 2px;
-      background: color-mix(in srgb, currentColor 11%, transparent);
-      font-size: 0.92em;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-    }
-    .codigo {
-      margin: 0;
-      padding: 0 0.6em;
-      border-radius: 2px;
-      background: color-mix(in srgb, currentColor 9%, transparent);
-      box-shadow: inset 2px 0 0 color-mix(in srgb, currentColor 30%, transparent);
-      font-size: 0.88em;
-      line-height: var(--line, 1.5em);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-    }
+    @include formatado.codigo;
 
-    /* ===== Os títulos: a letra grossa de pincel; o terceiro, de carimbo ===== */
-    .titulo {
-      font-family: var(--f-marker);
-      font-weight: 400;
-      line-height: var(--line, 1.5em);
-      overflow-wrap: anywhere;
-    }
-    /* o respiro em volta do título: quem usa diz quanto (a cartolina do mural, que não tem pauta);
-       sem dizer, nenhum, e o título fica na linha dele (a leitura). A linha em branco já é o respiro,
-       e ele não soma com ela. No :where, para pesar só como o .titulo (o PDF dá os respiros dele) */
-    .titulo:where(:not(:first-child, .linha:empty + *)) {
-      margin-top: var(--titulo-antes, 0);
-    }
-    .titulo:where(:not(:last-child, :has(+ .linha:empty))) {
-      margin-bottom: var(--titulo-depois, 0);
-    }
-    .t1 {
-      font-size: 1.32em;
-    }
-    .t2 {
-      font-size: 1.12em;
-    }
-    .t3 {
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.86em;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+    @include formatado.titulos;
 
-    /* ===== A citação: recuada, inclinada, com o fio de tinta do lado ===== */
-    .citacao {
-      position: relative;
-      margin: 0;
-      padding-left: 0.95em;
-      font-style: italic;
-    }
-    /* o risco a lápis do lado da citação, ondulado como a divisória (não uma barra reta) */
-    .citacao::before {
-      content: '';
-      position: absolute;
-      left: 0.12em;
-      /* quem usa pode tirar a folga (os comentários: a citação de uma linha só ficava um toco de risco) */
-      top: var(--citacao-folga, 0.3em);
-      bottom: var(--citacao-folga, 0.3em);
-      width: 7px;
-      background: currentColor;
-      opacity: 0.45;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 100' preserveAspectRatio='none'%3E%3Cpath d='M5.5 2C3.4 18 7.4 34 4.8 52S3.6 82 5.6 98' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-    }
+    @include formatado.citacao;
 
-    /* ===== O texto sutil ("-# "): a letra menor, na tinta da folha mais rala (na cartolina colorida,
-       a cor dela aparece por baixo, sem virar cinza). A linha continua com a altura da pauta: só as
-       letras diminuem, dentro dela ===== */
-    .sutil {
-      color: color-mix(in srgb, currentColor 64%, transparent);
-    }
-    .sutil-texto {
-      font-size: 0.84em;
-    }
-    /* o trecho sutil no meio da frase ("((assim))"): o mesmo, só nele (também no link e no código,
-       que têm cor e tamanho próprios) */
-    .sutil:not(.linha) {
-      color: color-mix(in srgb, currentColor 64%, transparent);
-      font-size: 0.84em;
-    }
-    /* na linha que já é sutil, o trecho não fica mais claro nem menor de novo */
-    .sutil .sutil {
-      color: inherit;
-      font-size: inherit;
-    }
+    @include formatado.sutil;
 
-    /* ===== A divisória: um risco ondulado à mão, no meio da linha da pauta ===== */
-    .divisoria {
-      background: currentColor;
-      opacity: 0.5;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
-    }
+    @include formatado.divisoria;
 
     /* ===== A tabela, nos cinco jeitos (ver core/tables.ts) =====
        Toda fileira tem a altura de uma linha da pauta (a letra sentada nela), e os fios entre as
@@ -586,18 +465,7 @@ import { NoteWidget } from './note-widget';
       background-size: 100% 1.5px;
     }
 
-    /* a seta de quem sai daqui: o desenho da família de ícones do site (lucide), no traço da letra */
-    .url::after {
-      content: '';
-      display: inline-block;
-      width: 0.62em;
-      height: 0.62em;
-      margin-left: 0.14em;
-      vertical-align: 0.32em;
-      background: currentColor;
-      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
-      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10M7 17 17 7'/%3E%3C/svg%3E") center / contain no-repeat;
-    }
+    @include formatado.seta-url;
 
     .lista {
       margin: 0;
@@ -732,49 +600,7 @@ import { NoteWidget } from './note-widget';
       text-decoration: line-through 2px rgb(21 21 21 / 0.45);
       opacity: 0.7;
     }
-    /* O link: a letra de sempre, sublinhada à mão com a caneta azul (cada linha com o seu risco,
-       levemente torto): azul-marinho nas cartolinas claras e no papel, azul-céu nas escuras. Passando
-       por cima, o marca-texto azul, da mesma caneta do risco. A cor segue a cartolina da ficha do mural (ver as variações logo
-       abaixo); a leitura é de papel creme, com a caneta azul-marinho. */
-    .elo {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%231d3577' stroke-width='2.3' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-      --elo-marca: rgb(96 150 235 / 0.3);
-      color: inherit;
-      text-decoration: none;
-      border-radius: 2px;
-      /* o risco logo embaixo da letra (não lá embaixo da caixa, longe do texto); o marca-texto
-         passado na palavra inteira, de cima a baixo */
-      background:
-        var(--elo-traco) no-repeat left 0 bottom 0.1em / 100% 0.34em,
-        linear-gradient(transparent 4%, var(--elo-fundo, transparent) 4%, var(--elo-fundo, transparent) 96%, transparent 96%) no-repeat;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-    }
-    .elo[tabindex],
-    .url {
-      cursor: pointer;
-    }
-    .elo[tabindex]:hover,
-    .elo[tabindex]:focus-visible,
-    .url:hover,
-    .url:focus-visible {
-      --elo-fundo: var(--elo-marca);
-    }
-    .elo:focus-visible {
-      outline: 2px solid currentColor;
-      outline-offset: 2px;
-    }
-    .elo.negrito {
-      font-weight: 700;
-    }
-    .elo.italico {
-      font-style: italic;
-    }
-    /* a anotação não existe (ainda): o risco tracejado, a lápis, e a letra mais apagada */
-    .elo.quebrado {
-      --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23151515' stroke-opacity='.55' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-      opacity: 0.85;
-    }
+    @include formatado.elo;
     /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
     :host-context(app-review-card[data-cor$='-escuro']) .elo,
     :host-context(app-review-card[data-cor='preto']) .elo {
