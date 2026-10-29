@@ -65,6 +65,9 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
   'coluna.criar': 'colunas',
   'coluna.editar': 'colunas',
   'coluna.apagar': 'colunas',
+  'lembrete.criar': 'novoNoCalendario',
+  'lembrete.editar': 'calendario',
+  'lembrete.apagar': 'apagar',
 };
 
 /**
@@ -173,6 +176,9 @@ const OP_ICONS: Record<string, keyof typeof ICON> = {
                       }
                       @if (w.r.op === 'gasto.apagar' && !w.gone) {
                         <p class="porque">Ele sai dos Gastos; o Desfazer do histórico põe de volta.</p>
+                      }
+                      @if (w.r.op === 'lembrete.apagar' && !w.gone) {
+                        <p class="porque">{{ $any(w.r.dados)?.dia ? 'Só esta vez sai; o lembrete continua nos outros dias.' : 'Ele sai do Calendário (e do Google Agenda, se estiver ligado); o Desfazer do histórico põe de volta.' }}</p>
                       }
                       @if (w.fields.length) {
                         <dl class="campos">
@@ -348,10 +354,11 @@ export class ApiRequestsSheet {
     return ICON[OP_ICONS[op] ?? 'editar'];
   }
 
-  /** "A nota", "O lançamento", "O envelope", "A pessoa", "A coluna": o que sumiu. */
+  /** "A nota", "O lançamento", "O envelope", "A pessoa", "A coluna", "O lembrete": o que sumiu. */
   protected goneWords(op: string): string {
     if (op === 'coluna.editar' || op === 'coluna.apagar') return 'A coluna (ou o quadro)';
     if (op === 'coluna.criar') return 'O quadro';
+    if (op.startsWith('lembrete.')) return 'O lembrete';
     return op.startsWith('gasto.') ? 'O lançamento' : op.startsWith('envelope.') ? 'O envelope' : op.startsWith('pessoa.') ? 'A pessoa' : 'A nota';
   }
 

@@ -1633,8 +1633,22 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      lembrete como vai ficar (null no apagar inteiro; o `dia` no apagar de uma vez). Criar lembrete não
      espera a aprovação "mudancas" (`opMuda`). O site de hoje ainda não aplica os pedidos do
      Calendário: eles esperam o passo 5.
-  5. Site aplica os pedidos do Calendário (pelo `CalendarStore`), com o Desfazer e as frases na folha
-     dos pedidos e no histórico. Testes. BUILD + 1.
+  5. [feito, BUILD 635] Site aplica os pedidos do Calendário (pelo `CalendarStore`), com o Desfazer e as frases na folha
+     dos pedidos e no histórico. Testes. BUILD + 1. Feito assim: `core/api-requests-calendar.ts`
+     (`applyCalendarRequest`, `undoCalendar`, `calendarWords`, `calendarTitle`, `isCalendarOp`), chamado
+     pelo `ApiRequests` para `lembrete.*`. O lembrete v1 como vai ficar (a mesma prévia da API) volta ao
+     formato do Murall por cima do de antes (a ligação com o Google e a hora de criar ficam; o "semana
+     começa no domingo" só fica se a repetição não mudou) e passa por `sanitizeReminder` e
+     `CalendarStore.save`; o Google Agenda vai sozinho depois. Sem cor, `drawColor`, como a folha. A
+     anotação presa que não existe (ou é compartilhada) faz o pedido falhar. Tirar um dia pede a vez que
+     começa nele (`occurrenceStart`) e vai por `skipDay`; o travado pelo Google falha fora a cor e as
+     notas. Mudar com a versão velha é `conflito`, a não ser que a mudança do meio tenha sido um pedido
+     aplicado aqui (`onlyOwnSince`, como nos Gastos). O Desfazer tira o criado e devolve o mudado, o do
+     dia tirado e o apagado (`CalendarStore.restore`, que mantém a ligação de agora com o Google). A
+     folha dos pedidos ganhou os ícones do Calendário, as frases ("Marcar “Reunião” para 4 de novembro,
+     às 9h, toda semana", "Tirar “Academia” de 19 de outubro") e o que acontece ao apagar (só a vez, ou
+     o lembrete, também do Google). Fotos de perto da folha (esperando e histórico, computador e
+     celular) na build de produção. O bundle inicial foi a 1,94 MB.
   6. MCP e guia: `ver_agenda`, `listar_lembretes`, `ler_lembrete`, `criar_lembrete`,
      `editar_lembrete`, `apagar_lembrete`; a parte do Calendário no guia; o OpenAPI e as cópias em
      `docs/api` regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.

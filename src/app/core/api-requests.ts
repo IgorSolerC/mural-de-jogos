@@ -19,8 +19,11 @@ import {
   type OpNota,
   type TarefasV1,
 } from '../../../contrato/api-v1/operacoes';
+import { OPS_DO_CALENDARIO } from '../../../contrato/api-v1/operacoes-calendario';
 import { OPS_DE_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { OPS_DO_KANBAN, type NoQuadroV1 } from '../../../contrato/api-v1/operacoes-kanban';
+import { CalendarResult, applyCalendarRequest, calendarTitle, calendarWords, isCalendarOp, undoCalendar } from './api-requests-calendar';
+import { CalendarStore } from './calendar-store';
 import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
 import { ApiMirror } from './api-mirror';
@@ -37,7 +40,8 @@ import { ReviewStore } from './review-store';
 
 /**
  * Os pedidos da API das AIs, pelo lado do site (PLANO-API.md, seção 9; os dos Gastos em
- * core/api-requests-spending.ts, os do Kanban em core/api-requests-kanban.ts). A nuvem nunca abre o mural:
+ * core/api-requests-spending.ts, os do Kanban em core/api-requests-kanban.ts, os do Calendário em
+ * core/api-requests-calendar.ts). A nuvem nunca abre o mural:
  * cada escrita de uma AI vira um pedido, e o Murall aberto em algum aparelho logado na conta pega,
  * aplica pelas mesmas funções da tela (as lojas, as conferências de sempre), sincroniza como uma
  * edição comum e só então conclui o pedido na nuvem, com o resultado e a nota de antes (o Desfazer).
@@ -76,7 +80,7 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult;
+export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
@@ -299,9 +303,12 @@ export function fits(item: AppliedItem): AppliedItem {
 /** O que basta para desfazer: o pedido, o que ele fez e a nota de antes. */
 export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
 
-/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", a coluna nova, ou o que tem o de antes). */
+/** Dá para desfazer? Só o que entrou e mudou algo (o "criar", o "lançar", a coluna nova, o lembrete novo, ou o que tem o de antes). */
 export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
-  return t.estado === 'aplicado' && (t.op === 'nota.criar' || t.op === 'gasto.lancar' || t.op === 'coluna.criar' || (t.antes !== null && t.antes !== undefined));
+  return (
+    t.estado === 'aplicado' &&
+    (t.op === 'nota.criar' || t.op === 'gasto.lancar' || t.op === 'coluna.criar' || t.op === 'lembrete.criar' || (t.antes !== null && t.antes !== undefined))
+  );
 }
 
 const FIELD_WORDS: Record<string, string> = {
@@ -325,6 +332,8 @@ export function requestWords(op: string, dados: unknown, title: string, past = f
   if (spending) return spending;
   const kanban = kanbanWords(op, dados, title, past, cols);
   if (kanban) return kanban;
+  const calendar = calendarWords(op, dados, title, past);
+  if (calendar) return calendar;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -478,6 +487,7 @@ export class ApiRequests {
   private readonly data = inject(LocalData);
   private readonly spending = inject(SpendingStore);
   private readonly kanban = inject(KanbanStore);
+  private readonly calendar = inject(CalendarStore);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
   readonly counts = signal({ pendentes: 0, aprovar: 0 });
@@ -547,7 +557,9 @@ export class ApiRequests {
           })
         : isKanbanOp(req.op)
           ? applyKanbanRequest(this.kanban, this.store, req, now)
-          : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
+          : isCalendarOp(req.op)
+            ? applyCalendarRequest(this.calendar, req, { now, stamps, noteExists: (id) => this.ownNote(id) })
+            : applySpendingRequest(this.spending, req, { now, today: todayISO(), stamps });
       this.writeItems([...items, fits({ id: req.id, op: req.op, alvo: req.alvo, chave: req.chave.nome, chaveId: req.chave.id, ...out })]);
       any = true;
     }
@@ -622,6 +634,10 @@ export class ApiRequests {
       undoKanban(this.kanban, this.store, t, new Date().toISOString());
       return;
     }
+    if (isCalendarOp(t.op)) {
+      undoCalendar(this.calendar, t);
+      return;
+    }
     if (!t.op.startsWith('nota.')) {
       undoSpending(this.spending, t);
       return;
@@ -663,6 +679,7 @@ export class ApiRequests {
   /** O título que a pessoa reconhece: o do pedido, o de agora, o de depois, o de antes. */
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
     if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
+    if (isCalendarOp(t.op)) return calendarTitle(this.calendar, t);
     if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);
     if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
     return (
@@ -695,7 +712,7 @@ export class ApiRequests {
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */
   private due(list: readonly SiteRequest[]): SiteRequest[] {
     const done = new Set(this.readItems().map((i) => i.id));
-    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN];
+    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN, ...OPS_DO_CALENDARIO];
     return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && known.includes(r.op));
   }
 
@@ -705,6 +722,7 @@ export class ApiRequests {
    */
   spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'> & { dados?: unknown }): boolean {
     if (isKanbanOp(r.op)) return this.kanbanGone(r);
+    if (r.op === 'lembrete.editar' || r.op === 'lembrete.apagar') return !this.calendar.get(r.alvo);
     if (r.op === 'gasto.editar' || r.op === 'gasto.apagar') return !this.spending.get(r.alvo);
     if (r.op === 'envelope.editar') return !this.spending.category(r.alvo);
     if (r.op === 'pessoa.editar') return !this.spending.person(r.alvo);
@@ -719,6 +737,12 @@ export class ApiRequests {
     if (r.op.startsWith('cartao.')) return !this.store.get(r.alvo);
     if (r.op === 'coluna.editar' || r.op === 'coluna.apagar') return !b.columns.some((c) => c.id === r.alvo);
     return false;
+  }
+
+  /** A anotação é sua (não compartilhada) e existe: as que um lembrete pode prender. */
+  private ownNote(id: string): boolean {
+    const r = this.store.get(id);
+    return !!r && isNote(r) && !this.store.sharedIds().has(id);
   }
 
   /** Os abertos na nuvem (atualiza a contagem e a lista); null sem rede. */
