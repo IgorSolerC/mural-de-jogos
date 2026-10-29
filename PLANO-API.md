@@ -1727,9 +1727,12 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      novos do espelho e a conferência da forma em `api/src/domain/mirror.ts` (as áreas `desejos`,
      `pra-depois` e `fichas`; `data` = o dia em que entrou ou o da ficha, `grupo` = o mural, `busca` =
      o nome, o por e, na ficha, o texto, sem acento). Testes numa suíte nova, `api/test/murais.suite.ts`.
-  2. Site manda o espelho: `core/api-mirror-murals.ts` monta os desejos, os pra depois, as fichas (as
+  2. [feito, BUILD 637] Site manda o espelho: `core/api-mirror-murals.ts` monta os desejos, os pra depois, as fichas (as
      de todos os murais, menos as anotações) e o contexto com `KIND_PROFILES`, só quando a nuvem pede a
-     área. Testes. BUILD + 1.
+     área. Testes. BUILD + 1. Feito assim: `desejoV1`, `praDepoisV1`, `fichaV1`, `contextoFichasV1` e
+     `muralsMirror` (puras); o `ApiMirror` com as três áreas (o que sai daqui sai do espelho). A ficha
+     leva a final que já guarda (a média, ou a dada na mão, com `nota_final_na_mao`), as notas só do
+     mural dela e o "quem vê" de verdade (`shownToOthers`). Nada novo no navegador.
   3. API, ler: `GET /ext/v1/desejos` (`mural`, `relevancia`, `q`, `limite`, `depois`) e `/:id`, `GET
      /ext/v1/pra-depois` (`mural`, `q`) e `/:id`, `GET /ext/v1/fichas` (`mural`, `status`, `veredito`,
      `q`, `ordem`, `com_texto`) e `/:id`; o contexto com `desejos`, `pra_depois` (quantos em cada mural)

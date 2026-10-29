@@ -1,10 +1,12 @@
 import { Injectable, inject } from '@angular/core';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
+import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
 import type { QuadroV1 } from '../../../contrato/api-v1/kanban';
 import { CONTEXTO_NOTAS, ESPELHO_POR_ENVIO, type ContextoNotasV1, type GrupoV1, type NotaV1, type TipoDoEspelho } from '../../../contrato/api-v1/notas';
 import { calendarMirror } from './api-mirror-calendar';
+import { muralsMirror } from './api-mirror-murals';
 import { kanbanMirror } from './api-mirror-kanban';
 import { spendingMirror } from './api-mirror-spending';
 import { lookKey } from './category-looks';
@@ -25,8 +27,8 @@ import { nameCollator } from './text';
  * que deixou o aparelho igual à nuvem, o site traduz as anotações e os gastos para o formato público v1
  * e manda à nuvem só o que mudou (a nuvem guarda as impressões do que já tem). A API lê dali, sem abrir
  * o mural. Só para a conta que pode usar a API, e só as áreas que alguma chave dela lê (as Anotações,
- * os Gastos, o Kanban, o Calendário; ver core/api-mirror-spending.ts, core/api-mirror-kanban.ts e
- * core/api-mirror-calendar.ts).
+ * os Gastos, o Kanban, o Calendário, a Wishlist, o Pra depois e as fichas; ver core/api-mirror-spending.ts,
+ * core/api-mirror-kanban.ts, core/api-mirror-calendar.ts e core/api-mirror-murals.ts).
  *
  * Nada fica no navegador: o "o que já foi" mora na nuvem, e o resto vive na memória desta aba.
  */
@@ -38,16 +40,19 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1;
+  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
-const AREAS = ['notas', 'gastos', 'kanban', 'calendario'] as const;
+const AREAS = ['notas', 'gastos', 'kanban', 'calendario', 'desejos', 'pra-depois', 'fichas'] as const;
 const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = {
   notas: ['nota'],
   gastos: ['lancamento', 'visao'],
   kanban: ['quadro'],
   calendario: ['lembrete', 'agenda'],
+  desejos: ['desejo'],
+  'pra-depois': ['pra-depois'],
+  fichas: ['ficha'],
 };
 
 /** O cartão da nota no Kanban, como a v1 mostra. */
@@ -181,7 +186,8 @@ export class ApiMirror {
   /**
    * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (as
    * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto; no
-   * Kanban, o quadro de cada grupo com nota; no Calendário, os lembretes e a agenda de cada mês da janela.
+   * Kanban, o quadro de cada grupo com nota; no Calendário, os lembretes e a agenda de cada mês da janela;
+   * nos murais de resenhas, os desejos, os pra depois, as fichas e o que cada mural tem.
    */
   async items(areas: readonly string[] = ['notas']): Promise<MirrorItem[]> {
     const out: MirrorItem[] = [];
@@ -197,6 +203,10 @@ export class ApiMirror {
     }
     if (areas.includes('calendario')) {
       for (const i of calendarMirror(this.calendar.state(), todayISO())) out.push({ ...i, hash: await hashOf(i.dados) });
+    }
+    if (areas.some((a) => a === 'desejos' || a === 'pra-depois' || a === 'fichas')) {
+      const murals = { wishes: this.store.wishes(), drafts: this.store.drafts(), reviews: this.store.reviews(), boardOnly: this.kanban.boardOnly() };
+      for (const i of muralsMirror(murals, areas)) out.push({ ...i, hash: await hashOf(i.dados) });
     }
     return out;
   }
