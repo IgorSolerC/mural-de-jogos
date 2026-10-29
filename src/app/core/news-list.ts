@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-cofre-pin-e-carencia',
+    id: '2026-10-29-titulos-na-cartolina',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -39,6 +39,7 @@ export const NEWS: NewsEntry[] = [
       'Pela API e pelo MCP, a AI vê as imagens coladas nas notas que a chave lê (a ferramenta Ver uma imagem), sem passar dos grupos dela.',
       'Colar numa anotação sua (ou no perfil) um texto com a imagem de outra pessoa, copiado de uma compartilhada, guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada. Dentro da própria compartilhada e nos comentários, ela fica como veio.',
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
+      'Na cartolina do mural, o título fica um pouco afastado do texto de cima e do de baixo (mais que uma quebra de linha, menos que uma linha em branco); e o parágrafo começa na margem em todo lugar, sem a primeira linha entrar sozinha (quem quiser o recuo escreve os espaços).',
     ],
     correcoes: [
       'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa (antes o toque abria a anotação em vez de ampliar) e não sai mais cortado no widget do alto do texto.',

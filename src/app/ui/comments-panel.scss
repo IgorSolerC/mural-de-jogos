@@ -339,11 +339,9 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* o texto na letra de quem escreveu, sem o recuo de parágrafo das fichas: aqui cada fala começa na
-   margem, embaixo do nome */
+/* o texto na letra de quem escreveu: cada fala começa na margem, embaixo do nome */
 .texto {
   --line: 1.55rem;
-  --recuo: 0;
   /* o risco da citação pega a linha inteira: aqui quase toda citação tem uma linha só */
   --citacao-folga: 0.05em;
   margin-top: 2px;

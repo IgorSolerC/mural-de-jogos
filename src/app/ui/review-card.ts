@@ -989,6 +989,13 @@ export const CARD_STYLES = `
       --tarefa-respiro: 0.45em;
       --corpo-respiro: 0px;
     }
+    /* o título longe do texto, na anotação e na resenha inteira (as duas na linha de 1.4rem): mais
+       que a quebra de linha, menos que a linha em branco; mais em cima que embaixo, para ele ir com
+       o texto dele. A leitura não tem (lá a pauta é que alinha) */
+    :is(.nota-texto, .texto-inteiro) {
+      --titulo-antes: calc(1.4rem * 0.55);
+      --titulo-depois: calc(1.4rem * 0.3);
+    }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {
       display: block;

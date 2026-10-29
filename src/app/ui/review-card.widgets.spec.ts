@@ -186,3 +186,48 @@ describe('os widgets na ficha do mural', () => {
     expect(Math.abs(gap(items[1], items[2]) - gap(items[0], items[1]))).toBeLessThanOrEqual(1);
   });
 });
+
+/** O título no texto da cartolina: longe do texto, mais que a quebra de linha e menos que a linha em branco. */
+describe('o título no texto da ficha do mural', () => {
+  let fixture: ComponentFixture<ReviewCard>;
+  let el: HTMLElement;
+
+  async function show(review: Review, inputs: Record<string, unknown> = {}): Promise<void> {
+    TestBed.configureTestingModule({ imports: [ReviewCard], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(ReviewCard);
+    fixture.componentRef.setInput('review', review);
+    for (const [k, v] of Object.entries(inputs)) fixture.componentRef.setInput(k, v);
+    el = fixture.nativeElement as HTMLElement;
+    el.style.width = '360px';
+    document.body.appendChild(el);
+    await fixture.whenStable();
+  }
+
+  afterEach(() => {
+    el?.remove();
+    fixture?.destroy();
+  });
+
+  const gaps = (box: string) => {
+    const t = getComputedStyle(el.querySelector(`${box} .titulo`)!);
+    const line = parseFloat(getComputedStyle(el.querySelector(box)!).lineHeight);
+    return { top: parseFloat(t.marginTop) / line, bottom: parseFloat(t.marginBottom) / line };
+  };
+
+  it('na anotação, o título se afasta do texto de cima e do de baixo', async () => {
+    await show(card('anotacoes', 'Antes\n## Mercado\nPão'));
+    const { top, bottom } = gaps('.nota-texto');
+    expect(top).toBeGreaterThan(0.4);
+    expect(top).toBeLessThan(1);
+    expect(bottom).toBeGreaterThan(0.2);
+    expect(bottom).toBeLessThan(top);
+  });
+
+  it('na resenha inteira, o mesmo', async () => {
+    await show(card('jogos', 'Antes\n## O fim\nDepois'), { full: true });
+    const { top, bottom } = gaps('.texto-inteiro');
+    expect(top).toBeGreaterThan(0.4);
+    expect(top).toBeLessThan(1);
+    expect(bottom).toBeGreaterThan(0.2);
+  });
+});

@@ -270,9 +270,8 @@
 // caminho comprido (.pdf-sheet .pdf-folha .pdf-texto) pesa mais que os estilos do RichText, que o
 // Angular encapsula com um atributo em cada pedaço do seletor =====
 .pdf-sheet .pdf-folha .pdf-texto {
-  // uma linha da folha; sem recuo de parágrafo (a linha em branco é que separa, como no Obsidian)
+  // uma linha da folha (a linha em branco é que separa os parágrafos, como no Obsidian)
   --line: 1.6em;
-  --recuo: 0;
   --tarefa-respiro: 0.2em;
   --corpo-respiro: 0.35em;
   --citacao-folga: 0.15em;

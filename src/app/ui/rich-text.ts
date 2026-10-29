@@ -10,10 +10,11 @@ import { NoteWidget } from './note-widget';
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
  * listas e checklists. Quem desenha é o Angular, nunca HTML vindo do texto. Sem nenhuma marca, o
  * texto sai como foi escrito, sem ler marca nenhuma; com marcas, formatado. Dos dois jeitos, linha a
- * linha, cada uma numa linha da pauta, e cada linha de texto corrido é um parágrafo, com o recuo da
- * primeira linha (como se escreve à mão).
+ * linha, cada uma numa linha da pauta, e cada linha de texto corrido é um parágrafo, na margem.
  *
  * O pai dá a letra, o tamanho e a altura da linha (`--line`); as tarefas só marcam com `checkable`.
+ * Quem não tem pauta (a cartolina do mural) dá também o respiro em volta dos títulos e entre as
+ * tarefas (`--titulo-antes`, `--titulo-depois`, `--tarefa-respiro`).
  *
  * Os links "[[título]]" só valem com `links` (nas anotações, ver core/note-links.ts): a caneta azul
  * sublinhada, que abre a outra anotação; tracejado, o que aponta para uma anotação que não existe.
@@ -172,12 +173,7 @@ import { NoteWidget } from './note-widget';
       min-height: var(--line, 1.5em);
       white-space: pre-wrap;
     }
-    /* cada linha de texto corrido começa um parágrafo: a primeira linha dele entra um pouco, como
-       quem escreve à mão (a lista, o título, a tabela e o widget não) */
-    .paragrafo {
-      /* quem usa pode tirar o recuo (os comentários: cada fala começa na margem) */
-      text-indent: var(--recuo, 1em);
-    }
+    /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     /* ===== As ênfases ===== */
     .negrito {
       font-weight: 700;
@@ -305,6 +301,15 @@ import { NoteWidget } from './note-widget';
       font-weight: 400;
       line-height: var(--line, 1.5em);
       overflow-wrap: anywhere;
+    }
+    /* o respiro em volta do título: quem usa diz quanto (a cartolina do mural, que não tem pauta);
+       sem dizer, nenhum, e o título fica na linha dele (a leitura). A linha em branco já é o respiro,
+       e ele não soma com ela. No :where, para pesar só como o .titulo (o PDF dá os respiros dele) */
+    .titulo:where(:not(:first-child, .linha:empty + *)) {
+      margin-top: var(--titulo-antes, 0);
+    }
+    .titulo:where(:not(:last-child, :has(+ .linha:empty))) {
+      margin-bottom: var(--titulo-depois, 0);
     }
     .t1 {
       font-size: 1.32em;
@@ -588,11 +593,9 @@ import { NoteWidget } from './note-widget';
       padding: 0;
       list-style: none;
     }
-    /* o que vem embaixo do item: no alinhamento do texto dele, cada linha na margem (sem o recuo de
-       parágrafo), e o respiro de uma linha inteira da pauta antes do próximo item (a letra continua
-       sentada nas linhas da folha) */
+    /* o que vem embaixo do item: no alinhamento do texto dele, e o respiro de uma linha inteira da
+       pauta antes do próximo item (a letra continua sentada nas linhas da folha) */
     .corpo {
-      --recuo: 0;
       white-space: normal;
     }
     .tarefas .corpo {

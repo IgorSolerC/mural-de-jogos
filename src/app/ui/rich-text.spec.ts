@@ -171,21 +171,65 @@ describe('o texto formatado na leitura', () => {
     expect(toggled).toEqual([2]);
   });
 
-  it('texto sem marca nenhuma sai como foi escrito, cada linha um parágrafo com o recuo, sem espaço sobrando', async () => {
+  it('texto sem marca nenhuma sai como foi escrito, cada linha um parágrafo na margem, sem espaço sobrando', async () => {
     const el = await render('Linha um\n\n  Linha dois: 2 * 3 = 6');
     const lines = Array.from(el.querySelectorAll('.linha'));
     expect(lines.map((l) => l.textContent)).toEqual(['Linha um', '', '  Linha dois: 2 * 3 = 6']);
     expect(lines.every((l) => l.classList.contains('paragrafo'))).toBeTrue();
-    expect(parseFloat(getComputedStyle(lines[0]).textIndent)).toBeGreaterThan(0);
+    expect(parseFloat(getComputedStyle(lines[0]).textIndent)).toBe(0);
   });
 
-  it('cada linha de texto corrido começa um parágrafo com recuo; a lista e o título não', async () => {
-    const el = await render('# Título\nPrimeira **linha**\nSegunda linha\n- item');
+  it('nenhuma linha entra sozinha; os espaços escritos no começo do parágrafo ficam', async () => {
+    const el = await render('# Título\nPrimeira **linha**\n  Segunda linha\n- item');
     const indent = (sel: string) => parseFloat(getComputedStyle(el.querySelector(sel)!).textIndent);
-    expect(Array.from(el.querySelectorAll('.paragrafo')).map((l) => l.textContent)).toEqual(['Primeira linha', 'Segunda linha']);
-    expect(indent('.paragrafo')).toBeGreaterThan(0);
+    const paragraphs = Array.from(el.querySelectorAll<HTMLElement>('.paragrafo'));
+    expect(paragraphs.map((l) => l.textContent)).toEqual(['Primeira linha', '  Segunda linha']);
+    expect(indent('.paragrafo')).toBe(0);
     expect(indent('.titulo')).toBe(0);
     expect(indent('ul.lista li')).toBe(0);
+    // os dois espaços empurram a segunda linha para dentro (white-space: pre-wrap)
+    const firstLetter = (l: HTMLElement) => {
+      const node = document.createTreeWalker(l, NodeFilter.SHOW_TEXT).nextNode() as Text;
+      const at = node.data.search(/\S/);
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + 1);
+      return range.getBoundingClientRect().left - l.getBoundingClientRect().left;
+    };
+    expect(firstLetter(paragraphs[0])).toBeLessThan(1);
+    expect(firstLetter(paragraphs[1])).toBeGreaterThan(2);
+  });
+
+  describe('o respiro em volta do título', () => {
+    const gaps = (el: HTMLElement) => {
+      const t = getComputedStyle(el.querySelector('.titulo')!);
+      return [parseFloat(t.marginTop), parseFloat(t.marginBottom)];
+    };
+
+    it('sem quem diga quanto (a leitura), nenhum: o título fica na linha dele', async () => {
+      expect(gaps(await render('Antes\n## Título\nDepois'))).toEqual([0, 0]);
+    });
+
+    it('a cartolina diz quanto: em cima e embaixo do título', async () => {
+      const el = await render('Antes\n## Título\nDepois');
+      el.style.setProperty('--titulo-antes', '11px');
+      el.style.setProperty('--titulo-depois', '6px');
+      expect(gaps(el)).toEqual([11, 6]);
+    });
+
+    it('mas não no começo nem no fim do texto', async () => {
+      const alone = await render('## Título');
+      alone.style.setProperty('--titulo-antes', '11px');
+      alone.style.setProperty('--titulo-depois', '6px');
+      expect(gaps(alone)).toEqual([0, 0]);
+    });
+
+    it('a linha em branco já é o respiro: não soma com o do título', async () => {
+      const el = await render('Antes\n\n## Título\n\nDepois');
+      el.style.setProperty('--titulo-antes', '11px');
+      el.style.setProperty('--titulo-depois', '6px');
+      expect(gaps(el)).toEqual([0, 0]);
+    });
   });
 
   it('as feitas de quando a ficha apareceu viram a conta; a marcada agora fica até o texto mudar de verdade', async () => {
