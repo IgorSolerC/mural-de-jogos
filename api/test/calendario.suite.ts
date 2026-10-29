@@ -337,4 +337,121 @@ export function calendarioSuite(label: string, getDb: () => Db) {
       expect((await t.ext(notes.segredo, '/ext/v1/busca?q=academia&areas=calendario')).status).toBe(403);
     });
   });
+
+  describe(`${label}: escrever no Calendário com a chave`, () => {
+    const ALL = ['calendario:ler', 'calendario:escrever', 'calendario:apagar'];
+    const send = (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, path: string, payload?: unknown) =>
+      t.ext(secret, path, { method, ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}) });
+
+    it('criar pede calendario:escrever; o lembrete aparece na lista, pelo id e nos pedidos abertos da agenda', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const reader = await t.newKey(me.token, ['calendario:ler', 'calendario:apagar']);
+      expect((await send(t, reader.segredo, 'POST', '/ext/v1/lembretes', { titulo: 'X', dia: '2026-11-03' })).status).toBe(403);
+      const res = await send(t, secret, 'POST', '/ext/v1/lembretes', { titulo: 'Reunião', dia: '2026-11-03', hora: '09:00', repete: { cada: 'semana', dias_da_semana: [2, 4] } });
+      expect(res.status).toBe(202);
+      const got = await t.body(res);
+      expect(got.pedido).toEqual(expect.objectContaining({ op: 'lembrete.criar', estado: 'pendente' }));
+      expect(got.lembrete).toEqual(
+        expect.objectContaining({ id: got.pedido.alvo, titulo: 'Reunião', hora: '09:00', cor: null, em_palavras: null, repete: expect.objectContaining({ cada: 'semana', dias_da_semana: [2, 4] }) }),
+      );
+      const list = await t.body(t.ext(secret, '/ext/v1/lembretes'));
+      expect(list.itens[0]).toEqual({ ...got.lembrete, pedidos: [{ id: got.pedido.id, op: 'lembrete.criar', estado: 'pendente' }] });
+      expect(list.itens).toHaveLength(4);
+      // com filtro, o que vai nascer não entra
+      expect((await t.body(t.ext(secret, '/ext/v1/lembretes?q=dentista'))).itens).toEqual([DENTISTA]);
+      expect((await t.body(t.ext(secret, `/ext/v1/lembretes/${got.pedido.alvo}`))).lembrete.titulo).toBe('Reunião');
+      const agenda = await t.body(t.ext(secret, '/ext/v1/agenda?de=2026-11-01&ate=2026-11-07'));
+      expect(agenda.pedidos_abertos).toEqual([{ id: got.pedido.id, op: 'lembrete.criar', alvo: got.pedido.alvo, estado: 'pendente', lembrete: got.lembrete }]);
+    });
+
+    it('a forma errada é 400; os campos que não combinam são 422 com o campo', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const bad = await send(t, secret, 'POST', '/ext/v1/lembretes', { titulo: 'X', dia: '2026-13-01' });
+      expect(bad.status).toBe(400);
+      expect((await t.body(bad)).mensagem).toContain('campo dia');
+      const mixed = await send(t, secret, 'POST', '/ext/v1/lembretes', { titulo: 'X', dia: '2026-11-03', fim: '2026-11-01' });
+      expect(mixed.status).toBe(422);
+      const err = await t.body(mixed);
+      expect(err.erro).toBe('lembrete-invalido');
+      expect(err.mensagem).toContain('campo fim');
+    });
+
+    it('mudar pede a versão de agora (409 com o lembrete), responde como vai ficar e a leitura já mostra', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const old = await send(t, secret, 'PATCH', `/ext/v1/lembretes/${DENTISTA.id}`, { versao: '2026-01-01T00:00:00.000Z', hora: '15:00' });
+      expect(old.status).toBe(409);
+      expect((await t.body(old)).lembrete).toEqual(DENTISTA);
+      expect((await send(t, secret, 'PATCH', '/ext/v1/lembretes/lb-nenhum', { versao: DENTISTA.versao, hora: '15:00' })).status).toBe(404);
+      const res = await send(t, secret, 'PATCH', `/ext/v1/lembretes/${DENTISTA.id}`, { versao: DENTISTA.versao, dia: '2026-10-23', hora: '15:00', hora_fim: '16:00' });
+      expect(res.status).toBe(202);
+      const got = await t.body(res);
+      expect(got.lembrete).toEqual(expect.objectContaining({ dia: '2026-10-23', hora: '15:00', hora_fim: '16:00', em_palavras: null, versao: got.pedido.criado_em }));
+      const now = (await t.body(t.ext(secret, `/ext/v1/lembretes/${DENTISTA.id}`))).lembrete;
+      expect(now).toEqual({ ...got.lembrete, pedidos: [{ id: got.pedido.id, op: 'lembrete.editar', estado: 'pendente' }] });
+      // a próxima mudança vai sobre a versão nova
+      expect((await send(t, secret, 'PATCH', `/ext/v1/lembretes/${DENTISTA.id}`, { versao: now.versao, cor: 'rosa' })).status).toBe(202);
+      // a hora_fim antes da hora, no mesmo dia, não combina
+      const mixed = await send(t, secret, 'PATCH', `/ext/v1/lembretes/${ACADEMIA.id}`, { versao: ACADEMIA.versao, hora_fim: '06:00' });
+      expect(mixed.status).toBe(422);
+    });
+
+    it('o lembrete travado pelo Google muda a cor e as notas; o resto é 422', async () => {
+      const t = await setup();
+      const { me, secret, rev } = await t.ready(ALL);
+      const niver = lembrete('lb-niver', { titulo: 'Aniversário da Bia', google: { link: null, travado: 'google' } });
+      expect((await t.mirror(me.token, { rev, poe: [t.item('lembrete', niver.id, niver)] })).status).toBe(200);
+      const res = await send(t, secret, 'PATCH', `/ext/v1/lembretes/${niver.id}`, { versao: niver.versao, titulo: 'Niver' });
+      expect(res.status).toBe(422);
+      const err = await t.body(res);
+      expect(err.erro).toBe('lembrete-do-google');
+      expect(err.mensagem).toContain('titulo');
+      expect((await send(t, secret, 'PATCH', `/ext/v1/lembretes/${niver.id}`, { versao: niver.versao, cor: 'rosa', notas: ['r-presente'] })).status).toBe(202);
+    });
+
+    it('apagar pede calendario:apagar; só um dia, num lembrete que se repete e dentro dele; ou inteiro', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const writer = await t.newKey(me.token, ['calendario:ler', 'calendario:escrever']);
+      expect((await send(t, writer.segredo, 'DELETE', `/ext/v1/lembretes/${DENTISTA.id}?versao=${DENTISTA.versao}`)).status).toBe(403);
+      expect((await send(t, secret, 'DELETE', `/ext/v1/lembretes/${DENTISTA.id}`)).status).toBe(400);
+      const once = await send(t, secret, 'DELETE', `/ext/v1/lembretes/${DENTISTA.id}?versao=${DENTISTA.versao}&dia=2026-10-22`);
+      expect(once.status).toBe(422);
+      expect((await t.body(once)).erro).toBe('nao-repete');
+      const before = await send(t, secret, 'DELETE', `/ext/v1/lembretes/${ACADEMIA.id}?versao=${ACADEMIA.versao}&dia=2026-10-01`);
+      expect((await t.body(before)).erro).toBe('dia-fora');
+      const day = await t.body(send(t, secret, 'DELETE', `/ext/v1/lembretes/${ACADEMIA.id}?versao=${ACADEMIA.versao}&dia=2026-10-19`));
+      expect(day.pedido.op).toBe('lembrete.apagar');
+      expect(day.lembrete.pulados).toEqual(['2026-10-12', '2026-10-19']);
+      const whole = await t.body(send(t, secret, 'DELETE', `/ext/v1/lembretes/${DENTISTA.id}?versao=${DENTISTA.versao}`));
+      expect(whole.lembrete).toBeNull();
+      // o de apagar inteiro fica na leitura, com o pedido na lista; a agenda diz os dois à parte
+      expect((await t.body(t.ext(secret, `/ext/v1/lembretes/${DENTISTA.id}`))).lembrete.pedidos).toEqual([{ id: whole.pedido.id, op: 'lembrete.apagar', estado: 'pendente' }]);
+      const agenda = await t.body(t.ext(secret, '/ext/v1/agenda?de=2026-10-01&ate=2026-10-31'));
+      expect(agenda.pedidos_abertos.map((p: { op: string; dia?: string; lembrete: unknown }) => [p.op, p.dia ?? null, p.lembrete === null])).toEqual([
+        ['lembrete.apagar', '2026-10-19', false],
+        ['lembrete.apagar', null, true],
+      ]);
+    });
+
+    it('com a aprovação "mudancas", criar entra direto e mudar ou apagar espera', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      expect((await t.body(send(t, secret, 'POST', '/ext/v1/lembretes', { titulo: 'X', dia: '2026-11-03' }))).pedido.estado).toBe('pendente');
+      expect((await t.body(send(t, secret, 'PATCH', `/ext/v1/lembretes/${DENTISTA.id}`, { versao: DENTISTA.versao, cor: 'rosa' }))).pedido.estado).toBe('aguardando-aprovacao');
+      expect((await t.body(send(t, secret, 'DELETE', `/ext/v1/lembretes/${FERIAS.id}?versao=${FERIAS.versao}`))).pedido.estado).toBe('aguardando-aprovacao');
+    });
+
+    it('o mesmo Idempotency-Key devolve o mesmo pedido', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const init = { method: 'POST', body: JSON.stringify({ titulo: 'Uma vez', dia: '2026-11-03' }), headers: { 'Idempotency-Key': 'lb-1' } };
+      const a = await t.body(t.ext(secret, '/ext/v1/lembretes', init));
+      const b = await t.body(t.ext(secret, '/ext/v1/lembretes', init));
+      expect(b.pedido.id).toBe(a.pedido.id);
+      expect(b.repetido).toBe(true);
+    });
+  });
 }

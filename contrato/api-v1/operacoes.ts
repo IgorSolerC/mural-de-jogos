@@ -47,10 +47,11 @@ export const ESCOPO_DA_OP: Record<OpNota, string> = {
 
 /**
  * O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não (a nota,
- * nos Gastos o lançamento, o envelope e a pessoa, ver operacoes-gastos.ts; no Kanban, a coluna).
+ * nos Gastos o lançamento, o envelope e a pessoa, ver operacoes-gastos.ts; no Kanban, a coluna; no
+ * Calendário, o lembrete).
  */
 export function opMuda(op: string): boolean {
-  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar' && op !== 'coluna.criar';
+  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar' && op !== 'coluna.criar' && op !== 'lembrete.criar';
 }
 
 /** Em que pé está um pedido. */

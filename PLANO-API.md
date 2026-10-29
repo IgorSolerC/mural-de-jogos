@@ -1616,9 +1616,23 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      dia, `q` no título sem acento). O contexto traz `calendario` (`cores`, `janela`, `lembretes`) para
      qualquer permissão do Calendário, e a busca sem `areas` entra também nos lembretes de quem os lê
      (com a repetição em palavras). Os pedidos por cima entram no passo 4.
-  4. Contrato das operações e API, escrever: `lembrete.criar`, `lembrete.editar`, `lembrete.apagar`
+  4. [feito] Contrato das operações e API, escrever: `lembrete.criar`, `lembrete.editar`, `lembrete.apagar`
      (com `dia`, só aquela vez), nas rotas `POST /ext/v1/lembretes`, `PATCH`/`DELETE
-     /ext/v1/lembretes/:id`; os pedidos abertos por cima das leituras. Testes.
+     /ext/v1/lembretes/:id`; os pedidos abertos por cima das leituras. Testes. Feito assim: o
+     contrato em `contrato/api-v1/operacoes-calendario.ts` (`conferirOpLembrete`, `camposDoGoogle` e as
+     prévias `lembreteDoPedido`, `editarLembreteV1` e `tirarDiaV1`); as rotas em
+     `api/src/ext/calendar-write.ts`. A repetição se escreve só com o `cada` (o resto ganha o de
+     sempre) e troca a de antes inteira; `ate` e `vezes` não vão juntos. Na prévia (e no site), mudar o
+     dia leva o fim junto, tirar a hora tira a `hora_fim`, tirar a repetição tira os dias pulados, e
+     `em_palavras` fica null quando o dia, o fim ou a repetição mudam (a frase é do site). O lembrete
+     como vai ficar passa por `regrasDoLembrete` (422 `lembrete-invalido` com o campo); o travado pelo
+     Google é 422 `lembrete-do-google` fora a cor e as notas; apagar com `dia` pede um lembrete que se
+     repete (422 `nao-repete`) e um dia dentro dele (422 `dia-fora`; a vez exata o site confere). Por
+     cima das leituras: o lembrete que vai nascer aparece no começo da primeira página (sem filtro) e
+     pelo id, a mudança aparece aplicada com a lista `pedidos`, e a agenda traz `pedidos_abertos` com o
+     lembrete como vai ficar (null no apagar inteiro; o `dia` no apagar de uma vez). Criar lembrete não
+     espera a aprovação "mudancas" (`opMuda`). O site de hoje ainda não aplica os pedidos do
+     Calendário: eles esperam o passo 5.
   5. Site aplica os pedidos do Calendário (pelo `CalendarStore`), com o Desfazer e as frases na folha
      dos pedidos e no histórico. Testes. BUILD + 1.
   6. MCP e guia: `ver_agenda`, `listar_lembretes`, `ler_lembrete`, `criar_lembrete`,

@@ -2,8 +2,20 @@ import { Context, Hono } from 'hono';
 import { CORES, ehDia, type AgendaDoMesV1, type LembreteV1, type VezV1 } from '../../../contrato/api-v1/calendario';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import { MES_RE } from '../../../contrato/api-v1/gastos';
+import {
+  OPS_DO_CALENDARIO,
+  conferirOpLembrete,
+  editarLembreteV1,
+  lembreteDoPedido,
+  tirarDiaV1,
+  type ApagarLembreteV1,
+  type CriarLembreteV1,
+  type EditarLembreteV1,
+  type OpLembrete,
+} from '../../../contrato/api-v1/operacoes-calendario';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
 import { todayIn } from '../domain/mirror';
+import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 import { OFFSET_MAX, intQuery, mirrorState } from './routes';
@@ -12,7 +24,8 @@ import { OFFSET_MAX, intQuery, mirrorState } from './routes';
  * Ler o Calendário com a chave (PLANO-API.md, 7.4; rodada 7): a agenda entre dois dias (as vezes de
  * cada lembrete, com as repetições já abertas pelo app, da agenda de cada mês que o site mandou), os
  * lembretes como estão guardados e um lembrete pelo id. Tudo do espelho; a API não abre repetição
- * nenhuma.
+ * nenhuma. Os pedidos abertos vêm por cima (8.5): o lembrete criado aparece, o mudado aparece mudado; a
+ * agenda, que é a do Murall agora, traz o que ainda não entrou à parte, em `pedidos_abertos`.
  */
 
 /** As permissões do Calendário: qualquer uma deixa ver o contexto dele (as cores, a janela). */
@@ -52,11 +65,55 @@ export async function calendarContext(deps: Deps, me: KeyCaller) {
   return { cores: CORES, janela, lembretes: count?.n ?? 0 };
 }
 
-/** O lembrete do espelho, ou null. */
-export async function mirroredReminder(deps: Deps, userId: string, id: string): Promise<LembreteV1 | null> {
+/** Um pedido aberto, como a AI vê por cima do lembrete. */
+interface PedidoNoLembrete {
+  id: string;
+  op: OpLembrete;
+  estado: ReturnType<typeof stateOf>;
+}
+export type LembreteComPedidos = LembreteV1 & { pedidos?: PedidoNoLembrete[] };
+
+/** Os pedidos abertos do Calendário: os lembretes que vão nascer e, por lembrete, as mudanças. */
+async function pendingCalendar(deps: Deps, userId: string) {
+  const rows = (await openRequests(deps, userId)).filter((r) => (OPS_DO_CALENDARIO as readonly string[]).includes(r.op));
+  const created = rows.filter((r) => r.op === 'lembrete.criar');
+  const byReminder = new Map<string, RequestRow[]>();
+  for (const r of rows) if (r.op !== 'lembrete.criar') byReminder.set(r.alvo, [...(byReminder.get(r.alvo) ?? []), r]);
+  return { rows, created, byReminder };
+}
+
+const marker = (r: RequestRow, now: Date): PedidoNoLembrete => ({ id: r.id, op: r.op as OpLembrete, estado: stateOf(r, now) });
+
+/** O lembrete com as mudanças abertas por cima (o de apagar inteiro fica, com o pedido na lista). */
+function overlayReminder(l: LembreteV1, rows: readonly RequestRow[] | undefined, now: Date): LembreteComPedidos {
+  if (!rows?.length) return l;
+  let out = l;
+  for (const r of rows) {
+    const c = conferirOpLembrete(r.op as OpLembrete, JSON.parse(r.dados));
+    if (!c.ok) continue;
+    if (r.op === 'lembrete.editar') out = editarLembreteV1(out, c.dados as EditarLembreteV1, r.criado_em);
+    else if ((c.dados as ApagarLembreteV1).dia) out = tirarDiaV1(out, (c.dados as ApagarLembreteV1).dia!, r.criado_em);
+  }
+  return { ...out, pedidos: rows.map((r) => marker(r, now)) };
+}
+
+/** O lembrete de um pedido de criar ainda não aplicado, com as mudanças de depois por cima. */
+function createdReminder(row: RequestRow, later: readonly RequestRow[] | undefined, now: Date): LembreteComPedidos {
+  const shown = overlayReminder(lembreteDoPedido(row.alvo, JSON.parse(row.dados) as CriarLembreteV1, row.criado_em), later, now);
+  return { ...shown, pedidos: [marker(row, now), ...(shown.pedidos ?? [])] };
+}
+
+/** O lembrete de agora: o do espelho, ou o de um pedido de criar ainda não aplicado; com os pedidos por cima. */
+export async function currentReminder(deps: Deps, userId: string, id: string): Promise<LembreteComPedidos | null> {
   if (!/^[\w-]{1,64}$/.test(id)) return null;
-  const row = await deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lembrete' AND id = ?", [userId, id]);
-  return row ? (JSON.parse(row.dados) as LembreteV1) : null;
+  const [row, pending] = await Promise.all([
+    deps.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE usuario_id = ? AND tipo = 'lembrete' AND id = ?", [userId, id]),
+    pendingCalendar(deps, userId),
+  ]);
+  const now = deps.now();
+  if (row) return overlayReminder(JSON.parse(row.dados) as LembreteV1, pending.byReminder.get(id), now);
+  const created = pending.created.find((r) => r.alvo === id);
+  return created ? createdReminder(created, pending.byReminder.get(id), now) : null;
 }
 
 /** Um dia ou um mês da consulta: o mês vira o primeiro dia (em `de`) ou o último (em `ate`). */
@@ -82,7 +139,27 @@ export function calendarReadRoutes(app: Hono, deps: Deps): void {
     const to = q('ate') !== undefined ? dayQuery(q('ate')!, 'ate') : addDays(from, AGENDA_DAYS - 1);
     if (to < from) throw new HttpError(400, 'filtro-invalido', 'ate vem depois de de.');
     const janela = await agendaWindow(deps, me.key.userId);
-    if (!janela) return c.json({ de: from, ate: to, vezes: [], espelho });
+    const pending = await pendingCalendar(deps, me.key.userId);
+    const now = deps.now();
+    // a agenda é a do Murall agora: o que ainda não entrou vem à parte, com o lembrete como vai ficar
+    const open = pending.rows.length
+      ? {
+          pedidos_abertos: await Promise.all(
+            pending.rows.map(async (r) => {
+              const d = JSON.parse(r.dados) as { dia?: string };
+              const whole = r.op === 'lembrete.apagar' && !d.dia;
+              const shown = whole ? null : await currentReminder(deps, me.key.userId, r.alvo);
+              let lembrete: LembreteV1 | null = null;
+              if (shown) {
+                const { pedidos: _p, ...rest } = shown;
+                lembrete = rest;
+              }
+              return { ...marker(r, now), alvo: r.alvo, lembrete, ...(r.op === 'lembrete.apagar' && d.dia ? { dia: d.dia } : {}) };
+            }),
+          ),
+        }
+      : {};
+    if (!janela) return c.json({ de: from, ate: to, vezes: [], ...open, espelho });
     if (from.slice(0, 7) < janela.de || to.slice(0, 7) > janela.ate) {
       throw new HttpError(
         400,
@@ -106,7 +183,7 @@ export function calendarReadRoutes(app: Hono, deps: Deps): void {
         vezes.push(v);
       }
     }
-    return c.json({ de: from, ate: to, vezes, espelho });
+    return c.json({ de: from, ate: to, vezes, ...open, espelho });
   });
 
   // Os lembretes como estão guardados, do primeiro dia mais novo para o mais antigo.
@@ -124,6 +201,8 @@ export function calendarReadRoutes(app: Hono, deps: Deps): void {
       params.push(dayQuery(v, k));
     }
     const text = q('q');
+    // com filtro, os lembretes que ainda vão nascer não aparecem (a prévia não passa por eles)
+    const filtered = [q('de'), q('ate'), text].some((v) => v !== undefined);
     if (text) {
       where.push("busca LIKE ? ESCAPE '\\'");
       params.push(`%${dobra(text).replace(/[%_\\]/g, (m) => `\\${m}`)}%`);
@@ -133,20 +212,25 @@ export function calendarReadRoutes(app: Hono, deps: Deps): void {
       limit + 1,
       offset,
     ]);
-    const itens: LembreteV1[] = [];
+    const pending = await pendingCalendar(deps, me.key.userId);
+    const now = deps.now();
+    const itens: LembreteComPedidos[] = offset === 0 && !filtered ? pending.created.map((r) => createdReminder(r, pending.byReminder.get(r.alvo), now)) : [];
     let chars = 0;
+    let taken = 0;
     for (const row of rows.slice(0, limit)) {
-      if (itens.length && chars + row.dados.length > PAGE_MAX_CHARS) break;
+      if (taken && chars + row.dados.length > PAGE_MAX_CHARS) break;
       chars += row.dados.length;
-      itens.push(JSON.parse(row.dados) as LembreteV1);
+      taken++;
+      const l = JSON.parse(row.dados) as LembreteV1;
+      itens.push(overlayReminder(l, pending.byReminder.get(l.id), now));
     }
-    const more = rows.length > itens.length;
-    return c.json({ itens, ...(more ? { depois: String(offset + itens.length) } : {}), espelho: await mirrorState(deps, me.key.userId) });
+    const more = rows.length > taken;
+    return c.json({ itens, ...(more ? { depois: String(offset + taken) } : {}), espelho: await mirrorState(deps, me.key.userId) });
   });
 
   app.get('/ext/v1/lembretes/:id', async (c) => {
     const me = await caller(c);
-    const l = await mirroredReminder(deps, me.key.userId, c.req.param('id'));
+    const l = await currentReminder(deps, me.key.userId, c.req.param('id'));
     if (!l) throw notFound();
     return c.json({ lembrete: l });
   });

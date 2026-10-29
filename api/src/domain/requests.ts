@@ -1,5 +1,6 @@
 import type { Aprovacao } from '../../../contrato/api-v1/escopos';
 import { ESCOPO_DA_OP, opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
+import { ESCOPO_DA_OP_LEMBRETE } from '../../../contrato/api-v1/operacoes-calendario';
 import { ESCOPO_DA_OP_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { ESCOPO_DA_OP_KANBAN } from '../../../contrato/api-v1/operacoes-kanban';
 import { HttpError } from '../errors';
@@ -150,7 +151,11 @@ export function waitsForApproval(approval: Aprovacao, op: string, dados: unknown
  */
 export function scopesOfRequest(op: string, dados: unknown): string[] {
   const d = (dados && typeof dados === 'object' ? dados : {}) as Record<string, unknown>;
-  const base = (ESCOPO_DA_OP as Record<string, string>)[op] ?? (ESCOPO_DA_OP_KANBAN as Record<string, string>)[op] ?? (ESCOPO_DA_OP_GASTO as Record<string, string>)[op];
+  const base =
+    (ESCOPO_DA_OP as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_KANBAN as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_GASTO as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_LEMBRETE as Record<string, string>)[op];
   const out = new Set<string>(base ? [base] : []);
   if (d['visibilidade'] !== undefined) out.add('publicar');
   if (op === 'nota.criar' && d['kanban']) out.add('kanban:mover');
