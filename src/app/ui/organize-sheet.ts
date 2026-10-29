@@ -1,3 +1,4 @@
+import { KanbanStore } from '../core/kanban-store';
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { lookKey, randomCategoryColor } from '../core/category-looks';
@@ -75,6 +76,7 @@ export class OrganizeSheet {
   protected readonly TagsIcon = ICON.etiquetas;
 
   private readonly store = inject(ReviewStore);
+  private readonly kanban = inject(KanbanStore);
   private readonly settings = inject(Settings);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
@@ -84,11 +86,13 @@ export class OrganizeSheet {
     return r ? pinningFor(r.id, r.stock).stock : null;
   });
 
+  /** As anotações do mesmo lugar desta (o mural, o Kanban ou os dois): as sugestões vêm só delas. */
+  private readonly samePlace = computed(() => this.kanban.notesAt(this.kanban.placeOf(this.noteId())));
   protected readonly groupLib = computed(() => categoryLibrary(this.store.notes()));
-  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.note()?.category ?? null));
+  protected readonly tagLib = computed(() => tagLibrary(this.samePlace(), this.settings.pinnedTags(), this.note()?.category ?? null));
   protected readonly subjectLib = computed(() => {
     const category = this.note()?.category ?? null;
-    return subjectLibrary(this.store.notes(), savedSubjects(this.settings.notesConfig(), category), category);
+    return subjectLibrary(this.samePlace(), savedSubjects(this.settings.notesConfig(), category), category);
   });
 
   constructor() {

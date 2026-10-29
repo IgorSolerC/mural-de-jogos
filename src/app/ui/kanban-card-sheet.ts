@@ -132,13 +132,19 @@ export class KanbanCardSheet {
    */
   protected readonly column = linkedSignal(() => this.data()?.card.column ?? null);
 
+  /** As anotações do mesmo lugar desta (o Kanban, e o mural se ela aparece lá também). */
+  private readonly samePlace = computed(() => {
+    const id = this.data()?.note.id;
+    return this.kanban.notesAt(id ? this.kanban.placeOf(id) : { wall: false, board: true });
+  });
+
   /** As tags à mão: as fixas e as das outras anotações do grupo do quadro. */
-  protected readonly tagLib = computed(() => tagLibrary(this.store.notes(), this.settings.pinnedTags(), this.data()?.note.category ?? null));
+  protected readonly tagLib = computed(() => tagLibrary(this.samePlace(), this.settings.pinnedTags(), this.data()?.note.category ?? null));
 
   /** Os assuntos à mão: os criados nas configurações e os das outras anotações do grupo do quadro. */
   protected readonly subjectLib = computed(() => {
     const category = this.data()?.note.category ?? null;
-    return subjectLibrary(this.store.notes(), savedSubjects(this.settings.notesConfig(), category), category);
+    return subjectLibrary(this.samePlace(), savedSubjects(this.settings.notesConfig(), category), category);
   });
 
   constructor() {

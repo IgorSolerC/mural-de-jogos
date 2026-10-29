@@ -6,6 +6,12 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { onOtherTab, writeJson } from './storage';
 
+/** Onde uma anotação aparece: no mural, no quadro do grupo dela, ou nos dois. */
+export interface NotePlace {
+  wall: boolean;
+  board: boolean;
+}
+
 /** Os quadros deste navegador (vão embora com "Apagar o save", como as anotações). */
 export const KANBAN_KEY = 'meu-mural:kanban:v1';
 
@@ -89,6 +95,21 @@ export class KanbanStore {
     for (const b of this.boards()) for (const c of liveCards(b, byId)) out.add(c.note);
     return out;
   });
+
+  /** Onde a anotação está: no mural (`wall`), no quadro (`board`) ou nos dois. */
+  placeOf(id: string): NotePlace {
+    return { wall: !this.boardOnly().has(id), board: this.onBoard().has(id) };
+  }
+
+  /**
+   * As anotações do mesmo lugar (o mural, o Kanban ou os dois): as sugestões de tag e de assunto vêm só
+   * delas, em todo seletor (o editor, a folha do quadro, a Organizar).
+   */
+  notesAt(place: NotePlace): ReturnType<ReviewStore['notes']> {
+    const only = this.boardOnly();
+    const on = this.onBoard();
+    return this.store.notes().filter((n) => (place.wall && !only.has(n.id)) || (place.board && on.has(n.id)));
+  }
 
   /** As anotações do quadro deste grupo ficam só no Kanban (a escolha do grupo)? */
   groupKanbanOnly(category: string | null | undefined): boolean {

@@ -404,4 +404,26 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(part()!.querySelector('#editor-data')).not.toBeNull();
     expect(el.querySelector('dialog')!.open).toBeTrue();
   });
+  it('as tags e os assuntos sugeridos são só os das anotações do mesmo lugar: o mural, o Kanban ou os dois', async () => {
+    store.add(note('nmural01', { category: 'Trabalho', tags: ['App'], subject: 'Deploy' }));
+    store.add(note('nquadro1', { category: 'Trabalho', tags: ['Daily'], subject: 'Reunião' }));
+    store.add(note('nosdois1', { category: 'Trabalho', tags: ['Planejamento'], subject: 'Sprint' }));
+    kanban.state.set({ boards: [board([{ note: 'nquadro1', column: 'afazer', importance: null, at: T0 }, { note: 'nosdois1', column: 'afazer', importance: null, wall: true, at: T0 }])], removed: {}, legacy: [] });
+    const ed = fixture.componentInstance as unknown as { tagLib(): { label: string }[]; subjectLib(): { label: string }[]; kbColumn: { set(v: string | null): void }; setKbWall(w: boolean): void };
+    const tags = () => ed.tagLib().map((t) => t.label).sort();
+    const subjects = () => ed.subjectLib().map((t) => t.label).sort();
+    // a nova do mural (sem coluna): as do mural e as que estão nos dois
+    fixture.componentInstance.openInCategory('Trabalho');
+    await fixture.whenStable();
+    expect(tags()).toEqual(['App', 'Planejamento']);
+    expect(subjects()).toEqual(['Deploy', 'Sprint']);
+    // numa coluna, só no Kanban (o padrão do grupo): as do quadro
+    ed.kbColumn.set('afazer');
+    expect(tags()).toEqual(['Daily', 'Planejamento']);
+    expect(subjects()).toEqual(['Reunião', 'Sprint']);
+    // no quadro e no mural também: as dos dois
+    ed.setKbWall(true);
+    expect(tags()).toEqual(['App', 'Daily', 'Planejamento']);
+    expect(subjects()).toEqual(['Deploy', 'Reunião', 'Sprint']);
+  });
 });

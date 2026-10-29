@@ -812,10 +812,7 @@ export class ReviewEditor {
    */
   private readonly samePlaceNotes = computed(() => {
     const board = !!this.kbBoard() && this.kbColumn() !== null;
-    const wall = !board || this.kbWall();
-    const only = this.kanban.boardOnly();
-    const onBoard = this.kanban.onBoard();
-    return this.store.notes().filter((n) => ((wall && !only.has(n.id)) || (board && onBoard.has(n.id))));
+    return this.kanban.notesAt({ board, wall: !board || this.kbWall() });
   });
   protected readonly subjectLib = computed(() => subjectLibrary(this.samePlaceNotes(), savedSubjects(this.settings.notesConfig(), this.noteCategory()), this.noteCategory()));
 
