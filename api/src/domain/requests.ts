@@ -1,6 +1,7 @@
 import type { Aprovacao } from '../../../contrato/api-v1/escopos';
 import { ESCOPO_DA_OP, opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
 import { ESCOPO_DA_OP_LEMBRETE } from '../../../contrato/api-v1/operacoes-calendario';
+import { ESCOPO_DA_OP_MURAL } from '../../../contrato/api-v1/operacoes-murais';
 import { ESCOPO_DA_OP_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { ESCOPO_DA_OP_KANBAN } from '../../../contrato/api-v1/operacoes-kanban';
 import { HttpError } from '../errors';
@@ -155,7 +156,8 @@ export function scopesOfRequest(op: string, dados: unknown): string[] {
     (ESCOPO_DA_OP as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_KANBAN as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_GASTO as Record<string, string>)[op] ??
-    (ESCOPO_DA_OP_LEMBRETE as Record<string, string>)[op];
+    (ESCOPO_DA_OP_LEMBRETE as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_MURAL as Record<string, string>)[op];
   const out = new Set<string>(base ? [base] : []);
   if (d['visibilidade'] !== undefined) out.add('publicar');
   if (op === 'nota.criar' && d['kanban']) out.add('kanban:mover');
@@ -181,7 +183,7 @@ export async function createRequest(
   if (idem) {
     const same = await deps.db.first<RequestRow>(`SELECT ${REQUEST_COLUMNS} FROM api_pedidos WHERE chave_id = ? AND chave_idem = ?`, [key.id, idem]);
     if (same) {
-      if (same.op !== op || (same.alvo !== alvo && !op.endsWith('.criar') && op !== 'gasto.lancar')) {
+      if (same.op !== op || (same.alvo !== alvo && !op.endsWith('.criar') && !op.endsWith('.por') && op !== 'gasto.lancar')) {
         throw new HttpError(409, 'idempotencia', 'Esse Idempotency-Key já foi usado num pedido diferente desta chave.');
       }
       return { row: same, repeated: true };

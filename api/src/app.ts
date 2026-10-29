@@ -20,6 +20,7 @@ import { calendarReadRoutes } from './ext/calendar-read';
 import { calendarWriteRoutes } from './ext/calendar-write';
 import { kanbanReadRoutes } from './ext/kanban-read';
 import { muralsReadRoutes } from './ext/murals-read';
+import { muralsWriteRoutes } from './ext/murals-write';
 import { kanbanWriteRoutes } from './ext/kanban-write';
 import { spendingReadRoutes } from './ext/spending-read';
 import { spendingWriteRoutes } from './ext/spending-write';
@@ -129,6 +130,7 @@ export function createApp(deps: Deps): Hono {
   calendarReadRoutes(app, deps);
   calendarWriteRoutes(app, deps);
   muralsReadRoutes(app, deps);
+  muralsWriteRoutes(app, deps);
   kanbanWriteRoutes(app, deps);
   spendingWriteRoutes(app, deps);
   notesWriteRoutes(app, deps);

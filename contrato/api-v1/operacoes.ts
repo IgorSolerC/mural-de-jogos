@@ -45,13 +45,12 @@ export const ESCOPO_DA_OP: Record<OpNota, string> = {
   'nota.apagar': 'notas:apagar',
 };
 
-/**
- * O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não (a nota,
- * nos Gastos o lançamento, o envelope e a pessoa, ver operacoes-gastos.ts; no Kanban, a coluna; no
- * Calendário, o lembrete).
- */
+/** As operações que criam (a nota; nos Gastos o lançamento, o envelope e a pessoa; a coluna; o lembrete; pôr na wishlist e no Pra depois). */
+const CRIAM = new Set(['nota.criar', 'gasto.lancar', 'envelope.criar', 'pessoa.criar', 'coluna.criar', 'lembrete.criar', 'desejo.por', 'pra-depois.por']);
+
+/** O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não. */
 export function opMuda(op: string): boolean {
-  return op !== 'nota.criar' && op !== 'gasto.lancar' && op !== 'envelope.criar' && op !== 'pessoa.criar' && op !== 'coluna.criar' && op !== 'lembrete.criar';
+  return !CRIAM.has(op);
 }
 
 /** Em que pé está um pedido. */

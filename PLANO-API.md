@@ -1745,9 +1745,19 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      contexto ganhou `desejos` e `pra_depois` (quantos em cada mural) e `fichas` (o que cada mural
      tem), cada um para quem alcança a área; a busca sem `areas` entra também nos murais que a chave
      lê. Os pedidos por cima entram nos passos 4 e 5.
-  4. Contrato das operações e API, escrever na Wishlist e no Pra depois: `desejo.por`, `desejo.editar`,
+  4. [feito] Contrato das operações e API, escrever na Wishlist e no Pra depois: `desejo.por`, `desejo.editar`,
      `desejo.tirar`, `pra-depois.por`, `pra-depois.tirar`; os pedidos abertos por cima das leituras.
-     Testes.
+     Testes. Feito assim: o contrato em `contrato/api-v1/operacoes-murais.ts` (`conferirOpMural` e as
+     prévias `itemDoPedido`, `desejoDoPedido`, `editarDesejoV1`); as rotas em
+     `api/src/ext/murals-write.ts` (`POST`/`PATCH`/`DELETE /ext/v1/desejos…`, `POST`/`DELETE
+     /ext/v1/pra-depois…`). O nome repetido no mesmo mural (sem acento e caixa, no espelho ou num pedido
+     de pôr ainda aberto) é 409 com o item que já está lá; no lote, todos são conferidos antes e um
+     repetido (ou dois iguais no lote) deixa nada entrar ("Item 2"). A capa dada vale; sem ela, a prévia
+     mostra `capa: null` (o site procura ao aplicar); `buscar_capa: false` só vai sem capa. A relevância
+     comum não vai no pedido (é o padrão do app). Por cima das leituras: o item que vai entrar no começo
+     da primeira página (o filtro do mural vale para ele) e pelo id, a mudança aplicada com `pedidos`,
+     o que vai sair com o pedido na lista. `opMuda` agora é uma lista das operações que criam (pôr
+     também). O site de hoje ainda não aplica estes pedidos: eles esperam o passo 6.
   5. Contrato das operações e API, escrever fichas: `ficha.criar`, `ficha.editar` (as notas conferidas
      com as do mural, pelo contexto); por cima das leituras. Testes.
   6. Site aplica os pedidos (pelo `ReviewStore`: `saveWish`, `setRelevance`, `removeWish`,

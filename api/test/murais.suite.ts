@@ -357,4 +357,85 @@ export function muraisSuite(label: string, getDb: () => Db) {
       expect((await t.ext(wishes.segredo, '/ext/v1/busca?q=cosmos&areas=fichas')).status).toBe(403);
     });
   });
+
+  describe(`${label}: escrever na Wishlist e no Pra depois`, () => {
+    const ALL = ['desejos:ler', 'desejos:escrever', 'pra-depois:ler', 'pra-depois:escrever'];
+    const send = (t: Awaited<ReturnType<typeof setup>>, secret: string, method: string, path: string, payload?: unknown) =>
+      t.ext(secret, path, { method, ...(payload !== undefined ? { body: JSON.stringify(payload) } : {}) });
+
+    it('pôr pede desejos:escrever; o desejo aparece no começo da lista e pelo id', async () => {
+      const t = await setup();
+      const { me, secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const reader = await t.newKey(me.token, ['desejos:ler']);
+      expect((await send(t, reader.segredo, 'POST', '/ext/v1/desejos', { mural: 'jogos', nome: 'Celeste' })).status).toBe(403);
+      const res = await send(t, secret, 'POST', '/ext/v1/desejos', { mural: 'filmes', nome: 'Duna: Parte Dois', ano: '2024', relevancia: 'must' });
+      expect(res.status).toBe(202);
+      const got = await t.body(res);
+      expect(got.pedido).toEqual(expect.objectContaining({ op: 'desejo.por', estado: 'pendente' }));
+      expect(got.desejo).toEqual(expect.objectContaining({ id: got.pedido.alvo, mural: 'filmes', nome: 'Duna: Parte Dois', ano: '2024', capa: null, relevancia: 'must' }));
+      const list = await t.body(t.ext(secret, '/ext/v1/desejos'));
+      expect(list.itens[0]).toEqual({ ...got.desejo, pedidos: [{ id: got.pedido.id, op: 'desejo.por', estado: 'pendente' }] });
+      expect((await t.body(t.ext(secret, '/ext/v1/desejos?mural=jogos'))).itens.map((d: DesejoV1) => d.id)).toEqual([SILKSONG.id, HADES.id]);
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${got.pedido.alvo}`))).desejo.nome).toBe('Duna: Parte Dois');
+    });
+
+    it('o mesmo nome no mesmo mural é 409 com o que já está (no espelho ou num pedido aberto); noutro mural, entra', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const dup = await send(t, secret, 'POST', '/ext/v1/desejos', { mural: 'jogos', nome: 'hollow knight: SILKSONG' });
+      expect(dup.status).toBe(409);
+      const err = await t.body(dup);
+      expect(err.erro).toBe('desejo-existe');
+      expect(err.desejo).toEqual(SILKSONG);
+      expect((await send(t, secret, 'POST', '/ext/v1/desejos', { mural: 'livros', nome: 'Hollow Knight: Silksong' })).status).toBe(202);
+      expect((await send(t, secret, 'POST', '/ext/v1/desejos', { mural: 'livros', nome: 'Hollow Knight: Silksong' })).status).toBe(409);
+      expect((await t.body(send(t, secret, 'POST', '/ext/v1/pra-depois', { mural: 'jogos', nome: 'Celeste' }))).erro).toBe('pra-depois-existe');
+    });
+
+    it('um lote: um pedido por item, conferidos todos antes; um repetido e nada entra', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      const bad = await send(t, secret, 'POST', '/ext/v1/desejos', { itens: [{ mural: 'jogos', nome: 'Tunic' }, { mural: 'jogos', nome: 'tunic' }] });
+      expect(bad.status).toBe(409);
+      expect((await t.body(bad)).mensagem).toContain('Item 2');
+      const wrong = await send(t, secret, 'POST', '/ext/v1/desejos', { itens: [{ mural: 'jogos', nome: 'Tunic' }, { mural: 'jogos' }] });
+      expect(wrong.status).toBe(400);
+      expect((await t.body(t.ext(secret, '/ext/v1/pedidos'))).itens).toEqual([]);
+      const ok = await t.body(send(t, secret, 'POST', '/ext/v1/desejos', { itens: [{ mural: 'jogos', nome: 'Tunic' }, { mural: 'animes', nome: 'Frieren', relevancia: 'must' }] }));
+      expect(ok.pedidos).toHaveLength(2);
+      expect(ok.desejos.map((d: DesejoV1) => d.nome)).toEqual(['Tunic', 'Frieren']);
+    });
+
+    it('mudar o desejo com a versão de agora (409 com o de agora); a leitura já mostra', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      const old = await send(t, secret, 'PATCH', `/ext/v1/desejos/${HADES.id}`, { versao: '2026-01-01T00:00:00.000Z', relevancia: 'must' });
+      expect(old.status).toBe(409);
+      expect((await t.body(old)).desejo).toEqual(HADES);
+      const got = await t.body(send(t, secret, 'PATCH', `/ext/v1/desejos/${HADES.id}`, { versao: HADES.versao, relevancia: 'must' }));
+      expect(got.desejo).toEqual({ ...HADES, relevancia: 'must', versao: got.pedido.criado_em });
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${HADES.id}`))).desejo).toEqual({ ...got.desejo, pedidos: [{ id: got.pedido.id, op: 'desejo.editar', estado: 'pendente' }] });
+      expect((await send(t, secret, 'PATCH', '/ext/v1/desejos/dj-nenhum', { versao: AT, relevancia: 'must' })).status).toBe(404);
+    });
+
+    it('tirar da wishlist e do Pra depois, com a versão na consulta; o que vai sair fica com o pedido', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL, { aprovacao: 'nunca' });
+      expect((await send(t, secret, 'DELETE', `/ext/v1/desejos/${DUNA.id}`)).status).toBe(400);
+      const gone = await t.body(send(t, secret, 'DELETE', `/ext/v1/desejos/${DUNA.id}?versao=${DUNA.versao}`));
+      expect(gone.pedido.op).toBe('desejo.tirar');
+      expect(gone.desejo).toBeNull();
+      expect((await t.body(t.ext(secret, `/ext/v1/desejos/${DUNA.id}`))).desejo.pedidos).toEqual([{ id: gone.pedido.id, op: 'desejo.tirar', estado: 'pendente' }]);
+      const later = await t.body(send(t, secret, 'DELETE', `/ext/v1/pra-depois/${PRA_CELESTE.id}?versao=${PRA_CELESTE.versao}`));
+      expect(later.pedido.op).toBe('pra-depois.tirar');
+    });
+
+    it('com a aprovação "mudancas", pôr entra direto e mudar ou tirar espera', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(ALL);
+      expect((await t.body(send(t, secret, 'POST', '/ext/v1/pra-depois', { mural: 'filmes', nome: 'Aftersun' }))).pedido.estado).toBe('pendente');
+      expect((await t.body(send(t, secret, 'PATCH', `/ext/v1/desejos/${HADES.id}`, { versao: HADES.versao, relevancia: 'must' }))).pedido.estado).toBe('aguardando-aprovacao');
+      expect((await t.body(send(t, secret, 'DELETE', `/ext/v1/desejos/${DUNA.id}?versao=${DUNA.versao}`))).pedido.estado).toBe('aguardando-aprovacao');
+    });
+  });
 }

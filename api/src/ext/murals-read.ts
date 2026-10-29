@@ -2,7 +2,18 @@ import { Context, Hono } from 'hono';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import { CONTEXTO_FICHAS, MURAIS, RELEVANCIAS, STATUS, VEREDITOS, ehMural, type ContextoFichasV1, type DesejoV1, type FichaV1, type PraDepoisV1 } from '../../../contrato/api-v1/murais';
 import { resumo } from '../../../contrato/api-v1/notas';
+import {
+  OPS_DOS_MURAIS,
+  conferirOpMural,
+  desejoDoPedido,
+  editarDesejoV1,
+  itemDoPedido,
+  type EditarDesejoV1,
+  type OpMural,
+  type PorItemV1,
+} from '../../../contrato/api-v1/operacoes-murais';
 import { KeyCaller, authenticateKey, requireScope } from '../domain/api-key';
+import { openRequests, stateOf, type RequestRow } from '../domain/requests';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 import { OFFSET_MAX, intQuery, mirrorState } from './routes';
@@ -10,7 +21,8 @@ import { OFFSET_MAX, intQuery, mirrorState } from './routes';
 /**
  * Ler os murais de resenhas com a chave (PLANO-API.md, 7.4; rodada 9): a wishlist, o Pra depois e as
  * fichas, cada um com filtros e pelo id, e o que cada mural tem. Tudo do espelho; a nota final e o que
- * cada mural tem vêm prontos do site.
+ * cada mural tem vêm prontos do site. Os pedidos abertos vêm por cima (8.5): o desejo posto aparece, o
+ * mudado aparece mudado, o que vai sair fica com o pedido na lista.
  */
 
 export const WISH_SCOPES = ['desejos:ler', 'desejos:escrever'] as const;
@@ -36,6 +48,64 @@ const NOT_FOUND: Record<ListKind, HttpError> = {
   'pra-depois': new HttpError(404, 'pra-depois-nao-encontrado', 'Não achei esse item no Pra depois.'),
   ficha: new HttpError(404, 'ficha-nao-encontrada', 'Não achei essa ficha.'),
 };
+
+/** Um pedido aberto, como a AI vê por cima do item. */
+interface PedidoNoItem {
+  id: string;
+  op: OpMural;
+  estado: ReturnType<typeof stateOf>;
+}
+export type ComPedidos<T> = T & { pedidos?: PedidoNoItem[] };
+
+/** De que lista é cada operação de pôr. */
+const PUT_OF: Partial<Record<OpMural, 'desejo' | 'pra-depois'>> = { 'desejo.por': 'desejo', 'pra-depois.por': 'pra-depois' };
+
+/** Os pedidos abertos dos murais: os itens que vão entrar (por lista) e, por item, as mudanças. */
+async function pendingMurals(deps: Deps, userId: string) {
+  const rows = (await openRequests(deps, userId)).filter((r) => (OPS_DOS_MURAIS as readonly string[]).includes(r.op));
+  const created = rows.filter((r) => PUT_OF[r.op as OpMural]);
+  const byItem = new Map<string, RequestRow[]>();
+  for (const r of rows) if (!PUT_OF[r.op as OpMural]) byItem.set(r.alvo, [...(byItem.get(r.alvo) ?? []), r]);
+  return { rows, created, byItem };
+}
+
+const marker = (r: RequestRow, now: Date): PedidoNoItem => ({ id: r.id, op: r.op as OpMural, estado: stateOf(r, now) });
+
+/** O item com as mudanças abertas por cima (o que vai sair fica, com o pedido na lista). */
+function overlayItem<T extends DesejoV1 | PraDepoisV1>(x: T, rows: readonly RequestRow[] | undefined, now: Date): ComPedidos<T> {
+  if (!rows?.length) return x;
+  let out = x;
+  for (const r of rows) {
+    if (r.op !== 'desejo.editar') continue;
+    const c = conferirOpMural('desejo.editar', JSON.parse(r.dados));
+    if (c.ok) out = editarDesejoV1(out as DesejoV1, c.dados as EditarDesejoV1, r.criado_em) as T;
+  }
+  return { ...out, pedidos: rows.map((r) => marker(r, now)) };
+}
+
+/** O item de um pedido de pôr ainda não aplicado, com as mudanças de depois por cima. */
+function createdItem(row: RequestRow, later: readonly RequestRow[] | undefined, now: Date): ComPedidos<DesejoV1 | PraDepoisV1> {
+  const d = JSON.parse(row.dados) as PorItemV1;
+  const base = row.op === 'desejo.por' ? desejoDoPedido(row.alvo, d, row.criado_em) : itemDoPedido(row.alvo, d, row.criado_em);
+  const shown = overlayItem<DesejoV1 | PraDepoisV1>(base, later, now);
+  return { ...shown, pedidos: [marker(row, now), ...(shown.pedidos ?? [])] };
+}
+
+/** O desejo ou o pra depois de agora: o do espelho, ou o de um pedido de pôr; com os pedidos por cima. */
+export async function currentItem(deps: Deps, userId: string, tipo: 'desejo' | 'pra-depois', id: string): Promise<ComPedidos<DesejoV1 | PraDepoisV1> | null> {
+  const [found, pending] = await Promise.all([mirroredItem<DesejoV1 | PraDepoisV1>(deps, userId, tipo, id), pendingMurals(deps, userId)]);
+  const now = deps.now();
+  if (found) return overlayItem(found, pending.byItem.get(id), now);
+  const created = pending.created.find((r) => r.alvo === id && PUT_OF[r.op as OpMural] === tipo);
+  return created ? createdItem(created, pending.byItem.get(id), now) : null;
+}
+
+/** Os itens que vão entrar numa lista (com os pedidos de depois por cima), para conferir o nome repetido. */
+export async function arrivingItems(deps: Deps, userId: string, tipo: 'desejo' | 'pra-depois'): Promise<ComPedidos<DesejoV1 | PraDepoisV1>[]> {
+  const pending = await pendingMurals(deps, userId);
+  const now = deps.now();
+  return pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo).map((r) => createdItem(r, pending.byItem.get(r.alvo), now));
+}
 
 /** O item do espelho pelo id, ou null. */
 export async function mirroredItem<T>(deps: Deps, userId: string, tipo: ListKind, id: string): Promise<T | null> {
@@ -126,11 +196,22 @@ export function muralsReadRoutes(app: Hono, deps: Deps): void {
           ? "CASE json_extract(dados, '$.relevancia') WHEN 'must' THEN 0 WHEN 'comum' THEN 1 ELSE 2 END, json_extract(dados, '$.criado_em') DESC, id"
           : "json_extract(dados, '$.criado_em') DESC, id";
       const rows = await deps.db.all<{ dados: string }>(`SELECT dados FROM api_espelho WHERE ${where.join(' AND ')} ORDER BY ${order} LIMIT ? OFFSET ?`, [...params, limit + 1, offset]);
-      return c.json({ ...page(rows, limit, offset, (raw) => JSON.parse(raw) as DesejoV1 | PraDepoisV1), espelho: await mirrorState(deps, me.key.userId) });
+      const pending = await pendingMurals(deps, me.key.userId);
+      const now = deps.now();
+      const shown = page(rows, limit, offset, (raw) => {
+        const x = JSON.parse(raw) as DesejoV1 | PraDepoisV1;
+        return overlayItem(x, pending.byItem.get(x.id), now);
+      });
+      // os que vão entrar, no começo da primeira página (só o filtro do mural vale para eles)
+      const arriving =
+        offset === 0 && rel === undefined && !text
+          ? pending.created.filter((r) => PUT_OF[r.op as OpMural] === tipo && (mural === undefined || (JSON.parse(r.dados) as PorItemV1).mural === mural)).map((r) => createdItem(r, pending.byItem.get(r.alvo), now))
+          : [];
+      return c.json({ ...shown, itens: [...arriving, ...shown.itens], espelho: await mirrorState(deps, me.key.userId) });
     });
     app.get(`${path}/:id`, async (c) => {
       const me = await caller(c, scope);
-      const item = await mirroredItem<DesejoV1 | PraDepoisV1>(deps, me.key.userId, tipo, c.req.param('id'));
+      const item = await currentItem(deps, me.key.userId, tipo, c.req.param('id'));
       if (!item) throw NOT_FOUND[tipo];
       return c.json({ [tipo === 'desejo' ? 'desejo' : 'pra_depois']: item });
     });
