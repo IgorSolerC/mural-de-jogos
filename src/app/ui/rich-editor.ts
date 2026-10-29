@@ -1794,6 +1794,12 @@ export class RichEditor {
   readonly value = model('');
   /** O máximo de caracteres (com o contador embaixo da folha); sem ele, nem limite nem contador. */
   readonly max = input<number | null>(null);
+  /**
+   * Colar um texto com a imagem de outra pessoa guarda uma cópia sua (o padrão: o seu mural, o perfil).
+   * Na anotação compartilhada, não: quem está nela já vê a imagem de quem também está. No comentário,
+   * também não: a cópia sua não apareceria para quem lê.
+   */
+  readonly copyTheirImages = input(true);
   protected readonly counted = (n: number) => COUNT_FMT.format(n);
   readonly placeholder = input('');
   /** O nome do campo: o título da tela inteira ("O que achou?"). */
@@ -2677,7 +2683,8 @@ export class RichEditor {
    * Colou um endereço com um texto selecionado: o texto vira o link. Colou uma imagem (sem texto junto:
    * as células copiadas de uma planilha também trazem a foto delas, e o que vale ali é o texto): ela é
    * encolhida, guardada e vira o widget de imagem numa linha só dela. Colou um texto com a imagem de
-   * outra pessoa (copiado de uma compartilhada): a imagem vira uma cópia sua (`adoptImages`).
+   * outra pessoa (copiado de uma compartilhada): o texto entra como sempre, na hora, e depois a imagem
+   * vira uma cópia sua (`adoptImages`), onde ela precisa ser sua (ver `copyTheirImages`).
    */
   protected onPaste(e: ClipboardEvent, area: HTMLTextAreaElement): void {
     const raw = e.clipboardData?.getData('text/plain') ?? '';
@@ -2688,11 +2695,9 @@ export class RichEditor {
       void this.putImage(area, file);
       return;
     }
-    if (localImageIds(raw).length) {
-      e.preventDefault();
-      void this.adoptImages(area, raw);
-      return;
-    }
+    const ids = this.copyTheirImages() ? localImageIds(raw) : [];
+    // o texto entra pelo colar do navegador; as imagens de outra pessoa trocam de id quando a cópia fica pronta
+    if (ids.length) void this.adoptImages(area, ids);
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     if (!sel.trim() || sel.includes('\n') || !/^(https?:\/\/|mailto:)\S+$/i.test(pasted)) return;
     e.preventDefault();
@@ -2746,17 +2751,15 @@ export class RichEditor {
 
   /**
    * Cola o texto com as imagens do Murall que ele traz (PLANO-IMAGENS.md, decisão D3): a de outra pessoa
-   * vira uma cópia sua (a que não está aqui desce antes, com a conta), e o texto colado leva o id da cópia;
-   * senão, colada numa anotação sua, ela pararia de abrir quando você saísse da compartilhada. A sua e a
-   * que não deu para trazer ficam como vieram. Vai onde estava o cursor (ou onde está, se o texto mudou).
+   * vira uma cópia sua (a que não está aqui desce antes, com a conta), e o texto passa a levar o id da
+   * cópia; senão, colada numa anotação sua, ela pararia de abrir quando você saísse da compartilhada. A
+   * sua e a que não deu para trazer ficam como vieram. O texto já entrou (o colar do navegador): a troca
+   * é do endereço, do mesmo tamanho, então o cursor e o que foi escrito depois ficam onde estão.
    */
-  private async adoptImages(area: HTMLTextAreaElement, raw: string): Promise<void> {
-    const before = area.value;
-    let at = { start: area.selectionStart, end: area.selectionEnd };
-    let text = raw;
+  private async adoptImages(area: HTMLTextAreaElement, ids: readonly string[]): Promise<void> {
     let copied = 0;
     try {
-      for (const id of localImageIds(raw)) {
+      for (const id of ids) {
         try {
           const here = await this.images.get(id);
           if (here && !here.alheia) continue;
@@ -2765,8 +2768,7 @@ export class RichEditor {
           if (!here) await this.imageSync.fetch(id);
           const mine = await this.images.adopt(id);
           if (!mine || mine.id === id) continue;
-          text = text.split(localImageUrl(id)).join(localImageUrl(mine.id));
-          copied++;
+          if (swapAddress(area, localImageUrl(id), localImageUrl(mine.id))) copied++;
         } catch {
           // a que não deu para copiar fica como veio
         }
@@ -2774,8 +2776,6 @@ export class RichEditor {
     } finally {
       this.savingImage.set(false);
     }
-    if (area.value !== before) at = { start: area.selectionStart, end: area.selectionEnd };
-    this.replace(area, at.start, at.end, text, at.start + text.length, at.start + text.length);
     if (copied) this.toasts.show(copied === 1 ? 'A imagem era de outra pessoa: guardei uma cópia sua.' : `As ${copied} imagens eram de outra pessoa: guardei cópias suas.`);
   }
 
@@ -3293,6 +3293,23 @@ export class RichEditor {
 }
 
 let uid = 0;
+
+/**
+ * Troca no texto do campo cada `from` (o endereço inteiro, não o começo de outro) por `to`, do mesmo
+ * tamanho, sem mexer no cursor nem no foco; avisa o campo. Devolve se trocou alguma.
+ */
+export function swapAddress(area: HTMLTextAreaElement, from: string, to: string): boolean {
+  const at: number[] = [];
+  for (let i = area.value.indexOf(from); i >= 0; i = area.value.indexOf(from, i + from.length)) {
+    if (!/[A-Za-z0-9_-]/.test(area.value[i + from.length] ?? '')) at.push(i);
+  }
+  if (!at.length) return false;
+  const { selectionStart, selectionEnd, selectionDirection } = area;
+  for (const i of at) area.setRangeText(to, i, i + from.length, 'preserve');
+  area.setSelectionRange(selectionStart, selectionEnd, selectionDirection ?? undefined);
+  area.dispatchEvent(new Event('input', { bubbles: true }));
+  return true;
+}
 
 /** A marca do começo da linha de cada estilo do parágrafo (o bloco de código são as cercas). */
 const STYLE_PREFIX: Record<Exclude<LineStyle, 'codigo'>, string> = { texto: '', t1: '# ', t2: '## ', t3: '### ', citacao: '> ', sutil: '-# ' };

@@ -764,8 +764,11 @@ const IMAGE: WidgetDef = {
   read: readMediaValues,
   write: (v) => writeMedia(v, imageUrlOk),
   plain: (args) => readMedia(args).caption,
-  // a guardada pelo Murall não abre fora dele: o endereço murall:// não diria nada a quem lê
-  copy: (args) => (localImageId(readMedia(args).url) ? joinCopy('imagem guardada no Murall', readMedia(args).caption) : copyMedia(args)),
+  copy(args) {
+    const { url, caption } = readMedia(args);
+    // a guardada pelo Murall não abre fora dele: o endereço murall:// não diria nada a quem lê
+    return joinCopy(localImageId(url) ? 'imagem guardada no Murall' : url, caption);
+  },
   problem(v) {
     const url = (v['url'] ?? '').trim();
     return url && !imageUrlOk(url) ? 'O link precisa começar com https://' : null;

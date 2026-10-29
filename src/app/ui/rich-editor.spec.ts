@@ -104,26 +104,36 @@ describe('a régua de formatação do texto', () => {
       expect(drop.defaultPrevented).toBeTrue();
     });
 
-    it('colar um texto com a imagem de outra pessoa: ela vira uma cópia sua, e o texto colado leva o id da cópia', async () => {
+    /** Cola o texto como o navegador: o evento e, sem ninguém impedir, o texto no cursor. */
+    function pasteText(text: string): ClipboardEvent {
+      const data = new DataTransfer();
+      data.setData('text/plain', text);
+      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
+      area.dispatchEvent(paste);
+      if (!paste.defaultPrevented) document.execCommand('insertText', false, text);
+      return paste;
+    }
+
+    it('colar um texto com a imagem de outra pessoa: o texto entra na hora, e a imagem vira uma cópia sua (o texto passa a levar o id dela)', async () => {
       const store = TestBed.inject(ImageStore);
       const mine = await store.add(await samplePng(200, 100));
       const theirs = 'DaBiaDaCompartilhada03';
       await store.fromCloud(theirs, await samplePng(300, 200), 300, 200, true);
       const toasts = TestBed.inject(Toasts);
       write('antes |depois');
-      const data = new DataTransfer();
-      data.setData('text/plain', `{{imagem: murall://imagem/${theirs} | foto | Dela}}\n{{imagem: murall://imagem/${mine.id}}}\n`);
-      const paste = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data });
-      area.dispatchEvent(paste);
-      expect(paste.defaultPrevented).toBeTrue();
-      await until(() => value().includes('{{imagem'));
+      const paste = pasteText(`{{imagem: murall://imagem/${theirs} | foto | Dela}}\n{{imagem: murall://imagem/${mine.id}}}\n`);
+      expect(paste.defaultPrevented).withContext('o colar é o do navegador').toBeFalse();
+      expect(value()).withContext('na hora, como veio').toContain(`murall://imagem/${theirs} | foto | Dela`);
+      // escrito logo depois do colar, antes de a cópia ficar pronta: fica depois do texto colado
+      document.execCommand('insertText', false, 'X');
+      await until(() => !value().includes(theirs));
       const copy = /imagem\/([\w-]{22}) \| foto \| Dela/.exec(value())?.[1];
       expect(copy).toBeDefined();
       expect(copy).not.toBe(theirs);
       expect((await store.get(copy!))?.alheia).toBeUndefined();
       expect(value()).withContext('a sua fica como veio').toContain(`murall://imagem/${mine.id}}}`);
-      expect(value().startsWith('antes {{imagem')).toBeTrue();
-      expect(value().endsWith('\ndepois')).toBeTrue();
+      expect(value()).toBe(`antes {{imagem: murall://imagem/${copy} | foto | Dela}}\n{{imagem: murall://imagem/${mine.id}}}\nXdepois`);
+      expect(area.selectionStart).withContext('o cursor fica onde estava').toBe(value().indexOf('depois'));
       expect(toasts.current()?.text).toContain('guardei uma cópia sua');
     });
 
@@ -131,12 +141,22 @@ describe('a régua de formatação do texto', () => {
       const mine = await TestBed.inject(ImageStore).add(await samplePng(200, 100));
       const toasts = TestBed.inject(Toasts);
       write('|');
-      const data = new DataTransfer();
-      data.setData('text/plain', `{{imagem: murall://imagem/${mine.id}}}`);
-      area.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: data }));
-      await until(() => value().includes('{{imagem'));
+      pasteText(`{{imagem: murall://imagem/${mine.id}}}`);
+      await new Promise((r) => setTimeout(r, 100));
       expect(value()).toBe(`{{imagem: murall://imagem/${mine.id}}}`);
       expect(toasts.current()).toBeNull();
+    });
+
+    it('na compartilhada e no comentário (copyTheirImages desligado), a imagem de outra pessoa fica como veio', async () => {
+      const store = TestBed.inject(ImageStore);
+      const theirs = 'DaBiaDaCompartilhada04';
+      await store.fromCloud(theirs, await samplePng(300, 200), 300, 200, true);
+      fixture.componentRef.setInput('copyTheirImages', false);
+      write('|');
+      pasteText(`{{imagem: murall://imagem/${theirs}}}`);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(value()).toBe(`{{imagem: murall://imagem/${theirs}}}`);
+      expect((await store.all()).filter((i) => !i.alheia).length).withContext('nenhuma cópia').toBe(0);
     });
 
     it('o que não abre avisa no bilhete, e o texto fica como estava', async () => {

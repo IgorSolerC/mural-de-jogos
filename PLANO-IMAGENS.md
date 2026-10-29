@@ -400,6 +400,14 @@ Novidades).
   o grosso é o mesmo de qualquer gravação com sessão. A descida (`GET` de outro aparelho) não apareceu
   nesta medida. Se a Cloudflare um dia cortar pelos 10 ms, o primeiro a sentir é o envio do mural, não
   as imagens.
+- 29/out/2026, a revisão da rodada 6: o colar com a imagem de outra pessoa passou a ser o do navegador
+  (na hora, sem esperar o IndexedDB: o que se escreve logo depois fica depois) e a troca do id vem depois,
+  no lugar, do mesmo tamanho; dentro de uma compartilhada (quem está nela já vê) e nos comentários (a
+  cópia não apareceria para quem lê, e não entra nas `usadas`), nada é copiado (`copyTheirImages`). O
+  "já tenho essa? então guarda" da loja é um de cada vez (`keepOnce`): dois colares juntos não guardam
+  duas cópias. Na API, a rota das AIs aceita o endereço inteiro e a `nota` opcional (lê uma linha em vez
+  de todas as notas da conta), o MCP repassa o `CF-Connecting-IP` (o freio por IP das imagens vale por
+  ele), e as duas entregas de imagem saem de um lugar só (`sendImage`).
 
 ## 11. A conferir (riscos)
 

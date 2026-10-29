@@ -66,10 +66,7 @@ export class ImageStore {
     // a página está recarregando para limpar o navegador (ver core/browser-reset.ts): nada se grava
     if (storageFrozen()) throw new ImageProblem('O Murall está recarregando. Cole a imagem de novo daqui a pouco.');
     const hash = await hashOf(shrunk.blob);
-    const db = await this.open();
-    const same = await this.ownByHash(db, hash);
-    if (same) return same;
-    return this.keep(db, { id: newImageId(), blob: shrunk.blob, tipo: shrunk.tipo, largura: shrunk.largura, altura: shrunk.altura, bytes: shrunk.blob.size, hash, criada: new Date().toISOString(), estado: 'local' });
+    return this.keepOnce(hash, () => ({ id: newImageId(), blob: shrunk.blob, tipo: shrunk.tipo, largura: shrunk.largura, altura: shrunk.altura, bytes: shrunk.blob.size, hash, criada: new Date().toISOString(), estado: 'local' }));
   }
 
   /**
@@ -81,25 +78,32 @@ export class ImageStore {
     const theirs = await this.get(id);
     if (!theirs?.alheia) return theirs;
     if (storageFrozen()) return null;
-    const db = await this.open();
-    const same = await this.ownByHash(db, theirs.hash);
-    if (same) return same;
     const { alheia: _, ...rest } = theirs;
-    return this.keep(db, { ...rest, id: newImageId(), criada: new Date().toISOString(), estado: 'local' });
+    return this.keepOnce(theirs.hash, () => ({ ...rest, id: newImageId(), criada: new Date().toISOString(), estado: 'local' }));
   }
 
-  /** A sua com estes bytes (a de outra pessoa com a mesma foto não serve: ela some quando você sai da compartilhada). */
-  private async ownByHash(db: IDBDatabase, hash: string): Promise<StoredImage | null> {
-    const same = await request<StoredImage[]>(db.transaction(STORE).objectStore(STORE).index('hash').getAll(hash));
-    return same.find((i) => !i.alheia) ?? null;
-  }
+  /** A fila de `keepOnce`: uma de cada vez. */
+  private keeping: Promise<unknown> = Promise.resolve();
 
-  /** Guarda uma imagem nova, sua. */
-  private async keep(db: IDBDatabase, image: StoredImage): Promise<StoredImage> {
-    await this.write(db, (store) => store.put(image));
-    this.version.update((v) => v + 1);
-    this.count.update((n) => n + 1);
-    return image;
+  /**
+   * Guarda uma imagem nova, sua, se ainda não há uma sua com estes bytes (a de outra pessoa com a mesma
+   * foto não serve: ela some quando você sai da compartilhada); senão, devolve a que já está. Uma de cada
+   * vez: dois colares juntos da mesma imagem não guardam duas.
+   */
+  private keepOnce(hash: string, make: () => StoredImage): Promise<StoredImage> {
+    const job = this.keeping.then(async () => {
+      const db = await this.open();
+      const same = await request<StoredImage[]>(db.transaction(STORE).objectStore(STORE).index('hash').getAll(hash));
+      const own = same.find((i) => !i.alheia);
+      if (own) return own;
+      const image = make();
+      await this.write(db, (store) => store.put(image));
+      this.version.update((v) => v + 1);
+      this.count.update((n) => n + 1);
+      return image;
+    });
+    this.keeping = job.catch(() => undefined);
+    return job;
   }
 
   /** As que ainda não subiram para a nuvem, das mais velhas para as mais novas. */

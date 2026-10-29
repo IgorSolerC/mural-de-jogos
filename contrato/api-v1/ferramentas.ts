@@ -482,11 +482,17 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_imagem',
     titulo: 'Ver uma imagem',
     descricao:
-      'Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}). Só as das notas que esta chave lê.',
+      'Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}; o endereço inteiro também serve). Mande também a nota onde você a viu: fica mais rápido. Só as das notas que esta chave lê.',
     escopo: 'notas:ler',
     somenteLeitura: true,
     destrutiva: false,
-    entrada: obj({ id: { type: 'string', pattern: '^[A-Za-z0-9_-]{22}$', description: 'O id da imagem (as 22 letras depois de murall://imagem/).' } }, ['id']),
+    entrada: obj(
+      {
+        id: { type: 'string', pattern: '^(murall://imagem/)?[A-Za-z0-9_-]{22}$', description: 'O id da imagem (as 22 letras depois de murall://imagem/), ou o endereço inteiro.' },
+        nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'Opcional: o id da nota onde está a imagem (de ler_nota).' },
+      },
+      ['id'],
+    ),
     metodo: 'GET',
     caminho: '/ext/v1/imagens/:id',
     devolveImagem: true,

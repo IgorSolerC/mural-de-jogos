@@ -125,7 +125,18 @@ describe('as imagens guardadas no aparelho (core/image-store.ts)', () => {
     expect((await store.add(png)).id).toBe(mine.id);
   });
 
-  it('com a página congelada, a de outra pessoa não vira sua', async () => {
+  it('dois pedidos juntos da mesma cópia, ou dois colares juntos da mesma foto, guardam uma só', async () => {
+    const theirs = 'DaBiaDaCompartilhada05';
+    await store.fromCloud(theirs, await samplePng(300, 200), 300, 200, true);
+    const [a, b] = await Promise.all([store.adopt(theirs), store.adopt(theirs)]);
+    expect(a!.id).toBe(b!.id);
+    const png = await samplePng(500, 300);
+    const [c, d] = await Promise.all([store.add(png), store.add(png)]);
+    expect(c.id).toBe(d.id);
+    expect((await store.all()).filter((i) => !i.alheia).length).toBe(2);
+  });
+
+    it('com a página congelada, a de outra pessoa não vira sua', async () => {
     await store.fromCloud('DaBiaDaCompartilhada02', await samplePng(100, 100), 100, 100, true);
     freezeStorage();
     try {

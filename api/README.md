@@ -133,8 +133,10 @@ pelos primeiros bytes o tipo e o tamanho de verdade (`src/domain/image.ts`) e gu
   as soltas há mais de 30 dias que nenhuma compartilhada usa, até 500 por dia.
 - `GET /ext/v1/imagens/:id` (a API das AIs, com a chave e `notas:ler`): os bytes de uma imagem que está
   numa nota que a chave lê no espelho (a chave limitada a grupos não vê a de outro grupo) e que a pessoa
-  da chave pode ver; senão, 404. Sem cache, com o mesmo freio por IP. No MCP, é a ferramenta
-  `ver_imagem`, que devolve a imagem para a AI ver (aceita também o endereço `murall://imagem/ID`).
+  da chave pode ver; senão, 404. O id pode vir como o endereço inteiro (`murall://imagem/ID`, codificado);
+  com `?nota=ID`, só aquela nota é lida (sem, a busca passa por todas as notas da conta). Sem cache, com o
+  mesmo freio por IP, que o MCP repassa. No MCP, é a ferramenta `ver_imagem`, que devolve a imagem para a
+  AI ver.
 
 As travas, no `wrangler.toml` (zero ou um valor que não é número recusa todo envio):
 

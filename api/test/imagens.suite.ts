@@ -646,11 +646,11 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       const rev = Number((await t.call('/v1/eu/mural', { headers: { Authorization: `Bearer ${token}` } })).headers.get('Mural-Rev'));
       await json('/v1/eu/espelho', { rev, poe });
       const ext = (id: string) => t.call(`/ext/v1/imagens/${id}`, { headers: { Authorization: `Bearer ${secret}` } });
-      const tool = async (args: Record<string, unknown>) =>
+      const tool = async (args: Record<string, unknown>, headers: Record<string, string> = {}) =>
         ((await (
           await t.call('/mcp', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${secret}`, 'Content-Type': 'application/json', ...headers },
             body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'ver_imagem', arguments: args } }),
           })
         ).json()) as any).result;
@@ -715,6 +715,35 @@ export function imagensSuite(label: string, getDb: () => Db, getImagesDb: () => 
       const missing = await tool({ id: newId() });
       expect(missing.isError).toBe(true);
       expect(missing.content[0].text).toContain('HTTP 404');
+    });
+
+    it('o endereço inteiro também serve na rota; com a nota, só a imagem que está nela', async () => {
+      const t = await setup({ env: { API_CODIGOS: '*' } });
+      const ana = await t.login('ana');
+      const [um, dois] = [newId(), newId()];
+      await t.put(ana.token, um, webp(10, 10));
+      await t.put(ana.token, dois, webp(10, 10, 2_000, 1));
+      const { ext } = await withKey(t, ana.token, [
+        { id: 'n-um', grupo: null, texto: `{{imagem: murall://imagem/${um}}}` },
+        { id: 'n-dois', grupo: null, texto: `{{imagem: murall://imagem/${dois}}}` },
+      ]);
+      expect((await ext(encodeURIComponent(`murall://imagem/${um}`))).status).toBe(200);
+      expect((await ext(`${um}?nota=n-um`)).status).toBe(200);
+      expect((await ext(`${um}?nota=n-dois`)).status, 'a imagem não está nessa nota').toBe(404);
+      expect((await ext(`${um}?nota=n%20um`)).status, 'uma nota que não é id').toBe(404);
+    });
+
+    it('pelo MCP, o freio por IP das imagens vale como na rota', async () => {
+      let left = 1;
+      const t = await setup({ env: { API_CODIGOS: '*' }, brake: { take: () => left-- > 0 } });
+      const ana = await t.login('ana');
+      const id = newId();
+      await t.put(ana.token, id, webp(10, 10));
+      const { tool } = await withKey(t, ana.token, [{ id: 'n-1', grupo: null, texto: `{{imagem: murall://imagem/${id}}}` }]);
+      expect((await tool({ id, nota: 'n-1' }, { 'CF-Connecting-IP': '203.0.113.9' })).isError).toBeUndefined();
+      const slow = await tool({ id }, { 'CF-Connecting-IP': '203.0.113.9' });
+      expect(slow.isError).toBe(true);
+      expect(slow.content[0].text).toContain('HTTP 429');
     });
   });
 }

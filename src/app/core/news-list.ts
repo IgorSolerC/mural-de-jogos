@@ -33,7 +33,7 @@ export const NEWS: NewsEntry[] = [
     title: 'As imagens coladas para as AIs, na cópia e no PDF',
     melhorias: [
       'Pela API e pelo MCP, a AI vê as imagens coladas nas notas que a chave lê (a ferramenta Ver uma imagem), sem passar dos grupos dela.',
-      'Colar numa anotação um texto com a imagem de outra pessoa (copiado de uma compartilhada) guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada.',
+      'Colar numa anotação sua (ou no perfil) um texto com a imagem de outra pessoa, copiado de uma compartilhada, guarda uma cópia sua da imagem: ela não para de abrir quando você sai da compartilhada. Dentro da própria compartilhada e nos comentários, ela fica como veio.',
       'Copiar as anotações marcadas (Ctrl+C) escreve "imagem guardada no Murall" no lugar do endereço da imagem colada, que fora do Murall não abre.',
     ],
     correcoes: [

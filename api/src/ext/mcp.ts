@@ -90,8 +90,6 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
   async function chama(c: Context, f: Ferramenta, args: Record<string, unknown>) {
     const origin = new URL(c.req.url).origin;
     if (f.nome === 'guia_do_murall') return { content: [{ type: 'text', text: guia(origin) }] };
-    // a imagem pedida pelo endereço inteiro, como está no texto da nota: vale o id
-    if (f.devolveImagem && typeof args['id'] === 'string') args = { ...args, id: args['id'].trim().replace(/^murall:\/\/imagem\//, '') };
     let path = f.caminho;
     // faltando um :nome do caminho (o id do pedido, o grupo do quadro), o caminho sem ele
     const given = (name: string) => typeof args[name] === 'string' && !!args[name];
@@ -113,6 +111,9 @@ export function mcpRoutes(app: Hono, deps: Deps): void {
     }
     const rest = Object.fromEntries(Object.entries(args).filter(([k]) => !(ARGUMENTOS_DE_FORA as readonly string[]).includes(k) && !inPath.includes(k)));
     const headers: Record<string, string> = { Authorization: c.req.header('Authorization') ?? '' };
+    // quem chamou: os freios por IP das rotas (o das imagens) valem também pelo MCP
+    const ip = c.req.header('CF-Connecting-IP');
+    if (ip) headers['CF-Connecting-IP'] = ip;
     const idem = args['chave_idempotencia'];
     if (idem !== undefined && idem !== null) {
       // um cabeçalho com acento ou quebra de linha nem se monta (TypeError): erro da ferramenta antes

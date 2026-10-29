@@ -5,7 +5,7 @@ import { ALL, IMAGE_ID, LOOSE_DAYS, MAX_IMAGE_BYTES, checkImage, dropBytes, drop
 import { DAY_MS } from '../domain/quota';
 import { assertWritable, write } from '../domain/quota';
 import { authenticate } from '../domain/session';
-import { CatalogBrake, Deps, Statement } from '../ports';
+import { CatalogBrake, Db, Deps, Statement } from '../ports';
 import { catalogBrake } from './catalog';
 import { sessionOf } from './http';
 import { toBytes } from './mural';
@@ -171,11 +171,28 @@ export function imageRoutes(app: Hono, deps: Deps): void {
     return room(await usageOf(deps.db, userId), config.imagesUserBytes);
   }
 
+  /** O freio por IP de quem pede imagens: muitas seguidas esperam um minuto. */
+  function slowDown(c: Context): void {
+    if (!braked(c, deps, brake)) return;
+    c.header('Retry-After', '60');
+    throw new HttpError(429, 'imagens-devagar', 'Muitas imagens seguidas. As outras vêm daqui a pouco.');
+  }
+
+  /** Entrega os bytes guardados, com o tipo e os cabeçalhos que não deixam a imagem virar página; 404 se faltam. */
+  async function sendImage(c: Context, imagesDb: Db, id: string, tipo: string, cache: string): Promise<Response> {
+    const stored = await imagesDb.first<{ dados: unknown }>('SELECT dados FROM bytes WHERE id = ?', [id]);
+    if (!stored) throw notFound();
+    const bytes = toBytes(stored.dados);
+    c.header('Content-Type', tipo);
+    c.header('Cache-Control', cache);
+    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
+    c.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    c.header('Content-Disposition', 'inline');
+    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+  }
+
   app.get('/v1/imagens/:id', async (c) => {
-    if (braked(c, deps, brake)) {
-      c.header('Retry-After', '60');
-      throw new HttpError(429, 'imagens-devagar', 'Muitas imagens seguidas. As outras vêm daqui a pouco.');
-    }
+    slowDown(c);
     const imagesDb = imagesDbOf(deps);
     const id = idOf(c);
     // quem pede (a sessão, se veio); sem sessão, vencida ou inválida: como quem visita (nunca 401: a
@@ -192,49 +209,34 @@ export function imageRoutes(app: Hono, deps: Deps): void {
     const own = viewer !== null && viewer === row.dono_id;
     // a privada: o dono, ou quem está numa compartilhada que a usa; senão, 404 (não confirma que existe)
     if (!row.publica && !own && !row.membro) throw notFound();
-    const stored = await imagesDb.first<{ dados: unknown }>('SELECT dados FROM bytes WHERE id = ?', [id]);
-    if (!stored) throw notFound();
-    const bytes = toBytes(stored.dados);
-    c.header('Content-Type', row.tipo);
-    // a pública pode voltar a ser privada: 7 dias no cache de quem visita; a privada não fica no cache do
-    // navegador (o site guarda no IndexedDB, que a limpeza do Sair alcança)
+    if (viewer !== null) c.header('Imagem-Sua', own ? '1' : '0');
     // a pública pedida sem sessão fica 7 dias no cache de quem visita (pode voltar a ser privada); com
     // sessão (o site guarda no IndexedDB, que a limpeza do Sair alcança), nada fica no cache do navegador
-    c.header('Cache-Control', row.publica && viewer === null ? 'public, max-age=604800' : 'private, no-store');
-    if (viewer !== null) c.header('Imagem-Sua', own ? '1' : '0');
-    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
-    c.header('Cross-Origin-Resource-Policy', 'cross-origin');
-    c.header('Content-Disposition', 'inline');
-    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+    return sendImage(c, imagesDb, id, row.tipo, row.publica && viewer === null ? 'public, max-age=604800' : 'private, no-store');
   });
 
   app.get('/ext/v1/imagens/:id', async (c) => {
-    if (braked(c, deps, brake)) {
-      c.header('Retry-After', '60');
-      throw new HttpError(429, 'imagens-devagar', 'Muitas imagens seguidas. As outras vêm daqui a pouco.');
-    }
+    slowDown(c);
     const me = await authenticateKey(deps, c.req.header('Authorization'));
     requireScope(me, 'notas:ler');
     const imagesDb = imagesDbOf(deps);
-    const id = idOf(c);
-    // só a de uma nota que a chave lê: a chave limitada a alguns grupos não vê a imagem de outro grupo
+    // o endereço inteiro, como está no texto da nota, também serve
+    const id = (c.req.param('id') ?? '').replace(/^murall:\/\/imagem\//, '');
+    if (!IMAGE_ID.test(id)) throw notFound();
+    // só a de uma nota que a chave lê: a chave limitada a alguns grupos não vê a imagem de outro grupo.
+    // Com a nota onde ela está (`nota`), lê só aquela; sem, procura em todas as da conta
+    const note = c.req.query('nota')?.trim();
+    if (note !== undefined && !/^[\w-]{1,64}$/.test(note)) throw notFound();
     const limit = groupLimit(me);
     const inNote = await deps.db.first<{ um: number }>(
-      `SELECT 1 AS um FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota' AND instr(dados, ?) > 0${limit.sql} LIMIT 1`,
-      [me.key.userId, `murall://imagem/${id}`, ...limit.params],
+      `SELECT 1 AS um FROM api_espelho WHERE usuario_id = ? AND tipo = 'nota'${note ? ' AND id = ?' : ''} AND instr(dados, ?) > 0${limit.sql} LIMIT 1`,
+      [me.key.userId, ...(note ? [note] : []), `murall://imagem/${id}`, ...limit.params],
     );
     if (!inNote) throw notFound();
     // e que a pessoa da chave pode ver (a de outra pessoa numa compartilhada da qual ela saiu, não)
     const row = await imageAccess(deps.db, id, me.key.userId);
     if (!row || !row.pronta || (!row.publica && !row.membro && row.dono_id !== me.key.userId)) throw notFound();
-    const stored = await imagesDb.first<{ dados: unknown }>('SELECT dados FROM bytes WHERE id = ?', [id]);
-    if (!stored) throw notFound();
-    const bytes = toBytes(stored.dados);
-    c.header('Content-Type', row.tipo);
-    c.header('Cache-Control', 'private, no-store');
-    c.header('Content-Security-Policy', "default-src 'none'; sandbox");
-    c.header('Content-Disposition', 'inline');
-    return c.body(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer, 200);
+    return sendImage(c, imagesDb, id, row.tipo, 'private, no-store');
   });
 
   app.delete('/v1/imagens/:id', async (c) => {

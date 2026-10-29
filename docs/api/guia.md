@@ -68,7 +68,7 @@ Sempre JSON: `{"erro": "codigo", "mensagem": "em português"}`. 401 (chave invá
 - `buscar` (notas:ler ou gastos:ler): Busca nas notas (título e texto) e nos títulos dos lançamentos, sem ligar para acento e caixa. Sem areas, busca em tudo que esta chave lê.
 - `listar_notas` (notas:ler): As notas, com filtros. Cada uma vem com um resumo do texto (com_texto: true traz inteiro). Pagine com depois.
 - `ler_nota` (notas:ler): Uma nota inteira, com a versao (mande ela ao editar) e os pedidos abertos sobre ela.
-- `ver_imagem` (notas:ler): Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}). Só as das notas que esta chave lê.
+- `ver_imagem` (notas:ler): Uma imagem colada numa nota, para você ver: o id são as 22 letras depois de murall://imagem/ no texto (o widget {{imagem: murall://imagem/ID}}; o endereço inteiro também serve). Mande também a nota onde você a viu: fica mais rápido. Só as das notas que esta chave lê.
 - `criar_nota` (notas:criar): Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo.
 - `editar_nota` (notas:editar): Muda os campos mandados (os outros ficam). Exige a versao que você leu: se a nota mudou depois, volta conflito com a nota de agora; leia de novo e refaça. Para só acrescentar texto, use acrescentar_na_nota.
 - `acrescentar_na_nota` (notas:editar): Acrescenta um trecho no fim (ou no começo) do texto, sem precisar da versao.
