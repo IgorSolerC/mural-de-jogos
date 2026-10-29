@@ -391,6 +391,15 @@ Novidades).
   desenho: a mesma foto colada só reaproveita o id de uma imagem sua (antes, achava a de outra pessoa
   pelo SHA-256 e a usava). A busca continua lendo a legenda (o endereço não tem palavra). Falta, de
   rodadas de antes: medir o `cpuTime` em produção. As 6 rodadas do plano terminaram.
+- 29/out/2026, a medida em produção (`npx wrangler tail mural-api --format json`, o usuário colou 3
+  imagens logado): o `PUT /v1/imagens/:id` gastou **11, 15 e 18 ms de CPU** (32, 17 e 75 KB; 1,2 a 1,4 s
+  de relógio, quase tudo esperando o D1), todos `ok`, nenhum cortado. Passa dos 10 ms do plano grátis,
+  como já passava o envio do mural: os 6 `PUT /v1/eu/mural` da mesma hora (200 KB cada) gastaram **29 a
+  52 ms**, também `ok`, e é assim há semanas. A pré-consulta do CORS da imagem, 2 a 3 ms; a leitura do
+  mural (`GET`), 3 a 5 ms. O CPU da imagem quase não cresce com o tamanho (o servidor não decodifica):
+  o grosso é o mesmo de qualquer gravação com sessão. A descida (`GET` de outro aparelho) não apareceu
+  nesta medida. Se a Cloudflare um dia cortar pelos 10 ms, o primeiro a sentir é o envio do mural, não
+  as imagens.
 
 ## 11. A conferir (riscos)
 
