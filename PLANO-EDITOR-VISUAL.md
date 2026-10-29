@@ -1006,7 +1006,51 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
 
 - 29/out/2026: o plano (40a8a16, BUILD 640) e as respostas das perguntas P1 a P5, todas como
   recomendado (seção 9.2).
-- Próximo: a rodada 0, a prova no celular do usuário, quando ele disser para começar.
+- 29/out/2026, rodada 0 começada (a parte do computador feita; falta o celular do usuário):
+  - **A prova** mora em `.angular/prova-visual/` (fora do site e do git, como as fotos de puppeteer):
+    `node construir.mjs` monta `www/`, `node servir.mjs` serve na 5241 em todas as placas de rede
+    (a configuração `prova-visual` do `.claude/launch.json`) e guarda em `relatorios/` o que o botão
+    "Mandar para o computador" da página manda. `node conferir.mjs` é o roteiro do puppeteer.
+    O esquema é o mínimo de 5.1 (linha, título, item com a caixinha, um contador falso com o título
+    escrito direto na peça, a tabela do `prosemirror-tables`), as marcas de 5.2, o teclado próprio de
+    5.9 (sem o `baseKeymap`), os atalhos de digitação de 5.10, a régua com os botões acesos e presa em
+    cima do teclado no celular, e um diagnóstico: o registro das teclas, do `beforeinput` e da
+    composição, a conferência tela × documento (o texto de cada linha no DOM contra o do nó) e o tipo
+    `text/x-murall-markdown` ao copiar e colar. O markdown que ela mostra é aproximado (o tradutor é
+    a rodada 1).
+  - **As versões fixas**, todas MIT, cada uma publicada há duas semanas ou mais (as mais novas de
+    out/2026 ficaram de fora até amadurecerem): `prosemirror-model` 1.25.12, `-state` 1.4.4, `-view`
+    1.42.6, `-transform` 1.12.2, `-commands` 1.7.2, `-keymap` 1.2.3, `-history` 1.5.1, `-inputrules`
+    1.5.1, `-gapcursor` 1.4.1, `-dropcursor` 1.8.4, `prosemirror-tables` 1.8.5 (e, de tabela,
+    `orderedmap` 2.1.1, `rope-sequence` 1.3.4, `w3c-keyname` 2.2.8).
+  - **O peso**: o pedaço da prova inteiro (os onze pacotes e o nosso código) dá 260 KB cru, **81 KB
+    gzip, 71 KB brotli**; sem o `prosemirror-tables`, 68 KB gzip. Abaixo da estimativa de 5.23
+    (100–150 KB). O tree-shaking quase não tira nada do ProseMirror: contar com o pacote inteiro.
+  - **No Chrome do computador** (puppeteer, 37 conferências, todas passando): digitar, Ctrl+B ligando e
+    desligando sem seleção, "- ", "1. ", "[] ", "## " e "->" virando o que devem, o Backspace logo
+    depois desfazendo o atalho, Enter continuando e terminando a lista, Backspace no começo do item
+    tirando o marcador, Tab e Shift+Tab, a tecla morta (´ + a) e uma palavra composta letra a letra
+    como o teclado do celular faz (sem letra a mais nem a menos; o "->" espera a composição acabar), a
+    caixinha marcando sem mexer no cursor, a peça selecionada inteira com a tirinha, Enter na peça
+    abrindo uma linha, o título escrito direto na peça, as setas passando por ela, a tabela (escrever,
+    Enter desce, Enter na última fileira cria outra, Tab anda), Ctrl+Z e Ctrl+Y, o tipo próprio do
+    Murall indo e voltando pela área de transferência com o negrito junto, a tela igual ao documento a
+    sessão inteira, nenhum erro no console. No celular simulado (Pixel 5): a régua presa embaixo, a
+    letra da folha com 18,9 px (o iPhone não dá zoom), a caixinha marcando com um toque sem dar foco à
+    folha.
+  - **Achados**: (1) o `preventDefault` no `touchstart` da caixinha mata o `click`: no celular ela não
+    marcava. Segurar o foco com o `pointerdown` (e o `mousedown`) cancelado e marcar no `click`
+    funciona. Vale para toda peça tocável dentro da folha (a caixinha, a tirinha, os controles do vídeo).
+    (2) O `selectionchange` do navegador chega um instante depois da tecla: um robô que aperta Home e
+    logo Backspace age na seleção velha (juntou duas linhas). Gente não digita tão rápido, mas os testes
+    do Karma e do puppeteer precisam de uma pausa depois de mexer na seleção pelo teclado, ou despachar a
+    seleção direto na vista (o R9). O copiar com a seleção velha também sai pelo navegador, sem o tipo
+    próprio. (3) O ProseMirror ignora o Enter do Chrome do Android no `keydown` (lê da mudança no DOM) e,
+    no iPhone, espera 200 ms pelo Enter: o nosso Enter continua sendo chamado, mas é o que mais precisa
+    do aparelho de verdade.
+- Próximo: o usuário abre a prova no celular (o mesmo Wi-Fi do computador, `http://192.168.15.10:5241`),
+  segue o roteiro da página e toca em "Mandar para o computador"; com os relatórios, fecha a rodada 0
+  (o Android com o Gboard; o iPhone e o tipo próprio no Safari, se tiver um à mão). Depois, a rodada 1.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
