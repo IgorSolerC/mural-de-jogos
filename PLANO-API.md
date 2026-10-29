@@ -924,7 +924,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** — feita em 29/out (seção 23) | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** — feita em 27/out (seção 23) | Quadros, mover, colunas, dependências |
-| 9 | **Wishlist, Pra depois e fichas** — em andamento em 29/out (seção 23) | Com a busca da capa no app |
+| 9 | **Wishlist, Pra depois e fichas** — feita em 29/out (seção 23) | Com a busca da capa no app |
 | 10 | **CLI** — fora por enquanto (pedido do usuário em 29/out: sem npm) | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
 | 11 | **Fechar** — fora por enquanto (pedido do usuário em 29/out: sem domínio novo) | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
 
@@ -1683,7 +1683,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      existe, ou criar outra. **Próximo**: a rodada 9 (Wishlist, Pra depois e fichas), seção 19; as
      rodadas 10 (CLI no npm) e 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
 
-- **29/out/2026, rodada 9 (Wishlist, Pra depois e fichas)**: em andamento. Pedido do usuário: "Fazer a
+- **29/out/2026, rodada 9 (Wishlist, Pra depois e fichas)**: feita. Pedido do usuário: "Fazer a
   rodada 9", do jeito das rodadas 6 a 8: o roteiro aqui, um commit com push por passo, marcando
   [feito]. **Quem continuar: leia esta lista, faça o primeiro passo sem [feito], marque e commite** (as
   mesmas regras: CLAUDE.md, BUILD + 1 só quando o site muda, commit no nome do usuário sem
@@ -1802,6 +1802,21 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      nome); o `llms.txt`, o OpenAPI e as regras de ouro dizem os murais. No site, Como usar e a folha
      da chave dizem que ela lê e escreve em tudo (o "chegam depois" saiu). As cópias em `docs/api/`
      foram regeradas.
-  8. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave dos murais, o espelho enchendo, pôr
+  8. [feito] Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave dos murais, o espelho enchendo, pôr
      na wishlist com a busca da capa, mudar a relevância, pôr e tirar do Pra depois, criar e mudar uma
      ficha, aplicar) e no ar (as rotas novas respondendo). Anotar aqui.
+     Feito em 29/out. **Local** (`.angular/pptr/murais-e2e.mjs`, fora do repositório; a API no
+     `wrangler dev` 8795, o site no `ng serve` 5139, a conta `u-e2e`): uma chave dos três murais com
+     aprovação "nunca"; o site aberto com uma ficha de jogo (masterpiece), um desejo (LATER) e um pra
+     depois; a ficha, o desejo, o pra depois e o contexto (os seis murais com as notas de cada um)
+     chegando ao espelho; e sete pedidos: pelo MCP, um lote na wishlist (Duna, um livro com o ano e o
+     autor, e um jogo sem capa e MUST), a relevância do desejo de antes para MUST, o jogo do lote posto
+     no Pra depois, o pra depois de antes tirado, uma ficha de livro criada e as notas e o texto da
+     ficha de jogo mudados. O site aplicou os sete sozinho: a capa do Duna veio do Open Library pela
+     busca da tela; o jogo saiu da wishlist ao entrar no Pra depois; a ficha nova saiu privada com a
+     média do Murall (9,7) e a mudada foi de 9,4 a 9,8. O espelho ficou como devia. **No ar**: as rotas
+     dos murais dão 401 sem chave, o OpenAPI tem os seis caminhos novos e o `/llms-full.txt` tem "Os
+     murais". O Desfazer dos murais ficou conferido nos testes do site (ele começa na folha do
+     histórico). **Rodada 9 feita.** Para usar: em Acessos, marcar a Wishlist, o Pra depois e as
+     fichas na chave (ou no conector) que já existe, ou criar outra. Com ela, as rodadas 0 a 9 estão
+     feitas; a 10 (CLI no npm) e a 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
