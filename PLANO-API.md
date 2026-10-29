@@ -924,7 +924,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 6 | **Gastos** — feita em 27/out (seção 23) | Lançar (um, lote, frase rápida), mês como o app mostra, editar/apagar, envelopes e pessoas |
 | 7 | **Calendário** — feita em 29/out (seção 23) | Lembretes com repetição, agenda aberta pelo app, Google Agenda seguindo sozinho |
 | 8 | **Kanban** — feita em 27/out (seção 23) | Quadros, mover, colunas, dependências |
-| 9 | **Wishlist, Pra depois e fichas** | Com a busca da capa no app |
+| 9 | **Wishlist, Pra depois e fichas** — em andamento em 29/out (seção 23) | Com a busca da capa no app |
 | 10 | **CLI** — fora por enquanto (pedido do usuário em 29/out: sem npm) | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
 | 11 | **Fechar** — fora por enquanto (pedido do usuário em 29/out: sem domínio novo) | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
 
@@ -1682,3 +1682,71 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      **Rodada 7 feita.** Para usar: em Acessos, marcar o Calendário na chave (ou no conector) que já
      existe, ou criar outra. **Próximo**: a rodada 9 (Wishlist, Pra depois e fichas), seção 19; as
      rodadas 10 (CLI no npm) e 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
+
+- **29/out/2026, rodada 9 (Wishlist, Pra depois e fichas)**: em andamento. Pedido do usuário: "Fazer a
+  rodada 9", do jeito das rodadas 6 a 8: o roteiro aqui, um commit com push por passo, marcando
+  [feito]. **Quem continuar: leia esta lista, faça o primeiro passo sem [feito], marque e commite** (as
+  mesmas regras: CLAUDE.md, BUILD + 1 só quando o site muda, commit no nome do usuário sem
+  Co-Authored-By, push logo depois; site: `npx ng test mural-de-jogos --watch=false
+  --browsers=ChromeHeadless`, `npx ng build`, fotos de perto e smoke quando há tela; API: `cd api &&
+  npm run typecheck && npm test`; o push em `api/` ou `contrato/` publica a API).
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 5.2, 7, 8, 9 e 10):
+  - **Três áreas do espelho**, cada uma levada por qualquer permissão dela (quem só escreve precisa do
+    item de agora para a API conferir a versão): `desejos` (`desejo`), `pra-depois` (`pra-depois`) e
+    `fichas` (`ficha` e o `contexto-fichas`, id `fichas`). O mural de anotações fica de fora das três.
+  - **O que cada mural tem é regra do app** (as quatro notas de cada mural e o peso delas, os nomes dos
+    status, se tem dificuldade, a quantidade em horas ou páginas): vai pronto no `contexto-fichas`,
+    feito com `KIND_PROFILES` (core/kinds.ts). A nota final é sempre `computeFinal` do site; a AI dá
+    as notas de 0 a 10 (inteiras), nunca a final.
+  - Desejo v1: `id`, `mural`, `nome`, `ano`, `por` (autor, artista), `capa`, `relevancia` (`must`,
+    `comum`, `later`), `criado_em`, `versao`. Pra depois: o mesmo sem a relevância.
+  - Ficha v1: `id`, `mural`, `nome`, `por`, `ano`, `capa`, `forma` e `artista` (só nas músicas),
+    `nota_final`, `notas` (só as do mural, null sem nota), `nota_final_na_mao`, `status`,
+    `dificuldade` (null no mural sem dificuldade), `veredito`, `quantidade`, `texto`, `concluida_em`,
+    `visibilidade`, `releitura_de`, `criada_em`, `versao`. Os pesos, os bônus e o desenho do papel não
+    vão à v1 (não servem para a AI; mudar uma ficha os deixa como estão).
+  - **Escrever**: desejos e pra depois se põem (um, ou `itens` até 50, um pedido por item), se mudam
+    (desejo: a relevância, o nome, o ano, o por, a capa) e se tiram; fichas se criam e se mudam (sem
+    apagar, como no plano: `fichas:escrever` é "criar e mudar"). Mudar e tirar pedem a `versao`; pôr e
+    criar dispensam. O mesmo nome no mesmo mural da wishlist (ou do Pra depois) é 409
+    `desejo-existe` / `pra-depois-existe`, com o que já está lá.
+  - **A capa**: com `capa` (https), ela; sem, `buscar_capa` (o padrão: true) faz o site procurar no
+    catálogo do mural ao aplicar, pela mesma busca da tela (`GameLookup.search`), ficando com o item
+    de nome igual (e ano igual, se veio) ou o primeiro; sem achar (ou sem internet), entra sem capa.
+  - A ficha criada nasce **privada** (como a nota; tornar pública pede `publicar`), com a cartolina da
+    vez (`nextStock`) e, com o mesmo nome de outra do mural, vira a releitura dela, como na tela
+    (`ReviewStore.add`). Precisa de pelo menos uma nota.
+  - Tirar desejo ou pra depois guarda o item no `antes` do pedido (o Desfazer põe de volta, pelo
+    `restoreWish`/`restoreDraft`).
+  - Pôr e criar não esperam a aprovação "mudancas"; mudar e tirar esperam.
+
+  Passos:
+  1. [feito] Contrato e API do espelho: `contrato/api-v1/murais.ts` (`DesejoV1`, `PraDepoisV1`, `FichaV1`,
+     `ContextoFichasV1`, os murais, as relevâncias, os status, as dificuldades, os vereditos), os tipos
+     novos do espelho e a conferência da forma em `api/src/domain/mirror.ts` (as áreas `desejos`,
+     `pra-depois` e `fichas`; `data` = o dia em que entrou ou o da ficha, `grupo` = o mural, `busca` =
+     o nome, o por e, na ficha, o texto, sem acento). Testes numa suíte nova, `api/test/murais.suite.ts`.
+  2. Site manda o espelho: `core/api-mirror-murals.ts` monta os desejos, os pra depois, as fichas (as
+     de todos os murais, menos as anotações) e o contexto com `KIND_PROFILES`, só quando a nuvem pede a
+     área. Testes. BUILD + 1.
+  3. API, ler: `GET /ext/v1/desejos` (`mural`, `relevancia`, `q`, `limite`, `depois`) e `/:id`, `GET
+     /ext/v1/pra-depois` (`mural`, `q`) e `/:id`, `GET /ext/v1/fichas` (`mural`, `status`, `veredito`,
+     `q`, `ordem`, `com_texto`) e `/:id`; o contexto com `desejos`, `pra_depois` (quantos em cada mural)
+     e `fichas` (os murais com as notas de cada um); a busca com `areas=desejos,pra-depois,fichas`.
+     Testes.
+  4. Contrato das operações e API, escrever na Wishlist e no Pra depois: `desejo.por`, `desejo.editar`,
+     `desejo.tirar`, `pra-depois.por`, `pra-depois.tirar`; os pedidos abertos por cima das leituras.
+     Testes.
+  5. Contrato das operações e API, escrever fichas: `ficha.criar`, `ficha.editar` (as notas conferidas
+     com as do mural, pelo contexto); por cima das leituras. Testes.
+  6. Site aplica os pedidos (pelo `ReviewStore`: `saveWish`, `setRelevance`, `removeWish`,
+     `saveDraft`, `removeDraft`, `add`, `update`), com a busca da capa, o Desfazer e as frases na folha
+     dos pedidos e no histórico. Testes. BUILD + 1.
+  7. MCP e guia: `ver_wishlist`, `por_na_wishlist`, `mudar_desejo`, `tirar_da_wishlist`,
+     `ver_pra_depois`, `por_no_pra_depois`, `tirar_do_pra_depois`, `listar_fichas`, `ler_ficha`,
+     `criar_ficha`, `editar_ficha`; a parte dos murais no guia; o OpenAPI e as cópias em `docs/api`
+     regerados; as frases do site que dizem o que a chave faz. BUILD + 1 se o site mudar.
+  8. Ponta a ponta: local (`wrangler dev` + `ng serve`, uma chave dos murais, o espelho enchendo, pôr
+     na wishlist com a busca da capa, mudar a relevância, pôr e tirar do Pra depois, criar e mudar uma
+     ficha, aplicar) e no ar (as rotas novas respondendo). Anotar aqui.
