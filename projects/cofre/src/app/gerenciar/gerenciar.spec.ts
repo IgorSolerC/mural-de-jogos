@@ -391,4 +391,21 @@ describe('gerenciar o cofre', () => {
     await parte(fixture, 'Aparelhos');
     expect(el.querySelector('.confirmar-de-novo')).toBeNull();
   });
+
+  it('desistir enquanto a passkey confirma (outra parte dos Ajustes): a confirmação que volta depois não tira o aparelho', async () => {
+    let soltar: (c: Credential) => void = () => undefined;
+    let pedidas = 0;
+    const devagar: Autenticador = { ...semPrf, pegar: () => (pedidas++, new Promise<Credential>((ok) => (soltar = ok))) };
+    const { fixture, api, el } = await montar({ autenticador: devagar });
+    botao(el, 'Tirar').click();
+    await estabilizar(fixture);
+    botao(el, 'Tirar').click();
+    await ate(fixture, () => pedidas === 1);
+    // a pessoa vai para outra parte enquanto o aparelho ainda pede a digital
+    await parte(fixture, 'Recuperação');
+    soltar(assinada());
+    await estabilizar(fixture, 10);
+    expect(api.pedidos).toEqual([]);
+    expect(api.lista.length).toBe(2);
+  });
 });

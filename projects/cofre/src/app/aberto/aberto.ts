@@ -12,7 +12,7 @@ import { Gerenciar, type MudancaDeGrupo } from '../gerenciar/gerenciar';
 import { ItemDoCofre } from './item';
 import { Lixeira } from './lixeira';
 import { nomeDoItem } from './monograma';
-import { emPastas, gruposDoCofre, jeitosDosGrupos, simples } from './pastas';
+import { contarPorGrupo, emPastas, gruposDoCofre, jeitosDosGrupos, simples, vezesVazada } from './pastas';
 import { type CampoRapido, QuadroDeSenhas } from './quadro';
 import { type MotivoDeTrancar, Trancador } from './trancador';
 
@@ -105,13 +105,10 @@ export class Aberto implements OnInit {
   /** O ícone e a cor de cada grupo (pela chave). */
   protected readonly jeitos = computed(() => jeitosDosGrupos(this.noCofre()));
   /** Os grupos com quantas senhas cada um tem (os Ajustes renomeiam e apagam). */
-  protected readonly gruposComConta = computed(() =>
-    this.grupos().map((nome) => ({
-      nome,
-      senhas: this.noCofre().filter((i) => simples(i.item!.grupo) === simples(nome)).length,
-      jeito: this.jeitos().get(simples(nome)) ?? SEM_JEITO,
-    })),
-  );
+  protected readonly gruposComConta = computed(() => {
+    const conta = contarPorGrupo(this.noCofre());
+    return this.grupos().map((nome) => ({ nome, senhas: conta.get(simples(nome)) ?? 0, jeito: this.jeitos().get(simples(nome)) ?? SEM_JEITO }));
+  });
   /** Quantas já mudaram, enquanto um grupo é renomeado ou apagado. */
   protected readonly mudandoGrupo = signal<{ readonly feitas: number; readonly total: number } | null>(null);
   /** As achadas em pastas; sem nenhum grupo, uma pasta só, sem orelha. */
@@ -326,7 +323,7 @@ export class Aberto implements OnInit {
 
   /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
   protected vezesVazada(id: string): number {
-    return Math.max(0, ...(this.vazadas().get(id) ?? []));
+    return vezesVazada(this.vazadas(), id);
   }
 
   /**
@@ -382,8 +379,18 @@ export class Aberto implements OnInit {
     this.ocupado.set(true);
     this.erro.set(null);
     try {
-      const salvo = await salvarItem(this.servicos.api, this.cofre(), campos, this.criando() ? null : this.selecionado());
+      const antes = this.criando() ? null : this.selecionado();
+      const salvo = await salvarItem(this.servicos.api, this.cofre(), campos, antes);
       this.itens.update((lista) => [...lista.filter((i) => i.id !== salvo.id), salvo]);
+      // a conferência dos vazamentos era das senhas de antes (trocada a senha, o "Vazada" ficava; tirada
+      // uma entrada, a contagem passava para a de baixo): com as senhas mudadas, este item fica sem, até
+      // conferir de novo
+      const senhas = (i: ItemNaLista | null) => JSON.stringify(i?.item ? entradasDo(i.item).map((e) => e.senha) : []);
+      if (this.vazadas().has(salvo.id) && senhas(antes) !== senhas(salvo)) {
+        const semEle = new Map(this.vazadas());
+        semEle.delete(salvo.id);
+        this.vazadas.set(semEle);
+      }
       this.criando.set(false);
       this.aberto.set(salvo.id);
       this.quadro()?.mostrar(salvo.id);
@@ -510,6 +517,14 @@ export class Aberto implements OnInit {
       segredos.m.fill(0);
       segredos.v.fill(0);
     }
+    // as senhas decifradas também saem já: se a recarga não acontecer (a página indo para o cache de
+    // voltar/avançar, onde o navegador ignora a recarga pedida na saída), a memória não guarda nada
+    this.itens.set([]);
+    this.aberto.set(null);
+    this.criando.set(false);
+    this.busca.set('');
+    this.vazadas.set(new Map());
+    this.pendente.set(null);
     this.servicos.api.trancar();
     this.servicos.terminar();
   }

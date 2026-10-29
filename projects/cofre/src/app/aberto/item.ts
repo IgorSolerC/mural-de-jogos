@@ -1,6 +1,6 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, input, output, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { CORES_DA_CARTELA, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
+import { hexDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
 import type { CofreAberto } from '../../core/abrir';
 import { confirmarComPasskey, confirmarComSenha, podeConfirmarComPasskey, podeConfirmarComSenha } from '../../core/confirmar';
 import { ErroCofre } from '../../core/crypto';
@@ -267,10 +267,12 @@ export class ItemDoCofre {
     }
     this.comSenhaMestra.set(false);
     this.conferindo.set(true);
+    const id = this.idDoAlvo();
     try {
       await confirmarComPasskey(this.cofre()!, this.servicos.rpId, this.servicos.autenticador);
-      this.destravou(onde);
+      if (this.aindaConfirmando(id, onde)) this.destravou(onde);
     } catch (e) {
+      if (!this.aindaConfirmando(id, onde)) return;
       this.erroConfirmar.set(e instanceof ErroPasskey && e.motivo === 'cancelada' ? 'A passkey não foi confirmada.' : e instanceof ErroPasskey ? e.message : 'Não deu para confirmar. Tente de novo.');
     } finally {
       this.conferindo.set(false);
@@ -289,15 +291,26 @@ export class ItemDoCofre {
     this.erroConfirmar.set(null);
     // o Argon2id trava a página um pouco: o "Conferindo…" aparece antes
     await new Promise<void>((ok) => requestAnimationFrame(() => setTimeout(ok, 0)));
+    const id = this.idDoAlvo();
     try {
       await confirmarComSenha(this.cofre()!, this.senhaMestra());
-      this.destravou(onde);
+      if (this.aindaConfirmando(id, onde)) this.destravou(onde);
     } catch (e) {
+      if (!this.aindaConfirmando(id, onde)) return;
       this.erroConfirmar.set(e instanceof ErroCofre && e.motivo === 'abrir' ? 'Não é a senha mestra deste cofre.' : 'Não deu para conferir. Tente de novo.');
       this.senhaMestra.set('');
     } finally {
       this.conferindo.set(false);
     }
+  }
+
+  /**
+   * A confirmação que voltou ainda é a deste item e deste lugar? Enquanto a passkey ou o Argon2id
+   * trabalham, dá para abrir outra senha no quadro ao lado (ou fechar a confirmação): a que voltou não
+   * destrava o item que está aberto agora.
+   */
+  private aindaConfirmando(id: string | null, onde: OndeConfirma): boolean {
+    return this.idDoAlvo() === id && this.confirmandoEm() === onde;
   }
 
   private destravou(onde: OndeConfirma): void {
@@ -421,8 +434,7 @@ export class ItemDoCofre {
 
   /** O hex da cor de um grupo, ou null. */
   protected corDe(grupo: string): string | null {
-    const cor = this.jeitoDe(grupo).cor;
-    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
+    return hexDaCor(this.jeitoDe(grupo).cor);
   }
 
   protected usarGerada(n: number, senha: string): void {

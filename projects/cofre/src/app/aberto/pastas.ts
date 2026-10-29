@@ -46,11 +46,33 @@ export function gruposDoCofre(itens: readonly ItemNaLista[]): string[] {
  * para a pasta ter o mesmo nome com ou sem busca. Pasta vazia não aparece.
  */
 export function emPastas(itens: readonly ItemNaLista[], grupos: readonly string[], jeitos: ReadonlyMap<string, JeitoDoGrupo> = new Map()): Pasta[] {
-  const porNome = (a: ItemNaLista, b: ItemNaLista) => simples(nomeDoItem(a.item!)).localeCompare(simples(nomeDoItem(b.item!)), 'pt-BR');
+  // uma passada só (a busca refaz as pastas a cada letra), cada nome simplificado uma vez
+  const porChave = new Map<string, { readonly i: ItemNaLista; readonly nome: string }[]>();
+  for (const i of itens) {
+    const chave = simples(i.item!.grupo);
+    const lista = porChave.get(chave) ?? [];
+    lista.push({ i, nome: simples(nomeDoItem(i.item!)) });
+    porChave.set(chave, lista);
+  }
   const pastas = [...grupos.map((nome) => ({ chave: simples(nome), nome })), { chave: '', nome: 'Sem grupo' }].map((p) => ({
     ...p,
     jeito: jeitos.get(p.chave) ?? SEM_JEITO,
-    itens: itens.filter((i) => simples(i.item!.grupo) === p.chave).sort(porNome),
+    itens: (porChave.get(p.chave) ?? []).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map((x) => x.i),
   }));
   return pastas.filter((p) => p.itens.length);
+}
+
+/** Quantas senhas cada grupo tem (pela chave; '' é Sem grupo). */
+export function contarPorGrupo(itens: readonly ItemNaLista[]): Map<string, number> {
+  const conta = new Map<string, number>();
+  for (const { item } of itens) {
+    const chave = simples(item?.grupo ?? '');
+    conta.set(chave, (conta.get(chave) ?? 0) + 1);
+  }
+  return conta;
+}
+
+/** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
+export function vezesVazada(vazadas: ReadonlyMap<string, readonly number[]>, id: string): number {
+  return Math.max(0, ...(vazadas.get(id) ?? []));
 }

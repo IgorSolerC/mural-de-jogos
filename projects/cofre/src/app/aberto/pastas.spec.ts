@@ -1,5 +1,5 @@
 import { type Item, type ItemNaLista, lerItem } from '../../core/itens';
-import { emPastas, gruposDoCofre, jeitosDosGrupos } from './pastas';
+import { contarPorGrupo, emPastas, gruposDoCofre, jeitosDosGrupos, vezesVazada } from './pastas';
 
 let n = 0;
 const na = (campos: Partial<Item>): ItemNaLista => ({ id: `i${++n}`, versao: 1, naLixeira: false, naLixeiraDesde: null, item: lerItem(campos) });
@@ -47,5 +47,20 @@ describe('as pastas da lista', () => {
     const pastas = emPastas([na({ titulo: 'B' }), na({ titulo: 'a' })], []);
     expect(pastas.length).toBe(1);
     expect(pastas[0]!.itens.map((i) => i.item!.titulo)).toEqual(['a', 'B']);
+  });
+
+  it('a conta de cada grupo, sem diferença de maiúscula nem acento ("" é Sem grupo)', () => {
+    const itens = [na({ grupo: 'Escritório' }), na({ grupo: 'escritorio' }), na({ grupo: 'Casa' }), na({}), na({})];
+    expect([...contarPorGrupo(itens)].sort()).toEqual([
+      ['', 2],
+      ['casa', 1],
+      ['escritorio', 2],
+    ]);
+  });
+
+  it('vezes vazada: a maior das entradas, 0 sem conferência', () => {
+    const vazadas = new Map([['a', [0, 12, 3]]]);
+    expect(vezesVazada(vazadas, 'a')).toBe(12);
+    expect(vezesVazada(vazadas, 'b')).toBe(0);
   });
 });

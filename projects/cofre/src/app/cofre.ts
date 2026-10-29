@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import type { CofreAberto } from '../core/abrir';
 import { type Entrada, ErroApi } from '../core/api';
 import { descreverAparelho, lerVolta, MENSAGENS_DO_LOGIN, urlDoLogin } from '../core/entrar';
@@ -147,6 +148,15 @@ export class Cofre {
   constructor() {
     // já na porta: termina a limpeza da área de transferência que o cofre trancado deixou por fazer
     inject(AreaDeTransferencia);
+    // a página que volta do cache de voltar/avançar (bfcache) traria o cofre aberto de antes: o trancar do
+    // `pagehide` avisa o servidor, mas o navegador ignora a recarga pedida durante a saída. Voltando assim,
+    // a página recarrega do zero (e a porta pede para entrar de novo)
+    const janela = inject(DOCUMENT).defaultView;
+    const voltou = (e: PageTransitionEvent) => {
+      if (e.persisted) this.servicos.terminar();
+    };
+    janela?.addEventListener('pageshow', voltou);
+    inject(DestroyRef).onDestroy(() => janela?.removeEventListener('pageshow', voltou));
     void this.comecar();
   }
 

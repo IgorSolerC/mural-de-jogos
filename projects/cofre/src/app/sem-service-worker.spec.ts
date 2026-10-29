@@ -13,4 +13,13 @@ describe('nenhum service worker no cofre', () => {
     expect(await tirarServiceWorkers(undefined)).toEqual({ tirados: 0, controlada: false });
     expect(await tirarServiceWorkers({ controller: null, getRegistrations: () => Promise.reject(new Error('x')) })).toEqual({ tirados: 0, controlada: false });
   });
+
+  it('um que não sai (o unregister recusado) ainda conta: a porta pede para recarregar', async () => {
+    const tirados: number[] = [];
+    const recusa = { unregister: () => Promise.reject(new Error('não saiu')) };
+    const sai = { unregister: async () => (tirados.push(2), true) };
+    expect(await tirarServiceWorkers({ controller: null, getRegistrations: async () => [recusa, sai] })).toEqual({ tirados: 2, controlada: false });
+    // o outro sai mesmo assim
+    expect(tirados).toEqual([2]);
+  });
 });

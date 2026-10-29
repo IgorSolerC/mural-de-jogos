@@ -1778,3 +1778,28 @@ tudo. O usuário escolheu pedir a passkey de novo (ou a senha) no servidor, com 
 - Uma aba aberta de antes desta versão recebe "Confirme de novo…" ao gerenciar: recarregar resolve.
 - Nada mudou na cripto nem no banco (sem migração): o desafio usa o tipo `assinatura` que já existia.
 
+### 17.22 Revisão da tela do cofre (29/10)
+
+Code-review alto do cofre aberto (quadro, pastas, item, lixeira, trancador, área de transferência, vigia,
+service worker, topo, Ajustes). Corrigido, sem mudar a cripto nem o que está guardado:
+
+- **Cache de voltar/avançar (bfcache).** O trancar do `pagehide` avisa o servidor, mas o navegador ignora
+  o `location.replace` pedido na saída; com `Cache-Control: no-store` e sem cookies, o Chrome já põe a
+  página no bfcache, e o Voltar trazia o cofre aberto, com as senhas decifradas e sem nenhum relógio. A
+  raiz ouve `pageshow` com `persisted` e recarrega do zero, e trancar esvazia já os itens, a busca, o
+  aberto e as vazadas (além de zerar M e V).
+- **Aba escondida.** A volta à aba confere o minuto antes de esquecer quando ela escondeu: o celular e o
+  notebook dormindo não rodam o relógio de 1 s, e a volta é a única chance.
+- **Confirmar de novo.** A passkey ou a senha mestra que voltam depois de abrir outra senha (item) ou de
+  ir para outra parte dos Ajustes não fazem nada: não destravam a outra, não tiram o aparelho.
+- **Vigia do DOM.** Ao começar, olha o que já estava na página (o que uma extensão pôs antes de o cofre
+  subir): só valem as metas, o título, a base, os links e scripts da origem e o `<cofre-root>`. Dentro
+  do cofre, um script ou iframe embrulhado noutro elemento também conta.
+- **Service worker.** Um registro cujo `unregister` falha ainda conta como tirado (a porta pede para
+  recarregar); antes, a falha zerava a conta.
+- Trocar as senhas de um item tira o aviso de vazada dele (mudar só o título, não); as pastas e a conta
+  dos grupos numa passada só; `hexDaCor` em `shared/cartela-de-icones.ts`.
+
+Conferido sem mudar: a senha revelada sai do DOM ao esconder (15 s) e ao trocar de item; a limpeza da
+área de transferência sobrevive a trancar (`cofre:limpar-copia`, só a hora); nada além dela vai para o
+`sessionStorage`.

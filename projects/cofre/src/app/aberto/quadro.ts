@@ -1,10 +1,10 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, inject, Injector, input, output, signal, viewChild } from '@angular/core';
 import type { ItemNaLista } from '../../core/itens';
-import { CORES_DA_CARTELA, type IdDaCor } from '../../../../../shared/cartela-de-icones';
+import { hexDaCor, type IdDaCor } from '../../../../../shared/cartela-de-icones';
 import { Icone } from '../icone';
 import { MonogramaSelo } from './monograma-selo';
 import { dominio, nomeDoItem } from './monograma';
-import type { Pasta } from './pastas';
+import { type Pasta, vezesVazada } from './pastas';
 
 export type CampoRapido = 'usuario' | 'senha';
 export type Direcao = 'cima' | 'baixo' | 'esquerda' | 'direita';
@@ -131,7 +131,7 @@ export class QuadroDeSenhas {
 
   /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
   protected vezesVazada(id: string): number {
-    return Math.max(0, ...(this.vazadas().get(id) ?? []));
+    return vezesVazada(this.vazadas(), id);
   }
 
   protected foiCopiado(i: ItemNaLista, campo: CampoRapido): boolean {
@@ -140,7 +140,7 @@ export class QuadroDeSenhas {
 
   /** O hex de uma cor da cartela (para a borda da orelha), ou null. */
   protected hexDa(cor: IdDaCor | ''): string | null {
-    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
+    return hexDaCor(cor);
   }
 
   // --- o que o cofre aberto pede ao quadro

@@ -288,3 +288,8 @@ export function ehIconeDaCartela(id: unknown): id is IdDoIcone {
 export function ehCorDaCartela(id: unknown): id is IdDaCor {
   return CORES_DA_CARTELA.some((c) => c.id === id);
 }
+
+/** O hex de uma cor da cartela, ou null (sem cor, ou um id que não é dela). */
+export function hexDaCor(id: string | null | undefined): string | null {
+  return CORES_DA_CARTELA.find((c) => c.id === id)?.hex ?? null;
+}

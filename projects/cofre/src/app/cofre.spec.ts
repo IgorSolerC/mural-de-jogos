@@ -51,11 +51,12 @@ async function montar(mudar: Partial<Pagina> = {}, ajustarApi: (api: ApiDeTeste)
     abrirSite: () => undefined,
     ...mudar,
   };
-  const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar: async () => null }, rpId: 'cofre.teste', pagina, terminar: () => undefined };
+  const terminou = jasmine.createSpy('terminar');
+  const servicos: Servicos = { api, autenticador: { criar: async () => null, pegar: async () => null }, rpId: 'cofre.teste', pagina, terminar: terminou };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Cofre);
   await estabilizar(fixture);
-  return { fixture, api, idas, pagina, el: fixture.nativeElement as HTMLElement };
+  return { fixture, api, idas, pagina, terminou, el: fixture.nativeElement as HTMLElement };
 }
 
 async function estabilizar(fixture: ComponentFixture<Cofre>): Promise<void> {
@@ -151,5 +152,13 @@ describe('a porta do cofre', () => {
     );
     expect(el.querySelector('.erro')!.textContent).toContain('ainda não está aberto para a sua conta');
     expect(botao(el, 'Entrar com o Google')).toBeDefined();
+  });
+
+  it('a página que volta do cache de voltar/avançar recarrega do zero (o cofre aberto de antes não volta)', async () => {
+    const { terminou } = await montar();
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+    expect(terminou).not.toHaveBeenCalled();
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+    expect(terminou).toHaveBeenCalledTimes(1);
   });
 });

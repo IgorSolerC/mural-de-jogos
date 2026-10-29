@@ -19,11 +19,16 @@ export interface SemServiceWorker {
 export async function tirarServiceWorkers(trabalhadores: Trabalhadores | undefined = navigator.serviceWorker): Promise<SemServiceWorker> {
   if (!trabalhadores) return { tirados: 0, controlada: false };
   const controlada = !!trabalhadores.controller;
+  let registros: readonly { unregister(): Promise<boolean> }[];
   try {
-    const registros = await trabalhadores.getRegistrations();
-    await Promise.all(registros.map((r) => r.unregister()));
-    return { tirados: registros.length, controlada };
+    registros = await trabalhadores.getRegistrations();
   } catch {
+    // sem acesso aos service workers (cookies bloqueados, por exemplo): o navegador também não deixa
+    // nenhum se registrar aqui
     return { tirados: 0, controlada };
   }
+  // havia algum: conta mesmo se o unregister falhar, para a porta pedir a recarga (antes, um unregister
+  // recusado zerava a conta e a prova "Sem service worker" passava com ele ainda registrado)
+  await Promise.allSettled(registros.map((r) => r.unregister()));
+  return { tirados: registros.length, controlada };
 }

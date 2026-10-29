@@ -18,7 +18,11 @@ function montar(prazoDaqui = 8 * 3_600_000) {
     (doc as { visibilityState: DocumentVisibilityState }).visibilityState = escondida ? 'hidden' : 'visible';
     doc.dispatchEvent(new Event('visibilitychange'));
   };
-  return { t, doc, janela, motivos, andar, esconder, temTique: () => tique !== null };
+  /** O tempo passa sem o relógio de 1 s rodar (a aba escondida num aparelho dormindo). */
+  const passar = (ms: number) => {
+    agora += ms;
+  };
+  return { t, doc, janela, motivos, andar, passar, esconder, temTique: () => tique !== null };
 }
 
 describe('os gatilhos de trancar', () => {
@@ -41,6 +45,27 @@ describe('os gatilhos de trancar', () => {
     expect(a.motivos).toEqual([]);
     a.esconder(true);
     a.andar(ESCONDIDA_MS);
+    expect(a.motivos).toEqual(['escondida']);
+  });
+
+  it('a aba que volta depois de 1 minuto tranca, mesmo sem o relógio ter andado enquanto estava escondida', () => {
+    // o celular e o notebook dormindo não rodam o setInterval da aba escondida: só a volta confere
+    const a = montar();
+    a.esconder(true);
+    a.andar(1000);
+    a.passar(3 * 60_000);
+    expect(a.motivos).toEqual([]);
+    a.esconder(false);
+    expect(a.motivos).toEqual(['escondida']);
+  });
+
+  it('esconder duas vezes seguidas não recomeça a conta', () => {
+    const a = montar();
+    a.esconder(true);
+    a.passar(ESCONDIDA_MS - 1000);
+    a.esconder(true);
+    a.passar(1000);
+    a.esconder(false);
     expect(a.motivos).toEqual(['escondida']);
   });
 

@@ -6,7 +6,7 @@ import { ErroCofre } from '../../core/crypto';
 import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
 import { confirmacaoPelaPasskey, confirmacaoPelaSenha } from '../../core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
-import { CORES_DA_CARTELA, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
+import { hexDaCor, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
 import { type JeitoDoGrupo, LIMITES, nomeDoGrupo } from '../../core/itens';
 import { Cartela } from '../cartela';
 import { simples } from '../aberto/pastas';
@@ -258,7 +258,7 @@ export class Gerenciar implements OnInit {
 
   /** O hex de uma cor da cartela, ou null. */
   protected hexDa(cor: IdDaCor | ''): string | null {
-    return CORES_DA_CARTELA.find((c) => c.id === cor)?.hex ?? null;
+    return hexDaCor(cor);
   }
 
   /** Quem usa acabou de mudar um grupo (deu certo ou não): as perguntas fecham. */
@@ -347,12 +347,12 @@ export class Gerenciar implements OnInit {
       confirmacao = await confirmacaoPelaPasskey(this.servicos.api, this.servicos.rpId, this.servicos.autenticador);
     } catch (e) {
       if (e instanceof ErroApi && e.status === 401) this.terminar.emit();
-      else this.erroConfirmar.set(e instanceof ErroPasskey && e.motivo === 'cancelada' ? 'A passkey não foi confirmada.' : e instanceof ErroPasskey || e instanceof ErroApi ? e.message : 'Não deu para confirmar. Tente de novo.');
+      else if (this.pedindo() === pedido) this.erroConfirmar.set(e instanceof ErroPasskey && e.motivo === 'cancelada' ? 'A passkey não foi confirmada.' : e instanceof ErroPasskey || e instanceof ErroApi ? e.message : 'Não deu para confirmar. Tente de novo.');
       return;
     } finally {
       this.confirmando.set(false);
     }
-    await this.executar(pedido, confirmacao);
+    await this.executarSeAinda(pedido, confirmacao);
   }
 
   protected usarSenhaMestra(): void {
@@ -372,13 +372,14 @@ export class Gerenciar implements OnInit {
     try {
       confirmacao = await confirmacaoPelaSenha(this.cofre(), this.senhaMestra());
     } catch (e) {
+      if (this.pedindo() !== pedido) return;
       this.erroConfirmar.set(e instanceof ErroCofre && e.motivo === 'abrir' ? 'Não é a senha mestra deste cofre.' : 'Não deu para conferir. Tente de novo.');
       this.senhaMestra.set('');
       return;
     } finally {
       this.confirmando.set(false);
     }
-    await this.executar(pedido, confirmacao);
+    await this.executarSeAinda(pedido, confirmacao);
   }
 
   protected cancelarConfirmacao(): void {
@@ -386,6 +387,15 @@ export class Gerenciar implements OnInit {
     this.comSenhaMestra.set(false);
     this.senhaMestra.set('');
     this.erroConfirmar.set(null);
+  }
+
+  /**
+   * Enquanto a passkey ou o Argon2id trabalham, a pessoa pode desistir (Cancelar, outra parte dos
+   * Ajustes): a confirmação que volta depois disso não faz nada (tirar um aparelho, trocar o código).
+   */
+  private async executarSeAinda(pedido: PedidoConfirmado, confirmacao: Confirmacao): Promise<void> {
+    if (this.pedindo() !== pedido) return;
+    await this.executar(pedido, confirmacao);
   }
 
   /** Confirmado: a confirmação fecha e o pedido vai, com ela, ao servidor. */

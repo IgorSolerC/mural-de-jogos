@@ -238,6 +238,48 @@ describe('o cofre aberto', () => {
     expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
   });
 
+  it('trancar joga fora as senhas decifradas na hora, sem esperar a recarga (que o cache de voltar/avançar ignora)', async () => {
+    const { fixture, el } = await montar();
+    botao(el, /Banco/).click();
+    await estabilizar(fixture);
+    el.querySelector<HTMLButtonElement>('[aria-label="Revelar a senha"]')!.click();
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('segredo-1');
+    botao(el, /Trancar/).click();
+    await estabilizar(fixture);
+    expect(titulos(el)).toEqual([]);
+    expect(el.textContent).not.toContain('segredo-1');
+    expect(el.textContent).not.toContain('fulano');
+  });
+
+  it('depois de conferir as vazadas, trocar a senha tira o "Vazada" do item; mudar só o título, não', async () => {
+    const { fixture, el } = await montar();
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Senhas vazadas'))!.click();
+    await estabilizar(fixture);
+    botao(el, 'Conferir senhas vazadas').click();
+    for (let i = 0; i < 20 && !el.textContent!.includes('42 vezes'); i++) await estabilizar(fixture);
+    botao(el, 'Abrir').click();
+    await estabilizar(fixture);
+    const editar = async (seletor: string, valor: string) => {
+      botao(el, 'Editar').click();
+      await estabilizar(fixture);
+      const campo = el.querySelector<HTMLInputElement>(seletor)!;
+      campo.value = valor;
+      campo.dispatchEvent(new Event('input'));
+      await estabilizar(fixture);
+      botao(el, 'Salvar').click();
+      await estabilizar(fixture);
+    };
+    await editar('#item-titulo', 'Banco do bairro');
+    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
+    expect(el.querySelector('.selo-vazada')).not.toBeNull();
+    await editar('#item-senha', 'outra-bem-nova');
+    expect(el.querySelector('.vazada')).toBeNull();
+    expect(el.querySelector('.selo-vazada')).toBeNull();
+  });
+
   it('copia o user e a senha direto da lista, sem abrir o item, e limpa em 30 segundos', async () => {
     const { fixture, el, copias } = await montar();
     jasmine.clock().install();
@@ -1058,6 +1100,25 @@ describe('várias senhas num item, e as que pedem a passkey de novo', () => {
     botao(el, 'Agora não').click();
     await estabilizar(fixture);
     expect(el.querySelector('.confirmar')).toBeNull();
+  });
+
+  it('a passkey pedida numa senha e confirmada depois de abrir outra não destrava a outra', async () => {
+    const outra: CamposDoItem = { titulo: 'Cofrinho', usuario: 'eu', senha: 'cofrinho-9', url: '', descricao: '', protegida: true };
+    const { fixture, el, passkey } = await montar(false, [facebook, outra], comPasskey);
+    let soltar: (c: Credential) => void = () => undefined;
+    passkey.proxima = new Promise<Credential>((ok) => (soltar = ok)) as unknown as Credential;
+    await abrir(fixture, el, /Facebook/);
+    botao(el, /Destravar/).click();
+    await estabilizar(fixture);
+    expect(passkey.pedidos).toBe(1);
+    // enquanto o aparelho pede a digital, a pessoa abre outra senha protegida no quadro
+    await abrir(fixture, el, /Cofrinho/);
+    soltar(assinada());
+    await estabilizar(fixture);
+    expect(el.querySelector('h2')!.textContent).toContain('Cofrinho');
+    expect(el.querySelector('.carimbo')).not.toBeNull();
+    expect(el.querySelector('[aria-label="Revelar a senha"]')).toBeNull();
+    expect(el.querySelector('.erro-confirmar')).toBeNull();
   });
 
   it('a senha protegida da primeira entrada não se copia pela lista: o botão abre o item', async () => {

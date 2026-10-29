@@ -47,8 +47,14 @@ export class Trancador {
       this.desfazer.push(() => this.documento.removeEventListener(evento, mexeu, { capture: true }));
     }
     const visibilidade = () => {
-      this.escondidaDesde = this.documento.visibilityState === 'hidden' ? this.relogio.agora() : null;
-      if (this.escondidaDesde === null) this.conferir();
+      if (this.documento.visibilityState === 'hidden') {
+        this.escondidaDesde ??= this.relogio.agora();
+        return;
+      }
+      // confere antes de esquecer quando escondeu: com a aba escondida, o celular e o notebook dormindo
+      // param o relógio de 1 s, e a volta é a única chance de ver que passou do minuto
+      this.conferir();
+      this.escondidaDesde = null;
     };
     this.documento.addEventListener('visibilitychange', visibilidade);
     this.desfazer.push(() => this.documento.removeEventListener('visibilitychange', visibilidade));

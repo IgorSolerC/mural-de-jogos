@@ -26,7 +26,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-revisao-dos-pedidos-da-api',
+    id: '2026-10-29-revisao-da-tela-do-cofre',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -42,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Nos Gastos, o "Saiu" do mês é sempre a soma dos envelopes: um reembolso maior que o gasto da categoria no mês não deixa mais o Saiu negativo (o que passa conta como entrada); o "Sem os fixos" não tira mais o salário nem vale na vista de vários meses, que não tem o botão; e o carnê que ainda vai começar não entra mais no "/mês" nem marca a parcela deste mês.',
       'Nos Gastos, o envelope "Sem categoria" mostra os gastos dele na fita (tirava o filtro); um dia que não existe, como 31 de fevereiro, não é mais aceito; a categoria nova pela API com um nome comprido não se repete a cada pedido; a cor de uma categoria nova não sai mais preta nem branca; e o que foi apagado num aparelho não volta pelo outro de relógio adiantado, nem se perde um lançamento novo ao juntar livros grandes.',
       'Nos pedidos das AIs, desfazer a troca do título de uma nota volta também os [[links]] das outras, e desfazer a mudança de um envelope tira o limite que o pedido pôs; um pedido dos Gastos que não entra não deixa mais um envelope ou uma pessoa criados para trás; uma mudança sua no meio de dois pedidos da AI não é mais escrita por cima; e o pedido que você recusa enquanto um aparelho já o aplicava aparece no histórico como entrou, com o Desfazer. Nos Acessos, a chave que pede aprovação das mudanças diz que também espera o que publica.',
+      'No cofre, voltar à página pelo botão Voltar do navegador não traz mais o cofre aberto de antes (ela recarrega e pede para entrar); a aba escondida por mais de 1 minuto tranca também quando o celular ou o notebook dormiu nesse tempo; a passkey (ou a senha mestra) confirmada depois de você abrir outra senha, ou de ir para outra parte dos Ajustes, não destrava a outra nem tira o aparelho; trocar a senha tira o aviso de vazada do item; e o aviso de algo de fora mexendo na página vale também para o que uma extensão pôs antes de o cofre abrir, ou dentro de outro elemento.',
     ],
   },
   {
