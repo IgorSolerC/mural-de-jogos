@@ -1,5 +1,5 @@
 import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed } from './paper';
-import { cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile } from './paper-art';
+import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
 
@@ -418,5 +418,26 @@ describe('papel da ficha', () => {
     const full = paperVars('lisa', 'gatinhos', undefined, 7, true);
     const mine = ownPaperVars('lisa', 'gatinhos', undefined, 7, true);
     for (const [k, v] of Object.entries(full)) expect(mine[k]).withContext(k).toBe(v ?? 'initial');
+  });
+
+  it('os ladrilhos guardados têm teto (cada sorteio novo não fica para sempre) e o desenho não muda ao sair do guardado', () => {
+    const first = patternTile('caveiras', DEFAULT_LOOK, 1).url;
+    const firstLight = lightPattern('caveiras', DEFAULT_LOOK, 1);
+    for (let seed = 2; seed <= TILE_CACHE + 60; seed++) lightPattern('caveiras', DEFAULT_LOOK, seed);
+    const size = tileCacheSize();
+    expect(size.tiles).toBeLessThanOrEqual(TILE_CACHE);
+    expect(size.light).toBeLessThanOrEqual(TILE_CACHE);
+    // o primeiro já saiu do guardado: feito de novo, sai igualzinho
+    expect(patternTile('caveiras', DEFAULT_LOOK, 1).url).toBe(first);
+    expect(lightPattern('caveiras', DEFAULT_LOOK, 1)).toBe(firstLight);
+  });
+
+  it('o usado há pouco fica guardado (o mesmo objeto), mesmo com muitos sorteios depois', () => {
+    const tile = patternTile('estrelas', DEFAULT_LOOK, 5);
+    for (let seed = 1000; seed < 1000 + TILE_CACHE * 2; seed++) {
+      patternTile('estrelas', DEFAULT_LOOK, seed);
+      // a ficha que continua na tela pede o dela de novo a cada tanto
+      if (seed % 50 === 0) expect(patternTile('estrelas', DEFAULT_LOOK, 5)).toBe(tile);
+    }
   });
 });

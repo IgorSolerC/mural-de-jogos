@@ -214,9 +214,14 @@ export const LOOK_STEPS: Record<LookKey, number> = {
   jitter: LOOK_STEP_LABEL.jitter.length,
 };
 
+/** Um degrau de uma régua de `len` degraus: só um que existe e não é o de sempre (`def`), que não vai para o armazenamento. */
+function step(raw: unknown, len: number, def: number): number | undefined {
+  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < len && raw !== def ? (raw as number) : undefined;
+}
+
 /** O degrau guardado com a ficha; o de sempre não vai para o armazenamento. */
 export function sanitizeLookStep(raw: unknown, key: LookKey): number | undefined {
-  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < LOOK_STEPS[key] && raw !== DEFAULT_LOOK[key] ? (raw as number) : undefined;
+  return step(raw, LOOK_STEPS[key], DEFAULT_LOOK[key]);
 }
 
 /** Os ajustes de uma ficha, com o de sempre no lugar do que ela não tem (a tinta Normal nem entra). */
@@ -239,7 +244,7 @@ export const DEFAULT_PATTERN_INK = 3;
 
 /** O degrau guardado com a ficha; o Normal não vai para o armazenamento. */
 export function sanitizePatternInk(raw: unknown): number | undefined {
-  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < PATTERN_INK.length && raw !== DEFAULT_PATTERN_INK ? (raw as number) : undefined;
+  return step(raw, PATTERN_INK.length, DEFAULT_PATTERN_INK);
 }
 
 // ===================== Rabisco =====================
@@ -336,7 +341,7 @@ export const DEFAULT_SCRIBBLE_INK = 3;
 
 /** O degrau guardado com a ficha; o Normal não vai para o armazenamento. */
 export function sanitizeScribbleInk(raw: unknown): number | undefined {
-  return Number.isInteger(raw) && (raw as number) >= 0 && (raw as number) < SCRIBBLE_INK.length && raw !== DEFAULT_SCRIBBLE_INK ? (raw as number) : undefined;
+  return step(raw, SCRIBBLE_INK.length, DEFAULT_SCRIBBLE_INK);
 }
 
 // ===================== Estrago =====================

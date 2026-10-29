@@ -45,6 +45,24 @@ import { PaperArtLayer } from './paper-layer';
 import { Pin } from './pin';
 import { swallowNextClick, tabStep } from './focus';
 
+/** Quantos estojos já foram abertos: cada um com o seu prefixo de ids (ver `CardKit.uid`). */
+let kits = 0;
+
+/**
+ * Os desenhos das opções (as estampas e os do rabisco, do estrago, da mancha e da decoração), feitos
+ * uma vez só na página: são sempre os mesmos, e o estojo abre de novo a cada ficha.
+ */
+let svgs: { patterns: Record<Pattern, string>; kit: Record<string, string> } | null = null;
+function iconSvgs(): NonNullable<typeof svgs> {
+  if (svgs) return svgs;
+  const kit: Record<string, string> = {};
+  // a mancha e o rabisco cybertribal têm o mesmo nome: a chave leva o tipo junto
+  for (const [kind, set] of Object.entries({ rabisco: SCRIBBLE_ICON, estrago: DAMAGE_ICON, mancha: STAIN_ICON, decoracao: DECOR_ICON }))
+    for (const [k, v] of Object.entries(set)) kit[`${kind}:${k}`] = kitIcon(v);
+  svgs = { patterns: Object.fromEntries(PATTERNS.map((p) => [p, motifIcon(p)])) as Record<Pattern, string>, kit };
+  return svgs;
+}
+
 /** As abas do estojo. */
 export type KitTab = 'cor' | 'papel' | 'estampa' | 'rabisco' | 'estrago' | 'mancha' | 'decoracao';
 type Tab = KitTab;
@@ -83,12 +101,12 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
           type="button"
           role="tab"
           class="plate"
-          [id]="'kit-aba-' + t.id"
+          [id]="uid + '-aba-' + t.id"
           [class.is-active]="tab() === t.id"
           [class.usada]="used(t.id)"
           [class.com-conta]="marks(t.id) > 1"
           [attr.aria-selected]="tab() === t.id"
-          [attr.aria-controls]="'kit-painel'"
+          [attr.aria-controls]="uid + '-painel'"
           [attr.tabindex]="tab() === t.id ? 0 : -1"
           (click)="selectTab(t.id)"
         >
@@ -107,14 +125,14 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
       <span class="regua dois" aria-hidden="true"></span>
     </div>
 
-    <div class="painel" role="tabpanel" id="kit-painel" [attr.aria-labelledby]="'kit-aba-' + tab()">
+    <div class="painel" role="tabpanel" [id]="uid + '-painel'" [attr.aria-labelledby]="uid + '-aba-' + tab()">
       @if (tab() === 'cor') {
         <fieldset>
           <legend class="giz">Cor da cartolina <b>{{ stockLabels[stock()] }}</b></legend>
           <div class="amostras">
             @for (s of stocks; track s) {
               <label class="cor" [class.on]="stock() === s">
-                <input type="radio" name="kit-cor" [value]="s" [checked]="stock() === s" [attr.aria-label]="stockLabels[s]" (change)="stock.set(s)" />
+                <input type="radio" [name]="uid + '-cor'" [value]="s" [checked]="stock() === s" [attr.aria-label]="stockLabels[s]" (change)="stock.set(s)" />
                 <span class="amostra cartolina" [style]="isDark(s) ? currentDark() : current()" [style.--stock]="'var(--stock-' + s + ')'" [attr.data-cor]="s"></span>
                 @if (stock() === s) {
                   <app-pin class="cor-pin" [color]="pinColor()" />
@@ -129,7 +147,7 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
             {{ tabLabel() }} <b>{{ multi() ? (picked().length ? picked().length + ' de ' + maxMarks : 'Nenhuma') : chosen().label }}</b>
           </legend>
           @if (multi()) {
-            <p class="sr-only" [id]="id() + '-kit-dica'">Marcar de novo uma que já está na ficha sorteia ela de outro jeito; o botão Tirar, no canto, tira.</p>
+            <p class="sr-only" [id]="uid + '-dica'">Marcar de novo uma que já está na ficha sorteia ela de outro jeito; o botão Tirar, no canto, tira.</p>
           }
           <!-- os ajustes da estampa, logo à vista; na Lisa ficam apagados, para a grade não pular ao escolher -->
           @if (tab() === 'estampa') {
@@ -200,10 +218,10 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
                     [disabled]="o.value !== null && !n && full()"
                     (change)="toggle(o.value, $any($event.target))"
                     [attr.aria-label]="o.label"
-                    [attr.aria-describedby]="o.value !== null ? id() + '-kit-dica' : null"
+                    [attr.aria-describedby]="o.value !== null ? uid + '-dica' : null"
                   />
                 } @else {
-                  <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                  <input type="radio" [name]="uid + '-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
                 }
                 @if (iconOf(o); as icon) {
                   <span class="icone" [innerHTML]="icon"></span>
@@ -277,23 +295,13 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
               </div>
             }
           } @else {
-          <div class="retalhos" [class.largos]="tab() !== 'papel'">
+          <div class="retalhos">
             @for (o of options(); track o.value) {
               <label class="retalho" [class.on]="o.value === value()">
-                <input type="radio" [name]="'kit-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
+                <input type="radio" [name]="uid + '-' + tab()" [checked]="o.value === value()" (click)="choose(o.value)" [attr.aria-label]="o.label" />
                 <span class="mini" [style]="miniVars(o)" [style.--stock]="'var(--stock-' + stock() + ')'" [attr.data-cor]="stock()">
-                  <app-paper-art
-                    [id]="id()"
-                    [scribble]="o.scribble"
-                    [scribbleSeed]="o.scribble && o.value === value() ? scribbleSeed() : null"
-                    [scribbleInk]="scribbleInk()"
-                    [paper]="o.paper"
-                    [paperSeed]="o.paper && o.value === value() ? paperSeed() : null"
-                    [damage]="o.damage"
-                    [seed]="o.damage && o.value === value() ? damageSeed() : null"
-                    [dark]="isDark(stock())"
-                    [plain]="true"
-                  />
+                  <!-- só a aba Papel chega aqui: o retalho mostra o papel (o marcado pelo tempo, com o sorteio do escolhido) -->
+                  <app-paper-art [id]="id()" [paper]="o.paper" [paperSeed]="o.value === value() ? paperSeed() : null" [dark]="isDark(stock())" [plain]="true" />
                   @if (o.value === null) {
                     <span class="nada">nenhum</span>
                   }
@@ -938,10 +946,17 @@ const isMultiTab = (t: Tab): t is MultiTab => t === 'mancha' || t === 'decoracao
 })
 export class CardKit {
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  /**
+   * O prefixo dos ids e dos nomes dos grupos de rádio deste estojo: o do editor fica na página (fechado)
+   * quando o Card padrão do Kanban abre o dele, e com o mesmo nome os rádios dos dois viravam um grupo
+   * só (marcar a cor num desmarcava a do outro) e as abas apontavam para o painel do outro.
+   */
+  protected readonly uid = `kit${++kits}`;
   /** O desenho de cada estampa: só desenhos nossos, nada que a pessoa escreveu. */
   protected readonly icons: Record<Pattern, SafeHtml> = (() => {
     const sanitizer = inject(DomSanitizer);
-    return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(motifIcon(p))])) as Record<Pattern, SafeHtml>;
+    const svg = iconSvgs().patterns;
+    return Object.fromEntries(PATTERNS.map((p) => [p, sanitizer.bypassSecurityTrustHtml(svg[p])])) as Record<Pattern, SafeHtml>;
   })();
   /** O assunto das estampas à vista: Todas, ou um só. */
   protected readonly group = signal<string>('todas');
@@ -966,11 +981,7 @@ export class CardKit {
   /** O desenho de cada rabisco, estrago, mancha e decoração, no mesmo traço das estampas. */
   private readonly kitIcons: Record<string, SafeHtml> = (() => {
     const sanitizer = inject(DomSanitizer);
-    const out: Record<string, SafeHtml> = {};
-    // a mancha e o rabisco cybertribal têm o mesmo nome: a chave leva o tipo junto
-    for (const [kind, set] of Object.entries({ rabisco: SCRIBBLE_ICON, estrago: DAMAGE_ICON, mancha: STAIN_ICON, decoracao: DECOR_ICON }))
-      for (const [k, v] of Object.entries(set)) out[`${kind}:${k}`] = sanitizer.bypassSecurityTrustHtml(kitIcon(v));
-    return out;
+    return Object.fromEntries(Object.entries(iconSvgs().kit).map(([k, v]) => [k, sanitizer.bypassSecurityTrustHtml(v)]));
   })();
 
   /** O ícone da opção: o da estampa, ou o do rabisco, do estrago, da mancha ou da decoração. */
@@ -1129,6 +1140,13 @@ export class CardKit {
     const d = this.drag;
     if (!d || e.pointerId !== d.id) return;
     const strip = e.currentTarget as HTMLElement;
+    // o botão foi solto fora da régua antes de o arrasto pegar (sem captura, o pointerup não chega
+    // aqui): o mouse de agora só passa por cima, e não pode sair arrastando a régua
+    if (!(e.buttons & 1)) {
+      this.drag = null;
+      if (d.moved) strip.classList.remove('arrastando');
+      return;
+    }
     const dx = e.clientX - d.x;
     if (!d.moved) {
       // uns pixels de folga: um clique meio tremido continua sendo clique
@@ -1266,6 +1284,6 @@ export class CardKit {
     if (next < 0) return;
     e.preventDefault();
     this.selectTab(this.tabs[next].id);
-    this.el.querySelector<HTMLElement>(`#kit-aba-${this.tabs[next].id}`)?.focus();
+    this.el.querySelector<HTMLElement>(`#${this.uid}-aba-${this.tabs[next].id}`)?.focus();
   }
 }

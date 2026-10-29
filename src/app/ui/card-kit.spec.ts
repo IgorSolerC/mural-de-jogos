@@ -46,7 +46,7 @@ describe('CardKit: várias manchas e decorações', () => {
   let el: HTMLElement;
 
   async function open(tab: string): Promise<void> {
-    (el.querySelector(`#kit-aba-${tab}`) as HTMLButtonElement).click();
+    (el.querySelector(`[role="tab"][id$="-aba-${tab}"]`) as HTMLButtonElement).click();
     fixture.detectChanges();
     await fixture.whenStable();
   }
@@ -135,5 +135,88 @@ describe('CardKit: várias manchas e decorações', () => {
     expect(host.paper()).toBe('carregando');
     click('Canson');
     expect([host.paper(), host.paperSeed()]).toEqual(['canson', null]);
+  });
+
+  it('com o botão solto fora da régua de assuntos, passar o mouse por cima não arrasta', async () => {
+    await open('estampa');
+    const strip = el.querySelector<HTMLElement>('.assuntos')!;
+    const ev = (type: string, x: number, buttons: number) =>
+      strip.dispatchEvent(new PointerEvent(type, { pointerId: 1, pointerType: 'mouse', button: 0, buttons, clientX: x, bubbles: true }));
+    strip.scrollLeft = 0;
+    // apertou num assunto e soltou fora da régua sem ter andado 5px: o pointerup não chega aqui
+    ev('pointerdown', 100, 1);
+    ev('pointermove', 102, 1);
+    // depois, o mouse só passa por cima, sem botão
+    ev('pointermove', 40, 0);
+    ev('pointermove', 10, 0);
+    expect(strip.classList.contains('arrastando')).toBeFalse();
+    expect(strip.scrollLeft).toBe(0);
+  });
+});
+
+@Component({
+  imports: [CardKit],
+  template: `
+    @for (k of kits; track k) {
+      <app-card-kit
+        [id]="k"
+        pinColor="vermelho"
+        [(stock)]="stocks[$index]"
+        [(paper)]="paper"
+        [(paperSeed)]="paperSeed"
+        [(pattern)]="pattern"
+        [(patternLook)]="patternLook"
+        [(patternSeed)]="patternSeed"
+        [(scribble)]="scribble"
+        [(scribbleSeed)]="scribbleSeed"
+        [(scribbleInk)]="scribbleInk"
+        [(damage)]="damage"
+        [(damageSeed)]="damageSeed"
+        [(stains)]="stains"
+        [(decors)]="decors"
+      />
+    }
+  `,
+})
+class TwoKits {
+  kits = ['r-um', 'r-dois'];
+  stocks = [signal<Stock>('amarelo'), signal<Stock>('azul')];
+  paper = signal<Paper>('cartolina');
+  paperSeed = signal<number | null>(null);
+  pattern = signal<Pattern | null>(null);
+  patternLook = signal<PatternLook>(DEFAULT_LOOK);
+  patternSeed = signal<number | null>(null);
+  scribble = signal<Scribble | null>(null);
+  scribbleSeed = signal<number | null>(null);
+  scribbleInk = signal(DEFAULT_SCRIBBLE_INK);
+  damage = signal<Damage | null>(null);
+  damageSeed = signal<number | null>(null);
+  stains = signal<StainMark[]>([]);
+  decors = signal<DecorMark[]>([]);
+}
+
+describe('CardKit: dois estojos na mesma página', () => {
+  it('cada um com os seus ids e grupos de rádio: marcar a cor num não desmarca a do outro', async () => {
+    TestBed.configureTestingModule({ imports: [TwoKits], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(TwoKits);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const [a, b] = Array.from(fixture.nativeElement.querySelectorAll('app-card-kit')) as HTMLElement[];
+    // os ids não se repetem na página, e cada aba aponta para o painel do próprio estojo
+    const ids = Array.from(fixture.nativeElement.querySelectorAll('app-card-kit [role="tab"], app-card-kit [role="tabpanel"]') as NodeListOf<HTMLElement>).map((e) => e.id);
+    expect(ids.length).toBe(16);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const kit of [a, b]) {
+      const tab = kit.querySelector<HTMLElement>('[role="tab"]')!;
+      expect(kit.querySelector(`#${tab.getAttribute('aria-controls')}`)).not.toBeNull();
+    }
+    const radio = (kit: HTMLElement, cor: string) => kit.querySelector<HTMLInputElement>(`input[type="radio"][value="${cor}"]`)!;
+    expect(radio(a, 'amarelo').name).not.toBe(radio(b, 'amarelo').name);
+    expect(radio(b, 'azul').checked).toBeTrue();
+    radio(a, 'verde').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.stocks[0]()).toBe('verde');
+    expect(radio(b, 'azul').checked).toBeTrue();
+    expect(fixture.componentInstance.stocks[1]()).toBe('azul');
   });
 });

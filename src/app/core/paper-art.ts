@@ -127,7 +127,32 @@ const MOTIFS: Record<Pattern, Motif> = {
   ...MORE_MOTIFS,
 };
 
+/**
+ * Os ladrilhos já feitos, os usados por último no fim. Cada clique numa estampa sorteia de novo (e
+ * cada ficha do mural tem o sorteio dela): sem teto, cada sorteio ficava na memória até a página
+ * fechar, dezenas de KB cada um (e o claro da cartolina escura outro tanto).
+ */
+export const TILE_CACHE = 200;
 const tiles = new Map<string, Tile>();
+
+/** O guardado de `key`, passado para o fim (o usado por último). */
+function recall<T>(cache: Map<string, T>, key: string): T | undefined {
+  const hit = cache.get(key);
+  if (hit !== undefined) {
+    cache.delete(key);
+    cache.set(key, hit);
+  }
+  return hit;
+}
+
+/** Guarda no fim; passou do teto, sai o usado há mais tempo. */
+function keep<T>(cache: Map<string, T>, key: string, value: T): void {
+  cache.set(key, value);
+  if (cache.size > TILE_CACHE) cache.delete(cache.keys().next().value!);
+}
+
+/** Quantos ladrilhos estão guardados agora (os das estampas e os claros), para os testes. */
+export const tileCacheSize = () => ({ tiles: tiles.size, light: lightTiles.size });
 
 /** O ladrilho de uma estampa: a imagem e o lado dela, em px da ficha. */
 export interface Tile {
@@ -159,7 +184,7 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
   // e o desenho fica no mesmo lugar
   const strength = look.ink !== undefined && look.ink !== DEFAULT_PATTERN_INK ? (PATTERN_INK[look.ink] ?? 1) : 1;
   const cacheKey = strength === 1 ? key : `${key}:tinta${look.ink}`;
-  const hit = tiles.get(cacheKey);
+  const hit = recall(tiles, cacheKey);
   if (hit) return hit;
   const m = MOTIFS[p];
   const z = SIZE[look.size] ?? 1,
@@ -227,7 +252,7 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
     `${first.groups}<g id='c' class='c'>${m.c}</g>${others}</defs>` +
     `<g opacity='${strength === 1 ? TINTA : Math.min(1, Math.round(TINTA * strength * 1000) / 1000)}'>${body}</g>`;
   const tile = { url: svgUrl(side, side, svg), side };
-  tiles.set(cacheKey, tile);
+  keep(tiles, cacheKey, tile);
   return tile;
 }
 
@@ -6039,7 +6064,7 @@ const lightTiles = new Map<string, string>();
  */
 export function lightPattern(pattern: Pattern, look?: PatternLook, seed?: number | null): string {
   const url = patternTile(pattern, look, seed ?? undefined).url;
-  const hit = lightTiles.get(url);
+  const hit = recall(lightTiles, url);
   if (hit) return hit;
   const head = 'url("data:image/svg+xml,';
   const svg = decodeURIComponent(url.slice(head.length, -2));
@@ -6048,7 +6073,7 @@ export function lightPattern(pattern: Pattern, look?: PatternLook, seed?: number
     `<style>${css.replace(/([^{}]+)\{([^}]*)\}/g, (rule: string, sel: string, body: string) => (sel.trim().startsWith('.m') ? rule : `${sel}{${body.replace(/#000/g, '#fff')}}`))}</style>`,
   );
   const out = `${head}${encodeURIComponent(light)}")`;
-  lightTiles.set(url, out);
+  keep(lightTiles, url, out);
   return out;
 }
 

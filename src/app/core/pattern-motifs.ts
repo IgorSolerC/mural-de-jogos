@@ -3,7 +3,7 @@
  * `paper-art.ts`; estas vieram depois). Um motivo temático pode ter vários desenhos (`more`): a
  * cozinha tem a frigideira, a espátula, o batedor e a colher, que se revezam no ladrilho.
  */
-import { f1 } from './paper';
+import { f1, poly } from './paper';
 
 /**
  * Um desenho de estampa. `sil` é o corpo; `det` são os detalhes (olhos, nariz): na versão de contorno
@@ -24,7 +24,8 @@ export interface Motif extends MotifDrawing {
 
 type Pt = [number, number];
 
-const P = (pts: Pt[]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('') + 'Z';
+/** O contorno fechado por uma lista de pontos. */
+const P = (pts: Pt[]) => poly(pts) + 'Z';
 
 /** Uma estrela de `n` pontas: raio de fora `R`, de dentro `r`. */
 function spikes(cx: number, cy: number, R: number, r: number, n: number, rot = -90): Pt[] {
@@ -185,7 +186,7 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number, n = 12):
 }
 
 /** O caminho aberto por uma lista de pontos. */
-const line = (pts: Pt[]) => pts.map(([x, y], i) => `${i ? 'L' : 'M'}${f1(x)} ${f1(y)}`).join('');
+const line = poly;
 
 /** A direção (unitária) e a normal de um trecho de linha, no ponto `i`. */
 function frame(pts: Pt[], i: number): { u: Pt; n: Pt } {
