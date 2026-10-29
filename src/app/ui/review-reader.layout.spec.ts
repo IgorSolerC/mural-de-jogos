@@ -359,4 +359,41 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     q<HTMLButtonElement>('.na-agenda .parte-de')!.click();
     expect(go).toHaveBeenCalledWith(['/anotacoes/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
   });
+
+  it('a pauta da leitura é mais clara que a do editor, o texto comum desce 5px na linha (o título não) e a caixinha da tarefa sobe 3px', async () => {
+    fixture.componentInstance.open(note('n-mercado', 'Mercado', { text: 'Pão\n# Feira\n- Leite\n  Corpo do item\n  ## No corpo\n  - Neto\n---\n- [ ] Lavar o carro' }));
+    await settle();
+    const box = q('.text[data-citavel]')!;
+    const style = getComputedStyle(box);
+    // 0,2 (a do editor é 0,32); o navegador guarda a transparência em 1/255
+    const alpha = /rgba\(64, 110, 190, ([\d.]+)\)/.exec(style.backgroundImage)?.[1];
+    expect(Number(alpha)).toBeCloseTo(0.2, 2);
+    expect(style.paddingTop).toBe(style.backgroundPositionY);
+
+    // quanto cada linha desceu: onde ela aparece, menos onde apareceria sem a descida (o lugar dela no
+    // texto não muda, só se vê)
+    const lines: [string, string][] = [
+      ['.linha.paragrafo', 'Pão'],
+      ['.titulo', 'Feira'],
+      ['.lista > li', 'Leite'],
+      ['.corpo .linha.paragrafo', 'Corpo'],
+      ['.corpo .titulo', 'No corpo'],
+      ['.corpo .lista > li', 'Neto'],
+    ];
+    const tops = () => lines.map(([selector, text]) => qa(selector).find((e) => words(e).startsWith(text))!.getBoundingClientRect().top);
+    const shown = tops();
+    box.style.setProperty('--texto-desce', '0px');
+    const still = tops();
+    box.style.removeProperty('--texto-desce');
+    // o texto comum desce 5px; o título não; e dentro do item o corpo desce só uma vez
+    expect(shown.map((t, i) => Math.round(t - still[i]))).toEqual([5, 0, 5, 5, 0, 5]);
+
+    // a caixinha da tarefa: desce com o texto, e sobe 3px para ficar no meio das letras
+    const caixa = () => q('.tarefas input, .tarefas .caixa')!.getBoundingClientRect().top;
+    const raised = caixa();
+    box.style.setProperty('--caixa-sobe', '0px');
+    expect(Math.round(caixa() - raised)).toBe(3);
+    box.style.removeProperty('--caixa-sobe');
+    expect(getComputedStyle(q('.divisoria')!).top).toBe('auto');
+  });
 });

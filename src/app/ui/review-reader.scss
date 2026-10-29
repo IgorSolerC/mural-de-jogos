@@ -419,8 +419,14 @@ app-judge-label {
   font-variant-numeric: tabular-nums;
 }
 
+/* A folha pautada da leitura. As linhas, bem mais claras que as do editor (0,2 em vez de 0,32), para não
+   tirarem o olho do texto. O texto comum desce 5px (--texto-desce, ver ui/rich-text.ts): a letra à mão
+   ficava 8,6px acima da linha, longe dela e perto da de cima; assim ela assenta como o título, a 3,6px.
+   A caixinha da tarefa (e o tique das feitas) sobe 3px, para ficar no meio das letras, não abaixo delas. */
 .text {
   --line: 1.85rem;
+  --texto-desce: 5px;
+  --caixa-sobe: 3px;
   padding: 6px 8px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -428,7 +434,7 @@ app-judge-label {
   font-family: var(--f-hand);
   font-size: 1.18rem;
   line-height: var(--line);
-  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)) 0 6px;
+  background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.2) calc(var(--line) - 2px) var(--line)) 0 6px;
 }
 
 /* A anotação: a foto (quando tem) menor, e ao lado a data, o grupo e as tags; sem foto, tudo numa

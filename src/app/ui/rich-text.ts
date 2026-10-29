@@ -173,6 +173,17 @@ import { NoteWidget } from './note-widget';
       min-height: var(--line, 1.5em);
       white-space: pre-wrap;
     }
+    /* o texto comum desce na linha o quanto quem usa pedir (a leitura, para a letra à mão assentar na
+       pauta); o título e a divisória ficam onde estão. Só se vê: o lugar de cada linha não muda. O
+       corpo de um item sobe o que o item desceu, e cada linha dele desce por conta própria */
+    .linha:where(:not(.titulo, .divisoria)) {
+      position: relative;
+      top: var(--texto-desce, 0px);
+    }
+    .corpo {
+      position: relative;
+      top: calc(var(--texto-desce, 0px) * -1);
+    }
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     /* ===== As ênfases ===== */
     .negrito {
@@ -649,13 +660,14 @@ import { NoteWidget } from './note-widget';
       grid-template-columns: 1.35em minmax(0, 1fr);
       align-items: start;
     }
-    /* a caixinha desenhada a caneta, sentada na linha da pauta */
+    /* a caixinha desenhada a caneta, sentada na linha da pauta; quem usa pode subi-la (--caixa-sobe), para
+       ela ficar no meio das letras quando o texto desce na linha (a leitura) */
     .tarefas input,
     .tarefas .caixa {
       appearance: none;
       width: 0.86em;
       height: 0.86em;
-      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em) 0 0;
+      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em - var(--caixa-sobe, 0px)) 0 0;
       border: 2px solid currentColor;
       border-radius: 2px 3px 2px 4px;
       rotate: -3deg;
@@ -705,7 +717,7 @@ import { NoteWidget } from './note-widget';
     .resumo .tique {
       width: 0.86em;
       height: 0.86em;
-      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em) 0 0;
+      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em - var(--caixa-sobe, 0px)) 0 0;
       rotate: -3deg;
       background:
         no-repeat center / 120% 120%
