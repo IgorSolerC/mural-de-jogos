@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-pauta-da-leitura',
+    id: '2026-10-29-caixinha-da-tarefa',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
@@ -43,7 +43,7 @@ export const NEWS: NewsEntry[] = [
       'Na cartolina do mural, o título fica um pouco afastado do texto de cima e do de baixo (mais que uma quebra de linha, menos que uma linha em branco); e o parágrafo começa na margem em todo lugar, sem a primeira linha entrar sozinha (quem quiser o recuo escreve os espaços).',
       'A faixa no topo do site só aparece para uma funcionalidade nova: as melhorias e as correções ficam só na página de Novidades.',
       'Copiar uma anotação só (Ctrl+C) não põe mais o "1." na frente: o número fica para quando são duas ou mais.',
-      'Na ficha aberta, as linhas azuis do caderno ficaram mais claras, para não tirarem o olho do texto; o texto comum desceu para assentar na linha, como o título, e a caixinha da tarefa ficou no meio das letras.',
+      'Na ficha aberta, as linhas azuis do caderno ficaram mais claras, para não tirarem o olho do texto, e o texto comum desceu para assentar na linha, como o título; e a caixinha da tarefa fica no meio das letras, na ficha aberta e na cartolina do mural e do Kanban.',
     ],
     correcoes: [
       'Na ficha do mural, o broche de ampliar de um widget (o contador, a foto, a fita, a nota colada) funciona também na anotação sem link nem tarefa (antes o toque abria a anotação em vez de ampliar) e não sai mais cortado no widget do alto do texto.',

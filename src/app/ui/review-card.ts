@@ -995,6 +995,8 @@ export const CARD_STYLES = `
     :is(.nota-texto, .texto-inteiro) {
       --titulo-antes: calc(1.4rem * 0.55);
       --titulo-depois: calc(1.4rem * 0.3);
+      /* a caixinha da tarefa no meio das letras: centrada na linha, ela ficava abaixo delas */
+      --caixa-sobe: 3.5px;
     }
     /* o texto de dentro é o que o estrago queima (ver paper-layer.ts) */
     .nota-texto app-rich-text {

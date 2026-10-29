@@ -185,6 +185,22 @@ describe('os widgets na ficha do mural', () => {
     // (o offset é arredondado ao pixel)
     expect(Math.abs(gap(items[1], items[2]) - gap(items[0], items[1]))).toBeLessThanOrEqual(1);
   });
+
+  for (const checkable of [true, false]) {
+    it(`a caixinha da tarefa sobe 3,5px na ficha, para o meio das letras (${checkable ? 'no seu mural' : 'no dos outros'})`, async () => {
+      await show(card('anotacoes', '- [ ] Reunião\n- [x] Feita'), { checkable });
+      const text = el.querySelector<HTMLElement>('.nota-texto')!;
+      // (pelo offsetTop: a ficha é torta, e a caixa girada engana a medida)
+      const caixa = () => el.querySelector<HTMLElement>('.nota-texto .tarefas :is(input, .caixa)')!.offsetTop;
+      const raised = caixa();
+      text.style.setProperty('--caixa-sobe', '0px');
+      const still = caixa();
+      text.style.removeProperty('--caixa-sobe');
+      // (o offset é arredondado ao pixel)
+      expect(still - raised).toBeGreaterThanOrEqual(3);
+      expect(still - raised).toBeLessThanOrEqual(4);
+    });
+  }
 });
 
 /** O título no texto da cartolina: longe do texto, mais que a quebra de linha e menos que a linha em branco. */
