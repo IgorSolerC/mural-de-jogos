@@ -183,12 +183,82 @@ describe('as telas de criar o cofre', () => {
     digitar(el.querySelector<HTMLInputElement>('#senha-propria')!, 'senha123');
     digitar(el.querySelector<HTMLInputElement>('#senha-confirmacao')!, 'senha123');
     await fixture.whenStable();
-    expect(el.querySelector('.leitura')!.textContent).toContain('Fraca');
+    // senha123: das mais comuns, não serve nem com o aviso
+    expect(el.querySelector('.leitura')!.textContent).toContain('Fácil demais');
     expect(botao(el, 'Continuar').disabled).toBe(true);
     digitar(el.querySelector<HTMLInputElement>('#senha-propria')!, 'gato-azul-pedra-chuva-livro-mesa-porta');
     await fixture.whenStable();
     expect(el.textContent).toContain('As duas não são iguais');
     expect(botao(el, 'Continuar').disabled).toBe(true);
+  });
+
+  it('um PIN: só algarismos, o aviso de que não é tão seguro, e o cofre criado sabe que é PIN', async () => {
+    const { fixture, api, el } = await montar([true]);
+    botao(el, 'Um PIN').click();
+    await fixture.whenStable();
+    const campo = el.querySelector<HTMLInputElement>('#senha-propria')!;
+    expect(campo.getAttribute('inputmode')).toBe('numeric');
+    digitar(campo, '58x29.3');
+    await fixture.whenStable();
+    expect(campo.value).toBe('58293');
+    digitar(el.querySelector<HTMLInputElement>('#senha-confirmacao')!, '58293');
+    await fixture.whenStable();
+    botao(el, 'Continuar').click();
+    await fixture.whenStable();
+    // o aviso no lugar do Continuar: ainda no passo da senha
+    expect(el.querySelector('cofre-aviso-senha-fraca')!.textContent).toContain('Um PIN não é tão seguro');
+    expect(el.querySelector('[aria-current="step"]')!.textContent).toContain('Senha');
+    botao(el, 'Usar o PIN').click();
+    await fixture.whenStable();
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => !!el.querySelector('.etiqueta'));
+    botao(el, 'Criar o cofre').click();
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(api.corpos[0]!.pin).toBe(true);
+  });
+
+  it('uma senha curta segue só com o aviso; Escolher outra volta para ela', async () => {
+    const { fixture, api, el } = await montar([true]);
+    botao(el, 'Escrever a minha').click();
+    await fixture.whenStable();
+    digitar(el.querySelector<HTMLInputElement>('#senha-propria')!, 'casa-azul');
+    digitar(el.querySelector<HTMLInputElement>('#senha-confirmacao')!, 'casa-azul');
+    await fixture.whenStable();
+    expect(el.querySelector('.leitura')!.textContent).toContain('Não é tão segura');
+    botao(el, 'Continuar').click();
+    await fixture.whenStable();
+    expect(el.querySelector('cofre-aviso-senha-fraca')!.textContent).toContain('Esta senha não é tão segura');
+    botao(el, 'Escolher outra').click();
+    await fixture.whenStable();
+    expect(el.querySelector('cofre-aviso-senha-fraca')).toBeNull();
+    expect(el.querySelector<HTMLInputElement>('#senha-propria')!.value).toBe('casa-azul');
+    botao(el, 'Continuar').click();
+    await fixture.whenStable();
+    botao(el, 'Usar mesmo assim').click();
+    await fixture.whenStable();
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => !!el.querySelector('.etiqueta'));
+    botao(el, 'Criar o cofre').click();
+    await ate(fixture, () => !!el.querySelector('.kit-codigo'));
+    expect(api.corpos[0]!.pin).toBeUndefined();
+  });
+
+  it('um PIN não cria o cofre com um aparelho no modo servidor', async () => {
+    const { fixture, el } = await montar([false]);
+    botao(el, 'Um PIN').click();
+    await fixture.whenStable();
+    digitar(el.querySelector<HTMLInputElement>('#senha-propria')!, '58293');
+    digitar(el.querySelector<HTMLInputElement>('#senha-confirmacao')!, '58293');
+    await fixture.whenStable();
+    botao(el, 'Continuar').click();
+    await fixture.whenStable();
+    botao(el, 'Usar o PIN').click();
+    await fixture.whenStable();
+    botao(el, /primeiro aparelho/).click();
+    await ate(fixture, () => !!el.querySelector('.etiqueta'));
+    expect(el.querySelector('.etiqueta')!.textContent).toContain('Modo servidor');
+    expect(el.textContent).toContain('um PIN ou uma senha curta não servem');
+    expect(botao(el, 'Criar o cofre').disabled).toBe(true);
   });
 
   it('se a API recusar, os aparelhos recomeçam do zero (o segredo do PRF já foi zerado)', async () => {

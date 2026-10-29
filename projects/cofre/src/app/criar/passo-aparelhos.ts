@@ -3,7 +3,7 @@ import { ErroApi } from '../../core/api';
 import { APARELHOS_NA_CRIACAO, type AparelhoParaCriar } from '../../core/criar';
 import { zerar } from '../../core/bytes';
 import { ErroCofre } from '../../core/crypto';
-import { avaliarSenha, BITS_MINIMOS_MODO_SERVIDOR } from '../../core/forca';
+import { avaliarSenha, BITS_MINIMOS_MODO_SERVIDOR, senhaServe } from '../../core/forca';
 import { ErroPasskey, type PasskeyRegistrada, pedirSegredoPrf, registrarPasskey } from '../../core/passkey';
 import { SERVICOS } from '../servicos';
 import type { SenhaEscolhida } from './passo-senha';
@@ -106,7 +106,9 @@ function mensagem(e: unknown): string {
         <p class="nota pequena">Dá para criar com um aparelho só. Aí o código de recuperação, que vem a seguir, é o único jeito de abrir o cofre se você perder esse aparelho.</p>
       }
       @if (aparelhos().length && !senhaServe()) {
-        <p class="aviso">Com um aparelho no modo servidor, a senha mestra precisa ser a frase sorteada ou ter pelo menos {{ minimoServidor }} bits.</p>
+        <p class="aviso">
+          Com um aparelho no modo servidor, a senha mestra precisa ser a frase sorteada ou ter pelo menos {{ minimoServidor }} bits{{ senha().aceitouAviso ? ': um PIN ou uma senha curta não servem' : '' }}.
+        </p>
       }
       @if (aparelhos().length) {
         <p class="nota pequena">Crie o cofre logo: cada aparelho registrado vale por 2 minutos.</p>
@@ -139,9 +141,10 @@ export class PassoAparelhos {
   protected readonly erro = signal<string | null>(null);
 
   protected readonly modoServidor = computed(() => this.aparelhos().some((a) => a.passkey.prf === null));
+  /** A fraca com o aviso aceito (um PIN, uma senha curta) serve só com todos os aparelhos com PRF (17.23). */
   protected readonly senhaServe = computed(() => {
-    const { senha, sugerida } = this.senha();
-    return avaliarSenha(senha, { sugerida, modoServidor: this.modoServidor() }).situacao !== 'fraca';
+    const { senha, sugerida, aceitouAviso } = this.senha();
+    return senhaServe(avaliarSenha(senha, { sugerida, modoServidor: this.modoServidor() }), aceitouAviso === true);
   });
   protected readonly pronto = computed(
     () =>

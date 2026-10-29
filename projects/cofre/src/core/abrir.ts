@@ -11,7 +11,7 @@
  * ser o do cofre, e M e VK só saem de selados que o servidor não consegue forjar. Os bytes secretos são
  * zerados assim que deixam de servir.
  */
-import type { ApiCofre, AssinaturaJson, DesafioDeAbrir } from './api';
+import type { ApiCofre, AssinaturaJson, CorpoDaCarencia, DesafioDeAbrir } from './api';
 import { type Bytes, deBase64url, paraBase64url, zerar } from './bytes';
 import { lerCodigo } from './codigo';
 import {
@@ -63,6 +63,8 @@ export interface CofreAberto {
   readonly segredos?: SegredosDoAberto;
   /** As passkeys do cofre (as do desafio de abrir), para pedir uma de novo antes de mostrar uma senha protegida. */
   readonly passkeys?: readonly PasskeyDoCofre[];
+  /** A carência deste aparelho que o servidor guardou nesta abertura (17.23). */
+  readonly carencia?: { readonly id: string; readonly expiraEm: string } | null;
 }
 
 /** A assinatura de uma passkey para abrir, e o segredo do PRF que ela deu (null se não deu). */
@@ -162,7 +164,7 @@ export async function chaveDoMeioPeloCodigo(api: ApiCofre, codigoDigitado: strin
 }
 
 /** kSenha a partir do desafio: recusa versão desconhecida e Argon2id fraco ou absurdo vindos do servidor (6.4). */
-export async function senhaDoDesafio(senha: string, desafio: DesafioDeAbrir): Promise<Bytes> {
+export async function senhaDoDesafio(senha: string, desafio: Pick<DesafioDeAbrir, 'versao' | 'sal' | 'kdf'>): Promise<Bytes> {
   if (desafio.versao !== VERSAO_CRIPTO) throw new ErroCofre('versao', `versão do cofre desconhecida: ${desafio.versao}`);
   return chaveDaSenha(senha, bytes(desafio.sal, 'sal'), desafio.kdf, desafio.versao);
 }
@@ -192,13 +194,21 @@ export async function assinarComSenha(desafio: DesafioDeAbrir, senha: string, rp
  * Com M e kSenha: a prova da senha vai para a API, que devolve V e o manifesto; V abre em VK. Zera M e
  * kSenha (deu certo ou não). Uma senha errada vem da API como `ErroApi` ("senha-errada"). Com o desafio
  * (o sal e o Argon2id), o cofre aberto guarda o que gerenciar precisa (`SegredosDoAberto`), com uma cópia
- * de M.
+ * de M. `carencia`: a deste aparelho, selada antes com M, que vai junto da prova (17.23).
  */
-export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: Bytes, aparelho: string, desafio?: Pick<DesafioDeAbrir, 'sal' | 'kdf'> & Partial<Pick<DesafioDeAbrir, 'publicKey'>>): Promise<CofreAberto> {
+export async function abrir(
+  api: ApiCofre,
+  usuario: string,
+  kSenha: Bytes,
+  m: Bytes,
+  aparelho: string,
+  desafio?: Pick<DesafioDeAbrir, 'sal' | 'kdf'> & { readonly publicKey?: Pick<DesafioDeAbrir['publicKey'], 'allowCredentials'> },
+  carencia?: CorpoDaCarencia,
+): Promise<CofreAberto> {
   let kAuth: Bytes | null = null;
   try {
     kAuth = await provaDaSenha(kSenha, m);
-    const abertura = await api.abrir(paraBase64url(kAuth));
+    const abertura = await api.abrir(paraBase64url(kAuth), carencia);
     const v = bytes(abertura.v, 'V');
     const chave = await abrirCofre(kSenha, m, usuario, v);
     const manifesto = await decifrarManifesto(chave, usuario, abertura.contador, bytes(abertura.manifesto, 'manifesto'));
@@ -215,6 +225,7 @@ export async function abrir(api: ApiCofre, usuario: string, kSenha: Bytes, m: By
       aparelho,
       ...(segredos ? { segredos } : {}),
       ...(passkeys.length ? { passkeys } : {}),
+      carencia: abertura.carencia ?? null,
     };
   } finally {
     zerar(kSenha, m, kAuth);

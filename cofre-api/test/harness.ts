@@ -18,6 +18,7 @@ export const BASE_ENV = {
 
 /** Todas as tabelas das migrações: cada teste começa com elas vazias (as filhas antes das mães). */
 export const TABLES = [
+  'cofre_carencias',
   'cofre_envelopes',
   'cofre_credenciais',
   'cofre_itens',

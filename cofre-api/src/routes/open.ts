@@ -3,6 +3,7 @@ import { LIMITS, accountKey, reserve } from '../domain/brake';
 import { Bytes, base64url, blob, fromBase64url, sameBytes } from '../domain/bytes';
 import { consumeChallenge, newChallenge } from '../domain/challenge';
 import { eventStatement } from '../domain/events';
+import { GRACE_MAX_ERRORS, GRACE_MS, NewGrace, TOKEN, graceEnded, graceStatements } from '../domain/grace';
 import { assertCanTry, attemptStatements, successStatements, waitAfterError } from '../domain/password-brake';
 import { openServerSecret, proofHash } from '../domain/proofs';
 import { write } from '../domain/quota';
@@ -21,6 +22,7 @@ import {
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { currentPepper } from '../secrets';
+import { SEALED_KEY, bytesField, exactly, invalid, uuidField } from './fields';
 import { country, readJson } from './http';
 
 /**
@@ -47,12 +49,14 @@ interface AccountRow {
   contador: number;
   congelado_ate: string | null;
   mudado_em: string;
+  carencia: number;
+  pin: number;
 }
 
 /** A conta do cofre, ou 404 se ela ainda não tem cofre; 423 se está congelado (8.6). */
-async function vaultOf(deps: Deps, userId: string): Promise<AccountRow> {
+export async function vaultOf(deps: Deps, userId: string): Promise<AccountRow> {
   const row = await deps.db.first<AccountRow>(
-    'SELECT versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, congelado_ate, mudado_em FROM cofre_contas WHERE usuario_id = ?',
+    'SELECT versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, congelado_ate, mudado_em, carencia, pin FROM cofre_contas WHERE usuario_id = ?',
     [userId],
   );
   if (!row) throw new HttpError(404, 'sem-cofre', 'Esta conta ainda não tem cofre.');
@@ -70,6 +74,25 @@ function proofField(value: unknown, what: string): Bytes {
 }
 
 const needsFactor = () => new HttpError(403, 'falta-passkey', 'Confirme com a passkey (ou com o código de recuperação) antes da senha.');
+
+/**
+ * A carência que a página manda junto da prova da senha, ao abrir com a passkey (17.23): o id, o token que
+ * só o aparelho guarda (aqui fica o hash) e M selada com a chave G do aparelho. `anterior`: o token da
+ * carência que o aparelho tinha, que sai. Formato errado recusa o pedido antes de gastar a passkey.
+ */
+async function graceField(raw: unknown): Promise<{ grace: NewGrace; previousHash: string | null } | null> {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw invalid('carência: formato errado.');
+  const g = raw as Record<string, unknown>;
+  const token = g['token'];
+  const previous = g['anterior'];
+  if (typeof token !== 'string' || !TOKEN.test(token)) throw invalid('carência: token com formato errado.');
+  if (previous !== undefined && (typeof previous !== 'string' || !TOKEN.test(previous))) throw invalid('carência: token anterior com formato errado.');
+  return {
+    grace: { id: uuidField(g['id'], 'carência'), hash: await hashToken(token), envelope: bytesField(g['envelope'], 'envelope da carência', exactly(SEALED_KEY)) },
+    previousHash: typeof previous === 'string' ? await hashToken(previous) : null,
+  };
+}
 
 export function openRoutes(app: Hono, deps: Deps): void {
   const { config } = deps;
@@ -100,6 +123,9 @@ export function openRoutes(app: Hono, deps: Deps): void {
       sal: base64url(blob(vault.sal)),
       aparelhos: devices.map((d) => ({ id: d.id, apelido: d.apelido, prf: d.prf === 1 })),
       mudadoEm: vault.mudado_em,
+      // a página sela a carência deste aparelho junto da senha só com ela ligada (17.23)
+      carencia: vault.carencia === 1,
+      pin: vault.pin === 1,
     });
   });
 
@@ -164,13 +190,18 @@ export function openRoutes(app: Hono, deps: Deps): void {
     const vault = await vaultOf(deps, s.userId);
     await assertCanTry(deps, s.userId);
     const kAuth = proofField(body['kAuth'], 'prova da senha');
+    // a carência nova só nasce de uma abertura com a passkey, com ela ligada; pela própria carência ou pelo
+    // código, não (abrir pela carência não renova o prazo)
+    const offered = await graceField(body['carencia']);
+    const newGrace = offered && s.factor === 'passkey' && !s.grace && vault.carencia === 1 ? offered : null;
     const now = deps.now();
     // a marca da passkey é gasta antes de conferir, e a tentativa já conta como erro no freio, tudo numa
     // gravação com a condição no banco: duas tentativas ao mesmo tempo com a mesma passkey, só uma chega
     // à senha; e várias ao mesmo tempo (cada uma com a sua) não passam juntas do freio
-    const [spent] = await write(deps, attemptStatements(s.hash, s.userId, now), 6, { session: true });
+    const [spent] = await write(deps, attemptStatements(s.hash, s.userId, now, s.grace), 7, { session: true });
     if (spent?.changes !== 1) {
       await assertCanTry(deps, s.userId);
+      if (s.grace) throw graceEnded();
       throw needsFactor();
     }
     const ok = sameBytes((await proofHash(deps, 'auth', kAuth, vault.auth_pimenta)).hash, blob(vault.auth_hash));
@@ -178,7 +209,10 @@ export function openRoutes(app: Hono, deps: Deps): void {
     if (!ok) {
       await write(deps, [eventStatement(s.userId, 'erro-senha', now, s.device, country(c))], 3, { session: true });
       const waitUntil = await waitAfterError(deps, s.userId);
-      throw new HttpError(401, 'senha-errada', waitUntil ? `A senha não confere. Muitos erros seguidos: tente de novo depois de ${waitUntil}.` : 'A senha não confere.');
+      const message = waitUntil ? `A senha não confere. Muitos erros seguidos: tente de novo depois de ${waitUntil}.` : 'A senha não confere.';
+      // a última tentativa da carência: o aparelho fica sabendo que a próxima pede o Google e a passkey
+      const graceGone = s.grace !== null && !(await deps.db.first(`SELECT 1 FROM cofre_carencias WHERE id = ? AND erros < ${GRACE_MAX_ERRORS}`, [s.grace]));
+      throw new HttpError(401, 'senha-errada', graceGone ? `${message} Este aparelho volta a pedir o Google e a passkey.` : message);
     }
 
     const token = newToken();
@@ -186,8 +220,11 @@ export function openRoutes(app: Hono, deps: Deps): void {
     const statements: Statement[] = [
       ...successStatements(s.userId, now.toISOString()),
       ...vaultSessionStatements(s, await hashToken(token), recovered, now),
-      eventStatement(s.userId, recovered ? 'aberto-com-codigo' : 'aberto', now, s.device, country(c)),
+      eventStatement(s.userId, recovered ? 'aberto-com-codigo' : s.grace ? 'aberto-com-carencia' : 'aberto', now, s.device, country(c)),
     ];
+    // acertou pela carência: os erros dela voltam a zero (o prazo continua o mesmo)
+    if (s.grace) statements.push({ sql: 'UPDATE cofre_carencias SET erros = 0, usada_em = ? WHERE id = ?', params: [now.toISOString(), s.grace] });
+    if (newGrace) statements.push(...graceStatements(s.userId, s.code, newGrace.grace, newGrace.previousHash, s.device, now));
     // o código só fica gasto quando abre de verdade: errar a senha depois dele não o queima
     if (recovered) statements.push({ sql: "UPDATE cofre_envelopes SET usado_em = ? WHERE usuario_id = ? AND tipo = 'recuperacao'", params: [now.toISOString(), s.userId] });
     // a pimenta foi trocada (16.2): a prova que acabou de conferir passa para a versão nova
@@ -205,11 +242,13 @@ export function openRoutes(app: Hono, deps: Deps): void {
       manifesto: base64url(blob(vault.manifesto)),
       contador: vault.contador,
       recuperada: recovered,
+      carencia: newGrace ? { id: newGrace.grace.id, expiraEm: new Date(now.getTime() + GRACE_MS).toISOString() } : null,
     });
   });
 
   // O `sendBeacon` não manda cabeçalho: o token pode vir no corpo. Responde sempre igual, com sessão ou
-  // sem, e pede ao navegador para apagar o que tiver guardado desta origem (7.3).
+  // sem, e pede ao navegador para apagar o que tiver guardado desta origem (7.3). Com `manter` (o aparelho
+  // tem a carência, 17.23), só o cache: a carência mora no armazenamento, e trancar não a encerra.
   app.post('/api/cofre/trancar', async (c) => {
     const header = /^Bearer (.+)$/.exec(c.req.header('Authorization') ?? '')?.[1];
     const body = header ? {} : await readJson(c, 1024).catch(() => ({}) as Record<string, unknown>);
@@ -221,7 +260,7 @@ export function openRoutes(app: Hono, deps: Deps): void {
       /* sem sessão: nada a apagar */
     }
     if (session) await write(deps, [{ sql: 'DELETE FROM cofre_sessoes WHERE hash = ?', params: [session.hash] }], 4, { session: true });
-    c.header('Clear-Site-Data', '"cache", "storage"');
+    c.header('Clear-Site-Data', body['manter'] === true ? '"cache"' : '"cache", "storage"');
     return c.json({ trancado: true });
   });
 }

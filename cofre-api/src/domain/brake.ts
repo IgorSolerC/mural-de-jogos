@@ -12,7 +12,7 @@ import { utcDay, write } from './quota';
  * fora do banco). Quem levar o banco não consegue voltar dele para o IP, e o mesmo IP em dias
  * diferentes vira chaves diferentes.
  */
-export type BrakeAction = 'entrar' | 'desafio' | 'erro-senha' | 'recuperar' | 'confirmar';
+export type BrakeAction = 'entrar' | 'desafio' | 'erro-senha' | 'recuperar' | 'confirmar' | 'carencia';
 
 /** O limite de cada ação: quantas vezes numa janela de tempo, por IP (antes do login) e por conta. */
 export const LIMITS: Record<BrakeAction, { ip?: number; account: number; windowMs: number }> = {
@@ -27,6 +27,9 @@ export const LIMITS: Record<BrakeAction, { ip?: number; account: number; windowM
   // os desafios de confirmar de novo (reconfirm.ts), por sessão do cofre aberto e não pela conta: quem
   // tem só o token não gasta os desafios de abrir do dono
   confirmar: { account: 10, windowMs: 3_600_000 },
+  // as entradas pela carência do aparelho (17.23), à parte das do Google: quem tem só o token do aparelho
+  // não gasta as entradas do dono (que ainda pode entrar com o Google, até para congelar)
+  carencia: { ip: 30, account: 30, windowMs: 3_600_000 },
 };
 
 /** A chave do freio de um IP: `ip:` + HMAC(chave do dia, IP). */

@@ -5,6 +5,7 @@ import { Deps } from './ports';
 import { createRoutes } from './routes/create';
 import { entryRoutes } from './routes/entry';
 import { itemRoutes } from './routes/items';
+import { graceRoutes } from './routes/grace';
 import { manageRoutes } from './routes/manage';
 import { openRoutes } from './routes/open';
 
@@ -24,6 +25,9 @@ const SESSION_PATHS = new Set([
   '/api/cofre/trancar',
   '/api/cofre/trancar-todos',
   '/api/cofre/congelar',
+  // a carência do aparelho (17.23): abre uma sessão de entrada, ou a esquece
+  '/api/carencia',
+  '/api/carencia/esquecer',
 ]);
 
 /**
@@ -83,6 +87,7 @@ export function createApp(deps: Deps): Hono {
   openRoutes(app, deps);
   itemRoutes(app, deps);
   manageRoutes(app, deps);
+  graceRoutes(app, deps);
 
   app.notFound((c) => {
     deps.log?.(`${c.req.method} ${c.req.path} 404 nao-encontrado`);

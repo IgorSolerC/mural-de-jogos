@@ -103,7 +103,7 @@ export function createSuite(label: string, setup: Setup) {
       expect(await db.first('SELECT tipo FROM cofre_eventos')).toEqual({ tipo: 'cofre-criado' });
       expect(await db.first('SELECT * FROM cofre_desafios')).toBeNull();
       const token = await entrarDeNovo();
-      expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token })).json()).toEqual({ existe: true, congeladoAte: null, aparelhos: 1 });
+      expect(await (await call('GET', '/api/cofre', undefined, { origin: ORIGEM, token })).json()).toEqual({ existe: true, congeladoAte: null, aparelhos: 1, pin: false });
     });
 
     it('com um aparelho no modo servidor, o S_i fica cifrado com a chave dos envelopes e volta igual', async () => {

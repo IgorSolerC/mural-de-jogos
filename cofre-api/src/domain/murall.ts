@@ -10,7 +10,7 @@ import { Db, Statement } from '../ports';
  */
 
 /** As tabelas com o que é de uma conta, na ordem em que saem (a conta por último). */
-export const VAULT_TABLES = ['cofre_itens', 'cofre_envelopes', 'cofre_credenciais', 'cofre_desafios', 'cofre_freio_senha', 'cofre_eventos', 'cofre_sessoes', 'cofre_contas'] as const;
+export const VAULT_TABLES = ['cofre_itens', 'cofre_carencias', 'cofre_envelopes', 'cofre_credenciais', 'cofre_desafios', 'cofre_freio_senha', 'cofre_eventos', 'cofre_sessoes', 'cofre_contas'] as const;
 
 /** A conta tem cofre? Nada de dentro dele, nem quando ou onde foi aberto. */
 export async function hasVault(db: Db, userId: string): Promise<boolean> {

@@ -26,12 +26,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-broche-do-widget-no-alto',
+    id: '2026-10-29-cofre-pin-e-carencia',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
-    title: 'As imagens coladas para as AIs, quem vê em toda ficha e os widgets na ficha fechada',
+    title: 'O cofre com PIN e carência, quem vê em toda ficha e os widgets na ficha fechada',
     melhorias: [
+      'No cofre, a senha mestra pode ser um PIN (só algarismos, e o celular mostra o teclado de números) ou uma senha curta, ao criar e ao trocar: antes, um aviso diz o que ela protege menos. As fáceis demais (1234, um ano, as mais comuns) e as de menos de 4 caracteres não servem, e com um aparelho sem PRF continua valendo a senha forte.',
+      'No cofre, o aparelho que abriu com o Google e a passkey abre de novo, por 24 horas, só com a senha mestra (a carência); 3 senhas erradas, Trancar todos, tirar um aparelho ou congelar a encerram antes, e a tela de abrir tem o "Esquecer este aparelho". Nos Ajustes do cofre, a parte Carência a desliga (ligar de novo pede a passkey ou a senha) e encerra a de cada aparelho.',
       'O olho (pública) e o cadeado (privada) aparecem em toda ficha do seu mural e na ficha aberta, nas anotações e nas análises: antes, só a anotação pública e a análise privada levavam o desenho.',
       'Na ficha aberta, o papel da cartolina fica só na faixa do nome, e a folha de baixo é creme lisa em toda cor (as claras tinham textura nela); e o nome na faixa ficou menor, para ela ocupar menos espaço.',
       'Pela API e pelo MCP, a AI vê as imagens coladas nas notas que a chave lê (a ferramenta Ver uma imagem), sem passar dos grupos dela.',

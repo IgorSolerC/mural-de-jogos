@@ -38,6 +38,8 @@ export interface Session {
   factor: Factor | null;
   /** Só na do cofre: aberta com o código de recuperação. */
   recovered: boolean;
+  /** Só na de entrada aberta pela carência do aparelho (17.23): o id dela. A marca do fator vem junto. */
+  grace: string | null;
 }
 
 export function newToken(): string {
@@ -48,14 +50,29 @@ export async function hashToken(token: string): Promise<string> {
   return hex(await sha256(utf8(token)));
 }
 
-/** Cria a sessão de entrada e apaga as vencidas da mesma conta (contam 4 linhas: a linha e 3 índices). */
-export function entrySessionStatements(hash: string, userId: string, code: string, device: string | null, now: Date, ttlMs = ENTRY_MS): Statement[] {
+/**
+ * Cria a sessão de entrada e apaga as vencidas da mesma conta (contam 4 linhas: a linha e 3 índices). Pela
+ * carência do aparelho (`grace`, 17.23), no lugar do Google e da passkey, ela já nasce com a marca do
+ * segundo fator (vale `FACTOR_MS`, para uma tentativa de senha) e o id da carência.
+ */
+export function entrySessionStatements(hash: string, userId: string, code: string, device: string | null, now: Date, ttlMs = ENTRY_MS, grace: string | null = null): Statement[] {
   const at = now.toISOString();
   return [
     { sql: 'DELETE FROM cofre_sessoes WHERE usuario_id = ? AND expira_em <= ?', params: [userId, at] },
     {
-      sql: "INSERT INTO cofre_sessoes (hash, usuario_id, tipo, codigo, criada_em, usada_em, expira_em, aparelho) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?)",
-      params: [hash, userId, code, at, at, new Date(now.getTime() + ttlMs).toISOString(), device],
+      sql: "INSERT INTO cofre_sessoes (hash, usuario_id, tipo, codigo, criada_em, usada_em, expira_em, aparelho, fator, fator_ate, carencia) VALUES (?, ?, 'entrada', ?, ?, ?, ?, ?, ?, ?, ?)",
+      params: [
+        hash,
+        userId,
+        code,
+        at,
+        at,
+        new Date(now.getTime() + ttlMs).toISOString(),
+        device,
+        grace ? 'passkey' : null,
+        grace ? new Date(now.getTime() + FACTOR_MS).toISOString() : null,
+        grace,
+      ],
     },
   ];
 }
@@ -75,10 +92,14 @@ export function vaultSessionStatements(entry: Session, hash: string, recovered: 
   ];
 }
 
-/** Marca, na sessão de entrada, que o segundo fator acabou de ser conferido (vale `FACTOR_MS`). */
+/**
+ * Marca, na sessão de entrada, que o segundo fator acabou de ser conferido (vale `FACTOR_MS`). A passkey ou
+ * o código conferidos agora valem por si: a sessão deixa de ser da carência (17.23), e a tentativa de senha
+ * que vem não conta nos erros dela.
+ */
 export function factorStatement(session: Session, factor: Factor, now: Date): Statement {
   return {
-    sql: 'UPDATE cofre_sessoes SET fator = ?, fator_ate = ? WHERE hash = ?',
+    sql: 'UPDATE cofre_sessoes SET fator = ?, fator_ate = ?, carencia = NULL WHERE hash = ?',
     params: [factor, new Date(now.getTime() + FACTOR_MS).toISOString(), session.hash],
   };
 }
@@ -95,6 +116,7 @@ interface SessionRow {
   fator: Factor | null;
   fator_ate: string | null;
   recuperada: number;
+  carencia: string | null;
 }
 
 /**
@@ -111,7 +133,7 @@ export async function sessionOfToken(deps: Deps, token: string, kinds: readonly 
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw invalidSession();
   const hash = await hashToken(token);
   const row = await deps.db.first<SessionRow>(
-    'SELECT usuario_id, codigo, tipo, usada_em, expira_em, aparelho, fator, fator_ate, recuperada FROM cofre_sessoes WHERE hash = ?',
+    'SELECT usuario_id, codigo, tipo, usada_em, expira_em, aparelho, fator, fator_ate, recuperada, carencia FROM cofre_sessoes WHERE hash = ?',
     [hash],
   );
   const now = deps.now().getTime();
@@ -137,5 +159,6 @@ export async function sessionOfToken(deps: Deps, token: string, kinds: readonly 
     device: row.aparelho,
     factor: factorValid ? row.fator : null,
     recovered: row.recuperada === 1,
+    grace: row.carencia,
   };
 }

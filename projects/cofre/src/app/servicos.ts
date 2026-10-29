@@ -1,6 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import type { CofreAberto } from '../core/abrir';
 import { ApiCofre, type Entrada } from '../core/api';
+import { armarioDoAparelho } from '../core/carencia';
 import { type Guarda, guardaDaAba } from '../core/entrar';
 import { type Autenticador, autenticadorDoNavegador } from '../core/passkey';
 import type { Porta } from './porta/porta';
@@ -23,6 +24,8 @@ export interface Pagina {
   readonly trabalhadores: Trabalhadores | undefined;
   /** Onde o login guarda o state e o verificador entre a ida e a volta do Google. */
   readonly guarda: Guarda;
+  /** Onde a carência do aparelho mora (o `localStorage`, 17.23); sem ele, o aparelho fica sem carência. */
+  readonly armario?: Guarda;
   /** Tira o código do Google da URL (e do histórico). */
   limparUrl(): void;
   irPara(url: string): void;
@@ -59,6 +62,7 @@ export function paginaDoNavegador(): Pagina {
     automatizado: navigator.webdriver === true,
     trabalhadores: navigator.serviceWorker,
     guarda: guardaDaAba,
+    armario: armarioDoAparelho,
     limparUrl: () => history.replaceState(null, '', '/'),
     irPara: (url) => location.assign(url),
     copiar: (texto) => navigator.clipboard.writeText(texto),
@@ -87,6 +91,8 @@ export interface Demonstracao {
   readonly porta?: Porta;
   /** `?demo=abrir`: a tela de abrir. */
   readonly abrir?: boolean;
+  /** `?demo=carencia`: a tela de abrir só com a senha (a carência do aparelho). */
+  readonly carencia?: import('../core/carencia').Carencia;
   /** `?demo=congelado`: a tela de abrir com o cofre congelado. */
   readonly congeladoAte?: string;
   /** `?demo=aberto`: um cofre já aberto, com a API de mentira guardando os itens na memória. */

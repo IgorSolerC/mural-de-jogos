@@ -1,8 +1,10 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import type { CofreAberto } from '../../core/abrir';
-import { type AparelhoDaApi, ApiCofre, type Confirmacao, type DesafioDeConfirmar, type DesafioDeRegistro, type EventoDaApi, type SessaoDaApi } from '../../core/api';
+import { type AparelhoDaApi, ApiCofre, type CarenciaDaApi, type Confirmacao, type DesafioDeConfirmar, type DesafioDeRegistro, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { aleatorios, paraBase64url } from '../../core/bytes';
+import { type Carencia, guardarCarencia, lerCarencia } from '../../core/carencia';
+import type { Guarda } from '../../core/entrar';
 import { chaveDaSenha, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../../core/crypto';
 import { sortearFrase } from '../../core/sorteio';
 import type { Autenticador } from '../../core/passkey';
@@ -11,6 +13,16 @@ import { Gerenciar } from './gerenciar';
 
 const USUARIO = '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c';
 const SENHA = sortearFrase();
+const CARENCIA_DAQUI = '7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70';
+
+/** Um armário de mentira (o localStorage), com a carência deste aparelho guardada. */
+function armarioComCarencia(): Guarda & { mapa: Map<string, string> } {
+  const mapa = new Map<string, string>();
+  const armario = { mapa, getItem: (c: string) => mapa.get(c) ?? null, setItem: (c: string, v: string) => void mapa.set(c, v), removeItem: (c: string) => void mapa.delete(c) };
+  const carencia: Carencia = { id: CARENCIA_DAQUI, token: 'T'.repeat(43), chave: paraBase64url(aleatorios(32)), usuario: USUARIO, codigo: 'K7QFM2XA', expiraEm: '2999-10-22T08:00:00.000Z', pin: false };
+  guardarCarencia(armario, carencia);
+  return armario;
+}
 
 class ApiDeGerenciar extends ApiCofre {
   lista: AparelhoDaApi[] = [
@@ -47,8 +59,10 @@ class ApiDeGerenciar extends ApiCofre {
     this.lista = this.lista.filter((a) => a.id !== id);
     return { tirado: true as const };
   }
-  override async trocarSenha(_corpo: object, confirmar: Confirmacao) {
+  corposDaSenha: object[] = [];
+  override async trocarSenha(corpo: object, confirmar: Confirmacao) {
     this.anotar(confirmar);
+    this.corposDaSenha.push(corpo);
     this.pedidos.push('senha');
     return { trocada: true as const };
   }
@@ -71,6 +85,26 @@ class ApiDeGerenciar extends ApiCofre {
       desafio: 'd',
       publicKey: { challenge: paraBase64url(aleatorios(32)), rp: { id: 'cofre.teste', name: 'x' }, user: { id: paraBase64url(aleatorios(16)), name: 'x', displayName: 'x' }, pubKeyCredParams: [{ type: 'public-key', alg: -7 }] },
     };
+  }
+  ligada = true;
+  carenciasDaConta: CarenciaDaApi[] = [
+    { id: CARENCIA_DAQUI, aparelho: 'Chrome no Windows', criadaEm: '2026-10-21T08:00:00.000Z', expiraEm: '2999-10-22T08:00:00.000Z', usadaEm: null },
+    { id: '7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b71', aparelho: 'Safari no iPhone', criadaEm: '2026-10-21T07:00:00.000Z', expiraEm: '2999-10-22T07:00:00.000Z', usadaEm: '2026-10-21T09:00:00.000Z' },
+  ];
+  override async carencias() {
+    return { ligada: this.ligada, carencias: this.ligada ? this.carenciasDaConta : [] };
+  }
+  override async ligarCarencia(ligada: boolean, confirmar?: Confirmacao) {
+    if (confirmar) this.anotar(confirmar);
+    this.pedidos.push(`carencia ${ligada}`);
+    this.ligada = ligada;
+    if (!ligada) this.carenciasDaConta = [];
+    return { ligada };
+  }
+  override async encerrarCarencia(id: string) {
+    this.pedidos.push(`encerrar ${id}`);
+    this.carenciasDaConta = this.carenciasDaConta.filter((c) => c.id !== id);
+    return { encerrada: true as const };
   }
   override async porAparelho(aparelho: unknown, confirmar: Confirmacao) {
     this.anotar(confirmar);
@@ -101,7 +135,7 @@ const assinada = (): Credential =>
     getClientExtensionResults: () => ({}),
   }) as unknown as Credential;
 
-async function montar(opcoes: { recuperada?: boolean; autenticador?: Autenticador } = {}) {
+async function montar(opcoes: { recuperada?: boolean; autenticador?: Autenticador; armario?: Guarda; modoServidor?: boolean } = {}) {
   const sal = novoSal();
   const m = novaChaveDoMeio();
   const { chave, v } = await criarCofre(await chaveDaSenha(SENHA, sal, KDF_PADRAO), m, USUARIO);
@@ -117,7 +151,8 @@ async function montar(opcoes: { recuperada?: boolean; autenticador?: Autenticado
     segredos: { m, v, sal, kdf: { ...KDF_PADRAO } },
   };
   const api = new ApiDeGerenciar();
-  const servicos: Servicos = { api, autenticador: opcoes.autenticador ?? semPrf, rpId: 'cofre.teste', pagina: { agente: 'Chrome no Windows' } as Pagina, terminar: () => undefined };
+  if (opcoes.modoServidor) api.lista = api.lista.map((a, i) => (i === 1 ? { ...a, prf: false } : a));
+  const servicos: Servicos = { api, autenticador: opcoes.autenticador ?? semPrf, rpId: 'cofre.teste', pagina: { agente: 'Chrome no Windows', armario: opcoes.armario } as Pagina, terminar: () => undefined };
   TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), { provide: SERVICOS, useValue: servicos }] });
   const fixture = TestBed.createComponent(Gerenciar);
   fixture.componentRef.setInput('cofre', cofre);
@@ -378,6 +413,120 @@ describe('gerenciar o cofre', () => {
     await confirmarComSenha(fixture, SENHA);
     await ate(fixture, () => !!el.querySelector('.kit-codigo'));
     expect(api.confirmacoes).toEqual(['senha 43']);
+  });
+
+  it('a senha nova pode ser um PIN: só algarismos, o aviso antes, e o servidor fica sabendo que é PIN', async () => {
+    const { fixture, api, avisos, el } = await montar();
+    await parte(fixture, 'Senha mestra');
+    digitar(el, '#g-atual', SENHA);
+    botao(el, 'PIN').click();
+    await estabilizar(fixture);
+    const nova = el.querySelector<HTMLInputElement>('#g-nova')!;
+    expect(nova.getAttribute('inputmode')).toBe('numeric');
+    expect(botao(el, 'Sortear frase')).toBeUndefined();
+    digitar(el, '#g-nova', '58a2-9 3');
+    await estabilizar(fixture);
+    expect(nova.value).toBe('58293');
+    digitar(el, '#g-confirmacao', '58293');
+    await estabilizar(fixture);
+    expect(el.querySelector('.leitura')!.textContent).toContain('Não é tão segura');
+    botao(el, 'Usar o PIN').click();
+    await estabilizar(fixture);
+    // o aviso no lugar do botão; nada foi ainda ao servidor
+    expect(el.querySelector('cofre-aviso-senha-fraca')!.textContent).toContain('Um PIN não é tão seguro');
+    expect(api.pedidos).toEqual([]);
+    botao(el, 'Escolher outra').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('cofre-aviso-senha-fraca')).toBeNull();
+    botao(el, 'Usar o PIN').click();
+    await estabilizar(fixture);
+    el.querySelector('cofre-aviso-senha-fraca')!.querySelector<HTMLButtonElement>('.tinta')!.click();
+    await ate(fixture, () => avisos.includes('PIN posto no lugar da senha mestra.'));
+    expect(api.corposDaSenha.map((c) => (c as { pin: boolean }).pin)).toEqual([true]);
+  });
+
+  it('o PIN fácil demais (1234) e o curto não servem nem com o aviso', async () => {
+    const { fixture, el } = await montar();
+    await parte(fixture, 'Senha mestra');
+    digitar(el, '#g-atual', SENHA);
+    botao(el, 'PIN').click();
+    await estabilizar(fixture);
+    for (const [pin, palavra] of [['1234', 'Fácil demais'], ['1990', 'Fácil demais'], ['583', 'Curta demais']]) {
+      digitar(el, '#g-nova', pin!);
+      digitar(el, '#g-confirmacao', pin!);
+      await estabilizar(fixture);
+      expect(el.querySelector('.leitura')!.textContent).withContext(pin!).toContain(palavra!);
+      expect(botao(el, 'Usar o PIN').disabled).withContext(pin!).toBe(true);
+    }
+  });
+
+  it('com um aparelho no modo servidor, o PIN não serve', async () => {
+    const { fixture, el } = await montar({ modoServidor: true });
+    await parte(fixture, 'Senha mestra');
+    digitar(el, '#g-atual', SENHA);
+    botao(el, 'PIN').click();
+    await estabilizar(fixture);
+    digitar(el, '#g-nova', '58293');
+    digitar(el, '#g-confirmacao', '58293');
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('um PIN não serve');
+    expect(botao(el, 'Usar o PIN').disabled).toBe(true);
+  });
+
+  it('a carência: a lista com este aparelho marcado; encerrar a daqui a tira do aparelho também', async () => {
+    const armario = armarioComCarencia();
+    const { fixture, api, el } = await montar({ armario });
+    await parte(fixture, 'Carência');
+    expect(el.querySelector<HTMLElement>('[role=switch]')!.getAttribute('aria-checked')).toBe('true');
+    const linhas = [...el.querySelectorAll('.linha')].filter((l) => l.textContent!.includes('Até '));
+    expect(linhas.map((l) => l.querySelector('.linha-titulo')!.textContent!.trim())).toEqual(['Chrome no Windows Este', 'Safari no iPhone']);
+    linhas[1]!.querySelector<HTMLButtonElement>('button')!.click();
+    await ate(fixture, () => api.pedidos.includes('encerrar 7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b71'));
+    expect(lerCarencia(armario)).not.toBeNull();
+    botao(el, 'Encerrar').click();
+    await ate(fixture, () => api.pedidos.includes(`encerrar ${CARENCIA_DAQUI}`));
+    expect(lerCarencia(armario)).toBeNull();
+  });
+
+  it('desligar a carência vale na hora; ligar pede a confirmação de agora', async () => {
+    const armario = armarioComCarencia();
+    const { fixture, api, el } = await montar({ armario });
+    await parte(fixture, 'Carência');
+    el.querySelector<HTMLButtonElement>('[role=switch]')!.click();
+    await ate(fixture, () => api.pedidos.includes('carencia false'));
+    await estabilizar(fixture);
+    expect(lerCarencia(armario)).toBeNull();
+    expect(el.querySelector<HTMLElement>('[role=switch]')!.getAttribute('aria-checked')).toBe('false');
+    expect(el.textContent).toContain('Desligada');
+    el.querySelector<HTMLButtonElement>('[role=switch]')!.click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.confirmar-de-novo')!.textContent).toContain('ligar a carência');
+    await confirmarComSenha(fixture, SENHA);
+    await ate(fixture, () => api.pedidos.includes('carencia true'));
+    expect(api.confirmacoes).toEqual(['senha 43']);
+  });
+
+  it('apagar o cofre tira a carência deste aparelho', async () => {
+    const armario = armarioComCarencia();
+    const { fixture, api, el } = await montar({ armario });
+    await parte(fixture, 'Cuidado');
+    digitar(el, '#g-apagar-palavra', 'APAGAR');
+    await estabilizar(fixture);
+    botao(el, 'Apagar o cofre').click();
+    await confirmarComSenha(fixture, SENHA);
+    await ate(fixture, () => api.pedidos.includes('apagar APAGAR'));
+    expect(lerCarencia(armario)).toBeNull();
+  });
+
+  it('trancar todos tira a carência deste aparelho', async () => {
+    const armario = armarioComCarencia();
+    const { fixture, api, el } = await montar({ armario });
+    await parte(fixture, 'Abertos agora');
+    botao(el, 'Trancar todos').click();
+    await estabilizar(fixture);
+    [...el.querySelectorAll<HTMLButtonElement>('.confirma button')].find((b) => b.textContent!.includes('Trancar todos'))!.click();
+    await ate(fixture, () => api.pedidos.includes('trancar-todos'));
+    expect(lerCarencia(armario)).toBeNull();
   });
 
   it('trocar de parte fecha a confirmação aberta', async () => {

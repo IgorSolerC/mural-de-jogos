@@ -38,7 +38,7 @@ export function entrySuite(label: string, setup: Setup) {
       const { call } = await setup();
       const { token } = (await (await call('POST', '/api/entrar', entrar('codigo-sub-dono'))).json()) as { token: string };
       const res = await call('GET', '/api/cofre', undefined, { token });
-      expect(await res.json()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0 });
+      expect(await res.json()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0, pin: false });
     });
 
     it('sem cofre, a sessão de entrada acaba em 20 minutos (o tempo de criar)', async () => {

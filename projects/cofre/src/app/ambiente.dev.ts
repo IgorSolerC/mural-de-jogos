@@ -1,7 +1,8 @@
 import type { CofreAberto } from '../core/abrir';
-import { type AparelhoDaApi, ApiCofre, type CofreCriado, type DesafioDeConfirmar, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
+import { type AparelhoDaApi, ApiCofre, type CarenciaDaApi, type CofreCriado, type DesafioDeConfirmar, type DesafioDeRegistro, ErroApi, type EventoDaApi, type Gravacao, type ItensDaApi, type SessaoDaApi } from '../core/api';
 import { aleatorios, deBase64url, paraBase64url } from '../core/bytes';
 import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
+import { semArmario } from '../core/carencia';
 import { type CamposDoItem, salvarItem } from '../core/itens';
 import type { Autenticador } from '../core/passkey';
 import { type Demonstracao, paginaDoNavegador } from './servicos';
@@ -12,7 +13,7 @@ import type { IdDaCor, IdDoIcone } from '../../../../shared/cartela-de-icones';
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
  * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar` ou
  * `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de entrar aparece
- * bloqueado, como deve). Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com oito
+ * bloqueado, como deve). Com `?demo=carencia` (ou `carencia-pin`), a tela de abrir só com a senha. Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com oito
  * senhas de exemplo (duas com mais de uma entrada, e uma entrada que pede a passkey), guardadas na memória por uma API de mentira que confere o contador como a de verdade.
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
@@ -133,7 +134,37 @@ class ApiDeMentira extends ApiCofre {
   override async apagarCofre(): Promise<{ apagado: true }> {
     return { apagado: true };
   }
+
+  // a carência (17.23): um aparelho com ela agora, este
+  private carenciaLigada = true;
+  override async carencias(): Promise<{ ligada: boolean; carencias: readonly CarenciaDaApi[] }> {
+    const agora = Date.now();
+    return {
+      ligada: this.carenciaLigada,
+      carencias: this.carenciaLigada
+        ? [{ id: CARENCIA_DA_DEMO, aparelho: 'Chrome no Windows', criadaEm: new Date(agora - 3_600_000).toISOString(), expiraEm: new Date(agora + 23 * 3_600_000).toISOString(), usadaEm: null }]
+        : [],
+    };
+  }
+  override async ligarCarencia(ligada: boolean): Promise<{ ligada: boolean }> {
+    await espera(250);
+    this.carenciaLigada = ligada;
+    return { ligada };
+  }
+  override async encerrarCarencia(): Promise<{ encerrada: true }> {
+    return { encerrada: true };
+  }
+  /** Na demonstração não há servidor: a senha nunca confere (para ver o erro). */
+  override async entrarPelaCarencia(): Promise<never> {
+    await espera(500);
+    throw new ErroApi(401, 'senha-errada', 'A senha não confere.');
+  }
+  override async esquecerCarencia(): Promise<{ esquecida: true }> {
+    return { esquecida: true };
+  }
 }
+
+const CARENCIA_DA_DEMO = '7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70';
 
 /** Um cofre aberto de mentira (chaves sorteadas agora), com três senhas de exemplo. */
 async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false): Promise<CofreAberto> {
@@ -290,7 +321,12 @@ export function demonstracao(): Demonstracao | null {
     abrir: pedido === 'abrir' || pedido === 'congelado',
     congeladoAte: pedido === 'congelado' ? new Date(Date.now() + 86_400_000).toISOString() : undefined,
     aberto: pedido === 'aberto' || pedido === 'muitas' ? () => cofreDeMentira(api, usuario, pedido === 'muitas') : undefined,
-    servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: paginaDoNavegador(), terminar: () => location.reload() },
+    carencia:
+      pedido === 'carencia' || pedido === 'carencia-pin'
+        ? { id: CARENCIA_DA_DEMO, token: 'T'.repeat(43), chave: paraBase64url(aleatorios(32)), usuario, codigo: 'K7QFM2XA', expiraEm: new Date(Date.now() + 23 * 3_600_000).toISOString(), pin: pedido === 'carencia-pin' }
+        : undefined,
+    // a demonstração não guarda nada no aparelho (a carência dela é só a de cima)
+    servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: { ...paginaDoNavegador(), armario: semArmario }, terminar: () => location.reload() },
     entrada: { token: 'demo', expiraEm: new Date(Date.now() + 300_000).toISOString(), usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' },
   });
 }

@@ -21,6 +21,21 @@ export async function vaultAllowed(deps: Deps, code: string): Promise<boolean> {
   }
 }
 
+/**
+ * Sair da conta (o "Sair" e o "Sair de todos os aparelhos") encerra também a carência do cofre de senhas
+ * (PLANO-COFRE.md, 17.23): o aparelho que abria o cofre só com a senha volta a pedir o Google e a passkey.
+ * O cofre mora em outra origem, que a limpeza do navegador do Murall não alcança, então quem corta é o
+ * servidor dele. O cofre fora do ar (ou ainda sem a chamada) nunca impede de sair.
+ */
+export async function endVaultGraces(deps: Deps, userId: string): Promise<void> {
+  if (!deps.vault?.endGraces) return;
+  try {
+    await deps.vault.endGraces(userId);
+  } catch {
+    deps.log?.('cofre: encerrar as carências falhou');
+  }
+}
+
 export async function accountByGoogle(db: Db, sub: string): Promise<{ id: string; codigo: string } | null> {
   if (typeof sub !== 'string' || !/^[0-9A-Za-z_-]{1,255}$/.test(sub)) return null;
   return db.first<{ id: string; codigo: string }>('SELECT id, codigo FROM usuarios WHERE google_sub = ?', [sub]);

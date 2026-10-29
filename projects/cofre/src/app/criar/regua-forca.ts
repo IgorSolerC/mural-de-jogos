@@ -24,7 +24,7 @@ const FIM = 100;
         <span class="minimo" [style.left.%]="avaliacao().minimo"></span>
       </div>
     </div>
-    <p class="leitura" [class.fraca]="avaliacao().situacao === 'fraca'">
+    <p class="leitura" [class.fraca]="avaliacao().situacao === 'fraca' && !avaliacao().comAviso" [class.com-aviso]="avaliacao().comAviso">
       <strong>{{ titulo() }}</strong> {{ detalhe() }}
     </p>
   `,
@@ -108,6 +108,12 @@ const FIM = 100;
     .leitura.fraca strong {
       color: var(--erro);
     }
+    /* a fraca que serve com o aviso (um PIN, uma senha curta): a palavra no marca-texto amarelo, não em vermelho */
+    .leitura.com-aviso strong {
+      padding: 1px 5px 2px;
+      border-radius: 2px;
+      background: var(--hi);
+    }
   `,
 })
 export class ReguaForca {
@@ -115,12 +121,21 @@ export class ReguaForca {
   protected readonly fim = FIM;
   protected readonly marcas = Array.from({ length: FIM / 5 + 1 }, (_, i) => i * 5);
   protected readonly largura = computed(() => Math.min(100, (this.avaliacao().bits / FIM) * 100));
-  protected readonly titulo = computed(() => ({ sorteada: 'Frase sorteada', boa: 'Forte o bastante', fraca: 'Fraca' })[this.avaliacao().situacao]);
+  protected readonly titulo = computed(() => {
+    const a = this.avaliacao();
+    if (a.situacao !== 'fraca') return a.situacao === 'sorteada' ? 'Frase sorteada' : 'Forte o bastante';
+    if (a.bits === 0) return 'Fraca';
+    return a.comAviso ? 'Não é tão segura' : a.recusa === 'curta' ? 'Curta demais' : a.recusa === 'facil' ? 'Fácil demais' : 'Fraca';
+  });
   protected readonly detalhe = computed(() => {
     const a = this.avaliacao();
     if (a.situacao === 'sorteada') return `cerca de ${a.bits} bits. A mais forte que dá para lembrar.`;
     if (a.situacao === 'boa') return `cerca de ${a.bits} bits (o mínimo é ${a.minimo}).`;
     if (a.bits === 0) return `o mínimo é ${a.minimo} bits.`;
+    // abaixo do mínimo, a fraca serve com o aviso (17.23), menos a curta, a fácil e no modo servidor
+    if (a.comAviso) return `cerca de ${a.bits} bits; o recomendado é ${a.minimo}. Serve, se você aceitar o aviso.`;
+    if (a.recusa === 'curta') return 'tenha pelo menos 4 caracteres.';
+    if (a.recusa === 'facil') return 'é das primeiras que alguém tenta. Escolha outra.';
     return `cerca de ${a.bits} bits; faltam ${a.minimo - a.bits}. Use a frase sorteada ou escreva mais palavras.`;
   });
   protected readonly frase = computed(() => `${this.titulo()}: ${this.detalhe()}`);

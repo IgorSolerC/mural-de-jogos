@@ -9,7 +9,7 @@ import { authenticate } from '../domain/session';
 import { ES256, RS256 } from '../domain/webauthn';
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
-import { KEY, SEALED_KEY, bytesField, deviceField, deviceStatements, exactly, invalid, kdfField, manifestSize, uuidField, verifyDevices } from './fields';
+import { KEY, SEALED_KEY, bytesField, deviceField, deviceStatements, exactly, flagField, invalid, kdfField, manifestSize, uuidField, verifyDevices } from './fields';
 import { country, readJson } from './http';
 
 /**
@@ -69,6 +69,8 @@ export function createRoutes(app: Hono, deps: Deps): void {
     const v = bytesField(body['v'], 'V', exactly(SEALED_KEY));
     const kAuth = bytesField(body['kAuth'], 'prova da senha', exactly(KEY));
     const manifest = bytesField(body['manifesto'], 'manifesto', manifestSize);
+    // a senha mestra é um PIN: só para a tela de abrir mostrar o teclado de números (17.23)
+    const pin = flagField(body['pin'], 'pin');
 
     const recovery = body['recuperacao'] as Record<string, unknown> | undefined;
     const recoveryId = uuidField(recovery?.['id'], 'envelope do código');
@@ -92,9 +94,9 @@ export function createRoutes(app: Hono, deps: Deps): void {
     const statements: Statement[] = [
       {
         sql:
-          'INSERT INTO cofre_contas (usuario_id, versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, usuario_passkey, criado_em, mudado_em) ' +
-          'VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)',
-        params: [s.userId, m, t, p, salt, v, auth.hash, auth.version, manifest, handle, at, at],
+          'INSERT INTO cofre_contas (usuario_id, versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, usuario_passkey, pin, criado_em, mudado_em) ' +
+          'VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)',
+        params: [s.userId, m, t, p, salt, v, auth.hash, auth.version, manifest, handle, pin ? 1 : 0, at, at],
       },
       {
         sql: "INSERT INTO cofre_envelopes (id, usuario_id, tipo, envelope, rec_hash, rec_pimenta, criado_em) VALUES (?, ?, 'recuperacao', ?, ?, ?, ?)",

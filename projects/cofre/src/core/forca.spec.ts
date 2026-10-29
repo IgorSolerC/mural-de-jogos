@@ -1,4 +1,4 @@
-import { avaliarSenha, BITS_MINIMOS, BITS_MINIMOS_MODO_SERVIDOR, estimarBits, serveParaModoServidor } from './forca';
+import { avaliarSenha, BITS_MINIMOS, BITS_MINIMOS_MODO_SERVIDOR, estimarBits, PIN, senhaServe, serveParaModoServidor } from './forca';
 import { bitsDaFrase, sortearFrase } from './sorteio';
 
 describe('a força da senha mestra', () => {
@@ -10,7 +10,7 @@ describe('a força da senha mestra', () => {
 
   it('só a frase que a página sorteou, igual, vale como sorteada', () => {
     const frase = sortearFrase();
-    expect(avaliarSenha(frase, { sugerida: frase })).toEqual({ bits: 77, situacao: 'sorteada', minimo: 70 });
+    expect(avaliarSenha(frase, { sugerida: frase })).toEqual({ bits: 77, situacao: 'sorteada', minimo: 70, comAviso: false, recusa: null });
     expect(avaliarSenha(frase, { sugerida: frase, modoServidor: true }).situacao).toBe('sorteada');
     // a mesma frase sem ser a sorteada desta vez (alguém que escolheu as palavras): estimada como escolhida
     const escrita = avaliarSenha(frase);
@@ -96,5 +96,48 @@ describe('a força da senha mestra', () => {
     expect(serveParaModoServidor('Xk9#mQ2$vL7!pR4@Zt8%')).toBe(true);
     expect(serveParaModoServidor('gato-azul-pedra-chuva-livro')).toBe(false);
     expect(serveParaModoServidor('gato azul pedra chuva livro mesa')).toBe(false);
+  });
+
+  describe('abaixo do mínimo, com o aviso (17.23)', () => {
+    it('um PIN ou uma senha curta servem com o aviso aceito', () => {
+      for (const senha of ['5829', '58293071', 'casa-azul', 'Tk7#']) {
+        const a = avaliarSenha(senha);
+        expect(a.situacao).withContext(senha).toBe('fraca');
+        expect(a.comAviso).withContext(senha).toBe(true);
+        expect(a.recusa).withContext(senha).toBeNull();
+        expect(senhaServe(a, false)).withContext(senha).toBe(false);
+        expect(senhaServe(a, true)).withContext(senha).toBe(true);
+      }
+    });
+
+    it('nunca servem: menos de 4 caracteres e as primeiras que alguém tenta', () => {
+      expect(avaliarSenha('583').recusa).toBe('curta');
+      expect(avaliarSenha('é1').recusa).toBe('curta');
+      for (const facil of ['1234', '0000', '1212', '4321', '1990', '123456', 'senha', 'senha2024', 'abcd', 'qwerty', 'aaaaaa', 'flamengo']) {
+        const a = avaliarSenha(facil);
+        expect(a.recusa).withContext(facil).toBe('facil');
+        expect(senhaServe(a, true)).withContext(facil).toBe(false);
+      }
+    });
+
+    it('com algum aparelho no modo servidor, a fraca não serve nem com o aviso', () => {
+      const a = avaliarSenha('58293071', { modoServidor: true });
+      expect(a).toEqual(jasmine.objectContaining({ situacao: 'fraca', comAviso: false, recusa: 'servidor' }));
+      expect(senhaServe(a, true)).toBe(false);
+    });
+
+    it('as fortes e a sorteada servem sem aviso', () => {
+      expect(senhaServe(avaliarSenha('gato-azul-pedra-chuva-livro-mesa-porta'), false)).toBe(true);
+      expect(avaliarSenha('gato-azul-pedra-chuva-livro-mesa-porta').comAviso).toBe(false);
+    });
+
+    it('o PIN é de 4 a 16 algarismos', () => {
+      expect(PIN.test('5829')).toBe(true);
+      expect(PIN.test('5829307158293071')).toBe(true);
+      expect(PIN.test('58293071582930712')).toBe(false);
+      expect(PIN.test('582')).toBe(false);
+      expect(PIN.test('58a9')).toBe(false);
+      expect(PIN.test('５８２９')).toBe(false);
+    });
   });
 });

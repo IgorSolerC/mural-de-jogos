@@ -122,7 +122,7 @@ jobs:
         working-directory: cofre-api
     env:
       # as tabelas das migrações do cofre (cofre-api/test/backup.test.ts confere a lista)
-      BACKUP_TABELAS: cofre_contas cofre_credenciais cofre_envelopes cofre_itens cofre_sessoes cofre_desafios cofre_eventos cofre_freio_senha freios uso_diario
+      BACKUP_TABELAS: cofre_contas cofre_credenciais cofre_envelopes cofre_carencias cofre_itens cofre_sessoes cofre_desafios cofre_eventos cofre_freio_senha freios uso_diario
     # os secrets só nos passos que os usam, como no job de cima
     steps:
       - name: Confere a senha antes de tudo

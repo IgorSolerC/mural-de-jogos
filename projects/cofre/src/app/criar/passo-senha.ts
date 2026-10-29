@@ -1,24 +1,32 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, output, signal } from '@angular/core';
-import { avaliarSenha, BITS_MINIMOS_MODO_SERVIDOR } from '../../core/forca';
+import { avaliarSenha, BITS_MINIMOS_MODO_SERVIDOR, PIN, soAlgarismos } from '../../core/forca';
 import { sortearFrase } from '../../core/sorteio';
+import { AvisoSenhaFraca } from './aviso-senha-fraca';
 import { ReguaForca } from './regua-forca';
 
 /** A senha que a pessoa escolheu, e a frase sorteada (que só vale como sorteada se for igual). */
 export interface SenhaEscolhida {
   readonly senha: string;
   readonly sugerida: string | null;
+  /** É um PIN (só algarismos): a tela de abrir mostra o teclado de números. */
+  readonly pin?: boolean;
+  /** Fraca, e a pessoa aceitou o aviso de que não é tão segura (17.23). */
+  readonly aceitouAviso?: boolean;
 }
+
+type Jeito = 'frase' | 'propria' | 'pin';
 
 /**
  * O passo da senha mestra (8.3, passo 3): a frase de 6 palavras sorteada aqui, que a pessoa copia no
- * papel e digita de volta, ou uma senha dela, que passa pela régua de força. A senha só vive nesta
- * tela até seguir; nada é guardado.
+ * papel e digita de volta, uma senha dela, que passa pela régua de força, ou um PIN. Abaixo do mínimo (o
+ * PIN, uma senha curta), a senha só segue depois do aviso de que não é tão segura (17.23). A senha só vive
+ * nesta tela até seguir; nada é guardado.
  */
 @Component({
   selector: 'cofre-passo-senha',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReguaForca, NgTemplateOutlet],
+  imports: [ReguaForca, NgTemplateOutlet, AvisoSenhaFraca],
   template: `
     <h2>A senha mestra</h2>
     <p class="nota">
@@ -28,6 +36,7 @@ export interface SenhaEscolhida {
     <div class="jeitos" role="radiogroup" aria-label="Que senha usar">
       <button type="button" role="radio" [attr.aria-checked]="jeito() === 'frase'" (click)="escolher('frase')">Frase sorteada</button>
       <button type="button" role="radio" [attr.aria-checked]="jeito() === 'propria'" (click)="escolher('propria')">Escrever a minha</button>
+      <button type="button" role="radio" [attr.aria-checked]="jeito() === 'pin'" (click)="escolher('pin')">Um PIN</button>
     </div>
 
     @if (jeito() === 'frase') {
@@ -71,19 +80,25 @@ export interface SenhaEscolhida {
         <p class="aviso">Ainda não é igual à frase de cima.</p>
       }
     } @else {
+      @if (jeito() === 'pin') {
+        <p class="nota pequena">Só algarismos, de 4 a 16. Na tela de abrir, o celular mostra o teclado de números.</p>
+      }
       <div class="campo-bloco">
-        <label class="rotulo" for="senha-propria">Sua senha mestra</label>
+        <label class="rotulo" for="senha-propria">{{ jeito() === 'pin' ? 'Seu PIN' : 'Sua senha mestra' }}</label>
         <span class="com-olho">
           <input
             id="senha-propria"
+            [class.pin]="jeito() === 'pin'"
             [type]="mostrar() ? 'text' : 'password'"
+            [attr.inputmode]="jeito() === 'pin' ? 'numeric' : null"
+            [attr.maxlength]="jeito() === 'pin' ? 16 : null"
             autocomplete="off"
             autocapitalize="off"
             autocorrect="off"
             spellcheck="false"
             translate="no"
             [value]="propria()"
-            (input)="propria.set(valor($event))"
+            (input)="propria.set(digitado($event))"
           />
           <ng-container *ngTemplateOutlet="olho" />
         </span>
@@ -96,18 +111,21 @@ export interface SenhaEscolhida {
         <label class="rotulo" for="senha-confirmacao">Digite de novo</label>
         <input
           id="senha-confirmacao"
+          [class.pin]="jeito() === 'pin'"
           [type]="mostrar() ? 'text' : 'password'"
+          [attr.inputmode]="jeito() === 'pin' ? 'numeric' : null"
+          [attr.maxlength]="jeito() === 'pin' ? 16 : null"
           autocomplete="off"
           autocapitalize="off"
           autocorrect="off"
           spellcheck="false"
           translate="no"
           [value]="confirmacao()"
-          (input)="confirmacao.set(valor($event))"
+          (input)="confirmacao.set(digitado($event))"
         />
       </div>
       @if (confirmacao() && confirmacao() !== propria()) {
-        <p class="aviso">As duas não são iguais.</p>
+        <p class="aviso">{{ jeito() === 'pin' ? 'Os dois não são iguais.' : 'As duas não são iguais.' }}</p>
       }
     }
 
@@ -128,9 +146,13 @@ export interface SenhaEscolhida {
       </button>
     </ng-template>
 
-    <div class="pe">
-      <button type="button" class="tinta" [disabled]="!pronta()" (click)="seguir()">Continuar</button>
-    </div>
+    @if (avisando()) {
+      <cofre-aviso-senha-fraca [pin]="jeito() === 'pin'" (usar)="aceitar()" (voltar)="avisando.set(false)" />
+    } @else {
+      <div class="pe">
+        <button type="button" class="tinta" [disabled]="!pronta()" (click)="seguir()">Continuar</button>
+      </div>
+    }
   `,
   styleUrl: './passo-senha.scss',
 })
@@ -138,25 +160,46 @@ export class PassoSenha {
   readonly escolhida = output<SenhaEscolhida>();
 
   protected readonly minimoServidor = BITS_MINIMOS_MODO_SERVIDOR;
-  protected readonly jeito = signal<'frase' | 'propria'>('frase');
+  protected readonly jeito = signal<Jeito>('frase');
   protected readonly frase = signal(sortearFrase());
   protected readonly palavras = computed(() => this.frase().split('-'));
   protected readonly digitada = signal('');
   protected readonly propria = signal('');
   protected readonly confirmacao = signal('');
   protected readonly mostrar = signal(false);
+  /** O aviso de que a senha não é tão segura, aberto no lugar do Continuar. */
+  protected readonly avisando = signal(false);
 
   protected readonly frasesIguais = computed(() => this.digitada().trim() === this.frase());
   protected readonly avaliacao = computed(() => avaliarSenha(this.propria()));
-  protected readonly pronta = computed(() =>
-    this.jeito() === 'frase' ? this.frasesIguais() : this.avaliacao().situacao === 'boa' && this.confirmacao() === this.propria(),
-  );
+  protected readonly pronta = computed(() => {
+    if (this.jeito() === 'frase') return this.frasesIguais();
+    const a = this.avaliacao();
+    const formato = this.jeito() !== 'pin' || PIN.test(this.propria());
+    return formato && (a.situacao === 'boa' || a.comAviso) && this.confirmacao() === this.propria();
+  });
 
   protected valor(evento: Event): string {
     return (evento.target as HTMLInputElement).value;
   }
 
-  protected escolher(jeito: 'frase' | 'propria'): void {
+  /** O que foi digitado; no PIN, só os algarismos (o resto sai do campo na hora). */
+  protected digitado(evento: Event): string {
+    const campo = evento.target as HTMLInputElement;
+    if (this.jeito() !== 'pin') return campo.value;
+    const limpo = soAlgarismos(campo.value);
+    if (limpo !== campo.value) campo.value = limpo;
+    return limpo;
+  }
+
+  protected escolher(jeito: Jeito): void {
+    if (jeito === this.jeito()) return;
+    // a senha escrita num jeito não passa para o outro (um PIN não é a senha de antes sem as letras)
+    if (jeito === 'pin' || this.jeito() === 'pin') {
+      this.propria.set('');
+      this.confirmacao.set('');
+    }
+    this.avisando.set(false);
     this.jeito.set(jeito);
   }
 
@@ -168,6 +211,14 @@ export class PassoSenha {
   protected seguir(): void {
     if (!this.pronta()) return;
     if (this.jeito() === 'frase') this.escolhida.emit({ senha: this.frase(), sugerida: this.frase() });
-    else this.escolhida.emit({ senha: this.propria(), sugerida: null });
+    else if (this.avaliacao().situacao === 'fraca') this.avisando.set(true);
+    else this.escolhida.emit({ senha: this.propria(), sugerida: null, pin: this.jeito() === 'pin' });
+  }
+
+  /** Aceitou o aviso: segue com a senha fraca (o PIN, a curta). */
+  protected aceitar(): void {
+    if (!this.pronta() || this.jeito() === 'frase') return;
+    this.avisando.set(false);
+    this.escolhida.emit({ senha: this.propria(), sugerida: null, pin: this.jeito() === 'pin', aceitouAviso: true });
   }
 }

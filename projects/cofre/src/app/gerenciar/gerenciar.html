@@ -120,27 +120,63 @@
                 <label class="rotulo" for="g-atual">Senha atual</label>
                 <input id="g-atual" type="password" autocomplete="off" spellcheck="false" translate="no" [value]="senhaAtual()" (input)="senhaAtual.set(valor($event))" />
               </div>
+              <div class="jeito-da-nova" role="radiogroup" aria-label="A nova é uma senha ou um PIN">
+                <button type="button" class="segmento" role="radio" [attr.aria-checked]="!novaEhPin()" (click)="jeitoDaNova(false)">Senha</button>
+                <button type="button" class="segmento" role="radio" [attr.aria-checked]="novaEhPin()" (click)="jeitoDaNova(true)">PIN</button>
+              </div>
               <div class="campo-com-rotulo">
-                <label class="rotulo" for="g-nova">Senha nova</label>
+                <label class="rotulo" for="g-nova">{{ novaEhPin() ? 'PIN novo, de 4 a 16 algarismos' : 'Senha nova' }}</label>
                 <span class="em-linha">
-                  <input id="g-nova" [type]="sugerida() ? 'text' : 'password'" autocomplete="off" spellcheck="false" translate="no" [value]="senhaNova()" (input)="senhaNova.set(valor($event)); sugerida.set(null)" />
-                  <button type="button" class="papel" (click)="sortear()">
-                    <cofre-icone nome="gerar" />
-                    Sortear frase
-                  </button>
+                  <input
+                    id="g-nova"
+                    [class.pin]="novaEhPin()"
+                    [type]="sugerida() ? 'text' : 'password'"
+                    [attr.inputmode]="novaEhPin() ? 'numeric' : null"
+                    [attr.maxlength]="novaEhPin() ? 16 : null"
+                    autocomplete="off"
+                    spellcheck="false"
+                    translate="no"
+                    [value]="senhaNova()"
+                    (input)="senhaNova.set(digitadoNaNova($event)); sugerida.set(null)"
+                  />
+                  @if (!novaEhPin()) {
+                    <button type="button" class="papel" (click)="sortear()">
+                      <cofre-icone nome="gerar" />
+                      Sortear frase
+                    </button>
+                  }
                 </span>
               </div>
               @if (senhaNova()) {
                 <cofre-regua-forca [avaliacao]="avaliacao()" />
               }
+              @if (novaEhPin() && modoServidor()) {
+                <p class="aviso">Com um aparelho no modo servidor, um PIN não serve: a senha mestra precisa ser a frase sorteada ou ter pelo menos 78 bits.</p>
+              }
               <div class="campo-com-rotulo">
-                <label class="rotulo" for="g-confirmacao">Digite a nova de novo</label>
-                <input id="g-confirmacao" type="password" autocomplete="off" spellcheck="false" translate="no" [class.com-erro]="senhaConfirmacao() && senhaConfirmacao() !== senhaNova()" [value]="senhaConfirmacao()" (input)="senhaConfirmacao.set(valor($event))" />
+                <label class="rotulo" for="g-confirmacao">{{ novaEhPin() ? 'Digite o PIN de novo' : 'Digite a nova de novo' }}</label>
+                <input
+                  id="g-confirmacao"
+                  [class.pin]="novaEhPin()"
+                  type="password"
+                  [attr.inputmode]="novaEhPin() ? 'numeric' : null"
+                  [attr.maxlength]="novaEhPin() ? 16 : null"
+                  autocomplete="off"
+                  spellcheck="false"
+                  translate="no"
+                  [class.com-erro]="senhaConfirmacao() && senhaConfirmacao() !== senhaNova()"
+                  [value]="senhaConfirmacao()"
+                  (input)="senhaConfirmacao.set(digitadoNaNova($event))"
+                />
                 @if (senhaConfirmacao() && senhaConfirmacao() !== senhaNova()) {
-                  <p class="aviso">As duas não são iguais.</p>
+                  <p class="aviso">{{ novaEhPin() ? 'Os dois não são iguais.' : 'As duas não são iguais.' }}</p>
                 }
               </div>
-              <button type="submit" class="tinta" [disabled]="!senhaPronta()">Trocar a senha</button>
+              @if (avisandoFraca()) {
+                <cofre-aviso-senha-fraca [pin]="novaEhPin()" (usar)="trocarDeVez()" (voltar)="avisandoFraca.set(false)" />
+              } @else {
+                <button type="submit" class="tinta" [disabled]="!senhaPronta()">{{ novaEhPin() ? 'Usar o PIN' : 'Trocar a senha' }}</button>
+              }
             </form>
           }
 
@@ -197,7 +233,7 @@
               <div class="linha">
                 <div>
                   <p class="linha-titulo">Trancar todos</p>
-                  <p class="linha-desc">Fecha o cofre em todo lugar, este aparelho também. Para abrir de novo, a senha e a passkey.</p>
+                  <p class="linha-desc">Fecha o cofre em todo lugar, este aparelho também, e encerra a carência de todos. Para abrir de novo, a senha e a passkey.</p>
                 </div>
                 @if (!confirmarTrancarTodos()) {
                   <button type="button" class="papel" (click)="confirmarTrancarTodos.set(true)">
@@ -216,6 +252,70 @@
                 </div>
               }
             </div>
+          }
+
+          @case ('carencia') {
+            <h3>Carência</h3>
+            <p class="lead">
+              Por 24 horas depois de abrir com o Google e a passkey, o aparelho abre o cofre só com a senha mestra. Cada aparelho tem a sua, e ela acaba antes com 3
+              senhas erradas, com Trancar todos, ao tirar um aparelho ou ao congelar o cofre.
+            </p>
+            <div class="grupo">
+              <div class="linha">
+                <div>
+                  <p class="linha-titulo" id="g-carencia-titulo">Abrir só com a senha por 24 horas</p>
+                  <p class="linha-desc" id="g-carencia-desc">
+                    @if (carenciaLigada() === false) {
+                      Desligada: todo aparelho pede o Google, a passkey e a senha, toda vez.
+                    } @else {
+                      Ligada. Quem pegar um aparelho dentro do prazo ainda precisa da senha, com 3 tentativas.
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="interruptor"
+                  role="switch"
+                  [attr.aria-checked]="carenciaLigada() === true"
+                  aria-labelledby="g-carencia-titulo"
+                  aria-describedby="g-carencia-desc"
+                  [disabled]="ocupado() || carenciaLigada() === null || pedindo()?.acao === 'carencia'"
+                  (click)="alternarCarencia()"
+                >
+                  <span class="bolinha"></span>
+                </button>
+              </div>
+              @if (pedindo()?.acao === 'carencia') {
+                <ng-container [ngTemplateOutlet]="confirmacao" />
+              }
+            </div>
+            @if (carenciaLigada()) {
+              <div class="grupo">
+                <p class="grupo-titulo">Aparelhos com carência agora</p>
+                @for (c of carencias(); track c.id) {
+                  <div class="linha">
+                    <div class="linha-com-icone">
+                      <cofre-icone class="linha-icone" nome="ampulheta" />
+                      <div>
+                        <p class="linha-titulo">
+                          {{ c.aparelho || 'Aparelho sem nome' }}
+                          @if (c.id === carenciaDaqui()) {
+                            <span class="etiqueta este">Este</span>
+                          }
+                        </p>
+                        <p class="linha-desc">Até {{ quando(c.expiraEm) }}{{ c.usadaEm ? ' · aberto só com a senha em ' + quando(c.usadaEm) : '' }}</p>
+                      </div>
+                    </div>
+                    <button type="button" class="papel" [disabled]="ocupado()" (click)="encerrarCarencia(c)">
+                      <cofre-icone nome="cadeado" />
+                      Encerrar
+                    </button>
+                  </div>
+                } @empty {
+                  <p class="linha-desc">Nenhum agora. Abra com o Google e a passkey num aparelho para ele ganhar a carência.</p>
+                }
+              </div>
+            }
           }
 
           @case ('vazadas') {

@@ -34,6 +34,13 @@ export function bytesField(value: unknown, what: string, ok: (n: number) => bool
 export const exactly = (n: number) => (len: number) => len === n;
 export const manifestSize = (n: number) => n >= SEALED_OVERHEAD + BLOCK && n <= MANIFEST_MAX && (n - SEALED_OVERHEAD) % BLOCK === 0;
 
+/** Um sim ou não opcional: ausente é não; qualquer coisa além de true e false recusa o pedido. */
+export function flagField(value: unknown, what: string): boolean {
+  if (value === undefined) return false;
+  if (typeof value !== 'boolean') throw invalid(`${what}: precisa ser true ou false.`);
+  return value;
+}
+
 export function uuidField(value: unknown, what: string): string {
   if (typeof value !== 'string' || !UUID.test(value)) throw invalid(`${what}: id inválido.`);
   return value;

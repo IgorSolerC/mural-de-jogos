@@ -1,3 +1,4 @@
+@use '../papelaria' as p;
 @use './passo' as passo;
 
 @include passo.passo;
@@ -80,6 +81,9 @@
 }
 .com-olho input {
   padding-right: 54px;
+}
+input.pin {
+  @include p.campo-pin;
 }
 .olho {
   position: absolute;

@@ -538,7 +538,7 @@ export function apiSuite(label: string, getDb: () => Db) {
         const DAY = 86_400_000;
         /** O cofre de mentira: quem tem cofre, e os cofres apagados (`falha`: o cofre não responde). */
         function fakeVault(withVault: string[] = []) {
-          const state = { has: new Set(withVault), erased: [] as string[], falha: false };
+          const state = { has: new Set(withVault), erased: [] as string[], graces: [] as string[], falha: false };
           const vault = {
             canUse: async () => true,
             has: async (id: string) => {
@@ -549,6 +549,10 @@ export function apiSuite(label: string, getDb: () => Db) {
               if (state.falha) throw new Error('o cofre não respondeu');
               state.erased.push(id);
               state.has.delete(id);
+            },
+            endGraces: async (id: string) => {
+              if (state.falha) throw new Error('o cofre não respondeu');
+              state.graces.push(id);
             },
           };
           return { state, vault };
@@ -567,6 +571,20 @@ export function apiSuite(label: string, getDb: () => Db) {
           const erase = async (days = 0, token: string = mine.token) => api(days)('DELETE', '/v1/eu', { credential: await confirmation(days) }, token);
           return { ...ctx, mine, state, vault, at, api, confirmation, erase };
         }
+
+        it('sair (e sair de todos) encerra a carência do cofre de senhas; o cofre fora do ar não impede de sair', async () => {
+          const { api, mine, state, login } = await account({ vault: true });
+          expect((await api()('POST', '/v1/auth/sair', {}, mine.token)).status).toBe(200);
+          expect(state.graces).toEqual([mine.conta.id]);
+          const outra = (await login({ sub: 'eu' })).body;
+          state.falha = true;
+          expect((await api()('POST', '/v1/auth/sair-de-todos', {}, outra.token)).status).toBe(200);
+          expect((await api()('GET', '/v1/eu', undefined, outra.token)).status).toBe(401);
+          state.falha = false;
+          const terceira = (await login({ sub: 'eu' })).body;
+          expect((await api()('POST', '/v1/auth/sair-de-todos', {}, terceira.token)).status).toBe(200);
+          expect(state.graces).toEqual([mine.conta.id, mine.conta.id]);
+        });
 
         it('só o token da sessão não apaga: pede o login do Google de agora, da mesma conta', async () => {
           const { api, mine, db, confirmation, login } = await account();

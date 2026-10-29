@@ -269,6 +269,12 @@
   }
 }
 
+// O campo de PIN: os algarismos espaçados, como num teclado de banco
+@mixin campo-pin {
+  letter-spacing: 0.35em;
+  font-variant-numeric: tabular-nums;
+}
+
 // O campo com erro: a linha de caneta na tinta de erro
 @mixin campo-erro {
   &,

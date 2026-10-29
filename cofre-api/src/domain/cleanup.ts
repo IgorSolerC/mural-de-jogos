@@ -7,7 +7,7 @@ export const TRASH_DAYS = 30;
 export const HISTORY_DAYS = 90;
 
 /**
- * A limpeza diária (16.4), pelo Cron Trigger do Worker: sessões e desafios vencidos, o histórico de mais
+ * A limpeza diária (16.4), pelo Cron Trigger do Worker: sessões, desafios e carências vencidos, o histórico de mais
  * de 90 dias, os freios e o uso de dias que já não contam, o freio da senha esquecido, e os itens com
  * mais de 30 dias na lixeira.
  *
@@ -24,6 +24,7 @@ export async function cleanup(deps: Deps): Promise<void> {
   await deps.db.batch([
     { sql: 'DELETE FROM cofre_sessoes WHERE expira_em <= ?', params: [now.toISOString()] },
     { sql: 'DELETE FROM cofre_desafios WHERE expira_em <= ?', params: [now.toISOString()] },
+    { sql: 'DELETE FROM cofre_carencias WHERE expira_em <= ?', params: [now.toISOString()] },
     { sql: 'DELETE FROM cofre_eventos WHERE em < ?', params: [ago(HISTORY_DAYS)] },
     { sql: 'DELETE FROM freios WHERE criado_em < ?', params: [ago(2)] },
     { sql: 'DELETE FROM uso_diario WHERE dia < ?', params: [utcDay(new Date(ago(30)))] },

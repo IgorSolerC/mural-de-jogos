@@ -5,6 +5,7 @@ export type EventKind =
   | 'cofre-criado'
   | 'aberto'
   | 'aberto-com-codigo'
+  | 'aberto-com-carencia'
   | 'erro-senha'
   | 'passkey-usada'
   | 'codigo-usado'
@@ -13,7 +14,10 @@ export type EventKind =
   | 'senha-trocada'
   | 'codigo-trocado'
   | 'todos-trancados'
-  | 'cofre-congelado';
+  | 'cofre-congelado'
+  | 'carencia-ligada'
+  | 'carencia-desligada'
+  | 'carencia-encerrada';
 
 /** Uma linha do histórico (conta 3 linhas na cota: a linha, a chave e o índice). */
 export function eventStatement(userId: string, kind: EventKind, now: Date, device: string | null, country: string | null): Statement {

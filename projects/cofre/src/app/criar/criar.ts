@@ -127,6 +127,7 @@ export class Criar {
         aparelhos,
         aparelhoAgora: /Android|iPhone|iPad|Mobile/i.test(this.servicos.pagina.agente) ? 'Celular' : 'PC',
         agora,
+        pin: senha.pin === true,
       });
       codigo = montado.codigo;
       await this.servicos.api.criarCofre(montado.corpo);

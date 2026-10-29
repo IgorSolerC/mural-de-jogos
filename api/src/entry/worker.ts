@@ -19,6 +19,7 @@ interface VaultRpc {
   podeUsar(codigo: string): Promise<boolean>;
   temCofre(usuarioId: string): Promise<boolean>;
   apagarCofre(usuarioId: string): Promise<{ apagado: true }>;
+  encerrarCarencias(usuarioId: string): Promise<{ encerradas: true }>;
 }
 
 /** As variáveis do wrangler.toml (ver `config.ts`), os bancos e o cofre. */
@@ -65,6 +66,7 @@ function deps(env: Env): Deps {
             canUse: (code: string) => env.COFRE!.podeUsar(code),
             has: (userId: string) => env.COFRE!.temCofre(userId),
             erase: async (userId: string) => void (await env.COFRE!.apagarCofre(userId)),
+            endGraces: async (userId: string) => void (await env.COFRE!.encerrarCarencias(userId)),
           },
         }
       : {}),

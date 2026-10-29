@@ -5,6 +5,7 @@ import { createApp } from '../app';
 import { canUseVault, readConfig } from '../config';
 import { cleanup } from '../domain/cleanup';
 import { GOOGLE_CERTS_URL, googleLogin } from '../domain/google';
+import { endGraces } from '../domain/grace';
 import { eraseVaultStatements, hasVault } from '../domain/murall';
 import { write } from '../domain/quota';
 import { Deps } from '../ports';
@@ -105,6 +106,12 @@ export class MuralRpc extends WorkerEntrypoint<Env> {
   /** Antes de apagar a conta do Murall (ameaça 23): a conta tem cofre? Só o sim ou o não (ver `domain/murall.ts`). */
   async temCofre(usuarioId: string): Promise<boolean> {
     return hasVault(d1Db(this.env.DB), accountId(usuarioId));
+  }
+
+  /** A pessoa saiu do Murall (17.23): a carência dos aparelhos dela acaba (ver `domain/grace.ts`). */
+  async encerrarCarencias(usuarioId: string): Promise<{ encerradas: true }> {
+    await endGraces(deps(this.env), accountId(usuarioId));
+    return { encerradas: true };
   }
 
   /** A conta do Murall saiu de vez: o cofre dela vai junto (o backup diário guarda a cópia cifrada por 30 dias). */

@@ -1,3 +1,4 @@
+@use '../papelaria' as p;
 @use '../ficha' as f;
 @use '../criar/passo' as passo;
 
@@ -14,6 +15,9 @@
 :host {
   display: block;
   gap: 0;
+}
+input.pin {
+  @include p.campo-pin;
 }
 .codigo {
   font: 800 1.15rem/1.2 var(--f-rotulo);

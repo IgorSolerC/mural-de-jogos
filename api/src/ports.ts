@@ -101,10 +101,16 @@ export interface Deps {
   oauthFetch?: (url: string, init?: RequestInit) => Promise<Response>;
   /**
    * O cofre de senhas, pelo service binding (ver `src/domain/vault.ts`): a conta pode usá-lo? Tem
-   * cofre? E, quando a conta sai, apagar o cofre dela. Sem isto (nos testes, ou sem o binding), ninguém
-   * vê a aba do cofre e nenhuma conta tem cofre.
+   * cofre? Quando a conta sai, apagar o cofre dela; e, quando a pessoa sai da conta, encerrar a carência
+   * dos aparelhos (abrir o cofre só com a senha, PLANO-COFRE.md 17.23). Sem isto (nos testes, ou sem o
+   * binding), ninguém vê a aba do cofre e nenhuma conta tem cofre.
    */
-  vault?: { canUse(code: string): Promise<boolean>; has(userId: string): Promise<boolean>; erase(userId: string): Promise<void> };
+  vault?: {
+    canUse(code: string): Promise<boolean>;
+    has(userId: string): Promise<boolean>;
+    erase(userId: string): Promise<void>;
+    endGraces?(userId: string): Promise<void>;
+  };
   /**
    * Uma linha no log (no Worker, o console, que o Workers Logs guarda): as respostas de erro e as recusas
    * de quem a API chama, nunca o corpo do pedido nem um token. Sem isto (nos testes), nada se escreve.

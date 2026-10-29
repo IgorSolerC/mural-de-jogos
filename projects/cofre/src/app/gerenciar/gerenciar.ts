@@ -1,9 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, Injector, input, OnInit, output, signal, viewChild } from '@angular/core';
 import type { CofreAberto } from '../../core/abrir';
-import { type AparelhoDaApi, type Confirmacao, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
+import { type AparelhoDaApi, type CarenciaDaApi, type Confirmacao, ErroApi, type EventoDaApi, type SessaoDaApi } from '../../core/api';
 import { ErroCofre } from '../../core/crypto';
-import { avaliarSenha, serveParaModoServidor } from '../../core/forca';
+import { esquecerAqui, lerCarencia, semArmario } from '../../core/carencia';
+import { avaliarSenha, PIN, senhaServe, serveParaModoServidor, soAlgarismos } from '../../core/forca';
 import { confirmacaoPelaPasskey, confirmacaoPelaSenha } from '../../core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../core/gerenciar';
 import { hexDaCor, type IdDaCor, type IdDoIcone } from '../../../../../shared/cartela-de-icones';
@@ -13,6 +14,7 @@ import { simples } from '../aberto/pastas';
 import { ErroPasskey, type PasskeyRegistrada, registrarPasskey } from '../../core/passkey';
 import { sortearFrase } from '../../core/sorteio';
 import { PassoKit } from '../criar/passo-kit';
+import { AvisoSenhaFraca } from '../criar/aviso-senha-fraca';
 import { ReguaForca } from '../criar/regua-forca';
 import { Icone, type NomeDoIcone } from '../icone';
 import { SERVICOS } from '../servicos';
@@ -20,6 +22,7 @@ import { SERVICOS } from '../servicos';
 const EVENTOS: Record<string, string> = {
   'cofre-criado': 'Cofre criado',
   aberto: 'Cofre aberto',
+  'aberto-com-carencia': 'Cofre aberto só com a senha (carência)',
   'passkey-usada': 'Passkey usada',
   'erro-senha': 'Senha errada',
   'codigo-usado': 'Código de recuperação usado',
@@ -29,11 +32,14 @@ const EVENTOS: Record<string, string> = {
   'aparelho-tirado': 'Aparelho tirado',
   'todos-trancados': 'Todos os aparelhos trancados',
   'cofre-congelado': 'Cofre congelado por 24 horas',
+  'carencia-ligada': 'Carência ligada',
+  'carencia-desligada': 'Carência desligada',
+  'carencia-encerrada': 'Carência de um aparelho encerrada',
 };
 
 const MAXIMO_DE_APARELHOS = 10;
 
-export type ParteDosAjustes = 'aparelhos' | 'senha' | 'recuperacao' | 'sessoes' | 'vazadas' | 'grupos' | 'historico' | 'cuidado';
+export type ParteDosAjustes = 'aparelhos' | 'senha' | 'recuperacao' | 'sessoes' | 'carencia' | 'vazadas' | 'grupos' | 'historico' | 'cuidado';
 
 /** As partes dos Ajustes, na ordem do índice (como as Configurações do mural: uma lista e um bloco no template). */
 export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: string; readonly dica: string; readonly icone: NomeDoIcone }[] = [
@@ -41,6 +47,7 @@ export const PARTES: readonly { readonly id: ParteDosAjustes; readonly nome: str
   { id: 'senha', nome: 'Senha mestra', dica: 'Trocar a senha', icone: 'chave' },
   { id: 'recuperacao', nome: 'Recuperação', dica: 'O código de emergência', icone: 'boia' },
   { id: 'sessoes', nome: 'Abertos agora', dica: 'Onde o cofre está aberto', icone: 'tela' },
+  { id: 'carencia', nome: 'Carência', dica: 'Abrir só com a senha', icone: 'ampulheta' },
   { id: 'vazadas', nome: 'Senhas vazadas', dica: 'Conferir na base pública', icone: 'escudo' },
   { id: 'grupos', nome: 'Grupos', dica: 'Nome, ícone e cor', icone: 'pasta' },
   { id: 'historico', nome: 'Histórico', dica: 'Os últimos 90 dias', icone: 'historico' },
@@ -68,7 +75,12 @@ export interface MudancaDeGrupo {
  * O que espera a confirmação de agora (a passkey de novo ou a senha mestra): o servidor só faz com ela
  * (PLANO-COFRE.md, 17.21). Trocar a senha não entra: a senha atual, que ela já pede, confirma.
  */
-type PedidoConfirmado = { readonly acao: 'por' } | { readonly acao: 'tirar'; readonly aparelho: AparelhoDaApi } | { readonly acao: 'codigo' } | { readonly acao: 'apagar' };
+type PedidoConfirmado =
+  | { readonly acao: 'por' }
+  | { readonly acao: 'tirar'; readonly aparelho: AparelhoDaApi }
+  | { readonly acao: 'codigo' }
+  | { readonly acao: 'apagar' }
+  | { readonly acao: 'carencia' };
 
 /** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
 export interface Vazada {
@@ -89,12 +101,14 @@ function mensagem(e: unknown): string {
  * tirar, nunca o último), a senha mestra, o código de recuperação, os aparelhos abertos (e trancar
  * todos), as senhas vazadas, os grupos (renomear e apagar de uma vez), o histórico de 90 dias e apagar o
  * cofre (só escrevendo APAGAR). Pôr e tirar aparelho, o código novo e apagar pedem antes a passkey de novo
- * (ou a senha mestra), que vai junto ao servidor.
+ * (ou a senha mestra), que vai junto ao servidor. A senha nova pode ser um PIN ou uma senha curta, com o
+ * aviso de que não é tão segura; e a carência dos aparelhos (17.23) liga, desliga e encerra por aparelho
+ * (ligar também pede a confirmação de agora).
  */
 @Component({
   selector: 'cofre-gerenciar',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [Cartela, PassoKit, ReguaForca, Icone, NgTemplateOutlet],
+  imports: [Cartela, PassoKit, ReguaForca, AvisoSenhaFraca, Icone, NgTemplateOutlet],
   templateUrl: './gerenciar.html',
   styleUrl: './gerenciar.scss',
 })
@@ -143,7 +157,13 @@ export class Gerenciar implements OnInit {
   protected readonly motivoDaConfirmacao = computed(() => {
     const p = this.pedindo();
     if (!p) return '';
-    const para = { por: 'pôr um aparelho', tirar: `tirar ${p.acao === 'tirar' ? p.aparelho.apelido : ''} do cofre`, codigo: 'gerar o código novo', apagar: 'apagar o cofre' }[p.acao];
+    const para = {
+      por: 'pôr um aparelho',
+      tirar: `tirar ${p.acao === 'tirar' ? p.aparelho.apelido : ''} do cofre`,
+      codigo: 'gerar o código novo',
+      apagar: 'apagar o cofre',
+      carencia: 'ligar a carência',
+    }[p.acao];
     return this.cofre().recuperada
       ? `Para ${para}, digite a senha mestra (você abriu o cofre com o código de recuperação).`
       : `Para ${para}, use a passkey de um aparelho do cofre (a digital, o rosto ou o PIN) ou a senha mestra.`;
@@ -162,10 +182,26 @@ export class Gerenciar implements OnInit {
   protected readonly senhaNova = signal('');
   protected readonly senhaConfirmacao = signal('');
   protected readonly sugerida = signal<string | null>(null);
+  /** A nova é um PIN (só algarismos): o campo mostra o teclado de números, e a tela de abrir também. */
+  protected readonly novaEhPin = signal(false);
+  /** O aviso de que a nova não é tão segura, aberto no lugar do "Trocar a senha" (17.23). */
+  protected readonly avisandoFraca = signal(false);
   protected readonly avaliacao = computed(() => avaliarSenha(this.senhaNova(), { sugerida: this.sugerida(), modoServidor: this.modoServidor() }));
   protected readonly senhaPronta = computed(
-    () => !this.ocupado() && !!this.senhaAtual() && this.avaliacao().situacao !== 'fraca' && this.senhaConfirmacao() === this.senhaNova(),
+    () =>
+      !this.ocupado() &&
+      !!this.senhaAtual() &&
+      (!this.novaEhPin() || PIN.test(this.senhaNova())) &&
+      senhaServe(this.avaliacao(), true) &&
+      this.senhaConfirmacao() === this.senhaNova(),
   );
+
+  // carência
+  private readonly armario = this.servicos.pagina.armario ?? semArmario;
+  protected readonly carenciaLigada = signal<boolean | null>(null);
+  protected readonly carencias = signal<readonly CarenciaDaApi[]>([]);
+  /** A carência guardada neste aparelho (o id), para marcar "Este" na lista. */
+  protected readonly carenciaDaqui = signal<string | null>(null);
 
   // código
   protected readonly confirmarCodigo = signal(false);
@@ -271,10 +307,16 @@ export class Gerenciar implements OnInit {
   protected async recarregar(): Promise<void> {
     const { api } = this.servicos;
     try {
-      const [a, s, e] = await Promise.all([api.aparelhos(), api.sessoes(), api.eventos()]);
+      const [a, s, e, c] = await Promise.all([api.aparelhos(), api.sessoes(), api.eventos(), api.carencias()]);
       this.aparelhos.set(a.aparelhos);
       this.sessoes.set(s.sessoes);
       this.eventos.set(e.eventos);
+      this.carenciaLigada.set(c.ligada);
+      this.carencias.set(c.carencias);
+      // o que este aparelho guarda e o servidor já não tem (encerrada, desligada) sai daqui também
+      const daqui = lerCarencia(this.armario);
+      if (daqui && !c.carencias.some((x) => x.id === daqui.id)) esquecerAqui(this.armario);
+      this.carenciaDaqui.set(daqui && c.carencias.some((x) => x.id === daqui.id) ? daqui.id : null);
     } catch (e) {
       this.falhou(e);
     }
@@ -410,6 +452,8 @@ export class Gerenciar implements OnInit {
         return this.gerarCodigoCom(confirmacao);
       case 'apagar':
         return this.apagarCom(confirmacao);
+      case 'carencia':
+        return this.ligarCarenciaCom(confirmacao);
     }
   }
 
@@ -502,20 +546,86 @@ export class Gerenciar implements OnInit {
 
   protected sortear(): void {
     const frase = sortearFrase();
+    this.novaEhPin.set(false);
     this.sugerida.set(frase);
     this.senhaNova.set(frase);
     this.senhaConfirmacao.set('');
   }
 
+  /** Senha ou PIN: trocar de jeito começa a nova do zero (um PIN não é a senha de antes sem as letras). */
+  protected jeitoDaNova(pin: boolean): void {
+    if (pin === this.novaEhPin()) return;
+    this.novaEhPin.set(pin);
+    this.senhaNova.set('');
+    this.senhaConfirmacao.set('');
+    this.sugerida.set(null);
+    this.avisandoFraca.set(false);
+  }
+
+  /** O que foi digitado na nova; no PIN, só os algarismos (o resto sai do campo na hora). */
+  protected digitadoNaNova(evento: Event): string {
+    const campo = evento.target as HTMLInputElement;
+    if (!this.novaEhPin()) return campo.value;
+    const limpo = soAlgarismos(campo.value);
+    if (limpo !== campo.value) campo.value = limpo;
+    return limpo;
+  }
+
   protected async trocar(): Promise<void> {
     if (!this.senhaPronta()) return;
+    // a fraca (um PIN, uma senha curta) só segue depois do aviso
+    if (this.avaliacao().situacao === 'fraca') {
+      this.avisandoFraca.set(true);
+      return;
+    }
+    await this.trocarDeVez();
+  }
+
+  protected async trocarDeVez(): Promise<void> {
+    this.avisandoFraca.set(false);
+    if (!this.senhaPronta()) return;
+    const pin = this.novaEhPin();
     await this.fazer(async () => {
-      await trocarSenha(this.servicos.api, this.cofre(), this.senhaAtual(), this.senhaNova());
+      await trocarSenha(this.servicos.api, this.cofre(), this.senhaAtual(), this.senhaNova(), pin);
       this.senhaAtual.set('');
       this.senhaNova.set('');
       this.senhaConfirmacao.set('');
       this.sugerida.set(null);
-      this.avisar.emit('Senha mestra trocada.');
+      this.avisar.emit(pin ? 'PIN posto no lugar da senha mestra.' : 'Senha mestra trocada.');
+      await this.recarregar();
+    });
+  }
+
+  // --- carência
+
+  /** Desligar vale na hora (encerra todas); ligar pede a confirmação de agora. */
+  protected alternarCarencia(): void {
+    if (this.ocupado() || this.carenciaLigada() === null) return;
+    if (this.carenciaLigada()) {
+      void this.fazer(async () => {
+        await this.servicos.api.ligarCarencia(false);
+        esquecerAqui(this.armario);
+        this.avisar.emit('Carência desligada. Todo aparelho volta a pedir o Google e a passkey.');
+        await this.recarregar();
+      });
+    } else {
+      this.pedirConfirmacao({ acao: 'carencia' });
+    }
+  }
+
+  private async ligarCarenciaCom(confirmacao: Confirmacao): Promise<void> {
+    await this.fazer(async () => {
+      await this.servicos.api.ligarCarencia(true, confirmacao);
+      this.avisar.emit('Carência ligada. Ela começa na próxima vez que você abrir com o Google e a passkey.');
+      await this.recarregar();
+    });
+  }
+
+  protected encerrarCarencia(c: CarenciaDaApi): void {
+    void this.fazer(async () => {
+      await this.servicos.api.encerrarCarencia(c.id);
+      if (c.id === this.carenciaDaqui()) esquecerAqui(this.armario);
+      this.avisar.emit(c.id === this.carenciaDaqui() ? 'Este aparelho volta a pedir o Google e a passkey.' : `${c.aparelho || 'O aparelho'} volta a pedir o Google e a passkey.`);
       await this.recarregar();
     });
   }
@@ -539,6 +649,8 @@ export class Gerenciar implements OnInit {
   protected async trancarTodos(): Promise<void> {
     await this.fazer(async () => {
       await this.servicos.api.trancarTodos();
+      // o servidor encerra a carência de todos; a daqui sai também (o Clear-Site-Data não vale num fetch sem credenciais)
+      esquecerAqui(this.armario);
       this.terminar.emit();
     });
   }
@@ -552,6 +664,8 @@ export class Gerenciar implements OnInit {
     if (this.palavraApagar() !== 'APAGAR') return;
     await this.fazer(async () => {
       await this.servicos.api.apagarCofre('APAGAR', confirmacao);
+      // a carência foi junto no servidor; a daqui sai também (o Clear-Site-Data não vale num fetch sem credenciais)
+      esquecerAqui(this.armario);
       this.terminar.emit();
     });
   }

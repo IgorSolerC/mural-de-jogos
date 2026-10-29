@@ -1,0 +1,56 @@
+@use '../papelaria' as p;
+
+/* o bilhete amarelo das confirmações do cofre, colado torto embaixo do campo */
+:host {
+  @include p.bilhete-colado(var(--bilhete-amarelo));
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px 14px;
+  rotate: -0.4deg;
+  outline: none;
+}
+/* o foco vem para o bilhete só para o leitor de tela ler o aviso; ele não é um controle, então sem contorno */
+:host(:focus) {
+  outline: none;
+}
+.titulo {
+  margin: 0;
+  font: 400 1.3rem/1.15 var(--f-marker);
+  color: var(--tinta);
+  text-wrap: balance;
+}
+#aviso-fraca-texto {
+  display: grid;
+  gap: 6px;
+  max-width: 62ch;
+}
+#aviso-fraca-texto p {
+  margin: 0;
+  font: 500 0.98rem/1.45 var(--f-texto);
+  text-wrap: pretty;
+}
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.tinta {
+  @include p.botao-tinta;
+}
+/* no celular, as duas respostas dividem a largura do bilhete */
+@media (max-width: 480px) {
+  .botoes > button {
+    flex: 1 1 0;
+    padding-inline: 12px;
+  }
+}
+.papel {
+  @include p.botao-quieto;
+}
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    rotate: 0deg;
+  }
+}

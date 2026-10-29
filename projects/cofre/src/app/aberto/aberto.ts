@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, effect, ElementRef, inject, Injector, input, OnInit, signal, viewChild } from '@angular/core';
 import { ErroApi } from '../../core/api';
 import type { CofreAberto } from '../../core/abrir';
+import { lerCarencia, semArmario } from '../../core/carencia';
 import { ErroCofre } from '../../core/crypto';
 import { apagarDeVez, type CamposDoItem, entradasDo, ErroConflito, type ItemNaLista, lerItens, limparLapides, mudarGrupo, paraALixeira, restaurar, SEM_JEITO, salvarItem } from '../../core/itens';
 import { conferirVazadas } from '../../core/vazadas';
@@ -525,7 +526,8 @@ export class Aberto implements OnInit {
     this.busca.set('');
     this.vazadas.set(new Map());
     this.pendente.set(null);
-    this.servicos.api.trancar();
+    // com a carência guardada, o trancar não pede ao navegador para apagar o armazenamento (17.23)
+    this.servicos.api.trancar(lerCarencia(this.servicos.pagina.armario ?? semArmario) !== null);
     this.servicos.terminar();
   }
 

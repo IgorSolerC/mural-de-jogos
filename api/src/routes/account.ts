@@ -5,7 +5,7 @@ import { cleanName } from '../domain/name';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
-import { vaultAllowed } from '../domain/vault';
+import { endVaultGraces, vaultAllowed } from '../domain/vault';
 import { apiAllowed } from '../domain/api-key';
 import { refuseOpen } from './keys';
 import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
@@ -76,6 +76,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
   app.post('/v1/auth/sair', async (c) => {
     const s = await session(c);
     await write(deps, [{ sql: 'DELETE FROM sessoes WHERE hash = ?', params: [s.hash] }], 3);
+    await endVaultGraces(deps, s.userId);
     return c.json({ ok: true });
   });
 
@@ -93,6 +94,7 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       ],
       3 * MAX_SESSIONS + (keys ? 4 * MAX_CHAVES : 0),
     );
+    await endVaultGraces(deps, s.userId);
     return c.json({ ok: true });
   });
 

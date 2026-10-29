@@ -2,6 +2,7 @@ import { DOCUMENT } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import type { CofreAberto } from '../core/abrir';
 import { type Entrada, ErroApi } from '../core/api';
+import { type Carencia, lerCarencia, semArmario } from '../core/carencia';
 import { descreverAparelho, lerVolta, MENSAGENS_DO_LOGIN, urlDoLogin } from '../core/entrar';
 import { Abrir } from './abrir/abrir';
 import { AreaDeTransferencia } from './area-de-transferencia';
@@ -18,7 +19,8 @@ import { VigiaDoDom } from './vigia-do-dom';
  * A raiz do cofre: decide o que aparece. Primeiro a porta (seção 8.1): entrar com o Google, que volta em
  * `/entrar` com o código; a URL é limpa antes de qualquer outra coisa (o código não fica no histórico).
  * Com a sessão de entrada, a API diz se a conta já tem cofre: sem cofre, as telas de criar; com cofre,
- * a de abrir, e depois o cofre aberto.
+ * a de abrir, e depois o cofre aberto. Com a carência do aparelho guardada (17.23), a porta já é a tela de
+ * abrir só com a senha, sem o Google.
  *
  * A página só deixa entrar com as proteções da hospedagem valendo (seção 7): o endereço seguro, o
  * isolamento de origem (COOP e COEP do Worker) e nenhum service worker. Sem elas, nem troca o código.
@@ -35,8 +37,14 @@ import { VigiaDoDom } from './vigia-do-dom';
           Algo de fora mexeu nesta página ({{ estranho() }}), o que costuma ser uma extensão do navegador. Tranque o cofre e use um perfil do navegador sem extensões.
         </p>
       }
-      @if (entrada(); as entrada) {
-        <!-- cada tela num pedaço à parte, baixado só quando aparece (o bundle inicial fica só com a porta) -->
+      <!-- cada tela num pedaço à parte, baixado só quando aparece (o bundle inicial fica só com a porta) -->
+      @if (tela() === 'aberto' && cofre()) {
+        @defer (on immediate) {
+          <cofre-aberto [cofre]="cofre()!" [conta]="conta()" />
+        } @loading {
+          <p class="carregando">Abrindo…</p>
+        }
+      } @else if (entrada(); as entrada) {
         @switch (tela()) {
           @case ('criar') {
             @defer (on immediate) {
@@ -47,14 +55,7 @@ import { VigiaDoDom } from './vigia-do-dom';
           }
           @case ('abrir') {
             @defer (on immediate) {
-              <cofre-abrir [entrada]="entrada" [congeladoAte]="congeladoAte()" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
-            } @loading {
-              <p class="carregando">Abrindo…</p>
-            }
-          }
-          @case ('aberto') {
-            @defer (on immediate) {
-              <cofre-aberto [cofre]="cofre()!" [conta]="entrada.codigo" />
+              <cofre-abrir [entrada]="entrada" [pin]="pin()" [congeladoAte]="congeladoAte()" (aberto)="cofre.set($event); tela.set('aberto')" (sair)="sair()" />
             } @loading {
               <p class="carregando">Abrindo…</p>
             }
@@ -62,6 +63,12 @@ import { VigiaDoDom } from './vigia-do-dom';
           @default {
             <cofre-porta [porta]="porta()" [conta]="entrada.codigo" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" />
           }
+        }
+      } @else if (carencia(); as carencia) {
+        @defer (on immediate) {
+          <cofre-abrir [carencia]="carencia" (aberto)="cofre.set($event); tela.set('aberto')" (google)="entrar()" (semCarencia)="semCarencia($event)" />
+        } @loading {
+          <p class="carregando">Abrindo…</p>
         }
       } @else {
         <cofre-porta [porta]="porta()" [erro]="erro()" [bloqueio]="bloqueio()" [provas]="provas()" (entrar)="entrar()" />
@@ -118,6 +125,12 @@ export class Cofre {
   protected readonly entrada = signal<Entrada | null>(null);
   /** Até quando o cofre está congelado (8.6), pelo `GET /api/cofre`. */
   protected readonly congeladoAte = signal<string | null>(null);
+  /** A senha mestra é um PIN (pelo `GET /api/cofre`): o campo de abrir mostra o teclado de números. */
+  protected readonly pin = signal(false);
+  /** A carência deste aparelho (17.23): abrir só com a senha, sem o Google. */
+  protected readonly carencia = signal<Carencia | null>(null);
+  /** O código da conta, de quem entrou pelo Google ou pela carência. */
+  protected readonly conta = computed(() => this.entrada()?.codigo ?? this.carencia()?.codigo ?? '');
   protected readonly erro = signal<string | null>(null);
   private readonly semServiceWorker = signal<SemServiceWorker>({ tirados: 0, controlada: false });
   /** O que a vigia do DOM viu de estranho na página (null: nada). */
@@ -174,6 +187,8 @@ export class Cofre {
         this.entrada.set(demo.entrada);
         this.cofre.set(await demo.aberto());
         this.tela.set('aberto');
+      } else if (demo.carencia) {
+        this.carencia.set(demo.carencia);
       } else if (demo.abrir) {
         this.entrada.set(demo.entrada);
         this.congeladoAte.set(demo.congeladoAte ?? null);
@@ -188,6 +203,16 @@ export class Cofre {
     this.semServiceWorker.set(await tirarServiceWorkers(this.pagina.trabalhadores));
     if (voltou && (await this.voltarDoGoogle(busca))) return;
     await this.lerStatus();
+    // a carência do aparelho: com a porta pronta para entrar, ela já vira a tela de abrir só com a senha
+    // (o servidor confere o resto ao abrir); voltando do Google, vale o Google
+    const carencia = voltou ? null : lerCarencia(this.pagina.armario ?? semArmario);
+    if (carencia && this.porta() === 'entrar' && !this.bloqueio()) this.carencia.set(carencia);
+  }
+
+  /** A carência acabou ou foi esquecida: a porta de sempre, com o porquê (se houver). */
+  protected semCarencia(motivo: string | null): void {
+    this.carencia.set(null);
+    this.erro.set(motivo);
   }
 
   /** Troca o código do Google pela sessão de entrada; true se entrou. */
@@ -208,6 +233,7 @@ export class Cofre {
       const estado = await this.servicos.api.estado();
       this.entrada.set(entrada);
       this.congeladoAte.set(estado.congeladoAte);
+      this.pin.set(estado.pin === true);
       this.tela.set(estado.existe ? 'abrir' : 'criar');
       return true;
     } catch (e) {

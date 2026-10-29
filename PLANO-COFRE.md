@@ -285,6 +285,10 @@ Cache-Control: no-store
   - a hora em que a área de transferência deve ser limpa depois de um Copiar (só a hora, nunca o texto),
     apagada quando a limpeza acontece. Trancar recarrega a página, e sem isso a limpeza pendente se
     perdia (22/10).
+- Exceção no `localStorage`, a pedido do usuário (29/10): a **carência do aparelho** (17.23), o token e
+  a chave G que, por 24 horas depois do Google e da passkey, deixam este aparelho abrir só com a senha.
+  Só em `core/carencia.ts` (as regras dos testes conferem), desligável nos Ajustes do cofre, e sozinha
+  não abre nada (o envelope fica no servidor, e a senha continua faltando).
 
 ## 8. Os fluxos
 
@@ -393,6 +397,9 @@ cofre_sessoes     (hash PK, usuario_id, tipo 'entrada'|'cofre', criada_em, usada
 cofre_desafios    (id PK, usuario_id, desafio, expira_em)        -- uso único, 2 min
 cofre_eventos     (id PK, usuario_id, tipo, em, aparelho, pais)   -- 90 dias
 -- cofre_itens ganha `na_lixeira_desde NULL` (16.5); auth_hash e rec_hash levam a versão da pimenta (16.2)
+-- 0002 (17.23): cofre_contas ganha `carencia` (1 = ligada) e `pin`; cofre_sessoes ganha `carencia`;
+cofre_carencias   (id PK, usuario_id, hash UNIQUE, codigo, envelope BLOB, aparelho, criada_em,
+                   expira_em, usada_em, erros)                     -- 24 h, 3 erros
 freios            (como em api/src/domain/brake.ts)
 ```
 
@@ -418,6 +425,8 @@ freios            (como em api/src/domain/brake.ts)
 | `POST /api/cofre/trancar` | Mata a sessão (com `Clear-Site-Data`) |
 | `DELETE /api/cofre` | Apagar o cofre (só aberto, com confirmação) |
 | `POST /api/cofre/confirmar` | Desafio para confirmar de novo com a passkey (17.21) |
+| `POST /api/carencia` · `POST /api/carencia/esquecer` | Pela carência do aparelho: token → entrada + envelope; ou esquecê-la (17.23) |
+| `GET/PUT /api/cofre/carencia` · `DELETE /api/cofre/carencia/:id` | Nos Ajustes: ver, ligar (com confirmação) ou desligar, encerrar uma (17.23) |
 
 ### 9.3 Regras da API
 
@@ -1803,3 +1812,75 @@ service worker, topo, Ajustes). Corrigido, sem mudar a cripto nem o que está gu
 Conferido sem mudar: a senha revelada sai do DOM ao esconder (15 s) e ao trocar de item; a limpeza da
 área de transferência sobrevive a trancar (`cofre:limpar-copia`, só a hora); nada além dela vai para o
 `sessionStorage`.
+
+### 17.23 PIN, senha curta e a carência do aparelho (29/10)
+
+Pedido do usuário: "o cofre é tão seguro que é chato de usar". Três coisas: usar um PIN no lugar da senha
+grande; aceitar uma senha curta; e, se o servidor já viu o aparelho entrar nas últimas 24 horas, não pedir
+de novo o Google nem a passkey (o "PIN do aparelho", a verificação do Windows Hello ou do celular), só a
+senha; com opção nos Ajustes para desligar. O argumento dele: os freios contra força bruta seguram quem tenta.
+
+**A senha fraca, com aviso** (`core/forca.ts`). Abaixo do mínimo (70 bits), a senha serve se a pessoa aceitar
+o aviso "não é tão segura" (o bilhete amarelo das confirmações, `app/criar/aviso-senha-fraca.ts`, no criar e
+no trocar). O argumento do usuário vale porque, com PRF, ninguém testa senhas fora do site: M só sai de uma
+passkey, do código de 128 bits ou da carência. Por isso:
+
+- **No modo servidor, não.** Quem tomar a Cloudflare inteira chega a M nos aparelhos sem PRF e testa a senha
+  fora do site (seção 5). Com algum aparelho sem PRF, continua valendo a frase sorteada ou 78 bits; pôr um
+  aparelho sem PRF depois já pedia a senha que serve para isso.
+- **Nunca:** menos de 4 caracteres, e as que alguém tenta primeiro (menos de 10 bits estimados: 1234, 0000,
+  1212, 4321, um ano; e a lista das mais comuns).
+- **O PIN**: só algarismos, de 4 a 16. O servidor guarda só que é um PIN (`cofre_contas.pin`), para a tela de
+  abrir mostrar o teclado de números; com PRF, saber disso não ajuda quem não tem o aparelho.
+
+**A carência** (`core/carencia.ts`, `cofre-api/src/domain/grace.ts` e `routes/grace.ts`, migração 0002).
+
+- Ao abrir com a passkey e a carência ligada (o desafio diz `carencia: true`), a página sorteia um token e uma
+  chave G, sela M com G (o mesmo envelope de um aparelho, `selarEnvelope`, com o id da carência; nada mudou
+  em `crypto.ts`) e manda `{ id, token, envelope }` junto da prova da senha. Só com a senha certa o servidor
+  guarda o envelope e o hash do token, por 24 horas contadas dali; o aparelho guarda no `localStorage` o
+  token, G, o id e o código da conta e o prazo (`cofre:carencia`). A carência anterior do aparelho vai junto
+  (`anterior`) e sai; no máximo 10 por conta.
+- Para abrir, `POST /api/carencia { token }` (freio por IP do entrar, e o da conta): o servidor confere o
+  prazo, os erros, se está ligada, se a conta pode usar o cofre e se não está congelado, e devolve uma sessão
+  de entrada com a marca do segundo fator (como a da passkey, com o id da carência em
+  `cofre_sessoes.carencia`), o envelope, o sal e o Argon2id. G abre M, a senha faz kAuth, e `POST
+  /api/cofre/abrir` segue como sempre, com o freio da conta (5 seguidos, 20 por dia).
+- **Reforço**: cada tentativa pela carência soma um erro nela **antes** de conferir, na mesma gravação que
+  gasta a marca (`attemptStatements` com `GRACE_VALID`); o acerto zera. Na 3ª errada ela acaba, e o aparelho
+  volta a pedir o Google e a passkey. Várias entradas pela mesma carência ao mesmo tempo não passam das 3.
+- Abrir pela carência **não renova** o prazo; só o Google e a passkey de novo. Pelo código de recuperação,
+  nenhuma carência nasce.
+- **Acaba antes** com: 3 erros, desligar nos Ajustes (todas, na hora), "Encerrar" de um aparelho nos Ajustes,
+  "Esquecer este aparelho" na tela de abrir (`POST /api/carencia/esquecer`, só com o token), "Trancar todos",
+  congelar, tirar um aparelho (ela não sabe de que passkey nasceu, então saem todas) e apagar o cofre.
+- **Ligar** de novo pede a confirmação de agora (17.21), como o que deixa o cofre mais fraco; desligar não.
+- **Trancar** não a apaga: o `sendBeacon` leva `manter: true` e a resposta pede ao navegador para limpar só
+  o `"cache"` (sem o `"storage"`, que levaria o `localStorage`). Sem carência, como antes.
+- **O que muda no modelo de ameaças.** Ameaça 5 (infostealer): dentro das 24 horas, o token e G estão em
+  disco; com eles e a senha (um keylogger, ameaça 6), o cofre abre sem a passkey. Ameaça 18 (alguém no PC
+  destravado): dentro do prazo, só a senha falta, com 3 tentativas. Sem a senha, nada abre: o envelope sem G
+  é inútil para quem leva o banco, e G sem o servidor não tem envelope. Quem leva banco **e** aparelho
+  (token e G) chega a M e pode testar uma senha fraca fora do site: é o preço de juntar a carência com um PIN,
+  que o aviso explica.
+- **Sair do Murall a encerra** (a regra do CLAUDE.md: sair da conta não deixa nada que abra o cofre). O
+  cofre é outra origem, que o `wipeBrowser` do Murall não alcança; quem corta é o servidor: o "Sair" e o
+  "Sair de todos os aparelhos" da API do Murall chamam `MuralRpc.encerrarCarencias` pelo binding, e todas as
+  carências da conta saem (o Murall não sabe que aparelho é qual no cofre). O cofre fora do ar não impede de
+  sair. O token e G que ficam no navegador já não abrem nada, e saem na próxima vez que a porta do cofre
+  abrir. A sessão do Murall que só venceu (o 401) não passa pelo servidor: aí valem as 24 horas.
+- As entradas pela carência têm o freio delas (`carencia`, 30 por hora por IP e por conta), à parte das do
+  Google: quem tem só o token do aparelho não gasta as entradas do dono. A entrada traz as passkeys do
+  cofre, para as senhas protegidas pedirem uma de novo (17.18), e uma passkey ou o código conferidos nela
+  valem por si (a sessão deixa de ser da carência). A carência de outra conta guardada no aparelho sai daqui
+  e do servidor quando uma conta abre com a passkey.
+
+Testes: `cofre-api/test/grace.suite.ts` (nos dois bancos), `core/carencia.spec.ts`, `core/forca.spec.ts`, e as
+telas em `abrir.spec`, `cofre.spec`, `criar.spec` e `gerenciar.spec`; `regras.test.mjs` só deixa o
+`localStorage` em `core/carencia.ts`. Demonstração: `ng serve cofre` com `?demo=carencia` ou `carencia-pin`.
+
+**Passos do usuário**: publicar o cofre ("Publicar o cofre", que aplica a migração 0002 antes do Worker). A
+API do Murall vai ao ar com o push e chama `encerrarCarencias` ao sair; antes de o cofre ser publicado, a
+chamada falha em silêncio e o sair funciona como antes. A
+página nova com a API velha não guarda carência nenhuma (o desafio não diz `carencia`), e a API nova com a
+página velha ignora o que ela não manda.

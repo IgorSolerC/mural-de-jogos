@@ -37,9 +37,10 @@ export async function porAparelho(api: ApiCofre, cofre: CofreAberto, aparelho: A
 
 /**
  * Troca a senha mestra: confere a atual abrindo V com ela, sela a mesma chave do cofre com a nova (sal
- * novo, o Argon2id padrão) e manda V e a prova nova. A força da nova é conferida por quem chama.
+ * novo, o Argon2id padrão) e manda V e a prova nova. A força da nova é conferida por quem chama; `pin`: a
+ * nova é um PIN (o servidor só guarda isso para a tela de abrir mostrar o teclado de números).
  */
-export async function trocarSenha(api: ApiCofre, cofre: CofreAberto, atual: string, nova: string): Promise<void> {
+export async function trocarSenha(api: ApiCofre, cofre: CofreAberto, atual: string, nova: string, pin = false): Promise<void> {
   const segredos = segredosDe(cofre);
   if (!nova) throw new ErroCofre('formato', 'falta a senha nova');
   const sal = novoSal();
@@ -56,7 +57,7 @@ export async function trocarSenha(api: ApiCofre, cofre: CofreAberto, atual: stri
     // a prova da senha atual é a confirmação de agora: o servidor confere antes de trocar
     kAuthAtual = await provaDaSenha(kAntiga, segredos.m);
     await api.trocarSenha(
-      { versao: VERSAO_CRIPTO, kdf: { ...KDF_PADRAO }, sal: paraBase64url(sal), v: paraBase64url(v), kAuth: paraBase64url(kAuth) },
+      { versao: VERSAO_CRIPTO, kdf: { ...KDF_PADRAO }, sal: paraBase64url(sal), v: paraBase64url(v), kAuth: paraBase64url(kAuth), pin },
       { kAuth: paraBase64url(kAuthAtual) },
     );
     segredos.v = v;

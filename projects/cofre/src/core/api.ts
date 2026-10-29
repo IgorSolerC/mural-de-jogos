@@ -43,6 +43,8 @@ export interface EstadoDoCofre {
   readonly existe: boolean;
   readonly congeladoAte: string | null;
   readonly aparelhos: number;
+  /** A senha mestra é um PIN: o campo de abrir mostra o teclado de números. */
+  readonly pin?: boolean;
 }
 
 /** O desafio para registrar uma passkey: as opções do `navigator.credentials.create`, em JSON. */
@@ -78,6 +80,41 @@ export interface DesafioDeAbrir {
   readonly sal: string;
   readonly aparelhos: readonly { readonly id: string; readonly apelido: string; readonly prf: boolean }[];
   readonly mudadoEm: string;
+  /** A carência dos aparelhos está ligada: a página sela a deste junto da senha (17.23). */
+  readonly carencia?: boolean;
+  readonly pin?: boolean;
+}
+
+/** A carência que vai junto da prova da senha ao abrir com a passkey (17.23). */
+export interface CorpoDaCarencia {
+  readonly id: string;
+  /** O token que só o aparelho guarda (o servidor fica com o hash). */
+  readonly token: string;
+  /** M selada com a chave G do aparelho. */
+  readonly envelope: string;
+  /** O token da carência que este aparelho tinha, que sai no servidor. */
+  readonly anterior?: string;
+}
+
+/** A entrada pela carência (`POST /api/carencia`): a sessão de entrada, o envelope e o que a senha precisa. */
+export interface EntradaPelaCarencia extends Entrada {
+  readonly envelope: { readonly id: string; readonly dados: string };
+  readonly versao: number;
+  readonly kdf: { readonly m: number; readonly t: number; readonly p: number };
+  readonly sal: string;
+  readonly mudadoEm: string;
+  readonly pin: boolean;
+  /** As passkeys do cofre, para pedir uma de novo antes de mostrar uma senha protegida. */
+  readonly passkeys?: readonly { readonly id: string; readonly transports?: readonly string[] }[];
+}
+
+/** A carência de um aparelho, nos Ajustes (`GET /api/cofre/carencia`). */
+export interface CarenciaDaApi {
+  readonly id: string;
+  readonly aparelho: string | null;
+  readonly criadaEm: string;
+  readonly expiraEm: string;
+  readonly usadaEm: string | null;
 }
 
 /** A assinatura de uma passkey como a API confere (os bytes em base64url). */
@@ -119,6 +156,8 @@ export interface Abertura {
   readonly manifesto: string;
   readonly contador: number;
   readonly recuperada: boolean;
+  /** A carência deste aparelho que o servidor guardou agora (null: não guardou). */
+  readonly carencia?: { readonly id: string; readonly expiraEm: string } | null;
 }
 
 /** Os itens como a API guarda (`GET /api/cofre/itens`): cifrados, com o manifesto e o contador de agora. */
@@ -261,11 +300,36 @@ export class ApiCofre {
     return this.pedir('POST', '/api/cofre/recuperar', { kRec });
   }
 
-  /** A prova da senha; dando certo, já passa a usar a sessão do cofre. */
-  async abrir(kAuth: string): Promise<Abertura> {
-    const abertura = await this.pedir<Abertura>('POST', '/api/cofre/abrir', { kAuth });
+  /** A prova da senha (e a carência nova deste aparelho); dando certo, já passa a usar a sessão do cofre. */
+  async abrir(kAuth: string, carencia?: CorpoDaCarencia): Promise<Abertura> {
+    const abertura = await this.pedir<Abertura>('POST', '/api/cofre/abrir', { kAuth, ...(carencia ? { carencia } : {}) });
     this.usarToken(abertura.token);
     return abertura;
+  }
+
+  /** Pela carência do aparelho, no lugar do Google e da passkey; já passa a usar a sessão de entrada. */
+  async entrarPelaCarencia(token: string, aparelho: string): Promise<EntradaPelaCarencia> {
+    const entrada = await this.pedir<EntradaPelaCarencia>('POST', '/api/carencia', { token, aparelho });
+    this.usarToken(entrada.token);
+    return entrada;
+  }
+
+  /** "Esquecer este aparelho": a carência sai do servidor (sem sessão: basta o token). */
+  esquecerCarencia(token: string): Promise<{ readonly esquecida: true }> {
+    return this.pedir('POST', '/api/carencia/esquecer', { token });
+  }
+
+  carencias(): Promise<{ readonly ligada: boolean; readonly carencias: readonly CarenciaDaApi[] }> {
+    return this.pedir('GET', '/api/cofre/carencia');
+  }
+
+  /** Desligar encerra todas na hora; ligar pede a confirmação de agora. */
+  ligarCarencia(ligada: boolean, confirmar?: Confirmacao): Promise<{ readonly ligada: boolean }> {
+    return this.pedir('PUT', '/api/cofre/carencia', { ligada, ...(confirmar ? { confirmar } : {}) });
+  }
+
+  encerrarCarencia(id: string): Promise<{ readonly encerrada: true }> {
+    return this.pedir('DELETE', `/api/cofre/carencia/${encodeURIComponent(id)}`);
   }
 
   itens(): Promise<ItensDaApi> {
@@ -338,12 +402,13 @@ export class ApiCofre {
 
   /**
    * Avisa o servidor para apagar a sessão (8.2), com o `sendBeacon`, que sai mesmo com a página fechando;
-   * o token vai no corpo (o beacon não manda cabeçalho). Depois, esta instância fica sem sessão.
+   * o token vai no corpo (o beacon não manda cabeçalho). Depois, esta instância fica sem sessão. Com
+   * `manter` (o aparelho tem a carência, 17.23), a resposta não apaga o armazenamento desta origem.
    */
-  trancar(enviar: (url: string, corpo: Blob) => boolean = (url, corpo) => navigator.sendBeacon(url, corpo)): void {
+  trancar(manter = false, enviar: (url: string, corpo: Blob) => boolean = (url, corpo) => navigator.sendBeacon(url, corpo)): void {
     if (!this.token) return;
     try {
-      enviar('/api/cofre/trancar', new Blob([JSON.stringify({ token: this.token })], { type: 'text/plain;charset=UTF-8' }));
+      enviar('/api/cofre/trancar', new Blob([JSON.stringify({ token: this.token, ...(manter ? { manter: true } : {}) })], { type: 'text/plain;charset=UTF-8' }));
     } finally {
       this.token = null;
     }

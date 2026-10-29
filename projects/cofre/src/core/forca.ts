@@ -23,6 +23,13 @@
  * - uma palavra, um trecho de letras ou um número que já apareceu antes na senha: 2 bits;
  * - um pedaço repetido do começo ao fim (abcabcabc, aba-aba-aba): os bits do pedaço e mais quase nada;
  * - uma das senhas mais comuns: no máximo 10 bits.
+ *
+ * Abaixo do mínimo, a senha ainda serve se a pessoa aceitar o aviso de que ela não é tão segura (17.23 do
+ * plano): um PIN, uma senha curta. Isso vale porque cada tentativa pela tela de abrir passa pelos freios do
+ * servidor e pede a passkey (ou a carência, que acaba em 3 erros); e, com PRF, a chave do cofre nunca fica
+ * só no servidor, então ninguém testa senhas fora do site. Por isso a senha fraca não serve com algum
+ * aparelho no modo servidor. Nunca servem: menos de 4 caracteres, e as que alguém tenta primeiro (as mais
+ * comuns, 1234, 0000, 1212, um ano: menos de 10 bits estimados).
  */
 import { PALAVRAS } from './palavras';
 import { bitsDaFrase, PALAVRAS_DA_FRASE } from './sorteio';
@@ -32,7 +39,22 @@ export const BITS_MINIMOS = 70;
 /** Com algum aparelho no modo servidor: o mesmo de uma frase sorteada de 6 palavras. */
 export const BITS_MINIMOS_MODO_SERVIDOR = Math.ceil(bitsDaFrase());
 
+/** Uma senha fraca nunca tem menos que isso. */
+export const TAMANHO_MINIMO = 4;
+/** Abaixo disso, a senha é das primeiras que alguém tenta (1234, 0000, 1212, um ano, as mais comuns). */
+export const BITS_FACIL_DEMAIS = 10;
+/** Um PIN: só algarismos, de 4 a 16. */
+export const PIN = /^\d{4,16}$/;
+
+/** O que fica num campo de PIN: só os algarismos, até 16. */
+export function soAlgarismos(texto: string): string {
+  return texto.replace(/\D/g, '').slice(0, 16);
+}
+
 export type Situacao = 'sorteada' | 'boa' | 'fraca';
+
+/** Por que uma senha fraca não serve nem com o aviso. */
+export type MotivoRecusa = 'curta' | 'facil' | 'servidor';
 
 export interface Avaliacao {
   /** Os bits estimados (para baixo). */
@@ -40,6 +62,10 @@ export interface Avaliacao {
   readonly situacao: Situacao;
   /** O mínimo que valeu para esta conta. */
   readonly minimo: number;
+  /** Fraca, mas serve se a pessoa aceitar o aviso de que não é tão segura (as boas e a sorteada servem sempre). */
+  readonly comAviso: boolean;
+  /** Fraca e não serve nem com o aviso: por quê (null quando serve). */
+  readonly recusa: MotivoRecusa | null;
 }
 
 const BITS_PALAVRA = 11;
@@ -239,10 +265,26 @@ export function avaliarSenha(senha: string, opcoes: { sugerida?: string | null; 
   const minimo = opcoes.modoServidor ? BITS_MINIMOS_MODO_SERVIDOR : BITS_MINIMOS;
   const normalizada = senha.normalize('NFC');
   if (opcoes.sugerida && normalizada === opcoes.sugerida.normalize('NFC')) {
-    return { bits: Math.floor(bitsDaFrase()), situacao: 'sorteada', minimo };
+    return { bits: Math.floor(bitsDaFrase()), situacao: 'sorteada', minimo, comAviso: false, recusa: null };
   }
   const bits = estimarBits(normalizada);
-  return { bits, situacao: bits >= minimo ? 'boa' : 'fraca', minimo };
+  if (bits >= minimo) return { bits, situacao: 'boa', minimo, comAviso: false, recusa: null };
+  const recusa: MotivoRecusa | null = opcoes.modoServidor ? 'servidor' : [...normalizada].length < TAMANHO_MINIMO ? 'curta' : facilDemais(normalizada, bits) ? 'facil' : null;
+  return { bits, situacao: 'fraca', minimo, comAviso: recusa === null, recusa };
+}
+
+/** Das primeiras que alguém tenta: as mais comuns, ou menos de 10 bits estimados (1234, 0000, 1212, 1990). */
+function facilDemais(senha: string, bits: number): boolean {
+  const reduzida = senha
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[^a-z0-9]/g, '');
+  return bits < BITS_FACIL_DEMAIS || COMUNS.has(reduzida) || COMUNS.has(reduzida.replace(/\d+$/, ''));
+}
+
+/** A senha serve (forte, sorteada, ou fraca com o aviso aceito)? */
+export function senhaServe(a: Avaliacao, aceitouAviso: boolean): boolean {
+  return a.situacao !== 'fraca' || (a.comAviso && aceitouAviso);
 }
 
 /**

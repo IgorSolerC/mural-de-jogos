@@ -269,6 +269,25 @@ label.linha-titulo {
 .confirma .pergunta {
   color: var(--tinta);
 }
+/* senha ou PIN: as duas etiquetas da cartela, como no gerador */
+.jeito-da-nova {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.segmento {
+  @include p.segmento;
+}
+.interruptor {
+  @include p.interruptor;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+input.pin {
+  @include p.campo-pin;
+}
 .em-linha {
   display: flex;
   flex-wrap: wrap;

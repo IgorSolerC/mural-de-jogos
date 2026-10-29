@@ -24,7 +24,7 @@ const PERMITIDAS = ['hash-wasm', '@angular/core', '@angular/common', '@angular/p
 const PROIBIDOS = [
   [/\binnerHTML\b|\bouterHTML\b|insertAdjacentHTML|document\.write/, 'HTML montado de texto'],
   [/bypassSecurityTrust/, 'desligar a proteção do Angular'],
-  [/\blocalStorage\b|\bindexedDB\b|document\.cookie|caches\.open/, 'guardar no aparelho'],
+  [/\bindexedDB\b|document\.cookie|caches\.open/, 'guardar no aparelho'],
   [/serviceWorker\.register/, 'service worker'],
   [/\beval\s*\(|new\s+Function\s*\(|setTimeout\s*\(\s*['"`]/, 'texto rodado como código'],
   [/\bconsole\.(log|info|debug|trace|dir|table)\b/, 'escrever no console'],
@@ -67,6 +67,15 @@ test('o sessionStorage só no login do Google e na hora da limpeza da cópia (as
   for (const f of todos) {
     if (f.endsWith(`core${sep}entrar.ts`) || f.endsWith(`app${sep}area-de-transferencia.ts`) || f.endsWith('.spec.ts')) continue;
     if (/\bsessionStorage\b/.test(semComentarios(readFileSync(f, 'utf8')))) achados.push(relative(raiz, f));
+  }
+  assert.deepEqual(achados, []);
+});
+
+test('o localStorage só na carência do aparelho (a terceira exceção da seção 7.4, 17.23)', () => {
+  const achados = [];
+  for (const f of todos) {
+    if (f.endsWith(`core${sep}carencia.ts`) || f.endsWith(`core${sep}carencia.spec.ts`)) continue;
+    if (/\blocalStorage\b/.test(semComentarios(readFileSync(f, 'utf8')))) achados.push(relative(raiz, f));
   }
   assert.deepEqual(achados, []);
 });

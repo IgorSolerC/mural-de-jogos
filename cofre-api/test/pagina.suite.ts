@@ -5,13 +5,14 @@ import { montarCofre } from '../../projects/cofre/src/core/criar';
 import { abrirCofre, abrirEnvelope, abrirRecuperacao, chaveDaSenha, decifrarManifesto, KDF_PADRAO, provaDaSenha, provaDoCodigo } from '../../projects/cofre/src/core/crypto';
 import { abrir, assinar, chaveDoMeio, chaveDoMeioPeloCodigo, senhaDoDesafio } from '../../projects/cofre/src/core/abrir';
 import { ApiCofre } from '../../projects/cofre/src/core/api';
+import { abrirPelaCarencia, esquecerCarencia, guardarCarencia, lerCarencia, prepararCarencia } from '../../projects/cofre/src/core/carencia';
 import { confirmacaoPelaPasskey, confirmacaoPelaSenha } from '../../projects/cofre/src/core/confirmar';
 import { novoCodigo, porAparelho, trocarSenha } from '../../projects/cofre/src/core/gerenciar';
 import { apagarDeVez, ErroConflito, lerItens, limparLapides, paraALixeira, restaurar, salvarItem } from '../../projects/cofre/src/core/itens';
 import type { Autenticador, PasskeyRegistrada } from '../../projects/cofre/src/core/passkey';
 import { createApp } from '../src/app';
 import { base64url } from '../src/domain/bytes';
-import { DONO, VERIFIER } from './harness';
+import { DONO, NOW, VERIFIER } from './harness';
 import type { Setup } from './suite';
 import { ORIGEM, RP_ID, VETORES } from './webauthn-vetores';
 
@@ -225,6 +226,35 @@ export function paginaSuite(label: string, setup: Setup) {
       expect(cofre.contador).toBe(6);
     });
 
+    it('a carência (17.23): abre pela passkey com ela, e depois, sem o Google e sem a passkey, só com a senha', async () => {
+      const { novaApi, entrar, autenticador } = await paraAbrir();
+      const armario = new Map<string, string>();
+      const guarda = { getItem: (c: string) => armario.get(c) ?? null, setItem: (c: string, v: string) => void armario.set(c, v), removeItem: (c: string) => void armario.delete(c) };
+      const api = novaApi();
+      api.usarToken((await entrar()).token);
+      const desafio = await api.desafioDeAbrir();
+      expect(desafio.carencia).toBe(true);
+      const [assinada, kSenha] = await Promise.all([assinar(desafio, RP_ID, autenticador('es256', 0, PRF_CELULAR)), senhaDoDesafio(SENHA, desafio)]);
+      const m = await chaveDoMeio(api, assinada, DONO.id);
+      const nova = await prepararCarencia(m, DONO.id, DONO.code, null);
+      const aberto = await abrir(api, DONO.id, kSenha, m, 'Celular', desafio, nova.corpo);
+      expect(aberto.carencia?.id).toBe(nova.corpo.id);
+      guardarCarencia(guarda, nova.guardavel(aberto.carencia!.expiraEm, false));
+      await salvarItem(api, aberto, { titulo: 'Banco', usuario: 'igor', senha: 's', url: '', descricao: '' }, null);
+
+      // o relógio do servidor dos testes está parado em 21/10: a leitura usa a mesma hora
+      const carencia = lerCarencia(guarda, NOW.getTime())!;
+      expect(carencia).not.toBeNull();
+      await expect(abrirPelaCarencia(novaApi(), carencia, 'outra-senha', 'Chrome no Android', 'Celular')).rejects.toMatchObject({ codigo: 'senha-errada' });
+      const outra = novaApi();
+      const cofre = await abrirPelaCarencia(outra, carencia, SENHA, 'Chrome no Android', 'Celular');
+      expect((await lerItens(outra, cofre)).map((i) => i.item?.titulo)).toEqual(['Banco']);
+      // esquecida, não abre mais
+      await esquecerCarencia(novaApi(), guarda, NOW.getTime());
+      expect(armario.size).toBe(0);
+      await expect(abrirPelaCarencia(novaApi(), carencia, SENHA, 'Chrome no Android', 'Celular')).rejects.toMatchObject({ codigo: 'carencia-invalida' });
+    });
+
     it('abre pelo PC no modo servidor, e pelo código do kit', async () => {
       const { abrirPelaPagina, novaApi, entrar, codigo } = await paraAbrir();
       const pc = await abrirPelaPagina('rs256', 0, 'PC');
@@ -338,7 +368,7 @@ export function paginaSuite(label: string, setup: Setup) {
       await outro.api.apagarCofre('APAGAR', confirmar);
       const depois = novaApi();
       depois.usarToken((await entrar()).token);
-      expect(await depois.estado()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0 });
+      expect(await depois.estado()).toEqual({ existe: false, congeladoAte: null, aparelhos: 0, pin: false });
     });
 
     it('confirmar de novo: a passkey pelo desafio do servidor, ou a senha (conferida aqui antes, sem gastar tentativas)', async () => {

@@ -4,6 +4,7 @@ import { base64url } from '../domain/bytes';
 import { CONFIRM_CHALLENGE_MS, newChallenge } from '../domain/challenge';
 import { HISTORY_DAYS } from '../domain/cleanup';
 import { eventStatement } from '../domain/events';
+import { dropGracesStatement } from '../domain/grace';
 import { eraseVaultStatements } from '../domain/murall';
 import { resetStatement } from '../domain/password-brake';
 import { proofHash } from '../domain/proofs';
@@ -12,7 +13,7 @@ import { reconfirm, sessionKey } from '../domain/reconfirm';
 import { authenticate } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
-import { KEY, SEALED_KEY, bytesField, deviceField, deviceStatements, exactly, kdfField, uuidField, verifyDevices } from './fields';
+import { KEY, SEALED_KEY, bytesField, deviceField, flagField, deviceStatements, exactly, kdfField, uuidField, verifyDevices } from './fields';
 import { country, readJson } from './http';
 
 /**
@@ -76,6 +77,8 @@ export function manageRoutes(app: Hono, deps: Deps): void {
   });
 
   // Tirar um aparelho: a passkey e o envelope dele. Nunca o último (o cofre ficaria sem como abrir, 8.5).
+  // A carência de todos os aparelhos acaba junto (17.23): ela não sabe de que passkey nasceu, e quem tira
+  // um aparelho perdido não quer que ele abra só com a senha.
   app.delete('/api/cofre/aparelhos/:id', async (c) => {
     const s = await vault(c);
     // sem corpo (a página de antes desta regra), a resposta é a de falta a confirmação
@@ -96,15 +99,17 @@ export function manageRoutes(app: Hono, deps: Deps): void {
       [
         { sql: `DELETE FROM cofre_envelopes WHERE credencial_id = ? AND usuario_id = ? AND ${others}`, params: [id, s.userId, s.userId] },
         { sql: `DELETE FROM cofre_credenciais WHERE id = ? AND usuario_id = ? AND ${others}`, params: [id, s.userId, s.userId] },
+        { sql: 'DELETE FROM cofre_carencias WHERE usuario_id = ? AND (SELECT COUNT(*) FROM cofre_credenciais WHERE id = ?) = 0', params: [s.userId, id] },
         { sql: `INSERT INTO cofre_eventos (usuario_id, tipo, em, aparelho, pais) SELECT ?, 'aparelho-tirado', ?, ?, ? WHERE (SELECT COUNT(*) FROM cofre_credenciais WHERE id = ?) = 0`, params: [s.userId, now.toISOString(), s.device, country(c), id] },
       ],
-      10,
+      20,
     );
     if (credential?.changes !== 1 || envelope?.changes !== 1) throw lastOne();
     return c.json({ tirado: true });
   });
 
   // Trocar a senha (8.5): novo sal, novo V (a mesma chave do cofre, selada com a senha nova) e nova prova.
+  // `pin`: a nova é um PIN, para a tela de abrir mostrar o teclado de números (17.23).
   app.put('/api/cofre/senha', async (c) => {
     const s = await vault(c);
     const body = await readJson(c);
@@ -112,6 +117,7 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     const salt = bytesField(body['sal'], 'sal', exactly(16));
     const v = bytesField(body['v'], 'V', exactly(SEALED_KEY));
     const newProof = bytesField(body['kAuth'], 'prova da senha', exactly(KEY));
+    const pin = flagField(body['pin'], 'pin');
     await reconfirm(deps, s, body, country(c));
     const auth = await proofHash(deps, 'auth', newProof);
     const now = deps.now();
@@ -119,8 +125,8 @@ export function manageRoutes(app: Hono, deps: Deps): void {
       deps,
       [
         {
-          sql: 'UPDATE cofre_contas SET versao_cripto = 1, kdf_m = ?, kdf_t = ?, kdf_p = ?, sal = ?, v = ?, auth_hash = ?, auth_pimenta = ?, mudado_em = ? WHERE usuario_id = ?',
-          params: [m, t, p, salt, v, auth.hash, auth.version, now.toISOString(), s.userId],
+          sql: 'UPDATE cofre_contas SET versao_cripto = 1, kdf_m = ?, kdf_t = ?, kdf_p = ?, sal = ?, v = ?, auth_hash = ?, auth_pimenta = ?, pin = ?, mudado_em = ? WHERE usuario_id = ?',
+          params: [m, t, p, salt, v, auth.hash, auth.version, pin ? 1 : 0, now.toISOString(), s.userId],
         },
         resetStatement(s.userId),
         eventStatement(s.userId, 'senha-trocada', now, s.device, country(c)),
@@ -167,11 +173,17 @@ export function manageRoutes(app: Hono, deps: Deps): void {
     });
   });
 
-  // "Trancar todos" (8.5): todas as sessões da conta, inclusive esta.
+  // "Trancar todos" (8.5): todas as sessões da conta, inclusive esta, e a carência de todos os aparelhos
+  // (17.23): para abrir de novo, em qualquer um, o Google e a passkey.
   app.post('/api/cofre/trancar-todos', async (c) => {
     const s = await vault(c);
     const now = deps.now();
-    await write(deps, [{ sql: 'DELETE FROM cofre_sessoes WHERE usuario_id = ?', params: [s.userId] }, eventStatement(s.userId, 'todos-trancados', now, s.device, country(c))], 12, { session: true });
+    await write(
+      deps,
+      [{ sql: 'DELETE FROM cofre_sessoes WHERE usuario_id = ?', params: [s.userId] }, dropGracesStatement(s.userId), eventStatement(s.userId, 'todos-trancados', now, s.device, country(c))],
+      22,
+      { session: true },
+    );
     c.header('Clear-Site-Data', '"cache", "storage"');
     return c.json({ trancados: true });
   });

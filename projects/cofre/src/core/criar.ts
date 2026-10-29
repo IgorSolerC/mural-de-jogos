@@ -41,7 +41,7 @@ export interface AparelhoParaCriar {
   readonly apelido: string;
 }
 
-/** O corpo do `POST /api/cofre`, com os bytes em base64url. */
+/** O corpo do `POST /api/cofre`, com os bytes em base64url. `pin`: a senha é um PIN (só para a tela de abrir). */
 export interface CorpoDeCriar {
   readonly versao: number;
   readonly kdf: Kdf;
@@ -60,6 +60,7 @@ export interface CorpoDeCriar {
     /** Só no modo servidor: o S_i, que o servidor guarda cifrado. */
     readonly s?: string;
   }[];
+  readonly pin?: boolean;
 }
 
 export interface CofreMontado {
@@ -77,6 +78,8 @@ export interface PedidoDeCriar {
   readonly aparelhoAgora: string;
   readonly kdf?: Kdf;
   readonly agora?: Date;
+  /** A senha é um PIN (só algarismos). */
+  readonly pin?: boolean;
 }
 
 /** Um aparelho como a API recebe (ao criar e ao pôr um aparelho). */
@@ -160,6 +163,7 @@ export async function montarCofre(pedido: PedidoDeCriar): Promise<CofreMontado> 
       manifesto: paraBase64url(await cifrarManifesto(chave, usuario, manifesto)),
       recuperacao,
       aparelhos: corpoAparelhos,
+      ...(pedido.pin ? { pin: true } : {}),
     };
     zerar(kAuth);
     for (const { passkey } of aparelhos) {

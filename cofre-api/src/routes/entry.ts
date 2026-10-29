@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { canUseVault } from '../config';
 import { LIMITS, accountKey, ipKey, reserve } from '../domain/brake';
 import { eventStatement } from '../domain/events';
+import { dropGracesStatement } from '../domain/grace';
 import { readLoginBody } from '../domain/google';
 import { write } from '../domain/quota';
 import { ENTRY_CREATE_MS, ENTRY_MS, authenticate, entrySessionStatements, hashToken, newToken } from '../domain/session';
@@ -39,16 +40,17 @@ export function entryRoutes(app: Hono, deps: Deps): void {
 
   app.get('/api/cofre', async (c) => {
     const s = await authenticate(deps, c.req.header('Authorization'), ['entrada', 'cofre']);
-    const row = await deps.db.first<{ congelado_ate: string | null; aparelhos: number }>(
-      'SELECT congelado_ate, (SELECT COUNT(*) FROM cofre_credenciais WHERE usuario_id = cofre_contas.usuario_id) AS aparelhos FROM cofre_contas WHERE usuario_id = ?',
+    const row = await deps.db.first<{ congelado_ate: string | null; aparelhos: number; pin: number }>(
+      'SELECT congelado_ate, pin, (SELECT COUNT(*) FROM cofre_credenciais WHERE usuario_id = cofre_contas.usuario_id) AS aparelhos FROM cofre_contas WHERE usuario_id = ?',
       [s.userId],
     );
     const frozen = row?.congelado_ate && Date.parse(row.congelado_ate) > deps.now().getTime() ? row.congelado_ate : null;
-    return c.json({ existe: row !== null, congeladoAte: frozen, aparelhos: row?.aparelhos ?? 0 });
+    return c.json({ existe: row !== null, congeladoAte: frozen, aparelhos: row?.aparelhos ?? 0, pin: row?.pin === 1 });
   });
 
   // "Congelar o cofre" (8.6): o freio de emergência, só com o login do Google. Ninguém abre por 24 h
-  // (nem com a senha, a passkey ou o código), e todos os aparelhos com o cofre aberto são trancados.
+  // (nem com a senha, a passkey ou o código), e todos os aparelhos com o cofre aberto são trancados; a
+  // carência de cada aparelho (17.23) acaba junto.
   // Não há descongelar: quem tem o Google não pode tirar o freio. Congelar de novo estende o prazo.
   // Grava mesmo no modo só leitura, como trancar.
   app.post('/api/cofre/congelar', async (c) => {
@@ -62,9 +64,10 @@ export function entryRoutes(app: Hono, deps: Deps): void {
       [
         { sql: 'UPDATE cofre_contas SET congelado_ate = ? WHERE usuario_id = ?', params: [until, s.userId] },
         { sql: 'DELETE FROM cofre_sessoes WHERE usuario_id = ?', params: [s.userId] },
+        dropGracesStatement(s.userId),
         eventStatement(s.userId, 'cofre-congelado', now, s.device, country(c)),
       ],
-      14,
+      24,
       { session: true },
     );
     // sem Clear-Site-Data: o navegador o ignora num fetch sem credenciais (o da página); o Sair recarrega,

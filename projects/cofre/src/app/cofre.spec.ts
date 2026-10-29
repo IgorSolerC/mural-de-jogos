@@ -127,6 +127,54 @@ describe('a porta do cofre', () => {
     expect(el.querySelector('cofre-criar')).toBeNull();
   });
 
+  describe('com a carência do aparelho guardada (17.23)', () => {
+    const CARENCIA = {
+      id: '7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70',
+      token: 'T'.repeat(43),
+      chave: 'A'.repeat(43),
+      usuario: ENTRADA.usuario,
+      codigo: 'K7QFM2XA',
+      expiraEm: '2999-10-30T12:00:00.000Z',
+      pin: true,
+    };
+    const comCarencia = (expiraEm = CARENCIA.expiraEm) => {
+      const a = guarda();
+      a.setItem('cofre:carencia', JSON.stringify({ ...CARENCIA, expiraEm }));
+      return a;
+    };
+
+    it('a porta já é a tela de abrir só com a senha, sem o Google', async () => {
+      const { el, idas } = await montar({ armario: comCarencia() });
+      expect(el.querySelector('cofre-abrir')).not.toBeNull();
+      expect(el.textContent).toContain('só o PIN abre o cofre aqui');
+      expect(el.querySelector('.conta')!.textContent).toContain('K7QF-M2XA');
+      expect(idas).toEqual([]);
+    });
+
+    it('"Entrar com o Google e a passkey" leva ao Google mesmo assim', async () => {
+      const { fixture, el, idas } = await montar({ armario: comCarencia() });
+      botao(el, 'Entrar com o Google e a passkey')!.click();
+      await estabilizar(fixture);
+      expect(idas.length).toBe(1);
+      expect(idas[0]).toContain('accounts.google.com');
+    });
+
+    it('vencida, ou numa página sem as proteções, é a porta de sempre', async () => {
+      expect((await montar({ armario: comCarencia('2020-01-01T00:00:00.000Z') })).el.querySelector('cofre-abrir')).toBeNull();
+      TestBed.resetTestingModule();
+      expect((await montar({ armario: comCarencia(), isolado: false })).el.querySelector('cofre-abrir')).toBeNull();
+    });
+
+    it('voltando do Google, vale o Google (a carência espera)', async () => {
+      const g = guarda();
+      const state = new URL(await urlDoLogin('c', 'https://cofre.teste', g)).searchParams.get('state');
+      const { el, api } = await montar({ caminho: '/entrar', busca: `?state=${state}&code=x`, guarda: g, armario: comCarencia() }, (a) => (a.existe = true));
+      expect(api.entradas.length).toBe(1);
+      expect(el.textContent).not.toContain('só o PIN abre');
+      expect(el.querySelector('label[for=abrir-senha]')!.textContent).toBe('Senha mestra');
+    });
+  });
+
   it('a volta com outro state não troca o código e diz por quê', async () => {
     const g = guarda();
     await urlDoLogin('c', 'https://cofre.teste', g);

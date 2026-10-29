@@ -7,6 +7,7 @@ import { readSecrets } from '../src/secrets';
 import { BASE_ENV, NOW, TABLES, fakeGoogle, fakeMural, jsonCaller } from './harness';
 import { createSuite } from './create.suite';
 import { entrySuite } from './entry.suite';
+import { graceSuite } from './grace.suite';
 import { itemsSuite } from './items.suite';
 import { manageSuite } from './manage.suite';
 import { openSuite } from './open.suite';
@@ -56,6 +57,7 @@ export function cofreSuite(label: string, getDb: () => Db, extras: ((label: stri
   openSuite(label, setup);
   itemsSuite(label, setup);
   manageSuite(label, setup);
+  graceSuite(label, setup);
   for (const extra of extras) extra(label, setup);
 
   describe(`API do cofre (${label})`, () => {

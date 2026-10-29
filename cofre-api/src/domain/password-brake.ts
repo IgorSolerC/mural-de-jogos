@@ -1,6 +1,7 @@
 import { HttpError } from '../errors';
 import { Deps, Statement } from '../ports';
 import { accountKey } from './brake';
+import { GRACE_VALID } from './grace';
 import { DAY_MS } from './quota';
 
 /**
@@ -70,19 +71,24 @@ const CLOSES_STREAK = `erros_seguidos + 1 >= ${ERRORS_PER_STREAK}`;
  *
  * Quem chama confere que o 1 mudou exatamente uma linha. O lote é atômico e as condições são lidas no
  * banco, então duas tentativas ao mesmo tempo contam as duas, e a 6ª encontra a espera.
+ *
+ * Pela carência do aparelho (`grace`, 17.23), o 1 também pede que ela ainda valha, e a tentativa soma um
+ * erro nela antes de conferir (o acerto zera): várias sessões abertas pela mesma carência ao mesmo tempo
+ * não passam juntas das 3 tentativas dela.
  */
-export function attemptStatements(hash: string, userId: string, now: Date): Statement[] {
+export function attemptStatements(hash: string, userId: string, now: Date, grace: string | null = null): Statement[] {
   const at = now.toISOString();
   const dayAgo = new Date(now.getTime() - DAY_MS).toISOString();
   const stamp = `tentativa ${crypto.randomUUID()}`;
   const stamped = 'EXISTS (SELECT 1 FROM cofre_sessoes WHERE hash = ? AND fator IS NULL AND fator_ate = ?)';
-  return [
+  const statements: Statement[] = [
     {
       sql:
         'UPDATE cofre_sessoes SET fator = NULL, fator_ate = ? WHERE hash = ? AND fator IS NOT NULL AND fator_ate > ? ' +
         'AND NOT EXISTS (SELECT 1 FROM cofre_freio_senha WHERE usuario_id = ? AND espera_ate > ?) ' +
-        "AND (SELECT COUNT(*) FROM freios WHERE chave = ? AND acao = 'erro-senha' AND criado_em > ?) < ?",
-      params: [stamp, hash, at, userId, at, accountKey(userId), dayAgo, MAX_ERRORS_PER_DAY],
+        "AND (SELECT COUNT(*) FROM freios WHERE chave = ? AND acao = 'erro-senha' AND criado_em > ?) < ?" +
+        (grace ? ` AND ${GRACE_VALID}` : ''),
+      params: [stamp, hash, at, userId, at, accountKey(userId), dayAgo, MAX_ERRORS_PER_DAY, ...(grace ? [grace, at] : [])],
     },
     {
       sql:
@@ -98,6 +104,8 @@ export function attemptStatements(hash: string, userId: string, now: Date): Stat
       params: [accountKey(userId), at, hash, stamp],
     },
   ];
+  if (grace) statements.push({ sql: `UPDATE cofre_carencias SET erros = erros + 1 WHERE id = ? AND ${stamped}`, params: [grace, hash, stamp] });
+  return statements;
 }
 
 /**
