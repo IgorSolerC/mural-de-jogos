@@ -28,17 +28,38 @@ export function isMissingPiece(err: unknown): boolean {
 export const MISSING_ONLINE = 'Saiu uma versão nova do Murall. Recarregue a página para abrir isto.';
 export const MISSING_OFFLINE = 'Sem internet, isto ainda não abre: esta parte do Murall não estava guardada neste aparelho.';
 
+/**
+ * Há internet de verdade? O `navigator.onLine` diz que sim numa rede sem saída (o Wi-Fi que pede login,
+ * o roteador sem linha), e lá recarregar só traria a mesma versão guardada. O HEAD vai à rede (o
+ * service worker só atende GET) e sem cache: qualquer resposta é internet.
+ */
+export async function reachable(): Promise<boolean> {
+  if (navigator.onLine === false) return false;
+  try {
+    await fetch('./', { method: 'HEAD', cache: 'no-store' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** O de sempre (o erro no console), e o bilhete quando o erro é um pedaço que não chegou. */
 @Injectable()
 export class MuralErrorHandler extends ErrorHandler {
   private readonly toasts = inject(Toasts);
   /** Recarregar a página (trocado nos testes). */
   reload = () => location.reload();
+  /** Há internet (trocado nos testes). */
+  online = reachable;
 
   override handleError(error: unknown): void {
     super.handleError(error);
     if (!isMissingPiece(error)) return;
-    if (navigator.onLine === false) this.toasts.show(MISSING_OFFLINE, undefined, 9000);
-    else this.toasts.show(MISSING_ONLINE, { label: 'Recarregar', run: () => this.reload() }, 20000);
+    void this.online()
+      .catch(() => false)
+      .then((online) => {
+        if (!online) this.toasts.show(MISSING_OFFLINE, undefined, 9000);
+        else this.toasts.show(MISSING_ONLINE, { label: 'Recarregar', run: () => this.reload() }, 20000);
+      });
   }
 }

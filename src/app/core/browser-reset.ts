@@ -30,6 +30,8 @@ export const OWNER_KEY = 'meu-mural:nuvem:dono';
 export const RESET_KEY = 'meu-mural:limpar';
 /** As capas guardadas pelo service worker (public/sw.js): mostram o que a pessoa viu. */
 export const COVERS_CACHE = 'mural-capas-v1';
+/** O código e a página guardados pelo service worker (public/sw.js), para o mural abrir offline. */
+export const SITE_CACHE = 'mural-site-v1';
 /** Na sessão da aba: por que o navegador acabou de ser limpo, para Ajustes avisar depois de recarregar. */
 const DONE_KEY = 'meu-mural:limpo';
 
@@ -69,8 +71,10 @@ export function resetKeys(storage: Pick<Storage, 'length' | 'key'>, keep: Readon
 }
 
 /**
- * Limpa o navegador: todas as chaves do mural, os bancos do IndexedDB e as capas guardadas, menos o de
- * `keep`. O pedido (`RESET_KEY`) sai por último: se a aba fechar no meio, a próxima subida termina.
+ * Limpa o navegador: todas as chaves do mural, os bancos do IndexedDB e todo o Cache Storage do site
+ * (as capas, o código e a página do service worker), menos o de `keep`. O pedido (`RESET_KEY`) sai por
+ * último: se a aba fechar no meio, a próxima subida termina. O código o service worker guarda de novo
+ * quando a página abre (ver `guardar-versao` em public/sw.js e src/main.ts).
  */
 export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void> {
   const kept = new Set<string>([RESET_KEY, ...(keep.includes('sessao') ? [SESSION_KEY, ACCOUNT_KEY] : [])]);
@@ -88,9 +92,10 @@ export async function wipeBrowser(keep: readonly ResetKeep[] = []): Promise<void
   const databases = [DATA_DB, COLLEAGUES_DB, IMAGES_DB, ...(keep.includes('copia') ? [] : [BEFORE_CLOUD_DB])];
   await Promise.all(databases.map(deleteDatabase));
   try {
-    if (typeof caches !== 'undefined') await caches.delete(COVERS_CACHE);
+    // todos, e não só os de agora: na dúvida, apaga (um cache de uma versão do site de antes também sai)
+    if (typeof caches !== 'undefined') await Promise.all((await caches.keys()).map((name) => caches.delete(name)));
   } catch {
-    /* sem Cache Storage (aba anônima): não há capas guardadas */
+    /* sem Cache Storage (aba anônima): não há nada guardado nele */
   }
   try {
     localStorage.removeItem(RESET_KEY);
@@ -143,7 +148,23 @@ export function takeReset(): ResetReason | null {
   }
 }
 
-/** Outra aba pediu a limpeza: esta para de gravar e recarrega junto (e limpa, se for a primeira a subir). */
+/** De quem é o navegador agora: o dono do mural e a sessão guardada. */
+function whoIsHere(): string {
+  try {
+    return JSON.stringify([localStorage.getItem(OWNER_KEY), localStorage.getItem(SESSION_KEY), localStorage.getItem(RESET_KEY)]);
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Outra aba pediu a limpeza: esta para de gravar e recarrega junto (e limpa, se for a primeira a subir).
+ *
+ * A página guardada no cache de voltar/avançar (a pessoa foi para outro site nesta aba) não ouve o
+ * `storage` enquanto está lá: se outra aba saiu da conta (ou entrou noutra) nesse meio-tempo, ela
+ * voltaria com o mural da conta de antes na memória e o gravaria de novo. Na volta, se o dono ou a
+ * sessão mudaram, ela recarrega do zero.
+ */
 export function watchOtherTabs(reload: () => void = () => location.reload(), freeze: () => void = freezeStorage): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const listener = (e: StorageEvent) => {
@@ -151,8 +172,26 @@ export function watchOtherTabs(reload: () => void = () => location.reload(), fre
     freeze();
     reload();
   };
+  let left: string | null = null;
+  const hide = (e: PageTransitionEvent) => {
+    if (e.persisted) left = whoIsHere();
+  };
+  const show = (e: PageTransitionEvent) => {
+    if (!e.persisted || left === null) return;
+    const before = left;
+    left = null;
+    if (whoIsHere() === before) return;
+    freeze();
+    reload();
+  };
   window.addEventListener('storage', listener);
-  return () => window.removeEventListener('storage', listener);
+  window.addEventListener('pagehide', hide);
+  window.addEventListener('pageshow', show);
+  return () => {
+    window.removeEventListener('storage', listener);
+    window.removeEventListener('pagehide', hide);
+    window.removeEventListener('pageshow', show);
+  };
 }
 
 /** Pede a limpeza do navegador e recarrega (os testes trocam `reload` e `freeze`). */

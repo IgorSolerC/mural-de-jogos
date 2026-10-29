@@ -1,6 +1,6 @@
 import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
-import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
+import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, SITE_CACHE, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
 import { IMAGES_DB, ImageStore } from './image-store';
 import { APPLIED_KEY } from './api-requests';
@@ -286,6 +286,14 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(await caches.has(COVERS_CACHE)).toBeFalse();
   });
 
+  it('todo o Cache Storage do site sai junto: o do service worker e o de uma versão de antes', async () => {
+    await (await caches.open(SITE_CACHE)).put(new URL('cloud.json', location.href).href, new Response('{}'));
+    await (await caches.open('mural-site-v0')).put(new URL('velho.js', location.href).href, new Response(''));
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: ['sessao'], motivo: 'entrou' }));
+    await resetOnBoot();
+    expect(await caches.keys()).toEqual([]);
+  });
+
   it('um pedido estragado limpa tudo (na dúvida, nada da conta fica)', async () => {
     signedInBrowser();
     localStorage.setItem(RESET_KEY, 'não é json');
@@ -335,5 +343,49 @@ describe('limpar o navegador (sair da conta)', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: RESET_KEY, newValue: null }));
     expect(reload).toHaveBeenCalledTimes(1);
     stop();
+  });
+
+  describe('a página que volta do cache de voltar/avançar', () => {
+    const away = () => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true }));
+    const back = () => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+
+    it('outra aba saiu da conta enquanto ela estava fora: para de gravar e recarrega', () => {
+      signedInBrowser();
+      const freeze = jasmine.createSpy('freeze');
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, freeze);
+      away();
+      // a outra aba saiu e limpou (o storage não chega a quem está no cache de voltar)
+      localStorage.clear();
+      back();
+      expect(freeze).toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it('outra conta entrou enquanto ela estava fora (a sessão trocou): recarrega', () => {
+      signedInBrowser();
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, () => undefined);
+      away();
+      localStorage.setItem(SESSION_KEY, 'B'.repeat(43));
+      back();
+      expect(reload).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it('nada mudou, ou a página não estava no cache: segue como estava', () => {
+      signedInBrowser();
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, () => undefined);
+      away();
+      localStorage.setItem('meu-mural:volume', '0.7');
+      back();
+      // carregada do zero (persisted false): não compara com nada
+      localStorage.clear();
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: false }));
+      expect(reload).not.toHaveBeenCalled();
+      stop();
+    });
   });
 });

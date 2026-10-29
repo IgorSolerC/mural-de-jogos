@@ -7,34 +7,27 @@ import { resetOnBoot, watchOtherTabs } from './app/core/browser-reset';
 // Saiu da conta (aqui ou em outra aba), ou o mural daqui é de uma conta que não está mais nele: o
 // navegador é limpo antes de o app ler qualquer coisa (ver core/browser-reset.ts).
 watchOtherTabs();
-void resetOnBoot()
-  .catch(() => false)
-  .then(() => bootstrapApplication(App, appConfig))
-  .catch((err) => console.error(err));
+const booted = resetOnBoot().catch(() => false);
+void booted.then(() => bootstrapApplication(App, appConfig)).catch((err) => console.error(err));
 
 // O mural offline (public/sw.js). No `ng serve` fica de fora, para não servir arquivo velho.
 if (!isDevMode() && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js').catch(() => undefined);
-    // Na primeira visita a página carregou antes do service worker existir: os arquivos dela (código,
-    // estilos, fontes, texturas) não passaram por ele. Guarda agora, senão o offline abre em branco.
-    void navigator.serviceWorker.ready
-      .then(async (reg) => {
-        // o mesmo nome do SHELL de public/sw.js
-        const cache = await caches.open('mural-site-v1');
-        const own = performance
+    // Na primeira visita a página carregou antes do service worker existir, e depois de sair da conta
+    // a limpeza apagou o que ele tinha guardado: os arquivos dela (código, estilos, fontes, texturas)
+    // não ficaram no cache. Ele guarda agora o que faltar (e o resto do código desta versão, o que só
+    // chega quando alguém toca: ver keepVersion em public/sw.js), senão o offline abre em branco.
+    // Depois da limpeza, para ela não apagar o que acabou de ser guardado.
+    void Promise.all([navigator.serviceWorker.ready, booted])
+      .then(([reg]) => {
+        const arquivos = performance
           .getEntriesByType('resource')
           .map((e) => e.name)
-          .filter((url) => new URL(url).origin === location.origin);
-        await Promise.all(
-          own.map(async (url) => {
-            if (!(await cache.match(url))) await cache.add(url).catch(() => undefined);
-          }),
-        );
-        // e o resto do código desta versão, o que só chega quando alguém toca (ver keepVersion em public/sw.js)
+          .filter((url) => url.startsWith(location.origin + '/'));
         const economia = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
-        reg.active?.postMessage({ tipo: 'guardar-versao', economia });
+        reg.active?.postMessage({ tipo: 'guardar-versao', economia, arquivos });
       })
-      .catch(() => undefined); // sem Cache Storage (alguma aba anônima): segue sem a cópia
+      .catch(() => undefined);
   });
 }
