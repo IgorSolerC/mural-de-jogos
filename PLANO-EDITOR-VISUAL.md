@@ -1075,9 +1075,27 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   - O roteiro do puppeteer ganhou as conferências do Android (o Enter no item, no item vazio, na linha,
     na célula e na última fileira, o Shift+Enter no item, o apagar segurado no começo da célula e depois
     da tabela, o Delete antes dela): 46 conferências, todas passando.
-- Próximo: o usuário recarrega a prova no celular e repete o Enter no item, o Enter na tabela e o apagar
-  segurado perto dela, e manda o relatório de novo; com ele, fecha a rodada 0 (o iPhone e o tipo
-  próprio no Safari, se tiver um à mão). Depois, a rodada 1.
+- 29/out/2026, o segundo relatório do Android: o Enter passou a funcionar no item e na célula (12 Enters,
+  todos tratados pelo `beforeinput`), mas segurar o apagar perto da tabela "às vezes apagava uma linha
+  inteira, às vezes mais, às vezes nem saía de uma célula e ficava presa nela". Com o registro inteiro,
+  o porquê: **o Gboard muda de jeito no meio do apagar segurado**. As primeiras repetições vêm como a
+  tecla Backspace (keydown 8, o nosso teclado trata); depois de uns 10, ele passa a mandar a tecla 229 com
+  um `deleteContentBackward`, que o ProseMirror deixa o navegador fazer no DOM e lê depois. Numa borda
+  (o começo de uma célula ou de uma linha), o navegador apaga a estrutura do DOM e a leitura desmancha
+  fileiras, ou não acha mudança e o cursor fica parado. E o "presa na célula" era o conserto anterior (o
+  Backspace no começo da célula não fazia nada). **Conserto**: (1) nas bordas (o começo da linha no
+  Backspace, o fim no Delete, uma seleção que pega mais de um bloco, uma peça ou células selecionadas)
+  o `deleteContentBackward` e o `deleteContentForward` são cancelados e viram o nosso apagar; no meio das
+  letras e durante a composição, ficam com o teclado (é onde o Gboard precisa do DOM para as sugestões);
+  (2) o Backspace no começo de uma célula passa para o fim da célula de antes, sem juntar as duas, e
+  assim o apagar segurado esvazia a tabela de trás para frente sem perder fileira nem coluna (na
+  primeira célula, para); o Delete, o espelho. **Regra para a rodada 2 em diante**: o Enter e o apagar
+  nas bordas sempre pelo `beforeinput`; o ProseMirror lendo o DOM só para as letras e a composição. O
+  roteiro do puppeteer ganhou a rajada de `deleteContentBackward` do Gboard (o evento sintético; o que
+  conta é quem trata) e o apagar andando de célula: 47 conferências, todas passando.
+- Próximo: o usuário recarrega a prova no celular e repete o apagar segurado perto e dentro da tabela;
+  com isso, fecha a rodada 0 (o iPhone e o tipo próprio no Safari, se tiver um à mão). Depois, a
+  rodada 1.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
