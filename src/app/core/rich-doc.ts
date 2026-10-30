@@ -710,9 +710,30 @@ function iniciosDe(doc: Doc): number[] {
 
 // ===== O cursor: a posição na tela e no texto =====
 
-/** As letras que a linha mostra (as de texto; as peças inteiras, como a tabela e o widget, não têm). */
+/** As letras que a linha mostra (as de texto e as do bloco de código; as peças inteiras, como a tabela e o widget, não têm). */
 export function textoVisivel(l: LinhaDoc): string {
+  if (l.kind === 'codigo') return l.texto;
   return 'spans' in l ? l.spans.map((s) => s.text).join('') : '';
+}
+
+/**
+ * No bloco de código, onde cada linha de dentro começa no texto escrito (depois da cerca e da margem do
+ * corpo de item), e quantas letras ela mostra. A primeira e a última do texto são as cercas.
+ */
+function linhasDoCodigo(l: Extract<LinhaDoc, { kind: 'codigo' }>): { at: number; n: number }[] {
+  const { linhas, quebras } = partir(l.fonte!.texto);
+  let at = linhas[0].length + quebras[0].length;
+  // o bloco vazio: o lugar da linha logo depois da cerca
+  if (!l.texto) return [{ at, n: 0 }];
+  const dentro = l.texto.split('\n');
+  const out: { at: number; n: number }[] = [];
+  dentro.forEach((t, k) => {
+    const escrita = linhas[1 + k] ?? '';
+    // a margem do corpo de item (ou nada): o que sobra na frente das letras que aparecem
+    out.push({ at: at + Math.max(0, escrita.length - t.length), n: t.length });
+    at += escrita.length + (quebras[1 + k] ?? '').length;
+  });
+  return out;
 }
 
 /** Cada símbolo e os sinais que o escrevem ("→" e "->"). */
@@ -755,6 +776,16 @@ function fimDaLetra(escrito: string, visivel: string, mapa: readonly number[], k
 export function posicaoNoTexto(e: Escrita, i: number, col: number, fim = false): number {
   const l = e.doc.linhas[i];
   const inicio = e.inicios[i];
+  if (l.kind === 'codigo') {
+    // a linha de dentro do bloco e a letra dela
+    const linhas = linhasDoCodigo(l);
+    let c = Math.max(0, Math.min(col, l.texto.length));
+    for (const li of linhas) {
+      if (c <= li.n) return inicio + li.at + c;
+      c -= li.n + 1;
+    }
+    return inicio + l.fonte!.texto.length;
+  }
   const visivel = textoVisivel(l);
   if (!visivel) return inicio;
   const primeira = partir(l.fonte!.texto).linhas[0];
@@ -768,6 +799,16 @@ export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: numb
   let i = 0;
   while (i + 1 < e.inicios.length && e.inicios[i + 1] <= at) i++;
   const l = e.doc.linhas[i];
+  if (l.kind === 'codigo') {
+    const rel = at - e.inicios[i];
+    let col = 0;
+    for (const li of linhasDoCodigo(l)) {
+      if (rel < li.at) return { linha: i, col };
+      if (rel <= li.at + li.n) return { linha: i, col: col + rel - li.at };
+      col += li.n + 1;
+    }
+    return { linha: i, col: l.texto.length };
+  }
   const visivel = textoVisivel(l);
   if (!visivel) return { linha: i, col: 0 };
   const escrito = partir(l.fonte!.texto).linhas[0];

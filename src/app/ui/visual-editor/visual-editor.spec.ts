@@ -95,10 +95,10 @@ describe('o modo Visual do texto', () => {
         expect(valor).toBeNull();
       });
 
-    it('cada linha vira o nó dela; a lista, o código, a tabela e o widget são trechos crus', async () => {
+    it('cada linha vira o nó dela (o bloco de código também); a lista, a tabela e o widget são trechos crus', async () => {
       await make('# t\n> c\n-# s\n---\ntexto\n- item\n```\nx\n```\n| a |\n| --- |\n\n{{contador: 25/12/2026 | Natal}}');
-      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'cru', 'cru', 'cru', 'linha', 'cru']);
-      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(4);
+      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'cru', 'blocoCodigo', 'cru', 'linha', 'cru']);
+      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(3);
       // a folha é uma caixa de texto com nome
       expect(view.dom.getAttribute('role')).toBe('textbox');
       expect(view.dom.getAttribute('aria-multiline')).toBe('true');
@@ -187,7 +187,6 @@ describe('o modo Visual do texto', () => {
       expect(texto()).toBe('-# linha');
       ed.run({ estilo: 'texto' });
       expect(texto()).toBe('linha');
-      expect(ed.run({ estilo: 'codigo' })).toBeFalse();
       ed.run('rule');
       expect(texto()).toBe('linha\n---\n');
       expect(tipos()).toEqual(['linha', 'divisoria', 'linha']);
@@ -203,6 +202,125 @@ describe('o modo Visual do texto', () => {
       expect(estado?.refazer).toBeTrue();
       fixture.componentInstance.run('redo');
       expect(texto()).toBe('ab');
+    });
+  });
+
+  describe('o bloco de código', () => {
+    it('"```" e Enter abre o bloco; Enter quebra dentro; Enter na linha vazia do fim sai (a linha vazia sai junto)', async () => {
+      await make('');
+      digita('```');
+      tecla('Enter');
+      expect(tipos()).toEqual(['blocoCodigo']);
+      expect(texto()).toBe('```\n```');
+      expect(estado?.estilo).toBe('codigo');
+      digita('a*b -> c');
+      tecla('Enter');
+      digita('  d');
+      expect(texto()).toBe('```\na*b -> c\n  d\n```');
+      tecla('Enter');
+      expect(tipos()).toEqual(['blocoCodigo']);
+      tecla('Enter');
+      expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+      digita('fim');
+      expect(texto()).toBe('```\na*b -> c\n  d\n```\nfim');
+      // a letra de máquina da leitura, sem marca nenhuma
+      const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+      expect(pre.textContent).toBe('a*b -> c\n  d');
+      expect(pre.querySelector('code')).not.toBeNull();
+    });
+
+    it('o que tem crase no começo de uma linha ganha uma cerca maior; Ctrl+B e os atalhos não valem dentro', async () => {
+      await make('');
+      digita('```');
+      tecla('Enter');
+      digita('```');
+      expect(texto()).toBe('````\n```\n````');
+      noTexto(5, 8);
+      expect(ctrl('b').defaultPrevented).toBeTrue();
+      expect(texto()).toBe('````\n```\n````');
+      expect(estado?.marcas).toEqual([]);
+    });
+
+    it('Tab põe dois espaços; Shift+Tab tira; sem nada para tirar, passa (o foco sai)', async () => {
+      await make('```\nx\ny\n```');
+      noTexto(4);
+      expect(tecla('Tab').defaultPrevented).toBeTrue();
+      expect(texto()).toBe('```\n  x\ny\n```');
+      // as duas linhas selecionadas: dois espaços em cada uma
+      noTexto(6, 9);
+      tecla('Tab');
+      expect(texto()).toBe('```\n    x\n  y\n```');
+      tecla('Tab', { shiftKey: true });
+      tecla('Tab', { shiftKey: true });
+      expect(texto()).toBe('```\nx\ny\n```');
+      expect(tecla('Tab', { shiftKey: true }).defaultPrevented).toBeFalse();
+    });
+
+    it('Ctrl+E: numa linha vazia, o bloco; no bloco, volta a ser texto; em várias linhas, as letras delas num bloco', async () => {
+      await make('');
+      ctrl('e');
+      expect(tipos()).toEqual(['blocoCodigo']);
+      expect(texto()).toBe('```\n```');
+      digita('x');
+      ctrl('e');
+      expect(tipos()).toEqual(['linha']);
+      expect(texto()).toBe('x');
+    });
+
+    it('Ctrl+E em várias linhas: as letras delas num bloco, selecionadas', async () => {
+      await make('um **dois**\n# três');
+      noTexto(0, 18);
+      ctrl('e');
+      expect(texto()).toBe('```\num dois\ntrês\n```');
+      expect(view.state.selection.from).toBe(1);
+      expect(view.state.selection.to).toBe(13);
+    });
+
+    it('o Formatar troca para o bloco e de volta; Backspace no começo do bloco o volta a texto', async () => {
+      await make('a\nlinha');
+      const ed = fixture.componentInstance;
+      noTexto(4);
+      ed.run({ estilo: 'codigo' });
+      expect(texto()).toBe('a\n```\nlinha\n```');
+      ed.run({ estilo: 't1' });
+      expect(texto()).toBe('a\n# linha');
+      ed.run({ estilo: 'codigo' });
+      noTexto(6);
+      expect(view.state.selection.$from.parentOffset).toBe(0);
+      tecla('Backspace');
+      expect(texto()).toBe('a\nlinha');
+    });
+
+    it('apagar uma seleção do meio de uma linha ao meio do bloco não deixa quebra dentro da linha', async () => {
+      await make('ab\n```\ncd\nef\n```');
+      noTexto(1, 8);
+      tecla('Backspace');
+      expect(tipos()).toEqual(['linha', 'linha']);
+      expect(texto()).toBe('ad\nef');
+    });
+
+    it('Delete no fim de uma linha com o bloco embaixo: a vazia sai, a com texto fica', async () => {
+      await make('a\n\n```\nx\n```');
+      noTexto(2);
+      tecla('Delete');
+      expect(texto()).toBe('a\n```\nx\n```');
+      noTexto(1);
+      tecla('Delete');
+      expect(texto()).toBe('a\n```\nx\n```');
+    });
+
+    it('a seleção do bloco vai e volta pelas posições do texto (na troca de aba)', async () => {
+      const t = 'a\n```\num\ndois\n```';
+      await make(t);
+      const ed = fixture.componentInstance;
+      for (const [a, b] of [
+        [6, 6],
+        [9, 12],
+        [6, 13],
+      ]) {
+        ed.poeSelecao(a, b);
+        expect(ed.selecaoNoTexto()).withContext(`${a}-${b}`).toEqual([a, b]);
+      }
     });
   });
 
@@ -233,10 +351,11 @@ describe('o modo Visual do texto', () => {
     });
 
     it('no código, os sinais ficam como são', async () => {
-      await make('');
+      await make('x');
+      noTexto(1);
       fixture.componentInstance.run('code');
       digita('a->b');
-      expect(texto()).toBe('`a->b`');
+      expect(texto()).toBe('x`a->b`');
     });
   });
 

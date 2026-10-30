@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-30-visual-bloco-de-codigo',
+    version: '1.35.5',
+    kind: 'ajustes',
+    date: '2026-10-30',
+    title: 'O bloco de código no modo Visual',
+    melhorias: [
+      'No modo Visual (em teste), o bloco de código se escreve direto na folha, com a letra de máquina: "```" e Enter abre um, o Enter quebra a linha dentro dele (numa linha vazia no fim, sai), o Tab põe dois espaços, e o Ctrl+E (ou Formatar › Bloco de código) numa linha vazia ou em várias linhas faz o bloco; dentro dele, volta a ser texto.',
+    ],
+  },
+  {
     id: '2026-10-29-modo-visual-em-teste',
     version: '1.35.4',
     kind: 'ajustes',

@@ -72,7 +72,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
-/** O que o Visual ainda não sabe pôr (as listas, os links, os widgets, a tabela, o bloco de código). */
+/** O que o Visual ainda não sabe pôr (as listas, os links, os widgets, a tabela). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
 const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'rule', 'undo', 'redo'] as const;
@@ -594,9 +594,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           tabindex="-1"
           class="menu-op estilo-op"
           [attr.aria-checked]="styleNow() === s.value"
-          [class.apagado]="visual() && s.value === 'codigo'"
-          [attr.aria-disabled]="(visual() && s.value === 'codigo') || null"
-          [attr.title]="visual() && s.value === 'codigo' ? NOT_YET : null"
           (pointerdown)="$event.preventDefault()"
           (pointerenter)="$any($event.currentTarget).focus()"
           (click)="pickStyle(area, s.value)"

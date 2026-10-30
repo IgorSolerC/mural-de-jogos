@@ -1258,7 +1258,29 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   - **Ficou de fora** (das rodadas seguintes, como o plano manda): a Ajuda por modo (rodada 3; só o texto
     dela que falava do "Ver como fica" mudou), a prévia da ficha seguindo o cursor do Visual (rodada 8),
     a mudança de fora só nas linhas mudadas (rodada 8), o copiar com os três tipos (rodada 7).
-- Próximo: a rodada 3, links e código.
+- 30/out/2026, **a rodada 3, links e código** (por partes, cada uma num commit com push):
+  - **O bloco de código** (BUILD 657) deixou de ser trecho cru: é o nó `blocoCodigo` (um `pre.codigo`
+    com o `code` dentro, `content: 'text*'`, `marks: ''`, `code: true`), com a letra de máquina e o
+    retalho de papel da leitura (o mixin `codigo` de `_formatado.scss`), as quebras dentro, e os
+    atributos `cerca`, `margem` e `aberto` do tradutor (a escrita escolhe a cerca maior que qualquer fila
+    de crases de dentro; mexido, o sem fecho ganha o fecho, como o plano aceitou). O recuo empurra o
+    bloco inteiro (`margin-left`), não só a primeira linha. O teclado: Enter quebra dentro e, numa linha
+    vazia no fim, sai do bloco (a linha vazia sai junto; a nova tem o recuo do bloco); Shift+Enter quebra
+    sempre; Tab põe dois espaços (com várias linhas selecionadas, em cada uma) e Shift+Tab tira até dois
+    (sem nada para tirar, o foco sai); "```" (ou "~~~", com ou sem a língua) e Enter numa linha abre o
+    bloco; Ctrl+E (e o botão Código do Formatar) numa linha vazia ou com várias linhas selecionadas faz o
+    bloco com as letras delas (o título, a citação e as marcas viram só letras; o trecho cru e a
+    divisória entram como o texto deles, como o `code()` do Markdown faz com o que está escrito), e dentro
+    do bloco ele volta a ser texto, linha a linha; o Formatar › Bloco de código faz o mesmo, e escolher
+    outro estilo dentro do bloco o desfaz antes. Backspace no começo do bloco o volta a texto. As marcas
+    (Ctrl+B…) não valem dentro (a tecla fica com o Visual, sem o negrito do navegador); os atalhos de
+    digitação também não. **Decidido**: (1) o Delete no fim de uma linha com o bloco embaixo não junta
+    os dois (as quebras do bloco não cabem numa linha): a linha vazia sai, a com texto fica; (2) uma
+    linha nunca tem quebra dentro: apagar uma seleção do meio de uma linha até o meio do bloco junta os
+    dois numa linha, e um plugin (`ajustes.ts`, `semQuebras`) a parte nas quebras, como o Enter; (3) o
+    cursor e a seleção dentro do bloco vão e voltam pelas posições do texto na troca de aba
+    (`posicaoNoTexto`/`posicaoNoDoc` ganharam o bloco, com a margem do corpo de item e o `\r\n`).
+- Próximo: o resto da rodada 3 (os links e a Ajuda por modo).
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

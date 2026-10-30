@@ -25,9 +25,10 @@ import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNoD
 import { NoteLinks } from '../../core/note-links';
 import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
+import { semQuebras } from './ajustes';
 import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
-import { divisoria, estilo, marca, teclas } from './keymap';
+import { codigo, divisoria, estilo, marca, teclas } from './keymap';
 import { docDe, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, MarcaVisual, VisualApi } from './visual-api';
 
@@ -75,6 +76,7 @@ const ESTILOS: Partial<Record<LineStyle, Command>> = {
   t3: estilo(N['titulo'], 3),
   citacao: estilo(N['citacao']),
   sutil: estilo(N['sutil']),
+  codigo: estilo(N['blocoCodigo']),
 };
 
 /** A marca vale na seleção inteira (ou, sem seleção, na próxima letra). */
@@ -104,6 +106,8 @@ function estiloDe(state: EditorState): LineStyle | null {
       return 'citacao';
     case N['sutil']:
       return 'sutil';
+    case N['blocoCodigo']:
+      return 'codigo';
     case N['cru']:
       return (n.attrs['linha'] as LinhaDoc).kind === 'codigo' ? 'codigo' : null;
     default:
@@ -326,6 +330,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (acao === 'undo') return undo;
     if (acao === 'redo') return redo;
     if (acao === 'rule') return divisoria;
+    // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
+    if (acao === 'code') return codigo;
     const m = MARCAS.find(([a]) => a === acao);
     return m ? marca(m[1]) : null;
   }
@@ -373,6 +379,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       teclas(),
       enterPeloBeforeinput(),
       apagarPeloBeforeinput(),
+      semQuebras(),
       history(),
       gapCursor(),
       dropCursor({ color: '#1f5fbf', width: 2 }),

@@ -65,6 +65,17 @@
     top: 0;
   }
 
+  // o bloco de código: o retalho de papel da leitura, com a letra de máquina; o recuo empurra o bloco
+  // inteiro (no texto, cada linha dele tem o recuo), não só a primeira linha
+  > pre.codigo {
+    text-indent: 0;
+    margin-left: calc(var(--recuo, 0) * var(--vis-espaco, 0.27em));
+    tab-size: 4;
+  }
+  > pre.codigo > code {
+    font: inherit;
+  }
+
   // a divisória é uma peça: selecionada, a moldura de caneta em volta
   > .divisoria {
     cursor: pointer;

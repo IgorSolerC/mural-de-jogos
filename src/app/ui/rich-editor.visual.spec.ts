@@ -98,7 +98,7 @@ describe('o editor com o Visual', () => {
     await settle();
     const estilo = (name: string) => Array.from(fixture.nativeElement.querySelectorAll('.estilo-op') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.trim() === name)!;
     expect(estilo('Texto normal').getAttribute('aria-checked')).toBe('true');
-    expect(estilo('Bloco de código').getAttribute('aria-disabled')).toBe('true');
+    expect(estilo('Bloco de código').getAttribute('aria-disabled')).toBeNull();
     estilo('Título 2').click();
     await settle();
     expect(value()).toBe('## linha');

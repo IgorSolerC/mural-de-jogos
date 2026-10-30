@@ -342,6 +342,23 @@ describe('o tradutor do modo Visual (core/rich-doc.ts)', () => {
     expect(alinhar('**a** \\* →', 'a * →')).toEqual([2, 5, 7, 8, 9, 10]);
   });
 
+  it('o cursor no bloco de código: cada letra de dentro cai no lugar dela (a margem do item, o \\r\\n, sem fecho, vazio)', () => {
+    for (const t of ['a\n```js\num\n\ndois\n```\nb', '- item\n  ```\n  x y\n    z\n  ```', 'a\r\n```\r\nx\r\n```', '```\n```', '```\nsem fim', '~~~~\n```\n~~~~']) {
+      const e = docToText(textToDoc(t));
+      expect(e.texto).toBe(t);
+      e.doc.linhas.forEach((l, i) => {
+        const visivel = textoVisivel(l);
+        for (let col = 0; col <= visivel.length; col++) expect(posicaoNoDoc(e, posicaoNoTexto(e, i, col))).withContext(`${JSON.stringify(t)} ${i}:${col}`).toEqual({ linha: i, col });
+      });
+    }
+    const t = 'a\n```\num\ndois\n```';
+    const e = docToText(textToDoc(t));
+    expect(t.slice(posicaoNoTexto(e, 1, 3))).toBe('dois\n```');
+    // na cerca de cima, o começo do bloco; na de baixo, o fim
+    expect(posicaoNoDoc(e, 3)).toEqual({ linha: 1, col: 0 });
+    expect(posicaoNoDoc(e, t.length)).toEqual({ linha: 1, col: 7 });
+  });
+
   it('fuzz: textos sorteados abrem e saem sem mudar um byte, e reescritos do zero voltam iguais', () => {
     const r = rng(20261029);
     const pick = <T>(a: readonly T[]) => a[Math.floor(r() * a.length)];

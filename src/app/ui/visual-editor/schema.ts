@@ -7,11 +7,11 @@ import { Span } from '../../core/rich-text';
  * das linhas, sem árvore (o nível de uma linha é o recuo dela, como no texto). Cada nó guarda a `fonte`
  * (a linha como estava escrita): sem mudança, o tradutor (core/rich-doc.ts) a devolve byte a byte.
  *
- * Nesta rodada viram nós editáveis a linha, o título, a citação, o sutil e a divisória, com as marcas da
- * linha; o resto (o item, o código, a tabela, o widget e o que o tradutor não escreve igual) é um
- * `cru`: uma peça que mostra o trecho como a leitura e guarda a linha original inteira (com a fonte),
- * então ele sai igual, byte a byte. As listas, os widgets, o código e a tabela ganham nó nas rodadas
- * seguintes; até lá, mudam no Markdown.
+ * Já são nós editáveis a linha, o título, a citação, o sutil, a divisória e o bloco de código (este
+ * desde a rodada 3), com as marcas da linha; o resto (o item, a tabela, o widget e o que o tradutor
+ * não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e guarda a linha original
+ * inteira (com a fonte), então ele sai igual, byte a byte. As listas, os widgets e a tabela ganham nó
+ * nas rodadas seguintes; até lá, mudam no Markdown.
  *
  * As classes do desenho são as da leitura (ver ui/_formatado.scss), dentro da folha do Visual.
  */
@@ -69,6 +69,22 @@ export const schema = new Schema({
       attrs: base,
       parseDOM: [{ tag: 'hr' }, { tag: 'div.divisoria', priority: 60, getAttrs: recuoDe }],
       toDOM: (n) => ['div', { class: 'linha divisoria', role: 'separator', ...recuo(n) }],
+    },
+    /**
+     * O bloco de código: as linhas entre as cercas, em letra de máquina, sem marcas, com as quebras
+     * dentro (um nó só, como a leitura o mostra). `cerca` é a escrita (o "```" ou o "~~~~"), `margem` o
+     * recuo do corpo de item onde ele mora, `aberto` sem a cerca que fecha (o fim do texto). O recuo
+     * empurra o bloco inteiro (não só a primeira linha).
+     */
+    blocoCodigo: {
+      group: 'bloco',
+      content: 'text*',
+      marks: '',
+      code: true,
+      defining: true,
+      attrs: { ...base, cerca: { default: '```' }, margem: { default: 0 }, aberto: { default: false } },
+      parseDOM: [{ tag: 'pre', preserveWhitespace: 'full', getAttrs: recuoDe }],
+      toDOM: (n) => ['pre', { class: 'linha codigo', spellcheck: 'false', ...recuo(n) }, ['code', 0]],
     },
     /**
      * O trecho que o Visual ainda não sabe mudar: a linha (ou o bloco) inteira, com a fonte. Na tela,
@@ -202,6 +218,8 @@ export function noDe(l: LinhaDoc): PMNode {
       return N['sutil'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
     case 'divisoria':
       return N['divisoria'].create({ recuo: l.recuo, fonte });
+    case 'codigo':
+      return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto }, l.texto ? schema.text(l.texto) : []);
     default:
       return N['cru'].create({ linha: l });
   }
@@ -214,6 +232,9 @@ export function docDe(linhas: readonly LinhaDoc[]): PMNode {
 }
 
 const LINHAS = new WeakMap<PMNode, LinhaDoc>();
+
+/** Os tipos de linha que o Visual já edita (o resto é um trecho cru). */
+const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'citacao', 'sutil', 'divisoria', 'codigo'];
 
 /** A linha do tradutor de um nó (guardada por nó: os nós são imutáveis, o que não mudou não se refaz). */
 export function linhaDe(n: PMNode): LinhaDoc {
@@ -237,6 +258,9 @@ export function linhaDe(n: PMNode): LinhaDoc {
       break;
     case 'divisoria':
       l = { kind: 'divisoria', recuo: r, fonte };
+      break;
+    case 'blocoCodigo':
+      l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], fonte };
       break;
     case 'cru':
       l = n.attrs['linha'] as LinhaDoc;
@@ -262,7 +286,7 @@ export function textoDoCru(n: PMNode): string {
  */
 function linhaDoTexto(texto: string): LinhaDoc {
   const lidas = textToDoc(texto).linhas;
-  if (lidas.length === 1 && !['linha', 'titulo', 'citacao', 'sutil', 'divisoria'].includes(lidas[0].kind)) return lidas[0];
+  if (lidas.length === 1 && !EDITAVEIS.includes(lidas[0].kind)) return lidas[0];
   return { kind: 'cru', recuo: 0, linhas: texto.split(/\r\n|\r|\n/) };
 }
 
