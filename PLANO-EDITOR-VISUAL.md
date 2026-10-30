@@ -10,7 +10,7 @@ descrições dos widgets, se der, escritas direto. "Quero uma longa etapa de pla
 em tudo que pode dar errado [...] e tudo que é necessário para que a experiência final seja incrível."
 
 Este arquivo é o plano inteiro, escrito para ser lido também por outras AIs (como o PLANO-API.md e o
-PLANO-IMAGENS.md). **Nada foi implementado.** As decisões estão na seção 9 (as minhas, com o porquê, e
+PLANO-IMAGENS.md). O que já foi feito está na seção 12 (Andamento). As decisões estão na seção 9 (as minhas, com o porquê, e
 as cinco perguntas ao usuário, respondidas em 29/out); as rodadas, na seção 11; o andamento, na 12.
 
 ---
@@ -189,7 +189,7 @@ junta duas, Tab muda um número, e a tradução é uma linha por vez.
 | `marca` | `==…==` | inclusiva |
 | `spoiler` | `\|\|…\|\|` | inclusiva; na tela, uma tarja translúcida listrada com o texto legível (seção 5.15) |
 | `sutil` | `((…))` | inclusiva |
-| `codigo` | `` `…` `` (com mais crases se o texto tiver crase) | não inclusiva; exclui os links; aceita negrito, itálico, riscado, marca, spoiler e sutil por fora (como `parseInline`) |
+| `codigo` | `` `…` `` (com mais crases se o texto tiver crase) | inclusiva desde a rodada 2 (não inclusiva, só a primeira letra depois do Ctrl+E virava código; ver a seção 12); exclui os links; aceita negrito, itálico, riscado, marca, spoiler e sutil por fora (como `parseInline`) |
 | `link` | `[texto](endereço)`, `<endereço>` ou o endereço solto | atributo `href` (só `https:`, `http:`, `mailto:`); não inclusiva; as outras marcas valem no link inteiro (o rótulo do markdown não lê marca dentro) |
 | `elo` (link de anotação) | `[[título]]` ou `[[título\|texto]]` | atributo `titulo`; o texto é o rótulo; não inclusiva; marcas no elo inteiro |
 
@@ -1166,7 +1166,99 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     itálico de uma letra colado num negrito no meio da palavra ("x*a***b**y"); (3) o título vazio; (4) o
     rótulo de um link para fora com colchete, o título de uma anotação com "|" ou colchete; (5) uma crase
     solta colada antes de um código; (6) um código de três crases no começo da linha (vira cerca).
-- Próximo: a rodada 2, a folha básica "em teste".
+- 29–30/out/2026, **a rodada 2, a folha básica "em teste"** (d424254 BUILD 655, e o commit do Visual,
+  BUILD 656; com push):
+  - **O estilo da leitura num parcial** (`ui/_formatado.scss`, d424254): as ênfases, o código, os títulos,
+    a citação, o sutil, a divisória, a seta do link e o link de caneta viraram mixins, incluídos pela
+    leitura no lugar de cada regra. O CSS compilado da leitura saiu igual, byte a byte (compilado pelo
+    sass antes e depois): ela não muda um pixel.
+  - **O componente** `ui/visual-editor/` (`visual-editor.ts`, `schema.ts`, `keymap.ts`, `input-rules.ts`,
+    `entrada.ts`, `visual-api.ts`, `visual-editor.scss`), carregado num `@defer` só quando a aba Visual
+    abre pela primeira vez (enquanto chega, a folha mostra o texto pela leitura). Os dez pacotes do
+    ProseMirror com versão exata (sem o `prosemirror-tables`, que é da rodada 6). **O peso**: o pedaço do
+    Visual tem 260 KB cru, 71,6 KB comprimido; o carregamento inicial ficou em 1,96 MB (560 KB
+    comprimido, +1,4 KB: as abas novas, o ajuste e os dois desenhos novos do acervo; nada do ProseMirror).
+  - **Os nós** de 5.1 que entram: `linha` (com o recuo, desenhado como o `text-indent` da primeira linha,
+    na largura de um espaço da letra da folha, medida), `titulo`, `citacao`, `sutil`, `divisoria` e o
+    `cru`, que guarda a `LinhaDoc` inteira (com a fonte) e mostra o trecho pelo `app-rich-text` de
+    sempre, criado à mão (`createComponent` + `attachView`, desmontado no `destroy`), com a borda tracejada
+    e, selecionado, a etiqueta "Este trecho só se muda no Markdown" com o "Mudar no Markdown" (o botão
+    segura o foco no `pointerdown` e age no `click`). A etiqueta entra no fluxo, embaixo do trecho, com a
+    altura de uma linha da pauta (duas no toque): o texto de baixo desce linhas inteiras e continua
+    sentado na pauta (por cima, ela cobria a linha de baixo). As marcas: as de 5.2, com o link e o link de
+    anotação só à mostra. O spoiler na escrita: a tarja translúcida com listras finas.
+  - **A escrita** é o tradutor da rodada 1: cada nó vira a `LinhaDoc` dele (guardada por nó num
+    `WeakMap`), o `docToText` escreve, e a fonte nova de cada nó escrito de novo fica guardada (na próxima
+    tecla, só a linha mexida é escrita). Escrita inexata (um caso sabido): as linhas que o leitor lê
+    diferente passam a ser o que ele lê, fora do histórico (a linha vazia do cursor espera).
+  - **Decisões desta rodada**: (1) **o código na linha ficou inclusivo** (5.2 dizia "não inclusiva"): não
+    inclusivo, o Ctrl+E e a letra seguinte viravam código e a segunda já não, porque a marca guardada só
+    vale para a primeira inserção; assim ele se comporta como o negrito (liga, escreve, desliga). (2) **O
+    título sem letra** não tem escrita ("# " é texto na leitura): ele é guardado como a linha vazia, e a
+    tela fica com o título esperando a primeira letra (escolher "Título 1" numa linha vazia não escreve
+    "# " no texto); o Enter no título vazio o volta a texto. (3) **O Tab só recua o texto** (a linha
+    comum): o título, a citação e o sutil recuados não são lidos como eles mesmos fora de um item. (4)
+    **Colar texto** já lê o markdown do Murall (a P5), pelo próprio tradutor (o que não é nó vira cru), e
+    o Ctrl+Shift+V cola como letras; o HTML de fora fica com o esquema (o colar de verdade é a rodada 7).
+    (5) **Sem atalho para trocar de aba**: nenhuma tecla ficou livre ao mesmo tempo do Chrome, do Edge,
+    do Firefox e do AltGr do ABNT2 (o Ctrl+Shift+M é do Chrome; o Ctrl+Alt é o AltGr); as abas recebem o
+    foco pelo Tab e trocam pelas setas, como hoje. (6) A posição do texto → a letra da tela
+    (`posicaoNoDoc`) passou a contar as letras que já acabaram antes da posição: o cursor do Markdown
+    logo depois do "o" de "**negrito**" (antes do "**") ia para antes do "o"; e `posicaoNoTexto(…, fim)`
+    devolve o fim da letra de antes (o fim de uma seleção fica colado na última letra). O spec da rodada
+    1 continua passando.
+  - **O teclado** é o de 5.9 para estes tipos, escrito tecla por tecla: Enter (no fim do título e do
+    sutil a nova é texto; a citação continua e, vazia, acaba; no começo de uma linha com texto, a vazia
+    entra em cima; "---" e Enter é a divisória; numa peça ou no cursor de lacuna, uma linha nova),
+    Backspace (no começo, o título, a citação e o sutil viram texto, o recuo volta um nível, a peça de
+    cima é selecionada e de novo sai), Delete, Tab e Shift+Tab (sem recuo, o foco sai), as marcas e o
+    histórico. O Esc e o Ctrl+Enter passam adiante sem o ProseMirror cancelar a tecla (o editor da ficha
+    fecha; o comentário envia). As lições da rodada 0 valem inteiras: o Enter e todo apagar fora da
+    composição vêm pelo `beforeinput` (`entrada.ts`, com o `flush`, o `lastIOSEnter` e o
+    `Intl.Segmenter`). Os atalhos de digitação: "# ", "## ", "### ", "> ", "-# " e os símbolos (com as
+    duplas "≤>", "←>"… dos de três sinais), fora do código e dos links; o Backspace logo depois volta os
+    sinais (e eles saem escapados, "-\>").
+  - **As abas** viraram Visual (com o carimbo "teste" de caneta azul) e Markdown, com os papéis de tab e as
+    setas; o "Ver como fica" saiu (P1). **A régua**: negrito, itálico, riscado e marca-texto com
+    `aria-pressed` e a tecla afundada quando ligados; o Formatar marca o estilo da linha do Visual e o
+    troca; o Inserir põe a divisória; o desfazer e o refazer são os do ProseMirror; o que o Visual ainda
+    não sabe pôr (as listas, a linha dentro do item, os links, os widgets, a tabela, o bloco de código)
+    fica apagado (`aria-disabled`) e o toque avisa "Ainda não no Visual: use a aba Markdown" (o Ctrl+K e o
+    Ctrl+Shift+7/8/9 também; a imagem colada ou solta também, sem abrir o arquivo por cima do Murall).
+  - **A troca de aba com o cursor** (5.7, 5.17): a seleção vai pelas posições do texto, nos dois sentidos.
+    A folha do Markdown fica parada no texto de quando o Visual abriu; na volta, o que mudou entra por um
+    `insertText`, e o Ctrl+Z do Markdown desfaz o Visual de uma vez (o Ctrl+Y refaz). De volta ao Visual
+    sem mudança no texto, ele é o mesmo (com o desfazer dele). A tela cheia no Visual abre outra folha do
+    Visual no mesmo ponto do texto (o mesmo estado nas duas é da rodada 8).
+  - **Os Ajustes**: Ajustes › Mural › "Jeito de escrever", com a cartela de recortes, "Visual (como no
+    Docs)" com o carimbo "em teste" e "Markdown (as marcas à vista)"; o padrão é o Markdown (P2), por
+    aparelho (P3), no "Voltar ao padrão" e no `reload` de outra aba, dentro do `Stored` dos Ajustes (sai
+    na limpeza do logout, com o teste em `browser-reset.spec.ts`).
+  - **Em volta**: o limite da string guardada (a mudança que passa dele não entra, com o aviso; compondo,
+    entra, e o excesso sai no `compositionend`); o contador diz no `title` que conta as marcas; o
+    placeholder; a folha é `role="textbox"` com `aria-multiline`, o nome e o `aria-describedby` do
+    contador, `spellcheck`, `autocapitalize`, `lang`; no celular, a régua presa pelo foco da folha do
+    Visual, o "Pronto" e o `scrollMargin` de 120 px embaixo; a letra da folha é a do Markdown (1,14 rem,
+    mais de 16 px). A mudança de fora refaz o documento inteiro, com o cursor no mesmo ponto do texto.
+  - **Conferido**: os specs novos (`visual-editor.spec.ts`, 31; `rich-editor.visual.spec.ts`, 8; o do
+    jeito de escrever nos Ajustes; o do logout), os de hoje do Markdown sem mudar (só saíram os dois do
+    "Ver como fica", trocados pelos das abas novas, e o das notas nos Ajustes passou a procurar só as
+    três notas), a suíte inteira, `npx ng build`, o smoke da build de produção com o Visual ligado, e o
+    roteiro do puppeteer (`.angular/pptr/visual-roteiro.mjs`, fora do git: 17 conferências, todas
+    passando no computador e no celular simulado, sem erro no console), com as fotos de perto.
+  - **Fica para o celular do usuário** (o site publica no push: Ajustes › Mural › Jeito de escrever ›
+    Visual): (1) escrever com acentos, sugestões e ditado, apagar segurado (letra a letra e no começo de
+    uma linha embaixo de uma lista, que é um trecho cru: ela é selecionada e de novo sai), Enter no meio,
+    no fim e no começo de uma linha, "# " e "->"; (2) tocar no B com uma palavra selecionada (a seleção
+    continua e o B acende); (3) tocar num trecho cru e no "Mudar no Markdown"; (4) a régua presa e o
+    cursor nunca atrás dela; (5) **o reteste da rodada 0**: o apagar segurado perto e dentro da tabela
+    (na prova, `.angular/prova-visual`, porque no site a tabela ainda é trecho cru) e (6) **o iPhone**, que
+    nunca foi testado: o Enter (o `lastIOSEnter`), a seleção ao tocar na régua, o zoom (a letra tem mais
+    de 16 px) e o tipo próprio na área de transferência no Safari.
+  - **Ficou de fora** (das rodadas seguintes, como o plano manda): a Ajuda por modo (rodada 3; só o texto
+    dela que falava do "Ver como fica" mudou), a prévia da ficha seguindo o cursor do Visual (rodada 8),
+    a mudança de fora só nas linhas mudadas (rodada 8), o copiar com os três tipos (rodada 7).
+- Próximo: a rodada 3, links e código.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

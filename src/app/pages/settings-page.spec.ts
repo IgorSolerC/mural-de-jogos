@@ -148,7 +148,7 @@ describe('Ajustes (SettingsPage)', () => {
   it('a nota se escolhe pelo exemplo', async () => {
     const { el } = await open('mural');
     const settings = TestBed.inject(Settings);
-    const options = [...el.querySelectorAll<HTMLLabelElement>('.segmento')];
+    const options = [...el.querySelectorAll<HTMLInputElement>('input[name="nota"]')].map((i) => i.closest<HTMLLabelElement>('.segmento')!);
     expect(options.map((o) => o.querySelector('.seg-num')?.textContent?.trim())).toEqual(['8,4', '8,5', '8']);
     options[2].querySelector('input')!.click();
     expect(settings.scoreDisplay()).toBe('inteiro');
@@ -258,6 +258,31 @@ describe('Ajustes: prévias e Voltar ao padrão', () => {
     fixture.detectChanges();
     expect(el.querySelector('.previa-lado strong')?.textContent).toBe('8,5');
     settings.scoreDisplay.set('livre');
+  });
+
+  it('o jeito de escrever: o Markdown de padrão, o Visual em teste; grava, volta ao padrão e acompanha outra aba', async () => {
+    const { fixture, el } = await open('mural');
+    const settings = TestBed.inject(Settings);
+    const radio = (v: string) => el.querySelector<HTMLInputElement>(`input[name="jeito-de-escrever"][value="${v}"]`)!;
+    expect(settings.writingMode()).toBe('markdown');
+    expect(radio('markdown').checked).toBeTrue();
+    const visual = radio('visual').closest('label')!;
+    expect(visual.textContent).toContain('Visual (como no Docs)');
+    expect(visual.querySelector('.carimbo-teste')?.textContent?.trim()).toBe('em teste');
+    radio('visual').checked = true;
+    radio('visual').dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(settings.writingMode()).toBe('visual');
+    expect(JSON.parse(localStorage.getItem('mural-de-jogos:config:v1')!).writingMode).toBe('visual');
+    expect(settings.atDefaults()).toBeFalse();
+    settings.resetPreferences();
+    expect(settings.writingMode()).toBe('markdown');
+    // outra aba escolheu o Visual: esta acompanha
+    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ writingMode: 'visual' }));
+    window.dispatchEvent(new StorageEvent('storage', { key: 'mural-de-jogos:config:v1', storageArea: localStorage }));
+    expect(settings.writingMode()).toBe('visual');
+    settings.writingMode.set('markdown');
   });
 
   it('Voltar ao padrão: pergunta, volta as escolhas de Mural e Amigos e deixa o nome e as chaves', async () => {

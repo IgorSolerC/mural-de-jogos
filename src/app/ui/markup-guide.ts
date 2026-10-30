@@ -77,7 +77,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
   selector: 'app-markup-guide',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão. Na aba “Ver como fica” aparece o resultado.</p>
+    <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão na aba Markdown. Na aba Visual (em teste), o texto já aparece como fica, sem as marcas.</p>
     @for (sec of sections(); track sec.title; let i = $index) {
       <section class="guia-secao" [attr.aria-labelledby]="idPrefix() + '-' + i">
         <h3 class="guia-secao-titulo" [id]="idPrefix() + '-' + i">{{ sec.title }}</h3>

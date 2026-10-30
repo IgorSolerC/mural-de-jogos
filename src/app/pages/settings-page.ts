@@ -10,7 +10,7 @@ import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
 import { eraseSave, takeErased } from '../core/erase-save';import { ReviewStore } from '../core/review-store';
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
-import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset } from '../core/settings';
+import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset, WritingMode } from '../core/settings';
 import { Confirm } from '../ui/confirm';
 import { ConflictSheet } from '../ui/conflict-sheet';
 import { SyncConflicts, conflictKey, splitTarget } from '../core/sync-conflicts';
@@ -197,6 +197,11 @@ export class SettingsPage {
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um 8,4 em cada um. */
+  /** Os jeitos de escrever o texto: o Visual (em teste) e o Markdown. */
+  protected readonly writingModes: readonly { value: WritingMode; label: string }[] = [
+    { value: 'visual', label: 'Visual (como no Docs)' },
+    { value: 'markdown', label: 'Markdown (as marcas à vista)' },
+  ];
   protected readonly scoreDisplays: readonly { value: ScoreDisplay; label: string; sample: string }[] = [
     { value: 'livre', label: 'Como dei', sample: '8,4' },
     { value: 'metade', label: 'De meio em meio', sample: '8,5' },

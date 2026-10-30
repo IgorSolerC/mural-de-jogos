@@ -83,12 +83,22 @@ describe('a régua presa em cima do teclado', () => {
     expect(ruler().classList).not.toContain('presa');
   });
 
-  it('a aba "Ver como fica" esconde a folha e solta a régua', async () => {
+  it('no Visual, a folha dele prende a régua, e o "Pronto" a solta', async () => {
     await make(true);
-    area().focus();
+    (fixture.nativeElement.querySelector('[role=tab][id$="-aba-visual"]') as HTMLButtonElement).click();
     await settle();
-    (fixture.nativeElement.querySelectorAll('[role=tab]')[1] as HTMLButtonElement).click();
+    let folha: HTMLElement | null = null;
+    for (let i = 0; i < 200 && !folha; i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      fixture.detectChanges();
+      folha = fixture.nativeElement.querySelector('.visual .ProseMirror');
+    }
+    folha!.focus();
     await settle();
+    expect(ruler().classList).toContain('presa');
+    (fixture.nativeElement.querySelector('button.pronto') as HTMLButtonElement).click();
+    await settle();
+    expect(document.activeElement).not.toBe(folha);
     expect(ruler().classList).not.toContain('presa');
   });
 });

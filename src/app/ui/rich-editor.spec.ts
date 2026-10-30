@@ -411,19 +411,16 @@ describe('a régua de formatação do texto', () => {
     expect(e.defaultPrevented).toBeFalse();
   });
 
-  it('a aba "Ver como fica" mostra o texto formatado no lugar do campo (sem a régua), e as tarefas se marcam ali', async () => {
+  it('as abas são Visual e Markdown; sem escolha nos Ajustes, abre o Markdown (o Visual está em teste)', async () => {
     write('- [ ] leite|');
     const tabs = Array.from(fixture.nativeElement.querySelectorAll('[role=tab]') as NodeListOf<HTMLButtonElement>);
-    expect(tabs.map((t) => t.textContent!.trim())).toEqual(['Escrever', 'Ver como fica']);
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
-    tabs[1].click();
-    await fixture.whenStable();
-    expect(area.hidden).toBeTrue();
+    expect(tabs.map((t) => t.textContent!.trim())).toEqual(['Visualteste', 'Markdown']);
+    expect(tabs[0].getAttribute('aria-label')).toBe('Visual (em teste)');
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
-    expect((fixture.nativeElement.querySelector('.regua') as HTMLElement).hidden).toBeTrue();
-    const box = fixture.nativeElement.querySelector('.previa input[type=checkbox]') as HTMLInputElement;
-    box.click();
-    expect(value()).toBe('- [x] leite');
+    expect(area.hidden).toBeFalse();
+    // no Markdown, os botões não dizem "ligado": a marca é o que está escrito
+    expect(button('Negrito').hasAttribute('aria-pressed')).toBeFalse();
+    expect(button('Lista').getAttribute('aria-disabled')).toBeNull();
   });
 
   it('com um máximo, o contador embaixo da folha e o campo que não passa dele', async () => {

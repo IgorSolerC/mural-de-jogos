@@ -88,6 +88,8 @@ import {
   EyeOff,
   Feather,
   FileDown,
+  FileText,
+  Hash,
   FilePlus,
   FileQuestion,
   Film,
@@ -471,6 +473,9 @@ export const ICON = {
   titulo2: Heading2,
   titulo3: Heading3,
   paragrafo: Pilcrow,
+  /** Os jeitos de escrever: o Visual (a folha como fica) e o Markdown (as marcas à vista). */
+  documento: FileText,
+  markdown: Hash,
   citacao: TextQuote,
   aspas: Quote,
   /** O texto sutil ("-# "): as letras pequenas. */

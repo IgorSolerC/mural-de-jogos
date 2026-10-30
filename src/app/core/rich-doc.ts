@@ -742,14 +742,25 @@ export function alinhar(escrito: string, visivel: string): number[] {
   return mapa;
 }
 
-/** A posição no texto da letra `col` da linha `i` do documento escrito. */
-export function posicaoNoTexto(e: Escrita, i: number, col: number): number {
+/** Onde termina, no texto escrito, a letra `k` da tela (o símbolo ocupa os sinais que o escrevem). */
+function fimDaLetra(escrito: string, visivel: string, mapa: readonly number[], k: number): number {
+  return mapa[k] + (escrito[mapa[k]] === visivel[k] ? 1 : (SINAIS_DE.get(visivel[k])?.length ?? 1));
+}
+
+/**
+ * A posição no texto da letra `col` da linha `i` do documento escrito (logo antes dela). Com `fim`,
+ * o fim da letra de antes: o fim de uma seleção fica colado na última letra, antes da marca que fecha
+ * ("**negrito**" selecionado só até o "o").
+ */
+export function posicaoNoTexto(e: Escrita, i: number, col: number, fim = false): number {
   const l = e.doc.linhas[i];
   const inicio = e.inicios[i];
   const visivel = textoVisivel(l);
   if (!visivel) return inicio;
   const primeira = partir(l.fonte!.texto).linhas[0];
-  return inicio + alinhar(primeira, visivel)[Math.max(0, Math.min(col, visivel.length))];
+  const mapa = alinhar(primeira, visivel);
+  const c = Math.max(0, Math.min(col, visivel.length));
+  return inicio + (fim && c > 0 && mapa[c - 1] < primeira.length ? fimDaLetra(primeira, visivel, mapa, c - 1) : mapa[c]);
 }
 
 /** A linha do documento e a letra dela onde cai a posição `at` do texto. */
@@ -759,10 +770,11 @@ export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: numb
   const l = e.doc.linhas[i];
   const visivel = textoVisivel(l);
   if (!visivel) return { linha: i, col: 0 };
-  const mapa = alinhar(partir(l.fonte!.texto).linhas[0], visivel);
+  const escrito = partir(l.fonte!.texto).linhas[0];
+  const mapa = alinhar(escrito, visivel);
   const rel = at - e.inicios[i];
+  // as letras que já acabaram antes da posição: dentro de uma marca, depois da letra, o cursor fica depois dela
   let col = 0;
-  while (col < visivel.length && mapa[col + 1] <= rel) col++;
-  if (mapa[0] > rel) col = 0;
+  while (col < visivel.length && mapa[col] < escrito.length && fimDaLetra(escrito, visivel, mapa, col) <= rel) col++;
   return { linha: i, col };
 }

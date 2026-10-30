@@ -681,6 +681,23 @@
               <span class="bolinha"></span>
             </button>
           </div>
+
+          <!-- o jeito que o editor do texto abre (o Visual, vendo como fica, ou o Markdown); por aparelho -->
+          <fieldset class="linha larga">
+            <legend class="linha-titulo">Jeito de escrever</legend>
+            <p class="linha-desc">Como o texto das anotações, das resenhas, dos comentários e do Sobre mim abre para escrever, neste aparelho. No editor, as abas Visual e Markdown trocam na hora.</p>
+            <div class="segmentos dois">
+              @for (o of writingModes; track o.value) {
+                <label class="segmento">
+                  <input type="radio" name="jeito-de-escrever" [value]="o.value" [checked]="settings.writingMode() === o.value" (change)="settings.writingMode.set(o.value)" />
+                  <span class="seg-nome">{{ o.label }}</span>
+                  @if (o.value === 'visual') {
+                    <span class="carimbo-teste">em teste</span>
+                  }
+                </label>
+              }
+            </div>
+          </fieldset>
         </div>
       }
 

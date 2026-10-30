@@ -1,0 +1,632 @@
+import {
+  ApplicationRef,
+  ChangeDetectionStrategy,
+  Component,
+  ComponentRef,
+  ElementRef,
+  EnvironmentInjector,
+  OnDestroy,
+  OnInit,
+  ViewEncapsulation,
+  createComponent,
+  effect,
+  inject,
+  input,
+  output,
+  untracked,
+} from '@angular/core';
+import { dropCursor } from 'prosemirror-dropcursor';
+import { gapCursor } from 'prosemirror-gapcursor';
+import { history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
+import { MarkType, Node as PMNode, Slice } from 'prosemirror-model';
+import { Command, EditorState, NodeSelection, Plugin, Selection, TextSelection, Transaction } from 'prosemirror-state';
+import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
+import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNoDoc, posicaoNoTexto, textToDoc } from '../../core/rich-doc';
+import { NoteLinks } from '../../core/note-links';
+import { RichText } from '../rich-text';
+import type { LineStyle } from '../rich-editor';
+import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
+import { atalhos } from './input-rules';
+import { divisoria, estilo, marca, teclas } from './keymap';
+import { docDe, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
+import { AcaoVisual, EstadoVisual, MarcaVisual, VisualApi } from './visual-api';
+
+/**
+ * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
+ * markdown. Por baixo continua a mesma string de sempre: o documento do ProseMirror é a lista das
+ * linhas do texto (ver schema.ts), lida e escrita pelo tradutor (core/rich-doc.ts), que nunca muda uma
+ * linha que a pessoa não mexeu (cada uma guarda a fonte) e confere pelo próprio leitor o que escreve.
+ *
+ * Recebe o texto (`texto`) e devolve o que a pessoa escreveu (`mudou`); a régua do editor
+ * (ui/rich-editor.ts) manda as ações (`run`) e lê o estado (`estado`: as marcas ligadas, o estilo da
+ * linha, o desfazer). O texto que chega de fora (outra ficha, a colega da compartilhada, a AI) refaz o
+ * documento inteiro, com o cursor no mesmo lugar do texto (a troca só das linhas mudadas é da rodada 8).
+ *
+ * As promessas, na tela: o que aparece é o que a leitura vai mostrar (se a escrita não consegue ser
+ * exata, a tela passa a mostrar o que o leitor leu); nada some (o que o Visual não sabe mudar é um
+ * trecho cru, que mostra como a leitura e sai igual); o limite de caracteres é o da string guardada.
+ *
+ * O desenho: o da leitura (ui/_formatado.scss), na folha pautada do editor. Sem o encapsulamento do
+ * Angular (o DOM é do ProseMirror), tudo debaixo de `.vis-folha`, com as classes próprias em `vis-`.
+ */
+
+const N = schema.nodes;
+const M = schema.marks;
+
+/** A transação que veio de fora (o texto de outra ficha, o limite cortando): não passa pelo limite. */
+const FORA = 'vis-fora';
+/** O ajuste da tela ao que o leitor leu: não volta a ser ajustado. */
+const AJUSTE = 'vis-ajuste';
+
+const MARCAS: readonly (readonly [MarcaVisual, MarkType])[] = [
+  ['bold', M['negrito']],
+  ['italic', M['italico']],
+  ['strike', M['riscado']],
+  ['mark', M['marca']],
+  ['spoiler', M['spoiler']],
+  ['subtle', M['trechoSutil']],
+  ['code', M['codigo']],
+];
+
+const ESTILOS: Partial<Record<LineStyle, Command>> = {
+  texto: estilo(N['linha']),
+  t1: estilo(N['titulo'], 1),
+  t2: estilo(N['titulo'], 2),
+  t3: estilo(N['titulo'], 3),
+  citacao: estilo(N['citacao']),
+  sutil: estilo(N['sutil']),
+};
+
+/** A marca vale na seleção inteira (ou, sem seleção, na próxima letra). */
+function ligada(state: EditorState, tipo: MarkType): boolean {
+  const { from, to, empty, $from } = state.selection;
+  if (empty) return !!tipo.isInSet(state.storedMarks || $from.marks());
+  let algum = false;
+  let todos = true;
+  state.doc.nodesBetween(from, to, (n) => {
+    if (!n.isText) return;
+    algum = true;
+    if (!tipo.isInSet(n.marks)) todos = false;
+  });
+  return algum && todos;
+}
+
+function estiloDe(state: EditorState): LineStyle | null {
+  const sel = state.selection;
+  const n = sel instanceof NodeSelection ? sel.node : sel.$from.depth ? sel.$from.node(1) : null;
+  if (!n) return null;
+  switch (n.type) {
+    case N['linha']:
+      return 'texto';
+    case N['titulo']:
+      return `t${n.attrs['nivel']}` as LineStyle;
+    case N['citacao']:
+      return 'citacao';
+    case N['sutil']:
+      return 'sutil';
+    case N['cru']:
+      return (n.attrs['linha'] as LinhaDoc).kind === 'codigo' ? 'codigo' : null;
+    default:
+      return null;
+  }
+}
+
+interface Contexto {
+  appRef: ApplicationRef;
+  injector: EnvironmentInjector;
+  links: () => NoteLinks | null;
+  pedeMarkdown: (pos: number) => void;
+}
+
+/**
+ * O trecho cru: o que o Visual ainda não sabe mudar (a lista, o código, a tabela, o widget), mostrado
+ * como a leitura mostra (o mesmo `app-rich-text`), com uma borda tracejada discreta. Tocado, fica
+ * selecionado como uma peça e mostra "Este trecho só se muda no Markdown", com o botão que leva até ele.
+ * O botão segura o foco no `pointerdown` e age no `click` (o `touchstart` cancelado mataria o click).
+ */
+class CruView implements NodeView {
+  readonly dom: HTMLElement;
+  private readonly ref: ComponentRef<RichText>;
+  private readonly etiqueta: HTMLElement;
+
+  constructor(
+    private node: PMNode,
+    getPos: () => number | undefined,
+    private readonly ctx: Contexto,
+  ) {
+    this.dom = document.createElement('div');
+    this.dom.className = 'vis-cru';
+    this.dom.setAttribute('role', 'group');
+    this.dom.setAttribute('aria-label', 'Trecho que só se muda no Markdown');
+    const corpo = document.createElement('div');
+    corpo.className = 'vis-cru-corpo';
+    this.ref = createComponent(RichText, { environmentInjector: ctx.injector, hostElement: corpo });
+    this.ref.setInput('text', textoDoCru(node));
+    this.ref.setInput('links', ctx.links());
+    ctx.appRef.attachView(this.ref.hostView);
+    this.etiqueta = document.createElement('div');
+    this.etiqueta.className = 'vis-cru-etiqueta';
+    const aviso = document.createElement('span');
+    aviso.className = 'vis-cru-aviso';
+    aviso.textContent = 'Este trecho só se muda no Markdown';
+    const botao = document.createElement('button');
+    botao.type = 'button';
+    botao.className = 'acao-caneta vis-cru-botao';
+    botao.textContent = 'Mudar no Markdown';
+    const segura = (e: Event) => e.preventDefault();
+    botao.addEventListener('pointerdown', segura);
+    botao.addEventListener('mousedown', segura);
+    botao.addEventListener('click', (e) => {
+      e.preventDefault();
+      const pos = getPos();
+      if (pos !== undefined) ctx.pedeMarkdown(pos);
+    });
+    this.etiqueta.append(aviso, botao);
+    this.dom.append(corpo, this.etiqueta);
+  }
+
+  update(node: PMNode): boolean {
+    if (node.type !== this.node.type) return false;
+    if (textoDoCru(node) !== textoDoCru(this.node)) this.ref.setInput('text', textoDoCru(node));
+    this.node = node;
+    return true;
+  }
+
+  /** O botão e o que se toca dentro da leitura (os controles de um vídeo, um link) ficam com eles. */
+  stopEvent(e: Event): boolean {
+    const t = e.target as Element | null;
+    return !!t && (this.etiqueta.contains(t) || !!t.closest?.('button, a, input, video, audio, select, [role=button], [role=link]'));
+  }
+
+  ignoreMutation(): boolean {
+    return true;
+  }
+
+  destroy(): void {
+    this.ctx.appRef.detachView(this.ref.hostView);
+    this.ref.destroy();
+  }
+}
+
+@Component({
+  selector: 'app-visual-editor',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None,
+  host: { class: 'vis-folha', '[class.vis-grande]': 'grande()', '[class.vis-encher]': 'encher()' },
+  template: '',
+  styleUrl: './visual-editor.scss',
+})
+export class VisualEditor implements OnInit, OnDestroy, VisualApi {
+  /** O texto de agora (o `value` do editor). */
+  readonly texto = input.required<string>();
+  /** À mostra e valendo: escondido (na aba Markdown, ou atrás da tela cheia), não acompanha o texto. */
+  readonly ativo = input(true);
+  readonly grande = input(false);
+  /** A folha enche o lugar que o pai der (a anotação), como a do Markdown. */
+  readonly encher = input(false);
+  readonly placeholder = input('');
+  /** O nome da folha para o leitor de tela. */
+  readonly rotulo = input('');
+  /** O id do contador embaixo da folha (`aria-describedby`). */
+  readonly descrito = input<string | null>(null);
+  /** O máximo de caracteres da string guardada. */
+  readonly max = input<number | null>(null);
+  /** Os links para outras anotações, nos trechos crus. */
+  readonly links = input<NoteLinks | null>(null);
+
+  /** O texto que a pessoa escreveu. */
+  readonly mudou = output<string>();
+  readonly estado = output<EstadoVisual>();
+  /** O Visual está pronto: a régua fala com ele por aqui. */
+  readonly pronto = output<VisualApi>();
+  readonly foco = output<FocusEvent>();
+  readonly desfoco = output<FocusEvent>();
+  /** "Mudar no Markdown" num trecho cru: a seleção (no texto) onde o Markdown abre. */
+  readonly pedeMarkdown = output<[number, number]>();
+  /** Um aviso curto para a pessoa (o limite de caracteres). */
+  readonly aviso = output<string>();
+
+  readonly host: HTMLElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+  private readonly appRef = inject(ApplicationRef);
+  private readonly injector = inject(EnvironmentInjector);
+  private view?: EditorView;
+  /** O último texto escrito (ou recebido): o que chega igual a ele não refaz nada. */
+  private ultimo = '';
+  private quebra = '\n';
+  /** A fonte nova de cada nó escrito de novo: a próxima escrita sai por ela, sem refazer a linha. */
+  private readonly fontes = new WeakMap<PMNode, Fonte>();
+  private docEscrito?: PMNode;
+  private escrita?: Escrita;
+  private ultimoEstado = '';
+  private avisadoEm = 0;
+
+  constructor() {
+    // o texto mudou por fora (outra ficha, o Markdown, a colega da compartilhada): o documento refaz
+    effect(() => {
+      const texto = this.texto();
+      const ativo = this.ativo();
+      if (!this.view || !ativo || texto === this.ultimo) return;
+      untracked(() => this.carregar(texto));
+    });
+    // o nome, o placeholder e o contador vão para os atributos e a decoração da folha
+    effect(() => {
+      this.rotulo();
+      this.placeholder();
+      this.descrito();
+      untracked(() => this.view?.setProps({}));
+    });
+    effect(() => {
+      this.grande();
+      untracked(() => requestAnimationFrame(() => this.mede()));
+    });
+  }
+
+  ngOnInit(): void {
+    const texto = this.texto();
+    this.view = new EditorView(this.host, {
+      state: this.estadoDe(texto),
+      dispatchTransaction: (tr) => this.aplica(tr),
+      nodeViews: {
+        cru: (node, _view, getPos) =>
+          new CruView(node, getPos, {
+            appRef: this.appRef,
+            injector: this.injector,
+            links: () => this.links(),
+            pedeMarkdown: (pos) => {
+              const at = this.noTexto(this.escrever(this.view!.state.doc), pos);
+              this.pedeMarkdown.emit([at, at]);
+            },
+          }),
+      },
+      attributes: () => {
+        const d = this.descrito();
+        return {
+          class: 'vis-texto',
+          role: 'textbox',
+          'aria-multiline': 'true',
+          'aria-label': this.rotulo() || this.placeholder() || 'Texto',
+          ...(d ? { 'aria-describedby': d } : {}),
+          spellcheck: 'true',
+          autocapitalize: 'sentences',
+          lang: 'pt-BR',
+        };
+      },
+      // o cursor nunca atrás da régua presa em cima do teclado (no celular: 54px da régua e uma linha)
+      scrollMargin: { top: 24, bottom: 120, left: 8, right: 8 },
+      scrollThreshold: { top: 24, bottom: 120, left: 8, right: 8 },
+      clipboardTextParser: (text, _$ctx, plain) => sliceDoTexto(text, plain),
+      clipboardTextSerializer: (slice) => textoDoSlice(slice),
+    });
+    this.ultimo = texto;
+    this.mede();
+    document.fonts?.ready.then(() => this.mede());
+    this.emiteEstado();
+    this.pronto.emit(this);
+  }
+
+  ngOnDestroy(): void {
+    this.view?.destroy();
+    this.view = undefined;
+  }
+
+  // ===== O que a régua pede =====
+
+  run(acao: AcaoVisual): boolean {
+    const v = this.view;
+    if (!v) return false;
+    const cmd = this.comando(acao);
+    if (!cmd) return false;
+    cmd(v.state, v.dispatch, v);
+    v.focus();
+    return true;
+  }
+
+  private comando(acao: AcaoVisual): Command | null {
+    if (typeof acao === 'object') return ESTILOS[acao.estilo] ?? null;
+    if (acao === 'undo') return undo;
+    if (acao === 'redo') return redo;
+    if (acao === 'rule') return divisoria;
+    const m = MARCAS.find(([a]) => a === acao);
+    return m ? marca(m[1]) : null;
+  }
+
+  focus(): void {
+    this.view?.focus();
+  }
+
+  blur(): void {
+    (this.view?.dom as HTMLElement | undefined)?.blur();
+  }
+
+  selecaoNoTexto(): [number, number] {
+    const v = this.view;
+    if (!v) return [0, 0];
+    const e = this.escrever(v.state.doc);
+    const { from, to } = v.state.selection;
+    return [this.noTexto(e, from), this.noTexto(e, to, from !== to)];
+  }
+
+  poeSelecao(de: number, ate: number): void {
+    const v = this.view;
+    if (!v) return;
+    const doc = v.state.doc;
+    const e = this.escrever(doc);
+    if (e.doc.linhas.length !== doc.childCount) return;
+    const max = e.texto.length;
+    const [a, b] = [Math.max(0, Math.min(de, max)), Math.max(0, Math.min(ate, max))];
+    const pa = this.noDoc(e, a);
+    const pb = this.noDoc(e, b);
+    let sel: Selection;
+    const $a = doc.resolve(pa);
+    if (pa === pb) sel = $a.depth === 0 && $a.nodeAfter?.isAtom ? NodeSelection.create(doc, pa) : Selection.near($a);
+    else sel = TextSelection.between($a, doc.resolve(pb));
+    v.dispatch(v.state.tr.setSelection(sel).scrollIntoView());
+  }
+
+  // ===== O texto e o documento =====
+
+  private plugins(): Plugin[] {
+    return [
+      this.passaAdiante(),
+      this.limite(),
+      atalhos(),
+      teclas(),
+      enterPeloBeforeinput(),
+      apagarPeloBeforeinput(),
+      history(),
+      gapCursor(),
+      dropCursor({ color: '#1f5fbf', width: 2 }),
+      this.vazia(),
+    ];
+  }
+
+  private estadoDe(texto: string): EditorState {
+    const d = textToDoc(texto);
+    this.quebra = d.quebra;
+    return EditorState.create({ doc: docDe(d.linhas), plugins: this.plugins() });
+  }
+
+  /** O texto de fora: um documento novo (o histórico recomeça), com o cursor no mesmo ponto do texto. */
+  private carregar(texto: string): void {
+    const v = this.view!;
+    const sel = v.hasFocus() ? this.selecaoNoTexto() : null;
+    v.updateState(this.estadoDe(texto));
+    this.ultimo = texto;
+    if (sel) this.poeSelecao(...sel);
+    this.emiteEstado();
+  }
+
+  /**
+   * O documento em texto, pelo tradutor. O último fica guardado (a mesma transação pede duas vezes), e
+   * cada nó escrito de novo guarda a fonte nova: na próxima tecla, só a linha mexida é escrita de novo.
+   */
+  private escrever(doc: PMNode): Escrita {
+    if (doc === this.docEscrito && this.escrita) return this.escrita;
+    const linhas: LinhaDoc[] = [];
+    doc.forEach((n) => {
+      const l = linhaDe(n);
+      const f = n.type === N['cru'] ? undefined : this.fontes.get(n);
+      linhas.push(f ? { ...l, fonte: f } : l);
+    });
+    const e = docToText({ linhas, quebra: this.quebra });
+    if (e.exato)
+      doc.forEach((n, _, i) => {
+        const f = e.doc.linhas[i]?.fonte;
+        if (f && n.type !== N['cru']) this.fontes.set(n, f);
+      });
+    this.docEscrito = doc;
+    this.escrita = e;
+    return e;
+  }
+
+  private aplica(tr: Transaction): void {
+    const v = this.view;
+    if (!v) return;
+    v.updateState(v.state.apply(tr));
+    if (tr.docChanged) {
+      // a tela mostra o que vai ficar (fora da composição: nada mexe no documento enquanto se compõe)
+      if (!v.composing && !tr.getMeta(AJUSTE)) this.ajusta();
+      const e = this.escrever(v.state.doc);
+      if (e.texto !== this.ultimo) {
+        this.ultimo = e.texto;
+        this.mudou.emit(e.texto);
+      }
+    }
+    this.emiteEstado();
+  }
+
+  /**
+   * A escrita não conseguiu ser exata (um caso sabido do tradutor): as linhas que o leitor lê diferente
+   * passam a ser o que ele lê, fora do histórico. A linha vazia onde está o cursor espera (é o começo
+   * do que a pessoa vai escrever).
+   */
+  private ajusta(): void {
+    const v = this.view!;
+    const doc = v.state.doc;
+    const e = this.escrever(doc);
+    if (e.exato) return;
+    const sel = this.selecaoNoTexto();
+    const $c = v.state.selection.$from;
+    const cursor = $c.depth ? $c.index(0) : -1;
+    const lidas = e.doc.linhas;
+    const tr = v.state.tr.setMeta(AJUSTE, true).setMeta(FORA, true).setMeta('addToHistory', false);
+    if (lidas.length === doc.childCount) {
+      let pos = doc.content.size;
+      for (let i = doc.childCount - 1; i >= 0; i--) {
+        const n = doc.child(i);
+        pos -= n.nodeSize;
+        if (chave(lidas[i]) === chave(normalizarLinha(linhaDe(n)))) continue;
+        if (i === cursor && !n.textContent.trim()) continue;
+        tr.replaceWith(pos, pos + n.nodeSize, noDe(lidas[i]));
+      }
+    } else tr.replaceWith(0, doc.content.size, docDe(lidas).content);
+    if (!tr.docChanged) return;
+    v.dispatch(tr);
+    this.poeSelecao(...sel);
+  }
+
+  /**
+   * A posição do documento no texto escrito. Com `fim` (o fim de uma seleção), colada na letra de
+   * antes; depois de uma peça, no fim dela.
+   */
+  private noTexto(e: Escrita, pos: number, fim = false): number {
+    const doc = this.view!.state.doc;
+    if (e.doc.linhas.length !== doc.childCount) return e.texto.length;
+    const $p = doc.resolve(pos);
+    const i = $p.index(0);
+    if ($p.depth === 0) {
+      if (fim && i > 0) return e.inicios[i - 1] + e.doc.linhas[i - 1].fonte!.texto.length;
+      return i < e.inicios.length ? e.inicios[i] : e.texto.length;
+    }
+    return posicaoNoTexto(e, i, $p.parentOffset, fim);
+  }
+
+  /** A posição do texto escrito no documento (numa peça, logo antes dela). */
+  private noDoc(e: Escrita, at: number): number {
+    const doc = this.view!.state.doc;
+    const { linha, col } = posicaoNoDoc(e, at);
+    let pos = 0;
+    for (let k = 0; k < linha; k++) pos += doc.child(k).nodeSize;
+    const n = doc.maybeChild(linha);
+    if (!n) return doc.content.size;
+    return n.isTextblock ? pos + 1 + Math.min(col, n.content.size) : pos;
+  }
+
+  private emiteEstado(): void {
+    const s = this.view!.state;
+    const est: EstadoVisual = {
+      marcas: MARCAS.filter(([, m]) => ligada(s, m)).map(([a]) => a),
+      estilo: estiloDe(s),
+      desfazer: undoDepth(s) > 0,
+      refazer: redoDepth(s) > 0,
+    };
+    const k = JSON.stringify(est);
+    if (k === this.ultimoEstado) return;
+    this.ultimoEstado = k;
+    this.estado.emit(est);
+  }
+
+  private avisa(texto: string): void {
+    // uma vez a cada tanto (segurar uma tecla no limite não enche a tela de avisos)
+    if (Date.now() - this.avisadoEm < 4000) return;
+    this.avisadoEm = Date.now();
+    this.aviso.emit(texto);
+  }
+
+  private limiteTexto(): string {
+    return `Chegou no limite de ${new Intl.NumberFormat('pt-BR').format(this.max()!)} caracteres`;
+  }
+
+  // ===== Os plugins =====
+
+  /**
+   * O limite é o da string guardada (as marcas contam): a mudança que passaria dele não entra, como a
+   * `maxlength` do Markdown. Durante a composição entra (recusar desencontra o que o teclado mostra), e
+   * o excesso sai quando ela acaba.
+   */
+  private limite(): Plugin {
+    return new Plugin({
+      filterTransaction: (tr) => {
+        const max = this.max();
+        if (!max || !tr.docChanged || tr.getMeta(FORA) || this.view?.composing) return true;
+        const n = this.escrever(tr.doc).texto.length;
+        if (n <= max || n <= this.ultimo.length) return true;
+        this.avisa(tr.getMeta('uiEvent') === 'paste' ? `O que foi colado não coube: ${this.limiteTexto().toLowerCase()}` : this.limiteTexto());
+        return false;
+      },
+      props: {
+        handleDOMEvents: {
+          compositionend: () => {
+            setTimeout(() => this.cortaExcesso());
+            return false;
+          },
+        },
+      },
+    });
+  }
+
+  /** Passou do limite compondo: as letras de antes do cursor saem até caber. */
+  private cortaExcesso(): void {
+    const max = this.max();
+    const v = this.view;
+    if (!max || !v || v.composing) return;
+    for (let vez = 0; vez < 8; vez++) {
+      const excesso = this.escrever(v.state.doc).texto.length - max;
+      const $c = v.state.selection.$from;
+      if (excesso <= 0 || !$c.parent.isTextblock || !$c.parentOffset) break;
+      v.dispatch(v.state.tr.delete(Math.max($c.start(), $c.pos - excesso), $c.pos).setMeta(FORA, true));
+    }
+    if (this.escrever(v.state.doc).texto.length > max) return;
+    this.avisa(this.limiteTexto());
+  }
+
+  /**
+   * O que o Visual não usa passa adiante: o Esc (que fecha o editor da ficha), sem o ProseMirror
+   * cancelar a tecla; o Ctrl+Enter (o "Enviar" do comentário), que não vira linha nova. O foco e a
+   * saída da folha vão para a régua (presa em cima do teclado no celular).
+   */
+  private passaAdiante(): Plugin {
+    return new Plugin({
+      props: {
+        handleDOMEvents: {
+          keydown: (_v, e) => {
+            if (e.key === 'Escape') return true;
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              return true;
+            }
+            return false;
+          },
+          focus: (_v, e) => {
+            this.foco.emit(e);
+            return false;
+          },
+          blur: (_v, e) => {
+            this.desfoco.emit(e);
+            return false;
+          },
+        },
+      },
+    });
+  }
+
+  /** A folha vazia mostra o convite do editor ("Escreva o que quiser…"), como a do Markdown. */
+  private vazia(): Plugin {
+    return new Plugin({
+      props: {
+        decorations: (state) => {
+          const doc = state.doc;
+          const p = this.placeholder();
+          const first = doc.firstChild!;
+          if (!p || doc.childCount !== 1 || first.type !== N['linha'] || first.content.size) return null;
+          return DecorationSet.create(doc, [Decoration.node(0, first.nodeSize, { class: 'vis-vazia', 'data-placeholder': p })]);
+        },
+      },
+    });
+  }
+
+  /** A largura de um espaço na letra da folha: o recuo de cada linha é contado em espaços, como na leitura. */
+  private mede(): void {
+    const dom = this.view?.dom as HTMLElement | undefined;
+    if (!dom?.isConnected) return;
+    const s = document.createElement('span');
+    s.textContent = ' '.repeat(40);
+    s.style.cssText = `position:absolute;visibility:hidden;white-space:pre;font:${getComputedStyle(dom).font}`;
+    this.host.append(s);
+    const w = s.getBoundingClientRect().width / 40;
+    s.remove();
+    if (w > 0) this.host.style.setProperty('--vis-espaco', `${w}px`);
+  }
+}
+
+/** O texto de um trecho copiado, como letras: uma linha por linha; a peça crua, o texto dela. */
+function textoDoSlice(slice: Slice): string {
+  const linhas: string[] = [];
+  slice.content.forEach((n) => {
+    if (n.isTextblock) linhas.push(n.textContent);
+    else if (n.type === N['cru']) linhas.push(textoDoCru(n));
+    else if (n.type === N['divisoria']) linhas.push('---');
+    else linhas.push(n.textContent);
+  });
+  return linhas.join('\n');
+}

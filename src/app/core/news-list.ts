@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-29-caixinha-da-tarefa',
+    id: '2026-10-29-modo-visual-em-teste',
     version: '1.35.4',
     kind: 'ajustes',
     date: '2026-10-29',
-    title: 'O cofre com PIN e carência, quem vê em toda ficha e os widgets na ficha fechada',
+    title: 'O modo Visual do texto (em teste), o cofre com PIN e carência e quem vê em toda ficha',
     melhorias: [
+      'Em teste, o modo Visual do texto: escrever vendo como fica, como no Docs, sem as marcas à vista (as do texto, os títulos, a citação, o sutil e a divisória, pela régua, pelos atalhos e por "# ", "> " ou "->"); o que ele ainda não muda (listas, links, widgets, tabelas, código) aparece como na leitura, com o "Mudar no Markdown". As abas do editor viraram Visual e Markdown (o "Ver como fica" saiu), e trocar de aba leva o cursor junto; para abrir no Visual, Ajustes › Mural › Jeito de escrever.',
       'No cofre, a senha mestra pode ser um PIN (só algarismos, e o celular mostra o teclado de números) ou uma senha curta, ao criar e ao trocar: antes, um aviso diz o que ela protege menos. As fáceis demais (1234, um ano, as mais comuns) e as de menos de 4 caracteres não servem, e com um aparelho sem PRF continua valendo a senha forte.',
       'No cofre, o aparelho que abriu com o Google e a passkey abre de novo, por 24 horas, só com a senha mestra (a carência); 3 senhas erradas, Trancar todos, tirar um aparelho ou congelar a encerram antes, e a tela de abrir tem o "Esquecer este aparelho". Nos Ajustes do cofre, a parte Carência a desliga (ligar de novo pede a passkey ou a senha) e encerra a de cada aparelho.',
       'O olho (pública) e o cadeado (privada) aparecem em toda ficha do seu mural e na ficha aberta, nas anotações e nas análises: antes, só a anotação pública e a análise privada levavam o desenho.',

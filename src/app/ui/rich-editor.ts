@@ -1,8 +1,8 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, toggleCheck, withNumber } from '../core/rich-text';
+import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, withNumber } from '../core/rich-text';
 import { DEFAULT_TABLE_LOOK, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
@@ -17,6 +17,10 @@ import { ImageProblem, imageFileOf, localImageIds, localImageUrl } from '../core
 import { ImageStore } from '../core/image-store';
 import { ImageSync } from '../core/image-sync';
 import { Toasts } from './toast';
+import { Settings } from '../core/settings';
+import { VisualEditor } from './visual-editor/visual-editor';
+import { ESTADO_VAZIO } from './visual-editor/visual-api';
+import type { AcaoVisual, EstadoVisual, MarcaVisual, VisualApi } from './visual-editor/visual-api';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
@@ -34,7 +38,9 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
 
 /**
  * O campo do texto da ficha: a folha pautada de sempre, organizada como os editores que todo mundo
- * conhece (Word, Docs). No alto, as abas "Escrever" e "Ver como fica" e, na outra ponta, "Ajuda" e
+ * conhece (Word, Docs). No alto, as abas "Visual" (escrever vendo como fica, sem as marcas: o
+ * ui/visual-editor/, num pedaço à parte, em teste) e "Markdown" (as marcas à vista, a <textarea> de
+ * sempre); a que abre primeiro é a dos Ajustes ("Jeito de escrever"). Na outra ponta, "Ajuda" e
  * "Tela cheia". Na folha, em cima da margem vermelha do caderno, a régua:
  *
  * - "Formatar": o texto (negrito, itálico, riscado, marca-texto, spoiler, código, com o atalho de
@@ -66,46 +72,55 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
+/** O que o Visual ainda não sabe pôr (as listas, os links, os widgets, a tabela, o bloco de código). */
+const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
+/** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
+const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'rule', 'undo', 'redo'] as const;
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide],
+  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
   template: `
     <ng-template #campo let-big="big">
-      <!-- O alto da folha, como nos editores de sempre: as duas abas (escrever e ver como fica) e, na
-           outra ponta, "Ajuda" e "Tela cheia", sempre com o nome (no celular, só o desenho) -->
+      <!-- O alto da folha, como nos editores de sempre: os dois jeitos de escrever (o Visual, vendo
+           como fica, e o Markdown, com as marcas à vista) e, na outra ponta, "Ajuda" e "Tela cheia",
+           sempre com o nome (no celular, só o desenho) -->
       <div class="cabeca">
-        <div class="abas" role="tablist" aria-label="Escrever ou ver como fica">
+        <div class="abas" role="tablist" aria-label="Jeito de escrever">
           <button
             type="button"
             role="tab"
             class="aba"
-            [id]="areaId + (big ? '-aba-escrever-g' : '-aba-escrever')"
-            [attr.aria-selected]="!seeing()"
+            [id]="areaId + (big ? '-aba-visual-g' : '-aba-visual')"
+            [attr.aria-selected]="visual()"
             [attr.aria-controls]="areaId + (big ? '-papel-g' : '-papel')"
-            [attr.tabindex]="seeing() ? -1 : 0"
-            (click)="see(false, big)"
+            [attr.tabindex]="visual() ? 0 : -1"
+            aria-label="Visual (em teste)"
+            title="Visual (em teste): escrever vendo como fica, sem as marcas"
+            (click)="switchMode(true, big)"
             (keydown)="onTabKey($event, big)"
           >
-            <lucide-icon [img]="WriteIcon" [size]="16" aria-hidden="true" />
-            <span>Escrever</span>
+            <lucide-icon [img]="VisualIcon" [size]="16" aria-hidden="true" />
+            <span>Visual</span>
+            <span class="carimbo-teste em-teste" aria-hidden="true">teste</span>
           </button>
           <button
             type="button"
             role="tab"
             class="aba"
-            [id]="areaId + (big ? '-aba-ver-g' : '-aba-ver')"
-            [attr.aria-selected]="seeing()"
+            [id]="areaId + (big ? '-aba-markdown-g' : '-aba-markdown')"
+            [attr.aria-selected]="!visual()"
             [attr.aria-controls]="areaId + (big ? '-papel-g' : '-papel')"
-            [attr.tabindex]="seeing() ? 0 : -1"
-            (click)="see(true, big)"
+            [attr.tabindex]="visual() ? -1 : 0"
+            title="Markdown: o texto com as marcas à vista"
+            (click)="switchMode(false, big)"
             (keydown)="onTabKey($event, big)"
           >
-            <lucide-icon [img]="SeeIcon" [size]="16" aria-hidden="true" />
-            <span>Ver como fica</span>
+            <lucide-icon [img]="MarkdownIcon" [size]="16" aria-hidden="true" />
+            <span>Markdown</span>
           </button>
         </div>
         <button
@@ -138,13 +153,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
         [class.grande]="big"
         role="tabpanel"
         [id]="areaId + (big ? '-papel-g' : '-papel')"
-        [attr.aria-labelledby]="areaId + (big ? (seeing() ? '-aba-ver-g' : '-aba-escrever-g') : seeing() ? '-aba-ver' : '-aba-escrever')"
+        [attr.aria-labelledby]="areaId + (visual() ? '-aba-visual' : '-aba-markdown') + (big ? '-g' : '')"
       >
         <!-- no celular, enquanto se escreve, a régua desce e fica presa em cima do teclado (ver "presa") -->
         <div
           #regua
           class="regua"
-          [hidden]="seeing()"
           [class.presa]="docked() === big"
           role="toolbar"
           aria-label="Formatação do texto"
@@ -199,7 +213,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   <ng-container *ngTemplateOutlet="estilos; context: { area, big }" />
                   <span class="menu-fio" role="separator"></span>
                   @for (l of lists; track l.act) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
                       <lucide-icon [img]="l.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ l.name }}</span>
                       <kbd class="atalho" aria-hidden="true">{{ l.keys }}</kbd>
@@ -207,7 +221,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                   }
                   <!-- a descrição de um item: uma linha recuada que continua dele (no celular, o único jeito
                        fácil, sem Shift+Enter) -->
-                  <button type="button" role="menuitem" tabindex="-1" class="menu-op" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
+                  <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
                     <lucide-icon [img]="InsideIcon" [size]="17" aria-hidden="true" />
                     <span class="menu-op-nome">Linha dentro do item</span>
                     <kbd class="atalho" aria-hidden="true">Shift+Enter</kbd>
@@ -238,7 +252,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-links'">
                   <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e divisória</p>
                   @for (o of inserts(); track o.act) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual() && o.act !== 'rule'" [attr.aria-disabled]="(visual() && o.act !== 'rule') || null" [attr.title]="visual() && o.act !== 'rule' ? NOT_YET : null" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
                       <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ o.name }}</span>
                       @if (o.keys) {
@@ -252,7 +266,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-widgets'">
                   <p class="menu-secao" [id]="areaId + '-sec-widgets'" aria-hidden="true">Widgets</p>
                   @for (d of widgets; track d.name) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
                       <lucide-icon [img]="iconOf(d.name)" [size]="18" aria-hidden="true" />
                       <span class="widget-op-texto">
                         <span class="menu-op-nome">{{ d.label }}</span>
@@ -275,21 +289,21 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               <lucide-icon [img]="RedoIcon" [size]="18" aria-hidden="true" />
             </button>
             <span class="fio" aria-hidden="true"></span>
-            <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
+            <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" [attr.aria-pressed]="pressed('bold')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
               <lucide-icon [img]="BoldIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
+            <button type="button" class="ferramenta" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" [attr.aria-pressed]="pressed('italic')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
               <lucide-icon [img]="ItalicIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta extra" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
+            <button type="button" class="ferramenta extra" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" [attr.aria-pressed]="pressed('strike')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
               <lucide-icon [img]="StrikeIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta extra" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
+            <button type="button" class="ferramenta extra" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" [attr.aria-pressed]="pressed('mark')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
               <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
             </button>
             <span class="fio" aria-hidden="true"></span>
             @for (l of lists; track l.act) {
-              <button type="button" class="ferramenta" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
+              <button type="button" class="ferramenta" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [title]="visual() ? NOT_YET : l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
                 <lucide-icon [img]="l.icon" [size]="19" aria-hidden="true" />
               </button>
             }
@@ -297,7 +311,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             <button
               type="button"
               class="ferramenta link"
-              title="Link para um endereço (Ctrl+K)"
+              [class.apagado]="visual()"
+              [attr.aria-disabled]="visual() || null"
+              [title]="visual() ? NOT_YET : 'Link para um endereço (Ctrl+K)'"
               aria-label="Link para um endereço"
               aria-keyshortcuts="Control+K"
               [attr.aria-expanded]="urlLink()?.big === big"
@@ -310,7 +326,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
               <button
                 type="button"
                 class="ferramenta extra"
-                title="Link para outra anotação (ou escreva [[)"
+                [class.apagado]="visual()"
+                [attr.aria-disabled]="visual() || null"
+                [title]="visual() ? NOT_YET : 'Link para outra anotação (ou escreva [[)'"
                 aria-label="Link para outra anotação"
                 [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
                 (pointerdown)="$event.preventDefault()"
@@ -321,27 +339,49 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
             }
           </div>
           <!-- presa em cima do teclado: "Pronto" fecha o teclado (e a régua volta para o alto da folha) -->
-          <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="area.blur()">
+          <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="blurSheet(area, big)">
             <lucide-icon [img]="DoneIcon" [size]="20" aria-hidden="true" />
           </button>
         </div>
-        @if (seeing()) {
-          <div class="previa" [class.grande]="big" tabindex="0" [attr.aria-label]="'Como fica: ' + label()">
-            @if (value().trim()) {
-              <app-rich-text [text]="value()" [checkable]="true" [links]="previewLinks()" (toggled)="value.set(toggle(value(), $event))" />
-            } @else {
-              <p class="vazio">Nada escrito ainda.</p>
+        <!-- O Visual: a folha escrita como a leitura (ver ui/visual-editor/). Vem num pedaço à parte, na
+             primeira vez que a aba abre, e fica (escondido na aba Markdown, guardando o desfazer dele);
+             enquanto ele chega, a folha mostra o texto pela leitura, no mesmo lugar -->
+        @if (visualOpened()) {
+          <div class="visual" [class.grande]="big" [hidden]="!visual()" (keydown)="onVisualKey($event, big)" (paste)="onVisualPaste($event)" (dragover)="onDragOver($event)" (drop)="onVisualDrop($event)">
+            @defer (on immediate) {
+              <app-visual-editor
+                [texto]="value()"
+                [ativo]="visual() && (big || !bigOpen())"
+                [grande]="big"
+                [encher]="fill()"
+                [placeholder]="placeholder()"
+                [rotulo]="label() || placeholder()"
+                [descrito]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
+                [max]="max()"
+                [links]="previewLinks()"
+                (mudou)="value.set($event)"
+                (estado)="visualState.set($event)"
+                (pronto)="onVisualReady($event, big)"
+                (foco)="onAreaFocus(big)"
+                (desfoco)="onAreaBlur($event, regua)"
+                (pedeMarkdown)="switchMode(false, big, $event)"
+                (aviso)="toasts.show($event)"
+              />
+            } @placeholder {
+              <div class="visual-chegando" [class.grande]="big" aria-busy="true">
+                <app-rich-text [text]="value()" [links]="previewLinks()" />
+              </div>
             }
           </div>
         }
         <textarea
-          [hidden]="seeing()"
+          [hidden]="visual()"
           #area
           [id]="big ? areaId + '-grande' : areaId"
           [class.grande]="big"
           [placeholder]="placeholder()"
           [attr.aria-label]="big ? label() : null"
-          [value]="value()"
+          [value]="areaValue()"
           [attr.maxlength]="max()"
           [attr.aria-describedby]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
           [attr.aria-autocomplete]="notes() ? 'list' : null"
@@ -366,7 +406,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       }
       @if (max(); as m) {
         <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
-        <p class="contagem" [id]="areaId + '-conta' + (big ? '-grande' : '')" [class.perto]="value().length > m * 0.9" [class.passou]="value().length > m">
+        <p class="contagem" [id]="areaId + '-conta' + (big ? '-grande' : '')" [attr.title]="visual() ? 'Conta também as marcas que o Markdown guarda (o negrito são 4 a mais)' : null" [class.perto]="value().length > m * 0.9" [class.passou]="value().length > m">
           {{ counted(value().length) }} / {{ counted(m) }} caracteres
         </p>
       }
@@ -553,14 +593,17 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
           role="menuitemradio"
           tabindex="-1"
           class="menu-op estilo-op"
-          [attr.aria-checked]="lineStyle() === s.value"
+          [attr.aria-checked]="styleNow() === s.value"
+          [class.apagado]="visual() && s.value === 'codigo'"
+          [attr.aria-disabled]="(visual() && s.value === 'codigo') || null"
+          [attr.title]="visual() && s.value === 'codigo' ? NOT_YET : null"
           (pointerdown)="$event.preventDefault()"
           (pointerenter)="$any($event.currentTarget).focus()"
           (click)="pickStyle(area, s.value)"
         >
           <lucide-icon [img]="s.icon" [size]="17" aria-hidden="true" />
           <span class="menu-op-nome" [attr.data-estilo]="s.value">{{ s.name }}</span>
-          @if (lineStyle() === s.value) {
+          @if (styleNow() === s.value) {
             <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
           }
         </button>
@@ -605,7 +648,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       container: folha / inline-size;
     }
 
-    /* ===== O alto da folha, como nos editores de sempre: as abas "Escrever" e "Ver como fica" à
+    /* ===== O alto da folha, como nos editores de sempre: as abas "Visual" e "Markdown" à
        esquerda; "Ajuda" e "Tela cheia" na outra ponta, com o nome (no estreito, só o desenho) ===== */
     /* o alto mede a si mesmo (não a folha): com a régua presa, a folha deixa de ser medida */
     .cabeca {
@@ -663,6 +706,12 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       outline: 3px solid var(--ink);
       outline-offset: -3px;
     }
+    /* o Visual em teste: o carimbo de caneta azul (styles.scss), miúdo ao lado do nome */
+    .em-teste {
+      padding: 0 4px;
+      border-width: 1.5px;
+      font-size: 0.6rem;
+    }
     /* Os botões da régua e do alto da folha: tinta no papel, um tom por baixo no mouse e aberto */
     .acao-folha,
     .ferramenta,
@@ -693,6 +742,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
     }
     [aria-expanded='true']:is(.acao-folha, .ferramenta, .menu-botao) {
       background: rgb(21 21 21 / 0.1);
+    }
+    /* ligado (no Visual, a marca vale onde está o cursor): a tecla afundada, com o fio de tinta embaixo */
+    .ferramenta[aria-pressed='true'] {
+      background: rgb(21 21 21 / 0.13);
+      box-shadow: inset 0 -2.5px 0 var(--ink);
+    }
+    /* o que o Visual ainda não sabe pôr: apagado, e o toque diz para usar o Markdown */
+    .apagado {
+      opacity: 0.4;
     }
     :is(.acao-folha, .ferramenta, .menu-botao):focus-visible {
       outline: 3px solid var(--ink);
@@ -964,8 +1022,24 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       overflow-y: auto;
     }
 
-    /* ===== Como fica: a mesma folha, já formatada ===== */
-    .previa {
+    /* ===== O Visual (ver ui/visual-editor/): a folha dele desenha a pauta. Enquanto ele chega (a
+       primeira vez), o texto pela leitura, na mesma folha, no mesmo tamanho ===== */
+    .visual {
+      display: flex;
+      flex-direction: column;
+    }
+    .visual[hidden] {
+      display: none;
+    }
+    .visual > app-visual-editor {
+      flex: 1 0 auto;
+    }
+    .visual.grande,
+    .visual.grande > app-visual-editor {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .visual-chegando {
       --line: 1.75rem;
       min-height: calc(var(--line) * var(--linhas, 6) + 8px);
       max-height: 22rem;
@@ -984,22 +1058,13 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       overflow-wrap: anywhere;
       outline: none;
     }
-    .previa:focus-visible {
-      outline: 3px solid var(--ink);
-      outline-offset: -3px;
-    }
-    .previa.grande {
+    .visual-chegando.grande {
       --line: 2rem;
       flex: 1 1 auto;
       min-height: 0;
       max-height: none;
       padding: 4px 18px;
       font-size: 1.3rem;
-    }
-    .vazio {
-      margin: 0;
-      font-style: italic;
-      color: rgb(21 21 21 / 0.55);
     }
     textarea[hidden] {
       display: none;
@@ -1712,7 +1777,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       /* no celular a folha cresce com o texto e quem rola é o editor: uma rolagem só, não uma folha
          rolando dentro de outra (no toque, a de dentro prendia o dedo) */
       textarea:not(.grande),
-      .previa:not(.grande) {
+      .visual-chegando:not(.grande) {
         max-height: none;
       }
     }
@@ -1767,7 +1832,7 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       }
     }
     .papel > textarea.grande,
-    .papel > .previa.grande {
+    .papel > .visual.grande {
       min-height: 5rem;
     }
 
@@ -1782,11 +1847,15 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
       flex-direction: column;
     }
     :host(.encher) > .papel > textarea:not(.grande),
-    :host(.encher) > .papel > .previa:not(.grande) {
+    :host(.encher) > .papel > .visual:not(.grande) {
       flex: 1 0 auto;
       min-height: calc(var(--line) * 6 + 8px);
       max-height: none;
       resize: none;
+    }
+    :host(.encher) .visual-chegando:not(.grande) {
+      flex: 1 0 auto;
+      max-height: none;
     }
   `,
 })
@@ -1834,6 +1903,10 @@ export class RichEditor {
 
   constructor() {
     watchVisualViewport();
+    // aberto no Visual: a folha do Markdown fica no texto de quando ele abriu (ver `areaFrozen`)
+    effect(() => {
+      if (this.visual() && this.areaFrozen() === null) this.areaFrozen.set(untracked(this.value));
+    });
   }
 
   protected readonly LinkIcon = ICON.linkNota;
@@ -1989,6 +2062,7 @@ export class RichEditor {
   /** O que um botão da régua ou um item dos menus faz (o menu fecha antes). */
   protected act(area: HTMLTextAreaElement, big: boolean, what: Action): void {
     this.menu.set(null);
+    if (this.visual()) return this.visualAct(big, what);
     switch (what) {
       case 'bold':
         return this.wrap(area, '**');
@@ -2028,6 +2102,7 @@ export class RichEditor {
    */
   protected history(area: HTMLTextAreaElement, what: 'undo' | 'redo'): void {
     this.menu.set(null);
+    if (this.visual()) return this.visualAct(this.big(), what);
     area.focus();
     document.execCommand(what);
     this.track(area);
@@ -2045,6 +2120,7 @@ export class RichEditor {
 
   protected pickStyle(area: HTMLTextAreaElement, style: LineStyle): void {
     this.menu.set(null);
+    if (this.visual()) return this.visualAct(this.big(), { estilo: style });
     this.setStyle(area, style);
   }
 
@@ -2128,14 +2204,13 @@ export class RichEditor {
     this.showPanel('.guia');
   }
 
-  /** As abas: as setas do lado (e Home, End) trocam entre escrever e ver como fica. */
+  /** As abas: as setas do lado (e Home, End) trocam entre o Visual e o Markdown. */
   protected onTabKey(e: KeyboardEvent, big: boolean): void {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
     e.preventDefault();
-    const on = e.key === 'Home' ? false : e.key === 'End' ? true : !this.seeing();
-    this.seeing.set(on);
-    if (on) this.docked.set(null);
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(`#${this.areaId}${on ? '-aba-ver' : '-aba-escrever'}${big ? '-g' : ''}`)?.focus());
+    const visual = e.key === 'Home' ? true : e.key === 'End' ? false : !this.visual();
+    this.switchMode(visual, big, undefined, false);
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(`#${this.areaId}${visual ? '-aba-visual' : '-aba-markdown'}${big ? '-g' : ''}`)?.focus());
   }
 
   /**
@@ -2187,7 +2262,7 @@ export class RichEditor {
   });
   protected readonly ChosenIcon = ICON.pronto;
 
-  /** Os links em "Ver como fica": mostram se a anotação existe, mas não abrem nada. */
+  /** Os links na folha do Visual e nas prévias: mostram se a anotação existe, mas não abrem nada. */
   protected readonly previewLinks = computed<NoteLinks | null>(() => {
     const notes = this.notes();
     return notes ? { resolve: (title) => resolveNote(notes, title) } : null;
@@ -2204,35 +2279,174 @@ export class RichEditor {
   protected readonly GrowIcon = ICON.aumentar;
   protected readonly ShrinkIcon = ICON.diminuir;
 
-  protected readonly SeeIcon = ICON.ver;
-  protected readonly WriteIcon = ICON.escrever;
-  protected readonly toggle = toggleCheck;
-  /** Mostrando a folha formatada no lugar do campo (a aba "Ver como fica"). */
-  protected readonly seeing = signal(false);
+  protected readonly VisualIcon = ICON.documento;
+  protected readonly MarkdownIcon = ICON.markdown;
 
   /** A tela inteira está aberta. */
   protected readonly big = signal(false);
+  /** O mesmo, com outro nome no molde (lá, `big` é de qual das folhas se fala). */
+  protected readonly bigOpen = this.big;
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('grande');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  /** Onde estava o cursor, para o campo que recebe o foco continuar do mesmo ponto. */
+  /** Onde estava o cursor (no texto), para a folha que recebe o foco continuar do mesmo ponto. */
   private caret: [number, number] = [0, 0];
 
-  /** O campo pequeno recebe o foco (o "Falta…" do editor, o rótulo clicado). */
+  // ===== Os dois jeitos de escrever: o Visual e o Markdown =====
+
+  private readonly settings = inject(Settings);
+  /**
+   * Escrevendo no Visual (vendo como fica) ou no Markdown (as marcas à vista). Abre como os Ajustes
+   * mandam (o "Jeito de escrever", por aparelho); trocar de aba vale só para este editor, até ele abrir
+   * outra ficha (como no Docs, a preferência não muda por um clique).
+   */
+  protected readonly visual = signal(this.settings.writingMode() === 'visual');
+  /** O Visual já abriu alguma vez: ele fica (escondido no Markdown), com o desfazer dele. */
+  protected readonly visualOpened = signal(this.visual());
+  /** O que o Visual conta para a régua: as marcas ligadas, o estilo da linha. */
+  protected readonly visualState = signal<EstadoVisual>(ESTADO_VAZIO);
+  /** As duas folhas do Visual (a pequena e a da tela inteira), quando já chegaram. */
+  private readonly visuals = new Map<boolean, VisualApi>();
+  /** O que fazer com a folha do Visual quando ela chegar (a seleção do texto, o foco). */
+  private visualPending: { big: boolean; sel: [number, number]; focus: boolean } | null = null;
+  /**
+   * O texto do Markdown enquanto o Visual está aberto: o de quando ele saiu (pôr o valor por fora a
+   * cada tecla apagaria o desfazer do navegador). Na volta, o que mudou entra por um `insertText`, e o
+   * Ctrl+Z do Markdown desfaz o que o Visual fez de uma vez. Null: ele acompanha o texto.
+   */
+  private readonly areaFrozen = signal<string | null>(null);
+  protected readonly areaValue = computed(() => this.areaFrozen() ?? this.value());
+  protected readonly NOT_YET = NOT_YET;
+
+  /** O estilo do parágrafo da linha do cursor, no jeito que está à mostra. */
+  protected readonly styleNow = computed<LineStyle | null>(() => (this.visual() ? this.visualState().estilo : this.lineStyle()));
+
+  /** O botão da marca está ligado (só no Visual: no Markdown a marca é o que está escrito). */
+  protected pressed(mark: MarcaVisual): boolean | null {
+    return this.visual() ? this.visualState().marcas.includes(mark) : null;
+  }
+
+  private visualOf(big: boolean): VisualApi | null {
+    const v = this.visuals.get(big);
+    return v?.host.isConnected ? v : null;
+  }
+
+  /** A folha do Visual chegou: guardada, e o que esperava por ela (a seleção, o foco) acontece. */
+  protected onVisualReady(api: VisualApi, big: boolean): void {
+    this.visuals.set(big, api);
+    const p = this.visualPending;
+    if (p?.big === big && this.visual()) {
+      this.visualPending = null;
+      api.poeSelecao(...p.sel);
+      if (p.focus) api.focus();
+    }
+  }
+
+  /**
+   * Troca de aba, com o cursor e a seleção no mesmo lugar do texto (`sel`: onde abrir, quando quem
+   * pede é um trecho cru do Visual). Para o Markdown, a folha aparece e recebe o que o Visual mudou.
+   */
+  protected switchMode(visual: boolean, big: boolean, sel?: [number, number], focus = true): void {
+    if (this.visual() === visual) return;
+    this.menu.set(null);
+    this.closePanels();
+    if (visual) {
+      const area = this.areaOf(big);
+      const at: [number, number] = sel ?? (area ? [area.selectionStart, area.selectionEnd] : [0, 0]);
+      this.areaFrozen.set(area?.value ?? this.value());
+      this.visualOpened.set(true);
+      this.visual.set(true);
+      const api = this.visualOf(big);
+      if (api) {
+        // a folha volta a valer no próximo desenho (com o texto de agora): depois, a seleção
+        setTimeout(() => {
+          api.poeSelecao(...at);
+          if (focus) api.focus();
+        });
+      } else this.visualPending = { big, sel: at, focus };
+      return;
+    }
+    const at = sel ?? this.visualOf(big)?.selecaoNoTexto() ?? [this.value().length, this.value().length];
+    this.visual.set(false);
+    setTimeout(() => {
+      const area = this.areaOf(big);
+      if (!area) return;
+      // o insertText só vale com a folha à mostra e com o foco
+      const back = document.activeElement as HTMLElement | null;
+      area.focus({ preventScroll: true });
+      if (area.value !== this.value()) this.replaceAll(area, this.value(), at[0]);
+      this.areaFrozen.set(null);
+      area.setSelectionRange(at[0], at[1]);
+      this.track(area);
+      if (!focus) back?.focus();
+    });
+  }
+
+  /** O que o Visual ainda não sabe fazer: um aviso curto, e a aba Markdown à mão. */
+  private notYet(): void {
+    this.toasts.show(NOT_YET);
+  }
+
+  /** O que a régua pede, no Visual (o que ele ainda não sabe, avisa). */
+  private visualAct(big: boolean, what: AcaoVisual | Action): void {
+    const api = this.visualOf(big);
+    const ok = typeof what === 'object' || (VISUAL_ACTS as readonly string[]).includes(what);
+    if (!api || !ok || !api.run(what as AcaoVisual)) this.notYet();
+  }
+
+  /** As teclas que a folha do Visual deixa passar: a Ajuda, e as do que ele ainda não sabe fazer. */
+  protected onVisualKey(e: KeyboardEvent, big: boolean): void {
+    if (e.key === 'Escape' && this.guide() !== null) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.guide.set(null);
+      return;
+    }
+    const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    if (mod && !e.shiftKey && (e.key === '/' || e.code === 'Slash')) {
+      e.preventDefault();
+      this.toggleGuide(big);
+    } else if ((mod && !e.shiftKey && e.key.toLowerCase() === 'k') || (mod && e.shiftKey && LIST_KEYS[e.code])) {
+      e.preventDefault();
+      this.notYet();
+    }
+  }
+
+  /** A imagem colada ou solta no Visual: ainda não (e o arquivo não abre por cima do Murall). */
+  protected onVisualPaste(e: ClipboardEvent): void {
+    if (e.defaultPrevented || !imageFileOf(e.clipboardData) || e.clipboardData?.getData('text/plain')) return;
+    e.preventDefault();
+    this.notYet();
+  }
+
+  protected onVisualDrop(e: DragEvent): void {
+    if (!e.dataTransfer?.files.length) return;
+    e.preventDefault();
+    this.notYet();
+  }
+
+  /** "Pronto" (a régua presa no celular): o teclado fecha. */
+  protected blurSheet(area: HTMLTextAreaElement, big: boolean): void {
+    if (this.visual()) this.visualOf(big)?.blur();
+    else area.blur();
+  }
+
+  /** A folha pequena recebe o foco (o "Falta…" do editor, o rótulo clicado), no jeito que está à mostra. */
   focus(): void {
-    this.host.nativeElement.querySelector<HTMLTextAreaElement>(`#${this.areaId}`)?.focus();
+    if (!this.visual()) {
+      this.host.nativeElement.querySelector<HTMLTextAreaElement>(`#${this.areaId}`)?.focus();
+      return;
+    }
+    const api = this.visualOf(false);
+    if (api) api.focus();
+    else this.visualPending = { big: false, sel: [this.value().length, this.value().length], focus: true };
   }
 
-  /** Troca entre escrever e ver como fica; voltando a escrever, o foco volta para o campo. */
-  protected see(on: boolean, big: boolean): void {
-    this.seeing.set(on);
-    // o campo some: a régua presa volta para o alto (o foco que sai de um campo escondido nem sempre avisa)
-    if (on) this.docked.set(null);
-    if (!on) setTimeout(() => this.focusAt(big ? `#${this.areaId}-grande` : `#${this.areaId}`));
-  }
-
-  /** Volta a escrever (o editor abre outra ficha). */
+  /** O editor abre outra ficha: a aba volta a ser a dos Ajustes, e o resto, ao começo. */
   reset(): void {
-    this.seeing.set(false);
+    this.visual.set(this.settings.writingMode() === 'visual');
+    if (this.visual()) this.visualOpened.set(true);
+    this.areaFrozen.set(null);
+    this.visualPending = null;
     this.docked.set(null);
     this.linking.set(null);
     this.dismissedAt = -1;
@@ -2379,7 +2593,9 @@ export class RichEditor {
   /** O foco saiu da régua presa (de um menu dela) para fora da folha: ela volta para o lugar dela. */
   protected onRulerFocusOut(e: FocusEvent, area: HTMLTextAreaElement): void {
     const to = e.relatedTarget as Node | null;
-    if (to !== area && !(e.currentTarget as HTMLElement).contains(to)) this.docked.set(null);
+    // para a folha (a do Markdown ou a do Visual), ela continua presa
+    const sheet = this.visual() ? (e.currentTarget as HTMLElement).parentElement?.querySelector('.visual') : area;
+    if (!sheet?.contains(to) && !(e.currentTarget as HTMLElement).contains(to)) this.docked.set(null);
   }
 
   /** Setas, Enter, Tab e Esc na lista da "[[" (pela folha). Devolve se usou a tecla. */
@@ -2438,11 +2654,25 @@ export class RichEditor {
   }
 
   protected grow(area: HTMLTextAreaElement): void {
-    this.caret = [area.selectionStart, area.selectionEnd];
+    this.caret = this.visual() ? (this.visualOf(false)?.selecaoNoTexto() ?? [0, 0]) : [area.selectionStart, area.selectionEnd];
     this.big.set(true);
     this.dialog().nativeElement.showModal();
-    // o campo grande nasce no próximo desenho: o foco vai para ele, no mesmo ponto do texto
-    setTimeout(() => this.focusAt(`#${this.areaId}-grande`));
+    // a folha grande nasce no próximo desenho: o foco vai para ela, no mesmo ponto do texto
+    if (this.visual()) this.visualAt(true, this.caret);
+    else setTimeout(() => this.focusAt(`#${this.areaId}-grande`));
+  }
+
+  /** A folha do Visual recebe o foco no ponto dado do texto (quando chegar, se ainda não chegou). */
+  private visualAt(big: boolean, sel: [number, number]): void {
+    const api = this.visualOf(big);
+    if (!api) {
+      this.visualPending = { big, sel, focus: true };
+      return;
+    }
+    setTimeout(() => {
+      api.poeSelecao(...sel);
+      api.focus();
+    });
   }
 
   protected shrink(): void {
@@ -2451,10 +2681,15 @@ export class RichEditor {
 
   protected onClosed(): void {
     const big = this.host.nativeElement.querySelector<HTMLTextAreaElement>(`#${this.areaId}-grande`);
-    if (big) this.caret = [big.selectionStart, big.selectionEnd];
+    const visual = this.visual() ? this.visualOf(true) : null;
+    if (visual) this.caret = visual.selecaoNoTexto();
+    else if (big && !this.visual()) this.caret = [big.selectionStart, big.selectionEnd];
     this.big.set(false);
     this.docked.set(null);
-    this.focusAt(`#${this.areaId}`);
+    // a folha pequena do Visual volta a valer com o texto da grande (o histórico fica com a grande:
+    // a mesma folha nas duas é da rodada 8)
+    if (this.visual()) this.visualAt(false, this.caret);
+    else this.focusAt(`#${this.areaId}`);
   }
 
   private focusAt(selector: string): void {
@@ -2724,7 +2959,7 @@ export class RichEditor {
   }
 
   private readonly images = inject(ImageStore);
-  private readonly toasts = inject(Toasts);
+  protected readonly toasts = inject(Toasts);
   /** Uma imagem colada sendo encolhida e guardada. */
   protected readonly savingImage = signal(false);
 
@@ -2802,6 +3037,7 @@ export class RichEditor {
   /** Escolheu um widget no menu: a folha dele abre. */
   protected chooseWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
     this.menu.set(null);
+    if (this.visual()) return this.notYet();
     this.startWidget(area, big, def);
   }
   /**

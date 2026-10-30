@@ -1,0 +1,237 @@
+@use '../formatado';
+
+// O modo Visual: a folha pautada do editor (a mesma do Markdown: a letra à mão, a pauta azul, o cursor
+// vermelho), com o texto desenhado como a leitura (ui/_formatado.scss). Sem o encapsulamento do Angular
+// (o DOM é do ProseMirror): tudo debaixo de `.vis-folha`, e as classes próprias com `vis-`.
+
+.vis-folha {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vis-folha > .ProseMirror {
+  --line: 1.75rem;
+  position: relative;
+  flex: 1 0 auto;
+  min-height: calc(var(--line) * var(--linhas, 6) + 8px);
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: 4px 10px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line))
+      0 4px;
+  background-attachment: local;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: var(--line);
+  caret-color: var(--red);
+  outline: none;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
+
+  // ===== O desenho da leitura =====
+  @include formatado.linha;
+  @include formatado.enfases;
+  @include formatado.codigo;
+  @include formatado.titulos;
+  @include formatado.citacao;
+  @include formatado.sutil;
+  @include formatado.divisoria;
+  @include formatado.seta-url;
+  @include formatado.elo;
+
+  // o marca-texto e o código são <mark> e <code>: sem a cor e a letra do navegador
+  mark.marca {
+    color: inherit;
+  }
+
+  // cada linha do texto é um nó; o recuo (os espaços do começo, na leitura) é o da primeira linha
+  > * {
+    margin: 0;
+    text-indent: calc(var(--recuo, 0) * var(--vis-espaco, 0.27em));
+  }
+
+  // a citação de várias linhas seguidas é um risco só, como na leitura
+  > .citacao:has(+ .citacao)::before {
+    bottom: 0;
+  }
+  > .citacao + .citacao::before {
+    top: 0;
+  }
+
+  // a divisória é uma peça: selecionada, a moldura de caneta em volta
+  > .divisoria {
+    cursor: pointer;
+  }
+
+  // a folha vazia: o convite do editor, onde o cursor está (não empurra o cursor)
+  > .vis-vazia::before {
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    color: rgb(21 21 21 / 0.7);
+    pointer-events: none;
+  }
+
+  // o spoiler, na escrita: quem escreve precisa ler o que escreve. Uma tarja translúcida com listras
+  // finas de caneta preta por cima do texto legível (na leitura, a tarja é preta e esconde)
+  .vis-spoiler {
+    background:
+      repeating-linear-gradient(-45deg, rgb(21 21 21 / 0.2) 0 1.5px, transparent 1.5px 5px) no-repeat 0 56% / 100% 1.08em,
+      linear-gradient(rgb(21 21 21 / 0.07), rgb(21 21 21 / 0.07)) no-repeat 0 56% / 100% 1.08em;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    padding: 0 0.12em;
+    border-radius: 3px 2px 3px 2px;
+  }
+
+  // o link de caneta não abre na escrita (o painel do link é da próxima rodada)
+  .elo {
+    cursor: text;
+  }
+}
+
+// ===== As peças =====
+
+// selecionada (a divisória, o trecho cru): a moldura de caneta, como o foco no resto do site
+.vis-folha > .ProseMirror > .ProseMirror-selectednode {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+// O trecho cru: como a leitura o mostra, com uma borda tracejada discreta (um contorno, que não muda a
+// altura das linhas e deixa a letra sentada na pauta). Tocado, a etiqueta diz que ele só se muda no
+// Markdown e leva até lá.
+.vis-folha .vis-cru {
+  position: relative;
+  outline: 1.5px dashed rgb(21 21 21 / 0.3);
+  outline-offset: 1px;
+  border-radius: 2px;
+  cursor: default;
+}
+// a etiqueta entra embaixo do trecho, na altura de uma linha da pauta (duas no toque, para o dedo):
+// o texto de baixo desce linhas inteiras e continua sentado na pauta
+.vis-folha .vis-cru-etiqueta {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: var(--line);
+  overflow: hidden;
+  text-indent: 0;
+  white-space: nowrap;
+}
+.vis-folha .vis-cru.ProseMirror-selectednode .vis-cru-etiqueta {
+  display: flex;
+}
+.vis-folha .vis-cru-aviso {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.vis-folha .vis-cru-aviso {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vis-folha .vis-cru-botao {
+  flex: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0 8px;
+  height: calc(var(--line) - 2px);
+  font-size: 0.95rem;
+}
+@media (pointer: coarse) {
+  .vis-folha .vis-cru-etiqueta {
+    height: calc(2 * var(--line));
+    flex-wrap: wrap;
+    align-content: center;
+    gap: 0 12px;
+    white-space: normal;
+  }
+  .vis-folha .vis-cru-botao {
+    height: var(--line);
+  }
+}
+
+// O cursor de lacuna (perto de uma peça, no começo ou no fim do texto): um risco vermelho como o cursor
+.vis-folha .ProseMirror-gapcursor {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+}
+.vis-folha .ProseMirror-gapcursor::after {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 2px solid var(--red);
+  animation: vis-pisca 1.1s steps(2, start) infinite;
+}
+@keyframes vis-pisca {
+  to {
+    visibility: hidden;
+  }
+}
+.vis-folha .ProseMirror-focused .ProseMirror-gapcursor {
+  display: block;
+}
+.vis-folha .ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+.vis-folha .ProseMirror-hideselection {
+  caret-color: transparent;
+}
+.vis-folha .ProseMirror [draggable][contenteditable='false'] {
+  user-select: text;
+}
+.vis-folha img.ProseMirror-separator {
+  display: inline !important;
+  border: none !important;
+  margin: 0 !important;
+}
+
+// ===== Na tela inteira, e enchendo o lugar (a anotação) =====
+.vis-folha.vis-grande {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.vis-folha.vis-grande > .ProseMirror {
+  --line: 2rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  padding: 4px 18px;
+  font-size: 1.3rem;
+}
+.vis-folha.vis-encher:not(.vis-grande) > .ProseMirror {
+  min-height: calc(var(--line) * 6 + 8px);
+  max-height: none;
+}
+@media (max-width: 559px) {
+  // no celular a folha cresce com o texto e quem rola é o editor (uma rolagem só)
+  .vis-folha:not(.vis-grande) > .ProseMirror {
+    max-height: none;
+  }
+  .vis-folha.vis-grande > .ProseMirror {
+    padding: 4px 10px;
+    font-size: 1.18rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vis-folha .ProseMirror-gapcursor::after {
+    animation: none;
+  }
+}

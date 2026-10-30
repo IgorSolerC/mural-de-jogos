@@ -1394,6 +1394,21 @@ dialog.sheet {
   text-transform: uppercase;
   color: var(--ink);
 }
+/* "Em teste": o carimbo de caneta azul do que ainda está sendo conferido (o modo Visual do texto) */
+.carimbo-teste {
+  display: inline-block;
+  padding: 1px 6px 0;
+  border: 2px solid var(--caneta-azul);
+  border-radius: 3px;
+  rotate: -3deg;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: var(--caneta-azul);
+}
 .acao-caneta {
   display: inline-flex;
   align-items: center;

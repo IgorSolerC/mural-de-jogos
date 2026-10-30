@@ -1719,7 +1719,7 @@ export class ReviewEditor {
       setTimeout(() => {
         if (!this.noteTitle().trim()) root.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')?.focus();
         else if (!this.dateValid()) root.querySelector<HTMLInputElement>('#editor-data')?.focus();
-        else root.querySelector<HTMLTextAreaElement>('app-rich-editor textarea:not(.grande)')?.focus();
+        else this.writer()?.focus();
       });
       return;
     }
@@ -1733,7 +1733,7 @@ export class ReviewEditor {
       else if (this.missingScores().length)
         root.querySelector<HTMLInputElement>(`[data-nota="${this.missingScores()[0]}"] input`)?.focus();
       else if (this.noneCounts()) root.querySelector<HTMLSelectElement>('.subs select')?.focus();
-      else if (this.textTooLong()) root.querySelector<HTMLTextAreaElement>('app-rich-editor textarea:not(.grande)')?.focus();
+      else if (this.textTooLong()) this.writer()?.focus();
       else root.querySelector<HTMLInputElement>('#editor-nota-final')?.focus();
     });
   }
