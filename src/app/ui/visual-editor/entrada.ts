@@ -94,7 +94,8 @@ export const apagarPeloBeforeinput = (): Plugin =>
           const sel = state.selection;
           const naBorda = sel.empty && (dir < 0 ? sel.$from.parentOffset === 0 : sel.$from.parentOffset === sel.$from.parent.content.size);
           if (dir < 0 && undoInputRule(state, view.dispatch)) return true;
-          if (!sel.empty || naBorda || !dir || !(sel instanceof TextSelection)) {
+          // (a letra do meio só numa linha de letras: um cursor fora dela, entre blocos, é coisa de borda)
+          if (!sel.empty || naBorda || !dir || !(sel instanceof TextSelection) || !sel.$from.parent.isTextblock) {
             (dir > 0 ? apagarParaFrente : apagarParaTras)(state, view.dispatch, view);
             return true;
           }

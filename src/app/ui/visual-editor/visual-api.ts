@@ -1,4 +1,5 @@
 import type { LineStyle } from '../rich-editor';
+import type { Align, TableLook } from '../../core/tables';
 import type { WidgetSize } from '../../core/widgets';
 
 /**
@@ -13,10 +14,38 @@ export type MarcaVisual = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 's
 export type ListaVisual = 'ul' | 'ol' | 'check';
 
 /**
- * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, o desfazer,
- * ou o estilo do parágrafo.
+ * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, a tabela nova
+ * (`tabela`, a 3×2 do Inserir), o desfazer, o estilo do parágrafo, ou uma ação do menu "Tabela".
  */
-export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'undo' | 'redo' | { estilo: LineStyle };
+export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela };
+
+/** O que o menu "Tabela" da régua pede (as ações da grade da folha da tabela, ui/table-grid.ts). */
+export type AcaoTabela =
+  | 'fileiraEmCima'
+  | 'fileiraEmbaixo'
+  | 'colunaAntes'
+  | 'colunaDepois'
+  | 'subirFileira'
+  | 'descerFileira'
+  | 'colunaParaTras'
+  | 'colunaParaFrente'
+  | 'tirarFileira'
+  | 'tirarColuna'
+  | 'tirarTabela'
+  | { alinhar: Align }
+  | { jeito: TableLook };
+
+/** A tabela do cursor, para o menu "Tabela" da régua (ele aparece com ela). */
+export interface EstadoTabela {
+  /** A fileira do cursor (0 é o cabeçalho) e quantas a tabela tem (com o cabeçalho). */
+  fileira: number;
+  fileiras: number;
+  coluna: number;
+  colunas: number;
+  /** O alinhamento da coluna do cursor. */
+  alinhar: Align;
+  jeito: TableLook;
+}
 
 /** O que o Visual conta à régua a cada mudança de seleção ou de texto. */
 export interface EstadoVisual {
@@ -34,6 +63,8 @@ export interface EstadoVisual {
   link: number | null;
   /** O widget selecionado (a peça inteira): a régua mostra a tirinha dele. */
   peca: PecaVisual | null;
+  /** A tabela do cursor: a régua mostra o menu "Tabela". */
+  tabela: EstadoTabela | null;
 }
 
 /** Um widget da folha do Visual: onde ele está no documento e o que ele é. */
@@ -42,6 +73,8 @@ export interface PecaVisual {
   nome: string;
   args: readonly string[];
   tamanho: WidgetSize;
+  /** A tabela (no `lugarDaPeca('tabela')`): o markdown dela, sem a marca do jeito (o jeito vai em `args`). */
+  corpo?: string;
 }
 
 /**
@@ -80,8 +113,11 @@ export interface VisualApi {
    * do cursor (a folha põe um novo): null.
    */
   lugarDaPeca(nome?: string): PecaVisual | null;
-  /** Põe (ou troca) o widget no lugar guardado; a peça fica selecionada. */
-  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize): void;
+  /**
+   * Põe (ou troca) o widget no lugar guardado; a peça fica selecionada. A tabela (`corpo`: as linhas do
+   * markdown dela) entra como a tabela da folha, com o cursor na primeira célula.
+   */
+  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize, corpo?: readonly string[]): void;
   /** Tira o widget guardado (ou o selecionado). */
   tiraPeca(): void;
   /** A folha fechou sem mudar nada: o foco volta, com o widget selecionado (ou o cursor no lugar). */
@@ -101,4 +137,4 @@ export interface ImagemVisual {
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null, tabela: null };

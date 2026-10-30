@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-gastos-como-anotar',
+    id: '2026-10-30-visual-tabela',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
-    title: 'O modo Visual com widgets, listas e links, e o Como anotar dos Gastos',
+    title: 'O modo Visual com tabelas, widgets, listas e links, e o Como anotar dos Gastos',
     melhorias: [
+      'No modo Visual (em teste), a tabela se escreve direto na folha, célula por célula, no jeito dela: o Inserir › Tabela põe uma de três colunas com o cursor na primeira célula; o Tab anda (na última célula, abre uma fileira), o Enter desce e o Shift+Enter sobe; colar de uma planilha espalha as células; e o menu Tabela da régua, com o cursor nela, põe, move e tira fileiras e colunas, alinha a coluna, troca o jeito e abre a tabela na folha dela.',
       'No modo Visual (em teste), os widgets aparecem vivos na folha: um toque seleciona (o Editar e o Tirar de sempre), a legenda da imagem e do vídeo e o título do contador e da faixa se escrevem direto neles, o Delete tira e o Enter abre uma linha embaixo; o Inserir põe cada widget (a tabela ainda pela aba Markdown), dá para arrastar um para outro lugar, e a imagem colada ou solta entra no lugar dela, com "Guardando a imagem…" enquanto chega.',
       'No modo Visual (em teste), as listas e as tarefas se escrevem direto na folha, com os números da leitura: "- ", "1. " ou "[ ] " no começo da linha (ou a régua, ou Ctrl+Shift+8, 7 e 9) faz a lista; o Enter continua (o número seguinte, e os de baixo descem) e, num item vazio, a lista acaba; o Shift+Enter abre a descrição embaixo do item; o Tab e o Shift+Tab mudam o nível com a descrição junto; o Backspace no começo tira o marcador; e a caixinha marca a tarefa com um toque (ou Ctrl+Alt+Enter), riscando a descrição junto.',
       'A Ajuda da aba Visual mostra os atalhos de teclado e os de digitação dela (o "# ", o "```", o "[[", o endereço que vira link), sem as marcas, que lá não aparecem; a da aba Markdown continua a de sempre.',

@@ -19,10 +19,10 @@ import { dropCursor } from 'prosemirror-dropcursor';
 import { GapCursor, gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
-import { Mark, MarkType, Node as PMNode, Slice } from 'prosemirror-model';
+import { Fragment, Mark, MarkType, Node as PMNode, Slice } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
-import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNoDoc, posicaoNoTexto, textToDoc } from '../../core/rich-doc';
+import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNaTabela, posicaoNoDoc, posicaoNoTexto, textToDoc } from '../../core/rich-doc';
 import { NoteLinks } from '../../core/note-links';
 import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
@@ -33,10 +33,11 @@ import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
 import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
 import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
-import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
+import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
+import { acaoTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
-import { WidgetSize } from '../../core/widgets';
+import { WidgetSize, widgetLines } from '../../core/widgets';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -87,15 +88,17 @@ const ESTILOS: Partial<Record<LineStyle, Command>> = {
 
 /** A marca vale na seleção inteira (ou, sem seleção, na próxima letra). */
 function ligada(state: EditorState, tipo: MarkType): boolean {
-  const { from, to, empty, $from } = state.selection;
+  const { empty, $from, ranges } = state.selection;
   if (empty) return !!tipo.isInSet(state.storedMarks || $from.marks());
   let algum = false;
   let todos = true;
-  state.doc.nodesBetween(from, to, (n) => {
-    if (!n.isText) return;
-    algum = true;
-    if (!tipo.isInSet(n.marks)) todos = false;
-  });
+  // cada faixa da seleção (na de várias células da tabela, uma por célula)
+  for (const r of ranges)
+    state.doc.nodesBetween(r.$from.pos, r.$to.pos, (n) => {
+      if (!n.isText) return;
+      algum = true;
+      if (!tipo.isInSet(n.marks)) todos = false;
+    });
   return algum && todos;
 }
 
@@ -284,7 +287,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
    * Onde o widget da folha vai ficar (o pedido `lugarDaPeca`): o widget que ela troca (`troca`) ou o lugar
    * de um novo. Acompanha as mudanças do documento até a folha pôr, tirar ou fechar.
    */
-  private alvo: (Lugar & { troca: boolean }) | null = null;
+  private alvo: (Lugar & { troca: boolean; sel?: number }) | null = null;
   /** O número do próximo marcador de imagem. */
   private marcas = 0;
 
@@ -356,7 +359,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       // o cursor nunca atrás da régua presa em cima do teclado (no celular: 54px da régua e uma linha)
       scrollMargin: { top: 24, bottom: 120, left: 8, right: 8 },
       scrollThreshold: { top: 24, bottom: 120, left: 8, right: 8 },
-      clipboardTextParser: (text, _$ctx, plain) => sliceDoTexto(text, plain),
+      // na célula da tabela, as células de uma planilha se espalham; as linhas se juntam com espaço
+      clipboardTextParser: (text, $ctx, plain) => sliceNaCelula(text, plain, $ctx) ?? sliceDoTexto(text, plain),
+      transformPasted: (slice, view) => colarNaCelula(slice, view),
       clipboardTextSerializer: (slice) => textoDoSlice(slice),
     });
     this.ultimo = texto;
@@ -384,10 +389,12 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   }
 
   private comando(acao: AcaoVisual): Command | null {
-    if (typeof acao === 'object') return ESTILOS[acao.estilo] ?? null;
+    if (typeof acao === 'object' && 'estilo' in acao) return ESTILOS[acao.estilo] ?? null;
     if (acao === 'undo') return undo;
     if (acao === 'redo') return redo;
     if (acao === 'rule') return divisoria;
+    if (acao === 'tabela') return poeTabela;
+    if (typeof acao === 'object' && 'tabela' in acao) return acaoTabela(acao.tabela);
     // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
     if (acao === 'code') return codigo;
     if (acao === 'ul' || acao === 'ol' || acao === 'check') return lista(acao);
@@ -546,6 +553,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   lugarDaPeca(nome?: string): PecaVisual | null {
     const v = this.view;
     if (!v) return null;
+    if (nome === 'tabela') return this.lugarDaTabela();
     const p = pecaDe(v.state);
     if (p && (!nome || p.nome === nome)) {
       this.alvo = { pos: p.de, lado: 1, troca: true };
@@ -555,9 +563,10 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return null;
   }
 
-  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize): void {
+  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize, corpo?: readonly string[]): void {
     const v = this.view;
     if (!v) return;
+    if (corpo) return this.poeTabelaDaFolha(args, corpo);
     const alvo = this.alvo ?? { ...lugarDoCursor(v.state), troca: false };
     this.alvo = null;
     const tr = v.state.tr;
@@ -578,9 +587,11 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     const alvo = this.alvo;
     this.alvo = null;
     const pos = alvo?.troca ? alvo.pos : pecaDe(v.state)?.de;
-    if (pos === undefined || v.state.doc.nodeAt(pos)?.type !== N['widget']) return v.focus();
+    const tipo = pos === undefined ? null : v.state.doc.nodeAt(pos)?.type;
+    if (pos === undefined || (tipo !== N['widget'] && tipo !== N['tabela'])) return v.focus();
     const tr = v.state.tr;
-    tiraEm(tr, pos);
+    if (tipo === N['tabela']) tiraTabela(tr, pos);
+    else tiraEm(tr, pos);
     v.dispatch(tr.scrollIntoView());
     v.focus();
   }
@@ -591,6 +602,54 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     const alvo = this.alvo;
     this.alvo = null;
     if (alvo?.troca && v.state.doc.nodeAt(alvo.pos)?.type === N['widget']) v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, alvo.pos)).scrollIntoView());
+    // a tabela: o cursor volta para onde estava nela
+    const t = alvo?.troca ? v.state.doc.nodeAt(alvo.pos) : null;
+    if (alvo && t?.type === N['tabela']) {
+      const at = alvo.sel !== undefined && alvo.sel > alvo.pos && alvo.sel < alvo.pos + t.nodeSize ? alvo.sel : posDaCelula(t, alvo.pos, 0, 0);
+      v.dispatch(v.state.tr.setSelection(Selection.near(v.state.doc.resolve(at))).scrollIntoView());
+    }
+    v.focus();
+  }
+
+  // ===== A tabela (ver tabela.ts) =====
+
+  /**
+   * A tabela do cursor, para a folha da tabela ("Abrir na folha" do menu "Tabela"): o jeito e o markdown
+   * dela. O Visual guarda onde ela está (e o cursor), até a folha pôr, tirar ou fechar.
+   */
+  private lugarDaTabela(): PecaVisual | null {
+    const v = this.view!;
+    const t = tabelaEm(v.state.selection.$head);
+    if (!t) {
+      this.alvo = { ...lugarDoCursor(v.state), troca: false };
+      return null;
+    }
+    this.alvo = { pos: t.pos, lado: 1, troca: true, sel: v.state.selection.head };
+    const e = this.escrever(v.state.doc);
+    const i = v.state.doc.resolve(t.pos).index(0);
+    const l = e.doc.linhas.length === v.state.doc.childCount ? e.doc.linhas[i] : null;
+    if (l?.kind !== 'tabela') return null;
+    const linhas = l.fonte!.texto.split(/\r\n|\r|\n/);
+    return { de: t.pos, nome: 'tabela', args: l.jeito ? [l.jeito] : [], tamanho: 'medio', corpo: linhas.slice(l.jeito ? 1 : 0).join('\n') };
+  }
+
+  /** A tabela que a folha devolveu: troca a guardada (com o recuo dela) ou entra no lugar do cursor. */
+  private poeTabelaDaFolha(args: readonly string[], corpo: readonly string[]): void {
+    const v = this.view!;
+    const alvo = this.alvo ?? { ...lugarDoCursor(v.state), troca: false };
+    this.alvo = null;
+    const lida = textToDoc(widgetLines('tabela', args, 'medio', corpo).join('\n')).linhas.find((l) => l.kind === 'tabela');
+    if (!lida) return v.focus();
+    const cria = (recuo: number) => noDe({ ...lida, recuo, fonte: undefined });
+    const tr = v.state.tr;
+    const velha = alvo.troca ? tr.doc.nodeAt(alvo.pos) : null;
+    let at: number;
+    if (velha?.type === N['tabela']) {
+      tr.replaceWith(alvo.pos, alvo.pos + velha.nodeSize, cria(velha.attrs['recuo'] ?? 0));
+      at = alvo.pos;
+    } else at = poeBlocoNoLugar(v.state, tr, Math.min(alvo.pos, tr.doc.content.size), cria);
+    const nova = tr.doc.nodeAt(at)!;
+    v.dispatch(tr.setSelection(TextSelection.create(tr.doc, posDaCelula(nova, at, 0, 0))).scrollIntoView());
     v.focus();
   }
 
@@ -642,6 +701,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       escritor((doc) => this.escrever(doc)),
       this.passaAdiante(),
       this.limite(),
+      protegeTabela(),
       pecas({ imagem: (arquivo, lugar) => this.recebeImagem(arquivo, lugar) }),
       atalhos(),
       keymap({ 'Mod-k': () => (this.pedeLinkAqui('url'), true) }),
@@ -652,6 +712,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       this.colarEndereco(),
       semQuebras(),
       linksInteiros(),
+      edicaoDaTabela(),
+      tabelasRetas(),
       history(),
       gapCursor(),
       dropCursor({ color: '#1f5fbf', width: 2 }),
@@ -717,7 +779,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       }
     // o lugar do widget da folha também (a peça trocada gruda nela mesma)
     if (this.alvo && state.doc !== antes.doc)
-      for (const t of transactions) this.alvo = { ...this.alvo, pos: t.mapping.map(this.alvo.pos, this.alvo.troca ? 1 : this.alvo.lado) };
+      for (const t of transactions)
+        this.alvo = { ...this.alvo, pos: t.mapping.map(this.alvo.pos, this.alvo.troca ? 1 : this.alvo.lado), ...(this.alvo.sel !== undefined ? { sel: t.mapping.map(this.alvo.sel) } : {}) };
     if (state.doc !== antes.doc) {
       // a tela mostra o que vai ficar (fora da composição: nada mexe no documento enquanto se compõe)
       if (!v.composing && !tr.getMeta(AJUSTE)) this.ajusta();
@@ -773,17 +836,21 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       if (fim && i > 0) return e.inicios[i - 1] + e.doc.linhas[i - 1].fonte!.texto.length;
       return i < e.inicios.length ? e.inicios[i] : e.texto.length;
     }
+    // na tabela, a célula e a letra dela
+    const c = doc.child(i).type === N['tabela'] ? celulaEm($p) : null;
+    if (c) return posicaoNaTabela(e, i, c.f, c.c, c.off, fim);
     return posicaoNoTexto(e, i, $p.parentOffset, fim);
   }
 
   /** A posição do texto escrito no documento (numa peça, logo antes dela). */
   private noDoc(e: Escrita, at: number): number {
     const doc = this.view!.state.doc;
-    const { linha, col } = posicaoNoDoc(e, at);
+    const { linha, col, celula } = posicaoNoDoc(e, at);
     let pos = 0;
     for (let k = 0; k < linha; k++) pos += doc.child(k).nodeSize;
     const n = doc.maybeChild(linha);
     if (!n) return doc.content.size;
+    if (celula && n.type === N['tabela']) return posDaCelula(n, pos, celula.fileira, celula.coluna, col);
     return n.isTextblock ? pos + 1 + Math.min(col, n.content.size) : pos;
   }
 
@@ -799,6 +866,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       colchetes: colchetesAntes(s),
       link: s.selection.empty ? (linkEm(s.selection.$from)?.from ?? null) : null,
       peca: pecaDe(s),
+      tabela: estadoTabela(s),
     };
     const k = JSON.stringify(est);
     if (k === this.ultimoEstado) return;
@@ -995,6 +1063,26 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   }
 }
 
+/** As letras de cada célula de uma fileira. */
+function celulasDe(f: PMNode): string[] {
+  const out: string[] = [];
+  f.forEach((c) => out.push(c.textContent));
+  return out;
+}
+
+/**
+ * Inserir › Tabela: a tabela 3×2 direto na folha, com o cursor na primeira célula (no lugar da linha
+ * vazia, ou numa linha só dela depois da do cursor; dentro de um item, no recuo da descrição).
+ */
+const poeTabela: Command = (state, dispatch) => {
+  if (dispatch) {
+    const tr = state.tr;
+    const at = poeBlocoNoLugar(state, tr, lugarDoCursor(state).pos, (recuo) => tabelaVazia(recuo));
+    dispatch(tr.setSelection(TextSelection.create(tr.doc, posDaCelula(tr.doc.nodeAt(at)!, at, 0, 0))).scrollIntoView());
+  }
+  return true;
+};
+
 /** O texto de um trecho copiado, como letras: uma linha por linha; a peça crua, o texto dela. */
 function textoDoSlice(slice: Slice): string {
   const linhas: string[] = [];
@@ -1003,6 +1091,8 @@ function textoDoSlice(slice: Slice): string {
     else if (n.type === N['cru']) linhas.push(textoDoCru(n));
     else if (n.type === N['divisoria']) linhas.push('---');
     else if (n.type === N['widget']) linhas.push(linhaDaPeca(n));
+    // a tabela (ou as fileiras dela): uma linha por fileira, as células separadas por tab (como uma planilha)
+    else if (n.type === N['tabela'] || n.type === N['fileira']) (n.type === N['tabela'] ? n.content : Fragment.from(n)).forEach((f) => linhas.push(celulasDe(f).join('\t')));
     else linhas.push(n.textContent);
   });
   return linhas.join('\n');

@@ -13,6 +13,7 @@ import { CardPicker } from './card-picker';
 import { CoverSleeve } from './cover-sleeve';
 import { NoteWidget } from './note-widget';
 import { Pin } from './pin';
+import { TableLookArt } from './table-look-art';
 import { RichText } from './rich-text';
 import { TableGrid } from './table-grid';
 import { WIDGET_ICONS } from './widget-icons';
@@ -49,7 +50,7 @@ interface FieldRow {
  */
 @Component({
   selector: 'app-widget-sheet',
-  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, RichText, TableGrid],
+  imports: [BackdropClose, CardPicker, CoverSleeve, IconModule, NgTemplateOutlet, NoteWidget, Pin, RichText, TableGrid, TableLookArt],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './widget-sheet.html',
   styleUrl: './widget-sheet.scss',

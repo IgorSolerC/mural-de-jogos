@@ -587,6 +587,59 @@ function celulaComo(texto: string, spans: readonly Span[]): boolean {
 
 const SEPARADOR: Record<Exclude<Align, null> | 'nenhum', string> = { left: ':---', center: ':---:', right: '---:', nenhum: '---' };
 
+type Tabela = Extract<LinhaDoc, { kind: 'tabela' }>;
+
+/** A chave de uma fileira da tabela: as células (com as marcas) e as de sobra. */
+function chaveFileira(celulas: readonly (readonly Span[])[], sobra: readonly string[]): string {
+  return JSON.stringify([celulas.map(chaveSpans), sobra]);
+}
+
+/** A tabela como estava escrita: cada linha dela com a chave do que o leitor leu nela. */
+interface TabelaEscrita {
+  jeito: TableLook | null;
+  /** A linha da marca do jeito, como estava (null: não tinha). */
+  marca: string | null;
+  cabeca: { linha: string; chave: string };
+  sep: string;
+  /** O alinhamento escrito na linha de traços (JSON). */
+  alinhar: string;
+  fileiras: { linha: string; chave: string }[];
+}
+
+const TABELAS_ESCRITAS = new Map<string, TabelaEscrita | null>();
+
+/**
+ * A tabela de onde a linha veio (a fonte dela), linha a linha, para o que não mudou sair como estava
+ * escrito. Só vale com o mesmo recuo e o mesmo número de colunas (com o cabeçalho de outro tamanho, as
+ * fileiras se leem de outro jeito). Guardada pelo texto (a mesma fonte, a mesma resposta).
+ */
+function tabelaDaFonte(l: Tabela): TabelaEscrita | null {
+  const texto = l.fonte?.texto;
+  if (!texto) return null;
+  let t = TABELAS_ESCRITAS.get(texto);
+  if (t === undefined) {
+    const lida = lerLinhas(texto).linhas;
+    const v = lida.length === 1 && lida[0].kind === 'tabela' ? lida[0] : null;
+    const cruas = partir(texto).linhas;
+    const topo = v?.jeito ? 1 : 0;
+    t =
+      v && cruas.length === topo + 2 + v.fileiras.length
+        ? {
+            jeito: v.jeito,
+            marca: topo ? cruas[0] : null,
+            cabeca: { linha: cruas[topo], chave: chaveFileira(v.cabeca, []) },
+            sep: cruas[topo + 1],
+            alinhar: JSON.stringify(v.alinhar),
+            fileiras: v.fileiras.map((f, k) => ({ linha: cruas[topo + 2 + k], chave: chaveFileira(f, v.sobra[k] ?? []) })),
+          }
+        : null;
+    if (t && (v!.recuo !== l.recuo || v!.cabeca.length !== l.cabeca.length)) t = null;
+    if (TABELAS_ESCRITAS.size > 200) TABELAS_ESCRITAS.clear();
+    TABELAS_ESCRITAS.set(texto, t);
+  }
+  return t;
+}
+
 /**
  * A linha (já normalizada) escrita do jeito de sempre: as marcas de bloco e as da linha, com a trava
  * conferindo cada uma pelo leitor. Null se não tem jeito (com `forcar`, a melhor tentativa).
@@ -649,11 +702,23 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
         if (escritas.some((c) => c === null)) return null;
         return recuo + '| ' + [...escritas, ...sobra].join(' | ') + ' |';
       };
-      const cabeca = fileira(l.cabeca);
-      const fileiras = l.fileiras.map((f, r) => fileira(f, l.sobra[r]));
+      // o que não mudou sai como estava escrito (a fileira, o cabeçalho, os traços, a marca do jeito): mexer
+      // numa célula muda só a linha dela (o I2), como nas outras linhas do texto
+      const velha = modo === 'enxuto' ? tabelaDaFonte(l) : null;
+      const usadas = new Set<number>();
+      const daFonte = (k: string): string | null => {
+        if (!velha) return null;
+        const j = velha.fileiras.findIndex((f, n) => f.chave === k && !usadas.has(n));
+        if (j < 0) return null;
+        usadas.add(j);
+        return velha.fileiras[j].linha;
+      };
+      const cabeca = velha && velha.cabeca.chave === chaveFileira(l.cabeca, []) ? velha.cabeca.linha : fileira(l.cabeca);
+      const fileiras = l.fileiras.map((f, r) => daFonte(chaveFileira(f, l.sobra[r] ?? [])) ?? fileira(f, l.sobra[r]));
       if (cabeca === null || fileiras.some((f) => f === null)) return null;
-      const sep = recuo + '| ' + Array.from({ length: cols }, (_, c) => SEPARADOR[l.alinhar[c] ?? 'nenhum']).join(' | ') + ' |';
-      return [...(l.jeito ? [recuo + widgetLine('tabela', [l.jeito])] : []), cabeca, sep, ...(fileiras as string[])];
+      const sep = velha && velha.alinhar === JSON.stringify(l.alinhar) ? velha.sep : recuo + '| ' + Array.from({ length: cols }, (_, c) => SEPARADOR[l.alinhar[c] ?? 'nenhum']).join(' | ') + ' |';
+      const jeito = l.jeito ? (velha?.jeito === l.jeito && velha.marca ? velha.marca : recuo + widgetLine('tabela', [l.jeito])) : null;
+      return [...(jeito ? [jeito] : []), cabeca, sep, ...(fileiras as string[])];
     }
     case 'cru':
       return l.linhas;
@@ -798,10 +863,11 @@ export function posicaoNoTexto(e: Escrita, i: number, col: number, fim = false):
 }
 
 /** A linha do documento e a letra dela onde cai a posição `at` do texto. */
-export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: number } {
+export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: number; celula?: { fileira: number; coluna: number } } {
   let i = 0;
   while (i + 1 < e.inicios.length && e.inicios[i + 1] <= at) i++;
   const l = e.doc.linhas[i];
+  if (l.kind === 'tabela') return { linha: i, ...celulaNoTexto(l, at - e.inicios[i]) };
   if (l.kind === 'codigo') {
     const rel = at - e.inicios[i];
     let col = 0;
@@ -822,3 +888,96 @@ export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: numb
   while (col < visivel.length && mapa[col] < escrito.length && fimDaLetra(escrito, visivel, mapa, col) <= rel) col++;
   return { linha: i, col };
 }
+
+// ===== O cursor na tabela: a célula e a letra dela =====
+
+/** As linhas de uma tabela escrita: onde cada uma começa no texto dela, e o que ela é (a fileira 0 é o cabeçalho). */
+function linhasDaTabela(l: Tabela): { at: number; texto: string; fileira: number | null }[] {
+  const { linhas, quebras } = partir(l.fonte!.texto);
+  const topo = linhas.length - 2 - l.fileiras.length;
+  const out: { at: number; texto: string; fileira: number | null }[] = [];
+  let at = 0;
+  linhas.forEach((t, k) => {
+    // a marca do jeito e a linha de traços não são fileiras
+    out.push({ at, texto: t, fileira: k < topo || k === topo + 1 ? null : k === topo ? 0 : k - topo - 1 });
+    at += t.length + quebras[k].length;
+  });
+  return out;
+}
+
+/** Onde cada célula de uma linha de tabela escrita começa e acaba (sem as barras), contando as de sobra. */
+function celulasDaLinha(t: string): { de: number; ate: number }[] {
+  const barras: number[] = [];
+  for (let k = 0; k < t.length; k++) if (t[k] === '|' && (k === 0 || t[k - 1] !== '\\')) barras.push(k);
+  const comeco = /^\s*/.exec(t)![0].length;
+  const fim = t.trimEnd().length;
+  // a barra da ponta de cada lado não abre célula (como `tableCells`)
+  const cortes = barras.filter((b) => b !== comeco && b !== fim - 1);
+  const de = barras[0] === comeco ? comeco + 1 : comeco;
+  const ate = barras.at(-1) === fim - 1 && fim - 1 > comeco ? fim - 1 : fim;
+  const out: { de: number; ate: number }[] = [];
+  let a = de;
+  for (const b of cortes) {
+    out.push({ de: a, ate: b });
+    a = b + 1;
+  }
+  out.push({ de: a, ate: Math.max(a, ate) });
+  return out;
+}
+
+/**
+ * A posição no texto da letra `col` da célula (`fileira`, `coluna`) da tabela da linha `i` (a fileira 0
+ * é o cabeçalho). Com `fim`, o fim da letra de antes (como `posicaoNoTexto`).
+ */
+export function posicaoNaTabela(e: Escrita, i: number, fileira: number, coluna: number, col: number, fim = false): number {
+  const l = e.doc.linhas[i];
+  const inicio = e.inicios[i];
+  if (l.kind !== 'tabela') return posicaoNoTexto(e, i, col, fim);
+  const linha = linhasDaTabela(l).find((x) => x.fileira === Math.max(0, Math.min(fileira, l.fileiras.length)));
+  if (!linha) return inicio;
+  const cel = celulasDaLinha(linha.texto)[coluna];
+  if (!cel) return inicio + linha.at + linha.texto.length;
+  const escrito = linha.texto.slice(cel.de, cel.ate);
+  const spans = (fileira === 0 ? l.cabeca[coluna] : l.fileiras[fileira - 1]?.[coluna]) ?? [];
+  const visivel = spans.map((s) => s.text).join('');
+  if (!visivel) {
+    // a célula vazia: o meio dos espaços dela (logo depois do primeiro)
+    return inicio + linha.at + Math.min(cel.ate, cel.de + (escrito.startsWith(' ') ? 1 : 0));
+  }
+  const mapa = alinhar(escrito, visivel);
+  const c = Math.max(0, Math.min(col, visivel.length));
+  return inicio + linha.at + cel.de + (fim && c > 0 && mapa[c - 1] < escrito.length ? fimDaLetra(escrito, visivel, mapa, c - 1) : mapa[c]);
+}
+
+/** A célula e a letra dela onde cai a posição `rel` (contada do começo da tabela escrita). */
+function celulaNoTexto(l: Tabela, rel: number): { col: number; celula: { fileira: number; coluna: number } } {
+  const linhas = linhasDaTabela(l);
+  let k = 0;
+  while (k + 1 < linhas.length && linhas[k + 1].at <= rel) k++;
+  const linha = linhas[k];
+  // na marca do jeito, o começo do cabeçalho; na linha de traços, o fim dele
+  if (linha.fileira === null) {
+    const cab = k + 1 < linhas.length && linhas[k + 1].fileira === 0;
+    const coluna = cab ? 0 : Math.max(0, l.cabeca.length - 1);
+    return { col: cab ? 0 : textoDasCelulas(l.cabeca[coluna]).length, celula: { fileira: 0, coluna } };
+  }
+  const f = linha.fileira;
+  const celulas = celulasDaLinha(linha.texto);
+  const r = rel - linha.at;
+  const cols = l.cabeca.length;
+  let c = 0;
+  while (c + 1 < Math.min(cols, celulas.length) && celulas[c + 1].de <= r) c++;
+  const spans = (f === 0 ? l.cabeca[c] : l.fileiras[f - 1]?.[c]) ?? [];
+  const visivel = textoDasCelulas(spans);
+  // nas de sobra (escondidas), o fim da última que aparece
+  if (celulas.length > cols && c === cols - 1 && r > celulas[c].ate) return { col: visivel.length, celula: { fileira: f, coluna: c } };
+  if (!visivel) return { col: 0, celula: { fileira: f, coluna: c } };
+  const escrito = linha.texto.slice(celulas[c].de, celulas[c].ate);
+  const mapa = alinhar(escrito, visivel);
+  const relc = r - celulas[c].de;
+  let col = 0;
+  while (col < visivel.length && mapa[col] < escrito.length && fimDaLetra(escrito, visivel, mapa, col) <= relc) col++;
+  return { col, celula: { fileira: f, coluna: c } };
+}
+
+const textoDasCelulas = (spans: readonly Span[] | undefined) => (spans ?? []).map((s) => s.text).join('');

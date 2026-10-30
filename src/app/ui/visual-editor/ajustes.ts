@@ -19,13 +19,15 @@ export function faixasMudadas(trs: readonly Transaction[]): [number, number][] {
   return out;
 }
 
-/** Os nós de cima (as linhas) que tocam os trechos dados, com a posição de cada um, sem repetir. */
+/** Os nós de cima (as linhas) que tocam os trechos dados, com a posição de cada um, sem repetir; na tabela, as células. */
 export function linhasMexidas(doc: PMNode, faixas: readonly [number, number][]): [PMNode, number][] {
   const vistos = new Set<number>();
   const out: [PMNode, number][] = [];
   for (const [de, ate] of faixas) {
     const [a, b] = [Math.max(0, Math.min(de, doc.content.size)), Math.max(0, Math.min(ate, doc.content.size))];
     doc.nodesBetween(Math.max(0, a - 1), Math.min(doc.content.size, b + 1), (n, pos) => {
+      // na tabela, as células mexidas (cada uma é uma linha de letras)
+      if (n.type.spec['tableRole'] === 'table' || n.type.spec['tableRole'] === 'row') return true;
       if (!vistos.has(pos)) {
         vistos.add(pos);
         out.push([n, pos]);
@@ -39,12 +41,17 @@ export function linhasMexidas(doc: PMNode, faixas: readonly [number, number][]):
 /**
  * Uma linha do texto nunca tem quebra dentro (só o bloco de código tem): a quebra que chegar numa linha
  * (apagar uma seleção que ia do meio de uma linha ao meio de um bloco de código junta os dois) parte a
- * linha ali, como o Enter.
+ * linha ali, como o Enter; na célula da tabela, vira um espaço.
  */
 export function partirQuebras(tr: Transaction, linhas: readonly [PMNode, number][]): void {
   for (const [n, pos] of [...linhas].reverse()) {
     if (!n.isTextblock || n.type.spec.code) continue;
     const texto = n.textContent;
+    // a célula da tabela não tem quebra (o markdown não guarda): a quebra vira um espaço
+    if (n.type.spec['tableRole']) {
+      for (let i = texto.length - 1; i >= 0; i--) if (texto[i] === '\n' || texto[i] === '\r') tr.insertText(' ', tr.mapping.map(pos + 1 + i), tr.mapping.map(pos + 2 + i));
+      continue;
+    }
     for (let i = texto.length - 1; i >= 0; i--) {
       if (texto[i] !== '\n' && texto[i] !== '\r') continue;
       const at = tr.mapping.map(pos + 1 + i);

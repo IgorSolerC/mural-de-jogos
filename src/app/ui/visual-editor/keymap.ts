@@ -1,4 +1,4 @@
-import { chainCommands, deleteSelection, joinBackward, joinForward, selectNodeForward, toggleMark } from 'prosemirror-commands';
+import { chainCommands, deleteSelection, joinBackward, joinForward, selectAll, selectNodeForward, toggleMark } from 'prosemirror-commands';
 import { GapCursor } from 'prosemirror-gapcursor';
 import { redo, undo } from 'prosemirror-history';
 import { undoInputRule } from 'prosemirror-inputrules';
@@ -6,9 +6,10 @@ import { keymap } from 'prosemirror-keymap';
 import { MarkType, Node as PMNode, NodeType } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, TextSelection, Transaction } from 'prosemirror-state';
 import { linkarEndereco } from './links';
-import { enterNaLista, linhaNoItem, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
+import { enterNaLista, linhaNoItem, mapaDe, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
 import { tabNaPeca } from './pecas';
 import { linhaDaPeca, schema, textoDoCru } from './schema';
+import { apagarNaTabela, apagarSelecao, enterNaTabela, entrarNaTabela, tabNaTabela, tabelaEm } from './tabela';
 
 /**
  * O teclado do Visual (PLANO-EDITOR-VISUAL.md, 5.9), escrito tecla por tecla: o `baseKeymap` do
@@ -67,8 +68,13 @@ export const emBloco: Command = (state, dispatch) => {
   if (!nos.length) return false;
   if (dispatch) {
     const recuo: number = nos[0][0].attrs['recuo'] ?? 0;
-    const linhas = nos.map(([n]) => {
+    const mapa = mapaDe(state);
+    const linhas = nos.map(([n, pos]) => {
       if (n.type === N['cru']) return textoDoCru(n);
+      if (n.type === N['tabela']) {
+        const i = state.doc.resolve(pos).index(0);
+        return mapa ? mapa.linhas.slice(mapa.primeira[i], mapa.primeira[i + 1] ?? mapa.linhas.length).join('\n') : n.textContent;
+      }
       if (n.type === N['divisoria']) return '---';
       if (n.type === N['widget']) return linhaDaPeca(n);
       const a: number = n.attrs['recuo'] ?? 0;
@@ -86,6 +92,8 @@ export const emBloco: Command = (state, dispatch) => {
 /** O código: no bloco, ele volta a ser texto; numa linha vazia ou em várias linhas, o bloco; senão, a marca na linha. */
 export const codigo: Command = (state, dispatch) => {
   const { $from, empty } = state.selection;
+  // na célula da tabela, só a marca (a célula não guarda bloco)
+  if (tabelaEm($from)) return marca(M['codigo'])(state, dispatch);
   if ($from.depth === 1 && $from.parent.type === BC && state.selection.$to.sameParent($from)) {
     if (dispatch) {
       const at = $from.before();
@@ -185,7 +193,7 @@ function linhaNova(state: EditorState, pos: number): ReturnType<EditorState['tr'
  * título vazio, ele vira texto. "---" e Enter é a divisória. Numa peça selecionada (ou no cursor de
  * lacuna, perto dela), uma linha nova embaixo (ou ali).
  */
-export const enter: Command = (state, dispatch) => {
+const enterDaLinha: Command = (state, dispatch) => {
   const sel = state.selection;
   if (sel instanceof GapCursor) {
     if (dispatch) dispatch(linhaNova(state, sel.from));
@@ -250,6 +258,9 @@ export const enter: Command = (state, dispatch) => {
   return true;
 };
 
+/** Enter: na célula da tabela, a de baixo (ver tabela.ts); senão, o da linha. */
+export const enter: Command = chainCommands(enterNaTabela(1), enterDaLinha);
+
 /**
  * Backspace no começo de uma linha: o título, a citação e o sutil viram texto; o item perde o marcador
  * (fica texto no mesmo recuo); o texto recuado volta um nível (a descrição de um item sai dele). Com uma
@@ -311,8 +322,12 @@ const apagarNoFim: Command = (state, dispatch) => {
   return true;
 };
 
-export const apagarParaTras: Command = chainCommands(undoInputRule, deleteSelection, apagarNoComeco, joinBackward);
-export const apagarParaFrente: Command = chainCommands(deleteSelection, apagarNoFim, joinForward, selectNodeForward);
+/**
+ * O apagar: uma seleção que toca uma tabela só tira texto, e a tabela nunca se desmancha nem se junta a uma
+ * linha pelo apagar (as lições do Android, ver tabela.ts); o resto, como numa linha.
+ */
+export const apagarParaTras: Command = chainCommands(undoInputRule, apagarSelecao, deleteSelection, apagarNaTabela(-1), apagarNoComeco, entrarNaTabela(-1), joinBackward);
+export const apagarParaFrente: Command = chainCommands(apagarSelecao, deleteSelection, apagarNaTabela(1), entrarNaTabela(1), apagarNoFim, joinForward, selectNodeForward);
 
 /**
  * Tab e Shift+Tab: o texto e os itens entram ou saem um nível (o recuo de 2 em 2, sempre par, como no
@@ -406,8 +421,8 @@ export const divisoria: Command = (state, dispatch) => {
   return true;
 };
 
-/** Shift+Enter: a quebra no bloco de código; num item (ou na descrição dele), a linha dentro dele; senão, o Enter. */
-export const shiftEnter: Command = chainCommands(enterNoCodigo(false), linhaNoItem, enter);
+/** Shift+Enter: na célula, a de cima; a quebra no bloco de código; num item (ou na descrição dele), a linha dentro dele; senão, o Enter. */
+export const shiftEnter: Command = chainCommands(enterNaTabela(-1), enterNoCodigo(false), linhaNoItem, enter);
 
 export const teclas = (): Plugin =>
   keymap({
@@ -416,8 +431,10 @@ export const teclas = (): Plugin =>
     Backspace: apagarParaTras,
     'Shift-Backspace': apagarParaTras,
     Delete: apagarParaFrente,
-    Tab: chainCommands(tabNaPeca, tabNoCodigo(1), recuar(1)),
-    'Shift-Tab': chainCommands(tabNoCodigo(-1), recuar(-1)),
+    Tab: chainCommands(tabNaPeca, tabNaTabela(1), tabNoCodigo(1), recuar(1)),
+    'Shift-Tab': chainCommands(tabNaTabela(-1), tabNoCodigo(-1), recuar(-1)),
+    // tudo (e, apagado, o texto vira uma linha vazia: a tabela sai junto, como no Docs)
+    'Mod-a': selectAll,
     'Mod-b': marca(M['negrito']),
     'Mod-i': marca(M['italico']),
     'Mod-e': codigo,

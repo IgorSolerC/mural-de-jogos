@@ -1,6 +1,7 @@
 import { Fragment, Mark, Node as PMNode, Schema, Slice } from 'prosemirror-model';
 import { Fonte, LinhaDoc, juntarSpans, textToDoc } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
+import { Align, TableLook, tableLookWord } from '../../core/tables';
 import { WidgetSize, parseWidgetLine, widgetLine } from '../../core/widgets';
 
 /**
@@ -9,10 +10,10 @@ import { WidgetSize, parseWidgetLine, widgetLine } from '../../core/widgets';
  * (a linha como estava escrita): sem mudança, o tradutor (core/rich-doc.ts) a devolve byte a byte.
  *
  * Já são nós editáveis a linha, o título, a citação, o sutil, a divisória, o bloco de código (desde a
- * rodada 3), o item de lista (desde a rodada 4), com as marcas da linha, e o widget (desde a rodada 5),
- * uma peça viva (ver pecas.ts); o resto (a tabela e o que o tradutor não escreve igual) é um `cru`: uma
- * peça que mostra o trecho como a leitura e guarda a linha original inteira (com a fonte), então ele sai
- * igual, byte a byte. A tabela ganha nó na rodada 6; até lá, muda no Markdown.
+ * rodada 3), o item de lista (desde a rodada 4), com as marcas da linha, o widget (desde a rodada 5),
+ * uma peça viva (ver pecas.ts), e a tabela (desde a rodada 6, ver tabela.ts), escrita célula por célula;
+ * o resto (o que o tradutor não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e
+ * guarda a linha original inteira (com a fonte), então ele sai igual, byte a byte.
  *
  * As classes do desenho são as da leitura (ver ui/_formatado.scss), dentro da folha do Visual.
  */
@@ -24,6 +25,19 @@ const base = { recuo: { default: 0 }, fonte: { default: null } };
 const recuoDe = (d: HTMLElement | string) => ({ recuo: typeof d === 'string' ? 0 : Math.max(0, Math.min(40, parseInt(d.style.getPropertyValue('--recuo'), 10) || 0)) });
 /** Os endereços que viram link (como o leitor: nada de javascript: nem data:). */
 const HREF_OK = /^(?:https?:|mailto:)/i;
+
+/**
+ * Os atributos da célula: os que o `prosemirror-tables` lê (`colspan`, `rowspan`, `colwidth`; aqui sempre
+ * 1, 1 e nada: a mescla que chegar é desfeita, ver tabela.ts) e o alinhamento da coluna (só desenho).
+ */
+const CELULA = { colspan: { default: 1 }, rowspan: { default: 1 }, colwidth: { default: null }, alinhar: { default: null } };
+const ALINHAR: Record<string, Align> = { left: 'left', center: 'center', right: 'right' };
+const alinharDe = (d: HTMLElement | string) => {
+  const el = d as HTMLElement;
+  const n = (k: string) => Math.max(1, Math.min(50, parseInt(el.getAttribute(k) ?? '1', 10) || 1));
+  return { colspan: n('colspan'), rowspan: n('rowspan'), alinhar: ALINHAR[el.style?.textAlign ?? ''] ?? null };
+};
+const alinhado = (n: PMNode): Record<string, string> => (n.attrs['alinhar'] ? { style: `text-align: ${n.attrs['alinhar']}` } : {});
 
 export const schema = new Schema({
   nodes: {
@@ -141,6 +155,59 @@ export const schema = new Schema({
         },
       ],
       toDOM: (n) => ['div', { class: 'vis-peca', 'data-linha': linhaDaPeca(n), ...recuo(n) }, linhaDaPeca(n)],
+    },
+    /**
+     * A tabela (desde a rodada 6): as fileiras com as células escritas direto, como no Docs (ver
+     * tabela.ts), com o `prosemirror-tables` (a seleção de várias células, as setas, o colar de células).
+     * A primeira fileira é o cabeçalho (`cabeca`), as outras têm `celula`; sem célula mesclada. `jeito`:
+     * o widget {{tabela: …}} em cima (null, a branca, sem marca); `alinhar`: o de cada coluna (a verdade:
+     * as células só copiam o da coluna delas, para o desenho). Na tela, o rolo e o papel da leitura.
+     */
+    tabela: {
+      group: 'bloco',
+      content: 'fileira+',
+      tableRole: 'table',
+      isolating: true,
+      attrs: { ...base, jeito: { default: null }, alinhar: { default: [] } },
+      parseDOM: [
+        {
+          tag: 'table',
+          getAttrs: (d) => {
+            const rolo = (d as HTMLElement).closest('.tabela-rolo') as HTMLElement | null;
+            const jeito = /(?:^| )jeito-(\w+)/.exec(rolo?.className ?? '')?.[1];
+            return { ...(rolo ? recuoDe(rolo) : { recuo: 0 }), jeito: jeito && jeito !== 'branca' ? tableLookWord(jeito) : null };
+          },
+        },
+      ],
+      toDOM: (n) => [
+        'div',
+        { class: `tabela-rolo vis-tabela jeito-${n.attrs['jeito'] ?? 'branca'}`, ...recuo(n) },
+        ['div', { class: 'tabela-papel' }, ['table', { class: 'tabela' }, ['tbody', 0]]],
+      ],
+    },
+    fileira: {
+      content: '(cabeca | celula)+',
+      tableRole: 'row',
+      // as células escritas além das do cabeçalho (a leitura esconde, a escrita devolve): andam com a fileira
+      attrs: { sobra: { default: [] } },
+      parseDOM: [{ tag: 'tr' }],
+      toDOM: () => ['tr', 0],
+    },
+    cabeca: {
+      content: 'inline*',
+      tableRole: 'header_cell',
+      isolating: true,
+      attrs: CELULA,
+      parseDOM: [{ tag: 'th', contentElement: (d) => (d as HTMLElement).querySelector(':scope > .th-texto') ?? (d as HTMLElement), getAttrs: alinharDe }],
+      toDOM: (n) => ['th', { scope: 'col', ...alinhado(n) }, ['span', { class: 'th-texto' }, 0]],
+    },
+    celula: {
+      content: 'inline*',
+      tableRole: 'cell',
+      isolating: true,
+      attrs: CELULA,
+      parseDOM: [{ tag: 'td', getAttrs: alinharDe }],
+      toDOM: (n) => ['td', alinhado(n), 0],
     },
     /**
      * O trecho que o Visual ainda não sabe mudar: a linha (ou o bloco) inteira, com a fonte. Na tela,
@@ -292,12 +359,29 @@ export function noDe(l: LinhaDoc): PMNode {
     case 'codigo':
       return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto }, l.texto ? schema.text(l.texto) : []);
     case 'widget':
-      // a marca do jeito da tabela sozinha (sem a tabela embaixo) é da tabela: fica crua até a rodada 6
+      // a marca do jeito da tabela sozinha (sem a tabela embaixo) não é um widget: fica crua, como está
       if (l.nome === 'tabela') return N['cru'].create({ linha: l });
       return N['widget'].create({ recuo: l.recuo, fonte, nome: l.nome, args: [...l.args], tamanho: l.tamanho });
+    case 'tabela':
+      return tabelaDe(l.cabeca, l.fileiras, { recuo: l.recuo, fonte, jeito: l.jeito, alinhar: [...l.alinhar] }, l.sobra);
     default:
       return N['cru'].create({ linha: l });
   }
+}
+
+/**
+ * O nó da tabela: o cabeçalho e as fileiras de baixo (as letras com as marcas de cada célula), com os
+ * atributos dela; cada célula leva o alinhamento da coluna dela (para o desenho).
+ */
+export function tabelaDe(cabeca: readonly (readonly Span[])[], fileiras: readonly (readonly (readonly Span[])[])[], attrs: Record<string, unknown>, sobra: readonly string[][] = []): PMNode {
+  const cols = Math.max(1, cabeca.length);
+  const alinhar = Array.from({ length: cols }, (_, c) => ((attrs['alinhar'] as Align[] | undefined) ?? [])[c] ?? null);
+  const fileira = (cells: readonly (readonly Span[])[], tipo: string, extra: readonly string[] = []) =>
+    N['fileira'].create(
+      { sobra: [...extra] },
+      Array.from({ length: cols }, (_, c) => N[tipo].create({ alinhar: alinhar[c] }, inlineDe(cells[c] ?? []))),
+    );
+  return N['tabela'].create({ ...attrs, alinhar }, [fileira(cabeca, 'cabeca'), ...fileiras.map((f, r) => fileira(f, 'celula', sobra[r]))]);
 }
 
 /** O documento das linhas (vazio, uma linha vazia). */
@@ -309,7 +393,7 @@ export function docDe(linhas: readonly LinhaDoc[]): PMNode {
 const LINHAS = new WeakMap<PMNode, LinhaDoc>();
 
 /** Os tipos de linha que o Visual já edita (o resto é um trecho cru). */
-const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo', 'widget'];
+const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo', 'widget', 'tabela'];
 
 /** A linha do tradutor de um nó (guardada por nó: os nós são imutáveis, o que não mudou não se refaz). */
 export function linhaDe(n: PMNode): LinhaDoc {
@@ -342,6 +426,30 @@ export function linhaDe(n: PMNode): LinhaDoc {
     case 'widget':
       l = { kind: 'widget', recuo: r, nome: n.attrs['nome'], args: [...(n.attrs['args'] as string[])], tamanho: n.attrs['tamanho'] as WidgetSize, fonte };
       break;
+    case 'tabela': {
+      const linhas: Span[][][] = [];
+      const sobras: string[][] = [];
+      n.forEach((f) => {
+        const cel: Span[][] = [];
+        f.forEach((c) => cel.push(spansDe(c)));
+        linhas.push(cel);
+        sobras.push([...((f.attrs['sobra'] as string[]) ?? [])]);
+      });
+      const cols = Math.max(1, linhas[0]?.length ?? 1);
+      const larg = (cel: Span[][]) => Array.from({ length: cols }, (_, c) => cel[c] ?? []);
+      const sobra = sobras.slice(1);
+      l = {
+        kind: 'tabela',
+        recuo: r,
+        jeito: (n.attrs['jeito'] as TableLook | null) ?? null,
+        alinhar: Array.from({ length: cols }, (_, c) => ((n.attrs['alinhar'] as Align[]) ?? [])[c] ?? null),
+        cabeca: larg(linhas[0] ?? []),
+        fileiras: linhas.slice(1).map(larg),
+        sobra: sobra.every((x) => !x.length) ? [] : sobra,
+        fonte,
+      };
+      break;
+    }
     case 'blocoCodigo':
       l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], fonte };
       break;

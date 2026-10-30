@@ -71,7 +71,7 @@ describe('o editor com o Visual', () => {
     expect(value()).toBe('# Oi\num **dois**');
   });
 
-  it('a régua no Visual: o negrito acende onde vale, e o que ele ainda não sabe pôr fica apagado e avisa', async () => {
+  it('a régua no Visual: o negrito acende onde vale, e nada do Inserir fica apagado (a tabela entra direto, 3×2)', async () => {
     await make('um dois');
     select(4, 8);
     button('Negrito').click();
@@ -85,16 +85,92 @@ describe('o editor com o Visual', () => {
     const toasts = TestBed.inject(Toasts);
     (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
     await settle();
-    // os widgets já entram no Visual; a tabela ainda não (é da rodada 6)
+    // os widgets e a tabela entram no Visual: nada fica apagado
     const ops = Array.from(fixture.nativeElement.querySelectorAll('.widget-op') as NodeListOf<HTMLButtonElement>);
-    expect(ops.filter((o) => o.classList.contains('apagado')).map((o) => o.textContent!.trim())).toEqual([jasmine.stringContaining('Tabela')]);
-    const widget = ops.find((o) => o.textContent!.includes('Tabela'))!;
-    expect(widget.getAttribute('aria-disabled')).toBe('true');
-    expect(widget.classList).toContain('apagado');
-    expect(widget.title).toBe('Ainda não no Visual: use a aba Markdown');
-    widget.click();
-    expect(toasts.current()?.text).toBe('Ainda não no Visual: use a aba Markdown');
-    expect(value()).toBe('um **dois**');
+    expect(ops.filter((o) => o.classList.contains('apagado')).length).toBe(0);
+    ops.find((o) => o.textContent!.includes('Tabela'))!.click();
+    await settle();
+    // a tabela 3×2 entra direto (sem a folha), na linha seguinte, com o cursor na primeira célula
+    expect(fixture.nativeElement.querySelector('dialog.wfolha[open]')).toBeNull();
+    expect(value()).toBe('um **dois**\n|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |');
+    expect(pm().state.selection.$from.parent.type.name).toBe('cabeca');
+    expect(toasts.current()).toBeFalsy();
+    // o menu "Tabela" aparece na régua, com o cursor nela
+    expect(fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]')).not.toBeNull();
+  });
+
+  it('o menu "Tabela": põe a coluna, alinha, troca o jeito (as cinco miniaturas), apaga o que não vale e some fora da tabela', async () => {
+    await make('antes\n| A | B |\n| --- | --- |\n| 1 | 2 |');
+    const v = pm();
+    // o cursor na célula "1"
+    let at = 0;
+    v.state.doc.descendants((n, pos) => {
+      if (n.isText && n.text === '1') at = pos + 1;
+    });
+    select(at);
+    await settle();
+    const abre = async () => {
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]') as HTMLButtonElement).click();
+      await settle();
+      return fixture.nativeElement.querySelector('.menu[aria-label="Tabela"]') as HTMLElement;
+    };
+    const op = (m: HTMLElement, nome: string) => Array.from(m.querySelectorAll<HTMLButtonElement>('.menu-op')).find((b) => b.textContent!.trim() === nome)!;
+    let menu = await abre();
+    // a primeira fileira de baixo não sobe (o cabeçalho fica no lugar), e a única não sai
+    expect(op(menu, 'Subir a fileira').getAttribute('aria-disabled')).toBe('true');
+    expect(op(menu, 'Tirar a fileira').getAttribute('aria-disabled')).toBe('true');
+    expect(op(menu, 'Fileira em cima').getAttribute('aria-disabled')).toBeNull();
+    // as miniaturas chegam num pedaço à parte, na primeira vez que o menu abre
+    for (let i = 0; i < 300 && !menu.querySelector('app-table-looks .tl-jeito'); i++) {
+      await wait(10);
+      fixture.detectChanges();
+    }
+    expect(menu.querySelectorAll('app-table-looks .tl-jeito').length).toBe(5);
+    expect(menu.querySelector('app-table-looks .tl-jeito.on')?.textContent).toContain('Branca');
+    op(menu, 'Coluna depois').click();
+    await settle();
+    expect(value()).toBe('antes\n| A |  | B |\n| --- | --- | --- |\n| 1 |  | 2 |');
+    menu = await abre();
+    op(menu, 'No fim (números)').click();
+    await settle();
+    expect(value()).toBe('antes\n| A |  | B |\n| --- | ---: | --- |\n| 1 |  | 2 |');
+    menu = await abre();
+    expect(op(menu, 'No fim (números)').getAttribute('aria-checked')).toBe('true');
+    (Array.from(menu.querySelectorAll<HTMLButtonElement>('app-table-looks .tl-jeito')).find((b) => b.textContent!.includes('Recibo')))!.click();
+    await settle();
+    expect(value()).toBe('antes\n{{tabela: recibo}}\n| A |  | B |\n| --- | ---: | --- |\n| 1 |  | 2 |');
+    expect(fixture.nativeElement.querySelector('.visual .tabela-rolo.jeito-recibo')).not.toBeNull();
+    // fora da tabela, o menu some
+    select(2);
+    await settle();
+    expect(fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]')).toBeNull();
+  });
+
+  it('"Abrir na folha": a folha da tabela de sempre, com a tabela do cursor; salvar troca a tabela no Visual', async () => {
+    await make('| A | B |\n| --- | --- |\n| 1 | 2 |\nfim');
+    select(3);
+    await settle();
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]') as HTMLButtonElement).click();
+    await settle();
+    const menu = fixture.nativeElement.querySelector('.menu[aria-label="Tabela"]') as HTMLElement;
+    Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-op')).find((b) => b.textContent!.trim() === 'Abrir na folha')!.click();
+    await settle();
+    let grade: HTMLInputElement | null = null;
+    for (let i = 0; i < 300 && !(grade = fixture.nativeElement.querySelector('app-table-grid input[data-r="0"][data-c="1"]')); i++) {
+      await wait(10);
+      fixture.detectChanges();
+    }
+    expect(grade!.value).toBe('2');
+    grade!.value = '20';
+    grade!.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    const salvar = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('dialog.wfolha button')).find((b) => b.textContent!.trim() === 'Salvar a tabela')!;
+    salvar.click();
+    for (let i = 0; i < 100 && fixture.nativeElement.querySelector('dialog.wfolha[open]'); i++) await wait(10);
+    await settle();
+    await wait(30);
+    expect(value()).toBe('| A | B |\n| --- | --- |\n| 1 | 20 |\nfim');
+    expect(pm().state.selection.$from.parent.type.name).toBe('cabeca');
   });
 
   it('as listas na régua do Visual: o botão vira a linha em lista e fica afundado; o Ctrl+Shift+9 faz as tarefas', async () => {
@@ -226,8 +302,10 @@ describe('o editor com o Visual', () => {
     folha.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', ctrlKey: true, bubbles: true, cancelable: true }));
     await settle();
     const guia = await untilGuide();
-    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha', 'Widgets']);
-    // os widgets já são peças no Visual: o aviso do fim fala só das tabelas
+    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha', 'Widgets', 'Tabela']);
+    // os widgets e a tabela já se escrevem no Visual: o fim só lembra a aba Markdown
+    expect(guia.querySelector('.guia-fim')?.textContent).not.toContain('tabelas');
+    expect(guia.textContent).toContain('Na última célula, o Tab abre uma fileira nova');
     expect(guia.querySelector('.guia-fim')?.textContent).not.toContain('widgets');
     expect(guia.textContent).toContain('se escrevem direto nele');
     expect(guia.textContent).not.toContain('**texto**');

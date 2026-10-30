@@ -340,14 +340,18 @@ export interface Peca {
  * dela), ou numa linha só dele, com o recuo da descrição quando é dentro de um item. Devolve onde ele ficou.
  */
 export function poeNoLugar(state: EditorState, tr: Transaction, pos: number, p: Peca): number {
+  return poeBlocoNoLugar(state, tr, pos, (recuo) => WIDGET.create({ recuo, fonte: null, nome: p.nome, args: [...p.args], tamanho: p.tamanho }));
+}
+
+/** Põe no lugar, pelas mesmas regras do widget, o bloco que `cria` faz com o recuo dele (a tabela nova também). */
+export function poeBlocoNoLugar(state: EditorState, tr: Transaction, pos: number, cria: (recuo: number) => PMNode): number {
   const depois = tr.doc.nodeAt(pos);
-  const attrs = (recuo: number) => ({ recuo, fonte: null, nome: p.nome, args: [...p.args], tamanho: p.tamanho });
   if (vazia(depois)) {
-    tr.replaceWith(pos, pos + depois!.nodeSize, WIDGET.create(attrs(depois!.attrs['recuo'] ?? 0)));
+    tr.replaceWith(pos, pos + depois!.nodeSize, cria(depois!.attrs['recuo'] ?? 0));
     return pos;
   }
   const i = tr.doc.resolve(pos).index(0);
-  tr.insert(pos, WIDGET.create(attrs(recuoDepois(state, tr.doc, i - 1))));
+  tr.insert(pos, cria(recuoDepois(state, tr.doc, i - 1)));
   return pos;
 }
 

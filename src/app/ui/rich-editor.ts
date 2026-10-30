@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, injec
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { bodyIndent, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
-import { DEFAULT_TABLE_LOOK, emptyTable, readTable, tableText } from '../core/tables';
+import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
@@ -20,11 +20,12 @@ import { Toasts } from './toast';
 import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
-import type { AcaoVisual, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import type { AcaoTabela, AcaoVisual, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import { TableLooks } from './table-looks';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
-type MenuName = 'formatar' | 'inserir';
+type MenuName = 'formatar' | 'inserir' | 'tabela';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
@@ -72,14 +73,14 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
-/** O que o Visual ainda não sabe pôr (a tabela). */
+/** O que o Visual ainda não sabe fazer (o aviso, se uma ação nova da régua chegar antes dele). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
 const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'ul', 'ol', 'check', 'inside', 'rule', 'undo', 'redo'] as const;
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor],
+  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
@@ -266,7 +267,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-widgets'">
                   <p class="menu-secao" [id]="areaId + '-sec-widgets'" aria-hidden="true">Widgets</p>
                   @for (d of widgets; track d.name) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" [class.apagado]="visual() && d.name === 'tabela'" [attr.aria-disabled]="(visual() && d.name === 'tabela') || null" [attr.title]="visual() && d.name === 'tabela' ? NOT_YET : null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
                       <lucide-icon [img]="iconOf(d.name)" [size]="18" aria-hidden="true" />
                       <span class="widget-op-texto">
                         <span class="menu-op-nome">{{ d.label }}</span>
@@ -278,6 +279,73 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               </div>
             }
           </span>
+          <!-- o menu "Tabela" do Visual, enquanto o cursor está numa tabela (como no Docs): as fileiras e as
+               colunas (pôr, mover, tirar), o alinhamento da coluna, o jeito e a folha da tabela -->
+          @if (visual() && visualState().tabela; as tb) {
+            <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+              <button
+                type="button"
+                class="menu-botao"
+                data-menu="tabela"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="isOpen('tabela', big)"
+                [attr.aria-controls]="isOpen('tabela', big) ? areaId + '-tabela' : null"
+                title="Tabela: fileiras, colunas, alinhar e o jeito"
+                (pointerdown)="$event.preventDefault()"
+                (click)="toggleMenu('tabela', big, $event, area)"
+                (keydown.arrowdown)="$event.preventDefault(); openMenu('tabela', big, true)"
+              >
+                <lucide-icon [img]="TableIcon" [size]="17" aria-hidden="true" />
+                <span class="menu-nome">Tabela</span>
+                <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
+              </button>
+              @if (isOpen('tabela', big)) {
+                <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-tabela'" aria-label="Tabela" (keydown)="onMenuKey($event, area)">
+                  <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-fileiras'">
+                    <p class="menu-secao" [id]="areaId + '-sec-fileiras'" aria-hidden="true">Fileiras e colunas</p>
+                    @for (o of tableOps; track o.act) {
+                      @if (o.act === 'subirFileira') {
+                        <span class="menu-fio" role="separator"></span>
+                      }
+                      @let off = tableOff(o.act, tb);
+                      <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="off" [attr.aria-disabled]="off || null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="tableAct(big, o.act, off)">
+                        <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
+                        <span class="menu-op-nome">{{ o.name }}</span>
+                      </button>
+                    }
+                  </div>
+                  <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-coluna'">
+                    <p class="menu-secao" [id]="areaId + '-sec-coluna'" aria-hidden="true">Alinhar a coluna</p>
+                    @for (a of tableAligns; track a.name) {
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="(tb.alinhar === 'left' ? null : tb.alinhar) === a.value" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="tableAct(big, { alinhar: a.value }, false)">
+                        <lucide-icon [img]="a.icon" [size]="17" aria-hidden="true" />
+                        <span class="menu-op-nome">{{ a.name }}</span>
+                      </button>
+                    }
+                    <span class="menu-fio" role="separator"></span>
+                    <p class="menu-secao" aria-hidden="true">Jeito</p>
+                    @defer (on immediate) {
+                      <app-table-looks role="group" aria-label="Jeito da tabela" [jeito]="tb.jeito" (pick)="tableAct(big, { jeito: $event }, false)" />
+                    } @placeholder {
+                      <div aria-hidden="true" [style.height.px]="64"></div>
+                    }
+                    <span class="menu-fio" role="separator"></span>
+                    @for (o of tableCuts; track o.act) {
+                      @let off = tableOff(o.act, tb);
+                      <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="off" [attr.aria-disabled]="off || null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="tableAct(big, o.act, off)">
+                        <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
+                        <span class="menu-op-nome">{{ o.name }}</span>
+                      </button>
+                    }
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="openTableSheet(big)">
+                      <lucide-icon [img]="EditIcon" [size]="17" aria-hidden="true" />
+                      <span class="menu-op-nome">Abrir na folha</span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </span>
+          }
           <span class="fio menus-fio" aria-hidden="true"></span>
           <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus). Primeiro
                desfazer e refazer, como no Docs: no celular não tem Ctrl+Z -->
@@ -771,9 +839,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
         rotate: 0deg;
       }
     }
-    /* o que o Visual ainda não sabe pôr: apagado, e o toque diz para usar o Markdown */
+    /* o que não vale ali (no menu Tabela, como o botão apagado da grade da folha): apagado */
     .apagado {
       opacity: 0.4;
+      cursor: default;
     }
     :is(.acao-folha, .ferramenta, .menu-botao):focus-visible {
       outline: 3px solid var(--ink);
@@ -1949,6 +2018,77 @@ export class RichEditor {
   protected readonly LinkIcon = ICON.linkNota;
   protected readonly UrlIcon = ICON.link;
   protected readonly PlusIcon = ICON.adicionar;
+  protected readonly TableIcon = ICON.tabela;
+
+  // ===== O menu "Tabela" do Visual =====
+
+  /** Pôr e mover fileiras e colunas (como a régua da grade da folha da tabela, ui/table-grid.ts). */
+  protected readonly tableOps: readonly { act: AcaoTabela & string; name: string; icon: LucideIconData }[] = [
+    { act: 'fileiraEmCima', name: 'Fileira em cima', icon: ICON.linhaEmCima },
+    { act: 'fileiraEmbaixo', name: 'Fileira embaixo', icon: ICON.linhaEmbaixo },
+    { act: 'colunaAntes', name: 'Coluna antes', icon: ICON.colunaAntes },
+    { act: 'colunaDepois', name: 'Coluna depois', icon: ICON.colunaDepois },
+    { act: 'subirFileira', name: 'Subir a fileira', icon: ICON.acima },
+    { act: 'descerFileira', name: 'Descer a fileira', icon: ICON.abaixo },
+    { act: 'colunaParaTras', name: 'Levar a coluna para a esquerda', icon: ICON.voltar },
+    { act: 'colunaParaFrente', name: 'Levar a coluna para a direita', icon: ICON.ir },
+  ];
+  protected readonly tableCuts: readonly { act: AcaoTabela & string; name: string; icon: LucideIconData }[] = [
+    { act: 'tirarFileira', name: 'Tirar a fileira', icon: ICON.apagar },
+    { act: 'tirarColuna', name: 'Tirar a coluna', icon: ICON.apagar },
+    { act: 'tirarTabela', name: 'Tirar a tabela', icon: ICON.apagar },
+  ];
+  protected readonly tableAligns: readonly { value: 'center' | 'right' | null; name: string; icon: LucideIconData }[] = [
+    { value: null, name: 'No começo', icon: ICON.alinharInicio },
+    { value: 'center', name: 'No meio', icon: ICON.alinharMeio },
+    { value: 'right', name: 'No fim (números)', icon: ICON.alinharFim },
+  ];
+
+  /** A ação do menu não vale ali (como o botão apagado da grade): o cabeçalho fica no lugar, os limites da folha. */
+  protected tableOff(act: AcaoTabela & string, t: EstadoTabela): boolean {
+    const corpo = t.fileiras - 1;
+    switch (act) {
+      case 'fileiraEmCima':
+        return t.fileira === 0 || corpo >= MAX_TABLE_ROWS;
+      case 'fileiraEmbaixo':
+        return corpo >= MAX_TABLE_ROWS;
+      case 'colunaAntes':
+      case 'colunaDepois':
+        return t.colunas >= MAX_TABLE_COLS;
+      case 'subirFileira':
+        return t.fileira <= 1;
+      case 'descerFileira':
+        return t.fileira === 0 || t.fileira >= t.fileiras - 1;
+      case 'colunaParaTras':
+        return t.coluna <= 0;
+      case 'colunaParaFrente':
+        return t.coluna >= t.colunas - 1;
+      case 'tirarFileira':
+        return t.fileira === 0 || corpo <= 1;
+      case 'tirarColuna':
+        return t.colunas <= 1;
+      default:
+        return false;
+    }
+  }
+
+  /** Uma ação do menu "Tabela": o Visual faz (o menu fecha, o cursor volta para a célula). */
+  protected tableAct(big: boolean, act: AcaoTabela, off: boolean): void {
+    if (off) return;
+    this.menu.set(null);
+    this.visualOf(big)?.run({ tabela: act });
+  }
+
+  /** "Abrir na folha": a folha da tabela de sempre, com a tabela do cursor (ao fechar, o Visual a troca). */
+  protected openTableSheet(big: boolean): void {
+    this.menu.set(null);
+    const api = this.visualOf(big);
+    const here = api?.lugarDaPeca('tabela');
+    if (!api || !here) return;
+    this.closePanels();
+    this.widgetPick.set({ big, name: 'tabela', values: { look: here.args[0] ?? DEFAULT_TABLE_LOOK, table: tableText(readTable((here.corpo ?? '').split('\n'))) }, start: here.de, end: here.de, swap: true });
+    this.widgetSheet.set(true);
+  }
   protected readonly StrikeIcon = ICON.riscado;
   protected readonly MarkIcon = ICON.marcaTexto;
   protected readonly CloseIcon = ICON.fechar;
@@ -2502,6 +2642,7 @@ export class RichEditor {
    */
   protected onVisualState(est: EstadoVisual, big: boolean): void {
     this.visualState.set(est);
+    if (!est.tabela && this.menu()?.name === 'tabela') this.menu.set(null);
     // o painel passivo de um link: o cursor saiu dele, ele fecha (o do widget, a seleção da peça decide)
     const link = this.urlLink() ?? this.linking();
     if (this.passive && link && link.start !== est.link) this.closePanels();
@@ -3262,11 +3403,16 @@ export class RichEditor {
   /**
    * O widget escolhido no Inserir do Visual: a folha dele abre. Com um widget desse tipo selecionado, ela
    * abre com ele, para trocar; senão, um novo, que entra no lugar do cursor (o Visual guarda o lugar, que
-   * anda com o texto). A tabela ainda não (é da rodada 6).
+   * anda com o texto). A tabela entra direto, sem a folha (ela abre pelo menu "Tabela").
    */
   private startVisualWidget(big: boolean, def: WidgetDef): void {
     const api = this.visualOf(big);
-    if (def.name === 'tabela' || !api) return this.notYet();
+    if (!api) return this.notYet();
+    // a tabela entra direto na folha (3×2, o cursor na primeira célula); a folha dela fica no menu "Tabela"
+    if (def.name === 'tabela') {
+      api.run('tabela');
+      return;
+    }
     this.closePanels();
     const here = api.lugarDaPeca(def.name);
     if (here) this.widgetPick.set({ big, name: def.name, values: { ...def.read(here.args), size: here.tamanho }, start: here.de, end: here.de, swap: true });
@@ -3379,7 +3525,7 @@ export class RichEditor {
       this.widgetPick.set(null);
       this.passive = false;
       if (order === 'tirar') api.tiraPeca();
-      else if (order && !order.done.body) api.poePeca(order.done.name, order.done.args, order.done.size);
+      else if (order) api.poePeca(order.done.name, order.done.args, order.done.size, order.done.body);
       else api.voltaAPeca();
       return;
     }

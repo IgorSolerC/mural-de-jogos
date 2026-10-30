@@ -125,6 +125,126 @@
     font: inherit;
   }
 
+  // ===== A tabela: o desenho da leitura (ui/_formatado.scss), escrita célula por célula =====
+  // Uma <table> de verdade, com as fileiras num <tbody> só: a primeira é o cabeçalho (<th>). O recuo (a
+  // tabela dentro de um item) empurra a tabela inteira, como o bloco de código. Toda fileira tem a
+  // altura de uma linha da pauta, como na leitura.
+  > .tabela-rolo {
+    @include formatado.tabela-rolo;
+    --vis-margem: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
+    margin-left: var(--vis-margem);
+    text-indent: 0;
+    // no celular, a tabela larga rola de lado e a célula do cursor entra na tela (o ProseMirror rola o rolo)
+    scroll-padding-inline: 12px;
+  }
+  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo) {
+    @include formatado.tabela-rolo-papel;
+    margin-left: calc(var(--vis-margem) - 2px);
+  }
+  .tabela-papel {
+    @include formatado.tabela-papel;
+  }
+  .tabela {
+    @include formatado.tabela;
+  }
+  .tabela :is(th, td) {
+    @include formatado.tabela-celula;
+    position: relative;
+    // o cursor e a letra escrita na célula: a mesma letra da leitura, sem a quebra que o Visual usa nas linhas
+    overflow-wrap: break-word;
+  }
+  .tabela th {
+    @include formatado.tabela-cabeca;
+  }
+
+  .jeito-branca .tabela-papel,
+  .jeito-listrada .tabela-papel {
+    @include formatado.branca-listrada-papel;
+  }
+  .jeito-branca .tabela-papel {
+    @include formatado.branca-papel;
+  }
+  .jeito-branca .tabela,
+  .jeito-listrada .tabela {
+    @include formatado.branca-listrada-tabela;
+  }
+  .jeito-branca th {
+    @include formatado.branca-cabeca;
+  }
+  .jeito-branca td {
+    @include formatado.branca-celula;
+  }
+  .jeito-branca tr:last-child td {
+    @include formatado.branca-ultima;
+  }
+
+  .jeito-listrada .tabela-papel {
+    @include formatado.listrada-papel;
+  }
+  .jeito-listrada th {
+    @include formatado.listrada-cabeca;
+  }
+  // as de baixo uma sim, uma não (a primeira fileira do <tbody> é o cabeçalho: as pares da leitura são as ímpares daqui)
+  .jeito-listrada tr:nth-child(odd):not(:first-child) td {
+    @include formatado.listrada-par;
+  }
+
+  .jeito-quadriculada .tabela-papel {
+    @include formatado.quadriculada-papel;
+  }
+  .jeito-quadriculada .tabela {
+    @include formatado.quadriculada-tabela;
+  }
+  .jeito-quadriculada :is(th, td) {
+    @include formatado.quadriculada-celula;
+  }
+  .jeito-quadriculada th {
+    @include formatado.quadriculada-cabeca;
+  }
+  .jeito-quadriculada .th-texto {
+    @include formatado.quadriculada-cabeca-texto;
+  }
+
+  .jeito-caneta .tabela {
+    @include formatado.caneta-tabela;
+  }
+  .jeito-caneta :is(th, td) {
+    @include formatado.caneta-celula;
+  }
+  .jeito-caneta th {
+    @include formatado.caneta-cabeca;
+  }
+
+  .jeito-recibo {
+    @include formatado.recibo-rolo;
+  }
+  .jeito-recibo .tabela-papel {
+    @include formatado.recibo-papel;
+  }
+  .jeito-recibo .tabela {
+    @include formatado.recibo-tabela;
+  }
+  .jeito-recibo th {
+    @include formatado.recibo-cabeca;
+  }
+  .jeito-recibo :is(tr:first-child, tr:last-child) {
+    @include formatado.recibo-tracejado;
+  }
+
+  // as células selecionadas juntas (arrastando, Shift+setas): o marca-texto amarelo por cima, como o
+  // trecho escolhido nos menus; o cursor do navegador some (a seleção é das células)
+  .selectedCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgb(255 218 66 / 0.42);
+    mix-blend-mode: multiply;
+    pointer-events: none;
+  }
+  &:has(.selectedCell) {
+    caret-color: transparent;
+  }
+
   // a divisória é uma peça: selecionada, a moldura de caneta em volta
   > .divisoria {
     cursor: pointer;

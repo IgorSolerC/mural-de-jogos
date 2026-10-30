@@ -1,5 +1,5 @@
 import { PDF_BLOCK_SAMPLES, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, pdfSampleText } from '../ui/pdf-sheet.samples';
-import { Doc, LinhaDoc, alinhar, chave, docToText, normalizarLinha, posicaoNoDoc, posicaoNoTexto, textToDoc, textoVisivel } from './rich-doc';
+import { Doc, LinhaDoc, alinhar, chave, docToText, normalizarLinha, posicaoNaTabela, posicaoNoDoc, posicaoNoTexto, textToDoc, textoVisivel } from './rich-doc';
 import { Block, Span, parseRich } from './rich-text';
 import { WIDGETS } from './widgets';
 
@@ -415,5 +415,59 @@ describe('o tradutor do modo Visual (core/rich-doc.ts)', () => {
       if (!e.exato && !e.texto.includes('~~==') && !(kind === 'titulo' && !e.texto.slice(2).trim())) inexatos++;
     }
     expect(inexatos / n).withContext(`${inexatos} de ${n}`).toBeLessThan(0.01);
+  });
+});
+
+describe('a tabela no tradutor (a rodada 6)', () => {
+  type Tab = Extract<LinhaDoc, { kind: 'tabela' }>;
+  const tab = (d: Doc, i = 0) => d.linhas[i] as Tab;
+
+  it('mexer numa célula reescreve só a fileira dela: o cabeçalho, os traços, a marca do jeito e as outras fileiras saem como estavam (I2)', () => {
+    const t = 'antes\n{{tabela: Zebra}}\n|Jogo   |Nota|\n|:--|--:|\n|  __Hades__ | 10 |\n| Celeste | 9 | sobra |\ndepois';
+    const d = textToDoc(t);
+    const l = tab(d, 1);
+    const mexida: Tab = { ...l, fileiras: [l.fileiras[0], [[{ text: 'Celeste!' }], [{ text: '9' }]]] };
+    const linhas = [...d.linhas];
+    linhas[1] = mexida;
+    expect(docToText({ ...d, linhas }).texto).toBe('antes\n{{tabela: Zebra}}\n|Jogo   |Nota|\n|:--|--:|\n|  __Hades__ | 10 |\n| Celeste! | 9 | sobra |\ndepois');
+  });
+
+  it('as fileiras trocadas de lugar levam a escrita delas; o alinhamento mudado reescreve só os traços', () => {
+    const d = textToDoc('| a | b |\n|---|---|\n|  1 |  2 |\n| 3|4 |');
+    const l = tab(d);
+    const trocada: Tab = { ...l, fileiras: [l.fileiras[1], l.fileiras[0]], alinhar: [null, 'right'] };
+    expect(docToText({ ...d, linhas: [trocada] }).texto).toBe('| a | b |\n| --- | ---: |\n| 3|4 |\n|  1 |  2 |');
+  });
+
+  it('com outro número de colunas (ou outro recuo), a tabela inteira sai do jeito de sempre', () => {
+    const d = textToDoc('|a|b|\n|-|-|\n|1|2|');
+    const l = tab(d);
+    const larga: Tab = { ...l, alinhar: [null, null, null], cabeca: [...l.cabeca, []], fileiras: [[...l.fileiras[0], [{ text: '3' }]]] };
+    expect(docToText({ ...d, linhas: [larga] }).texto).toBe('| a | b |  |\n| --- | --- | --- |\n| 1 | 2 | 3 |');
+  });
+
+  it('o cursor numa célula: a letra e a célula vão e voltam pelas posições do texto', () => {
+    const t = 'x\n{{tabela: recibo}}\n| A | **Bê** |\n| --- | ---: |\n|  c  | d \\| e | sobra |';
+    const e = docToText(textToDoc(t));
+    expect(e.texto).toBe(t);
+    for (const [f, c, col] of [
+      [0, 0, 0],
+      [0, 0, 1],
+      [0, 1, 0],
+      [0, 1, 2],
+      [1, 0, 1],
+      [1, 1, 0],
+      [1, 1, 2],
+      [1, 1, 5],
+    ]) {
+      const at = posicaoNaTabela(e, 1, f, c, col);
+      expect(posicaoNoDoc(e, at)).withContext(`${f},${c},${col} → ${at}`).toEqual({ linha: 1, col, celula: { fileira: f, coluna: c } });
+    }
+    // o "|" que aparece é o do "\\|" escrito (como nas outras linhas, o cursor cai na letra, depois da barra)
+    expect(t.slice(posicaoNaTabela(e, 1, 1, 1, 2))).toBe('| e | sobra |');
+    // a marca do jeito e a linha de traços caem no cabeçalho; as células de sobra, no fim da última que aparece
+    expect(posicaoNoDoc(e, t.indexOf('{{'))).toEqual({ linha: 1, col: 0, celula: { fileira: 0, coluna: 0 } });
+    expect(posicaoNoDoc(e, t.indexOf('---:'))).toEqual({ linha: 1, col: 2, celula: { fileira: 0, coluna: 1 } });
+    expect(posicaoNoDoc(e, t.indexOf('sobra'))).toEqual({ linha: 1, col: 5, celula: { fileira: 1, coluna: 1 } });
   });
 });

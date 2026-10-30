@@ -69,8 +69,8 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
 
 /**
  * A Ajuda da aba Visual: os atalhos de teclado e os de digitação (o que se escreve e vira formatação),
- * sem as marcas, que lá não aparecem, e os widgets como peças. O que o Visual ainda não sabe pôr (as
- * tabelas) não entra: o fim da Ajuda manda para a aba Markdown.
+ * sem as marcas, que lá não aparecem, os widgets como peças e a tabela escrita célula por célula. O fim
+ * da Ajuda lembra a aba Markdown, onde as marcas aparecem.
  */
 export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[] }[] = [
   {
@@ -122,6 +122,17 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Tirar o widget', keys: 'Delete', note: 'Com ele selecionado (ou o Backspace); o Ctrl+Z volta. O Enter abre uma linha embaixo dele, e dá para arrastá-lo para outro lugar.' },
     ],
   },
+  {
+    title: 'Tabela',
+    items: [
+      { what: 'Pôr uma tabela', note: 'Pelo Inserir › Tabela: ela entra com três colunas e o cursor na primeira célula. Cada célula se escreve como uma linha, com negrito, links e o resto.' },
+      { what: 'Andar entre as células', keys: 'Tab', note: 'Shift+Tab volta. Na última célula, o Tab abre uma fileira nova. As setas também andam.' },
+      { what: 'Descer e subir', keys: 'Enter', note: 'Vai para a célula de baixo (na última fileira, abre outra); Shift+Enter sobe.' },
+      { what: 'Várias células', keys: 'Shift+setas', note: 'Ou arrastando. O negrito e o resto valem em todas; o Delete esvazia elas.' },
+      { what: 'O menu Tabela', note: 'Aparece na régua com o cursor na tabela: fileiras e colunas, mover, alinhar a coluna, o jeito (branca, listrada, quadriculada, caneta, recibo), tirar, e abrir a tabela na folha dela.' },
+      { what: 'Colar de uma planilha', note: 'As células se espalham a partir da do cursor, com as fileiras e colunas que faltarem. Várias linhas sem as células viram uma só.' },
+    ],
+  },
 ];
 
 /**
@@ -162,7 +173,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       </section>
     }
     @if (visual()) {
-      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As tabelas, por enquanto, só mudam nela.</p>
+      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown.</p>
     }
   `,
   styles: `

@@ -100,9 +100,9 @@ describe('o modo Visual do texto', () => {
         expect(valor).toBeNull();
       });
 
-    it('cada linha vira o nó dela (o bloco de código, o item e o widget também); a tabela é um trecho cru', async () => {
-      await make('# t\n> c\n-# s\n---\ntexto\n- item\n```\nx\n```\n| a |\n| --- |\n\n{{contador: 25/12/2026 | Natal}}');
-      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'item', 'blocoCodigo', 'cru', 'linha', 'widget']);
+    it('cada linha vira o nó dela (o bloco de código, o item, o widget e a tabela também); a linha que o tradutor não escreve igual é um trecho cru', async () => {
+      await make('# t\n> c\n-# s\n---\ntexto\n- item\n```\nx\n```\n| a |\n| --- |\n\n{{contador: 1/1/2030}}))->{{enquete: x}}\n\n{{contador: 25/12/2026 | Natal}}');
+      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'item', 'blocoCodigo', 'tabela', 'linha', 'cru', 'linha', 'widget']);
       expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(1);
       // a folha é uma caixa de texto com nome
       expect(view.dom.getAttribute('role')).toBe('textbox');
@@ -655,7 +655,7 @@ describe('o modo Visual do texto', () => {
     });
 
     it('o trecho cru: tocado, a etiqueta e o "Mudar no Markdown", que leva ao começo dele no texto', async () => {
-      await make('antes\n| a |\n| --- |\n\ndepois');
+      await make('antes\n{{contador: 1/1/2030}}))->{{enquete: x}}\n\ndepois');
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, view.state.doc.child(0).nodeSize)));
       const cru = fixture.nativeElement.querySelector('.vis-cru') as HTMLElement;
       expect(cru.classList).toContain('ProseMirror-selectednode');
@@ -671,7 +671,7 @@ describe('o modo Visual do texto', () => {
     });
 
     it('as peças dos trechos crus são desmontadas com a folha (nenhuma fica viva)', async () => {
-      await make('| a |\n| --- |\n\n{{contador: 25/12/2026 | A}}\n\n{{contador: 25/12/2026 | B}}');
+      await make('{{contador: 1/1/2030}}))->{{enquete: x}}\n\n{{contador: 25/12/2026 | A}}\n\n{{contador: 25/12/2026 | B}}');
       const app = TestBed.inject(ApplicationRef);
       const com = app.viewCount;
       expect(com).toBeGreaterThanOrEqual(3);

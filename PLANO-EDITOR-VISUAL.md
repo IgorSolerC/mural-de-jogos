@@ -1490,7 +1490,116 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     Recortar/Colar); (5) colar uma foto da galeria (o marcador e a peça); (6) o iPhone: o cursor perto das
     peças (5.20, as linhas de respiro), o campo sem zoom (no iPhone, só lá, o campo fica com 16 px enquanto se
     escreve, porque a legenda da etiqueta e o nome da faixa são menores: conferir que não pula).
-- Próximo: a rodada 6, a tabela direto.
+- 30/out/2026, **a rodada 6, a tabela direto na folha** (em dois commits, com push):
+  - **O desenho num parcial** (61fb4fc, BUILD 663): o rolo, o papel, a tabela, a célula, o cabeçalho e os
+    cinco jeitos viraram mixins só de declarações em `ui/_formatado.scss`, com os comentários de dentro
+    das regras no lugar deles (o CSS compilado da leitura saiu igual, byte a byte).
+  - **O nó `tabela`** (BUILD 667; no meio entraram três commits de outras sessões, 664–666): `tabela` ›
+    `fileira` › `cabeca` (só na primeira) e `celula`, cada célula com letras e marcas (`inline*`), com o
+    `prosemirror-tables` 1.8.5 (versão exata; a seleção de várias células, as setas entre elas, o colar de
+    células e o conserto de tabela torta), no pedaço preguiçoso do Visual. Na tela, uma `<table>` de
+    verdade dentro do rolo e do papel da leitura (o `toDOM`, sem peça própria), as fileiras num `<tbody>`
+    só, o cabeçalho em `<th scope="col">` com o `.th-texto` da leitura; os seletores das listras e do
+    tracejado do recibo contam a primeira fileira como cabeçalho. A tabela deixou de ser trecho cru: agora
+    nenhum tipo de linha é cru; o cru fica só para o que o tradutor não escreve igual (os casos sabidos da
+    rodada 1, como a linha com cara de widget e lixo depois).
+  - **Os atributos**: na `tabela`, `jeito` (null é a branca, sem a marca), `alinhar` (a verdade, um por
+    coluna) e o `recuo`; na `fileira`, `sobra` (as células escritas além das do cabeçalho, que andam com
+    a fileira quando ela muda de lugar); na célula, o `alinhar` da coluna (só para o desenho, copiado da
+    tabela) e o `colspan`, o `rowspan` e o `colwidth` que o `prosemirror-tables` lê, sempre 1, 1 e nada.
+    O plugin `tabelasRetas` (depois do conserto do `prosemirror-tables`) desfaz a célula mesclada que chegar
+    (fica o conteúdo na de cima à esquerda e células vazias no resto), põe o cabeçalho na primeira fileira e
+    só nela e copia o alinhamento de cada coluna nas células.
+  - **O tradutor** (`core/rich-doc.ts`): **mexer numa célula reescreve só a fileira dela** (o I2 na
+    tabela, que o plano não tinha pedido): a escrita lê a tabela da fonte e devolve, como estavam, o
+    cabeçalho, a linha de traços (se o alinhamento não mudou), a marca do jeito e cada fileira que não
+    mudou (procurada pela chave, então a fileira que trocou de lugar leva a escrita dela), com o mesmo recuo
+    e o mesmo número de colunas; senão, a tabela inteira sai do jeito de sempre (a trava confere tudo, como
+    sempre). O cursor numa célula vai e volta pelas posições do texto (`posicaoNaTabela`, e o
+    `posicaoNoDoc` diz a célula): a troca de aba, o texto que chega de fora e o ajuste da tela não levam
+    mais o cursor para o começo da tabela.
+  - **As teclas** (5.9, `ui/visual-editor/tabela.ts`): Enter desce de célula e, na última fileira, cria
+    outra (até 200); Shift+Enter sobe (no cabeçalho, fica); o endereço solto antes do cursor vira link, como
+    no fim de uma linha. Tab vai para a próxima célula com o que tem nela selecionado (como o
+    `goToNextCell`), e na última cria a fileira; Shift+Tab volta, e na primeira passa (o foco sai: o Tab
+    nunca prende). As setas e o Shift+setas são do `prosemirror-tables`. O Enter e o Shift+Enter do
+    teclado do celular (o `insertParagraph` e o `insertLineBreak`) fazem o mesmo, pelo `beforeinput`.
+    Ctrl+E na célula é só a marca (a célula não guarda bloco); os atalhos de bloco ("- ", "# ") não valem
+    nela. Ctrl+A seleciona tudo (o `AllSelection`), e apagar deixa a folha vazia (K6).
+  - **As lições do Android** (a rodada 0): o Backspace no começo de uma célula passa para o fim da de
+    antes, sem juntar (na primeira, para); o Delete, o espelho; o cursor de lacuna logo depois (ou antes) de
+    uma tabela entra nela. Na linha logo depois da tabela, o Backspace no começo leva ao fim da última
+    célula (a linha vazia sai; o título, o item e o recuo continuam desfeitos antes, como nas outras linhas);
+    o Delete no fim da linha antes dela, o espelho. **Uma seleção que toca uma tabela** (começa ou acaba
+    nela, ou a atravessa) **só tira texto**: o de cada linha e de cada célula do trecho; as linhas e as peças
+    que ficam inteiras dentro dele saem; fileiras e colunas nunca saem. Vale para o Backspace, o Delete e o
+    `beforeinput` e, como ficou anotado na rodada 0, **para escrever, colar e recortar por cima dela**
+    (`protegeTabela`): a letra (`handleTextInput` e o `insertText` do teclado do celular, cancelado e feito
+    pelo editor), o colar (o trecho sai antes, e o colar segue no lugar do cursor) e o recortar (o
+    navegador recebe o trecho, e só o texto sai). A composição do teclado não se cancela: no
+    `compositionstart`, o trecho já sai. Também: o apagar de uma letra pelo `beforeinput` só vale numa linha
+    de letras (um cursor entre blocos é coisa de borda), achado no spec da rajada.
+  - **Colar numa célula**: o texto com tab (de uma planilha) vira células, que o `prosemirror-tables`
+    espalha a partir da do cursor, com as fileiras e as colunas que faltarem, cortadas no limite (12 e 200);
+    sem tab, as linhas se juntam com espaço e são lidas como o texto das anotações (com Ctrl+Shift+V, como
+    letras). O que vem do próprio Visual ou de fora com linhas e blocos vira as letras deles, juntas com
+    espaço (`transformPasted`); as células de outra tabela continuam células. A quebra que chegar numa
+    célula vira espaço (`semQuebras`), e os ajustes dos links (5.2.1) valem nas células.
+  - **Duas tabelas seguidas** (a de baixo sem a marca do jeito) seriam lidas como uma só: entre elas entra
+    uma linha vazia (achado no spec da célula mesclada; acontecia também com o Inserir › Tabela com o
+    cursor numa tabela).
+  - **O Inserir › Tabela** no Visual põe a tabela 3×2 direto (as regras do widget: no lugar da linha
+    vazia, ou numa linha depois da do cursor; dentro de um item, no recuo da descrição; com o cursor numa
+    tabela, depois dela), com o cursor na primeira célula. O widget Tabela do Inserir deixou de ficar
+    apagado.
+  - **O menu "Tabela"** na régua, enquanto o cursor está numa tabela (o botão some fora dela, e o menu
+    aberto fecha): "Fileiras e colunas" (Fileira em cima, Fileira embaixo, Coluna antes, Coluna depois;
+    Subir e Descer a fileira, Levar a coluna para a esquerda e para a direita), "Alinhar a coluna" (No
+    começo, No meio, No fim, marcado o da coluna do cursor; com várias células selecionadas, em todas as
+    colunas delas), o "Jeito" (as cinco miniaturas da folha da tabela, a escolhida torta e presa com a
+    tachinha, como na folha), Tirar a fileira, Tirar a coluna, Tirar a tabela e **Abrir na folha** (a folha
+    da tabela de sempre, com a tabela do cursor; ao salvar, a tabela do Visual é trocada, com o recuo dela;
+    Tirar, ela sai; fechar, o cursor volta para onde estava). Cada mudança é um passo do desfazer. As
+    miniaturas moram agora num componente só (`ui/table-look-art.ts`), usado pela folha da tabela e pelo
+    menu (`ui/table-looks.ts`): a folha desenha exatamente o mesmo SVG.
+  - **Decidido nesta rodada**: (1) **o menu segue a régua da grade da folha**, não a do
+    `prosemirror-tables`: o cabeçalho fica no lugar (Fileira em cima, Subir e Descer, Tirar a fileira
+    apagados nele), a única fileira de baixo não sai, a única coluna não sai; o que não vale fica apagado
+    (`aria-disabled`), como o botão da grade. (2) **Os comandos do menu refazem a tabela pela grade**
+    (trocar a tabela inteira num passo) em vez dos comandos do `prosemirror-tables`, para o cursor ficar na
+    célula certa (os de mover do `prosemirror-tables` selecionam a fileira inteira). (3) **O Enter desce sem
+    apagar a seleção** que estiver dentro da célula. (4) **Tab seleciona o conteúdo da próxima célula**
+    (como no Docs e no `goToNextCell`). (5) **A seleção que atravessa a tabela tira as linhas inteiras de
+    dentro do trecho** (no protótipo da rodada 0 elas ficavam vazias); as das pontas ficam, sem se juntar.
+    (6) **O Ctrl+A apaga tudo, a tabela junto**: selecionar tudo é de propósito (o apagar rápido do Gboard
+    nunca seleciona assim). (7) As células selecionadas juntas aparecem com o marca-texto amarelo por
+    cima (o mesmo do item marcado nos menus), e o cursor some enquanto elas estão selecionadas. (8) Na
+    tabela larga, o rolo anda de lado até a célula do cursor (o ProseMirror rola os rolos também), com uma
+    folga de 12 px. (9) O texto copiado de uma tabela (o `text/plain`) sai uma fileira por linha, com as
+    células separadas por tab, como uma planilha (o copiar de verdade é da rodada 7).
+  - **A Ajuda** do Visual ganhou a parte "Tabela", e o aviso do fim não fala mais dela (o fim só lembra a
+    aba Markdown).
+  - **Conferido**: os specs novos (`tabela.spec.ts`, 35: I1 e o desenho, I2 por fileira, T1–T8, K6, K9,
+    cada tecla, a rajada do Gboard e o caso do quarto relatório com seleções por pedaços, escrever, colar e
+    recortar por cima, o colar de planilha, o menu e os limites, o cursor de ida e volta; os da tabela em
+    `rich-doc.spec.ts`; o menu, o Inserir e o "Abrir na folha" em `rich-editor.visual.spec.ts`), os de antes
+    (os exemplos de trecho cru passaram a ser a linha com cara de widget e lixo depois), a suíte inteira,
+    `npx ng build`, o smoke da build de produção com as cinco caras da tabela guardadas, e o roteiro do
+    puppeteer (`.angular/pptr/visual-r6.mjs`, fora do git: escrever, Tab, Enter, as células selecionadas e
+    o negrito em todas, o menu e as miniaturas, o Abrir na folha, o Inserir, a tabela larga rolando de lado
+    e, com a identidade do Pixel 5, o Enter do Android, a rajada e o apagar por pedaços), no computador e no
+    celular simulado, sem erro no console, com as fotos de perto.
+  - **Fica para o celular do usuário** (o primeiro da lista é o mais importante): (1) **segurar o apagar
+    dentro e perto da tabela com o Gboard** (devagar e rápido, começando no meio de uma célula, na linha de
+    baixo e na de cima): nenhuma fileira nem coluna pode sair; (2) selecionar um trecho que atravessa a
+    tabela e escrever uma letra por cima, com e sem sugestão do teclado (a composição que começa por cima da
+    seleção é o caso que o puppeteer não faz); (3) o Enter do Gboard na célula e na última fileira; (4)
+    tocar numa célula (o cursor entra, o teclado abre) e numa célula vazia do cabeçalho; (5) a tabela larga
+    rolando de lado com o dedo, e o cursor indo para a célula escondida pelo Tab da régua presa (não há Tab
+    no teclado do celular: conferir se faz falta um "Próxima célula" na régua); (6) o menu Tabela pela régua
+    presa em cima do teclado (ele abre para cima) e as miniaturas tocáveis; (7) colar de uma planilha do
+    celular (o Planilhas Google manda o tab?); (8) o iPhone, que nunca foi testado.
+- Próximo: a rodada 7, colar e copiar.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 
