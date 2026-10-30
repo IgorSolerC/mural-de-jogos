@@ -1,6 +1,6 @@
 // O desenho do texto formatado (ver core/rich-text.ts), o mesmo na leitura (ui/rich-text.ts) e no modo
 // Visual do editor (ui/visual-editor/): as ênfases, o código, os títulos, a citação, o sutil, a
-// divisória e os links. Cada parte é um mixin, incluído pela leitura no lugar onde a regra sempre
+// divisória, os links, as listas e as tarefas. Cada parte é um mixin, incluído pela leitura no lugar onde a regra sempre
 // esteve (a ordem das regras não muda: a leitura fica igual, pixel por pixel). O Visual inclui as
 // mesmas partes dentro da folha dele (`.vis-folha`), sem o encapsulamento do Angular.
 //
@@ -216,4 +216,73 @@
     --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23151515' stroke-opacity='.55' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
     opacity: 0.85;
   }
+}
+
+// ===== As listas e as tarefas =====
+// Só as declarações: os seletores ficam com quem usa (a leitura desenha <ul> e <ol> com um <li> por
+// item e o corpo dentro dele; o Visual, uma linha da folha por item, com o corpo nas linhas de baixo).
+
+// o lugar do marcador (e da caixinha): o texto do item, e o que vem embaixo dele, começam depois
+$item-lugar: 1.35em;
+
+// o ponto da lista comum, em negrito, pendurado no lugar do marcador
+@mixin marcador-ponto {
+  content: '•';
+  position: absolute;
+  left: 0.3em;
+  font-weight: 700;
+}
+
+// o número do pai na frente ("1.1.") pede mais lugar: um terço de em por sinal dele (--pre-n)
+@mixin numero-lugar {
+  padding-left: calc(1.7em + var(--pre-n, 0) * 0.33em);
+}
+
+// o número, pendurado no começo do lugar dele, com os algarismos da mesma largura
+@mixin marcador-numero {
+  position: absolute;
+  left: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+// a caixinha desenhada a caneta, sentada na linha da pauta (--caixa-sobe a sobe)
+@mixin caixa {
+  appearance: none;
+  width: 0.86em;
+  height: 0.86em;
+  margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em - var(--caixa-sobe, 0px)) 0 0;
+  border: 2px solid currentColor;
+  border-radius: 2px 3px 2px 4px;
+  rotate: -3deg;
+  background: transparent;
+  cursor: pointer;
+}
+
+// feita: o tique vermelho de caneta por cima da caixinha
+@mixin caixa-marcada {
+  background:
+    no-repeat center / 120% 120%
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+// o texto da tarefa feita, riscado a lápis
+@mixin tarefa-feita {
+  text-decoration: line-through 2px rgb(21 21 21 / 0.45);
+  opacity: 0.7;
+}
+
+// o que vem embaixo da tarefa feita: mais apagado, e a foto ou o vídeo com o risco de caneta (--riscado)
+@mixin corpo-feito {
+  --riscado: 1;
+  opacity: 0.7;
+}
+
+// e cada linha dele riscada a lápis, como o texto dela
+@mixin corpo-feito-risco {
+  text-decoration: line-through 2px rgb(21 21 21 / 0.45);
+}
+
+// o respiro de uma linha inteira da pauta depois do item que tem algo embaixo (antes do próximo)
+@mixin respiro-do-corpo {
+  margin-bottom: var(--corpo-respiro, var(--line, 1.5em));
 }

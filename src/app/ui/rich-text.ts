@@ -478,10 +478,10 @@ import { NoteWidget } from './note-widget';
       white-space: normal;
     }
     .tarefas .corpo {
-      padding-left: 1.35em;
+      padding-left: formatado.$item-lugar;
     }
     .lista > li:has(> .corpo):not(:last-child) {
-      margin-bottom: var(--corpo-respiro, var(--line, 1.5em));
+      @include formatado.respiro-do-corpo;
     }
     /* o respiro entre uma tarefa e a seguinte: quem usa diz quanto (a ficha do mural, onde não há
        pauta para seguir); sem dizer, nenhum, e cada tarefa fica na linha dela */
@@ -491,56 +491,42 @@ import { NoteWidget } from './note-widget';
     /* a tarefa feita risca o que vem embaixo dela: o texto a lápis, como o dela, e a foto ou o vídeo
        com o risco de caneta (ver ui/glued-media.ts, --riscado) */
     .feita > .corpo {
-      --riscado: 1;
-      opacity: 0.7;
+      @include formatado.corpo-feito;
     }
     .feita > .corpo :is(.linha, th, td, .codigo) {
-      text-decoration: line-through 2px rgb(21 21 21 / 0.45);
+      @include formatado.corpo-feito-risco;
     }
     /* o item fica pendurado: a segunda linha começa onde o texto começa, não embaixo do marcador */
     .lista > li {
       position: relative;
-      padding-left: 1.35em;
+      padding-left: formatado.$item-lugar;
     }
     /* só na lista comum: a numerada tem o número no lugar, e a de tarefas, a caixinha */
     .lista:not(.tarefas, .numerada) > li::before {
-      content: '•';
-      position: absolute;
-      left: 0.3em;
-      font-weight: 700;
+      @include formatado.marcador-ponto;
     }
     /* o número do pai na frente ("1.1.") pede mais lugar: um terço de em por sinal dele */
     .numerada > li {
       counter-increment: item;
-      padding-left: calc(1.7em + var(--pre-n, 0) * 0.33em);
+      @include formatado.numero-lugar;
     }
     .numerada > li::before {
       content: attr(data-pre) counter(item) '.';
-      position: absolute;
-      left: 0;
-      font-variant-numeric: tabular-nums;
+      @include formatado.marcador-numero;
     }
     .tarefas > li {
       padding-left: 0;
     }
     .tarefas label {
       display: grid;
-      grid-template-columns: 1.35em minmax(0, 1fr);
+      grid-template-columns: formatado.$item-lugar minmax(0, 1fr);
       align-items: start;
     }
     /* a caixinha desenhada a caneta, sentada na linha da pauta; quem usa pode subi-la (--caixa-sobe), para
        ela ficar no meio das letras quando o texto desce na linha (a leitura) */
     .tarefas input,
     .tarefas .caixa {
-      appearance: none;
-      width: 0.86em;
-      height: 0.86em;
-      margin: calc((var(--line, 1.5em) - 0.86em) / 2 + 0.06em - var(--caixa-sobe, 0px)) 0 0;
-      border: 2px solid currentColor;
-      border-radius: 2px 3px 2px 4px;
-      rotate: -3deg;
-      background: transparent;
-      cursor: pointer;
+      @include formatado.caixa;
     }
     .tarefas input:focus-visible {
       /* na cor da tinta: o amarelo sumia na cartolina amarela */
@@ -550,9 +536,7 @@ import { NoteWidget } from './note-widget';
     /* feita: o tique vermelho de caneta por cima da caixinha, e o texto riscado a lápis */
     .tarefas input:checked,
     .tarefas .caixa.marcada {
-      background:
-        no-repeat center / 120% 120%
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 10.5 8 15.5 18 2' fill='none' stroke='%23c4302b' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      @include formatado.caixa-marcada;
     }
     /* as feitas escondidas: o tique vermelho solto (sem caixinha, que ali não há o que marcar) e a
        conta a lápis, miúda e apagada, para não parecer mais uma tarefa */
@@ -597,8 +581,7 @@ import { NoteWidget } from './note-widget';
       opacity: 0.68;
     }
     .feita .tarefa {
-      text-decoration: line-through 2px rgb(21 21 21 / 0.45);
-      opacity: 0.7;
+      @include formatado.tarefa-feita;
     }
     @include formatado.elo;
     /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
