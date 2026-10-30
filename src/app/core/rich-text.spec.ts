@@ -1,4 +1,4 @@
-import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, marksAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, marksAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey, unwrapAt } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -274,5 +274,24 @@ describe('a linha do texto de cada bloco (a prévia do editor acompanha o cursor
     expect(marksAt(t, l2 + 1)).toEqual({ marks: [], list: 'check' });
     expect(marksAt(t, t.indexOf('riscada') + 2)).toEqual({ marks: ['strike'], list: 'check' });
     expect(marksAt(t, t.length)).toEqual({ marks: [], list: 'ol' });
+  });
+
+  it('unwrapAt: o botão apertado tira o par da marca em volta do cursor, e só ele', () => {
+    const tira = (t: string, at: number, mark: string, which: Parameters<typeof unwrapAt>[5], fim = at) => {
+      const r = unwrapAt(t, at, fim, mark, mark, which);
+      return r && [t.slice(0, r.from) + r.insert + t.slice(r.to), r.s];
+    };
+    expect(tira('a **negrito** b', 6, '**', 'bold')).toEqual(['a negrito b', 4]);
+    // o negrito de fora sai, o itálico de dentro fica
+    expect(tira('x **um _dois_ três** y', 9, '**', 'bold')).toEqual(['x um _dois_ três y', 7]);
+    expect(tira('x **um _dois_ três** y', 9, '_', 'italic')).toEqual(['x **um dois três** y', 8]);
+    // o "*" do itálico não é metade do "**"
+    expect(tira('***ambos***', 5, '*', 'italic')).toEqual(['**ambos**', 4]);
+    // a marca do item seguinte não conta, nem a outra linha
+    expect(tira('**um** e **dois**', 13, '**', 'bold')).toEqual(['**um** e dois', 11]);
+    expect(tira('- [ ] **feito**\nfora', 9, '**', 'bold')).toEqual(['- [ ] feito\nfora', 7]);
+    // fora da marca, ou a seleção em duas linhas: nada
+    expect(tira('a **b** c', 0, '**', 'bold')).toBeNull();
+    expect(tira('**a\nb**', 2, '**', 'bold', 6)).toBeNull();
   });
 });

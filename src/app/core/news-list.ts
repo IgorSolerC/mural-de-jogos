@@ -40,7 +40,7 @@ export const NEWS: NewsEntry[] = [
       'No modo Visual (em teste), o bloco de código se escreve direto na folha, com a letra de máquina: "```" e Enter abre um, o Enter quebra a linha dentro dele (numa linha vazia no fim, sai), o Tab põe dois espaços, e o Ctrl+E (ou Formatar › Bloco de código) numa linha vazia ou em várias linhas faz o bloco; dentro dele, volta a ser texto.',
       'Na leitura da anotação aberta e no modo Visual, o item da lista ou a tarefa com algo escrito embaixo não ganha mais uma linha em branco antes do próximo: ela só aparece se foi escrita (na cartolina do mural, nada muda).',
       'No modo Visual (em teste), o widget selecionado ganha uma moldura de caneta com cantos redondos e o halo de marca-texto, do tamanho do widget, no lugar da linha preta que atravessava a folha.',
-      'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) fica apertado como os outros do site, em tinta cheia e torto de leve; e agora afunda também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista.',
+      'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) fica apertado como os outros do site, em tinta cheia e torto de leve; e agora afunda também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista, e lá o clique no botão apertado tira a marca em volta do cursor.',
     ],
   },
   {

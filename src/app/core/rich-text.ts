@@ -408,6 +408,38 @@ export function marksAt(text: string, at: number): { marks: InlineMark[]; list: 
   return { marks: span ? INLINE_MARKS.filter((m) => span[m]) : [], list };
 }
 
+/** O texto que aparece de uma linha (sem as marcas e sem o marcador da lista). */
+function shownLine(line: string): string {
+  return parseInline(lineKind(line).rest)
+    .map((s) => s.text)
+    .join('');
+}
+
+/**
+ * Tira a marca que vale no cursor (`s` a `e`, numa linha só): o par escrito mais perto em volta dele
+ * cujas pontas são mesmo a marca (sem elas, o texto que aparece é o mesmo, e a marca deixa de valer
+ * ali). Null: não há um par assim (a seleção pega duas linhas, ou a marca não vale ali).
+ */
+export function unwrapAt(text: string, s: number, e: number, mark: string, close: string, which: InlineMark): { from: number; to: number; insert: string; s: number; e: number } | null {
+  const start = text.lastIndexOf('\n', s - 1) + 1;
+  let end = text.indexOf('\n', s);
+  if (end < 0) end = text.length;
+  if (e > end || !marksAt(text, s).marks.includes(which)) return null;
+  const line = text.slice(start, end);
+  const shown = shownLine(line);
+  const m = mark.length;
+  for (let i = s - start - m; i >= 0; i--) {
+    if (!line.startsWith(mark, i)) continue;
+    for (let j = e - start; j + close.length <= line.length; j++) {
+      if (!line.startsWith(close, j)) continue;
+      const out = line.slice(0, i) + line.slice(i + m, j) + line.slice(j + close.length);
+      const next = text.slice(0, start) + out + text.slice(end);
+      if (shownLine(out) === shown && !marksAt(next, s - m).marks.includes(which)) return { from: start, to: end, insert: out, s: s - m, e: e - m };
+    }
+  }
+  return null;
+}
+
 export function parseInline(text: string): Span[] {
   const atoms: Atom[] = [];
   for (const m of text.matchAll(ATOMS)) {

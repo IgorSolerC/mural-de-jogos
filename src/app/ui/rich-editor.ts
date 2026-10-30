@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, withNumber } from '../core/rich-text';
+import { bodyIndent, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { DEFAULT_TABLE_LOOK, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
@@ -2109,17 +2109,17 @@ export class RichEditor {
     if (this.visual()) return this.visualAct(big, what);
     switch (what) {
       case 'bold':
-        return this.wrap(area, '**');
+        return this.wrap(area, '**', '**', 'bold');
       case 'italic':
-        return this.wrap(area, '*');
+        return this.wrap(area, '*', '*', 'italic');
       case 'strike':
-        return this.wrap(area, '~~');
+        return this.wrap(area, '~~', '~~', 'strike');
       case 'mark':
-        return this.wrap(area, '==');
+        return this.wrap(area, '==', '==', 'mark');
       case 'spoiler':
-        return this.wrap(area, '||');
+        return this.wrap(area, '||', '||', 'spoiler');
       case 'subtle':
-        return this.wrap(area, '((', '))');
+        return this.wrap(area, '((', '))', 'subtle');
       case 'code':
         return this.code(area);
       case 'url':
@@ -3573,9 +3573,17 @@ export class RichEditor {
    * ela já está marcada, tira. Sem seleção, deixa as marcas com o cursor no meio, pronto para escrever.
    * `close`: a marca de fechar, quando não é a mesma da de abrir (o sutil, "((" e "))").
    */
-  protected wrap(area: HTMLTextAreaElement, mark: string, close = mark): void {
+  protected wrap(area: HTMLTextAreaElement, mark: string, close = mark, which?: InlineMark): void {
     const text = area.value;
     let [s, e] = [area.selectionStart, area.selectionEnd];
+    // o botão está apertado (a marca vale no cursor): o clique tira a marca em volta, como no Visual
+    // (o itálico também se escreve com "_")
+    const off =
+      which && this.styleNow() !== 'codigo' ? (unwrapAt(text, s, e, mark, close, which) ?? (which === 'italic' ? unwrapAt(text, s, e, '_', '_', which) : null)) : null;
+    if (off) {
+      this.replace(area, off.from, off.to, off.insert, off.s, off.e);
+      return;
+    }
     while (s < e && /\s/.test(text[s])) s++;
     while (e > s && /\s/.test(text[e - 1])) e--;
     const m = mark.length;
