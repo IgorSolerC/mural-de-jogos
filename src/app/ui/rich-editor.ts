@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, withNumber } from '../core/rich-text';
+import { bodyIndent, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, withNumber } from '../core/rich-text';
 import { DEFAULT_TABLE_LOOK, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
@@ -753,10 +753,23 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     [aria-expanded='true']:is(.acao-folha, .ferramenta, .menu-botao) {
       background: rgb(21 21 21 / 0.1);
     }
-    /* ligado (no Visual, a marca vale onde está o cursor): a tecla afundada, com o fio de tinta embaixo */
+    /* ligado (a marca vale onde está o cursor): o botão apertado do site (o chip da pasta, em
+       _paper-kit.scss), em tinta cheia com o desenho no papel, torto de leve */
     .ferramenta[aria-pressed='true'] {
-      background: rgb(21 21 21 / 0.13);
-      box-shadow: inset 0 -2.5px 0 var(--ink);
+      background: var(--ink);
+      color: var(--paper);
+      rotate: -2deg;
+      box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.3),
+        0 3px 6px -3px rgb(0 0 0 / 0.35);
+      transition:
+        background-color var(--t-ui) var(--ease-ui),
+        rotate var(--t-physical) var(--ease-physical);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ferramenta[aria-pressed='true'] {
+        rotate: 0deg;
+      }
     }
     /* o que o Visual ainda não sabe pôr: apagado, e o toque diz para usar o Markdown */
     .apagado {
@@ -2146,8 +2159,16 @@ export class RichEditor {
 
   /** O cursor andou (ou o texto mudou): o estilo da linha dele. */
   protected track(area: HTMLTextAreaElement): void {
-    this.lineStyle.set(styleAt(area.value, area.selectionStart));
+    const style = styleAt(area.value, area.selectionStart);
+    this.lineStyle.set(style);
+    // no bloco de código, o que está escrito é só texto: nenhuma marca vale
+    const m = style === 'codigo' ? { marks: [], list: null } : marksAt(area.value, area.selectionStart);
+    const was = this.markdownMarks();
+    if (m.list !== was.list || m.marks.join() !== was.marks.join()) this.markdownMarks.set(m);
   }
+
+  /** As marcas e a lista no cursor do Markdown: os botões da régua afundam como no Visual. */
+  protected readonly markdownMarks = signal<ReturnType<typeof marksAt>>({ marks: [], list: null });
 
   protected pickStyle(area: HTMLTextAreaElement, style: LineStyle): void {
     this.menu.set(null);
@@ -2351,14 +2372,14 @@ export class RichEditor {
   /** O estilo do parágrafo da linha do cursor, no jeito que está à mostra. */
   protected readonly styleNow = computed<LineStyle | null>(() => (this.visual() ? this.visualState().estilo : this.lineStyle()));
 
-  /** O botão da lista está afundado: a linha do cursor é dela (só no Visual). */
-  protected listPressed(kind: ListKind): boolean | null {
-    return this.visual() ? this.visualState().lista === kind : null;
+  /** O botão da lista está afundado: a linha do cursor é dela (no Visual e no Markdown). */
+  protected listPressed(kind: ListKind): boolean {
+    return this.visual() ? this.visualState().lista === kind : this.markdownMarks().list === kind;
   }
 
-  /** O botão da marca está ligado (só no Visual: no Markdown a marca é o que está escrito). */
-  protected pressed(mark: MarcaVisual): boolean | null {
-    return this.visual() ? this.visualState().marcas.includes(mark) : null;
+  /** O botão da marca está ligado: ela vale onde está o cursor (no Visual e no Markdown). */
+  protected pressed(mark: MarcaVisual): boolean {
+    return this.visual() ? this.visualState().marcas.includes(mark) : this.markdownMarks().marks.includes(mark);
   }
 
   private visualOf(big: boolean): VisualApi | null {

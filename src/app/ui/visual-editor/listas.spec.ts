@@ -88,13 +88,13 @@ describe('as listas no modo Visual', () => {
       expect(itens()[4].style.getPropertyValue('--pre-n').trim()).toBe('2');
     });
 
-    it('a descrição fica no alinhamento do texto do item; a da tarefa feita é riscada junto, e há o respiro antes do próximo', async () => {
+    it('a descrição fica no alinhamento do texto do item; a da tarefa feita é riscada junto, e nenhuma linha em branco que não foi escrita', async () => {
       await make('- [x] feita\n      descrição\n- [ ] outra\n  - de dentro\n    corpo de dentro\nfora');
       const nos = Array.from(view.dom.children) as HTMLElement[];
       expect(nos[1].classList).toContain('vis-feita');
       expect(nos[1].style.getPropertyValue('--vis-corpo').trim()).toBe('1.35');
       expect(nos[1].style.getPropertyValue('--vis-tira').trim()).toBe('6');
-      expect(nos[1].classList).toContain('vis-respiro');
+      expect(getComputedStyle(nos[1]).marginBottom).toBe('0px');
       expect(nos[0].hasAttribute('data-feita')).toBeTrue();
       expect(getComputedStyle(nos[0].querySelector('.vis-item-texto')!).textDecorationLine).toBe('line-through');
       // o item de dentro: o lugar da tarefa; o corpo dele, os dois lugares

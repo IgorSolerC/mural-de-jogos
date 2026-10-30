@@ -418,8 +418,8 @@ describe('a régua de formatação do texto', () => {
     expect(tabs[0].getAttribute('aria-label')).toBe('Visual (em teste)');
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     expect(area.hidden).toBeFalse();
-    // no Markdown, os botões não dizem "ligado": a marca é o que está escrito
-    expect(button('Negrito').hasAttribute('aria-pressed')).toBeFalse();
+    // no Markdown o botão também afunda onde a marca vale: fora dela, solto
+    expect(button('Negrito').getAttribute('aria-pressed')).toBe('false');
     expect(button('Lista').getAttribute('aria-disabled')).toBeNull();
   });
 

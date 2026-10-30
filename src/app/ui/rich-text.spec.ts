@@ -133,7 +133,7 @@ describe('o texto formatado na leitura', () => {
     expect(getComputedStyle(inner).color).toBe(getComputedStyle(box).color);
   });
 
-  it('o que vem embaixo da tarefa fica no alinhamento do texto dela, com uma linha de respiro; feita, é riscado junto', async () => {
+  it('o que vem embaixo da tarefa fica no alinhamento do texto dela, sem linha em branco que não foi escrita; feita, é riscado junto', async () => {
     const el = await render('- [x] **Mandolin**\n      Descrição: adaptável\n      {{imagem: https://ex.com/m.jpg}}\n- [ ] Panelas\n      fundo triplo\n- [ ] Cola', null, true);
     const items = Array.from(el.querySelectorAll<HTMLElement>('.tarefas > li'));
     expect(items.length).toBe(3);
@@ -148,9 +148,8 @@ describe('o texto formatado na leitura', () => {
     expect(Math.abs(left(body.querySelector('.linha')!) - left(done.querySelector('.tarefa')!))).toBeLessThan(1.5);
     expect(parseFloat(getComputedStyle(body.querySelector('.linha')!).textIndent)).toBe(0);
     // uma linha da pauta inteira entre a tarefa com corpo e a de baixo; a última, sem
-    const line = parseFloat(getComputedStyle(done).minHeight);
-    expect(parseFloat(getComputedStyle(done).marginBottom)).toBeCloseTo(line, 1);
-    expect(parseFloat(getComputedStyle(open).marginBottom)).toBeCloseTo(line, 1);
+    expect(parseFloat(getComputedStyle(done).marginBottom)).toBe(0);
+    expect(parseFloat(getComputedStyle(open).marginBottom)).toBe(0);
     expect(parseFloat(getComputedStyle(last).marginBottom)).toBe(0);
     // feita: o texto de baixo riscado e a foto com o risco ligado; a por fazer, não
     expect(getComputedStyle(body.querySelector('.linha')!).textDecorationLine).toBe('line-through');

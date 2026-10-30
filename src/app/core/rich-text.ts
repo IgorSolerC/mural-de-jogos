@@ -385,6 +385,29 @@ type Marks = Omit<Span, 'text'>;
  * link pode estar dentro de um negrito ("**veja [[Compras]]**"), mas o título dele fica como foi
  * escrito, e o código também.
  */
+export type InlineMark = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code';
+const INLINE_MARKS: readonly InlineMark[] = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code'];
+/** Um sinal que ninguém escreve: marca o lugar do cursor dentro da linha lida. */
+const CURSOR = String.fromCharCode(0xe000);
+
+/**
+ * As marcas que valem no cursor do Markdown (a régua afunda os botões delas) e a lista da linha dele.
+ * O cursor colado do lado de fora da marca não conta ("**negrito**|"); do lado de dentro, sim.
+ */
+export function marksAt(text: string, at: number): { marks: InlineMark[]; list: 'ul' | 'ol' | 'check' | null } {
+  const start = text.lastIndexOf('\n', at - 1) + 1;
+  const end = text.indexOf('\n', at);
+  const line = text.slice(start, end < 0 ? text.length : end);
+  const k = lineKind(line);
+  const list = k.kind === 'p' ? null : k.kind;
+  const off = line.length - k.rest.length;
+  const col = at - start;
+  if (col < off) return { marks: [], list };
+  const rest = k.rest.slice(0, col - off) + CURSOR + k.rest.slice(col - off);
+  const span = parseInline(rest).find((s) => s.text.includes(CURSOR));
+  return { marks: span ? INLINE_MARKS.filter((m) => span[m]) : [], list };
+}
+
 export function parseInline(text: string): Span[] {
   const atoms: Atom[] = [];
   for (const m of text.matchAll(ATOMS)) {

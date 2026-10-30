@@ -282,9 +282,10 @@ $item-lugar: 1.35em;
   text-decoration: line-through 2px rgb(21 21 21 / 0.45);
 }
 
-// o respiro de uma linha inteira da pauta depois do item que tem algo embaixo (antes do próximo)
+// o respiro depois do item que tem algo embaixo (antes do próximo): quem usa diz quanto (o PDF);
+// sem dizer, nenhum: a linha em branco só aparece se foi escrita (a leitura e o Visual)
 @mixin respiro-do-corpo {
-  margin-bottom: var(--corpo-respiro, var(--line, 1.5em));
+  margin-bottom: var(--corpo-respiro, 0px);
 }
 
 // ===== A tabela, nos cinco jeitos (ver core/tables.ts) =====

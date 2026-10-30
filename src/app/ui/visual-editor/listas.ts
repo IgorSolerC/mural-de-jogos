@@ -364,7 +364,6 @@ function desenhar(doc: PMNode, m: Mapa): DecorationSet {
   const papel: (Papel | undefined)[] = [];
   const numero: (string | undefined)[] = [];
   const preN: number[] = [];
-  const respiro = new Set<number>();
   const andar = (blocks: readonly Block[], fora: Papel) => {
     for (const b of blocks) {
       if (b.kind !== 'ul' && b.kind !== 'ol' && b.kind !== 'check') continue;
@@ -380,8 +379,6 @@ function desenhar(doc: PMNode, m: Mapa): DecorationSet {
         if (!corpo) return;
         const dentro: Papel = { corpo: fora.corpo + lugar(b), tira: corpo.indent, feita: fora.feita || !!it.done };
         for (let j = it.line + 1; j <= corpo.end; j++) if (m.primeira[m.no[j]] === j) papel[m.no[j]] = dentro;
-        // o respiro de uma linha inteira depois do item com corpo, antes do próximo (como a leitura)
-        if (k < b.items.length - 1) respiro.add(m.no[corpo.end]);
         andar(it.body!, dentro);
       });
     }
@@ -391,7 +388,7 @@ function desenhar(doc: PMNode, m: Mapa): DecorationSet {
   let pos = 0;
   doc.forEach((n, _o, i) => {
     const p = papel[i];
-    const classes = [p?.feita ? 'vis-feita' : '', respiro.has(i) ? 'vis-respiro' : ''].filter(Boolean);
+    const classes = [p?.feita ? 'vis-feita' : ''].filter(Boolean);
     const estilo = [p?.corpo ? `--vis-corpo: ${+p.corpo.toFixed(3)}` : '', p?.tira ? `--vis-tira: ${p.tira}` : '', preN[i] ? `--pre-n: ${preN[i]}` : ''].filter(Boolean);
     if (classes.length || estilo.length || numero[i] !== undefined)
       decos.push(

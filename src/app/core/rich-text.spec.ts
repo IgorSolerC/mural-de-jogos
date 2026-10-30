@@ -1,4 +1,4 @@
-import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
+import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, marksAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -260,5 +260,19 @@ describe('a linha do texto de cada bloco (a prévia do editor acompanha o cursor
     let pua = '';
     for (let c = 0xe000; c <= 0xf8ff; c++) pua += String.fromCharCode(c);
     expect(parseInline(pua + ' `x` *i*')).toEqual([{ text: pua + ' ' }, { text: 'x', code: true }, { text: ' ' }, { text: 'i', italic: true }]);
+  });
+
+  it('marksAt: as marcas e a lista no cursor do Markdown (para a régua afundar os botões)', () => {
+    const t = ['a **negrito _e itálico_** b', '- [ ] tarefa ~~riscada~~', '1. um'].join('\n');
+    expect(marksAt(t, 5)).toEqual({ marks: ['bold'], list: null });
+    expect(marksAt(t, 15)).toEqual({ marks: ['bold', 'italic'], list: null });
+    // colado do lado de fora da marca não conta; do lado de dentro, sim
+    expect(marksAt(t, 2).marks).toEqual([]);
+    expect(marksAt(t, 23).marks).toEqual(['bold']);
+    expect(marksAt(t, 25).marks).toEqual([]);
+    const l2 = t.indexOf('- [ ]');
+    expect(marksAt(t, l2 + 1)).toEqual({ marks: [], list: 'check' });
+    expect(marksAt(t, t.indexOf('riscada') + 2)).toEqual({ marks: ['strike'], list: 'check' });
+    expect(marksAt(t, t.length)).toEqual({ marks: [], list: 'ol' });
   });
 });

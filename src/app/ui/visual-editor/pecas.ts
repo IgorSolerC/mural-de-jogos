@@ -66,6 +66,9 @@ export class WidgetView implements NodeView {
   private editavel = false;
   /** O texto do campo quando ele recebeu o foco (o Esc volta a ele). */
   private antes = '';
+  private readonly host: HTMLElement;
+  /** Selecionada, acompanha o tamanho do widget (a foto que chega, a folha que muda de largura). */
+  private medida: ResizeObserver | null = null;
 
   constructor(
     private node: PMNode,
@@ -76,7 +79,7 @@ export class WidgetView implements NodeView {
     this.dom = document.createElement('div');
     this.dom.className = 'vis-peca';
     this.dom.setAttribute('role', 'group');
-    const host = document.createElement('app-note-widget');
+    const host = (this.host = document.createElement('app-note-widget'));
     host.className = 'widget';
     this.ref = createComponent(NoteWidget, { environmentInjector: ctx.injector, hostElement: host });
     this.ref.setInput('name', node.attrs['nome']);
@@ -187,12 +190,36 @@ export class WidgetView implements NodeView {
     this.selecionada = true;
     this.dom.classList.add('ProseMirror-selectednode');
     this.poeEditavel(true);
+    this.mede();
+    // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho)
+    requestAnimationFrame(() => this.selecionada && this.mede());
+    if (!this.medida && typeof ResizeObserver !== 'undefined') {
+      this.medida = new ResizeObserver(() => this.mede());
+      this.medida.observe(this.host);
+    }
   }
 
   deselectNode(): void {
     this.selecionada = false;
     this.dom.classList.remove('ProseMirror-selectednode');
     if (!this.escrevendo) this.poeEditavel(false);
+    this.medida?.disconnect();
+    this.medida = null;
+  }
+
+  /** A moldura da seleção (ver visual-editor.scss) do tamanho do que o widget desenha, não da linha toda. */
+  private mede(): void {
+    const area = areaDesenhada(this.host);
+    const caixa = this.dom.getBoundingClientRect();
+    const s = this.dom.style;
+    if (!area) {
+      for (const v of ['--peca-esq', '--peca-topo', '--peca-larg', '--peca-alto']) s.removeProperty(v);
+      return;
+    }
+    s.setProperty('--peca-esq', `${Math.round(area.left - caixa.left)}px`);
+    s.setProperty('--peca-topo', `${Math.round(area.top - caixa.top)}px`);
+    s.setProperty('--peca-larg', `${Math.round(area.width)}px`);
+    s.setProperty('--peca-alto', `${Math.round(area.height)}px`);
   }
 
   /** O campo e os controles (tocar o vídeo e o som, ampliar) ficam com eles: o toque não seleciona a peça. */
@@ -209,9 +236,49 @@ export class WidgetView implements NodeView {
   }
 
   destroy(): void {
+    this.medida?.disconnect();
     this.ctx.appRef.detachView(this.ref.hostView);
     this.ref.destroy();
   }
+}
+
+/** As caixas que se veem: a foto, o vídeo, o desenho, o campo, e o que tem fundo, borda ou sombra. */
+const DESENHO = new Set(['IMG', 'VIDEO', 'IFRAME', 'CANVAS', 'svg', 'INPUT', 'TEXTAREA', 'BUTTON']);
+
+/**
+ * A área que o widget desenha de verdade: a soma das caixas que aparecem (as letras, a foto, o que tem
+ * fundo, borda ou sombra), sem os invólucros vazios que ocupam a linha toda. Null: nada à mostra ainda.
+ */
+export function areaDesenhada(host: HTMLElement): DOMRect | null {
+  let esq = Infinity, topo = Infinity, dir = -Infinity, baixo = -Infinity;
+  const soma = (r: DOMRect) => {
+    if (r.width <= 0 || r.height <= 0) return;
+    esq = Math.min(esq, r.left);
+    topo = Math.min(topo, r.top);
+    dir = Math.max(dir, r.right);
+    baixo = Math.max(baixo, r.bottom);
+  };
+  const andar = document.createTreeWalker(host, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  const faixa = document.createRange();
+  for (let n = andar.nextNode(); n; n = andar.nextNode()) {
+    if (n.nodeType === Node.TEXT_NODE) {
+      if (!n.textContent?.trim()) continue;
+      faixa.selectNodeContents(n);
+      for (const r of Array.from(faixa.getClientRects())) soma(r);
+      continue;
+    }
+    const el = n as Element;
+    const st = getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden') continue;
+    const visto =
+      DESENHO.has(el.tagName) ||
+      st.backgroundImage !== 'none' ||
+      (st.backgroundColor !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(st.backgroundColor)) ||
+      parseFloat(st.borderTopWidth) + parseFloat(st.borderBottomWidth) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth) > 0 ||
+      st.boxShadow !== 'none';
+    if (visto) soma(el.getBoundingClientRect());
+  }
+  return esq === Infinity ? null : new DOMRect(esq, topo, dir - esq, baixo - topo);
 }
 
 // ===== O lugar de um widget novo =====

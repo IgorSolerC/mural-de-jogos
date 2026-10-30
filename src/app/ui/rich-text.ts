@@ -23,7 +23,7 @@ import { NoteWidget } from './note-widget';
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
  *
  * O que vem embaixo de um item, recuado (a descrição, a foto, outra lista), fica no alinhamento do
- * texto dele, com uma linha da pauta de respiro antes do próximo item. Na tarefa feita, é riscado
+ * texto dele, e o próximo item vem logo embaixo (a linha em branco só se foi escrita). Na tarefa feita, é riscado
  * junto: o texto a lápis, como o da tarefa, e a foto com um risco de caneta vermelha de ponta a ponta.
  *
  * O spoiler ("||texto||") é uma tarja de caneta preta por cima das letras, como num documento
@@ -383,8 +383,8 @@ import { NoteWidget } from './note-widget';
       padding: 0;
       list-style: none;
     }
-    /* o que vem embaixo do item: no alinhamento do texto dele, e o respiro de uma linha inteira da
-       pauta antes do próximo item (a letra continua sentada nas linhas da folha) */
+    /* o que vem embaixo do item: no alinhamento do texto dele; o respiro antes do próximo item só
+       quando quem usa pede (o PDF): aqui, a linha em branco só aparece se foi escrita */
     .corpo {
       white-space: normal;
     }
