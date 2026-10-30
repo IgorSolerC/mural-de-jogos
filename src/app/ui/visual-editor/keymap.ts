@@ -6,14 +6,16 @@ import { keymap } from 'prosemirror-keymap';
 import { MarkType, Node as PMNode, NodeType } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, TextSelection, Transaction } from 'prosemirror-state';
 import { linkarEndereco } from './links';
+import { enterNaLista, linhaNoItem, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
 import { schema, textoDoCru } from './schema';
 
 /**
  * O teclado do Visual (PLANO-EDITOR-VISUAL.md, 5.9), escrito tecla por tecla: o `baseKeymap` do
  * ProseMirror não entra inteiro (ele usa o Ctrl+Enter, que no comentário é "Enviar"). Tecla que o Visual
- * não usa passa adiante. Enter, Backspace e Delete nas linhas, títulos, citações, sutis e no bloco de
- * código, Tab e Shift+Tab no recuo do texto (e os dois espaços no código), as marcas, o código (Ctrl+E,
- * que numa linha vazia ou em várias linhas faz o bloco) e o desfazer.
+ * não usa passa adiante. Enter, Backspace e Delete nas linhas, títulos, citações, sutis, itens de lista
+ * (ver listas.ts) e no bloco de código, Tab e Shift+Tab no recuo do texto e no nível dos itens (e os
+ * dois espaços no código), as marcas, o código (Ctrl+E, que numa linha vazia ou em várias linhas faz o
+ * bloco) e o desfazer (o Ctrl+Alt+Enter da tarefa mora no visual-editor.ts).
  */
 
 const N = schema.nodes;
@@ -215,6 +217,8 @@ export const enter: Command = (state, dispatch) => {
     }
     return true;
   }
+  // o item e a descrição dele (ver listas.ts): o próximo item, a lista que acaba
+  if (enterNaLista(state, dispatch)) return true;
   // a citação vazia acaba, o título vazio vira texto
   if (sel.empty && !node.content.size && (node.type === N['citacao'] || node.type === N['titulo'] || node.type === N['sutil'])) {
     if (dispatch) dispatch(state.tr.setNodeMarkup($from.before(), N['linha'], { recuo, fonte: null }).scrollIntoView());
@@ -245,9 +249,10 @@ export const enter: Command = (state, dispatch) => {
 };
 
 /**
- * Backspace no começo de uma linha: o título, a citação e o sutil viram texto; o texto recuado volta um
- * nível. Com uma peça logo em cima (a divisória, um trecho cru), a peça fica selecionada (de novo, ela
- * sai), como no Docs; a linha vazia sai junto. Senão, junta com a de cima.
+ * Backspace no começo de uma linha: o título, a citação e o sutil viram texto; o item perde o marcador
+ * (fica texto no mesmo recuo); o texto recuado volta um nível (a descrição de um item sai dele). Com uma
+ * peça logo em cima (a divisória, um trecho cru), a peça fica selecionada (de novo, ela sai), como no
+ * Docs; a linha vazia sai junto. Senão, junta com a de cima.
  */
 export const apagarNoComeco: Command = (state, dispatch) => {
   const { $from, empty } = state.selection;
@@ -267,8 +272,12 @@ export const apagarNoComeco: Command = (state, dispatch) => {
     if (dispatch) dispatch(state.tr.setNodeMarkup(pos, N['linha'], { recuo: node.attrs['recuo'], fonte: null }));
     return true;
   }
+  if (node.type === N['item']) {
+    if (dispatch) dispatch(state.tr.setNodeMarkup(pos, N['linha'], { recuo: node.attrs['recuo'], fonte: null }));
+    return true;
+  }
   if (node.type === N['linha'] && node.attrs['recuo'] > 0) {
-    if (dispatch) dispatch(state.tr.setNodeMarkup(pos, null, { ...node.attrs, recuo: paraTras(node.attrs['recuo']) }));
+    if (dispatch) dispatch(state.tr.setNodeMarkup(pos, null, { ...node.attrs, recuo: recuoParaFora(state, $from.index(0), node.attrs['recuo']) }));
     return true;
   }
   const antes = $from.index(0) > 0 ? state.doc.child($from.index(0) - 1) : null;
@@ -303,23 +312,26 @@ const apagarNoFim: Command = (state, dispatch) => {
 export const apagarParaTras: Command = chainCommands(undoInputRule, deleteSelection, apagarNoComeco, joinBackward);
 export const apagarParaFrente: Command = chainCommands(deleteSelection, apagarNoFim, joinForward, selectNodeForward);
 
-/** O recuo seguinte de 2 em 2, sempre num número par (3 → 4), como o Tab do Markdown. */
-const paraFrente = (r: number) => r + (r % 2 ? 1 : 2);
-const paraTras = (r: number) => Math.max(0, r - (r % 2 ? 1 : 2));
-
 /**
- * Tab e Shift+Tab: o texto entra ou sai um nível (o recuo de 2 em 2, como no Markdown). Só nas linhas
- * de texto: o título, a citação e o sutil recuados não são lidos como eles mesmos. Shift+Tab sem recuo
- * nenhum é o de sempre do navegador (o foco sai da folha: o Tab nunca prende).
+ * Tab e Shift+Tab: o texto e os itens entram ou saem um nível (o recuo de 2 em 2, sempre par, como no
+ * Markdown). Só nas linhas de texto e nos itens: o título, a citação e o sutil recuados não são lidos
+ * como eles mesmos. Com o cursor num item, a descrição e os itens de dentro vão junto; na descrição de
+ * um item, o Shift+Tab a tira dele (ver `recuoParaFora`). Shift+Tab sem recuo nenhum é o de sempre do
+ * navegador (o foco sai da folha: o Tab nunca prende).
  */
 export const recuar =
   (dir: 1 | -1): Command =>
   (state, dispatch) => {
-    const alvos = linhasDaSelecao(state).filter(([n]) => n.type === N['linha']);
+    const alvos = linhasDaSelecao(state).filter(([n]) => n.type === N['linha'] || n.type === N['item']);
     if (dir < 0 && alvos.every(([n]) => !n.attrs['recuo'])) return false;
     if (dispatch && alvos.length) {
       const tr = state.tr;
-      for (const [n, pos] of alvos) tr.setNodeMarkup(pos, null, { ...n.attrs, recuo: Math.min(40, dir > 0 ? paraFrente(n.attrs['recuo']) : paraTras(n.attrs['recuo'])) });
+      if (alvos.length === 1) {
+        const [n, pos] = alvos[0];
+        const i = state.doc.resolve(pos).index(0);
+        const r: number = n.attrs['recuo'];
+        if (!recuarItem(state, tr, i, dir)) tr.setNodeMarkup(pos, null, { ...n.attrs, recuo: Math.min(40, dir > 0 ? paraFrente(r) : recuoParaFora(state, i, r)) });
+      } else for (const [n, pos] of alvos) tr.setNodeMarkup(pos, null, { ...n.attrs, recuo: Math.min(40, dir > 0 ? paraFrente(n.attrs['recuo']) : paraTras(n.attrs['recuo'])) });
       dispatch(tr);
     }
     return true;
@@ -357,8 +369,10 @@ export const estilo =
         return false;
       });
       for (const [n, pos] of alvos) {
-        // a linha em branco no meio de várias fica em branco
+        // a linha em branco no meio de várias fica em branco; o "Texto normal" num item o deixa item
+        // (como no Markdown, que só tira as marcas do título, da citação e do sutil)
         if (alvos.length > 1 && !n.textContent.trim()) continue;
+        if (tipo === N['linha'] && n.type === N['item']) continue;
         const recuo = tipo === N['linha'] ? n.attrs['recuo'] : 0;
         tr.setNodeMarkup(pos, tipo, tipo === N['titulo'] ? { recuo, fonte: n.attrs['fonte'], nivel } : { recuo, fonte: n.attrs['fonte'] });
       }
@@ -388,10 +402,13 @@ export const divisoria: Command = (state, dispatch) => {
   return true;
 };
 
+/** Shift+Enter: a quebra no bloco de código; num item (ou na descrição dele), a linha dentro dele; senão, o Enter. */
+export const shiftEnter: Command = chainCommands(enterNoCodigo(false), linhaNoItem, enter);
+
 export const teclas = (): Plugin =>
   keymap({
     Enter: enter,
-    'Shift-Enter': chainCommands(enterNoCodigo(false), enter),
+    'Shift-Enter': shiftEnter,
     Backspace: apagarParaTras,
     'Shift-Backspace': apagarParaTras,
     Delete: apagarParaFrente,

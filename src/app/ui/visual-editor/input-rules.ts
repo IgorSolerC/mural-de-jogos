@@ -11,8 +11,10 @@ import { schema } from './schema';
  * sinal entra. Cada um desfaz com o Ctrl+Z ou com o Backspace logo depois (e fica o que foi digitado,
  * escrito no texto com a barra que o mantém). Durante a composição (o acento, o teclado do celular),
  * nada acontece: o plugin espera ela acabar. O endereço solto (https://… ou www.…) vira link no espaço
- * (e no Enter, ver keymap.ts). As listas ("- ", "1. ", "[] ") são da rodada 4, e as
- * marcas digitadas ("**x**") não viram formatação (a P4: o que se escreve é texto).
+ * (e no Enter, ver keymap.ts). As listas (desde a rodada 4): "- ", "* " e "+ " viram item, "1. " (qualquer
+ * número, e "1.1. ") item numerado, "[] ", "[ ] " e "- [ ] " tarefa, em qualquer recuo (embaixo de um
+ * item, o recuado vira item de dentro). As marcas digitadas ("**x**") não viram formatação (a P4: o que
+ * se escreve é texto).
  */
 
 const N = schema.nodes;
@@ -58,12 +60,29 @@ function bloco(re: RegExp, tipo: NodeType, attrs: (m: RegExpMatchArray) => Recor
   });
 }
 
+/**
+ * Um atalho de lista no começo da linha: a linha de texto (em qualquer recuo) vira o item do tipo dado.
+ * Num item, só a tarefa (o "[ ] " depois do "- " que já virou item: o "- [ ] " do Markdown).
+ */
+function lista(re: RegExp, tipo: 'ul' | 'ol' | 'check'): InputRule {
+  return new InputRule(re, (state, match, start, end) => {
+    const $s = state.doc.resolve(start);
+    const linha = $s.parent;
+    if ($s.depth !== 1 || !(linha.type === N['linha'] || (linha.type === N['item'] && tipo === 'check' && linha.attrs['tipo'] !== 'check'))) return null;
+    const numero = tipo === 'ol' ? match[1] : '';
+    return state.tr.delete(start, end).setNodeMarkup($s.before(), N['item'], { recuo: linha.attrs['recuo'], fonte: linha.attrs['fonte'], tipo, feita: false, numero });
+  });
+}
+
 export const atalhos = (): Plugin =>
   inputRules({
     rules: [
       bloco(/^(#{1,3})\s$/, N['titulo'], (m) => ({ nivel: m[1].length })),
       bloco(/^>\s$/, N['citacao']),
       bloco(/^-#\s$/, N['sutil']),
+      lista(/^[-*+] $/, 'ul'),
+      lista(/^(\d{1,4}(?:\.\d{1,4})*)\. $/, 'ol'),
+      lista(/^(?:- )?\[ ?\] $/, 'check'),
       ...SIMBOLOS.map(([re, troca]) => simbolo(re, troca)),
       enderecoNoEspaco(),
     ],

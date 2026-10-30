@@ -72,10 +72,10 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
-/** O que o Visual ainda não sabe pôr (as listas, os widgets, a tabela). */
+/** O que o Visual ainda não sabe pôr (os widgets, a tabela). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
-const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'rule', 'undo', 'redo'] as const;
+const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'ul', 'ol', 'check', 'inside', 'rule', 'undo', 'redo'] as const;
 
 @Component({
   selector: 'app-rich-editor',
@@ -213,7 +213,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                   <ng-container *ngTemplateOutlet="estilos; context: { area, big }" />
                   <span class="menu-fio" role="separator"></span>
                   @for (l of lists; track l.act) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, l.act)">
                       <lucide-icon [img]="l.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ l.name }}</span>
                       <kbd class="atalho" aria-hidden="true">{{ l.keys }}</kbd>
@@ -221,7 +221,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                   }
                   <!-- a descrição de um item: uma linha recuada que continua dele (no celular, o único jeito
                        fácil, sem Shift+Enter) -->
-                  <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
+                  <button type="button" role="menuitem" tabindex="-1" class="menu-op" aria-keyshortcuts="Shift+Enter" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, 'inside')">
                     <lucide-icon [img]="InsideIcon" [size]="17" aria-hidden="true" />
                     <span class="menu-op-nome">Linha dentro do item</span>
                     <kbd class="atalho" aria-hidden="true">Shift+Enter</kbd>
@@ -303,7 +303,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             </button>
             <span class="fio" aria-hidden="true"></span>
             @for (l of lists; track l.act) {
-              <button type="button" class="ferramenta" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [title]="visual() ? NOT_YET : l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
+              <button type="button" class="ferramenta" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" [attr.aria-pressed]="listPressed(l.act)" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
                 <lucide-icon [img]="l.icon" [size]="19" aria-hidden="true" />
               </button>
             }
@@ -2350,6 +2350,11 @@ export class RichEditor {
   /** O estilo do parágrafo da linha do cursor, no jeito que está à mostra. */
   protected readonly styleNow = computed<LineStyle | null>(() => (this.visual() ? this.visualState().estilo : this.lineStyle()));
 
+  /** O botão da lista está afundado: a linha do cursor é dela (só no Visual). */
+  protected listPressed(kind: ListKind): boolean | null {
+    return this.visual() ? this.visualState().lista === kind : null;
+  }
+
   /** O botão da marca está ligado (só no Visual: no Markdown a marca é o que está escrito). */
   protected pressed(mark: MarcaVisual): boolean | null {
     return this.visual() ? this.visualState().marcas.includes(mark) : null;
@@ -2450,8 +2455,9 @@ export class RichEditor {
       e.preventDefault();
       this.toggleGuide(big);
     } else if (mod && e.shiftKey && LIST_KEYS[e.code]) {
+      // Ctrl+Shift+7, 8 e 9: as listas nas linhas da seleção (pela tecla, como no Markdown)
       e.preventDefault();
-      this.notYet();
+      this.visualAct(big, LIST_KEYS[e.code]);
     }
   }
 

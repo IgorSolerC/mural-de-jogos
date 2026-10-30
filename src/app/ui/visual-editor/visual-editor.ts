@@ -26,13 +26,15 @@ import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNoD
 import { NoteLinks } from '../../core/note-links';
 import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
+import { chainCommands } from 'prosemirror-commands';
 import { semQuebras } from './ajustes';
 import { colchetesAntes, eloView, faixaDaMarca, linkEm, linksInteiros } from './links';
 import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
-import { codigo, divisoria, estilo, marca, teclas } from './keymap';
+import { codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
+import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
 import { docDe, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
-import { AcaoVisual, EstadoVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-api';
+import { AcaoVisual, EstadoVisual, ListaVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-api';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -110,11 +112,20 @@ function estiloDe(state: EditorState): LineStyle | null {
       return 'sutil';
     case N['blocoCodigo']:
       return 'codigo';
+    // o item: o "Texto normal" do Markdown (que deixa a lista como está)
+    case N['item']:
+      return 'texto';
     case N['cru']:
       return (n.attrs['linha'] as LinhaDoc).kind === 'codigo' ? 'codigo' : null;
     default:
       return null;
   }
+}
+
+/** A lista da linha do cursor (para o botão dela ficar afundado). */
+function listaDe(state: EditorState): ListaVisual | null {
+  const { $from } = state.selection;
+  return $from.depth && $from.parent.type === N['item'] ? ($from.parent.attrs['tipo'] as ListaVisual) : null;
 }
 
 interface Contexto {
@@ -125,7 +136,7 @@ interface Contexto {
 }
 
 /**
- * O trecho cru: o que o Visual ainda não sabe mudar (a lista, o código, a tabela, o widget), mostrado
+ * O trecho cru: o que o Visual ainda não sabe mudar (a tabela, o widget), mostrado
  * como a leitura mostra (o mesmo `app-rich-text`), com uma borda tracejada discreta. Tocado, fica
  * selecionado como uma peça e mostra "Este trecho só se muda no Markdown", com o botão que leva até ele.
  * O botão segura o foco no `pointerdown` e age no `click` (o `touchstart` cancelado mataria o click).
@@ -296,6 +307,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       state: this.estadoDe(texto),
       dispatchTransaction: (tr) => this.aplica(tr),
       nodeViews: {
+        item: (node, view, getPos) => new ItemView(node, view, getPos),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
             appRef: this.appRef,
@@ -358,6 +370,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (acao === 'rule') return divisoria;
     // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
     if (acao === 'code') return codigo;
+    if (acao === 'ul' || acao === 'ol' || acao === 'check') return lista(acao);
+    // a linha dentro do item (fora de lista, uma linha nova)
+    if (acao === 'inside') return chainCommands(linhaNoItem, enter);
     const m = MARCAS.find(([a]) => a === acao);
     return m ? marca(m[1]) : null;
   }
@@ -510,6 +525,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
 
   private plugins(): Plugin[] {
     return [
+      escritor((doc) => this.escrever(doc)),
       this.passaAdiante(),
       this.limite(),
       atalhos(),
@@ -525,6 +541,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       gapCursor(),
       dropCursor({ color: '#1f5fbf', width: 2 }),
       this.vazia(),
+      desenhoDasListas((doc) => this.escrever(doc)),
     ];
   }
 
@@ -653,6 +670,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     const est: EstadoVisual = {
       marcas: MARCAS.filter(([, m]) => ligada(s, m)).map(([a]) => a),
       estilo: estiloDe(s),
+      lista: listaDe(s),
       desfazer: undoDepth(s) > 0,
       refazer: redoDepth(s) > 0,
       // o "[[" vale também compondo (a palavra sublinhada do teclado): a lista só lê, não mexe no texto
@@ -729,10 +747,17 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return new Plugin({
       props: {
         handleDOMEvents: {
-          keydown: (_v, e) => {
+          keydown: (v, e) => {
             if (e.key === 'Escape') return true;
+            // o Ctrl+Alt+Enter marca a tarefa: aqui, e não no mapa de teclas, porque no Chrome do Android
+            // o ProseMirror deixa todo Enter para o beforeinput (que não vem com o Ctrl)
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && e.altKey && !e.shiftKey) {
+              e.preventDefault();
+              marcarTarefa(v.state, v.dispatch);
+              return true;
+            }
             if (this.lista() && ['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.isComposing) return true;
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey) {
               e.preventDefault();
               return true;
             }

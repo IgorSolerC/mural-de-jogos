@@ -7,11 +7,11 @@ import { Span } from '../../core/rich-text';
  * das linhas, sem árvore (o nível de uma linha é o recuo dela, como no texto). Cada nó guarda a `fonte`
  * (a linha como estava escrita): sem mudança, o tradutor (core/rich-doc.ts) a devolve byte a byte.
  *
- * Já são nós editáveis a linha, o título, a citação, o sutil, a divisória e o bloco de código (este
- * desde a rodada 3), com as marcas da linha; o resto (o item, a tabela, o widget e o que o tradutor
- * não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e guarda a linha original
- * inteira (com a fonte), então ele sai igual, byte a byte. As listas, os widgets e a tabela ganham nó
- * nas rodadas seguintes; até lá, mudam no Markdown.
+ * Já são nós editáveis a linha, o título, a citação, o sutil, a divisória, o bloco de código (desde a
+ * rodada 3) e o item de lista (desde a rodada 4), com as marcas da linha; o resto (a tabela, o widget e
+ * o que o tradutor não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e guarda a
+ * linha original inteira (com a fonte), então ele sai igual, byte a byte. Os widgets e a tabela ganham
+ * nó nas rodadas seguintes; até lá, mudam no Markdown.
  *
  * As classes do desenho são as da leitura (ver ui/_formatado.scss), dentro da folha do Visual.
  */
@@ -61,6 +61,36 @@ export const schema = new Schema({
       attrs: base,
       parseDOM: [{ tag: 'div.linha.sutil', priority: 60, contentElement: '.sutil-texto', getAttrs: recuoDe }],
       toDOM: (n) => ['div', { class: 'linha paragrafo sutil', ...recuo(n) }, ['span', { class: 'sutil-texto' }, 0]],
+    },
+    /**
+     * O item de lista (desde a rodada 4): a lista, a numerada e a tarefa, uma linha do texto cada. O
+     * nível é o recuo, como no texto; o número que aparece, o lugar do corpo e o risco da feita vêm do
+     * próprio leitor, por decoração (ver listas.ts). `numero`: o escrito no item numerado ("1.2" em
+     * "1.2. item"); "" nos outros. Na tela, a peça `ItemView` (listas.ts), com a caixinha da tarefa.
+     */
+    item: {
+      group: 'bloco',
+      content: 'inline*',
+      defining: true,
+      attrs: { ...base, tipo: { default: 'ul' }, feita: { default: false }, numero: { default: '' } },
+      parseDOM: [
+        {
+          tag: 'div.vis-item',
+          priority: 60,
+          contentElement: (d) => (d as HTMLElement).querySelector('.vis-item-texto') ?? (d as HTMLElement),
+          getAttrs: (d) => {
+            const el = d as HTMLElement;
+            const tipo = ['ul', 'ol', 'check'].includes(el.dataset['tipo'] ?? '') ? el.dataset['tipo'] : 'ul';
+            const numero = tipo === 'ol' && /^\d{1,4}(?:\.\d{1,4})*$/.test(el.dataset['numero'] ?? '') ? el.dataset['numero'] : tipo === 'ol' ? '1' : '';
+            return { ...recuoDe(el), tipo, feita: tipo === 'check' && el.hasAttribute('data-feita'), numero };
+          },
+        },
+      ],
+      toDOM: (n) => [
+        'div',
+        { class: 'linha vis-item', 'data-tipo': n.attrs['tipo'], ...(n.attrs['numero'] ? { 'data-numero': n.attrs['numero'] } : {}), ...(n.attrs['feita'] ? { 'data-feita': '' } : {}), ...recuo(n) },
+        ['div', { class: 'vis-item-texto' }, 0],
+      ],
     },
     divisoria: {
       group: 'bloco',
@@ -229,6 +259,8 @@ export function noDe(l: LinhaDoc): PMNode {
       return N['citacao'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
     case 'sutil':
       return N['sutil'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
+    case 'item':
+      return N['item'].create({ recuo: l.recuo, fonte, tipo: l.tipo, feita: l.tipo === 'check' && l.feita, numero: l.tipo === 'ol' ? l.numero : '' }, inlineDe(l.spans));
     case 'divisoria':
       return N['divisoria'].create({ recuo: l.recuo, fonte });
     case 'codigo':
@@ -247,7 +279,7 @@ export function docDe(linhas: readonly LinhaDoc[]): PMNode {
 const LINHAS = new WeakMap<PMNode, LinhaDoc>();
 
 /** Os tipos de linha que o Visual já edita (o resto é um trecho cru). */
-const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'citacao', 'sutil', 'divisoria', 'codigo'];
+const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo'];
 
 /** A linha do tradutor de um nó (guardada por nó: os nós são imutáveis, o que não mudou não se refaz). */
 export function linhaDe(n: PMNode): LinhaDoc {
@@ -261,6 +293,11 @@ export function linhaDe(n: PMNode): LinhaDoc {
       // o título sem letra não tem escrita ("# " é texto na leitura): fica guardado como a linha vazia,
       // e a tela continua com o título, esperando a primeira letra
       l = spans.some((s) => s.text.trim()) ? { kind: 'titulo', recuo: r, nivel: n.attrs['nivel'], spans, fonte } : { kind: 'linha', recuo: 0, spans: [], fonte };
+      break;
+    }
+    case 'item': {
+      const tipo = n.attrs['tipo'] as 'ul' | 'ol' | 'check';
+      l = { kind: 'item', recuo: r, tipo, feita: tipo === 'check' && !!n.attrs['feita'], numero: tipo === 'ol' ? n.attrs['numero'] || '1' : '', spans: spansDe(n), fonte };
       break;
     }
     case 'citacao':

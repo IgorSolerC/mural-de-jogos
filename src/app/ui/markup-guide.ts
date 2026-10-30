@@ -83,7 +83,10 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Código', keys: 'Ctrl+E', note: 'Numa linha vazia ou em várias linhas selecionadas, o bloco de código; dentro dele, volta a ser texto.' },
       { what: 'Link para um endereço', keys: 'Ctrl+K', note: 'Num link, troca ou tira. Um toque no link mostra o painel dele; Ctrl+clique abre. Colar um endereço com um texto selecionado também faz o link.' },
       { what: 'Spoiler e sutil', note: 'No Formatar, como os outros e os estilos do parágrafo.' },
-      { what: 'Recuar', keys: 'Tab', note: 'Shift+Tab volta. No bloco de código, o Tab põe dois espaços.' },
+      { what: 'Lista, numerada e tarefas', keys: 'Ctrl+Shift+8, 7, 9', note: 'Nas linhas selecionadas; de novo, elas voltam a ser texto. O Enter continua a lista, e num item vazio ela acaba.' },
+      { what: 'Descrição do item', keys: 'Shift+Enter', note: 'Uma linha dentro do item, no alinhamento do texto dele (no Formatar, "Linha dentro do item"). O Enter nela leva ao próximo item.' },
+      { what: 'Marcar a tarefa', keys: 'Ctrl+Alt+Enter', note: 'Ou um toque na caixinha. A feita risca a descrição junto.' },
+      { what: 'Recuar', keys: 'Tab', note: 'Shift+Tab volta. Num item, ele muda de nível com a descrição junto; o Backspace no começo dele tira o marcador. No bloco de código, o Tab põe dois espaços.' },
       { what: 'Desfazer e refazer', keys: 'Ctrl+Z, Ctrl+Y' },
       { what: 'Esta ajuda', keys: 'Ctrl+/' },
     ],
@@ -92,6 +95,9 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
     title: 'Atalhos de digitação, no começo da linha',
     items: [
       { what: 'Título 1, 2 e 3', mark: '# Título', note: 'Também ## e ###, com o espaço depois.' },
+      { what: 'Lista', mark: '- item', note: 'Também * e +, com o espaço depois.' },
+      { what: 'Lista numerada', mark: '1. item', note: 'Com qualquer número; 1.1. faz a de dentro.' },
+      { what: 'Tarefa', mark: '[ ] tarefa', note: 'Também [] e - [ ].' },
       { what: 'Citação', mark: '> texto' },
       { what: 'Texto sutil', mark: '-# texto' },
       { what: 'Divisória', mark: '---', note: 'E Enter.' },
@@ -148,7 +154,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       </section>
     }
     @if (visual()) {
-      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As listas, as tabelas e os widgets, por enquanto, só mudam nela.</p>
+      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As tabelas e os widgets, por enquanto, só mudam nela.</p>
     }
   `,
   styles: `

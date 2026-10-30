@@ -2,7 +2,7 @@ import { undoInputRule } from 'prosemirror-inputrules';
 import { ResolvedPos } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { apagarParaFrente, apagarParaTras, enter } from './keymap';
+import { apagarParaFrente, apagarParaTras, enter, shiftEnter } from './keymap';
 
 /**
  * O que a rodada 0 ensinou no Android (PLANO-EDITOR-VISUAL.md, seção 12): no Visual, o navegador só põe
@@ -10,7 +10,7 @@ import { apagarParaFrente, apagarParaTras, enter } from './keymap';
  *
  * - O Enter: o Chrome do Android não manda o Enter pelo keydown que o ProseMirror lê; ele parte o
  *   bloco no DOM, e fora da linha comum isso não parece um Enter. O `insertParagraph` e o
- *   `insertLineBreak` são cancelados e viram o nosso Enter. Antes, a composição que acabou de terminar
+ *   `insertLineBreak` são cancelados e viram o nosso Enter (e o nosso Shift+Enter). Antes, a composição que acabou de terminar
  *   entra no documento (o `flush`); durante a composição, fica com o ProseMirror. No iPhone, o
  *   ProseMirror ainda chamaria o Enter 200 ms depois: o `lastIOSEnter` zerado desliga isso.
  * - O apagar: no apagar segurado, o Gboard troca a tecla Backspace pela tecla 229 com um
@@ -38,7 +38,7 @@ export const enterPeloBeforeinput = (): Plugin =>
           if (view.composing) return false;
           e.preventDefault();
           internos(view).domObserver?.flush();
-          enter(view.state, view.dispatch, view);
+          (e.inputType === 'insertLineBreak' ? shiftEnter : enter)(view.state, view.dispatch, view);
           const input = internos(view).input;
           if (input) input.lastIOSEnter = 0;
           return true;

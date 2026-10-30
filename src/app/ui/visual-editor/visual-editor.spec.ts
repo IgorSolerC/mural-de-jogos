@@ -100,10 +100,10 @@ describe('o modo Visual do texto', () => {
         expect(valor).toBeNull();
       });
 
-    it('cada linha vira o nó dela (o bloco de código também); a lista, a tabela e o widget são trechos crus', async () => {
+    it('cada linha vira o nó dela (o bloco de código e o item também); a tabela e o widget são trechos crus', async () => {
       await make('# t\n> c\n-# s\n---\ntexto\n- item\n```\nx\n```\n| a |\n| --- |\n\n{{contador: 25/12/2026 | Natal}}');
-      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'cru', 'blocoCodigo', 'cru', 'linha', 'cru']);
-      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(3);
+      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'item', 'blocoCodigo', 'cru', 'linha', 'cru']);
+      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(2);
       // a folha é uma caixa de texto com nome
       expect(view.dom.getAttribute('role')).toBe('textbox');
       expect(view.dom.getAttribute('aria-multiline')).toBe('true');
@@ -655,7 +655,7 @@ describe('o modo Visual do texto', () => {
     });
 
     it('o trecho cru: tocado, a etiqueta e o "Mudar no Markdown", que leva ao começo dele no texto', async () => {
-      await make('antes\n- um item\ndepois');
+      await make('antes\n{{contador: 25/12/2026 | Natal}}\ndepois');
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, view.state.doc.child(0).nodeSize)));
       const cru = fixture.nativeElement.querySelector('.vis-cru') as HTMLElement;
       expect(cru.classList).toContain('ProseMirror-selectednode');
@@ -671,7 +671,7 @@ describe('o modo Visual do texto', () => {
     });
 
     it('as peças dos trechos crus são desmontadas com a folha (nenhuma fica viva)', async () => {
-      await make('- a\n- b\n- c');
+      await make('| a |\n| --- |\n\n{{contador: 25/12/2026 | A}}\n\n{{contador: 25/12/2026 | B}}');
       const app = TestBed.inject(ApplicationRef);
       const com = app.viewCount;
       expect(com).toBeGreaterThanOrEqual(3);
@@ -695,7 +695,7 @@ describe('o modo Visual do texto', () => {
       };
       cola('um **forte**\n- item', false);
       expect(texto()).toBe('um **forte**\n- item');
-      expect(tipos()).toEqual(['linha', 'cru']);
+      expect(tipos()).toEqual(['linha', 'item']);
       fimDaLinha(0);
       tecla('Enter');
       cola('**só letras**', true);

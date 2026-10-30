@@ -1346,7 +1346,73 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     e tocar numa anotação da lista no meio da composição põe o link certo; (4) escrever no meio de um link de
     anotação com sugestões do teclado (o rótulo muda, o título fica); (5) o endereço que vira link no
     espaço do teclado do celular (o espaço do Gboard pode chegar como composição); (6) a Ajuda no celular.
-- Próximo: a rodada 4, listas e tarefas.
+- 30/out/2026, **a rodada 4, listas e tarefas** (em dois commits, com push):
+  - **O desenho num parcial** (be50ebc, BUILD 660): o ponto, o lugar e o desenho do número, a caixinha a
+    caneta, o tique da feita, a tarefa feita riscada, o corpo da feita e o respiro depois do item com
+    corpo viraram mixins só de declarações em `ui/_formatado.scss` (os seletores ficam com quem usa). O
+    CSS compilado da leitura saiu igual, byte a byte.
+  - **O nó `item`** (BUILD 661): `tipo` (`ul`, `ol`, `check`), `feita`, `numero` (o escrito) e o `recuo`,
+    uma linha do texto cada, desenhado pela peça `ItemView` (`ui/visual-editor/listas.ts`): o ponto e o
+    número no `::before` da linha (como o `li` da leitura), a caixinha da tarefa num `span` não editável
+    com `role="checkbox"` e `aria-checked`, que segura o foco no `pointerdown`/`mousedown` e marca no
+    `click` (o `touchstart` nunca é cancelado). Com o item, as listas deixaram de ser trecho cru; ficam
+    crus só a tabela e o widget.
+  - **Os números, o corpo e a feita vêm do leitor** (5.6): o plugin `desenhoDasListas` escreve o texto
+    (o `escrever` de sempre, com as fontes guardadas), roda o `parseRich` e decora cada linha: `data-n` (o
+    número da leitura, com o do pai na frente no "1.1."), `--pre-n`, `--vis-corpo` (o lugar da descrição,
+    a soma dos lugares dos marcadores de fora, em letras da folha: `--vis-letra`), `--vis-tira` (o recuo
+    que o corpo come; o resto aparece como na leitura), `vis-feita` (a descrição de uma tarefa feita,
+    riscada junto) e `vis-respiro` (a linha de respiro depois do item com corpo). Ele só reroda quando a
+    estrutura muda (os nós, o tipo, o recuo, o número, a feita, a linha que passa de vazia a escrita, o
+    texto dos trechos crus); durante a composição só acompanha as letras, e no `compositionend` refaz.
+  - **As teclas** perguntam ao texto escrito com as funções do Markdown (`ownerItem`, `bodyIndent`,
+    `itemEnd`, `nextNumber`, `renumberAfter`), por um mapa nó ⇄ linha do texto (`mapaDe`, com o tradutor à
+    mão dos comandos pelo plugin `escritor`): Enter no item com texto faz o item novo do mesmo tipo (a
+    tarefa por fazer, o número seguinte, os de baixo descendo exatamente como no Markdown); no fim de um
+    item com descrição, o novo vem depois dela; no começo de um item com texto, um item vazio entra em
+    cima (o de cima fica com o número, este desce com o seguinte); no item vazio a lista acaba (a linha
+    vira texto sem recuo); na descrição, o próximo item. Shift+Enter (e "Linha dentro do item") abre a
+    linha no recuo do texto do item. O Enter e o Shift+Enter do teclado do celular vêm pelo
+    `beforeinput` (o `insertLineBreak` agora chama o Shift+Enter). Ctrl+Alt+Enter marca a tarefa do
+    cursor ou a de quem a linha é a descrição.
+  - **Os atalhos de digitação** "- ", "* ", "+ ", "1. " (qualquer número, e "1.1. "), "[] ", "[ ] " e
+    "- [ ] " (o "[ ] " num item vira tarefa), em qualquer recuo; o Backspace logo depois desfaz. **A
+    régua** e o Ctrl+Shift+7/8/9 nas linhas da seleção (a regra do `list()`), com o botão da lista
+    afundado (`aria-pressed`) na linha do cursor; a "Linha dentro do item" acesa. **A Ajuda** do Visual
+    ganhou os atalhos das listas, e o aviso do fim fala só das tabelas e dos widgets.
+  - **Decidido nesta rodada**: (1) **o Tab num item leva a descrição e os itens de dentro junto** (como no
+    Docs; o Markdown move só a linha): com um bloco de código ou um trecho cru no corpo, só ele anda. (2)
+    **O numerado que muda de nível ganha o número do lugar novo** (1 numa lista nova, o seguinte ao do de
+    cima no mesmo nível), e os de baixo seguem (`renumberAfter`): sem ver o texto, ninguém conserta um
+    "3." que ficou num item de dentro. (3) **Sair de uma descrição é um passo que se vê**: o Backspace no
+    começo dela e o Shift+Tab nela levam o recuo para o par logo abaixo de onde a descrição do item
+    começa (ela sai do item), em vez de 2 colunas (de 6 a 4 nada mudava na tela); fora de descrição,
+    continua o de 2 em 2. (4) **O Enter na descrição só vale na linha de texto** (no título, na citação ou
+    no sutil dentro de um item, o Enter é o deles). (5) **O "Texto normal" do Formatar deixa o item**
+    (como o Markdown, que só tira as marcas do título, da citação e do sutil); o título, a citação e o
+    sutil trocam o item pelo estilo deles. (6) **Na régua, a linha em branco no meio da seleção não
+    conta** para "todas já são do tipo" (no Markdown, com uma linha em branco no meio, a lista nunca
+    voltava a texto). (7) O Ctrl+Alt+Enter mora no plugin que vê o teclado antes do ProseMirror: no
+    Chrome do Android ele deixa todo Enter para o `beforeinput`, que não vem com o Ctrl (achado no
+    puppeteer com a identidade do Pixel 5). (8) O marcador escrito à mão ("* ", "1)", "[X]") vira o de
+    sempre só na linha mexida (o F14, aceito).
+  - **Conferido**: os specs novos (`listas.spec.ts`, 24: os números de L1, o corpo e a feita, cada Enter,
+    Shift+Enter, Backspace (L3), Tab com a descrição e o número do nível, L2, a caixinha e o
+    Ctrl+Alt+Enter (L6), os atalhos, a régua (L5), o beforeinput; `rich-editor.visual.spec.ts`, a régua e
+    o Ctrl+Shift+9, a Ajuda), os de antes (os que usavam a lista como exemplo de trecho cru passaram a
+    usar a tabela e o widget), a suíte inteira, `npx ng build`, o smoke da build de produção com listas
+    guardadas, e o roteiro do puppeteer (`.angular/pptr/visual-r4.mjs`, fora do git: listas escritas de
+    verdade, o Enter que renumera, a descrição, a caixinha pelo toque, o Ctrl+Alt+Enter, o Backspace, a
+    régua acesa e, no celular simulado com a identidade do Pixel 5, o Enter do Android no item), sem erro
+    no console, com as fotos de perto.
+  - **Fica para o celular do usuário** (a rodada pede aparelho): (1) o Enter no item com o Gboard (o
+    `insertParagraph` no contentDOM da peça), no item vazio, na descrição, e o Enter de uma sugestão do
+    teclado no fim do item; (2) tocar na caixinha: marca sem abrir o teclado nem mover o cursor (L6), e
+    com o teclado aberto; (3) "- " e "1. " com o espaço do Gboard (que pode vir como composição: o atalho
+    espera o `compositionend`); (4) o apagar segurado começando no meio de um item, passando pelo marcador
+    e pela linha de cima; (5) a "Linha dentro do item" pela régua presa em cima do teclado; (6) o iPhone:
+    o cursor perto da caixinha e do número, e o Enter (o `lastIOSEnter`).
+- Próximo: a rodada 5, os widgets como peças.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

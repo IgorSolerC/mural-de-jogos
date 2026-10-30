@@ -25,7 +25,9 @@
   background-attachment: local;
   color: var(--ink);
   font-family: var(--f-hand);
-  font-size: 1.14rem;
+  // a letra da folha (o recuo das descrições conta nela, mesmo num título de letra maior)
+  --vis-letra: 1.14rem;
+  font-size: var(--vis-letra);
   line-height: var(--line);
   caret-color: var(--red);
   outline: none;
@@ -51,10 +53,13 @@
     color: inherit;
   }
 
-  // cada linha do texto é um nó; o recuo (os espaços do começo, na leitura) é o da primeira linha
+  // cada linha do texto é um nó; o recuo (os espaços do começo, na leitura) é o da primeira linha. Na
+  // descrição de um item (ver listas.ts), a linha começa no alinhamento do texto dele (--vis-corpo, em
+  // letras da folha), e do recuo só aparece o que passa do recuo do corpo (--vis-tira), como na leitura
   > * {
     margin: 0;
-    text-indent: calc(var(--recuo, 0) * var(--vis-espaco, 0.27em));
+    margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra));
+    text-indent: max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em)));
   }
 
   // a citação de várias linhas seguidas é um risco só, como na leitura
@@ -69,8 +74,56 @@
   // inteiro (no texto, cada linha dele tem o recuo), não só a primeira linha
   > pre.codigo {
     text-indent: 0;
-    margin-left: calc(var(--recuo, 0) * var(--vis-espaco, 0.27em));
+    margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
     tab-size: 4;
+  }
+
+  // ===== As listas e as tarefas: o desenho da leitura (ui/_formatado.scss), uma linha por item =====
+  // o item fica pendurado: o marcador no lugar dele, e o texto (e o que quebra para a linha de baixo)
+  // começa depois; o recuo escrito não aparece (é o nível, e o nível é o lugar da descrição)
+  > .vis-item {
+    position: relative;
+    padding-left: formatado.$item-lugar;
+    text-indent: 0;
+  }
+  > .vis-item[data-tipo='ul']::before {
+    @include formatado.marcador-ponto;
+  }
+  // o número é o da leitura (vem da decoração, lido pelo próprio leitor)
+  > .vis-item[data-tipo='ol'] {
+    @include formatado.numero-lugar;
+  }
+  > .vis-item[data-tipo='ol']::before {
+    content: attr(data-n);
+    @include formatado.marcador-numero;
+  }
+  > .vis-item > .vis-item-texto {
+    min-height: var(--line);
+  }
+  // a caixinha a caneta, que marca com um toque; feita, o tique vermelho e o texto riscado a lápis
+  .vis-caixa {
+    position: absolute;
+    top: 0;
+    left: 0;
+    @include formatado.caixa;
+  }
+  .vis-caixa:hover {
+    background: color-mix(in srgb, currentColor 8%, transparent);
+  }
+  > .vis-item[data-feita] > .vis-caixa {
+    @include formatado.caixa-marcada;
+  }
+  > .vis-item[data-feita] > .vis-item-texto {
+    @include formatado.tarefa-feita;
+  }
+  // a descrição de uma tarefa feita: riscada junto, como na leitura
+  > .vis-feita {
+    @include formatado.corpo-feito;
+    @include formatado.corpo-feito-risco;
+  }
+  // depois do item com descrição, o respiro de uma linha antes do próximo (como na leitura)
+  > .vis-respiro {
+    @include formatado.respiro-do-corpo;
   }
   > pre.codigo > code {
     font: inherit;
@@ -100,6 +153,11 @@
     box-decoration-break: clone;
     padding: 0 0.12em;
     border-radius: 3px 2px 3px 2px;
+  }
+
+  // o trecho cru e o item não levam o recuo da primeira linha para dentro
+  > .vis-cru {
+    text-indent: 0;
   }
 
   // o link não abre na escrita: um clique põe o cursor e mostra o painel dele (Ctrl+clique abre)
@@ -226,7 +284,8 @@
   min-height: 0;
   max-height: none;
   padding: 4px 18px;
-  font-size: 1.3rem;
+  --vis-letra: 1.3rem;
+  font-size: var(--vis-letra);
 }
 .vis-folha.vis-encher:not(.vis-grande) > .ProseMirror {
   min-height: calc(var(--line) * 6 + 8px);
@@ -239,7 +298,8 @@
   }
   .vis-folha.vis-grande > .ProseMirror {
     padding: 4px 10px;
-    font-size: 1.18rem;
+    --vis-letra: 1.18rem;
+    font-size: var(--vis-letra);
   }
 }
 @media (prefers-reduced-motion: reduce) {

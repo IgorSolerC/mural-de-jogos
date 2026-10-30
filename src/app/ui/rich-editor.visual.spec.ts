@@ -82,13 +82,41 @@ describe('o editor com o Visual', () => {
     await settle();
     expect(button('Negrito').getAttribute('aria-pressed')).toBe('false');
     const toasts = TestBed.inject(Toasts);
-    const lista = button('Lista');
-    expect(lista.getAttribute('aria-disabled')).toBe('true');
-    expect(lista.classList).toContain('apagado');
-    expect(lista.title).toBe('Ainda não no Visual: use a aba Markdown');
-    lista.click();
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+    await settle();
+    const widget = fixture.nativeElement.querySelector('.widget-op') as HTMLButtonElement;
+    expect(widget.getAttribute('aria-disabled')).toBe('true');
+    expect(widget.classList).toContain('apagado');
+    expect(widget.title).toBe('Ainda não no Visual: use a aba Markdown');
+    widget.click();
     expect(toasts.current()?.text).toBe('Ainda não no Visual: use a aba Markdown');
     expect(value()).toBe('um **dois**');
+  });
+
+  it('as listas na régua do Visual: o botão vira a linha em lista e fica afundado; o Ctrl+Shift+9 faz as tarefas', async () => {
+    await make('um dois');
+    select(2);
+    const lista = button('Lista');
+    expect(lista.getAttribute('aria-disabled')).toBeNull();
+    expect(lista.getAttribute('aria-pressed')).toBe('false');
+    lista.click();
+    await settle();
+    expect(value()).toBe('- um dois');
+    expect(button('Lista').getAttribute('aria-pressed')).toBe('true');
+    pm().dom.dispatchEvent(new KeyboardEvent('keydown', { key: '(', code: 'Digit9', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+    await settle();
+    expect(value()).toBe('- [ ] um dois');
+    expect(button('Tarefas').getAttribute('aria-pressed')).toBe('true');
+    // a linha dentro do item, pelo Formatar
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
+    await settle();
+    const dentro = Array.from(fixture.nativeElement.querySelectorAll('.menu-op') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes('Linha dentro do item'))!;
+    expect(dentro.getAttribute('aria-disabled')).toBeNull();
+    const v = pm();
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, v.state.doc.content.size - 1)));
+    dentro.click();
+    await settle();
+    expect(value()).toBe('- [ ] um dois\n      ');
   });
 
   it('o Formatar marca o estilo da linha do Visual e o troca; o Inserir põe a divisória', async () => {
@@ -198,6 +226,10 @@ describe('o editor com o Visual', () => {
     expect(guia.textContent).not.toContain('**texto**');
     expect(guia.textContent).toContain('Ctrl+K');
     expect(guia.querySelector('.guia-fim')?.textContent).toContain('No Markdown, as marcas aparecem como texto: veja a aba Markdown.');
+    // as listas já se escrevem no Visual: os atalhos delas, e o aviso do fim não fala mais delas
+    expect(guia.textContent).toContain('Ctrl+Alt+Enter');
+    expect(guia.textContent).toContain('[ ] tarefa');
+    expect(guia.querySelector('.guia-fim')?.textContent).not.toContain('listas');
     // sem as anotações, o "[[" não entra
     expect(guia.textContent).not.toContain('[[');
     tab('markdown').click();

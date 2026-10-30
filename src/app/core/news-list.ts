@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-visual-ajuda',
+    id: '2026-10-30-visual-listas',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
-    title: 'Os links, o bloco de código e a Ajuda no modo Visual',
+    title: 'As listas, os links, o bloco de código e a Ajuda no modo Visual',
     melhorias: [
+      'No modo Visual (em teste), as listas e as tarefas se escrevem direto na folha, com os números da leitura: "- ", "1. " ou "[ ] " no começo da linha (ou a régua, ou Ctrl+Shift+8, 7 e 9) faz a lista; o Enter continua (o número seguinte, e os de baixo descem) e, num item vazio, a lista acaba; o Shift+Enter abre a descrição embaixo do item; o Tab e o Shift+Tab mudam o nível com a descrição junto; o Backspace no começo tira o marcador; e a caixinha marca a tarefa com um toque (ou Ctrl+Alt+Enter), riscando a descrição junto.',
       'A Ajuda da aba Visual mostra os atalhos de teclado e os de digitação dela (o "# ", o "```", o "[[", o endereço que vira link), sem as marcas, que lá não aparecem; a da aba Markdown continua a de sempre.',
       'No modo Visual (em teste), os links: o Ctrl+K (ou a régua) põe, troca e tira o link de um endereço; um toque num link mostra o painel dele, com Trocar, Tirar o link e Abrir (o Ctrl+clique abre direto); "[[" abre a lista das anotações, e o link de anotação aparece com a caneta azul, tracejado quando a anotação não existe (escrever no texto dele muda só o que aparece, ele continua abrindo a mesma); um endereço escrito (https://… ou www.…) vira link no espaço ou no Enter, e colar um endereço com um texto selecionado faz o link dele.',
       'No modo Visual (em teste), o bloco de código se escreve direto na folha, com a letra de máquina: "```" e Enter abre um, o Enter quebra a linha dentro dele (numa linha vazia no fim, sai), o Tab põe dois espaços, e o Ctrl+E (ou Formatar › Bloco de código) numa linha vazia ou em várias linhas faz o bloco; dentro dele, volta a ser texto.',

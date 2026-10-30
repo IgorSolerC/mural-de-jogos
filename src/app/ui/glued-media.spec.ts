@@ -317,7 +317,10 @@ describe('a foto colada na anotação', () => {
 
     it('fecha no Esc e tocando na própria foto; sem a faixa da polaroide, a legenda vai na etiqueta', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'Um bilhete']);
-      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      const img = el.querySelector('img')!;
+      // o endereço de mentira não carrega: o "não abriu" de verdade chegava no meio do teste (às vezes)
+      img.addEventListener('error', (e) => e.stopImmediatePropagation(), true);
+      img.dispatchEvent(new Event('load'));
       await fixture.whenStable();
       el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
       let dialog = await viewer();

@@ -8,8 +8,14 @@ import type { LineStyle } from '../rich-editor';
 /** As marcas da linha que o Visual liga e desliga (os nomes das ações da régua). */
 export type MarcaVisual = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code';
 
-/** O que a régua pede: uma marca, a divisória, o desfazer, ou o estilo do parágrafo. */
-export type AcaoVisual = MarcaVisual | 'rule' | 'undo' | 'redo' | { estilo: LineStyle };
+/** Os tipos de lista (os nomes das ações da régua): a lista, a numerada e as tarefas. */
+export type ListaVisual = 'ul' | 'ol' | 'check';
+
+/**
+ * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, o desfazer,
+ * ou o estilo do parágrafo.
+ */
+export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'undo' | 'redo' | { estilo: LineStyle };
 
 /** O que o Visual conta à régua a cada mudança de seleção ou de texto. */
 export interface EstadoVisual {
@@ -17,6 +23,8 @@ export interface EstadoVisual {
   marcas: readonly MarcaVisual[];
   /** O estilo da linha do cursor (null: numa peça que não tem estilo). */
   estilo: LineStyle | null;
+  /** A lista da linha do cursor (o botão dela fica afundado), ou null. */
+  lista: ListaVisual | null;
   desfazer: boolean;
   refazer: boolean;
   /** O "[[" aberto antes do cursor: onde ele está (no documento) e a busca escrita depois dele. */
@@ -58,4 +66,4 @@ export interface VisualApi {
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', desfazer: false, refazer: false, colchetes: null, link: null };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null };
