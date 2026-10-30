@@ -18,7 +18,8 @@ import {
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
-import { MarkType, Node as PMNode, Slice } from 'prosemirror-model';
+import { keymap } from 'prosemirror-keymap';
+import { Mark, MarkType, Node as PMNode, Slice } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNoDoc, posicaoNoTexto, textToDoc } from '../../core/rich-doc';
@@ -26,11 +27,12 @@ import { NoteLinks } from '../../core/note-links';
 import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
 import { semQuebras } from './ajustes';
+import { colchetesAntes, eloView, faixaDaMarca, linkEm, linksInteiros } from './links';
 import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
 import { codigo, divisoria, estilo, marca, teclas } from './keymap';
 import { docDe, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
-import { AcaoVisual, EstadoVisual, MarcaVisual, VisualApi } from './visual-api';
+import { AcaoVisual, EstadoVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-api';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -215,8 +217,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly descrito = input<string | null>(null);
   /** O máximo de caracteres da string guardada. */
   readonly max = input<number | null>(null);
-  /** Os links para outras anotações, nos trechos crus. */
+  /** Os links para outras anotações: os da folha (tracejados quando a anotação não existe) e os dos trechos crus. */
   readonly links = input<NoteLinks | null>(null);
+  /**
+   * A lista das anotações do "[[" está aberta, com opções: as setas, o Enter, o Tab e o Esc ficam com ela
+   * (passam adiante, para o editor, sem o Visual mexer no texto).
+   */
+  readonly lista = input(false);
 
   /** O texto que a pessoa escreveu. */
   readonly mudou = output<string>();
@@ -229,6 +236,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly pedeMarkdown = output<[number, number]>();
   /** Um aviso curto para a pessoa (o limite de caracteres). */
   readonly aviso = output<string>();
+  /** O painel de um link: o Ctrl+K, a régua ou um clique num link (ver `PedidoLink`). */
+  readonly pedeLink = output<PedidoLink>();
 
   readonly host: HTMLElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly appRef = inject(ApplicationRef);
@@ -243,6 +252,11 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   private escrita?: Escrita;
   private ultimoEstado = '';
   private avisadoEm = 0;
+  /**
+   * O trecho do último pedido de link (o link de agora, ou a seleção): acompanha as mudanças do
+   * documento até o painel pôr, trocar ou tirar o link (ou fechar).
+   */
+  private trecho: { from: number; to: number } | null = null;
 
   constructor() {
     // o texto mudou por fora (outra ficha, o Markdown, a colega da compartilhada): o documento refaz
@@ -263,6 +277,17 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       this.grande();
       untracked(() => requestAnimationFrame(() => this.mede()));
     });
+    // as anotações mudaram: os links de anotação se desenham de novo (tracejado o da que não existe)
+    effect(() => {
+      this.links();
+      untracked(() => this.view?.setProps({ markViews: this.markViews() }));
+    });
+  }
+
+  /** O link de anotação, tracejado quando a anotação não existe (sem as anotações, como existe). */
+  private markViews() {
+    const resolve = this.links()?.resolve;
+    return { elo: eloView((titulo) => (resolve ? !!resolve(titulo) : null)) };
   }
 
   ngOnInit(): void {
@@ -282,6 +307,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
             },
           }),
       },
+      markViews: this.markViews(),
       attributes: () => {
         const d = this.descrito();
         return {
@@ -369,6 +395,117 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     v.dispatch(v.state.tr.setSelection(sel).scrollIntoView());
   }
 
+  // ===== Os links =====
+
+  /**
+   * O painel do link no lugar do cursor: num link, o dele (para trocar ou tirar); senão, a seleção (o
+   * texto selecionado vai no painel; um endereço selecionado, no campo do endereço). No bloco de código e
+   * numa peça não tem link: nada acontece.
+   */
+  pedeLinkAqui(tipo: 'url' | 'elo'): void {
+    const v = this.view;
+    if (!v) return;
+    const { state } = v;
+    const sel = state.selection;
+    const $a = sel.$from;
+    if (!$a.parent.inlineContent || $a.parent.type.spec.code) return;
+    const no = linkEm($a);
+    // o link de agora (a seleção dentro dele): o painel dele, para trocar
+    if (no && sel.to <= no.to) return this.pedeLinkDe(no, false);
+    // senão, a seleção (só a parte dela nesta linha)
+    const to = Math.min(sel.to, $a.end());
+    this.trecho = { from: sel.from, to };
+    const texto = state.doc.textBetween(sel.from, to).replace(/\s+/g, ' ').trim();
+    if (tipo === 'url') {
+      const endereco = /^(https?:\/\/|www\.|mailto:)\S+$/i.test(texto);
+      this.pedeLink.emit({ tipo, de: sel.from, texto: endereco ? '' : texto, href: endereco ? texto : '', troca: false, passivo: false });
+    } else this.pedeLink.emit({ tipo, de: sel.from, titulo: '', rotulo: texto, troca: false, passivo: false });
+  }
+
+  /** O painel do link dado (para trocar ou tirar): pelo Ctrl+K ou pelo clique (`passivo`). */
+  private pedeLinkDe(no: { from: number; to: number; mark: Mark }, passivo: boolean): void {
+    const texto = this.view!.state.doc.textBetween(no.from, no.to);
+    this.trecho = { from: no.from, to: no.to };
+    if (no.mark.type === M['link']) {
+      const href: string = no.mark.attrs['href'];
+      // o endereço solto (o texto é o próprio endereço): o texto vai vazio, como no Markdown
+      const solto = texto === href || 'https://' + texto === href;
+      this.pedeLink.emit({ tipo: 'url', de: no.from, texto: solto ? '' : texto, href, troca: true, passivo });
+    } else this.pedeLink.emit({ tipo: 'elo', de: no.from, titulo: no.mark.attrs['ref'] ?? texto, rotulo: texto, troca: true, passivo });
+  }
+
+  /** O trecho do pedido, se ainda está numa linha de texto (fora do código). */
+  private trechoValido(): { from: number; to: number } | null {
+    const v = this.view;
+    const t = this.trecho;
+    if (!v || !t || t.to > v.state.doc.content.size) return null;
+    const $a = v.state.doc.resolve(t.from);
+    return $a.parent.inlineContent && !$a.parent.type.spec.code && $a.sameParent(v.state.doc.resolve(t.to)) ? t : null;
+  }
+
+  /** As marcas de texto que o link novo leva: as da primeira letra do trecho (sem link nem código). */
+  private marcasDoTrecho(from: number, to: number): readonly Mark[] {
+    const s = this.view!.state;
+    const base = from < to ? (s.doc.nodeAt(from)?.marks ?? []) : (s.storedMarks ?? s.doc.resolve(from).marks());
+    return base.filter((m) => m.type !== M['link'] && m.type !== M['elo'] && m.type !== M['codigo']);
+  }
+
+  /** Troca o trecho pelo texto com a marca do link (o mesmo texto: só a marca), e o cursor vai para depois dele. */
+  private poeMarca(from: number, to: number, texto: string, link: Mark): void {
+    const v = this.view!;
+    const tr = v.state.tr;
+    if (texto && v.state.doc.textBetween(from, to) === texto) {
+      tr.removeMark(from, to, M['link']).removeMark(from, to, M['elo']).removeMark(from, to, M['codigo']).addMark(from, to, link);
+    } else if (texto) tr.replaceWith(from, to, schema.text(texto, link.addToSet(this.marcasDoTrecho(from, to))));
+    else return;
+    const fim = from + texto.length;
+    tr.setSelection(TextSelection.create(tr.doc, fim));
+    this.trecho = null;
+    v.dispatch(tr.scrollIntoView());
+    v.focus();
+  }
+
+  poeLink(texto: string, href: string): void {
+    const t = this.trechoValido();
+    if (!t) return;
+    this.poeMarca(t.from, t.to, (texto || href).replace(/[[\]]/g, '').replace(/\s+/g, ' ').trim() || href, M['link'].create({ href }));
+  }
+
+  poeElo(titulo: string, rotulo: string, noColchete: boolean): void {
+    const v = this.view;
+    if (!v || !titulo.trim() || /[[\]|\n]/.test(titulo)) return;
+    let t = noColchete ? null : this.trechoValido();
+    if (noColchete) {
+      // o "[[" e a busca antes do cursor (e um "]]" logo depois, se tinha)
+      const c = colchetesAntes(v.state);
+      if (!c) return;
+      const at = v.state.selection.from;
+      t = { from: c.de, to: v.state.doc.textBetween(at, Math.min(at + 2, v.state.selection.$from.end())) === ']]' ? at + 2 : at };
+    }
+    if (!t) return;
+    const texto = (rotulo || titulo).replace(/[[\]]/g, '').replace(/\s+/g, ' ').trim() || titulo.trim();
+    this.poeMarca(t.from, t.to, texto, M['elo'].create({ ref: titulo.trim() }));
+  }
+
+  tiraLink(): void {
+    const v = this.view;
+    const t = this.trechoValido();
+    if (!v || !t) return;
+    this.trecho = null;
+    const tr = v.state.tr.removeMark(t.from, t.to, M['link']).removeMark(t.from, t.to, M['elo']);
+    v.dispatch(tr.setSelection(TextSelection.create(tr.doc, t.to)).scrollIntoView());
+    v.focus();
+  }
+
+  voltaAoTrecho(): void {
+    const v = this.view;
+    const t = this.trechoValido();
+    this.trecho = null;
+    if (!v) return;
+    if (t) v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, t.from, t.to)).scrollIntoView());
+    v.focus();
+  }
+
   // ===== O texto e o documento =====
 
   private plugins(): Plugin[] {
@@ -376,10 +513,14 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       this.passaAdiante(),
       this.limite(),
       atalhos(),
+      keymap({ 'Mod-k': () => (this.pedeLinkAqui('url'), true) }),
       teclas(),
       enterPeloBeforeinput(),
       apagarPeloBeforeinput(),
+      this.cliqueNoLink(),
+      this.colarEndereco(),
       semQuebras(),
+      linksInteiros(),
       history(),
       gapCursor(),
       dropCursor({ color: '#1f5fbf', width: 2 }),
@@ -429,8 +570,16 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   private aplica(tr: Transaction): void {
     const v = this.view;
     if (!v) return;
-    v.updateState(v.state.apply(tr));
-    if (tr.docChanged) {
+    const antes = v.state;
+    const { state, transactions } = antes.applyTransaction(tr);
+    v.updateState(state);
+    // o trecho do pedido de link anda com o texto (as transações dos plugins também)
+    if (this.trecho && state.doc !== antes.doc)
+      for (const t of transactions) {
+        const [from, to]: number[] = [t.mapping.map(this.trecho.from, 1), t.mapping.map(this.trecho.to, -1)];
+        this.trecho = { from, to: Math.max(from, to) };
+      }
+    if (state.doc !== antes.doc) {
       // a tela mostra o que vai ficar (fora da composição: nada mexe no documento enquanto se compõe)
       if (!v.composing && !tr.getMeta(AJUSTE)) this.ajusta();
       const e = this.escrever(v.state.doc);
@@ -506,6 +655,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       estilo: estiloDe(s),
       desfazer: undoDepth(s) > 0,
       refazer: redoDepth(s) > 0,
+      colchetes: this.view!.composing ? null : colchetesAntes(s),
+      link: s.selection.empty ? (linkEm(s.selection.$from)?.from ?? null) : null,
     };
     const k = JSON.stringify(est);
     if (k === this.ultimoEstado) return;
@@ -569,8 +720,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
 
   /**
    * O que o Visual não usa passa adiante: o Esc (que fecha o editor da ficha), sem o ProseMirror
-   * cancelar a tecla; o Ctrl+Enter (o "Enviar" do comentário), que não vira linha nova. O foco e a
-   * saída da folha vão para a régua (presa em cima do teclado no celular).
+   * cancelar a tecla; o Ctrl+Enter (o "Enviar" do comentário), que não vira linha nova; com a lista do
+   * "[[" aberta, as setas, o Enter e o Tab (são dela). O foco e a saída da folha vão para a régua (presa
+   * em cima do teclado no celular).
    */
   private passaAdiante(): Plugin {
     return new Plugin({
@@ -578,6 +730,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
         handleDOMEvents: {
           keydown: (_v, e) => {
             if (e.key === 'Escape') return true;
+            if (this.lista() && ['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.isComposing) return true;
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
               e.preventDefault();
               return true;
@@ -592,6 +745,62 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
             this.desfoco.emit(e);
             return false;
           },
+        },
+      },
+    });
+  }
+
+  /**
+   * Um clique num link (sem arrastar, sem seleção): o painel passivo dele (trocar, tirar, abrir), com o
+   * cursor onde a pessoa tocou; Ctrl+clique (ou Cmd) no link para um endereço abre ele numa aba nova. O
+   * link nunca navega de dentro da folha.
+   */
+  private cliqueNoLink(): Plugin {
+    return new Plugin({
+      props: {
+        handleDOMEvents: {
+          // o Ctrl+clique no link não é do ProseMirror (que selecionaria a linha inteira)
+          mousedown: (_view, e) => {
+            if (!(e.ctrlKey || e.metaKey) || e.button !== 0 || !(e.target as Element | null)?.closest?.('a.url')) return false;
+            e.preventDefault();
+            return true;
+          },
+          click: (view, e) => {
+            const alvo = (e.target as Element | null)?.closest?.('a.url, span[data-elo]');
+            if (!alvo || !view.dom.contains(alvo) || e.button !== 0) return false;
+            const url = alvo.matches('a.url');
+            if (url) e.preventDefault();
+            let pos: number;
+            try {
+              pos = view.posAtDOM(alvo, 0);
+            } catch {
+              return false;
+            }
+            const no = faixaDaMarca(view.state.doc.resolve(pos), url ? M['link'] : M['elo']);
+            if (!no) return false;
+            if (url && (e.ctrlKey || e.metaKey)) {
+              window.open(no.mark.attrs['href'], '_blank', 'noopener,noreferrer');
+              return true;
+            }
+            if (e.detail > 1 || !view.state.selection.empty) return false;
+            this.pedeLinkDe(no, true);
+            return false;
+          },
+        },
+      },
+    });
+  }
+
+  /** Colar um endereço com um texto selecionado (numa linha só): o texto vira o link (como no Markdown). */
+  private colarEndereco(): Plugin {
+    return new Plugin({
+      props: {
+        handlePaste: (view, e) => {
+          const colado = e.clipboardData?.getData('text/plain').trim() ?? '';
+          const { from, to, empty, $from } = view.state.selection;
+          if (empty || !/^(https?:\/\/|mailto:)\S+$/i.test(colado) || !$from.parent.inlineContent || $from.parent.type.spec.code || !$from.sameParent(view.state.selection.$to)) return false;
+          view.dispatch(view.state.tr.removeMark(from, to, M['elo']).removeMark(from, to, M['codigo']).addMark(from, to, M['link'].create({ href: colado })).scrollIntoView());
+          return true;
         },
       },
     });

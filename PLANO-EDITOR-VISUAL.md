@@ -1280,7 +1280,51 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     dois numa linha, e um plugin (`ajustes.ts`, `semQuebras`) a parte nas quebras, como o Enter; (3) o
     cursor e a seleção dentro do bloco vão e voltam pelas posições do texto na troca de aba
     (`posicaoNoTexto`/`posicaoNoDoc` ganharam o bloco, com a margem do corpo de item e o `\r\n`).
-- Próximo: o resto da rodada 3 (os links e a Ajuda por modo).
+  - **Os links** (BUILD 658), em `ui/visual-editor/links.ts` e no `visual-editor.ts`, com os painéis de
+    sempre do `rich-editor.ts` (o Markdown não muda):
+    - **O painel do endereço**: o Ctrl+K e o botão da régua pedem o painel ao Visual (`pedeLinkAqui`), que
+      responde pelo `pedeLink` com o que vai nele: num link (o cursor ou a seleção dentro dele), o dele,
+      para trocar; senão, a seleção (só a parte dela na linha do começo), e o endereço solto selecionado
+      vai no campo do endereço, como no Markdown. O trecho mora no Visual e anda com as mudanças (o mapa
+      de cada transação), até o painel pôr (`poeLink`), tirar (`tiraLink`) ou fechar (`voltaAoTrecho`,
+      que devolve o foco com o trecho selecionado). O link novo leva as marcas de texto da primeira letra
+      do trecho. O endereço passa por `linkHref` (o `normalizeUrl` de sempre, os espaços em `%20`, os
+      parênteses sem par em `%28`/`%29`; os da Wikipédia ficam): é o F8. Só `https`, `http` e `mailto`.
+    - **O clique num link** (sem arrastar, sem seleção): o painel passivo, com o cursor onde a pessoa
+      tocou, que fecha quando o cursor sai do link (o `link` do estado do Visual), quando se escreve, ou
+      com o Esc (só ele). No Visual o painel do endereço ganha **Abrir** (um link de verdade, aba nova) e
+      **Tirar o link**; o do link de anotação, **Tirar o link**. O Ctrl+clique (Cmd no Mac) abre o
+      endereço numa aba nova; o `mousedown` com Ctrl no link não é do ProseMirror (que selecionaria a
+      linha). O link nunca navega de dentro da folha.
+    - **O "[["**: o estado do Visual conta o "[[" aberto antes do cursor (fora do código e dos links) e a
+      busca depois dele (`colchetes`), e o editor abre e filtra a lista de sempre, com o mesmo `dismissedAt`
+      do Esc. Com a lista aberta (e opções), o Visual deixa passar as setas, o Enter e o Tab (a entrada
+      `lista`), que são dela. Escolhida a anotação, o "[[busca" (e um "]]" logo depois) vira o link. O
+      painel da régua (Link para outra anotação) abre com a seleção como texto e busca, como no Markdown.
+    - **O link de anotação** guarda sempre o título na marca (`ref`), mesmo quando o texto é o próprio
+      título: escrever no texto dele muda só o rótulo, e ele sai `[[Título|rótulo]]` (o K8); voltando ao
+      título, sai `[[Título]]` de novo. Ele é desenhado por uma `markView` (`eloView`): a caneta azul da
+      leitura e, tracejado, quando a anotação não existe (o `.elo.quebrado` da leitura), com o nome dela no
+      `title`; as anotações mudando, os links se redesenham.
+    - **Os ajustes de 5.2.1** (`linksInteiros`, um `appendTransaction` nas linhas mexidas, fora da
+      composição): o colchete digitado dentro de um link sai dele (o F7: o link se parte em dois, com o
+      mesmo endereço); os espaços das pontas saem do link; pôr uma marca de texto numa parte do link a põe
+      no link inteiro, e tirar de uma parte tira do todo (o `RemoveMarkStep` da transação diz qual foi);
+      o link de anotação colado sem título ganha o texto como título. O link não é inclusivo: o que se
+      escreve no fim dele e o Enter no fim ficam fora (o K7).
+    - **O endereço solto** (`https://…`, `www.…`) vira link no espaço (um atalho de digitação: o Backspace
+      logo depois desfaz, e fica o texto, escrito `https\://…`) e no Enter; a pontuação do fim fica de fora,
+      como na leitura. **Colar um endereço** com um texto selecionado numa linha faz o link do texto.
+    - **Decidido**: (1) no tradutor, a escrita mais curta passou a ter duas passadas (`escreverPecas`): o
+      endereço solto seguido de um ponto ("www.x.com.") só podia sair solto depois de o ponto perder a
+      barra (com "\." depois, a leitura levava a barra para dentro do endereço), e saía `[www.x.com](…)`;
+      (2) o Ctrl+K no bloco de código e numa peça não faz nada; (3) o link pego pela metade num Ctrl+E (o
+      código não convive com link) se parte, como o colchete.
+    - **Achado no puppeteer**: um robô que aperta as setas e logo escreve age antes do `selectionchange`
+      (o R9), e as marcas guardadas (`storedMarks`) do link recém-posto ainda valiam: a letra saía sem o
+      link, partindo-o. O link posto não guarda mais marcas para a próxima letra (não precisa: ele não é
+      inclusivo).
+- Próximo: o resto da rodada 3 (a Ajuda por modo).
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

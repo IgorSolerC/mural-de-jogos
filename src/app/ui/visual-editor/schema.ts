@@ -113,7 +113,7 @@ export const schema = new Schema({
       attrs: { ref: { default: null } },
       inclusive: false,
       excludes: 'elo link',
-      parseDOM: [{ tag: 'span[data-elo]', getAttrs: (d) => ({ ref: (d as HTMLElement).getAttribute('data-ref') || null }) }],
+      parseDOM: [{ tag: 'span[data-elo]', getAttrs: (d) => ({ ref: (d as HTMLElement).getAttribute('data-ref') || (d as HTMLElement).textContent?.trim() || null }) }],
       toDOM: (m) => ['span', { class: 'elo', 'data-elo': '', ...(m.attrs['ref'] ? { 'data-ref': m.attrs['ref'], title: m.attrs['ref'] } : {}) }, 0],
     },
     // na escrita, a tarja do spoiler é translúcida e listrada: quem escreve precisa ler o que escreve
@@ -178,17 +178,29 @@ export function inlineDe(spans: readonly Span[]): PMNode[] {
       const marks: Mark[] = [];
       for (const [f, m] of FLAG_MARK) if (s[f]) marks.push(schema.marks[m].create());
       if (s.code) marks.push(M['codigo'].create());
-      else if (s.link) marks.push(M['elo'].create({ ref: s.ref ?? null }));
+      // o link de anotação guarda sempre o título: escrever no texto dele muda só o rótulo (o K8 do plano)
+      else if (s.link) marks.push(M['elo'].create({ ref: s.ref ?? s.text.trim() }));
       else if (s.href !== undefined) marks.push(M['link'].create({ href: s.href }));
       return schema.text(s.text, Mark.setFrom(marks));
     });
 }
 
-/** As letras de um nó de texto em pedaços (`Span`), como o leitor os daria. */
+/**
+ * As letras de um nó de texto em pedaços (`Span`), como o leitor os daria. Um link partido em vários
+ * pedaços de texto (com marcas diferentes no meio, enquanto o ajuste não os iguala) continua um link só;
+ * o link de anotação só leva o título (`ref`) quando o texto mostra outro.
+ */
 export function spansDe(node: PMNode): Span[] {
   const out: Span[] = [];
+  let ultimo: Mark | null = null;
   node.forEach((ch) => {
     if (!ch.isText || !ch.text) return;
+    const link = ch.marks.find((m) => m.type === M['link'] || m.type === M['elo']) ?? null;
+    if (link && ultimo && link.eq(ultimo)) {
+      out[out.length - 1].text += ch.text;
+      return;
+    }
+    ultimo = link;
     const s: Span = { text: ch.text };
     for (const m of ch.marks) {
       const flag = FLAG_MARK.find(([, nome]) => nome === m.type.name)?.[0];
@@ -201,6 +213,7 @@ export function spansDe(node: PMNode): Span[] {
     }
     out.push(s);
   });
+  for (const s of out) if (s.link && (s.ref == null || s.ref === s.text)) delete s.ref;
   return juntarSpans(out);
 }
 

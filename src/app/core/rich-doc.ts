@@ -550,15 +550,18 @@ function escreverPecas(spans: readonly Span[], confere: (s: string) => boolean, 
     const escolha = fs.map(() => 0);
     const monta = () => fs.map((f, i) => f.opcoes[escolha[i]]).join('');
     if (!confere(monta())) continue;
+    // duas passadas: um pedaço só fica com o jeito curto depois que o de depois dele perdeu a barra (o
+    // endereço solto seguido de um ponto: "www.x.com\." ainda leria a barra como parte do endereço)
     if (modo !== 'cheio')
-      // no modo 'primeira', o sinal do começo fica com a barra (a linha de traços embaixo de uma com "|")
-      for (let i = modo === 'primeira' && fs[0]?.opcoes.length > 1 ? 1 : 0; i < fs.length; i++)
-        for (let o = fs[i].opcoes.length - 1; o > 0; o--) {
-          const antes = escolha[i];
-          escolha[i] = o;
-          if (confere(monta())) break;
-          escolha[i] = antes;
-        }
+      for (let passada = 0; passada < 2; passada++)
+        // no modo 'primeira', o sinal do começo fica com a barra (a linha de traços embaixo de uma com "|")
+        for (let i = modo === 'primeira' && fs[0]?.opcoes.length > 1 ? 1 : 0; i < fs.length; i++)
+          for (let o = fs[i].opcoes.length - 1; o > escolha[i]; o--) {
+            const antes = escolha[i];
+            escolha[i] = o;
+            if (confere(monta())) break;
+            escolha[i] = antes;
+          }
     return monta();
   }
   return null;

@@ -20,7 +20,7 @@ import { Toasts } from './toast';
 import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
-import type { AcaoVisual, EstadoVisual, MarcaVisual, VisualApi } from './visual-editor/visual-api';
+import type { AcaoVisual, EstadoVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
@@ -72,7 +72,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
-/** O que o Visual ainda não sabe pôr (as listas, os links, os widgets, a tabela). */
+/** O que o Visual ainda não sabe pôr (as listas, os widgets, a tabela). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
 const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'rule', 'undo', 'redo'] as const;
@@ -252,7 +252,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-links'">
                   <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e divisória</p>
                   @for (o of inserts(); track o.act) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [class.apagado]="visual() && o.act !== 'rule'" [attr.aria-disabled]="(visual() && o.act !== 'rule') || null" [attr.title]="visual() && o.act !== 'rule' ? NOT_YET : null" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
                       <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">{{ o.name }}</span>
                       @if (o.keys) {
@@ -311,9 +311,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             <button
               type="button"
               class="ferramenta link"
-              [class.apagado]="visual()"
-              [attr.aria-disabled]="visual() || null"
-              [title]="visual() ? NOT_YET : 'Link para um endereço (Ctrl+K)'"
+              title="Link para um endereço (Ctrl+K)"
               aria-label="Link para um endereço"
               aria-keyshortcuts="Control+K"
               [attr.aria-expanded]="urlLink()?.big === big"
@@ -326,9 +324,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               <button
                 type="button"
                 class="ferramenta extra"
-                [class.apagado]="visual()"
-                [attr.aria-disabled]="visual() || null"
-                [title]="visual() ? NOT_YET : 'Link para outra anotação (ou escreva [[)'"
+                title="Link para outra anotação (ou escreva [[)"
                 aria-label="Link para outra anotação"
                 [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
                 (pointerdown)="$event.preventDefault()"
@@ -359,8 +355,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 [descrito]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
                 [max]="max()"
                 [links]="previewLinks()"
-                (mudou)="value.set($event)"
-                (estado)="visualState.set($event)"
+                [lista]="linking()?.auto === true && linking()?.big === big && optionCount() > 0"
+                (mudou)="value.set($event); dropPassive()"
+                (estado)="onVisualState($event, big)"
+                (pedeLink)="onVisualLink($event, big)"
                 (pronto)="onVisualReady($event, big)"
                 (foco)="onAreaFocus(big)"
                 (desfoco)="onAreaBlur($event, regua)"
@@ -436,6 +434,15 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               />
             </label>
             <div class="painel-acoes">
+              @if (visual() && u.swap) {
+                <!-- no Visual o link não abre pela folha: o painel dele abre (e tira) -->
+                <span class="painel-mais">
+                  @if (urlHref(); as href) {
+                    <a class="acao-caneta" [href]="href" target="_blank" rel="noopener noreferrer" title="Abrir o link numa aba nova (ou Ctrl+clique nele)"><lucide-icon [img]="OpenIcon" [size]="16" aria-hidden="true" />Abrir</a>
+                  }
+                  <button type="button" class="acao-caneta" (click)="unlink()"><lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />Tirar o link</button>
+                </span>
+              }
               <button type="button" class="acao-caneta" (click)="closeUrl(null, area)">Cancelar</button>
               <button type="button" class="painel-ok" [disabled]="!urlOk()" (click)="putUrl(area)">{{ u.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
             </div>
@@ -537,6 +544,11 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 </div>
               </div>
               <div class="painel-acoes">
+                @if (visual() && k.swap) {
+                  <span class="painel-mais">
+                    <button type="button" class="acao-caneta" (click)="unlink()"><lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />Tirar o link</button>
+                  </span>
+                }
                 <button type="button" class="acao-caneta" (click)="closeLink(area)">Cancelar</button>
                 <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">{{ k.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
               </div>
@@ -1183,6 +1195,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       gap: 14px;
       margin-top: 8px;
     }
+    /* no Visual, o link tocado: "Abrir" e "Tirar o link" do outro lado, longe do "Trocar" */
+    .painel-mais {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0 14px;
+      margin-right: auto;
+    }
     .painel-ok {
       min-height: 44px;
       padding: 6px 14px;
@@ -1222,6 +1241,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       }
       .painel-acoes .painel-ok {
         flex: 1;
+      }
+      /* o "Abrir" e o "Tirar o link" numa fileira só deles, em cima do "Cancelar" e do "Trocar" */
+      .painel-acoes:has(.painel-mais) {
+        flex-wrap: wrap;
+      }
+      .painel-mais {
+        flex-basis: 100%;
       }
     }
     @media (pointer: coarse) {
@@ -1921,7 +1947,14 @@ export class RichEditor {
    */
   protected readonly urlLink = signal<{ big: boolean; start: number; end: number; text: string; url: string; swap?: boolean } | null>(null);
   /** O endereço do painel serve (com "https://" se faltou). */
-  protected readonly urlOk = computed(() => !!normalizeUrl(this.urlLink()?.url ?? ''));
+  protected readonly urlOk = computed(() => !!this.urlHref());
+  /** O endereço do painel como vai para o link (no Visual, os espaços em %20 e os parênteses sem par escapados). */
+  protected readonly urlHref = computed(() => {
+    const url = this.urlLink()?.url ?? '';
+    return this.visual() ? linkHref(url) : normalizeUrl(url);
+  });
+  protected readonly OpenIcon = ICON.abrirFora;
+  protected readonly UnlinkIcon = ICON.tirarLink;
 
   /** O painel que acabou de abrir entra na tela (no celular, a régua pode já ter saído dela). */
   private showPanel(selector: string): void {
@@ -2386,12 +2419,26 @@ export class RichEditor {
   /** O que a régua pede, no Visual (o que ele ainda não sabe, avisa). */
   private visualAct(big: boolean, what: AcaoVisual | Action): void {
     const api = this.visualOf(big);
+    if (what === 'url' || what === 'note') {
+      // o painel do link: o Visual diz o que vai nele (o link de agora, ou a seleção), pelo pedeLink
+      if (what === 'note' && this.linking() && !this.linking()!.auto) return this.closeLink();
+      return api?.pedeLinkAqui(what === 'url' ? 'url' : 'elo');
+    }
     const ok = typeof what === 'object' || (VISUAL_ACTS as readonly string[]).includes(what);
     if (!api || !ok || !api.run(what as AcaoVisual)) this.notYet();
   }
 
   /** As teclas que a folha do Visual deixa passar: a Ajuda, e as do que ele ainda não sabe fazer. */
   protected onVisualKey(e: KeyboardEvent, big: boolean): void {
+    // a lista do "[[" aberta: as setas, o Enter, o Tab e o Esc são dela (o Visual os deixou passar)
+    if (this.linking()?.auto && this.onListKey(e)) return;
+    // o painel aberto pelo clique num link (com o cursor ainda na folha): o Esc fecha só ele
+    if (e.key === 'Escape' && this.passive && this.panelRange()) {
+      e.preventDefault();
+      e.stopPropagation();
+      this.closePanels();
+      return;
+    }
     if (e.key === 'Escape' && this.guide() !== null) {
       e.preventDefault();
       e.stopPropagation();
@@ -2402,10 +2449,74 @@ export class RichEditor {
     if (mod && !e.shiftKey && (e.key === '/' || e.code === 'Slash')) {
       e.preventDefault();
       this.toggleGuide(big);
-    } else if ((mod && !e.shiftKey && e.key.toLowerCase() === 'k') || (mod && e.shiftKey && LIST_KEYS[e.code])) {
+    } else if (mod && e.shiftKey && LIST_KEYS[e.code]) {
       e.preventDefault();
       this.notYet();
     }
+  }
+
+  /**
+   * O que o Visual conta: a régua acende; o "[[" antes do cursor abre (e filtra) a lista das anotações,
+   * como o `watchLink` do Markdown; o cursor saiu do link do painel passivo, ele fecha.
+   */
+  protected onVisualState(est: EstadoVisual, big: boolean): void {
+    this.visualState.set(est);
+    if (this.passive && this.panelRange() && this.panelRange()![0] !== est.link) this.closePanels();
+    if (!this.notes()) return;
+    const k = this.linking();
+    if (k && !k.auto) return;
+    const c = est.colchetes;
+    if (!c || c.de === this.dismissedAt) {
+      // o "[[" fechado com Esc saiu de antes do cursor: o próximo abre a lista de novo
+      if (!c) this.dismissedAt = -1;
+      if (k) this.linking.set(null);
+      return;
+    }
+    if (!k || k.start !== c.de) this.active.set(0);
+    this.linking.set({ auto: true, big, start: c.de, end: c.de + 2 + c.busca.length, query: c.busca });
+  }
+
+  /**
+   * O Visual pediu o painel de um link (o Ctrl+K, a régua, um clique num link): o mesmo painel do
+   * Markdown, com o que o Visual mandou. O trecho mora no Visual (ele acompanha o texto); aqui, `start`
+   * é só onde ele começa, para o painel passivo saber quando o cursor saiu.
+   */
+  protected onVisualLink(p: PedidoLink, big: boolean): void {
+    this.closePanels();
+    if (p.tipo === 'url') {
+      this.urlLink.set({ big, start: p.de, end: p.de, text: p.texto, url: p.href, swap: p.troca });
+      this.passive = p.passivo;
+      if (!p.passivo) setTimeout(() => this.panelInput(big, p.texto && !p.href ? 'input' : '.url-campo')?.focus());
+      this.showPanel('.url-painel');
+      return;
+    }
+    const notes = this.notes();
+    if (!notes) return;
+    if (p.troca) {
+      const title = resolveNote(notes, p.titulo)?.game.name ?? p.titulo;
+      // o texto só vem quando é outro: trocar a anotação não leva o título de antes
+      const label = linkKey(p.rotulo) === linkKey(p.titulo) ? '' : p.rotulo;
+      this.linking.set({ auto: false, big, start: p.de, end: p.de, query: title, label, chosen: title, swap: true });
+    } else {
+      const same = p.rotulo ? resolveNote(notes, p.rotulo) : null;
+      this.linking.set({ auto: false, big, start: p.de, end: p.de, query: same?.game.name ?? p.rotulo, label: p.rotulo, chosen: same?.game.name ?? null });
+    }
+    this.active.set(0);
+    this.passive = p.passivo;
+    if (!p.passivo)
+      setTimeout(() => {
+        const search = this.panelInput(big, '.elos-campo');
+        search?.focus();
+        search?.select();
+      });
+    this.showPanel('.elo-painel');
+  }
+
+  /** "Tirar o link" do painel (no Visual): o texto fica, sem o link. */
+  protected unlink(): void {
+    const big = (this.urlLink() ?? this.linking())?.big ?? false;
+    this.closePanels();
+    this.visualOf(big)?.tiraLink();
   }
 
   /** A imagem colada ou solta no Visual: ainda não (e o arquivo não abre por cima do Murall). */
@@ -2626,6 +2737,15 @@ export class RichEditor {
   /** Põe o link "[[título]]" no lugar do trecho (e de um "]]" que já estava logo depois). */
   protected pick(title: string): void {
     const k = this.linking();
+    if (k && this.visual()) {
+      // no Visual, o link entra no lugar do "[[" (ou do trecho do painel); um título com colchete ou "|" não cabe num link
+      const label = k.auto ? '' : (k.label ?? '').replace(/[[\]|]/g, '').replace(/\s+/g, ' ').trim();
+      this.linking.set(null);
+      this.passive = false;
+      if (/[[\]|]/.test(title)) return this.toasts.show('Um título com [, ] ou | não cabe num link');
+      this.visualOf(k.big)?.poeElo(title, label && linkKey(label) !== linkKey(title) ? label : title, k.auto);
+      return;
+    }
     const area = this.areaOf(k?.big ?? false);
     if (!k || !area) return;
     const text = area.value;
@@ -2640,6 +2760,11 @@ export class RichEditor {
   protected closeLink(area = this.areaOf(this.linking()?.big ?? false)): void {
     const k = this.linking();
     this.linking.set(null);
+    if (this.visual()) {
+      this.passive = false;
+      if (k && !k.auto) this.visualOf(k.big)?.voltaAoTrecho();
+      return;
+    }
     if (k && !k.auto && area) {
       area.focus();
       area.setSelectionRange(k.start, k.end);
@@ -2891,9 +3016,15 @@ export class RichEditor {
   /** Põe "[texto](endereço)" no lugar do trecho (sem texto, o endereço sozinho). */
   protected putUrl(area: HTMLTextAreaElement): void {
     const u = this.urlLink();
-    const href = normalizeUrl(u?.url ?? '');
+    const href = this.urlHref();
     if (!u || !href) return;
     const label = u.text.replace(/[[\]]/g, '').trim();
+    if (this.visual()) {
+      this.urlLink.set(null);
+      this.passive = false;
+      this.visualOf(u.big)?.poeLink(label, href);
+      return;
+    }
     const piece = label ? `[${label}](${href})` : href;
     this.urlLink.set(null);
     this.replace(area, u.start, u.end, piece, u.start + piece.length, u.start + piece.length);
@@ -2905,7 +3036,10 @@ export class RichEditor {
     e?.stopPropagation();
     const u = this.urlLink();
     this.urlLink.set(null);
-    if (u) {
+    if (u && this.visual()) {
+      this.passive = false;
+      this.visualOf(u.big)?.voltaAoTrecho();
+    } else if (u) {
       area.focus();
       area.setSelectionRange(u.start, u.end);
     }
@@ -3577,6 +3711,17 @@ export function normalizeUrl(raw: string): string | null {
   // "www.site.com" ou "site.com/x": vira https
   if (/^[\w-]+(\.[\w-]+)+(\/\S*)?$/i.test(t)) return 'https://' + t;
   return null;
+}
+
+/**
+ * O endereço de um link posto pelo Visual: o de `normalizeUrl`, com os espaços em %20 e, se os parênteses
+ * não fazem par, eles escapados (%28, %29), para a leitura não cortar o link no meio (o F8 do plano).
+ */
+export function linkHref(raw: string): string | null {
+  const href = normalizeUrl(raw.trim().replace(/\s+/g, '%20'));
+  if (!href) return null;
+  const resto = href.replace(/^(?:https?:\/\/|mailto:)/i, '');
+  return /^(?:[^\s()]|\([^\s()]*\))+$/.test(resto) ? href : href.replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
 /** A largura do recuo da linha, em espaços (o tab vai até a próxima parada de 4, como no markdown). */

@@ -3,8 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { RichEditor } from './rich-editor';
+import { RichEditor, linkHref } from './rich-editor';
 import { Settings } from '../core/settings';
+import { sanitizeReview } from '../core/review';
 import { Toasts } from './toast';
 
 /**
@@ -177,15 +178,156 @@ describe('o editor com o Visual', () => {
     expect(button('Negrito').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('a Ajuda abre pelo Ctrl+/ na folha do Visual; o Ctrl+K avisa que o link ainda não', async () => {
+  it('a Ajuda abre pelo Ctrl+/ na folha do Visual', async () => {
     await make('x');
     const folha = pm().dom;
     folha.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', ctrlKey: true, bubbles: true, cancelable: true }));
     await settle();
     expect(fixture.nativeElement.querySelector('.guia')).not.toBeNull();
-    const k = new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true, cancelable: true });
-    folha.dispatchEvent(k);
-    expect(k.defaultPrevented).toBeTrue();
-    expect(TestBed.inject(Toasts).current()?.text).toBe('Ainda não no Visual: use a aba Markdown');
+  });
+
+  describe('os links no Visual', () => {
+    const notes = [
+      sanitizeReview({ id: 'n1', kind: 'anotacoes', game: { name: 'Comprar um console' }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' })!,
+      sanitizeReview({ id: 'n2', kind: 'anotacoes', game: { name: 'Lista do mercado' }, createdAt: '2026-02-01T00:00:00.000Z', updatedAt: '2026-02-01T00:00:00.000Z' })!,
+    ];
+    const key = (k: string, init: KeyboardEventInit = {}) => {
+      const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init });
+      pm().dom.dispatchEvent(e);
+      return e;
+    };
+    /** Letras digitadas na folha do Visual, uma a uma (os atalhos de digitação valem). */
+    function digita(texto: string): void {
+      const v = pm();
+      for (const ch of texto) {
+        const { from, to } = v.state.selection;
+        if (!v.someProp('handleTextInput', (f) => f(v, from, to, ch, () => v.state.tr.insertText(ch, from, to)))) v.dispatch(v.state.tr.insertText(ch, from, to));
+      }
+    }
+    const painel = (sel: string) => fixture.nativeElement.querySelector(sel) as HTMLElement | null;
+    const botao = (dentro: string, nome: string) => Array.from(fixture.nativeElement.querySelectorAll(`${dentro} button, ${dentro} a`) as NodeListOf<HTMLElement>).find((b) => b.textContent!.trim() === nome)!;
+    const escreve = (campo: HTMLInputElement, texto: string) => {
+      campo.value = texto;
+      campo.dispatchEvent(new Event('input'));
+    };
+
+    it('o endereço do link no Visual: os espaços em %20, os parênteses sem par escapados (os da Wikipédia ficam)', () => {
+      expect(linkHref(' site.com/a b ')).toBe('https://site.com/a%20b');
+      expect(linkHref('https://pt.wikipedia.org/wiki/Bola_(desambiguação)')).toBe('https://pt.wikipedia.org/wiki/Bola_(desambiguação)');
+      expect(linkHref('https://x.com/a)b')).toBe('https://x.com/a%29b');
+      expect(linkHref('javascript:alert(1)')).toBeNull();
+    });
+
+    it('Ctrl+K com a palavra selecionada abre o painel com ela; "Pôr o link" marca e devolve o foco à folha', async () => {
+      await make('uma palavra');
+      select(5, 12);
+      expect(key('k', { ctrlKey: true }).defaultPrevented).toBeTrue();
+      await settle();
+      await wait();
+      const p = painel('.url-painel')!;
+      expect(p).not.toBeNull();
+      const [texto, endereco] = Array.from(p.querySelectorAll('input')) as HTMLInputElement[];
+      expect(texto.value).toBe('palavra');
+      // como no Markdown: com um texto selecionado, o foco vai para o Texto
+      expect(document.activeElement).toBe(texto);
+      escreve(endereco, 'site.com/a b');
+      await settle();
+      botao('.url-painel', 'Pôr o link').click();
+      await settle();
+      expect(value()).toBe('uma [palavra](https://site.com/a%20b)');
+      expect(painel('.url-painel')).toBeNull();
+      expect(document.activeElement).toBe(pm().dom);
+      // o botão da régua também abre (e Cancelar volta à folha com o trecho selecionado)
+      select(2);
+      button('Link para um endereço').click();
+      await settle();
+      expect(button('Link para um endereço').getAttribute('aria-disabled')).toBeNull();
+      botao('.url-painel', 'Cancelar').click();
+      await settle();
+      expect(painel('.url-painel')).toBeNull();
+    });
+
+    it('um clique num link mostra o painel passivo (trocar, tirar, abrir); tirar deixa o texto; o Esc fecha só ele', async () => {
+      await make('veja [o site](https://a.com) agora');
+      const a = fixture.nativeElement.querySelector('.ProseMirror a.url') as HTMLElement;
+      select(8);
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      expect(painel('.url-painel')).not.toBeNull();
+      expect(botao('.url-painel', 'Trocar o link')).toBeDefined();
+      expect(botao('.url-painel', 'Abrir').getAttribute('href')).toBe('https://a.com');
+      // o cursor continua na folha: o Esc fecha só o painel
+      const esc = key('Escape');
+      await settle();
+      expect(esc.defaultPrevented).toBeTrue();
+      expect(painel('.url-painel')).toBeNull();
+      // o cursor saiu do link: o painel passivo fecha
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      expect(painel('.url-painel')).not.toBeNull();
+      select(2);
+      await settle();
+      expect(painel('.url-painel')).toBeNull();
+      select(8);
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      botao('.url-painel', 'Tirar o link').click();
+      await settle();
+      expect(value()).toBe('veja o site agora');
+    });
+
+    it('"[[" abre a lista das anotações, que filtra; o Enter põe o link; o Esc fecha só a lista (e ela não volta ali)', async () => {
+      await make('');
+      fixture.componentRef.setInput('notes', notes);
+      await settle();
+      digita('veja [[list');
+      await settle();
+      expect(painel('.elos')).not.toBeNull();
+      expect(Array.from(fixture.nativeElement.querySelectorAll('.elo-op .elo-nome')).map((e) => (e as HTMLElement).textContent)).toEqual(['Lista do mercado', 'Link para “list”']);
+      const enter = key('Enter');
+      await settle();
+      expect(enter.defaultPrevented).toBeTrue();
+      expect(value()).toBe('veja [[Lista do mercado]]');
+      expect(painel('.elos')).toBeNull();
+      digita(' [[');
+      await settle();
+      expect(painel('.elos')).not.toBeNull();
+      key('Escape');
+      await settle();
+      expect(painel('.elos')).toBeNull();
+      digita('c');
+      await settle();
+      expect(painel('.elos')).toBeNull();
+      // sem a lista, o Enter é o de sempre
+      key('Enter');
+      expect(pm().state.doc.childCount).toBe(2);
+    });
+
+    it('a régua abre o painel do link para outra anotação; um clique num link de anotação abre o dele, para trocar ou tirar', async () => {
+      await make('um texto');
+      fixture.componentRef.setInput('notes', notes);
+      await settle();
+      select(4, 9);
+      button('Link para outra anotação').click();
+      await settle();
+      await wait();
+      const busca = fixture.nativeElement.querySelector('.elo-painel .elos-campo') as HTMLInputElement;
+      expect(document.activeElement).toBe(busca);
+      escreve(busca, 'compr');
+      await settle();
+      (fixture.nativeElement.querySelector('.elo-painel .elo-op') as HTMLElement).click();
+      await settle();
+      botao('.elo-painel', 'Pôr o link').click();
+      await settle();
+      expect(value()).toBe('um [[Comprar um console|texto]]');
+      const elo = fixture.nativeElement.querySelector('.ProseMirror span.elo') as HTMLElement;
+      select(5);
+      elo.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      expect((fixture.nativeElement.querySelector('.elo-painel .elos-campo') as HTMLInputElement).value).toBe('Comprar um console');
+      botao('.elo-painel', 'Tirar o link').click();
+      await settle();
+      expect(value()).toBe('um texto');
+    });
   });
 });

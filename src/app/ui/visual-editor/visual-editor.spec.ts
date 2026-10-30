@@ -3,9 +3,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { textToDoc } from '../../core/rich-doc';
-import { parseRich } from '../../core/rich-text';
+import { Review } from '../../core/review';
+import { parseInline, parseRich } from '../../core/rich-text';
 import { VisualEditor } from './visual-editor';
-import { EstadoVisual } from './visual-api';
+import { EstadoVisual, PedidoLink } from './visual-api';
 
 /**
  * O modo Visual (PLANO-EDITOR-VISUAL.md, rodada 2). As teclas e as letras vão direto para a vista do
@@ -19,6 +20,7 @@ describe('o modo Visual do texto', () => {
   let estado: EstadoVisual | null;
   let avisos: string[];
   let pedidos: [number, number][];
+  let links: PedidoLink[];
 
   async function make(texto: string, inputs: Record<string, unknown> = {}): Promise<void> {
     TestBed.configureTestingModule({ imports: [VisualEditor], providers: [provideZonelessChangeDetection()] });
@@ -29,6 +31,7 @@ describe('o modo Visual do texto', () => {
     estado = null;
     avisos = [];
     pedidos = [];
+    links = [];
     const ed = fixture.componentInstance;
     // como o editor: o texto escrito volta como o valor de agora
     ed.mudou.subscribe((t) => {
@@ -38,6 +41,7 @@ describe('o modo Visual do texto', () => {
     ed.estado.subscribe((e) => (estado = e));
     ed.aviso.subscribe((a) => avisos.push(a));
     ed.pedeMarkdown.subscribe((p) => pedidos.push(p));
+    ed.pedeLink.subscribe((p) => links.push(p));
     document.body.appendChild(fixture.nativeElement);
     fixture.detectChanges();
     await fixture.whenStable();
@@ -82,6 +86,7 @@ describe('o modo Visual do texto', () => {
       '__negrito à moda antiga__ e _itálico_\n* item\n1. um\n1. um de novo\n####### nada',
       'linha do Windows\r\ncom \\* barra\r\n\r\n```\ncódigo **cru**\n```',
       '| a | b |\n| --- | --- |\n| 1 | 2 |\n{{contador: 25/12/2026 | Natal}}\n-# sutil\n---',
+      'Veja [o site](https://exemplo.com/a_(b)), <https://x.com>, www.y.com.br e https://z.com.\n[[Compras]] e [[Sumida|esta aqui]] e **[[Forte]]**',
       '',
     ];
     for (const t of textos)
@@ -321,6 +326,169 @@ describe('o modo Visual do texto', () => {
         ed.poeSelecao(a, b);
         expect(ed.selecaoNoTexto()).withContext(`${a}-${b}`).toEqual([a, b]);
       }
+    });
+  });
+
+  describe('os links', () => {
+    /** O primeiro trecho com a marca dada, na linha `i`. */
+    const comMarca = (nome: string, i = 0) => {
+      const out: string[] = [];
+      view.state.doc.child(i).forEach((n) => {
+        if (n.marks.some((m) => m.type.name === nome)) out.push(n.text!);
+      });
+      return out.join('');
+    };
+
+    it('Ctrl+K com uma palavra selecionada pede o painel com ela; pôr o link a marca; de novo, troca; tirar deixa o texto', async () => {
+      await make('uma palavra');
+      noTexto(4, 11);
+      expect(ctrl('k').defaultPrevented).toBeTrue();
+      expect(links).toEqual([{ tipo: 'url', de: 5, texto: 'palavra', href: '', troca: false, passivo: false }]);
+      const ed = fixture.componentInstance;
+      ed.poeLink('palavra', 'https://a.com');
+      expect(texto()).toBe('uma [palavra](https://a.com)');
+      expect(estado?.link).toBe(5);
+      noTexto(7);
+      ctrl('k');
+      expect(links[1]).toEqual({ tipo: 'url', de: 5, texto: 'palavra', href: 'https://a.com', troca: true, passivo: false });
+      ed.poeLink('outra', 'https://b.com');
+      expect(texto()).toBe('uma [outra](https://b.com)');
+      expect(comMarca('link')).toBe('outra');
+      ctrl('k');
+      ed.tiraLink();
+      expect(texto()).toBe('uma outra');
+    });
+
+    it('sem seleção, o link entra com o endereço como texto (escrito solto); o endereço selecionado vai no campo', async () => {
+      await make('x ');
+      noTexto(2);
+      fixture.componentInstance.pedeLinkAqui('url');
+      fixture.componentInstance.poeLink('', 'https://c.com');
+      expect(texto()).toBe('x https://c.com');
+      digita(' e');
+      expect(texto()).toBe('x https://c.com e');
+    });
+
+    it('o endereço solto vai no campo do endereço (o texto, vazio); no bloco de código não tem link', async () => {
+      await make('www.a.com\n```\nb\n```');
+      noTexto(0, 9);
+      ctrl('k');
+      expect(links[0]).toEqual(jasmine.objectContaining({ texto: '', href: 'https://www.a.com', troca: true }));
+      noTexto(15);
+      ctrl('k');
+      expect(links.length).toBe(1);
+    });
+
+    it('tirar o link de um endereço solto deixa o texto, escapado (a leitura não o lê como link)', async () => {
+      await make('veja https://a.com/x agora');
+      noTexto(8);
+      ctrl('k');
+      expect(links[0]).toEqual(jasmine.objectContaining({ texto: '', href: 'https://a.com/x', troca: true }));
+      fixture.componentInstance.tiraLink();
+      expect(parseInline(texto()!).some((p) => p.href)).toBeFalse();
+      expect(parseInline(texto()!).map((p) => p.text).join('')).toBe('veja https://a.com/x agora');
+    });
+
+    it('o link não cresce: escrever no fim dele e o Enter no fim ficam fora (o K7)', async () => {
+      await make('[ab](https://a.com)');
+      noTexto(19);
+      digita('c');
+      expect(texto()).toBe('[ab](https://a.com)c');
+      view.dispatch(view.state.tr.delete(view.state.selection.from - 1, view.state.selection.from));
+      tecla('Enter');
+      digita('d');
+      expect(texto()).toBe('[ab](https://a.com)\nd');
+    });
+
+    it('o colchete digitado dentro do link sai dele; as pontas de espaço também (o F7)', async () => {
+      await make('[ab](https://a.com)');
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 2)));
+      digita('[');
+      expect(comMarca('link')).toBe('ab');
+      const lido = parseInline(texto()!);
+      expect(lido.filter((p) => p.href).map((p) => p.text)).toEqual(['a', 'b']);
+      expect(lido.map((p) => p.text).join('')).toBe('a[b');
+    });
+
+    it('a marca numa parte do link vale no link inteiro; tirar de uma parte tira do todo', async () => {
+      await make('veja [ab](https://a.com) e');
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 6, 7)));
+      ctrl('b');
+      expect(texto()).toBe('veja **[ab](https://a.com)** e');
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 7, 8)));
+      ctrl('b');
+      expect(texto()).toBe('veja [ab](https://a.com) e');
+    });
+
+    it('escrever no texto de um link de anotação muda só o rótulo: o título fica (o K8)', async () => {
+      await make('[[Compras]] e [[Sumida|esta aqui]]');
+      noTexto(5);
+      digita('x');
+      expect(texto()).toBe('[[Compras|Comxpras]] e [[Sumida|esta aqui]]');
+      view.dispatch(view.state.tr.delete(view.state.selection.from - 1, view.state.selection.from));
+      expect(texto()).toBe('[[Compras]] e [[Sumida|esta aqui]]');
+    });
+
+    it('o link de anotação que não existe aparece tracejado', async () => {
+      const compras = { id: 'c' } as Review;
+      await make('[[Compras]] e [[Sumida|esta aqui]]', { links: { resolve: (t: string) => (t === 'Compras' ? compras : null) } });
+      const elos = Array.from(fixture.nativeElement.querySelectorAll('.ProseMirror .elo') as NodeListOf<HTMLElement>);
+      expect(elos.map((e) => e.textContent + (e.classList.contains('quebrado') ? ' (tracejado)' : ''))).toEqual(['Compras', 'esta aqui (tracejado)']);
+      expect(elos[1].title).toBe('A anotação “Sumida” ainda não existe');
+    });
+
+    it('o "[[" antes do cursor conta a busca; escolhida a anotação, o link entra no lugar (e no de um "]]" logo depois)', async () => {
+      await make('');
+      digita('veja [[Com');
+      expect(estado?.colchetes).toEqual({ de: 6, busca: 'Com' });
+      fixture.componentInstance.poeElo('Compras', 'Compras', true);
+      expect(texto()).toBe('veja [[Compras]]');
+      expect(estado?.colchetes).toBeNull();
+      digita(' e [[]]');
+      const at = view.state.selection.from;
+      view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, at - 2)));
+      expect(estado?.colchetes).toEqual(jasmine.objectContaining({ busca: '' }));
+      fixture.componentInstance.poeElo('Mercado do mês', 'o mercado', true);
+      expect(texto()).toBe('veja [[Compras]] e [[Mercado do mês|o mercado]]');
+    });
+
+    it('o endereço solto vira link no espaço e no Enter (a pontuação do fim fica fora); o Backspace logo depois desfaz', async () => {
+      await make('');
+      digita('ir a www.site.com. ok');
+      expect(comMarca('link')).toBe('www.site.com');
+      expect(texto()).toBe('ir a www.site.com. ok');
+      tecla('Enter');
+      digita('https://a.com/x');
+      tecla('Enter');
+      expect(comMarca('link', 1)).toBe('https://a.com/x');
+      digita('https://b.com ');
+      tecla('Backspace');
+      expect(comMarca('link', 2)).toBe('');
+      expect(parseInline(texto()!.split('\n')[2]).some((p) => p.href)).toBeFalse();
+    });
+
+    it('um clique num link pede o painel passivo; Ctrl+clique abre o endereço numa aba nova', async () => {
+      await make('veja [o site](https://a.com) e [[Compras]]');
+      const abre = spyOn(window, 'open');
+      const a = fixture.nativeElement.querySelector('a.url') as HTMLElement;
+      const clique = new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 });
+      a.dispatchEvent(clique);
+      expect(clique.defaultPrevented).toBeTrue();
+      expect(links).toEqual([{ tipo: 'url', de: 6, texto: 'o site', href: 'https://a.com', troca: true, passivo: true }]);
+      a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1, ctrlKey: true }));
+      expect(abre).toHaveBeenCalledOnceWith('https://a.com', '_blank', 'noopener,noreferrer');
+      (fixture.nativeElement.querySelector('.ProseMirror span.elo') as HTMLElement).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      expect(links[1]).toEqual({ tipo: 'elo', de: 15, titulo: 'Compras', rotulo: 'Compras', troca: true, passivo: true });
+    });
+
+    it('colar um endereço com um texto selecionado faz o link do texto', async () => {
+      await make('um texto');
+      noTexto(3, 8);
+      const dados = new DataTransfer();
+      dados.setData('text/plain', 'https://a.com/b');
+      const e = new ClipboardEvent('paste', { clipboardData: dados, bubbles: true, cancelable: true });
+      view.someProp('handlePaste', (f) => f(view, e, view.state.selection.content()));
+      expect(texto()).toBe('um [texto](https://a.com/b)');
     });
   });
 

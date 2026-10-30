@@ -1,6 +1,7 @@
 import { InputRule, inputRules } from 'prosemirror-inputrules';
 import { NodeType } from 'prosemirror-model';
 import { EditorState, Plugin } from 'prosemirror-state';
+import { enderecoNoEspaco } from './links';
 import { schema } from './schema';
 
 /**
@@ -9,7 +10,8 @@ import { schema } from './schema';
  * sinais viram os símbolos da leitura (os de `SYMBOLS` em core/rich-text.ts), na hora em que o último
  * sinal entra. Cada um desfaz com o Ctrl+Z ou com o Backspace logo depois (e fica o que foi digitado,
  * escrito no texto com a barra que o mantém). Durante a composição (o acento, o teclado do celular),
- * nada acontece: o plugin espera ela acabar. As listas ("- ", "1. ", "[] ") são da rodada 4, e as
+ * nada acontece: o plugin espera ela acabar. O endereço solto (https://… ou www.…) vira link no espaço
+ * (e no Enter, ver keymap.ts). As listas ("- ", "1. ", "[] ") são da rodada 4, e as
  * marcas digitadas ("**x**") não viram formatação (a P4: o que se escreve é texto).
  */
 
@@ -63,5 +65,6 @@ export const atalhos = (): Plugin =>
       bloco(/^>\s$/, N['citacao']),
       bloco(/^-#\s$/, N['sutil']),
       ...SIMBOLOS.map(([re, troca]) => simbolo(re, troca)),
+      enderecoNoEspaco(),
     ],
   });

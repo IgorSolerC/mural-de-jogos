@@ -5,6 +5,7 @@ import { undoInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { MarkType, Node as PMNode, NodeType } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, TextSelection, Transaction } from 'prosemirror-state';
+import { linkarEndereco } from './links';
 import { schema, textoDoCru } from './schema';
 
 /**
@@ -222,6 +223,8 @@ export const enter: Command = (state, dispatch) => {
   if (dispatch) {
     const marcas = state.storedMarks || ($from.parentOffset ? $from.marks() : null);
     const tr = state.tr;
+    // o endereço solto logo antes do cursor vira link (como no espaço)
+    if (sel.empty) linkarEndereco(tr, $from.pos, state);
     if (!sel.empty) tr.deleteSelection();
     const $p = tr.selection.$from;
     if ($p.depth !== 1) return false;

@@ -19,7 +19,20 @@ export interface EstadoVisual {
   estilo: LineStyle | null;
   desfazer: boolean;
   refazer: boolean;
+  /** O "[[" aberto antes do cursor: onde ele está (no documento) e a busca escrita depois dele. */
+  colchetes: { de: number; busca: string } | null;
+  /** Onde começa (no documento) o link em que o cursor está; null fora de um link. */
+  link: number | null;
 }
+
+/**
+ * O Visual pede o painel de um link (o Ctrl+K, a régua, um clique num link): o que o painel mostra.
+ * `troca`: já é um link (o painel troca ou tira); `passivo`: veio de um clique, com o cursor na folha.
+ * `de`: onde o trecho começa no documento (o painel passivo fecha quando o cursor sai dele).
+ */
+export type PedidoLink =
+  | { tipo: 'url'; de: number; texto: string; href: string; troca: boolean; passivo: boolean }
+  | { tipo: 'elo'; de: number; titulo: string; rotulo: string; troca: boolean; passivo: boolean };
 
 export interface VisualApi {
   /** O elemento do Visual (fora da página, ele já não vale). */
@@ -32,7 +45,17 @@ export interface VisualApi {
   selecaoNoTexto(): [number, number];
   /** Põe a seleção no lugar das posições do texto dadas. */
   poeSelecao(de: number, ate: number): void;
+  /** O painel do link no lugar do cursor (o link de agora, para trocar; ou a seleção): o Visual responde pelo `pedeLink`. */
+  pedeLinkAqui(tipo: 'url' | 'elo'): void;
+  /** Põe (ou troca) o link para um endereço no trecho do último pedido; sem texto, o endereço aparece. */
+  poeLink(texto: string, href: string): void;
+  /** Põe (ou troca) o link de anotação: no "[[" antes do cursor (`noColchete`) ou no trecho do último pedido. */
+  poeElo(titulo: string, rotulo: string, noColchete: boolean): void;
+  /** Tira o link do trecho do último pedido (o texto fica). */
+  tiraLink(): void;
+  /** O painel fechou sem mudar nada: o foco volta para a folha, com o trecho do pedido selecionado. */
+  voltaAoTrecho(): void;
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', desfazer: false, refazer: false };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', desfazer: false, refazer: false, colchetes: null, link: null };

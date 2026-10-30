@@ -233,6 +233,7 @@ import {
   Type,
   Undo2,
   Unlink,
+  Unlink2,
   Upload,
   UserRound,
   UserRoundCheck,
@@ -362,6 +363,8 @@ export const ICON = {
   abrirFora: ExternalLink,
   linkNota: NOTE_LINK,
   desconectar: Unlink,
+  /** Tirar o link de um texto (o texto fica, sem o link). */
+  tirarLink: Unlink2,
   compartilhar: Share2,
   sair: LogOut,
   arrastar: GripVertical,

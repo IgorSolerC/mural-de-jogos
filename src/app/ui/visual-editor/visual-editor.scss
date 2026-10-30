@@ -102,8 +102,9 @@
     border-radius: 3px 2px 3px 2px;
   }
 
-  // o link de caneta não abre na escrita (o painel do link é da próxima rodada)
-  .elo {
+  // o link não abre na escrita: um clique põe o cursor e mostra o painel dele (Ctrl+clique abre)
+  .elo,
+  .url {
     cursor: text;
   }
 }
