@@ -50,6 +50,7 @@ import { SpendingTop } from '../ui/spending-top';
 import { SpendingWays, WayPick } from '../ui/spending-ways';
 import { SpendingEnvelopes } from '../ui/spending-envelopes';
 import { SpendingFilters } from '../ui/spending-filters';
+import { SpendingHelpSheet } from '../ui/spending-help-sheet';
 import { SpendingMonths } from '../ui/spending-months';
 import { SpendingNeeds } from '../ui/spending-needs';
 import { SpendingPeople } from '../ui/spending-people';
@@ -80,7 +81,7 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
  *
  * Em cima, a pasta de manilha do Murall (a mesma do Calendário): Este mês, as setas e o nome do mês, e o
  * Filtrar, que abre embaixo a cartela de filtros da fita; os ligados ficam colados na pasta, cada um com o
- * seu X. Os envelopes, o Precisava? e o Por pessoa escolhem o grupo deles nesses mesmos filtros.
+ * seu X. Na ponta, o ? abre a folha Como anotar (os jeitos de escrever na linha). Os envelopes, o Precisava? e o Por pessoa escolhem o grupo deles nesses mesmos filtros.
  *
  * O mês mora no endereço (Voltar volta ao mês de antes); sem ele, o de hoje. ← e → trocam de mês.
  *
@@ -108,6 +109,7 @@ const VIEWS: readonly { span: Span | null; label: string; key: string }[] = [
     SpendingTop,
     SpendingWays,
     SpendingFilters,
+    SpendingHelpSheet,
     SpendingMonths,
     SpendingNeeds,
     SpendingPeople,
@@ -132,6 +134,7 @@ export class SpendingPage {
   protected readonly FilterIcon = ICON.filtrar;
   protected readonly MonthIcon = ICON.calendario;
   protected readonly ColumnsIcon = ICON.barras;
+  protected readonly HelpIcon = ICON.ajuda;
   protected readonly views = VIEWS;
 
   private readonly filterButton = viewChild<ElementRef<HTMLButtonElement>>('filtrar');
@@ -177,6 +180,8 @@ export class SpendingPage {
 
   protected readonly managing = signal(false);
   protected readonly managingPeople = signal(false);
+  /** A folha Como anotar (o ? do topo, ou a tecla ?). */
+  protected readonly helping = signal(false);
 
   private readonly entries = computed(() => this.store.entries());
   protected readonly rows = computed(() => rowsIn(this.entries(), this.open()));
@@ -384,6 +389,7 @@ export class SpendingPage {
     else if (e.key === 'ArrowRight') this.step(1);
     else if (e.key === 'h' || e.key === 'H') this.goToday();
     else if ((e.key === 'f' || e.key === 'F') && !this.blank() && !this.span()) this.toggleFilters(true);
+    else if (e.key === '?' && !this.blank()) this.helping.set(true);
     else if (VIEWS.some((v) => v.key === e.key) && !this.blank()) this.setSpan(VIEWS.find((v) => v.key === e.key)!.span);
     else return;
     e.preventDefault();

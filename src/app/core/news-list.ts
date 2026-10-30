@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-visual-widgets',
+    id: '2026-10-30-gastos-como-anotar',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
-    title: 'Os widgets, as listas, os links, o bloco de código e a Ajuda no modo Visual',
+    title: 'O modo Visual com widgets, listas e links, e o Como anotar dos Gastos',
     melhorias: [
       'No modo Visual (em teste), os widgets aparecem vivos na folha: um toque seleciona (o Editar e o Tirar de sempre), a legenda da imagem e do vídeo e o título do contador e da faixa se escrevem direto neles, o Delete tira e o Enter abre uma linha embaixo; o Inserir põe cada widget (a tabela ainda pela aba Markdown), dá para arrastar um para outro lugar, e a imagem colada ou solta entra no lugar dela, com "Guardando a imagem…" enquanto chega.',
       'No modo Visual (em teste), as listas e as tarefas se escrevem direto na folha, com os números da leitura: "- ", "1. " ou "[ ] " no começo da linha (ou a régua, ou Ctrl+Shift+8, 7 e 9) faz a lista; o Enter continua (o número seguinte, e os de baixo descem) e, num item vazio, a lista acaba; o Shift+Enter abre a descrição embaixo do item; o Tab e o Shift+Tab mudam o nível com a descrição junto; o Backspace no começo tira o marcador; e a caixinha marca a tarefa com um toque (ou Ctrl+Alt+Enter), riscando a descrição junto.',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'No modo Visual (em teste), o bloco de código se escreve direto na folha, com a letra de máquina: "```" e Enter abre um, o Enter quebra a linha dentro dele (numa linha vazia no fim, sai), o Tab põe dois espaços, e o Ctrl+E (ou Formatar › Bloco de código) numa linha vazia ou em várias linhas faz o bloco; dentro dele, volta a ser texto.',
       'Na leitura da anotação aberta e no modo Visual, o item da lista ou a tarefa com algo escrito embaixo não ganha mais uma linha em branco antes do próximo: ela só aparece se foi escrita (na cartolina do mural, nada muda).',
       'No modo Visual (em teste), o widget selecionado ganha uma moldura de caneta com cantos redondos e o halo de marca-texto, do tamanho do widget, no lugar da linha preta que atravessava a folha.',
+      'Nos Gastos, o ? ao lado do Filtrar (ou a tecla ?) abre o Como anotar: os jeitos de escrever na linha de anotar, cada um com a marca que faz a diferença passada a marca-texto (o valor, o + da entrada, as parcelas, o todo mês, o dia, o pix, a #categoria, o #luxo e as @pessoas).',
       'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) fica apertado como os outros do site, em tinta cheia e torto de leve; e agora afunda também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista, e lá o clique no botão apertado tira a marca em volta do cursor.',
     ],
   },

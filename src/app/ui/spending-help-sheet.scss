@@ -1,0 +1,122 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+dialog.como-anotar {
+  width: 100%;
+  max-width: min(660px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+  /* a ajuda se mede: a tirinha e a nota lado a lado só quando cabem */
+  container: ajuda / inline-size;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.body {
+  gap: 22px;
+  padding-top: 14px;
+}
+
+.sobre {
+  max-width: 60ch;
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.grupo {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.grupo-titulo {
+  @include kit.grupo-titulo;
+  margin: 0;
+}
+
+.jeitos {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jeito {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+/* a linha escrita: uma tirinha da linha de anotar, com a linha de caneta embaixo */
+.escrito {
+  justify-self: start;
+  max-width: 100%;
+  margin: 0;
+  padding: 7px 12px 8px;
+  border-radius: 2px;
+  background: var(--campo-fundo);
+  box-shadow: var(--campo-sombra);
+  font-family: var(--f-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  /* a marca que faz a diferença, passada a marca-texto (o traço não cobre a linha inteira, como à mão) */
+  mark {
+    padding: 0 2px;
+    margin: 0 -2px;
+    border-radius: 2px;
+    background: linear-gradient(transparent 14%, var(--hi) 14% 86%, transparent 86%);
+    color: inherit;
+    box-decoration-break: clone;
+  }
+}
+
+.faz {
+  max-width: 62ch;
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+
+/* com espaço: a tirinha numa coluna, a nota ao lado, alinhada pela primeira linha */
+@container ajuda (min-width: 560px) {
+  .jeito {
+    grid-template-columns: minmax(0, 15.5rem) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+
+  .escrito {
+    justify-self: stretch;
+  }
+
+  .faz {
+    padding-top: 7px;
+  }
+}

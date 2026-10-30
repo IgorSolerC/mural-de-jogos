@@ -31,16 +31,22 @@
           @if (future()) {
             <span class="previsto">{{ span() ? 'Os meses que vêm são previstos' : 'Previsto: fixos e parcelas' }}</span>
           }
-          @if (!blank() && !span()) {
+          @if (!blank()) {
             <div class="pasta-controles">
               <div class="pasta-grupo">
-                <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
-                  <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
-                  <span>Filtrar</span>
-                  @if (filterCount()) {
-                    <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
-                    <span class="sr-only">({{ filterCount() }} ligados)</span>
-                  }
+                @if (!span()) {
+                  <button #filtrar type="button" class="tinta" aria-keyshortcuts="f" title="Filtrar (F)" [attr.aria-expanded]="filtering()" aria-controls="gastos-filtros" (click)="toggleFilters($event.detail === 0)">
+                    <lucide-icon [img]="FilterIcon" [size]="18" aria-hidden="true" />
+                    <span>Filtrar</span>
+                    @if (filterCount()) {
+                      <span class="tinta-n" aria-hidden="true">{{ filterCount() }}</span>
+                      <span class="sr-only">({{ filterCount() }} ligados)</span>
+                    }
+                  </button>
+                }
+                <!-- o ?: como escrever na linha de anotar (ui/spending-help-sheet.ts) -->
+                <button type="button" class="tinta so-icone" aria-label="Como anotar" aria-keyshortcuts="?" title="Como anotar (?)" aria-haspopup="dialog" (click)="helping.set(true)">
+                  <lucide-icon [img]="HelpIcon" [size]="20" aria-hidden="true" />
                 </button>
               </div>
             </div>
@@ -184,4 +190,7 @@
 }
 @if (managingPeople()) {
   <app-spending-people-sheet (closed)="managingPeople.set(false)" />
+}
+@if (helping()) {
+  <app-spending-help-sheet (closed)="helping.set(false)" />
 }
