@@ -271,198 +271,109 @@ import { NoteWidget } from './note-widget';
        células são fundos, não bordas: não somam à altura. Nos jeitos de papel, o papel tem meia linha
        de cada lado (um par de linhas da pauta a mais), e o texto de baixo continua nas linhas da folha. */
     .tabela-rolo {
-      max-width: 100%;
-      overflow-x: auto;
-      /* só de lado: com overflow-x auto o de cima vira auto também, e a meia linha da borda
-         bastava para a tabela ganhar uma barra de rolar de pé */
-      overflow-y: hidden;
-      scrollbar-width: thin;
+      @include formatado.tabela-rolo;
     }
     /* os jeitos de papel: o rolo dá espaço para a sombra do papel não ser cortada, sem mudar o lugar dele */
     .jeito-branca,
     .jeito-listrada,
     .jeito-quadriculada,
     .jeito-recibo {
-      max-width: none;
-      padding: 2px 8px 8px 2px;
-      margin: -2px -8px -8px -2px;
+      @include formatado.tabela-rolo-papel;
     }
     .tabela-papel {
-      /* do tamanho da tabela, nunca mais estreito que ela (a larga rola, com o papel junto) */
-      width: fit-content;
-      min-width: min(100%, 16em);
+      @include formatado.tabela-papel;
     }
     .tabela {
-      /* do tamanho do que tem dentro (até a largura toda): numa ficha larga, três colunas curtas
-         não se esticam de ponta a ponta; o texto longo quebra dentro da célula */
-      width: 100%;
-      border-collapse: collapse;
-      border-spacing: 0;
-      font-size: 0.94em;
-      line-height: var(--line, 1.5em);
+      @include formatado.tabela;
     }
     .tabela th,
     .tabela td {
-      line-height: var(--line, 1.5em);
-      padding: 0 0.7em;
-      text-align: left;
-      vertical-align: top;
-      /* a palavra não se parte no meio ("Cust/o"): a tabela estreita rola de lado (na ficha, some na
-         beirada); só a palavra maior que a célula toda quebra */
-      overflow-wrap: break-word;
-      white-space: pre-wrap;
-      min-width: 3em;
-      background-repeat: no-repeat;
+      @include formatado.tabela-celula;
     }
     .tabela th {
-      font-family: var(--f-label);
-      font-weight: 700;
-      font-size: 0.86em;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      @include formatado.tabela-cabeca;
     }
 
     /* --- Branca: a folha de impresso colada na cartolina, o cabeçalho sobre um fio de tinta --- */
     .jeito-branca .tabela-papel,
     .jeito-listrada .tabela-papel {
-      --t-tinta: #1b1916;
-      --t-fio: #e3ddd1;
-      color: var(--t-tinta);
-      background: #fffefb;
-      border-radius: 3px;
-      box-shadow: 0 0 0 1px rgb(21 21 21 / 0.09), 0 1px 1px rgb(0 0 0 / 0.14), 0 3px 8px -3px rgb(0 0 0 / 0.3);
+      @include formatado.branca-listrada-papel;
     }
     .jeito-branca .tabela-papel {
-      padding: calc(var(--line, 1.5em) / 2) 0.35em;
+      @include formatado.branca-papel;
     }
     .jeito-branca .tabela,
     .jeito-listrada .tabela {
-      font-family: var(--f-ui);
-      font-size: 0.86em;
-      font-variant-numeric: tabular-nums;
+      @include formatado.branca-listrada-tabela;
     }
     .jeito-branca th {
-      font-size: 0.92em;
-      background-image: linear-gradient(var(--t-tinta), var(--t-tinta));
-      background-position: bottom;
-      background-size: 100% 2px;
+      @include formatado.branca-cabeca;
     }
     .jeito-branca td {
-      background-image: linear-gradient(var(--t-fio), var(--t-fio));
-      background-position: bottom;
-      background-size: 100% 1px;
+      @include formatado.branca-celula;
     }
     .jeito-branca tr:last-child td {
-      background-image: none;
+      @include formatado.branca-ultima;
     }
 
     /* --- Listrada: o cabeçalho numa faixa de tinta, as linhas uma sim, uma não num papel mais escuro --- */
     /* a faixa no alto do papel e a última linha no pé: sem margem (a tabela tem as linhas inteiras dela) */
     .jeito-listrada .tabela-papel {
-      overflow: hidden;
+      @include formatado.listrada-papel;
     }
     .jeito-listrada th {
-      background-color: #22201d;
-      color: #fffdf8;
-      font-size: 0.92em;
+      @include formatado.listrada-cabeca;
     }
     .jeito-listrada tbody tr:nth-child(even) td {
-      background-color: #f1ebde;
+      @include formatado.listrada-par;
     }
 
     /* --- Quadriculada: a folha do caderno de quadrinhos, o cabeçalho passado com marca-texto --- */
     .jeito-quadriculada .tabela-papel {
-      --t-quadro: rgb(64 132 210 / 0.2);
-      --t-grade: rgb(48 112 196 / 0.55);
-      --q: calc(var(--line, 1.5em) / 2);
-      color: #1d2a46;
-      background:
-        repeating-linear-gradient(to right, var(--t-quadro) 0 1px, transparent 1px var(--q)),
-        repeating-linear-gradient(to bottom, var(--t-quadro) 0 1px, transparent 1px var(--q)),
-        #fbfdff;
-      padding: var(--q);
-      border-radius: 1px;
-      box-shadow: 0 0 0 1px rgb(21 21 21 / 0.07), 0 1px 1px rgb(0 0 0 / 0.12), 0 3px 7px -3px rgb(0 0 0 / 0.26);
+      @include formatado.quadriculada-papel;
     }
     .jeito-quadriculada .tabela {
-      /* o contorno da grade, de caneta azul (uma sombra por dentro: não soma à altura) */
-      box-shadow: inset 0 0 0 1.5px var(--t-grade);
+      @include formatado.quadriculada-tabela;
     }
     .jeito-quadriculada :is(th, td) {
-      background-image: linear-gradient(var(--t-grade), var(--t-grade)), linear-gradient(var(--t-grade), var(--t-grade));
-      background-position: right top, left bottom;
-      background-size: 1.5px 100%, 100% 1.5px;
+      @include formatado.quadriculada-celula;
     }
     .jeito-quadriculada th {
-      font-family: inherit;
-      font-weight: 700;
-      font-size: 1em;
-      letter-spacing: 0;
-      text-transform: none;
+      @include formatado.quadriculada-cabeca;
     }
     /* o marca-texto passado só no que está escrito (como o ==marca-texto== do texto) */
     .jeito-quadriculada .th-texto {
-      --marca-cor: rgb(255 218 66 / 0.62);
-      background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 56% / 100% 0.72em;
-      -webkit-box-decoration-break: clone;
-      box-decoration-break: clone;
-      padding: 0 0.15em;
-      border-radius: 2px;
+      @include formatado.quadriculada-cabeca-texto;
     }
 
     /* --- Caneta: riscada direto na cartolina, o cabeçalho em letra de carimbo (o jeito de antes) --- */
     .jeito-caneta .tabela {
-      width: auto;
-      min-width: min(100%, 16em);
+      @include formatado.caneta-tabela;
     }
     .jeito-caneta :is(th, td) {
-      /* a borda entra na conta da linha: cada fileira da tabela ocupa uma linha da pauta */
-      line-height: calc(var(--line, 1.5em) - 1.5px);
-      padding: 0 0.45em;
-      border: 1.5px solid color-mix(in srgb, currentColor 48%, transparent);
+      @include formatado.caneta-celula;
     }
     .jeito-caneta th {
-      background: color-mix(in srgb, currentColor 8%, transparent);
-      font-weight: 800;
+      @include formatado.caneta-cabeca;
     }
 
     /* --- Recibo: a bobina do cupom, picotada em cima e embaixo, com o tracejado da impressora --- */
     .jeito-recibo {
-      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.16)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.14));
+      @include formatado.recibo-rolo;
     }
     .jeito-recibo .tabela-papel {
-      --dente: 7px;
-      --t-fio: rgb(43 42 40 / 0.55);
-      color: #2b2a28;
-      background: #fbfaf4;
-      padding: calc(var(--line, 1.5em) / 2) 0.5em;
-      /* o picote: os dentes de cima apontam para cima, e os de baixo, para baixo */
-      -webkit-mask:
-        linear-gradient(#000 0 0) 0 var(--dente) / 100% calc(100% - 2 * var(--dente)) no-repeat,
-        conic-gradient(from 135deg at 50% 0, #0000, #000 1deg 89deg, #0000 90deg) 0 0 / calc(2 * var(--dente)) var(--dente) repeat-x,
-        conic-gradient(from -45deg at 50% 100%, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / calc(2 * var(--dente)) var(--dente) repeat-x;
-      mask:
-        linear-gradient(#000 0 0) 0 var(--dente) / 100% calc(100% - 2 * var(--dente)) no-repeat,
-        conic-gradient(from 135deg at 50% 0, #0000, #000 1deg 89deg, #0000 90deg) 0 0 / calc(2 * var(--dente)) var(--dente) repeat-x,
-        conic-gradient(from -45deg at 50% 100%, #0000, #000 1deg 89deg, #0000 90deg) 0 100% / calc(2 * var(--dente)) var(--dente) repeat-x;
+      @include formatado.recibo-papel;
     }
     .jeito-recibo .tabela {
-      font-family: var(--f-mono);
-      font-size: 0.84em;
-      font-variant-numeric: tabular-nums;
+      @include formatado.recibo-tabela;
     }
     .jeito-recibo th {
-      font-family: var(--f-mono);
-      font-size: 1em;
-      letter-spacing: 0.04em;
+      @include formatado.recibo-cabeca;
     }
     /* o tracejado da impressora embaixo do cabeçalho e da última linha: na fileira inteira, um traço
        só de ponta a ponta (em cada célula, ele recomeçava torto na emenda das colunas) */
     .jeito-recibo :is(thead tr, tbody tr:last-child) {
-      background-repeat: no-repeat;
-      background-image: repeating-linear-gradient(to right, var(--t-fio) 0 5px, transparent 5px 9px);
-      background-position: bottom;
-      background-size: 100% 1.5px;
+      @include formatado.recibo-tracejado;
     }
 
     @include formatado.seta-url;
