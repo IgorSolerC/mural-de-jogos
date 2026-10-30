@@ -2,7 +2,8 @@ import { ApplicationRef, ChangeDetectionStrategy, Component, DestroyRef, Element
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
-import { hostOf, httpsUrl, parseVideo, readMedia } from '../core/widgets';
+import { hostOf, httpsUrl, inlineField, parseVideo, readMedia } from '../core/widgets';
+import { NgTemplateOutlet } from '@angular/common';
 import { localImageId } from '../core/images';
 import { ImageStore } from '../core/image-store';
 import { ImageSync } from '../core/image-sync';
@@ -41,7 +42,7 @@ import { CloudAccount } from '../core/cloud-account';
  */
 @Component({
   selector: 'app-glued-media',
-  imports: [IconModule, VolumeKnob, ZoomKnob],
+  imports: [IconModule, NgTemplateOutlet, VolumeKnob, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @let m = media();
@@ -99,14 +100,19 @@ import { CloudAccount } from '../core/cloud-account';
           </span>
         }
         @if (m.frame === 'polaroid') {
-          <figcaption class="legenda-polaroide">{{ m.caption }}</figcaption>
+          <figcaption class="legenda-polaroide">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: m.caption }" />} @else {{{ m.caption }}}</figcaption>
         }
       </span>
-      @if (m.frame !== 'polaroid' && m.caption) {
+      @if (m.frame !== 'polaroid' && (m.caption || editavel())) {
         <!-- sem a faixa da polaroide, a legenda vai numa etiqueta de papel colada no pé da foto -->
-        <figcaption class="etiqueta-lugar"><span class="etiqueta" data-colado data-ergue-largura><span class="etiqueta-papel" aria-hidden="true"></span>{{ m.caption }}</span></figcaption>
+        <figcaption class="etiqueta-lugar"><span class="etiqueta" data-colado data-ergue-largura><span class="etiqueta-papel" aria-hidden="true"></span>@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: m.caption }" />} @else {{{ m.caption }}}</span></figcaption>
       }
     </figure>
+    <!-- no modo Visual, com a peça selecionada: a legenda vira um campo, com a mesma letra e no mesmo
+         lugar (quem grava é a peça do editor, ui/visual-editor/pecas.ts) -->
+    <ng-template #campo let-valor>
+      <input class="campo-peca" type="text" data-campo="caption" enterkeyhint="done" autocomplete="off" [value]="valor" [attr.maxlength]="inline?.max ?? null" [placeholder]="inline?.inline ?? ''" [attr.aria-label]="kind() === 'video' ? 'Legenda do vídeo' : 'Legenda da imagem'" />
+    </ng-template>
   `,
   styles: `
     :host {
@@ -421,6 +427,13 @@ export class GluedMedia {
   readonly kind = input.required<'imagem' | 'video'>();
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
+  /**
+   * No modo Visual, a peça selecionada: a legenda vira um campo para escrever direto (sem legenda, o
+   * lugar dela com o convite). Sem isto, nada muda: a peça é a da leitura.
+   */
+  readonly editavel = input(false);
+  /** O campo da legenda no registro (o limite de letras e o convite). */
+  protected readonly inline = inlineField('imagem');
 
   protected readonly BrokenIcon = ICON.semImagem;
   protected readonly VideoIcon = ICON.video;

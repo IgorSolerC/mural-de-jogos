@@ -7,7 +7,8 @@ import { MarkType, Node as PMNode, NodeType } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, TextSelection, Transaction } from 'prosemirror-state';
 import { linkarEndereco } from './links';
 import { enterNaLista, linhaNoItem, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
-import { schema, textoDoCru } from './schema';
+import { tabNaPeca } from './pecas';
+import { linhaDaPeca, schema, textoDoCru } from './schema';
 
 /**
  * O teclado do Visual (PLANO-EDITOR-VISUAL.md, 5.9), escrito tecla por tecla: o `baseKeymap` do
@@ -69,6 +70,7 @@ export const emBloco: Command = (state, dispatch) => {
     const linhas = nos.map(([n]) => {
       if (n.type === N['cru']) return textoDoCru(n);
       if (n.type === N['divisoria']) return '---';
+      if (n.type === N['widget']) return linhaDaPeca(n);
       const a: number = n.attrs['recuo'] ?? 0;
       return (n.type !== BC && n.textContent && a > recuo ? ' '.repeat(a - recuo) : '') + n.textContent;
     });
@@ -324,6 +326,8 @@ export const recuar =
   (state, dispatch) => {
     const alvos = linhasDaSelecao(state).filter(([n]) => n.type === N['linha'] || n.type === N['item']);
     if (dir < 0 && alvos.every(([n]) => !n.attrs['recuo'])) return false;
+    // numa peça (a seleção sem linha de texto), a tecla passa: o Tab nunca prende
+    if (!linhasDaSelecao(state).length) return false;
     if (dispatch && alvos.length) {
       const tr = state.tr;
       if (alvos.length === 1) {
@@ -412,7 +416,7 @@ export const teclas = (): Plugin =>
     Backspace: apagarParaTras,
     'Shift-Backspace': apagarParaTras,
     Delete: apagarParaFrente,
-    Tab: chainCommands(tabNoCodigo(1), recuar(1)),
+    Tab: chainCommands(tabNaPeca, tabNoCodigo(1), recuar(1)),
     'Shift-Tab': chainCommands(tabNoCodigo(-1), recuar(-1)),
     'Mod-b': marca(M['negrito']),
     'Mod-i': marca(M['italico']),

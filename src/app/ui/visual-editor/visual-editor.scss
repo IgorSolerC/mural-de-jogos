@@ -159,6 +159,13 @@
   > .vis-cru {
     text-indent: 0;
   }
+  // o widget fica na margem, como na leitura (o recuo escrito é o nível: na descrição de um item, ele
+  // fica no alinhamento do texto do item, pelo --vis-corpo), e a letra dele é a dele
+  > .vis-peca {
+    text-indent: 0;
+    white-space: normal;
+    cursor: default;
+  }
 
   // o link não abre na escrita: um clique põe o cursor e mostra o painel dele (Ctrl+clique abre)
   .elo,
@@ -235,6 +242,105 @@
   }
 }
 
+// O widget (ver pecas.ts): a peça da leitura, viva. Selecionado, a moldura de caneta (a de cima), e a
+// legenda (ou o título) vira um campo com a letra e o lugar dela: um risco de lápis pontilhado embaixo
+// diz onde se escreve, e o convite aparece a lápis quando está vazio.
+.vis-folha .vis-peca {
+  position: relative;
+}
+.vis-folha .campo-peca {
+  display: inline-block;
+  // o campo tem o tamanho do que se escreve (ou do convite): o risco não atravessa a peça inteira
+  field-sizing: content;
+  min-width: 7em;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: radial-gradient(circle, currentColor 0.7px, transparent 0.9px) 0 100% / 4px 2px repeat-x;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  line-height: inherit;
+  outline: none;
+  caret-color: var(--red);
+  appearance: none;
+}
+.vis-folha .campo-peca::placeholder {
+  color: currentColor;
+  opacity: 0.68;
+}
+.vis-folha .campo-peca::selection {
+  background: color-mix(in srgb, var(--red) 22%, transparent);
+}
+// escrevendo: o pontilhado a lápis vira um traço de caneta
+.vis-folha .campo-peca:focus {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1.5px no-repeat;
+}
+// na faixa da polaroide, a legenda vai de ponta a ponta, no meio (como a escrita à mão nela)
+.vis-folha .legenda-polaroide > .campo-peca {
+  display: block;
+  width: 100%;
+}
+@supports not (field-sizing: content) {
+  .vis-folha .campo-peca {
+    width: 12em;
+  }
+  .vis-folha .legenda-polaroide > .campo-peca {
+    width: 100%;
+  }
+}
+// no iPhone, um campo com letra menor que 16 px faz a página dar zoom ao tocar: lá, só enquanto se
+// escreve, o campo fica com 16 px (a legenda da etiqueta e o nome da faixa são menores)
+@supports (-webkit-touch-callout: none) {
+  .vis-folha .campo-peca {
+    font-size: max(16px, 1em);
+  }
+}
+// o "}}" que vira "} }": o aviso miúdo, na altura de uma linha da pauta, embaixo da peça
+.vis-folha .vis-peca-aviso {
+  display: block;
+  height: var(--line);
+  overflow: hidden;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: var(--line);
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-2);
+}
+.vis-folha .vis-peca-aviso[hidden] {
+  display: none;
+}
+// a imagem colada sendo guardada: o lugar dela, a lápis, numa linha da pauta (anda com o texto)
+.vis-folha .vis-guardando {
+  height: var(--line);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  line-height: var(--line);
+  text-transform: uppercase;
+  text-indent: 0;
+  color: var(--ink-2);
+  user-select: none;
+  animation: vis-respira 1.4s ease-in-out infinite alternate;
+}
+@keyframes vis-respira {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.45;
+  }
+}
+
 // O cursor de lacuna (perto de uma peça, no começo ou no fim do texto): um risco vermelho como o cursor
 .vis-folha .ProseMirror-gapcursor {
   display: none;
@@ -303,7 +409,8 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .vis-folha .ProseMirror-gapcursor::after {
+  .vis-folha .ProseMirror-gapcursor::after,
+  .vis-folha .vis-guardando {
     animation: none;
   }
 }

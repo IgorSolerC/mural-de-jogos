@@ -69,8 +69,8 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
 
 /**
  * A Ajuda da aba Visual: os atalhos de teclado e os de digitação (o que se escreve e vira formatação),
- * sem as marcas, que lá não aparecem. O que o Visual ainda não sabe pôr (as listas, as tabelas, os
- * widgets) não entra: o fim da Ajuda manda para a aba Markdown.
+ * sem as marcas, que lá não aparecem, e os widgets como peças. O que o Visual ainda não sabe pôr (as
+ * tabelas) não entra: o fim da Ajuda manda para a aba Markdown.
  */
 export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[] }[] = [
   {
@@ -114,6 +114,14 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Desfazer o atalho', keys: 'Backspace', note: 'Logo depois dele, volta o que foi escrito.' },
     ],
   },
+  {
+    title: 'Widgets',
+    items: [
+      { what: 'Pôr um widget', note: 'Pelo Inserir: o contador, a imagem, o vídeo, o áudio e a nota, cada um numa linha só dele. Colar ou soltar uma imagem também.' },
+      { what: 'Mexer num widget', note: 'Um toque nele mostra o Editar e o Tirar. A legenda da imagem e do vídeo e o título do contador e da faixa se escrevem direto nele: Enter guarda, Esc desiste.' },
+      { what: 'Tirar o widget', keys: 'Delete', note: 'Com ele selecionado (ou o Backspace); o Ctrl+Z volta. O Enter abre uma linha embaixo dele, e dá para arrastá-lo para outro lugar.' },
+    ],
+  },
 ];
 
 /**
@@ -154,7 +162,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       </section>
     }
     @if (visual()) {
-      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As tabelas e os widgets, por enquanto, só mudam nela.</p>
+      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As tabelas, por enquanto, só mudam nela.</p>
     }
   `,
   styles: `

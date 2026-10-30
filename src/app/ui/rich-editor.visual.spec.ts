@@ -1,7 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { TextSelection } from 'prosemirror-state';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { ImageStore, StoredImage } from '../core/image-store';
 import { EditorView } from 'prosemirror-view';
 import { RichEditor, linkHref } from './rich-editor';
 import { Settings } from '../core/settings';
@@ -84,7 +85,10 @@ describe('o editor com o Visual', () => {
     const toasts = TestBed.inject(Toasts);
     (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
     await settle();
-    const widget = fixture.nativeElement.querySelector('.widget-op') as HTMLButtonElement;
+    // os widgets já entram no Visual; a tabela ainda não (é da rodada 6)
+    const ops = Array.from(fixture.nativeElement.querySelectorAll('.widget-op') as NodeListOf<HTMLButtonElement>);
+    expect(ops.filter((o) => o.classList.contains('apagado')).map((o) => o.textContent!.trim())).toEqual([jasmine.stringContaining('Tabela')]);
+    const widget = ops.find((o) => o.textContent!.includes('Tabela'))!;
     expect(widget.getAttribute('aria-disabled')).toBe('true');
     expect(widget.classList).toContain('apagado');
     expect(widget.title).toBe('Ainda não no Visual: use a aba Markdown');
@@ -222,7 +226,10 @@ describe('o editor com o Visual', () => {
     folha.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', ctrlKey: true, bubbles: true, cancelable: true }));
     await settle();
     const guia = await untilGuide();
-    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha']);
+    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha', 'Widgets']);
+    // os widgets já são peças no Visual: o aviso do fim fala só das tabelas
+    expect(guia.querySelector('.guia-fim')?.textContent).not.toContain('widgets');
+    expect(guia.textContent).toContain('se escrevem direto nele');
     expect(guia.textContent).not.toContain('**texto**');
     expect(guia.textContent).toContain('Ctrl+K');
     expect(guia.querySelector('.guia-fim')?.textContent).toContain('No Markdown, as marcas aparecem como texto: veja a aba Markdown.');
@@ -385,6 +392,76 @@ describe('o editor com o Visual', () => {
       botao('.elo-painel', 'Tirar o link').click();
       await settle();
       expect(value()).toBe('um texto');
+    });
+  });
+
+  describe('os widgets no Visual', () => {
+    const botao = (dentro: string, nome: string) => Array.from(fixture.nativeElement.querySelectorAll(`${dentro} button`) as NodeListOf<HTMLElement>).find((b) => b.textContent!.trim() === nome)!;
+    const peca = () => {
+      const v = pm();
+      let pos = -1;
+      v.state.doc.forEach((n, p) => {
+        if (pos < 0 && n.type.name === 'widget') pos = p;
+      });
+      v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, pos)));
+      fixture.detectChanges();
+    };
+    const ed = () => fixture.componentInstance as unknown as { onWidgetDone(d: unknown): void; onWidgetClosed(): void; widgetSheet(): boolean; widgetPick(): unknown };
+
+    it('a peça selecionada mostra a tirinha (o nome e o resumo); o Tirar a tira, e a seleção fora dela a fecha', async () => {
+      await make('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+      peca();
+      await settle();
+      const tira = fixture.nativeElement.querySelector('.widget-tira') as HTMLElement;
+      expect(tira).not.toBeNull();
+      expect(tira.querySelector('.widget-tira-nome')?.textContent).toBe('Contador');
+      expect(tira.querySelector('.widget-tira-resumo')?.textContent).toBe('Natal');
+      select(2);
+      await settle();
+      expect(fixture.nativeElement.querySelector('.widget-tira')).toBeNull();
+      peca();
+      await settle();
+      botao('.widget-tira', 'Tirar').click();
+      await settle();
+      expect(value()).toBe('um\ndois');
+    });
+
+    it('o Inserir abre a folha; o widget só entra quando ela fecha (W4), no lugar do cursor guardado', async () => {
+      await make('um\n\ndois');
+      select(5);
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      await settle();
+      const contador = Array.from(fixture.nativeElement.querySelectorAll('.widget-op') as NodeListOf<HTMLButtonElement>).find((o) => o.textContent!.includes('Contador'))!;
+      contador.click();
+      await settle();
+      expect(ed().widgetSheet()).toBeTrue();
+      ed().onWidgetDone({ name: 'contador', args: ['25/12/2030', 'Natal'], size: 'medio' });
+      expect(value()).toBe('um\n\ndois');
+      ed().onWidgetClosed();
+      await settle();
+      expect(value()).toBe('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+      // e o Editar da tirinha troca a mesma peça
+      await settle();
+      botao('.widget-tira', 'Editar').click();
+      await settle();
+      expect(ed().widgetSheet()).toBeTrue();
+      ed().onWidgetDone({ name: 'contador', args: ['25/12/2031', 'Ceia'], size: 'grande' });
+      ed().onWidgetClosed();
+      await settle();
+      expect(value()).toBe('um\n{{contador: 25/12/2031 | Ceia | grande}}\ndois');
+    });
+
+    it('a imagem colada é guardada e entra no lugar do marcador', async () => {
+      await make('um');
+      const ID = 'AbCdEfGhIjKlMnOpQrStUv';
+      const add = spyOn(TestBed.inject(ImageStore), 'add').and.resolveTo({ id: ID } as StoredImage);
+      const dados = new DataTransfer();
+      dados.items.add(new File([new Uint8Array([1, 2, 3])], 'foto.png', { type: 'image/png' }));
+      select(3);
+      pm().dom.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dados, bubbles: true, cancelable: true }));
+      expect(add).toHaveBeenCalled();
+      for (let i = 0; i < 50 && value() === 'um'; i++) await wait(10);
+      expect(value()).toBe('um\n{{imagem: murall://imagem/' + ID + '}}');
     });
   });
 });

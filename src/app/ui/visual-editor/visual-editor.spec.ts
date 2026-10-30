@@ -100,10 +100,10 @@ describe('o modo Visual do texto', () => {
         expect(valor).toBeNull();
       });
 
-    it('cada linha vira o nó dela (o bloco de código e o item também); a tabela e o widget são trechos crus', async () => {
+    it('cada linha vira o nó dela (o bloco de código, o item e o widget também); a tabela é um trecho cru', async () => {
       await make('# t\n> c\n-# s\n---\ntexto\n- item\n```\nx\n```\n| a |\n| --- |\n\n{{contador: 25/12/2026 | Natal}}');
-      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'item', 'blocoCodigo', 'cru', 'linha', 'cru']);
-      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(2);
+      expect(tipos()).toEqual(['titulo', 'citacao', 'sutil', 'divisoria', 'linha', 'item', 'blocoCodigo', 'cru', 'linha', 'widget']);
+      expect(fixture.nativeElement.querySelectorAll('.vis-cru .formatado').length).toBe(1);
       // a folha é uma caixa de texto com nome
       expect(view.dom.getAttribute('role')).toBe('textbox');
       expect(view.dom.getAttribute('aria-multiline')).toBe('true');
@@ -655,7 +655,7 @@ describe('o modo Visual do texto', () => {
     });
 
     it('o trecho cru: tocado, a etiqueta e o "Mudar no Markdown", que leva ao começo dele no texto', async () => {
-      await make('antes\n{{contador: 25/12/2026 | Natal}}\ndepois');
+      await make('antes\n| a |\n| --- |\n\ndepois');
       view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, view.state.doc.child(0).nodeSize)));
       const cru = fixture.nativeElement.querySelector('.vis-cru') as HTMLElement;
       expect(cru.classList).toContain('ProseMirror-selectednode');

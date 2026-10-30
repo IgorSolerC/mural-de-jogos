@@ -1412,7 +1412,85 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     espera o `compositionend`); (4) o apagar segurado começando no meio de um item, passando pelo marcador
     e pela linha de cima; (5) a "Linha dentro do item" pela régua presa em cima do teclado; (6) o iPhone:
     o cursor perto da caixinha e do número, e o Enter (o `lastIOSEnter`).
-- Próximo: a rodada 5, os widgets como peças.
+- 30/out/2026, **a rodada 5, os widgets como peças** (BUILD 662, com push):
+  - **O nó `widget`** (`schema.ts`): um átomo de bloco (`nome`, `args` como o registro os lê, sem o
+    tamanho, `tamanho`, `recuo` e a `fonte`), escrito por `widgetLine` (o tradutor já sabia). O widget de
+    um nome desconhecido continua texto (a leitura também o mostra assim); a marca do jeito da tabela
+    sozinha fica crua (a tabela é da rodada 6). Com ele, só a tabela continua trecho cru. O texto que
+    começa com uma peça abre com o cursor de lacuna antes dela (o `Selection.atStart` selecionava a peça,
+    e a tirinha apareceria sem ninguém tocar).
+  - **A peça** (`ui/visual-editor/pecas.ts`, `WidgetView`): o `app-note-widget` de sempre, criado à mão
+    (`createComponent` com o injetor do editor num `<app-note-widget class="widget">`, `attachView`),
+    desmontado no `destroy` (W3, o spec conta as vistas); o `update` só troca as entradas que mudaram,
+    sem recriar (W2: o spec confere que o `app-glued-media` é o mesmo elemento depois de escrever em
+    outra linha e depois de mudar a legenda). O nome para o leitor de tela no `aria-label` ("Widget:
+    Contador, Natal", por `widgetSpoken` do registro). Os controles de dentro (tocar o vídeo e o som,
+    ampliar, a barra da fita, o campo) ficam com eles (`stopEvent`): tocar o vídeo no editor funciona e
+    não seleciona a peça. **Achado**: o `closest()` dos controles achava a própria folha (ela é
+    `contenteditable=true`) e o toque nunca selecionava a peça; agora só conta o controle de dentro dela.
+  - **As teclas** (5.9): o toque seleciona a peça inteira (W1); Delete e Backspace a tiram (o Ctrl+Z
+    volta); Enter abre uma linha embaixo; o Backspace no começo da linha de baixo a seleciona. No Chrome
+    do Android, com a seleção numa peça, o navegador não manda nada no Enter nem no apagar (o
+    ProseMirror deixa o Enter para ele): o Enter, o Backspace e o Delete numa peça (ou no cursor de
+    lacuna) vêm pelo `keydown`, antes do ProseMirror (conferido com a identidade do Pixel 5). O cursor
+    de lacuna antes e depois das peças (K2), no começo e no fim do texto e entre duas peças.
+  - **A tirinha** (a de sempre do `rich-editor.ts`): o estado do Visual conta a peça selecionada
+    (`peca`), e a tirinha passiva aparece com o nome e o resumo; sair dela a fecha. O Tab com a peça
+    selecionada vai ao campo dela (se tem) e, de lá (ou sem campo), ao Editar da tirinha; o Shift+Tab no
+    campo volta à folha. Editar abre a folha do widget com os valores do nó; o Visual guarda o lugar
+    (`lugarDaPeca`, que anda com as mudanças) e o editor troca o nó no `close` (`poePeca`, `tiraPeca`,
+    `voltaAPeca`): com a folha modal aberta, o ProseMirror não recebe nada (W4).
+  - **O Inserir** põe cada widget no Visual (a folha; ao pôr, as regras do `writeWidget`: no lugar de
+    uma linha vazia, ou numa linha só dele depois da do cursor, com o recuo da descrição dentro de um
+    item, `poeNoLugar`); a peça posta fica selecionada (a tirinha confirma). **A tabela continua apagada
+    no Visual** (o menu "Tabela" e a tabela direto são a rodada 6).
+  - **Escrever direto na peça** (`WidgetField.inline` no registro: o convite do campo; `inlineField`,
+    `withInlineText`): os componentes `GluedMedia`, `Countdown` e `AudioTrack` ganharam a entrada
+    `editavel`, que troca o texto por um `<input class="campo-peca">` no mesmo lugar (a etiqueta, a faixa
+    da polaroide, o lado do contador, as placas do neon e do placar, a etiqueta da fita, o adesivo e o
+    envelope do vinil, a tira simples), com a letra dela (o estilo do campo mora no Visual:
+    `font: inherit`, um pontilhado a lápis embaixo que vira traço de caneta escrevendo, o convite a
+    lápis). A peça selecionada é editável; sem legenda, o lugar dela aparece com o convite. Enter ou
+    sair grava (uma mudança no histórico, a peça continua selecionada), Esc volta ao que estava. O valor
+    passa pelos campos do widget (`read`/`write`, como a folha: o título "Neon" vai depois do jeito); o
+    "|" vai escapado (`escapeArg`, agora exportado) e o "}}" vira "} }", com o aviso miúdo embaixo da
+    peça enquanto se escreve (W5). **Sem `editavel`, nada muda**: o DOM das peças na leitura é o mesmo
+    (só a ordem do `aria-hidden` no HTML, que o Angular agora põe por ligação), e as fotos de antes e
+    depois (`.angular/pptr/visual-r5-leitura.mjs`, com a hora parada e a rede cortada) só diferem no
+    ruído que duas fotos da mesma versão também têm; o spec `ui/widget-editavel.spec.ts` confere o texto,
+    o `aria-hidden` e a falta do campo. **Achado**: no celular simulado, o toque no campo deixava o foco
+    na folha (o campo mora dentro dela); a peça dá o foco ao campo no próprio toque.
+  - **Decidido**: (1) **escrever com a peça selecionada não a apaga** (o Docs apagaria): as letras vão
+    para uma linha nova embaixo dela, no recuo dela (no Android também, pelo teclado sem composição; a
+    letra composta pelo Gboard com a peça selecionada fica para o aparelho). (2) **A peça só se arrasta
+    selecionada** (o ProseMirror a deixa arrastável enquanto se aperta): arrastável sempre, o toque no
+    campo, no celular, não dava o foco a ele. Solta no meio de uma linha, ela vai para uma linha só dela,
+    embaixo (W6), com o recuo do lugar novo. (3) Enter na peça selecionada abre a linha embaixo (5.9),
+    não o Editar (5.22 dizia "Enter abre Editar"): o Editar fica no Tab, que leva à tirinha.
+  - **A imagem colada ou solta** (`putImage` no Visual): o Visual recebe a imagem sem texto junto (o
+    `handlePaste` e o `handleDrop`, com o lugar do ponto onde ela foi solta), põe o marcador "Guardando a
+    imagem…" (uma decoração que anda com as mudanças; o trecho dela apagado, ela entra onde o cursor
+    estiver) e pede ao editor (`imagem`), que a encolhe, guarda e devolve o endereço (`poeImagem`); se não
+    entrar, o marcador sai (`tiraMarca`). Escreveu enquanto ela era guardada: o cursor fica com quem
+    escreve (W7). A imagem de outra pessoa (`adoptImages`, que agora recebe quem troca o endereço) troca o
+    id dentro do nó, fora do histórico (o Ctrl+Z tira o colar inteiro).
+  - **A Ajuda** do Visual ganhou a parte "Widgets", e o aviso do fim fala só das tabelas.
+  - **Conferido**: os specs novos (`pecas.spec.ts`, 22; `widget-editavel.spec.ts`; os do editor com a
+    tirinha, o Inserir com a folha e a imagem colada), os de antes (o trecho cru de exemplo passou a ser a
+    tabela), a suíte inteira, `npx ng build`, o smoke da build de produção com widgets e uma imagem colada
+    guardados, e o roteiro do puppeteer (`.angular/pptr/visual-r5.mjs`, fora do git: o toque, a tirinha, o
+    título e a legenda escritos direto, o Tab, Delete e Ctrl+Z, o vídeo tocando, o Inserir com a folha, a
+    imagem colada e, com a identidade do Pixel 5, o Enter e as letras com a peça selecionada), no
+    computador e no celular simulado, sem erro no console, com as fotos de perto.
+  - **Fica para o celular do usuário**: (1) tocar numa peça (seleciona, sem abrir o teclado à toa) e no
+    campo da legenda: o teclado abre, o campo fica à vista acima da régua presa (W8), o Enter do teclado
+    grava; (2) com a peça selecionada, o Enter e o apagar do Gboard, e uma palavra composta (com
+    sugestão) escrita com ela selecionada; (3) tocar o vídeo e o áudio dentro do editor; (4) arrastar a
+    peça com o dedo (no celular o arrastar do `contenteditable` é frágil; se não der, fica pelo
+    Recortar/Colar); (5) colar uma foto da galeria (o marcador e a peça); (6) o iPhone: o cursor perto das
+    peças (5.20, as linhas de respiro), o campo sem zoom (no iPhone, só lá, o campo fica com 16 px enquanto se
+    escreve, porque a legenda da etiqueta e o nome da faixa são menores: conferir que não pula).
+- Próximo: a rodada 6, a tabela direto.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

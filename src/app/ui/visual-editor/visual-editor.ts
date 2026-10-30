@@ -16,7 +16,7 @@ import {
   untracked,
 } from '@angular/core';
 import { dropCursor } from 'prosemirror-dropcursor';
-import { gapCursor } from 'prosemirror-gapcursor';
+import { GapCursor, gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, redoDepth, undo, undoDepth } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { Mark, MarkType, Node as PMNode, Slice } from 'prosemirror-model';
@@ -31,10 +31,12 @@ import { semQuebras } from './ajustes';
 import { colchetesAntes, eloView, faixaDaMarca, linkEm, linksInteiros } from './links';
 import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
-import { codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
+import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
 import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
-import { docDe, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
-import { AcaoVisual, EstadoVisual, ListaVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-api';
+import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
+import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
+import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
+import { WidgetSize } from '../../core/widgets';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -122,6 +124,14 @@ function estiloDe(state: EditorState): LineStyle | null {
   }
 }
 
+/** O widget selecionado (a peça inteira), ou null. */
+function pecaDe(state: EditorState): PecaVisual | null {
+  const sel = state.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type !== N['widget']) return null;
+  const a = sel.node.attrs;
+  return { de: sel.from, nome: a['nome'], args: a['args'], tamanho: a['tamanho'] };
+}
+
 /** A lista da linha do cursor (para o botão dela ficar afundado). */
 function listaDe(state: EditorState): ListaVisual | null {
   const { $from } = state.selection;
@@ -136,7 +146,7 @@ interface Contexto {
 }
 
 /**
- * O trecho cru: o que o Visual ainda não sabe mudar (a tabela, o widget), mostrado
+ * O trecho cru: o que o Visual ainda não sabe mudar (a tabela), mostrado
  * como a leitura mostra (o mesmo `app-rich-text`), com uma borda tracejada discreta. Tocado, fica
  * selecionado como uma peça e mostra "Este trecho só se muda no Markdown", com o botão que leva até ele.
  * O botão segura o foco no `pointerdown` e age no `click` (o `touchstart` cancelado mataria o click).
@@ -249,6 +259,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly aviso = output<string>();
   /** O painel de um link: o Ctrl+K, a régua ou um clique num link (ver `PedidoLink`). */
   readonly pedeLink = output<PedidoLink>();
+  /** Uma imagem colada ou solta (sem texto junto): o editor a encolhe, guarda e põe no marcador (`poeImagem`). */
+  readonly imagem = output<ImagemVisual>();
 
   readonly host: HTMLElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly appRef = inject(ApplicationRef);
@@ -268,6 +280,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
    * documento até o painel pôr, trocar ou tirar o link (ou fechar).
    */
   private trecho: { from: number; to: number } | null = null;
+  /**
+   * Onde o widget da folha vai ficar (o pedido `lugarDaPeca`): o widget que ela troca (`troca`) ou o lugar
+   * de um novo. Acompanha as mudanças do documento até a folha pôr, tirar ou fechar.
+   */
+  private alvo: (Lugar & { troca: boolean }) | null = null;
+  /** O número do próximo marcador de imagem. */
+  private marcas = 0;
 
   constructor() {
     // o texto mudou por fora (outra ficha, o Markdown, a colega da compartilhada): o documento refaz
@@ -308,6 +327,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       dispatchTransaction: (tr) => this.aplica(tr),
       nodeViews: {
         item: (node, view, getPos) => new ItemView(node, view, getPos),
+        widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
             appRef: this.appRef,
@@ -521,6 +541,100 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     v.focus();
   }
 
+  // ===== Os widgets (ver pecas.ts) =====
+
+  lugarDaPeca(nome?: string): PecaVisual | null {
+    const v = this.view;
+    if (!v) return null;
+    const p = pecaDe(v.state);
+    if (p && (!nome || p.nome === nome)) {
+      this.alvo = { pos: p.de, lado: 1, troca: true };
+      return p;
+    }
+    this.alvo = { ...lugarDoCursor(v.state), troca: false };
+    return null;
+  }
+
+  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize): void {
+    const v = this.view;
+    if (!v) return;
+    const alvo = this.alvo ?? { ...lugarDoCursor(v.state), troca: false };
+    this.alvo = null;
+    const tr = v.state.tr;
+    const velho = alvo.troca ? tr.doc.nodeAt(alvo.pos) : null;
+    let at: number;
+    if (velho?.type === N['widget']) {
+      // a peça trocada fica com o recuo que tinha (embaixo de um item, continua no item)
+      tr.setNodeMarkup(alvo.pos, null, { ...velho.attrs, nome, args: [...args], tamanho });
+      at = alvo.pos;
+    } else at = poeNoLugar(v.state, tr, Math.min(alvo.pos, tr.doc.content.size), { nome, args, tamanho });
+    v.dispatch(tr.setSelection(NodeSelection.create(tr.doc, at)).scrollIntoView());
+    v.focus();
+  }
+
+  tiraPeca(): void {
+    const v = this.view;
+    if (!v) return;
+    const alvo = this.alvo;
+    this.alvo = null;
+    const pos = alvo?.troca ? alvo.pos : pecaDe(v.state)?.de;
+    if (pos === undefined || v.state.doc.nodeAt(pos)?.type !== N['widget']) return v.focus();
+    const tr = v.state.tr;
+    tiraEm(tr, pos);
+    v.dispatch(tr.scrollIntoView());
+    v.focus();
+  }
+
+  voltaAPeca(): void {
+    const v = this.view;
+    if (!v) return;
+    const alvo = this.alvo;
+    this.alvo = null;
+    if (alvo?.troca && v.state.doc.nodeAt(alvo.pos)?.type === N['widget']) v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, alvo.pos)).scrollIntoView());
+    v.focus();
+  }
+
+  /** Uma imagem colada ou solta: o marcador entra no lugar dela, e o editor a guarda (ver `poeImagem`). */
+  private recebeImagem(arquivo: Blob, lugar: Lugar): void {
+    const v = this.view;
+    if (!v) return;
+    const marca = ++this.marcas;
+    v.dispatch(marcaEnvio(v.state.tr, marca, lugar));
+    this.imagem.emit({ arquivo, marca });
+  }
+
+  poeImagem(marca: number, url: string): void {
+    const v = this.view;
+    if (!v) return;
+    const m = envio(v.state, marca);
+    const tr = tiraEnvio(v.state.tr, marca);
+    // o trecho onde ela ia foi apagado (ou o marcador sumiu): ela entra onde o cursor estiver
+    const lugar = m && !m.perdida ? m : lugarDoCursor(v.state);
+    const at = poeNoLugar(v.state, tr, Math.min(lugar.pos, tr.doc.content.size), { nome: 'imagem', args: [url], tamanho: 'medio' });
+    // escreveu enquanto ela era guardada: o cursor fica com quem escreve; senão, ele vai para depois dela
+    if (!m?.mexeu) tr.setSelection(depoisDaPeca(tr, at));
+    v.dispatch(tr.scrollIntoView());
+  }
+
+  tiraMarca(marca: number): void {
+    const v = this.view;
+    if (v && envio(v.state, marca)) v.dispatch(tiraEnvio(v.state.tr, marca));
+  }
+
+  trocaImagem(de: string, para: string): boolean {
+    const v = this.view;
+    if (!v) return false;
+    const tr = v.state.tr;
+    v.state.doc.forEach((n, pos) => {
+      if (n.type !== N['widget'] || !(n.attrs['args'] as string[]).includes(de)) return;
+      tr.setNodeMarkup(pos, null, { ...n.attrs, args: (n.attrs['args'] as string[]).map((a) => (a === de ? para : a)) });
+    });
+    if (!tr.docChanged) return false;
+    // o colar já está no histórico: a troca do endereço vai junto dele (o Ctrl+Z tira a imagem colada)
+    v.dispatch(tr.setMeta('addToHistory', false));
+    return true;
+  }
+
   // ===== O texto e o documento =====
 
   private plugins(): Plugin[] {
@@ -528,6 +642,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       escritor((doc) => this.escrever(doc)),
       this.passaAdiante(),
       this.limite(),
+      pecas({ imagem: (arquivo, lugar) => this.recebeImagem(arquivo, lugar) }),
       atalhos(),
       keymap({ 'Mod-k': () => (this.pedeLinkAqui('url'), true) }),
       teclas(),
@@ -548,7 +663,11 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   private estadoDe(texto: string): EditorState {
     const d = textToDoc(texto);
     this.quebra = d.quebra;
-    return EditorState.create({ doc: docDe(d.linhas), plugins: this.plugins() });
+    const doc = docDe(d.linhas);
+    // o texto que começa com uma peça: o cursor de lacuna antes dela (e não a peça selecionada, que
+    // mostraria a tirinha sem ninguém tocar nela)
+    const selection = doc.firstChild!.isTextblock ? undefined : new GapCursor(doc.resolve(0));
+    return EditorState.create({ doc, selection, plugins: this.plugins() });
   }
 
   /** O texto de fora: um documento novo (o histórico recomeça), com o cursor no mesmo ponto do texto. */
@@ -596,6 +715,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
         const [from, to]: number[] = [t.mapping.map(this.trecho.from, 1), t.mapping.map(this.trecho.to, -1)];
         this.trecho = { from, to: Math.max(from, to) };
       }
+    // o lugar do widget da folha também (a peça trocada gruda nela mesma)
+    if (this.alvo && state.doc !== antes.doc)
+      for (const t of transactions) this.alvo = { ...this.alvo, pos: t.mapping.map(this.alvo.pos, this.alvo.troca ? 1 : this.alvo.lado) };
     if (state.doc !== antes.doc) {
       // a tela mostra o que vai ficar (fora da composição: nada mexe no documento enquanto se compõe)
       if (!v.composing && !tr.getMeta(AJUSTE)) this.ajusta();
@@ -676,6 +798,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       // o "[[" vale também compondo (a palavra sublinhada do teclado): a lista só lê, não mexe no texto
       colchetes: colchetesAntes(s),
       link: s.selection.empty ? (linkEm(s.selection.$from)?.from ?? null) : null,
+      peca: pecaDe(s),
     };
     const k = JSON.stringify(est);
     if (k === this.ultimoEstado) return;
@@ -755,6 +878,17 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
               e.preventDefault();
               marcarTarefa(v.state, v.dispatch);
               return true;
+            }
+            // numa peça selecionada (ou no cursor de lacuna), o Enter e o apagar: no Chrome do Android o
+            // ProseMirror deixa o Enter para o navegador, que não manda nada com a seleção numa peça
+            const sel = v.state.selection;
+            if ((sel instanceof NodeSelection || sel instanceof GapCursor) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.isComposing) {
+              const cmd = e.key === 'Enter' && !e.shiftKey ? enter : e.key === 'Backspace' ? apagarParaTras : e.key === 'Delete' ? apagarParaFrente : null;
+              if (cmd) {
+                e.preventDefault();
+                cmd(v.state, v.dispatch, v);
+                return true;
+              }
             }
             if (this.lista() && ['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && !e.isComposing) return true;
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.altKey) {
@@ -868,6 +1002,7 @@ function textoDoSlice(slice: Slice): string {
     if (n.isTextblock) linhas.push(n.textContent);
     else if (n.type === N['cru']) linhas.push(textoDoCru(n));
     else if (n.type === N['divisoria']) linhas.push('---');
+    else if (n.type === N['widget']) linhas.push(linhaDaPeca(n));
     else linhas.push(n.textContent);
   });
   return linhas.join('\n');

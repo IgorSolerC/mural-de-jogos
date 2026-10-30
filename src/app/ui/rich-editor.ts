@@ -20,7 +20,7 @@ import { Toasts } from './toast';
 import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
-import type { AcaoVisual, EstadoVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import type { AcaoVisual, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
@@ -72,7 +72,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
-/** O que o Visual ainda não sabe pôr (os widgets, a tabela). */
+/** O que o Visual ainda não sabe pôr (a tabela). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
 const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'code', 'ul', 'ol', 'check', 'inside', 'rule', 'undo', 'redo'] as const;
@@ -266,7 +266,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-widgets'">
                   <p class="menu-secao" [id]="areaId + '-sec-widgets'" aria-hidden="true">Widgets</p>
                   @for (d of widgets; track d.name) {
-                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" [class.apagado]="visual()" [attr.aria-disabled]="visual() || null" [attr.title]="visual() ? NOT_YET : null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op widget-op" [class.apagado]="visual() && d.name === 'tabela'" [attr.aria-disabled]="(visual() && d.name === 'tabela') || null" [attr.title]="visual() && d.name === 'tabela' ? NOT_YET : null" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="chooseWidget(area, big, d)">
                       <lucide-icon [img]="iconOf(d.name)" [size]="18" aria-hidden="true" />
                       <span class="widget-op-texto">
                         <span class="menu-op-nome">{{ d.label }}</span>
@@ -343,7 +343,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
              primeira vez que a aba abre, e fica (escondido na aba Markdown, guardando o desfazer dele);
              enquanto ele chega, a folha mostra o texto pela leitura, no mesmo lugar -->
         @if (visualOpened()) {
-          <div class="visual" [class.grande]="big" [hidden]="!visual()" (keydown)="onVisualKey($event, big)" (paste)="onVisualPaste($event)" (dragover)="onDragOver($event)" (drop)="onVisualDrop($event)">
+          <div class="visual" [class.grande]="big" [hidden]="!visual()" (keydown)="onVisualKey($event, big)" (paste)="onVisualPaste($event, big)" (dragover)="onDragOver($event)" (drop)="onVisualDrop($event)">
             @defer (on immediate) {
               <app-visual-editor
                 [texto]="value()"
@@ -364,6 +364,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 (desfoco)="onAreaBlur($event, regua)"
                 (pedeMarkdown)="switchMode(false, big, $event)"
                 (aviso)="toasts.show($event)"
+                (imagem)="putVisualImage(big, $event)"
               />
             } @placeholder {
               <div class="visual-chegando" [class.grande]="big" aria-busy="true">
@@ -400,7 +401,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       </div>
       @if (savingImage()) {
         <!-- a imagem colada (ou solta) sendo encolhida e guardada: logo vira a linha do widget -->
-        <p class="guardando" role="status">Guardando a imagem…</p>
+        <p class="guardando" [class.sr-only]="visual()" role="status">Guardando a imagem…</p>
       }
       @if (max(); as m) {
         <!-- quanto já foi escrito, perto do limite em tinta, passou (por um atalho) em vermelho -->
@@ -2435,6 +2436,19 @@ export class RichEditor {
 
   /** As teclas que a folha do Visual deixa passar: a Ajuda, e as do que ele ainda não sabe fazer. */
   protected onVisualKey(e: KeyboardEvent, big: boolean): void {
+    const field = (e.target as Element | null)?.closest?.('input.campo-peca');
+    // o Tab com o widget selecionado (ou do campo da legenda dele): a tirinha, com o Editar e o Tirar
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.defaultPrevented && this.visualState().peca && this.widgetPick()) {
+      const edit = this.host.nativeElement.querySelectorAll<HTMLElement>('.widget-tira-editar');
+      const button = Array.from(edit).find((b) => !!b.closest('.tela-cheia') === big);
+      if (button) {
+        e.preventDefault();
+        button.focus();
+        return;
+      }
+    }
+    // o que se escreve no campo da legenda (ou do título) dentro de um widget é dele
+    if (field) return;
     // a lista do "[[" aberta: as setas, o Enter, o Tab e o Esc são dela (o Visual os deixou passar)
     if (this.linking()?.auto && this.onListKey(e)) return;
     // o painel aberto pelo clique num link (com o cursor ainda na folha): o Esc fecha só ele
@@ -2467,7 +2481,10 @@ export class RichEditor {
    */
   protected onVisualState(est: EstadoVisual, big: boolean): void {
     this.visualState.set(est);
-    if (this.passive && this.panelRange() && this.panelRange()![0] !== est.link) this.closePanels();
+    // o painel passivo de um link: o cursor saiu dele, ele fecha (o do widget, a seleção da peça decide)
+    const link = this.urlLink() ?? this.linking();
+    if (this.passive && link && link.start !== est.link) this.closePanels();
+    this.showVisualPiece(est, big);
     if (!this.notes()) return;
     const k = this.linking();
     if (k && !k.auto) return;
@@ -2525,17 +2542,60 @@ export class RichEditor {
     this.visualOf(big)?.tiraLink();
   }
 
-  /** A imagem colada ou solta no Visual: ainda não (e o arquivo não abre por cima do Murall). */
-  protected onVisualPaste(e: ClipboardEvent): void {
-    if (e.defaultPrevented || !imageFileOf(e.clipboardData) || e.clipboardData?.getData('text/plain')) return;
-    e.preventDefault();
-    this.notYet();
+  /**
+   * Colou no Visual: a imagem sozinha o próprio Visual recebe (com o marcador, ver `putVisualImage`); o
+   * texto com a imagem de outra pessoa entra pelo Visual, e a imagem vira uma cópia sua depois (como no
+   * Markdown, `adoptImages`).
+   */
+  protected onVisualPaste(e: ClipboardEvent, big: boolean): void {
+    if ((e.target as Element | null)?.closest?.('input.campo-peca')) return;
+    const raw = e.clipboardData?.getData('text/plain') ?? '';
+    const ids = this.copyTheirImages() ? localImageIds(raw) : [];
+    if (ids.length) void this.adoptImages(ids, (from, to) => this.visualOf(big)?.trocaImagem(from, to) ?? false);
   }
 
+  /** Soltou um arquivo que não é imagem (a imagem, o Visual recebe): não abre por cima do Murall. */
   protected onVisualDrop(e: DragEvent): void {
-    if (!e.dataTransfer?.files.length) return;
-    e.preventDefault();
-    this.notYet();
+    if (!e.defaultPrevented && e.dataTransfer?.files.length) e.preventDefault();
+  }
+
+  /** A imagem colada ou solta no Visual: encolhida e guardada, ela entra no marcador do lugar dela. */
+  protected async putVisualImage(big: boolean, order: ImagemVisual): Promise<void> {
+    this.savingImage.set(true);
+    try {
+      const image = await this.images.add(order.arquivo);
+      this.visualOf(big)?.poeImagem(order.marca, localImageUrl(image.id));
+    } catch (error) {
+      this.visualOf(big)?.tiraMarca(order.marca);
+      this.toasts.show(error instanceof ImageProblem ? error.message : 'A imagem não entrou. Tente de novo.');
+    } finally {
+      this.savingImage.set(false);
+    }
+  }
+
+  /**
+   * O widget selecionado no Visual: a tirinha passiva dele (como o toque na linha do widget no Markdown);
+   * a seleção saiu dele, ela fecha. Com a folha do widget aberta, nada muda (ela é dele).
+   */
+  private showVisualPiece(est: EstadoVisual, big: boolean): void {
+    if (this.widgetSheet()) return;
+    const p = est.peca;
+    if (!p) {
+      if (this.widgetPick()?.big === big && this.passive) {
+        this.passive = false;
+        this.widgetPick.set(null);
+      }
+      return;
+    }
+    const known = widgetDef(p.nome);
+    if (!known) return;
+    const w = this.widgetPick();
+    const values = { ...known.read(p.args), size: p.tamanho };
+    if (w && w.big === big && w.start === p.de && w.name === known.name && JSON.stringify(w.values) === JSON.stringify(values)) return;
+    this.urlLink.set(null);
+    if (this.linking() && !this.linking()!.auto) this.linking.set(null);
+    this.widgetPick.set({ big, name: known.name, values, start: p.de, end: p.de, swap: true });
+    this.passive = true;
   }
 
   /** "Pronto" (a régua presa no celular): o teclado fecha. */
@@ -3069,7 +3129,7 @@ export class RichEditor {
     }
     const ids = this.copyTheirImages() ? localImageIds(raw) : [];
     // o texto entra pelo colar do navegador; as imagens de outra pessoa trocam de id quando a cópia fica pronta
-    if (ids.length) void this.adoptImages(area, ids);
+    if (ids.length) void this.adoptImages(ids, (from, to) => swapAddress(area, from, to));
     const sel = area.value.slice(area.selectionStart, area.selectionEnd);
     if (!sel.trim() || sel.includes('\n') || !/^(https?:\/\/|mailto:)\S+$/i.test(pasted)) return;
     e.preventDefault();
@@ -3128,7 +3188,7 @@ export class RichEditor {
    * sua e a que não deu para trazer ficam como vieram. O texto já entrou (o colar do navegador): a troca
    * é do endereço, do mesmo tamanho, então o cursor e o que foi escrito depois ficam onde estão.
    */
-  private async adoptImages(area: HTMLTextAreaElement, ids: readonly string[]): Promise<void> {
+  private async adoptImages(ids: readonly string[], swap: (from: string, to: string) => boolean): Promise<void> {
     let copied = 0;
     try {
       for (const id of ids) {
@@ -3140,7 +3200,7 @@ export class RichEditor {
           if (!here) await this.imageSync.fetch(id);
           const mine = await this.images.adopt(id);
           if (!mine || mine.id === id) continue;
-          if (swapAddress(area, localImageUrl(id), localImageUrl(mine.id))) copied++;
+          if (swap(localImageUrl(id), localImageUrl(mine.id))) copied++;
         } catch {
           // a que não deu para copiar fica como veio
         }
@@ -3174,8 +3234,23 @@ export class RichEditor {
   /** Escolheu um widget no menu: a folha dele abre. */
   protected chooseWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
     this.menu.set(null);
-    if (this.visual()) return this.notYet();
+    if (this.visual()) return this.startVisualWidget(big, def);
     this.startWidget(area, big, def);
+  }
+
+  /**
+   * O widget escolhido no Inserir do Visual: a folha dele abre. Com um widget desse tipo selecionado, ela
+   * abre com ele, para trocar; senão, um novo, que entra no lugar do cursor (o Visual guarda o lugar, que
+   * anda com o texto). A tabela ainda não (é da rodada 6).
+   */
+  private startVisualWidget(big: boolean, def: WidgetDef): void {
+    const api = this.visualOf(big);
+    if (def.name === 'tabela' || !api) return this.notYet();
+    this.closePanels();
+    const here = api.lugarDaPeca(def.name);
+    if (here) this.widgetPick.set({ big, name: def.name, values: { ...def.read(here.args), size: here.tamanho }, start: here.de, end: here.de, swap: true });
+    else this.widgetPick.set({ big, name: def.name, values: { size: 'medio' }, start: -1, end: -1, swap: false });
+    this.widgetSheet.set(true);
   }
   /**
    * O widget aberto: em qual folha, qual widget, os valores dos campos e o trecho que ele vai ocupar
@@ -3235,6 +3310,9 @@ export class RichEditor {
   /** O Editar da tirinha: a folha abre com o widget tocado. */
   protected openWidgetSheet(): void {
     this.passive = false;
+    // no Visual, a folha troca o widget selecionado (o Visual guarda qual é)
+    const w = this.widgetPick();
+    if (this.visual() && w) this.visualOf(w.big)?.lugarDaPeca();
     this.widgetSheet.set(true);
   }
 
@@ -3243,10 +3321,10 @@ export class RichEditor {
    * fecha: enquanto ela está aberta, a folha do texto fica por baixo e não recebe o foco (e o que se
    * escreve nela, pelo `insertText`, iria parar no campo da folha do widget).
    */
-  private widgetOrder: { line: string } | 'tirar' | null = null;
+  private widgetOrder: { line: string; done: WidgetDone } | 'tirar' | null = null;
 
   protected onWidgetDone(done: WidgetDone): void {
-    this.widgetOrder = { line: widgetLines(done.name, done.args, done.size, done.body).join('\n') };
+    this.widgetOrder = { line: widgetLines(done.name, done.args, done.size, done.body).join('\n'), done };
   }
 
   /**
@@ -3274,6 +3352,16 @@ export class RichEditor {
     const w = this.widgetPick();
     const order = this.widgetOrder;
     this.widgetOrder = null;
+    const api = w && this.visual() ? this.visualOf(w.big) : null;
+    if (api) {
+      // no Visual, o Visual põe, troca ou tira a peça no lugar que ele guardou
+      this.widgetPick.set(null);
+      this.passive = false;
+      if (order === 'tirar') api.tiraPeca();
+      else if (order && !order.done.body) api.poePeca(order.done.name, order.done.args, order.done.size);
+      else api.voltaAPeca();
+      return;
+    }
     const area = w && this.areaOf(w.big);
     if (!w || !area) {
       this.widgetPick.set(null);
@@ -3297,6 +3385,13 @@ export class RichEditor {
     const w = this.widgetPick();
     this.widgetPick.set(null);
     this.passive = false;
+    const api = w && this.visual() ? this.visualOf(w.big) : null;
+    if (api) {
+      // o Tirar da tirinha no Visual: a peça selecionada sai (o Ctrl+Z volta)
+      api.lugarDaPeca();
+      api.tiraPeca();
+      return;
+    }
     if (!w?.swap) return;
     const text = area.value;
     const end = text[w.end] === '\n' ? w.end + 1 : w.end;
@@ -3337,6 +3432,13 @@ export class RichEditor {
     e?.preventDefault();
     e?.stopPropagation();
     const w = this.widgetPick();
+    const api = w && this.visual() ? this.visualOf(w.big) : null;
+    if (api) {
+      // o Esc na tirinha: de volta à folha, com a peça selecionada (a tirinha continua com ela)
+      api.lugarDaPeca();
+      api.voltaAPeca();
+      return;
+    }
     this.widgetPick.set(null);
     area.focus();
     if (w) area.setSelectionRange(w.start, w.end);

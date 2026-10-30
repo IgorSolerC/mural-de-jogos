@@ -1,4 +1,5 @@
 import type { LineStyle } from '../rich-editor';
+import type { WidgetSize } from '../../core/widgets';
 
 /**
  * O que a régua do editor (ui/rich-editor.ts) pede ao modo Visual e o que ele conta de volta. Só tipos:
@@ -31,6 +32,16 @@ export interface EstadoVisual {
   colchetes: { de: number; busca: string } | null;
   /** Onde começa (no documento) o link em que o cursor está; null fora de um link. */
   link: number | null;
+  /** O widget selecionado (a peça inteira): a régua mostra a tirinha dele. */
+  peca: PecaVisual | null;
+}
+
+/** Um widget da folha do Visual: onde ele está no documento e o que ele é. */
+export interface PecaVisual {
+  de: number;
+  nome: string;
+  args: readonly string[];
+  tamanho: WidgetSize;
 }
 
 /**
@@ -63,7 +74,31 @@ export interface VisualApi {
   tiraLink(): void;
   /** O painel fechou sem mudar nada: o foco volta para a folha, com o trecho do pedido selecionado. */
   voltaAoTrecho(): void;
+  /**
+   * A folha do widget vai abrir: o Visual guarda onde ele vai ficar (acompanhando o texto). Com um widget
+   * selecionado (do nome dado, ou qualquer um), é ele (a folha troca): devolve o widget. Senão, o lugar
+   * do cursor (a folha põe um novo): null.
+   */
+  lugarDaPeca(nome?: string): PecaVisual | null;
+  /** Põe (ou troca) o widget no lugar guardado; a peça fica selecionada. */
+  poePeca(nome: string, args: readonly string[], tamanho: WidgetSize): void;
+  /** Tira o widget guardado (ou o selecionado). */
+  tiraPeca(): void;
+  /** A folha fechou sem mudar nada: o foco volta, com o widget selecionado (ou o cursor no lugar). */
+  voltaAPeca(): void;
+  /** A imagem guardada (`marca`, a do pedido `imagem`) entra no lugar dela, como o widget de imagem. */
+  poeImagem(marca: number, url: string): void;
+  /** A imagem do pedido `marca` não entrou: o marcador sai. */
+  tiraMarca(marca: number): void;
+  /** O endereço de uma imagem trocado em todo widget que o tem (a de outra pessoa virou cópia sua). */
+  trocaImagem(de: string, para: string): boolean;
+}
+
+/** Uma imagem colada ou solta na folha do Visual: o arquivo e o marcador do lugar dela. */
+export interface ImagemVisual {
+  arquivo: Blob;
+  marca: number;
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null };

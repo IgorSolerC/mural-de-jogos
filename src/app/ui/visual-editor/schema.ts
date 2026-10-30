@@ -1,6 +1,7 @@
 import { Fragment, Mark, Node as PMNode, Schema, Slice } from 'prosemirror-model';
 import { Fonte, LinhaDoc, juntarSpans, textToDoc } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
+import { WidgetSize, parseWidgetLine, widgetLine } from '../../core/widgets';
 
 /**
  * O esquema do modo Visual (ver PLANO-EDITOR-VISUAL.md, 5.1 e 5.2): uma linha do texto, um nó, na ordem
@@ -8,10 +9,10 @@ import { Span } from '../../core/rich-text';
  * (a linha como estava escrita): sem mudança, o tradutor (core/rich-doc.ts) a devolve byte a byte.
  *
  * Já são nós editáveis a linha, o título, a citação, o sutil, a divisória, o bloco de código (desde a
- * rodada 3) e o item de lista (desde a rodada 4), com as marcas da linha; o resto (a tabela, o widget e
- * o que o tradutor não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e guarda a
- * linha original inteira (com a fonte), então ele sai igual, byte a byte. Os widgets e a tabela ganham
- * nó nas rodadas seguintes; até lá, mudam no Markdown.
+ * rodada 3), o item de lista (desde a rodada 4), com as marcas da linha, e o widget (desde a rodada 5),
+ * uma peça viva (ver pecas.ts); o resto (a tabela e o que o tradutor não escreve igual) é um `cru`: uma
+ * peça que mostra o trecho como a leitura e guarda a linha original inteira (com a fonte), então ele sai
+ * igual, byte a byte. A tabela ganha nó na rodada 6; até lá, muda no Markdown.
  *
  * As classes do desenho são as da leitura (ver ui/_formatado.scss), dentro da folha do Visual.
  */
@@ -115,6 +116,31 @@ export const schema = new Schema({
       attrs: { ...base, cerca: { default: '```' }, margem: { default: 0 }, aberto: { default: false } },
       parseDOM: [{ tag: 'pre', preserveWhitespace: 'full', getAttrs: recuoDe }],
       toDOM: (n) => ['pre', { class: 'linha codigo', spellcheck: 'false', ...recuo(n) }, ['code', 0]],
+    },
+    /**
+     * O widget (desde a rodada 5): uma linha só dele, `{{nome: a | b | tamanho}}`, desenhado pela peça
+     * de sempre (`app-note-widget`, ver pecas.ts). Um átomo: um toque o seleciona inteiro; a legenda e o
+     * título se escrevem direto nele. `args`: os parâmetros como o registro os lê (sem o tamanho). O
+     * widget de um nome que este site não conhece é texto (como a leitura mostra).
+     */
+    widget: {
+      group: 'bloco',
+      atom: true,
+      selectable: true,
+      // arrasta-se a peça selecionada (o ProseMirror a deixa arrastável enquanto se aperta): sempre
+      // arrastável, o toque no campo da legenda, no celular, não dava o foco a ele
+      attrs: { ...base, nome: { default: 'contador' }, args: { default: [] }, tamanho: { default: 'medio' } },
+      parseDOM: [
+        {
+          tag: 'div.vis-peca[data-linha]',
+          priority: 60,
+          getAttrs: (d) => {
+            const w = parseWidgetLine((d as HTMLElement).getAttribute('data-linha') ?? '');
+            return w && w.name !== 'tabela' ? { ...recuoDe(d), nome: w.name, args: w.args, tamanho: w.size } : false;
+          },
+        },
+      ],
+      toDOM: (n) => ['div', { class: 'vis-peca', 'data-linha': linhaDaPeca(n), ...recuo(n) }, linhaDaPeca(n)],
     },
     /**
      * O trecho que o Visual ainda não sabe mudar: a linha (ou o bloco) inteira, com a fonte. Na tela,
@@ -265,6 +291,10 @@ export function noDe(l: LinhaDoc): PMNode {
       return N['divisoria'].create({ recuo: l.recuo, fonte });
     case 'codigo':
       return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto }, l.texto ? schema.text(l.texto) : []);
+    case 'widget':
+      // a marca do jeito da tabela sozinha (sem a tabela embaixo) é da tabela: fica crua até a rodada 6
+      if (l.nome === 'tabela') return N['cru'].create({ linha: l });
+      return N['widget'].create({ recuo: l.recuo, fonte, nome: l.nome, args: [...l.args], tamanho: l.tamanho });
     default:
       return N['cru'].create({ linha: l });
   }
@@ -279,7 +309,7 @@ export function docDe(linhas: readonly LinhaDoc[]): PMNode {
 const LINHAS = new WeakMap<PMNode, LinhaDoc>();
 
 /** Os tipos de linha que o Visual já edita (o resto é um trecho cru). */
-const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo'];
+const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo', 'widget'];
 
 /** A linha do tradutor de um nó (guardada por nó: os nós são imutáveis, o que não mudou não se refaz). */
 export function linhaDe(n: PMNode): LinhaDoc {
@@ -309,6 +339,9 @@ export function linhaDe(n: PMNode): LinhaDoc {
     case 'divisoria':
       l = { kind: 'divisoria', recuo: r, fonte };
       break;
+    case 'widget':
+      l = { kind: 'widget', recuo: r, nome: n.attrs['nome'], args: [...(n.attrs['args'] as string[])], tamanho: n.attrs['tamanho'] as WidgetSize, fonte };
+      break;
     case 'blocoCodigo':
       l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], fonte };
       break;
@@ -322,6 +355,11 @@ export function linhaDe(n: PMNode): LinhaDoc {
   if (!fonte) delete (l as { fonte?: Fonte }).fonte;
   LINHAS.set(n, l);
   return l;
+}
+
+/** A linha do widget (a marca dele, sem o recuo): o que ele é no texto. */
+export function linhaDaPeca(n: PMNode): string {
+  return widgetLine(n.attrs['nome'], n.attrs['args'], n.attrs['tamanho']);
 }
 
 /** O texto que um trecho cru guarda (as linhas como estavam). */

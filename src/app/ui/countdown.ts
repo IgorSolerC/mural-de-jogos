@@ -3,7 +3,8 @@ import { ICON, IconModule } from './icons';
 import { ZoomKnob } from './zoom-knob';
 import { pieceLift } from './piece-lift';
 import { Clock } from '../core/clock';
-import { CountdownLook, Remaining, When, everyText, readCountdown, remaining, repeats, targetOf } from '../core/widgets';
+import { CountdownLook, Remaining, When, everyText, inlineField, readCountdown, remaining, repeats, targetOf } from '../core/widgets';
+import { NgTemplateOutlet } from '@angular/common';
 import { cap } from '../core/text';
 import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from '../core/dates';
 
@@ -68,16 +69,16 @@ interface Flap {
  */
 @Component({
   selector: 'app-countdown',
-  imports: [IconModule, ZoomKnob],
+  imports: [IconModule, NgTemplateOutlet, ZoomKnob],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
       <div #contador class="contador amplia" data-zoom-max="2.5" [class]="'jeito-' + s.look" [class.chegou]="s.r.past" role="timer" [attr.aria-label]="spoken()">
         @switch (s.look) {
           @case ('neon') {
-            <div class="neon" data-colado [style.--celas]="s.cells" aria-hidden="true">
+            <div class="neon" data-colado [style.--celas]="s.cells" [attr.aria-hidden]="editavel() ? null : 'true'">
               <div class="placa-topo">
-                <span class="placa-nome">{{ s.title || s.name }}</span>
+                <span class="placa-nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: s.title }" />} @else {{{ s.title || s.name }}}</span>
                 @if (s.when || s.soon) {
                   <span class="placa-quando">{{ s.past1 ? 'Foi em ' : '' }}{{ s.when }}{{ s.soon && s.when ? ' · ' : '' }}{{ s.soon }}</span>
                 }
@@ -111,9 +112,9 @@ interface Flap {
             </div>
           }
           @case ('placar') {
-            <div class="placar" data-colado [style.--celas]="s.cells" aria-hidden="true">
+            <div class="placar" data-colado [style.--celas]="s.cells" [attr.aria-hidden]="editavel() ? null : 'true'">
               <div class="placa-topo">
-                <span class="placa-nome">{{ s.title || s.name }}</span>
+                <span class="placa-nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: s.title }" />} @else {{{ s.title || s.name }}}</span>
                 @if (s.when || s.soon) {
                   <span class="placa-quando">{{ s.past1 ? 'Foi em ' : '' }}{{ s.when }}{{ s.soon && s.when ? ' · ' : '' }}{{ s.soon }}</span>
                 }
@@ -182,8 +183,8 @@ interface Flap {
                 }
               </div>
             }
-            <div class="lado" aria-hidden="true">
-              <span class="nome">{{ s.title || s.name }}</span>
+            <div class="lado" [attr.aria-hidden]="editavel() ? null : 'true'">
+              <span class="nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: s.title }" />} @else {{{ s.title || s.name }}}</span>
               <span class="quando">
                 @if (s.past1) {
                   Foi em
@@ -225,6 +226,11 @@ interface Flap {
         </span>
       </div>
     }
+    <!-- no modo Visual, com a peça selecionada: o título vira um campo, com a mesma letra e no mesmo
+         lugar (quem grava é a peça do editor, ui/visual-editor/pecas.ts) -->
+    <ng-template #campo let-valor>
+      <input class="campo-peca" type="text" data-campo="title" enterkeyhint="done" autocomplete="off" [value]="valor" [attr.maxlength]="inline?.max ?? null" [placeholder]="inline?.inline ?? ''" aria-label="Título do contador" />
+    </ng-template>
   `,
   styles: `
     :host {
@@ -941,6 +947,13 @@ interface Flap {
 export class Countdown {
   /** Os parâmetros como foram escritos no texto. */
   readonly args = input.required<readonly string[]>();
+  /**
+   * No modo Visual, a peça selecionada: o título vira um campo para escrever direto (sem título, o
+   * lugar dele com o convite). Sem isto, nada muda: a peça é a da leitura.
+   */
+  readonly editavel = input(false);
+  /** O campo do título no registro (o limite de letras e o convite). */
+  protected readonly inline = inlineField('contador');
 
   protected readonly EmptyIcon = ICON.ampulheta;
   /** O contador no meio da tela (ui/piece-lift.ts). */

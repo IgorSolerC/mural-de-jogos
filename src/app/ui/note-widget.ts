@@ -37,7 +37,7 @@ import { GluedMedia } from './glued-media';
       <!-- o contador também vem à parte (o espaço dele fica guardado, da altura dele) -->
       @case ('contador') {
         @defer (on immediate) {
-          <app-countdown [args]="args()" />
+          <app-countdown [args]="args()" [editavel]="editavel()" />
         } @placeholder {
           <div class="esperando"></div>
         }
@@ -45,14 +45,14 @@ import { GluedMedia } from './glued-media';
       <!-- a foto colada também vem à parte (ela carrega a imagem depois, de qualquer jeito) -->
       @case ('imagem') {
         @defer (on immediate) {
-          <app-glued-media kind="imagem" [args]="args()" />
+          <app-glued-media kind="imagem" [args]="args()" [editavel]="editavel()" />
         } @placeholder {
           <div class="esperando"></div>
         }
       }
       @case ('video') {
         @defer (on immediate) {
-          <app-glued-media kind="video" [args]="args()" />
+          <app-glued-media kind="video" [args]="args()" [editavel]="editavel()" />
         } @placeholder {
           <div class="esperando"></div>
         }
@@ -60,7 +60,7 @@ import { GluedMedia } from './glued-media';
       @case ('audio') {
         <!-- a fita, o vinil e o player vêm num pedaço à parte do site, carregado só quando aparece uma faixa -->
         @defer (on immediate) {
-          <app-audio-track [args]="args()" />
+          <app-audio-track [args]="args()" [editavel]="editavel()" />
         } @placeholder {
           <div class="esperando"></div>
         }
@@ -114,6 +114,11 @@ export class NoteWidget {
   readonly size = input<WidgetSize>('medio');
   /** Os links do texto: a Nota (a ficha colada) abre por eles e acha a anotação de um título. */
   readonly links = input<NoteLinks | null>(null);
+  /**
+   * No modo Visual (ui/visual-editor/pecas.ts), a peça selecionada: a legenda e o título se escrevem
+   * direto nela (ver `WidgetField.inline`). Sem isto, a peça é a da leitura.
+   */
+  readonly editavel = input(false);
   protected readonly lines = computed(() => WIDGET_LINES[this.size()] ?? WIDGET_LINES.medio);
   /** O endereço do vídeo ou do som, para o papel: "youtube.com/watch?v=…" (sem o https:// e o www.). */
   protected readonly source = computed(() => {

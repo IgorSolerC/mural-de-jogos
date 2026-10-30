@@ -50,6 +50,12 @@ export interface WidgetField {
   missing?: string;
   /** O link também pode ser uma imagem do aparelho (colada, solta ou escolhida): a folha oferece "Do aparelho". */
   upload?: true;
+  /**
+   * O campo se escreve direto na peça, no modo Visual (PLANO-EDITOR-VISUAL.md, 5.13): a legenda da
+   * imagem e do vídeo, o título do contador e o da faixa. O texto é o convite do campo vazio, no lugar
+   * dele na peça ("Escreva uma legenda"). Um widget por campo, no máximo.
+   */
+  inline?: string;
 }
 
 export type WidgetValues = Record<string, string>;
@@ -151,7 +157,7 @@ export function splitArgs(raw: string): string[] {
 }
 
 /** O parâmetro escrito de volta: sem quebra de linha, o "|" escapado e sem "}}", que fecharia a marca. */
-function escapeArg(v: string): string {
+export function escapeArg(v: string): string {
   return v
     .replace(/\s+/g, ' ')
     .replace(/\}\}/g, '} }')
@@ -528,7 +534,7 @@ const COUNTDOWN: WidgetDef = {
   put: 'Pôr o contador',
   swap: 'Salvar o contador',
   fields: [
-    { key: 'title', label: 'Título', kind: 'text', placeholder: 'Embarque, aniversário, lançamento…', max: 80 },
+    { key: 'title', label: 'Título', kind: 'text', placeholder: 'Embarque, aniversário, lançamento…', max: 80, inline: 'Escreva um título' },
     { key: 'repeat', label: 'Repete', kind: 'choice', options: REPEAT_OPTIONS, display: 'select', row: 'quando' },
     { key: 'date', label: 'Dia', kind: 'date', required: true, missing: 'Falta o dia', row: 'quando', shown: (v) => !v['repeat'] || v['repeat'] === 'ano' },
     { key: 'weekday', label: 'Dia da semana', kind: 'choice', options: WEEKDAY_OPTIONS, display: 'days', shown: (v) => v['repeat'] === 'semana' },
@@ -714,7 +720,7 @@ export function parseVideo(raw: string): VideoSource | null {
 
 const MEDIA_FIELDS = (link: WidgetField): readonly WidgetField[] => [
   link,
-  { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 120 },
+  { key: 'caption', label: 'Legenda', kind: 'text', placeholder: 'Opcional', max: 120, inline: 'Escreva uma legenda' },
   { key: 'frame', label: 'Moldura', kind: 'choice', options: FRAMES, display: 'tiles' },
 ];
 
@@ -872,7 +878,7 @@ const AUDIO: WidgetDef = {
   swap: 'Salvar a faixa',
   fields: [
     { key: 'url', label: 'Link do som', kind: 'url', placeholder: 'Um .mp3, YouTube, Vimeo ou um .mp4', required: true, missing: 'Falta o link' },
-    { key: 'title', label: 'Nome da faixa', kind: 'text', placeholder: 'Opcional: a música, o episódio…', max: 80 },
+    { key: 'title', label: 'Nome da faixa', kind: 'text', placeholder: 'Opcional: a música, o episódio…', max: 80, inline: 'Escreva o nome da faixa' },
     { key: 'look', label: 'Jeito', kind: 'choice', options: AUDIO_LOOKS, display: 'tiles' },
   ],
   read(args) {
@@ -1147,4 +1153,42 @@ export const WIDGETS: readonly WidgetDef[] = [COUNTDOWN, IMAGE, VIDEO, AUDIO, CA
 export function widgetDef(name: string): WidgetDef | null {
   const k = key(name);
   return WIDGETS.find((w) => w.name === k || w.aliases?.includes(k)) ?? null;
+}
+
+/** O campo do widget que se escreve direto na peça, no modo Visual (ver `WidgetField.inline`), ou null. */
+export function inlineField(name: string): WidgetField | null {
+  return widgetDef(name)?.fields.find((f) => f.inline) ?? null;
+}
+
+/**
+ * Os parâmetros com o campo escrito direto na peça trocado por `text` (a legenda, o título): pelos campos
+ * do widget, como a folha faz (a ordem, a palavra de jeito que vira título); se o widget não sai pelos
+ * campos (a imagem sem link), o parâmetro do campo é trocado no lugar dele. Null: nada mudou.
+ */
+export function withInlineText(name: string, args: readonly string[], text: string): string[] | null {
+  const def = widgetDef(name);
+  const field = inlineField(name);
+  if (!def || !field) return null;
+  const values = def.read(args);
+  const before = values[field.key] ?? '';
+  const now = text.replace(/\s+/g, ' ').trim();
+  if (now === before.trim()) return null;
+  const written = def.write({ ...values, [field.key]: now });
+  if (written) return written;
+  const out = [...args];
+  const at = before ? out.indexOf(before) : -1;
+  if (at !== -1) {
+    if (now) out[at] = now;
+    else out.splice(at, 1);
+  } else if (now) out.push(now);
+  return out;
+}
+
+/** O nome do widget para quem não vê a peça: "Contador, Lançamento do GTA VI" (o nome e o resumo dele). */
+export function widgetSpoken(name: string, args: readonly string[]): string {
+  const def = widgetDef(name);
+  if (!def) return name;
+  const values = def.read(args);
+  const words = (def.summary ? def.summary(values) : def.plain(args)).trim() || (!values['url'] ? '' : localImageId(values['url']) ? 'guardada no Murall' : hostOf(values['url']));
+  return words ? `${def.label}, ${words}` : def.label;
 }

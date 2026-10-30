@@ -3,7 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ICON, IconModule } from './icons';
 import { soundVolume } from '../core/volume';
-import { hostOf, httpsUrl, parseAudio, readAudio } from '../core/widgets';
+import { hostOf, httpsUrl, inlineField, parseAudio, readAudio } from '../core/widgets';
 import { EmbedBridge, EmbedReport } from './embed-bridge';
 import { snapToLines } from './line-snap';
 import { Warmable, warmups } from './sound-warmup';
@@ -132,8 +132,8 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                   <line class="fenda" [attr.x1]="s[0] - 1.6" [attr.y1]="s[1] + 0.6" [attr.x2]="s[0] + 1.6" [attr.y2]="s[1] - 0.6" />
                 }
               </svg>
-              @if (a.title) {
-                <span class="etiqueta-nome">{{ a.title }}</span>
+              @if (a.title || editavel()) {
+                <span class="etiqueta-nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: a.title }" />} @else {{{ a.title }}}</span>
               }
               <input
                 class="arrastar tocavel"
@@ -186,11 +186,11 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
               <div class="capa" data-colado [class.parda]="!capa">
                 @if (capa) {
                   <img [class.arte]="capa === art()" [src]="capa" alt="" referrerpolicy="no-referrer" decoding="async" (error)="coverFailed.set(true)" />
-                  @if (a.title) {
-                    <span class="capa-adesivo">{{ a.title }}</span>
+                  @if (a.title || editavel()) {
+                    <span class="capa-adesivo">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: a.title }" />} @else {{{ a.title }}}</span>
                   }
                 } @else {
-                  <span class="capa-nome">{{ sleeve() || a.title || 'Lado A' }}</span>
+                  <span class="capa-nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: a.title }" />} @else {{{ sleeve() || a.title || 'Lado A' }}}</span>
                 }
                 <span class="capa-gasta" aria-hidden="true"></span>
                 <ng-container *ngTemplateOutlet="volume" />
@@ -208,7 +208,7 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
                 <ng-container *ngTemplateOutlet="playIcon" />
               </button>
               <span class="tira-meio">
-                <span class="tira-nome">{{ a.title || host() }}</span>
+                <span class="tira-nome">@if (editavel()) {<ng-container *ngTemplateOutlet="campo; context: { $implicit: a.title }" />} @else {{{ a.title || host() }}}</span>
                 <ng-container *ngTemplateOutlet="bar" />
               </span>
               <ng-container *ngTemplateOutlet="volume" />
@@ -251,6 +251,12 @@ const pack = (share: number) => Math.sqrt(HUB * HUB + (FULL * FULL - HUB * HUB) 
           <app-volume-knob />
         }
       </span>
+    </ng-template>
+
+    <!-- no modo Visual, com a peça selecionada: o nome da faixa vira um campo, com a mesma letra e no
+         mesmo lugar (quem grava é a peça do editor, ui/visual-editor/pecas.ts) -->
+    <ng-template #campo let-valor>
+      <input class="campo-peca" type="text" data-campo="title" enterkeyhint="done" autocomplete="off" [value]="valor" [attr.maxlength]="inline?.max ?? null" [placeholder]="inline?.inline ?? ''" aria-label="Nome da faixa" />
     </ng-template>
 
     <ng-template #playIcon>
@@ -905,6 +911,13 @@ export class AudioTrack implements Warmable {
   readonly sleeve = input('');
   /** O nome que o botão de tocar diz ao leitor de tela, quando a faixa não tem nome escrito. */
   readonly spoken = input('');
+  /**
+   * No modo Visual, a peça selecionada: o nome da faixa vira um campo para escrever direto (sem nome, o
+   * lugar dele com o convite). Sem isto, nada muda: a peça é a da leitura.
+   */
+  readonly editavel = input(false);
+  /** O campo do nome no registro (o limite de letras e o convite). */
+  protected readonly inline = inlineField('audio');
 
   protected readonly MuteIcon = ICON.semSom;
   protected readonly clock = clock;
