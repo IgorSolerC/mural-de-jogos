@@ -485,7 +485,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           </div>
           <!-- a lista vem num pedaço à parte, quando a Ajuda abre pela primeira vez -->
           @defer {
-            <app-markup-guide [noteLinks]="!!notes()" [idPrefix]="areaId + '-guia'" />
+            <app-markup-guide [noteLinks]="!!notes()" [idPrefix]="areaId + '-guia'" [visual]="visual()" />
           }
         </div>
       }

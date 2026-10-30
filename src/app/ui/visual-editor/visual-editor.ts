@@ -655,7 +655,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       estilo: estiloDe(s),
       desfazer: undoDepth(s) > 0,
       refazer: redoDepth(s) > 0,
-      colchetes: this.view!.composing ? null : colchetesAntes(s),
+      // o "[[" vale também compondo (a palavra sublinhada do teclado): a lista só lê, não mexe no texto
+      colchetes: colchetesAntes(s),
       link: s.selection.empty ? (linkEm(s.selection.$from)?.from ?? null) : null,
     };
     const k = JSON.stringify(est);

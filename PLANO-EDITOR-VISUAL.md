@@ -1324,7 +1324,29 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
       (o R9), e as marcas guardadas (`storedMarks`) do link recém-posto ainda valiam: a letra saía sem o
       link, partindo-o. O link posto não guarda mais marcas para a próxima letra (não precisa: ele não é
       inclusivo).
-- Próximo: o resto da rodada 3 (a Ajuda por modo).
+  - **A Ajuda por modo** (BUILD 659, `ui/markup-guide.ts`): na aba Visual, `GUIDE_VISUAL`, em três
+    partes (os atalhos de teclado; os de digitação no começo da linha; os do meio da linha, com o "[["
+    só onde há anotações, o endereço que vira link, as setas, os sinais e o Backspace que desfaz o
+    atalho), sem nenhuma marca do Markdown, e no fim "No Markdown, as marcas aparecem como texto: veja a
+    aba Markdown", com o aviso de que as listas, as tabelas e os widgets, por enquanto, só mudam nela
+    (**a rodada 4 e as seguintes tiram cada um desse aviso e põem os atalhos deles na Ajuda**). No
+    Markdown, a de sempre. No toque, o que é só um atalho de teclado (sem jeito de escrever nem nota) sai.
+  - **Conferido** em cada passo: os specs novos (`visual-editor.spec.ts`, os do bloco e dos links;
+    `rich-editor.visual.spec.ts`, os painéis, a lista do "[[", a Ajuda; `rich-doc.spec.ts`, o cursor no
+    bloco), os do Markdown sem mudar, a suíte inteira, `npx ng build` (o pedaço do Visual em 75,7 KB
+    comprimido; o inicial não cresceu), o smoke da build de produção com um bloco de código guardado, e
+    o roteiro do puppeteer da rodada (`.angular/pptr/visual-r3.mjs`, fora do git: o bloco, os links, a
+    lista do "[[", o rótulo do link de anotação, o Ctrl+clique, a Ajuda), no computador e no celular
+    simulado, sem erro no console, com as fotos de perto.
+  - **Fica para o celular do usuário**: (1) o bloco de código com o teclado do sistema: o Enter dentro
+    (pelo `beforeinput`, como o resto), o Enter que sai do bloco, o apagar segurado dentro dele e no
+    começo dele (o bloco volta a texto), e a letra de máquina sem zoom no iPhone; (2) tocar num link: o
+    painel passivo sem o teclado pular, o Abrir, o Tirar o link; (3) o "[[" com o Gboard: a lista filtra
+    enquanto a palavra ainda está sublinhada (o estado lê o "[[" também compondo; ler não mexe no texto),
+    e tocar numa anotação da lista no meio da composição põe o link certo; (4) escrever no meio de um link de
+    anotação com sugestões do teclado (o rótulo muda, o título fica); (5) o endereço que vira link no
+    espaço do teclado do celular (o espaço do Gboard pode chegar como composição); (6) a Ajuda no celular.
+- Próximo: a rodada 4, listas e tarefas.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

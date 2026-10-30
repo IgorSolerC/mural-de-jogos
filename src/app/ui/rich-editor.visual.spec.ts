@@ -178,12 +178,37 @@ describe('o editor com o Visual', () => {
     expect(button('Negrito').getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('a Ajuda abre pelo Ctrl+/ na folha do Visual', async () => {
+  /** A lista da Ajuda chega num pedaço à parte. */
+  async function untilGuide(): Promise<HTMLElement> {
+    for (let i = 0; i < 300 && !fixture.nativeElement.querySelector('.guia .guia-secao'); i++) {
+      await new Promise((r) => setTimeout(r, 10));
+      fixture.detectChanges();
+    }
+    return fixture.nativeElement.querySelector('.guia') as HTMLElement;
+  }
+  const titles = (g: HTMLElement) => Array.from(g.querySelectorAll('.guia-secao-titulo')).map((t) => t.textContent!.trim());
+
+  it('a Ajuda abre pelo Ctrl+/ na folha do Visual, com os atalhos dela (sem as marcas); no Markdown, a de sempre', async () => {
     await make('x');
     const folha = pm().dom;
     folha.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', ctrlKey: true, bubbles: true, cancelable: true }));
     await settle();
-    expect(fixture.nativeElement.querySelector('.guia')).not.toBeNull();
+    const guia = await untilGuide();
+    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha']);
+    expect(guia.textContent).not.toContain('**texto**');
+    expect(guia.textContent).toContain('Ctrl+K');
+    expect(guia.querySelector('.guia-fim')?.textContent).toContain('No Markdown, as marcas aparecem como texto: veja a aba Markdown.');
+    // sem as anotações, o "[[" não entra
+    expect(guia.textContent).not.toContain('[[');
+    tab('markdown').click();
+    await settle();
+    await wait();
+    button('Ajuda: como escrever cada marca').click();
+    await settle();
+    const md = await untilGuide();
+    expect(titles(md)[0]).toBe('Texto');
+    expect(md.textContent).toContain('**texto**');
+    expect(md.querySelector('.guia-fim')).toBeNull();
   });
 
   describe('os links no Visual', () => {

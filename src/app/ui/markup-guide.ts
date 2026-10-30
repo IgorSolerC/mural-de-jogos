@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
-type GuideItem = { what: string; mark: string; keys?: string; note?: string; notes?: boolean };
+type GuideItem = { what: string; mark?: string; keys?: string; note?: string; notes?: boolean };
 
 /** A Ajuda: todas as marcas, em partes. `notes`: só onde o link para outra anotação abre alguma. */
 export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = [
@@ -68,8 +68,51 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
 ];
 
 /**
+ * A Ajuda da aba Visual: os atalhos de teclado e os de digitação (o que se escreve e vira formatação),
+ * sem as marcas, que lá não aparecem. O que o Visual ainda não sabe pôr (as listas, as tabelas, os
+ * widgets) não entra: o fim da Ajuda manda para a aba Markdown.
+ */
+export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[] }[] = [
+  {
+    title: 'Atalhos de teclado',
+    items: [
+      { what: 'Negrito', keys: 'Ctrl+B' },
+      { what: 'Itálico', keys: 'Ctrl+I' },
+      { what: 'Riscado', keys: 'Ctrl+Shift+X' },
+      { what: 'Marca-texto', keys: 'Ctrl+Shift+H' },
+      { what: 'Código', keys: 'Ctrl+E', note: 'Numa linha vazia ou em várias linhas selecionadas, o bloco de código; dentro dele, volta a ser texto.' },
+      { what: 'Link para um endereço', keys: 'Ctrl+K', note: 'Num link, troca ou tira. Um toque no link mostra o painel dele; Ctrl+clique abre. Colar um endereço com um texto selecionado também faz o link.' },
+      { what: 'Spoiler e sutil', note: 'No Formatar, como os outros e os estilos do parágrafo.' },
+      { what: 'Recuar', keys: 'Tab', note: 'Shift+Tab volta. No bloco de código, o Tab põe dois espaços.' },
+      { what: 'Desfazer e refazer', keys: 'Ctrl+Z, Ctrl+Y' },
+      { what: 'Esta ajuda', keys: 'Ctrl+/' },
+    ],
+  },
+  {
+    title: 'Atalhos de digitação, no começo da linha',
+    items: [
+      { what: 'Título 1, 2 e 3', mark: '# Título', note: 'Também ## e ###, com o espaço depois.' },
+      { what: 'Citação', mark: '> texto' },
+      { what: 'Texto sutil', mark: '-# texto' },
+      { what: 'Divisória', mark: '---', note: 'E Enter.' },
+      { what: 'Bloco de código', mark: '```', note: 'E Enter. O Enter numa linha vazia no fim do bloco sai dele.' },
+    ],
+  },
+  {
+    title: 'No meio da linha',
+    items: [
+      { what: 'Link para outra anotação', mark: '[[', notes: true, note: 'Abre a lista das anotações. Escrever no texto do link muda só o que aparece: ele continua abrindo a mesma.' },
+      { what: 'Endereço', mark: 'https://…', note: 'Vira link no espaço ou no Enter (www.… também).' },
+      { what: 'Setas', mark: '-> <- <-> =>', note: 'Viram → ← ↔ ⇒ (--> e <-- compridas).' },
+      { what: 'Sinais', mark: '!= >= <= ~= +-', note: 'Viram ≠ ≥ ≤ ≈ ±.' },
+      { what: 'Desfazer o atalho', keys: 'Backspace', note: 'Logo depois dele, volta o que foi escrito.' },
+    ],
+  },
+];
+
+/**
  * A Ajuda do editor de texto (ver ui/rich-editor.ts): todas as marcas, em partes, como a lista de
- * atalhos do Docs. Cada uma com o nome, o jeito de escrever na letra de máquina (que quebra a linha,
+ * atalhos do Docs; na aba Visual, os atalhos dela (`GUIDE_VISUAL`). Cada uma com o nome, o jeito de escrever na letra de máquina (que quebra a linha,
  * por mais comprida que seja) e o atalho de teclado na ponta (no toque, sem atalho). Vem num pedaço à
  * parte, quando a Ajuda abre pela primeira vez.
  */
@@ -77,15 +120,22 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
   selector: 'app-markup-guide',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão na aba Markdown. Na aba Visual (em teste), o texto já aparece como fica, sem as marcas.</p>
+    @if (visual()) {
+      <p class="guia-sobre">Na aba Visual (em teste), o texto aparece como fica: a régua, os atalhos de teclado e os de digitação formatam, e o que se escreve é texto.</p>
+    } @else {
+      <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão na aba Markdown. Na aba Visual (em teste), o texto já aparece como fica, sem as marcas.</p>
+    }
     @for (sec of sections(); track sec.title; let i = $index) {
       <section class="guia-secao" [attr.aria-labelledby]="idPrefix() + '-' + i">
         <h3 class="guia-secao-titulo" [id]="idPrefix() + '-' + i">{{ sec.title }}</h3>
         <dl class="guia-lista">
-          @for (g of sec.items; track g.mark) {
-            <div class="guia-item">
+          @for (g of sec.items; track g.what) {
+            <!-- só um atalho de teclado: no toque (sem teclado), sai -->
+            <div class="guia-item" [class.so-teclado]="g.keys && !g.mark && !g.note">
               <dt class="guia-nome">{{ g.what }}</dt>
-              <dd class="guia-marca"><code>{{ g.mark }}</code></dd>
+              @if (g.mark) {
+                <dd class="guia-marca"><code>{{ g.mark }}</code></dd>
+              }
               @if (g.keys) {
                 <dd class="guia-atalho"><kbd>{{ g.keys }}</kbd></dd>
               }
@@ -96,6 +146,9 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
           }
         </dl>
       </section>
+    }
+    @if (visual()) {
+      <p class="guia-sobre guia-fim">No Markdown, as marcas aparecem como texto: veja a aba Markdown. As listas, as tabelas e os widgets, por enquanto, só mudam nela.</p>
     }
   `,
   styles: `
@@ -110,6 +163,11 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       font-size: 0.9rem;
       line-height: 1.4;
       color: var(--ink-2);
+    }
+    .guia-fim {
+      margin: 10px 0 0;
+      padding-top: 8px;
+      border-top: 2px dashed rgb(21 21 21 / 0.14);
     }
     .guia-secao + .guia-secao {
       margin-top: 10px;
@@ -195,8 +253,12 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
       }
     }
     @media (pointer: coarse) {
-      .guia-atalho {
+      .guia-atalho,
+      .so-teclado {
         display: none;
+      }
+      .so-teclado + .guia-item {
+        border-top: 0;
       }
     }
   `,
@@ -206,9 +268,11 @@ export class MarkupGuide {
   readonly noteLinks = input(false);
   /** O começo dos ids dos títulos das partes. */
   readonly idPrefix = input('guia');
+  /** A Ajuda da aba Visual (os atalhos, sem as marcas); sem ela, a do Markdown. */
+  readonly visual = input(false);
 
   protected readonly sections = computed(() => {
     const notes = this.noteLinks();
-    return GUIDE.map((sec) => ({ title: sec.title, items: sec.items.filter((g) => notes || !g.notes) }));
+    return (this.visual() ? GUIDE_VISUAL : GUIDE).map((sec) => ({ title: sec.title, items: sec.items.filter((g) => notes || !g.notes) }));
   });
 }
