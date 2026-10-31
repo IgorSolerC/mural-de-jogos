@@ -48,6 +48,49 @@ describe('a régua de formatação do texto', () => {
   const value = () => fixture.componentInstance.value();
   const key = (k: string, extra: KeyboardEventInit = {}) => area.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...extra }));
 
+  describe('a área de transferência do Murall no Markdown (PLANO-EDITOR-VISUAL.md, 5.16)', () => {
+    function clip(type: 'copy' | 'cut' | 'paste', dados: Record<string, string> = {}): ClipboardEvent {
+      const data = new DataTransfer();
+      for (const [k, v] of Object.entries(dados)) data.setData(k, v);
+      const e = new ClipboardEvent(type, { bubbles: true, cancelable: true, clipboardData: data });
+      area.dispatchEvent(e);
+      return e;
+    }
+
+    it('copiar põe o texto e, junto, o tipo próprio com o mesmo markdown', () => {
+      write('um |**dois**| tres');
+      const e = clip('copy');
+      expect(e.defaultPrevented).toBeTrue();
+      expect(e.clipboardData!.getData('text/plain')).toBe('**dois**');
+      expect(e.clipboardData!.getData('text/x-murall-markdown')).toBe('**dois**');
+      expect(value()).toBe('um **dois** tres');
+    });
+
+    it('recortar tira o trecho', () => {
+      write('um |**dois**| tres');
+      const e = clip('cut');
+      expect(e.clipboardData!.getData('text/x-murall-markdown')).toBe('**dois**');
+      expect(value()).toBe('um  tres');
+    });
+
+    it('colar o que veio do Visual traz as marcas, não o texto limpo (C7)', () => {
+      write('antes |depois');
+      const e = clip('paste', { 'text/plain': 'forte e link', 'text/x-murall-markdown': '**forte** e [link](https://ex.com)' });
+      expect(e.defaultPrevented).toBeTrue();
+      expect(value()).toBe('antes **forte** e [link](https://ex.com)depois');
+    });
+
+    it('perto do limite, entra só o que cabe, por linhas inteiras, com o aviso (C9)', () => {
+      fixture.componentRef.setInput('max', 16);
+      const toasts = TestBed.inject(Toasts);
+      const shown = spyOn(toasts, 'show');
+      write('abc|');
+      clip('paste', { 'text/plain': 'um dois', 'text/x-murall-markdown': '\n**um**\n**dois**' });
+      expect(value()).toBe('abc\n**um**');
+      expect(shown).toHaveBeenCalledWith(jasmine.stringContaining('Parte do que foi colado não coube'));
+    });
+  });
+
   describe('a imagem colada ou solta na folha', () => {
     beforeEach(() => deleteDatabase(IMAGES_DB));
     afterAll(() => deleteDatabase(IMAGES_DB));

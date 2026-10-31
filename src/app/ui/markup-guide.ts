@@ -133,6 +133,15 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Colar de uma planilha', note: 'As células se espalham a partir da do cursor, com as fileiras e colunas que faltarem. Várias linhas sem as células viram uma só.' },
     ],
   },
+  {
+    title: 'Colar e copiar',
+    items: [
+      { what: 'Copiar', keys: 'Ctrl+C', note: 'Vai o texto como aparece (para o WhatsApp e o e-mail), formatado (para o Docs e o Word) e inteiro, com os widgets, para outra anotação do Murall (também na aba Markdown).' },
+      { what: 'Colar de fora', keys: 'Ctrl+V', note: 'Do Docs, do Word, de um site: ficam o negrito, o itálico, o riscado, o marca-texto, os links, os títulos, as listas, as citações e as tabelas; a fonte, a cor e o tamanho saem. As células de uma planilha viram uma tabela.' },
+      { what: 'Colar como letras', keys: 'Ctrl+Shift+V', note: 'Sem ler nada: um ** ou um _ do que foi colado fica como está.' },
+      { what: 'Perto do limite', note: 'Entra o que cabe, por linhas inteiras, e um aviso diz que parte não coube.' },
+    ],
+  },
 ];
 
 /**

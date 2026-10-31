@@ -1599,7 +1599,79 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     no teclado do celular: conferir se faz falta um "Próxima célula" na régua); (6) o menu Tabela pela régua
     presa em cima do teclado (ele abre para cima) e as miniaturas tocáveis; (7) colar de uma planilha do
     celular (o Planilhas Google manda o tab?); (8) o iPhone, que nunca foi testado.
-- Próximo: a rodada 7, colar e copiar.
+- **Rodada 7 (30/out, BUILD 668): colar e copiar.**
+  - **Copiar e recortar** (`ui/visual-editor/copiar.ts`, um plugin antes do ProseMirror e da tabela, que
+    cancela o evento): a área de transferência recebe o `text/plain` limpo (o `copyText` de sempre: sem as
+    marcas, os widgets em palavras; C6), o `text/html` formatado (títulos `h1`–`h3`, `ul`/`ol` aninhadas pelo
+    recuo, a tarefa com ☐ ☑ e a feita riscada, a citação, o `pre`, a tabela com `thead` e o alinhamento, as
+    marcas em `strong`, `em`, `s`, `mark`, `code`, `small`, o link só `https`/`http`/`mailto`, a imagem de
+    `https:` como `<img>`), montado por elementos num documento à parte (nada carrega, nada do que se
+    escreveu vira etiqueta), e o `text/x-murall-markdown` escrito pelo tradutor (as linhas inteiras com a
+    fonte delas: saem como estavam escritas). O HTML leva o mesmo markdown num atributo
+    (`data-murall-markdown`), para o colar no Visual funcionar quando o navegador não deixar o tipo próprio
+    chegar (C10, o Safari). Um pedaço de dentro de uma linha leva só as letras (colado no meio de outra, não
+    vira título nem item); o pedaço de dentro de uma lista vem para a margem (o recuo comum sai). Recortar é o
+    mesmo, e a seleção que toca uma tabela só tira texto (o `cut` de `protegeTabela` saiu: era o mesmo).
+  - **Células selecionadas** vêm do `prosemirror-tables` como fileiras soltas: o copiar põe a tabela em volta
+    delas (o jeito da de origem, o alinhamento das colunas delas, sem as células de sobra), e o texto sai
+    como uma planilha, uma fileira por linha e as células separadas por tab (a decisão 9 da rodada 6 vale
+    para quando o que se copia é só tabela; com outras linhas junto, o texto é o `copyText` de sempre, em que
+    a tabela sai com " · "). Achado no spec: antes disso, copiar células deixava a área de transferência vazia.
+  - **Colar** (`ui/visual-editor/colar.ts`, na ordem de 5.16): o tipo próprio (ou o atributo do HTML do
+    Visual) lido como markdown, com tudo (C5); a imagem sozinha continua com `pecas.ts`; o HTML de fora
+    traduzido (`ui/visual-editor/html.ts`); o texto com tab em várias linhas, todas com as mesmas colunas
+    (pelo menos 2), vira uma tabela nova fora de uma tabela (`sliceDaPlanilha`, a primeira fileira é o
+    cabeçalho, nos limites de 12 × 200; o código com tab no começo das linhas não é planilha); dentro de
+    uma, espalha (rodada 6); o texto puro, lido como markdown (P5). Ctrl+Shift+V (o `shiftKey` do
+    ProseMirror, sem o Shift+Insert) cola como letras, sem ler o HTML nem o tipo próprio (C8). No bloco de
+    código, as letras. Na linha vazia (sem recuo), o que se colou toma o lugar dela inteiro (o título colado
+    continua título). Numa célula, as linhas viram letras e as células de outra tabela se espalham.
+  - **O HTML de fora** (`html.ts`, lido por `DOMParser`, nada roda): o que o Murall tem e só isso. Os casos
+    sabidos: o `<b id="docs-internal-guid">` do Docs não é negrito (o `font-weight` do estilo vale sobre a
+    etiqueta, C1), as marcas do Docs vêm do estilo de cada pedaço, o realce (cor do fundo) só vale como
+    marca-texto vindo do Docs ou do Word (num site, o fundo é enfeite), a lista de tarefas do Docs (`role=
+    checkbox`, `aria-checked`) e a caixinha dele (uma imagem) que não é imagem; o Word: os parágrafos com
+    `mso-list` viram itens com o nível e o número (o marcador `mso-list:Ignore` sai, C2), **cada lista do
+    Word (o `lN`) conta de novo** (achado no spec: a numerada depois da de marcadores continuava a contagem
+    dela), o `MsoTitle` é o título 1, o `mso-highlight` é marca-texto; os sites: `script`, `style`, botões,
+    formulários e mídia não entram, o link `javascript:` fica só o texto (C3, C4), o pixel de contagem (1×1)
+    não é imagem, h4–h6 viram o 3, a fonte de máquina é código, o `white-space: pre` guarda os espaços. A
+    tabela: a primeira fileira é o cabeçalho, a mesclada fica na de cima à esquerda e as cobertas vazias, o
+    que tem bloco dentro vira uma linha só, as fileiras e colunas vazias do fim saem (o Excel manda de
+    sobra), o alinhamento da coluna é o que todas as células de baixo dizem (os números à direita do Excel),
+    uma célula só são as letras dela. A imagem: `https:` vira o widget de imagem pelo link; `data:` é
+    guardada como colada (com o marcador "Guardando a imagem…", até 20 por colar); `file:`/`cid:` (do Word) e
+    o resto não vêm, e o aviso diz "1 imagem não veio: cole ela sozinha"; a pequena (até 32 px) no meio das
+    letras é o `alt` dela (o emoji, o ícone); **a grande no meio das letras parte a linha** (achado no spec:
+    a do Word vem dentro do parágrafo e sumia sem aviso).
+  - **O limite** (5.18, C9): o que passaria dele entra até onde cabe, pelas linhas inteiras do que se colou
+    (a busca binária no número de linhas), com o aviso "Parte do que foi colado não coube: chegou no limite
+    de N caracteres" (ou "O que foi colado não coube", e nada entra). O colar de sempre do ProseMirror
+    também passa por aí.
+  - **O Markdown** também usa a área de transferência do Murall (`core/transferencia.ts`, no carregamento
+    inicial, longe do ProseMirror): copiar e recortar põem o tipo próprio junto do texto (o mesmo markdown;
+    o recortar pelo `execCommand`, que entra no desfazer); colar o que veio do Visual lê o tipo próprio, e
+    não o texto limpo (C7), cortado por linhas inteiras e fora de um bloco de código perto do limite
+    (`cortarPorLinhas`), com o mesmo aviso. As imagens de outra pessoa (a cópia que vira sua) são
+    procuradas no markdown, também no Visual: o texto limpo não tem os endereços delas.
+  - **A Ajuda** do Visual ganhou a parte "Colar e copiar" (Ctrl+C, Ctrl+V, Ctrl+Shift+V, o limite).
+  - **Conferido**: o spec novo (`ui/visual-editor/colar.spec.ts`, 27: as amostras do Docs, do Word, de um
+    site e do Excel em `lerHtml`, C1–C4; `cortarPorLinhas` e o atributo do HTML; copiar nos três tipos, o
+    pedaço de dentro da linha e da lista, recortar, a tabela e as células selecionadas; colar o tipo
+    próprio, o atributo sem ele, do Visual para o Visual, o Docs, o Word com o aviso da imagem, a imagem
+    `data:`, o texto puro e o Ctrl+Shift+V, a planilha e o código com tab, o bloco de código, o limite com
+    parte e sem nada, o HTML numa linha vazia entre outras); os do Markdown em `rich-editor.spec.ts` (copiar,
+    recortar, colar do Visual, o limite); a suíte inteira; `npx ng build`; e o roteiro do puppeteer na build
+    de produção (`.angular/pptr/visual-r7.mjs`, fora do git, que é também o smoke: a área de transferência de
+    verdade do Chrome pelos comandos Copy, Cut e Paste do teclado, copiar do Visual e colar no Markdown, do
+    Markdown para o Visual, o HTML do Docs e do Word escritos pela API da área de transferência, a planilha,
+    o Ctrl+Shift+V e a Ajuda), no computador e no celular simulado, com as fotos de perto.
+  - **Fica para o aparelho de verdade**: (1) colar do Docs, do Word e do Excel de verdade (as amostras do
+    spec foram escritas como eles mandam, não copiadas deles); (2) o Safari (C10: o tipo próprio chega? o
+    atributo no HTML segura?); (3) o colar no celular (o menu "Colar" do Android e o do Gboard, a planilha
+    do Planilhas Google com tab); (4) colar do Visual no WhatsApp e no e-mail (o texto limpo) e no Docs (o
+    HTML).
+- Próximo: a rodada 8, o resto em volta.
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

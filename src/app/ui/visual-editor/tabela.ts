@@ -482,16 +482,7 @@ export const protegeTabela = (): Plugin =>
           if (tocaTabela(view.state)) view.dispatch(tirarSoTexto(view.state.tr, view.state.selection.from, view.state.selection.to));
           return false;
         },
-        cut(view, e) {
-          if (!tocaTabela(view.state) || !e.clipboardData) return false;
-          e.preventDefault();
-          const { dom, text } = view.serializeForClipboard(view.state.selection.content());
-          e.clipboardData.clearData();
-          e.clipboardData.setData('text/html', dom.innerHTML);
-          e.clipboardData.setData('text/plain', text);
-          view.dispatch(tirarSoTexto(view.state.tr, view.state.selection.from, view.state.selection.to).scrollIntoView().setMeta('uiEvent', 'cut'));
-          return true;
-        },
+        // o recortar por cima dela: ver copiar.ts (o trecho vai para a área de transferência, e só o texto sai)
       },
     },
   });

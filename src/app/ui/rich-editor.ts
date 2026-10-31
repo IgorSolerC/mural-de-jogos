@@ -22,6 +22,7 @@ import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
 import type { AcaoTabela, AcaoVisual, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 import { TableLooks } from './table-looks';
+import { TIPO_MURALL, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
@@ -462,6 +463,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           (keyup)="onKeyUp($event, area, big)"
           (keydown)="onKey($event, area, big)"
           (paste)="onPaste($event, area)"
+          (copy)="onCopy($event, area, false)"
+          (cut)="onCopy($event, area, true)"
           (dragover)="onDragOver($event)"
           (drop)="onDrop($event, area)"
           (blur)="onAreaBlur($event, regua)"
@@ -2711,7 +2714,8 @@ export class RichEditor {
    */
   protected onVisualPaste(e: ClipboardEvent, big: boolean): void {
     if ((e.target as Element | null)?.closest?.('input.campo-peca')) return;
-    const raw = e.clipboardData?.getData('text/plain') ?? '';
+    // o que veio do Murall vem inteiro no tipo próprio (o texto de lá é o limpo, sem os widgets)
+    const raw = markdownColado(e.clipboardData) ?? e.clipboardData?.getData('text/plain') ?? '';
     const ids = this.copyTheirImages() ? localImageIds(raw) : [];
     if (ids.length) void this.adoptImages(ids, (from, to) => this.visualOf(big)?.trocaImagem(from, to) ?? false);
   }
@@ -3281,12 +3285,22 @@ export class RichEditor {
    * vira uma cópia sua (`adoptImages`), onde ela precisa ser sua (ver `copyTheirImages`).
    */
   protected onPaste(e: ClipboardEvent, area: HTMLTextAreaElement): void {
-    const raw = e.clipboardData?.getData('text/plain') ?? '';
+    const plain = e.clipboardData?.getData('text/plain') ?? '';
+    // copiado do Visual: o texto de lá é o limpo (sem as marcas); o markdown inteiro vem no tipo próprio
+    const murall = markdownColado(e.clipboardData);
+    const raw = murall ?? plain;
     const pasted = raw.trim();
     const file = pasted ? null : imageFileOf(e.clipboardData);
     if (file) {
       e.preventDefault();
       void this.putImage(area, file);
+      return;
+    }
+    if (murall !== null && murall !== plain) {
+      e.preventDefault();
+      this.pasteMarkdown(area, murall);
+      const ids = this.copyTheirImages() ? localImageIds(murall) : [];
+      if (ids.length) void this.adoptImages(ids, (from, to) => swapAddress(area, from, to));
       return;
     }
     const ids = this.copyTheirImages() ? localImageIds(raw) : [];
@@ -3298,6 +3312,46 @@ export class RichEditor {
     const piece = `[${sel.trim().replace(/[[\]]/g, '')}](${pasted})`;
     const start = area.selectionStart;
     this.replace(area, start, area.selectionEnd, piece, start + piece.length, start + piece.length);
+  }
+
+  /**
+   * O markdown que veio do Murall, no lugar da seleção. Perto do limite, entra até onde cabe, por linhas
+   * inteiras (uma marca nunca fica pela metade), com o aviso, como no Visual (5.18).
+   */
+  private pasteMarkdown(area: HTMLTextAreaElement, md: string): void {
+    const { selectionStart: start, selectionEnd: end } = area;
+    const max = this.max();
+    let text = md;
+    if (max) {
+      const fits = Math.max(0, max - (area.value.length - (end - start)));
+      text = cortarPorLinhas(md, fits);
+      if (text.length < md.length) {
+        const limit = `chegou no limite de ${new Intl.NumberFormat('pt-BR').format(max)} caracteres`;
+        this.toasts.show(text ? `Parte do que foi colado não coube: ${limit}` : `O que foi colado não coube: ${limit}`);
+      }
+      if (!text) return;
+    }
+    this.replace(area, start, end, text, start + text.length, start + text.length);
+  }
+
+  /**
+   * Copiou ou recortou no Markdown: o texto vai como sempre, e junto o tipo próprio do Murall com o mesmo
+   * markdown, que o Visual (e o Markdown de outra nota) lê ao colar (PLANO-EDITOR-VISUAL.md, 5.16).
+   */
+  protected onCopy(e: ClipboardEvent, area: HTMLTextAreaElement, cut: boolean): void {
+    const { selectionStart: start, selectionEnd: end } = area;
+    const data = e.clipboardData;
+    if (!data || start === end) return;
+    const text = area.value.slice(start, end);
+    e.preventDefault();
+    data.clearData();
+    data.setData('text/plain', text);
+    try {
+      data.setData(TIPO_MURALL, text);
+    } catch {
+      // o navegador que recusa o tipo próprio: o texto já é o markdown
+    }
+    if (cut) this.replace(area, start, end, '', start, start);
   }
 
   /** Arrastando um arquivo por cima da folha: ela aceita (sem isto, o navegador abriria o arquivo). */

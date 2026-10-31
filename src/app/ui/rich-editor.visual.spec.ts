@@ -302,7 +302,8 @@ describe('o editor com o Visual', () => {
     folha.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', ctrlKey: true, bubbles: true, cancelable: true }));
     await settle();
     const guia = await untilGuide();
-    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha', 'Widgets', 'Tabela']);
+    expect(titles(guia)).toEqual(['Atalhos de teclado', 'Atalhos de digitação, no começo da linha', 'No meio da linha', 'Widgets', 'Tabela', 'Colar e copiar']);
+    expect(guia.textContent).toContain('Ctrl+Shift+V');
     // os widgets e a tabela já se escrevem no Visual: o fim só lembra a aba Markdown
     expect(guia.querySelector('.guia-fim')?.textContent).not.toContain('tabelas');
     expect(guia.textContent).toContain('Na última célula, o Tab abre uma fileira nova');

@@ -37,7 +37,10 @@ import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, peca
 import { acaoTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
-import { WidgetSize, widgetLines } from '../../core/widgets';
+import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
+import { CardFinder } from '../../core/card-finder';
+import { colar, sliceDaPlanilha } from './colar';
+import { copiar } from './copiar';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -359,8 +362,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       // o cursor nunca atrás da régua presa em cima do teclado (no celular: 54px da régua e uma linha)
       scrollMargin: { top: 24, bottom: 120, left: 8, right: 8 },
       scrollThreshold: { top: 24, bottom: 120, left: 8, right: 8 },
-      // na célula da tabela, as células de uma planilha se espalham; as linhas se juntam com espaço
-      clipboardTextParser: (text, $ctx, plain) => sliceNaCelula(text, plain, $ctx) ?? sliceDoTexto(text, plain),
+      // na célula da tabela, as células de uma planilha se espalham; as linhas se juntam com espaço. Fora
+      // dela, a planilha (com tab, em várias linhas) vira uma tabela nova; o resto é lido como markdown
+      clipboardTextParser: (text, $ctx, plain) => sliceNaCelula(text, plain, $ctx) ?? sliceDaPlanilha(text, plain) ?? sliceDoTexto(text, plain),
       transformPasted: (slice, view) => colarNaCelula(slice, view),
       clipboardTextSerializer: (slice) => textoDoSlice(slice),
     });
@@ -653,6 +657,17 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     v.focus();
   }
 
+  /** O que a cópia dos widgets precisa: a hora (o contador) e o título de agora de uma ficha colada (a nota). */
+  private contextoDaCopia(): CopyContext {
+    let cards: CardFinder | null = null;
+    try {
+      cards = this.injector.get(CardFinder, null);
+    } catch {
+      cards = null;
+    }
+    return { now: Date.now(), cardTitle: (id) => cards?.find(id)?.review.game.name ?? null };
+  }
+
   /** Uma imagem colada ou solta: o marcador entra no lugar dela, e o editor a guarda (ver `poeImagem`). */
   private recebeImagem(arquivo: Blob, lugar: Lugar): void {
     const v = this.view;
@@ -701,6 +716,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       escritor((doc) => this.escrever(doc)),
       this.passaAdiante(),
       this.limite(),
+      // copiar e recortar: o texto limpo, o HTML e o markdown (antes do ProseMirror e da tabela)
+      copiar({ fonte: (n) => this.fontes.get(n), contexto: () => this.contextoDaCopia() }),
       protegeTabela(),
       pecas({ imagem: (arquivo, lugar) => this.recebeImagem(arquivo, lugar) }),
       atalhos(),
@@ -710,6 +727,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       apagarPeloBeforeinput(),
       this.cliqueNoLink(),
       this.colarEndereco(),
+      // colar: o markdown do Murall, o HTML de fora, a planilha, o limite por linhas inteiras
+      colar({
+        tamanho: (doc) => this.escrever(doc).texto.length,
+        max: () => this.max(),
+        imagem: (arquivo, lugar) => this.recebeImagem(arquivo, lugar),
+        aviso: (texto) => this.aviso.emit(texto),
+      }),
       semQuebras(),
       linksInteiros(),
       edicaoDaTabela(),
