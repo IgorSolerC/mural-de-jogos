@@ -30,6 +30,30 @@ export function markdownColado(data: DataTransfer | null | undefined): string | 
   return html.includes(ATRIBUTO_MURALL) ? markdownDoHtml(html) : null;
 }
 
+/**
+ * Copia um markdown inteiro para fora (o Copiar dos templates): o texto limpo (`texto`) para o WhatsApp e o
+ * e-mail, e o HTML com o markdown no atributo, que uma nota do Murall lê ao colar (no Visual e no
+ * Markdown). Sem `ClipboardItem` (ou recusado), vai o próprio markdown, que o Murall também lê.
+ */
+export async function copiarMarkdown(markdown: string, texto: string): Promise<void> {
+  if (typeof ClipboardItem !== 'undefined' && typeof navigator.clipboard?.write === 'function') {
+    const raiz = document.createElement('div');
+    raiz.setAttribute(ATRIBUTO_MURALL, markdown);
+    for (const linha of texto.split('\n')) {
+      const p = document.createElement('p');
+      p.textContent = linha;
+      raiz.append(p);
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'text/plain': new Blob([texto], { type: 'text/plain' }), 'text/html': new Blob([raiz.outerHTML], { type: 'text/html' }) })]);
+      return;
+    } catch {
+      // o navegador que não aceita o HTML: só o texto, abaixo
+    }
+  }
+  await navigator.clipboard.writeText(markdown);
+}
+
 /** O markdown guardado no HTML do Visual (lido num documento à parte: nada roda, nada carrega). */
 export function markdownDoHtml(html: string): string | null {
   const doc = new DOMParser().parseFromString(html, 'text/html');

@@ -204,6 +204,7 @@ import {
   Speaker,
   SpellCheck,
   Square,
+  Stamp,
   SquareCheckBig,
   SquareCode,
   Star,
@@ -230,6 +231,7 @@ import {
   Trophy,
   Truck,
   Tv,
+  TextSelect,
   Type,
   Undo2,
   Unlink,
@@ -498,6 +500,10 @@ export const ICON = {
   tarefas: ListChecks,
   marcaTexto: Highlighter,
   letra: Type,
+  /** Os templates do texto: o carimbo, o mesmo texto quantas vezes quiser. */
+  templates: Stamp,
+  /** Guardar o trecho selecionado (como template). */
+  guardarTrecho: TextSelect,
   widgets: Blocks,
   fitaCassete: CassetteTape,
   video: Clapperboard,

@@ -42,7 +42,8 @@ import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaV
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
 import { CardFinder } from '../../core/card-finder';
 import { colar, sliceDaPlanilha } from './colar';
-import { copiar } from './copiar';
+import { TIPO_MURALL } from '../../core/transferencia';
+import { copiaDe, copiar } from './copiar';
 
 /**
  * O modo Visual do texto (PLANO-EDITOR-VISUAL.md): escrever vendo como fica, como no Docs, sem ver o
@@ -444,6 +445,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return [this.noTexto(e, from), this.noTexto(e, to, from !== to)];
   }
 
+  /** O markdown do trecho como o Ctrl+C o leva (as marcas inteiras, mesmo selecionado só o texto de dentro). */
+  trechoSelecionado(): string {
+    const v = this.view;
+    if (!v || v.state.selection.empty) return '';
+    return copiaDe(v.state, { fonte: (n) => this.fontes.get(n), contexto: () => this.contextoDaCopia() }).markdown;
+  }
+
   poeSelecao(de: number, ate: number): void {
     const v = this.view;
     if (!v) return;
@@ -459,6 +467,27 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (pa === pb) sel = $a.depth === 0 && $a.nodeAfter?.isAtom ? NodeSelection.create(doc, pa) : Selection.near($a);
     else sel = TextSelection.between($a, doc.resolve(pb));
     v.dispatch(v.state.tr.setSelection(sel).scrollIntoView());
+  }
+
+  /**
+   * O markdown pelo colar (ver colar.ts), com o tipo próprio do Murall, para entrar com tudo (os widgets, as
+   * tabelas, o limite por linhas inteiras); o navegador que não deixa montar o evento com os dados cai no
+   * colar de texto, que também lê o markdown.
+   */
+  poeMarkdown(texto: string): void {
+    const v = this.view;
+    if (!v || !texto) return;
+    v.focus();
+    let evento: ClipboardEvent | undefined;
+    try {
+      const dados = new DataTransfer();
+      dados.setData('text/plain', texto);
+      dados.setData(TIPO_MURALL, texto);
+      evento = new ClipboardEvent('paste', { clipboardData: dados });
+    } catch {
+      evento = undefined;
+    }
+    v.pasteText(texto, evento);
   }
 
   // ===== Os links =====

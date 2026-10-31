@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { bodyIndent, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
@@ -23,11 +23,14 @@ import { ESTADO_VAZIO } from './visual-editor/visual-api';
 import type { AcaoTabela, AcaoVisual, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 import { caretSpot } from './caret-follow';
 import { TableLooks } from './table-looks';
-import { TIPO_MURALL, cortarPorLinhas, markdownColado } from '../core/transferencia';
+import { TemplateAsk, TextTemplates } from './text-templates';
+import { TemplateSheet } from './template-sheet';
+import { NoteTemplate, titleTaken } from '../core/note-templates';
+import { TIPO_MURALL, copiarMarkdown, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
 type ListKind = 'ul' | 'ol' | 'check';
-/** Os menus da régua: "Formatar" e "Inserir". */
-type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho';
+/** Os menus da régua: "Formatar", "Inserir", "Templates" (e os do Visual: "Tabela" e a grade do tamanho). */
+type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
@@ -49,9 +52,14 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  * - "Formatar": o texto (negrito, itálico, riscado, marca-texto, spoiler, código, com o atalho de
  *   cada um) e o parágrafo (os estilos e as listas);
  * - "Inserir": link para um endereço, link para outra anotação, divisória e os widgets (a tabela é um deles);
+ * - "Templates" (com `templates`, no editor da ficha): os textos que a pessoa escreve sempre, guardados
+ *   com um nome, para pôr no cursor ou copiar (ui/text-templates.ts e ui/template-sheet.ts);
  * - os botões de toda hora (desfazer e refazer, negrito, itálico, riscado, marca-texto, as listas, o
  *   link). Sem lugar, os que também estão nos menus saem primeiro, e no fim os que sobram rolam de
  *   lado; nada some, tudo continua no "Formatar" e no "Inserir".
+ *
+ * Os menus são só o desenho e a setinha (o nome fica na dica e no leitor de tela): a régua sobra para os
+ * botões de toda hora.
  *
  * O que a régua faz são as marcas de core/rich-text.ts, escritas no próprio texto. A "Ajuda"
  * (ui/markup-guide.ts) lista todas, em partes, com o jeito de escrever e o atalho.
@@ -82,7 +90,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks],
+  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
@@ -177,13 +185,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               aria-haspopup="menu"
               [attr.aria-expanded]="isOpen('formatar', big)"
               [attr.aria-controls]="isOpen('formatar', big) ? areaId + '-formatar' : null"
+              aria-label="Formatar"
               title="Formatar: negrito, títulos, listas e o resto"
               (pointerdown)="$event.preventDefault()"
               (click)="toggleMenu('formatar', big, $event, area)"
               (keydown.arrowdown)="$event.preventDefault(); openMenu('formatar', big, true)"
             >
-              <lucide-icon [img]="FormatIcon" [size]="17" aria-hidden="true" />
-              <span class="menu-nome">Formatar</span>
+              <lucide-icon [img]="FormatIcon" [size]="18" aria-hidden="true" />
               <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
             </button>
             @if (isOpen('formatar', big)) {
@@ -240,13 +248,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               aria-haspopup="menu"
               [attr.aria-expanded]="isOpen('inserir', big)"
               [attr.aria-controls]="isOpen('inserir', big) ? areaId + '-inserir' : null"
+              aria-label="Inserir"
               title="Inserir: link, divisória e widgets (contador, imagem, tabela…)"
               (pointerdown)="$event.preventDefault()"
               (click)="toggleMenu('inserir', big, $event, area)"
               (keydown.arrowdown)="$event.preventDefault(); openMenu('inserir', big, true)"
             >
-              <lucide-icon [img]="PlusIcon" [size]="17" aria-hidden="true" />
-              <span class="menu-nome">Inserir</span>
+              <lucide-icon [img]="PlusIcon" [size]="18" aria-hidden="true" />
               <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
             </button>
             @if (isOpen('inserir', big)) {
@@ -310,6 +318,39 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               </div>
             }
           </span>
+          <!-- os templates: os textos que a pessoa escreve sempre, para pôr no cursor ou copiar (o menu
+               mora em ui/text-templates.ts; a folha de criar e mexer, em ui/template-sheet.ts) -->
+          @if (templates()) {
+            <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+              <button
+                type="button"
+                class="menu-botao"
+                data-menu="modelos"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="isOpen('modelos', big)"
+                [attr.aria-controls]="isOpen('modelos', big) ? areaId + '-modelos' : null"
+                aria-label="Templates"
+                title="Templates: textos prontos para pôr no cursor ou copiar"
+                (pointerdown)="$event.preventDefault()"
+                (click)="toggleMenu('modelos', big, $event, area)"
+                (keydown.arrowdown)="$event.preventDefault(); openMenu('modelos', big, true)"
+              >
+                <lucide-icon [img]="TemplatesIcon" [size]="18" aria-hidden="true" />
+                <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
+              </button>
+              @if (isOpen('modelos', big)) {
+                <app-text-templates
+                  class="menu modelos"
+                  [id]="areaId + '-modelos'"
+                  [selection]="templateSelection()"
+                  (put)="putTemplate(area, big, $event)"
+                  (copy)="copyTemplate(area, big, $event)"
+                  (edit)="askTemplate(big, $event)"
+                  (leave)="onTemplatesLeave($event, big)"
+                />
+              }
+            </span>
+          }
           <!-- o menu "Tabela" do Visual, enquanto o cursor está numa tabela (como no Docs): as fileiras e as
                colunas (pôr, mover, tirar), o alinhamento da coluna, o jeito e a folha da tabela -->
           @if (visual() && visualState().tabela; as tb) {
@@ -321,13 +362,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 aria-haspopup="menu"
                 [attr.aria-expanded]="isOpen('tabela', big)"
                 [attr.aria-controls]="isOpen('tabela', big) ? areaId + '-tabela' : null"
+                aria-label="Tabela"
                 title="Tabela: fileiras, colunas, alinhar e o jeito"
                 (pointerdown)="$event.preventDefault()"
                 (click)="toggleMenu('tabela', big, $event, area)"
                 (keydown.arrowdown)="$event.preventDefault(); openMenu('tabela', big, true)"
               >
-                <lucide-icon [img]="TableIcon" [size]="17" aria-hidden="true" />
-                <span class="menu-nome">Tabela</span>
+                <lucide-icon [img]="TableIcon" [size]="18" aria-hidden="true" />
                 <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
               </button>
               @if (isOpen('tabela', big)) {
@@ -742,6 +783,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       }
     }
 
+    <!-- a folha do template: vem num pedaço à parte, quando um template é criado ou mexido -->
+    @if (templateAsk(); as t) {
+      @defer (on immediate) {
+        <app-template-sheet [template]="t.template" [startText]="t.text" (saved)="onTemplateSaved($event)" (removed)="onTemplateRemoved($event)" (closed)="onTemplateClosed()" />
+      }
+    }
+
     <!-- A mesma folha na tela inteira: o mesmo texto, para ler e escrever os longos sem rolar num cantinho -->
     <dialog #grande class="tela-cheia" [attr.aria-labelledby]="areaId + '-titulo'" (close)="onClosed()">
       <div class="folha">
@@ -1007,11 +1055,15 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       display: inline-flex;
       flex: none;
     }
+    /* só o desenho e a setinha (o nome fica na dica e no leitor de tela), para sobrar régua aos botões */
     .menu-botao {
       display: inline-flex;
-      gap: 5px;
+      gap: 1px;
       height: 36px;
-      padding: 0 6px 0 7px;
+      padding: 0 4px 0 7px;
+    }
+    .menu-botao lucide-icon ::ng-deep svg {
+      display: block;
     }
     .menu-botao .seta {
       opacity: 0.7;
@@ -1024,14 +1076,14 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     /* Sem lugar, os botões que também estão nos menus saem da régua (como a régua do Docs): primeiro o
        riscado, o marca-texto e o link de anotação; depois o link (Ctrl+K). Nada some: tudo continua no
        "Formatar" e no "Inserir" (desfazer e refazer, que não estão neles, nunca saem). Os cortes têm
-       folga sobre a medida da régua (medida: uns 700px com tudo, 590 sem os primeiros, 540 sem o
-       link), para a letra e o zoom de cada computador */
-    @container folha (max-width: 739px) {
+       folga sobre a medida da régua (medida com os menus só no desenho e os Templates: uns 590px com
+       tudo, 485 sem os primeiros, 435 sem o link), para a letra e o zoom de cada computador */
+    @container folha (max-width: 639px) {
       .ferramenta.extra {
         display: none;
       }
     }
-    @container folha (max-width: 629px) {
+    @container folha (max-width: 529px) {
       .link,
       .link-fio {
         display: none;
@@ -1051,7 +1103,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     }
     /* apertada mesmo assim, a régua não quebra em duas: os botões rolam de lado, com o esmaecido na
        ponta dizendo que tem mais, e os menus ficam fixos */
-    @container folha (max-width: 579px) {
+    @container folha (max-width: 479px) {
       .ferramentas {
         flex: 1 1 0;
         contain: inline-size;
@@ -1521,6 +1573,12 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       display: grid;
       align-content: start;
       min-width: 0;
+    }
+    /* os templates: largos o bastante para o nome e o começo do texto (no estreito, da largura da régua) */
+    @container folha (min-width: 600px) {
+      .menu.modelos {
+        width: 23rem;
+      }
     }
     /* numa coluna só (estreita, ou presa em cima do teclado), as partes uma embaixo da outra */
     .menu-coluna + .menu-coluna {
@@ -2141,6 +2199,11 @@ export class RichEditor {
    * texto, vai até o pé da página. Cresce com o texto; passou, quem rola é a página, não a folha.
    */
   readonly fill = input(false);
+  /**
+   * O menu "Templates" na régua (os textos guardados, para pôr no cursor ou copiar): no editor da ficha
+   * (a anotação e a resenha); o comentário e o perfil ficam sem ele.
+   */
+  readonly templates = input(false);
 
   /** Em qual folha a régua está presa em cima do teclado (null: no alto da folha, como sempre). */
   protected readonly docked = signal<boolean | null>(null);
@@ -2159,6 +2222,94 @@ export class RichEditor {
   protected readonly UrlIcon = ICON.link;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly TableIcon = ICON.tabela;
+  protected readonly TemplatesIcon = ICON.templates;
+
+  // ===== Os templates (o menu "Templates", ver ui/text-templates.ts) =====
+
+  /** O trecho selecionado quando o menu abriu ("Guardar o trecho selecionado"). */
+  protected readonly templateSelection = signal('');
+  /** A folha do template aberta (ver ui/template-sheet.ts): o que ela mostra, e de qual folha veio. */
+  protected readonly templateAsk = signal<(TemplateAsk & { big: boolean }) | null>(null);
+
+  /** O texto selecionado na folha (no Visual, o pedaço do texto guardado entre as pontas da seleção). */
+  private selectedText(big: boolean): string {
+    if (this.visual()) return this.visualOf(big)?.trechoSelecionado() ?? '';
+    const area = this.areaOf(big);
+    return area ? area.value.slice(area.selectionStart, area.selectionEnd) : '';
+  }
+
+  /** O foco de volta para a folha (a do Visual, ou a do Markdown). */
+  private focusSheet(big: boolean): void {
+    if (this.visual()) this.visualOf(big)?.focus();
+    else this.areaOf(big)?.focus();
+  }
+
+  /** Pôr o template no cursor: como se fosse colado (no lugar da seleção, com o limite, o Ctrl+Z desfaz). */
+  protected putTemplate(area: HTMLTextAreaElement, big: boolean, t: NoteTemplate): void {
+    this.menu.set(null);
+    if (this.visual()) {
+      const api = this.visualOf(big);
+      // a folha do Visual ainda chegando (o primeiro toque, num aparelho lento): avisa, em vez de nada
+      if (!api) return this.toasts.show('A folha ainda está abrindo: tente de novo num instante');
+      return api.poeMarkdown(t.text);
+    }
+    area.focus();
+    this.pasteMarkdown(area, t.text);
+    this.track(area);
+  }
+
+  /**
+   * Copiar o template: o texto limpo para fora (o WhatsApp, o e-mail) e, junto, o markdown, que uma nota do
+   * Murall lê ao colar (volta com tudo). O menu fecha e o foco volta ao texto.
+   */
+  protected async copyTemplate(area: HTMLTextAreaElement, big: boolean, t: NoteTemplate): Promise<void> {
+    this.menu.set(null);
+    if (this.visual()) this.visualOf(big)?.focus();
+    else area.focus();
+    try {
+      await copiarMarkdown(t.text, copyText(t.text, { now: Date.now() }));
+      this.toasts.show(`“${t.title}” copiado: é só colar`);
+    } catch {
+      this.toasts.show('O navegador não deixou copiar o template');
+    }
+  }
+
+  protected askTemplate(big: boolean, ask: TemplateAsk): void {
+    this.menu.set(null);
+    this.templateAsk.set({ ...ask, big });
+  }
+
+  /** Esc no menu: volta para o botão (aberto pelo teclado) ou para o texto; Tab segue adiante. */
+  protected onTemplatesLeave(how: 'escape' | 'tab', big: boolean): void {
+    if (how === 'tab') return this.menu.set(null);
+    if (this.menuByKeyboard) return this.backToMenuButton();
+    this.menu.set(null);
+    this.focusSheet(big);
+  }
+
+  protected onTemplateSaved(t: NoteTemplate): void {
+    this.toasts.show(`Template “${t.title}” guardado`);
+  }
+
+  protected onTemplateRemoved(t: NoteTemplate): void {
+    this.toasts.show(`Template “${t.title}” apagado`, {
+      label: 'Desfazer',
+      run: () => {
+        // outro com o mesmo nome entrou enquanto isso: o de volta ganha um número, para os dois se distinguirem
+        const list = this.settings.notesConfig().templates;
+        let title = t.title;
+        for (let n = 2; titleTaken(list, title, t.id); n++) title = `${t.title} (${n})`;
+        this.settings.saveTemplate({ ...t, title });
+      },
+    });
+  }
+
+  /** A folha fechou: o foco volta para o texto, onde estava. */
+  protected onTemplateClosed(): void {
+    const ask = this.templateAsk();
+    this.templateAsk.set(null);
+    if (ask) setTimeout(() => this.focusSheet(ask.big));
+  }
 
   // ===== O menu "Tabela" do Visual =====
 
@@ -2319,6 +2470,7 @@ export class RichEditor {
   protected openMenu(name: MenuName, big: boolean, first: boolean): void {
     this.menuByKeyboard = first;
     this.closePanels();
+    if (name === 'modelos') this.templateSelection.set(this.selectedText(big));
     this.menu.set({ name, big });
     setTimeout(() => {
       const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
@@ -2362,12 +2514,17 @@ export class RichEditor {
       if (!this.menuByKeyboard) return this.closeMenu(e, area);
       e.preventDefault();
       e.stopPropagation();
-      const m = this.menu();
-      this.menu.set(null);
-      const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>(`.menu-botao[data-menu="${m?.name}"]`);
-      // a régua da folha grande (no diálogo) é a segunda
-      buttons[m?.big ? buttons.length - 1 : 0]?.focus();
+      this.backToMenuButton();
     } else if (e.key === 'Tab') this.menu.set(null);
+  }
+
+  /** O menu fecha e o foco volta para o botão dele (o lugar de quem veio pelo teclado). */
+  private backToMenuButton(): void {
+    const m = this.menu();
+    this.menu.set(null);
+    const buttons = this.host.nativeElement.querySelectorAll<HTMLElement>(`.menu-botao[data-menu="${m?.name}"]`);
+    // a régua da folha grande (no diálogo) é a segunda
+    buttons[m?.big ? buttons.length - 1 : 0]?.focus();
   }
 
   /** O foco saiu do menu (um toque fora, outro campo): ele fecha. */

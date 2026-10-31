@@ -3,6 +3,7 @@ import { CategoryColorId, lookKey, tagLookKey } from './category-looks';
 import { ehCorDaCartela } from '../../../shared/cartela-de-icones';
 // (não de note-labels: ela traz review e settings, que trazem este arquivo)
 import { cleanLabel } from './text';
+import { NoteTemplate, sanitizeTemplates } from './note-templates';
 
 /**
  * As configurações do mural de anotações (a engrenagem da pasta, ver ui/mural-config.ts): o que
@@ -110,9 +111,14 @@ export interface NotesConfig {
    * anotação usar. Os escritos direto numa anotação não entram aqui (vêm das anotações).
    */
   subjects: Record<string, string[]>;
+  /**
+   * Os templates do texto (o menu "Templates" da régua do editor, ver core/note-templates.ts), na ordem
+   * em que foram criados (o menu mostra pelo nome).
+   */
+  templates: NoteTemplate[];
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, autoColors: {}, subjects: {} };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, autoColors: {}, subjects: {}, templates: [] };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -146,7 +152,7 @@ const isEmpty = (p: CategoryPrefs) => p.audience === undefined && p.askTag === u
 
 /** O que veio guardado (ou da nuvem): só valores conhecidos, sem as categorias vazias. */
 export function sanitizeNotesConfig(raw: unknown): NotesConfig {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [], subjects: {} };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ...NOTES_CONFIG_DEFAULT, order: [], categories: {}, hiddenTags: [], subjects: {}, templates: [] };
   const r = raw as Record<string, unknown>;
   const order: string[] = [];
   if (Array.isArray(r['order'])) {
@@ -198,6 +204,7 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     showShared: r['showShared'] === true,
     autoColors: sanitizeAutoColors(r['autoColors']),
     subjects,
+    templates: sanitizeTemplates(r['templates']),
   };
 }
 

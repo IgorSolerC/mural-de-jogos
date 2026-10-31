@@ -103,6 +103,10 @@ export interface VisualApi {
   selecaoNoTexto(): [number, number];
   /** Põe a seleção no lugar das posições do texto dadas. */
   poeSelecao(de: number, ate: number): void;
+  /** O trecho selecionado, no texto que a folha escreve (o markdown dele, com as marcas). */
+  trechoSelecionado(): string;
+  /** Põe o markdown no lugar da seleção, como se fosse colado (o limite, a linha vazia que ele toma inteira). */
+  poeMarkdown(texto: string): void;
   /** O painel do link no lugar do cursor (o link de agora, para trocar; ou a seleção): o Visual responde pelo `pedeLink`. */
   pedeLinkAqui(tipo: 'url' | 'elo'): void;
   /** Põe (ou troca) o link para um endereço no trecho do último pedido; sem texto, o endereço aparece. */

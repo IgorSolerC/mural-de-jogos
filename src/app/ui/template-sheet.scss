@@ -1,0 +1,238 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+@use 'a11y';
+
+:host {
+  display: contents;
+}
+
+/* A folha do template: a ficha de fichário dos diálogos, com a faixa amarela e o carimbo no nome. Reta:
+   é de escrever. O texto e o "Como fica" lado a lado no largo, um embaixo do outro no estreito. */
+dialog.folha-modelo {
+  width: 100%;
+  max-width: min(880px, calc(100vw - 24px));
+  container: mfolha / inline-size;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+.head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* o carimbo, um pouco torto, como quem acabou de bater */
+.carimbo {
+  display: inline-flex;
+  flex: none;
+  rotate: -8deg;
+}
+
+.sub {
+  @include sheet.sub;
+}
+
+.body {
+  gap: 18px;
+  padding-top: 14px;
+}
+
+.titulo-campo {
+  display: block;
+  margin: 0 0 6px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.campo {
+  @include kit.campo;
+  cursor: text;
+
+  &.erro {
+    @include kit.campo-erro;
+  }
+
+  input::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+}
+
+.parte-nome {
+  max-width: 30rem;
+}
+
+.dica {
+  margin: 6px 2px 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  color: var(--ink-2);
+
+  code {
+    padding: 0 4px;
+    border-radius: 2px;
+    background: rgb(21 21 21 / 0.07);
+    font-family: var(--f-mono);
+    font-weight: 700;
+    font-size: 0.88em;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+}
+
+.conta {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+
+  &.passou {
+    color: var(--error-ink);
+  }
+}
+
+.partes {
+  display: grid;
+  gap: 18px;
+}
+
+@container mfolha (min-width: 720px) {
+  .partes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.parte {
+  display: grid;
+  min-width: 0;
+}
+
+/* o texto: a folha pautada do editor, no Markdown (as marcas à vista) */
+textarea {
+  --line: 1.75rem;
+  display: block;
+  width: 100%;
+  min-height: calc(var(--line) * 9 + 8px);
+  max-height: 26rem;
+  field-sizing: content;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 2px;
+  resize: vertical;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.32) calc(var(--line) - 2px) var(--line)) 0 4px,
+    var(--campo-papel);
+  background-attachment: local;
+  box-shadow: var(--campo-sombra);
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: var(--line);
+  caret-color: var(--red);
+  outline: none;
+  transition: box-shadow var(--t-physical) var(--ease-physical);
+
+  &:focus {
+    box-shadow: var(--campo-sombra-foco);
+  }
+
+  &.erro {
+    box-shadow: var(--campo-sombra-erro);
+  }
+
+  &::placeholder {
+    color: rgb(21 21 21 / 0.55);
+  }
+
+  &::selection {
+    background: rgb(255 218 66 / 0.85);
+    color: var(--ink);
+  }
+}
+
+/* como fica: a folha do Visual sem a pauta (a letra da folha, o texto vestido como na anotação), com um
+   fio tracejado em volta: é de ver, não de escrever */
+.previa {
+  min-height: calc(1.75rem * 9 + 8px);
+  max-height: 26rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px 10px;
+  border-radius: 2px;
+  background: var(--campo-papel);
+  outline: 1.5px dashed rgb(21 21 21 / 0.22);
+  outline-offset: -1.5px;
+  color: var(--ink);
+  font-family: var(--f-hand);
+  font-size: 1.14rem;
+  line-height: 1.75rem;
+  overflow-wrap: anywhere;
+  scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.previa-vazia {
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  color: var(--ink-2);
+}
+
+/* o que falta, ao lado dos botões (no estreito, um bilhete em cima do pé) */
+.foot {
+  position: relative;
+}
+
+.falta {
+  flex: 1 1 auto;
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: right;
+  color: var(--error-ink);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.apagar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--red-deep);
+}
+
+@container mfolha (max-width: 560px) {
+  textarea,
+  .previa {
+    min-height: calc(1.75rem * 6 + 8px);
+  }
+
+  .apagar-txt {
+    @include a11y.escondido;
+  }
+
+  .falta.agora {
+    position: absolute;
+    inset: auto 16px calc(100% + 6px);
+    padding: 6px 10px;
+    border-radius: 2px;
+    background: var(--papel-ficha);
+    box-shadow: var(--papel-solto-sombra);
+    text-align: left;
+  }
+}

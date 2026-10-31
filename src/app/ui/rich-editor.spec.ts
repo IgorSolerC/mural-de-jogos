@@ -500,9 +500,12 @@ describe('a régua de formatação do texto', () => {
   });
 
   describe('as marcas novas', () => {
-    it('a régua: "Formatar" e "Inserir" com nome (sem a caixa do estilo, que repetia o Formatar) e os botões de toda hora', () => {
-      const menus = Array.from(fixture.nativeElement.querySelectorAll('.regua .menu-botao') as NodeListOf<HTMLElement>).map((b) => b.textContent!.trim());
-      expect(menus).toEqual(['Formatar', 'Inserir']);
+    it('a régua: "Formatar" e "Inserir" só com o desenho e a setinha (o nome na dica e no leitor de tela) e os botões de toda hora', () => {
+      const menus = Array.from(fixture.nativeElement.querySelectorAll('.regua .menu-botao') as NodeListOf<HTMLElement>);
+      expect(menus.map((b) => b.getAttribute('aria-label'))).toEqual(['Formatar', 'Inserir']);
+      expect(menus.map((b) => b.textContent!.trim())).toEqual(['', '']);
+      expect(menus.map((b) => b.querySelectorAll('lucide-icon').length)).toEqual([2, 2]);
+      expect(menus.every((b) => b.title.length > 0)).toBeTrue();
       const tools = Array.from(fixture.nativeElement.querySelectorAll('.regua .ferramenta') as NodeListOf<HTMLElement>).map((b) => b.getAttribute('aria-label'));
       expect(tools).toEqual(['Desfazer', 'Refazer', 'Negrito', 'Itálico', 'Riscado', 'Marca-texto', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço']);
       (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
@@ -518,16 +521,18 @@ describe('a régua de formatação do texto', () => {
       expect(inserir).not.toContain('Link para outra anotação');
     });
 
-    it('a régua nunca passa da folha: de 580px para cima, o que não cabe sai dela (e continua nos menus); abaixo, os botões rolam', async () => {
+    it('a régua nunca passa da folha: de 480px para cima, o que não cabe sai dela (e continua nos menus); abaixo, os botões rolam', async () => {
       fixture.componentRef.setInput('notes', []);
+      // com tudo o que a régua da ficha tem (o link de anotação e os Templates)
+      fixture.componentRef.setInput('templates', true);
       fixture.detectChanges();
       const ruler = fixture.nativeElement.querySelector('.regua') as HTMLElement;
       const tools = ruler.querySelector('.ferramentas') as HTMLElement;
-      for (const w of [360, 420, 480, 520, 580, 600, 615, 630, 640, 680, 700, 740, 760, 800, 960]) {
+      for (const w of [360, 420, 480, 500, 520, 530, 560, 580, 600, 615, 630, 640, 680, 700, 740, 760, 800, 960]) {
         (fixture.nativeElement as HTMLElement).style.width = w + 'px';
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         expect(ruler.scrollWidth).withContext(`régua em ${w}px`).toBeLessThanOrEqual(ruler.clientWidth);
-        if (w >= 580) expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
+        if (w >= 480) expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
       }
     });
 

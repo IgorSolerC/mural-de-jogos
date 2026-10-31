@@ -27,6 +27,28 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-31-regua-menus-no-desenho',
+    version: '1.36.1',
+    kind: 'ajustes',
+    date: '2026-10-31',
+    title: 'A régua do texto mais enxuta',
+    melhorias: [
+      'Na régua do texto, o Formatar, o Inserir e a Tabela ficaram só com o desenho e a setinha (o nome aparece ao parar o mouse em cima), e sobra lugar para o riscado, o marca-texto e os links ficarem à mão numa folha mais estreita.',
+    ],
+  },
+  {
+    id: '2026-10-31-templates',
+    version: '1.36.0',
+    kind: 'funcionalidade',
+    date: '2026-10-31',
+    title: 'Templates do texto',
+    items: [
+      'O texto que você escreve sempre pode virar um template: no carimbo da régua do texto, "Novo template", ou selecione um trecho e use "Guardar o trecho selecionado". Cada um tem um nome, e a folha mostra como ele fica.',
+      'No menu Templates, tocar num deles o põe onde está o cursor (o Ctrl+Z desfaz); ao lado, Copiar o leva para o Ctrl+V, e Editar muda ou apaga (com Desfazer).',
+      'Os templates valem nas anotações e nas resenhas e vão para os outros aparelhos da sua conta.',
+    ],
+  },
+  {
     id: '2026-10-31-visao-geral-e-lista',
     version: '1.35.6',
     kind: 'ajustes',

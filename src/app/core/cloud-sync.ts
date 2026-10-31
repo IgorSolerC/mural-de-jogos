@@ -180,11 +180,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     a aparecer em todo aparelho.
  * 44: as cores das abas que o mural gera (`autoColors`, nas configurações do mural); o olho delas passou
  *     a dizer só se ficam em pé (desligado, no "Mais"). Um site da 43 jogaria as cores fora e enviaria assim.
+ * 45: os templates do texto (`templates`, nas configurações do mural: o menu "Templates" da régua). Um
+ *     site da 44 jogaria a lista fora e enviaria assim, e os templates sumiriam em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 44;
+export const SYNC_SCHEMA = 45;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

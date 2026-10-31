@@ -58,6 +58,7 @@ describe('as configurações do mural de anotações', () => {
       showShared: false,
       autoColors: {},
       subjects: {},
+      templates: [],
     });
     // a aba Tudo: só com true (o padrão é sem ela)
     expect(sanitizeNotesConfig({ showAll: true }).showAll).toBeTrue();
