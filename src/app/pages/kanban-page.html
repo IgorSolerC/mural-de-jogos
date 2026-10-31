@@ -77,7 +77,15 @@
       }
       @if (moreTabs().length) {
         <li>
-          <label class="aba aba-mais" [class.on]="!!moreOn()">
+          <!-- o "Mais": a lista de feltro, a mesma das abas do mural (ui/tab-more.ts) -->
+          <app-tab-more
+            class="aba aba-mais"
+            [class.on]="!!moreOn()"
+            [groups]="moreItems()"
+            [active]="b.id"
+            label="Mais quadros"
+            (chosen)="openBoard($event)"
+          >
             @if (moreOn(); as m) {
               <app-cat-label
                 class="rotulo-cat"
@@ -95,20 +103,7 @@
               [size]="15"
               aria-hidden="true"
             />
-            <select
-              aria-label="Mais grupos"
-              (change)="openBoard($any($event.target).value)"
-            >
-              <option value="" disabled [selected]="!moreOn()">
-                Mais grupos
-              </option>
-              @for (q of moreTabs(); track q.id) {
-                <option [value]="q.id" [selected]="q.id === b.id">
-                  {{ q.label }} ({{ q.n }})
-                </option>
-              }
-            </select>
-          </label>
+          </app-tab-more>
         </li>
       }
     </ul>

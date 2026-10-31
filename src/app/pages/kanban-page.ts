@@ -34,6 +34,7 @@ import { FilterCard, SubjectOption, activeFilters, removeActive } from '../ui/fi
 import { FilterChip, FilterTags } from '../ui/filter-sheet';
 import { TagChip } from '../ui/tag-chips';
 import { TabFit } from '../ui/tab-fit';
+import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
 import { readText, writeJson, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
@@ -144,7 +145,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -253,6 +254,8 @@ export class KanbanPage {
     const keys = new Set(this.fit.layout().more.map((t) => t.key));
     return this.tabs().filter((q) => keys.has(tabKeyOf(q.key)));
   });
+  /** As abas do "Mais" para a lista de feltro: cada quadro com o desenho e a cor do grupo dele. */
+  protected readonly moreItems = computed<TabMoreItem[]>(() => this.moreTabs().map((q) => ({ key: q.id, label: q.label, n: q.n, look: q.look })));
   /** O quadro aberto é um dos do "Mais": ele mostra o nome dele, como aba aberta. */
   protected readonly moreOn = computed(() => this.moreTabs().find((q) => q.id === this.board()?.id) ?? null);
 

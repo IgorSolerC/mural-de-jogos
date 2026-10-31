@@ -159,7 +159,7 @@
   pointer-events: none;
 }
 
-/* o "Mais": os grupos escondidos e os que não cabem, num <select> invisível sobre a aba, como o do mural */
+/* o "Mais": os grupos escondidos e os que não cabem, na lista de feltro (ui/tab-more.ts), como no mural */
 .aba-mais {
   @include div.mais-de-grupo;
 
@@ -167,8 +167,13 @@
     @include div.nome-de-grupo;
   }
 
-  select {
-    @include kit.select-por-cima;
+  .chev {
+    transition: rotate var(--t-ui) var(--ease-ui);
+  }
+
+  /* aberto: a setinha vira */
+  &.aberto .chev {
+    rotate: 180deg;
   }
 }
 

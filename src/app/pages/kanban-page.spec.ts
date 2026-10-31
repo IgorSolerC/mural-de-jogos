@@ -154,17 +154,22 @@ describe('página do Kanban', () => {
     await go(TRAB_URL);
     const links = () => [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')].map((a) => a.querySelector('app-cat-label')!.textContent!.trim());
     expect(links()).toEqual(['Trabalho']);
-    const mais = host.querySelector<HTMLLabelElement>('.abas-quadros label.aba-mais')!;
+    // a lista de feltro do mural (ui/tab-more.ts), com o quadro e quantas anotações ele tem
+    const mais = host.querySelector<HTMLElement>('.abas-quadros app-tab-more.aba-mais')!;
     expect(mais.textContent).toContain('Mais');
     expect(mais.classList).not.toContain('on');
-    const select = mais.querySelector('select')!;
-    expect([...select.options].filter((o) => !o.disabled).map((o) => o.textContent!.trim())).toEqual(['Estudos (0)']);
-    select.value = EST;
-    select.dispatchEvent(new Event('change'));
+    const gatilho = mais.querySelector<HTMLButtonElement>('.gatilho')!;
+    expect(gatilho.getAttribute('aria-label')).toBe('Mais quadros');
+    gatilho.click();
+    await settle();
+    const opcoes = [...mais.querySelectorAll<HTMLButtonElement>('[role=option]')];
+    expect(opcoes.map((o) => o.getAttribute('aria-label'))).toEqual(['Estudos, 0 anotações']);
+    expect(mais.querySelector('.costura')).toBeNull();
+    opcoes[0].click();
     await settle();
     expect(router.url).toBe(`/anotacoes/kanban/${EST}`);
     // aberto, o "Mais" mostra o grupo, como a aba aberta
-    const aberto = host.querySelector<HTMLLabelElement>('.abas-quadros label.aba-mais')!;
+    const aberto = host.querySelector<HTMLElement>('.abas-quadros app-tab-more.aba-mais')!;
     expect(aberto.classList).toContain('on');
     expect(aberto.querySelector('app-cat-label')!.textContent!.trim()).toBe('Estudos');
   });
