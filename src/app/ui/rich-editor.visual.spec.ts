@@ -72,7 +72,7 @@ describe('o editor com o Visual', () => {
     expect(value()).toBe('# Oi\num **dois**');
   });
 
-  it('a régua no Visual: o negrito acende onde vale, e nada do Inserir fica apagado (a tabela entra direto, 3×2)', async () => {
+  it('a régua no Visual: o negrito acende onde vale, e nada do Inserir fica apagado (a tabela pela grade do tamanho)', async () => {
     await make('um dois');
     select(4, 8);
     button('Negrito').click();
@@ -91,13 +91,50 @@ describe('o editor com o Visual', () => {
     expect(ops.filter((o) => o.classList.contains('apagado')).length).toBe(0);
     ops.find((o) => o.textContent!.includes('Tabela'))!.click();
     await settle();
-    // a tabela 3×2 entra direto (sem a folha), na linha seguinte, com o cursor na primeira célula
+    // a grade do tamanho no lugar do Inserir: o apontado acende, com o cabeçalho junto
+    const grade = fixture.nativeElement.querySelector('.menu.tamanho') as HTMLElement;
+    expect(grade).not.toBeNull();
+    expect(value()).toBe('um **dois**');
+    const q = (c: number, r: number) => grade.querySelector(`.tamanho-q[data-c="${c}"][data-r="${r}"]`) as HTMLButtonElement;
+    q(2, 1).dispatchEvent(new PointerEvent('pointerenter'));
+    await settle();
+    expect(grade.querySelectorAll('.tamanho-q.aceso').length).toBe(2);
+    expect(grade.querySelectorAll('.tamanho-cabeca.aceso').length).toBe(2);
+    expect(grade.querySelector('.tamanho-legenda')!.textContent).toContain('2 colunas, o cabeçalho e 1 fileira');
+    q(2, 1).click();
+    await settle();
+    // a tabela entra direto (sem a folha), na linha seguinte, com o cursor na primeira célula
+    expect(fixture.nativeElement.querySelector('.menu.tamanho')).toBeNull();
     expect(fixture.nativeElement.querySelector('dialog.wfolha[open]')).toBeNull();
-    expect(value()).toBe('um **dois**\n|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |');
+    expect(value()).toBe('um **dois**\n|  |  |\n| --- | --- |\n|  |  |');
     expect(pm().state.selection.$from.parent.type.name).toBe('cabeca');
     expect(toasts.current()).toBeFalsy();
     // o menu "Tabela" aparece na régua, com o cursor nela
     expect(fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]')).not.toBeNull();
+  });
+
+  it('a grade do tamanho pelo teclado: as setas acendem, Enter põe', async () => {
+    await make('um');
+    select(2);
+    const inserir = fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement;
+    inserir.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 0 }));
+    await settle();
+    await new Promise((r) => setTimeout(r, 10));
+    const tabela = Array.from(fixture.nativeElement.querySelectorAll('.widget-op') as NodeListOf<HTMLButtonElement>).find((o) => o.textContent!.includes('Tabela'))!;
+    tabela.click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 10));
+    const grade = fixture.nativeElement.querySelector('.menu.tamanho') as HTMLElement;
+    expect(document.activeElement?.classList.contains('tamanho-q')).toBeTrue();
+    const tecla = (key: string) => (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    tecla('ArrowRight');
+    tecla('ArrowRight');
+    tecla('ArrowDown');
+    await settle();
+    expect(grade.querySelectorAll('.tamanho-q.aceso').length).toBe(6);
+    tecla('Enter');
+    await settle();
+    expect(value()).toBe('um\n|  |  |  |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |');
   });
 
   it('o menu "Tabela": põe a coluna, alinha, troca o jeito (as cinco miniaturas), apaga o que não vale e some fora da tabela', async () => {

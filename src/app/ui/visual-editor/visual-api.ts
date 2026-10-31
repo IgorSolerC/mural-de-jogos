@@ -17,7 +17,13 @@ export type ListaVisual = 'ul' | 'ol' | 'check';
  * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, a tabela nova
  * (`tabela`, a 3×2 do Inserir), o desfazer, o estilo do parágrafo, ou uma ação do menu "Tabela".
  */
-export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela };
+export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela } | { tabelaNova: TamanhoTabela };
+
+/** O tamanho escolhido na grade do Inserir › Tabela: as colunas e as fileiras embaixo do cabeçalho. */
+export interface TamanhoTabela {
+  colunas: number;
+  fileiras: number;
+}
 
 /** O que o menu "Tabela" da régua pede (as ações da grade da folha da tabela, ui/table-grid.ts). */
 export type AcaoTabela =

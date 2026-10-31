@@ -1776,6 +1776,29 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     cheia no celular com o teclado aberto (o desfazer junto, o cursor no mesmo lugar); (5) **a nota enorme
     num celular de verdade** (a medida acima é de um computador, com a CPU 4× mais lenta simulada); (6) o
     leitor de tela (o TalkBack e o VoiceOver: a folha, a caixinha, o widget, o contador).
+- **Depois da rodada 8: o primeiro teste do usuário (30/out, BUILD 671).** No celular e no computador, a
+  tabela foi o que não se entendeu: ela entrava sempre com 3 colunas e 3 linhas, e mudar o tamanho
+  dependia do menu "Tabela", que só aparece com o cursor dentro dela e não se descobre sozinho.
+  - **Inserir › Tabela** no Visual abre a grade do tamanho no lugar do Inserir (como no Docs): 6 × 6
+    quadradinhos de papel, a fileira de cima é o cabeçalho (toda tabela tem, e ela acende com as colunas), o
+    tamanho escrito à mão embaixo; setas e Enter pelo teclado. A ação nova `{ tabelaNova: { colunas,
+    fileiras } }` do Visual.
+  - **As alças** (`alcasDaTabela` em `ui/visual-editor/tabela.ts`): embaixo da tabela do cursor, numa
+    decoração (fora do texto), em duas linhas da pauta: "Fileira" e "Coluna" a lápis, cada um com o + (uma
+    embaixo da do cursor, uma depois da do cursor) e o − (tira a do cursor), as etiquetas de papel do site
+    (`botao-papel`, o − com o corte vermelho), tortas como coladas à mão. O − apontado marca de vermelho o
+    que vai sair (uma decoração de nó: a classe posta à mão na célula, o ProseMirror desfazia). O que não
+    vale fica desligado (o cabeçalho, a única fileira de baixo, a única coluna). O toque não tira o cursor
+    da célula (pointerdown e mousedown cancelados: só o pointerdown deixava o clique mover a seleção para
+    fora da tabela). Somem com a folha sem o foco. O menu "Tabela" da régua continua com o resto (mover,
+    alinhar, o jeito, a folha).
+  - **As divisões das colunas** a lápis (o azul da pauta) na branca e na listrada, só na escrita: a tabela
+    vazia mostra quantas colunas tem. A leitura não muda.
+  - A estética das alças foi refeita a pedido ("mais padrão do projeto, mais artesanal"): eram quadradinhos
+    brancos genéricos com o nome em letra de etiqueta.
+  - Conferido: os specs (as alças em `tabela.spec.ts`, a grade pelo mouse e pelo teclado em
+    `rich-editor.visual.spec.ts`), a suíte inteira, `npx ng build` e o roteiro `.angular/pptr/visual-alcas.mjs`
+    na build de produção, no computador e no celular simulado, sem erro no console, com as fotos de perto.
 - Próximo: a rodada 9, para todos (tira o "em teste", o padrão da P2, as Novidades, a REGRA DO VISUAL nos
   cabeçalhos, o script nas notas reais de novo, a lista dos aparelhos inteira).
 

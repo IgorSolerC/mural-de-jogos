@@ -519,4 +519,59 @@ describe('a tabela no modo Visual', () => {
     cursor(celula(1, 1) + 3);
     expect(t.slice(ed.selecaoNoTexto()[0])).toBe(' e |');
   });
+  describe('as alças embaixo da tabela', () => {
+    const alcas = () => fixture.nativeElement.querySelector('.ProseMirror > .vis-alcas') as HTMLElement | null;
+    const alca = (acao: string) => alcas()!.querySelector(`[data-acao="${acao}"]`) as HTMLButtonElement;
+
+    it('aparecem logo depois da tabela do cursor, e só com ele nela', async () => {
+      await make('antes\n' + T + '\ndepois');
+      cursor(1);
+      expect(alcas()).toBeNull();
+      cursor(celula(1, 0));
+      expect(alcas()).not.toBeNull();
+      expect(alcas()!.previousElementSibling!.classList).toContain('tabela-rolo');
+      expect(alcas()!.getAttribute('contenteditable')).toBe('false');
+      expect(Array.from(alcas()!.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Pôr uma fileira embaixo desta', 'Tirar esta fileira', 'Pôr uma coluna depois desta', 'Tirar esta coluna']);
+      // não entram no texto
+      expect(valor).toBeNull();
+    });
+
+    it('o + e o − da fileira e da coluna, com o cursor na célula certa', async () => {
+      await make(T);
+      cursor(celula(1, 0));
+      alca('fileiraEmbaixo').click();
+      expect(grade()).toEqual([['Jogo', 'Nota'], ['Hades', '10'], ['', ''], ['Celeste', '9']]);
+      expect(naCelula()).toEqual([2, 0, 0]);
+      alca('colunaDepois').click();
+      expect(grade()[0]).toEqual(['Jogo', '', 'Nota']);
+      expect(naCelula()).toEqual([2, 1, 0]);
+      alca('tirarColuna').click();
+      alca('tirarFileira').click();
+      expect(grade()).toEqual([['Jogo', 'Nota'], ['Hades', '10'], ['Celeste', '9']]);
+      expect(texto()).toBe(T);
+    });
+
+    it('o que não vale fica apagado e não faz nada: o cabeçalho, a única fileira, a única coluna', async () => {
+      await make('| a |\n| --- |\n| b |');
+      cursor(celula(0, 0));
+      expect(alca('tirarFileira').disabled).toBeTrue();
+      expect(alca('tirarColuna').disabled).toBeTrue();
+      alca('tirarFileira').click();
+      alca('tirarColuna').click();
+      expect(grade()).toEqual([['a'], ['b']]);
+      cursor(celula(1, 0));
+      expect(alca('tirarFileira').disabled).toBeTrue();
+      expect(alca('fileiraEmbaixo').disabled).toBeFalse();
+    });
+
+    it('apontar o − marca o que vai sair', async () => {
+      await make(T);
+      cursor(celula(2, 1));
+      alca('tirarColuna').dispatchEvent(new PointerEvent('pointerenter'));
+      const marcadas = Array.from(fixture.nativeElement.querySelectorAll('.vis-alvo-tirar')).map((c) => (c as HTMLElement).textContent);
+      expect(marcadas).toEqual(['Nota', '10', '9']);
+      alca('tirarColuna').dispatchEvent(new PointerEvent('pointerleave'));
+      expect(fixture.nativeElement.querySelectorAll('.vis-alvo-tirar').length).toBe(0);
+    });
+  });
 });

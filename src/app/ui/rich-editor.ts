@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
 import { bodyIndent, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
@@ -27,7 +27,7 @@ import { TIPO_MURALL, cortarPorLinhas, markdownColado } from '../core/transferen
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar" e "Inserir". */
-type MenuName = 'formatar' | 'inserir' | 'tabela';
+type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho';
 /** O que a régua (e os menus) fazem no texto. */
 type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
@@ -278,6 +278,36 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                     </button>
                   }
                 </div>
+              </div>
+            }
+            <!-- o Inserir › Tabela do Visual: a grade para escolher o tamanho (como no Docs); a fileira de
+                 cima é o cabeçalho, que toda tabela tem, e acende junto com as colunas -->
+            @if (isOpen('tamanho', big)) {
+              <div class="menu tamanho" role="group" tabindex="-1" aria-label="O tamanho da tabela" (keydown)="onSizeKey($event, area, big)">
+                <p class="menu-secao" aria-hidden="true">Tabela</p>
+                <div class="tamanho-grade" [style.--cols]="SIZE_COLS.length" (pointerleave)="sizeHover.set(null)">
+                  @for (c of SIZE_COLS; track c) {
+                    <span class="tamanho-cabeca" [class.aceso]="(sizeHover()?.c ?? 0) >= c" aria-hidden="true"></span>
+                  }
+                  @for (r of SIZE_ROWS; track r) {
+                    @for (c of SIZE_COLS; track c) {
+                      <button
+                        type="button"
+                        tabindex="-1"
+                        class="tamanho-q"
+                        [class.aceso]="(sizeHover()?.c ?? 0) >= c && (sizeHover()?.r ?? 0) >= r"
+                        [attr.data-c]="c"
+                        [attr.data-r]="r"
+                        [attr.aria-label]="sizeName(c, r)"
+                        (pointerdown)="$event.preventDefault()"
+                        (pointerenter)="sizeHover.set({ c, r })"
+                        (focus)="sizeHover.set({ c, r })"
+                        (click)="putTable(big, c, r)"
+                      ></button>
+                    }
+                  }
+                </div>
+                <p class="tamanho-legenda" aria-hidden="true">{{ sizeHover() ? sizeName(sizeHover()!.c, sizeHover()!.r) : 'Escolha o tamanho' }}</p>
               </div>
             }
           </span>
@@ -1454,6 +1484,67 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       padding-top: 6px;
       background: linear-gradient(to right, rgb(21 21 21 / 0.16) 50%, transparent 50%) left top / 8px 1.5px repeat-x;
     }
+    /* ===== A grade do tamanho da tabela (o Inserir › Tabela do Visual): quadradinhos de papel; a fileira
+       de cima, mais baixa e em tinta quando acesa, é o cabeçalho ===== */
+    .tamanho {
+      min-width: 0;
+      padding: 8px 10px 6px;
+    }
+    .tamanho-grade {
+      display: grid;
+      grid-template-columns: repeat(var(--cols), 22px);
+      gap: 4px;
+      margin: 4px 0 0;
+    }
+    .tamanho-cabeca,
+    .tamanho-q {
+      display: block;
+      border-radius: 2px;
+      box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.22);
+    }
+    .tamanho-cabeca {
+      height: 9px;
+      margin-bottom: 2px;
+      background: rgb(21 21 21 / 0.06);
+    }
+    .tamanho-cabeca.aceso {
+      background: var(--ink);
+      box-shadow: none;
+    }
+    .tamanho-q {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      border: 0;
+      background-color: #fffdf8;
+      background-image: var(--paper-grain);
+      background-blend-mode: multiply;
+      cursor: pointer;
+    }
+    .tamanho-q.aceso {
+      background-color: rgb(255 218 66 / 0.6);
+      box-shadow: inset 0 0 0 1.5px rgb(21 21 21 / 0.55);
+    }
+    .tamanho-q:focus-visible {
+      outline: 2px solid var(--ink);
+      outline-offset: 1px;
+    }
+    .tamanho-legenda {
+      margin: 8px 0 2px;
+      font-family: var(--f-hand);
+      font-size: 1.05rem;
+      color: var(--ink);
+    }
+    @media (pointer: coarse) {
+      .tamanho-grade {
+        grid-template-columns: repeat(var(--cols), 34px);
+        gap: 5px;
+      }
+      .tamanho-q {
+        width: 34px;
+        height: 34px;
+      }
+    }
     .menu-secao {
       margin: 3px 8px 4px;
       font-family: var(--f-label);
@@ -2237,6 +2328,7 @@ export class RichEditor {
 
   /** O foco saiu do menu (um toque fora, outro campo): ele fecha. */
   protected onMenuFocusOut(e: FocusEvent): void {
+    if (this.swappingMenu) return;
     const to = e.relatedTarget as Node | null;
     if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.menu.set(null);
   }
@@ -2246,6 +2338,47 @@ export class RichEditor {
     e?.stopPropagation();
     this.menu.set(null);
     area.focus();
+  }
+
+  // ===== A grade do tamanho da tabela (o Inserir › Tabela do Visual) =====
+
+  /** As colunas e as fileiras de baixo que a grade oferece (o resto, pelas alças da tabela). */
+  protected readonly SIZE_COLS = [1, 2, 3, 4, 5, 6];
+  protected readonly SIZE_ROWS = [1, 2, 3, 4, 5, 6];
+  /** O quadradinho apontado (ou com o foco): até onde a grade acende. */
+  protected readonly sizeHover = signal<{ c: number; r: number } | null>(null);
+  private readonly injector = inject(Injector);
+  /** O Inserir dando o lugar à grade (ver `chooseWidget`). */
+  private swappingMenu = false;
+
+  protected sizeName(c: number, r: number): string {
+    return `${c} ${c === 1 ? 'coluna' : 'colunas'}, o cabeçalho e ${r} ${r === 1 ? 'fileira' : 'fileiras'}`;
+  }
+
+  /** Escolheu o tamanho: a tabela entra no lugar do cursor, com ele na primeira célula. */
+  protected putTable(big: boolean, c: number, r: number): void {
+    this.menu.set(null);
+    this.visualOf(big)?.run({ tabelaNova: { colunas: c, fileiras: r } });
+  }
+
+  /** Na grade: as setas andam (e acendem), Enter e espaço põem, Esc fecha e Tab sai. */
+  protected onSizeKey(e: KeyboardEvent, area: HTMLTextAreaElement, big: boolean): void {
+    const at = this.sizeHover() ?? { c: 1, r: 1 };
+    const go = (c: number, r: number) => {
+      e.preventDefault();
+      const to = { c: Math.min(Math.max(c, 1), this.SIZE_COLS.length), r: Math.min(Math.max(r, 1), this.SIZE_ROWS.length) };
+      this.sizeHover.set(to);
+      this.host.nativeElement.querySelector<HTMLElement>(`.tamanho-q[data-c="${to.c}"][data-r="${to.r}"]`)?.focus();
+    };
+    if (e.key === 'ArrowRight') go(at.c + 1, at.r);
+    else if (e.key === 'ArrowLeft') go(at.c - 1, at.r);
+    else if (e.key === 'ArrowDown') go(at.c, at.r + 1);
+    else if (e.key === 'ArrowUp') go(at.c, at.r - 1);
+    else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      this.putTable(big, at.c, at.r);
+    } else if (e.key === 'Escape') this.closeMenu(e, area);
+    else if (e.key === 'Tab') this.menu.set(null);
   }
 
   /** O que um botão da régua ou um item dos menus faz (o menu fecha antes). */
@@ -3473,6 +3606,24 @@ export class RichEditor {
 
   /** Escolheu um widget no menu: a folha dele abre. */
   protected chooseWidget(area: HTMLTextAreaElement, big: boolean, def: WidgetDef): void {
+    // a tabela do Visual: a grade do tamanho, no lugar do Inserir
+    if (this.visual() && def.name === 'tabela' && this.visualOf(big)) {
+      const byKeyboard = this.menuByKeyboard;
+      this.sizeHover.set(byKeyboard ? { c: 1, r: 1 } : null);
+      // o item com o foco sai da tela junto com o Inserir: isso não é o foco saindo do menu
+      this.swappingMenu = true;
+      this.menu.set({ name: 'tamanho', big });
+      // depois de a grade aparecer (o Inserir, com o foco, saiu da tela): pelo teclado, o primeiro quadradinho
+      afterNextRender(
+        () => {
+          const grade = this.host.nativeElement.querySelector<HTMLElement>('.menu.tamanho');
+          (byKeyboard ? grade?.querySelector<HTMLElement>('.tamanho-q') : grade)?.focus({ preventScroll: true });
+          this.swappingMenu = false;
+        },
+        { injector: this.injector },
+      );
+      return;
+    }
     this.menu.set(null);
     if (this.visual()) return this.startVisualWidget(big, def);
     this.startWidget(area, big, def);

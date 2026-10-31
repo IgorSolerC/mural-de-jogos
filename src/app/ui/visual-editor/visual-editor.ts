@@ -35,7 +35,8 @@ import { atalhos } from './input-rules';
 import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
 import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
-import { acaoTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
+import { ICON } from '../icons';
+import { acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
@@ -415,7 +416,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (acao === 'undo') return undo;
     if (acao === 'redo') return redo;
     if (acao === 'rule') return divisoria;
-    if (acao === 'tabela') return poeTabela;
+    if (acao === 'tabela') return poeTabela();
+    if (typeof acao === 'object' && 'tabelaNova' in acao) return poeTabela(acao.tabelaNova.colunas, acao.tabelaNova.fileiras);
     if (typeof acao === 'object' && 'tabela' in acao) return acaoTabela(acao.tabela);
     // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
     if (acao === 'code') return codigo;
@@ -755,6 +757,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       semQuebras(),
       linksInteiros(),
       edicaoDaTabela(),
+      // pôr e tirar fileira e coluna direto na tabela do cursor
+      alcasDaTabela({ mais: ICON.adicionar, menos: ICON.tirar }),
       tabelasRetas(),
       history(),
       gapCursor(),
@@ -1219,10 +1223,10 @@ function celulasDe(f: PMNode): string[] {
  * Inserir › Tabela: a tabela 3×2 direto na folha, com o cursor na primeira célula (no lugar da linha
  * vazia, ou numa linha só dela depois da do cursor; dentro de um item, no recuo da descrição).
  */
-const poeTabela: Command = (state, dispatch) => {
+const poeTabela = (colunas?: number, fileiras?: number): Command => (state, dispatch) => {
   if (dispatch) {
     const tr = state.tr;
-    const at = poeBlocoNoLugar(state, tr, lugarDoCursor(state).pos, (recuo) => tabelaVazia(recuo));
+    const at = poeBlocoNoLugar(state, tr, lugarDoCursor(state).pos, (recuo) => tabelaVazia(recuo, colunas, fileiras));
     dispatch(tr.setSelection(TextSelection.create(tr.doc, posDaCelula(tr.doc.nodeAt(at)!, at, 0, 0))).scrollIntoView());
   }
   return true;

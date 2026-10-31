@@ -1,8 +1,9 @@
 import { GapCursor } from 'prosemirror-gapcursor';
 import { Fragment, Node as PMNode, ResolvedPos, Slice } from 'prosemirror-model';
-import { Command, EditorState, Plugin, Selection, TextSelection, Transaction } from 'prosemirror-state';
+import { Command, EditorState, Plugin, PluginKey, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { CellSelection, TableMap, tableEditing } from 'prosemirror-tables';
-import { EditorView } from 'prosemirror-view';
+import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
+import type { LucideIconData } from 'lucide-angular';
 import { parseInline } from '../../core/rich-text';
 import { Align, MAX_TABLE_COLS, MAX_TABLE_ROWS, TableLook, pastedGrid } from '../../core/tables';
 import { linkarEndereco } from './links';
@@ -274,7 +275,7 @@ export function tiraTabela(tr: Transaction, pos: number): Transaction {
   return tr.setSelection(Selection.near(tr.doc.resolve(Math.min(pos, tr.doc.content.size)), 1));
 }
 
-/** Uma tabela vazia de `cols` colunas e `fileiras` fileiras embaixo do cabeçalho (a de Inserir › Tabela: 3×2). */
+/** Uma tabela vazia de `cols` colunas e `fileiras` fileiras embaixo do cabeçalho (o tamanho da grade do Inserir › Tabela). */
 export function tabelaVazia(recuo: number, cols = 3, fileiras = 2): PMNode {
   return TABELA.create(
     { recuo, alinhar: Array(cols).fill(null) },
@@ -630,3 +631,129 @@ function endireitar(t: PMNode): PMNode | null {
 
 /** O `prosemirror-tables` (a seleção de células, as setas entre elas, o colar de células, o conserto de tabela torta). */
 export const edicaoDaTabela = (): Plugin => tableEditing({ allowTableNodeSelection: false });
+
+// ===== As alças: pôr e tirar fileira e coluna direto na tabela =====
+
+/** O que cada botão das alças faz, o nome dele para o leitor de tela e quando ele não vale ali. */
+const ALCAS: readonly { grupo: 'Fileira' | 'Coluna'; acao: AcaoTabela & string; nome: string; mais: boolean; nao: (e: EstadoTabela) => boolean }[] = [
+  { grupo: 'Fileira', acao: 'fileiraEmbaixo', nome: 'Pôr uma fileira embaixo desta', mais: true, nao: (e) => e.fileiras - 1 >= MAX_TABLE_ROWS },
+  { grupo: 'Fileira', acao: 'tirarFileira', nome: 'Tirar esta fileira', mais: false, nao: (e) => e.fileira === 0 || e.fileiras <= 2 },
+  { grupo: 'Coluna', acao: 'colunaDepois', nome: 'Pôr uma coluna depois desta', mais: true, nao: (e) => e.colunas >= MAX_TABLE_COLS },
+  { grupo: 'Coluna', acao: 'tirarColuna', nome: 'Tirar esta coluna', mais: false, nao: (e) => e.colunas <= 1 },
+];
+
+/**
+ * As alças da tabela do cursor: logo embaixo dela, em duas linhas da pauta, "Fileira" e "Coluna" escritos
+ * a lápis, cada um com duas etiquetas de papel do site (`botao-papel`), o + (embaixo da do cursor, depois
+ * da do cursor) e o − (tira a do cursor, que fica marcada enquanto o − está apontado). O resto (mover, alinhar,
+ * o jeito, a folha) continua no menu "Tabela" da régua. O que não vale ali fica apagado: o cabeçalho e a
+ * única fileira de baixo não saem, a única coluna não sai, os limites da folha da tabela.
+ */
+export const alcasDaTabela = (icones: { mais: LucideIconData; menos: LucideIconData }): Plugin =>
+  new Plugin<Alvo>({
+    key: ALVO,
+    // a fileira ou a coluna que o − apontado vai tirar (uma decoração: a classe posta à mão na célula, o
+    // ProseMirror desfaz); qualquer mudança no texto ou na seleção a apaga
+    state: {
+      init: () => null,
+      apply: (tr, alvo) => (tr.getMeta(ALVO) !== undefined ? (tr.getMeta(ALVO) as Alvo) : tr.docChanged || tr.selectionSet ? null : alvo),
+    },
+    props: {
+      decorations(state) {
+        const at = celulaDoCursor(state);
+        const e = estadoTabela(state);
+        if (!at || !e) return null;
+        const recuo = (at.tabela.node.attrs['recuo'] as number) ?? 0;
+        const nao = ALCAS.map((a) => a.nao(e));
+        const fim = at.tabela.pos + at.tabela.node.nodeSize;
+        const decos = [Decoration.widget(fim, (view) => alcas(view, recuo, nao, icones), { side: -1, key: `alcas:${recuo}:${nao.map(Number).join('')}`, stopEvent: () => true, ignoreSelection: true })];
+        const alvo = ALVO.getState(state);
+        if (alvo) {
+          const t = at.tabela.node;
+          let pos = at.tabela.pos + 1;
+          t.forEach((f, _, i) => {
+            let c = pos + 1;
+            f.forEach((cel, __, j) => {
+              if ((alvo === 'fileira' && i === at.f) || (alvo === 'coluna' && j === at.c)) decos.push(Decoration.node(c, c + cel.nodeSize, { class: 'vis-alvo-tirar' }));
+              c += cel.nodeSize;
+            });
+            pos += f.nodeSize;
+          });
+        }
+        return DecorationSet.create(state.doc, decos);
+      },
+    },
+  });
+
+type Alvo = 'fileira' | 'coluna' | null;
+const ALVO = new PluginKey<Alvo>('vis-alvo-tirar');
+
+/** O quanto cada etiqueta das alças entorta (coladas à mão, nenhuma igual à do lado). */
+const GIROS = ['-1.6deg', '1.2deg', '0.9deg', '-1.3deg'];
+
+function alcas(view: EditorView, recuo: number, nao: readonly boolean[], icones: { mais: LucideIconData; menos: LucideIconData }): HTMLElement {
+  const barra = document.createElement('div');
+  barra.className = 'vis-alcas';
+  barra.contentEditable = 'false';
+  barra.setAttribute('role', 'toolbar');
+  barra.setAttribute('aria-label', 'Fileiras e colunas da tabela');
+  if (recuo) barra.style.setProperty('--recuo', String(recuo));
+  for (const grupo of ['Fileira', 'Coluna'] as const) {
+    const g = document.createElement('span');
+    g.className = 'vis-alcas-grupo';
+    const nome = document.createElement('span');
+    nome.className = 'vis-alcas-nome';
+    nome.textContent = grupo;
+    nome.setAttribute('aria-hidden', 'true');
+    g.append(nome);
+    ALCAS.forEach((a, i) => {
+      if (a.grupo !== grupo) return;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.tabIndex = -1;
+      // a etiqueta de papel do site (o − com o corte vermelho), cada uma colada à mão, torta do seu jeito
+      b.className = a.mais ? 'vis-alca' : 'vis-alca perigo';
+      b.style.setProperty('--giro', GIROS[i]);
+      b.dataset['acao'] = a.acao;
+      b.setAttribute('aria-label', a.nome);
+      b.title = a.nome;
+      b.append(desenho(a.mais ? icones.mais : icones.menos));
+      b.disabled = nao[i];
+      // o toque não tira o cursor da célula (nem fecha o teclado do celular)
+      b.addEventListener('pointerdown', (ev) => ev.preventDefault());
+      b.addEventListener('mousedown', (ev) => ev.preventDefault());
+      b.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        marcaAlvo(view, null);
+        if (!b.disabled) acaoTabela(a.acao)(view.state, view.dispatch);
+        view.focus();
+      });
+      if (!a.mais) {
+        b.addEventListener('pointerenter', () => marcaAlvo(view, b.disabled ? null : a.acao === 'tirarFileira' ? 'fileira' : 'coluna'));
+        b.addEventListener('pointerleave', () => marcaAlvo(view, null));
+      }
+      g.append(b);
+    });
+    barra.append(g);
+  }
+  return barra;
+}
+
+/** A fileira (ou a coluna) do cursor marcada enquanto o − dela está apontado: é ela que sai. */
+function marcaAlvo(view: EditorView, qual: Alvo): void {
+  if ((ALVO.getState(view.state) ?? null) !== qual) view.dispatch(view.state.tr.setMeta(ALVO, qual));
+}
+
+/** O desenho de um ícone (o mesmo traço do resto do site), fora do Angular. */
+function desenho(icone: LucideIconData): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  const attrs: Record<string, string> = { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
+  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
+  for (const [tag, a] of icone) {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(a)) if (k !== 'key') el.setAttribute(k, String(v));
+    svg.append(el);
+  }
+  return svg;
+}

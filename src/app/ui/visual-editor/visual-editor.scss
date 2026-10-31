@@ -1,4 +1,5 @@
 @use '../formatado';
+@use '../paper-kit' as kit;
 
 // O modo Visual: a folha pautada do editor (a mesma do Markdown: a letra à mão, a pauta azul, o cursor
 // vermelho), com o texto desenhado como a leitura (ui/_formatado.scss). Sem o encapsulamento do Angular
@@ -551,5 +552,73 @@
   .vis-folha .ProseMirror-gapcursor::after,
   .vis-folha .vis-guardando {
     animation: none;
+  }
+}
+
+// ===== A tabela enquanto se escreve =====
+
+// as divisões das colunas a lápis (o azul da pauta), só na escrita: na branca e na listrada, que não têm
+// fio de pé, a tabela vazia mostra quantas colunas tem. Uma sombra de dentro: nada muda de tamanho
+.vis-folha > .ProseMirror :is(.jeito-branca, .jeito-listrada) :is(th, td):not(:last-child) {
+  box-shadow: inset -1px 0 0 rgb(64 110 190 / 0.4);
+}
+// a fileira (ou a coluna) que o − das alças vai tirar
+.vis-folha > .ProseMirror .tabela .vis-alvo-tirar {
+  background-color: rgb(196 48 43 / 0.12);
+  box-shadow: inset 0 0 0 1.5px rgb(196 48 43 / 0.55);
+}
+
+// As alças: embaixo da tabela do cursor, em duas linhas da pauta (o texto de baixo desce linhas inteiras e
+// continua sentado nela, como na etiqueta do trecho cru). "Fileira" e "Coluna" a lápis, cada um com as
+// duas etiquetas de papel do site (o + e o −, com o corte vermelho), coladas tortas, à mão
+.vis-folha > .ProseMirror > .vis-alcas {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: calc(var(--line) * 2);
+  padding-left: 4px;
+  margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
+  text-indent: 0;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+}
+// a folha sem o foco não está mexendo na tabela
+.vis-folha:not(:focus-within) > .ProseMirror > .vis-alcas {
+  display: none;
+}
+.vis-folha .vis-alcas-grupo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+// o nome a lápis, na letra da folha
+.vis-folha .vis-alcas-nome {
+  margin-right: 2px;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  color: var(--ink-2);
+}
+.vis-folha .vis-alca {
+  @include kit.botao-papel;
+  width: 40px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0;
+  rotate: var(--giro, 0deg);
+}
+// no toque, o tamanho do dedo, e os dois grupos cabem na folha do celular
+@media (pointer: coarse) {
+  .vis-folha > .ProseMirror > .vis-alcas {
+    gap: 14px;
+    padding-left: 0;
+  }
+  .vis-folha .vis-alcas-grupo {
+    gap: 6px;
+  }
+  .vis-folha .vis-alca {
+    width: 44px;
+    min-height: 44px;
+    height: 44px;
   }
 }

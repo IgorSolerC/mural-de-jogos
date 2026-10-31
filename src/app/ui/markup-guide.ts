@@ -125,7 +125,8 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
   {
     title: 'Tabela',
     items: [
-      { what: 'Pôr uma tabela', note: 'Pelo Inserir › Tabela: ela entra com três colunas e o cursor na primeira célula. Cada célula se escreve como uma linha, com negrito, links e o resto.' },
+      { what: 'Pôr uma tabela', note: 'Pelo Inserir › Tabela: escolha o tamanho na grade, e ela entra com o cursor na primeira célula. Cada célula se escreve como uma linha, com negrito, links e o resto.' },
+      { what: 'Fileiras e colunas', note: 'Com o cursor na tabela, embaixo dela: o + põe uma fileira embaixo da do cursor (ou uma coluna depois dela), e o − tira a do cursor. O cabeçalho fica sempre.' },
       { what: 'Andar entre as células', keys: 'Tab', note: 'Shift+Tab volta. Na última célula, o Tab abre uma fileira nova. As setas também andam.' },
       { what: 'Descer e subir', keys: 'Enter', note: 'Vai para a célula de baixo (na última fileira, abre outra); Shift+Enter sobe.' },
       { what: 'Várias células', keys: 'Shift+setas', note: 'Ou arrastando. O negrito e o resto valem em todas; o Delete esvazia elas.' },
