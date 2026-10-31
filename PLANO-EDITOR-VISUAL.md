@@ -1671,7 +1671,113 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
     atributo no HTML segura?); (3) o colar no celular (o menu "Colar" do Android e o do Gboard, a planilha
     do Planilhas Google com tab); (4) colar do Visual no WhatsApp e no e-mail (o texto limpo) e no Docs (o
     HTML).
-- Próximo: a rodada 8, o resto em volta.
+- **Rodada 8 (30/out, BUILD 669–670): o resto em volta.**
+  - **O texto de fora só nos blocos mudados** (5.19, S1, S2, S4; `chega` em `ui/visual-editor/visual-editor.ts`,
+    no lugar do `carregar` que refazia o documento inteiro): o texto que chega (a colega da compartilhada,
+    outro aparelho, um pedido da AI pela API, o que se escreveu no Markdown e volta para o Visual) é lido pelo
+    tradutor, e os **blocos** dos dois (os nós do `textToDoc`, não as linhas cruas: a tabela, o bloco de
+    código e o trecho cru são um bloco só) são comparados pelo `commonPairs` de `core/merge3.ts`, cada um
+    pelo trecho escrito **e** pela chave do que o leitor leu nele (a mesma linha lida noutro contexto, como
+    a linha recuada que passou a ser o corpo de um item, é outro bloco). Só os nós dos trechos diferentes
+    são trocados, de trás para a frente, numa transação fora do desfazer (`addToHistory` false), que não
+    volta como `mudou` (a meta `vis-chegou`: o texto já é o valor de agora) nem passa pelo limite ou pelo
+    ajuste. Os nós iguais continuam os mesmos objetos (as peças não se refazem, o vídeo não recarrega), com
+    a fonte nova no `WeakMap` (a quebra de depois pode ter mudado: o `\r\n` de quem escreveu fica). O
+    cursor e a seleção andam com a transação (o ProseMirror mapeia), e o histórico também (o
+    `prosemirror-history` refaz os passos guardados por cima do que chegou, como numa edição a muitas
+    mãos): **o Ctrl+Z desfaz o que a pessoa escreveu e nunca o que veio de fora**. O cursor numa linha
+    trocada por uma só (a colega mexeu na linha onde se escreve) fica no mesmo ponto dela, em vez de ir para
+    a ponta do trecho trocado. O nó que ainda esperava o ajuste (a escrita não exata) não casa com nada e é
+    trocado.
+  - **Outra ficha** (`recomeca`, que o `reset()` do editor chama nas duas folhas, a pequena e a da tela
+    cheia): um estado novo com o texto de agora e o desfazer vazio; o texto da ficha nova chega depois, fora
+    dele (o Ctrl+Z nunca volta para a ficha de antes).
+  - **A tela cheia com o mesmo estado** (5.21; `levaEstado`/`recebeEstado`, a `MalaVisual` da
+    `visual-api.ts`): a folha grande nasce com o estado da pequena (o documento, a seleção e o desfazer:
+    o `reconfigure` guarda os campos dos plugins de mesma chave, o desfazer, os marcadores das imagens
+    guardando, o desenho das listas, a seleção de células), com as fontes da escrita (o `WeakMap` vai junto:
+    os nós são os mesmos), e ao fechar a pequena recebe o da grande antes de voltar a valer. O escritor dos
+    comandos (`escritor` em `listas.ts`) saiu do estado do plugin para a spec dele: senão o `reconfigure`
+    levaria o da outra folha junto. O que mudou desde que a outra folha escreveu (ela estava escondida, no
+    Markdown) entra por cima, pelo `chega`.
+  - **A prévia que segue o cursor** (5.21): o `RichEditor` dá o sinal `caret` (a linha do texto e a
+    fração dela, pelo `caretSpot`), vindo da `<textarea>` (no `track`, com a ponta da seleção que anda) ou
+    do Visual (a saída nova `cursor`, a posição no texto da ponta da seleção, a cada mudança de seleção ou
+    de documento e no foco, só da folha à mostra); o `review-editor` segue o sinal (um `effect`) no lugar
+    do `caretArea` (e dos `focusin`/`click`/`keyup` no molde). O `reset()` o esquece (null até o cursor
+    entrar no texto da ficha nova). O `focus()` e o `reset()` já valiam nos dois modos; o `reset()` agora
+    recomeça também o desfazer do Visual.
+  - **O celular, o que dá sem aparelho** (5.20, 6.8): o `scrollMargin` (120 px embaixo: a régua presa de
+    54 px e uma linha) já estava; no puppeteer com a identidade do Pixel 5, o cursor escrevendo na última
+    linha fica em cima da régua presa (698 px contra 797), e a folha não rola sozinha (quem rola é o editor,
+    como a `<textarea>`, M5). A letra da folha é 18,24 px (1,14rem), também na tela cheia do celular.
+  - **A acessibilidade** (5.22, 6.9): já estava quase tudo das rodadas de antes (o `role="textbox"`, o
+    `aria-multiline`, o nome, o `aria-describedby` do contador, o `spellcheck`, o `autocapitalize`, o
+    `lang`; o `aria-pressed` da régua; a caixinha `role="checkbox"` com o `aria-checked`; o nome do widget;
+    a `<table>` com o `<th>`; o Shift+Tab sem recuo que sai). O que faltava era o spec do A1 no editor de
+    verdade (`rich-editor.visual.spec.ts`: o nome "Anotação", o contador que o `aria-describedby` aponta, o
+    corretor, a língua e a letra de 16 px ou mais). O A5 (o spoiler na escrita): a tinta da folha (#151515)
+    sobre as listras de 20% de tinta no papel creme passa de 10:1 no pior pixel (a foto de perto,
+    `.angular/shots/r8-spoiler.png`).
+  - **A medida do texto grande** (5.23, R3, S5): uma nota de 19.002 caracteres e 3.877 linhas (3.676 nós)
+    com 50 widgets, 50 títulos, listas com corpo, tarefas e uma tabela de 200 fileiras, escrevendo uma letra
+    no meio. **Antes**, o despacho de uma letra no Visual (Karma, build de desenvolvimento) levava 17–21 ms,
+    quase tudo na trava da escrita, que lia o texto inteiro de volta a cada tecla (`docToText` 12 ms, o
+    `textToDoc` dele 9–12 ms, a chave de cada linha contada de novo várias vezes). **Depois**, 4 ms:
+    (1) **a trava só no trecho mexido** (`escritaParcial` em `core/rich-doc.ts`, com a escrita de antes):
+    as linhas do começo e do fim iguais à escrita de antes (a mesma escrita, a mesma chave, a mesma quebra
+    depois) ficam como foram lidas, e o trecho do meio, alargado até duas fronteiras seguras (o começo ou o
+    fim do texto, ou uma linha sem recuo logo depois de uma linha vazia), é lido sozinho; só o jeito
+    enxuto, e o bloco de código aberto no trecho lê tudo; o que não volta igual cai na trava de sempre, do
+    texto inteiro; (2) **a chave de cada linha contada uma vez** (um `WeakMap` em `chave`; as linhas não
+    mudam depois de feitas) e a linha com a fonte guardada por nó na escrita do Visual (`comFonte`). Na
+    build de produção (puppeteer, `.angular/pptr/visual-r8.mjs medida`, o tempo da tecla até o segundo quadro
+    depois dela): Visual 34 ms de mediana (p90 42), Markdown 23 ms (p90 28); com a CPU 4× mais lenta, Visual
+    190 ms (p90 207), Markdown 101 ms (p90 109). Antes da trava parcial, com a medida de antes (o quadro e um
+    `setTimeout`), o Visual dava 42 ms contra 28 do Markdown. A diferença que sobra é o ProseMirror (o
+    despacho e o redesenho de uma folha de 3.676 nós: o estilo e o leiaute nativos pesam uns 10 ms por letra
+    a mais que a `<textarea>`) e a prévia, que é a mesma nos dois modos. O editor abre essa nota em ~530 ms.
+  - **Decidido nesta rodada**: (1) **a comparação é por blocos do tradutor, com a chave**, e não pelas
+    linhas cruas: um nó pode ser várias linhas (a tabela, o código, o cru), e a mesma linha muda de sentido
+    pelo contexto. (2) **A folha pequena não é destruída** enquanto a grande existe (ela já ficava escondida
+    e parada, `ativo` falso): ela recebe o estado da grande ao fechar; as peças da grande são criadas de
+    novo, como o plano dizia. (3) **O Enter no widget selecionado continua abrindo a linha embaixo** (5.13 e
+    a rodada 5), e não o "Editar" que a 5.22 dizia: pelo teclado, o Tab leva à tirinha, com o Editar. (4)
+    **A letra mínima do iPhone**: o zoom ao tocar olha a letra do elemento que recebe o foco, que é a folha
+    inteira (18 px); o sutil (15,3 px), o cabeçalho e as tabelas de letra menor ficam como a leitura (sem
+    mudar a cara só no iPhone). Se o aparelho mostrar zoom, entra a regra só do iPhone (o mínimo de 16 px
+    nessas partes), como a da legenda das peças. (5) **A trava parcial** (acima), conferida por um fuzz com
+    semente fixa que compara, a cada mexida, a escrita com a trava parcial e a do texto inteiro (iguais em
+    tudo: o texto, o exato, as chaves, as fontes, os inícios). (6) **A medida pelos quadros**: o primeiro
+    roteiro media a tecla até um `setTimeout` depois do quadro, e com a CPU lenta o Visual dava segundos;
+    não era a folha atrasando, eram os `setTimeout` da página esperando na fila atrás da entrada e do
+    desenho (o Chrome os deixa por último). Fica anotado: com a CPU lenta e uma nota enorme, o que a página
+    faz por `setTimeout` (o ProseMirror usa alguns) atrasa enquanto se digita rápido.
+  - **Conferido**: os specs novos (em `visual-editor.spec.ts`: a colega na linha 5 com o cursor na 2, os
+    nós iguais que ficam, o Ctrl+Z que não desfaz o dela, o acrescentar da AI no fim enquanto se escreve, a
+    linha do cursor mudada por fora, a quebra `\r\n` que fica, a linha que vira corpo de item, a tabela com
+    uma fileira nova, o `recomeca`, a tela cheia de uma folha para a outra com o desfazer, a saída
+    `cursor`; em `rich-editor.visual.spec.ts`: a tela cheia de verdade, com o desfazer nos dois sentidos, o
+    `reset` que recomeça o desfazer, o `caret` do Visual e da `<textarea>`, o A1; em
+    `review-editor.preview.spec.ts`: a prévia que segue o cursor do Visual; em `rich-doc.spec.ts`: o fuzz da
+    trava parcial), a suíte inteira (2795 de 2795; numa rodada antes, um teste das peças caiu com o "ResizeObserver
+    loop completed with undelivered notifications", que passou sozinho três vezes e na rodada seguinte),
+    `npx ng build` e o roteiro do puppeteer na build de produção (`.angular/pptr/visual-r8.mjs`, fora do git,
+    que é também o smoke: o Markdown escrito por fora troca só a linha dele (41 dos 42 nós ficam os mesmos) e
+    o Ctrl+Z do Visual não o desfaz; a tela cheia desfaz o que se escreveu na pequena, e a pequena, o da
+    grande; a prévia da Ficha inteira vai até o cursor no fim e volta ao alto; a letra; e, com a identidade
+    do Pixel 5, a régua presa sobre o cursor e quem rola), no computador e no celular simulado, sem erro no
+    console, com as fotos de perto.
+  - **Fica para o aparelho de verdade**: (1) **o zoom do iPhone** ao tocar na folha, num sutil e numa célula
+    de tabela (a decisão 4); (2) a régua presa em cima do teclado de verdade, com o cursor nunca atrás dela
+    (o `scrollMargin`), escrevendo no fim de uma nota comprida e numa tabela; (3) a mudança de fora com o
+    teclado aberto e compondo (a colega mexe enquanto o Gboard sublinha uma palavra: o nó da linha de quem
+    escreve não deve ser trocado no meio da composição; aqui só se confere sem composição); (4) a tela
+    cheia no celular com o teclado aberto (o desfazer junto, o cursor no mesmo lugar); (5) **a nota enorme
+    num celular de verdade** (a medida acima é de um computador, com a CPU 4× mais lenta simulada); (6) o
+    leitor de tela (o TalkBack e o VoiceOver: a folha, a caixinha, o widget, o contador).
+- Próximo: a rodada 9, para todos (tira o "em teste", o padrão da P2, as Novidades, a REGRA DO VISUAL nos
+  cabeçalhos, o script nas notas reais de novo, a lista dos aparelhos inteira).
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

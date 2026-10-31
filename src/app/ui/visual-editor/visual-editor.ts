@@ -293,6 +293,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
    * com o estado para a outra folha (a tela cheia): os nós são os mesmos.
    */
   private fontes = new WeakMap<PMNode, Fonte>();
+  /** A linha de cada nó com a fonte nova (a mesma enquanto a fonte for a mesma: a chave dela fica contada). */
+  private readonly comFonte = new WeakMap<PMNode, LinhaDoc>();
   private docEscrito?: PMNode;
   private escrita?: Escrita;
   private ultimoEstado = '';
@@ -882,9 +884,12 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     doc.forEach((n) => {
       const l = linhaDe(n);
       const f = n.type === N['cru'] ? undefined : this.fontes.get(n);
-      linhas.push(f ? { ...l, fonte: f } : l);
+      let c = f ? this.comFonte.get(n) : l;
+      if (f && c?.fonte !== f) this.comFonte.set(n, (c = { ...l, fonte: f }));
+      linhas.push(c!);
     });
-    const e = docToText({ linhas, quebra: this.quebra });
+    // a trava lê só o trecho mexido desde a escrita de antes (ver `escritaParcial`)
+    const e = docToText({ linhas, quebra: this.quebra }, this.escrita);
     if (e.exato)
       doc.forEach((n, _, i) => {
         const f = e.doc.linhas[i]?.fonte;

@@ -382,6 +382,44 @@ describe('o tradutor do modo Visual (core/rich-doc.ts)', () => {
     expect(crus).toBeLessThan(10);
   });
 
+  it('fuzz: a trava só no trecho mexido (a escrita de antes) dá o mesmo que ler o texto inteiro', () => {
+    const r = rng(20261030);
+    const pick = <T>(a: readonly T[]) => a[Math.floor(r() * a.length)];
+    const LINHAS = ['', '', '', 'texto', '  recuado', '- item', '  - de dentro', '1. um', '- [ ] tarefa', '# título', '> citação', '-# sutil', '---', '```', '~~~', '| a | b |', '| --- | --- |', '| 1 | 2 |', '{{tabela: listrada}}', '{{contador: 1/1/2030}}', '**forte**', '\tcom tab', 'fim'];
+    const sem = (l: LinhaDoc): LinhaDoc => {
+      const { fonte: _, ...resto } = l;
+      return resto as LinhaDoc;
+    };
+    const novas = () => textToDoc(Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(LINHAS)).join('\n')).linhas.map(sem);
+    const resumo = (e: ReturnType<typeof docToText>) => JSON.stringify([e.texto, e.exato, e.inicios, e.doc.linhas.map((l) => [chave(l), l.fonte?.texto, l.fonte?.fim])]);
+    let parciais = 0;
+    let passos = 0;
+    for (let n = 0; n < 300; n++) {
+      const t = Array.from({ length: 3 + Math.floor(r() * 25) }, () => pick(LINHAS)).join(pick(['\n', '\n', '\r\n']));
+      let antes = docToText(textToDoc(t));
+      if (!antes.exato) continue;
+      for (let passo = 0; passo < 6 && antes.exato; passo++) {
+        const linhas = [...antes.doc.linhas];
+        const i = Math.floor(r() * linhas.length);
+        const op = r();
+        const l = linhas[i];
+        if (op < 0.4 && 'spans' in l) linhas[i] = { ...l, spans: [...l.spans, { text: pick(['a', ' x', '|', '*', '`']) }] } as LinhaDoc;
+        else if (op < 0.65) linhas.splice(i, 0, ...novas());
+        else if (op < 0.85 && linhas.length > 1) linhas.splice(i, 1);
+        else linhas.splice(i, 1, ...novas());
+        const doc = { linhas, quebra: antes.doc.quebra };
+        const tudo = docToText(doc);
+        const parcial = docToText(doc, antes);
+        passos++;
+        if (parcial.doc.linhas[0] === antes.doc.linhas[0] && parcial !== antes) parciais++;
+        expect(resumo(parcial)).withContext(`${JSON.stringify(t)} passo ${passo}`).toBe(resumo(tudo));
+        antes = parcial;
+      }
+    }
+    // a trava parcial vale numa boa parte das mexidas (as outras leem tudo)
+    expect(parciais / passos).withContext(`${parciais} de ${passos}`).toBeGreaterThan(0.2);
+  });
+
   it('fuzz: linhas sorteadas, escritas e lidas de volta, dão a mesma linha (fora os casos sabidos)', () => {
     const r = rng(7);
     const pick = <T>(a: readonly T[]) => a[Math.floor(r() * a.length)];

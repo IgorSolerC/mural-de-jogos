@@ -102,8 +102,24 @@ function chaveSpans(spans: readonly Span[]): unknown[] {
   return juntarSpans(spans).map((s) => [s.text, mascara(s), s.code ? 1 : 0, s.link ? 1 : 0, s.ref ?? '', s.href ?? '']);
 }
 
+/**
+ * A chave de cada linha já contada. As linhas não mudam depois de feitas (mexer é fazer outra), e a escrita
+ * pergunta a chave de cada uma várias vezes a cada tecla (a fonte vale? a trava leu igual?): numa nota de
+ * milhares de linhas, contar de novo era o que mais pesava (a medida da rodada 8).
+ */
+const CHAVES = new WeakMap<LinhaDoc, string>();
+
 /** A chave de uma linha: o tipo, os atributos e as letras com as marcas, sem a fonte. Duas linhas iguais têm a mesma. */
 export function chave(l: LinhaDoc): string {
+  let k = CHAVES.get(l);
+  if (k === undefined) {
+    k = contaChave(l);
+    CHAVES.set(l, k);
+  }
+  return k;
+}
+
+function contaChave(l: LinhaDoc): string {
   switch (l.kind) {
     case 'linha':
     case 'citacao':
@@ -248,7 +264,11 @@ function lerLinhas(texto: string): { linhas: LinhaDoc[]; quebra: string } {
   const linhas = out.map(({ de, ate, linha }) => {
     let fonte = cruas[de];
     for (let i = de + 1; i <= ate; i++) fonte += quebras[i - 1] + cruas[i];
-    return { ...linha, fonte: { texto: fonte, fim: quebras[ate], chave: chave(linha) } } as LinhaDoc;
+    const k = chave(linha);
+    const l = { ...linha, fonte: { texto: fonte, fim: quebras[ate], chave: k } } as LinhaDoc;
+    // a mesma linha com a fonte: a mesma chave, sem contar de novo
+    CHAVES.set(l, k);
+    return l;
   });
   return { linhas, quebra: quebraMaisUsada(quebras) };
 }
@@ -733,8 +753,10 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
  * de traços embaixo de uma com "|" vira tabela), um recuo vira corpo de item. Se o que volta não é o
  * documento, as linhas escritas de novo saem com as barras todas; se ainda assim não volta, a escrita
  * diz que não é exata, e `doc` é o que o leitor leu (a tela se ajusta a ele).
+ *
+ * Com a escrita de antes (`antes`, exata), a trava lê só o trecho mexido, se der (ver `escritaParcial`).
  */
-export function docToText(doc: Doc): Escrita {
+export function docToText(doc: Doc, antes?: Escrita): Escrita {
   const dadas = doc.linhas.length ? doc.linhas : [{ kind: 'linha', recuo: 0, spans: [] } as LinhaDoc];
   // sem mudança desde a leitura (comparada antes de normalizar), a linha sai pela fonte
   const pelaFonte = dadas.map((l) => !!l.fonte && l.fonte.chave === chave(l));
@@ -749,6 +771,8 @@ export function docToText(doc: Doc): Escrita {
     return texto;
   };
   const alvo = linhas.map(chave);
+  const parcial = antes?.exato ? escritaParcial(doc.quebra, linhas, pelaFonte, alvo, antes) : null;
+  if (parcial) return parcial;
   let texto = '';
   let lido: Doc = { linhas: [], quebra: doc.quebra };
   let exato = false;
@@ -760,6 +784,54 @@ export function docToText(doc: Doc): Escrita {
     if (exato) break;
   }
   return { texto, exato, doc: lido, inicios: iniciosDe(lido) };
+}
+
+/**
+ * A trava só no trecho mexido (a medida da rodada 8: numa nota de milhares de linhas, ler o texto inteiro
+ * a cada tecla era o que mais pesava). As linhas do começo e do fim que continuam iguais à escrita de antes
+ * (a mesma escrita, a mesma chave, a mesma quebra depois) ficam como foram lidas; o trecho do meio, alargado
+ * até duas fronteiras seguras, é lido sozinho. Fronteira segura: o começo ou o fim do texto, ou uma linha
+ * sem recuo logo depois de uma linha vazia. O leitor não leva nada por cima dela: a tabela acaba na linha
+ * vazia, o corpo do item precisa de recuo, a citação, o sutil e o parágrafo são linha a linha, e o bloco de
+ * código é um nó só (o fechado fica inteiro de um lado; o aberto vai até o fim do texto, e por isso o aberto
+ * no trecho lê o texto inteiro). Só o jeito enxuto: se o trecho não volta igual, null, e a trava lê tudo
+ * (com os outros jeitos), como sempre. O spec confere, com a semente fixa, que dá o mesmo que ler tudo.
+ */
+function escritaParcial(quebra: string, linhas: readonly LinhaDoc[], pelaFonte: readonly boolean[], alvo: readonly string[], antes: Escrita): Escrita | null {
+  const velhas = antes.doc.linhas;
+  const n = linhas.length;
+  const m = velhas.length;
+  const partes = linhas.map((l, i) => (pelaFonte[i] ? l.fonte!.texto : (escreverLinha(l, 'enxuto') ?? escreverLinha(l, 'cheio', true)!).join(quebra)));
+  const depois = (i: number) => (i < n - 1 ? linhas[i].fonte?.fim || quebra : '');
+  const igual = (i: number, j: number) => partes[i] === velhas[j].fonte!.texto && depois(i) === velhas[j].fonte!.fim && alvo[i] === chave(velhas[j]);
+  let a = 0;
+  while (a < n && a < m && igual(a, a)) a++;
+  if (a === n && n === m) return antes;
+  let b = 0;
+  while (b < n - a && b < m - a && igual(n - 1 - b, m - 1 - b)) b++;
+  const segura = (i: number) => i === 0 || i === n || (partes[i - 1] === '' && partes[i] !== '' && !/^[ 	]/.test(partes[i]));
+  let de = a;
+  while (!segura(de)) de--;
+  let ate = n - b;
+  while (!segura(ate)) ate++;
+  const ateVelha = m - (n - ate);
+  // o trecho sozinho
+  let trecho = '';
+  for (let i = de; i < ate; i++) trecho += partes[i] + (i < ate - 1 ? depois(i) : '');
+  const lido = textToDoc(trecho).linhas;
+  if (lido.length !== ate - de || lido.some((l, k) => chave(l) !== alvo[de + k] || (l.kind === 'codigo' && l.aberto && ate < n))) return null;
+  // a última linha do trecho, lida no fim dele, leva a quebra que vem depois dela no texto
+  if (ate < n && lido.length) {
+    const u = lido[lido.length - 1];
+    const k = chave(u);
+    const comFim = { ...u, fonte: { ...u.fonte!, fim: depois(ate - 1) } } as LinhaDoc;
+    CHAVES.set(comFim, k);
+    lido[lido.length - 1] = comFim;
+  }
+  const inicioVelho = (j: number) => (j < m ? antes.inicios[j] : antes.texto.length);
+  const texto = antes.texto.slice(0, inicioVelho(de)) + trecho + (ate < n ? depois(ate - 1) + antes.texto.slice(inicioVelho(ateVelha)) : '');
+  const doc: Doc = { linhas: [...velhas.slice(0, de), ...lido, ...velhas.slice(ateVelha)], quebra };
+  return { texto, exato: true, doc, inicios: iniciosDe(doc) };
 }
 
 function mesmo(lido: Doc, alvo: readonly string[]): boolean {
