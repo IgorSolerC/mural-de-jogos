@@ -23,6 +23,7 @@ import { Fragment, Mark, MarkType, Node as PMNode, Slice } from 'prosemirror-mod
 import { Command, EditorState, NodeSelection, Plugin, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { Escrita, Fonte, LinhaDoc, chave, docToText, normalizarLinha, posicaoNaTabela, posicaoNoDoc, posicaoNoTexto, textToDoc } from '../../core/rich-doc';
+import { commonPairs } from '../../core/merge3';
 import { NoteLinks } from '../../core/note-links';
 import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
@@ -36,7 +37,7 @@ import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa 
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
 import { acaoTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
-import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
+import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
 import { CardFinder } from '../../core/card-finder';
 import { colar, sliceDaPlanilha } from './colar';
@@ -50,8 +51,8 @@ import { copiar } from './copiar';
  *
  * Recebe o texto (`texto`) e devolve o que a pessoa escreveu (`mudou`); a régua do editor
  * (ui/rich-editor.ts) manda as ações (`run`) e lê o estado (`estado`: as marcas ligadas, o estilo da
- * linha, o desfazer). O texto que chega de fora (outra ficha, a colega da compartilhada, a AI) refaz o
- * documento inteiro, com o cursor no mesmo lugar do texto (a troca só das linhas mudadas é da rodada 8).
+ * linha, o desfazer). O texto que chega de fora (a colega da compartilhada, outro aparelho, a AI, o
+ * Markdown) troca só os nós dos blocos mudados, fora do desfazer, com o cursor no lugar (`chega`).
  *
  * As promessas, na tela: o que aparece é o que a leitura vai mostrar (se a escrita não consegue ser
  * exata, a tela passa a mostrar o que o leitor leu); nada some (o que o Visual não sabe mudar é um
@@ -68,6 +69,16 @@ const M = schema.marks;
 const FORA = 'vis-fora';
 /** O ajuste da tela ao que o leitor leu: não volta a ser ajustado. */
 const AJUSTE = 'vis-ajuste';
+/** O texto que chegou de fora (`chega`): já é o valor de agora, não volta como `mudou`. */
+const CHEGOU = 'vis-chegou';
+
+/** O que vai na `MalaVisual`: o estado da folha e o que a escrita dela guarda. */
+interface Mala extends MalaVisual {
+  state: EditorState;
+  fontes: WeakMap<PMNode, Fonte>;
+  quebra: string;
+  ultimo: string;
+}
 
 const MARCAS: readonly (readonly [MarcaVisual, MarkType])[] = [
   ['bold', M['negrito']],
@@ -267,6 +278,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly pedeLink = output<PedidoLink>();
   /** Uma imagem colada ou solta (sem texto junto): o editor a encolhe, guarda e põe no marcador (`poeImagem`). */
   readonly imagem = output<ImagemVisual>();
+  /** Onde está o cursor (a ponta da seleção que anda), no texto guardado: a prévia da ficha vai até ele. */
+  readonly cursor = output<number>();
 
   readonly host: HTMLElement = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   private readonly appRef = inject(ApplicationRef);
@@ -275,8 +288,11 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   /** O último texto escrito (ou recebido): o que chega igual a ele não refaz nada. */
   private ultimo = '';
   private quebra = '\n';
-  /** A fonte nova de cada nó escrito de novo: a próxima escrita sai por ela, sem refazer a linha. */
-  private readonly fontes = new WeakMap<PMNode, Fonte>();
+  /**
+   * A fonte nova de cada nó escrito de novo: a próxima escrita sai por ela, sem refazer a linha. Vai junto
+   * com o estado para a outra folha (a tela cheia): os nós são os mesmos.
+   */
+  private fontes = new WeakMap<PMNode, Fonte>();
   private docEscrito?: PMNode;
   private escrita?: Escrita;
   private ultimoEstado = '';
@@ -295,12 +311,12 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   private marcas = 0;
 
   constructor() {
-    // o texto mudou por fora (outra ficha, o Markdown, a colega da compartilhada): o documento refaz
+    // o texto mudou por fora (o Markdown, a colega da compartilhada, a AI): só os blocos mudados trocam
     effect(() => {
       const texto = this.texto();
       const ativo = this.ativo();
       if (!this.view || !ativo || texto === this.ultimo) return;
-      untracked(() => this.carregar(texto));
+      untracked(() => this.chega(texto));
     });
     // o nome, o placeholder e o contador vão para os atributos e a decoração da folha
     effect(() => {
@@ -756,13 +772,103 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return EditorState.create({ doc, selection, plugins: this.plugins() });
   }
 
-  /** O texto de fora: um documento novo (o histórico recomeça), com o cursor no mesmo ponto do texto. */
-  private carregar(texto: string): void {
+  /**
+   * O texto de fora (5.19: a colega da compartilhada, outro aparelho, um pedido da AI, o que se escreveu
+   * no Markdown): os blocos do texto de antes e do que chegou são comparados (o `commonPairs` da junção),
+   * cada um pelo trecho escrito e pelo que o leitor leu nele (o mesmo trecho lido noutro contexto, como a
+   * linha que passou a ser o corpo de um item, é outro bloco), e só os nós dos blocos mudados são
+   * trocados, numa transação fora do desfazer: o Ctrl+Z não desfaz o que veio de fora, e o cursor anda
+   * com ela (o ProseMirror mapeia; o histórico também, como numa edição a muitas mãos). O bloco que não
+   * mudou continua o mesmo nó (a peça não se refaz), com a fonte nova (a quebra de depois pode ter mudado).
+   */
+  private chega(texto: string): void {
     const v = this.view!;
-    const sel = v.hasFocus() ? this.selecaoNoTexto() : null;
-    v.updateState(this.estadoDe(texto));
+    const doc = v.state.doc;
+    const e = this.escrever(doc);
+    const novo = textToDoc(texto);
+    const id = (l: LinhaDoc) => l.fonte!.texto + '\u0000' + chave(l);
+    // cada nó com o bloco que a escrita leu de volta dele (o que ainda vai se ajustar não casa com nada)
+    const velhos: (string | null)[] =
+      e.doc.linhas.length === doc.childCount
+        ? e.doc.linhas.map((l, i) => (e.exato || chave(l) === chave(normalizarLinha(linhaDe(doc.child(i)))) ? id(l) : null))
+        : Array.from({ length: doc.childCount }, () => null);
+    const pares = commonPairs(velhos, novo.linhas.map(id), (a, b) => a !== null && a === b);
+    const inicio: number[] = [];
+    let pos = 0;
+    doc.forEach((n) => {
+      inicio.push(pos);
+      pos += n.nodeSize;
+    });
+    inicio.push(pos);
+    // os trechos entre os pares: [de, até) no documento e [de, até) no que chegou
+    const trocas: [number, number, number, number][] = [];
+    let [a, b] = [0, 0];
+    for (const [i, j] of [...pares, [doc.childCount, novo.linhas.length]]) {
+      if (i > a || j > b) trocas.push([a, i, b, j]);
+      [a, b] = [i + 1, j + 1];
+    }
+    for (const [i, j] of pares) this.fontes.set(doc.child(i), novo.linhas[j].fonte!);
+    this.docEscrito = undefined;
+    this.quebra = novo.quebra;
     this.ultimo = texto;
-    if (sel) this.poeSelecao(...sel);
+    const tr = v.state.tr;
+    // de trás para a frente: as posições de antes continuam valendo
+    for (let k = trocas.length - 1; k >= 0; k--) {
+      const [de, ate, nde, nate] = trocas[k];
+      tr.replaceWith(inicio[de], inicio[ate], novo.linhas.slice(nde, nate).map(noDe));
+    }
+    if (!tr.docChanged) return this.emiteEstado();
+    // o cursor numa linha trocada por uma só (a colega mexeu na linha onde se escreve): fica no mesmo
+    // ponto dela, em vez de ir para a ponta do trecho trocado
+    const sel = v.state.selection;
+    const $c = sel.$head;
+    const t = sel instanceof TextSelection && sel.empty && $c.depth === 1 ? trocas.find(([de, ate]) => $c.index(0) >= de && $c.index(0) < ate) : undefined;
+    if (t && t[1] - t[0] === t[3] - t[2]) {
+      const j = t[2] + $c.index(0) - t[0];
+      const n = tr.doc.maybeChild(j);
+      if (n?.isTextblock) {
+        let p = 0;
+        for (let k = 0; k < j; k++) p += tr.doc.child(k).nodeSize;
+        tr.setSelection(TextSelection.create(tr.doc, p + 1 + Math.min($c.parentOffset, n.content.size)));
+      }
+    }
+    v.dispatch(tr.setMeta(CHEGOU, true).setMeta(AJUSTE, true).setMeta(FORA, true).setMeta('addToHistory', false));
+  }
+
+  // ===== A tela cheia e outra ficha =====
+
+  levaEstado(): MalaVisual {
+    const v = this.view!;
+    const mala: Mala = { mala: 'visual', state: v.state, fontes: this.fontes, quebra: this.quebra, ultimo: this.ultimo };
+    return mala;
+  }
+
+  /**
+   * O estado da outra folha, com os plugins desta (o `reconfigure` guarda os campos dos plugins de mesma
+   * chave: o desfazer, os marcadores das imagens guardando, o desenho das listas). O texto que mudou desde
+   * que ela o escreveu (ela estava escondida) entra por cima, fora do desfazer.
+   */
+  recebeEstado(mala: MalaVisual): void {
+    const v = this.view;
+    const m = mala as Mala;
+    if (!v || !m.state) return;
+    this.fontes = m.fontes;
+    this.quebra = m.quebra;
+    this.ultimo = m.ultimo;
+    this.docEscrito = undefined;
+    this.trecho = null;
+    this.alvo = null;
+    v.updateState(m.state.reconfigure({ plugins: this.plugins() }));
+    if (this.ativo() && this.texto() !== this.ultimo) this.chega(this.texto());
+    this.emiteEstado();
+  }
+
+  recomeca(): void {
+    const v = this.view;
+    if (!v) return;
+    this.trecho = null;
+    this.alvo = null;
+    v.updateState(this.estadoDe(this.ultimo));
     this.emiteEstado();
   }
 
@@ -809,12 +915,21 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       // a tela mostra o que vai ficar (fora da composição: nada mexe no documento enquanto se compõe)
       if (!v.composing && !tr.getMeta(AJUSTE)) this.ajusta();
       const e = this.escrever(v.state.doc);
-      if (e.texto !== this.ultimo) {
+      // o que chegou de fora já é o valor de agora (`chega` guardou o texto)
+      if (e.texto !== this.ultimo && !tr.getMeta(CHEGOU)) {
         this.ultimo = e.texto;
         this.mudou.emit(e.texto);
       }
     }
     this.emiteEstado();
+    if (state.doc !== antes.doc || !state.selection.eq(antes.selection)) this.emiteCursor();
+  }
+
+  /** O cursor no texto guardado, para a prévia da ficha (só à mostra: escondida, a folha não é a do cursor). */
+  private emiteCursor(): void {
+    const v = this.view;
+    if (!v || !this.ativo()) return;
+    this.cursor.emit(this.noTexto(this.escrever(v.state.doc), v.state.selection.head));
   }
 
   /**
@@ -991,6 +1106,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
           },
           focus: (_v, e) => {
             this.foco.emit(e);
+            this.emiteCursor();
             return false;
           },
           blur: (_v, e) => {

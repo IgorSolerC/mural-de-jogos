@@ -1,5 +1,5 @@
 import { Node as PMNode } from 'prosemirror-model';
-import { Command, EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
+import { Command, EditorState, Plugin, PluginKey, PluginSpec, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { Escrita } from '../../core/rich-doc';
 import { Block, bodyIndent, bodyOf, indentOf, itemEnd, lineKind, linesOf, nextNumber, ownerItem, parseRich, renumberAfter } from '../../core/rich-text';
@@ -24,10 +24,17 @@ export type TipoLista = 'ul' | 'ol' | 'check';
 // ===== O texto escrito, para perguntar ao leitor =====
 
 type Escritor = (doc: PMNode) => Escrita;
-const ESCRITOR = new PluginKey<Escritor>('vis-escritor');
+const ESCRITOR = new PluginKey('vis-escritor');
+interface SpecEscritor extends PluginSpec<unknown> {
+  escrever: Escritor;
+}
 
-/** O tradutor do Visual (o `escrever` dele, com as fontes guardadas), à mão dos comandos. */
-export const escritor = (f: Escritor): Plugin => new Plugin({ key: ESCRITOR, state: { init: () => f, apply: (_tr, v) => v } });
+/**
+ * O tradutor do Visual (o `escrever` dele, com as fontes guardadas), à mão dos comandos. Mora na spec do
+ * plugin, não no estado: o estado passa de uma folha para a outra (a tela cheia, `reconfigure`) com os
+ * campos dos plugins de mesma chave, e o escritor tem de ser o da folha de agora.
+ */
+export const escritor = (f: Escritor): Plugin => new Plugin({ key: ESCRITOR, escrever: f } as SpecEscritor);
 
 /**
  * O documento como texto, linha a linha: `linhas` (as do texto escrito), `primeira` (a linha do texto
@@ -42,7 +49,7 @@ export interface Mapa {
 }
 
 export function mapaDe(state: EditorState, doc: PMNode = state.doc): Mapa | null {
-  const escrever = ESCRITOR.getState(state);
+  const escrever = (ESCRITOR.get(state)?.spec as SpecEscritor | undefined)?.escrever;
   return escrever ? mapaDoTexto(doc, escrever) : null;
 }
 

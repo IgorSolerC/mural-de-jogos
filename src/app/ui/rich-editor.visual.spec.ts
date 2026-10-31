@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { closeHistory } from 'prosemirror-history';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { ImageStore, StoredImage } from '../core/image-store';
 import { EditorView } from 'prosemirror-view';
@@ -541,6 +542,97 @@ describe('o editor com o Visual', () => {
       expect(add).toHaveBeenCalled();
       for (let i = 0; i < 50 && value() === 'um'; i++) await wait(10);
       expect(value()).toBe('um\n{{imagem: murall://imagem/' + ID + '}}');
+    });
+  });
+
+  describe('em volta (a rodada 8)', () => {
+    /** O ProseMirror da folha grande (na tela cheia) ou da pequena. */
+    const pmDe = (grande: boolean): EditorView =>
+      (fixture.debugElement.queryAll(By.css('app-visual-editor')).find((d) => (d.nativeElement as HTMLElement).classList.contains('vis-grande') === grande)!.componentInstance as { view: EditorView }).view;
+    // cada escrita é um passo do desfazer (sem juntar com a de antes, como depois de uma pausa)
+    const escreve = (v: EditorView, t: string) => {
+      v.dispatch(closeHistory(v.state.tr.insertText(t, v.state.selection.from)));
+      fixture.detectChanges();
+    };
+
+    it('a tela cheia nasce com o mesmo estado da pequena (o desfazer junto) e o devolve ao sair (5.21)', async () => {
+      await make('um');
+      select(3);
+      escreve(pm(), ' dois');
+      expect(value()).toBe('um dois');
+      button('Tela cheia').click();
+      await settle();
+      for (let i = 0; i < 300 && !fixture.nativeElement.querySelector('dialog .visual.grande .ProseMirror'); i++) {
+        await wait(10);
+        fixture.detectChanges();
+      }
+      await settle();
+      await wait();
+      const g = pmDe(true);
+      expect(g.state.doc).toBe(pmDe(false).state.doc);
+      expect(fixture.componentInstance['visualState']().desfazer).toBeTrue();
+      escreve(g, '!');
+      expect(value()).toBe('um dois!');
+      button('Sair da tela cheia').click();
+      for (let i = 0; i < 100 && fixture.nativeElement.querySelector('dialog .visual.grande'); i++) {
+        await wait(10);
+        fixture.detectChanges();
+      }
+      await settle();
+      await wait();
+      // a pequena continua da grande: o desfazer tira o "!" e depois o " dois"
+      const api = fixture.componentInstance['visualOf'](false)!;
+      expect(pm().state.doc.textContent).toBe('um dois!');
+      api.run('undo');
+      expect(value()).toBe('um dois');
+      api.run('undo');
+      expect(value()).toBe('um');
+    });
+
+    it('outra ficha (reset): o desfazer do Visual recomeça, e o texto dela chega fora dele', async () => {
+      await make('a');
+      select(2);
+      escreve(pm(), 'b');
+      expect(fixture.componentInstance['visualState']().desfazer).toBeTrue();
+      fixture.componentInstance.reset();
+      fixture.componentInstance.value.set('outra ficha');
+      await settle();
+      expect(pm().state.doc.textContent).toBe('outra ficha');
+      expect(fixture.componentInstance['visualState']().desfazer).toBeFalse();
+    });
+
+    it('o cursor (a linha do texto e a fração dela) vem do Visual e da <textarea>, e o reset o esquece', async () => {
+      await make('# Título\nabcd');
+      expect(fixture.componentInstance.caret()).toBeNull();
+      // o "ab|cd" da segunda linha (o "# " do título não aparece no Visual)
+      select(11);
+      expect(fixture.componentInstance.caret()).toEqual({ line: 1, frac: 0.5 });
+      tab('markdown').click();
+      await settle();
+      await wait();
+      area().setSelectionRange(2, 2);
+      area().dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', bubbles: true }));
+      expect(fixture.componentInstance.caret()).toEqual({ line: 0, frac: 0.25 });
+      fixture.componentInstance.reset();
+      expect(fixture.componentInstance.caret()).toBeNull();
+    });
+
+    it('a folha para o leitor de tela (A1): textbox de várias linhas, com o nome, o contador, o corretor e a língua', async () => {
+      await make('oi');
+      fixture.componentRef.setInput('max', 100);
+      await settle();
+      const folha = pm().dom;
+      expect(folha.getAttribute('role')).toBe('textbox');
+      expect(folha.getAttribute('aria-multiline')).toBe('true');
+      expect(folha.getAttribute('aria-label')).toBe('Anotação');
+      const conta = document.getElementById(folha.getAttribute('aria-describedby')!);
+      expect(conta?.classList).toContain('contagem');
+      expect(conta?.textContent).toContain('100');
+      expect(folha.getAttribute('spellcheck')).toBe('true');
+      expect(folha.getAttribute('autocapitalize')).toBe('sentences');
+      expect(folha.getAttribute('lang')).toBe('pt-BR');
+      // como a <textarea>, a folha não tem letra menor que 16 px (o zoom do iPhone ao tocar, M3)
+      expect(parseFloat(getComputedStyle(folha).fontSize)).toBeGreaterThanOrEqual(16);
     });
   });
 });

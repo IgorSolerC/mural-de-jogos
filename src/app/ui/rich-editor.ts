@@ -21,6 +21,7 @@ import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
 import type { AcaoTabela, AcaoVisual, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import { caretSpot } from './caret-follow';
 import { TableLooks } from './table-looks';
 import { TIPO_MURALL, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
@@ -434,6 +435,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 (pedeMarkdown)="switchMode(false, big, $event)"
                 (aviso)="toasts.show($event)"
                 (imagem)="putVisualImage(big, $event)"
+                (cursor)="caret.set(caretAt($event))"
               />
             } @placeholder {
               <div class="visual-chegando" [class.grande]="big" aria-busy="true">
@@ -2302,6 +2304,7 @@ export class RichEditor {
 
   /** O cursor andou (ou o texto mudou): o estilo da linha dele. */
   protected track(area: HTMLTextAreaElement): void {
+    this.caret.set(caretSpot(area.value, area.selectionDirection === 'backward' ? area.selectionStart : area.selectionEnd));
     const style = styleAt(area.value, area.selectionStart);
     this.lineStyle.set(style);
     // no bloco de código, o que está escrito é só texto: nenhuma marca vale
@@ -2484,7 +2487,13 @@ export class RichEditor {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('grande');
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Onde estava o cursor (no texto), para a folha que recebe o foco continuar do mesmo ponto. */
-  private caret: [number, number] = [0, 0];
+  private bigAt: [number, number] = [0, 0];
+  /**
+   * O cursor no texto (a linha e quanto dela ficou para trás), da folha que estiver à mostra: a
+   * <textarea> do Markdown ou o Visual. A prévia da ficha (ReviewEditor) rola até ele. Null até o cursor
+   * entrar no texto (e de novo quando o editor abre outra ficha).
+   */
+  readonly caret = signal<{ line: number; frac: number } | null>(null);
 
   // ===== Os dois jeitos de escrever: o Visual e o Markdown =====
 
@@ -2530,9 +2539,19 @@ export class RichEditor {
     return v?.host.isConnected ? v : null;
   }
 
-  /** A folha do Visual chegou: guardada, e o que esperava por ela (a seleção, o foco) acontece. */
+  /** O cursor do Visual (uma posição do texto guardado) como a prévia lê: a linha e a fração dela. */
+  protected caretAt(at: number): { line: number; frac: number } {
+    return caretSpot(this.value(), at);
+  }
+
+  /**
+   * A folha do Visual chegou: guardada, e o que esperava por ela (a seleção, o foco) acontece. A da tela
+   * cheia nasce com o estado da pequena (o documento, a seleção e o desfazer, 5.21).
+   */
   protected onVisualReady(api: VisualApi, big: boolean): void {
     this.visuals.set(big, api);
+    const small = big ? this.visualOf(false) : null;
+    if (small) api.recebeEstado(small.levaEstado());
     const p = this.visualPending;
     if (p?.big === big && this.visual()) {
       this.visualPending = null;
@@ -2783,6 +2802,9 @@ export class RichEditor {
 
   /** O editor abre outra ficha: a aba volta a ser a dos Ajustes, e o resto, ao começo. */
   reset(): void {
+    // o desfazer do Visual era da ficha de antes (as duas folhas, a grande também, que a pequena receberia)
+    for (const api of this.visuals.values()) if (api.host.isConnected) api.recomeca();
+    this.caret.set(null);
     this.visual.set(this.settings.writingMode() === 'visual');
     if (this.visual()) this.visualOpened.set(true);
     this.areaFrozen.set(null);
@@ -3008,11 +3030,11 @@ export class RichEditor {
   }
 
   protected grow(area: HTMLTextAreaElement): void {
-    this.caret = this.visual() ? (this.visualOf(false)?.selecaoNoTexto() ?? [0, 0]) : [area.selectionStart, area.selectionEnd];
+    this.bigAt = this.visual() ? (this.visualOf(false)?.selecaoNoTexto() ?? [0, 0]) : [area.selectionStart, area.selectionEnd];
     this.big.set(true);
     this.dialog().nativeElement.showModal();
     // a folha grande nasce no próximo desenho: o foco vai para ela, no mesmo ponto do texto
-    if (this.visual()) this.visualAt(true, this.caret);
+    if (this.visual()) this.visualAt(true, this.bigAt);
     else setTimeout(() => this.focusAt(`#${this.areaId}-grande`));
   }
 
@@ -3036,13 +3058,15 @@ export class RichEditor {
   protected onClosed(): void {
     const big = this.host.nativeElement.querySelector<HTMLTextAreaElement>(`#${this.areaId}-grande`);
     const visual = this.visual() ? this.visualOf(true) : null;
-    if (visual) this.caret = visual.selecaoNoTexto();
-    else if (big && !this.visual()) this.caret = [big.selectionStart, big.selectionEnd];
+    if (visual) this.bigAt = visual.selecaoNoTexto();
+    else if (big && !this.visual()) this.bigAt = [big.selectionStart, big.selectionEnd];
+    // a folha pequena do Visual continua do estado da grande (o desfazer junto), antes de voltar a valer
+    const from = this.visualOf(true);
+    const small = this.visualOf(false);
+    if (from && small) small.recebeEstado(from.levaEstado());
     this.big.set(false);
     this.docked.set(null);
-    // a folha pequena do Visual volta a valer com o texto da grande (o histórico fica com a grande:
-    // a mesma folha nas duas é da rodada 8)
-    if (this.visual()) this.visualAt(false, this.caret);
+    if (this.visual()) this.visualAt(false, this.bigAt);
     else this.focusAt(`#${this.areaId}`);
   }
 
@@ -3050,7 +3074,7 @@ export class RichEditor {
     const el = this.host.nativeElement.querySelector<HTMLTextAreaElement>(selector);
     if (!el) return;
     el.focus({ preventScroll: true });
-    el.setSelectionRange(...this.caret);
+    el.setSelectionRange(...this.bigAt);
   }
 
   protected onKey(e: KeyboardEvent, area: HTMLTextAreaElement, big = false): void {

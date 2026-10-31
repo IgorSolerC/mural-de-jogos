@@ -1,5 +1,8 @@
 import { WritableSignal, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { Selection } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
 import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { Settings } from '../core/settings';
@@ -197,6 +200,33 @@ describe('o editor: a prévia reta e a ficha inteira', () => {
     // de volta ao começo: o alto da ficha também
     area.setSelectionRange(0, 0);
     area.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    await settled(slot);
+    expect(slot.scrollTop).toBe(0);
+  });
+
+  it('escrevendo no Visual, a coluna da prévia também vai até o cursor da folha (o `caret` do editor)', async () => {
+    TestBed.inject(Settings).writingMode.set('visual');
+    wide();
+    await open(note(LONG));
+    button().click();
+    await fixture.whenStable();
+    const palco = el.querySelector<HTMLElement>('.palco')!;
+    palco.style.cssText = 'display: block; width: 360px';
+    const slot = el.querySelector<HTMLElement>('.previa-slot')!;
+    slot.style.cssText = 'height: 200px; overflow-y: auto';
+    // o Visual chega num pedaço à parte
+    for (let i = 0; i < 300 && !el.querySelector('app-rich-editor .ProseMirror'); i++) await new Promise((r) => setTimeout(r, 10));
+    await fixture.whenStable();
+    const v = (fixture.debugElement.query(By.css('app-visual-editor')).componentInstance as { view: EditorView }).view;
+    v.focus();
+    v.dispatch(v.state.tr.setSelection(Selection.atEnd(v.state.doc)));
+    await settled(slot);
+    const last = card().querySelector<HTMLElement>('[data-l="39"]')!.getBoundingClientRect();
+    const view = slot.getBoundingClientRect();
+    expect(slot.scrollTop).toBeGreaterThan(0);
+    expect(last.top).toBeGreaterThanOrEqual(view.top);
+    expect(last.bottom).toBeLessThanOrEqual(view.bottom);
+    v.dispatch(v.state.tr.setSelection(Selection.atStart(v.state.doc)));
     await settled(slot);
     expect(slot.scrollTop).toBe(0);
   });

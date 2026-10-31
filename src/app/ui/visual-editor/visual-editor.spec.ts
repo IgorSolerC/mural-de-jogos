@@ -639,6 +639,147 @@ describe('o modo Visual do texto', () => {
       expect(view.state.doc.textContent).toBe('b');
     });
 
+    describe('o texto que muda por fora (5.19)', () => {
+      /** O texto chega de fora (a colega, outro aparelho, a AI), como o editor manda. */
+      async function chega(t: string): Promise<void> {
+        fixture.componentRef.setInput('texto', t);
+        fixture.detectChanges();
+        await fixture.whenStable();
+      }
+      const nos = () => Array.from({ length: view.state.doc.childCount }, (_, i) => view.state.doc.child(i));
+
+      it('a colega muda a linha 5 com o cursor na 2: o cursor fica, as outras linhas são os mesmos nós (S1), e o Ctrl+Z não desfaz o dela (S2)', async () => {
+        await make('um\ndois\ntrês\nquatro\ncinco\nseis');
+        noTexto(5);
+        digita('X');
+        expect(texto()).toBe('um\ndoXis\ntrês\nquatro\ncinco\nseis');
+        const antes = nos();
+        await chega('um\ndoXis\ntrês\nquatro\nCINCO, da colega\nseis');
+        // não volta como escrito aqui
+        expect(texto()).toBe('um\ndoXis\ntrês\nquatro\ncinco\nseis');
+        expect(fixture.componentInstance.selecaoNoTexto()).toEqual([6, 6]);
+        const depois = nos();
+        for (const i of [0, 1, 2, 3, 5]) expect(depois[i]).withContext(`linha ${i}`).toBe(antes[i]);
+        expect(depois[4]).not.toBe(antes[4]);
+        expect(depois[4].textContent).toBe('CINCO, da colega');
+        // o desfazer tira o X, e a linha da colega fica
+        expect(estado?.desfazer).toBeTrue();
+        fixture.componentInstance.run('undo');
+        expect(texto()).toBe('um\ndois\ntrês\nquatro\nCINCO, da colega\nseis');
+        expect(estado?.desfazer).toBeFalse();
+      });
+
+      it('a AI acrescenta no fim (o acrescentar_na_nota) enquanto se escreve: o cursor fica, e o que se escreve depois entra junto (S4)', async () => {
+        await make('Compras\n- pão');
+        noTexto(13);
+        digita('zinho');
+        await chega('Compras\n- pãozinho\n- leite\n- café');
+        expect(tipos()).toEqual(['linha', 'item', 'item', 'item']);
+        expect(fixture.componentInstance.selecaoNoTexto()).toEqual([18, 18]);
+        digita('!');
+        expect(texto()).toBe('Compras\n- pãozinho!\n- leite\n- café');
+      });
+
+      it('a linha onde se escreve, mudada por fora: o cursor fica no mesmo ponto dela', async () => {
+        await make('abc\ndef');
+        noTexto(6);
+        await chega('abc\nDEFG');
+        expect(fixture.componentInstance.selecaoNoTexto()).toEqual([6, 6]);
+        expect(view.state.doc.child(1).textContent).toBe('DEFG');
+      });
+
+      it('a linha que fica guarda a quebra nova (o \\r\\n de quem escreveu)', async () => {
+        await make('a\r\nb');
+        await chega('a\r\nb\r\nc');
+        noTexto(4);
+        digita('x');
+        expect(texto()).toBe('a\r\nbx\r\nc');
+      });
+
+      it('um bloco que muda de sentido por causa da linha de cima (a linha que vira corpo de item) é trocado', async () => {
+        await make('texto\n  recuado');
+        await chega('- item\n  recuado');
+        expect(tipos()).toEqual(['item', 'linha']);
+        noTexto(16);
+        digita('!');
+        expect(texto()).toBe('- item\n  recuado!');
+      });
+
+      it('a tabela de outra pessoa com uma fileira nova: só a tabela é trocada, o cursor continua na linha de cima', async () => {
+        await make('topo\n| a | b |\n| --- | --- |\n| 1 | 2 |\nfim');
+        noTexto(2);
+        const antes = nos();
+        await chega('topo\n| a | b |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\nfim');
+        expect(tipos()).toEqual(['linha', 'tabela', 'linha']);
+        expect(nos()[0]).toBe(antes[0]);
+        expect(nos()[2]).toBe(antes[2]);
+        expect(view.state.doc.child(1).childCount).toBe(3);
+        expect(fixture.componentInstance.selecaoNoTexto()).toEqual([2, 2]);
+      });
+
+      it('outra ficha (recomeca): o desfazer começa vazio, e o texto novo chega fora dele', async () => {
+        await make('a');
+        noTexto(1);
+        digita('b');
+        expect(estado?.desfazer).toBeTrue();
+        fixture.componentInstance.recomeca();
+        await chega('outra ficha');
+        expect(estado?.desfazer).toBeFalse();
+        fixture.componentInstance.run('undo');
+        expect(view.state.doc.textContent).toBe('outra ficha');
+      });
+
+      it('a tela cheia: a outra folha continua do estado desta, com o desfazer, e devolve ao sair (5.21)', async () => {
+        await make('um');
+        noTexto(2);
+        digita(' dois');
+        const pequena = fixture.componentInstance;
+        const g = TestBed.createComponent(VisualEditor);
+        g.componentRef.setInput('texto', 'um dois');
+        g.componentRef.setInput('grande', true);
+        let daGrande: string | null = null;
+        g.componentInstance.mudou.subscribe((t) => {
+          daGrande = t;
+          g.componentRef.setInput('texto', t);
+        });
+        document.body.appendChild(g.nativeElement);
+        g.detectChanges();
+        await g.whenStable();
+        g.componentInstance.recebeEstado(pequena.levaEstado());
+        const gv = (g.componentInstance as unknown as { view: EditorView }).view;
+        expect(gv.state.doc).toBe(view.state.doc);
+        expect(g.componentInstance.selecaoNoTexto()).toEqual([7, 7]);
+        // o desfazer da pequena vale na grande
+        g.componentInstance.run('undo');
+        expect(daGrande!).toBe('um');
+        g.componentInstance.run('redo');
+        gv.dispatch(gv.state.tr.insertText('!', gv.state.selection.from));
+        expect(daGrande!).toBe('um dois!');
+        // de volta: a pequena continua da grande (e desfaz o que se escreveu nela); o valor é um só
+        fixture.componentRef.setInput('texto', daGrande);
+        pequena.recebeEstado(g.componentInstance.levaEstado());
+        g.destroy();
+        expect(view.state.doc.textContent).toBe('um dois!');
+        pequena.run('undo');
+        expect(texto()).toBe('um dois');
+      });
+
+      it('o cursor anda e o texto muda: a folha conta onde ele está no texto guardado (a prévia vai até ele)', async () => {
+        await make('# Título\num **forte** aqui');
+        const cursores: number[] = [];
+        fixture.componentInstance.cursor.subscribe((c) => cursores.push(c));
+        noTexto(21);
+        expect(cursores.at(-1)).toBe(21);
+        digita('x');
+        expect(cursores.at(-1)).toBe(22);
+        // escondida (na aba Markdown), ela não conta
+        fixture.componentRef.setInput('ativo', false);
+        fixture.detectChanges();
+        noTexto(0);
+        expect(cursores.at(-1)).toBe(22);
+      });
+    });
+
     it('a seleção vai e volta pelas posições do texto, com as marcas no meio', async () => {
       const t = 'um **negrito** e `x`\n# título';
       await make(t);

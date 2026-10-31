@@ -363,9 +363,6 @@
             <label [for]="texto.areaId" [class]="notes() ? 'sr-only' : 'pergunta'">{{ notes() ? 'Anotação' : 'O que achou?' }}</label>
             <app-rich-editor
               #texto
-              (focusin)="caretFrom($event)"
-              (click)="followSoon()"
-              (keyup)="followSoon()"
               [class.anotacao]="notes()"
               [label]="notes() ? 'Anotação' : 'O que achou?'"
               [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o nome)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"

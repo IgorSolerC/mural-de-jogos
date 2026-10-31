@@ -128,6 +128,20 @@ export interface VisualApi {
   tiraMarca(marca: number): void;
   /** O endereço de uma imagem trocado em todo widget que o tem (a de outra pessoa virou cópia sua). */
   trocaImagem(de: string, para: string): boolean;
+  /**
+   * O estado da folha (o documento, a seleção, o desfazer), para a outra folha continuar dele: a tela
+   * cheia nasce com o estado da pequena e o devolve ao fechar (5.21).
+   */
+  levaEstado(): MalaVisual;
+  /** Continua do estado da outra folha, com o desfazer dela; o texto que mudou desde então entra por cima, fora do desfazer. */
+  recebeEstado(mala: MalaVisual): void;
+  /** O editor abriu outra ficha: o desfazer recomeça vazio (o texto novo chega depois, fora dele). */
+  recomeca(): void;
+}
+
+/** O estado de uma folha do Visual, levado para a outra (só o Visual sabe o que tem dentro). */
+export interface MalaVisual {
+  readonly mala: 'visual';
 }
 
 /** Uma imagem colada ou solta na folha do Visual: o arquivo e o marcador do lugar dela. */

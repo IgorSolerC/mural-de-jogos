@@ -100,7 +100,7 @@ import { VerdictPicker } from './verdict';
 import { napWall } from '../core/wall-settle';
 import { readText, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
-import { anchorFor, caretSpot, caretY, scrollToShow } from './caret-follow';
+import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
 import { canManage } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
@@ -853,9 +853,15 @@ export class ReviewEditor {
       }),
     );
   });
-  /** O campo do texto onde o cursor esteve por último (a régua tira o foco dele, não o cursor). */
-  private caretArea: HTMLTextAreaElement | null = null;
   private followFrame = 0;
+  /**
+   * O cursor andou no texto (no Markdown ou no Visual, na folha pequena ou na da tela cheia: o `caret` do
+   * RichEditor, que fica onde estava quando a régua tira o foco da folha): a prévia vai até ele.
+   */
+  private readonly followCursor = effect(() => {
+    this.writer()?.caret();
+    untracked(() => this.followSoon());
+  });
   /** O texto mudou (digitando ou pela régua): a prévia vai até o cursor depois de desenhar. */
   private readonly followText = effect(() => {
     this.text();
@@ -1062,15 +1068,9 @@ export class ReviewEditor {
     this.autoWhole.set(!!at.closest('app-rich-editor'));
   }
 
-  /** O cursor entrou num campo do texto (o de sempre ou o grande). */
-  protected caretFrom(e: Event): void {
-    if (e.target instanceof HTMLTextAreaElement) this.caretArea = e.target;
-    this.followSoon();
-  }
-
   /** O cursor andou ou o texto mudou: no próximo quadro (já com a ficha desenhada), a prévia vai até ele. */
   protected followSoon(): void {
-    if (!this.showWhole() || !this.caretArea) return;
+    if (!this.showWhole() || !this.writer()?.caret()) return;
     cancelAnimationFrame(this.followFrame);
     this.followFrame = requestAnimationFrame(() => this.followCaret());
   }
@@ -1080,11 +1080,10 @@ export class ReviewEditor {
    * em cima e embaixo; parada, se ela já está à vista. Diz se achou a linha na ficha.
    */
   private followCaret(behavior: ScrollBehavior = reducedMotion() ? 'instant' : 'smooth'): boolean {
-    const area = this.caretArea;
-    if (!area?.isConnected || area.hidden || !this.showWhole()) return false;
+    const caret = this.writer()?.caret();
+    if (!caret || !this.showWhole()) return false;
     const slot = this.previewSlot().nativeElement;
-    const at = area.selectionDirection === 'backward' ? area.selectionStart : area.selectionEnd;
-    const { line, frac } = caretSpot(area.value, at);
+    const { line, frac } = caret;
     const spot = anchorFor(slot, line);
     if (!spot) return false;
     const top = scrollToShow(slot.scrollTop, slot.clientHeight, caretY(slot, spot, line, frac), 96);
@@ -1223,7 +1222,6 @@ export class ReviewEditor {
     };
     toTop();
     this.previewScale.set(1);
-    this.caretArea = null;
     this.autoWhole.set(false);
     // as fichas montadas fora da tela dormem enquanto o diálogo está aberto (ver core/wall-settle.ts)
     napWall();
