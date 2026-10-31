@@ -5,7 +5,7 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, GroupView, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
+import { CategoryPrefs, GroupSort, GroupView, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
 import type { Audience } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, SubjectEntry, cleanCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
@@ -54,6 +54,35 @@ const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[
 ];
 /** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
 const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
+
+/** As ordens que um grupo pode escolher para abrir, com os nomes do Ordenar da pasta. */
+const SORTS: readonly { value: GroupSort; label: string; icon: LucideIconData }[] = [
+  { value: 'prioridade', label: 'Prioridade', icon: ICON.fixar },
+  { value: 'data', label: 'Data', icon: ICON.calendario },
+  { value: 'alfabetica', label: 'Título', icon: ICON.porNome },
+  { value: 'assunto', label: 'Assunto', icon: ICON.assunto },
+  { value: 'tag', label: 'Tag', icon: ICON.etiqueta },
+  { value: 'criacao', label: 'Criação', icon: ICON.novaNota },
+  { value: 'alteracao', label: 'Alteração', icon: ICON.historico },
+  { value: 'finalizacao', label: 'Finalização', icon: ICON.concluido },
+  { value: 'tarefas', label: 'Tarefas', icon: ICON.tarefas },
+  { value: 'cor', label: 'Cor', icon: ICON.paleta },
+  { value: 'quem', label: 'Quem vê', icon: ICON.privada },
+];
+/** Como o resumo da linha do grupo diz a ordem ("Por data"). */
+const SORT_SAID: Record<GroupSort, string> = {
+  prioridade: 'Por prioridade',
+  data: 'Por data',
+  alfabetica: 'Por título',
+  assunto: 'Por assunto',
+  tag: 'Por tag',
+  criacao: 'Por criação',
+  alteracao: 'Por alteração',
+  finalizacao: 'Por finalização',
+  tarefas: 'Por tarefas',
+  cor: 'Por cor',
+  quem: 'Por quem vê',
+};
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */
 interface CategoryRow {
@@ -172,6 +201,7 @@ export class MuralConfig {
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
   protected readonly views = VIEWS;
+  protected readonly sorts = SORTS;
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
@@ -580,6 +610,7 @@ export class MuralConfig {
     if (p.audience) parts.push(`Nasce ${AUDIENCE_LABEL[p.audience]}`);
     if (p.askTag !== undefined) parts.push(p.askTag ? 'Avisa sem tag' : 'Sem aviso de tag');
     if (p.view) parts.push(`Abre em ${VIEW_SAID[p.view]}`);
+    if (p.sort) parts.push(SORT_SAID[p.sort]);
     if (p.kanbanOnly === false) parts.push('Kanban no mural também');
     return parts.join(' · ');
   }

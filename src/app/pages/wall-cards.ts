@@ -20,7 +20,7 @@ import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
 import { budget, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
 import { ASLEEP, wakePaper } from '../ui/paper-layer';
-import { ReviewCard } from '../ui/review-card';
+import { DateFrom, ReviewCard } from '../ui/review-card';
 import { isVeiled, veil } from '../ui/veil';
 import { cancelIdle, IdleDeadlineLike, whenIdle } from '../core/idle';
 
@@ -33,6 +33,8 @@ export interface WallCardProps {
   /** As fichas inteiras: o texto todo, encaixadas em colagem. */
   full: boolean;
   dayOnly: boolean;
+  /** Ordenando por criação, alteração ou finalização: a ficha mostra esse dia, e não a data dela. */
+  dateFrom: DateFrom;
   picking: boolean;
   /** A ordem das fichas marcadas para o lado a lado (id → 1, 2, 3…). */
   picked: ReadonlyMap<string, number>;
@@ -59,6 +61,7 @@ const NO_PROPS: WallCardProps = {
   capas: false,
   full: false,
   dayOnly: false,
+  dateFrom: null,
   picking: false,
   picked: new Map(),
   masked: false,
@@ -173,6 +176,10 @@ export function forgetHeights(): void {
  */
 interface Slot {
   id: string;
+  /** Onde o lugar fica guardado: o id, ou o id e a seção numa cópia (ver `place`). */
+  key: string;
+  /** A segunda vez da ficha na parede (a anotação de duas tags, ordenando por tag). */
+  copy: boolean;
   review: Review;
   /**
    * A caixa do lugar (`.lugar`): é ela que a seção arruma na parede e que os observadores olham. Reta,
@@ -301,15 +308,17 @@ export class WallCardPool implements OnDestroy {
    * Põe as fichas da seção dentro dela, na ordem: as que já existem (vaga ou ficha) só mudam de lugar;
    * as novas entram como vaga, e viram ficha se estiverem perto da tela (ver `settle`).
    */
-  place(host: HTMLElement, reviews: readonly Review[], p: WallCardProps, mosaic = false): void {
+  place(host: HTMLElement, reviews: readonly Review[], p: WallCardProps, mosaic = false, copies?: ReadonlySet<string>, section = ''): void {
     if (!this.scope.length) this.scope = Array.from(host.attributes, (a) => a.name).filter((n) => n.startsWith('_ngcontent-'));
     this.reshape(shapeOf(p));
     let i = 0;
     for (const r of reviews) {
-      let slot = this.slots.get(r.id);
-      if (!slot) slot = this.open(r);
+      // a cópia (a mesma ficha numa segunda seção) tem um lugar só dela, nesta seção
+      const key = copies?.has(r.id) ? copyKey(r.id, section) : r.id;
+      let slot = this.slots.get(key);
+      if (!slot) slot = this.open(r, key);
       slot.review = r;
-      if (slot.ref) this.apply(slot.ref, r, p);
+      if (slot.ref) this.apply(slot.ref, r, p, slot.copy);
       // a ficha que acabou de ser pregada cai na parede já: a tela vai até ela (ver Desk.land)
       else if (p.landingId === r.id) this.spawn(slot);
       const at = host.children[i] ?? null;
@@ -332,8 +341,8 @@ export class WallCardPool implements OnDestroy {
    * depois: a view transition faz a troca às escondidas e volta atrás para medir (ver
    * ViewTransitions.run), e a ficha que sai e volta na mesma hora não precisa ser montada de novo.
    */
-  keepOnly(reviews: readonly Review[]): void {
-    this.wanted = new Set(reviews.map((r) => r.id));
+  keepOnly(reviews: readonly Review[], copies: Iterable<string> = []): void {
+    this.wanted = new Set([...reviews.map((r) => r.id), ...copies]);
     if (this.sweep || [...this.slots.keys()].every((id) => this.wanted.has(id))) return;
     this.sweep = setTimeout(() => {
       this.sweep = undefined;
@@ -657,15 +666,15 @@ export class WallCardPool implements OnDestroy {
   // ===== vaga, ficha, sono =====
 
   /** Um lugar novo na parede: a caixa e, dentro dela, ainda só a vaga. */
-  private open(r: Review): Slot {
+  private open(r: Review, key: string): Slot {
     const box = document.createElement('div');
     box.className = 'lugar';
     for (const name of this.scope) box.setAttribute(name, '');
     box.setAttribute('data-lugar', r.id);
     const el = this.vaga(r);
     box.append(el);
-    const slot: Slot = { id: r.id, review: r, box, el, ref: null, asleep: false, near: false, farSince: performance.now(), napping: false };
-    this.slots.set(r.id, slot);
+    const slot: Slot = { id: r.id, key, copy: key !== r.id, review: r, box, el, ref: null, asleep: false, near: false, farSince: performance.now(), napping: false };
+    this.slots.set(key, slot);
     this.byEl.set(box, slot);
     this.near?.observe(box);
     return slot;
@@ -702,7 +711,7 @@ export class WallCardPool implements OnDestroy {
     el.setAttribute('data-ficha', r.id);
     ref.instance.opened.subscribe((id) => this.onOpen(id));
     ref.instance.toggled.subscribe((id) => this.onToggle(id));
-    this.apply(ref, r, p);
+    this.apply(ref, r, p, slot.copy);
     this.appRef.attachView(ref.hostView);
     // escondida desde já: montada fora do ciclo do Angular, a ficha poderia ser pintada lisa um quadro
     // antes de o papel dela pedir o véu
@@ -890,15 +899,17 @@ export class WallCardPool implements OnDestroy {
     });
   }
 
-  private apply(ref: ComponentRef<ReviewCard>, r: Review, p: WallCardProps): void {
+  private apply(ref: ComponentRef<ReviewCard>, r: Review, p: WallCardProps, copy: boolean): void {
     // setInput não faz nada quando o valor não mudou
     ref.setInput('review', r);
+    ref.setInput('copy', copy);
     ref.setInput('landing', p.landingId === r.id);
     ref.setInput('highlight', p.highlight);
     ref.setInput('compact', p.compact);
     ref.setInput('capas', p.capas);
     ref.setInput('full', p.full);
     ref.setInput('dayOnly', p.dayOnly);
+    ref.setInput('dateFrom', p.dateFrom);
     ref.setInput('picking', p.picking);
     ref.setInput('pickedAt', p.picked.get(r.id) ?? null);
     ref.setInput('masked', p.masked || p.secret.has(r.id));
@@ -997,12 +1008,21 @@ function writeMosaic(box: HTMLElement, fit: MosaicFit): void {
   box.style.setProperty('--inclina', String(fit.tilt));
 }
 
+/** Onde fica guardado o lugar da cópia de uma ficha numa seção (ver `WallGroup.copies`). */
+export function copyKey(id: string, section: string): string {
+  return `${id}::copia::${section}`;
+}
+
 /** As fichas de uma seção do mural (ver WallCardPool). */
 @Directive({ selector: '[appFichas]' })
 export class WallCards {
   readonly reviews = input.required<readonly Review[]>({ alias: 'appFichas' });
   /** As fichas inteiras, em colagem: mede cada ficha para ela ocupar as linhas da altura dela. */
   readonly mosaic = input(false, { alias: 'appFichasMosaico' });
+  /** As que já apareceram numa seção de antes (ordenando por tag): ganham uma cópia aqui. */
+  readonly copies = input<ReadonlySet<string> | undefined>(undefined, { alias: 'appFichasCopias' });
+  /** A chave da seção (o lugar das cópias é o da seção). */
+  readonly section = input('', { alias: 'appFichasSecao' });
 
   constructor() {
     const host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -1012,7 +1032,9 @@ export class WallCards {
       const reviews = this.reviews();
       const props = pool.props();
       const mosaic = this.mosaic();
-      untracked(() => pool.place(host, reviews, props, mosaic));
+      const copies = this.copies();
+      const section = this.section();
+      untracked(() => pool.place(host, reviews, props, mosaic, copies, section));
     });
   }
 }

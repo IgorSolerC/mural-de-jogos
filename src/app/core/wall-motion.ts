@@ -132,11 +132,18 @@ interface Place {
   box: Box;
 }
 
-/** As fichas e as etiquetas das seções do mural, onde estão agora. */
+/**
+ * As fichas e as etiquetas das seções do mural, onde estão agora. A mesma ficha pode aparecer mais de
+ * uma vez (ordenando por tag, uma em cada seção das tags dela): cada vez é uma, na ordem da página.
+ */
 function places(): Map<string, Place> {
   const out = new Map<string, Place>();
+  const times = new Map<string, number>();
   for (const el of Array.from(document.querySelectorAll<HTMLElement>('app-wall-board [data-ficha], app-wall-board .grupo-head .tape-label'))) {
-    const key = el.dataset['ficha'] ? `f:${el.dataset['ficha']}` : `g:${el.id}`;
+    const id = el.dataset['ficha'];
+    const n = id ? (times.get(id) ?? 0) : 0;
+    if (id) times.set(id, n + 1);
+    const key = id ? `f:${id}#${n}` : `g:${el.id}`;
     const r = el.getBoundingClientRect();
     if (!r.width && !r.height) continue;
     out.set(key, { el, box: { top: r.top, left: r.left, bottom: r.bottom, right: r.right } });

@@ -33,6 +33,12 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'categoria', label: 'Grupo' },
   { value: 'assunto', label: 'Assunto' },
   { value: 'tag', label: 'Tag' },
+  { value: 'criacao', label: 'Criação' },
+  { value: 'alteracao', label: 'Alteração' },
+  { value: 'finalizacao', label: 'Finalização' },
+  { value: 'tarefas', label: 'Tarefas' },
+  { value: 'cor', label: 'Cor' },
+  { value: 'quem', label: 'Quem vê' },
 ];
 
 @Component({

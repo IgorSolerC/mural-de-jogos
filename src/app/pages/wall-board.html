@@ -124,7 +124,7 @@
           @if (lista()) {
             <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [showCategory]="!view.activeTabLabel()" [boardOnly]="shownBoard()" (opened)="opened.emit($event)" />
           } @else {
-            <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()"></div>
+            <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()" [appFichasCopias]="g.copies" [appFichasSecao]="g.key"></div>
           }
         }
       </section>

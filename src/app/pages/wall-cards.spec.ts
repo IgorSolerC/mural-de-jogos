@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 import { Cloud } from '../core/cloud-config';
 import { LocalData } from '../core/local-data';
 import { Review, sanitizeReview } from '../core/review';
-import { WallCardPool, WallCardProps, forgetHeights, keptTilt } from './wall-cards';
+import { WallCardPool, WallCardProps, copyKey, forgetHeights, keptTilt } from './wall-cards';
 
 describe('a inclinação na colagem das fichas inteiras', () => {
   it('a ficha curta fica torta como sempre; a muito comprida, reta', () => {
@@ -65,6 +65,7 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     capas: false,
     full: false,
     dayOnly: false,
+    dateFrom: null,
     picking: false,
     picked: new Map(),
     masked: false,
@@ -174,6 +175,39 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     await new Promise((r) => setTimeout(r, 30));
     expect(host.children.length).toBe(4);
     expect(pool.counts.slots).toBe(4);
+  });
+
+  it('a cópia (a mesma ficha numa segunda seção) tem um lugar só dela, e sai quando a seção some', async () => {
+    const list = notes(3);
+    const other = document.createElement('div');
+    other.className = 'parede-teste';
+    document.body.append(other);
+    try {
+      pool.place(host, list, PROPS);
+      pool.place(other, [list[0]], PROPS, false, new Set([list[0].id]), 't:ideia');
+      pool.settle();
+      // a original continua na primeira seção, e a cópia é outra caixa, na segunda
+      expect(host.children.length).toBe(3);
+      expect(other.children.length).toBe(1);
+      expect(other.firstElementChild).not.toBe(host.firstElementChild);
+      expect(pool.counts.slots).toBe(4);
+      const copia = other.querySelector('app-review-card');
+      const original = host.querySelector('app-review-card');
+      expect(original?.getAttribute('style') ?? '').toContain('view-transition-name');
+      expect(copia?.getAttribute('style') ?? '').not.toContain('view-transition-name');
+      // sem a cópia na parede (a ordem mudou), o lugar dela vai embora
+      pool.keepOnly(list);
+      other.replaceChildren();
+      await new Promise((r) => setTimeout(r, 30));
+      expect(pool.counts.slots).toBe(3);
+      // com ela, fica
+      pool.place(other, [list[0]], PROPS, false, new Set([list[0].id]), 't:ideia');
+      pool.keepOnly(list, [copyKey(list[0].id, 't:ideia')]);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(pool.counts.slots).toBe(4);
+    } finally {
+      other.remove();
+    }
   });
 
   it('trocar o tipo de ficha troca a altura das vagas', () => {

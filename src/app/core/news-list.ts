@@ -27,12 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-botao-ligado-da-regua',
+    id: '2026-10-30-mais-ordens',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
     title: 'O modo Visual para todos, com tabelas, colar e copiar, e o Como anotar dos Gastos',
     melhorias: [
+      'No mural de anotações, mais jeitos de ordenar: Criação, Alteração, Finalização, Tarefas (as com mais por fazer primeiro), Cor (da cartolina) e Quem vê; e, ordenando por Tag, a anotação com mais de uma tag aparece na seção de cada uma delas.',
+      'Cada grupo pode ter a sua Ordenação padrão, nas configurações do mural (Grupos, no grupo): ele sempre abre nela, e trocar no Ordenar vale até sair dele.',
       'O modo Visual do texto saiu do teste e é o jeito de escrever que o editor abre (escrever vendo como fica, como no Docs); o Markdown, com as marcas à vista, continua a um toque, na aba do editor, e quem preferir abrir nele escolhe em Ajustes › Mural › Jeito de escrever.',
       'No modo Visual, colar do Docs, do Word, de um site ou de uma planilha mantém o negrito, o itálico, os links, os títulos, as listas e as tabelas (a fonte, a cor e o tamanho saem), e o Ctrl+Shift+V cola só as letras; copiar leva o texto limpo para o WhatsApp e o e-mail, formatado para o Docs e inteiro, com as marcas e os widgets, para outra anotação (também da aba Markdown); perto do limite, entra o que cabe, por linhas inteiras.',
       'No modo Visual, o texto que chega de outro aparelho, da colega numa compartilhada ou da AI muda só as linhas dele, sem tirar o cursor do lugar nem entrar no Ctrl+Z; a tela cheia continua o que se escrevia, com o desfazer junto; a prévia da ficha ao lado segue o cursor; e escrever numa anotação enorme ficou mais leve.',

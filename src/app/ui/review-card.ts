@@ -62,6 +62,7 @@ import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
 import { WallView } from '../core/wall-view';
+import { localDay } from '../core/dates';
 import { DoneStamp, doneDayLong } from './done-stamp';
 import { NoteTag } from './note-tag';
 import { categoryBonus } from '../core/note-labels';
@@ -71,6 +72,11 @@ import { reducedMotion } from '../core/motion';
 
 /** Quantos adesivos de bônus cabem na ficha antes de o resto virar contagem. */
 const MAX_STICKERS = 4;
+
+/** O dia que a ficha mostra quando o mural ordena por ele (ver `ReviewCard.dateFrom`); null, a data dela. */
+export type DateFrom = 'criacao' | 'alteracao' | 'finalizacao' | null;
+/** Como a linha da data diz de onde vem o dia: "criada 12 de set". */
+const DATE_WORD: Record<Exclude<DateFrom, null>, string> = { criacao: 'criada', alteracao: 'mexida', finalizacao: 'finalizada' };
 
 /** Quem vê a ficha (ver `ReviewCard.audience`): o desenho e o que ele diz. */
 const PRIVATE_MARK = { kind: 'privada', icon: ICON.privada, text: 'Privada: só você vê' } as const;
@@ -112,8 +118,9 @@ const CARD_HOST = {
   '[style.--tilt]': 'pin().tilt',
   '[style.--pin-x]': 'pinX() + "%"',
   '[style.--drop-y]': 'pin().dropY + "px"',
-  // a prévia no editor não disputa o nome com a ficha de verdade que está no mural
-  '[style.view-transition-name]': 'preview() ? null : "ficha-" + review().id',
+  // a prévia no editor não disputa o nome com a ficha de verdade que está no mural, nem a cópia (a
+  // anotação de duas tags, ordenando por tag) com a primeira vez dela na parede
+  '[style.view-transition-name]': 'preview() || copy() ? null : "ficha-" + review().id',
   '[class.vazia]': 'empty()',
   '[class.so-cartolina]': 'bare()',
   '[attr.data-capa]': 'bare() ? bareCover() : null',
@@ -230,7 +237,7 @@ export const CARD_TEMPLATE = `
                 @if (audience(); as q) {
                   <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
                 }
-                @if (review().completedAt; as day) {
+                @if (shownDay(); as day) {
                   <time [attr.datetime]="day">{{ date() }}</time>
                 }
               </span>
@@ -265,7 +272,7 @@ export const CARD_TEMPLATE = `
             @if (audience(); as q) {
               <span class="quem-ve" [title]="q.text"><lucide-icon class="quem-ve-icone" [img]="q.icon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">{{ q.text }}. </span></span>
             }
-            @if (review().completedAt; as day) {
+            @if (shownDay(); as day) {
               <time [attr.datetime]="day">{{ date() }}</time>
             } @else {
               <span>{{ date() }}</span>
@@ -1628,12 +1635,19 @@ export class ReviewCard {
   readonly paired = input(false);
   /** A seção já diz o mês e o ano: a ficha mostra só o dia. */
   readonly dayOnly = input(false);
+  /**
+   * O mural ordena por criação, alteração ou finalização: a ficha mostra esse dia ("criada 12 de set"),
+   * só o dia (a seção diz o mês), em vez da data dela, que contradiria a seção.
+   */
+  readonly dateFrom = input<DateFrom>(null);
   /** Modo de marcar fichas para o lado a lado: tocar marca em vez de abrir. */
   readonly picking = input(false);
   /** Posição da ficha no lado a lado (1, 2, 3…), ou null se não está marcada. */
   readonly pickedAt = input<number | null>(null);
   /** É a prévia no editor, a ficha sendo feita: não entra nas transições do mural. */
   readonly preview = input(false);
+  /** A segunda vez da ficha na parede (ordenando por tag, uma em cada seção): fora das transições. */
+  readonly copy = input(false);
   /** Ainda sem jogo: o nome no lugar é só um marcador, em tinta rala. */
   readonly empty = input(false);
   /** Sem spoilers (ver Settings.noSpoilers): notas em "?", bônus meio a meio e o texto embaralhado. */
@@ -1757,7 +1771,8 @@ export class ReviewCard {
   /** A ficha sai do mural; o foco que estava nela passa para a vizinha (senão cairia no nada). */
   private leave(el: HTMLElement, id: string): void {
     const had = el.contains(document.activeElement);
-    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-ficha]'));
+    // (a cópia da mesma anotação, ordenando por tag, sai junto: não serve de vizinha)
+    const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-ficha]')).filter((c) => c === el || c.dataset['ficha'] !== id);
     const at = cards.indexOf(el);
     const next = had ? (cards[at + 1] ?? cards[at - 1]) : undefined;
     this.motion.run(() => this.view.release(id));
@@ -1892,10 +1907,24 @@ export class ReviewCard {
   private readonly abaCat = viewChild<ElementRef<HTMLElement>>('abaCat');
   /** A tachinha fica no meio da ficha (42–58%), acima do nome, longe da foto. */
   protected readonly pinX = computed(() => Math.round(42 + (this.pin().pinX - 40) * 0.8));
+  /** O instante da ordem (a criação, a última mudança, a finalização), quando o mural ordena por ele. */
+  private readonly sortedAt = computed(() => {
+    const r = this.review();
+    const from = this.dateFrom();
+    return from === 'criacao' ? r.createdAt : from === 'alteracao' ? r.updatedAt : from === 'finalizacao' ? (r.doneAt ?? null) : null;
+  });
+  /** O dia que a linha da data mostra: o da ordem, ou a data da ficha. */
+  protected readonly shownDay = computed(() => {
+    const at = this.sortedAt();
+    return at ? localDay(new Date(at)) : this.review().completedAt;
+  });
   protected readonly date = computed(() => {
     const r = this.review();
+    const at = this.sortedAt();
+    const from = this.dateFrom();
     // a fixada fica na seção Fixadas, sem a etiqueta do mês: a data vai inteira
-    return formatReviewDate(r.completedAt, this.dayOnly() && r.noteRank !== 'fixada');
+    if (at && from) return `${DATE_WORD[from]} ${formatReviewDate(this.shownDay(), r.noteRank !== 'fixada')}`;
+    return formatReviewDate(r.completedAt, this.dayOnly() && !from && r.noteRank !== 'fixada');
   });
   protected readonly hours = computed(() => formatAmount(this.review().kind, this.review().hoursPlayed));
   protected readonly lead = computed(() => {

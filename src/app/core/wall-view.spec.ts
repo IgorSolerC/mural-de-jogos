@@ -236,4 +236,150 @@ describe('WallView', () => {
       expect(view.density()).toBe('completa');
     });
   });
+
+  describe('as ordens das anotações', () => {
+    const note = (id: string, name: string, extra: Record<string, unknown> = {}) =>
+      sanitizeReview({ id, kind: 'anotacoes', game: { name }, category: 'Estudos', createdAt: '2024-01-01T00:00:00.000Z', updatedAt: '2024-01-01T00:00:00.000Z', ...extra })!;
+    const names = () => view.visible().map((x) => x.game.name);
+    const sections = () => view.groups().map((g) => `${g.label}: ${g.reviews.map((x) => x.game.name).join(', ')}`);
+
+    beforeEach(() => {
+      TestBed.inject(Mural).kind.set('anotacoes');
+      view.showDone.set(true);
+    });
+
+    it('por tag, a anotação aparece na seção de cada tag dela; a segunda vez é uma cópia', () => {
+      store.reviews.update((list) => [
+        ...list,
+        note('n1', 'Dois', { tags: ['Bug', 'Ideia'], createdAt: '2024-01-03T00:00:00.000Z' }),
+        note('n2', 'Só bug', { tags: ['bug'], createdAt: '2024-01-02T00:00:00.000Z' }),
+        note('n3', 'Sem nada'),
+        note('n4', 'Só ideia', { tags: ['Ideia'], createdAt: '2024-01-04T00:00:00.000Z' }),
+      ]);
+      view.setSort('tag');
+      const dois = () => store.reviews().find((x) => x.game.name === 'Dois')!.id;
+      expect(sections()).toEqual(['#Bug: Dois, Só bug', '#Ideia: Só ideia, Dois', 'Sem tag: Sem nada']);
+      expect(view.groups()[0].copies).toBeUndefined();
+      expect([...view.groups()[1].copies!]).toEqual([dois()]);
+      // a lista do mural (a ordem, as contas) não repete
+      expect(names().length).toBe(4);
+      view.toggleDirection();
+      expect(sections()).toEqual(['#Ideia: Só ideia, Dois', '#Bug: Dois, Só bug', 'Sem tag: Sem nada']);
+      expect([...view.groups()[1].copies!]).toEqual([dois()]);
+    });
+
+    it('por tag com as fixadas no topo: a fixada fica só na seção das fixadas', () => {
+      store.reviews.update((list) => [...list, note('n1', 'Fixada', { tags: ['Bug', 'Ideia'], noteRank: 'fixada' }), note('n2', 'Comum', { tags: ['Bug'] })]);
+      view.pinnedFirst.set(true);
+      view.setSort('tag');
+      expect(sections()).toEqual(['Fixadas: Fixada', '#Bug: Comum']);
+    });
+
+    it('criação, alteração e finalização: pelo instante, em seções por mês; sem finalizar no fim', () => {
+      store.reviews.update((list) => [
+        ...list,
+        note('n1', 'Velha', { createdAt: '2024-01-05T12:00:00.000Z', updatedAt: '2024-05-05T12:00:00.000Z', doneAt: '2024-02-10T12:00:00.000Z' }),
+        note('n2', 'Nova', { createdAt: '2024-03-05T12:00:00.000Z', updatedAt: '2024-03-06T12:00:00.000Z' }),
+        note('n3', 'Meio', { createdAt: '2024-02-05T12:00:00.000Z', updatedAt: '2024-02-06T12:00:00.000Z', doneAt: '2024-04-10T12:00:00.000Z' }),
+      ]);
+      view.setSort('criacao');
+      expect(names()).toEqual(['Nova', 'Meio', 'Velha']);
+      expect(view.groups().map((g) => g.label)).toEqual(['Março de 2024', 'Fevereiro de 2024', 'Janeiro de 2024']);
+      view.toggleDirection();
+      expect(names()).toEqual(['Velha', 'Meio', 'Nova']);
+      view.setSort('alteracao');
+      expect(names()).toEqual(['Velha', 'Nova', 'Meio']);
+      view.setSort('finalizacao');
+      expect(sections()).toEqual(['Abril de 2024: Meio', 'Fevereiro de 2024: Velha', 'Não finalizadas: Nova']);
+      // sem "Mostrar finalizadas", a ordem por finalização mostra as finalizadas mesmo assim (só ela)
+      view.showDone.set(false);
+      expect(sections()).toEqual(['Abril de 2024: Meio', 'Fevereiro de 2024: Velha', 'Não finalizadas: Nova']);
+      expect(view.hiddenDone()).toBe(0);
+      view.setSort('criacao');
+      expect(names()).toEqual(['Nova']);
+      view.setSort('finalizacao');
+      view.showDone.set(true);
+      view.toggleDirection();
+      expect(sections()).toEqual(['Fevereiro de 2024: Velha', 'Abril de 2024: Meio', 'Não finalizadas: Nova']);
+    });
+
+    it('tarefas: as com mais por fazer primeiro; depois as feitas, e sem tarefa no fim', () => {
+      store.reviews.update((list) => [
+        ...list,
+        note('n1', 'Uma', { text: '- [ ] a\n- [x] b' }),
+        note('n2', 'Feitas', { text: '- [x] a' }),
+        note('n3', 'Duas', { text: '- [ ] a\n- [ ] b' }),
+        note('n4', 'Texto', { text: 'só texto' }),
+      ]);
+      view.setSort('tarefas');
+      expect(sections()).toEqual(['Com tarefas por fazer: Duas, Uma', 'Todas feitas: Feitas', 'Sem tarefas: Texto']);
+      view.toggleDirection();
+      expect(sections()).toEqual(['Com tarefas por fazer: Uma, Duas', 'Todas feitas: Feitas', 'Sem tarefas: Texto']);
+    });
+
+    it('cor (na ordem das cartolinas) e quem vê (privadas, depois públicas)', () => {
+      store.reviews.update((list) => [
+        ...list,
+        note('n1', 'Azul', { stock: 'azul', private: true }),
+        note('n2', 'Vermelha', { stock: 'vermelho' }),
+        note('n3', 'Preta', { stock: 'preto', quiet: true }),
+      ]);
+      view.setSort('cor');
+      expect(sections()).toEqual(['Vermelho: Vermelha', 'Azul: Azul', 'Preto: Preta']);
+      view.setSort('quem');
+      expect(sections()).toEqual(['Privadas: Azul', 'Públicas: Vermelha, Preta']);
+    });
+
+    it('nos murais de análises, as ordens das anotações viram data', () => {
+      view.setSort('tarefas');
+      TestBed.inject(Mural).kind.set('jogos');
+      view.setSort('criacao');
+      expect(view.shownSort()).toBe('data');
+    });
+  });
+
+  describe('a ordenação padrão do grupo (configurações do mural)', () => {
+    const note = (id: string, name: string, category: string, completedAt: string) =>
+      sanitizeReview({ id, kind: 'anotacoes', game: { name }, category, completedAt, createdAt: '2024-01-01T00:00:00.000Z' })!;
+    let settings: Settings;
+
+    beforeEach(() => {
+      settings = TestBed.inject(Settings);
+      store.reviews.update((list) => [...list, note('ntrab01', 'Daily', 'Trabalho', '2024-02-01'), note('ntrab02', 'Ata', 'Trabalho', '2024-03-01'), note('ncasa01', 'Receitas', 'Casa', '2024-01-01')]);
+      TestBed.inject(Mural).kind.set('anotacoes');
+    });
+
+    it('com padrão, o grupo sempre abre nele; trocar na régua (a ordem ou a direção) vale só até sair do grupo', () => {
+      view.setNoteTab('c:trabalho');
+      view.setSort('data');
+      settings.setCategoryPrefs('Trabalho', { sort: 'alfabetica' });
+      expect(view.groupSort()).toBe('alfabetica');
+      expect(view.shownSort()).toBe('alfabetica');
+      expect(view.direction()).toBe('asc');
+      expect(view.visible().map((x) => x.game.name)).toEqual(['Ata', 'Daily']);
+      view.toggleDirection();
+      expect(view.visible().map((x) => x.game.name)).toEqual(['Daily', 'Ata']);
+      view.setSort('criacao');
+      expect(view.shownSort()).toBe('criacao');
+      // o que a régua escolheu não vira a ordem guardada do grupo
+      expect(view.noteViews()['c:trabalho'].sort).toBe('data');
+      view.setNoteTab('c:casa');
+      expect(view.shownSort()).toBe('prioridade');
+      view.setNoteTab('c:trabalho');
+      expect(view.shownSort()).toBe('alfabetica');
+      expect(view.direction()).toBe('asc');
+    });
+
+    it('tirar o padrão volta à última usada no grupo; nos murais de análises, não vale', () => {
+      view.setNoteTab('c:trabalho');
+      view.setSort('data');
+      settings.setCategoryPrefs('Trabalho', { sort: 'tag' });
+      expect(view.shownSort()).toBe('tag');
+      settings.setCategoryPrefs('Trabalho', { sort: undefined });
+      expect(view.shownSort()).toBe('data');
+      settings.setCategoryPrefs('Trabalho', { sort: 'tarefas' });
+      TestBed.inject(Mural).kind.set('jogos');
+      expect(view.groupSort()).toBeNull();
+    });
+  });
 });

@@ -396,9 +396,12 @@ export class App {
     if (!sure || !this.store.get(id)) return;
     this.reader().close();
     // O leitor devolveu o foco à ficha, que vai sumir: o teclado segue para a vizinha (ou o Desfazer)
+    // (a cópia da mesma ficha, ordenando por tag, sai junto: a vizinha é outra)
     const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
     const at = cards.findIndex((c) => c.dataset['ficha'] === id);
-    const neighbour = (cards[at + 1] ?? cards[at - 1])?.dataset['ficha'];
+    const others = cards.filter((c) => c.dataset['ficha'] !== id);
+    const after = cards.slice(at + 1).find((c) => c.dataset['ficha'] !== id);
+    const neighbour = (after ?? others.filter((c) => cards.indexOf(c) < at).at(-1))?.dataset['ficha'];
     // a ficha e as rejogadas como estavam: o Desfazer deixa tudo como era
     const before = [r, ...this.store.revisitsOf(id)];
     this.vt.run(() => this.store.remove(id));

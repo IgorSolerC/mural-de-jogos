@@ -5,14 +5,17 @@ import { KanbanStore } from './kanban-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
-import { activeOrder, groupViews, hiddenKeys } from './mural-config';
+import { activeOrder, groupSorts, groupViews, hiddenKeys } from './mural-config';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
   Review,
   SCORE_LABEL,
   STATUS_RANK,
+  STOCKS,
+  STOCK_LABEL,
   ScoreKey,
+  Stock,
   fold,
   isDone,
   isPinnedNote,
@@ -30,14 +33,34 @@ import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filt
 import { ONE_DECIMAL as avgFmt } from './review';
 import { cap, labelKey, nameCollator, plural } from './text';
 import { longMonthFmt } from './dates';
+import { tasksOf } from './rich-text';
+import { pinningFor } from './wall-physics';
 import { writeJson, writeText } from './storage';
 
 /**
- * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (pela primeira
- * tag) e `prioridade` (fixadas, depois as comuns) só no de anotações; `nota` e `status`, só nos de resenhas.
+ * `categoria` no mural de anotações e no de músicas (onde ela é o artista); `tag` (a anotação aparece
+ * na seção de cada tag que tem), `prioridade` (fixadas, depois as comuns), `criacao`, `alteracao`,
+ * `finalizacao`, `tarefas` (as por fazer), `cor` (da cartolina) e `quem` (privada ou pública) só no de
+ * anotações; `nota` e `status`, só nos de resenhas.
  */
-export type SortKey = 'data' | 'nota' | 'alfabetica' | 'status' | 'categoria' | 'assunto' | 'tag' | 'prioridade';
-const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade'];
+export type SortKey =
+  | 'data'
+  | 'nota'
+  | 'alfabetica'
+  | 'status'
+  | 'categoria'
+  | 'assunto'
+  | 'tag'
+  | 'prioridade'
+  | 'criacao'
+  | 'alteracao'
+  | 'finalizacao'
+  | 'tarefas'
+  | 'cor'
+  | 'quem';
+const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem'];
+/** As ordens que só o mural de anotações tem (os de resenhas ordenam por data no lugar delas). */
+const NOTE_ONLY_SORTS: readonly SortKey[] = ['assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem'];
 export type Direction = 'desc' | 'asc';
 /**
  * Comum (a ficha de sempre; o id guardado continua `completa`), inteira (a comum com o texto todo, as fichas encaixadas em colagem), simples
@@ -110,6 +133,12 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   assunto: 'asc',
   tag: 'asc',
   prioridade: 'desc',
+  criacao: 'desc',
+  alteracao: 'desc',
+  finalizacao: 'desc',
+  tarefas: 'desc',
+  cor: 'asc',
+  quem: 'asc',
 };
 
 /** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
@@ -117,7 +146,7 @@ export function sortFor(sort: SortKey, profile: KindProfile): SortKey {
   if (isNotes(profile.kind)) return sort === 'nota' || sort === 'status' ? 'data' : sort;
   // as músicas também se ordenam pelo artista (a categoria delas)
   if (sort === 'categoria' && isMusic(profile.kind)) return sort;
-  return sort === 'categoria' || sort === 'assunto' || sort === 'tag' || sort === 'prioridade' ? 'data' : sort;
+  return sort === 'categoria' || NOTE_ONLY_SORTS.includes(sort) ? 'data' : sort;
 }
 
 function readNoteView(raw: unknown, base: NoteView): NoteView | null {
@@ -180,6 +209,11 @@ export interface WallGroup {
   label: string;
   summary: string;
   reviews: Review[];
+  /**
+   * As fichas desta seção que já apareceram numa seção de antes (ordenando por tag, a anotação com duas
+   * tags fica nas duas): a parede monta para elas uma cópia à parte (ver WallCardPool). Sem o campo, nenhuma.
+   */
+  copies?: ReadonlySet<string>;
 }
 
 /** Onde a vista de um mural fica guardada neste navegador. */
@@ -236,6 +270,13 @@ export abstract class WallState {
    * não é guardada (ao voltar para ele, o grupo abre na dele de novo).
    */
   protected readonly passingDensity = signal<{ tab: string; density: Density } | null>(null);
+  /**
+   * A ordem com que cada grupo abre, escolhida nas configurações do mural (pela chave da aba). Como a
+   * visualização: o grupo que tem uma esquece a última escolhida na régua. Só o seu mural de anotações.
+   */
+  readonly groupSorts: Signal<ReadonlyMap<string, SortKey>> = signal(new Map<string, SortKey>());
+  /** A ordem (e a direção) trocada na régua num grupo que tem a dele: vale enquanto ele fica aberto. */
+  protected readonly passingSort = signal<{ tab: string; sort: SortKey; direction: Direction } | null>(null);
   /**
    * Sem a aba Tudo, a busca pediu para procurar em todos os grupos: o Tudo aparece até a pessoa
    * escolher um grupo. Só nesta visita.
@@ -360,10 +401,21 @@ export abstract class WallState {
     const views = this.noteViews();
     return views[this.activeTab()] ?? views[ALL_TAB] ?? NOTE_VIEW;
   });
-  /** A ordem escolhida para o mural aberto (no de anotações, a da aba). */
-  private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? this.noteView().sort : this.sort()));
+  /** A ordem escolhida nas configurações para o grupo aberto; null, ele abre na última usada. */
+  readonly groupSort = computed<SortKey | null>(() => (this.notes() ? (this.groupSorts().get(this.activeTab()) ?? null) : null));
+  /** A ordem do grupo com a dele: ela (na direção de sempre), ou a trocada na régua enquanto ele está aberto. */
+  private readonly groupOrder = computed<{ sort: SortKey; direction: Direction } | null>(() => {
+    const fixed = this.groupSort();
+    if (!fixed) return null;
+    const passing = this.passingSort();
+    return passing && passing.tab === this.activeTab() ? passing : { sort: fixed, direction: DEFAULT_DIRECTION[fixed] };
+  });
+  /** A ordem escolhida para o mural aberto (no de anotações, a da aba, ou a do grupo). */
+  private readonly chosenSort = computed(() => (isNotes(this.mural.kind()) ? (this.groupOrder()?.sort ?? this.noteView().sort) : this.sort()));
   /** A direção da ordem do mural aberto. */
-  readonly direction = computed<Direction>(() => (isNotes(this.mural.kind()) ? this.noteView().direction : this.reviewDirection()));
+  readonly direction = computed<Direction>(() =>
+    isNotes(this.mural.kind()) ? (this.groupOrder()?.direction ?? this.noteView().direction) : this.reviewDirection(),
+  );
   /** A visualização escolhida nas configurações para o grupo aberto; null, ele abre na última usada. */
   readonly groupDensity = computed<Density | null>(() => (this.notes() ? (this.groupViews().get(this.activeTab()) ?? null) : null));
   /**
@@ -414,12 +466,20 @@ export abstract class WallState {
 
   /** O mural da aba aberta (nos de resenhas e em "Tudo", o mural inteiro), finalizadas também. */
   readonly tabbed = computed<Review[]>(() => (this.activeTab() === ALL_TAB ? this.wall() : this.wall().filter((r) => this.inTab(r))));
+  /**
+   * Ordenando por finalização, as finalizadas aparecem (é delas que a ordem fala), sem mudar o
+   * "Mostrar finalizadas" guardado. Só a parede: o número das abas continua o de sempre.
+   */
+  private readonly doneBySort = computed(() => this.notes() && this.shownSort() === 'finalizacao');
   /** O mural sem as finalizadas escondidas: é o "todo" do mural (da aba), para contar e para o vazio. */
-  readonly pool = computed<Review[]>(() => this.tabbed().filter((r) => this.shows(r)));
+  readonly pool = computed<Review[]>(() => {
+    const done = this.doneBySort();
+    return this.tabbed().filter((r) => this.shows(r) || (done && isDone(r) && this.showsBoard(r)));
+  });
   /** Quantas anotações finalizadas a aba tem (à mostra ou não). */
   readonly doneCount = computed(() => this.tabbed().filter(isDone).length);
   /** As finalizadas que estão fora do mural agora (também as que estão só no Kanban). */
-  readonly hiddenDone = computed(() => this.tabbed().filter((r) => !this.showsDone(r)).length);
+  readonly hiddenDone = computed(() => (this.doneBySort() ? 0 : this.tabbed().filter((r) => !this.showsDone(r)).length));
   /** As anotações da aba que estão só no Kanban (as finalizadas, só com as finalizadas à mostra). */
   readonly boardCount = computed(() => {
     const only = this.boardOnly();
@@ -587,6 +647,7 @@ export abstract class WallState {
     this.allAsked.set(key === ALL_TAB);
     if (tab() === key && this.activeTab() === key) return;
     this.passingDensity.set(null);
+    this.passingSort.set(null);
     tab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);
@@ -601,8 +662,10 @@ export abstract class WallState {
 
   setSort(sort: SortKey): void {
     if (isNotes(this.mural.kind())) {
-      if (this.noteView().sort === sort) return;
-      this.patchNoteView({ sort, direction: DEFAULT_DIRECTION[sort] });
+      if (this.chosenSort() === sort) return;
+      // o grupo com a ordem dele: a trocada na régua vale só enquanto ele está aberto
+      if (this.groupSort()) this.passingSort.set({ tab: this.activeTab(), sort, direction: DEFAULT_DIRECTION[sort] });
+      else this.patchNoteView({ sort, direction: DEFAULT_DIRECTION[sort] });
       return;
     }
     if (this.sort() === sort) return;
@@ -612,8 +675,9 @@ export abstract class WallState {
 
   toggleDirection(): void {
     const flip = (d: Direction): Direction => (d === 'desc' ? 'asc' : 'desc');
-    if (isNotes(this.mural.kind())) this.patchNoteView({ direction: flip(this.noteView().direction) });
-    else this.reviewDirection.update(flip);
+    if (!isNotes(this.mural.kind())) this.reviewDirection.update(flip);
+    else if (this.groupSort()) this.passingSort.set({ tab: this.activeTab(), sort: this.shownSort(), direction: flip(this.direction()) });
+    else this.patchNoteView({ direction: flip(this.noteView().direction) });
   }
 
   /** O tipo de ficha do mural aberto (no de anotações, só o da aba aberta). */
@@ -691,6 +755,7 @@ export abstract class WallState {
     this.allAsked.set(false);
     this.collapsed.set(new Set());
     this.passingDensity.set(null);
+    this.passingSort.set(null);
     this.showDone.set(false);
     this.showBoard.set(false);
   }
@@ -708,6 +773,7 @@ export class WallView extends WallState {
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
   override readonly groupViews = computed<ReadonlyMap<string, Density>>(() => groupViews(this.settings.notesConfig()));
+  override readonly groupSorts = computed<ReadonlyMap<string, SortKey>>(() => groupSorts(this.settings.notesConfig()));
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
   override readonly boardOnly = inject(KanbanStore).boardOnly;
 
@@ -731,6 +797,7 @@ export class WallView extends WallState {
     this.allAsked.set(false);
     if (this.noteTab() === key) return;
     this.passingDensity.set(null);
+    this.passingSort.set(null);
     this.noteTab.set(key);
     this.filter.set(NO_FILTER);
     this.tagOuts.set(NO_TAG_OUTS);
@@ -802,6 +869,18 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       return desc ? 'Tags de Z a A' : 'Tags de A a Z';
     case 'prioridade':
       return desc ? 'Fixadas primeiro; as mais recentes antes' : 'Fixadas primeiro; as mais antigas antes';
+    case 'criacao':
+      return desc ? 'Criadas há pouco primeiro' : 'Criadas há mais tempo primeiro';
+    case 'alteracao':
+      return desc ? 'Mexidas há pouco primeiro' : 'Paradas há mais tempo primeiro';
+    case 'finalizacao':
+      return desc ? 'Finalizadas há pouco primeiro' : 'Finalizadas há mais tempo primeiro';
+    case 'tarefas':
+      return desc ? 'Mais por fazer primeiro' : 'Menos por fazer primeiro';
+    case 'cor':
+      return desc ? 'Da última cor à primeira' : 'Na ordem das cores';
+    case 'quem':
+      return desc ? 'Públicas primeiro' : 'Privadas primeiro';
     case 'status':
       return `${desc ? profile.statusGroup.platinado : profile.statusGroup.incompleto} primeiro`;
     default:
@@ -837,18 +916,7 @@ export function sortWall(list: readonly Review[], o: WallOrder): Review[] {
  * então cada grupo é só uma sequência de fichas com a mesma chave.
  */
 export function groupWall(sorted: readonly Review[], o: WallOrder, hideAverage = false): WallGroup[] {
-  const sectionOf = groupKeyOf(o);
-  // no mural de anotações, as fixadas são a primeira seção (fora da Prioridade, só se a pessoa quis)
-  const keyOf: (r: Review) => [string, string] = pinsFirst(o)
-    ? (r) => (isPinnedNote(r) ? PINNED_GROUP : sectionOf(r))
-    : sectionOf;
-  const groups: WallGroup[] = [];
-  for (const r of sorted) {
-    const [key, label] = keyOf(r);
-    const last = groups.at(-1);
-    if (last?.key === key) last.reviews.push(r);
-    else groups.push({ key, label, summary: '', reviews: [r] });
-  }
+  const groups = o.sort === 'tag' && isNotes(o.profile.kind) ? groupByTags(sorted, o) : groupInRuns(sorted, o);
   // anotação não tem nota: a seção diz só quantas são
   const showAvg = o.sort !== 'nota' && !hideAverage && !isNotes(o.profile.kind);
   for (const g of groups) {
@@ -870,6 +938,67 @@ function countsOf(profile: KindProfile, originals: readonly Review[]): string[] 
   return [...(albums ? [plural(albums, 'álbum', 'álbuns')] : []), ...(songs ? [countOf(profile, songs)] : [])];
 }
 
+/** As seções em sequência: a lista já vem ordenada, cada seção é uma corrida de fichas com a mesma chave. */
+function groupInRuns(sorted: readonly Review[], o: WallOrder): WallGroup[] {
+  const sectionOf = groupKeyOf(o);
+  // no mural de anotações, as fixadas são a primeira seção (fora da Prioridade, só se a pessoa quis)
+  const keyOf: (r: Review) => [string, string] = pinsFirst(o)
+    ? (r) => (isPinnedNote(r) ? PINNED_GROUP : sectionOf(r))
+    : sectionOf;
+  const groups: WallGroup[] = [];
+  for (const r of sorted) {
+    const [key, label] = keyOf(r);
+    const last = groups.at(-1);
+    if (last?.key === key) last.reviews.push(r);
+    else groups.push({ key, label, summary: '', reviews: [r] });
+  }
+  return groups;
+}
+
+/**
+ * Ordenando por tag: uma seção por tag, e a anotação em todas as das tags dela (a de duas tags aparece
+ * duas vezes, uma em cada). As seções vão de A a Z (ou de Z a A), "Sem tag" no fim; as fixadas, se vêm
+ * na frente, ficam só na seção delas. Dentro de cada seção, as mais recentes primeiro, como na ordem
+ * por tag. A segunda vez que uma ficha aparece é uma cópia (`copies`).
+ */
+function groupByTags(sorted: readonly Review[], o: WallOrder): WallGroup[] {
+  const sign = o.direction === 'desc' ? -1 : 1;
+  const pins = pinsFirst(o);
+  const byKey = new Map<string, WallGroup>();
+  const inGroup = new Map<string, Set<string>>();
+  const add = (key: string, label: string, r: Review) => {
+    let g = byKey.get(key);
+    if (!g) byKey.set(key, (g = { key, label, summary: '', reviews: [] }));
+    const ids = inGroup.get(key) ?? new Set<string>();
+    inGroup.set(key, ids);
+    // duas tags que só mudam no acento ou na caixa são a mesma seção: a anotação entra uma vez
+    if (ids.has(r.id)) return;
+    ids.add(r.id);
+    g.reviews.push(r);
+  };
+  for (const r of sorted) {
+    if (pins && isPinnedNote(r)) add(...PINNED_GROUP, r);
+    else if (!r.tags?.length) add('sem-tag', 'Sem tag', r);
+    else for (const t of r.tags) add(`t:${fold(t)}`, `#${t}`, r);
+  }
+  const rankOf = (g: WallGroup) => (g.key === PINNED_GROUP[0] ? 0 : g.key === 'sem-tag' ? 2 : 1);
+  const groups = [...byKey.values()].sort((a, b) => rankOf(a) - rankOf(b) || sign * nameCollator.compare(a.label.slice(1), b.label.slice(1)));
+  const newest = (a: Review, b: Review) => -byDateOf(a, b);
+  const seen = new Set<string>();
+  for (const g of groups) {
+    if (g.key !== PINNED_GROUP[0]) g.reviews.sort(newest);
+    const copies = g.reviews.filter((r) => seen.has(r.id)).map((r) => r.id);
+    if (copies.length) g.copies = new Set(copies);
+    for (const r of g.reviews) seen.add(r.id);
+  }
+  return groups;
+}
+
+/** Pela data de conclusão; no mesmo dia, a criada por último depois. Sem data conta como a mais antiga. */
+function byDateOf(a: Review, b: Review): number {
+  return (a.completedAt ?? '').localeCompare(b.completedAt ?? '') || Date.parse(a.createdAt) - Date.parse(b.createdAt);
+}
+
 const PINNED_GROUP: [string, string] = ['fixadas', 'Fixadas'];
 /** As seções da Prioridade: as fixadas e as comuns. */
 const RANK_GROUPS: [string, string][] = [PINNED_GROUP, ['comuns', 'Anotações']];
@@ -889,8 +1018,55 @@ function firstTag(r: Review): string | null {
   return r.tags?.[0] ?? null;
 }
 
+/** A seção do mês de um instante (ISO), no fuso de quem vê: "Outubro de 2026". */
+function monthOf(iso: string): [string, string] {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return ['sem-data', NO_DAY_LABEL];
+  return [`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, cap(longMonthFmt.format(d))];
+}
+
+/**
+ * As tarefas da anotação: quantas faltam e quantas são. Lidas uma vez por versão da ficha (a ficha
+ * mudada é outro objeto): a busca e os filtros reordenam sem ler os textos de novo.
+ */
+const TASK_COUNTS = new WeakMap<Review, { left: number; all: number }>();
+function taskCount(r: Review): { left: number; all: number } {
+  let c = TASK_COUNTS.get(r);
+  if (!c) {
+    const tasks = [...tasksOf(r.text).values()];
+    c = { left: tasks.filter((done) => !done).length, all: tasks.length };
+    TASK_COUNTS.set(r, c);
+  }
+  return c;
+}
+/** As seções da ordem por tarefas: com alguma por fazer, todas feitas, e sem tarefa (sempre no fim). */
+const TASK_GROUPS: [string, string][] = [
+  ['tarefas-por-fazer', 'Com tarefas por fazer'],
+  ['tarefas-feitas', 'Todas feitas'],
+  ['sem-tarefa', 'Sem tarefas'],
+];
+const taskRank = (c: { left: number; all: number }) => (c.left ? 0 : c.all ? 1 : 2);
+
+/** A cor da cartolina como aparece na parede (a sem cor guardada ganha a do rodízio, ver wall-physics). */
+const stockShown = (r: Review): Stock => pinningFor(r.id, r.stock).stock;
+
 function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
   switch (o.sort) {
+    case 'criacao':
+      return (r) => monthOf(r.createdAt);
+    case 'alteracao':
+      return (r) => monthOf(r.updatedAt);
+    case 'finalizacao':
+      return (r) => (r.doneAt ? monthOf(r.doneAt) : ['nao-finalizadas', 'Não finalizadas']);
+    case 'tarefas':
+      return (r) => TASK_GROUPS[taskRank(taskCount(r))];
+    case 'cor':
+      return (r) => {
+        const c = stockShown(r);
+        return [`cor:${c}`, STOCK_LABEL[c]];
+      };
+    case 'quem':
+      return (r) => (r.private ? ['privadas', 'Privadas'] : ['publicas', 'Públicas']);
     case 'prioridade':
       return (r) => RANK_GROUPS[rankOrder(r)];
     case 'categoria':
@@ -965,7 +1141,32 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     if ((la === null) !== (lb === null)) return la === null ? 1 : -1;
     return (la !== null && lb !== null ? sign * nameCollator.compare(la, lb) : 0) || -byDate(a, b);
   };
+  // um instante (ISO), a mais antiga primeiro; sem ele, sempre no fim
+  const byInstant = (of: (r: Review) => string | undefined) => (a: Review, b: Review) => {
+    const ia = of(a);
+    const ib = of(b);
+    if (!ia !== !ib) return ia ? -1 : 1;
+    return (ia && ib ? sign * (Date.parse(ia) - Date.parse(ib)) : 0) || -byDate(a, b);
+  };
   switch (o.sort) {
+    case 'criacao':
+      return byInstant((r) => r.createdAt);
+    case 'alteracao':
+      return byInstant((r) => r.updatedAt);
+    case 'finalizacao':
+      return byInstant((r) => r.doneAt);
+    case 'tarefas':
+      // as seções ficam sempre na mesma ordem; dentro das por fazer, pela quantidade
+      return (a, b) => {
+        const ca = taskCount(a);
+        const cb = taskCount(b);
+        return taskRank(ca) - taskRank(cb) || sign * (ca.left - cb.left) || -byDate(a, b);
+      };
+    case 'cor':
+      return (a, b) => sign * (STOCKS.indexOf(stockShown(a)) - STOCKS.indexOf(stockShown(b))) || -byDate(a, b);
+    case 'quem':
+      // asc: as privadas primeiro
+      return (a, b) => sign * ((a.private ? 0 : 1) - (b.private ? 0 : 1)) || -byDate(a, b);
     case 'categoria': {
       const order = o.categoryOrder;
       if (!order) return byLabel(firstCategory);

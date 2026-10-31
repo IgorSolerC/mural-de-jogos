@@ -146,6 +146,38 @@ describe('as configurações do mural (a folha)', () => {
     expect(settings.notesConfig().categories).toEqual({});
   });
 
+  it('a ordenação padrão do grupo: a última usada até escolher uma; o resumo diz qual', async () => {
+    await go('categorias');
+    const first = el.querySelector('.cat')!;
+    first.querySelector<HTMLButtonElement>('.cat-abre')!.click();
+    await fixture.whenStable();
+    const ordem = first.querySelector('.cat-painel input[name^="config-ordem-"]')!.closest('fieldset')!;
+    expect(ordem.querySelector('legend')!.textContent).toContain('Ordenação padrão');
+    expect(Array.from(ordem.querySelectorAll('.seg-nome')).map((n) => n.textContent!.trim())).toEqual([
+      'A última usada',
+      'Prioridade',
+      'Data',
+      'Título',
+      'Assunto',
+      'Tag',
+      'Criação',
+      'Alteração',
+      'Finalização',
+      'Tarefas',
+      'Cor',
+      'Quem vê',
+    ]);
+    expect(segment(ordem, 'A última usada').checked).toBeTrue();
+    segment(ordem, 'Tag').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories['viagens!']).toEqual({ sort: 'tag' });
+    expect(first.querySelector('.cat-resumo')!.textContent!.trim()).toBe('Por tag');
+    expect(ordem.querySelector('.nome-dica')!.textContent).toContain('sempre abre nesta ordem');
+    segment(ordem, 'A última usada').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().categories).toEqual({});
+  });
+
   it('na minha ordem, a alça sobe e desce a categoria pelo teclado, e as abas seguem', async () => {
     await go('categorias');
     segment(el, 'Na minha ordem').click();

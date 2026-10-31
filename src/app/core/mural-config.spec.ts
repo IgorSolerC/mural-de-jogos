@@ -7,6 +7,7 @@ import {
   activeOrder,
   arrangedKeys,
   asksTag,
+  groupSorts,
   groupViews,
   hiddenKeys,
   moveKey,
@@ -113,6 +114,19 @@ describe('as configurações do mural de anotações', () => {
     expect(cfg.categories).toEqual({ 'estudos!': { view: 'inteira', askTag: false } });
     // da nuvem ou do armazenamento: só as visualizações que existem
     expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 } } }).categories).toEqual({ a: { view: 'capas' } });
+  });
+
+  it('a ordenação padrão do grupo: só as das anotações (sem a de Grupo); voltar à última usada tira o campo', () => {
+    let cfg = withPrefs(NOTES_CONFIG_DEFAULT, 'Trabalho', { sort: 'data' });
+    cfg = withPrefs(cfg, 'Estudos', { sort: 'tag', view: 'lista' });
+    expect(prefsOf(cfg, 'trabalho').sort).toBe('data');
+    expect([...groupSorts(cfg)]).toEqual([
+      ['c:trabalho', 'data'],
+      ['c:estudos', 'tag'],
+    ]);
+    cfg = withPrefs(cfg, 'Trabalho', { sort: undefined });
+    expect(cfg.categories).toEqual({ estudos: { sort: 'tag', view: 'lista' } });
+    expect(sanitizeNotesConfig({ categories: { A: { sort: 'tarefas' }, B: { sort: 'categoria' }, C: { sort: 'nota' }, D: { sort: 1 } } }).categories).toEqual({ a: { sort: 'tarefas' } });
   });
 
   it('o filtro padrão das tags: Excluído por categoria (a mesma tag pode ficar em outra), e da nuvem só chaves de tag', () => {

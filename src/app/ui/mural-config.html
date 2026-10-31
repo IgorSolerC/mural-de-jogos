@@ -241,6 +241,26 @@
                           <p class="nome-dica">{{ p.view ? 'O grupo sempre abre assim. Trocar na régua do mural vale até sair dele.' : 'O grupo abre como você o deixou da última vez.' }}</p>
                         </fieldset>
 
+                        <!-- a ordem com que o grupo abre: a última usada (o de sempre) ou uma fixa -->
+                        <fieldset class="sub-bloco">
+                          <legend class="sub-titulo">Ordenação padrão</legend>
+                          <div class="segmentos doze">
+                            <label class="segmento">
+                              <input type="radio" [name]="'config-ordem-' + i" [checked]="!p.sort" (change)="setPrefs(c, { sort: undefined })" />
+                              <span class="seg-nome">A última usada</span>
+                              <span class="seg-sub">O padrão</span>
+                            </label>
+                            @for (o of sorts; track o.value) {
+                              <label class="segmento">
+                                <input type="radio" [name]="'config-ordem-' + i" [checked]="p.sort === o.value" (change)="setPrefs(c, { sort: o.value })" />
+                                <lucide-icon class="seg-icone" [img]="o.icon" [size]="16" aria-hidden="true" />
+                                <span class="seg-nome">{{ o.label }}</span>
+                              </label>
+                            }
+                          </div>
+                          <p class="nome-dica">{{ p.sort ? 'O grupo sempre abre nesta ordem. Trocar no Ordenar do mural vale até sair dele.' : 'O grupo abre na ordem em que você o deixou da última vez.' }}</p>
+                        </fieldset>
+
                         <fieldset class="sub-bloco">
                           <legend class="sub-titulo">Anotação nova nasce</legend>
                           <div class="segmentos quatro">

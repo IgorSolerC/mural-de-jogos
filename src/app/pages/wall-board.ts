@@ -14,7 +14,10 @@ import { NoteIndex } from '../ui/note-index';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
-import { WallCardPool, WallCardProps, WallCards } from './wall-cards';
+import { WallCardPool, WallCardProps, WallCards, copyKey } from './wall-cards';
+
+/** As ordens por um dia que não é a data da ficha: ela mostra esse dia (ver ReviewCard.dateFrom). */
+const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -103,6 +106,7 @@ export class WallBoard {
     capas: this.view.density() === 'capas',
     full: this.inteira(),
     dayOnly: this.view.shownSort() === 'data',
+    dateFrom: DATE_SORTS.find((s) => s === this.view.shownSort()) ?? null,
     times: this.view.times(),
     boardOnly: this.shownBoard(),
   }));
@@ -127,10 +131,12 @@ export class WallBoard {
     this.pool.props = this.cardProps;
     this.pool.onOpen = (id) => this.opened.emit(id);
     this.pool.onToggle = (id) => this.toggled.emit(id);
-    // a ficha que saiu do mural (filtro, apagada) vai embora; as outras ficam, prontas
+    // a ficha que saiu do mural (filtro, apagada) vai embora; as outras ficam, prontas (e as cópias
+    // das seções que ainda existem, ordenando por tag)
     effect(() => {
       const visible = this.view.visible();
-      untracked(() => this.pool.keepOnly(visible));
+      const copies = this.view.groups().flatMap((g) => [...(g.copies ?? [])].map((id) => copyKey(id, g.key)));
+      untracked(() => this.pool.keepOnly(visible, copies));
     });
   }
 

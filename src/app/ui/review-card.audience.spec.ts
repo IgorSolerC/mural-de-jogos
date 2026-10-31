@@ -44,6 +44,30 @@ describe('quem vê, na ficha', () => {
   /** O desenho de quem vê, na linha da data (antes dela). */
   const mark = () => el.querySelector('.meta .quem-ve');
 
+  it('ordenando por criação, alteração ou finalização, a linha da data mostra esse dia, dito', async () => {
+    const r = card('anotacoes', { createdAt: '2026-09-12T15:00:00.000Z', updatedAt: '2026-10-20T15:00:00.000Z', doneAt: '2026-10-25T15:00:00.000Z' });
+    await show(r);
+    const time = () => el.querySelector('.meta .quando time')!;
+    expect(time().getAttribute('datetime')).toBe('2026-10-01');
+    for (const [from, word, day] of [
+      ['criacao', 'criada', '2026-09-12'],
+      ['alteracao', 'mexida', '2026-10-20'],
+      ['finalizacao', 'finalizada', '2026-10-25'],
+    ] as const) {
+      fixture.componentRef.setInput('dateFrom', from);
+      await fixture.whenStable();
+      expect(time().getAttribute('datetime')).toBe(day);
+      expect(time().textContent!.trim().startsWith(word + ' ')).withContext(from).toBeTrue();
+      // a seção diz o mês: o ano não vem
+      expect(time().textContent).not.toContain('2026');
+    }
+    // a não finalizada, ordenando por finalização, fica com a data dela, inteira
+    fixture.componentRef.setInput('review', { ...r, doneAt: undefined });
+    await fixture.whenStable();
+    expect(time().getAttribute('datetime')).toBe('2026-10-01');
+    expect(time().textContent).toContain('2026');
+  });
+
   it('a anotação fora do Feed leva o mesmo desenho da publicada', async () => {
     await show(card('anotacoes', { quiet: true }));
     expect(mark()).not.toBeNull();
