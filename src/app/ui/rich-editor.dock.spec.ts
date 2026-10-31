@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DOCK_MEDIA, RichEditor } from './rich-editor';
+import { DOCK_MEDIA, RichEditor } from './rich-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
 /**

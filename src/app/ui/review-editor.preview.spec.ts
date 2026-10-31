@@ -6,7 +6,7 @@ import { EditorView } from 'prosemirror-view';
 import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { Settings } from '../core/settings';
-import { ReviewEditor } from './review-editor';
+import { ReviewEditor } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
 const T0 = '2026-10-01T10:00:00.000Z';

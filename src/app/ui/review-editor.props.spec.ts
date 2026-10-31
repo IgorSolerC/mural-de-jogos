@@ -6,7 +6,7 @@ import { KanbanStore } from '../core/kanban-store';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
-import { ReviewEditor } from './review-editor';
+import { ReviewEditor } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
 const T0 = '2026-10-01T10:00:00.000Z';
