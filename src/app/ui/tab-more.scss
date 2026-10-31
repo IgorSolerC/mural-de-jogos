@@ -1,0 +1,203 @@
+@use 'felt';
+
+/* A orelha é o próprio host (as classes e o desenho vêm de quem usa, ver ui/note-tabs-bar.ts); o
+   botão tem o conteúdo dela, e o toque vale na orelha inteira. */
+.gatilho {
+  display: inline-flex;
+  align-items: baseline;
+  gap: inherit;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  outline: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+}
+
+:host(:has(.gatilho:focus-visible)) {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+/* ===== O remendo: o feltro costurado das reações, saindo de baixo da orelha ===== */
+.cardapio {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  min-width: 232px;
+  max-width: min(340px, calc(100vw - 16px));
+  padding: 10px;
+  border: 0;
+  border-radius: 16px;
+  @include felt.feltro(-6px);
+  color: #151515;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 12px 24px -8px rgb(0 0 0 / 0.5);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  /* a barra de rolar (uma lista comprida no celular) na cor da linha da costura */
+  scrollbar-width: thin;
+  scrollbar-color: rgb(122 74 38 / 0.45) transparent;
+
+  &:popover-open {
+    display: grid;
+    gap: 2px;
+    animation: brota 170ms var(--ease-physical);
+  }
+}
+
+/* aberto em cima da orelha: brota para cima */
+.cardapio.em-cima:popover-open {
+  animation-name: brota-em-cima;
+}
+
+@keyframes brota-em-cima {
+  from {
+    opacity: 0;
+    scale: 0.96;
+    translate: 0 4px;
+  }
+}
+
+@keyframes brota {
+  from {
+    opacity: 0;
+    scale: 0.96;
+    translate: 0 -4px;
+  }
+}
+
+/* as duas levas: os grupos e, depois da costura, as abas geradas */
+.leva {
+  display: grid;
+  gap: 2px;
+}
+
+/* uma aba: o desenho na cor do grupo, o nome a pincel e quantas anotações tem, impresso miúdo */
+.opcao {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  margin: 0;
+  padding: 4px 12px 4px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(122 74 38 / 0.09);
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid #151515;
+    outline-offset: -2px;
+  }
+
+  /* a aberta: a passada de marca-texto do ligado do site (a régua do texto, as seções do índice)
+     por trás do nome, com o tique */
+  &.ligada::before {
+    content: '';
+    position: absolute;
+    inset: 9px 60px 8px 6px;
+    z-index: -1;
+    background: var(--hi);
+    -webkit-mask: var(--marca-passada) center / 100% 100% no-repeat;
+    mask: var(--marca-passada) center / 100% 100% no-repeat;
+    rotate: -1.2deg;
+  }
+}
+
+.rotulo {
+  min-width: 0;
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+/* "Sem grupo" a lápis, como na aba: não é um grupo */
+.nome-lapis {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.n {
+  margin-left: auto;
+  padding-left: 6px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  color: rgb(21 21 21 / 0.68);
+}
+
+.tique {
+  display: inline-flex;
+  margin-right: -4px;
+}
+
+/* a costura entre os grupos e as abas que o mural gera: a linha da costura com o nome no meio */
+.costura {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 4px 4px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(122 74 38 / 0.9);
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-top: 1.5px dashed rgb(122 74 38 / 0.6);
+  }
+
+  &.so {
+    margin-top: 2px;
+  }
+}
+
+@media (pointer: coarse) {
+  .opcao {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardapio:popover-open {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .opcao.ligada {
+    outline: 2px solid Highlight;
+    outline-offset: -2px;
+  }
+  .opcao.ligada::before {
+    display: none;
+  }
+}

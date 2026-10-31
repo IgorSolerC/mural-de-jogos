@@ -6,7 +6,8 @@ import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
-import { activeOrder, groupSorts, groupViews, hiddenKeys } from './mural-config';
+import { AutoTab, activeOrder, groupSorts, groupViews, hiddenKeys } from './mural-config';
+import type { CategoryColorId } from './category-looks';
 import {
   NO_DAY_LABEL,
   RATED_KEYS,
@@ -263,11 +264,15 @@ export abstract class WallState {
    */
   readonly showAllTab: Signal<boolean> = signal(true);
   /**
-   * As abas Fixadas e Compartilhadas ficam em pé quando há o que mostrar nelas (ver `specialTabs`). Só
-   * o seu mural de anotações tem: no de quem visita, as fixadas e as compartilhadas são do dono dele.
+   * As abas Fixadas e Compartilhadas existem quando há o que mostrar nelas (ver `specialTabs`). Só o seu
+   * mural de anotações tem: no de quem visita, as fixadas e as compartilhadas são do dono dele.
    */
-  readonly pinnedTabOn: Signal<boolean> = signal(false);
-  readonly sharedTabOn: Signal<boolean> = signal(false);
+  readonly specialsOn: Signal<boolean> = signal(false);
+  /** O olho delas nas configurações: em pé ao lado dos grupos; desligado (o padrão), só no "Mais". */
+  readonly pinnedStands: Signal<boolean> = signal(false);
+  readonly sharedStands: Signal<boolean> = signal(false);
+  /** A cor da etiqueta das abas que o mural gera (Tudo, Fixadas, Compartilhadas), pelas configurações. */
+  readonly autoColors: Signal<Partial<Record<AutoTab, CategoryColorId>>> = signal({});
   /**
    * As anotações que outras pessoas compartilharam com você, e de quem cada uma é (id → o nome do
    * dono). Só o seu mural; no de quem visita, o dono vem na própria anotação (`sharedBy`).
@@ -404,33 +409,35 @@ export abstract class WallState {
     return (tabs.tabs.find((t) => !hidden.has(t.key)) ?? tabs.tabs[0]).key;
   });
   /**
-   * As abas especiais do mural de anotações, depois do Tudo: Fixadas (as fixadas de todos os grupos,
-   * quando há alguma à mostra) e Compartilhadas (as que outras pessoas compartilharam com você, quando
-   * há alguma), cada uma ligada nas configurações do mural.
+   * As abas especiais do mural de anotações: Fixadas (as fixadas de todos os grupos, enquanto há
+   * alguma) e Compartilhadas (as que outras pessoas compartilharam com você, enquanto há alguma). Em pé
+   * depois do Tudo, ou no "Mais" (ver `standingSpecials`).
    */
   readonly specialTabs = computed<NoteTab[]>(() => {
-    if (!this.notes()) return [];
+    if (!this.notes() || !this.specialsOn()) return [];
     const out: NoteTab[] = [];
     const wall = this.wall();
-    if (this.pinnedTabOn()) {
+    {
       // como os grupos, ela fica enquanto tem alguma, mesmo com todas finalizadas e escondidas
       const list = wall.filter(isPinnedNote);
       if (list.length) out.push({ key: PINNED_TAB, label: 'Fixadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
     }
     const shared = this.sharedWithMe();
-    if (this.sharedTabOn() && shared.size) {
+    if (shared.size) {
       const list = wall.filter((r) => shared.has(r.id));
       if (list.length) out.push({ key: SHARED_TAB, label: 'Compartilhadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
     }
     return out;
   });
-  /**
-   * A aba Tudo aparece: ligada nas configurações, ou aberta (a busca em todos os grupos), ou quando só
-   * há abas especiais (sem grupos para separar, ela é o caminho de volta para o resto).
-   */
-  readonly allTabShown = computed(
-    () => this.showAllTab() || this.activeTab() === ALL_TAB || (!this.noteTabs()?.tabs.length && this.specialTabs().length > 0),
+  /** As abas especiais em pé ao lado dos grupos (o olho ligado); as outras ficam no "Mais". */
+  readonly standingSpecials = computed<NoteTab[]>(() =>
+    this.specialTabs().filter((t) => (t.key === PINNED_TAB ? this.pinnedStands() : this.sharedStands())),
   );
+  /**
+   * A aba Tudo em pé: o olho ligado nas configurações, ou quando não há grupos para separar mas há abas
+   * especiais (ela é o caminho de volta para o resto). Sem ela em pé, o Tudo fica no "Mais".
+   */
+  readonly allTabShown = computed(() => this.showAllTab() || (!this.noteTabs()?.tabs.length && this.specialTabs().length > 0));
   /** O nome da aba aberta (null em "Tudo"). */
   readonly activeTabLabel = computed<string | null>(() => {
     const tabs = this.noteTabs();
@@ -828,8 +835,10 @@ export class WallView extends WallState {
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
-  override readonly pinnedTabOn = computed(() => this.settings.notesConfig().showPinned);
-  override readonly sharedTabOn = computed(() => this.settings.notesConfig().showShared);
+  override readonly specialsOn = computed(() => this.notes());
+  override readonly pinnedStands = computed(() => this.settings.notesConfig().showPinned);
+  override readonly sharedStands = computed(() => this.settings.notesConfig().showShared);
+  override readonly autoColors = computed(() => this.settings.notesConfig().autoColors);
   override readonly sharedWithMe = computed<ReadonlyMap<string, string>>(() => {
     const out = new Map<string, string>();
     for (const e of this.shared.entries().values()) if (e.papel !== 'dono') out.set(e.id, e.dono.nome);

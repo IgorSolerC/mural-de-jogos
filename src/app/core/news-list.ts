@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-31-abas-fixadas-compartilhadas',
+    id: '2026-10-31-mais-de-feltro',
     version: '1.35.6',
     kind: 'ajustes',
     date: '2026-10-31',
-    title: 'As abas Fixadas e Compartilhadas, e a ordem por dono',
+    title: 'As abas Fixadas e Compartilhadas, o Mais novo e a ordem por dono',
     melhorias: [
-      'No mural de anotações, as abas Fixadas (as fixadas de todos os grupos, começando pela ordem do grupo) e Compartilhadas (tudo o que outras pessoas compartilharam com você, começando pela ordem do dono), ao lado do Tudo, que ganhou desenho; cada uma tem o seu interruptor nas configurações do mural, e sem lugar elas vão para o Mais.',
+      'No mural de anotações, as abas Fixadas (as fixadas de todos os grupos, começando pela ordem do grupo) e Compartilhadas (tudo o que outras pessoas compartilharam com você, começando pela ordem do dono), que com o Tudo, agora com desenho, são as abas geradas pelo mural.',
+      'O Mais das abas do mural de anotações virou uma lista de feltro costurado, com o desenho na cor de cada grupo e quantas anotações ele tem e, depois de uma costura, as abas geradas; nas configurações do mural, elas ficam na lista dos grupos, com o olho (ligado, em pé ao lado dos grupos; desligado, o padrão, só no Mais) e a cor da etiqueta.',
       'A anotação compartilhada com você chega sem grupo, e as que estavam no grupo Compartilhadas saem dele (e do quadro dele no Kanban, até você pôr cada uma num grupo seu); o Ordenar ganhou Dono: as suas primeiro, depois as de cada pessoa.',
     ],
   },

@@ -54,8 +54,9 @@ describe('as configurações do mural de anotações', () => {
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
       hiddenTags: [],
       showAll: false,
-      showPinned: true,
-      showShared: true,
+      showPinned: false,
+      showShared: false,
+      autoColors: {},
       subjects: {},
     });
     // a aba Tudo: só com true (o padrão é sem ela)
@@ -118,10 +119,12 @@ describe('as configurações do mural de anotações', () => {
     expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 } } }).categories).toEqual({ a: { view: 'capas' } });
   });
 
-  it('as abas Fixadas e Compartilhadas: ligadas a menos que guardadas como false', () => {
-    expect(sanitizeNotesConfig({}).showPinned).toBeTrue();
-    expect(sanitizeNotesConfig({}).showShared).toBeTrue();
-    expect(sanitizeNotesConfig({ showPinned: false, showShared: 'não' })).toEqual(jasmine.objectContaining({ showPinned: false, showShared: true }));
+  it('as abas que o mural gera: o olho desligado (no Mais) a menos que guardado ligado; as cores, só as da cartela', () => {
+    const vazio = sanitizeNotesConfig({});
+    expect([vazio.showAll, vazio.showPinned, vazio.showShared]).toEqual([false, false, false]);
+    expect(vazio.autoColors).toEqual({});
+    expect(sanitizeNotesConfig({ showPinned: true, showShared: 'sim' })).toEqual(jasmine.objectContaining({ showPinned: true, showShared: false }));
+    expect(sanitizeNotesConfig({ autoColors: { tudo: 'azul', fixadas: 'dourado', outra: 'verde', compartilhadas: 3 } }).autoColors).toEqual({ tudo: 'azul' });
   });
 
   it('a ordenação padrão do grupo: só as das anotações (sem a de Grupo); voltar à última usada tira o campo', () => {

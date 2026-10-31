@@ -363,8 +363,11 @@ describe('WallView', () => {
       ]);
     });
 
-    it('Fixadas: em pé quando há alguma fixada (ligada por padrão), com as fixadas de todos os grupos', () => {
+    it('Fixadas: existe quando há alguma fixada, no Mais até o olho ligar, com as fixadas de todos os grupos', () => {
       expect(view.specialTabs().map((t) => `${t.label} ${t.n}`)).toEqual(['Fixadas 2']);
+      expect(view.standingSpecials()).toEqual([]);
+      settings.setNotesConfig({ showPinned: true });
+      expect(view.standingSpecials().map((t) => t.label)).toEqual(['Fixadas']);
       view.setNoteTab('fixadas');
       expect(view.activeTab()).toBe('fixadas');
       expect(view.activeTabLabel()).toBe('Fixadas');
@@ -372,8 +375,12 @@ describe('WallView', () => {
       // ela começa ordenada por grupo, que separa as fixadas pelos grupos delas
       expect(view.shownSort()).toBe('categoria');
       expect(view.groups().map((g) => g.label)).toEqual(['Casa', 'Trabalho']);
-      // desligada nas configurações, a aba some e o mural volta a um grupo
+      // o olho desligado: ela volta para o Mais, e continua aberta
       settings.setNotesConfig({ showPinned: false });
+      expect(view.standingSpecials()).toEqual([]);
+      expect(view.activeTab()).toBe('fixadas');
+      // sem nenhuma fixada, ela some e o mural volta a um grupo
+      store.reviews.update((list) => list.map((r) => (r.noteRank ? { ...r, noteRank: undefined } : r)));
       expect(view.specialTabs()).toEqual([]);
       expect(view.activeTab()).not.toBe('fixadas');
     });
@@ -413,8 +420,8 @@ describe('WallView', () => {
       view.setNoteTab('');
       view.setSort('dono');
       expect(view.groups().map((g) => g.label)).toEqual(['Você', 'Ana', 'Bia']);
-      settings.setNotesConfig({ showShared: false });
-      expect(view.specialTabs().map((t) => t.label)).toEqual(['Fixadas']);
+      settings.setNotesConfig({ showShared: true });
+      expect(view.standingSpecials().map((t) => t.label)).toEqual(['Compartilhadas']);
     });
   });
 

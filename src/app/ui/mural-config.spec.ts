@@ -61,7 +61,7 @@ describe('as configurações do mural (a folha)', () => {
   const tab = (name: string) => el.querySelector<HTMLButtonElement>(`#config-aba-${name}`)!;
   const segment = (root: ParentNode, text: string) =>
     Array.from(root.querySelectorAll<HTMLLabelElement>('.segmento')).find((s) => s.textContent!.trim().startsWith(text))!.querySelector('input')!;
-  const rows = () => Array.from(el.querySelectorAll('.cat app-cat-label .nome')).map((n) => n.textContent!.trim());
+  const rows = () => Array.from(el.querySelectorAll('.cats:not(.autos) .cat app-cat-label .nome')).map((n) => n.textContent!.trim());
   const go = async (name: string) => {
     tab(name).click();
     await fixture.whenStable();
@@ -179,18 +179,36 @@ describe('as configurações do mural (a folha)', () => {
     expect(settings.notesConfig().categories).toEqual({});
   });
 
-  it('as abas Fixadas e Compartilhadas: ligadas por padrão, cada uma com o seu interruptor', async () => {
+  it('as abas que o mural gera vêm depois dos grupos, com o olho desligado (no Mais) e só a cor para mudar', async () => {
     await go('categorias');
-    const sw = (id: string) => el.querySelector<HTMLButtonElement>(`button[role=switch][aria-labelledby="${id}"]`)!;
-    expect(sw('config-t-fixadas').getAttribute('aria-checked')).toBe('true');
-    expect(sw('config-t-compartilhadas').getAttribute('aria-checked')).toBe('true');
-    sw('config-t-fixadas').click();
+    expect(el.querySelector('.cats-costura')!.textContent!.trim()).toBe('Gerados automaticamente');
+    const autos = Array.from(el.querySelectorAll<HTMLElement>('.cats.autos > .cat'));
+    expect(autos.map((r) => r.querySelector('app-cat-label .nome')!.textContent!.trim())).toEqual(['Tudo', 'Fixadas', 'Compartilhadas']);
+    // nada de alça, renomear nem apagar; o olho desligado é o padrão
+    expect(autos.every((r) => !r.querySelector('.alca'))).toBeTrue();
+    const eye = (i: number) => autos[i].querySelector<HTMLButtonElement>('.olho')!;
+    expect(eye(0).getAttribute('aria-pressed')).toBe('true');
+    expect(autos[1].querySelector('.cat-n')!.textContent).toContain('no Mais');
+    eye(1).click();
     await fixture.whenStable();
-    expect(settings.notesConfig().showPinned).toBeFalse();
-    expect(sw('config-t-fixadas').getAttribute('aria-checked')).toBe('false');
-    sw('config-t-compartilhadas').click();
+    expect(settings.notesConfig().showPinned).toBeTrue();
+    expect(eye(1).getAttribute('aria-pressed')).toBe('false');
+    eye(0).click();
     await fixture.whenStable();
-    expect(settings.notesConfig().showShared).toBeFalse();
+    expect(settings.notesConfig().showAll).toBeTrue();
+    // abre: só a cor da etiqueta, sem os ícones nem o apagar
+    autos[2].querySelector<HTMLButtonElement>('.cat-abre')!.click();
+    await fixture.whenStable();
+    const painel = autos[2].querySelector('.cat-painel')!;
+    expect(painel.querySelector('.op.icone')).toBeNull();
+    expect(painel.querySelector('.apagar')).toBeNull();
+    painel.querySelector<HTMLButtonElement>('.op.cor[aria-label="Azul"]')!.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().autoColors).toEqual({ compartilhadas: 'azul' });
+    expect(autos[2].querySelector('.orelha')!.classList).toContain('orelha-cor');
+    painel.querySelector<HTMLButtonElement>('.op.cor.sem-cor')!.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().autoColors).toEqual({});
   });
 
   it('na minha ordem, a alça sobe e desce a categoria pelo teclado, e as abas seguem', async () => {

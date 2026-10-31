@@ -5,8 +5,9 @@ import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/ca
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
 import { LabelEditResult, LabelEdits } from '../core/label-edits';
-import { CategoryPrefs, GroupSort, GroupView, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
-import type { Audience } from '../core/review';
+import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys, kanbanOnly, moveKey, prefsOf, savedSubjects, tagHiddenByDefault } from '../core/mural-config';
+import { isPinnedNote, type Audience } from '../core/review';
+import { SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
 import { LABEL_MAX, SubjectEntry, cleanCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
@@ -54,6 +55,25 @@ const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[
 ];
 /** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
 const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
+
+/** As abas que o mural gera, na lista dos grupos: o nome e o desenho fixos, e o que cada uma junta. */
+const AUTO_ROWS: readonly { key: AutoTab; label: string; icon: LucideIconData; what: string }[] = [
+  { key: 'tudo', label: 'Tudo', icon: ICON.camadas, what: 'O mural inteiro, de todos os grupos' },
+  { key: 'fixadas', label: 'Fixadas', icon: ICON.fixar, what: 'As fixadas de todos os grupos, quando há alguma' },
+  { key: 'compartilhadas', label: 'Compartilhadas', icon: ICON.pessoas, what: 'O que outras pessoas compartilharam com você' },
+];
+/** Onde fica o olho de cada uma nas configurações do mural. */
+const AUTO_FIELD = { tudo: 'showAll', fixadas: 'showPinned', compartilhadas: 'showShared' } as const satisfies Record<AutoTab, keyof NotesConfig>;
+
+interface AutoRow {
+  key: AutoTab;
+  label: string;
+  icon: LucideIconData;
+  what: string;
+  n: number;
+  stands: boolean;
+  color: string | null;
+}
 
 /** As ordens que um grupo pode escolher para abrir, com os nomes do Ordenar da pasta. */
 const SORTS: readonly { value: GroupSort; label: string; icon: LucideIconData }[] = [
@@ -204,6 +224,7 @@ export class MuralConfig {
   protected readonly audienceLabel = AUDIENCE_LABEL;
   protected readonly views = VIEWS;
   protected readonly sorts = SORTS;
+  private readonly shared = inject(SharedStore);
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
@@ -615,6 +636,35 @@ export class MuralConfig {
     if (p.sort) parts.push(SORT_SAID[p.sort]);
     if (p.kanbanOnly === false) parts.push('Kanban no mural também');
     return parts.join(' · ');
+  }
+
+  /** A aba que o mural gera aberta na lista (a cor dela). */
+  protected readonly openAuto = signal<AutoTab | null>(null);
+
+  /**
+   * As abas que o mural gera, depois dos grupos: Tudo, Fixadas e Compartilhadas, com quantas anotações
+   * cada uma tem, se estão em pé (o olho) e a cor.
+   */
+  protected readonly autoRows = computed<AutoRow[]>(() => {
+    const cfg = this.config();
+    const notes = this.store.notes();
+    const shared = [...this.shared.entries().values()].filter((e) => e.papel !== 'dono').length;
+    return AUTO_ROWS.map((row) => ({
+      ...row,
+      n: row.key === 'tudo' ? notes.length : row.key === 'fixadas' ? notes.filter(isPinnedNote).length : shared,
+      stands: cfg[AUTO_FIELD[row.key]],
+      color: categoryColorHex(cfg.autoColors[row.key]),
+    }));
+  });
+
+  protected toggleAutoOpen(key: AutoTab): void {
+    this.openAuto.update((k) => (k === key ? null : key));
+  }
+
+  /** O olho de uma aba que o mural gera: em pé ao lado dos grupos, ou só no "Mais". */
+  protected toggleAuto(row: AutoRow): void {
+    this.settings.setNotesConfig({ [AUTO_FIELD[row.key]]: !row.stands });
+    this.said.set(row.stands ? `${row.label}: só no Mais.` : `${row.label} em pé ao lado dos grupos.`);
   }
 
   /** Escondida: a aba dela fica sempre no "Mais" (o mural continua mostrando as anotações em Tudo). */

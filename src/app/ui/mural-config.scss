@@ -267,6 +267,31 @@ fieldset.linha {
   }
 }
 
+/* a divisória entre os grupos e as abas que o mural gera: o nome impresso no meio da linha tracejada */
+.cats-costura {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 26px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-top: 1.5px dashed rgb(21 21 21 / 0.28);
+  }
+}
+
+.cats.autos {
+  margin-top: 10px;
+}
+
 .cats.arrastando {
   user-select: none;
 }

@@ -1,5 +1,6 @@
 import type { Audience } from './review';
-import { lookKey, tagLookKey } from './category-looks';
+import { CategoryColorId, lookKey, tagLookKey } from './category-looks';
+import { ehCorDaCartela } from '../../../shared/cartela-de-icones';
 // (não de note-labels: ela traz review e settings, que trazem este arquivo)
 import { cleanLabel } from './text';
 
@@ -36,6 +37,13 @@ export type GroupView = (typeof GROUP_VIEWS)[number];
  */
 export const GROUP_SORTS = ['prioridade', 'data', 'alfabetica', 'assunto', 'tag', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem', 'dono'] as const;
 export type GroupSort = (typeof GROUP_SORTS)[number];
+
+/**
+ * As abas que o mural gera sozinho (ver `WallState.specialTabs`): não se apagam, não se escolhem para
+ * uma anotação, e o nome e o desenho são fixos; nas configurações, elas têm o olho e a cor.
+ */
+export const AUTO_TABS = ['tudo', 'fixadas', 'compartilhadas'] as const;
+export type AutoTab = (typeof AUTO_TABS)[number];
 
 /** O que uma categoria muda em cima do mural. Sem o campo: segue o mural. */
 export interface CategoryPrefs {
@@ -83,14 +91,16 @@ export interface NotesConfig {
    */
   hiddenTags: string[];
   /**
-   * A aba "Tudo" (o mural inteiro) fica em pé ao lado dos grupos. Sem ela (o padrão), o mural abre
-   * sempre num grupo, como o Kanban, e o Tudo só aparece quando a busca pede para procurar em todos.
+   * O olho das abas que o mural gera (ligado: em pé ao lado dos grupos; desligado, o padrão: só no
+   * "Mais"). O Tudo (o mural inteiro): sem ele em pé, o mural abre sempre num grupo, como o Kanban.
    */
   showAll: boolean;
-  /** A aba "Fixadas" (todas as fixadas, de todos os grupos) fica em pé quando há alguma. Ligada por padrão. */
+  /** A aba "Fixadas" (todas as fixadas, de todos os grupos) em pé quando há alguma; desligada, no "Mais". */
   showPinned: boolean;
-  /** A aba "Compartilhadas" (as que outras pessoas compartilharam com você) fica em pé quando há alguma. Ligada por padrão. */
+  /** A aba "Compartilhadas" (as que outras pessoas compartilharam com você) em pé; desligada, no "Mais". */
   showShared: boolean;
+  /** A cor da etiqueta de cada aba que o mural gera (o nome e o desenho são fixos). Sem a chave, sem cor. */
+  autoColors: Partial<Record<AutoTab, CategoryColorId>>;
   /**
    * Os assuntos criados nas configurações, por grupo (a chave de `lookKey`; "" para as anotações sem
    * grupo), na ordem em que foram criados: ficam à mão no editor e no filtro mesmo antes de alguma
@@ -99,7 +109,7 @@ export interface NotesConfig {
   subjects: Record<string, string[]>;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: true, showShared: true, subjects: {} };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, autoColors: {}, subjects: {} };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -175,10 +185,22 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     categories,
     hiddenTags,
     showAll: r['showAll'] === true,
-    showPinned: r['showPinned'] !== false,
-    showShared: r['showShared'] !== false,
+    showPinned: r['showPinned'] === true,
+    showShared: r['showShared'] === true,
+    autoColors: sanitizeAutoColors(r['autoColors']),
     subjects,
   };
+}
+
+/** As cores das abas que o mural gera: só as das abas que existem, e só as cores da cartela. */
+function sanitizeAutoColors(raw: unknown): Partial<Record<AutoTab, CategoryColorId>> {
+  const out: Partial<Record<AutoTab, CategoryColorId>> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const k of AUTO_TABS) {
+    const c = (raw as Record<string, unknown>)[k];
+    if (ehCorDaCartela(c)) out[k] = c as CategoryColorId;
+  }
+  return out;
 }
 
 /** Uma lista de assuntos guardada: limpos, sem repetir (sem ligar para caixa e acento), no máximo `MAX_SAVED_SUBJECTS`. */

@@ -3,8 +3,17 @@ import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, PINNED_TAB, SHARED_TAB } from '../core/note-tabs';
+import { AutoTab } from '../core/mural-config';
+
+const NONE_TAB = NO_CATEGORY_TAB;
+
+/** A aba que o mural gera, pela chave da aba ('' é o Tudo). */
+function autoOf(key: string): AutoTab {
+  return key === PINNED_TAB ? 'fixadas' : key === SHARED_TAB ? 'compartilhadas' : 'tudo';
+}
 import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
+import { TabMore, TabMoreItem } from './tab-more';
 import { TabFit } from './tab-fit';
 
 /**
@@ -20,19 +29,35 @@ import { TabFit } from './tab-fit';
  */
 @Component({
   selector: 'app-note-tabs',
-  imports: [IconModule, CategoryLabel],
+  imports: [IconModule, CategoryLabel, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (tabs(); as t) {
       <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Grupos das anotações'">
         @if (allShown()) {
-          <button type="button" class="aba especial" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
+          <button
+            type="button"
+            class="aba"
+            [class.on]="active() === ALL"
+            [class.orelha-cor]="!!autoColor('tudo')"
+            [style.--cat-cor]="autoColor('tudo')"
+            [attr.aria-pressed]="active() === ALL"
+            (click)="choose(ALL)"
+          >
             <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /><span class="n">{{ t.all }}</span>
           </button>
         }
-        <!-- as abas especiais: as fixadas e as compartilhadas com você, de todos os grupos (sem lugar, no "Mais") -->
+        <!-- as abas que o mural gera, com o olho ligado nas configurações (sem lugar, no "Mais") -->
         @for (x of specialShown(); track x.key) {
-          <button type="button" class="aba especial" [class.on]="active() === x.key" [attr.aria-pressed]="active() === x.key" (click)="choose(x.key)">
+          <button
+            type="button"
+            class="aba"
+            [class.on]="active() === x.key"
+            [class.orelha-cor]="!!autoColor(x.key)"
+            [style.--cat-cor]="autoColor(x.key)"
+            [attr.aria-pressed]="active() === x.key"
+            (click)="choose(x.key)"
+          >
             <app-cat-label class="rotulo-cat" [label]="x.label" [glyph]="iconOf(x.key)" [iconSize]="15" /><span class="n">{{ x.n }}</span>
           </button>
         }
@@ -56,23 +81,23 @@ import { TabFit } from './tab-fit';
             <span class="n">{{ x.n }}</span>
           </button>
         }
-        @if (layout().more.length || specialMore().length) {
-          <label class="aba mais" [class.on]="moreOn()">
-            <span class="nome">{{ moreOn() ? activeLabel() : 'Mais' }}</span>
+        @if (moreGroups().length || moreAutos().length) {
+          <app-tab-more
+            class="aba mais"
+            [class.on]="moreOn()"
+            [groups]="moreGroups()"
+            [autos]="moreAutos()"
+            [active]="active()"
+            [label]="music() ? 'Mais artistas' : 'Mais abas'"
+            [groupsLabel]="music() ? 'Artistas' : 'Grupos'"
+            (chosen)="choose($event)"
+          >
+            <span class="nome">{{ moreOn() ? activeLabel() ?? 'Tudo' : 'Mais' }}</span>
             @if (moreOn()) {
               <span class="n">{{ moreCount() }}</span>
             }
             <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
-            <select [attr.aria-label]="music() ? 'Mais artistas' : 'Mais grupos'" (change)="choose($any($event.target).value)">
-              <option value="" disabled [selected]="!moreOn()">{{ music() ? 'Mais artistas' : 'Mais grupos' }}</option>
-              @for (x of layout().more; track x.key) {
-                <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
-              }
-              @for (x of specialMore(); track x.key) {
-                <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
-              }
-            </select>
-          </label>
+          </app-tab-more>
         }
       </div>
 
@@ -151,9 +176,13 @@ import { TabFit } from './tab-fit';
     .mais {
       @include div.mais-de-grupo;
 
-      select {
-        @include kit.select-por-cima;
+      .chev {
+        transition: rotate var(--t-ui) var(--ease-ui);
       }
+    }
+    /* o "Mais" aberto: a setinha vira */
+    .mais.aberto .chev {
+      rotate: 180deg;
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -183,8 +212,11 @@ export class NoteTabsBar {
 
   /** O Tudo em pé (ver `WallState.allTabShown`). */
   protected readonly allShown = this.view.allTabShown;
-  /** As abas especiais (Fixadas, Compartilhadas), em pé logo depois do Tudo (ver `WallState.specialTabs`). */
-  protected readonly special = computed(() => (this.music() ? [] : this.view.specialTabs()));
+  /**
+   * As abas que o mural gera em pé (o olho ligado nas configurações), logo depois do Tudo (ver
+   * `WallState.standingSpecials`); as outras ficam no "Mais".
+   */
+  protected readonly special = computed(() => (this.music() ? [] : this.view.standingSpecials()));
   /** O desenho de cada aba especial: o alfinete das fixadas, as duas pessoas das compartilhadas. */
   protected iconOf(key: string) {
     return key === PINNED_TAB ? ICON.fixar : key === SHARED_TAB ? ICON.pessoas : ICON.camadas;
@@ -223,11 +255,39 @@ export class NoteTabsBar {
 
   /** As especiais em pé e as que foram para o "Mais" por falta de lugar. */
   protected readonly specialShown = computed(() => this.special().filter((x) => !this.layout().leadMore.includes(x.key)));
-  protected readonly specialMore = computed(() => this.special().filter((x) => this.layout().leadMore.includes(x.key)));
+
+  /** O "Mais": os grupos que não couberam em pé, com o desenho e a cor de cada um. */
+  protected readonly moreGroups = computed<TabMoreItem[]>(() =>
+    this.layout().more.map((x) => ({ key: x.key, label: x.label, n: x.n, look: this.lookOf(x), glyph: this.glyph(), plain: x.key === NONE_TAB })),
+  );
+  /**
+   * E, depois da costura, as abas que o mural gera e que não estão em pé: o Tudo (sem o olho), as
+   * especiais com o olho desligado e as que foram para o "Mais" por falta de lugar.
+   */
+  protected readonly moreAutos = computed<TabMoreItem[]>(() => {
+    if (this.music()) return [];
+    const t = this.tabs();
+    const out: TabMoreItem[] = [];
+    if (!this.allShown() && t) out.push({ key: ALL_TAB, label: 'Tudo', n: t.all, look: this.autoLook('tudo'), glyph: ICON.camadas });
+    const standing = new Set(this.specialShown().map((x) => x.key));
+    for (const x of this.view.specialTabs()) {
+      if (!standing.has(x.key)) out.push({ key: x.key, label: x.label, n: x.n, look: this.autoLook(autoOf(x.key)), glyph: this.iconOf(x.key) });
+    }
+    return out;
+  });
 
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */
-  protected readonly moreOn = computed(() => [...this.layout().more, ...this.specialMore()].some((x) => x.key === this.active()));
-  protected readonly moreCount = computed(() => [...this.layout().more, ...this.specialMore()].find((x) => x.key === this.active())?.n ?? 0);
+  protected readonly moreOn = computed(() => [...this.moreGroups(), ...this.moreAutos()].some((x) => x.key === this.active()));
+  protected readonly moreCount = computed(() => [...this.moreGroups(), ...this.moreAutos()].find((x) => x.key === this.active())?.n ?? 0);
+
+  /** A cor da etiqueta de uma aba que o mural gera (nas configurações do mural). */
+  private autoLook(k: AutoTab): CategoryLook {
+    const color = this.view.autoColors()[k];
+    return color ? { color } : {};
+  }
+  protected autoColor(key: string): string | null {
+    return categoryColorHex(this.autoLook(autoOf(key)).color);
+  }
 
   protected choose(key: string): void {
     if (key === this.active()) return;

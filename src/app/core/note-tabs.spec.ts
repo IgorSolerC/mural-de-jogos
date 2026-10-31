@@ -363,7 +363,8 @@ describe('WallView sem a aba Tudo (o padrão)', () => {
   it('a busca em todos os grupos abre o Tudo só até escolher um grupo (e não fica guardado)', () => {
     view.setNoteTab(ALL_TAB);
     expect(view.activeTab()).toBe(ALL_TAB);
-    expect(view.allTabShown()).toBeTrue();
+    // aberto, mas sem o olho: ele continua no "Mais" (que mostra o nome dele)
+    expect(view.allTabShown()).toBeFalse();
     expect(view.visible().length).toBe(11);
     view.setNoteTab(key('Viagem'));
     expect(view.allTabShown()).toBeFalse();

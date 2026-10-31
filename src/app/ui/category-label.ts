@@ -24,6 +24,7 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
   selector: 'app-cat-label',
   imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.tingido]': 'tint()' },
   template: `<lucide-icon class="icone" [img]="icon()" [size]="iconSize()" aria-hidden="true" /><span class="nome">{{ label() }}</span>`,
   styles: `
     :host {
@@ -38,7 +39,9 @@ export function categoryIcon(category: string, look: CategoryLook = {}): LucideI
       display: inline-flex;
       opacity: 0.8;
     }
-    /* na orelha com cor, o desenho é da cor dela, cheio (o nome continua na tinta preta) */
+    /* na orelha com cor, o desenho é da cor dela, cheio (o nome continua na tinta preta); tingido: o
+       mesmo fora de uma orelha (o menu "Mais", ver ui/tab-more.ts) */
+    :host(.tingido) .icone,
     :host-context(.orelha-cor) .icone {
       color: var(--cat-cor);
       opacity: 1;
@@ -57,6 +60,8 @@ export class CategoryLabel {
   readonly label = input.required<string>();
   readonly look = input<CategoryLook>({});
   readonly iconSize = input(13);
+  /** O desenho na cor de `--cat-cor` sem estar numa orelha com cor (o menu "Mais"). */
+  readonly tint = input(false);
   /** O desenho de quem não é categoria de anotação (o artista, nas músicas): vale no lugar do dela. */
   readonly glyph = input<LucideIconData | null>(null);
 

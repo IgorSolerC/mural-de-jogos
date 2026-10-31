@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryColorId, CategoryIconId, CategoryLook, categoryColorHex } from '../core/category-looks';
+import type { AutoTab } from '../core/mural-config';
 import { Settings } from '../core/settings';
 import { CategoryLabel, categoryIcon } from './category-label';
 import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icons';
@@ -21,14 +22,17 @@ import { ICON_CHOICE, ICON_CHOICE_LABEL, IconModule, iconChoiceOf } from './icon
       </div>
       <p class="hint">Vale para todas as anotações de {{ category() }}: na orelha da ficha e na aba do mural.</p>
     }
-    <p class="sub" [id]="id() + '-icones'">Ícone</p>
-    <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
-      @for (i of icons; track i) {
-        <button type="button" class="op icone" [attr.aria-pressed]="iconId() === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
-          <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
-        </button>
-      }
-    </div>
+    <!-- a aba que o mural gera: o desenho é dela, só a cor muda -->
+    @if (!auto()) {
+      <p class="sub" [id]="id() + '-icones'">Ícone</p>
+      <div class="ops" role="group" [attr.aria-labelledby]="id() + '-icones'">
+        @for (i of icons; track i) {
+          <button type="button" class="op icone" [attr.aria-pressed]="iconId() === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
+            <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
+          </button>
+        }
+      </div>
+    }
     <p class="sub" [id]="id() + '-cores'">Cor da etiqueta</p>
     <div class="ops" role="group" [attr.aria-labelledby]="id() + '-cores'">
       <button type="button" class="op cor sem-cor" [attr.aria-pressed]="!look().color" aria-label="Sem cor" title="Sem cor: o papel manilha liso" (click)="setColor(undefined)"></button>
@@ -203,6 +207,8 @@ export class CategoryStyle {
   readonly category = input.required<string>();
   /** Sem a folha e a prévia: quem mostra já tem a orelha à vista (ver ui/mural-config.ts). */
   readonly bare = input(false);
+  /** Uma aba que o mural gera (Tudo, Fixadas, Compartilhadas): só a cor, guardada nas configurações do mural. */
+  readonly auto = input<AutoTab | null>(null);
 
   private readonly settings = inject(Settings);
   protected readonly icons = CATEGORY_ICONS;
@@ -211,7 +217,12 @@ export class CategoryStyle {
   protected readonly colors = CATEGORY_COLORS;
 
   /** O ícone e a cor escolhidos para a categoria. */
-  protected readonly look = computed<CategoryLook>(() => this.settings.categoryLook(this.category()));
+  protected readonly look = computed<CategoryLook>(() => {
+    const auto = this.auto();
+    if (!auto) return this.settings.categoryLook(this.category());
+    const color = this.settings.notesConfig().autoColors[auto];
+    return color ? { color } : {};
+  });
   protected readonly color = computed(() => categoryColorHex(this.look().color));
   /** O ícone que a categoria mostra agora: o escolhido, ou o de sempre. */
   protected readonly iconId = computed(() => {
@@ -225,10 +236,17 @@ export class CategoryStyle {
   }
 
   protected setColor(color: CategoryColorId | undefined): void {
+    const auto = this.auto();
+    if (auto) {
+      const { [auto]: _was, ...rest } = this.settings.notesConfig().autoColors;
+      this.settings.setNotesConfig({ autoColors: color ? { ...rest, [auto]: color } : rest });
+      return;
+    }
     this.settings.setCategoryLook(this.category(), { ...this.look(), color });
   }
 
   protected reset(): void {
-    this.settings.setCategoryLook(this.category(), {});
+    if (this.auto()) this.setColor(undefined);
+    else this.settings.setCategoryLook(this.category(), {});
   }
 }
