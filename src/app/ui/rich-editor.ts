@@ -849,22 +849,70 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     [aria-expanded='true']:is(.acao-folha, .ferramenta, .menu-botao) {
       background: rgb(21 21 21 / 0.1);
     }
-    /* ligado (a marca vale onde está o cursor): o botão apertado do site (o chip da pasta, em
-       _paper-kit.scss), em tinta cheia com o desenho no papel, torto de leve */
-    .ferramenta[aria-pressed='true'] {
-      background: var(--ink);
-      color: var(--paper);
-      rotate: -2deg;
-      box-shadow:
-        0 1px 2px rgb(0 0 0 / 0.3),
-        0 3px 6px -3px rgb(0 0 0 / 0.35);
-      transition:
-        background-color var(--t-ui) var(--ease-ui),
-        rotate var(--t-physical) var(--ease-physical);
+    /* ligado (a marca vale onde está o cursor): o traço de marca-texto, a língua do "ligado" do site
+       (o .tinta da pasta, as seções do índice): amarelo, um pouco torto, passado da esquerda para a
+       direita por cima do desenho. No botão quadrado, a passada das seções (ui/area-bar.ts: mais grossa
+       no começo, a ponta chanfrada), mais larga que alta, como a caneta passando sobre uma linha, e não
+       um quadrado amarelo. Fica dentro do botão (a régua rola de lado e corta o que passa dela), sem
+       sombra e sem girar o botão */
+    .ferramenta {
+      position: relative;
+      isolation: isolate;
     }
+    /* o desenho no meio do botão (o svg do lucide-icon é inline, sentado numa linha de texto, e subia
+       uns 3px, acima dos fios e dos nomes) */
+    .ferramenta lucide-icon ::ng-deep svg {
+      display: block;
+    }
+    .ferramenta::before {
+      content: '';
+      position: absolute;
+      inset: 8px 1px 7px;
+      z-index: -1;
+      background: var(--hi);
+      -webkit-mask: var(--marca-passada) center / 100% 100% no-repeat;
+      mask: var(--marca-passada) center / 100% 100% no-repeat;
+      rotate: -1.2deg;
+      opacity: 0;
+      scale: 0.6 1;
+      transform-origin: left center;
+      transition:
+        opacity var(--t-ui) var(--ease-ui),
+        scale var(--t-ui) var(--ease-ui);
+    }
+    .ferramenta[aria-pressed='true']::before {
+      opacity: 1;
+      scale: 1 1;
+    }
+    .ferramenta[aria-pressed='true']:hover {
+      background: none;
+    }
+    /* o cursor andando pelo texto acende e apaga os botões: com movimento reduzido, só aparece */
     @media (prefers-reduced-motion: reduce) {
+      .ferramenta::before {
+        scale: 1 1;
+        transition: opacity var(--t-ui) var(--ease-ui);
+      }
+    }
+    /* cores forçadas: o traço é o Highlight (sem a máscara, o botão inteiro por dentro), o desenho o
+       HighlightText, e o anel do foco a cor do texto, por fora */
+    @media (forced-colors: active) {
+      .ferramenta[aria-pressed='true']::before {
+        forced-color-adjust: none;
+        inset: 3px;
+        -webkit-mask: none;
+        mask: none;
+        background: Highlight;
+      }
       .ferramenta[aria-pressed='true'] {
-        rotate: 0deg;
+        forced-color-adjust: none;
+        background: transparent;
+        color: HighlightText;
+      }
+      /* (mais forte que o anel de sempre, que vem depois no arquivo) */
+      .ferramentas .ferramenta:focus-visible {
+        outline-color: CanvasText;
+        outline-offset: 1px;
       }
     }
     /* o que não vale ali (no menu Tabela, como o botão apagado da grade da folha): apagado */
@@ -1022,6 +1070,9 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       .ferramenta {
         width: 40px;
         height: 44px;
+      }
+      .ferramenta::before {
+        inset: 11px 2px 10px;
       }
       .menu-botao,
       .acao-folha {

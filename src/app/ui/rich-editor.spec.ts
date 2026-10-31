@@ -467,6 +467,17 @@ describe('a régua de formatação do texto', () => {
     // no Markdown o botão também afunda onde a marca vale: fora dela, solto
     expect(button('Negrito').getAttribute('aria-pressed')).toBe('false');
     expect(button('Lista').getAttribute('aria-disabled')).toBeNull();
+    // a linha é uma tarefa: o botão dela acende com a passada de marca-texto, também aqui; e o desenho
+    // de todo botão fica no meio dele (o svg é um bloco, sem a linha de texto embaixo)
+    area.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    const tarefas = button('Tarefas');
+    expect(tarefas.getAttribute('aria-pressed')).toBe('true');
+    for (const a of document.getAnimations()) a.finish();
+    const traco = getComputedStyle(tarefas, '::before');
+    expect(traco.opacity).toBe('1');
+    expect(traco.maskImage).toContain('data:image/svg+xml');
+    expect(getComputedStyle(tarefas.querySelector('svg')!).display).toBe('block');
   });
 
   it('com um máximo, o contador embaixo da folha e o campo que não passa dele', async () => {

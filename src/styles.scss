@@ -159,6 +159,9 @@
   --verdict-chato-lit: #c9a6ff;
   /* Papel: fibra procedural (a foto da fibra entra por cima quando carrega: body.has-paper-texture) */
   --paper-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.45 0 0 0 0 0.4 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* a passada de marca-texto do ligado (as seções do índice, os botões ligados da régua do texto): mais
+     grossa no começo, a ponta chanfrada; usada como máscara do amarelo */
+  --marca-passada: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 3.2C24 1.6 58 1.2 99 2.4L97 8.6C62 7.4 30 7.8 3 9.4Z'/%3E%3C/svg%3E");
   /* a fibra que a cartolina usa: a procedural até a foto carregar (body.has-paper-texture) */
   --grao-img: var(--paper-grain);
   /* a fibra das claras, sempre: uma ficha clara colada numa escura volta a ela (a escura troca a

@@ -250,9 +250,9 @@ interface Summary {
         height: 9px;
         background: var(--hi);
         /* o traço de marca-texto: mais grosso no começo, a ponta chanfrada */
-        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 3.2C24 1.6 58 1.2 99 2.4L97 8.6C62 7.4 30 7.8 3 9.4Z'/%3E%3C/svg%3E")
+        -webkit-mask: var(--marca-passada)
           center / 100% 100% no-repeat;
-        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 3.2C24 1.6 58 1.2 99 2.4L97 8.6C62 7.4 30 7.8 3 9.4Z'/%3E%3C/svg%3E")
+        mask: var(--marca-passada)
           center / 100% 100% no-repeat;
         scale: 0 1;
         transform-origin: 0 50%;

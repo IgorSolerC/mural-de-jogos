@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-recorte-dos-widgets',
+    id: '2026-10-30-botao-ligado-da-regua',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
@@ -45,7 +45,7 @@ export const NEWS: NewsEntry[] = [
       'Na leitura da anotação aberta e no modo Visual, o item da lista ou a tarefa com algo escrito embaixo não ganha mais uma linha em branco antes do próximo: ela só aparece se foi escrita (na cartolina do mural, nada muda).',
       'No modo Visual, o widget selecionado fica marcado por uma linha de recorte tracejada, fina, só em volta do que ele desenha e sempre dentro da folha (os botões de ampliar e do volume ficam espetados por cima dela), no lugar da linha preta que atravessava a folha; e as letras claras dele (o FALTAM do calendário) não ficam mais pretas ao selecionar.',
       'Nos Gastos, o ? ao lado do Filtrar (ou a tecla ?) abre o Como anotar: os jeitos de escrever na linha de anotar, cada um com a marca que faz a diferença passada a marca-texto (o valor, o + da entrada, as parcelas, o todo mês, o dia, o pix, a #categoria, o #luxo e as @pessoas).',
-      'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) fica apertado como os outros do site, em tinta cheia e torto de leve; e agora afunda também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista, e lá o clique no botão apertado tira a marca em volta do cursor.',
+      'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) ganha o traço de marca-texto amarelo, como os botões ligados da pasta do mural, no lugar do quadrado preto (que saía cortado embaixo); e agora ele acende também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista, e lá o clique no botão ligado tira a marca em volta do cursor.',
     ],
   },
   {

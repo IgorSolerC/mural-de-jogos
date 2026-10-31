@@ -102,6 +102,20 @@ describe('o editor com o Visual', () => {
     select(2);
     await settle();
     expect(button('Negrito').getAttribute('aria-pressed')).toBe('false');
+    // o ligado é o traço de marca-texto da pasta, por dentro do botão: o botão não gira nem escurece
+    // (a régua rola de lado e cortaria o que passasse dela)
+    select(4, 8);
+    await settle();
+    const ligado = button('Negrito');
+    for (const a of document.getAnimations()) a.finish();
+    const traco = getComputedStyle(ligado, '::before');
+    expect(traco.opacity).toBe('1');
+    expect(traco.backgroundColor).toBe('rgb(255, 218, 66)');
+    expect(getComputedStyle(ligado).rotate).toBe('none');
+    expect(getComputedStyle(ligado).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    expect(getComputedStyle(button('Itálico'), '::before').opacity).toBe('0');
+    select(2);
+    await settle();
     const toasts = TestBed.inject(Toasts);
     (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
     await settle();
