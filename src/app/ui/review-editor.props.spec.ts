@@ -6,7 +6,8 @@ import { KanbanStore } from '../core/kanban-store';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
-import { ReviewEditor } from './review-editor';
+import { ReviewEditor } from './review-editor';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const TRAB = boardIdFor('trabalho');
@@ -34,6 +35,8 @@ function board(cards: KanbanBoard['cards'] = []): KanbanBoard {
  * etiquetas com os detalhes (cada uma abre a sua parte) e o lugar da anotação no Kanban.
  */
 describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<ReviewEditor>;
   let el: HTMLElement;
   let store: ReviewStore;

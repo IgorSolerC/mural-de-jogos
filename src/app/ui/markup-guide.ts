@@ -156,9 +156,9 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (visual()) {
-      <p class="guia-sobre">Na aba Visual (em teste), o texto aparece como fica: a régua, os atalhos de teclado e os de digitação formatam, e o que se escreve é texto.</p>
+      <p class="guia-sobre">Na aba Visual, o texto aparece como fica: a régua, os atalhos de teclado e os de digitação formatam, e o que se escreve é texto.</p>
     } @else {
-      <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão na aba Markdown. Na aba Visual (em teste), o texto já aparece como fica, sem as marcas.</p>
+      <p class="guia-sobre">O que a régua faz vira uma marca no próprio texto, e dá para escrever as marcas à mão na aba Markdown. Na aba Visual, o texto já aparece como fica, sem as marcas.</p>
     }
     @for (sec of sections(); track sec.title; let i = $index) {
       <section class="guia-secao" [attr.aria-labelledby]="idPrefix() + '-' + i">

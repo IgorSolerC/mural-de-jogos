@@ -691,9 +691,6 @@
                 <label class="segmento">
                   <input type="radio" name="jeito-de-escrever" [value]="o.value" [checked]="settings.writingMode() === o.value" (change)="settings.writingMode.set(o.value)" />
                   <span class="seg-nome">{{ o.label }}</span>
-                  @if (o.value === 'visual') {
-                    <span class="carimbo-teste">em teste</span>
-                  }
                 </label>
               }
             </div>

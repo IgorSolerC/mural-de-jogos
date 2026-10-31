@@ -8,6 +8,7 @@ import { CommentBubble } from './comment-bubble';
 import { CommentsPanel } from './comments-panel';
 import { Confirm } from './confirm';
 import { Toasts } from './toast';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 /**
  * A folha de comentários, desenhada de verdade: a conversa, o campo que só abre quando a pessoa vai
@@ -98,6 +99,8 @@ class Host {
 }
 
 describe('A folha de comentários (CommentsPanel)', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fake: FakeComments;
   let followed: string[];
   let asked: { title?: string; text: string }[];

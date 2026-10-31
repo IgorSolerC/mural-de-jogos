@@ -24,6 +24,13 @@
  * A REGRA DO PDF: toda marca nova (ou mudada) precisa sair certa no "Salvar como PDF" (ui/pdf-sheet.ts).
  * Ponha a amostra dela em ui/pdf-sheet.samples.ts (os tipos obrigam), o olhar dela no pdf-sheet.spec.ts
  * e confira as páginas com `node scripts/pdf-amostra.mjs` (ver DESIGN.md, "Salvar como PDF").
+ *
+ * A REGRA DO VISUAL: toda marca nova (ou mudada) precisa ser lida e escrita pelo modo Visual
+ * (core/rich-doc.ts, ui/visual-editor/): a amostra da REGRA DO PDF passa também em
+ * ui/visual-editor/regra.spec.ts (abre no Visual sem virar trecho cru e sai sem mudar um byte), e o
+ * desenho na folha é o da leitura (o parcial ui/_formatado.scss, fotografado de perto). Mudou o leitor
+ * (`parseRich`, `parseInline`)? Rode os specs do tradutor (core/rich-doc.spec.ts) e do Visual
+ * (PLANO-EDITOR-VISUAL.md, seção 10).
  */
 
 import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';

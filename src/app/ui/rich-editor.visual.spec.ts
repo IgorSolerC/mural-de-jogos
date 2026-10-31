@@ -19,7 +19,7 @@ describe('o editor com o Visual', () => {
   let fixture: ComponentFixture<RichEditor>;
 
   async function make(text: string, mode: 'visual' | 'markdown' = 'visual'): Promise<void> {
-    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ writingMode: mode }));
+    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ escrita: mode }));
     TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
     fixture = TestBed.createComponent(RichEditor);
     fixture.componentRef.setInput('label', 'Anotação');
@@ -70,6 +70,25 @@ describe('o editor com o Visual', () => {
     expect(folha.querySelector('.titulo')?.textContent).toBe('Oi');
     expect(folha.querySelector('strong.negrito')?.textContent).toBe('dois');
     expect(value()).toBe('# Oi\num **dois**');
+  });
+
+  it('sem escolha nos Ajustes (e com o "markdown" que o tempo de teste gravava), abre o Visual, o padrão', async () => {
+    for (const guardado of [null, JSON.stringify({ writingMode: 'markdown' })]) {
+      TestBed.resetTestingModule();
+      if (guardado === null) localStorage.removeItem('mural-de-jogos:config:v1');
+      else localStorage.setItem('mural-de-jogos:config:v1', guardado);
+      TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
+      fixture = TestBed.createComponent(RichEditor);
+      fixture.componentInstance.value.set('oi');
+      document.body.appendChild(fixture.nativeElement);
+      await settle();
+      expect(tab('visual').getAttribute('aria-selected')).withContext(String(guardado)).toBe('true');
+      expect(tab('visual').getAttribute('aria-label')).toBe('Visual');
+      fixture.destroy();
+      fixture.nativeElement.remove();
+    }
+    TestBed.resetTestingModule();
+    await make('x');
   });
 
   it('a régua no Visual: o negrito acende onde vale, e nada do Inserir fica apagado (a tabela pela grade do tamanho)', async () => {

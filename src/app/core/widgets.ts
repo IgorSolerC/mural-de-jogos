@@ -18,6 +18,11 @@ import { localImageId } from './images';
  * A REGRA DO PDF: todo widget novo (ou jeito novo de um) precisa sair com a cara dele no "Salvar como
  * PDF" (ui/pdf-sheet.ts): a amostra em ui/pdf-sheet.samples.ts (o spec falha sem ela) e as páginas
  * conferidas com `node scripts/pdf-amostra.mjs` (ver DESIGN.md, "Salvar como PDF").
+ *
+ * A REGRA DO VISUAL: todo widget novo (ou jeito novo de um) precisa ser lido e escrito pelo modo Visual
+ * (core/rich-doc.ts, ui/visual-editor/): a amostra do PDF passa também em ui/visual-editor/regra.spec.ts
+ * (abre como peça, sem virar trecho cru, e sai sem mudar um byte), e o registro diz quais campos se
+ * escrevem direto na peça (`WidgetField.inline`). Ver PLANO-EDITOR-VISUAL.md, seção 10.
  */
 
 /** Um campo do formulário do widget, no editor. */

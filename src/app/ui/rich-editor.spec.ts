@@ -9,8 +9,11 @@ import { deleteDatabase } from '../core/erase-save';
 import { IMAGES_DB, ImageStore } from '../core/image-store';
 import { samplePng } from '../core/images.spec';
 import { Toasts } from './toast';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 describe('a régua de formatação do texto', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<RichEditor>;
   let area: HTMLTextAreaElement;
 
@@ -454,11 +457,11 @@ describe('a régua de formatação do texto', () => {
     expect(e.defaultPrevented).toBeFalse();
   });
 
-  it('as abas são Visual e Markdown; sem escolha nos Ajustes, abre o Markdown (o Visual está em teste)', async () => {
+  it('as abas são Visual e Markdown; com o Markdown escolhido nos Ajustes, abre ele', async () => {
     write('- [ ] leite|');
     const tabs = Array.from(fixture.nativeElement.querySelectorAll('[role=tab]') as NodeListOf<HTMLButtonElement>);
-    expect(tabs.map((t) => t.textContent!.trim())).toEqual(['Visualteste', 'Markdown']);
-    expect(tabs[0].getAttribute('aria-label')).toBe('Visual (em teste)');
+    expect(tabs.map((t) => t.textContent!.trim())).toEqual(['Visual', 'Markdown']);
+    expect(tabs[0].getAttribute('aria-label')).toBe('Visual');
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');
     expect(area.hidden).toBeFalse();
     // no Markdown o botão também afunda onde a marca vale: fora dela, solto
@@ -882,6 +885,8 @@ describe('a régua de formatação do texto', () => {
 
 /** Clicar num link ou num widget da folha abre o painel dele, mas o cursor fica onde a pessoa clicou. */
 describe('o painel aberto pelo clique na folha', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<RichEditor>;
   let area: HTMLTextAreaElement;
 
@@ -984,6 +989,8 @@ describe('o painel aberto pelo clique na folha', () => {
 });
 
 describe('a folha do widget no editor', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<RichEditor>;
   let el: HTMLElement;
   const wait = async () => {

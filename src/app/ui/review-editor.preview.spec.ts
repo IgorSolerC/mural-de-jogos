@@ -6,7 +6,8 @@ import { EditorView } from 'prosemirror-view';
 import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { Settings } from '../core/settings';
-import { ReviewEditor } from './review-editor';
+import { ReviewEditor } from './review-editor';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const LONG = Array.from({ length: 40 }, (_, i) => `Linha ${i + 1} da anotação comprida.`).join('\n');
@@ -32,6 +33,8 @@ async function settled(box: HTMLElement): Promise<void> {
  * "Ficha inteira", que mostra o texto todo e rola junto com o cursor de quem escreve.
  */
 describe('o editor: a prévia reta e a ficha inteira', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<ReviewEditor>;
   let el: HTMLElement;
 

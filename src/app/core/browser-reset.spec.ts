@@ -221,7 +221,7 @@ describe('limpar o navegador (sair da conta)', () => {
 
   it('o jeito de escrever escolhido nos Ajustes (o Visual ou o Markdown, por aparelho) sai junto', async () => {
     signedInBrowser();
-    writeJson(SETTINGS_KEY, { writingMode: 'visual' });
+    writeJson(SETTINGS_KEY, { escrita: 'markdown' });
     localStorage.removeItem(SESSION_KEY);
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();

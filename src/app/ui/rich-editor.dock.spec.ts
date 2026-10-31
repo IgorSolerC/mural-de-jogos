@@ -1,12 +1,15 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DOCK_MEDIA, RichEditor } from './rich-editor';
+import { DOCK_MEDIA, RichEditor } from './rich-editor';
+import { comMarkdown } from '../testing/writing-mode.spec';
 
 /**
  * No celular, a régua desce para cima do teclado enquanto se escreve: presa (`.presa`) com o foco na
  * folha, de volta ao alto quando ele sai (menos para um menu da própria régua).
  */
 describe('a régua presa em cima do teclado', () => {
+  // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
+  comMarkdown();
   let fixture: ComponentFixture<RichEditor>;
   let phone = true;
 

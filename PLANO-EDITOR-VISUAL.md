@@ -1799,8 +1799,70 @@ Impeccable em todo passo de tela; todos os testes e testes novos; `npx ng build`
   - Conferido: os specs (as alças em `tabela.spec.ts`, a grade pelo mouse e pelo teclado em
     `rich-editor.visual.spec.ts`), a suíte inteira, `npx ng build` e o roteiro `.angular/pptr/visual-alcas.mjs`
     na build de produção, no computador e no celular simulado, sem erro no console, com as fotos de perto.
-- Próximo: a rodada 9, para todos (tira o "em teste", o padrão da P2, as Novidades, a REGRA DO VISUAL nos
-  cabeçalhos, o script nas notas reais de novo, a lista dos aparelhos inteira).
+- **Rodada 9, para todos (30/out, BUILD 672).** O usuário testou no celular e no computador ("só não entendi
+  1 coisa", a tabela, resolvida no BUILD 671) e pediu para seguir.
+  - **O Visual é o padrão** (a P2): o editor abre nele para quem não escolheu, sem o "em teste" (o carimbo
+    saiu da aba do editor e dos Ajustes, e o estilo dele, que só servia ali, saiu do site). **A escolha
+    passou a ser guardada como `escrita`**: enquanto o Visual estava em teste, todo salvamento dos Ajustes
+    gravava o `writingMode` com "markdown" (o padrão de então), e não dava para separar quem escolheu o
+    Markdown de quem nunca escolheu; o `writingMode` de antes deixou de ser lido, e só o "markdown" escolhido
+    daqui em diante vale (decidido: quem tivesse escolhido o Markdown durante o teste abre no Visual uma vez e
+    escolhe de novo; o Visual era opcional e o padrão era o Markdown, então ninguém tinha motivo para
+    escolhê-lo). O "Voltar ao padrão" volta ao Visual. Os specs da `<textarea>` pedem o Markdown pelo
+    ajudante `comMarkdown` (`src/app/testing/writing-mode.spec.ts`), que faz a leitura dos ajustes dizer
+    "markdown" quando nada foi escolhido (vale depois de um `localStorage.clear()` e não grava nada).
+  - **A REGRA DO VISUAL** nos cabeçalhos de `core/rich-text.ts` e `core/widgets.ts`, ao lado da REGRA DO PDF,
+    com o spec dela (`ui/visual-editor/regra.spec.ts`): cada amostra da REGRA DO PDF (cada bloco, cada marca,
+    cada jeito de cada widget, a imagem do aparelho e a anotação com tudo), que os tipos já obrigam, abre no
+    Visual sem virar trecho cru e sai sem mudar um byte, pelo tradutor e pela folha; e todo widget do
+    registro tem amostra. Na memória do projeto: mudou o leitor, rode os specs do tradutor e do Visual.
+  - **As Novidades**: os itens do dia (a entrada de ajustes de 30/out) contam o Visual para todos, o colar e
+    copiar (rodada 7), a mudança de fora, a tela cheia e a prévia (rodada 8) e as alças da tabela, sem o
+    "(em teste)" (a entrada conta como o dia terminou). As rodadas 7 e 8 tinham ido ao ar sem item.
+  - **As notas reais de novo** (`scripts/visual-ida-e-volta.mjs`, pelo conector do Murall, por subagente, com
+    os textos num arquivo temporário apagado no fim): 306 notas, 288 com texto, 2.726 linhas; nenhum trecho
+    cru, nenhuma mudança ao abrir e sair (I1), nenhuma reescrita que não volta igual (I3). Na rodada 1 eram
+    274 textos e 2.554 linhas, com o mesmo resultado.
+  - **A lista dos aparelhos, inteira** (juntada das rodadas; o que o teste do usuário de 30/out não
+    apontou não está conferido item por item). O Android (Gboard) primeiro, o iPhone (Safari) nunca foi
+    testado:
+    1. **Apagar segurado com o Gboard**, devagar e rápido: no meio de uma linha, no começo de uma linha
+       embaixo de uma lista, começando no meio de um item e passando pelo marcador, dentro e perto de uma
+       tabela (nenhuma fileira nem coluna pode sair), dentro e no começo de um bloco de código, com uma peça
+       selecionada.
+    2. **O Enter do teclado do celular**: no meio, no fim e no começo de uma linha; num item, num item
+       vazio, na descrição, numa sugestão do teclado no fim do item; dentro do bloco de código e o que sai
+       dele; numa célula e na última fileira; com uma peça selecionada; no campo da legenda (grava).
+    3. **A composição** (sugestões, acentos, ditado): "# ", "->", "- ", "1. " com o espaço do Gboard; o
+       "[[" com a palavra ainda sublinhada e tocar numa anotação da lista; escrever no meio de um link de
+       anotação; o endereço que vira link no espaço; uma palavra composta com uma peça selecionada; uma letra
+       por cima de uma seleção que atravessa a tabela; a mudança de fora (a colega) enquanto uma palavra está
+       sublinhada.
+    4. **Tocar**: o B com uma palavra selecionada (a seleção continua); a caixinha da tarefa (marca sem abrir
+       o teclado nem mover o cursor); um link (o painel sem o teclado pular); uma peça (seleciona sem abrir o
+       teclado) e o campo da legenda (à vista acima da régua); uma célula e uma célula vazia do cabeçalho; as
+       alças da tabela (o + e o − sem tirar o cursor da célula nem fechar o teclado); a grade do tamanho; um
+       trecho cru e o "Mudar no Markdown".
+    5. **A régua presa em cima do teclado**: o cursor nunca atrás dela, no fim de uma nota comprida e numa
+       tabela; o menu Tabela e o Formatar abrindo para cima; a "Linha dentro do item"; o Tab da régua na
+       tabela (faz falta um "Próxima célula"?).
+    6. **Colar e copiar**: colar do Docs, do Word e do Excel de verdade (as amostras do spec foram escritas
+       como eles mandam); o menu Colar do Android e o do Gboard; a planilha do Planilhas Google (manda o
+       tab?); colar do Visual no WhatsApp, no e-mail e no Docs; uma foto da galeria.
+    7. **O resto**: a tabela larga rolando de lado com o dedo; tocar o vídeo e o áudio no editor; arrastar
+       uma peça com o dedo; a tela cheia com o teclado aberto (o desfazer junto); uma nota enorme num
+       celular de verdade; a Ajuda no celular.
+    8. **O iPhone**: o Enter (o `lastIOSEnter`), a seleção ao tocar na régua, o zoom ao tocar na folha, num
+       sutil, numa célula, no bloco de código e no campo da legenda (a letra passa de 16 px?), o cursor perto
+       das peças, da caixinha e do número, e o tipo próprio na área de transferência no Safari (C10).
+    9. **O leitor de tela**: o TalkBack e o VoiceOver na folha, na caixinha, no widget, nas alças e no
+       contador.
+  - **Conferido**: o spec novo da regra, os dos Ajustes (o padrão, o `escrita`, o "markdown" antigo que
+    abre o Visual, outra aba), o do editor (sem escolha e com o "markdown" antigo, abre o Visual), as
+    Novidades, a suíte inteira, `npx ng build`, e o smoke da build de produção sem nada guardado (o editor
+    abre no Visual) e com o Markdown escolhido.
+- O plano está terminado. O que sobra é a lista dos aparelhos acima e os casos sabidos do tradutor (o
+  "~=" do leitor, seção 12, rodada 1).
 
 ## 13. A conferir na prova (riscos que só a rodada 0 responde)
 

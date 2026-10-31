@@ -42,7 +42,7 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
 /**
  * O campo do texto da ficha: a folha pautada de sempre, organizada como os editores que todo mundo
  * conhece (Word, Docs). No alto, as abas "Visual" (escrever vendo como fica, sem as marcas: o
- * ui/visual-editor/, num pedaço à parte, em teste) e "Markdown" (as marcas à vista, a <textarea> de
+ * ui/visual-editor/, num pedaço à parte, o padrão) e "Markdown" (as marcas à vista, a <textarea> de
  * sempre); a que abre primeiro é a dos Ajustes ("Jeito de escrever"). Na outra ponta, "Ajuda" e
  * "Tela cheia". Na folha, em cima da margem vermelha do caderno, a régua:
  *
@@ -101,14 +101,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             [attr.aria-selected]="visual()"
             [attr.aria-controls]="areaId + (big ? '-papel-g' : '-papel')"
             [attr.tabindex]="visual() ? 0 : -1"
-            aria-label="Visual (em teste)"
-            title="Visual (em teste): escrever vendo como fica, sem as marcas"
+            aria-label="Visual"
+            title="Visual: escrever vendo como fica, sem as marcas"
             (click)="switchMode(true, big)"
             (keydown)="onTabKey($event, big)"
           >
             <lucide-icon [img]="VisualIcon" [size]="16" aria-hidden="true" />
             <span>Visual</span>
-            <span class="carimbo-teste em-teste" aria-hidden="true">teste</span>
           </button>
           <button
             type="button"
@@ -818,12 +817,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     .aba:focus-visible {
       outline: 3px solid var(--ink);
       outline-offset: -3px;
-    }
-    /* o Visual em teste: o carimbo de caneta azul (styles.scss), miúdo ao lado do nome */
-    .em-teste {
-      padding: 0 4px;
-      border-width: 1.5px;
-      font-size: 0.6rem;
     }
     /* Os botões da régua e do alto da folha: tinta no papel, um tom por baixo no mouse e aberto */
     .acao-folha,

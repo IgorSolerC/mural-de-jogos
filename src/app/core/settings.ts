@@ -98,10 +98,11 @@ interface Stored {
   notesConfigAt: string;
   /**
    * O jeito de escrever o texto com formatação, que o editor abre (ver ui/rich-editor.ts): o Visual
-   * (como no Docs, sem ver as marcas; em teste) ou o Markdown (as marcas à vista). Por aparelho, como o
-   * Desempenho: não sincroniza (PLANO-EDITOR-VISUAL.md, P3).
+   * (como no Docs, sem ver as marcas; o padrão) ou o Markdown (as marcas à vista). Por aparelho, como o
+   * Desempenho: não sincroniza (PLANO-EDITOR-VISUAL.md, P3). Guardado como `escrita` desde que o Visual
+   * é o padrão: o `writingMode` de antes não conta (ver `readStored`).
    */
-  writingMode: WritingMode;
+  escrita: WritingMode;
 }
 
 export type WritingMode = 'visual' | 'markdown';
@@ -127,8 +128,8 @@ export const PREFERENCE_DEFAULTS = {
   fewCards: false,
   askNoCategory: true,
   askNoTag: true,
-  // o Markdown enquanto o Visual está em teste (a P2: o Visual a partir da rodada 9)
-  writingMode: 'markdown' as WritingMode,
+  // o Visual, desde a rodada 9 (a P2: o Markdown fica a um toque, na aba do editor)
+  writingMode: 'visual' as WritingMode,
 };
 
 /** As escolhas de Desempenho, pelo nome do ajuste guardado. */
@@ -186,8 +187,10 @@ function readStored(): Stored {
   const askNoTag = raw.askNoTag !== false;
   const notesConfig = sanitizeNotesConfig(raw.notesConfig);
   const notesConfigAt = typeof raw.notesConfigAt === 'string' && Number.isFinite(Date.parse(raw.notesConfigAt)) ? raw.notesConfigAt : '';
-  const writingMode: WritingMode = raw.writingMode === 'visual' ? 'visual' : 'markdown';
-  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards, askNoCategory, askNoTag, notesConfig, notesConfigAt, writingMode };
+  // só o Markdown escolhido depois que o Visual virou o padrão; o `writingMode` de antes, que todo
+  // salvamento gravava como "markdown" enquanto o Visual estava em teste, não diz se a pessoa escolheu
+  const escrita: WritingMode = raw.escrita === 'markdown' ? 'markdown' : 'visual';
+  return { rawgKey, tmdbKey, groupLabels, noSpoilers, scoreDisplay, ownerName, mailCount, keysAt, friendSpoilers, friendKinds, pinnedTags, pinnedTagsAt, categoryLooks, categoryLooksAt, cardLayers, noCutShadows, plainPencil, stillCards, fewCards, askNoCategory, askNoTag, notesConfig, notesConfigAt, escrita };
 }
 
 /**
@@ -250,8 +253,8 @@ export class Settings {
   readonly notesConfig = signal<NotesConfig>(this.stored.notesConfig);
   /** Ver `Stored.notesConfigAt`. */
   readonly notesConfigAt = signal(this.stored.notesConfigAt);
-  /** Ver `Stored.writingMode`. */
-  readonly writingMode = signal<WritingMode>(this.stored.writingMode);
+  /** Ver `Stored.escrita`. */
+  readonly writingMode = signal<WritingMode>(this.stored.escrita);
   /** As tags com o filtro padrão Excluído (as chaves de `tagLookKey(tag, categoria)`), ver core/tag-filter.ts. */
   readonly hiddenTagKeys = computed<ReadonlySet<string>>(() => new Set(this.notesConfig().hiddenTags));
 
@@ -418,7 +421,7 @@ export class Settings {
     this.askNoTag.set(s.askNoTag);
     this.notesConfig.set(s.notesConfig);
     this.notesConfigAt.set(s.notesConfigAt);
-    this.writingMode.set(s.writingMode);
+    this.writingMode.set(s.escrita);
   }
 
   /** A pessoa mudou uma chave (digitou, colou ou apagou): a mudança vale como a mais nova. */
@@ -460,7 +463,7 @@ export class Settings {
         askNoTag: this.askNoTag(),
         notesConfig: this.notesConfig(),
         notesConfigAt: this.notesConfigAt(),
-        writingMode: this.writingMode(),
+        escrita: this.writingMode(),
       };
       writeJson(KEY, data);
     });

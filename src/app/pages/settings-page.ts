@@ -197,7 +197,7 @@ export class SettingsPage {
   protected readonly store = inject(ReviewStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um 8,4 em cada um. */
-  /** Os jeitos de escrever o texto: o Visual (em teste) e o Markdown. */
+  /** Os jeitos de escrever o texto: o Visual (o padrão) e o Markdown. */
   protected readonly writingModes: readonly { value: WritingMode; label: string }[] = [
     { value: 'visual', label: 'Visual (como no Docs)' },
     { value: 'markdown', label: 'Markdown (as marcas à vista)' },
