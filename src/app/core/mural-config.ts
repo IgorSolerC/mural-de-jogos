@@ -26,9 +26,12 @@ const AUDIENCES: readonly Audience[] = ['privada', 'visivel', 'publicar'];
 
 /**
  * Os jeitos de ver o mural de anotações (os tipos de ficha da régua, ver `Density` em
- * core/wall-view.ts, que importa este arquivo: a lista mora aqui para não fazer um ciclo).
+ * core/wall-view.ts, que importa este arquivo: a lista mora aqui para não fazer um ciclo). A "Capa e
+ * nome" (`capas`) saiu das anotações na build 680: quase nenhuma tem capa. A guardada antes (num grupo,
+ * ou na vista de uma aba) abre na Visão geral (`simples`), o jeito de ver muitas de uma vez agora (ver
+ * `noteDensity`).
  */
-export const GROUP_VIEWS = ['completa', 'inteira', 'simples', 'capas', 'lista'] as const;
+export const GROUP_VIEWS = ['completa', 'inteira', 'simples', 'lista'] as const;
 export type GroupView = (typeof GROUP_VIEWS)[number];
 
 /**
@@ -117,6 +120,11 @@ export const MAX_SAVED_SUBJECTS = 60;
 /** Tags demais viram lixo guardado: no máximo estas com o filtro padrão Excluído. */
 export const MAX_HIDDEN_TAGS = 500;
 
+/** O jeito de ver das anotações a partir do guardado: a "Capa e nome" de antes da build 680 vira a Visão geral. */
+export function noteDensity<T>(view: T): T | 'simples' {
+  return view === 'capas' ? 'simples' : view;
+}
+
 /** Categorias demais viram lixo guardado: no máximo estas (como os jeitos das categorias). */
 export const MAX_CONFIG_CATEGORIES = 200;
 
@@ -125,7 +133,8 @@ function sanitizePrefs(raw: unknown): CategoryPrefs {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   const { audience, askTag, hidden, kanbanOnly, view, sort } = raw as Record<string, unknown>;
   if (AUDIENCES.includes(audience as Audience)) out.audience = audience as Audience;
-  if (GROUP_VIEWS.includes(view as GroupView)) out.view = view as GroupView;
+  const shown = noteDensity(view);
+  if (GROUP_VIEWS.includes(shown as GroupView)) out.view = shown as GroupView;
   if (GROUP_SORTS.includes(sort as GroupSort)) out.sort = sort as GroupSort;
   if (typeof askTag === 'boolean') out.askTag = askTag;
   if (hidden === true) out.hidden = true;

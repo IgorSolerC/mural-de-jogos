@@ -115,8 +115,9 @@ describe('as configurações do mural de anotações', () => {
     ]);
     cfg = withPrefs(cfg, 'trabalho', { view: undefined });
     expect(cfg.categories).toEqual({ 'estudos!': { view: 'inteira', askTag: false } });
-    // da nuvem ou do armazenamento: só as visualizações que existem
-    expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 } } }).categories).toEqual({ a: { view: 'capas' } });
+    // da nuvem ou do armazenamento: só as visualizações que existem; a Capa e nome de antes da build
+    // 680 (saiu das anotações) abre na Visão geral
+    expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 }, D: { view: 'lista' } } }).categories).toEqual({ a: { view: 'simples' }, d: { view: 'lista' } });
   });
 
   it('as abas que o mural gera: o olho desligado (no Mais) a menos que guardado ligado; as cores, só as da cartela', () => {

@@ -6,7 +6,7 @@ import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
-import { AutoTab, activeOrder, groupSorts, groupViews, hiddenKeys } from './mural-config';
+import { AutoTab, GROUP_VIEWS, activeOrder, groupSorts, groupViews, hiddenKeys, noteDensity } from './mural-config';
 import type { CategoryColorId } from './category-looks';
 import {
   NO_DAY_LABEL,
@@ -67,8 +67,9 @@ const NOTE_ONLY_SORTS: readonly SortKey[] = ['assunto', 'tag', 'prioridade', 'cr
 export type Direction = 'desc' | 'asc';
 /**
  * Comum (a ficha de sempre; o id guardado continua `completa`), inteira (a comum com o texto todo, as fichas encaixadas em colagem), simples
- * (a tira com a nota), capas (só a foto e o nome, para ver o máximo de fichas) ou lista (só no mural
- * de anotações: uma linha por anotação, ver NoteIndex).
+ * (a tira com a nota; no mural de anotações, a Visão geral: fichas pequenas só com o título, as tags e
+ * a orelha), capas (só a foto e o nome, para ver o máximo de fichas; só nos murais de resenhas) ou
+ * lista (só no mural de anotações: o índice em colunas, ver NoteIndex).
  */
 export type Density = 'completa' | 'inteira' | 'simples' | 'capas' | 'lista';
 
@@ -84,9 +85,10 @@ export function withoutSpoilerFacets(f: WallFilter): WallFilter {
   return f.verdict.length || f.grade.length || f.difficulty.length ? { ...f, verdict: [], grade: [], difficulty: [] } : f;
 }
 
-const DENSITIES: readonly Density[] = ['completa', 'inteira', 'simples', 'capas', 'lista'];
 /** Os tipos de ficha dos murais de resenhas (a lista é só das anotações). */
 const REVIEW_DENSITIES: readonly Density[] = ['completa', 'inteira', 'simples', 'capas'];
+/** Os do mural de anotações: sem a Capa e nome (ver `GROUP_VIEWS`). */
+const NOTE_DENSITIES: readonly Density[] = GROUP_VIEWS;
 
 /** Como uma aba do mural de anotações está: a ordem, a direção e o tipo de ficha dela. */
 export interface NoteView {
@@ -159,7 +161,7 @@ function readNoteView(raw: unknown, base: NoteView): NoteView | null {
   return {
     sort: SORT_KEYS.includes(v['sort'] as SortKey) ? (v['sort'] as SortKey) : base.sort,
     direction: v['direction'] === 'asc' ? 'asc' : v['direction'] === 'desc' ? 'desc' : base.direction,
-    density: DENSITIES.includes(v['density'] as Density) ? (v['density'] as Density) : base.density,
+    density: NOTE_DENSITIES.includes(noteDensity(v['density']) as Density) ? (noteDensity(v['density']) as Density) : base.density,
   };
 }
 
@@ -175,7 +177,7 @@ function readPrefs(key: string, whole: boolean): ViewPrefs {
     const all: NoteView = {
       sort: SORT_KEYS.includes(raw.noteSort) ? raw.noteSort : NOTE_VIEW.sort,
       direction: raw.noteDirection === 'asc' ? 'asc' : 'desc',
-      density,
+      density: noteDensity(density),
     };
     const noteViews: Record<string, NoteView> = {};
     if (raw.noteViews && typeof raw.noteViews === 'object') {
@@ -745,6 +747,7 @@ export abstract class WallState {
   /** O tipo de ficha do mural aberto (no de anotações, só o da aba aberta). */
   setDensity(density: Density): void {
     if (isNotes(this.mural.kind())) {
+      if (!NOTE_DENSITIES.includes(density)) return;
       // o grupo com a visualização dele: a trocada na régua vale só enquanto ele está aberto
       if (this.groupDensity()) this.passingDensity.set({ tab: this.activeTab(), density });
       else if (this.noteView().density !== density) this.patchNoteView({ density });

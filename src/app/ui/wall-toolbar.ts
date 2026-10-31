@@ -66,8 +66,17 @@ export class WallToolbar {
     { value: 'simples', label: 'Fichas simples', icon: ICON.simples },
     { value: 'capas', label: 'Só capa e nome', icon: ICON.grade },
   ];
-  /** Os das anotações: os mesmos e a Lista, que só elas têm. */
-  protected readonly noteDensities = [...this.reviewDensities, { value: 'lista' as Density, label: 'Lista', icon: ICON.lista }];
+  /**
+   * Os das anotações, cada um com o seu propósito: ler o começo (Comum), ler tudo (Inteira), ver o quadro
+   * inteiro de uma vez (a Visão geral, a Simples daqui) e achar uma entre muitas (a Lista, que só elas
+   * têm). Sem a Capa e nome: quase nenhuma anotação tem capa.
+   */
+  protected readonly noteDensities: readonly { value: Density; label: string; icon: LucideIconData }[] = [
+    this.reviewDensities[0],
+    this.reviewDensities[1],
+    { value: 'simples', label: 'Visão geral: só o título, as tags e a orelha', icon: ICON.simples },
+    { value: 'lista', label: 'Lista: o máximo de anotações de uma vez', icon: ICON.lista },
+  ];
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly MarkIcon = ICON.marcado;
   protected readonly FilterIcon = ICON.filtrar;

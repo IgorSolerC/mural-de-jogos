@@ -29,6 +29,10 @@ export interface WallCardProps {
   landingId: string | null;
   highlight: ScoreKey | null;
   compact: boolean;
+  /** A Visão geral das anotações (com `compact`): fichas pequenas, só a orelha, o título e as tags. */
+  overview: boolean;
+  /** Um grupo aberto no mural de anotações: a orelha diz o assunto. */
+  subjectEar: boolean;
   capas: boolean;
   /** As fichas inteiras: o texto todo, encaixadas em colagem. */
   full: boolean;
@@ -58,6 +62,8 @@ const NO_PROPS: WallCardProps = {
   landingId: null,
   highlight: null,
   compact: false,
+  overview: false,
+  subjectEar: false,
   capas: false,
   full: false,
   dayOnly: false,
@@ -74,10 +80,10 @@ const NO_PROPS: WallCardProps = {
 };
 
 /** O tipo de ficha, pelo que muda a altura dela. */
-type Shape = 'completa' | 'inteira' | 'simples' | 'capas';
+type Shape = 'completa' | 'inteira' | 'simples' | 'geral' | 'capas';
 
 function shapeOf(p: WallCardProps): Shape {
-  return p.capas ? 'capas' : p.compact ? 'simples' : p.full ? 'inteira' : 'completa';
+  return p.capas ? 'capas' : p.overview ? 'geral' : p.compact ? 'simples' : p.full ? 'inteira' : 'completa';
 }
 
 /**
@@ -123,7 +129,7 @@ export const WALL_TUNING = {
 };
 
 /** A altura de uma ficha ainda não montada, até a primeira do mesmo tipo ser medida. */
-const GUESS: Record<Shape, number> = { completa: 320, inteira: 460, simples: 132, capas: 236 };
+const GUESS: Record<Shape, number> = { completa: 320, inteira: 460, simples: 132, geral: 98, capas: 236 };
 
 /**
  * As alturas já medidas nesta visita (tipo de ficha + id), para a vaga da ficha que voltou a ser vaga,
@@ -906,6 +912,8 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('landing', p.landingId === r.id);
     ref.setInput('highlight', p.highlight);
     ref.setInput('compact', p.compact);
+    ref.setInput('overview', p.overview);
+    ref.setInput('subjectEar', p.subjectEar);
     ref.setInput('capas', p.capas);
     ref.setInput('full', p.full);
     ref.setInput('dayOnly', p.dayOnly);

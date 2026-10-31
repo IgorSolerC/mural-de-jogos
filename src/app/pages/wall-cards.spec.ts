@@ -62,6 +62,8 @@ describe('as fichas do mural, só as de perto montadas (WallCardPool)', () => {
     landingId: null,
     highlight: null,
     compact: false,
+    overview: false,
+    subjectEar: false,
     capas: false,
     full: false,
     dayOnly: false,

@@ -49,12 +49,11 @@ const AUDIENCE_LABEL: Record<Audience, string> = { privada: 'Privada', visivel: 
 const VIEWS: readonly { value: GroupView; label: string; icon: LucideIconData }[] = [
   { value: 'completa', label: 'Comuns', icon: ICON.completas },
   { value: 'inteira', label: 'Inteiras', icon: ICON.painel },
-  { value: 'simples', label: 'Simples', icon: ICON.simples },
-  { value: 'capas', label: 'Capa e nome', icon: ICON.grade },
+  { value: 'simples', label: 'Visão geral', icon: ICON.simples },
   { value: 'lista', label: 'Lista', icon: ICON.lista },
 ];
 /** Como o resumo da linha do grupo diz a visualização ("Abre em lista"). */
-const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'fichas simples', capas: 'capa e nome', lista: 'lista' };
+const VIEW_SAID: Record<GroupView, string> = { completa: 'fichas comuns', inteira: 'fichas inteiras', simples: 'visão geral', lista: 'lista' };
 
 /** As abas que o mural gera, na lista dos grupos: o nome e o desenho fixos, e o que cada uma junta. */
 const AUTO_ROWS: readonly { key: AutoTab; label: string; icon: LucideIconData; what: string }[] = [

@@ -107,6 +107,7 @@ const CARD_HOST = {
   class: 'cartolina',
   '[class.is-landing]': 'landing()',
   '[class.compact]': 'compact()',
+  '[class.geral]': 'overview()',
   '[class.capas]': 'capas()',
   '[class.inteira]': 'full()',
   '[class.paired]': 'paired()',
@@ -135,7 +136,7 @@ const CARD_HOST = {
   '[class.ficha-anotacao]': 'note()',
   // a ficha de música: o vinil no lugar da foto, e o artista na orelha
   '[class.ficha-musica]': 'music()',
-  '[class.sem-capa]': 'note() && !review().game.coverUrl',
+  '[class.sem-capa]': 'note() && (!review().game.coverUrl || overview())',
   // a anotação com o check: a caixinha no canto; acabou de ganhar, o carimbo bate
   '[class.fixada]': 'note() && review().noteRank === "fixada"',
   '[class.carimbando]': 'stamping()',
@@ -149,18 +150,23 @@ export const CARD_TEMPLATE = `
     <div class="corpo">
     <!-- o papel da ficha: a cartolina, o rabisco e o estrago, por baixo da foto e dos adesivos -->
     <app-paper-art [id]="artId()" [scribble]="review().scribble" [scribbleSeed]="review().scribbleSeed" [scribbleInk]="review().scribbleInk" [paper]="review().paper" [paperSeed]="review().paperSeed" [damage]="review().damage" [seed]="review().damageSeed" [stains]="review().stains" [decors]="review().decors" [glitter]="review().paper === 'glitter'" [dark]="dark()" [content]="review()" />
-    <app-pin class="pin" [color]="pin().pinColor" />
+    <!-- na Visão geral as fichas estão soltas na mesa: sem a tachinha que finge segurá-las -->
+    @if (!overview()) {
+      <app-pin class="pin" [color]="pin().pinColor" />
+    }
     <!-- a categoria da anotação: a orelha de divisória de papel manilha, colada atrás da cartolina e
          saindo pela beirada de cima, como as abas do mural (o nome vai também na lista das tags,
-         para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural) -->
-    @if ((note() || music()) && !capas() && !bare() && noteLabels().category; as c) {
+         para o leitor de tela). Na ficha de música, a orelha é do artista (a aba dele no mural). Com
+         um grupo aberto no mural, o grupo já está dito na aba: a orelha diz o assunto, com o desenho
+         do assunto e a cor do grupo, e a anotação sem assunto fica sem orelha -->
+    @if ((note() || music()) && !capas() && !bare() && noteLabels().ear; as e) {
       <span #abaCat class="aba-cat" [class.orelha-cor]="!!catColor()" [style.--cat-cor]="catColor()" aria-hidden="true">
-        <app-cat-label [label]="c.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : null" [iconSize]="compact() ? 12 : 13" />
+        <app-cat-label [label]="e.label" [look]="catLook()" [glyph]="music() ? ArtistIcon : e.subject ? SubjectIcon : null" [iconSize]="compact() ? 12 : 13" />
       </span>
     }
 
     <div class="head">
-      @if (!note() || review().game.coverUrl) {
+      @if (!overview() && (!note() || review().game.coverUrl)) {
       <div class="cover" data-colado [class.toca]="spins()">
         <div class="box">
           @if (music()) {
@@ -221,16 +227,18 @@ export const CARD_TEMPLATE = `
         @if (bare()) {
           <!-- só a cartolina: a linha de data fica como no molde, sem dizer nada -->
           <p class="meta molde" data-queima>{{ bareMeta() }}</p>
+        } @else if (overview()) {
+          <!-- a Visão geral não tem a linha da data: só a orelha, o título e as tags -->
         } @else if (!capas() && note()) {
           <p class="meta meta-nota" data-queima>
             <!-- o assunto, primeiro: o grupo está na orelha, o assunto abre a linha -->
-            @if (review().subject; as s) {
+            @if (metaSubject(); as s) {
               <span class="assunto"><lucide-icon class="tarefas-icone" [img]="SubjectIcon" [size]="compact() ? 13 : 14" aria-hidden="true" /><span class="sr-only">Assunto: </span>{{ s }}</span>
             }
             <!-- quem vê (o cadeado ou o olho) e a data; sem data, o lugar dela fica vazio (a linha
                  continua, do mesmo tamanho) -->
             @if (review().completedAt || audience()) {
-              @if (review().subject) {
+              @if (metaSubject()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="quando">
@@ -244,14 +252,14 @@ export const CARD_TEMPLATE = `
             }
             <!-- as tarefas: quantas já foram feitas -->
             @if (tasks(); as t) {
-              @if (review().completedAt || audience() || review().subject) {
+              @if (review().completedAt || audience() || metaSubject()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="tarefas-conta" [class.todas]="t.done === t.total"><lucide-icon class="tarefas-icone" [img]="TasksIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />{{ t.done }}/{{ t.total }}<span class="sr-only"> tarefas feitas</span></span>
             }
             <!-- no quadro: a anotação só com o título ainda pede para ser detalhada -->
             @if (noText()) {
-              @if (review().completedAt || audience() || tasks() || review().subject) {
+              @if (review().completedAt || audience() || tasks() || metaSubject()) {
                 <span aria-hidden="true"> · </span>
               }
               <span class="sem-texto"><lucide-icon class="tarefas-icone" [img]="NoTextIcon" [size]="compact() ? 13 : 14" aria-hidden="true" />Sem descrição</span>
@@ -302,14 +310,17 @@ export const CARD_TEMPLATE = `
       @if (note()) {
         <!-- a categoria (o adesivo) e as tags (as etiquetas de papel pardo), no lugar da etiqueta da
              nota: o espaço ao lado da foto é delas -->
-        @if (!capas() && (noteLabels().category || noteLabels().tags.length)) {
+        @if (!capas() && (noteLabels().category || noteLabels().ear || noteLabels().tags.length)) {
           <ul class="judge categorias" data-colado aria-label="Grupo e tags">
-            <!-- a categoria está na orelha de cima; aqui, só para o leitor de tela -->
+            <!-- a categoria (ou o assunto) está na orelha de cima; aqui, só para o leitor de tela -->
             @if (noteLabels().category; as c) {
               <li class="sr-only">{{ c.label }} (grupo)</li>
             }
+            @if (noteLabels().ear?.subject) {
+              <li class="sr-only">{{ review().subject }} (assunto)</li>
+            }
             @for (t of noteLabels().tags; track t; let i = $index) {
-              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
+              <li><app-note-tag [label]="t" [index]="i + 1" [size]="compact() && !overview() ? 'mini' : 'card'" [color]="tagColor(t)" /><span class="sr-only"> (tag)</span></li>
             }
             @if (noteLabels().hidden) {
               <li class="mais">+{{ noteLabels().hidden }}</li>
@@ -414,7 +425,7 @@ export const CARD_TEMPLATE = `
     }
 
     <!-- finalizada: o carimbo redondo batido no canto da ficha, por cima do papel (some com o estrago) -->
-    @if (!capas() && doneAt(); as at) {
+    @if (!capas() && !overview() && doneAt(); as at) {
       <span class="carimbo" [class.clara]="dark()" data-queima>
         <app-done-stamp [at]="at" [size]="compact() ? 'compact' : 'card'" [dark]="dark()" [hit]="stamping()" />
       </span>
@@ -424,14 +435,15 @@ export const CARD_TEMPLATE = `
     @if (boardOnly() && !bare()) {
       <span class="so-kanban" aria-hidden="true">
         <lucide-icon [img]="BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
-        @if (!capas()) {
+        @if (!capas() && !overview()) {
           <span>Só no Kanban</span>
         }
       </span>
     }
     <!-- os comentários e as reações, cada um no seu remendo colado na quina de baixo (só quando há algum);
          o dos comentários abre a ficha já com eles -->
-    @if (reactTarget() || sharedHere()) {
+    <!-- (na Visão geral, nada além da orelha, do título e das tags: tudo isso fica na leitura) -->
+    @if (!overview() && (reactTarget() || sharedHere())) {
       <div class="reacoes">
         <!-- a compartilhada (no seu mural): quem está nela, ou o aviso de conflito -->
         @if (sharedHere()) {
@@ -1599,6 +1611,95 @@ export const CARD_STYLES = `
         font-size: 1.46rem;
       }
     }
+
+    /* ===== Visão geral (mural de anotações): a ficha de relance =====
+       Para ver o quadro inteiro de uma vez, como fichas espalhadas na mesa para escolher uma: pequenas,
+       soltas (sem a tachinha), quase retas e todas na mesma linha da fileira (sem o desnível da
+       parede), com só o que se reconhece de longe: a orelha, o título e as tags. A finalizada tem o
+       título riscado, como na lista, no lugar do carimbo. Vem depois das regras do celular: vale lá
+       também. */
+    :host(.geral) {
+      padding: 13px 12px 11px;
+      margin-top: 0;
+      min-height: 98px;
+      rotate: calc(var(--tilt) * 0.3deg);
+      transform-origin: 50% 50%;
+    }
+    :host(.geral:hover:not([data-quieta])),
+    :host(.geral:has(:focus-visible)) {
+      rotate: 0deg;
+    }
+    :host(.geral) .head {
+      flex: 1;
+      min-height: 0;
+      grid-template-rows: auto 1fr;
+    }
+    :host(.geral) .words {
+      padding-top: 2px;
+    }
+    :host(.geral) .title {
+      font-size: 1.06rem;
+      line-height: 1.12;
+      -webkit-line-clamp: 3;
+    }
+    :host(.geral.feita) .words > :first-child {
+      margin-right: 0;
+    }
+    :host(.geral.feita) .title {
+      text-decoration: line-through 2px;
+      text-decoration-color: color-mix(in srgb, var(--ink) 55%, transparent);
+      opacity: 0.72;
+    }
+    /* as tags numa fileira só, no pé da ficha: as que não cabem ficam no +N */
+    :host(.geral) .categorias {
+      flex-wrap: nowrap;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    :host(.geral) .categorias li {
+      min-width: 0;
+    }
+    :host(.geral) .categorias .mais {
+      flex: none;
+    }
+    /* o Finalizar e o Fixar só com o mouse (ou o foco do teclado): a fixada não mostra o alfinete parado,
+       a seção Fixadas já diz; no toque, ficam na leitura, para a mesa não encher de botões */
+    :host(.geral:not(:hover)) .acoes:not(:has(:focus-visible)) .fixar.marcado {
+      opacity: 0;
+      translate: 0 5px;
+      pointer-events: none;
+    }
+    @media (hover: none) {
+      :host(.geral) .acoes {
+        display: none;
+      }
+    }
+    /* sem a tachinha, a orelha pode ir até o canto */
+    :host(.geral) .aba-cat {
+      max-width: calc(100% - 14px);
+    }
+    /* as tags são o que se lê de longe aqui: as de tamanho de ficha, não as mini */
+    :host(.geral) .categorias .mais {
+      font-size: 0.86rem;
+    }
+    /* os botões só com o desenho, presos na beirada de baixo (a de cima é da orelha), no canto da
+       fileira das tags */
+    :host(.geral) .acoes {
+      top: auto;
+      bottom: -15px;
+      right: 10px;
+    }
+    :host(.geral) .acao-nome {
+      display: none;
+    }
+    :host(.geral) .feito {
+      width: 30px;
+      padding: 0;
+    }
+    :host(.geral) .so-kanban {
+      left: 10px;
+      padding: 4px 5px 3px;
+    }
 `;
 
 /**
@@ -1627,6 +1728,14 @@ export class ReviewCard {
   /** Qual nota está sendo usada na ordenação (para destacar na ficha). */
   readonly highlight = input<ScoreKey | null>(null);
   readonly compact = input(false);
+  /**
+   * A Visão geral do mural de anotações (junto com `compact`): a ficha pequena, quase reta e sem
+   * tachinha, só com a orelha, o título e as tags, para ver o quadro inteiro de uma vez. A simples do
+   * Kanban, do Calendário e do widget Nota não muda.
+   */
+  readonly overview = input(false);
+  /** Um grupo aberto no mural de anotações: a orelha diz o assunto da anotação (sem assunto, sem orelha). */
+  readonly subjectEar = input(false);
   /** Só a foto e o nome: a ficha mais enxuta, para caber o máximo no mural. */
   readonly capas = input(false);
   /** A ficha inteira (o tipo "Fichas inteiras"): a comum com o texto todo, sem cortar. */
@@ -1849,8 +1958,15 @@ export class ReviewCard {
     const tags = r.tags ?? [];
     // a categoria saiu para a orelha: a fileira é toda das tags
     const max = this.compact() ? 2 : 4;
-    return { category: r.category && !this.onBoard ? categoryBonus(r.category) : null, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
+    const category = r.category && !this.onBoard ? categoryBonus(r.category) : null;
+    // com um grupo aberto, a orelha é do assunto (ver `subjectEar`); a da música é sempre o artista
+    const ear = this.subjectEar() && this.note() && !this.onBoard
+      ? (r.subject ? { label: r.subject, subject: true } : null)
+      : category ? { label: category.label, subject: false } : null;
+    return { category, ear, tags: tags.slice(0, max), hidden: Math.max(0, tags.length - max) };
   });
+  /** O assunto na linha da data: só quando ele não está na orelha. */
+  protected readonly metaSubject = computed(() => (this.noteLabels().ear?.subject ? null : (this.review().subject ?? null)));
 
   /** A cor que o dono deu à tag, ou null (o papel pardo de sempre). */
   protected tagColor(tag: string): string | null {

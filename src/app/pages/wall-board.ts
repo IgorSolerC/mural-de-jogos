@@ -15,6 +15,7 @@ import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
 import { WallCardPool, WallCardProps, WallCards, copyKey } from './wall-cards';
+import { stepFocus } from './wall-keys';
 
 /** As ordens por um dia que não é a data da ficha: ela mostra esse dia (ver ReviewCard.dateFrom). */
 const DATE_SORTS = ['criacao', 'alteracao', 'finalizacao'] as const;
@@ -35,6 +36,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
   selector: 'app-wall-board',
   imports: [DoneStamp, IconModule, NoteIndex, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
+  host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './wall-board.html',
   styleUrl: './wall-board.scss',
@@ -44,6 +46,7 @@ export class WallBoard {
   private readonly settings = inject(Settings);
   private readonly motion = inject(WallMotion);
   private readonly pool = inject(WallCardPool);
+  private readonly el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   readonly access = input.required<WallAccess>();
   /** Tocou numa ficha (ou numa linha da lista): o id dela. */
@@ -63,8 +66,11 @@ export class WallBoard {
     return kanbanPath(tab.startsWith('c:') ? boardIdFor(tab.slice(2)) : undefined);
   });
 
-  /** A aba aberta é a de um grupo (a lista não precisa dizer o grupo de cada anotação). */
-  protected readonly groupTab = computed(() => isGroupTab(this.view.activeTab()));
+  /**
+   * A aba aberta é a de um grupo (e não o Tudo, as Fixadas ou as Compartilhadas): o grupo já está dito
+   * na aba, então a orelha das fichas e a da lista dizem o assunto de cada anotação.
+   */
+  protected readonly groupTab = computed(() => this.notes() && isGroupTab(this.view.activeTab()));
 
   /** De quem é o mural: null, o seu. */
   protected readonly owner = this.view.owner;
@@ -78,6 +84,8 @@ export class WallBoard {
   protected readonly inteira = computed(() => this.view.density() === 'inteira');
   /** A lista (o índice do caderno), só no mural de anotações. */
   protected readonly lista = computed(() => this.notes() && this.view.density() === 'lista');
+  /** A Visão geral: a Simples do mural de anotações (fichas pequenas para ver o quadro inteiro). */
+  protected readonly overview = computed(() => this.notes() && this.view.density() === 'simples');
   /**
    * As etiquetas das seções (Fixadas, Outubro de 2026…) à mostra: com a opção dos Ajustes, e nunca nas
    * fichas inteiras, onde a parede é uma colagem só (as etiquetas ficam só para os leitores de tela).
@@ -107,6 +115,8 @@ export class WallBoard {
     ...this.access(),
     highlight: this.view.shownSort() === 'nota' ? this.view.activeScore() : null,
     compact: this.view.density() === 'simples',
+    overview: this.overview(),
+    subjectEar: this.groupTab(),
     capas: this.view.density() === 'capas',
     full: this.inteira(),
     dayOnly: this.view.shownSort() === 'data',
@@ -180,6 +190,32 @@ export class WallBoard {
       color: `var(--stock-${pinningFor(r.id, r.stock).stock})`,
       transform: i === cards.length - 1 ? null : tilts[(tilts.length - (cards.length - 1) + i) % tilts.length],
     }));
+  }
+
+  /**
+   * As setas andam entre as fichas da Visão geral e as linhas da lista, como numa grade de escolher: na
+   * lista (que corre em colunas), para cima e para baixo seguem a ordem e para os lados pulam de coluna;
+   * na Visão geral, para os lados seguem a ordem e para cima e para baixo vão à ficha de cima ou de
+   * baixo. Home e End vão à primeira e à última. Só com o foco numa ficha ou numa linha.
+   */
+  protected onKey(e: KeyboardEvent): void {
+    if (!this.overview() && !this.lista()) return;
+    const items = Array.from(this.el.querySelectorAll<HTMLElement>(this.lista() ? '.linha[data-ficha]' : '.lugar[data-lugar]'));
+    const at = items.findIndex((el) => el.contains(e.target as Node) && (e.target as HTMLElement).classList.contains('hit'));
+    if (at < 0) return;
+    const next = stepFocus(items, at, e, this.lista() ? 'columns' : 'rows');
+    if (next === null) return;
+    e.preventDefault();
+    const target = items[next];
+    target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // longe da tela (End, Home), a ficha ainda é vaga: o foco vai quando ela for montada, ali
+    let frames = 60;
+    const land = (): void => {
+      const hit = target.querySelector<HTMLElement>('.hit');
+      if (hit) hit.focus({ preventScroll: true });
+      else if (--frames > 0 && target.isConnected) requestAnimationFrame(land);
+    };
+    land();
   }
 
   protected clearFilters(): void {

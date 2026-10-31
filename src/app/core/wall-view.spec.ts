@@ -189,23 +189,23 @@ describe('WallView', () => {
 
     it('sem padrão, o grupo abre na última visualização usada nele (guardada)', () => {
       view.setNoteTab('c:trabalho');
-      view.setDensity('capas');
+      view.setDensity('inteira');
       view.setNoteTab('c:casa');
       expect(view.density()).toBe('completa');
       view.setNoteTab('c:trabalho');
-      expect(view.density()).toBe('capas');
+      expect(view.density()).toBe('inteira');
     });
 
     it('com padrão, o grupo sempre abre nele; trocar na régua vale só até sair do grupo', () => {
       view.setNoteTab('c:trabalho');
-      view.setDensity('capas');
+      view.setDensity('inteira');
       settings.setCategoryPrefs('Trabalho', { view: 'lista' });
       expect(view.groupDensity()).toBe('lista');
       expect(view.density()).toBe('lista');
       view.setDensity('simples');
       expect(view.density()).toBe('simples');
       // a escolhida na régua não é guardada como a do grupo
-      expect(view.noteViews()['c:trabalho'].density).toBe('capas');
+      expect(view.noteViews()['c:trabalho'].density).toBe('inteira');
       view.setNoteTab('c:casa');
       expect(view.density()).toBe('completa');
       view.setNoteTab('c:trabalho');
@@ -221,8 +221,8 @@ describe('WallView', () => {
       settings.setCategoryPrefs('Trabalho', { view: 'lista' });
       view.setNoteTab('c:casa');
       expect(view.groupDensity()).toBeNull();
-      view.setDensity('capas');
-      expect(view.density()).toBe('capas');
+      view.setDensity('inteira');
+      expect(view.density()).toBe('inteira');
       view.setNoteTab('c:trabalho');
       expect(view.density()).toBe('lista');
       settings.setCategoryPrefs('Trabalho', { view: undefined });
@@ -467,6 +467,33 @@ describe('WallView', () => {
       settings.setCategoryPrefs('Trabalho', { sort: 'tarefas' });
       TestBed.inject(Mural).kind.set('jogos');
       expect(view.groupSort()).toBeNull();
+    });
+  });
+
+  describe('a Capa e nome saiu do mural de anotações (build 680)', () => {
+    it('a régua das anotações não a aceita; nas análises ela continua', () => {
+      TestBed.inject(Mural).kind.set('anotacoes');
+      view.setDensity('capas');
+      expect(view.density()).toBe('completa');
+      view.setDensity('lista');
+      view.setDensity('capas');
+      expect(view.density()).toBe('lista');
+      TestBed.inject(Mural).kind.set('jogos');
+      view.setDensity('capas');
+      expect(view.density()).toBe('capas');
+    });
+
+    it('a guardada antes (na aba e no Tudo de antes das abas) abre na Visão geral', () => {
+      TestBed.resetTestingModule();
+      localStorage.setItem('mural-de-jogos:vista:v1', JSON.stringify({ density: 'capas', noteViews: { 'c:trabalho': { sort: 'data', direction: 'desc', density: 'capas' } } }));
+      TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+      const fresh = TestBed.inject(WallView);
+      TestBed.inject(Mural).kind.set('anotacoes');
+      expect(fresh.noteViews()['c:trabalho'].density).toBe('simples');
+      expect(fresh.noteViews()[''].density).toBe('simples');
+      // a dos murais de resenhas fica como estava
+      TestBed.inject(Mural).kind.set('jogos');
+      expect(fresh.density()).toBe('capas');
     });
   });
 });

@@ -26,6 +26,14 @@
     --in-gap: 34px var(--in-col);
   }
 
+  /* a Visão geral das anotações: seis fichinhas por fileira numa tela cheia, como fichas espalhadas
+     na mesa; o vão de cima deixa a orelha da fileira de baixo na parede */
+  &.geral {
+    --card-w: clamp(150px, calc((var(--simples-page) - 5 * 22px) / 6), 216px);
+    --in-col: 22px;
+    --in-gap: 40px var(--in-col);
+  }
+
   /* só capa e nome: oito por fileira numa tela cheia, para ver o máximo de fichas */
   &.capas {
     --card-w: clamp(116px, calc((var(--simples-page) - 7 * 22px) / 8), 156px);
@@ -62,14 +70,14 @@
   rotate: -0.6deg;
 }
 
-/* ===== A lista (anotações): cada seção é uma folha pautada de ponta a ponta ===== */
+/* ===== A lista (anotações): cada seção é uma folha pautada de ponta a ponta =====
+   A folha toma a largura da parede: as linhas correm em colunas dentro dela (ver ui/note-index.ts). */
 .wall.lista {
-  gap: 40px;
+  gap: 36px;
 
   .grupo {
     flex: 1 1 100%;
-    max-width: 1040px;
-    gap: 16px;
+    gap: 14px;
   }
 }
 
@@ -298,6 +306,12 @@
   padding-top: 14px;
 }
 
+/* a Visão geral: as fichas soltas na mesa, sem o desnível da parede, quase retas como elas */
+.wall.geral .vaga {
+  margin-top: 0;
+  rotate: calc(var(--tilt) * 0.3deg);
+}
+
 /* ===== O lugar de cada ficha =====
    Uma caixa reta, da largura da ficha, que fica sempre na parede (ver wall-cards.ts): dentro dela vai
    a ficha ou, longe da tela, a vaga. Com a ficha acordada e a "Rolagem lisa" dos Ajustes ligada (a
@@ -468,6 +482,22 @@
     grid-column: auto;
     width: 100%;
     margin-left: 0;
+  }
+
+  /* a Visão geral no celular: duas por fileira (vence o vão das orelhas, logo acima) */
+  .wall.com-orelhas.geral .fichas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 12px;
+  }
+
+  .wall.geral.sem-etiquetas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 36px 12px;
+  }
+
+  .wall.geral .vaga {
+    margin-top: 0;
   }
 
   /* só capa e nome: três por fileira no celular */
