@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-31-regua-menus-no-desenho',
+    id: '2026-10-31-ampliar-a-tabela',
     version: '1.36.1',
     kind: 'ajustes',
     date: '2026-10-31',
-    title: 'A régua do texto mais enxuta',
+    title: 'Ampliar a tabela e a régua do texto mais enxuta',
     melhorias: [
+      'A tabela também amplia, como os outros widgets: com o mouse em cima dela, o broche de ampliar aparece no canto e a sobe inteira para o meio da tela, com todas as colunas (a larga demais rola de lado, sem a letra ficar miúda).',
       'Na régua do texto, o Formatar, o Inserir e a Tabela ficaram só com o desenho e a setinha (o nome aparece ao parar o mouse em cima), e sobra lugar para o riscado, o marca-texto e os links ficarem à mão numa folha mais estreita.',
     ],
   },

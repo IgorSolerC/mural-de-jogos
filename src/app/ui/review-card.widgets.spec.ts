@@ -58,10 +58,14 @@ describe('os widgets na ficha do mural', () => {
     expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
   });
 
-  it('a tabela, sem nada para tocar, não sobe o texto por cima do botão da ficha', async () => {
+  it('a tabela, com o broche de ampliar, sobe o texto por cima do botão da ficha, e o broche pega o toque', async () => {
     await show(card('anotacoes', `Falta:\n${TABLE}`), { checkable: true });
     expect(el.querySelector('.nota-texto table')).not.toBeNull();
-    expect(el.querySelector('.nota-texto')!.classList).not.toContain('marcavel');
+    expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
+    const knob = el.querySelector<HTMLElement>('.nota-texto .tabela-peca > app-zoom-knob button')!;
+    const r = knob.getBoundingClientRect();
+    const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    expect(knob.contains(at)).toBeTrue();
   });
 
   it('na ficha que corta o texto, dois widgets do mesmo tamanho ficam iguais: o que passa do fim fica escondido, sem encolher', async () => {

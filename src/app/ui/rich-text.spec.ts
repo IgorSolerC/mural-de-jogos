@@ -109,6 +109,94 @@ describe('o texto formatado na leitura', () => {
     }
   });
 
+  it('a tabela tem o broche de ampliar no canto do papel, e sobe para o meio da tela (a Caneta na folha creme)', async () => {
+    const T = '| Jogo | Horas |\n| --- | --- |\n| Hades | 40 |';
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    for (const look of ['', 'listrada', 'quadriculada', 'caneta', 'recibo']) {
+      const fixture = TestBed.createComponent(RichText);
+      fixture.componentRef.setInput('text', `antes\n${look ? `{{tabela: ${look}}}\n` : ''}${T}\ndepois`);
+      const el: HTMLElement = fixture.nativeElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      el.style.width = '600px';
+      el.style.fontSize = '16px';
+      const peca = el.querySelector<HTMLElement>('.tabela-peca')!;
+      expect(peca.classList).toContain('amplia');
+      expect(peca.querySelector('.tabela-rolo')).not.toBeNull();
+      const knob = peca.querySelector<HTMLButtonElement>(':scope > app-zoom-knob button')!;
+      expect(knob.getAttribute('aria-label')).toBe('Ampliar a tabela: Jogo, Horas');
+      // a peça é do tamanho do papel (a tabela curta não ocupa a linha toda), que continua com 16em no mínimo
+      const papel = peca.querySelector<HTMLElement>('.tabela-papel')!;
+      expect(Math.abs(peca.getBoundingClientRect().width - papel.getBoundingClientRect().width)).withContext(look).toBeLessThan(1);
+      expect(Math.round(papel.getBoundingClientRect().width)).withContext(look).toBe(256);
+      // o broche no canto de cima, metade para fora (o meio dele a 4px do canto, para dentro; escondido, ele é menor)
+      const k = peca.querySelector('app-zoom-knob')!.getBoundingClientRect();
+      const r = peca.getBoundingClientRect();
+      expect(Math.round(k.left + k.width / 2 - r.right)).withContext(look).toBe(-4);
+      expect(Math.round(k.top + k.height / 2 - r.top)).withContext(look).toBe(4);
+
+      let bubbled = 0;
+      el.addEventListener('click', () => bubbled++);
+      knob.click();
+      expect(bubbled).toBe(0);
+      expect(peca.classList).withContext(look).toContain('erguida');
+      // os jeitos de papel sobem com o papel deles; a Caneta, escrita na cartolina, ganha a folha creme
+      expect(peca.classList.contains('erguida-papel')).withContext(look).toBe(look === 'caneta');
+      // da largura do que ela desenha (na Caneta, a tabela e a margem da folha creme, igual dos dois lados), e da altura do que tem dentro
+      const tabela = peca.querySelector<HTMLElement>('.tabela')!;
+      const drawn = look === 'caneta' ? tabela.offsetWidth + 24 : papel.offsetWidth;
+      expect(Math.abs(parseFloat(peca.style.width) - drawn)).withContext(look).toBeLessThanOrEqual(1);
+      expect(peca.style.height).withContext(look).toBe('fit-content');
+      if (look === 'caneta') {
+        const t = tabela.getBoundingClientRect();
+        const p = peca.getBoundingClientRect();
+        expect(Math.abs(t.left - p.left - (p.right - t.right))).withContext('margens da folha').toBeLessThan(1);
+      }
+      // maior, mas não um letreiro: até 2,5 vezes, como o contador
+      expect(Number(peca.style.getPropertyValue('--erguida-zoom'))).withContext(look).toBeGreaterThan(1);
+      expect(Number(peca.style.getPropertyValue('--erguida-zoom'))).withContext(look).toBeLessThanOrEqual(2.5);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      for (let i = 0; i < 100 && peca.classList.contains('erguida'); i++) await new Promise((res) => setTimeout(res, 20));
+      expect(peca.classList).withContext(look).not.toContain('erguida');
+      el.remove();
+    }
+  });
+
+  it('a tabela larga sobe inteira, sem encolher a letra: maior que a tela, ela rola de lado no alto', async () => {
+    const cells = (n: number, w: string) => '| ' + Array.from({ length: n }, (_, i) => `${w}${i}`).join(' | ') + ' |';
+    const T = [cells(12, 'Coluna comprida '), '| ' + Array(12).fill('---').join(' | ') + ' |', cells(12, 'valor bem longo ')].join('\n');
+    const el = await render(T);
+    el.style.width = '300px';
+    const peca = el.querySelector<HTMLElement>('.tabela-peca')!;
+    const rolo = peca.querySelector<HTMLElement>('.tabela-rolo')!;
+    const papel = peca.querySelector<HTMLElement>('.tabela-papel')!;
+    // no texto, a peça vai até a linha e a tabela rola
+    expect(Math.round(peca.getBoundingClientRect().width)).toBe(300);
+    rolo.scrollLeft = 200;
+    const full = papel.scrollWidth;
+    peca.querySelector<HTMLButtonElement>('app-zoom-knob button')!.click();
+    expect(peca.classList).toContain('erguida');
+    // do zoom 1 para cima, e da largura da tabela inteira (a rolada também) ou da tela
+    const zoom = Number(peca.style.getPropertyValue('--erguida-zoom'));
+    expect(zoom).toBeGreaterThanOrEqual(1);
+    const w = parseFloat(peca.style.width);
+    expect(w).toBeGreaterThan(300);
+    expect(w).toBeLessThanOrEqual(Math.max(full, innerWidth));
+    if (full * zoom > innerWidth) {
+      expect(w * zoom).toBeLessThanOrEqual(innerWidth);
+      expect(getComputedStyle(rolo).overflowX).toBe('auto');
+      // o papel para na beirada da peça, e rola de lado
+      expect(peca.classList).toContain('erguida-estreita');
+      expect(Math.round(rolo.getBoundingClientRect().right)).toBe(Math.round(peca.getBoundingClientRect().right));
+      expect(rolo.scrollWidth).toBeGreaterThan(rolo.clientWidth);
+    }
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+    for (let i = 0; i < 100 && peca.classList.contains('erguida'); i++) await new Promise((res) => setTimeout(res, 20));
+    expect(peca.style.width).toBe('');
+    // a rolagem de lado de antes volta
+    expect(rolo.scrollLeft).toBe(200);
+  });
+
   it('o texto sutil ("-# ") é menor e mais claro, na mesma altura de linha', async () => {
     const el = await render('normal\n-# um **detalhe**');
     const [plain, subtle] = Array.from(el.querySelectorAll<HTMLElement>('.linha'));

@@ -1,10 +1,12 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
 import { NoteWidget } from './note-widget';
+import { PieceLift } from './piece-lift';
+import { ZoomKnob } from './zoom-knob';
 
 /**
  * O texto da ficha na leitura, com a formatação do editor (ver core/rich-text.ts): negrito, itálico,
@@ -96,8 +98,13 @@ import { NoteWidget } from './note-widget';
             <app-note-widget class="widget" [attr.data-l]="at(b)" [name]="b.name" [args]="b.args" [size]="b.size" [links]="links()" />
           }
           @case ('table') {
-            <!-- a tabela no jeito dela (sem a marca, a branca): o papel por dentro do rolo, que rola de lado -->
-            <div [class]="'tabela-rolo jeito-' + (b.look ?? 'branca')" [attr.data-l]="at(b)">
+            <!-- a tabela no jeito dela (sem a marca, a branca): o papel por dentro do rolo, que rola de lado.
+                 A peça em volta é do tamanho do papel (até a largura da linha) e leva o broche de ampliar
+                 no canto: ela sobe inteira para o meio da tela, a larga com todas as colunas (até 2,5 vezes,
+                 como o contador: mais, ela vira letreiro) -->
+            @let look = b.look ?? 'branca';
+            <div #tabela class="tabela-peca amplia" [attr.data-l]="at(b)" data-zoom-min="1" data-zoom-max="2.5" [attr.data-papel-proprio]="look === 'caneta' ? null : ''">
+            <div [class]="'tabela-rolo jeito-' + look">
               <div class="tabela-papel">
               <table class="tabela">
                 <thead>
@@ -118,6 +125,8 @@ import { NoteWidget } from './note-widget';
                 </tbody>
               </table>
               </div>
+            </div>
+            <app-zoom-knob class="ampliar" [label]="tableLabel(b)" (pressed)="liftTable(tabela)" />
             </div>
           }
           @case ('check') {
@@ -161,7 +170,7 @@ import { NoteWidget } from './note-widget';
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [attr.title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
-  imports: [NgTemplateOutlet, NoteWidget],
+  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob],
   styles: `
     @use 'formatado';
 
@@ -272,6 +281,49 @@ import { NoteWidget } from './note-widget';
        de cada lado (um par de linhas da pauta a mais), e o texto de baixo continua nas linhas da folha. */
     .tabela-rolo {
       @include formatado.tabela-rolo;
+    }
+    /* a peça da tabela: do tamanho do papel (a estreita não ocupa a linha toda), no mínimo o do papel
+       (min(100%, 16em)) e no máximo a linha, onde a larga rola; o broche de ampliar no canto de cima
+       dela, metade para fora, como o do contador */
+    .tabela-peca {
+      position: relative;
+      width: fit-content;
+      min-width: min(100%, 16em);
+      max-width: 100%;
+    }
+    .tabela-peca > .ampliar {
+      position: absolute;
+      z-index: 3;
+      top: -11px;
+      right: -11px;
+    }
+    /* a Caneta, sem papel, sobe na folha creme (ui/piece-lift.ts): a tinta é a escura, mesmo vinda
+       da cartolina escura, onde ela era clara */
+    .tabela-peca.erguida-papel {
+      --ink: #151515;
+      --ink-2: rgb(21 21 21 / 0.78);
+      color: var(--ink);
+    }
+    /* no alto, a larga que não cabe nem do tamanho do texto rola de lado (a ficha do mural a corta),
+       e o papel para na beirada da peça (sem o lugar da sombra à direita, que passaria dela e, na
+       peça que rola, daria uma rolagem de lado de uns pixels) */
+    .tabela-peca.erguida .tabela-rolo {
+      overflow-x: auto;
+    }
+    .tabela-peca:is(.erguida-estreita, .erguida-rola) .tabela-rolo {
+      margin-right: 0;
+      padding-right: 0;
+    }
+    /* a comprida e larga: a peça rola para os dois lados (as duas barras na beirada dela; a de lado
+       no rolo ficaria no pé da tabela, depois de todas as fileiras) */
+    .tabela-peca.erguida-estreita.erguida-rola .tabela-rolo {
+      overflow: visible;
+    }
+    /* a Caneta no alto: a borda de fora (metade dela passa da tabela) não fica cortada pelo rolo */
+    .tabela-peca.erguida .jeito-caneta {
+      max-width: none;
+      padding: 2px;
+      margin: -2px;
     }
     /* os jeitos de papel: o rolo dá espaço para a sombra do papel não ser cortada, sem mudar o lugar dele */
     .jeito-branca,
@@ -546,6 +598,30 @@ export class RichText {
     return start === null ? null : start + i;
   }
 
+  /** A tabela no meio da tela (o broche de ampliar dela): feito só quando uma sobe, não em todo texto. */
+  private lift: PieceLift | null = null;
+  private readonly destroyRef = inject(DestroyRef);
+  protected liftTable(peca: HTMLElement): void {
+    if (!this.lift) {
+      const lift = (this.lift = new PieceLift());
+      this.destroyRef.onDestroy(() => lift.close(true));
+    }
+    // sobe com a largura do que ela desenha, também a parte que rola: o papel (ele começa no canto
+    // da peça), ou na Caneta, sem papel, a tabela (o papel dela é mais largo que ela, até 16em).
+    // A do layout: na ficha do mural, a caixa na tela vem torta e maior (o giro e o hover)
+    const drawn = peca.querySelector<HTMLElement>(peca.querySelector('.jeito-caneta') ? '.tabela' : '.tabela-papel');
+    // a rolagem de lado de quando ela subiu volta quando ela desce (no alto, ela cabe e volta ao começo)
+    const rolo = peca.querySelector<HTMLElement>('.tabela-rolo');
+    const left = rolo?.scrollLeft ?? 0;
+    this.lift.toggle(peca, { width: drawn ? layoutWidth(drawn) : undefined, closed: () => rolo?.scrollTo({ left }) });
+  }
+  /** O que o leitor de tela diz no broche: "Ampliar a tabela: Jogo, Horas, Nota". */
+  protected tableLabel(b: Block): string {
+    if (b.kind !== 'table') return 'Ampliar a tabela';
+    const head = b.head.map((c) => c.map((s) => s.text).join('').trim()).filter(Boolean).join(', ');
+    return 'Ampliar a tabela' + (head ? ': ' + (head.length > 60 ? head.slice(0, 59).trimEnd() + '…' : head) : '');
+  }
+
   protected readonly formatted = computed(() => hasFormatting(this.text()));
   // contadas como no texto formatado (o "\r" sozinho também quebra a linha, ver core/rich-text.ts)
   protected readonly plainLines = computed(() => linesOf(this.text()));
@@ -622,3 +698,14 @@ export class RichText {
   }
 }
 
+
+/**
+ * A largura do elemento no layout (sem o giro nem a escala de quem está em volta), com a fração para
+ * cima: o `offsetWidth` arredonda para baixo, e a tabela no alto rolaria 1px de lado.
+ */
+function layoutWidth(el: HTMLElement): number | undefined {
+  const s = getComputedStyle(el);
+  const n = (v: string) => parseFloat(v) || 0;
+  const w = s.boxSizing === 'border-box' ? n(s.width) : n(s.width) + n(s.paddingLeft) + n(s.paddingRight) + n(s.borderLeftWidth) + n(s.borderRightWidth);
+  return w > 0 ? Math.ceil(w) : undefined;
+}

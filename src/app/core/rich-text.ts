@@ -770,14 +770,18 @@ export function hasInteractive(text: string): boolean {
 
 /**
  * O texto tem um widget que se toca na ficha do mural: o broche de ampliar (o contador, a foto, o
- * vídeo, a fita, a nota colada) e o tocar do vídeo e da fita. Só a tabela não tem nada para tocar, e
- * o que está dentro de um bloco de código é texto.
+ * vídeo, a fita, a nota colada, a tabela, com a marca do jeito ou sem ela) e o tocar do vídeo e da
+ * fita. O que está dentro de um bloco de código é texto.
  */
 export function hasTouchableWidget(text: string): boolean {
-  if (!text.includes('{{')) return false;
-  return proseLines(text).some(({ line }) => {
+  if (!text.includes('{{') && !text.includes('|')) return false;
+  const prose = proseLines(text);
+  return prose.some(({ line, at }, i) => {
+    const next = prose[i + 1];
+    if (line.includes('|') && next?.at === at + 1 && startsTable([line, next.line], 0)) return true;
     if (!line.includes('{{')) return false;
     const w = parseWidgetLine(line);
+    // (a marca da tabela sozinha é texto: a tabela embaixo dela é que conta, na linha de cima)
     return !!w && w.name !== 'tabela';
   });
 }

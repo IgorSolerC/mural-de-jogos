@@ -29,6 +29,15 @@ const X_PATH = '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>';
 /** O que pega o foco do teclado dentro da peça (o Tab fica nela e no X enquanto ela está no alto). */
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), iframe, video[controls], audio[controls], [tabindex]:not([tabindex="-1"])';
 
+/**
+ * `width`: a largura que sobe, quando quem usa a mede melhor (a tabela: a do que ela desenha, também
+ * a parte que rola, medida no layout, sem o giro da ficha). `closed`: chamado quando ela desce.
+ */
+export interface LiftOptions {
+  width?: number;
+  closed?: () => void;
+}
+
 /** Sobe uma peça do texto para o meio da tela; uma por widget (ver `PieceLift`). */
 export function pieceLift(): PieceLift {
   const lift = new PieceLift();
@@ -54,7 +63,8 @@ export function pieceLift(): PieceLift {
  * A peça diz como subir: `data-ergue-justo` (a largura é a do que está desenhado dentro, marcado
  * com `data-ergue-largura`, não a da linha: a figura do vídeo ocupa a linha), `data-ergue-giro` no filho que é torto (o giro que o voo desfaz),
  * `data-ergue-canto` no filho em cujo canto vai o X (a foto, e não a etiqueta que passa dela),
- * `data-zoom-max` e `data-papel-proprio` (sem a folha creme).
+ * `data-zoom-max`, `data-zoom-min` (a que não encolhe, e rola de lado; a mais larga que a tela ganha
+ * `erguida-estreita`) e `data-papel-proprio` (sem a folha creme).
  */
 export class PieceLift {
   /** A peça está no meio da tela. */
@@ -68,25 +78,31 @@ export class PieceLift {
   private size = { w: 0, h: 0 };
   private restore: (() => void)[] = [];
   private closing = false;
+  /** O que avisar quando ela desce (quem a subiu, para devolver o que mudou nela no alto). */
+  private closed: (() => void) | null = null;
+  /** A largura dela no voo, quando ficou mais estreita que a medida (a tabela larga demais para a tela). */
+  private flyW: number | null = null;
 
   /** Sobe a peça (ou desce, se ela já está no alto). */
-  toggle(piece: HTMLElement): void {
+  toggle(piece: HTMLElement, opts?: LiftOptions): void {
     if (this.open()) this.close();
-    else this.lift(piece);
+    else this.lift(piece, opts);
   }
 
-  lift(piece: HTMLElement): void {
+  lift(piece: HTMLElement, { width, closed }: LiftOptions = {}): void {
     if (this.piece || typeof piece.showPopover !== 'function') return;
     const parent = piece.parentElement;
     if (!parent) return;
     this.piece = piece;
+    this.closed = closed ?? null;
+    this.flyW = null;
     this.back = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     this.closing = false;
 
     // onde ela está: o tamanho de verdade (o do layout, sem o giro) e o canto, em relação ao lugar
     const from = piece.getBoundingClientRect();
     const place = parent.getBoundingClientRect();
-    const w = piece.hasAttribute('data-ergue-justo') ? contentWidth(piece) : piece.offsetWidth;
+    const w = width ?? (piece.hasAttribute('data-ergue-justo') ? contentWidth(piece) : piece.offsetWidth);
     const h = piece.offsetHeight;
     const tilt = getComputedStyle(piece.querySelector<HTMLElement>('[data-ergue-giro]') ?? piece).rotate;
     this.spot = { dx: from.left - place.left, dy: from.top - place.top, w, h, tilt };
@@ -156,10 +172,13 @@ export class PieceLift {
       this.shut = null;
       if (piece.matches(':popover-open')) piece.hidePopover();
       piece.removeAttribute('popover');
-      piece.classList.remove('erguida', 'erguida-papel');
+      piece.classList.remove('erguida', 'erguida-papel', 'erguida-estreita');
       for (const undo of this.restore.splice(0).reverse()) undo();
       this.piece = null;
       this.open.set(false);
+      const closed = this.closed;
+      this.closed = null;
+      closed?.();
       if (!now && this.back?.isConnected) this.back.focus({ preventScroll: true });
       this.back = null;
     };
@@ -184,7 +203,9 @@ export class PieceLift {
 
   /**
    * O zoom que põe a peça do maior tamanho que cabe na tela (com a folga), até MAX_ZOOM. A mais alta
-   * que a tela cresce até a largura (no máximo TALL_ZOOM) e rola.
+   * que a tela cresce até a largura (no máximo TALL_ZOOM) e rola. A peça que não pode encolher
+   * (`data-zoom-min`: a tabela larga, cuja letra ficaria miúda) fica nesse zoom, da largura da tela,
+   * e rola de lado por dentro.
    */
   private fit(): void {
     const piece = this.piece!;
@@ -194,8 +215,18 @@ export class PieceLift {
     const roomH = innerHeight - 2 * m;
     const tall = h > roomH;
     const most = Math.min(MAX_ZOOM, Number(piece.dataset['zoomMax']) || MAX_ZOOM);
+    const least = Number(piece.dataset['zoomMin']) || 0;
     const zoom = tall ? Math.min(roomW / w, TALL_ZOOM, most) : Math.min(roomW / w, roomH / h, most);
-    const z = Math.max(0.25, Math.round(zoom * 1000) / 1000);
+    const z = Math.max(0.25, least, Math.round(zoom * 1000) / 1000);
+    if (least) {
+      // mais larga que a tela nesse zoom: da largura da tela (`erguida-estreita`, para ela não passar
+      // da beirada); e a altura, a do que ela tem dentro (com o zoom, um fio do pé não fica de fora)
+      const narrow = w * z > roomW + 1;
+      this.flyW = narrow ? Math.floor(roomW / z) : null;
+      piece.style.width = `${this.flyW ?? w}px`;
+      piece.style.height = 'fit-content';
+      piece.classList.toggle('erguida-estreita', narrow);
+    }
     piece.style.setProperty('--erguida-zoom', String(z));
     piece.style.setProperty('--erguida-alto', tall ? `${Math.floor(roomH / z)}px` : 'none');
     piece.classList.toggle('erguida-rola', tall);
@@ -218,7 +249,9 @@ export class PieceLift {
   private flight(to: { left: number; top: number }): string | null {
     const piece = this.piece!;
     if (reducedMotion() || typeof piece.animate !== 'function') return null;
-    const { w, h, tilt } = this.spot;
+    const { h, tilt } = this.spot;
+    // (a estreitada voa da largura dela no alto, com o canto esquerdo no da peça no texto)
+    const w = this.flyW ?? this.spot.w;
     if (to.top + h < 0 || to.top > innerHeight || to.left + w < 0 || to.left > innerWidth) return null;
     const now = piece.getBoundingClientRect();
     const zoom = Number(piece.style.getPropertyValue('--erguida-zoom')) || 1;

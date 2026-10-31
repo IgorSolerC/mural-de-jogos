@@ -438,10 +438,16 @@ describe('a nota colada (o widget Nota)', () => {
     expect(cardRefsIn('sem nada')).toEqual([]);
   });
 
-  it('hasTouchableWidget: todo widget tem o que tocar na ficha, menos a tabela', () => {
+  it('hasTouchableWidget: todo widget tem o que tocar na ficha, a tabela também (o broche de ampliar)', () => {
     for (const w of ['{{contador: 25/12 | neon | pequeno}}', '{{imagem: https://a.com/b.png}}', '{{video: https://youtu.be/dQw4w9WgXcQ}}', '{{audio: https://youtu.be/dQw4w9WgXcQ}}', '{{nota: #r1 | Um}}'])
       expect(hasTouchableWidget(`antes\r\n${w}\nfim`)).withContext(w).toBeTrue();
-    expect(hasTouchableWidget('{{tabela: listrada}}\n| a |\n| - |\n| 1 |')).toBeFalse();
+    expect(hasTouchableWidget('{{tabela: listrada}}\n| a |\n| - |\n| 1 |')).toBeTrue();
+    // a branca, sem a marca
+    expect(hasTouchableWidget('antes\r\n| a | b |\r\n| - | - |\r\n| 1 | 2 |')).toBeTrue();
+    // a marca sem tabela embaixo, um "|" solto e a tabela num bloco de código são texto
+    expect(hasTouchableWidget('{{tabela: listrada}}\nsó texto')).toBeFalse();
+    expect(hasTouchableWidget('a | b\nc')).toBeFalse();
+    expect(hasTouchableWidget('```\n| a |\n| - |\n```')).toBeFalse();
     expect(hasTouchableWidget('texto com {{contador: 25/12}} no meio')).toBeFalse();
     // dentro de um bloco de código, é texto
     expect(hasTouchableWidget('```\n{{contador: 25/12}}\n```')).toBeFalse();
