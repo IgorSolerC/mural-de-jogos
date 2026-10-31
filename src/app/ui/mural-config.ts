@@ -68,6 +68,7 @@ const SORTS: readonly { value: GroupSort; label: string; icon: LucideIconData }[
   { value: 'tarefas', label: 'Tarefas', icon: ICON.tarefas },
   { value: 'cor', label: 'Cor', icon: ICON.paleta },
   { value: 'quem', label: 'Quem vê', icon: ICON.privada },
+  { value: 'dono', label: 'Dono', icon: ICON.pessoa },
 ];
 /** Como o resumo da linha do grupo diz a ordem ("Por data"). */
 const SORT_SAID: Record<GroupSort, string> = {
@@ -82,6 +83,7 @@ const SORT_SAID: Record<GroupSort, string> = {
   tarefas: 'Por tarefas',
   cor: 'Por cor',
   quem: 'Por quem vê',
+  dono: 'Por dono',
 };
 
 /** Uma categoria ou uma tag das anotações, na lista da folha. */

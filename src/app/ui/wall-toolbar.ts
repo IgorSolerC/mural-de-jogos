@@ -14,7 +14,7 @@ import { FilterCard } from './filter-card';
 import { MuralConfig } from './mural-config';
 import { NoteTabsBar } from './note-tabs-bar';
 import { NoteFilters } from './note-filters';
-import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab } from '../core/note-tabs';
 import { SearchStrip } from './search-strip';
 
 /** Ordenar é um controle só: data, nome, status ou uma das notas. */
@@ -39,6 +39,7 @@ const NOTE_SORT_OPTIONS: { value: string; label: string }[] = [
   { value: 'tarefas', label: 'Tarefas' },
   { value: 'cor', label: 'Cor' },
   { value: 'quem', label: 'Quem vê' },
+  { value: 'dono', label: 'Dono' },
 ];
 
 @Component({
@@ -121,7 +122,7 @@ export class WallToolbar {
   /** Numa aba de categoria, ordenar por categoria não separa nada: a opção sai. */
   protected readonly sortOptions = computed(() => {
     const all = this.notes() ? NOTE_SORT_OPTIONS : this.view.music() ? MUSIC_SORT_OPTIONS : SORT_OPTIONS;
-    return this.view.activeTab() === ALL_TAB ? all : all.filter((o) => o.value !== 'categoria');
+    return isGroupTab(this.view.activeTab()) ? all.filter((o) => o.value !== 'categoria') : all;
   });
   /** A Média e as quatro notas do mural aberto. */
   protected readonly scoreOptions = computed(() =>

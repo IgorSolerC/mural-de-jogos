@@ -18,10 +18,23 @@ export interface TabFitOptions {
   /** As abas dos grupos escondidos, que vão sempre para o "Mais". */
   hidden: () => ReadonlySet<string> | undefined;
   /**
-   * A aba fixa antes das dos grupos (o "Tudo" do mural), que sempre fica em pé: a chave dela na régua
-   * de medir (`data-k`); null, nenhuma, e cabe um grupo a mais.
+   * As abas fixas antes das dos grupos (o "Tudo" do mural, as Fixadas, as Compartilhadas), que sempre
+   * ficam em pé: as chaves delas na régua de medir (`data-k`); cada uma tira o lugar de um grupo.
    */
-  lead: () => string | null;
+  lead: () => readonly string[];
+  /**
+   * As abas da frente que podem ir para o "Mais" quando não sobra lugar para nenhum grupo (as especiais,
+   * na ordem em que saem); a aberta fica sempre. Sem a opção, todas ficam.
+   */
+  droppable?: () => readonly string[];
+}
+
+/** Quais abas ficam em pé: as dos grupos, as que foram para o "Mais", e as da frente que também foram. */
+export interface TabLayout {
+  shown: NoteTab[];
+  more: NoteTab[];
+  /** As chaves das abas da frente que foram para o "Mais" (ver `droppable`). */
+  leadMore: string[];
 }
 
 /**
@@ -41,27 +54,49 @@ export class TabFit {
   private readonly fontsLoaded = signal(0);
 
   /** Quais ficam em pé e quais vão para o "Mais". Sem medida ainda, todas em pé (até o limite). */
-  readonly layout: Signal<{ shown: NoteTab[]; more: NoteTab[] }>;
+  readonly layout: Signal<TabLayout>;
 
   constructor(private readonly o: TabFitOptions) {
     this.layout = computed(() => {
-      const tabs = o.tabs();
-      if (!tabs?.length) return { shown: [], more: [] };
-      const lead = o.lead();
-      // sem a aba da frente, o lugar dela vai para mais um grupo
-      const slots = lead ? MAX_TABS - 1 : MAX_TABS;
+      const tabs = o.tabs() ?? [];
       const w = this.widths();
       const room = this.room();
-      const fits =
-        !room || !w.size
+      const measured = !!room && !!w.size;
+      const active = o.active();
+      const split = (lead: readonly string[]) => {
+        if (!tabs.length) return { shown: [], more: [] };
+        // cada aba da frente tira o lugar de um grupo (fica sempre pelo menos um)
+        const slots = Math.max(1, MAX_TABS - lead.length);
+        const fits = !measured
           ? undefined
           : (shown: readonly NoteTab[], more: boolean) => {
-              let used = lead ? (w.get(lead) ?? 0) : -GAP;
+              let used = -GAP;
+              for (const k of lead) used += GAP + (w.get(k) ?? 0);
               for (const x of shown) used += GAP + (w.get(x.key) ?? 0);
               if (more) used += GAP + (w.get('mais') ?? 0);
               return used <= room;
             };
-      return splitTabs(tabs, o.active(), fits, o.ordered(), o.hidden(), slots);
+        return splitTabs(tabs, active, fits, o.ordered(), o.hidden(), slots);
+      };
+      // as da frente, com o "Mais" ao lado se precisar, cabem e deixam lugar para algum grupo?
+      const roomy = (lead: readonly string[], shown: readonly NoteTab[], more: boolean) => {
+        if (!measured) return true;
+        let used = -GAP;
+        for (const k of lead) used += GAP + (w.get(k) ?? 0);
+        if (more) used += GAP + (w.get('mais') ?? 0);
+        return used <= room && (!tabs.length || shown.length > 0);
+      };
+      let lead = o.lead();
+      const leadMore: string[] = [];
+      let out = split(lead);
+      for (const k of o.droppable?.() ?? []) {
+        if (roomy(lead, out.shown, out.more.length > 0 || leadMore.length > 0)) break;
+        if (k === active || !lead.includes(k)) continue;
+        lead = lead.filter((x) => x !== k);
+        leadMore.push(k);
+        out = split(lead);
+      }
+      return { ...out, leadMore };
     });
 
     // a largura da fileira muda com a janela

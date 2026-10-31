@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, inject } from
 import { ICON, IconModule } from './icons';
 import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
-import { ALL_TAB, NO_CATEGORY_TAB, NoteTab } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, PINNED_TAB, SHARED_TAB } from '../core/note-tabs';
 import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
 import { CategoryLabel } from './category-label';
 import { TabFit } from './tab-fit';
@@ -26,8 +26,14 @@ import { TabFit } from './tab-fit';
     @if (tabs(); as t) {
       <div class="abas" role="group" [attr.aria-label]="music() ? 'Artistas' : 'Grupos das anotações'">
         @if (allShown()) {
-          <button type="button" class="aba" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
-            <span class="nome">Tudo</span><span class="n">{{ t.all }}</span>
+          <button type="button" class="aba especial" [class.on]="active() === ALL" [attr.aria-pressed]="active() === ALL" (click)="choose(ALL)">
+            <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /><span class="n">{{ t.all }}</span>
+          </button>
+        }
+        <!-- as abas especiais: as fixadas e as compartilhadas com você, de todos os grupos (sem lugar, no "Mais") -->
+        @for (x of specialShown(); track x.key) {
+          <button type="button" class="aba especial" [class.on]="active() === x.key" [attr.aria-pressed]="active() === x.key" (click)="choose(x.key)">
+            <app-cat-label class="rotulo-cat" [label]="x.label" [glyph]="iconOf(x.key)" [iconSize]="15" /><span class="n">{{ x.n }}</span>
           </button>
         }
         @for (x of layout().shown; track x.key) {
@@ -50,7 +56,7 @@ import { TabFit } from './tab-fit';
             <span class="n">{{ x.n }}</span>
           </button>
         }
-        @if (layout().more.length) {
+        @if (layout().more.length || specialMore().length) {
           <label class="aba mais" [class.on]="moreOn()">
             <span class="nome">{{ moreOn() ? activeLabel() : 'Mais' }}</span>
             @if (moreOn()) {
@@ -62,6 +68,9 @@ import { TabFit } from './tab-fit';
               @for (x of layout().more; track x.key) {
                 <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
               }
+              @for (x of specialMore(); track x.key) {
+                <option [value]="x.key" [selected]="active() === x.key">{{ x.label }} ({{ x.n }})</option>
+              }
             </select>
           </label>
         }
@@ -70,7 +79,10 @@ import { TabFit } from './tab-fit';
       <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé -->
       <div class="abas medida" aria-hidden="true">
         @if (allShown()) {
-          <span class="aba" data-k="tudo"><span class="nome">Tudo</span><span class="n">{{ t.all }}</span></span>
+          <span class="aba especial" data-k="tudo"><app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /><span class="n">{{ t.all }}</span></span>
+        }
+        @for (x of special(); track x.key) {
+          <span class="aba especial" [attr.data-k]="x.key"><app-cat-label class="rotulo-cat" [label]="x.label" [glyph]="iconOf(x.key)" [iconSize]="15" /><span class="n">{{ x.n }}</span></span>
         }
         @for (x of t.tabs; track x.key) {
           <span class="aba" [class.sem]="x.key === NONE" [attr.data-k]="x.key">
@@ -157,19 +169,26 @@ export class NoteTabsBar {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly AllIcon = ICON.camadas;
   protected readonly ALL = ALL_TAB;
   protected readonly NONE = NO_CATEGORY_TAB;
 
-  /** As abas, só quando há o que separar. */
+  /** As abas, só quando há o que separar (ou alguma aba especial). */
   protected readonly tabs = computed(() => {
     const t = this.view.noteTabs();
-    return t && t.tabs.length ? t : null;
+    return t && (t.tabs.length || this.special().length) ? t : null;
   });
   protected readonly active = this.view.activeTab;
   protected readonly activeLabel = this.view.activeTabLabel;
 
   /** O Tudo em pé (ver `WallState.allTabShown`). */
   protected readonly allShown = this.view.allTabShown;
+  /** As abas especiais (Fixadas, Compartilhadas), em pé logo depois do Tudo (ver `WallState.specialTabs`). */
+  protected readonly special = computed(() => (this.music() ? [] : this.view.specialTabs()));
+  /** O desenho de cada aba especial: o alfinete das fixadas, as duas pessoas das compartilhadas. */
+  protected iconOf(key: string) {
+    return key === PINNED_TAB ? ICON.fixar : key === SHARED_TAB ? ICON.pessoas : ICON.camadas;
+  }
 
   /** Quais ficam em pé e quais vão para o "Mais" (ver ui/tab-fit.ts). */
   private readonly fit = new TabFit({
@@ -181,7 +200,9 @@ export class NoteTabsBar {
     ordered: () => !this.music() && !!this.view.categoryOrder(),
     // as escondidas na engrenagem do mural vão sempre para o "Mais"
     hidden: () => (this.music() ? undefined : this.view.hiddenTabs()),
-    lead: () => (this.allShown() ? 'tudo' : null),
+    lead: () => [...(this.allShown() ? ['tudo'] : []), ...this.special().map((x) => x.key)],
+    // sem lugar, as especiais vão para o "Mais": primeiro as Compartilhadas, depois as Fixadas
+    droppable: () => this.special().map((x) => x.key).reverse(),
   });
   protected readonly layout = this.fit.layout;
 
@@ -200,9 +221,13 @@ export class NoteTabsBar {
     return categoryColorHex(this.lookOf(x).color);
   }
 
+  /** As especiais em pé e as que foram para o "Mais" por falta de lugar. */
+  protected readonly specialShown = computed(() => this.special().filter((x) => !this.layout().leadMore.includes(x.key)));
+  protected readonly specialMore = computed(() => this.special().filter((x) => this.layout().leadMore.includes(x.key)));
+
   /** A aba aberta é uma das do "Mais": ele mostra o nome dela, como aba aberta. */
-  protected readonly moreOn = computed(() => this.layout().more.some((x) => x.key === this.active()));
-  protected readonly moreCount = computed(() => this.layout().more.find((x) => x.key === this.active())?.n ?? 0);
+  protected readonly moreOn = computed(() => [...this.layout().more, ...this.specialMore()].some((x) => x.key === this.active()));
+  protected readonly moreCount = computed(() => [...this.layout().more, ...this.specialMore()].find((x) => x.key === this.active())?.n ?? 0);
 
   protected choose(key: string): void {
     if (key === this.active()) return;

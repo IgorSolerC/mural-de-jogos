@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
 import { kanbanPath } from '../core/areas';
 import { boardIdFor } from '../core/kanban';
-import { ALL_TAB, NO_CATEGORY_TAB } from '../core/note-tabs';
+import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab } from '../core/note-tabs';
 import { Settings } from '../core/settings';
 import { SideBySide } from '../core/side-by-side';
 import { WallMotion } from '../core/wall-motion';
@@ -63,6 +63,9 @@ export class WallBoard {
     return kanbanPath(tab.startsWith('c:') ? boardIdFor(tab.slice(2)) : undefined);
   });
 
+  /** A aba aberta é a de um grupo (a lista não precisa dizer o grupo de cada anotação). */
+  protected readonly groupTab = computed(() => isGroupTab(this.view.activeTab()));
+
   /** De quem é o mural: null, o seu. */
   protected readonly owner = this.view.owner;
   /** O mural de anotações: o vazio fala de anotação, não de resenha. */
@@ -91,7 +94,8 @@ export class WallBoard {
   protected readonly where = computed(() => {
     const tab = this.view.activeTabLabel();
     if (this.view.activeTab() === NO_CATEGORY_TAB) return 'sem grupo';
-    if (tab) return `de ${tab}`;
+    // as abas especiais (Fixadas, Compartilhadas) juntam os grupos: "das Fixadas"
+    if (tab) return isGroupTab(this.view.activeTab()) ? `de ${tab}` : `das ${tab}`;
     return this.owner() === null ? 'do mural' : `de ${this.owner()}`;
   });
 

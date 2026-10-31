@@ -5,6 +5,7 @@ import { ReviewStore } from './review-store';
 import { Mural } from './mural';
 import { WallView } from './wall-view';
 import { Settings } from './settings';
+import { SharedEntry, SharedStore } from './shared-store';
 
 function r(id: string, name: string, completedAt: string | null, diversao: number, extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -335,6 +336,85 @@ describe('WallView', () => {
       TestBed.inject(Mural).kind.set('jogos');
       view.setSort('criacao');
       expect(view.shownSort()).toBe('data');
+    });
+  });
+
+  describe('as abas Fixadas e Compartilhadas', () => {
+    const note = (id: string, name: string, extra: Record<string, unknown> = {}) =>
+      sanitizeReview({ id, kind: 'anotacoes', game: { name }, createdAt: '2024-01-01T00:00:00.000Z', ...extra })!;
+    let settings: Settings;
+    /** As compartilhadas com você (o SharedStore de mentira: a entrada com o dono e a anotação). */
+    function share(r: Review, dono: string): void {
+      const shared = TestBed.inject(SharedStore);
+      const entry = { id: r.id, papel: 'editor', dono: { codigo: 'AAAA-' + dono.slice(0, 4).toUpperCase(), nome: dono, foto: null }, view: r } as unknown as SharedEntry;
+      shared.entries.update((m) => new Map(m).set(r.id, entry));
+      TestBed.tick();
+    }
+
+    beforeEach(() => {
+      settings = TestBed.inject(Settings);
+      TestBed.inject(Mural).kind.set('anotacoes');
+      store.reviews.update((list) => [
+        ...list,
+        note('ntrab01', 'Daily', { category: 'Trabalho', noteRank: 'fixada' }),
+        note('ntrab02', 'Ata', { category: 'Trabalho' }),
+        note('ncasa01', 'Receitas', { category: 'Casa', noteRank: 'fixada' }),
+        note('ncasa02', 'Contas', { category: 'Casa' }),
+      ]);
+    });
+
+    it('Fixadas: em pé quando há alguma fixada (ligada por padrão), com as fixadas de todos os grupos', () => {
+      expect(view.specialTabs().map((t) => `${t.label} ${t.n}`)).toEqual(['Fixadas 2']);
+      view.setNoteTab('fixadas');
+      expect(view.activeTab()).toBe('fixadas');
+      expect(view.activeTabLabel()).toBe('Fixadas');
+      expect(view.visible().map((x) => x.game.name).sort()).toEqual(['Daily', 'Receitas']);
+      // ela começa ordenada por grupo, que separa as fixadas pelos grupos delas
+      expect(view.shownSort()).toBe('categoria');
+      expect(view.groups().map((g) => g.label)).toEqual(['Casa', 'Trabalho']);
+      // desligada nas configurações, a aba some e o mural volta a um grupo
+      settings.setNotesConfig({ showPinned: false });
+      expect(view.specialTabs()).toEqual([]);
+      expect(view.activeTab()).not.toBe('fixadas');
+    });
+
+    it('Fixadas: sem nenhuma fixada, não aparece; com todas finalizadas e escondidas, fica (como um grupo)', () => {
+      store.reviews.update((list) => list.map((r) => (r.noteRank ? { ...r, doneAt: '2024-02-01T00:00:00.000Z' } : r)));
+      expect(view.specialTabs().map((t) => `${t.label} ${t.n}`)).toEqual(['Fixadas 0']);
+      store.reviews.update((list) => list.map((r) => (r.noteRank ? { ...r, noteRank: undefined } : r)));
+      expect(view.specialTabs()).toEqual([]);
+    });
+
+    it('com um grupo só (nada a separar), as abas especiais aparecem com o Tudo', () => {
+      store.reviews.update((list) => list.filter((r) => r.kind !== 'anotacoes' || r.category === 'Trabalho'));
+      expect(view.noteTabs()!.tabs).toEqual([]);
+      expect(view.specialTabs().map((t) => t.label)).toEqual(['Fixadas']);
+      expect(view.allTabShown()).toBeTrue();
+      view.setNoteTab('fixadas');
+      expect(view.activeTab()).toBe('fixadas');
+      view.setNoteTab('');
+      expect(view.activeTab()).toBe('');
+    });
+
+    it('Compartilhadas: as que outras pessoas compartilharam com você, sem grupo, ordenadas pelo dono', () => {
+      const ana = note('nshar01', 'Viagem', {});
+      const bia = note('nshar02', 'Livros', {});
+      store.reviews.update((list) => [...list, ana, bia]);
+      share(ana, 'Ana');
+      share(bia, 'Bia');
+      expect(view.specialTabs().map((t) => `${t.label} ${t.n}`)).toEqual(['Fixadas 2', 'Compartilhadas 2']);
+      view.setNoteTab('compartilhadas');
+      expect(view.activeTab()).toBe('compartilhadas');
+      expect(view.shownSort()).toBe('dono');
+      expect(view.groups().map((g) => `${g.label}: ${g.reviews.map((x) => x.game.name).join(', ')}`)).toEqual(['Ana: Viagem', 'Bia: Livros']);
+      view.toggleDirection();
+      expect(view.groups().map((g) => g.label)).toEqual(['Bia', 'Ana']);
+      // na aba Tudo, por dono: as suas primeiro, depois as dos outros
+      view.setNoteTab('');
+      view.setSort('dono');
+      expect(view.groups().map((g) => g.label)).toEqual(['Você', 'Ana', 'Bia']);
+      settings.setNotesConfig({ showShared: false });
+      expect(view.specialTabs().map((t) => t.label)).toEqual(['Fixadas']);
     });
   });
 

@@ -34,7 +34,7 @@ export type GroupView = (typeof GROUP_VIEWS)[number];
  * As ordens que um grupo pode escolher para abrir (as do mural de anotações, ver `SortKey` em
  * core/wall-view.ts, que importa este arquivo; sem a de Grupo, que dentro de um grupo não separa nada).
  */
-export const GROUP_SORTS = ['prioridade', 'data', 'alfabetica', 'assunto', 'tag', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem'] as const;
+export const GROUP_SORTS = ['prioridade', 'data', 'alfabetica', 'assunto', 'tag', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem', 'dono'] as const;
 export type GroupSort = (typeof GROUP_SORTS)[number];
 
 /** O que uma categoria muda em cima do mural. Sem o campo: segue o mural. */
@@ -87,6 +87,10 @@ export interface NotesConfig {
    * sempre num grupo, como o Kanban, e o Tudo só aparece quando a busca pede para procurar em todos.
    */
   showAll: boolean;
+  /** A aba "Fixadas" (todas as fixadas, de todos os grupos) fica em pé quando há alguma. Ligada por padrão. */
+  showPinned: boolean;
+  /** A aba "Compartilhadas" (as que outras pessoas compartilharam com você) fica em pé quando há alguma. Ligada por padrão. */
+  showShared: boolean;
   /**
    * Os assuntos criados nas configurações, por grupo (a chave de `lookKey`; "" para as anotações sem
    * grupo), na ordem em que foram criados: ficam à mão no editor e no filtro mesmo antes de alguma
@@ -95,7 +99,7 @@ export interface NotesConfig {
   subjects: Record<string, string[]>;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, subjects: {} };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: true, showShared: true, subjects: {} };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -171,6 +175,8 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     categories,
     hiddenTags,
     showAll: r['showAll'] === true,
+    showPinned: r['showPinned'] !== false,
+    showShared: r['showShared'] !== false,
     subjects,
   };
 }

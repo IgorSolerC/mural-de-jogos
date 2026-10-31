@@ -127,7 +127,7 @@
                 <div class="linha">
                   <div>
                     <p class="linha-titulo" id="config-t-tudo">Mostrar a aba “Tudo”</p>
-                    <p class="linha-desc" id="config-d-tudo">Uma aba com o mural inteiro, antes dos grupos. Sem ela, o mural abre sempre num grupo, como o Kanban.</p>
+                    <p class="linha-desc" id="config-d-tudo">Uma aba com o mural inteiro, antes dos grupos. Sem ela, o mural abre sempre num grupo (ou numa das abas abaixo), como o Kanban.</p>
                   </div>
                   <button
                     type="button"
@@ -137,6 +137,40 @@
                     aria-describedby="config-d-tudo"
                     [attr.aria-checked]="config().showAll"
                     (click)="settings.setNotesConfig({ showAll: !config().showAll })"
+                  >
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-fixadas">Mostrar a aba “Fixadas”</p>
+                    <p class="linha-desc" id="config-d-fixadas">Uma aba com todas as anotações fixadas, de todos os grupos, quando houver alguma.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    class="interruptor"
+                    aria-labelledby="config-t-fixadas"
+                    aria-describedby="config-d-fixadas"
+                    [attr.aria-checked]="config().showPinned"
+                    (click)="settings.setNotesConfig({ showPinned: !config().showPinned })"
+                  >
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-compartilhadas">Mostrar a aba “Compartilhadas”</p>
+                    <p class="linha-desc" id="config-d-compartilhadas">Uma aba com tudo o que outras pessoas compartilharam com você, começando pela ordem do dono. Sem ela, essas anotações ficam em Sem grupo até você pôr num grupo.</p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    class="interruptor"
+                    aria-labelledby="config-t-compartilhadas"
+                    aria-describedby="config-d-compartilhadas"
+                    [attr.aria-checked]="config().showShared"
+                    (click)="settings.setNotesConfig({ showShared: !config().showShared })"
                   >
                     <span class="bolinha"></span>
                   </button>

@@ -54,6 +54,8 @@ describe('as configurações do mural de anotações', () => {
       categories: { 'roadmap site': { audience: 'visivel' }, 'viagens!': { audience: 'publicar', askTag: false } },
       hiddenTags: [],
       showAll: false,
+      showPinned: true,
+      showShared: true,
       subjects: {},
     });
     // a aba Tudo: só com true (o padrão é sem ela)
@@ -114,6 +116,12 @@ describe('as configurações do mural de anotações', () => {
     expect(cfg.categories).toEqual({ 'estudos!': { view: 'inteira', askTag: false } });
     // da nuvem ou do armazenamento: só as visualizações que existem
     expect(sanitizeNotesConfig({ categories: { A: { view: 'capas' }, B: { view: 'gigante' }, C: { view: 3 } } }).categories).toEqual({ a: { view: 'capas' } });
+  });
+
+  it('as abas Fixadas e Compartilhadas: ligadas a menos que guardadas como false', () => {
+    expect(sanitizeNotesConfig({}).showPinned).toBeTrue();
+    expect(sanitizeNotesConfig({}).showShared).toBeTrue();
+    expect(sanitizeNotesConfig({ showPinned: false, showShared: 'não' })).toEqual(jasmine.objectContaining({ showPinned: false, showShared: true }));
   });
 
   it('a ordenação padrão do grupo: só as das anotações (sem a de Grupo); voltar à última usada tira o campo', () => {

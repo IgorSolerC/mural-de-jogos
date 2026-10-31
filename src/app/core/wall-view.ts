@@ -2,6 +2,7 @@ import type { CategoryLooks } from './category-looks';
 import { Injectable, Signal, WritableSignal, computed, effect, forwardRef, inject, signal } from '@angular/core';
 import { KANBAN_LAST_KEY, boardIdFor } from './kanban';
 import { KanbanStore } from './kanban-store';
+import { SharedStore } from './shared-store';
 import { Kind, KindProfile, countOf, hasTabs, isMusic, isNotes, revisitCountOf } from './kinds';
 import { Mural } from './mural';
 import { Settings } from './settings';
@@ -27,7 +28,7 @@ import {
   scoreOf,
   shownFinal,
 } from './review';
-import { ALL_TAB, NoteTabs, hasTab, noteTabKey, noteTabsOf } from './note-tabs';
+import { ALL_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, hasTab, isGroupTab, noteTabKey, noteTabsOf } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
@@ -57,10 +58,11 @@ export type SortKey =
   | 'finalizacao'
   | 'tarefas'
   | 'cor'
-  | 'quem';
-const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem'];
+  | 'quem'
+  | 'dono';
+const SORT_KEYS: readonly SortKey[] = ['data', 'nota', 'alfabetica', 'status', 'categoria', 'assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem', 'dono'];
 /** As ordens que só o mural de anotações tem (os de resenhas ordenam por data no lugar delas). */
-const NOTE_ONLY_SORTS: readonly SortKey[] = ['assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem'];
+const NOTE_ONLY_SORTS: readonly SortKey[] = ['assunto', 'tag', 'prioridade', 'criacao', 'alteracao', 'finalizacao', 'tarefas', 'cor', 'quem', 'dono'];
 export type Direction = 'desc' | 'asc';
 /**
  * Comum (a ficha de sempre; o id guardado continua `completa`), inteira (a comum com o texto todo, as fichas encaixadas em colagem), simples
@@ -139,6 +141,7 @@ const DEFAULT_DIRECTION: Record<SortKey, Direction> = {
   tarefas: 'desc',
   cor: 'asc',
   quem: 'asc',
+  dono: 'asc',
 };
 
 /** A ordem que o mural aberto tem de fato: cada mural só ordena pelo que ele tem. */
@@ -259,6 +262,17 @@ export abstract class WallState {
    * de músicas e o de quem visita têm sempre o Tudo.
    */
   readonly showAllTab: Signal<boolean> = signal(true);
+  /**
+   * As abas Fixadas e Compartilhadas ficam em pé quando há o que mostrar nelas (ver `specialTabs`). Só
+   * o seu mural de anotações tem: no de quem visita, as fixadas e as compartilhadas são do dono dele.
+   */
+  readonly pinnedTabOn: Signal<boolean> = signal(false);
+  readonly sharedTabOn: Signal<boolean> = signal(false);
+  /**
+   * As anotações que outras pessoas compartilharam com você, e de quem cada uma é (id → o nome do
+   * dono). Só o seu mural; no de quem visita, o dono vem na própria anotação (`sharedBy`).
+   */
+  readonly sharedWithMe: Signal<ReadonlyMap<string, string>> = signal(new Map<string, string>());
   /**
    * A visualização com que cada grupo abre, escolhida nas configurações do mural (pela chave da aba,
    * ver core/mural-config.ts). O grupo que tem uma esquece a última escolhida na régua. Só o seu
@@ -381,25 +395,59 @@ export abstract class WallState {
   readonly activeTab = computed<string>(() => {
     const tabs = this.noteTabs();
     const k = this.tabOf(this.mural.kind())();
+    // as abas especiais valem mesmo sem grupos para separar (todas as anotações num grupo só, ou sem grupo)
+    if (this.specialTabs().some((t) => t.key === k)) return k;
     if (!tabs || !tabs.tabs.length) return ALL_TAB;
     if (k !== ALL_TAB && hasTab(tabs, k)) return k;
     if (this.showAllTab() || this.allAsked()) return ALL_TAB;
     const hidden = this.notes() ? this.hiddenTabs() : new Set<string>();
     return (tabs.tabs.find((t) => !hidden.has(t.key)) ?? tabs.tabs[0]).key;
   });
-  /** A aba Tudo aparece: ligada nas configurações, ou aberta (a busca em todos os grupos). */
-  readonly allTabShown = computed(() => this.showAllTab() || this.activeTab() === ALL_TAB);
+  /**
+   * As abas especiais do mural de anotações, depois do Tudo: Fixadas (as fixadas de todos os grupos,
+   * quando há alguma à mostra) e Compartilhadas (as que outras pessoas compartilharam com você, quando
+   * há alguma), cada uma ligada nas configurações do mural.
+   */
+  readonly specialTabs = computed<NoteTab[]>(() => {
+    if (!this.notes()) return [];
+    const out: NoteTab[] = [];
+    const wall = this.wall();
+    if (this.pinnedTabOn()) {
+      // como os grupos, ela fica enquanto tem alguma, mesmo com todas finalizadas e escondidas
+      const list = wall.filter(isPinnedNote);
+      if (list.length) out.push({ key: PINNED_TAB, label: 'Fixadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
+    }
+    const shared = this.sharedWithMe();
+    if (this.sharedTabOn() && shared.size) {
+      const list = wall.filter((r) => shared.has(r.id));
+      if (list.length) out.push({ key: SHARED_TAB, label: 'Compartilhadas', n: list.filter((r) => this.shows(r)).length, total: list.length });
+    }
+    return out;
+  });
+  /**
+   * A aba Tudo aparece: ligada nas configurações, ou aberta (a busca em todos os grupos), ou quando só
+   * há abas especiais (sem grupos para separar, ela é o caminho de volta para o resto).
+   */
+  readonly allTabShown = computed(
+    () => this.showAllTab() || this.activeTab() === ALL_TAB || (!this.noteTabs()?.tabs.length && this.specialTabs().length > 0),
+  );
   /** O nome da aba aberta (null em "Tudo"). */
   readonly activeTabLabel = computed<string | null>(() => {
     const tabs = this.noteTabs();
     const k = this.activeTab();
     if (!tabs || k === ALL_TAB) return null;
-    return tabs.tabs.find((t) => t.key === k)?.label ?? null;
+    return (tabs.tabs.find((t) => t.key === k) ?? this.specialTabs().find((t) => t.key === k))?.label ?? null;
   });
-  /** A vista da aba aberta: a dela, ou a de Tudo, se ela ainda não tem uma. */
+  /**
+   * A vista da aba aberta: a dela, ou a de Tudo, se ela ainda não tem uma (a das Fixadas começa
+   * ordenada pelo grupo, que separa; a das Compartilhadas, pelo dono).
+   */
   readonly noteView = computed<NoteView>(() => {
     const views = this.noteViews();
-    return views[this.activeTab()] ?? views[ALL_TAB] ?? NOTE_VIEW;
+    const tab = this.activeTab();
+    const base = views[ALL_TAB] ?? NOTE_VIEW;
+    const first: SortKey | null = tab === PINNED_TAB ? 'categoria' : tab === SHARED_TAB ? 'dono' : null;
+    return views[tab] ?? (first ? { ...base, sort: first, direction: DEFAULT_DIRECTION[first] } : base);
   });
   /** A ordem escolhida nas configurações para o grupo aberto; null, ele abre na última usada. */
   readonly groupSort = computed<SortKey | null>(() => (this.notes() ? (this.groupSorts().get(this.activeTab()) ?? null) : null));
@@ -432,6 +480,8 @@ export abstract class WallState {
 
   protected inTab(r: Review): boolean {
     const k = this.activeTab();
+    if (k === PINNED_TAB) return isPinnedNote(r);
+    if (k === SHARED_TAB) return this.sharedWithMe().has(r.id);
     return k === ALL_TAB || noteTabKey(r) === k;
   }
   /**
@@ -494,8 +544,9 @@ export abstract class WallState {
    */
   readonly shownSort = computed<SortKey>(() => {
     const sort = sortFor(this.chosenSort(), this.mural.profile());
-    // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade (nas músicas, a Data)
-    if (sort === 'categoria' && this.activeTab() !== ALL_TAB) return this.notes() ? 'prioridade' : 'data';
+    // numa aba de categoria, ordenar por categoria daria uma seção só: vale a Prioridade (nas músicas, a
+    // Data); nas Fixadas e nas Compartilhadas, que juntam os grupos, ela separa
+    if (sort === 'categoria' && isGroupTab(this.activeTab())) return this.notes() ? 'prioridade' : 'data';
     return this.guarding() && sort === 'nota' ? 'data' : sort;
   });
   /**
@@ -561,7 +612,7 @@ export abstract class WallState {
   readonly facets = computed(() => {
     const all = facetsOf(this.searched(), this.activeFilter(), this.mural.profile());
     // numa aba de categoria, o grupo Categoria só teria ela mesma
-    const inTab = this.activeTab() === ALL_TAB ? all : all.filter((f) => f.key !== 'category');
+    const inTab = isGroupTab(this.activeTab()) ? all.filter((f) => f.key !== 'category') : all;
     return this.guarding() ? inTab.filter((f) => !SPOILER_FACETS.includes(f.key)) : inTab;
   });
   /** Os filtros ligados, como etiquetas. */
@@ -585,7 +636,11 @@ export abstract class WallState {
     profile: this.mural.profile(),
     pinnedFirst: this.pinnedFirst(),
     categoryOrder: this.notes() ? this.categoryOrder() : null,
+    ownerOf: this.ownerOf,
+    ownLabel: this.owner() ?? 'Você',
   }));
+  /** De quem é a anotação: null, do dono do mural; senão, o nome de quem a compartilhou. */
+  private readonly ownerOf = (r: Review): string | null => this.sharedWithMe().get(r.id) ?? r.sharedBy?.nome ?? null;
 
   readonly groups = computed<WallGroup[]>(() => groupWall(this.visible(), this.order(), this.guarding()));
 
@@ -765,6 +820,7 @@ export abstract class WallState {
 @Injectable({ providedIn: 'root' })
 export class WallView extends WallState {
   private readonly settings = inject(Settings);
+  private readonly shared = inject(SharedStore);
   readonly wall = this.mural.wall;
   readonly guarding = computed(() => this.settings.noSpoilers());
   readonly owner = signal<string | null>(null).asReadonly();
@@ -772,6 +828,13 @@ export class WallView extends WallState {
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
+  override readonly pinnedTabOn = computed(() => this.settings.notesConfig().showPinned);
+  override readonly sharedTabOn = computed(() => this.settings.notesConfig().showShared);
+  override readonly sharedWithMe = computed<ReadonlyMap<string, string>>(() => {
+    const out = new Map<string, string>();
+    for (const e of this.shared.entries().values()) if (e.papel !== 'dono') out.set(e.id, e.dono.nome);
+    return out;
+  });
   override readonly groupViews = computed<ReadonlyMap<string, Density>>(() => groupViews(this.settings.notesConfig()));
   override readonly groupSorts = computed<ReadonlyMap<string, SortKey>>(() => groupSorts(this.settings.notesConfig()));
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
@@ -881,6 +944,8 @@ export function directionLabelOf(sort: SortKey, direction: Direction, profile: K
       return desc ? 'Da última cor à primeira' : 'Na ordem das cores';
     case 'quem':
       return desc ? 'Públicas primeiro' : 'Privadas primeiro';
+    case 'dono':
+      return desc ? 'As suas primeiro; os outros donos de Z a A' : 'As suas primeiro; os outros donos de A a Z';
     case 'status':
       return `${desc ? profile.statusGroup.platinado : profile.statusGroup.incompleto} primeiro`;
     default:
@@ -899,6 +964,13 @@ export interface WallOrder {
   pinnedFirst?: boolean;
   /** Nas anotações, a ordem das categorias montada à mão (pela chave); sem ela, de A a Z. */
   categoryOrder?: readonly string[] | null;
+  /**
+   * O dono da anotação, ordenando por dono: o nome de quem a compartilhou, ou null quando ela é do
+   * dono do mural (sem a função, todas são dele).
+   */
+  ownerOf?: (r: Review) => string | null;
+  /** Como a seção das anotações do dono do mural se chama ("Você", ou o nome dele na visita). */
+  ownLabel?: string;
 }
 
 /** As fixadas vêm na frente, numa seção só delas? Na Prioridade sempre; nas outras ordens, só se a pessoa quis. */
@@ -1067,6 +1139,11 @@ function groupKeyOf(o: WallOrder): (r: Review) => [string, string] {
       };
     case 'quem':
       return (r) => (r.private ? ['privadas', 'Privadas'] : ['publicas', 'Públicas']);
+    case 'dono':
+      return (r) => {
+        const name = o.ownerOf?.(r) ?? null;
+        return name === null ? ['dono-mural', o.ownLabel ?? 'Você'] : [`d:${fold(name)}`, name];
+      };
     case 'prioridade':
       return (r) => RANK_GROUPS[rankOrder(r)];
     case 'categoria':
@@ -1167,6 +1244,16 @@ function orderOf(o: WallOrder): (a: Review, b: Review) => number {
     case 'quem':
       // asc: as privadas primeiro
       return (a, b) => sign * ((a.private ? 0 : 1) - (b.private ? 0 : 1)) || -byDate(a, b);
+    case 'dono': {
+      // as do dono do mural sempre primeiro; os outros donos pelo nome
+      const ownerOf = o.ownerOf ?? (() => null);
+      return (a, b) => {
+        const na = ownerOf(a);
+        const nb = ownerOf(b);
+        if ((na === null) !== (nb === null)) return na === null ? -1 : 1;
+        return (na !== null && nb !== null ? sign * nameCollator.compare(na, nb) : 0) || -byDate(a, b);
+      };
+    }
     case 'categoria': {
       const order = o.categoryOrder;
       if (!order) return byLabel(firstCategory);

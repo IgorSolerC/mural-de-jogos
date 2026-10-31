@@ -166,6 +166,7 @@ describe('as configurações do mural (a folha)', () => {
       'Tarefas',
       'Cor',
       'Quem vê',
+      'Dono',
     ]);
     expect(segment(ordem, 'A última usada').checked).toBeTrue();
     segment(ordem, 'Tag').click();
@@ -176,6 +177,20 @@ describe('as configurações do mural (a folha)', () => {
     segment(ordem, 'A última usada').click();
     await fixture.whenStable();
     expect(settings.notesConfig().categories).toEqual({});
+  });
+
+  it('as abas Fixadas e Compartilhadas: ligadas por padrão, cada uma com o seu interruptor', async () => {
+    await go('categorias');
+    const sw = (id: string) => el.querySelector<HTMLButtonElement>(`button[role=switch][aria-labelledby="${id}"]`)!;
+    expect(sw('config-t-fixadas').getAttribute('aria-checked')).toBe('true');
+    expect(sw('config-t-compartilhadas').getAttribute('aria-checked')).toBe('true');
+    sw('config-t-fixadas').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().showPinned).toBeFalse();
+    expect(sw('config-t-fixadas').getAttribute('aria-checked')).toBe('false');
+    sw('config-t-compartilhadas').click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().showShared).toBeFalse();
   });
 
   it('na minha ordem, a alça sobe e desce a categoria pelo teclado, e as abas seguem', async () => {

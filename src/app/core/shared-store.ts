@@ -7,6 +7,7 @@ import { ReviewStore, SharedSink } from './review-store';
 import {
   MemberRole,
   arrivalOrg,
+  outOfSharedGroup,
   legacyOrg,
   orgOf,
   samePersonal,
@@ -324,7 +325,13 @@ export class SharedStore implements SharedSink {
     for (const e of [...this.entries().values()]) {
       const place = this.places().get(e.id)?.p;
       // o lugar de um site de antes (sem o grupo): só a fixada muda, o grupo fica
-      const p = place && legacyOrg(place, e.pessoal);
+      let p = place && legacyOrg(place, e.pessoal);
+      // um aparelho com o site de antes da build 677 pôs a recebida no grupo Compartilhadas: ela sai dele
+      const out = p && e.papel !== 'dono' ? outOfSharedGroup(p, this.places().get(e.id)!.em) : null;
+      if (out) {
+        p = out;
+        this.setPlace(e.id, out, ARRIVAL_AT);
+      }
       if (p && !samePersonal(p, e.pessoal)) this.put({ ...e, pessoal: p });
     }
     this.persist();
@@ -709,13 +716,19 @@ export class SharedStore implements SharedSink {
 
   /**
    * Onde a anotação chega neste aparelho: no lugar escolhido em outro aparelho da pessoa, se ele veio
-   * antes dela; a de outra pessoa, nova para quem a recebe, no grupo Compartilhadas (o desenho de duas
-   * pessoas é o de sempre dele, ver `categoryIcon`: nada muda nos ajustes, que, mudados agora num
-   * aparelho novo, passariam por cima dos da nuvem); a dele mesmo, no grupo em que estava.
+   * antes dela; a de outra pessoa, nova para quem a recebe, sem grupo (ela aparece na aba Compartilhadas
+   * do mural; até a build 677 ia para o grupo Compartilhadas, e de lá ela sai); a dele mesmo, no grupo
+   * em que estava.
    */
   private arrival(d: SharedDetail): Personal {
     const place = this.places().get(d.id)?.p;
-    if (place?.org) return place;
+    if (place?.org) {
+      const out = d.papel === 'dono' ? null : outOfSharedGroup(place, this.places().get(d.id)!.em);
+      if (!out) return place;
+      // ninguém escolheu este lugar: o de qualquer outro aparelho vale mais
+      this.setPlace(d.id, out, ARRIVAL_AT);
+      return out;
+    }
     // um lugar de antes do grupo ser de cada um: quem já estava nela continua no grupo de antes
     if (place || d.papel === 'dono') return legacyOrg(place ?? {}, d.orgDados);
     const p = arrivalOrg();
@@ -779,6 +792,7 @@ export class SharedStore implements SharedSink {
     const list = (all.contas[account] ?? []).map(readEntry).filter((e) => e !== null);
     const before = this.entries();
     const next = new Map<string, SharedEntry>();
+    let moved = false;
     for (const { migrated, ...read } of list) {
       let e: SharedEntry = read;
       if (migrated) {
@@ -788,11 +802,19 @@ export class SharedStore implements SharedSink {
         if (known?.p.org && known.em >= migrated) e = entryOf({ ...e, pessoal: known.p });
         else this.setPlace(e.id, e.pessoal, migrated);
       }
+      // a recebida que ainda está no grupo Compartilhadas (onde chegava até a build 677) sai dele: ela
+      // fica sem grupo, na aba Compartilhadas, e vai assim para os outros aparelhos da pessoa
+      const out = e.papel === 'dono' ? null : outOfSharedGroup(e.pessoal, this.places().get(e.id)?.em ?? ARRIVAL_AT);
+      if (out) {
+        e = entryOf({ ...e, pessoal: out });
+        this.setPlace(e.id, out, ARRIVAL_AT);
+        moved = true;
+      }
       const was = before.get(e.id);
       next.set(e.id, was && sameView(was.view, e.view) ? { ...e, view: was.view } : e);
     }
     this.entries.set(next);
-    if (list.some((e) => e.migrated)) this.persist();
+    if (moved || list.some((e) => e.migrated)) this.persist();
   }
 
   private readAll(): Stored {

@@ -175,11 +175,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     jogaria o campo fora e enviaria assim, e a compra voltaria para o mês do dia em todo aparelho.
  * 42: a ordem com que cada grupo abre no mural (`sort`, nas configurações do mural). Um site da 41
  *     jogaria o campo fora e enviaria assim, e o grupo voltaria a abrir na última ordem usada.
+ * 43: as abas Fixadas e Compartilhadas do mural de anotações (`showPinned`, `showShared`, nas
+ *     configurações do mural). Um site da 42 jogaria os dois fora e enviaria assim, e as abas voltariam
+ *     a aparecer em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 42;
+export const SYNC_SCHEMA = 43;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

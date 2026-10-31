@@ -26,6 +26,15 @@ import { labelKey, nameCollator } from './text';
 export const ALL_TAB = '';
 /** A aba das anotações sem categoria. */
 export const NO_CATEGORY_TAB = 'sem';
+/** A aba das fixadas, de todos os grupos (ver `WallState.specialTabs`). */
+export const PINNED_TAB = 'fixadas';
+/** A aba das compartilhadas com você, de todos os grupos (ver `WallState.specialTabs`). */
+export const SHARED_TAB = 'compartilhadas';
+
+/** A aba de um grupo (ou das sem grupo), e não o Tudo nem uma das abas especiais. */
+export function isGroupTab(key: string): boolean {
+  return key.startsWith('c:') || key === NO_CATEGORY_TAB;
+}
 /** Quantas abas ficam em pé, contando Tudo (o "Mais" não conta). */
 export const MAX_TABS = 8;
 

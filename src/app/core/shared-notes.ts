@@ -2,6 +2,7 @@ import { canonicalJson } from './canonical-json';
 import { normalizeCode } from './cloud-murals';
 import { isEmoji } from './emoji';
 import { mergeText } from './merge3';
+import { labelKey } from './text';
 import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { NOTE_RANKS, NoteRank, Review, STOCKS, Stock, isNote, sanitizeReview, storedNote } from './review';
 
@@ -86,7 +87,11 @@ export interface SharedDetail {
   conflito: SharedConflict | null;
 }
 
-/** O grupo em que a anotação compartilhada chega para quem a recebe (com o desenho de duas pessoas). */
+/**
+ * O grupo em que a anotação compartilhada chegava para quem a recebe (com o desenho de duas pessoas).
+ * Desde a build 677 ela chega sem grupo e aparece na aba Compartilhadas do mural (ver
+ * `WallState.specialTabs`); as que estavam nele saem dele (ver `outOfSharedGroup`).
+ */
 export const SHARED_GROUP = 'Compartilhadas';
 
 /**
@@ -136,9 +141,26 @@ export function personalOf(r: Pick<Review, 'noteRank' | 'category' | 'subject' |
   return { ...(r.noteRank ? { noteRank: r.noteRank } : {}), ...orgOf(r) };
 }
 
-/** Onde a anotação chega no mural de quem a recebe: no grupo Compartilhadas. */
+/** Onde a anotação chega no mural de quem a recebe: sem grupo (ela aparece na aba Compartilhadas). */
 export function arrivalOrg(): Personal {
-  return { category: SHARED_GROUP, org: true };
+  return { org: true };
+}
+
+/**
+ * Até quando um lugar no grupo Compartilhadas é o de antes da build 677 (onde a anotação chegava, ou
+ * onde um site de antes a pôs): o lugar mudado depois disso foi a pessoa que escolheu, e fica.
+ */
+export const SHARED_GROUP_UNTIL = '2026-10-31T06:00:00.000Z';
+
+/**
+ * O lugar de uma anotação recebida que ainda está no grupo Compartilhadas onde ela chegava antes da
+ * build 677 (`em`: quando o lugar mudou; a chegada é sempre o começo dos tempos): sem grupo e sem o
+ * assunto dele. Null: ela não está nele, ou a pessoa a pôs nele depois (fica como está).
+ */
+export function outOfSharedGroup(p: Personal, em: string): Personal | null {
+  if (!p.category || labelKey(p.category) !== labelKey(SHARED_GROUP) || em >= SHARED_GROUP_UNTIL) return null;
+  const { category: _c, subject: _s, ...rest } = p;
+  return rest;
 }
 
 /**

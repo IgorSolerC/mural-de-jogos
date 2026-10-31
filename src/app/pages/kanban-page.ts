@@ -241,7 +241,7 @@ export class KanbanPage {
     active: () => tabKeyOf(this.category()?.key ?? ''),
     ordered: () => !!this.wallView.categoryOrder(),
     hidden: () => this.wallView.hiddenTabs(),
-    lead: () => null,
+    lead: () => [],
   });
   /** As abas em pé. */
   protected readonly shownTabs = computed(() => {

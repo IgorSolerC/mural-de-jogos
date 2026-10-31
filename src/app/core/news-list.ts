@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-10-31-abas-fixadas-compartilhadas',
+    version: '1.35.6',
+    kind: 'ajustes',
+    date: '2026-10-31',
+    title: 'As abas Fixadas e Compartilhadas, e a ordem por dono',
+    melhorias: [
+      'No mural de anotações, as abas Fixadas (as fixadas de todos os grupos, começando pela ordem do grupo) e Compartilhadas (tudo o que outras pessoas compartilharam com você, começando pela ordem do dono), ao lado do Tudo, que ganhou desenho; cada uma tem o seu interruptor nas configurações do mural, e sem lugar elas vão para o Mais.',
+      'A anotação compartilhada com você chega sem grupo, e as que estavam no grupo Compartilhadas saem dele (e do quadro dele no Kanban, até você pôr cada uma num grupo seu); o Ordenar ganhou Dono: as suas primeiro, depois as de cada pessoa.',
+    ],
+  },
+  {
     id: '2026-10-30-mais-ordens',
     version: '1.35.5',
     kind: 'ajustes',
