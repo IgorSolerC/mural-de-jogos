@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { GapCursor } from 'prosemirror-gapcursor';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { RECORTE_BORDA, RECORTE_FOLGA, areaDesenhada, linhaDeRecorte } from './pecas';
 import { VisualEditor } from './visual-editor';
 import { EstadoVisual, ImagemVisual } from './visual-api';
 
@@ -179,6 +180,111 @@ describe('os widgets no modo Visual', () => {
       await make('{{contador: amanhã | Sem data}}');
       expect(tipos()).toEqual(['widget']);
       await ate(() => pecas()[0].querySelector('.contador.quebrado'));
+    });
+  });
+
+  describe('a linha de recorte da peça selecionada', () => {
+    let folha: HTMLElement;
+    afterEach(() => folha?.remove());
+
+    /** Uma folha de 300px (com 20px de margem na página) e um widget com o que se pede dentro. */
+    function monta(html: string): { host: HTMLElement; caixa: DOMRect } {
+      folha = document.createElement('div');
+      folha.style.cssText = 'position: fixed; left: 20px; top: 20px; width: 300px; height: 200px; overflow: auto; padding: 4px 10px; box-sizing: border-box';
+      const host = document.createElement('app-note-widget');
+      host.style.cssText = 'display: block; position: relative; height: 120px';
+      host.innerHTML = html;
+      folha.append(host);
+      document.body.append(folha);
+      return { host, caixa: folha.getBoundingClientRect() };
+    }
+
+    it('abraça o que o widget desenha, com 6px de folga, não a linha toda', () => {
+      const { host } = monta('<div style="position: absolute; left: 30px; top: 20px; width: 100px; height: 50px; background: red"></div>');
+      const desenho = host.firstElementChild!.getBoundingClientRect();
+      const r = linhaDeRecorte(host, folha)!;
+      expect(r.left).toBe(desenho.left - RECORTE_FOLGA);
+      expect(r.right).toBe(desenho.right + RECORTE_FOLGA);
+      expect(r.top).toBe(desenho.top - RECORTE_FOLGA);
+      expect(r.height).toBe(50 + 2 * RECORTE_FOLGA);
+    });
+
+    it('não sai da folha: o widget na margem ou mais largo que ela fica com a linha por dentro', () => {
+      const { host, caixa } = monta('<div style="position: absolute; left: -8px; top: 0; width: 400px; height: 40px; background: red"></div>');
+      const r = linhaDeRecorte(host, folha)!;
+      expect(r.left).toBe(caixa.left + RECORTE_BORDA);
+      expect(r.right).toBe(caixa.left + folha.clientWidth - RECORTE_BORDA);
+    });
+
+    it('os broches e o que está apagado não contam', () => {
+      const { host } = monta(
+        '<div style="position: absolute; left: 30px; top: 20px; width: 100px; height: 50px; background: red"></div>' +
+          '<app-zoom-knob style="position: absolute; left: 120px; top: 5px; width: 30px; height: 30px; background: white; display: block"></app-zoom-knob>' +
+          '<div style="position: absolute; left: 30px; top: 90px; width: 200px; height: 20px; background: blue; opacity: 0"><span>no hover</span></div>',
+      );
+      const desenho = host.firstElementChild!.getBoundingClientRect();
+      const a = areaDesenhada(host)!;
+      expect([a.left, a.top, a.right, a.bottom]).toEqual([desenho.left, desenho.top, desenho.right, desenho.bottom]);
+    });
+
+    it('o brilho de fora conta (até 6px), o de dentro não; o ::before solto e torto conta com o giro', () => {
+      const estilo = document.createElement('style');
+      estilo.textContent =
+        '.prova-pilha { position: absolute; left: 40px; top: 10px; width: 100px; height: 60px; background: white; rotate: -2deg }' +
+        '.prova-pilha::before { content: ""; position: absolute; inset: 0; background: #ddd; translate: 0 8px; rotate: 1deg }';
+      document.head.append(estilo);
+      try {
+        const { host } = monta('<div style="position: absolute; left: 30px; top: 20px; width: 100px; height: 50px; background: red; box-shadow: 0 0 10px 2px blue, inset 0 0 30px 20px red"></div>');
+        const d = host.firstElementChild!.getBoundingClientRect();
+        const a = areaDesenhada(host)!;
+        expect([a.left, a.top, a.right, a.bottom]).toEqual([d.left - 6, d.top - 6, d.right + 6, d.bottom + 6]);
+        host.innerHTML = '<div class="prova-pilha"></div>';
+        const pilha = host.firstElementChild!.getBoundingClientRect();
+        const b = areaDesenhada(host)!;
+        // a folha de baixo desce 8px (e um pouco mais, torta): a linha passa embaixo dela
+        expect(b.bottom).toBeGreaterThan(pilha.bottom + 6);
+        expect(b.bottom).toBeLessThan(pilha.bottom + 12);
+      } finally {
+        estilo.remove();
+      }
+    });
+
+    it('nada à mostra: sem linha (a peça inteira, pelo CSS)', () => {
+      const { host } = monta('<div style="width: 100px; height: 40px"></div>');
+      expect(linhaDeRecorte(host, folha)).toBeNull();
+    });
+
+    it('no editor: a peça selecionada ganha a linha do tamanho do contador, dentro da folha', async () => {
+      await make('a\n{{contador: 25/12/2030 | Natal}}\nb');
+      await ate(() => pecas()[0].querySelector('app-countdown .bloco'));
+      seleciona(1);
+      const peca = pecas()[0];
+      const larg = await ate(() => parseFloat(peca.style.getPropertyValue('--recorte-larg')) || null);
+      const esq = parseFloat(peca.style.getPropertyValue('--recorte-esq'));
+      const p = peca.getBoundingClientRect();
+      const f = view.dom.getBoundingClientRect();
+      expect(larg).toBeLessThan(p.width);
+      expect(p.left + esq).toBeGreaterThanOrEqual(f.left);
+      expect(p.left + esq + larg).toBeLessThanOrEqual(f.right);
+      // sem seleção, a medida fica, mas a linha (o ::after) some
+      comecoDaLinha(0);
+      expect(getComputedStyle(peca, '::after').content).toBe('none');
+    });
+
+    it('o widget que não abriu: o tracejado dele em tinta cheia, sem a linha em volta; um .quebrado lá dentro (o link da Nota) não conta', async () => {
+      await make('a\n{{audio: https://exemplo.invalid/a.mp3 | simples | A}}\n{{contador: 25/12/2030 | Natal}}\nb');
+      const falha = await ate(() => pecas()[0].querySelector<HTMLElement>('app-audio-track .falha'));
+      seleciona(1);
+      expect(getComputedStyle(pecas()[0], '::after').display).toBe('none');
+      expect(getComputedStyle(falha).borderTopColor).toBe('rgb(21, 21, 21)');
+      // o link quebrado no texto de uma Nota colada é .quebrado também: a linha continua
+      const bloco = await ate(() => pecas()[1].querySelector('app-countdown .contador'));
+      const link = document.createElement('span');
+      link.className = 'elo quebrado';
+      bloco.append(link);
+      seleciona(2);
+      expect(getComputedStyle(pecas()[1], '::after').display).not.toBe('none');
+      expect(getComputedStyle(pecas()[1], '::after').content).not.toBe('none');
     });
   });
 

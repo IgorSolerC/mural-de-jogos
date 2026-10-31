@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-30-visual-para-todos',
+    id: '2026-10-30-recorte-dos-widgets',
     version: '1.35.5',
     kind: 'ajustes',
     date: '2026-10-30',
@@ -43,7 +43,7 @@ export const NEWS: NewsEntry[] = [
       'No modo Visual, os links: o Ctrl+K (ou a régua) põe, troca e tira o link de um endereço; um toque num link mostra o painel dele, com Trocar, Tirar o link e Abrir (o Ctrl+clique abre direto); "[[" abre a lista das anotações, e o link de anotação aparece com a caneta azul, tracejado quando a anotação não existe (escrever no texto dele muda só o que aparece, ele continua abrindo a mesma); um endereço escrito (https://… ou www.…) vira link no espaço ou no Enter, e colar um endereço com um texto selecionado faz o link dele.',
       'No modo Visual, o bloco de código se escreve direto na folha, com a letra de máquina: "```" e Enter abre um, o Enter quebra a linha dentro dele (numa linha vazia no fim, sai), o Tab põe dois espaços, e o Ctrl+E (ou Formatar › Bloco de código) numa linha vazia ou em várias linhas faz o bloco; dentro dele, volta a ser texto.',
       'Na leitura da anotação aberta e no modo Visual, o item da lista ou a tarefa com algo escrito embaixo não ganha mais uma linha em branco antes do próximo: ela só aparece se foi escrita (na cartolina do mural, nada muda).',
-      'No modo Visual, o widget selecionado ganha uma moldura de caneta com cantos redondos e o halo de marca-texto, do tamanho do widget, no lugar da linha preta que atravessava a folha.',
+      'No modo Visual, o widget selecionado fica marcado por uma linha de recorte tracejada, fina, só em volta do que ele desenha e sempre dentro da folha (os botões de ampliar e do volume ficam espetados por cima dela), no lugar da linha preta que atravessava a folha; e as letras claras dele (o FALTAM do calendário) não ficam mais pretas ao selecionar.',
       'Nos Gastos, o ? ao lado do Filtrar (ou a tecla ?) abre o Como anotar: os jeitos de escrever na linha de anotar, cada um com a marca que faz a diferença passada a marca-texto (o valor, o + da entrada, as parcelas, o todo mês, o dia, o pix, a #categoria, o #luxo e as @pessoas).',
       'Na régua do texto, o botão ligado (negrito, itálico, lista, tarefa…) fica apertado como os outros do site, em tinta cheia e torto de leve; e agora afunda também na aba Markdown, quando o cursor está dentro da marca ou na linha da lista, e lá o clique no botão apertado tira a marca em volta do cursor.',
     ],

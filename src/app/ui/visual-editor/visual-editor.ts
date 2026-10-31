@@ -239,7 +239,7 @@ class CruView implements NodeView {
   encapsulation: ViewEncapsulation.None,
   host: { class: 'vis-folha', '[class.vis-grande]': 'grande()', '[class.vis-encher]': 'encher()' },
   template: '',
-  styleUrl: './visual-editor.scss',
+  styleUrls: ['./visual-editor.scss', './pecas.scss'],
 })
 export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   /** O texto de agora (o `value` do editor). */

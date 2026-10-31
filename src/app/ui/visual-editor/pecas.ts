@@ -194,8 +194,10 @@ export class WidgetView implements NodeView {
     // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho)
     requestAnimationFrame(() => this.selecionada && this.mede());
     if (!this.medida && typeof ResizeObserver !== 'undefined') {
-      this.medida = new ResizeObserver(() => this.mede());
+      // o widget e a folha (a folha mais estreita prende a linha mais para dentro, mesmo sem o widget mudar)
+      this.medida = new ResizeObserver(() => this.selecionada && this.mede());
       this.medida.observe(this.host);
+      this.medida.observe(this.view.dom);
     }
   }
 
@@ -207,19 +209,22 @@ export class WidgetView implements NodeView {
     this.medida = null;
   }
 
-  /** A moldura da seleção (ver visual-editor.scss) do tamanho do que o widget desenha, não da linha toda. */
+  /** A linha de recorte da seleção (ver visual-editor.scss) em volta do que o widget desenha, dentro da folha. */
   private mede(): void {
-    const area = areaDesenhada(this.host);
-    const caixa = this.dom.getBoundingClientRect();
     const s = this.dom.style;
-    if (!area) {
-      for (const v of ['--peca-esq', '--peca-topo', '--peca-larg', '--peca-alto']) s.removeProperty(v);
+    const r = linhaDeRecorte(this.host, this.view.dom);
+    if (!r) {
+      for (const v of ['--recorte-esq', '--recorte-topo', '--recorte-larg', '--recorte-alto']) s.removeProperty(v);
       return;
     }
-    s.setProperty('--peca-esq', `${Math.round(area.left - caixa.left)}px`);
-    s.setProperty('--peca-topo', `${Math.round(area.top - caixa.top)}px`);
-    s.setProperty('--peca-larg', `${Math.round(area.width)}px`);
-    s.setProperty('--peca-alto', `${Math.round(area.height)}px`);
+    // as pontas em pixels inteiros da página (não a diferença arredondada, que guardaria a fração do
+    // lugar da peça): o traço tem a mesma espessura nos quatro lados
+    const caixa = this.dom.getBoundingClientRect();
+    const [esq, topo, dir, baixo] = [r.left, r.top, r.right, r.bottom].map(Math.round);
+    s.setProperty('--recorte-esq', `${esq - caixa.left}px`);
+    s.setProperty('--recorte-topo', `${topo - caixa.top}px`);
+    s.setProperty('--recorte-larg', `${dir - esq}px`);
+    s.setProperty('--recorte-alto', `${baixo - topo}px`);
   }
 
   /** O campo e os controles (tocar o vídeo e o som, ampliar) ficam com eles: o toque não seleciona a peça. */
@@ -244,10 +249,22 @@ export class WidgetView implements NodeView {
 
 /** As caixas que se veem: a foto, o vídeo, o desenho, o campo, e o que tem fundo, borda ou sombra. */
 const DESENHO = new Set(['IMG', 'VIDEO', 'IFRAME', 'CANVAS', 'svg', 'INPUT', 'TEXTAREA', 'BUTTON']);
+/**
+ * Os broches (ampliar, o volume) ficam espetados no canto da peça, metade para fora, e só aparecem no
+ * hover: não contam no tamanho dela (a linha de recorte não pula quando eles aparecem).
+ */
+const BROCHES = 'app-zoom-knob, app-volume-knob';
+/** A linha de recorte fica a esta distância do que o widget desenha. */
+export const RECORTE_FOLGA = 6;
+/** O brilho e a sombra de fora contam até aqui (a sombra longa de uma peça não empurra a linha longe). */
+const SOMBRA_MAX = 6;
+/** E a pelo menos esta da borda da folha (a parte que se vê, sem a barra de rolar). */
+export const RECORTE_BORDA = 3;
 
 /**
  * A área que o widget desenha de verdade: a soma das caixas que aparecem (as letras, a foto, o que tem
- * fundo, borda ou sombra), sem os invólucros vazios que ocupam a linha toda. Null: nada à mostra ainda.
+ * fundo, borda ou sombra), sem os invólucros vazios que ocupam a linha toda, sem o que está apagado
+ * (opacidade zero) e sem os broches. Null: nada à mostra ainda.
  */
 export function areaDesenhada(host: HTMLElement): DOMRect | null {
   let esq = Infinity, topo = Infinity, dir = -Infinity, baixo = -Infinity;
@@ -258,27 +275,118 @@ export function areaDesenhada(host: HTMLElement): DOMRect | null {
     dir = Math.max(dir, r.right);
     baixo = Math.max(baixo, r.bottom);
   };
-  const andar = document.createTreeWalker(host, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  const andar = document.createTreeWalker(host, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.nodeType === Node.ELEMENT_NODE && (n as Element).matches(BROCHES) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
   const faixa = document.createRange();
   for (let n = andar.nextNode(); n; n = andar.nextNode()) {
     if (n.nodeType === Node.TEXT_NODE) {
       if (!n.textContent?.trim()) continue;
+      const pai = n.parentElement;
+      if (pai && !visivel(pai)) continue;
       faixa.selectNodeContents(n);
       for (const r of Array.from(faixa.getClientRects())) soma(r);
       continue;
     }
     const el = n as Element;
     const st = getComputedStyle(el);
-    if (st.display === 'none' || st.visibility === 'hidden') continue;
-    const visto =
-      DESENHO.has(el.tagName) ||
-      st.backgroundImage !== 'none' ||
-      (st.backgroundColor !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(st.backgroundColor)) ||
-      parseFloat(st.borderTopWidth) + parseFloat(st.borderBottomWidth) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth) > 0 ||
-      st.boxShadow !== 'none';
-    if (visto) soma(el.getBoundingClientRect());
+    if (st.display === 'none' || st.visibility === 'hidden' || !visivel(el)) continue;
+    const caixa = el.getBoundingClientRect();
+    if (DESENHO.has(el.tagName) || pinta(st)) soma(comSombra(caixa, st.boxShadow));
+    // o que o CSS desenha sem elemento (as folhas de baixo do calendário, uma etiqueta): o ::before e o
+    // ::after soltos (position absolute), com o giro e o deslocamento deles
+    for (const qual of ['::before', '::after'] as const) {
+      const ps = getComputedStyle(el, qual);
+      if (ps.content === 'none' || ps.display === 'none' || !/absolute|fixed/.test(ps.position) || !pinta(ps)) continue;
+      const r = caixaSolta(el, caixa, ps, host);
+      if (r) soma(comSombra(r, ps.boxShadow));
+    }
   }
   return esq === Infinity ? null : new DOMRect(esq, topo, dir - esq, baixo - topo);
+}
+
+/** Tem algo à mostra: fundo, borda ou sombra. */
+function pinta(st: CSSStyleDeclaration): boolean {
+  return (
+    st.backgroundImage !== 'none' ||
+    (st.backgroundColor !== 'transparent' && !/rgba\(.*,\s*0\)$/.test(st.backgroundColor)) ||
+    parseFloat(st.borderTopWidth) + parseFloat(st.borderBottomWidth) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth) > 0 ||
+    st.boxShadow !== 'none'
+  );
+}
+
+/**
+ * A caixa de um ::before ou ::after solto, na tela: o lugar dele dentro do elemento (o left, o top, a
+ * largura e a altura já resolvidos) e o translate, contados do meio do elemento e girados com ele (o
+ * rotate dele e dos de volta, até a peça: o bloco do calendário é torto), e a caixa em volta do giro
+ * todo (o do pseudo somado).
+ */
+function caixaSolta(el: Element, caixa: DOMRect, ps: CSSStyleDeclaration, host: Element): DOMRect | null {
+  // o left e o top são do bloco que contém o pseudo: só o próprio elemento, se ele tem posição
+  if (!(el instanceof HTMLElement) || getComputedStyle(el).position === 'static') return null;
+  const [w, h, l, t] = [ps.width, ps.height, ps.left, ps.top].map(parseFloat);
+  if (!(w > 0 && h > 0) || Number.isNaN(l) || Number.isNaN(t)) return null;
+  const [dx = 0, dy = 0] = ps.translate === 'none' ? [] : ps.translate.split(/\s+/).map(parseFloat);
+  let fora = 0;
+  for (let a: Element | null = el; a && a !== host; a = a.parentElement) fora += graus(getComputedStyle(a).rotate);
+  // o meio do pseudo, do meio do elemento, antes do giro de fora
+  const mx = el.clientLeft + l + (dx || 0) + w / 2 - el.offsetWidth / 2;
+  const my = el.clientTop + t + (dy || 0) + h / 2 - el.offsetHeight / 2;
+  const f = (fora * Math.PI) / 180;
+  const cx = caixa.left + caixa.width / 2 + mx * Math.cos(f) - my * Math.sin(f);
+  const cy = caixa.top + caixa.height / 2 + mx * Math.sin(f) + my * Math.cos(f);
+  const g = ((fora + graus(ps.rotate)) * Math.PI) / 180;
+  const [gw, gh] = [Math.abs(w * Math.cos(g)) + Math.abs(h * Math.sin(g)), Math.abs(w * Math.sin(g)) + Math.abs(h * Math.cos(g))];
+  return new DOMRect(cx - gw / 2, cy - gh / 2, gw, gh);
+}
+
+/** O giro do `rotate` em graus ("0.8deg", ou o ângulo depois do eixo); 0 sem giro. */
+function graus(rotate: string): number {
+  const m = /(-?[\d.]+)(deg|rad|turn)\s*$/.exec(rotate);
+  if (!m) return 0;
+  const v = parseFloat(m[1]);
+  return m[2] === 'rad' ? (v * 180) / Math.PI : m[2] === 'turn' ? v * 360 : v;
+}
+
+/**
+ * A caixa com o que a sombra e o brilho de fora (o box-shadow sem inset) passam dela: o deslocamento, o
+ * spread e metade do borrão, até SOMBRA_MAX de cada lado.
+ */
+function comSombra(r: DOMRect, sombra: string): DOMRect {
+  if (!sombra || sombra === 'none') return r;
+  let [e, t, d, b] = [0, 0, 0, 0];
+  for (const uma of sombra.split(/,(?![^(]*\))/)) {
+    if (/\binset\b/.test(uma)) continue;
+    const [x = 0, y = 0, borrao = 0, spread = 0] = (uma.match(/-?[\d.]+px/g) ?? []).map(parseFloat);
+    const alem = spread + borrao / 2;
+    e = Math.max(e, alem - x);
+    d = Math.max(d, alem + x);
+    t = Math.max(t, alem - y);
+    b = Math.max(b, alem + y);
+  }
+  const [ce, ct, cd, cb] = [e, t, d, b].map((v) => Math.min(SOMBRA_MAX, Math.max(0, v)));
+  return new DOMRect(r.left - ce, r.top - ct, r.width + ce + cd, r.height + ct + cb);
+}
+
+/** Aparece: nem ele nem quem está em volta tem opacidade zero (o broche e o aviso que só vêm no hover). */
+function visivel(el: Element): boolean {
+  return typeof el.checkVisibility === 'function' ? el.checkVisibility({ opacityProperty: true, visibilityProperty: true }) : true;
+}
+
+/**
+ * Onde passa a linha de recorte da peça selecionada: a área desenhada com a folga em volta, sem sair da
+ * folha (o widget na margem, ou mais largo que ela, não a leva para fora; a barra de rolar não conta).
+ */
+export function linhaDeRecorte(host: HTMLElement, folha: HTMLElement): DOMRect | null {
+  const a = areaDesenhada(host);
+  if (!a) return null;
+  const f = folha.getBoundingClientRect();
+  const min = f.left + folha.clientLeft + RECORTE_BORDA;
+  const max = f.left + folha.clientLeft + folha.clientWidth - RECORTE_BORDA;
+  const esq = Math.max(min, a.left - RECORTE_FOLGA);
+  const dir = Math.min(max, a.right + RECORTE_FOLGA);
+  if (dir <= esq) return null;
+  return new DOMRect(esq, a.top - RECORTE_FOLGA, dir - esq, a.height + 2 * RECORTE_FOLGA);
 }
 
 // ===== O lugar de um widget novo =====
