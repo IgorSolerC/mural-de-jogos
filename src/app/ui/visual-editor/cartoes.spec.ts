@@ -45,12 +45,16 @@ describe('o card no modo Visual', () => {
     view.state.doc.forEach((n) => out.push(`${n.type.name}${n.attrs['cartao'] != null ? '>' : ''}:${n.textContent}`));
     return out;
   };
-  /** O cursor no fim (ou no começo, com `col` 0) do nó `i`. */
-  function cursor(i: number, col?: number): void {
+  /** Onde começa o nó `i`. */
+  function posDe(i: number): number {
     let pos = 0;
     for (let k = 0; k < i; k++) pos += view.state.doc.child(k).nodeSize;
+    return pos;
+  }
+  /** O cursor no fim (ou no começo, com `col` 0) do nó `i`. */
+  function cursor(i: number, col?: number): void {
     const n = view.state.doc.child(i);
-    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1 + (col ?? n.content.size))));
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, posDe(i) + 1 + (col ?? n.content.size))));
   }
   function digita(t: string): void {
     for (const ch of t) {
@@ -58,8 +62,8 @@ describe('o card no modo Visual', () => {
       if (!view.someProp('handleTextInput', (f) => f(view, from, to, ch, () => view.state.tr.insertText(ch, from, to)))) view.dispatch(view.state.tr.insertText(ch, from, to));
     }
   }
-  function tecla(key: string): void {
-    view.dom.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+  function tecla(key: string, shiftKey = false): void {
+    view.dom.dispatchEvent(new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true }));
   }
   const run = (a: Parameters<VisualEditor['run']>[0]) => fixture.componentInstance.run(a);
 
@@ -231,5 +235,140 @@ describe('o card no modo Visual', () => {
     view.dispatch(view.state.tr.delete(0, fimTitulo));
     expect(linhas()).toEqual(['linha:a']);
     expect(valor).toBe('a');
+  });
+
+  describe('a linha recuada dentro do card', () => {
+    /** O papel de cada linha na tela: "[" a de cima, ">" a de dentro, ">_" a última (o rasgo), "." fora. */
+    const papel = () =>
+      ([...view.dom.children] as HTMLElement[]).map((e) => {
+        const c = e.classList;
+        if (c.contains('vis-cartao-topo')) return c.contains('vis-cartao-fim') ? '[_' : '[';
+        return c.contains('vis-no-cartao') ? (c.contains('vis-cartao-fim') ? '>_' : '>') : '.';
+      });
+    /** Onde o papel da linha começa e acaba na tela: a caixa dela mais o que o border-image passa dos lados. */
+    const beiradas = (e: HTMLElement): [number, number] => {
+      const [, d = '0', , l = d] = getComputedStyle(e).borderImageOutset.split(' ');
+      const r = e.getBoundingClientRect();
+      return [Math.round(r.left - parseFloat(l)), Math.round(r.right + parseFloat(d))];
+    };
+    /** Cada linha de dentro no papel, de ponta a ponta como a de cima (a recuada também): ele não se parte. */
+    function noPapel(): void {
+      const filhos = [...view.dom.children] as HTMLElement[];
+      for (const e of filhos.slice(1)) {
+        expect(getComputedStyle(e).borderImageSource).withContext(e.textContent!).toContain('gradient');
+        expect(beiradas(e)).withContext(e.textContent!).toEqual(beiradas(filhos[0]));
+      }
+    }
+    async function chega(texto: string): Promise<void> {
+      fixture.componentRef.setInput('texto', texto);
+      fixture.detectChanges();
+      await fixture.whenStable();
+    }
+    const DONO = '> [!citacao]+ Leituras\n> **KUN** (i / hai)\n>   sad\n>   入る(((**hai**ru))) → Entrar\n> **ON** (Nyuu)\n>   入力(((**nyuu**ryoku))) → Input';
+
+    it('o recuo que chega do Markdown numa linha que já estava no card: ela fica no papel, que não se parte', async () => {
+      await make(DONO.replace('>   sad', '> sad'));
+      expect(papel()).toEqual(['[', '>', '>', '>', '>', '>_']);
+      await chega(DONO);
+      expect(linhas()[2]).toBe('linha>:sad');
+      expect(papel()).toEqual(['[', '>', '>', '>', '>', '>_']);
+      noPapel();
+      // e volta sem o recuo, do mesmo jeito
+      await chega(DONO.replace('>   sad', '> sad'));
+      expect(papel()).toEqual(['[', '>', '>', '>', '>', '>_']);
+    });
+
+    for (const [nome, recuo] of [
+      ['dois espaços', '  '],
+      ['quatro espaços', '    '],
+      ['um tab', '\t'],
+    ] as const)
+      it(`com ${nome}, também na última linha (a do rasgo); escrever no card não muda as recuadas`, async () => {
+        const texto = `> [!nota] T\n> a\n> ${recuo}b\n> ${recuo}c`;
+        await make(`> [!nota] T\n> a\n> b\n> c`);
+        await chega(texto);
+        expect(papel()).toEqual(['[', '>', '>', '>_']);
+        noPapel();
+        cursor(1);
+        digita('!');
+        expect(valor).toBe(texto.replace('> a', '> a!'));
+        // na última, recuada: ela continua no papel, com o rasgo (o recuo mexido sai em espaços, como fora do card)
+        cursor(3);
+        digita('?');
+        expect(valor).toMatch(/\n> +c\?$/);
+        expect(papel()).toEqual(['[', '>', '>', '>_']);
+        noPapel();
+      });
+
+    it('Tab, Shift+Tab e Backspace no começo da linha recuada: ela anda e fica no papel', async () => {
+      await make('> [!nota] T\n> a\n> b\n> c');
+      cursor(2, 0);
+      tecla('Tab');
+      expect(valor).toBe('> [!nota] T\n> a\n>   b\n> c');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+      noPapel();
+      cursor(3, 0);
+      tecla('Tab');
+      expect(valor).toBe('> [!nota] T\n> a\n>   b\n>   c');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+      tecla('Tab', true);
+      expect(valor).toBe('> [!nota] T\n> a\n>   b\n> c');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+      cursor(2, 0);
+      tecla('Backspace');
+      expect(valor).toBe('> [!nota] T\n> a\n> b\n> c');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+    });
+
+    it('Enter numa linha recuada: a nova fica no card, no mesmo recuo', async () => {
+      await make(DONO);
+      cursor(2);
+      tecla('Enter');
+      digita('x');
+      expect(valor).toBe(DONO.replace('>   sad', '>   sad\n>   x'));
+      expect(papel()).toEqual(['[', '>', '>', '>', '>', '>', '>_']);
+      noPapel();
+      // Backspace no começo da linha nova (recuada): volta o recuo, no papel
+      cursor(3, 0);
+      tecla('Backspace');
+      expect(valor).toBe(DONO.replace('>   sad', '>   sad\n> x'));
+      expect(papel()).toEqual(['[', '>', '>', '>', '>', '>', '>_']);
+    });
+
+    it('a descrição de um item no card fica no alinhamento do texto dele, como na leitura, também depois de mudar no Markdown', async () => {
+      const texto = '> [!nota] T\n> - item\n>   corpo\n> fim';
+      await make(texto);
+      const corpo = () => view.dom.children[2] as HTMLElement;
+      const item = () => view.dom.children[1] as HTMLElement;
+      expect(corpo().style.getPropertyValue('--vis-corpo')).toBe('1.35');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+      // o texto da descrição na coluna do texto do item, e o papel por inteiro
+      const letra = (e: HTMLElement) => {
+        const r = document.createRange();
+        r.selectNodeContents(e.querySelector('.vis-item-texto') ?? e);
+        return r.getClientRects()[0].left;
+      };
+      expect(Math.abs(letra(corpo()) - letra(item()))).toBeLessThan(2);
+      noPapel();
+      await chega(texto.replace('corpo', 'outro corpo'));
+      expect(corpo().style.getPropertyValue('--vis-corpo')).toBe('1.35');
+      expect(papel()).toEqual(['[', '>', '>', '>_']);
+    });
+
+    it('a descrição do item acaba com o card (a linha recuada de fora não é dela); o desenho perdido na composição volta', async () => {
+      await make('> [!nota] T\n> - [x] um\n>   corpo\n\n  depois\n1. dois');
+      const el = (i: number) => view.dom.children[i] as HTMLElement;
+      expect(el(2).style.getPropertyValue('--vis-corpo')).toBe('1.35');
+      expect(el(2).classList).toContain('vis-feita');
+      expect(el(4).style.getPropertyValue('--vis-corpo')).toBe('');
+      expect(el(4).classList).not.toContain('vis-feita');
+      expect(el(5).dataset['n']).toBe('1.');
+      // a linha trocada inteira no meio de uma composição (o teclado do celular) perde o número; na próxima mudança, ele volta
+      view.dispatch(view.state.tr.setNodeMarkup(posDe(5), null, { ...view.state.doc.child(5).attrs, fonte: null }).setMeta('composition', 1));
+      expect(el(5).dataset['n']).toBeUndefined();
+      cursor(4);
+      digita('!');
+      expect(el(5).dataset['n']).toBe('1.');
+    });
   });
 });

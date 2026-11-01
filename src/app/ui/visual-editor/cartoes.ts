@@ -6,6 +6,7 @@ import { CALLOUTS, CalloutFold, CalloutLook, calloutLook, calloutName, DEFAULT_C
 import { calloutIcon } from '../callout-looks';
 import { ICON } from '../icons';
 import { schema } from './schema';
+import { levarDesenho } from './ajustes';
 import { ciclo, desenho } from './controles';
 import type { AcaoCartao, EstadoCartao } from './visual-api';
 
@@ -137,7 +138,7 @@ function desenhar(doc: PMNode): DecorationSet {
 
 /**
  * O que muda o papel: a linha de cima (e o jeito dela) e quem está dentro, linha a linha. As letras não
- * mudam nada: o desenho só anda com elas.
+ * mudam nada: o desenho só anda com elas (menos o da linha trocada inteira, ver `levarDesenho`).
  */
 function estrutura(doc: PMNode): string {
   let k = '';
@@ -154,7 +155,12 @@ export function cartoes(): Plugin {
       apply: (tr, velho) => {
         if (!tr.docChanged) return velho;
         const chave = estrutura(tr.doc);
-        return { chave, deco: chave === velho.chave ? velho.deco.map(tr.mapping, tr.doc) : desenhar(tr.doc) };
+        if (chave === velho.chave) {
+          const levado = levarDesenho(velho.deco, tr);
+          // a linha de dentro trocada inteira (o recuo que chega do Markdown, o Tab) sairia do papel: refaz
+          if (!levado.perdeu) return { chave, deco: levado.deco };
+        }
+        return { chave, deco: desenhar(tr.doc) };
       },
     },
     appendTransaction: quemFica,

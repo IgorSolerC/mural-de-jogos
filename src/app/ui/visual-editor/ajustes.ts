@@ -1,5 +1,6 @@
 import { Node as PMNode } from 'prosemirror-model';
 import { Plugin, Transaction } from 'prosemirror-state';
+import { DecorationSet } from 'prosemirror-view';
 
 /**
  * Os ajustes da tela ao que o texto guarda (PLANO-EDITOR-VISUAL.md, 5.2.1), feitos logo depois de cada
@@ -17,6 +18,18 @@ export function faixasMudadas(trs: readonly Transaction[]): [number, number][] {
     });
   }
   return out;
+}
+
+/**
+ * O desenho de cada linha (as decorações do card e das listas) levado por uma transação, e se alguma
+ * peça se perdeu no caminho: a decoração de um nó vai embora com ele, e a linha trocada inteira (a que
+ * chega do Markdown com outro recuo, a que anda com o Tab ou o leitor lê de novo) ficaria sem desenho,
+ * mesmo com a estrutura igual. Com `perdeu`, o desenho tem de ser refeito.
+ */
+export function levarDesenho(deco: DecorationSet, tr: Transaction): { deco: DecorationSet; perdeu: boolean } {
+  let perdeu = false;
+  const levado = deco.map(tr.mapping, tr.doc, { onRemove: () => (perdeu = true) });
+  return { deco: levado, perdeu };
 }
 
 /** Os nós de cima (as linhas) que tocam os trechos dados, com a posição de cada um, sem repetir; na tabela, as células. */

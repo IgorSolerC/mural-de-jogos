@@ -2,7 +2,8 @@ import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, PluginSpec, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { Escrita } from '../../core/rich-doc';
-import { Block, bodyIndent, bodyOf, calloutLine, indentOf, itemEnd, lineKind, linesOf, nextNumber, ownerItem, parseRich, renumberAfter } from '../../core/rich-text';
+import { Block, blockLine, bodyIndent, bodyOf, calloutLine, indentOf, itemEnd, lineKind, linesOf, nextNumber, ownerItem, parseRich, renumberAfter } from '../../core/rich-text';
+import { levarDesenho } from './ajustes';
 import { linkarEndereco } from './links';
 import { schema, textoDoCru } from './schema';
 
@@ -374,8 +375,12 @@ function desenhar(doc: PMNode, m: Mapa): DecorationSet {
   const papel: (Papel | undefined)[] = [];
   const numero: (string | undefined)[] = [];
   const preN: number[] = [];
-  const andar = (blocks: readonly Block[], fora: Papel) => {
+  /** `linhas`: as do mapa, ou, dentro de um card, só até a última dele (o corpo de um item acaba com o card). */
+  const andar = (blocks: readonly Block[], fora: Papel, linhas: readonly string[] = m.linhas) => {
     for (const b of blocks) {
+      // as listas de dentro de um card (as linhas dele no mapa já vêm sem o "> "); o card dentro de
+      // outro, ou dentro de um item, o Visual não desenha (ver core/rich-doc.ts)
+      if (b.kind === 'callout' && linhas === m.linhas && fora.corpo === 0) andar(b.body, fora, m.linhas.slice(0, blockLine(b)! + b.size + 1));
       if (b.kind !== 'ul' && b.kind !== 'ol' && b.kind !== 'check') continue;
       b.items.forEach((it, k) => {
         const i = m.no[it.line];
@@ -385,11 +390,11 @@ function desenhar(doc: PMNode, m: Mapa): DecorationSet {
           numero[i] = (b.pre ?? '') + (b.start + k) + '.';
           preN[i] = b.pre?.length ?? 0;
         }
-        const corpo = it.body && bodyOf(m.linhas, it.line);
+        const corpo = it.body && bodyOf(linhas, it.line);
         if (!corpo) return;
         const dentro: Papel = { corpo: fora.corpo + lugar(b), tira: corpo.indent, feita: fora.feita || !!it.done };
         for (let j = it.line + 1; j <= corpo.end; j++) if (m.primeira[m.no[j]] === j) papel[m.no[j]] = dentro;
-        andar(it.body!, dentro);
+        andar(it.body!, dentro, linhas);
       });
     }
   };
@@ -444,24 +449,26 @@ const REFAZ = 'vis-listas-refaz';
  * O plugin do desenho das listas (5.6): roda o leitor na própria transação (sem um quadro com o número
  * errado depois de um Enter), mas só quando a estrutura muda; o resto do tempo, as decorações só andam
  * com as letras. Durante a composição (o acento, o teclado do celular), nada muda: ao acabar, refaz.
+ * A chave em branco é o desenho por refazer: a linha trocada inteira (a descrição que chega do Markdown,
+ * o item renumerado) perdeu o dela, ou a escrita ainda não era exata para o leitor desenhar.
  */
 export function desenhoDasListas(escrever: Escritor): Plugin {
-  const calcula = (doc: PMNode, velho: DecorationSet | null): DecorationSet => {
+  /** O desenho novo, com a chave dele; sem o mapa, fica o que andou e a chave em branco (a próxima tenta de novo). */
+  const calcula = (doc: PMNode, andou: DecorationSet): Desenho => {
     const m = mapaDoTexto(doc, escrever);
-    return m ? desenhar(doc, m) : (velho ?? DecorationSet.empty);
+    return m ? { chave: estrutura(doc), deco: desenhar(doc, m) } : { chave: '', deco: andou };
   };
   return new Plugin<Desenho>({
     key: DESENHO,
     state: {
-      init: (_c, state) => ({ chave: estrutura(state.doc), deco: calcula(state.doc, null) }),
+      init: (_c, state) => calcula(state.doc, DecorationSet.empty),
       apply(tr, velho) {
         const refaz = !!tr.getMeta(REFAZ);
         if (!tr.docChanged && !refaz) return velho;
-        const deco = tr.docChanged ? velho.deco.map(tr.mapping, tr.doc) : velho.deco;
-        if (tr.getMeta('composition') !== undefined) return { chave: velho.chave, deco };
-        const chave = estrutura(tr.doc);
-        if (chave === velho.chave && !refaz) return { chave, deco };
-        return { chave, deco: calcula(tr.doc, deco) };
+        const { deco, perdeu } = tr.docChanged ? levarDesenho(velho.deco, tr) : { deco: velho.deco, perdeu: false };
+        if (tr.getMeta('composition') !== undefined) return { chave: perdeu ? '' : velho.chave, deco };
+        if (!refaz && !perdeu && velho.chave && estrutura(tr.doc) === velho.chave) return { chave: velho.chave, deco };
+        return calcula(tr.doc, deco);
       },
     },
     props: {

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-01-adesivo',
+    id: '2026-11-01-card-recuado',
     version: '1.36.2',
     kind: 'ajustes',
     date: '2026-11-01',
@@ -40,6 +40,9 @@ export const NEWS: NewsEntry[] = [
       'A imagem colada no texto ganhou a moldura Adesivo, como o recorte picotado da wishlist: a foto num papel branco de adesivo, cortado em zigue-zague com a tesoura de picotar, com os pontinhos da revista e o brilho do vinil. Na folha da imagem, em Moldura, ou escrevendo "adesivo" (vale também para o vídeo).',
       'No cofre, a senha vazada fica marcada até você trocá-la: a etiqueta Vazada e o aviso no item continuam nas próximas vezes que o cofre abrir. No aviso, "Tirar o aviso" o tira agora (ele volta se uma conferência nova achar a senha de novo) e "Não avisar mais desta senha", depois de uma pergunta, cala só aquela senha; trocada, os avisos voltam a valer, e os Ajustes podem voltar a avisar.',
       'Nos Ajustes do cofre, Senhas vazadas ganhou "Conferir os vazamentos ao abrir o cofre" (desligado por padrão): ligado, todas as senhas são conferidas uma vez a cada abertura, em segundo plano, e um recado avisa se alguma apareceu desde a última vez.',
+    ],
+    correcoes: [
+      'No modo Visual, a linha recuada dentro de um card (com espaços ou tab depois do "> ", vinda do Markdown ou do Tab) não sai mais do papel, que não se parte mais em dois; e a descrição de um item dentro do card fica embaixo do texto dele, como na leitura.',
     ],
   },
   {
