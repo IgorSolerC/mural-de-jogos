@@ -103,6 +103,13 @@ export interface NotesConfig {
   showPinned: boolean;
   /** A aba "Compartilhadas" (as que outras pessoas compartilharam com você) em pé; desligada, no "Mais". */
   showShared: boolean;
+  /**
+   * "Esconder os grupos vazios" (ligado, o padrão; sem o campo, também ligado): no mural, o grupo sem
+   * nenhuma anotação à mostra vai para o "Mais"; no Kanban, o grupo sem nenhum cartão no quadro (ver
+   * `tabsToMore` em core/note-tabs.ts). O aberto fica em pé até sair dele, e o olho de cada grupo manda
+   * primeiro: o escondido à mão fica no "Mais" mesmo cheio.
+   */
+  hideEmpty: boolean;
   /** A cor da etiqueta de cada aba que o mural gera (o nome e o desenho são fixos). Sem a chave, sem cor. */
   autoColors: Partial<Record<AutoTab, CategoryColorId>>;
   /**
@@ -118,7 +125,7 @@ export interface NotesConfig {
   templates: NoteTemplate[];
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, autoColors: {}, subjects: {}, templates: [] };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, templates: [] };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -202,6 +209,8 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     showAll: r['showAll'] === true,
     showPinned: r['showPinned'] === true,
     showShared: r['showShared'] === true,
+    // ligado para todo mundo, também para quem já tinha configurações guardadas de antes dele
+    hideEmpty: r['hideEmpty'] !== false,
     autoColors: sanitizeAutoColors(r['autoColors']),
     subjects,
     templates: sanitizeTemplates(r['templates']),

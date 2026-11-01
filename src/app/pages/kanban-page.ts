@@ -16,7 +16,7 @@ import { Review, fold } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings as SettingsStore } from '../core/settings';
-import { NoteTab } from '../core/note-tabs';
+import { NO_TABS, NoteTab, firstStanding, sameTabs, tabsToMore } from '../core/note-tabs';
 import { WallView } from '../core/wall-view';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
@@ -115,6 +115,9 @@ interface Edges {
   after: number;
 }
 const NO_EDGES: Edges = { start: false, end: false, before: 0, after: 0 };
+
+/** A marca, na navegação, do quadro aberto sozinho no lugar de um vazio (ver o construtor da página). */
+const QUIET_BOARD = 'quadroNoLugarDoVazio';
 
 /** A chave de um quadro na régua das abas (a das abas do mural: "c:" e a chave da categoria). */
 function tabKeyOf(categoryKey: string): string {
@@ -226,9 +229,20 @@ export class KanbanPage {
   });
 
   /**
+   * Os quadros sem nenhum cartão (pela chave da aba), com "Esconder os grupos vazios" ligado nas
+   * configurações do mural (ver `NotesConfig.hideEmpty`); senão, nenhum.
+   */
+  private readonly emptyBoards = computed<ReadonlySet<string>>(
+    () => (this.wallView.hideEmpty() ? new Set(this.tabs().flatMap((q) => (q.n ? [] : [tabKeyOf(q.key)]))) : NO_TABS),
+    // mexer num cartão refaz as abas: com os mesmos vazios, nada muda adiante
+    { equal: sameTabs },
+  );
+
+  /**
    * Quais abas ficam em pé e quais vão para o "Mais", com a régua das abas do mural (ver
-   * ui/tab-fit.ts): os grupos escondidos nas configurações do mural ficam sempre no "Mais", e cabem
-   * em pé os mesmos que lá (os maiores do mural, ou os primeiros da ordem montada à mão).
+   * ui/tab-fit.ts): os grupos escondidos nas configurações do mural ficam sempre no "Mais", os vazios
+   * também (menos o aberto, ver `tabsToMore`), e cabem em pé os mesmos que lá (os maiores do mural, ou
+   * os primeiros da ordem montada à mão).
    */
   private readonly fit = new TabFit({
     host: this.host,
@@ -242,7 +256,7 @@ export class KanbanPage {
     },
     active: () => tabKeyOf(this.category()?.key ?? ''),
     ordered: () => !!this.wallView.categoryOrder(),
-    hidden: () => this.wallView.hiddenTabs(),
+    hidden: () => tabsToMore(this.wallView.hiddenTabs(), this.emptyBoards(), tabKeyOf(this.category()?.key ?? '')),
     lead: () => [],
   });
   /** As abas em pé. */
@@ -609,6 +623,9 @@ export class KanbanPage {
     const destroy = inject(DestroyRef);
     // o card padrão das colunas veste as anotações que chegam (ver core/kanban-dresser.ts)
     inject(KanbanDresser);
+    // o quadro que a página sem quadro no endereço abriu no lugar de um vazio (ver abaixo): vem na
+    // navegação que criou esta página (o endereço com quadro é outra página), e só nela
+    let quiet = (untracked(this.router.currentNavigation)?.extras.state?.[QUIET_BOARD] as string | undefined) ?? null;
     // sem quadro no endereço (ou de uma categoria que sumiu): o último aberto, ou o primeiro
     effect(() => {
       const ids = this.categories().map((c) => boardIdFor(c.key));
@@ -618,6 +635,21 @@ export class KanbanPage {
         // sem armazenamento, nada lido: o primeiro
         const last = readText(KANBAN_LAST_KEY);
         const to = ids.find((x) => x === last) ?? ids[0];
+        // com "Esconder os grupos vazios", o quadro vazio (o último aberto, ou o grupo aberto no mural,
+        // que no quadro não tem nada) dá lugar ao primeiro quadro em pé com cartões, nem escondido nem
+        // vazio (sem nenhum assim, fica o vazio); esse abre sem levar o mural junto e sem virar o último
+        // aberto (o mural continua no grupo dele, e o Kanban procura de novo da próxima vez)
+        const empty = this.emptyBoards();
+        const toKey = this.categories().find((c) => boardIdFor(c.key) === to)?.key;
+        if (toKey !== undefined && empty.has(tabKeyOf(toKey))) {
+          const hidden = this.wallView.hiddenTabs();
+          const pick = firstStanding(this.tabs(), (q) => tabKeyOf(q.key), hidden, empty);
+          const k = pick && tabKeyOf(pick.key);
+          if (pick && k && !hidden.has(k) && !empty.has(k)) {
+            void this.router.navigate([kanbanPath(pick.id)], { replaceUrl: true, state: { [QUIET_BOARD]: pick.id } });
+            return;
+          }
+        }
         void this.router.navigate([kanbanPath(to)], { replaceUrl: true });
       });
     });
@@ -625,6 +657,10 @@ export class KanbanPage {
       const b = this.board();
       this.kanban.openBoard.set(b?.id ?? null);
       if (!b) return;
+      // o quadro aberto no lugar de um vazio (ver acima) não muda o último nem o grupo do mural,
+      // enquanto ele fica aberto
+      if (b.id === quiet) return;
+      quiet = null;
       writeText(KANBAN_LAST_KEY, b.id);
       // o grupo do quadro aberto fica aberto no mural também (e o do mural abre aqui, ver WallView)
       const c = this.category();

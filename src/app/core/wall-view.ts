@@ -29,7 +29,7 @@ import {
   scoreOf,
   shownFinal,
 } from './review';
-import { ALL_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, hasTab, isGroupTab, noteTabKey, noteTabsOf } from './note-tabs';
+import { ALL_TAB, NoteTab, NoteTabs, PINNED_TAB, SHARED_TAB, NO_TABS, firstStanding, hasTab, isGroupTab, noteTabKey, noteTabsOf, sameTabs, tabsToMore } from './note-tabs';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, releaseTag, showAllTags, tagIsOut } from './tag-filter';
 import { FacetKey, GRADE_LABEL, NO_FILTER, WallFilter, facetsOf, filterFor, filterSize, gradeBandOf, matchesFilter, matchesQuery, tagsOf, toggleOption } from './wall-filter';
 import { ONE_DECIMAL as avgFmt } from './review';
@@ -261,6 +261,30 @@ export abstract class WallState {
    */
   readonly hiddenTabs: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /**
+   * "Esconder os grupos vazios" (ver `NotesConfig.hideEmpty`). Só o seu mural de anotações: no de quem
+   * visita e no de músicas, toda aba fica em pé como sempre.
+   */
+  readonly hideEmpty: Signal<boolean> = signal(false);
+  /**
+   * As abas dos grupos sem nenhuma anotação à mostra no mural (o número da aba é 0: todas só no Kanban,
+   * finalizadas e escondidas…), com "Esconder os grupos vazios" ligado; senão, nenhuma.
+   */
+  readonly emptyTabs = computed<ReadonlySet<string>>(
+    () => {
+      const tabs = this.notes() && this.hideEmpty() ? this.noteTabs()?.tabs : null;
+      return tabs ? new Set(tabs.filter((t) => t.n === 0).map((t) => t.key)) : NO_TABS;
+    },
+    // mexer numa anotação refaz as abas: com os mesmos vazios, nada muda adiante
+    { equal: sameTabs },
+  );
+  /**
+   * As abas que vão para o "Mais" mesmo com lugar em pé: as escondidas à mão e as vazias, menos a
+   * aberta (ver `tabsToMore`).
+   */
+  readonly tabsInMore = computed<ReadonlySet<string>>(() => (this.notes() ? tabsToMore(this.hiddenTabs(), this.emptyTabs(), this.activeTab()) : NO_TABS), {
+    equal: sameTabs,
+  });
+  /**
    * A aba "Tudo" fica em pé (ver `NotesConfig.showAll`). Só o seu mural de anotações pode tirá-la: o
    * de músicas e o de quem visita têm sempre o Tudo.
    */
@@ -407,8 +431,9 @@ export abstract class WallState {
     if (!tabs || !tabs.tabs.length) return ALL_TAB;
     if (k !== ALL_TAB && hasTab(tabs, k)) return k;
     if (this.showAllTab() || this.allAsked()) return ALL_TAB;
-    const hidden = this.notes() ? this.hiddenTabs() : new Set<string>();
-    return (tabs.tabs.find((t) => !hidden.has(t.key)) ?? tabs.tabs[0]).key;
+    const hidden = this.notes() ? this.hiddenTabs() : NO_TABS;
+    // o primeiro grupo em pé: nem escondido, nem vazio (com "Esconder os grupos vazios")
+    return firstStanding(tabs.tabs, (t) => t.key, hidden, this.emptyTabs())!.key;
   });
   /**
    * As abas especiais do mural de anotações: Fixadas (as fixadas de todos os grupos, enquanto há
@@ -838,6 +863,7 @@ export class WallView extends WallState {
   override readonly categoryOrder = computed(() => activeOrder(this.settings.notesConfig()));
   override readonly hiddenTabs = computed<ReadonlySet<string>>(() => new Set([...hiddenKeys(this.settings.notesConfig())].map((k) => `c:${k}`)));
   override readonly showAllTab = computed(() => !this.notes() || this.settings.notesConfig().showAll);
+  override readonly hideEmpty = computed(() => this.settings.notesConfig().hideEmpty);
   override readonly specialsOn = computed(() => this.notes());
   override readonly pinnedStands = computed(() => this.settings.notesConfig().showPinned);
   override readonly sharedStands = computed(() => this.settings.notesConfig().showShared);
@@ -865,10 +891,13 @@ export class WallView extends WallState {
 
   /**
    * Abre no mural de anotações a aba do grupo (o quadro aberto no Kanban): mural e Kanban ficam no
-   * mesmo grupo. Como trocar de aba, os filtros da aba de antes saem.
+   * mesmo grupo. Como trocar de aba, os filtros da aba de antes saem. O grupo vazio no mural, com
+   * "Esconder os grupos vazios", não abre aqui (o mural fica onde estava): ele está no "Mais", e o
+   * quadro dele no Kanban não traz nada para o mural mostrar.
    */
   openGroup(label: string): void {
     const key = noteTabKey({ category: label });
+    if (this.emptyTabs().has(key)) return;
     this.allAsked.set(false);
     if (this.noteTab() === key) return;
     this.passingDensity.set(null);

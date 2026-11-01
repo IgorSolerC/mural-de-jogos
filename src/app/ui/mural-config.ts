@@ -696,6 +696,11 @@ export class MuralConfig {
     this.settings.setNotesConfig(manual ? { orderBy: 'minha', order: arrangedKeys(this.config().order, keys) } : { orderBy: 'quantidade' });
   }
 
+  /** "Esconder os grupos vazios": os grupos sem nada na vista de agora vão para o "Mais" (ver `NotesConfig.hideEmpty`). */
+  protected setHideEmpty(on: boolean): void {
+    this.settings.setNotesConfig({ hideEmpty: on });
+  }
+
   private move(row: CategoryRow, to: number): void {
     const keys = this.categories().map((r) => r.key);
     const order = moveKey(keys, row.key, to);

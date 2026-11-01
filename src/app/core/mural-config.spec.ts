@@ -56,6 +56,7 @@ describe('as configurações do mural de anotações', () => {
       showAll: false,
       showPinned: false,
       showShared: false,
+      hideEmpty: true,
       autoColors: {},
       subjects: {},
       templates: [],
@@ -127,6 +128,15 @@ describe('as configurações do mural de anotações', () => {
     expect(vazio.autoColors).toEqual({});
     expect(sanitizeNotesConfig({ showPinned: true, showShared: 'sim' })).toEqual(jasmine.objectContaining({ showPinned: true, showShared: false }));
     expect(sanitizeNotesConfig({ autoColors: { tudo: 'azul', fixadas: 'dourado', outra: 'verde', compartilhadas: 3 } }).autoColors).toEqual({ tudo: 'azul' });
+  });
+
+  it('esconder os grupos vazios: ligado para todo mundo, também para quem já tinha configurações guardadas; só false desliga', () => {
+    expect(NOTES_CONFIG_DEFAULT.hideEmpty).toBeTrue();
+    expect(sanitizeNotesConfig(null).hideEmpty).toBeTrue();
+    // as configurações guardadas antes dele (sem o campo) ficam com ele ligado
+    expect(sanitizeNotesConfig({ audience: 'publicar', showAll: true }).hideEmpty).toBeTrue();
+    expect(sanitizeNotesConfig({ hideEmpty: 'nao' }).hideEmpty).toBeTrue();
+    expect(sanitizeNotesConfig({ hideEmpty: false }).hideEmpty).toBeFalse();
   });
 
   it('a ordenação padrão do grupo: só as das anotações (sem a de Grupo); voltar à última usada tira o campo', () => {

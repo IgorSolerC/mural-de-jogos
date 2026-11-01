@@ -124,6 +124,27 @@
                     </label>
                   </div>
                 </fieldset>
+                <!-- os grupos sem nada na vista de agora (o mural ou o Kanban) vão para o "Mais" -->
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" id="config-t-vazios">Esconder os grupos vazios</p>
+                    <p class="linha-desc" id="config-d-vazios">
+                      Sem nada na vista de agora (anotação no mural, cartão no Kanban), a aba do grupo vai para o “Mais”, menos a aberta. O olho vem antes: a
+                      escondida fica lá mesmo cheia.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    class="interruptor"
+                    aria-labelledby="config-t-vazios"
+                    aria-describedby="config-d-vazios"
+                    [attr.aria-checked]="config().hideEmpty"
+                    (click)="setHideEmpty(!config().hideEmpty)"
+                  >
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
               </div>
 
               <ol #lista class="cats" [class.arrastando]="!!drag()" [class.montada]="manual()">

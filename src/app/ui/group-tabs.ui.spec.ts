@@ -64,6 +64,8 @@ describe('as orelhas dos grupos: iguais no mural e no Kanban', () => {
     });
     TestBed.inject(Mural).kind.set('anotacoes');
     TestBed.inject(Settings).setCategoryLook('Trabalho', { color: 'azul' });
+    // os dois quadros estão vazios: com os vazios escondidos, o dos Estudos iria para o "Mais"
+    TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
     TestBed.inject(ReviewStore).reviews.set([note('ntrab001', 'Trabalho'), note('nestu001', 'Estudos')]);
   });
 
@@ -105,5 +107,47 @@ describe('as orelhas dos grupos: iguais no mural e no Kanban', () => {
     }
     // a letra do nome é a do mural, 1,08rem
     expect(getComputedStyle(tab(kanbanTabs, 'Estudos').querySelector('app-cat-label')!).fontSize).toBe(`${1.08 * parseFloat(getComputedStyle(document.documentElement).fontSize)}px`);
+  });
+});
+
+describe('os grupos vazios no mural (Esconder os grupos vazios)', () => {
+  let host: HTMLElement;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    TestBed.inject(Mural).kind.set('anotacoes');
+    // os Estudos só com uma finalizada (escondida): nada à mostra no mural
+    TestBed.inject(ReviewStore).reviews.set([note('ntrab001', 'Trabalho'), note('ntrab002', 'Trabalho'), { ...note('nestu001', 'Estudos'), doneAt: T0 }, note('ncasa001', 'Casa')]);
+  });
+
+  afterEach(() => {
+    host?.remove();
+    localStorage.clear();
+  });
+
+  it('o vazio vai para o "Mais", com o 0, e escolhido ali fica em pé até sair dele', async () => {
+    const bar = TestBed.createComponent(NoteTabsBar);
+    host = bar.nativeElement;
+    document.body.appendChild(host);
+    await bar.whenStable();
+    const standing = () => [...host.querySelectorAll<HTMLElement>('.abas:not(.medida) > button.aba')].map((a) => a.querySelector('app-cat-label')?.textContent?.trim());
+    expect(standing()).toEqual(['Trabalho', 'Casa']);
+    const more = host.querySelector<HTMLElement>('app-tab-more')!;
+    more.querySelector<HTMLButtonElement>('.gatilho')!.click();
+    await bar.whenStable();
+    const option = [...more.querySelectorAll<HTMLButtonElement>('[role=option]')].find((o) => o.getAttribute('aria-label')!.startsWith('Estudos'))!;
+    expect(option.getAttribute('aria-label')).toBe('Estudos, 0 anotações');
+    option.click();
+    await bar.whenStable();
+    expect(standing()).toEqual(['Trabalho', 'Casa', 'Estudos']);
+    // saindo dele, volta para o "Mais"
+    host.querySelector<HTMLButtonElement>('.abas:not(.medida) > button.aba')!.click();
+    await bar.whenStable();
+    expect(standing()).toEqual(['Trabalho', 'Casa']);
+    // desligado, em pé
+    TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
+    await bar.whenStable();
+    expect(standing()).toEqual(['Trabalho', 'Casa', 'Estudos']);
   });
 });

@@ -1,7 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Mural } from './mural';
-import { ALL_TAB, MAX_TABS, NO_CATEGORY_TAB, NoteTab, noteTabKey, noteTabsOf, splitTabs } from './note-tabs';
+import { ALL_TAB, MAX_TABS, NO_CATEGORY_TAB, NoteTab, firstStanding, noteTabKey, noteTabsOf, sameTabs, splitTabs, tabsToMore } from './note-tabs';
+import { KanbanStore } from './kanban-store';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
@@ -130,6 +131,36 @@ describe('as abas do mural de anotações', () => {
     // o "Mais" conta na largura: sem lugar para ele e as duas, fica uma em pé
     const room = (shown: readonly NoteTab[], more: boolean) => shown.length + (more ? 1 : 0) <= 2;
     expect(splitTabs(tabs, ALL_TAB, room, false, hidden)).toEqual({ shown: [tabs[1]], more: [tabs[0], tabs[2]] });
+  });
+
+  it('as vazias também vão para o Mais, menos a aberta; as escondidas à mão, sempre (o olho vem antes)', () => {
+    const hidden = new Set(['c:a']);
+    const empty = new Set(['c:b', 'c:c']);
+    expect([...tabsToMore(hidden, empty, ALL_TAB)].sort()).toEqual(['c:a', 'c:b', 'c:c']);
+    // a aberta vazia fica em pé; a escondida aberta, não
+    expect([...tabsToMore(hidden, empty, 'c:b')].sort()).toEqual(['c:a', 'c:c']);
+    expect([...tabsToMore(hidden, empty, 'c:a')].sort()).toEqual(['c:a', 'c:b', 'c:c']);
+    // sem vazias de fora da aberta, o conjunto das escondidas, o mesmo (sem criar outro)
+    expect(tabsToMore(hidden, new Set(['c:b']), 'c:b')).toBe(hidden);
+    expect(tabsToMore(hidden, new Set(), ALL_TAB)).toBe(hidden);
+    // no splitTabs, a vazia aberta fica em pé
+    const tabs: NoteTab[] = [
+      { key: 'c:x', label: 'X', n: 3, total: 3 },
+      { key: 'c:b', label: 'B', n: 0, total: 2 },
+    ];
+    expect(splitTabs(tabs, ALL_TAB, undefined, false, tabsToMore(new Set(), empty, ALL_TAB)).more.map((t) => t.label)).toEqual(['B']);
+    expect(splitTabs(tabs, 'c:b', undefined, false, tabsToMore(new Set(), empty, 'c:b')).more).toEqual([]);
+  });
+
+  it('a primeira em pé: nem escondida nem vazia; sem nenhuma assim, a primeira não escondida (o olho vem antes)', () => {
+    const keys = ['c:a', 'c:b', 'c:c'];
+    const k = (x: string) => x;
+    expect(firstStanding(keys, k, new Set(['c:a']), new Set(['c:b']))).toBe('c:c');
+    expect(firstStanding(keys, k, new Set(['c:a']), new Set(['c:b', 'c:c']))).toBe('c:b');
+    expect(firstStanding(keys, k, new Set(keys), new Set())).toBe('c:a');
+    expect(firstStanding([], k, new Set(), new Set())).toBeUndefined();
+    expect(sameTabs(new Set(['c:a', 'c:b']), new Set(['c:b', 'c:a']))).toBeTrue();
+    expect(sameTabs(new Set(['c:a']), new Set(['c:b']))).toBeFalse();
   });
 
   it('uma categoria chamada "Sem" não cai na aba das sem categoria', () => {
@@ -394,5 +425,112 @@ describe('WallView sem a aba Tudo (o padrão)', () => {
     const many = Array.from({ length: MAX_TABS + 2 }, (_, i): NoteTab => ({ key: `c:g${i}`, label: `G${i}`, n: 20 - i, total: 20 - i }));
     expect(splitTabs(many, many[0].key).shown.length).toBe(MAX_TABS - 1);
     expect(splitTabs(many, many[0].key, undefined, false, new Set(), MAX_TABS).shown.length).toBe(MAX_TABS);
+  });
+});
+
+describe('WallView: "Esconder os grupos vazios"', () => {
+  let view: WallView;
+  let settings: Settings;
+  const key = (label: string) => noteTabKey({ category: label });
+  const DONE = '2026-10-02T10:00:00.000Z';
+  /** Lisboa e Porto (a Viagem inteira) no quadro dela: só no Kanban, o padrão. */
+  const tripOnBoard = () =>
+    TestBed.inject(KanbanStore).state.set({
+      boards: [
+        {
+          id: boardIdFor('viagem'),
+          category: 'viagem',
+          at: '2026-10-01T10:00:00.000Z',
+          columns: [{ id: 'afazer', name: 'A fazer', icon: 'circulo', color: 'cinza', finishes: false }],
+          cards: [
+            { note: 'nlisboa1', column: 'afazer', importance: null },
+            { note: 'nporto01', column: 'afazer', importance: null },
+          ],
+        },
+      ],
+      removed: {},
+      legacy: [],
+    });
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    // a Viagem com ids conhecidos (para o quadro) e Leituras só com finalizadas
+    const list = sea().filter((r) => r.category !== 'Viagem');
+    TestBed.inject(ReviewStore).reviews.set([
+      ...list,
+      note('Lisboa', 'Viagem', { id: 'nlisboa1' }),
+      note('Porto', 'Viagem', { id: 'nporto01' }),
+      note('Duna', 'Leituras', { doneAt: DONE }),
+    ]);
+    settings = TestBed.inject(Settings);
+    view = TestBed.inject(WallView);
+    TestBed.inject(Mural).kind.set('anotacoes');
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('ligado (o padrão): o grupo sem nada à mostra vai para o Mais (só finalizadas escondidas, ou tudo só no Kanban)', () => {
+    expect(settings.notesConfig().hideEmpty).toBeTrue();
+    expect([...view.emptyTabs()]).toEqual([key('Leituras')]);
+    tripOnBoard();
+    expect([...view.emptyTabs()].sort()).toEqual([key('Leituras'), key('Viagem')].sort());
+    expect([...view.tabsInMore()].sort()).toEqual([key('Leituras'), key('Viagem')].sort());
+    // o grupo continua existindo, com o 0, para abrir pelo "Mais"
+    expect(view.noteTabs()!.tabs.find((t) => t.key === key('Viagem'))).toEqual(jasmine.objectContaining({ n: 0, total: 2 }));
+    // mostrando as finalizadas (ou as do Kanban), o grupo deixa de estar vazio
+    view.showDone.set(true);
+    expect([...view.emptyTabs()]).toEqual([key('Viagem')]);
+    view.showBoard.set(true);
+    expect(view.emptyTabs().size).toBe(0);
+  });
+
+  it('o grupo aberto fica em pé, mesmo vazio, até sair dele', () => {
+    view.setNoteTab(key('Leituras'));
+    expect(view.activeTab()).toBe(key('Leituras'));
+    expect(view.tabsInMore().has(key('Leituras'))).toBeFalse();
+    view.setNoteTab(key('Estudos'));
+    expect(view.tabsInMore().has(key('Leituras'))).toBeTrue();
+  });
+
+  it('o olho vem antes: o grupo escondido à mão fica no Mais mesmo cheio, e mesmo aberto', () => {
+    settings.setCategoryPrefs('Estudos', { hidden: true });
+    view.setNoteTab(key('Estudos'));
+    expect(view.tabsInMore().has(key('Estudos'))).toBeTrue();
+    expect(view.tabsInMore().has(key('Leituras'))).toBeTrue();
+  });
+
+  it('desligado, nenhum grupo vai para o Mais por estar vazio', () => {
+    settings.setNotesConfig({ hideEmpty: false });
+    tripOnBoard();
+    expect(view.emptyTabs().size).toBe(0);
+    expect(view.tabsInMore().size).toBe(0);
+  });
+
+  it('o mural abre no primeiro grupo em pé que não está vazio', () => {
+    settings.setNotesConfig({ orderBy: 'minha', order: ['leituras', 'estudos'] });
+    expect(view.activeTab()).toBe(key('Estudos'));
+    // desligado, o primeiro da ordem
+    settings.setNotesConfig({ hideEmpty: false });
+    expect(view.activeTab()).toBe(key('Leituras'));
+  });
+
+  it('o quadro aberto no Kanban não leva o mural para um grupo vazio nele (o mural fica onde estava)', () => {
+    tripOnBoard();
+    view.setNoteTab(key('Estudos'));
+    view.openGroup('Viagem');
+    expect(view.activeTab()).toBe(key('Estudos'));
+    view.openGroup('Receitas');
+    expect(view.activeTab()).toBe(key('Receitas'));
+    // desligado, abre como sempre
+    settings.setNotesConfig({ hideEmpty: false });
+    view.openGroup('Viagem');
+    expect(view.activeTab()).toBe(key('Viagem'));
+  });
+
+  it('no mural de músicas, nenhuma aba de artista vai para o Mais por estar vazia', () => {
+    TestBed.inject(Mural).kind.set('musicas');
+    expect(view.emptyTabs().size).toBe(0);
+    expect(view.tabsInMore().size).toBe(0);
   });
 });

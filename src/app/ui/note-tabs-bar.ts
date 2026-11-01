@@ -20,8 +20,9 @@ import { TabFit } from './tab-fit';
  * As abas do mural de anotações (ver core/note-tabs.ts): divisórias de pasta de papel manilha, em
  * cima da pasta. A aberta fica na frente, clara, emendada na borda da pasta; as outras ficam atrás,
  * mais escuras. Toda categoria fica em pé enquanto couber na largura (e até oito abas, contando
- * Tudo); as que sobram, as com menos anotações, e as escondidas na engrenagem do mural vão para o
- * "Mais" (um <select> invisível sobre a aba, como o Ordenar). Para saber o que cabe, uma fileira
+ * Tudo); as que sobram, as com menos anotações, as escondidas na engrenagem do mural e, com "Esconder
+ * os grupos vazios", as sem nenhuma anotação à mostra (menos a aberta) vão para o "Mais"
+ * (ui/tab-more.ts). Para saber o que cabe, uma fileira
  * escondida mede cada aba de verdade (ver ui/tab-fit.ts, a mesma régua das abas do Kanban). O Tudo
  * só fica em pé com "Mostrar a aba Tudo" nas configurações do mural (ou aberto pela busca).
  *
@@ -230,8 +231,8 @@ export class NoteTabsBar {
     active: () => this.active(),
     // na ordem montada à mão (só nas anotações), ficam em pé as primeiras dela
     ordered: () => !this.music() && !!this.view.categoryOrder(),
-    // as escondidas na engrenagem do mural vão sempre para o "Mais"
-    hidden: () => (this.music() ? undefined : this.view.hiddenTabs()),
+    // as escondidas na engrenagem do mural vão sempre para o "Mais", e as vazias (menos a aberta) também
+    hidden: () => (this.music() ? undefined : this.view.tabsInMore()),
     lead: () => [...(this.allShown() ? ['tudo'] : []), ...this.special().map((x) => x.key)],
     // sem lugar, as especiais vão para o "Mais": primeiro as Compartilhadas, depois as Fixadas
     droppable: () => this.special().map((x) => x.key).reverse(),

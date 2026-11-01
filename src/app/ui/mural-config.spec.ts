@@ -235,6 +235,27 @@ describe('as configurações do mural (a folha)', () => {
     expect(rows()).toEqual(['Receitas', 'Viagens!', 'Roadmap site']);
   });
 
+  it('"Esconder os grupos vazios", logo depois da ordem das abas: ligado por padrão, a linha diz que o olho vem antes', async () => {
+    await go('categorias');
+    const sw = el.querySelector<HTMLButtonElement>('[role=switch][aria-labelledby="config-t-vazios"]')!;
+    expect(sw).not.toBeNull();
+    // no mesmo grupo da ordem das abas, logo depois dela
+    expect(sw.closest('.linha')!.previousElementSibling!.querySelector('legend')!.textContent!.trim()).toBe('Ordem das abas');
+    expect(el.querySelector('#config-t-vazios')!.textContent!.trim()).toBe('Esconder os grupos vazios');
+    const desc = el.querySelector('#config-d-vazios')!.textContent!.replace(/\s+/g, ' ');
+    expect(desc).toContain('Sem nada na vista de agora (anotação no mural, cartão no Kanban), a aba do grupo vai para o “Mais”, menos a aberta.');
+    expect(desc).toContain('O olho vem antes: a escondida fica lá mesmo cheia.');
+    expect(sw.getAttribute('aria-describedby')).toBe('config-d-vazios');
+    expect(sw.getAttribute('aria-checked')).toBe('true');
+    sw.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().hideEmpty).toBeFalse();
+    expect(sw.getAttribute('aria-checked')).toBe('false');
+    sw.click();
+    await fixture.whenStable();
+    expect(settings.notesConfig().hideEmpty).toBeTrue();
+  });
+
   it('o olho esconde a categoria no Mais, e mostra de novo', async () => {
     await go('categorias');
     const second = el.querySelectorAll('.cat')[1];

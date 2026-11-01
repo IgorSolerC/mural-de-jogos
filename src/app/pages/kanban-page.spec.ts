@@ -131,6 +131,8 @@ describe('página do Kanban', () => {
 
   it('as abas são as categorias, com quantas anotações cada quadro tem; não há quadro novo solto', async () => {
     TestBed.inject(Settings).setCategoryLook('Trabalho', { color: 'azul' });
+    // o quadro vazio dos Estudos em pé (ligado, ele iria para o "Mais", ver abaixo)
+    TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
     kanban.state.set(state(board()));
     await go('/anotacoes/kanban');
     expect(router.url).toBe(TRAB_URL);
@@ -174,11 +176,91 @@ describe('página do Kanban', () => {
     expect(aberto.querySelector('app-cat-label')!.textContent!.trim()).toBe('Estudos');
   });
 
+  describe('"Esconder os grupos vazios" (nas configurações do mural)', () => {
+    const links = () => [...host.querySelectorAll<HTMLAnchorElement>('.abas-quadros a.aba')].map((a) => a.querySelector('app-cat-label')!.textContent!.trim());
+    const more = () => host.querySelector<HTMLElement>('.abas-quadros app-tab-more.aba-mais');
+
+    it('ligado (o padrão): o quadro sem nenhum cartão vai para o "Mais", com o 0; aberto, fica em pé até sair dele', async () => {
+      expect(TestBed.inject(Settings).notesConfig().hideEmpty).toBeTrue();
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      expect(links()).toEqual(['Trabalho']);
+      more()!.querySelector<HTMLButtonElement>('.gatilho')!.click();
+      await settle();
+      expect([...more()!.querySelectorAll('[role=option]')].map((o) => o.getAttribute('aria-label'))).toEqual(['Estudos, 0 anotações']);
+      // aberto pelo endereço (ou pelo "Mais"), o vazio fica em pé, e o "Mais" some
+      await go(`/anotacoes/kanban/${EST}`);
+      expect(links()).toEqual(['Trabalho', 'Estudos']);
+      expect(more()).toBeNull();
+      // saindo dele, volta para o "Mais"
+      await go(TRAB_URL);
+      expect(links()).toEqual(['Trabalho']);
+      // desligado, todos em pé
+      TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
+      await settle();
+      expect(links()).toEqual(['Trabalho', 'Estudos']);
+      expect(more()).toBeNull();
+    });
+
+    it('o olho vem antes: o grupo escondido à mão fica no "Mais" mesmo com cartões', async () => {
+      TestBed.inject(Settings).setCategoryPrefs('Trabalho', { hidden: true });
+      kanban.state.set(state(board()));
+      await go(`/anotacoes/kanban/${EST}`);
+      expect(links()).toEqual(['Estudos']);
+      more()!.querySelector<HTMLButtonElement>('.gatilho')!.click();
+      await settle();
+      expect([...more()!.querySelectorAll('[role=option]')].map((o) => o.getAttribute('aria-label'))).toEqual(['Trabalho, 2 anotações']);
+    });
+
+    it('ao abrir o Kanban, o último aberto vazio dá lugar ao primeiro quadro com cartões, sem levar o mural junto', async () => {
+      TestBed.inject(Mural).kind.set('anotacoes');
+      const view = TestBed.inject(WallView);
+      kanban.state.set(state(board()));
+      // no mural, os Estudos (que no quadro não têm nada)
+      view.setNoteTab('c:estudos');
+      await settle();
+      expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(EST);
+      await go('/anotacoes/kanban');
+      expect(router.url).toBe(TRAB_URL);
+      // o mural continua nos Estudos, e o último aberto também (o Kanban procura de novo da próxima vez)
+      expect(view.activeTab()).toBe('c:estudos');
+      expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(EST);
+      // escolhido à mão, o quadro volta a valer como o último aberto; o Trabalho, sem nada no mural
+      // (as anotações dele estão só no Kanban), não leva o mural junto
+      await go(`/anotacoes/kanban/${EST}`);
+      await go(TRAB_URL);
+      expect(localStorage.getItem(KANBAN_LAST_KEY)).toContain(TRAB);
+      expect(view.activeTab()).toBe('c:estudos');
+    });
+
+    it('o olho vem antes também ao abrir: sem outro quadro com cartões à mostra, fica no vazio', async () => {
+      TestBed.inject(Settings).setCategoryPrefs('Trabalho', { hidden: true });
+      TestBed.inject(Mural).kind.set('anotacoes');
+      kanban.state.set(state(board()));
+      TestBed.inject(WallView).setNoteTab('c:estudos');
+      await settle();
+      await go('/anotacoes/kanban');
+      expect(router.url).toBe(`/anotacoes/kanban/${EST}`);
+    });
+
+    it('desligado, o Kanban abre no último aberto, mesmo vazio, como sempre', async () => {
+      TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
+      TestBed.inject(Mural).kind.set('anotacoes');
+      kanban.state.set(state(board()));
+      TestBed.inject(WallView).setNoteTab('c:estudos');
+      await settle();
+      await go('/anotacoes/kanban');
+      expect(router.url).toBe(`/anotacoes/kanban/${EST}`);
+    });
+  });
+
   it('as abas vão na ordem das abas do mural (da maior para a menor lá: as finalizadas escondidas não contam)', async () => {
     TestBed.inject(Mural).kind.set('anotacoes');
     // os Estudos têm mais anotações, mas três finalizadas: no mural, o Trabalho tem mais à mostra (as
     // do quadro dele no mural também)
     TestBed.inject(Settings).setCategoryPrefs('Trabalho', { kanbanOnly: false });
+    // o quadro vazio dos Estudos em pé (ligado, ele iria para o "Mais")
+    TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
     store.reviews.update((list) => [...list, ...[1, 2, 3].map((i) => note(`nfeita0${i}`, `Feita ${i}`, { category: 'Estudos', doneAt: T0 }))]);
     kanban.state.set(state(board()));
     await go(TRAB_URL);

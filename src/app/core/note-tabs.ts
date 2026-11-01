@@ -20,6 +20,8 @@ import { labelKey, nameCollator } from './text';
  * - Com a ordem montada à mão (a engrenagem do mural, ver core/mural-config.ts), as categorias vão
  *   nela; as que ficaram de fora (novas) vêm depois, pela quantidade, e "Sem categoria" fecha a fila.
  *   Para o "Mais" vão as últimas da ordem, não as menores.
+ * - Com "Esconder os grupos vazios" (o padrão), o grupo sem nenhuma anotação à mostra vai para o
+ *   "Mais", menos o aberto (ver `tabsToMore`).
  */
 
 /** A aba "Tudo": o mural inteiro. */
@@ -108,12 +110,41 @@ export function hasTab(tabs: NoteTabs, key: string): boolean {
 }
 
 /**
+ * As abas que vão para o "Mais" mesmo com lugar em pé (o `hidden` de `splitTabs`): as dos grupos
+ * escondidos à mão (`hidden`, sempre, mesmo a aberta) e, com "Esconder os grupos vazios" (ver
+ * `NotesConfig.hideEmpty`), as dos vazios (`empty`), menos a aberta: quem está num grupo vazio o vê em
+ * pé até sair dele. O olho manda primeiro: o grupo escondido à mão não volta por estar cheio.
+ */
+export function tabsToMore(hidden: ReadonlySet<string>, empty: ReadonlySet<string>, active: string): ReadonlySet<string> {
+  if (![...empty].some((k) => k !== active && !hidden.has(k))) return hidden;
+  const out = new Set(hidden);
+  for (const k of empty) if (k !== active) out.add(k);
+  return out;
+}
+
+/** Nenhuma aba (o conjunto vazio de sempre, para não criar um a cada conta). */
+export const NO_TABS: ReadonlySet<string> = new Set();
+
+/** Os dois conjuntos de abas têm as mesmas chaves? (o `equal` das contas: o mesmo conjunto não muda nada) */
+export function sameTabs(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
+  return a === b || (a.size === b.size && [...a].every((k) => b.has(k)));
+}
+
+/**
+ * A primeira aba em pé, na ordem de `tabs`: nem escondida à mão, nem vazia; sem nenhuma assim, a
+ * primeira não escondida (o olho vem antes), e por fim a primeira. `keyOf`: a chave da aba.
+ */
+export function firstStanding<T>(tabs: readonly T[], keyOf: (t: T) => string, hidden: ReadonlySet<string>, empty: ReadonlySet<string>): T | undefined {
+  return tabs.find((t) => !hidden.has(keyOf(t)) && !empty.has(keyOf(t))) ?? tabs.find((t) => !hidden.has(keyOf(t))) ?? tabs[0];
+}
+
+/**
  * Quais abas ficam em pé e quais vão para o "Mais". `fits(n)`: cabem n abas de categoria em pé (as n
  * escolhidas), além de Tudo e, se sobrar alguma, do "Mais". Ficam as com mais anotações (e a aberta,
  * sempre), no máximo `MAX_TABS` contando Tudo; em pé, continuam na ordem de `noteTabsOf`. `ordered`:
  * as abas vêm na ordem montada à mão, e ficam em pé as primeiras dela (e a aberta). `hidden`: as abas
- * das categorias escondidas (na engrenagem do mural), que vão sempre para o "Mais", mesmo abertas (o
- * "Mais" mostra o nome da aberta). `slots`: quantas abas de grupo cabem em pé no máximo (uma a menos
+ * que vão sempre para o "Mais" (as dos grupos escondidos na engrenagem do mural, mesmo abertas, e as
+ * dos vazios, ver `tabsToMore`); o "Mais" mostra o nome da aberta. `slots`: quantas abas de grupo cabem em pé no máximo (uma a menos
  * que `MAX_TABS` com o Tudo em pé).
  */
 export function splitTabs(
