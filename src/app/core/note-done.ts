@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ICON } from '../ui/icons';
+import { KanbanDeps } from './kanban-deps';
 import { linkedOnCheckedTask } from './note-links';
 import { isDone, isNote, withDone } from './review';
 import { ReviewStore } from './review-store';
@@ -23,7 +24,18 @@ export class NoteDone {
   private readonly motion = inject(WallMotion);
   private readonly toasts = inject(Toasts);
   private readonly confirm = inject(Confirm);
+  private readonly deps = inject(KanbanDeps);
   private readonly fallbacks = new Map<string, ReturnType<typeof setTimeout>>();
+
+  /**
+   * O check da ficha, do menu da anotação e da tira das dependências: finalizar com dependência ainda
+   * aberta (no quadro) pergunta antes, e sem o sim nada muda; abrir de novo é direto.
+   */
+  finishAsking(id: string, done: boolean): void {
+    const ok = done ? this.deps.allowFinish([id]) : true;
+    if (ok === true) this.set(id, done);
+    else void ok.then((yes) => yes && this.set(id, done));
+  }
 
   /**
    * Finaliza (com o carimbo) ou abre de novo a sua anotação. `quiet`: sem o bilhete (a leitura

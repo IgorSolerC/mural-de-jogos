@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { Router } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { CloudSync } from '../core/cloud-sync';
-import { fichaLink, hasLink } from '../core/ficha-link';
+import { LINK_START_KEY, fichaLink, hasLink } from '../core/ficha-link';
 import { KanbanStore } from '../core/kanban-store';
 import { Review, isNote } from '../core/review';
 import { SharedStore } from '../core/shared-store';
@@ -13,8 +13,7 @@ import { Pin } from './pin';
 /** Quanto tempo o "Copiado" fica no botão. */
 const COPIED_MS = 2200;
 
-/** Como o último link começava neste aparelho (`nao`: fechada); o próximo começa igual. */
-export const LINK_START_KEY = 'meu-mural:link-aberta:v1';
+export { LINK_START_KEY };
 
 /**
  * O link da ficha (o "Link da anotação" do Mais da leitura): o endereço que abre só ela, maximizada,

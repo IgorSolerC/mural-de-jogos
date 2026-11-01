@@ -181,10 +181,7 @@ export class KanbanDepsBadge {
 
   /** Finalizar (perguntando, se ela também depende de outra aberta) ou abrir de novo uma dependência. */
   protected check(note: Review): void {
-    const done = !note.doneAt;
-    const ok = done ? this.depsOf.allowFinish([note.id]) : true;
-    if (ok === true) this.noteDone.set(note.id, done);
-    else void ok.then((yes) => yes && this.noteDone.set(note.id, done));
+    this.noteDone.finishAsking(note.id, !note.doneAt);
   }
 
   protected read(id: string): void {

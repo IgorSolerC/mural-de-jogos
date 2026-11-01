@@ -80,6 +80,7 @@
     [class.inteira]="inteira()"
     [class.lista]="lista()"
     [class.com-orelhas]="ears()"
+    [class.com-menu]="notes()"
     [class.sem-etiquetas]="!labels()"
     [appRealceBusca]="view.query()"
     realceEm=".fichas, app-note-index"
@@ -131,4 +132,9 @@
       </section>
     }
   </div>
+}
+
+<!-- o menu do botão direito (e do dedo segurado) numa anotação: só no mural de anotações -->
+@if (notes()) {
+  <app-note-menu #menuDaNota [owner]="owner()" [ownerCode]="access().reactCode" [secret]="access().secret" [selection]="owner() === null ? selection : null" (opened)="opened.emit($event)" />
 }

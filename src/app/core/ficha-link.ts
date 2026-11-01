@@ -20,6 +20,12 @@ export const FICHA_PATH = '/ficha';
  */
 export const OPEN_PARAM = 'aberta';
 
+/**
+ * Como o último link começava neste aparelho (`nao`: fechada); o próximo começa igual (a folha do link
+ * e o "Copiar o link" do menu da anotação).
+ */
+export const LINK_START_KEY = 'meu-mural:link-aberta:v1';
+
 /** O link que abre a ficha `id` do mural de quem tem o código `code`; `open` falso: começa fechada. */
 export function fichaLink(code: string, id: string, base: string = location.origin + location.pathname, open = true): string {
   return `${base}#${FICHA_PATH}/${code}/${encodeURIComponent(id)}${open ? '' : `?${OPEN_PARAM}=nao`}`;

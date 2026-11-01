@@ -236,6 +236,8 @@ export class App {
       },
       openLoose: (review, owner, pool, code, signedIn) => this.reader().openLoose(review, owner, pool, code, signedIn),
       closeReader: () => this.reader().close(),
+      editReview: (id) => this.editReview(id),
+      removeReview: (id) => void this.removeReview(id),
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
     afterNextRender(() => {

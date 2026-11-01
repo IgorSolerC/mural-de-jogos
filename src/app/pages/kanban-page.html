@@ -263,7 +263,7 @@
 
   <!-- o quadro: as colunas lado a lado, cada uma uma tira de papel pardo presa na parede -->
   <p id="kanban-dica" class="sr-only">
-    Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas.
+    Arraste as anotações de uma coluna para outra. No teclado, Shift e as setas; Shift+F10 abre o menu da anotação.
   </p>
   <!-- o quadro passa da pasta e corre até as beiradas da tela; o que fica para lá some num degradê, e
        as setas nas beiradas trazem as colunas escondidas (ver `measureEdges`) -->
@@ -578,3 +578,6 @@
     }
   }
 }
+
+<!-- o menu do botão direito numa anotação do quadro (e do dedo que segura e solta sem arrastar) -->
+<app-note-menu #menuDaNota [selection]="selection" (opened)="read($event)" />

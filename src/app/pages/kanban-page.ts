@@ -27,6 +27,7 @@ import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
+import { HOLD_MS, NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
 import { PageWall } from '../ui/page-wall';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
@@ -145,7 +146,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -574,6 +575,35 @@ export class KanbanPage {
     reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.subjectFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
     layout: this.view,
   });
+
+  /**
+   * O menu do botão direito (ou de Shift+F10) numa ficha do quadro (ver ui/note-menu.ts), com o que o
+   * quadro acrescenta: levar para a coluna seguinte e a folha da anotação no quadro. No toque, segurar
+   * é arrastar: o menu abre quando o dedo segura e solta sem mexer (ver `onPointerUp`).
+   */
+  private readonly noteMenu = viewChild<NoteMenu>('menuDaNota');
+  private readonly menuTrigger = new NoteMenuTrigger({
+    host: this.host,
+    markable: '.lugar[data-nota]',
+    idOf: (el) => el.getAttribute('data-nota'),
+    on: () => !this.drag(),
+    notes: this.notes,
+    menu: this.noteMenu,
+    hold: false,
+    board: (id) => this.menuBoard(id),
+  });
+
+  /** O que o quadro põe no menu de uma ficha dele: a seta para a coluna seguinte e a folha do quadro. */
+  private menuBoard(id: string): NoteMenuBoard | null {
+    const card = this.board()?.cards.find((c) => c.note === id);
+    const b = this.board();
+    if (!b || !card) return null;
+    return {
+      next: nextStop(b.columns, card.column)?.name ?? null,
+      advance: () => this.advance(id, card.column),
+      details: () => this.cardSheet.set(id),
+    };
+  }
 
   constructor() {
     const destroy = inject(DestroyRef);
@@ -1076,7 +1106,8 @@ export class KanbanPage {
 
   // ===== Arrastar: mouse, caneta e dedo =====
 
-  private start: { x: number; y: number; note: string; column: string; el: HTMLElement; touch: boolean; id: number } | null = null;
+  /** `at`: quando o dedo desceu; `moved`: o dedo já passou da folga alguma vez (arrastou, mesmo que volte). */
+  private start: { x: number; y: number; note: string; column: string; el: HTMLElement; touch: boolean; id: number; at: number; moved: boolean } | null = null;
   private holdTimer: ReturnType<typeof setTimeout> | undefined;
   private ghost: HTMLElement | null = null;
   /** Onde o ponteiro pegou a ficha, em relação ao canto dela. */
@@ -1092,7 +1123,7 @@ export class KanbanPage {
     if (target.closest('.pe, app-kanban-deps, input, label, a, select, textarea')) return;
     const el = e.currentTarget as HTMLElement;
     const touch = e.pointerType === 'touch';
-    this.start = { x: e.clientX, y: e.clientY, note, column, el, touch, id: e.pointerId };
+    this.start = { x: e.clientX, y: e.clientY, note, column, el, touch, id: e.pointerId, at: performance.now(), moved: false };
     this.pointer = { x: e.clientX, y: e.clientY };
     const move = (ev: PointerEvent) => this.onPointerMove(ev);
     const up = (ev: PointerEvent) => this.onPointerUp(ev);
@@ -1132,6 +1163,7 @@ export class KanbanPage {
     const s = this.start;
     if (!s || e.pointerId !== s.id) return;
     this.pointer = { x: e.clientX, y: e.clientY };
+    if (Math.hypot(e.clientX - s.x, e.clientY - s.y) > TOUCH_SLOP) s.moved = true;
     if (!this.drag()) {
       const dist = Math.hypot(e.clientX - s.x, e.clientY - s.y);
       // o dedo andou antes de segurar: é rolar a tela, não arrastar
@@ -1334,6 +1366,14 @@ export class KanbanPage {
     const s = this.start;
     const d = this.drag();
     if (!s || e.pointerId !== s.id) return;
+    // o dedo segurou parado o tempo do toque longo e soltou sem arrastar: o menu da anotação, como no
+    // mural (a ficha volta para o lugar, nada se move)
+    if (d && s.touch && !s.moved && performance.now() - s.at >= HOLD_MS) {
+      swallowNextClick();
+      this.endDrag();
+      this.menuTrigger.openAt(s.note, s.x, s.y);
+      return;
+    }
     if (d) {
       // o clique que vem depois de soltar não abre a anotação
       swallowNextClick();

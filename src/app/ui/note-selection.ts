@@ -90,6 +90,10 @@ export class NoteSelection {
   }
 
   private down(e: PointerEvent): void {
+    // o toque no menu da anotação (ver ui/note-menu.ts): copiar as marcadas não pode desmarcá-las antes
+    if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
+    // o botão direito numa marcada abre o menu dela, com as marcadas ainda marcadas
+    if (e.button === 2 && this.onMarked(e)) return;
     if (this.target(e)) {
       // sem foco e sem seleção de texto: o toque é para marcar (ou, onde as fichas se arrastam, para
       // arrastar com o Ctrl apertado)
@@ -128,6 +132,8 @@ export class NoteSelection {
 
   private key(e: KeyboardEvent): void {
     if (!this.ids().length) return;
+    // o Esc do menu da anotação fecha só o menu (ver ui/note-menu.ts)
+    if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
     if (e.key === 'Escape') {
       this.clear();
       this.toasts.dismiss();
@@ -141,7 +147,8 @@ export class NoteSelection {
     void this.copy();
   }
 
-  private async copy(): Promise<void> {
+  /** Copia as marcadas (o Ctrl+C, e o "Copiar as N marcadas" do menu da anotação). */
+  async copy(): Promise<void> {
     const byId = this.cfg.notes();
     const notes = this.ids()
       .map((id) => byId.get(id))

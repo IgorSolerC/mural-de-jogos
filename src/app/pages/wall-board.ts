@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
 import { kanbanPath } from '../core/areas';
@@ -11,6 +11,7 @@ import { pinningFor } from '../core/wall-physics';
 import { WallGroup, WallState } from '../core/wall-view';
 import { DoneStamp } from '../ui/done-stamp';
 import { NoteIndex } from '../ui/note-index';
+import { NoteMenu, NoteMenuTrigger, WALL_NOTES, wallNoteId } from '../ui/note-menu';
 import { NoteSelection } from '../ui/note-selection';
 import { Pin } from '../ui/pin';
 import { SearchHighlight } from '../ui/search-highlight';
@@ -34,7 +35,7 @@ export type WallAccess = Pick<WallCardProps, 'landingId' | 'picking' | 'picked' 
  */
 @Component({
   selector: 'app-wall-board',
-  imports: [DoneStamp, IconModule, NoteIndex, Pin, RouterLink, SearchHighlight, WallCards],
+  imports: [DoneStamp, IconModule, NoteIndex, NoteMenu, Pin, RouterLink, SearchHighlight, WallCards],
   providers: [WallCardPool],
   host: { '(keydown)': 'onKey($event)' },
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -127,6 +128,8 @@ export class WallBoard {
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */
   readonly selection: NoteSelection;
+  /** O menu do botão direito numa anotação (ver ui/note-menu.ts). */
+  private readonly noteMenu = viewChild<NoteMenu>('menuDaNota');
 
   constructor() {
     const side = inject(SideBySide);
@@ -134,13 +137,24 @@ export class WallBoard {
     this.selection = new NoteSelection({
       host: inject<ElementRef<HTMLElement>>(ElementRef).nativeElement,
       // a caixa da ficha (ver wall-cards.ts) ou a linha da lista (ver ui/note-index.ts)
-      markable: '.lugar[data-lugar], .linha[data-ficha]',
-      idOf: (el) => el.getAttribute('data-lugar') ?? el.getAttribute('data-ficha'),
+      markable: WALL_NOTES,
+      idOf: wallNoteId,
       // só no seu mural de anotações, e não enquanto o toque na ficha é para o lado a lado
       on: () => this.notes() && this.owner() === null && !side.picking(),
       notes: byId,
       // a parede mudou (busca, filtro, aba, outro mural)
       reset: this.view.visible,
+    });
+    // o botão direito, o dedo segurado ou Shift+F10 numa ficha do mural de anotações (o seu ou o de quem
+    // se visita) abre o menu dela; nos murais de resenhas fica o do navegador
+    new NoteMenuTrigger({
+      host: this.el,
+      markable: WALL_NOTES,
+      idOf: wallNoteId,
+      on: () => this.notes() && !side.picking(),
+      notes: byId,
+      menu: this.noteMenu,
+      hold: true,
     });
     this.pool.props = this.cardProps;
     this.pool.onOpen = (id) => this.opened.emit(id);

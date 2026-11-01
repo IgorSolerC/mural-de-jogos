@@ -21,6 +21,10 @@ export interface DeskHandlers {
   /** A ficha de outra pessoa aberta pelo link: a leitura sem o fechar (ver pages/ficha-page.ts). */
   openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void;
   closeReader(): void;
+  /** O editor da sua ficha (o "Editar" da leitura e do menu da anotação). */
+  editReview(id: string): void;
+  /** Apagar a sua ficha, do jeito da leitura: a pergunta e o Desfazer, ou sair da compartilhada. */
+  removeReview(id: string): void;
 }
 
 /**
@@ -78,6 +82,14 @@ export class Desk {
 
   closeReader(): void {
     this.handlers?.closeReader();
+  }
+
+  editReview(id: string): void {
+    this.handlers?.editReview(id);
+  }
+
+  removeReview(id: string): void {
+    this.handlers?.removeReview(id);
   }
 
   /** A ficha cai na parede e a tela vai até ela, assim que ela existir na página. */

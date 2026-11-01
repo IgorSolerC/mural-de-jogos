@@ -269,6 +269,19 @@
   text-shadow: var(--chalk-shadow);
 }
 
+/* No mural de anotações, segurar o dedo numa ficha abre o menu dela (ver ui/note-menu.ts): o balão
+   do iPhone (salvar a imagem) não sai junto. Herda para as fichas e as linhas da lista; um link do
+   texto fica com o balão dele (abrir, copiar o endereço). Sem popover no navegador, não há menu. */
+@supports selector(:popover-open) {
+  .wall.com-menu {
+    -webkit-touch-callout: none;
+  }
+
+  .wall.com-menu a[href] {
+    -webkit-touch-callout: default;
+  }
+}
+
 /* Sem etiquetas (Ajustes): os grupos se desfazem e as fichas correm numa grade só, para o print. As
    etiquetas continuam lá para leitores de tela. */
 .wall.sem-etiquetas {

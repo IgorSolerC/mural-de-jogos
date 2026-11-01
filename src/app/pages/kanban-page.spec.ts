@@ -1130,6 +1130,70 @@ describe('página do Kanban', () => {
     await settle();
     expect(host.querySelectorAll('[data-marcada]').length).toBe(0);
   });
+
+  it('o botão direito numa ficha abre o menu dela, com o que o quadro faz (levar para a coluna seguinte, os ajustes no quadro)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const hit = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
+    const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
+    hit.dispatchEvent(e);
+    await settle();
+    expect(e.defaultPrevented).toBeTrue();
+    const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;
+    expect(menu.matches(':popover-open')).toBeTrue();
+    const labels = [...menu.querySelectorAll('.escolha .nome')].map((x) => x.textContent!.trim());
+    expect(labels).toContain('Levar para Fazendo');
+    expect(labels).toContain('Ajustes no quadro');
+    expect(labels).not.toContain('Fixar no topo');
+    [...menu.querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.includes('Levar para'))!.click();
+    await settle();
+    expect(kanban.boards()[0].cards.find((c) => c.note === 'nlogin01')!.column).toBe('fazendo');
+  });
+
+  it('os "Ajustes no quadro" do menu abrem a folha da anotação no quadro', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    host.querySelector<HTMLElement>('.lugar[data-nota="nsync001"] .hit')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
+    await settle();
+    const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;
+    [...menu.querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.includes('Ajustes no quadro'))!.click();
+    await settle();
+    expect(host.querySelector('app-kanban-card-sheet')).not.toBeNull();
+  });
+
+  it('no toque, segurar e soltar sem arrastar abre o menu (e nada se move); segurar e arrastar continua arrastando', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const li = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"]')!;
+    // no meio da ficha, à vista e longe das beiradas da tela (perto delas, ou fora da tela, segurar rola o
+    // quadro e a página, e a ficha que sai do lugar fecha o menu)
+    li.scrollIntoView({ block: 'center', inline: 'center' });
+    await settle();
+    const c = li.getBoundingClientRect();
+    const opts = (dx: number) => ({ bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true, pointerId: 3, button: 0, clientX: c.left + c.width / 2 + dx, clientY: c.top + c.height / 2 });
+    li.querySelector<HTMLElement>('.hit')!.dispatchEvent(new PointerEvent('pointerdown', opts(0)));
+    await new Promise((r) => setTimeout(r, 560));
+    window.dispatchEvent(new PointerEvent('pointerup', opts(2)));
+    await settle();
+    expect(host.querySelector<HTMLElement>('.menu-da-nota')!.matches(':popover-open')).toBeTrue();
+    expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
+    expect(document.documentElement.classList).not.toContain('kanban-arrastando');
+  });
+
+  it('no toque, arrastar para longe e voltar ao mesmo lugar não abre o menu (foi um arrastar)', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    const li = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"]')!;
+    const opts = (x: number) => ({ bubbles: true, cancelable: true, pointerType: 'touch', isPrimary: true, pointerId: 4, button: 0, clientX: x, clientY: 40 });
+    li.querySelector<HTMLElement>('.hit')!.dispatchEvent(new PointerEvent('pointerdown', opts(40)));
+    await new Promise((r) => setTimeout(r, 320));
+    window.dispatchEvent(new PointerEvent('pointermove', opts(200)));
+    window.dispatchEvent(new PointerEvent('pointermove', opts(41)));
+    await new Promise((r) => setTimeout(r, 250));
+    window.dispatchEvent(new PointerEvent('pointerup', opts(41)));
+    await settle();
+    expect(host.querySelector<HTMLElement>('.menu-da-nota')!.matches(':popover-open')).toBeFalse();
+  });
   it('arrastar uma das marcadas leva todas juntas, na ordem do quadro, e elas continuam marcadas', async () => {
     store.update({ ...store.get('nprova01')!, category: 'Trabalho' });
     kanban.state.set(state(board()));
