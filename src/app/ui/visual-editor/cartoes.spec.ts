@@ -110,6 +110,54 @@ describe('o card no modo Visual', () => {
     expect(valor).toBe('> [!info] L\n> - um\n> ## dois');
   });
 
+  it('os botões do card do cursor: o jeito anda pelos nove (do último, volta ao primeiro; com Shift, para trás) e o fechar pelos três; o cursor fica', async () => {
+    await make('> [!aviso] T\n> a\n> - b\n\nfora');
+    const topo = () => view.dom.children[0] as HTMLElement;
+    const botoes = () => Array.from(topo().querySelectorAll<HTMLButtonElement>('.vis-cartao-controles button'));
+    cursor(4);
+    expect(topo().classList).not.toContain('vis-cartao-ativo');
+    // o cursor numa linha de dentro (a do item, no fim do card) também liga os do card
+    cursor(2);
+    expect(topo().classList).toContain('vis-cartao-ativo');
+    expect(botoes().map((b) => b.getAttribute('aria-label'))).toEqual(['Jeito do card: Aviso. Trocar para Perigo', 'Na leitura: Sempre aberto. Trocar para Fecha, começa aberto']);
+    // fora do Tab: o teclado tem o menu "Card" da régua
+    expect(botoes().every((b) => b.tabIndex === -1)).toBeTrue();
+    const onde = view.state.selection.from;
+    botoes()[0].click();
+    expect(valor).toBe('> [!perigo] T\n> a\n> - b\n\nfora');
+    expect(view.state.selection.from).toBe(onde);
+    expect(botoes()[0].querySelector('.vis-ciclo-nome')!.textContent).toBe('Perigo');
+    botoes()[1].click();
+    expect(valor).toBe('> [!perigo]+ T\n> a\n> - b\n\nfora');
+    expect(botoes()[1].querySelector('.vis-ciclo-nome')!.textContent).toBe('Abre e fecha');
+    botoes()[1].click();
+    botoes()[1].click();
+    expect(valor!.split('\n')[0]).toBe('> [!perigo] T');
+    botoes()[0].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    expect(valor!.split('\n')[0]).toBe('> [!aviso] T');
+    // a Citação, a última, volta para a Nota
+    run({ cartao: { jeito: 'citacao' } });
+    botoes()[0].click();
+    expect(valor!.split('\n')[0]).toBe('> [!nota] T');
+    // os toques entram no histórico (os seguidos, juntos): o Ctrl+Z volta
+    view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(valor!.split('\n')[0]).not.toBe('> [!nota] T');
+  });
+
+  it('os botões aparecem só com a folha no foco, presos na beirada de cima do papel', async () => {
+    await make('antes\n> [!dica] T\n> a');
+    cursor(2);
+    const controles = view.dom.querySelector<HTMLElement>('.vis-cartao-controles')!;
+    view.dom.blur();
+    expect(getComputedStyle(controles).display).toBe('none');
+    view.focus();
+    expect(getComputedStyle(controles).display).toBe('flex');
+    const papel = controles.parentElement!.getBoundingClientRect();
+    const r = controles.getBoundingClientRect();
+    expect(r.top).toBeLessThan(papel.top);
+    expect(r.bottom).toBeGreaterThan(papel.top);
+  });
+
   it('o menu Card: o jeito, o fechar na leitura e desfazer (o que tinha dentro fica)', async () => {
     await make('> [!nota] T\n> a\n> b');
     cursor(1);

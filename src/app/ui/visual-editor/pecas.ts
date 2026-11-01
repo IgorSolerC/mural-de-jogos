@@ -6,8 +6,10 @@ import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-vie
 import { NoteLinks } from '../../core/note-links';
 import { bodyIndent, indentOf } from '../../core/rich-text';
 import { imageFileOf } from '../../core/images';
-import { WidgetSize, widgetSpoken, withInlineText } from '../../core/widgets';
+import { WIDGET_SIZES, WidgetSize, widgetCycles, widgetSized, widgetSpoken, withChoice, withInlineText } from '../../core/widgets';
+import { ICON } from '../icons';
 import { NoteWidget } from '../note-widget';
+import { ciclo, passos } from './controles';
 import { mapaDe } from './listas';
 import { schema } from './schema';
 
@@ -39,7 +41,7 @@ export interface ContextoPeca {
 }
 
 /** Os controles de dentro da peça: o toque é deles (tocar o vídeo, o som, ampliar), não seleciona a peça. */
-const CONTROLES = 'button, a, input, select, textarea, video, audio, iframe, [role=button], [role=slider], [contenteditable=true], .tocavel';
+const CONTROLES = '.vis-controles, button, a, input, select, textarea, video, audio, iframe, [role=button], [role=slider], [contenteditable=true], .tocavel';
 
 /** O campo da legenda (ou do título) dentro da peça, de onde veio o evento. */
 function campoDe(e: Event): HTMLInputElement | null {
@@ -55,6 +57,12 @@ function campoDe(e: Event): HTMLInputElement | null {
  * Selecionada, o componente recebe `editavel`: a legenda (ou o título) vira um campo. Enter ou sair dele
  * grava (uma mudança no histórico); Esc volta ao que estava; o "}}" vira "} }" (a marca do widget
  * fecharia ali), com um aviso miúdo embaixo da peça enquanto se escreve.
+ *
+ * Selecionada, embaixo da linha de recorte, por cima do texto de baixo (nada muda de lugar), os botões
+ * dela (ver controles.ts): o − e o + do tamanho, com o nome dele no meio (só no widget que tem tamanho),
+ * e um botão para cada escolha de aparência que anda a cada toque (o jeito, a moldura, como a nota
+ * começa: os campos da parte "Aparência" da folha do widget). Cada toque é uma mudança no histórico, e
+ * a peça continua selecionada.
  */
 export class WidgetView implements NodeView {
   readonly dom: HTMLElement;
@@ -69,6 +77,9 @@ export class WidgetView implements NodeView {
   private readonly host: HTMLElement;
   /** Selecionada, acompanha o tamanho do widget (a foto que chega, a folha que muda de largura). */
   private medida: ResizeObserver | null = null;
+  private readonly controles: HTMLElement;
+  /** O widget que os botões mostram (refeitos só quando ele muda). */
+  private feitos = '';
 
   constructor(
     private node: PMNode,
@@ -92,7 +103,12 @@ export class WidgetView implements NodeView {
     this.aviso.hidden = true;
     this.aviso.setAttribute('role', 'status');
     this.aviso.textContent = 'O “}}” fecharia o widget: fica “} }”';
-    this.dom.append(host, this.aviso);
+    this.controles = document.createElement('div');
+    this.controles.className = 'vis-controles vis-peca-controles';
+    this.controles.contentEditable = 'false';
+    this.controles.setAttribute('role', 'toolbar');
+    this.controles.setAttribute('aria-label', 'Tamanho e jeito do widget');
+    this.dom.append(host, this.aviso, this.controles);
     this.dom.addEventListener('focusin', (e) => {
       const c = campoDe(e);
       if (!c) return;
@@ -150,6 +166,55 @@ export class WidgetView implements NodeView {
     this.dom.setAttribute('aria-label', 'Widget: ' + widgetSpoken(a['nome'], a['args']));
     this.dom.dataset['nome'] = a['nome'];
     this.dom.style.setProperty('--recuo', String(a['recuo'] ?? 0));
+    this.desenhaControles();
+  }
+
+  /**
+   * O tamanho e as escolhas de aparência que o widget tem agora (sem nenhum, a fileira não aparece). Só
+   * na peça selecionada: as outras não mostram os botões.
+   */
+  private desenhaControles(): void {
+    if (!this.selecionada) return;
+    const { nome, args, tamanho } = this.node.attrs as { nome: string; args: string[]; tamanho: WidgetSize };
+    const chave = JSON.stringify([nome, args, tamanho]);
+    if (chave === this.feitos) return;
+    this.feitos = chave;
+    const botoes: HTMLElement[] = [];
+    if (widgetSized(nome, args))
+      botoes.push(
+        passos({
+          rotulo: 'o tamanho',
+          opcoes: WIDGET_SIZES.map((t) => ({ valor: t.value, nome: t.label })),
+          at: WIDGET_SIZES.findIndex((t) => t.value === tamanho),
+          escolhe: (v) => this.muda({ tamanho: v }),
+        }),
+      );
+    widgetCycles(nome, args).forEach((c, i) =>
+      botoes.push(
+        ciclo({
+          rotulo: c.label,
+          opcoes: c.options.map((o) => ({ valor: o.value, nome: o.label })),
+          at: c.at,
+          icone: c.key === 'fold' ? ICON.card : ICON.paleta,
+          giro: i % 2 ? '1deg' : '-1.1deg',
+          escolhe: (v) => {
+            const novos = withChoice(nome, this.node.attrs['args'], c.key, v);
+            if (novos) this.muda({ args: novos });
+          },
+        }),
+      ),
+    );
+    this.controles.replaceChildren(...botoes);
+    this.controles.hidden = !botoes.length;
+  }
+
+  /** A peça com o tamanho (ou os parâmetros) trocado, numa mudança do histórico; ela continua selecionada. */
+  private muda(attrs: { tamanho?: string; args?: string[] }): void {
+    const pos = this.getPos();
+    if (pos === undefined || !this.view.editable) return;
+    const tr = this.view.state.tr.setNodeMarkup(pos, null, { ...this.node.attrs, ...attrs });
+    this.view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, pos)));
+    this.view.focus();
   }
 
   private poeEditavel(sim: boolean): void {
@@ -183,6 +248,8 @@ export class WidgetView implements NodeView {
     if (a['tamanho'] !== b['tamanho']) this.ref.setInput('size', b['tamanho']);
     this.node = node;
     this.desenha();
+    // o jeito ou o tamanho novo desenha outra coisa: a linha de recorte acompanha (depois do desenho)
+    if (this.selecionada && node.attrs !== a) requestAnimationFrame(() => this.selecionada && this.mede());
     return true;
   }
 
@@ -190,9 +257,15 @@ export class WidgetView implements NodeView {
     this.selecionada = true;
     this.dom.classList.add('ProseMirror-selectednode');
     this.poeEditavel(true);
+    this.desenhaControles();
     this.mede();
-    // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho)
-    requestAnimationFrame(() => this.selecionada && this.mede());
+    // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho),
+    // e os botões embaixo dela entram na parte da folha que se vê
+    requestAnimationFrame(() => {
+      if (!this.selecionada) return;
+      this.mede();
+      this.mostraControles();
+    });
     if (!this.medida && typeof ResizeObserver !== 'undefined') {
       // o widget e a folha (a folha mais estreita prende a linha mais para dentro, mesmo sem o widget mudar)
       this.medida = new ResizeObserver(() => this.selecionada && this.mede());
@@ -209,12 +282,25 @@ export class WidgetView implements NodeView {
     this.medida = null;
   }
 
+  /**
+   * Os botões ficam embaixo da peça, por cima do texto: na peça do pé da folha que rola, eles cairiam
+   * fora do que se vê (o ProseMirror só rola até a peça). A folha desce o que falta, sem passar a peça.
+   */
+  private mostraControles(): void {
+    const folha = this.view.dom;
+    if (this.controles.hidden || folha.scrollHeight <= folha.clientHeight) return;
+    const fim = folha.getBoundingClientRect().top + folha.clientTop + folha.clientHeight;
+    const falta = this.controles.getBoundingClientRect().bottom + 4 - fim;
+    const sobra = this.dom.getBoundingClientRect().top - folha.getBoundingClientRect().top - folha.clientTop;
+    if (falta > 0) folha.scrollTop += Math.min(falta, Math.max(0, sobra));
+  }
+
   /** A linha de recorte da seleção (ver visual-editor.scss) em volta do que o widget desenha, dentro da folha. */
   private mede(): void {
     const s = this.dom.style;
     const r = linhaDeRecorte(this.host, this.view.dom);
     if (!r) {
-      for (const v of ['--recorte-esq', '--recorte-topo', '--recorte-larg', '--recorte-alto']) s.removeProperty(v);
+      for (const v of ['--recorte-esq', '--recorte-topo', '--recorte-larg', '--recorte-alto', '--controles-max']) s.removeProperty(v);
       return;
     }
     // as pontas em pixels inteiros da página (não a diferença arredondada, que guardaria a fração do
@@ -225,6 +311,9 @@ export class WidgetView implements NodeView {
     s.setProperty('--recorte-topo', `${topo - caixa.top}px`);
     s.setProperty('--recorte-larg', `${dir - esq}px`);
     s.setProperty('--recorte-alto', `${baixo - topo}px`);
+    // os botões embaixo da linha vão até a beirada da folha (mais largos, quebram em duas fileiras)
+    const f = this.view.dom.getBoundingClientRect();
+    s.setProperty('--controles-max', `${Math.round(f.left + this.view.dom.clientLeft + this.view.dom.clientWidth - RECORTE_BORDA - esq - 6)}px`);
   }
 
   /** O campo e os controles (tocar o vídeo e o som, ampliar) ficam com eles: o toque não seleciona a peça. */

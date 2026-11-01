@@ -120,6 +120,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
     items: [
       { what: 'Pôr um widget', note: 'Pelo Inserir: o contador, a imagem, o vídeo, o áudio e a nota, cada um numa linha só dele. Colar ou soltar uma imagem também.' },
       { what: 'Mexer num widget', note: 'Um toque nele mostra o Editar e o Tirar. A legenda da imagem e do vídeo e o título do contador e da faixa se escrevem direto nele: Enter guarda, Esc desiste.' },
+      { what: 'Tamanho e jeito', note: 'Embaixo do widget selecionado: o − e o + mudam o tamanho, e o botão do jeito (ou da moldura) troca para o próximo a cada toque; com Shift, volta.' },
       { what: 'Tirar o widget', keys: 'Delete', note: 'Com ele selecionado (ou o Backspace); o Ctrl+Z volta. O Enter abre uma linha embaixo dele, e dá para arrastá-lo para outro lugar.' },
     ],
   },
@@ -127,7 +128,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
     title: 'Tabela',
     items: [
       { what: 'Pôr uma tabela', note: 'Pelo Inserir › Tabela: escolha o tamanho na grade, e ela entra com o cursor na primeira célula. Cada célula se escreve como uma linha, com negrito, links e o resto.' },
-      { what: 'Fileiras e colunas', note: 'Com o cursor na tabela, embaixo dela: o + põe uma fileira embaixo da do cursor (ou uma coluna depois dela), e o − tira a do cursor. O cabeçalho fica sempre.' },
+      { what: 'Fileiras e colunas', note: 'Com o cursor na tabela: em cima da coluna dele, o + põe uma coluna depois dela e o − a tira; na beirada da esquerda, em pé, o + põe uma fileira embaixo da dele e o − a tira. O cabeçalho fica sempre. No pé, o jeito da tabela troca a cada toque.' },
       { what: 'Andar entre as células', keys: 'Tab', note: 'Shift+Tab volta. Na última célula, o Tab abre uma fileira nova. As setas também andam.' },
       { what: 'Descer e subir', keys: 'Enter', note: 'Vai para a célula de baixo (na última fileira, abre outra); Shift+Enter sobe.' },
       { what: 'Várias células', keys: 'Shift+setas', note: 'Ou arrastando. O negrito e o resto valem em todas; o Delete esvazia elas.' },
@@ -141,6 +142,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Pôr um card', note: 'Pelo Inserir › Card, com o cursor no título. Com linhas selecionadas, elas vão para dentro dele. Ou escreva "> " e depois "[!aviso] ".' },
       { what: 'Escrever dentro', keys: 'Enter', note: 'Na linha de cima, desce para dentro do card; dentro, a linha nova fica nele, com listas, tarefas e widgets. Na última linha, vazia, o Enter sai do card.' },
       { what: 'O menu Card', note: 'Aparece na régua com o cursor no card: o jeito (o papel e o desenho), se ele fecha na leitura, e desfazer o card (o que tinha dentro fica no texto). O Backspace no começo do título também desfaz.' },
+      { what: 'Jeito do card', note: 'Com o cursor no card, na beirada de cima do papel: um toque passa para o próximo jeito (com Shift, volta), e o do lado diz se ele fecha na leitura.' },
     ],
   },
   {

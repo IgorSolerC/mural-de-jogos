@@ -1,5 +1,5 @@
 import { hasFormatting, hasTouchableWidget, parseRich, plainText } from './rich-text';
-import { CARD_LOOKS, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetDef, widgetLine, writeWhen } from './widgets';
+import { CARD_LOOKS, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetCycles, widgetDef, widgetLine, widgetSized, withChoice, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -507,5 +507,30 @@ describe('a cópia de cada widget, como texto', () => {
       expect(widgetDef('audio')!.found!({ url: 'https://site.com/pagina' })).toBeNull();
       expect(widgetDef('audio')!.found!({})).toBeNull();
     });
+  });
+
+  it('as escolhas de aparência que andam com um toque no Visual: só as da Aparência, as que valem agora, e só no widget que se escreve', () => {
+    const resumo = (n: string, a: string[]) => widgetCycles(n, a).map((c) => `${c.label}:${c.options[c.at].value}/${c.options.length}`);
+    expect(resumo('contador', ['25/12/2030', 'Natal'])).toEqual(['Jeito:calendario/4']);
+    expect(resumo('contador', ['25/12/2030', 'placar'])).toEqual(['Jeito:placar/4']);
+    expect(resumo('imagem', ['https://exemplo.invalid/a.jpg', 'recorte'])).toEqual(['Moldura:recorte/3']);
+    expect(resumo('audio', ['https://youtu.be/abcdefghijk'])).toEqual(['Jeito:fita/3']);
+    expect(resumo('nota', ['Lisboa'])).toEqual(['Jeito:ficha/4']);
+    expect(resumo('nota', ['Lisboa', 'inteira'])).toEqual(['Jeito:inteira/4', 'Começa:aberta/2']);
+    // o que não abriu não tem como ser escrito: o contador sem dia, a imagem sem link
+    expect(resumo('contador', ['Natal'])).toEqual([]);
+    expect(resumo('imagem', [])).toEqual([]);
+    expect(resumo('enquete', ['a'])).toEqual([]);
+    // a troca escreve como a folha escreve
+    expect(withChoice('contador', ['25/12/2030', 'Natal'], 'look', 'neon')).toEqual(['25/12/2030', 'neon', 'Natal']);
+    expect(withChoice('contador', ['25/12/2030', 'neon', 'Natal'], 'look', 'calendario')).toEqual(['25/12/2030', 'Natal']);
+    expect(withChoice('nota', ['Lisboa', 'inteira'], 'fold', 'fechada')).toEqual(['Lisboa', 'inteira', 'fechada']);
+    expect(withChoice('contador', ['Natal'], 'look', 'neon')).toBeNull();
+    // o tamanho: a tabela nunca, a nota em "Só o título" e "Texto inteiro" não
+    expect(widgetSized('contador', ['25/12/2030'])).toBeTrue();
+    expect(widgetSized('nota', ['Lisboa', 'tira'])).toBeFalse();
+    expect(widgetSized('nota', ['Lisboa', 'capa'])).toBeTrue();
+    expect(widgetSized('tabela', [])).toBeFalse();
+    expect(widgetSized('enquete', [])).toBeFalse();
   });
 });

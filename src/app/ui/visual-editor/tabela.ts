@@ -3,9 +3,10 @@ import { Fragment, Node as PMNode, ResolvedPos, Slice } from 'prosemirror-model'
 import { Command, EditorState, Plugin, PluginKey, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { CellSelection, TableMap, tableEditing } from 'prosemirror-tables';
 import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
-import type { LucideIconData } from 'lucide-angular';
 import { parseInline } from '../../core/rich-text';
-import { Align, MAX_TABLE_COLS, MAX_TABLE_ROWS, TableLook, pastedGrid } from '../../core/tables';
+import { Align, MAX_TABLE_COLS, MAX_TABLE_ROWS, TABLE_LOOKS, TableLook, pastedGrid } from '../../core/tables';
+import { ICON } from '../icons';
+import { ciclo, etiqueta } from './controles';
 import { linkarEndereco } from './links';
 import { inlineDe, schema } from './schema';
 import { AcaoTabela, EstadoTabela } from './visual-api';
@@ -632,49 +633,74 @@ function endireitar(t: PMNode): PMNode | null {
 /** O `prosemirror-tables` (a seleção de células, as setas entre elas, o colar de células, o conserto de tabela torta). */
 export const edicaoDaTabela = (): Plugin => tableEditing({ allowTableNodeSelection: false });
 
-// ===== As alças: pôr e tirar fileira e coluna direto na tabela =====
+// ===== As alças: pôr e tirar fileira e coluna, e o jeito, direto na tabela =====
 
-/** O que cada botão das alças faz, o nome dele para o leitor de tela e quando ele não vale ali. */
-const ALCAS: readonly { grupo: 'Fileira' | 'Coluna'; acao: AcaoTabela & string; nome: string; mais: boolean; nao: (e: EstadoTabela) => boolean }[] = [
-  { grupo: 'Fileira', acao: 'fileiraEmbaixo', nome: 'Pôr uma fileira embaixo desta', mais: true, nao: (e) => e.fileiras - 1 >= MAX_TABLE_ROWS },
-  { grupo: 'Fileira', acao: 'tirarFileira', nome: 'Tirar esta fileira', mais: false, nao: (e) => e.fileira === 0 || e.fileiras <= 2 },
-  { grupo: 'Coluna', acao: 'colunaDepois', nome: 'Pôr uma coluna depois desta', mais: true, nao: (e) => e.colunas >= MAX_TABLE_COLS },
-  { grupo: 'Coluna', acao: 'tirarColuna', nome: 'Tirar esta coluna', mais: false, nao: (e) => e.colunas <= 1 },
+/**
+ * O que cada botão das alças faz, o nome dele para o leitor de tela, quando ele não vale ali (fica
+ * apagado: um limite que muda) e quando ele nunca vale ali (nem aparece: o − do cabeçalho).
+ */
+const ALCAS: readonly { grupo: 'fileira' | 'coluna'; acao: AcaoTabela & string; nome: string; mais: boolean; nao: (e: EstadoTabela) => boolean; nunca?: (e: EstadoTabela) => boolean }[] = [
+  { grupo: 'coluna', acao: 'colunaDepois', nome: 'Pôr uma coluna depois desta', mais: true, nao: (e) => e.colunas >= MAX_TABLE_COLS },
+  { grupo: 'coluna', acao: 'tirarColuna', nome: 'Tirar esta coluna', mais: false, nao: (e) => e.colunas <= 1 },
+  { grupo: 'fileira', acao: 'fileiraEmbaixo', nome: 'Pôr uma fileira embaixo desta', mais: true, nao: (e) => e.fileiras - 1 >= MAX_TABLE_ROWS },
+  { grupo: 'fileira', acao: 'tirarFileira', nome: 'Tirar esta fileira', mais: false, nao: (e) => e.fileira === 0 || e.fileiras <= 2, nunca: (e) => e.fileira === 0 },
 ];
 
 /**
- * As alças da tabela do cursor: logo embaixo dela, em duas linhas da pauta, "Fileira" e "Coluna" escritos
- * a lápis, cada um com duas etiquetas de papel do site (`botao-papel`), o + (embaixo da do cursor, depois
- * da do cursor) e o − (tira a do cursor, que fica marcada enquanto o − está apontado). O resto (mover, alinhar,
- * o jeito, a folha) continua no menu "Tabela" da régua. O que não vale ali fica apagado: o cabeçalho e a
- * única fileira de baixo não saem, a única coluna não sai, os limites da folha da tabela.
+ * As alças da tabela do cursor, por cima dela (nada muda de lugar no texto): o + e o − da coluna em cima
+ * da coluna do cursor, presos na beirada de cima, no canto direito dela (o + põe uma depois dela); os da
+ * fileira em pé (o + em cima do −), presos na beirada da esquerda, na altura da fileira do cursor (o +
+ * põe uma embaixo dela); e, no pé, à direita, o jeito da tabela, que anda a cada toque. As etiquetas de
+ * papel do site (`botao-papel`), pequenas, coladas à mão; o − com o corte vermelho, e a fileira ou a
+ * coluna que ele tira fica marcada enquanto ele está apontado (o + apontado risca onde a nova entra). O
+ * que não vale ali fica apagado: a única fileira de baixo não sai, a única coluna não sai, os limites da
+ * folha da tabela; o − do cabeçalho, que nunca sai, nem aparece.
+ * O resto (mover, alinhar, tirar a tabela) continua no menu "Tabela" da régua.
  */
-export const alcasDaTabela = (icones: { mais: LucideIconData; menos: LucideIconData }): Plugin =>
+export const alcasDaTabela = (): Plugin =>
   new Plugin<Alvo>({
     key: ALVO,
-    // a fileira ou a coluna que o − apontado vai tirar (uma decoração: a classe posta à mão na célula, o
-    // ProseMirror desfaz); qualquer mudança no texto ou na seleção a apaga
+    // a fileira ou a coluna que o − apontado vai tirar, ou onde o + apontado põe a nova (uma decoração: a
+    // classe posta à mão na célula, o ProseMirror desfaz); qualquer mudança no texto ou na seleção a apaga
     state: {
       init: () => null,
       apply: (tr, alvo) => (tr.getMeta(ALVO) !== undefined ? (tr.getMeta(ALVO) as Alvo) : tr.docChanged || tr.selectionSet ? null : alvo),
+    },
+    // o lugar das alças sai das células na tela: depois de cada desenho, com a folha que muda de
+    // largura e com a tabela larga rolando de lado (a rolagem não sobe: ela é ouvida na descida; a da
+    // folha não conta, as alças rolam com o texto)
+    view(view) {
+      const poe = () => posicionaAlcas(view);
+      const rolou = (e: Event) => e.target !== view.dom && poe();
+      const medida = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(poe) : null;
+      medida?.observe(view.dom);
+      view.dom.addEventListener('scroll', rolou, { capture: true, passive: true });
+      return {
+        update: poe,
+        destroy: () => {
+          medida?.disconnect();
+          view.dom.removeEventListener('scroll', rolou, { capture: true });
+        },
+      };
     },
     props: {
       decorations(state) {
         const at = celulaDoCursor(state);
         const e = estadoTabela(state);
         if (!at || !e) return null;
-        const recuo = (at.tabela.node.attrs['recuo'] as number) ?? 0;
-        const nao = ALCAS.map((a) => a.nao(e));
+        // 0: vale; 1: apagado; 2: nem aparece
+        const como = ALCAS.map((a) => (a.nunca?.(e) ? 2 : a.nao(e) ? 1 : 0));
         const fim = at.tabela.pos + at.tabela.node.nodeSize;
-        const decos = [Decoration.widget(fim, (view) => alcas(view, recuo, nao, icones), { side: -1, key: `alcas:${recuo}:${nao.map(Number).join('')}`, stopEvent: () => true, ignoreSelection: true })];
+        const decos = [Decoration.widget(fim, (view) => alcas(view, como, e.jeito), { side: -1, key: `alcas:${como.join('')}:${e.jeito}`, stopEvent: () => true, ignoreSelection: true })];
         const alvo = ALVO.getState(state);
         if (alvo) {
+          const [qual, por] = [alvo.replace('+', ''), alvo.endsWith('+')];
           const t = at.tabela.node;
           let pos = at.tabela.pos + 1;
           t.forEach((f, _, i) => {
             let c = pos + 1;
             f.forEach((cel, __, j) => {
-              if ((alvo === 'fileira' && i === at.f) || (alvo === 'coluna' && j === at.c)) decos.push(Decoration.node(c, c + cel.nodeSize, { class: 'vis-alvo-tirar' }));
+              if ((qual === 'fileira' && i === at.f) || (qual === 'coluna' && j === at.c)) decos.push(Decoration.node(c, c + cel.nodeSize, { class: por ? `vis-alvo-por-${qual}` : 'vis-alvo-tirar' }));
               c += cel.nodeSize;
             });
             pos += f.nodeSize;
@@ -685,75 +711,124 @@ export const alcasDaTabela = (icones: { mais: LucideIconData; menos: LucideIconD
     },
   });
 
-type Alvo = 'fileira' | 'coluna' | null;
+/** O que a alça apontada marca: a fileira (ou a coluna) que o − tira, ou, com "+", onde o + põe a nova. */
+type Alvo = 'fileira' | 'coluna' | 'fileira+' | 'coluna+' | null;
 const ALVO = new PluginKey<Alvo>('vis-alvo-tirar');
 
-/** O quanto cada etiqueta das alças entorta (coladas à mão, nenhuma igual à do lado). */
-const GIROS = ['-1.6deg', '1.2deg', '0.9deg', '-1.3deg'];
+/** O quanto as alças de cima e a do pé entram no papel da tabela (presas na beirada, longe das letras). */
+const BEIRADA = 6;
 
-function alcas(view: EditorView, recuo: number, nao: readonly boolean[], icones: { mais: LucideIconData; menos: LucideIconData }): HTMLElement {
+/** O quanto cada etiqueta das alças entorta (coladas à mão, nenhuma igual à do lado). */
+const GIROS = ['1.2deg', '-1.3deg', '-1.6deg', '0.9deg'];
+
+function alcas(view: EditorView, como: readonly number[], jeito: TableLook): HTMLElement {
   const barra = document.createElement('div');
   barra.className = 'vis-alcas';
   barra.contentEditable = 'false';
   barra.setAttribute('role', 'toolbar');
-  barra.setAttribute('aria-label', 'Fileiras e colunas da tabela');
-  if (recuo) barra.style.setProperty('--recuo', String(recuo));
-  for (const grupo of ['Fileira', 'Coluna'] as const) {
+  barra.setAttribute('aria-label', 'Colunas, fileiras e jeito da tabela');
+  // escondidas até o primeiro lugar medido (nascem no canto da folha)
+  barra.hidden = true;
+  for (const grupo of ['coluna', 'fileira'] as const) {
     const g = document.createElement('span');
-    g.className = 'vis-alcas-grupo';
-    const nome = document.createElement('span');
-    nome.className = 'vis-alcas-nome';
-    nome.textContent = grupo;
-    nome.setAttribute('aria-hidden', 'true');
-    g.append(nome);
+    g.className = `vis-alcas-grupo vis-alcas-${grupo}`;
+    g.setAttribute('role', 'group');
+    g.setAttribute('aria-label', grupo === 'coluna' ? 'Coluna' : 'Fileira');
     ALCAS.forEach((a, i) => {
-      if (a.grupo !== grupo) return;
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.tabIndex = -1;
-      // a etiqueta de papel do site (o − com o corte vermelho), cada uma colada à mão, torta do seu jeito
-      b.className = a.mais ? 'vis-alca' : 'vis-alca perigo';
-      b.style.setProperty('--giro', GIROS[i]);
-      b.dataset['acao'] = a.acao;
-      b.setAttribute('aria-label', a.nome);
-      b.title = a.nome;
-      b.append(desenho(a.mais ? icones.mais : icones.menos));
-      b.disabled = nao[i];
-      // o toque não tira o cursor da célula (nem fecha o teclado do celular)
-      b.addEventListener('pointerdown', (ev) => ev.preventDefault());
-      b.addEventListener('mousedown', (ev) => ev.preventDefault());
-      b.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        marcaAlvo(view, null);
-        if (!b.disabled) acaoTabela(a.acao)(view.state, view.dispatch);
-        view.focus();
+      if (a.grupo !== grupo || como[i] === 2) return;
+      const b = etiqueta({
+        nome: a.nome,
+        icone: a.mais ? ICON.adicionar : ICON.tirar,
+        perigo: !a.mais,
+        giro: GIROS[i],
+        desligada: como[i] === 1,
+        aperta: () => {
+          marcaAlvo(view, null);
+          acaoTabela(a.acao)(view.state, view.dispatch);
+          view.focus();
+        },
       });
-      if (!a.mais) {
-        b.addEventListener('pointerenter', () => marcaAlvo(view, b.disabled ? null : a.acao === 'tirarFileira' ? 'fileira' : 'coluna'));
-        b.addEventListener('pointerleave', () => marcaAlvo(view, null));
-      }
+      b.classList.add('vis-alca');
+      b.dataset['acao'] = a.acao;
+      b.addEventListener('pointerenter', () => marcaAlvo(view, b.disabled ? null : a.mais ? `${grupo}+` : grupo));
+      b.addEventListener('pointerleave', () => marcaAlvo(view, null));
       g.append(b);
     });
     barra.append(g);
   }
+  const j = ciclo({
+    rotulo: 'Jeito da tabela',
+    opcoes: TABLE_LOOKS.map((o) => ({ valor: o.value, nome: o.label })),
+    at: TABLE_LOOKS.findIndex((o) => o.value === jeito),
+    icone: ICON.paleta,
+    giro: '-0.8deg',
+    escolhe: (v) => {
+      acaoTabela({ jeito: v as TableLook })(view.state, view.dispatch);
+      view.focus();
+    },
+  });
+  j.classList.add('vis-alcas-jeito');
+  barra.append(j);
   return barra;
+}
+
+/**
+ * Põe as alças no lugar, pelas caixas na tela da célula do cursor, da fileira dela e do papel da tabela
+ * (as contas são da folha rolada: as alças rolam com o texto). Nada sai da parte da tabela que se vê (a
+ * larga rola de lado) nem da folha; a coluna que rolou para fora não tem alças até voltar.
+ */
+function posicionaAlcas(view: EditorView): void {
+  const barra = view.dom.querySelector<HTMLElement>(':scope > .vis-alcas');
+  const at = celulaDoCursor(view.state);
+  if (!barra || !at) return;
+  const cel = view.nodeDOM(posDaCelula(at.tabela.node, at.tabela.pos, at.f, at.c) - 1) as HTMLElement | null;
+  const papel = cel?.closest<HTMLElement>('.tabela-papel');
+  const rolo = cel?.closest<HTMLElement>('.tabela-rolo');
+  const fileira = cel?.parentElement;
+  const [coluna, fila, jeito] = ['.vis-alcas-coluna', '.vis-alcas-fileira', '.vis-alcas-jeito'].map((s) => barra.querySelector<HTMLElement>(s));
+  if (!cel || !papel || !rolo || !fileira || !coluna || !fila || !jeito) {
+    barra.hidden = true;
+    return;
+  }
+  barra.hidden = false;
+  const folha = view.dom;
+  const h = folha.getBoundingClientRect();
+  // a origem das contas: o canto do texto rolado (as alças moram nele)
+  const ox = h.left + folha.clientLeft - folha.scrollLeft;
+  const oy = h.top + folha.clientTop - folha.scrollTop;
+  const r = rolo.getBoundingClientRect();
+  const visEsq = Math.max(r.left + rolo.clientLeft, h.left + folha.clientLeft) + 2;
+  const visDir = Math.min(r.left + rolo.clientLeft + rolo.clientWidth, h.left + folha.clientLeft + folha.clientWidth) - 2;
+  // nada acima do começo do texto (a tabela na primeira linha)
+  const topo = oy + 1;
+  const c = cel.getBoundingClientRect();
+  const p = papel.getBoundingClientRect();
+  const f = fileira.getBoundingClientRect();
+  const poe = (el: HTMLElement, x: number, y: number) => {
+    el.style.left = `${Math.round(x - ox)}px`;
+    el.style.top = `${Math.round(y - oy)}px`;
+  };
+  // a fileira: em pé, na beirada da esquerda (a que se vê), no meio da fileira, sem subir acima da tabela
+  // (no cabeçalho, ela ficaria na fileira das da coluna)
+  const [fw, fh] = [fila.offsetWidth, fila.offsetHeight];
+  const fx = Math.max(Math.max(p.left, visEsq - 2) - fw / 2, h.left + folha.clientLeft + 1);
+  const fy = Math.max(f.top + f.height / 2 - fh / 2, p.top + BEIRADA, topo);
+  poe(fila, fx, fy);
+  // a coluna: em cima da beirada de cima (só a ponta entra no papel, longe das letras do cabeçalho), no
+  // canto direito da coluna, sem cair em cima da fileira (medida depois de aparecer: escondida, ela mede 0)
+  coluna.hidden = c.right <= visEsq || c.left >= visDir;
+  const [cw, ch] = [coluna.offsetWidth, coluna.offsetHeight];
+  let cx = Math.min(Math.max(c.right - 4 - cw, visEsq), visDir - cw);
+  const cy = Math.max(p.top - ch + BEIRADA, topo);
+  if (cx < fx + fw + 4 && fy < cy + ch) cx = fx + fw + 4;
+  poe(coluna, cx, cy);
+  // o jeito: embaixo do pé (só a beirada encosta no papel, longe das letras da última fileira), à
+  // direita da parte que se vê
+  const jw = jeito.offsetWidth;
+  poe(jeito, Math.max(Math.min(p.right, visDir) - 8 - jw, visEsq), p.bottom - 2);
 }
 
 /** A fileira (ou a coluna) do cursor marcada enquanto o − dela está apontado: é ela que sai. */
 function marcaAlvo(view: EditorView, qual: Alvo): void {
   if ((ALVO.getState(view.state) ?? null) !== qual) view.dispatch(view.state.tr.setMeta(ALVO, qual));
-}
-
-/** O desenho de um ícone (o mesmo traço do resto do site), fora do Angular. */
-export function desenho(icone: LucideIconData): SVGSVGElement {
-  const ns = 'http://www.w3.org/2000/svg';
-  const svg = document.createElementNS(ns, 'svg');
-  const attrs: Record<string, string> = { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };
-  for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
-  for (const [tag, a] of icone) {
-    const el = document.createElementNS(ns, tag);
-    for (const [k, v] of Object.entries(a)) if (k !== 'key') el.setAttribute(k, String(v));
-    svg.append(el);
-  }
-  return svg;
 }

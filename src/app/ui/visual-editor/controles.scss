@@ -1,0 +1,257 @@
+@use '../paper-kit' as kit;
+
+// Os botões das peças do Visual (ver controles.ts): as etiquetas de papel do site, pequenas, cada uma
+// colada torta do seu jeito, por cima do texto (nada muda de lugar na pauta). À parte de
+// visual-editor.scss (o mesmo componente, sem o encapsulamento do Angular), que vem antes.
+
+.vis-folha .vis-controles,
+.vis-folha > .ProseMirror > .vis-alcas {
+  text-indent: 0;
+  white-space: nowrap;
+  line-height: 1;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+// ===== As etiquetas =====
+
+// a etiqueta de desenho só: o + e o − (o − com o corte vermelho, `.perigo`), de 20px
+.vis-folha .vis-etiqueta {
+  @include kit.botao-papel;
+  flex: none;
+  width: 20px;
+  min-height: 20px;
+  height: 20px;
+  padding: 0;
+  rotate: var(--giro, 0deg);
+  > svg {
+    width: 12px;
+    height: 12px;
+  }
+  // o meio-corte no tamanho da etiqueta pequena
+  &::after {
+    inset: 2px;
+    border-width: 1px;
+  }
+}
+
+// o − e o + com o nome do de agora no meio (o tamanho do widget)
+.vis-folha .vis-passos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.vis-folha .vis-passos-nome {
+  min-width: 5.4em;
+  height: 20px;
+  padding: 0 4px;
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.72rem;
+  letter-spacing: 0.07em;
+  line-height: 20px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+// o que anda pelas escolhas: o desenho, o nome da de agora, as bolinhas e a setinha
+.vis-folha .vis-ciclo {
+  @include kit.botao-papel;
+  flex: none;
+  gap: 5px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0 6px 0 7px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  rotate: var(--giro, 0deg);
+  > svg {
+    flex: none;
+    width: 13px;
+    height: 13px;
+  }
+  > .vis-ciclo-seta {
+    width: 13px;
+    height: 13px;
+    margin-left: -2px;
+  }
+  &::after {
+    inset: 2px;
+    border-width: 1px;
+  }
+}
+// uma bolinha por escolha, a de agora cheia: quantas são e em qual está (com muitas, a conta "3/9")
+.vis-folha .vis-ciclo-bolas {
+  display: inline-flex;
+  gap: 3px;
+  margin: 0 4px 0 2px;
+  > i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgb(21 21 21 / 0.6);
+  }
+  > i.cheia {
+    background: currentColor;
+    box-shadow: none;
+  }
+}
+.vis-folha .vis-ciclo-conta {
+  margin: 0 3px 0 1px;
+  color: var(--ink-2);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+// no toque, as etiquetas um pouco maiores, e o dedo pega em volta delas até 44px no eixo livre (em pé
+// nas que ficam lado a lado, de lado nas da fileira, que ficam em pé), sem pegar a do lado
+@media (pointer: coarse) {
+  .vis-folha .vis-etiqueta {
+    width: 28px;
+    min-height: 28px;
+    height: 28px;
+    > svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+  .vis-folha .vis-ciclo {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 8px 0 9px;
+  }
+  .vis-folha .vis-etiqueta::before {
+    content: '';
+    position: absolute;
+    inset: -8px -3px;
+  }
+  .vis-folha .vis-ciclo::before {
+    content: '';
+    position: absolute;
+    inset: -7px -4px;
+  }
+  .vis-folha .vis-passos {
+    gap: 6px;
+  }
+  .vis-folha .vis-passos-nome {
+    min-width: 5em;
+    height: 28px;
+    line-height: 28px;
+  }
+}
+
+// ===== O widget selecionado =====
+
+// embaixo da linha de recorte, por cima do texto de baixo, só com a folha no foco: uma tirinha da cartela
+// colada sobre a linha, com as etiquetas nela (o texto de baixo não aparece entre os botões)
+.vis-folha .vis-peca-controles {
+  position: absolute;
+  z-index: 3;
+  left: calc(var(--recorte-esq, 0px) + 6px);
+  top: calc(var(--recorte-topo, 0px) + var(--recorte-alto, 100%) - 6px);
+  max-width: var(--controles-max, calc(100% - 12px));
+  display: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 5px 8px;
+  border-radius: 2px;
+  background-color: #fbf8f0;
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    0 0 0 1px rgb(21 21 21 / 0.07),
+    0 1px 2px rgb(0 0 0 / 0.16),
+    0 6px 14px -6px rgb(0 0 0 / 0.3);
+  rotate: -0.4deg;
+  // o toque no papel entre os botões chega ao texto de baixo (o cursor vai para a linha coberta)
+  pointer-events: none;
+  > * {
+    pointer-events: auto;
+  }
+}
+.vis-folha:focus-within > .ProseMirror > .vis-peca.ProseMirror-selectednode > .vis-peca-controles:not([hidden]) {
+  display: flex;
+}
+@media (pointer: coarse) {
+  .vis-folha .vis-peca-controles {
+    gap: 12px;
+    padding: 4px 8px;
+    rotate: 0deg;
+  }
+}
+
+// ===== O card do cursor =====
+
+// presos na beirada de cima do papel, à direita: um terço para fora, o resto na meia linha de cima do
+// card (a linha de cima do texto quase não é coberta)
+.vis-folha > .ProseMirror > .vis-cartao-topo > .vis-cartao-controles {
+  position: absolute;
+  z-index: 3;
+  top: -8px;
+  right: calc(10px - var(--c-lado, 0px));
+  display: none;
+  align-items: center;
+  gap: 8px;
+}
+.vis-folha:focus-within > .ProseMirror > .vis-cartao-topo.vis-cartao-ativo > .vis-cartao-controles {
+  display: flex;
+}
+// o card na primeira linha do texto: dentro do papel (fora, a folha os cortaria)
+.vis-folha > .ProseMirror > .vis-cartao-topo:first-child > .vis-cartao-controles {
+  top: 2px;
+}
+@media (pointer: coarse) {
+  .vis-folha > .ProseMirror > .vis-cartao-topo > .vis-cartao-controles {
+    top: -10px;
+    gap: 12px;
+  }
+}
+
+// ===== A tabela do cursor =====
+
+// as alças moram no canto do texto (rolam com ele), e cada grupo vai para o lugar que tabela.ts mede
+.vis-folha > .ProseMirror > .vis-alcas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  z-index: 3;
+}
+.vis-folha > .ProseMirror > .vis-alcas[hidden],
+.vis-folha .vis-alcas-grupo[hidden] {
+  display: none;
+}
+// a folha sem o foco não está mexendo na tabela
+.vis-folha:not(:focus-within) > .ProseMirror > .vis-alcas {
+  display: none;
+}
+.vis-folha .vis-alcas-grupo,
+.vis-folha .vis-alcas-jeito {
+  position: absolute;
+}
+.vis-folha .vis-alcas-grupo {
+  display: flex;
+  gap: 4px;
+}
+// a da fileira em pé: o + em cima do −
+.vis-folha .vis-alcas-fileira {
+  flex-direction: column;
+}
+// com o mouse, a da fileira bem junta, abraçando a fileira em que mexe
+@media (pointer: fine) {
+  .vis-folha .vis-alcas-fileira {
+    gap: 2px;
+  }
+}
+@media (pointer: coarse) {
+  .vis-folha .vis-alcas-grupo {
+    gap: 8px;
+  }
+  .vis-folha .vis-alcas-fileira .vis-etiqueta::before {
+    inset: -4px -8px;
+  }
+}

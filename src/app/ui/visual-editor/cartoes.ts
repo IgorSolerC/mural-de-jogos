@@ -1,12 +1,12 @@
 import { Mapping } from 'prosemirror-transform';
 import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
-import { Decoration, DecorationSet, NodeView } from 'prosemirror-view';
-import { CalloutLook, calloutLook, calloutName, DEFAULT_CALLOUT } from '../../core/callouts';
+import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
+import { CALLOUTS, CalloutFold, CalloutLook, calloutLook, calloutName, DEFAULT_CALLOUT } from '../../core/callouts';
 import { calloutIcon } from '../callout-looks';
 import { ICON } from '../icons';
 import { schema } from './schema';
-import { desenho } from './tabela';
+import { ciclo, desenho } from './controles';
 import type { AcaoCartao, EstadoCartao } from './visual-api';
 
 /**
@@ -158,25 +158,63 @@ export function cartoes(): Plugin {
       },
     },
     appendTransaction: quemFica,
-    props: { decorations: (state) => DESENHO.getState(state)?.deco },
+    props: {
+      // o card do cursor ganha os botões do jeito e do fechar (ver CartaoView)
+      decorations: (state) => {
+        const deco = DESENHO.getState(state)?.deco;
+        const c = topoDoCursor(state);
+        return c && deco ? deco.add(state.doc, [Decoration.node(c.pos, c.pos + c.node.nodeSize, { class: 'vis-cartao-ativo' })]) : deco;
+      },
+    },
   });
 }
+
+/** A linha de cima do card onde está o cursor (de baixo para cima, só pelo card dele), ou null. */
+function topoDoCursor(state: EditorState): { pos: number; node: PMNode } | null {
+  const doc = state.doc;
+  let i = indiceDe(state);
+  if (i < 0 || i >= doc.childCount) return null;
+  let pos = state.selection.$from.posAtIndex(i, 0);
+  for (;;) {
+    const n = doc.child(i);
+    if (n.type === TOPO) return { pos, node: n };
+    if (!dentro(n) || i === 0) return null;
+    i--;
+    pos -= doc.child(i).nodeSize;
+  }
+}
+
+/** Como o card fica na leitura, na ordem em que o botão anda (os nomes do menu "Card" da régua). */
+const DOBRAS: readonly { valor: CalloutFold; nome: string; curto: string }[] = [
+  { valor: '', nome: 'Sempre aberto', curto: 'Aberto' },
+  { valor: '+', nome: 'Fecha, começa aberto', curto: 'Abre e fecha' },
+  { valor: '-', nome: 'Começa fechado', curto: 'Fechado' },
+];
 
 // ===== A linha de cima na tela =====
 
 /**
- * A linha de cima do card: o desenho do jeito na frente (só desenho: o jeito muda pelo menu "Card" da
- * régua), o título escrito direto e, no card que fecha, a setinha (na escrita, ele fica sempre aberto).
- * Sem título, a linha mostra o nome do jeito, apagado, como o que vai aparecer na leitura.
+ * A linha de cima do card: o desenho do jeito na frente (só desenho), o título escrito direto e, no card
+ * que fecha, a setinha (na escrita, ele fica sempre aberto). Sem título, a linha mostra o nome do jeito,
+ * apagado, como o que vai aparecer na leitura. Com o cursor no card, dois botões presos na beirada de
+ * cima do papel, à direita (ver controles.ts): o jeito, que anda pelos nove a cada toque, e como ele fica
+ * na leitura (sempre aberto, fecha começando aberto, começa fechado). O menu "Card" da régua faz o mesmo.
  */
 export class CartaoView implements NodeView {
   readonly dom: HTMLElement;
   readonly contentDOM: HTMLElement;
   private readonly icone: HTMLElement;
   private readonly seta: HTMLElement;
+  private readonly controles: HTMLElement;
   private tipo = '';
+  /** O jeito e o fechar que os botões mostram (refeitos só quando um dos dois muda). */
+  private feitos = '';
 
-  constructor(private node: PMNode) {
+  constructor(
+    private node: PMNode,
+    private readonly view: EditorView,
+    private readonly getPos: () => number | undefined,
+  ) {
     this.dom = document.createElement('div');
     this.dom.className = 'linha vis-cartao-topo';
     this.icone = document.createElement('span');
@@ -190,8 +228,48 @@ export class CartaoView implements NodeView {
     this.seta.contentEditable = 'false';
     this.seta.setAttribute('aria-hidden', 'true');
     this.seta.append(desenho(ICON.abrir));
-    this.dom.append(this.icone, this.contentDOM, this.seta);
+    this.controles = document.createElement('span');
+    this.controles.className = 'vis-controles vis-cartao-controles';
+    this.controles.contentEditable = 'false';
+    this.controles.setAttribute('role', 'toolbar');
+    this.controles.setAttribute('aria-label', 'Jeito do card');
+    this.dom.append(this.icone, this.contentDOM, this.seta, this.controles);
     this.desenha();
+  }
+
+  /** Os botões do jeito e do fechar, com o que o card tem agora. */
+  private desenhaControles(): void {
+    const tipo: string = this.node.attrs['tipo'];
+    const dobra: CalloutFold = this.node.attrs['dobra'] || '';
+    const jeito = calloutLook(tipo);
+    if (this.feitos === `${jeito}|${dobra}`) return;
+    this.feitos = `${jeito}|${dobra}`;
+    this.controles.replaceChildren(
+      ciclo({
+        rotulo: 'Jeito do card',
+        opcoes: CALLOUTS.map((c) => ({ valor: c.look, nome: c.name })),
+        at: CALLOUTS.findIndex((c) => c.look === jeito),
+        icone: ICON.paleta,
+        giro: '-1.2deg',
+        escolhe: (v) => this.muda({ tipo: v }),
+      }),
+      ciclo({
+        rotulo: 'Na leitura',
+        opcoes: DOBRAS,
+        at: DOBRAS.findIndex((d) => d.valor === dobra),
+        icone: ICON.card,
+        giro: '0.9deg',
+        escolhe: (v) => this.muda({ dobra: v }),
+      }),
+    );
+  }
+
+  /** O card com o jeito (ou o fechar) trocado; o cursor fica onde está. */
+  private muda(attrs: { tipo?: string; dobra?: string }): void {
+    const pos = this.getPos();
+    if (pos === undefined || !this.view.editable) return;
+    this.view.dispatch(this.view.state.tr.setNodeMarkup(pos, null, { ...this.node.attrs, ...attrs }).setMeta(CARTAO, true));
+    this.view.focus();
   }
 
   private desenha(): void {
@@ -207,6 +285,12 @@ export class CartaoView implements NodeView {
     this.contentDOM.dataset['vazio'] = calloutName(this.tipo);
     this.seta.hidden = !a['dobra'];
     this.seta.title = a['dobra'] === '-' ? 'Começa fechado na leitura' : 'Fecha na leitura';
+    this.desenhaControles();
+  }
+
+  /** Os botões são deles: o toque não põe o cursor na linha. */
+  stopEvent(e: Event): boolean {
+    return this.controles.contains(e.target as Node | null);
   }
 
   update(node: PMNode): boolean {
@@ -218,7 +302,7 @@ export class CartaoView implements NodeView {
 
   ignoreMutation(m: MutationRecord | { type: 'selection'; target: Node }): boolean {
     if (m.type === 'selection') return false;
-    if (this.icone.contains(m.target) || this.seta.contains(m.target)) return true;
+    if (this.icone.contains(m.target) || this.seta.contains(m.target) || this.controles.contains(m.target)) return true;
     return m.type === 'attributes' && m.target === this.dom;
   }
 }

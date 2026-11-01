@@ -519,9 +519,10 @@ describe('a tabela no modo Visual', () => {
     cursor(celula(1, 1) + 3);
     expect(t.slice(ed.selecaoNoTexto()[0])).toBe(' e |');
   });
-  describe('as alças embaixo da tabela', () => {
+  describe('as alças da tabela', () => {
     const alcas = () => fixture.nativeElement.querySelector('.ProseMirror > .vis-alcas') as HTMLElement | null;
     const alca = (acao: string) => alcas()!.querySelector(`[data-acao="${acao}"]`) as HTMLButtonElement;
+    const caixa = (sel: string) => alcas()!.querySelector<HTMLElement>(sel)!.getBoundingClientRect();
 
     it('aparecem logo depois da tabela do cursor, e só com ele nela', async () => {
       await make('antes\n' + T + '\ndepois');
@@ -531,9 +532,71 @@ describe('a tabela no modo Visual', () => {
       expect(alcas()).not.toBeNull();
       expect(alcas()!.previousElementSibling!.classList).toContain('tabela-rolo');
       expect(alcas()!.getAttribute('contenteditable')).toBe('false');
-      expect(Array.from(alcas()!.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual(['Pôr uma fileira embaixo desta', 'Tirar esta fileira', 'Pôr uma coluna depois desta', 'Tirar esta coluna']);
+      expect(Array.from(alcas()!.querySelectorAll('button')).map((b) => b.getAttribute('aria-label'))).toEqual([
+        'Pôr uma coluna depois desta',
+        'Tirar esta coluna',
+        'Pôr uma fileira embaixo desta',
+        'Tirar esta fileira',
+        'Jeito da tabela: Branca. Trocar para Listrada',
+      ]);
       // não entram no texto
       expect(valor).toBeNull();
+    });
+
+    it('por cima da tabela, sem mudar nada de lugar: a coluna na beirada de cima da coluna do cursor, a fileira em pé na da esquerda, o jeito no pé', async () => {
+      await make('antes\n' + T + '\ndepois');
+      view.focus();
+      const depois = () => (view.dom.lastElementChild as HTMLElement).getBoundingClientRect().top;
+      cursor(1);
+      const antes = depois();
+      cursor(celula(1, 1));
+      expect(alcas()!.hidden).toBeFalse();
+      expect(depois()).toBe(antes);
+      const cel = (view.nodeDOM(celula(1, 1) - 1) as HTMLElement).getBoundingClientRect();
+      const tr = (view.nodeDOM(celula(1, 1) - 1) as HTMLElement).parentElement!.getBoundingClientRect();
+      const papel = view.dom.querySelector('.tabela-papel')!.getBoundingClientRect();
+      // a coluna: o + e o − lado a lado, no canto direito da coluna, a ponta no papel
+      const [mais, menos] = [alca('colunaDepois').getBoundingClientRect(), alca('tirarColuna').getBoundingClientRect()];
+      expect(Math.abs(mais.top - menos.top)).toBeLessThan(2);
+      expect(menos.left).toBeGreaterThan(mais.right);
+      expect(Math.abs(caixa('.vis-alcas-coluna').right - (cel.right - 4))).toBeLessThan(2);
+      expect(caixa('.vis-alcas-coluna').bottom).toBeGreaterThan(papel.top);
+      expect(caixa('.vis-alcas-coluna').bottom).toBeLessThan(papel.top + 10);
+      // as etiquetas pequenas (metade das de antes)
+      expect(mais.width).toBeLessThan(26);
+      // a fileira: o + em cima do −, na beirada da esquerda, no meio da fileira do cursor
+      const [fm, fn] = [alca('fileiraEmbaixo').getBoundingClientRect(), alca('tirarFileira').getBoundingClientRect()];
+      expect(fn.top).toBeGreaterThan(fm.bottom);
+      expect(Math.abs(fm.left - fn.left)).toBeLessThan(2);
+      const fila = caixa('.vis-alcas-fileira');
+      expect(fila.left).toBeLessThan(papel.left);
+      expect(fila.right).toBeGreaterThan(papel.left);
+      expect(Math.abs((fila.top + fila.bottom) / 2 - (tr.top + tr.bottom) / 2)).toBeLessThan(2);
+      // o jeito: no pé, à direita
+      const jeito = caixa('.vis-alcas-jeito');
+      expect(jeito.top).toBeLessThan(papel.bottom);
+      expect(jeito.bottom).toBeGreaterThan(papel.bottom);
+      expect(jeito.right).toBeLessThanOrEqual(papel.right);
+      // seguem o cursor
+      cursor(celula(2, 0));
+      const tr2 = (view.nodeDOM(celula(2, 0) - 1) as HTMLElement).parentElement!.getBoundingClientRect();
+      const fila2 = caixa('.vis-alcas-fileira');
+      expect(Math.abs((fila2.top + fila2.bottom) / 2 - (tr2.top + tr2.bottom) / 2)).toBeLessThan(2);
+      expect(caixa('.vis-alcas-coluna').right).toBeLessThan(cel.left);
+    });
+
+    it('o jeito anda a cada toque (do Recibo, volta à Branca), numa mudança do histórico; o cursor fica na célula', async () => {
+      await make(T);
+      cursor(celula(1, 1));
+      const jeito = () => alcas()!.querySelector<HTMLButtonElement>('.vis-alcas-jeito')!;
+      jeito().click();
+      expect(texto()).toBe('{{tabela: listrada}}\n' + T);
+      expect(naCelula()).toEqual([1, 1, 0]);
+      expect(jeito().getAttribute('aria-label')).toBe('Jeito da tabela: Listrada. Trocar para Quadriculada');
+      for (let k = 0; k < 4; k++) jeito().click();
+      expect(texto()).toBe(T);
+      jeito().dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+      expect(texto()).toBe('{{tabela: recibo}}\n' + T);
     });
 
     it('o + e o − da fileira e da coluna, com o cursor na célula certa', async () => {
@@ -551,12 +614,12 @@ describe('a tabela no modo Visual', () => {
       expect(texto()).toBe(T);
     });
 
-    it('o que não vale fica apagado e não faz nada: o cabeçalho, a única fileira, a única coluna', async () => {
+    it('o que não vale fica apagado e não faz nada: a única fileira, a única coluna; o − do cabeçalho nem aparece', async () => {
       await make('| a |\n| --- |\n| b |');
       cursor(celula(0, 0));
-      expect(alca('tirarFileira').disabled).toBeTrue();
+      expect(alcas()!.querySelector('[data-acao="tirarFileira"]')).toBeNull();
+      expect(alca('fileiraEmbaixo').disabled).toBeFalse();
       expect(alca('tirarColuna').disabled).toBeTrue();
-      alca('tirarFileira').click();
       alca('tirarColuna').click();
       expect(grade()).toEqual([['a'], ['b']]);
       cursor(celula(1, 0));
@@ -572,6 +635,21 @@ describe('a tabela no modo Visual', () => {
       expect(marcadas).toEqual(['Nota', '10', '9']);
       alca('tirarColuna').dispatchEvent(new PointerEvent('pointerleave'));
       expect(fixture.nativeElement.querySelectorAll('.vis-alvo-tirar').length).toBe(0);
+    });
+
+    it('apontar o + risca onde a nova entra: o pé da fileira do cursor, ou a direita da coluna dele', async () => {
+      await make(T);
+      cursor(celula(1, 0));
+      const riscadas = (c: string) => Array.from(fixture.nativeElement.querySelectorAll('.' + c)).map((e) => (e as HTMLElement).textContent);
+      alca('fileiraEmbaixo').dispatchEvent(new PointerEvent('pointerenter'));
+      expect(riscadas('vis-alvo-por-fileira')).toEqual(['Hades', '10']);
+      expect(getComputedStyle(fixture.nativeElement.querySelector('.vis-alvo-por-fileira')).boxShadow).toContain('inset');
+      alca('fileiraEmbaixo').dispatchEvent(new PointerEvent('pointerleave'));
+      alca('colunaDepois').dispatchEvent(new PointerEvent('pointerenter'));
+      expect(riscadas('vis-alvo-por-coluna')).toEqual(['Jogo', 'Hades', 'Celeste']);
+      expect(riscadas('vis-alvo-por-fileira')).toEqual([]);
+      alca('colunaDepois').dispatchEvent(new PointerEvent('pointerleave'));
+      expect(riscadas('vis-alvo-por-coluna')).toEqual([]);
     });
   });
 });

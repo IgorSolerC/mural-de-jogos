@@ -288,6 +288,71 @@ describe('os widgets no modo Visual', () => {
     });
   });
 
+  describe('os botões da peça selecionada', () => {
+    const controles = (i = 0) => pecas()[i].querySelector<HTMLElement>('.vis-peca-controles')!;
+    const botoes = (i = 0) => Array.from(controles(i).querySelectorAll<HTMLButtonElement>('button'));
+    const nomes = (i = 0) => botoes(i).map((b) => b.getAttribute('aria-label'));
+
+    it('o − e o + do tamanho (com o nome dele) e o jeito, que anda a cada toque; a peça continua selecionada', async () => {
+      const t = 'a\n{{contador: 25/12/2030 | Natal}}\nb';
+      await make(t);
+      seleciona(1);
+      expect(nomes()).toEqual(['Diminuir o tamanho: Pequeno', 'Aumentar o tamanho: Grande', 'Jeito: Calendário. Trocar para Neon']);
+      expect(controles().querySelector('.vis-passos-nome')!.textContent).toBe('Médio');
+      expect(botoes().every((b) => b.tabIndex === -1)).toBeTrue();
+      botoes()[1].click();
+      expect(valor).toBe('a\n{{contador: 25/12/2030 | Natal | grande}}\nb');
+      expect(view.state.selection instanceof NodeSelection).toBeTrue();
+      await ate(() => pecas()[0].querySelector('app-note-widget.tam-grande'));
+      // no maior, o + fica apagado e não faz nada
+      expect(botoes()[1].disabled).toBeTrue();
+      botoes()[1].click();
+      expect(valor).toBe('a\n{{contador: 25/12/2030 | Natal | grande}}\nb');
+      botoes()[2].click();
+      expect(valor).toBe('a\n{{contador: 25/12/2030 | neon | Natal | grande}}\nb');
+      expect(nomes()[2]).toBe('Jeito: Neon. Trocar para Placar');
+      // com Shift, para trás; do primeiro, o último
+      botoes()[2].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+      botoes()[2].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+      expect(nomes()[2]).toBe('Jeito: Riscado. Trocar para Calendário');
+      // cada toque é uma mudança no histórico
+      for (let k = 0; k < 4; k++) tecla('z', { ctrlKey: true });
+      expect(valor).toBe(t);
+    });
+
+    it('só com a peça selecionada e a folha no foco, embaixo da linha de recorte', async () => {
+      await make('a\n{{contador: 25/12/2030 | Natal}}\nb');
+      view.focus();
+      expect(getComputedStyle(controles()).display).toBe('none');
+      seleciona(1);
+      expect(getComputedStyle(controles()).display).toBe('flex');
+      await ate(() => pecas()[0].style.getPropertyValue('--recorte-alto'));
+      const peca = pecas()[0].getBoundingClientRect();
+      const topo = parseFloat(pecas()[0].style.getPropertyValue('--recorte-topo')) + parseFloat(pecas()[0].style.getPropertyValue('--recorte-alto'));
+      expect(Math.abs(controles().getBoundingClientRect().top - (peca.top + topo - 6))).toBeLessThan(3);
+      view.dom.blur();
+      expect(getComputedStyle(controles()).display).toBe('none');
+    });
+
+    it('cada widget com o que ele tem: a moldura da foto; a nota em texto inteiro sem tamanho e com o "Começa"; o contador sem data só com o tamanho', async () => {
+      await make('{{imagem: https://exemplo.invalid/a.jpg | Uma foto}}\n{{nota: Lisboa | inteira}}\n{{contador: Natal}}');
+      seleciona(0);
+      expect(nomes(0)).toEqual(['Diminuir o tamanho: Pequeno', 'Aumentar o tamanho: Grande', 'Moldura: Foto. Trocar para Polaroide']);
+      botoes(0)[2].click();
+      expect(valor!.split('\n')[0]).toBe('{{imagem: https://exemplo.invalid/a.jpg | Uma foto | polaroid}}');
+      seleciona(1);
+      expect(nomes(1)).toEqual(['Jeito: Texto inteiro. Trocar para Ficha', 'Começa: Aberta. Trocar para Fechada']);
+      botoes(1)[1].click();
+      expect(valor!.split('\n')[1]).toBe('{{nota: Lisboa | inteira | fechada}}');
+      // a ficha tem tamanho: o − e o + aparecem
+      botoes(1)[0].click();
+      expect(valor!.split('\n')[1]).toBe('{{nota: Lisboa}}');
+      expect(nomes(1)).toEqual(['Diminuir o tamanho: Pequeno', 'Aumentar o tamanho: Grande', 'Jeito: Ficha. Trocar para Capa e título']);
+      seleciona(2);
+      expect(nomes(2)).toEqual(['Diminuir o tamanho: Pequeno', 'Aumentar o tamanho: Grande']);
+    });
+  });
+
   describe('escrever direto na peça', () => {
     it('selecionada, a legenda vira um campo; fora da seleção, a peça é a da leitura', async () => {
       await make('{{imagem: https://exemplo.invalid/a.jpg | Na praia}}\nfim');

@@ -1189,6 +1189,43 @@ export function withInlineText(name: string, args: readonly string[], text: stri
   return out;
 }
 
+/** Uma escolha de aparência do widget que anda com um toque, no Visual: o jeito, a moldura, como começa. */
+export interface WidgetCycle {
+  key: string;
+  /** O nome do campo na folha ("Jeito", "Moldura"). */
+  label: string;
+  options: readonly { value: string; label: string }[];
+  /** O índice da escolha de agora nas `options`. */
+  at: number;
+}
+
+/**
+ * As escolhas de aparência do widget que valem agora (os campos `choice` em miniaturas ou em recortes,
+ * os da parte "Aparência" da folha), com a de agora. Fica de fora a que não teria como ser escrita (o
+ * widget que não abriu: a imagem sem link, o contador sem dia).
+ */
+export function widgetCycles(name: string, args: readonly string[]): WidgetCycle[] {
+  const def = widgetDef(name);
+  if (!def || !def.write(def.read(args))) return [];
+  const values = def.read(args);
+  return fieldsFor(def, values)
+    .filter((f) => f.kind === 'choice' && (f.display === 'tiles' || f.display === 'segments') && (f.options?.length ?? 0) > 1)
+    .map((f) => ({ key: f.key, label: f.label, options: f.options!, at: Math.max(0, f.options!.findIndex((o) => o.value === values[f.key])) }));
+}
+
+/** Os parâmetros com a escolha `key` trocada por `value`, pelos campos do widget (como a folha escreve); null, não dá. */
+export function withChoice(name: string, args: readonly string[], key: string, value: string): string[] | null {
+  const def = widgetDef(name);
+  if (!def) return null;
+  return def.write({ ...def.read(args), [key]: value });
+}
+
+/** O widget tem tamanho agora? A tabela nunca; a nota em "Só o título" e "Texto inteiro", não (têm o do que mostram). */
+export function widgetSized(name: string, args: readonly string[]): boolean {
+  const def = widgetDef(name);
+  return !!def && !def.unsized && !def.fixedSize?.(def.read(args));
+}
+
 /** O nome do widget para quem não vê a peça: "Contador, Lançamento do GTA VI" (o nome e o resumo dele). */
 export function widgetSpoken(name: string, args: readonly string[]): string {
   const def = widgetDef(name);

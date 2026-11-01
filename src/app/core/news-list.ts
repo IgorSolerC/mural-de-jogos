@@ -27,15 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-10-31-card-no-texto',
+    id: '2026-10-31-botoes-das-pecas',
     version: '1.36.1',
     kind: 'ajustes',
     date: '2026-10-31',
-    title: 'O card no texto, ampliar a tabela e a régua mais enxuta',
+    title: 'O card no texto, os botões das peças no Visual, ampliar a tabela e a régua mais enxuta',
     melhorias: [
       'O texto ganhou o card, como o do Obsidian: um papel colorido colado na anotação, com a beirada rasgada, um título e quantas linhas quiser dentro (listas, tarefas, widgets, tudo). Pelo Inserir › Card, ou escrevendo "> [!aviso] Título"; o menu Card da régua troca o jeito (nota, info, dica, feito, pergunta, aviso, perigo, exemplo e citação) e faz o card fechar na leitura, com o título para abrir.',
       'A tabela também amplia, como os outros widgets: com o mouse em cima dela, o broche de ampliar aparece no canto e a sobe inteira para o meio da tela, com todas as colunas (a larga demais rola de lado, sem a letra ficar miúda).',
       'Na régua do texto, o Formatar, o Inserir e a Tabela ficaram só com o desenho e a setinha (o nome aparece ao parar o mouse em cima), e sobra lugar para o riscado, o marca-texto e os links ficarem à mão numa folha mais estreita.',
+      'No modo Visual, cada peça tem os seus botões, sem abrir a folha do widget: embaixo do widget selecionado, o − e o + do tamanho e um botão que troca o jeito (ou a moldura) a cada toque; no card do cursor, o jeito e se ele fecha na leitura; e na tabela, o + e o − da coluna ficaram pequenos em cima dela, os da fileira em pé na beirada, e o jeito dela no pé.',
     ],
   },
   {
