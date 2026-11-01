@@ -634,15 +634,23 @@ export function countdownLeft(w: When, now: number): string {
 
 // ===== A imagem e o vídeo: uma foto colada na cartolina =====
 
-/** O jeito da foto colada: com a borda branca da foto revelada, polaroide ou recortada rente. */
-export type Frame = 'foto' | 'polaroid' | 'recorte';
+/**
+ * O jeito da foto colada: com a borda branca da foto revelada, polaroide, recortada rente ou um
+ * adesivo (o papel branco de adesivo cortado com a tesoura de picotar, ver ui/glued-media.ts).
+ */
+export type Frame = 'foto' | 'polaroid' | 'recorte' | 'adesivo';
 export const FRAMES: readonly { value: Frame; label: string }[] = [
   { value: 'foto', label: 'Foto' },
   { value: 'polaroid', label: 'Polaroide' },
   { value: 'recorte', label: 'Recorte' },
+  { value: 'adesivo', label: 'Adesivo' },
 ];
-/** Os nomes que valem para cada moldura, escritos à mão (sem acento, em minúsculas). */
-const FRAME_WORDS: Record<string, Frame> = { foto: 'foto', polaroid: 'polaroid', polaroide: 'polaroid', recorte: 'recorte', recortada: 'recorte' };
+/**
+ * Os nomes que valem para cada moldura, escritos à mão (sem acento, em minúsculas). Cada palavra nova
+ * aqui faz a legenda de antes que era só ela virar moldura (`{{imagem: … | Adesivo}}` era a legenda
+ * "Adesivo"): por isso o adesivo vale só pelo nome dele, sem apelidos.
+ */
+const FRAME_WORDS: Record<string, Frame> = { foto: 'foto', polaroid: 'polaroid', polaroide: 'polaroid', recorte: 'recorte', recortada: 'recorte', adesivo: 'adesivo' };
 /** A moldura que uma palavra nomeia, ou null (só as palavras da lista: "constructor" não é moldura). */
 function frameWord(a: string): Frame | null {
   const k = key(a);

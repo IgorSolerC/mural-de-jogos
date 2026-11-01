@@ -58,6 +58,7 @@ export const PDF_WIDGET_SAMPLES: Record<string, readonly string[]> = {
     '{{imagem: https://cdn.cloudflare.steamstatic.com/steam/apps/1145360/header.jpg | polaroid | A primeira fuga}}',
     '{{imagem: https://cdn.cloudflare.steamstatic.com/steam/apps/367520/header.jpg | recorte | Recortada da revista | pequeno}}',
     '{{imagem: https://cdn.cloudflare.steamstatic.com/steam/apps/504230/library_600x900.jpg | foto | Capa | pequeno}}',
+    '{{imagem: https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg | adesivo | O adesivo da fazenda | pequeno}}',
   ],
   video: ['{{video: https://www.youtube.com/watch?v=dQw4w9WgXcQ | O clipe}}'],
   audio: ['{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | Fado}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | vinil | Fado | pequeno}}', '{{audio: https://www.youtube.com/watch?v=dQw4w9WgXcQ | simples | Fado | mini}}'],

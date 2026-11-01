@@ -8,6 +8,7 @@ import { localImageUrl } from '../core/images';
 import { samplePng } from '../core/images.spec';
 import { ACCOUNT_KEY, SESSION_KEY } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
+import { stickerEdge } from '../core/tear';
 
 
 /** Conta quantas vezes o `src` do iframe é escrito (escrever o mesmo endereço recarrega o player). */
@@ -23,6 +24,11 @@ function countSrcWrites(frame: HTMLIFrameElement): () => number {
     },
   });
   return () => n;
+}
+
+/** Espera alguns quadros (o observador de tamanho avisa antes de pintar) até `ok`, ou `max` quadros. */
+async function waitFrames(ok: () => boolean, max = 30): Promise<void> {
+  for (let i = 0; i < max && !ok(); i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
 }
 
 describe('a foto colada na anotação', () => {
@@ -315,6 +321,64 @@ describe('a foto colada na anotação', () => {
       fixture.destroy();
     });
 
+    it('o adesivo ampliado: a mesma moldura, com o papel cortado no tamanho dele e a sombra seguindo os dentes', async () => {
+      const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'adesivo', 'Na praia']);
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
+      const dialog = await viewer();
+      expect(dialog.querySelector('.colagem')!.classList).toContain('moldura-adesivo');
+      const big = dialog.querySelector<HTMLElement>('.foto')!;
+      await waitFrames(() => !!big.style.getPropertyValue('--picote'));
+      const mask = big.style.getPropertyValue('--picote');
+      // os dentes presos à margem, na conta da colada (0,68em na letra de 16px = os dentes de sempre)
+      const k = parseFloat(getComputedStyle(big).paddingTop) / 10.88;
+      expect(k).toBeCloseTo(parseFloat(getComputedStyle(big).fontSize) / 16, 2);
+      expect(k).toBeGreaterThan(1);
+      const box = decodeURIComponent(mask).match(/viewBox='([^']+)'/)![1].split(' ').map(Number);
+      expect(box[2]).toBeCloseTo(big.offsetWidth / k, 0);
+      expect(getComputedStyle(big).boxShadow).toBe('none');
+      // a sombra no papel, não na foto: o broche do X fica com a dele, como nas outras molduras
+      expect(getComputedStyle(big).filter).toBe('none');
+      const paper = big.querySelector<HTMLElement>('.papel-adesivo')!;
+      expect(getComputedStyle(paper).filter).toContain('drop-shadow');
+      expect(getComputedStyle(paper, '::before').maskImage).toContain('data:image/svg+xml');
+      expect(dialog.querySelector('.etiqueta')!.textContent).toBe('Na praia');
+      dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await gone();
+      fixture.destroy();
+    });
+
+    it('o adesivo ampliado da imagem guardada corta com o link escrito (o murall://), não com o endereço blob: desta aba', async () => {
+      await deleteDatabase(IMAGES_DB);
+      TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+      const image = await TestBed.inject(ImageStore).add(await samplePng(400, 300));
+      const fixture = TestBed.createComponent(GluedMedia);
+      fixture.componentRef.setInput('kind', 'imagem');
+      fixture.componentRef.setInput('args', [localImageUrl(image.id), 'adesivo']);
+      const el = fixture.nativeElement as HTMLElement;
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      for (let i = 0; i < 100 && !el.querySelector('img'); i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        await fixture.whenStable();
+      }
+      el.querySelector('img')!.dispatchEvent(new Event('load'));
+      await fixture.whenStable();
+      el.querySelector<HTMLButtonElement>('.ampliar button')!.click();
+      const dialog = await viewer();
+      expect(dialog.querySelector('img')!.getAttribute('src')).toMatch(/^blob:/);
+      const big = dialog.querySelector<HTMLElement>('.foto')!;
+      await waitFrames(() => !!big.style.getPropertyValue('--picote'));
+      const k = parseFloat(getComputedStyle(big).fontSize) / 16;
+      expect(big.style.getPropertyValue('--picote')).toBe(stickerEdge(localImageUrl(image.id), big.offsetWidth, big.offsetHeight, k));
+      dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
+      await gone();
+      el.remove();
+      fixture.destroy();
+      await deleteDatabase(IMAGES_DB);
+    });
+
     it('fecha no Esc e tocando na própria foto; sem a faixa da polaroide, a legenda vai na etiqueta', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'Um bilhete']);
       const img = el.querySelector('img')!;
@@ -336,6 +400,94 @@ describe('a foto colada na anotação', () => {
       await gone();
       expect(document.querySelector('app-image-viewer')).toBeNull();
       expect(el.querySelector<HTMLElement>('figure.colagem')!.style.opacity).toBe('');
+      fixture.destroy();
+    });
+  });
+
+  describe('o adesivo picotado', () => {
+    async function sticker(args: string[], kind: 'imagem' | 'video' = 'imagem') {
+      TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
+      const fixture = TestBed.createComponent(GluedMedia);
+      fixture.componentRef.setInput('kind', kind);
+      fixture.componentRef.setInput('args', args);
+      const el = fixture.nativeElement as HTMLElement;
+      // o corte mede a peça: ela precisa estar na página
+      document.body.appendChild(el);
+      await fixture.whenStable();
+      return { fixture, el, foto: el.querySelector<HTMLElement>('.foto')! };
+    }
+
+    it('o papel branco cortado em zigue-zague no tamanho da peça, embaixo da foto, com a sombra que segue os dentes', async () => {
+      const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo', 'Na praia']);
+      expect(el.querySelector('figure')!.classList).toContain('moldura-adesivo');
+      await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
+      const mask = foto.style.getPropertyValue('--picote');
+      expect(mask).toContain('data:image/svg+xml');
+      const box = decodeURIComponent(mask).match(/viewBox='([^']+)'/)![1].split(' ').map(Number);
+      // os dentes do tamanho da letra (16px = a tesoura de sempre)
+      const k = parseFloat(getComputedStyle(foto).fontSize) / 16;
+      expect(box[2]).toBeCloseTo(foto.offsetWidth / k, 0);
+      expect(box[3]).toBeCloseTo(foto.offsetHeight / k, 0);
+      const cs = getComputedStyle(foto);
+      expect(cs.boxShadow).toBe('none');
+      expect(cs.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+      // o papel é uma camada embaixo da foto, com a sombra só dele (os broches ficam fora do filtro)
+      expect(cs.filter).toBe('none');
+      const layer = foto.querySelector<HTMLElement>(':scope > .papel-adesivo')!;
+      expect(getComputedStyle(layer).filter).toContain('drop-shadow');
+      expect(getComputedStyle(layer).zIndex).toBe('-1');
+      const paper = getComputedStyle(layer, '::before');
+      expect(paper.maskImage).toContain('data:image/svg+xml');
+      // o papel do adesivo: o meio-tom leve (um ponto preto chapado seria a grade de um editor de imagem)
+      expect(paper.backgroundImage).toMatch(/rgba\(0, 0, 0, 0\.03\d*\) 0\.6px/);
+      // a margem de papel é mais larga que os dentes (uns 5px): a foto nunca é mordida
+      expect(parseFloat(cs.paddingLeft)).toBeGreaterThan(6.5 * k);
+      // a foto impressa com a retícula da revista couché
+      expect(getComputedStyle(el.querySelector('.reflexo')!).backgroundImage).toContain('radial-gradient');
+      // a legenda fora do papel, na etiqueta, como na Foto
+      expect(el.querySelector('.etiqueta')!.textContent).toBe('Na praia');
+      el.remove();
+      fixture.destroy();
+    });
+
+    it('trocar a legenda não recorta de novo; mudar o tamanho recorta; outra moldura tira o corte', async () => {
+      const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo']);
+      await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
+      const first = foto.style.getPropertyValue('--picote');
+      fixture.componentRef.setInput('args', ['https://i.imgur.com/foto.jpg', 'adesivo', 'Outra legenda']);
+      await fixture.whenStable();
+      await waitFrames(() => false, 3);
+      expect(foto.style.getPropertyValue('--picote')).toBe(first);
+      el.style.fontSize = '24px';
+      await waitFrames(() => foto.style.getPropertyValue('--picote') !== first);
+      expect(foto.style.getPropertyValue('--picote')).not.toBe(first);
+      fixture.componentRef.setInput('args', ['https://i.imgur.com/foto.jpg', 'polaroid']);
+      await fixture.whenStable();
+      expect(foto.style.getPropertyValue('--picote')).toBe('');
+      expect(foto.querySelector('.papel-adesivo')).toBeNull();
+      el.remove();
+      fixture.destroy();
+    });
+
+    it('a foto que não abriu fica no tracejado, sem o papel; o vídeo também vira adesivo', async () => {
+      const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo']);
+      el.querySelector('img')!.dispatchEvent(new Event('error'));
+      await fixture.whenStable();
+      expect(foto.classList).toContain('quebrada');
+      // sem o papel nem o corte, e o tracejado com a margem de sempre
+      expect(foto.querySelector('.papel-adesivo')).toBeNull();
+      await waitFrames(() => false, 2);
+      expect(foto.style.getPropertyValue('--picote')).toBe('');
+      expect(parseFloat(getComputedStyle(foto).paddingLeft)).toBeCloseTo(0.34 * parseFloat(getComputedStyle(foto).fontSize), 1);
+      fixture.componentRef.setInput('kind', 'video');
+      fixture.componentRef.setInput('args', ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'adesivo']);
+      await fixture.whenStable();
+      const video = el.querySelector<HTMLElement>('.foto')!;
+      await waitFrames(() => !!video.style.getPropertyValue('--picote'));
+      expect(getComputedStyle(video.querySelector('.papel-adesivo')!, '::before').maskImage).toContain('data:image/svg+xml');
+      // o adesivo de tocar fica fora do filtro do papel
+      expect(video.querySelector('.papel-adesivo .tocar')).toBeNull();
+      el.remove();
       fixture.destroy();
     });
   });

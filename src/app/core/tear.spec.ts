@@ -1,5 +1,5 @@
 import { collage, stickerFor, titleFor } from './clipping';
-import { TEAR_KINDS, tearFor } from './tear';
+import { TEAR_KINDS, stickerEdge, tearFor } from './tear';
 
 describe('tearFor', () => {
   const ids = Array.from({ length: 300 }, (_, i) => `r${i.toString(36)}xyz`);
@@ -92,5 +92,35 @@ describe('collage', () => {
     const cols = collage(items, 5);
     expect(cols.map((c) => c[0].id)).toEqual(['c0', 'c1', 'c2', 'c3', 'c4']);
     expect(cols.flat().length).toBe(20);
+  });
+});
+
+describe('stickerEdge (o adesivo picotado da imagem colada)', () => {
+  const box = (m: string) => decodeURIComponent(m).match(/viewBox='([^']+)'/)![1].split(' ').map(Number);
+  const nums = (m: string) => decodeURIComponent(m).match(/d='([^']+)'/)![1].match(/-?\d+(\.\d+)?/g)!.map(Number);
+
+  it('é o mesmo corte para o mesmo link e o mesmo tamanho, e outro para outro link', () => {
+    expect(stickerEdge('https://x.com/a.jpg', 300, 200)).toBe(stickerEdge('https://x.com/a.jpg', 300, 200));
+    expect(stickerEdge('https://x.com/a.jpg', 300, 200)).not.toBe(stickerEdge('https://x.com/b.jpg', 300, 200));
+    // não mexe no sorteio do recorte da wishlist (o mesmo id)
+    const before = tearFor('https://x.com/a.jpg');
+    stickerEdge('https://x.com/a.jpg', 300, 200);
+    expect(tearFor('https://x.com/a.jpg')).toEqual(before);
+  });
+
+  it('a caixa é a da peça em px (dividida pela escala dos dentes), com o zigue-zague dentro dela', () => {
+    const m = stickerEdge('s', 300, 200);
+    expect(m.startsWith('url("data:image/svg+xml,')).toBeTrue();
+    expect(box(m)).toEqual([0, 0, 300, 200]);
+    const pts = nums(m);
+    expect(pts.every((n) => n >= -0.6 && n <= 300.6)).toBeTrue();
+    // uns 6px por dente: (300 + 200) * 2 / 6 dentes, cada um com a ponta e o vale (dois pontos de x e y)
+    const teeth = pts.length / 4;
+    expect(teeth).toBeGreaterThan(140);
+    expect(teeth).toBeLessThan(190);
+    // a letra maior: dentes maiores (a mesma peça, metade dos dentes)
+    const big = stickerEdge('s', 300, 200, 2);
+    expect(box(big)).toEqual([0, 0, 150, 100]);
+    expect(nums(big).length).toBeLessThan(pts.length * 0.6);
   });
 });

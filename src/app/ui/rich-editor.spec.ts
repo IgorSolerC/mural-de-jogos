@@ -1224,7 +1224,10 @@ describe('a folha do widget no editor', () => {
     await wait();
     expect(el.querySelector('.wfolha .link-diz')?.textContent).toContain('Imagem de ex.com');
     const jeitos = el.querySelectorAll<HTMLInputElement>('.wfolha .jeito input');
-    expect(jeitos.length).toBe(3);
+    expect([...el.querySelectorAll('.wfolha .jeito .jeito-nome')].map((n) => n.textContent)).toEqual(['Foto', 'Polaroide', 'Recorte', 'Adesivo']);
+    // cada moldura com a miniatura dela (o adesivo, o papel picotado)
+    expect(el.querySelectorAll('.wfolha .jeito .jeito-desenho path, .wfolha .jeito .jeito-desenho rect').length).toBeGreaterThan(4);
+    expect(jeitos.length).toBe(4);
     jeitos[1].click();
     await wait();
     expect(el.querySelector('.wfolha .jeito.on .jeito-nome')?.textContent).toBe('Polaroide');

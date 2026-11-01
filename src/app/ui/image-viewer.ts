@@ -3,10 +3,13 @@ import { ICON, IconModule } from './icons';
 import { BackdropClose } from './backdrop-close';
 import { reducedMotion } from '../core/motion';
 import type { Frame } from '../core/widgets';
+import { cutSticker, letterScale } from './sticker-edge';
 
 /** A foto a ampliar, como está colada no texto. */
 export interface ImageView {
   url: string;
+  /** O sorteio dos dentes do adesivo: o link como foi escrito (o mesmo corte da colada). */
+  seed: string;
   caption: string;
   frame: Frame;
   /** A largura sobre a altura da foto. */
@@ -29,7 +32,7 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
  * A foto ampliada (o widget IMAGEM, ver ui/glued-media.ts): o broche de ampliar descola a foto do
  * texto e ela vem para o meio da tela, reta e do maior tamanho que cabe (até a largura do
  * arquivo: mais que isso, ela borra), com a mesma moldura (a borda branca, a polaroide com a
- * legenda, o recorte rente) e a legenda na etiqueta, que chega no fim do voo. Por trás, o véu escuro
+ * legenda, o recorte rente, o adesivo picotado) e a legenda na etiqueta, que chega no fim do voo. Por trás, o véu escuro
  * das folhas.
  *
  * Fecha no broche do X (no canto da foto, como o de ampliar), no Esc, tocando no fundo ou na própria
@@ -48,6 +51,9 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     <dialog #dialog class="ampliada" [attr.aria-label]="v.caption ? 'Imagem: ' + v.caption : 'Imagem ampliada'" (backdropClose)="close()" (cancel)="$event.preventDefault(); close()">
       <figure class="colagem" [class]="'colagem moldura-' + v.frame" [style.--prop]="v.ratio" [style.--nat]="v.natural ? v.natural + 'px' : null">
         <span #photo class="foto" (click)="close()">
+          @if (v.frame === 'adesivo') {
+            <span class="papel-adesivo" aria-hidden="true"></span>
+          }
           <img [src]="v.url" [alt]="v.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" />
           <span class="reflexo" aria-hidden="true"></span>
           @if (v.frame === 'polaroid') {
@@ -65,6 +71,7 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
   `,
   styles: `
     @use 'broche';
+    @use 'meio-tom';
 
     /* o diálogo é a tela inteira (o toque fora da foto é no fundo e fecha); a foto fica no meio */
     .ampliada {
@@ -119,6 +126,13 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     .colagem.moldura-recorte:has(> .etiqueta-lugar) {
       --reserva: 44px;
     }
+    .colagem.moldura-adesivo {
+      --pad: calc(2 * var(--borda-adesivo));
+      --reserva: calc(2 * var(--borda-adesivo));
+    }
+    .colagem.moldura-adesivo:has(> .etiqueta-lugar) {
+      --reserva: calc(38px + 2 * var(--borda-adesivo));
+    }
     .foto {
       position: relative;
       display: grid;
@@ -138,6 +152,26 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     .moldura-recorte .foto {
       padding: 0;
       background: transparent;
+    }
+    /* o adesivo, como o colado (ui/glued-media.ts, ui/_meio-tom.scss): a margem cresce com a tela
+       (no celular, mais fina) e os dentes, com a margem (a letra é a que faz a margem dar 0,68em, a
+       conta da colada; ver open); o fio do corte e a sombra de quem está no alto, seguindo os dentes */
+    .ampliada {
+      --borda-adesivo: clamp(13px, 2.6vw, 22px);
+    }
+    .moldura-adesivo .foto {
+      font-size: calc(var(--borda-adesivo) / 0.68);
+      @include meio-tom.adesivo-foto;
+    }
+    .papel-adesivo {
+      @include meio-tom.adesivo-papel(drop-shadow(0 0 0.6px rgb(0 0 0 / 0.4)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.4)) drop-shadow(0 18px 22px rgb(0 0 0 / 0.55)));
+    }
+    .moldura-adesivo img,
+    .moldura-adesivo .reflexo {
+      border-radius: 0;
+    }
+    .moldura-adesivo .reflexo {
+      @include meio-tom.couche;
     }
     img,
     .reflexo {
@@ -222,17 +256,27 @@ export class ImageViewer {
   private readonly shut = viewChild.required<ElementRef<HTMLButtonElement>>('shut');
   private readonly label = viewChild<ElementRef<HTMLElement>>('label');
   private closing = false;
+  /** Desliga o corte do adesivo (nada, nas outras molduras). */
+  private uncut = (): void => {};
 
   open(): void {
     const dialog = this.dialog().nativeElement;
     dialog.showModal();
+    // o adesivo: o papel cortado no tamanho da ampliada, com os dentes presos à margem pela letra, na
+    // mesma conta da colada
+    if (this.view().frame === 'adesivo') {
+      const photo = this.photo().nativeElement;
+      this.uncut = cutSticker(photo, this.view().seed, () => letterScale(photo));
+    }
     this.shut().nativeElement.focus({ preventScroll: true });
     const from = this.view().from;
     const flight = this.flight(from);
     // a colada some (a foto, a etiqueta e o broche): é a mesma foto, que saiu dali
     this.glued(from).style.opacity = '0';
     if (!flight) return;
-    this.photo().nativeElement.animate([{ transform: flight, boxShadow: '0 1px 1px rgb(0 0 0 / 0.32)' }, { transform: 'none' }], { duration: DURATION, easing: EASE });
+    // a sombra sai da rente de colada (o adesivo tem a dele no papel, que segue os dentes)
+    const start: Keyframe = this.view().frame === 'adesivo' ? { transform: flight } : { transform: flight, boxShadow: '0 1px 1px rgb(0 0 0 / 0.32)' };
+    this.photo().nativeElement.animate([start, { transform: 'none' }], { duration: DURATION, easing: EASE });
     // a etiqueta é colada quando a foto chega
     this.label()?.nativeElement.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE, delay: DURATION - FADE, easing: 'linear', fill: 'backwards' });
     this.fadeBackdrop(0, 1);
@@ -243,6 +287,7 @@ export class ImageViewer {
     this.closing = true;
     const from = this.view().from;
     const done = (): void => {
+      this.uncut();
       this.glued(from).style.removeProperty('opacity');
       this.dialog().nativeElement.close();
       this.onClosed();

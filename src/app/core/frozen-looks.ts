@@ -14,7 +14,7 @@ import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, hash, textureOf } fro
 import type { AgedPaper, Damage, Decor, Paper, Pattern, Scribble, Stain } from './paper';
 import { decorArt } from './decor-art';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
-import { snipFor, stripFor, tearFor } from './tear';
+import { snipFor, stickerEdge, stripFor, tearFor } from './tear';
 
 export const FROZEN_PAPERS: readonly Paper[] = [
   'cartolina', 'lisa', 'canson', 'linho', 'verge', 'reciclado', 'glitter', 'aquarela', 'feltro', 'arroz', 'ondulado', 'metalizado', 'perolado',
@@ -166,5 +166,9 @@ export function frozenPrints(): Record<string, string> {
     });
     out[`page:${id}`] = print({ page: pageFor(id), height: pageHeight(id) });
   }
+  // 2026-11-01, o adesivo picotado da imagem colada: o corte de cada link, em tamanhos e dentes diferentes
+  for (const id of CLIP_IDS.slice(0, 8))
+    for (const [W, H] of [[300, 200], [120, 90], [640, 360]])
+      for (const k of [1, 2]) out[`sticker:${id}:${W}x${H}:${k}`] = print(stickerEdge(`https://exemplo.invalid/${id}.jpg`, W, H, k));
   return out;
 }

@@ -226,6 +226,8 @@ import { closeOnOutsidePress } from './outside-press';
     }
   `,
   styles: `
+    @use 'meio-tom';
+
     :host {
       --revista: #f5f2ea;
       position: relative;
@@ -254,9 +256,7 @@ import { closeOnOutsidePress } from './outside-press';
       position: relative;
       display: flex;
       flex-direction: column;
-      background:
-        radial-gradient(circle, rgb(0 0 0 / 0.05) 0.6px, transparent 1px) 0 0 / 3px 3px,
-        var(--revista);
+      @include meio-tom.papel(var(--revista));
       -webkit-mask: var(--rasgo) 0 0 / 100% 100% no-repeat;
       mask: var(--rasgo) 0 0 / 100% 100% no-repeat;
     }
@@ -292,9 +292,7 @@ import { closeOnOutsidePress } from './outside-press';
     }
     /* couché: retícula fina e o brilho do papel */
     .revista-brilho .foto::after {
-      background:
-        linear-gradient(120deg, transparent 30%, rgb(255 255 255 / 0.2) 40%, rgb(255 255 255 / 0.05) 48%, transparent 56%),
-        radial-gradient(circle, rgb(0 0 0 / 0.22) 0.55px, transparent 0.95px) 0 0 / 3px 3px;
+      @include meio-tom.couche;
     }
     /* revista velha: a cor desbotou para o amarelo e as beiradas escureceram */
     .revista-velha img {

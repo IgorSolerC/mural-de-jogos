@@ -379,6 +379,22 @@ export function stripFor(id: string): { paper: string; core: string } {
 }
 
 /**
+ * O adesivo picotado (a moldura Adesivo da imagem colada, ui/glued-media.ts): o papel do adesivo
+ * cortado com a mesma tesoura de picotar do recorte da wishlist (`pinking`, os dentes de uns 6px),
+ * sem a quina dobrada. Sai como máscara SVG do tamanho da peça, `W` × `H` em px; `scale` aumenta os
+ * dentes junto com a letra (1 = 16px), para o adesivo ter a mesma cara na ficha, na leitura e
+ * ampliado. O sorteio é só dele (`seed`, o link da foto): o mesmo adesivo sempre sai com os mesmos
+ * dentes, e mudar o tamanho só refaz a conta dos dentes.
+ */
+export function stickerEdge(seed: string, W: number, H: number, scale = 1): string {
+  let n = 0;
+  const r = () => wobble(`adesivo:${seed}`, n++);
+  const w = W / scale;
+  const h = H / scale;
+  return mask(pinking(w, h, r), `0 0 ${w.toFixed(1)} ${h.toFixed(1)}`);
+}
+
+/**
  * Um pedacinho cortado à tesoura (as palavras da manchete, as letras do título): quatro cortes
  * quase retos, cada canto um tanto fora do esquadro, às vezes um quinto corte que come uma quina.
  * Sai como `clip-path`, em px, para o desvio ser o mesmo numa palavra curta e numa comprida.
@@ -578,8 +594,13 @@ function edge(a: Pt, b: Pt, amp: number, slope: [number, number] | undefined, ri
   return out;
 }
 
-function mask(pts: Pt[]): string {
+/**
+ * A máscara, esticada no elemento. `box`: a caixa do contorno, a de 100 × 100 dos recortes (que não
+ * muda: os recortes guardados são os mesmos) ou a de px do adesivo (a peça que mudou de tamanho sem
+ * refazer a conta não fica sem papel).
+ */
+function mask(pts: Pt[], box = '0 0 100 100'): string {
   const d = 'M' + pts.map(([x, y]) => `${x.toFixed(1)} ${y.toFixed(1)}`).join('L') + 'Z';
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path d='${d}'/></svg>`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='${box}' preserveAspectRatio='none'><path d='${d}'/></svg>`;
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }

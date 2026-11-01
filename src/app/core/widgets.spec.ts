@@ -1,5 +1,5 @@
 import { hasFormatting, hasTouchableWidget, parseRich, plainText } from './rich-text';
-import { CARD_LOOKS, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetCycles, widgetDef, widgetLine, widgetSized, withChoice, writeWhen } from './widgets';
+import { CARD_LOOKS, FRAMES, Frame, WIDGETS, cardLookSized, hideCardTitles, WIDGET_LINES, WIDGET_SIZES, cardRefsIn, hostOf, httpsUrl, parseAudio, parseVideo, readAudio, readCardRef, parseWhen, parseWidgetLine, readCountdown, readMedia, fieldsFor, remaining, splitArgs, targetOf, widgetCopy, widgetCycles, widgetDef, widgetLine, widgetSized, withChoice, writeWhen } from './widgets';
 
 describe('widgets das anotações', () => {
   it('a linha de um widget: o nome (com acento, maiúscula ou outro nome) e os parâmetros', () => {
@@ -247,6 +247,22 @@ describe('widgets das anotações', () => {
       expect(readMedia(['só legenda'])).toEqual({ url: '', frame: 'foto', caption: 'só legenda' });
       expect(parseWidgetLine('{{Foto: https://x.com/a.jpg | Praia}}')).toEqual({ name: 'imagem', args: ['https://x.com/a.jpg', 'Praia'], size: 'medio' });
       expect(plainText('{{imagem: https://x.com/a.jpg | Praia}}')).toBe('Praia');
+    });
+
+    it('o adesivo: a moldura nova, depois das outras, só pelo nome (um apelido roubaria a legenda de antes)', () => {
+      expect(FRAMES.map((f) => f.value)).toEqual(['foto', 'polaroid', 'recorte', 'adesivo']);
+      expect(FRAMES.at(-1)!.label).toBe('Adesivo');
+      for (const word of ['adesivo', 'Adesivo', 'ADESIVO']) {
+        expect(readMedia(['https://x.com/a.jpg', word, 'Praia'])).withContext(word).toEqual({ url: 'https://x.com/a.jpg', frame: 'adesivo', caption: 'Praia' });
+      }
+      for (const word of ['Sticker', 'picotado']) expect(readMedia(['https://x.com/a.jpg', word])).withContext(word).toEqual({ url: 'https://x.com/a.jpg', frame: 'foto', caption: word });
+      const img = widgetDef('imagem')!;
+      expect(img.write({ url: 'https://x.com/a.jpg', caption: 'Praia', frame: 'adesivo' })).toEqual(['https://x.com/a.jpg', 'Praia', 'adesivo']);
+      expect(img.read(['https://x.com/a.jpg', 'adesivo'])).toEqual({ url: 'https://x.com/a.jpg', caption: '', frame: 'adesivo' });
+      // a legenda "Adesivo" com outra moldura: a moldura primeiro, a legenda depois
+      expect(readMedia(img.write({ url: 'https://x.com/a.jpg', caption: 'Adesivo', frame: 'foto' })!)).toEqual({ url: 'https://x.com/a.jpg', frame: 'foto', caption: 'Adesivo' });
+      // a mesma moldura no vídeo
+      expect(widgetDef('video')!.write({ url: 'https://youtu.be/dQw4w9WgXcQ', frame: 'adesivo' })).toEqual(['https://youtu.be/dQw4w9WgXcQ', 'adesivo']);
     });
 
     it('só https', () => {
@@ -513,7 +529,8 @@ describe('a cópia de cada widget, como texto', () => {
     const resumo = (n: string, a: string[]) => widgetCycles(n, a).map((c) => `${c.label}:${c.options[c.at].value}/${c.options.length}`);
     expect(resumo('contador', ['25/12/2030', 'Natal'])).toEqual(['Jeito:calendario/4']);
     expect(resumo('contador', ['25/12/2030', 'placar'])).toEqual(['Jeito:placar/4']);
-    expect(resumo('imagem', ['https://exemplo.invalid/a.jpg', 'recorte'])).toEqual(['Moldura:recorte/3']);
+    expect(resumo('imagem', ['https://exemplo.invalid/a.jpg', 'recorte'])).toEqual(['Moldura:recorte/4']);
+    expect(resumo('imagem', ['https://exemplo.invalid/a.jpg', 'adesivo'])).toEqual(['Moldura:adesivo/4']);
     expect(resumo('audio', ['https://youtu.be/abcdefghijk'])).toEqual(['Jeito:fita/3']);
     expect(resumo('nota', ['Lisboa'])).toEqual(['Jeito:ficha/4']);
     expect(resumo('nota', ['Lisboa', 'inteira'])).toEqual(['Jeito:inteira/4', 'Começa:aberta/2']);

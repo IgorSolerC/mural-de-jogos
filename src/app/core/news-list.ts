@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-01-grupos-vazios',
+    id: '2026-11-01-adesivo',
     version: '1.36.2',
     kind: 'ajustes',
     date: '2026-11-01',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'No texto das anotações, um trecho vira link para um lembrete do Calendário, pelo Inserir › Lembrete do calendário (com os próximos primeiro e o dia de cada um): ele tem o desenho do calendário, o dia ao parar o mouse em cima, e tocar abre o dia dele no Calendário, com o lembrete circulado. O que não está mais no Calendário fica tracejado; ao copiar e no PDF, a data vai junto do texto.',
       'A ficha aberta ganhou dois botões na faixa, antes do X: "Ler em tela cheia" deixa só o nome e o texto, quase da tela toda (a tela toda no celular), numa coluna de leitura com a letra maior, para ler uma anotação comprida; e "Ver só a cartolina" mostra a ficha como ela fica no mural, grande, no meio da tela, para ver o papel dela (tocar nela volta à leitura).',
       'As abas dos grupos sem nada para mostrar vão para o "Mais": no mural, o grupo sem nenhuma anotação à mostra (todas só no Kanban, ou finalizadas); no Kanban, o grupo sem nenhum cartão no quadro. O aberto fica em pé até você sair dele, e "Esconder os grupos vazios", nas configurações do mural (em Grupos), desliga.',
+      'A imagem colada no texto ganhou a moldura Adesivo, como o recorte picotado da wishlist: a foto num papel branco de adesivo, cortado em zigue-zague com a tesoura de picotar, com os pontinhos da revista e o brilho do vinil. Na folha da imagem, em Moldura, ou escrevendo "adesivo" (vale também para o vídeo).',
       'No cofre, a senha vazada fica marcada até você trocá-la: a etiqueta Vazada e o aviso no item continuam nas próximas vezes que o cofre abrir. No aviso, "Tirar o aviso" o tira agora (ele volta se uma conferência nova achar a senha de novo) e "Não avisar mais desta senha", depois de uma pergunta, cala só aquela senha; trocada, os avisos voltam a valer, e os Ajustes podem voltar a avisar.',
       'Nos Ajustes do cofre, Senhas vazadas ganhou "Conferir os vazamentos ao abrir o cofre" (desligado por padrão): ligado, todas as senhas são conferidas uma vez a cada abertura, em segundo plano, e um recado avisa se alguma apareceu desde a última vez.',
     ],

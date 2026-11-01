@@ -13,12 +13,19 @@ import { VolumeKnob } from './volume-knob';
 import { ZoomKnob } from './zoom-knob';
 import { pieceLift } from './piece-lift';
 import { CloudAccount } from '../core/cloud-account';
+import { cutSticker, letterScale } from './sticker-edge';
 
 /**
  * Os widgets IMAGEM e VÍDEO (ver core/widgets.ts): uma foto revelada colada na cartolina, levemente
  * torta (o giro vem do link, então é sempre o mesmo), com o brilho do papel fotográfico. A moldura é
- * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo) ou o recorte rente; nas
- * duas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto.
+ * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo), o recorte rente ou o
+ * adesivo; nas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto.
+ *
+ * O adesivo é o recorte picotado da wishlist (ui/wish-clip.ts) virado adesivo: a foto impressa em
+ * couché (a retícula e o brilho, ui/_meio-tom.scss) num papel branco de adesivo, com o meio-tom do
+ * papel da revista e um brilho de vinil, cortado em volta com a tesoura de picotar (o mesmo `pinking`
+ * de core/tear.ts, sem a quina dobrada, medido no tamanho da peça: ui/sticker-edge.ts), e a sombra
+ * curta de quem está colado rente, que segue os dentes.
  *
  * O vídeo é a foto da capa dele com um adesivo redondo de "tocar": o player (YouTube sem cookies,
  * Vimeo) só carrega quando a pessoa toca, e a foto se endireita para assistir. Um arquivo de vídeo
@@ -48,6 +55,10 @@ import { CloudAccount } from '../core/cloud-account';
     @let m = media();
     <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
       <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [attr.data-esperando]="seeking() ? '' : null" [style.--prop]="ratio()">
+        @if (m.frame === 'adesivo' && !broken()) {
+          <!-- o papel do adesivo, embaixo da foto: cortado com a tesoura de picotar (o --picote da foto) -->
+          <span class="papel-adesivo" aria-hidden="true"></span>
+        }
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
@@ -115,6 +126,8 @@ import { CloudAccount } from '../core/cloud-account';
     </ng-template>
   `,
   styles: `
+    @use 'meio-tom';
+
     :host {
       display: block;
       /* a foto ocupa linhas inteiras da pauta (a altura final vem do tamanho dela, ver o construtor) */
@@ -150,6 +163,15 @@ import { CloudAccount } from '../core/cloud-account';
     .colagem.moldura-recorte:has(> .etiqueta-lugar) {
       --reserva: 2em;
     }
+    /* o adesivo: a margem branca de papel dos dois lados, mais larga que a da foto (os dentes do
+       picote comem uns 6px dela, e sobra uma faixa firme de papel) */
+    .colagem.moldura-adesivo {
+      --pad: 1.36em;
+      --reserva: 2.45em;
+    }
+    .colagem.moldura-adesivo:has(> .etiqueta-lugar) {
+      --reserva: 3.35em;
+    }
 
     /* ===== A foto: o papel fotográfico colado, torto, com a sombra rente de quem está colado ===== */
     .foto {
@@ -175,6 +197,24 @@ import { CloudAccount } from '../core/cloud-account';
     .moldura-recorte .foto {
       padding: 0;
       background: transparent;
+    }
+
+    /* ===== O adesivo picotado: o papel branco cortado em zigue-zague, colado rente =====
+       (ui/_meio-tom.scss: a margem, o papel com a máscara do picote e a sombra que segue os dentes) */
+    .moldura-adesivo .foto:not(.quebrada) {
+      @include meio-tom.adesivo-foto;
+    }
+    .papel-adesivo {
+      /* o fio do corte do vinil (os dentes aparecem até na folha creme) e a sombra rente */
+      @include meio-tom.adesivo-papel(drop-shadow(0 0 0.4px rgb(0 0 0 / 0.38)) drop-shadow(0 0.5px 0.5px rgb(0 0 0 / 0.3)) drop-shadow(0 2px 2.5px rgb(0 0 0 / 0.2)));
+    }
+    .moldura-adesivo img {
+      border-radius: 0;
+    }
+    /* a foto impressa no adesivo: a retícula e o brilho da revista couché do recorte */
+    .moldura-adesivo .reflexo {
+      border-radius: 0;
+      @include meio-tom.couche;
     }
     /* o vídeo não tem tamanho próprio antes de tocar (nem a foto antes de carregar): a figura ocupa a
        linha, e a foto, o que cabe */
@@ -513,9 +553,19 @@ export class GluedMedia {
   /** A conversa com o player de fora, enquanto ele toca (só para o volume). */
   protected bridge: EmbedBridge | null = null;
 
+  /** O adesivo picotado (a foto que abre): só ele corta o papel (ver ui/sticker-edge.ts). */
+  private readonly sticker = computed(() => this.media().frame === 'adesivo' && !this.broken());
+
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
+    // o adesivo: o papel cortado no tamanho da peça, com os dentes do tamanho da letra; o sorteio dos
+    // dentes é o do link, como o giro (trocar a legenda não recorta de novo)
+    effect((onCleanup) => {
+      const el = this.photo()?.nativeElement;
+      if (!el || !this.sticker()) return;
+      onCleanup(cutSticker(el, this.url(), () => letterScale(el)));
+    });
     // a guardada pelo Murall: procura no IndexedDB; sem ela aqui, desce da nuvem (com a sessão) e fica
     // guardada; de novo quando outra imagem é guardada nesta aba ou a sincronização termina uma rodada
     effect((onCleanup) => {
@@ -571,7 +621,9 @@ export class GluedMedia {
     const ratio = this.ratio() ?? 4 / 3;
     const file = from.querySelector('img')?.naturalWidth ?? 0;
     const natural = file && Math.max(file, from.offsetWidth * 1.5);
-    void import('./image-viewer').then((m) => m.showImage({ url, caption, frame, ratio, natural, from }, this.env, this.app));
+    // o adesivo ampliado corta com o mesmo sorteio do colado: o link escrito (o murall:// da guardada,
+    // não o endereço blob: desta aba)
+    void import('./image-viewer').then((m) => m.showImage({ url, seed: this.media().url, caption, frame, ratio, natural, from }, this.env, this.app));
   }
 
   protected play(e: Event): void {

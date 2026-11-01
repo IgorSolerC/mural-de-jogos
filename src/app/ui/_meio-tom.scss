@@ -1,0 +1,56 @@
+// O meio-tom da revista couché, o do recorte da wishlist (ui/wish-clip.ts) e o do adesivo picotado
+// da imagem colada (ui/glued-media.ts, ui/image-viewer.ts): um jeito só, para os dois serem a mesma
+// impressão.
+
+// o papel da revista: os pontinhos da retícula, quase nada, sobre a cor do papel ($ponto: a força
+// deles; o padrão é o da wishlist, que não muda)
+@mixin papel($cor, $ponto: 0.05) {
+  background:
+    radial-gradient(circle, rgb(0 0 0 / #{$ponto}) 0.6px, transparent 1px) 0 0 / 3px 3px,
+    $cor;
+}
+
+// o papel do adesivo: o branco mais claro da cena (mais que a folha creme em volta), com o meio-tom
+// mais leve e o vinil, uma faixa de luz de lado e as pontas só um fio mais escuras
+@mixin vinil {
+  @include papel(linear-gradient(118deg, #f9f9f7 0%, #fff 24%, #fff 40%, #f8f8f6 58%, #fff 78%, #f5f5f2 100%), 0.032);
+}
+
+// a foto impressa em couché: a retícula fina e o brilho do papel (por cima da foto, sem pegar o toque)
+@mixin couche {
+  background:
+    linear-gradient(120deg, transparent 30%, rgb(255 255 255 / 0.2) 40%, rgb(255 255 255 / 0.05) 48%, transparent 56%),
+    radial-gradient(circle, rgb(0 0 0 / 0.22) 0.55px, transparent 0.95px) 0 0 / 3px 3px;
+}
+
+// ===== O adesivo picotado da imagem colada (ui/glued-media.ts, a ampliada em ui/image-viewer.ts) =====
+
+// a foto do adesivo: a margem de papel (0,68em: os dentes de uns 6px na letra de 16px comem parte, e
+// sobra uma faixa firme), sem o papel e a sombra da foto revelada; o papel é a camada de baixo
+@mixin adesivo-foto {
+  padding: 0.68em;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  isolation: isolate;
+}
+
+// o papel (`.papel-adesivo`, embaixo da foto): o vinil cortado pela máscara do picote (`--picote`, que
+// ui/sticker-edge.ts põe na foto) e a sombra num filtro só dele, que segue os dentes (a de caixa ficaria
+// quadrada); os broches e o player ficam fora do filtro. $sombra: o fio do corte e a sombra de quem cola
+@mixin adesivo-papel($sombra) {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  filter: $sombra;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    @include vinil;
+    -webkit-mask: var(--picote) 0 0 / 100% 100% no-repeat;
+    mask: var(--picote) 0 0 / 100% 100% no-repeat;
+  }
+}
