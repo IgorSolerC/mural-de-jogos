@@ -1,10 +1,10 @@
 import { afterNextRender, ChangeDetectionStrategy, Component, computed, DestroyRef, ElementRef, inject, Injector, input, output, signal, viewChild } from '@angular/core';
-import type { ItemNaLista } from '../../core/itens';
+import { type ItemNaLista, vezesVazada } from '../../core/itens';
 import { hexDaCor, type IdDaCor } from '../../../../../shared/cartela-de-icones';
 import { Icone } from '../icone';
 import { MonogramaSelo } from './monograma-selo';
 import { dominio, nomeDoItem } from './monograma';
-import { type Pasta, vezesVazada } from './pastas';
+import type { Pasta } from './pastas';
 
 export type CampoRapido = 'usuario' | 'senha';
 export type Direcao = 'cima' | 'baixo' | 'esquerda' | 'direita';
@@ -71,7 +71,6 @@ export class QuadroDeSenhas {
   readonly aberto = input<string | null>(null);
   /** O que acabou de ser copiado ("id:campo"). */
   readonly copiado = input<string | null>(null);
-  readonly vazadas = input<ReadonlyMap<string, readonly number[]>>(new Map());
   /** As pastas rolam por dentro (o quadro inteiro está na tela); senão, a roda e o dedo rolam a página primeiro. */
   readonly rola = input(true);
 
@@ -129,10 +128,8 @@ export class QuadroDeSenhas {
     });
   }
 
-  /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
-  protected vezesVazada(id: string): number {
-    return vezesVazada(this.vazadas(), id);
-  }
+  /** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (só as marcas que avisam; 0: nenhuma). */
+  protected readonly vezesVazada = vezesVazada;
 
   protected foiCopiado(i: ItemNaLista, campo: CampoRapido): boolean {
     return this.copiado() === `${i.id}:${campo}`;

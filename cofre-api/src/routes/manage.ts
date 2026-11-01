@@ -13,7 +13,7 @@ import { reconfirm, sessionKey } from '../domain/reconfirm';
 import { authenticate } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
-import { KEY, SEALED_KEY, bytesField, deviceField, flagField, deviceStatements, exactly, kdfField, uuidField, verifyDevices } from './fields';
+import { KEY, SEALED_KEY, bytesField, deviceField, flagField, deviceStatements, exactly, invalid, kdfField, uuidField, verifyDevices } from './fields';
 import { country, readJson } from './http';
 
 /**
@@ -159,6 +159,25 @@ export function manageRoutes(app: Hono, deps: Deps): void {
       10,
     );
     return c.json({ trocado: true });
+  });
+
+  // Conferir os vazamentos ao abrir o cofre (17.24): ligado, a página confere todas as senhas na base
+  // pública logo depois de abrir. Não deixa o cofre mais fraco nem mais forte (só o começo de cada resumo sai,
+  // e só da página), então não pede a confirmação de agora; e não é segredo, então mora aqui, não no aparelho.
+  app.put('/api/cofre/vazamentos', async (c) => {
+    const s = await vault(c);
+    const body = await readJson(c, 1024);
+    const on = body['ligada'];
+    if (typeof on !== 'boolean') throw invalid('ligada: precisa ser true ou false.');
+    await write(
+      deps,
+      [
+        { sql: 'UPDATE cofre_contas SET vazamentos = ? WHERE usuario_id = ?', params: [on ? 1 : 0, s.userId] },
+        eventStatement(s.userId, on ? 'vazamentos-ligado' : 'vazamentos-desligado', deps.now(), s.device, country(c)),
+      ],
+      5,
+    );
+    return c.json({ ligada: on });
   });
 
   // Os aparelhos com o cofre aberto (ou entrando) agora, sem nenhum dado da sessão além de quando e onde.

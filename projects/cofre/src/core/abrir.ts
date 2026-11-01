@@ -65,6 +65,8 @@ export interface CofreAberto {
   readonly passkeys?: readonly PasskeyDoCofre[];
   /** A carência deste aparelho que o servidor guardou nesta abertura (17.23). */
   readonly carencia?: { readonly id: string; readonly expiraEm: string } | null;
+  /** "Conferir os vazamentos ao abrir o cofre" estava ligado nesta abertura (17.24). */
+  readonly vazamentos?: boolean;
 }
 
 /** A assinatura de uma passkey para abrir, e o segredo do PRF que ela deu (null se não deu). */
@@ -226,6 +228,7 @@ export async function abrir(
       ...(segredos ? { segredos } : {}),
       ...(passkeys.length ? { passkeys } : {}),
       carencia: abertura.carencia ?? null,
+      vazamentos: abertura.vazamentos === true,
     };
   } finally {
     zerar(kSenha, m, kAuth);

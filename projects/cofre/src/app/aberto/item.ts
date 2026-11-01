@@ -5,6 +5,7 @@ import type { CofreAberto } from '../../core/abrir';
 import { confirmarComPasskey, confirmarComSenha, podeConfirmarComPasskey, podeConfirmarComSenha } from '../../core/confirmar';
 import { ErroCofre } from '../../core/crypto';
 import {
+  avisoDeVazada,
   type CamposDoItem,
   comEntradas,
   ENTRADA_VAZIA,
@@ -21,6 +22,7 @@ import {
   temProtegida,
 } from '../../core/itens';
 import { ErroPasskey } from '../../core/passkey';
+import type { MarcaDeVazada } from '../gerenciar/gerenciar';
 import { Cartela } from '../cartela';
 import { AreaDeTransferencia, avisoDaCopia } from '../area-de-transferencia';
 import { Icone } from '../icone';
@@ -79,8 +81,6 @@ export class ItemDoCofre {
   /** O cofre aberto: as passkeys e a senha mestra, para destravar as senhas protegidas. */
   readonly cofre = input<Pick<CofreAberto, 'passkeys' | 'segredos' | 'usuario'> | null>(null);
   readonly ocupado = input(false);
-  /** Quantas vezes a senha de cada entrada apareceu em vazamentos (0: nenhuma, ou ainda não conferida). */
-  readonly vazadas = input<readonly number[]>([]);
   /** Os grupos que já existem no cofre, para escolher com um toque. */
   readonly grupos = input<readonly string[]>([]);
   /** O ícone e a cor de cada grupo (pela chave): a senha posta num grupo leva o jeito dele. */
@@ -89,11 +89,16 @@ export class ItemDoCofre {
   readonly paraALixeira = output<void>();
   readonly voltar = output<void>();
   readonly avisar = output<string>();
+  /** "Tirar o aviso" ou "Não avisar mais desta senha", numa senha vazada (17.24). */
+  readonly mudarAviso = output<MarcaDeVazada>();
 
   protected readonly limites = LIMITES;
   protected readonly maxEntradas = MAX_ENTRADAS;
   protected readonly simples = simples;
   protected readonly nomeDaEntrada = nomeDaEntrada;
+  protected readonly avisoDeVazada = avisoDeVazada;
+  /** A entrada com a pergunta "Não avisar mais?" aberta no lugar do aviso de vazada (cada entrada tem o seu, mesmo com a mesma senha). */
+  protected readonly calando = signal<number | null>(null);
   protected readonly editando = signal(false);
   /** A entrada com a senha à mostra (uma por vez). */
   protected readonly revelada = signal<number | null>(null);
@@ -184,6 +189,7 @@ export class ItemDoCofre {
         this.gerador.set(null);
         this.mostrarNoCampo.set(new Set());
         this.copiado.set(null);
+        this.calando.set(null);
         this.travar();
         if (this.novo()) this.editar();
         else this.editando.set(false);
@@ -197,6 +203,7 @@ export class ItemDoCofre {
   /** O Esc fecha o que estiver por cima: a senha grande, a confirmação, ou a cartela de ícones (o foco volta ao selo). */
   protected esc(): void {
     this.paraDigitar.set(null);
+    if (this.calando() !== null) this.cancelarCalar();
     if (this.confirmandoEm() !== null && !this.conferindo()) this.fecharConfirmacao();
     if (this.escolhendoIcone()) this.fecharCartela();
   }
@@ -208,7 +215,43 @@ export class ItemDoCofre {
 
   /** Editando, com a senha grande na tela ou confirmando: o Esc é de quem está aberto aqui. */
   ocupadoComAlgo(): boolean {
-    return this.editando() || this.paraDigitar() !== null || this.confirmandoEm() !== null;
+    return this.editando() || this.paraDigitar() !== null || this.confirmandoEm() !== null || this.calando() !== null;
+  }
+
+  // ---------------------------------------------------------------------------------------------
+  // A senha vazada (17.24): o aviso fica até trocar a senha, "Tirar o aviso" ou "Não avisar mais"
+  // ---------------------------------------------------------------------------------------------
+
+  /** O dia em que a conferência achou ("01/11"; de outro ano, com o ano). */
+  protected achadaEm(iso: string): string {
+    const d = new Date(iso);
+    const outroAno = d.getFullYear() !== new Date().getFullYear();
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...(outroAno ? { year: 'numeric' } : {}) });
+  }
+
+  /** "Não avisar mais desta senha" pergunta antes, no lugar do aviso; o foco vai para o Cancelar (o caminho seguro). */
+  protected perguntarCalar(n: number): void {
+    this.calando.set(n);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-senha="${n}"] .vazada .cancelar-calar`)?.focus(), { injector: this.injector });
+  }
+
+  /** Volta ao aviso, com o foco no botão que abriu a pergunta. */
+  protected cancelarCalar(): void {
+    const n = this.calando();
+    this.calando.set(null);
+    afterNextRender(() => this.host.nativeElement.querySelector<HTMLElement>(`[data-senha="${n}"] .vazada .calar`)?.focus(), { injector: this.injector });
+  }
+
+  /**
+   * Tira o aviso ou o cala: quem guarda é o cofre aberto (o item é gravado de novo). O aviso some, e o foco
+   * vai para o Copiar (ou o Destravar) da mesma senha, que continua ali.
+   */
+  protected mudarOAviso(n: number, resumo: string, como: 'tirar' | 'calar'): void {
+    const id = this.alvo()?.id;
+    if (!id) return;
+    this.calando.set(null);
+    this.host.nativeElement.querySelector<HTMLElement>(`[data-senha="${n}"] .acoes button`)?.focus();
+    this.mudarAviso.emit({ id, resumo, como });
   }
 
   private depois(ms: number, fazer: () => void): void {

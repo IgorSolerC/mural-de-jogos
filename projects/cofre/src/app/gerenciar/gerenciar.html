@@ -320,14 +320,43 @@
 
           @case ('vazadas') {
             <h3>Senhas vazadas</h3>
-            <p class="lead">Confere cada senha na base pública de vazamentos (Have I Been Pwned). Só os 5 primeiros caracteres do resumo de cada senha saem daqui; a senha nunca sai. Nada é guardado: confira de novo quando quiser.</p>
+            <p class="lead">
+              Confere cada senha na base pública de vazamentos (Have I Been Pwned). Só os 5 primeiros caracteres do resumo de cada senha saem daqui; a senha nunca sai. A que
+              aparecer ganha a etiqueta Vazada, guardada cifrada no próprio item, até você trocar a senha ou tirar o aviso.
+            </p>
             <div class="grupo">
               <div class="linha">
                 <div>
+                  <p class="linha-titulo" id="g-vazamentos-titulo">Conferir os vazamentos ao abrir o cofre</p>
+                  <p class="linha-desc" id="g-vazamentos-desc">
+                    @if (conferirAoAbrir()) {
+                      Ligado: a cada vez que o cofre abre, todas as senhas são conferidas uma vez, em segundo plano.
+                    } @else {
+                      Desligado: as senhas só são conferidas quando você pedir.
+                    }
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="interruptor"
+                  role="switch"
+                  [attr.aria-checked]="conferirAoAbrir()"
+                  aria-labelledby="g-vazamentos-titulo"
+                  aria-describedby="g-vazamentos-desc"
+                  [disabled]="mudandoConferirAoAbrir()"
+                  (click)="mudarConferirAoAbrir.emit(!conferirAoAbrir())"
+                >
+                  <span class="bolinha"></span>
+                </button>
+              </div>
+              <div class="linha">
+                <div>
                   <p class="linha-titulo">Conferir agora</p>
-                  <p class="linha-desc">
+                  <p class="linha-desc" role="status">
                     {{ senhas() }} {{ senhas() === 1 ? 'senha guardada' : 'senhas guardadas' }}.
-                    @if (conferidoEm(); as em) {
+                    @if (conferindo()) {
+                      Conferindo…
+                    } @else if (conferidoEm(); as em) {
                       Conferidas às {{ hora(em) }}.
                     }
                   </p>
@@ -338,23 +367,42 @@
                 </button>
               </div>
             </div>
-            @if (conferidoEm()) {
-              @if (vazadas().length) {
-                <div class="grupo">
-                  <p class="grupo-titulo perigo-titulo">Apareceram em vazamentos</p>
-                  @for (v of vazadas(); track v.id) {
-                    <div class="linha">
-                      <div>
-                        <p class="linha-titulo">{{ v.nome }}</p>
-                        <p class="linha-desc">{{ v.vezes.toLocaleString('pt-BR') }} {{ v.vezes === 1 ? 'vez' : 'vezes' }}. Troque a senha no site e aqui.</p>
-                      </div>
-                      <button type="button" class="papel" (click)="abrirItem.emit(v.id)">Abrir</button>
+            @if (vazadas().length) {
+              <div class="grupo">
+                <p class="grupo-titulo perigo-titulo">Com o aviso de vazada</p>
+                @for (v of vazadas(); track v.id) {
+                  <div class="linha">
+                    <div>
+                      <p class="linha-titulo">{{ v.nome }}</p>
+                      <p class="linha-desc">
+                        @if (v.senhas > 1) {
+                          {{ v.senhas }} senhas deste item, a mais vazada {{ v.vezes.toLocaleString('pt-BR') }} {{ v.vezes === 1 ? 'vez' : 'vezes' }}.
+                        } @else {
+                          {{ v.vezes.toLocaleString('pt-BR') }} {{ v.vezes === 1 ? 'vez' : 'vezes' }}.
+                        }
+                        Troque a senha no site e aqui.
+                      </p>
                     </div>
-                  }
-                </div>
-              } @else {
-                <p class="tudo-certo">Nenhuma senha apareceu em vazamentos.</p>
-              }
+                    <button type="button" class="papel" (click)="abrirItem.emit(v.id)">Abrir</button>
+                  </div>
+                }
+              </div>
+            } @else if (conferidoEm() && !caladas().length) {
+              <p class="tudo-certo">Nenhuma senha apareceu em vazamentos.</p>
+            }
+            @if (caladas().length) {
+              <div class="grupo">
+                <p class="grupo-titulo">Sem aviso, por escolha sua</p>
+                @for (c of caladas(); track c.id + c.resumo) {
+                  <div class="linha">
+                    <div>
+                      <p class="linha-titulo">{{ c.nome }}</p>
+                      <p class="linha-desc">Vazada ({{ c.vezes.toLocaleString('pt-BR') }} {{ c.vezes === 1 ? 'vez' : 'vezes' }}). Trocada a senha, os avisos voltam a valer.</p>
+                    </div>
+                    <button type="button" class="papel" (click)="mudarAviso.emit({ id: c.id, resumo: c.resumo, como: 'avisar' })">Voltar a avisar</button>
+                  </div>
+                }
+              </div>
             }
           }
 

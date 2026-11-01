@@ -3,8 +3,8 @@ import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import type { CofreAberto } from '../../core/abrir';
 import { ApiCofre, ErroApi, type Gravacao, type ItensDaApi } from '../../core/api';
 import { aleatorios, deBase64url, paraBase64url } from '../../core/bytes';
-import { cifrarManifesto, criarCofre, novaChaveDoMeio } from '../../core/crypto';
-import { type CamposDoItem, lerItens, salvarItem } from '../../core/itens';
+import { BLOCO, cifrarManifesto, criarCofre, ITEM_MAXIMO, novaChaveDoMeio, SOBRA_SELADO } from '../../core/crypto';
+import { type CamposDoItem, lerItem, lerItens, salvarItem } from '../../core/itens';
 import { sha1 } from '../../core/vazadas';
 import { CHAVE_DA_LIMPEZA } from '../area-de-transferencia';
 import { type Pagina, SERVICOS, type Servicos } from '../servicos';
@@ -49,7 +49,17 @@ class ApiNaMemoria extends ApiCofre {
   override trancar(): void {
     this.trancou++;
   }
+  /** "Conferir os vazamentos ao abrir o cofre" (17.24): anota o que pediram. */
+  readonly conferirAoAbrir: boolean[] = [];
+  override async ligarVazamentos(ligada: boolean) {
+    if (this.sessaoAcabou) throw new ErroApi(401, 'sessao-invalida', 'Sua sessão acabou.');
+    this.conferirAoAbrir.push(ligada);
+    return { ligada };
+  }
 }
+
+/** Segura as respostas da base de vazamentos até soltar (para mexer no cofre com a conferência no meio). */
+let portaoDaBase: Promise<void> | null = null;
 
 /** A passkey do cofre nos testes, e a assinatura que ela devolve (o byte 32 do authenticatorData são os flags). */
 const PASSKEY = 'cGFzc2tleS1kby10ZXN0ZQ';
@@ -70,6 +80,11 @@ async function montar(recuperada = false, mais: readonly CamposDoItem[] = [], ex
   await salvarItem(api, outro, { titulo: 'Wi-Fi de casa', usuario: '', senha: 'pastel', url: '', descricao: '' }, null);
   await salvarItem(api, outro, { titulo: 'Banco', usuario: 'fulano', senha: 'segredo-1', url: 'banco.exemplo', descricao: 'agência 1' }, null);
   for (const campos of mais) await salvarItem(api, outro, campos, null);
+  return montarSobre(api, cofre);
+}
+
+/** O cofre aberto na tela, sobre um servidor e um cofre que já existem (outra abertura do mesmo cofre). */
+async function montarSobre(api: ApiNaMemoria, cofre: CofreAberto) {
   const copias: string[] = [];
   const pedidosFora: string[] = [];
   const sites: string[] = [];
@@ -89,6 +104,7 @@ async function montar(recuperada = false, mais: readonly CamposDoItem[] = [], ex
     abrirSite: (u: string) => void sites.push(u),
     // a base de vazamentos de mentira: só "segredo-1" (a senha do Banco) aparece, 42 vezes
     buscarFora: (async (url: RequestInfo | URL) => {
+      if (portaoDaBase) await portaoDaBase;
       const h = await sha1('segredo-1');
       pedidosFora.push(String(url));
       return new Response(String(url).endsWith(h.slice(0, 5)) ? `${h.slice(5)}:42\n` : '', { status: 200 });
@@ -1188,5 +1204,195 @@ describe('várias senhas num item, e as que pedem a passkey de novo', () => {
     const vazadas = [...el.querySelectorAll('.vazada')];
     expect(vazadas.length).toBe(1);
     expect(vazadas[0]!.closest('.entrada')!.querySelector('.entrada-nome')!.textContent).toContain('Reserva');
+  });
+});
+
+describe('a senha vazada guardada no item (17.24)', () => {
+  afterEach(() => {
+    portaoDaBase = null;
+    TestBed.resetTestingModule();
+    sessionStorage.removeItem(CHAVE_DA_LIMPEZA);
+  });
+
+  const irParaVazadas = async (fixture: ComponentFixture<Aberto>, el: HTMLElement) => {
+    botao(el, 'Ajustes').click();
+    await estabilizar(fixture);
+    [...el.querySelectorAll<HTMLElement>('[role=tab]')].find((t) => t.textContent!.includes('Senhas vazadas'))!.click();
+    await estabilizar(fixture);
+  };
+  const conferir = async (fixture: ComponentFixture<Aberto>, el: HTMLElement) => {
+    await irParaVazadas(fixture, el);
+    botao(el, 'Conferir senhas vazadas').click();
+    await estabilizar(fixture);
+    for (let i = 0; i < 40 && !botao(el, 'Conferir senhas vazadas'); i++) await estabilizar(fixture);
+    botao(el, 'Voltar às senhas').click();
+    await estabilizar(fixture);
+  };
+  const abrirBanco = async (fixture: ComponentFixture<Aberto>, el: HTMLElement) => {
+    botao(el, /Banco/).click();
+    await estabilizar(fixture);
+  };
+  /** O Banco como o servidor guardou (lido de novo por outra cópia do cofre aberto). */
+  const bancoGuardado = async (api: ApiNaMemoria, cofre: CofreAberto) => (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item!.titulo === 'Banco')!.item!;
+  const esperar = async (fixture: ComponentFixture<Aberto>, ate: () => boolean) => {
+    for (let i = 0; i < 40 && !ate(); i++) await estabilizar(fixture);
+  };
+
+  it('a marca fica guardada no item, cifrada: lida de novo, a senha continua vazada (sem conferir outra vez)', async () => {
+    const { fixture, el, api, cofre } = await montar();
+    await conferir(fixture, el);
+    const guardado = await bancoGuardado(api, cofre);
+    expect(guardado.vazada).toEqual(jasmine.objectContaining({ vezes: 42 }));
+    expect(guardado.vazada!.resumo).toBe((await sha1('segredo-1')).slice(0, 12));
+    // o "mudado em" do item não mudou por causa da marca
+    expect(guardado.mudadoEm).not.toBe(new Date(0).toISOString());
+    // outra abertura (outro componente com o mesmo servidor), sem conferir: a etiqueta está lá
+    TestBed.resetTestingModule();
+    const outra = await montarSobre(api, cofre);
+    expect(outra.el.querySelector('.selo-vazada')!.closest('.linha')!.textContent).toContain('Banco');
+  });
+
+  it('desligado, abrir não confere nada; ligado, confere uma vez sozinho, em segundo plano, e conta o que achou', async () => {
+    const desligado = await montar();
+    expect(desligado.pedidosFora).toEqual([]);
+    TestBed.resetTestingModule();
+    const { fixture, el, pedidosFora } = await montar(false, [], { vazamentos: true });
+    await esperar(fixture, () => !!el.querySelector('.selo-vazada'));
+    expect(pedidosFora.length).toBeGreaterThan(0);
+    expect(pedidosFora.every((u) => /\/range\/[0-9A-F]{5}$/.test(u))).toBeTrue();
+    expect(el.querySelector('.selo-vazada')!.closest('.linha')!.textContent).toContain('Banco');
+    expect(el.querySelector('.bilhete')!.textContent).toContain('1 senha apareceu em vazamentos desde a última vez');
+    // uma vez só por abertura
+    const pedidos = pedidosFora.length;
+    await estabilizar(fixture);
+    expect(pedidosFora.length).toBe(pedidos);
+  });
+
+  it('a conferência da abertura pula o item que não cabe com a marca, sem erro na tela, e marca os outros', async () => {
+    // um item no limite do servidor: o JSON a 20 bytes do máximo (a marca, uns 75, não cabe mais)
+    const agora = new Date().toISOString();
+    const base = new TextEncoder().encode(JSON.stringify(lerItem({ titulo: 'Grande', senha: 'segredo-1', criadoEm: agora, mudadoEm: agora }))).length;
+    const falta = Math.floor((ITEM_MAXIMO - SOBRA_SELADO) / BLOCO) * BLOCO - 20 - base;
+    const grande: CamposDoItem = { titulo: 'Grande', usuario: '', senha: 'segredo-1', url: '', descricao: '€'.repeat(Math.floor(falta / 3)) + 'x'.repeat(falta % 3) };
+    const { fixture, el } = await montar(false, [grande], { vazamentos: true });
+    await esperar(fixture, () => !!el.querySelector('.selo-vazada'));
+    await estabilizar(fixture);
+    const comSelo = [...el.querySelectorAll('.selo-vazada')].map((x) => x.closest('.linha')!.querySelector('.titulo')!.textContent!.trim());
+    expect(comSelo).toEqual(['Banco']);
+    expect(el.querySelector('.erro')).toBeNull();
+    expect(el.textContent).not.toContain('grande demais');
+  });
+
+  it('a conferência da abertura que não acha nada novo fica quieta (e sem internet também)', async () => {
+    const { fixture, el, api, cofre } = await montar();
+    await conferir(fixture, el);
+    TestBed.resetTestingModule();
+    const outra = await montarSobre(api, { ...cofre, vazamentos: true });
+    await esperar(outra.fixture, () => outra.pedidosFora.length > 0);
+    await estabilizar(outra.fixture);
+    expect(outra.el.querySelector('.bilhete')).toBeNull();
+    expect(outra.el.querySelector('.selo-vazada')).not.toBeNull();
+  });
+
+  it('salvar com a conferência da abertura no meio: as gravações vão uma depois da outra, sem conflito, e a marca fica', async () => {
+    let soltar!: () => void;
+    portaoDaBase = new Promise((ok) => (soltar = ok));
+    const { fixture, el, api, cofre } = await montar(false, [], { vazamentos: true });
+    await abrirBanco(fixture, el);
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    const titulo = el.querySelector<HTMLInputElement>('#item-titulo')!;
+    titulo.value = 'Banco do bairro';
+    titulo.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    soltar();
+    botao(el, 'Salvar').click();
+    await esperar(fixture, () => !!el.querySelector('.vazada'));
+    expect(el.querySelector('.erro')).toBeNull();
+    const guardado = (await lerItens(api, { ...cofre, manifesto: { ...cofre.manifesto } })).find((i) => i.item!.titulo === 'Banco do bairro')!.item!;
+    expect(guardado.vazada?.vezes).toBe(42);
+    expect(el.querySelector('h2')!.textContent).toContain('Banco do bairro');
+  });
+
+  it('"Tirar o aviso": some agora (da lista e do item, e do que está guardado); uma conferência nova põe de volta', async () => {
+    const { fixture, el, api, cofre } = await montar();
+    await conferir(fixture, el);
+    await abrirBanco(fixture, el);
+    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
+    expect(el.querySelector('.vazada .selo-vazada')!.textContent).toContain('Vazada');
+    botao(el, 'Tirar o aviso').click();
+    await esperar(fixture, () => !el.querySelector('.vazada'));
+    expect(el.querySelector('.vazada')).toBeNull();
+    expect(el.querySelector('.lista .selo-vazada')).toBeNull();
+    expect((await bancoGuardado(api, cofre)).vazada).toBeUndefined();
+    // o foco fica na mesma senha (o Copiar dela), não se perde com o bilhete que sumiu
+    expect(document.activeElement?.closest('[data-senha="0"]')).not.toBeNull();
+    await conferir(fixture, el);
+    expect(el.querySelector('.lista .selo-vazada')).not.toBeNull();
+  });
+
+  it('"Não avisar mais desta senha" pergunta antes; confirmado, o aviso some de vez para esta senha, e os Ajustes voltam a avisar', async () => {
+    const { fixture, el, api, cofre } = await montar();
+    await conferir(fixture, el);
+    await abrirBanco(fixture, el);
+    botao(el, 'Não avisar mais desta senha').click();
+    await estabilizar(fixture);
+    expect(el.querySelector('.vazada')!.textContent).toContain('Não avisar mais sobre ela neste item?');
+    expect(el.querySelector('.vazada')!.textContent).toContain('Você continua exposto enquanto não trocá-la.');
+    expect(document.activeElement).toBe(botao(el, 'Cancelar'));
+    // Cancelar (ou o Esc) volta ao aviso, sem fechar o item
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    await estabilizar(fixture);
+    expect(el.querySelector('.vazada')!.textContent).toContain('42 vezes');
+    expect(el.querySelector('h2')!.textContent).toContain('Banco');
+    botao(el, 'Não avisar mais desta senha').click();
+    await estabilizar(fixture);
+    botao(el, 'Não avisar mais').click();
+    await esperar(fixture, () => !el.querySelector('.vazada'));
+    expect(el.querySelector('.lista .selo-vazada')).toBeNull();
+    expect((await bancoGuardado(api, cofre)).vazada?.calada).toBeTrue();
+    // uma conferência nova não traz o aviso de volta
+    await conferir(fixture, el);
+    expect(el.querySelector('.bilhete')!.textContent).toContain('Nenhuma senha apareceu em vazamentos');
+    expect(el.querySelector('.lista .selo-vazada')).toBeNull();
+    // nos Ajustes, a calada aparece à parte, e volta a avisar dali
+    await irParaVazadas(fixture, el);
+    expect(el.textContent).toContain('Sem aviso, por escolha sua');
+    botao(el, 'Voltar a avisar').click();
+    await esperar(fixture, () => !el.textContent!.includes('Sem aviso, por escolha sua'));
+    expect(el.textContent).toContain('Com o aviso de vazada');
+    expect((await bancoGuardado(api, cofre)).vazada?.calada).toBeUndefined();
+  });
+
+  it('trocar a senha calada faz os avisos valerem de novo para a nova', async () => {
+    const { fixture, el, api, cofre } = await montar();
+    await conferir(fixture, el);
+    await abrirBanco(fixture, el);
+    botao(el, 'Não avisar mais desta senha').click();
+    await estabilizar(fixture);
+    botao(el, 'Não avisar mais').click();
+    await esperar(fixture, () => !el.querySelector('.vazada'));
+    botao(el, 'Editar').click();
+    await estabilizar(fixture);
+    const senha = el.querySelector<HTMLInputElement>('#item-senha')!;
+    senha.value = 'outra-bem-nova';
+    senha.dispatchEvent(new Event('input'));
+    await estabilizar(fixture);
+    botao(el, 'Salvar').click();
+    await estabilizar(fixture);
+    expect((await bancoGuardado(api, cofre)).vazada).toBeUndefined();
+  });
+
+  it('o interruptor dos Ajustes liga e desliga no servidor, e diz o que mudou', async () => {
+    const { fixture, el, api } = await montar();
+    await irParaVazadas(fixture, el);
+    const chave = () => el.querySelector<HTMLButtonElement>('[role=switch][aria-labelledby="g-vazamentos-titulo"]')!;
+    chave().click();
+    await esperar(fixture, () => chave().getAttribute('aria-checked') === 'true');
+    expect(api.conferirAoAbrir).toEqual([true]);
+    expect(el.querySelector('.bilhete')!.textContent).toContain('A cada vez que o cofre abrir');
+    chave().click();
+    await esperar(fixture, () => chave().getAttribute('aria-checked') === 'false');
+    expect(api.conferirAoAbrir).toEqual([true, false]);
   });
 });

@@ -3,7 +3,8 @@ import { type AparelhoDaApi, ApiCofre, type CarenciaDaApi, type CofreCriado, typ
 import { aleatorios, deBase64url, paraBase64url } from '../core/bytes';
 import { cifrarManifesto, criarCofre, KDF_PADRAO, novaChaveDoMeio, novoSal } from '../core/crypto';
 import { semArmario } from '../core/carencia';
-import { type CamposDoItem, salvarItem } from '../core/itens';
+import { type CamposDoItem, mudarVazamentos, salvarItem } from '../core/itens';
+import { sha1 } from '../core/vazadas';
 import type { Autenticador } from '../core/passkey';
 import { type Demonstracao, paginaDoNavegador } from './servicos';
 import type { IdDaCor, IdDoIcone } from '../../../../shared/cartela-de-icones';
@@ -13,7 +14,9 @@ import type { IdDaCor, IdDoIcone } from '../../../../shared/cartela-de-icones';
  * `http://localhost:4200/?demo`. A API e as passkeys são de mentira: o primeiro aparelho registrado tem
  * PRF, o segundo não (para ver o modo servidor). Com `?demo=sem-prf`, nenhum tem. Com `?demo=entrar` ou
  * `?demo=construcao`, a porta (no `ng serve` a página não é isolada, então o botão de entrar aparece
- * bloqueado, como deve). Com `?demo=carencia` (ou `carencia-pin`), a tela de abrir só com a senha. Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com oito
+ * bloqueado, como deve). Com `?demo=vazadas`, o cofre aberto com "Conferir os vazamentos ao abrir o cofre"
+ * ligado: a conferência da abertura marca três senhas (a base de vazamentos é de mentira, `baseDeMentira`) e o
+ * Alarme já vem vazado e calado. Com `?demo=carencia` (ou `carencia-pin`), a tela de abrir só com a senha. Com `?demo=abrir`, a tela de abrir (`?demo=congelado`, com o cofre congelado); com `?demo=aberto`, um cofre aberto com oito
  * senhas de exemplo (duas com mais de uma entrada, e uma entrada que pede a passkey), guardadas na memória por uma API de mentira que confere o contador como a de verdade.
  */
 const espera = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
@@ -151,6 +154,10 @@ class ApiDeMentira extends ApiCofre {
     this.carenciaLigada = ligada;
     return { ligada };
   }
+  override async ligarVazamentos(ligada: boolean): Promise<{ ligada: boolean }> {
+    await espera(250);
+    return { ligada };
+  }
   override async encerrarCarencia(): Promise<{ encerrada: true }> {
     return { encerrada: true };
   }
@@ -167,7 +174,7 @@ class ApiDeMentira extends ApiCofre {
 const CARENCIA_DA_DEMO = '7c1d2a6e-5d4f-4e3a-9b1c-2d3e4f5a6b70';
 
 /** Um cofre aberto de mentira (chaves sorteadas agora), com três senhas de exemplo. */
-async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false): Promise<CofreAberto> {
+async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false, vazadas = false): Promise<CofreAberto> {
   const m = novaChaveDoMeio();
   const { chave, v } = await criarCofre(aleatorios(32), m, usuario);
   const manifesto = { contador: 0, itens: {}, lixeira: {}, mudadoEm: new Date(Date.now() - 3 * 86_400_000).toISOString(), aparelho: 'Celular' };
@@ -183,6 +190,7 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false
     aparelho: 'PC',
     segredos: { m, v, sal: novoSal(), kdf: { ...KDF_PADRAO } },
     passkeys: [{ id: PASSKEY_DA_DEMO, transports: ['internal'] }],
+    vazamentos: vazadas,
   };
   const exemplos: CamposDoItem[] = [
     {
@@ -219,7 +227,9 @@ async function cofreDeMentira(api: ApiDeMentira, usuario: string, muitas = false
     { titulo: 'Loja de jogos', usuario: 'fulano', senha: 'cinema-pipoca-tucano', url: 'loja.exemplo', descricao: '' },
   ];
   for (const campos of muitas ? [...exemplos, ...outrosExemplos()] : exemplos) {
-    await salvarItem(api, cofre, campos, null);
+    const salvo = await salvarItem(api, cofre, campos, null);
+    // o Alarme já vazou, e a pessoa pediu para não avisar mais dele
+    if (vazadas && campos.titulo === 'Alarme') await mudarVazamentos(api, cofre, salvo, (_e, resumo) => ({ resumo, vezes: 271_904, em: new Date(Date.now() - 20 * 86_400_000).toISOString(), calada: true }));
   }
   return cofre;
 }
@@ -307,6 +317,21 @@ function autenticadorDeMentira(semPrf: boolean): Autenticador {
 
 const PASSKEY_DA_DEMO = 'cGFzc2tleS1kYS1kZW1vbnN0cmFjYW8';
 
+/** As senhas da demonstração que a base de mentira diz que vazaram (e quantas vezes). */
+const VAZADAS_DA_DEMO: Readonly<Record<string, number>> = { 'pastel-de-feira-2024': 3, '7319': 271_904, '7342': 58_112, 'cinema-pipoca-tucano': 1 };
+
+/** A base de vazamentos de mentira: a demonstração não chama a de verdade (responde como ela, com o preenchimento). */
+const baseDeMentira: typeof fetch = async (url) => {
+  await espera(400);
+  const prefixo = String(url).slice(-5);
+  const linhas = ['0000000000000000000000000000000000A:0'];
+  for (const [senha, vezes] of Object.entries(VAZADAS_DA_DEMO)) {
+    const h = await sha1(senha);
+    if (h.startsWith(prefixo)) linhas.push(`${h.slice(5)}:${vezes}`);
+  }
+  return new Response(linhas.join('\n'), { status: 200 });
+};
+
 let feita: Demonstracao | null | undefined;
 
 export function demonstracao(): Demonstracao | null {
@@ -320,13 +345,13 @@ export function demonstracao(): Demonstracao | null {
     porta,
     abrir: pedido === 'abrir' || pedido === 'congelado',
     congeladoAte: pedido === 'congelado' ? new Date(Date.now() + 86_400_000).toISOString() : undefined,
-    aberto: pedido === 'aberto' || pedido === 'muitas' ? () => cofreDeMentira(api, usuario, pedido === 'muitas') : undefined,
+    aberto: pedido === 'aberto' || pedido === 'muitas' || pedido === 'vazadas' ? () => cofreDeMentira(api, usuario, pedido === 'muitas', pedido === 'vazadas') : undefined,
     carencia:
       pedido === 'carencia' || pedido === 'carencia-pin'
         ? { id: CARENCIA_DA_DEMO, token: 'T'.repeat(43), chave: paraBase64url(aleatorios(32)), usuario, codigo: 'K7QFM2XA', expiraEm: new Date(Date.now() + 23 * 3_600_000).toISOString(), pin: pedido === 'carencia-pin' }
         : undefined,
     // a demonstração não guarda nada no aparelho (a carência dela é só a de cima)
-    servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: { ...paginaDoNavegador(), armario: semArmario }, terminar: () => location.reload() },
+    servicos: { api, autenticador: autenticadorDeMentira(pedido === 'sem-prf'), rpId: location.hostname, pagina: { ...paginaDoNavegador(), armario: semArmario, buscarFora: baseDeMentira }, terminar: () => location.reload() },
     entrada: { token: 'demo', expiraEm: new Date(Date.now() + 300_000).toISOString(), usuario: '0b7c6a2e-5d4f-4e3a-9b1c-2d3e4f5a6b7c', codigo: 'K7QFM2XA' },
   });
 }

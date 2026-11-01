@@ -1,4 +1,4 @@
-import { conferirVazadas, lerFaixa, sha1 } from './vazadas';
+import { conferirSenhas, conferirVazadas, lerFaixa, RITMO_DA_ABERTURA, sha1 } from './vazadas';
 
 describe('o aviso de senha vazada', () => {
   it('o SHA-1 no formato da base (o de "password" é conhecido)', async () => {
@@ -28,5 +28,36 @@ describe('o aviso de senha vazada', () => {
   it('sem rede ou com a base fora: null (não avisa nada), sem quebrar', async () => {
     expect(await conferirVazadas(['abc'], (() => Promise.reject(new TypeError('offline'))) as typeof fetch)).toEqual([null]);
     expect(await conferirVazadas(['abc'], (async () => new Response('', { status: 503 })) as typeof fetch)).toEqual([null]);
+  });
+
+  it('o resumo de cada senha vem junto (o começo do SHA-1, para a marca dentro do item)', async () => {
+    const buscar = (async () => new Response('1E4C9B93F3F0682250B6CF8331B7EE68FD8:3861493\n', { status: 200 })) as typeof fetch;
+    expect(await conferirSenhas(['password', ''], buscar)).toEqual([
+      { resumo: '5BAA61E4C9B9', vezes: 3861493 },
+      { resumo: '', vezes: 0 },
+    ]);
+  });
+
+  it('no ritmo da abertura: no máximo 2 pedidos ao mesmo tempo, com uma pausa depois de cada um', async () => {
+    let agora = 0;
+    let maximo = 0;
+    const horas: number[] = [];
+    const buscar = (async () => {
+      agora++;
+      maximo = Math.max(maximo, agora);
+      horas.push(performance.now());
+      await new Promise((ok) => setTimeout(ok, 5));
+      agora--;
+      return new Response('', { status: 200 });
+    }) as typeof fetch;
+    // senhas com começos de hash diferentes: um pedido para cada uma
+    const senhas = ['a1', 'b2', 'c3', 'd4', 'e5', 'f6'];
+    const inicio = performance.now();
+    const vezes = await conferirVazadas(senhas, buscar, RITMO_DA_ABERTURA);
+    expect(vezes).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(horas.length).toBe(6);
+    expect(maximo).toBeLessThanOrEqual(2);
+    // 6 pedidos, 2 de cada vez, com a pausa de 150 ms entre eles: bem mais que de uma vez só
+    expect(performance.now() - inicio).toBeGreaterThan(300);
   });
 });

@@ -71,8 +71,3 @@ export function contarPorGrupo(itens: readonly ItemNaLista[]): Map<string, numbe
   }
   return conta;
 }
-
-/** Quantas vezes a senha mais vazada de um item apareceu em vazamentos (0: nenhuma, ou não conferida). */
-export function vezesVazada(vazadas: ReadonlyMap<string, readonly number[]>, id: string): number {
-  return Math.max(0, ...(vazadas.get(id) ?? []));
-}

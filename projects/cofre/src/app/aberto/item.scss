@@ -173,7 +173,8 @@ h2 {
     'rotulo acoes'
     'valor acoes'
     'extra extra'
-    'aviso aviso';
+    'aviso aviso'
+    'vazada vazada';
   align-items: center;
   gap: 4px 20px;
   padding: 16px 0;
@@ -267,12 +268,39 @@ dd {
     opacity: 0.4;
   }
 }
+/* a senha vazada (17.24): o bilhete rosa colado embaixo da senha, com a etiqueta Vazada no começo do texto
+   e as duas saídas embaixo; "Não avisar mais" troca o texto pela pergunta, no mesmo bilhete */
 .vazada {
-  grid-area: aviso;
+  grid-area: vazada;
   @include p.bilhete-colado(var(--rosa-tinta));
+  display: grid;
+  gap: 6px;
   margin-top: 10px;
+}
+.vazada-texto {
+  margin: 0;
   color: var(--erro);
   font-weight: 600;
+}
+.vazada .selo-vazada {
+  @include p.selo-vazada;
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: 1px;
+}
+.vazada-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  margin: 0 0 -6px -10px;
+  /* a pergunta: o adesivo de papel encosta na margem do bilhete, como o texto, e respira embaixo */
+  &:has(.papel) {
+    margin: 4px 0 0 -10px;
+  }
+  .papel {
+    margin-left: 10px;
+  }
 }
 .descricao {
   font: 400 1.08rem/1.5 var(--f-mao);

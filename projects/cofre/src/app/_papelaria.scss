@@ -501,6 +501,20 @@
   text-wrap: pretty;
 }
 
+// A etiqueta "Vazada" (17.24): o recorte vermelho colado torto, na lista (depois do nome) e no aviso da
+// senha, o mesmo nos dois lugares.
+@mixin selo-vazada {
+  flex: none;
+  padding: 3px 5px 2px;
+  border-radius: 2px;
+  background: var(--vermelho);
+  color: #fff;
+  font: 800 0.62rem/1 var(--f-rotulo);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  rotate: -3deg;
+}
+
 // O rótulo impresso de um campo ou de um grupo.
 @mixin rotulo {
   display: block;

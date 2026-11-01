@@ -488,7 +488,8 @@ que o topo usa são copiadas para o cofre e servidas da origem dele (o COEP barr
   5 primeiros caracteres para `api.pwnedpasswords.com/range/` com `Add-Padding: true` e confere o
   resto ali mesmo. A senha e o hash inteiro nunca saem.
 - Senha encontrada: um selo "Vazada" no item e uma lista "Senhas vazadas" no topo. Nada é
-  guardado: a conferência se repete a cada abertura.
+  guardado: a conferência se repete a cada abertura. (Mudou em 17.24: a marca fica guardada dentro
+  do item cifrado até a senha mudar ou a pessoa tirar o aviso.)
 - Sem rede ou com a API fora: não avisa nada e não atrapalha o cofre.
 
 ### Comportamentos de segurança
@@ -1884,3 +1885,51 @@ API do Murall vai ao ar com o push e chama `encerrarCarencias` ao sair; antes de
 chamada falha em silêncio e o sair funciona como antes. A
 página nova com a API velha não guarda carência nenhuma (o desafio não diz `carencia`), e a API nova com a
 página velha ignora o que ela não manda.
+
+### 17.24 As senhas vazadas guardadas no item, e conferir ao abrir (01/11)
+
+Pedido do usuário: as senhas não lembravam o resultado da conferência de vazamentos. A marcada como vazada
+deve ficar com o aviso até a pessoa trocar a senha ou pedir para tirá-lo, com duas saídas, "tirar agora" e
+"nunca mais avisar desta senha" (esta com um aviso antes); e uma opção nos Ajustes do cofre para conferir
+todas as senhas uma vez a cada abertura. Feito sem mexer na cripto (as chaves, o manifesto e o formato
+cifrado são os mesmos; só o conteúdo de dentro do item ganhou um campo opcional):
+
+- **A marca mora no item, cifrada** (`core/itens.ts`, `Vazamento`): cada entrada (a primeira em `vazada`,
+  as outras em `outras[n].vazada`) guarda o resumo da senha conferida (os 12 primeiros caracteres do SHA-1,
+  `RESUMO` em `core/vazadas.ts`), as vezes que ela aparecia na base, quando foi achada e, se for o caso,
+  `calada`. Nada vai para o aparelho, e o servidor não sabe que senha vazou (é só um item gravado de novo).
+  O resumo fica dentro do cifrado, junto da própria senha, então não conta nada a mais a ninguém.
+- **Trocar a senha tira a marca sozinho.** Ao ler e ao salvar, a marca só vale na entrada cuja senha de
+  agora tem o resumo dela: salvar leva as marcas do item de antes pelo resumo (a senha que não mudou
+  continua marcada, também se trocou de lugar entre as entradas; a trocada perde a marca), e o que a
+  edição traz nos campos não conta. Uma aba de antes desta versão grava o item sem as marcas: elas somem
+  até a próxima conferência achar de novo.
+- **As saídas** (`mudarVazamentos`, que regrava o item sem mudar o "mudado em" dele): "Tirar o aviso" apaga
+  a marca (uma conferência nova que ache põe de volta); "Não avisar mais desta senha" pergunta antes ("Esta
+  senha aparece em vazamentos públicos. Não avisar mais sobre ela neste item? Você continua exposto
+  enquanto não trocá-la.") e deixa a marca `calada`, que nenhuma conferência desfaz; trocada a senha, a
+  marca calada sai com ela e a nova volta a poder avisar. Os Ajustes listam as caladas à parte ("Sem aviso,
+  por escolha sua"), com "Voltar a avisar".
+- **Conferir os vazamentos ao abrir o cofre** (desligado por padrão, como a decisão 8). O cofre não guarda
+  nada no aparelho e o manifesto é cripto, então o ajuste fica no servidor, como o da carência:
+  `cofre_contas.vazamentos` (migração 0003), devolvido no `POST /api/cofre/abrir` e mudado por `PUT
+  /api/cofre/vazamentos { ligada }` (sem a confirmação de agora: não deixa o cofre mais fraco). Não é
+  segredo; o servidor fica sabendo só que a pessoa quer a conferência. Ligado, a página confere todas as
+  senhas logo depois de abrir, em segundo plano e devagar (`RITMO_DA_ABERTURA`: 2 pedidos ao mesmo tempo,
+  150 ms entre eles; a conferência pedida vai com 6), e só fala se achar uma senha nova vazada; sem rede,
+  fica quieta. Isto substitui a mudança de 17.9 ("um botão, não ligado nos Ajustes"): o botão "Conferir
+  senhas vazadas" continua.
+- **As gravações em fila** (`aberto.ts`, `naFila`): a marca feita em segundo plano, o Salvar, a lixeira e a
+  troca de grupo vão uma depois da outra, cada uma lendo o item como está na vez dela, então a conferência
+  da abertura não dá conflito com uma edição feita ao mesmo tempo. Um conflito com outro aparelho no meio
+  das marcas relê tudo e tenta o item de novo, uma vez.
+- Demonstração: `ng serve cofre` com `?demo=vazadas` (uma base de vazamentos de mentira; o Alarme já vem
+  calado).
+
+Testes: `core/marcas-de-vazada.spec.ts`, `core/vazadas.spec.ts` (o resumo e o ritmo), `aberto.spec.ts` (a
+marca guardada, a conferência da abertura, a fila com o Salvar, tirar, calar e voltar a avisar, o
+interruptor), `gerenciar.spec.ts`, e `cofre-api/test/manage.suite.ts` (o ajuste no servidor).
+
+**Passos do usuário**: publicar o cofre ("Publicar o cofre", que aplica a migração 0003 antes do Worker).
+Antes disso, a página nova com a API velha não sabe do ajuste (fica desligado, e ligar dá erro); as marcas
+dentro dos itens já funcionam.

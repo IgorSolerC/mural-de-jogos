@@ -377,9 +377,29 @@
             </button>
           }
         </dd>
-        @if (vazadas()[n] > 0) {
-          <dd class="vazada" role="note">Esta senha apareceu em vazamentos ({{ vazadas()[n]!.toLocaleString('pt-BR') }} vezes). Troque-a no site e aqui.</dd>
-        }
+      }
+      @if (avisoDeVazada(e); as v) {
+        <!-- a senha vazada (17.24): o aviso fica até trocar a senha, tirar o aviso ou não avisar mais -->
+        <dd class="vazada" role="group" [attr.aria-labelledby]="'vazada-' + n">
+          @if (calando() === n) {
+            <p class="vazada-texto" [id]="'vazada-' + n">
+              Esta senha aparece em vazamentos públicos. Não avisar mais sobre ela neste item? Você continua exposto enquanto não trocá-la.
+            </p>
+            <span class="vazada-acoes">
+              <button type="button" class="papel perigo" [disabled]="ocupado()" (click)="mudarOAviso(n, v.resumo, 'calar')">Não avisar mais</button>
+              <button type="button" class="palavra cancelar-calar" (click)="cancelarCalar()">Cancelar</button>
+            </span>
+          } @else {
+            <p class="vazada-texto" [id]="'vazada-' + n">
+              <span class="selo-vazada">Vazada</span>
+              Aparece em vazamentos públicos ({{ v.vezes.toLocaleString('pt-BR') }} {{ v.vezes === 1 ? 'vez' : 'vezes' }}, achada em {{ achadaEm(v.em) }}). Troque-a no site e aqui: trocada, o aviso sai sozinho.
+            </p>
+            <span class="vazada-acoes">
+              <button type="button" class="palavra" [disabled]="ocupado()" (click)="mudarOAviso(n, v.resumo, 'tirar')">Tirar o aviso</button>
+              <button type="button" class="palavra calar" [disabled]="ocupado()" (click)="perguntarCalar(n)">Não avisar mais desta senha</button>
+            </span>
+          }
+        </dd>
       }
     </div>
   }

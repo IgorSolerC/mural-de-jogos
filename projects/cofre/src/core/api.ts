@@ -158,6 +158,8 @@ export interface Abertura {
   readonly recuperada: boolean;
   /** A carência deste aparelho que o servidor guardou agora (null: não guardou). */
   readonly carencia?: { readonly id: string; readonly expiraEm: string } | null;
+  /** "Conferir os vazamentos ao abrir o cofre" está ligado (17.24); uma API de antes não diz (desligado). */
+  readonly vazamentos?: boolean;
 }
 
 /** Os itens como a API guarda (`GET /api/cofre/itens`): cifrados, com o manifesto e o contador de agora. */
@@ -326,6 +328,11 @@ export class ApiCofre {
   /** Desligar encerra todas na hora; ligar pede a confirmação de agora. */
   ligarCarencia(ligada: boolean, confirmar?: Confirmacao): Promise<{ readonly ligada: boolean }> {
     return this.pedir('PUT', '/api/cofre/carencia', { ligada, ...(confirmar ? { confirmar } : {}) });
+  }
+
+  /** "Conferir os vazamentos ao abrir o cofre" (17.24): não pede a confirmação de agora. */
+  ligarVazamentos(ligada: boolean): Promise<{ readonly ligada: boolean }> {
+    return this.pedir('PUT', '/api/cofre/vazamentos', { ligada });
   }
 
   encerrarCarencia(id: string): Promise<{ readonly encerrada: true }> {

@@ -249,14 +249,51 @@ describe('gerenciar o cofre', () => {
     expect(el.textContent).toContain('3 senhas guardadas');
     botao(el, 'Conferir senhas vazadas').click();
     fixture.componentRef.setInput('conferidoEm', new Date());
-    fixture.componentRef.setInput('vazadas', [{ id: 'i1', nome: 'Banco', vezes: 42 }]);
+    fixture.componentRef.setInput('vazadas', [{ id: 'i1', nome: 'Banco', vezes: 42, senhas: 1 }]);
     await estabilizar(fixture);
     expect(el.textContent).toContain('42 vezes');
     botao(el, 'Abrir').click();
     expect(pedidos).toEqual(['conferir', 'abrir i1']);
+    // com duas senhas do item avisando, a linha diz quantas e a mais vazada
+    fixture.componentRef.setInput('vazadas', [{ id: 'i1', nome: 'Banco', vezes: 42, senhas: 2 }]);
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('2 senhas deste item, a mais vazada 42 vezes');
     fixture.componentRef.setInput('vazadas', []);
     await estabilizar(fixture);
     expect(el.querySelector('.tudo-certo')!.textContent).toContain('Nenhuma senha apareceu');
+  });
+
+  it('conferir os vazamentos ao abrir: o interruptor diz como está e pede a mudança; as caladas voltam a avisar daqui', async () => {
+    const { fixture, el } = await montar();
+    const pedidos: string[] = [];
+    fixture.componentInstance.mudarConferirAoAbrir.subscribe((v) => pedidos.push(`ao abrir ${v}`));
+    fixture.componentInstance.mudarAviso.subscribe((m) => pedidos.push(`${m.como} ${m.id} ${m.resumo}`));
+    await parte(fixture, 'Senhas vazadas');
+    const chave = () => el.querySelector<HTMLButtonElement>('[role=switch][aria-labelledby="g-vazamentos-titulo"]')!;
+    expect(chave().getAttribute('aria-checked')).toBe('false');
+    expect(el.querySelector('#g-vazamentos-desc')!.textContent).toContain('só são conferidas quando você pedir');
+    chave().click();
+    fixture.componentRef.setInput('conferirAoAbrir', true);
+    await estabilizar(fixture);
+    expect(chave().getAttribute('aria-checked')).toBe('true');
+    expect(el.querySelector('#g-vazamentos-desc')!.textContent).toContain('a cada vez que o cofre abre');
+    fixture.componentRef.setInput('mudandoConferirAoAbrir', true);
+    await estabilizar(fixture);
+    expect(chave().disabled).toBeTrue();
+    // a conferência da abertura, em segundo plano, aparece na linha do Conferir agora
+    fixture.componentRef.setInput('conferindo', true);
+    await estabilizar(fixture);
+    expect(el.textContent).toContain('Conferindo…');
+    fixture.componentRef.setInput('conferindo', false);
+    fixture.componentRef.setInput('conferidoEm', new Date());
+    fixture.componentRef.setInput('caladas', [{ id: 'i2', nome: 'Alarme', resumo: '5BAA61E4C9B9', vezes: 271904 }]);
+    await estabilizar(fixture);
+    // com uma calada, não diz que nenhuma vazou
+    expect(el.querySelector('.tudo-certo')).toBeNull();
+    expect(el.textContent).toContain('Sem aviso, por escolha sua');
+    expect(el.textContent).toContain('271.904 vezes');
+    botao(el, 'Voltar a avisar').click();
+    expect(pedidos).toEqual(['ao abrir true', 'avisar i2 5BAA61E4C9B9']);
   });
 
   it('tirar pede confirmação; o último aparelho não tem o botão', async () => {

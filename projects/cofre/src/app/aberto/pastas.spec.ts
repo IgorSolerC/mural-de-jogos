@@ -1,5 +1,5 @@
 import { type Item, type ItemNaLista, lerItem } from '../../core/itens';
-import { contarPorGrupo, emPastas, gruposDoCofre, jeitosDosGrupos, vezesVazada } from './pastas';
+import { contarPorGrupo, emPastas, gruposDoCofre, jeitosDosGrupos } from './pastas';
 
 let n = 0;
 const na = (campos: Partial<Item>): ItemNaLista => ({ id: `i${++n}`, versao: 1, naLixeira: false, naLixeiraDesde: null, item: lerItem(campos) });
@@ -58,9 +58,4 @@ describe('as pastas da lista', () => {
     ]);
   });
 
-  it('vezes vazada: a maior das entradas, 0 sem conferência', () => {
-    const vazadas = new Map([['a', [0, 12, 3]]]);
-    expect(vezesVazada(vazadas, 'a')).toBe(12);
-    expect(vezesVazada(vazadas, 'b')).toBe(0);
-  });
 });

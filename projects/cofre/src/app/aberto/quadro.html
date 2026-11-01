@@ -48,7 +48,7 @@
         <ul class="lista" role="list">
           @for (i of p.itens; track i.id) {
             @let it = i.item!;
-            @let vezes = vezesVazada(i.id);
+            @let vezes = vezesVazada(it);
             @let segunda = !!(it.usuario || it.outras.length || (dominio(it.url) && it.titulo));
             <li class="linha" [class.aberta]="aberto() === i.id" [class.uma-linha]="!segunda">
               @let naVez = daVez() === i.id;

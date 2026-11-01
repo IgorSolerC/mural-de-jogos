@@ -13,6 +13,11 @@
  * e o manifesto novo, com o contador que este aparelho viu; se outro aparelho gravou antes, a API
  * responde 409 e nada muda (`ErroConflito`): quem chama relê os itens e faz de novo.
  *
+ * Uma senha que apareceu em vazamentos fica marcada na entrada dela (`Vazamento`, seção 17.24), dentro do
+ * cifrado como o resto, com o resumo da senha conferida: trocar a senha tira a marca sozinho (ao ler e ao
+ * salvar, só vale a marca cujo resumo bate com a senha de agora). Fora isso, ela só sai pelo "Tirar o aviso"
+ * (`mudarVazamentos`); "Não avisar mais desta senha" a deixa calada (`calada`) até a senha mudar.
+ *
  * A lixeira guarda o item por 30 dias; depois a limpeza do servidor apaga os dados e deixa uma lápide
  * (id e versão), que a página tira do manifesto (`limparLapides`).
  */
@@ -22,6 +27,7 @@ import { type CorDoSelo, ehCorDoSelo } from './selo';
 import type { CofreAberto } from './abrir';
 import { deBase64url, paraBase64url } from './bytes';
 import { cifrarItem, cifrarManifesto, conferirItens, decifrarItem, decifrarManifesto, ErroCofre, type Manifesto, novoId } from './crypto';
+import { RESUMO, resumoDaSenha } from './vazadas';
 
 /** O que a pessoa guarda (decisão 11): todos os campos são opcionais (texto vazio). */
 export interface Item {
@@ -43,6 +49,8 @@ export interface Item {
   readonly rotulo: string;
   /** A senha da primeira entrada pede a passkey de novo para aparecer. */
   readonly protegida: boolean;
+  /** A senha da primeira entrada apareceu em vazamentos (ausente: não apareceu, ou não foi conferida). */
+  readonly vazada?: Vazamento;
   /** As outras entradas, depois da primeira (até `MAX_ENTRADAS` ao todo). */
   readonly outras: readonly Entrada[];
   readonly criadoEm: string;
@@ -58,6 +66,23 @@ export interface Entrada {
   readonly senha: string;
   /** Pede a passkey (ou a senha mestra) de novo para mostrar ou copiar a senha. */
   readonly protegida: boolean;
+  /** A senha apareceu em vazamentos (ausente: não apareceu, ou não foi conferida). */
+  readonly vazada?: Vazamento;
+}
+
+/**
+ * A marca de uma senha que apareceu na base de vazamentos (17.24). Fica até a senha mudar (o resumo deixa
+ * de bater) ou até "Tirar o aviso"; uma conferência nova que ache de novo a põe de volta.
+ */
+export interface Vazamento {
+  /** O começo do SHA-1 da senha conferida (`RESUMO` caracteres, core/vazadas.ts). */
+  readonly resumo: string;
+  /** Quantas vezes ela aparecia na base quando foi achada. */
+  readonly vezes: number;
+  /** Quando a conferência achou (ISO). */
+  readonly em: string;
+  /** "Não avisar mais desta senha": a marca fica, sem aviso, até a senha mudar. */
+  readonly calada?: true;
 }
 
 /** Uma senha de antes; `protegida` se a entrada dela pedia a passkey (continua pedindo no histórico). */
@@ -81,14 +106,24 @@ export type CamposDoItem = Pick<Item, 'titulo' | 'usuario' | 'senha' | 'url' | '
 export const ENTRADA_VAZIA: Entrada = { rotulo: '', usuario: '', senha: '', protegida: false };
 
 /** Todas as entradas do item, a primeira (o User e a Senha) na frente. */
-export function entradasDo(item: Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'outras'>): Entrada[] {
-  return [{ rotulo: item.rotulo, usuario: item.usuario, senha: item.senha, protegida: item.protegida }, ...item.outras];
+export function entradasDo(item: Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'vazada' | 'outras'>): Entrada[] {
+  return [{ rotulo: item.rotulo, usuario: item.usuario, senha: item.senha, protegida: item.protegida, ...(item.vazada ? { vazada: item.vazada } : {}) }, ...item.outras];
 }
 
 /** Os campos de um item com estas entradas: a primeira vai para o User e a Senha, as outras para `outras`. */
-export function comEntradas(entradas: readonly Entrada[]): Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'outras'> {
+export function comEntradas(entradas: readonly Entrada[]): Pick<Item, 'rotulo' | 'usuario' | 'senha' | 'protegida' | 'vazada' | 'outras'> {
   const [primeira = ENTRADA_VAZIA, ...outras] = entradas;
-  return { rotulo: primeira.rotulo, usuario: primeira.usuario, senha: primeira.senha, protegida: primeira.protegida, outras };
+  return { rotulo: primeira.rotulo, usuario: primeira.usuario, senha: primeira.senha, protegida: primeira.protegida, ...(primeira.vazada ? { vazada: primeira.vazada } : {}), outras };
+}
+
+/** A marca que avisa (a calada, por escolha da pessoa, não avisa). */
+export function avisoDeVazada(e: Pick<Entrada, 'vazada'>): Vazamento | null {
+  return e.vazada && !e.vazada.calada ? e.vazada : null;
+}
+
+/** Quantas vezes a senha mais vazada do item apareceu (só as marcas que avisam; 0: nenhuma). */
+export function vezesVazada(item: Item | null | undefined): number {
+  return item ? Math.max(0, ...entradasDo(item).map((e) => avisoDeVazada(e)?.vezes ?? 0)) : 0;
 }
 
 /** Uma entrada sem nada escrito (marcar "pede a passkey" sozinho não conta). */
@@ -141,13 +176,25 @@ export class ErroConflito extends Error {
 const texto = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 const rotulo = (v: unknown) => texto(v, LIMITES.rotulo * 2).replace(/\s+/g, ' ').trim().slice(0, LIMITES.rotulo);
 
+const data = (v: unknown) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : new Date(0).toISOString());
+const RESUMO_OK = new RegExp(`^[0-9A-F]{${RESUMO}}$`);
+
+/** A marca de vazada guardada, se estiver no formato (senão, a entrada fica sem: a próxima conferência acha de novo). */
+function lerVazamento(bruto: unknown): Vazamento | undefined {
+  if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return undefined;
+  const v = bruto as Record<string, unknown>;
+  const vezes = v['vezes'];
+  if (typeof v['resumo'] !== 'string' || !RESUMO_OK.test(v['resumo']) || typeof vezes !== 'number' || !Number.isSafeInteger(vezes) || vezes < 1) return undefined;
+  return { resumo: v['resumo'], vezes, em: data(v['em']), ...(v['calada'] === true ? { calada: true as const } : {}) };
+}
+
 function lerEntrada(bruto: unknown): Entrada | null {
   if (!bruto || typeof bruto !== 'object' || Array.isArray(bruto)) return null;
   const e = bruto as Record<string, unknown>;
-  const entrada = { rotulo: rotulo(e['rotulo']), usuario: texto(e['usuario'], LIMITES.usuario), senha: texto(e['senha'], LIMITES.senha), protegida: e['protegida'] === true };
+  const vazada = lerVazamento(e['vazada']);
+  const entrada = { rotulo: rotulo(e['rotulo']), usuario: texto(e['usuario'], LIMITES.usuario), senha: texto(e['senha'], LIMITES.senha), protegida: e['protegida'] === true, ...(vazada ? { vazada } : {}) };
   return entradaVazia(entrada) ? null : entrada;
 }
-const data = (v: unknown) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : new Date(0).toISOString());
 
 /** Confere e limpa um item vindo de dentro do cifrado (só formato: o conteúdo é da pessoa). */
 export function lerItem(bruto: unknown): Item {
@@ -161,6 +208,7 @@ export function lerItem(bruto: unknown): Item {
         .slice(0, HISTORICO)
     : [];
   const grupo = nomeDoGrupo(texto(i['grupo'], LIMITES.grupo * 2));
+  const vazada = lerVazamento(i['vazada']);
   return {
     titulo: texto(i['titulo'], LIMITES.titulo),
     usuario: texto(i['usuario'], LIMITES.usuario),
@@ -175,6 +223,7 @@ export function lerItem(bruto: unknown): Item {
     grupoCor: grupo && ehCorDaCartela(i['grupoCor']) ? i['grupoCor'] : '',
     rotulo: rotulo(i['rotulo']),
     protegida: i['protegida'] === true,
+    ...(vazada ? { vazada } : {}),
     // as vazias saem; os itens de antes não têm o campo
     outras: Array.isArray(i['outras'])
       ? (i['outras'] as unknown[])
@@ -209,7 +258,7 @@ export async function lerItens(api: ApiCofre, cofre: CofreAberto): Promise<ItemN
   for (const i of resposta.itens) {
     // só uma lápide pode vir sem dados, e só na lixeira
     if (i.dados === null && i.naLixeiraDesde === null) throw new ErroCofre('manifesto', 'item sem dados fora da lixeira');
-    const item = i.dados === null ? null : lerItem(await decifrarItem(cofre.chave, cofre.usuario, i.id, i.versao, bytes(i.dados, 'item')));
+    const item = i.dados === null ? null : await soMarcasQueBatem(lerItem(await decifrarItem(cofre.chave, cofre.usuario, i.id, i.versao, bytes(i.dados, 'item'))));
     lista.push({ id: i.id, versao: i.versao, naLixeira: i.naLixeiraDesde !== null, naLixeiraDesde: i.naLixeiraDesde, item });
   }
   cofre.manifesto = manifesto;
@@ -239,17 +288,42 @@ async function gravar(cofre: CofreAberto, manifesto: Manifesto, pedido: (gravaca
 }
 
 /**
- * Salva um item: novo (`anterior` null, versão 1) ou mudado (a versão + 1). Trocar a senha guarda a de
- * antes no histórico. Devolve o item como ficou na lista.
+ * As marcas de vazada de um item, cada uma na entrada cuja senha de agora tem o resumo dela (`marcas`: as
+ * que valiam, pelo resumo). A senha trocada perde a marca; duas entradas com a mesma senha têm a mesma.
  */
-export async function salvarItem(api: ApiCofre, cofre: CofreAberto, campos: CamposDoItem, anterior: ItemNaLista | null): Promise<ItemNaLista> {
-  const agora = new Date().toISOString();
-  const velho = anterior?.item ?? null;
-  const historico =
-    velho && velho.senha && velho.senha !== campos.senha
-      ? [{ senha: velho.senha, ate: agora, ...(velho.protegida ? { protegida: true } : {}) }, ...velho.historico].slice(0, HISTORICO)
-      : (velho?.historico ?? []);
-  const item = lerItem({ ...campos, criadoEm: velho?.criadoEm ?? agora, mudadoEm: agora, historico });
+async function comMarcas(item: Item, marcas: ReadonlyMap<string, Vazamento>): Promise<Item> {
+  if (!marcas.size && !entradasDo(item).some((e) => e.vazada)) return item;
+  return marcasPor(item, (_e, resumo) => marcas.get(resumo));
+}
+
+/**
+ * O item com a marca de cada entrada que `mudar` devolver (ela recebe a entrada, com a marca de agora, e o
+ * resumo da senha dela; a entrada sem senha fica sem marca).
+ */
+async function marcasPor(item: Item, mudar: (entrada: Entrada, resumo: string) => Vazamento | undefined): Promise<Item> {
+  const novas = await Promise.all(
+    entradasDo(item).map(async (e) => {
+      const { vazada: _, ...semMarca } = e;
+      const marca = e.senha ? mudar(e, await resumoDaSenha(e.senha)) : undefined;
+      return marca ? { ...semMarca, vazada: marca } : semMarca;
+    }),
+  );
+  // a marca da primeira entrada que saiu não pode ficar do item de antes
+  return lerItem({ ...item, vazada: undefined, ...comEntradas(novas) });
+}
+
+/** As marcas de um item, pelo resumo guardado em cada uma. */
+function marcasDo(item: Item | null): Map<string, Vazamento> {
+  return new Map(item ? entradasDo(item).flatMap((e) => (e.vazada ? [[e.vazada.resumo, e.vazada] as const] : [])) : []);
+}
+
+/** Só as marcas que batem com a senha de agora (uma marca que ficou de uma senha trocada não engana o aviso). */
+function soMarcasQueBatem(item: Item): Promise<Item> {
+  return comMarcas(item, marcasDo(item));
+}
+
+/** Cifra e grava o item (na versão seguinte à de `anterior`, ou na 1 se for novo), com o manifesto novo. */
+async function gravarItem(api: ApiCofre, cofre: CofreAberto, item: Item, anterior: ItemNaLista | null): Promise<ItemNaLista> {
   const id = anterior?.id ?? novoId();
   const versao = anterior ? anterior.versao + 1 : 1;
   const dados = paraBase64url(await cifrarItem(cofre.chave, cofre.usuario, id, versao, item));
@@ -259,6 +333,41 @@ export async function salvarItem(api: ApiCofre, cofre: CofreAberto, campos: Camp
   });
   await gravar(cofre, manifesto, (g) => api.salvarItem(id, dados, versao, g));
   return { id, versao, naLixeira: false, naLixeiraDesde: null, item };
+}
+
+/**
+ * Salva um item: novo (`anterior` null, versão 1) ou mudado (a versão + 1). Trocar a senha guarda a de
+ * antes no histórico. As marcas de vazada vêm do item de antes, pelo resumo: a senha que continua igual
+ * continua marcada, e a trocada fica sem (o que a edição traz nos campos não conta). Devolve o item como
+ * ficou na lista.
+ */
+export async function salvarItem(api: ApiCofre, cofre: CofreAberto, campos: CamposDoItem, anterior: ItemNaLista | null): Promise<ItemNaLista> {
+  const agora = new Date().toISOString();
+  const velho = anterior?.item ?? null;
+  const historico =
+    velho && velho.senha && velho.senha !== campos.senha
+      ? [{ senha: velho.senha, ate: agora, ...(velho.protegida ? { protegida: true } : {}) }, ...velho.historico].slice(0, HISTORICO)
+      : (velho?.historico ?? []);
+  const item = await comMarcas(lerItem({ ...campos, criadoEm: velho?.criadoEm ?? agora, mudadoEm: agora, historico }), marcasDo(velho));
+  return gravarItem(api, cofre, item, anterior);
+}
+
+/**
+ * Muda só as marcas de vazada de um item (a conferência que achou, "Tirar o aviso", "Não avisar mais",
+ * "Voltar a avisar"), sem mexer no resto nem no "mudado em" dele: `mudar` recebe cada entrada com senha e
+ * o resumo dela, e devolve a marca que ela fica tendo (ou nenhuma). Sem mudança, não grava e devolve null.
+ * Só os itens do cofre: gravar um da lixeira o tiraria de lá.
+ */
+export async function mudarVazamentos(
+  api: ApiCofre,
+  cofre: CofreAberto,
+  alvo: ItemNaLista,
+  mudar: (entrada: Entrada, resumo: string) => Vazamento | undefined,
+): Promise<ItemNaLista | null> {
+  if (alvo.naLixeira || !alvo.item) return null;
+  const item = await marcasPor(alvo.item, mudar);
+  if (JSON.stringify(item) === JSON.stringify(alvo.item)) return null;
+  return gravarItem(api, cofre, item, alvo);
 }
 
 /** Põe na lixeira (a versão não muda). */

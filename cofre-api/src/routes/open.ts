@@ -51,12 +51,13 @@ interface AccountRow {
   mudado_em: string;
   carencia: number;
   pin: number;
+  vazamentos: number;
 }
 
 /** A conta do cofre, ou 404 se ela ainda não tem cofre; 423 se está congelado (8.6). */
 export async function vaultOf(deps: Deps, userId: string): Promise<AccountRow> {
   const row = await deps.db.first<AccountRow>(
-    'SELECT versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, congelado_ate, mudado_em, carencia, pin FROM cofre_contas WHERE usuario_id = ?',
+    'SELECT versao_cripto, kdf_m, kdf_t, kdf_p, sal, v, auth_hash, auth_pimenta, manifesto, contador, congelado_ate, mudado_em, carencia, pin, vazamentos FROM cofre_contas WHERE usuario_id = ?',
     [userId],
   );
   if (!row) throw new HttpError(404, 'sem-cofre', 'Esta conta ainda não tem cofre.');
@@ -243,6 +244,8 @@ export function openRoutes(app: Hono, deps: Deps): void {
       contador: vault.contador,
       recuperada: recovered,
       carencia: newGrace ? { id: newGrace.grace.id, expiraEm: new Date(now.getTime() + GRACE_MS).toISOString() } : null,
+      // conferir os vazamentos ao abrir (17.24): a página confere logo depois de abrir, em segundo plano
+      vazamentos: vault.vazamentos === 1,
     });
   });
 

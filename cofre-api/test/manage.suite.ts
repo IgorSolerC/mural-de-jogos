@@ -177,10 +177,27 @@ export function manageSuite(label: string, setup: Setup) {
       expect(await db.first('SELECT 1 AS um FROM cofre_eventos WHERE usuario_id = ?', [OUTRA.id])).toEqual({ um: 1 });
     });
 
+    it('conferir os vazamentos ao abrir: desligado por padrão, a abertura diz como está, e muda só com true ou false', async () => {
+      const { pedir, entrar, chave, post, db } = await aberto();
+      expect(await db.first('SELECT vazamentos FROM cofre_contas WHERE usuario_id = ?', [DONO.id])).toEqual({ vazamentos: 0 });
+      expect(await (await pedir('PUT', '/api/cofre/vazamentos', { ligada: true })).json()).toEqual({ ligada: true });
+      expect(await db.first('SELECT vazamentos FROM cofre_contas WHERE usuario_id = ?', [DONO.id])).toEqual({ vazamentos: 1 });
+      // a próxima abertura já diz que está ligado (a página confere logo depois de abrir)
+      const entrada = await entrar();
+      await chave(entrada, 'es256', 1);
+      expect(await (await post('/api/cofre/abrir', { kAuth: SENHA }, entrada)).json()).toMatchObject({ vazamentos: true });
+      expect((await pedir('PUT', '/api/cofre/vazamentos', { ligada: 'sim' })).status).toBe(400);
+      expect((await pedir('PUT', '/api/cofre/vazamentos', {})).status).toBe(400);
+      expect(await (await pedir('PUT', '/api/cofre/vazamentos', { ligada: false })).json()).toEqual({ ligada: false });
+      expect(await db.first('SELECT vazamentos FROM cofre_contas WHERE usuario_id = ?', [DONO.id])).toEqual({ vazamentos: 0 });
+      // ligar e desligar ficam no histórico, como a carência
+      expect((await db.all("SELECT tipo FROM cofre_eventos WHERE tipo LIKE 'vazamentos-%' ORDER BY id")).map((e: any) => e.tipo)).toEqual(['vazamentos-ligado', 'vazamentos-desligado']);
+    });
+
     it('nada disso com a sessão de entrada', async () => {
       const { entrar, call } = await aberto();
       const t = await entrar();
-      for (const [m, p] of [['GET', '/api/cofre/aparelhos'], ['GET', '/api/cofre/sessoes'], ['GET', '/api/cofre/eventos'], ['PUT', '/api/cofre/senha'], ['DELETE', '/api/cofre'], ['POST', '/api/cofre/confirmar']] as const) {
+      for (const [m, p] of [['GET', '/api/cofre/aparelhos'], ['GET', '/api/cofre/sessoes'], ['GET', '/api/cofre/eventos'], ['PUT', '/api/cofre/senha'], ['PUT', '/api/cofre/vazamentos'], ['DELETE', '/api/cofre'], ['POST', '/api/cofre/confirmar']] as const) {
         expect((await call(m, p, m === 'GET' ? undefined : {}, { origin: ORIGEM, token: t })).status, `${m} ${p}`).toBe(401);
       }
     });

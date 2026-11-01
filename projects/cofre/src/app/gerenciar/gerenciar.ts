@@ -34,6 +34,8 @@ const EVENTOS: Record<string, string> = {
   'cofre-congelado': 'Cofre congelado por 24 horas',
   'carencia-ligada': 'Carência ligada',
   'carencia-desligada': 'Carência desligada',
+  'vazamentos-ligado': 'Conferir os vazamentos ao abrir: ligado',
+  'vazamentos-desligado': 'Conferir os vazamentos ao abrir: desligado',
   'carencia-encerrada': 'Carência de um aparelho encerrada',
 };
 
@@ -82,11 +84,29 @@ type PedidoConfirmado =
   | { readonly acao: 'apagar' }
   | { readonly acao: 'carencia' };
 
-/** Uma senha que apareceu em vazamentos, para a lista dos Ajustes. */
+/** Um item com senha marcada como vazada que avisa, para a lista dos Ajustes (17.24). */
 export interface Vazada {
   readonly id: string;
   readonly nome: string;
+  /** As vezes da senha mais vazada do item. */
   readonly vezes: number;
+  /** Quantas senhas do item estão com o aviso. */
+  readonly senhas: number;
+}
+
+/** Uma senha vazada que a pessoa pediu para não avisar mais (o nome do item, e o da entrada quando tem). */
+export interface Calada {
+  readonly id: string;
+  readonly nome: string;
+  readonly resumo: string;
+  readonly vezes: number;
+}
+
+/** O que fazer com a marca de vazada de uma senha (pelo resumo dela, num item). */
+export interface MarcaDeVazada {
+  readonly id: string;
+  readonly resumo: string;
+  readonly como: 'tirar' | 'calar' | 'avisar';
 }
 
 function mensagem(e: unknown): string {
@@ -119,11 +139,16 @@ export class Gerenciar implements OnInit {
 
   readonly cofre = input.required<CofreAberto>();
   readonly conta = input.required<string>();
-  /** As senhas que apareceram em vazamentos na última conferência. */
+  /** Os itens com senha marcada como vazada (a marca fica guardada no item, até trocar a senha ou tirar o aviso). */
   readonly vazadas = input<readonly Vazada[]>([]);
+  /** As vazadas que a pessoa pediu para não avisar mais. */
+  readonly caladas = input<readonly Calada[]>([]);
   readonly conferindo = input(false);
   /** Quando as senhas foram conferidas (null: ainda não, desde que o cofre abriu). */
   readonly conferidoEm = input<Date | null>(null);
+  /** "Conferir os vazamentos ao abrir o cofre" (17.24). */
+  readonly conferirAoAbrir = input(false);
+  readonly mudandoConferirAoAbrir = input(false);
   /** Quantas senhas há no cofre. */
   readonly senhas = input(0);
   /** Os grupos das senhas, em ordem. */
@@ -133,6 +158,8 @@ export class Gerenciar implements OnInit {
   readonly mudarGrupo = output<MudancaDeGrupo>();
   readonly avisar = output<string>();
   readonly conferir = output<void>();
+  readonly mudarConferirAoAbrir = output<boolean>();
+  readonly mudarAviso = output<MarcaDeVazada>();
   readonly abrirItem = output<string>();
   /** Trancar todos e apagar o cofre acabam com esta sessão: quem usa recarrega a página. */
   readonly terminar = output<void>();
