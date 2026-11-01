@@ -28,8 +28,8 @@ import { ZoomKnob } from './zoom-knob';
  *
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
  *
- * O card ("> [!aviso] Título", ver core/callouts.ts) é um papel colorido colado no texto, preso por um
- * pedaço de fita crepe, com a beirada de baixo rasgada: o desenho do jeito e o título a pincel em cima,
+ * O card ("> [!aviso] Título", ver core/callouts.ts) é um papel colorido colado no texto, com a beirada
+ * de baixo rasgada: o desenho do jeito e o título a pincel em cima,
  * e o que tem dentro como o resto do texto. O que fecha ("[!aviso]-") é um <details>: tocar no título
  * abre e fecha (só ele age, a ficha embaixo não abre).
  *
@@ -467,23 +467,14 @@ import { ZoomKnob } from './zoom-knob';
 
     @include formatado.seta-url;
 
-    /* ===== O card: o papel colorido colado no texto (ver ui/_formatado.scss), com a fita crepe no
-       canto e a beirada de baixo rasgada. Meia linha da pauta em cima e embaixo: o card soma uma linha ===== */
+    /* ===== O card: o papel colorido colado no texto (ver ui/_formatado.scss), com a beirada de
+       baixo rasgada. Meia linha da pauta em cima e embaixo: o card soma uma linha ===== */
     .cartao {
       @include formatado.cartao-papel;
       position: relative;
       margin: 0;
       padding: calc(var(--line, 1.5em) / 2) formatado.$cartao-lado;
       border-radius: 2px 2px 0 0;
-    }
-    .cartao::before {
-      @include formatado.cartao-fita;
-    }
-    .cartao:nth-child(3n + 2)::before {
-      @include formatado.cartao-fita-outra(2);
-    }
-    .cartao:nth-child(3n)::before {
-      @include formatado.cartao-fita-outra(3);
     }
     .cartao::after {
       @include formatado.cartao-rasgo;

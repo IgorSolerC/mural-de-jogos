@@ -35,8 +35,8 @@ describe('o texto formatado na leitura', () => {
     expect(cards[0].querySelector('.cartao-topo .cartao-icone svg')).not.toBeNull();
     expect(cards[0].querySelector('.cartao-titulo .negrito')?.textContent).toBe('ir');
     expect(cards[1].querySelector('.cartao-titulo')!.textContent!.trim()).toBe('Pergunta');
-    // a fita no canto e o rasgo no pé
-    expect(getComputedStyle(cards[0], '::before').content).not.toBe('none');
+    // sem fita, e o rasgo no pé
+    expect(getComputedStyle(cards[0], '::before').content).toBe('none');
     expect(getComputedStyle(cards[0], '::after').maskImage).toContain('svg');
     // a tarefa de dentro marca a linha certa do texto
     cards[0].querySelector<HTMLInputElement>('input[type=checkbox]')!.click();

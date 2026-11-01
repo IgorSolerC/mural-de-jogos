@@ -63,7 +63,7 @@ const LOOKS: Record<string, (el: HTMLElement) => void> = {
     expect(css(el, '::before').width).toBe('2px');
   },
   '.cartao[data-jeito="aviso"]': (el) => {
-    // o papel do jeito, chapado: sem a fita, sem o rasgo e sem a sombra de papel colado
+    // o papel do jeito, chapado: sem o rasgo e sem a sombra de papel colado
     expect(css(el).backgroundColor).toBe('rgb(251, 223, 194)');
     expect(css(el).filter).toBe('none');
     expect(css(el, '::before').content).toBe('none');

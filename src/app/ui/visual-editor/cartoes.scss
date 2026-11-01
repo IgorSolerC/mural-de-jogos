@@ -9,7 +9,7 @@
   // card e, na descrição de um item, o recuo dela): o texto fica onde a leitura o põe, e o papel vai de
   // ponta a ponta, sem emenda (1px a mais em cima e embaixo: a linha de baixo cobre a de cima, sem
   // o fio claro da emenda entre as duas). Meia linha da pauta em cima da de cima e embaixo da última, como na
-  // leitura; a fita crepe no canto da de cima e o rasgo no pé da última.
+  // leitura; o rasgo no pé da última.
   > :is(.vis-cartao-topo, .vis-no-cartao) {
     @include formatado.cartao-papel;
     --c-lado: calc(#{formatado.$cartao-lado-n} * var(--vis-letra));
@@ -36,18 +36,6 @@
     padding-top: calc(var(--line) / 2);
     border-radius: 2px 2px 0 0;
     text-indent: 0;
-  }
-  // a fita cruza o canto do papel (que passa da linha pelo lado)
-  > .vis-cartao-topo::before {
-    @include formatado.cartao-fita;
-    right: calc(var(--c-lado) * -1 - 11px);
-  }
-  > .vis-cartao-topo:nth-child(3n + 2)::before {
-    @include formatado.cartao-fita-outra(2);
-    right: calc(var(--c-lado) * -1 - 9px);
-  }
-  > .vis-cartao-topo:nth-child(3n)::before {
-    @include formatado.cartao-fita-outra(3);
   }
   // sem a sombra de papel colado na escrita: pintada linha por linha, a sombra de cada uma (até só a
   // da última) marcava a emenda com a de cima. A da leitura, que é um papel só, fica

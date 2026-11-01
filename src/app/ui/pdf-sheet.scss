@@ -337,7 +337,7 @@
     color: var(--pdf-tinta-3);
   }
 
-  // o card: o papel do jeito chapado, como o callout do Obsidian (sem a fita, o rasgo e a sombra de
+  // o card: o papel do jeito chapado, como o callout do Obsidian (sem o rasgo e a sombra de
   // papel colado), o título em negrito na tinta dele; o comprido (mais que uma página) quebra de página
   // com o fundo junto
   .cartao:not(app-note-widget *) {

@@ -74,9 +74,9 @@ describe('o card no modo Visual', () => {
     expect(dom[1].classList).toContain('vis-no-cartao');
     expect(dom[2].classList).toContain('vis-cartao-fim');
     expect(dom[3].classList).not.toContain('vis-no-cartao');
-    // o papel é pintado do lado de fora também (o border-image), e a de cima leva a fita
+    // o papel é pintado do lado de fora também (o border-image), sem fita na de cima
     expect(getComputedStyle(dom[1]).borderImageSource).toContain('gradient');
-    expect(getComputedStyle(dom[0], '::before').content).not.toBe('none');
+    expect(getComputedStyle(dom[0], '::before').content).toBe('none');
     cursor(4);
     digita('!');
     expect(valor).toBe(T + '!');
