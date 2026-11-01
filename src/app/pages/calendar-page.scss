@@ -599,6 +599,24 @@
     0 5px 10px -5px rgb(0 0 0 / 0.4);
 }
 
+/* o lembrete aberto por um link no texto de uma anotação: o nome dele circulado com a caneta vermelha,
+   como se circula o dia na folhinha (o mesmo círculo de hoje, em volta só das letras, sem pegar o toque) */
+.destaque .lembrete-nome {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+.destaque .lembrete-nome::after {
+  content: '';
+  position: absolute;
+  /* o traço do círculo ocupa uns 83% da largura e 78% da altura do desenho: a caixa passa das letras o
+     bastante para ele não cortá-las, e não mais (com um nome comprido, ele fica dentro da tira, sem
+     chegar ao lápis) */
+  inset: calc(-12% - 0.4em) calc(-10% - 12px) calc(-14% - 0.36em);
+  background: var(--circulo-caneta) center / 100% 100% no-repeat;
+  pointer-events: none;
+}
+
 .lembrete-texto {
   min-width: 0;
 }

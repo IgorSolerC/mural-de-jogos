@@ -138,9 +138,16 @@ export class CalendarPage {
   /** Sem o calendário do aparelho (showPicker), o campo de data aparece ali mesmo. */
   protected readonly jumpShown = signal(false);
 
-  private readonly query = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map((q) => ({ vista: q.get('vista'), dia: q.get('dia') }))), {
-    initialValue: { vista: null, dia: null },
+  private readonly query = toSignal(inject(ActivatedRoute).queryParamMap.pipe(map((q) => ({ vista: q.get('vista'), dia: q.get('dia'), lembrete: q.get('lembrete') }))), {
+    initialValue: { vista: null, dia: null, lembrete: null },
   });
+  /**
+   * O lembrete aberto por um link no texto de uma anotação (`?lembrete=ID`, ver core/reminder-links.ts):
+   * no Dia, ele fica circulado com a caneta vermelha e o foco vai para o Editar dele. Mudar de dia ou de
+   * vista tira o destaque (o endereço novo não o leva).
+   */
+  protected readonly spotlight = computed(() => (this.view() === 'dia' ? this.query().lembrete : null));
+  private readonly host = inject(ElementRef<HTMLElement>);
 
   protected readonly today = this.calendar.today;
   protected readonly now = this.calendar.time;
@@ -238,6 +245,20 @@ export class CalendarPage {
       untracked(() => {
         this.calendar.compose.set(null);
         this.create(ask.day ?? this.day());
+      });
+    });
+    // o lembrete do link entra na tela, com o foco no Editar dele (uma vez por pedido)
+    let spotted: string | null = null;
+    effect(() => {
+      const id = this.spotlight();
+      const key = id && `${id}@${this.day()}`;
+      if (!key || key === spotted || !this.dayList().some((r) => r.id === id)) return;
+      spotted = key;
+      requestAnimationFrame(() => {
+        const el = (this.host.nativeElement as HTMLElement).querySelector<HTMLElement>('.lembrete.destaque');
+        if (!el) return;
+        el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        el.querySelector<HTMLElement>('.editar')?.focus({ preventScroll: true });
       });
     });
     // ligado, o Google Agenda acompanha o Calendário aberto

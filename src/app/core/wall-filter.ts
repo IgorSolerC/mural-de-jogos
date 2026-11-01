@@ -1,3 +1,4 @@
+import { REMINDER_HREFS } from './rich-text';
 import { KindProfile, isMusic, isNotes } from './kinds';
 import {
   DIFFICULTIES,
@@ -162,6 +163,11 @@ export function matchesFilter(r: Review, f: WallFilter, skip?: FacetKey): boolea
   return true;
 }
 
+/** O texto que a busca lê: o endereço dos links de lembrete ("murall://lembrete/ID") não aparece, e não é achado. */
+function searchedText(text: string): string {
+  return text.includes('murall://lembrete/') ? text.replace(REMINDER_HREFS, ']') : text;
+}
+
 /**
  * A busca do mural: nome, texto e bônus (nas anotações, a categoria, o assunto e as tags; nas músicas, o
  * artista, o álbum de onde a música é e a faixa de destaque), sem ligar para acento nem caixa.
@@ -175,7 +181,7 @@ export function matchesQuery(r: Review, needle: string): boolean {
   }
   return (
     fold(r.game.name).includes(needle) ||
-    fold(r.text).includes(needle) ||
+    fold(searchedText(r.text)).includes(needle) ||
     r.bonuses.some((b) => fold(b.label).includes(needle)) ||
     (!!r.category && fold(r.category).includes(needle)) ||
     (!!r.subject && fold(r.subject).includes(needle)) ||

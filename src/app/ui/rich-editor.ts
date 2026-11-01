@@ -2,11 +2,13 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
+import { ReminderLinks } from '../core/reminder-links';
+import { CopyContexts } from '../core/copy-context';
 import { Review, formatReviewDate } from '../core/review';
 import { RichText } from './rich-text';
 import { WidgetSheet } from './widget-sheet';
@@ -34,7 +36,12 @@ type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar", "Inserir", "Templates" (e os do Visual: "Tabela" e a grade do tamanho). */
 type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos' | 'card';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule' | 'card';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'reminder' | 'rule' | 'card';
+/**
+ * O painel do link de lembrete: o trecho que o link vai ocupar (`big`: em qual das folhas), o texto que
+ * aparece, a busca e o lembrete escolhido (o id; null, a lista aberta). `swap`: troca o link que já estava lá.
+ */
+type ReminderPanel = { big: boolean; start: number; end: number; label: string; query: string; chosen: string | null; swap?: boolean };
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'sutil' | 'codigo';
 
@@ -74,7 +81,9 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  *
  * Com `notes` (o editor da anotação), o "Inserir" ganha "Link para outra anotação": escreve
  * "[[Título]]" no texto (ver core/note-links.ts). Escrever "[[" direto na folha abre a mesma lista,
- * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha.
+ * filtrando pelo que vem depois; setas escolhem, Enter (ou Tab) põe, Esc fecha. E "Lembrete do
+ * calendário": o painel com o texto e a busca dos lembretes (os próximos primeiro, com o dia), que
+ * escreve "[texto](murall://lembrete/ID)" (ver core/reminder-links.ts); sem texto, o nome do lembrete.
  *
  * Cada widget do "Inserir" abre um painel com os campos dele (o contador: para quê, se repete, o
  * dia, a hora) e ele mesmo, vivo, embaixo. "Pôr" escreve a marca ("{{contador: …}}") numa linha só
@@ -755,6 +764,82 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               </div>
             </div>
           }
+        }
+      }
+      <!-- o link para um lembrete do Calendário (Inserir › Lembrete do calendário, ou o clique num link
+           de lembrete): o painel do link de anotação, com a busca dos lembretes (os próximos primeiro, o
+           dia de cada um embaixo do nome) -->
+      @if (reminding(); as k) {
+        @if (k.big === big) {
+          @let escolhido = chosenReminder();
+          <div class="painel elo-painel lembrete-painel" role="group" aria-label="Link para um lembrete do calendário" (keydown.escape)="closeReminderKey($event)">
+            <div class="painel-topo">
+              <p class="painel-titulo">Lembrete do calendário</p>
+              <button type="button" class="painel-fechar" aria-label="Fechar" title="Fechar" (click)="closeReminder()"><lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" /></button>
+            </div>
+            <label class="painel-campo">
+              <span>Texto</span>
+              <input type="text" autocomplete="off" placeholder="O que aparece (ou deixe o nome do lembrete)" [value]="k.label" (input)="setReminderLabel($any($event.target).value)" (keydown.enter)="$event.preventDefault(); putReminder()" />
+            </label>
+            <div class="painel-campo">
+              <label [for]="areaId + '-lembrete-busca'">Lembrete</label>
+              <div class="elo-busca">
+                <input
+                  type="text"
+                  class="lembretes-campo"
+                  [id]="areaId + '-lembrete-busca'"
+                  placeholder="Procure pelo nome"
+                  autocomplete="off"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  [attr.aria-expanded]="!escolhido"
+                  [attr.aria-controls]="areaId + '-lembretes'"
+                  [attr.aria-activedescendant]="!escolhido && reminderOpts().length ? areaId + '-lembrete-' + remActive() : null"
+                  [value]="escolhido ? escolhido.title : k.query"
+                  (input)="setReminderQuery($any($event.target).value)"
+                  (keydown)="onReminderKey($event)"
+                />
+                @if (escolhido) {
+                  <!-- escolhido: a lista fecha e fica quando ele é (escrever ou ↓ reabre a lista) -->
+                  <p class="elo-escolhida" aria-live="polite">
+                    <lucide-icon [img]="ReminderIcon" [size]="16" aria-hidden="true" />
+                    <span>{{ escolhido.when }}{{ escolhido.past ? ' · já passou' : '' }}</span>
+                  </p>
+                } @else {
+                  <ul class="elos-lista" role="listbox" [id]="areaId + '-lembretes'" aria-label="Lembretes">
+                    @if (k.chosen) {
+                      <li class="elos-vazio" role="presentation">O lembrete deste link não está mais no seu Calendário. Escolha outro.</li>
+                    }
+                    @for (o of reminderOpts(); track o.id; let i = $index) {
+                      <li
+                        role="option"
+                        class="elo-op"
+                        [id]="areaId + '-lembrete-' + i"
+                        [class.ativa]="remActive() === i"
+                        [attr.aria-selected]="remActive() === i"
+                        (pointerdown)="$event.preventDefault()"
+                        (click)="chooseReminder(o.id)"
+                      >
+                        <span class="elo-nome">{{ o.title }}</span>
+                        <span class="elo-meta">{{ o.meta }}</span>
+                      </li>
+                    } @empty {
+                      <li class="elos-vazio" role="presentation">{{ anyReminder() ? 'Nenhum lembrete com esse nome.' : 'Você ainda não tem lembretes. Crie um no Calendário das Anotações.' }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+            <div class="painel-acoes">
+              @if (visual() && k.swap) {
+                <span class="painel-mais">
+                  <button type="button" class="acao-caneta" (click)="unlink()"><lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />Tirar o link</button>
+                </span>
+              }
+              <button type="button" class="acao-caneta" (click)="closeReminder()">Cancelar</button>
+              <button type="button" class="painel-ok" [disabled]="!escolhido" (click)="putReminder()">{{ k.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
+            </div>
+          </div>
         }
       }
     </ng-template>
@@ -2339,7 +2424,7 @@ export class RichEditor {
     if (this.visual()) this.visualOf(big)?.focus();
     else area.focus();
     try {
-      await copiarMarkdown(t.text, copyText(t.text, { now: Date.now() }));
+      await copiarMarkdown(t.text, copyText(t.text, this.copyContexts.now()));
       this.toasts.show(`“${t.title}” copiado: é só colar`);
     } catch {
       this.toasts.show('O navegador não deixou copiar o template');
@@ -2507,15 +2592,17 @@ export class RichEditor {
     { value: 'sutil', name: 'Texto sutil', icon: ICON.sutil },
     { value: 'codigo', name: 'Bloco de código', icon: ICON.blocoDeCodigo },
   ];
-  /** O que o "Inserir" tem antes dos widgets (o link para outra anotação, só onde ele abre alguma). */
+  /** O que o "Inserir" tem antes dos widgets (os links para outra anotação e para um lembrete, só nas anotações). */
   protected readonly inserts = computed(() => {
     const all: { act: Action; name: string; icon: LucideIconData; keys: string; aria: string | null; typed: string }[] = [
       { act: 'url', name: 'Link para um endereço', icon: ICON.link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
       { act: 'note', name: 'Link para outra anotação', icon: ICON.linkNota, keys: '', aria: null, typed: '[[' },
+      { act: 'reminder', name: 'Lembrete do calendário', icon: ICON.calendario, keys: '', aria: null, typed: '' },
       { act: 'card', name: 'Card', icon: ICON.card, keys: '', aria: null, typed: '> [!' },
       { act: 'rule', name: 'Divisória', icon: ICON.tirar, keys: '', aria: null, typed: '---' },
     ];
-    return this.notes() ? all : all.filter((o) => o.act !== 'note');
+    // os links de anotação e de lembrete só nas anotações
+    return this.notes() ? all : all.filter((o) => o.act !== 'note' && o.act !== 'reminder');
   });
 
   /** O menu aberto (qual, e em qual das folhas), ou null. */
@@ -2678,6 +2765,8 @@ export class RichEditor {
         return this.startUrl(area, big);
       case 'note':
         return this.startLink(area, big);
+      case 'reminder':
+        return this.startReminder(area, big);
       case 'rule':
         return this.rule(area);
       case 'card':
@@ -3027,7 +3116,8 @@ export class RichEditor {
   /** Os links na folha do Visual e nas prévias: mostram se a anotação existe, mas não abrem nada. */
   protected readonly previewLinks = computed<NoteLinks | null>(() => {
     const notes = this.notes();
-    return notes ? { resolve: (title) => resolveNote(notes, title) } : null;
+    // e os de lembrete: com o desenho do calendário, tracejado o que não está no Calendário
+    return notes ? { resolve: (title) => resolveNote(notes, title), reminder: (id) => this.reminderLinks.info(id) } : null;
   });
 
   protected metaOf(n: Review): string {
@@ -3172,10 +3262,11 @@ export class RichEditor {
   /** O que a régua pede, no Visual (o que ele ainda não sabe, avisa). */
   private visualAct(big: boolean, what: AcaoVisual | Action): void {
     const api = this.visualOf(big);
-    if (what === 'url' || what === 'note') {
+    if (what === 'url' || what === 'note' || what === 'reminder') {
       // o painel do link: o Visual diz o que vai nele (o link de agora, ou a seleção), pelo pedeLink
       if (what === 'note' && this.linking() && !this.linking()!.auto) return this.closeLink();
-      return api?.pedeLinkAqui(what === 'url' ? 'url' : 'elo');
+      if (what === 'reminder' && this.reminding()) return this.closeReminder();
+      return api?.pedeLinkAqui(what === 'url' ? 'url' : what === 'note' ? 'elo' : 'lembrete');
     }
     if (what === 'card') what = { cartao: 'novo' };
     const ok = typeof what === 'object' || (VISUAL_ACTS as readonly string[]).includes(what);
@@ -3231,7 +3322,7 @@ export class RichEditor {
     this.visualState.set(est);
     if (!est.tabela && this.menu()?.name === 'tabela') this.menu.set(null);
     // o painel passivo de um link: o cursor saiu dele, ele fecha (o do widget, a seleção da peça decide)
-    const link = this.urlLink() ?? this.linking();
+    const link = this.urlLink() ?? this.linking() ?? this.reminding();
     if (this.passive && link && link.start !== est.link) this.closePanels();
     this.showVisualPiece(est, big);
     if (!this.notes()) return;
@@ -3262,6 +3353,12 @@ export class RichEditor {
       this.showPanel('.url-painel');
       return;
     }
+    if (p.tipo === 'lembrete') {
+      // só nas anotações, como no Inserir
+      if (!this.notes()) return;
+      this.openReminderPanel({ big, start: p.de, end: p.de, label: p.texto, query: '', chosen: p.id || null, swap: p.troca }, p.passivo);
+      return;
+    }
     const notes = this.notes();
     if (!notes) return;
     if (p.troca) {
@@ -3286,7 +3383,7 @@ export class RichEditor {
 
   /** "Tirar o link" do painel (no Visual): o texto fica, sem o link. */
   protected unlink(): void {
-    const big = (this.urlLink() ?? this.linking())?.big ?? false;
+    const big = (this.urlLink() ?? this.linking() ?? this.reminding())?.big ?? false;
     this.closePanels();
     this.visualOf(big)?.tiraLink();
   }
@@ -3343,6 +3440,7 @@ export class RichEditor {
     const values = { ...known.read(p.args), size: p.tamanho };
     if (w && w.big === big && w.start === p.de && w.name === known.name && JSON.stringify(w.values) === JSON.stringify(values)) return;
     this.urlLink.set(null);
+    this.reminding.set(null);
     if (this.linking() && !this.linking()!.auto) this.linking.set(null);
     this.widgetPick.set({ big, name: known.name, values, start: p.de, end: p.de, swap: true });
     this.passive = true;
@@ -3507,6 +3605,7 @@ export class RichEditor {
    */
   protected onAreaFocus(big: boolean): void {
     if (this.linking() && !this.linking()!.auto) this.linking.set(null);
+    if (this.reminding()) this.reminding.set(null);
     if ((big || this.dock()) && this.dockMedia?.matches) this.docked.set(big);
   }
 
@@ -3740,6 +3839,142 @@ export class RichEditor {
     this.replace(area, to, to, piece, to + piece.length, to + piece.length);
   }
 
+  // ===== O link para um lembrete do Calendário (ver core/reminder-links.ts) =====
+
+  private readonly reminderLinks = inject(ReminderLinks);
+  private readonly copyContexts = inject(CopyContexts);
+  protected readonly ReminderIcon = ICON.calendario;
+
+  /** O painel do link de lembrete aberto (ver `ReminderPanel`). */
+  protected readonly reminding = signal<ReminderPanel | null>(null);
+  /** O lembrete apontado na lista (pelas setas). */
+  protected readonly remActive = signal(0);
+  /** Os lembretes da busca: os próximos primeiro, com o dia (ver `reminderOptions`). */
+  protected readonly reminderOpts = computed(() => {
+    const k = this.reminding();
+    return k ? this.reminderLinks.options(k.query) : [];
+  });
+  /** O lembrete escolhido, como o link vai mostrá-lo (null: nada escolhido, ou ele não está mais no Calendário). */
+  protected readonly chosenReminder = computed(() => {
+    const id = this.reminding()?.chosen;
+    return id ? this.reminderLinks.info(id) : null;
+  });
+  protected anyReminder(): boolean {
+    return this.reminderLinks.any();
+  }
+
+  /** "Lembrete do calendário" no Markdown: o trecho selecionado é o texto do link (a busca começa vazia, com os próximos). */
+  protected startReminder(area: HTMLTextAreaElement, big: boolean): void {
+    if (this.reminding()) return this.closeReminder();
+    this.closePanels();
+    // de uma seleção de várias linhas, só a primeira vira o link (as outras ficam como estão)
+    const start = area.selectionStart;
+    const nl = area.value.indexOf('\n', start);
+    const end = nl >= 0 && nl < area.selectionEnd ? nl : area.selectionEnd;
+    const label = area.value.slice(start, end).replace(/\s+/g, ' ').trim();
+    this.openReminderPanel({ big, start, end, label, query: '', chosen: null }, false);
+  }
+
+  /** Abre o painel (passivo: pelo clique num link, com o cursor ainda na folha; senão, a busca recebe o foco). */
+  private openReminderPanel(k: ReminderPanel, passive: boolean): void {
+    this.reminding.set(k);
+    this.remActive.set(0);
+    this.passive = passive;
+    if (!passive)
+      setTimeout(() => {
+        const search = this.panelInput(k.big, '.lembretes-campo');
+        search?.focus();
+        search?.select();
+      });
+    this.showPanel('.lembrete-painel');
+  }
+
+  protected setReminderLabel(label: string): void {
+    const k = this.reminding();
+    if (k) this.reminding.set({ ...k, label });
+  }
+
+  protected setReminderQuery(q: string): void {
+    const k = this.reminding();
+    if (!k) return;
+    // escrever de novo desfaz a escolha: a lista volta
+    this.reminding.set({ ...k, query: q, chosen: null });
+    this.remActive.set(0);
+  }
+
+  protected chooseReminder(id: string): void {
+    const k = this.reminding();
+    if (k) this.reminding.set({ ...k, chosen: id });
+  }
+
+  /** As setas andam na lista (com um escolhido, reabrem); Enter escolhe o apontado e, escolhido, põe o link. */
+  protected onReminderKey(e: KeyboardEvent): void {
+    const k = this.reminding();
+    if (!k) return;
+    const opts = this.reminderOpts();
+    const n = opts.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (this.chosenReminder()) {
+        this.reminding.set({ ...k, query: '', chosen: null });
+        this.remActive.set(0);
+      } else if (n) this.remActive.set((this.remActive() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (this.chosenReminder()) this.putReminder();
+      else if (n) this.chooseReminder(opts[Math.min(this.remActive(), n - 1)].id);
+    }
+  }
+
+  /**
+   * "Pôr o link": "[texto](murall://lembrete/ID)" no lugar do trecho (no Visual, o link com esse endereço).
+   * Sem texto, o nome do lembrete; o texto não leva colchetes (eles fechariam o link antes).
+   */
+  protected putReminder(): void {
+    const k = this.reminding();
+    const info = this.chosenReminder();
+    if (!k || !info || !k.chosen) {
+      if (k) this.panelInput(k.big, '.lembretes-campo')?.focus();
+      return;
+    }
+    const clean = (t: string) => t.replace(/[[\]]/g, '').replace(/\s+/g, ' ').trim();
+    const label = clean(k.label) || clean(info.title) || 'lembrete';
+    const href = reminderLink(k.chosen);
+    this.reminding.set(null);
+    if (this.visual()) {
+      this.passive = false;
+      this.visualOf(k.big)?.poeLink(label, href);
+      return;
+    }
+    const area = this.areaOf(k.big);
+    if (!area) return;
+    const piece = `[${label}](${href})`;
+    this.replace(area, k.start, k.end, piece, k.start + piece.length, k.start + piece.length);
+  }
+
+  protected closeReminderKey(e: Event): void {
+    e.preventDefault();
+    e.stopPropagation();
+    this.closeReminder();
+  }
+
+  /** Fecha o painel sem mudar nada: o foco volta ao trecho. */
+  protected closeReminder(): void {
+    const k = this.reminding();
+    this.reminding.set(null);
+    if (!k) return;
+    if (this.visual()) {
+      this.passive = false;
+      this.visualOf(k.big)?.voltaAoTrecho();
+      return;
+    }
+    const area = this.areaOf(k.big);
+    if (area) {
+      area.focus();
+      area.setSelectionRange(k.start, k.end);
+    }
+  }
+
   // ===== O link para um endereço =====
 
   /** Abre o painel do link com o trecho selecionado (um endereço selecionado já vai no campo dele). */
@@ -3777,7 +4012,12 @@ export class RichEditor {
       return;
     }
     const [start, end] = [from + link.start, from + link.end];
-    if (link.kind === 'url') {
+    const reminder = link.kind === 'url' ? reminderLinkId(link.href) : null;
+    if (reminder && link.kind === 'url') {
+      // o link de lembrete: o painel dele, com o lembrete escolhido e o texto
+      this.closePanels();
+      this.openReminderPanel({ big, start, end, label: link.text, query: '', chosen: reminder, swap: true }, true);
+    } else if (link.kind === 'url') {
       this.closePanels();
       this.urlLink.set({ big, start, end, text: link.text, url: link.href, swap: true });
       this.passive = true;
@@ -3803,7 +4043,7 @@ export class RichEditor {
 
   /** O trecho que o painel aberto marcou (o link ou a linha do widget). */
   private panelRange(): [number, number] | null {
-    const r = this.urlLink() ?? this.linking() ?? this.widgetPick();
+    const r = this.urlLink() ?? this.linking() ?? this.reminding() ?? this.widgetPick();
     return r ? [r.start, r.end] : null;
   }
 
@@ -3825,6 +4065,7 @@ export class RichEditor {
   private closePanels(): void {
     this.passive = false;
     this.linking.set(null);
+    this.reminding.set(null);
     this.urlLink.set(null);
     this.menu.set(null);
     this.guide.set(null);

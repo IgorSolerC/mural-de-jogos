@@ -1,5 +1,5 @@
 import { DestroyRef, afterRenderEffect, effect, inject, signal, untracked } from '@angular/core';
-import { CardFinder } from '../core/card-finder';
+import { CopyContexts } from '../core/copy-context';
 import { notesAsText } from '../core/note-copy';
 import { Review } from '../core/review';
 import { Toasts } from './toast';
@@ -41,7 +41,7 @@ export interface NoteSelectionConfig {
  */
 export class NoteSelection {
   private readonly toasts = inject(Toasts);
-  private readonly cards = inject(CardFinder);
+  private readonly copyContexts = inject(CopyContexts);
 
   /** As marcadas, na ordem em que foram marcadas. */
   readonly ids = signal<readonly string[]>([]);
@@ -155,7 +155,7 @@ export class NoteSelection {
       .filter((r) => !!r);
     if (!notes.length) return;
     await this.toasts.copy(
-      notesAsText(notes, { now: Date.now(), cardTitle: (id) => this.cards.find(id)?.review.game.name ?? null }),
+      notesAsText(notes, this.copyContexts.now()),
       notes.length === 1 ? 'Copiei o texto da anotação.' : `Copiei o texto das ${notes.length} anotações.`,
       'Não deu para copiar. Tente de novo.',
     );

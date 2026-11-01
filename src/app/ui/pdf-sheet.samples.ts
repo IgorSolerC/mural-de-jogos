@@ -85,6 +85,20 @@ export const PDF_SAMPLE_CARD = {
   text: '- [x] Passaporte\n- [ ] Adaptador de tomada\n- [ ] Casaco leve',
 };
 
+/**
+ * O link para um lembrete do Calendário ("[texto](murall://lembrete/ID)", ver core/reminder-links.ts): a
+ * marca é a do link (`href`), com um endereço do Murall. O script da amostra põe o lembrete no Calendário;
+ * no PDF, o texto sai com a data impressa depois.
+ */
+export const PDF_REMINDER_SAMPLE = {
+  id: 'amostra-embarque',
+  title: 'Embarque para Lisboa',
+  date: '2026-11-19',
+  time: '08:30',
+  text: '- [ ] Estar no [aeroporto às 6h](murall://lembrete/amostra-embarque)',
+  shows: '.elo.lembrete',
+};
+
 /** Uma anotação com tudo, na ordem de quem escreve: o texto que o script imprime para olhar. */
 export function pdfSampleText(): string {
   const b = PDF_BLOCK_SAMPLES;
@@ -98,6 +112,7 @@ export function pdfSampleText(): string {
     '',
     ...b.h.text.split('\n').slice(0, 2),
     b.check.text,
+    PDF_REMINDER_SAMPLE.text,
     '',
     '## Roteiro',
     b.ol.text,

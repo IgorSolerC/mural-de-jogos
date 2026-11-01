@@ -6,6 +6,7 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { ImageStore, StoredImage } from '../core/image-store';
 import { EditorView } from 'prosemirror-view';
 import { RichEditor, linkHref } from './rich-editor';
+import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { sanitizeReview } from '../core/review';
 import { Toasts } from './toast';
@@ -542,6 +543,60 @@ describe('o editor com o Visual', () => {
       botao('.elo-painel', 'Tirar o link').click();
       await settle();
       expect(value()).toBe('um texto');
+    });
+
+    it('o link de lembrete: pelo Inserir, o trecho vira o link; na folha, a caneta com o calendário (tracejado o apagado); o clique abre o painel dele', async () => {
+      const T0 = '2026-10-10T10:00:00.000Z';
+      await make('ir à reunião e [x](murall://lembrete/sumido1)');
+      const calendar = TestBed.inject(CalendarStore);
+      calendar.today.set('2026-11-01');
+      calendar.time.set('12:00');
+      calendar.state.set({ removed: {}, reminders: [{ id: 'rreuniao1', title: 'Reunião da empresa', date: '2026-11-02', time: '09:00', color: 'rosa', notes: [], skip: [], createdAt: T0, at: T0 }] });
+      fixture.componentRef.setInput('notes', notes);
+      await settle();
+      // o apagado, já na folha: tracejado, com o calendário
+      const sumido = fixture.nativeElement.querySelector('.ProseMirror .elo.lembrete') as HTMLElement;
+      expect(sumido.classList).toContain('quebrado');
+      expect(getComputedStyle(sumido, '::after').maskImage).toContain('svg');
+      select(6, 13);
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      await settle();
+      const op = Array.from(fixture.nativeElement.querySelectorAll('.menu .menu-op') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes('Lembrete do calendário'))!;
+      op.click();
+      await settle();
+      await wait();
+      const busca = fixture.nativeElement.querySelector('.lembrete-painel .lembretes-campo') as HTMLInputElement;
+      expect(document.activeElement).toBe(busca);
+      expect((fixture.nativeElement.querySelector('.lembrete-painel input[type="text"]') as HTMLInputElement).value).toBe('reunião');
+      (fixture.nativeElement.querySelector('.lembrete-painel .elo-op') as HTMLElement).click();
+      await settle();
+      botao('.lembrete-painel', 'Pôr o link').click();
+      await settle();
+      expect(value()).toBe('ir à [reunião](murall://lembrete/rreuniao1) e [x](murall://lembrete/sumido1)');
+      expect(document.activeElement).toBe(pm().dom);
+      const ok = fixture.nativeElement.querySelector('.ProseMirror .elo.lembrete:not(.quebrado)') as HTMLElement;
+      expect(ok.tagName).toBe('SPAN');
+      expect(ok.title).toBe('Lembrete: Reunião da empresa · Amanhã, 9h');
+      // o clique nele: o painel passivo dele (não o do endereço), para trocar ou tirar
+      select(8);
+      ok.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      expect(painel('.url-painel')).toBeNull();
+      expect((fixture.nativeElement.querySelector('.lembrete-painel .lembretes-campo') as HTMLInputElement).value).toBe('Reunião da empresa');
+      botao('.lembrete-painel', 'Tirar o link').click();
+      await settle();
+      expect(value()).toBe('ir à reunião e [x](murall://lembrete/sumido1)');
+      localStorage.removeItem('meu-mural:calendario:v1');
+    });
+
+    it('numa resenha (sem `notes`), o clique num link de lembrete não abre o painel dele', async () => {
+      await make('ver [x](murall://lembrete/r1) já');
+      const link = fixture.nativeElement.querySelector('.ProseMirror .elo.lembrete') as HTMLElement;
+      select(6);
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }));
+      await settle();
+      expect(painel('.lembrete-painel')).toBeNull();
+      expect(painel('.url-painel')).toBeNull();
     });
   });
 

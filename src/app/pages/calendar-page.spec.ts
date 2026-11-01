@@ -250,6 +250,21 @@ describe('página do Calendário', () => {
       await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
       expect($$('.anexada').length).toBe(1);
     });
+
+    it('aberto por um link de lembrete (?lembrete=ID): ele circulado com a caneta e o foco no Editar dele; outro dia tira o destaque', async () => {
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-20&lembrete=rbolo0001');
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      const spot = $$('.lembrete.destaque');
+      expect(spot.length).toBe(1);
+      expect(text(spot[0].querySelector('.lembrete-nome'))).toBe('Fazer bolo de aniversário');
+      expect(getComputedStyle(spot[0].querySelector('.lembrete-nome')!, '::after').backgroundImage).toContain('svg');
+      expect(document.activeElement).toBe(spot[0].querySelector('.editar'));
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-21');
+      expect($$('.lembrete.destaque').length).toBe(0);
+      // no mês, nada fica circulado (o destaque é do Dia)
+      await go('/anotacoes/calendario?vista=mes&dia=2026-10-20&lembrete=rbolo0001');
+      expect($$('.lembrete.destaque').length).toBe(0);
+    });
   });
 
   describe('o Google Agenda', () => {

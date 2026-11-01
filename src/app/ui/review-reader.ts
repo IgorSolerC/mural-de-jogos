@@ -49,6 +49,7 @@ import { ReactionTarget, Reactions } from '../core/reactions';
 import { checkCount, plainText, toggleCheck } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
+import { ReminderLinks } from '../core/reminder-links';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
 import { IMPORTANCE_LABEL } from '../core/kanban';
@@ -753,6 +754,15 @@ export class ReviewReader {
     void this.router.navigate(['/anotacoes/kanban', id]);
   }
 
+  private readonly reminderLinks = inject(ReminderLinks);
+
+  /** O link de lembrete do texto: a leitura fecha e o Calendário abre no dia dele, com ele em destaque. */
+  private openReminder(id: string): void {
+    if (!this.reminderLinks.info(id)) return;
+    this.close();
+    this.reminderLinks.open(id);
+  }
+
   /** O dia do lembrete, no Calendário (na vista do dia). */
   protected openDay(day: string): void {
     this.close();
@@ -872,8 +882,8 @@ export class ReviewReader {
           },
       cover: r.game.coverUrl || null,
       text: r.text,
-      // os links entre anotações só se mostram (no papel não se toca)
-      links: { resolve: (title) => resolveNote(notes, title) },
+      // os links entre anotações só se mostram (no papel não se toca); o de lembrete leva a data
+      links: { resolve: (title) => resolveNote(notes, title), ...(this.owner() === null ? { reminder: (id: string) => this.reminderLinks.info(id) } : {}) },
     };
   }
 
@@ -1318,6 +1328,8 @@ export class ReviewReader {
       openCard: (card) => this.followCard(card),
       // a anotação aberta é de onde o link veio: depois de criar a nova, a leitura volta para ela
       ...(mine ? { create: (title: string) => this.createNote.emit({ title, from: this.review()!.id }) } : {}),
+      // o link de lembrete (só no seu mural: o Calendário é seu): a leitura fecha e o dia dele abre
+      ...(mine ? { reminder: (id: string) => this.reminderLinks.info(id), openReminder: (id: string) => this.openReminder(id) } : {}),
     };
   });
 

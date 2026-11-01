@@ -106,7 +106,9 @@ export interface PecaVisual {
  */
 export type PedidoLink =
   | { tipo: 'url'; de: number; texto: string; href: string; troca: boolean; passivo: boolean }
-  | { tipo: 'elo'; de: number; titulo: string; rotulo: string; troca: boolean; passivo: boolean };
+  | { tipo: 'elo'; de: number; titulo: string; rotulo: string; troca: boolean; passivo: boolean }
+  /** O link para um lembrete do Calendário ("[texto](murall://lembrete/ID)"): `id` vazio, um link novo. */
+  | { tipo: 'lembrete'; de: number; id: string; texto: string; troca: boolean; passivo: boolean };
 
 export interface VisualApi {
   /** O elemento do Visual (fora da página, ele já não vale). */
@@ -124,8 +126,11 @@ export interface VisualApi {
   /** Põe o markdown no lugar da seleção, como se fosse colado (o limite, a linha vazia que ele toma inteira). */
   poeMarkdown(texto: string): void;
   /** O painel do link no lugar do cursor (o link de agora, para trocar; ou a seleção): o Visual responde pelo `pedeLink`. */
-  pedeLinkAqui(tipo: 'url' | 'elo'): void;
-  /** Põe (ou troca) o link para um endereço no trecho do último pedido; sem texto, o endereço aparece. */
+  pedeLinkAqui(tipo: 'url' | 'elo' | 'lembrete'): void;
+  /**
+   * Põe (ou troca) o link para um endereço no trecho do último pedido; sem texto, o endereço aparece. O
+   * link de lembrete também vem por aqui, com o endereço `murall://lembrete/ID` (e o texto sempre).
+   */
   poeLink(texto: string, href: string): void;
   /** Põe (ou troca) o link de anotação: no "[[" antes do cursor (`noColchete`) ou no trecho do último pedido. */
   poeElo(titulo: string, rotulo: string, noColchete: boolean): void;

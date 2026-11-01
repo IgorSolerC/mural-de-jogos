@@ -10,6 +10,7 @@ import { IMAGES_DB, ImageStore } from '../core/image-store';
 import { samplePng } from '../core/images.spec';
 import { Toasts } from './toast';
 import { comMarkdown } from '../testing/writing-mode.spec';
+import { CalendarStore } from '../core/calendar-store';
 
 describe('a régua de formatação do texto', () => {
   // a <textarea> das marcas à vista (o editor abre no Visual para quem não escolheu)
@@ -895,6 +896,150 @@ describe('a régua de formatação do texto', () => {
         .click();
       fixture.detectChanges();
       expect(value()).toBe('ver [[Vender a TV]]');
+    });
+  });
+
+  describe('o link para um lembrete do calendário', () => {
+    const T0 = '2026-10-10T10:00:00.000Z';
+    beforeEach(() => {
+      const calendar = TestBed.inject(CalendarStore);
+      calendar.today.set('2026-11-01');
+      calendar.time.set('12:00');
+      calendar.state.set({
+        removed: {},
+        reminders: [
+          { id: 'rprova001', title: 'Prova de inglês', date: '2026-09-15', color: 'azul', notes: [], skip: [], createdAt: T0, at: T0 },
+          { id: 'rreuniao1', title: 'Reunião da empresa', date: '2026-11-02', time: '09:00', color: 'rosa', notes: [], skip: [], createdAt: T0, at: T0 },
+        ],
+      });
+      fixture.componentRef.setInput('notes', []);
+      fixture.detectChanges();
+    });
+    afterEach(() => localStorage.clear());
+    const options = () => Array.from(fixture.nativeElement.querySelectorAll('.lembrete-painel .elo-op') as NodeListOf<HTMLElement>).map((o) => `${o.querySelector('.elo-nome')!.textContent!.trim()} ${o.querySelector('.elo-meta')!.textContent!.trim()}`);
+    const search = () => fixture.nativeElement.querySelector('.lembretes-campo') as HTMLInputElement;
+    const put = () => Array.from(fixture.nativeElement.querySelectorAll('.lembrete-painel button') as NodeListOf<HTMLButtonElement>).find((b) => /Pôr o link|Trocar o link/.test(b.textContent!))!;
+    const enter = () => search().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+
+    it('só nas anotações: no Inserir, logo depois do link para outra anotação', () => {
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const names = Array.from(fixture.nativeElement.querySelectorAll('.menu .menu-op-nome') as NodeListOf<HTMLElement>).map((n) => n.textContent!.trim());
+      expect(names.slice(0, 3)).toEqual(['Link para um endereço', 'Link para outra anotação', 'Lembrete do calendário']);
+      fixture.componentRef.setInput('notes', null);
+      fixture.detectChanges();
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.menu')!.textContent).not.toContain('Lembrete do calendário');
+    });
+
+    it('com o trecho selecionado: os próximos primeiro, com o dia; Enter escolhe e, de novo, põe o link', async () => {
+      write('- [ ] Ir para a |reunião da empresa|\n- [ ] Comprar ração');
+      pick('inserir', 'Lembrete do calendário');
+      await new Promise((r) => setTimeout(r));
+      expect(document.activeElement).toBe(search());
+      expect(search().value).toBe('');
+      expect(options()).toEqual(['Reunião da empresa Amanhã, 9h', 'Prova de inglês ter, 15 de set. · já passou']);
+      expect(put().disabled).toBeTrue();
+      enter();
+      fixture.detectChanges();
+      // escolhido: o nome na busca, a lista fecha e fica quando ele é
+      expect(search().value).toBe('Reunião da empresa');
+      expect(fixture.nativeElement.querySelector('.lembrete-painel .elos-lista')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.lembrete-painel .elo-escolhida')!.textContent).toContain('Amanhã, 9h');
+      expect(put().disabled).toBeFalse();
+      enter();
+      fixture.detectChanges();
+      expect(value()).toBe('- [ ] Ir para a [reunião da empresa](murall://lembrete/rreuniao1)\n- [ ] Comprar ração');
+      expect(fixture.nativeElement.querySelector('.lembrete-painel')).toBeNull();
+    });
+
+    it('sem trecho, o nome do lembrete é o texto; a busca filtra sem acento e as setas andam', () => {
+      write('amanhã: |');
+      pick('inserir', 'Lembrete do calendário');
+      search().value = 'ingles';
+      search().dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      expect(options()).toEqual(['Prova de inglês ter, 15 de set. · já passou']);
+      search().value = '';
+      search().dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+      search().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.lembrete-painel .elo-op.ativa')!.textContent).toContain('Prova de inglês');
+      (fixture.nativeElement.querySelectorAll('.lembrete-painel .elo-op')[0] as HTMLElement).click();
+      fixture.detectChanges();
+      put().click();
+      fixture.detectChanges();
+      expect(value()).toBe('amanhã: [Reunião da empresa](murall://lembrete/rreuniao1)');
+    });
+
+    it('o texto sem colchetes; Esc fecha só o painel, com o trecho de volta', () => {
+      write('|a [festa]|');
+      pick('inserir', 'Lembrete do calendário');
+      const label = fixture.nativeElement.querySelector('.lembrete-painel input[type="text"]:not(.lembretes-campo)') as HTMLInputElement;
+      expect(label.value).toBe('a [festa]');
+      const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      search().dispatchEvent(esc);
+      fixture.detectChanges();
+      expect(esc.defaultPrevented).toBeTrue();
+      expect(fixture.nativeElement.querySelector('.lembrete-painel')).toBeNull();
+      expect([area.selectionStart, area.selectionEnd]).toEqual([0, 9]);
+      pick('inserir', 'Lembrete do calendário');
+      enter();
+      fixture.detectChanges();
+      enter();
+      fixture.detectChanges();
+      expect(value()).toBe('[a festa](murall://lembrete/rreuniao1)');
+    });
+
+    it('de uma seleção de várias linhas, só a primeira vira o link (as outras ficam)', () => {
+      write('|Reunião\nlevar o relatório|');
+      pick('inserir', 'Lembrete do calendário');
+      enter();
+      fixture.detectChanges();
+      enter();
+      fixture.detectChanges();
+      expect(value()).toBe('[Reunião](murall://lembrete/rreuniao1)\nlevar o relatório');
+    });
+
+    it('sem lembretes, a lista diz de onde eles vêm', () => {
+      TestBed.inject(CalendarStore).state.set({ removed: {}, reminders: [] });
+      write('|');
+      pick('inserir', 'Lembrete do calendário');
+      expect(fixture.nativeElement.querySelector('.lembrete-painel .elos-vazio')!.textContent).toContain('Crie um no Calendário');
+    });
+
+    it('o clique num link de lembrete abre o painel dele, com o lembrete escolhido, para trocar', () => {
+      write('ver [reunião](murall://lembrete/rreuniao1) já');
+      area.setSelectionRange(6, 6);
+      area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.url-painel')).toBeNull();
+      expect(search().value).toBe('Reunião da empresa');
+      expect((fixture.nativeElement.querySelector('.lembrete-painel input[type="text"]') as HTMLInputElement).value).toBe('reunião');
+      // trocar pelo outro
+      search().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      search().dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }));
+      fixture.detectChanges();
+      enter();
+      fixture.detectChanges();
+      expect(put().textContent).toContain('Trocar o link');
+      put().click();
+      fixture.detectChanges();
+      expect(value()).toBe('ver [reunião](murall://lembrete/rprova001) já');
+    });
+
+    it('o link para um lembrete apagado: o painel diz e pede outro', () => {
+      write('ver [x](murall://lembrete/sumido1) já');
+      area.setSelectionRange(5, 5);
+      area.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.lembrete-painel .elos-vazio')!.textContent).toContain('não está mais no seu Calendário');
+      expect(put().disabled).toBeTrue();
     });
   });
 });

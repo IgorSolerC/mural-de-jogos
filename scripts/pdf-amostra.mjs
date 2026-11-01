@@ -21,7 +21,7 @@ mkdirSync(out, { recursive: true });
 const tmp = mkdtempSync(join(tmpdir(), 'pdf-amostra-'));
 const bundle = join(tmp, 'samples.mjs');
 await build({ entryPoints: [join(root, 'src/app/ui/pdf-sheet.samples.ts')], bundle: true, format: 'esm', platform: 'node', outfile: bundle, logLevel: 'error' });
-const { pdfSampleText, PDF_SAMPLE_CARD, PDF_LOCAL_IMAGE } = await import(pathToFileURL(bundle).href);
+const { pdfSampleText, PDF_SAMPLE_CARD, PDF_LOCAL_IMAGE, PDF_REMINDER_SAMPLE } = await import(pathToFileURL(bundle).href);
 rmSync(tmp, { recursive: true, force: true });
 
 const CHROME = ['C:/Program Files/Google/Chrome/Application/chrome.exe', '/usr/bin/google-chrome', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find((p) => existsSync(p));
@@ -72,12 +72,16 @@ try {
       updatedAt: '2026-03-03T10:00:00.000Z',
     },
   ];
-  await page.evaluateOnNewDocument((n, r) => {
+  // o lembrete do link de lembrete da amostra, no Calendário (core/calendar-store.ts)
+  const R = PDF_REMINDER_SAMPLE;
+  const calendar = { reminders: [{ id: R.id, title: R.title, date: R.date, time: R.time, color: 'azul', notes: [], skip: [], createdAt: `${day}T10:00:00.000Z`, at: `${day}T10:00:00.000Z` }], removed: {} };
+  await page.evaluateOnNewDocument((n, r, c) => {
     if (localStorage.getItem('pdf-amostra:semeado')) return;
     localStorage.setItem('pdf-amostra:semeado', '1');
     localStorage.setItem('mural-de-jogos:anotacoes:v1', n);
     localStorage.setItem('mural-de-jogos:resenhas:v1', r);
-  }, JSON.stringify(notes), JSON.stringify(reviews));
+    localStorage.setItem('meu-mural:calendario:v1', c);
+  }, JSON.stringify(notes), JSON.stringify(reviews), JSON.stringify(calendar));
   // a impressão de verdade não abre aqui: só avisa que foi pedida (a folha fica montada)
   await page.evaluateOnNewDocument(() => {
     window.print = () => {

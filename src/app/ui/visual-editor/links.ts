@@ -3,6 +3,8 @@ import { Mark, MarkType, Node as PMNode, ResolvedPos } from 'prosemirror-model';
 import { AddMarkStep, RemoveMarkStep } from 'prosemirror-transform';
 import { EditorState, Plugin, Transaction } from 'prosemirror-state';
 import { EditorView, MarkViewConstructor } from 'prosemirror-view';
+import { ReminderLinkInfo, reminderLinkTitle } from '../../core/reminder-links';
+import { reminderLinkId } from '../../core/rich-text';
 import { faixasMudadas, linhasMexidas } from './ajustes';
 import { schema } from './schema';
 
@@ -201,6 +203,67 @@ export const linksInteiros = (): Plugin => {
 };
 
 /**
+ * O desenho do link para fora e do link de lembrete do Calendário ("[texto](murall://lembrete/ID)", ver
+ * core/reminder-links.ts): o de fora, o <a> de sempre (com a seta); o de lembrete, o mesmo da leitura (a
+ * caneta com o desenho do calendário, o dia no `title`), tracejado quando ele não está no seu Calendário
+ * (`lembrete` diz; undefined, sem como saber: aparece como existe). Ele não abre pela folha: o clique
+ * abre o painel dele, como o dos outros links.
+ */
+export function linkView(lembrete: (id: string) => ReminderLinkInfo | null | undefined): MarkViewConstructor {
+  return (mark) => {
+    const href: string = mark.attrs['href'] ?? '';
+    const id = reminderLinkId(href);
+    if (!id) {
+      const a = document.createElement('a');
+      a.className = 'elo url';
+      a.href = href;
+      a.title = href;
+      a.rel = 'noopener noreferrer';
+      a.target = '_blank';
+      return { dom: a };
+    }
+    const dom = document.createElement('span');
+    dom.setAttribute('data-lembrete', id);
+    vesteLembrete(dom, lembrete(id));
+    return { dom };
+  };
+}
+
+/** A classe e a dica do link de lembrete, pelo que se sabe dele (null: não está no Calendário; undefined: sem como saber). */
+function vesteLembrete(dom: HTMLElement, info: ReminderLinkInfo | null | undefined): void {
+  dom.className = info === null ? 'elo lembrete quebrado' : 'elo lembrete';
+  dom.title = info === null ? 'Esse lembrete não está no seu Calendário' : info ? reminderLinkTitle(info) : 'Lembrete do Calendário';
+}
+
+/** A classe e a dica do link de anotação, pelo que se sabe da anotação (null: sem como saber). */
+function vesteElo(dom: HTMLElement, titulo: string, ok: boolean | null): void {
+  dom.className = ok === false ? 'elo quebrado' : 'elo';
+  dom.title = ok === false ? `A anotação “${titulo}” ainda não existe` : titulo ? `Link para a anotação “${titulo}”` : '';
+}
+
+/**
+ * As anotações (ou os lembretes) mudaram: os links já desenhados na folha se vestem de novo (o tracejado
+ * de quem não existe). O ProseMirror só refaz as peças quando os `nodeViews` mudam (trocar só os
+ * `markViews` não refaz nada, e refazer tudo recriaria cada widget): aqui, só a classe e a dica de cada
+ * link mudam, com o observador da folha parado (a mudança não é de quem escreve, e não vira transação).
+ */
+export function redesenhaLinks(view: EditorView, existe: (titulo: string) => boolean | null, lembrete: (id: string) => ReminderLinkInfo | null | undefined): void {
+  const links = view.dom.querySelectorAll<HTMLElement>('span[data-elo][data-ref], span[data-lembrete]');
+  if (!links.length) return;
+  const observador = (view as unknown as { domObserver?: { stop(): void; start(): void } }).domObserver;
+  observador?.stop();
+  try {
+    for (const el of Array.from(links)) {
+      const id = el.getAttribute('data-lembrete');
+      if (id) vesteLembrete(el, lembrete(id));
+      else vesteElo(el, el.getAttribute('data-ref')!, existe(el.getAttribute('data-ref')!));
+    }
+  } finally {
+    observador?.start();
+  }
+}
+
+/**
  * O desenho do link de anotação: o mesmo da leitura (a caneta azul), e tracejado quando a anotação não
  * existe (`existe` diz; sem como saber, ele aparece como existe). O nome dela no `title`.
  */
@@ -208,11 +271,9 @@ export function eloView(existe: (titulo: string) => boolean | null): MarkViewCon
   return (mark) => {
     const dom = document.createElement('span');
     const titulo: string = mark.attrs['ref'] ?? '';
-    const ok = titulo ? existe(titulo) : null;
-    dom.className = ok === false ? 'elo quebrado' : 'elo';
     dom.setAttribute('data-elo', '');
     if (titulo) dom.setAttribute('data-ref', titulo);
-    dom.title = ok === false ? `A anotação “${titulo}” ainda não existe` : titulo ? `Link para a anotação “${titulo}”` : '';
+    vesteElo(dom, titulo, titulo ? existe(titulo) : null);
     return { dom };
   };
 }

@@ -4,7 +4,8 @@
  * - Na linha: **negrito** (ou __negrito__), *itálico* (ou _itálico_), ~~riscado~~, ==marca-texto==,
  *   ||spoiler|| (ou >!spoiler!<, como no Reddit), ((sutil)) (menor e mais claro), `código`,
  *   [texto](https://endereço), <https://endereço>, endereços soltos (https://… ou www.…) e, nas
- *   anotações, links para outras anotações ("[[Título]]", ver core/note-links.ts). Uma barra antes de
+ *   anotações, links para outras anotações ("[[Título]]", ver core/note-links.ts) e para um lembrete do
+ *   Calendário ("[texto](murall://lembrete/ID)", ver core/reminder-links.ts). Uma barra antes de
  *   qualquer sinal o escreve como é ("\*" é um asterisco, "1\." não começa lista).
  * - Os símbolos escritos com sinais: "->" →, "<-" ←, "<->" ↔, "-->" ⟶, "<--" ⟵, "=>" ⇒, "<=>" ⇔,
  *   "==>" ⟹, "<==" ⟸, "!=" ≠, ">=" ≥, "<=" ≤, "~=" ≈ e "+-" ±. Fora do código e dos links; com a
@@ -59,9 +60,34 @@ export interface Span {
   link?: true;
   /** No "[[título|texto]]": o título da anotação que o link abre (sem o campo, é o próprio `text`). */
   ref?: string;
-  /** Um link para fora (https:, mailto:): o endereço; `text` é o que aparece. */
+  /**
+   * Um link para fora (https:, mailto:): o endereço; `text` é o que aparece. Ou, nas anotações, o link
+   * para um lembrete do Calendário, "[texto](murall://lembrete/ID)" (ver `reminderLinkId` e
+   * core/reminder-links.ts): o mesmo jeito de escrever, com um endereço do próprio Murall.
+   */
   href?: string;
 }
+
+/**
+ * O endereço do link para um lembrete do Calendário: "murall://lembrete/" e o id dele (o mesmo esquema
+ * da imagem colada, `murall://imagem/ID`). Pelo id, o link sobrevive a renomear o lembrete e mostra o
+ * texto que a pessoa escreveu; num markdown de fora, continua um link legível.
+ */
+export const REMINDER_LINK = 'murall://lembrete/';
+const REMINDER_HREF = /^murall:\/\/lembrete\/([\w-]{1,64})$/;
+
+/** O endereço do link para o lembrete `id`. */
+export function reminderLink(id: string): string {
+  return REMINDER_LINK + id;
+}
+
+/** O id do lembrete de um endereço "murall://lembrete/ID"; null, se é outro endereço (ou nenhum). */
+export function reminderLinkId(href: string | null | undefined): string | null {
+  return href ? (REMINDER_HREF.exec(href)?.[1] ?? null) : null;
+}
+
+/** Os endereços dos links de lembrete escritos no texto (para a busca não achar pelo que não aparece). */
+export const REMINDER_HREFS = /\]\(murall:\/\/lembrete\/[\w-]{1,64}\)/g;
 
 /**
  * "[[título]]": sem colchetes nem quebra de linha dentro, e com algo além de espaços. Os espaços do
@@ -71,7 +97,7 @@ export interface Span {
 export const LINK = /\[\[([^[\]\S\n]*[^[\]\s][^[\]\n]*)\]\]/g;
 export const HAS_LINK = new RegExp(LINK.source);
 /** Um endereço para fora: [texto](https://…), <https://…> ou um https:// (ou www.) solto. */
-const HAS_URL = /\]\((?:https?:\/\/|mailto:)|<(?:https?:\/\/|mailto:)|https?:\/\/\S|(?<![\w@./-])www\.\S/;
+const HAS_URL = /\]\((?:https?:\/\/|mailto:|murall:\/\/lembrete\/)|<(?:https?:\/\/|mailto:)|https?:\/\/\S|(?<![\w@./-])www\.\S/;
 /**
  * Cada pedaço lido inteiro (link, código, marca escapada) vira um caractere de uso privado enquanto as
  * ênfases são lidas: os da faixa do começo (U+E000–U+F8FF) e, se não bastarem, os dos dois planos de
@@ -362,10 +388,11 @@ export function lineKind(line: string): LineKind {
  * Os pedaços lidos inteiros, antes das ênfases: a marca escapada (qualquer sinal, como no markdown:
  * "1\." não é lista), o código (entre crases; entre duas, pode ter uma dentro), o link de anotação,
  * o link para fora (o endereço pode ter parênteses, como os da Wikipédia, e um "título" no fim, que
- * fica de fora), o endereço entre "<>" e o endereço solto (https:// ou www.).
+ * fica de fora) ou para um lembrete ("[texto](murall://lembrete/ID)", só com o texto entre colchetes),
+ * o endereço entre "<>" e o endereço solto (https:// ou www.).
  */
 const ATOMS =
-  /\\(?<lit>[!-/:-@[-`{-~])|(?<!`)(?<tick>`+)(?!`)(?<code>[^\n]+?)(?<!`)\k<tick>(?!`)|\[\[(?<note>[^[\]\S\n]*[^[\]\s][^[\]\n]*)\]\]|\[(?<label>[^[\]\n]+)\]\((?<href>(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+)(?:\s+"[^"\n]*")?\)|<(?<auto>(?:https?:\/\/|mailto:)[^\s<>]+)>|(?<bare>(?:https?:\/\/|(?<![\w@./-])www\.)(?:[^\s<>()[\]]|\([^\s<>()[\]]*\))*(?:[^\s<>()[\].,;:!?'"’”]|\([^\s<>()[\]]*\)))/g;
+  /\\(?<lit>[!-/:-@[-`{-~])|(?<!`)(?<tick>`+)(?!`)(?<code>[^\n]+?)(?<!`)\k<tick>(?!`)|\[\[(?<note>[^[\]\S\n]*[^[\]\s][^[\]\n]*)\]\]|\[(?<label>[^[\]\n]+)\]\((?<href>(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+|murall:\/\/lembrete\/[\w-]{1,64})(?:\s+"[^"\n]*")?\)|<(?<auto>(?:https?:\/\/|mailto:)[^\s<>]+)>|(?<bare>(?:https?:\/\/|(?<![\w@./-])www\.)(?:[^\s<>()[\]]|\([^\s<>()[\]]*\))*(?:[^\s<>()[\].,;:!?'"’”]|\([^\s<>()[\]]*\)))/g;
 
 type AtomGroups = Partial<Record<'lit' | 'tick' | 'code' | 'note' | 'label' | 'href' | 'auto' | 'bare', string>>;
 
@@ -896,21 +923,29 @@ export const SPOILER_PLAIN = '[spoiler]';
  * palavras ("{imagem: https://…}", "{contador: 3 dias e 4h faltantes}", ver `widgetCopy`).
  */
 export function copyText(text: string, ctx: CopyContext): string {
-  return textOf(text, (name, args) => widgetCopy(name, args, ctx), 'mark');
+  // o link de lembrete leva a data dele junto ("Ir à reunião (02/11/2026, 9h)"): fora daqui, o link não abre nada
+  const reminder = ctx.reminderDate ? (id: string) => ctx.reminderDate!(id) : undefined;
+  return textOf(text, (name, args) => widgetCopy(name, args, ctx), 'mark', reminder);
 }
 
 /**
  * `spoiler`: o que fazer com o trecho escondido. 'hide' põe `SPOILER_PLAIN` no lugar (o que é lido sem
  * o bloco preto não pode contar o segredo); 'mark' deixa o texto entre "||", como se escreve no
- * Discord (a cópia).
+ * Discord (a cópia). `reminder`: a data de um lembrete pelo id (a cópia a põe depois do texto do link;
+ * null, só o texto).
  */
-function textOf(text: string, widget: (name: string, args: readonly string[]) => string, spoiler: 'hide' | 'mark'): string {
+function textOf(text: string, widget: (name: string, args: readonly string[]) => string, spoiler: 'hide' | 'mark', reminder?: (id: string) => string | null): string {
+  const shown = (s: Span) => {
+    const id = reminder && reminderLinkId(s.href);
+    const when = id ? reminder!(id) : null;
+    return when ? `${s.text} (${when})` : s.text;
+  };
   const join = (spans: readonly Span[]) => {
     let out = '';
     for (let i = 0; i < spans.length; i++) {
       const s = spans[i];
       if (!s.spoiler) {
-        out += s.text;
+        out += shown(s);
         continue;
       }
       // os pedaços seguidos do mesmo spoiler (um negrito dentro dele) são um trecho só

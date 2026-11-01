@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { WIDGETS } from '../core/widgets';
 import { PdfDoc, PdfSheet, footerStamp, markLong, pdfFileName, sheetReady } from './pdf-sheet';
-import { PDF_BLOCK_SAMPLES, PDF_LOCAL_IMAGE, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, PdfSample, pdfSampleText } from './pdf-sheet.samples';
+import { PDF_BLOCK_SAMPLES, PDF_LOCAL_IMAGE, PDF_REMINDER_SAMPLE, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, PdfSample, pdfSampleText } from './pdf-sheet.samples';
 import { deleteDatabase } from '../core/erase-save';
 import { IMAGES_DB, ImageStore } from '../core/image-store';
 import { samplePng } from '../core/images.spec';
@@ -183,6 +183,28 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
       LOOKS[s.shows](got!);
     });
   }
+
+  it('o link de lembrete sai com a caneta do link e a data impressa depois, entre parênteses, sem o desenho', async () => {
+    const R = PDF_REMINDER_SAMPLE;
+    const info = { title: R.title, when: 'qui, 19 de nov.', date: '19/11/2026, 8h30', past: false, day: R.date };
+    const { el } = await sheet({ text: R.text, links: { reminder: (id) => (id === R.id ? info : null) } });
+    const link = el.querySelector<HTMLElement>(`.pdf-texto ${R.shows}`)!;
+    expect(link).not.toBeNull();
+    expect(link.dataset['quando']).toBe('19/11/2026, 8h30');
+    expect(css(link).color).toBe('rgb(29, 53, 119)');
+    expect(css(link.querySelector('.elo-fim')!, '::after').content).toBe('none');
+    const after = css(link, '::after');
+    expect(after.content.includes('19/11/2026') || after.content.includes('attr(data-quando)')).withContext(after.content).toBeTrue();
+    expect(after.maskImage).toBe('none');
+    expect(after.display).toBe('inline-block');
+    // sem o lembrete no Calendário: só o texto, sem data nem desenho
+    document.querySelectorAll('.pdf-sheet').forEach((n) => n.remove());
+    TestBed.resetTestingModule();
+    const { el: el2 } = await sheet({ text: R.text, links: { reminder: () => null } });
+    const sem = el2.querySelector(`.pdf-texto ${R.shows}`)!;
+    expect(css(sem, '::after').content).toBe('none');
+    expect(css(sem.querySelector('.elo-fim')!, '::after').content).toBe('none');
+  });
 
   it('cada widget aparece com a peça dele, sem os broches de tocar, e inteiro na página', async () => {
     const { el } = await sheet({ text: Object.values(PDF_WIDGET_SAMPLES).flat().join('\n') });

@@ -124,6 +124,11 @@ export interface CopyContext {
   now: number;
   /** O título de agora da ficha com esse id (ela pode ter sido renomeada depois de colada); null, não achou. */
   cardTitle?(id: string): string | null;
+  /**
+   * A data do lembrete do Calendário com esse id, como a cópia a escreve ("02/11/2026, 9h"; ver
+   * core/reminder-links.ts); null, ele não está no seu Calendário (o link sai só com o texto).
+   */
+  reminderDate?(id: string): string | null;
 }
 
 /**

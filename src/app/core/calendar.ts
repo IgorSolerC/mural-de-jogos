@@ -767,16 +767,39 @@ export interface NoteReminder {
  * vêm primeiro (do mais perto para o mais longe) e depois os que passaram (do mais recente).
  */
 export function remindersOfNote(list: readonly Reminder[], note: string, today: string): NoteReminder[] {
-  const out = list
-    .filter((r) => r.notes.includes(note))
-    .map((r) => {
-      const next = coversDay(r, today) ? today : nextOccurrence(r, today);
-      const day = next ?? (r.repeat ? (r.until ?? r.date) : (r.end ?? r.date));
-      // o horário só no dia em que ele começa (no meio de uma vez de vários dias, não)
-      const time = next ? timeOn(r, day) : undefined;
-      return { id: r.id, title: r.title, day, ...(time ? { time } : {}), past: next === null, color: r.color };
-    });
-  return out.sort((a, b) => (a.past !== b.past ? (a.past ? 1 : -1) : a.past ? b.day.localeCompare(a.day) : a.day.localeCompare(b.day) || (a.time ?? '').localeCompare(b.time ?? '')));
+  const out = list.filter((r) => r.notes.includes(note)).map((r) => ({ id: r.id, title: r.title, ...whenItMatters(r, today), color: r.color }));
+  return out.sort(byWhen);
+}
+
+/**
+ * O dia que importa de um lembrete para quem olha hoje: o de hoje, se uma vez dele passa por hoje; senão
+ * a próxima vez; o que não volta mais, o último dia dele (`past`). O horário só no dia em que ele começa
+ * (no meio de uma vez de vários dias, não). É o dia que o link de lembrete abre (core/reminder-links.ts).
+ */
+export function whenItMatters(r: Reminder, today: string): { day: string; time?: string; past: boolean } {
+  const next = coversDay(r, today) ? today : nextOccurrence(r, today);
+  const day = next ?? lastCovered(r, r.repeat ? (r.until ?? r.date) : (r.end ?? r.date));
+  const time = next ? timeOn(r, day) : undefined;
+  return { day, ...(time ? { time } : {}), past: next === null };
+}
+
+/**
+ * O último dia em que o lembrete que não volta mais aparece, de `from` para trás: o fim da repetição pode
+ * cair num dia em que ele não acontece (toda segunda, até uma quarta), e o tirado ("só neste dia") não
+ * conta. Procura até uns dois anos antes; sem achar, `from`.
+ */
+function lastCovered(r: Reminder, from: string): string {
+  const first = dayNumber(r.date);
+  for (let n = dayNumber(from), stop = n - 800; n >= stop && n >= first; n--) {
+    const d = dayFromNumber(n);
+    if (coversDay(r, d)) return d;
+  }
+  return from;
+}
+
+/** A ordem do "dia que importa": os que vêm primeiro (do mais perto para o mais longe), depois os que passaram (do mais recente). */
+export function byWhen(a: { day: string; time?: string; past: boolean }, b: { day: string; time?: string; past: boolean }): number {
+  return a.past !== b.past ? (a.past ? 1 : -1) : a.past ? b.day.localeCompare(a.day) : a.day.localeCompare(b.day) || (a.time ?? '').localeCompare(b.time ?? '');
 }
 
 /** O dia de um lembrete, curto e perto de quem lê: "Hoje", "Amanhã", "ter, 21 de out." (com o ano, se é outro). */

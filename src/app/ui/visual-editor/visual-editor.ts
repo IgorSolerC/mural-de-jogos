@@ -29,7 +29,7 @@ import { RichText } from '../rich-text';
 import type { LineStyle } from '../rich-editor';
 import { chainCommands } from 'prosemirror-commands';
 import { semQuebras } from './ajustes';
-import { colchetesAntes, eloView, faixaDaMarca, linkEm, linksInteiros } from './links';
+import { colchetesAntes, eloView, faixaDaMarca, linkEm, linkView, linksInteiros, redesenhaLinks } from './links';
 import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
 import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
@@ -40,7 +40,9 @@ import { acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, est
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
-import { CardFinder } from '../../core/card-finder';
+import { ReminderLinkInfo, ReminderLinks } from '../../core/reminder-links';
+import { CopyContexts } from '../../core/copy-context';
+import { reminderLinkId } from '../../core/rich-text';
 import { colar, sliceDaPlanilha } from './colar';
 import { TIPO_MURALL } from '../../core/transferencia';
 import { copiaDe, copiar } from './copiar';
@@ -333,17 +335,34 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       this.grande();
       untracked(() => requestAnimationFrame(() => this.mede()));
     });
-    // as anotações mudaram: os links de anotação se desenham de novo (tracejado o da que não existe)
+    // as anotações (ou os lembretes) mudaram: os links já desenhados se vestem de novo (tracejado o de
+    // quem não existe); os novos já nascem certos, porque os desenhos perguntam aos links de agora
     effect(() => {
       this.links();
-      untracked(() => this.view?.setProps({ markViews: this.markViews() }));
+      // (os lembretes mudam sem mudar os links: apagado em outra aba, vindo da nuvem, o dia que virou)
+      this.lembretes.watch();
+      untracked(() => this.view && redesenhaLinks(this.view, (t) => this.eloExiste(t), (id) => this.lembreteDo(id)));
     });
   }
 
-  /** O link de anotação, tracejado quando a anotação não existe (sem as anotações, como existe). */
+  /**
+   * O link de anotação, tracejado quando a anotação não existe (sem as anotações, como existe); o de
+   * lembrete, com o desenho do calendário, tracejado quando ele não está no seu Calendário.
+   */
+  private readonly lembretes = inject(ReminderLinks);
+
   private markViews() {
-    const resolve = this.links()?.resolve;
-    return { elo: eloView((titulo) => (resolve ? !!resolve(titulo) : null)) };
+    return { elo: eloView((titulo) => this.eloExiste(titulo)), link: linkView((id) => this.lembreteDo(id)) };
+  }
+  /** A anotação do título existe? (sem as anotações, null: aparece como existe) */
+  private eloExiste(titulo: string): boolean | null {
+    const resolve = untracked(this.links)?.resolve;
+    return resolve ? !!resolve(titulo) : null;
+  }
+  /** O lembrete do link (null: não está no Calendário; undefined: sem como saber). */
+  private lembreteDo(id: string): ReminderLinkInfo | null | undefined {
+    const lembrete = untracked(this.links)?.reminder;
+    return lembrete ? untracked(() => lembrete(id)) : undefined;
   }
 
   ngOnInit(): void {
@@ -499,7 +518,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
    * texto selecionado vai no painel; um endereço selecionado, no campo do endereço). No bloco de código e
    * numa peça não tem link: nada acontece.
    */
-  pedeLinkAqui(tipo: 'url' | 'elo'): void {
+  pedeLinkAqui(tipo: 'url' | 'elo' | 'lembrete'): void {
     const v = this.view;
     if (!v) return;
     const { state } = v;
@@ -516,7 +535,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (tipo === 'url') {
       const endereco = /^(https?:\/\/|www\.|mailto:)\S+$/i.test(texto);
       this.pedeLink.emit({ tipo, de: sel.from, texto: endereco ? '' : texto, href: endereco ? texto : '', troca: false, passivo: false });
-    } else this.pedeLink.emit({ tipo, de: sel.from, titulo: '', rotulo: texto, troca: false, passivo: false });
+    } else if (tipo === 'lembrete') this.pedeLink.emit({ tipo, de: sel.from, id: '', texto, troca: false, passivo: false });
+    else this.pedeLink.emit({ tipo, de: sel.from, titulo: '', rotulo: texto, troca: false, passivo: false });
   }
 
   /** O painel do link dado (para trocar ou tirar): pelo Ctrl+K ou pelo clique (`passivo`). */
@@ -525,6 +545,9 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     this.trecho = { from: no.from, to: no.to };
     if (no.mark.type === M['link']) {
       const href: string = no.mark.attrs['href'];
+      // o link de lembrete: o painel dele (o lembrete escolhido e o texto)
+      const id = reminderLinkId(href);
+      if (id) return this.pedeLink.emit({ tipo: 'lembrete', de: no.from, id, texto, troca: true, passivo });
       // o endereço solto (o texto é o próprio endereço): o texto vai vazio, como no Markdown
       const solto = texto === href || 'https://' + texto === href;
       this.pedeLink.emit({ tipo: 'url', de: no.from, texto: solto ? '' : texto, href, troca: true, passivo });
@@ -710,13 +733,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
 
   /** O que a cópia dos widgets precisa: a hora (o contador) e o título de agora de uma ficha colada (a nota). */
   private contextoDaCopia(): CopyContext {
-    let cards: CardFinder | null = null;
-    try {
-      cards = this.injector.get(CardFinder, null);
-    } catch {
-      cards = null;
-    }
-    return { now: Date.now(), cardTitle: (id) => cards?.find(id)?.review.game.name ?? null };
+    // a hora, o título de agora da ficha colada e a data do link de lembrete (fora daqui, ele não abre nada)
+    return this.injector.get(CopyContexts).now();
   }
 
   /** Uma imagem colada ou solta: o marcador entra no lugar dela, e o editor a guarda (ver `poeImagem`). */
@@ -1176,9 +1194,11 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
             return true;
           },
           click: (view, e) => {
-            const alvo = (e.target as Element | null)?.closest?.('a.url, span[data-elo]');
+            // (o link de lembrete é a marca do link, desenhada como um span: o clique abre o painel dele)
+            const alvo = (e.target as Element | null)?.closest?.('a.url, span[data-elo], span[data-lembrete]');
             if (!alvo || !view.dom.contains(alvo) || e.button !== 0) return false;
             const url = alvo.matches('a.url');
+            const lembrete = alvo.matches('span[data-lembrete]');
             if (url) e.preventDefault();
             let pos: number;
             try {
@@ -1186,7 +1206,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
             } catch {
               return false;
             }
-            const no = faixaDaMarca(view.state.doc.resolve(pos), url ? M['link'] : M['elo']);
+            const no = faixaDaMarca(view.state.doc.resolve(pos), url || lembrete ? M['link'] : M['elo']);
             if (!no) return false;
             if (url && (e.ctrlKey || e.metaKey)) {
               window.open(no.mark.attrs['href'], '_blank', 'noopener,noreferrer');

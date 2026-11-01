@@ -4,7 +4,7 @@ import { TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { docToText, textToDoc } from '../../core/rich-doc';
 import { WIDGETS } from '../../core/widgets';
-import { PDF_BLOCK_SAMPLES, PDF_LOCAL_IMAGE, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, pdfSampleText } from '../pdf-sheet.samples';
+import { PDF_BLOCK_SAMPLES, PDF_LOCAL_IMAGE, PDF_REMINDER_SAMPLE, PDF_SPAN_SAMPLES, PDF_WIDGET_SAMPLES, pdfSampleText } from '../pdf-sheet.samples';
 import { VisualEditor } from './visual-editor';
 
 /**
@@ -60,6 +60,7 @@ describe('a REGRA DO VISUAL: cada bloco, marca e widget abre no Visual sem mudar
     for (const x of xs) await confere(nome, x);
   });
   it('a imagem colada do aparelho', () => confere('imagem do aparelho', PDF_LOCAL_IMAGE.text));
+  it('o link de lembrete do Calendário', () => confere('lembrete', PDF_REMINDER_SAMPLE.text));
   it('a anotação com tudo junto', () => confere('tudo', pdfSampleText()));
 
   it('todo widget do registro tem amostra (a do PDF serve aos dois)', () => {

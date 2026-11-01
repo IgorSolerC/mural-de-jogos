@@ -1,6 +1,7 @@
 import { Review, isNote } from './review';
 import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
 import { nameKey } from './text';
+import type { ReminderLinkInfo } from './reminder-links';
 
 /**
  * Os links entre anotações: "[[Comprar um console]]" no texto de uma anotação aponta para a
@@ -123,4 +124,12 @@ export interface NoteLinks {
   create?(title: string): void;
   /** Abre a ficha colada no texto (o widget Nota), de qualquer mural. Sem ele, ela só se vê. */
   openCard?(card: Review): void;
+  /**
+   * O lembrete do link "[texto](murall://lembrete/ID)" (ver core/reminder-links.ts): o que mostrar dele, ou
+   * null se ele não está no seu Calendário (o link sai tracejado). Sem ele (o mural de outra pessoa), o
+   * link só aparece, sem dizer se existe.
+   */
+  reminder?(id: string): ReminderLinkInfo | null;
+  /** Abre o Calendário no dia do lembrete, com ele em destaque. Sem ele, o link não abre nada. */
+  openReminder?(id: string): void;
 }

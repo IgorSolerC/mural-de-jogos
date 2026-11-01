@@ -476,3 +476,79 @@ describe('a conta das tarefas feitas', () => {
     expect(tasks(b)).toEqual(['pão']);
   });
 });
+
+describe('o link de lembrete na leitura ("[texto](murall://lembrete/ID)")', () => {
+  async function render(text: string, links: NoteLinks | null): Promise<HTMLElement> {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', text);
+    fixture.componentRef.setInput('links', links);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    return fixture.nativeElement;
+  }
+  afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+  const info = { title: 'Reunião da empresa', when: 'Amanhã, 9h', date: '02/11/2026, 9h', past: false, day: '2026-11-02' };
+
+  it('no seu mural: a caneta do link com o desenho do calendário; o dia no title e no leitor de tela; tocar abre o lembrete', async () => {
+    const opened: string[] = [];
+    const el = await render('- [ ] Ir para a [reunião](murall://lembrete/rk2x9abc)\n- [ ] [ração](murall://lembrete/sumido)', {
+      reminder: (id) => (id === 'rk2x9abc' ? info : null),
+      openReminder: (id) => opened.push(id),
+    });
+    const [ok, gone] = Array.from(el.querySelectorAll<HTMLElement>('.elo.lembrete'));
+    expect(el.querySelector('a.url')).withContext('não é um link para fora').toBeNull();
+    expect(ok.textContent!.trim()).toBe('reunião');
+    expect(ok.getAttribute('role')).toBe('link');
+    expect(ok.tabIndex).toBe(0);
+    expect(ok.title).toBe('Lembrete: Reunião da empresa · Amanhã, 9h');
+    expect(ok.getAttribute('aria-label')).toBe('reunião: abrir o lembrete Reunião da empresa, Amanhã, 9h');
+    expect(ok.dataset['quando']).toBe('02/11/2026, 9h');
+    // o desenho do calendário depois do texto, na cor da letra, preso à última palavra (não cai sozinho na linha de baixo)
+    const fim = ok.querySelector<HTMLElement>('.elo-fim')!;
+    expect(fim.textContent).toBe('reunião');
+    expect(getComputedStyle(fim).whiteSpace).toBe('nowrap');
+    expect(getComputedStyle(fim, '::after').maskImage).toContain('svg');
+    expect(getComputedStyle(ok, '::after').content).toBe('none');
+    // o toque não chega à tarefa (nem à ficha)
+    const box = el.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    ok.click();
+    expect(opened).toEqual(['rk2x9abc']);
+    expect(box?.checked ?? false).toBeFalse();
+    ok.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(opened).toEqual(['rk2x9abc', 'rk2x9abc']);
+    // o que não está no Calendário: tracejado, sem abrir nada
+    expect(gone.classList).toContain('quebrado');
+    expect(gone.getAttribute('role')).toBeNull();
+    expect(gone.title).toContain('não está no seu Calendário');
+    gone.click();
+    expect(opened.length).toBe(2);
+  });
+
+  it('sem abrir (o PDF, a prévia): mostra e diz quando, sem papel de link; no mural de outra pessoa, só aparece', async () => {
+    let el = await render('[reunião](murall://lembrete/rk2x9abc)', { reminder: () => info });
+    let link = el.querySelector<HTMLElement>('.elo.lembrete')!;
+    expect(link.getAttribute('role')).toBeNull();
+    expect(link.dataset['quando']).toBe('02/11/2026, 9h');
+    expect(link.textContent).toContain('(lembrete: Amanhã, 9h)');
+    document.querySelectorAll('app-rich-text').forEach((e) => e.remove());
+    TestBed.resetTestingModule();
+    el = await render('[reunião](murall://lembrete/rk2x9abc)', {});
+    link = el.querySelector<HTMLElement>('.elo.lembrete')!;
+    expect(link.classList).not.toContain('quebrado');
+    expect(link.title).toBe('Um lembrete do Calendário de quem escreveu');
+    expect(link.dataset['quando']).toBeUndefined();
+  });
+});
+
+describe('o texto do link de lembrete partido para o desenho', () => {
+  it('a última palavra vai presa ao desenho; uma palavra comprida, só as duas últimas letras', () => {
+    const split = (RichText.prototype as unknown as { lastWord(t: string): [string, string] }).lastWord;
+    expect(split('reunião da empresa')).toEqual(['reunião da ', 'empresa']);
+    expect(split('feira')).toEqual(['', 'feira']);
+    expect(split('ver a otorrinolaringologista')).toEqual(['ver a otorrinolaringologis', 'ta']);
+    // o espaço do fim vai com a última palavra (o desenho nunca fica sozinho)
+    expect(split('Reunião ')).toEqual(['', 'Reunião ']);
+    expect(split('a reunião  ')).toEqual(['a ', 'reunião  ']);
+  });
+});

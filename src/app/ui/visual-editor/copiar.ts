@@ -2,7 +2,7 @@ import { Node as PMNode } from 'prosemirror-model';
 import { EditorState, Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { Fonte, LinhaDoc, docToText } from '../../core/rich-doc';
-import { Span, copyText } from '../../core/rich-text';
+import { Span, copyText, reminderLinkId } from '../../core/rich-text';
 import { ATRIBUTO_MURALL, TIPO_MURALL } from '../../core/transferencia';
 import { CopyContext, readMedia, widgetCopy } from '../../core/widgets';
 import { linhaDe, schema } from './schema';
@@ -166,7 +166,7 @@ export function htmlDe(linhas: readonly LinhaDoc[], markdown: string, ctx: CopyC
     return e;
   };
   // o spoiler seguido (um negrito dentro dele) é um trecho só, entre um par de "||"
-  const letras = (spans: readonly Span[]): Node[] => spans.map((s, i) => pedaco(doc, s, !!s.spoiler && !spans[i - 1]?.spoiler, !!s.spoiler && !spans[i + 1]?.spoiler));
+  const letras = (spans: readonly Span[]): Node[] => spans.map((s, i) => pedaco(doc, s, !!s.spoiler && !spans[i - 1]?.spoiler, !!s.spoiler && !spans[i + 1]?.spoiler, ctx));
   const paragrafo = (spans: readonly Span[]) => {
     const p = el('p', ...letras(spans));
     if (!spans.length) p.append(doc.createElement('br'));
@@ -256,7 +256,7 @@ export function htmlDe(linhas: readonly LinhaDoc[], markdown: string, ctx: CopyC
 }
 
 /** Um pedaço com as marcas dele, de fora para dentro: o link, o negrito, o itálico, o riscado, o marca-texto, o código, o sutil. */
-function pedaco(doc: Document, s: Span, abreSpoiler: boolean, fechaSpoiler: boolean): Node {
+function pedaco(doc: Document, s: Span, abreSpoiler: boolean, fechaSpoiler: boolean, ctx: CopyContext): Node {
   // o spoiler, como na cópia em texto: entre "||", como se escreve no Discord
   let no: Node = doc.createTextNode((abreSpoiler ? '||' : '') + s.text + (fechaSpoiler ? '||' : ''));
   const embrulha = (tag: string) => {
@@ -275,6 +275,14 @@ function pedaco(doc: Document, s: Span, abreSpoiler: boolean, fechaSpoiler: bool
     a.href = s.href;
     a.append(no);
     no = a;
+  }
+  // o link de lembrete: fora daqui ele não abre nada, então vai o texto com a data depois (como na cópia em texto)
+  const lembrete = reminderLinkId(s.href);
+  const quando = lembrete ? (ctx.reminderDate?.(lembrete) ?? null) : null;
+  if (quando) {
+    const junto = doc.createDocumentFragment();
+    junto.append(no, doc.createTextNode(` (${quando})`));
+    return junto;
   }
   return no;
 }

@@ -29,8 +29,8 @@ const recuo = (n: PMNode): Record<string, string> => (n.attrs['recuo'] ? { style
 const base = { recuo: { default: 0 }, fonte: { default: null }, cartao: { default: null } };
 /** O recuo de uma linha copiada do próprio Visual (o colado de fora vem sem). */
 const recuoDe = (d: HTMLElement | string) => ({ recuo: typeof d === 'string' ? 0 : Math.max(0, Math.min(40, parseInt(d.style.getPropertyValue('--recuo'), 10) || 0)) });
-/** Os endereços que viram link (como o leitor: nada de javascript: nem data:). */
-const HREF_OK = /^(?:https?:|mailto:)/i;
+/** Os endereços que viram link (como o leitor: nada de javascript: nem data:; e o do lembrete do Calendário). */
+const HREF_OK = /^(?:[hH][tT][tT][pP][sS]?:|[mM][aA][iI][lL][tT][oO]:|murall:\/\/lembrete\/[\w-]{1,64}$)/;
 
 /**
  * Os atributos da célula: os que o `prosemirror-tables` lê (`colspan`, `rowspan`, `colwidth`; aqui sempre
@@ -249,7 +249,11 @@ export const schema = new Schema({
       attrs: { href: {} },
       inclusive: false,
       excludes: 'link elo',
-      parseDOM: [{ tag: 'a[href]', getAttrs: (d) => (HREF_OK.test((d as HTMLElement).getAttribute('href') ?? '') ? { href: (d as HTMLElement).getAttribute('href') } : false) }],
+      parseDOM: [
+        { tag: 'a[href]', getAttrs: (d) => (HREF_OK.test((d as HTMLElement).getAttribute('href') ?? '') ? { href: (d as HTMLElement).getAttribute('href') } : false) },
+        // o link de lembrete desenhado na folha (ver linkView em links.ts): lido de volta pelo id
+        { tag: 'span[data-lembrete]', getAttrs: (d) => (/^[\w-]{1,64}$/.test((d as HTMLElement).getAttribute('data-lembrete') ?? '') ? { href: 'murall://lembrete/' + (d as HTMLElement).getAttribute('data-lembrete') } : false) },
+      ],
       toDOM: (m) => ['a', { class: 'elo url', href: m.attrs['href'], title: m.attrs['href'], rel: 'noopener noreferrer', target: '_blank' }, 0],
     },
     elo: {

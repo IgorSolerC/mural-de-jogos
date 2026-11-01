@@ -468,7 +468,8 @@ function spansDe(pecas: readonly Peca[]): Span[] {
 
 /** O sinal que a barra escapa no leitor (o `\` de `ATOMS`: toda a pontuação do ASCII). */
 const ESCAPAVEL = /^[!-/:-@[-`{-~]$/;
-const HREF = /^(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+$/;
+/** O endereço que o "[texto](…)" escreve: para fora, ou o do lembrete do Calendário (`murall://lembrete/ID`). */
+const HREF = /^(?:(?:https?:\/\/|mailto:)(?:[^\s()]|\([^\s()]*\))+|murall:\/\/lembrete\/[\w-]{1,64})$/;
 const AUTO = /^(?:https?:\/\/|mailto:)[^\s<>]+$/;
 
 /** As marcas que abrem e fecham, num dos jeitos de escrever cada uma (a trava escolhe o que o leitor lê igual). */

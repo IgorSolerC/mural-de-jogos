@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, signal, untracked, viewChild, viewChildren } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { CardFinder } from '../core/card-finder';
+import { CopyContexts } from '../core/copy-context';
 import { CloudSync } from '../core/cloud-sync';
 import { Desk } from '../core/desk';
 import { LINK_START_KEY, fichaLink, hasLink } from '../core/ficha-link';
@@ -160,7 +160,7 @@ export class NoteMenu {
   private readonly notePin = inject(NotePin);
   private readonly noteDone = inject(NoteDone);
   private readonly toasts = inject(Toasts);
-  private readonly cards = inject(CardFinder);
+  private readonly copyContexts = inject(CopyContexts);
   private readonly sync = inject(CloudSync);
 
   /** A anotação do menu aberto (e onde ele abriu). */
@@ -428,7 +428,7 @@ export class NoteMenu {
 
   /** O texto de uma anotação só, como o Ctrl+C das marcadas copia (ver core/note-copy.ts). */
   private copy(r: Review): Promise<void> {
-    const text = notesAsText([r], { now: Date.now(), cardTitle: (id) => this.cards.find(id)?.review.game.name ?? null });
+    const text = notesAsText([r], this.copyContexts.now());
     return this.toasts.copy(text, 'Copiei o texto da anotação.', 'Não deu para copiar. Tente de novo.');
   }
 

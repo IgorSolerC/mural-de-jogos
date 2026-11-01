@@ -514,6 +514,23 @@
     text-decoration-color: rgb(87 82 74 / 0.6);
     opacity: 1;
   }
+  // o link de lembrete: no papel ele não abre o Calendário, então sai o texto com a data impressa
+  // depois, entre parênteses, na tinta de segunda ("Ir à reunião (02/11/2026, 9h)"), sem o desenho
+  .elo.lembrete:not(app-note-widget *) .elo-fim::after {
+    content: none;
+  }
+  .elo.lembrete[data-quando]:not(app-note-widget *)::after {
+    content: '(' attr(data-quando) ')';
+    /* em bloco na linha: o sublinhado do link não passa para a data */
+    display: inline-block;
+    margin-left: 0.3em;
+    width: auto;
+    height: auto;
+    background: none;
+    -webkit-mask: none;
+    mask: none;
+    color: var(--pdf-tinta-2);
+  }
 
   // o spoiler: no papel não há o que tocar, então ele aparece, numa caixinha tracejada que diz que era um
   .spoiler:not(app-note-widget *) {

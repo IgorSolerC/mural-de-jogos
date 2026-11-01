@@ -56,6 +56,7 @@ import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { toggleCheck } from '../core/rich-text';
 import { NoteLinks, resolveNote } from '../core/note-links';
+import { ReminderLinks } from '../core/reminder-links';
 import { Desk } from '../core/desk';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
@@ -1805,6 +1806,7 @@ export class ReviewCard {
   }
 
   private readonly desk = inject(Desk);
+  private readonly reminderLinks = inject(ReminderLinks);
   private readonly noteDone = inject(NoteDone);
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
@@ -1937,6 +1939,9 @@ export class ReviewCard {
       create: (title) => this.desk.newNote(title, from),
       // a ficha colada no texto (o widget Nota), de qualquer mural: abre na leitura, com esta no "Voltar"
       openCard: (card) => this.desk.openReview(card.id, from),
+      // o link de lembrete: o Calendário abre no dia dele, com ele em destaque
+      reminder: (id) => this.reminderLinks.info(id),
+      openReminder: (id) => this.reminderLinks.open(id),
     };
   });
 
