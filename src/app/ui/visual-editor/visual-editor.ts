@@ -34,6 +34,7 @@ import { apagarPeloBeforeinput, enterPeloBeforeinput } from './entrada';
 import { atalhos } from './input-rules';
 import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
 import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
+import { CartaoView, acaoCartao, cartoes, estadoCartao } from './cartoes';
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
 import { ICON } from '../icons';
 import { acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
@@ -240,7 +241,7 @@ class CruView implements NodeView {
   encapsulation: ViewEncapsulation.None,
   host: { class: 'vis-folha', '[class.vis-grande]': 'grande()', '[class.vis-encher]': 'encher()' },
   template: '',
-  styleUrls: ['./visual-editor.scss', './pecas.scss'],
+  styleUrls: ['./visual-editor.scss', './pecas.scss', './cartoes.scss'],
 })
 export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   /** O texto de agora (o `value` do editor). */
@@ -353,6 +354,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       dispatchTransaction: (tr) => this.aplica(tr),
       nodeViews: {
         item: (node, view, getPos) => new ItemView(node, view, getPos),
+        cartaoTopo: (node) => new CartaoView(node),
         widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
@@ -420,6 +422,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (acao === 'tabela') return poeTabela();
     if (typeof acao === 'object' && 'tabelaNova' in acao) return poeTabela(acao.tabelaNova.colunas, acao.tabelaNova.fileiras);
     if (typeof acao === 'object' && 'tabela' in acao) return acaoTabela(acao.tabela);
+    if (typeof acao === 'object' && 'cartao' in acao) return acaoCartao(acao.cartao);
     // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
     if (acao === 'code') return codigo;
     if (acao === 'ul' || acao === 'ol' || acao === 'check') return lista(acao);
@@ -794,6 +797,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       dropCursor({ color: '#1f5fbf', width: 2 }),
       this.vazia(),
       desenhoDasListas((doc) => this.escrever(doc)),
+      cartoes(),
     ];
   }
 
@@ -1044,6 +1048,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       link: s.selection.empty ? (linkEm(s.selection.$from)?.from ?? null) : null,
       peca: pecaDe(s),
       tabela: estadoTabela(s),
+      cartao: estadoCartao(s),
     };
     const k = JSON.stringify(est);
     if (k === this.ultimoEstado) return;

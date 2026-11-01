@@ -1,4 +1,5 @@
 import { Fragment, Mark, Node as PMNode, Schema, Slice } from 'prosemirror-model';
+import { CalloutFold, calloutLook } from '../../core/callouts';
 import { Fonte, LinhaDoc, juntarSpans, textToDoc } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
 import { Align, TableLook, tableLookWord } from '../../core/tables';
@@ -15,12 +16,17 @@ import { WidgetSize, parseWidgetLine, widgetLine } from '../../core/widgets';
  * o resto (o que o tradutor não escreve igual) é um `cru`: uma peça que mostra o trecho como a leitura e
  * guarda a linha original inteira (com a fonte), então ele sai igual, byte a byte.
  *
+ * O card (ver core/callouts.ts) também não vira árvore: a linha de cima é o nó `cartaoTopo`, e as de
+ * dentro são as linhas de sempre com o atributo `cartao` (a coluna do ">" do card), o "> " da frente de
+ * cada uma no texto. O papel do card é pintado linha por linha (ver cartoes.ts).
+ *
  * As classes do desenho são as da leitura (ver ui/_formatado.scss), dentro da folha do Visual.
  */
 
 /** O recuo vira o `text-indent` da primeira linha, como os espaços do começo na leitura. */
 const recuo = (n: PMNode): Record<string, string> => (n.attrs['recuo'] ? { style: `--recuo: ${n.attrs['recuo']}` } : {});
-const base = { recuo: { default: 0 }, fonte: { default: null } };
+/** `cartao`: a linha está dentro de um card (a coluna do ">" dele); null, fora (ver cartoes.ts). */
+const base = { recuo: { default: 0 }, fonte: { default: null }, cartao: { default: null } };
 /** O recuo de uma linha copiada do próprio Visual (o colado de fora vem sem). */
 const recuoDe = (d: HTMLElement | string) => ({ recuo: typeof d === 'string' ? 0 : Math.max(0, Math.min(40, parseInt(d.style.getPropertyValue('--recuo'), 10) || 0)) });
 /** Os endereços que viram link (como o leitor: nada de javascript: nem data:). */
@@ -60,6 +66,19 @@ export const schema = new Schema({
       ],
       // um dos níveis abaixo do título da ficha (4, 5, 6), como a leitura
       toDOM: (n) => ['div', { class: `linha titulo t${n.attrs['nivel']}`, role: 'heading', 'aria-level': String(3 + n.attrs['nivel']), ...recuo(n) }, 0],
+    },
+    /**
+     * A linha de cima do card: o título escrito direto nela (sem título, a tela mostra o nome do jeito).
+     * `tipo`: o jeito como está escrito ("aviso", "warning"); `dobra`: o "-"/"+" de fechar. Na tela, a
+     * peça `CartaoView` (cartoes.ts), com o desenho do jeito na frente.
+     */
+    cartaoTopo: {
+      group: 'bloco',
+      content: 'inline*',
+      defining: true,
+      attrs: { ...base, tipo: { default: 'nota' }, dobra: { default: '' } },
+      parseDOM: [{ tag: 'div.vis-cartao-topo', priority: 60, contentElement: (d) => (d as HTMLElement).querySelector('.vis-cartao-titulo') ?? (d as HTMLElement), getAttrs: (d) => ({ tipo: (d as HTMLElement).dataset['tipo'] || 'nota' }) }],
+      toDOM: (n) => ['div', { class: 'linha vis-cartao-topo', 'data-tipo': n.attrs['tipo'], 'data-jeito': calloutLook(n.attrs['tipo']) }, ['span', { class: 'vis-cartao-titulo' }, 0]],
     },
     citacao: {
       group: 'bloco',
@@ -217,7 +236,8 @@ export const schema = new Schema({
       group: 'bloco',
       atom: true,
       selectable: true,
-      attrs: { linha: {} },
+      // `cartao`: o trecho cru de dentro de um card (o papel é pintado nele também)
+      attrs: { linha: {}, cartao: { default: null } },
       parseDOM: [{ tag: 'div.vis-cru[data-texto]', getAttrs: (d) => ({ linha: linhaDoTexto((d as HTMLElement).getAttribute('data-texto') ?? '') }) }],
       toDOM: (n) => ['div', { class: 'vis-cru', 'data-texto': textoDoCru(n) }, textoDoCru(n)],
     },
@@ -340,14 +360,21 @@ export function spansDe(node: PMNode): Span[] {
   return juntarSpans(out);
 }
 
-/** O nó de uma linha do tradutor. */
+/** O nó de uma linha do tradutor (a de dentro de um card, com a coluna do ">" dele). */
 export function noDe(l: LinhaDoc): PMNode {
+  const n = noSemCartao(l);
+  return l.cartao === undefined || n.type === N['cartaoTopo'] ? n : n.type.create({ ...n.attrs, cartao: l.cartao }, n.content, n.marks);
+}
+
+function noSemCartao(l: LinhaDoc): PMNode {
   const fonte = l.fonte ?? null;
   switch (l.kind) {
     case 'linha':
       return N['linha'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
     case 'titulo':
       return N['titulo'].create({ recuo: l.recuo, fonte, nivel: l.nivel }, inlineDe(l.spans));
+    case 'cartao':
+      return N['cartaoTopo'].create({ recuo: l.recuo, fonte, tipo: l.tipo, dobra: l.dobra }, inlineDe(l.spans));
     case 'citacao':
       return N['citacao'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
     case 'sutil':
@@ -393,7 +420,7 @@ export function docDe(linhas: readonly LinhaDoc[]): PMNode {
 const LINHAS = new WeakMap<PMNode, LinhaDoc>();
 
 /** Os tipos de linha que o Visual já edita (o resto é um trecho cru). */
-const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'item', 'citacao', 'sutil', 'divisoria', 'codigo', 'widget', 'tabela'];
+const EDITAVEIS: readonly LinhaDoc['kind'][] = ['linha', 'titulo', 'cartao', 'item', 'citacao', 'sutil', 'divisoria', 'codigo', 'widget', 'tabela'];
 
 /** A linha do tradutor de um nó (guardada por nó: os nós são imutáveis, o que não mudou não se refaz). */
 export function linhaDe(n: PMNode): LinhaDoc {
@@ -416,6 +443,9 @@ export function linhaDe(n: PMNode): LinhaDoc {
     }
     case 'citacao':
       l = { kind: 'citacao', recuo: r, spans: spansDe(n), fonte };
+      break;
+    case 'cartaoTopo':
+      l = { kind: 'cartao', recuo: r, tipo: n.attrs['tipo'], dobra: n.attrs['dobra'] as CalloutFold, spans: spansDe(n), fonte };
       break;
     case 'sutil':
       l = { kind: 'sutil', recuo: r, spans: spansDe(n), fonte };
@@ -461,6 +491,8 @@ export function linhaDe(n: PMNode): LinhaDoc {
       l = { kind: 'linha', recuo: r, spans: spansDe(n), fonte };
   }
   if (!fonte) delete (l as { fonte?: Fonte }).fonte;
+  // dentro de um card (a linha de cima nunca: card dentro de card fica cru)
+  if (n.attrs['cartao'] != null && n.type !== N['cartaoTopo']) l = { ...l, cartao: n.attrs['cartao'] };
   LINHAS.set(n, l);
   return l;
 }

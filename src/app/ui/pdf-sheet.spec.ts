@@ -62,6 +62,14 @@ const LOOKS: Record<string, (el: HTMLElement) => void> = {
     expect(css(el, '::before').maskImage).toBe('none');
     expect(css(el, '::before').width).toBe('2px');
   },
+  '.cartao[data-jeito="aviso"]': (el) => {
+    // o papel do jeito, chapado: sem a fita, sem o rasgo e sem a sombra de papel colado
+    expect(css(el).backgroundColor).toBe('rgb(251, 223, 194)');
+    expect(css(el).filter).toBe('none');
+    expect(css(el, '::before').content).toBe('none');
+    expect(css(el, '::after').content).toBe('none');
+    expect(css(el.querySelector('.cartao-topo')!).fontFamily).toMatch(INTER);
+  },
   '.linha.sutil': (el) => expect(css(el).color).toBe('rgb(138, 132, 122)'),
   '.divisoria': (el) => {
     expect(el.getBoundingClientRect().height).toBe(1);

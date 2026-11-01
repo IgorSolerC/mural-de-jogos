@@ -745,7 +745,7 @@ function marcaAlvo(view: EditorView, qual: Alvo): void {
 }
 
 /** O desenho de um ícone (o mesmo traço do resto do site), fora do Angular. */
-function desenho(icone: LucideIconData): SVGSVGElement {
+export function desenho(icone: LucideIconData): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   const attrs: Record<string, string> = { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' };

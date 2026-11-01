@@ -1,9 +1,13 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
+import { LucideIconData } from 'lucide-angular';
+import { calloutLook, calloutName } from '../core/callouts';
 import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, snapshotDone } from '../core/rich-text';
 import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
+import { calloutIcon } from './callout-looks';
+import { ICON, IconModule } from './icons';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -23,6 +27,11 @@ import { ZoomKnob } from './zoom-knob';
  * Sem `links` (as resenhas), os colchetes ficam como foram escritos.
  *
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
+ *
+ * O card ("> [!aviso] Título", ver core/callouts.ts) é um papel colorido colado no texto, preso por um
+ * pedaço de fita crepe, com a beirada de baixo rasgada: o desenho do jeito e o título a pincel em cima,
+ * e o que tem dentro como o resto do texto. O que fecha ("[!aviso]-") é um <details>: tocar no título
+ * abre e fecha (só ele age, a ficha embaixo não abre).
  *
  * O que vem embaixo de um item, recuado (a descrição, a foto, outra lista), fica no alinhamento do
  * texto dele, e o próximo item vem logo embaixo (a linha em branco só se foi escrita). Na tarefa feita, é riscado
@@ -129,6 +138,28 @@ import { ZoomKnob } from './zoom-knob';
             <app-zoom-knob class="ampliar" [label]="tableLabel(b)" (pressed)="liftTable(tabela)" />
             </div>
           }
+          @case ('callout') {
+            <!-- o card: o papel do jeito dele, com o desenho e o título (sem título, o nome do jeito) em
+                 cima e o que tem dentro embaixo; o que fecha abre e fecha pelo título -->
+            @if (b.fold) {
+              <details class="cartao" [attr.data-jeito]="cardLook(b.type)" [open]="b.fold === '+'">
+                <summary class="linha cartao-topo tocavel" [attr.data-l]="at(b)" (click)="$event.stopPropagation()">
+                  <ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" />
+                  <span class="cartao-seta" aria-hidden="true"><lucide-icon [img]="ChevronIcon" [size]="16" /></span>
+                </summary>
+                @if (b.body.length) {
+                  <div class="cartao-corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: b.body }" /></div>
+                }
+              </details>
+            } @else {
+              <div class="cartao" role="note" [attr.data-jeito]="cardLook(b.type)" [attr.aria-label]="cardTitle(b)">
+                <div class="linha cartao-topo" [attr.data-l]="at(b)"><ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" /></div>
+                @if (b.body.length) {
+                  <div class="cartao-corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: b.body }" /></div>
+                }
+              </div>
+            }
+          }
           @case ('check') {
             <ul class="lista tarefas">
               @for (it of b.items; track it.line) {
@@ -164,13 +195,18 @@ import { ZoomKnob } from './zoom-knob';
         }
       }
     </ng-template>
+    <!-- a linha de cima do card: o desenho do jeito e o título escrito (com as marcas), ou o nome do jeito -->
+    <ng-template #cartaoTopo let-b>
+      <span class="cartao-icone" aria-hidden="true"><lucide-icon [img]="cardIcon(b.type)" [size]="18" /></span>
+      <span class="cartao-titulo">@if (b.title.length) {@for (s of b.title; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}} @else {{{ cardName(b.type) }}}</span>
+    </ng-template>
     <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
     <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
     <ng-template #pedaco let-s>@if (s.link) {<ng-container *ngTemplateOutlet="elo; context: { $implicit: s }" />} @else if (s.href) {<a class="elo url" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [href]="s.href" target="_blank" rel="noopener noreferrer" [title]="s.href" (click)="$event.stopPropagation()">{{ s.text }}<span class="sr-only"> (abre em outra aba)</span></a>} @else if (s.code) {<code class="cod" [class.marca]="s.mark" [class.riscado]="s.strike" [class.sutil]="s.subtle">{{ s.text }}</code>} @else if (s.bold || s.italic || s.strike || s.mark || s.subtle) {<span class="enf" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [class.riscado]="s.strike" [class.marca]="s.mark">{{ s.text }}</span>} @else {{{ s.text }}}</ng-template>
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [attr.title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
-  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob],
+  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule],
   styles: `
     @use 'formatado';
 
@@ -184,7 +220,7 @@ import { ZoomKnob } from './zoom-knob';
     /* o texto comum desce na linha o quanto quem usa pedir (a leitura, para a letra à mão assentar na
        pauta); o título e a divisória ficam onde estão. Só se vê: o lugar de cada linha não muda. O
        corpo de um item sobe o que o item desceu, e cada linha dele desce por conta própria */
-    .linha:where(:not(.titulo, .divisoria)) {
+    .linha:where(:not(.titulo, .divisoria, .cartao-topo)) {
       position: relative;
       top: var(--texto-desce, 0px);
     }
@@ -194,11 +230,11 @@ import { ZoomKnob } from './zoom-knob';
     }
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     @include formatado.enfases;
-    :host-context(app-review-card[data-cor='amarelo']) .marca {
+    :host-context(app-review-card[data-cor='amarelo']) .marca:not(.cartao *) {
       --marca-cor: rgb(255 112 168 / 0.45);
     }
-    :host-context(app-review-card[data-cor$='-escuro']) .marca,
-    :host-context(app-review-card[data-cor='preto']) .marca {
+    :host-context(app-review-card[data-cor$='-escuro']) .marca:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .marca:not(.cartao *) {
       --marca-cor: rgb(255 218 66 / 0.32);
     }
     /* o spoiler: a tarja de caneta preta da altura das letras (como a do marca-texto, só que cobrindo
@@ -248,16 +284,17 @@ import { ZoomKnob } from './zoom-knob';
       --tarja: rgb(21 21 21 / 0.09);
       cursor: auto;
     }
-    :host-context(app-review-card[data-cor$='-escuro']) .spoiler,
-    :host-context(app-review-card[data-cor='preto']) .spoiler {
+    /* (no card, o papel é claro em toda cartolina: a tarja, o link e o marca-texto ficam os de sempre) */
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.cartao *) {
       --tarja: #f1f1ec;
     }
-    :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.revelado):hover,
-    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.revelado):hover {
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.revelado, .cartao *):hover,
+    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.revelado, .cartao *):hover {
       --tarja: #cfcfc8;
     }
-    :host-context(app-review-card[data-cor$='-escuro']) .spoiler.revelado,
-    :host-context(app-review-card[data-cor='preto']) .spoiler.revelado {
+    :host-context(app-review-card[data-cor$='-escuro']) .spoiler.revelado:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .spoiler.revelado:not(.cartao *) {
       --tarja: rgb(241 241 236 / 0.14);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -430,6 +467,63 @@ import { ZoomKnob } from './zoom-knob';
 
     @include formatado.seta-url;
 
+    /* ===== O card: o papel colorido colado no texto (ver ui/_formatado.scss), com a fita crepe no
+       canto e a beirada de baixo rasgada. Meia linha da pauta em cima e embaixo: o card soma uma linha ===== */
+    .cartao {
+      @include formatado.cartao-papel;
+      position: relative;
+      margin: 0;
+      padding: calc(var(--line, 1.5em) / 2) formatado.$cartao-lado;
+      border-radius: 2px 2px 0 0;
+    }
+    .cartao::before {
+      @include formatado.cartao-fita;
+    }
+    .cartao:nth-child(3n + 2)::before {
+      @include formatado.cartao-fita-outra(2);
+    }
+    .cartao:nth-child(3n)::before {
+      @include formatado.cartao-fita-outra(3);
+    }
+    .cartao::after {
+      @include formatado.cartao-rasgo;
+    }
+    .cartao-topo {
+      @include formatado.cartao-topo;
+    }
+    .cartao-icone {
+      @include formatado.cartao-icone;
+    }
+    .cartao-seta {
+      @include formatado.cartao-seta;
+    }
+    /* o que fecha: o título é o botão (sem o triângulo do navegador), a setinha vira com ele fechado */
+    summary.cartao-topo {
+      list-style: none;
+      cursor: pointer;
+    }
+    summary.cartao-topo::-webkit-details-marker {
+      display: none;
+    }
+    .cartao:not([open]) > summary .cartao-seta {
+      rotate: -90deg;
+    }
+    summary.cartao-topo:focus-visible {
+      outline: 2.5px solid var(--c-tinta);
+      outline-offset: 1px;
+      border-radius: 2px;
+    }
+    @media (hover: hover) {
+      summary.cartao-topo:hover .cartao-seta {
+        opacity: 1;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .cartao-seta {
+        transition: none;
+      }
+    }
+
     .lista {
       margin: 0;
       padding: 0;
@@ -548,19 +642,19 @@ import { ZoomKnob } from './zoom-knob';
     }
     @include formatado.elo;
     /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
-    :host-context(app-review-card[data-cor$='-escuro']) .elo,
-    :host-context(app-review-card[data-cor='preto']) .elo {
+    :host-context(app-review-card[data-cor$='-escuro']) .elo:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .elo:not(.cartao *) {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%238fd3ff' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
       --elo-marca: rgb(143 211 255 / 0.26);
     }
-    :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado,
-    :host-context(app-review-card[data-cor='preto']) .elo.quebrado {
+    :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .elo.quebrado:not(.cartao *) {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23f3ece0' stroke-opacity='.6' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
     }
-    :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa,
-    :host-context(.cartolina[data-cor='preto']) .feita .tarefa,
-    :host-context(.cartolina[data-cor$='-escuro']) .feita > .corpo .linha,
-    :host-context(.cartolina[data-cor='preto']) .feita > .corpo .linha {
+    :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa:not(.cartao *),
+    :host-context(.cartolina[data-cor='preto']) .feita .tarefa:not(.cartao *),
+    :host-context(.cartolina[data-cor$='-escuro']) .feita > .corpo .linha:not(.cartao *),
+    :host-context(.cartolina[data-cor='preto']) .feita > .corpo .linha:not(.cartao *) {
       text-decoration-color: rgb(243 236 224 / 0.5);
     }
   `,
@@ -615,6 +709,22 @@ export class RichText {
     const left = rolo?.scrollLeft ?? 0;
     this.lift.toggle(peca, { width: drawn ? layoutWidth(drawn) : undefined, closed: () => rolo?.scrollTo({ left }) });
   }
+  protected readonly ChevronIcon = ICON.abrir;
+  protected cardLook(type: string): string {
+    return calloutLook(type);
+  }
+  protected cardIcon(type: string): LucideIconData {
+    return calloutIcon(type);
+  }
+  protected cardName(type: string): string {
+    return calloutName(type);
+  }
+  /** O nome do card para o leitor de tela: o título escrito (sem as marcas), ou o nome do jeito. */
+  protected cardTitle(b: Block): string {
+    if (b.kind !== 'callout') return '';
+    return b.title.map((s) => s.text).join('').trim() || calloutName(b.type);
+  }
+
   /** O que o leitor de tela diz no broche: "Ampliar a tabela: Jogo, Horas, Nota". */
   protected tableLabel(b: Block): string {
     if (b.kind !== 'table') return 'Ampliar a tabela';

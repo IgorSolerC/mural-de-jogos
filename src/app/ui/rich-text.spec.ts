@@ -23,6 +23,40 @@ describe('o texto formatado na leitura', () => {
 
   afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
 
+  it('o card: o papel do jeito, o desenho e o título (sem título, o nome do jeito) em cima, e o que tem dentro embaixo', async () => {
+    const el = await render('> [!warning] Antes de **ir**\n> - [ ] passaporte\n> fim\n\n> [!pergunta]\n> vale?', null, true);
+    const cards = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
+    expect(cards.length).toBe(2);
+    // o nome do Obsidian dá na cara do Aviso; o papel é o do jeito, com a tinta escura
+    expect(cards[0].dataset['jeito']).toBe('aviso');
+    expect(cards[0].getAttribute('role')).toBe('note');
+    expect(cards[0].getAttribute('aria-label')).toBe('Antes de ir');
+    expect(getComputedStyle(cards[0]).backgroundColor).toBe('rgb(251, 223, 194)');
+    expect(cards[0].querySelector('.cartao-topo .cartao-icone svg')).not.toBeNull();
+    expect(cards[0].querySelector('.cartao-titulo .negrito')?.textContent).toBe('ir');
+    expect(cards[1].querySelector('.cartao-titulo')!.textContent!.trim()).toBe('Pergunta');
+    // a fita no canto e o rasgo no pé
+    expect(getComputedStyle(cards[0], '::before').content).not.toBe('none');
+    expect(getComputedStyle(cards[0], '::after').maskImage).toContain('svg');
+    // a tarefa de dentro marca a linha certa do texto
+    cards[0].querySelector<HTMLInputElement>('input[type=checkbox]')!.click();
+    expect(toggled).toEqual([1]);
+  });
+
+  it('o card que fecha: o título abre e fecha (o "-" começa fechado, o "+", aberto), e o toque fica nele', async () => {
+    const el = await render('> [!dica]- Fechado\n> dentro\n\n> [!dica]+ Aberto\n> também');
+    const [fechado, aberto] = Array.from(el.querySelectorAll<HTMLDetailsElement>('details.cartao'));
+    expect(fechado.open).toBeFalse();
+    expect(aberto.open).toBeTrue();
+    let reached = 0;
+    el.addEventListener('click', () => reached++);
+    fechado.querySelector('summary')!.click();
+    await new Promise((r) => setTimeout(r));
+    expect(fechado.open).toBeTrue();
+    expect(reached).toBe(0);
+    expect(getComputedStyle(fechado.querySelector('summary')!).listStyleType).toBe('none');
+  });
+
   it('o spoiler é uma tarja: o texto fica de fora do leitor de tela e do Tab até tocar, e o toque não chega à ficha', async () => {
     const el = await render('O fim: ||ele **volta**|| e pronto.');
     const parts = Array.from(el.querySelectorAll<HTMLElement>('.spoiler'));

@@ -506,3 +506,117 @@ $item-lugar: 1.35em;
   background-position: bottom;
   background-size: 100% 1.5px;
 }
+
+// ===== O card (ver core/callouts.ts): um papel colorido colado no texto =====
+// O papel de cada jeito, com a tinta do título e do desenho. Só declarações, como a tabela: o seletor
+// fica com quem usa (a leitura embrulha o card num papel só; o Visual pinta linha por linha). O texto de
+// dentro é sempre a tinta escura (o papel é claro também numa cartolina escura).
+
+// a cor do papel e da tinta de cada jeito (--c-papel, --c-tinta) mora em src/styles.scss, no
+// [data-jeito]: a mesma na leitura, no Visual, no menu do card e no PDF
+
+// a fibra do papel colorido: fios em pé, de tons e espaços desiguais (um padrão só a cada 31px, que a
+// olho não se vê). Em pé: no Visual, pintado linha por linha, ela casa de uma linha para a outra.
+// `$f` são os quatro tons dos fios, `$v` o vão entre eles (o Visual pinta tudo numa imagem só)
+@function cartao-fibra($f1, $f2, $f3, $f4, $v) {
+  @return repeating-linear-gradient(90deg, $f1 0 1px, $v 1px 5px, $f2 5px 6px, $v 6px 13px, $f3 13px 14px, $v 14px 18px, $f4 18px 19px, $v 19px 31px);
+}
+
+// o papel: a cor do jeito com a fibra, e a sombra de papel colado (que segue o rasgo)
+@mixin cartao-papel {
+  color: #1b1916;
+  background: cartao-fibra(rgb(0 0 0 / 0.018), rgb(0 0 0 / 0.011), rgb(0 0 0 / 0.024), rgb(0 0 0 / 0.009), transparent), var(--c-papel);
+  filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.16)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.1));
+}
+
+// o lado de dentro do papel: meia linha da pauta em cima e embaixo (o card soma uma linha só)
+$cartao-lado-n: 0.85;
+$cartao-lado: $cartao-lado-n * 1em;
+
+// o pedaço de fita crepe no canto de cima, à direita, segurando o papel
+@mixin cartao-fita {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: -3px;
+  right: -11px;
+  width: 50px;
+  height: 15px;
+  background: rgb(238 230 204 / 0.86);
+  rotate: 36deg;
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.12),
+    inset 0 0 0 0.5px rgb(110 90 50 / 0.3);
+  pointer-events: none;
+  /* as pontas rasgadas da fita, não cortadas a tesoura */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 15' preserveAspectRatio='none'%3E%3Cpath d='M1.5 0H48.6L47.4 2.4 49.2 4.6 47.6 7.2 49.4 9.8 47.8 12.4 48.9 15H1.2L2.6 12.8.6 10.4 2.2 7.6.4 5.2 2 2.6Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 50 15' preserveAspectRatio='none'%3E%3Cpath d='M1.5 0H48.6L47.4 2.4 49.2 4.6 47.6 7.2 49.4 9.8 47.8 12.4 48.9 15H1.2L2.6 12.8.6 10.4 2.2 7.6.4 5.2 2 2.6Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+
+// a beirada de baixo, rasgada à mão (um pedaço de papel arrancado do bloco): um rasgo comprido e
+// desigual (os dentes de 2 a 5px, a mordida de 2 a 7px), que só se repete a cada 300px
+@mixin cartao-rasgo {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% - 1px);
+  height: 7px;
+  background: inherit;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 7' preserveAspectRatio='none'%3E%3Cpath d='M0 0H300V2.4L297.2 4.1 294.6 2.6 290.8 5.9 287.9 3.2 285.6 3.8 281.4 2.5 278.7 4.6 276.1 3.1 272.2 6.6 269.8 3.4 265.9 2.8 263.1 4.4 258.7 2.9 256.4 5.2 253.6 3.6 249.2 3.1 246.8 4.9 243.1 2.6 240.4 3.9 236.9 6.1 234.6 3.3 230.1 2.7 227.3 4.2 224.8 3.5 220.6 5.6 217.9 2.9 214.2 3.7 211.4 2.4 208.7 4.8 204.3 3.2 201.8 4.1 198.1 6.9 195.6 3.6 191.7 2.8 188.4 4.5 185.9 3.1 181.6 3.9 179.2 2.5 175.4 5.1 172.6 3.4 168.9 4.3 166.1 2.7 162.3 3.8 159.7 6.2 156.4 3.5 152.6 2.9 149.9 4.7 146.2 3.2 143.5 4 139.8 2.6 137.1 5.4 133.4 3.3 130.6 4.1 126.8 2.8 124.2 3.6 120.9 5.9 117.6 3.1 113.8 2.6 111.1 4.4 107.7 3.5 104.9 4.9 101.2 2.7 98.4 3.8 94.7 6.4 92.1 3.2 88.3 2.9 85.6 4.6 81.9 3.3 79.2 2.5 75.4 4.2 72.8 3.7 69.1 5.7 66.3 3 62.6 4 59.8 2.6 56.1 3.9 53.4 6 49.6 3.4 46.9 2.8 43.2 4.5 40.5 3.1 36.8 4.8 34.1 2.7 30.4 3.6 27.7 5.5 24.1 3.2 21.3 4.3 17.6 2.6 14.9 3.9 11.2 6.3 8.6 3.5 4.8 2.9 2.1 4.2 0 3Z'/%3E%3C/svg%3E") 0 0 / 300px 100% repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 7' preserveAspectRatio='none'%3E%3Cpath d='M0 0H300V2.4L297.2 4.1 294.6 2.6 290.8 5.9 287.9 3.2 285.6 3.8 281.4 2.5 278.7 4.6 276.1 3.1 272.2 6.6 269.8 3.4 265.9 2.8 263.1 4.4 258.7 2.9 256.4 5.2 253.6 3.6 249.2 3.1 246.8 4.9 243.1 2.6 240.4 3.9 236.9 6.1 234.6 3.3 230.1 2.7 227.3 4.2 224.8 3.5 220.6 5.6 217.9 2.9 214.2 3.7 211.4 2.4 208.7 4.8 204.3 3.2 201.8 4.1 198.1 6.9 195.6 3.6 191.7 2.8 188.4 4.5 185.9 3.1 181.6 3.9 179.2 2.5 175.4 5.1 172.6 3.4 168.9 4.3 166.1 2.7 162.3 3.8 159.7 6.2 156.4 3.5 152.6 2.9 149.9 4.7 146.2 3.2 143.5 4 139.8 2.6 137.1 5.4 133.4 3.3 130.6 4.1 126.8 2.8 124.2 3.6 120.9 5.9 117.6 3.1 113.8 2.6 111.1 4.4 107.7 3.5 104.9 4.9 101.2 2.7 98.4 3.8 94.7 6.4 92.1 3.2 88.3 2.9 85.6 4.6 81.9 3.3 79.2 2.5 75.4 4.2 72.8 3.7 69.1 5.7 66.3 3 62.6 4 59.8 2.6 56.1 3.9 53.4 6 49.6 3.4 46.9 2.8 43.2 4.5 40.5 3.1 36.8 4.8 34.1 2.7 30.4 3.6 27.7 5.5 24.1 3.2 21.3 4.3 17.6 2.6 14.9 3.9 11.2 6.3 8.6 3.5 4.8 2.9 2.1 4.2 0 3Z'/%3E%3C/svg%3E") 0 0 / 300px 100% repeat-x;
+}
+
+// cada pedaço de fita cortado de um jeito: o card seguinte, outro ângulo e outro lugar (`$i`: 2 ou 3)
+@mixin cartao-fita-outra($i) {
+  @if $i == 2 {
+    rotate: 30deg;
+    right: -9px;
+    width: 46px;
+  } @else {
+    rotate: 41deg;
+    top: -5px;
+    width: 53px;
+  }
+}
+
+// a linha de cima: o desenho do jeito e o título a pincel, na tinta dele (uma linha da pauta)
+@mixin cartao-topo {
+  display: flex;
+  align-items: center;
+  gap: 0.42em;
+  min-height: var(--line, 1.5em);
+  color: var(--c-tinta);
+  font-family: var(--f-marker);
+  font-weight: 400;
+  line-height: var(--line, 1.5em);
+  overflow-wrap: anywhere;
+}
+
+// o desenho do jeito, do tamanho da letra
+@mixin cartao-icone {
+  flex: none;
+  display: inline-flex;
+  width: 1.02em;
+  height: 1.02em;
+  rotate: -4deg;
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+// a setinha de fechar, depois do título (o card que fecha)
+@mixin cartao-seta {
+  flex: none;
+  display: inline-flex;
+  width: 0.86em;
+  height: 0.86em;
+  opacity: 0.75;
+  transition: rotate var(--t-ui, 160ms) var(--ease-ui, ease-out);
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+}

@@ -2,7 +2,7 @@ import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, PluginSpec, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { Escrita } from '../../core/rich-doc';
-import { Block, bodyIndent, bodyOf, indentOf, itemEnd, lineKind, linesOf, nextNumber, ownerItem, parseRich, renumberAfter } from '../../core/rich-text';
+import { Block, bodyIndent, bodyOf, calloutLine, indentOf, itemEnd, lineKind, linesOf, nextNumber, ownerItem, parseRich, renumberAfter } from '../../core/rich-text';
 import { linkarEndereco } from './links';
 import { schema, textoDoCru } from './schema';
 
@@ -58,12 +58,15 @@ function mapaDoTexto(doc: PMNode, escrever: Escritor): Mapa | null {
   if (!e.exato || e.doc.linhas.length !== doc.childCount) return null;
   const primeira: number[] = [];
   const no: number[] = [];
+  const linhas = linesOf(e.texto);
   e.doc.linhas.forEach((l, i) => {
     primeira.push(no.length);
     const n = linesOf(l.fonte!.texto).length;
+    // dentro de um card, as linhas sem o "> " da frente (a lista de dentro é lida como a leitura a lê)
+    if (l.cartao !== undefined && l.kind !== 'cru') for (let k = no.length; k < no.length + n; k++) linhas[k] = calloutLine(linhas[k]) ?? linhas[k];
     for (let k = 0; k < n; k++) no.push(i);
   });
-  return { linhas: linesOf(e.texto), primeira, no, texto: e.texto };
+  return { linhas, primeira, no, texto: e.texto };
 }
 
 /** Onde começa o nó `i` do documento. */
@@ -419,7 +422,7 @@ function estrutura(doc: PMNode): string {
   const partes: string[] = [];
   doc.forEach((n) => {
     const a = n.attrs;
-    let k = n.type.name + ':' + (a['recuo'] ?? '');
+    let k = n.type.name + ':' + (a['recuo'] ?? '') + ':' + (a['cartao'] ?? '');
     if (n.type === ITEM) k += `:${a['tipo']}:${a['numero']}:${a['feita'] ? 1 : 0}`;
     else if (n.type === LINHA || n.type === N['titulo']) k += n.textContent.trim() ? ':x' : ':';
     else if (n.type === N['blocoCodigo']) k += `:${a['margem']}:${a['aberto'] ? 1 : 0}`;

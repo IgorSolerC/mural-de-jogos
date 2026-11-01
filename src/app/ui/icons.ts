@@ -83,6 +83,7 @@ import {
   EarOff,
   Earth,
   Ellipsis,
+  Eraser,
   ExternalLink,
   Eye,
   EyeOff,
@@ -123,6 +124,7 @@ import {
   Image,
   ImageOff,
   Images,
+  Info,
   Infinity as InfinityGlyph,
   Italic,
   Landmark,
@@ -161,6 +163,7 @@ import {
   NotebookPen,
   Origami,
   Package,
+  PanelTop,
   Palette,
   Paperclip,
   PartyPopper,
@@ -483,6 +486,11 @@ export const ICON = {
   markdown: Hash,
   citacao: TextQuote,
   aspas: Quote,
+  /** O card do texto (o callout do Obsidian): a caixa com a faixa do título em cima. */
+  card: PanelTop,
+  informacao: Info,
+  /** Desfazer o card: o papel sai, o texto fica. */
+  borracha: Eraser,
   /** O texto sutil ("-# "): as letras pequenas. */
   sutil: CaseLower,
   codigo: Code,

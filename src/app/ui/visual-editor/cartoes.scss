@@ -1,0 +1,98 @@
+@use '../formatado';
+
+// O card do modo Visual (ver cartoes.ts): o papel da leitura (ui/_formatado.scss), pintado linha por
+// linha. À parte de visual-editor.scss (o mesmo componente, sem o encapsulamento do Angular), que vem
+// antes. A cor de cada jeito mora em src/styles.scss ([data-jeito]).
+
+.vis-folha > .ProseMirror {
+  // Cada linha do card leva o papel do jeito dele por um border-image que passa dos lados (a margem do
+  // card e, na descrição de um item, o recuo dela): o texto fica onde a leitura o põe, e o papel vai de
+  // ponta a ponta, sem emenda (1px a mais em cima e embaixo: a linha de baixo cobre a de cima, sem
+  // o fio claro da emenda entre as duas). Meia linha da pauta em cima da de cima e embaixo da última, como na
+  // leitura; a fita crepe no canto da de cima e o rasgo no pé da última.
+  > :is(.vis-cartao-topo, .vis-no-cartao) {
+    @include formatado.cartao-papel;
+    --c-lado: calc(#{formatado.$cartao-lado-n} * var(--vis-letra));
+    --c-fora: calc(var(--vis-corpo, 0) * var(--vis-letra) + var(--c-lado));
+    position: relative;
+    margin-left: var(--c-fora);
+    margin-right: var(--c-lado);
+    background: none;
+    border-image: formatado.cartao-fibra(
+        color-mix(in srgb, var(--c-papel) 98.2%, #000),
+        color-mix(in srgb, var(--c-papel) 98.9%, #000),
+        color-mix(in srgb, var(--c-papel) 97.6%, #000),
+        color-mix(in srgb, var(--c-papel) 99.1%, #000),
+        var(--c-papel)
+      )
+      fill 0 / 0 / 1px var(--c-lado) 1px var(--c-fora);
+  }
+  > pre.codigo.vis-no-cartao {
+    margin-left: calc(var(--c-fora) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
+    border-image-outset: 1px var(--c-lado) 1px calc(var(--c-fora) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
+  }
+  > .vis-cartao-topo {
+    @include formatado.cartao-topo;
+    padding-top: calc(var(--line) / 2);
+    border-radius: 2px 2px 0 0;
+    text-indent: 0;
+  }
+  // a fita cruza o canto do papel (que passa da linha pelo lado)
+  > .vis-cartao-topo::before {
+    @include formatado.cartao-fita;
+    right: calc(var(--c-lado) * -1 - 11px);
+  }
+  > .vis-cartao-topo:nth-child(3n + 2)::before {
+    @include formatado.cartao-fita-outra(2);
+    right: calc(var(--c-lado) * -1 - 9px);
+  }
+  > .vis-cartao-topo:nth-child(3n)::before {
+    @include formatado.cartao-fita-outra(3);
+  }
+  // sem a sombra de papel colado na escrita: pintada linha por linha, a sombra de cada uma (até só a
+  // da última) marcava a emenda com a de cima. A da leitura, que é um papel só, fica
+  > :is(.vis-cartao-topo, .vis-no-cartao) {
+    filter: none;
+  }
+  > .vis-cartao-fim {
+    padding-bottom: calc(var(--line) / 2);
+  }
+  > .vis-cartao-fim::after {
+    @include formatado.cartao-rasgo;
+    left: calc(var(--c-fora) * -1);
+    right: calc(var(--c-lado) * -1);
+    background: var(--c-papel);
+  }
+  .vis-cartao-icone {
+    @include formatado.cartao-icone;
+  }
+  .vis-cartao-seta {
+    @include formatado.cartao-seta;
+  }
+  .vis-cartao-seta[hidden] {
+    display: none;
+  }
+  > .vis-cartao-topo[data-dobra='-'] .vis-cartao-seta {
+    rotate: -90deg;
+  }
+  // a setinha logo depois do título, como na leitura
+  .vis-cartao-titulo {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  // sem título: o nome do jeito, apagado (é o que a leitura vai mostrar), sem empurrar o cursor
+  > .vis-cartao-topo.vazio .vis-cartao-titulo::before {
+    content: attr(data-vazio);
+    float: left;
+    height: 0;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  // a divisória dentro do card: o mesmo risco, desenhado no papel (o recorte dela levaria o papel junto)
+  > .divisoria.vis-no-cartao {
+    opacity: 1;
+    -webkit-mask: none;
+    mask: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%231b1916' stroke-opacity='.5' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
+  }
+}

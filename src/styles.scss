@@ -1744,3 +1744,42 @@ img.revelada {
 .fichas-paradas .brilho {
   animation: none;
 }
+
+/* ===== O card do texto (ver core/callouts.ts): o papel e a tinta de cada jeito, no [data-jeito] da
+   leitura, do Visual, do menu do card e do PDF (ui/_formatado.scss desenha o resto) ===== */
+[data-jeito] {
+  --c-papel: #ecdcb3;
+  --c-tinta: #6a4818;
+}
+[data-jeito='info'] {
+  --c-papel: #dce8f7;
+  --c-tinta: #1e4f8e;
+}
+[data-jeito='dica'] {
+  --c-papel: #d6efe6;
+  --c-tinta: #0f6658;
+}
+[data-jeito='feito'] {
+  --c-papel: #deefd3;
+  --c-tinta: #2b681b;
+}
+[data-jeito='pergunta'] {
+  --c-papel: #faeea4;
+  --c-tinta: #735400;
+}
+[data-jeito='aviso'] {
+  --c-papel: #fbdfc2;
+  --c-tinta: #934407;
+}
+[data-jeito='perigo'] {
+  --c-papel: #f7d9d4;
+  --c-tinta: #9d2118;
+}
+[data-jeito='exemplo'] {
+  --c-papel: #e6dcf5;
+  --c-tinta: #553594;
+}
+[data-jeito='citacao'] {
+  --c-papel: #e7e4de;
+  --c-tinta: #4b463e;
+}

@@ -10,6 +10,7 @@ import { enterNaLista, linhaNoItem, mapaDe, paraFrente, paraTras, recuarItem, re
 import { tabNaPeca } from './pecas';
 import { linhaDaPeca, schema, textoDoCru } from './schema';
 import { apagarNaTabela, apagarSelecao, enterNaTabela, entrarNaTabela, tabNaTabela, tabelaEm } from './tabela';
+import { apagarNoCartao, enterNoCartao } from './cartoes';
 
 /**
  * O teclado do Visual (PLANO-EDITOR-VISUAL.md, 5.9), escrito tecla por tecla: o `baseKeymap` do
@@ -258,8 +259,8 @@ const enterDaLinha: Command = (state, dispatch) => {
   return true;
 };
 
-/** Enter: na célula da tabela, a de baixo (ver tabela.ts); senão, o da linha. */
-export const enter: Command = chainCommands(enterNaTabela(1), enterDaLinha);
+/** Enter: na célula da tabela, a de baixo (ver tabela.ts); no card, o dele (ver cartoes.ts); senão, o da linha. */
+export const enter: Command = chainCommands(enterNaTabela(1), enterNoCartao, enterDaLinha);
 
 /**
  * Backspace no começo de uma linha: o título, a citação e o sutil viram texto; o item perde o marcador
@@ -326,7 +327,7 @@ const apagarNoFim: Command = (state, dispatch) => {
  * O apagar: uma seleção que toca uma tabela só tira texto, e a tabela nunca se desmancha nem se junta a uma
  * linha pelo apagar (as lições do Android, ver tabela.ts); o resto, como numa linha.
  */
-export const apagarParaTras: Command = chainCommands(undoInputRule, apagarSelecao, deleteSelection, apagarNaTabela(-1), apagarNoComeco, entrarNaTabela(-1), joinBackward);
+export const apagarParaTras: Command = chainCommands(undoInputRule, apagarSelecao, deleteSelection, apagarNaTabela(-1), apagarNoCartao, apagarNoComeco, entrarNaTabela(-1), joinBackward);
 export const apagarParaFrente: Command = chainCommands(apagarSelecao, deleteSelection, apagarNaTabela(1), entrarNaTabela(1), apagarNoFim, joinForward, selectNodeForward);
 
 /**
@@ -392,6 +393,8 @@ export const estilo =
         // (como no Markdown, que só tira as marcas do título, da citação e do sutil)
         if (alvos.length > 1 && !n.textContent.trim()) continue;
         if (tipo === N['linha'] && n.type === N['item']) continue;
+        // a linha de cima do card fica como está (o card se desfaz pelo menu dele)
+        if (n.type === N['cartaoTopo']) continue;
         const recuo = tipo === N['linha'] ? n.attrs['recuo'] : 0;
         tr.setNodeMarkup(pos, tipo, tipo === N['titulo'] ? { recuo, fonte: n.attrs['fonte'], nivel } : { recuo, fonte: n.attrs['fonte'] });
       }

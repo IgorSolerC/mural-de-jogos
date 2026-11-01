@@ -13,7 +13,8 @@
  *   "+ item", "1. item" e, dentro de um, "1.1. item"), checklists ("- [ ] tarefa", "- [x] feita"), citações ("> "), a divisória
  *   ("---"), tabelas (as linhas com "|", a segunda só de traços), blocos de código (entre "```" ou
  *   "~~~") e os widgets das anotações ("{{contador: 19/11/2026 | Lançamento}}", numa linha só dele;
- *   ver core/widgets.ts), e o texto sutil ("-# texto", como no Discord: menor e mais claro).
+ *   ver core/widgets.ts), o texto sutil ("-# texto", como no Discord: menor e mais claro) e o card
+ *   ("> [!aviso] Título" e, embaixo, as linhas com "> ", como o callout do Obsidian; ver core/callouts.ts).
  * - O que vem embaixo de um item, recuado dois espaços ou mais, é dele, como no markdown: a
  *   descrição em várias linhas, outra lista, um widget (ver `ListItem.body`).
  *
@@ -35,6 +36,7 @@
 
 import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';
 import { Align, TableLook, alignOf, continuesTable, startsTable, tableCells, tableLookOf } from './tables';
+import { CalloutFold, calloutName } from './callouts';
 
 export type { Align } from './tables';
 export { isTableSep, tableCells } from './tables';
@@ -133,7 +135,13 @@ export type Block =
    * A tabela; `look`, o jeito escrito na marca de cima ("{{tabela: listrada}}", ver core/tables.ts):
    * sem a marca, ele não vem (é a branca, a de sempre).
    */
-  | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][]; look?: TableLook };
+  | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][]; look?: TableLook }
+  /**
+   * O card (ver core/callouts.ts): o jeito como foi escrito ("aviso", "warning"), o "-"/"+" de fechar, o
+   * título (vazio: o nome do jeito) e o que tem dentro, lido como um texto à parte; `size`, quantas
+   * linhas (as do "> ") vêm embaixo da de cima.
+   */
+  | { kind: 'callout'; type: string; fold: CalloutFold; title: Span[]; body: Block[]; size: number };
 
 const CHECK = /^\s*[-*+•]\s+\[([ xX])\]\s?(.*)$/;
 const BULLET = /^\s*[-*+•]\s+(.*)$/;
@@ -148,8 +156,55 @@ const SUBTLE = /^\s*-#(?:[ \t]+(.*))?$/;
 // (">!spoiler!<" no começo da linha é um spoiler, não uma citação)
 const QUOTE = /^\s*>(?!!\S.*!<)\s?(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
+/**
+ * A linha de cima do card: "> [!jeito]", com o "-" ou o "+" de fechar colado nele e o título depois de
+ * um espaço (ver core/callouts.ts).
+ */
+const CALLOUT = /^\s*>\s?\[!([\p{L}\p{N}_-]+)\]([+-]?)(?:[ \t]+(.*?))?[ \t]*$/u;
 /** A cerca do bloco de código: três crases ou três tis (fecha com a mesma). */
 const FENCE = /^\s*(`{3,}|~{3,})/;
+
+/** A linha de cima de um card ("> [!aviso]- Título"): o jeito, o fechar e o título como foi escrito; null se não é. */
+export function calloutAt(line: string): { type: string; fold: CalloutFold; title: string } | null {
+  const m = CALLOUT.exec(line);
+  return m ? { type: m[1], fold: m[2] as CalloutFold, title: m[3] ?? '' } : null;
+}
+
+/**
+ * Uma linha de dentro do card (as que vêm embaixo da de cima): o que ela tem sem o "> " da frente, ou
+ * null se ela não continua o card (sem o ">", ou a linha de outro card).
+ */
+export function calloutLine(line: string): string | null {
+  if (CALLOUT.test(line)) return null;
+  const q = QUOTE.exec(line);
+  return q ? q[1] : null;
+}
+
+/**
+ * As linhas do card que começa na linha `i` (a de cima): até onde ele vai (a última linha dele) e, de
+ * cada uma de dentro, o que ela tem sem o "> ". Null se a linha `i` não é a de cima de um card.
+ */
+export function calloutBlockAt(lines: readonly string[], i: number): { end: number; inner: string[] } | null {
+  if (!CALLOUT.test(lines[i] ?? '')) return null;
+  const inner: string[] = [];
+  for (let j = i + 1; j < lines.length; j++) {
+    const c = calloutLine(lines[j]);
+    if (c === null) break;
+    inner.push(c);
+  }
+  return { end: i + inner.length, inner };
+}
+
+/**
+ * O card em que a linha `i` está (a de cima ou uma de dentro): as linhas da de cima e da última dele.
+ * Null se ela não é de card nenhum. (O card de dentro de um card conta como linha do de fora.)
+ */
+export function calloutAround(lines: readonly string[], i: number): { head: number; end: number } | null {
+  let j = i;
+  while (j >= 0 && !CALLOUT.test(lines[j]) && calloutLine(lines[j]) !== null) j--;
+  const card = j >= 0 ? calloutBlockAt(lines, j) : null;
+  return card && i <= card.end ? { head: j, end: card.end } : null;
+}
 
 /** A cerca que a linha abre ("```", "~~~~"), ou null. */
 export function fenceOf(line: string): string | null {
@@ -691,6 +746,15 @@ function parseLines(lines: readonly string[], base: number): Block[] {
       push({ kind: 'code', text: body.join('\n') }, at);
       continue;
     }
+    // o card: a linha de cima e as do "> " embaixo dela, lidas como um texto à parte (outro card, uma
+    // lista, uma tabela, tudo o que o texto tem)
+    const card = calloutBlockAt(lines, i);
+    if (card) {
+      const head = calloutAt(line)!;
+      push({ kind: 'callout', type: head.type, fold: head.fold, title: parseInline(head.title), body: parseLines(card.inner, base + i + 1), size: card.inner.length }, at);
+      i = card.end;
+      continue;
+    }
     const w = parseWidgetLine(line);
     // a marca do jeito da tabela vale com a tabela logo embaixo; sozinha, fica como texto
     const marked = w?.name === 'tabela' && startsTable(lines, i + 1);
@@ -770,13 +834,14 @@ export function hasInteractive(text: string): boolean {
 
 /**
  * O texto tem um widget que se toca na ficha do mural: o broche de ampliar (o contador, a foto, o
- * vídeo, a fita, a nota colada, a tabela, com a marca do jeito ou sem ela) e o tocar do vídeo e da
- * fita. O que está dentro de um bloco de código é texto.
+ * vídeo, a fita, a nota colada, a tabela, com a marca do jeito ou sem ela), o tocar do vídeo e da
+ * fita e o título do card que fecha ("[!aviso]-"). O que está dentro de um bloco de código é texto.
  */
 export function hasTouchableWidget(text: string): boolean {
-  if (!text.includes('{{') && !text.includes('|')) return false;
+  if (!text.includes('{{') && !text.includes('|') && !text.includes('[!')) return false;
   const prose = proseLines(text);
   return prose.some(({ line, at }, i) => {
+    if (calloutAt(line)?.fold) return true;
     const next = prose[i + 1];
     if (line.includes('|') && next?.at === at + 1 && startsTable([line, next.line], 0)) return true;
     if (!line.includes('{{')) return false;
@@ -801,6 +866,8 @@ function spansOf(b: Block): Span[] {
       return b.items.flatMap((it) => [...it.spans, ...(it.body ?? []).flatMap(spansOf)]);
     case 'table':
       return [...b.head, ...b.rows.flat()].flat();
+    case 'callout':
+      return [...b.title, ...b.body.flatMap(spansOf)];
     default:
       return [];
   }
@@ -878,6 +945,11 @@ function textOf(text: string, widget: (name: string, args: readonly string[]) =>
         }
         case 'hr':
           break;
+        case 'callout':
+          // o título (ou o nome do jeito) numa linha, e o que tem dentro embaixo dele
+          out.push(b.title.length ? join(b.title) : calloutName(b.type));
+          read(b.body);
+          break;
         default:
           // o que vem embaixo do item, logo depois dele
           for (const it of b.items) {
@@ -891,12 +963,17 @@ function textOf(text: string, widget: (name: string, args: readonly string[]) =>
   return out.join('\n');
 }
 
-/** Marca ou desmarca a tarefa da linha `line`. Devolve o texto igual se a linha não é tarefa. */
+/**
+ * Marca ou desmarca a tarefa da linha `line` (também a de dentro de um card, depois do "> "). Devolve o
+ * texto igual se a linha não é tarefa.
+ */
 export function toggleCheck(text: string, line: number): string {
   const lines = linesOf(text);
+  const prose = proseLines(text).find((p) => p.at === line);
+  if (!prose || !CHECK.test(prose.line)) return text;
   const l = lines[line];
-  if (l === undefined || !CHECK.test(l)) return text;
-  lines[line] = l.replace(/\[([ xX])\]/, (_, c: string) => (c === ' ' ? '[x]' : '[ ]'));
+  const pre = l.length - prose.line.length;
+  lines[line] = l.slice(0, pre) + prose.line.replace(/\[([ xX])\]/, (_, c: string) => (c === ' ' ? '[x]' : '[ ]'));
   return lines.join('\n');
 }
 
@@ -907,18 +984,28 @@ export function linesOf(text: string): string[] {
 
 /**
  * As linhas fora dos blocos de código, com o número de cada uma: as que a leitura lê como texto (ver
- * `parseRich`). Dentro de um bloco, nem tarefa nem link valem.
+ * `parseRich`). Dentro de um bloco, nem tarefa nem link valem. As de dentro de um card vêm sem o "> "
+ * da frente, como a leitura as lê ("> - [ ] x" é uma tarefa).
  */
 export function proseLines(text: string): { line: string; at: number }[] {
+  return proseOf(linesOf(text).map((line, at) => ({ line, at })));
+}
+
+function proseOf(lines: readonly { line: string; at: number }[]): { line: string; at: number }[] {
   const out: { line: string; at: number }[] = [];
-  const lines = linesOf(text);
+  const raw = lines.map((l) => l.line);
   for (let i = 0; i < lines.length; i++) {
-    const open = fenceOf(lines[i]);
+    const open = fenceOf(raw[i]);
     if (open) {
-      while (++i < lines.length && !closes(lines[i], open));
+      while (++i < lines.length && !closes(raw[i], open));
       continue;
     }
-    out.push({ line: lines[i], at: i });
+    out.push(lines[i]);
+    const card = calloutBlockAt(raw, i);
+    if (card) {
+      out.push(...proseOf(card.inner.map((line, k) => ({ line, at: lines[i + 1 + k].at }))));
+      i = card.end;
+    }
   }
   return out;
 }

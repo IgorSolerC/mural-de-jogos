@@ -988,13 +988,16 @@ export const CARD_STYLES = `
       --line: 1.4rem;
       --linhas: 8;
       --broche-folga: 12px;
+      /* embaixo, só o rasgo e a sombra do card que acaba o texto (ui/_formatado.scss, cartao-rasgo) */
+      --pe-folga: 9px;
       position: relative;
       /* a folga em cima e dos lados (desfeita na margem, o texto fica onde sempre esteve): o broche
          de ampliar de um widget sai metade para fora do canto dele (ui/zoom-knob.ts), e o corte da
-         caixa o cortava no widget do alto do texto. Embaixo não: lá o texto é cortado */
-      margin: calc(14px - var(--broche-folga)) calc(-1 * var(--broche-folga)) 0;
-      padding: var(--broche-folga) var(--broche-folga) 0;
-      max-height: calc(var(--line) * var(--linhas) + var(--broche-folga));
+         caixa o cortava no widget do alto do texto. Embaixo, a do pé rasgado do card (o texto que
+         passa da ficha continua cortado no mesmo lugar, e o esmaecido também) */
+      margin: calc(14px - var(--broche-folga)) calc(-1 * var(--broche-folga)) calc(-1 * var(--pe-folga));
+      padding: var(--broche-folga) var(--broche-folga) var(--pe-folga);
+      max-height: calc(var(--line) * var(--linhas) + var(--broche-folga) + var(--pe-folga));
       /* clip, e não hidden: com hidden a caixa rola quando o Tab chega numa tarefa lá embaixo, e as
          primeiras linhas somem da ficha */
       overflow: clip;
@@ -1028,8 +1031,8 @@ export const CARD_STYLES = `
     }
     /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
     .nota-texto[data-corta] {
-      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
-      mask-image: linear-gradient(to bottom, #000 calc(100% - var(--line) * 1.2), transparent);
+      -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--pe-folga) - var(--line) * 1.2), transparent calc(100% - var(--pe-folga)));
+      mask-image: linear-gradient(to bottom, #000 calc(100% - var(--pe-folga) - var(--line) * 1.2), transparent calc(100% - var(--pe-folga)));
     }
     /* a ficha inteira: o texto todo, sem corte nem esmaecido no fim */
     :host(.inteira) .nota-texto {

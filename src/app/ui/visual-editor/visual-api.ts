@@ -1,5 +1,6 @@
 import type { LineStyle } from '../rich-editor';
 import type { Align, TableLook } from '../../core/tables';
+import type { CalloutFold, CalloutLook } from '../../core/callouts';
 import type { WidgetSize } from '../../core/widgets';
 
 /**
@@ -17,7 +18,20 @@ export type ListaVisual = 'ul' | 'ol' | 'check';
  * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, a tabela nova
  * (`tabela`, a 3×2 do Inserir), o desfazer, o estilo do parágrafo, ou uma ação do menu "Tabela".
  */
-export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela } | { tabelaNova: TamanhoTabela };
+export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela } | { tabelaNova: TamanhoTabela } | { cartao: AcaoCartao };
+
+/**
+ * O que o menu "Card" pede (e o Inserir › Card, `novo`): o card novo (no jeito dado, ou na Nota), outro
+ * jeito, o fechar na leitura, ou desfazer o card (o que tinha dentro fica no texto).
+ */
+export type AcaoCartao = 'novo' | 'desfazer' | { novo: CalloutLook } | { jeito: CalloutLook } | { dobra: CalloutFold };
+
+/** O card do cursor, para o menu "Card" da régua: o jeito escrito, a cara dele e o fechar. */
+export interface EstadoCartao {
+  tipo: string;
+  jeito: CalloutLook;
+  dobra: CalloutFold;
+}
 
 /** O tamanho escolhido na grade do Inserir › Tabela: as colunas e as fileiras embaixo do cabeçalho. */
 export interface TamanhoTabela {
@@ -71,6 +85,8 @@ export interface EstadoVisual {
   peca: PecaVisual | null;
   /** A tabela do cursor: a régua mostra o menu "Tabela". */
   tabela: EstadoTabela | null;
+  /** O card do cursor: a régua mostra o menu "Card". */
+  cartao: EstadoCartao | null;
 }
 
 /** Um widget da folha do Visual: onde ele está no documento e o que ele é. */
@@ -161,4 +177,4 @@ export interface ImagemVisual {
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null, tabela: null };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null, tabela: null, cartao: null };

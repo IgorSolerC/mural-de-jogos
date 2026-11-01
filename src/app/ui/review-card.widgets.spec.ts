@@ -63,9 +63,20 @@ describe('os widgets na ficha do mural', () => {
     expect(el.querySelector('.nota-texto table')).not.toBeNull();
     expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
     const knob = el.querySelector<HTMLElement>('.nota-texto .tabela-peca > app-zoom-knob button')!;
+    // na tela (o que outro teste deixou na página não empurra a ficha para fora dela)
+    knob.scrollIntoView({ block: 'center' });
     const r = knob.getBoundingClientRect();
     const at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     expect(knob.contains(at)).toBeTrue();
+  });
+
+  it('o card que fecha: o texto sobe por cima do botão da ficha, e o título dele pega o toque (abre o card, não a ficha)', async () => {
+    await show(card('anotacoes', '> [!dica]- Fechado\n> dentro'), { checkable: false });
+    expect(el.querySelector('.nota-texto')!.classList).toContain('marcavel');
+    const sum = el.querySelector<HTMLElement>('.nota-texto details.cartao > summary')!;
+    sum.scrollIntoView({ block: 'center' });
+    const r = sum.getBoundingClientRect();
+    expect(sum.contains(document.elementFromPoint(r.left + 20, r.top + r.height / 2))).toBeTrue();
   });
 
   it('na ficha que corta o texto, dois widgets do mesmo tamanho ficam iguais: o que passa do fim fica escondido, sem encolher', async () => {

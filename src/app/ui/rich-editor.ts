@@ -2,7 +2,9 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
+import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
 import { Review, formatReviewDate } from '../core/review';
@@ -20,7 +22,7 @@ import { Toasts } from './toast';
 import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
-import type { AcaoTabela, AcaoVisual, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import type { AcaoCartao, AcaoTabela, AcaoVisual, EstadoCartao, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 import { caretSpot } from './caret-follow';
 import { TableLooks } from './table-looks';
 import { TemplateAsk, TextTemplates } from './text-templates';
@@ -30,9 +32,9 @@ import { TIPO_MURALL, copiarMarkdown, cortarPorLinhas, markdownColado } from '..
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar", "Inserir", "Templates" (e os do Visual: "Tabela" e a grade do tamanho). */
-type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos';
+type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos' | 'card';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'rule' | 'card';
 /** O estilo do parágrafo (o "Formatar" marca o da linha do cursor). */
 export type LineStyle = 'texto' | 't1' | 't2' | 't3' | 'citacao' | 'sutil' | 'codigo';
 
@@ -260,7 +262,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             @if (isOpen('inserir', big)) {
               <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-inserir'" aria-label="Inserir" (keydown)="onMenuKey($event, area)">
                 <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-links'">
-                  <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e divisória</p>
+                  <p class="menu-secao" [id]="areaId + '-sec-links'" aria-hidden="true">Links e blocos</p>
                   @for (o of inserts(); track o.act) {
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" [attr.aria-keyshortcuts]="o.aria" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="act(area, big, o.act)">
                       <lucide-icon [img]="o.icon" [size]="17" aria-hidden="true" />
@@ -412,6 +414,61 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="openTableSheet(big)">
                       <lucide-icon [img]="EditIcon" [size]="17" aria-hidden="true" />
                       <span class="menu-op-nome">Abrir na folha</span>
+                    </button>
+                  </div>
+                </div>
+              }
+            </span>
+          }
+          <!-- o menu "Card", enquanto o cursor está num card (nos dois modos): o jeito dele (o papel e o
+               desenho), se fecha na leitura, e desfazer o card (o que tem dentro fica no texto) -->
+          @if (cardHere(); as cd) {
+            <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+              <button
+                type="button"
+                class="menu-botao"
+                data-menu="card"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="isOpen('card', big)"
+                [attr.aria-controls]="isOpen('card', big) ? areaId + '-card' : null"
+                aria-label="Card"
+                title="Card: o jeito e o fechar na leitura"
+                (pointerdown)="$event.preventDefault()"
+                (click)="toggleMenu('card', big, $event, area)"
+                (keydown.arrowdown)="$event.preventDefault(); openMenu('card', big, true)"
+              >
+                <lucide-icon [img]="CardIcon" [size]="18" aria-hidden="true" />
+                <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
+              </button>
+              @if (isOpen('card', big)) {
+                <div class="menu" [class.duas]="docked() !== big" role="menu" tabindex="-1" [id]="areaId + '-card'" aria-label="Card" (keydown)="onMenuKey($event, area)">
+                  <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-jeito'">
+                    <p class="menu-secao" [id]="areaId + '-sec-jeito'" aria-hidden="true">Jeito</p>
+                    @for (d of cardLooks; track d.look) {
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="d.look" [attr.aria-checked]="cd.jeito === d.look" [title]="d.about" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { jeito: d.look })">
+                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(d.look)" [size]="15" /></span>
+                        <span class="menu-op-nome">{{ d.name }}</span>
+                        @if (cd.jeito === d.look) {
+                          <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+                        }
+                      </button>
+                    }
+                  </div>
+                  <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-dobra'">
+                    <p class="menu-secao" [id]="areaId + '-sec-dobra'" aria-hidden="true">Na leitura</p>
+                    @for (f of cardFolds; track f.value) {
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="cd.dobra === f.value" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { dobra: f.value })">
+                        <lucide-icon [img]="f.icon" [size]="17" aria-hidden="true" />
+                        <span class="menu-op-nome">{{ f.name }}</span>
+                        @if (cd.dobra === f.value) {
+                          <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+                        }
+                      </button>
+                    }
+                    <span class="menu-fio" role="separator"></span>
+                    <button type="button" role="menuitem" tabindex="-1" class="menu-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, 'desfazer')">
+                      <lucide-icon [img]="UnwrapIcon" [size]="17" aria-hidden="true" />
+                      <span class="menu-op-nome">Desfazer o card</span>
                     </button>
                   </div>
                 </div>
@@ -1763,6 +1820,21 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       font-weight: 700;
       font-size: 0.95rem;
     }
+    /* cada jeito do card: um quadradinho do papel dele, com o desenho na tinta dele, colado meio torto */
+    .cartao-amostra {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 21px;
+      border-radius: 2px;
+      background: var(--c-papel);
+      color: var(--c-tinta);
+      rotate: -3deg;
+      box-shadow: 0 1px 1px rgb(0 0 0 / 0.18);
+    }
+    .cartao-op:nth-child(odd) .cartao-amostra {
+      rotate: 2deg;
+    }
     /* o estilo da linha: o marca-texto amarelo e o tique, no lugar do atalho */
     .menu-op[aria-checked='true'] {
       background: rgb(255 218 66 / 0.4);
@@ -2440,6 +2512,7 @@ export class RichEditor {
     const all: { act: Action; name: string; icon: LucideIconData; keys: string; aria: string | null; typed: string }[] = [
       { act: 'url', name: 'Link para um endereço', icon: ICON.link, keys: 'Ctrl+K', aria: 'Control+K', typed: '' },
       { act: 'note', name: 'Link para outra anotação', icon: ICON.linkNota, keys: '', aria: null, typed: '[[' },
+      { act: 'card', name: 'Card', icon: ICON.card, keys: '', aria: null, typed: '> [!' },
       { act: 'rule', name: 'Divisória', icon: ICON.tirar, keys: '', aria: null, typed: '---' },
     ];
     return this.notes() ? all : all.filter((o) => o.act !== 'note');
@@ -2607,6 +2680,8 @@ export class RichEditor {
         return this.startLink(area, big);
       case 'rule':
         return this.rule(area);
+      case 'card':
+        return this.newCard(area);
       case 'inside':
         return this.lineInItem(area);
       default:
@@ -2645,7 +2720,154 @@ export class RichEditor {
     const m = style === 'codigo' ? { marks: [], list: null } : marksAt(area.value, area.selectionStart);
     const was = this.markdownMarks();
     if (m.list !== was.list || m.marks.join() !== was.marks.join()) this.markdownMarks.set(m);
+    const card = this.cardOf(area.value, area.selectionStart);
+    if (JSON.stringify(card) !== JSON.stringify(this.markdownCard())) this.markdownCard.set(card);
   }
+
+  // ===== O card ("> [!aviso] Título", ver core/callouts.ts) =====
+
+  protected readonly CardIcon = ICON.card;
+  protected readonly UnwrapIcon = ICON.borracha;
+  protected readonly cardLooks = CALLOUTS;
+  protected readonly cardFolds: readonly { value: CalloutFold; name: string; icon: LucideIconData }[] = [
+    { value: '', name: 'Sempre aberto', icon: ICON.card },
+    { value: '+', name: 'Fecha, começa aberto', icon: ICON.abrir },
+    { value: '-', name: 'Começa fechado', icon: ICON.proximo },
+  ];
+  protected cardIconOf(look: CalloutLook): LucideIconData {
+    return CALLOUT_ICON[look];
+  }
+
+  /** O card do cursor (no Visual, o que ele conta; no Markdown, o da linha do cursor). */
+  protected readonly cardHere = computed(() => (this.visual() ? this.visualState().cartao : this.markdownCard()));
+
+  /** O card em que cai a posição `at` do texto: o jeito escrito, a cara dele e o fechar. */
+  private cardOf(text: string, at: number): EstadoCartao | null {
+    const lines = linesOf(text);
+    const row = text.slice(0, at).split('\n').length - 1;
+    const c = calloutAround(lines, row);
+    const head = c && calloutAt(lines[c.head]);
+    return head ? { tipo: head.type, jeito: calloutLook(head.type), dobra: head.fold } : null;
+  }
+
+  /** Uma ação do menu "Card" (o menu fecha antes). */
+  protected cardAct(area: HTMLTextAreaElement, big: boolean, what: AcaoCartao): void {
+    this.menu.set(null);
+    if (this.visual()) return this.visualAct(big, { cartao: what });
+    const text = area.value;
+    const lines = linesOf(text);
+    const row = text.slice(0, area.selectionStart).split('\n').length - 1;
+    const c = calloutAround(lines, row);
+    const head = c && calloutAt(lines[c.head]);
+    if (!c || !head) return area.focus();
+    const start = (i: number) => lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0);
+    const from = start(c.head);
+    const to = start(c.end) + lines[c.end].length;
+    const lead = /^\s*/.exec(lines[c.head])![0];
+    let out: string;
+    if (what === 'desfazer') {
+      // o título vira uma linha de texto (sem título, ela sai) e as de dentro perdem o "> "; o cursor
+      // fica na mesma linha, no mesmo lugar do que ela tem
+      const inner = lines.slice(c.head + 1, c.end + 1).map((l) => calloutLine(l) ?? l);
+      const outs = [...(head.title ? [lead + head.title] : []), ...inner];
+      out = outs.join('\n');
+      const col = area.selectionStart - start(row);
+      const k = row - c.head - (head.title ? 0 : 1);
+      const cut = row === c.head ? lines[row].length - outs[0]?.length : lines[row].length - inner[row - c.head - 1].length;
+      const at = from + outs.slice(0, Math.max(0, k)).reduce((n, l) => n + l.length + 1, 0) + Math.max(0, Math.min(col - cut, outs[Math.max(0, k)]?.length ?? 0));
+      this.replace(area, from, to, out, at, at);
+      return this.track(area);
+    } else if (typeof what === 'object' && 'jeito' in what) out = [lead + calloutHead(what.jeito, head.fold, head.title), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
+    else if (typeof what === 'object' && 'dobra' in what) out = [lead + calloutHead(head.type, what.dobra, head.title), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
+    else return area.focus();
+    // o cursor fica na mesma linha (na de cima, que mudou de tamanho, no fim dela)
+    const caret = Math.min(from + out.length, area.selectionStart + out.length - (to - from));
+    this.replace(area, from, to, out, Math.max(from, caret), Math.max(from, caret));
+    this.track(area);
+  }
+
+  /**
+   * Inserir › Card no Markdown: com linhas selecionadas, elas vão para dentro dele (o "> " na frente de
+   * cada uma); senão, o card entra no lugar da linha vazia do cursor ou embaixo da linha (ou do card) do
+   * cursor, com uma linha vazia dentro. O cursor fica no lugar do título.
+   */
+  private newCard(area: HTMLTextAreaElement): void {
+    const head = calloutHead(DEFAULT_CALLOUT, '', '') + ' ';
+    const text = area.value;
+    const { from, to, lines } = this.linesAt(area);
+    if (area.selectionStart !== area.selectionEnd && lines.some((l) => l.trim())) {
+      const out = [head, ...lines.map((l) => (l ? '> ' + l : '>'))].join('\n');
+      this.replace(area, from, to, out, from + head.length, from + head.length);
+      return this.track(area);
+    }
+    if (!lines[0].trim()) {
+      const out = head + '\n> ';
+      this.replace(area, from, to, out, from + head.length, from + head.length);
+      return this.track(area);
+    }
+    // embaixo da linha do cursor (ou do card em que ela está)
+    const all = linesOf(text);
+    const row = text.slice(0, from).split('\n').length - 1;
+    const end = calloutAround(all, row)?.end ?? row;
+    const at = all.slice(0, end + 1).join('\n').length;
+    const out = '\n' + head + '\n> ';
+    this.replace(area, at, at, out, at + 1 + head.length, at + 1 + head.length);
+    this.track(area);
+  }
+
+  /**
+   * Enter numa linha de card no Markdown: a linha nova continua no card (com o "> " e, num item, o
+   * marcador do próximo, como fora do card); na última linha de dentro vazia, o "> " sai e o card acaba
+   * ali; no item vazio de dentro, a lista acaba (o "> " fica). Na linha de cima, o que vem depois do
+   * cursor desce para dentro. False: o cursor não está num card.
+   */
+  private cardEnter(e: KeyboardEvent, area: HTMLTextAreaElement): boolean {
+    if (area.selectionStart !== area.selectionEnd) return false;
+    const text = area.value;
+    const at = area.selectionStart;
+    const lines = linesOf(text);
+    const row = text.slice(0, at).split('\n').length - 1;
+    const c = calloutAround(lines, row);
+    if (!c) return false;
+    const from = text.lastIndexOf('\n', at - 1) + 1;
+    const line = lines[row];
+    const lead = /^\s*/.exec(lines[c.head])![0];
+    if (row === c.head) {
+      // antes do fim da marca ("> [!aviso]- "), o Enter de sempre (a linha vazia entra em cima do card)
+      const head = calloutAt(line)!;
+      if (at - from < line.length - head.title.length) return false;
+      e.preventDefault();
+      this.replace(area, at, at, '\n' + lead + '> ', at + 1 + lead.length + 2, at + 1 + lead.length + 2);
+      return true;
+    }
+    e.preventDefault();
+    const content = calloutLine(line) ?? '';
+    const prefix = line.slice(0, line.length - content.length);
+    const pre = prefix.endsWith(' ') ? prefix : prefix + ' ';
+    if (at - from < prefix.length) {
+      // no "> " da frente: uma linha vazia do card entra em cima, e o cursor fica no começo desta
+      const above = pre.trimEnd() + '\n';
+      this.replace(area, from, from, above, from + above.length + prefix.length, from + above.length + prefix.length);
+      return true;
+    }
+    if (!content.trim() && row === c.end) {
+      this.replace(area, from, from + line.length, '', from, from);
+      return true;
+    }
+    const k = lineKind(content);
+    if (k.kind !== 'p' && !k.rest.trim()) {
+      // o item vazio de dentro: a lista acaba ali (a linha fica no card)
+      this.replace(area, from + prefix.length, from + line.length, '', from + prefix.length, from + prefix.length);
+      return true;
+    }
+    const mark = k.kind === 'p' ? /^\s*/.exec(content)![0] : /^\s*/.exec(content)![0] + prefixOf(k.kind, nextNumber(content));
+    const piece = '\n' + pre + mark;
+    this.replace(area, at, at, piece, at + piece.length, at + piece.length);
+    return true;
+  }
+
+  /** O card do cursor do Markdown (o menu "Card" aparece com ele). */
+  protected readonly markdownCard = signal<EstadoCartao | null>(null);
 
   /** As marcas e a lista no cursor do Markdown: os botões da régua afundam como no Visual. */
   protected readonly markdownMarks = signal<ReturnType<typeof marksAt>>({ marks: [], list: null });
@@ -2673,13 +2895,21 @@ export class RichEditor {
     const { from, to, lines } = this.linesAt(area);
     const single = lines.length === 1;
     const caret = area.selectionStart - from;
+    // as linhas de um card guardam o "> " dele na frente (o estilo é o do que vem depois); a de cima
+    // do card fica como está
+    const all = linesOf(area.value);
+    const first = area.value.slice(0, from).split('\n').length - 1;
     let shift = 0;
     const out = lines.map((l, i) => {
+      const card = calloutAround(all, first + i);
+      if (card?.head === first + i) return l;
+      const keep = card ? l.slice(0, l.length - (calloutLine(l) ?? l).length) : '';
+      const own = l.slice(keep.length);
       // linha em branco no meio da seleção fica em branco
-      if (!single && !l.trim()) return l;
-      const bare = l.replace(QUOTE_MARK, '').replace(SUBTLE_MARK, '').replace(HEADING_MARK, '');
-      if (i === 0) shift = prefix.length - (l.length - bare.length);
-      return prefix + bare;
+      if (!single && !own.trim()) return l;
+      const bare = own.replace(QUOTE_MARK, '').replace(SUBTLE_MARK, '').replace(HEADING_MARK, '');
+      if (i === 0) shift = keep.length + prefix.length - (l.length - bare.length);
+      return keep + prefix + bare;
     }).join('\n');
     // uma linha só, sem seleção: o cursor fica no mesmo ponto do texto dela
     const at = single && area.selectionStart === area.selectionEnd ? Math.max(from + prefix.length, from + caret + shift) : -1;
@@ -2947,6 +3177,7 @@ export class RichEditor {
       if (what === 'note' && this.linking() && !this.linking()!.auto) return this.closeLink();
       return api?.pedeLinkAqui(what === 'url' ? 'url' : 'elo');
     }
+    if (what === 'card') what = { cartao: 'novo' };
     const ok = typeof what === 'object' || (VISUAL_ACTS as readonly string[]).includes(what);
     if (!api || !ok || !api.run(what as AcaoVisual)) this.notYet();
   }
@@ -3461,7 +3692,7 @@ export class RichEditor {
       this.indentKey(e, area);
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
       if (this.tableLine(area)) this.tableEnter(e, area);
-      else this.continueList(e, area);
+      else if (!this.cardEnter(e, area)) this.continueList(e, area);
     } else if (e.key === 'Enter' && e.shiftKey && !mod && !e.altKey && !e.isComposing && this.inItem(area)) {
       // Shift+Enter num item (ou no que vem embaixo dele): uma linha nova dentro do mesmo item
       e.preventDefault();
@@ -3503,7 +3734,9 @@ export class RichEditor {
     const text = area.value;
     const { to } = this.linesAt(area);
     const line = text.slice(text.lastIndexOf('\n', to - 1) + 1, to);
-    const piece = (line.trim() ? '\n' : '') + '---\n';
+    // no card, a divisória e a linha de depois dela ficam nele
+    const pre = this.cardPrefix(text, text.slice(0, to).split('\n').length - 1);
+    const piece = pre ? '\n' + pre + '---\n' + pre : (line.trim() ? '\n' : '') + '---\n';
     this.replace(area, to, to, piece, to + piece.length, to + piece.length);
   }
 
@@ -3679,7 +3912,10 @@ export class RichEditor {
   private pasteMarkdown(area: HTMLTextAreaElement, md: string): void {
     const { selectionStart: start, selectionEnd: end } = area;
     const max = this.max();
-    let text = md;
+    // dentro de um card, as linhas de depois da primeira ganham o "> " dele (a primeira entra no cursor)
+    const pre = this.cardPrefix(area.value, area.value.slice(0, start).split('\n').length - 1);
+    let text = pre ? md.split('\n').map((l, i) => (i ? (l ? pre + l : pre.trimEnd()) : l)).join('\n') : md;
+    md = text;
     if (max) {
       const fits = Math.max(0, max - (area.value.length - (end - start)));
       text = cortarPorLinhas(md, fits);
@@ -4002,6 +4238,10 @@ export class RichEditor {
    */
   protected writeWidget(area: HTMLTextAreaElement, w: { start: number; end: number; swap: boolean }, line: string): void {
     const text = area.value;
+    // dentro de um card, cada linha do widget com o "> " dele na frente (o recuo vem depois)
+    const row = text.slice(0, w.start).split('\n').length - 1;
+    const pre = this.cardPrefix(text, row);
+    if (pre && !w.swap) return this.writeWidgetInCard(area, w, line, pre);
     // o widget de várias linhas (a tabela): cada uma delas com o recuo
     const indented = (indent: string) => line.split('\n').map((l) => indent + l).join('\n');
     if (w.swap) {
@@ -4023,6 +4263,42 @@ export class RichEditor {
     }
     const piece = '\n' + indented(indent);
     this.replace(area, lineEnd, lineEnd, piece, lineEnd + piece.length, lineEnd + piece.length);
+  }
+
+  /**
+   * O widget numa linha de card: no lugar da linha vazia dele ou numa linha nova logo depois da do cursor
+   * (na de cima do card, a primeira de dentro), cada linha com o "> " e, embaixo de um item de dentro,
+   * o recuo do item.
+   */
+  private writeWidgetInCard(area: HTMLTextAreaElement, w: { start: number; end: number }, line: string, pre: string): void {
+    const text = area.value;
+    const lines = linesOf(text);
+    const row = text.slice(0, w.start).split('\n').length - 1;
+    const c = calloutAround(lines, row)!;
+    const inner = lines.slice(c.head + 1, c.end + 1).map((l) => calloutLine(l) ?? l);
+    const lineStart = text.lastIndexOf('\n', w.start - 1) + 1;
+    const lineEndAt = text.indexOf('\n', w.end);
+    const lineEnd = lineEndAt === -1 ? text.length : lineEndAt;
+    const own = row === c.head ? null : inner[row - c.head - 1];
+    const indent = own === null ? '' : (bodyIndent(inner, row - c.head - 1) ?? '');
+    const quoted = (ind: string) => line.split('\n').map((l) => pre + ind + l).join('\n');
+    if (own !== null && !own.trim()) {
+      const piece = quoted(/^[ \t]*/.exec(own)![0]);
+      this.replace(area, lineStart, lineEnd, piece, lineStart + piece.length, lineStart + piece.length);
+      return;
+    }
+    const piece = '\n' + quoted(indent);
+    this.replace(area, lineEnd, lineEnd, piece, lineEnd + piece.length, lineEnd + piece.length);
+  }
+
+  /**
+   * O que uma linha nova escrita depois da linha `row` leva na frente para continuar no card dela (a de
+   * cima ou uma de dentro): o recuo do card e o "> "; "" fora de card.
+   */
+  private cardPrefix(text: string, row: number): string {
+    const lines = linesOf(text);
+    const c = calloutAround(lines, row);
+    return c ? /^\s*/.exec(lines[c.head])![0] + '> ' : '';
   }
 
   protected closeWidget(e: Event | null, area: HTMLTextAreaElement): void {
@@ -4402,10 +4678,18 @@ const SUBTLE_MARK = /^\s*-#(?:[ \t]+|$)/;
 /** Ctrl+Shift+7, 8 e 9: as listas, pela tecla (com o Shift, ela escreve outra coisa). */
 const LIST_KEYS: Record<string, ListKind> = { Digit7: 'ol', Digit8: 'ul', Digit9: 'check' };
 
-/** O estilo do parágrafo da linha em que cai a posição `at`: dentro das cercas "```", o bloco de código. */
+/**
+ * O estilo do parágrafo da linha em que cai a posição `at`: dentro das cercas "```", o bloco de código.
+ * Dentro de um card, o da linha sem o "> " da frente (a de cima do card é texto).
+ */
 export function styleAt(text: string, at: number): LineStyle {
-  const lines = text.split('\n');
-  const here = text.slice(0, at).split('\n').length - 1;
+  const all = text.split('\n');
+  const row = text.slice(0, at).split('\n').length - 1;
+  const card = calloutAround(all, row);
+  if (card?.head === row) return 'texto';
+  // no card, as linhas dele sem o "> " (as cercas de fora não contam)
+  const lines = card ? all.slice(card.head + 1, card.end + 1).map((l) => calloutLine(l) ?? l) : all;
+  const here = card ? row - card.head - 1 : row;
   const line = lines[here] ?? '';
   let open = false;
   for (let i = 0; i < here; i++) if (FENCE_MARK.test(lines[i])) open = !open;

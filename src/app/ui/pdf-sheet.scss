@@ -337,6 +337,42 @@
     color: var(--pdf-tinta-3);
   }
 
+  // o card: o papel do jeito chapado, como o callout do Obsidian (sem a fita, o rasgo e a sombra de
+  // papel colado), o título em negrito na tinta dele; o comprido (mais que uma página) quebra de página
+  // com o fundo junto
+  .cartao:not(app-note-widget *) {
+    margin: 0.45em 0;
+    padding: 0.7em 1em;
+    border-radius: 4px;
+    background: var(--c-papel);
+    filter: none;
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+    // o curto vai inteiro para a página seguinte (o mais alto que uma página quebra assim mesmo)
+    break-inside: avoid;
+  }
+  .cartao:not(app-note-widget *)::before,
+  .cartao:not(app-note-widget *)::after {
+    content: none;
+  }
+  .cartao-topo:not(app-note-widget *) {
+    gap: 0.5em;
+    font-family: inherit;
+    font-weight: 650;
+    font-size: 0.98em;
+    line-height: 1.4;
+    break-after: avoid;
+  }
+  .cartao-icone:not(app-note-widget *) {
+    rotate: none;
+  }
+  .cartao-corpo:not(app-note-widget *) {
+    margin-top: 0.3em;
+  }
+  .cartao-seta:not(app-note-widget *) {
+    display: none;
+  }
+
   // a divisória: um fio, no meio do respiro
   .divisoria:not(app-note-widget *) {
     min-height: 0;

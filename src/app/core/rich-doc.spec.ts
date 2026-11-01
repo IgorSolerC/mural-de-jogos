@@ -25,6 +25,8 @@ const AMOSTRAS: Record<Block['kind'], string> = {
   code: '```js\nconst a = **1**;\n\n```\n~~~~\n```\ndentro\n~~~~',
   widget: '{{contador: 25/12/2026 | Natal}}\n{{Contador: 1/1/2027 | grande}}',
   table: '| a | b |\n| :-- | --: |\n| 1 | 2 | sobra |\n| só |',
+  callout:
+    '> [!aviso] Antes\n> texto **forte**\n>\n> - item\n>   descrição\n> 1. um\n> - [ ] tarefa\n> > citação\n> | a | b |\n> | - | - |\n> | 1 | 2 |\n> ```\n> código\n> ```\n> {{contador: 1/1/2030}}\n\n> [!dica]-\n>sem espaço\n  > [!warning]+ Recuado\n  > dentro',
 };
 
 /** Textos de todo jeito, para as promessas valerem em tudo (os casos do plano, seções 5 e 6). */

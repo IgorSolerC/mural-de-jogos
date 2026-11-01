@@ -728,7 +728,7 @@ describe('a régua de formatação do texto', () => {
       expect(help.getAttribute('aria-expanded')).toBe('true');
       const guide = fixture.nativeElement.querySelector('.guia') as HTMLElement;
       const parts = Array.from(guide.querySelectorAll('.guia-secao-titulo')).map((h) => h.textContent!.trim());
-      expect(parts).toEqual(['Texto', 'Parágrafos e listas', 'Links, tabelas e divisória', 'Widgets, cada um numa linha só dele', 'Símbolos']);
+      expect(parts).toEqual(['Texto', 'Parágrafos e listas', 'Links, tabelas, cards e divisória', 'Widgets, cada um numa linha só dele', 'Símbolos']);
       expect(guide.textContent).toContain('Link para um endereço');
       expect(guide.textContent).toContain('{{contador: 19/11/2026 18:00 | Nome}}');
       // sem `notes`, a Ajuda não fala do link para outra anotação

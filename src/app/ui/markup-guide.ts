@@ -38,11 +38,12 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
     ],
   },
   {
-    title: 'Links, tabelas e divisória',
+    title: 'Links, tabelas, cards e divisória',
     items: [
       { what: 'Link para um endereço', mark: '[texto](https://…)', keys: 'Ctrl+K', note: 'Colar um endereço com um texto selecionado também faz o link.' },
       { what: 'Link para outra anotação', mark: '[[Título]]', notes: true, note: '[[Título|texto]] mostra o texto no lugar do título.' },
       { what: 'Tabela', mark: '| a | b |', note: 'Pelo Inserir › Tabela, escrita como numa planilha. À mão, a segunda linha é | --- | --- |, e Tab anda entre as células. Em cima dela, {{tabela: listrada}} troca o jeito (também quadriculada, caneta e recibo).' },
+      { what: 'Card', mark: '> [!aviso] Título', note: 'As linhas de baixo, com "> " na frente, ficam dentro dele (listas, tarefas, widgets: tudo). Os jeitos: nota, info, dica, feito, pergunta, aviso, perigo, exemplo e citacao (os nomes do Obsidian também valem). [!aviso]- começa fechado na leitura.' },
       { what: 'Divisória', mark: '---' },
     ],
   },
@@ -132,6 +133,14 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
       { what: 'Várias células', keys: 'Shift+setas', note: 'Ou arrastando. O negrito e o resto valem em todas; o Delete esvazia elas.' },
       { what: 'O menu Tabela', note: 'Aparece na régua com o cursor na tabela: fileiras e colunas, mover, alinhar a coluna, o jeito (branca, listrada, quadriculada, caneta, recibo), tirar, e abrir a tabela na folha dela.' },
       { what: 'Colar de uma planilha', note: 'As células se espalham a partir da do cursor, com as fileiras e colunas que faltarem. Várias linhas sem as células viram uma só.' },
+    ],
+  },
+  {
+    title: 'Card',
+    items: [
+      { what: 'Pôr um card', note: 'Pelo Inserir › Card, com o cursor no título. Com linhas selecionadas, elas vão para dentro dele. Ou escreva "> " e depois "[!aviso] ".' },
+      { what: 'Escrever dentro', keys: 'Enter', note: 'Na linha de cima, desce para dentro do card; dentro, a linha nova fica nele, com listas, tarefas e widgets. Na última linha, vazia, o Enter sai do card.' },
+      { what: 'O menu Card', note: 'Aparece na régua com o cursor no card: o jeito (o papel e o desenho), se ele fecha na leitura, e desfazer o card (o que tinha dentro fica no texto). O Backspace no começo do título também desfaz.' },
     ],
   },
   {

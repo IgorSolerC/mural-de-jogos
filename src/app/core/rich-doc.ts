@@ -18,7 +18,8 @@
  * número escrito, a cerca do código, as células de sobra da tabela).
  */
 
-import { Block, Span, bodyOf, blockLine, closes, fenceOf, indentOf, lineKind, parseInline, parseRich, SYMBOLS, tableCells } from './rich-text';
+import { CalloutFold } from './callouts';
+import { Block, Span, bodyOf, blockLine, calloutLine, closes, fenceOf, indentOf, lineKind, parseInline, parseRich, SYMBOLS, tableCells } from './rich-text';
 import { Align, TableLook } from './tables';
 import { WidgetSize, widgetLine } from './widgets';
 
@@ -35,12 +36,19 @@ interface Base {
   /** O recuo em colunas, contado como o leitor conta (o tab vai até a próxima parada de 4). */
   recuo: number;
   fonte?: Fonte;
+  /**
+   * A linha está dentro de um card (ver core/callouts.ts): a coluna do ">" da frente dela (o recuo do
+   * card). O resto da linha (o tipo, o recuo, as letras) é o que vem depois do "> ", como o leitor lê.
+   */
+  cartao?: number;
 }
 
 /** Uma linha do texto (ou um bloco inteiro, no código e na tabela), com o tipo dela. */
 export type LinhaDoc =
   | (Base & { kind: 'linha'; spans: Span[] })
   | (Base & { kind: 'titulo'; nivel: 1 | 2 | 3; spans: Span[] })
+  /** A linha de cima de um card: o jeito como foi escrito, o "-"/"+" de fechar e o título. */
+  | (Base & { kind: 'cartao'; tipo: string; dobra: CalloutFold; spans: Span[] })
   /** `numero`: o escrito no item numerado ("1.2" em "1.2. item"); "" nos outros. */
   | (Base & { kind: 'item'; tipo: 'ul' | 'ol' | 'check'; feita: boolean; numero: string; spans: Span[] })
   | (Base & { kind: 'citacao'; spans: Span[] })
@@ -114,6 +122,8 @@ export function chave(l: LinhaDoc): string {
   let k = CHAVES.get(l);
   if (k === undefined) {
     k = contaChave(l);
+    // dentro de um card, outra linha (entrar ou sair dele muda a escrita)
+    if (l.cartao !== undefined) k += '>' + l.cartao;
     CHAVES.set(l, k);
   }
   return k;
@@ -127,6 +137,8 @@ function contaChave(l: LinhaDoc): string {
       return JSON.stringify([l.kind, l.recuo, chaveSpans(l.spans)]);
     case 'titulo':
       return JSON.stringify([l.kind, l.recuo, l.nivel, chaveSpans(l.spans)]);
+    case 'cartao':
+      return JSON.stringify([l.kind, l.recuo, l.tipo, l.dobra, chaveSpans(l.spans)]);
     case 'item':
       return JSON.stringify([l.kind, l.recuo, l.tipo, l.tipo === 'check' && l.feita, l.tipo === 'ol' ? l.numero : '', chaveSpans(l.spans)]);
     case 'divisoria':
@@ -178,9 +190,10 @@ type Pedaco = { de: number; ate: number; linha: LinhaDoc };
 
 /**
  * Os blocos do leitor em linhas tipadas. `fim`: a última linha do nível (o texto inteiro, ou o corpo do
- * item); `margem`: o recuo do corpo onde os blocos moram (o código o tem na frente de cada linha).
+ * item); `margem`: o recuo do corpo onde os blocos moram (o código o tem na frente de cada linha);
+ * `noCartao`: os blocos são os de dentro de um card (`cruas` já vem sem o "> " das linhas dele).
  */
-function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: number, margem: number, out: Pedaco[]): void {
+function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: number, margem: number, out: Pedaco[], noCartao = false): void {
   for (const b of blocks) {
     const at = blockLine(b)!;
     const recuo = (i: number) => indentOf(cruas[i]);
@@ -200,6 +213,22 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
       case 'hr':
         out.push({ de: at, ate: at, linha: { kind: 'divisoria', recuo: recuo(at) } });
         break;
+      case 'callout': {
+        const ate = at + b.size;
+        // o card dentro de um card: o Visual não o escreve (fica cru, como está escrito)
+        if (noCartao) {
+          out.push({ de: at, ate, linha: { kind: 'cru', recuo: 0, linhas: [] } });
+          break;
+        }
+        out.push({ de: at, ate: at, linha: { kind: 'cartao', recuo: recuo(at), tipo: b.type, dobra: b.fold, spans: juntarSpans(b.title) } });
+        // as de dentro, lidas sem o "> " (como o leitor leu), e marcadas com a coluna do ">"
+        const dentro = [...cruas];
+        for (let i = at + 1; i <= ate; i++) dentro[i] = calloutLine(cruas[i]) ?? cruas[i];
+        const de = out.length;
+        percorrer(b.body, dentro, ate, 0, out, true);
+        for (let k = de; k < out.length; k++) out[k] = { ...out[k], linha: { ...out[k].linha, cartao: recuo(at) } };
+        break;
+      }
       case 'widget':
         out.push({ de: at, ate: at, linha: { kind: 'widget', recuo: recuo(at), nome: b.name, args: [...b.args], tamanho: b.size } });
         break;
@@ -262,6 +291,8 @@ function lerLinhas(texto: string): { linhas: LinhaDoc[]; quebra: string } {
   }
   for (; proxima < cruas.length; proxima++) out.push({ de: proxima, ate: proxima, linha: { kind: 'cru', recuo: 0, linhas: [cruas[proxima]] } });
   const linhas = out.map(({ de, ate, linha }) => {
+    // o trecho cru guarda as linhas como estão escritas (as de dentro de um card, com o "> ")
+    if (linha.kind === 'cru') linha = { ...linha, linhas: cruas.slice(de, ate + 1) };
     let fonte = cruas[de];
     for (let i = de + 1; i <= ate; i++) fonte += quebras[i - 1] + cruas[i];
     const k = chave(linha);
@@ -289,7 +320,7 @@ function quebraMaisUsada(quebras: readonly string[]): string {
 export function textToDoc(texto: string): Doc {
   const { linhas, quebra } = lerLinhas(texto);
   return {
-    linhas: linhas.map((l) => (l.kind === 'cru' || expressavel(l) ? l : ({ kind: 'cru', recuo: 0, linhas: partir(l.fonte!.texto).linhas, fonte: l.fonte } as LinhaDoc))),
+    linhas: linhas.map((l) => (l.kind === 'cru' || expressavel(l) ? l : ({ kind: 'cru', recuo: 0, linhas: partir(l.fonte!.texto).linhas, fonte: l.fonte, ...(l.cartao !== undefined ? { cartao: l.cartao } : {}) } as LinhaDoc))),
     quebra,
   };
 }
@@ -298,6 +329,8 @@ const EXPRESSAVEL = new Map<string, boolean>();
 
 /** A linha tem um jeito de ser escrita que o leitor lê igual (guardado por chave: a mesma linha, a mesma resposta). */
 function expressavel(l: LinhaDoc): boolean {
+  // o card dentro de um card fica cru (ver `percorrer`)
+  if (l.kind === 'cartao' && l.cartao !== undefined) return false;
   const k = chave(l);
   let ok = EXPRESSAVEL.get(k);
   if (ok === undefined) {
@@ -333,6 +366,9 @@ export function normalizarLinha(l: LinhaDoc): LinhaDoc {
       return { ...l, spans: aparar(soltarPontas(l.spans), /\s/, true) };
     case 'sutil':
       return { ...l, spans: aparar(soltarPontas(l.spans), /[ \t]/, false) };
+    // o título do card: o leitor come os espaços das duas pontas
+    case 'cartao':
+      return { ...l, spans: aparar(soltarPontas(l.spans), /[ \t]/, true) };
     case 'item':
       return { ...l, spans: l.tipo === 'check' ? soltarPontas(l.spans) : aparar(soltarPontas(l.spans), /\s/, false) };
     case 'citacao':
@@ -665,6 +701,14 @@ function tabelaDaFonte(l: Tabela): TabelaEscrita | null {
  * conferindo cada uma pelo leitor. Null se não tem jeito (com `forcar`, a melhor tentativa).
  */
 function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null {
+  // dentro de um card: a linha escrita como se estivesse fora, e o "> " na frente de cada linha dela
+  // (a vazia, só o ">", como o Obsidian escreve)
+  if (l.cartao !== undefined && l.kind !== 'cru') {
+    const { cartao, ...resto } = l;
+    const fora = { ...resto, ...(l.fonte ? { fonte: { ...l.fonte, texto: semCartao(l.fonte.texto) } } : {}) } as LinhaDoc;
+    const linhas = escreverLinha(fora, modo, forcar);
+    return linhas && linhas.map((x) => ' '.repeat(cartao) + '>' + (x ? ' ' + x : ''));
+  }
   const recuo = ' '.repeat(l.recuo);
   // o que só vale no corpo de um item (o título recuado) é conferido sem o recuo
   const semRecuo = { ...l, recuo: 0 } as LinhaDoc;
@@ -694,6 +738,11 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
     case 'sutil': {
       const s = inline(l.spans, (s) => lidaComo('-# ' + s, semRecuo));
       return s === null ? null : [recuo + (s ? '-# ' + s : '-#')];
+    }
+    case 'cartao': {
+      const marca = `> [!${l.tipo}]${l.dobra}`;
+      const s = inline(l.spans, (s) => lidaComo(marca + (s ? ' ' + s : ''), semRecuo));
+      return s === null ? null : [recuo + marca + (s ? ' ' + s : '')];
     }
     case 'divisoria':
       return [recuo + '---'];
@@ -743,6 +792,22 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
     case 'cru':
       return l.linhas;
   }
+}
+
+/** O texto escrito de uma linha de dentro do card sem o "> " da frente de cada linha dele. */
+function semCartao(texto: string): string {
+  const { linhas, quebras } = partir(texto);
+  return linhas.map((x, i) => (calloutLine(x) ?? x) + quebras[i]).join('');
+}
+
+/**
+ * Quantas letras do começo da linha escrita não aparecem na tela antes do texto dela: o "> [!jeito]- "
+ * da linha de cima do card, e o "> " das de dentro.
+ */
+function prefixo(l: LinhaDoc, escrita: string): number {
+  if (l.kind === 'cartao') return /^\s*>\s?\[![^\]]*\][+-]?[ \t]*/.exec(escrita)?.[0].length ?? 0;
+  if (l.cartao === undefined) return 0;
+  return /^\s*>\s?/.exec(escrita)?.[0].length ?? 0;
 }
 
 // ===== Escrever o documento =====
@@ -927,11 +992,14 @@ export function posicaoNoTexto(e: Escrita, i: number, col: number, fim = false):
     return inicio + l.fonte!.texto.length;
   }
   const visivel = textoVisivel(l);
-  if (!visivel) return inicio;
-  const primeira = partir(l.fonte!.texto).linhas[0];
+  const linha = partir(l.fonte!.texto).linhas[0];
+  // o "> " do card fica antes: as letras começam depois dele
+  const pre = prefixo(l, linha);
+  if (!visivel) return inicio + pre;
+  const primeira = linha.slice(pre);
   const mapa = alinhar(primeira, visivel);
   const c = Math.max(0, Math.min(col, visivel.length));
-  return inicio + (fim && c > 0 && mapa[c - 1] < primeira.length ? fimDaLetra(primeira, visivel, mapa, c - 1) : mapa[c]);
+  return inicio + pre + (fim && c > 0 && mapa[c - 1] < primeira.length ? fimDaLetra(primeira, visivel, mapa, c - 1) : mapa[c]);
 }
 
 /** A linha do documento e a letra dela onde cai a posição `at` do texto. */
@@ -952,9 +1020,11 @@ export function posicaoNoDoc(e: Escrita, at: number): { linha: number; col: numb
   }
   const visivel = textoVisivel(l);
   if (!visivel) return { linha: i, col: 0 };
-  const escrito = partir(l.fonte!.texto).linhas[0];
+  const linha = partir(l.fonte!.texto).linhas[0];
+  const pre = prefixo(l, linha);
+  const escrito = linha.slice(pre);
   const mapa = alinhar(escrito, visivel);
-  const rel = at - e.inicios[i];
+  const rel = Math.max(0, at - e.inicios[i] - pre);
   // as letras que já acabaram antes da posição: dentro de uma marca, depois da letra, o cursor fica depois dela
   let col = 0;
   while (col < visivel.length && mapa[col] < escrito.length && fimDaLetra(escrito, visivel, mapa, col) <= rel) col++;
@@ -970,8 +1040,10 @@ function linhasDaTabela(l: Tabela): { at: number; texto: string; fileira: number
   const out: { at: number; texto: string; fileira: number | null }[] = [];
   let at = 0;
   linhas.forEach((t, k) => {
+    // dentro de um card, a fileira começa depois do "> "
+    const pre = l.cartao !== undefined ? (/^\s*>\s?/.exec(t)?.[0].length ?? 0) : 0;
     // a marca do jeito e a linha de traços não são fileiras
-    out.push({ at, texto: t, fileira: k < topo || k === topo + 1 ? null : k === topo ? 0 : k - topo - 1 });
+    out.push({ at: at + pre, texto: t.slice(pre), fileira: k < topo || k === topo + 1 ? null : k === topo ? 0 : k - topo - 1 });
     at += t.length + quebras[k].length;
   });
   return out;
