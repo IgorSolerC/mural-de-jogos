@@ -1138,3 +1138,285 @@ dialog.reader.solta::backdrop {
   letter-spacing: 0.01em;
   text-transform: none;
 }
+
+/* ===== Os jeitos de ver: a leitura, a tela cheia e só a cartolina =====
+   Na faixa, antes do X: dois botões do mesmo tamanho e no mesmo alto que ele, com o desenho menor e
+   mais ralo (o X fecha; estes só mudam o jeito de ver), os três a 38px de um centro ao outro, como os
+   da janela de um programa. */
+.vistas {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  margin-left: auto;
+}
+
+.vista-btn {
+  margin: -6px -6px 0 0;
+  opacity: 0.7;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    background-color var(--t-ui) var(--ease-ui);
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: -2px;
+  }
+}
+
+/* o X (ou o minimizar da ficha pelo link) logo depois deles, sem o empurrão para a direita */
+.vistas + .fecha {
+  margin-left: 0;
+}
+
+/* finalizada: o carimbo anda para a esquerda dos três botões (dos dois, na ficha aberta pelo link), e
+   o nome e a linha da data guardam o lugar dele */
+.carimbo {
+  right: 144px;
+}
+
+.solta .carimbo {
+  right: 106px;
+}
+
+.faixa-nome.feita .title {
+  padding-right: 120px;
+}
+
+.top.com-carimbo {
+  padding-right: 226px;
+}
+
+/* no celular, menor (64px), para caber na emenda entre o nome, a tachinha e os botões; a linha da
+   data desce um tico, para a ponta dele não encostar nela */
+@media (max-width: 600px) {
+  .carimbo {
+    right: 134px;
+    bottom: -20px;
+
+    app-done-stamp {
+      --tam: 64px;
+    }
+  }
+
+  .solta .carimbo {
+    right: 96px;
+  }
+
+  .faixa-nome.feita .title {
+    padding-right: 70px;
+  }
+
+  .top.com-carimbo {
+    padding-right: 0;
+    margin-top: 6px;
+  }
+}
+
+/* ===== Tela cheia: só o nome e o texto, para ler =====
+   A ficha toma quase a tela toda (a tela toda no celular); a faixa fica com o nome e os botões, e a
+   folha creme é só o texto, numa coluna de leitura no meio dela (uns 70 caracteres por linha), com a
+   letra e a pauta um tanto maiores. O nome começa onde o texto começa, como numa página. */
+dialog.reader.tela-cheia {
+  /* a coluna do texto: uns 70 caracteres da letra à mão a 1,36rem */
+  --medida: 43rem;
+  width: calc(100vw - 48px);
+  max-width: 1320px;
+  height: calc(100dvh - 48px);
+  max-height: none;
+}
+
+.tela-cheia .par,
+.tela-cheia .par > .ficha {
+  height: 100%;
+  max-height: none;
+}
+
+.tela-cheia .par > .ficha {
+  animation: vista-entra 260ms var(--ease-physical);
+}
+
+.tela-cheia .body {
+  justify-items: center;
+  padding: 40px 32px 72px;
+  scrollbar-gutter: stable both-edges;
+}
+
+.tela-cheia .text {
+  --line: 2.15rem;
+  --texto-desce: 6px;
+  width: 100%;
+  max-width: var(--medida);
+  font-size: 1.36rem;
+}
+
+/* o nome começa onde começa a letra do texto (a coluna no meio, mais a folga de 8px dela); com a seta
+   de volta dos links na frente, ela fica antes da coluna */
+.tela-cheia .par > article > .faixa-nome {
+  padding-left: max(26px, calc((100% - var(--medida)) / 2 + 8px));
+}
+
+.tela-cheia .par > article > .faixa-nome.com-volta {
+  padding-left: max(12px, calc((100% - var(--medida)) / 2 - 36px));
+}
+
+.tela-cheia .faixa-nome .title {
+  font-size: 1.9rem;
+}
+
+.tela-cheia .faixa-nome .title.longo {
+  font-size: 1.56rem;
+}
+
+@media (max-width: 600px) {
+  dialog.reader.tela-cheia {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    margin: 0;
+  }
+
+  .tela-cheia .par > .ficha {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* a tachinha furaria a beirada da tela */
+  .tela-cheia .pin {
+    display: none;
+  }
+
+  .tela-cheia .par > article > .faixa-nome {
+    padding: calc(14px + env(safe-area-inset-top)) 8px 10px 24px;
+  }
+
+  .tela-cheia .par > article > .faixa-nome.com-volta {
+    padding-left: 6px;
+  }
+
+  .tela-cheia .faixa-nome .title {
+    font-size: 1.5rem;
+  }
+
+  .tela-cheia .faixa-nome .title.longo {
+    font-size: 1.28rem;
+  }
+
+  .tela-cheia .body {
+    padding: 24px 16px calc(48px + env(safe-area-inset-bottom));
+    scrollbar-gutter: auto;
+  }
+
+  .tela-cheia .text {
+    --line: 1.95rem;
+    font-size: 1.22rem;
+  }
+}
+
+/* ===== Só a cartolina: a ficha como fica no mural, grande, no meio da tela =====
+   A leitura fica guardada (escondida, com o lugar onde se lia); no escuro do véu, a ficha do mural
+   (a mesma, com o papel, a estampa e o estrago), do maior tamanho que cabe inteira (o zoom vem medido),
+   e em cima dela, encostados na beirada da direita, os mesmos três botões, a giz. */
+dialog.reader.so-a-cartolina {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.so-a-cartolina .par {
+  display: none;
+}
+
+.na-parede {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px 32px;
+}
+
+.em-pe {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+  animation: vista-entra 320ms var(--ease-physical);
+}
+
+.cartolina-grande {
+  width: var(--ficha-w);
+
+  app-review-card {
+    display: block;
+    width: 100%;
+  }
+}
+
+.vistas-giz {
+  margin: 0 -10px 0 0;
+}
+
+.giz-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--wall-ink);
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  /* a giz da parede: a mesma sombra das letras a giz (o desenho não pega text-shadow) */
+  lucide-icon {
+    display: inline-flex;
+    filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.9));
+  }
+
+  &:hover {
+    background: rgb(255 255 255 / 0.1);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+@media (max-width: 600px) {
+  .na-parede {
+    padding: 16px;
+  }
+
+  /* a largura da parede, sem passar da tela (com folga para o giro); em vw (não em %), para o zoom
+     não a estreitar */
+  .cartolina-grande {
+    width: min(calc(100vw - 40px), var(--ficha-w));
+  }
+
+  /* no celular, os botões vão para baixo da ficha, perto do dedo (e longe do que fica no alto da página) */
+  .vistas-giz {
+    order: 2;
+  }
+}
+
+@keyframes vista-entra {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tela-cheia .par > .ficha,
+  .em-pe {
+    animation: none;
+  }
+}

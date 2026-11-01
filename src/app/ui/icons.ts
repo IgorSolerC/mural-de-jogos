@@ -146,6 +146,7 @@ import {
   LucideAngularComponent,
   LucideAngularModule,
   LucideIconData,
+  Maximize,
   Maximize2,
   Megaphone,
   Meh,
@@ -155,6 +156,7 @@ import {
   MicOff,
   MicVocal,
   Microscope,
+  Minimize,
   Minimize2,
   Minus,
   Monitor,
@@ -375,6 +377,9 @@ export const ICON = {
   arrastar: GripVertical,
   aumentar: Maximize2,
   diminuir: Minimize2,
+  /** Ler em tela cheia (a ficha aberta só com o nome e o texto) e sair dela: os cantos da tela. */
+  telaCheia: Maximize,
+  sairDaTelaCheia: Minimize,
   responder: Reply,
   /** Dentro de outra (resposta, "mais respostas"). */
   dentro: CornerDownRight,

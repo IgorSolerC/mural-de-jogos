@@ -43,6 +43,7 @@ import type { PdfDoc } from './pdf-sheet';
 import { Toasts } from './toast';
 import { StatusLabel } from './status-label';
 import { RichText } from './rich-text';
+import { ReviewCard } from './review-card';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
 import { checkCount, plainText, toggleCheck } from '../core/rich-text';
@@ -81,20 +82,64 @@ import { ROLE_LABEL, canManage, canWrite } from '../core/shared-notes';
 /** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
 const PATCH_GAP = 8;
 
+/**
+ * Como a ficha aberta se mostra: a leitura de sempre; a tela cheia, só com o nome e o texto, para ler
+ * uma anotação comprida; ou só a cartolina, a ficha como fica pregada no mural, grande, para ver o
+ * papel dela. Cada ficha abre na leitura (nada fica guardado).
+ */
+export type ReaderView = 'leitura' | 'tela-cheia' | 'cartolina';
+
+/** Só a cartolina: até quanto a ficha do mural cresce, e o menos que ela encolhe para caber inteira. */
+export const CARD_ZOOM_MAX = 1.8;
+export const CARD_ZOOM_MIN = 0.5;
+
+/**
+ * O zoom que põe a ficha do mural (de `w` × `h` px) do maior tamanho que cabe em `roomW` × `roomH`,
+ * entre CARD_ZOOM_MIN e CARD_ZOOM_MAX, em centésimos (a medida que volta igual não muda nada).
+ */
+export function cardZoomFor(w: number, h: number, roomW: number, roomH: number): number {
+  if (!(w > 0) || !(h > 0)) return 1;
+  const fit = Math.min(roomW / w, roomH / h, CARD_ZOOM_MAX);
+  return Math.max(CARD_ZOOM_MIN, Math.floor(fit * 100) / 100);
+}
+
+/** Onde se lia: o trecho do texto no alto da folha, onde ele estava e a rolagem de então. */
+interface ReadingPlace {
+  block: HTMLElement | null;
+  /** A distância do alto da folha até o começo da linha (a linha que começa abaixo do alto). */
+  offset: number;
+  /** Quanto da linha já passou do alto, de 0 a 1 (a linha alta, que começa acima dele). */
+  passed: number;
+  scrollTop: number;
+}
+
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, Skulls, StatusLabel],
+  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet reader" [class.com-lado]="commentsOpen()" [class.solta]="!!solta()" aria-labelledby="leitura-titulo" (backdropClose)="solta() || close()" (cancel)="onCancel($event)" (keydown)="onKey($event)" (close)="onClosed()">
+    <dialog
+      #dialog
+      class="sheet reader"
+      [class.com-lado]="commentsOpen()"
+      [class.solta]="!!solta()"
+      [class.tela-cheia]="vista() === 'tela-cheia'"
+      [class.so-a-cartolina]="vista() === 'cartolina'"
+      aria-labelledby="leitura-titulo"
+      (backdropClose)="solta() || close()"
+      (cancel)="onCancel($event)"
+      (keydown)="onKey($event)"
+      (close)="onClosed()"
+    >
       @if (review(); as r) {
-        <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários -->
-        <div class="par" [class.com-grupo]="!!groupEar()">
+        <!-- a ficha e, puxada de baixo dela pela orelha, a folha de comentários (só a cartolina: a dupla
+             fica guardada, escondida, com o lugar onde se lia) -->
+        <div class="par" [class.com-grupo]="!!groupEar() && lendo()">
         <article class="ficha cartolina" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock">
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
                o resto da folha fica para o que se lê -->
-          <header class="head faixa-nome" [class.feita]="note() && !!r.doneAt" [class.com-volta]="!!trail().length" [style]="headPaper()">
+          <header class="head faixa-nome" [class.feita]="note() && !!r.doneAt && lendo()" [class.com-volta]="!!trail().length" [style]="headPaper()">
             <!-- veio por um link de outra anotação: o caminho de volta, na ponta da faixa -->
             @if (trail().at(-1); as from) {
               <button type="button" class="icon-btn voltar-elo" (click)="back()" [attr.aria-label]="'Voltar para “' + from.game.name + '”'" [title]="'Voltar para “' + from.game.name + '”'">
@@ -103,9 +148,27 @@ const PATCH_GAP = 8;
             }
             <h2 id="leitura-titulo" class="title" [class.longo]="r.game.name.length > 44" tabindex="-1">{{ r.game.name }}</h2>
             <!-- finalizada: o carimbo redondo batido na emenda da faixa com a folha -->
-            @if (note() && r.doneAt) {
+            @if (note() && r.doneAt && lendo()) {
               <span class="carimbo"><app-done-stamp size="big" [at]="r.doneAt" [hit]="stampedNow()" /></span>
             }
+            <!-- os jeitos de ver a ficha, pequenos, antes do X: só a cartolina (como fica no mural) e a
+                 tela cheia (só o nome e o texto, para ler). Na tela cheia, o segundo volta à leitura. A
+                 ficha aberta pelo link já tem o minimizar dela (a página mostra a ficha no mural) -->
+            <div class="vistas" role="group" aria-label="Jeito de ver a ficha">
+              @if (!solta()) {
+                <button type="button" class="icon-btn vista-btn ver-cartolina" (click)="setView('cartolina')" aria-label="Ver só a cartolina" title="Ver só a cartolina">
+                  <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
+                </button>
+              }
+              <!-- um botão só, que troca de nome: o foco fica nele ao entrar e ao sair da tela cheia. Sem
+                   texto, não tem o que ler: a tela cheia seria só o nome -->
+              @let cheia = vista() === 'tela-cheia';
+              @if (r.text.trim()) {
+              <button type="button" class="icon-btn vista-btn ler-tela-cheia" (click)="setView(cheia ? 'leitura' : 'tela-cheia')" [attr.aria-label]="cheia ? 'Voltar à leitura' : 'Ler em tela cheia'" [title]="cheia ? 'Voltar à leitura' : 'Ler em tela cheia'">
+                <lucide-icon [img]="cheia ? LeaveFullIcon : FullIcon" [size]="16" aria-hidden="true" />
+              </button>
+              }
+            </div>
             <!-- a ficha aberta pelo link é a página inteira: não há para onde fechar, só minimizar (ela
                  vira a ficha pregada no mural, como fica na parede de quem escreveu) -->
             @if (solta()) {
@@ -120,6 +183,9 @@ const PATCH_GAP = 8;
           </header>
 
           <div class="body" appLuz (scroll)="watchSelection()">
+            <!-- na tela cheia, a folha é só o texto: o resto (o aviso, as vezes, a data, as notas, as
+                 reações e o pé) fica na leitura de sempre -->
+            @if (lendo()) {
             <!-- duas versões brigando (de duas pessoas numa compartilhada, ou de dois aparelhos seus): escolher uma -->
             @if (conflictHere()) {
               <div class="aviso-conflito" role="status">
@@ -313,6 +379,7 @@ const PATCH_GAP = 8;
             @if (!note()) {
               <app-boletim [review]="r" size="big" [masked]="masked()" />
             }
+            }
 
             @if (r.text.trim()) {
               @if (masked()) {
@@ -328,7 +395,7 @@ const PATCH_GAP = 8;
             }
 
             <!-- as reações: o balão com quem reagiu e, na ficha de quem você segue, o reagir; e a porta dos comentários -->
-            @if (reactTarget(); as t) {
+            @if (lendo() && reactTarget(); as t) {
               @if (reactions.canReact(t.code) || reactions.of(t.code, t.ref).length || commentButton()) {
                 <div class="reagir-linha">
                   @if (reactions.canReact(t.code)) {
@@ -346,6 +413,7 @@ const PATCH_GAP = 8;
             }
           </div>
 
+          @if (lendo()) {
           <footer class="foot">
             @if (owner(); as ownerName) {
               @let name = r.sharedBy?.nome ?? ownerName;
@@ -386,11 +454,12 @@ const PATCH_GAP = 8;
             </div>
             }
           </footer>
+          }
         </article>
 
         <!-- o grupo da anotação: a mesma orelha de divisória da ficha no mural, saindo pela beirada de
              cima, atrás da faixa -->
-        @if (groupEar(); as g) {
+        @if (lendo() && groupEar(); as g) {
           <span class="orelha-grupo" [class.orelha-cor]="!!g.color" [style.--cat-cor]="g.color">
             <span class="sr-only">Grupo: </span>
             <app-cat-label [label]="g.label" [look]="g.look" [iconSize]="13" />
@@ -399,7 +468,7 @@ const PATCH_GAP = 8;
 
         <!-- a orelha que puxa a folha de comentários, na beirada da direita -->
         <div class="orelhas">
-          @if (commentable() && commentTarget()) {
+          @if (lendo() && commentable() && commentTarget()) {
             <!-- a orelha: um marcador na cor da cartolina, para fora da ficha, que puxa a folha de comentários -->
             <button
               type="button"
@@ -421,7 +490,7 @@ const PATCH_GAP = 8;
           }
         </div>
 
-        @if (commentable()) {
+        @if (lendo() && commentable()) {
           @if (commentTarget(); as ct) {
             @if (commentsOpen()) {
               <aside id="leitura-comentarios" class="ficha cartolina lado" tabindex="-1" [style.--stock]="'var(--stock-' + pin().stock + ')'" [attr.data-cor]="pin().stock" aria-labelledby="comentarios-titulo">
@@ -459,7 +528,7 @@ const PATCH_GAP = 8;
         }
 
         <!-- selecionou um trecho do texto: o remendo "Citar" aparece no fim da seleção -->
-        @if (picked(); as p) {
+        @if (lendo() && picked(); as p) {
           <button type="button" class="citar" [style.left.px]="p.left" [style.top.px]="p.top" (pointerdown)="$event.preventDefault()" (click)="quoteSelection()">
             <lucide-icon [img]="QuoteIcon" [size]="17" aria-hidden="true" />
             Citar
@@ -467,8 +536,34 @@ const PATCH_GAP = 8;
         }
         </div>
 
+        <!-- só a cartolina: a ficha como fica pregada no mural, grande, no meio da tela, com os mesmos
+             botões da faixa em cima dela (o primeiro volta à leitura). Um toque na ficha também volta, e
+             o toque no escuro em volta fecha, como na leitura -->
+        @if (vista() === 'cartolina') {
+          <div class="na-parede" (backdropClose)="close()">
+            <div class="em-pe">
+              <div class="vistas vistas-giz" role="group" aria-label="Jeito de ver a ficha">
+                <button type="button" class="giz-btn ver-cartolina" (click)="setView('leitura')" aria-label="Voltar à leitura" title="Voltar à leitura">
+                  <lucide-icon [img]="ReadIcon" [size]="20" aria-hidden="true" />
+                </button>
+                @if (r.text.trim()) {
+                  <button type="button" class="giz-btn ler-tela-cheia" (click)="setView('tela-cheia')" aria-label="Ler em tela cheia" title="Ler em tela cheia">
+                    <lucide-icon [img]="FullIcon" [size]="20" aria-hidden="true" />
+                  </button>
+                }
+                <button type="button" class="giz-btn fecha" (click)="close()" aria-label="Fechar" title="Fechar">
+                  <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+                </button>
+              </div>
+              <div class="cartolina-grande" [style.zoom]="cardZoom()">
+                <app-review-card [review]="r" [preview]="true" [masked]="masked()" [looks]="cardLooks()" [times]="r.revisitOf ? 1 : times().length || 1" (opened)="setView('leitura')" />
+              </div>
+            </div>
+          </div>
+        }
+
         <!-- a ficha aberta pelo link: a assinatura do site, a giz na parede, embaixo dela -->
-        @if (solta()) {
+        @if (solta() && vista() === 'leitura') {
           <a class="assinatura" href="./">feito no <span class="assinatura-nome">Murall</span></a>
         }
 
@@ -551,6 +646,10 @@ export class ReviewReader {
   protected readonly LinkIcon = ICON.link;
   protected readonly PdfIcon = ICON.pdf;
   protected readonly MinimizeIcon = ICON.diminuir;
+  /** Voltar à leitura, da cartolina: a folha escrita (os cantos ficam só para a tela cheia). */
+  protected readonly ReadIcon = ICON.documento;
+  protected readonly FullIcon = ICON.telaCheia;
+  protected readonly LeaveFullIcon = ICON.sairDaTelaCheia;
   private readonly fichaLinks = inject(FichaLinks);
   private readonly store = inject(ReviewStore);
 
@@ -997,7 +1096,7 @@ export class ReviewReader {
   /** O trecho selecionado no texto da ficha e onde fica o remendo "Citar" (em px, dentro da dupla). */
   protected readonly picked = signal<{ text: string; left: number; top: number } | null>(null);
   /** Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo. */
-  private readonly canQuote = computed(() => this.commentable() && !!this.comments.myCode() && !this.masked());
+  private readonly canQuote = computed(() => this.lendo() && this.commentable() && !!this.comments.myCode() && !this.masked());
   private selectionTimer: ReturnType<typeof setTimeout> | undefined;
   /** A seleção de texto da página, ouvida só com a leitura aberta (ver `open`). */
   private readonly onSelectionChange = () => this.watchSelection();
@@ -1130,6 +1229,8 @@ export class ReviewReader {
     }
     this.closing = false;
     this.solta.set(null);
+    this.vista.set('leitura');
+    this.place = null;
     document.removeEventListener('selectionchange', this.onSelectionChange);
     clearTimeout(this.selectionTimer);
     this.picked.set(null);
@@ -1318,10 +1419,159 @@ export class ReviewReader {
   /** As setas do teclado viram a página, fora de um campo de texto. */
   protected onKey(e: KeyboardEvent): void {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    // só na leitura de sempre, onde a tira das vezes mostra qual é a de agora
+    if (!this.lendo()) return;
     if ((e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
     if (this.times().length < 2) return;
     e.preventDefault();
     this.go(e.key === 'ArrowLeft' ? -1 : 1);
+  }
+
+  // ===== Os jeitos de ver: a leitura, a tela cheia e só a cartolina =====
+  /** O jeito de agora (ver ReaderView). Abrir outra ficha (ou a mesma de novo) volta à leitura. */
+  protected readonly vista = signal<ReaderView>('leitura');
+  /** A leitura de sempre, com tudo: a data, as notas, as reações, os comentários e o pé. */
+  protected readonly lendo = computed(() => this.vista() === 'leitura');
+  /** Só a cartolina: o zoom da ficha do mural, medido para ela caber inteira na tela (ver fitCard). */
+  protected readonly cardZoom = signal(1);
+  /** O desenho e a cor dos grupos na ficha do mural: os seus, nas suas; nas dos outros, os de sempre. */
+  protected readonly cardLooks = computed(() => (this.owner() === null ? this.settings.categoryLooks() : {}));
+  /** Onde se lia, guardado ao ir para só a cartolina (a folha escondida), para voltar ao mesmo lugar. */
+  private place: ReadingPlace | null = null;
+
+  /**
+   * Troca o jeito de ver. Entre a leitura e a tela cheia, o trecho que estava no alto da folha
+   * continua no alto (a folha muda de largura e o texto quebra em outras linhas); a cartolina guarda o
+   * lugar e o devolve na volta. O foco fica no botão que foi tocado ou no que faz o caminho de volta.
+   */
+  protected setView(next: ReaderView): void {
+    const now = this.vista();
+    if (next === now || !this.review()) return;
+    if (now !== 'cartolina') this.place = this.readingPlace();
+    // a folha de comentários e o "Citar" são da leitura de sempre
+    if (next !== 'leitura') {
+      this.commentsOpen.set(false);
+      this.picked.set(null);
+      this.quote.set(null);
+    }
+    this.vista.set(next);
+    const place = this.place;
+    afterNextRender(
+      () => {
+        const dialog = this.dialog().nativeElement;
+        if (next === 'cartolina') this.fitCardNow();
+        else this.restorePlace(place);
+        // o foco: na cartolina, o "Voltar à leitura"; dela de volta, o botão que leva a ela de novo
+        // (ou o da tela cheia, se foi ele); o botão da tela cheia é o mesmo e já está com o foco
+        const target =
+          next === 'cartolina'
+            ? '.na-parede .ver-cartolina'
+            : now === 'cartolina'
+              ? next === 'tela-cheia'
+                ? '.faixa-nome .ler-tela-cheia'
+                : '.faixa-nome .ver-cartolina'
+              : null;
+        if (target) dialog.querySelector<HTMLElement>(target)?.focus({ preventScroll: true });
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** A folha que rola, à mostra (na cartolina ela está escondida). */
+  private sheetBody(): HTMLElement | null {
+    const body = this.dialog().nativeElement.querySelector<HTMLElement>('.par > article > .body');
+    return body && body.clientHeight > 0 ? body : null;
+  }
+
+  /** A escala da folha na tela (a entrada da tela cheia cresce de 0,97): as medidas voltam ao layout. */
+  private sheetScale(body: HTMLElement): number {
+    return body.getBoundingClientRect().height / body.offsetHeight || 1;
+  }
+
+  /**
+   * O trecho do texto no alto da folha (ou null: a folha está no começo). É a linha mais de dentro que
+   * está ali (o item de uma lista, não a lista inteira com os de dentro). Se ela começa acima do alto
+   * (um parágrafo comprido, quebrado em muitas linhas), guarda quanto dela já passou, em proporção:
+   * na outra largura, ela quebra em outras linhas.
+   */
+  private readingPlace(): ReadingPlace | null {
+    const body = this.sheetBody();
+    if (!body || body.scrollTop < 2) return null;
+    const top = body.getBoundingClientRect().top;
+    const scale = this.sheetScale(body);
+    const LINES = ':is(.linha, pre, .widget, .tabela-peca)';
+    const first = (root: Element): HTMLElement | null =>
+      [...root.querySelectorAll<HTMLElement>(LINES)].find((b) => b.getBoundingClientRect().bottom > top + 1) ?? null;
+    let block = first(body.querySelector('.text') ?? body);
+    // desce para a linha de dentro que está no alto, enquanto houver
+    for (let inner = block && first(block); inner; inner = first(inner)) block = inner;
+    if (!block) return { block: null, offset: 0, passed: 0, scrollTop: body.scrollTop };
+    const box = block.getBoundingClientRect();
+    const passed = box.top < top && box.height > 0 ? (top - box.top) / box.height : 0;
+    return { block, offset: passed ? 0 : (box.top - top) / scale, passed, scrollTop: body.scrollTop };
+  }
+
+  /** Põe a folha de volta no trecho guardado (o mesmo trecho, à mesma distância do alto ou na mesma proporção). */
+  private restorePlace(place: ReadingPlace | null): void {
+    const body = this.sheetBody();
+    if (!body) return;
+    if (!place) {
+      body.scrollTop = 0;
+      return;
+    }
+    if (!place.block?.isConnected) {
+      body.scrollTop = place.scrollTop;
+      return;
+    }
+    const scale = this.sheetScale(body);
+    const box = place.block.getBoundingClientRect();
+    const at = (box.top - body.getBoundingClientRect().top) / scale;
+    body.scrollTop += at + (place.passed * box.height) / scale - place.offset;
+  }
+
+  /**
+   * Só a cartolina: a ficha do mural do maior tamanho que cabe inteira na tela (até 1,8 vez a da
+   * parede), medida de novo quando a tela muda ou a ficha muda de altura (a foto que chega).
+   */
+  private readonly fitCard = effect((onCleanup) => {
+    if (this.vista() !== 'cartolina' || !this.review()) return;
+    const dialog = this.dialog().nativeElement;
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => this.fitCardNow());
+    };
+    const watcher = new ResizeObserver(fit);
+    // a ficha só existe depois do desenho
+    const timer = setTimeout(() => {
+      const card = dialog.querySelector('.cartolina-grande app-review-card');
+      if (card) watcher.observe(card);
+      fit();
+    });
+    addEventListener('resize', fit);
+    onCleanup(() => {
+      clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      watcher.disconnect();
+      removeEventListener('resize', fit);
+    });
+  });
+
+  /** Mede a ficha do mural e põe o zoom que a faz caber inteira na tela (ver cardZoomFor). */
+  private fitCardNow(): void {
+    const dialog = this.dialog().nativeElement;
+    const box = dialog.querySelector<HTMLElement>('.cartolina-grande');
+    const bar = dialog.querySelector<HTMLElement>('.na-parede .vistas-giz');
+    if (!box) return;
+    // a medida da ficha na parede: a da caixa sem o zoom dela e sem a escala da entrada (o offset* é
+    // o do layout, antes de um e de outra)
+    const zoom = untracked(this.cardZoom);
+    // (no celular, a folga leva em conta o giro da ficha, que põe um canto para fora)
+    const gutter = innerWidth < 600 ? 20 : 32;
+    const roomW = document.documentElement.clientWidth - 2 * gutter;
+    const roomH = innerHeight - (bar?.offsetHeight ?? 44) - 2 * gutter - 16;
+    const next = cardZoomFor(box.offsetWidth, box.offsetHeight, roomW, roomH);
+    if (Math.abs(next - zoom) >= 0.01) this.cardZoom.set(next);
   }
 
   /**
@@ -1340,6 +1590,10 @@ export class ReviewReader {
     solta: 'conta' | 'visita' | null = null,
   ): void {
     this.solta.set(solta);
+    // toda ficha abre na leitura de sempre
+    this.vista.set('leitura');
+    this.place = null;
+    this.cardZoom.set(1);
     // pediram a ficha já com os comentários (o remendo da ficha, o "Comentar" do Feed)
     const withComments = this.comments.take(review.id);
     // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
@@ -1405,7 +1659,10 @@ export class ReviewReader {
 
   /** O Esc não fecha a ficha aberta pelo link (só as folhas e os menus de cima dela). */
   protected onCancel(e: Event): void {
-    if (this.solta()) e.preventDefault();
+    if (!this.solta()) return;
+    e.preventDefault();
+    // a que não fecha: o Esc sai da tela cheia, de volta à leitura
+    this.setView('leitura');
   }
 
 }
