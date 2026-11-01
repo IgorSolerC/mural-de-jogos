@@ -51,11 +51,12 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
     <dialog #dialog class="ampliada" [attr.aria-label]="v.caption ? 'Imagem: ' + v.caption : 'Imagem ampliada'" (backdropClose)="close()" (cancel)="$event.preventDefault(); close()">
       <figure class="colagem" [class]="'colagem moldura-' + v.frame" [style.--prop]="v.ratio" [style.--nat]="v.natural ? v.natural + 'px' : null">
         <span #photo class="foto" (click)="close()">
-          @if (v.frame === 'adesivo') {
-            <span class="papel-adesivo" aria-hidden="true"></span>
-          }
-          <img [src]="v.url" [alt]="v.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" />
-          <span class="reflexo" aria-hidden="true"></span>
+          <!-- a foto e o brilho (no adesivo, picotados e com a sombra que segue os dentes; nas outras,
+               display: contents); o broche do X fica fora -->
+          <span class="impressao">
+            <img [src]="v.url" [alt]="v.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" />
+            <span class="reflexo" aria-hidden="true"></span>
+          </span>
           @if (v.frame === 'polaroid') {
             <figcaption class="legenda-polaroide">{{ v.caption }}</figcaption>
           }
@@ -116,22 +117,17 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
       --pad: 36px;
       --reserva: calc(18px + clamp(48px, 9dvh, 76px));
     }
-    .colagem.moldura-recorte {
+    .colagem.moldura-recorte,
+    .colagem.moldura-adesivo {
       --pad: 0px;
       --reserva: 0px;
     }
     .colagem:has(> .etiqueta-lugar) {
       --reserva: 60px;
     }
-    .colagem.moldura-recorte:has(> .etiqueta-lugar) {
-      --reserva: 44px;
-    }
-    .colagem.moldura-adesivo {
-      --pad: calc(2 * var(--borda-adesivo));
-      --reserva: calc(2 * var(--borda-adesivo));
-    }
+    .colagem.moldura-recorte:has(> .etiqueta-lugar),
     .colagem.moldura-adesivo:has(> .etiqueta-lugar) {
-      --reserva: calc(38px + 2 * var(--borda-adesivo));
+      --reserva: 44px;
     }
     .foto {
       position: relative;
@@ -153,25 +149,24 @@ const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
       padding: 0;
       background: transparent;
     }
-    /* o adesivo, como o colado (ui/glued-media.ts, ui/_meio-tom.scss): a margem cresce com a tela
-       (no celular, mais fina) e os dentes, com a margem (a letra é a que faz a margem dar 0,68em, a
-       conta da colada; ver open); o fio do corte e a sombra de quem está no alto, seguindo os dentes */
-    .ampliada {
-      --borda-adesivo: clamp(13px, 2.6vw, 22px);
+    .impressao {
+      display: contents;
     }
+    /* o adesivo, como o colado (ui/glued-media.ts, ui/_meio-tom.scss): a própria foto picotada, com
+       os dentes que crescem com a tela pela letra (ver open; 16px = os da colada: 1,2 vez no celular,
+       2 vezes no computador, para a ampliada não ter os dentes miúdos nem os de selo de correio); o
+       fio do corte e a sombra de quem está no alto, seguindo os dentes */
     .moldura-adesivo .foto {
-      font-size: calc(var(--borda-adesivo) / 0.68);
+      font-size: clamp(19px, 3.8vw, 32px);
       @include meio-tom.adesivo-foto;
     }
-    .papel-adesivo {
-      @include meio-tom.adesivo-papel(drop-shadow(0 0 0.6px rgb(0 0 0 / 0.4)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.4)) drop-shadow(0 18px 22px rgb(0 0 0 / 0.55)));
+    .moldura-adesivo .impressao {
+      @include meio-tom.adesivo-impressao(drop-shadow(0 0 0.6px rgb(0 0 0 / 0.4)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.4)) drop-shadow(0 18px 22px rgb(0 0 0 / 0.55)));
     }
-    .moldura-adesivo img,
-    .moldura-adesivo .reflexo {
-      border-radius: 0;
-    }
-    .moldura-adesivo .reflexo {
-      @include meio-tom.couche;
+    /* sem a margem de papel, a foto que ainda não chegou teria altura 0 e nada para cortar: o lugar
+       dela já tem a proporção da colada, no bege do papel, picotado */
+    .moldura-adesivo img {
+      aspect-ratio: auto var(--prop, 1.333);
     }
     img,
     .reflexo {
@@ -262,8 +257,7 @@ export class ImageViewer {
   open(): void {
     const dialog = this.dialog().nativeElement;
     dialog.showModal();
-    // o adesivo: o papel cortado no tamanho da ampliada, com os dentes presos à margem pela letra, na
-    // mesma conta da colada
+    // o adesivo: a foto cortada no tamanho da ampliada, com os dentes pela letra dela
     if (this.view().frame === 'adesivo') {
       const photo = this.photo().nativeElement;
       this.uncut = cutSticker(photo, this.view().seed, () => letterScale(photo));
@@ -274,7 +268,7 @@ export class ImageViewer {
     // a colada some (a foto, a etiqueta e o broche): é a mesma foto, que saiu dali
     this.glued(from).style.opacity = '0';
     if (!flight) return;
-    // a sombra sai da rente de colada (o adesivo tem a dele no papel, que segue os dentes)
+    // a sombra sai da rente de colada (o adesivo tem a dele na impressão, que segue os dentes)
     const start: Keyframe = this.view().frame === 'adesivo' ? { transform: flight } : { transform: flight, boxShadow: '0 1px 1px rgb(0 0 0 / 0.32)' };
     this.photo().nativeElement.animate([start, { transform: 'none' }], { duration: DURATION, easing: EASE });
     // a etiqueta é colada quando a foto chega

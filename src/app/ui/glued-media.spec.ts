@@ -321,7 +321,7 @@ describe('a foto colada na anotação', () => {
       fixture.destroy();
     });
 
-    it('o adesivo ampliado: a mesma moldura, com o papel cortado no tamanho dele e a sombra seguindo os dentes', async () => {
+    it('o adesivo ampliado: a mesma moldura, a própria foto picotada no tamanho dela e a sombra seguindo os dentes', async () => {
       const { fixture, el } = await photo(['https://i.imgur.com/foto.jpg', 'adesivo', 'Na praia']);
       el.querySelector('img')!.dispatchEvent(new Event('load'));
       await fixture.whenStable();
@@ -331,18 +331,27 @@ describe('a foto colada na anotação', () => {
       const big = dialog.querySelector<HTMLElement>('.foto')!;
       await waitFrames(() => !!big.style.getPropertyValue('--picote'));
       const mask = big.style.getPropertyValue('--picote');
-      // os dentes presos à margem, na conta da colada (0,68em na letra de 16px = os dentes de sempre)
-      const k = parseFloat(getComputedStyle(big).paddingTop) / 10.88;
-      expect(k).toBeCloseTo(parseFloat(getComputedStyle(big).fontSize) / 16, 2);
-      expect(k).toBeGreaterThan(1);
+      // os dentes crescem com a tela pela letra (mais que os da colada, nunca os de selo de correio)
+      const k = parseFloat(getComputedStyle(big).fontSize) / 16;
+      expect(k).toBeGreaterThan(1.15);
+      expect(k).toBeLessThanOrEqual(2);
       const box = decodeURIComponent(mask).match(/viewBox='([^']+)'/)![1].split(' ').map(Number);
       expect(box[2]).toBeCloseTo(big.offsetWidth / k, 0);
-      expect(getComputedStyle(big).boxShadow).toBe('none');
-      // a sombra no papel, não na foto: o broche do X fica com a dele, como nas outras molduras
-      expect(getComputedStyle(big).filter).toBe('none');
-      const paper = big.querySelector<HTMLElement>('.papel-adesivo')!;
-      expect(getComputedStyle(paper).filter).toContain('drop-shadow');
-      expect(getComputedStyle(paper, '::before').maskImage).toContain('data:image/svg+xml');
+      // sem papel nem margem: a foto ocupa a peça inteira, e o picote corta a própria foto
+      const cs = getComputedStyle(big);
+      expect(cs.paddingLeft).toBe('0px');
+      expect(cs.paddingTop).toBe('0px');
+      expect(cs.backgroundColor).toBe('rgba(0, 0, 0, 0)');
+      expect(cs.boxShadow).toBe('none');
+      expect(big.querySelector('.papel-adesivo')).toBeNull();
+      const img = big.querySelector<HTMLElement>('img')!;
+      expect(img.offsetWidth).toBe(big.offsetWidth);
+      expect(getComputedStyle(img).maskImage).toContain('data:image/svg+xml');
+      // a sombra na impressão, não na foto: o broche do X fica com a dele, como nas outras molduras
+      expect(cs.filter).toBe('none');
+      const print = big.querySelector<HTMLElement>(':scope > .impressao')!;
+      expect(getComputedStyle(print).filter).toContain('drop-shadow');
+      expect(print.contains(big.querySelector('.fechar'))).toBeFalse();
       expect(dialog.querySelector('.etiqueta')!.textContent).toBe('Na praia');
       dialog.dispatchEvent(new Event('cancel', { cancelable: true }));
       await gone();
@@ -417,7 +426,7 @@ describe('a foto colada na anotação', () => {
       return { fixture, el, foto: el.querySelector<HTMLElement>('.foto')! };
     }
 
-    it('o papel branco cortado em zigue-zague no tamanho da peça, embaixo da foto, com a sombra que segue os dentes', async () => {
+    it('a própria foto cortada em zigue-zague no tamanho da peça, sem papel nem margem, com a sombra que segue os dentes', async () => {
       const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo', 'Na praia']);
       expect(el.querySelector('figure')!.classList).toContain('moldura-adesivo');
       await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
@@ -428,24 +437,41 @@ describe('a foto colada na anotação', () => {
       const k = parseFloat(getComputedStyle(foto).fontSize) / 16;
       expect(box[2]).toBeCloseTo(foto.offsetWidth / k, 0);
       expect(box[3]).toBeCloseTo(foto.offsetHeight / k, 0);
+      // sem o papel branco: nenhuma margem, nenhum fundo, nenhuma camada de papel embaixo
       const cs = getComputedStyle(foto);
+      expect(cs.paddingLeft).toBe('0px');
+      expect(cs.paddingTop).toBe('0px');
       expect(cs.boxShadow).toBe('none');
       expect(cs.backgroundColor).toBe('rgba(0, 0, 0, 0)');
-      // o papel é uma camada embaixo da foto, com a sombra só dele (os broches ficam fora do filtro)
-      expect(cs.filter).toBe('none');
-      const layer = foto.querySelector<HTMLElement>(':scope > .papel-adesivo')!;
-      expect(getComputedStyle(layer).filter).toContain('drop-shadow');
-      expect(getComputedStyle(layer).zIndex).toBe('-1');
-      const paper = getComputedStyle(layer, '::before');
-      expect(paper.maskImage).toContain('data:image/svg+xml');
-      // o papel do adesivo: o meio-tom leve (um ponto preto chapado seria a grade de um editor de imagem)
-      expect(paper.backgroundImage).toMatch(/rgba\(0, 0, 0, 0\.03\d*\) 0\.6px/);
-      // a margem de papel é mais larga que os dentes (uns 5px): a foto nunca é mordida
-      expect(parseFloat(cs.paddingLeft)).toBeGreaterThan(6.5 * k);
+      expect(foto.querySelector('.papel-adesivo')).toBeNull();
+      // o picote corta a foto e o brilho dela, do tamanho da peça
+      const img = foto.querySelector<HTMLElement>('img')!;
+      expect(img.offsetWidth).toBe(foto.offsetWidth);
+      expect(getComputedStyle(img).maskImage).toContain('data:image/svg+xml');
+      const shine = getComputedStyle(foto.querySelector('.reflexo')!);
+      expect(shine.maskImage).toContain('data:image/svg+xml');
       // a foto impressa com a retícula da revista couché
-      expect(getComputedStyle(el.querySelector('.reflexo')!).backgroundImage).toContain('radial-gradient');
-      // a legenda fora do papel, na etiqueta, como na Foto
+      expect(shine.backgroundImage).toContain('radial-gradient');
+      // a sombra fica na impressão (os broches ficam fora do filtro e do corte)
+      expect(cs.filter).toBe('none');
+      const print = foto.querySelector<HTMLElement>(':scope > .impressao')!;
+      expect(getComputedStyle(print).display).toBe('grid');
+      expect(getComputedStyle(print).filter).toContain('drop-shadow');
+      expect(getComputedStyle(print).maskImage).toBe('none');
+      // a legenda fora da foto, na etiqueta, como na Foto
       expect(el.querySelector('.etiqueta')!.textContent).toBe('Na praia');
+      el.remove();
+      fixture.destroy();
+    });
+
+    it('revelando: o lugar da foto já picotado, no bege do papel que ainda não revelou', async () => {
+      const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo']);
+      expect(foto.classList).toContain('revelando');
+      await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
+      const shine = getComputedStyle(foto.querySelector('.reflexo')!);
+      expect(shine.backgroundColor).toBe('rgb(239, 233, 220)');
+      expect(shine.maskImage).toContain('data:image/svg+xml');
+      expect(getComputedStyle(foto).backgroundColor).toBe('rgba(0, 0, 0, 0)');
       el.remove();
       fixture.destroy();
     });
@@ -464,29 +490,69 @@ describe('a foto colada na anotação', () => {
       fixture.componentRef.setInput('args', ['https://i.imgur.com/foto.jpg', 'polaroid']);
       await fixture.whenStable();
       expect(foto.style.getPropertyValue('--picote')).toBe('');
-      expect(foto.querySelector('.papel-adesivo')).toBeNull();
+      // nas outras molduras, a impressão não existe para o desenho: sem corte, sem sombra própria
+      const print = foto.querySelector<HTMLElement>('.impressao')!;
+      expect(getComputedStyle(print).display).toBe('contents');
+      expect(getComputedStyle(foto.querySelector('img')!).maskImage).toBe('none');
       el.remove();
       fixture.destroy();
     });
 
-    it('a foto que não abriu fica no tracejado, sem o papel; o vídeo também vira adesivo', async () => {
+    it('a foto que não abriu fica no tracejado, sem o corte; o vídeo também vira adesivo', async () => {
       const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo']);
       el.querySelector('img')!.dispatchEvent(new Event('error'));
       await fixture.whenStable();
       expect(foto.classList).toContain('quebrada');
-      // sem o papel nem o corte, e o tracejado com a margem de sempre
-      expect(foto.querySelector('.papel-adesivo')).toBeNull();
+      // sem a impressão nem o corte, e o tracejado como o do recorte
+      expect(foto.querySelector('.impressao')).toBeNull();
       await waitFrames(() => false, 2);
       expect(foto.style.getPropertyValue('--picote')).toBe('');
-      expect(parseFloat(getComputedStyle(foto).paddingLeft)).toBeCloseTo(0.34 * parseFloat(getComputedStyle(foto).fontSize), 1);
+      expect(getComputedStyle(foto).paddingLeft).toBe('0px');
       fixture.componentRef.setInput('kind', 'video');
       fixture.componentRef.setInput('args', ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'adesivo']);
       await fixture.whenStable();
       const video = el.querySelector<HTMLElement>('.foto')!;
       await waitFrames(() => !!video.style.getPropertyValue('--picote'));
-      expect(getComputedStyle(video.querySelector('.papel-adesivo')!, '::before').maskImage).toContain('data:image/svg+xml');
-      // o adesivo de tocar fica fora do filtro do papel
-      expect(video.querySelector('.papel-adesivo .tocar')).toBeNull();
+      expect(getComputedStyle(video.querySelector('img.capa')!).maskImage).toContain('data:image/svg+xml');
+      // o adesivo de tocar fica fora do corte e do filtro da impressão
+      expect(video.querySelector('.impressao .tocar')).toBeNull();
+      expect(getComputedStyle(video.querySelector('.tocar')!).maskImage).toBe('none');
+      // tocando, o player fica inteiro: fora da impressão (sem o corte nem o filtro a cada quadro), com
+      // a sombra rente da foto colada
+      video.querySelector<HTMLButtonElement>('.tocar')!.click();
+      await fixture.whenStable();
+      const frame = video.querySelector('iframe')!;
+      expect(frame.closest('.impressao')).toBeNull();
+      expect(getComputedStyle(frame).maskImage).toBe('none');
+      expect(video.querySelector('.impressao')).toBeNull();
+      expect(getComputedStyle(video).boxShadow).toContain('rgba(0, 0, 0, 0.32)');
+      el.remove();
+      fixture.destroy();
+    });
+
+    it('o vídeo de arquivo, que já é o player, fica inteiro: sem o corte, com a sombra da foto colada', async () => {
+      const { fixture, el, foto } = await sticker(['https://exemplo.com.br/clipe.mp4', 'adesivo'], 'video');
+      const film = foto.querySelector('video')!;
+      // o endereço de mentira não carrega: o "não abriu" de verdade chegaria no meio do teste
+      film.addEventListener('error', (e) => e.stopImmediatePropagation(), true);
+      await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
+      expect(film.closest('.impressao')).toBeNull();
+      expect(getComputedStyle(film).maskImage).toBe('none');
+      expect(getComputedStyle(foto).filter).toBe('none');
+      expect(getComputedStyle(foto).boxShadow).toContain('rgba(0, 0, 0, 0.32)');
+      el.remove();
+      fixture.destroy();
+    });
+
+    it('a janela que muda de tamanho refaz a conta na hora (a letra da ampliada segue a tela, mesmo com a peça do mesmo tamanho)', async () => {
+      const { fixture, el, foto } = await sticker(['https://i.imgur.com/foto.jpg', 'adesivo']);
+      await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
+      const first = foto.style.getPropertyValue('--picote');
+      // outra letra e o aviso da janela: a conta sai na hora, antes do observador
+      foto.style.fontSize = '20px';
+      dispatchEvent(new Event('resize'));
+      expect(foto.style.getPropertyValue('--picote')).toBe(stickerEdge('https://i.imgur.com/foto.jpg', foto.offsetWidth, foto.offsetHeight, 20 / 16));
+      expect(foto.style.getPropertyValue('--picote')).not.toBe(first);
       el.remove();
       fixture.destroy();
     });

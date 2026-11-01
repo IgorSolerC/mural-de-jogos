@@ -21,11 +21,11 @@ import { cutSticker, letterScale } from './sticker-edge';
  * a borda branca da foto, a polaroide (a legenda escrita na faixa de baixo), o recorte rente ou o
  * adesivo; nas sem faixa, a legenda vai numa etiqueta de papel colada no pé da foto.
  *
- * O adesivo é o recorte picotado da wishlist (ui/wish-clip.ts) virado adesivo: a foto impressa em
- * couché (a retícula e o brilho, ui/_meio-tom.scss) num papel branco de adesivo, com o meio-tom do
- * papel da revista e um brilho de vinil, cortado em volta com a tesoura de picotar (o mesmo `pinking`
- * de core/tear.ts, sem a quina dobrada, medido no tamanho da peça: ui/sticker-edge.ts), e a sombra
- * curta de quem está colado rente, que segue os dentes.
+ * O adesivo é o recorte picotado da wishlist (ui/wish-clip.ts) virado adesivo: a própria foto,
+ * impressa em couché (a retícula e o brilho, ui/_meio-tom.scss), cortada em volta com a tesoura de
+ * picotar (o mesmo `pinking` de core/tear.ts, sem a quina dobrada, medido no tamanho da peça:
+ * ui/sticker-edge.ts), sem papel nem margem, com a sombra curta de quem está colado rente, que segue
+ * os dentes.
  *
  * O vídeo é a foto da capa dele com um adesivo redondo de "tocar": o player (YouTube sem cookies,
  * Vimeo) só carrega quando a pessoa toca, e a foto se endireita para assistir. Um arquivo de vídeo
@@ -55,10 +55,9 @@ import { cutSticker, letterScale } from './sticker-edge';
     @let m = media();
     <figure #colagem class="colagem" data-papel-proprio data-ergue-justo [class]="'colagem moldura-' + m.frame" [class.tocando]="playing()" [class.e-video]="kind() === 'video'" [style.--giro.deg]="tilt()">
       <span #foto class="foto" data-colado data-ergue-giro data-ergue-largura data-ergue-canto [class.video]="kind() === 'video'" [class.som]="!!video() && !broken()" [class.amplia]="!broken()" [class.quebrada]="broken()" [class.revelando]="kind() === 'imagem' && !loaded() && !broken()" [attr.data-esperando]="seeking() ? '' : null" [style.--prop]="ratio()">
-        @if (m.frame === 'adesivo' && !broken()) {
-          <!-- o papel do adesivo, embaixo da foto: cortado com a tesoura de picotar (o --picote da foto) -->
-          <span class="papel-adesivo" aria-hidden="true"></span>
-        }
+        <!-- .impressao: a foto e o brilho dela (no adesivo, cortados pela tesoura de picotar e com a
+             sombra que segue os dentes; nas outras molduras, display: contents, como se não estivesse
+             ali). Os broches, o adesivo de tocar e o player ficam fora: nem cortados, nem com a sombra dela -->
         @if (broken()) {
           <span class="falha">
             <lucide-icon [img]="BrokenIcon" [size]="22" aria-hidden="true" />
@@ -69,15 +68,19 @@ import { cutSticker, letterScale } from './sticker-edge';
           </span>
         } @else if (kind() === 'imagem') {
           <!-- a guardada pelo Murall espera o endereço dela (um src vazio daria "não abriu") -->
-          @if (src()) {
-            <img [src]="src()" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
-          }
-          <span class="reflexo" aria-hidden="true"></span>
+          <span class="impressao">
+            @if (src()) {
+              <img [src]="src()" [alt]="m.caption || 'Imagem colada na anotação'" referrerpolicy="no-referrer" decoding="async" (load)="onLoad($event)" (error)="failed.set(true)" />
+            }
+            <span class="reflexo" aria-hidden="true"></span>
+          </span>
           @if (loaded()) {
             <app-zoom-knob class="ampliar" [label]="'Ampliar a imagem' + (m.caption ? ': ' + m.caption : '')" (pressed)="zoom()" />
           }
         } @else if (video(); as v) {
           @if (v.kind === 'file') {
+            <!-- o player (este e o de fora, tocando) fica fora da impressão: inteiro, sem o corte nem o
+                 filtro refeito a cada quadro, e sem levar a máscara para a tela cheia -->
             <video #film class="tocavel" [src]="v.url" controls preload="metadata" playsinline [attr.aria-label]="m.caption || 'Vídeo'" (error)="failed.set(true)"></video>
           } @else if (playing() && embed()) {
             <iframe
@@ -91,12 +94,14 @@ import { cutSticker, letterScale } from './sticker-edge';
               (load)="bridge?.loaded()"
             ></iframe>
           } @else {
-            @if (v.kind === 'youtube') {
-              <img class="capa" [src]="'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg'" alt="" referrerpolicy="no-referrer" decoding="async" />
-            } @else {
-              <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="VideoIcon" [size]="34" aria-hidden="true" /></span>
-            }
-            <span class="reflexo" aria-hidden="true"></span>
+            <span class="impressao">
+              @if (v.kind === 'youtube') {
+                <img class="capa" [src]="'https://i.ytimg.com/vi/' + v.id + '/hqdefault.jpg'" alt="" referrerpolicy="no-referrer" decoding="async" />
+              } @else {
+                <span class="sem-capa" aria-hidden="true"><lucide-icon [img]="VideoIcon" [size]="34" aria-hidden="true" /></span>
+              }
+              <span class="reflexo" aria-hidden="true"></span>
+            </span>
             <!-- o adesivo redondo de tocar, colado no meio da foto -->
             <button type="button" class="tocar tocavel" [attr.aria-label]="'Tocar o vídeo' + (m.caption ? ': ' + m.caption : '')" (click)="play($event)">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.6 5.6c0-.9 1-1.5 1.8-1l9 6.4c.7.5.7 1.5 0 2l-9 6.4c-.8.5-1.8 0-1.8-1z" /></svg>
@@ -153,24 +158,18 @@ import { cutSticker, letterScale } from './sticker-edge';
       --pad: 1.1em;
       --reserva: calc(1.75em + clamp(1.2em, calc(var(--widget-alto, 22em) * 0.16), 2.2em) * var(--letra-tam, 1));
     }
-    .colagem.moldura-recorte {
+    /* o recorte e o adesivo: a foto sem borda nenhuma (o adesivo é a própria foto, picotada) */
+    .colagem.moldura-recorte,
+    .colagem.moldura-adesivo {
       --pad: 0em;
       --reserva: 1.1em;
     }
     .colagem:has(> .etiqueta-lugar) {
       --reserva: 2.7em;
     }
-    .colagem.moldura-recorte:has(> .etiqueta-lugar) {
-      --reserva: 2em;
-    }
-    /* o adesivo: a margem branca de papel dos dois lados, mais larga que a da foto (os dentes do
-       picote comem uns 6px dela, e sobra uma faixa firme de papel) */
-    .colagem.moldura-adesivo {
-      --pad: 1.36em;
-      --reserva: 2.45em;
-    }
+    .colagem.moldura-recorte:has(> .etiqueta-lugar),
     .colagem.moldura-adesivo:has(> .etiqueta-lugar) {
-      --reserva: 3.35em;
+      --reserva: 2em;
     }
 
     /* ===== A foto: o papel fotográfico colado, torto, com a sombra rente de quem está colado ===== */
@@ -194,27 +193,35 @@ import { cutSticker, letterScale } from './sticker-edge';
     .moldura-polaroid .foto {
       padding: 0.55em 0.55em 0;
     }
-    .moldura-recorte .foto {
+    .moldura-recorte .foto,
+    .moldura-adesivo .foto {
       padding: 0;
       background: transparent;
     }
+    /* a impressão (a foto e o brilho dela) só existe no adesivo: nas outras, os filhos são da foto */
+    .impressao {
+      display: contents;
+    }
 
-    /* ===== O adesivo picotado: o papel branco cortado em zigue-zague, colado rente =====
-       (ui/_meio-tom.scss: a margem, o papel com a máscara do picote e a sombra que segue os dentes) */
+    /* ===== O adesivo picotado: a própria foto cortada em zigue-zague, colada rente =====
+       (ui/_meio-tom.scss: o corte do picote em cada pedaço da foto e a sombra que segue os dentes) */
     .moldura-adesivo .foto:not(.quebrada) {
       @include meio-tom.adesivo-foto;
     }
-    .papel-adesivo {
-      /* o fio do corte do vinil (os dentes aparecem até na folha creme) e a sombra rente */
-      @include meio-tom.adesivo-papel(drop-shadow(0 0 0.4px rgb(0 0 0 / 0.38)) drop-shadow(0 0.5px 0.5px rgb(0 0 0 / 0.3)) drop-shadow(0 2px 2.5px rgb(0 0 0 / 0.2)));
+    .moldura-adesivo .foto:not(.quebrada) > .impressao {
+      /* o fio do corte (os dentes aparecem até na folha creme) e a sombra rente */
+      @include meio-tom.adesivo-impressao(drop-shadow(0 0 0.4px rgb(0 0 0 / 0.38)) drop-shadow(0 0.5px 0.5px rgb(0 0 0 / 0.3)) drop-shadow(0 2px 2.5px rgb(0 0 0 / 0.2)));
     }
-    .moldura-adesivo img {
-      border-radius: 0;
+    /* o player (o vídeo de arquivo, o de fora tocando) fica inteiro: um retângulo liso, com a sombra
+       rente da foto colada, como no recorte */
+    .moldura-adesivo .foto:has(> video.tocavel, > iframe) {
+      box-shadow:
+        0 1px 1px rgb(0 0 0 / 0.32),
+        0 3px 6px -2px rgb(0 0 0 / 0.28);
     }
-    /* a foto impressa no adesivo: a retícula e o brilho da revista couché do recorte */
-    .moldura-adesivo .reflexo {
-      border-radius: 0;
-      @include meio-tom.couche;
+    /* revelando: o lugar da foto já picotado, no bege do papel que ainda não revelou */
+    .moldura-adesivo .foto.revelando > .impressao > .reflexo {
+      background-color: #efe9dc;
     }
     /* o vídeo não tem tamanho próprio antes de tocar (nem a foto antes de carregar): a figura ocupa a
        linha, e a foto, o que cabe */
@@ -553,13 +560,13 @@ export class GluedMedia {
   /** A conversa com o player de fora, enquanto ele toca (só para o volume). */
   protected bridge: EmbedBridge | null = null;
 
-  /** O adesivo picotado (a foto que abre): só ele corta o papel (ver ui/sticker-edge.ts). */
+  /** O adesivo picotado (a foto que abre): só ele corta a foto (ver ui/sticker-edge.ts). */
   private readonly sticker = computed(() => this.media().frame === 'adesivo' && !this.broken());
 
   constructor() {
     // a altura inteira, em linhas da pauta: o texto de baixo continua em cima das linhas azuis
     snapToLines('.colagem');
-    // o adesivo: o papel cortado no tamanho da peça, com os dentes do tamanho da letra; o sorteio dos
+    // o adesivo: a foto cortada no tamanho da peça, com os dentes do tamanho da letra; o sorteio dos
     // dentes é o do link, como o giro (trocar a legenda não recorta de novo)
     effect((onCleanup) => {
       const el = this.photo()?.nativeElement;

@@ -80,6 +80,9 @@ Sim se a mudança cria **pelo menos uma destas**, que não existia em lugar nenh
 - Um link para outro tipo de coisa do site, depois dos links entre anotações, é melhoria (M2): o link
   para um lembrete do Calendário (1.36.2) é mais um link do texto, e a anotação já se ligava aos
   lembretes pelo próprio Calendário.
+- Refazer no mesmo dia uma mudança que já está na entrada de ajustes de hoje reescreve o item dela para
+  dizer como ficou (a entrada conta como o dia terminou), sem trocar o `id`: a entrada não cresceu. A
+  moldura Adesivo (1.36.2) perdeu o papel branco no mesmo dia, e o item só diz a foto picotada.
 
 ---
 

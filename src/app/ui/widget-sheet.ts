@@ -88,6 +88,8 @@ export class WidgetSheet {
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly UploadIcon = ICON.enviar;
   protected readonly ids = 'wf-' + ++uid;
+  /** O contorno da miniatura do adesivo (64 × 48): o zigue-zague da tesoura de picotar em volta da foto. */
+  protected readonly picoteMini = 'M10.3 8.3 11.85 7 13.4 8.3 14.95 7 16.5 8.3 18.05 7 19.6 8.3 21.15 7 22.7 8.3 24.25 7 25.8 8.3 27.35 7 28.9 8.3 30.45 7 32 8.3 33.55 7 35.1 8.3 36.65 7 38.2 8.3 39.75 7 41.3 8.3 42.85 7 44.4 8.3 45.95 7 47.5 8.3 49.05 7 50.6 8.3 52.15 7 53.7 8.3 55 9.87 53.7 11.44 55 13.01 53.7 14.58 55 16.15 53.7 17.72 55 19.29 53.7 20.86 55 22.43 53.7 24 55 25.57 53.7 27.14 55 28.71 53.7 30.28 55 31.85 53.7 33.42 55 34.99 53.7 36.56 55 38.13 53.7 39.7 52.15 41 50.6 39.7 49.05 41 47.5 39.7 45.95 41 44.4 39.7 42.85 41 41.3 39.7 39.75 41 38.2 39.7 36.65 41 35.1 39.7 33.55 41 32 39.7 30.45 41 28.9 39.7 27.35 41 25.8 39.7 24.25 41 22.7 39.7 21.15 41 19.6 39.7 18.05 41 16.5 39.7 14.95 41 13.4 39.7 11.85 41 10.3 39.7 9 38.13 10.3 36.56 9 34.99 10.3 33.42 9 31.85 10.3 30.28 9 28.71 10.3 27.14 9 25.57 10.3 24 9 22.43 10.3 20.86 9 19.29 10.3 17.72 9 16.15 10.3 14.58 9 13.01 10.3 11.44 9 9.87Z';
 
   /** O desenho de cada tamanho: a peça na ficha, da altura das linhas dele (3, 5, 7, 10), larga como um vídeo. */
   protected readonly sizeArt: Record<WidgetSize, { w: number; h: number }> = {

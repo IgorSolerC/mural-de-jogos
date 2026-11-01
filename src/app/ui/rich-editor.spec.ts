@@ -1225,8 +1225,14 @@ describe('a folha do widget no editor', () => {
     expect(el.querySelector('.wfolha .link-diz')?.textContent).toContain('Imagem de ex.com');
     const jeitos = el.querySelectorAll<HTMLInputElement>('.wfolha .jeito input');
     expect([...el.querySelectorAll('.wfolha .jeito .jeito-nome')].map((n) => n.textContent)).toEqual(['Foto', 'Polaroide', 'Recorte', 'Adesivo']);
-    // cada moldura com a miniatura dela (o adesivo, o papel picotado)
+    // cada moldura com a miniatura dela (o adesivo, a própria foto picotada, sem papel em volta)
     expect(el.querySelectorAll('.wfolha .jeito .jeito-desenho path, .wfolha .jeito .jeito-desenho rect').length).toBeGreaterThan(4);
+    const adesivo = el.querySelectorAll('.wfolha .jeito .jeito-desenho')[3];
+    const corte = adesivo.querySelector('clipPath')!;
+    expect(corte.id).toBeTruthy();
+    expect(adesivo.querySelector('[clip-path]')!.getAttribute('clip-path')).toBe(`url(#${corte.id})`);
+    expect(adesivo.querySelector('[clip-path] rect')!.getAttribute('fill')).toBe('#8fc8f0');
+    expect(adesivo.querySelector('[fill="#fdfdfb"], [fill="#fbfaf6"], [fill="#fff"]:not([opacity])')).toBeNull();
     expect(jeitos.length).toBe(4);
     jeitos[1].click();
     await wait();
