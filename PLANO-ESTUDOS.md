@@ -743,6 +743,17 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   qualquer assunto, com a Klee One no japonês e no chinês (D13). Pedido junto: o título da frente com
   o tamanho da letra calculado para encher o espaço que sobra, com ou sem subtítulo e imagem (6.1). Plano
   pronto para a rodada 0.
+- 02/nov/2026, rodada 0 (cd041276, BUILD 705, com push): o Calendário nas Utilidades, `/anotacoes/calendario`
+  redirecionando com a query (`toCalendar`: o `redirectTo` com o caminho escrito jogava a query fora). O
+  topo do cofre muda junto: falta o dono rodar o "Publicar o cofre" (até lá a Vigia acusa a diferença).
+- 02/nov/2026, rodada 1 (BUILD 706): o núcleo, sem tela. `core/fsrs.ts` (as contas, os passos e o
+  sorteio, conferidos contra uma tabela tirada do py-fsrs em `fsrs.spec.ts`: sete sequências, estado,
+  passo, S, D e vencimento iguais), `core/study.ts` (modelo, saneamento, mudanças, junção, níveis e as
+  palavras de "quando volta": `intervalLabel` e `whenLabel` moram aqui, e não em `core/dates.ts`, porque
+  dependem do dia de estudo do FSRS) e `core/study-queue.ts` (a fila do dia, os limites, as novas
+  espalhadas, `nextUp` da sessão). Decidido no caminho: no mesmo dia, o número de novas de dois aparelhos
+  junta pelo maior (somar contaria duas vezes a cada sincronização). Próximo: a rodada 2 (guardar e
+  sincronizar).
 
 ---
 
