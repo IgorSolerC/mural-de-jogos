@@ -6,7 +6,8 @@ import { COFRE_URL, SECOES_DAS_ANOTACOES, SECOES_DAS_UTILIDADES } from '../../..
 
 /**
  * As quatro partes do site, as etiquetas do varal: as Anotações, as Análises (os murais de resenhas,
- * com o Pra depois e a Wishlist de cada um), as Utilidades (os Gastos e o cofre de senhas) e os Extras.
+ * com o Pra depois e a Wishlist de cada um), as Utilidades (os Gastos, o Calendário e o cofre de senhas)
+ * e os Extras.
  * O resto (Perfil, Amigos, Ajustes, Novidades) é da pessoa e não mora em parte nenhuma.
  */
 export type Area = 'anotacoes' | 'analises' | 'utilidades' | 'extras';
@@ -30,13 +31,15 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 ];
 
 /**
- * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e o Calendário
- * (`/anotacoes/calendario`). A lista mora em `shared/topo-do-murall.ts`, a mesma do topo do cofre. O Estudo cego entra aqui (e nas rotas) e aparece sozinho no índice.
+ * As seções das Anotações: o mural e os quadros Kanban (`/anotacoes/kanban/:quadro`). A lista mora em
+ * `shared/topo-do-murall.ts`, a mesma do topo do cofre; uma seção nova entra lá (e nas rotas) e aparece
+ * sozinha no índice.
  */
 export const NOTE_SECTIONS: readonly AreaSection[] = SECOES_DAS_ANOTACOES.map((s) => ({ slug: s.slug, label: s.label }));
 
 /**
- * As seções das Utilidades que moram aqui: os Gastos (`/utilidades/gastos`). O cofre vem depois delas,
+ * As seções das Utilidades que moram aqui: os Gastos (`/utilidades/gastos`) e o Calendário
+ * (`/utilidades/calendario`). O cofre vem depois delas,
  * na barra (ver `VAULT_URL`). A lista mora em `shared/topo-do-murall.ts`, a mesma do topo do cofre.
  */
 export const UTILITY_SECTIONS: readonly AreaSection[] = SECOES_DAS_UTILIDADES.map((s) => ({ slug: s.slug, label: s.label }));
@@ -61,8 +64,18 @@ export function kanbanPath(board?: string): string {
   return '/anotacoes/kanban' + (board ? `/${board}` : '');
 }
 
-/** O Calendário das anotações. */
-export const CALENDAR_PATH = '/anotacoes/calendario';
+/**
+ * O Calendário, nas Utilidades desde 02/nov/2026 (`/anotacoes/calendario`, o endereço de antes,
+ * redireciona para cá com a query: o dia e o lembrete dos links continuam abrindo).
+ */
+export const CALENDAR_PATH = '/utilidades/calendario';
+
+/**
+ * O endereço do Calendário quando ele morava nas Anotações leva ao novo, com a mesma query: o
+ * `redirectTo` com o caminho escrito jogava a query fora (o dia e o lembrete dos links).
+ */
+export const toCalendar: RedirectFunction = ({ queryParams, fragment }) =>
+  inject(Router).createUrlTree([CALENDAR_PATH], { queryParams, fragment: fragment ?? undefined });
 
 /** O caminho de um mural de resenhas, ou de uma seção dele: `/analises/jogos/pra-depois`. */
 export function reviewPath(kind: Kind, section = ''): string {

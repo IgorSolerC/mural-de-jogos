@@ -73,6 +73,7 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
+import { CALENDAR_PATH } from '../core/areas';
 import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
@@ -768,7 +769,7 @@ export class ReviewReader {
   /** O dia do lembrete, no Calendário (na vista do dia). */
   protected openDay(day: string): void {
     this.close();
-    void this.router.navigate(['/anotacoes/calendario'], { queryParams: { vista: 'dia', dia: day } });
+    void this.router.navigate([CALENDAR_PATH], { queryParams: { vista: 'dia', dia: day } });
   }
 
   /** Uma dependência tocada na tira do selo: ela abre aqui mesmo, com o "Voltar" para esta. */

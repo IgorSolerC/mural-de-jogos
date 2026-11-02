@@ -45,7 +45,7 @@ import { ReminderSheet } from '../ui/reminder-sheet';
 /** As três vistas, no endereço (`?vista=semana&dia=2026-10-18`). */
 export type CalendarView = 'mes' | 'semana' | 'dia';
 
-/** A última vista aberta neste aparelho: `/anotacoes/calendario` sem nada volta nela. */
+/** A última vista aberta neste aparelho: `/utilidades/calendario` sem nada volta nela. */
 const VIEW_KEY = 'meu-mural:calendario-vista:v1';
 
 function isView(v: unknown): v is CalendarView {
@@ -84,7 +84,7 @@ function tiltOf(id: string): string {
 }
 
 /**
- * O Calendário das anotações (`/anotacoes/calendario`): lembretes, de uma vez só ou que se repetem, cada
+ * O Calendário (`/utilidades/calendario`): lembretes, de uma vez só ou que se repetem, cada
  * um na cor de uma cartolina e com as anotações que ajudam presas nele (ver core/calendar.ts). Três
  * vistas, como no Google Agenda e no da Apple, nas divisórias de manilha em cima da pasta:
  *

@@ -4,7 +4,7 @@ import { LIGHT_STOCKS, LightStock } from './review';
 import { nameCollator } from './text';
 
 /**
- * O Calendário das anotações (`/anotacoes/calendario`): lembretes, de uma vez só ou que se repetem,
+ * O Calendário (`/utilidades/calendario`): lembretes, de uma vez só ou que se repetem,
  * cada um com a cor de uma cartolina e, se quiser, anotações anexadas ("Fazer o bolo dia 23/08",
  * com a receita do bolo e a da calda presas nele por um clipe).
  *

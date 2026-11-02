@@ -45,8 +45,8 @@ interface Summary {
  * altura e nada embaixo dela é empurrado.
  *
  * - Análises: o mural de resenhas, Mural / Pra depois / Wishlist e a contagem da seção aberta.
- * - Anotações: as seções (Mural, Kanban, Calendário), quando houver mais de uma.
- * - Utilidades: os Gastos e, para quem pode, o Cofre (um link para a origem dele).
+ * - Anotações: as seções (Mural, Kanban), quando houver mais de uma.
+ * - Utilidades: os Gastos, o Calendário e, para quem pode, o Cofre (um link para a origem dele).
  * - Extras: o mural; nas páginas de dentro, a volta para Extras. O mural de um colega tem o próprio
  *   cabeçalho.
  * - Amigos, um mural por vez: só o mural, com o de anotações também (sem logo).
@@ -497,7 +497,7 @@ export class AreaBar {
       link: area === 'analises' ? reviewPath(kind, s.slug) : `/${area}` + (s.slug ? '/' + s.slug : ''),
       on: s === open,
     }));
-    // o cofre de senhas, depois dos Gastos, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
+    // o cofre de senhas, depois dos Gastos e do Calendário, só para quem pode usá-lo (o /v1/eu pergunta ao cofre)
     if (area === 'utilidades' && this.cloudAccount.account()?.cofre) tabs.push({ label: COFRE_ROTULO, link: VAULT_URL, on: false, external: true });
     return tabs.length < 2 ? [] : tabs;
   });
@@ -511,7 +511,7 @@ export class AreaBar {
       return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
     }
     // no Calendário: quantos lembretes hoje tem
-    if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'calendario' && this.area() === 'anotacoes') {
+    if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario') {
       const n = this.calendar.todayCount();
       return n ? { n, long: n === 1 ? 'lembrete hoje' : 'lembretes hoje', short: 'hoje' } : null;
     }
@@ -546,9 +546,9 @@ export class AreaBar {
     }
     if (area === 'anotacoes') {
       const slug = sectionOf(this.path(), NOTE_SECTIONS)?.slug;
-      return slug === 'kanban' ? 'kanban' : slug === 'calendario' ? 'calendario' : 'notas';
+      return slug === 'kanban' ? 'kanban' : 'notas';
     }
-    if (area === 'utilidades') return 'gastos';
+    if (area === 'utilidades') return sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario' ? 'calendario' : 'gastos';
     return this.inExtras() ? 'extras' : null;
   });
 

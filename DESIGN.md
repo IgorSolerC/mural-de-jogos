@@ -1981,3 +1981,12 @@ The user found the inline code and the code block ugly, asked for Obsidian's lan
 - **Copiar.** The kit's `botao-papel` sticker, small (22px; 26px on touch), at the right end of the header line; shown on hover or focus, always on touch; "Copiado" for 1.6s. Not on the wall card.
 - **Choosing the language, like the card.** In the Visual, the block holding the caret shows two kit stickers in its header line: the language pill (code icon, the name, a chevron; it takes the printed name's place) and Copiar. The pill opens the toolbar's **Código** menu (shown while the caret is in a block, in both modes, after Card): "Linguagem" with a search field (focused on open; Enter takes the first match or the typed word), "Ou escreva depois das crases: ```js", "Sem linguagem" and the common ones, each with the word to type on a form slip beside its name in Kalam, the current one on the yellow highlighter with a check; an unknown typed word offers "Usar “…”" (no colours); and "Bloco": Copiar o código, Desfazer o bloco. Inserir › Bloco de código (typed ```` ``` ````) puts the block and opens the menu asking for the language. Typing ```` ```js ```` and Enter in the Visual keeps the language.
 - **PDF.** Obsidian-quiet: the warm grey box, Cascadia, the inks flat on it, the language small in the top corner, no form, holes or Copiar.
+
+## O Calendário nas Utilidades (navigation pass, 2026-11-02)
+
+The user asked for the Calendário to leave Anotações for Utilidades, making room for the Estudos section planned in `PLANO-ESTUDOS.md`. Only the place changed; every view, sheet and logo stays as described in "Calendário" and "Logos das seções".
+
+- **Where.** `/utilidades/calendario`, the second section of Utilidades: the bar reads **Gastos · Calendário**, then the external Cofre tab for accounts that may use it. The violet date-stamp logo and the "N lembretes hoje" count come along. Anotações shows **Mural · Kanban**. The vault's header lists the same sections (`shared/topo-do-murall.ts`).
+- **Old address.** `/anotacoes/calendario` redirects to the new one keeping the query (`vista`, `dia`, `lembrete`), so old links, reminder links in notes and the reader's "No Calendário" line still open the right day.
+- **The open wall.** Entering the Calendário no longer switches the open wall to the notes wall (as with Gastos); "Escrever uma nota nova" from a reminder still opens the notes editor.
+

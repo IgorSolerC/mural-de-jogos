@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Cloud } from '../core/cloud-config';
+import { Mural } from '../core/mural';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
@@ -108,6 +109,15 @@ describe('o editor: público ou privado, e o Feed na setinha', () => {
     }
     return item()!;
   };
+
+  it('aberto de fora das Anotações (o "Escrever uma nota nova" do Calendário, nas Utilidades), continua uma anotação', async () => {
+    TestBed.inject(Mural).kind.set('jogos');
+    fixture.componentInstance.openNote('Ideias de viagem');
+    await fixture.whenStable();
+    // o editor é o da anotação (a resenha teria o Visível), com o mural aberto nas Análises
+    expect(options()).toEqual(['Público', 'Privado']);
+    expect(TestBed.inject(Mural).kind()).toBe('jogos');
+  });
 
   it('tem só Público e Privado, sem Visível', async () => {
     fixture.componentInstance.openNote('Ideias de viagem');

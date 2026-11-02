@@ -46,18 +46,20 @@ export interface SecaoDasAnotacoes {
   readonly label: string;
 }
 
-/** Mural, Kanban e Calendário, nesta ordem. */
+/** Mural e Kanban, nesta ordem (o Calendário mudou para as Utilidades). */
 export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
-  { slug: 'calendario', label: 'Calendário' },
 ];
 
 /**
  * As seções das Utilidades que moram no Murall (`/utilidades/<slug>`); o Cofre vem depois delas, um
  * link para a origem dele.
  */
-export const SECOES_DAS_UTILIDADES: readonly SecaoDasAnotacoes[] = [{ slug: 'gastos', label: 'Gastos' }];
+export const SECOES_DAS_UTILIDADES: readonly SecaoDasAnotacoes[] = [
+  { slug: 'gastos', label: 'Gastos' },
+  { slug: 'calendario', label: 'Calendário' },
+];
 
 /** Um desenho de traço (o formato dos ícones Lucide): a lista de elementos do SVG, 24×24. */
 export type Desenho = readonly (readonly [string, Readonly<Record<string, string>>])[];

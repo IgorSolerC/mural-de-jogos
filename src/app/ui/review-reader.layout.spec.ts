@@ -357,7 +357,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
 
     const go = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     q<HTMLButtonElement>('.na-agenda .parte-de')!.click();
-    expect(go).toHaveBeenCalledWith(['/anotacoes/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
+    expect(go).toHaveBeenCalledWith(['/utilidades/calendario'], { queryParams: { vista: 'dia', dia: '2026-10-20' } });
   });
 
   it('a pauta da leitura é mais clara que a do editor, o texto comum desce 5px na linha (o título não) e a caixinha da tarefa sobe 3px', async () => {

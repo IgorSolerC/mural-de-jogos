@@ -119,7 +119,7 @@ describe('o topo do site', () => {
     it('no Calendário, o botão marca um lembrete (e não abre o editor)', async () => {
       const calendar = TestBed.inject(CalendarStore);
       const newReview = spyOn(TestBed.inject(Desk), 'newReview');
-      await at('/anotacoes/calendario?vista=semana');
+      await at('/utilidades/calendario?vista=semana');
       const btn = (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.adicionar button')!;
       expect(btn.getAttribute('aria-label')).toBe('Novo lembrete');
       expect(btn.textContent!.replace(/\s+/g, ' ').trim()).toBe('Novo lembrete');

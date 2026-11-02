@@ -178,7 +178,7 @@ describe('o que o link mostra do lembrete (core/reminder-links.ts)', () => {
     it('abre o Calendário no dia dele, na vista do dia, com ele no endereço (o que não existe não abre)', () => {
       const nav = spyOn(router, 'navigate').and.resolveTo(true);
       expect(links.open('rk2x9abc')).toBeTrue();
-      expect(nav).toHaveBeenCalledWith(['/anotacoes/calendario'], { queryParams: { vista: 'dia', dia: '2026-11-02', lembrete: 'rk2x9abc' } });
+      expect(nav).toHaveBeenCalledWith(['/utilidades/calendario'], { queryParams: { vista: 'dia', dia: '2026-11-02', lembrete: 'rk2x9abc' } });
       nav.calls.reset();
       expect(links.open('sumido')).toBeFalse();
       expect(nav).not.toHaveBeenCalled();

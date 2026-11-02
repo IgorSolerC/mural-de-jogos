@@ -43,7 +43,7 @@ describe('o topo do cofre', () => {
   it('a fileira das seções, da mesma lista da barra do Murall, com o Cofre marcado no fim, e o logo do Cofre', async () => {
     const el = await montar();
     expect(textos(el, '.secao')).toEqual([...SECOES_DAS_UTILIDADES.map((s) => s.label), 'Cofre']);
-    expect(enderecos(el, '.secao')).toEqual(['https://murall.igorsc.com.br/#/utilidades/gastos', 'https://cofre.murall.igorsc.com.br/']);
+    expect(enderecos(el, '.secao')).toEqual(['https://murall.igorsc.com.br/#/utilidades/gastos', 'https://murall.igorsc.com.br/#/utilidades/calendario', 'https://cofre.murall.igorsc.com.br/']);
     expect(textos(el, '[aria-current="page"]')).toEqual(['Cofre']);
     expect(el.querySelector('.logo-cofre')!.textContent!.trim()).toBe('Cofre');
   });
@@ -54,7 +54,8 @@ describe('o topo do cofre', () => {
     expect(cartaz.getAttribute('href')).toBe('https://murall.igorsc.com.br/');
     expect(cartaz.getAttribute('aria-label')).toBe('Murall');
     const fora = [...el.querySelectorAll<HTMLAnchorElement>('a')].filter((a) => !a.classList.contains('on') || a.classList.contains('etiqueta'));
-    expect(fora.length).toBe(1 + 4 + 3 + 1);
+    // o cartaz, as 4 partes, os 3 bottons e as seções das Utilidades no Murall (Gastos e Calendário)
+    expect(fora.length).toBe(1 + 4 + 3 + 2);
     expect(fora.every((a) => a.getAttribute('rel') === 'noreferrer' && !a.hasAttribute('target'))).toBe(true);
   });
 });

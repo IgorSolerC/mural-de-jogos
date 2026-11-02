@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toLastWall, toReviews } from './core/areas';
+import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -16,7 +16,8 @@ export const routes: Routes = [
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
   { path: 'anotacoes/kanban', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
   { path: 'anotacoes/kanban/:quadro', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
-  { path: 'anotacoes/calendario', title: 'Calendário', canActivate: [enterNotes], loadComponent: calendar },
+  // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
+  { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
   {
     path: 'analises/:tipo',
@@ -32,9 +33,10 @@ export const routes: Routes = [
       },
     ],
   },
-  // as Utilidades: os Gastos aqui, o cofre de senhas na origem dele (um link na barra)
+  // as Utilidades: os Gastos e o Calendário aqui, o cofre de senhas na origem dele (um link na barra)
   { path: 'utilidades', pathMatch: 'full', redirectTo: SPENDING_PATH },
   { path: 'utilidades/gastos', title: 'Gastos', loadComponent: () => import('./pages/spending-page').then((m) => m.SpendingPage) },
+  { path: 'utilidades/calendario', title: 'Calendário', loadComponent: calendar },
   // os endereços de antes das três partes
   { path: 'fila', redirectTo: toReviews('pra-depois') },
   { path: 'wishlist', redirectTo: toReviews('wishlist') },

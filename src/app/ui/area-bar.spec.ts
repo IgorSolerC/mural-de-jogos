@@ -155,40 +155,45 @@ describe('o índice embaixo do topo', () => {
     expect(host.classList).toContain('vazio');
   });
 
-  it('nas Anotações: Mural, Kanban e Calendário, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
+  it('nas Anotações: Mural e Kanban, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
     await go('/anotacoes');
     expect(picker()).toBeNull();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
     expect(tabs()[0].classList).toContain('on');
     expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
     await go('/anotacoes/kanban/qualquer');
     expect(tabs()[1].classList).toContain('on');
     expect(tabs()[0].classList).not.toContain('on');
-    await go('/anotacoes/calendario?vista=semana');
-    expect(tabs()[2].classList).toContain('on');
-    expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/calendario');
   });
 
-  it('as Utilidades: os Gastos e, só para quem pode usar o cofre, a aba Cofre, um link comum para a origem dele', async () => {
+  it('as Utilidades: os Gastos, o Calendário e, só para quem pode usar o cofre, a aba Cofre, um link comum para a origem dele', async () => {
     const conta = TestBed.inject(CloudAccount).account;
     conta.set({ codigo: 'G11T-G00D', nome: 'Igor' });
     await go('/utilidades/gastos');
-    // sem o cofre, uma seção só: nenhuma aba, mas a barra continua (o logo dos Gastos)
-    expect(tabs().length).toBe(0);
+    // sem o cofre: Gastos e Calendário, com o logo dos Gastos
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Calendário']);
+    expect(tabs()[0].classList).toContain('on');
+    expect(tabs()[1].getAttribute('href')).toBe('/utilidades/calendario');
     expect(fixture.nativeElement.querySelector('app-spending-logo')).not.toBeNull();
+    // o Calendário mora aqui: aceso, com o logo dele
+    await go('/utilidades/calendario?vista=semana');
+    expect(tabs()[1].classList).toContain('on');
+    expect(tabs()[0].classList).not.toContain('on');
+    expect(fixture.nativeElement.querySelector('app-calendar-logo')).not.toBeNull();
+    await go('/utilidades/gastos');
     conta.set({ codigo: 'G11T-G00D', nome: 'Igor', cofre: true });
     await fixture.whenStable();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Cofre']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Gastos', 'Calendário', 'Cofre']);
     expect(tabs()[0].classList).toContain('on');
-    const cofre = tabs()[1];
+    const cofre = tabs()[2];
     expect(cofre.getAttribute('aria-label')).toBe('Cofre de senhas');
     expect(cofre.getAttribute('href')).toBe('https://cofre.murall.igorsc.com.br/');
     expect(cofre.getAttribute('rel')).toBe('noreferrer');
     expect(cofre.hasAttribute('target')).toBe(false);
     expect(cofre.classList).not.toContain('on');
-    // o cofre saiu das Anotações
+    // o cofre e o Calendário saíram das Anotações
     await go('/anotacoes');
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Calendário']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
   });
 
   it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {
@@ -203,7 +208,7 @@ describe('o índice embaixo do topo', () => {
 
   it('no Calendário, quantos lembretes hoje tem', async () => {
     const calendar = TestBed.inject(CalendarStore);
-    await go('/anotacoes/calendario');
+    await go('/utilidades/calendario');
     expect(summary()).toBeNull();
     calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' });
     calendar.save({ ...calendar.blank('2020-01-01'), title: 'Remédio', repeat: 'dia' });
@@ -238,7 +243,7 @@ describe('o índice embaixo do topo', () => {
       ['/analises/jogos/wishlist', 'app-wishlist-logo'],
       ['/anotacoes', 'app-notes-logo'],
       ['/anotacoes/kanban/qualquer', 'app-kanban-logo'],
-      ['/anotacoes/calendario', 'app-calendar-logo'],
+      ['/utilidades/calendario', 'app-calendar-logo'],
       ['/extras', 'app-extras-logo'],
       ['/extras/estatisticas', 'app-extras-logo'],
     ];
@@ -260,7 +265,7 @@ describe('o índice embaixo do topo', () => {
     expect(host.querySelector('app-reviews-logo .canhoto')?.textContent?.trim()).toBe('de livros');
     const calendar = TestBed.inject(CalendarStore);
     calendar.today.set('2026-03-07');
-    await go('/anotacoes/calendario');
+    await go('/utilidades/calendario');
     expect(host.querySelector('app-calendar-logo .data')?.textContent?.trim()).toBe('07 mar 2026');
     calendar.today.set('2026-10-20');
     await fixture.whenStable();
@@ -291,7 +296,7 @@ describe('o índice embaixo do topo', () => {
 
     // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta; nas Anotações, as quatro
     // seções (com a do cofre) e a contagem do Calendário e a do Kanban (a mais comprida, com três dígitos)
-    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/anotacoes/calendario', '/anotacoes/kanban']) {
+    for (const url of ['/analises/musicas/pra-depois', '/analises/jogos/wishlist', '/extras', '/extras/mata-mata', '/utilidades/calendario', '/anotacoes/kanban']) {
       it(url, async () => {
         fill(135, 1);
         if (url.startsWith('/anotacoes')) {
@@ -355,7 +360,8 @@ describe('o índice embaixo do topo', () => {
       TestBed.inject(CalendarStore).save({ ...TestBed.inject(CalendarStore).blank(TestBed.inject(CalendarStore).today()), title: 'Dentista' });
       const areas: Record<string, string[]> = {
         analises: ['/analises/musicas', '/analises/musicas/lado-a-lado', '/analises/musicas/pra-depois', '/analises/musicas/wishlist'],
-        anotacoes: ['/anotacoes', '/anotacoes/kanban', '/anotacoes/calendario'],
+        anotacoes: ['/anotacoes', '/anotacoes/kanban'],
+        utilidades: ['/utilidades/gastos', '/utilidades/calendario'],
         extras: ['/extras', '/extras/estatisticas', '/ranking'],
       };
       const steps = WIDTHS.filter((_, i) => i % 4 === 0);
