@@ -359,6 +359,20 @@ describe('murais', () => {
     }
   });
 
+  it('séries e animes chamam o incompleto de Incompleto, como os jogos (era Parei); as seções concordam com o mural', () => {
+    for (const kind of ['series', 'animes'] as const) {
+      expect(KIND_PROFILES[kind].status).withContext(kind).toEqual({ incompleto: 'Incompleto', finalizado: 'Terminei', platinado: 'Revi' });
+    }
+    expect(KIND_PROFILES.series.statusGroup).toEqual({ incompleto: 'Incompletas', finalizado: 'Terminadas', platinado: 'Revistas' });
+    expect(KIND_PROFILES.animes.statusGroup).toEqual({ incompleto: 'Incompletos', finalizado: 'Terminados', platinado: 'Revistos' });
+    // os outros murais ficam com os nomes deles
+    expect(KIND_PROFILES.livros.status.incompleto).toBe('Larguei');
+    expect(KIND_PROFILES.filmes.status.incompleto).toBe('Não terminei');
+    expect(KIND_PROFILES.musicas.status.incompleto).toBe('Pulei');
+    // nenhum mural diz mais "Parei"
+    for (const p of Object.values(KIND_PROFILES)) expect(Object.values(p.status)).withContext(p.kind).not.toContain('Parei');
+  });
+
   it('a cartela pronta é do mural: "Muitos bugs" num livro vira bônus escrito', () => {
     const [b] = sanitizeBonuses([{ id: 'bugs', label: 'Muitos bugs', kind: 'contra' }], 'livros');
     expect(b.id).toBe(customBonusId('Muitos bugs', 'contra'));

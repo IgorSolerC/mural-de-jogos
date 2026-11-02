@@ -141,8 +141,8 @@ const PAGES: Amount = {
 };
 
 const REVI: Pick<KindProfile, 'status' | 'statusGroup'> = {
-  status: { incompleto: 'Parei', finalizado: 'Terminei', platinado: 'Revi' },
-  statusGroup: { incompleto: 'Parados', finalizado: 'Terminados', platinado: 'Revistos' },
+  status: { incompleto: 'Incompleto', finalizado: 'Terminei', platinado: 'Revi' },
+  statusGroup: { incompleto: 'Incompletos', finalizado: 'Terminados', platinado: 'Revistos' },
 };
 
 export const KIND_PROFILES: Record<Kind, KindProfile> = {
@@ -354,7 +354,7 @@ export const KIND_PROFILES: Record<Kind, KindProfile> = {
       { key: 'visual', base: 1 },
     ],
     ...REVI,
-    statusGroup: { incompleto: 'Paradas', finalizado: 'Terminadas', platinado: 'Revistas' },
+    statusGroup: { incompleto: 'Incompletas', finalizado: 'Terminadas', platinado: 'Revistas' },
     day: { incompleto: 'Vista até', feito: 'Terminada em' },
     amount: null,
     difficulty: null,
