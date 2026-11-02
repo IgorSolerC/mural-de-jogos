@@ -676,15 +676,19 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
    `core/study.ts` (modelo, `sanitizeStudy`, as mudanças, `mergeStudy`), `core/study-queue.ts` (a fila do
    dia, os limites, o dia que vira às 4h, o aprender adiantado), `intervalLabel`. Só testes.
 2. **Guardar e sincronizar.** `core/study-store.ts`, a parte `estudos` do mural privado, `SYNC_SCHEMA`,
-   `localHasContent`, o teste do logout em `browser-reset.spec.ts`, Ajustes › Imagens com as frentes, o
-   voto do mural (4.4) com o Kanban (`core/kanban-wall.spec.ts` continua passando). Sem tela nova.
+   `localHasContent`, o teste do logout em `browser-reset.spec.ts`. Sem tela nova. (O voto do mural e
+   Ajustes › Imagens foram para a rodada 4: o voto mexe em tudo o que lê `boardOnly`, inclusive o mural
+   público e a API, e só faz diferença quando dá para criar uma carta.)
 3. **A seção Estudos.** Rota, a barra (Mural · Kanban · Estudos), o logo, as divisórias, a página Tudo
    com as pilhas, a aba do baralho com a parede de cartas, criar/renomear/apagar baralho, a primeira vez
    e os vazios, a carta (6.1) como componente (`ui/study-card.ts`, usado em tudo). Novidades: a entrada
    F2 (parte nova com conteúdo próprio) nasce aqui; as rodadas 4 a 6 somam itens nela se forem do mesmo
    dia, ou viram a entrada de ajustes do dia, pela regra do NOVIDADES.md.
 4. **A frente.** A aba Flashcard no editor, a folha da carta, Nova carta e Trazer anotações, a linha da
-   leitura, o Filtrar e a etiqueta "Só nos Estudos" do mural, o menu da anotação, marcar várias e mover.
+   leitura, o voto do mural (4.4) com o Kanban (`StudyStore.votes` junto de `KanbanStore.boardOnly`, em
+   todo lugar que lê o "fora do mural": a parede, o mural público, o perfil, a API; `kanban-wall.spec.ts`
+   continua passando), o Filtrar e a etiqueta "Só nos Estudos" do mural, Ajustes › Imagens com as
+   frentes, o menu da anotação, marcar várias e mover.
 5. **Estudar.** A sessão (6.7) do baralho e Estudar tudo, o giro, as teclas, o Desfazer, o fim.
 6. **Boletim e configurações.** O boletim (6.8) nos três lugares, a engrenagem com as partes Estudo e
    Baralhos (6.10), "Estudar adiantado". DESIGN.md (as seções novas, derivadas do que foi feito) e
@@ -754,6 +758,12 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   espalhadas, `nextUp` da sessão). Decidido no caminho: no mesmo dia, o número de novas de dois aparelhos
   junta pelo maior (somar contaria duas vezes a cada sincronização). Próximo: a rodada 2 (guardar e
   sincronizar).
+- 02/nov/2026, rodada 2 (BUILD 707): `core/study-store.ts` (`meu-mural:estudos:v1`, as mudanças com o
+  Desfazer, `votes` pronto para a rodada 4), a parte `estudos` no mural privado (`studyOf`,
+  `studyPrintOf`, a impressão, o envio, a junção na volta), `SYNC_SCHEMA` 50, `localHasContent` e a
+  pergunta de levar o mural para a conta contando as cartas. A imagem da frente conta como usada sem
+  código novo (a parte vai dentro do mural privado; o teste confere). O pacote inicial passou de 2,11
+  para 2,13 MB (o modelo e o FSRS entram com a sincronização). Próximo: a rodada 3 (a seção Estudos).
 
 ---
 

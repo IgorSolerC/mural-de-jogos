@@ -19,6 +19,8 @@ import { CalendarState, calendarToSync, sanitizeCalendar } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { SpendingState, sanitizeSpending, spendingToSync } from './spending';
 import { SpendingStore } from './spending-store';
+import { StudyState, sanitizeStudy, studyToSync } from './study';
+import { StudyStore } from './study-store';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
@@ -191,11 +193,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     jogaria a estampa fora ao enviar a ficha, e ela voltaria lisa em todo aparelho.
  * 49: o ícone do lembrete do Calendário (`icon`, da cartela dos grupos e das colunas). Um site da 48 não
  *     conhece o campo e o jogaria fora ao enviar o calendário, e o lembrete voltaria sem ícone em todo aparelho.
+ * 50: os Estudos (`estudos`, só no mural privado, juntados carta a carta e baralho a baralho; ver
+ *     PLANO-ESTUDOS.md). Um site antigo enviaria o mural sem eles, e as cartas e o progresso sumiriam da nuvem.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 49;
+export const SYNC_SCHEMA = 50;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -318,6 +322,22 @@ export function spendingOf(data: Record<string, unknown>): SpendingState | null 
 export function spendingPrintOf(data: Record<string, unknown>): SpendingState | null {
   const g = spendingOf(data);
   return g && spendingToSync(g);
+}
+
+/**
+ * Os Estudos (ver core/study.ts). Vão só no mural privado da nuvem, juntados carta a carta e baralho a
+ * baralho: vale o mudado por último, e o apagado fica apagado (`mergeStudy`).
+ */
+export function studyOf(data: Record<string, unknown>): StudyState | null {
+  const raw = data['estudos'];
+  if (!raw || typeof raw !== 'object') return null;
+  return sanitizeStudy(raw);
+}
+
+/** Os Estudos como entram na impressão: null sem nada (como `studyToSync`). */
+export function studyPrintOf(data: Record<string, unknown>): StudyState | null {
+  const s = studyOf(data);
+  return s && studyToSync(s);
 }
 
 /**
@@ -576,6 +596,7 @@ export async function fingerprint(
   places: Record<string, Place> | null = null,
   calendar: CalendarState | null = null,
   spending: SpendingState | null = null,
+  study: StudyState | null = null,
 ): Promise<string> {
   const notes = Array.isArray(doc.notas) ? (doc.notas as { id: string }[]) : [];
   const music = Array.isArray(doc.musicas) ? doc.musicas : [];
@@ -611,6 +632,8 @@ export async function fingerprint(
     ...(calendar ? { calendario: calendar } : {}),
     // só com gastos: o mural de antes deles continua com a mesma impressão
     ...(spending ? { gastos: spending } : {}),
+    // só com Estudos: o mural de antes deles continua com a mesma impressão
+    ...(study ? { estudos: study } : {}),
   });
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -684,6 +707,7 @@ export class CloudSync {
   private readonly requests = inject(ApiRequests);
   private readonly calendar = inject(CalendarStore);
   private readonly spending = inject(SpendingStore);
+  private readonly study = inject(StudyStore);
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
   private readonly imageSync = inject(ImageSync);
@@ -779,6 +803,7 @@ export class CloudSync {
       this.kanban.state();
       this.calendar.state();
       this.spending.state();
+      this.study.state();
       this.shared.places();
       this.profiles.changedAt();
       this.conflicts.list();
@@ -908,7 +933,7 @@ export class CloudSync {
         this.integrate(state.conta, remote, this.knownFor(state));
         // o público da nuvem agora é o que veio com este mural (de outro aparelho, talvez com outra regra)
         state = { ...state, rev: remote.rev, publicas: publicPrintOf(remote.data) };
-        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending());
+        const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy());
         if (here === (await this.remotePrint(remote.data))) state = { ...state, impressao: here };
         this.writeState(state);
       } else if (remote.kind === 'none' && state.rev !== 0) {
@@ -929,14 +954,15 @@ export class CloudSync {
       const conflitos = this.conflicts.toSync();
       const calendario = this.localCalendar();
       const gastos = this.localSpending();
-      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos);
+      const estudos = this.localStudy();
+      const here = await fingerprint(doc, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos);
       const publicas = await this.publicPrint();
       if (here === state.impressao && publicas === (state.publicas ?? '')) break;
       if (attempt >= 3) throw new CloudError('Outros aparelhos estão gravando ao mesmo tempo. Tento de novo daqui a pouco.', 'conflito', 409);
       try {
         const boards = this.kanban.state().boards;
         const blocks = this.blocksNow();
-        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, here + publicas, publicas);
+        const rev = await this.push(doc, state.rev, keys, tags, looks, profile, config, kanban, conflitos, places, calendario, gastos, estudos, here + publicas, publicas);
         state = { ...state, rev, impressao: here, publicas };
         this.writeState(state);
         this.writeBase(state.conta, versionsOf(doc));
@@ -1020,7 +1046,7 @@ export class CloudSync {
     if (remote.kind === 'doc') {
       this.integrate(accountId, remote, mergeFichas ? known : null);
       // o daqui ficou igual ao da nuvem (baixou, ou juntou dois iguais): não há o que enviar de volta
-      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending());
+      const here = await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy());
       if (here === (await this.remotePrint(remote.data))) base.impressao = here;
       base.publicas = publicPrintOf(remote.data);
     }
@@ -1073,6 +1099,7 @@ export class CloudSync {
       this.store.versions().length > 0 ||
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
+      this.study.state().cards.length > 0 ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
       BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
       this.images.count() > 0
@@ -1095,6 +1122,7 @@ export class CloudSync {
     const extra = doc.drafts.length + doc.wishes.length;
     const spent = this.spending.state().entries.length;
     const reminders = this.calendar.state().reminders.length;
+    const cards = this.study.state().cards.length;
     const kept = this.store.versions().length;
     const parts = [
       ...(n ? [plural(n, 'resenha', 'resenhas')] : []),
@@ -1102,6 +1130,7 @@ export class CloudSync {
       ...(extra ? [`${extra} na fila e na wishlist`] : []),
       ...(spent ? [plural(spent, 'gasto', 'gastos')] : []),
       ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
+      ...(cards ? [plural(cards, 'carta de estudo', 'cartas de estudo')] : []),
       ...(kept ? [plural(kept, 'versão guardada', 'versões guardadas')] : []),
     ];
     if (!parts.length) return 'ajustes e um perfil mudados aqui';
@@ -1117,9 +1146,11 @@ export class CloudSync {
     // "começar a conta vazia" para quem já tem gastos nela)
     const spent = spendingOf(data);
     const reminders = calendarOf(data);
+    const study = studyOf(data);
     return (
       (spent !== null && spendingToSync(spent) !== null) ||
       (reminders !== null && calendarToSync(reminders) !== null) ||
+      (study?.cards.length ?? 0) > 0 ||
       (kanbanOf(data)?.boards.some((b) => b.cards.length > 0) ?? false)
     );
   }
@@ -1213,6 +1244,10 @@ export class CloudSync {
     // os Gastos: cada lançamento e cada categoria vem de onde mudou por último
     const gastos = spendingOf(remote.data);
     if (gastos) this.apply(() => this.spending.merge(gastos));
+
+    // os Estudos: cada carta e cada baralho vem de onde mudou por último
+    const estudos = studyOf(remote.data);
+    if (estudos) this.apply(() => this.study.merge(estudos));
 
     // o lugar das compartilhadas no mural (fixada no topo): o mudado por último, em qualquer aparelho
     const places = placesOf(remote.data);
@@ -1472,6 +1507,11 @@ export class CloudSync {
     return spendingToSync(this.spending.state());
   }
 
+  /** Os Estudos deste aparelho para a nuvem, ou null sem nada mexido. */
+  private localStudy(): StudyState | null {
+    return studyToSync(this.study.state());
+  }
+
   /** O perfil deste aparelho para a nuvem, ou null se nunca mudou aqui. */
   private localProfile(): SyncedProfile | null {
     const em = this.profiles.changedAt();
@@ -1494,7 +1534,7 @@ export class CloudSync {
 
   /** A impressão do mural que veio da nuvem, com tudo o que vai junto dele. */
   private remotePrint(data: Record<string, unknown>): Promise<string> {
-    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data), calendarPrintOf(data), spendingPrintOf(data));
+    return fingerprint(data as unknown as BackupPayload, keysOf(data), pinnedTagsOf(data), categoryLooksOf(data), profileOf(data), notesConfigOf(data), kanbanPrintOf(data), conflictsPrintOf(data), placesOf(data), calendarPrintOf(data), spendingPrintOf(data), studyPrintOf(data));
   }
 
   private apply(fn: () => void): void {
@@ -1549,6 +1589,7 @@ export class CloudSync {
     places: Record<string, Place> | null,
     calendario: CalendarState | null,
     gastos: SpendingState | null,
+    estudos: StudyState | null,
     print: string,
     publicas: string,
   ): Promise<number> {
@@ -1567,7 +1608,7 @@ export class CloudSync {
     }
     const name = this.account.account()?.nome ?? '';
     // as chaves só no privado: o público e o arquivo de backup nunca levam
-    const privateText = JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } });
+    const privateText = JSON.stringify({ ...doc, ...(keys ? { chaves: keys } : {}), ...(tags ? { tagsFixas: tags } : {}), ...(looks ? { categorias: looks } : {}), ...(profile ? { perfil: profile } : {}), ...(config ? { muralAnotacoes: config } : {}), ...(kanban ? { kanban } : {}), ...(conflitos ? { conflitos } : {}), ...(places ? { lugares: places } : {}), ...(calendario ? { calendario } : {}), ...(gastos ? { gastos } : {}), ...(estudos ? { estudos } : {}), sync: { schema: SYNC_SCHEMA, aparelho: this.device, publico: publicas } });
     const privado = await gzip(privateText);
     if (privado.size > MAX_GZ_BYTES) {
       throw new CloudError('O mural ficou grande demais para a nuvem (passa de 1,8 MB compactado). Ele continua salvo aqui.', 'mural-grande-demais', 413);
@@ -1824,7 +1865,7 @@ export class CloudSync {
     const id = this.account.account()?.id;
     if (!state || state.conta !== id) return !this.localHasContent();
     return (
-      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending())) === state.impressao
+      (await fingerprint(this.store.snapshot(), this.localKeys(), this.localTags(), this.localLooks(), this.localProfile(), this.localConfig(), this.localKanban(), this.conflicts.toSync(), this.localPlaces(), this.localCalendar(), this.localSpending(), this.localStudy())) === state.impressao
     );
   }
 }

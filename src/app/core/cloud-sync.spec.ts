@@ -12,6 +12,7 @@ import { ProfileStore } from './profile-store';
 import { KanbanStore } from './kanban-store';
 import { CalendarStore } from './calendar-store';
 import { SpendingStore } from './spending-store';
+import { StudyStore } from './study-store';
 import { placeCard, resetBoard } from './kanban';
 import { defaultProfile } from './profile';
 import { Choice, Confirm } from '../ui/confirm';
@@ -189,6 +190,7 @@ interface Device {
   kanban: KanbanStore;
   calendar: CalendarStore;
   spending: SpendingStore;
+  study: StudyStore;
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
@@ -259,6 +261,7 @@ describe('sincronização com a nuvem', () => {
         KanbanStore,
         CalendarStore,
         SpendingStore,
+        StudyStore,
         CloudAccount,
         CloudSync,
         // as imagens sobem com a conta deste aparelho (a da raiz é outra)
@@ -284,6 +287,7 @@ describe('sincronização com a nuvem', () => {
       kanban: injector.get(KanbanStore),
       calendar: injector.get(CalendarStore),
       spending: injector.get(SpendingStore),
+      study: injector.get(StudyStore),
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
@@ -561,6 +565,65 @@ describe('sincronização com a nuvem', () => {
       a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
       await a.sync.syncNow();
       expect((await cloud.read() as unknown as Record<string, unknown>)['gastos']).toBeUndefined();
+    });
+  });
+
+  describe('os Estudos', () => {
+    it('vão só no mural privado, carta a carta, com os baralhos e o progresso; o apagado fica apagado', async () => {
+      const a = device();
+      const kanji = a.study.addDeck('Kanjis simples', 'amarelo');
+      a.study.addCard('nsol', [kanji], { title: '日', image: 'murall://imagem/abcdefghijklmnopqrstuv' });
+      a.study.addCard('nlua', [kanji], { title: '月' });
+      a.study.answer('nsol', true, kanji);
+      await a.sync.syncNow();
+      const priv = (await cloud.read()) as unknown as { estudos?: { decks: { name: string }[]; cards: { note: string; stats: { seen: number } }[] } };
+      expect(priv.estudos!.decks.map((d) => d.name)).toEqual(['Kanjis simples']);
+      expect(priv.estudos!.cards.map((c) => [c.note, c.stats.seen])).toEqual([
+        ['nsol', 1],
+        ['nlua', 0],
+      ]);
+      // o público e o mural dos outros nunca levam
+      expect((await cloud.readPublic())['estudos']).toBeUndefined();
+
+      localStorage.removeItem('meu-mural:estudos:v1');
+      const b = device();
+      expect(b.study.cards()).toEqual([]);
+      await b.sync.syncNow();
+      expect(b.study.cardOf().get('nsol')?.front.title).toBe('日');
+      expect(b.study.cardOf().get('nsol')?.srs.state).toBe('aprendendo');
+
+      // cada um mexe numa carta: os dois ficam com as duas mudanças
+      await new Promise((r) => setTimeout(r, 5));
+      b.study.answer('nlua', false, kanji);
+      a.study.updateFront('nsol', { title: '日', subtitle: 'sol, dia' });
+      await settle(a, b);
+      for (const d of [a, b]) {
+        expect(d.study.cardOf().get('nsol')?.front.subtitle).toBe('sol, dia');
+        expect(d.study.cardOf().get('nlua')?.stats.wrong).toBe(1);
+      }
+
+      // tirar num tira no outro, e ela não volta
+      await new Promise((r) => setTimeout(r, 5));
+      b.study.removeCard('nlua');
+      await settle(b, a);
+      expect(a.study.cardOf().get('nlua')).toBeUndefined();
+      expect(await settle(a, b)).toBe(1);
+      expect(b.study.cardOf().get('nlua')).toBeUndefined();
+    });
+
+    it('sem nada nos Estudos, o mural privado não ganha a chave', async () => {
+      const a = device();
+      a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });
+      await a.sync.syncNow();
+      expect(((await cloud.read()) as unknown as Record<string, unknown>)['estudos']).toBeUndefined();
+    });
+
+    it('a imagem da frente conta como usada (não sai da nuvem em 30 dias)', async () => {
+      const a = device();
+      const deck = a.study.addDeck('Mapas', 'verde');
+      a.study.addCard('nmapa', [deck], { image: 'murall://imagem/abcdefghijklmnopqrstuv' });
+      await a.sync.syncNow();
+      expect(JSON.parse(cloud.published!).usadas).toContain('abcdefghijklmnopqrstuv');
     });
   });
 
@@ -1573,6 +1636,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 49, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 50, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
   });
 });

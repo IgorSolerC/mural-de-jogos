@@ -43,6 +43,9 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(OWNER_KEY, 'conta-ela');
     localStorage.setItem('meu-mural:gastos:v1', '{"entries":[]}');
     localStorage.setItem('meu-mural:calendario:v1', '{"reminders":[]}');
+    // os Estudos (PLANO-ESTUDOS.md): as cartas, os baralhos e o progresso, e a vista aberta
+    localStorage.setItem('meu-mural:estudos:v1', '{"decks":[],"cards":[]}');
+    localStorage.setItem('meu-mural:estudos-vista:v1', '"dkanji"');
     localStorage.setItem('mural-de-jogos:resenhas:v1', '[]');
     localStorage.setItem('mural-de-jogos:config:v1', '{}');
     localStorage.setItem('meu-mural:volume', '0.5');
@@ -75,6 +78,8 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.removeItem(SESSION_KEY);
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+    expect(localStorage.getItem('meu-mural:estudos:v1')).toBeNull();
+    expect(localStorage.getItem('meu-mural:estudos-vista:v1')).toBeNull();
     expect(localStorage.getItem(OWNER_KEY)).toBeNull();
     expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull();
   });
