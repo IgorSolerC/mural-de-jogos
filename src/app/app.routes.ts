@@ -4,6 +4,7 @@ import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLas
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
 const calendar = () => import('./pages/calendar-page').then((m) => m.CalendarPage);
+const study = () => import('./pages/study-page').then((m) => m.StudyPage);
 
 /**
  * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
@@ -16,6 +17,8 @@ export const routes: Routes = [
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
   { path: 'anotacoes/kanban', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
   { path: 'anotacoes/kanban/:quadro', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
+  { path: 'anotacoes/estudos', title: 'Estudos', canActivate: [enterNotes], loadComponent: study },
+  { path: 'anotacoes/estudos/:baralho', title: 'Estudos', canActivate: [enterNotes], loadComponent: study },
   // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
   { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },

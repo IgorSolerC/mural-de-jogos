@@ -12,11 +12,13 @@ import { KanbanStore } from '../core/kanban-store';
 import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { KindSwitcher } from './kind-switcher';
-import { CalendarLogo, ExtrasLogo, KanbanLogo, NotesLogo, QueueLogo, ReviewsLogo, SpendingLogo, WishlistLogo } from './section-logos';
+import { CalendarLogo, ExtrasLogo, KanbanLogo, NotesLogo, QueueLogo, ReviewsLogo, SpendingLogo, StudyLogo, WishlistLogo } from './section-logos';
 import { SpendingStore } from '../core/spending-store';
+import { StudyStore } from '../core/study-store';
+import { countTotal, dayQueue } from '../core/study-queue';
 
 /** Qual logo a barra mostra. */
-type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'calendario' | 'gastos' | 'extras';
+type SectionLogo = 'analises' | 'fila' | 'wishlist' | 'notas' | 'kanban' | 'estudos' | 'calendario' | 'gastos' | 'extras';
 
 /** Uma aba do índice, já com o endereço e se é a aberta. */
 interface Tab {
@@ -45,7 +47,7 @@ interface Summary {
  * altura e nada embaixo dela é empurrado.
  *
  * - Análises: o mural de resenhas, Mural / Pra depois / Wishlist e a contagem da seção aberta.
- * - Anotações: as seções (Mural, Kanban), quando houver mais de uma.
+ * - Anotações: as seções (Mural, Kanban, Estudos), quando houver mais de uma.
  * - Utilidades: os Gastos, o Calendário e, para quem pode, o Cofre (um link para a origem dele).
  * - Extras: o mural; nas páginas de dentro, a volta para Extras. O mural de um colega tem o próprio
  *   cabeçalho.
@@ -53,7 +55,7 @@ interface Summary {
  */
 @Component({
   selector: 'app-area-bar',
-  imports: [CalendarLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, QueueLogo, ReviewsLogo, RouterLink, SpendingLogo, WishlistLogo],
+  imports: [CalendarLogo, ExtrasLogo, IconModule, KanbanLogo, KindSwitcher, NotesLogo, QueueLogo, ReviewsLogo, RouterLink, SpendingLogo, StudyLogo, WishlistLogo],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.vazio]': '!shown()' },
   template: `
@@ -110,6 +112,9 @@ interface Summary {
               }
               @case ('kanban') {
                 <app-kanban-logo class="logo" />
+              }
+              @case ('estudos') {
+                <app-study-logo class="logo" />
               }
               @case ('calendario') {
                 <app-calendar-logo class="logo" [day]="calendar.today()" />
@@ -460,6 +465,7 @@ export class AreaBar {
   protected readonly calendar = inject(CalendarStore);
   private readonly cloudAccount = inject(CloudAccount);
   private readonly spending = inject(SpendingStore);
+  private readonly study = inject(StudyStore);
 
   protected readonly BackIcon = ICON.voltar;
   protected readonly LockIcon = ICON.privada;
@@ -510,6 +516,12 @@ export class AreaBar {
       const n = board ? this.kanban.live(board).length : 0;
       return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
     }
+    // nos Estudos: quantas cartas para hoje, no baralho aberto ou em todos (a mesma conta do Estudar)
+    if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'estudos' && this.area() === 'anotacoes') {
+      const deck = pathOf(this.path()).split('/')[3];
+      const n = countTotal(dayQueue(this.study.state(), this.study.now(), deck && this.study.deck(deck) ? deck : undefined, this.study.live).counts);
+      return n ? { n, long: n === 1 ? 'carta para hoje' : 'cartas para hoje', short: 'hoje' } : null;
+    }
     // no Calendário: quantos lembretes hoje tem
     if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario') {
       const n = this.calendar.todayCount();
@@ -546,7 +558,7 @@ export class AreaBar {
     }
     if (area === 'anotacoes') {
       const slug = sectionOf(this.path(), NOTE_SECTIONS)?.slug;
-      return slug === 'kanban' ? 'kanban' : 'notas';
+      return slug === 'kanban' ? 'kanban' : slug === 'estudos' ? 'estudos' : 'notas';
     }
     if (area === 'utilidades') return sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario' ? 'calendario' : 'gastos';
     return this.inExtras() ? 'extras' : null;

@@ -552,7 +552,7 @@ export function answer(st: StudyState, note: string, ok: boolean, now: Date, dec
 const numberFmt = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 });
 
 /**
- * Em quanto tempo, curto: "1 min", "10 min", "3 h", "1 dia", "12 dias", "2 meses", "1,5 ano". A carta em
+ * Em quanto tempo, curto: "1 min", "10 min", "3 h", "1 dia", "40 dias", "2 meses", "1,5 ano". A carta em
  * revisão (`byDay`) conta em dias de estudo; nos passos, pela hora.
  */
 export function intervalLabel(now: Date, due: Date, byDay: boolean): string {
@@ -565,24 +565,23 @@ export function intervalLabel(now: Date, due: Date, byDay: boolean): string {
   }
   const days = byDay ? Math.max(0, daysBetween(studyDay(now), studyDay(due))) : Math.round(ms / 86_400_000);
   if (days < 1) return 'hoje';
-  if (days < 30) return days === 1 ? '1 dia' : `${days} dias`;
-  if (days < 365) {
-    const m = Math.round((days / 30) * 10) / 10;
-    return `${numberFmt.format(m)} ${m >= 2 ? 'meses' : 'mês'}`;
-  }
+  if (days < 45) return days === 1 ? '1 dia' : `${days} dias`;
+  if (days < 365) return `${Math.round(days / 30)} meses`;
   const y = Math.round((days / 365) * 10) / 10;
   return `${numberFmt.format(y)} ${y >= 2 ? 'anos' : 'ano'}`;
 }
 
-/** Quando a carta volta, dito como gente: "agora", "daqui a 8 min", "amanhã", "em 3 dias". */
+/** Quando a carta volta, dito como gente: "hoje", "agora", "daqui a 8 min", "amanhã", "em 3 dias". */
 export function whenLabel(srs: Srs, now: Date): string {
   const due = new Date(srs.due);
-  if (srs.state === 'nova' || due <= now) return 'agora';
+  if (srs.state === 'nova') return 'agora';
   if (srs.state === 'revisao') {
+    // vencida (hoje ou antes): é para hoje
     const days = daysBetween(studyDay(now), studyDay(due));
-    if (days <= 0) return 'hoje';
+    if (days <= 0 || due <= now) return 'hoje';
     if (days === 1) return 'amanhã';
     return `em ${intervalLabel(now, due, true)}`;
   }
+  if (due <= now) return 'agora';
   return `daqui a ${intervalLabel(now, due, false)}`;
 }

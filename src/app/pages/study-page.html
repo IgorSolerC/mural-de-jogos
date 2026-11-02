@@ -1,0 +1,190 @@
+<!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
+<h1 class="sr-only">Estudos{{ deck() ? ": " + deck()!.name : "" }}</h1>
+
+@if (!decks().length) {
+  <!-- nenhum baralho ainda: a cartolina explica o que é um baralho, com três cartas desenhadas a giz ao lado -->
+  <section class="primeiro" aria-labelledby="primeiro-titulo">
+    <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
+      <app-pin class="pin" />
+      <h2 id="primeiro-titulo">Monte o seu primeiro baralho</h2>
+      <p>
+        Um baralho junta as cartas que você estuda juntas, como <em>Kanjis simples</em>, <em>Verbos</em> ou
+        <em>Capitais</em>. Cada carta é uma anotação sua: na frente, o que você quer lembrar; atrás, a anotação
+        inteira, com a resposta.
+      </p>
+      <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst()">
+        <label class="campo primeiro-nome">
+          <span class="sr-only">Nome do baralho</span>
+          <input type="text" autocomplete="off" placeholder="Nome do baralho" [maxLength]="nameMax" [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
+        </label>
+        <button type="submit" class="btn-ink" [disabled]="!firstName().trim()">Criar o baralho</button>
+      </form>
+    </div>
+    <ol class="vagas" aria-hidden="true">
+      <li class="vaga"></li>
+      <li class="vaga"></li>
+      <li class="vaga"></li>
+    </ol>
+  </section>
+} @else {
+  <!-- os baralhos: Tudo e um por aba, nas mesmas divisórias de manilha dos quadros do Kanban -->
+  <nav class="abas-baralhos" aria-label="Baralhos">
+    <ul class="abas">
+      <li>
+        <a class="aba" [routerLink]="studyPath()" [class.on]="!deck()" [attr.aria-current]="!deck() ? 'page' : null">
+          <span class="rotulo">
+            <lucide-icon [img]="AllIcon" [size]="15" aria-hidden="true" />
+            <span class="rotulo-nome">Tudo</span>
+          </span>
+        </a>
+      </li>
+      @for (d of decks(); track d.deck.id) {
+        <li>
+          <a
+            class="aba orelha-cor"
+            [routerLink]="studyPath(d.deck.id)"
+            [class.on]="deck()?.id === d.deck.id"
+            [style.--cat-cor]="'var(--stock-' + d.deck.color + ')'"
+            [attr.aria-current]="deck()?.id === d.deck.id ? 'page' : null"
+            [title]="d.deck.name"
+          >
+            <span class="rotulo">
+              @if (d.deck.icon) {
+                <lucide-icon [img]="iconOf[d.deck.icon]" [size]="15" aria-hidden="true" />
+              }
+              <span class="rotulo-nome">{{ d.deck.name }}</span>
+            </span>
+            @if (d.today) {
+              <span class="aba-n"><span class="sr-only">, </span>{{ d.today }}<span class="sr-only"> para hoje</span></span>
+            }
+          </a>
+        </li>
+      }
+      <li>
+        <button type="button" class="aba aba-nova" (click)="newDeck()">
+          <lucide-icon [img]="AddIcon" [size]="15" aria-hidden="true" />
+          Novo baralho
+        </button>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- a pasta: a linha de estudo (quantas para hoje) e, num baralho, a busca, o nível, a ordem e o lápis -->
+  <div class="pasta">
+    <div class="pasta-linha linha-estudo">
+      <div class="hoje" aria-live="polite">
+        @if (lineTotal()) {
+          <p class="hoje-n"><strong>{{ lineTotal() }}</strong> para hoje</p>
+          <ul class="montes" aria-label="Para hoje">
+            <li class="monte" data-monte="novas"><span class="selo" aria-hidden="true"></span>{{ line().novas }} {{ line().novas === 1 ? "nova" : "novas" }}</li>
+            <li class="monte" data-monte="aprender"><span class="selo" aria-hidden="true"></span>{{ line().aprender }} aprendendo</li>
+            <li class="monte" data-monte="revisar"><span class="selo" aria-hidden="true"></span>{{ line().revisar }} {{ line().revisar === 1 ? "revisão" : "revisões" }}</li>
+          </ul>
+        } @else if (deck() && !deckSize()) {
+          <p class="em-dia">Nenhuma carta neste baralho ainda.</p>
+        } @else {
+          <p class="em-dia">
+            Tudo em dia.
+            @if (next(); as n) {
+              A próxima revisão é {{ n.when }} ({{ countLabel(n.n) }}).
+            }
+          </p>
+        }
+      </div>
+      @if (deck(); as d) {
+        <div class="pasta-controles">
+          <div class="pasta-grupo">
+            <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
+              <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+    @if (deck() && deckSize()) {
+      <div class="pasta-linha filtros">
+        <app-search-strip class="pasta-busca" inputId="busca-cartas" [glued]="true" label="Procurar nas cartas" placeholder="Procurar nas cartas…" [value]="query()" (valueChange)="query.set($event)" />
+        <label class="escolha">
+          <span class="sr-only">Nível</span>
+          <select [value]="level()" (change)="level.set($any($event.target).value)">
+            <option value="">Todos os níveis</option>
+            @for (l of levels; track l) {
+              <option [value]="l">{{ levelPlural[l] }}</option>
+            }
+          </select>
+        </label>
+        <label class="escolha">
+          <span class="sr-only">Ordem</span>
+          <select [value]="sort()" (change)="sort.set($any($event.target).value)">
+            @for (s of sorts; track s.id) {
+              <option [value]="s.id">{{ s.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    }
+  </div>
+
+  @if (deck(); as d) {
+    @if (!deckSize()) {
+      <!-- o baralho vazio: uma carta desenhada a giz, dizendo que ainda não tem nenhuma -->
+      <div class="vagas vazio">
+        <div class="vaga"><span class="vaga-txt">Nenhuma carta neste baralho ainda</span></div>
+      </div>
+    } @else if (!cards().length) {
+      <p class="nada">Nenhuma carta com esse filtro.</p>
+    } @else {
+      <!-- a parede das cartas, a frente à mostra; tocar abre a anotação, a resposta -->
+      <ul class="cartas" [attr.aria-label]="'Cartas de ' + d.name">
+        @for (c of cards(); track c.note) {
+          <li [style.--inclina]="c.tilt + 'deg'">
+            <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta" (click)="open(c.note)">
+              <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [meta]="c.meta" [suit]="d.icon" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  } @else {
+    <!-- Tudo: cada baralho é uma pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele,
+         com o papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
+    <ul class="pilhas" aria-label="Baralhos">
+      @for (d of decks(); track d.deck.id) {
+        <li>
+          <a class="pilha" [routerLink]="studyPath(d.deck.id)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.today ? ', ' + d.today + ' para hoje' : '')">
+            <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+              @if (d.top; as top) {
+                @for (l of layers(d.cards); track l) {
+                  <span class="camada" [attr.data-camada]="l"></span>
+                }
+                <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [suit]="d.deck.icon" />
+                <span class="elastico"></span>
+                <span class="papelzinho">
+                  @if (d.today) {
+                    <span class="pz" data-monte="novas"><span class="selo"></span>{{ d.counts.novas }}</span>
+                    <span class="pz" data-monte="aprender"><span class="selo"></span>{{ d.counts.aprender }}</span>
+                    <span class="pz" data-monte="revisar"><span class="selo"></span>{{ d.counts.revisar }}</span>
+                  } @else {
+                    <span class="pz em-dia-pz">em dia</span>
+                  }
+                </span>
+              } @else {
+                <span class="vaga-pilha">Sem cartas</span>
+              }
+            </span>
+            <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+              <span class="nome-txt">{{ d.deck.name }}</span>
+              <span class="nome-n">{{ countLabel(d.cards) }}</span>
+            </span>
+          </a>
+        </li>
+      }
+    </ul>
+  }
+}
+
+@if (sheet(); as s) {
+  @defer (on immediate) {
+    <app-study-deck-sheet [deckId]="s.id" [fresh]="s.fresh" (closed)="sheet.set(null)" (removed)="removed()" />
+  }
+}

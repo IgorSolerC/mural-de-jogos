@@ -499,6 +499,78 @@ export class CalendarLogo {
 }
 
 /**
+ * Estudos: duas cartas de estudo em leque, como as da seção (ui/study-card.ts). A da frente é a ficha clara
+ * com o fio amarelo recuado e "Estudos" a pincel; a de trás aparece pelo canto, com um "?" a lápis.
+ */
+@Component({
+  selector: 'app-study-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <span class="tras" aria-hidden="true"><span class="duvida">?</span></span>
+    <span class="frente" aria-hidden="true"><span class="nome">Estudos</span></span>
+  `,
+  styles: `
+    :host {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      box-sizing: border-box;
+      height: 52px;
+      padding: 0 6px 0 16px;
+    }
+    .tras,
+    .frente {
+      display: grid;
+      place-items: center;
+      box-sizing: border-box;
+      border-radius: 5px;
+      background: var(--paper-grain), var(--papel-ficha);
+      filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 5px 7px rgb(0 0 0 / 0.38));
+    }
+    /* a de trás: só o canto de cima aparece, com a dúvida a lápis */
+    .tras {
+      position: absolute;
+      left: 2px;
+      top: 3px;
+      width: 40px;
+      height: 44px;
+      rotate: -11deg;
+      place-items: start;
+      padding: 4px 0 0 7px;
+    }
+    .duvida {
+      font-family: var(--f-hand);
+      font-weight: 700;
+      font-size: 1.05rem;
+      line-height: 1;
+      color: var(--ink-2);
+    }
+    /* a da frente: com o fio da carta recuado, na cor do marca-texto */
+    .frente {
+      position: relative;
+      height: 46px;
+      padding: 0 16px;
+      rotate: 2.2deg;
+    }
+    .frente::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      border: 2.5px solid var(--stock-amarelo);
+      border-radius: 3px;
+    }
+    .nome {
+      position: relative;
+      font-family: var(--f-marker);
+      font-size: 1.32rem;
+      line-height: 1;
+      color: var(--ink);
+    }
+  `,
+})
+export class StudyLogo {}
+
+/**
  * O logo de Extras: um tíquete de fliperama, vermelho, com os entalhes nas laterais, o fio impresso
  * em volta e o canhoto do outro lado do picote ("Vale 1 rodada"). A sombra fica no host e o recorte
  * no bilhete, dentro dele: a máscara apagaria a sombra.

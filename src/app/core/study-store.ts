@@ -58,6 +58,11 @@ export class StudyStore {
   readonly config = computed(() => this.state().config);
   /** Quando os Estudos mudaram aqui (para a sincronização enviar). */
   readonly changedAt = signal(0);
+  /**
+   * Agora, para os números do dia (as cartas nos passos vencem sozinhas): a página dos Estudos chama
+   * `tick` de minuto em minuto, e a barra e a página leem daqui.
+   */
+  readonly now = signal(new Date());
 
   /** As cartas pelo id da anotação. */
   readonly cardOf = computed(() => new Map(this.cards().map((c) => [c.note, c])));
@@ -87,6 +92,10 @@ export class StudyStore {
     effect(() => writeJson(STUDY_KEY, this.state()));
     // outra aba mexeu: esta acompanha, sem gravar o de antes por cima
     inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, () => this.state.set(read())));
+  }
+
+  tick(): void {
+    this.now.set(new Date());
   }
 
   private stamp(): string {

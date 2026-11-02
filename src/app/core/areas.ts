@@ -31,7 +31,8 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 ];
 
 /**
- * As seções das Anotações: o mural e os quadros Kanban (`/anotacoes/kanban/:quadro`). A lista mora em
+ * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e os Estudos
+ * (`/anotacoes/estudos/:baralho`, ver PLANO-ESTUDOS.md). A lista mora em
  * `shared/topo-do-murall.ts`, a mesma do topo do cofre; uma seção nova entra lá (e nas rotas) e aparece
  * sozinha no índice.
  */
@@ -62,6 +63,11 @@ export const VAULT_URL = COFRE_URL;
 /** O caminho de um quadro Kanban (sem quadro: o último aberto, ou o primeiro). */
 export function kanbanPath(board?: string): string {
   return '/anotacoes/kanban' + (board ? `/${board}` : '');
+}
+
+/** Os Estudos, ou um baralho deles (sem baralho: Tudo, os baralhos em pilhas). */
+export function studyPath(deck?: string): string {
+  return '/anotacoes/estudos' + (deck ? `/${deck}` : '');
 }
 
 /**

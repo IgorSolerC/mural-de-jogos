@@ -217,7 +217,8 @@ describe('os Estudos (core/study.ts)', () => {
     expect(intervalLabel(now, dayStart('2026-11-03'), true)).toBe('1 dia');
     expect(intervalLabel(now, dayStart('2026-11-14'), true)).toBe('12 dias');
     expect(intervalLabel(now, dayStart('2027-01-01'), true)).toBe('2 meses');
-    expect(intervalLabel(now, dayStart('2026-12-17'), true)).toBe('1,5 mês');
+    expect(intervalLabel(now, dayStart('2026-12-12'), true)).toBe('40 dias');
+    expect(intervalLabel(now, dayStart('2027-08-02'), true)).toBe('9 meses');
     expect(intervalLabel(now, dayStart('2028-05-02'), true)).toBe('1,5 ano');
     expect(intervalLabel(now, dayStart('2030-11-02'), true)).toBe('4 anos');
     const srs = (state: 'nova' | 'aprendendo' | 'revisao', due: Date) => ({ ...freshSrs(T0), state, due: due.toISOString(), last: T0, s: 1, d: 5, reps: 1 });
@@ -225,7 +226,10 @@ describe('os Estudos (core/study.ts)', () => {
     expect(whenLabel(srs('aprendendo', new Date(now.getTime() + 8 * 60_000)), now)).toBe('daqui a 8 min');
     expect(whenLabel(srs('revisao', dayStart('2026-11-03')), now)).toBe('amanhã');
     expect(whenLabel(srs('revisao', dayStart('2026-11-05')), now)).toBe('em 3 dias');
-    expect(whenLabel(srs('revisao', new Date(now.getTime() - 1000)), now)).toBe('agora');
+    // a revisão vencida é para hoje; o passo vencido, agora
+    expect(whenLabel(srs('revisao', new Date(now.getTime() - 1000)), now)).toBe('hoje');
+    expect(whenLabel(srs('revisao', dayStart('2026-10-28')), now)).toBe('hoje');
+    expect(whenLabel(srs('aprendendo', new Date(now.getTime() - 1000)), now)).toBe('agora');
   });
 
   describe('guardar e juntar', () => {

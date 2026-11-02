@@ -9,6 +9,7 @@ import { Settings } from '../core/settings';
 import { AreaBar } from './area-bar';
 import { CalendarStore } from '../core/calendar-store';
 import { SpendingStore } from '../core/spending-store';
+import { StudyStore } from '../core/study-store';
 import { CloudAccount } from '../core/cloud-account';
 import { boardIdFor } from '../core/kanban';
 import { KanbanStore } from '../core/kanban-store';
@@ -155,15 +156,18 @@ describe('o índice embaixo do topo', () => {
     expect(host.classList).toContain('vazio');
   });
 
-  it('nas Anotações: Mural e Kanban, sem a etiqueta do mural; o Kanban fica aceso nos quadros', async () => {
+  it('nas Anotações: Mural, Kanban e Estudos, sem a etiqueta do mural; o Kanban e os Estudos ficam acesos por dentro', async () => {
     await go('/anotacoes');
     expect(picker()).toBeNull();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Estudos']);
     expect(tabs()[0].classList).toContain('on');
     expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
     await go('/anotacoes/kanban/qualquer');
     expect(tabs()[1].classList).toContain('on');
     expect(tabs()[0].classList).not.toContain('on');
+    await go('/anotacoes/estudos/umbaralho');
+    expect(tabs()[2].classList).toContain('on');
+    expect(tabs()[2].getAttribute('href')).toBe('/anotacoes/estudos');
   });
 
   it('as Utilidades: os Gastos, o Calendário e, só para quem pode usar o cofre, a aba Cofre, um link comum para a origem dele', async () => {
@@ -193,7 +197,7 @@ describe('o índice embaixo do topo', () => {
     expect(cofre.classList).not.toContain('on');
     // o cofre e o Calendário saíram das Anotações
     await go('/anotacoes');
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Estudos']);
   });
 
   it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {
@@ -204,6 +208,21 @@ describe('o índice embaixo do topo', () => {
     await fixture.whenStable();
     expect(summary()).toContain('1');
     expect(summary()).toContain('lançamento em');
+  });
+
+  it('nos Estudos, quantas cartas para hoje: as de todos em Tudo, as do baralho aberto nele', async () => {
+    const reviews = TestBed.inject(ReviewStore);
+    reviews.reviews.set([sanitizeReview({ id: 'nsol', kind: 'anotacoes', game: { name: 'Sol' }, completedAt: '2026-10-01' })!, sanitizeReview({ id: 'nlua', kind: 'anotacoes', game: { name: 'Lua' }, completedAt: '2026-10-01' })!]);
+    const study = TestBed.inject(StudyStore);
+    const a = study.addDeck('Kanjis', 'amarelo');
+    const b = study.addDeck('Vazio', 'azul');
+    study.addCard('nsol', [a]);
+    study.addCard('nlua', [a]);
+    await go('/anotacoes/estudos');
+    expect(summary()).toContain('2');
+    expect(summary()).toContain('cartas para hoje');
+    await go(`/anotacoes/estudos/${b}`);
+    expect(summary()).toBeNull();
   });
 
   it('no Calendário, quantos lembretes hoje tem', async () => {
@@ -243,6 +262,7 @@ describe('o índice embaixo do topo', () => {
       ['/analises/jogos/wishlist', 'app-wishlist-logo'],
       ['/anotacoes', 'app-notes-logo'],
       ['/anotacoes/kanban/qualquer', 'app-kanban-logo'],
+      ['/anotacoes/estudos', 'app-study-logo'],
       ['/utilidades/calendario', 'app-calendar-logo'],
       ['/extras', 'app-extras-logo'],
       ['/extras/estatisticas', 'app-extras-logo'],
@@ -360,7 +380,7 @@ describe('o índice embaixo do topo', () => {
       TestBed.inject(CalendarStore).save({ ...TestBed.inject(CalendarStore).blank(TestBed.inject(CalendarStore).today()), title: 'Dentista' });
       const areas: Record<string, string[]> = {
         analises: ['/analises/musicas', '/analises/musicas/lado-a-lado', '/analises/musicas/pra-depois', '/analises/musicas/wishlist'],
-        anotacoes: ['/anotacoes', '/anotacoes/kanban'],
+        anotacoes: ['/anotacoes', '/anotacoes/kanban', '/anotacoes/estudos'],
         utilidades: ['/utilidades/gastos', '/utilidades/calendario'],
         extras: ['/extras', '/extras/estatisticas', '/ranking'],
       };

@@ -764,6 +764,17 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   pergunta de levar o mural para a conta contando as cartas. A imagem da frente conta como usada sem
   código novo (a parte vai dentro do mural privado; o teste confere). O pacote inicial passou de 2,11
   para 2,13 MB (o modelo e o FSRS entram com a sincronização). Próximo: a rodada 3 (a seção Estudos).
+- 02/nov/2026, rodada 0645cfb4 (BUILD 708): um baralho sem cartas conta como conteúdo (achado do review).
+- 02/nov/2026, rodada 3 (BUILD 709): a seção Estudos (rota, barra, logo, abas, Tudo com as pilhas, a parede
+  do baralho, a primeira vez, os vazios, a folha do baralho) e a carta (`ui/study-card.ts`,
+  `ui/fit-title.ts`). A primeira carta foi chamada de "MUITO feia" pelo usuário e refeita (moldura grossa
+  com o miolo lavado, o fio impresso por dentro, os cantos de carta de baralho com o ícone do baralho de
+  naipe, Kalam nas frases), depois revista pelo revisor do Impeccable (as pilhas com a carta de verdade
+  por cima, sépia no branco e no cinza, a faixa fina na escura). O elástico ficou o primeiro, na cor do
+  baralho, com o papelzinho dos três montes por cima: o usuário amou esse e achou estranho o vermelho
+  que dobrava na beirada, com a etiqueta de furo, que o revisor tinha sugerido. A Klee One
+  ficou numa folha à parte (`klee-one.css`, `inject: false`): no CSS da carta, estourava o orçamento.
+  O botão Estudar da linha de estudo chega na rodada 5, junto da sessão.
 
 ---
 

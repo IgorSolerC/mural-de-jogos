@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-02-estudos',
+    version: '1.37.0',
+    kind: 'funcionalidade',
+    date: '2026-11-02',
+    title: 'Estudos: baralhos de cartas para estudar',
+    items: [
+      'As Anotações ganharam a seção Estudos, ao lado do Mural e do Kanban, para estudar com cartas, como no Anki: cada carta é uma anotação sua, com uma frente (o que você quer lembrar) e a anotação inteira atrás, com a resposta.',
+      'As cartas se juntam em baralhos ("Kanjis simples", "Verbos"…), cada um numa aba, com o nome, o ícone e a cor que você escolher. Em Tudo, cada baralho é uma pilha das cartas dele, com quantas vencem hoje; dentro do baralho, as cartas ficam na parede com a frente à mostra, e tocar numa abre a anotação.',
+      'Por enquanto dá para montar os baralhos; pôr as cartas e estudar chegam nas próximas atualizações.',
+    ],
+  },
+  {
     id: '2026-11-02-calendario-nas-utilidades',
     version: '1.36.3',
     kind: 'ajustes',
