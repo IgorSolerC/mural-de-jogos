@@ -135,8 +135,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Voltar à leitura');
     expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
-    // a folha toma quase a tela toda, e a letra é maior que a da leitura
-    expect(dialog().getBoundingClientRect().width).toBeGreaterThan(Math.min(innerWidth - 60, 1000));
+    // a letra é maior que a da leitura
     expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeGreaterThan(1.3 * parseFloat(getComputedStyle(document.documentElement).fontSize));
     band('.ler-tela-cheia').click();
     await settle();
@@ -144,6 +143,66 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(q('.top')).not.toBeNull();
     expect(q('.foot')).not.toBeNull();
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Ler em tela cheia');
+  });
+
+  it('na tela cheia, a folha é a coluna do texto com 1cm de papel de cada lado, e só da altura dele', async () => {
+    const cm = 96 / 2.54;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const wide = document.head.appendChild(document.createElement('style'));
+    try {
+      fixture.componentInstance.open(note('n-1', 'Mercado'));
+      await settle();
+      band('.ler-tela-cheia').click();
+      await settle();
+      // o celular (até 600px) é a página inteira; aqui, a janela do teste é o computador
+      expect(innerWidth).toBeGreaterThan(600);
+      const sheet = () => q('.par > .ficha')!.getBoundingClientRect();
+      const text = () => q('.body .text')!.getBoundingClientRect();
+      // a pauta a 1cm das duas beiradas, e a folha nunca mais larga que a coluna mais as margens
+      expect(text().left - sheet().left).toBeCloseTo(cm, 0);
+      expect(sheet().right - text().right).toBeCloseTo(cm, 0);
+      expect(dialog().getBoundingClientRect().width).toBeLessThanOrEqual(43 * rem + 2 * cm + 1);
+      // o nome começa onde começa a letra (a margem e a folga de 8px da pauta)
+      expect(parseFloat(getComputedStyle(q('.faixa-nome')!).paddingLeft)).toBeCloseTo(cm + 8, 0);
+      // a nota curta: a folha tem a altura do texto, longe da tela inteira
+      const faixa = q('.faixa-nome')!.getBoundingClientRect().height;
+      expect(sheet().height).toBeCloseTo(faixa + 28 + text().height + 36, 0);
+      expect(sheet().height).toBeLessThan(innerHeight - 48 - 40);
+      expect(q('.body')!.scrollHeight).toBeLessThanOrEqual(q('.body')!.clientHeight);
+
+      // numa tela larga, a folha não cresce além da coluna: as margens continuam de 1cm
+      wide.textContent = 'dialog.reader.tela-cheia { --medida: 20rem !important; }';
+      await settle();
+      expect(text().left - sheet().left).toBeCloseTo(cm, 0);
+      expect(sheet().right - text().right).toBeCloseTo(cm, 0);
+      expect(text().width).toBeCloseTo(20 * rem, 0);
+    } finally {
+      wide.remove();
+    }
+  });
+
+  it('na tela cheia, com a seta de volta de um link, a seta fica na margem e o nome perto da letra do texto', async () => {
+    fixture.componentInstance.open(note('n-mercado', 'Mercado'), null, [], false, null, note('n-tudo', 'Lista de tudo'));
+    await settle();
+    band('.ler-tela-cheia').click();
+    await settle();
+    const sheet = q('.par > .ficha')!.getBoundingClientRect();
+    const arrow = q('.faixa-nome .voltar-elo')!.getBoundingClientRect();
+    const title = q('#leitura-titulo')!.getBoundingClientRect();
+    const letter = q('.body .text')!.getBoundingClientRect().left + 8;
+    expect(arrow.left - sheet.left).toBeGreaterThanOrEqual(0);
+    expect(arrow.left - sheet.left).toBeLessThanOrEqual(8);
+    expect(Math.abs(title.left - letter)).toBeLessThanOrEqual(8);
+  });
+
+  it('na tela cheia, o texto comprido vai até a tela (menos 24px em cima e embaixo) e rola por dentro', async () => {
+    fixture.componentInstance.open(note('n-longa', 'Diário', { text: LONG }));
+    await settle();
+    band('.ler-tela-cheia').click();
+    await settle();
+    const sheet = q('.par > .ficha')!.getBoundingClientRect();
+    expect(sheet.height).toBeCloseTo(innerHeight - 48, 0);
+    expect(q('.body')!.scrollHeight).toBeGreaterThan(q('.body')!.clientHeight);
   });
 
   it('na tela cheia, a análise também fica só com o texto (sem o boletim nem a etiqueta)', async () => {
