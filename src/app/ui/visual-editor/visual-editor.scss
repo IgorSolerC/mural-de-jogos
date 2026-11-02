@@ -71,12 +71,41 @@
     top: 0;
   }
 
-  // o bloco de código: o retalho de papel da leitura, com a letra de máquina; o recuo empurra o bloco
-  // inteiro (no texto, cada linha dele tem o recuo), não só a primeira linha
+  // o bloco de código: a folha de formulário contínuo da leitura (ui/_formatado.scss), pintada num
+  // ::before do próprio bloco (por cima do papel do card, quando ele mora num: o z-index 0 faz dele o
+  // fundo das letras), o cabeçalho com a linguagem na primeira linha. As letras (o <code>) rolam de lado
+  // como na leitura: a linha comprida nunca quebra (quebrada, ela pareceria outra linha do formulário). O
+  // recuo empurra o bloco inteiro (no texto, cada linha dele tem o recuo), não só a primeira linha
   > pre.codigo {
+    position: relative;
+    z-index: 0;
     text-indent: 0;
     margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
-    tab-size: 4;
+    padding: var(--line) 0 0 (formatado.$cod-margem + formatado.$cod-vao);
+    white-space: pre;
+  }
+  > pre.codigo > code {
+    display: block;
+    padding-right: 0.9em;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: pre;
+    overflow-wrap: normal;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(47 107 58 / 0.45) transparent;
+  }
+  > pre.codigo::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    @include formatado.codigo-papel;
+  }
+  > pre.codigo > .codigo-lingua {
+    @include formatado.codigo-lingua;
+  }
+  > pre.codigo > .codigo-lingua[hidden] {
+    display: none;
   }
 
   // ===== As listas e as tarefas: o desenho da leitura (ui/_formatado.scss), uma linha por item =====
@@ -121,9 +150,6 @@
   > .vis-feita {
     @include formatado.corpo-feito;
     @include formatado.corpo-feito-risco;
-  }
-  > pre.codigo > code {
-    font: inherit;
   }
 
   // ===== A tabela: o desenho da leitura (ui/_formatado.scss), escrita célula por célula =====
@@ -289,6 +315,11 @@
   .url {
     cursor: text;
   }
+}
+
+// no bloco do cursor, a pílula da linguagem (controles.scss) toma o lugar do nome impresso
+.vis-folha:focus-within > .ProseMirror > pre.codigo.vis-codigo-ativo > .codigo-lingua {
+  display: none;
 }
 
 // O cursor de lacuna (perto de uma peça, no começo ou no fim do texto): um risco vermelho como o cursor

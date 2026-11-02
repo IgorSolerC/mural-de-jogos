@@ -62,6 +62,7 @@
               "node_modules/@fontsource/abril-fatface/latin-400.css",
               "node_modules/@fontsource/dm-serif-display/latin-400.css",
               "node_modules/@fontsource/dm-serif-display/latin-400-italic.css",
+              "node_modules/@fontsource/cascadia-mono/latin-400.css",
               "src/styles.scss"
             ]
           },

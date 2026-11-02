@@ -1,5 +1,6 @@
 import { Fragment, Mark, Node as PMNode, Schema, Slice } from 'prosemirror-model';
 import { CalloutFold, calloutLook } from '../../core/callouts';
+import { typedCodeLang } from '../../core/code-langs';
 import { Fonte, LinhaDoc, juntarSpans, textToDoc } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
 import { Align, TableLook, tableLookWord } from '../../core/tables';
@@ -43,6 +44,13 @@ const alinharDe = (d: HTMLElement | string) => {
   const n = (k: string) => Math.max(1, Math.min(50, parseInt(el.getAttribute(k) ?? '1', 10) || 1));
   return { colspan: n('colspan'), rowspan: n('rowspan'), alinhar: ALINHAR[el.style?.textAlign ?? ''] ?? null };
 };
+/** A linguagem de um bloco de código colado (a nossa, ou a classe "language-js"/"lang-js" que os sites põem). */
+export function linguaDe(el: HTMLElement): string {
+  const own = el.getAttribute('data-lingua');
+  if (own) return typedCodeLang(own);
+  const cls = [el.className, el.querySelector('code')?.className ?? ''].join(' ');
+  return typedCodeLang(/(?:^|\s)lang(?:uage)?-([^\s]+)/.exec(cls)?.[1] ?? '');
+}
 const alinhado = (n: PMNode): Record<string, string> => (n.attrs['alinhar'] ? { style: `text-align: ${n.attrs['alinhar']}` } : {});
 
 export const schema = new Schema({
@@ -138,7 +146,8 @@ export const schema = new Schema({
      * O bloco de código: as linhas entre as cercas, em letra de máquina, sem marcas, com as quebras
      * dentro (um nó só, como a leitura o mostra). `cerca` é a escrita (o "```" ou o "~~~~"), `margem` o
      * recuo do corpo de item onde ele mora, `aberto` sem a cerca que fecha (o fim do texto). O recuo
-     * empurra o bloco inteiro (não só a primeira linha).
+     * empurra o bloco inteiro (não só a primeira linha). `lingua`: o que vem depois da cerca que abre ("js"
+     * em "```js", ver core/code-langs.ts), que dá as cores (ver codigos.ts). Na tela, a peça `CodigoView`.
      */
     blocoCodigo: {
       group: 'bloco',
@@ -146,9 +155,10 @@ export const schema = new Schema({
       marks: '',
       code: true,
       defining: true,
-      attrs: { ...base, cerca: { default: '```' }, margem: { default: 0 }, aberto: { default: false } },
-      parseDOM: [{ tag: 'pre', preserveWhitespace: 'full', getAttrs: recuoDe }],
-      toDOM: (n) => ['pre', { class: 'linha codigo', spellcheck: 'false', ...recuo(n) }, ['code', 0]],
+      attrs: { ...base, cerca: { default: '```' }, margem: { default: 0 }, aberto: { default: false }, lingua: { default: '' } },
+      // (o bloco copiado daqui leva a linguagem em data-lingua; o de fora, na classe "language-js" do <pre> ou do <code>)
+      parseDOM: [{ tag: 'pre', preserveWhitespace: 'full', contentElement: (d) => (d as HTMLElement).querySelector('code') ?? (d as HTMLElement), getAttrs: (d) => ({ ...recuoDe(d), lingua: linguaDe(d as HTMLElement) }) }],
+      toDOM: (n) => ['pre', { class: 'linha codigo', spellcheck: 'false', ...(n.attrs['lingua'] ? { 'data-lingua': n.attrs['lingua'] } : {}), ...recuo(n) }, ['code', 0]],
     },
     /**
      * O widget (desde a rodada 5): uma linha só dele, `{{nome: a | b | tamanho}}`, desenhado pela peça
@@ -388,7 +398,7 @@ function noSemCartao(l: LinhaDoc): PMNode {
     case 'divisoria':
       return N['divisoria'].create({ recuo: l.recuo, fonte });
     case 'codigo':
-      return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto }, l.texto ? schema.text(l.texto) : []);
+      return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto, lingua: l.lingua ?? '' }, l.texto ? schema.text(l.texto) : []);
     case 'widget':
       // a marca do jeito da tabela sozinha (sem a tabela embaixo) não é um widget: fica crua, como está
       if (l.nome === 'tabela') return N['cru'].create({ linha: l });
@@ -485,7 +495,7 @@ export function linhaDe(n: PMNode): LinhaDoc {
       break;
     }
     case 'blocoCodigo':
-      l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], fonte };
+      l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], ...(n.attrs['lingua'] ? { lingua: n.attrs['lingua'] } : {}), fonte };
       break;
     case 'cru':
       l = n.attrs['linha'] as LinhaDoc;

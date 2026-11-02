@@ -94,7 +94,7 @@
   --pdf-fundo: #f5f2ec;
   --pdf-azul: #1d3577;
   --pdf-letra: 'Inter Variable', 'Inter', system-ui, sans-serif;
-  --pdf-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+  --pdf-mono: 'Cascadia Mono', ui-monospace, 'SF Mono', Consolas, 'Liberation Mono', monospace;
   display: block;
   background: #fff;
   color: var(--pdf-tinta);
@@ -384,7 +384,9 @@
     mask: none;
   }
 
-  // o código: a letra de código do sistema, no cinza quente do papel
+  // o código: a Cascadia Mono (a do site; sem ela, a do sistema), no cinza quente do papel, como no
+  // Obsidian: sem o formulário contínuo da tela (o papel, as faixas e os furos), as tintas do realce
+  // chapadas no papel, a linguagem miúda no canto de cima e as linhas compridas quebrando (o papel não rola)
   .cod:not(app-note-widget *),
   .codigo:not(app-note-widget *) {
     font-family: var(--pdf-mono);
@@ -394,19 +396,46 @@
     padding: 0.08em 0.36em;
     border-radius: 3px;
     background: var(--pdf-fundo);
+    box-shadow: none;
     font-size: 0.86em;
   }
-  .codigo:not(app-note-widget *) {
+  .codigo-peca:not(app-note-widget *) {
     margin: 0.35em 0;
-    padding: 0.85em 1.05em;
     border-radius: 4px;
     background: var(--pdf-fundo);
     box-shadow: inset 0 0 0 1px #ebe6dd;
-    font-size: 0.84em;
-    line-height: 1.55;
+    filter: none;
     // o bloco comprido quebra de página, como no Obsidian (o fundo e o fio continuam na outra)
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
+  }
+  .codigo-peca:not(app-note-widget *)::before,
+  .codigo-copiar:not(app-note-widget *) {
+    display: none;
+  }
+  .codigo-peca:not(app-note-widget *) > .codigo {
+    margin: 0;
+    padding: 0.85em 1.05em;
+    overflow: visible;
+    font-size: 0.84em;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .codigo-peca:not(app-note-widget *):has(> .codigo-lingua) > .codigo {
+    padding-top: 1.45em;
+  }
+  .codigo-peca:not(app-note-widget *) > .codigo-lingua {
+    top: 0.45em;
+    right: 0.9em;
+    left: auto;
+    max-width: 50%;
+    color: var(--pdf-tinta-3);
+    font-family: var(--pdf-letra);
+    font-weight: 600;
+    font-size: 0.62em;
+    letter-spacing: 0.08em;
+    line-height: 1.2;
   }
 
   // a tabela branca (a de sempre) vira a do PDF: o fio fino em toda célula, o cabeçalho em negrito no

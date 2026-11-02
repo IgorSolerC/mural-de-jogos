@@ -75,9 +75,18 @@ const LOOKS: Record<string, (el: HTMLElement) => void> = {
     expect(el.getBoundingClientRect().height).toBe(1);
     expect(css(el).maskImage).toBe('none');
   },
-  'pre.codigo': (el) => {
-    expect(css(el).fontFamily).toMatch(MONO);
+  '.codigo-peca': (el) => {
+    // o cinza quente do papel, sem o formulário da tela (os furos, as faixas) nem o Copiar
     expect(css(el).backgroundColor).toBe('rgb(245, 242, 236)');
+    expect(css(el, '::before').display).toBe('none');
+    expect(css(el.querySelector('.codigo-copiar')!).display).toBe('none');
+    const pre = el.querySelector<HTMLElement>('pre.codigo')!;
+    expect(css(pre).fontFamily).toMatch(/Cascadia Mono/);
+    expect(css(pre).fontFamily).toMatch(MONO);
+    // as linhas compridas quebram (o papel não rola)
+    expect(css(pre).whiteSpace).toBe('pre-wrap');
+    // a linguagem, miúda no canto
+    expect(el.querySelector('.codigo-lingua')?.textContent?.trim()).toBe('JavaScript');
   },
   'table.tabela th': (el) => {
     expect(css(el).textTransform).toBe('none');

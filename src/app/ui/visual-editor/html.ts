@@ -1,6 +1,7 @@
 import { LinhaDoc, juntarSpans } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
 import { Align, MAX_TABLE_COLS, MAX_TABLE_ROWS } from '../../core/tables';
+import { linguaDe } from './schema';
 
 /**
  * O HTML colado de fora (o Docs, o Word, um site, o e-mail, uma planilha) traduzido para o que o Murall
@@ -389,7 +390,9 @@ class Montador {
     vai(el);
     const texto = partes.join('').replace(/\r\n?/g, '\n').replace(/ /g, ' ').replace(/^\n+|\n+$/g, '');
     if (!texto.trim()) return;
-    this.linhas.push({ kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false });
+    // a linguagem que o site de onde veio pôs (a classe "language-js" do <pre> ou do <code>, como no GitHub)
+    const lingua = linguaDe(el);
+    this.linhas.push({ kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false, ...(lingua ? { lingua } : {}) });
   }
 
   /**

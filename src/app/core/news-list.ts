@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-02-codigo-no-formulario',
+    version: '1.36.3',
+    kind: 'ajustes',
+    date: '2026-11-02',
+    title: 'O código no texto com a linguagem e as cores',
+    melhorias: [
+      'O bloco de código ganhou a linguagem, como no Obsidian: escrita logo depois das crases ("```js", "```python", "```sql"…), ela pinta o código com as cores de cada coisa (as palavras da linguagem, os textos, os números, as funções, os comentários). Pelo menu Código da régua, com o cursor no bloco (ou pela etiqueta dele no Visual), dá para escolher entre as comuns ou escrever outra, copiar o código e desfazer o bloco; o Inserir › Bloco de código já pergunta a linguagem.',
+      'O código ganhou cara de papelaria, na letra Cascadia Mono: o bloco é uma folha de formulário contínuo de impressora, com as faixas verdes, os furos do lado e a linguagem impressa no alto, e um Copiar no canto; o código no meio da frase é um recorte dela. A linha comprida rola de lado, e no PDF o código sai com as cores.',
+    ],
+  },
+  {
     id: '2026-11-01-incompleto-nas-analises',
     version: '1.36.2',
     kind: 'ajustes',

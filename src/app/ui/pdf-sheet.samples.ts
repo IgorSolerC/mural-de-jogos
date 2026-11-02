@@ -33,7 +33,10 @@ export const PDF_BLOCK_SAMPLES: Record<Block['kind'], PdfSample> = {
   },
   subtle: { text: '-# Preços de outubro de 2026, podem mudar.', shows: '.linha.sutil' },
   hr: { text: '---', shows: '.divisoria' },
-  code: { text: '```\nCP Sintra: Rossio → Sintra, 40 min\nIda e volta: 4,60 €\n```', shows: 'pre.codigo' },
+  code: {
+    text: "```js\n// a volta de Sintra: o último trem sai às 23h\nconst trem = { de: 'Sintra', para: 'Rossio', minutos: 40 };\nfunction preco(ida, volta = true) {\n  return volta ? ida * 2 : ida; // 4,60 € ida e volta\n}\n```",
+    shows: '.codigo-peca',
+  },
   table: { text: '| Dia | Lugar | Custo |\n| --- | :---: | ---: |\n| Seg | Belém | 18 € |\n| Ter | Sintra | 42 € |', shows: 'table.tabela th' },
   widget: { text: '{{contador: 19/11/2026 08:30 | Embarque}}', shows: 'app-note-widget app-countdown' },
 };

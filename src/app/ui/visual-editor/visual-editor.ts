@@ -35,6 +35,7 @@ import { atalhos } from './input-rules';
 import { apagarParaFrente, apagarParaTras, codigo, divisoria, enter, estilo, marca, teclas } from './keymap';
 import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa } from './listas';
 import { CartaoView, acaoCartao, cartoes, estadoCartao } from './cartoes';
+import { CodigoView, acaoCodigo, estadoCodigo, realceDoCodigo, textoDoCodigo } from './codigos';
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
 import { acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
@@ -282,6 +283,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly pedeLink = output<PedidoLink>();
   /** Uma imagem colada ou solta (sem texto junto): o editor a encolhe, guarda e põe no marcador (`poeImagem`). */
   readonly imagem = output<ImagemVisual>();
+  /** O botão da linguagem de um bloco de código: a régua abre o menu "Código", com o campo da linguagem. */
+  readonly pedeLingua = output<void>();
   /** Onde está o cursor (a ponta da seleção que anda), no texto guardado: a prévia da ficha vai até ele. */
   readonly cursor = output<number>();
 
@@ -373,6 +376,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       nodeViews: {
         item: (node, view, getPos) => new ItemView(node, view, getPos),
         cartaoTopo: (node, view, getPos) => new CartaoView(node, view, getPos),
+        blocoCodigo: (node, view) => new CodigoView(node, view, { pedeLingua: () => this.pedeLingua.emit(), copia: (texto) => void this.copiaCodigo(texto) }),
         widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
@@ -441,6 +445,16 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (typeof acao === 'object' && 'tabelaNova' in acao) return poeTabela(acao.tabelaNova.colunas, acao.tabelaNova.fileiras);
     if (typeof acao === 'object' && 'tabela' in acao) return acaoTabela(acao.tabela);
     if (typeof acao === 'object' && 'cartao' in acao) return acaoCartao(acao.cartao);
+    if (typeof acao === 'object' && 'codigo' in acao) {
+      if (acao.codigo !== 'copiar') return acaoCodigo(acao.codigo);
+      // copiar o bloco do cursor: só o texto dele (as letras), sem as crases nem a linguagem
+      return (state) => {
+        const texto = textoDoCodigo(state);
+        if (texto === null) return false;
+        void this.copiaCodigo(texto);
+        return true;
+      };
+    }
     // o código: na linha, a marca; numa linha vazia ou em várias, o bloco (como o Ctrl+E)
     if (acao === 'code') return codigo;
     if (acao === 'ul' || acao === 'ol' || acao === 'check') return lista(acao);
@@ -452,6 +466,16 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
 
   focus(): void {
     this.view?.focus();
+  }
+
+  /** O texto de um bloco de código para a área de transferência (só as letras), com o aviso de que foi. */
+  private async copiaCodigo(texto: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(texto);
+      this.aviso.emit('Código copiado: é só colar');
+    } catch {
+      this.aviso.emit('O navegador não deixou copiar o código');
+    }
   }
 
   blur(): void {
@@ -815,6 +839,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       this.vazia(),
       desenhoDasListas((doc) => this.escrever(doc)),
       cartoes(),
+      realceDoCodigo(),
     ];
   }
 
@@ -1066,6 +1091,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       peca: pecaDe(s),
       tabela: estadoTabela(s),
       cartao: estadoCartao(s),
+      codigo: estadoCodigo(s),
     };
     const k = JSON.stringify(est);
     if (k === this.ultimoEstado) return;

@@ -1,0 +1,99 @@
+@use 'formatado';
+@use 'paper-kit' as kit;
+
+// O código no texto da leitura (ver ui/rich-text.ts e ui/_formatado.scss): o recorte na linha, o bloco
+// na folha de formulário contínuo e o Copiar. À parte do resto do desenho do texto, pelo orçamento de
+// 24 kB por folha de estilo.
+
+@include formatado.codigo;
+/* a peça do bloco: o papel embaixo de tudo (o ::before, com os furos), com a sombra de papel colado,
+   que também entra nos furos; as letras rolam de lado sem levar a tira dos furos junto */
+/* (a largura nunca vem das letras: a linha comprida rola por dentro, não alarga o texto em volta, que na
+   leitura é item de grade) */
+.codigo-peca {
+  position: relative;
+  contain: inline-size;
+  isolation: isolate;
+  filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.16)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08));
+}
+.codigo-peca::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  @include formatado.codigo-papel;
+}
+.codigo-peca > .codigo {
+  margin-left: formatado.$cod-margem;
+  padding: var(--line, 1.5em) 0.9em 0 formatado.$cod-vao;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(47 107 58 / 0.45) transparent;
+}
+.codigo-lingua {
+  @include formatado.codigo-lingua;
+}
+/* Copiar: a etiqueta de papel do site, pequena, na ponta direita do cabeçalho; aparece com o mouse em
+   cima ou o foco (no toque, sempre) */
+.codigo-copiar {
+  @include kit.botao-papel;
+  & {
+    position: absolute;
+    z-index: 2;
+    top: calc((var(--line, 1.5em) - 22px) / 2);
+    right: 8px;
+    gap: 4px;
+    min-height: 22px;
+    height: 22px;
+    padding: 0 7px 0 6px;
+    font-size: 0.68rem;
+    rotate: 1.4deg;
+    opacity: 0;
+    transition: opacity var(--t-ui, 160ms) var(--ease-ui, ease-out);
+  }
+  &::after {
+    inset: 2px;
+    border-width: 1px;
+  }
+}
+.codigo-copiado,
+.codigo-copiar.copiado .codigo-copiar-nome {
+  display: none;
+}
+.codigo-copiar.copiado .codigo-copiado {
+  display: inline;
+}
+.codigo-peca:hover > .codigo-copiar,
+.codigo-copiar:focus-visible,
+.codigo-copiar.copiado {
+  opacity: 1;
+}
+.codigo-copiar:focus-visible {
+  outline: 2.5px solid var(--ink, #151515);
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .codigo-copiar {
+    opacity: 1;
+  }
+}
+@media (pointer: coarse) {
+  .codigo-copiar {
+    min-height: 26px;
+    height: 26px;
+    top: calc((var(--line, 1.5em) - 26px) / 2);
+    padding: 0 9px 0 8px;
+  }
+  .codigo-copiar::before {
+    content: '';
+    position: absolute;
+    inset: -8px -4px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .codigo-copiar {
+    transition: none;
+  }
+}

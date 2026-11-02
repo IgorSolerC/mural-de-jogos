@@ -1026,8 +1026,13 @@ export const CARD_STYLES = `
     }
     /* na ficha a tabela não rola: o que passa da largura some na beirada, como o resto do texto
        (a leitura é que rola de lado) */
-    .nota-texto ::ng-deep .tabela-rolo {
+    .nota-texto ::ng-deep .tabela-rolo,
+    :is(.nota-texto, .texto-inteiro) ::ng-deep .codigo-peca > .codigo {
       overflow: clip;
+    }
+    /* o bloco de código na ficha: sem o Copiar (a ficha é para passar o olho; ele mora na leitura) */
+    :is(.nota-texto, .texto-inteiro) ::ng-deep .codigo-copiar {
+      display: none;
     }
     /* só o texto que passou da ficha esmaece no fim (ver ui/clamp.ts) */
     .nota-texto[data-corta] {

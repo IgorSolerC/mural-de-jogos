@@ -552,3 +552,91 @@ describe('o texto do link de lembrete partido para o desenho', () => {
     expect(split('a reunião  ')).toEqual(['a ', 'reunião  ']);
   });
 });
+
+describe('o código na leitura', () => {
+  async function render(text: string): Promise<HTMLElement> {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', text);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    return fixture.nativeElement;
+  }
+  afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+
+  it('o bloco: a folha de formulário (os furos no papel de baixo), a linguagem impressa, as cores e o Copiar', async () => {
+    const { loadCodeHighlight } = await import('../core/code-highlight');
+    await loadCodeHighlight();
+    const el = await render('```js\nconst a = 1 // um\n```');
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    expect(peca.getAttribute('aria-label')).toBe('Código em JavaScript');
+    expect(peca.querySelector('.codigo-lingua')!.textContent!.trim()).toBe('JavaScript');
+    const papel = getComputedStyle(peca, '::before');
+    expect(papel.backgroundColor).toBe('rgb(251, 252, 246)');
+    expect(papel.maskImage).toContain('radial-gradient');
+    const pre = peca.querySelector<HTMLElement>('pre.codigo')!;
+    expect(getComputedStyle(pre).fontFamily).toContain('Cascadia Mono');
+    expect(getComputedStyle(pre).whiteSpace).toBe('pre');
+    expect(getComputedStyle(pre).overflowX).toBe('auto');
+    expect(pre.textContent).toBe('const a = 1 // um');
+    expect(pre.querySelector('.tk-pal')!.textContent).toBe('const');
+    expect(getComputedStyle(pre.querySelector('.tk-pal')!).color).toBe('rgb(91, 45, 142)');
+    expect(pre.querySelector('.tk-com')!.textContent).toBe('// um');
+    // o bloco ocupa linhas inteiras: meia linha em cima e embaixo
+    const line = parseFloat(getComputedStyle(pre).lineHeight);
+    expect(pre.getBoundingClientRect().height).toBeCloseTo(line * 2, 0);
+  });
+
+  it('sem linguagem, sem etiqueta nem cores; o Copiar leva só as letras e diz que copiou', async () => {
+    const el = await render('```\nlinha **crua**\n```');
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    expect(peca.querySelector('.codigo-lingua')).toBeNull();
+    expect(peca.getAttribute('aria-label')).toBe('Código');
+    const copied = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+    const btn = peca.querySelector<HTMLButtonElement>('.codigo-copiar')!;
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(copied).toHaveBeenCalledWith('linha **crua**');
+    expect(btn.classList).toContain('copiado');
+    expect(btn.getAttribute('aria-label')).toBe('Código copiado');
+  });
+
+  it('o código na linha: o recorte claro do formulário, na Cascadia Mono, com a tinta escura', async () => {
+    const el = await render('a senha `tejo-2026` e mais');
+    const cod = el.querySelector<HTMLElement>('code.cod')!;
+    const s = getComputedStyle(cod);
+    expect(s.fontFamily).toContain('Cascadia Mono');
+    expect(s.backgroundImage).toContain('linear-gradient');
+    expect(s.color).toBe('rgb(27, 25, 22)');
+  });
+});
+
+describe('o Copiar de dois blocos de código', () => {
+  afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+
+  it('cada botão volta sozinho: copiar o segundo logo depois não deixa o primeiro preso no "Copiado"', async () => {
+    jasmine.clock().install();
+    try {
+      TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+      const fixture = TestBed.createComponent(RichText);
+      fixture.componentRef.setInput('text', '```\na\n```\n\n```\nb\n```');
+      document.body.appendChild(fixture.nativeElement);
+      fixture.detectChanges();
+      spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+      const [a, b] = Array.from(fixture.nativeElement.querySelectorAll('.codigo-copiar') as NodeListOf<HTMLButtonElement>);
+      a.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      b.click();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(a.classList).toContain('copiado');
+      jasmine.clock().tick(1700);
+      expect(a.classList).not.toContain('copiado');
+      expect(b.classList).not.toContain('copiado');
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
+});

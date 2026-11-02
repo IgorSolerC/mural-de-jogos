@@ -1,4 +1,5 @@
 @use '../paper-kit' as kit;
+@use '../formatado';
 
 // Os botões das peças do Visual (ver controles.ts): as etiquetas de papel do site, pequenas, cada uma
 // colada torta do seu jeito, por cima do texto (nada muda de lugar na pauta). À parte de
@@ -207,6 +208,36 @@
   .vis-folha > .ProseMirror > .vis-cartao-topo > .vis-cartao-controles {
     top: -10px;
     gap: 12px;
+  }
+}
+
+// ===== O bloco de código do cursor =====
+
+// na linha do cabeçalho do papel, como etiquetas coladas nele: a linguagem (no lugar do nome impresso, à
+// esquerda; abre o menu "Código" da régua) e Copiar, à direita
+.vis-folha > .ProseMirror > pre.codigo > .vis-codigo-controles {
+  position: absolute;
+  z-index: 3;
+  top: calc((var(--line) - 24px) / 2);
+  left: calc(#{formatado.$cod-margem} + 0.4rem);
+  right: 8px;
+  justify-content: space-between;
+  // o toque no papel entre os dois chega ao bloco
+  pointer-events: none;
+  > * {
+    pointer-events: auto;
+  }
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-label);
+}
+.vis-folha:focus-within > .ProseMirror > pre.codigo.vis-codigo-ativo > .vis-codigo-controles {
+  display: flex;
+}
+@media (pointer: coarse) {
+  .vis-folha > .ProseMirror > pre.codigo > .vis-codigo-controles {
+    top: calc((var(--line) - 30px) / 2);
   }
 }
 

@@ -230,8 +230,74 @@ describe('o modo Visual do texto', () => {
       expect(texto()).toBe('```\na*b -> c\n  d\n```\nfim');
       // a letra de máquina da leitura, sem marca nenhuma
       const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
-      expect(pre.textContent).toBe('a*b -> c\n  d');
-      expect(pre.querySelector('code')).not.toBeNull();
+      expect(pre.querySelector('code')!.textContent).toBe('a*b -> c\n  d');
+    });
+
+    describe('a linguagem do bloco ("```js")', () => {
+      it('"```js" e Enter abre o bloco com a linguagem; abrir e sair sem mexer não muda um byte', async () => {
+        await make('');
+        digita('```js');
+        tecla('Enter');
+        expect(tipos()).toEqual(['blocoCodigo']);
+        expect(view.state.doc.child(0).attrs['lingua']).toBe('js');
+        expect(texto()).toBe('```js\n```');
+        expect(estado?.codigo).toEqual({ lingua: 'js' });
+        digita('const a = 1');
+        expect(texto()).toBe('```js\nconst a = 1\n```');
+      });
+
+      it('o bloco com linguagem (até com espaço antes dela) abre e sai sem mudar um byte', async () => {
+        await make('antes\n``` python\nx = 1\n```');
+        expect(valor).toBeNull();
+        expect(view.state.doc.child(1).attrs['lingua']).toBe('python');
+      });
+
+      it('a etiqueta mostra o nome; o menu "Código" troca, tira e desfaz o bloco, e copia só as letras', async () => {
+        await make('```ts\nlet x: number\n```');
+        const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+        expect(pre.querySelector('.codigo-lingua')!.textContent).toBe('TypeScript');
+        noTexto(7);
+        expect(estado?.codigo).toEqual({ lingua: 'ts' });
+        fixture.componentInstance.run({ codigo: { lingua: 'py' } });
+        expect(texto()).toBe('```py\nlet x: number\n```');
+        expect(pre.querySelector('.codigo-lingua')!.textContent).toBe('Python');
+        fixture.componentInstance.run({ codigo: { lingua: '' } });
+        expect(texto()).toBe('```\nlet x: number\n```');
+        expect((pre.querySelector('.codigo-lingua') as HTMLElement).hidden).toBeTrue();
+        const escrito = spyOn(navigator.clipboard, 'writeText').and.resolveTo();
+        fixture.componentInstance.run({ codigo: 'copiar' });
+        await fixture.whenStable();
+        expect(escrito).toHaveBeenCalledWith('let x: number');
+        fixture.componentInstance.run({ codigo: 'desfazer' });
+        expect(tipos()).toEqual(['linha']);
+        expect(estado?.codigo).toBeNull();
+      });
+
+      it('o botão da linguagem no bloco do cursor pede o menu (sem tirar o foco); fora do bloco, sem os botões', async () => {
+        await make('fora\n```sql\nselect 1\n```');
+        let pediu = 0;
+        fixture.componentInstance.pedeLingua.subscribe(() => pediu++);
+        noTexto(12);
+        const pre = fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+        expect(pre.classList).toContain('vis-codigo-ativo');
+        (pre.querySelector('.vis-codigo-botao') as HTMLElement).click();
+        expect(pediu).toBe(1);
+        noTexto(1);
+        expect(pre.classList).not.toContain('vis-codigo-ativo');
+      });
+
+      it('as cores chegam do colorir como decorações (o texto continua só letras)', async () => {
+        const { loadCodeHighlight } = await import('../../core/code-highlight');
+        await loadCodeHighlight();
+        await make('```js\nconst n = 42 // fim\n```');
+        await fixture.whenStable();
+        const code = fixture.nativeElement.querySelector('pre.codigo code') as HTMLElement;
+        expect(code.querySelector('.tk-pal')?.textContent).toBe('const');
+        expect(code.querySelector('.tk-num')?.textContent).toBe('42');
+        expect(code.querySelector('.tk-com')?.textContent).toBe('// fim');
+        expect(code.textContent).toBe('const n = 42 // fim');
+        expect(valor).toBeNull();
+      });
     });
 
     it('o que tem crase no começo de uma linha ganha uma cerca maior; Ctrl+B e os atalhos não valem dentro', async () => {

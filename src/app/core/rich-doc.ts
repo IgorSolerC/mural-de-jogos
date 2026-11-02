@@ -19,7 +19,7 @@
  */
 
 import { CalloutFold } from './callouts';
-import { Block, Span, bodyOf, blockLine, calloutLine, closes, fenceOf, indentOf, lineKind, parseInline, parseRich, SYMBOLS, tableCells } from './rich-text';
+import { Block, Span, bodyOf, blockLine, calloutLine, closes, fenceInfo, fenceOf, indentOf, lineKind, parseInline, parseRich, SYMBOLS, tableCells } from './rich-text';
 import { Align, TableLook } from './tables';
 import { WidgetSize, widgetLine } from './widgets';
 
@@ -54,8 +54,11 @@ export type LinhaDoc =
   | (Base & { kind: 'citacao'; spans: Span[] })
   | (Base & { kind: 'sutil'; spans: Span[] })
   | (Base & { kind: 'divisoria' })
-  /** `margem`: o recuo do corpo de item onde o código mora (as linhas dele o têm na frente); `aberto`: sem a cerca que fecha. */
-  | (Base & { kind: 'codigo'; cerca: string; texto: string; margem: number; aberto: boolean })
+  /**
+   * `margem`: o recuo do corpo de item onde o código mora (as linhas dele o têm na frente); `aberto`: sem a
+   * cerca que fecha; `lingua`: o que vem escrito depois da cerca que abre ("js" em "```js"; sem, nada).
+   */
+  | (Base & { kind: 'codigo'; cerca: string; texto: string; margem: number; aberto: boolean; lingua?: string })
   /** `sobra`: as células escritas além das do cabeçalho em cada fileira (a leitura esconde, a escrita devolve). */
   | (Base & { kind: 'tabela'; jeito: TableLook | null; alinhar: Align[]; cabeca: Span[][]; fileiras: Span[][][]; sobra: string[][] })
   | (Base & { kind: 'widget'; nome: string; args: string[]; tamanho: WidgetSize })
@@ -144,7 +147,7 @@ function contaChave(l: LinhaDoc): string {
     case 'divisoria':
       return JSON.stringify([l.kind, l.recuo]);
     case 'codigo':
-      return JSON.stringify([l.kind, l.recuo, l.texto, l.margem]);
+      return JSON.stringify([l.kind, l.recuo, l.texto, l.margem, (l.lingua ?? '').trim()]);
     case 'tabela':
       return JSON.stringify([l.kind, l.recuo, l.jeito, l.alinhar, l.cabeca.map(chaveSpans), l.fileiras.map((f) => f.map(chaveSpans)), l.sobra]);
     case 'widget':
@@ -237,7 +240,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
         let j = at + 1;
         while (j <= fim && !closes(cruas[j], cerca)) j++;
         const aberto = j > fim;
-        out.push({ de: at, ate: aberto ? fim : j, linha: { kind: 'codigo', recuo: recuo(at), cerca, texto: b.text, margem, aberto } });
+        out.push({ de: at, ate: aberto ? fim : j, linha: { kind: 'codigo', recuo: recuo(at), cerca, texto: b.text, margem, aberto, ...(fenceInfo(cruas[at]) ? { lingua: fenceInfo(cruas[at]) } : {}) } });
         break;
       }
       case 'table': {
@@ -758,7 +761,7 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
       const maior = Math.max(0, ...corpo.map((c) => new RegExp(`^\\s*(\\${sinal}+)`).exec(c)?.[1].length ?? 0));
       const cerca = sinal.repeat(Math.max(3, maior + 1));
       const margem = ' '.repeat(l.margem);
-      return [recuo + cerca, ...corpo.map((c) => (c ? margem + c : '')), recuo + cerca];
+      return [recuo + cerca + (l.lingua ?? '').trim(), ...corpo.map((c) => (c ? margem + c : '')), recuo + cerca];
     }
     case 'tabela': {
       const cols = Math.max(1, l.cabeca.length);

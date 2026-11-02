@@ -116,8 +116,11 @@
   --f-didone: 'Abril Fatface', 'Bodoni MT', serif;
   --f-serif: 'DM Serif Display', Georgia, serif;
   --f-ui: 'Barlow', system-ui, sans-serif;
-  /* a máquina de escrever: o código no texto e os números do contador */
+  /* a máquina de escrever: os números do contador, o recibo e as chaves */
   --f-mono: 'Courier New', ui-monospace, Consolas, monospace;
+  /* o código do texto das anotações (ver ui/_formatado.scss): a Cascadia Mono, auto-hospedada (o navegador só
+     baixa o arquivo quando um código aparece na tela) */
+  --f-codigo: 'Cascadia Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
 
   /* Uma só gramática de movimento */
   --ease-physical: cubic-bezier(0.16, 1, 0.3, 1);

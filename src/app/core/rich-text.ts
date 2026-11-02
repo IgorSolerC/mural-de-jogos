@@ -154,7 +154,11 @@ export type Block =
   /** "-# texto": as linhas seguidas de texto sutil, menor e mais claro. */
   | { kind: 'subtle'; lines: Span[][] }
   | { kind: 'hr' }
-  | { kind: 'code'; text: string }
+  /**
+   * O bloco de código; `lang`, o que vem escrito depois das crases que abrem ("js" em "```js", como no
+   * Obsidian e no GitHub; ver core/code-langs.ts): sem nada escrito, ele não vem.
+   */
+  | { kind: 'code'; text: string; lang?: string }
   /** Um widget (ver core/widgets.ts): o nome do registro, os parâmetros como foram escritos e o tamanho. */
   | { kind: 'widget'; name: string; args: string[]; size: WidgetSize }
   /**
@@ -235,6 +239,12 @@ export function calloutAround(lines: readonly string[], i: number): { head: numb
 /** A cerca que a linha abre ("```", "~~~~"), ou null. */
 export function fenceOf(line: string): string | null {
   return FENCE.exec(line)?.[1] ?? null;
+}
+
+/** O que vem escrito depois da cerca que a linha abre ("js" em "```js "), sem os espaços das pontas; "" sem nada. */
+export function fenceInfo(line: string): string {
+  const m = FENCE.exec(line);
+  return m ? line.slice(m[0].length).trim() : '';
 }
 
 /** A linha fecha o bloco aberto por `open`: a mesma marca, pelo menos do mesmo tamanho. */
@@ -770,7 +780,8 @@ function parseLines(lines: readonly string[], base: number): Block[] {
     if (open) {
       const body: string[] = [];
       while (++i < lines.length && !closes(lines[i], open)) body.push(lines[i]);
-      push({ kind: 'code', text: body.join('\n') }, at);
+      const lang = fenceInfo(line);
+      push({ kind: 'code', text: body.join('\n'), ...(lang ? { lang } : {}) }, at);
       continue;
     }
     // o card: a linha de cima e as do "> " embaixo dela, lidas como um texto à parte (outro card, uma

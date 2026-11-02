@@ -18,7 +18,18 @@ export type ListaVisual = 'ul' | 'ol' | 'check';
  * O que a régua pede: uma marca, uma lista, a linha dentro do item (`inside`), a divisória, a tabela nova
  * (`tabela`, a 3×2 do Inserir), o desfazer, o estilo do parágrafo, ou uma ação do menu "Tabela".
  */
-export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela } | { tabelaNova: TamanhoTabela } | { cartao: AcaoCartao };
+export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela' | 'undo' | 'redo' | { estilo: LineStyle } | { tabela: AcaoTabela } | { tabelaNova: TamanhoTabela } | { cartao: AcaoCartao } | { codigo: AcaoCodigo };
+
+/**
+ * O que o menu "Código" pede (o bloco do cursor): a linguagem (o que vai depois das crases, "" sem
+ * nenhuma), copiar o texto dele, ou desfazer o bloco (as letras voltam a ser linhas de texto).
+ */
+export type AcaoCodigo = { lingua: string } | 'copiar' | 'desfazer';
+
+/** O bloco de código do cursor, para o menu "Código" da régua: o que vem escrito depois das crases. */
+export interface EstadoCodigo {
+  lingua: string;
+}
 
 /**
  * O que o menu "Card" pede (e o Inserir › Card, `novo`): o card novo (no jeito dado, ou na Nota), outro
@@ -87,6 +98,8 @@ export interface EstadoVisual {
   tabela: EstadoTabela | null;
   /** O card do cursor: a régua mostra o menu "Card". */
   cartao: EstadoCartao | null;
+  /** O bloco de código do cursor: a régua mostra o menu "Código". */
+  codigo: EstadoCodigo | null;
 }
 
 /** Um widget da folha do Visual: onde ele está no documento e o que ele é. */
@@ -182,4 +195,4 @@ export interface ImagemVisual {
 }
 
 /** O estado da régua sem o Visual (nada ligado). */
-export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null, tabela: null, cartao: null };
+export const ESTADO_VAZIO: EstadoVisual = { marcas: [], estilo: 'texto', lista: null, desfazer: false, refazer: false, colchetes: null, link: null, peca: null, tabela: null, cartao: null, codigo: null };

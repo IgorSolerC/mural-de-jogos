@@ -105,7 +105,7 @@ export function linhasDoTrecho(state: EditorState, fonteDe: (n: PMNode) => Fonte
     const pai = $from.parent;
     if (pai.type.spec.code) {
       const texto = state.doc.textBetween(sel.from, sel.to);
-      return [texto.includes('\n') ? { kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false } : { kind: 'linha', recuo: 0, spans: [{ text: texto, code: true }] }];
+      return [texto.includes('\n') ? { kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false, ...(pai.attrs['lingua'] ? { lingua: pai.attrs['lingua'] } : {}) } : { kind: 'linha', recuo: 0, spans: [{ text: texto, code: true }] }];
     }
     const solta = N['linha'].create(null, pai.content.cut($from.parentOffset, $to.parentOffset));
     return [semFonte(linhaDe(solta))];
@@ -196,7 +196,16 @@ export function htmlDe(linhas: readonly LinhaDoc[], markdown: string, ctx: CopyC
         raiz.append(el('hr'));
         break;
       case 'codigo':
-        raiz.append(el('pre', el('code', l.texto)));
+        {
+          // a linguagem vai na classe que os editores de fora leem ("language-js") e, para o Murall, em data-lingua
+          const code = el('code', l.texto);
+          const pre = el('pre', code);
+          if (l.lingua) {
+            code.className = 'language-' + l.lingua;
+            pre.setAttribute('data-lingua', l.lingua);
+          }
+          raiz.append(pre);
+        }
         break;
       case 'item': {
         while (pilha.length && pilha[pilha.length - 1].recuo > l.recuo) pilha.pop();

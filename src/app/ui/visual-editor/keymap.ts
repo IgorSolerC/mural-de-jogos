@@ -209,12 +209,13 @@ const enterDaLinha: Command = (state, dispatch) => {
   const node = $from.parent;
   if (!node.isTextblock || $from.depth !== 1) return false;
   const recuo: number = node.attrs['recuo'] ?? 0;
-  // o bloco de código: "```" (ou "~~~") sozinho na linha e Enter (um atalho de digitação; o Ctrl+Z volta)
-  const cerca = sel.empty && node.type === N['linha'] && $from.parentOffset === node.content.size && !node.firstChild?.marks.length ? /^(`{3,}|~{3,})[^`~\s]*$/.exec(node.textContent) : null;
+  // o bloco de código: "```" (ou "~~~") sozinho na linha e Enter (um atalho de digitação; o Ctrl+Z volta),
+  // com a linguagem escrita logo depois ("```js"), como no Obsidian
+  const cerca = sel.empty && node.type === N['linha'] && $from.parentOffset === node.content.size && !node.firstChild?.marks.length ? /^(`{3,}|~{3,})([^`~\s]*)$/.exec(node.textContent) : null;
   if (cerca) {
     if (dispatch) {
       const at = $from.before();
-      const tr = state.tr.replaceWith(at, $from.after(), BC.create({ recuo, cerca: cerca[1] }));
+      const tr = state.tr.replaceWith(at, $from.after(), BC.create({ recuo, cerca: cerca[1], lingua: cerca[2] }));
       dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView());
     }
     return true;

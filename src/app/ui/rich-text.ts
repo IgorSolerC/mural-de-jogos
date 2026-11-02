@@ -8,6 +8,8 @@ import { NoteLinks } from '../core/note-links';
 import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
 import { calloutIcon } from './callout-looks';
+import { codeHighlightReady, codeRanges, codeTokens, CodeToken } from '../core/code-highlight';
+import { codeLangName } from '../core/code-langs';
 import { ICON, IconModule } from './icons';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
@@ -104,7 +106,16 @@ import { ZoomKnob } from './zoom-knob';
             <div class="linha divisoria" role="separator" [attr.data-l]="at(b)"></div>
           }
           @case ('code') {
-            <pre class="codigo" [attr.data-l]="at(b)"><code>{{ b.text }}</code></pre>
+            <!-- o bloco de código: a folha de formulário contínuo (o papel fica na peça; as letras rolam de
+                 lado por cima dele), a linguagem impressa no alto e Copiar no canto -->
+            @let lingua = codeName(b);
+            <div class="codigo-peca" [attr.data-l]="at(b)" role="group" [attr.aria-label]="lingua ? 'Código em ' + lingua : 'Código'">
+              @if (lingua) {
+                <span class="codigo-lingua" aria-hidden="true">{{ lingua }}</span>
+              }
+              <pre class="codigo" [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
+              <button type="button" class="codigo-copiar tocavel" aria-label="Copiar o código" title="Copiar o código" (click)="copyCode($event, b.text)"><lucide-icon [img]="CopyIcon" [size]="13" aria-hidden="true" /><span class="codigo-copiar-nome" aria-hidden="true">Copiar</span><span class="codigo-copiado" aria-hidden="true">Copiado</span></button>
+            </div>
           }
           @case ('widget') {
             <app-note-widget class="widget" [attr.data-l]="at(b)" [name]="b.name" [args]="b.args" [size]="b.size" [links]="links()" />
@@ -216,6 +227,7 @@ import { ZoomKnob } from './zoom-knob';
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [attr.title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
   imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule],
+  styleUrl: './rich-text-codigo.scss',
   styles: `
     @use 'formatado';
 
@@ -278,6 +290,7 @@ import { ZoomKnob } from './zoom-knob';
     .spoiler:not(.revelado) .spoiler-texto * {
       color: transparent !important;
       background: none !important;
+      box-shadow: none !important;
       text-decoration-color: transparent !important;
     }
     @media (hover: hover) {
@@ -311,7 +324,7 @@ import { ZoomKnob } from './zoom-knob';
         transition: none;
       }
     }
-    @include formatado.codigo;
+    /* (o código mora em rich-text-codigo.scss: o orçamento de 24 kB por folha de estilo) */
 
     @include formatado.titulos;
 
@@ -711,6 +724,50 @@ export class RichText {
     this.lift.toggle(peca, { width: drawn ? layoutWidth(drawn) : undefined, closed: () => rolo?.scrollTo({ left }) });
   }
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly CopyIcon = ICON.copiar;
+
+  /** O nome da linguagem do bloco ("JavaScript", ou a palavra escrita); "" sem nenhuma. */
+  protected codeName(b: Block): string {
+    return b.kind === 'code' && b.lang ? codeLangName(b.lang) : '';
+  }
+
+  // os pedaços coloridos de cada bloco (refeitos quando o colorir chega: a versão dele vai junto)
+  private readonly codeCache = new WeakMap<Block, { v: number; t: CodeToken[] }>();
+  /** O texto do bloco em pedaços com a tinta de cada um (sem linguagem, ou com o colorir chegando: um pedaço só). */
+  protected codeTokens(b: Block): CodeToken[] {
+    if (b.kind !== 'code') return [];
+    const v = codeHighlightReady();
+    const hit = this.codeCache.get(b);
+    if (hit && hit.v === v) return hit.t;
+    const t = codeTokens(b.text, b.lang ? codeRanges(b.text, b.lang) : null);
+    this.codeCache.set(b, { v, t });
+    return t;
+  }
+
+  /** Copiar o bloco (só as letras, sem as crases nem a linguagem): o botão diz "Copiado" por um instante. */
+  protected async copyCode(e: Event, text: string): Promise<void> {
+    e.preventDefault();
+    e.stopPropagation();
+    const btn = e.currentTarget as HTMLElement;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      btn.setAttribute('aria-label', 'O navegador não deixou copiar');
+      return;
+    }
+    btn.classList.add('copiado');
+    btn.setAttribute('aria-label', 'Código copiado');
+    // (cada botão com a sua volta: copiar outro bloco logo depois não deixa este preso no "Copiado")
+    clearTimeout(this.copiedTimers.get(btn));
+    this.copiedTimers.set(
+      btn,
+      setTimeout(() => {
+        btn.classList.remove('copiado');
+        btn.setAttribute('aria-label', 'Copiar o código');
+      }, 1600),
+    );
+  }
+  private readonly copiedTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
   protected cardLook(type: string): string {
     return calloutLook(type);
   }

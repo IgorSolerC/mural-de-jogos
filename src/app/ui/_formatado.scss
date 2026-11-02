@@ -40,32 +40,133 @@
   }
 }
 
+// ===== O código (ver core/code-langs.ts e core/code-highlight.ts) =====
+// Impresso pela impressora do computador numa folha de formulário contínuo: o papel claro com as faixas
+// verde-claras uma linha sim, uma não, a tira dos furos do trator à esquerda, separada pelo picote, e a
+// letra Cascadia Mono. O papel é claro em toda cartolina (como o card): as tintas do realce são escritas
+// para ele só. O código na linha é um recorte do mesmo papel colado no meio da frase.
+// Só as declarações do papel moram em `codigo-papel`: quem usa diz onde (a leitura num ::before da peça,
+// que não rola com o texto; o Visual num ::before do próprio bloco, por cima do papel do card).
+
+// a tira dos furos e o vão até as letras (em rem: a etiqueta, fora do bloco na leitura, usa as mesmas)
+$cod-margem: 1.05rem;
+$cod-vao: 0.7rem;
+
+// o recorte do formulário: o papel claro com a beirada verde da faixa embaixo, o fio verde e a sombrinha
+// de colado, na letra do código e na tinta escura (o código na linha, e as amostras dele nos menus da régua)
+@mixin cod-recorte {
+  border-radius: 2px 3px 2px 3px;
+  background: linear-gradient(to bottom, #fbfcf6 0 62%, #e7f1df 62%);
+  color: #1b1916;
+  box-shadow:
+    0 0 0 1px rgb(47 107 58 / 0.2),
+    0 1px 1px rgb(0 0 0 / 0.16);
+  font-family: var(--f-codigo);
+  font-weight: 400;
+  font-variant-ligatures: none;
+}
+
 @mixin codigo {
-  /* o código: letra de máquina de escrever, num retalho de papel mais escuro */
-  .cod,
-  .codigo {
-    font-family: var(--f-mono);
-    font-weight: 600;
-  }
+  /* o código na linha: um recorte do formulário colado na frase, sem a tinta da cartolina */
   .cod {
-    padding: 0 0.28em;
-    border-radius: 2px;
-    background: color-mix(in srgb, currentColor 11%, transparent);
-    font-size: 0.92em;
+    @include cod-recorte;
+    padding: 0.02em 0.34em 0.08em;
+    font-size: 0.8em;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
   }
+  /* o bloco: as letras impressas, cada linha numa linha da pauta, na tinta escura do formulário */
   .codigo {
     margin: 0;
-    padding: 0 0.6em;
-    border-radius: 2px;
-    background: color-mix(in srgb, currentColor 9%, transparent);
-    box-shadow: inset 2px 0 0 color-mix(in srgb, currentColor 30%, transparent);
-    font-size: 0.88em;
+    color: #1b1916;
+    font-family: var(--f-codigo);
+    font-weight: 400;
+    font-size: 0.8em;
+    font-variant-ligatures: none;
     line-height: var(--line, 1.5em);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
+    tab-size: 4;
   }
+  .codigo > code {
+    font: inherit;
+  }
+  /* as tintas do realce: as da papelaria, todas com 4,5:1 ou mais no papel e na faixa verde */
+  .tk-pal {
+    color: #5b2d8e;
+  }
+  .tk-txt {
+    color: #0b6b33;
+  }
+  .tk-num {
+    color: #ad261f;
+  }
+  .tk-fun {
+    color: #1f4fc4;
+  }
+  .tk-tip {
+    color: #8c2457;
+  }
+  .tk-atr {
+    color: #85500a;
+  }
+  .tk-com {
+    color: #67625a;
+    font-style: italic;
+  }
+  .tk-met {
+    color: #67625a;
+  }
+  .tk-del {
+    color: #a1201b;
+    background: rgb(196 48 43 / 0.1);
+  }
+  .tk-add {
+    color: #0b6b33;
+    background: rgb(16 166 74 / 0.12);
+  }
+  .tk-it {
+    font-style: italic;
+  }
+  .tk-ng {
+    font-weight: 700;
+  }
+}
+
+// O papel do formulário, nas linhas da pauta: a primeira linha é o cabeçalho impresso (a linguagem e, na
+// leitura, o Copiar), e cada linha de código cai numa linha da pauta, como o texto à mão. As faixas verdes
+// ficam atrás de uma linha de código sim, uma não (a beirada de cada uma na linha da pauta); na tira da
+// esquerda, o picote em pé e os furos do trator, um no meio de cada linha, com o anel verde em volta.
+// O fio verde fino em volta é a beirada do papel na cartolina.
+@mixin codigo-papel {
+  --cod-faixa: #e8f1e0;
+  background:
+    repeating-linear-gradient(to bottom, rgb(47 107 58 / 0.42) 0 2px, transparent 2px 5px) #{$cod-margem} 0 / 1px 100% no-repeat,
+    radial-gradient(circle, transparent 3.2px, rgb(47 107 58 / 0.3) 3.5px 4.3px, transparent 4.7px) 0 0 / #{$cod-margem} var(--line, 1.5em) repeat-y,
+    repeating-linear-gradient(to bottom, var(--cod-faixa) 0 var(--line, 1.5em), transparent var(--line, 1.5em) calc(var(--line, 1.5em) * 2)) #{$cod-margem} var(--line, 1.5em) / calc(100% - #{$cod-margem}) calc(100% - var(--line, 1.5em)) no-repeat,
+    #fbfcf6;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px rgb(47 107 58 / 0.16);
+  -webkit-mask: radial-gradient(circle at calc(#{$cod-margem} / 2) 50%, #0000 3.1px, #000 3.7px) 0 0 / 100% var(--line, 1.5em) repeat-y;
+  mask: radial-gradient(circle at calc(#{$cod-margem} / 2) 50%, #0000 3.1px, #000 3.7px) 0 0 / 100% var(--line, 1.5em) repeat-y;
+}
+
+// a linguagem, impressa miúda na linha do cabeçalho (na tinta verde do papel)
+@mixin codigo-lingua {
+  position: absolute;
+  top: 0;
+  left: $cod-margem + $cod-vao;
+  max-width: calc(100% - #{$cod-margem + $cod-vao} - 6rem);
+  overflow: hidden;
+  color: #2f6b3a;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  line-height: var(--line, 1.5em);
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
 }
 
 @mixin titulos {

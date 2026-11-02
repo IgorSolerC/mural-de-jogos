@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from './icons';
-import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, fenceInfo, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
@@ -24,19 +24,21 @@ import { Toasts } from './toast';
 import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
-import type { AcaoCartao, AcaoTabela, AcaoVisual, EstadoCartao, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
+import type { AcaoCartao, AcaoCodigo, AcaoTabela, AcaoVisual, EstadoCartao, EstadoCodigo, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
 import { caretSpot } from './caret-follow';
 import { TableLooks } from './table-looks';
 import { TemplateAsk, TextTemplates } from './text-templates';
 import { TemplateSheet } from './template-sheet';
+import { CodeLangsMenu } from './code-langs-menu';
+import { withCodeLang } from '../core/code-langs';
 import { NoteTemplate, titleTaken } from '../core/note-templates';
 import { TIPO_MURALL, copiarMarkdown, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
 type ListKind = 'ul' | 'ol' | 'check';
 /** Os menus da régua: "Formatar", "Inserir", "Templates" (e os do Visual: "Tabela" e a grade do tamanho). */
-type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos' | 'card';
+type MenuName = 'formatar' | 'inserir' | 'tabela' | 'tamanho' | 'modelos' | 'card' | 'codigo';
 /** O que a régua (e os menus) fazem no texto. */
-type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'reminder' | 'rule' | 'card';
+type Action = 'bold' | 'italic' | 'strike' | 'mark' | 'spoiler' | 'subtle' | 'code' | ListKind | 'inside' | 'url' | 'note' | 'reminder' | 'rule' | 'card' | 'codeBlock';
 /**
  * O painel do link de lembrete: o trecho que o link vai ocupar (`big`: em qual das folhas), o texto que
  * aparece, a busca e o lembrete escolhido (o id; null, a lista aberta). `swap`: troca o link que já estava lá.
@@ -101,7 +103,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet],
+  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
@@ -484,6 +486,43 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
               }
             </span>
           }
+          <!-- o menu "Código", enquanto o cursor está num bloco de código (nos dois modos, como o do card): a
+               linguagem (as cores), copiar o código e desfazer o bloco (ver ui/code-langs-menu.ts) -->
+          @if (codeHere(); as co) {
+            <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
+              <button
+                type="button"
+                class="menu-botao"
+                data-menu="codigo"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="isOpen('codigo', big)"
+                [attr.aria-controls]="isOpen('codigo', big) ? areaId + '-codigo' : null"
+                aria-label="Código"
+                title="Código: a linguagem (as cores) e copiar"
+                (pointerdown)="$event.preventDefault()"
+                (click)="toggleMenu('codigo', big, $event, area)"
+                (keydown.arrowdown)="$event.preventDefault(); openMenu('codigo', big, true)"
+              >
+                <lucide-icon [img]="CodeBlockIcon" [size]="18" aria-hidden="true" />
+                <lucide-icon class="seta" [img]="ChevronIcon" [size]="13" aria-hidden="true" />
+              </button>
+              @if (isOpen('codigo', big)) {
+                <!-- (num pedaço à parte: o menu só chega quando abre; ele mesmo põe o foco no campo) -->
+                @defer (on immediate) {
+                <app-code-langs
+                  class="menu"
+                  [class.duas]="docked() !== big"
+                  [id]="areaId + '-codigo'"
+                  [lingua]="co.lingua"
+                  (pick)="codeAct(area, big, { lingua: $event })"
+                  (copy)="codeAct(area, big, 'copiar')"
+                  (undo)="codeAct(area, big, 'desfazer')"
+                  (leave)="onTemplatesLeave($event, big)"
+                />
+                }
+              }
+            </span>
+          }
           <span class="fio menus-fio" aria-hidden="true"></span>
           <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus). Primeiro
                desfazer e refazer, como no Docs: no celular não tem Ctrl+Z -->
@@ -565,6 +604,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 (mudou)="value.set($event); dropPassive()"
                 (estado)="onVisualState($event, big)"
                 (pedeLink)="onVisualLink($event, big)"
+                (pedeLingua)="openMenu('codigo', big, true)"
                 (pronto)="onVisualReady($event, big)"
                 (foco)="onAreaFocus(big)"
                 (desfoco)="onAreaBlur($event, regua)"
@@ -971,6 +1011,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
   `,
   styles: `
     @use 'a11y';
+    @use 'formatado';
 
     :host {
       display: block;
@@ -1896,13 +1937,11 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       background: #151515;
       color: #f1f1ec;
     }
+    /* o código como fica no texto: o recorte do formulário (ver ui/_formatado.scss) */
     .menu-op-nome code {
-      padding: 0 4px;
-      border-radius: 2px;
-      background: rgb(21 21 21 / 0.08);
-      font-family: var(--f-mono);
-      font-weight: 700;
-      font-size: 0.92em;
+      @include formatado.cod-recorte;
+      padding: 0 0.34em 0.06em;
+      font-size: 0.82em;
     }
     /* os estilos, cada um do jeito que fica no texto (as medidas dos títulos são as da leitura) */
     [data-estilo='t1'],
@@ -1928,9 +1967,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       opacity: 0.64;
     }
     [data-estilo='codigo'] {
-      font-family: var(--f-mono);
-      font-weight: 700;
-      font-size: 0.95rem;
+      font-family: var(--f-codigo);
+      font-size: 0.92rem;
     }
     /* cada jeito do card: um quadradinho do papel dele, com o desenho na tinta dele, colado meio torto */
     .cartao-amostra {
@@ -2657,6 +2695,7 @@ export class RichEditor {
       { act: 'note', name: 'Link para outra anotação', icon: ICON.linkNota, keys: '', aria: null, typed: '[[' },
       { act: 'reminder', name: 'Lembrete do calendário', icon: ICON.calendario, keys: '', aria: null, typed: '' },
       { act: 'card', name: 'Card', icon: ICON.card, keys: '', aria: null, typed: '> [!' },
+      { act: 'codeBlock', name: 'Bloco de código', icon: ICON.blocoDeCodigo, keys: '', aria: null, typed: '```' },
       { act: 'rule', name: 'Divisória', icon: ICON.tirar, keys: '', aria: null, typed: '---' },
     ];
     // os links de anotação e de lembrete só nas anotações
@@ -2692,7 +2731,8 @@ export class RichEditor {
     this.menu.set({ name, big });
     setTimeout(() => {
       const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
-      (first ? this.menuItems()[0] : menu)?.focus({ preventScroll: true });
+      // o "Código" põe o foco no campo da linguagem sozinho, quando chega (ver ui/code-langs-menu.ts)
+      if (name !== 'codigo') (first ? this.menuItems()[0] : menu)?.focus({ preventScroll: true });
       // o menu inteiro na tela (embaixo da folha, ele pode cair atrás do pé do editor); preso em cima
       // do teclado, ele já abre para cima, à vista
       if (this.docked() === null) menu?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -2803,6 +2843,7 @@ export class RichEditor {
   /** O que um botão da régua ou um item dos menus faz (o menu fecha antes). */
   protected act(area: HTMLTextAreaElement, big: boolean, what: Action): void {
     this.menu.set(null);
+    if (what === 'codeBlock') return this.newCodeBlock(area, big);
     if (this.visual()) return this.visualAct(big, what);
     switch (what) {
       case 'bold':
@@ -2869,6 +2910,60 @@ export class RichEditor {
     if (m.list !== was.list || m.marks.join() !== was.marks.join()) this.markdownMarks.set(m);
     const card = this.cardOf(area.value, area.selectionStart);
     if (JSON.stringify(card) !== JSON.stringify(this.markdownCard())) this.markdownCard.set(card);
+    const block = style === 'codigo' ? codeBlockAt(area.value, area.selectionStart) : null;
+    if ((block?.info ?? null) !== (this.markdownCode()?.lingua ?? null)) this.markdownCode.set(block ? { lingua: block.info } : null);
+  }
+
+  // ===== O bloco de código ("```js", ver core/code-langs.ts) =====
+
+  protected readonly CodeBlockIcon = ICON.blocoDeCodigo;
+  /** O bloco de código do cursor do Markdown (o menu "Código" aparece com ele). */
+  protected readonly markdownCode = signal<EstadoCodigo | null>(null);
+  /** O bloco do cursor (no Visual, o que ele conta; no Markdown, o das cercas em volta da linha do cursor). */
+  protected readonly codeHere = computed(() => (this.visual() ? this.visualState().codigo : this.markdownCode()));
+
+  /**
+   * Inserir › Bloco de código: o bloco no lugar da linha (ou em volta das linhas selecionadas), e o menu
+   * "Código" já aberto, com o foco no campo, perguntando a linguagem (Esc fica sem nenhuma).
+   */
+  private newCodeBlock(area: HTMLTextAreaElement, big: boolean): void {
+    if (this.visual()) {
+      const api = this.visualOf(big);
+      if (!api || !api.run({ estilo: 'codigo' })) return this.notYet();
+    } else if (styleAt(area.value, area.selectionStart) !== 'codigo') this.fence(area);
+    else area.focus();
+    if (this.codeHere()) this.openMenu('codigo', big, true);
+  }
+
+  /** Uma ação do menu "Código" (o menu fecha antes, e o foco volta ao texto). */
+  protected codeAct(area: HTMLTextAreaElement, big: boolean, what: AcaoCodigo): void {
+    this.menu.set(null);
+    if (this.visual()) return this.visualAct(big, { codigo: what });
+    const text = area.value;
+    const block = codeBlockAt(text, area.selectionStart);
+    if (!block) return area.focus();
+    if (what === 'desfazer') {
+      this.unfence(area);
+      return this.track(area);
+    }
+    if (what === 'copiar') {
+      area.focus();
+      navigator.clipboard.writeText(block.body).then(
+        () => this.toasts.show('Código copiado: é só colar'),
+        () => this.toasts.show('O navegador não deixou copiar o código'),
+      );
+      return;
+    }
+    // a linguagem: a linha da cerca que abre, com a primeira palavra depois das crases trocada (o resto do
+    // que estava escrito ali fica, e o "> " do card também)
+    const lines = text.split('\n');
+    const from = lines.slice(0, block.open).reduce((n, l) => n + l.length + 1, 0);
+    const old = lines[block.open];
+    const line = old.replace(/^(\s*(?:>\s?)?\s*`{3,}).*$/, (_, fence: string) => fence + withCodeLang(block.info, what.lingua));
+    const { selectionStart: s0, selectionEnd: e0 } = area;
+    const shift = (at: number) => (at > from + old.length ? at + line.length - old.length : Math.min(at, from + line.length));
+    this.replace(area, from, from + old.length, line, shift(s0), shift(e0));
+    this.track(area);
   }
 
   // ===== O card ("> [!aviso] Título", ver core/callouts.ts) =====
@@ -3065,26 +3160,33 @@ export class RichEditor {
     this.track(area);
   }
 
-  /** O bloco de código em volta das linhas (numa linha vazia, o bloco vazio com o cursor dentro). */
+  /**
+   * O bloco de código em volta das linhas (numa linha vazia, o bloco vazio com o cursor dentro). Dentro de
+   * um card, as cercas levam o "> " da frente, como as linhas dele (senão o card acabaria nelas).
+   */
   private fence(area: HTMLTextAreaElement): void {
-    const { from, to } = this.linesAt(area);
+    const { from, to, lines } = this.linesAt(area);
+    const all = linesOf(area.value);
+    const row = area.value.slice(0, from).split('\n').length - 1;
+    const card = calloutAround(all, row);
+    const pre = card && card.head !== row ? lines[0].slice(0, lines[0].length - (calloutLine(lines[0]) ?? lines[0]).length) : '';
     const inner = area.value.slice(from, to);
-    const piece = '```\n' + inner + '\n```';
-    this.replace(area, from, to, piece, from + 4, from + 4 + inner.length);
+    const open = pre + '```';
+    const piece = open + '\n' + inner + '\n' + open;
+    this.replace(area, from, to, piece, from + open.length + 1 + (inner === pre ? inner.length : 0), from + open.length + 1 + inner.length);
     this.track(area);
   }
 
-  /** Tira as cercas "```" do bloco de código em que o cursor está (a de baixo pode faltar). */
+  /**
+   * Tira as cercas do bloco de código em que o cursor está (a de baixo pode faltar), as mesmas que o
+   * `codeBlockAt` acha (também as de um bloco dentro de um card: as linhas saem inteiras, o card fica).
+   */
   private unfence(area: HTMLTextAreaElement): void {
     const text = area.value;
     const lines = text.split('\n');
-    const here = text.slice(0, area.selectionStart).split('\n').length - 1;
-    const fences = lines.map((l, i) => (FENCE_MARK.test(l) ? i : -1)).filter((i) => i >= 0);
-    // as cercas abrem e fecham aos pares: a que abre o bloco do cursor é a última de número par até ele
-    const k = fences.filter((i) => i <= here).length - 1;
-    const open = fences[k - (k % 2)];
-    const close = fences[k - (k % 2) + 1];
-    if (open === undefined) return;
+    const block = codeBlockAt(text, area.selectionStart);
+    if (!block) return;
+    const { open, close } = block;
     const offset = (i: number) => lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0);
     let caret = area.selectionStart;
     const drop = (i: number) => {
@@ -3095,7 +3197,7 @@ export class RichEditor {
       this.replace(area, s, e, '', s, s);
     };
     // a de baixo primeiro: a de cima continua no mesmo lugar
-    if (close !== undefined) drop(close);
+    if (close !== null) drop(close);
     drop(open);
     area.setSelectionRange(caret, caret);
   }
@@ -5060,6 +5162,35 @@ const FENCE_MARK = /^\s*```/;
 const SUBTLE_MARK = /^\s*-#(?:[ \t]+|$)/;
 /** Ctrl+Shift+7, 8 e 9: as listas, pela tecla (com o Shift, ela escreve outra coisa). */
 const LIST_KEYS: Record<string, ListKind> = { Digit7: 'ol', Digit8: 'ul', Digit9: 'check' };
+
+/**
+ * O bloco de código ("```") em que cai a posição `at` (também o de dentro de um card): a linha da cerca que
+ * abre e a da que fecha (null, sem ela: vai até o fim) no texto, o que tem dentro (sem o "> " do card) e o
+ * que vem escrito depois das crases que abrem ("js"). Null fora de um bloco. As cercas casam aos pares,
+ * como no `styleAt`.
+ */
+export function codeBlockAt(text: string, at: number): { open: number; close: number | null; body: string; info: string } | null {
+  const all = text.split('\n');
+  const row = text.slice(0, at).split('\n').length - 1;
+  const card = calloutAround(all, row);
+  if (card?.head === row) return null;
+  const base = card ? card.head + 1 : 0;
+  const lines = card ? all.slice(base, card.end + 1).map((l) => calloutLine(l) ?? l) : all;
+  const here = row - base;
+  let open = -1;
+  for (let i = 0; i < here; i++) if (FENCE_MARK.test(lines[i])) open = open < 0 ? i : -1;
+  if (open < 0) {
+    if (!FENCE_MARK.test(lines[here] ?? '')) return null;
+    open = here;
+  }
+  let close: number | null = null;
+  for (let j = open + 1; j < lines.length; j++)
+    if (FENCE_MARK.test(lines[j])) {
+      close = j;
+      break;
+    }
+  return { open: base + open, close: close === null ? null : base + close, body: lines.slice(open + 1, close ?? lines.length).join('\n'), info: fenceInfo(lines[open]) };
+}
 
 /**
  * O estilo do parágrafo da linha em que cai a posição `at`: dentro das cercas "```", o bloco de código.
