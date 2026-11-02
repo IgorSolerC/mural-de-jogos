@@ -1861,6 +1861,14 @@ function sweep(a: Pt, b: Pt, r: () => number, bend: number, wave: number, n = 12
 
 type Corner = 'tl' | 'tr' | 'br' | 'bl';
 
+/** Uma quina sorteada entre as quatro. */
+const anyCorner = (r: () => number): Corner => (['tl', 'tr', 'br', 'bl'] as Corner[])[Math.floor(r() * 4)];
+
+/** Um ponto perto da quina `c`: (u, v) medidos para dentro, a partir dela. */
+function cornerAt(c: Corner, W: number, H: number): (u: number, v: number) => Pt {
+  return (u, v) => [c === 'tl' || c === 'bl' ? u : W - u, c === 'tl' || c === 'tr' ? v : H - v];
+}
+
 function damageArt(d: Damage | Stain | AgedPaper, W: number, H: number, k: number, sw: number, r: () => number, uid: string, out: PaperArt): void {
   const corners: Corner[] = ['br', 'tr', 'bl', 'tl'];
   const corner = corners[Math.floor(r() * 4)];
@@ -2254,6 +2262,19 @@ function damageArt(d: Damage | Stain | AgedPaper, W: number, H: number, k: numbe
       break;
     case 'pneu':
       tireTrack(W, H, k, r, uid, out);
+      break;
+    // 2026-11-02, as que mudam a beirada
+    case 'postal':
+      stampPerforation(W, H, k, r, out);
+      break;
+    case 'recortado':
+      handTrimmed(W, H, k, sw, r, out);
+      break;
+    case 'tirinhas':
+      tearOffTabs(W, H, k, sw, r, out);
+      break;
+    case 'puido':
+      wornSoft(W, H, k, sw, r, out);
       break;
   }
 }
@@ -5576,6 +5597,308 @@ function tireTrack(W: number, H: number, k: number, r: () => number, uid: string
     `<defs><clipPath id='${id}'><rect x='-20' y='-20' width='${f1(W + 40)}' height='${f1(H + 40)}'/></clipPath></defs>` +
     `<g clip-path='url(#${id})'><path d='${poly(C)}' fill='none' stroke='rgb(84 74 64)' stroke-opacity='.1' stroke-width='${f1(tw)}'/>` +
     `<g filter='url(#papel-poeira)' fill='rgb(38 35 33)' fill-opacity='.72'>${tread}</g></g>`;
+}
+
+// ===================== Estragos da beirada (2026-11-02) =====================
+
+/** Um círculo inteiro em dois arcos, para os furos do picote (o caminho fica curto). */
+function dot(cx: number, cy: number, R: number): string {
+  return `M${f1(cx - R)} ${f1(cy)}a${f1(R)} ${f1(R)} 0 1 0 ${f1(2 * R)} 0a${f1(R)} ${f1(R)} 0 1 0 ${f1(-2 * R)} 0Z`;
+}
+
+// ----- Picote de selo -----
+
+/**
+ * Destacada da cartela como um selo: a beirada inteira no picote de furinhos redondos, cada furo
+ * rasgado ao meio deixando a meia-lua, e nas quinas o quarto de furo onde as duas linhas do picote se
+ * cruzam. A linha do picote nunca fica bem na beirada: cada quina sai um tanto para dentro, e os lados
+ * entortam, como selo destacado com pressa. Uma ou outra ponte entre dois furos rasgou levando um
+ * bocadinho de papel, e às vezes um lado é a margem da cartela, reto, sem furo nenhum.
+ */
+function stampPerforation(W: number, H: number, k: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const pitch = (11 + r() * 2.5) * q;
+  const R = pitch * (0.31 + r() * 0.06);
+  const margin = r() < 0.25 ? Math.floor(r() * 4) : -1;
+  const ins = () => (0.4 + r() * 1.8) * q;
+  // as quinas da linha do picote, no sentido do relógio a partir da de cima à esquerda; a margem da
+  // cartela fica na beirada da ficha
+  const C: Pt[] = [
+    [margin === 3 ? 0 : ins(), margin === 0 ? 0 : ins()],
+    [W - (margin === 1 ? 0 : ins()), margin === 0 ? 0 : ins()],
+    [W - (margin === 1 ? 0 : ins()), H - (margin === 2 ? 0 : ins())],
+    [margin === 3 ? 0 : ins(), H - (margin === 2 ? 0 : ins())],
+  ];
+  out.cut.push(`M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${poly(C)}Z`);
+  out.evenodd = true;
+  let holes = '';
+  for (let s = 0; s < 4; s++) {
+    const A = C[s],
+      B = C[(s + 1) % 4];
+    const L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+    const n = Math.max(2, Math.round(L / pitch));
+    const tx = (B[0] - A[0]) / L,
+      ty = (B[1] - A[1]) / L;
+    // para dentro do papel (a volta é no sentido do relógio, com o y para baixo)
+    const nx = -ty,
+      ny = tx;
+    // a fibra arrancada em volta de cada furo: um anel do miolo, sem encostar no do vizinho (no mesmo
+    // caminho, com o evenodd, dois anéis que se cruzam se anulariam)
+    let rings = '';
+    const room = L / n / 2;
+    for (let i = 0; i < n; i++) {
+      // a quina tem o furo dela mesmo ao lado da margem; o meio da margem, não
+      if (s === margin && i > 0) continue;
+      const u = (L * i) / n,
+        v = (r() - 0.5) * 0.5 * q;
+      const cx = A[0] + tx * u + nx * v,
+        cy = A[1] + ty * u + ny * v,
+        rr = R * (0.9 + r() * 0.2);
+      holes += dot(cx, cy, rr);
+      const w = Math.min((0.6 + r() * 0.8) * q, room - rr - 0.3 * q);
+      if (w > 0.2 * q) rings += dot(cx, cy, rr + w);
+    }
+    if (rings) out.core.push(rings);
+    if (s === margin) continue;
+    // a ponte que rasgou feio: um bocadinho de papel foi junto com o selo vizinho
+    for (let i = 0; i < n; i++) {
+      if (r() > 0.07) continue;
+      const u0 = (L * i) / n + R * 0.55,
+        u1 = (L * (i + 1)) / n - R * 0.55;
+      const d = (1.1 + r() * 1.5) * q;
+      const at = (u: number, v: number): Pt => [A[0] + tx * u + nx * v, A[1] + ty * u + ny * v];
+      const mid = u0 + (u1 - u0) * (0.3 + r() * 0.4);
+      out.cut.push(`${poly([at(u0, -2), at(u0, R * 0.5), at(mid, d), at(u1, R * 0.4 + r() * d * 0.5), at(u1, -2)])}Z`);
+    }
+  }
+  out.cut.push(holes);
+}
+
+// ----- Recortada à mão -----
+
+/**
+ * Recortada da folha com tesoura comum, à mão: cada lado é reto mas fora do esquadro, em duas ou três
+ * tesouradas, e onde uma termina e a outra começa sobra o degrau (às vezes com o bico da tesoura
+ * entrando um tiquinho no papel). Ficou o retângulo a lápis, traçado à régua por onde devia ter
+ * cortado, com as pontas cruzando nas quinas: aparece onde a tesoura passou por fora dele e some no
+ * lado em que ela entrou por dentro. Às vezes uma quina levou um corte a mais.
+ */
+function handTrimmed(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  const lo = 0.5 * q,
+    hi = 12 * q;
+  // a linha a lápis, e o lado em que a tesoura entrou por dentro dela
+  const g = (7 + r() * 2) * q,
+    deepSide = Math.floor(r() * 4);
+  for (let s = 0; s < 4; s++) {
+    const len = s % 2 ? H : W;
+    const map = (u: number, v: number): Pt => (s === 0 ? [u, v] : s === 1 ? [W - v, u] : s === 2 ? [W - u, H - v] : [v, H - u]);
+    // perto das quinas a tesoura passa rente à beirada (a cruz do lápis fica); no meio ela entorta
+    const corner = () => (0.6 + r() * 1.2) * q;
+    const middle = () => (s === deepSide ? g + (1.5 * q + r() * (hi - g - 1.5 * q)) : (0.6 * q + r() * (g - 2.2 * q)));
+    const pts: Pt[] = [];
+    let u = -8,
+      v = corner();
+    for (;;) {
+      const end = Math.min(len + 8, u + (len + 16) * (0.34 + r() * 0.4));
+      const last = end >= len + 8;
+      const vEnd = clamp(last ? corner() : middle(), lo, hi);
+      pts.push(map(u, v), map(end, vEnd));
+      if (last) break;
+      // a tesourada seguinte entra um tanto fora da linha; às vezes o bico entra no papel
+      const poke = r() < 0.5;
+      if (poke) pts.push(map(end + 0.5 * q, vEnd + (1.1 + r() * 1.7) * q));
+      v = clamp(vEnd + (r() < 0.5 ? -1 : 1) * (1.8 + r() * 1.8) * q, lo, hi);
+      u = end + (poke ? 1.3 * q : 0);
+    }
+    out.cut.push(`${poly([map(-8, -6), ...pts, map(len + 8, -6)])}Z`);
+  }
+  if (r() < 0.3) {
+    // a quina que levou um corte a mais, enviesado
+    const at = cornerAt(anyCorner(r), W, H);
+    const a = (8 + r() * 8) * q,
+      b = (8 + r() * 8) * q;
+    // a reta que passa por (a, 0) e (0, b), estendida até fora da ficha
+    out.cut.push(`${poly([at(-6, -6), at(a * (1 + 6 / b), -6), at(-6, b * (1 + 6 / a))])}Z`);
+  }
+  // o retângulo à régua, as pontas cruzando nas quinas; o grafite pega mais e menos ao longo do
+  // traço e às vezes falha. Cinza médio por cima, que lê na cartolina clara e na escura
+  const over = (3 + r() * 2) * q,
+    wob = 0.5 * q,
+    seg = 22 * q;
+  const lines = [
+    handLine([g - over, g], [W - g + over, g], r, wob, seg),
+    handLine([W - g, g - over], [W - g, H - g + over], r, wob, seg),
+    handLine([W - g + over, H - g], [g - over, H - g], r, wob, seg),
+    handLine([g, H - g + over], [g, g - over], r, wob, seg),
+  ];
+  let pencil = '';
+  for (const line of lines) {
+    let i = 0;
+    while (i < line.length - 1) {
+      const j = Math.min(line.length - 1, i + 2 + Math.floor(r() * 4));
+      pencil += `<path d='${poly(line.slice(i, j + 1))}' stroke-opacity='${(0.3 + r() * 0.38).toFixed(2)}'/>`;
+      // o lápis falhou: um pedacinho sem grafite
+      i = r() < 0.18 && j < line.length - 2 ? j + 1 : j;
+    }
+  }
+  out.frente += `<g fill='none' stroke='rgb(112 110 120)' stroke-width='${f1(1 * sw)}' stroke-linecap='round'>${pencil}</g>`;
+}
+
+// ----- Tirinhas de anúncio -----
+
+/**
+ * O anúncio de poste: o pé da ficha picado em tirinhas de destacar, cada corte da tesoura um tanto
+ * torto e abrindo para baixo, e o vinco de dobrar por cima delas. Uma tirinha (às vezes duas ou três)
+ * já foi levada: arrancada rente ao vinco ou pela metade, com o rasgo mostrando o miolo.
+ */
+function tearOffTabs(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  // tiras compridas e estreitas, como as do poste
+  const n = Math.max(4, Math.round(W / ((16 + r() * 4) * q)));
+  const w = W / n;
+  const h = Math.min(H * 0.42, (58 + r() * 12) * q);
+  const top = H - h;
+  // os cortes entre as tirinhas: x no alto e no pé, e a altura onde a tesoura parou
+  const slits: { x: number; y: number; foot: number }[] = [{ x: -6, y: top, foot: -6 }];
+  for (let i = 1; i < n; i++) {
+    const x = i * w + (r() - 0.5) * 1.6 * q,
+      y = top + (r() - 0.5) * 4 * q,
+      foot = x + (r() - 0.5) * 7 * q;
+    const g0 = 0.3 * q,
+      g1 = (1.4 + r() * 1.2) * q;
+    slits.push({ x, y, foot });
+    out.cut.push(`${poly([[x, y - 0.6 * q], [x + g0, y], [foot + g1 / 2, H + 6], [foot - g1 / 2, H + 6], [x - g0, y]])}Z`);
+  }
+  slits.push({ x: W + 6, y: top, foot: W + 6 });
+  // as que já foram levadas: nunca duas iguais, quase sempre só uma
+  const gone = new Set<number>();
+  const want = 1 + Math.floor(r() * r() * 3);
+  // nunca embaixo da foto nem da nota (na tira, só na coluna da direita)
+  const free = (i: number) => !underSticker(W, H, (i + 0.5) * w, H - h / 2);
+  for (let tries = 0; gone.size < want && tries < 24; tries++) {
+    const i = Math.floor(r() * n);
+    if (free(i)) gone.add(i);
+  }
+  if (!gone.size) gone.add(n - 1);
+  for (const i of [...gone].sort((a, b) => a - b)) {
+    const L = slits[i],
+      Rt = slits[i + 1];
+    // arrancada rente ao vinco (às vezes passando um tiquinho dele) ou pela metade
+    const half = r() < 0.3;
+    const lift = half ? -h * (0.3 + r() * 0.25) : (r() - 0.3) * 3 * q;
+    // as pontas (os marcadores das beiradas da ficha) ficam fora dela; o rasgo começa na beirada
+    const xl = clamp(L.x, 0, W),
+      xr = clamp(Rt.x, 0, W);
+    const yl = Math.min(H - 2 * q, L.y - lift + (r() - 0.5) * 2 * q),
+      yr = Math.min(H - 2 * q, Rt.y - lift + (r() - 0.5) * 2 * q);
+    const paper: Pt = [(xl + xr) / 2, top - 40 * q];
+    const line = rip(sweep([xl, yl], [xr, yr], r, (r() - 0.5) * 3 * q, 1.2 * q, 8), paper, r, 1.8 * q, 2.4 * q);
+    out.cut.push(`${poly([[L.x, yl], ...line, [Rt.x, yr], [Rt.foot, H + 6], [L.foot, H + 6]])}Z`);
+    out.core.push(coreBand(line, paper, r, 1 * q, 4 * q));
+    // a beirada das vizinhas, agora à mostra do rasgo para baixo, com o miolo do corte (lê também
+    // na cartolina escura); a vizinha que também foi levada não tem beirada
+    const wa = (1.2 + r() * 0.8) * q,
+      wb = (1.2 + r() * 0.8) * q;
+    /** O ponto do corte `s` na altura `y` (o corte desce torto do alto até o pé). */
+    const on = (s: (typeof slits)[number], y: number): Pt => [s.x + ((s.foot - s.x) * (y - s.y)) / (H + 6 - s.y), y];
+    if (i > 0 && !gone.has(i - 1)) {
+      const [x, y] = on(L, Math.max(L.y, yl));
+      out.core.push(`${poly([[x - wa, y], [x, y], [L.foot, H + 6], [L.foot - wb, H + 6]])}Z`);
+    }
+    if (i < n - 1 && !gone.has(i + 1)) {
+      const [x, y] = on(Rt, Math.max(Rt.y, yr));
+      out.core.push(`${poly([[x, y], [x + wa, y], [Rt.foot + wb, H + 6], [Rt.foot, H + 6]])}Z`);
+    }
+  }
+  // o vinco de dobrar as tirinhas antes de destacar: uma linha escura e, rente, uma clara
+  const crease = poly(handLine([0, top - 0.4 * q], [W, top - 0.4 * q], r, 0.6 * q, 40 * q));
+  out.frente += `<g fill='none' stroke-linecap='round'><path d='${crease}' stroke='#000' stroke-opacity='.2' stroke-width='${f1(0.9 * sw)}'/><path d='${crease}' transform='translate(0 ${f1(0.9 * q)})' stroke='#fff' stroke-opacity='.26' stroke-width='${f1(0.9 * sw)}'/></g>`;
+}
+
+// ----- Puída -----
+
+/**
+ * Anos na carteira, no bolso: as quinas arredondadas de tanto roçar (cada uma de um tamanho), a
+ * beirada amolecida com um ou outro dentinho, e a cor gasta mostrando o miolo: larga nas quinas e só
+ * em trechos da beirada. Quase
+ * sempre uma quina ficou com o vinco de ter sido dobrada e desdobrada.
+ */
+function wornSoft(W: number, H: number, k: number, sw: number, r: () => number, out: PaperArt): void {
+  const q = Math.max(0.45, k);
+  // duas quinas vizinhas nunca se cruzam, nem na ficha mais baixa
+  const R = [0, 1, 2, 3].map(() => Math.min((8 + r() * r() * 20) * q, Math.min(W, H) * 0.45));
+  const centre: Pt[] = [
+    [R[0], R[0]],
+    [W - R[1], R[1]],
+    [W - R[2], H - R[2]],
+    [R[3], H - R[3]],
+  ];
+  const start = [Math.PI, Math.PI * 1.5, 0, Math.PI * 0.5];
+  const arcs: Pt[][] = [];
+  for (let c = 0; c < 4; c++) {
+    const n = Math.max(5, Math.round((R[c] * Math.PI) / 2 / (2 * q)));
+    const pts: Pt[] = [];
+    for (let i = 0; i <= n; i++) {
+      const a = start[c] + (i / n) * (Math.PI / 2);
+      const rr = R[c] - (i === 0 || i === n ? 0 : r() * 0.9 * q);
+      pts.push([clamp(centre[c][0] + Math.cos(a) * rr, 0, W), clamp(centre[c][1] + Math.sin(a) * rr, 0, H)]);
+    }
+    arcs.push(pts);
+  }
+  const inner: Pt[] = [];
+  const sides: Pt[][] = [];
+  for (let c = 0; c < 4; c++) {
+    const A = arcs[c][arcs[c].length - 1],
+      B = arcs[(c + 1) % 4][0];
+    const L = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1;
+    const tx = (B[0] - A[0]) / L,
+      ty = (B[1] - A[1]) / L;
+    const nx = -ty,
+      ny = tx;
+    const m = Math.max(2, Math.round(L / (3 * q)));
+    const side: Pt[] = [A];
+    let walk = r() * 0.8 * q;
+    for (let i = 1; i < m; i++) {
+      const t = i / m;
+      walk = clamp(walk + (r() - 0.5) * 0.9 * q, 0, 2.6 * q);
+      // um dentinho de vez em quando
+      const nick = r() < 0.04 ? (1.4 + r() * 2) * q : 0;
+      const v = (walk + nick) * Math.sin(Math.PI * t);
+      side.push([A[0] + tx * L * t + nx * v, A[1] + ty * L * t + ny * v]);
+    }
+    side.push(B);
+    sides.push(side);
+    inner.push(...arcs[c], ...side.slice(1, -1));
+  }
+  out.cut.push(`M-6 -6H${f1(W + 6)}V${f1(H + 6)}H-6Z${poly(inner)}Z`);
+  out.evenodd = true;
+  const mid: Pt = [W / 2, H / 2];
+  // a cor gasta: larga e irregular nas quinas; nas beiradas, só em trechos (onde mais roçou), estreita
+  // (a faixa nunca passa do centro da curva, senão ela se dobra sobre si mesma)
+  arcs.forEach((a, c) => out.core.push(coreBand(a, mid, r, Math.min(1.6 * q, R[c] * 0.2), Math.min(7 * q, R[c] * 0.45))));
+  for (const side of sides) {
+    let i = 0,
+      on = r() < 0.6;
+    while (i < side.length - 1) {
+      const j = Math.min(side.length - 1, i + (on ? 6 + Math.floor(r() * 10) : 10 + Math.floor(r() * 20)));
+      if (on && j - i >= 3) out.core.push(coreBand(side.slice(i, j + 1), mid, r, 0.2 * q, 1.3 * q));
+      on = !on;
+      i = j;
+    }
+  }
+  if (r() < 0.7) {
+    // o vinco de uma quina que foi dobrada e desdobrada
+    const at = cornerAt(anyCorner(r), W, H);
+    const a = (26 + r() * 22) * q,
+      b = a * (0.75 + r() * 0.5);
+    const P = at(a, -1),
+      Q = at(-1, b),
+      M = at(a * 0.5 + (r() - 0.5) * 4 * q, b * 0.5 + (r() - 0.5) * 4 * q);
+    const d = `M${f1(P[0])} ${f1(P[1])}Q${f1(M[0])} ${f1(M[1])} ${f1(Q[0])} ${f1(Q[1])}`;
+    const lw = Math.max(0.6, sw);
+    out.frente += `<g fill='none' stroke-linecap='round'><path d='${d}' stroke='#000' stroke-opacity='.34' stroke-width='${f1(1 * lw)}'/><path d='${d}' transform='translate(${f1(0.8 * q)} ${f1(0.8 * q)})' stroke='#fff' stroke-opacity='.6' stroke-width='${f1(1.1 * lw)}'/></g>`;
+  }
 }
 
 // ===================== Rabiscos da quarta leva (2026-10-03) =====================

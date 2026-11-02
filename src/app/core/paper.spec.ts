@@ -1,6 +1,7 @@
-import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf } from './paper';
+import { DAMAGES, DAMAGE_LABEL, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf } from './paper';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
+import { DAMAGE_ICON } from './kit-icons';
 import { sanitizeReview } from './review';
 
 describe('papel da ficha', () => {
@@ -445,6 +446,93 @@ describe('papel da ficha', () => {
           if (s.H / s.W < 0.55) expect(u).withContext(`tira ${seed}`).toBeGreaterThanOrEqual(0.8);
           else expect(v).withContext(`completa ${seed}`).toBeGreaterThanOrEqual(0.66);
         }
+    });
+
+    describe('os estragos da beirada (2026-11-02)', () => {
+      const pts = (d: string) => [...d.matchAll(/[ML](-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+      const sizes = [{ W: 420, H: 300 }, { W: 340, H: 150 }, { W: 150, H: 107, plain: true }];
+
+      it('têm nome, desenho no estojo e recortam a ficha (a sombra segue a beirada)', () => {
+        for (const d of ['postal', 'recortado', 'tirinhas', 'puido'] as const) {
+          expect(DAMAGES).withContext(d).toContain(d);
+          expect(sanitizeDamage(d)).withContext(d).toBe(d);
+          expect(cutsPaper(d)).withContext(d).toBeTrue();
+          expect(DAMAGE_ICON[d]).withContext(d).toContain('<path');
+        }
+        expect([DAMAGE_LABEL.postal, DAMAGE_LABEL.recortado, DAMAGE_LABEL.tirinhas, DAMAGE_LABEL.puido]).toEqual(['Picote de selo', 'Recortada à mão', 'Tirinhas de anúncio', 'Puída']);
+      });
+
+      it('o Picote de selo fura a beirada inteira em meias-luas, e às vezes um lado é a margem reta da cartela', () => {
+        let margins = 0;
+        for (const s of sizes)
+          for (let seed = 1; seed <= 120; seed++) {
+            const art = paperArt({ ...base, ...s, damage: 'postal', seed });
+            expect(art.cut[0]).withContext(`${seed}`).toMatch(/^M-6 -6H/);
+            expect(art.evenodd).toBeTrue();
+            const holes = [...art.cut[art.cut.length - 1].matchAll(/M(-?[\d.]+) (-?[\d.]+)a([\d.]+) /g)].map((m) => [Number(m[1]) + Number(m[3]), Number(m[2]), Number(m[3])]);
+            // um furo a cada 5–16 px de beirada, todos rentes à beirada da ficha
+            const perimeter = 2 * (s.W + s.H);
+            expect(holes.length).withContext(`${s.W} ${seed}`).toBeGreaterThan(perimeter / 24);
+            for (const [x, y] of holes) expect(Math.min(x, y, s.W - x, s.H - y)).withContext(`${s.W} ${seed}`).toBeLessThan(3.5);
+            // os furos do meio de cada lado (longe das duas quinas)
+            const sideHoles = [0, 1, 2, 3].map((side) =>
+              holes.filter(([x, y]) => [y, s.W - x, s.H - y, x][side] < 3.5 && (side % 2 ? y > 8 && y < s.H - 8 : x > 8 && x < s.W - 8)).length,
+            );
+            if (sideHoles.some((n) => n === 0)) margins++;
+          }
+        expect(margins).toBeGreaterThan(40);
+        expect(margins).toBeLessThan(150);
+      });
+
+      it('a Recortada à mão tem os quatro lados fora do esquadro, com o degrau da tesoura e a linha a lápis', () => {
+        for (let seed = 1; seed <= 80; seed++) {
+          const art = paperArt({ ...base, damage: 'recortado', seed });
+          expect(art.cut.length).withContext(String(seed)).toBeGreaterThanOrEqual(4);
+          // cada lado sai de uma beirada e tem pelo menos duas tesouradas (os pontos dentro da ficha)
+          for (const d of art.cut.slice(0, 4)) {
+            const inside = pts(d).filter(([x, y]) => x > -4 && y > -4 && x < 424 && y < 304);
+            expect(inside.length).withContext(String(seed)).toBeGreaterThanOrEqual(2);
+          }
+          expect(art.frente).withContext(String(seed)).toContain('stroke-linecap');
+          expect(art.core).toEqual([]);
+        }
+      });
+
+      it('as Tirinhas de anúncio só picam o pé da ficha, e sempre falta ao menos uma', () => {
+        for (const s of sizes)
+          for (let seed = 1; seed <= 60; seed++) {
+            const art = paperArt({ ...base, ...s, damage: 'tirinhas', seed });
+            const ys = art.cut.flatMap((d) => pts(d).map(([, y]) => y));
+            expect(Math.min(...ys)).withContext(`${s.W} ${seed}`).toBeGreaterThan(s.H * 0.5);
+            // o rasgo de cada uma que foi levada, e a beirada das vizinhas
+            expect(art.core.length).withContext(`${s.W} ${seed}`).toBeGreaterThanOrEqual(2);
+            expect(art.core.length).withContext(`${s.W} ${seed}`).toBeLessThanOrEqual(9);
+            // as tiras compridas e estreitas: uns cinco cortes a cada cem px de largura
+            expect(art.cut.length).withContext(`${s.W} ${seed}`).toBeGreaterThan(s.W / 22);
+          }
+      });
+
+      it('na ficha simples as Tirinhas de anúncio nunca perdem a tirinha embaixo da foto ou da nota', () => {
+        for (let seed = 1; seed <= 80; seed++) {
+          const art = paperArt({ ...base, W: 340, H: 150, damage: 'tirinhas', seed });
+          const xs = art.core.flatMap((d) => pts(d).map(([x]) => x));
+          expect(Math.min(...xs)).withContext(String(seed)).toBeGreaterThan(340 * 0.75);
+        }
+      });
+
+      it('a Puída arredonda as quatro quinas e gasta a cor da beirada, mais nas quinas', () => {
+        for (const s of sizes)
+          for (let seed = 1; seed <= 60; seed++) {
+            const art = paperArt({ ...base, ...s, damage: 'puido', seed });
+            const inner = pts(art.cut[0]).slice(1);
+            for (const [cx, cy] of [[0, 0], [s.W, 0], [s.W, s.H], [0, s.H]]) {
+              const nearest = Math.min(...inner.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+              expect(nearest).withContext(`${s.W} ${seed} quina ${cx},${cy}`).toBeGreaterThan(1);
+            }
+            // as quatro quinas, e só alguns trechos das beiradas
+            expect(art.core.length).withContext(`${s.W} ${seed}`).toBeGreaterThanOrEqual(4);
+          }
+      });
     });
 
     it('cada rabisco desenha algo, atrás do que está escrito', () => {

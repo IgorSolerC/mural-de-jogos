@@ -375,7 +375,11 @@ export type Damage =
   | 'esfarelado'
   | 'laser'
   | 'raio'
-  | 'acido';
+  | 'acido'
+  | 'postal'
+  | 'recortado'
+  | 'tirinhas'
+  | 'puido';
 
 /** A ordem dos retalhos no editor: os rasgos e remendos, as dobras e o tempo, os bichos, os furos e o fogo e, por último, o que é de computador. */
 export const DAMAGES: readonly Damage[] = [
@@ -387,12 +391,16 @@ export const DAMAGES: readonly Damage[] = [
   'colado',
   'quebracabeca',
   'picotado',
+  'postal',
+  'recortado',
+  'tirinhas',
   'cantos',
   'caderno',
   'orelha',
   'dobrado',
   'amassado',
   'esfarelado',
+  'puido',
   'arranhado',
   'garras',
   'mordido',
@@ -438,6 +446,10 @@ export const DAMAGE_LABEL: Record<Damage, string> = {
   laser: 'Cortada a laser',
   raio: 'Raio',
   acido: 'Ácido',
+  postal: 'Picote de selo',
+  recortado: 'Recortada à mão',
+  tirinhas: 'Tirinhas de anúncio',
+  puido: 'Puída',
 };
 
 // ===================== Mancha =====================
@@ -677,6 +689,10 @@ const CUTS: ReadonlySet<Damage | Stain> = new Set<Damage | Stain>([
   'laser',
   'raio',
   'acido',
+  'postal',
+  'recortado',
+  'tirinhas',
+  'puido',
 ]);
 
 // ===================== Guardar =====================

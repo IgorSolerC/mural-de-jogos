@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-02-codigo-no-formulario',
+    id: '2026-11-02-estragos-da-beirada',
     version: '1.36.3',
     kind: 'ajustes',
     date: '2026-11-02',
-    title: 'O código no texto com a linguagem e as cores',
+    title: 'O código no texto com a linguagem e as cores, e quatro estragos novos na beirada da ficha',
     melhorias: [
       'O bloco de código ganhou a linguagem, como no Obsidian: escrita logo depois das crases ("```js", "```python", "```sql"…), ela pinta o código com as cores de cada coisa (as palavras da linguagem, os textos, os números, as funções, os comentários). Pelo menu Código da régua, com o cursor no bloco (ou pela etiqueta dele no Visual), dá para escolher entre as comuns ou escrever outra, copiar o código e desfazer o bloco; o Inserir › Bloco de código já pergunta a linguagem.',
       'O código ganhou cara de papelaria, na letra Cascadia Mono: o bloco é uma folha de formulário contínuo de impressora, com as faixas verdes, os furos do lado e a linguagem impressa no alto, e um Copiar no canto; o código no meio da frase é um recorte dela. A linha comprida rola de lado, e no PDF o código sai com as cores.',
+      'Quatro estragos novos que mudam a beirada da ficha, na aba Estrago: Picote de selo (a beirada inteira em meias-luas, como um selo destacado), Recortada à mão (tesoura comum, fora do esquadro, com a linha a lápis de onde devia ter cortado), Tirinhas de anúncio (o pé picado em tirinhas de destacar, uma ou outra já levada) e Puída (as quinas gastas de anos na carteira).',
     ],
   },
   {

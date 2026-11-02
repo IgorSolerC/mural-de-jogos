@@ -54,6 +54,8 @@ export const FROZEN_DAMAGES: readonly Damage[] = [
   'glitch', 'corrompido', 'desintegrado',
   // 2026-10-03, a quarta leva
   'partido', 'quebracabeca', 'cantos', 'desgrampeado', 'esfarelado', 'laser', 'raio', 'acido',
+  // 2026-11-02, as que mudam a beirada
+  'postal', 'recortado', 'tirinhas', 'puido',
 ];
 /**
  * Desbotada no sol e Carregou pela metade eram estragos até a build 301 e viraram papel. As digitais

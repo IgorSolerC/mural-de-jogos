@@ -184,11 +184,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     site da 44 jogaria a lista fora e enviaria assim, e os templates sumiriam em todo aparelho.
  * 46: "Esconder os grupos vazios" (`hideEmpty`, nas configurações do mural, ligado quando falta). Um site
  *     da 45 jogaria o campo fora e enviaria assim, e o desligado voltaria a ligar em todo aparelho.
+ * 47: os estragos novos da beirada (`damage`: `postal`, `recortado`, `tirinhas`, `puido`). Um site da 46
+ *     não os conhece e jogaria o estrago fora ao enviar a ficha, e ela voltaria inteira em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 46;
+export const SYNC_SCHEMA = 47;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
