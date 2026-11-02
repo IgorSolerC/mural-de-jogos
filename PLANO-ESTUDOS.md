@@ -9,8 +9,8 @@ BONITO". As necessidades estão na seção 1; as três imagens que vieram com o 
 internet e as tentativas dele, a terceira) moram na nota do quadro.
 
 Este arquivo é o plano inteiro, escrito para ser lido também por outras AIs (como o PLANO-API.md e o
-PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões que são do usuário estão na seção
-9, cada uma com a recomendação; as rodadas, na seção 10.
+PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões do usuário estão na seção 9 (todas
+tomadas em 02/nov); as rodadas, na seção 10.
 
 ---
 
@@ -21,12 +21,12 @@ PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões que sã
   Kanban · Estudos), porque são um terceiro jeito de ver as mesmas anotações, como o Kanban (D1, decidida
   pelo usuário em 02/nov: "Nas Anotações").
 - **A carta é a anotação.** Uma anotação vira flashcard quando ganha uma **frente**: o título
-  (obrigatório), um subtítulo e uma imagem. O **verso** (a resposta) é a própria anotação, inteira, como
+  (vazio, vale o nome da anotação), um subtítulo e uma imagem. O **verso** (a resposta) é a própria anotação, inteira, como
   se lê no mural. Nada é copiado: mudou a anotação, mudou a resposta. A frente e o progresso moram fora
   da anotação, como o Kanban guarda o lugar dela no quadro (`core/study.ts`, à parte).
 - **Baralhos, não tags.** As cartas se juntam em **baralhos** ("Kanjis simples", "Verbos", "Locais"), uma
-  palavra nova que só existe nos Estudos, cada carta em um baralho só, como no Anki. Tags e grupos
-  continuam sendo do mural, sem mudar de sentido (seção 3).
+  palavra nova que só existe nos Estudos. Uma carta pode estar em vários baralhos, com um progresso só.
+  Tags e grupos continuam sendo do mural, sem mudar de sentido (seção 3).
 - **Três lugares, como o Kanban.** Uma anotação pode estar só no mural, só nos Estudos, nos dois, ou no
   mural, no Kanban e nos Estudos ao mesmo tempo. A escolha mora na carta ("No mural"), com o padrão no
   baralho, igual ao "Só no Kanban" (seção 4.4).
@@ -53,7 +53,7 @@ PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões que sã
 ## 1. O que o pedido quer (as necessidades, na ordem dele)
 
 1. Usar anotações que já existem como o verso de flashcards. Uma aba de estudos na edição da anotação,
-   normalmente vazia, que recebe a frente: título (obrigatório), subtítulo/descrição e imagem.
+   normalmente vazia, que recebe a frente: título (obrigatório no pedido; depois, opcional: D8), subtítulo/descrição e imagem.
 2. Agrupar as cartas em grupos de estudo, sem confundir com as tags que a pessoa já usa e sem que cada
    tag vire um grupo. "Quero que seja intuitivo e NÃO SEJA CONFUSO."
 3. Ver as cartas de um grupo juntas, abrir, ver a resposta, editar, como no mural; a capa da carta,
@@ -118,9 +118,11 @@ PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões que sã
 **Por que baralho, e não tags nem grupos.** As tags e os grupos já querem dizer outra coisa: o grupo
 decide a aba do mural, o quadro do Kanban e quem vê; as tags são etiquetas livres, várias por anotação.
 Fazer os baralhos de tags obrigaria a dizer quais tags são baralhos e quais não (o medo do pedido), e
-uma carta em duas tags-baralho seria estudada duas vezes. "Baralho" é a palavra do Anki ("deck") em
-português, diz sozinha que é um monte de cartas, e não existe em nenhum outro lugar do Murall. Cada carta
-em **um** baralho só (D3), como no Anki; mudar de baralho é escolher outro na aba ou na folha da carta.
+toda tag nova viraria baralho sem a pessoa querer. "Baralho" é a palavra do Anki ("deck") em
+português, diz sozinha que é um monte de cartas, e não existe em nenhum outro lugar do Murall. Uma carta
+pode estar em **vários** baralhos (D3), e o progresso dela é **um só**: respondida num baralho, vale em
+todos, e ela não volta no mesmo dia por estar também noutro. Pôr e tirar de baralhos é na aba Flashcard
+ou na folha da carta.
 Um baralho não depende do grupo da anotação: "Kanjis simples" pode juntar anotações do grupo Estudos e
 do grupo Japonês. Sem sub-baralhos (seção 8).
 
@@ -148,7 +150,7 @@ interface Deck {
   name: string;                // até 40 letras, como o nome da coluna do Kanban
   icon: ColumnIcon | null;     // a cartela única (shared/cartela-de-icones.ts)
   color: LightStock;           // uma das nove cartolinas claras
-  newPerDay: number;           // 0–999, padrão 20 (D6)
+  newPerDay: number;           // 0–999, padrão 5 (D6)
   wall?: true;                 // as cartas aparecem no mural também (sem o campo: só nos Estudos)
   order: number;               // a ordem das abas
   at: string;
@@ -156,9 +158,9 @@ interface Deck {
 
 interface StudyCard {
   note: string;                // o id da anotação
-  deck: string;
-  front: { title: string; subtitle?: string; image?: string }; // título até 80, subtítulo até 160
-  wall?: boolean;              // como KanbanCard.wall: false só nos Estudos, true no mural também, sem campo segue o baralho
+  decks: string[];             // 1 a 20 baralhos; o progresso é um só para todos (D3)
+  front: { title?: string; subtitle?: string; image?: string }; // título até 80 (sem ele, o nome da anotação; D8), subtítulo até 160
+  wall?: boolean;              // como KanbanCard.wall: false só nos Estudos, true no mural também, sem campo segue os baralhos
   srs: Srs;
   stats: { seen: number; right: number; wrong: number; marks: string }; // marks: as 20 últimas, '1' acertou, '0' errou
   added: string;               // quando virou carta (a ordem das novas)
@@ -192,9 +194,10 @@ interface StudyConfig { retention: number /* 0.8–0.95, padrão 0.9 */; maxRevi
 Como `KanbanStore`: o sinal `state`, `changedAt` para a sincronização, `writeJson` de `core/storage.ts`
 (que respeita `freezeStorage`), `onOtherTab` para as outras abas, a leitura no construtor (nunca no nível
 do módulo: a limpeza roda depois dos imports). Ações: `addCard(note, deck, front, wall?)`,
-`updateFront`, `moveCard(note, deck)`, `setWall`, `removeCard` (com o que volta no Desfazer),
+`updateFront`, `setDecks(note, decks)`, `setWall`, `removeCard` (com o que volta no Desfazer),
 `resetCard`, `answer(note, ok, now)` (devolve o de antes, para o Desfazer da sessão), `addDeck`,
-`updateDeck`, `moveDeck`, `removeDeck` (as cartas saem junto, com Desfazer), `setConfig`. Sinais
+`updateDeck`, `moveDeck`, `removeDeck` (as cartas saem dele; a que não fica em nenhum outro sai dos
+Estudos e volta ao mural; tudo com Desfazer), `setConfig`. Sinais
 prontos para as telas: `cardsByNote`, `deckCounts` (novas / aprendendo / revisar de hoje, por baralho),
 `studyOnly` (as anotações fora do mural por causa dos Estudos, seção 4.4).
 
@@ -221,10 +224,11 @@ baralho; ao salvar a anotação, `claim` põe a carta lá (o editor já abre na 
 Hoje a anotação sai do mural quando está no quadro do grupo e o cartão (ou o grupo) diz "só no Kanban"
 (`onWall`). Com os Estudos, cada lugar que tem a anotação **vota**:
 
-- O Kanban vota pelo `onWall` de hoje; os Estudos votam por `card.wall ?? deck.wall ?? false`.
+- O Kanban vota pelo `onWall` de hoje; os Estudos votam por `card.wall`, ou, sem ele, "no mural" se **algum** dos baralhos
+  da carta pede o mural (senão, só nos Estudos).
 - **A anotação aparece no mural se nenhum lugar a tem, ou se algum lugar diz "no mural também".** Só sai
   do mural quando todos os lugares que a têm dizem "só aqui".
-- Saindo do baralho (ou dos Estudos), ela volta ao mural sozinha, como ao sair do quadro: nunca fica sem
+- Saindo do último baralho (ou dos Estudos), ela volta ao mural sozinha, como ao sair do quadro: nunca fica sem
   lugar.
 
 **O padrão** é por baralho, "Só nos Estudos" (como o "Só no Kanban" é o padrão de todo grupo), porque um
@@ -306,7 +310,7 @@ D e intervalos esperados, com o sorteio desligado).
 
 ### 5.4 A fila do dia (`core/study-queue.ts`, puro)
 
-- Por baralho: as **aprendendo/reaprendendo** já vencidas; as **revisões** vencidas, da que venceu há
+- Por baralho (a carta entra na fila de cada baralho em que está): as **aprendendo/reaprendendo** já vencidas; as **revisões** vencidas, da que venceu há
   mais tempo para a mais nova (desempate sorteado pela semente do dia); e as **novas**, na ordem em que
   entraram (ou sorteadas, pela escolha `newOrder` das configurações), até o que sobra de `newPerDay` hoje (`today.news`).
 - Revisões: no máximo `maxReviews` por dia (200, o padrão do Anki), somando os baralhos.
@@ -315,7 +319,10 @@ D e intervalos esperados, com o sorteio desligado).
 - Errou, a carta volta à fila daqui a 1 ou 10 min. Sem mais nada para mostrar, a carta em aprendizado que
   vence nos próximos **20 min** aparece antes (o "aprender adiantado" do Anki); depois disso, a sessão
   termina dizendo quando ela volta.
-- **Estudar tudo** junta as filas de todos os baralhos com o limite de cada um, na ordem das abas.
+- **Estudar tudo** junta as filas de todos os baralhos com o limite de cada um, na ordem das abas, e a
+  carta que está em dois baralhos aparece **uma vez**. A nova conta no limite do primeiro baralho dela (na
+  ordem das abas) que ainda tem vaga hoje; estudando um baralho só, conta no dele.
+- Respondida num baralho, a carta sai da fila dos outros (o progresso é um só).
 - Os números que a tela mostra (na pilha, na aba, no topo) são os mesmos da fila: o que entraria se a
   pessoa apertasse Estudar agora.
 
@@ -370,12 +377,27 @@ Modo de cada superfície: **Operate** (montar baralhos, editar a frente, configu
   6px, **na cor da cartolina da anotação** (a clara dela; a escura usa a própria tinta escura; a branca e
   a cinza, `ink` a 40%, para não sumir no creme). O fio é impresso, reto, sem tremido: a carta é limpa
   para ler; o artesanal mora no papel, na sombra e na inclinação da carta na parede.
-- **A frente:** o título no centro, **Permanent Marker**, do tamanho do que cabe (um ou dois caracteres,
-  como um kanji: 4,6rem; uma palavra: 2,4rem; uma frase: 1,5rem, até três linhas, `text-wrap: balance`).
-  Caracteres japoneses, chineses e coreanos caem na fonte do sistema (Yu Gothic, Hiragino, Noto Sans CJK),
-  com o mesmo tamanho (D13). O subtítulo em **Kalam**, `ink-2`, embaixo, até duas linhas. A imagem
+- **A frente:** o título no centro (sem título próprio, o nome da anotação), com **o tamanho da letra
+  calculado para encher o espaço que sobra** (pedido do usuário: "A ideia é sempre ocupar uma
+  quantidade semelhante de espaço", e "O mesmo vale para se a nota tiver descrição ou imagem (ou
+  ambos) [...] para que o flashcard nunca pareça vazio"). Não são degraus fixos: um caractere só (um
+  kanji, um símbolo) fica enorme; uma palavra, grande; uma frase de duas linhas, menor; e o título
+  sozinho cresce mais do que o título com subtítulo, que cresce mais do que o com imagem. Como
+  (`ui/fit-title.ts`, puro de medir): a área do título é o que sobra dentro do fio depois do subtítulo e
+  da imagem; a letra é a maior que cabe nessa área, achada por busca binária no tamanho (medindo a
+  largura e a altura do texto com `text-wrap: balance`, até quatro linhas, sem quebrar palavra no meio),
+  entre 1,1rem e 40% da altura da carta, refeita quando a carta muda de tamanho (`ResizeObserver`, uma
+  medida por quadro) e quando a letra manuscrita termina de chegar (`document.fonts`). O mesmo cálculo
+  em todo lugar onde a frente aparece (a parede, a pilha, a sessão, o palco do editor, o logo não), então
+  a carta pequena e a grande ficam com a mesma cara, só em escala. **A carta serve para estudar qualquer
+  coisa, não só idiomas** (pedido do usuário), então a letra é escrita à mão em tudo (D13): o alfabeto
+  latino em **Permanent Marker**; japonês e chinês em **Klee One** (manuscrita, OFL, auto-hospedada pela
+  Fontsource em fatias por `unicode-range`: o navegador só baixa os pedaços dos caracteres que
+  aparecem, e só quando uma carta os mostra); as outras escritas (grego, cirílico, árabe…) na fonte do
+  sistema, no mesmo tamanho. O subtítulo em **Kalam**, `ink-2`, embaixo, até duas linhas. A imagem
   entre os dois, colada reta com a borda branca e a sombra curta das imagens coladas (`glued-media`),
-  até 45% da altura; sem título comprido e com imagem, o título desce para baixo dela.
+  até 45% da altura (o que ela não usa vai para o título). Título, imagem e subtítulo ficam juntos no
+  meio da carta, nunca grudados nas pontas com um vão no meio.
 - **A margem** (os 9px fora do fio) carrega, só na parede do baralho, uma linha impressa em caps de
   rótulo a 0,6rem no pé: o nível e quando volta ("APRENDENDO · EM 3 DIAS"). Na sessão, a margem fica
   vazia.
@@ -425,15 +447,15 @@ Modo de cada superfície: **Operate** (montar baralhos, editar a frente, configu
 
 - Linha de estudo do baralho no topo da pasta (a mesma da 6.3, com **Estudar** e os três números), e à
   direita **Nova carta** (papel) e **Trazer anotações** (papel: o seletor de fichas que já existe,
-  `ui/card-picker.ts`, só com anotações e sem as que já são carta; cada escolhida entra com a frente
-  feita do nome da anotação, que se muda depois).
+  `ui/card-picker.ts`, só com anotações e sem as que já são carta; cada escolhida entra sem título
+  próprio, com o nome da anotação na frente, que se muda depois).
 - **As cartas deitadas na parede**, a frente à mostra: do tamanho das fichas da Visão geral
   (`clamp(150px, …, 216px)` de largura, 5:7), 6 por fileira na tela cheia, 2 no celular, inclinação
   pequena, a margem com o nível e quando volta. A carta finalizada no mural continua carta (finalizar é
   coisa do mural).
 - **Tocar a carta abre a leitura da anotação** (a resposta, a leitura de sempre, com o Editar e tudo),
-  com a linha do flashcard (6.9). Ctrl/⌘+clique marca, como no mural (para "Mover para outro baralho" e
-  "Tirar dos Estudos" de várias; seção 10, rodada 4).
+  com a linha do flashcard (6.9). Ctrl/⌘+clique marca, como no mural (para "Pôr noutro baralho", "Tirar
+  deste baralho" e "Tirar dos Estudos" de várias; seção 10, rodada 4).
 - **A etiqueta de preço** redonda no canto (o mesmo botão de 44px das fichas do Kanban) abre a **folha da
   carta** (6.6).
 - Ordem: Próxima revisão (padrão), Nível, Entrada, A–Z, com o sentido em palavras como nas outras
@@ -446,14 +468,16 @@ Modo de cada superfície: **Operate** (montar baralhos, editar a frente, configu
 - Terceira aba: **Anotação · Cartolina · Flashcard** (só nas anotações, nunca nas resenhas). O pontinho
   de marca das abas do estojo quando a anotação já é carta.
 - **Vazia** (o normal): à direita, a carta em contorno tracejado; à esquerda, uma linha em Kalam ("Dê uma
-  frente a esta anotação para estudar com ela.") e o botão de papel **Criar a frente**, que preenche o
-  título com o nome da anotação, selecionado, para a pessoa escrever por cima (D8).
+  frente a esta anotação para estudar com ela.") e o botão de papel **Criar a frente**, que abre os campos
+  com o título vazio mostrando, a lápis, o nome da anotação: vazio, é ele que vai na frente; escrever
+  troca (D8).
 - **Com frente:** à esquerda as linhas do jeito do Kanban (`props-linha`: o nome à esquerda em caps de
   rótulo com o ícone, o valor à direita, o fio tracejado entre elas):
-  - **Frente:** Título (o campo de papel em Permanent Marker, obrigatório), Subtítulo (Kalam), Imagem
+  - **Frente:** Título (o campo de papel em Permanent Marker; vazio, o nome da anotação), Subtítulo (Kalam), Imagem
     (Colar, Escolher do aparelho, Link; com imagem, a miniatura e Trocar / Tirar).
-  - **Baralho:** a lista nativa sobre a tira impressa, com o ícone e a cor de cada baralho, e "Novo
-    baralho…" no fim (nome em linha, a cor sorteada entre as que ainda não têm baralho).
+  - **Baralhos:** um adesivo por baralho em que a carta está (o ícone e o nome, na cor do baralho, com
+    o X), como o seletor de tags, e "+ Baralho" abrindo a lista dos outros com "Novo baralho…" no fim
+    (nome em linha, a cor sorteada entre as que ainda não têm baralho). Pelo menos um.
   - **No mural:** o interruptor de papel do Kanban, com "Aparece no mural também" (`ink-2`) ou "Só nos
     Estudos" (tinta cheia).
   - **Boletim:** só depois da primeira resposta (6.8), compacto; e no pé, "Recomeçar o progresso" e
@@ -537,11 +561,11 @@ filtradas como a parte Quadro):
   dia."); "Revisões por dia, no máximo" (campo de número, 200); "Ordem das novas": Na ordem em que
   entraram · Sorteadas.
 - **Baralhos:** uma linha por baralho, como a parte Grupos (a alça para arrastar a ordem, o ícone e o
-  nome, o resumo "20 novas por dia · Só nos Estudos" no marca-texto quando difere do padrão, a divisa
+  nome, o resumo "10 novas por dia · No mural também" no marca-texto quando difere do padrão, a divisa
   para abrir). Aberto: **Novas por dia** (o campo de número com − e +; 0 para não entrar nenhuma nova),
   **Cartas no mural** (Só nos Estudos · No mural também), ícone e cor (o `app-category-style [bare]` que
-  os grupos usam), Renomear, e "Apagar o baralho" (com a pergunta e o Desfazer; as cartas saem dos
-  Estudos e voltam ao mural).
+  os grupos usam), Renomear, e "Apagar o baralho" (com a pergunta e o Desfazer; as cartas saem dele,
+  e a que não está em nenhum outro sai dos Estudos e volta ao mural).
 
 ### 6.11 Primeira vez
 
@@ -591,7 +615,7 @@ Pequena e à parte (rodada 0), para não misturar com os Estudos:
   resposta e uma conta pesada; com os parâmetros padrão o FSRS já é melhor que o SM-2. Pode vir depois,
   se o histórico for guardado.
 - **Cartas invertidas, cloze (lacunas), tipos de nota do Anki, sub-baralhos.** Uma carta, uma frente, um
-  verso, um baralho.
+  verso.
 - **Suspender e enterrar cartas, adiar o baralho, estudo personalizado** (o "Custom Study" do Anki).
   "Estudar adiantado" (6.3) cobre o caso mais comum.
 - **Importar ou exportar do Anki (.apkg).** Formato grande (SQLite + mídia); seria uma rodada só dele.
@@ -605,11 +629,25 @@ Pequena e à parte (rodada 0), para não misturar com os Estudos:
 
 ## 9. Decisões
 
-A D1 foi decidida pelo usuário em 02/nov/2026 ("Nas Anotações"). As outras esperam o usuário; sem
-resposta, a implementação segue a recomendação (em negrito).
+Todas decididas pelo usuário em 02/nov/2026 (a D1 numa pergunta, as outras numa rodada só de perguntas).
 
-| # | Pergunta | Recomendado | Outras |
+| # | Pergunta | Decidido | Outras |
 | --- | --- | --- | --- |
+| D1 | Onde moram os Estudos | **Nas Anotações, no lugar do Calendário** (Mural · Kanban · Estudos) | Nas Utilidades |
+| D2 | O nome da aba do editor | **Flashcard** | Estudo; Frente |
+| D3 | Uma carta em quantos baralhos | **Vários, com um progresso só para a carta** (respondida num, vale em todos e não volta no mesmo dia por estar noutro) | Um só (o recomendado); um progresso por baralho |
+| D4 | O padrão de "No mural" | **Por baralho, "Só nos Estudos"**, mas a anotação que já estava no mural continua lá (nada some sem mandar) | "No mural também" por padrão; seguir o baralho sempre |
+| D5 | Os quatro níveis | **Desconhecida = nunca respondida; Nova = nos passos de hoje; Aprendendo = menos de 21 dias; Dominada = 21 dias ou mais** (seção 5.6) | Desconhecida = errou a última vez |
+| D6 | Novas por dia, padrão de cada baralho | **5** (resposta do usuário) | 20 (o padrão do Anki, o recomendado); 10 |
+| D7 | Retenção desejada | **90%**, mudável nas configurações (80–95%) | Fixa em 90% |
+| D8 | O título da frente | **Opcional: vazio, vale o nome da anotação; dá para escrever outro** (resposta do usuário: "Usa o nome da nota se o TÍTULO do flashcard estiver vazio, mas é possível sobrescrever") | Nascer com o nome selecionado; nascer vazio e obrigatório |
+| D9 | Backup em arquivo | **Fora**, como o Kanban e o Calendário (a nuvem guarda) | Dentro do backup |
+| D10 | Responder a mesma carta em dois aparelhos sem internet | **Vale a resposta mais nova** | Guardar cada resposta e refazer a conta |
+| D11 | Os dois botões no FSRS | **Errei = Again (1), Acertei = Good (3)**; teclas 1, 2 e Espaço | Teclas ← e → |
+| D12 | Anotação compartilhada vira carta | **Sim** (a frente e o progresso só seus) | Não |
+| D13 | A letra da frente | **Manuscrita, para qualquer assunto**: Permanent Marker no alfabeto latino, Klee One (em fatias) no japonês e no chinês, a do sistema nas outras escritas. O usuário: "quero que o flashcard seja usado para aprender QUALQUER coisa, nao só japones, então não use apenas fonte de kanji" | A do sistema para os kanjis (o recomendado) |
+
+--- | --- | --- | --- |
 | D1 | Onde moram os Estudos | **Nas Anotações, no lugar do Calendário** (Mural · Kanban · Estudos). **Decidido pelo usuário: "Nas Anotações"** | Nas Utilidades, ao lado do Calendário (o que o texto diz ao pé da letra: Gastos · Calendário · Estudos · Cofre) |
 | D2 | O nome da aba do editor | **Flashcard** | Estudo; Frente |
 | D3 | Uma carta em quantos baralhos | **Um só**, como no Anki | Vários (a carta estudada uma vez por baralho) |
@@ -658,14 +696,21 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   mínimo, 1 a 36.500 dias); o sorteio igual com a mesma semente e dentro da faixa.
 - `core/study.spec.ts`: sanear (campo estranho, teto, imagem que não é murall:// nem https), as mudanças,
   a junção (a mais nova vence, apagado não volta, o dia junta pelo maior), o nível de cada estado.
-- `core/study-queue.spec.ts`: a ordem, o limite de novas por baralho e o global de revisões, o dia às 4h,
+- `core/study-queue.spec.ts`: a carta em dois baralhos uma vez só em Estudar tudo e fora da fila do outro
+  depois de respondida, a nova contando no limite do baralho certo, a ordem, o limite de novas por baralho e o global de revisões, o dia às 4h,
   o aprender adiantado de 20 min, Estudar tudo, as contagens iguais à fila.
+- `ui/fit-title.spec.ts`: o título enche o espaço (o texto ocupa uma parte parecida da área em todos os
+  casos: um caractere, uma palavra, uma frase de duas linhas; só título, com subtítulo, com imagem, com os
+  dois), um caractere maior que uma palavra e uma palavra maior que uma frase, nada saindo do fio nem
+  palavra quebrada no meio, o mesmo resultado em escala na carta pequena e na grande, e de novo depois de
+  a letra chegar.
 - `core/study-wall.spec.ts`: o voto (nenhum lugar, só Kanban, só Estudos, os dois, cada combinação de
   "no mural"), a anotação que já existia guardando `wall: true`, sair do baralho voltando ao mural.
 - `core/browser-reset.spec.ts`: `meu-mural:estudos:v1` e `meu-mural:estudos-vista:v1` saem na limpeza.
 - `cloud-sync.spec.ts`: a ida e a volta da parte, `localHasContent`, a imagem da frente em `usadas`.
 - Telas: a página (pilhas, parede, vazios, a varredura de 288 a 1384px sem nada saindo nem encostando), a
-  aba Flashcard (criar a frente, título obrigatório, baralho novo, salvar e descartar), a folha da carta,
+  aba Flashcard (criar a frente, título vazio usando o nome da anotação, pôr e tirar baralhos, baralho
+  novo, salvar e descartar), a folha da carta,
   a sessão (virar pelo teclado, Errei volta em 1 min, Acertei forma depois do último passo, Desfazer, o
   fim, `inert` no verso antes de virar, movimento reduzido), as configurações.
 
@@ -692,8 +737,12 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
 ## 12. Andamento
 
 - 02/nov/2026: plano escrito (decisões D1–D13 esperando o usuário). Nada implementado.
-- 02/nov/2026: D1 decidida pelo usuário: os Estudos moram nas Anotações (Mural · Kanban · Estudos). D2–D13
-  seguem esperando.
+- 02/nov/2026: D1 decidida pelo usuário: os Estudos moram nas Anotações (Mural · Kanban · Estudos).
+- 02/nov/2026: D2–D13 decididas pelo usuário (seção 9). Mudaram o desenho: vários baralhos por carta com
+  um progresso só (D3), 5 novas por dia (D6), o título da frente opcional (D8) e a letra manuscrita para
+  qualquer assunto, com a Klee One no japonês e no chinês (D13). Pedido junto: o título da frente com
+  o tamanho da letra calculado para encher o espaço que sobra, com ou sem subtítulo e imagem (6.1). Plano
+  pronto para a rodada 0.
 
 ---
 
