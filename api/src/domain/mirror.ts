@@ -1,6 +1,7 @@
 import {
   CADAS,
   CORES,
+  ICONE_RE,
   INTERVALO_MAX,
   NOTAS_DO_LEMBRETE_MAX,
   PULADOS_MAX,
@@ -354,6 +355,8 @@ function checkQuadro(q: Record<string, unknown>, id: string): QuadroV1 {
 const isDayOrNull = (v: unknown) => v === null || ehDia(v);
 const isTimeOrNull = (v: unknown) => v === null || ehHora(v);
 const isColor = (v: unknown) => (CORES as readonly unknown[]).includes(v);
+/** O ícone do lembrete: sem ele (o site de antes não manda) ou null, nenhum. */
+const isIcon = (v: unknown) => v === undefined || v === null || (typeof v === 'string' && ICONE_RE.test(v));
 const idList = (v: unknown, n: number) => Array.isArray(v) && v.length <= n && v.every((x) => typeof x === 'string' && ID_RE.test(x));
 
 /** O lembrete v1 tem a forma certa? Só os campos da v1 entram. */
@@ -388,6 +391,7 @@ function checkLembrete(l: Record<string, unknown>): LembreteV1 {
     (l['pulados'] as unknown[]).length <= PULADOS_MAX &&
     (l['pulados'] as unknown[]).every(ehDia) &&
     isColor(l['cor']) &&
+    isIcon(l['icone']) &&
     typeof l['silencioso'] === 'boolean' &&
     idList(l['notas'], NOTAS_DO_LEMBRETE_MAX) &&
     (g === null || (!!g && isStrOrNull(g['link'], 600) && (g['travado'] === null || g['travado'] === 'convite' || g['travado'] === 'google'))) &&
@@ -414,6 +418,7 @@ function checkLembrete(l: Record<string, unknown>): LembreteV1 {
     em_palavras: v.em_palavras,
     pulados: v.pulados,
     cor: v.cor,
+    icone: v.icone ?? null,
     silencioso: v.silencioso,
     notas: v.notas,
     google: v.google && { link: v.google.link, travado: v.google.travado },
@@ -435,6 +440,7 @@ function checkAgenda(a: Record<string, unknown>, id: string): AgendaDoMesV1 {
     isTimeOrNull(x['hora']) &&
     isTimeOrNull(x['hora_fim']) &&
     isColor(x['cor']) &&
+    isIcon(x['icone']) &&
     typeof x['silencioso'] === 'boolean' &&
     typeof x['repete'] === 'boolean' &&
     idList(x['notas'], NOTAS_DO_LEMBRETE_MAX);
@@ -452,6 +458,7 @@ function checkAgenda(a: Record<string, unknown>, id: string): AgendaDoMesV1 {
       hora: x.hora,
       hora_fim: x.hora_fim,
       cor: x.cor,
+      icone: x.icone ?? null,
       silencioso: x.silencioso,
       repete: x.repete,
       notas: x.notas,

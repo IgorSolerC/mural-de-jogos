@@ -22,7 +22,7 @@ import { SpendingStore } from './spending-store';
 const reminder = (raw: Record<string, unknown>): Reminder =>
   sanitizeReminder({ color: 'amarelo', notes: [], skip: [], createdAt: '2026-10-01T10:00:00.000Z', at: '2026-10-02T10:00:00.000Z', ...raw })!;
 
-const DENTISTA = reminder({ id: 'lb-dentista', title: 'Dentista', date: '2026-10-22', time: '14:30', endTime: '15:30', color: 'azul', notes: ['r-ficha'] });
+const DENTISTA = reminder({ id: 'lb-dentista', title: 'Dentista', date: '2026-10-22', time: '14:30', endTime: '15:30', color: 'azul', icon: 'remedio', notes: ['r-ficha'] });
 const ACADEMIA = reminder({ id: 'lb-academia', title: 'Academia', date: '2026-10-05', time: '07:00', repeat: 'semana', days: [1, 3], skip: ['2026-10-12'], color: 'verde' });
 const FERIAS = reminder({ id: 'lb-ferias', title: 'Férias', date: '2026-10-30', end: '2026-11-02', quiet: true, color: 'laranja' });
 const ANIVERSARIO = reminder({
@@ -36,7 +36,7 @@ const ANIVERSARIO = reminder({
 describe('o espelho da API: o lembrete em v1', () => {
   it('leva os campos da v1, na ordem dela, com a repetição em palavras', () => {
     const v = lembreteV1(ACADEMIA);
-    expect(Object.keys(v)).toEqual(['id', 'titulo', 'dia', 'hora', 'fim', 'hora_fim', 'repete', 'em_palavras', 'pulados', 'cor', 'silencioso', 'notas', 'google', 'criado_em', 'versao']);
+    expect(Object.keys(v)).toEqual(['id', 'titulo', 'dia', 'hora', 'fim', 'hora_fim', 'repete', 'em_palavras', 'pulados', 'cor', 'icone', 'silencioso', 'notas', 'google', 'criado_em', 'versao']);
     expect(v).toEqual({
       id: 'lb-academia',
       titulo: 'Academia',
@@ -48,6 +48,7 @@ describe('o espelho da API: o lembrete em v1', () => {
       em_palavras: 'Toda semana, na segunda e quarta, a partir de 5 de outubro de 2026.',
       pulados: ['2026-10-12'],
       cor: 'verde',
+      icone: null,
       silencioso: false,
       notas: [],
       google: null,
@@ -59,6 +60,7 @@ describe('o espelho da API: o lembrete em v1', () => {
   it('o de um dia só, o de vários dias, a marcação e o do Google travado', () => {
     expect(lembreteV1(DENTISTA)).toEqual(jasmine.objectContaining({ hora: '14:30', hora_fim: '15:30', repete: null, em_palavras: 'Só em 22 de outubro de 2026.', notas: ['r-ficha'] }));
     expect(lembreteV1(FERIAS)).toEqual(jasmine.objectContaining({ fim: '2026-11-02', silencioso: true, em_palavras: 'De 30 de out. a 2 de nov. de 2026.' }));
+    expect(lembreteV1(DENTISTA).icone).toBe('remedio');
     expect(lembreteV1(ANIVERSARIO).google).toEqual({ link: 'https://www.google.com/calendar/event?eid=x', travado: 'google' });
     const count = reminder({ id: 'lb-x', title: 'Aula', date: '2026-10-05', repeat: 'semana', count: 3 });
     expect(lembreteV1(count).repete).toEqual(jasmine.objectContaining({ ate: '2026-10-19', vezes: 3 }));
@@ -81,7 +83,7 @@ describe('o espelho da API: a agenda do mês', () => {
       '2026-10-28 Academia',
     ]);
     expect(out.vezes[6]).toEqual({
-      lembrete: 'lb-dentista', titulo: 'Dentista', dia: '2026-10-22', fim: null, hora: '14:30', hora_fim: '15:30', cor: 'azul', silencioso: false, repete: false, notas: ['r-ficha'],
+      lembrete: 'lb-dentista', titulo: 'Dentista', dia: '2026-10-22', fim: null, hora: '14:30', hora_fim: '15:30', cor: 'azul', icone: 'remedio', silencioso: false, repete: false, notas: ['r-ficha'],
     });
     expect(out.vezes[0]!.repete).toBeTrue();
   });

@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterRenderEffect, computed, inject, input, output } from '@angular/core';
 import { MONTHS_LONG } from '../core/dates';
+import { LucideIconData } from 'lucide-angular';
+import { ICON_CHOICE, IconModule } from './icons';
 import { Reminder, WEEKDAYS_LONG, WEEKDAYS_SHORT, addDays, addMonths, isPast, monthGrid, monthLabel, monthOf, remindersByDay, segmentOn, spanLabel, spanOf, weekday } from '../core/calendar';
 
 /** Um dia da folha, já com o que ele mostra. */
@@ -13,7 +15,7 @@ interface Cell {
   /** Na pequena, as bolinhas: a cor de cada lembrete (os primeiros) e se ele já passou. */
   dots: { color: string; past: boolean }[];
   /** Na grande, as tirinhas: o nome de cada lembrete (os primeiros), na cor dele, com o horário. */
-  chips: { id: string; title: string; time: string | null; color: string; past: boolean; before: boolean; after: boolean }[];
+  chips: { id: string; title: string; time: string | null; icon: LucideIconData | null; color: string; past: boolean; before: boolean; after: boolean }[];
   /** Quantos não couberam. */
   more: number;
   label: string;
@@ -24,7 +26,7 @@ interface Cell {
 /**
  * A folha de um mês (a "folhinha"): os dias de domingo a sábado, os domingos impressos em vermelho, o
  * dia de hoje circulado a caneta e, embaixo do número, o nome de cada lembrete do dia numa tirinha da
- * cor dele (com o horário; riscado quando já passou), três por dia e "+2 mais". Na pequena, no lugar
+ * cor dele (com o horário e o ícone, se ele tem; riscado quando já passou), três por dia e "+2 mais". Na pequena, no lugar
  * das tirinhas, uma bolinha adesiva na cor de cada lembrete (riscada quando já passou). Tocar num dia o escolhe
  * (`picked`); as setas andam pelos dias (e mudam de mês nas pontas), PageUp e PageDown pulam um mês,
  * Home e End vão ao começo e ao fim da semana (`moved`; quem usa troca o dia).
@@ -34,6 +36,7 @@ interface Cell {
  */
 @Component({
   selector: 'app-calendar-month',
+  imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '[class.mini]': 'mini()' },
   template: `
@@ -74,7 +77,12 @@ interface Cell {
                           @if (t.time) {
                             <span class="tirinha-hora">{{ t.time }}</span>
                           }
-                          {{ t.title }}
+                          <!-- o ícone colado ao nome (sem espaço no meio): é marca do lembrete, não do horário -->
+                          @if (t.icon) {
+                            <lucide-icon class="tirinha-icone" [img]="t.icon" [size]="12" aria-hidden="true" /><span class="tirinha-nome">{{ t.title }}</span>
+                          } @else {
+                            {{ t.title }}
+                          }
                         </span>
                       }
                       @if (c.more) {
@@ -258,6 +266,17 @@ interface Cell {
       font-variant-numeric: tabular-nums;
     }
 
+    /* o ícone do lembrete, no traço da letra, antes do nome (depois do horário) */
+    .tirinha-icone {
+      display: inline-flex;
+      margin-right: 3px;
+      vertical-align: -0.12em;
+    }
+
+    .tirinha-hora + .tirinha-icone {
+      margin-left: 4px;
+    }
+
     .mais-linha {
       padding-left: 4px;
       font-family: var(--f-label);
@@ -418,6 +437,20 @@ interface Cell {
         display: none;
       }
 
+      /* estreita, sem o horário: o ícone numa linha e o nome inteiro na de baixo, numa linha só, com
+         reticências (no corte em duas linhas, o nome depois do ícone ganharia uma terceira, que aparecia
+         pela metade no pé da tirinha); toda tirinha com ícone fica da mesma altura */
+      .tirinha-hora + .tirinha-icone {
+        margin-left: 0;
+      }
+
+      .tirinha-nome {
+        display: block;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
       .mais-linha {
         padding-left: 0;
         text-align: center;
@@ -510,7 +543,7 @@ export class CalendarMonth {
     const seg = spanOf(r) > 1 ? segmentOn(r, day) : null;
     // no mês, o "continua" fica só no picote (a tirinha é pequena)
     const time = seg && !seg.first && !(seg.last && r.endTime) ? null : spanLabel(r, day) || null;
-    return { id: r.id, title: r.title, time, color: r.color, past: isPast(r, day, today, now), before: !!seg && !seg.first, after: !!seg && !seg.last };
+    return { id: r.id, title: r.title, time, icon: r.icon ? ICON_CHOICE[r.icon] : null, color: r.color, past: isPast(r, day, today, now), before: !!seg && !seg.first, after: !!seg && !seg.last };
   }
 
   constructor() {

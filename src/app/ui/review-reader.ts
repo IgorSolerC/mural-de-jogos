@@ -326,7 +326,7 @@ interface ReadingPlace {
                     @for (x of reminders(); track x.id; let last = $last) {
                       <div class="lugar na-agenda" [class.passou]="x.past" [attr.data-cor]="x.color">
                         <span class="sr-only">No Calendário: </span>
-                        <lucide-icon class="lugar-icone" [img]="CalendarIcon" [size]="16" aria-hidden="true" />
+                        <lucide-icon class="lugar-icone" [img]="x.icon ? choiceIcon[x.icon] : CalendarIcon" [size]="16" aria-hidden="true" />
                         <button type="button" class="parte-de" [title]="'Abrir ' + x.when + ' no Calendário'" (click)="openDay(x.day)">{{ x.when }}</button>
                         <span class="lembrete">{{ x.title }}</span>
                         <!-- os outros lembretes ficam atrás de um "e mais 2", escrito à mão depois do nome, para a
@@ -700,6 +700,8 @@ export class ReviewReader {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   protected readonly CalendarIcon = ICON.calendario;
+  /** O desenho de cada escolha da cartela (o ícone do lembrete, no lugar do calendário). */
+  protected readonly choiceIcon = ICON_CHOICE;
   protected readonly TasksIcon = ICON.tarefas;
   protected readonly SubjectIcon = ICON.assunto;
   protected readonly importanceLabel = IMPORTANCE_LABEL;

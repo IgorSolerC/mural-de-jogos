@@ -74,6 +74,8 @@ interface Group {
   days: Map<string, { day: string; back: boolean }>;
   /** O lembrete é uma marcação (o evento vai sem avisos). */
   quiet: boolean;
+  /** O ícone que foi no evento (o que o Google vai guardar, se der certo). */
+  icon?: Reminder['icon'];
 }
 
 /** Até quanto tempo atrás um dia tirado ainda vai ao Google como "tirar esta vez". */
@@ -531,7 +533,7 @@ export class GoogleAgenda {
         ops.push({ acao: c.back ? 'voltar' : 'apagar', id: iid });
         days.set(iid, c);
       }
-      items.push({ reminder: r.id, sent: r.at, ops, creates: !r.google, skip: r.google ? (r.google.skip ?? r.skip) : r.skip, days, quiet: !!r.quiet });
+      items.push({ reminder: r.id, sent: r.at, ops, creates: !r.google, skip: r.google ? (r.google.skip ?? r.skip) : r.skip, days, quiet: !!r.quiet, icon: r.icon });
     }
     const live = new Set(st.reminders.map((r) => r.google?.id));
     for (const id of Object.keys(st.googleTrash ?? {})) if (!done.has(id) && !live.has(id)) items.push({ acao: 'apagar', id });
@@ -589,7 +591,7 @@ export class GoogleAgenda {
             id,
             ...(eventRes?.etag ? { etag: eventRes.etag } : {}),
             ...(eventRes?.htmlLink ? { link: eventRes.htmlLink } : {}),
-            ...(eventRes ? { quiet: item.quiet } : {}),
+            ...(eventRes ? { quiet: item.quiet, icon: item.icon } : {}),
             skip: [...known].sort(),
           },
           item.sent,

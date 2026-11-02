@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { ICON, IconModule } from './icons';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, fenceInfo, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
@@ -859,7 +859,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 @if (escolhido) {
                   <!-- escolhido: a lista fecha e fica quando ele é (escrever ou ↓ reabre a lista) -->
                   <p class="elo-escolhida" aria-live="polite">
-                    <lucide-icon [img]="ReminderIcon" [size]="16" aria-hidden="true" />
+                    <lucide-icon [img]="escolhido.icon ? choiceIcon[escolhido.icon] : ReminderIcon" [size]="16" aria-hidden="true" />
                     <span>{{ escolhido.when }}{{ escolhido.past ? ' · já passou' : '' }}</span>
                   </p>
                 } @else {
@@ -4088,6 +4088,8 @@ export class RichEditor {
   private readonly reminderLinks = inject(ReminderLinks);
   private readonly copyContexts = inject(CopyContexts);
   protected readonly ReminderIcon = ICON.calendario;
+  /** O desenho de cada escolha da cartela (o ícone do lembrete escolhido, no lugar do calendário). */
+  protected readonly choiceIcon = ICON_CHOICE;
 
   /** O painel do link de lembrete aberto (ver `ReminderPanel`). */
   protected readonly reminding = signal<ReminderPanel | null>(null);

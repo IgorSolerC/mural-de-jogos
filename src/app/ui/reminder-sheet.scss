@@ -246,7 +246,7 @@ dialog.lembrete {
   padding: 6px 2px;
 }
 
-/* As cores: a cartela das cartolinas, a escolhida com o círculo de caneta (como nas colunas do Kanban) */
+/* As cores e os ícones: a cartela das colunas do Kanban (ver ui/kanban-column-sheet.scss) */
 .ops {
   display: flex;
   flex-wrap: wrap;
@@ -263,13 +263,8 @@ dialog.lembrete {
   border-radius: 2px;
   color: var(--ink);
   cursor: pointer;
-  background-color: var(--stock);
-  background-image: var(--paper-grain);
-  background-blend-mode: multiply;
-  box-shadow:
-    inset 0 0 0 1.5px rgb(21 21 21 / 0.3),
-    0 1px 1px rgb(0 0 0 / 0.2);
   transition:
+    background-color var(--t-ui) var(--ease-ui),
     box-shadow var(--t-ui) var(--ease-ui),
     rotate var(--t-physical) var(--ease-physical),
     scale var(--t-physical) var(--ease-physical);
@@ -278,6 +273,16 @@ dialog.lembrete {
     outline: 3px solid var(--ink);
     outline-offset: 2px;
   }
+}
+
+/* a cor: um quadradinho da cartolina, a escolhida com o círculo de caneta (como nas colunas do Kanban) */
+.op.cor {
+  background-color: var(--stock);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow:
+    inset 0 0 0 1.5px rgb(21 21 21 / 0.3),
+    0 1px 1px rgb(0 0 0 / 0.2);
 
   &[aria-checked='true'] {
     box-shadow:
@@ -294,6 +299,97 @@ dialog.lembrete {
       pointer-events: none;
     }
   }
+}
+
+/* o ícone: o recorte tracejado ainda na cartela; o escolhido é o adesivo de tinta (o das colunas) */
+.op.icone {
+  background: transparent;
+  outline: 1.5px dashed rgb(21 21 21 / 0.36);
+  outline-offset: -1.5px;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.07);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &[aria-checked='true'] {
+    outline-color: transparent;
+    background: var(--ink);
+    color: var(--hi);
+    rotate: -3deg;
+    box-shadow:
+      0 1px 2px rgb(0 0 0 / 0.35),
+      0 4px 8px -3px rgb(0 0 0 / 0.35);
+  }
+
+  /* o escolhido também mostra o foco do teclado */
+  &[aria-checked='true']:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+/* "Sem ícone": o recorte vazio, com o risco de caneta de quem tirou (a prévia repete o recorte escolhido) */
+.op.sem-icone::before,
+.icone-previa.vazio::before {
+  content: '';
+  width: 22px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  rotate: -45deg;
+  opacity: 0.55;
+}
+
+.op.sem-icone[aria-checked='true']::before {
+  opacity: 1;
+}
+
+/* o escolhido, à vista ao lado do nome dele: o mesmo adesivo, ou o recorte vazio */
+.icone-previa {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 2px;
+  background: var(--ink);
+  color: var(--hi);
+  rotate: -3deg;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 4px 8px -3px rgb(0 0 0 / 0.35);
+
+  &.vazio {
+    color: var(--ink);
+    background: transparent;
+    rotate: none;
+    box-shadow: none;
+    outline: 1.5px dashed rgb(21 21 21 / 0.36);
+    outline-offset: -1.5px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.icones-btn {
+  flex: none;
+}
+
+/* a cartela aberta: um bloco recuado embaixo, como o personalizar da repetição */
+.cartela-icones {
+  padding: 2px 0 2px 14px;
+  border-left: 1px dashed rgb(21 21 21 / 0.4);
 }
 
 /* As anotações anexadas: uma linha por anotação, com um pedacinho da cartolina dela, o nome à mão e a

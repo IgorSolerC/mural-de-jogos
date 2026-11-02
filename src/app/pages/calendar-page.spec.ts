@@ -2,6 +2,7 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { Reminder } from '../core/calendar';
+import { ICON_CHOICES } from '../core/icon-choices';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { Review, sanitizeReview } from '../core/review';
@@ -304,6 +305,69 @@ describe('página do Calendário', () => {
       expect(s.querySelector('.perigo')).toBeNull();
       expect(text(s.querySelector('.sub'))).toContain('No Google Agenda');
       expect([...s.querySelectorAll<HTMLButtonElement>('.anexar .papel')].every((b) => !b.disabled)).toBeTrue();
+    });
+  });
+
+  describe('o ícone do lembrete', () => {
+    const withIcon = () => calendar.state.update((st) => ({ ...st, reminders: st.reminders.map((r) => (r.id === 'rbolo0001' ? { ...r, icon: 'bolo' as const } : r)) }));
+
+    it('aparece antes do nome no mês, na semana e no dia; sem ícone, só o nome', async () => {
+      withIcon();
+      await go('/anotacoes/calendario');
+      const tira = [...cell('2026-10-20').querySelectorAll('.tirinha')].find((t) => t.textContent!.includes('Fazer bolo'))!;
+      expect([...cell('2026-10-20').querySelectorAll('lucide-icon.tirinha-icone')].length).toBe(1);
+      expect(tira.querySelector('.tirinha-icone svg')).not.toBeNull();
+      // o ícone colado ao nome, sem o espaço que separa o horário
+      expect(text(tira)).toBe('15hFazer bolo de aniversário');
+      expect(cell(HOJE).querySelector('.tirinha-icone')).toBeNull();
+      await go('/anotacoes/calendario?vista=semana&dia=2026-10-20');
+      const tiras = $$('.tira').filter((t) => t.textContent!.includes('Fazer bolo'));
+      expect(tiras[0].querySelector('.tira-nome .nome-icone')).not.toBeNull();
+      expect($$('.tira').filter((t) => t.querySelector('.nome-icone')).length).toBe(1);
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
+      expect($$('.lembrete-nome').map(text)).toEqual(['Tomar o remédio', 'Fazer bolo de aniversário']);
+      expect($$('.lembrete-nome')[1].querySelector('.nome-icone')).not.toBeNull();
+      expect($$('.lembrete-nome')[0].querySelector('.nome-icone')).toBeNull();
+    });
+
+    it('a folha escolhe na cartela das colunas (fechada até pedir), salva com o lembrete e tira com o Sem ícone', async () => {
+      await go('/anotacoes/calendario?vista=dia&dia=2026-10-20');
+      $$('.entrada')[1].querySelector<HTMLButtonElement>('.editar')!.click();
+      await settle();
+      const s = sheet()!;
+      const btn = s.querySelector<HTMLButtonElement>('.icones-btn')!;
+      expect(text(s.querySelector('#lb-icone'))).toBe('Sem ícone');
+      expect(s.querySelector('.icone-previa')!.classList).toContain('vazio');
+      expect(s.querySelector('#lb-icones')).toBeNull();
+      expect(btn.getAttribute('aria-expanded')).toBe('false');
+      btn.click();
+      await settle();
+      const ops = [...s.querySelectorAll<HTMLButtonElement>('#lb-icones .op')];
+      expect(ops.length).toBe(1 + ICON_CHOICES.length);
+      expect(ops[0].getAttribute('aria-label')).toBe('Sem ícone');
+      expect(ops[0].getAttribute('aria-checked')).toBe('true');
+      s.querySelector<HTMLButtonElement>('#lb-icones .op[aria-label="Aniversário"]')!.click();
+      await settle();
+      expect(text(s.querySelector('#lb-icone'))).toBe('Aniversário');
+      expect(s.querySelector('.icone-previa svg')).not.toBeNull();
+      expect(s.querySelector('#lb-icones .op[aria-label="Aniversário"]')!.getAttribute('aria-checked')).toBe('true');
+      // nada muda no calendário até salvar
+      expect(calendar.reminders().find((r) => r.id === 'rbolo0001')!.icon).toBeUndefined();
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      expect(calendar.reminders().find((r) => r.id === 'rbolo0001')!.icon).toBe('bolo');
+      // de novo: o Sem ícone tira
+      $$('.entrada')[1].querySelector<HTMLButtonElement>('.editar')!.click();
+      await settle();
+      const s2 = sheet()!;
+      expect(text(s2.querySelector('.icones-btn'))).toBe('Trocar');
+      s2.querySelector<HTMLButtonElement>('.icones-btn')!.click();
+      await settle();
+      s2.querySelector<HTMLButtonElement>('#lb-icones .sem-icone')!.click();
+      await settle();
+      s2.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      expect('icon' in calendar.reminders().find((r) => r.id === 'rbolo0001')!).toBeFalse();
     });
   });
 

@@ -33,6 +33,8 @@ describe('Google Agenda: do lembrete para o evento', () => {
       end: { date: '2026-10-21' },
       colorId: '4',
       description: 'Anotações no Murall: Receita do bolo',
+      // sem ícone, o vazio no evento do Murall (tira o de antes, se ele já existia)
+      extendedProperties: { private: { murallIcone: '' } },
     });
     // o branco fica na cor da agenda
     expect(toEvent(reminder({ color: 'branco' }), 'UTC').colorId).toBeUndefined();
@@ -258,5 +260,52 @@ describe('Google Agenda: do evento para o lembrete', () => {
     expect(fromEvent(event({ start: { date: '2026-08-01' }, end: { date: '2026-08-02' } }), reminder({ id: 'gabc123def456' }), today).kind).toBe('upsert');
     // repete sem fim: vem, mesmo tendo começado há anos
     expect(fromEvent(event({ start: { date: '2015-03-14' }, end: { date: '2015-03-15' }, recurrence: ['RRULE:FREQ=YEARLY'] }), undefined, today).kind).toBe('upsert');
+  });
+});
+
+describe('Google Agenda: o ícone do lembrete', () => {
+  it('vai escondido nas propriedades do evento, sem mexer no nome; o vazio só onde pode haver um de antes', () => {
+    const ev = toEvent(reminder({ icon: 'bolo' }), 'UTC');
+    expect(ev.summary).toBe('Bolo');
+    expect(ev.extendedProperties).toEqual({ private: { murallIcone: 'bolo' } });
+    const vazio = { private: { murallIcone: '' } };
+    // o evento do Murall (o mesmo id ao ligar de novo) e o que ainda não está ligado vão com o vazio
+    expect(toEvent(reminder(), 'UTC').extendedProperties).toEqual(vazio);
+    expect(toEvent(reminder({ google: { id: eventIdFor('rbolo00001'), at: T } }), 'UTC').extendedProperties).toEqual(vazio);
+    // o que nasceu no Google: o vazio só se lá ele tem ícone; nunca teve, fica sem a propriedade
+    expect(toEvent(reminder({ id: 'gabc123def456', google: { id: 'abc123def456', at: T, icon: 'bolo' } }), 'UTC').extendedProperties).toEqual(vazio);
+    expect(toEvent(reminder({ id: 'gabc123def456', google: { id: 'abc123def456', at: T } }), 'UTC').extendedProperties).toBeUndefined();
+  });
+
+  it('volta do evento: o guardado lá, vazio é nenhum, e sem o campo (a API de antes) fica o daqui', () => {
+    const existing = reminder({ id: 'gabc123def456', icon: 'presente', google: { id: 'abc123def456', at: T } });
+    const read = (ev: GEvent, ex?: Reminder) => {
+      const r = fromEvent(ev, ex, '2026-10-12');
+      return r.kind === 'upsert' ? r.reminder.icon : 'nada';
+    };
+    expect(read(event({ icone: 'aviao' }))).toBe('aviao');
+    expect(read(event({ icone: 'aviao' }), existing)).toBe('aviao');
+    expect(read(event({ icone: null }), existing)).toBeUndefined();
+    expect(read(event({ icone: '' }), existing)).toBeUndefined();
+    expect(read(event(), existing)).toBe('presente');
+    expect(read(event())).toBeUndefined();
+    // um id que a cartela não tem não vira ícone
+    expect(read(event({ icone: 'nao-existe' }))).toBeUndefined();
+    // a ligação guarda o que o Google tem (sem o campo, o que já se sabia)
+    const link = (ev: GEvent, ex?: Reminder) => {
+      const r = fromEvent(ev, ex, '2026-10-12');
+      return r.kind === 'upsert' ? r.reminder.google?.icon : 'nada';
+    };
+    expect(link(event({ icone: 'aviao' }))).toBe('aviao');
+    expect(link(event({ icone: null }), { ...existing, google: { ...existing.google!, icon: 'presente' } })).toBeUndefined();
+    expect(link(event(), { ...existing, google: { ...existing.google!, icon: 'presente' } })).toBe('presente');
+  });
+
+  it('o convite e o evento especial, que o Murall não manda, guardam o ícone escolhido aqui', () => {
+    const existing = reminder({ id: 'gabc123def456', icon: 'bolo', google: { id: 'abc123def456', at: T, lock: 'google' } });
+    const r = fromEvent(event({ tipo: 'birthday', icone: null }), existing, '2026-10-12');
+    expect(r.kind === 'upsert' && r.reminder.icon).toBe('bolo');
+    const invite = fromEvent(event({ seu: false, icone: 'aviao' }), { ...existing, google: { ...existing.google!, lock: 'convite' } }, '2026-10-12');
+    expect(invite.kind === 'upsert' && invite.reminder.icon).toBe('bolo');
   });
 });

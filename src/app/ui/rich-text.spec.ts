@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RichText } from './rich-text';
+import { iconMask } from './icons';
 import { NoteLinks } from '../core/note-links';
 import { Review, sanitizeReview } from '../core/review';
 
@@ -538,6 +539,28 @@ describe('o link de lembrete na leitura ("[texto](murall://lembrete/ID)")', () =
     expect(link.classList).not.toContain('quebrado');
     expect(link.title).toBe('Um lembrete do Calendário de quem escreveu');
     expect(link.dataset['quando']).toBeUndefined();
+  });
+});
+
+describe('o link de lembrete com o ícone do lembrete', () => {
+  afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+
+  it('o desenho depois do texto é o ícone dele; sem ícone, o calendário de sempre', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    const base = { title: 'Bolo da Bia', when: 'Amanhã', date: '02/11/2026', past: false, day: '2026-11-02' };
+    fixture.componentRef.setInput('text', '[bolo](murall://lembrete/rbolo) e [aula](murall://lembrete/raula)');
+    fixture.componentRef.setInput('links', { reminder: (id: string) => (id === 'rbolo' ? { ...base, icon: 'bolo' as const } : base), openReminder: () => undefined });
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const [bolo, aula] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.elo.lembrete'));
+    expect(bolo.style.getPropertyValue('--lembrete-desenho')).toBe(iconMask('bolo')!);
+    const fimBolo = getComputedStyle(bolo.querySelector('.elo-fim')!, '::after').maskImage;
+    const fimAula = getComputedStyle(aula.querySelector('.elo-fim')!, '::after').maskImage;
+    expect(fimBolo).toContain('svg');
+    expect(fimAula).toContain('svg');
+    expect(fimBolo).not.toBe(fimAula);
+    expect(aula.style.getPropertyValue('--lembrete-desenho')).toBe('');
   });
 });
 

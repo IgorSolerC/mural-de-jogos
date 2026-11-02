@@ -1,5 +1,6 @@
 import { HttpError } from '../errors';
 import type { Deps } from '../ports';
+import { ICONE_RE } from '../../../contrato/api-v1/calendario';
 import { base64url } from './bytes';
 
 /**
@@ -128,8 +129,9 @@ function when(v: unknown): When | null {
 
 /**
  * O evento que o site manda, só com os campos que o Murall escreve (nada de convidados, lugar ou
- * conferência): o nome, quando começa e acaba, a repetição (RRULE e EXDATE), a cor, a descrição e os avisos
- * (os da agenda, ou nenhum: a marcação que não avisa).
+ * conferência): o nome, quando começa e acaba, a repetição (RRULE e EXDATE), a cor, a descrição, os avisos
+ * (os da agenda, ou nenhum: a marcação que não avisa) e o ícone do lembrete, escondido nas propriedades
+ * privadas do evento (`murallIcone`; o Google não tem ícone por evento, e o nome fica como está).
  */
 export function cleanEvent(raw: unknown): Record<string, unknown> {
   const bad = () => new HttpError(400, 'evento-invalido', 'O lembrete não virou um evento válido.');
@@ -151,6 +153,13 @@ export function cleanEvent(raw: unknown): Record<string, unknown> {
   }
   if (typeof r['description'] === 'string') out['description'] = r['description'].slice(0, 8000);
   if (r['reminders'] !== undefined) out['reminders'] = cleanReminders(r['reminders'], bad);
+  if (r['extendedProperties'] !== undefined) {
+    const icon = ((r['extendedProperties'] ?? {}) as { private?: { murallIcone?: unknown } }).private?.murallIcone;
+    // o id de um desenho da cartela do site, ou vazio (sem ícone)
+    if (typeof icon !== 'string' || (icon !== '' && !ICONE_RE.test(icon))) throw bad();
+    // só a chave do Murall: no PATCH, as outras propriedades do evento ficam como estão
+    out['extendedProperties'] = { private: { murallIcone: icon } };
+  }
   return out;
 }
 
@@ -193,6 +202,12 @@ function cleanReminders(raw: unknown, bad: () => HttpError): Record<string, unkn
 
 // ===== O que volta do Google =====
 
+/** O ícone do lembrete guardado no evento, se é um id que o Murall escreveria; senão, null. */
+function iconOf(raw: Record<string, unknown>): string | null {
+  const icon = (raw['extendedProperties'] as { private?: Record<string, unknown> } | undefined)?.private?.['murallIcone'];
+  return typeof icon === 'string' && ICONE_RE.test(icon) ? icon : null;
+}
+
 /** O evento como o site precisa: os campos do Murall e o que diz se ele pode mexer. */
 export function trimEvent(raw: Record<string, unknown>): Record<string, unknown> {
   const organizer = raw['organizer'] as { self?: boolean } | undefined;
@@ -212,6 +227,8 @@ export function trimEvent(raw: Record<string, unknown>): Record<string, unknown>
     ...pick('etag'),
     ...pick('htmlLink'),
     ...pick('reminders'),
+    // sempre presente (null sem ícone): o site sabe que esta API lê o ícone, e o tira quando ele sai do evento
+    icone: iconOf(raw),
     tipo: typeof raw['eventType'] === 'string' ? raw['eventType'] : 'default',
     // sem organizador, ou o próprio: é seu; um convite de outra pessoa só se muda lá
     seu: !organizer || organizer.self === true,

@@ -189,11 +189,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  * 48: as estampas novas (`pattern`: `pautado`, `quadriculado`, `pontilhado`, `milimetrado`, `vichy`,
  *     `meiotom`, `dinheiro`, `compras`, `escritorio`, `saude`, `viagem`). Um site da 47 não as conhece e
  *     jogaria a estampa fora ao enviar a ficha, e ela voltaria lisa em todo aparelho.
+ * 49: o ícone do lembrete do Calendário (`icon`, da cartela dos grupos e das colunas). Um site da 48 não
+ *     conhece o campo e o jogaria fora ao enviar o calendário, e o lembrete voltaria sem ícone em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 48;
+export const SYNC_SCHEMA = 49;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

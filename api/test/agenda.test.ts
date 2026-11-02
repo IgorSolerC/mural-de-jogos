@@ -332,6 +332,53 @@ describe('o Google Agenda', () => {
     expect(new URL(calls.find((c) => c.method === 'GET' && c.url.startsWith(CALENDAR_URL))!.url).searchParams.get('fields')).toContain('reminders');
   });
 
+  it('o ícone do lembrete vai escondido nas propriedades privadas do evento e volta na busca (null sem ele)', async () => {
+    const token = await login();
+    await connect(token);
+    const base = { summary: 'Bolo', start: { date: '2026-10-20' }, end: { date: '2026-10-21' } };
+    google = (c) =>
+      c.method === 'GET'
+        ? reply(200, {
+            items: [
+              { id: 'bolo1', status: 'confirmed', extendedProperties: { private: { murallIcone: 'bolo', outraCoisa: 'x' }, shared: { y: 'z' } } },
+              { id: 'feira1', status: 'confirmed' },
+              { id: 'feira2', status: 'confirmed', extendedProperties: { private: { murallIcone: '<script>' } } },
+            ],
+            nextSyncToken: 's',
+          })
+        : reply(200, { etag: '"x"' });
+    calls = [];
+    const ok = await json(
+      'POST',
+      '/v1/agenda/enviar',
+      {
+        ops: [
+          { acao: 'criar', id: 'mu0001', evento: { ...base, extendedProperties: { private: { murallIcone: 'bolo', outra: 'x' } } } },
+          { acao: 'mudar', id: 'mu0002', evento: { ...base, extendedProperties: { private: { murallIcone: '' } } } },
+          { acao: 'mudar', id: 'mu0003', evento: base },
+        ],
+      },
+      token,
+    );
+    expect(ok.status).toBe(200);
+    const sent = calls.filter((c) => c.method !== 'GET').map((c) => JSON.parse(c.body));
+    // só a chave do Murall; o nome do evento fica como está
+    expect(sent[0].extendedProperties).toEqual({ private: { murallIcone: 'bolo' } });
+    expect(sent[0].summary).toBe('Bolo');
+    // vazio tira o de antes (no PATCH, a chave é trocada); sem o campo, o do Google fica como está
+    expect(sent[1].extendedProperties).toEqual({ private: { murallIcone: '' } });
+    expect('extendedProperties' in sent[2]).toBe(false);
+    // um ícone que não é um id da cartela recusa só aquela mudança
+    const bad = (await (await json('POST', '/v1/agenda/enviar', { ops: [{ acao: 'mudar', id: 'mu0004', evento: { ...base, extendedProperties: { private: { murallIcone: 'Bolo!' } } } }] }, token)).json()) as {
+      resultados: unknown[];
+    };
+    expect(bad.resultados).toEqual([{ id: 'mu0004', ok: false, erro: 'recusado' }]);
+    const list = (await (await json('GET', '/v1/agenda/eventos', undefined, token)).json()) as { eventos: Record<string, unknown>[] };
+    expect(list.eventos.map((e) => e['icone'])).toEqual(['bolo', null, null]);
+    expect(list.eventos[0]!['extendedProperties']).toBeUndefined();
+    expect(new URL(calls.find((c) => c.method === 'GET' && c.url.startsWith(CALENDAR_URL))!.url).searchParams.get('fields')).toContain('extendedProperties(private)');
+  });
+
   it('as vezes de um evento que repete: vêm na busca, e uma vez se tira (apagar) e volta (voltar)', async () => {
     const token = await login();
     await connect(token);

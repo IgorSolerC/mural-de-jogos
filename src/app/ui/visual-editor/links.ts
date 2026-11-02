@@ -4,6 +4,7 @@ import { AddMarkStep, RemoveMarkStep } from 'prosemirror-transform';
 import { EditorState, Plugin, Transaction } from 'prosemirror-state';
 import { EditorView, MarkViewConstructor } from 'prosemirror-view';
 import { ReminderLinkInfo, reminderLinkTitle } from '../../core/reminder-links';
+import { iconMask } from '../icons';
 import { reminderLinkId } from '../../core/rich-text';
 import { faixasMudadas, linhasMexidas } from './ajustes';
 import { schema } from './schema';
@@ -229,10 +230,16 @@ export function linkView(lembrete: (id: string) => ReminderLinkInfo | null | und
   };
 }
 
-/** A classe e a dica do link de lembrete, pelo que se sabe dele (null: não está no Calendário; undefined: sem como saber). */
+/**
+ * A classe, a dica e o desenho do link de lembrete, pelo que se sabe dele (null: não está no Calendário;
+ * undefined: sem como saber): o ícone do lembrete, quando ele tem, no lugar do calendário.
+ */
 function vesteLembrete(dom: HTMLElement, info: ReminderLinkInfo | null | undefined): void {
   dom.className = info === null ? 'elo lembrete quebrado' : 'elo lembrete';
   dom.title = info === null ? 'Esse lembrete não está no seu Calendário' : info ? reminderLinkTitle(info) : 'Lembrete do Calendário';
+  const desenho = iconMask(info?.icon);
+  if (desenho) dom.style.setProperty('--lembrete-desenho', desenho);
+  else dom.style.removeProperty('--lembrete-desenho');
 }
 
 /** A classe e a dica do link de anotação, pelo que se sabe da anotação (null: sem como saber). */

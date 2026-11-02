@@ -29,6 +29,7 @@ export function lembrete(id: string, extra: Partial<LembreteV1> = {}): LembreteV
     em_palavras: 'Só em 20 de outubro de 2026.',
     pulados: [],
     cor: 'amarelo',
+    icone: null,
     silencioso: false,
     notas: [],
     google: null,
@@ -58,6 +59,7 @@ const vez = (l: LembreteV1, dia: string, extra: Partial<VezV1> = {}): VezV1 => (
   hora: l.hora,
   hora_fim: l.hora_fim,
   cor: l.cor!,
+  icone: l.icone ?? null,
   silencioso: l.silencioso,
   repete: !!l.repete,
   notas: l.notas,
@@ -196,11 +198,28 @@ export function calendarioSuite(label: string, getDb: () => Db) {
       expect(await bad('lembrete', DENTISTA.id, { ...DENTISTA, dia: '2026-11-31' })).toBe('espelho-invalido');
       expect(await bad('lembrete', DENTISTA.id, { ...DENTISTA, hora: '24:00' })).toBe('espelho-invalido');
       expect(await bad('lembrete', DENTISTA.id, { ...DENTISTA, cor: 'preto' })).toBe('espelho-invalido');
+      expect(await bad('lembrete', DENTISTA.id, { ...DENTISTA, icone: 'Bolo!' })).toBe('espelho-invalido');
+      expect(await bad('agenda', 'agenda-2026-10', { ...OUTUBRO, vezes: [{ ...OUTUBRO.vezes[0], icone: 42 }] })).toBe('espelho-invalido');
       expect(await bad('lembrete', DENTISTA.id, { ...DENTISTA, repete: { intervalo: 1 } })).toBe('espelho-invalido');
       expect(await bad('lembrete', 'lb-outro', DENTISTA)).toBe('espelho-invalido');
       // a agenda de um mês com outro id, a vez que acaba antes de começar
       expect(await bad('agenda', 'agenda-2026-11', OUTUBRO)).toBe('espelho-invalido');
       expect(await bad('agenda', 'agenda-2026-10', { ...OUTUBRO, vezes: [{ ...OUTUBRO.vezes[0], fim: '2026-10-01' }] })).toBe('espelho-invalido');
+    });
+
+    it('o ícone do lembrete entra no espelho; o site de antes, que não o manda, fica sem (null)', async () => {
+      const t = await setup();
+      const me = await t.login('ana');
+      await t.newKey(me.token, ['calendario:ler']);
+      const rev = await t.push(me.token, 0);
+      const { icone: _, ...antigo } = DENTISTA;
+      const comIcone = { ...ACADEMIA, icone: 'academia' };
+      const month = { ...OUTUBRO, vezes: [{ ...OUTUBRO.vezes[0], icone: 'academia' }, (({ icone: __, ...v }) => v)(OUTUBRO.vezes[1]!)] };
+      expect((await t.mirror(me.token, { rev, poe: [t.item('lembrete', DENTISTA.id, antigo), t.item('lembrete', ACADEMIA.id, comIcone), t.item('agenda', 'agenda-2026-10', month)] })).status).toBe(200);
+      const saved = async (id: string) => JSON.parse((await t.db.first<{ dados: string }>('SELECT dados FROM api_espelho WHERE id = ?', [id]))!.dados);
+      expect((await saved(DENTISTA.id)).icone).toBeNull();
+      expect((await saved(ACADEMIA.id)).icone).toBe('academia');
+      expect((await saved('agenda-2026-10')).vezes.map((v: { icone: unknown }) => v.icone)).toEqual(['academia', null]);
     });
 
     it('a chave que só lê as Anotações não deixa os lembretes entrarem', async () => {

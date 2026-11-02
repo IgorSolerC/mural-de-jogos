@@ -9,6 +9,12 @@
 export type CorV1 = 'vermelho' | 'laranja' | 'amarelo' | 'verde' | 'azul' | 'lilas' | 'rosa' | 'cinza' | 'branco';
 export const CORES: readonly CorV1[] = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
 
+/**
+ * O ícone de um lembrete: o id de um desenho da cartela do Murall (a mesma dos grupos e das colunas do
+ * Kanban: "bolo", "aviao", "remedio"…). Só para ler: quem escolhe é a pessoa, na tela.
+ */
+export const ICONE_RE = /^[a-z][a-z0-9-]{0,39}$/;
+
 export type CadaV1 = 'dia' | 'semana' | 'mes' | 'ano';
 export const CADAS: readonly CadaV1[] = ['dia', 'semana', 'mes', 'ano'];
 
@@ -47,6 +53,8 @@ export interface LembreteV1 {
   pulados: string[];
   /** A cor; null num pedido que ainda não entrou sem cor (o Murall sorteia ao aplicar). */
   cor: CorV1 | null;
+  /** O ícone escolhido na tela (o id do desenho, ver `ICONE_RE`); null sem ícone. Veio depois da v1: um espelho antigo não o tem. */
+  icone?: string | null;
   /** Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa. */
   silencioso: boolean;
   /** As anotações presas nele (os ids das notas), na ordem em que foram presas. */
@@ -73,6 +81,8 @@ export interface VezV1 {
   hora: string | null;
   hora_fim: string | null;
   cor: CorV1;
+  /** O ícone do lembrete (ver `LembreteV1.icone`); null sem ícone. */
+  icone?: string | null;
   silencioso: boolean;
   /** É uma vez de um lembrete que se repete. */
   repete: boolean;

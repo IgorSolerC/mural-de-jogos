@@ -291,3 +291,21 @@ describe('Calendário: os lembretes de uma anotação (a leitura dela)', () => {
   });
 });
 
+
+describe('Calendário: o ícone do lembrete', () => {
+  it('fica guardado só quando é um desenho da cartela; sem ele, o lembrete continua igual', () => {
+    expect(sanitizeReminder(reminder({ icon: 'bolo' }))!.icon).toBe('bolo');
+    expect(sanitizeReminder({ ...reminder(), icon: 'nao-existe' })!.icon).toBeUndefined();
+    expect(sanitizeReminder({ ...reminder(), icon: 42 })!.icon).toBeUndefined();
+    expect('icon' in sanitizeReminder(reminder())!).toBeFalse();
+  });
+
+  it('vai e volta entre aparelhos com o lembrete, e a leitura da anotação o mostra', () => {
+    const here = { reminders: [reminder({ id: 'rbolo0001', notes: ['n-x'], at: '2026-10-10T10:00:00.000Z' })], removed: {} };
+    const there = { reminders: [reminder({ id: 'rbolo0001', notes: ['n-x'], icon: 'bolo', at: '2026-10-11T10:00:00.000Z' })], removed: {} };
+    const merged = mergeCalendar(here, there);
+    expect(merged.reminders[0].icon).toBe('bolo');
+    expect(sanitizeCalendar(JSON.parse(JSON.stringify(merged))).reminders[0].icon).toBe('bolo');
+    expect(remindersOfNote(merged.reminders, 'n-x', '2026-10-01')[0].icon).toBe('bolo');
+  });
+});

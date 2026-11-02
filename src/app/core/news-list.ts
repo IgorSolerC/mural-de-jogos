@@ -27,16 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-02-estampas-novas',
+    id: '2026-11-02-icones-nos-lembretes',
     version: '1.36.3',
     kind: 'ajustes',
     date: '2026-11-02',
-    title: 'O código no texto com a linguagem e as cores, estragos novos na beirada da ficha e estampas novas',
+    title: 'O código no texto com a linguagem e as cores, estragos e estampas novos, e ícones nos lembretes',
     melhorias: [
       'O bloco de código ganhou a linguagem, como no Obsidian: escrita logo depois das crases ("```js", "```python", "```sql"…), ela pinta o código com as cores de cada coisa (as palavras da linguagem, os textos, os números, as funções, os comentários). Pelo menu Código da régua, com o cursor no bloco (ou pela etiqueta dele no Visual), dá para escolher entre as comuns ou escrever outra, copiar o código e desfazer o bloco; o Inserir › Bloco de código já pergunta a linguagem.',
       'O código ganhou cara de papelaria, na letra Cascadia Mono: o bloco é uma folha de formulário contínuo de impressora, com as faixas verdes, os furos do lado e a linguagem impressa no alto, e um Copiar no canto; o código no meio da frase é um recorte dela. A linha comprida rola de lado, e no PDF o código sai com as cores.',
       'Quatro estragos novos que mudam a beirada da ficha, na aba Estrago: Picote de selo (a beirada inteira em meias-luas, como um selo destacado), Recortada à mão (tesoura comum, fora do esquadro, com a linha a lápis de onde devia ter cortado), Tirinhas de anúncio (o pé picado em tirinhas de destacar, uma ou outra já levada) e Puída (as quinas gastas de anos na carteira).',
       'Onze estampas novas na aba Estampa. Papelaria, logo depois da Lisa: Pautado, Quadriculado, Pontilhado, Milimetrado, Vichy e Meio-tom, padrões de caderno e de gráfica em vez de desenhos (o Alinhamento vai da gráfica, reta, à riscada à mão). Dia a dia: Dinheiro (moeda, cédula, cofrinho, pilha de moedas), Compras (sacola, carrinho, etiqueta de preço, notinha), Escritório, Saúde e Viagem.',
+      'Os lembretes do Calendário ganharam ícone, da mesma cartela dos grupos e das colunas do Kanban: escolhido na folha do lembrete, ele aparece antes do nome no mês, na semana e no dia, na anotação aberta e no link de lembrete do texto, no lugar do desenho do calendário. Com o Google Agenda ligado, ele vai junto do evento (escondido, sem mexer no nome) e volta nos outros aparelhos.',
     ],
   },
   {

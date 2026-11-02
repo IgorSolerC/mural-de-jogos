@@ -327,6 +327,18 @@
   overflow-wrap: anywhere;
 }
 
+/* o ícone do lembrete, no traço da letra, antes do nome: com ele, o lembrete se acha de relance */
+.nome-icone {
+  display: inline-flex;
+  margin-right: 4px;
+  vertical-align: -0.12em;
+}
+
+.lembrete-nome .nome-icone {
+  margin-right: 6px;
+  vertical-align: -0.1em;
+}
+
 .passou .tira-nome {
   text-decoration: line-through 2px var(--ink);
 }

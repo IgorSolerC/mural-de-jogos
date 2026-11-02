@@ -230,6 +230,7 @@ export function lembreteDoPedido(id: string, d: CriarLembreteV1, agora: string):
     em_palavras: null,
     pulados: [],
     cor: null,
+    icone: null,
     silencioso: false,
     notas: [],
     google: null,

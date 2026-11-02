@@ -8,7 +8,7 @@ import { categoryIcon } from './category-label';
 import { AtSign, Baby, BedDouble, Bike, Bus, Cake, Car, Cat, Cctv, ChartLine, Cloud, Code, Coffee, CreditCard, Database, Dices, Dog, Droplet, Dumbbell, FileText, FingerprintPattern, Gamepad2, Gift, Headphones, HeartPulse, House, IdCard, KeyRound, Laptop, Lock, Luggage, Mail, MapPin, MessageCircle, MonitorPlay, Newspaper, PartyPopper, Phone, PiggyBank, Pill, Plug, Printer, Receipt, School, Server, ShieldCheck, ShoppingBag, Smartphone, Sprout, SquareTerminal, Store, Ticket, TreePalm, Tv, UserRound, Utensils, Volleyball, Wallet, Wifi, Wrench } from 'lucide-angular';
 import { CARTELA_DE_ICONES, CORES_DA_CARTELA, CORES_SORTEAVEIS } from '../../../shared/cartela-de-icones';
 import { CATEGORY_COLORS } from '../core/category-looks';
-import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICON_STROKE, IconModule, iconChoiceOf } from './icons';
+import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, ICON_STROKE, IconModule, iconChoiceOf, iconMask } from './icons';
 
 /** As cartelas de antes, uma de cada lugar: todo id guardado nelas tem de continuar valendo. */
 const OLD_CATEGORY_IDS = [
@@ -124,5 +124,22 @@ describe('O acervo de ícones', () => {
     expect(px()).toBeCloseTo(ICON_STROKE, 2);
     f.componentInstance.size.set(26);
     expect(px()).toBeCloseTo(ICON_STROKE, 2);
+  });
+});
+
+describe('o desenho da cartela em máscara (iconMask)', () => {
+  it('cada escolha vira um SVG no grid de 24, com o traço do calendário do link, feito uma vez', () => {
+    const url = iconMask('bolo')!;
+    expect(url.startsWith('url("data:image/svg+xml,')).toBeTrue();
+    const svg = decodeURIComponent(url.slice('url("data:image/svg+xml,'.length, -2));
+    expect(svg).toContain('viewBox="0 0 24 24"');
+    expect(svg).toContain('stroke-width="2.4"');
+    expect(svg).not.toContain('key=');
+    // cada elemento do desenho da cartela está lá
+    expect((svg.match(/<(path|circle|rect|line|polyline|polygon|ellipse) /g) ?? []).length).toBe(ICON_CHOICE['bolo'].length);
+    expect(iconMask('bolo')).toBe(url);
+    expect(iconMask('aviao')).not.toBe(url);
+    expect(iconMask(undefined)).toBeNull();
+    expect(iconMask('nao-existe' as never)).toBeNull();
   });
 });

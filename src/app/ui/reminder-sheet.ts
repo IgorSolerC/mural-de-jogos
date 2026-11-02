@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, effect, inject, input, linkedSignal, output, signal, untracked, viewChild } from '@angular/core';
-import { ICON, IconModule } from './icons';
+import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
 import {
   MAX_COUNT,
   MAX_NOTES,
@@ -31,6 +31,7 @@ import {
   weekday,
 } from '../core/calendar';
 import { MONTHS_LONG } from '../core/dates';
+import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
 import { CalendarStore } from '../core/calendar-store';
 import { Desk } from '../core/desk';
 import { NOTES } from '../core/kinds';
@@ -66,7 +67,8 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
 
 /**
  * A folha de um lembrete do Calendário (novo ou para mudar): o que lembrar, o dia, o horário (ou o dia
- * todo), como se repete (com a frase por extenso e a próxima vez), a cor da cartolina e as anotações
+ * todo), como se repete (com a frase por extenso e a próxima vez), o ícone (a cartela dos grupos e das
+ * colunas do Kanban, que abre e fecha como o Personalizar), a cor da cartolina e as anotações
  * anexadas ("Anexar nota", das que já existem, ou "Escrever uma nota nova", que abre o editor e prende a
  * anotação salva aqui). Nada muda no calendário até "Salvar"; Esc, o X e Cancelar deixam como estava.
  * Apagar um lembrete que se repete pergunta se é só aquele dia ou todos, com Desfazer.
@@ -93,7 +95,7 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
         <form class="body" id="lb-form" (submit)="$event.preventDefault(); save()">
           @if (lockText(); as lt) {
             <p class="nota-google">
-              {{ lt }} As anotações você prende aqui.
+              {{ lt }} O ícone e as anotações você põe aqui.
               @if (d.google?.link; as link) {
                 <a [href]="link" target="_blank" rel="noopener noreferrer">Abrir no Google Agenda</a>
               }
@@ -275,6 +277,37 @@ type EndMode = 'nunca' | 'dia' | 'vezes';
             }
           </section>
 
+          <!-- o ícone: a cartela das colunas do Kanban (e dos grupos), fechada até a pessoa pedir; o
+               escolhido fica à vista ao lado do nome dele. Num evento travado do Google também: é só daqui -->
+          <section class="grupo" aria-labelledby="lb-icone-t">
+            <h3 class="grupo-titulo" id="lb-icone-t">Ícone</h3>
+            <div class="linha">
+              <span class="icone-previa" [class.vazio]="!d.icon" aria-hidden="true">
+                @if (d.icon) {
+                  <lucide-icon [img]="iconOf[d.icon]" [size]="19" />
+                }
+              </span>
+              <div class="linha-texto">
+                <p class="linha-nome" id="lb-icone">{{ d.icon ? iconLabel[d.icon] : 'Sem ícone' }}</p>
+                <p class="linha-desc">{{ d.icon ? 'Antes do nome, no calendário e no link do texto.' : 'O lembrete aparece só com o nome.' }}</p>
+              </div>
+              <button type="button" class="papel icones-btn" [attr.aria-expanded]="iconsOpen()" aria-controls="lb-icones" (click)="iconsOpen.set(!iconsOpen())">
+                <lucide-icon [img]="iconsOpen() ? CloseIcon : IconsIcon" [size]="16" aria-hidden="true" />
+                {{ iconsOpen() ? 'Fechar' : d.icon ? 'Trocar' : 'Escolher' }}
+              </button>
+            </div>
+            @if (iconsOpen()) {
+              <div class="ops cartela-icones" id="lb-icones" role="radiogroup" aria-labelledby="lb-icone-t">
+                <button type="button" role="radio" class="op icone sem-icone" [attr.aria-checked]="!d.icon" aria-label="Sem ícone" title="Sem ícone" (click)="setIcon(undefined)"></button>
+                @for (i of icons; track i) {
+                  <button type="button" role="radio" class="op icone" [attr.aria-checked]="d.icon === i" [attr.aria-label]="iconLabel[i]" [title]="iconLabel[i]" (click)="setIcon(i)">
+                    <lucide-icon [img]="iconOf[i]" [size]="19" aria-hidden="true" />
+                  </button>
+                }
+              </div>
+            }
+          </section>
+
           <section class="grupo" aria-labelledby="lb-cor-t">
             <h3 class="grupo-titulo" id="lb-cor-t">Cor</h3>
             <div class="ops" role="radiogroup" aria-labelledby="lb-cor-t">
@@ -376,6 +409,10 @@ export class ReminderSheet {
   protected readonly CustomIcon = ICON.ajustar;
   protected readonly BellIcon = ICON.avisos;
   protected readonly QuietIcon = ICON.silenciar;
+  protected readonly IconsIcon = ICON.adesivo;
+  protected readonly icons = ICON_CHOICES;
+  protected readonly iconOf = ICON_CHOICE;
+  protected readonly iconLabel = ICON_CHOICE_LABEL;
   protected readonly weekdaysShort = WEEKDAYS_SHORT;
   protected readonly weekdaysLong = WEEKDAYS_LONG;
   protected readonly maxCount = MAX_COUNT;
@@ -399,6 +436,8 @@ export class ReminderSheet {
   protected readonly draft = linkedSignal<Reminder>(() => this.reminder() ?? this.calendar.blank(this.day()));
   protected readonly isNew = computed(() => !this.reminder());
   protected readonly picking = signal(false);
+  /** A cartela dos ícones aberta (começa fechada: são mais de cem desenhos). */
+  protected readonly iconsOpen = signal(false);
   /** Tentou salvar sem nome. */
   protected readonly tried = signal(false);
   protected readonly missing = computed(() => this.tried() && !this.draft().title.trim());
@@ -622,6 +661,12 @@ export class ReminderSheet {
   protected setCount(v: string): void {
     const n = Math.round(Number(v));
     if (Number.isFinite(n) && n >= 1) this.patch({ count: Math.min(MAX_COUNT, n) });
+  }
+
+  /** O ícone do lembrete; sem, ele volta a aparecer só com o nome. */
+  protected setIcon(icon: IconChoice | undefined): void {
+    const { icon: _, ...rest } = this.draft();
+    this.put(icon ? { ...rest, icon } : rest);
   }
 
   protected setQuiet(quiet: boolean): void {

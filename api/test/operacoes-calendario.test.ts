@@ -68,7 +68,7 @@ describe('o lembrete como vai ficar', () => {
     const l = lembreteDoPedido('lb-novo', (d as { dados: CriarLembreteV1 }).dados, AGORA);
     expect(l).toEqual({
       id: 'lb-novo', titulo: 'Dentista', dia: '2026-11-03', hora: '14:30', fim: null, hora_fim: null, repete: null, em_palavras: null,
-      pulados: [], cor: null, silencioso: false, notas: [], google: null, criado_em: AGORA, versao: AGORA,
+      pulados: [], cor: null, icone: null, silencioso: false, notas: [], google: null, criado_em: AGORA, versao: AGORA,
     } satisfies LembreteV1);
   });
 
@@ -76,6 +76,8 @@ describe('o lembrete como vai ficar', () => {
     const moved = editarLembreteV1(FERIAS, { versao: FERIAS.versao, dia: '2026-12-20' }, AGORA);
     expect(moved).toEqual(expect.objectContaining({ dia: '2026-12-20', fim: '2026-12-25', em_palavras: null, versao: AGORA }));
     expect(editarLembreteV1(DENTISTA, { versao: DENTISTA.versao, hora: null }, AGORA)).toEqual(expect.objectContaining({ hora: null, hora_fim: null }));
+    // o ícone, que só se escolhe na tela, fica como estava
+    expect(editarLembreteV1({ ...DENTISTA, icone: 'remedio' }, { versao: DENTISTA.versao, titulo: 'Dentista de novo' }, AGORA).icone).toBe('remedio');
     const plain = editarLembreteV1(ACADEMIA, { versao: ACADEMIA.versao, repete: null }, AGORA);
     expect(plain.pulados).toEqual([]);
     // só a cor: as palavras continuam

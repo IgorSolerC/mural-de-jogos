@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LucideIconData } from 'lucide-angular';
-import { ICON, IconModule } from '../ui/icons';
+import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
 import { map } from 'rxjs';
 import { MONTHS_LONG } from '../core/dates';
 import {
@@ -113,6 +113,8 @@ export class CalendarPage {
   protected readonly GoogleIcon = ICON.googleAgenda;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly RepeatIcon = ICON.repetir;
+  /** O desenho de cada escolha da cartela (o ícone do lembrete, antes do nome). */
+  protected readonly choiceIcon = ICON_CHOICE;
   protected readonly ClipIcon = ICON.clipe;
   protected readonly ClockIcon = ICON.relogio;
   protected readonly QuietIcon = ICON.silenciar;

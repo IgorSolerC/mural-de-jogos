@@ -113,6 +113,13 @@ describe('o que o link mostra do lembrete (core/reminder-links.ts)', () => {
     expect(velho).toEqual({ title: 'Prova', when: 'ter, 15 de set.', date: '15/09/2026', past: true, day: '2026-09-15' });
   });
 
+  it('o ícone do lembrete vai junto, para o link e o seletor o desenharem', () => {
+    const bolo = reminder('r5', 'Bolo', '2026-11-02', { icon: 'bolo' });
+    expect(reminderLinkInfo(bolo, HOJE, '12:00').icon).toBe('bolo');
+    expect('icon' in reminderLinkInfo(reminder('r6', 'Aula', '2026-11-02'), HOJE, '12:00')).toBeFalse();
+    expect(reminderOptions([bolo], '', HOJE, '12:00')[0].icon).toBe('bolo');
+  });
+
   it('o que não volta mais abre no último dia em que ele acontece (não no fim da repetição, nem num dia tirado)', () => {
     // toda segunda, até uma quarta
     expect(whenItMatters(reminder('s', 'Aula', '2026-09-07', { repeat: 'semana', until: '2026-09-23' }), HOJE)).toEqual({ day: '2026-09-21', past: true });

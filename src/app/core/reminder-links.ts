@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { CALENDAR_PATH } from './areas';
 import { Reminder, byWhen, isPast, nearDayLabel, repeatShort, timeLabel, whenItMatters } from './calendar';
 import { CalendarStore } from './calendar-store';
+import type { IconChoice } from './icon-choices';
 import { nameKey } from './text';
 
 /**
@@ -13,7 +14,7 @@ import { nameKey } from './text';
  * guardado: o link mora no texto, o lembrete no Calendário.
  *
  * - Na leitura e no editor, o link tem a caneta azul do link de anotação, com o desenho do calendário
- *   depois do texto; o dia e a hora vão no `title` e no leitor de tela. Tocar abre o Calendário no dia que
+ *   depois do texto (o do lembrete, quando ele tem ícone); o dia e a hora vão no `title` e no leitor de tela. Tocar abre o Calendário no dia que
  *   importa (o de hoje, a próxima vez, ou o último, se já passou: `whenItMatters`), com ele em destaque.
  * - O lembrete que não está no seu Calendário (apagado, ou de quem escreveu a compartilhada) fica
  *   tracejado, como o link para uma anotação que não existe.
@@ -33,6 +34,8 @@ export interface ReminderLinkInfo {
   past: boolean;
   /** O dia que o link abre no Calendário. */
   day: string;
+  /** O ícone do lembrete, que o link desenha no lugar do calendário. */
+  icon?: IconChoice;
 }
 
 /** A dica do link de lembrete, na leitura e no Visual: "Lembrete: Reunião · Amanhã, 9h" (e "já passou"). */
@@ -49,7 +52,7 @@ function fullDay(day: string): string {
 export function reminderLinkInfo(r: Reminder, today: string, now: string): ReminderLinkInfo {
   const w = whenItMatters(r, today);
   const at = w.time ? `, ${timeLabel(w.time)}` : '';
-  return { title: r.title, when: nearDayLabel(w.day, today) + at, date: fullDay(w.day) + at, past: w.past || isPast(r, w.day, today, now), day: w.day };
+  return { title: r.title, when: nearDayLabel(w.day, today) + at, date: fullDay(w.day) + at, past: w.past || isPast(r, w.day, today, now), day: w.day, ...(r.icon ? { icon: r.icon } : {}) };
 }
 
 /** Uma opção do seletor de lembretes (Inserir › Lembrete do calendário). */
@@ -59,6 +62,7 @@ export interface ReminderOption {
   /** "Amanhã, 9h · Toda semana". */
   meta: string;
   past: boolean;
+  icon?: IconChoice;
 }
 
 /**
@@ -75,7 +79,7 @@ export function reminderOptions(list: readonly Reminder[], query: string, today:
   return found.slice(0, max).map(({ r }) => {
     const info = reminderLinkInfo(r, today, now);
     const meta = [info.when, r.repeat ? repeatShort(r) : '', info.past ? 'já passou' : ''].filter(Boolean).join(' · ');
-    return { id: r.id, title: r.title, meta, past: info.past };
+    return { id: r.id, title: r.title, meta, past: info.past, ...(r.icon ? { icon: r.icon } : {}) };
   });
 }
 

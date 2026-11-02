@@ -10,7 +10,7 @@ import { Review } from '../core/review';
 import { calloutIcon } from './callout-looks';
 import { codeHighlightReady, codeRanges, codeTokens, CodeToken } from '../core/code-highlight';
 import { codeLangName } from '../core/code-langs';
-import { ICON, IconModule } from './icons';
+import { ICON, IconModule, iconMask } from './icons';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -28,8 +28,9 @@ import { ZoomKnob } from './zoom-knob';
  * Os links "[[título]]" só valem com `links` (nas anotações, ver core/note-links.ts): a caneta azul
  * sublinhada, que abre a outra anotação; tracejado, o que aponta para uma anotação que não existe.
  * Sem `links` (as resenhas), os colchetes ficam como foram escritos. O link para um lembrete do
- * Calendário ("[texto](murall://lembrete/ID)") tem a mesma caneta, com o desenho do calendário depois, e
- * abre o dia dele no Calendário (com `links.openReminder`); tracejado, o lembrete que não está lá.
+ * Calendário ("[texto](murall://lembrete/ID)") tem a mesma caneta, com o desenho do calendário (ou o
+ * ícone do lembrete) depois, e abre o dia dele no Calendário (com `links.openReminder`); tracejado, o
+ * lembrete que não está lá.
  *
  * Os widgets ("{{contador: …}}", ver core/widgets.ts) viram a peça deles, numa linha só.
  *
@@ -220,7 +221,7 @@ import { ZoomKnob } from './zoom-knob';
     <!-- o link de lembrete ("[texto](murall://lembrete/ID)", ver core/reminder-links.ts): a caneta do link
          com o desenho do calendário depois; o dia no title e no leitor de tela (e no PDF, pelo data-quando).
          Tracejado, o que não está no seu Calendário; sem como saber (o mural de outra pessoa), só aparece -->
-    <ng-template #lembrete let-s let-id="id">@let info = reminderOf(id); @if (info && links()?.openReminder) {<span class="elo lembrete" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="s.text + ': abrir o lembrete ' + info.title + ', ' + info.when + (info.past ? ', já passou' : '')" [title]="reminderTitle(info)" [attr.data-quando]="info.date" (click)="openReminder($event, id)" (keydown.enter)="openReminder($event, id)"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /></span>} @else if (info) {<span class="elo lembrete" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [title]="reminderTitle(info)" [attr.data-quando]="info.date"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete: {{ info.when }})</span></span>} @else if (info === null) {<span class="elo lembrete quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Esse lembrete não está no seu Calendário (foi apagado, ou é de outra pessoa)"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete que não está no seu Calendário)</span></span>} @else {<span class="elo lembrete" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Um lembrete do Calendário de quem escreveu"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete do Calendário)</span></span>}</ng-template>
+    <ng-template #lembrete let-s let-id="id">@let info = reminderOf(id); @if (info && links()?.openReminder) {<span class="elo lembrete" [style.--lembrete-desenho]="maskOf(info)" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="s.text + ': abrir o lembrete ' + info.title + ', ' + info.when + (info.past ? ', já passou' : '')" [title]="reminderTitle(info)" [attr.data-quando]="info.date" (click)="openReminder($event, id)" (keydown.enter)="openReminder($event, id)"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /></span>} @else if (info) {<span class="elo lembrete" [style.--lembrete-desenho]="maskOf(info)" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [title]="reminderTitle(info)" [attr.data-quando]="info.date"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete: {{ info.when }})</span></span>} @else if (info === null) {<span class="elo lembrete quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Esse lembrete não está no seu Calendário (foi apagado, ou é de outra pessoa)"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete que não está no seu Calendário)</span></span>} @else {<span class="elo lembrete" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Um lembrete do Calendário de quem escreveu"><ng-container *ngTemplateOutlet="lembreteTexto; context: { $implicit: s.text }" /><span class="sr-only"> (lembrete do Calendário)</span></span>}</ng-template>
     <!-- o texto do link de lembrete: a última palavra presa ao desenho do calendário (ele não cai sozinho na linha de baixo) -->
     <ng-template #lembreteTexto let-t>@let p = lastWord(t);{{ p[0] }}<span class="elo-fim">{{ p[1] }}</span></ng-template>
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
@@ -877,6 +878,11 @@ export class RichText {
     if (at < 0) return [text, ''];
     const cut = text.slice(at).trim().length > 16 ? Math.max(at, text.trimEnd().length - 2) : at;
     return [text.slice(0, cut), text.slice(cut)];
+  }
+
+  /** O desenho depois do link: o ícone do lembrete, quando ele tem (sem, o calendário do CSS). */
+  protected maskOf(info: ReminderLinkInfo): string | null {
+    return iconMask(info.icon);
   }
 
   /** A dica do link de lembrete: o nome e quando ("Lembrete: Reunião · Amanhã, 9h"). */

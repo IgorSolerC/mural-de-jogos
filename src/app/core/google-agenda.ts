@@ -1,5 +1,6 @@
 import { GoogleLink, MAX_COUNT, Reminder, Repeat, addDays, countEnd, dayNumber, endAfter, isDay, sanitizeReminder, spanOf, weekday } from './calendar';
 import { localDay } from './dates';
+import { isIconChoice } from './icon-choices';
 import { LightStock } from './review';
 
 /**
@@ -30,6 +31,11 @@ export interface GEvent {
   seu?: boolean;
   reminders?: { useDefault?: boolean; overrides?: unknown[] };
   convidados?: number;
+  /**
+   * O ícone do lembrete guardado no evento (`extendedProperties.private.murallIcone`), ou null sem ele. A
+   * API de antes não mandava o campo: sem ele (undefined), o ícone daqui fica.
+   */
+  icone?: string | null;
 }
 
 /** O evento que vai para o Google (a API confere de novo e só deixa estes campos). */
@@ -42,6 +48,11 @@ export interface GEventBody {
   description?: string;
   /** Os avisos: sem nenhum, a marcação; com os da agenda, o lembrete. */
   reminders?: { useDefault: boolean; overrides?: { method: string; minutes: number }[] };
+  /**
+   * O ícone do lembrete: o Google não tem ícone por evento, então ele vai escondido nas propriedades do
+   * evento (só desta agenda, sem mexer no nome), para ir e voltar entre aparelhos. Vazio, sem ícone.
+   */
+  extendedProperties?: { private: { murallIcone: string } };
 }
 
 /** As cores de evento do Google mais perto de cada cartolina (o branco fica na cor da agenda). */
@@ -197,6 +208,16 @@ export function ruleOf(r: Reminder): string | null {
   return parts.join(';');
 }
 
+/**
+ * O ícone vai ao evento? Com ícone, sempre; sem, o vazio (que tira o de antes) vai ao evento do Murall (o id
+ * dele não muda: ligado de novo depois de desligar, o evento de antes, com o ícone de antes, é o mesmo) e ao
+ * evento do Google que tem ícone, ou de que não se sabe (ligado de novo). O evento que nasceu no Google e
+ * nunca teve ícone fica sem a propriedade.
+ */
+function sendsIcon(r: Reminder): boolean {
+  return !!r.icon || !r.google || isMuralEvent(r.google.id) || !!r.google.icon;
+}
+
 /** O evento do Google de um lembrete. `notes`: os nomes das anotações, para a descrição (só nos eventos do Murall). */
 export function toEvent(r: Reminder, tz: string, notes: readonly string[] = []): GEventBody {
   // vários dias: até a hora do fim no último dia (sem ela, até o fim dele); um dia só: até a hora do fim, ou
@@ -222,6 +243,7 @@ export function toEvent(r: Reminder, tz: string, notes: readonly string[] = []):
     ...(color ? { colorId: color } : {}),
     ...(reminders ? { reminders } : {}),
     ...(notes.length ? { description: `Anotações no Murall: ${notes.join(', ')}` } : {}),
+    ...(sendsIcon(r) ? { extendedProperties: { private: { murallIcone: r.icon ?? '' } } } : {}),
   };
 }
 
@@ -368,6 +390,16 @@ function colorOf(ev: GEvent, existing: Reminder | undefined, lock: GoogleLink['l
   return DEFAULT_STOCK;
 }
 
+/**
+ * O ícone do lembrete de um evento: o guardado no evento (vazio ou sem ele, nenhum). Um convite ou um
+ * evento especial, que o Murall nunca manda, guarda o escolhido aqui, como a cor; e o evento que veio sem
+ * o campo (a API de antes não o lia) também.
+ */
+function iconOf(ev: GEvent, existing: Reminder | undefined, lock: GoogleLink['lock']): string | undefined {
+  if (lock || ev.icone === undefined) return existing?.icon;
+  return ev.icone || undefined;
+}
+
 /** O que fazer com um evento que veio do Google. */
 export type Incoming =
   | { kind: 'upsert'; reminder: Reminder }
@@ -422,6 +454,9 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     ev.seu === false ? 'convite' : ev.tipo && ev.tipo !== 'default' ? 'google' : undefined;
   // sem nenhum aviso (nem os da agenda) é uma marcação; com os da agenda ou os próprios, um lembrete
   const quiet = ev.reminders?.useDefault === false && !ev.reminders.overrides?.length;
+  // o que o Google guarda do ícone (sem o campo, a API de antes: o que já se sabia)
+  const rawIcon = ev.icone === undefined ? existing?.google?.icon : ev.icone;
+  const googleIcon = isIconChoice(rawIcon) ? rawIcon : undefined;
   const google: GoogleLink = {
     id: ev.id,
     ...(ev.etag ? { etag: ev.etag } : {}),
@@ -430,6 +465,7 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     ...(lock ? { lock } : {}),
     ...(quiet ? { quiet: true } : {}),
     ...(rule ? { skip: known } : {}),
+    ...(googleIcon ? { icon: googleIcon } : {}),
   };
   const reminder = sanitizeReminder({
     id: existing?.id ?? reminderIdFor(ev.id),
@@ -441,6 +477,7 @@ export function fromEvent(ev: GEvent, existing: Reminder | undefined, today: str
     ...(rule ? { repeat: rule.repeat, every: rule.every, days: rule.days, nth: rule.nth, strict: rule.strict, weekStart: rule.weekStart, until: rule.until, count: rule.count, skip } : {}),
     ...(quiet ? { quiet: true } : {}),
     color: colorOf(ev, existing, lock),
+    icon: iconOf(ev, existing, lock),
     notes: existing?.notes ?? [],
     createdAt: existing?.createdAt ?? updated,
     at: updated,

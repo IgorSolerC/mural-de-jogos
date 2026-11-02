@@ -1,4 +1,5 @@
 import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from './dates';
+import { IconChoice, isIconChoice } from './icon-choices';
 import { LIGHT_STOCKS, LightStock } from './review';
 import { nameCollator } from './text';
 
@@ -53,6 +54,11 @@ export interface GoogleLink {
    * vão ao Google como "tirar só esta vez", e os que saíram do lembrete (o Desfazer) voltam lá.
    */
   skip?: string[];
+  /**
+   * O ícone que o evento no Google guarda (`murallIcone`): sem ele, e sem ícone no lembrete, o evento de lá
+   * (que nasceu no Google) não ganha a propriedade vazia a cada mudança daqui.
+   */
+  icon?: IconChoice;
 }
 
 export interface Reminder {
@@ -93,6 +99,12 @@ export interface Reminder {
   /** Uma marcação, não um lembrete: fica no calendário, mas o Google Agenda não avisa. */
   quiet?: true;
   color: LightStock;
+  /**
+   * O desenho do lembrete, da cartela dos grupos e das colunas do Kanban (core/icon-choices.ts): vai na
+   * tirinha do mês, na tira da semana, no Dia e no link de lembrete do texto. Sem ele, só o nome. No Google
+   * Agenda, que não tem ícone por evento, vai escondido no evento (`murallIcone`, ver core/google-agenda.ts).
+   */
+  icon?: IconChoice;
   /** As anotações anexadas, na ordem em que foram presas. */
   notes: string[];
   /** Os dias tirados de um lembrete que se repete ("Apagar só neste dia"). */
@@ -610,6 +622,7 @@ function sanitizeLink(raw: unknown): GoogleLink | undefined {
     ...(dur ? { dur } : {}),
     ...(Array.isArray(g['skip']) ? { skip } : {}),
     ...(g['quiet'] === true ? { quiet: true } : {}),
+    ...(isIconChoice(g['icon']) ? { icon: g['icon'] } : {}),
   };
 }
 
@@ -694,6 +707,7 @@ export function sanitizeReminder(raw: unknown): Reminder | null {
     ...(count ? { count } : {}),
     ...(r['quiet'] === true ? { quiet: true as const } : {}),
     color: (LIGHT_STOCKS as readonly unknown[]).includes(r['color']) ? (r['color'] as LightStock) : 'amarelo',
+    ...(isIconChoice(r['icon']) ? { icon: r['icon'] } : {}),
     notes,
     skip: repeat && Array.isArray(r['skip']) ? marks(r['skip'] as string[]) : [],
     createdAt,
@@ -759,6 +773,7 @@ export interface NoteReminder {
   /** Já passou e não volta mais. */
   past: boolean;
   color: LightStock;
+  icon?: IconChoice;
 }
 
 /**
@@ -767,7 +782,7 @@ export interface NoteReminder {
  * vêm primeiro (do mais perto para o mais longe) e depois os que passaram (do mais recente).
  */
 export function remindersOfNote(list: readonly Reminder[], note: string, today: string): NoteReminder[] {
-  const out = list.filter((r) => r.notes.includes(note)).map((r) => ({ id: r.id, title: r.title, ...whenItMatters(r, today), color: r.color }));
+  const out = list.filter((r) => r.notes.includes(note)).map((r) => ({ id: r.id, title: r.title, ...whenItMatters(r, today), color: r.color, ...(r.icon ? { icon: r.icon } : {}) }));
   return out.sort(byWhen);
 }
 

@@ -284,6 +284,24 @@ describe('o Google Agenda ligado ao Calendário', () => {
     expect(fake.ops[0].evento!['reminders']).toBeUndefined();
   });
 
+  it('o ícone vai ao Google escondido no evento, a ligação lembra que ele está lá, e o de lá volta', async () => {
+    calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo', { icon: 'bolo' })], removed: {} });
+    await google.sync();
+    expect(fake.ops[0].evento).toEqual(jasmine.objectContaining({ summary: 'Bolo', extendedProperties: { private: { murallIcone: 'bolo' } } }));
+    expect(calendar.get('rbolo00001')!.google!.icon).toBe('bolo');
+    // tirado aqui: vai o vazio
+    fake.ops = [];
+    const { icon: _, ...sem } = calendar.get('rbolo00001')!;
+    calendar.save(sem);
+    await google.sync();
+    expect(fake.ops[0].evento!['extendedProperties']).toEqual({ private: { murallIcone: '' } });
+    expect(calendar.get('rbolo00001')!.google!.icon).toBeUndefined();
+    // mudado no Google (o ícone que a API lê do evento): chega aqui
+    changeInGoogle({ id: calendar.get('rbolo00001')!.google!.id, summary: 'Bolo de cenoura', icone: 'presente' });
+    await google.sync();
+    expect(calendar.get('rbolo00001')).toEqual(jasmine.objectContaining({ title: 'Bolo de cenoura', icon: 'presente' }));
+  });
+
   it('desconectar desfaz os vínculos: o que veio do Google vira lembrete do Murall, que muda aqui', async () => {
     fake.events.set('convite0001', { id: 'convite0001', status: 'confirmed', summary: 'Reunião', start: { date: '2026-10-21' }, end: { date: '2026-10-22' }, updated: T0, etag: '"c"', seu: false, tipo: 'default' });
     calendar.state.set({ reminders: [reminder('rbolo00001', 'Bolo')], removed: {} });

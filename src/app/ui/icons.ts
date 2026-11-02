@@ -257,7 +257,7 @@ import {
   Zap,
 } from 'lucide-angular';
 import { CARTELA_DE_ICONES } from '../../../shared/cartela-de-icones';
-import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
+import { ICON_CHOICES, IconChoice, isIconChoice } from '../core/icon-choices';
 
 /**
  * O acervo de ícones do site: todo desenho de interface vem daqui, e cada ideia tem um desenho só
@@ -629,6 +629,27 @@ export const ICON = {
  */
 export const ICON_CHOICE = Object.fromEntries(CARTELA_DE_ICONES.map((i) => [i.id, i.desenho as unknown as LucideIconData])) as Record<IconChoice, LucideIconData>;
 export const ICON_CHOICE_LABEL = Object.fromEntries(CARTELA_DE_ICONES.map((i) => [i.id, i.label])) as Record<IconChoice, string>;
+
+/** Os desenhos já feitos em máscara (ver `iconMask`). */
+const MASKS = new Map<IconChoice, string>();
+
+/**
+ * O desenho de uma escolha da cartela como `url(...)` de um SVG, para a `mask` do CSS (o desenho na cor da
+ * letra, onde um `<lucide-icon>` não entra: o link de lembrete no texto, que desenha o ícone depois das
+ * letras). O traço é o do desenho do calendário que ele substitui ali (2,4 no grid de 24). Feito uma vez
+ * por desenho, só quando alguém pede; null para o que não é da cartela.
+ */
+export function iconMask(id: IconChoice | null | undefined): string | null {
+  if (!isIconChoice(id)) return null;
+  let url = MASKS.get(id);
+  if (!url) {
+    const parts = ICON_CHOICE[id].map(([tag, attrs]) => `<${tag} ${Object.entries(attrs).filter(([k]) => k !== 'key').map(([k, v]) => `${k}="${v}"`).join(' ')}/>`);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${parts.join('')}</svg>`;
+    url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    MASKS.set(id, url);
+  }
+  return url;
+}
 
 /** A escolha da cartela com este desenho (o de um ícone do acervo pode ser o mesmo de uma escolha), ou null. */
 export function iconChoiceOf(icon: LucideIconData): IconChoice | null {
