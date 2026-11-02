@@ -61,6 +61,7 @@ export const PAPER_LABEL: Record<Paper, string> = {
 // ===================== Estampa =====================
 
 import type { MorePattern } from './pattern-motifs';
+import type { GridPattern } from './pattern-grids';
 
 export type Pattern =
   | 'gatinhos'
@@ -75,7 +76,8 @@ export type Pattern =
   | 'planetas'
   | 'controles'
   | 'aranhas'
-  | MorePattern;
+  | MorePattern
+  | GridPattern;
 
 /** Um assunto de estampas, para achar mais fácil no editor (são muitas). */
 export interface PatternGroup {
@@ -86,6 +88,10 @@ export interface PatternGroup {
 
 /** As estampas por assunto, na ordem do editor. */
 export const PATTERN_GROUPS: readonly PatternGroup[] = [
+  // as de papelaria sem desenho (pauta, grade, pontos, faixas), logo depois da Lisa
+  { id: 'papelaria', label: 'Papelaria', patterns: ['pautado', 'quadriculado', 'pontilhado', 'milimetrado', 'vichy', 'meiotom'] },
+  // as coisas do dia a dia das anotações (dinheiro, compras, trabalho, saúde, viagem)
+  { id: 'dia', label: 'Dia a dia', patterns: ['dinheiro', 'compras', 'escritorio', 'saude', 'viagem'] },
   { id: 'bichos', label: 'Bichos', patterns: ['gatinhos', 'cachorros', 'corujas', 'aranhas', 'borboletas', 'abelhas', 'peixes', 'dinossauros'] },
   { id: 'terror', label: 'Terror', patterns: ['caveiras', 'fantasmas', 'morcegos', 'aboboras', 'olhos', 'cemiterio'] },
   { id: 'magia', label: 'Magia', patterns: ['bruxaria', 'magias', 'pocoes', 'portais'] },
@@ -173,6 +179,17 @@ export const PATTERN_LABEL: Record<Pattern, string> = {
   esportes: 'Esportes',
   escola: 'Material escolar',
   carinhas: 'Carinhas',
+  pautado: 'Pautado',
+  quadriculado: 'Quadriculado',
+  pontilhado: 'Pontilhado',
+  milimetrado: 'Milimetrado',
+  vichy: 'Vichy',
+  meiotom: 'Meio-tom',
+  dinheiro: 'Dinheiro',
+  compras: 'Compras',
+  escritorio: 'Escritório',
+  saude: 'Saúde',
+  viagem: 'Viagem',
 };
 
 /**

@@ -186,11 +186,14 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     da 45 jogaria o campo fora e enviaria assim, e o desligado voltaria a ligar em todo aparelho.
  * 47: os estragos novos da beirada (`damage`: `postal`, `recortado`, `tirinhas`, `puido`). Um site da 46
  *     não os conhece e jogaria o estrago fora ao enviar a ficha, e ela voltaria inteira em todo aparelho.
+ * 48: as estampas novas (`pattern`: `pautado`, `quadriculado`, `pontilhado`, `milimetrado`, `vichy`,
+ *     `meiotom`, `dinheiro`, `compras`, `escritorio`, `saude`, `viagem`). Um site da 47 não as conhece e
+ *     jogaria a estampa fora ao enviar a ficha, e ela voltaria lisa em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 47;
+export const SYNC_SCHEMA = 48;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

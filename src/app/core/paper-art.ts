@@ -4,6 +4,7 @@
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
+import { GRID_STYLE, GRID_TINT, GridPattern, gridIcon, gridTile, isGridPattern } from './pattern-grids';
 import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, darkGlitter, f1, glitterShift, hash, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
@@ -62,7 +63,7 @@ const DOODLE_ART: Record<string, string> = {
 // ===================== Estampas =====================
 
 /** Os motivos, cada um num quadro de 40×40 (o formato está em `pattern-motifs.ts`, com os que vieram depois). */
-const MOTIFS: Record<Pattern, Motif> = {
+const MOTIFS: Record<Exclude<Pattern, GridPattern>, Motif> = {
   gatinhos: {
     sil: `<path d='M8 13L9.5 4.5Q10 3 11.3 4L17 9Q20 8.3 23 9L28.7 4Q30 3 30.5 4.5L32 13Q35 18 34 24Q32 34 20 34.5Q8 34 6 24Q5 18 8 13Z'/>`,
     det: `<path d='M12.5 20q2-2.2 4 0M23.5 20q2-2.2 4 0'/><path class='f' d='M18.4 23.2q1.6-1 1.6.5q0-1.5 1.6-.5q.6 1-1.6 2.4q-2.2-1.4-1.6-2.4z'/><path d='M20 25.6q-1.2 1.8-3 .8M20 25.6q1.2 1.8 3 .8'/>`,
@@ -186,6 +187,14 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
   const cacheKey = strength === 1 ? key : `${key}:tinta${look.ink}`;
   const hit = recall(tiles, cacheKey);
   if (hit) return hit;
+  if (isGridPattern(p)) {
+    // a papelaria sem desenho (pauta, grade, pontos, faixas): o ladrilho da grade, na mesma tinta
+    const grid = gridTile(p, SIZE[look.size] ?? 1, look.spacing, JITTER[look.jitter] ?? 0.25, rng(hash(key)), !!seed);
+    const ink = Math.min(1, Math.round(TINTA * GRID_TINT[p] * strength * 1000) / 1000);
+    const tile = { url: svgUrl(grid.side, grid.side, `<style>${GRID_STYLE}</style><g opacity='${ink}'>${grid.body}</g>`), side: grid.side };
+    keep(tiles, cacheKey, tile);
+    return tile;
+  }
   const m = MOTIFS[p];
   const z = SIZE[look.size] ?? 1,
     mess = JITTER[look.jitter] ?? 0.25;
@@ -261,6 +270,7 @@ export function patternTile(p: Pattern, look: PatternLook = DEFAULT_LOOK, seed?:
  * sem o papel. A cor é a do texto em volta (`currentColor`, no estilo de quem mostra).
  */
 export function motifIcon(p: Pattern): string {
+  if (isGridPattern(p)) return `<svg viewBox='-2 -2 44 44' aria-hidden='true' focusable='false'><g class='l'>${gridIcon(p)}</g></svg>`;
   const m = MOTIFS[p];
   return `<svg viewBox='-2 -2 44 44' aria-hidden='true' focusable='false'><g class='l'>${m.sil}${m.det ?? ''}${m.extra ?? ''}</g></svg>`;
 }

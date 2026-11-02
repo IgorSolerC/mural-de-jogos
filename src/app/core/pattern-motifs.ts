@@ -458,6 +458,31 @@ const FRIES = (() => {
   };
 })();
 
+// ----- a pilha de moedas: quatro de lado, cada uma um tanto fora do prumo, a de cima com as ranhuras -----
+const COIN_STACK = (() => {
+  const coins: Pt[] = [
+    [7, 29.4],
+    [8.6, 23.6],
+    [6.4, 17.8],
+    [8, 12],
+  ];
+  const w = 25,
+    h = 5.8;
+  const sil = coins
+    .map(([x, y]) => `<path d='M${f1(x + 2.4)} ${y}H${f1(x + w - 2.4)}Q${f1(x + w)} ${y} ${f1(x + w)} ${f1(y + h / 2)}Q${f1(x + w)} ${f1(y + h)} ${f1(x + w - 2.4)} ${f1(y + h)}H${f1(x + 2.4)}Q${x} ${f1(y + h)} ${x} ${f1(y + h / 2)}Q${x} ${y} ${f1(x + 2.4)} ${y}Z'/>`)
+    .join('');
+  // só a de cima mostra as ranhuras: em todas, a pilha lia como waffle
+  const [x, y] = coins[coins.length - 1];
+  const ridges = [7.4, 12.5, 17.6].map((dx) => `M${f1(x + dx)} ${f1(y + 1.8)}V${f1(y + 4)}`).join('');
+  // a emenda entre uma moeda e a de baixo, no trecho que as duas têm: na pilha cheia vira um fio de
+  // papel e as moedas não se fundem num bloco só (no contorno, cai em cima das beiradas)
+  const seams = coins
+    .slice(1)
+    .map(([cx, cy], i) => `M${f1(Math.max(cx, coins[i][0]) + 1.6)} ${f1(cy + h)}H${f1(Math.min(cx, coins[i][0]) + w - 1.6)}`)
+    .join('');
+  return { sil, det: `<path d='${ridges}${seams}'/>` };
+})();
+
 export const MORE_MOTIFS = {
   // ===== Bichos =====
   cachorros: {
@@ -1259,6 +1284,134 @@ export const MORE_MOTIFS = {
       },
     ],
     c: SPARKLE,
+  },
+  // ===== Dia a dia (2026-11-02) =====
+  dinheiro: {
+    // a moeda, com o cifrão dentro do aro
+    sil: `<circle cx='20' cy='20' r='15'/>`,
+    det: `<circle cx='20' cy='20' r='11.6'/><path d='M24 15.4Q23 13.2 20 13.2Q16.2 13.2 16.2 16.2Q16.2 18.8 20 19.6Q24 20.4 24 23.4Q24 26.8 20 26.8Q16.8 26.8 15.8 24.4M20 11.6V13.2M20 26.8V28.4'/>`,
+    more: [
+      {
+        // a cédula: a moldura de dentro, o medalhão e os dois pontinhos
+        sil: `<path d='M4.6 10H35.4Q37 10 37 11.6V28.4Q37 30 35.4 30H4.6Q3 30 3 28.4V11.6Q3 10 4.6 10Z'/>`,
+        det: `<path d='M6.8 13.4H33.2V26.6H6.8Z'/><circle cx='20' cy='20' r='4.2'/><circle class='f' cx='10.6' cy='20' r='1.3'/><circle class='f' cx='29.4' cy='20' r='1.3'/>`,
+      },
+      {
+        // o cofrinho de porquinho, com a fenda das moedas e o rabinho enrolado
+        sil: `<path d='M6.4 17.6Q9 11.4 18 11L21.6 6.8L25 11.8Q29.6 13 31.4 17H34.6Q36 17 36 18.4V23.6Q36 25 34.6 25H31.6Q30.2 28.4 26.4 30V34.6Q26.4 35.4 25.6 35.4H23Q22.2 35.4 22.2 34.6V31Q18 31.6 14.4 31V34.6Q14.4 35.4 13.6 35.4H11Q10.2 35.4 10.2 34.6V29.4Q5 26.4 5 21.6Q5 19.4 6.4 17.6Z'/>`,
+        det: `<path d='M13.4 15.4H19.6'/><circle class='f' cx='27.4' cy='18' r='1.3'/><circle class='f' cx='33.6' cy='19.8' r='.9'/><circle class='f' cx='33.6' cy='22.4' r='.9'/>`,
+        extra: `<path d='M5.6 19.4Q2.4 18.6 2.8 15.8Q3.4 13.6 5 14.6Q6 15.8 4 16.8'/>`,
+      },
+      COIN_STACK,
+    ],
+    // o cifrão
+    c: `<path d='M13.4 6.4Q12.6 4.6 10 4.6Q6.8 4.6 6.8 7.2Q6.8 9.4 10 10Q13.4 10.6 13.4 13Q13.4 15.6 10 15.6Q7.2 15.6 6.4 13.4M10 2.4V4.6M10 15.6V17.8'/>`,
+  },
+  compras: {
+    // a sacola, com as alças entrando nos ilhoses
+    sil: `<path d='M9.4 13H30.6Q32 13 32.2 14.4L34.4 33.4Q34.6 35.4 32.6 35.4H7.4Q5.4 35.4 5.6 33.4L7.8 14.4Q8 13 9.4 13Z'/>`,
+    det: `<circle class='f' cx='14.4' cy='17.8' r='1.7'/><circle class='f' cx='25.6' cy='17.8' r='1.7'/>`,
+    extra: `<path d='M14.4 17.8V11Q14.4 5.2 20 5.2Q25.6 5.2 25.6 11V17.8'/>`,
+    more: [
+      {
+        // o carrinho de supermercado: o cesto de grade, a armação e as rodinhas
+        sil: `<path d='M9.7 10H35Q36.6 10 36.2 11.6L33.2 23.4Q32.8 25 31.2 25H13.6Z'/><circle cx='15' cy='33' r='2.8'/><circle cx='29.4' cy='33' r='2.8'/>`,
+        det: `<path d='M17 10V25M23.4 10V25M29.8 10V25'/>`,
+        extra: `<path d='M3 5.4H7.2Q8.4 5.4 8.8 6.6L13.6 25L12.6 28.4H32'/>`,
+      },
+      {
+        // a etiqueta de preço, com o furo, o barbante e o "%" da promoção
+        sil: `<path d='M4.6 20L13.4 10.6Q14.2 9.8 15.4 9.8H33.4Q35.4 9.8 35.4 11.8V28.2Q35.4 30.2 33.4 30.2H15.4Q14.2 30.2 13.4 29.4Z'/>`,
+        det: `<circle cx='12.2' cy='20' r='2.2'/><path d='M29.4 14.6L19.6 25.4'/><circle cx='21' cy='15.8' r='2'/><circle cx='28' cy='24.2' r='2'/>`,
+        extra: `<path d='M10.4 18.6Q6.4 14 8.6 8.6Q9.8 5.6 12.6 5.4'/>`,
+      },
+      {
+        // a notinha do caixa, com o pé picotado da impressora
+        sil: `<path d='M9 4H31V33.4L28.25 35.8L25.5 33.4L22.75 35.8L20 33.4L17.25 35.8L14.5 33.4L11.75 35.8L9 33.4Z'/>`,
+        det: `<path d='M13 9.6H27M13 14.4H23.4M13 19.2H25.6M13 26.4H18.6M22.4 26.4H27'/>`,
+      },
+    ],
+    // o "%" da promoção
+    c: `<path d='M15 5L5 15'/><circle cx='5.6' cy='5.6' r='2.2'/><circle cx='14.4' cy='14.4' r='2.2'/>`,
+  },
+  escritorio: {
+    // a maleta, com o fecho no meio da costura
+    sil: `<path d='M5.6 13H34.4Q36.6 13 36.6 15.2V32Q36.6 34.2 34.4 34.2H5.6Q3.4 34.2 3.4 32V15.2Q3.4 13 5.6 13Z'/>`,
+    det: `<path d='M3.4 21.4H17.6M22.4 21.4H36.6'/><path class='f' d='M17.6 19H22.4V24.2H17.6Z'/>`,
+    extra: `<path d='M14.6 13V9.6Q14.6 7.4 16.8 7.4H23.2Q25.4 7.4 25.4 9.6V13'/>`,
+    more: [
+      {
+        // a folhinha do calendário de mesa, com as argolas e o dia marcado
+        sil: `<path d='M6.4 8.4H33.6Q35.6 8.4 35.6 10.4V33Q35.6 35 33.6 35H6.4Q4.4 35 4.4 33V10.4Q4.4 8.4 6.4 8.4Z'/>`,
+        det:
+          `<path d='M4.4 15.4H35.6'/><circle cx='28.4' cy='28.8' r='3.4'/><circle class='f' cx='28.4' cy='28.8' r='1.3'/>` +
+          [
+            [11.6, 21.6],
+            [20, 21.6],
+            [28.4, 21.6],
+            [11.6, 28.8],
+            [20, 28.8],
+          ]
+            .map(([x, y]) => `<circle class='f' cx='${x}' cy='${y}' r='1.3'/>`)
+            .join(''),
+        extra: `<path d='M12.4 5V11.6M27.6 5V11.6'/>`,
+      },
+      {
+        // o bloquinho de recado, com a ponta dobrada
+        sil: `<path d='M6 6H34V25.6L25.6 34H6Z'/>`,
+        det: `<path d='M11 13H28.6M11 19H25M11 25H19.6'/><path d='M34 25.6H27.6Q25.6 25.6 25.6 27.6V34'/>`,
+      },
+    ],
+    // o tique da tarefa feita
+    c: `<path d='M4 10.6L8.2 14.6L16 5.4'/>`,
+  },
+  saude: {
+    // a cápsula, de duas metades
+    sil: `<g transform='rotate(-40 20 20)'><path d='M12.6 12.8H27.4A7.2 7.2 0 0 1 27.4 27.2H12.6A7.2 7.2 0 0 1 12.6 12.8Z'/></g>`,
+    det: `<g transform='rotate(-40 20 20)'><path d='M20 12.8V27.2M9.4 18.4q.8-2.4 3.2-3'/></g>`,
+    more: [
+      {
+        // o coração com a linha do batimento
+        sil: `<path d='${HEART}'/>`,
+        det: `<path d='M8.4 19H14.2L16.4 14.6L19.4 24.6L22.4 11.8L24.8 19H31.6'/>`,
+      },
+      {
+        // o curativo, com os furinhos na gaze
+        sil: `<g transform='rotate(-35 20 20)'><path d='M7 14H33A6 6 0 0 1 33 26H7A6 6 0 0 1 7 14Z'/></g>`,
+        det: `<g transform='rotate(-35 20 20)'><path d='M14 14V26M26 14V26'/><circle class='f' cx='17.4' cy='17.4' r='.9'/><circle class='f' cx='22.6' cy='17.4' r='.9'/><circle class='f' cx='20' cy='20' r='.9'/><circle class='f' cx='17.4' cy='22.6' r='.9'/><circle class='f' cx='22.6' cy='22.6' r='.9'/></g>`,
+      },
+      {
+        // a cruz da farmácia, com um coraçãozinho no meio
+        sil: `<path d='M16.6 5H23.4Q25 5 25 6.6V15H33.4Q35 15 35 16.6V23.4Q35 25 33.4 25H25V33.4Q25 35 23.4 35H16.6Q15 35 15 33.4V25H6.6Q5 25 5 23.4V16.6Q5 15 6.6 15H15V6.6Q15 5 16.6 5Z'/>`,
+        det: heartAt(20, 20.4, 0.27, 'f'),
+      },
+    ],
+    // a cruzinha, fina
+    c: `<path d='M10 4.4V15.6M4.4 10H15.6'/>`,
+  },
+  viagem: {
+    // o avião, visto de cima, subindo
+    sil: `<g transform='rotate(40 20 20)'><path d='M20 3Q22.4 3 22.4 7.4V15.2L35.4 22.8V26.4L22.4 22.4V29.6L26.6 32.8V35.8L20 34L13.4 35.8V32.8L17.6 29.6V22.4L4.6 26.4V22.8L17.6 15.2V7.4Q17.6 3 20 3Z'/></g>`,
+    more: [
+      {
+        // a mala de rodinhas, com as duas cintas
+        sil: `<path d='M10.4 10.6H29.6Q32 10.6 32 13V31.4Q32 33.8 29.6 33.8H10.4Q8 33.8 8 31.4V13Q8 10.6 10.4 10.6Z'/>`,
+        det: `<path d='M14.4 10.6V33.8M25.6 10.6V33.8'/>`,
+        extra: `<path d='M16 10.6V6.8Q16 5 17.8 5H22.2Q24 5 24 6.8V10.6'/><circle cx='12.4' cy='36.4' r='1.6'/><circle cx='27.6' cy='36.4' r='1.6'/>`,
+      },
+      {
+        // o alfinete do mapa
+        sil: `<path d='M20 36.4Q8.6 24.6 8.6 15.4A11.4 11.4 0 0 1 31.4 15.4Q31.4 24.6 20 36.4Z'/>`,
+        det: `<circle cx='20' cy='15.4' r='4.4'/>`,
+      },
+      {
+        // a câmera de turista
+        sil: `<path d='M6.4 12.6H12.6L15 8.6H25L27.4 12.6H33.6Q35.8 12.6 35.8 14.8V30.6Q35.8 32.8 33.6 32.8H6.4Q4.2 32.8 4.2 30.6V14.8Q4.2 12.6 6.4 12.6Z'/>`,
+        det: `<circle cx='20' cy='22.4' r='6.6'/><circle cx='20' cy='22.4' r='3'/><circle class='f' cx='30.4' cy='16.8' r='1.2'/>`,
+      },
+    ],
+    // a bússola: o aro e a agulha, a ponta do norte cheia
+    c: `<circle cx='10' cy='10' r='6.6'/><path class='f' d='M10 1.6L12 10H8Z'/><path d='M8 10L10 18.4L12 10'/>`,
   },
 } satisfies Record<string, Motif>;
 

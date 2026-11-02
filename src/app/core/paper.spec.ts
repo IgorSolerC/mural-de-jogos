@@ -1,4 +1,5 @@
 import { DAMAGES, DAMAGE_LABEL, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf } from './paper';
+import { GRID_PATTERNS } from './pattern-grids';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
 import { DAMAGE_ICON } from './kit-icons';
@@ -165,6 +166,148 @@ describe('papel da ficha', () => {
     for (const p of PATTERNS) expect(groupOfPattern(p)).withContext(p).toBeDefined();
     // as de um desenho só não ganham ids novos
     expect(decodeURIComponent(patternTile('gatinhos').url)).not.toContain("id='o1'");
+  });
+
+  describe('as estampas de papelaria e do dia a dia (2026-11-02)', () => {
+    const plain = GRID_PATTERNS;
+    const svgOf = (url: string) => decodeURIComponent(url);
+    /** As linhas de um caminho de pauta: cada "M…" é uma. */
+    const linesOf = (svg: string) => [...svg.matchAll(/ d='([^']*)'/g)].flatMap((m) => m[1].split('M').filter(Boolean));
+
+    it('têm nome, desenho no estojo e assunto: a papelaria logo depois da Lisa, e o dia a dia em seguida', () => {
+      expect(PATTERN_GROUPS[0].id).toBe('papelaria');
+      expect([...PATTERN_GROUPS[0].patterns]).toEqual([...plain]);
+      expect(PATTERN_GROUPS[1].id).toBe('dia');
+      expect([...PATTERN_GROUPS[1].patterns]).toEqual(['dinheiro', 'compras', 'escritorio', 'saude', 'viagem']);
+      const names = ['Pautado', 'Quadriculado', 'Pontilhado', 'Milimetrado', 'Vichy', 'Meio-tom', 'Dinheiro', 'Compras', 'Escritório', 'Saúde', 'Viagem'];
+      expect([...plain, 'dinheiro', 'compras', 'escritorio', 'saude', 'viagem'].map((p) => PATTERN_LABEL[p as keyof typeof PATTERN_LABEL])).toEqual(names);
+      // cada desenho do estojo é outro (a folha da papelaria muda por dentro)
+      const icons = PATTERNS.map((p) => motifIcon(p));
+      expect(new Set(icons).size).toBe(icons.length);
+    });
+
+    it('a papelaria é grade, não desenho: sem motivo, sem filtro, a tinta só no estilo (vira branca na escura)', () => {
+      for (const p of plain) {
+        const svg = svgOf(patternTile(p).url);
+        expect(svg).withContext(p).not.toContain('<use');
+        expect(svg).withContext(p).not.toContain('filter');
+        expect(svg).withContext(p).not.toContain('<image');
+        // o preto só mora no <style>: o lightPattern troca tudo por branco
+        expect(svg.replace(/<style>.*?<\/style>/, '')).withContext(p).not.toContain('#000');
+        const light = svgOf(lightPattern(p));
+        expect(light).withContext(p).not.toContain('#000');
+        expect(light.replace(/#fff/g, '#000')).withContext(p).toBe(svg);
+        // tom sobre tom: a tinta das estampas (a faixa cheia do vichy) ou um tanto mais carregada (linhas e pontos), longe do chapado
+        const ink = Number(/<g opacity='([\d.]+)'>/.exec(svg)![1]);
+        expect(ink).withContext(p).toBeGreaterThanOrEqual(0.13);
+        expect(ink).withContext(p).toBeLessThan(0.25);
+      }
+    });
+
+    it('a pauta de gráfica (Alinhados) é reta e emenda nas beiradas; riscada à mão, ondula e emenda também', () => {
+      const straight = patternTile('pautado', { ...DEFAULT_LOOK, jitter: 0 });
+      const lines = linesOf(svgOf(straight.url));
+      expect(lines.length).toBeGreaterThanOrEqual(10);
+      for (const l of lines) expect(l).toMatch(new RegExp(`^0 [\\d.]+H${Math.round(straight.side * 10) / 10}$`));
+      // as linhas a cada 22px, iguaizinhas
+      const ys = lines.map((l) => Number(l.split(' ')[1].split('H')[0])).sort((a, b) => a - b);
+      for (let i = 1; i < ys.length; i++) expect(ys[i] - ys[i - 1]).toBeCloseTo(22, 0);
+      const wavy = patternTile('pautado', { ...DEFAULT_LOOK, jitter: 4 }, 7);
+      expect(wavy.side).toBe(straight.side);
+      const waves = linesOf(svgOf(wavy.url)).filter((l) => l.includes('L'));
+      expect(waves.length).toBeGreaterThan(0);
+      for (const w of waves) {
+        const pts = w.split('L').map((pt) => pt.split(' ').map(Number));
+        expect(pts[0][0]).toBe(0);
+        expect(pts.at(-1)![0]).toBeCloseTo(wavy.side, 0);
+        // a onda volta à mesma altura do outro lado: a emenda não aparece
+        expect(pts.at(-1)![1]).toBeCloseTo(pts[0][1], 0);
+      }
+    });
+
+    it('o De leve (o de sempre) ainda parece impresso: as linhas saem retas; riscado, ondulam todas, nunca metade', () => {
+      for (const p of ['pautado', 'quadriculado', 'milimetrado'] as const) expect(linesOf(svgOf(patternTile(p).url)).every((l) => !l.includes('L'))).withContext(p).toBeTrue();
+      for (const jitter of [2, 3, 4])
+        for (const seed of [undefined, 3, 8]) {
+          const lines = linesOf(svgOf(patternTile('pautado', { ...DEFAULT_LOOK, jitter }, seed).url));
+          const wavy = lines.filter((l) => l.includes('L')).length;
+          expect(wavy === 0 || wavy === lines.length).withContext(`${jitter} ${seed}`).toBeTrue();
+        }
+    });
+
+    it('no vichy fora do lugar, uma faixa nunca encosta na vizinha do mesmo sentido', () => {
+      for (const seed of [undefined, 1, 2, 3, 4, 5]) {
+        const svg = svgOf(patternTile('vichy', { ...DEFAULT_LOOK, jitter: 4 }, seed).url);
+        const side = Number(/width='(\d+)'/.exec(svg)![1]);
+        const bands = [...svg.matchAll(/x='0' y='(-?[\d.]+)' width='\d+' height='([\d.]+)'/g)].map((m) => [Number(m[1]), Number(m[1]) + Number(m[2])]);
+        // as de dentro do ladrilho e a cópia de cima, na ordem
+        const all = bands.flatMap(([a, b]) => [[a, b], [a + side, b + side]]).sort((x, y) => x[0] - y[0]);
+        for (let i = 1; i < all.length; i++) if (all[i][0] !== all[i - 1][0]) expect(all[i][0]).withContext(`${seed} ${i}`).toBeGreaterThanOrEqual(all[i - 1][1] - 0.11);
+      }
+    });
+
+    it('os ajustes valem na papelaria: o Espaço afasta a grade, o Tamanho a amplia, o Alinhamento não muda o ladrilho', () => {
+      for (const p of plain) {
+        const base = patternTile(p);
+        // o vão medido nas linhas deitadas: a distância entre as alturas vizinhas (as cópias da beirada contam uma vez)
+        const pitch = (t: { side: number; url: string }) => {
+          const ys = [...new Set(linesOf(svgOf(t.url)).filter((l) => /^0 [\d.]+H/.test(l)).map((l) => Number(l.split(' ')[1].split('H')[0])))].sort((a, b) => a - b);
+          return ys[1] - ys[0];
+        };
+        expect(patternTile(p, { ...DEFAULT_LOOK, jitter: 4 }).side).withContext(p).toBe(base.side);
+        expect(patternTile(p, { ...DEFAULT_LOOK, jitter: 0 }).side).withContext(p).toBe(base.side);
+        expect(patternTile(p, DEFAULT_LOOK, 5)).withContext(p).toEqual(patternTile(p, DEFAULT_LOOK, 5));
+        expect(patternTile(p, DEFAULT_LOOK, 5).url).withContext(p).not.toBe(patternTile(p, DEFAULT_LOOK, 6).url);
+        if (p === 'pautado' || p === 'quadriculado') {
+          const line = { ...DEFAULT_LOOK, jitter: 0 };
+          const normal = pitch(patternTile(p, line));
+          expect(pitch(patternTile(p, { ...line, spacing: 6 }))).withContext(p).toBeGreaterThan(normal);
+          expect(pitch(patternTile(p, { ...line, spacing: 0 }))).withContext(p).toBeLessThan(normal);
+          expect(pitch(patternTile(p, { ...line, size: 8 }))).withContext(p).toBeGreaterThan(normal * 8);
+        }
+        // o lado é px inteiro: o ladrilho repetido não pula na emenda
+        for (let spacing = 0; spacing < 7; spacing++) for (let size = 0; size < 9; size++) expect(Number.isInteger(patternTile(p, { spacing, size, jitter: 1 }).side)).withContext(`${p} ${spacing}/${size}`).toBeTrue();
+      }
+    });
+
+    it('nenhum ladrilho da papelaria pesa nem cresce demais, em ajuste nenhum', () => {
+      for (const p of plain)
+        for (let spacing = 0; spacing < 7; spacing += 3)
+          for (let size = 0; size < 9; size += 2)
+            for (const jitter of [0, 4]) {
+              const t = patternTile(p, { spacing, size, jitter }, 9);
+              expect(t.url.length).withContext(`${p} ${spacing}/${size}/${jitter}`).toBeLessThan(p === 'meiotom' ? 12000 : 24000);
+              expect(t.side).withContext(`${p} ${spacing}/${size}/${jitter}`).toBeLessThan(1300);
+            }
+    });
+
+    it('o milimetrado tem a linha grossa a cada cinco; o vichy, as faixas meio cheias nos dois sentidos; o meio-tom, pontos de vários tamanhos', () => {
+      const mm = svgOf(patternTile('milimetrado', { ...DEFAULT_LOOK, jitter: 0 }).url);
+      const thin = [...mm.matchAll(/stroke-opacity='\.75' stroke-width='[\d.]+' d='([^']*)'/g)].flatMap((m) => m[1].split('M').filter(Boolean)).length;
+      const thick = linesOf(mm).length - thin;
+      expect(thin).toBe(thick * 4);
+      const vichy = svgOf(patternTile('vichy').url);
+      expect(vichy).toContain("fill-opacity='.5' x='0'");
+      expect(vichy).toContain("fill-opacity='.5' x=");
+      expect(vichy).toMatch(/y='0' width='[\d.]+' height='[\d.]+'/);
+      const dots = svgOf(patternTile('meiotom').url);
+      const widths = new Set([...dots.matchAll(/class='p' stroke-width='([\d.]+)'/g)].map((m) => m[1]));
+      expect(widths.size).toBeGreaterThan(6);
+      // o maior ponto nunca encosta no vizinho (a 45°, a 6px um do outro no de sempre), e o menor não some
+      const sizes = [...widths].map(Number);
+      expect(Math.max(...sizes)).toBeLessThan(8.5 * 0.707);
+      expect(Math.min(...sizes)).toBeGreaterThan(1);
+      // o pontilhado: um ponto só, de um tamanho, na grade inteira
+      expect(new Set([...svgOf(patternTile('pontilhado', { ...DEFAULT_LOOK, jitter: 0 }).url).matchAll(/stroke-width='([\d.]+)'/g)].map((m) => m[1])).size).toBe(1);
+    });
+
+    it('as do dia a dia revezam os desenhos: a moeda, a cédula, o cofrinho e a pilha; a sacola, o carrinho, a etiqueta e a notinha', () => {
+      for (const [p, n] of [['dinheiro', 4], ['compras', 4], ['escritorio', 3], ['saude', 4], ['viagem', 4]] as const) {
+        const svg = svgOf(patternTile(p).url);
+        for (let k = 0; k < n; k++) expect(svg).withContext(`${p} ${k}`).toContain(`id='o${k || ''}'`);
+        expect(svg).withContext(p).not.toContain(`id='o${n}'`);
+      }
+    });
   });
 
   it('o glitter da cartolina escura é purpurina espalhada, não chuvisco: pouca, em montinhos, sem filtro nem branco chapado', () => {
