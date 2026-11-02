@@ -611,6 +611,12 @@ describe('sincronização com a nuvem', () => {
       expect(b.study.cardOf().get('nlua')).toBeUndefined();
     });
 
+    it('um baralho, mesmo sem cartas, é conteúdo do navegador (pergunta antes de ir para a conta)', async () => {
+      const a = device();
+      a.study.addDeck('Kanjis', 'amarelo');
+      expect((a.sync as unknown as { localHasContent(): boolean }).localHasContent()).toBeTrue();
+    });
+
     it('sem nada nos Estudos, o mural privado não ganha a chave', async () => {
       const a = device();
       a.calendar.save({ ...a.calendar.blank('2027-08-23'), title: 'Algo' });

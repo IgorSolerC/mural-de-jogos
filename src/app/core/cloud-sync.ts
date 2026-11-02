@@ -1100,6 +1100,7 @@ export class CloudSync {
       this.localSpending() !== null ||
       this.localCalendar() !== null ||
       this.study.state().cards.length > 0 ||
+      this.study.state().decks.length > 0 ||
       this.kanban.state().boards.some((b) => b.cards.length > 0) ||
       BLOCK_KINDS.some((kind) => this.blockAt(kind) !== null) ||
       this.images.count() > 0
@@ -1151,6 +1152,7 @@ export class CloudSync {
       (spent !== null && spendingToSync(spent) !== null) ||
       (reminders !== null && calendarToSync(reminders) !== null) ||
       (study?.cards.length ?? 0) > 0 ||
+      (study?.decks.length ?? 0) > 0 ||
       (kanbanOf(data)?.boards.some((b) => b.cards.length > 0) ?? false)
     );
   }
