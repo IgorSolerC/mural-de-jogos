@@ -18,9 +18,8 @@ PLANO-IMAGENS.md). Nada foi implementado; o site não muda. As decisões que sã
 
 - **Duas mudanças de lugar.** O Calendário sai das Anotações e vai para as Utilidades (Gastos ·
   Calendário · Cofre). Os Estudos entram como a terceira seção das Anotações, no lugar dele (Mural ·
-  Kanban · Estudos), porque são um terceiro jeito de ver as mesmas anotações, como o Kanban (D1: o texto
-  do pedido diz "UTILIDADES (onde o calendário ficava)" e o título diz "no mural de anotações"; a
-  recomendação é a do título).
+  Kanban · Estudos), porque são um terceiro jeito de ver as mesmas anotações, como o Kanban (D1, decidida
+  pelo usuário em 02/nov: "Nas Anotações").
 - **A carta é a anotação.** Uma anotação vira flashcard quando ganha uma **frente**: o título
   (obrigatório), um subtítulo e uma imagem. O **verso** (a resposta) é a própria anotação, inteira, como
   se lê no mural. Nada é copiado: mudou a anotação, mudou a resposta. A frente e o progresso moram fora
@@ -606,11 +605,12 @@ Pequena e à parte (rodada 0), para não misturar com os Estudos:
 
 ## 9. Decisões
 
-Esperando o usuário. Sem resposta, a implementação segue a recomendação (em negrito).
+A D1 foi decidida pelo usuário em 02/nov/2026 ("Nas Anotações"). As outras esperam o usuário; sem
+resposta, a implementação segue a recomendação (em negrito).
 
 | # | Pergunta | Recomendado | Outras |
 | --- | --- | --- | --- |
-| D1 | Onde moram os Estudos | **Nas Anotações, no lugar do Calendário** (Mural · Kanban · Estudos): o título da tarefa diz "no mural de anotações" e eles são um jeito de ver as mesmas anotações, como o Kanban | Nas Utilidades, ao lado do Calendário (o que o texto diz ao pé da letra: Gastos · Calendário · Estudos · Cofre) |
+| D1 | Onde moram os Estudos | **Nas Anotações, no lugar do Calendário** (Mural · Kanban · Estudos). **Decidido pelo usuário: "Nas Anotações"** | Nas Utilidades, ao lado do Calendário (o que o texto diz ao pé da letra: Gastos · Calendário · Estudos · Cofre) |
 | D2 | O nome da aba do editor | **Flashcard** | Estudo; Frente |
 | D3 | Uma carta em quantos baralhos | **Um só**, como no Anki | Vários (a carta estudada uma vez por baralho) |
 | D4 | O padrão de "No mural" | **Por baralho, "Só nos Estudos"**, mas a anotação que já estava no mural continua lá (nada some sem mandar) | "No mural também" por padrão; seguir o baralho sempre, inclusive nas que já existiam |
@@ -692,6 +692,8 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
 ## 12. Andamento
 
 - 02/nov/2026: plano escrito (decisões D1–D13 esperando o usuário). Nada implementado.
+- 02/nov/2026: D1 decidida pelo usuário: os Estudos moram nas Anotações (Mural · Kanban · Estudos). D2–D13
+  seguem esperando.
 
 ---
 
