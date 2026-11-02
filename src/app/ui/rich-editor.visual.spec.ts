@@ -518,6 +518,50 @@ describe('o editor com o Visual', () => {
       expect(pm().state.doc.childCount).toBe(2);
     });
 
+    it('a anotação que não existe: a última opção do "[[" cria e põe o link; o painel pergunta, e o link sai inteiro (sem tracejado)', async () => {
+      await make('');
+      const made: string[] = [];
+      let list = notes;
+      fixture.componentRef.setInput('notes', list);
+      fixture.componentRef.setInput('createNote', (title: string) => {
+        made.push(title);
+        const n = sanitizeReview({ id: 'nova' + made.length, kind: 'anotacoes', game: { name: title }, createdAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' })!;
+        // como o editor da ficha: a criada entra nas anotações que os links abrem
+        list = [...list, n];
+        fixture.componentRef.setInput('notes', list);
+        return n;
+      });
+      await settle();
+      digita('veja [[Vender a TV');
+      await settle();
+      expect(Array.from(fixture.nativeElement.querySelectorAll('.elo-op .elo-nome')).map((e) => (e as HTMLElement).textContent)).toEqual(['Criar a anotação “Vender a TV”']);
+      key('Enter');
+      await settle();
+      expect(made).toEqual(['Vender a TV']);
+      expect(value()).toBe('veja [[Vender a TV]]');
+      expect(fixture.nativeElement.querySelector('.ProseMirror span.elo.quebrado')).toBeNull();
+      // pela régua: o painel pergunta antes de criar
+      digita(' e o sofá');
+      select(pm().state.doc.content.size - 5, pm().state.doc.content.size - 1);
+      button('Link para outra anotação').click();
+      await settle();
+      await wait();
+      const busca = fixture.nativeElement.querySelector('.elo-painel .elos-campo') as HTMLInputElement;
+      escreve(busca, 'Vender o sofá');
+      await settle();
+      (fixture.nativeElement.querySelector('.elo-painel .elo-op.nova') as HTMLElement).click();
+      await settle();
+      botao('.elo-painel', 'Pôr o link').click();
+      await settle();
+      expect(fixture.nativeElement.querySelector('.elo-pergunta')?.textContent).toContain('Criar “Vender o sofá”?');
+      botao('.elo-painel', 'Criar e pôr o link').click();
+      await settle();
+      expect(made).toEqual(['Vender a TV', 'Vender o sofá']);
+      expect(value()).toBe('veja [[Vender a TV]] e o [[Vender o sofá|sofá]]');
+      expect(fixture.nativeElement.querySelectorAll('.ProseMirror span.elo').length).toBe(2);
+      expect(fixture.nativeElement.querySelector('.ProseMirror span.elo.quebrado')).toBeNull();
+    });
+
     it('a régua abre o painel do link para outra anotação; um clique num link de anotação abre o dele, para trocar ou tirar', async () => {
       await make('um texto');
       fixture.componentRef.setInput('notes', notes);

@@ -367,6 +367,8 @@
               [label]="notes() ? 'Anotação' : 'O que achou?'"
               [placeholder]="notes() ? 'Escreva o que quiser: listas, tarefas, ideias… (ou deixe só o nome)' : 'Escreva do seu jeito: o que marcou, o que irritou, ' + profile().again + '…'"
               [notes]="linkNotes()"
+              [createNote]="createLinked"
+              [ownTitles]="notes() ? [noteTitle(), editing()?.game?.name ?? ''] : []"
               [onCard]="notes()"
               [fill]="notes()"
               [stock]="stock()"

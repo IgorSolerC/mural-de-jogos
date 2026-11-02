@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-01-card-recuado',
+    id: '2026-11-01-criar-pelo-link',
     version: '1.36.2',
     kind: 'ajustes',
     date: '2026-11-01',
@@ -35,6 +35,7 @@ export const NEWS: NewsEntry[] = [
     melhorias: [
       'O botão direito numa anotação (no mural, em qualquer vista, e no Kanban) abre um menu com o que dá para fazer com ela: abrir, editar, copiar o conteúdo ou o link, fixar, finalizar, levar para a próxima coluna, compartilhar e apagar. No celular, segure o dedo na anotação; no teclado, Shift+F10.',
       'No texto das anotações, um trecho vira link para um lembrete do Calendário, pelo Inserir › Lembrete do calendário (com os próximos primeiro e o dia de cada um): ele tem o desenho do calendário, o dia ao parar o mouse em cima, e tocar abre o dia dele no Calendário, com o lembrete circulado. O que não está mais no Calendário fica tracejado; ao copiar e no PDF, a data vai junto do texto.',
+      'No link para outra anotação, um título que ainda não existe pergunta se é para criar: "Criar e pôr o link" faz a anotação na hora, vazia, no mesmo grupo e assunto, sem sair do que você está escrevendo ("Só pôr o link" deixa o link tracejado, como antes); na lista do "[[", a última opção é "Criar a anotação".',
       'A ficha aberta ganhou dois botões na faixa, antes do X: "Ler em tela cheia" deixa só o nome e o texto, quase da tela toda (a tela toda no celular), numa coluna de leitura com a letra maior, para ler uma anotação comprida; e "Ver só a cartolina" mostra a ficha como ela fica no mural, grande, no meio da tela, para ver o papel dela (tocar nela volta à leitura).',
       'As abas dos grupos sem nada para mostrar vão para o "Mais": no mural, o grupo sem nenhuma anotação à mostra (todas só no Kanban, ou finalizadas); no Kanban, o grupo sem nenhum cartão no quadro. O aberto fica em pé até você sair dele, e "Esconder os grupos vazios", nas configurações do mural (em Grupos), desliga.',
       'A imagem colada no texto ganhou a moldura Adesivo, como o recorte picotado da wishlist: a própria foto cortada em zigue-zague com a tesoura de picotar, sem margem em volta, com os pontinhos e o brilho da revista. Na folha da imagem, em Moldura, ou escrevendo "adesivo" (vale também para o vídeo).',

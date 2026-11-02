@@ -6,6 +6,10 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { CheckedAnswer, CheckedOptions, Confirm } from './confirm';
 import { ReviewEditor } from './review-editor';
+import { RichEditor } from './rich-editor';
+import { Toasts } from './toast';
+import { SharedStore } from '../core/shared-store';
+import { By } from '@angular/platform-browser';
 
 function note(id: string, name: string, extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -198,5 +202,76 @@ describe('o editor segue as configurações do mural', () => {
     await fixture.whenStable();
     expect(settings.notesConfig().categories['trabalho']).toEqual({ askTag: false });
     expect(settings.askNoTag()).toBeFalse();
+  });
+
+  describe('o link para uma anotação que não existe, criada sem sair do editor', () => {
+    const create = (title: string) => (fixture.componentInstance as unknown as { createLinked(t: string): Review | null }).createLinked(title);
+    const dialogOpen = () => el.querySelector('dialog')!.open;
+
+    it('nasce vazia, no grupo e no assunto desta, como o grupo manda (sem o Feed), e o editor continua aberto', async () => {
+      fixture.componentInstance.openInCategory('Viagens!', undefined, 'Roma');
+      await fixture.whenStable();
+      // a folha do texto sabe criar, e não oferece criar o título desta
+      const rich = fixture.debugElement.query(By.directive(RichEditor)).componentInstance as RichEditor;
+      expect(rich.createNote()).toBeTruthy();
+      await typeTitle('Roteiro');
+      expect(rich.ownTitles()).toContain('Roteiro');
+      const shown: { text: string; action?: { label: string; run(): void } }[] = [];
+      spyOn(TestBed.inject(Toasts), 'show').and.callFake((text: string, action?: { label: string; run(): void }) => void shown.push({ text, action }));
+      const made = create('Hotel em Roma')!;
+      expect(made).not.toBeNull();
+      const n = titled('Hotel em Roma');
+      expect(n.id).toBe(made.id);
+      expect(n.text).toBe('');
+      expect(n.category).toBe('Viagens!');
+      expect(n.subject).toBe('Roma');
+      // "Viagens!" publica, mas a anotação vazia não vira post: pública, fora do Feed
+      expect(n.private).toBeUndefined();
+      expect(n.quiet).toBeTrue();
+      expect(n.stock).toBeTruthy();
+      expect(dialogOpen()).toBeTrue();
+      // nunca duas: o mesmo título (sem maiúsculas nem acentos) devolve a que já existe
+      expect(create('HOTEL EM RÔMA')!.id).toBe(made.id);
+      expect(store.notes().filter((x) => x.game.name === 'Hotel em Roma').length).toBe(1);
+      // o aviso, só da criada, com o Desfazer que a tira do mural (a vazia, que ninguém mexeu)
+      expect(shown.map((t) => t.text)).toEqual(['Anotação criada: “Hotel em Roma”']);
+      expect(shown[0].action?.label).toBe('Desfazer');
+      shown[0].action!.run();
+      expect(store.get(made.id)).toBeUndefined();
+    });
+
+    it('o Desfazer do aviso não tira a anotação que já foi mexida', async () => {
+      fixture.componentInstance.openInCategory('Viagens!');
+      await fixture.whenStable();
+      let undo: (() => void) | undefined;
+      spyOn(TestBed.inject(Toasts), 'show').and.callFake((_t: string, action?: { label: string; run(): void }) => void (undo = action?.run));
+      const made = create('Museus')!;
+      store.update({ ...store.get(made.id)!, text: 'Vaticano', updatedAt: '2026-11-02T10:00:00.000Z' });
+      undo!();
+      expect(store.get(made.id)?.text).toBe('Vaticano');
+    });
+
+    it('de uma resenha: nas Anotações sem grupo, como o mural manda', async () => {
+      fixture.componentInstance.open(undefined, undefined, undefined, undefined, 'jogos');
+      await fixture.whenStable();
+      create('Zerar de novo');
+      const n = titled('Zerar de novo');
+      expect(n.kind).toBe('anotacoes');
+      expect(n.category).toBeUndefined();
+      expect(n.private).toBeTrue();
+    });
+
+    it('dentro de uma compartilhada, a nova é só sua: privada, mesmo com o grupo que publica', async () => {
+      const shared = note('ncomp001', 'Viagem juntos', { category: 'Viagens!' });
+      store.add(shared);
+      spyOn(TestBed.inject(SharedStore), 'role').and.returnValue('editor');
+      fixture.componentInstance.open(store.get('ncomp001'));
+      await fixture.whenStable();
+      create('Passagens');
+      const n = titled('Passagens');
+      expect(n.category).toBe('Viagens!');
+      expect(n.private).toBeTrue();
+      expect(n.quiet).toBeUndefined();
+    });
   });
 });

@@ -66,7 +66,7 @@ import { cap, g, isMusic, isNotes, profileOf } from '../core/kinds';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { OriginalSwap, ReviewStore } from '../core/review-store';
-import { linkKey, linkableTitle, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
+import { linkKey, linkableTitle, linkedNote, notesOf, relinkAfterRename, resolveNote } from '../core/note-links';
 import { DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, DecorMark, Paper, Pattern, PatternLook, Scribble, StainMark, isAgedPaper, lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
 import type { CardLook } from '../core/card-look';
@@ -106,6 +106,8 @@ import { canManage } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
+import { Backup } from '../core/backup';
+import { Toasts } from './toast';
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { Importance, KanbanBoard, cleanStatus, setImportance, setStatus } from '../core/kanban';
@@ -885,6 +887,49 @@ export class ReviewEditor {
    * as outras; na resenha, todas (uma resenha também aponta para as suas anotações).
    */
   protected readonly linkNotes = computed(() => notesOf(this.store.reviews()).filter((n) => n.id !== this.id()));
+
+  /**
+   * O link para um título que ainda não existe, confirmado no painel do link (ou pela opção "Criar a
+   * anotação" do "[["): a anotação nasce na hora, vazia, sem fechar este editor, no grupo e no assunto
+   * desta (de uma resenha, sem grupo), como o mural manda (ver `linkedNote`); dentro de uma
+   * compartilhada, só sua. Nunca duas: o título que já atende alguma anotação devolve ela. O aviso
+   * tem o Desfazer: a anotação ainda vazia sai do mural (o link fica, tracejado como antes).
+   */
+  private readonly toasts = inject(Toasts);
+  private readonly backup = inject(Backup);
+  protected readonly createLinked = (title: string): Review | null => {
+    // as mesmas que os links desta abrem (sem ela mesma), como a folha conferiu antes de perguntar
+    const there = resolveNote(this.linkNotes(), title);
+    if (there) return there;
+    const category = this.notes() ? this.noteCategory() : null;
+    const now = new Date().toISOString();
+    const note = linkedNote(
+      title,
+      {
+        category,
+        subject: this.notes() ? this.noteSubject() : null,
+        audience: newNoteAudience(this.settings.notesConfig(), category),
+        shared: !!this.sharedRole(),
+      },
+      newId(),
+      now,
+      todayISO(),
+    );
+    if (!note) return null;
+    this.store.add(note);
+    // como toda ficha nova pregada: o navegador não apaga o mural quando faltar espaço
+    void this.backup.protect();
+    const name = note.game.name;
+    this.toasts.show(`Anotação criada: “${name}”`, {
+      label: 'Desfazer',
+      run: () => {
+        // só a que ninguém mexeu desde então (a escrita, a renomeada ou a apagada fica como está)
+        const now = this.store.get(note.id);
+        if (now && now.updatedAt === note.updatedAt) this.store.remove(note.id);
+      },
+    });
+    return this.store.get(note.id) ?? note;
+  };
 
   /**
    * Outra anotação com o mesmo título: os links para esse título abrem a mais antiga das duas (o

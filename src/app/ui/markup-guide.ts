@@ -41,7 +41,7 @@ export const GUIDE: readonly { title: string; items: readonly GuideItem[] }[] = 
     title: 'Links, tabelas, cards e divisória',
     items: [
       { what: 'Link para um endereço', mark: '[texto](https://…)', keys: 'Ctrl+K', note: 'Colar um endereço com um texto selecionado também faz o link.' },
-      { what: 'Link para outra anotação', mark: '[[Título]]', notes: true, note: '[[Título|texto]] mostra o texto no lugar do título.' },
+      { what: 'Link para outra anotação', mark: '[[Título]]', notes: true, note: '[[Título|texto]] mostra o texto no lugar do título. Um título que ainda não existe: o painel do link pergunta se cria a anotação (vazia, no mesmo grupo), e a lista do [[ tem “Criar a anotação”.' },
       { what: 'Lembrete do calendário', mark: '[texto](murall://lembrete/…)', notes: true, note: 'Pelo Inserir › Lembrete do calendário, com o texto selecionado (sem texto, vai o nome do lembrete). Tocar abre o dia dele no Calendário; tracejado, ele não está mais lá.' },
       { what: 'Tabela', mark: '| a | b |', note: 'Pelo Inserir › Tabela, escrita como numa planilha. À mão, a segunda linha é | --- | --- |, e Tab anda entre as células. Em cima dela, {{tabela: listrada}} troca o jeito (também quadriculada, caneta e recibo).' },
       { what: 'Card', mark: '> [!aviso] Título', note: 'As linhas de baixo, com "> " na frente, ficam dentro dele (listas, tarefas, widgets: tudo). Os jeitos: nota, info, dica, feito, pergunta, aviso, perigo, exemplo e citacao (os nomes do Obsidian também valem). [!aviso]- começa fechado na leitura.' },
@@ -109,7 +109,7 @@ export const GUIDE_VISUAL: readonly { title: string; items: readonly GuideItem[]
   {
     title: 'No meio da linha',
     items: [
-      { what: 'Link para outra anotação', mark: '[[', notes: true, note: 'Abre a lista das anotações. Escrever no texto do link muda só o que aparece: ele continua abrindo a mesma.' },
+      { what: 'Link para outra anotação', mark: '[[', notes: true, note: 'Abre a lista das anotações; sem nenhuma com o nome, a última opção cria a anotação e põe o link. Escrever no texto do link muda só o que aparece: ele continua abrindo a mesma.' },
       { what: 'Endereço', mark: 'https://…', note: 'Vira link no espaço ou no Enter (www.… também).' },
       { what: 'Lembrete do calendário', notes: true, note: 'Pelo Inserir › Lembrete do calendário: o trecho selecionado vira o link (sem trecho, vai o nome do lembrete). Clicar nele abre o painel, para trocar ou tirar.' },
       { what: 'Setas', mark: '-> <- <-> =>', note: 'Viram → ← ↔ ⇒ (--> e <-- compridas).' },

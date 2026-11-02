@@ -6,7 +6,7 @@ import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, InlineMark
 import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
-import { NoteLinks, linkKey, resolveNote } from '../core/note-links';
+import { NoteLinks, linkKey, linkTitleOf, resolveNote } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
 import { CopyContexts } from '../core/copy-context';
 import { Review, formatReviewDate } from '../core/review';
@@ -738,30 +738,47 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                     (keydown)="onSearchKey($event)"
                   />
                   @if (k.chosen) {
-                    <!-- escolhida: a lista fecha e fica o que o link vai abrir (escrever ou ↓ reabre) -->
-                    <p class="elo-escolhida" aria-live="polite">
-                      @if (chosenNote(); as n) {
-                        <lucide-icon [img]="ChosenIcon" [size]="16" aria-hidden="true" />
-                        <span>{{ metaOf(n) || 'Sua anotação' }}</span>
-                      } @else {
-                        <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
-                        <span>Ainda não existe: abra o link depois para criar</span>
-                      }
-                    </p>
+                    <!-- escolhida: a lista fecha e fica o que o link vai abrir (escrever ou ↓ reabre);
+                         a que ainda não existe, com a pergunta de criar aberta, fica só no campo -->
+                    @if (!k.asking) {
+                      <p class="elo-escolhida" aria-live="polite">
+                        @if (chosenNote(); as n) {
+                          <lucide-icon [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+                          <span>{{ metaOf(n) || 'Sua anotação' }}</span>
+                        } @else {
+                          <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
+                          <span>{{ chosenCreatable() ? 'Ainda não existe: ao pôr o link, dá para criar' : 'Ainda não existe: abra o link depois para criar' }}</span>
+                        }
+                      </p>
+                    }
                   } @else {
                     <ng-container *ngTemplateOutlet="eloLista" />
                   }
                 </div>
               </div>
-              <div class="painel-acoes">
-                @if (visual() && k.swap) {
-                  <span class="painel-mais">
-                    <button type="button" class="acao-caneta" (click)="unlink()"><lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />Tirar o link</button>
-                  </span>
-                }
-                <button type="button" class="acao-caneta" (click)="closeLink(area)">Cancelar</button>
-                <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">{{ k.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
-              </div>
+              @if (k.asking && k.chosen) {
+                <!-- a escolhida ainda não existe: a pergunta toma o lugar do "Cancelar" e do "Pôr", no
+                     mesmo painel (Esc volta a ele; escrever na busca desfaz) -->
+                <div class="painel-acoes elo-criar" role="group" [attr.aria-labelledby]="areaId + '-elo-pergunta'">
+                  <p class="elo-pergunta" [id]="areaId + '-elo-pergunta'" aria-live="polite">
+                    Não existe anotação com esse nome. Criar <span class="elo-pergunta-nome">“{{ k.chosen }}”</span>?
+                  </p>
+                  <button type="button" class="acao-caneta" (click)="linkOnly()">{{ k.swap ? 'Só trocar o link' : 'Só pôr o link' }}</button>
+                  <button type="button" class="painel-ok elo-criar-sim" [attr.aria-describedby]="areaId + '-elo-pergunta'" (click)="confirmCreate()">
+                    {{ k.swap ? 'Criar e trocar o link' : 'Criar e pôr o link' }}
+                  </button>
+                </div>
+              } @else {
+                <div class="painel-acoes">
+                  @if (visual() && k.swap) {
+                    <span class="painel-mais">
+                      <button type="button" class="acao-caneta" (click)="unlink()"><lucide-icon [img]="UnlinkIcon" [size]="16" aria-hidden="true" />Tirar o link</button>
+                    </span>
+                  }
+                  <button type="button" class="acao-caneta" (click)="closeLink(area)">Cancelar</button>
+                  <button type="button" class="painel-ok" [disabled]="!k.chosen" (click)="putLink()">{{ k.swap ? 'Trocar o link' : 'Pôr o link' }}</button>
+                </div>
+              }
             </div>
           }
         }
@@ -872,8 +889,18 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             (click)="take(t)"
           >
             <lucide-icon [img]="PlusIcon" [size]="16" aria-hidden="true" />
-            <span class="elo-nome">Link para “{{ t }}”</span>
-            <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
+            @if (newCreates()) {
+              <!-- pela "[[": cria a anotação (vazia, aqui mesmo) e põe o link para ela -->
+              <span class="elo-nome">Criar a anotação “{{ t }}”</span>
+              <span class="elo-meta">nasce vazia, sem sair daqui, já com o link</span>
+            } @else if (newCreatable()) {
+              <!-- no painel: fica escolhida, e o "Pôr o link" pergunta se cria -->
+              <span class="elo-nome">Link para “{{ t }}”</span>
+              <span class="elo-meta">a anotação ainda não existe: dá para criar ao pôr o link</span>
+            } @else {
+              <span class="elo-nome">Link para “{{ t }}”</span>
+              <span class="elo-meta">a anotação ainda não existe: abra o link depois para criar</span>
+            }
           </li>
         }
         @if (!linkOptions().length && !newLink()) {
@@ -2086,6 +2113,25 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       color: var(--ink-2);
       white-space: nowrap;
     }
+    /* a pergunta de criar a anotação escolhida, que ainda não existe: no lugar do "Cancelar" e do
+       "Pôr", a frase numa linha toda e as duas saídas embaixo, à direita, como as de sempre */
+    .elo-criar {
+      flex-wrap: wrap;
+      row-gap: 6px;
+    }
+    .elo-pergunta {
+      flex-basis: 100%;
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.35;
+      color: var(--ink);
+      text-wrap: pretty;
+    }
+    .elo-pergunta-nome {
+      font-family: var(--f-hand);
+      font-size: 1.12rem;
+      overflow-wrap: anywhere;
+    }
     .elo-op.nova {
       grid-template-columns: auto minmax(0, 1fr);
       color: var(--ink);
@@ -2338,6 +2384,18 @@ export class RichEditor {
   readonly areaId = 'texto-' + ++uid;
   /** As anotações que os links "[[Título]]" podem abrir; null, sem links. */
   readonly notes = input<readonly Review[] | null>(null);
+  /**
+   * Cria, na hora, a anotação de um título que ainda não existe (o link para ela já sai válido): o
+   * painel do link pergunta antes, e a lista do "[[" tem a opção "Criar a anotação". Devolve a criada,
+   * ou null se não deu (quem cria é quem avisa). Sem ele, o link para o que não existe só sai
+   * tracejado (abrir depois cria).
+   */
+  readonly createNote = input<((title: string) => Review | null) | null>(null);
+  /**
+   * Os títulos da anotação que está sendo escrita (o do campo e o guardado, que ela ainda tem até
+   * salvar): um link para ela mesma não pergunta se quer criar.
+   */
+  readonly ownTitles = input<readonly string[]>([]);
   /**
    * O texto aparece na ficha do mural (a anotação): a prévia do widget mostra "Na ficha" e "Aberta".
    * Na resenha, a ficha do mural mostra só o começo do texto, e a prévia é a da leitura.
@@ -3068,9 +3126,20 @@ export class RichEditor {
    * A lista do link aberta: pela régua (`auto` falso, com a própria busca) ou por "[[" escrito na
    * folha (`auto`, a busca é o que vem depois dos colchetes). `start` e `end` são o trecho do texto
    * que o link vai ocupar; `big`, em qual das folhas (a pequena ou a da tela inteira). No painel da
-   * régua, `chosen` é o título escolhido na lista (null: a lista está aberta, nada escolhido).
+   * régua, `chosen` é o título escolhido na lista (null: a lista está aberta, nada escolhido);
+   * `asking`, o painel pergunta se cria a anotação escolhida, que ainda não existe (ver `putLink`).
    */
-  protected readonly linking = signal<{ auto: boolean; big: boolean; start: number; end: number; query: string; label?: string; chosen?: string | null; swap?: boolean } | null>(null);
+  protected readonly linking = signal<{
+    auto: boolean;
+    big: boolean;
+    start: number;
+    end: number;
+    query: string;
+    label?: string;
+    chosen?: string | null;
+    swap?: boolean;
+    asking?: boolean;
+  } | null>(null);
   /** A opção escolhida da lista (pelas setas). */
   protected readonly active = signal(0);
   /** Onde "[[" foi fechado com Esc: a lista não volta a abrir sozinha ali. */
@@ -3097,14 +3166,39 @@ export class RichEditor {
 
   /** O que foi escrito e ainda não é título de nenhuma anotação: dá para criar o link mesmo assim. */
   protected readonly newLink = computed(() => {
-    const k = this.linking();
-    const t = k?.query.trim().replace(/\s+/g, ' ') ?? '';
-    if (!t || /[[\]]/.test(t)) return null;
+    // um título com colchete ou "|" não cabe num link
+    const t = linkTitleOf(this.linking()?.query ?? '');
+    if (!t) return null;
     const key = linkKey(t);
     return (this.notes() ?? []).some((n) => linkKey(n.game.name) === key) ? null : t;
   });
 
   protected readonly optionCount = computed(() => this.linkOptions().length + (this.newLink() ? 1 : 0));
+
+  /**
+   * Dá para criar a anotação deste título na hora: quem usa a folha sabe criar (`createNote`), o
+   * título cabe num link, nenhuma anotação atende por ele (a regra do `resolveNote`: sem maiúsculas
+   * nem acentos) e não é o da própria anotação que está sendo escrita.
+   */
+  private creatable(title: string): boolean {
+    const t = linkTitleOf(title);
+    if (!t || !this.createNote()) return false;
+    const key = linkKey(t);
+    return !this.ownTitles().some((own) => linkKey(own) === key) && !resolveNote(this.notes() ?? [], t);
+  }
+
+  /** O título novo da lista (ver `newLink`) dá para criar: no "[[", a última opção cria; no painel, o "Pôr o link" pergunta. */
+  protected readonly newCreatable = computed(() => {
+    const t = this.newLink();
+    return !!t && this.creatable(t);
+  });
+  /** A última opção da lista do "[[" cria a anotação que ainda não existe (no painel, ela só fica escolhida). */
+  protected readonly newCreates = computed(() => this.newCreatable() && !!this.linking()?.auto);
+  /** A escolhida no painel ainda não existe e dá para criar (o "Pôr o link" pergunta). */
+  protected readonly chosenCreatable = computed(() => {
+    const t = this.linking()?.chosen;
+    return !!t && this.creatable(t);
+  });
 
   /** A anotação que o link escolhido no painel abre (null: ainda não existe, o link a cria depois). */
   protected readonly chosenNote = computed(() => {
@@ -3513,29 +3607,74 @@ export class RichEditor {
   protected setQuery(q: string): void {
     const k = this.linking();
     if (!k) return;
-    // escrever de novo desfaz a escolha: a lista volta
-    this.linking.set({ ...k, query: q, chosen: null });
+    // escrever de novo desfaz a escolha (e a pergunta de criar): a lista volta
+    this.linking.set({ ...k, query: q, chosen: null, asking: false });
     this.active.set(0);
   }
 
-  /** Tocou numa anotação da lista: pela "[[", o link entra; no painel, ela fica escolhida. */
+  /**
+   * Tocou numa anotação da lista: pela "[[", o link entra (o título que ainda não existe, com a
+   * anotação criada antes, ver `newCreates`); no painel, ela fica escolhida.
+   */
   protected take(title: string): void {
-    if (this.linking()?.auto) this.pick(title);
-    else this.choose(title);
+    if (!this.linking()?.auto) this.choose(title);
+    else if (this.creatable(title)) this.createAndLink(title);
+    else this.pick(title);
   }
 
   /** No painel: a anotação escolhida vai para o campo e a lista fecha (falta só "Pôr o link"). */
   private choose(title: string): void {
     const k = this.linking();
-    if (k) this.linking.set({ ...k, query: title, chosen: title });
+    if (k) this.linking.set({ ...k, query: title, chosen: title, asking: false });
   }
 
-  /** "Pôr o link" no painel; sem anotação escolhida, o foco volta para a busca. */
+  /**
+   * "Pôr o link" no painel; sem anotação escolhida, o foco volta para a busca. A escolhida que ainda
+   * não existe (e que dá para criar) pergunta antes, no próprio painel: "Criar e pôr o link" ou "Só
+   * pôr o link" (o tracejado de sempre, que cria ao abrir). Com ela aberta, o Enter dos campos cria.
+   */
   protected putLink(): void {
     const k = this.linking();
     if (!k) return;
-    if (k.chosen) this.pick(k.chosen);
-    else this.panelInput(k.big, '.elos-campo')?.focus();
+    if (!k.chosen) {
+      this.panelInput(k.big, '.elos-campo')?.focus();
+      return;
+    }
+    if (!this.creatable(k.chosen)) return this.pick(k.chosen);
+    // com a pergunta aberta, o Enter de um campo é a ação principal dela, como a etiqueta de tinta à mostra
+    if (k.asking) return this.createAndLink(k.chosen);
+    this.linking.set({ ...k, asking: true });
+    setTimeout(() => this.panelInput(k.big, '.elo-criar-sim')?.focus());
+  }
+
+  /** A pergunta do painel: "Criar e pôr o link" cria a anotação e põe o link para ela. */
+  protected confirmCreate(): void {
+    const k = this.linking();
+    if (k?.chosen) this.createAndLink(k.chosen);
+  }
+
+  /** A pergunta do painel: "Só pôr o link" põe o link sem criar (tracejado até a anotação existir). */
+  protected linkOnly(): void {
+    const k = this.linking();
+    if (k?.chosen) this.pick(k.chosen);
+  }
+
+  /** A pergunta do painel, desfeita (Esc): volta ao painel, com a busca na mão. */
+  private stopAsking(): void {
+    const k = this.linking();
+    if (!k) return;
+    this.linking.set({ ...k, asking: false });
+    setTimeout(() => this.panelInput(k.big, '.elos-campo')?.focus());
+  }
+
+  /**
+   * Cria a anotação do título (vazia, por quem usa a folha, que avisa: ver `createNote`) e põe o link
+   * para ela. Não deu para criar: o link entra do mesmo jeito (tracejado).
+   */
+  private createAndLink(title: string): void {
+    const t = linkTitleOf(title) ?? title;
+    const made = this.creatable(t) ? this.createNote()!(t) : null;
+    this.pick(made?.game.name ?? t);
   }
 
   /**
@@ -3550,7 +3689,7 @@ export class RichEditor {
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (k.chosen) {
-        this.linking.set({ ...k, chosen: null });
+        this.linking.set({ ...k, chosen: null, asking: false });
         this.active.set(0);
       } else if (n) this.active.set((this.active() + (e.key === 'ArrowDown' ? 1 : n - 1)) % n);
     } else if (e.key === 'Enter') {
@@ -3564,11 +3703,12 @@ export class RichEditor {
     }
   }
 
-  /** Esc no painel fecha só ele (não o editor) e devolve o foco ao trecho. */
+  /** Esc no painel fecha só ele (não o editor) e devolve o foco ao trecho; com a pergunta de criar, volta ao painel. */
   protected closeLinkKey(e: Event): void {
     e.preventDefault();
     e.stopPropagation();
-    this.closeLink();
+    if (this.linking()?.asking) this.stopAsking();
+    else this.closeLink();
   }
 
   /** Escreveu na folha: com "[[" aberto antes do cursor (sem fechar), a lista abre e filtra. */
@@ -3638,7 +3778,9 @@ export class RichEditor {
       e.preventDefault();
       const opts = this.linkOptions();
       const i = Math.min(this.active(), n - 1);
-      this.pick(i < opts.length ? opts[i].game.name : this.newLink()!);
+      // o Tab (que se aperta por hábito, para aceitar ou recuar) nunca cria: só o link, como antes
+      if (i < opts.length || e.key === 'Tab') this.pick(i < opts.length ? opts[i].game.name : this.newLink()!);
+      else this.take(this.newLink()!);
       return true;
     }
     if (e.key === 'Escape') {

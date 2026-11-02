@@ -1,5 +1,5 @@
 import { Review, sanitizeReview } from './review';
-import { linkKey, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
+import { linkKey, linkTitleOf, linkedAudience, linkedNote, linkedOnCheckedTask, linkableTitle, linksIn, relinkAfterRename, renameLinks, resolveNote } from './note-links';
 import { hasFormatting, parseInline, plainText, toggleCheck } from './rich-text';
 
 /** Os links entre anotações: "[[Título]]" no texto abre a anotação com esse título. */
@@ -110,5 +110,54 @@ describe('links entre anotações', () => {
     expect(renameLinks(text, 'Foo', 'Bar')).toBe('use `[[Foo]]` e \\[[Foo]] e [[Bar]]\n```\n[[Foo]]\n```');
     expect(linksIn('```\n- [x] [[Foo]]\n```')).toEqual([]);
     expect(renameLinks('nada aqui', 'Foo', 'Bar')).toBe('nada aqui');
+  });
+});
+
+describe('a anotação criada por um link (linkedNote)', () => {
+  const now = '2026-11-01T12:00:00.000Z';
+
+  it('nasce vazia, só com o título (os espaços a mais saem), no grupo e no assunto de onde veio', () => {
+    const n = linkedNote('  Vender   a TV ', { category: 'Casa', subject: 'Mudança', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
+    expect(n.id).toBe('nova-anotacao');
+    expect(n.kind).toBe('anotacoes');
+    expect(n.game).toEqual(jasmine.objectContaining({ name: 'Vender a TV', coverUrl: null, source: 'manual' }));
+    expect(n.text).toBe('');
+    expect(n.category).toBe('Casa');
+    expect(n.subject).toBe('Mudança');
+    expect(n.private).toBeTrue();
+    expect(n.completedAt).toBe('2026-11-01');
+    expect(n.createdAt).toBe(now);
+    expect(n.updatedAt).toBe(now);
+    expect(n.doneAt).toBeUndefined();
+    expect(n.noteRank).toBeUndefined();
+    // o link para ela abre ela
+    expect(resolveNote([note('n1', 'Outra'), n], 'vender a tv')?.id).toBe('nova-anotacao');
+  });
+
+  it('sem grupo (a resenha), nas Anotações sem grupo; o assunto das sem grupo vai junto', () => {
+    const n = linkedNote('Ideias', { category: null, subject: null, audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!;
+    expect(n.category).toBeUndefined();
+    expect(n.subject).toBeUndefined();
+    expect(linkedNote('Ideias', { category: '', subject: 'Soltas', audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')!.subject).toBe('Soltas');
+  });
+
+  it('quem vê: a do grupo, mas sem ir para o Feed; dentro de uma compartilhada, privada', () => {
+    expect(linkedAudience({ audience: 'privada' })).toBe('privada');
+    expect(linkedAudience({ audience: 'visivel' })).toBe('visivel');
+    expect(linkedAudience({ audience: 'publicar' })).toBe('visivel');
+    expect(linkedAudience({ audience: 'publicar', shared: true })).toBe('privada');
+    const pub = linkedNote('Pública', { audience: 'publicar' }, 'nova-anotacao', now, '2026-11-01')!;
+    expect(pub.private).toBeUndefined();
+    expect(pub.quiet).toBeTrue();
+    expect(pub.publishedAt).toBeUndefined();
+  });
+
+  it('o título que um link escreve: sem os espaços a mais; null o que não cabe', () => {
+    expect(linkTitleOf('  Vender   a TV ')).toBe('Vender a TV');
+    for (const t of ['', '  ', 'a]b', 'a|b']) expect(linkTitleOf(t)).withContext(t).toBeNull();
+  });
+
+  it('o título que não cabe num link (vazio, com colchete ou "|") não vira anotação', () => {
+    for (const t of ['', '   ', 'Compras [casa]', 'a|b']) expect(linkedNote(t, { audience: 'privada' }, 'nova-anotacao', now, '2026-11-01')).withContext(t).toBeNull();
   });
 });

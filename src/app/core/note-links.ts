@@ -1,4 +1,5 @@
-import { Review, isNote } from './review';
+import { Audience, Review, audienceFields, isNote, sanitizeReview } from './review';
+import { BUILD } from './build';
 import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
 import { nameKey } from './text';
 import type { ReminderLinkInfo } from './reminder-links';
@@ -73,6 +74,15 @@ export function linkableTitle(title: string): boolean {
 }
 
 /**
+ * O título que um link escreve, do que foi digitado: sem os espaços das pontas nem os repetidos; null
+ * se não cabe num link (vazio, com colchete ou "|", ver `linkableTitle`).
+ */
+export function linkTitleOf(raw: string): string | null {
+  const t = raw.trim().replace(/\s+/g, ' ');
+  return linkableTitle(t) ? t : null;
+}
+
+/**
  * A anotação `before` vai ganhar o título `title`: as outras anotações com links que a abriam
  * passam a apontar para o título novo. Só quando era ela que o link abria (com dois títulos
  * iguais, renomear a mais nova não mexe nos links da mais antiga) e quando o link novo também vai
@@ -93,6 +103,55 @@ export function relinkAfterRename(notes: readonly Review[], before: Review, titl
     if (text !== n.text) out.push({ ...n, text, updatedAt: now });
   }
   return out;
+}
+
+/** De onde vem a anotação criada por um link (ver `linkedNote`). */
+export interface LinkedNoteFrom {
+  /** O grupo e o assunto da anotação que está sendo escrita (a resenha não passa nenhum). */
+  category?: string | null;
+  subject?: string | null;
+  /** Como nasce a anotação nova nesse grupo (os Padrões das configurações do mural). */
+  audience: Audience;
+  /** Escrita dentro de uma anotação compartilhada: a nova é só sua, privada. */
+  shared?: boolean;
+}
+
+/**
+ * Quem vê a anotação criada por um link: a do grupo, menos o Feed. Ela nasce vazia, sem ninguém ter
+ * escrito nada nela, e não vira post para quem segue; a pública fica à mostra no mural (Disponível) e
+ * vai para o Feed quando for pregada de verdade, pelo editor. Dentro de uma compartilhada, privada.
+ */
+export function linkedAudience(from: Pick<LinkedNoteFrom, 'audience' | 'shared'>): Audience {
+  if (from.shared) return 'privada';
+  return from.audience === 'publicar' ? 'visivel' : from.audience;
+}
+
+/**
+ * A anotação nova que um link para um título que não existe cria na hora (sem abrir o editor): só o
+ * título, vazia, no grupo e no assunto de onde o link saiu, como o mural manda (ver `linkedAudience`).
+ * O resto (a cartolina sorteada, a pauta) é o de toda anotação nova: o `ReviewStore.add` e a leitura
+ * (`sanitizeReview`) completam. null se o título não cabe num link (ver `linkableTitle`).
+ */
+export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now: string, today: string): Review | null {
+  const name = linkTitleOf(title);
+  if (!name) return null;
+  const category = from.category?.trim();
+  const subject = from.subject?.trim();
+  return sanitizeReview(
+    {
+      id,
+      kind: 'anotacoes',
+      game: { name, coverUrl: null, source: 'manual' },
+      text: '',
+      completedAt: today,
+      ...(category ? { category } : {}),
+      ...(subject ? { subject } : {}),
+      ...audienceFields(linkedAudience(from), null, now),
+      createdAt: now,
+      updatedAt: now,
+    },
+    BUILD,
+  );
 }
 
 /**

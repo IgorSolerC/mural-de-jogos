@@ -897,6 +897,185 @@ describe('a régua de formatação do texto', () => {
       fixture.detectChanges();
       expect(value()).toBe('ver [[Vender a TV]]');
     });
+
+    describe('criar a anotação que não existe', () => {
+      /** As anotações "criadas" pelo pai (o editor da ficha), na ordem. */
+      let made: string[];
+      let toasts: string[];
+      const creator = (title: string) => {
+        made.push(title);
+        return sanitizeReview({ id: 'nova' + made.length, kind: 'anotacoes', game: { name: title }, createdAt: '2026-03-01T00:00:00.000Z', updatedAt: '2026-03-01T00:00:00.000Z' });
+      };
+      const panelButton = (name: string) =>
+        Array.from(fixture.nativeElement.querySelectorAll('.elo-painel button') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.trim() === name);
+      const question = () => fixture.nativeElement.querySelector('.elo-pergunta') as HTMLElement | null;
+      const search = () => fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
+
+      beforeEach(() => {
+        made = [];
+        toasts = [];
+        spyOn(TestBed.inject(Toasts), 'show').and.callFake((text: string) => void toasts.push(text));
+        fixture.componentRef.setInput('notes', notes);
+        fixture.componentRef.setInput('createNote', creator);
+        fixture.detectChanges();
+      });
+
+      /** Pela régua, com a busca escrita e a opção do título novo escolhida. */
+      function panelWith(marked: string, query: string): void {
+        write(marked);
+        button('Link para outra anotação').click();
+        fixture.detectChanges();
+        search().value = query;
+        search().dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        (fixture.nativeElement.querySelector('.elo-op.nova') as HTMLElement).click();
+        fixture.detectChanges();
+      }
+
+      it('no painel, "Pôr o link" pergunta antes; "Criar e pôr o link" cria a anotação, avisa e põe o link', async () => {
+        panelWith('ver |', 'Vender  a TV');
+        expect(options()).toEqual([]);
+        expect(fixture.nativeElement.querySelector('.elo-escolhida')?.textContent).toContain('ao pôr o link, dá para criar');
+        panelButton('Pôr o link')!.click();
+        fixture.detectChanges();
+        // a pergunta toma o lugar do "Cancelar" e do "Pôr"; nada foi criado nem escrito ainda
+        expect(question()!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Não existe anotação com esse nome. Criar “Vender a TV”?');
+        expect(panelButton('Pôr o link')).toBeUndefined();
+        expect(panelButton('Cancelar')).toBeUndefined();
+        expect(made).toEqual([]);
+        expect(value()).toBe('ver ');
+        await new Promise((r) => setTimeout(r));
+        expect(document.activeElement).toBe(panelButton('Criar e pôr o link')!);
+        panelButton('Criar e pôr o link')!.click();
+        fixture.detectChanges();
+        expect(made).toEqual(['Vender a TV']);
+        // o aviso é de quem cria (o editor da ficha, com o Desfazer)
+        expect(toasts).toEqual([]);
+        expect(value()).toBe('ver [[Vender a TV]]');
+        expect(fixture.nativeElement.querySelector('.elo-painel')).toBeNull();
+      });
+
+      it('"Só pôr o link" põe o link sem criar (o tracejado de sempre)', () => {
+        panelWith('ver |', 'Vender a TV');
+        panelButton('Pôr o link')!.click();
+        fixture.detectChanges();
+        panelButton('Só pôr o link')!.click();
+        fixture.detectChanges();
+        expect(made).toEqual([]);
+        expect(toasts).toEqual([]);
+        expect(value()).toBe('ver [[Vender a TV]]');
+      });
+
+      it('com a pergunta aberta, o Enter num campo é o "Criar e pôr o link"', () => {
+        panelWith('ver |', 'Vender a TV');
+        search().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        fixture.detectChanges();
+        expect(question()).not.toBeNull();
+        search().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        fixture.detectChanges();
+        expect(made).toEqual(['Vender a TV']);
+        expect(value()).toBe('ver [[Vender a TV]]');
+      });
+
+      it('Esc na pergunta volta ao painel (não fecha); escrever na busca desfaz a pergunta', async () => {
+        panelWith('ver |', 'Vender a TV');
+        panelButton('Pôr o link')!.click();
+        fixture.detectChanges();
+        const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+        panelButton('Criar e pôr o link')!.dispatchEvent(esc);
+        fixture.detectChanges();
+        expect(esc.defaultPrevented).toBeTrue();
+        expect(fixture.nativeElement.querySelector('.elo-painel')).not.toBeNull();
+        expect(question()).toBeNull();
+        expect(panelButton('Pôr o link')).toBeDefined();
+        await new Promise((r) => setTimeout(r));
+        expect(document.activeElement).toBe(search());
+        // pergunta de novo, e escrever outra coisa na busca desfaz
+        panelButton('Pôr o link')!.click();
+        fixture.detectChanges();
+        expect(question()).not.toBeNull();
+        search().value = 'Vender';
+        search().dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        expect(question()).toBeNull();
+        expect(made).toEqual([]);
+        expect(value()).toBe('ver ');
+      });
+
+      it('o título que já atende uma anotação (sem maiúsculas nem acentos) só põe o link, sem perguntar', () => {
+        write('ver |');
+        button('Link para outra anotação').click();
+        fixture.detectChanges();
+        search().value = 'LISTA DO MERCÁDO';
+        search().dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.elo-op.nova')).toBeNull();
+        (fixture.nativeElement.querySelector('.elo-op') as HTMLElement).click();
+        fixture.detectChanges();
+        panelButton('Pôr o link')!.click();
+        fixture.detectChanges();
+        expect(question()).toBeNull();
+        expect(made).toEqual([]);
+        expect(value()).toBe('ver [[Lista do mercado]]');
+      });
+
+      it('pela "[[", a última opção cria a anotação e põe o link; com o que já existe, ela vem depois', () => {
+        typeAt('[[cons|');
+        expect(options().length).toBe(2);
+        expect(options()[0]).toContain('Comprar um console');
+        expect(options()[1]).toContain('Criar a anotação “cons”');
+        typeAt('[[Vender a TV|');
+        expect(options().length).toBe(1);
+        expect(options()[0]).toContain('Criar a anotação “Vender a TV”');
+        key('Enter');
+        fixture.detectChanges();
+        expect(made).toEqual(['Vender a TV']);
+        // o aviso é de quem cria (o editor da ficha, com o Desfazer)
+        expect(toasts).toEqual([]);
+        expect(value()).toBe('[[Vender a TV]]');
+      });
+
+      it('o título da própria anotação e o que não cabe num link não oferecem criar', () => {
+        // o título do campo e o guardado, que a anotação ainda tem até salvar
+        fixture.componentRef.setInput('ownTitles', ['Vender a TV', 'Velho nome']);
+        fixture.detectChanges();
+        typeAt('[[vender a tv|');
+        expect(options()[0]).toContain('Link para “vender a tv”');
+        key('Enter');
+        fixture.detectChanges();
+        expect(made).toEqual([]);
+        expect(value()).toBe('[[vender a tv]]');
+        typeAt('[[Velho nome|');
+        expect(options()[0]).toContain('Link para “Velho nome”');
+        // "|" separa o texto do link: nem "Link para" nem criar
+        write('ver |');
+        button('Link para outra anotação').click();
+        fixture.detectChanges();
+        search().value = 'A|B';
+        search().dispatchEvent(new Event('input'));
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('.elo-op.nova')).toBeNull();
+        expect(made).toEqual([]);
+      });
+
+      it('o Tab na lista do "[[" nunca cria: só põe o link, como antes', () => {
+        typeAt('[[Vender a TV|');
+        key('Tab');
+        fixture.detectChanges();
+        expect(made).toEqual([]);
+        expect(value()).toBe('[[Vender a TV]]');
+      });
+
+      it('sem conseguir criar (o pai devolve null), o link entra do mesmo jeito, sem aviso', () => {
+        fixture.componentRef.setInput('createNote', () => null);
+        fixture.detectChanges();
+        typeAt('[[Vender a TV|');
+        key('Enter');
+        fixture.detectChanges();
+        expect(toasts).toEqual([]);
+        expect(value()).toBe('[[Vender a TV]]');
+      });
+    });
   });
 
   describe('o link para um lembrete do calendário', () => {
