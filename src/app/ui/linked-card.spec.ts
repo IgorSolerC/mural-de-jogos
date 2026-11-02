@@ -395,6 +395,8 @@ describe('a nota colada no texto (o widget Nota)', () => {
       outer.setAttribute('data-cor', 'preto');
       outer.style.setProperty('--estampa', 'url("data:image/svg+xml,x")');
       outer.style.setProperty('--textura', 'url("data:image/svg+xml,y")');
+      outer.style.setProperty('--textura-x', '-40px');
+      outer.style.setProperty('--faisca-forca', '0.6');
       document.body.appendChild(outer);
       const css = (sel: string, v: string) => getComputedStyle(el.querySelector(sel)!).getPropertyValue(v).trim();
       for (const [args, sel] of [
@@ -410,6 +412,9 @@ describe('a nota colada no texto (o widget Nota)', () => {
         expect(css(sel, '--textura')).withContext(sel).toBe('');
         expect(css(sel, '--estampa-uso')).withContext(sel).toBe('none');
         expect(css(sel, '--realce')).withContext(sel).toBe('none');
+        // nem o começo e a luz do glitter escuro dela
+        expect(css(sel, '--textura-x')).withContext(sel).toBe('');
+        expect(css(sel, '--faisca-forca')).withContext(sel).toBe('');
         expect(css(sel, '--grao-img')).withContext(sel).not.toContain('escura');
         fixture.destroy();
         el.remove();

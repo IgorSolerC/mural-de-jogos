@@ -71,6 +71,6 @@ export class MiniCartolina {
   protected readonly dark = computed(() => isDarkStock(this.stock()));
   protected readonly vars = computed(() => {
     const r = this.review();
-    return paperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, this.dark());
+    return paperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, this.dark(), r.id);
   });
 }

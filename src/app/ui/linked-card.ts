@@ -616,7 +616,7 @@ export class LinkedCard {
   protected readonly ownPaper = computed<Record<string, string>>(() => {
     const r = this.found()?.review;
     const stock = this.stock();
-    return { '--stock': `var(--stock-${stock})`, ...(r ? ownPaperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, isDarkStock(stock)) : {}) };
+    return { '--stock': `var(--stock-${stock})`, ...(r ? ownPaperVars(r.paper, r.pattern, lookOf(r), r.patternSeed, isDarkStock(stock), r.id) : {}) };
   });
 
   protected readonly FoldIcon = ICON.abrir;

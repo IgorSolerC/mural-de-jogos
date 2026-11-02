@@ -752,7 +752,7 @@ export class ReviewEditor {
   protected readonly stains = signal<StainMark[]>([]);
   /** As decorações por cima de tudo, como as manchas. */
   protected readonly decors = signal<DecorMark[]>([]);
-  protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock())));
+  protected readonly headPaper = computed(() => paperVars(this.paper(), this.pattern() ?? undefined, this.patternLook(), this.patternSeed(), isDarkStock(this.stock()), this.editing()?.id));
   protected readonly pin = computed(() => pinningFor(this.id(), this.stock()));
   protected readonly library = computed(() => this.store.customBonuses()[this.kind()]);
   /** A categoria, o assunto e as tags da anotação (ver core/note-labels.ts). */

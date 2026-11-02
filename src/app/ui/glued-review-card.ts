@@ -95,5 +95,5 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
 })
 export class GluedReviewCard extends ReviewCard {
   /** O papel dela, inteiro: o que ela não tem não vem da ficha em volta (ver `ownPaperVars`). */
-  protected override readonly paperVars = computed(() => ownPaperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark()));
+  protected override readonly paperVars = computed(() => ownPaperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark(), this.review().id));
 }

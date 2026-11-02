@@ -920,6 +920,141 @@ TEXTURES.reciclado = (() => {
   };
 })();
 
+/**
+ * O glitter da cartolina escura. O ladrilho de sempre (o chuvisco fino e branco, em screen) acende o
+ * papel inteiro no preto e parecia o chiado de uma TV antiga, disputando com o título. Aqui é
+ * purpurina jogada de verdade, e purpurina se lê por facetas, não por pontos: a maioria dos grãos são
+ * lasquinhas de metal (quadradinhos e losangos achatados, virados), poucos grãos redondos, quase todos
+ * miúdos e meio apagados (um ou outro pegou a luz e acende mais). Um brilho fino de lasquinhas bem
+ * apagadas cobre o papel de forma desigual (faixas mais carregadas, outras quase limpas: é o que faz do
+ * papel um papel de glitter, e não um papel com sujeira); por cima, montinhos pequenos onde o pó caiu,
+ * os grãos soltos que voaram e só duas faíscas em cruz, finas e baixas (não viram estrela). As cores
+ * do pote metalizado: prata e champanhe na maioria, ouro e um ou outro furta-cor rosa, verde-água e
+ * lilás, nunca o branco chapado. Desenhado uma vez (o mesmo para toda ficha), na primeira ficha que
+ * precisa dele, num ladrilho largo e não quadrado para a repetição não aparecer, emendado nas beiradas;
+ * cada ficha o desloca pelo sorteio dela (`glitterShift`). Só desenho, sem filtro. Fica fora de
+ * TEXTURES de propósito: a digital do glitter de sempre está congelada.
+ */
+export interface DarkGlitter extends Texture {
+  w: number;
+  h: number;
+  /** Onde fica o primeiro montinho: o começo de quem não tem sorteio (as amostras, a ficha nova). */
+  vitrine: [number, number];
+}
+let darkTile: DarkGlitter | null = null;
+export function darkGlitter(): DarkGlitter {
+  return (darkTile ??= drawDarkGlitter());
+}
+function drawDarkGlitter(): DarkGlitter {
+  const r = rng(131);
+  const W = 512,
+    H = 384;
+  // as cores do pote, com o peso de cada uma: o prata e o champanhe são a maioria
+  const pote: [string, number][] = [
+    ['#dfe3ea', 0.34],
+    ['#efdcae', 0.24],
+    ['#e0b75e', 0.14],
+    ['#f1a9c7', 0.1],
+    ['#9fe0da', 0.1],
+    ['#c3b2f3', 0.08],
+  ];
+  const cor = () => {
+    let x = r();
+    for (const [c, w] of pote) if ((x -= w) < 0) return c;
+    return pote[0][0];
+  };
+  // cada peça com o tamanho que ocupa, para a cópia do outro lado da beirada
+  const pecas: { x: number; y: number; ext: number; svg: (x: number, y: number) => string }[] = [];
+  /** A lasquinha: um quadradinho ou um losango achatado, virado, que pega a luz de um lado só. */
+  const lasca = (x: number, y: number, s: number, op: number, c: string) => {
+    const h = r() < 0.5 ? s : s * 0.55,
+      a = Math.round(r() * 180);
+    pecas.push({ x, y, ext: s, svg: (px, py) => `<rect x='${f1(px - s / 2)}' y='${f1(py - h / 2)}' width='${s.toFixed(2)}' height='${h.toFixed(2)}' transform='rotate(${a} ${f1(px)} ${f1(py)})' fill='${c}' fill-opacity='${op.toFixed(2)}'/>` });
+  };
+  const grao = (x: number, y: number, c: string) => {
+    // um em cada oito pegou a luz de frente e acende mais que os outros
+    const aceso = r() < 0.12 ? 1.6 : 1;
+    if (r() < 0.35) {
+      // o grão redondo, miúdo
+      const rad = 0.65 + r() * 0.35,
+        op = Math.min(0.85, (0.32 + r() * 0.22) * aceso);
+      pecas.push({ x, y, ext: rad, svg: (px, py) => `<circle cx='${f1(px)}' cy='${f1(py)}' r='${rad.toFixed(2)}' fill='${c}' fill-opacity='${op.toFixed(2)}'/>` });
+    } else lasca(x, y, 1.3 + r() * 0.9, Math.min(0.85, (0.4 + r() * 0.2) * aceso), c);
+  };
+  // o brilho fino por baixo de tudo: lasquinhas bem apagadas, aceitas por um campo largo que emenda
+  // no ladrilho (senos de período inteiro), para umas faixas ficarem mais carregadas e outras limpas
+  const f1x = r() * Math.PI * 2,
+    f1y = r() * Math.PI * 2;
+  for (let k = 0; k < 560; k++) {
+    const x = r() * W,
+      y = r() * H,
+      campo = 0.5 + 0.5 * Math.sin((x / W) * Math.PI * 4 + f1x) * Math.sin((y / H) * Math.PI * 2 + f1y),
+      fica = r() < 0.25 + 0.75 * campo,
+      s = 1 + r() * 0.4,
+      op = 0.2 + r() * 0.12,
+      c = cor();
+    if (fica) lasca(x, y, s, op, c);
+  }
+  // os montinhos: pequenos, mais juntos no meio e ralos na volta, sem assinatura de cor
+  const montes: [number, number, number][] = [];
+  for (let m = 0; m < 10; m++) {
+    const cx = r() * W,
+      cy = r() * H,
+      raio = 14 + r() * 18,
+      n = 6 + Math.floor(r() * 7),
+      // um montinho puxa um pouco para uma cor (o pote não mistura direito)
+      dono = cor();
+    montes.push([cx, cy, raio]);
+    for (let k = 0; k < n; k++) {
+      const a = r() * Math.PI * 2,
+        d = Math.pow(r(), 1.6) * raio;
+      grao(cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.75, r() < 0.4 ? dono : cor());
+    }
+  }
+  // os soltos, que voaram para longe
+  for (let k = 0; k < 70; k++) grao(r() * W, r() * H, cor());
+  // as faíscas: a cruz de quatro pontas fina e baixa, num floco da beirada de um montinho (um sim,
+  // um não: nunca duas juntas)
+  for (let k = 0; k < 2; k++) {
+    const [mx, my, raio] = montes[k * 3 + 1],
+      a = r() * Math.PI * 2,
+      x = mx + Math.cos(a) * raio * 0.5,
+      y = my + Math.sin(a) * raio * 0.4,
+      l = 1.8 + r() * 1,
+      w = l * 0.12,
+      c = cor(),
+      op = 0.4 + r() * 0.15;
+    pecas.push({
+      x,
+      y,
+      ext: l,
+      svg: (px, py) =>
+        `<path d='M${f1(px)} ${f1(py - l)}L${f1(px + w)} ${f1(py - w)}L${f1(px + l)} ${f1(py)}L${f1(px + w)} ${f1(py + w)}L${f1(px)} ${f1(py + l)}L${f1(px - w)} ${f1(py + w)}L${f1(px - l)} ${f1(py)}L${f1(px - w)} ${f1(py - w)}Z' fill='${c}' fill-opacity='${op.toFixed(2)}'/><circle cx='${f1(px)}' cy='${f1(py)}' r='.4' fill='#fbf7ee' fill-opacity='.5'/>`,
+    });
+  }
+  // o que passa da beirada volta do outro lado: o ladrilho emenda sem costura
+  let body = '';
+  for (const { x, y, ext, svg } of pecas) {
+    const xs = [0, ...(x - ext < 0 ? [W] : []), ...(x + ext > W ? [-W] : [])];
+    const ys = [0, ...(y - ext < 0 ? [H] : []), ...(y + ext > H ? [-H] : [])];
+    for (const dx of xs) for (const dy of ys) body += svg(x + dx, y + dy);
+  }
+  return { img: svgUrl(W, H, body), size: `${W}px ${H}px`, blend: 'screen', w: W, h: H, vitrine: [montes[0][0], montes[0][1]] };
+}
+
+/**
+ * Onde o glitter escuro começa nesta ficha (o deslocamento do ladrilho, em px), pelo sorteio dela:
+ * duas fichas pretas de glitter lado a lado na parede não mostram os mesmos montinhos no mesmo lugar.
+ * Sem ficha (as amostras do editor, a ficha que ainda não existe), um montinho no canto de cima, para
+ * a amostra pequena mostrar que é glitter.
+ */
+export function glitterShift(id?: string): [number, number] {
+  const { w, h, vitrine } = darkGlitter();
+  if (!id) return [Math.round(28 - vitrine[0]), Math.round(22 - vitrine[1])];
+  const n = hash(`${id}:glitter`);
+  return [-(n % w), -((n >>> 10) % h)];
+}
+
 /** A textura do papel, para as variáveis de CSS (`--textura`, `--textura-tam`, `--textura-mistura`). */
 export function textureOf(paper: Paper | undefined): Texture | null {
   return TEXTURES[paper ?? 'cartolina'] ?? null;

@@ -4,7 +4,7 @@
  * ficha rasga sempre igual. Nada do que a pessoa escreve entra aqui, só desenhos nossos e números.
  */
 import { MORE_MOTIFS, Motif, MotifDrawing } from './pattern-motifs';
-import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, f1, hash, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
+import { AgedPaper, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, Damage, PATTERN_INK, Paper, Pattern, PatternLook, SCRIBBLE_INK, Scribble, Stain, StainMark, clamp, cont, darkGlitter, f1, glitterShift, hash, isAgedPaper, isStrip, poly, rng, svgUrl, textureOf } from './paper';
 
 // ===================== Desenhinhos a lápis =====================
 
@@ -6040,7 +6040,8 @@ export function paperStyle(paper: Paper | undefined, pattern: Pattern | undefine
  * entra de reforço (`--grao-realce`; a Lisa, que não tem fibra, fica sem). Nas escuras o soft-light da
  * textura pesa demais: ela sai (`--textura-escura`) e volta fraca, em hard-light, por cima de um cinza
  * do meio (`--realce-escuro`). O perolado (que é cor, não relevo), o glitter e o reciclado ficam como
- * estão. Fora de `paperStyle` de propósito: as digitais dele estão congeladas.
+ * estão (o glitter escuro troca de ladrilho em `paperVars`). Fora de `paperStyle` de propósito: as
+ * digitais dele estão congeladas.
  */
 export function accentStyle(paper: Paper | undefined): Record<string, string | null> {
   const t = textureOf(paper);
@@ -6052,6 +6053,28 @@ export function accentStyle(paper: Paper | undefined): Record<string, string | n
   const inner = t.img.slice(5, -2).replace(/'/g, '%27');
   const wrap = (op: number) => svgUrl(w, h, `<rect width='100%' height='100%' fill='#808080'/><image href='${inner}' width='${w}' height='${h}' opacity='${op}'/>`);
   return { '--realce-escuro': wrap(0.2), '--textura-escura': 'none', '--grao-realce': grain };
+}
+
+/**
+ * O glitter da cartolina escura (`darkGlitter`), no lugar do de sempre, que ali virava chuvisco de TV:
+ * o ladrilho, o tamanho e a mistura dele; o começo pelo sorteio da ficha (`--textura-x`, `--textura-y`,
+ * ver `glitterShift`); e a luz da ficha levantada (`.faisca`), que acende os grãos de meio ladrilho
+ * adiante e mais de leve. O ladrilho é grande (uns 80 kB), então ele mora uma vez só na raiz da página
+ * (`--glitter-escuro`) e a ficha só aponta para ele.
+ */
+function darkGlitterVars(id: string | undefined): Record<string, string> {
+  const g = darkGlitter();
+  const [x, y] = glitterShift(id);
+  if (typeof document !== 'undefined' && !document.documentElement.style.getPropertyValue('--glitter-escuro')) document.documentElement.style.setProperty('--glitter-escuro', g.img);
+  return {
+    '--textura': 'var(--glitter-escuro)',
+    '--textura-tam': `${g.w}px ${g.h}px`,
+    '--textura-mistura': g.blend,
+    '--textura-x': `${x}px`,
+    '--textura-y': `${y}px`,
+    '--faisca-pos': `${x + g.w / 2}px ${y + g.h / 2}px`,
+    '--faisca-forca': '0.6',
+  };
 }
 
 const lightTiles = new Map<string, string>();
@@ -6082,16 +6105,26 @@ export function lightPattern(pattern: Pattern, look?: PatternLook, seed?: number
  * Nota): as mesmas de `paperVars`, mas o que ela não tem vale "initial" em vez de ficar de fora. Uma
  * variável que fica de fora vem da ficha em volta, e a colada saía com a textura e a estampa da outra.
  */
-export function ownPaperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false): Record<string, string> {
+export function ownPaperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false, id?: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [k, v] of Object.entries(paperVars(paper, pattern, look, seed, dark))) out[k] = v ?? 'initial';
+  for (const [k, v] of Object.entries(paperVars(paper, pattern, look, seed, dark, id))) out[k] = v ?? 'initial';
   return out;
 }
 
 /**
  * As variáveis do papel, da estampa e do reforço das cartolinas claras, para o `[style]` das fichas.
- * Na cartolina escura (`dark`), a estampa também sai em branco (`--estampa-clara`).
+ * Na cartolina escura (`dark`), a estampa também sai em branco (`--estampa-clara`) e o glitter troca
+ * de ladrilho (`darkGlitterVars`), começando num lugar só da ficha do `id`.
  */
-export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false): Record<string, string | null> {
-  return { ...paperStyle(paper, pattern, look, seed), ...accentStyle(paper), '--estampa-clara': dark && pattern ? lightPattern(pattern, look, seed) : null };
+export function paperVars(paper: Paper | undefined, pattern: Pattern | undefined, look?: PatternLook, seed?: number | null, dark = false, id?: string): Record<string, string | null> {
+  return {
+    ...paperStyle(paper, pattern, look, seed),
+    ...accentStyle(paper),
+    '--estampa-clara': dark && pattern ? lightPattern(pattern, look, seed) : null,
+    '--textura-x': null,
+    '--textura-y': null,
+    '--faisca-pos': null,
+    '--faisca-forca': null,
+    ...(dark && paper === 'glitter' ? darkGlitterVars(id) : {}),
+  };
 }

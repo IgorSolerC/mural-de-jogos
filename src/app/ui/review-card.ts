@@ -2008,7 +2008,7 @@ export class ReviewCard {
   protected readonly profile = computed(() => profileOf(this.review().kind));
   /** Cartolina escura: tinta, lápis e estampa claros. */
   protected readonly dark = computed(() => isDarkStock(this.pin().stock));
-  protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark()));
+  protected readonly paperVars = computed(() => paperVars(this.review().paper, this.review().pattern, lookOf(this.review()), this.review().patternSeed, this.dark(), this.review().id));
   protected readonly cut = computed(() => cutsPaper(this.review().damage) || !!this.review().stains?.some((m) => cutsPaper(m.stain)) || !!this.review().decors?.some((m) => decorCuts(m.decor)));
   /** "Nome do jogo", "Nome da série". */
   protected readonly emptyName = computed(() =>

@@ -1,4 +1,4 @@
-import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed } from './paper';
+import { DAMAGES, DECORS, DEFAULT_LOOK, DEFAULT_PATTERN_INK, DEFAULT_SCRIBBLE_INK, PATTERNS, PATTERN_GROUPS, PATTERN_LABEL, groupOfPattern, SCRIBBLES, STAINS, cutsPaper, lookOf, decorCuts, newSeed, sanitizeDamage, sanitizeDecor, sanitizeLookStep, sanitizePaper, sanitizePattern, sanitizePatternInk, sanitizeScribble, sanitizeSeed, darkGlitter, glitterShift, textureOf } from './paper';
 import { TILE_CACHE, cutMask, lightPattern, motifIcon, ownPaperVars, paperArt, paperStyle, paperVars, patternTile, tileCacheSize } from './paper-art';
 import { decorArt } from './decor-art';
 import { sanitizeReview } from './review';
@@ -164,6 +164,94 @@ describe('papel da ficha', () => {
     for (const p of PATTERNS) expect(groupOfPattern(p)).withContext(p).toBeDefined();
     // as de um desenho só não ganham ids novos
     expect(decodeURIComponent(patternTile('gatinhos').url)).not.toContain("id='o1'");
+  });
+
+  it('o glitter da cartolina escura é purpurina espalhada, não chuvisco: pouca, em montinhos, sem filtro nem branco chapado', () => {
+    const g = darkGlitter();
+    const svg = decodeURIComponent(g.img);
+    const { w, h } = g;
+    expect(g.size).toBe(`${w}px ${h}px`);
+    // desenhado uma vez só
+    expect(darkGlitter()).toBe(g);
+    // um ladrilho largo e não quadrado, para a repetição não aparecer na ficha
+    expect(w).not.toBe(h);
+    expect(Math.min(w, h)).toBeGreaterThanOrEqual(300);
+    expect(g.blend).toBe('screen');
+    // só desenho: nada de ruído por filtro (o chuvisco de antes era um feTurbulence com degrau)
+    expect(svg).not.toContain('<filter');
+    expect(svg).not.toContain('feTurbulence');
+    // pouca: uns 550 grãos num ladrilho de 512 × 384, a maioria do brilho fino quase apagado (o de
+    // antes acendia mais de um ponto em cada sete do papel)
+    const grains = svg.match(/<(circle|rect|path) /g)!.length;
+    expect(grains).toBeLessThan(750);
+    expect(grains).toBeGreaterThan(350);
+    // purpurina se lê por facetas: as lasquinhas são a maioria, e os grãos redondos, poucos
+    expect(svg.match(/<rect /g)!.length).toBeGreaterThan(grains * 0.75);
+    // nada chapado: o grão mais aceso fica abaixo de 0,9, e a maioria bem abaixo
+    const ops = [...svg.matchAll(/fill-opacity='([\d.]+)'/g)].map((m) => +m[1]);
+    expect(Math.max(...ops)).toBeLessThan(0.9);
+    expect(ops.filter((o) => o <= 0.5).length / ops.length).toBeGreaterThan(0.7);
+    // o branco puro não entra: as cores são do pote metalizado
+    expect(svg).not.toMatch(/fill='#fff(fff)?'/);
+    const cores = new Set([...svg.matchAll(/fill='(#[0-9a-f]{6})'/g)].map((m) => m[1]));
+    expect(cores.size).toBeGreaterThanOrEqual(6);
+    // poucas faíscas em cruz: só duas por ladrilho (e a cópia do outro lado da beirada, se passar)
+    const stars = svg.match(/<path /g)!.length;
+    expect(stars).toBeGreaterThanOrEqual(2);
+    expect(stars).toBeLessThanOrEqual(4);
+    // emendado nas beiradas: o que passa de um lado volta do outro
+    const out = [...svg.matchAll(/ (?:cx|x)='(-?[\d.]+)'/g)].map((m) => +m[1]);
+    const fora = out.filter((x) => x < 0 || x > w);
+    expect(fora.length).toBeGreaterThan(0);
+    const has = (x: number) => out.some((o) => Math.abs(o - x) < 0.11);
+    for (const x of fora) expect(has(x < 0 ? x + w : x - w)).withContext(String(x)).toBeTrue();
+  });
+
+  it('o glitter troca de ladrilho só na cartolina escura, apontando para a raiz; o de sempre e os outros papéis não mudam', () => {
+    const g = darkGlitter();
+    const dark = paperVars('glitter', undefined, undefined, null, true, 'r1');
+    expect(dark['--textura']).toBe('var(--glitter-escuro)');
+    expect(document.documentElement.style.getPropertyValue('--glitter-escuro')).toBe(g.img);
+    expect(dark['--textura-tam']).toBe(g.size);
+    expect(dark['--textura-mistura']).toBe('screen');
+    expect(dark['--faisca-forca']).toBe('0.6');
+    // na escura, o reforço não entra no glitter (ele não vira o cinza em hard-light)
+    expect(dark['--textura-escura']).toBeNull();
+    expect(dark['--realce-escuro']).toBeNull();
+    // o glitter de sempre (o das claras) continua no lugar dele, sem deslocamento nem luz própria
+    const light = paperVars('glitter', undefined, undefined, null, false, 'r1');
+    expect(light['--textura']).toBe(textureOf('glitter')!.img);
+    expect(light['--textura-tam']).toBe('140px 140px');
+    for (const k of ['--textura-x', '--textura-y', '--faisca-pos', '--faisca-forca']) expect(light[k]).withContext(k).toBeNull();
+    // os outros papéis, no escuro, como sempre
+    for (const p of ['canson', 'perolado', 'reciclado', 'lisa', undefined] as const) {
+      const v = paperVars(p, undefined, undefined, null, true, 'r1');
+      expect(v['--textura']).withContext(String(p)).toBe(paperStyle(p, undefined)['--textura']);
+      expect(v['--textura-x']).withContext(String(p)).toBeNull();
+    }
+    // a colada guarda o papel dela, sem herdar o começo da ficha em volta
+    expect(ownPaperVars('canson', undefined, undefined, null, true, 'r1')['--textura-x']).toBe('initial');
+    expect(ownPaperVars('glitter', undefined, undefined, null, false, 'r1')['--faisca-pos']).toBe('initial');
+  });
+
+  it('cada ficha de glitter começa o ladrilho escuro num lugar dela, sempre o mesmo; a luz, meio ladrilho adiante', () => {
+    const { w, h } = darkGlitter();
+    const ids = ['r1', 'r2', 'n-abc', 'x'.repeat(30)];
+    const shifts = ids.map((id) => glitterShift(id));
+    for (const [i, [x, y]] of shifts.entries()) {
+      expect(glitterShift(ids[i])).toEqual([x, y]);
+      expect(-x >= 0 && -x < w && -y >= 0 && -y < h).withContext(ids[i]).toBeTrue();
+      const v = paperVars('glitter', undefined, undefined, null, true, ids[i]);
+      expect(v['--textura-x']).toBe(`${x}px`);
+      expect(v['--textura-y']).toBe(`${y}px`);
+      expect(v['--faisca-pos']).toBe(`${x + w / 2}px ${y + h / 2}px`);
+    }
+    expect(new Set(shifts.map((sh) => sh.join())).size).toBe(ids.length);
+    // sem ficha (a amostra do editor), um montinho no canto de cima, dentro da amostra
+    const [x, y] = glitterShift();
+    const [mx, my] = darkGlitter().vitrine;
+    expect(mx + x).toBeCloseTo(28, 0);
+    expect(my + y).toBeCloseTo(22, 0);
   });
 
   describe('os desenhos', () => {

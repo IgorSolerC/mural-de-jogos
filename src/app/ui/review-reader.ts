@@ -1378,7 +1378,7 @@ export class ReviewReader {
 
   protected readonly pin = computed(() => pinningFor(this.review()?.id ?? 'x', this.review()?.stock));
   /** A faixa do cabeçalho é a cartolina da ficha, no papel dela. */
-  protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock)));
+  protected readonly headPaper = computed(() => paperVars(this.review()?.paper, this.review()?.pattern, lookOf(this.review() ?? {}), this.review()?.patternSeed, isDarkStock(this.pin().stock), this.review()?.id));
   protected readonly date = computed(() => {
     const r = this.review();
     return formatReviewDateLong(r?.completedAt ?? null);

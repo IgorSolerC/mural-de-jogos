@@ -10,7 +10,7 @@
  */
 import { clipHeight, placeFor, ransom, stickerFor, titleFor } from './clipping';
 import { pageFor, pageHeight } from './notebook';
-import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, hash, textureOf } from './paper';
+import { DEFAULT_LOOK, LOOK_KEYS, LOOK_STEPS, PatternLook, darkGlitter, glitterShift, hash, textureOf } from './paper';
 import type { AgedPaper, Damage, Decor, Paper, Pattern, Scribble, Stain } from './paper';
 import { decorArt } from './decor-art';
 import { cutMask, paperArt, paperStyle, patternTile } from './paper-art';
@@ -151,6 +151,8 @@ export function frozenPrints(): Record<string, string> {
     out[`paper:${paper}`] = print({ texture: textureOf(paper), style: paperStyle(paper, undefined) });
     out[`paper:${paper}:estampa`] = print(paperStyle(paper, 'gatinhos', { spacing: 2, size: 5, jitter: 3 }, 77));
   }
+  // 2026-11-01, o glitter da cartolina escura: a purpurina espalhada no lugar do chuvisco (ver darkGlitter)
+  out['paper:glitter:escuro'] = print({ texture: darkGlitter(), shifts: ['r1', 'n-abc', undefined].map((id) => glitterShift(id)) });
   for (const id of CLIP_IDS) {
     const tear = tearFor(id);
     const look = titleFor(id, 'Hollow Knight: Silksong', tear);

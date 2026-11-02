@@ -290,12 +290,13 @@ export class PaperDefs {}
     .camada ::ng-deep .rabisco .h {
       opacity: 0.7;
     }
-    /* purpurina que acende onde a luz bate, com a ficha levantada */
+    /* purpurina que acende onde a luz bate, com a ficha levantada (na cartolina escura, outros grãos,
+       de meio ladrilho adiante, e mais de leve: ver darkGlitterVars em core/paper-art.ts) */
     .faisca {
       z-index: -1;
-      background: var(--textura) 0 0 / 140px 140px;
+      background: var(--textura) var(--faisca-pos, 0 0) / var(--textura-tam, 140px 140px);
       mix-blend-mode: screen;
-      opacity: calc(var(--luz, 0) * 0.9);
+      opacity: calc(var(--luz, 0) * var(--faisca-forca, 0.9));
       transition: opacity 600ms var(--ease-physical);
     }
   `,

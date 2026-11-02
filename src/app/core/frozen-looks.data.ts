@@ -3045,6 +3045,7 @@ export const FROZEN_LOOKS: Record<string, string> = {
   "paper:feltro": "18hvekp.141qbz5.2005",
   "paper:feltro:estampa": "d1nd10.8ngsns.6717",
   "paper:glitter": "1lylu9l.ssh329.2803",
+  "paper:glitter:escuro": "inzn9k.1awmd14.81785",
   "paper:glitter:estampa": "1yck1m9.19ia131.7116",
   "paper:linho": "ai5wfb.q5tqq7.2367",
   "paper:linho:estampa": "1toouco.1nkkl8m.6898",
