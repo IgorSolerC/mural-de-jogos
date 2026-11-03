@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-tarefas-revisao',
+    id: '2026-11-03-papel-de-arroz-emenda',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'Tocar na caixinha de uma tarefa com a anotação mudada por baixo (por outro aparelho ou outra aba, com a leitura aberta) podia marcar a tarefa vizinha; agora marca a que você tocou, e a caixinha não fica marcada sem a tarefa ter sido salva.',
       'A tarefa com "[x]" escrito no próprio texto ia para as feitas recolhidas assim que era marcada; agora continua à vista, como as outras.',
       'Marcar uma tarefa com link para outra anotação dentro de um card não oferecia finalizar a anotação ligada, e finalizar as ligadas não perguntava antes pelas dependências ainda abertas no Kanban; agora oferece e pergunta, como o check da ficha.',
+      'No papel de arroz, as fibras que passavam da beirada esquerda ou de cima do desenho apareciam cortadas em linha reta onde o papel se repete; agora continuam do outro lado, e a emenda não aparece.',
     ],
   },
   {

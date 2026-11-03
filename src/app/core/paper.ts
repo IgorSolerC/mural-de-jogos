@@ -902,22 +902,24 @@ TEXTURES.arroz = (() => {
       y2 = y + Math.sin(a) * l;
     const cx = (x + x2) / 2 + (r() - 0.5) * l * 0.6,
       cy = (y + y2) / 2 + (r() - 0.5) * l * 0.6;
-    fib += `<path d='M${f1(x)} ${f1(y)}Q${f1(cx)} ${f1(cy)} ${f1(x2)} ${f1(y2)}' stroke-opacity='${(0.3 + r() * 0.45).toFixed(2)}' stroke-width='${(0.4 + r() * 0.8).toFixed(2)}'/>`;
+    const op = (0.3 + r() * 0.45).toFixed(2),
+      w = 0.4 + r() * 0.8;
+    // as fibras que passam de uma beirada voltam pela do outro lado (as quatro): o ladrilho emenda sem
+    // costura. A curva fica dentro do triângulo das três pontas, e a ponta redonda passa meia grossura.
+    const m = w / 2,
+      xs = [x, cx, x2],
+      ys = [y, cy, y2];
+    const dxs = [0, ...(Math.min(...xs) - m < 0 ? [T] : []), ...(Math.max(...xs) + m > T ? [-T] : [])];
+    const dys = [0, ...(Math.min(...ys) - m < 0 ? [T] : []), ...(Math.max(...ys) + m > T ? [-T] : [])];
+    for (const dx of dxs)
+      for (const dy of dys)
+        fib += `<path d='M${f1(x + dx)} ${f1(y + dy)}Q${f1(cx + dx)} ${f1(cy + dy)} ${f1(x2 + dx)} ${f1(y2 + dy)}' stroke-opacity='${op}' stroke-width='${w.toFixed(2)}'/>`;
   }
-  // as fibras que passam da beirada voltam do outro lado: o ladrilho emenda sem costura
-  const copies = [
-    [0, 0],
-    [-T, 0],
-    [0, -T],
-    [-T, -T],
-  ]
-    .map(([dx, dy]) => `<g transform='translate(${dx} ${dy})'>${fib}</g>`)
-    .join('');
   return {
     img: svgUrl(
       T,
       T,
-      `<filter ${SRGB} id='m' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='23' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='.5' intercept='.26'/><feFuncG type='linear' slope='.5' intercept='.26'/><feFuncB type='linear' slope='.5' intercept='.26'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#m)'/><g fill='none' stroke='#fff' stroke-linecap='round'>${copies}</g>`,
+      `<filter ${SRGB} id='m' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.018' numOctaves='3' seed='23' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='.5' intercept='.26'/><feFuncG type='linear' slope='.5' intercept='.26'/><feFuncB type='linear' slope='.5' intercept='.26'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#m)'/><g fill='none' stroke='#fff' stroke-linecap='round'>${fib}</g>`,
     ),
     size: `${T}px ${T}px`,
     blend: 'soft-light',

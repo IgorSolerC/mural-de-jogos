@@ -310,6 +310,37 @@ describe('papel da ficha', () => {
     });
   });
 
+  it('o papel de arroz emenda sem costura nos quatro lados: a fibra que passa de uma beirada volta pela do outro lado', () => {
+    const t = textureOf('arroz')!;
+    const T = 280;
+    expect(t.size).toBe(`${T}px ${T}px`);
+    const svg = decodeURIComponent(t.img);
+    const fibras = [...svg.matchAll(/<path d='M(-?[\d.]+) (-?[\d.]+)Q(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+)' stroke-opacity='([\d.]+)' stroke-width='([\d.]+)'/g)].map((m) => ({
+      pts: m.slice(1, 7).map(Number),
+      jeito: `${m[7]}/${m[8]}`,
+    }));
+    expect(fibras.length).toBeGreaterThanOrEqual(90);
+    // a curva fica dentro do triângulo das três pontas; a ponta redonda passa meia grossura
+    const sai = (pts: number[], eixo: 0 | 1, lado: -1 | 1) => {
+      const vs = [pts[eixo], pts[eixo + 2], pts[eixo + 4]];
+      return lado < 0 ? Math.min(...vs) < 0 : Math.max(...vs) > T;
+    };
+    const tem = (pts: number[], jeito: string, dx: number, dy: number) =>
+      fibras.some((f) => f.jeito === jeito && f.pts.every((v, i) => Math.abs(v - (pts[i] + (i % 2 ? dy : dx))) < 0.11));
+    const lados: [string, 0 | 1, -1 | 1, number, number][] = [
+      ['esquerda', 0, -1, T, 0],
+      ['direita', 0, 1, -T, 0],
+      ['cima', 1, -1, 0, T],
+      ['baixo', 1, 1, 0, -T],
+    ];
+    for (const [nome, eixo, lado, dx, dy] of lados) {
+      const fora = fibras.filter((f) => sai(f.pts, eixo, lado));
+      // há fibras saindo por todas as beiradas (o teste não passa de graça)
+      expect(fora.length).withContext(nome).toBeGreaterThan(0);
+      for (const f of fora) expect(tem(f.pts, f.jeito, dx, dy)).withContext(`${nome}: ${f.pts.join(' ')}`).toBeTrue();
+    }
+  });
+
   it('o glitter da cartolina escura é purpurina espalhada, não chuvisco: pouca, em montinhos, sem filtro nem branco chapado', () => {
     const g = darkGlitter();
     const svg = decodeURIComponent(g.img);
