@@ -1,0 +1,97 @@
+@if (!on()) {
+  <!-- vazia (o normal): a carta em contorno e o convite -->
+  <div class="vazia">
+    <div class="vazia-carta" aria-hidden="true">
+      <lucide-icon [img]="CardIcon" [size]="28" />
+    </div>
+    <div class="vazia-texto">
+      <p class="convite">Dê uma frente a esta anotação para estudar com ela, como num baralho de cartas: na frente, o que você quer lembrar; atrás, a anotação inteira.</p>
+      <button type="button" class="papel" (click)="start()">Criar a frente</button>
+    </div>
+  </div>
+} @else {
+  <div class="fc">
+    <div class="campos">
+      <div class="linha">
+        <label class="nome" for="fc-titulo">Título</label>
+        <div class="valor">
+          <label class="campo titulo">
+            <input id="fc-titulo" type="text" autocomplete="off" [maxLength]="titleMax" [placeholder]="noteTitle() || 'O que você quer lembrar'" [value]="title()" (input)="setTitle($any($event.target).value)" />
+          </label>
+          <p class="dica">Vazio, a frente usa o nome da anotação.</p>
+        </div>
+      </div>
+
+      <div class="linha">
+        <label class="nome" for="fc-subtitulo">Subtítulo</label>
+        <div class="valor">
+          <label class="campo subtitulo">
+            <input id="fc-subtitulo" type="text" autocomplete="off" [maxLength]="subtitleMax" placeholder="Uma pista, a leitura, o contexto" [value]="subtitle()" (input)="setSubtitle($any($event.target).value)" />
+          </label>
+        </div>
+      </div>
+
+      <div class="linha">
+        <span class="nome" id="fc-imagem-nome">Imagem</span>
+        <div class="valor">
+          @if (image()) {
+            <div class="imagem-escolhida">
+              <span class="imagem-txt">Com imagem</span>
+              <button type="button" class="papel pequeno" (click)="clearImage()">
+                <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+                Tirar
+              </button>
+            </div>
+          } @else {
+            <div class="imagem-campos">
+              <label class="campo link">
+                <span class="sr-only">Link da imagem</span>
+                <input type="url" autocomplete="off" placeholder="Cole a imagem ou o link (https://)" (paste)="onPaste($event)" (change)="setLink($any($event.target).value)" (keydown.enter)="$event.preventDefault(); setLink($any($event.target).value)" />
+              </label>
+              <label class="papel pequeno do-aparelho" [class.ocupado]="busy()">
+                <lucide-icon [img]="ImageIcon" [size]="15" aria-hidden="true" />
+                {{ busy() ? 'Guardando…' : 'Do aparelho' }}
+                <input type="file" accept="image/*" class="sr-only" (change)="useFile($any($event.target).files?.[0]); $any($event.target).value = ''" />
+              </label>
+            </div>
+          }
+          @if (imageProblem(); as p) {
+            <p class="erro" role="alert">{{ p }}</p>
+          }
+        </div>
+      </div>
+
+      <div class="linha" [class.errada]="missingDeck()">
+        <span class="nome">Baralhos</span>
+        <div class="valor">
+          <app-study-deck-picker [decks]="decks()" (decksChange)="setDecks($event)" />
+          @if (missingDeck()) {
+            <p class="erro" role="alert">Escolha um baralho para a carta.</p>
+          }
+        </div>
+      </div>
+
+      <div class="linha">
+        <span class="nome" id="fc-mural">No mural</span>
+        <div class="valor mural">
+          <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" aria-labelledby="fc-mural" (click)="setWall(!wall())">
+            <span class="bolinha"></span>
+          </button>
+          <span class="mural-txt" [class.forte]="!wall()">{{ wall() ? 'Aparece no mural também' : 'Só nos Estudos' }}</span>
+        </div>
+      </div>
+
+      <div class="pe">
+        <button type="button" class="papel perigo" (click)="stop()">
+          <lucide-icon [img]="TrashIcon" [size]="15" aria-hidden="true" />
+          Deixar de ser carta
+        </button>
+      </div>
+    </div>
+
+    <!-- a carta viva: a frente mudando enquanto se escreve -->
+    <div class="palco" aria-label="Como a frente fica">
+      <app-study-card class="viva" [title]="previewTitle()" [subtitle]="subtitle().trim() || undefined" [image]="image() || undefined" [stock]="stock()" [suit]="suit()" />
+    </div>
+  </div>
+}

@@ -39,6 +39,7 @@ import { SharedStore } from './core/shared-store';
 import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
+import { StudyStore } from './core/study-store';
 import { SpendingStore } from './core/spending-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
@@ -62,6 +63,7 @@ export class App {
   protected readonly desk = inject(Desk);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly study = inject(StudyStore);
   private readonly spending = inject(SpendingStore);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
   private readonly dresser = inject(KanbanDresser);
@@ -348,6 +350,9 @@ export class App {
     this.kanban.pending.set(null);
     // nem a pedida pela folha de um lembrete
     this.calendar.pendingNote.set(null);
+    // nem a carta nova pedida de um baralho dos Estudos (nem o "Editar a frente" que não chegou a abrir)
+    this.study.pending.set(null);
+    this.study.openFront.set(null);
     const back = this.returnTo && this.store.get(this.returnTo);
     this.returnTo = null;
     if (back) this.reader().open(back);

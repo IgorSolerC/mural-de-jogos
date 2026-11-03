@@ -20,6 +20,8 @@ interface Row {
   done: boolean;
   /** Só no Kanban (à mostra no mural pelo "Mostrar" da pasta). */
   board: boolean;
+  /** Fora do mural só por causa dos Estudos. */
+  study: boolean;
 }
 
 /**
@@ -52,8 +54,8 @@ interface Row {
                 <span class="sr-only">, finalizada</span>
               }
               @if (r.board) {
-                <lucide-icon class="marca" [img]="BoardIcon" [size]="14" aria-hidden="true" />
-                <span class="sr-only">, só no Kanban</span>
+                <lucide-icon class="marca" [img]="r.study ? StudyIcon : BoardIcon" [size]="14" aria-hidden="true" />
+                <span class="sr-only">{{ r.study ? ', só nos Estudos' : ', só no Kanban' }}</span>
               }
             </span>
             <!-- a orelha da ficha, deitada na linha (a mesma: o papel claro com a borda da cor do grupo
@@ -328,10 +330,13 @@ export class NoteIndex {
   readonly looks = input<CategoryLooks>({});
   /** As que estão só no Kanban, à mostra no mural: a linha leva o desenho do quadro. */
   readonly boardOnly = input<ReadonlySet<string>>(new Set());
+  /** Das de cima, as fora do mural só por causa dos Estudos. */
+  readonly studyOnly = input<ReadonlySet<string>>(new Set());
   readonly opened = output<string>();
 
   protected readonly PinIcon = ICON.fixar;
   protected readonly BoardIcon = ICON.colunas;
+  protected readonly StudyIcon = ICON.camadas;
   protected readonly CheckIcon = ICON.pronto;
   protected readonly SubjectIcon = ICON.assunto;
 
@@ -350,6 +355,7 @@ export class NoteIndex {
         pinned: isPinnedNote(r),
         done: isDone(r),
         board: this.boardOnly().has(r.id),
+        study: this.studyOnly().has(r.id),
       };
     }),
   );

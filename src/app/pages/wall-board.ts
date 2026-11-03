@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ICON, IconModule } from '../ui/icons';
-import { kanbanPath } from '../core/areas';
+import { kanbanPath, studyPath } from '../core/areas';
 import { boardIdFor } from '../core/kanban';
 import { ALL_TAB, NO_CATEGORY_TAB, isGroupTab } from '../core/note-tabs';
 import { Settings } from '../core/settings';
@@ -60,6 +60,19 @@ export class WallBoard {
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly BoardIcon = ICON.colunas;
+  protected readonly StudyIcon = ICON.camadas;
+  protected readonly studyLink = studyPath();
+  /** As palavras do que está fora do mural: no Kanban, nos Estudos, ou nos dois (ver `WallView.boardPlace`). */
+  protected readonly offWords = computed(() => {
+    switch (this.view.boardPlace()) {
+      case 'estudos':
+        return { title: 'Tudo nos Estudos', only: 'só nos Estudos', hint: 'Abra os Estudos, ou mostre as anotações aqui.', show: 'Mostrar as dos Estudos' };
+      case 'ambos':
+        return { title: 'Tudo fora do mural', only: 'só no Kanban ou nos Estudos', hint: 'Abra o quadro, ou mostre as anotações aqui.', show: 'Mostrar as do Kanban e dos Estudos' };
+      default:
+        return { title: 'Tudo no Kanban', only: 'só no Kanban', hint: 'Abra o quadro, ou mostre as anotações aqui.', show: 'Mostrar as do Kanban' };
+    }
+  });
 
   /** O quadro do grupo da aba aberta (em "Tudo", o último aberto). */
   protected readonly boardLink = computed(() => {
@@ -124,6 +137,7 @@ export class WallBoard {
     dateFrom: DATE_SORTS.find((s) => s === this.view.shownSort()) ?? null,
     times: this.view.times(),
     boardOnly: this.shownBoard(),
+    studyOnly: this.view.studyOnly(),
   }));
 
   /** Ctrl+clique marca anotações para copiar o texto delas (ver ui/note-selection.ts). */

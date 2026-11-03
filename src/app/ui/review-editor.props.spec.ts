@@ -333,7 +333,8 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     store.add(note('nvisual1', { paper: 'canson', pattern: 'gatinhos', stains: [{ stain: 'cafe' }], tags: ['x'], category: 'Casa' }));
     await edit(store.get('nvisual1')!);
     const tabs = Array.from(el.querySelectorAll<HTMLButtonElement>('.modo'));
-    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
+    // a anotação tem a terceira aba, a do Flashcard (os Estudos)
+    expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
     tabs[0].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
     await fixture.whenStable();
     expect(tabs[1].getAttribute('aria-selected')).toBe('true');

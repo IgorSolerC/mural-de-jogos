@@ -44,7 +44,8 @@ import { ApiKeySheet } from '../ui/api-key-sheet';
 import { ApiRequests, waitingWords } from '../core/api-requests';
 import { ApiRequestsSheet, RequestsSheetMode } from '../ui/api-requests-sheet';
 import { ImageSync, shortReason } from '../core/image-sync';
-import { localImageIds, sizeLabel } from '../core/images';
+import { localImageId, localImageIds, sizeLabel } from '../core/images';
+import { StudyStore } from '../core/study-store';
 
 
 type Tab = 'conta' | 'mural' | 'amigos' | 'backup' | 'imagens' | 'acessos' | 'busca' | 'desempenho';
@@ -195,6 +196,7 @@ export class SettingsPage {
   }
 
   protected readonly store = inject(ReviewStore);
+  private readonly study = inject(StudyStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um 8,4 em cada um. */
   /** Os jeitos de escrever o texto: o Visual (o padrão) e o Markdown. */
@@ -947,11 +949,17 @@ export class SettingsPage {
     }
   }
 
-  /** Em quais fichas cada imagem aparece (pelo texto, neste aparelho): o título de cada uma. */
+  /** Em quais fichas cada imagem aparece (pelo texto, e na frente das cartas dos Estudos): o título de cada uma. */
   private readonly imageUse = computed(() => {
     const out = new Map<string, string[]>();
     for (const r of this.store.reviews()) {
       for (const id of localImageIds(r.text ?? '')) out.set(id, [...(out.get(id) ?? []), r.game.name]);
+    }
+    for (const c of this.study.cards()) {
+      const id = localImageId(c.front.image ?? '');
+      if (!id) continue;
+      const name = this.store.get(c.note)?.game.name ?? '';
+      out.set(id, [...(out.get(id) ?? []), `Frente da carta: ${c.front.title || name}`]);
     }
     return out;
   });

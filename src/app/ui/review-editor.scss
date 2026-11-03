@@ -186,6 +186,16 @@
 
 .modo {
   position: relative;
+
+  /* a anotação já é carta: o pontinho de marca das abas do estojo */
+  .modo-marca {
+    width: 7px;
+    height: 7px;
+    margin-left: 2px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1291,3 +1301,9 @@ fieldset.quem-ve {
     }
   }
 }
+
+/* ===== Flashcard: a aba da frente de carta, com o papel do texto ===== */
+.flashcard-modo {
+  padding: 4px 22px 22px;
+}
+

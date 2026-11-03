@@ -10,6 +10,7 @@ import { SHARED_AUTO } from '../core/shared-store';
 import { SideBySide } from '../core/side-by-side';
 import { KanbanStore } from '../core/kanban-store';
 import { CalendarStore } from '../core/calendar-store';
+import { StudyStore } from '../core/study-store';
 import { boardIdFor, freshBoard } from '../core/kanban';
 import { ReviewReader } from './review-reader';
 
@@ -334,6 +335,20 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     const go = spyOn(router, 'navigate').and.resolveTo(true);
     line.querySelector<HTMLButtonElement>('.parte-de')!.click();
     expect(go).toHaveBeenCalledWith(['/anotacoes/kanban', id]);
+  });
+
+  it('a carta dos Estudos: o baralho (e quantos mais), o nível e quando volta; o baralho abre nos Estudos', async () => {
+    const study = TestBed.inject(StudyStore);
+    const kanji = study.addDeck('Kanjis', 'amarelo');
+    const extra = study.addDeck('Revisão', 'azul');
+    const r = note('n-sol', 'Sol');
+    study.addCard(r.id, [kanji, extra], { title: '日' });
+    fixture.componentInstance.open(r);
+    await settle();
+    expect(qa('.nos-estudos').map(words)).toEqual(['Nos Estudos: Kanjise mais 1Nível: Desconhecidaainda não estudada']);
+    const go = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+    q<HTMLButtonElement>('.nos-estudos .parte-de')!.click();
+    expect(go).toHaveBeenCalledWith(`/anotacoes/estudos/${kanji}`);
   });
 
   it('os lembretes do Calendário em que a anotação foi presa: o mais perto, e o "e mais N" mostra os outros', async () => {

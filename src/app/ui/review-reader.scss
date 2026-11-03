@@ -524,6 +524,31 @@ app-judge-label {
   overflow-wrap: anywhere;
 }
 
+/* "e mais 2" baralhos: escrito à mão, como o "e mais" dos lembretes */
+.mais-baralhos {
+  font-family: var(--f-hand);
+  font-weight: 400;
+  font-size: 1.02rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-2);
+}
+
+/* o nível da carta, no selo das observações, com a tinta do nível (as dos montes dos Estudos) */
+.nos-estudos .etq.status {
+  &[data-nivel='nova'] {
+    --imp: #1f4fc4;
+  }
+
+  &[data-nivel='aprendendo'] {
+    --imp: #b24a06;
+  }
+
+  &[data-nivel='dominada'] {
+    --imp: #0d6b3c;
+  }
+}
+
 .na-agenda.passou {
   opacity: 0.62;
 

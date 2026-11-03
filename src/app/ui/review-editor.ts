@@ -76,6 +76,7 @@ import { GroupPicker } from './group-picker';
 import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
+import { FlashcardTab } from './flashcard-tab';
 import { CategoryLabel } from './category-label';
 import { NoteTag } from './note-tag';
 import { categoryLibrary, subjectLibrary, tagLibrary } from '../core/note-labels';
@@ -125,7 +126,7 @@ export interface SavedEvent {
 }
 
 /** As duas abas da ficha no editor. */
-type EditorMode = 'escrever' | 'cartolina';
+type EditorMode = 'escrever' | 'cartolina' | 'flashcard';
 
 /** As etiquetas da fileira de propriedades (cada uma abre a sua parte). */
 type PropId = 'grupo' | 'assunto' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'quadro' | 'capa' | 'quem';
@@ -153,6 +154,7 @@ const MIN_YEAR = 1971;
   selector: 'app-review-editor',
   imports: [
     BackdropClose,
+    FlashcardTab,
     IconModule,
     NgTemplateOutlet,
     BonusPicker,
@@ -225,6 +227,7 @@ export class ReviewEditor {
   protected readonly labels = SCORE_LABEL;
   protected readonly WriteIcon = ICON.escrever;
   protected readonly KitIcon = ICON.paleta;
+  protected readonly CardsIcon = ICON.camadas;
   protected readonly ClearIcon = ICON.recomecar;
   protected readonly GrowIcon = ICON.aumentar;
   protected readonly ShrinkIcon = ICON.diminuir;
@@ -244,9 +247,10 @@ export class ReviewEditor {
 
   /** Setas, Home e End trocam de aba, como um tablist. */
   protected onModeKey(e: KeyboardEvent): void {
-    const order: EditorMode[] = ['escrever', 'cartolina'];
+    const order: EditorMode[] = this.notes() ? ['escrever', 'cartolina', 'flashcard'] : ['escrever', 'cartolina'];
     if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
-    const next = e.key === 'ArrowRight' || e.key === 'End' ? 1 : 0;
+    const at = order.indexOf(this.mode());
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? order.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
     e.preventDefault();
     this.setMode(order[next]);
     this.dialog().nativeElement.querySelector<HTMLElement>(`#editor-modo-${order[next]}`)?.focus();
@@ -503,6 +507,8 @@ export class ReviewEditor {
   // pela marca do template, não pela classe: citar a classe traria o estojo de volta ao bundle inicial
   private readonly kit = viewChild<CardKit>('kit');
   private readonly writer = viewChild(RichEditor);
+  /** A aba Flashcard: a frente de carta dos Estudos (sempre desenhada, escondida fora dela). */
+  protected readonly flashcard = viewChild.required(FlashcardTab);
   private readonly kanbanProps = viewChild(KanbanProps);
 
   protected readonly id = signal(newId());
@@ -1258,6 +1264,8 @@ export class ReviewEditor {
     this.confirmingDraft.set(false);
     this.draftError.set(false);
     this.syncBoard();
+    // a frente de carta como está (a "Nova carta" de um baralho e o "Editar a frente" abrem nessa aba)
+    if (this.flashcard().reset(this.id(), !review) && isNotes(kind)) this.mode.set('flashcard');
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;
     // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
@@ -1447,6 +1455,11 @@ export class ReviewEditor {
       this.focusFirstMissing();
       return;
     }
+    // virando carta sem baralho: a aba Flashcard abre, dizendo o que falta
+    if (!this.flashcard().valid()) {
+      this.setMode('flashcard');
+      return;
+    }
     if (!(await this.okWithoutLabels())) return;
     const now = new Date().toISOString();
     const prev = this.editing();
@@ -1494,8 +1507,9 @@ export class ReviewEditor {
     if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
-    // o lugar no quadro do grupo, como ficou na parte Kanban
+    // o lugar no quadro do grupo, como ficou na parte Kanban, e a carta, como ficou na aba Flashcard
     this.applyBoard(clean.id, !prev);
+    this.flashcard().apply(clean.id);
     this.snapshot = this.serialize();
     this.shut();
     this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
@@ -1508,6 +1522,8 @@ export class ReviewEditor {
    * perdeu agora: a que já estava sem categoria (ou sem tag) é salva sem pergunta nenhuma.
    */
   private async okWithoutLabels(): Promise<boolean> {
+    // a carta nova que fica só nos Estudos não vai para o mural: o grupo e a tag servem a ele
+    if (this.flashcard().studyOnly()) return true;
     const prev = this.editing();
     const hadCategory = !prev || !!prev.category?.trim();
     const hadTag = !prev || !!prev.tags?.length;
@@ -1734,6 +1750,7 @@ export class ReviewEditor {
       this.noteCategory(),
       this.noteSubject(),
       this.noteTags(),
+      this.flashcard().snapshot(),
       this.hours().trim(),
       this.game()?.coverUrl,
       this.difficulty(),

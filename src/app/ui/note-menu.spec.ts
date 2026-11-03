@@ -93,7 +93,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     expect(isOpen()).toBeTrue();
     expect(panel().getAttribute('role')).toBe('menu');
     expect(panel().querySelector('.legenda')!.textContent).toContain('Mercado');
-    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Compartilhar', 'Apagar anotação']);
+    expect(menuLabels(el)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Fixar no topo', 'Finalizar', 'Estudar com ela…', 'Compartilhar', 'Apagar anotação']);
     const r = box();
     expect(r.left).toBe(62);
     // embaixo do ponteiro; sem lugar embaixo (a janela dos testes é baixa), em cima dele
@@ -394,7 +394,7 @@ describe('menu da anotação: quem vê o quê', () => {
     get.and.returnValue(entry('leitor'));
     expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Pessoas', 'Sair da anotação']);
     get.and.returnValue(entry('editor'));
-    expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Finalizar', 'Pessoas', 'Sair da anotação']);
+    expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Finalizar', 'Estudar com ela…', 'Pessoas', 'Sair da anotação']);
     get.and.returnValue(entry('dono', 2));
     const labels = await show(note('rsh00001', 'Plano', 'Texto'));
     expect(labels).toContain('Compartilhar');
@@ -411,7 +411,7 @@ describe('menu da anotação: quem vê o quê', () => {
       board: { next: 'Fazendo', advance: () => calls.push('avançar'), details: () => calls.push('ajustes') },
     });
     await settle();
-    expect(menuLabels(host)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Finalizar', 'Levar para Fazendo', 'Ajustes no quadro', 'Compartilhar', 'Apagar anotação']);
+    expect(menuLabels(host)).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Finalizar', 'Levar para Fazendo', 'Ajustes no quadro', 'Estudar com ela…', 'Compartilhar', 'Apagar anotação']);
     [...host.querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.includes('Levar para'))!.click();
     expect(calls).toEqual(['avançar']);
   });

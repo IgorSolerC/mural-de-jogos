@@ -73,7 +73,9 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
-import { CALENDAR_PATH } from '../core/areas';
+import { CALENDAR_PATH, studyPath } from '../core/areas';
+import { LEVEL_LABEL, cardDecks, levelOf, whenLabel } from '../core/study';
+import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
@@ -298,8 +300,8 @@ interface ReadingPlace {
                     }
                   </ul>
                 }
-                <!-- onde mais ela está: o lugar no quadro do Kanban e os dias do Calendário em que foi presa -->
-                @if (board() || reminders().length) {
+                <!-- onde mais ela está: o lugar no quadro do Kanban, a carta dos Estudos e os dias do Calendário em que foi presa -->
+                @if (board() || studyCard() || reminders().length) {
                   <div class="lugares" [class.todos]="allRemindersShown()">
                     @if (board(); as b) {
                       <div class="lugar no-quadro" [attr.data-cor]="b.color">
@@ -322,6 +324,18 @@ interface ReadingPlace {
                         @if (b.deps; as deps) {
                           <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="openBoard(b.id)" />
                         }
+                      </div>
+                    }
+                    @if (studyCard(); as s) {
+                      <div class="lugar nos-estudos" [attr.data-cor]="s.color">
+                        <span class="sr-only">Nos Estudos: </span>
+                        <lucide-icon class="lugar-icone" [img]="s.icon" [size]="16" aria-hidden="true" />
+                        <button type="button" class="parte-de" [title]="'Abrir o baralho ' + s.deck + ' nos Estudos'" (click)="openDeck(s.deckId)">{{ s.deck }}</button>
+                        @if (s.more) {
+                          <span class="mais-baralhos">e mais {{ s.more }}</span>
+                        }
+                        <span class="etq status" [attr.data-nivel]="s.level"><span class="sr-only">Nível: </span>{{ s.levelLabel }}</span>
+                        <span class="lembrete">{{ s.when }}</span>
                       </div>
                     }
                     @for (x of reminders(); track x.id; let last = $last) {
@@ -700,6 +714,7 @@ export class ReviewReader {
   // ===== Onde mais a anotação está: o quadro do Kanban e os dias do Calendário =====
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly study = inject(StudyStore);
   protected readonly CalendarIcon = ICON.calendario;
   /** O desenho de cada escolha da cartela (o ícone do lembrete, no lugar do calendário). */
   protected readonly choiceIcon = ICON_CHOICE;
@@ -736,6 +751,29 @@ export class ReviewReader {
       deps: this.deps.progress(spot.card.deps).total ? spot.card.deps! : null,
     };
   });
+  /**
+   * A carta dos Estudos (PLANO-ESTUDOS.md, 6.9): o primeiro baralho dela (e quantos mais), o nível e quando
+   * volta. Só na sua anotação, como o Kanban.
+   */
+  protected readonly studyCard = computed(() => {
+    const r = this.review();
+    if (!r || !this.note() || this.owner() !== null) return null;
+    const card = this.study.cardOf().get(r.id);
+    const decks = card ? cardDecks(card, this.study.decks()) : [];
+    if (!card || !decks.length) return null;
+    const level = levelOf(card.srs);
+    const when = card.srs.state === 'nova' ? 'ainda não estudada' : `revisão ${whenLabel(card.srs, this.study.now())}`;
+    return {
+      deckId: decks[0].id,
+      deck: decks[0].name,
+      more: decks.length - 1,
+      icon: (decks[0].icon && ICON_CHOICE[decks[0].icon]) || ICON.camadas,
+      color: decks[0].color,
+      level,
+      levelLabel: LEVEL_LABEL[level],
+      when,
+    };
+  });
   /** Os lembretes do Calendário com a anotação presa: até dois, os mais perto primeiro, e quantos mais há. */
   private readonly allReminders = computed(() => {
     const r = this.review();
@@ -755,6 +793,12 @@ export class ReviewReader {
   protected openBoard(id: string): void {
     this.close();
     void this.router.navigate(['/anotacoes/kanban', id]);
+  }
+
+  /** O baralho da carta, nos Estudos. */
+  protected openDeck(id: string): void {
+    this.close();
+    void this.router.navigateByUrl(studyPath(id));
   }
 
   private readonly reminderLinks = inject(ReminderLinks);

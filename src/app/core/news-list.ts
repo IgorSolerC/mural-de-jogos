@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-02-estudos',
+    id: '2026-11-02-estudos-cartas',
     version: '1.37.0',
     kind: 'funcionalidade',
     date: '2026-11-02',
@@ -35,7 +35,10 @@ export const NEWS: NewsEntry[] = [
     items: [
       'As Anotações ganharam a seção Estudos, ao lado do Mural e do Kanban, para estudar com cartas, como no Anki: cada carta é uma anotação sua, com uma frente (o que você quer lembrar) e a anotação inteira atrás, com a resposta.',
       'As cartas se juntam em baralhos ("Kanjis simples", "Verbos"…), cada um numa aba, com o nome, o ícone e a cor que você escolher. Em Tudo, cada baralho é uma pilha das cartas dele, com quantas vencem hoje; dentro do baralho, as cartas ficam na parede com a frente à mostra, e tocar numa abre a anotação.',
-      'Por enquanto dá para montar os baralhos; pôr as cartas e estudar chegam nas próximas atualizações.',
+      'Qualquer anotação vira carta pela aba Flashcard do editor: a frente tem um título (vazio, vale o nome da anotação), um subtítulo e uma imagem (colada, do aparelho ou por link), e a carta pode estar em vários baralhos. Dentro de um baralho, "Nova carta" escreve uma anotação já como carta dele, e "Trazer anotações" traz as que você já tem.',
+      'A carta escolhe se aparece no mural também ou só nos Estudos (o padrão de quem nasce nos Estudos; a anotação que já estava no mural continua lá). No Filtrar do mural, "Só nos Estudos" mostra as que estão escondidas, como o "Só no Kanban".',
+      'A anotação aberta diz em que baralho ela está, o nível e quando volta; o botão direito ganhou "Estudar com ela…", e a etiqueta de tinta da carta abre a folha dela (os baralhos, o mural, tirar dos Estudos, editar a frente).',
+      'Estudar (a sessão com Errei e Acertei) chega na próxima atualização.',
     ],
   },
   {

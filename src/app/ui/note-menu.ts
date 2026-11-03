@@ -3,6 +3,7 @@ import { LucideIconData } from 'lucide-angular';
 import { CopyContexts } from '../core/copy-context';
 import { CloudSync } from '../core/cloud-sync';
 import { Desk } from '../core/desk';
+import { StudyStore } from '../core/study-store';
 import { LINK_START_KEY, fichaLink, hasLink } from '../core/ficha-link';
 import { NoteDone } from '../core/note-done';
 import { notesAsText } from '../core/note-copy';
@@ -155,6 +156,7 @@ export class NoteMenu {
   readonly opened = output<string>();
 
   private readonly desk = inject(Desk);
+  private readonly study = inject(StudyStore);
   private readonly shared = inject(SharedStore);
   private readonly reactions = inject(Reactions);
   private readonly notePin = inject(NotePin);
@@ -215,6 +217,21 @@ export class NoteMenu {
       if (a.board?.next) act.push({ id: 'avancar', label: `Levar para ${a.board.next}`, icon: ICON.proximo, run: a.board.advance });
       if (a.board) {
         act.push({ id: 'quadro', label: 'Ajustes no quadro', icon: ICON.ajustar, dialog: true, hint: 'Etapa, assunto, importância, observação, dependências e tags', run: a.board.details });
+      }
+      // a carta dos Estudos: o editor na aba Flashcard (vira carta, ou muda a frente e os baralhos)
+      if (writes) {
+        const card = this.study.cardOf().has(id);
+        act.push({
+          id: 'estudar',
+          label: card ? 'Ver a carta' : 'Estudar com ela…',
+          icon: ICON.camadas,
+          dialog: true,
+          hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Estudos',
+          run: () => {
+            this.study.openFront.set(id);
+            this.desk.editReview(id);
+          },
+        });
       }
       // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
       act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });

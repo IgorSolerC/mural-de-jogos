@@ -1,16 +1,16 @@
 @if (!view.pool().length && view.hiddenBoard() && !view.hiddenDone()) {
-  <!-- todas as anotações da aba estão só no Kanban: o mural não está vazio, elas moram no quadro -->
+  <!-- todas as anotações da aba estão só no Kanban (ou nos Estudos): o mural não está vazio, elas moram lá -->
   <section class="no-results cartolina" aria-live="polite">
     <app-pin class="pin" color="#f4f4f0" />
-    <h2>Tudo no Kanban</h2>
+    <h2>{{ offWords().title }}</h2>
     <p>
-      {{ view.hiddenBoard() === 1 ? 'A anotação ' + where() + ' está só no Kanban.' : 'As ' + view.hiddenBoard() + ' anotações ' + where() + ' estão só no Kanban.' }}
-      Abra o quadro, ou mostre as anotações aqui.
+      {{ view.hiddenBoard() === 1 ? 'A anotação ' + where() + ' está ' + offWords().only + '.' : 'As ' + view.hiddenBoard() + ' anotações ' + where() + ' estão ' + offWords().only + '.' }}
+      {{ offWords().hint }}
     </p>
     <div class="acoes-vazio">
-      <a class="btn-ink" [routerLink]="boardLink()">
-        <lucide-icon [img]="BoardIcon" [size]="20" aria-hidden="true" />
-        Abrir o quadro
+      <a class="btn-ink" [routerLink]="view.boardPlace() === 'estudos' ? studyLink : boardLink()">
+        <lucide-icon [img]="view.boardPlace() === 'estudos' ? StudyIcon : BoardIcon" [size]="20" aria-hidden="true" />
+        {{ view.boardPlace() === 'estudos' ? 'Abrir os Estudos' : 'Abrir o quadro' }}
       </a>
       <button type="button" class="btn-quiet" (click)="showBoard()">Mostrar aqui</button>
     </div>
@@ -57,10 +57,10 @@
       <p>{{ n === 1 ? 'Uma anotação finalizada fala disso.' : n + ' anotações finalizadas falam disso.' }}</p>
       <button type="button" class="btn-quiet" (click)="showDone()">Mostrar finalizadas</button>
     }
-    <!-- a busca acharia anotações que estão só no Kanban -->
+    <!-- a busca acharia anotações que estão só no Kanban (ou nos Estudos) -->
     @if (view.boardMatches(); as n) {
-      <p>{{ n === 1 ? 'Uma anotação que está só no Kanban fala disso.' : n + ' anotações que estão só no Kanban falam disso.' }}</p>
-      <button type="button" class="btn-quiet" (click)="showBoard()">Mostrar as do Kanban</button>
+      <p>{{ n === 1 ? 'Uma anotação que está ' + offWords().only + ' fala disso.' : n + ' anotações que estão ' + offWords().only + ' falam disso.' }}</p>
+      <button type="button" class="btn-quiet" (click)="showBoard()">{{ offWords().show }}</button>
     }
     <!-- a busca acharia anotações de outras abas -->
     @if (view.elsewhere(); as n) {
@@ -124,7 +124,7 @@
         <!-- fechada, a seção é só a etiqueta com o maço -->
         @if (!shut) {
           @if (lista()) {
-            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [ear]="groupTab() ? 'assunto' : 'grupo'" [looks]="access().looks" [boardOnly]="shownBoard()" (opened)="opened.emit($event)" />
+            <app-note-index [id]="'fichas-' + idOf(g.key)" [reviews]="g.reviews" [ear]="groupTab() ? 'assunto' : 'grupo'" [looks]="access().looks" [boardOnly]="shownBoard()" [studyOnly]="view.studyOnly()" (opened)="opened.emit($event)" />
           } @else {
             <div class="fichas" [id]="'fichas-' + idOf(g.key)" [appFichas]="g.reviews" [appFichasMosaico]="inteira()" [appFichasCopias]="g.copies" [appFichasSecao]="g.key"></div>
           }

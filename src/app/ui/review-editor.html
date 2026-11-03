@@ -96,11 +96,30 @@
           <lucide-icon [img]="KitIcon" [size]="16" aria-hidden="true" />
           Cartolina
         </button>
+        @if (notes()) {
+          <!-- a frente de carta dos Estudos (PLANO-ESTUDOS.md, 6.5): normalmente vazia -->
+          <button
+            type="button"
+            role="tab"
+            class="modo"
+            id="editor-modo-flashcard"
+            aria-controls="editor-conteudo"
+            [attr.aria-selected]="mode() === 'flashcard'"
+            [attr.tabindex]="mode() === 'flashcard' ? 0 : -1"
+            (click)="setMode('flashcard')"
+          >
+            <lucide-icon [img]="CardsIcon" [size]="16" aria-hidden="true" />
+            Flashcard
+            @if (flashcard().on()) {
+              <span class="modo-marca" aria-hidden="true"></span>
+            }
+          </button>
+        }
       </div>
     </header>
 
     <div class="body">
-      <div class="conteudo" [class.enche]="notes()" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="mode() === 'escrever' ? 'editor-modo-escrever' : 'editor-modo-cartolina'">
+      <div class="conteudo" [class.enche]="notes()" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="'editor-modo-' + mode()">
         <!-- ===== Escrever ===== -->
         <div class="escrever" [hidden]="mode() !== 'escrever'">
           @if (notes()) {
@@ -383,6 +402,11 @@
               <p class="field-error" role="alert">O texto passou de {{ textMaxShown }} caracteres. Tire {{ textExcess() }} para salvar.</p>
             }
           </section>
+        </div>
+
+        <!-- ===== Flashcard: a frente da carta, os baralhos e o mural (ui/flashcard-tab.ts) ===== -->
+        <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">
+          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" />
         </div>
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->

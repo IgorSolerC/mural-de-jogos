@@ -63,6 +63,15 @@ export class StudyStore {
    * `tick` de minuto em minuto, e a barra e a página leem daqui.
    */
   readonly now = signal(new Date());
+  /**
+   * Uma carta nova pedida de dentro de um baralho ("Nova carta"): o editor abre na aba Flashcard com o
+   * baralho escolhido, e a anotação salva vira carta lá. Fechar o editor sem salvar esquece.
+   */
+  readonly pending = signal<{ decks: string[] } | null>(null);
+  /** O editor desta anotação deve abrir na aba Flashcard (o "Editar a frente" da folha da carta). */
+  readonly openFront = signal<string | null>(null);
+  /** O último baralho escolhido para uma carta: o próximo "Criar a frente" já vem com ele. */
+  readonly lastDeck = signal<string | null>(null);
 
   /** As cartas pelo id da anotação. */
   readonly cardOf = computed(() => new Map(this.cards().map((c) => [c.note, c])));

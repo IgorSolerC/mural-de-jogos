@@ -68,7 +68,10 @@ export class NoteFilters {
       list.push({ key: 'finalizadas', label: 'Finalizadas', n: this.view.doneCount(), on: this.view.showDone(), summary: 'Com as finalizadas' });
     }
     if (this.view.boardCount()) {
-      list.push({ key: 'kanban', label: 'Só no Kanban', n: this.view.boardCount(), on: this.view.showBoard(), summary: 'Com as do Kanban' });
+      const place = this.view.boardPlace();
+      const label = place === 'estudos' ? 'Só nos Estudos' : place === 'ambos' ? 'Só no Kanban ou nos Estudos' : 'Só no Kanban';
+      const summary = place === 'estudos' ? 'Com as dos Estudos' : place === 'ambos' ? 'Com as do Kanban e dos Estudos' : 'Com as do Kanban';
+      list.push({ key: 'kanban', label, n: this.view.boardCount(), on: this.view.showBoard(), summary });
     }
     return list;
   });

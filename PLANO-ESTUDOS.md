@@ -775,6 +775,13 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   que dobrava na beirada, com a etiqueta de furo, que o revisor tinha sugerido. A Klee One
   ficou numa folha à parte (`klee-one.css`, `inject: false`): no CSS da carta, estourava o orçamento.
   O botão Estudar da linha de estudo chega na rodada 5, junto da sessão.
+- 02/nov/2026, rodada 4 (BUILD 710): a aba Flashcard do editor (`ui/flashcard-tab.ts`, à parte do editor,
+  que só ganhou os ganchos de abrir, salvar e "mudou?"), o seletor de baralhos, a folha da carta, Nova
+  carta e Trazer anotações, a linha da carta na leitura, "Estudar com ela…" no botão direito, o voto do
+  mural (`KanbanStore.boardOnly` passou a ser o "fora do mural" pelo voto do Kanban e dos Estudos, com
+  `offBy` e `studyOnly` para as palavras) e Ajustes › Imagens com as frentes. Decidido no caminho: a
+  linha da leitura abre o baralho (como a do Kanban abre o quadro), e a folha da carta abre pela
+  etiqueta de tinta da carta na parede, a mesma das fichas do Kanban.
 
 ---
 

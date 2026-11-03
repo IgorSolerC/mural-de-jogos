@@ -338,6 +338,8 @@ export abstract class WallState {
    * o mural de quem visita não sabe dele.
    */
   readonly boardOnly: Signal<ReadonlySet<string>> = signal(new Set<string>());
+  /** Das de cima, as fora do mural só por causa dos Estudos (ver `KanbanStore.studyOnly`). */
+  readonly studyOnly: Signal<ReadonlySet<string>> = signal(new Set<string>());
   /** "Mostrar as do Kanban": as que estão só no Kanban aparecem no mural. Só nesta visita, não fica guardado. */
   readonly showBoard = signal(false);
   /** O mural aberto no cartaz (jogos, livros… ou anotações): o do dono e o de quem visita são o mesmo. */
@@ -571,6 +573,23 @@ export abstract class WallState {
   });
   /** As que estão fora do mural agora só por estarem no Kanban (para o vazio dizer onde elas estão). */
   readonly hiddenBoard = computed(() => (this.showBoard() ? 0 : this.boardCount()));
+  /**
+   * Onde moram as fora do mural da aba: no Kanban, nos Estudos ou nos dois (PLANO-ESTUDOS.md, 6.9). As
+   * palavras do Filtrar, do vazio e da busca seguem daqui.
+   */
+  readonly boardPlace = computed<'kanban' | 'estudos' | 'ambos'>(() => {
+    const only = this.boardOnly();
+    const study = this.studyOnly();
+    if (!study.size) return 'kanban';
+    let k = false;
+    let s = false;
+    for (const r of this.tabbed()) {
+      if (!only.has(r.id)) continue;
+      if (study.has(r.id)) s = true;
+      else k = true;
+    }
+    return k && s ? 'ambos' : s ? 'estudos' : 'kanban';
+  });
 
   /**
    * A ordem que vale de fato. Sem spoilers, ordenar por nota entregaria o ranking mesmo com as notas
@@ -877,6 +896,7 @@ export class WallView extends WallState {
   override readonly groupSorts = computed<ReadonlyMap<string, SortKey>>(() => groupSorts(this.settings.notesConfig()));
   override readonly defaultTagOuts = this.settings.hiddenTagKeys;
   override readonly boardOnly = inject(KanbanStore).boardOnly;
+  override readonly studyOnly = inject(KanbanStore).studyOnly;
 
   constructor() {
     super({ key: KEY, whole: true });

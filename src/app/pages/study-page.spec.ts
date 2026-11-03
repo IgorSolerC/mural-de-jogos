@@ -171,7 +171,7 @@ describe('página dos Estudos', () => {
   it('o baralho vazio diz que não tem cartas, sem a busca', async () => {
     const { vazio } = seed();
     await go(`/anotacoes/estudos/${vazio}`);
-    expect(text($('.vaga-txt'))).toBe('Nenhuma carta neste baralho ainda');
+    expect(text($('.vaga-txt'))).toBe('Nenhuma carta neste baralho ainda. Escreva uma Nova carta, ou traga anotações que você já tem.');
     expect($('#busca-cartas')).toBeNull();
     expect(text($('.em-dia'))).toBe('Nenhuma carta neste baralho ainda.');
   });
@@ -209,6 +209,77 @@ describe('página dos Estudos', () => {
     expect(fresh.name).toBe('Baralho 5');
     expect(router.url).toBe(`/anotacoes/estudos/${fresh.id}`);
     expect(sheet()?.open).toBeTrue();
+  });
+
+  it('Nova carta pede ao editor uma anotação nova com este baralho; Trazer anotações abre o seletor', async () => {
+    const { kanji } = seed();
+    const fresh = spyOn(TestBed.inject(Desk), 'newNote');
+    await go(`/anotacoes/estudos/${kanji}`);
+    const [nova, trazer] = $$('.poe-cartas button');
+    expect(text(nova)).toBe('Nova carta');
+    nova.click();
+    expect(study.pending()).toEqual({ decks: [kanji] });
+    expect(fresh).toHaveBeenCalledWith('');
+    expect(text(trazer)).toBe('Trazer anotações');
+  });
+
+  it('trazer uma anotação: vira carta deste baralho, sem título próprio, e continua no mural', async () => {
+    const { quimica } = seed();
+    await go(`/anotacoes/estudos/${quimica}`);
+    // o que o seletor entrega: a anotação escolhida (pela página, como o (picked) faz)
+    const page = (window as unknown as { ng: { getComponent(e: Element): { bring(n: string, d: string): void } } }).ng.getComponent(host.querySelector('app-study-page')!);
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, note('nnova', 'Capital do Peru')]);
+    page.bring('nnova', quimica);
+    const brought = study.cardOf().get('nnova')!;
+    expect(brought.decks).toEqual([quimica]);
+    expect(brought.front).toEqual({});
+    expect(brought.wall).toBeTrue();
+    // a que já era carta de outro baralho entra neste também
+    page.bring('nlua', quimica);
+    expect(study.cardOf().get('nlua')!.decks).toEqual([study.decks()[0].id, quimica]);
+  });
+
+  it('a etiqueta de tinta da carta abre a folha dela: tirar dos Estudos tem Desfazer', async () => {
+    const { kanji } = seed();
+    await go(`/anotacoes/estudos/${kanji}`);
+    $$('.carta-li .mexer')[0].click();
+    let dialog: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
+    expect(dialog!.open).toBeTrue();
+    expect(text(dialog!.querySelector('h2'))).toBe('Sol (日)');
+    // nascida nos Estudos, segue o baralho: só nos Estudos
+    expect(text(dialog!.querySelector('.mural-txt'))).toBe('Só nos Estudos');
+    dialog!.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
+    await settle();
+    expect(study.cardOf().has('nsol')).toBeFalse();
+  });
+
+  it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
+    const { kanji, quimica, vazio } = seed();
+    await go(`/anotacoes/estudos/${kanji}`);
+    $$('.carta-li .mexer')[0].click();
+    let dialog: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
+    const select = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
+    const key = (k: string) => select.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    key('ArrowDown');
+    select.value = quimica;
+    select.dispatchEvent(new Event('change'));
+    key('ArrowDown');
+    select.value = vazio;
+    select.dispatchEvent(new Event('change'));
+    await settle();
+    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji]);
+    key('Enter');
+    await settle();
+    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio]);
+    // pelo mouse: na hora
+    const again = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
+    again.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    again.value = quimica;
+    again.dispatchEvent(new Event('change'));
+    await settle();
+    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio, quimica]);
   });
 
   it('a folha do baralho: a cor e o ícone valem na hora; apagar volta para Tudo, com o Desfazer', async () => {

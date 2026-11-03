@@ -434,9 +434,9 @@ export const CARD_TEMPLATE = `
          presa na quina de baixo, do lado oposto às reações -->
     @if (boardOnly() && !bare()) {
       <span class="so-kanban" aria-hidden="true">
-        <lucide-icon [img]="BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
+        <lucide-icon [img]="studyOnly() ? StudyIcon : BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
         @if (!capas() && !overview()) {
-          <span>Só no Kanban</span>
+          <span>{{ studyOnly() ? 'Só nos Estudos' : 'Só no Kanban' }}</span>
         }
       </span>
     }
@@ -1781,6 +1781,8 @@ export class ReviewCard {
   readonly checkable = input(false);
   /** A anotação está só no Kanban (e à mostra no mural, pelo "Mostrar" da pasta): a etiqueta diz. */
   readonly boardOnly = input(false);
+  /** Fora do mural só por causa dos Estudos (a etiqueta diz "Só nos Estudos"). */
+  readonly studyOnly = input(false);
   /** O código do dono do mural, para mostrar as reações da ficha (ver core/reactions.ts); null, sem reações. */
   readonly reactCode = input<string | null>(null);
   /** O ícone e a cor das categorias do dono da ficha (os seus, no seu mural; os da pessoa, no dela). */
@@ -1842,6 +1844,7 @@ export class ReviewCard {
   protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
   protected readonly DoneIcon = ICON.feito;
   protected readonly BoardIcon = ICON.colunas;
+  protected readonly StudyIcon = ICON.camadas;
   /**
    * O texto tem o que tocar (tarefas, links, um spoiler, um widget)? Só então ele sobe por cima do botão da ficha;
    * sem nada para tocar, fica no lugar de sempre, por baixo do que o papel põe por cima dele.
@@ -2106,7 +2109,7 @@ export class ReviewCard {
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
-      const board = this.boardOnly() ? 'só no Kanban' : '';
+      const board = this.boardOnly() ? (this.studyOnly() ? 'só nos Estudos' : 'só no Kanban') : '';
       return `Abrir anotação: ${[r.game.name, rank, done, board, cats, todo, this.noText() ? 'sem descrição' : '', when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];

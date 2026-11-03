@@ -16,6 +16,10 @@ import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { StudyCard } from '../ui/study-card';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
+import { StudyCardSheet } from '../ui/study-card-sheet';
+import { CardPicker } from '../ui/card-picker';
+import { Toasts } from '../ui/toast';
+import { NOTES } from '../core/kinds';
 
 /** As ordens da parede do baralho. */
 type SortId = 'proxima' | 'nivel' | 'entrada' | 'nome';
@@ -70,7 +74,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyDeckSheet],
+  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -80,10 +84,14 @@ export class StudyPage {
   private readonly store = inject(ReviewStore);
   private readonly desk = inject(Desk);
   private readonly router = inject(Router);
+  private readonly toasts = inject(Toasts);
 
   protected readonly AllIcon = ICON.camadas;
   protected readonly AddIcon = ICON.adicionar;
   protected readonly EditIcon = ICON.editar;
+  protected readonly AdjustIcon = ICON.ajustar;
+  protected readonly BringIcon = ICON.buscar;
+  protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly sorts = SORTS;
   protected readonly levels = LEVELS;
@@ -108,6 +116,10 @@ export class StudyPage {
   protected readonly sort = signal<SortId>('proxima');
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
+  /** A folha da carta aberta (o id da anotação). */
+  protected readonly cardSheet = signal<string | null>(null);
+  /** O seletor de fichas do "Trazer anotações" aberto. */
+  protected readonly picking = signal(false);
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
   protected readonly firstName = signal('');
 
@@ -237,6 +249,36 @@ export class StudyPage {
       default:
         return this.byNext();
     }
+  }
+
+  /** As anotações que já são cartas do baralho aberto (ficam fora do "Trazer anotações"). */
+  protected readonly inDeck = computed(() => {
+    const d = this.deck();
+    return d ? this.study.cards().filter((c) => c.decks.includes(d.id)).map((c) => c.note) : [];
+  });
+
+  /** "Nova carta": o editor de uma anotação nova, já na aba Flashcard, com este baralho. */
+  protected newCard(deck: string): void {
+    this.study.pending.set({ decks: [deck] });
+    this.desk.newNote('');
+  }
+
+  /**
+   * "Trazer anotações": a anotação escolhida vira carta deste baralho, com a frente do nome dela; ela já
+   * estava no mural e continua lá (D4).
+   */
+  protected bring(note: string, deck: string): void {
+    const had = this.study.cardOf().get(note);
+    if (had) this.study.setDecks(note, [...had.decks, deck]);
+    else this.study.addCard(note, [deck], {}, true);
+    const name = this.store.get(note)?.game.name ?? '';
+    this.toasts.show(`“${name}” virou carta de ${this.study.deck(deck)?.name ?? ''}`);
+  }
+
+  /** "Editar a frente" da folha da carta: o editor da anotação, na aba Flashcard. */
+  protected edit(note: string): void {
+    this.study.openFront.set(note);
+    this.desk.editReview(note);
   }
 
   /** A carta abre a anotação, como no mural: a resposta, com o Editar e tudo. */

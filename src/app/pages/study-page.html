@@ -93,6 +93,16 @@
       </div>
       @if (deck(); as d) {
         <div class="pasta-controles">
+          <div class="pasta-grupo poe-cartas">
+            <button type="button" class="tinta" (click)="newCard(d.id)">
+              <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
+              Nova carta
+            </button>
+            <button type="button" class="tinta" aria-haspopup="dialog" (click)="picking.set(true)">
+              <lucide-icon [img]="BringIcon" [size]="17" aria-hidden="true" />
+              Trazer anotações
+            </button>
+          </div>
           <div class="pasta-grupo">
             <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
               <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
@@ -127,9 +137,11 @@
 
   @if (deck(); as d) {
     @if (!deckSize()) {
-      <!-- o baralho vazio: uma carta desenhada a giz, dizendo que ainda não tem nenhuma -->
+      <!-- o baralho vazio: uma carta desenhada a giz, dizendo como pôr a primeira -->
       <div class="vagas vazio">
-        <div class="vaga"><span class="vaga-txt">Nenhuma carta neste baralho ainda</span></div>
+        <div class="vaga">
+          <span class="vaga-txt">Nenhuma carta neste baralho ainda. Escreva uma Nova carta, ou traga anotações que você já tem.</span>
+        </div>
       </div>
     } @else if (!cards().length) {
       <p class="nada">Nenhuma carta com esse filtro.</p>
@@ -137,10 +149,16 @@
       <!-- a parede das cartas, a frente à mostra; tocar abre a anotação, a resposta -->
       <ul class="cartas" [attr.aria-label]="'Cartas de ' + d.name">
         @for (c of cards(); track c.note) {
-          <li [style.--inclina]="c.tilt + 'deg'">
+          <li class="carta-li" [style.--inclina]="c.tilt + 'deg'">
             <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta" (click)="open(c.note)">
               <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [meta]="c.meta" [suit]="d.icon" />
             </button>
+            <!-- os ajustes da carta: a etiqueta de tinta das fichas do Kanban, no hover -->
+            <div class="acoes">
+              <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Baralhos, mural e revisão de ' + c.title" title="Baralhos, mural e revisão" (click)="cardSheet.set(c.note)">
+                <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
+              </button>
+            </div>
           </li>
         }
       </ul>
@@ -180,6 +198,26 @@
         </li>
       }
     </ul>
+  }
+}
+
+@if (deck(); as d) {
+  <app-card-picker
+    [(open)]="picking"
+    [onlyKind]="notesKind"
+    [exclude]="inDeck()"
+    [doneOption]="false"
+    heading="Trazer anotações"
+    [hint]="'Uma anotação sua, para virar carta de ' + d.name + '. Ela continua no mural; a frente começa com o nome dela.'"
+    footHint="Toque numa anotação para trazê-la."
+    emptyText="Todas as suas anotações já estão neste baralho."
+    (picked)="bring($event.id, d.id)"
+  />
+}
+
+@if (cardSheet(); as id) {
+  @defer (on immediate) {
+    <app-study-card-sheet [noteId]="id" (closed)="cardSheet.set(null)" (reading)="open($event)" (editing)="edit($event)" />
   }
 }
 

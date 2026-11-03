@@ -1,0 +1,131 @@
+@use 'paper-kit' as kit;
+
+:host {
+  display: block;
+}
+
+.baralhos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* o baralho da carta: um adesivo de papel com a cor do baralho pintada na ponta, como a tira do nome nas pilhas */
+.adesivo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 2px 0 16px;
+  border-radius: 2px;
+  background: var(--paper-grain), var(--papel-ficha);
+  box-shadow:
+    0 1px 1px rgb(0 0 0 / 0.28),
+    0 2px 4px rgb(0 0 0 / 0.16);
+  color: var(--ink);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    border-radius: 2px 0 0 2px;
+    background: var(--cor);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.adesivo-nome {
+  max-width: 18ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--f-marker);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.tirar {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.08);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
+}
+
+/* "+ Baralho": o recorte tracejado (o adesivo que ainda não está ali), com a lista do aparelho por cima */
+.mais {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px dashed rgb(21 21 21 / 0.45);
+  border-radius: 3px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.05);
+  }
+
+  &:has(select:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  select {
+    @include kit.select-por-cima;
+  }
+}
+
+.novo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.campo-novo {
+  @include kit.campo;
+  min-height: 44px;
+
+  input {
+    height: 42px;
+    width: 14rem;
+    max-width: 52vw;
+  }
+}

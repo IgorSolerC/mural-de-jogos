@@ -56,6 +56,8 @@ export interface WallCardProps {
   looks: CategoryLooks;
   /** As anotações à mostra que estão só no Kanban (ver `WallState.showBoard`): levam a etiqueta. */
   boardOnly: ReadonlySet<string>;
+  /** As fora do mural só por causa dos Estudos (a etiqueta diz "Só nos Estudos"). */
+  studyOnly?: ReadonlySet<string>;
 }
 
 const NO_PROPS: WallCardProps = {
@@ -926,6 +928,7 @@ export class WallCardPool implements OnDestroy {
     ref.setInput('checkable', p.checkable);
     ref.setInput('looks', p.looks);
     ref.setInput('boardOnly', p.boardOnly.has(r.id));
+    ref.setInput('studyOnly', !!p.studyOnly?.has(r.id));
   }
 }
 

@@ -1,0 +1,205 @@
+@use 'paper-kit' as kit;
+@use 'kanban-kit' as kk;
+
+:host {
+  display: block;
+  container: kprops / inline-size;
+}
+
+/* ===== Vazia: a carta em contorno tracejado e o convite ===== */
+.vazia {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 26px 4px;
+
+  @container kprops (max-width: 520px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.vazia-carta {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 120px;
+  aspect-ratio: 5 / 7;
+  border: 2px dashed rgb(21 21 21 / 0.35);
+  border-radius: 9px;
+  color: var(--ink-2);
+  rotate: -2deg;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.vazia-texto {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.convite {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.45;
+}
+
+/* ===== Com frente: as linhas do jeito do Kanban, e a carta viva ao lado ===== */
+.fc {
+  display: grid;
+  gap: 26px;
+  align-items: start;
+
+  @container kprops (min-width: 600px) {
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+}
+
+.campos {
+  min-width: 0;
+}
+
+.linha {
+  @include kk.props-linha;
+}
+
+.nome {
+  @include kk.props-nome;
+}
+
+.valor {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  align-self: center;
+}
+
+.campo {
+  @include kit.campo;
+  min-height: 48px;
+
+  input {
+    height: 46px;
+  }
+}
+
+/* o título a pincel, como vai na frente */
+.titulo input {
+  font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
+  font-size: 1.15rem;
+}
+
+.subtitulo input {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.dica {
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  color: var(--ink-2);
+}
+
+.erro {
+  margin: 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: var(--red-deep);
+}
+
+.linha.errada .nome {
+  color: var(--red-deep);
+}
+
+.imagem-campos,
+.imagem-escolhida {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.link {
+  flex: 1 1 220px;
+}
+
+.imagem-txt {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+.papel.pequeno {
+  min-height: 44px;
+}
+
+.do-aparelho {
+  position: relative;
+  cursor: pointer;
+
+  &.ocupado {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+}
+
+.mural {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.mural-txt {
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+
+  /* só nos Estudos é a exceção: não passa despercebida (como o "Só no Kanban") */
+  &.forte {
+    color: var(--ink);
+  }
+}
+
+.pe {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 16px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+}
+
+/* a carta viva, em pé na mesa, um pouco torta */
+.palco {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 12px;
+}
+
+.viva {
+  width: min(200px, 64vw);
+  rotate: 1.4deg;
+}

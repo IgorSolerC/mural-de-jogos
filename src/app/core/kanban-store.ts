@@ -4,9 +4,13 @@ import { activeOrder, kanbanOnly } from './mural-config';
 import { sanitizeTags } from './note-labels';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { StudyStore } from './study-store';
 import { onOtherTab, writeJson } from './storage';
 
-/** Onde uma anotação aparece: no mural, no quadro do grupo dela, ou nos dois. */
+/**
+ * Onde uma anotação aparece: no mural (pelo voto do Kanban e dos Estudos, ver `boardOnly`), no quadro do
+ * grupo dela, ou nos dois.
+ */
 export interface NotePlace {
   wall: boolean;
   board: boolean;
@@ -52,6 +56,7 @@ export interface KanbanSpot {
 export class KanbanStore {
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
+  private readonly study = inject(StudyStore);
 
   readonly state = signal<KanbanState>(read());
   readonly boards = computed(() => this.state().boards);
@@ -77,7 +82,7 @@ export class KanbanStore {
    * e, pela escolha delas ou do grupo, não aparecem no mural (ver `onWall`). Saindo do quadro (ou do
    * grupo), voltam ao mural.
    */
-  readonly boardOnly = computed<ReadonlySet<string>>(() => {
+  private readonly kanbanOff = computed<ReadonlySet<string>>(() => {
     const out = new Set<string>();
     const cfg = this.settings.notesConfig();
     const byId = this.notesById();
@@ -88,6 +93,37 @@ export class KanbanStore {
     return out;
   });
 
+  /**
+   * As anotações fora do mural (pelo id), pelo voto de cada lugar que a tem (PLANO-ESTUDOS.md, 4.4): o
+   * Kanban vota pela escolha da anotação no quadro (ou a do grupo), os Estudos pela da carta (ou a dos
+   * baralhos). A anotação sai do mural só quando todo lugar que a tem diz "só aqui"; nenhum lugar, ou
+   * algum dizendo "no mural também", e ela fica. Todo mundo que esconde do mural lê daqui (a parede, o
+   * mural público, o perfil, a API); `offBy` diz por causa de quem.
+   */
+  readonly boardOnly = computed<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    const off = this.kanbanOff();
+    const on = this.onBoard();
+    const votes = this.study.votes();
+    for (const id of new Set([...on, ...votes.keys()])) {
+      const kanbanSaysOff = !on.has(id) || off.has(id);
+      const studySaysOff = !votes.has(id) || votes.get(id) === false;
+      if (kanbanSaysOff && studySaysOff) out.add(id);
+    }
+    return out;
+  });
+
+  /** Fora do mural por causa de quem: do Kanban, dos Estudos ou dos dois (null: está no mural). */
+  offBy(id: string): 'kanban' | 'estudos' | 'ambos' | null {
+    if (!this.boardOnly().has(id)) return null;
+    const kanban = this.onBoard().has(id);
+    const study = this.study.votes().has(id);
+    return kanban && study ? 'ambos' : kanban ? 'kanban' : 'estudos';
+  }
+
+  /** As anotações fora do mural só por causa dos Estudos (para dizer "Só nos Estudos" em vez de "Só no Kanban"). */
+  readonly studyOnly = computed<ReadonlySet<string>>(() => new Set([...this.boardOnly()].filter((id) => !this.onBoard().has(id))));
+
   /** As anotações que estão em algum quadro (pelo id), só no Kanban ou também no mural. */
   readonly onBoard = computed<ReadonlySet<string>>(() => {
     const out = new Set<string>();
@@ -96,14 +132,15 @@ export class KanbanStore {
     return out;
   });
 
-  /** Onde a anotação está: no mural (`wall`), no quadro (`board`) ou nos dois. */
+  /** Onde a anotação está: no mural (`wall`, pelo voto do Kanban e dos Estudos), no quadro (`board`) ou nos dois. */
   placeOf(id: string): NotePlace {
     return { wall: !this.boardOnly().has(id), board: this.onBoard().has(id) };
   }
 
   /**
    * As anotações do mesmo lugar (o mural, o Kanban ou os dois): as sugestões de tag e de assunto vêm só
-   * delas, em todo seletor (o editor, a folha do quadro, a Organizar).
+   * delas, em todo seletor (o editor, a folha do quadro, a Organizar). "O mural" é o que está nele de fato
+   * (fora as só no Kanban e as só nos Estudos).
    */
   notesAt(place: NotePlace): ReturnType<ReviewStore['notes']> {
     const only = this.boardOnly();
