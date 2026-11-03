@@ -10,6 +10,17 @@ import { FitTitle } from './fit-title';
 import { ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
 
+/** O teto da letra do título em fração da altura da área: o que sobra do desenho, quase inteiro. */
+const TITLE_MAX_DEFAULT = 0.92;
+/**
+ * Os estilos com outro teto. A Ficha da biblioteca: quando a tabela caiu para uma linha (31ddf906), o meio
+ * cresceu e o kanji sozinho foi junto, grande demais (pedido do usuário: "O kanji está muito grande agora.
+ * Diminua para que fique do tamanho que ficava antes"). 0,595 da área de agora é o tamanho que ele tinha
+ * com a tabela de quatro linhas (54 a 55cqi sem subtítulo, no computador e no celular); a frase e o título
+ * comprido ficam bem abaixo do teto, então continuam com o espaço novo.
+ */
+const TITLE_MAX: Partial<Record<CardLook, number>> = { biblioteca: 0.595 };
+
 /**
  * A folha da Klee One (src/klee-one.scss, fora da página): o <link> entra na primeira carta que aparece,
  * e o navegador só baixa as fatias da letra dos caracteres japoneses e chineses que estiverem na tela.
@@ -52,7 +63,7 @@ let arcs = 0;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ng-template #titulo>
-      <div class="titulo-area" [appFitTitle]="fitKey()" [appFitTitleMax]="0.92">
+      <div class="titulo-area" [appFitTitle]="fitKey()" [appFitTitleMax]="titleMax()">
         <p class="titulo" [class.frase]="phrase()" lang="und">{{ title() }}</p>
       </div>
     </ng-template>
@@ -401,6 +412,8 @@ export class StudyCard {
     return this.localId() ? this.localSrc() : url;
   });
   protected readonly fitKey = computed(() => `${this.shown()}|${this.title()}|${this.subtitle() ?? ''}|${this.src() ?? ''}`);
+  /** O teto da letra do título, em fração da altura da área (ver TITLE_MAX). */
+  protected readonly titleMax = computed(() => TITLE_MAX[this.shown()] ?? TITLE_MAX_DEFAULT);
 
   /** A cor dos fios e das molduras: a cartolina da anotação; a branca e a cinza, uma tinta sépia (sumiriam no creme). */
   protected readonly fio = computed(() => (this.neutral() ? '#9a7b55' : `var(--stock-${this.stock() ?? 'amarelo'})`));

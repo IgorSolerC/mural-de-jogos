@@ -1,7 +1,9 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { CARD_LOOKS, CardFace, CardLook } from '../core/study';
 import { Stock } from '../core/review';
+import { FitTitle } from './fit-title';
 import { CardDeck, StudyCard } from './study-card';
 
 /** A frente da carta nos dez desenhos: o que cada um mostra do baralho e do progresso, com e sem ele. */
@@ -28,10 +30,11 @@ const NEVER: CardFace = { level: 'desconhecida', when: 'agora', stamp: '03 NOV',
 describe('a frente da carta (ui/study-card.ts)', () => {
   let host: Host;
   let el: HTMLElement;
+  let fixture: ComponentFixture<Host>;
 
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
-    const fixture = TestBed.createComponent(Host);
+    fixture = TestBed.createComponent(Host);
     host = fixture.componentInstance;
     el = fixture.nativeElement;
     document.body.appendChild(el);
@@ -128,6 +131,33 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     show('biblioteca', null);
     expect(el.querySelectorAll('.datas .tr').length).toBe(1);
     expect(cells()).toEqual(['', '']);
+  });
+
+  it('Ficha da biblioteca: o kanji sozinho do tamanho de antes da tabela de uma linha; a frase comprida inteira', () => {
+    const fit = () => fixture.debugElement.query(By.directive(FitTitle)).injector.get(FitTitle);
+    host.subtitle.set(undefined);
+    show('biblioteca', LEARNING);
+    fit().fit();
+    const area = $('.titulo-area')!;
+    const px = parseFloat($('.titulo')!.style.fontSize);
+    // pedido do usuário: "O kanji está muito grande agora. Diminua para que fique do tamanho que ficava antes";
+    // antes (com a tabela de quatro linhas), 54 a 55cqi no computador e no celular; com o teto de 0,92 seria ~75cqi
+    expect(fit().appFitTitleMax()).toBe(0.595);
+    expect(px).toBeLessThanOrEqual(Math.floor(area.clientHeight * 0.595) + 0.01);
+    const cqi = (px / $('.carta')!.offsetWidth) * 100;
+    expect(cqi).toBeGreaterThan(50);
+    expect(cqi).toBeLessThan(57);
+    // o título comprido continua inteiro, sem reticências, no espaço novo do meio
+    host.title.set('Explique a diferença entre mitose e meiose em todas as fases, com exemplos de cada uma delas, e diga em quais células do corpo humano cada uma acontece e por quê');
+    TestBed.tick();
+    fit().fit();
+    expect($('.titulo')!.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 0.5);
+    expect($('.titulo')!.style.getPropertyValue('-webkit-line-clamp')).toBe('');
+    // os outros nove estilos ficam com o teto de sempre
+    for (const look of CARD_LOOKS.filter((l) => l !== 'biblioteca')) {
+      show(look, LEARNING);
+      expect(fit().appFitTitleMax()).withContext(look).toBe(0.92);
+    }
   });
 
   it('as costas (as cartas de baixo da pilha): o papel e a beirada de cada desenho, na cartolina, sem nada escrito', () => {

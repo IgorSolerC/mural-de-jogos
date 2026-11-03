@@ -36,7 +36,7 @@ export const NEWS: NewsEntry[] = [
       'Cada baralho escolhe o estilo das cartas, na folha do baralho, entre dez, cada um mostrado com a primeira carta do baralho: a Clássica (o padrão), Faixa de cor, Cartolina inteira, Orelha, Baralho antigo, Ficha de argola, Selo, Polaroid, Ingresso e Ficha da biblioteca.',
       'A carta ficou mais leve: a moldura fina na cor da cartolina, o nome do baralho em cima (o ícone saiu dos cantos), o subtítulo inteiro, até quatro linhas, e no pé o nível num selo e quando ela volta.',
       'A pasta dos Estudos ficou como a dos Gastos e a do Kanban: quantas cartas para hoje a pincel, os três montes e o Estudar com o traço de marca-texto, os controles impressos em tinta na ponta e, depois do picote, a busca, o Nível e o Ordenar impressos, como o Ordenar do mural.',
-      'Na Ficha da biblioteca, a tabela ficou com uma linha só: a próxima revisão, carimbada em vermelho, e o total de vezes que a carta foi vista. O meio da carta ganhou o espaço, e o subtítulo vai até quatro linhas, como nos outros estilos.',
+      'Na Ficha da biblioteca, a tabela ficou com uma linha só: a próxima revisão, carimbada em vermelho, e o total de vezes que a carta foi vista. O meio da carta ganhou o espaço, e o subtítulo vai até quatro linhas, como nos outros estilos; o kanji sozinho continua do tamanho de antes.',
       'As cartas de baixo da pilha de cada baralho, em Tudo, seguem o estilo das cartas dele (o papel, a cor da cartolina e a beirada), em vez das cartas lisas de antes.',
     ],
     correcoes: [
