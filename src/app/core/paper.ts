@@ -928,29 +928,43 @@ TEXTURES.arroz = (() => {
 
 TEXTURES.reciclado = (() => {
   const r = rng(99);
+  const T = 260;
   const cols = ['#2e3f66', '#7a2f2f', '#333', '#555', '#6a5a2c', '#2f5a3a', '#3a3a70'];
   let fib = '';
   for (let k = 0; k < 70; k++) {
-    const x = r() * 260,
-      y = r() * 260,
+    const x = r() * T,
+      y = r() * T,
       a = r() * Math.PI * 2,
       l = 3 + r() * 7;
     const x2 = x + Math.cos(a) * l,
       y2 = y + Math.sin(a) * l;
     const cx = (x + x2) / 2 + (r() - 0.5) * 4,
       cy = (y + y2) / 2 + (r() - 0.5) * 4;
-    fib += `<path d='M${f1(x)} ${f1(y)}Q${f1(cx)} ${f1(cy)} ${f1(x2)} ${f1(y2)}' stroke='${cols[k % cols.length]}' stroke-opacity='${(0.35 + r() * 0.35).toFixed(2)}' stroke-width='${(0.6 + r() * 0.6).toFixed(2)}'/>`;
+    const op = (0.35 + r() * 0.35).toFixed(2),
+      w = 0.6 + r() * 0.6;
+    // as fibras que passam de uma beirada voltam pela do outro lado (as quatro), como no papel de arroz:
+    // o ladrilho emenda sem costura. A curva fica dentro do triângulo das três pontas, e a ponta redonda
+    // passa meia grossura.
+    const m = w / 2,
+      xs = [x, cx, x2],
+      ys = [y, cy, y2];
+    const dxs = [0, ...(Math.min(...xs) - m < 0 ? [T] : []), ...(Math.max(...xs) + m > T ? [-T] : [])];
+    const dys = [0, ...(Math.min(...ys) - m < 0 ? [T] : []), ...(Math.max(...ys) + m > T ? [-T] : [])];
+    for (const dx of dxs)
+      for (const dy of dys)
+        fib += `<path d='M${f1(x + dx)} ${f1(y + dy)}Q${f1(cx + dx)} ${f1(cy + dy)} ${f1(x2 + dx)} ${f1(y2 + dy)}' stroke='${cols[k % cols.length]}' stroke-opacity='${op}' stroke-width='${w.toFixed(2)}'/>`;
   }
+  // os pontinhos ficam todos dentro do ladrilho (nenhum encosta na beirada)
   let dots = '';
   for (let k = 0; k < 150; k++)
-    dots += `<circle cx='${f1(r() * 260)}' cy='${f1(r() * 260)}' r='${(0.4 + r() * r() * 1.4).toFixed(2)}' fill='#2a241c' fill-opacity='${(0.3 + r() * 0.5).toFixed(2)}'/>`;
+    dots += `<circle cx='${f1(r() * T)}' cy='${f1(r() * T)}' r='${(0.4 + r() * r() * 1.4).toFixed(2)}' fill='#2a241c' fill-opacity='${(0.3 + r() * 0.5).toFixed(2)}'/>`;
   return {
     img: svgUrl(
-      260,
-      260,
+      T,
+      T,
       `<filter ${SRGB} id='m' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.028' numOctaves='3' seed='5' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='.22' intercept='.8'/><feFuncG type='linear' slope='.22' intercept='.78'/><feFuncB type='linear' slope='.22' intercept='.75'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#m)'/>${dots}<g fill='none' stroke-linecap='round'>${fib}</g>`,
     ),
-    size: '260px 260px',
+    size: `${T}px ${T}px`,
     blend: 'multiply',
   };
 })();

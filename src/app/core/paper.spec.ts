@@ -341,6 +341,43 @@ describe('papel da ficha', () => {
     }
   });
 
+  it('o papel reciclado emenda sem costura: a fibrinha que passa de uma beirada volta pela do outro lado, e os pontinhos ficam dentro', () => {
+    const t = textureOf('reciclado')!;
+    const T = 260;
+    expect(t.size).toBe(`${T}px ${T}px`);
+    const svg = decodeURIComponent(t.img);
+    const fibras = [...svg.matchAll(/<path d='M(-?[\d.]+) (-?[\d.]+)Q(-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+)' stroke='(#[0-9a-f]+)' stroke-opacity='([\d.]+)' stroke-width='([\d.]+)'/g)].map((m) => ({
+      pts: m.slice(1, 7).map(Number),
+      jeito: `${m[7]}/${m[8]}/${m[9]}`,
+      w: Number(m[9]),
+    }));
+    expect(fibras.length).toBeGreaterThanOrEqual(70);
+    // a curva fica dentro do triângulo das três pontas; a ponta redonda passa meia grossura
+    const sai = (f: { pts: number[]; w: number }, eixo: 0 | 1, lado: -1 | 1) => {
+      const vs = [f.pts[eixo], f.pts[eixo + 2], f.pts[eixo + 4]];
+      return lado < 0 ? Math.min(...vs) - f.w / 2 < 0 : Math.max(...vs) + f.w / 2 > T;
+    };
+    const tem = (pts: number[], jeito: string, dx: number, dy: number) =>
+      fibras.some((f) => f.jeito === jeito && f.pts.every((v, i) => Math.abs(v - (pts[i] + (i % 2 ? dy : dx))) < 0.11));
+    const lados: [string, 0 | 1, -1 | 1, number, number][] = [
+      ['esquerda', 0, -1, T, 0],
+      ['direita', 0, 1, -T, 0],
+      ['cima', 1, -1, 0, T],
+      ['baixo', 1, 1, 0, -T],
+    ];
+    let saindo = 0;
+    for (const [nome, eixo, lado, dx, dy] of lados) {
+      const fora = fibras.filter((f) => sai(f, eixo, lado));
+      saindo += fora.length;
+      for (const f of fora) expect(tem(f.pts, f.jeito, dx, dy)).withContext(`${nome}: ${f.pts.join(' ')}`).toBeTrue();
+    }
+    // há fibras saindo pela beirada (o teste não passa de graça)
+    expect(saindo).toBeGreaterThan(0);
+    const pontos = [...svg.matchAll(/<circle cx='([\d.]+)' cy='([\d.]+)' r='([\d.]+)'/g)].map((m) => m.slice(1, 4).map(Number));
+    expect(pontos.length).toBe(150);
+    for (const [cx, cy, r] of pontos) expect(cx - r >= 0 && cy - r >= 0 && cx + r <= T && cy + r <= T).withContext(`${cx} ${cy} ${r}`).toBeTrue();
+  });
+
   it('o glitter da cartolina escura é purpurina espalhada, não chuvisco: pouca, em montinhos, sem filtro nem branco chapado', () => {
     const g = darkGlitter();
     const svg = decodeURIComponent(g.img);
