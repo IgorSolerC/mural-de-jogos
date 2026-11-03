@@ -27,12 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-estudos-pasta',
+    id: '2026-11-03-estudos-estilos',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
-    title: 'A pasta dos Estudos e as abas dos baralhos',
+    title: 'O estilo das cartas por baralho e a pasta dos Estudos',
     melhorias: [
+      'Cada baralho escolhe o estilo das cartas, na folha do baralho, entre dez, cada um mostrado com a primeira carta do baralho: a Clássica (o padrão), Faixa de cor, Cartolina inteira, Orelha, Baralho antigo, Ficha de argola, Selo, Polaroid, Ingresso e Ficha da biblioteca.',
+      'A carta ficou mais leve: a moldura fina na cor da cartolina, o nome do baralho em cima (o ícone saiu dos cantos), o subtítulo inteiro, até quatro linhas, e no pé o nível num selo e quando ela volta.',
       'A pasta dos Estudos ficou como a dos Gastos e a do Kanban: quantas cartas para hoje a pincel, os três montes e o Estudar com o traço de marca-texto, os controles impressos em tinta na ponta e, depois do picote, a busca, o Nível e o Ordenar impressos, como o Ordenar do mural.',
     ],
     correcoes: ['As abas dos baralhos tinham a letra e a altura diferentes das abas do mural e dos quadros do Kanban; agora são iguais.'],

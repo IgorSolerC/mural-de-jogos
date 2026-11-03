@@ -96,7 +96,7 @@ export class StudySession {
         const dark = isDarkStock(stock);
         return { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) };
       })(),
-      suit: this.study.deck(item.deck)?.icon ?? null,
+      deck: this.study.deck(item.deck) ?? null,
       noteTitle: note.game.name,
       text: note.text,
       srs: card.srs,

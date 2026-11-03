@@ -7,7 +7,7 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, frontTitle, levelOf, whenLabel } from '../core/study';
+import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, levelOf, whenLabel } from '../core/study';
 import { QueueCounts, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
@@ -47,6 +47,8 @@ interface CardView {
   stock: ReturnType<ReviewStore['notes']>[number]['stock'];
   level: Level;
   meta: string;
+  /** O progresso, como a frente mostra no desenho do baralho. */
+  face: CardFace;
   due: string;
   added: string;
   tilt: number;
@@ -144,6 +146,19 @@ export class StudyPage {
 
   private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
   private readonly counts = computed(() => allCounts(this.study.state(), this.now(), this.study.live));
+  /** O número de cada carta em cada baralho, na ordem em que entrou (o Nº do Ingresso, da Faixa…). */
+  private readonly numbers = computed(() => {
+    const out = new Map<string, Map<string, number>>();
+    const cards = [...this.study.cards()].sort((a, b) => a.added.localeCompare(b.added));
+    for (const c of cards) {
+      for (const d of c.decks) {
+        const m = out.get(d) ?? new Map<string, number>();
+        m.set(c.note, m.size + 1);
+        out.set(d, m);
+      }
+    }
+    return out;
+  });
 
   protected readonly decks = computed<DeckView[]>(() => {
     const { byDeck } = this.counts();
@@ -155,7 +170,7 @@ export class StudyPage {
       const views: CardView[] = [];
       for (const c of this.study.cards()) {
         const note = byId.get(c.note);
-        if (note && c.decks.includes(deck.id)) views.push(this.view(c, note.game.name, pinningFor(note.id, note.stock).stock, now));
+        if (note && c.decks.includes(deck.id)) views.push(this.view(c, deck.id, note.game.name, pinningFor(note.id, note.stock).stock, now));
       }
       views.sort(next);
       return { deck, cards: views.length, counts, today: countTotal(counts), top: views[0] ?? null };
@@ -202,7 +217,7 @@ export class StudyPage {
     for (const c of this.study.cards()) {
       const note = byId.get(c.note);
       if (!note || !c.decks.includes(d.id)) continue;
-      const view = this.view(c, note.game.name, pinningFor(note.id, note.stock).stock, now);
+      const view = this.view(c, d.id, note.game.name, pinningFor(note.id, note.stock).stock, now);
       if (lv && view.level !== lv) continue;
       if (q && ![view.title, note.game.name, view.subtitle ?? ''].some((s) => s.toLocaleLowerCase('pt-BR').includes(q))) continue;
       out.push(view);
@@ -228,7 +243,7 @@ export class StudyPage {
     });
   }
 
-  private view(c: Card, noteTitle: string, stock: CardView['stock'], now: Date): CardView {
+  private view(c: Card, deck: string, noteTitle: string, stock: CardView['stock'], now: Date): CardView {
     const level = levelOf(c.srs);
     const meta = level === 'desconhecida' ? LEVEL_LABEL[level] : `${LEVEL_LABEL[level]} · ${whenLabel(c.srs, now)}`;
     return {
@@ -239,6 +254,7 @@ export class StudyPage {
       stock,
       level,
       meta,
+      face: cardFace(c, now, this.numbers().get(deck)?.get(c.note)),
       due: c.srs.due,
       added: c.added,
       tilt: tiltOf(c.note),

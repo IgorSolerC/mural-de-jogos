@@ -111,9 +111,10 @@ describe('página dos Estudos', () => {
     expect(pilhas.map((p) => text(p.querySelector('.nome-txt')))).toEqual(['Kanjis', 'Química', 'Locais']);
     expect(pilhas.map((p) => text(p.querySelector('.nome-n')))).toEqual(['3 cartas', '1 carta', '0 cartas']);
     expect(pilhas[0].getAttribute('aria-label')).toBe('Kanjis, 3 cartas, 3 para hoje');
-    // por cima, a próxima carta do baralho (o sol, já respondido), com o ícone do baralho de naipe
+    // por cima, a próxima carta do baralho (o sol, já respondido), na Clássica, sem o ícone nos cantos
     expect(text(pilhas[0].querySelector('app-study-card .titulo'))).toBe('日');
-    expect(pilhas[0].querySelector('app-study-card .naipe')).not.toBeNull();
+    expect(pilhas[0].querySelector('app-study-card .carta')!.classList).toContain('look-classica');
+    expect(pilhas[0].querySelector('app-study-card .canto lucide-icon')).toBeNull();
     // o papelzinho no elástico: os três montes de hoje
     expect([...pilhas[0].querySelectorAll('.papelzinho .pz')].map(text)).toEqual(['2', '1', '0']);
     // o baralho sem cartas: só o lugar dele
@@ -132,9 +133,14 @@ describe('página dos Estudos', () => {
     // a ordem padrão: a que volta antes primeiro, as nunca estudadas no fim, na ordem em que entraram
     expect(cards.map((c) => text(c.querySelector('.titulo')))).toEqual(['日', '月', 'Fogo']);
     expect(text(cards[0].querySelector('.subtitulo'))).toBe('sol, dia');
+    // a Clássica, o padrão: o nome do baralho em cima, o selo do nível e quando volta no pé
+    expect(cards.every((c) => c.querySelector('.carta')!.classList.contains('look-classica'))).toBeTrue();
+    expect(text(cards[0].querySelector('.carta > .nome'))).toBe('Kanjis');
     // acertou a nova: o segundo passo, daqui a 10 minutos
-    expect(text(cards[0].querySelector('.pe'))).toBe('Nova · daqui a 10 min');
+    expect(text(cards[0].querySelector('.pe .selo-nivel'))).toBe('Nova');
+    expect(text(cards[0].querySelector('.pe .volta'))).toBe('volta daqui a 10 min');
     expect(text(cards[1].querySelector('.pe'))).toBe('Desconhecida');
+    expect(cards[1].querySelector('.pe .volta')).toBeNull();
     expect(text(cards[0].querySelector('.canto'))).toBe('日');
     $$('.carta-btn')[2].click();
     expect(open).toHaveBeenCalledWith('nfogo');
@@ -363,5 +369,48 @@ describe('página dos Estudos', () => {
     const toast = document.querySelector<HTMLButtonElement>('app-toast button, .toast button');
     toast?.click();
     if (toast) expect(study.deck(kanji)).toBeDefined();
+  });
+
+  it('o estilo das cartas: a folha mostra os dez com a primeira carta do baralho, e o escolhido vale na parede e na pilha', async () => {
+    const { kanji, quimica } = seed();
+    await go(`/anotacoes/estudos/${kanji}`);
+    $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
+    const dialog = await sheetOpen();
+    const options = [...dialog.querySelectorAll<HTMLButtonElement>('.op.estilo')];
+    expect(options.map((o) => text(o.querySelector('.estilo-nome')))).toEqual([
+      'Clássica',
+      'Faixa de cor',
+      'Cartolina inteira',
+      'Orelha',
+      'Baralho antigo',
+      'Ficha de argola',
+      'Selo',
+      'Polaroid',
+      'Ingresso',
+      'Ficha da biblioteca',
+    ]);
+    // sem escolha, a Clássica; cada miniatura é a primeira carta do baralho naquele desenho
+    expect(options[0].getAttribute('aria-checked')).toBe('true');
+    expect(text(options[8].querySelector('app-study-card .titulo'))).toBe('日');
+    expect(options[8].querySelector('.carta')!.classList).toContain('look-ingresso');
+    options[8].click();
+    await settle();
+    expect(study.deck(kanji)!.look).toBe('ingresso');
+    expect(study.deck(quimica)!.look).toBeUndefined();
+    // a parede do baralho: o ingresso, com o número da carta e o canhoto do nível
+    const cards = $$('.cartas app-study-card');
+    expect(cards.every((c) => c.querySelector('.carta')!.classList.contains('look-ingresso'))).toBeTrue();
+    expect(cards.map((c) => text(c.querySelector('.num')))).toEqual(['Nº 01', 'Nº 02', 'Nº 03']);
+    expect(text(cards[0].querySelector('.canhoto .campo b'))).toBe('Nova');
+    // voltar para a Clássica tira o campo do baralho
+    dialog.querySelector<HTMLButtonElement>('.op.estilo')!.click();
+    await settle();
+    expect(study.deck(kanji)!.look).toBeUndefined();
+    study.updateDeck(kanji, { look: 'selo' });
+    sheet()?.close();
+    await go('/anotacoes/estudos');
+    const pilhas = $$('.pilha');
+    expect(pilhas[0].querySelector('app-study-card .carta')!.classList).toContain('look-selo');
+    expect(pilhas[1].querySelector('app-study-card .carta')!.classList).toContain('look-classica');
   });
 });

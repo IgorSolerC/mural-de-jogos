@@ -1,0 +1,754 @@
+/*
+ * Os cinco objetos de papelaria da carta de estudo (Ficha de argola, Selo, Polaroid, Ingresso, Ficha da
+ * biblioteca), à parte de study-card.scss só pelo tamanho; as variáveis e as peças comuns moram lá.
+ */
+/* ——— Ficha de argola: a ficha pautada presa na argola na cor do baralho ——— */
+
+.look-argola {
+  --titulo: var(--tinta);
+
+  .papel {
+    --linha: color-mix(in oklab, var(--c) 45%, #2f5c9c);
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: 2.4cqi;
+    background: var(--paper-grain), color-mix(in oklab, var(--c) 30%, #fbf9f2);
+    background-blend-mode: multiply, normal;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.3),
+      0 5px 10px rgb(0 0 0 / 0.28);
+    /* o furo da argola */
+    mask: radial-gradient(circle at 13cqi 13cqi, #0000 3.7cqi, #000 calc(3.7cqi + 0.5px));
+  }
+
+  /* a pauta: as linhas finas, e a linha vermelha dupla do cabeçalho */
+  .pauta {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 34cqi;
+    bottom: 2cqi;
+    background: repeating-linear-gradient(to bottom, transparent 0 8.45cqi, var(--linha) 8.45cqi 9cqi);
+    opacity: 0.6;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -5cqi;
+      height: 1.6cqi;
+      border-top: 0.45cqi solid #e2564b;
+      border-bottom: 0.45cqi solid #e2564b;
+      opacity: 0.9;
+    }
+  }
+
+  .cab {
+    position: absolute;
+    left: 21cqi;
+    right: 5cqi;
+    top: 6.6cqi;
+    display: flex;
+    flex-direction: column;
+    gap: 1.6cqi;
+  }
+
+  .nome {
+    margin-right: 14cqi;
+    font: 800 max(6.4cqi, 0.56rem) / 1 var(--f-label);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--tinta);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* a lápis: o nível e quando volta */
+  .pe {
+    font-family: var(--f-hand);
+    font-size: max(5.3cqi, 0.56rem);
+    line-height: 1.1;
+    color: var(--lapis);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* a bolinha adesiva do nível, com o brilho do vinil */
+  .bolinha {
+    position: absolute;
+    right: 6cqi;
+    top: 4.6cqi;
+    width: 10cqi;
+    height: 10cqi;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.55), transparent 42%), var(--lv);
+    box-shadow: 0 0.4cqi 0.8cqi rgb(0 0 0 / 0.28);
+  }
+
+  .corpo {
+    position: absolute;
+    inset: 35cqi 7cqi 5.3cqi;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .foto {
+    align-self: center;
+    margin-bottom: 2cqi;
+  }
+
+  /* a caneta azul, nas linhas da pauta */
+  .subtitulo {
+    font-size: max(6.4cqi, 0.62rem);
+    line-height: 9cqi;
+    text-align: left;
+    text-wrap: pretty;
+    color: #1f3f94;
+  }
+
+  .anel {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+
+    path {
+      fill: none;
+      stroke-linecap: round;
+    }
+  }
+
+  .anel.tras {
+    z-index: 0;
+  }
+
+  .anel.frente {
+    z-index: 2;
+    filter: drop-shadow(0 0.5cqi 0.6cqi rgb(0 0 0 / 0.35));
+  }
+
+  .cor {
+    stroke: var(--baralho);
+    stroke-width: 2.7;
+  }
+
+  .sombra {
+    stroke: color-mix(in oklab, var(--baralho) 55%, #2a120e);
+    stroke-width: 2.7;
+  }
+
+  .brilho {
+    stroke: rgb(255 255 255 / 0.5);
+    stroke-width: 0.7;
+  }
+}
+
+.look-argola[data-nivel='desconhecida'] .bolinha {
+  background: transparent;
+  box-shadow: none;
+  border: 0.6cqi dashed var(--lapis);
+}
+
+.look-argola.escura {
+  .papel {
+    --linha: rgb(243 236 224 / 0.22);
+    background: var(--paper-grain), var(--c);
+  }
+  .pe {
+    color: rgb(243 236 224 / 0.72);
+  }
+  .subtitulo {
+    color: #a9c6ff;
+  }
+}
+
+/* ——— Selo: picotado, na cor da cartolina, com o carimbo do correio ——— */
+
+.look-selo {
+  --titulo: var(--tinta);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.32)) drop-shadow(0 5px 8px rgb(0 0 0 / 0.28));
+
+  /* o picote: furos nas quatro beiradas, o meio inteiro */
+  .selo {
+    --r: 2.15cqi;
+    --p: 7.4cqi;
+    position: absolute;
+    inset: 0;
+    padding: var(--r);
+    background: var(--paper-grain), #fbf9f2;
+    background-blend-mode: multiply, normal;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      radial-gradient(circle var(--r), #0000 97%, #000) calc(var(--p) / -2) calc(var(--p) / -2) / var(--p) var(--p) round;
+  }
+
+  .campo {
+    position: absolute;
+    inset: 7.4cqi;
+    display: flex;
+    flex-direction: column;
+    padding: 4.5cqi 5cqi 4cqi;
+    background: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.06) 0 0.35cqi, transparent 0.35cqi 1.5cqi), var(--paper-grain), var(--c);
+    background-blend-mode: normal, multiply, normal;
+    outline: 0.5cqi solid color-mix(in oklab, var(--c) 55%, #151515);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 1.8cqi;
+      pointer-events: none;
+      border: 0.3cqi solid color-mix(in oklab, var(--c) 40%, #151515);
+      opacity: 0.55;
+    }
+  }
+
+  .corpo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2.6cqi;
+    padding-top: 3cqi;
+  }
+
+  .imagem {
+    padding: 0;
+    rotate: none;
+    object-fit: cover;
+    box-shadow: 0 0 0 0.5cqi color-mix(in oklab, var(--c) 55%, #151515);
+  }
+
+  /* a legenda do selo, impressa */
+  .subtitulo {
+    padding-top: 2.4cqi;
+    border-top: 0.4cqi solid color-mix(in oklab, var(--c) 45%, #151515);
+    font-family: var(--f-label);
+    font-weight: 600;
+    color: var(--tinta);
+  }
+
+  .emblema {
+    flex: none;
+    margin-top: 2.6cqi;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1.6cqi;
+    color: var(--tinta);
+  }
+
+  .nome {
+    font: 800 max(5.4cqi, 0.5rem) / 1 var(--f-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* o carimbo: a tinta falhada do correio, por cima de tudo */
+  .carimbo {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+    color: #24203a;
+    opacity: 0.8;
+    mix-blend-mode: multiply;
+    mask: var(--tinta-falhada) 0 0 / 60cqi 60cqi;
+
+    &.hoje {
+      color: var(--red-deep);
+      opacity: 0.85;
+    }
+
+    circle,
+    .onda {
+      fill: none;
+      stroke: currentColor;
+    }
+
+    text {
+      fill: currentColor;
+      font-family: var(--f-label);
+      font-weight: 800;
+    }
+  }
+}
+
+/* com o carimbo, o título desce para longe dele */
+.look-selo[data-nivel]:not([data-nivel='desconhecida']) .corpo {
+  padding-top: 15cqi;
+}
+
+.look-selo.escura {
+  .campo {
+    background: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.05) 0 0.35cqi, transparent 0.35cqi 1.5cqi), var(--c);
+    outline-color: rgb(243 236 224 / 0.35);
+
+    &::after {
+      border-color: rgb(243 236 224 / 0.35);
+    }
+  }
+  .subtitulo {
+    border-color: rgb(243 236 224 / 0.3);
+  }
+  .carimbo {
+    color: #efe6d6;
+    mix-blend-mode: normal;
+    opacity: 0.75;
+  }
+}
+
+/* ——— Polaroid: a cartolina é a foto, a margem guarda o subtítulo ——— */
+
+.look-polaroid {
+  .pola {
+    position: absolute;
+    inset: 0;
+    border-radius: 1.4cqi;
+    background: var(--paper-grain), #f5f2eb;
+    background-blend-mode: multiply, normal;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.3),
+      0 6px 12px rgb(0 0 0 / 0.3);
+  }
+
+  .foto-pola {
+    --titulo: var(--tinta);
+    position: absolute;
+    left: 6.5cqi;
+    right: 6.5cqi;
+    top: 6.5cqi;
+    height: 87cqi;
+    overflow: hidden;
+    display: flex;
+    padding: 6cqi;
+    background: var(--c);
+
+    /* o brilho do filme, o vinheteado e a borda da emulsão */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(118deg, rgb(255 255 255 / 0.3) 0%, rgb(255 255 255 / 0.08) 30%, transparent 46%),
+        radial-gradient(ellipse 80% 75% at 50% 46%, transparent 55%, rgb(50 25 5 / 0.24) 100%);
+      box-shadow:
+        inset 0 0 0 0.35cqi rgb(0 0 0 / 0.22),
+        inset 0 0 2.4cqi rgb(0 0 0 / 0.2);
+    }
+
+    &.imagem {
+      padding: 0;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        filter: saturate(1.08) sepia(0.12) contrast(1.04);
+      }
+    }
+  }
+
+  .margem {
+    position: absolute;
+    left: 7cqi;
+    right: 7cqi;
+    top: 96cqi;
+    bottom: 3.6cqi;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6cqi;
+  }
+
+  .subtitulo {
+    flex: 0 1 auto;
+    min-height: 0;
+    color: var(--ink);
+  }
+
+  .espaco {
+    flex: 1;
+  }
+
+  .pe {
+    flex: none;
+    margin: 0;
+    max-width: 100%;
+    font-family: var(--f-hand);
+    font-size: max(5.2cqi, 0.56rem);
+    line-height: 1;
+    color: var(--lapis);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* a fita adesiva estampada, na cor do baralho, com o nome dele */
+  .fita-washi {
+    position: absolute;
+    z-index: 3;
+    top: -3.4cqi;
+    left: 50%;
+    width: 40cqi;
+    height: 10cqi;
+    display: grid;
+    place-items: center;
+    padding: 0 2cqi;
+    translate: -50% 0;
+    rotate: -3.5deg;
+    background:
+      repeating-linear-gradient(-45deg, rgb(255 255 255 / 0.32) 0 1.1cqi, transparent 1.1cqi 2.6cqi),
+      color-mix(in oklab, var(--baralho) 88%, transparent);
+    box-shadow: 0 0.4cqi 0.6cqi rgb(0 0 0 / 0.15);
+
+    span {
+      max-width: 100%;
+      font-family: var(--f-marker);
+      font-size: max(5cqi, 0.56rem);
+      line-height: 1;
+      color: var(--ink);
+      text-transform: lowercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+/* ——— Ingresso: o bilhete na cartolina, com o canhoto do nível e da volta ——— */
+
+.look-ingresso {
+  --titulo: var(--tinta);
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.32)) drop-shadow(0 5px 9px rgb(0 0 0 / 0.3));
+
+  .bilhete {
+    position: absolute;
+    inset: 0;
+    border-radius: 2.6cqi;
+    background: var(--paper-grain), var(--c);
+    background-blend-mode: multiply, normal;
+    color: var(--tinta);
+    /* os dois dentes do picote */
+    mask:
+      radial-gradient(circle 5.2cqi at 0 99cqi, #0000 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 5.2cqi at 100% 99cqi, #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+
+  .principal {
+    position: absolute;
+    left: 4.4cqi;
+    right: 4.4cqi;
+    top: 4.4cqi;
+    height: 89cqi;
+    display: flex;
+    flex-direction: column;
+    padding: 3.4cqi 4.4cqi 4cqi;
+    border: max(1px, 0.55cqi) solid currentColor;
+    border-radius: 1.4cqi;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: 1.1cqi;
+      border: max(1px, 0.25cqi) solid currentColor;
+      border-radius: 0.8cqi;
+      opacity: 0.55;
+      pointer-events: none;
+    }
+  }
+
+  .cab {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 1.5cqi;
+    padding-bottom: 2.6cqi;
+    border-bottom: max(1px, 0.3cqi) dashed currentColor;
+  }
+
+  .nome {
+    flex: 1;
+    min-width: 0;
+    font: 800 max(6cqi, 0.56rem) / 1 var(--f-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .num {
+    font: 700 max(5cqi, 0.5rem) / 1 var(--f-label);
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .corpo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2cqi;
+    padding-top: 3cqi;
+  }
+
+  .imagem {
+    padding: 0;
+    rotate: none;
+    object-fit: cover;
+    border: 0.5cqi solid currentColor;
+    box-shadow: none;
+    filter: grayscale(1) contrast(1.15);
+    mix-blend-mode: multiply;
+  }
+
+  .subtitulo {
+    font-family: var(--f-label);
+    font-weight: 600;
+    color: inherit;
+  }
+
+  .picote {
+    position: absolute;
+    left: 7cqi;
+    right: 7cqi;
+    top: 99cqi;
+    border-top: max(1px, 0.5cqi) dashed currentColor;
+    opacity: 0.6;
+  }
+
+  .canhoto {
+    position: absolute;
+    left: 5cqi;
+    right: 5cqi;
+    top: 103.5cqi;
+    bottom: 4cqi;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
+
+  .campo {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1cqi;
+    padding: 0 2.4cqi;
+    min-width: 0;
+
+    & + .campo {
+      border-left: max(1px, 0.3cqi) dashed currentColor;
+    }
+
+    small {
+      font: 700 max(4.4cqi, 0.46rem) / 1 var(--f-label);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      opacity: 0.85;
+    }
+
+    b {
+      display: flex;
+      align-items: center;
+      gap: 1.4cqi;
+      font: 800 max(7cqi, 0.5rem) / 1 var(--f-label);
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+
+      i {
+        flex: none;
+        width: 3cqi;
+        height: 3cqi;
+        border-radius: 50%;
+        background: var(--lv);
+        box-shadow: 0 0 0 0.4cqi color-mix(in oklab, var(--c) 70%, #fff);
+      }
+
+      &.hoje {
+        color: var(--red-deep);
+      }
+    }
+
+    em {
+      font: 600 max(5cqi, 0.5rem) / 1 var(--f-label);
+      font-style: normal;
+      opacity: 0.9;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+}
+
+.look-ingresso[data-nivel='desconhecida'] .campo b i {
+  display: none;
+}
+
+.look-ingresso.escura {
+  .bilhete {
+    background: var(--c);
+  }
+  .campo b.hoje {
+    color: #ff8f86;
+  }
+}
+
+/* ——— Ficha da biblioteca: manilha, a faixa da cartolina e as datas carimbadas ——— */
+
+.look-biblioteca {
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.3)) drop-shadow(0 5px 9px rgb(0 0 0 / 0.28));
+
+  .ficha {
+    --impresso: #9a3f27;
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--paper-grain), #efe1bd;
+    background-blend-mode: multiply, normal;
+    border-radius: 1.2cqi;
+    /* o canto cortado e o furo da vareta da gaveta do fichário */
+    clip-path: polygon(0 0, calc(100% - 10cqi) 0, 100% 10cqi, 100% 100%, 0 100%);
+    mask: radial-gradient(circle 2.7cqi at 50% 134cqi, #0000 97%, #000);
+  }
+
+  .faixa {
+    flex: none;
+    height: 14cqi;
+    display: flex;
+    align-items: center;
+    gap: 1.6cqi;
+    padding: 0 12cqi 0 5cqi;
+    background: var(--paper-grain), var(--c);
+    background-blend-mode: multiply, normal;
+    color: var(--tinta);
+  }
+
+  .nome {
+    flex: 1;
+    min-width: 0;
+    font: 800 max(6cqi, 0.56rem) / 1 var(--f-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .num {
+    font: 700 max(4.8cqi, 0.5rem) / 1 var(--f-label);
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .corpo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.8cqi;
+    padding: 4cqi 6cqi 3cqi;
+  }
+
+  .imagem {
+    rotate: 2deg;
+  }
+
+  .subtitulo {
+    color: var(--ink);
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+
+  .datas {
+    flex: none;
+    margin: 0 5cqi 9.5cqi;
+    border-top: max(1px, 0.45cqi) solid var(--impresso);
+  }
+
+  .th,
+  .tr {
+    display: grid;
+    grid-template-columns: 1fr 13cqi;
+
+    > * + * {
+      border-left: max(1px, 0.3cqi) solid color-mix(in oklab, var(--impresso) 60%, transparent);
+    }
+  }
+
+  .th span {
+    padding: 1.2cqi 0 1cqi;
+    border-bottom: max(1px, 0.3cqi) solid var(--impresso);
+    font: 700 max(3.7cqi, 0.44rem) / 1 var(--f-label);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-align: center;
+    color: var(--impresso);
+  }
+
+  .tr {
+    height: 8.6cqi;
+    border-bottom: max(1px, 0.25cqi) solid color-mix(in oklab, var(--impresso) 50%, transparent);
+
+    > * {
+      height: 100%;
+      display: grid;
+      place-items: center;
+    }
+  }
+
+  /* a data carimbada, roxa, torta e falhada; a da volta em vermelho */
+  .data {
+    font: 800 max(5.6cqi, 0.5rem) / 1 var(--f-label);
+    letter-spacing: 0.1em;
+    color: var(--roxo-carimbo);
+    rotate: var(--g, 0deg);
+    mask: var(--tinta-falhada) 0 0 / 40cqi 40cqi;
+
+    &.volta {
+      color: var(--red-deep);
+      font-size: max(6cqi, 0.54rem);
+    }
+  }
+
+  .marca svg {
+    width: 5.6cqi;
+    height: 5.6cqi;
+    overflow: visible;
+    fill: none;
+    stroke: var(--lapis);
+    stroke-width: 1.3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .marca.errou svg {
+    stroke: var(--red);
+  }
+
+  .nunca {
+    font-family: var(--f-hand);
+    font-size: max(5cqi, 0.5rem);
+    line-height: 1;
+    color: var(--lapis);
+  }
+}
+
+.look-biblioteca.escura .faixa {
+  background: var(--c);
+}

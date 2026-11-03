@@ -22,7 +22,7 @@
       <div class="area">
       <div class="giro" [class.virada]="revealed()" [class.calma]="calm">
         <div class="face frente" [attr.inert]="revealed() ? '' : null">
-          <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.look.stock" [suit]="c.suit" />
+          <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.look.stock" [deck]="c.deck" />
         </div>
         <!-- o verso: a cartolina da anotação (a cor, o papel e a estampa, sem estrago, mancha nem
              decoração), no formato da carta, com a anotação inteira escrita nela -->

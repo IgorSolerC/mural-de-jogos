@@ -195,11 +195,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     conhece o campo e o jogaria fora ao enviar o calendário, e o lembrete voltaria sem ícone em todo aparelho.
  * 50: os Estudos (`estudos`, só no mural privado, juntados carta a carta e baralho a baralho; ver
  *     PLANO-ESTUDOS.md). Um site antigo enviaria o mural sem eles, e as cartas e o progresso sumiriam da nuvem.
+ * 51: o desenho das cartas de cada baralho dos Estudos (`look` no baralho). Um site da 50 jogaria o campo
+ *     fora ao enviar os Estudos, e o baralho voltaria para a Clássica em todo aparelho.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 50;
+export const SYNC_SCHEMA = 51;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };

@@ -2,11 +2,14 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, comput
 import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
 import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
-import { DECK_NAME_MAX } from '../core/study';
+import { ReviewStore } from '../core/review-store';
+import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLook, frontTitle } from '../core/study';
 import { StudyStore } from '../core/study-store';
+import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
 import { Confirm } from './confirm';
 import { Pin } from './pin';
+import { StudyCard } from './study-card';
 import { Toasts } from './toast';
 
 /** O nome de cada cartolina, para o leitor de tela e a dica. */
@@ -24,13 +27,14 @@ const STOCK_LABEL: Record<LightStock, string> = {
 
 /**
  * Os ajustes de um baralho dos Estudos (o lápis da pasta, e o "+ Novo baralho"): o nome, o ícone e a cor
- * (a do fio da carta de cima da pilha e da orelha da aba), o lugar na fileira e apagar o baralho; a cartela
+ * (a da orelha da aba e do elástico da pilha), o estilo das cartas (cada opção é a primeira carta do baralho
+ * naquele desenho, em miniatura), o lugar na fileira e apagar o baralho; a cartela
  * dos ícones, com mais de cem, fica por último, para não empurrar o resto. A mesma
  * ficha da coluna do Kanban (ui/kanban-column-sheet.ts), com o mesmo desenho; vale na hora.
  */
 @Component({
   selector: 'app-study-deck-sheet',
-  imports: [BackdropClose, IconModule, Pin],
+  imports: [BackdropClose, IconModule, Pin, StudyCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet coluna-ajustes baralho-ajustes" aria-labelledby="ba-titulo" (close)="closed.emit()" (backdropClose)="close()">
@@ -70,6 +74,22 @@ const STOCK_LABEL: Record<LightStock, string> = {
                       <lucide-icon [img]="CheckIcon" [size]="18" aria-hidden="true" />
                     }
                   </button>
+                }
+              </div>
+            </section>
+
+            <section class="grupo" aria-labelledby="ba-estilo-t">
+              <h3 class="grupo-titulo" id="ba-estilo-t">Estilo das cartas</h3>
+              <div class="ops estilos" role="radiogroup" aria-labelledby="ba-estilo-t">
+                @if (sample(); as s) {
+                  @for (l of looks; track l) {
+                    <button type="button" role="radio" class="op estilo" [attr.aria-checked]="current() === l" (click)="setLook(l)">
+                      <span class="miniatura" aria-hidden="true">
+                        <app-study-card [title]="s.title" [subtitle]="s.subtitle" [image]="s.image" [stock]="s.stock" [deck]="d.deck" [look]="l" [face]="s.face" />
+                      </span>
+                      <span class="estilo-nome">{{ lookLabel[l] }}</span>
+                    </button>
+                  }
                 }
               </div>
             </section>
@@ -129,6 +149,50 @@ const STOCK_LABEL: Record<LightStock, string> = {
     .op.sem-icone[aria-checked='true']::before {
       opacity: 1;
     }
+
+    /* o estilo das cartas: a primeira carta do baralho em miniatura (desenhada a 120px e reduzida, para a
+       letra miúda do desenho continuar do tamanho dela), com o nome embaixo; a escolhida, o adesivo de tinta */
+    .estilos {
+      gap: 10px 8px;
+    }
+    .op.estilo {
+      width: 84px;
+      height: auto;
+      padding: 12px 0 6px;
+      gap: 6px;
+      align-content: start;
+    }
+    .miniatura {
+      display: block;
+      width: 66px;
+      height: 92.4px;
+    }
+    .miniatura app-study-card {
+      width: 120px;
+      scale: 0.55;
+      transform-origin: 0 0;
+      pointer-events: none;
+    }
+    .estilo-nome {
+      max-width: 80px;
+      padding: 3px 5px 2px;
+      border-radius: 2px;
+      font: 800 0.72rem / 1.05 var(--f-label);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      text-align: center;
+      text-wrap: balance;
+    }
+    .op.estilo[aria-checked='true'] {
+      outline: 2px solid var(--ink);
+      outline-offset: -2px;
+      background: rgb(21 21 21 / 0.06);
+    }
+    .op.estilo[aria-checked='true'] .estilo-nome {
+      background: var(--ink);
+      color: var(--hi);
+      rotate: -3deg;
+    }
   `,
 })
 export class StudyDeckSheet {
@@ -150,8 +214,11 @@ export class StudyDeckSheet {
   protected readonly stocks = LIGHT_STOCKS;
   protected readonly stockLabel = STOCK_LABEL;
   protected readonly nameMax = DECK_NAME_MAX;
+  protected readonly looks = CARD_LOOKS;
+  protected readonly lookLabel = CARD_LOOK_LABEL;
 
   private readonly study = inject(StudyStore);
+  private readonly store = inject(ReviewStore);
   private readonly confirm = inject(Confirm);
   private readonly toasts = inject(Toasts);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -164,6 +231,27 @@ export class StudyDeckSheet {
     const deck = decks[index];
     const count = this.study.cards().filter((c) => c.decks.includes(deck.id) && this.study.live(c.note)).length;
     return { deck, index, total: decks.length, count };
+  });
+
+  protected readonly current = computed(() => deckLook(this.data()?.deck));
+
+  /** A carta das miniaturas: a primeira do baralho, como ela é; sem nenhuma, o nome do baralho. */
+  protected readonly sample = computed(() => {
+    const d = this.data();
+    if (!d) return null;
+    const card = this.study
+      .cards()
+      .filter((c) => c.decks.includes(d.deck.id) && this.study.live(c.note))
+      .sort((a, b) => a.added.localeCompare(b.added))[0];
+    const note = card ? this.store.get(card.note) : undefined;
+    if (!card || !note) return { title: d.deck.name, subtitle: undefined, image: undefined, stock: d.deck.color, face: null };
+    return {
+      title: frontTitle(card, note.game.name),
+      subtitle: card.front.subtitle,
+      image: card.front.image,
+      stock: pinningFor(note.id, note.stock).stock,
+      face: cardFace(card, this.study.now(), 1),
+    };
   });
 
   constructor() {
@@ -190,6 +278,11 @@ export class StudyDeckSheet {
 
   protected set(patch: { icon?: IconChoice | null; color?: LightStock }): void {
     this.study.updateDeck(this.deckId(), patch);
+  }
+
+  /** A Clássica é o padrão: escolhida, o baralho fica sem o campo. */
+  protected setLook(look: CardLook): void {
+    this.study.updateDeck(this.deckId(), { look: look === 'classica' ? undefined : look });
   }
 
   protected rename(name: string): void {

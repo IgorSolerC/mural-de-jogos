@@ -1,5 +1,6 @@
 import { DEFAULT_FSRS, dayStart, freshSrs, review, studyDay } from './fsrs';
 import {
+  CARD_LOOKS,
   DEFAULT_NEW_PER_DAY,
   MARKS_MAX,
   StudyState,
@@ -7,6 +8,8 @@ import {
   addDeck,
   answer,
   cardDecks,
+  cardFace,
+  deckLook,
   cleanFront,
   emptyStudy,
   frontTitle,
@@ -311,6 +314,52 @@ describe('os Estudos (core/study.ts)', () => {
       const here = answer(base, 'n2', true, new Date(at(10)));
       const there = answer(base, 'n2', false, new Date(at(11)));
       expect(mergeStudy(here, there).cards.find((c) => c.note === 'n2')!.stats.wrong).toBe(1);
+    });
+  });
+
+  describe('o estilo das cartas do baralho', () => {
+    it('sem escolha é a Clássica; os outros nove ficam guardados; a Clássica e o desconhecido não guardam campo', () => {
+      let st = sample();
+      expect(deckLook(st.decks[0])).toBe('classica');
+      expect(CARD_LOOKS[0]).toBe('classica');
+      expect(CARD_LOOKS.length).toBe(10);
+      st = updateDeck(st, 'dkanji', { look: 'selo' }, at(5));
+      expect(st.decks[0].look).toBe('selo');
+      expect(deckLook(st.decks[0])).toBe('selo');
+      // vai e volta da nuvem com o campo
+      expect(sanitizeStudy(JSON.parse(JSON.stringify(studyToSync(st)))).decks[0].look).toBe('selo');
+      st = updateDeck(st, 'dkanji', { look: undefined }, at(6));
+      expect('look' in st.decks[0]).toBeFalse();
+      const raw = JSON.parse(JSON.stringify(studyToSync(sample())));
+      raw.decks[0].look = 'classica';
+      raw.decks[1].look = 'holografica';
+      const back = sanitizeStudy(raw);
+      expect('look' in back.decks[0]).toBeFalse();
+      expect('look' in back.decks[1]).toBeFalse();
+    });
+
+    it('a escolha mais nova vence na junção de dois aparelhos', () => {
+      const base = sample();
+      const here = updateDeck(base, 'dkanji', { look: 'polaroid' }, at(5));
+      const there = updateDeck(base, 'dkanji', { look: 'ingresso' }, at(8));
+      expect(mergeStudy(here, there).decks.find((d) => d.id === 'dkanji')!.look).toBe('ingresso');
+      expect(mergeStudy(there, here).decks.find((d) => d.id === 'dkanji')!.look).toBe('ingresso');
+    });
+
+    it('o progresso da frente: o nível, quando volta, o carimbo do dia (o de hoje na vencida), as respostas e o número', () => {
+      let st = sample();
+      const fresh = cardFace(st.cards[0], new Date(at(10)), 3);
+      expect(fresh).toEqual({ level: 'desconhecida', when: 'agora', stamp: '02 NOV', seen: 0, marks: '', number: 3 });
+      st = answer(st, 'n1', true, new Date(at(10)));
+      const one = cardFace(st.cards[0], new Date(at(10)));
+      expect(one.level).toBe('nova');
+      expect(one.when).toBe('daqui a 10 min');
+      expect(one.marks).toBe('1');
+      expect(one.seen).toBe(1);
+      expect('number' in one).toBeFalse();
+      // vencida há dias: o carimbo diz o dia de hoje
+      const late = cardFace(st.cards[0], new Date('2026-11-20T15:00:00.000Z'));
+      expect(late.stamp).toBe('20 NOV');
     });
   });
 });

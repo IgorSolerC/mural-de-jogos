@@ -99,7 +99,8 @@ export class FlashcardTab {
   }
 
   /** O naipe da carta viva: o ícone do primeiro baralho. */
-  protected readonly suit = computed(() => this.study.deck(this.decks()[0] ?? '')?.icon ?? null);
+  /** O primeiro baralho escolhido: a carta viva no desenho dele. */
+  protected readonly deck = computed(() => this.study.deck(this.decks()[0] ?? '') ?? null);
   protected readonly previewTitle = computed(() => this.title().trim() || this.noteTitle().trim() || 'Sem nome');
 
   /**

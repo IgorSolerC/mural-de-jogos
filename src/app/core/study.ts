@@ -1,4 +1,5 @@
 import { canonicalJson } from './canonical-json';
+import { MONTHS_SHORT } from './dates';
 import { DEFAULT_FSRS, FsrsConfig, Srs, SrsState, daysBetween, freshSrs, review, studyDay } from './fsrs';
 import { IconChoice, isIconChoice } from './icon-choices';
 import { localImageId } from './images';
@@ -45,6 +46,37 @@ export const RETENTION_MAX = 0.95;
 
 export type NewOrder = 'entrada' | 'sorteio';
 
+/**
+ * O desenho da frente das cartas de um baralho (pedido do usuário: "poder escolher por baralho qual vai ser
+ * o estilo do flashcard", com a Clássica de padrão). Cinco releituras da carta de baralho e cinco objetos de
+ * papelaria; a ordem é a da folha do baralho.
+ */
+export const CARD_LOOKS = ['classica', 'faixa', 'cartolina', 'orelha', 'antigo', 'argola', 'selo', 'polaroid', 'ingresso', 'biblioteca'] as const;
+export type CardLook = (typeof CARD_LOOKS)[number];
+export const DEFAULT_CARD_LOOK: CardLook = 'classica';
+
+export const CARD_LOOK_LABEL: Record<CardLook, string> = {
+  classica: 'Clássica',
+  faixa: 'Faixa de cor',
+  cartolina: 'Cartolina inteira',
+  orelha: 'Orelha',
+  antigo: 'Baralho antigo',
+  argola: 'Ficha de argola',
+  selo: 'Selo',
+  polaroid: 'Polaroid',
+  ingresso: 'Ingresso',
+  biblioteca: 'Ficha da biblioteca',
+};
+
+export function isCardLook(v: unknown): v is CardLook {
+  return (CARD_LOOKS as readonly unknown[]).includes(v);
+}
+
+/** O desenho das cartas do baralho (sem o campo, a Clássica). */
+export function deckLook(deck: { look?: CardLook } | null | undefined): CardLook {
+  return deck?.look ?? DEFAULT_CARD_LOOK;
+}
+
 export interface Deck {
   id: string;
   name: string;
@@ -55,6 +87,8 @@ export interface Deck {
   newPerDay: number;
   /** As cartas aparecem no mural de anotações também (sem o campo: só nos Estudos, o padrão; D4). */
   wall?: true;
+  /** O desenho da frente das cartas (sem o campo: a Clássica, o padrão). */
+  look?: Exclude<CardLook, 'classica'>;
   /** A posição na fileira das abas. */
   order: number;
   at: string;
@@ -210,6 +244,7 @@ export function sanitizeDeck(raw: unknown): Deck | null {
     color: LIGHT_STOCKS.includes(r['color'] as LightStock) ? (r['color'] as LightStock) : 'amarelo',
     newPerDay: int(r['newPerDay'], 0, MAX_NEW_PER_DAY, DEFAULT_NEW_PER_DAY),
     ...(r['wall'] === true ? { wall: true as const } : {}),
+    ...(isCardLook(r['look']) && r['look'] !== DEFAULT_CARD_LOOK ? { look: r['look'] as Exclude<CardLook, 'classica'> } : {}),
     order: int(r['order'], 0, MAX_DECKS * 10, 0),
     at: r['at'],
   };
@@ -584,4 +619,34 @@ export function whenLabel(srs: Srs, now: Date): string {
   }
   if (due <= now) return 'agora';
   return `daqui a ${intervalLabel(now, due, false)}`;
+}
+
+/**
+ * O que a frente da carta mostra do progresso, nos desenhos que mostram (o nível, quando volta, o carimbo
+ * da data, as últimas respostas e o número da carta no baralho).
+ */
+export interface CardFace {
+  level: Level;
+  /** As palavras de `whenLabel`. */
+  when: string;
+  /** O dia em que volta, como um carimbo: "06 NOV" (a vencida, o dia de hoje). */
+  stamp: string;
+  seen: number;
+  /** As últimas respostas: '1' acertou, '0' errou. */
+  marks: string;
+  /** A posição da carta no baralho, na ordem em que entrou (1 é a primeira). */
+  number?: number;
+}
+
+export function cardFace(card: Pick<StudyCard, 'srs' | 'stats'>, now: Date, number?: number): CardFace {
+  const due = new Date(card.srs.due);
+  const day = due < now ? now : due;
+  return {
+    level: levelOf(card.srs),
+    when: whenLabel(card.srs, now),
+    stamp: `${String(day.getDate()).padStart(2, '0')} ${MONTHS_SHORT[day.getMonth()].toUpperCase()}`,
+    seen: card.stats.seen,
+    marks: card.stats.marks,
+    ...(number ? { number } : {}),
+  };
 }

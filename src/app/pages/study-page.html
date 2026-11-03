@@ -180,7 +180,7 @@
         @for (c of cards(); track c.note) {
           <li class="carta-li" [style.--inclina]="c.tilt + 'deg'">
             <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta" (click)="open(c.note)">
-              <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [meta]="c.meta" [suit]="d.icon" />
+              <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
             </button>
             <!-- os ajustes da carta: a etiqueta de tinta das fichas do Kanban, no hover -->
             <div class="acoes">
@@ -204,7 +204,7 @@
                 @for (l of layers(d.cards); track l) {
                   <span class="camada" [attr.data-camada]="l"></span>
                 }
-                <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [suit]="d.deck.icon" />
+                <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
                 <span class="elastico"></span>
                 <span class="papelzinho">
                   @if (d.today) {
