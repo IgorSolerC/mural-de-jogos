@@ -13,6 +13,7 @@ import {
   cleanFront,
   emptyStudy,
   frontTitle,
+  keepRicher,
   hitRate,
   intervalLabel,
   levelOf,
@@ -336,6 +337,25 @@ describe('os Estudos (core/study.ts)', () => {
       const back = sanitizeStudy(raw);
       expect('look' in back.decks[0]).toBeFalse();
       expect('look' in back.decks[1]).toBeFalse();
+    });
+
+    it('na mesma hora, vence o baralho com o estilo: o de um site mais velho, que jogou o campo fora, nunca o apaga', () => {
+      const chosen = updateDeck(sample(), 'dkanji', { look: 'selo' }, at(5));
+      // o site mais velho lê, joga fora o campo que não conhece e devolve com a mesma hora
+      const old = { ...chosen, decks: chosen.decks.map(({ look: _, ...d }) => d) };
+      expect(mergeStudy(chosen, old).decks[0].look).toBe('selo');
+      expect(mergeStudy(old, chosen).decks[0].look).toBe('selo');
+      // a outra aba: vale o dela, menos o que voltou na mesma hora com menos campos
+      expect(keepRicher(old, chosen).decks[0].look).toBe('selo');
+      const renamed = updateDeck(old, 'dverbo', { name: 'Verbos do N5' }, at(6));
+      const kept = keepRicher(renamed, chosen);
+      expect(kept.decks.map((d) => [d.name, d.look])).toEqual([
+        ['Kanjis simples', 'selo'],
+        ['Verbos do N5', undefined],
+      ]);
+      // a mudança mais nova da outra aba (voltar para a Clássica) vale
+      const back = updateDeck(chosen, 'dkanji', { look: undefined }, at(7));
+      expect(keepRicher(back, chosen).decks[0].look).toBeUndefined();
     });
 
     it('a escolha mais nova vence na junção de dois aparelhos', () => {

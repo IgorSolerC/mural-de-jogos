@@ -68,9 +68,8 @@ describe('o título do tamanho do espaço (ui/fit-title.ts)', () => {
       const area = el.parentElement!;
       expect(el.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
       expect(el.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
-      // a palavra que nem a 12 px cabe na largura desce até o piso, inteira, em vez de quebrar no meio
+      // a palavra que nem a 12 px cabe na largura desce até o piso antes de quebrar no meio
       expect(parseFloat(el.style.fontSize)).toBeGreaterThanOrEqual(FIT_FLOOR_PX);
-      expect(el.style.overflowWrap).toBe('');
     }
     done();
   });

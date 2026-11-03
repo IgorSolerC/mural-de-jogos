@@ -359,8 +359,31 @@ export function studyToSync(state: StudyState): StudyState | null {
 /** O mais novo de dois; no empate de horário, o maior texto (os dois aparelhos escolhem o mesmo). */
 function newer<T extends { at: string }>(a: T | undefined, b: T): T {
   if (!a || b.at > a.at) return b;
-  if (b.at === a.at && canonicalJson(b) > canonicalJson(a)) return b;
+  if (b.at === a.at && richer(b, a)) return b;
   return a;
+}
+
+/**
+ * Na mesma hora, o de mais campos: o outro veio de um site mais velho, que jogou fora o que não conhece
+ * (o estilo das cartas do baralho) sem mudar a hora. Do mesmo tamanho, o maior texto, para os dois
+ * aparelhos escolherem igual.
+ */
+function richer(a: object, b: object): boolean {
+  const ja = canonicalJson(a);
+  const jb = canonicalJson(b);
+  return ja.length !== jb.length ? ja.length > jb.length : ja > jb;
+}
+
+/**
+ * O que outra aba gravou, no lugar do daqui, menos o baralho ou a carta que voltou com a mesma hora e menos
+ * campos: a aba aberta antes de uma versão nova lê, joga fora o campo que não conhece e grava de volta, e
+ * desfaria na hora o que esta acabou de mudar (o estilo voltava para a Clássica). Fica o daqui.
+ */
+export function keepRicher(next: StudyState, here: StudyState): StudyState {
+  const decks = new Map(here.decks.map((d) => [d.id, d]));
+  const cards = new Map(here.cards.map((c) => [c.note, c]));
+  const keep = <T extends { at: string }>(x: T, mine: T | undefined): T => (mine && mine.at === x.at && richer(mine, x) ? mine : x);
+  return { ...next, decks: next.decks.map((d) => keep(d, decks.get(d.id))), cards: next.cards.map((c) => keep(c, cards.get(c.note))) };
 }
 
 /**

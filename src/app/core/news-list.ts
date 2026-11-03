@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-estudos-titulo-comprido',
+    id: '2026-11-03-estudos-estilo-volta',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
     correcoes: [
       'As abas dos baralhos tinham a letra e a altura diferentes das abas do mural e dos quadros do Kanban; agora são iguais.',
       'A carta com um título muito comprido (o nome de uma anotação longa) cortava a última palavra no meio; agora a letra diminui um pouco mais para ele caber inteiro, e o que nem assim cabe termina em reticências.',
+      'Com outra aba do Murall aberta desde antes da atualização, o estilo escolhido para as cartas voltava na hora para a Clássica; agora fica (e recarregar as outras abas as põe na versão nova).',
     ],
   },
   {

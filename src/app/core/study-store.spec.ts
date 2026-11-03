@@ -79,4 +79,31 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     study.updateFront('nsol', { title: '日' });
     expect(study.cardOf().get('nsol')!.at > a).toBeTrue();
   });
+
+  it('outra aba aberta antes da versão nova devolve o baralho sem o estilo: o daqui fica; sair da conta esvazia', () => {
+    const deck = study.addDeck('Kanjis', 'amarelo');
+    study.updateDeck(deck, { look: 'selo' });
+    TestBed.tick();
+    const tellOtherTab = () => window.dispatchEvent(new StorageEvent('storage', { key: STUDY_KEY, storageArea: localStorage }));
+    // o site mais velho joga fora o campo que não conhece e grava com a mesma hora
+    const saved = JSON.parse(localStorage.getItem(STUDY_KEY)!);
+    delete saved.decks[0].look;
+    localStorage.setItem(STUDY_KEY, JSON.stringify(saved));
+    tellOtherTab();
+    TestBed.tick();
+    expect(study.deck(deck)!.look).toBe('selo');
+    // uma mudança de verdade da outra aba vale
+    saved.decks[0].name = 'Kanjis do N5';
+    saved.decks[0].at = new Date(Date.now() + 60_000).toISOString();
+    localStorage.setItem(STUDY_KEY, JSON.stringify(saved));
+    tellOtherTab();
+    TestBed.tick();
+    expect(study.deck(deck)!.name).toBe('Kanjis do N5');
+    expect(study.deck(deck)!.look).toBeUndefined();
+    // a limpeza do logout tira a chave: esta aba fica sem nada
+    localStorage.removeItem(STUDY_KEY);
+    tellOtherTab();
+    TestBed.tick();
+    expect(study.decks()).toEqual([]);
+  });
 });

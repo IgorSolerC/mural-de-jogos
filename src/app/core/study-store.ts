@@ -12,6 +12,7 @@ import {
   addDeck,
   answer,
   emptyStudy,
+  keepRicher,
   mergeStudy,
   moveDeck,
   removeCard,
@@ -100,7 +101,17 @@ export class StudyStore {
   constructor() {
     effect(() => writeJson(STUDY_KEY, this.state()));
     // outra aba mexeu: esta acompanha, sem gravar o de antes por cima
-    inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, () => this.state.set(read())));
+    inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, () => this.fromOtherTab()));
+  }
+
+  /**
+   * Outra aba gravou: vale o dela, menos o que ela devolveu na mesma hora e com menos campos (ver
+   * `keepRicher`). Igual ao daqui, nada muda e nada é gravado, para as duas abas não ficarem gravando uma
+   * por cima da outra. Sem nada guardado (a limpeza ao sair da conta), fica sem nada.
+   */
+  private fromOtherTab(): void {
+    const next = keepRicher(read(), this.state());
+    if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
   }
 
   tick(): void {
