@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-editor-e-regua-revisao',
+    id: '2026-11-03-alfinete-da-compartilhada',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -57,6 +57,7 @@ export const NEWS: NewsEntry[] = [
       'Desfazer um card sem título e sem nada dentro levava o cursor para o começo do texto; agora ele fica onde o card estava.',
       'Uma anotação com "|" no título aparecia na lista do "[[", e o link escrito abria outra anotação; agora ela fica de fora da lista, como as com colchetes no título.',
       'Na aba Visual, fechar um menu da régua pelo próprio botão, ou a Ajuda pelo X, deixava o texto sem o foco (era preciso tocar nele de novo); agora o foco volta para ele.',
+      'Na ficha de uma anotação compartilhada em que você só lê, o alfinete de fixar no topo não aparecia, embora o menu e a leitura deixassem fixar; agora aparece, como nas outras fichas (fixar é só seu, não muda nada para as outras pessoas).',
     ],
   },
   {

@@ -354,19 +354,21 @@ export const CARD_TEMPLATE = `
     }
     <!-- o alfinete e o check da anotação: duas etiquetas de tinta presas na beirada de cima, que
          aparecem com o mouse em cima da ficha (ou o foco do teclado); no toque, ficam sempre -->
-    @if (canFinish()) {
+    @if (canPin()) {
       <div class="acoes">
-        <button
-          type="button"
-          class="feito"
-          [class.marcado]="!!review().doneAt"
-          [attr.aria-label]="(review().doneAt ? 'Reabrir: ' : 'Finalizar: ') + review().game.name"
-          [title]="review().doneAt ? 'Abrir a anotação de novo' : 'Finalizar a anotação (bate o carimbo)'"
-          (click)="finish()"
-        >
-          <lucide-icon [img]="review().doneAt ? ReopenIcon : FinishIcon" [size]="16" aria-hidden="true" />
-          <span class="acao-nome" aria-hidden="true">{{ review().doneAt ? 'Reabrir' : 'Finalizar' }}</span>
-        </button>
+        @if (canFinish()) {
+          <button
+            type="button"
+            class="feito"
+            [class.marcado]="!!review().doneAt"
+            [attr.aria-label]="(review().doneAt ? 'Reabrir: ' : 'Finalizar: ') + review().game.name"
+            [title]="review().doneAt ? 'Abrir a anotação de novo' : 'Finalizar a anotação (bate o carimbo)'"
+            (click)="finish()"
+          >
+            <lucide-icon [img]="review().doneAt ? ReopenIcon : FinishIcon" [size]="16" aria-hidden="true" />
+            <span class="acao-nome" aria-hidden="true">{{ review().doneAt ? 'Reabrir' : 'Finalizar' }}</span>
+          </button>
+        }
         <button
           type="button"
           class="fixar"
@@ -1841,8 +1843,13 @@ export class ReviewCard {
     const c = checkCount(this.review().text);
     return c.total ? c : null;
   });
-  /** O check e o alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). */
-  protected readonly canFinish = computed(() => this.note() && this.ticks() && !this.preview() && !this.capas());
+  /**
+   * O alfinete da anotação: só no seu mural (e não na ficha de só capa e nome, pequena demais). Fixar é
+   * de cada um: também na compartilhada em que você só lê, como no menu e na leitura.
+   */
+  protected readonly canPin = computed(() => this.note() && this.checkable() && !this.preview() && !this.capas());
+  /** O check da anotação: onde o alfinete está, menos na compartilhada em que você só lê. */
+  protected readonly canFinish = computed(() => this.canPin() && this.ticks());
   protected readonly DoneIcon = ICON.feito;
   protected readonly BoardIcon = ICON.colunas;
   protected readonly StudyIcon = ICON.camadas;
@@ -1870,7 +1877,7 @@ export class ReviewCard {
   protected readonly FinishIcon = ICON.pronto;
   protected readonly ReopenIcon = ICON.recomecar;
   protected togglePin(e: Event): void {
-    if (!this.canFinish()) return;
+    if (!this.canPin()) return;
     const btn = e.currentTarget as HTMLElement;
     const focused = document.activeElement === btn;
     this.notePin.set(this.review().id, this.review().noteRank !== 'fixada');
