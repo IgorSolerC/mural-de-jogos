@@ -4,6 +4,7 @@ import { GapCursor } from 'prosemirror-gapcursor';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { RECORTE_BORDA, RECORTE_FOLGA, areaDesenhada, linhaDeRecorte } from './pecas';
+import { needsWindowFocus } from '../../testing/window-focus.spec';
 import { VisualEditor } from './visual-editor';
 import { EstadoVisual, ImagemVisual } from './visual-api';
 
@@ -321,6 +322,8 @@ describe('os widgets no modo Visual', () => {
     });
 
     it('só com a peça selecionada e a folha no foco, embaixo da linha de recorte', async () => {
+      // os botões aparecem pelo :focus-within da folha
+      needsWindowFocus();
       await make('a\n{{contador: 25/12/2030 | Natal}}\nb');
       view.focus();
       expect(getComputedStyle(controles()).display).toBe('none');

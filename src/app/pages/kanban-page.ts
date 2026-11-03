@@ -690,9 +690,11 @@ export class KanbanPage {
       // a página que cresce ou encolhe em cima do quadro (um aviso que sai) o tira do lugar: a parede
       // de eucatex do véu das beiradas precisa saber onde ele foi parar
       ro.observe(document.documentElement);
+      this.edgeWatch = { ro, q, paused: false };
       onCleanup(() => {
         q.removeEventListener('scroll', schedule);
         ro.disconnect();
+        this.edgeWatch = null;
       });
     });
     effect(() => {
@@ -755,7 +757,13 @@ export class KanbanPage {
     const at = Math.round(q.getBoundingClientRect().top + parseFloat(getComputedStyle(q).paddingTop) - top.getBoundingClientRect().top);
     if (at === this.fitAt) return;
     this.fitAt = at;
+    // a altura nova das colunas muda a do quadro e a da página ainda dentro do aviso do ResizeObserver:
+    // as beiradas, que olham os dois, só saberiam no quadro seguinte, e o navegador acusa isso como erro
+    // ("ResizeObserver loop completed with undelivered notifications"). Elas param de olhar até medir de
+    // novo, no quadro seguinte (ver `measureEdges`).
+    this.pauseEdges();
     this.host.style.setProperty('--kb-topo', `${at}px`);
+    this.scheduleEdges();
   }
 
   private shadeFrame = 0;
@@ -1058,6 +1066,17 @@ export class KanbanPage {
   /** Onde o véu das beiradas foi posto da última vez (para não reescrever o estilo a cada rolagem). */
   private veilAt = '';
 
+  /** O ResizeObserver das beiradas, e se ele parou de olhar o quadro e a página (ver `fitColumns`). */
+  private edgeWatch: { ro: ResizeObserver; q: HTMLElement; paused: boolean } | null = null;
+
+  private pauseEdges(): void {
+    const w = this.edgeWatch;
+    if (!w || w.paused) return;
+    w.paused = true;
+    w.ro.unobserve(w.q);
+    w.ro.unobserve(document.documentElement);
+  }
+
   private scheduleEdges(): void {
     cancelAnimationFrame(this.edgeFrame);
     this.edgeFrame = requestAnimationFrame(() => this.measureEdges());
@@ -1076,6 +1095,12 @@ export class KanbanPage {
   }
 
   private measureEdges(): void {
+    const w = this.edgeWatch;
+    if (w?.paused) {
+      w.paused = false;
+      w.ro.observe(w.q);
+      w.ro.observe(document.documentElement);
+    }
     const q = this.quadro()?.nativeElement;
     let next = NO_EDGES;
     if (q) {

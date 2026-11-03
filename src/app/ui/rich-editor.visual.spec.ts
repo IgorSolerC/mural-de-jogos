@@ -10,6 +10,7 @@ import { CalendarStore } from '../core/calendar-store';
 import { Settings } from '../core/settings';
 import { sanitizeReview } from '../core/review';
 import { Toasts } from './toast';
+import { nextClose } from '../testing/dialog-close.spec';
 
 /**
  * As abas Visual e Markdown do editor (PLANO-EDITOR-VISUAL.md, rodada 2): o jeito dos Ajustes abre
@@ -31,8 +32,9 @@ describe('o editor com o Visual', () => {
   }
 
   afterEach(() => {
-    fixture.destroy();
-    fixture.nativeElement.remove();
+    // o teste do endereço do link (só a função) não monta o editor: na ordem sorteada, pode vir primeiro
+    fixture?.destroy();
+    fixture?.nativeElement.remove();
     localStorage.removeItem('mural-de-jogos:config:v1');
   });
 
@@ -237,10 +239,11 @@ describe('o editor com o Visual', () => {
     grade!.dispatchEvent(new Event('input', { bubbles: true }));
     await settle();
     const salvar = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('dialog.wfolha button')).find((b) => b.textContent!.trim() === 'Salvar a tabela')!;
+    // a tabela entra no texto no `close` da folha, que chega numa tarefa depois (ver dialog-close.spec)
+    const closed = nextClose(fixture.nativeElement.querySelector('dialog.wfolha') as HTMLDialogElement);
     salvar.click();
-    for (let i = 0; i < 100 && fixture.nativeElement.querySelector('dialog.wfolha[open]'); i++) await wait(10);
+    await closed;
     await settle();
-    await wait(30);
     expect(value()).toBe('| A | B |\n| --- | --- |\n| 1 | 20 |\nfim');
     expect(pm().state.selection.$from.parent.type.name).toBe('cabeca');
   });

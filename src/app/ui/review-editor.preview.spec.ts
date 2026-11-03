@@ -18,9 +18,13 @@ function note(text: string): Review {
 
 const frames = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
-/** Espera a rolagem (suave) parar. */
-async function settled(box: HTMLElement): Promise<void> {
+/**
+ * Espera a rolagem (suave) chegar a `there` e parar. Com a máquina ocupada (a suíte inteira), ela pode
+ * começar uns quadros depois: sem esperar o começo, as duas primeiras leituras iguais pareciam o fim.
+ */
+async function settled(box: HTMLElement, there: () => boolean): Promise<void> {
   await frames();
+  for (let i = 0; i < 40 && !there(); i++) await new Promise((r) => setTimeout(r, 60));
   let last = -1;
   for (let i = 0; i < 40 && box.scrollTop !== last; i++) {
     last = box.scrollTop;
@@ -193,7 +197,7 @@ describe('o editor: a prévia reta e a ficha inteira', () => {
     area.focus();
     area.setSelectionRange(area.value.length, area.value.length);
     area.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    await settled(slot);
+    await settled(slot, () => slot.scrollTop > 0);
     const last = card().querySelector<HTMLElement>('[data-l="39"]')!.getBoundingClientRect();
     const view = slot.getBoundingClientRect();
     expect(slot.scrollTop).toBeGreaterThan(0);
@@ -203,7 +207,7 @@ describe('o editor: a prévia reta e a ficha inteira', () => {
     // de volta ao começo: o alto da ficha também
     area.setSelectionRange(0, 0);
     area.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    await settled(slot);
+    await settled(slot, () => slot.scrollTop === 0);
     expect(slot.scrollTop).toBe(0);
   });
 
@@ -223,14 +227,14 @@ describe('o editor: a prévia reta e a ficha inteira', () => {
     const v = (fixture.debugElement.query(By.css('app-visual-editor')).componentInstance as { view: EditorView }).view;
     v.focus();
     v.dispatch(v.state.tr.setSelection(Selection.atEnd(v.state.doc)));
-    await settled(slot);
+    await settled(slot, () => slot.scrollTop > 0);
     const last = card().querySelector<HTMLElement>('[data-l="39"]')!.getBoundingClientRect();
     const view = slot.getBoundingClientRect();
     expect(slot.scrollTop).toBeGreaterThan(0);
     expect(last.top).toBeGreaterThanOrEqual(view.top);
     expect(last.bottom).toBeLessThanOrEqual(view.bottom);
     v.dispatch(v.state.tr.setSelection(Selection.atStart(v.state.doc)));
-    await settled(slot);
+    await settled(slot, () => slot.scrollTop === 0);
     expect(slot.scrollTop).toBe(0);
   });
 });

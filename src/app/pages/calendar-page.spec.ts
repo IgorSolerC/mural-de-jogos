@@ -10,7 +10,7 @@ import { ReviewStore } from '../core/review-store';
 import { Choice, Confirm } from '../ui/confirm';
 import { CalendarPage } from './calendar-page';
 import { GoogleAgenda } from '../core/google-agenda-sync';
-import { closeDialog } from '../testing/dialog-close.spec';
+import { closeDialog, nextClose } from '../testing/dialog-close.spec';
 
 /** A página do Calendário: as três vistas, andar pelos períodos, a folha do lembrete e as anotações anexadas. */
 
@@ -537,7 +537,10 @@ describe('página do Calendário', () => {
       answer = 'secondary';
       $$('.editar')[0].click();
       await settle();
+      // a folha fecha ao apagar: o `close` atrasado fecharia a que abre em seguida (ver dialog-close.spec)
+      const closed = nextClose(sheet()!);
       sheet()!.querySelector<HTMLButtonElement>('.perigo')!.click();
+      await closed;
       await settle();
       expect(calendar.get('rremedio1')!.skip).toEqual(['2026-10-20']);
       expect($$('.lembrete-nome').map(text)).toEqual(['Fazer bolo de aniversário']);

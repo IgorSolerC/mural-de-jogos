@@ -115,6 +115,7 @@
           "builder": "@angular/build:karma",
           "options": {
             "tsConfig": "tsconfig.spec.json",
+            "polyfills": ["src/app/testing/window-focus.spec.ts"],
             "inlineStyleLanguage": "scss",
             "externalDependencies": ["textures/*"],
             "assets": [
