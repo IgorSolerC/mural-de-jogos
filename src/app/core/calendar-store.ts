@@ -58,7 +58,10 @@ export class CalendarStore {
   readonly createdNote = signal<{ token: number; id: string } | null>(null);
   private nextToken = 1;
 
-  /** O dia de hoje, que vira à meia-noite enquanto o site está aberto (ver `tick`). */
+  /**
+   * O dia de hoje, que vira à meia-noite enquanto o site está aberto (ver `tick`): no Calendário e em
+   * todo lugar que o lê (os links de lembrete do texto, os lembretes na leitura, a contagem da barra).
+   */
   readonly today = signal(todayISO());
   /** A hora de agora ('HH:MM'): o lembrete de hoje cujo horário já foi sai riscado. */
   readonly time = signal(nowTime());
@@ -68,10 +71,19 @@ export class CalendarStore {
   constructor() {
     effect(() => writeJson(CALENDAR_KEY, this.state()));
     // outra aba mexeu nos lembretes: esta acompanha, sem gravar os de antes por cima
-    inject(DestroyRef).onDestroy(onOtherTab(CALENDAR_KEY, () => this.state.set(read())));
+    const destroy = inject(DestroyRef);
+    destroy.onDestroy(onOtherTab(CALENDAR_KEY, () => this.state.set(read())));
+    // o dia e a hora andam com o site aberto em qualquer página, não só no Calendário
+    const timer = setInterval(() => this.tick(), 60_000);
+    const onVisible = () => document.visibilityState === 'visible' && this.tick();
+    document.addEventListener('visibilitychange', onVisible);
+    destroy.onDestroy(() => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    });
   }
 
-  /** Confere se o dia (ou o minuto) virou: a página chama de vez em quando e quando a aba volta. */
+  /** Confere se o dia (ou o minuto) virou: a cada minuto e quando a aba volta. */
   tick(): void {
     const day = todayISO();
     if (day !== this.today()) this.today.set(day);

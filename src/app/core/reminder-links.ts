@@ -72,9 +72,11 @@ export interface ReminderOption {
  */
 export function reminderOptions(list: readonly Reminder[], query: string, today: string, now: string, max = 8): ReminderOption[] {
   const q = nameKey(query);
+  // a busca primeiro: o dia que importa (que procura a próxima vez) só dos que ficam
   const found = list
-    .map((r) => ({ r, key: nameKey(r.title), w: whenItMatters(r, today) }))
+    .map((r) => ({ r, key: nameKey(r.title) }))
     .filter((x) => !q || x.key.includes(q))
+    .map((x) => ({ ...x, w: whenItMatters(x.r, today) }))
     .sort((a, b) => (q ? Number(b.key.startsWith(q)) - Number(a.key.startsWith(q)) : 0) || byWhen(a.w, b.w) || a.r.title.localeCompare(b.r.title, 'pt-BR'));
   return found.slice(0, max).map(({ r }) => {
     const info = reminderLinkInfo(r, today, now);

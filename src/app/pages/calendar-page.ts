@@ -265,17 +265,10 @@ export class CalendarPage {
     });
     // ligado, o Google Agenda acompanha o Calendário aberto
     this.google.use();
-    // o dia vira à meia-noite com o site aberto, e ao voltar para a aba
-    const timer = setInterval(() => this.calendar.tick(), 60_000);
-    const onVisible = () => document.visibilityState === 'visible' && this.calendar.tick();
+    // (o dia vira à meia-noite, e o minuto anda, pelo CalendarStore: em todo o site)
     const onKey = (e: KeyboardEvent) => this.onKey(e);
-    document.addEventListener('visibilitychange', onVisible);
     document.addEventListener('keydown', onKey);
-    inject(DestroyRef).onDestroy(() => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-      document.removeEventListener('keydown', onKey);
-    });
+    inject(DestroyRef).onDestroy(() => document.removeEventListener('keydown', onKey));
   }
 
   /** Muda a vista e o dia no endereço (`replace`: sem deixar o passo no Voltar, como o teclado na folha). */

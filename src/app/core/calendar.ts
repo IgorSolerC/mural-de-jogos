@@ -427,28 +427,75 @@ export function occursOn(r: Rule, day: string): boolean {
   }
 }
 
+/** O último dia que as contas alcançam (o ano com quatro algarismos). */
+const LAST_DAY = dayNumber('9999-12-31');
+/** Quantos dias, no máximo, a procura confere (bem mais do que qualquer regra de verdade pede). */
+const MAX_SCAN = 150_000;
+
+/**
+ * Os dias em que a regra pode cair, de `from` em diante e em ordem, pulando os períodos de fora do "a
+ * cada N" em vez de andar dia a dia por eles: no dia (e na semana sem os dias escolhidos), só os dias da
+ * vez; na semana com os dias, os sete dias de cada semana da vez (contada como no `occursOn`); no mês e no
+ * ano, os dias de cada mês da vez. Quem confere o dia é sempre o `occursOn`.
+ */
+function* candidates(r: Rule, from: string): Generator<string> {
+  const n = r.every ?? 1;
+  const first = dayNumber(r.date);
+  const start = Math.max(dayNumber(from), first);
+  if (r.repeat === 'dia' || (r.repeat === 'semana' && !r.days?.length)) {
+    const step = r.repeat === 'dia' ? n : 7 * n;
+    for (let d = first + Math.ceil((start - first) / step) * step; d <= LAST_DAY; d += step) yield dayFromNumber(d);
+    return;
+  }
+  if (r.repeat === 'semana') {
+    // a semana `w` vai do dia 7w − offset ao 7w − offset + 6 (ver `weekIndex`)
+    const offset = r.weekStart === 0 ? 4 : 3;
+    const w0 = Math.floor((first + offset) / 7);
+    for (let w = w0 + Math.ceil((Math.floor((start + offset) / 7) - w0) / n) * n; ; w += n) {
+      const begin = 7 * w - offset;
+      for (let d = Math.max(begin, start); d < begin + 7; d++) {
+        if (d > LAST_DAY) return;
+        yield dayFromNumber(d);
+      }
+    }
+  }
+  if (r.repeat === 'mes' || r.repeat === 'ano') {
+    const [ay, am] = parts(r.date);
+    const [fy, fm] = parts(dayFromNumber(start));
+    const step = r.repeat === 'mes' ? n : 12 * n;
+    const m0 = ay * 12 + am - 1;
+    for (let total = m0 + Math.ceil((fy * 12 + fm - 1 - m0) / step) * step; ; total += step) {
+      const y = Math.floor(total / 12);
+      const m = (total % 12) + 1;
+      if (y > 9999) return;
+      const begin = dayNumber(`${y}-${pad(m)}-01`);
+      for (let d = Math.max(begin, start); d < begin + daysInMonth(y, m); d++) yield dayFromNumber(d);
+    }
+  }
+}
+
 /** A próxima vez dele a partir do dia (o próprio dia vale), ou null se não há mais. */
 export function nextOccurrence(r: Rule, from: string): string | null {
   if (!r.repeat) return r.date >= from && !r.skip.includes(r.date) ? r.date : null;
-  let day = from < r.date ? r.date : from;
-  // o que mais demora é o 29 de fevereiro só nos bissextos (quatro anos, ou mais com o intervalo) e os dias pulados depois dele
-  const limit = Math.min(9 * 366 * (r.every ?? 1), 40 * 366);
-  for (let i = 0; i < limit; i++, day = addDays(day, 1)) {
-    if (r.until && day > r.until) return null;
+  let seen = 0;
+  for (const day of candidates(r, from)) {
+    if ((r.until && day > r.until) || ++seen > MAX_SCAN) return null;
     if (occursOn(r, day)) return day;
   }
   return null;
 }
 
 /**
- * O dia da última de `count` vezes ("depois de 10 vezes"), ou null se elas não cabem em 40 anos. Os
+ * O dia da última de `count` vezes ("depois de 10 vezes"), ou null se elas não cabem até o ano 9999. Os
  * dias tirados contam, como no Google (tirar uma vez não empurra o fim).
  */
 export function countEnd(r: Omit<Rule, 'skip' | 'until'>, count: number): string | null {
+  if (!r.repeat) return count === 1 ? r.date : null;
   const probe: Rule = { ...r, skip: [], until: undefined };
   let seen = 0;
-  let day = r.date;
-  for (let i = 0; i < 40 * 366; i++, day = addDays(day, 1)) {
+  let checked = 0;
+  for (const day of candidates(probe, r.date)) {
+    if (++checked > MAX_SCAN) return null;
     if (occursOn(probe, day) && ++seen === count) return day;
   }
   return null;
@@ -564,7 +611,8 @@ export function isPast(r: Pick<Reminder, 'time'> & Partial<Reminder>, day: strin
   if (day !== today) return day < today;
   // vários dias: hoje só passa no último dia, quando a hora do fim já foi
   if (r.date && r.end && spanOf({ date: r.date, end: r.end }) > 1) {
-    const seg = segmentOn({ date: r.date, end: r.end, repeat: r.repeat, skip: r.skip ?? [], every: r.every, days: r.days, until: r.until }, day);
+    // a regra inteira (a vez no mês, o só nos meses com o dia, a semana do domingo): sem ela, o occursOn acharia outra vez
+    const seg = segmentOn({ ...r, date: r.date, skip: r.skip ?? [] }, day);
     return !!seg?.last && !!r.endTime && r.endTime < now;
   }
   return !!r.time && r.time < now;

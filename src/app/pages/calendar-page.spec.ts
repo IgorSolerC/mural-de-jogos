@@ -554,4 +554,61 @@ describe('página do Calendário', () => {
       expect(calendar.state().removed['rbolo0001']).toBeDefined();
     });
   });
+  describe('revisão', () => {
+    function type(input: HTMLInputElement, value: string): void {
+      input.value = value;
+      input.dispatchEvent(new Event('input'));
+    }
+
+    it('Home no domingo escolhido fica nele; a seta do mês depois não puxa o foco para a folha', async () => {
+      await go('/utilidades/calendario');
+      cell(HOJE).focus();
+      cell(HOJE).dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      await settle();
+      expect(document.activeElement).toBe(cell(HOJE));
+      const next = $<HTMLButtonElement>('[aria-label="Próximo mês"]')!;
+      next.focus();
+      next.click();
+      await settle();
+      expect(text($('.periodo'))).toBe('Novembro de 2026');
+      expect(document.activeElement).toBe(next);
+    });
+
+    it('a folha de um lembrete novo não perde o que foi escrito quando os lembretes mudam (a nuvem, o Google, outra aba)', async () => {
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-22');
+      calendar.ask();
+      await settle();
+      const s = sheet()!;
+      type(s.querySelector<HTMLInputElement>('.nome input')!, 'Pagar a conta');
+      await settle();
+      calendar.merge({ removed: {}, reminders: [reminder('routro001', 'Outro', '2026-10-30', { createdAt: '2026-10-11T00:00:00.000Z', at: '2026-10-11T00:00:00.000Z' })] });
+      await settle();
+      expect(calendar.get('routro001')).toBeDefined();
+      expect(s.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Pagar a conta');
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      expect(calendar.reminders().find((r) => r.title === 'Pagar a conta')?.date).toBe('2026-10-22');
+    });
+
+    it('salvar a folha não desfaz o dia tirado nem a ligação com o Google que mudaram com ela aberta', async () => {
+      calendar.state.update((st) => ({ ...st, reminders: st.reminders.map((r) => (r.id === 'rremedio1' ? { ...r, google: { id: 'evremedio1', etag: 'v1', at: T0 } } : r)) }));
+      await go('/utilidades/calendario?vista=dia&dia=2026-10-20');
+      $$('.editar')[0].click();
+      await settle();
+      const s = sheet()!;
+      expect(s.querySelector<HTMLInputElement>('.nome input')!.value).toBe('Tomar o remédio');
+      // com a folha aberta: um pedido da API tira o dia 25, e o Google devolve o evento com a versão nova
+      calendar.skipDay('rremedio1', '2026-10-25');
+      calendar.linkGoogle('rremedio1', { id: 'evremedio1', etag: 'v2' }, calendar.get('rremedio1')!.at);
+      await settle();
+      type(s.querySelector<HTMLInputElement>('.nome input')!, 'Tomar o remédio da pressão');
+      s.querySelector<HTMLButtonElement>('.btn-ink')!.click();
+      await settle();
+      const r = calendar.get('rremedio1')!;
+      expect(r.title).toBe('Tomar o remédio da pressão');
+      expect(r.skip).toEqual(['2026-10-25']);
+      expect(r.google?.etag).toBe('v2');
+      expect(r.google?.at).not.toBe(r.at);
+    });
+  });
 });

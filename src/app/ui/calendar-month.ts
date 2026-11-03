@@ -587,6 +587,12 @@ export class CalendarMonth {
     }
     if (!to) return;
     e.preventDefault();
+    // o dia não muda (Home no domingo, End no sábado): o foco vai já, sem esperar uma mudança que não vem
+    // (a marca ficaria esperando e roubaria o foco na próxima mudança de dia, a de uma seta do mês)
+    if (to === this.day()) {
+      this.host.querySelector<HTMLElement>(`[data-dia="${to}"]`)?.focus();
+      return;
+    }
     this.follow = true;
     this.moved.emit(to);
   }

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-kanban-regras',
+    id: '2026-11-03-calendario-revisao',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -70,6 +70,12 @@ export const NEWS: NewsEntry[] = [
       'No Kanban, uma anotação marcada com Ctrl+clique que saía do quadro (por outro aparelho ou pela API) continuava marcada e ia na cópia; agora sai das marcas. E o Esc que fecha a tira das dependências não desmarca mais as marcadas.',
       'Com uma dependência apagada, o editor mostrava a linha "Depende de" vazia, e ela ocupava o lugar de uma nova no limite (a nova sumia); agora a apagada não conta, e sai quando você muda as dependências.',
       'Com o quadro no limite de anotações, a anotação de fora levada para a coluna que finaliza era finalizada sem entrar no quadro; agora nada muda. O bilhete de uma só anotação levada dizia "1 anotações", e repetir as mesmas tags na folha mudava a hora da anotação (e a ordem por alteração); agora não.',
+      'Com o site aberto fora do Calendário (no mural, na leitura de uma anotação), os links de lembrete do texto e os lembretes da anotação não viravam o dia à meia-noite nem riscavam o que já tinha passado; agora acompanham o relógio em qualquer página.',
+      'A folha de um lembrete novo perdia o que você já tinha escrito quando os lembretes mudavam com ela aberta (chegando da nuvem, do Google Agenda ou de outra aba); agora fica.',
+      'Salvar um lembrete com a folha aberta desde antes de um "Apagar só neste dia" feito em outro aparelho, pela API ou no Google Agenda trazia o dia de volta; agora o dia tirado continua tirado.',
+      'Um lembrete de vários dias que se repete numa vez do mês ("toda primeira segunda") ou a cada 2 semanas com a semana começando no domingo não saía riscado no último dia, depois da hora do fim; agora sai.',
+      'Um lembrete que se repete a cada muitos anos (a cada 50 anos, ou o 29 de fevereiro só nos bissextos a cada 25) aparecia como já passado, e o "Depois de" com mais de 40 anos de vezes (todo mês, 999 vezes) voltava para "Nunca"; agora a conta vai até a última vez.',
+      'No mês, Home num domingo já escolhido (ou End num sábado) fazia o foco pular para a folha na próxima troca de mês pelas setas; agora o foco fica onde você está.',
     ],
   },
   {
