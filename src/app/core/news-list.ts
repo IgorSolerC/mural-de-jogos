@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-03-estudos-pasta',
+    version: '1.37.2',
+    kind: 'ajustes',
+    date: '2026-11-03',
+    title: 'A pasta dos Estudos e as abas dos baralhos',
+    melhorias: [
+      'A pasta dos Estudos ficou como a dos Gastos e a do Kanban: quantas cartas para hoje a pincel, os três montes e o Estudar com o traço de marca-texto, os controles impressos em tinta na ponta e, depois do picote, a busca, o Nível e o Ordenar impressos, como o Ordenar do mural.',
+    ],
+    correcoes: ['As abas dos baralhos tinham a letra e a altura diferentes das abas do mural e dos quadros do Kanban; agora são iguais.'],
+  },
+  {
     id: '2026-11-02-estudos-configuracoes',
     version: '1.37.1',
     kind: 'ajustes',

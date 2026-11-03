@@ -142,15 +142,9 @@
   @include div.aba-de-grupo('.on', '.rotulo', '.aba-n');
 }
 
-.rotulo {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-
-  lucide-icon {
-    flex: none;
-    display: inline-flex;
-  }
+/* o nome do baralho, com o ícone dele (app-cat-label) ou só o nome: o mesmo das abas do mural e do Kanban */
+.rotulo-cat {
+  @include div.rotulo-de-grupo;
 }
 
 .rotulo-nome {
@@ -188,45 +182,24 @@
   }
 }
 
-/* ===== A pasta: quantas para hoje e, num baralho, a busca, o nível e a ordem ===== */
-.linha-estudo {
-  flex-wrap: wrap;
-  align-items: center;
-
-  .pasta-controles {
-    flex: none;
-    align-self: flex-start;
-  }
-}
-
+/* ===== A pasta: quantas para hoje (o título, a pincel, como o mês dos Gastos), os montes e os controles
+   de tinta; depois do picote, num baralho, a busca e os campos impressos (as regras da .pasta em styles.scss) ===== */
 .hoje {
   flex: 1 1 auto;
-  align-items: center;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px 18px;
+  gap: 4px 18px;
   min-width: 0;
 }
 
-/* o número impresso grande, como o saldo dos Gastos */
 .hoje-n {
   margin: 0;
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 1.05rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-
-  strong {
-    margin-right: 4px;
-    font-weight: 800;
-    font-style: italic;
-    font-size: 2.3rem;
-    line-height: 1;
-    letter-spacing: 0;
-    font-variant-numeric: tabular-nums;
-  }
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 /* os três montes, cada um com o selo da tinta dele (as do Anki: azul, laranja, verde, na papelaria) */
@@ -252,6 +225,10 @@
   font-variant-numeric: tabular-nums;
 }
 
+.monte {
+  opacity: 0.85;
+}
+
 .selo {
   flex: none;
   width: 9px;
@@ -273,72 +250,46 @@
   --monte: #0d6b3c;
 }
 
-.papel {
-  @include kit.botao-papel;
-}
-
-/* o play: o botão de tinta, logo depois dos montes (e o Estudar adiantado, de papel) */
-.estudar,
-.adiantado {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-
-  lucide-icon {
-    display: inline-flex;
-  }
+/* o Estudar: o traço de marca-texto sempre à mostra, como o Este mês dos Gastos (o que mais se aperta aqui) */
+.pasta .estudar::before {
+  opacity: 1;
+  scale: 1 1;
 }
 
 .em-dia {
   margin: 0;
   font-family: var(--f-hand);
-  font-size: 1.15rem;
+  font-size: 1.12rem;
   line-height: 1.35;
 }
 
-.filtros {
-  flex-wrap: wrap;
-  gap: 10px;
+/* depois do picote, como os filtros ligados do Kanban */
+.pasta .filtros {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--picote);
 }
 
-.pasta-busca {
-  flex: 1 1 260px;
-}
-
-/* o nível e a ordem: a lista do aparelho sobre a tira impressa */
-.escolha {
-  @include kit.campo;
-  position: relative;
-  flex: 0 1 220px;
-  padding-right: 34px;
-
-  select {
-    flex: 1;
-    min-width: 0;
-    height: 48px;
-    border: 0;
-    background: transparent;
-    appearance: none;
-    color: var(--ink);
-    color-scheme: light;
-    font-family: var(--f-ui);
-    font-size: 1rem;
-    cursor: pointer;
-    outline: none;
+/* no celular, o Estudar fica ao lado do título e os montes descem para a linha de baixo */
+@media (max-width: 720px) {
+  .hoje {
+    flex-basis: 100%;
+    align-items: center;
+    justify-content: space-between;
   }
 
-  /* a setinha */
-  &::after {
-    content: '';
-    position: absolute;
-    right: 15px;
-    top: calc(50% - 5px);
-    width: 7px;
-    height: 7px;
-    border-right: 2px solid var(--ink);
-    border-bottom: 2px solid var(--ink);
-    rotate: 45deg;
-    pointer-events: none;
+  .montes {
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .hoje-n {
+    font-size: 1.32rem;
+  }
+
+  .pasta-busca {
+    flex-basis: 100%;
+    max-width: none;
   }
 }
 

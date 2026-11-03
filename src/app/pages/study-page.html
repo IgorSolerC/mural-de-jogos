@@ -32,10 +32,7 @@
     <ul class="abas">
       <li>
         <a class="aba" [routerLink]="studyPath()" [class.on]="!deck()" [attr.aria-current]="!deck() ? 'page' : null">
-          <span class="rotulo">
-            <lucide-icon [img]="AllIcon" [size]="15" aria-hidden="true" />
-            <span class="rotulo-nome">Tudo</span>
-          </span>
+          <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
         </a>
       </li>
       @for (d of decks(); track d.deck.id) {
@@ -48,12 +45,12 @@
             [attr.aria-current]="deck()?.id === d.deck.id ? 'page' : null"
             [title]="d.deck.name"
           >
-            <span class="rotulo">
-              @if (d.deck.icon) {
-                <lucide-icon [img]="iconOf[d.deck.icon]" [size]="15" aria-hidden="true" />
-              }
-              <span class="rotulo-nome">{{ d.deck.name }}</span>
-            </span>
+            <!-- o mesmo rótulo das abas do mural e dos quadros do Kanban; sem ícone, só o nome -->
+            @if (d.deck.icon) {
+              <app-cat-label class="rotulo-cat" [label]="d.deck.name" [glyph]="iconOf[d.deck.icon]" [iconSize]="15" />
+            } @else {
+              <span class="rotulo-cat rotulo-nome">{{ d.deck.name }}</span>
+            }
             @if (d.today) {
               <span class="aba-n"><span class="sr-only">, </span>{{ d.today }}<span class="sr-only"> para hoje</span></span>
             }
@@ -69,19 +66,21 @@
     </ul>
   </nav>
 
-  <!-- a pasta: a linha de estudo (quantas para hoje) e, num baralho, a busca, o nível, a ordem e o lápis -->
+  <!-- a pasta, como a dos Gastos e a do Kanban: em cima, quantas para hoje (o título da pasta, a pincel), os
+       montes e o Estudar, e os controles impressos em tinta; depois do picote, num baralho, a busca, o nível e a ordem -->
   <div class="pasta">
     <div class="pasta-linha linha-estudo">
       <div class="hoje" aria-live="polite">
         @if (lineTotal()) {
-          <p class="hoje-n"><strong>{{ lineTotal() }}</strong> para hoje</p>
+          <h2 class="hoje-n">{{ lineTotal() }} para hoje</h2>
           <ul class="montes" aria-label="Para hoje">
             <li class="monte" data-monte="novas"><span class="selo" aria-hidden="true"></span>{{ line().novas }} {{ line().novas === 1 ? "nova" : "novas" }}</li>
             <li class="monte" data-monte="aprender"><span class="selo" aria-hidden="true"></span>{{ line().aprender }} aprendendo</li>
             <li class="monte" data-monte="revisar"><span class="selo" aria-hidden="true"></span>{{ line().revisar }} {{ line().revisar === 1 ? "revisão" : "revisões" }}</li>
           </ul>
-          <!-- o play do baralho, como no Anki: a sessão de estudo -->
-          <button type="button" class="btn-ink estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null })">
+          <!-- o play do baralho, como no Anki: a sessão de estudo, logo depois dos montes, com o traço de
+               marca-texto sempre à mostra (como o Este mês dos Gastos) -->
+          <button type="button" class="tinta estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null })">
             <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
             {{ deck() ? "Estudar" : "Estudar tudo" }}
           </button>
@@ -96,8 +95,8 @@
           </p>
           <!-- sem nada para hoje: as revisões de amanhã, antes (o "estudar adiantado" do Anki) -->
           @if (tomorrow()) {
-            <button type="button" class="papel adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, ahead: true })">
-              <lucide-icon [img]="PlayIcon" [size]="16" aria-hidden="true" />
+            <button type="button" class="tinta adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, ahead: true })">
+              <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
               Estudar adiantado
             </button>
           }
@@ -105,24 +104,25 @@
       </div>
       <div class="pasta-controles">
         @if (deck(); as d) {
-          <div class="pasta-grupo poe-cartas">
+          <div class="pasta-grupo poe-cartas" role="group" aria-label="Cartas">
             <button type="button" class="tinta" (click)="newCard(d.id)">
-              <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
+              <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
               Nova carta
             </button>
             <button type="button" class="tinta" aria-haspopup="dialog" (click)="picking.set(true)">
-              <lucide-icon [img]="BringIcon" [size]="17" aria-hidden="true" />
+              <lucide-icon [img]="BringIcon" [size]="18" aria-hidden="true" />
               Trazer anotações
             </button>
           </div>
-          <div class="pasta-grupo">
+        }
+        <!-- o lápis do baralho e as configurações dos Estudos (todos os baralhos: a mesma folha das do mural e
+             do Kanban), na ponta -->
+        <div class="pasta-grupo">
+          @if (deck(); as d) {
             <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
               <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
             </button>
-          </div>
-        }
-        <!-- as configurações dos Estudos (todos os baralhos): a mesma folha das do mural e do Kanban, na ponta -->
-        <div class="pasta-grupo">
+          }
           <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Configurações dos estudos" title="Configurações dos estudos" [attr.aria-expanded]="config()" (click)="config.set(true)">
             <lucide-icon [img]="GearIcon" [size]="18" aria-hidden="true" />
           </button>
@@ -130,25 +130,36 @@
       </div>
     </div>
     @if (deck() && deckSize()) {
+      <!-- depois do picote: a busca e, como o Ordenar do mural, o nível e a ordem impressos -->
       <div class="pasta-linha filtros">
         <app-search-strip class="pasta-busca" inputId="busca-cartas" [glued]="true" label="Procurar nas cartas" placeholder="Procurar nas cartas…" [value]="query()" (valueChange)="query.set($event)" />
-        <label class="escolha">
-          <span class="sr-only">Nível</span>
-          <select [value]="level()" (change)="level.set($any($event.target).value)">
-            <option value="">Todos os níveis</option>
-            @for (l of levels; track l) {
-              <option [value]="l">{{ levelPlural[l] }}</option>
-            }
-          </select>
-        </label>
-        <label class="escolha">
-          <span class="sr-only">Ordem</span>
-          <select [value]="sort()" (change)="sort.set($any($event.target).value)">
-            @for (s of sorts; track s.id) {
-              <option [value]="s.id">{{ s.label }}</option>
-            }
-          </select>
-        </label>
+        <div class="pasta-controles">
+          <div class="pasta-grupo">
+            <label class="tinta campo escolha">
+              <span class="campo-pre">Nível</span>
+              <span class="campo-val" aria-hidden="true">{{ levelLabel() }}</span>
+              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+              <select aria-label="Nível" [value]="level()" (change)="level.set($any($event.target).value)">
+                <option value="" [selected]="!level()">Todos os níveis</option>
+                @for (l of levels; track l) {
+                  <option [value]="l" [selected]="l === level()">{{ levelPlural[l] }}</option>
+                }
+              </select>
+            </label>
+          </div>
+          <div class="pasta-grupo">
+            <label class="tinta campo escolha">
+              <span class="campo-pre">Ordenar</span>
+              <span class="campo-val" aria-hidden="true">{{ sortLabel() }}</span>
+              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+              <select aria-label="Ordenar por" [value]="sort()" (change)="sort.set($any($event.target).value)">
+                @for (s of sorts; track s.id) {
+                  <option [value]="s.id" [selected]="s.id === sort()">{{ s.label }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        </div>
       </div>
     }
   </div>

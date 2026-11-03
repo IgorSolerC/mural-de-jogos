@@ -21,6 +21,7 @@ import { StudyCardSheet } from '../ui/study-card-sheet';
 import { StudySession } from '../ui/study-session';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
+import { CategoryLabel } from '../ui/category-label';
 import { Toasts } from '../ui/toast';
 import { NOTES } from '../core/kinds';
 
@@ -77,7 +78,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig],
+  imports: [CardPicker, CategoryLabel, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -96,6 +97,7 @@ export class StudyPage {
   protected readonly PlayIcon = ICON.estudar;
   protected readonly GearIcon = ICON.configurar;
   protected readonly BringIcon = ICON.buscar;
+  protected readonly ChevronIcon = ICON.abrir;
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly sorts = SORTS;
@@ -119,6 +121,12 @@ export class StudyPage {
   protected readonly query = signal('');
   protected readonly level = signal<Level | ''>('');
   protected readonly sort = signal<SortId>('proxima');
+  /** O que os campos impressos da pasta dizem: o nível e a ordem escolhidos. */
+  protected readonly levelLabel = computed(() => {
+    const l = this.level();
+    return l ? LEVEL_PLURAL[l] : 'Todos';
+  });
+  protected readonly sortLabel = computed(() => SORTS.find((s) => s.id === this.sort())!.label);
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
   /** A sessão de estudo aberta: de um baralho, ou de todos (null). */
