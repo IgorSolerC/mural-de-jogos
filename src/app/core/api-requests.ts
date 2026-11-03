@@ -37,7 +37,7 @@ import { BUILD } from './build';
 import { CloudAccount } from './cloud-account';
 import { DataKey, LocalData } from './local-data';
 import { commonPairs } from './merge3';
-import { cleanCategory, cleanSubject, sanitizeTags } from './note-labels';
+import { cleanCategory, cleanNewCategory, cleanSubject, sanitizeTags } from './note-labels';
 import { relinkAfterRename } from './note-links';
 import { Kind, PickedGame, Review, audienceFields, formatReviewDateLong, isNote, sanitizeReview, storedNote, todayISO, withDone, withPin } from './review';
 import { ReviewStore } from './review-store';
@@ -129,7 +129,8 @@ function spelled(existing: Iterable<string | undefined>, raw: string, clean: (s:
 function labels(notes: readonly Review[], c: CamposDaNota): Partial<Pick<Review, 'category' | 'subject' | 'tags'>> & { clear: ('category' | 'subject')[] } {
   const out: Partial<Pick<Review, 'category' | 'subject' | 'tags'>> & { clear: ('category' | 'subject')[] } = { clear: [] };
   if (c.grupo !== undefined) {
-    const v = c.grupo ? spelled(notes.map((n) => n.category), c.grupo, cleanCategory) : '';
+    // o grupo novo vem sem o "#" da frente (ver `cleanNewCategory`); só "#" não vira "sem grupo"
+    const v = c.grupo ? spelled(notes.map((n) => n.category), c.grupo, (x) => cleanNewCategory(x) || cleanCategory(x)) : '';
     if (v) out.category = v;
     else out.clear.push('category');
   }

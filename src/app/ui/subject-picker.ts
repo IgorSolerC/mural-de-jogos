@@ -8,7 +8,7 @@ import { roveRadios } from './focus';
  * O assunto da anotação (no editor, a parte Assunto; na folha do quadro, a linha Assunto): os assuntos
  * do grupo dela, impressos em tinta como no filtro da pasta (o escolhido com o traço de marca-texto), e
  * a busca que filtra e cria. Um só: tocar escolhe; "Sem assunto" tira. Os assuntos são do grupo (os
- * criados nas configurações do mural primeiro, depois os usados; ver `subjectLibrary`).
+ * criados nas configurações do mural e os usados, de A a Z; ver `subjectLibrary`).
  */
 @Component({
   selector: 'app-subject-picker',

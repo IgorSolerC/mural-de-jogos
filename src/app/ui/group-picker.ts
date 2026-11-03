@@ -1,13 +1,11 @@
 import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
 import { Bonus, fold } from '../core/review';
-import { LABEL_MAX, cleanCategory } from '../core/note-labels';
+import { LABEL_MAX, cleanNewCategory } from '../core/note-labels';
 import { categoryColorHex } from '../core/category-looks';
 import { Settings } from '../core/settings';
 import { CategoryLabel } from './category-label';
 import { roveRadios } from './focus';
-
-let uid = 0;
 
 /**
  * O grupo da anotação, no editor (a parte Grupo): as orelhas dos grupos, como saem da ficha no mural,
@@ -23,7 +21,6 @@ let uid = 0;
       <lucide-icon class="lupa" [img]="SearchIcon" [size]="18" aria-hidden="true" />
       <span class="sr-only">Buscar ou criar grupo</span>
       <input
-        #busca
         type="text"
         autocomplete="off"
         enterkeyhint="done"
@@ -60,7 +57,6 @@ export class GroupPicker {
   /** Os grupos à mão (a cartela pronta e os escritos nas outras anotações; ver `categoryLibrary`). */
   readonly categories = input<readonly Bonus[]>([]);
 
-  protected readonly id = `grupo-${++uid}`;
   protected readonly max = LABEL_MAX;
   protected readonly SearchIcon = ICON.buscar;
   protected readonly PlusIcon = ICON.adicionar;
@@ -72,7 +68,8 @@ export class GroupPicker {
     const chosen = this.category();
     const all = new Map<string, string>();
     for (const label of [...(chosen ? [chosen] : []), ...this.categories().map((b) => b.label)]) if (!all.has(fold(label))) all.set(fold(label), label);
-    const q = fold(cleanCategory(this.query()));
+    // a busca como o nome do grupo novo, sem o "#" da frente: "#trab" acha o Trabalho em vez de oferecer criar
+    const q = fold(cleanNewCategory(this.query()));
     let list = [...all.entries()];
     if (q) list = [...list.filter(([k]) => k.startsWith(q)), ...list.filter(([k]) => !k.startsWith(q) && k.includes(q))];
     // lido aqui para a lista acompanhar a cor trocada nas configurações
@@ -85,13 +82,14 @@ export class GroupPicker {
 
   /** O escrito, quando ainda não é nenhum grupo: "Criar “Viagens”". */
   protected readonly fresh = computed(() => {
-    const name = cleanCategory(this.query());
+    const name = cleanNewCategory(this.query());
     return name && !this.shown().some((g) => g.key === fold(name)) ? name : null;
   });
 
   /** Enter: o primeiro que bate com a busca, ou o grupo novo. */
   protected enter(): void {
-    const first = this.query().trim() ? this.shown()[0] : null;
+    // só "#" não é busca: a lista inteira, e o primeiro seria um grupo qualquer
+    const first = cleanNewCategory(this.query()) ? this.shown()[0] : null;
     const name = first?.label ?? this.fresh();
     if (name) this.choose(name);
   }

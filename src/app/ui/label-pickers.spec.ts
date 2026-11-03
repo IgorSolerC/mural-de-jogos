@@ -1,0 +1,75 @@
+import { provideZonelessChangeDetection } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { categoryBonus } from '../core/note-labels';
+import { GroupPicker } from './group-picker';
+import { TagPicker } from './tag-picker';
+
+/** As partes Grupo e Tags do editor: a busca que filtra, cria e, com Enter, escolhe. */
+
+async function type(fixture: ComponentFixture<unknown>, text: string, enter = true): Promise<void> {
+  const field = (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input')!;
+  field.value = text;
+  field.dispatchEvent(new Event('input'));
+  await fixture.whenStable();
+  if (enter) {
+    field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    await fixture.whenStable();
+  }
+}
+
+describe('a parte Tags: Enter na busca', () => {
+  let fixture: ComponentFixture<TagPicker>;
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [TagPicker], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(TagPicker);
+    fixture.componentRef.setInput('tags', ['Bug', 'UI']);
+    fixture.componentRef.setInput('library', [{ label: 'Docs', n: 2, pinned: false }]);
+    await fixture.whenStable();
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('só "#" (o começo de uma tag) não solta a primeira tag da anotação', async () => {
+    await type(fixture, '#');
+    expect(fixture.componentInstance.tags()).toEqual(['Bug', 'UI']);
+    await type(fixture, ' # ');
+    expect(fixture.componentInstance.tags()).toEqual(['Bug', 'UI']);
+  });
+
+  it('"#docs" amarra a Docs, e "#bug" solta a Bug, como sem o "#"', async () => {
+    await type(fixture, '#docs');
+    expect(fixture.componentInstance.tags()).toEqual(['Bug', 'UI', 'Docs']);
+    await type(fixture, '#bug');
+    expect(fixture.componentInstance.tags()).toEqual(['UI', 'Docs']);
+  });
+});
+
+describe('a parte Grupo: a busca e o grupo novo', () => {
+  let fixture: ComponentFixture<GroupPicker>;
+  const options = () => [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.op')].map((b) => b.textContent!.trim());
+
+  beforeEach(async () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ imports: [GroupPicker], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(GroupPicker);
+    fixture.componentRef.setInput('categories', [categoryBonus('Trabalho'), categoryBonus('Estudos')]);
+    await fixture.whenStable();
+  });
+
+  afterEach(() => localStorage.clear());
+
+  it('só "#" não escolhe um grupo qualquer, nem cria o grupo "#"', async () => {
+    await type(fixture, '#');
+    expect(fixture.componentInstance.category()).toBeNull();
+    expect(options().some((o) => o.startsWith('Criar'))).toBeFalse();
+  });
+
+  it('o grupo novo nasce sem o "#" da frente, e "#trab" acha o Trabalho', async () => {
+    await type(fixture, '#trab', false);
+    expect(options()).toEqual(['Trabalho', 'Criar “Trab”']);
+    await type(fixture, '#viagens');
+    expect(fixture.componentInstance.category()).toBe('Viagens');
+  });
+});

@@ -141,7 +141,8 @@ export class TagPicker {
 
   /** Enter: a primeira que bate com a busca (amarra ou solta), ou a tag nova. */
   protected enter(): void {
-    if (!this.query().trim()) return;
+    // só "#" (ou espaços) não é busca nenhuma: a lista inteira, e a primeira seria uma tag desta anotação
+    if (!cleanTag(this.query())) return;
     const first = this.ordered()[0];
     if (first) this.toggle(first.label);
     else if (this.fresh()) this.toggle(this.fresh()!);

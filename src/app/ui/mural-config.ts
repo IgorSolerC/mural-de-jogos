@@ -11,7 +11,7 @@ import { AutoTab, CategoryPrefs, GroupSort, GroupView, NotesConfig, arrangedKeys
 import { isPinnedNote, type Audience } from '../core/review';
 import { SharedStore } from '../core/shared-store';
 import { ReviewStore } from '../core/review-store';
-import { LABEL_MAX, SubjectEntry, cleanCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
+import { LABEL_MAX, SubjectEntry, cleanCategory, cleanNewCategory, cleanSubject, cleanTag, subjectLibrary } from '../core/note-labels';
 import { Settings } from '../core/settings';
 import { BackdropClose } from './backdrop-close';
 import { CategoryLabel } from './category-label';
@@ -311,7 +311,7 @@ export class MuralConfig {
 
   /**
    * Os assuntos de cada grupo, na ordem dos grupos (a das abas), e os das anotações sem grupo por
-   * último (só quando há algum): os criados aqui primeiro, depois os usados (ver `subjectLibrary`).
+   * último (só quando há algum): os de cada grupo de A a Z, criados aqui e usados (ver `subjectLibrary`).
    */
   protected readonly subjectGroups = computed<SubjectGroup[]>(() => {
     const notes = this.store.notes();
@@ -463,7 +463,8 @@ export class MuralConfig {
 
   protected async renameCategory(e: Event, row: CategoryRow, field: HTMLInputElement): Promise<void> {
     e.preventDefault();
-    const name = cleanCategory(field.value);
+    // o nome de sempre (mesmo um de antes com "#" na frente) não muda nada; o novo vem sem o "#"
+    const name = cleanCategory(field.value) === row.label ? row.label : cleanNewCategory(field.value);
     if (!name || name === row.label) {
       field.value = row.label;
       return;

@@ -151,3 +151,40 @@ describe('os grupos vazios no mural (Esconder os grupos vazios)', () => {
     expect(standing()).toEqual(['Trabalho', 'Casa', 'Estudos']);
   });
 });
+
+describe('a aba "Sem grupo" no mural', () => {
+  let host: HTMLElement;
+
+  beforeEach(() => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection(), provideRouter([])] });
+    TestBed.inject(Mural).kind.set('anotacoes');
+    TestBed.inject(Settings).setNotesConfig({ hideEmpty: false });
+    // um grupo de verdade chamado "Sem grupo", com cor, e anotações sem grupo nenhum
+    TestBed.inject(Settings).setCategoryLook('Sem grupo', { color: 'vermelho' });
+    const loose = { ...note('nsolt001', 'x') };
+    delete (loose as Partial<Review>).category;
+    TestBed.inject(ReviewStore).reviews.set([note('ntrab001', 'Trabalho'), note('ngrup001', 'Sem grupo'), loose]);
+  });
+
+  afterEach(() => {
+    host?.remove();
+    localStorage.clear();
+  });
+
+  it('não pega a cor de um grupo que se chama "Sem grupo"', async () => {
+    const bar = TestBed.createComponent(NoteTabsBar);
+    host = bar.nativeElement;
+    document.body.appendChild(host);
+    await bar.whenStable();
+    const buttons = [...host.querySelectorAll<HTMLElement>('.abas:not(.medida) > button.aba')];
+    const none = buttons.find((a) => a.classList.contains('sem'))!;
+    const group = buttons.find((a) => a.querySelector('app-cat-label')?.textContent?.trim() === 'Sem grupo')!;
+    expect(none).withContext('a aba das sem grupo').toBeDefined();
+    expect(group).withContext('a aba do grupo').toBeDefined();
+    // o grupo com o nome igual fica com a cor dele; a das sem grupo, sem cor
+    expect(group.classList).toContain('orelha-cor');
+    expect(none.classList).not.toContain('orelha-cor');
+    expect(none.style.getPropertyValue('--cat-cor')).toBe('');
+  });
+});

@@ -77,6 +77,14 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     expect(out.carimbo).toBe(NOW);
   });
 
+  it('criar num grupo novo com "#" na frente: o grupo nasce sem ele (a chave da cor das tags começa com "#")', () => {
+    apply('nota.criar', 'rhash000000000000', { titulo: 'Com hash', grupo: '#viagens' });
+    expect(store.get('rhash000000000000')!.category).toBe('Viagens');
+    // só "#" não vira "sem grupo"
+    apply('nota.criar', 'rhash000000000001', { titulo: 'Só hash', grupo: '#' });
+    expect(store.get('rhash000000000001')!.category).toBe('#');
+  });
+
   it('criar de novo (a aba fechou sem concluir) não faz outra nota', () => {
     apply('nota.criar', 'rnovaid0000000000', { titulo: 'Ideia' });
     const again = apply('nota.criar', 'rnovaid0000000000', { titulo: 'Ideia' });

@@ -1,7 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from './review';
-import { MAX_TAGS, categoryBonus, categoryLibrary, cleanCategory, cleanTag, sanitizeTags, tagLibrary } from './note-labels';
+import { MAX_TAGS, categoryBonus, categoryLibrary, cleanCategory, cleanNewCategory, cleanTag, sanitizeTags, subjectLibrary, tagLibrary } from './note-labels';
+import { lookKey, tagLookKey } from './category-looks';
 import { Settings } from './settings';
 import { fingerprint, pinnedTagsOf } from './cloud-sync';
 
@@ -18,6 +19,27 @@ describe('categoria e tags das anotações', () => {
     expect(cleanTag('  #BugFix  ')).toBe('BugFix');
     expect(sanitizeTags(['Bug', 'bug', ' UI ', '', 3, 'Ação', 'acao'])).toEqual(['Bug', 'UI', 'Ação']);
     expect(sanitizeTags(Array.from({ length: 20 }, (_, i) => `t${i}`)).length).toBe(MAX_TAGS);
+  });
+
+  it('a tag nunca começa com "#", nem com um espaço entre os "#" (a chave da cor dela conta com isso)', () => {
+    expect(cleanTag('# #bug')).toBe('bug');
+    expect(cleanTag(' ## # Bug  fix ')).toBe('Bug fix');
+    expect(cleanTag('#')).toBe('');
+    expect(cleanTag('C#')).toBe('C#');
+    expect(sanitizeTags(['# #bug', 'bug'])).toEqual(['bug']);
+    // a chave da tag num grupo não se confunde com a de um grupo "a#…"
+    expect(tagLookKey(cleanTag('# #bug'), 'a').startsWith('##a##')).toBeFalse();
+  });
+
+  it('o grupo novo vem sem "#" na frente: a chave dele não é a da cor de uma tag', () => {
+    expect(cleanNewCategory('#bug')).toBe('Bug');
+    expect(cleanNewCategory(' # #  lista  de compras')).toBe('Lista de compras');
+    expect(cleanNewCategory('#')).toBe('');
+    expect(cleanNewCategory('C#')).toBe('C#');
+    expect(lookKey(cleanNewCategory('#bug'))).not.toBe(tagLookKey('bug'));
+    // o grupo que já existe com "#" fica como está ao ler o guardado
+    expect(cleanCategory('#bug')).toBe('#bug');
+    expect(note('n1', { category: '#bug' }).category).toBe('#bug');
   });
 
   it('a anotação no formato novo fica como está; a de antes vira categoria + tags', () => {
@@ -59,6 +81,32 @@ describe('categoria e tags das anotações', () => {
       ['Bugfix', 2, false],
       ['Docs', 1, false],
     ]);
+  });
+
+  it('cada tag aparece com a grafia mais usada, e não com a primeira que apareceu', () => {
+    const notes = [note('n1', { tags: ['bugfix'] }), ...['n2', 'n3', 'n4'].map((id) => note(id, { tags: ['Bugfix'] })), note('n5', { tags: ['ui'] })];
+    expect(tagLibrary(notes, []).map((t) => [t.label, t.n])).toEqual([
+      ['Bugfix', 4],
+      ['ui', 1],
+    ]);
+    // a fixa também
+    expect(tagLibrary(notes, ['BUGFIX'])[0]).toEqual({ label: 'Bugfix', n: 4, pinned: true });
+  });
+
+  it('os assuntos do grupo: os criados e os usados, cada um uma vez, de A a Z, com a grafia mais usada', () => {
+    const notes = [
+      note('n1', { category: 'Estudos', subject: 'história' }),
+      note('n2', { category: 'Estudos', subject: 'História' }),
+      note('n3', { category: 'Estudos', subject: 'História' }),
+      note('n4', { category: 'Estudos', subject: 'Artes' }),
+      note('n5', { category: 'Trabalho', subject: 'Reuniões' }),
+    ];
+    expect(subjectLibrary(notes, ['Geografia', 'historia'], 'estudos')).toEqual([
+      { label: 'Artes', n: 1, saved: false },
+      { label: 'Geografia', n: 0, saved: true },
+      { label: 'História', n: 3, saved: true },
+    ]);
+    expect(subjectLibrary(notes, [], null)).toEqual([]);
   });
 
   it('as tags usadas são sugeridas só na mesma categoria; as fixas, em todas', () => {

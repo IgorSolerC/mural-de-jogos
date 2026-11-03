@@ -29,14 +29,28 @@ export function cleanCategory(raw: string): string {
   return cleanLabel(raw, LABEL_MAX);
 }
 
+/**
+ * O nome de um grupo novo (criado no editor, renomeado nas configurações, pedido pela API): limpo como
+ * `cleanCategory` e sem "#" na frente. A cor do grupo mora junto com as das tags, e a chave de uma tag
+ * começa com "#" (ver `tagLookKey`): o grupo "#Bug" pintaria a tag Bug em todo grupo. Os grupos que já
+ * existem com "#" na frente continuam como estão (`cleanCategory`, que lê o guardado, não mexe neles).
+ */
+export function cleanNewCategory(raw: string): string {
+  return cleanCategory(raw.replace(/^[#\s]+/, ''));
+}
+
 /** "  história  " → "História": o assunto, como a categoria. */
 export function cleanSubject(raw: string): string {
   return cleanLabel(raw, LABEL_MAX);
 }
 
-/** A tag como foi escrita ("BugFix" continua BugFix), sem espaços a mais nem "#" na frente. */
+/**
+ * A tag como foi escrita ("BugFix" continua BugFix), sem espaços a mais nem "#" na frente (nem depois
+ * de um espaço: "# #bug" é "bug"). A chave da cor e do filtro padrão de uma tag conta com isso (ver
+ * `tagLookKey`).
+ */
 export function cleanTag(raw: string): string {
-  return raw.trim().replace(/^#+/, '').replace(/\s+/g, ' ').trim().slice(0, LABEL_MAX).trim();
+  return raw.replace(/^[#\s]+/, '').replace(/\s+/g, ' ').trim().slice(0, LABEL_MAX).trim();
 }
 
 /** As tags de um backup ou do editor: limpas, sem repetir (sem ligar para caixa e acento), no máximo `max`. */
@@ -110,20 +124,19 @@ export function subjectLibrary(notes: readonly Review[], saved: readonly string[
     e.n++;
     used.set(k, e);
   }
-  const spelling = (k: string) => {
-    const e = used.get(k);
-    return e ? [...e.spell].reduce((a, x) => (x[1] > a[1] ? x : a))[0] : null;
-  };
-  const out: SubjectEntry[] = [];
-  const seen = new Set<string>();
+  const out = new Map<string, SubjectEntry>();
   for (const label of saved) {
     const k = fold(label);
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push({ label: spelling(k) ?? label, n: used.get(k)?.n ?? 0, saved: true });
+    if (!out.has(k)) out.set(k, { label: mostUsed(used.get(k)?.spell) ?? label, n: used.get(k)?.n ?? 0, saved: true });
   }
-  const rest = [...used.keys()].filter((k) => !seen.has(k)).map((k) => ({ label: spelling(k)!, n: used.get(k)!.n, saved: false }));
-  return [...out, ...rest].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
+  for (const [k, e] of used) if (!out.has(k)) out.set(k, { label: mostUsed(e.spell)!, n: e.n, saved: false });
+  return [...out.values()].sort((a, b) => a.label.localeCompare(b.label, 'pt-BR', { sensitivity: 'base' }));
+}
+
+/** A grafia mais usada (no empate, a primeira que apareceu), ou null sem nenhuma. */
+function mostUsed(spellings: ReadonlyMap<string, number> | undefined): string | null {
+  if (!spellings?.size) return null;
+  return [...spellings].reduce((a, x) => (x[1] > a[1] ? x : a))[0];
 }
 
 /** As tags da anotação. */
@@ -146,22 +159,23 @@ export interface TagEntry {
  * "Bugfix" do Trabalho não é sugerida na Lista de compras. As fixas valem para todas.
  */
 export function tagLibrary(notes: readonly Review[], pinned: readonly string[], category?: string | null): TagEntry[] {
-  const used = new Map<string, { label: string; n: number }>();
+  const used = new Map<string, { spell: Map<string, number>; n: number }>();
   const same = (n: Review) => category === undefined || fold(categoryOf(n) ?? '') === fold(category ?? '');
   for (const n of notes) {
     if (!same(n)) continue;
     for (const t of tagsOfNote(n)) {
       const k = fold(t);
-      const e = used.get(k);
-      if (e) e.n++;
-      else used.set(k, { label: t, n: 1 });
+      const e = used.get(k) ?? { spell: new Map<string, number>(), n: 0 };
+      e.spell.set(t, (e.spell.get(t) ?? 0) + 1);
+      e.n++;
+      used.set(k, e);
     }
   }
   const pins = new Set(pinned.map(fold));
-  const fixed = pinned.map((label) => ({ label: used.get(fold(label))?.label ?? label, n: used.get(fold(label))?.n ?? 0, pinned: true }));
+  const fixed = pinned.map((label) => ({ label: mostUsed(used.get(fold(label))?.spell) ?? label, n: used.get(fold(label))?.n ?? 0, pinned: true }));
   const rest = [...used.entries()]
     .filter(([k]) => !pins.has(k))
-    .map(([, e]) => ({ ...e, pinned: false }))
+    .map(([, e]) => ({ label: mostUsed(e.spell)!, n: e.n, pinned: false }))
     .sort((a, b) => b.n - a.n || a.label.localeCompare(b.label, 'pt-BR'));
   return [...fixed, ...rest];
 }

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-papel-de-arroz-emenda',
+    id: '2026-11-03-grupos-e-tags-revisao',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -45,6 +45,10 @@ export const NEWS: NewsEntry[] = [
       'A tarefa com "[x]" escrito no próprio texto ia para as feitas recolhidas assim que era marcada; agora continua à vista, como as outras.',
       'Marcar uma tarefa com link para outra anotação dentro de um card não oferecia finalizar a anotação ligada, e finalizar as ligadas não perguntava antes pelas dependências ainda abertas no Kanban; agora oferece e pergunta, como o check da ficha.',
       'No papel de arroz, as fibras que passavam da beirada esquerda ou de cima do desenho apareciam cortadas em linha reta onde o papel se repete; agora continuam do outro lado, e a emenda não aparece.',
+      'No editor, Enter com só um "#" na busca das tags tirava a primeira tag da anotação, e na busca do grupo escolhia um grupo qualquer; agora não faz nada, e "#trab" acha o Trabalho.',
+      'Um grupo novo escrito com "#" na frente ("#Bug") pintava com a cor dele a tag de mesmo nome em todos os grupos; agora o grupo novo nasce sem o "#" (no editor, nas configurações do mural e pela API), e a tag escrita "# #bug" também perde os dois.',
+      'A aba das anotações sem grupo pegava a cor de um grupo que se chamasse "Sem grupo"; agora fica sem cor, como sempre.',
+      'Uma tag escrita de jeitos diferentes ("bugfix" numa anotação, "Bugfix" em vinte) aparecia no editor com o jeito da primeira anotação, e a tag nova saía assim; agora com o mais usado, como os grupos e os assuntos.',
     ],
   },
   {

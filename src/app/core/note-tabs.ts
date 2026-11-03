@@ -165,7 +165,7 @@ export function splitTabs(
   );
   let keep = Math.min(standing.length, slots);
   const pick = (k: number) => new Set(byWeight.slice(0, k).map((t) => t.key));
-  while (keep > 0 && !fits(standing.filter((t) => pick(keep).has(t.key)), anyHidden || keep < standing.length)) keep--;
-  const kept = pick(keep);
+  let kept = pick(keep);
+  while (keep > 0 && !fits(standing.filter((t) => kept.has(t.key)), anyHidden || keep < standing.length)) kept = pick(--keep);
   return { shown: standing.filter((t) => kept.has(t.key)), more: tabs.filter((t) => !kept.has(t.key)) };
 }

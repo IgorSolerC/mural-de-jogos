@@ -391,6 +391,16 @@ describe('as configurações do mural (a folha)', () => {
       expect(el.querySelector<HTMLInputElement>('.cat.aberta .nome input')!.value).toBe('Férias');
     });
 
+    it('o nome novo vem sem o "#" da frente (a chave da cor das tags começa com "#")', async () => {
+      await go('categorias');
+      const row = await openCat('Viagens!');
+      row.querySelector<HTMLInputElement>('.nome input')!.value = '#férias';
+      submit(row.querySelector<HTMLFormElement>('form.nome')!);
+      await settle();
+      expect(notes().filter((r) => r.category === 'Férias').length).toBe(3);
+      expect(notes().some((r) => r.category?.startsWith('#'))).toBeFalse();
+    });
+
     it('o nome de outra categoria junta as duas, depois de perguntar (e Voltar não muda nada)', async () => {
       await go('categorias');
       const row = await openCat('Receitas');

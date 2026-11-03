@@ -4,17 +4,15 @@ import { WallMotion } from '../core/wall-motion';
 import { WallState } from '../core/wall-view';
 import { ALL_TAB, NO_CATEGORY_TAB, NoteTab, PINNED_TAB, SHARED_TAB } from '../core/note-tabs';
 import { AutoTab } from '../core/mural-config';
-
-const NONE_TAB = NO_CATEGORY_TAB;
+import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
+import { CategoryLabel } from './category-label';
+import { TabMore, TabMoreItem } from './tab-more';
+import { TabFit } from './tab-fit';
 
 /** A aba que o mural gera, pela chave da aba ('' é o Tudo). */
 function autoOf(key: string): AutoTab {
   return key === PINNED_TAB ? 'fixadas' : key === SHARED_TAB ? 'compartilhadas' : 'tudo';
 }
-import { CategoryLook, bandColor, categoryColorHex, lookKey } from '../core/category-looks';
-import { CategoryLabel } from './category-label';
-import { TabMore, TabMoreItem } from './tab-more';
-import { TabFit } from './tab-fit';
 
 /**
  * As abas do mural de anotações (ver core/note-tabs.ts): divisórias de pasta de papel manilha, em
@@ -246,8 +244,10 @@ export class NoteTabsBar {
 
   /** O desenho e a cor da categoria: os que o dono do mural escolheu (sem escolha, o de sempre). */
   protected lookOf(x: NoteTab): CategoryLook {
+    // "Sem grupo" (e "Sem artista") não é grupo: não pega o jeito de um grupo chamado assim
+    if (x.key === NO_CATEGORY_TAB) return {};
     // o artista não é categoria de anotação: não pega o jeito de uma de mesmo nome; a cor vem do nome dele
-    if (this.music()) return x.key === NO_CATEGORY_TAB ? {} : { color: bandColor(x.label) };
+    if (this.music()) return { color: bandColor(x.label) };
     return this.view.categoryLooks()[lookKey(x.label)] ?? {};
   }
   protected colorOf(x: NoteTab): string | null {
@@ -259,7 +259,7 @@ export class NoteTabsBar {
 
   /** O "Mais": os grupos que não couberam em pé, com o desenho e a cor de cada um. */
   protected readonly moreGroups = computed<TabMoreItem[]>(() =>
-    this.layout().more.map((x) => ({ key: x.key, label: x.label, n: x.n, look: this.lookOf(x), glyph: this.glyph(), plain: x.key === NONE_TAB })),
+    this.layout().more.map((x) => ({ key: x.key, label: x.label, n: x.n, look: this.lookOf(x), glyph: this.glyph(), plain: x.key === NO_CATEGORY_TAB })),
   );
   /**
    * E, depois da costura, as abas que o mural gera e que não estão em pé: o Tudo (sem o olho), as
