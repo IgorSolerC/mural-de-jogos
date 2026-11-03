@@ -2,6 +2,11 @@ import { DestroyRef, Directive, ElementRef, afterNextRender, effect, inject, inp
 
 /** O menor tamanho do título, em px: abaixo disso ele não cabe mais, e quebra as linhas que precisar. */
 export const FIT_MIN_PX = 12;
+/**
+ * O piso da frase que nem a 12 px cabe na área (pedido do usuário: a pergunta comprida cortava a última
+ * palavra no meio): ela desce até aqui; se nem assim couber, a última linha termina em reticências.
+ */
+export const FIT_FLOOR_PX = 10;
 /** Até quantas linhas o título vai, antes de diminuir mais. */
 export const FIT_MAX_LINES = 4;
 
@@ -10,7 +15,7 @@ export const FIT_MAX_LINES = 4;
  * na mesma área não mede de novo (cada medida força o navegador a refazer o desenho, e a parede de um baralho
  * tem centenas). Guarda as últimas 600.
  */
-const MEMORY = new Map<string, { px: number; anywhere: boolean }>();
+const MEMORY = new Map<string, { px: number; anywhere: boolean; clamp: number }>();
 const MEMORY_MAX = 600;
 
 /**
@@ -63,8 +68,10 @@ export class FitTitle {
     const area = this.host.nativeElement;
     const text = area.firstElementChild as HTMLElement | null;
     if (!text) return;
-    // a palavra só quebra no meio quando nem a menor letra a faz caber (ver o fim)
+    // a palavra só quebra no meio quando nem a menor letra a faz caber, e as reticências só quando nem o
+    // piso cabe (ver o fim): a conta começa sem nenhum dos dois
     text.style.overflowWrap = '';
+    clamp(text, 0);
     const width = area.clientWidth;
     const height = area.clientHeight;
     if (!width || !height) return;
@@ -73,20 +80,21 @@ export class FitTitle {
     if (known) {
       text.style.overflowWrap = known.anywhere ? 'anywhere' : '';
       text.style.fontSize = `${known.px}px`;
+      clamp(text, known.clamp);
       return;
     }
     const lineHeight = parseFloat(getComputedStyle(text).lineHeight) / parseFloat(getComputedStyle(text).fontSize) || 1.1;
     const top = Math.max(FIT_MIN_PX, Math.floor(height * this.appFitTitleMax()));
-    const search = (maxLines: number): number | null => {
+    const search = (maxLines: number, min = FIT_MIN_PX): number | null => {
       const fits = (px: number): boolean => {
         text.style.fontSize = `${px}px`;
         const h = text.scrollHeight;
         return h <= height + 0.5 && text.scrollWidth <= width + 0.5 && Math.round(h / (px * lineHeight)) <= maxLines;
       };
       if (fits(top)) return top;
-      if (!fits(FIT_MIN_PX)) return null;
+      if (!fits(min)) return null;
       // a maior que cabe, ao meio pixel
-      let lo = FIT_MIN_PX;
+      let lo = min;
       let hi = top;
       while (hi - lo > 0.5) {
         const mid = (lo + hi) / 2;
@@ -95,16 +103,32 @@ export class FitTitle {
       }
       return lo;
     };
-    // até quatro linhas; um título que nem com a menor letra cabe nelas usa as linhas que precisar; e a
-    // palavra mais larga que a carta, mesmo na menor letra, quebra onde precisar
-    let px = search(FIT_MAX_LINES) ?? search(Infinity);
+    // até quatro linhas; um título que nem com a menor letra cabe nelas usa as linhas que precisar; o que
+    // nem assim cabe na área desce até o piso; a palavra mais larga que a carta, mesmo no piso, quebra onde
+    // precisar; e o que nem quebrando cabe termina em reticências, nunca cortado no meio da linha
+    let px = search(FIT_MAX_LINES) ?? search(Infinity) ?? search(Infinity, FIT_FLOOR_PX);
     const anywhere = px === null;
     if (anywhere) {
       text.style.overflowWrap = 'anywhere';
-      px = search(Infinity) ?? FIT_MIN_PX;
+      px = search(Infinity, FIT_FLOOR_PX);
+    }
+    let lines = 0;
+    if (px === null) {
+      px = FIT_FLOOR_PX;
+      lines = Math.max(1, Math.floor(height / (px * lineHeight)));
     }
     text.style.fontSize = `${px}px`;
+    clamp(text, lines);
     if (MEMORY.size >= MEMORY_MAX) MEMORY.delete(MEMORY.keys().next().value!);
-    MEMORY.set(key, { px: px!, anywhere });
+    MEMORY.set(key, { px, anywhere, clamp: lines });
   }
+}
+
+/** Até `lines` linhas, a última com reticências (0: sem limite). */
+function clamp(text: HTMLElement, lines: number): void {
+  const on = lines > 0;
+  text.style.display = on ? '-webkit-box' : '';
+  text.style.setProperty('-webkit-box-orient', on ? 'vertical' : '');
+  text.style.setProperty('-webkit-line-clamp', on ? String(lines) : '');
+  text.style.overflow = on ? 'hidden' : '';
 }

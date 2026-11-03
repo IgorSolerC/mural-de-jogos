@@ -1,6 +1,6 @@
 import { Component, provideZonelessChangeDetection, signal, viewChildren } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { FIT_MIN_PX, FitTitle } from './fit-title';
+import { FIT_FLOOR_PX, FIT_MIN_PX, FitTitle } from './fit-title';
 
 /** Áreas do mesmo tamanho, com o texto que cada uma tem, para comparar os tamanhos da letra. */
 @Component({
@@ -68,7 +68,9 @@ describe('o título do tamanho do espaço (ui/fit-title.ts)', () => {
       const area = el.parentElement!;
       expect(el.scrollWidth).toBeLessThanOrEqual(area.clientWidth + 1);
       expect(el.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
-      expect(parseFloat(el.style.fontSize)).toBeGreaterThanOrEqual(FIT_MIN_PX);
+      // a palavra que nem a 12 px cabe na largura desce até o piso, inteira, em vez de quebrar no meio
+      expect(parseFloat(el.style.fontSize)).toBeGreaterThanOrEqual(FIT_FLOOR_PX);
+      expect(el.style.overflowWrap).toBe('');
     }
     done();
   });
@@ -80,6 +82,28 @@ describe('o título do tamanho do espaço (ui/fit-title.ts)', () => {
     const lines = Math.round(el.scrollHeight / (parseFloat(el.style.fontSize) * 1.08));
     expect(el.scrollHeight).toBeLessThanOrEqual(el.parentElement!.clientHeight + 1);
     expect(lines).toBeGreaterThanOrEqual(1);
+    done();
+  });
+
+  it('a frase que nem a 12 px cabe na área desce até o piso e aparece inteira, sem cortar a última palavra', () => {
+    const long = 'Explique a diferença entre mitose e meiose em todas as fases, com exemplos de cada uma delas';
+    const { els, size, done } = mount([long], [46]);
+    const el = els[0];
+    expect(size(0)).toBeLessThan(FIT_MIN_PX);
+    expect(size(0)).toBeGreaterThanOrEqual(FIT_FLOOR_PX);
+    expect(el.scrollHeight).toBeLessThanOrEqual(el.parentElement!.clientHeight + 1);
+    expect(el.style.getPropertyValue('-webkit-line-clamp')).toBe('');
+    done();
+  });
+
+  it('o que nem no piso cabe termina em reticências, nas linhas que a área tem', () => {
+    const huge = Array(12).fill('Explique a diferença entre mitose e meiose em todas as fases').join(', ');
+    const { els, size, done } = mount([huge, 'Fogo'], [80, 80]);
+    expect(size(0)).toBe(FIT_FLOOR_PX);
+    expect(els[0].style.getPropertyValue('-webkit-line-clamp')).toBe(String(Math.floor(80 / (FIT_FLOOR_PX * 1.08))));
+    expect(els[0].getBoundingClientRect().height).toBeLessThanOrEqual(81);
+    // a curta, na mesma conta, sem o limite
+    expect(els[1].style.getPropertyValue('-webkit-line-clamp')).toBe('');
     done();
   });
 });
