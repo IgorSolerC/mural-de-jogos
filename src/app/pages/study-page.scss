@@ -467,15 +467,11 @@
   }
 }
 
-/* as cartas de baixo: o papel da carta, cada uma saindo para um lado (mais cartas, mais grossa) */
+/* as cartas de baixo: as costas no desenho do baralho (o papel, a cor e a beirada dele, desenhados pela
+   própria carta), cada uma saindo para um lado (mais cartas, mais grossa) */
 .camada {
   position: absolute;
   inset: 0;
-  border-radius: 6%/4.3%;
-  background: var(--paper-grain), var(--papel-ficha);
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.3),
-    0 3px 7px rgb(0 0 0 / 0.28);
 
   &[data-camada='0'] {
     translate: 7px 5px;

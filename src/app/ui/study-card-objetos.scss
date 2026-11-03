@@ -671,10 +671,10 @@
 
   .subtitulo {
     color: var(--ink);
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
   }
 
+  /* a tabela impressa, de uma linha só (pedido do usuário: "mantenha apenas 1 linha"): quando volta, carimbado
+     em vermelho, e quantas vezes a carta foi vista, em roxo */
   .datas {
     flex: none;
     margin: 0 5cqi 9.5cqi;
@@ -684,7 +684,7 @@
   .th,
   .tr {
     display: grid;
-    grid-template-columns: 1fr 13cqi;
+    grid-template-columns: 1fr 15cqi;
 
     > * + * {
       border-left: max(1px, 0.3cqi) solid color-mix(in oklab, var(--impresso) 60%, transparent);
@@ -702,7 +702,7 @@
   }
 
   .tr {
-    height: 8.6cqi;
+    height: 10cqi;
     border-bottom: max(1px, 0.25cqi) solid color-mix(in oklab, var(--impresso) 50%, transparent);
 
     > * {
@@ -712,33 +712,23 @@
     }
   }
 
-  /* a data carimbada, roxa, torta e falhada; a da volta em vermelho */
+  /* os carimbos, tortos e falhados: a data da volta em vermelho, o total de vezes em roxo */
   .data {
-    font: 800 max(5.6cqi, 0.5rem) / 1 var(--f-label);
+    font: 800 max(6cqi, 0.54rem) / 1 var(--f-label);
     letter-spacing: 0.1em;
     color: var(--roxo-carimbo);
-    rotate: var(--g, 0deg);
     mask: var(--tinta-falhada) 0 0 / 40cqi 40cqi;
 
     &.volta {
       color: var(--red-deep);
-      font-size: max(6cqi, 0.54rem);
+      rotate: -2deg;
     }
-  }
 
-  .marca svg {
-    width: 5.6cqi;
-    height: 5.6cqi;
-    overflow: visible;
-    fill: none;
-    stroke: var(--lapis);
-    stroke-width: 1.3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-
-  .marca.errou svg {
-    stroke: var(--red);
+    &.total {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+      rotate: 2.4deg;
+    }
   }
 
   .nunca {

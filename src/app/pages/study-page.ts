@@ -62,6 +62,8 @@ interface DeckView {
   today: number;
   /** A carta de cima da pilha: a próxima do baralho (a que volta antes; sem nenhuma estudada, a primeira). */
   top: CardView | null;
+  /** As cartolinas das cartas logo embaixo da de cima (até três): as costas da pilha, no desenho do baralho. */
+  under: CardView['stock'][];
 }
 
 /** O giro de cada carta na parede, do id: pequeno, como as fichas da Visão geral. */
@@ -173,7 +175,7 @@ export class StudyPage {
         if (note && c.decks.includes(deck.id)) views.push(this.view(c, deck.id, note.game.name, pinningFor(note.id, note.stock).stock, now));
       }
       views.sort(next);
-      return { deck, cards: views.length, counts, today: countTotal(counts), top: views[0] ?? null };
+      return { deck, cards: views.length, counts, today: countTotal(counts), top: views[0] ?? null, under: views.slice(1, 4).map((v) => v.stock) };
     });
   });
 

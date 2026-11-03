@@ -2,7 +2,7 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { Desk } from '../core/desk';
-import { Review, sanitizeReview } from '../core/review';
+import { Review, Stock, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
 import { StudyStore } from '../core/study-store';
@@ -113,7 +113,7 @@ describe('página dos Estudos', () => {
     expect(pilhas[0].getAttribute('aria-label')).toBe('Kanjis, 3 cartas, 3 para hoje');
     // por cima, a próxima carta do baralho (o sol, já respondido), na Clássica, sem o ícone nos cantos
     expect(text(pilhas[0].querySelector('app-study-card .titulo'))).toBe('日');
-    expect(pilhas[0].querySelector('app-study-card .carta')!.classList).toContain('look-classica');
+    expect(pilhas[0].querySelector('.capa .carta')!.classList).toContain('look-classica');
     expect(pilhas[0].querySelector('app-study-card .canto lucide-icon')).toBeNull();
     // o papelzinho no elástico: os três montes de hoje
     expect([...pilhas[0].querySelectorAll('.papelzinho .pz')].map(text)).toEqual(['2', '1', '0']);
@@ -410,7 +410,36 @@ describe('página dos Estudos', () => {
     sheet()?.close();
     await go('/anotacoes/estudos');
     const pilhas = $$('.pilha');
-    expect(pilhas[0].querySelector('app-study-card .carta')!.classList).toContain('look-selo');
-    expect(pilhas[1].querySelector('app-study-card .carta')!.classList).toContain('look-classica');
+    expect(pilhas[0].querySelector('.capa .carta')!.classList).toContain('look-selo');
+    expect(pilhas[0].querySelector('.camada .carta')!.classList).toContain('look-selo');
+    expect(pilhas[1].querySelector('.capa .carta')!.classList).toContain('look-classica');
+  });
+
+  it('Tudo: as cartas de baixo da pilha são as costas no estilo do baralho, na cartolina das cartas seguintes', async () => {
+    const { kanji } = seed();
+    // pedido do usuário: "as 2 cartas brancas que aparecem no fundo dos baralhos não segue o estilo do baralho"
+    const stocks: Record<string, Stock> = { nsol: 'vermelho', nlua: 'azul', nfogo: 'verde' };
+    TestBed.inject(ReviewStore).reviews.update((rs) => rs.map((r) => (stocks[r.id] ? { ...r, stock: stocks[r.id] } : r)));
+    study.updateDeck(kanji, { look: 'biblioteca' });
+    await go('/anotacoes/estudos');
+    const pilha = $$('.pilha')[0];
+    const capa = pilha.querySelector<HTMLElement>('.capa .carta')!;
+    expect(capa.classList).not.toContain('costas');
+    expect(capa.style.getPropertyValue('--c')).toBe('var(--stock-vermelho)');
+    const camadas = [...pilha.querySelectorAll<HTMLElement>('app-study-card.camada .carta')];
+    expect(camadas.length).toBe(1);
+    // a ficha da biblioteca vazia: a manilha com a faixa na cartolina da carta seguinte (a lua), sem nada escrito
+    expect(camadas[0].classList).toContain('look-biblioteca');
+    expect(camadas[0].classList).toContain('costas');
+    expect(camadas[0].querySelector('.ficha > .faixa')).not.toBeNull();
+    expect(camadas[0].style.getPropertyValue('--c')).toBe('var(--stock-azul)');
+    expect(text(camadas[0])).toBe('');
+    // sem o papel creme de antes por baixo: a camada é só o lugar, a carta desenha o próprio papel
+    expect(getComputedStyle(pilha.querySelector('.camada')!).backgroundImage).toBe('none');
+    // na Clássica, a ficha creme com a moldura fina
+    study.updateDeck(kanji, { look: undefined });
+    await settle();
+    expect(pilha.querySelector('.camada .carta')!.classList).toContain('look-classica');
+    expect(pilha.querySelector('.camada .moldura')).not.toBeNull();
   });
 });

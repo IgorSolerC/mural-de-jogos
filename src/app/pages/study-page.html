@@ -202,7 +202,7 @@
             <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
               @if (d.top; as top) {
                 @for (l of layers(d.cards); track l) {
-                  <span class="camada" [attr.data-camada]="l"></span>
+                  <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
                 }
                 <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
                 <span class="elastico"></span>

@@ -9,7 +9,7 @@ import { CardDeck, StudyCard } from './study-card';
 @Component({
   selector: 'app-host',
   imports: [StudyCard],
-  template: `<app-study-card style="width: 200px" [title]="title()" [subtitle]="subtitle()" [stock]="stock()" [deck]="deck()" [look]="look()" [face]="face()" />`,
+  template: `<app-study-card style="width: 200px" [title]="title()" [subtitle]="subtitle()" [stock]="stock()" [deck]="deck()" [look]="look()" [face]="face()" [costas]="costas()" />`,
 })
 class Host {
   readonly title = signal('日');
@@ -18,6 +18,7 @@ class Host {
   readonly deck = signal<CardDeck | null>({ name: 'Kanjis', color: 'vermelho', icon: 'livro' });
   readonly look = signal<CardLook | undefined>(undefined);
   readonly face = signal<CardFace | null>(null);
+  readonly costas = signal(false);
 }
 
 const LEARNING: CardFace = { level: 'aprendendo', when: 'em 3 dias', stamp: '06 NOV', seen: 5, marks: '1101', number: 7 };
@@ -63,7 +64,7 @@ describe('a frente da carta (ui/study-card.ts)', () => {
         expect($('.carta')!.classList).withContext(look).toContain('look-' + look);
         expect(text('.titulo')).withContext(look).toBe('日');
         expect(text('.subtitulo')).withContext(look).toContain('palavras compostas');
-        expect(getComputedStyle($('.subtitulo')!).webkitLineClamp).withContext(look).toBe(look === 'biblioteca' ? '3' : '4');
+        expect(getComputedStyle($('.subtitulo')!).webkitLineClamp).withContext(look).toBe('4');
         // sem o progresso, nenhum desenho mostra o pé
         if (!face && look !== 'ingresso' && look !== 'biblioteca') expect($('.pe')).withContext(look).toBeNull();
       }
@@ -106,15 +107,56 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect($('.carimbo')!.classList).toContain('hoje');
   });
 
-  it('Ficha da biblioteca: as três últimas respostas carimbadas com a vez, e a data da volta por último', () => {
+  it('Ficha da biblioteca: uma linha só, a próxima revisão carimbada em vermelho e o total de vezes vista', () => {
+    const cells = () => [...el.querySelectorAll('.datas .tr > span')].map((c) => c.textContent!.trim());
     show('biblioteca', LEARNING);
-    const rows = [...el.querySelectorAll('.datas .tr')];
-    expect(rows.length).toBe(4);
-    expect(rows.map((r) => r.querySelector('.data')?.textContent?.trim() ?? '')).toEqual(['3ª', '4ª', '5ª', '06 NOV']);
-    expect(rows.slice(0, 3).map((r) => r.querySelector('.marca')!.getAttribute('aria-label'))).toEqual(['acertou', 'errou', 'acertou']);
-    expect(rows[3].querySelector('.data')!.classList).toContain('volta');
+    expect([...el.querySelectorAll('.datas .th span')].map((s) => s.textContent!.trim())).toEqual(['Próxima revisão', 'Total']);
+    expect(el.querySelectorAll('.datas .tr').length).toBe(1);
+    expect(cells()).toEqual(['06 NOV', '5']);
+    expect($('.datas .volta')!.textContent!.trim()).toBe('06 NOV');
+    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisada 5 vezes');
+    // pedido do usuário: "a tabela ocupa um espaço imenso"; o cabeçalho e uma linha, menos de um quinto da largura
+    expect($('.datas')!.getBoundingClientRect().height).toBeLessThan($('.carta')!.getBoundingClientRect().width * 0.2);
+    show('biblioteca', DUE);
+    expect(cells()).toEqual(['HOJE', '2']);
+    show('biblioteca', { ...DUE, seen: 1, when: 'agora' });
+    expect(cells()).toEqual(['AGORA', '1']);
+    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisada 1 vez');
     show('biblioteca', NEVER);
-    expect(text('.datas .nunca')).toBe('ainda não estudada');
+    expect(cells()).toEqual(['ainda não estudada', '—']);
+    expect($('.datas .data')).toBeNull();
+    show('biblioteca', null);
+    expect(el.querySelectorAll('.datas .tr').length).toBe(1);
+    expect(cells()).toEqual(['', '']);
+  });
+
+  it('as costas (as cartas de baixo da pilha): o papel e a beirada de cada desenho, na cartolina, sem nada escrito', () => {
+    host.costas.set(true);
+    const paper: Record<CardLook, string> = {
+      classica: '.face + .moldura',
+      faixa: '.face > .faixa',
+      cartolina: '.face',
+      orelha: '.face + .dobra',
+      antigo: '.face + .moldura',
+      argola: '.papel > .pauta',
+      selo: '.selo > .campo',
+      polaroid: '.pola > .foto-pola',
+      ingresso: '.bilhete > .principal',
+      biblioteca: '.ficha > .faixa',
+    };
+    for (const look of CARD_LOOKS) {
+      show(look, LEARNING);
+      const card = $('.carta')!;
+      expect(card.classList).withContext(look).toContain('look-' + look);
+      expect(card.classList).withContext(look).toContain('costas');
+      expect($(paper[look])).withContext(look).not.toBeNull();
+      expect(card.textContent!.trim()).withContext(look).toBe('');
+      for (const sel of ['.titulo', '.subtitulo', '.pe', '.canto', '.nome', 'img', 'lucide-icon', '.anel', '.carimbo', '.fita-washi', '.dymo']) {
+        expect($(sel)).withContext(look + ' ' + sel).toBeNull();
+      }
+      expect(card.getAttribute('data-nivel')).withContext(look).toBeNull();
+      expect(card.style.getPropertyValue('--c')).withContext(look).toBe('var(--stock-laranja)');
+    }
   });
 
   it('Polaroid e Ficha de argola: o baralho na fita e na argola; a lápis, o nível e quando volta', () => {
