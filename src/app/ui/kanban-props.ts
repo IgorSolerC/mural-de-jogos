@@ -3,7 +3,6 @@ import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, STATUS_MAX, cleanStatus } from '../core/kanban';
 import { KanbanDeps } from '../core/kanban-deps';
 import { NOTES } from '../core/kinds';
-import { ReviewStore } from '../core/review-store';
 import { IMPORTANCE_LEVEL } from './kanban-icons';
 import { CardPicker } from './card-picker';
 import { roveRadios } from './focus';
@@ -145,7 +144,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
         </div>
       }
 
-      @if (!compact() || deps().length) {
+      @if (!compact() || depRows().length) {
         <!-- ===== Depende de: as que precisam estar finalizadas antes ===== -->
         <div class="linha deps-linha">
           <span class="nome" [id]="id + '-deps'"><lucide-icon [img]="DepsIcon" [size]="16" aria-hidden="true" />Depende de</span>
@@ -174,21 +173,21 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
             } @else {
               <p class="dica">Finalizar com alguma aberta pergunta antes.</p>
             }
-            <button type="button" class="por-dep" [disabled]="deps().length >= maxDeps" (click)="picking.set(true)">
+            <button type="button" class="por-dep" [disabled]="depRows().length >= maxDeps" (click)="picking.set(true)">
               <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
-              {{ deps().length ? 'Outra' : 'Pôr dependência' }}
+              {{ depRows().length ? 'Outra' : 'Pôr dependência' }}
             </button>
           </div>
         </div>
       }
 
       <!-- compacto: o que está vazio é só o recorte com o "+", numa linha; abre no lugar -->
-      @if (compact() && (!statusOpen() || !deps().length)) {
+      @if (compact() && (!statusOpen() || !depRows().length)) {
         <div class="extras">
           @if (!statusOpen()) {
             <button type="button" class="mais" (click)="openStatus()"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Observação</button>
           }
-          @if (!deps().length) {
+          @if (!depRows().length) {
             <button type="button" class="mais" [title]="'As que precisam estar finalizadas antes'" (click)="picking.set(true)"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Dependência</button>
           }
         </div>
@@ -213,7 +212,6 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
 })
 export class KanbanProps {
   private readonly kanbanDeps = inject(KanbanDeps);
-  private readonly store = inject(ReviewStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly board = input.required<KanbanBoard>();
@@ -271,14 +269,7 @@ export class KanbanProps {
   );
 
   /** Fora da folha de escolher: ela mesma, as que já estão e as que fariam uma roda. */
-  protected readonly excluded = computed(() => {
-    const own = new Set(this.deps());
-    return this.store
-      .notes()
-      .filter((r) => own.has(r.id) || !this.kanbanDeps.canAdd(this.noteId(), r.id))
-      .map((r) => r.id)
-      .concat(this.noteId());
-  });
+  protected readonly excluded = computed(() => this.kanbanDeps.excluded(this.noteId(), this.deps()));
 
   protected openStatus(): void {
     this.statusTouched.set(true);
@@ -287,6 +278,16 @@ export class KanbanProps {
 
   protected pickColumn(value: string): void {
     this.column.set(value || null);
+  }
+
+  /**
+   * A etapa volta a mostrar `column` (a folha do quadro, quando ir para a coluna escolhida espera a
+   * pergunta das dependências, ou não vai): a lista também, para escolher a mesma de novo valer.
+   */
+  showColumn(column: string | null): void {
+    this.column.set(column);
+    const select = this.host.nativeElement.querySelector<HTMLSelectElement>(`#${this.id}-etapa`);
+    if (select) select.value = column ?? '';
   }
 
   protected commit(): void {

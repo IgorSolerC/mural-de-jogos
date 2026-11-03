@@ -584,7 +584,8 @@ export class KanbanPage {
     idOf: (el) => el.getAttribute('data-nota'),
     on: () => true,
     drags: true,
-    notes: this.notes,
+    // só as que estão no quadro: a tirada dele (por outro aparelho ou pela API) sai das marcas
+    notes: computed(() => new Map(this.live().map((c) => [c.note, this.notes().get(c.note)!]))),
     // (o id, e não o quadro: mexer nas fichas troca o quadro, e não deve desmarcar)
     reset: computed(() => [this.board()?.id, this.query(), this.tagFilter().join(','), this.subjectFilter().join(','), this.tagOuts().out.join(','), this.tagOuts().free.join(',')].join('|')),
     layout: this.view,

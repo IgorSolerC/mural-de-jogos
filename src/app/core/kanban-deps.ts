@@ -1,7 +1,7 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { ICON } from '../ui/icons';
 import { Confirm } from '../ui/confirm';
-import { categoryKey, dependsOn, depProgress, setDeps } from './kanban';
+import { categoryKey, dependentsOf, depProgress, setDeps } from './kanban';
 import { KanbanStore } from './kanban-store';
 import { Review } from './review';
 import { ReviewStore } from './review-store';
@@ -25,7 +25,7 @@ export class KanbanDeps {
   private readonly confirm = inject(Confirm);
 
   /** As anotações pelo id, para a contagem. */
-  private readonly notes = computed(() => new Map(this.store.notes().map((r) => [r.id, r])));
+  private readonly notes = this.kanban.notesById;
 
   /** As dependências guardadas da anotação (os ids), ou nenhuma. */
   idsOf(note: string): readonly string[] {
@@ -51,23 +51,31 @@ export class KanbanDeps {
 
   /** Dá para pôr `other` como dependência de `note`? Não ela mesma, nem uma que depende dela (a roda). */
   canAdd(note: string, other: string): boolean {
-    return other !== note && !dependsOn(this.kanban.boards(), other, note);
+    return other !== note && !dependentsOf(this.kanban.boards(), note).has(other);
   }
 
-  /** As anotações que não dá para pôr como dependência de `note` (ela, as que já são e as da roda). */
-  excluded(note: string): string[] {
-    const own = new Set(this.idsOf(note));
+  /**
+   * As anotações que não dá para pôr como dependência de `note` (ela, as que já são e as da roda).
+   * `own`: as que já são (as guardadas, ou as escolhidas no editor e ainda não salvas).
+   */
+  excluded(note: string, own: readonly string[] = this.idsOf(note)): string[] {
+    const mine = new Set(own);
+    const ring = dependentsOf(this.kanban.boards(), note);
     return this.store
       .notes()
-      .filter((r) => own.has(r.id) || !this.canAdd(note, r.id))
+      .filter((r) => r.id === note || mine.has(r.id) || ring.has(r.id))
       .map((r) => r.id);
   }
 
-  /** As dependências da anotação passam a ser `deps` (as da roda ficam de fora). */
+  /**
+   * As dependências da anotação passam a ser `deps`: as da roda ficam de fora, e as apagadas também
+   * (já não contam, e só ocupariam o lugar de uma nova no limite de `MAX_DEPS`).
+   */
   set(note: string, deps: readonly string[]): void {
     const at = this.kanban.cardOf(note);
     if (!at) return;
-    const ok = deps.filter((d) => this.canAdd(note, d));
+    const ring = dependentsOf(this.kanban.boards(), note);
+    const ok = deps.filter((d) => d !== note && !ring.has(d) && this.notes().has(d));
     this.kanban.update(at.board.id, (b, now) => setDeps(b, note, ok, now));
   }
 

@@ -4,6 +4,7 @@ import { Importance, KanbanBoard, setImportance, setStatus } from '../core/kanba
 import { KanbanActions } from '../core/kanban-actions';
 import { KanbanDeps } from '../core/kanban-deps';
 import { KanbanStore } from '../core/kanban-store';
+import { canonicalJson } from '../core/canonical-json';
 import { cleanSubject, sanitizeTags, subjectLibrary, tagLibrary } from '../core/note-labels';
 import { savedSubjects } from '../core/mural-config';
 import { ReviewStore } from '../core/review-store';
@@ -164,7 +165,11 @@ export class KanbanCardSheet {
     const d = this.data();
     if (!d || !column || d.card.column === column) return;
     this.actions.move(d.board.id, d.note.id, column);
-    this.column.set(this.data()?.card.column ?? null);
+    const now = this.data()?.card.column ?? null;
+    this.column.set(now);
+    // esperando a pergunta (ou sem o sim): a tira volta para a de agora (o valor daqui não mudou, então
+    // a ligação não levaria a volta até ela)
+    if (now !== column) this.props()?.showColumn(now);
   }
 
   protected setImp(i: Importance | null): void {
@@ -189,6 +194,8 @@ export class KanbanCardSheet {
     const r = this.store.get(this.noteId());
     if (!r) return;
     const next = sanitizeTags(tags);
+    // as mesmas: nada muda (nem a hora da anotação, que conta na ordem por alteração e na junção)
+    if (canonicalJson(next) === canonicalJson(r.tags ?? [])) return;
     const { tags: _, ...rest } = r;
     this.store.update({ ...rest, ...(next.length ? { tags: next } : {}), updatedAt: new Date().toISOString() }, r);
   }

@@ -871,9 +871,12 @@ export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined,
   const current = new Map((now?.cards ?? []).map((c) => [c.note, c]));
   const cards = before.cards.map((c) => {
     const was = current.get(c.note);
+    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance || was.status !== c.status || was.wall !== c.wall) ? { at } : {};
+    // na mesma coluna, vestida do mesmo jeito que em `before`: o Desfazer não mudou nada nela, e a
+    // anotação repintada à mão depois de vestir continua como a pessoa deixou
+    if (was && was.column === c.column && c.dress && was.dress && canonicalJson(was.dress) === canonicalJson(c.dress)) return { ...c, ...moved };
     const own = was?.dress?.own ?? c.dress?.own;
     const { dress: _, ...plain } = c;
-    const moved = at && (!was || was.column !== c.column || was.importance !== c.importance || was.status !== c.status || was.wall !== c.wall) ? { at } : {};
     return own ? { ...plain, ...moved, dress: { col: '', v: '', own } } : { ...plain, ...moved };
   });
   return { ...before, cards };
@@ -886,6 +889,36 @@ export function restoredBoard(before: KanbanBoard, now: KanbanBoard | undefined,
 export function redressCards(b: KanbanBoard, notes: readonly string[]): KanbanBoard {
   if (!b.cards.some((c) => c.dress && notes.includes(c.note))) return b;
   return { ...b, cards: b.cards.map((c) => (c.dress && notes.includes(c.note) ? { ...c, dress: { col: '', v: '', own: c.dress.own } } : c)) };
+}
+
+/**
+ * O visual de antes de chegar no quadro de uma anotação vestida que o Desfazer tira dele (ela tinha
+ * vindo de fora): sem o cartão, o vestidor não tem mais como devolvê-lo. Null: não estava vestida, ou
+ * já está com ele.
+ */
+export function lookBeforeBoard(card: Pick<KanbanCard, 'dress'> | undefined, note: CardLook): CardLook | null {
+  const own = card?.dress?.own;
+  return own && !sameLook(lookFrom(note), own) ? own : null;
+}
+
+/**
+ * As anotações que dependem de `note`, direto ou por algum caminho (pelas dependências guardadas nos
+ * quadros): nenhuma delas pode virar dependência de `note`, que faria uma roda. O mesmo que
+ * `dependsOn(boards, x, note)` para cada `x`, numa volta só.
+ */
+export function dependentsOf(boards: readonly KanbanBoard[], note: string): Set<string> {
+  const back = new Map<string, string[]>();
+  for (const b of boards) for (const c of b.cards) for (const d of c.deps ?? []) back.set(d, [...(back.get(d) ?? []), c.note]);
+  const out = new Set<string>();
+  const stack = [note];
+  while (stack.length) {
+    for (const x of back.get(stack.pop()!) ?? []) {
+      if (out.has(x)) continue;
+      out.add(x);
+      stack.push(x);
+    }
+  }
+  return out;
 }
 
 /** A anotação que o vestidor vê: o id, a categoria (do quadro) e o visual dela. */

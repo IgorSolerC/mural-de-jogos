@@ -9,6 +9,7 @@ import {
   type OpKanban,
 } from '../../../contrato/api-v1/operacoes-kanban';
 import { andList } from './api-keys';
+import { withLook } from './card-look';
 import { quadroV1 } from './api-mirror-kanban';
 import {
   BoardCategory,
@@ -22,6 +23,7 @@ import {
   cardsIn,
   dependsOn,
   doneChange,
+  lookBeforeBoard,
   moveColumn,
   placeCard,
   redressCards,
@@ -294,8 +296,15 @@ export function undoKanban(book: KanbanBook, notes: NoteBook, t: { op: string; a
     const b = boardById(book, was.quadro);
     if (!b) return;
     const note = t.alvo;
-    if (!was.card) book.update(b.id, (x, when) => removeCard(x, note, when));
-    else {
+    if (!was.card) {
+      const card = b.cards.find((c) => c.note === note);
+      book.update(b.id, (x, when) => removeCard(x, note, when));
+      // vinda de fora e vestida pelo card padrão da coluna: volta ao visual de antes (sem o cartão, o
+      // vestidor não tem mais como devolvê-lo); a compartilhada nunca é vestida
+      const r = notes.get(note);
+      const own = r && !notes.sharedIds().has(note) ? lookBeforeBoard(card, r) : null;
+      if (r && own) notes.update({ ...withLook(r, own), updatedAt: now }, r);
+    } else {
       const back = was.card;
       book.update(b.id, (x, when) => {
         if (!x.columns.some((c) => c.id === back.column)) return x;

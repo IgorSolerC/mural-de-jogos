@@ -73,6 +73,18 @@ export class NoteSelection {
       cfg.on();
       untracked(() => this.clear());
     });
+    // uma marcada que deixou de estar aqui (apagada, ou tirada do quadro por outro aparelho ou pela API)
+    // sai das marcas: não vai na cópia, e a ordem das outras não pula um número
+    effect(() => {
+      const notes = cfg.notes();
+      untracked(() => {
+        const ids = this.ids();
+        const kept = ids.filter((id) => notes.has(id));
+        if (kept.length === ids.length) return;
+        if (kept.length) this.ids.set(kept);
+        else this.clear();
+      });
+    });
   }
 
   clear(): void {
@@ -146,6 +158,8 @@ export class NoteSelection {
     // o Esc do menu da anotação fecha só o menu (ver ui/note-menu.ts)
     if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
     if (e.key === 'Escape') {
+      // o Esc que fecha uma tira aberta por cima (a das dependências, o Mais das abas) fecha só ela
+      if (document.querySelector('[popover="auto"]:popover-open')) return;
       this.clear();
       return;
     }

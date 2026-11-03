@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-marcar-copiar-ligar',
+    id: '2026-11-03-kanban-regras',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -64,6 +64,12 @@ export const NEWS: NewsEntry[] = [
       'Na leitura, o Voltar de uma anotação aberta por um link levava à de antes mesmo depois de ela ser apagada em outro aparelho, e dizia o nome antigo da renomeada; agora pula a apagada e diz o nome de agora.',
       'A nota colada escrita à mão só com o título, como "{{nota: Compras}}", deixava de achar a anotação quando ela mudava de nome; agora muda junto, como os links.',
       'No seletor da Nota, a ficha privada dizia que quem visita vê o nome dela, mas quem visita só vê que a nota colada é privada; agora o aviso diz isso.',
+      'No Kanban, o Desfazer de "a ordem vale em todas as colunas", de tirar uma coluna ou de ligar o card padrão vestia de novo as anotações que você tinha repintado à mão numa coluna com card padrão; agora elas ficam como você deixou.',
+      'No Kanban, o Desfazer de uma anotação que veio de fora do quadro direto para uma coluna com card padrão a tirava do quadro ainda vestida, e o visual de antes se perdia; agora ela volta ao visual de antes.',
+      'Na folha da anotação no quadro, escolher a coluna que finaliza com uma dependência aberta e responder "Esperar" deixava a etapa mostrando a coluna escolhida, e escolher ela de novo não perguntava; agora a etapa volta para a de agora.',
+      'No Kanban, uma anotação marcada com Ctrl+clique que saía do quadro (por outro aparelho ou pela API) continuava marcada e ia na cópia; agora sai das marcas. E o Esc que fecha a tira das dependências não desmarca mais as marcadas.',
+      'Com uma dependência apagada, o editor mostrava a linha "Depende de" vazia, e ela ocupava o lugar de uma nova no limite (a nova sumia); agora a apagada não conta, e sai quando você muda as dependências.',
+      'Com o quadro no limite de anotações, a anotação de fora levada para a coluna que finaliza era finalizada sem entrar no quadro; agora nada muda. O bilhete de uma só anotação levada dizia "1 anotações", e repetir as mesmas tags na folha mudava a hora da anotação (e a ordem por alteração); agora não.',
     ],
   },
   {

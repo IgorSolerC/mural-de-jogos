@@ -14,6 +14,8 @@ import { Mural } from '../core/mural';
 import { KANBAN_LAST_KEY } from '../core/kanban';
 import { WallView } from '../core/wall-view';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
+import { KanbanCardSheet } from '../ui/kanban-card-sheet';
+import { KanbanProps } from '../ui/kanban-props';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -1756,6 +1758,114 @@ describe('página do Kanban', () => {
       await closeDialog(sheet.querySelector<HTMLDialogElement>('dialog')!);
       await settle();
       expect(cardOf('nsync001').status).toBe('Aguardando cliente');
+    });
+  });
+  describe('revisão das regras do cartão', () => {
+    const card = (id: string) => host.querySelector<HTMLElement>(`.lugar[data-nota="${id}"]`)!;
+    const ctrlClick = (el: HTMLElement) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, ctrlKey: true, button: 0, isPrimary: true }));
+      el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true, button: 0 }));
+    };
+    const marked = () => [...host.querySelectorAll('[data-marcada]')].map((e) => e.getAttribute('data-nota') + '#' + (e as HTMLElement).style.getPropertyValue('--marca-n'));
+
+    it('a marcada que sai do quadro (pela API, por outro aparelho) sai das marcas e da cópia', async () => {
+      const copied: string[] = [];
+      spyOn(navigator.clipboard, 'writeText').and.callFake(async (t: string) => void copied.push(t));
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      ctrlClick(card('nsync001').querySelector<HTMLElement>('.hit')!);
+      ctrlClick(card('nlogin01').querySelector<HTMLElement>('.hit')!);
+      await settle();
+      expect(marked()).toEqual(['nlogin01#2', 'nsync001#1']);
+      kanban.update(TRAB, (b, at) => ({ ...b, at, cards: b.cards.filter((c) => c.note !== 'nsync001') }));
+      await settle();
+      expect(marked()).toEqual(['nlogin01#1']);
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true }));
+      await settle();
+      expect(copied).toEqual(['TÍTULO: Corrigir o login\nDESCRIÇÃO: Ver Sincronizar quadros']);
+    });
+
+    it('o Esc que fecha uma tira aberta por cima (popover) não desmarca', async () => {
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      ctrlClick(card('nlogin01').querySelector<HTMLElement>('.hit')!);
+      await settle();
+      const tira = document.createElement('div');
+      tira.setAttribute('popover', 'auto');
+      document.body.appendChild(tira);
+      tira.showPopover();
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(marked()).toEqual(['nlogin01#1']);
+      tira.hidePopover();
+      tira.remove();
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await settle();
+      expect(marked()).toEqual([]);
+    });
+
+    it('na folha da anotação, ir para Feito com dependência aberta e "Esperar": a etapa volta para a de agora', async () => {
+      const b = board();
+      b.cards[0] = { ...b.cards[0], deps: ['nsync001'] };
+      kanban.state.set(state(b));
+      await go(TRAB_URL);
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
+      card('nlogin01').querySelector<HTMLButtonElement>('.mexer')!.click();
+      await settle();
+      const sheet = host.querySelector('app-kanban-card-sheet')!;
+      const select = sheet.querySelector<HTMLSelectElement>('app-kanban-props select')!;
+      select.value = 'feito';
+      select.dispatchEvent(new Event('change'));
+      await settle();
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nlogin01')!.column).toBe('afazer');
+      expect(select.value).toBe('afazer');
+      expect(sheet.querySelector('.escolha-nome')!.textContent!.trim()).toBe('A fazer');
+      expect(sheet.querySelector('.finaliza')).toBeNull();
+      // escolher Feito de novo pergunta de novo; com o sim, vai
+      ask.and.resolveTo(true);
+      select.value = 'feito';
+      select.dispatchEvent(new Event('change'));
+      await settle();
+      expect(ask).toHaveBeenCalledTimes(2);
+      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nlogin01')!.column).toBe('feito');
+      expect(select.value).toBe('feito');
+      expect(sheet.querySelector('.escolha-nome')!.textContent!.trim()).toBe('Feito');
+    });
+
+    it('na folha, as tags iguais às de antes não mexem na anotação (nem na hora dela)', async () => {
+      kanban.state.set(state(board()));
+      await go(TRAB_URL);
+      const sheet = TestBed.createComponent(KanbanCardSheet);
+      sheet.componentRef.setInput('boardId', TRAB);
+      sheet.componentRef.setInput('noteId', 'nlogin01');
+      document.body.appendChild(sheet.nativeElement);
+      await sheet.whenStable();
+      const before = store.get('nlogin01')!;
+      (sheet.componentInstance as unknown as { setTags(t: string[]): void }).setTags(['Correção']);
+      expect(store.get('nlogin01')).toBe(before);
+      (sheet.componentInstance as unknown as { setTags(t: string[]): void }).setTags(['Correção', 'Urgente']);
+      expect(store.get('nlogin01')!.tags).toEqual(['Correção', 'Urgente']);
+      sheet.destroy();
+      sheet.nativeElement.remove();
+    });
+
+    it('no editor (compacto), só dependências apagadas contam como nenhuma: o "+ Dependência" e sem a linha vazia', async () => {
+      const props = TestBed.createComponent(KanbanProps);
+      props.componentRef.setInput('board', board());
+      props.componentRef.setInput('noteId', 'nlogin01');
+      props.componentRef.setInput('compact', true);
+      props.componentRef.setInput('column', 'afazer');
+      props.componentRef.setInput('deps', ['nsumiu01']);
+      await props.whenStable();
+      const el: HTMLElement = props.nativeElement;
+      expect(el.querySelector('.deps-linha')).toBeNull();
+      expect([...el.querySelectorAll('.extras .mais')].map((b) => b.textContent!.trim())).toContain('Dependência');
+      props.componentRef.setInput('deps', ['nsumiu01', 'nsync001']);
+      await props.whenStable();
+      expect(el.querySelectorAll('.deps-linha .dep').length).toBe(1);
+      expect(el.querySelector('.por-dep')!.textContent!.trim()).toBe('Outra');
+      props.destroy();
     });
   });
 });

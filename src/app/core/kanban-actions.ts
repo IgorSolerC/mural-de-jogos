@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { KanbanBoard, belongs, cardsIn, doneChange, placeCard, placeCards, redressCards, removeCard } from './kanban';
+import { withLook } from './card-look';
+import { KanbanBoard, belongs, cardsIn, doneChange, lookBeforeBoard, placeCard, placeCards, redressCards, removeCard } from './kanban';
 import { KanbanDeps } from './kanban-deps';
 import { KanbanStore } from './kanban-store';
 import { NoteDone } from './note-done';
@@ -50,6 +51,8 @@ export class KanbanActions {
     const before = board.cards.find((c) => c.note === note) ?? null;
     const beforeIndex = before ? cardsIn(board, before.column).findIndex((c) => c.note === note) : -1;
     this.kanban.update(boardId, (b, at) => placeCard(b, note, column, at, index ?? 0));
+    // não entrou (o quadro já tem o máximo de anotações): nem finaliza, nem abre
+    if (!this.kanban.get(boardId)?.cards.some((c) => c.note === note && c.column === column)) return;
     const change = doneChange(board, before?.column ?? null, column);
     const wasDone = isDone(r);
     // o dia em que tinha sido finalizada: o Desfazer de "aberta de novo" a finaliza nele, e não hoje
@@ -65,7 +68,7 @@ export class KanbanActions {
       label: 'Desfazer',
       run: () => {
         if (before) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, note, before.column, at, beforeIndex), [note]));
-        else this.kanban.update(boardId, (b, at) => removeCard(b, note, at));
+        else this.unplace(boardId, note);
         this.undoDone(note, wasDone, wasAt);
       },
     });
@@ -110,10 +113,14 @@ export class KanbanActions {
       })
       .sort((a, b) => a.order - b.order);
     this.kanban.update(boardId, (b, at) => placeCards(b, rs.map((r) => r!.id), column, at, before));
-    if (this.kanban.get(boardId) === board) return;
+    const after = this.kanban.get(boardId);
+    if (!after || after === board) return;
+    // as que entraram de verdade (com o quadro no máximo de anotações, as de fora podem ficar de fora)
+    const placed = new Set(after.cards.filter((c) => c.column === column).map((c) => c.note));
     let finished = 0;
     let opened = 0;
     for (const w of was) {
+      if (!placed.has(w.note)) continue;
       const change = doneChange(board, w.column, column);
       const want = change === 'finalizar' && !w.done ? true : change === 'abrir' && w.done ? false : null;
       if (want === null) continue;
@@ -130,13 +137,13 @@ export class KanbanActions {
       ? `${plural(finished, 'anotação finalizada', 'anotações finalizadas')} em ${where}`
       : opened
         ? `${plural(opened, 'anotação aberta', 'anotações abertas')} de novo em ${where}`
-        : `${n} anotações levadas para ${where}`;
+        : `${plural(n, 'anotação levada', 'anotações levadas')} para ${where}`;
     this.toasts.show(text, {
       label: 'Desfazer',
       run: () => {
         for (const w of was) {
           if (w.column) this.kanban.update(boardId, (b, at) => redressCards(placeCard(b, w.note, w.column!, at, w.index), [w.note]));
-          else this.kanban.update(boardId, (b, at) => removeCard(b, w.note, at));
+          else this.unplace(boardId, w.note);
           this.undoDone(w.note, w.done, w.doneAt);
         }
       },
@@ -165,6 +172,19 @@ export class KanbanActions {
           return placed === b ? b : { ...placed, cards: placed.cards.map((c) => (c.note === note ? { ...back, at } : c)) };
         }),
     });
+  }
+
+  /**
+   * O Desfazer de uma anotação que veio de fora do quadro: ela sai dele e, vestida pelo card padrão da
+   * coluna em que chegou, volta ao visual de antes (sem o cartão, o vestidor não teria como devolver).
+   * A compartilhada nunca foi vestida (o visual dela é de todos).
+   */
+  private unplace(boardId: string, note: string): void {
+    const card = this.kanban.get(boardId)?.cards.find((c) => c.note === note);
+    this.kanban.update(boardId, (b, at) => removeCard(b, note, at));
+    const r = this.store.get(note);
+    const own = r && !this.store.sharedIds().has(note) ? lookBeforeBoard(card, r) : null;
+    if (r && own) this.store.update({ ...withLook(r, own), updatedAt: new Date().toISOString() }, r);
   }
 
   /**
