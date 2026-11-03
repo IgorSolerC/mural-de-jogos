@@ -1,6 +1,8 @@
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { ICON, IconModule } from './icons';
+import { ICON, ICON_CHOICE, IconModule } from './icons';
+import { StudyStore } from '../core/study-store';
+import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP } from '../core/study';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
@@ -32,7 +34,19 @@ const SECTIONS = [
   { id: 'assuntos', label: 'Assuntos', hint: 'Por grupo: criar e renomear', icon: ICON.assunto },
   { id: 'tags', label: 'Tags', hint: 'Por grupo: nome e cor', icon: ICON.etiqueta },
   { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: ICON.colunas },
+  // as dos Estudos: só pela engrenagem dos Estudos (ver `study`)
+  { id: 'estudo', label: 'Estudo', hint: 'Quanto lembrar e quantas por dia', icon: ICON.estudar },
+  { id: 'baralhos', label: 'Baralhos', hint: 'Novas por dia e o mural', icon: ICON.camadas },
 ] as const;
+const STUDY_SECTIONS: readonly string[] = ['estudo', 'baralhos'];
+
+/** As retenções da tira "Quanto lembrar", com o que cada uma quer dizer. */
+const RETENTIONS: readonly { value: number; label: string; desc: string }[] = [
+  { value: 0.8, label: '80%', desc: 'Lembra 8 de cada 10. Menos revisões por dia, mais esquecidas.' },
+  { value: 0.85, label: '85%', desc: 'Lembra quase 9 de cada 10.' },
+  { value: 0.9, label: '90%', desc: 'Lembra 9 de cada 10: o equilíbrio que o Anki recomenda.' },
+  { value: 0.95, label: '95%', desc: 'Lembra quase todas. Bem mais revisões por dia.' },
+];
 type SectionId = (typeof SECTIONS)[number]['id'];
 
 /** A parte aberta da última vez (enquanto o site está aberto). */
@@ -184,11 +198,13 @@ interface Drag {
   imports: [BackdropClose, CategoryLabel, CategoryStyle, IconModule, NoteTag, Pin, TagColors],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './mural-config.html',
-  styleUrl: './mural-config.scss',
+  styleUrls: ['./mural-config.scss', './mural-config-estudos.scss'],
 })
 export class MuralConfig {
   /** O quadro do Kanban de onde a folha abriu (o id): com ele, a parte Quadro. */
   readonly board = input<string | null>(null);
+  /** Aberta pela engrenagem dos Estudos: só as partes deles (Estudo e Baralhos). */
+  readonly study = input(false);
   /** A folha fechou. */
   readonly closed = output<void>();
   /** Recomeçar o quadro: a página recomeça (com o Desfazer) depois da pergunta. */
@@ -217,8 +233,17 @@ export class MuralConfig {
   protected readonly AddIcon = ICON.adicionar;
   protected readonly labelMax = LABEL_MAX;
   protected readonly ResetBoardIcon = ICON.recomecar;
-  /** As partes à mostra: o Quadro só pelo Kanban. */
-  protected readonly sections = computed(() => SECTIONS.filter((s) => s.id !== 'quadro' || !!this.board()));
+  /** As partes à mostra: o Quadro só pelo Kanban; nos Estudos, só as deles. */
+  protected readonly sections = computed(() =>
+    this.study() ? SECTIONS.filter((s) => STUDY_SECTIONS.includes(s.id)) : SECTIONS.filter((s) => !STUDY_SECTIONS.includes(s.id) && (s.id !== 'quadro' || !!this.board())),
+  );
+  protected readonly studyStore = inject(StudyStore);
+  protected readonly retentions = RETENTIONS;
+  protected readonly maxNew = MAX_NEW_PER_DAY;
+  protected readonly maxReviews = MAX_REVIEWS_CAP;
+  protected readonly iconOf = ICON_CHOICE;
+  /** O que a retenção escolhida quer dizer. */
+  protected readonly retentionDesc = computed(() => RETENTIONS.find((r) => r.value === this.studyStore.config().retention)?.desc ?? '');
   protected readonly audiences = AUDIENCES;
   protected readonly audienceLabel = AUDIENCE_LABEL;
   protected readonly views = VIEWS;
@@ -227,6 +252,12 @@ export class MuralConfig {
 
   /** A parte aberta da última vez, menos o Quadro pela engrenagem do mural (lá ele não existe). */
   protected readonly section = signal<SectionId>(lastSection === 'quadro' && !this.board() ? 'padroes' : lastSection);
+
+  /** A parte aberta é sempre uma das que estão à mostra (as entradas chegam depois da criação). */
+  private readonly keepSection = effect(() => {
+    const list = this.sections();
+    if (!list.some((s) => s.id === this.section())) this.section.set(list[0].id);
+  });
 
   /** O quadro do Kanban de onde a folha abriu (ou nada, pela engrenagem do mural). */
   protected readonly quadro = computed(() => {
@@ -333,8 +364,51 @@ export class MuralConfig {
   protected pick(id: SectionId): void {
     if (id !== this.section()) this.notice.set('');
     this.section.set(id);
-    lastSection = id;
+    if (!this.study()) lastSection = id;
   }
+
+  /** Um número de 0 até o teto (o campo vazio ou com letra não muda nada). */
+  private count(raw: string | number, max: number): number | null {
+    // o campo apagado (o número vira "") não vale 0: fica como estava
+    const s = String(raw).trim();
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? Math.min(max, Math.max(0, Math.round(n))) : null;
+  }
+
+  protected setRetention(value: number): void {
+    this.studyStore.setConfig({ retention: value });
+  }
+
+  protected setMaxReviews(raw: string): void {
+    const n = this.count(raw, MAX_REVIEWS_CAP);
+    if (n !== null) this.studyStore.setConfig({ maxReviews: n });
+  }
+
+  protected setNewOrder(order: 'entrada' | 'sorteio'): void {
+    this.studyStore.setConfig({ newOrder: order });
+  }
+
+  /** As novas por dia de um baralho (pelo campo, ou pelos botões de menos e mais). */
+  protected setNewPerDay(id: string, raw: string | number): void {
+    const n = this.count(raw, MAX_NEW_PER_DAY);
+    if (n !== null) this.studyStore.updateDeck(id, { newPerDay: n });
+  }
+
+  /** As cartas do baralho no mural também (sem o campo: só nos Estudos, o padrão). */
+  protected setDeckWall(id: string, wall: boolean): void {
+    this.studyStore.updateDeck(id, { wall: wall ? true : undefined });
+  }
+
+  /** Quantas cartas cada baralho tem (as de anotações que existem). */
+  protected readonly deckCards = computed(() => {
+    const n = new Map<string, number>();
+    for (const c of this.studyStore.cards()) {
+      if (!this.studyStore.live(c.note)) continue;
+      for (const d of c.decks) n.set(d, (n.get(d) ?? 0) + 1);
+    }
+    return n;
+  });
 
   /** ←/→ (e ↑/↓), Home e End andam pelas partes, como numa lista de abas. */
   protected onIndexKey(e: KeyboardEvent): void {

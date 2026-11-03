@@ -94,10 +94,17 @@
               A próxima revisão é {{ n.when }} ({{ countLabel(n.n) }}).
             }
           </p>
+          <!-- sem nada para hoje: as revisões de amanhã, antes (o "estudar adiantado" do Anki) -->
+          @if (tomorrow()) {
+            <button type="button" class="papel adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, ahead: true })">
+              <lucide-icon [img]="PlayIcon" [size]="16" aria-hidden="true" />
+              Estudar adiantado
+            </button>
+          }
         }
       </div>
-      @if (deck(); as d) {
-        <div class="pasta-controles">
+      <div class="pasta-controles">
+        @if (deck(); as d) {
           <div class="pasta-grupo poe-cartas">
             <button type="button" class="tinta" (click)="newCard(d.id)">
               <lucide-icon [img]="AddIcon" [size]="17" aria-hidden="true" />
@@ -113,8 +120,14 @@
               <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
             </button>
           </div>
+        }
+        <!-- as configurações dos Estudos (todos os baralhos): a mesma folha das do mural e do Kanban, na ponta -->
+        <div class="pasta-grupo">
+          <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Configurações dos estudos" title="Configurações dos estudos" [attr.aria-expanded]="config()" (click)="config.set(true)">
+            <lucide-icon [img]="GearIcon" [size]="18" aria-hidden="true" />
+          </button>
         </div>
-      }
+      </div>
     </div>
     @if (deck() && deckSize()) {
       <div class="pasta-linha filtros">
@@ -228,7 +241,13 @@
 
 @if (session(); as s) {
   @defer (on immediate) {
-    <app-study-session [deck]="s.deck" (closed)="session.set(null)" (all)="session.set({ deck: null })" />
+    <app-study-session [deck]="s.deck" [ahead]="!!s.ahead" (closed)="session.set(null)" (all)="session.set({ deck: null })" />
+  }
+}
+
+@if (config()) {
+  @defer (on immediate) {
+    <app-mural-config [study]="true" (closed)="config.set(false)" />
   }
 }
 

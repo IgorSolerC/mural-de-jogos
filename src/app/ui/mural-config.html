@@ -3,8 +3,8 @@
     <app-pin class="pin" />
     <header class="head">
       <div class="titulos">
-        <h2 id="config-titulo">Configurações do mural</h2>
-        <p class="sub">Anotações · vale na hora e fica salvo</p>
+        <h2 id="config-titulo">{{ study() ? 'Configurações dos estudos' : 'Configurações do mural' }}</h2>
+        <p class="sub">{{ study() ? 'Estudos' : 'Anotações' }} · vale na hora e fica salvo</p>
       </div>
       <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -563,6 +563,97 @@
                   </button>
                 </div>
               </div>
+            }
+          }
+
+          @case ('estudo') {
+            <h3>Estudo</h3>
+            <p class="lead">Como o algoritmo do Anki (o FSRS) decide quando cada carta volta, para todos os baralhos.</p>
+
+            <div class="grupo">
+              <p class="grupo-titulo">A memória</p>
+              <fieldset class="linha">
+                <legend class="linha-titulo">Quanto lembrar</legend>
+                <p class="linha-desc">{{ retentionDesc() }}</p>
+                <div class="segmentos quatro">
+                  @for (r of retentions; track r.value) {
+                    <label class="segmento">
+                      <input type="radio" name="config-retencao" [checked]="studyStore.config().retention === r.value" (change)="setRetention(r.value)" />
+                      <span class="seg-nome">{{ r.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+            </div>
+
+            <div class="grupo">
+              <p class="grupo-titulo">Por dia</p>
+              <div class="linha">
+                <div>
+                  <p class="linha-titulo" id="config-t-revisoes">Revisões por dia, no máximo</p>
+                  <p class="linha-desc" id="config-d-revisoes">Somando os baralhos. As que passarem disso ficam para amanhã (o Anki usa 200).</p>
+                </div>
+                <label class="numero">
+                  <span class="sr-only">Revisões por dia</span>
+                  <input type="number" inputmode="numeric" min="0" [max]="maxReviews" aria-labelledby="config-t-revisoes" aria-describedby="config-d-revisoes" [value]="studyStore.config().maxReviews" (change)="setMaxReviews($any($event.target).value)" />
+                </label>
+              </div>
+              <fieldset class="linha">
+                <legend class="linha-titulo">Ordem das novas</legend>
+                <p class="linha-desc">{{ studyStore.config().newOrder === 'sorteio' ? 'Sorteadas, um sorteio novo a cada dia.' : 'Na ordem em que entraram no baralho.' }}</p>
+                <div class="segmentos">
+                  <label class="segmento">
+                    <input type="radio" name="config-ordem-novas" [checked]="studyStore.config().newOrder === 'entrada'" (change)="setNewOrder('entrada')" />
+                    <span class="seg-nome">Na ordem em que entraram</span>
+                  </label>
+                  <label class="segmento">
+                    <input type="radio" name="config-ordem-novas" [checked]="studyStore.config().newOrder === 'sorteio'" (change)="setNewOrder('sorteio')" />
+                    <span class="seg-nome">Sorteadas</span>
+                  </label>
+                </div>
+              </fieldset>
+            </div>
+          }
+
+          @case ('baralhos') {
+            <h3>Baralhos</h3>
+            <p class="lead">Quantas cartas novas cada baralho põe por dia, e se as cartas dele aparecem no mural também. O nome, a cor e o ícone ficam no lápis da pasta de cada baralho.</p>
+            @for (d of studyStore.decks(); track d.id) {
+              <div class="grupo baralho-config" [style.--cor]="'var(--stock-' + d.color + ')'">
+                <p class="grupo-titulo baralho-nome">
+                  @if (d.icon) {
+                    <lucide-icon [img]="iconOf[d.icon]" [size]="16" aria-hidden="true" />
+                  }
+                  {{ d.name }}
+                  @let n = deckCards().get(d.id) ?? 0;
+                  <span class="baralho-n">{{ n === 1 ? '1 carta' : n + ' cartas' }}</span>
+                </p>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" [id]="'config-t-novas-' + d.id">Novas por dia</p>
+                    <p class="linha-desc">{{ d.newPerDay === 0 ? 'Nenhuma nova entra: só as revisões.' : d.newPerDay === 1 ? 'Uma carta nova por dia.' : d.newPerDay + ' cartas novas por dia.' }}</p>
+                  </div>
+                  <div class="passo">
+                    <button type="button" class="passo-btn" [attr.aria-label]="'Uma nova a menos por dia em ' + d.name" [disabled]="d.newPerDay <= 0" (click)="setNewPerDay(d.id, d.newPerDay - 1)">−</button>
+                    <label class="numero">
+                      <span class="sr-only">Novas por dia em {{ d.name }}</span>
+                      <input type="number" inputmode="numeric" min="0" [max]="maxNew" [attr.aria-labelledby]="'config-t-novas-' + d.id" [value]="d.newPerDay" (change)="setNewPerDay(d.id, $any($event.target).value)" />
+                    </label>
+                    <button type="button" class="passo-btn" [attr.aria-label]="'Uma nova a mais por dia em ' + d.name" [disabled]="d.newPerDay >= maxNew" (click)="setNewPerDay(d.id, d.newPerDay + 1)">+</button>
+                  </div>
+                </div>
+                <div class="linha">
+                  <div>
+                    <p class="linha-titulo" [id]="'config-t-mural-' + d.id">No mural também</p>
+                    <p class="linha-desc">{{ d.wall ? 'As cartas aparecem no mural de anotações também.' : 'Desligado (o padrão), as cartas ficam só nos Estudos. Cada carta pode escolher o contrário.' }}</p>
+                  </div>
+                  <button type="button" role="switch" class="interruptor" [attr.aria-labelledby]="'config-t-mural-' + d.id" [attr.aria-checked]="!!d.wall" (click)="setDeckWall(d.id, !d.wall)">
+                    <span class="bolinha"></span>
+                  </button>
+                </div>
+              </div>
+            } @empty {
+              <p class="vazio">Ainda não há baralhos. Monte o primeiro na página dos Estudos.</p>
             }
           }
         }

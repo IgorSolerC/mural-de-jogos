@@ -1,0 +1,88 @@
+@use 'paper-kit' as kit;
+
+/* As partes dos Estudos (Estudo e Baralhos) na folha de configurações; o resto vem de mural-config.scss. */
+
+/* a tira das quatro retenções: as quatro numa fileira */
+.segmentos.quatro {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* o número: o campo de papel, curto */
+.numero {
+  @include kit.campo;
+
+  & {
+    flex: none;
+    width: 6.5rem;
+    min-height: 44px;
+    padding: 0 8px 0 12px;
+  }
+
+  input {
+    width: 100%;
+    height: 42px;
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-size: 1.1rem;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+}
+
+/* menos, o número e mais */
+.passo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  .numero {
+    width: 5rem;
+  }
+}
+
+.passo-btn {
+  @include kit.botao-papel;
+
+  & {
+    justify-content: center;
+    width: 44px;
+    min-height: 44px;
+    padding: 0;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1.3rem;
+  }
+}
+
+/* o nome do baralho, com a cor dele pintada na ponta, como a tira das pilhas */
+.baralho-nome {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 14px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 2px;
+    bottom: 2px;
+    width: 6px;
+    border-radius: 2px;
+    background: var(--cor);
+  }
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.baralho-n {
+  margin-left: auto;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  color: var(--ink-2);
+}

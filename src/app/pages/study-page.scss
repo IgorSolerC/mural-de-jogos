@@ -273,8 +273,13 @@
   --monte: #0d6b3c;
 }
 
-/* o play: o botão de tinta, logo depois dos montes */
-.estudar {
+.papel {
+  @include kit.botao-papel;
+}
+
+/* o play: o botão de tinta, logo depois dos montes (e o Estudar adiantado, de papel) */
+.estudar,
+.adiantado {
   display: inline-flex;
   align-items: center;
   gap: 8px;

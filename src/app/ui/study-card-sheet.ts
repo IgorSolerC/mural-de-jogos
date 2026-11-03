@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
 import { ReviewStore } from '../core/review-store';
-import { LEVEL_LABEL, hitRate, levelOf, studyOnWall, whenLabel } from '../core/study';
+import { LEVEL_LABEL, levelOf, studyOnWall } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { BackdropClose } from './backdrop-close';
 import { ICON, IconModule } from './icons';
 import { Pin } from './pin';
 import { StudyDeckPicker } from './study-deck-picker';
+import { StudyReport } from './study-report';
 import { Toasts } from './toast';
 
 /**
@@ -16,7 +17,7 @@ import { Toasts } from './toast';
  */
 @Component({
   selector: 'app-study-card-sheet',
-  imports: [BackdropClose, IconModule, Pin, StudyDeckPicker],
+  imports: [BackdropClose, IconModule, Pin, StudyDeckPicker, StudyReport],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog #dialog class="sheet ficha-quadro ficha-carta" aria-labelledby="fc-titulo-folha" (close)="closed.emit()" (backdropClose)="close()">
@@ -48,8 +49,8 @@ import { Toasts } from './toast';
               </div>
             </div>
             <div class="linha">
-              <span class="nome"><lucide-icon [img]="ClockIcon" [size]="16" aria-hidden="true" />Revisão</span>
-              <p class="valor revisao">{{ d.when }}</p>
+              <span class="nome"><lucide-icon [img]="ClockIcon" [size]="16" aria-hidden="true" />Boletim</span>
+              <app-study-report class="valor" [note]="d.card.note" />
             </div>
           </div>
 
@@ -101,16 +102,12 @@ export class StudyCardSheet {
     const note = this.store.get(this.noteId());
     if (!card || !note) return null;
     const level = LEVEL_LABEL[levelOf(card.srs)];
-    const now = this.study.now();
-    const rate = hitRate(card.stats);
-    const seen = card.stats.seen ? ` · vista ${card.stats.seen === 1 ? '1 vez' : `${card.stats.seen} vezes`}${rate !== null ? `, ${rate}% de acertos` : ''}` : ' · ainda não estudada';
     return {
       card,
       name: note.game.name,
       stock: note.stock ?? 'amarelo',
       level,
       onWall: studyOnWall(card, this.study.decks()) ?? true,
-      when: `${card.srs.state === 'nova' ? 'Entra quando chegar a vez dela' : `Volta ${whenLabel(card.srs, now)}`}${seen}`,
     };
   });
 

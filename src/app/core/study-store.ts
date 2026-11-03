@@ -171,8 +171,15 @@ export class StudyStore {
     return () => this.set(restoreCard(this.state(), card, this.stamp()));
   }
 
-  resetCard(note: string): void {
+  /** A carta volta a Desconhecida, sem respostas; devolve o Desfazer (ou null, se ela não existia). */
+  resetCard(note: string): (() => void) | null {
+    const before = this.cardOf().get(note);
+    if (!before) return null;
     this.set(resetCard(this.state(), note, this.stamp()));
+    return () => {
+      const at = this.stamp();
+      this.set({ ...this.state(), cards: this.state().cards.map((c) => (c.note === note ? { ...before, at } : c)) });
+    };
   }
 
   /**

@@ -41,6 +41,8 @@ interface Answered {
 export class StudySession {
   /** O baralho estudado (null: Estudar tudo). */
   readonly deck = input<string | null>(null);
+  /** O "Estudar adiantado": as revisões de amanhã, quando hoje já está em dia. */
+  readonly ahead = input(false);
   readonly closed = output<void>();
   /** "Estudar tudo", no fim de um baralho: quem abriu troca a mesa para todos os baralhos. */
   readonly all = output<void>();
@@ -69,11 +71,12 @@ export class StudySession {
 
   protected readonly title = computed(() => {
     const id = this.deck();
-    return id ? (this.study.deck(id)?.name ?? 'Baralho') : 'Tudo';
+    const name = id ? (this.study.deck(id)?.name ?? 'Baralho') : 'Tudo';
+    return this.ahead() ? `${name} · adiantado` : name;
   });
 
   /** Os três montes do que falta, como no Anki (o da carta na mesa sublinhado). */
-  protected readonly counts = computed(() => dayQueue(this.study.state(), this.study.now(), this.deck() ?? undefined, this.study.live).counts);
+  protected readonly counts = computed(() => dayQueue(this.study.state(), this.study.now(), this.deck() ?? undefined, this.study.live, this.ahead() ? 1 : 0).counts);
 
   /** A carta na mesa: a frente, a anotação (o verso) e a cartolina. */
   protected readonly card = computed(() => {
@@ -159,7 +162,7 @@ export class StudySession {
 
   /** A próxima carta, ou o fim. */
   private advance(): void {
-    const up = nextUp(this.study.state(), new Date(), this.deck() ?? undefined, this.study.live);
+    const up = nextUp(this.study.state(), new Date(), this.deck() ?? undefined, this.study.live, this.ahead() ? 1 : 0);
     this.current.set(up.item);
     this.revealed.set(false);
     this.finished.set(!up.item);

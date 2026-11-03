@@ -789,6 +789,15 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   `app-paper-art` só com o papel), no formato da carta. A cor da moldura e do verso passou a ser a do
   mural (`pinningFor`). Achado nas fotos: a sessão abria com a carta de outro baralho (o baralho é uma
   entrada, que não chegou no construtor); agora a primeira carta vem de um `effect` que segue o baralho.
+- 02/nov/2026, rodada 6 (BUILD 712): o boletim (`ui/study-report.ts`) na folha da carta (no lugar da linha
+  Revisão) e na aba Flashcard (depois da primeira resposta, com "Recomeçar o progresso"); a engrenagem na
+  ponta da pasta abre `app-mural-config` com `[study]="true"` (partes Estudo e Baralhos, em
+  `mural-config-estudos.scss`); "Estudar adiantado" (`dayQueue`/`nextUp` com `ahead`: só as revisões dos
+  próximos dias, sem novas e sem o limite do dia). Mudado no caminho: a parte Baralhos ficou só com as
+  novas por dia e o mural (o nome, a cor, o ícone e apagar já moram no lápis da pasta de cada baralho, e
+  repetir lá seria um segundo lugar para o mesmo); a ordem dos baralhos continua a das abas. Achados: o
+  campo de número apagado valia 0 (agora não muda nada) e o boletim dizia "Volta hoje · 01 NOV" na
+  vencida (a data só aparece quando é outro dia). O plano está completo.
 
 ---
 

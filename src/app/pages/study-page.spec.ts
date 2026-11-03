@@ -4,6 +4,7 @@ import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { Desk } from '../core/desk';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from '../ui/confirm';
 import { StudyPage } from './study-page';
@@ -297,6 +298,49 @@ describe('página dos Estudos', () => {
     expect(text($('.estudar'))).toBe('Estudar tudo');
     await go(`/anotacoes/estudos/${vazio}`);
     expect($('.estudar')).toBeNull();
+  });
+
+  it('em dia, com revisões amanhã: "Estudar adiantado" abre a mesa com elas; sem nada amanhã, não aparece', async () => {
+    const kanji = study.addDeck('Kanjis', 'amarelo');
+    study.addCard('nsol', [kanji]);
+    const inDays = (n: number) =>
+      study.state.update((st) => ({
+        ...st,
+        cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 5, d: 5, due: dayStart(addStudyDays(studyDay(new Date()), n)).toISOString(), last: T0, reps: 3 } })),
+      }));
+    inDays(3);
+    await go(`/anotacoes/estudos/${kanji}`);
+    expect($('.estudar')).toBeNull();
+    expect($('.adiantado')).toBeNull();
+    inDays(1);
+    await settle();
+    expect($('.estudar')).toBeNull();
+    expect(text($('.adiantado'))).toBe('Estudar adiantado');
+    $<HTMLButtonElement>('.adiantado')!.click();
+    let mesa: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(mesa = document.querySelector<HTMLDialogElement>('dialog.sessao'))?.open; i++) await settle();
+    expect(mesa!.open).toBeTrue();
+    expect(text(mesa!.querySelector('.baralho'))).toBe('Kanjis · adiantado');
+    expect(mesa!.querySelector('app-study-card')).not.toBeNull();
+    mesa!.close();
+    await settle();
+  });
+
+  it('a engrenagem, na ponta da pasta (em Tudo e no baralho), abre as configurações dos Estudos', async () => {
+    const { kanji } = seed();
+    await go('/anotacoes/estudos');
+    const gear = $<HTMLButtonElement>('button[aria-label="Configurações dos estudos"]')!;
+    expect(gear.closest('.pasta-controles')!.lastElementChild!.contains(gear)).toBeTrue();
+    gear.click();
+    let dialog: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.config'))?.open; i++) await settle();
+    expect(dialog!.open).toBeTrue();
+    expect(dialog!.querySelector('#config-titulo')!.textContent).toContain('Configurações dos estudos');
+    dialog!.close();
+    await settle();
+    await go(`/anotacoes/estudos/${kanji}`);
+    const inDeck = $<HTMLButtonElement>('button[aria-label="Configurações dos estudos"]')!;
+    expect(inDeck.closest('.pasta-controles')!.lastElementChild!.contains(inDeck)).toBeTrue();
   });
 
   it('a folha do baralho: a cor e o ícone valem na hora; apagar volta para Tudo, com o Desfazer', async () => {

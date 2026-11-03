@@ -1,4 +1,4 @@
-import { seededRandom, studyDay } from './fsrs';
+import { addStudyDays, seededRandom, studyDay } from './fsrs';
 import { Deck, StudyCard, StudyState, todayOf } from './study';
 
 /**
@@ -45,12 +45,13 @@ const EMPTY: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
  * A fila de hoje. `scope` é o baralho estudado (sem ele, todos: o Estudar tudo, onde a carta de dois
  * baralhos aparece uma vez só). `live` diz se a anotação da carta existe.
  */
-export function dayQueue(st: StudyState, now: Date, scope?: string, live: (note: string) => boolean = () => true): DayQueue {
+export function dayQueue(st: StudyState, now: Date, scope?: string, live: (note: string) => boolean = () => true, ahead = 0): DayQueue {
   const decks = scope ? st.decks.filter((d) => d.id === scope) : st.decks;
   if (!decks.length) return { learning: [], rest: [], counts: { ...EMPTY } };
   const order = new Map(decks.map((d, i) => [d.id, i]));
   const today = todayOf(st, now);
   const day = studyDay(now);
+  const until = addStudyDays(day, ahead);
   const nowMs = now.getTime();
   // o primeiro baralho da carta (na ordem das abas) entre os estudados
   const home = (c: StudyCard): Deck | undefined => {
@@ -73,14 +74,17 @@ export function dayQueue(st: StudyState, now: Date, scope?: string, live: (note:
       const t = Date.parse(due);
       if (t <= nowMs + LEARN_AHEAD_MS) learning.push({ note: c.note, deck: deck.id, kind: 'aprender', due: t });
     } else if (state === 'revisao') {
-      if (studyDay(new Date(due)) <= day) reviews.push({ note: c.note, deck: deck.id, kind: 'revisao', due });
-    } else fresh.push(c);
+      const dueDay = studyDay(new Date(due));
+      // adiantado: as que vencem até daqui a `ahead` dias (com as de hoje que passaram do limite do dia)
+      if (dueDay <= (ahead ? until : day)) reviews.push({ note: c.note, deck: deck.id, kind: 'revisao', due });
+    } else if (!ahead) fresh.push(c);
   }
   learning.sort((a, b) => a.due - b.due || a.note.localeCompare(b.note));
   // revisões: a que venceu há mais tempo primeiro; no mesmo dia, um sorteio do dia (o mesmo em todo aparelho)
   const tie = (note: string) => seededRandom(`${day}:${note}`);
   reviews.sort((a, b) => a.due.localeCompare(b.due) || tie(a.note) - tie(b.note));
-  const reviewRoom = Math.max(0, st.config.maxReviews - today.reviews);
+  // adiantado é pedido pela pessoa: o limite do dia não vale
+  const reviewRoom = ahead ? Infinity : Math.max(0, st.config.maxReviews - today.reviews);
   const dueReviews = reviews.slice(0, reviewRoom);
   // novas: cada baralho, na ordem das abas, pega as suas até o que sobra do limite de hoje; a carta de
   // dois baralhos conta no primeiro que ainda tem vaga
@@ -130,8 +134,8 @@ export interface NextUp {
  * nada, a em aprendizado que vence nos próximos 20 minutos. Se não sobrar nada, `later` diz quando volta a
  * próxima de hoje (a sessão termina dizendo isso).
  */
-export function nextUp(st: StudyState, now: Date, scope?: string, live?: (note: string) => boolean): NextUp {
-  const q = dayQueue(st, now, scope, live);
+export function nextUp(st: StudyState, now: Date, scope?: string, live?: (note: string) => boolean, ahead = 0): NextUp {
+  const q = dayQueue(st, now, scope, live, ahead);
   const byNote = new Map(st.cards.map((c) => [c.note, c]));
   const dueNow = q.learning.find((i) => Date.parse(byNote.get(i.note)!.srs.due) <= now.getTime());
   if (dueNow) return { item: dueNow, later: null };

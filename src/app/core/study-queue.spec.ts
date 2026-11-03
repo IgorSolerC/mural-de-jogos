@@ -87,6 +87,25 @@ describe('a fila do dia (core/study-queue.ts)', () => {
     expect(dayQueue(st, new Date(2026, 10, 3, 4, 1), 'da').counts.revisar).toBe(1);
   });
 
+  it('adiantado: as revisões até amanhã (as de hoje além do limite primeiro), sem novas e sem o limite do dia', () => {
+    let st = sample();
+    st = inReview(st, 'a5', '2026-11-03');
+    st = inReview(st, 'a6', '2026-11-03');
+    st = inReview(st, 'a7', '2026-11-04');
+    st = inReview(st, 'a8', '2026-11-02');
+    st = inReview(st, 'a4', '2026-11-02');
+    st = setConfig(st, { maxReviews: 1 }, iso(NOW));
+    // hoje, uma das duas vencidas (o limite); adiantado, as duas de hoje antes das de amanhã, e a de depois não
+    expect(dayQueue(st, NOW, 'da').counts.revisar).toBe(1);
+    const q = dayQueue(st, NOW, 'da', undefined, 1);
+    expect(q.rest.slice(0, 2).map((i) => i.note).sort()).toEqual(['a4', 'a8']);
+    expect(q.rest.slice(2).map((i) => i.note).sort()).toEqual(['a5', 'a6']);
+    expect(q.counts).toEqual({ novas: 0, aprender: 0, revisar: 4 });
+    expect(nextUp(st, NOW, 'da', undefined, 1).item?.kind).toBe('revisao');
+    // sem adiantar, a de amanhã não entra
+    expect(dayQueue(st, NOW, 'da').rest.some((i) => i.note === 'a5' || i.note === 'a6')).toBeFalse();
+  });
+
   it('novas espalhadas entre as revisões, e não no fim', () => {
     expect(interleave(['r1', 'r2', 'r3', 'r4'], ['n1', 'n2'])).toEqual(['r1', 'n1', 'r2', 'r3', 'n2', 'r4']);
     expect(interleave([], ['n1'])).toEqual(['n1']);

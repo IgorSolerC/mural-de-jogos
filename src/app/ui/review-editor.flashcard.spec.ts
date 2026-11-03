@@ -6,6 +6,7 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
+import { Toasts } from './toast';
 import { ReviewEditor } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
@@ -170,5 +171,37 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     await save();
     expect(study.cardOf().has('nsol')).toBeFalse();
+  });
+
+  it('o boletim aparece depois da primeira resposta; "Recomeçar o progresso" pergunta e a carta volta a Desconhecida', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const deck = study.addDeck('Kanjis', 'amarelo');
+    study.addCard('nsol', [deck], { title: '日' }, true);
+    study.openFront.set('nsol');
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    expect(panel().querySelector('app-study-report')).toBeNull();
+    study.answer('nsol', true, deck);
+    study.answer('nsol', false, deck);
+    await fixture.whenStable();
+    const report = panel().querySelector('app-study-report')!;
+    expect(report.querySelector('.nivel')!.textContent).toContain('Nova');
+    expect(report.querySelector('.contas')!.textContent!.replace(/\s+/g, ' ')).toContain('Vista 2 vezes · acertou 1 · errou 1');
+    expect(report.querySelector('.chance strong')!.textContent).toMatch(/^\d+%$/);
+    expect(report.querySelectorAll('lucide-icon.marca').length).toBe(2);
+    expect(report.querySelectorAll('lucide-icon.marca.errou').length).toBe(1);
+    expect(report.querySelector('.marcas .sr-only')!.textContent).toContain('acertou, errou');
+    panel().querySelector<HTMLButtonElement>('.recomecar')!.click();
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    const card = study.cardOf().get('nsol')!;
+    expect(card.srs.state).toBe('nova');
+    expect(card.stats.seen).toBe(0);
+    expect(panel().querySelector('app-study-report')).toBeNull();
+    // o Desfazer traz as respostas de volta
+    const toast = TestBed.inject(Toasts).current()!;
+    expect(toast.text).toBe('O progresso da carta recomeçou');
+    toast.action!.run();
+    expect(study.cardOf().get('nsol')!.stats.seen).toBe(2);
   });
 });

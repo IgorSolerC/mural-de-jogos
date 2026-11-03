@@ -27,6 +27,18 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-02-estudos-configuracoes',
+    version: '1.37.1',
+    kind: 'ajustes',
+    date: '2026-11-02',
+    title: 'As configurações dos Estudos, o boletim da carta e estudar adiantado',
+    melhorias: [
+      'Os Estudos ganharam a engrenagem, na ponta da pasta, com as mesmas configurações do mural e do Kanban: em Estudo, quanto lembrar (80%, 85%, 90% ou 95%: mais alto, mais revisões), as revisões por dia, no máximo, e a ordem das novas (na ordem em que entraram, ou sorteadas); em Baralhos, as novas por dia de cada baralho (0 para só revisar) e se as cartas dele aparecem no mural também.',
+      'A carta ganhou um boletim, na folha da carta e na aba Flashcard do editor: o nível num selo, quando volta (com a data), quantas vezes foi vista, quantas acertou e errou, a chance de lembrar agora e as últimas respostas em tiques a lápis. Na aba, "Recomeçar o progresso" faz a carta voltar a ser nova, depois de uma pergunta.',
+      'Com tudo em dia, "Estudar adiantado" estuda agora as revisões de amanhã, no baralho aberto ou em todos.',
+    ],
+  },
+  {
     id: '2026-11-02-estudos-sessao',
     version: '1.37.0',
     kind: 'funcionalidade',

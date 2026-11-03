@@ -81,6 +81,19 @@
         </div>
       </div>
 
+      @if (studied()) {
+        <div class="linha">
+          <span class="nome">Boletim</span>
+          <div class="valor">
+            <app-study-report [note]="noteId()" />
+            <button type="button" class="papel pequeno recomecar" (click)="restart()">
+              <lucide-icon [img]="RestartIcon" [size]="15" aria-hidden="true" />
+              Recomeçar o progresso
+            </button>
+          </div>
+        </div>
+      }
+
       <div class="pe">
         <button type="button" class="papel perigo" (click)="stop()">
           <lucide-icon [img]="TrashIcon" [size]="15" aria-hidden="true" />

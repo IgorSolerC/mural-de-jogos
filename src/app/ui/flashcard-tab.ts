@@ -8,6 +8,8 @@ import { Confirm } from './confirm';
 import { ICON, IconModule } from './icons';
 import { StudyCard } from './study-card';
 import { StudyDeckPicker } from './study-deck-picker';
+import { StudyReport } from './study-report';
+import { Toasts } from './toast';
 
 /**
  * A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): a frente da carta (título, subtítulo e imagem), os
@@ -20,7 +22,7 @@ import { StudyDeckPicker } from './study-deck-picker';
  */
 @Component({
   selector: 'app-flashcard-tab',
-  imports: [IconModule, StudyCard, StudyDeckPicker],
+  imports: [IconModule, StudyCard, StudyDeckPicker, StudyReport],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './flashcard-tab.html',
   styleUrl: './flashcard-tab.scss',
@@ -35,12 +37,14 @@ export class FlashcardTab {
   protected readonly ImageIcon = ICON.imagem;
   protected readonly TrashIcon = ICON.apagar;
   protected readonly CloseIcon = ICON.fechar;
+  protected readonly RestartIcon = ICON.recomecar;
   protected readonly titleMax = TITLE_MAX;
   protected readonly subtitleMax = SUBTITLE_MAX;
 
   private readonly study = inject(StudyStore);
   private readonly images = inject(ImageStore);
   private readonly confirm = inject(Confirm);
+  private readonly toasts = inject(Toasts);
 
   /** A anotação é (ou vai ser, ao salvar) uma carta. */
   readonly on = signal(false);
@@ -61,7 +65,7 @@ export class FlashcardTab {
   }
 
   /** A anotação aberta no editor, e se ela é nova. */
-  private readonly noteId = signal('');
+  protected readonly noteId = signal('');
   private readonly freshNote = signal(true);
 
   /** "No mural": o escolhido; senão o da carta; senão, para a anotação que já existia, sim; senão, o dos baralhos. */
@@ -74,6 +78,25 @@ export class FlashcardTab {
     if (!this.freshNote() && !card) return true;
     return studyOnWall({ decks: this.decks(), wall: undefined }, decks) ?? false;
   });
+
+  /** A carta já foi respondida alguma vez: o boletim aparece. */
+  protected readonly studied = computed(() => (this.study.cardOf().get(this.noteId())?.stats.seen ?? 0) > 0);
+
+  /** "Recomeçar o progresso": a carta volta a Desconhecida, sem respostas (pergunta antes; vale na hora, com Desfazer). */
+  protected async restart(): Promise<void> {
+    const card = this.card();
+    if (!card) return;
+    const yes = await this.confirm.ask({
+      title: 'Recomeçar o progresso?',
+      text: `A carta volta a ser Desconhecida: as ${card.stats.seen === 1 ? 'uma resposta' : `${card.stats.seen} respostas`} dela saem, e ela entra de novo como nova.`,
+      confirm: 'Recomeçar',
+      cancel: 'Deixar',
+      icon: ICON.recomecar,
+    });
+    if (!yes) return;
+    const undo = this.study.resetCard(card.note);
+    if (undo) this.toasts.show('O progresso da carta recomeçou', { label: 'Desfazer', run: undo });
+  }
 
   /** O naipe da carta viva: o ícone do primeiro baralho. */
   protected readonly suit = computed(() => this.study.deck(this.decks()[0] ?? '')?.icon ?? null);

@@ -8,7 +8,7 @@ import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, frontTitle, levelOf, whenLabel } from '../core/study';
-import { QueueCounts, allCounts, countTotal } from '../core/study-queue';
+import { QueueCounts, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
@@ -19,6 +19,7 @@ import { StudyCard } from '../ui/study-card';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudyCardSheet } from '../ui/study-card-sheet';
 import { StudySession } from '../ui/study-session';
+import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
 import { Toasts } from '../ui/toast';
 import { NOTES } from '../core/kinds';
@@ -76,7 +77,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession],
+  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -93,6 +94,7 @@ export class StudyPage {
   protected readonly EditIcon = ICON.editar;
   protected readonly AdjustIcon = ICON.ajustar;
   protected readonly PlayIcon = ICON.estudar;
+  protected readonly GearIcon = ICON.configurar;
   protected readonly BringIcon = ICON.buscar;
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
@@ -120,7 +122,11 @@ export class StudyPage {
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
   /** A sessão de estudo aberta: de um baralho, ou de todos (null). */
-  protected readonly session = signal<{ deck: string | null } | null>(null);
+  protected readonly session = signal<{ deck: string | null; ahead?: boolean } | null>(null);
+  /** A folha das configurações dos Estudos aberta. */
+  protected readonly config = signal(false);
+  /** Quantas revisões vencem amanhã (no baralho aberto, ou em todos): o "Estudar adiantado" só aparece com alguma. */
+  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.state(), this.now(), this.deck()?.id, this.study.live, 1).counts));
   /** A folha da carta aberta (o id da anotação). */
   protected readonly cardSheet = signal<string | null>(null);
   /** O seletor de fichas do "Trazer anotações" aberto. */
