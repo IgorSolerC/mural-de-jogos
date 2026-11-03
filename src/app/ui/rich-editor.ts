@@ -2,11 +2,11 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
-import { bodyIndent, calloutAround, calloutAt, calloutLine, copyText, fenceInfo, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { bodyIndent, calloutAround, calloutAt, calloutLine, closes, copyText, fenceInfo, fenceOf, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
-import { NoteLinks, linkKey, linkTitleOf, resolveNote } from '../core/note-links';
+import { NoteLinks, linkKey, linkTitleOf, linkableTitle, resolveNote } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
 import { CopyContexts } from '../core/copy-context';
 import { Review, formatReviewDate } from '../core/review';
@@ -2792,11 +2792,14 @@ export class RichEditor {
     if (!to || !(e.currentTarget as HTMLElement).contains(to)) this.menu.set(null);
   }
 
+  /** O menu fecha e o foco volta para o texto (no Visual, a folha dele: a do Markdown está escondida). */
   protected closeMenu(e: Event | null, area: HTMLTextAreaElement): void {
     e?.preventDefault();
     e?.stopPropagation();
+    const big = this.menu()?.big ?? this.big();
     this.menu.set(null);
-    area.focus();
+    if (this.visual()) this.visualOf(big)?.focus();
+    else area.focus();
   }
 
   // ===== A grade do tamanho da tabela (o Inserir › Tabela do Visual) =====
@@ -2959,7 +2962,7 @@ export class RichEditor {
     const lines = text.split('\n');
     const from = lines.slice(0, block.open).reduce((n, l) => n + l.length + 1, 0);
     const old = lines[block.open];
-    const line = old.replace(/^(\s*(?:>\s?)?\s*`{3,}).*$/, (_, fence: string) => fence + withCodeLang(block.info, what.lingua));
+    const line = old.replace(/^(\s*(?:>\s?)?\s*(?:`{3,}|~{3,})).*$/, (_, fence: string) => fence + withCodeLang(block.info, what.lingua));
     const { selectionStart: s0, selectionEnd: e0 } = area;
     const shift = (at: number) => (at > from + old.length ? at + line.length - old.length : Math.min(at, from + line.length));
     this.replace(area, from, from + old.length, line, shift(s0), shift(e0));
@@ -3015,7 +3018,8 @@ export class RichEditor {
       out = outs.join('\n');
       const col = area.selectionStart - start(row);
       const k = row - c.head - (head.title ? 0 : 1);
-      const cut = row === c.head ? lines[row].length - outs[0]?.length : lines[row].length - inner[row - c.head - 1].length;
+      // na linha de cima sem título (ela sai inteira), o cursor vai para o começo do que sobra
+      const cut = row !== c.head ? lines[row].length - inner[row - c.head - 1].length : head.title ? lines[row].length - outs[0].length : lines[row].length;
       const at = from + outs.slice(0, Math.max(0, k)).reduce((n, l) => n + l.length + 1, 0) + Math.max(0, Math.min(col - cut, outs[Math.max(0, k)]?.length ?? 0));
       this.replace(area, from, to, out, at, at);
       return this.track(area);
@@ -3143,10 +3147,8 @@ export class RichEditor {
     const first = area.value.slice(0, from).split('\n').length - 1;
     let shift = 0;
     const out = lines.map((l, i) => {
-      const card = calloutAround(all, first + i);
-      if (card?.head === first + i) return l;
-      const keep = card ? l.slice(0, l.length - (calloutLine(l) ?? l).length) : '';
-      const own = l.slice(keep.length);
+      const { keep, own, head } = cardSplit(all, first + i);
+      if (head) return l;
       // linha em branco no meio da seleção fica em branco
       if (!single && !own.trim()) return l;
       const bare = own.replace(QUOTE_MARK, '').replace(SUBTLE_MARK, '').replace(HEADING_MARK, '');
@@ -3189,17 +3191,19 @@ export class RichEditor {
     const { open, close } = block;
     const offset = (i: number) => lines.slice(0, i).reduce((n, l) => n + l.length + 1, 0);
     let caret = area.selectionStart;
+    let next = text;
     const drop = (i: number) => {
       const start = offset(i);
       // a linha com a quebra depois dela; a última, com a de antes
       const [s, e] = i < lines.length - 1 ? [start, start + lines[i].length + 1] : [Math.max(0, start - 1), start + lines[i].length];
       if (caret > s) caret = Math.max(s, caret - (e - s));
-      this.replace(area, s, e, '', s, s);
+      next = next.slice(0, s) + next.slice(e);
     };
     // a de baixo primeiro: a de cima continua no mesmo lugar
     if (close !== null) drop(close);
     drop(open);
-    area.setSelectionRange(caret, caret);
+    // as duas cercas numa troca só: um Ctrl+Z traz as duas de volta
+    this.replaceAll(area, next, caret);
   }
 
   // ===== A Ajuda =====
@@ -3257,8 +3261,8 @@ export class RichEditor {
     const out: Review[] = [];
     for (const n of notes) {
       const key = linkKey(n.game.name);
-      // um título com colchetes não cabe num link
-      if (seen.has(key) || /[[\]]/.test(n.game.name) || (q && !key.includes(q))) continue;
+      // um título com colchetes ou "|" não cabe num link (o "|" separaria o texto do título, ver `linkableTitle`)
+      if (seen.has(key) || !linkableTitle(n.game.name) || (q && !key.includes(q))) continue;
       seen.add(key);
       out.push(resolveNote(notes, n.game.name) ?? n);
     }
@@ -4006,10 +4010,10 @@ export class RichEditor {
     const key = e.key.toLowerCase();
     if (mod && !e.shiftKey && key === 'b') {
       e.preventDefault();
-      this.wrap(area, '**');
+      this.wrap(area, '**', '**', 'bold');
     } else if (mod && !e.shiftKey && key === 'i') {
       e.preventDefault();
-      this.wrap(area, '*');
+      this.wrap(area, '*', '*', 'italic');
     } else if (mod && !e.shiftKey && key === 'k') {
       e.preventDefault();
       this.startUrl(area, big);
@@ -4018,10 +4022,10 @@ export class RichEditor {
       this.code(area);
     } else if (mod && e.shiftKey && key === 'x') {
       e.preventDefault();
-      this.wrap(area, '~~');
+      this.wrap(area, '~~', '~~', 'strike');
     } else if (mod && e.shiftKey && key === 'h') {
       e.preventDefault();
-      this.wrap(area, '==');
+      this.wrap(area, '==', '==', 'mark');
     } else if (mod && e.shiftKey && LIST_KEYS[e.code]) {
       // Ctrl+Shift+7, 8 e 9, como no Docs (pela tecla, não pelo que ela escreve com o Shift)
       e.preventDefault();
@@ -4058,16 +4062,15 @@ export class RichEditor {
   protected code(area: HTMLTextAreaElement): void {
     const text = area.value;
     const sel = text.slice(area.selectionStart, area.selectionEnd);
-    const { from, to, lines } = this.linesAt(area);
+    const { lines } = this.linesAt(area);
     if (sel.includes('\n') || (!sel && !lines[0].trim())) {
-      const body = sel || '';
-      const before = from > 0 && text[from - 1] !== '\n' ? '\n' : '';
-      const block = `${before}\`\`\`\n${body}\n\`\`\``;
-      const start = sel ? area.selectionStart : from;
-      const end = sel ? area.selectionEnd : to;
-      const caret = start + before.length + 4;
-      this.replace(area, start, end, block, caret, caret + body.length);
-      return;
+      // o bloco é de linhas inteiras, como o Formatar › Bloco de código (e no card, com o "> " nas cercas);
+      // dentro de um bloco, ele sai e as linhas voltam a ser texto, como no Visual
+      if (styleAt(text, area.selectionStart) === 'codigo') {
+        this.unfence(area);
+        return this.track(area);
+      }
+      return this.fence(area);
     }
     this.wrap(area, '`');
   }
@@ -4806,11 +4809,14 @@ export class RichEditor {
 
   // ===== A tabela =====
 
+  /** A Ajuda fecha e o foco volta para o texto (no Visual, a folha dele: a do Markdown está escondida). */
   protected closeGuide(e: Event | null, area: HTMLTextAreaElement): void {
     e?.preventDefault();
     e?.stopPropagation();
+    const big = this.guide() ?? this.big();
     this.guide.set(null);
-    area.focus();
+    if (this.visual()) this.visualOf(big)?.focus();
+    else area.focus();
   }
 
   /** A linha do cursor é uma linha de tabela ("| … |")? */
@@ -4949,16 +4955,23 @@ export class RichEditor {
    */
   protected list(area: HTMLTextAreaElement, kind: ListKind): void {
     const { from, to, lines } = this.linesAt(area);
-    const all = lines.every((l) => lineKind(l).kind === kind);
+    // num card, o marcador entra depois do "> " (na frente dele, o card acabaria ali); a linha de cima fica
+    const rows = linesOf(area.value);
+    const first = area.value.slice(0, from).split('\n').length - 1;
+    const parts = lines.map((_, i) => cardSplit(rows, first + i));
+    // as linhas em branco não contam: "- a", a linha vazia e "- b" já são todas da lista
+    const filled = parts.filter((p) => !p.head && p.own.trim());
+    const off = filled.length > 0 && filled.every((p) => lineKind(p.own).kind === kind);
     let n = 0;
-    const next = lines.map((l) => {
-      const k = lineKind(l);
-      const indent = /^\s*/.exec(l)![0];
-      const rest = k.kind === 'p' ? l.slice(indent.length) : k.rest;
-      if (all) return indent + rest;
+    const next = parts.map(({ keep, own, head }, i) => {
+      if (head) return lines[i];
+      const k = lineKind(own);
+      const indent = /^\s*/.exec(own)![0];
+      const rest = k.kind === 'p' ? own.slice(indent.length) : k.rest;
+      if (off) return keep + indent + rest;
       // linha em branco no meio da seleção fica em branco
-      if (lines.length > 1 && !l.trim()) return l;
-      return indent + prefixOf(kind, ++n) + rest;
+      if (lines.length > 1 && !own.trim()) return lines[i];
+      return keep + indent + prefixOf(kind, ++n) + rest;
     });
     const out = next.join('\n');
     // uma linha só, sem seleção: o cursor vai para o fim dela, pronto para escrever o item
@@ -5038,10 +5051,16 @@ export class RichEditor {
   private indentKey(e: KeyboardEvent, area: HTMLTextAreaElement): void {
     const { from, to, lines } = this.linesAt(area);
     const [s, end] = [area.selectionStart, area.selectionEnd];
-    const lead = (l: string) => /^[ \t]*/.exec(l)![0];
+    // num card, o recuo é o de depois do "> " (o de antes dele não põe o item dentro do de cima)
+    const rows = linesOf(area.value);
+    const first = area.value.slice(0, from).split('\n').length - 1;
+    const keeps = lines.map((_, i) => cardSplit(rows, first + i).keep);
+    /** Onde começa o texto da linha `i` (o "> " do card e o recuo), com `l` no lugar dela. */
+    const lead = (l: string, i = 0) => keeps[i] + /^[ \t]*/.exec(l.slice(keeps[i].length))![0];
+    const moved = (l: string, i: number, by: (own: string) => string) => keeps[i] + by(l.slice(keeps[i].length));
     const single = lines.length === 1;
     if (e.shiftKey) {
-      const out = lines.map((l) => outdentLine(l));
+      const out = lines.map((l, i) => moved(l, i, outdentLine));
       if (out.every((l, i) => l === lines[i])) return;
       e.preventDefault();
       const joined = out.join('\n');
@@ -5053,14 +5072,14 @@ export class RichEditor {
     }
     e.preventDefault();
     const caretCol = s - from;
-    if (single && s === end && lineKind(lines[0]).kind === 'p' && caretCol > lead(lines[0]).length) {
-      // no meio do texto: os espaços até a próxima coluna par, no cursor
-      const pad = ' '.repeat(caretCol % 2 ? 1 : 2);
+    if (single && s === end && lineKind(lines[0].slice(keeps[0].length)).kind === 'p' && caretCol > lead(lines[0]).length) {
+      // no meio do texto: os espaços até a próxima coluna par (contada depois do "> " do card), no cursor
+      const pad = ' '.repeat((caretCol - keeps[0].length) % 2 ? 1 : 2);
       this.replace(area, s, s, pad, s + pad.length, s + pad.length);
       return;
     }
     // a linha em branco no meio da seleção fica como está
-    const out = lines.map((l) => (!single && !l.trim() ? l : indentLine(l)));
+    const out = lines.map((l, i) => (!single && !l.slice(keeps[i].length).trim() ? l : moved(l, i, indentLine)));
     const joined = out.join('\n');
     if (single && s === end) {
       // o cursor anda junto com o texto (no recuo, vai para o fim dele)
@@ -5075,20 +5094,33 @@ export class RichEditor {
     return { lines: linesOf(area.value), at: area.value.slice(0, area.selectionStart).split('\n').length - 1 };
   }
 
+  /**
+   * A linha do cursor entre as que contam para as listas: num card, as de dentro sem o "> " (a lista
+   * do card é a de dentro dele), e o "> " que a linha nova leva para continuar no card ("" fora dele).
+   */
+  private itemLines(area: HTMLTextAreaElement): { lines: string[]; at: number; keep: string } {
+    const { lines, at } = this.cursorLine(area);
+    const c = calloutAround(lines, at);
+    if (!c || c.head === at) return { lines, at, keep: '' };
+    const keep = cardSplit(lines, at).keep;
+    const inner = lines.slice(c.head + 1, c.end + 1).map((l) => calloutLine(l) ?? l);
+    return { lines: inner, at: at - c.head - 1, keep: keep.endsWith(' ') ? keep : keep + ' ' };
+  }
+
   /** O cursor está num item de lista (ou no que vem embaixo dele, recuado)? */
   private inItem(area: HTMLTextAreaElement): boolean {
-    const { lines, at } = this.cursorLine(area);
+    const { lines, at } = this.itemLines(area);
     return ownerItem(lines, at) !== null;
   }
 
   /**
    * Uma linha nova dentro do mesmo item (Shift+Enter, ou "Linha dentro do item" no Formatar): recuada
    * até a coluna do texto dele, ela é a descrição, a foto, a lista de dentro. Fora de lista, só a
-   * linha nova.
+   * linha nova (num card, com o "> " dele: ela continua no card).
    */
   protected lineInItem(area: HTMLTextAreaElement): void {
-    const { lines, at } = this.cursorLine(area);
-    const piece = '\n' + (bodyIndent(lines, at) ?? '');
+    const { lines, at, keep } = this.itemLines(area);
+    const piece = '\n' + keep + (bodyIndent(lines, at) ?? '');
     const [s, e] = [area.selectionStart, area.selectionEnd];
     this.replace(area, s, e, piece, s + piece.length, s + piece.length);
   }
@@ -5159,17 +5191,29 @@ const STYLE_PREFIX: Record<Exclude<LineStyle, 'codigo'>, string> = { texto: '', 
 const HEADING_MARK = /^#{1,3}\s+/;
 /** A citação ("> "), não o spoiler ">!texto!<". */
 const QUOTE_MARK = /^\s*>(?!!\S.*!<)\s?/;
-const FENCE_MARK = /^\s*```/;
 /** O texto sutil ("-# ", como no Discord). */
 const SUBTLE_MARK = /^\s*-#(?:[ \t]+|$)/;
 /** Ctrl+Shift+7, 8 e 9: as listas, pela tecla (com o Shift, ela escreve outra coisa). */
 const LIST_KEYS: Record<string, ListKind> = { Digit7: 'ol', Digit8: 'ul', Digit9: 'check' };
 
 /**
+ * A cerca do bloco de código ainda aberto antes da linha `here` (null: fora de bloco), lida como a leitura
+ * lê (core/rich-text.ts): três crases ou três tis, fechado só pela mesma marca, pelo menos do mesmo tamanho.
+ */
+function openFence(lines: readonly string[], here: number): string | null {
+  let open: string | null = null;
+  for (let i = 0; i < here; i++) {
+    if (open === null) open = fenceOf(lines[i]);
+    else if (closes(lines[i], open)) open = null;
+  }
+  return open;
+}
+
+/**
  * O bloco de código ("```") em que cai a posição `at` (também o de dentro de um card): a linha da cerca que
  * abre e a da que fecha (null, sem ela: vai até o fim) no texto, o que tem dentro (sem o "> " do card) e o
- * que vem escrito depois das crases que abrem ("js"). Null fora de um bloco. As cercas casam aos pares,
- * como no `styleAt`.
+ * que vem escrito depois das crases que abrem ("js"). Null fora de um bloco. As cercas ("```" ou "~~~")
+ * são lidas como a leitura lê, como no `styleAt` (ver `openFence`).
  */
 export function codeBlockAt(text: string, at: number): { open: number; close: number | null; body: string; info: string } | null {
   const all = text.split('\n');
@@ -5180,14 +5224,19 @@ export function codeBlockAt(text: string, at: number): { open: number; close: nu
   const lines = card ? all.slice(base, card.end + 1).map((l) => calloutLine(l) ?? l) : all;
   const here = row - base;
   let open = -1;
-  for (let i = 0; i < here; i++) if (FENCE_MARK.test(lines[i])) open = open < 0 ? i : -1;
+  for (let i = 0; i < here; i++) {
+    if (open < 0) {
+      if (fenceOf(lines[i])) open = i;
+    } else if (closes(lines[i], fenceOf(lines[open])!)) open = -1;
+  }
   if (open < 0) {
-    if (!FENCE_MARK.test(lines[here] ?? '')) return null;
+    if (!fenceOf(lines[here] ?? '')) return null;
     open = here;
   }
+  const mark = fenceOf(lines[open])!;
   let close: number | null = null;
   for (let j = open + 1; j < lines.length; j++)
-    if (FENCE_MARK.test(lines[j])) {
+    if (closes(lines[j], mark)) {
       close = j;
       break;
     }
@@ -5207,9 +5256,7 @@ export function styleAt(text: string, at: number): LineStyle {
   const lines = card ? all.slice(card.head + 1, card.end + 1).map((l) => calloutLine(l) ?? l) : all;
   const here = card ? row - card.head - 1 : row;
   const line = lines[here] ?? '';
-  let open = false;
-  for (let i = 0; i < here; i++) if (FENCE_MARK.test(lines[i])) open = !open;
-  if (open || FENCE_MARK.test(line)) return 'codigo';
+  if (openFence(lines, here) !== null || fenceOf(line)) return 'codigo';
   const h = /^(#{1,3})\s/.exec(line);
   if (h) return `t${h[1].length}` as LineStyle;
   if (SUBTLE_MARK.test(line)) return 'sutil';
@@ -5254,6 +5301,20 @@ export function indentLine(line: string): string {
 export function outdentLine(line: string): string {
   const w = leadWidth(line);
   return w ? ' '.repeat(w - (w % 2 ? 1 : 2)) + line.replace(/^[ \t]*/, '') : line;
+}
+
+/**
+ * A linha `row` de `all` partida no "> " do card (com o recuo do card na frente) e no que ela tem: fora de
+ * card, nada na frente. `head`: é a linha de cima de um card (ela fica como está: o estilo e a lista são
+ * do que vem dentro).
+ */
+function cardSplit(all: readonly string[], row: number): { keep: string; own: string; head: boolean } {
+  const line = all[row] ?? '';
+  const card = calloutAround(all, row);
+  if (!card) return { keep: '', own: line, head: false };
+  if (card.head === row) return { keep: '', own: line, head: true };
+  const own = calloutLine(line) ?? line;
+  return { keep: line.slice(0, line.length - own.length), own, head: false };
 }
 
 /** O marcador do item novo; na numerada, com o número dele ("3", "1.2"). */

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-grupos-e-tags-revisao',
+    id: '2026-11-03-editor-e-regua-revisao',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -49,6 +49,14 @@ export const NEWS: NewsEntry[] = [
       'Um grupo novo escrito com "#" na frente ("#Bug") pintava com a cor dele a tag de mesmo nome em todos os grupos; agora o grupo novo nasce sem o "#" (no editor, nas configurações do mural e pela API), e a tag escrita "# #bug" também perde os dois.',
       'A aba das anotações sem grupo pegava a cor de um grupo que se chamasse "Sem grupo"; agora fica sem cor, como sempre.',
       'Uma tag escrita de jeitos diferentes ("bugfix" numa anotação, "Bugfix" em vinte) aparecia no editor com o jeito da primeira anotação, e a tag nova saía assim; agora com o mais usado, como os grupos e os assuntos.',
+      'No editor, na aba Markdown, Ctrl+B, Ctrl+I, Ctrl+Shift+X e Ctrl+Shift+H com o cursor dentro de um trecho já marcado punham marcas novas em volta; agora tiram a marca, como o botão da régua e a aba Visual.',
+      'Na aba Markdown, a lista (pela régua ou por Ctrl+Shift+7, 8 e 9) numa linha de um card entrava na frente do "> " e partia o card, o Tab num item do card não o punha dentro do de cima e o Shift+Enter num item do card tirava a linha nova dele; agora tudo fica no card. E tirar a lista de linhas com uma linha vazia no meio não tirava; agora tira.',
+      'O Ctrl+E em várias linhas começando no meio de uma linha grudava as crases no texto e o bloco de código não saía (no card, ele acabava com o card); agora o bloco é das linhas inteiras, como o Formatar › Bloco de código, e dentro dele o Ctrl+E o tira, como no Visual.',
+      'Tirar um bloco de código pela régua precisava de dois Ctrl+Z para voltar; agora um só traz o bloco inteiro.',
+      'O bloco de código escrito com "~~~" (ou com quatro crases e outro bloco dentro) não era reconhecido pela régua da aba Markdown: o menu Código não aparecia e o negrito entrava nele; agora é, como na leitura.',
+      'Desfazer um card sem título e sem nada dentro levava o cursor para o começo do texto; agora ele fica onde o card estava.',
+      'Uma anotação com "|" no título aparecia na lista do "[[", e o link escrito abria outra anotação; agora ela fica de fora da lista, como as com colchetes no título.',
+      'Na aba Visual, fechar um menu da régua pelo próprio botão, ou a Ajuda pelo X, deixava o texto sem o foco (era preciso tocar nele de novo); agora o foco volta para ele.',
     ],
   },
   {
