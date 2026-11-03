@@ -23,6 +23,8 @@ import { ApiRequests, SiteRequest } from './api-requests';
 import { IMAGES_DB, ImageStore } from './image-store';
 import { ImageSync } from './image-sync';
 import { deleteDatabase } from './erase-save';
+import { Colleague, ColleagueStore } from './colleague-store';
+import { cloudColleagueId } from './cloud-murals';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -982,6 +984,67 @@ describe('sincronização com a nuvem', () => {
       expect(a.asked).toEqual(['Levar o mural para a conta?']);
       expect((await cloud.read()).reviews.map((r) => r.game.name)).toEqual(['Daqui']);
       expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+    });
+
+    describe('os murais de outras pessoas abertos aqui', () => {
+      const marina = (): Colleague => ({
+        id: cloudColleagueId('K7QF-M2XB'),
+        name: 'Marina',
+        fileName: 'Código K7QF-M2XB',
+        loadedAt: new Date().toISOString(),
+        codigo: 'K7QF-M2XB',
+        exportedAt: null,
+        ownerName: 'Marina',
+        skipped: 0,
+        reviews: [review('rmarina1', 'Celeste')],
+      });
+      async function stored(): Promise<string[]> {
+        const fresh = new ColleagueStore();
+        await fresh.ready;
+        return fresh.colleagues().map((c) => c.id);
+      }
+      // o banco é um só no navegador dos testes: começa e termina vazio
+      beforeEach(async () => {
+        await TestBed.inject(ColleagueStore).clear();
+      });
+      afterEach(async () => {
+        await TestBed.inject(ColleagueStore).clear();
+      });
+
+      it('os abertos antes de entrar (de ninguém) não vão para a conta: saem do navegador e do Comparar', async () => {
+        const colleagues = TestBed.inject(ColleagueStore);
+        await colleagues.ready;
+        await colleagues.restore(marina());
+        const a = device({ anonimo: true });
+        await a.sync.syncNow();
+        expect(a.kv.getItem(OWNER_KEY)).toBe(ACCOUNT.id);
+        expect(colleagues.colleagues()).toEqual([]);
+        expect(colleagues.selected()).toBeNull();
+        expect(localStorage.getItem('meu-mural:colega-aberto')).toBeNull();
+        expect(await stored()).toEqual([]);
+      });
+
+      it('levando o mural de ninguém para a conta, os murais dos outros também não vão', async () => {
+        const colleagues = TestBed.inject(ColleagueStore);
+        await colleagues.ready;
+        await colleagues.restore(marina());
+        const a = device({ anonimo: true });
+        a.store.add(review('rlocal1', 'Daqui'));
+        a.answers.push('confirm');
+        await a.sync.syncNow();
+        expect(a.names()).toEqual(['Daqui']);
+        expect(await stored()).toEqual([]);
+      });
+
+      it('os abertos com a conta (o navegador já é dela) ficam', async () => {
+        const colleagues = TestBed.inject(ColleagueStore);
+        await colleagues.ready;
+        await colleagues.restore(marina());
+        const a = device();
+        await a.sync.syncNow();
+        expect(colleagues.colleagues().map((c) => c.id)).toEqual([marina().id]);
+        expect(await stored()).toEqual([marina().id]);
+      });
     });
 
     it('"Começar vazia": nada sobe, e o navegador é limpo', async () => {

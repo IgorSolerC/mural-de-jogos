@@ -5,6 +5,7 @@ import { Colleague, ColleagueStore, wallOf } from '../core/colleague-store';
 import { Mural } from '../core/mural';
 import { Profile } from '../core/profile';
 import { Review, sanitizeReview } from '../core/review';
+import { SpoilerShield } from '../core/spoiler-shield';
 import { ReviewReader } from '../ui/review-reader';
 import { WallToolbar } from '../ui/wall-toolbar';
 import { ViewTransitions } from '../core/view-transitions';
@@ -198,6 +199,19 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     expect(el.querySelector('.perfil')).toBeNull();
     expect(el.querySelector('a.nome')).toBeNull();
     expect(el.querySelector('h1')!.textContent!.replace(/\s+/g, ' ').trim()).toBe('O mural de Marina');
+  });
+
+  it('com notas em segredo, o resumo conta as obras em segredo, e não as vezes (a rejogada vai com a obra)', async () => {
+    const original = card('jogos');
+    const again = card('jogos', { game: original.game, revisitOf: original.id });
+    const other = card('jogos');
+    // "Evitar spoilers" ligado e nada disso resenhado por quem visita: tudo em segredo
+    const shield = { provide: SpoilerShield, useValue: { hiddenIn: (list: readonly Review[]) => new Set(list.map((r) => r.id)) } };
+    const fixture = create(marina({ reviews: [original, again, other] }), [shield]);
+    await settle();
+    fixture.detectChanges();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('.resumo')!.textContent!.trim()).toBe('2 jogos · 2 em segredo');
   });
 
   it('sem ninguém aberto: o caminho para o Comparar', async () => {

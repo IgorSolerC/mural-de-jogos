@@ -114,7 +114,9 @@ export class ColleagueWallPage {
       const done = list.filter(isDone).length;
       return `${countOf(this.profile(), list.length - done)}${done ? ` · ${plural(done, 'finalizada', 'finalizadas')}` : ''}`;
     }
-    if (this.visit.guarding()) return `${countOf(this.profile(), list.length)} · ${this.visit.hidden().size} em segredo`;
+    // em segredo também conta por obra (as rejogadas de uma obra em segredo vão junto com ela)
+    const hidden = this.visit.hidden();
+    if (this.visit.guarding()) return `${countOf(this.profile(), list.length)} · ${list.filter((r) => hidden.has(r.id)).length} em segredo`;
     const avg = list.reduce((s, r) => s + r.scores.final, 0) / list.length;
     return `${countOf(this.profile(), list.length)} · média ${avgFmt.format(avg)}`;
   });

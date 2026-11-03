@@ -2,7 +2,6 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { backupFileName } from './backup';
 import { ownerNameOf, parseBackupSnapshot, readBackupFile } from './backup-file';
-import { nameFromFile } from './comparison-stats';
 import { ReviewStore } from './review-store';
 
 describe('o seu nome no backup', () => {
@@ -11,11 +10,6 @@ describe('o seu nome no backup', () => {
     expect(backupFileName('  João Pedro ', '2026-10-05', 'json')).toBe('meu-mural-de-joão-pedro-2026-10-05.json');
     expect(backupFileName('a/b:c*?', '2026-10-05', 'json.gz')).toBe('meu-mural-de-a-b-c-2026-10-05.json.gz');
     expect(backupFileName('', '2026-10-05', 'json.gz')).toBe('meu-mural-2026-10-05.json.gz');
-  });
-
-  it('o Comparar tira o nome do arquivo, mesmo sem ler o que tem dentro', () => {
-    expect(nameFromFile(backupFileName('Igor', '2026-10-05', 'json.gz'))).toBe('Igor');
-    expect(nameFromFile(backupFileName('João Pedro', '2026-10-05', 'json.gz'))).toBe('João Pedro');
   });
 
   it('o nome vai dentro do backup e volta na leitura', async () => {

@@ -56,7 +56,15 @@ export class CloudMurals {
   private readonly toasts = inject(Toasts);
 
   /** Abre (ou atualiza) o mural de alguém pelo código e o deixa escolhido no Comparar. */
-  async open(input: string): Promise<Colleague> {
+  open(input: string): Promise<Colleague> {
+    return this.fetch(input, true);
+  }
+
+  /**
+   * Traz (ou atualiza) o mural de quem tem esse código e o guarda. `select`: ele fica escolhido no
+   * Comparar; sem, a escolha não muda (nem a que a pessoa fez enquanto o mural vinha da nuvem).
+   */
+  private async fetch(input: string, select: boolean): Promise<Colleague> {
     const code = normalizeCode(input);
     if (!code) throw new Error('Esse código não existe. Confira: ele tem 8 letras e números.');
     if (this.account.account()?.codigo === code) throw new Error('Esse é o seu código. Para comparar, abra o de outra pessoa.');
@@ -79,7 +87,7 @@ export class CloudMurals {
     const now = new Date().toISOString();
     if (res.status === 204 && known && existing) {
       const same = { ...existing, loadedAt: now };
-      await this.colleagues.restore(same);
+      await this.colleagues.restore(same, select);
       return same;
     }
     const snapshot = parseBackupSnapshot(await readBackupFile(await res.blob()));
@@ -95,7 +103,7 @@ export class CloudMurals {
       rev: Number(res.headers.get('Mural-Rev')) || undefined,
       leitor: MURAL_READER,
     };
-    await this.colleagues.restore(colleague);
+    await this.colleagues.restore(colleague, select);
     return colleague;
   }
 
@@ -104,14 +112,12 @@ export class CloudMurals {
     if (!colleague?.codigo || Date.now() - Date.parse(colleague.loadedAt) < FRESH_MS) return;
     await this.cloud.ready;
     if (!this.cloud.config()) return;
-    const selected = this.colleagues.selected()?.id;
     try {
-      await this.open(colleague.codigo);
+      // atualizar não troca quem está escolhido
+      await this.fetch(colleague.codigo, false);
     } catch {
       /* fica o que estava guardado */
     }
-    // atualizar não troca quem está escolhido
-    if (selected && this.colleagues.selected()?.id !== selected) this.colleagues.select(selected);
   }
 
   /**
@@ -129,15 +135,12 @@ export class CloudMurals {
     const existing = this.colleagues.colleagues().find((c) => c.id === id) ?? null;
     const hasAll = (c: Colleague) => need.every((ref) => c.reviews.some((r) => r.id === ref));
     if (existing && Date.now() - Date.parse(existing.loadedAt) < FRESH_MS && hasAll(existing)) return existing;
-    const selected = this.colleagues.selected()?.id;
     try {
-      return await this.open(code);
+      return await this.fetch(code, false);
     } catch (err) {
       failed?.(err);
-      // sem rede, fica o guardado; o que a nuvem disse que não existe mais já saiu (ver `open`)
+      // sem rede, fica o guardado; o que a nuvem disse que não existe mais já saiu (ver `fetch`)
       return this.colleagues.colleagues().find((c) => c.id === id) ?? null;
-    } finally {
-      if (selected && this.colleagues.selected()?.id !== selected) this.colleagues.select(selected);
     }
   }
 

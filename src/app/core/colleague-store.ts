@@ -2,7 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import { BackupSnapshot } from './backup-file';
 import { sanitizeReview } from './review';
 import { PageBackground, sanitizeProfile } from './profile';
-import { readText, storageFrozen, writeText } from './storage';
+import { readText, removeKey, storageFrozen, writeText } from './storage';
 
 /** O banco do IndexedDB com os murais de outras pessoas. */
 export const COLLEAGUES_DB = 'meu-mural:colegas';
@@ -57,9 +57,22 @@ export class ColleagueStore {
   }
 
   async remove(id: string): Promise<void> {
-    const db = await this.open();
-    await this.transaction(db, (store) => store.delete(id));
+    // a página está recarregando para limpar o navegador: o banco sai inteiro, nada se abre nele
+    if (!storageFrozen()) await this.transaction(await this.open(), (store) => store.delete(id));
     this.colleagues.update((list) => list.filter((c) => c.id !== id));
+  }
+
+  /**
+   * Tira todos os murais guardados e a escolha do Comparar. Ao entrar numa conta, os abertos antes de
+   * entrar (de ninguém: pelo link ou pelo perfil) não vão para ela (ver `firstSync` em cloud-sync.ts).
+   */
+  async clear(): Promise<void> {
+    await this.ready;
+    this.colleagues.set([]);
+    this.chosenId.set(null);
+    if (storageFrozen()) return;
+    removeKey(CHOSEN_KEY);
+    await this.transaction(await this.open(), (store) => store.clear());
   }
 
   /**
@@ -72,21 +85,28 @@ export class ColleagueStore {
     const wasChosen = this.selected()?.id === oldId;
     const already = list.some((c) => c.id === next.id);
     if (!already) await this.put(next);
-    const db = await this.open();
-    await this.transaction(db, (store) => store.delete(oldId));
+    if (!storageFrozen()) await this.transaction(await this.open(), (store) => store.delete(oldId));
     this.colleagues.update((now) =>
       already ? now.filter((c) => c.id !== oldId) : now.map((c) => (c.id === oldId ? next : c)),
     );
     if (wasChosen) this.select(next.id);
   }
 
-  async restore(colleague: Colleague): Promise<void> {
+  /**
+   * Guarda o mural (ele vai para a frente da lista). `select`: fica escolhido no Comparar, como quando
+   * a pessoa o abre; sem, quem está escolhido continua o mesmo (o mural que só se atualizou por trás,
+   * ou que o correio e o perfil buscaram, não toma o lugar de quem a pessoa escolheu).
+   */
+  async restore(colleague: Colleague, select = true): Promise<void> {
     await this.put(colleague);
+    // sem escolha guardada, o escolhido é o primeiro da lista: ele fica, mesmo com outro indo para a frente
+    const current = this.selected();
+    if (!select && current && current.id !== this.chosenId()) this.select(current.id);
     this.colleagues.update((list) => [
       colleague,
       ...list.filter((c) => c.id !== colleague.id),
     ]);
-    this.select(colleague.id);
+    if (select) this.select(colleague.id);
   }
 
   private open(): Promise<IDBDatabase> {

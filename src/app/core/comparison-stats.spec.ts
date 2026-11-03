@@ -1,6 +1,7 @@
 import { compareCollections } from './comparison';
-import { affinity, favouriteVerdict, finishRate, nameFromFile, portrait } from './comparison-stats';
+import { affinity, favouriteVerdict, finishRate, portrait } from './comparison-stats';
 import { Review, sanitizeReview } from './review';
+import { scoreDisplay } from './settings';
 
 function review(id: string, name: string, final: number, extra: Record<string, unknown> = {}): Review {
   return sanitizeReview({
@@ -53,10 +54,17 @@ describe('caderno de perguntas', () => {
     expect(affinity([])).toBeNull();
   });
 
-  it('tira o nome do colega do nome do arquivo quando dá', () => {
-    expect(nameFromFile('backup-da-marina.json.gz')).toBe('Marina');
-    expect(nameFromFile('joao_pedro.json')).toBe('Joao Pedro');
-    expect(nameFromFile('meu-mural-backup-2026-09-29.json.gz')).toBe('');
-    expect(nameFromFile('meu-mural (3).json')).toBe('');
+  describe('com a nota arredondada na exibição', () => {
+    afterEach(() => scoreDisplay.set('livre'));
+
+    it('a média é das notas como foram dadas, como no mural e no Ranking; as bolinhas seguem a nota como aparece', () => {
+      const list = [review('fichaa', 'Hades', 7.4, { finalOverride: 7.4 }), review('fichab', 'Celeste', 7.4, { finalOverride: 7.4 })];
+      scoreDisplay.set('inteiro');
+      const p = portrait(list);
+      expect(p.average).toBeCloseTo(7.4, 5);
+      expect(p.finals).toEqual([7, 7]);
+      scoreDisplay.set('metade');
+      expect(portrait(list).average).toBeCloseTo(7.4, 5);
+    });
   });
 });

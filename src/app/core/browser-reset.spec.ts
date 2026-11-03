@@ -8,6 +8,7 @@ import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 import { LINK_START_KEY } from '../ui/link-sheet';
 import { FEED_CACHE_KEY } from './follow';
 import { SETTINGS_KEY } from './settings';
+import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 
 function databases(): Promise<string[]> {
   return indexedDB.databases().then((list) => list.map((d) => d.name ?? ''));
@@ -249,6 +250,33 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(FEED_CACHE_KEY)).toBeNull();
+  });
+
+  it('os murais dos amigos guardados (o banco deles, com a conexão aberta nesta aba) e o escolhido no Comparar saem junto', async () => {
+    signedInBrowser();
+    const colleagues = new ColleagueStore();
+    await colleagues.ready;
+    await colleagues.restore({
+      id: 'nuvem:K7QFM2XA',
+      name: 'Marina',
+      fileName: 'Código K7QF-M2XA',
+      loadedAt: new Date().toISOString(),
+      codigo: 'K7QF-M2XA',
+      exportedAt: null,
+      ownerName: 'Marina',
+      skipped: 0,
+      reviews: [],
+    });
+    expect(await databases()).toContain(COLLEAGUES_DB);
+    expect(localStorage.getItem('meu-mural:colega-aberto')).toBe('nuvem:K7QFM2XA');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(await databases()).not.toContain(COLLEAGUES_DB);
+    expect(localStorage.getItem('meu-mural:colega-aberto')).toBeNull();
+    const after = new ColleagueStore();
+    await after.ready;
+    expect(after.colleagues()).toEqual([]);
   });
 
   it('as preferências dos Gastos (sem os fixos, e os gráficos de uma versão de antes) saem junto', async () => {

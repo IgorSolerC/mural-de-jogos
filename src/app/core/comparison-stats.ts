@@ -26,7 +26,7 @@ export interface Tally<T> {
 
 export interface Portrait {
   count: number;
-  /** A média das notas finais, ou null sem fichas. */
+  /** A média das notas finais como foram dadas (sem o arredondamento da exibição), ou null sem fichas. */
   average: number | null;
   /** Todas as notas finais, da menor para a maior: as bolinhas na régua. */
   finals: number[];
@@ -83,7 +83,9 @@ export function portrait(list: readonly Review[]): Portrait {
       .sort((a, b) => b.n - a.n || a.value.label.localeCompare(b.value.label, 'pt-BR'))[0] ?? null;
   return {
     count: list.length,
-    average: list.length ? finals.reduce((s, v) => s + v, 0) / list.length : null,
+    // a média das notas como foram dadas (como no mural, no Ranking e nas Estatísticas), não das
+    // arredondadas pelo ajuste de exibição: com "Inteiros", 7,4 e 7,4 dão média 7,4, e não 7
+    average: list.length ? list.reduce((s, r) => s + r.scores.final, 0) / list.length : null,
     finals,
     top: [...list].sort(byScore).slice(0, 3),
     stocks: [...stockCount]
@@ -163,20 +165,4 @@ export function affinity(pairs: readonly ReviewPair[]): Affinity | null {
     harmony: close[0] ?? null,
     phrase: PHRASES.find(([min]) => percent >= min)![1],
   };
-}
-
-/**
- * Um nome para o colega a partir do arquivo: "backup-da-marina.json.gz" vira "Marina". Datas,
- * números e as palavras do próprio app caem fora; se não sobrar um nome, fica vazio.
- */
-export function nameFromFile(fileName: string): string {
-  const noise = new Set(['meu', 'mural', 'murais', 'backup', 'de', 'da', 'do', 'dos', 'das', 'jogos', 'resenhas', 'copia', 'copy', 'json', 'gz', 'final', 'novo']);
-  const words = fileName
-    .replace(/\.(json|gz)/gi, ' ')
-    .replace(/\(\d+\)/g, ' ')
-    .split(/[\s_.\-]+/)
-    .filter((w) => w && !/\d/.test(w) && !noise.has(fold(w)) && w.length > 1);
-  const name = words.slice(0, 2).join(' ');
-  if (!name || name.length > 30) return '';
-  return name.replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
 }

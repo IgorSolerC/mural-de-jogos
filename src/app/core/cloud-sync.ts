@@ -36,6 +36,7 @@ import { ApiMirror } from './api-mirror';
 import { ApiRequests } from './api-requests';
 import { ImageStore } from './image-store';
 import { ImageSync, shortReason } from './image-sync';
+import { ColleagueStore } from './colleague-store';
 import { localImageIds } from './images';
 
 /**
@@ -713,6 +714,8 @@ export class CloudSync {
   private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
   private readonly imageSync = inject(ImageSync);
+  /** Os murais dos amigos guardados aqui: os abertos antes de entrar não vão para a conta (ver `firstSync`). */
+  private readonly colleagues = inject(ColleagueStore);
   /** Os conflitos da junção que esperam a pessoa (vão no mural privado da nuvem). */
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
@@ -1039,6 +1042,15 @@ export class CloudSync {
     // Daqui em diante o mural daqui é desta conta: o dono vem antes de qualquer coisa dela descer. Se a
     // sessão cair (ou a aba fechar) no meio, o que desceu já tem dono e sai na limpeza, em vez de ficar
     // como de ninguém e poder ir para outra conta.
+    // Os murais de outras pessoas abertos aqui antes de entrar (pelo link ou pelo perfil, sem conta) são
+    // de ninguém e não fazem parte do mural que a pessoa escolheu levar: saem, em vez de aparecerem no
+    // Comparar desta conta (a nuvem traz de novo quem ela abrir). Na dúvida, apaga. O banco preso (uma
+    // limpeza do navegador a caminho) não segura a sincronização: a espera tem teto, e o resto segue.
+    if (owner === null) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([this.colleagues.clear().catch(() => undefined), new Promise((resolve) => (timer = setTimeout(resolve, 3000)))]);
+      clearTimeout(timer);
+    }
     this.writeOwner(accountId);
     if (remoteHas && !localHas) {
       // aparelho vazio: o mural da conta desce

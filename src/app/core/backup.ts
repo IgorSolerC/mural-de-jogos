@@ -33,7 +33,7 @@ function read(): Stored {
 
 /**
  * O nome do arquivo: "meu-mural-de-igor-2026-10-05.json.gz", ou "meu-mural-2026-10-05.json.gz" sem
- * nome. O Comparar tira o nome daqui quando o arquivo é de antes do campo (ver `nameFromFile`).
+ * nome.
  */
 export function backupFileName(ownerName: string, day: string, ext: string): string {
   const slug = ownerName

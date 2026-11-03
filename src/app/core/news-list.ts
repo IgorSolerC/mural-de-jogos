@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-calendario-revisao',
+    id: '2026-11-03-visita-comparar-revisao',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -76,6 +76,10 @@ export const NEWS: NewsEntry[] = [
       'Um lembrete de vários dias que se repete numa vez do mês ("toda primeira segunda") ou a cada 2 semanas com a semana começando no domingo não saía riscado no último dia, depois da hora do fim; agora sai.',
       'Um lembrete que se repete a cada muitos anos (a cada 50 anos, ou o 29 de fevereiro só nos bissextos a cada 25) aparecia como já passado, e o "Depois de" com mais de 40 anos de vezes (todo mês, 999 vezes) voltava para "Nunca"; agora a conta vai até a última vez.',
       'No mês, Home num domingo já escolhido (ou End num sábado) fazia o foco pular para a folha na próxima troca de mês pelas setas; agora o foco fica onde você está.',
+      'No Comparar, escolher outra pessoa enquanto o mural da de agora se atualizava (ou enquanto Amigos ou um perfil buscava o mural de alguém) fazia a escolha voltar para a pessoa de antes; agora fica quem você escolheu.',
+      'Os murais de outras pessoas abertos antes de entrar na conta (pelo link ou pelo perfil) continuavam no navegador e apareciam no Comparar da conta, sem você escolher levá-los; agora saem ao entrar, e o mural de quem você abrir depois vem de novo da nuvem.',
+      'No caderno do Comparar, com as notas em Arredondado ou Inteiros, a média de cada um era a das notas arredondadas (7,4 e 7,4 davam 7); agora é a das notas como foram dadas, como no mural e no Ranking.',
+      'No mural de outra pessoa, com notas em segredo, o resumo contava cada rejogada como mais uma nota em segredo; agora conta uma por obra, como a contagem das fichas ao lado.',
     ],
   },
   {
