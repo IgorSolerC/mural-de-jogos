@@ -108,6 +108,12 @@ export function cardZoomFor(w: number, h: number, roomW: number, roomH: number):
 }
 
 /** Onde se lia: o trecho do texto no alto da folha, onde ele estava e a rolagem de então. */
+/** Uma anotação do caminho dos links da leitura (ver `trail`): a sua volta como está agora, ou some se foi apagada. */
+interface TrailStop {
+  review: Review;
+  own: boolean;
+}
+
 interface ReadingPlace {
   block: HTMLElement | null;
   /** A distância do alto da folha até o começo da linha (a linha que começa abaixo do alto). */
@@ -143,9 +149,9 @@ interface ReadingPlace {
           <app-pin class="pin" [color]="pin().pinColor" />
           <!-- a faixa da cartolina é a orelha da ficha de fichário: o nome vai escrito nela, a pincel, e
                o resto da folha fica para o que se lê -->
-          <header class="head faixa-nome" [class.feita]="note() && !!r.doneAt && lendo()" [class.com-volta]="!!trail().length" [style]="headPaper()">
+          <header class="head faixa-nome" [class.feita]="note() && !!r.doneAt && lendo()" [class.com-volta]="!!backTo()" [style]="headPaper()">
             <!-- veio por um link de outra anotação: o caminho de volta, na ponta da faixa -->
-            @if (trail().at(-1); as from) {
+            @if (backTo(); as from) {
               <button type="button" class="icon-btn voltar-elo" (click)="back()" [attr.aria-label]="'Voltar para “' + from.game.name + '”'" [title]="'Voltar para “' + from.game.name + '”'">
                 <lucide-icon [img]="BackIcon" [size]="22" aria-hidden="true" />
               </button>
@@ -1349,7 +1355,7 @@ export class ReviewReader {
     // mostrando as finalizadas, ela fica no mural: o carimbo bate aqui mesmo, e a leitura continua
     const stay = !done || this.view.showDone();
     // veio por um link: volta para a anotação de antes (o bilhete com Desfazer ficaria por baixo da leitura)
-    const backTo = !stay && this.trail().length > 0;
+    const backTo = !stay && !!this.backTo();
     this.noteDone.set(r.id, done, { quiet: stay || backTo });
     if (stay) {
       this.review.set(this.store.get(r.id) ?? r);
@@ -1364,7 +1370,28 @@ export class ReviewReader {
    * As anotações por onde se chegou até aqui, pelos links (a última é a de "Voltar"). Abrir a
    * leitura de novo começa do zero.
    */
-  protected readonly trail = signal<readonly Review[]>([]);
+  protected readonly trail = signal<readonly TrailStop[]>([]);
+  /**
+   * Para onde o "Voltar" leva: a última do caminho, como ela está agora. A sua que foi apagada no
+   * caminho (em outro aparelho, por quem divide a compartilhada) fica de fora: voltar para ela abriria
+   * uma anotação que não existe mais; sem nenhuma, não há "Voltar". (A de outra pessoa, colada numa sua,
+   * volta como foi vista.)
+   */
+  private readonly backAt = computed(() => {
+    const t = this.trail();
+    let i = t.length - 1;
+    while (i >= 0 && t[i].own && !this.store.get(t[i].review.id)) i--;
+    return i;
+  });
+  protected readonly backTo = computed<Review | null>(() => {
+    const stop = this.trail()[this.backAt()];
+    if (!stop) return null;
+    return stop.own ? (this.store.get(stop.review.id) ?? null) : stop.review;
+  });
+  /** Uma parada do caminho dos links: é sua se está no seu mural (no da leitura aberta para `owner`). */
+  private stop(review: Review, owner = this.owner()): TrailStop {
+    return { review, own: owner === null && !!this.store.get(review.id) };
+  }
 
   /** As anotações que os links do texto podem abrir: as suas, ou as que a pessoa publicou. */
   private readonly linkable = computed(() => notesOf(this.owner() === null ? this.store.reviews() : this.pool()));
@@ -1404,17 +1431,17 @@ export class ReviewReader {
   private follow(n: Review): void {
     const r = this.review();
     if (!r || n.id === r.id) return;
-    this.trail.update((t) => [...t, r]);
+    this.trail.update((t) => [...t, this.stop(r)]);
     this.show(n);
   }
 
   /** Volta pelo caminho dos links, para a anotação como ela está agora. */
   protected back(): void {
-    const t = this.trail();
-    const prev = t.at(-1);
+    const prev = this.backTo();
     if (!prev) return;
-    this.trail.set(t.slice(0, -1));
-    this.show((this.owner() === null ? this.store.get(prev.id) : null) ?? prev);
+    // (as apagadas depois dela saem do caminho junto)
+    this.trail.set(this.trail().slice(0, this.backAt()));
+    this.show(prev);
   }
 
   /** Troca a anotação da leitura, do alto, com o foco no título (ou no "Voltar"). */
@@ -1662,7 +1689,7 @@ export class ReviewReader {
     // pediram a ficha já com os comentários (o remendo da ficha, o "Comentar" do Feed)
     const withComments = this.comments.take(review.id);
     // tocou num link na ficha do mural: a anotação de onde veio é o "Voltar"
-    this.trail.set(from ? [from] : []);
+    this.trail.set(from ? [this.stop(from, owner)] : []);
     this.ownerCode.set(owner === null ? null : code);
     if (code && owner !== null) {
       void this.reactions.load(code);

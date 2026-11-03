@@ -156,8 +156,11 @@ export class WallBoard {
       // só no seu mural de anotações, e não enquanto o toque na ficha é para o lado a lado
       on: () => this.notes() && this.owner() === null && !side.picking(),
       notes: byId,
-      // a parede mudou (busca, filtro, aba, outro mural)
-      reset: this.view.visible,
+      // a parede mudou (busca, filtro, aba, outro mural): quem está nela, e não a lista, que muda a cada
+      // anotação mexida (a nuvem, uma tarefa marcada, fixar), que não deve desmarcar; nem a ordem
+      reset: computed(() => this.view.visible().map((r) => r.id).sort().join('|')),
+      // as fichas redesenhadas recebem as marcas de volta
+      layout: this.view.visible,
     });
     // o botão direito, o dedo segurado ou Shift+F10 numa ficha do mural de anotações (o seu ou o de quem
     // se visita) abre o menu dela; nos murais de resenhas fica o do navegador

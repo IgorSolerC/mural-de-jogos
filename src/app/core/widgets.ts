@@ -1069,6 +1069,21 @@ export function hideCardTitles(text: string, hidden: ReadonlySet<string> | ((id:
   return changed ? next : text;
 }
 
+/**
+ * A nota colada escrita à mão, só com o título ("{{nota: Comprar um console}}", que é a anotação desse
+ * título, como um link "[[…]]"), com o título trocado por `to`: o jeito, o começo e o tamanho ficam, e
+ * o recuo da linha também. Null se a linha não é uma dessas ou se o título dela não é o que `matches`
+ * aceita (a com o id não muda: o id já segue a ficha renomeada).
+ */
+export function retitleCardLine(line: string, matches: (title: string) => boolean, to: string): string | null {
+  if (!line.includes('{{')) return null;
+  const w = parseWidgetLine(line);
+  if (w?.name !== 'nota') return null;
+  const ref = readCardRef(w.args);
+  if (ref.id || ref.hidden || !ref.title || !matches(ref.title)) return null;
+  return /^\s*/.exec(line)![0] + widgetLine('nota', cardArgs('', to.trim(), ref.look, ref.fold), w.size);
+}
+
 const CARD: WidgetDef = {
   name: 'nota',
   aliases: ['ficha', 'anotacao', 'card', 'note'],

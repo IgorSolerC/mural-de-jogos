@@ -64,6 +64,15 @@ describe('escolher a ficha da Nota', () => {
     expect(document.activeElement).toBe(el.querySelector('input[type="search"]'));
   });
 
+  it('a ficha privada avisa o que quem visita vê: só que ela é privada, sem o nome (o texto vai com o cadeado)', async () => {
+    const store = TestBed.inject(ReviewStore);
+    store.reviews.set([...store.reviews(), card('rjogo2', 'Celeste', 'jogos', '2026-10-07T10:00:00.000Z', { private: true })]);
+    await open();
+    const meta = (name: string) => Array.from(el.querySelectorAll('.escolha')).find((b) => b.querySelector('.nome')!.textContent!.trim() === name)!.querySelector('.meta')!.textContent!.replace(/\s+/g, ' ').trim();
+    expect(meta('Celeste')).toMatch(/^Jogo · .* · privada: quem visita não vê qual é$/);
+    expect(meta('Hollow Knight')).not.toContain('privada');
+  });
+
   it('a busca e as abas filtram; Enter na busca escolhe a primeira e fecha', async () => {
     await open();
     filters()[2].click();

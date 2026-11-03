@@ -2,6 +2,7 @@ import { Audience, Review, audienceFields, isNote, sanitizeReview } from './revi
 import { BUILD } from './build';
 import { LINK, lineKind, linesOf, noteLinksOf, proseLines, replaceNoteLinks, splitLink, tasksOf } from './rich-text';
 import { nameKey } from './text';
+import { retitleCardLine } from './widgets';
 import type { ReminderLinkInfo } from './reminder-links';
 
 /**
@@ -52,19 +53,32 @@ export function resolveNote(notes: readonly Review[], title: string): Review | n
   return best;
 }
 
-/** Troca, no texto, os links para `from` por links para `to`; o texto escolhido de cada um fica (o resto, como estava). */
+/**
+ * Troca, no texto, os links para `from` por links para `to`; o texto escolhido de cada um fica (o resto,
+ * como estava). A nota colada escrita à mão só com o título ("{{nota: título}}", que abre como um link)
+ * muda junto (ver `retitleCardLine`).
+ */
 export function renameLinks(text: string, from: string, to: string): string {
   const key = linkKey(from);
+  const same = (title: string) => linkKey(title) === key;
   const rename = (inner: string, all: string) => {
     const bar = inner.indexOf('|');
     const title = bar === -1 ? inner : inner.slice(0, bar);
-    if (linkKey(title) !== key) return all;
+    if (!same(title)) return all;
     return bar === -1 ? `[[${to.trim()}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
   };
-  // só os links que a leitura mostra (ver `linksIn`): o código e os escapados ficam como estão
-  const prose = new Set(proseLines(text).map((l) => l.at));
+  // só os links que a leitura mostra (ver `linksIn`): o código e os escapados ficam como estão; a linha
+  // de dentro de um card vem sem o "> " da frente, que fica
+  const prose = new Map(proseLines(text).map((l) => [l.at, l.line]));
   const lines = linesOf(text);
-  const out = lines.map((line, i) => (prose.has(i) ? replaceNoteLinks(line, rename) : line)).join('\n');
+  const out = lines
+    .map((line, i) => {
+      const read = prose.get(i);
+      if (read === undefined) return line;
+      const card = retitleCardLine(read, same, to);
+      return card !== null && line.endsWith(read) ? line.slice(0, line.length - read.length) + card : replaceNoteLinks(line, rename);
+    })
+    .join('\n');
   return out === lines.join('\n') ? text : out;
 }
 

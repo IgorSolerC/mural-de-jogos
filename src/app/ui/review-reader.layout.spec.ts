@@ -281,6 +281,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
   });
 
   it('veio por um link: a volta é a seta na ponta da faixa, com o nome de onde veio', async () => {
+    // (uma que não está no seu mural, como a ficha de outra pessoa colada numa sua: volta como foi vista)
     const from = note('n-tudo', 'Lista de tudo');
     fixture.componentInstance.open(note('n-mercado', 'Mercado'), null, [], false, null, from);
     await settle();
@@ -289,6 +290,39 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     back.click();
     await settle();
     expect(q('#leitura-titulo')?.textContent?.trim()).toBe('Lista de tudo');
+    expect(q('.voltar-elo')).toBeNull();
+  });
+
+  it('a de onde veio foi apagada (em outro aparelho): o Voltar pula ela, para a de antes, e some sem nenhuma', async () => {
+    const store = TestBed.inject(ReviewStore);
+    const tudo = note('n-tudo', 'Lista de tudo', { text: '[[Feira]]' });
+    const feira = note('n-feira', 'Feira', { text: '[[Mercado]]' });
+    const mercado = note('n-mercado', 'Mercado');
+    for (const n of [tudo, feira, mercado]) store.add(n);
+    fixture.componentInstance.open(feira, null, [], false, null, tudo);
+    await settle();
+    // o link "[[Mercado]]" do texto da Feira
+    q<HTMLElement>('.elo[role="link"]')!.click();
+    await settle();
+    expect(q('#leitura-titulo')?.textContent?.trim()).toBe('Mercado');
+    expect(q('header.head .voltar-elo')!.getAttribute('aria-label')).toBe('Voltar para “Feira”');
+    store.remove('n-feira');
+    await settle();
+    expect(q('header.head .voltar-elo')!.getAttribute('aria-label')).toBe('Voltar para “Lista de tudo”');
+    // renomeada no caminho: o Voltar diz o nome de agora
+    store.update({ ...store.get('n-tudo')!, game: { ...tudo.game, name: 'Tudo da casa' } });
+    await settle();
+    expect(q('header.head .voltar-elo')!.getAttribute('aria-label')).toBe('Voltar para “Tudo da casa”');
+    q<HTMLElement>('header.head .voltar-elo')!.click();
+    await settle();
+    expect(q('#leitura-titulo')?.textContent?.trim()).toBe('Tudo da casa');
+    expect(q('.voltar-elo')).toBeNull();
+
+    fixture.componentInstance.open(mercado, null, [], false, null, store.get('n-tudo')!);
+    await settle();
+    expect(q('.voltar-elo')).not.toBeNull();
+    store.remove('n-tudo');
+    await settle();
     expect(q('.voltar-elo')).toBeNull();
   });
 

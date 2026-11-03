@@ -22,7 +22,8 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
  * mais recentemente para as mais antigas (a que você acabou de escrever está no alto). Enter na
  * busca escolhe a primeira da lista.
  *
- * A privada pode ser colada (o texto é seu), mas avisa: quem visita o seu mural vê só o nome dela.
+ * A privada pode ser colada (o texto é seu), mas avisa: quem visita o seu mural vê só que a nota colada
+ * é privada, sem o nome dela (ver `hideCardTitles`).
  */
 @Component({
   selector: 'app-card-picker',
@@ -83,7 +84,7 @@ const ORDER: readonly Kind[] = ['anotacoes', ...KINDS.filter((k) => k !== 'anota
                         <lucide-icon class="mural-icone" [img]="iconOf(r.kind)" [size]="13" aria-hidden="true" />
                         {{ metaOf(r) }}
                         @if (isPrivate(r) && !isNote(r)) {
-                          · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: quem visita vê só o nome
+                          · <lucide-icon class="cadeado" [img]="LockIcon" [size]="13" aria-hidden="true" /> privada: quem visita não vê qual é
                         }
                       </span>
                     </span>

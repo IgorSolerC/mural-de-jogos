@@ -45,6 +45,8 @@ export class NoteSelection {
 
   /** As marcadas, na ordem em que foram marcadas. */
   readonly ids = signal<readonly string[]>([]);
+  /** O bilhete de "N marcadas" que esta página mostrou: sai junto quando desmarca (e só ele, não o de outra coisa). */
+  private toastId: number | null = null;
 
   constructor(private readonly cfg: NoteSelectionConfig) {
     if (typeof document === 'undefined') return;
@@ -75,6 +77,13 @@ export class NoteSelection {
 
   clear(): void {
     if (this.ids().length) this.ids.set([]);
+    // o bilhete dizia quantas estão marcadas e o Ctrl+C: com nada marcado, ele mentiria
+    this.dropToast();
+  }
+
+  private dropToast(): void {
+    if (this.toastId !== null && this.toasts.current()?.id === this.toastId) this.toasts.dismiss();
+    this.toastId = null;
   }
 
   /** A anotação debaixo do clique com Ctrl, se o clique é para marcar. */
@@ -126,8 +135,10 @@ export class NoteSelection {
     const ids = this.ids();
     this.ids.set(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
     const n = this.ids().length;
-    if (n) this.toasts.show(`${plural(n, 'anotação marcada', 'anotações marcadas')}. ${COPY_KEY} copia o texto; Esc desmarca.`);
-    else this.toasts.dismiss();
+    if (n) {
+      this.toasts.show(`${plural(n, 'anotação marcada', 'anotações marcadas')}. ${COPY_KEY} copia o texto; Esc desmarca.`);
+      this.toastId = this.toasts.current()?.id ?? null;
+    } else this.dropToast();
   }
 
   private key(e: KeyboardEvent): void {
@@ -136,7 +147,6 @@ export class NoteSelection {
     if (e.target instanceof Element && e.target.closest('.menu-da-nota')) return;
     if (e.key === 'Escape') {
       this.clear();
-      this.toasts.dismiss();
       return;
     }
     if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'c') return;
