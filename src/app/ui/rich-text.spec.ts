@@ -44,6 +44,25 @@ describe('o texto formatado na leitura', () => {
     expect(toggled).toEqual([1]);
   });
 
+  it('a caixinha mostra o que o texto diz: sem o texto novo (nada salvo), ela não fica marcada; com ele, fica', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', '- [ ] leite');
+    fixture.componentRef.setInput('checkable', true);
+    let save = false;
+    fixture.componentInstance.toggled.subscribe(() => save && fixture.componentRef.setInput('text', '- [x] leite'));
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const box = () => (fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    box().click();
+    await fixture.whenStable();
+    expect(box().checked).toBeFalse();
+    save = true;
+    box().click();
+    await fixture.whenStable();
+    expect(box().checked).toBeTrue();
+  });
+
   it('o card que fecha: o título abre e fecha (o "-" começa fechado, o "+", aberto), e o toque fica nele', async () => {
     const el = await render('> [!dica]- Fechado\n> dentro\n\n> [!dica]+ Aberto\n> também');
     const [fechado, aberto] = Array.from(el.querySelectorAll<HTMLDetailsElement>('details.cartao'));

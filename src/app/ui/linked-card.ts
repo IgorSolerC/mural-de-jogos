@@ -8,7 +8,7 @@ import { NoteDone } from '../core/note-done';
 import { lookOf } from '../core/paper';
 import { ownPaperVars } from '../core/paper-art';
 import { ReviewStore } from '../core/review-store';
-import { toggleCheck } from '../core/rich-text';
+import { tickTask } from '../core/rich-text';
 import { canWrite } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { pinningFor } from '../core/wall-physics';
@@ -777,7 +777,8 @@ export class LinkedCard {
   protected tick(r: Review, line: number): void {
     const now = this.store.get(r.id);
     if (!now || !this.canTick()) return;
-    const text = toggleCheck(now.text, line);
+    // a linha é a do texto desenhado (`r`): a tarefa tocada, mesmo que o de agora já seja outro
+    const text = tickTask(now.text, r.text, line);
     if (text === now.text) return;
     this.store.update({ ...now, text, updatedAt: new Date().toISOString() });
     // a tarefa com link para outra anotação: oferece finalizar aquela também

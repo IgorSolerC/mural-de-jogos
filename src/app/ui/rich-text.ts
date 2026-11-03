@@ -181,7 +181,7 @@ import { ZoomKnob } from './zoom-knob';
                 <li class="linha" [class.feita]="it.done" [attr.data-l]="anchors() ? it.line : null">
                   <label>
                     @if (checkable()) {
-                      <input type="checkbox" [checked]="it.done" (change)="toggled.emit(it.line)" />
+                      <input type="checkbox" [checked]="it.done" (change)="tick($event, it)" />
                     } @else {
                       <span class="caixa" [class.marcada]="it.done" aria-hidden="true"></span>
                       <span class="sr-only">{{ it.done ? 'Feito:' : 'A fazer:' }}</span>
@@ -815,7 +815,6 @@ export class RichText {
     return key ? this.shownDone.of(key) : this.shownHere();
   });
 
-  /** Tocou na conta das feitas: a sequência dela aparece inteira. Só ela age (nada de abrir a ficha). */
   /**
    * Tira a tarja do spoiler tocado (e dos pedaços colados a ele do mesmo spoiler, como um negrito no
    * meio). O toque não chega à ficha (não abre a leitura); revelado, ele vira texto comum, fora da
@@ -844,6 +843,17 @@ export class RichText {
     }
   }
 
+  /**
+   * Tocou na caixinha: quem usa salva o texto com a tarefa marcada (ou desmarcada), e a caixinha mostra
+   * o que o texto diz. Ela volta a como estava até o texto novo chegar: se nada for salvo (a nuvem
+   * trocou o texto por baixo, a tarefa sumiu), ela não fica marcada sem estar.
+   */
+  protected tick(e: Event, it: { line: number; done?: boolean }): void {
+    (e.target as HTMLInputElement).checked = !!it.done;
+    this.toggled.emit(it.line);
+  }
+
+  /** Tocou na conta das feitas: a sequência dela aparece inteira. Só ela age (nada de abrir a ficha). */
   protected unfold(e: Event, seq: number | undefined): void {
     e.preventDefault();
     e.stopPropagation();

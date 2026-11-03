@@ -54,7 +54,7 @@ import { canWrite } from '../core/shared-notes';
 import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
-import { toggleCheck } from '../core/rich-text';
+import { tickTask } from '../core/rich-text';
 import { NoteLinks, resolveNote } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
 import { Desk } from '../core/desk';
@@ -1805,7 +1805,8 @@ export class ReviewCard {
   protected toggleTask(line: number): void {
     const r = this.store.get(this.review().id);
     if (!r || !this.ticks()) return;
-    const text = toggleCheck(r.text, line);
+    // a linha é a do texto desenhado: a tarefa tocada, mesmo que o de agora já seja outro
+    const text = tickTask(r.text, this.review().text, line);
     if (text === r.text) return;
     this.store.update({ ...r, text, updatedAt: new Date().toISOString() });
     // a tarefa com link para outra anotação: oferece finalizar aquela também

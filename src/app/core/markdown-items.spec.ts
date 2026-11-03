@@ -1,4 +1,4 @@
-import { Block, bodyIndent, checkCount, foldDone, hasFormatting, hasInteractive, hasSpoiler, itemEnd, linkAt, nextNumber, ownerItem, parseInline, parseRich, plainText, renumberAfter, snapshotDone, toggleCheck, withNumber } from './rich-text';
+import { Block, bodyIndent, checkCount, foldDone, hasFormatting, hasInteractive, hasSpoiler, itemEnd, linkAt, nextNumber, ownerItem, parseInline, parseRich, plainText, renumberAfter, snapshotDone, tickTask, toggleCheck, uncheckedKey, withNumber } from './rich-text';
 
 /** Os blocos em resumo: o tipo, e nas listas cada item com a linha, o texto, a marca e o que vem embaixo. */
 type Shape = unknown[];
@@ -218,5 +218,55 @@ describe('o markdown como o de verdade', () => {
     expect(shape(parseRich('````\na\n```\n````'))).toEqual([['code', 'a\n```']]);
     // a tarefa depois da cerca de tis conta a linha certa
     expect(checkCount('~~~\n- [ ] não\n~~~\n- [x] sim')).toEqual({ done: 1, total: 1 });
+  });
+});
+
+/** A caixinha tocada no texto desenhado, salva no texto de agora (que pode ter mudado por baixo). */
+describe('marcar a tarefa tocada (tickTask)', () => {
+  it('com o texto igual, marca e desmarca a linha tocada', () => {
+    const t = '- [ ] leite\n- [x] pão';
+    expect(tickTask(t, t, 0)).toBe('- [x] leite\n- [x] pão');
+    expect(tickTask(t, t, 1)).toBe('- [ ] leite\n- [ ] pão');
+    // a linha que não é tarefa não muda nada
+    expect(tickTask('oi\n- [ ] a', 'oi\n- [ ] a', 0)).toBe('oi\n- [ ] a');
+  });
+
+  it('o texto ganhou uma linha em cima (a nuvem, outra aba): marca a tarefa tocada, não a que caiu no lugar dela', () => {
+    const shown = '- [ ] leite\n- [ ] pão';
+    const now = 'Compras:\n- [ ] leite\n- [ ] pão';
+    // o jeito antigo (o número da linha no texto de agora) marcava o leite
+    expect(toggleCheck(now, 1)).toBe('Compras:\n- [x] leite\n- [ ] pão');
+    expect(tickTask(now, shown, 1)).toBe('Compras:\n- [ ] leite\n- [x] pão');
+    // e uma linha a menos em cima
+    expect(tickTask('- [ ] pão', 'oi\n- [ ] pão', 1)).toBe('- [x] pão');
+  });
+
+  it('tarefas com o mesmo texto: a 2ª continua a 2ª', () => {
+    const shown = '- [ ] leite\n- [ ] leite';
+    expect(tickTask('x\n- [ ] leite\n- [ ] leite', shown, 1)).toBe('x\n- [ ] leite\n- [x] leite');
+    expect(tickTask('x\n- [ ] leite\n- [ ] leite', shown, 0)).toBe('x\n- [x] leite\n- [ ] leite');
+  });
+
+  it('já do jeito pedido (marcada em outro lugar) ou sumida: o texto fica como está', () => {
+    expect(tickTask('- [x] leite\nmais', '- [ ] leite', 0)).toBe('- [x] leite\nmais');
+    expect(tickTask('- [ ] leite', '- [ ] leite\n- [ ] pão', 1)).toBe('- [ ] leite');
+    // mudou o texto da tarefa: não é mais a mesma
+    expect(tickTask('- [ ] leite integral', '- [ ] leite', 0)).toBe('- [ ] leite integral');
+  });
+
+  it('a de dentro de um card, feita, se desmarca com o texto mudado', () => {
+    const shown = '> [!dica]\n> - [x] dentro';
+    expect(tickTask('oi\n> [!dica]\n> - [x] dentro', shown, 1)).toBe('oi\n> [!dica]\n> - [ ] dentro');
+  });
+});
+
+describe('o retrato das feitas com "[x]" escrito no texto da tarefa', () => {
+  it('a chave só olha a caixa: marcar a tarefa não muda a chave (e a marcada agora continua à vista)', () => {
+    const open = '- [ ] trocar [x] por [ ]';
+    const done = '- [x] trocar [x] por [ ]';
+    expect(uncheckedKey(done)).toBe(uncheckedKey(open));
+    expect(uncheckedKey('> [!dica]\n> - [x] a [x]')).toBe('> [!dica]\n> - [ ] a [x]');
+    const before = snapshotDone(open);
+    expect(snapshotDone(done, { value: before }).lines.size).toBe(0);
   });
 });

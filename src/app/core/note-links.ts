@@ -162,8 +162,10 @@ export function linkedNote(title: string, from: LinkedNoteFrom, id: string, now:
 export function linkedOnCheckedTask(text: string, line: number, notes: readonly Review[], selfId: string): Review[] {
   // uma tarefa feita (a de dentro de um bloco de código não é tarefa)
   if (!tasksOf(text).get(line)) return [];
-  const k = lineKind(linesOf(text)[line]);
-  if (k.kind !== 'check') return [];
+  // a linha como a leitura a lê: a de dentro de um card, sem o "> " da frente
+  const prose = proseLines(text).find((p) => p.at === line);
+  const k = prose && lineKind(prose.line);
+  if (k?.kind !== 'check') return [];
   const out: Review[] = [];
   for (const title of linksIn(k.rest)) {
     const n = resolveNote(notes, title);

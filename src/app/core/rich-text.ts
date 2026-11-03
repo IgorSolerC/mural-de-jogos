@@ -1023,6 +1023,41 @@ export function toggleCheck(text: string, line: number): string {
   return lines.join('\n');
 }
 
+/**
+ * A linha com a caixa da tarefa vazia. A caixa é o primeiro "[ ]" ou "[x]" da linha (antes dela só
+ * vêm o "> " do card, os espaços e o marcador); um "[x]" escrito no texto de uma tarefa por fazer
+ * fica como está.
+ */
+function unchecked(line: string): string {
+  return line.replace(/\[[ xX]\]/, '[ ]');
+}
+
+/**
+ * Tocou na caixinha da tarefa da linha `line` do texto desenhado (`shown`): ela fica do jeito
+ * contrário ao que estava desenhado, no texto de agora (`now`). Se o texto mudou por baixo (a nuvem,
+ * outra aba, o Kanban), a tarefa é achada pelo que ela diz, e não pelo número da linha: a mesma
+ * tarefa (a 2ª "- [ ] leite" continua a 2ª), sem marcar a vizinha que caiu no lugar dela. Já do jeito
+ * pedido, ou sumida, o texto fica como está.
+ */
+export function tickTask(now: string, shown: string, line: number): string {
+  const was = tasksOf(shown).get(line);
+  if (was === undefined) return now;
+  if (now === shown) return toggleCheck(now, line);
+  const at = sameTask(shown, now, line);
+  if (at === null || tasksOf(now).get(at) === !was) return now;
+  return toggleCheck(now, at);
+}
+
+/** A linha de `now` com a tarefa da linha `line` de `shown`: a k-ésima com o mesmo texto, ou null. */
+function sameTask(shown: string, now: string, line: number): number | null {
+  const from = linesOf(shown);
+  const want = unchecked(from[line]);
+  const nth = [...tasksOf(shown).keys()].filter((i) => i < line && unchecked(from[i]) === want).length;
+  const to = linesOf(now);
+  const same = [...tasksOf(now).keys()].filter((i) => unchecked(to[i]) === want);
+  return same[nth] ?? null;
+}
+
 /** As linhas do texto, contadas como a leitura conta (um texto de fora pode vir com \r). */
 export function linesOf(text: string): string[] {
   return text.replace(/\r\n?/g, '\n').split('\n');
@@ -1106,7 +1141,7 @@ export function doneLines(text: string): Set<number> {
 export function uncheckedKey(text: string): string {
   const tasks = tasksOf(text);
   return linesOf(text)
-    .map((l, i) => (tasks.has(i) ? l.replace(/\[[xX]\]/, '[ ]') : l))
+    .map((l, i) => (tasks.has(i) ? unchecked(l) : l))
     .join('\n');
 }
 

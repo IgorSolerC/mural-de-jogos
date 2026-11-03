@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-estudos-estilo-volta',
+    id: '2026-11-03-tarefas-revisao',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
@@ -41,6 +41,9 @@ export const NEWS: NewsEntry[] = [
       'As abas dos baralhos tinham a letra e a altura diferentes das abas do mural e dos quadros do Kanban; agora são iguais.',
       'A carta com um título muito comprido (o nome de uma anotação longa) cortava a última palavra no meio; agora a letra diminui um pouco mais para ele caber inteiro, e o que nem assim cabe termina em reticências.',
       'Com outra aba do Murall aberta desde antes da atualização, o estilo escolhido para as cartas voltava na hora para a Clássica; agora fica (e recarregar as outras abas as põe na versão nova).',
+      'Tocar na caixinha de uma tarefa com a anotação mudada por baixo (por outro aparelho ou outra aba, com a leitura aberta) podia marcar a tarefa vizinha; agora marca a que você tocou, e a caixinha não fica marcada sem a tarefa ter sido salva.',
+      'A tarefa com "[x]" escrito no próprio texto ia para as feitas recolhidas assim que era marcada; agora continua à vista, como as outras.',
+      'Marcar uma tarefa com link para outra anotação dentro de um card não oferecia finalizar a anotação ligada, e finalizar as ligadas não perguntava antes pelas dependências ainda abertas no Kanban; agora oferece e pergunta, como o check da ficha.',
     ],
   },
   {

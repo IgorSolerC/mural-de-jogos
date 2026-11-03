@@ -104,6 +104,13 @@ describe('links entre anotações', () => {
     expect(linkedOnCheckedTask(text, 9, notes, daily.id)).toEqual([]);
   });
 
+  it('a tarefa feita de dentro de um card também oferece finalizar a anotação dela', () => {
+    const bug = note('nbug0001', 'Corrigir bug');
+    const text = '> [!todo] Hoje\n> - [x] [[Corrigir bug]]\n> - [ ] [[Corrigir bug]]';
+    expect(linkedOnCheckedTask(text, 1, [bug], 'noutra01').map((n) => n.game.name)).toEqual(['Corrigir bug']);
+    expect(linkedOnCheckedTask(text, 2, [bug], 'noutra01')).toEqual([]);
+  });
+
   it('o link dentro de um código ou escapado é só texto: não conta, não cita e não muda de nome', () => {
     const text = 'use `[[Foo]]` e \\[[Foo]] e [[Foo]]\n```\n[[Foo]]\n```';
     expect(linksIn(text)).toEqual(['Foo']);

@@ -309,6 +309,35 @@ describe('A leitura e os comentários (ReviewReader)', () => {
     expect(side()).not.toBeNull();
   });
 
+  it('a tarefa tocada na leitura é a marcada, mesmo com o texto mudado por baixo (a nuvem trouxe uma linha nova)', async () => {
+    const store = TestBed.inject(ReviewStore);
+    const nota = review('nota-tarefas', 'Mercado', { kind: 'anotacoes', text: '- [ ] leite\n- [ ] pão' });
+    store.reviews.set([nota]);
+    fixture.componentInstance.open(nota);
+    await settle();
+    // com a leitura aberta, chega uma versão nova com uma linha em cima
+    store.reviews.set([{ ...nota, text: 'Compras:\n- [ ] leite\n- [ ] pão', updatedAt: '2026-02-01T00:00:00.000Z' }]);
+    const boxes = () => Array.from(el.querySelectorAll<HTMLInputElement>('.text .tarefas input[type="checkbox"]'));
+    expect(boxes().length).toBe(2);
+    boxes()[1].click();
+    await settle();
+    expect(store.get('nota-tarefas')!.text).toBe('Compras:\n- [ ] leite\n- [x] pão');
+    // a leitura passa a mostrar a versão nova (com o texto mudado, o retrato das feitas é refeito: o pão recolhe)
+    expect(q('.text')!.textContent).toContain('Compras:');
+    expect(boxes().map((b) => b.checked)).toEqual([false]);
+    expect(q('.text .resumo-nome')?.textContent).toContain('1 tarefa feita');
+    await closeReader();
+    // já marcada em outro lugar: tocar na caixinha velha não desmarca; a leitura mostra a de agora
+    fixture.componentInstance.open(nota);
+    await settle();
+    store.reviews.set([{ ...store.get('nota-tarefas')!, text: 'Compras:\n- [x] leite\n- [x] pão' }]);
+    boxes()[0].click();
+    await settle();
+    expect(store.get('nota-tarefas')!.text).toBe('Compras:\n- [x] leite\n- [x] pão');
+    expect(q('.text .resumo-nome')?.textContent).toContain('2 tarefas feitas');
+    await closeReader();
+  });
+
   it('na anotação privada que a Ana compartilhou com você: os comentários são os da ficha dela, e a folha diz quem vê', async () => {
     counts[ANA] = { 'nota-1': 2 };
     const note = review('nota-1', 'Lista do mercado', { kind: 'anotacoes', private: true });

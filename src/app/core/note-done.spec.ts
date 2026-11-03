@@ -7,6 +7,7 @@ import { WallView } from './wall-view';
 import { NoteDone } from './note-done';
 import { Toasts } from '../ui/toast';
 import { Confirm } from '../ui/confirm';
+import { KanbanDeps } from './kanban-deps';
 
 /** O check da anotação inteira: o dia fica guardado, e a finalizada sai do mural. */
 
@@ -111,6 +112,51 @@ describe('anotação finalizada', () => {
     expect(isDone(store.get('naberta1')!)).toBeFalse();
     expect(isDone(store.get('nestud01')!)).toBeFalse();
     expect(isDone(store.get('nmerca01')!)).toBeTrue();
+    localStorage.clear();
+  });
+
+  describe('finalizar as ligadas com dependência ainda aberta (como no check da ficha e no Kanban)', () => {
+    const text = '- [x] [[A fazeres]]';
+    function setup(depsSay: boolean): { store: ReviewStore; done: NoteDone; asked: string[][] } {
+      localStorage.clear();
+      const asked: string[][] = [];
+      TestBed.configureTestingModule({
+        providers: [
+          provideZonelessChangeDetection(),
+          { provide: Confirm, useValue: { ask: async () => true } },
+          { provide: KanbanDeps, useValue: { allowFinish: (ids: readonly string[]) => (asked.push([...ids]), Promise.resolve(depsSay)) } },
+        ],
+      });
+      const store = TestBed.inject(ReviewStore);
+      store.reviews.set([note('norige01', 'Origem', { text }), note('naberta1', 'A fazeres')]);
+      return { store, done: TestBed.inject(NoteDone), asked };
+    }
+    afterEach(() => localStorage.clear());
+
+    it('pergunta antes; sem o sim, nada muda', async () => {
+      const { store, done, asked } = setup(false);
+      await done.offerLinked('norige01', text, 0);
+      expect(asked).toEqual([['naberta1']]);
+      expect(isDone(store.get('naberta1')!)).toBeFalse();
+    });
+
+    it('com o sim, finaliza', async () => {
+      const { store, done } = setup(true);
+      await done.offerLinked('norige01', text, 0);
+      expect(isDone(store.get('naberta1')!)).toBeTrue();
+    });
+  });
+
+  it('abrir de novo antes de o carimbo acabar não deixa o relógio dele guardado', () => {
+    localStorage.clear();
+    TestBed.configureTestingModule({ providers: [provideZonelessChangeDetection()] });
+    TestBed.inject(ReviewStore).reviews.set([note('naberta1', 'A fazeres')]);
+    const done = TestBed.inject(NoteDone);
+    const timers = (done as unknown as { fallbacks: Map<string, unknown> }).fallbacks;
+    done.set('naberta1', true, { quiet: true });
+    expect(timers.size).toBe(1);
+    done.set('naberta1', false, { quiet: true });
+    expect(timers.size).toBe(0);
     localStorage.clear();
   });
 });

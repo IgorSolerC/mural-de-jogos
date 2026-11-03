@@ -46,7 +46,7 @@ import { RichText } from './rich-text';
 import { ReviewCard } from './review-card';
 import { ReactionBubble, ReactionPicker } from './reactions';
 import { ReactionTarget, Reactions } from '../core/reactions';
-import { checkCount, plainText, toggleCheck } from '../core/rich-text';
+import { checkCount, plainText, tickTask } from '../core/rich-text';
 import { SpoilerShield } from '../core/spoiler-shield';
 import { NoteLinks, notesOf, resolveNote } from '../core/note-links';
 import { ReminderLinks } from '../core/reminder-links';
@@ -1302,11 +1302,17 @@ export class ReviewReader {
 
   /** Marcou uma tarefa do texto na leitura: a ficha (sua) é salva com ela marcada, sem abrir o editor. */
   protected toggleTask(line: number): void {
+    const shown = this.review();
     // a anotação como está agora (a nuvem pode ter trazido uma versão mais nova com a leitura aberta)
-    const r = this.review() && (this.store.get(this.review()!.id) ?? this.review());
-    if (!r || this.owner() !== null || !this.writable()) return;
-    const text = toggleCheck(r.text, line);
-    if (text === r.text) return;
+    const r = shown && (this.store.get(shown.id) ?? shown);
+    if (!shown || !r || this.owner() !== null || !this.writable()) return;
+    // a linha é a do texto desenhado: a tarefa tocada, achada no de agora pelo que ela diz
+    const text = tickTask(r.text, shown.text, line);
+    if (text === r.text) {
+      // nada a marcar (já estava, ou sumiu na versão nova): a leitura mostra a de agora
+      if (r !== shown) this.review.set(r);
+      return;
+    }
     const next: Review = { ...r, text, updatedAt: new Date().toISOString() };
     this.store.update(next);
     this.review.set(next);

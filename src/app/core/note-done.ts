@@ -50,6 +50,7 @@ export class NoteDone {
     const now = this.store.get(id);
     if (!now || isDone(now) !== done) return;
     clearTimeout(this.fallbacks.get(id));
+    this.fallbacks.delete(id);
     if (!done) {
       this.view.release(id);
       if (!opts.quiet) this.toasts.show(`“${r.game.name}” aberta de novo.`, { label: 'Desfazer', run: () => this.restore(id, was!) });
@@ -91,7 +92,10 @@ export class NoteDone {
       tone: 'neutro',
     });
     if (!yes) return;
-    // a pergunta demorou: só as que continuam abertas (e o Desfazer só reabre essas)
+    // como no check da ficha e no Kanban: com dependência ainda aberta, pergunta antes (sem o sim, nada muda)
+    const ok = this.deps.allowFinish(linked.filter((n) => !isDone(this.store.get(n.id) ?? n)).map((n) => n.id));
+    if (ok !== true && !(await ok)) return;
+    // as perguntas demoraram: só as que continuam abertas (e o Desfazer só reabre essas)
     const open = linked.filter((n) => !isDone(this.store.get(n.id) ?? n));
     for (const n of open) this.set(n.id, true, linked.length > 1 ? { quiet: true } : opts);
     if (linked.length > 1 && open.length && !opts.quiet) {
