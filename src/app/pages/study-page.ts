@@ -11,12 +11,14 @@ import { DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, frontTitle,
 import { QueueCounts, allCounts, countTotal } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
+import { pinningFor } from '../core/wall-physics';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { StudyCard } from '../ui/study-card';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudyCardSheet } from '../ui/study-card-sheet';
+import { StudySession } from '../ui/study-session';
 import { CardPicker } from '../ui/card-picker';
 import { Toasts } from '../ui/toast';
 import { NOTES } from '../core/kinds';
@@ -74,7 +76,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet],
+  imports: [CardPicker, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -90,6 +92,7 @@ export class StudyPage {
   protected readonly AddIcon = ICON.adicionar;
   protected readonly EditIcon = ICON.editar;
   protected readonly AdjustIcon = ICON.ajustar;
+  protected readonly PlayIcon = ICON.estudar;
   protected readonly BringIcon = ICON.buscar;
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
@@ -116,6 +119,8 @@ export class StudyPage {
   protected readonly sort = signal<SortId>('proxima');
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
+  /** A sessão de estudo aberta: de um baralho, ou de todos (null). */
+  protected readonly session = signal<{ deck: string | null } | null>(null);
   /** A folha da carta aberta (o id da anotação). */
   protected readonly cardSheet = signal<string | null>(null);
   /** O seletor de fichas do "Trazer anotações" aberto. */
@@ -136,7 +141,7 @@ export class StudyPage {
       const views: CardView[] = [];
       for (const c of this.study.cards()) {
         const note = byId.get(c.note);
-        if (note && c.decks.includes(deck.id)) views.push(this.view(c, note.game.name, note.stock, now));
+        if (note && c.decks.includes(deck.id)) views.push(this.view(c, note.game.name, pinningFor(note.id, note.stock).stock, now));
       }
       views.sort(next);
       return { deck, cards: views.length, counts, today: countTotal(counts), top: views[0] ?? null };
@@ -183,7 +188,7 @@ export class StudyPage {
     for (const c of this.study.cards()) {
       const note = byId.get(c.note);
       if (!note || !c.decks.includes(d.id)) continue;
-      const view = this.view(c, note.game.name, note.stock, now);
+      const view = this.view(c, note.game.name, pinningFor(note.id, note.stock).stock, now);
       if (lv && view.level !== lv) continue;
       if (q && ![view.title, note.game.name, view.subtitle ?? ''].some((s) => s.toLocaleLowerCase('pt-BR').includes(q))) continue;
       out.push(view);

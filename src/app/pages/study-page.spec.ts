@@ -282,6 +282,23 @@ describe('página dos Estudos', () => {
     expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio, quimica]);
   });
 
+  it('o play: Estudar no baralho abre a mesa dele; em Tudo, Estudar tudo; em dia, nenhum', async () => {
+    const { kanji, vazio } = seed();
+    await go(`/anotacoes/estudos/${kanji}`);
+    expect(text($('.estudar'))).toBe('Estudar');
+    $<HTMLButtonElement>('.estudar')!.click();
+    let mesa: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(mesa = document.querySelector<HTMLDialogElement>('dialog.sessao'))?.open; i++) await settle();
+    expect(mesa!.open).toBeTrue();
+    expect(text(mesa!.querySelector('.baralho'))).toBe('Kanjis');
+    mesa!.close();
+    await settle();
+    await go('/anotacoes/estudos');
+    expect(text($('.estudar'))).toBe('Estudar tudo');
+    await go(`/anotacoes/estudos/${vazio}`);
+    expect($('.estudar')).toBeNull();
+  });
+
   it('a folha do baralho: a cor e o ícone valem na hora; apagar volta para Tudo, com o Desfazer', async () => {
     const { kanji } = seed();
     await go(`/anotacoes/estudos/${kanji}`);

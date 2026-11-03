@@ -190,7 +190,7 @@
 
 /* ===== A pasta: quantas para hoje e, num baralho, a busca, o nível e a ordem ===== */
 .linha-estudo {
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
 
   .pasta-controles {
@@ -201,6 +201,7 @@
 
 .hoje {
   flex: 1 1 auto;
+  align-items: center;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -270,6 +271,17 @@
 
 [data-monte='revisar'] {
   --monte: #0d6b3c;
+}
+
+/* o play: o botão de tinta, logo depois dos montes */
+.estudar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
 }
 
 .em-dia {

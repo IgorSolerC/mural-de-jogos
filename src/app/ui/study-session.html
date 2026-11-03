@@ -1,0 +1,102 @@
+<dialog #dialog class="sessao" aria-labelledby="sessao-titulo" (close)="closed.emit()">
+  <!-- a linha de cima: Parar, o baralho, os três montes do que falta e o Desfazer -->
+  <header class="topo">
+    <button type="button" class="parar" aria-label="Parar de estudar" title="Parar (Esc)" (click)="close()">
+      <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
+    </button>
+    <h2 id="sessao-titulo" class="baralho">{{ title() }}</h2>
+    <ul class="montes" aria-label="Faltam">
+      <li class="monte" data-monte="novas" [class.vez]="current()?.kind === 'nova'"><span class="selo" aria-hidden="true"></span>{{ counts().novas }}<span class="sr-only"> {{ counts().novas === 1 ? 'nova' : 'novas' }}</span></li>
+      <li class="monte" data-monte="aprender" [class.vez]="current()?.kind === 'aprender'"><span class="selo" aria-hidden="true"></span>{{ counts().aprender }}<span class="sr-only"> aprendendo</span></li>
+      <li class="monte" data-monte="revisar" [class.vez]="current()?.kind === 'revisao'"><span class="selo" aria-hidden="true"></span>{{ counts().revisar }}<span class="sr-only"> {{ counts().revisar === 1 ? 'revisão' : 'revisões' }}</span></li>
+    </ul>
+    <button type="button" class="desfazer" [disabled]="!canUndo()" title="Desfazer a última resposta (Z)" (click)="undo()">
+      <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
+      <span class="desfazer-txt">Desfazer</span>
+    </button>
+  </header>
+
+  @if (card(); as c) {
+    <!-- a carta no meio da mesa: a frente, e atrás a anotação; virar gira a carta -->
+    <div class="mesa">
+      <div class="area">
+      <div class="giro" [class.virada]="revealed()" [class.calma]="calm">
+        <div class="face frente" [attr.inert]="revealed() ? '' : null">
+          <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.look.stock" [suit]="c.suit" />
+        </div>
+        <!-- o verso: a cartolina da anotação (a cor, o papel e a estampa, sem estrago, mancha nem
+             decoração), no formato da carta, com a anotação inteira escrita nela -->
+        <article
+          class="face verso cartolina"
+          [style]="c.look.vars"
+          [style.--stock]="'var(--stock-' + c.look.stock + ')'"
+          [attr.data-cor]="c.look.stock"
+          [attr.inert]="revealed() ? null : ''"
+          [attr.aria-hidden]="revealed() ? null : 'true'"
+          aria-label="A resposta"
+        >
+          <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [paperSeed]="c.look.paperSeed" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
+          <div class="verso-conteudo">
+            <p class="verso-frente">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</p>
+            <h3 class="verso-titulo">{{ c.noteTitle }}</h3>
+            @if (c.text) {
+              <div class="verso-texto"><app-rich-text [text]="c.text" /></div>
+            } @else {
+              <p class="verso-vazio">Esta anotação não tem texto.</p>
+            }
+          </div>
+        </article>
+      </div>
+      </div>
+    </div>
+
+    <!-- os botões, presos no pé (na zona do polegar, no celular) -->
+    <div class="botoes">
+      @if (!revealed()) {
+        <button type="button" class="mostrar" aria-keyshortcuts="Space Enter" (click)="reveal()">
+          Mostrar a resposta
+          <span class="tecla" aria-hidden="true">Espaço</span>
+        </button>
+      } @else {
+        <button type="button" class="errei" aria-keyshortcuts="1" (click)="answer(false)">
+          <span class="resposta"><lucide-icon [img]="WrongIcon" [size]="20" aria-hidden="true" />Errei</span>
+          <span class="volta">{{ intervals()?.wrong }}<span class="tecla" aria-hidden="true">1</span></span>
+        </button>
+        <button type="button" class="acertei" aria-keyshortcuts="2 Space" (click)="answer(true)">
+          <span class="resposta"><lucide-icon [img]="RightIcon" [size]="20" aria-hidden="true" />Acertei</span>
+          <span class="volta">{{ intervals()?.right }}<span class="tecla" aria-hidden="true">2</span></span>
+        </button>
+      }
+    </div>
+  } @else if (finished()) {
+    <!-- o fim: o que foi feito hoje, e o que vem -->
+    <div class="mesa">
+      <section class="fim" aria-labelledby="fim-titulo">
+        <h3 id="fim-titulo">Por hoje, é isso.</h3>
+        @if (summary(); as s) {
+          @if (s.seen) {
+            <p class="fim-conta"><strong>{{ s.seen }}</strong> {{ s.seen === 1 ? 'carta vista' : 'cartas vistas' }} · acertou {{ s.right }} ({{ s.rate }}%) · {{ s.minutes === 1 ? '1 minuto' : s.minutes + ' minutos' }}</p>
+          }
+          @if (later(); as at) {
+            <p class="fim-mao">Uma carta que você errou volta daqui a {{ laterLabel(at) }}: deixe aberto, ou volte depois.</p>
+          } @else if (s.next; as n) {
+            <p class="fim-mao">{{ n.when }}: {{ n.n === 1 ? '1 revisão' : n.n + ' revisões' }}.</p>
+          } @else {
+            <p class="fim-mao">Nenhuma revisão marcada ainda.</p>
+          }
+        }
+        <div class="fim-acoes">
+          <button type="button" class="btn-ink" (click)="close()">Voltar aos baralhos</button>
+          @if (moreElsewhere()) {
+            <button type="button" class="papel" (click)="studyAll()">
+              <lucide-icon [img]="PlayIcon" [size]="16" aria-hidden="true" />
+              Estudar tudo
+            </button>
+          }
+        </div>
+      </section>
+    </div>
+  }
+
+  <p class="sr-only" aria-live="polite">{{ spoken() }}</p>
+</dialog>

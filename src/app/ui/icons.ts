@@ -178,6 +178,7 @@ import {
   Pin,
   PinOff,
   Plane,
+  Play,
   Plus,
   Puzzle,
   Quote,
@@ -332,6 +333,8 @@ export const ICON = {
   // ===== Ações =====
   fechar: X,
   adicionar: Plus,
+  // estudar: a sessão dos Estudos (o "play" do baralho, como no Anki)
+  estudar: Play,
   tirar: Minus,
   apagar: Trash2,
   editar: Pencil,

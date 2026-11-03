@@ -782,6 +782,13 @@ o roteiro do puppeteer na build de produção, e o `/code-review high` no fim, c
   `offBy` e `studyOnly` para as palavras) e Ajustes › Imagens com as frentes. Decidido no caminho: a
   linha da leitura abre o baralho (como a do Kanban abre o quadro), e a folha da carta abre pela
   etiqueta de tinta da carta na parede, a mesma das fichas do Kanban.
+- 02/nov/2026, rodada 5 (BUILD 711): a sessão de estudo (`ui/study-session.ts`) e os botões Estudar e
+  Estudar tudo. Pedido do usuário no meio: "O lado invertido (trás) do flash card, quero que use a mesma
+  cartolina (estampa, cor e papel, mas sem estragos, manchas e decorações). Mas o border radius, e
+  proporções devem se manter": o verso é a cartolina da anotação (o `.cartolina` global e o
+  `app-paper-art` só com o papel), no formato da carta. A cor da moldura e do verso passou a ser a do
+  mural (`pinningFor`). Achado nas fotos: a sessão abria com a carta de outro baralho (o baralho é uma
+  entrada, que não chegou no construtor); agora a primeira carta vem de um `effect` que segue o baralho.
 
 ---
 

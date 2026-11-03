@@ -80,6 +80,11 @@
             <li class="monte" data-monte="aprender"><span class="selo" aria-hidden="true"></span>{{ line().aprender }} aprendendo</li>
             <li class="monte" data-monte="revisar"><span class="selo" aria-hidden="true"></span>{{ line().revisar }} {{ line().revisar === 1 ? "revisão" : "revisões" }}</li>
           </ul>
+          <!-- o play do baralho, como no Anki: a sessão de estudo -->
+          <button type="button" class="btn-ink estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null })">
+            <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
+            {{ deck() ? "Estudar" : "Estudar tudo" }}
+          </button>
         } @else if (deck() && !deckSize()) {
           <p class="em-dia">Nenhuma carta neste baralho ainda.</p>
         } @else {
@@ -218,6 +223,12 @@
 @if (cardSheet(); as id) {
   @defer (on immediate) {
     <app-study-card-sheet [noteId]="id" (closed)="cardSheet.set(null)" (reading)="open($event)" (editing)="edit($event)" />
+  }
+}
+
+@if (session(); as s) {
+  @defer (on immediate) {
+    <app-study-session [deck]="s.deck" (closed)="session.set(null)" (all)="session.set({ deck: null })" />
   }
 }
 
