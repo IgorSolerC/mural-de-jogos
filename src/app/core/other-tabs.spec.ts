@@ -60,6 +60,26 @@ describe('catchUpOtherTabs', () => {
   });
 });
 
+describe('writeJson numa chave acompanhada', () => {
+  afterEach(() => localStorage.removeItem('meu-mural:teste-junta'));
+
+  it('não grava por cima do que outra aba gravou e esta não ouviu: avisa quem acompanha, com o que esta tinha visto', () => {
+    const heard: (string | null)[] = [];
+    const off = onOtherTab('meu-mural:teste-junta', (before) => heard.push(before));
+    writeJson('meu-mural:teste-junta', { v: 1 });
+    expect(heard).toEqual([]);
+    // a outra aba grava, e o aviso ainda não chegou
+    localStorage.setItem('meu-mural:teste-junta', '{"v":2}');
+    writeJson('meu-mural:teste-junta', { v: 3 });
+    expect(localStorage.getItem('meu-mural:teste-junta')).toBe('{"v":2}');
+    expect(heard).toEqual(['{"v":1}']);
+    // depois de ouvir, grava
+    writeJson('meu-mural:teste-junta', { v: 4 });
+    expect(localStorage.getItem('meu-mural:teste-junta')).toBe('{"v":4}');
+    off();
+  });
+});
+
 describe('as outras abas', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -111,6 +131,33 @@ describe('as outras abas', () => {
     TestBed.tick();
     expect(kanban.boards().map((b) => [b.category, b.columns[0].name])).toEqual([['trabalho', 'Para fazer']]);
     expect(localStorage.getItem(KANBAN_KEY)).toBe(after);
+  });
+
+  /** O quadro do Trabalho com as colunas renomeadas: o que esta aba tem e o que a "outra" gravou. */
+  function twoRenames(heard: boolean): string[] {
+    const kanban = TestBed.inject(KanbanStore);
+    const id = kanban.boardFor('Trabalho').id;
+    kanban.update(id, (b) => ({ ...b, columns: b.columns.map((c, i) => (i ? c : { ...c, name: 'Para fazer' })) }));
+    TestBed.tick();
+    const theirs = JSON.parse(localStorage.getItem(KANBAN_KEY)!) as { boards: { columns: { name: string }[] }[] };
+    theirs.boards[0].columns[1].name = 'Lá';
+    // esta aba renomeia outra coluna, e o effect ainda não gravou
+    kanban.update(id, (b) => ({ ...b, columns: b.columns.map((c, i) => (i === 2 ? { ...c, name: 'Aqui' } : c)) }));
+    if (heard) otherTabWrote(KANBAN_KEY, JSON.stringify(theirs));
+    // sem o aviso ter chegado: a outra só gravou
+    else localStorage.setItem(KANBAN_KEY, JSON.stringify(theirs));
+    TestBed.tick();
+    const stored = JSON.parse(localStorage.getItem(KANBAN_KEY)!) as { boards: { columns: { name: string }[] }[] };
+    expect(stored.boards[0].columns.map((c) => c.name)).withContext('gravado').toEqual(kanban.boards()[0].columns.map((c) => c.name));
+    return kanban.boards()[0].columns.map((c) => c.name);
+  }
+
+  it('os quadros do Kanban: esta aba e a outra mexendo ao mesmo tempo, ficam as duas mudanças (com o aviso a caminho ou sem ele)', () => {
+    expect(twoRenames(true)).toEqual(['Para fazer', 'Lá', 'Aqui']);
+  });
+
+  it('os quadros do Kanban: gravando antes de ouvir a outra aba, esta não grava por cima e junta', () => {
+    expect(twoRenames(false)).toEqual(['Para fazer', 'Lá', 'Aqui']);
   });
 
   it('o perfil: o que a outra aba mudou vale aqui, com a hora dela', () => {

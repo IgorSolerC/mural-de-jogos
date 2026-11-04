@@ -6,6 +6,7 @@ import { ReviewStore } from './review-store';
 import { Settings } from './settings';
 import { StudyStore } from './study-store';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 
 /**
  * Onde uma anotação aparece: no mural (pelo voto do Kanban e dos Estudos, ver `boardOnly`), no quadro do
@@ -187,7 +188,7 @@ export class KanbanStore {
     });
     // outra aba mexeu nos quadros: esta acompanha (senão gravaria por cima, e a sincronização mandaria
     // de volta os quadros de antes)
-    inject(DestroyRef).onDestroy(onOtherTab(KANBAN_KEY, () => this.state.set(read())));
+    inject(DestroyRef).onDestroy(onOtherTab(KANBAN_KEY, (before) => this.state.set(fromOtherTab(KANBAN_KEY, before, this.state(), read, sanitizeKanban))));
     // os quadros de antes, assim que existem (ao abrir, ou vindos da nuvem)
     effect(() => {
       if (this.state().legacy.length) untracked(() => this.attachLegacy());

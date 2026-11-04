@@ -5,6 +5,7 @@ import { CategoryColorId, CategoryLook, CategoryLooks, lookKey, sanitizeCategory
 import { CategoryPrefs, NotesConfig, sanitizeNotesConfig, withPrefs, withSavedSubjects, withTagHidden } from './mural-config';
 import { NoteTemplate, withTemplate } from './note-templates';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 
 export const SETTINGS_KEY = 'mural-de-jogos:config:v1';
 const KEY = SETTINGS_KEY;
@@ -162,8 +163,8 @@ function readRaw() {
   }
 }
 
-function readStored(): Stored {
-  const raw = readRaw();
+function readStored(value: unknown = readRaw()): Stored {
+  const raw = (value && typeof value === 'object' ? value : {}) as ReturnType<typeof readRaw>;
   const rawgKey = typeof raw.rawgKey === 'string' ? raw.rawgKey : '';
   const tmdbKey = typeof raw.tmdbKey === 'string' ? raw.tmdbKey : '';
   const groupLabels = raw.groupLabels !== false;
@@ -407,8 +408,9 @@ export class Settings {
   }
 
   /** Os ajustes como outra aba os gravou. */
-  private reload(): void {
-    const s = readStored();
+  private reload(before: string | null = null): void {
+    // com mudança daqui ainda por gravar, as duas se juntam (ver core/tab-join.ts)
+    const s = fromOtherTab(KEY, before, this.toStore(), () => readStored(), readStored);
     this.rawgKey.set(s.rawgKey);
     this.tmdbKey.set(s.tmdbKey);
     this.groupLabels.set(s.groupLabels);
@@ -448,39 +450,41 @@ export class Settings {
     this.keysAt.set(keys.em);
   }
 
+  /** O que vai para o localStorage (o effect grava a cada mudança; a junção com outra aba compara com isto). */
+  private toStore(): Stored {
+    return {
+      rawgKey: this.rawgKey().trim(),
+      tmdbKey: this.tmdbKey().trim(),
+      groupLabels: this.groupLabels(),
+      noSpoilers: this.noSpoilers(),
+      scoreDisplay: this.scoreDisplay(),
+      ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
+      mailCount: this.mailCount(),
+      keysAt: this.keysAt(),
+      friendSpoilers: this.friendSpoilers(),
+      friendKinds: this.friendKinds(),
+      pinnedTags: [...this.pinnedTags()],
+      pinnedTagsAt: this.pinnedTagsAt(),
+      categoryLooks: this.categoryLooks(),
+      categoryLooksAt: this.categoryLooksAt(),
+      cardLayers: this.cardLayers(),
+      noCutShadows: this.noCutShadows(),
+      plainPencil: this.plainPencil(),
+      stillCards: this.stillCards(),
+      fewCards: this.fewCards(),
+      askNoCategory: this.askNoCategory(),
+      askNoTag: this.askNoTag(),
+      notesConfig: this.notesConfig(),
+      notesConfigAt: this.notesConfigAt(),
+      escrita: this.writingMode(),
+    };
+  }
+
   constructor() {
-    effect(() => {
-      const data: Stored = {
-        rawgKey: this.rawgKey().trim(),
-        tmdbKey: this.tmdbKey().trim(),
-        groupLabels: this.groupLabels(),
-        noSpoilers: this.noSpoilers(),
-        scoreDisplay: this.scoreDisplay(),
-        ownerName: this.ownerName().slice(0, OWNER_NAME_MAX),
-        mailCount: this.mailCount(),
-        keysAt: this.keysAt(),
-        friendSpoilers: this.friendSpoilers(),
-        friendKinds: this.friendKinds(),
-        pinnedTags: [...this.pinnedTags()],
-        pinnedTagsAt: this.pinnedTagsAt(),
-        categoryLooks: this.categoryLooks(),
-        categoryLooksAt: this.categoryLooksAt(),
-        cardLayers: this.cardLayers(),
-        noCutShadows: this.noCutShadows(),
-        plainPencil: this.plainPencil(),
-        stillCards: this.stillCards(),
-        fewCards: this.fewCards(),
-        askNoCategory: this.askNoCategory(),
-        askNoTag: this.askNoTag(),
-        notesConfig: this.notesConfig(),
-        notesConfigAt: this.notesConfigAt(),
-        escrita: this.writingMode(),
-      };
-      writeJson(KEY, data);
-    });
+    effect(() => writeJson(KEY, this.toStore()));
     // outra aba mudou os ajustes (a cor de uma tag, um grupo, as tags fixas): esta acompanha, senão a
     // próxima mudança daqui gravaria por cima, e a sincronização mandaria de volta o que esta tinha
-    inject(DestroyRef).onDestroy(onOtherTab(KEY, () => this.reload()));
+    inject(DestroyRef).onDestroy(onOtherTab(KEY, (before) => this.reload(before)));
     // as escolhas de Desempenho valem no site inteiro: uma classe na raiz para cada uma que o CSS troca
     // (ver styles.scss e pages/wall-board.scss)
     effect(() => {

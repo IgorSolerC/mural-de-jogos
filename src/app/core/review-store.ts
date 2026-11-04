@@ -9,6 +9,7 @@ import { canonicalJson } from './canonical-json';
 import { KeptReason, KeptVersion, mergeVersions, sameContent, sanitizeVersions, storedVersions } from './kept-versions';
 import { Bonus, Draft, Kind, LIGHT_STOCKS, newId, Relevance, ROTATION_STOCKS, Review, SHELVES, Shelf, Stock, Wish, asRevisit, isCatalogBonus, isMusicReview, isNote, linkSameWorks, sanitizeDraft, sanitizeReview, sanitizeWish, settleOriginal, shelfOf, storedNote } from './review';
 import { readText, writeText } from './storage';
+import { joinItemsWithOtherTab } from './tab-join';
 
 const KEY = 'mural-de-jogos:resenhas:v1';
 const DRAFTS_KEY = 'mural-de-jogos:pendentes:v1';
@@ -229,18 +230,24 @@ export class ReviewStore {
     this.persist(this.deleted, DELETED_KEY, this.loaded.deleted);
     this.persist(this.versions, VERSIONS_KEY, this.loaded.versions, storedVersions);
 
-    // Outra aba mexeu no mural: acompanha sem sobrescrever.
+    // Outra aba mexeu no mural: acompanha sem sobrescrever, e sem perder o que esta mudou e ainda não
+    // gravou (as duas mudanças se juntam, ver core/tab-join.ts)
     if (typeof window !== 'undefined') {
-      this.data.onExternalChange((key) => {
-        const take = <T>(k: DataKey, value: T, into: { set(v: T): void }) => {
-          this.fromOutside.set(k, value);
-          into.set(value);
-        };
-        if (key === KEY || key === NOTES_KEY || key === MUSIC_KEY) take(KEY, this.read(), this.reviews);
-        else if (key === DRAFTS_KEY) take(DRAFTS_KEY, this.readDrafts(), this.drafts);
-        else if (key === WISHES_KEY) take(WISHES_KEY, this.readWishes(), this.wishes);
-        else if (key === DELETED_KEY) take(DELETED_KEY, this.readDeleted(), this.deleted);
-        else if (key === VERSIONS_KEY) take(VERSIONS_KEY, this.readVersions(), this.versions);
+      this.data.onExternalChange((key, before) => {
+        const shelf = SHELVES.find((s) => SHELF_KEY[s] === key);
+        if (shelf) this.shelfFromOtherTab(shelf, before);
+        else if (key === DRAFTS_KEY) this.listFromOtherTab(DRAFTS_KEY, before, this.drafts, () => this.readDrafts(), sanitizeDraft);
+        else if (key === WISHES_KEY) this.listFromOtherTab(WISHES_KEY, before, this.wishes, () => this.readWishes(), sanitizeWish);
+        else if (key === DELETED_KEY) {
+          const theirs = this.readDeleted();
+          if (JSON.stringify(this.deleted()) === before) this.takeFromOutside(DELETED_KEY, theirs, this.deleted);
+          // as apagadas daqui ainda por gravar ficam junto (a mais nova de cada)
+          else this.deleted.set(mergeDeleted(this.deleted(), theirs));
+        } else if (key === VERSIONS_KEY) {
+          const theirs = this.readVersions();
+          if (JSON.stringify(storedVersions(this.versions())) === before) this.takeFromOutside(VERSIONS_KEY, theirs, this.versions);
+          else this.versions.set(mergeVersions(this.versions(), theirs));
+        }
       });
     }
 
@@ -248,6 +255,45 @@ export class ReviewStore {
     // para o IndexedDB: o que ela deixou entra como um backup juntado, sem perder nada dos dois lados.
     const foreign = this.data.takeForeign();
     if (foreign) this.mergeForeign(foreign);
+  }
+
+  /** O que veio de outra aba, como está gravado: anota (a passada do efeito que vê isto não grava) e põe. */
+  private takeFromOutside<T>(key: DataKey, value: T, into: { set(v: T): void }): void {
+    this.fromOutside.set(key, value);
+    into.set(value);
+  }
+
+  /**
+   * Outra aba gravou uma das listas de fichas (as resenhas, as anotações ou as músicas). Sem nada daqui
+   * por gravar nela, fica a gravada; com, as duas se juntam ficha a ficha (`joinItemsWithOtherTab`) e o
+   * efeito grava a junção. As outras listas e as compartilhadas (que não moram aqui) ficam como estão.
+   */
+  private shelfFromOtherTab(shelf: Shelf, before: string | null): void {
+    const key = SHELF_KEY[shelf];
+    const shared = this.sharedIds();
+    const all = this.reviews();
+    const own = (s: Shelf) => all.filter((r) => !shared.has(r.id) && shelfOf(r) === s);
+    const mine = own(shelf);
+    const joined = joinItemsWithOtherTab(before, JSON.stringify(shelf === 'notas' ? mine.map(storedNote) : mine), this.data.getItem(key));
+    const next =
+      joined === undefined ? this.readList(key, sanitizeReview) : joined.map((raw) => sanitizeReview(raw)).filter((r): r is Review => r !== null);
+    const list = withStocks([...all.filter((r) => shared.has(r.id)), ...SHELVES.flatMap((s) => (s === shelf ? next : own(s)))]);
+    // a gravada é esta: o efeito não a regrava (as outras listas, com mudança daqui por gravar, ele grava)
+    if (joined === undefined) this.written = { ...this.written, [shelf]: shelved(list.filter((r) => !shared.has(r.id)))[shelf] };
+    this.reviews.set(list);
+  }
+
+  /** Outra aba gravou a fila ou a wishlist: como `shelfFromOtherTab`, item a item. */
+  private listFromOtherTab<T extends { id: string }>(
+    key: DataKey,
+    before: string | null,
+    into: { (): T[]; set(v: T[]): void },
+    read: () => T[],
+    sanitize: (raw: unknown) => T | null,
+  ): void {
+    const joined = joinItemsWithOtherTab(before, JSON.stringify(into()), this.data.getItem(key));
+    if (joined === undefined) this.takeFromOutside(key, read(), into);
+    else into.set(joined.map((raw) => sanitize(raw)).filter((x): x is T => x !== null));
   }
 
   private mergeForeign(foreign: Partial<Record<DataKey, string>>): void {
@@ -835,7 +881,7 @@ export class ReviewStore {
     };
     try {
       // no localStorage grava na hora; no IndexedDB, a gravação termina depois
-      const pending = this.data.setItem(key, JSON.stringify(value));
+      const pending = this.data.setItem(key, JSON.stringify(value), { joinable: true });
       if (pending) pending.then(saved, failed);
       else saved();
     } catch {

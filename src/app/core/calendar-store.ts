@@ -9,6 +9,7 @@ function nowTime(): string {
 }
 import { newId } from './review';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 
 /** Os lembretes deste navegador (vão embora com "Apagar o save", como os quadros do Kanban). */
 export const CALENDAR_KEY = 'meu-mural:calendario:v1';
@@ -72,7 +73,7 @@ export class CalendarStore {
     effect(() => writeJson(CALENDAR_KEY, this.state()));
     // outra aba mexeu nos lembretes: esta acompanha, sem gravar os de antes por cima
     const destroy = inject(DestroyRef);
-    destroy.onDestroy(onOtherTab(CALENDAR_KEY, () => this.state.set(read())));
+    destroy.onDestroy(onOtherTab(CALENDAR_KEY, (before) => this.state.set(fromOtherTab(CALENDAR_KEY, before, this.state(), read, sanitizeCalendar))));
     // o dia e a hora andam com o site aberto em qualquer página, não só no Calendário
     const timer = setInterval(() => this.tick(), 60_000);
     const onVisible = () => document.visibilityState === 'visible' && this.tick();

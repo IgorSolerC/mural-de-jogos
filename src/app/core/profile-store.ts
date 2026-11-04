@@ -1,6 +1,7 @@
 import { DestroyRef, Injectable, effect, inject, signal } from '@angular/core';
 import { Profile, defaultProfile, sanitizeProfile } from './profile';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 
 /** O perfil deste navegador e quando mudou (fica com "Apagar o save", como os outros ajustes). */
 export const PROFILE_KEY = 'meu-mural:perfil:v1';
@@ -13,14 +14,19 @@ interface StoredProfile {
 
 function read(): StoredProfile {
   try {
-    const raw = JSON.parse(localStorage.getItem(PROFILE_KEY) ?? 'null') as Record<string, unknown> | null;
-    const perfil = sanitizeProfile(raw?.['perfil']);
-    const em = typeof raw?.['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : '';
-    if (perfil) return { perfil, em };
+    return fromRaw(JSON.parse(localStorage.getItem(PROFILE_KEY) ?? 'null'));
   } catch {
     /* ilegível: começa do padrão */
   }
   return { perfil: defaultProfile(), em: '' };
+}
+
+/** O perfil guardado, a partir do cru (o gravado, ou a junção com outra aba). */
+function fromRaw(value: unknown): StoredProfile {
+  const raw = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+  const perfil = sanitizeProfile(raw?.['perfil']);
+  const em = typeof raw?.['em'] === 'string' && Number.isFinite(Date.parse(raw['em'])) ? raw['em'] : '';
+  return perfil ? { perfil, em } : { perfil: defaultProfile(), em: '' };
 }
 
 /**
@@ -41,8 +47,9 @@ export class ProfileStore {
     });
     // outra aba mudou o perfil: esta acompanha, sem gravar o de antes por cima
     inject(DestroyRef).onDestroy(
-      onOtherTab(PROFILE_KEY, () => {
-        const s = read();
+      onOtherTab(PROFILE_KEY, (before) => {
+        const mine: StoredProfile = { perfil: this.profile(), em: this.changedAt() };
+        const s = fromOtherTab(PROFILE_KEY, before, mine, read, fromRaw);
         this.profile.set(s.perfil);
         this.changedAt.set(s.em);
       }),

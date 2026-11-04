@@ -25,6 +25,7 @@ import { isDone } from './review';
 import { categoryIcon } from '../ui/category-label';
 import { ICON, ICON_CHOICE } from '../ui/icons';
 import { BrowserReset } from './browser-reset';
+import { checkOtherTabs } from './storage';
 
 /**
  * As anotações compartilhadas de ponta a ponta, com pessoas diferentes (cada uma com o seu aparelho) e
@@ -266,6 +267,9 @@ interface Person {
 }
 
 describe('anotações compartilhadas (ponta a ponta)', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   let cloud: FakeNotes;
   let parent: EnvironmentInjector;
   const injectors: { destroy(): void }[] = [];

@@ -63,7 +63,7 @@ export class LocalData {
   private channel: BroadcastChannel | null = null;
   /** O que uma versão antiga deixou no localStorage depois da migração, para juntar. */
   private foreign: Partial<Record<DataKey, string>> | null = null;
-  private readonly listeners: ((key: DataKey) => void)[] = [];
+  private readonly listeners: ((key: DataKey, before: string | null) => void)[] = [];
   /** Quantas gravações daqui cada chave já teve (ver `reload`). */
   private readonly writes = new Map<DataKey, number>();
   /** As gravações no IndexedDB que ainda não terminaram (ver `settled`). */
@@ -142,19 +142,50 @@ export class LocalData {
    * Grava. No localStorage, grava na hora e um erro (cota cheia) é lançado, como sempre foi. No
    * IndexedDB, devolve a promessa da gravação, que falha quando ela não completa; o espelho que não
    * coube não é erro.
+   *
+   * `joinable`: quem grava sabe juntar o que outra aba gravou (ver core/tab-join.ts). Então, se a chave
+   * mudou desde a última vez que esta aba a viu (outra aba gravou e o aviso ainda não chegou), nada é
+   * gravado por cima: esta aba recebe o aviso na hora, com o que tinha visto, junta e grava a junção. No
+   * IndexedDB a conferência e a gravação vão numa transação só, que as outras abas esperam.
    */
-  setItem(key: DataKey, value: string): Promise<void> | void {
+  setItem(key: DataKey, value: string, opts: { joinable?: boolean } = {}): Promise<void> | void {
     // o navegador vai ser limpo: gravar agora recriaria o banco que está saindo
     if (storageFrozen()) return;
     if (this.mode === 'local') {
+      if (opts.joinable && this.seenLocal.has(key)) {
+        const seen = this.seenLocal.get(key)!;
+        const now = localStorage.getItem(key);
+        if (now !== seen && now !== value) {
+          this.seenLocal.set(key, now);
+          this.emit(key, seen);
+          return;
+        }
+      }
       localStorage.setItem(key, value);
       this.seenLocal.set(key, value);
       return;
     }
     this.writes.set(key, (this.writes.get(key) ?? 0) + 1);
+    const expected = this.cache.get(key) ?? null;
     this.cache.set(key, value);
-    this.mirror(key, value);
-    const write = writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
+    let write: Promise<void>;
+    if (opts.joinable) {
+      write = writeIfUnchanged(this.db!, key, expected, value).then((current) => {
+        if (current === undefined) {
+          this.mirror(key, value);
+          this.channel?.postMessage(key);
+          return;
+        }
+        // outra aba gravou antes: fica o dela, e quem grava junta (uma gravação daqui mais nova, a caminho,
+        // vai dar com a mesma coisa e avisa então)
+        if (this.cache.get(key) !== value) return;
+        this.cache.set(key, current);
+        this.emit(key, expected);
+      });
+    } else {
+      this.mirror(key, value);
+      write = writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
+    }
     const done = write.then(
       () => undefined,
       () => undefined,
@@ -185,7 +216,7 @@ export class LocalData {
         }
         if (value === seen) continue;
         this.seenLocal.set(key, value);
-        this.emit(key);
+        this.emit(key, seen);
       }
       return;
     }
@@ -202,20 +233,26 @@ export class LocalData {
       if (this.writes.get(key) !== writes.get(key)) continue;
       const value = stored.get(key);
       const now = typeof value === 'string' ? value : null;
-      if (now === (this.cache.get(key) ?? null)) continue;
+      const before = this.cache.get(key) ?? null;
+      if (now === before) continue;
       this.cache.set(key, now);
-      this.emit(key);
+      this.emit(key, before);
     }
   }
 
-  /** Outra aba gravou esta chave: o valor novo já está em `getItem`. */
-  onExternalChange(listener: (key: DataKey) => void): void {
+  /**
+   * Outra aba gravou esta chave: o valor novo já está em `getItem`, e `before` é como esta aba a tinha
+   * visto (gravado ou recebido) até ali, para juntar o que ela mudou e ainda não gravou (core/tab-join.ts).
+   */
+  onExternalChange(listener: (key: DataKey, before: string | null) => void): void {
     this.listeners.push(listener);
     if (this.listeners.length === 1 && typeof window !== 'undefined') {
       window.addEventListener('storage', (e) => {
         if (this.mode !== 'local' || !(DATA_KEYS as readonly string[]).includes(e.key ?? '')) return;
-        this.seenLocal.set(e.key as DataKey, e.newValue);
-        this.emit(e.key as DataKey);
+        const key = e.key as DataKey;
+        const before = this.seenLocal.has(key) ? this.seenLocal.get(key)! : e.oldValue;
+        this.seenLocal.set(key, e.newValue);
+        this.emit(key, before);
       });
     }
   }
@@ -227,8 +264,8 @@ export class LocalData {
     return f;
   }
 
-  private emit(key: DataKey): void {
-    for (const l of this.listeners) l(key);
+  private emit(key: DataKey, before: string | null): void {
+    for (const l of this.listeners) l(key, before);
   }
 
   private async reload(key: DataKey): Promise<void> {
@@ -238,8 +275,11 @@ export class LocalData {
       const value = (await readAll(this.db)).get(key);
       // esta aba gravou enquanto lia: o que leu é de antes, e a gravação daqui é a mais nova
       if (this.writes.get(key) !== writes) return;
-      this.cache.set(key, typeof value === 'string' ? value : null);
-      this.emit(key);
+      const before = this.cache.get(key) ?? null;
+      const now = typeof value === 'string' ? value : null;
+      if (now === before) return;
+      this.cache.set(key, now);
+      this.emit(key, before);
     } catch {
       /* fica o que estava; a próxima gravação daqui ou de lá resolve */
     }
@@ -317,6 +357,30 @@ function readAll(db: IDBDatabase): Promise<Map<string, unknown>> {
       c.continue();
     };
     tx.oncomplete = () => resolve(out);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+
+/**
+ * Grava `value` só se a chave ainda tem `expected` (o que esta aba viu por último), numa transação só.
+ * Devolve undefined quando gravou, ou o que estava lá quando outra aba tinha gravado antes.
+ */
+function writeIfUnchanged(db: IDBDatabase, key: string, expected: string | null, value: string): Promise<string | null | undefined> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    let result: string | null | undefined;
+    const get = store.get(key);
+    get.onsuccess = () => {
+      const now = typeof get.result === 'string' ? get.result : null;
+      if (now !== expected && now !== value) {
+        result = now;
+        return;
+      }
+      store.put(value, key);
+    };
+    tx.oncomplete = () => resolve(result);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });

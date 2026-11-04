@@ -278,6 +278,7 @@ describe('Ajustes: prévias e Voltar ao padrão', () => {
     expect(settings.atDefaults()).toBeFalse();
     settings.resetPreferences();
     expect(settings.writingMode()).toBe('visual');
+    TestBed.tick();
     // outra aba escolheu o Markdown: esta acompanha
     localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ escrita: 'markdown' }));
     window.dispatchEvent(new StorageEvent('storage', { key: 'mural-de-jogos:config:v1', storageArea: localStorage }));

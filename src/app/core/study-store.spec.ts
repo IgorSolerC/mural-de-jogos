@@ -80,7 +80,7 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     expect(study.cardOf().get('nsol')!.at > a).toBeTrue();
   });
 
-  it('outra aba aberta antes da versão nova devolve o baralho sem o estilo: o daqui fica; sair da conta esvazia', () => {
+  it('outra aba aberta antes da versão nova devolve o baralho sem o estilo: o daqui fica, também quando ela muda o baralho; sair da conta esvazia', () => {
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.updateDeck(deck, { look: 'selo' });
     TestBed.tick();
@@ -99,7 +99,8 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     tellOtherTab();
     TestBed.tick();
     expect(study.deck(deck)!.name).toBe('Kanjis do N5');
-    expect(study.deck(deck)!.look).toBeUndefined();
+    // o estilo, que a outra aba nem conhece (não o mudou), fica: as duas mudanças se juntam (core/tab-join.ts)
+    expect(study.deck(deck)!.look).toBe('selo');
     // a limpeza do logout tira a chave: esta aba fica sem nada
     localStorage.removeItem(STUDY_KEY);
     tellOtherTab();

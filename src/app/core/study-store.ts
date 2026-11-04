@@ -3,6 +3,7 @@ import { IconChoice } from './icon-choices';
 import { LightStock } from './review';
 import { ReviewStore } from './review-store';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 import {
   CardFront,
   Deck,
@@ -102,7 +103,7 @@ export class StudyStore {
   constructor() {
     effect(() => writeJson(STUDY_KEY, this.state()));
     // outra aba mexeu: esta acompanha, sem gravar o de antes por cima
-    inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, () => this.fromOtherTab()));
+    inject(DestroyRef).onDestroy(onOtherTab(STUDY_KEY, (before) => this.fromOtherTab(before)));
   }
 
   /**
@@ -110,8 +111,9 @@ export class StudyStore {
    * `keepRicher`). Igual ao daqui, nada muda e nada é gravado, para as duas abas não ficarem gravando uma
    * por cima da outra. Sem nada guardado (a limpeza ao sair da conta), fica sem nada.
    */
-  private fromOtherTab(): void {
-    const next = keepRicher(read(), this.state());
+  private fromOtherTab(before: string | null = null): void {
+    // com mudança daqui ainda por gravar, as duas se juntam (ver core/tab-join.ts)
+    const next = keepRicher(fromOtherTab(STUDY_KEY, before, this.state(), read, sanitizeStudy), this.state());
     if (JSON.stringify(next) !== JSON.stringify(this.state())) this.state.set(next);
   }
 

@@ -12,7 +12,7 @@
 let frozen = false;
 
 /** Quem acompanha cada chave (ver `onOtherTab`). */
-const watched = new Map<string, Set<() => void>>();
+const watched = new Map<string, Set<(before: string | null) => void>>();
 /** O texto de cada chave acompanhada como esta aba o viu por último (gravou ou ouviu). */
 const seen = new Map<string, string | null>();
 
@@ -22,6 +22,17 @@ export function freezeStorage(): void {
 
 export function storageFrozen(): boolean {
   return frozen;
+}
+
+/**
+ * Só para os testes que fazem de conta que são vários aparelhos na mesma página (eles dividem o
+ * localStorage e o que cada aba viu, que no navegador são de uma aba só): sem a conferência das outras
+ * abas (ver `catchUpOtherTabs` e `writeJson`), um "aparelho" não toma o outro por outra aba, e o aviso
+ * de outra aba troca pelo gravado, como antes da junção.
+ */
+let otherTabsChecked = true;
+export function checkOtherTabs(on: boolean): void {
+  otherTabsChecked = on;
 }
 
 /** Só para os testes: destrava (no site, só recarregar a página destrava). */
@@ -58,13 +69,28 @@ export function writeText(key: string, value: string): void {
   }
 }
 
-/** Guarda o valor em JSON; sem armazenamento, fica só nesta visita. */
+/**
+ * Guarda o valor em JSON; sem armazenamento, fica só nesta visita. Numa chave acompanhada (ver
+ * `onOtherTab`) que outra aba gravou e esta ainda não ouviu, não grava por cima: quem acompanha ouve na
+ * hora, com o que esta aba tinha visto, junta o que as duas fizeram (ver core/tab-join.ts) e o effect
+ * grava a junção.
+ */
 export function writeJson(key: string, value: unknown): void {
   if (frozen) return;
   try {
     const text = JSON.stringify(value);
+    const fns = watched.get(key);
+    if (fns && otherTabsChecked) {
+      const now = readText(key);
+      const before = seen.get(key) ?? null;
+      if (now !== before && now !== text) {
+        seen.set(key, now);
+        for (const fn of [...fns]) fn(before);
+        return;
+      }
+    }
     localStorage.setItem(key, text);
-    if (watched.has(key)) seen.set(key, text);
+    if (fns) seen.set(key, text);
   } catch {
     /* sem armazenamento: vale só até recarregar */
   }
@@ -86,11 +112,13 @@ export function removeKey(key: string): void {
  * core/cloud-sync.ts), e ela enviaria o que tinha antes. Cada chave mudada chama quem a acompanha.
  */
 export function catchUpOtherTabs(): void {
+  if (!otherTabsChecked) return;
   for (const [key, fns] of watched) {
     const now = readText(key);
-    if (now === (seen.get(key) ?? null)) continue;
+    const before = seen.get(key) ?? null;
+    if (now === before) continue;
     seen.set(key, now);
-    for (const fn of [...fns]) fn();
+    for (const fn of [...fns]) fn(before);
   }
 }
 
@@ -99,8 +127,10 @@ export function catchUpOtherTabs(): void {
  * o estado inteiro numa chave e o regrava a cada mudança precisa disto: sem acompanhar, a aba aberta
  * desde antes regravaria o que tinha por cima do que a outra mudou (e a sincronização o mandaria de
  * volta para a nuvem). A aba que gravou não ouve a própria gravação. Devolve como parar de ouvir.
+ * `before`: a chave como esta aba a viu por último, para juntar o que ela mudou e ainda não gravou
+ * (ver core/tab-join.ts).
  */
-export function onOtherTab(key: string, fn: () => void): () => void {
+export function onOtherTab(key: string, fn: (before: string | null) => void): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const listen = (e: StorageEvent) => {
     if (e.key !== key && e.key !== null) return;
@@ -109,8 +139,10 @@ export function onOtherTab(key: string, fn: () => void): () => void {
     } catch {
       return;
     }
+    const before = seen.get(key) ?? null;
     seen.set(key, readText(key));
-    fn();
+    // sem a conferência (os testes de vários aparelhos numa página), não se sabe o que esta aba viu
+    fn(otherTabsChecked ? before : null);
   };
   window.addEventListener('storage', listen);
   let fns = watched.get(key);

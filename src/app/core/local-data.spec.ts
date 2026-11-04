@@ -84,6 +84,28 @@ describe('LocalData (IndexedDB)', () => {
     expect(heard).toEqual([KEY]);
   });
 
+  it('joinable: não grava por cima do que outra aba gravou e esta não ouviu; avisa com o que esta tinha visto', async () => {
+    const { data } = await boot();
+    await data.setItem(KEY, '["v1"]', { joinable: true });
+    const other = new LocalData();
+    await other.load();
+    (data as unknown as { channel: BroadcastChannel | null }).channel!.onmessage = null;
+    const heard: [string, string | null][] = [];
+    data.onExternalChange((k, before) => heard.push([k, before]));
+    await other.setItem(KEY, '["da outra"]');
+    await data.setItem(KEY, '["daqui"]', { joinable: true });
+    expect(heard).toEqual([[KEY, '["v1"]']]);
+    expect(data.getItem(KEY)).toBe('["da outra"]');
+    const fresh = new LocalData();
+    await fresh.load();
+    expect(fresh.getItem(KEY)).toBe('["da outra"]');
+    // depois de ouvir, grava
+    await data.setItem(KEY, '["juntou"]', { joinable: true });
+    const after = new LocalData();
+    await after.load();
+    expect(after.getItem(KEY)).toBe('["juntou"]');
+  });
+
   it('settled espera as gravações daqui terminarem no IndexedDB', async () => {
     const { data } = await boot();
     void data.setItem(KEY, '["guardado"]');
@@ -176,5 +198,10 @@ describe('LocalData (localStorage, sem IndexedDB)', () => {
     expect(heard).toEqual([KEY]);
     await data.catchUp();
     expect(heard).toEqual([KEY]);
+    // gravando sem ter ouvido a outra: não grava por cima, avisa
+    localStorage.setItem(KEY, '["de novo"]');
+    data.setItem(KEY, '["daqui"]', { joinable: true });
+    expect(localStorage.getItem(KEY)).toBe('["de novo"]');
+    expect(heard).toEqual([KEY, KEY]);
   });
 });

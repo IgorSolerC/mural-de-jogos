@@ -13,6 +13,7 @@ import { Settings } from './settings';
 import { SyncConflict, SyncConflicts, conflictKey } from './sync-conflicts';
 import { Confirm } from '../ui/confirm';
 import { BrowserReset } from './browser-reset';
+import { checkOtherTabs } from './storage';
 
 /**
  * A junção de três vias da conta (ver core/sync-merge.ts e core/sync-conflicts.ts), de ponta a ponta:
@@ -105,6 +106,9 @@ interface Device {
 }
 
 describe('sincronização: a junção de três vias de dois aparelhos da mesma conta', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   let cloud: FakeCloud;
   let parent: EnvironmentInjector;
   const injectors: { destroy(): void }[] = [];

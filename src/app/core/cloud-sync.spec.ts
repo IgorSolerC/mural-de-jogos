@@ -25,6 +25,7 @@ import { ImageSync } from './image-sync';
 import { deleteDatabase } from './erase-save';
 import { Colleague, ColleagueStore } from './colleague-store';
 import { cloudColleagueId } from './cloud-murals';
+import { checkOtherTabs } from './storage';
 
 const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
@@ -212,6 +213,9 @@ interface Device {
 }
 
 describe('sincronização com a nuvem', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   let cloud: FakeCloud;
   let parent: EnvironmentInjector;
 
@@ -1685,6 +1689,9 @@ describe('sincronização com a nuvem', () => {
 });
 
 describe('o que os outros veem', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   const at = (iso: string, extra: Partial<Review> = {}) => ({ ...review(`r${iso.slice(5, 10).replace('-', '')}x`, iso, iso, iso), ...extra });
   const now = Date.parse('2026-03-10T12:00:00.000Z');
 
@@ -1723,6 +1730,9 @@ describe('o que os outros veem', () => {
 });
 
 describe('versão do formato (SYNC_SCHEMA)', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   /**
    * Se este teste falhar, o formato das fichas mudou: aumente SYNC_SCHEMA em cloud-sync.ts e atualize
    * a impressão abaixo. Sem isso, um site antigo aberto pelo cache jogaria fora o campo novo ao

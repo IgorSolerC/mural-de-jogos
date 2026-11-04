@@ -10,6 +10,7 @@ import { Settings } from './settings';
 import { Choice, Confirm } from '../ui/confirm';
 import { BrowserReset } from './browser-reset';
 import { SyncConflicts } from './sync-conflicts';
+import { checkOtherTabs } from './storage';
 
 /**
  * A sincronização com a nuvem, nas bordas: respostas de erro da API (429, 503, 401, 409 em série),
@@ -152,6 +153,9 @@ interface Device {
 }
 
 describe('sincronização: bordas e bugs conhecidos', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   let cloud: FakeCloud;
   let parent: EnvironmentInjector;
   const devices: Device[] = [];
@@ -486,6 +490,9 @@ describe('sincronização: bordas e bugs conhecidos', () => {
 });
 
 describe('o nome público entre aparelhos', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
   beforeEach(() => localStorage.clear());

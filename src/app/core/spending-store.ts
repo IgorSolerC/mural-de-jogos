@@ -20,6 +20,7 @@ import {
 } from './spending';
 import { cleanLabel } from './text';
 import { onOtherTab, writeJson } from './storage';
+import { fromOtherTab } from './tab-join';
 
 /** Os gastos deste navegador (vão embora com "Apagar o save", como os lembretes do Calendário). */
 export const SPENDING_KEY = 'meu-mural:gastos:v1';
@@ -72,7 +73,7 @@ export class SpendingStore {
   constructor() {
     effect(() => writeJson(SPENDING_KEY, this.state()));
     // outra aba mexeu no livro: esta acompanha, sem gravar o de antes por cima
-    inject(DestroyRef).onDestroy(onOtherTab(SPENDING_KEY, () => this.state.set(read())));
+    inject(DestroyRef).onDestroy(onOtherTab(SPENDING_KEY, (before) => this.state.set(fromOtherTab(SPENDING_KEY, before, this.state(), read, sanitizeSpending))));
   }
 
   ask(): void {

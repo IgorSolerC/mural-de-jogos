@@ -17,6 +17,7 @@ import { SHARED_AUTO, SharedStore } from './shared-store';
 import { Confirm } from '../ui/confirm';
 import { SyncConflicts, conflictKey } from './sync-conflicts';
 import { BrowserReset } from './browser-reset';
+import { checkOtherTabs } from './storage';
 
 /**
  * A sincronização entre aparelhos da mesma pessoa, de ponta a ponta, no que se junta por partes: os
@@ -37,18 +38,26 @@ const ACCOUNT = { id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor' };
 class MemoryData {
   readonly where = 'local';
   private readonly seen: Map<string, string>;
-  private readonly listeners: ((key: DataKey) => void)[] = [];
+  private readonly listeners: ((key: DataKey, before: string | null) => void)[] = [];
   constructor(readonly shared = new Map<string, string>()) {
     this.seen = new Map(shared);
   }
   getItem(key: string): string | null {
     return this.shared.get(key) ?? null;
   }
-  setItem(key: string, value: string): void {
+  /** Como o de verdade: quem sabe juntar não grava por cima do que outra aba gravou e esta não viu. */
+  setItem(key: string, value: string, opts: { joinable?: boolean } = {}): void {
+    const before = this.seen.get(key) ?? null;
+    const now = this.shared.get(key) ?? null;
+    if (opts.joinable && now !== before && now !== value) {
+      this.seen.set(key, now!);
+      for (const l of this.listeners) l(key as DataKey, before);
+      return;
+    }
     this.shared.set(key, value);
     this.seen.set(key, value);
   }
-  onExternalChange(listener: (key: DataKey) => void): void {
+  onExternalChange(listener: (key: DataKey, before: string | null) => void): void {
     this.listeners.push(listener);
   }
   takeForeign(): null {
@@ -60,9 +69,10 @@ class MemoryData {
   /** O aviso das outras abas chega a esta: o que elas gravaram e esta ainda não viu. */
   async catchUp(): Promise<void> {
     for (const [key, value] of this.shared) {
-      if (this.seen.get(key) === value) continue;
+      const before = this.seen.get(key) ?? null;
+      if (before === value) continue;
       this.seen.set(key, value);
-      for (const l of this.listeners) l(key as DataKey);
+      for (const l of this.listeners) l(key as DataKey, before);
     }
   }
 }
@@ -173,6 +183,9 @@ interface Device {
 const later = () => new Promise((r) => setTimeout(r, 4));
 
 describe('sincronização entre aparelhos (Kanban, categorias e configurações)', () => {
+  // vários aparelhos na mesma página dividem o localStorage: um não é a outra aba do outro
+  beforeEach(() => checkOtherTabs(false));
+  afterEach(() => checkOtherTabs(true));
   let cloud: FakeCloud;
   let parent: EnvironmentInjector;
   const injectors: { destroy(): void }[] = [];
@@ -1001,6 +1014,57 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
         for (const d of [a, t, c]) expect(['nk01', 'nk02', 'nk03'].filter((id) => !d.store.get(id))).toEqual([]);
         const there = (await cloud.read())['notas'] as { id: string }[];
         expect(there.map((n) => n.id).sort()).toEqual(['nk01', 'nk02', 'nk03']);
+      });
+
+      /** As duas abas mexendo ao mesmo tempo, cada uma sem ter ouvido a outra ainda (os effects das duas num tick só). */
+      async function bothAtOnce(change: (a: Device, t: Device) => void): Promise<{ a: Device; t: Device }> {
+        const a = device();
+        a.store.add(note('nk01', 'Casa'));
+        await a.sync.syncNow();
+        const t = device(a);
+        await t.sync.syncNow();
+        await later();
+        jasmine.clock().install();
+        const frame = spyOn(window, 'requestAnimationFrame').and.returnValue(0);
+        try {
+          change(a, t);
+          TestBed.inject(ApplicationRef).tick();
+          // os avisos chegam depois das gravações
+          await a.data.catchUp();
+          await t.data.catchUp();
+          TestBed.inject(ApplicationRef).tick();
+          await a.data.catchUp();
+          await t.data.catchUp();
+        } finally {
+          frame.and.callThrough();
+          jasmine.clock().uninstall();
+        }
+        await a.sync.syncNow();
+        await t.sync.syncNow();
+        await a.sync.syncNow();
+        return { a, t };
+      }
+
+      it('as duas abas criam uma anotação cada, no mesmo instante: as duas ficam nas duas abas e na nuvem', async () => {
+        const { a, t } = await bothAtOnce((a, t) => {
+          a.store.add(note('nk02', 'Casa', { updatedAt: '2026-11-04T12:00:00.000Z' }));
+          t.store.add(note('nk03', 'Casa', { updatedAt: '2026-11-04T12:00:00.001Z' }));
+        });
+        const c = device();
+        await c.sync.syncNow();
+        for (const d of [a, t, c]) expect(['nk01', 'nk02', 'nk03'].filter((id) => !d.store.get(id))).toEqual([]);
+        expect(((await cloud.read())['notas'] as { id: string }[]).map((n) => n.id).sort()).toEqual(['nk01', 'nk02', 'nk03']);
+      });
+
+      it('uma aba apaga e a outra cria no mesmo instante: a apagada não volta e a criada fica', async () => {
+        const { a, t } = await bothAtOnce((a, t) => {
+          a.store.remove('nk01');
+          t.store.add(note('nk03', 'Casa', { updatedAt: '2026-11-04T12:00:00.001Z' }));
+        });
+        for (const d of [a, t]) {
+          expect(d.store.get('nk01')).withContext('a apagada').toBeUndefined();
+          expect(d.store.get('nk03')).withContext('a criada').toBeDefined();
+        }
       });
 
       it('a aba que não ouviu a outra ainda acompanha antes de sincronizar (não envia o mural de antes)', async () => {
