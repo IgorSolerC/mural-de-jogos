@@ -533,6 +533,11 @@ export function frontTitle(card: Pick<StudyCard, 'front'>, noteTitle: string): s
   return card.front.title || noteTitle;
 }
 
+/** Mais de 10 caracteres (um kanji ou um emoji contam como um) é pergunta ou frase: escrita à mão, para ler (até 10, a pincel). */
+export function isPhraseTitle(title: string): boolean {
+  return Array.from(title.trim()).length > 10;
+}
+
 /** Quantos acertos de cada cem, ou null sem nenhuma resposta. */
 export function hitRate(stats: CardStats): number | null {
   const total = stats.right + stats.wrong;

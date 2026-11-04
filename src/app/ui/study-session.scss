@@ -246,28 +246,42 @@ dialog.sessao {
   scrollbar-width: thin;
 }
 
-/* no alto do verso, a frente pequena, para comparar com o que se pensou */
-.verso-frente {
-  margin: 0 0 8px;
+/* no alto do verso, o título da frente, para comparar com o que se pensou: na letra da frente (a frase, à mão) */
+.verso-titulo {
+  margin: 0 0 12px;
   padding-bottom: 8px;
   border-bottom: 1.5px dashed color-mix(in oklab, currentColor 30%, transparent);
   font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
-  font-size: 1.05rem;
-  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 1.6rem;
+  line-height: 1.15;
+  text-wrap: balance;
 
+  &.frase {
+    font-family: var(--f-hand), 'Klee One', cursive;
+    font-size: 1.3rem;
+  }
+
+  /* o subtítulo acompanha, menor */
   span {
     font-family: var(--f-hand);
-    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink-2);
   }
 }
 
-.verso-titulo {
-  margin: 0 0 10px;
+/* a anotação sem texto, de título próprio: o nome dela é a resposta */
+.verso-nome {
+  margin: 0;
   font-family: var(--f-marker), 'Klee One', cursive;
-  font-weight: 400;
   font-size: 1.55rem;
   line-height: 1.1;
   text-wrap: balance;
+}
+
+/* em volta do texto, sem zoom: é o que diz quanto ele mede enquanto cresce (ui/grow-to-fit.ts) */
+.verso-resposta {
+  display: flow-root;
 }
 
 /* o texto da anotação com a letra, a linha e os respiros da ficha do mural (ui/review-card.ts, .nota-texto):

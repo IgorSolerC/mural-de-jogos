@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { reducedMotion } from '../core/motion';
 import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
-import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
+import { fsrsConfig, frontTitle, inGroup, intervalLabel, isPhraseTitle } from '../core/study';
 import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { ICON, IconModule } from './icons';
@@ -13,6 +13,7 @@ import { paperVars } from '../core/paper-art';
 import { artIdOf, isDarkStock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { StudyCard } from './study-card';
+import { GrowToFit } from './grow-to-fit';
 import { OwnNoteLinks } from '../core/own-note-links';
 
 /** Uma resposta da sessão, para o Desfazer: a carta, se acertou, e como voltar. */
@@ -33,7 +34,7 @@ interface Answered {
  */
 @Component({
   selector: 'app-study-session',
-  imports: [IconModule, PaperArtLayer, RichText, StudyCard],
+  imports: [GrowToFit, IconModule, PaperArtLayer, RichText, StudyCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-session.html',
   styleUrl: './study-session.scss',
@@ -97,9 +98,11 @@ export class StudySession {
     const card = this.study.cardOf().get(item.note);
     const note = this.store.get(item.note);
     if (!card || !note) return null;
+    const title = frontTitle(card, note.game.name);
     return {
       item,
-      title: frontTitle(card, note.game.name),
+      title,
+      phrase: isPhraseTitle(title),
       subtitle: card.front.subtitle,
       image: card.front.image,
       // a cartolina da anotação como o mural a desenha (sem cor escolhida, a sorteada pelo id)

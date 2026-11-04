@@ -5,7 +5,7 @@ import { ImageStore } from '../core/image-store';
 import { ImageSync } from '../core/image-sync';
 import { localImageId } from '../core/images';
 import { LightStock, Stock, isDarkStock } from '../core/review';
-import { CardFace, CardLook, LEVEL_LABEL, deckLook } from '../core/study';
+import { CardFace, CardLook, LEVEL_LABEL, deckLook, isPhraseTitle } from '../core/study';
 import { FitTitle } from './fit-title';
 import { ICON_CHOICE, IconModule } from './icons';
 import { IconChoice } from '../core/icon-choices';
@@ -425,8 +425,7 @@ export class StudyCard {
   private readonly chars = computed(() => Array.from(this.title().trim()));
   /** O canto, como numa carta de baralho: o primeiro caractere do título. */
   protected readonly corner = computed(() => this.chars()[0]?.toLocaleUpperCase('pt-BR') ?? '');
-  /** Mais de 10 caracteres é pergunta ou frase: escrita à mão, para ler (até 10, a pincel). */
-  protected readonly phrase = computed(() => this.chars().length > 10);
+  protected readonly phrase = computed(() => isPhraseTitle(this.title()));
 
   protected readonly deckName = computed(() => this.deck()?.name ?? '');
   protected readonly number = computed(() => {

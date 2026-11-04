@@ -5,6 +5,7 @@ import { Desk } from '../core/desk';
 import { ReviewStore } from '../core/review-store';
 import { StudyStore } from '../core/study-store';
 import { StudySession } from './study-session';
+import { GROW_MAX } from './grow-to-fit';
 
 /** A sessão de estudo (PLANO-ESTUDOS.md, 6.7): a carta, virar, Errei e Acertei, as teclas, o Desfazer e o fim. */
 
@@ -87,7 +88,6 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     expect(verso.getAttribute('style')).toContain('--estampa');
     // o desenho do papel vai sem o estrago e sem as manchas
     expect(verso.querySelector('app-paper-art .mancha, app-paper-art [class*="estrago"]')).toBeNull();
-    expect(text(verso.querySelector('.verso-titulo'))).toBe('Sol (日)');
     expect(text(verso.querySelector('app-rich-text'))).toContain('Leitura: nichi.');
     // embaixo de cada botão, quando a carta voltaria (a nova: 1 min ou 10 min)
     expect(text($('.errei .volta'))).toContain('1 min');
@@ -259,6 +259,103 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       await settle();
       expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
       expect(frontTitle()).toBe('日');
+    });
+
+    describe('o título, uma vez só', () => {
+      it('é o da frente, e o nome da anotação não repete', async () => {
+        await reveal('Leitura: nichi.');
+        const titles = dialog()!.querySelectorAll('.verso h3');
+        expect(titles.length).toBe(1);
+        expect(text(titles[0])).toBe('日');
+        expect(text($('.verso'))).not.toContain('Sol (日)');
+      });
+
+      it('em negrito, maior que o texto, na tinta da carta', async () => {
+        await reveal('Leitura: nichi.');
+        const css = getComputedStyle($('.verso-titulo')!);
+        expect(Number(css.fontWeight)).toBeGreaterThanOrEqual(700);
+        expect(parseFloat(css.fontSize)).toBeGreaterThanOrEqual(1.6 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+        expect(css.color).toBe(getComputedStyle($('.verso')!).color);
+      });
+
+      it('o subtítulo da frente continua ao lado dele; a pergunta comprida é escrita à mão, como na frente', async () => {
+        study.updateFront('nsol', { title: 'Qual astro nasce no leste?', subtitle: 'um só' });
+        await reveal('O Sol.');
+        const title = $('.verso-titulo')!;
+        expect(text(title)).toBe('Qual astro nasce no leste? · um só');
+        expect(title.classList).toContain('frase');
+      });
+
+      it('a anotação sem texto: o nome dela é a resposta, se a frente tem outro título; se é o mesmo, o aviso', async () => {
+        await reveal('');
+        expect(text($('.verso-nome'))).toBe('Sol (日)');
+        expect($('.verso-vazio')).toBeNull();
+        study.updateFront('nsol', {});
+        await settle();
+        expect(text($('.verso-titulo'))).toBe('Sol (日)');
+        expect($('.verso-nome')).toBeNull();
+        expect($('.verso-vazio')).not.toBeNull();
+      });
+    });
+
+    describe('a resposta curta cresce para ser lida (ui/grow-to-fit.ts)', () => {
+      const frame = () => new Promise((r) => requestAnimationFrame(r));
+      /** Vira com o texto, na carta do tamanho de sempre (a janela dos testes é baixa), e espera a conta do próximo quadro. */
+      async function grown(body: string): Promise<{ text: HTMLElement; zoom: number; scroller: HTMLElement }> {
+        $('.giro')!.style.setProperty('--w', '380px');
+        const el = await reveal(body);
+        await frame();
+        await frame();
+        return { text: el, zoom: Number(el.style.getPropertyValue('zoom') || 1), scroller: $('.verso-conteudo')! };
+      }
+
+      it('o card pequeno, como o do print, chega ao dobro, e o texto dele cresce junto', async () => {
+        const { text: el, zoom, scroller } = await grown('> [!info] Hiragana\n> Símbolo → え\n> Romaji → e');
+        expect(zoom).toBe(GROW_MAX);
+        expect(scroller.scrollHeight).toBeLessThanOrEqual(scroller.clientHeight);
+        // a largura da carta não muda: o texto cresce por dentro dela
+        expect(el.parentElement!.scrollWidth).toBeLessThanOrEqual(el.parentElement!.clientWidth + 1);
+      });
+
+      it('o texto médio cresce até encher, sem rolar', async () => {
+        const { zoom, scroller } = await grown(Array.from({ length: 6 }, (_, i) => `Linha ${i + 1} da resposta`).join('\n'));
+        expect(zoom).toBeGreaterThan(1);
+        expect(zoom).toBeLessThan(GROW_MAX);
+        expect(scroller.scrollHeight).toBeLessThanOrEqual(scroller.clientHeight);
+      });
+
+      it('o texto comprido fica como é, e rola', async () => {
+        const { text: el, scroller } = await grown(Array.from({ length: 40 }, (_, i) => `Linha ${i + 1}`).join('\n'));
+        expect(el.style.getPropertyValue('zoom')).toBe('');
+        expect(scroller.scrollHeight).toBeGreaterThan(scroller.clientHeight);
+        expect(getComputedStyle(el).lineHeight).toBe(`${1.4 * parseFloat(getComputedStyle(document.documentElement).fontSize)}px`);
+      });
+
+      it('a palavra comprida limita o tamanho: não quebra no meio por causa do crescimento', async () => {
+        const word = 'Pneumoultramicroscopicossilicovulcanoconiose'.slice(0, 26);
+        const { text: el, zoom } = await grown(word);
+        expect(zoom).toBeLessThan(GROW_MAX);
+        // uma linha só: inteira, sem quebrar
+        const line = parseFloat(getComputedStyle(el).lineHeight);
+        expect(el.getBoundingClientRect().height).toBeLessThan(line * zoom * 1.5);
+        expect(el.style.overflowWrap).toBe('');
+      });
+
+      it('o texto com uma peça que amplia fica do tamanho de sempre (o zoom dela e o da carta se multiplicariam)', async () => {
+        const { text: el } = await grown('{{contador: 2030-01-01 | Prova}}');
+        expect(el.querySelector('app-zoom-knob')).not.toBeNull();
+        expect(el.style.getPropertyValue('zoom')).toBe('');
+      });
+
+      it('o texto que muda refaz a conta: a curta que vira comprida volta ao tamanho de sempre', async () => {
+        const { zoom } = await grown('Curta.');
+        expect(zoom).toBe(GROW_MAX);
+        TestBed.inject(ReviewStore).reviews.update((list) => list.map((r) => (r.id === 'nsol' ? { ...r, text: Array.from({ length: 40 }, (_, i) => `Linha ${i + 1}`).join('\n') } : r)));
+        await settle();
+        await frame();
+        await frame();
+        expect($('.verso-texto')!.style.getPropertyValue('zoom')).toBe('');
+      });
     });
   });
 });

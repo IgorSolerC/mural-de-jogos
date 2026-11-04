@@ -37,10 +37,12 @@
         >
           <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [paperSeed]="c.look.paperSeed" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
           <div class="verso-conteudo">
-            <p class="verso-frente">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</p>
-            <h3 class="verso-titulo">{{ c.noteTitle }}</h3>
+            <!-- o título é o da frente, uma vez só; o nome da anotação só aparece quando é tudo o que ela tem -->
+            <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
             @if (c.text) {
-              <div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div>
+              <div class="verso-resposta" [appGrowToFit]="c.text"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
+            } @else if (c.noteTitle !== c.title) {
+              <p class="verso-nome">{{ c.noteTitle }}</p>
             } @else {
               <p class="verso-vazio">Esta anotação não tem texto.</p>
             }
