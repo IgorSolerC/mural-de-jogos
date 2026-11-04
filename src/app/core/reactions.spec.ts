@@ -5,10 +5,10 @@ import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
 import { FeedItem, Follow, People, parseFeed } from './follow';
 import { Reaction, Reactions, parseReactions, spokenReactions, tally } from './reactions';
 import { Toasts } from '../ui/toast';
-import { EMOJI_DRAWERS, searchEmoji } from './emoji-catalog';
+import { EMOJI_DRAWERS, emojiName, searchEmoji } from './emoji-catalog';
 import { isEmoji } from './emoji';
 import { fold } from './review';
-import { isReaction, reactionOf } from './reaction-kinds';
+import { isReaction, loadEmojiNames, named, reactionOf } from './reaction-kinds';
 
 /** As reações: o que vem da nuvem, as contas do balão e o reagir (que muda na hora e volta se a nuvem recusar). */
 
@@ -78,10 +78,26 @@ describe('reações', () => {
     for (const bad of ['ab', '🦄🦄', '🦄a', '1', '']) expect(isEmoji(bad)).withContext(bad).toBeFalse();
   });
 
-  it('uma reação do "+" é o próprio emoji, e vale como reação', () => {
+  it('uma reação do "+" é o próprio emoji, com o nome do catálogo, e vale como reação', async () => {
     expect(isReaction('🦄')).toBeTrue();
     expect(isReaction('raiva')).toBeFalse();
-    expect(reactionOf('🦄')).toEqual({ id: '🦄', emoji: '🦄', label: '🦄' });
+    // o catálogo vem num pedaço à parte: pedido pela primeira reação do "+", e só uma vez
+    reactionOf('🦄');
+    await loadEmojiNames();
+    expect(loadEmojiNames()).toBe(loadEmojiNames());
+    // o nome escrito ao lado do desenho, como o "Amei" das sete (antes era o próprio emoji, repetido)
+    expect(reactionOf('🦄')).toEqual({ id: '🦄', emoji: '🦄', label: 'Unicórnio' });
+    expect(named(reactionOf('🦄'))).toBeTrue();
+    expect(named(reactionOf('amei'))).toBeTrue();
+    // com ou sem o seletor de variação, o mesmo desenho
+    expect(emojiName('❤')).toBe(emojiName('❤️'));
+    // um emoji fora do catálogo (escolhido num site mais novo) fica sem nome: a tela não o repete
+    expect(emojiName('🫎')).toBeNull();
+    expect(reactionOf('🫎')).toEqual({ id: '🫎', emoji: '🫎', label: '🫎' });
+    expect(named(reactionOf('🫎'))).toBeFalse();
+    // todo emoji do catálogo tem nome, e a busca acha pelo nome também
+    for (const d of EMOJI_DRAWERS) for (const i of d.list) expect(i.n.trim()).withContext(i.e).not.toBe('');
+    expect(searchEmoji('unicórnio', fold).map((x) => x.e)).toEqual(['🦄']);
     expect(tally([r('A', '🦄'), r('B', 'fogo'), r('C', '🦄')]).map((t) => [t.kind.emoji, t.n])).toEqual([
       ['🦄', 2],
       ['🔥', 1],

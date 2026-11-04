@@ -2,7 +2,7 @@ import { Component, input, output, provideZonelessChangeDetection, signal } from
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { Comments } from '../core/comments';
-import { ReactionId } from '../core/reaction-kinds';
+import { ReactionId, loadEmojiNames } from '../core/reaction-kinds';
 import { Reaction, Reactions } from '../core/reactions';
 import { Review, sanitizeReview } from '../core/review';
 import { scoreDisplay } from '../core/settings';
@@ -337,6 +337,22 @@ describe('Um post do Feed (FeedPost)', () => {
       expect(button().classList).toContain('dada');
       expect(button().getAttribute('aria-label')).toBe('Sua reação: Fogo. Trocar');
       expect(button().textContent).toContain('🔥');
+    });
+
+    it('a reação do "+" mostra o nome do emoji ao lado do desenho, e não o emoji de novo', async () => {
+      const button = () => el.querySelector<HTMLElement>('app-reaction-picker .reagir')!;
+      mine.set('🦄');
+      // o nome chega com o catálogo (um pedaço à parte), e o botão é refeito com ele
+      await loadEmojiNames();
+      await show();
+      expect(button().querySelector('.minha')!.textContent).toBe('🦄');
+      expect(button().querySelector('.rp-nome')!.textContent!.trim()).toBe('Unicórnio');
+      expect(button().getAttribute('aria-label')).toBe('Sua reação: Unicórnio. Trocar');
+      // fora do catálogo (de um site mais novo): só o desenho, sem a duplicata
+      mine.set('🫎');
+      await show();
+      expect(button().querySelector('.minha')!.textContent).toBe('🫎');
+      expect(button().querySelector('.rp-nome')).toBeNull();
     });
   });
 });

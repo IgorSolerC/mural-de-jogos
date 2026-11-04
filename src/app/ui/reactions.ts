@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { BackdropClose } from './backdrop-close';
 import { ICON, IconModule } from './icons';
 import { Reaction, ReactionTarget, Reactions, spokenReactions, tally } from '../core/reactions';
-import { REACTIONS, ReactionId, isQuickReaction, reactionOf } from '../core/reaction-kinds';
+import { REACTIONS, ReactionId, isQuickReaction, named, reactionOf } from '../core/reaction-kinds';
 import { EmojiPanel } from './emoji-panel';
 import { dayLabel, localDayOf } from '../core/follow';
 import { ProfileStore } from '../core/profile-store';
@@ -146,7 +146,8 @@ const PANEL_ROOM = 330;
     >
       @if (mineKind(); as k) {
         <span class="minha" aria-hidden="true">{{ k.emoji }}</span>
-        @if (!quiet()) {
+        <!-- o nome ao lado do desenho; o emoji fora do catálogo não tem, e não se repete -->
+        @if (!quiet() && named(k)) {
           <span class="rp-nome" aria-hidden="true">{{ k.label }}</span>
         }
       } @else {
@@ -182,7 +183,7 @@ const PANEL_ROOM = 330;
         }
         <!-- a sua, se veio do "+" -->
         @if (mine() && !quick(mine()!)) {
-          <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
+          <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mineKind()!.label + '. Tirar'" [title]="mineKind()!.label" (click)="pick(mine()!)">{{ mine() }}</button>
         }
         <button type="button" class="opcao mais" aria-label="Outro emoji" title="Outro emoji" [style.--i]="kinds.length" (click)="moreEmojis()">
           <lucide-icon [img]="MoreIcon" [size]="20" aria-hidden="true" />
@@ -391,6 +392,7 @@ export class ReactionPicker {
     return t ? this.reactions.mineOn(t.code, t.ref) : this.current();
   });
   protected readonly mineKind = computed(() => (this.mine() ? reactionOf(this.mine()!) : null));
+  protected readonly named = named;
 
   constructor() {
     closeOnOutsidePress(this.open, this.host, () => this.close());
@@ -495,7 +497,7 @@ export class ReactionPicker {
                 <button type="button" class="opcao" [class.escolhida]="mine() === k.id" [attr.aria-pressed]="mine() === k.id" [attr.aria-label]="k.label" [title]="k.label" (click)="pick(k.id)">{{ k.emoji }}</button>
               }
               @if (mine() && !quick(mine()!)) {
-                <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + mine() + '. Tirar'" (click)="pick(mine()!)">{{ mine() }}</button>
+                <button type="button" class="opcao escolhida" aria-pressed="true" [attr.aria-label]="'Sua reação: ' + label(mine()!) + '. Tirar'" [title]="label(mine()!)" (click)="pick(mine()!)">{{ mine() }}</button>
               }
               <button type="button" class="opcao mais" [attr.aria-expanded]="more()" aria-label="Outro emoji" title="Outro emoji" (click)="more.set(!more())">
                 <lucide-icon [img]="MoreIcon" [size]="20" aria-hidden="true" />

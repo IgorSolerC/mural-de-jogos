@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { isEmoji } from './emoji';
 
 /*
@@ -28,9 +29,39 @@ export const REACTIONS: readonly ReactionKind[] = [
 
 const BY_ID = new Map(REACTIONS.map((r) => [r.id, r]));
 
-/** A reação pelo id: uma das sete, ou o emoji escolhido no "+" (que é o próprio nome). */
+/**
+ * O nome de um emoji do "+", lido do catálogo (core/emoji-catalog.ts). O catálogo fica fora do pacote
+ * inicial do site (o "+" o traz num pedaço à parte): ele só vem quando a primeira reação do "+" aparece,
+ * e quem leu o nome dentro de um computed (o botão, o balão, a folha) é refeito quando ele chega.
+ */
+const catalogName = signal<((e: string) => string | null) | null>(null);
+let loading: Promise<void> | null = null;
+
+/** Traz os nomes do catálogo (uma vez só). */
+export function loadEmojiNames(): Promise<void> {
+  // sem rede (ou com o pedaço trocado por um deploy), fica o desenho, e a próxima reação tenta de novo
+  return (loading ??= import('./emoji-catalog').then(
+    (m) => catalogName.set(m.emojiName),
+    () => void (loading = null),
+  ));
+}
+
+/**
+ * A reação pelo id: uma das sete, ou o emoji escolhido no "+", com o nome dele no catálogo. Enquanto o
+ * catálogo não chegou, ou se o emoji não está nele (escolhido num site mais novo), o nome é o próprio
+ * desenho: o leitor de tela diz o nome dele, e a tela não o repete (ver `named`).
+ */
 export function reactionOf(id: ReactionId): ReactionKind {
-  return BY_ID.get(id) ?? { id, emoji: id, label: id };
+  const quick = BY_ID.get(id);
+  if (quick) return quick;
+  const name = catalogName();
+  if (!name) void loadEmojiNames();
+  return { id, emoji: id, label: name?.(id) ?? id };
+}
+
+/** A reação tem um nome para escrever ao lado do desenho (e não só o próprio emoji). */
+export function named(kind: ReactionKind): boolean {
+  return kind.label !== kind.emoji;
 }
 
 /** Uma das sete da fileira? */

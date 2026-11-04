@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, comput
 import { EMOJI_DRAWERS, EmojiEntry, searchEmoji } from '../core/emoji-catalog';
 import { ReactionId } from '../core/reaction-kinds';
 import { fold } from '../core/review';
-import { cap } from '../core/text';
 
 /**
  * O "+" das reações: as gavetas de emojis (caras, gestos, corações…) e a busca pelo nome, para reagir
@@ -159,9 +158,8 @@ export class EmojiPanel {
     afterNextRender(() => this.search().nativeElement.focus());
   }
 
-  /** O nome do emoji para quem não o vê: a primeira palavra da busca. */
+  /** O nome do emoji para quem não o vê (o mesmo que a reação mostra depois). */
   protected nameOf(item: EmojiEntry): string {
-    const first = item.k.split(' ')[0];
-    return cap(first);
+    return item.n;
   }
 }
