@@ -399,8 +399,9 @@
 
 /* ===== A parede das cartas: deitadas na mesa, a frente à mostra ===== */
 .cartas {
+  --coluna: clamp(140px, 15vw, 196px);
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 15vw, 196px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--coluna), 1fr));
   gap: 30px 24px;
   margin: 28px 0 0;
   padding: 0;
@@ -413,6 +414,59 @@
 
   li {
     min-width: 0;
+  }
+}
+
+/*
+ * As cartas pequenas, para ver o baralho inteiro: a mesma carta, em miniatura (uns 60% menor). Ela continua
+ * medindo o tamanho de sempre por dentro (a letra calculada do título e os pisos de letra da carta não
+ * mudam) e só o desenho encolhe, então tudo diminui na mesma proporção. O botão, com o tamanho da miniatura,
+ * é quem ocupa a grade e leva o foco e o giro.
+ */
+.cartas.pequenas {
+  --escala: 0.4;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--coluna) * var(--escala)), 1fr));
+  gap: 16px 12px;
+
+  /* no celular, cinco por linha numa tela comum (as grandes são duas) */
+  @media (max-width: 520px) {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 12px 8px;
+  }
+
+  .carta-btn {
+    position: relative;
+    aspect-ratio: 5 / 7;
+
+    &:focus-visible {
+      outline-offset: 2px;
+    }
+  }
+
+  app-study-card {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: calc(100% / var(--escala));
+    scale: var(--escala);
+    transform-origin: 0 0;
+  }
+
+  /* a etiqueta dos ajustes: menor, na quina, para não cobrir a miniatura (o toque continua folgado) */
+  .acoes {
+    top: -9px;
+    right: -5px;
+  }
+
+  .mexer {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* no toque ela fica sempre à mostra: uma em cada miniatura tomaria o panorama (ela continua nas grandes) */
+  @media (hover: none) {
+    .acoes {
+      display: none;
+    }
   }
 }
 

@@ -274,6 +274,14 @@
               </select>
             </label>
           </div>
+          <!-- o tamanho das cartas: os mesmos botões de tinta do "Tipo de ficha" dos murais -->
+          <div class="pasta-grupo" role="group" aria-label="Tamanho das cartas">
+            @for (s of cardSizes; track s.value) {
+              <button type="button" class="tinta so-icone" [attr.aria-pressed]="cardSize() === s.value" [attr.aria-label]="s.label" [title]="s.label" (click)="setCardSize(s.value)">
+                <lucide-icon [img]="s.icon" [size]="18" aria-hidden="true" />
+              </button>
+            }
+          </div>
         </div>
       </div>
     }
@@ -291,10 +299,11 @@
       <p class="nada">Nenhuma carta com esse filtro.</p>
     } @else {
       <!-- a parede das cartas, a frente à mostra; tocar abre a anotação, a resposta -->
-      <ul class="cartas" [attr.aria-label]="'Cartas de ' + d.name">
+      <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Cartas de ' + d.name">
         @for (c of cards(); track c.note) {
           <li class="carta-li" [style.--inclina]="c.tilt + 'deg'">
-            <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta" (click)="open(c.note)">
+            <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
+            <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="open(c.note)">
               <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
             </button>
             <!-- os ajustes da carta: a etiqueta de tinta das fichas do Kanban, no hover -->

@@ -33,6 +33,11 @@ import { cleanLabel } from './text';
 
 export const MAX_DECKS = 100;
 export const MAX_CARDS = 5000;
+/** O tamanho das cartas na parede do baralho (as pequenas: mais cartas na tela). */
+export type CardSize = 'grandes' | 'pequenas';
+/** Onde o tamanho das cartas fica guardado: neste aparelho, sem ir para a nuvem. */
+export const STUDY_SIZE_KEY = 'meu-mural:estudos-tamanho:v1';
+
 /** Em quantos baralhos, no máximo, uma carta pode estar. */
 export const MAX_DECKS_PER_CARD = 20;
 export const DECK_NAME_MAX = 40;

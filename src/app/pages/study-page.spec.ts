@@ -6,7 +6,7 @@ import { Review, Stock, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
 import { studyPath } from '../core/areas';
-import { studyGroupId } from '../core/study';
+import { STUDY_SIZE_KEY, studyGroupId } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { WallView } from '../core/wall-view';
 import { Confirm } from '../ui/confirm';
@@ -242,6 +242,90 @@ describe('página dos Estudos', () => {
     // mais cartas, mais grossa a pilha
     expect(pilhas[0].querySelectorAll('.camada').length).toBe(1);
     expect(pilhas[1].querySelectorAll('.camada').length).toBe(0);
+  });
+
+  describe('o tamanho das cartas', () => {
+    const size = (label: string) => $<HTMLButtonElement>(`[role="group"][aria-label="Tamanho das cartas"] button[aria-label^="${label}"]`)!;
+    const columns = () => getComputedStyle($('.cartas')!).gridTemplateColumns.split(' ').length;
+
+    it('as duas opções, depois do Ordenar: começa nas grandes; as pequenas são a mesma carta, 60% menor, e a escolha fica guardada', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      // os botões de tinta do "Tipo de ficha" dos murais, na linha do Ordenar
+      expect($$('.filtros .pasta-grupo').pop()!.getAttribute('aria-label')).toBe('Tamanho das cartas');
+      expect(size('Cartas grandes').classList).toContain('so-icone');
+      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('true');
+      expect(size('Cartas pequenas').getAttribute('aria-pressed')).toBe('false');
+      expect($('.cartas.pequenas')).toBeNull();
+      expect($('.carta-btn')!.hasAttribute('title')).toBeFalse();
+      const big = $('.carta-btn')!.offsetWidth;
+      const bigColumns = columns();
+      const title = text($('app-study-card .titulo'));
+
+      size('Cartas pequenas').click();
+      await settle();
+      expect(size('Cartas pequenas').getAttribute('aria-pressed')).toBe('true');
+      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('false');
+      expect($('.cartas.pequenas')).not.toBeNull();
+      expect(localStorage.getItem(STUDY_SIZE_KEY)).toBe('pequenas');
+      // a grade cabe mais, com o botão perto de 40% do que era, na proporção da carta
+      const button = $('.carta-btn')!;
+      const card = $('.carta-btn app-study-card')!;
+      expect(columns()).toBeGreaterThan(bigColumns);
+      expect(button.offsetWidth).toBeLessThan(big * 0.6);
+      expect(button.offsetHeight / button.offsetWidth).toBeCloseTo(7 / 5, 1);
+      // por dentro, a carta segue do tamanho de sempre, e só o desenho encolhe: a miniatura proporcional
+      expect(getComputedStyle(card).scale).toBe('0.4');
+      expect(card.offsetWidth * 0.4).toBeCloseTo(button.offsetWidth, 0);
+      expect(text($('app-study-card .titulo'))).toBe(title);
+      // a letra do nível não se lê mais: o nome e o nível na dica; o toque continua abrindo a anotação
+      expect($('.carta-btn')!.title).toBe($('.carta-btn')!.getAttribute('aria-label')!);
+      const open = spyOn(TestBed.inject(Desk), 'openReview');
+      button.click();
+      expect(open).toHaveBeenCalledWith('nsol');
+
+      size('Cartas grandes').click();
+      await settle();
+      expect($('.cartas.pequenas')).toBeNull();
+      expect(localStorage.getItem(STUDY_SIZE_KEY)).toBe('grandes');
+    });
+
+    it('em tela de toque, a etiqueta dos ajustes sai só das cartas pequenas (sempre à mostra, tomaria o panorama)', async () => {
+      const { kanji } = seed();
+      localStorage.setItem(STUDY_SIZE_KEY, 'pequenas');
+      await go(deckUrl(kanji));
+      // o navegador dos testes tem mouse: a regra é lida da folha de estilos, e no mouse a etiqueta continua
+      const onTouch: string[] = [];
+      for (const sheet of [...document.styleSheets]) {
+        for (const rule of [...sheet.cssRules]) {
+          if (!(rule instanceof CSSMediaRule) || !rule.conditionText.includes('hover: none')) continue;
+          for (const inner of [...rule.cssRules]) {
+            if (inner instanceof CSSStyleRule && inner.selectorText.includes('.pequenas') && inner.style.display === 'none') onTouch.push(inner.selectorText);
+          }
+        }
+      }
+      expect(onTouch.length).toBe(1);
+      expect(onTouch[0]).toContain('.acoes');
+      if (!matchMedia('(hover: none)').matches) expect(getComputedStyle($('.acoes')!).display).not.toBe('none');
+    });
+
+    it('vale para os outros baralhos e volta guardada; o que não é um tamanho conhecido abre nas grandes', async () => {
+      const { kanji, quimica, vazio } = seed();
+      localStorage.setItem(STUDY_SIZE_KEY, 'pequenas');
+      await go(deckUrl(kanji));
+      expect($('.cartas.pequenas')).not.toBeNull();
+      await go(deckUrl(quimica));
+      expect($('.cartas.pequenas')).not.toBeNull();
+      // sem cartas, não há o que diminuir
+      await go(deckUrl(vazio));
+      expect($('[aria-label="Tamanho das cartas"]')).toBeNull();
+      // Tudo é outra rota: a página do baralho nasce de novo e lê o que está guardado
+      localStorage.setItem(STUDY_SIZE_KEY, 'gigantes');
+      await go('/anotacoes/estudos');
+      await go(deckUrl(kanji));
+      expect($('.cartas.pequenas')).toBeNull();
+      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('true');
+    });
   });
 
   it('um baralho: a parede das cartas, a frente à mostra (sem título, o nome da anotação), e tocar abre a anotação', async () => {

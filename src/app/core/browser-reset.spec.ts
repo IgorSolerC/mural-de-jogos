@@ -8,6 +8,7 @@ import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
 import { LINK_START_KEY } from '../ui/link-sheet';
 import { FEED_CACHE_KEY } from './follow';
 import { SETTINGS_KEY } from './settings';
+import { STUDY_SIZE_KEY } from './study';
 import { COLLEAGUES_DB, ColleagueStore } from './colleague-store';
 
 function databases(): Promise<string[]> {
@@ -223,6 +224,16 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
     expect(await resetOnBoot()).toBeTrue();
     expect(localStorage.getItem(LINK_START_KEY)).toBeNull();
+  });
+
+  it('o tamanho das cartas escolhido no baralho dos Estudos sai junto', async () => {
+    signedInBrowser();
+    writeText(STUDY_SIZE_KEY, 'pequenas');
+    expect(localStorage.getItem(STUDY_SIZE_KEY)).toBe('pequenas');
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem(STUDY_SIZE_KEY)).toBeNull();
   });
 
   it('o jeito de escrever escolhido nos Ajustes (o Visual ou o Markdown, por aparelho) sai junto', async () => {

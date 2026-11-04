@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, e
 import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { LucideIconData } from 'lucide-angular';
 import { map } from 'rxjs';
 import { studyPath } from '../core/areas';
 import { CategoryLook, categoryColorHex } from '../core/category-looks';
@@ -13,7 +14,8 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
+import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
+import { readText, writeText } from '../core/storage';
 import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
@@ -41,6 +43,12 @@ const SORTS: readonly { id: SortId; label: string }[] = [
   { id: 'nivel', label: 'Nível' },
   { id: 'entrada', label: 'Ordem de entrada' },
   { id: 'nome', label: 'De A a Z' },
+];
+
+/** Os tamanhos das cartas na parede do baralho, com os ícones das fichas simples e de "Só capa e nome". */
+const CARD_SIZES: readonly { value: CardSize; label: string; icon: LucideIconData }[] = [
+  { value: 'grandes', label: 'Cartas grandes', icon: ICON.simples },
+  { value: 'pequenas', label: 'Cartas pequenas: mais cartas na tela', icon: ICON.grade },
 ];
 
 const LEVELS: readonly Level[] = ['desconhecida', 'nova', 'aprendendo', 'dominada'];
@@ -144,6 +152,7 @@ export class StudyPage {
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly sorts = SORTS;
+  protected readonly cardSizes = CARD_SIZES;
   protected readonly levels = LEVELS;
   protected readonly levelPlural = LEVEL_PLURAL;
   protected readonly nameMax = DECK_NAME_MAX;
@@ -181,6 +190,8 @@ export class StudyPage {
   protected readonly query = signal('');
   protected readonly level = signal<Level | ''>('');
   protected readonly sort = signal<SortId>('proxima');
+  /** O tamanho das cartas na parede do baralho, lembrado neste aparelho (vale para todos os baralhos). */
+  protected readonly cardSize = signal<CardSize>(readText(STUDY_SIZE_KEY) === 'pequenas' ? 'pequenas' : 'grandes');
   /** O que os campos impressos da pasta dizem: o nível e a ordem escolhidos. */
   protected readonly levelLabel = computed(() => {
     const l = this.level();
@@ -498,6 +509,12 @@ export class StudyPage {
   protected edit(note: string): void {
     this.study.openFront.set(note);
     this.desk.editReview(note);
+  }
+
+  /** Troca o tamanho das cartas e guarda neste aparelho. */
+  protected setCardSize(size: CardSize): void {
+    this.cardSize.set(size);
+    writeText(STUDY_SIZE_KEY, size);
   }
 
   /** A carta abre a anotação, como no mural: a resposta, com o Editar e tudo. */

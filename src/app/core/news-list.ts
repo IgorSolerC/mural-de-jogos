@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-nome-dos-emojis-nas-reacoes',
+    id: '2026-11-04-cartas-pequenas-no-baralho',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -37,6 +37,7 @@ export const NEWS: NewsEntry[] = [
       'A carta guardada fora dos baralhos (a anotação mudou de grupo) ganha, na aba Flashcard, o botão "Pôr no Kana de Idiomas" quando o grupo novo tem um baralho de mesmo nome, e vai para ele com o progresso; a Nova carta pedida de um baralho, com o grupo trocado no editor, segue sozinha para o de mesmo nome do grupo novo.',
       'Pela API e pelo MCP, cada baralho mostra o grupo dele, criar um baralho pede o grupo, a AI só põe a carta nos baralhos do grupo da anotação (o mesmo nome em outro grupo vale o do grupo dela) e pode estudar, listar e contar só um grupo; a chave limitada a alguns grupos só vê os baralhos deles, e a carta guardada fora dos baralhos aparece sem baralho.',
       'Cada baralho dos Estudos agora é de um grupo das anotações, e só as cartas desse grupo valem nele: os baralhos que já existiam ganharam o grupo das cartas deles (o que misturava grupos virou um por grupo, sem perder nada), a anotação que muda de grupo sai dos baralhos de antes sem perder o progresso (a aba Flashcard e o aviso de salvar dizem isso, com Desfazer, e ela volta a eles se voltar ao grupo), a anotação sem grupo pede um grupo antes de virar carta, a Nova carta nasce no grupo do baralho, o Trazer anotações mostra só as dele, e apagar um grupo leva os baralhos dele junto, dizendo antes.',
+      'No baralho dos Estudos, dois botões depois do Ordenar trocam entre as cartas grandes e as pequenas: a mesma carta, uns 60% menor, para ver mais cartas na tela. A escolha fica guardada neste aparelho e vale para todos os baralhos.',
     ],
     correcoes: [
       'A reação com um emoji do "+" agora mostra o nome dele ao lado do desenho (como o "Amei" das sete da fileira), em vez de repetir o emoji; o nome também vale para o leitor de tela, a dica do botão e os avisos.',
