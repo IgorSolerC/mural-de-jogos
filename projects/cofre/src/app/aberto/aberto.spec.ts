@@ -663,17 +663,27 @@ describe('as pastas do cofre (os grupos)', () => {
   it('o leitor de tela ouve a cópia (de novo, se repetir) e o que a busca achou, por regiões que ficam na página', async () => {
     const { fixture, el } = await montar(false, comGrupos);
     const status = el.querySelector<HTMLElement>('p[role=status]')!;
-    const copiar = () => el.querySelector<HTMLButtonElement>('[aria-label="Copiar a senha de Banco"]')!.click();
-    copiar();
-    await new Promise((ok) => setTimeout(ok, 100));
+    // Cada mudança da região, até o texto voltar: é a mudança que o leitor de tela lê. Olhar as mudanças, e não
+    // a região depois de uma espera, não depende do relógio: se a espera passa dos 60 ms do avisar, ela acaba com
+    // o texto já de volta, e a região parece nunca ter esvaziado.
+    const ouvirAoCopiar = () =>
+      new Promise<string[]>((ok) => {
+        const ouvido: string[] = [];
+        const escuta = new MutationObserver(() => {
+          const texto = status.textContent!.trim();
+          ouvido.push(texto);
+          if (!texto) return;
+          escuta.disconnect();
+          ok(ouvido);
+        });
+        escuta.observe(status, { childList: true, characterData: true, subtree: true });
+        el.querySelector<HTMLButtonElement>('[aria-label="Copiar a senha de Banco"]')!.click();
+      });
+    const primeira = await ouvirAoCopiar();
+    expect(primeira).toEqual([jasmine.stringContaining('Senha de Banco copiada')]);
+    // a mesma senha de novo: o mesmo texto só é lido outra vez porque a região esvazia antes de ele voltar
+    expect(await ouvirAoCopiar()).toEqual(['', primeira[0]]);
     await estabilizar(fixture);
-    expect(status.textContent).toContain('Senha de Banco copiada');
-    copiar();
-    await estabilizar(fixture);
-    expect(status.textContent!.trim()).toBe('');
-    await new Promise((ok) => setTimeout(ok, 100));
-    await estabilizar(fixture);
-    expect(status.textContent).toContain('Senha de Banco copiada');
     // o bilhete à vista não é lido duas vezes
     expect(el.querySelector('.bilhete')!.getAttribute('aria-hidden')).toBe('true');
     const busca = el.querySelector<HTMLInputElement>('#busca')!;
