@@ -10,12 +10,13 @@ import { StudySession } from './study-session';
 @Component({
   imports: [StudySession],
   template: `@if (open()) {
-    <app-study-session [deck]="deck()" (closed)="open.set(false)" (all)="deck.set(null)" />
+    <app-study-session [deck]="deck()" [group]="group()" (closed)="open.set(false)" (all)="deck.set(null)" (groupAll)="deck.set(null); group.set($event)" />
   }`,
 })
 class Host {
   readonly open = signal(true);
   readonly deck = signal<string | null>(null);
+  readonly group = signal<string | null>(null);
 }
 
 const T0 = '2026-10-01T10:00:00.000Z';
@@ -46,11 +47,11 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     TestBed.inject(ReviewStore).reviews.set([
       note('nsol', 'Sol (日)', { text: 'Leitura: nichi.', stock: 'azul', pattern: 'gatinhos', damage: 'rasgado', stains: [{ stain: 'cafe' }] }),
       note('nlua', 'Lua (月)', { text: 'Leitura: getsu.' }),
-      note('nbio', 'Mitocôndria', { text: 'Respiração celular.' }),
+      note('nbio', 'Mitocôndria', { text: 'Respiração celular.', category: 'Biologia' }),
     ]);
     study = TestBed.inject(StudyStore);
-    kanji = study.addDeck('Kanjis', 'amarelo');
-    bio = study.addDeck('Biologia', 'verde');
+    kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    bio = study.addDeck('Biologia', 'verde', null, undefined, 'Biologia');
     study.addCard('nsol', [kanji], { title: '日' });
     study.addCard('nlua', [kanji], { title: '月' });
     study.addCard('nbio', [bio]);
@@ -143,6 +144,28 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     expect(fixture.componentInstance.deck()).toBeNull();
     expect(text($('.baralho'))).toBe('Tudo');
     expect(frontTitle()).toBe('Mitocôndria');
+  });
+
+  it('o fim de um baralho com outro do mesmo grupo por estudar: o resto do grupo vem antes de tudo', async () => {
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, note('ncomer', 'Comer')]);
+    const verbos = study.addDeck('Verbos', 'rosa', null, undefined, 'Estudos');
+    study.addCard('ncomer', [verbos], { title: '食べる' });
+    await settle();
+    for (let i = 0; i < 6 && !dialog()!.querySelector('.fim'); i++) {
+      study.state.update((s) => ({ ...s, cards: s.cards.map((c) => (c.srs.state === 'aprendendo' ? { ...c, srs: { ...c.srs, due: new Date(Date.now() - 1000).toISOString() } } : c)) }));
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+    }
+    const rest = $<HTMLButtonElement>('.fim .papel')!;
+    expect(text(rest)).toBe('Estudar o resto de Estudos');
+    rest.click();
+    await settle();
+    // a mesa continua, com os baralhos do grupo juntos (o Verbos; a Biologia é de outro grupo)
+    expect(fixture.componentInstance.group()).toBe('Estudos');
+    expect(text($('.baralho'))).toBe('Estudos');
+    expect(frontTitle()).toBe('食べる');
   });
 
   it('Espaço num botão com o foco é do botão: no Errei escolhido pelo Tab, é Errei', async () => {

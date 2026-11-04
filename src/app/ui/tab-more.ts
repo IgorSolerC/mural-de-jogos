@@ -19,6 +19,13 @@ export interface TabMoreItem {
   glyph?: LucideIconData | null;
   /** "Sem grupo": o nome a lápis, sem desenho (não é um grupo). */
   plain?: boolean;
+  /**
+   * O que o número quer dizer, para o leitor de tela ("3 para hoje", nos Estudos); sem o campo, "N
+   * anotações". Vazio: nada além do nome.
+   */
+  say?: string;
+  /** Sem o número à mostra (o grupo dos Estudos ainda sem baralho, onde um 0 não diria nada). */
+  quiet?: boolean;
 }
 
 /**
@@ -79,7 +86,7 @@ export interface TabMoreItem {
         class="opcao"
         [class.ligada]="x.key === active()"
         [attr.aria-selected]="x.key === active()"
-        [attr.aria-label]="x.label + ', ' + x.n + (x.n === 1 ? ' anotação' : ' anotações')"
+        [attr.aria-label]="x.say !== undefined ? x.label + (x.say ? ', ' + x.say : '') : x.label + ', ' + x.n + (x.n === 1 ? ' anotação' : ' anotações')"
         [attr.tabindex]="x.key === focusKey() ? 0 : -1"
         [attr.data-k]="x.key"
         [style.--cat-cor]="colorOf(x)"
@@ -90,7 +97,9 @@ export interface TabMoreItem {
         } @else {
           <app-cat-label class="rotulo" [label]="x.label" [look]="x.look" [glyph]="x.glyph ?? null" [iconSize]="17" [tint]="!!colorOf(x)" />
         }
-        <span class="n" aria-hidden="true">{{ x.n }}</span>
+        @if (!x.quiet) {
+          <span class="n" aria-hidden="true">{{ x.n }}</span>
+        }
         @if (x.key === active()) {
           <lucide-icon class="tique" [img]="CheckIcon" [size]="16" aria-hidden="true" />
         }

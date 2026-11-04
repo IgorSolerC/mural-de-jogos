@@ -1,22 +1,102 @@
 <!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
-<h1 class="sr-only">Estudos{{ deck() ? ": " + deck()!.name : "" }}</h1>
+<h1 class="sr-only">Estudos{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.name : "" }}</h1>
 
-@if (!decks().length) {
-  <!-- nenhum baralho ainda: a cartolina explica o que é um baralho, com três cartas desenhadas a giz ao lado -->
+<!-- as abas: Tudo e os grupos das anotações, nas mesmas divisórias de manilha do mural e do Kanban, com o
+     ícone e a cor de cada grupo e quantas cartas para hoje; os escondidos (e os que não cabem) no "Mais" -->
+<nav class="abas-grupos" aria-label="Grupos dos Estudos">
+  <ul class="abas">
+    <li>
+      <a class="aba" [routerLink]="studyPath()" [class.on]="!group()" [attr.aria-current]="!group() ? 'page' : null">
+        <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
+      </a>
+    </li>
+    @for (g of shownTabs(); track g.id) {
+      <li>
+        <a
+          class="aba"
+          [routerLink]="studyPath(g.id)"
+          [class.on]="g.id === group()?.id"
+          [class.orelha-cor]="!!g.color"
+          [style.--cat-cor]="g.color"
+          [attr.aria-current]="g.id === group()?.id ? 'page' : null"
+          [title]="g.label"
+        >
+          <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
+          @if (g.today) {
+            <span class="aba-n"><span class="sr-only">, </span>{{ g.today }}<span class="sr-only"> para hoje</span></span>
+          }
+        </a>
+      </li>
+    }
+    @if (moreTabs().length) {
+      <li>
+        <!-- o "Mais": a lista de feltro, a mesma das abas do mural e do Kanban (ui/tab-more.ts) -->
+        <app-tab-more class="aba aba-mais" [class.on]="!!moreOn()" [groups]="moreItems()" [active]="group()?.id ?? ''" label="Mais grupos" (chosen)="openGroup($event)">
+          @if (moreOn(); as m) {
+            <app-cat-label class="rotulo-cat" [label]="m.label" [look]="m.look" [iconSize]="15" />
+            @if (m.today) {
+              <span class="aba-n">{{ m.today }}</span>
+            }
+          } @else {
+            <span class="mais-nome">Mais</span>
+          }
+          <lucide-icon class="chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+        </app-tab-more>
+      </li>
+    }
+  </ul>
+  <!-- a régua de medir: todas as abas, escondidas, para saber quantas cabem em pé (ui/tab-fit.ts) -->
+  <div class="abas medida" aria-hidden="true">
+    <span class="aba" [attr.data-k]="allTab"><app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" /></span>
+    @for (g of groups(); track g.id) {
+      <span class="aba" [attr.data-k]="tabKey(g.key)">
+        <app-cat-label class="rotulo-cat" [label]="g.label" [look]="g.look" [iconSize]="15" />
+        @if (g.today) {
+          <span class="aba-n">{{ g.today }}</span>
+        }
+      </span>
+    }
+    <span class="aba aba-mais" data-k="mais"><span class="mais-nome">Mais</span></span>
+  </div>
+</nav>
+
+<!-- a cartolina do primeiro baralho: de um grupo (o nome só), ou de todos (o nome e o grupo) -->
+<ng-template #primeiro let-g>
   <section class="primeiro" aria-labelledby="primeiro-titulo">
     <div class="primeiro-ficha cartolina" data-cor="verde" style="--stock: var(--stock-verde)">
       <app-pin class="pin" />
-      <h2 id="primeiro-titulo">Monte o seu primeiro baralho</h2>
-      <p>
-        Um baralho junta as cartas que você estuda juntas, como <em>Kanjis simples</em>, <em>Verbos</em> ou
-        <em>Capitais</em>. Cada carta é uma anotação sua: na frente, o que você quer lembrar; atrás, a anotação
-        inteira, com a resposta.
-      </p>
-      <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst()">
+      <h2 id="primeiro-titulo">{{ g ? "Monte o primeiro baralho de " + g.label : "Monte o seu primeiro baralho" }}</h2>
+      @if (g) {
+        <p>
+          @if (g.notes) {
+            {{ g.label }} já tem {{ g.notes === 1 ? "1 anotação" : g.notes + " anotações" }}.
+          }
+          Um baralho junta as que você quer lembrar: cada uma vira uma carta, com o que lembrar na frente e a
+          anotação inteira atrás.
+        </p>
+      } @else {
+        <p>
+          Um baralho junta as cartas que você estuda juntas, como <em>Kanjis simples</em>, <em>Verbos</em> ou
+          <em>Capitais</em>. Cada carta é uma anotação sua: na frente, o que você quer lembrar; atrás, a anotação
+          inteira, com a resposta. As cartas vêm das anotações do grupo escolhido.
+        </p>
+      }
+      <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst(g ? g.label : firstGroupValue())">
         <label class="campo primeiro-nome">
           <span class="sr-only">Nome do baralho</span>
           <input type="text" autocomplete="off" placeholder="Nome do baralho" [maxLength]="nameMax" [value]="firstName()" (input)="firstName.set($any($event.target).value)" />
         </label>
+        @if (!g) {
+          <!-- sem grupo aberto: o grupo do baralho (cada baralho é de um grupo das anotações) -->
+          <label class="campo primeiro-grupo">
+            <span class="primeiro-pre">Grupo</span>
+            <select [value]="firstGroupValue()" (change)="firstGroup.set($any($event.target).value)">
+              @for (l of firstGroups(); track l) {
+                <option [value]="l" [selected]="l === firstGroupValue()">{{ l }}</option>
+              }
+            </select>
+          </label>
+        }
         <button type="submit" class="btn-ink" [disabled]="!firstName().trim()">Criar o baralho</button>
       </form>
     </div>
@@ -26,49 +106,58 @@
       <li class="vaga"></li>
     </ol>
   </section>
-} @else {
-  <!-- os baralhos: Tudo e um por aba, nas mesmas divisórias de manilha dos quadros do Kanban -->
-  <nav class="abas-baralhos" aria-label="Baralhos">
-    <ul class="abas">
-      <li>
-        <a class="aba" [routerLink]="studyPath()" [class.on]="!deck()" [attr.aria-current]="!deck() ? 'page' : null">
-          <app-cat-label class="rotulo-cat" label="Tudo" [glyph]="AllIcon" [iconSize]="15" />
-        </a>
-      </li>
-      @for (d of decks(); track d.deck.id) {
-        <li>
-          <a
-            class="aba orelha-cor"
-            [routerLink]="studyPath(d.deck.id)"
-            [class.on]="deck()?.id === d.deck.id"
-            [style.--cat-cor]="'var(--stock-' + d.deck.color + ')'"
-            [attr.aria-current]="deck()?.id === d.deck.id ? 'page' : null"
-            [title]="d.deck.name"
-          >
-            <!-- o mesmo rótulo das abas do mural e dos quadros do Kanban; sem ícone, só o nome -->
-            @if (d.deck.icon) {
-              <app-cat-label class="rotulo-cat" [label]="d.deck.name" [glyph]="iconOf[d.deck.icon]" [iconSize]="15" />
-            } @else {
-              <span class="rotulo-cat rotulo-nome">{{ d.deck.name }}</span>
-            }
-            @if (d.today) {
-              <span class="aba-n"><span class="sr-only">, </span>{{ d.today }}<span class="sr-only"> para hoje</span></span>
-            }
-          </a>
-        </li>
-      }
-      <li>
-        <button type="button" class="aba aba-nova" (click)="newDeck()">
-          <lucide-icon [img]="AddIcon" [size]="15" aria-hidden="true" />
-          Novo baralho
-        </button>
-      </li>
-    </ul>
-  </nav>
+</ng-template>
 
-  <!-- a pasta, como a dos Gastos e a do Kanban: em cima, quantas para hoje (o título da pasta, a pincel), os
-       montes e o Estudar, e os controles impressos em tinta; depois do picote, num baralho, a busca, o nível e a ordem -->
+<!-- um baralho como pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele, com o
+     papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
+<ng-template #pilha let-d>
+  <a class="pilha" [routerLink]="deckPath(d.deck)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.today ? ', ' + d.today + ' para hoje' : '')">
+    <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+      @if (d.top; as top) {
+        @for (l of layers(d.cards); track l) {
+          <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
+        }
+        <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
+        <span class="elastico"></span>
+        <span class="papelzinho">
+          @if (d.today) {
+            <span class="pz" data-monte="novas"><span class="selo"></span>{{ d.counts.novas }}</span>
+            <span class="pz" data-monte="aprender"><span class="selo"></span>{{ d.counts.aprender }}</span>
+            <span class="pz" data-monte="revisar"><span class="selo"></span>{{ d.counts.revisar }}</span>
+          } @else {
+            <span class="pz em-dia-pz">em dia</span>
+          }
+        </span>
+      } @else {
+        <span class="vaga-pilha">Sem cartas</span>
+      }
+    </span>
+    <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
+      <span class="nome-txt">{{ d.deck.name }}</span>
+      <span class="nome-n">{{ countLabel(d.cards) }}</span>
+    </span>
+  </a>
+</ng-template>
+
+@if (!decks().length && !group()) {
+  <!-- nenhum baralho ainda, em lugar nenhum -->
+  <ng-container *ngTemplateOutlet="primeiro; context: { $implicit: null }" />
+} @else {
+  <!-- a pasta, como a dos Gastos e a do Kanban: num baralho, o caminho de volta ao grupo e o nome dele; em
+       cima, quantas para hoje (o título da pasta, a pincel), os montes e o Estudar, e os controles impressos
+       em tinta; depois do picote, num baralho, a busca, o nível e a ordem -->
   <div class="pasta">
+    @if (deck(); as d) {
+      <div class="pasta-linha trilha">
+        <a class="tinta voltar" [routerLink]="studyPath(group()!.id)">
+          <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
+          Baralhos de {{ group()!.label }}
+        </a>
+        <span class="nome-baralho trilha-nome" [style.--cor]="'var(--stock-' + d.color + ')'">
+          <span class="nome-txt">{{ d.name }}</span>
+        </span>
+      </div>
+    }
     <div class="pasta-linha linha-estudo">
       <div class="hoje" aria-live="polite">
         @if (lineTotal()) {
@@ -78,14 +167,18 @@
             <li class="monte" data-monte="aprender"><span class="selo" aria-hidden="true"></span>{{ line().aprender }} aprendendo</li>
             <li class="monte" data-monte="revisar"><span class="selo" aria-hidden="true"></span>{{ line().revisar }} {{ line().revisar === 1 ? "revisão" : "revisões" }}</li>
           </ul>
-          <!-- o play do baralho, como no Anki: a sessão de estudo, logo depois dos montes, com o traço de
-               marca-texto sempre à mostra (como o Este mês dos Gastos) -->
-          <button type="button" class="tinta estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null })">
+          <!-- o play, como no Anki: a sessão de estudo do baralho, do grupo ou de tudo, logo depois dos montes,
+               com o traço de marca-texto sempre à mostra (como o Este mês dos Gastos) -->
+          <button type="button" class="tinta estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, group: deck() ? null : (group()?.label ?? null) })">
             <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
-            {{ deck() ? "Estudar" : "Estudar tudo" }}
+            {{ deck() ? "Estudar" : group() ? "Estudar o grupo" : "Estudar tudo" }}
           </button>
         } @else if (deck() && !deckSize()) {
           <p class="em-dia">Nenhuma carta neste baralho ainda.</p>
+        } @else if (!deck() && group() && !group()!.decks.length) {
+          <p class="em-dia">Nenhum baralho em {{ group()!.label }} ainda.</p>
+        } @else if (!deck() && group() && !group()!.cards) {
+          <p class="em-dia">Nenhuma carta nos baralhos de {{ group()!.label }} ainda.</p>
         } @else {
           <p class="em-dia">
             Tudo em dia.
@@ -95,7 +188,7 @@
           </p>
           <!-- sem nada para hoje: as revisões de amanhã, antes (o "estudar adiantado" do Anki) -->
           @if (tomorrow()) {
-            <button type="button" class="tinta adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, ahead: true })">
+            <button type="button" class="tinta adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, group: deck() ? null : (group()?.label ?? null), ahead: true })">
               <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
               Estudar adiantado
             </button>
@@ -113,6 +206,28 @@
               <lucide-icon [img]="BringIcon" [size]="18" aria-hidden="true" />
               Trazer anotações
             </button>
+          </div>
+        } @else if (group()?.decks?.length) {
+          <div class="pasta-grupo">
+            <button type="button" class="tinta novo-baralho" aria-haspopup="dialog" (click)="newDeck()">
+              <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
+              Novo baralho
+            </button>
+          </div>
+        } @else if (!group()) {
+          <!-- em Tudo: o baralho novo de qualquer grupo, pela lista dos grupos (o do grupo aberto fica na pasta dele) -->
+          <div class="pasta-grupo">
+            <label class="tinta campo escolha novo-em">
+              <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
+              <span class="campo-pre">Novo baralho em</span>
+              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
+              <select aria-label="Novo baralho em qual grupo" [value]="''" (mousedown)="keying = false" (keydown)="onNewKey($event)" (change)="onNewChange($any($event.target))" (blur)="keying = false; $any($event.target).value = ''">
+                <option value="" disabled>Escolha o grupo</option>
+                @for (g of groups(); track g.id) {
+                  <option [value]="g.label">{{ g.label }}</option>
+                }
+              </select>
+            </label>
           </div>
         }
         <!-- o lápis do baralho e as configurações dos Estudos (todos os baralhos: a mesma folha das do mural e
@@ -192,41 +307,33 @@
         }
       </ul>
     }
+  } @else if (group(); as g) {
+    @if (!g.decks.length) {
+      <!-- o grupo ainda sem baralho: a cartolina do primeiro dele -->
+      <ng-container *ngTemplateOutlet="primeiro; context: { $implicit: g }" />
+    } @else {
+      <!-- um grupo: os baralhos dele, cada um uma pilha -->
+      <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
+        @for (d of g.decks; track d.deck.id) {
+          <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
+        }
+      </ul>
+    }
   } @else {
-    <!-- Tudo: cada baralho é uma pilha das cartas dele, a próxima por cima, presa com um elástico na cor dele,
-         com o papelzinho de quantas vencem hoje; o nome numa tira de papel embaixo -->
-    <ul class="pilhas" aria-label="Baralhos">
-      @for (d of decks(); track d.deck.id) {
-        <li>
-          <a class="pilha" [routerLink]="studyPath(d.deck.id)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.today ? ', ' + d.today + ' para hoje' : '')">
-            <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-              @if (d.top; as top) {
-                @for (l of layers(d.cards); track l) {
-                  <app-study-card class="camada" [attr.data-camada]="l" costas title="" [stock]="d.under[l]" [deck]="d.deck" />
-                }
-                <app-study-card class="capa" [title]="top.title" [subtitle]="top.subtitle" [image]="top.image" [stock]="top.stock" [deck]="d.deck" [face]="top.face" />
-                <span class="elastico"></span>
-                <span class="papelzinho">
-                  @if (d.today) {
-                    <span class="pz" data-monte="novas"><span class="selo"></span>{{ d.counts.novas }}</span>
-                    <span class="pz" data-monte="aprender"><span class="selo"></span>{{ d.counts.aprender }}</span>
-                    <span class="pz" data-monte="revisar"><span class="selo"></span>{{ d.counts.revisar }}</span>
-                  } @else {
-                    <span class="pz em-dia-pz">em dia</span>
-                  }
-                </span>
-              } @else {
-                <span class="vaga-pilha">Sem cartas</span>
-              }
-            </span>
-            <span class="nome-baralho" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
-              <span class="nome-txt">{{ d.deck.name }}</span>
-              <span class="nome-n">{{ countLabel(d.cards) }}</span>
-            </span>
-          </a>
-        </li>
-      }
-    </ul>
+    <!-- Tudo: os baralhos de todos os grupos, uma seção por grupo, com a etiqueta de fita do mural -->
+    @for (g of filled(); track g.id) {
+      <section class="grupo-pilhas" [attr.aria-labelledby]="'pilhas-' + g.id">
+        <header class="grupo-head">
+          <h2 class="tape-label" [id]="'pilhas-' + g.id"><a [routerLink]="studyPath(g.id)" title="Abrir o grupo">{{ g.label }}</a></h2>
+          <p class="grupo-sum">{{ groupSummary(g) }}</p>
+        </header>
+        <ul class="pilhas" [attr.aria-label]="'Baralhos de ' + g.label">
+          @for (d of g.decks; track d.deck.id) {
+            <li><ng-container *ngTemplateOutlet="pilha; context: { $implicit: d }" /></li>
+          }
+        </ul>
+      </section>
+    }
   }
 }
 
@@ -253,7 +360,7 @@
 
 @if (session(); as s) {
   @defer (on immediate) {
-    <app-study-session [deck]="s.deck" [ahead]="!!s.ahead" (closed)="session.set(null)" (all)="session.set({ deck: null })" />
+    <app-study-session [deck]="s.deck" [group]="s.group ?? null" [ahead]="!!s.ahead" (closed)="session.set(null)" (all)="session.set({ deck: null })" (groupAll)="session.set({ deck: null, group: $event })" />
   }
 }
 

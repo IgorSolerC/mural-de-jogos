@@ -448,6 +448,14 @@ export function groupKey(group: string | null | undefined): string {
   return group?.trim() ? categoryKey(group) : '';
 }
 
+/**
+ * O grupo no endereço dos Estudos (`/anotacoes/estudos/:grupo`), como o quadro do Kanban (`boardIdFor`):
+ * sai da chave, então é o mesmo em todo aparelho e não leva acento nem espaço.
+ */
+export function studyGroupId(group: string): string {
+  return `g${hash64(groupKey(group))}`;
+}
+
 /** O baralho é do grupo (pela chave)? Sem grupo dos dois lados, não: anotação sem grupo não tem baralho. */
 export function inGroup(deck: Pick<Deck, 'group'>, group: string | null | undefined): boolean {
   const key = groupKey(group);

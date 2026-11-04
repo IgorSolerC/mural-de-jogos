@@ -42,11 +42,21 @@ export interface DayQueue {
 const EMPTY: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
 
 /**
- * A fila de hoje. `scope` é o baralho estudado (sem ele, todos: o Estudar tudo, onde a carta de dois
- * baralhos aparece uma vez só). `live` diz se a anotação da carta existe.
+ * O que se estuda: um baralho (o id), os baralhos de um grupo (os ids, o Estudar o grupo), ou todos (sem
+ * nada: o Estudar tudo). Nos dois últimos, a carta de dois baralhos aparece uma vez só.
  */
-export function dayQueue(st: StudyState, now: Date, scope?: string, live: (note: string) => boolean = () => true, ahead = 0): DayQueue {
-  const decks = scope ? st.decks.filter((d) => d.id === scope) : st.decks;
+export type StudyScope = string | readonly string[] | undefined;
+
+/** Os baralhos do escopo, na ordem das abas. */
+function scopeDecks(st: StudyState, scope: StudyScope): Deck[] {
+  if (scope === undefined) return st.decks;
+  const ids = typeof scope === 'string' ? [scope] : scope;
+  return st.decks.filter((d) => ids.includes(d.id));
+}
+
+/** A fila de hoje do escopo (ver `StudyScope`). `live` diz se a anotação da carta existe. */
+export function dayQueue(st: StudyState, now: Date, scope?: StudyScope, live: (note: string) => boolean = () => true, ahead = 0): DayQueue {
+  const decks = scopeDecks(st, scope);
   if (!decks.length) return { learning: [], rest: [], counts: { ...EMPTY } };
   const order = new Map(decks.map((d, i) => [d.id, i]));
   const today = todayOf(st, now);
@@ -134,7 +144,7 @@ export interface NextUp {
  * nada, a em aprendizado que vence nos próximos 20 minutos. Se não sobrar nada, `later` diz quando volta a
  * próxima de hoje (a sessão termina dizendo isso).
  */
-export function nextUp(st: StudyState, now: Date, scope?: string, live?: (note: string) => boolean, ahead = 0): NextUp {
+export function nextUp(st: StudyState, now: Date, scope?: StudyScope, live?: (note: string) => boolean, ahead = 0): NextUp {
   const q = dayQueue(st, now, scope, live, ahead);
   const byNote = new Map(st.cards.map((c) => [c.note, c]));
   const dueNow = q.learning.find((i) => Date.parse(byNote.get(i.note)!.srs.due) <= now.getTime());
@@ -142,10 +152,11 @@ export function nextUp(st: StudyState, now: Date, scope?: string, live?: (note: 
   if (q.rest.length) return { item: q.rest[0], later: null };
   if (q.learning.length) return { item: q.learning[0], later: null };
   const day = studyDay(now);
+  const ids = new Set(scopeDecks(st, scope).map((d) => d.id));
   let later: string | null = null;
   for (const c of st.cards) {
     if ((c.srs.state !== 'aprendendo' && c.srs.state !== 'reaprendendo') || (live && !live(c.note))) continue;
-    if (scope ? !c.decks.includes(scope) : !c.decks.some((d) => st.decks.some((x) => x.id === d))) continue;
+    if (!c.decks.some((d) => ids.has(d))) continue;
     if (studyDay(new Date(c.srs.due)) === day && (!later || c.srs.due < later)) later = c.srs.due;
   }
   return { item: null, later };

@@ -1,3 +1,4 @@
+import { studyGroupId } from '../core/study';
 import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -214,14 +215,20 @@ describe('o índice embaixo do topo', () => {
     const reviews = TestBed.inject(ReviewStore);
     reviews.reviews.set([sanitizeReview({ id: 'nsol', kind: 'anotacoes', category: 'Estudos', game: { name: 'Sol' }, completedAt: '2026-10-01' })!, sanitizeReview({ id: 'nlua', kind: 'anotacoes', category: 'Estudos', game: { name: 'Lua' }, completedAt: '2026-10-01' })!]);
     const study = TestBed.inject(StudyStore);
-    const a = study.addDeck('Kanjis', 'amarelo');
-    const b = study.addDeck('Vazio', 'azul');
+    const a = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const b = study.addDeck('Vazio', 'azul', null, undefined, 'Estudos');
     study.addCard('nsol', [a]);
     study.addCard('nlua', [a]);
     await go('/anotacoes/estudos');
     expect(summary()).toContain('2');
     expect(summary()).toContain('cartas para hoje');
-    await go(`/anotacoes/estudos/${b}`);
+    // o endereço é /anotacoes/estudos/:grupo/:baralho: o grupo conta os baralhos dele, o baralho só ele
+    const group = studyGroupId('Estudos');
+    await go(`/anotacoes/estudos/${group}`);
+    expect(summary()).toContain('2');
+    await go(`/anotacoes/estudos/${group}/${b}`);
+    expect(summary()).toBeNull();
+    await go(`/anotacoes/estudos/${studyGroupId('Outro')}`);
     expect(summary()).toBeNull();
   });
 

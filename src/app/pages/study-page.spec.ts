@@ -5,7 +5,10 @@ import { Desk } from '../core/desk';
 import { Review, Stock, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
+import { studyPath } from '../core/areas';
+import { studyGroupId } from '../core/study';
 import { StudyStore } from '../core/study-store';
+import { WallView } from '../core/wall-view';
 import { Confirm } from '../ui/confirm';
 import { StudyPage } from './study-page';
 
@@ -16,6 +19,10 @@ class Raiz {}
 
 const T0 = '2026-10-10T10:00:00.000Z';
 const note = (id: string, title: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name: title }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
+
+/** O endereço de um baralho do grupo Estudos (o das anotações daqui), e o do grupo. */
+const GROUP = studyGroupId('Estudos');
+const deckUrl = (id: string) => studyPath(GROUP, id);
 
 describe('página dos Estudos', () => {
   let host: HTMLElement;
@@ -49,7 +56,8 @@ describe('página dos Estudos', () => {
         provideZonelessChangeDetection(),
         provideRouter([
           { path: 'anotacoes/estudos', component: StudyPage },
-          { path: 'anotacoes/estudos/:baralho', component: StudyPage },
+          { path: 'anotacoes/estudos/:grupo', component: StudyPage },
+          { path: 'anotacoes/estudos/:grupo/:baralho', component: StudyPage },
         ]),
         { provide: Confirm, useValue: { ask: async () => true } },
       ],
@@ -92,14 +100,125 @@ describe('página dos Estudos', () => {
     button.click();
     await settle();
     expect(study.decks().map((d) => d.name)).toEqual(['Verbos']);
-    expect(router.url).toBe(`/anotacoes/estudos/${study.decks()[0].id}`);
+    // no grupo escolhido na cartolina (o de sempre: o grupo Estudos)
+    expect(study.decks()[0].group).toBe('Estudos');
+    expect(router.url).toBe(deckUrl(study.decks()[0].id));
   });
 
-  it('as abas: Tudo, um baralho por aba (com quantas para hoje) e o Novo baralho', async () => {
+  it('o grupo sem baralho: a cartolina do primeiro baralho dele, sem escolher o grupo', async () => {
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, { ...note('ntrab', 'Reunião'), category: 'Trabalho' }]);
+    seed();
+    await go(studyPath(studyGroupId('Trabalho')));
+    expect(text($('#primeiro-titulo'))).toBe('Monte o primeiro baralho de Trabalho');
+    expect(text($('.primeiro-ficha p'))).toContain('Trabalho já tem 1 anotação.');
+    expect($('.primeiro-grupo')).toBeNull();
+    // a pasta do grupo continua, com a engrenagem, e diz que ainda não tem baralho
+    expect(text($('.em-dia'))).toBe('Nenhum baralho em Trabalho ainda.');
+    expect($('button[aria-label="Configurações dos estudos"]')).not.toBeNull();
+    expect($('.novo-baralho')).toBeNull();
+    const input = $<HTMLInputElement>('.primeiro-form input')!;
+    input.value = 'Pautas';
+    input.dispatchEvent(new Event('input'));
+    await settle();
+    $<HTMLButtonElement>('.primeiro-form button')!.click();
+    await settle();
+    const made = study.decks().find((d) => d.name === 'Pautas')!;
+    expect(made.group).toBe('Trabalho');
+    expect(router.url).toBe(studyPath(studyGroupId('Trabalho'), made.id));
+  });
+
+  it('as abas: Tudo e os grupos das anotações (com quantas para hoje); o grupo mostra só os baralhos dele', async () => {
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, { ...note('ntcp', 'TCP'), category: 'Computação' }]);
+    const { kanji } = seed();
+    const redes = study.addDeck('Redes', 'rosa', null, undefined, 'Computação');
+    study.addCard('ntcp', [redes]);
+    await go('/anotacoes/estudos');
+    // o Tudo sem número (a pasta logo embaixo diz quantas para hoje)
+    expect($$('.abas:not(.medida) .aba').map(text)).toEqual(['Tudo', 'Estudos, 4 para hoje', 'Computação, 1 para hoje']);
+    expect($('.aba.on')?.textContent).toContain('Tudo');
+    // Tudo: uma seção por grupo, com a etiqueta de fita e o resumo
+    expect($$('.grupo-pilhas').map((s) => `${text(s.querySelector('.tape-label'))}: ${text(s.querySelector('.grupo-sum'))}`)).toEqual(['Estudos: 3 baralhos · 4 cartas', 'Computação: 1 baralho · 1 carta']);
+    expect(text($('.estudar'))).toBe('Estudar tudo');
+    // o grupo: a aba aberta, só os baralhos dele, o Estudar o grupo e o Novo baralho
+    await go(studyPath(GROUP));
+    expect(text($('.aba.on'))).toBe('Estudos, 4 para hoje');
+    expect($$('.pilha .nome-txt').map(text)).toEqual(['Kanjis', 'Química', 'Locais']);
+    expect(text($('.hoje-n'))).toBe('4 para hoje');
+    expect(text($('.estudar'))).toBe('Estudar o grupo');
+    expect(text($('.novo-baralho'))).toBe('Novo baralho');
+    // o baralho: a aba do grupo continua aberta, com o caminho de volta e o nome dele
+    await go(deckUrl(kanji));
+    expect(text($('.aba.on'))).toBe('Estudos, 4 para hoje');
+    expect(text($('.trilha'))).toBe('Baralhos de Estudos Kanjis');
+    expect($('.trilha .voltar')!.getAttribute('href')).toBe(studyPath(GROUP));
+  });
+
+  it('o endereço de antes dos grupos (/estudos/:baralho) leva ao baralho no grupo dele; o baralho de outro grupo, ao grupo', async () => {
+    const { kanji } = seed();
+    await go(`/anotacoes/estudos/${kanji}`);
+    await settle();
+    expect(router.url).toBe(deckUrl(kanji));
+    expect(text($('.trilha .nome-txt'))).toBe('Kanjis');
+    await go(studyPath(studyGroupId('Computação'), kanji));
+    await settle();
+    expect(router.url).toBe('/anotacoes/estudos');
+  });
+
+  it('em Tudo, o "Novo baralho em" cria o baralho no grupo escolhido e abre nele, com a folha', async () => {
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, { ...note('ntrab', 'Reunião'), category: 'Trabalho' }]);
     seed();
     await go('/anotacoes/estudos');
-    expect($$('.aba').map(text)).toEqual(['Tudo', 'Kanjis, 3 para hoje', 'Química, 1 para hoje', 'Locais', 'Novo baralho']);
-    expect($('.aba.on')?.textContent).toContain('Tudo');
+    const select = $<HTMLSelectElement>('.novo-em select')!;
+    expect([...select.options].map((o) => o.textContent!.trim())).toEqual(['Escolha o grupo', 'Estudos', 'Trabalho']);
+    // pelo teclado, as setas só andam na lista
+    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    select.value = 'Trabalho';
+    select.dispatchEvent(new Event('change'));
+    await settle();
+    expect(study.decks().length).toBe(3);
+    // sair da lista (Tab) não cria nada
+    select.dispatchEvent(new Event('blur'));
+    await settle();
+    expect(study.decks().length).toBe(3);
+    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    select.value = 'Trabalho';
+    select.dispatchEvent(new Event('change'));
+    // o Enter escolhe
+    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await sheetOpen();
+    const made = study.decks()[3];
+    expect(made.group).toBe('Trabalho');
+    expect(router.url).toBe(studyPath(studyGroupId('Trabalho'), made.id));
+    expect(sheet()?.open).toBeTrue();
+  });
+
+  it('o grupo aberto abre no mural uma vez (não a cada minuto), e o grupo só com baralho não mexe no mural', async () => {
+    const { kanji } = seed();
+    const opened = spyOn(TestBed.inject(WallView), 'openGroup');
+    await go(studyPath(GROUP));
+    expect(opened.calls.allArgs()).toEqual([['Estudos']]);
+    // o relógio anda (as contas refazem os grupos): nada de novo
+    study.tick();
+    await settle();
+    expect(opened).toHaveBeenCalledTimes(1);
+    // as anotações saem do grupo e só o baralho fica: o mural não tem a aba dele
+    opened.calls.reset();
+    const store = TestBed.inject(ReviewStore);
+    store.reviews.update((list) => list.map((r) => ({ ...r, category: 'Outro' })));
+    await go(studyPath(GROUP));
+    expect(study.deck(kanji)).toBeTruthy();
+    expect(opened).not.toHaveBeenCalled();
+  });
+
+  it('Estudar o grupo abre a mesa com os baralhos dele juntos', async () => {
+    seed();
+    await go(studyPath(GROUP));
+    $<HTMLButtonElement>('.estudar')!.click();
+    let mesa: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(mesa = document.querySelector<HTMLDialogElement>('dialog.sessao'))?.open; i++) await settle();
+    expect(mesa!.open).toBeTrue();
+    expect(text(mesa!.querySelector('.baralho'))).toBe('Estudos');
+    mesa!.close();
   });
 
   it('Tudo: os números de todos e cada baralho como uma pilha com o nome, quantas cartas e os montes de hoje', async () => {
@@ -128,7 +247,7 @@ describe('página dos Estudos', () => {
   it('um baralho: a parede das cartas, a frente à mostra (sem título, o nome da anotação), e tocar abre a anotação', async () => {
     const { kanji } = seed();
     const open = spyOn(TestBed.inject(Desk), 'openReview');
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     const cards = $$('app-study-card');
     // a ordem padrão: a que volta antes primeiro, as nunca estudadas no fim, na ordem em que entraram
     expect(cards.map((c) => text(c.querySelector('.titulo')))).toEqual(['日', '月', 'Fogo']);
@@ -148,7 +267,7 @@ describe('página dos Estudos', () => {
 
   it('a busca, o nível e a ordem da parede', async () => {
     const { kanji } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     const titles = () => $$('app-study-card .titulo').map(text);
     const search = $<HTMLInputElement>('#busca-cartas')!;
     search.value = 'lua';
@@ -177,7 +296,7 @@ describe('página dos Estudos', () => {
 
   it('o baralho vazio diz que não tem cartas, sem a busca', async () => {
     const { vazio } = seed();
-    await go(`/anotacoes/estudos/${vazio}`);
+    await go(deckUrl(vazio));
     expect(text($('.vaga-txt'))).toBe('Nenhuma carta neste baralho ainda. Escreva uma Nova carta, ou traga anotações que você já tem.');
     expect($('#busca-cartas')).toBeNull();
     expect(text($('.em-dia'))).toBe('Nenhuma carta neste baralho ainda.');
@@ -189,15 +308,16 @@ describe('página dos Estudos', () => {
     expect($('.pilhas')).not.toBeNull();
   });
 
-  it('o Novo baralho nasce com nome e cor livre, abre nele e abre a folha com o nome para escrever', async () => {
+  it('o Novo baralho nasce no grupo aberto, com nome e cor livre, abre nele e abre a folha com o nome para escrever', async () => {
     seed();
-    await go('/anotacoes/estudos');
-    $<HTMLButtonElement>('.aba-nova')!.click();
+    await go(studyPath(GROUP));
+    $<HTMLButtonElement>('.novo-baralho')!.click();
     await sheetOpen();
     const fresh = study.decks()[3];
     expect(fresh.name).toBe('Baralho 4');
+    expect(fresh.group).toBe('Estudos');
     expect(['amarelo', 'verde', 'azul']).not.toContain(fresh.color);
-    expect(router.url).toBe(`/anotacoes/estudos/${fresh.id}`);
+    expect(router.url).toBe(deckUrl(fresh.id));
     expect(sheet()?.open).toBeTrue();
     const name = sheet()!.querySelector<HTMLInputElement>('.campo input')!;
     expect(document.activeElement).toBe(name);
@@ -206,15 +326,17 @@ describe('página dos Estudos', () => {
     expect(study.deck(fresh.id)!.name).toBe('Capitais');
   });
 
-  it('o Novo baralho de dentro de um baralho (a mesma página) também abre a folha; o nome nunca repete', async () => {
+  it('o nome do Novo baralho nunca repete; só o grupo tem o Novo baralho (o baralho tem a Nova carta)', async () => {
     const { kanji } = seed();
     study.updateDeck(kanji, { name: 'Baralho 4' });
-    await go(`/anotacoes/estudos/${kanji}`);
-    $<HTMLButtonElement>('.aba-nova')!.click();
+    await go(deckUrl(kanji));
+    expect($('.novo-baralho')).toBeNull();
+    await go(studyPath(GROUP));
+    $<HTMLButtonElement>('.novo-baralho')!.click();
     await sheetOpen();
     const fresh = study.decks()[3];
     expect(fresh.name).toBe('Baralho 5');
-    expect(router.url).toBe(`/anotacoes/estudos/${fresh.id}`);
+    expect(router.url).toBe(deckUrl(fresh.id));
     expect(sheet()?.open).toBeTrue();
   });
 
@@ -222,7 +344,7 @@ describe('página dos Estudos', () => {
     const { kanji } = seed();
     // no grupo do baralho, como a "Nova nota" de uma coluna do Kanban
     const fresh = spyOn(TestBed.inject(Desk), 'newNoteIn');
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     const [nova, trazer] = $$('.poe-cartas button');
     expect(text(nova)).toBe('Nova carta');
     nova.click();
@@ -233,7 +355,7 @@ describe('página dos Estudos', () => {
 
   it('trazer uma anotação: vira carta deste baralho, sem título próprio, e continua no mural', async () => {
     const { quimica } = seed();
-    await go(`/anotacoes/estudos/${quimica}`);
+    await go(deckUrl(quimica));
     // o que o seletor entrega: a anotação escolhida (pela página, como o (picked) faz)
     const page = (window as unknown as { ng: { getComponent(e: Element): { bring(n: string, d: string): void } } }).ng.getComponent(host.querySelector('app-study-page')!);
     TestBed.inject(ReviewStore).reviews.update((list) => [...list, note('nnova', 'Capital do Peru')]);
@@ -249,7 +371,7 @@ describe('página dos Estudos', () => {
 
   it('a etiqueta de tinta da carta abre a folha dela: tirar dos Estudos tem Desfazer', async () => {
     const { kanji } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     $$('.carta-li .mexer')[0].click();
     let dialog: HTMLDialogElement | null = null;
     for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
@@ -264,7 +386,7 @@ describe('página dos Estudos', () => {
 
   it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
     const { kanji, quimica, vazio } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     $$('.carta-li .mexer')[0].click();
     let dialog: HTMLDialogElement | null = null;
     for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
@@ -292,7 +414,7 @@ describe('página dos Estudos', () => {
 
   it('o play: Estudar no baralho abre a mesa dele; em Tudo, Estudar tudo; em dia, nenhum', async () => {
     const { kanji, vazio } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     expect(text($('.estudar'))).toBe('Estudar');
     $<HTMLButtonElement>('.estudar')!.click();
     let mesa: HTMLDialogElement | null = null;
@@ -303,7 +425,7 @@ describe('página dos Estudos', () => {
     await settle();
     await go('/anotacoes/estudos');
     expect(text($('.estudar'))).toBe('Estudar tudo');
-    await go(`/anotacoes/estudos/${vazio}`);
+    await go(deckUrl(vazio));
     expect($('.estudar')).toBeNull();
   });
 
@@ -316,7 +438,7 @@ describe('página dos Estudos', () => {
         cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 5, d: 5, due: dayStart(addStudyDays(studyDay(new Date()), n)).toISOString(), last: T0, reps: 3 } })),
       }));
     inDays(3);
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     expect($('.estudar')).toBeNull();
     expect($('.adiantado')).toBeNull();
     inDays(1);
@@ -345,14 +467,14 @@ describe('página dos Estudos', () => {
     expect(dialog!.querySelector('#config-titulo')!.textContent).toContain('Configurações dos estudos');
     dialog!.close();
     await settle();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     const inDeck = $<HTMLButtonElement>('button[aria-label="Configurações dos estudos"]')!;
     expect(inDeck.closest('.pasta-controles')!.lastElementChild!.contains(inDeck)).toBeTrue();
   });
 
-  it('a folha do baralho: a cor e o ícone valem na hora; apagar volta para Tudo, com o Desfazer', async () => {
+  it('a folha do baralho: a cor e o ícone valem na hora; apagar volta para o grupo, com o Desfazer', async () => {
     const { kanji } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
     const dialog = await sheetOpen();
     expect(dialog.open).toBeTrue();
@@ -364,7 +486,7 @@ describe('página dos Estudos', () => {
     await settle();
     await settle();
     expect(study.deck(kanji)).toBeUndefined();
-    expect(router.url).toBe('/anotacoes/estudos');
+    expect(router.url).toBe(studyPath(GROUP));
     // as cartas só dele saíram dos Estudos; o Desfazer traz o baralho e elas de volta
     expect(study.cards().map((c) => c.note)).toEqual(['nagua']);
     const toast = document.querySelector<HTMLButtonElement>('app-toast button, .toast button');
@@ -374,7 +496,7 @@ describe('página dos Estudos', () => {
 
   it('o estilo das cartas: a folha mostra os dez com a primeira carta do baralho, e o escolhido vale na parede e na pilha', async () => {
     const { kanji, quimica } = seed();
-    await go(`/anotacoes/estudos/${kanji}`);
+    await go(deckUrl(kanji));
     $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
     const dialog = await sheetOpen();
     const options = [...dialog.querySelectorAll<HTMLButtonElement>('.op.estilo')];

@@ -87,7 +87,13 @@
         }
         <div class="fim-acoes">
           <button type="button" class="btn-ink" (click)="close()">Voltar aos baralhos</button>
-          @if (moreElsewhere()) {
+          @if (groupMore(); as g) {
+            <!-- o outro baralho do mesmo grupo vem antes de tudo: o próximo passo natural -->
+            <button type="button" class="papel" (click)="studyGroup(g)">
+              <lucide-icon [img]="PlayIcon" [size]="16" aria-hidden="true" />
+              Estudar o resto de {{ g }}
+            </button>
+          } @else if (moreElsewhere()) {
             <button type="button" class="papel" (click)="studyAll()">
               <lucide-icon [img]="PlayIcon" [size]="16" aria-hidden="true" />
               Estudar tudo

@@ -9,6 +9,8 @@
 .primeiro {
   display: grid;
   gap: 34px;
+  /* longe das abas: o alfinete da cartolina não pode cair sobre elas */
+  margin-top: 40px;
   align-items: start;
   max-width: 1080px;
 
@@ -111,8 +113,8 @@
   }
 }
 
-/* ===== Os baralhos: as divisórias de manilha em cima da pasta, como os quadros do Kanban ===== */
-.abas-baralhos {
+/* ===== Os grupos: as divisórias de manilha em cima da pasta, as mesmas do mural e do Kanban ===== */
+.abas-grupos {
   @include div.pasta;
 
   &::after {
@@ -139,47 +141,142 @@
 
 .aba {
   text-decoration: none;
-  @include div.aba-de-grupo('.on', '.rotulo', '.aba-n');
+  @include div.aba-de-grupo('.on', '.rotulo-cat, .mais-nome', '.aba-n');
 }
 
-/* o nome do baralho, com o ícone dele (app-cat-label) ou só o nome: o mesmo das abas do mural e do Kanban */
+/* o nome do grupo com o ícone dele (app-cat-label): o mesmo das abas do mural e do Kanban */
 .rotulo-cat {
   @include div.rotulo-de-grupo;
-}
-
-.rotulo-nome {
-  @include div.nome-de-grupo;
 }
 
 .aba-n {
   @include div.numero-de-grupo;
 }
 
-/* "+ Novo baralho": a orelha que ainda não existe, a giz e tracejada, sem papel */
-.aba.aba-nova {
+/* a régua de medir (ver ui/tab-fit.ts): no lugar, sem ocupar espaço nem aparecer */
+.medida {
+  position: absolute;
+  inset: 0 auto auto 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* o "Mais", como o do Kanban */
+.aba-mais {
+  @include div.mais-de-grupo;
+
+  .mais-nome {
+    @include div.nome-de-grupo;
+  }
+
+  .chev {
+    transition: rotate var(--t-ui) var(--ease-ui);
+  }
+
+  &.aberto .chev {
+    rotate: 180deg;
+  }
+}
+
+/* o grupo do primeiro baralho de todos, ao lado do nome (a lista do aparelho, no campo de sempre) */
+.primeiro-grupo {
+  @include kit.campo;
+  flex: 0 1 240px;
+  display: flex;
   align-items: center;
+  gap: 8px;
+
+  .primeiro-pre {
+    flex: none;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
+  select {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* o "Novo baralho em" de Tudo: o campo impresso da pasta, com o + na frente */
+.novo-em {
   gap: 6px;
-  margin-left: 4px;
-  border: 2px dashed rgb(243 239 230 / 0.42);
-  border-bottom: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--wall-ink);
+}
+
+/* ===== Num baralho: o caminho de volta ao grupo, em tinta, e o nome do baralho na tira de papel ===== */
+.trilha {
+  align-items: center;
+  gap: 14px;
+
+  .voltar {
+    text-decoration: none;
+  }
+}
+
+.trilha-nome {
+  flex-direction: row;
+  rotate: -0.8deg;
+
+  .nome-txt {
+    font-size: 1.3rem;
+  }
+}
+
+/* ===== Tudo: uma seção por grupo, com a etiqueta de fita do mural e o resumo a giz ===== */
+.grupo-pilhas {
+  margin-top: 34px;
+}
+
+.grupo-pilhas + .grupo-pilhas {
+  margin-top: 46px;
+}
+
+.grupo-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  padding-left: 4px;
+
+  .tape-label a {
+    color: inherit;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--focus);
+      outline-offset: 4px;
+    }
+  }
+}
+
+.grupo-sum {
+  margin: 0;
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.92rem;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  cursor: pointer;
+  color: var(--wall-ink-2);
+  font-variant-numeric: tabular-nums;
+  text-shadow: var(--chalk-shadow);
+}
 
-  &:hover {
-    border-color: rgb(243 239 230 / 0.7);
-    background: rgb(243 239 230 / 0.06);
-  }
-
-  lucide-icon {
-    display: inline-flex;
-  }
+.grupo-pilhas .pilhas {
+  margin-top: 22px;
 }
 
 /* ===== A pasta: quantas para hoje (o título, a pincel, como o mês dos Gastos), os montes e os controles

@@ -516,10 +516,13 @@ export class AreaBar {
       const n = board ? this.kanban.live(board).length : 0;
       return n ? { n, long: n === 1 ? 'anotação no quadro' : 'anotações no quadro', short: 'no quadro' } : null;
     }
-    // nos Estudos: quantas cartas para hoje, no baralho aberto ou em todos (a mesma conta do Estudar)
+    // nos Estudos: quantas cartas para hoje, no baralho aberto, no grupo aberto ou em todos (a mesma conta
+    // do Estudar); o endereço é /anotacoes/estudos/:grupo/:baralho
     if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'estudos' && this.area() === 'anotacoes') {
-      const deck = pathOf(this.path()).split('/')[3];
-      const n = countTotal(dayQueue(this.study.view(), this.study.now(), deck && this.study.deck(deck) ? deck : undefined, this.study.live).counts);
+      const [, , , group, deck] = pathOf(this.path()).split('/');
+      const decks = group ? this.study.decksOfGroup(group) : [];
+      const scope = deck && decks.some((d) => d.id === deck) ? deck : group ? decks.map((d) => d.id) : undefined;
+      const n = countTotal(dayQueue(this.study.view(), this.study.now(), scope, this.study.live).counts);
       return n ? { n, long: n === 1 ? 'carta para hoje' : 'cartas para hoje', short: 'hoje' } : null;
     }
     // no Calendário: quantos lembretes hoje tem

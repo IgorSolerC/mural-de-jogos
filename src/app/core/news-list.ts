@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-baralhos-por-grupo',
+    id: '2026-11-04-estudos-abas-por-grupo',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
-    title: 'Nada some com dois Muralls abertos, e cada baralho é de um grupo',
+    title: 'Nada some com dois Muralls abertos, e os Estudos por grupo',
     melhorias: [
+      'As abas dos Estudos agora são os grupos das anotações, as mesmas do mural e do Kanban (com o Mais e os grupos escondidos), e o Tudo: num grupo, as pilhas dos baralhos dele, o Estudar o grupo (os baralhos dele juntos) e o Novo baralho; em Tudo, uma seção por grupo com a etiqueta de fita; num baralho, o caminho de volta ao grupo e o nome dele em cima da pasta. O primeiro baralho escolhe o grupo, e o grupo sem baralho mostra a cartolina do primeiro dele. Os links de antes de um baralho continuam abrindo.',
       'Cada baralho dos Estudos agora é de um grupo das anotações, e só as cartas desse grupo valem nele: os baralhos que já existiam ganharam o grupo das cartas deles (o que misturava grupos virou um por grupo, sem perder nada), a anotação que muda de grupo sai dos baralhos de antes sem perder o progresso (a aba Flashcard e o aviso de salvar dizem isso, com Desfazer, e ela volta a eles se voltar ao grupo), a anotação sem grupo pede um grupo antes de virar carta, a Nova carta nasce no grupo do baralho, o Trazer anotações mostra só as dele, e apagar um grupo leva os baralhos dele junto, dizendo antes.',
     ],
     correcoes: [

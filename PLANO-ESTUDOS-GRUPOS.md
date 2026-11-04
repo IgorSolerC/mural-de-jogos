@@ -321,3 +321,12 @@ sempre) e a build de produção com o smoke.
   achou 8 (o Desfazer da API com a carta da vista, que a perderia; responder a carta guardada; o seletor com
   baralho escondido; a vista que refazia tudo a cada anotação salva; e outros), todos corrigidos. Fica para a
   3: a carta que procura o baralho de mesmo nome no grupo novo.
+- **Rodada 2 (04/nov, BUILD 735).** As abas dos grupos (a régua `TabFit` e o `TabMore` do Kanban, a ordem e os
+  escondidos do mural, o vazio = sem baralho), o Tudo sempre na frente (G5), as rotas `/estudos/:grupo` e
+  `/estudos/:grupo/:baralho` (o id do grupo é `studyGroupId`, "g" e o hash da chave; o endereço de antes leva
+  ao baralho no grupo dele), o Estudar o grupo (`StudyScope` na fila: um baralho, os ids de um grupo ou todos;
+  a sessão ganhou a entrada `group`), Tudo com uma seção por grupo (a `.tape-label` do mural), o grupo com as
+  pilhas dele e o "Novo baralho" na pasta (a orelha tracejada saiu da fileira), o baralho com "← Baralhos de X"
+  e o nome numa tira de papel no topo da pasta, a cartolina do primeiro baralho de um grupo e a de todos com a
+  escolha do grupo. O grupo aberto aqui fica aberto no mural (`WallView.openGroup`, como o Kanban). Nada novo
+  no navegador: o grupo aberto vai no endereço.

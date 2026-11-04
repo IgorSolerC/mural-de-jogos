@@ -31,6 +31,7 @@ import {
   restoreCard,
   restoreDeck,
   sanitizeStudy,
+  studyGroupId,
   setCardWall,
   setConfig,
   setDecks,
@@ -203,6 +204,11 @@ export class StudyStore {
 
   deck(id: string): Deck | undefined {
     return this.decks().find((d) => d.id === id);
+  }
+
+  /** Os baralhos do grupo do endereço (o id de `studyGroupId`), na ordem das abas. */
+  decksOfGroup(groupId: string): Deck[] {
+    return this.decks().filter((d) => !!d.group && studyGroupId(d.group) === groupId);
   }
 
   /**

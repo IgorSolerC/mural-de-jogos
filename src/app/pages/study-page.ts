@@ -1,14 +1,20 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { map } from 'rxjs';
 import { studyPath } from '../core/areas';
+import { CategoryLook, categoryColorHex } from '../core/category-looks';
+import { KanbanStore } from '../core/kanban-store';
+import { NO_TABS, NoteTab, sameTabs, tabKeyOf, tabsToMore } from '../core/note-tabs';
+import { Settings } from '../core/settings';
+import { WallView } from '../core/wall-view';
 import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, groupKey, levelOf, whenLabel } from '../core/study';
-import { QueueCounts, allCounts, countTotal, dayQueue } from '../core/study-queue';
+import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
+import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
@@ -22,6 +28,8 @@ import { StudySession } from '../ui/study-session';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
+import { TabFit } from '../ui/tab-fit';
+import { TabMore, TabMoreItem } from '../ui/tab-more';
 import { Toasts } from '../ui/toast';
 import { NOTES } from '../core/kinds';
 
@@ -66,6 +74,29 @@ interface DeckView {
   under: CardView['stock'][];
 }
 
+/** Um grupo das anotações como aba dos Estudos: os baralhos dele e quantas cartas para hoje. */
+interface GroupTab {
+  /** O id do grupo no endereço (`studyGroupId`). */
+  id: string;
+  /** A chave do grupo (a do quadro do Kanban). */
+  key: string;
+  label: string;
+  look: CategoryLook;
+  color: string | null;
+  decks: DeckView[];
+  /** As cartas dos baralhos do grupo (a de dois baralhos conta uma vez). */
+  cards: number;
+  /** Quantas anotações o grupo tem (as que podem virar carta). */
+  notes: number;
+  counts: QueueCounts;
+  today: number;
+}
+
+const NO_COUNTS: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
+
+/** A chave do Tudo na régua das abas. */
+const ALL_TAB = 'tudo';
+
 /** O giro de cada carta na parede, do id: pequeno, como as fichas da Visão geral. */
 function tiltOf(id: string): number {
   let h = 0;
@@ -74,15 +105,16 @@ function tiltOf(id: string): number {
 }
 
 /**
- * Os Estudos (`/anotacoes/estudos`, PLANO-ESTUDOS.md, seção 6): as divisórias de manilha com Tudo e um
- * baralho por aba; em Tudo, os baralhos como pilhas de cartas com um elástico e quantas vencem hoje; num
- * baralho, a parede das cartas, a frente à mostra, que abrem a anotação (a resposta) como no mural.
- *
- * Estudar (a sessão) e pôr cartas (a aba Flashcard do editor) chegam nas rodadas seguintes.
+ * Os Estudos (`/anotacoes/estudos`, PLANO-ESTUDOS.md, seção 6, e PLANO-ESTUDOS-GRUPOS.md, seção 4): as
+ * divisórias de manilha com Tudo e os grupos das anotações, as mesmas do mural e do Kanban (a ordem, o
+ * "Mais", os escondidos e "Esconder os grupos vazios" da engrenagem do mural; aqui, vazio é sem baralho).
+ * Num grupo (`/:grupo`), os baralhos dele como pilhas de cartas presas com um elástico; em Tudo, as pilhas
+ * de todos, uma seção por grupo; num baralho (`/:grupo/:baralho`), a parede das cartas, a frente à mostra,
+ * que abrem a anotação (a resposta) como no mural. Estudar vale para o baralho, o grupo ou tudo.
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig],
+  imports: [CardPicker, CategoryLabel, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -93,6 +125,10 @@ export class StudyPage {
   private readonly desk = inject(Desk);
   private readonly router = inject(Router);
   private readonly toasts = inject(Toasts);
+  private readonly kanban = inject(KanbanStore);
+  private readonly settings = inject(Settings);
+  private readonly wallView = inject(WallView);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   protected readonly AllIcon = ICON.camadas;
   protected readonly AddIcon = ICON.adicionar;
@@ -102,6 +138,9 @@ export class StudyPage {
   protected readonly GearIcon = ICON.configurar;
   protected readonly BringIcon = ICON.buscar;
   protected readonly ChevronIcon = ICON.abrir;
+  protected readonly BackIcon = ICON.voltar;
+  protected readonly tabKey = tabKeyOf;
+  protected readonly allTab = ALL_TAB;
   protected readonly notesKind = NOTES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly sorts = SORTS;
@@ -110,12 +149,29 @@ export class StudyPage {
   protected readonly nameMax = DECK_NAME_MAX;
   protected readonly studyPath = studyPath;
 
-  /** O baralho do endereço (null: Tudo, ou um que não existe mais). */
-  private readonly param = toSignal(inject(ActivatedRoute).paramMap.pipe(map((p) => p.get('baralho'))), { initialValue: null });
-  protected readonly deck = computed(() => {
-    const id = this.param();
-    return (id && this.study.deck(id)) || null;
+  /** O grupo e o baralho do endereço. */
+  private readonly params = toSignal(inject(ActivatedRoute).paramMap.pipe(map((p) => ({ group: p.get('grupo'), deck: p.get('baralho') }))), {
+    initialValue: { group: null, deck: null },
   });
+  /** O grupo aberto (null: Tudo, ou um que não existe mais). */
+  protected readonly group = computed(() => {
+    const id = this.params().group;
+    return (id && this.groups().find((g) => g.id === id)) || null;
+  });
+  /** O baralho aberto, do grupo aberto (null: o grupo, ou Tudo). */
+  protected readonly deck = computed(() => {
+    const id = this.params().deck;
+    const g = this.group();
+    const d = id && g ? this.study.deck(id) : undefined;
+    return d && inGroup(d, g!.label) ? d : null;
+  });
+  /** O grupo aberto que o mural também tem (com anotação): o nome, comparado pelo texto. */
+  private readonly wallLabel = computed(() => {
+    const g = this.group();
+    return g && g.notes ? g.label : null;
+  });
+  /** O que o Estudar estuda aqui: o baralho, os baralhos do grupo, ou todos. */
+  private readonly scope = computed<StudyScope>(() => this.deck()?.id ?? this.group()?.decks.map((v) => v.deck.id) ?? undefined);
 
   /** Agora, de minuto em minuto (o relógio dos Estudos, que a barra também lê). */
   protected readonly now = this.study.now;
@@ -133,18 +189,20 @@ export class StudyPage {
   protected readonly sortLabel = computed(() => SORTS.find((s) => s.id === this.sort())!.label);
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
-  /** A sessão de estudo aberta: de um baralho, ou de todos (null). */
-  protected readonly session = signal<{ deck: string | null; ahead?: boolean } | null>(null);
+  /** A sessão de estudo aberta: de um baralho, de um grupo (o nome), ou de todos (os dois null). */
+  protected readonly session = signal<{ deck: string | null; group?: string | null; ahead?: boolean } | null>(null);
   /** A folha das configurações dos Estudos aberta. */
   protected readonly config = signal(false);
-  /** Quantas revisões vencem amanhã (no baralho aberto, ou em todos): o "Estudar adiantado" só aparece com alguma. */
-  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.deck()?.id, this.study.live, 1).counts));
+  /** Quantas revisões vencem amanhã (no baralho, no grupo ou em todos): o "Estudar adiantado" só aparece com alguma. */
+  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.scope(), this.study.live, 1).counts));
   /** A folha da carta aberta (o id da anotação). */
   protected readonly cardSheet = signal<string | null>(null);
   /** O seletor de fichas do "Trazer anotações" aberto. */
   protected readonly picking = signal(false);
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
   protected readonly firstName = signal('');
+  /** O grupo do primeiro baralho de todos (a cartolina de Tudo, sem baralho nenhum); '' é o de sempre. */
+  protected readonly firstGroup = signal('');
 
   private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
   private readonly counts = computed(() => allCounts(this.study.view(), this.now(), this.study.live));
@@ -179,22 +237,117 @@ export class StudyPage {
     });
   });
 
-  /** Os números da linha de estudo: os do baralho aberto, ou os de todos (sem contar duas vezes). */
+  /**
+   * As abas: os grupos das anotações (os do quadro do Kanban) e os de algum baralho cujo grupo não tem
+   * anotação à mostra, cada um com os baralhos dele, na ordem das abas do mural (a montada à mão, ou da
+   * maior para a menor): as configurações dos grupos valem nos três.
+   */
+  protected readonly groups = computed<GroupTab[]>(() => {
+    const looks = this.settings.categoryLooks();
+    const labels = new Map<string, string>();
+    const notes = new Map<string, number>();
+    for (const c of this.kanban.categories()) {
+      labels.set(c.key, c.label);
+      notes.set(c.key, c.notes);
+    }
+    for (const d of this.study.decks()) if (d.group && !labels.has(groupKey(d.group))) labels.set(groupKey(d.group), d.group);
+    const views = this.decks();
+    const st = this.study.view();
+    const now = this.now();
+    const list = [...labels].map(([key, label]): GroupTab => {
+      const decks = views.filter((v) => inGroup(v.deck, label));
+      const ids = new Set(decks.map((v) => v.deck.id));
+      const counts = decks.length ? dayQueue(st, now, [...ids], this.study.live).counts : NO_COUNTS;
+      const cards = st.cards.filter((c) => this.study.live(c.note) && c.decks.some((d) => ids.has(d))).length;
+      const look = looks[key] ?? {};
+      return { id: studyGroupId(label), key, label, look, color: categoryColorHex(look.color), decks, cards, notes: notes.get(key) ?? 0, counts, today: countTotal(counts) };
+    });
+    const at = new Map(this.wallTabs().map((t, i) => [t.key, i]));
+    const place = (g: GroupTab) => at.get(tabKeyOf(g.key)) ?? Number.MAX_SAFE_INTEGER;
+    return list.sort((a, b) => place(a) - place(b));
+  });
+  /** As abas do mural de anotações (as dos grupos), pela chave da régua. */
+  private readonly wallTabs = computed<NoteTab[]>(() => {
+    const t = this.wallView.notes() ? this.wallView.noteTabs() : null;
+    return (t?.tabs ?? []).filter((x) => x.key.startsWith('c:')).map((x) => ({ ...x, key: tabKeyOf(x.key.slice(2)) }));
+  });
+  /** Os grupos sem baralho (pela chave da régua), com "Esconder os grupos vazios" ligado; senão, nenhum. */
+  private readonly emptyGroups = computed<ReadonlySet<string>>(
+    () => (this.wallView.hideEmpty() ? new Set(this.groups().flatMap((g) => (g.decks.length ? [] : [tabKeyOf(g.key)]))) : NO_TABS),
+    { equal: sameTabs },
+  );
+  /**
+   * Quais abas ficam em pé e quais vão para o "Mais", com a régua das abas do mural e do Kanban (ver
+   * ui/tab-fit.ts): o Tudo sempre na frente, os grupos escondidos e os vazios no "Mais" (menos o aberto).
+   */
+  private readonly fit = new TabFit({
+    host: this.host,
+    row: '.abas-grupos .abas:not(.medida)',
+    tabs: () => {
+      const weight = new Map(this.wallTabs().map((t) => [t.key, t]));
+      return this.groups().map((g) => {
+        const w = weight.get(tabKeyOf(g.key));
+        return { key: tabKeyOf(g.key), label: g.label, n: w?.n ?? g.decks.length, total: w?.total ?? g.decks.length };
+      });
+    },
+    active: () => (this.group() ? tabKeyOf(this.group()!.key) : ALL_TAB),
+    ordered: () => !!this.wallView.categoryOrder(),
+    hidden: () => tabsToMore(this.wallView.hiddenTabs(), this.emptyGroups(), this.group() ? tabKeyOf(this.group()!.key) : ''),
+    lead: () => [ALL_TAB],
+  });
+  protected readonly shownTabs = computed(() => {
+    const keys = new Set(this.fit.layout().shown.map((t) => t.key));
+    return this.groups().filter((g) => keys.has(tabKeyOf(g.key)));
+  });
+  protected readonly moreTabs = computed(() => {
+    const keys = new Set(this.fit.layout().more.map((t) => t.key));
+    return this.groups().filter((g) => keys.has(tabKeyOf(g.key)));
+  });
+  /** O "Mais": cada grupo com quantas para hoje (o sem baralho, sem número: um 0 não diria nada). */
+  protected readonly moreItems = computed<TabMoreItem[]>(() =>
+    this.moreTabs().map((g) => ({ key: g.id, label: g.label, n: g.today, look: g.look, say: g.decks.length ? `${g.today} para hoje` : 'sem baralho', quiet: !g.decks.length })),
+  );
+  /** O grupo aberto é um dos do "Mais": ele mostra o nome dele, como aba aberta. */
+  protected readonly moreOn = computed(() => this.moreTabs().find((g) => g.id === this.group()?.id) ?? null);
+  /** Os grupos com baralho, para as seções de Tudo. */
+  protected readonly filled = computed(() => this.groups().filter((g) => g.decks.length));
+  /** O grupo do primeiro baralho de todos: o escolhido, ou o de sempre. */
+  protected readonly firstGroupValue = computed(() => this.firstGroup() || this.study.fallbackGroup());
+  /** Os grupos para escolher na cartolina da primeira vez (sem nenhum, o de sempre). */
+  protected readonly firstGroups = computed(() => {
+    const labels = this.groups().map((g) => g.label);
+    const fallback = this.study.fallbackGroup();
+    return labels.some((l) => groupKey(l) === groupKey(fallback)) ? labels : [fallback, ...labels];
+  });
+
+  /** Abre o grupo escolhido no "Mais". */
+  protected openGroup(id: string): void {
+    if (id && id !== this.group()?.id) void this.router.navigateByUrl(studyPath(id));
+  }
+
+  /** O endereço de um baralho, no grupo dele. */
+  protected deckPath(d: Deck): string {
+    return d.group ? studyPath(studyGroupId(d.group), d.id) : studyPath();
+  }
+
+  /** Os números da linha de estudo: os do baralho aberto, do grupo aberto, ou os de todos (sem contar duas vezes). */
   protected readonly line = computed<QueueCounts>(() => {
     const d = this.deck();
-    return d ? (this.counts().byDeck.get(d.id) ?? { novas: 0, aprender: 0, revisar: 0 }) : this.counts().total;
+    if (d) return this.counts().byDeck.get(d.id) ?? NO_COUNTS;
+    return this.group()?.counts ?? this.counts().total;
   });
   protected readonly lineTotal = computed(() => countTotal(this.line()));
 
-  /** Sem nada para hoje: quando é a próxima revisão e quantas cartas vencem nela. */
+  /** Sem nada para hoje: quando é a próxima revisão (no baralho, no grupo ou em todos) e quantas cartas vencem nela. */
   protected readonly next = computed(() => {
-    const d = this.deck();
+    const scope = this.scope();
+    const ids = scope === undefined ? null : typeof scope === 'string' ? [scope] : scope;
     const today = studyDay(this.now());
     let day: string | null = null;
     let n = 0;
     for (const c of this.study.cards()) {
       if (c.srs.state !== 'revisao' || !this.study.live(c.note)) continue;
-      if (d ? !c.decks.includes(d.id) : !this.decks().some((x) => c.decks.includes(x.deck.id))) continue;
+      if (ids ? !c.decks.some((d) => ids.includes(d)) : !c.decks.length) continue;
       const due = studyDay(new Date(c.srs.due));
       if (due <= today) continue;
       if (!day || due < day) {
@@ -237,6 +390,26 @@ export class StudyPage {
     // o "+ Novo baralho" abre nele com a folha aberta: a página é outra depois da navegação (são duas rotas)
     const asked = (this.router.getCurrentNavigation()?.extras.state as { folha?: string } | undefined)?.folha;
     if (asked) this.sheet.set({ id: asked, fresh: true });
+    // o endereço de antes dos grupos (/estudos/:baralho) leva ao baralho no grupo dele; um grupo (ou um
+    // baralho) que não existe mais, ao que sobrou. Espera a conversão dos baralhos de antes terminar.
+    effect(() => {
+      const { group, deck } = this.params();
+      if (!group || this.study.decks().some((d) => !d.group)) return;
+      const g = this.group();
+      const d = this.deck();
+      untracked(() => {
+        const old = !deck ? this.study.deck(group) : undefined;
+        const to = old ? this.deckPath(old) : !g ? studyPath() : deck && !d ? studyPath(g.id) : null;
+        if (to) void this.router.navigateByUrl(to, { replaceUrl: true, state: this.router.getCurrentNavigation()?.extras.state });
+      });
+    });
+    // o grupo aberto aqui fica aberto no mural também (como o do quadro do Kanban): só quando ele muda (as
+    // contas refazem o grupo a cada minuto) e só se o mural tem a aba dele (o grupo só com baralho, sem
+    // anotação, não tem)
+    effect(() => {
+      const label = this.wallLabel();
+      if (label) untracked(() => this.wallView.openGroup(label));
+    });
     this.study.tick();
     const timer = setInterval(() => this.study.tick(), 60_000);
     inject(DestroyRef).onDestroy(() => {
@@ -339,34 +512,68 @@ export class StudyPage {
   }
 
   /**
-   * "+ Novo baralho": nasce com um nome que ainda não existe e uma cor livre, e a folha abre com o nome
-   * para escrever por cima. Vindo de Tudo, a página do baralho é outra e abre a folha pelo pedido da
-   * navegação; vindo de outro baralho, a página é a mesma (a mesma rota) e abre aqui.
+   * "Novo baralho", na pasta do grupo: nasce no grupo aberto, com um nome que ainda não existe e uma cor
+   * livre, e a folha abre com o nome para escrever por cima. A página do baralho é outra rota, e abre a
+   * folha pelo pedido da navegação; se for a mesma página, abre aqui.
    */
-  protected newDeck(): void {
+  protected newDeck(group = this.group()?.label): void {
+    if (!group?.trim()) return;
     const names = new Set(this.study.decks().map((d) => d.name));
     let n = this.study.decks().length + 1;
     while (names.has(`Baralho ${n}`)) n++;
-    // no grupo do baralho aberto (vindo de Tudo, o grupo de sempre)
-    const id = this.study.addDeck(`Baralho ${n}`, this.freeColor(), null, undefined, this.deck()?.group);
+    const id = this.study.addDeck(`Baralho ${n}`, this.freeColor(), null, undefined, group);
     if (!id) return;
-    void this.router.navigateByUrl(studyPath(id), { state: { folha: id } }).then(() => {
+    void this.router.navigateByUrl(studyPath(studyGroupId(group), id), { state: { folha: id } }).then(() => {
       if (!this.gone) this.sheet.set({ id, fresh: true });
     });
   }
 
-  /** A cartolina da primeira vez: o baralho com o nome escrito. */
-  protected createFirst(): void {
-    const name = this.firstName().trim();
-    if (!name) return;
-    const id = this.study.addDeck(name, this.freeColor());
-    if (!id) return;
-    this.firstName.set('');
-    void this.router.navigateByUrl(studyPath(id));
+  /**
+   * O "Novo baralho em…" de Tudo: a lista do aparelho com os grupos. A lista fechada do Windows troca de
+   * opção (e avisa) a cada seta: pelo teclado, a escolha só vale no Enter; pelo mouse (ou tocando), na
+   * hora. Sair da lista não cria nada (criar um baralho e ir para ele não é algo para acontecer de passagem).
+   */
+  protected keying = false;
+
+  protected onNewKey(e: KeyboardEvent): void {
+    if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.keying = true;
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      this.newDeckFrom(e.target as HTMLSelectElement);
+    }
   }
 
+  protected onNewChange(select: HTMLSelectElement): void {
+    if (!this.keying) this.newDeckFrom(select);
+  }
+
+  protected newDeckFrom(select: HTMLSelectElement): void {
+    this.keying = false;
+    const group = select.value;
+    select.value = '';
+    if (group) this.newDeck(group);
+  }
+
+  /** A cartolina do primeiro baralho (de um grupo, ou de todos, com o grupo escolhido): o baralho com o nome escrito. */
+  protected createFirst(group: string): void {
+    const name = this.firstName().trim();
+    if (!name || !group.trim()) return;
+    const id = this.study.addDeck(name, this.freeColor(), null, undefined, group);
+    if (!id) return;
+    this.firstName.set('');
+    this.firstGroup.set('');
+    void this.router.navigateByUrl(studyPath(studyGroupId(group), id));
+  }
+
+  /** O baralho saiu: volta para o grupo dele (ou para Tudo). */
   protected removed(): void {
-    void this.router.navigateByUrl(studyPath());
+    const g = this.group();
+    void this.router.navigateByUrl(g ? studyPath(g.id) : studyPath());
+  }
+
+  /** "2 baralhos · 101 cartas": o resumo de um grupo na seção de Tudo. */
+  protected groupSummary(g: GroupTab): string {
+    return `${g.decks.length === 1 ? '1 baralho' : `${g.decks.length} baralhos`} · ${this.countLabel(g.cards)}`;
   }
 
   protected countLabel(n: number): string {

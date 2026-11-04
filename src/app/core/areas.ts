@@ -32,7 +32,7 @@ export const REVIEW_SECTIONS: readonly AreaSection[] = [
 
 /**
  * As seções das Anotações: o mural, os quadros Kanban (`/anotacoes/kanban/:quadro`) e os Estudos
- * (`/anotacoes/estudos/:baralho`, ver PLANO-ESTUDOS.md). A lista mora em
+ * (`/anotacoes/estudos/:grupo/:baralho`, ver PLANO-ESTUDOS.md e PLANO-ESTUDOS-GRUPOS.md). A lista mora em
  * `shared/topo-do-murall.ts`, a mesma do topo do cofre; uma seção nova entra lá (e nas rotas) e aparece
  * sozinha no índice.
  */
@@ -65,9 +65,12 @@ export function kanbanPath(board?: string): string {
   return '/anotacoes/kanban' + (board ? `/${board}` : '');
 }
 
-/** Os Estudos, ou um baralho deles (sem baralho: Tudo, os baralhos em pilhas). */
-export function studyPath(deck?: string): string {
-  return '/anotacoes/estudos' + (deck ? `/${deck}` : '');
+/**
+ * Os Estudos (sem nada: Tudo, os baralhos de todos os grupos em pilhas), um grupo deles (`group`, o id do
+ * grupo, ver `studyGroupId` em core/study.ts) ou um baralho do grupo.
+ */
+export function studyPath(group?: string | null, deck?: string | null): string {
+  return '/anotacoes/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
 }
 
 /**

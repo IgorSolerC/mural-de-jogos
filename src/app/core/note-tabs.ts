@@ -125,6 +125,14 @@ export function tabsToMore(hidden: ReadonlySet<string>, empty: ReadonlySet<strin
 /** Nenhuma aba (o conjunto vazio de sempre, para não criar um a cada conta). */
 export const NO_TABS: ReadonlySet<string> = new Set();
 
+/**
+ * A chave de um grupo na régua das abas (a das abas do mural: "c:" e a chave da categoria, ver
+ * `categoryKey` em core/kanban.ts), para as abas dos quadros do Kanban e as dos Estudos.
+ */
+export function tabKeyOf(categoryKey: string): string {
+  return `c:${categoryKey.slice(0, 64)}`;
+}
+
 /** Os dois conjuntos de abas têm as mesmas chaves? (o `equal` das contas: o mesmo conjunto não muda nada) */
 export function sameTabs(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
   return a === b || (a.size === b.size && [...a].every((k) => b.has(k)));

@@ -1,3 +1,4 @@
+import { studyGroupId } from '../core/study';
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -384,7 +385,7 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(qa('.nos-estudos').map(words)).toEqual(['Nos Estudos: Kanjise mais 1Nível: Desconhecidaainda não estudada']);
     const go = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
     q<HTMLButtonElement>('.nos-estudos .parte-de')!.click();
-    expect(go).toHaveBeenCalledWith(`/anotacoes/estudos/${kanji}`);
+    expect(go).toHaveBeenCalledWith(`/anotacoes/estudos/${studyGroupId('Estudos')}/${kanji}`);
   });
 
   it('os lembretes do Calendário em que a anotação foi presa: o mais perto, e o "e mais N" mostra os outros', async () => {

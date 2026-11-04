@@ -74,7 +74,7 @@ import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
 import { CALENDAR_PATH, studyPath } from '../core/areas';
-import { LEVEL_LABEL, cardDecks, levelOf, whenLabel } from '../core/study';
+import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
@@ -801,10 +801,11 @@ export class ReviewReader {
     void this.router.navigate(['/anotacoes/kanban', id]);
   }
 
-  /** O baralho da carta, nos Estudos. */
+  /** O baralho da carta, nos Estudos (no grupo dele). */
   protected openDeck(id: string): void {
     this.close();
-    void this.router.navigateByUrl(studyPath(id));
+    const group = this.study.deck(id)?.group;
+    void this.router.navigateByUrl(group ? studyPath(studyGroupId(group), id) : studyPath());
   }
 
   private readonly reminderLinks = inject(ReminderLinks);

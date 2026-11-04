@@ -16,7 +16,7 @@ import { Review, fold } from '../core/review';
 import { ProfileStore } from '../core/profile-store';
 import { ReviewStore } from '../core/review-store';
 import { Settings as SettingsStore } from '../core/settings';
-import { NO_TABS, NoteTab, firstStanding, sameTabs, tabsToMore } from '../core/note-tabs';
+import { NO_TABS, NoteTab, firstStanding, sameTabs, tabKeyOf, tabsToMore } from '../core/note-tabs';
 import { WallView } from '../core/wall-view';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
@@ -118,11 +118,6 @@ const NO_EDGES: Edges = { start: false, end: false, before: 0, after: 0 };
 
 /** A marca, na navegação, do quadro aberto sozinho no lugar de um vazio (ver o construtor da página). */
 const QUIET_BOARD = 'quadroNoLugarDoVazio';
-
-/** A chave de um quadro na régua das abas (a das abas do mural: "c:" e a chave da categoria). */
-function tabKeyOf(categoryKey: string): string {
-  return `c:${categoryKey.slice(0, 64)}`;
-}
 
 /** Uma aba de quadro: a categoria, o id do quadro dela, quantas anotações ele tem e a cor da orelha. */
 interface BoardTab {

@@ -2,8 +2,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { reducedMotion } from '../core/motion';
 import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
-import { fsrsConfig, frontTitle, intervalLabel } from '../core/study';
-import { QueueItem, countTotal, dayQueue, nextUp } from '../core/study-queue';
+import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
+import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { ICON, IconModule } from './icons';
 import { RichText } from './rich-text';
@@ -39,13 +39,24 @@ interface Answered {
   host: { '(keydown)': 'onKey($event)' },
 })
 export class StudySession {
-  /** O baralho estudado (null: Estudar tudo). */
+  /** O baralho estudado (null: o grupo, ou Estudar tudo). */
   readonly deck = input<string | null>(null);
+  /** O grupo estudado, sem baralho (o Estudar o grupo: os baralhos dele juntos); null com os dois: tudo. */
+  readonly group = input<string | null>(null);
+  /** O que se estuda: o baralho, os baralhos do grupo, ou todos. */
+  private readonly scope = computed<StudyScope>(() => {
+    const deck = this.deck();
+    if (deck) return deck;
+    const group = this.group();
+    return group ? this.study.decks().filter((d) => inGroup(d, group)).map((d) => d.id) : undefined;
+  });
   /** O "Estudar adiantado": as revisões de amanhã, quando hoje já está em dia. */
   readonly ahead = input(false);
   readonly closed = output<void>();
   /** "Estudar tudo", no fim de um baralho: quem abriu troca a mesa para todos os baralhos. */
   readonly all = output<void>();
+  /** "Estudar o resto de Japonês", no fim de um baralho: quem abriu troca a mesa para o grupo dele (o nome). */
+  readonly groupAll = output<string>();
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly WrongIcon = ICON.fechar;
@@ -71,12 +82,12 @@ export class StudySession {
 
   protected readonly title = computed(() => {
     const id = this.deck();
-    const name = id ? (this.study.deck(id)?.name ?? 'Baralho') : 'Tudo';
+    const name = id ? (this.study.deck(id)?.name ?? 'Baralho') : (this.group() ?? 'Tudo');
     return this.ahead() ? `${name} · adiantado` : name;
   });
 
   /** Os três montes do que falta, como no Anki (o da carta na mesa sublinhado). */
-  protected readonly counts = computed(() => dayQueue(this.study.view(), this.study.now(), this.deck() ?? undefined, this.study.live, this.ahead() ? 1 : 0).counts);
+  protected readonly counts = computed(() => dayQueue(this.study.view(), this.study.now(), this.scope(), this.study.live, this.ahead() ? 1 : 0).counts);
 
   /** A carta na mesa: a frente, a anotação (o verso) e a cartolina. */
   protected readonly card = computed(() => {
@@ -131,8 +142,20 @@ export class StudySession {
     };
   });
 
+  /**
+   * O grupo do baralho estudado, quando outro baralho dele ainda tem cartas para hoje (no fim, o "Estudar
+   * o resto de Japonês", antes do "Estudar tudo"): o nome do grupo, ou null.
+   */
+  protected readonly groupMore = computed(() => {
+    const deck = this.deck();
+    const group = deck ? this.study.deck(deck)?.group : null;
+    if (!group) return null;
+    const ids = this.study.decks().filter((d) => inGroup(d, group)).map((d) => d.id);
+    return countTotal(dayQueue(this.study.view(), this.study.now(), ids, this.study.live).counts) > 0 ? group : null;
+  });
+
   /** Outro baralho ainda tem cartas para hoje (no fim, o "Estudar tudo"). */
-  protected readonly moreElsewhere = computed(() => !!this.deck() && countTotal(dayQueue(this.study.view(), this.study.now(), undefined, this.study.live).counts) > 0);
+  protected readonly moreElsewhere = computed(() => this.scope() !== undefined && countTotal(dayQueue(this.study.view(), this.study.now(), undefined, this.study.live).counts) > 0);
 
   protected readonly canUndo = computed(() => this.answered().length > 0);
 
@@ -141,6 +164,7 @@ export class StudySession {
     // entrada, que ainda não chegou quando o construtor roda
     effect(() => {
       this.deck();
+      this.group();
       untracked(() => this.advance());
     });
     afterNextRender(() => {
@@ -162,7 +186,7 @@ export class StudySession {
 
   /** A próxima carta, ou o fim. */
   private advance(): void {
-    const up = nextUp(this.study.view(), new Date(), this.deck() ?? undefined, this.study.live, this.ahead() ? 1 : 0);
+    const up = nextUp(this.study.view(), new Date(), this.scope(), this.study.live, this.ahead() ? 1 : 0);
     this.current.set(up.item);
     this.revealed.set(false);
     this.finished.set(!up.item);
@@ -214,6 +238,11 @@ export class StudySession {
     this.all.emit();
   }
 
+  /** "Estudar o resto de Japonês", no fim de um baralho: a mesa continua, com os baralhos do grupo dele. */
+  protected studyGroup(group: string): void {
+    this.groupAll.emit(group);
+  }
+
   protected onKey(e: KeyboardEvent): void {
     if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
     const key = e.key.toLowerCase();
@@ -251,12 +280,13 @@ export class StudySession {
   private nextDay(): { when: string; n: number } | null {
     const now = this.study.now();
     const today = studyDay(now);
-    const deck = this.deck();
+    const scope = this.scope();
+    const ids = scope === undefined ? null : typeof scope === 'string' ? [scope] : scope;
     let day: string | null = null;
     let n = 0;
     for (const c of this.study.cards()) {
       if (c.srs.state !== 'revisao' || !this.study.live(c.note)) continue;
-      if (deck && !c.decks.includes(deck)) continue;
+      if (ids ? !c.decks.some((d) => ids.includes(d)) : !c.decks.length) continue;
       const due = studyDay(new Date(c.srs.due));
       if (due <= today) continue;
       if (!day || due < day) {
