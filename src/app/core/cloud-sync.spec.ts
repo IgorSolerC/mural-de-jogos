@@ -196,6 +196,8 @@ interface Device {
   sync: CloudSync;
   conflicts: SyncConflicts;
   kv: ReturnType<typeof memoryKv>;
+  /** O banco das fichas deste aparelho (o que está gravado, e não só na memória). */
+  data: MemoryData;
   reset: FakeReset;
   account: CloudAccount;
   /** As respostas de confirm.ask, em ordem (sem nenhuma: sim). */
@@ -293,6 +295,7 @@ describe('sincronização com a nuvem', () => {
       sync: injector.get(CloudSync),
       conflicts: injector.get(SyncConflicts),
       kv,
+      data: injector.get(LocalData) as unknown as MemoryData,
       reset,
       account: injector.get(CloudAccount),
       answers,
@@ -1527,6 +1530,30 @@ describe('sincronização com a nuvem', () => {
       const asked = cloud.gets;
       await a.sync.syncNow();
       expect(cloud.gets).toBe(asked + 1);
+    });
+
+    it('numa aba escondida (sem timers nem quadros), o pedido aplicado já está gravado quando a rodada solta a vez', async () => {
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ ...ACCOUNT, api: true }));
+      cloud.api = true;
+      const a = device();
+      a.store.add(review('rhades01', 'Hades'));
+      await a.sync.syncNow();
+      cloud.pedidos = [
+        { id: 'pd_cccccccccccccccc', op: 'nota.criar', alvo: 'rnotaapi000000002', estado: 'pendente', dados: { titulo: 'サ' }, criado_em: '', expira_em: '', resolvido_em: null, chave: { id: 'k1', nome: 'Claude' } },
+      ];
+      // o navegador segura os timers e os quadros da aba escondida: os effects que gravam não rodam sozinhos
+      jasmine.clock().install();
+      const frame = spyOn(window, 'requestAnimationFrame').and.returnValue(0);
+      try {
+        await a.sync.syncNow();
+        // a outra aba, que pega a vez agora, acha a anotação gravada (e não só na memória desta)
+        const stored = JSON.parse(a.data.getItem('mural-de-jogos:anotacoes:v1') ?? '[]') as { id: string }[];
+        expect(stored.map((n) => n.id)).toContain('rnotaapi000000002');
+        expect(cloud.concluded.map((c) => c.id)).toEqual(['pd_cccccccccccccccc']);
+      } finally {
+        frame.and.callThrough();
+        jasmine.clock().uninstall();
+      }
     });
 
     it('sem a API liberada na conta, o aparelho não aplica nada', async () => {

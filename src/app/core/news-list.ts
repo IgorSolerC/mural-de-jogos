@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-04-duas-abas',
+    version: '1.37.3',
+    kind: 'ajustes',
+    date: '2026-11-04',
+    title: 'Nada some com dois Muralls abertos',
+    correcoes: [
+      'Com dois Muralls abertos no mesmo navegador, o que uma aba escondida aplicava (os pedidos da AI, o que vinha da nuvem) podia sumir quando a outra gravava o mural dela por cima, e as anotações saíam da nuvem também; agora cada aba grava tudo antes de passar a vez da sincronização, e a próxima acompanha o que a outra gravou antes de começar.',
+    ],
+  },
+  {
     id: '2026-11-03-estudos-na-api',
     version: '1.37.2',
     kind: 'ajustes',

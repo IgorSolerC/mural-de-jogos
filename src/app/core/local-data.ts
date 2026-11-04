@@ -66,6 +66,10 @@ export class LocalData {
   private readonly listeners: ((key: DataKey) => void)[] = [];
   /** Quantas gravações daqui cada chave já teve (ver `reload`). */
   private readonly writes = new Map<DataKey, number>();
+  /** As gravações no IndexedDB que ainda não terminaram (ver `settled`). */
+  private readonly pending = new Set<Promise<void>>();
+  /** No localStorage: o texto de cada chave como esta aba o viu por último (leu, gravou ou ouviu). */
+  private readonly seenLocal = new Map<DataKey, string | null>();
 
   /** Onde os dados estão agora (para Ajustes e para os testes). */
   get where(): Mode {
@@ -126,7 +130,11 @@ export class LocalData {
   }
 
   getItem(key: DataKey): string | null {
-    if (this.mode === 'local') return localStorage.getItem(key);
+    if (this.mode === 'local') {
+      const value = localStorage.getItem(key);
+      this.seenLocal.set(key, value);
+      return value;
+    }
     return this.cache.get(key) ?? null;
   }
 
@@ -140,12 +148,64 @@ export class LocalData {
     if (storageFrozen()) return;
     if (this.mode === 'local') {
       localStorage.setItem(key, value);
+      this.seenLocal.set(key, value);
       return;
     }
     this.writes.set(key, (this.writes.get(key) ?? 0) + 1);
     this.cache.set(key, value);
     this.mirror(key, value);
-    return writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
+    const write = writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
+    const done = write.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.pending.add(done);
+    void done.then(() => this.pending.delete(done));
+    return write;
+  }
+
+  /** Espera as gravações desta aba terminarem (deram certo ou não): o que está na memória está guardado. */
+  async settled(): Promise<void> {
+    while (this.pending.size) await Promise.all([...this.pending]);
+  }
+
+  /**
+   * Acompanha agora o que outra aba gravou e esta ainda não ouviu (o aviso chega depois, às vezes depois
+   * de esta aba pegar a vez da sincronização): cada chave que mudou avisa quem ouve, como o aviso faria.
+   * Nunca falha; a gravação desta aba que está a caminho fica (ela é a mais nova).
+   */
+  async catchUp(): Promise<void> {
+    if (this.mode === 'local') {
+      for (const [key, seen] of this.seenLocal) {
+        let value: string | null;
+        try {
+          value = localStorage.getItem(key);
+        } catch {
+          continue;
+        }
+        if (value === seen) continue;
+        this.seenLocal.set(key, value);
+        this.emit(key);
+      }
+      return;
+    }
+    if (!this.db) return;
+    const writes = new Map(this.writes);
+    let stored: Map<string, unknown>;
+    try {
+      stored = await readAll(this.db);
+    } catch {
+      return;
+    }
+    for (const key of DATA_KEYS) {
+      // esta aba gravou enquanto lia: o que leu é de antes
+      if (this.writes.get(key) !== writes.get(key)) continue;
+      const value = stored.get(key);
+      const now = typeof value === 'string' ? value : null;
+      if (now === (this.cache.get(key) ?? null)) continue;
+      this.cache.set(key, now);
+      this.emit(key);
+    }
   }
 
   /** Outra aba gravou esta chave: o valor novo já está em `getItem`. */
@@ -153,7 +213,9 @@ export class LocalData {
     this.listeners.push(listener);
     if (this.listeners.length === 1 && typeof window !== 'undefined') {
       window.addEventListener('storage', (e) => {
-        if (this.mode === 'local' && (DATA_KEYS as readonly string[]).includes(e.key ?? '')) this.emit(e.key as DataKey);
+        if (this.mode !== 'local' || !(DATA_KEYS as readonly string[]).includes(e.key ?? '')) return;
+        this.seenLocal.set(e.key as DataKey, e.newValue);
+        this.emit(e.key as DataKey);
       });
     }
   }

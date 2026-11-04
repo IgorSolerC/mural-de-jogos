@@ -1,4 +1,4 @@
-import { DestroyRef, Injectable, InjectionToken, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ApplicationRef, DestroyRef, Injectable, InjectionToken, computed, effect, inject, signal, untracked } from '@angular/core';
 import { gzip, readBackupFile } from './backup-file';
 import { saveBeforeCloud } from './cloud-before';
 import { Cloud } from './cloud-config';
@@ -38,6 +38,8 @@ import { ImageStore } from './image-store';
 import { ImageSync, shortReason } from './image-sync';
 import { ColleagueStore } from './colleague-store';
 import { localImageIds } from './images';
+import { LocalData } from './local-data';
+import { catchUpOtherTabs } from './storage';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -720,6 +722,9 @@ export class CloudSync {
   private readonly conflicts = inject(SyncConflicts);
   /** Este aparelho, para o conflito dizer de onde veio cada versão. */
   private readonly device: DeviceTag = this.conflicts.device;
+  /** Onde moram as fichas (o IndexedDB, dividido com as outras abas): ver `catchUpTabs` e `persistNow`. */
+  private readonly data = inject(LocalData);
+  private readonly appRef = inject(ApplicationRef);
 
   readonly status = signal<SyncStatus>('fora');
   /** O que mostrar junto do estado (erros e avisos), já em português. */
@@ -880,7 +885,12 @@ export class CloudSync {
     }
   }
 
-  /** Uma aba por vez (as outras esperam a vez e acham tudo já feito). */
+  /**
+   * Uma aba por vez (as outras esperam a vez e acham tudo já feito). Para isso valer com dois Muralls
+   * abertos, quem tem a vez acompanha antes o que as outras gravaram (`catchUpTabs`) e grava tudo antes
+   * de soltá-la (`persistNow`): senão uma aba enviaria o mural de antes, ou soltaria a vez com o que
+   * aplicou só na memória, e a outra gravaria o dela por cima (ver `syncOnce`).
+   */
   private async withLock(fn: () => Promise<void>): Promise<void> {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
     if (locks?.request) await locks.request('meu-mural:sync', fn);
@@ -889,6 +899,53 @@ export class CloudSync {
 
   private async syncOnce(): Promise<void> {
     if (!this.active()) return;
+    try {
+      await this.catchUpTabs();
+      await this.syncLocked();
+    } finally {
+      await this.persistNow();
+    }
+  }
+
+  /**
+   * O que as outras abas gravaram e esta ainda não ouviu entra antes da rodada. O aviso delas (o
+   * BroadcastChannel do IndexedDB, o evento do localStorage) pode chegar depois de esta aba pegar a vez:
+   * sem acompanhar, ela compararia o mural de antes com a nuvem e o enviaria, tirando de lá o que a
+   * outra acabou de aplicar. Nunca falha.
+   */
+  private async catchUpTabs(): Promise<void> {
+    try {
+      await this.data.catchUp();
+    } catch {
+      /* sem como conferir: vale o aviso, quando chegar */
+    }
+    try {
+      catchUpOtherTabs();
+    } catch {
+      /* idem */
+    }
+  }
+
+  /**
+   * Grava já o que a rodada mudou na memória (os pedidos aplicados, o que desceu da nuvem) e espera o
+   * IndexedDB terminar. As lojas gravam pelos effects, que rodam num timer; numa aba escondida o
+   * navegador segura os timers por até um minuto, e a outra aba, sem saber das mudanças, gravava o mural
+   * dela por cima (04/nov/2026: 12 anotações aplicadas pela API sumiram com dois Muralls abertos). Nunca falha.
+   */
+  private async persistNow(): Promise<void> {
+    try {
+      this.appRef.tick();
+    } catch {
+      /* já no meio de um tick: os effects rodam nele */
+    }
+    try {
+      await this.data.settled();
+    } catch {
+      /* a gravação que falhou já avisa a pessoa (ver ReviewStore.saveError) */
+    }
+  }
+
+  private async syncLocked(): Promise<void> {
     const account = this.account.account();
     if (!account?.id) {
       // conta de antes do id: busca o id e volta
@@ -913,8 +970,12 @@ export class CloudSync {
         if (!state) return;
       }
       state = await this.pullAndPush(state);
-      // os pedidos da API das AIs entram pelas lojas, sobem numa rodada a mais e só então são concluídos
-      if (await this.requests.applyOpen(this.device.id)) state = await this.pullAndPush(state);
+      // os pedidos da API das AIs entram pelas lojas, sobem numa rodada a mais e só então são concluídos;
+      // gravados aqui antes de subirem (a outra aba fica sabendo deles na hora, ver `persistNow`)
+      if (await this.requests.applyOpen(this.device.id)) {
+        await this.persistNow();
+        state = await this.pullAndPush(state);
+      }
       await this.requests.conclude();
       // as imagens coladas aqui sobem depois do mural (o texto que as usa já está lá)
       await this.sendImages();

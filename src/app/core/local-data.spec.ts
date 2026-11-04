@@ -59,6 +59,42 @@ describe('LocalData (IndexedDB)', () => {
     expect(data.getItem(KEY)).toBe('["v2"]');
   });
 
+  it('catchUp: o que outra aba gravou e o aviso ainda não trouxe entra agora, uma vez; a gravação daqui a caminho fica', async () => {
+    const { data } = await boot();
+    await data.setItem(KEY, '["v1"]');
+    // a outra aba, com o aviso dela ainda sem chegar a esta
+    const other = new LocalData();
+    await other.load();
+    const quiet = (d: LocalData) => ((d as unknown as { channel: BroadcastChannel | null }).channel!.onmessage = null);
+    quiet(data);
+    const heard: string[] = [];
+    data.onExternalChange((k) => heard.push(k));
+    await other.setItem(KEY, '["da outra"]');
+    expect(data.getItem(KEY)).toBe('["v1"]');
+    await data.catchUp();
+    expect(data.getItem(KEY)).toBe('["da outra"]');
+    expect(heard).toEqual([KEY]);
+    await data.catchUp();
+    expect(heard).toEqual([KEY]);
+    // esta aba grava e confere antes de a gravação terminar: a dela é a mais nova e fica
+    const writing = data.setItem(KEY, '["daqui"]');
+    await data.catchUp();
+    await writing;
+    expect(data.getItem(KEY)).toBe('["daqui"]');
+    expect(heard).toEqual([KEY]);
+  });
+
+  it('settled espera as gravações daqui terminarem no IndexedDB', async () => {
+    const { data } = await boot();
+    void data.setItem(KEY, '["guardado"]');
+    void data.setItem(WISHES, '["também"]');
+    await data.settled();
+    const fresh = new LocalData();
+    await fresh.load();
+    expect(fresh.getItem(KEY)).toBe('["guardado"]');
+    expect(fresh.getItem(WISHES)).toBe('["também"]');
+  });
+
   it('a primeira abertura copia o localStorage e não apaga nada dele', async () => {
     const saved = JSON.stringify([review('raaaa1', 'Hades', '2024-01-02T00:00:00.000Z')]);
     localStorage.setItem(KEY, saved);
@@ -120,5 +156,25 @@ describe('LocalData (IndexedDB)', () => {
     spy.and.callThrough();
     const again = await boot();
     expect(again.store.get('reeee1')).toBeUndefined();
+  });
+});
+
+describe('LocalData (localStorage, sem IndexedDB)', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  it('catchUp avisa o que outra aba gravou e o aviso ainda não trouxe, uma vez; o que esta grava não', async () => {
+    const data = new LocalData();
+    expect(data.where).toBe('local');
+    const heard: string[] = [];
+    data.onExternalChange((k) => heard.push(k));
+    expect(data.getItem(KEY)).toBeNull();
+    data.setItem(WISHES, '["daqui"]');
+    // outra aba grava, sem o evento do navegador ter chegado aqui
+    localStorage.setItem(KEY, '["da outra"]');
+    await data.catchUp();
+    expect(heard).toEqual([KEY]);
+    await data.catchUp();
+    expect(heard).toEqual([KEY]);
   });
 });

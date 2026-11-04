@@ -11,6 +11,11 @@
  */
 let frozen = false;
 
+/** Quem acompanha cada chave (ver `onOtherTab`). */
+const watched = new Map<string, Set<() => void>>();
+/** O texto de cada chave acompanhada como esta aba o viu por último (gravou ou ouviu). */
+const seen = new Map<string, string | null>();
+
 export function freezeStorage(): void {
   frozen = true;
 }
@@ -47,6 +52,7 @@ export function writeText(key: string, value: string): void {
   if (frozen) return;
   try {
     localStorage.setItem(key, value);
+    if (watched.has(key)) seen.set(key, value);
   } catch {
     /* sem armazenamento: vale só até recarregar */
   }
@@ -56,7 +62,9 @@ export function writeText(key: string, value: string): void {
 export function writeJson(key: string, value: unknown): void {
   if (frozen) return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const text = JSON.stringify(value);
+    localStorage.setItem(key, text);
+    if (watched.has(key)) seen.set(key, text);
   } catch {
     /* sem armazenamento: vale só até recarregar */
   }
@@ -66,8 +74,23 @@ export function writeJson(key: string, value: unknown): void {
 export function removeKey(key: string): void {
   try {
     localStorage.removeItem(key);
+    if (watched.has(key)) seen.set(key, null);
   } catch {
     /* nada guardado */
+  }
+}
+
+/**
+ * Acompanha agora o que outra aba gravou nas chaves acompanhadas e esta ainda não ouviu: o aviso do
+ * navegador chega depois, às vezes depois de esta aba pegar a vez da sincronização (ver
+ * core/cloud-sync.ts), e ela enviaria o que tinha antes. Cada chave mudada chama quem a acompanha.
+ */
+export function catchUpOtherTabs(): void {
+  for (const [key, fns] of watched) {
+    const now = readText(key);
+    if (now === (seen.get(key) ?? null)) continue;
+    seen.set(key, now);
+    for (const fn of [...fns]) fn();
   }
 }
 
@@ -86,8 +109,25 @@ export function onOtherTab(key: string, fn: () => void): () => void {
     } catch {
       return;
     }
+    seen.set(key, readText(key));
     fn();
   };
   window.addEventListener('storage', listen);
-  return () => window.removeEventListener('storage', listen);
+  let fns = watched.get(key);
+  if (!fns) {
+    fns = new Set();
+    watched.set(key, fns);
+    // quem acompanha acabou de ler a chave: é assim que esta aba a viu
+    seen.set(key, readText(key));
+  }
+  fns.add(fn);
+  return () => {
+    window.removeEventListener('storage', listen);
+    const set = watched.get(key);
+    set?.delete(fn);
+    if (set && !set.size) {
+      watched.delete(key);
+      seen.delete(key);
+    }
+  };
 }

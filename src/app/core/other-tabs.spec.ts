@@ -4,7 +4,7 @@ import { CALENDAR_KEY, CalendarStore } from './calendar-store';
 import { KANBAN_KEY, KanbanStore } from './kanban-store';
 import { PROFILE_KEY, ProfileStore } from './profile-store';
 import { SETTINGS_KEY, Settings } from './settings';
-import { onOtherTab } from './storage';
+import { catchUpOtherTabs, onOtherTab, writeJson } from './storage';
 
 /**
  * Duas abas abertas no mesmo navegador: o que guarda o estado inteiro numa chave do localStorage (os
@@ -31,6 +31,31 @@ describe('onOtherTab', () => {
     expect(seen).toEqual(['mudou', 'mudou']);
     off();
     window.dispatchEvent(new StorageEvent('storage', { key: 'meu-mural:teste-abas', newValue: '2', storageArea: localStorage }));
+    expect(seen.length).toBe(2);
+  });
+});
+
+describe('catchUpOtherTabs', () => {
+  afterEach(() => localStorage.removeItem('meu-mural:teste-vez'));
+
+  it('chama quem acompanha a chave que outra aba gravou sem o aviso ter chegado, uma vez; o que esta grava não', () => {
+    const seen: string[] = [];
+    const off = onOtherTab('meu-mural:teste-vez', () => seen.push(localStorage.getItem('meu-mural:teste-vez') ?? '-'));
+    writeJson('meu-mural:teste-vez', { daqui: 1 });
+    catchUpOtherTabs();
+    expect(seen).toEqual([]);
+    localStorage.setItem('meu-mural:teste-vez', '{"outra":1}');
+    catchUpOtherTabs();
+    catchUpOtherTabs();
+    expect(seen).toEqual(['{"outra":1}']);
+    // o aviso, quando chega, já foi visto; e depois dele, nada de novo
+    localStorage.setItem('meu-mural:teste-vez', '{"outra":2}');
+    window.dispatchEvent(new StorageEvent('storage', { key: 'meu-mural:teste-vez', newValue: '{"outra":2}', storageArea: localStorage }));
+    catchUpOtherTabs();
+    expect(seen).toEqual(['{"outra":1}', '{"outra":2}']);
+    off();
+    localStorage.setItem('meu-mural:teste-vez', '{"outra":3}');
+    catchUpOtherTabs();
     expect(seen.length).toBe(2);
   });
 });

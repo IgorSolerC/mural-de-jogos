@@ -1,4 +1,4 @@
-import { EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationRef, EnvironmentInjector, createEnvironmentInjector, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { ACCOUNT_KEY, CloudAccount, SESSION_KEY } from './cloud-account';
 import { Cloud } from './cloud-config';
@@ -7,7 +7,7 @@ import { BASE_CONTENT_KEY } from './sync-base';
 import { KANBAN_KEY, KanbanStore } from './kanban-store';
 import { KanbanBoard, sanitizeKanban, addColumn, cardsIn, placeCard, removeCard, removeColumn, setImportance, updateColumn } from './kanban';
 import { LabelEdits } from './label-edits';
-import { LocalData } from './local-data';
+import { DataKey, LocalData } from './local-data';
 import { PROFILE_KEY, ProfileStore } from './profile-store';
 import { Review, sanitizeReview } from './review';
 import { toggleCheck } from './rich-text';
@@ -29,20 +29,41 @@ const API = 'https://api.teste';
 const TOKEN = 'A'.repeat(43);
 const ACCOUNT = { id: 'conta-igor', codigo: 'K7QF-M2XA', nome: 'Igor' };
 
+/**
+ * O armazenamento das fichas de um aparelho, visto por uma aba: as abas do mesmo aparelho dividem o
+ * `shared` (o IndexedDB), e cada uma só fica sabendo do que outra gravou quando o aviso chega a ela
+ * (`catchUp`, como o BroadcastChannel do site, ou a conferida da sincronização).
+ */
 class MemoryData {
-  private readonly map = new Map<string, string>();
   readonly where = 'local';
+  private readonly seen: Map<string, string>;
+  private readonly listeners: ((key: DataKey) => void)[] = [];
+  constructor(readonly shared = new Map<string, string>()) {
+    this.seen = new Map(shared);
+  }
   getItem(key: string): string | null {
-    return this.map.get(key) ?? null;
+    return this.shared.get(key) ?? null;
   }
   setItem(key: string, value: string): void {
-    this.map.set(key, value);
+    this.shared.set(key, value);
+    this.seen.set(key, value);
   }
-  onExternalChange(): void {
-    /* um aparelho por vez */
+  onExternalChange(listener: (key: DataKey) => void): void {
+    this.listeners.push(listener);
   }
   takeForeign(): null {
     return null;
+  }
+  async settled(): Promise<void> {
+    /* grava na hora */
+  }
+  /** O aviso das outras abas chega a esta: o que elas gravaram e esta ainda não viu. */
+  async catchUp(): Promise<void> {
+    for (const [key, value] of this.shared) {
+      if (this.seen.get(key) === value) continue;
+      this.seen.set(key, value);
+      for (const l of this.listeners) l(key as DataKey);
+    }
   }
 }
 
@@ -178,7 +199,7 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
   function device(tabOf?: Device): Device {
     if (!tabOf) for (const k of [SETTINGS_KEY, PROFILE_KEY, KANBAN_KEY]) localStorage.removeItem(k);
     const kv = tabOf?.kv ?? memoryKv();
-    const data = tabOf?.data ?? new MemoryData();
+    const data = tabOf ? new MemoryData(tabOf.data.shared) : new MemoryData();
     const injector = createEnvironmentInjector(
       [
         { provide: LocalData, useValue: data },
@@ -940,6 +961,62 @@ describe('sincronização entre aparelhos (Kanban, categorias e configurações)
           expect(d.layout('Trabalho')['Feito']).toEqual(['nt01']);
           expect(d.layout('Trabalho')['Fazendo']).toEqual(['nt02']);
         }
+      });
+
+      /**
+       * Dois Muralls abertos, um escondido (04/nov/2026, os 12 katakanas que sumiram): no escondido o
+       * navegador segura os timers e os quadros, então o que mudou na memória (os pedidos da API
+       * aplicados, o que desceu da nuvem) não era gravado. A sincronização enviava o mural com as
+       * anotações novas e soltava a vez; a aba à mostra, sem saber delas, gravava o mural dela por cima, a
+       * escondida acompanhava (perdendo as novas) e a próxima rodada as apagava da nuvem.
+       */
+      it('com uma aba escondida (sem timers nem quadros), o que ela aplicou e enviou não some pela outra', async () => {
+        const a = device();
+        a.store.add(note('nk01', 'Casa'));
+        await a.sync.syncNow();
+        const t = device(a);
+        await t.sync.syncNow();
+        await later();
+        // a partir daqui, a aba "a" está escondida: nada roda sozinho (os efeitos só com um tick)
+        jasmine.clock().install();
+        const frame = spyOn(window, 'requestAnimationFrame').and.returnValue(0);
+        try {
+          a.store.add(note('nk02', 'Casa', { updatedAt: '2026-11-04T11:50:50.000Z' }));
+          await a.sync.syncNow();
+          // o aviso das gravações da escondida chega à aba à mostra
+          await t.data.catchUp();
+          // a pessoa mexe na aba à mostra, que grava o mural inteiro dela
+          t.store.add(note('nk03', 'Casa', { updatedAt: '2026-11-04T11:51:24.000Z' }));
+          TestBed.inject(ApplicationRef).tick();
+          await a.data.catchUp();
+          await t.sync.syncNow();
+          await a.sync.syncNow();
+          await t.data.catchUp();
+        } finally {
+          frame.and.callThrough();
+          jasmine.clock().uninstall();
+        }
+        const c = device();
+        await c.sync.syncNow();
+        for (const d of [a, t, c]) expect(['nk01', 'nk02', 'nk03'].filter((id) => !d.store.get(id))).toEqual([]);
+        const there = (await cloud.read())['notas'] as { id: string }[];
+        expect(there.map((n) => n.id).sort()).toEqual(['nk01', 'nk02', 'nk03']);
+      });
+
+      it('a aba que não ouviu a outra ainda acompanha antes de sincronizar (não envia o mural de antes)', async () => {
+        const a = device();
+        a.store.add(note('nk01', 'Casa'));
+        await a.sync.syncNow();
+        const t = device(a);
+        await t.sync.syncNow();
+        await later();
+        a.store.add(note('nk02', 'Casa'));
+        await a.sync.syncNow();
+        const puts = cloud.puts;
+        // o aviso de "a" ainda não chegou a "t" quando ela pega a vez da sincronização
+        await t.sync.syncNow();
+        expect(t.store.get('nk02')).toBeDefined();
+        expect(cloud.puts).toBe(puts);
       });
     });
   });
