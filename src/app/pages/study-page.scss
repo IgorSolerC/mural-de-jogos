@@ -474,6 +474,16 @@
   position: relative;
 }
 
+/* a carta ainda não montada (longe da tela): a marca tracejada das vagas do mural, do tamanho dela e torta
+   como ela (o giro é do botão); vazia, não custa nada ao navegador */
+.carta-vaga {
+  display: block;
+  box-sizing: border-box;
+  aspect-ratio: 5 / 7;
+  border: 2px dashed rgb(241 241 236 / 0.16);
+  border-radius: 6px;
+}
+
 /* os ajustes da carta: a etiqueta de tinta das fichas do Kanban (ui/kanban-note.scss), no hover */
 .acoes {
   position: absolute;

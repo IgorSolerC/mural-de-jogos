@@ -280,6 +280,9 @@
       @for (v of view(); track v.col.id) {
         <section
           class="coluna"
+          appPerto=".quadro"
+          appPertoLados
+          #colunaPerto="perto"
           [attr.data-coluna]="v.col.id"
           [class.finaliza]="v.col.finishes"
           [class.alvo]="drag()?.over === v.col.id"
@@ -355,6 +358,10 @@
                 @for (it of v.items; track it.card.note) {
                   <li
                     class="lugar"
+                    appPerto=".rolo"
+                    #perto="perto"
+                    [appPertoMede]="it.dragged ? null : fichaKind()"
+                    [appPertoId]="it.card.note"
                     [class.vaga]="it.dragged"
                     [style.--vaga-h.px]="it.dragged ? drag()?.height : null"
                     [attr.data-nota]="it.card.note"
@@ -363,15 +370,30 @@
                     "
                     (keydown)="onKey($event, it.card.note, v.col.id)"
                   >
-                    <app-kanban-note
-                      [review]="it.note"
-                      [card]="it.card"
-                      [dense]="dense()"
-                      [next]="v.next"
-                      (opened)="read($event)"
-                      (details)="cardSheet.set(it.card.note)"
-                      (advanced)="advance(it.card.note, v.col.id)"
-                    />
+                    <!-- só o que está perto da tela é montado, na coluna e no quadro (ver ui/near-screen.ts); a
+                         que está sendo levada, a que acabou de chegar e as marcadas ficam sempre -->
+                    @if (
+                      it.dragged ||
+                      kept().has(it.card.note) ||
+                      (perto.near() && colunaPerto.near())
+                    ) {
+                      <app-kanban-note
+                        [review]="it.note"
+                        [card]="it.card"
+                        [dense]="dense()"
+                        [next]="v.next"
+                        (opened)="read($event)"
+                        (details)="cardSheet.set(it.card.note)"
+                        (advanced)="advance(it.card.note, v.col.id)"
+                      />
+                    } @else {
+                      <div
+                        class="ficha-vaga"
+                        data-vaga
+                        aria-hidden="true"
+                        [style.height.px]="fichaHeight(it.card.note)"
+                      ></div>
+                    }
                   </li>
                 } @empty {
                   <li class="vazia" aria-hidden="true">

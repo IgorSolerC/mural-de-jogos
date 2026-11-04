@@ -16,6 +16,7 @@ import { WallView } from '../core/wall-view';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanProps } from '../ui/kanban-props';
+import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
 import { KanbanPage } from './kanban-page';
 
 /** A página do Kanban: um quadro por categoria, as colunas com as anotações, mover pelo teclado, o filtro das tags e as folhas. */
@@ -85,6 +86,8 @@ describe('página do Kanban', () => {
 
   beforeEach(async () => {
     localStorage.clear();
+    // a janela dos testes é baixa: tudo montado, menos no bloco que testa justamente isso (o último)
+    setEverythingNear(true);
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -110,6 +113,7 @@ describe('página do Kanban', () => {
   afterEach(() => {
     host.remove();
     localStorage.clear();
+    setEverythingNear(false);
   });
 
   it('sem nenhuma categoria: a cartolina diz que cada categoria tem o seu quadro, sem aba nenhuma', async () => {
@@ -1651,6 +1655,127 @@ describe('página do Kanban', () => {
       const ids = cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note);
       expect(ids.indexOf('nlogin01')).toBe(10);
       expect(namesIn('feito')).toContain('nlogin01');
+    });
+  });
+  describe('só as fichas perto da tela ficam montadas', () => {
+    /** Espera até valer (o observador e a fila respondem em quadros). */
+    async function until(done: () => boolean, what: string): Promise<void> {
+      for (let i = 0; i < 400 && !done(); i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        await settle();
+      }
+      expect(done()).withContext(what).toBeTrue();
+    }
+    const mounted = (id: string) => !!host.querySelector(`.lugar[data-nota="${id}"] app-kanban-note`);
+    /** Doze colunas, a primeira com 60 anotações e as outras com uma cada. */
+    function wide(): KanbanBoard {
+      const columns = Array.from({ length: 12 }, (_, i) => ({ id: `col${i}`, name: `Coluna ${i}`, icon: 'circulo' as const, color: 'cinza' as const, finishes: false }));
+      const longOnes = Array.from({ length: 60 }, (_, i) => ({ note: `nlong${String(i).padStart(3, '0')}`, column: 'col0', importance: null }));
+      const others = columns.slice(1).map((c, i) => ({ note: `nsoma${String(i).padStart(3, '0')}`, column: c.id, importance: null }));
+      return { id: TRAB, category: 'trabalho', at: T0, columns, cards: [...longOnes, ...others] };
+    }
+    async function openWide(): Promise<void> {
+      const b = wide();
+      store.reviews.set(b.cards.map((c) => note(c.note, `Título ${c.note}`, { category: 'Trabalho', text: 'Um texto.' })));
+      kanban.state.set(state(b));
+      await go(TRAB_URL);
+      host.querySelector('.quadro')!.scrollIntoView({ block: 'start' });
+    }
+    /** Traz todas as da coluna comprida (o "Mostrar mais" até o fim). */
+    async function showAll(): Promise<void> {
+      for (let i = 0; i < 12 && column('col0').querySelector('.mais'); i++) {
+        column('col0').querySelector<HTMLElement>('.mais')!.click();
+        await settle();
+      }
+      // (o último Mostrar mais leva o foco para a primeira que chegou: a coluna volta para o alto)
+      (document.activeElement as HTMLElement | null)?.blur();
+      await new Promise((r) => requestAnimationFrame(r));
+      column('col0').querySelector<HTMLElement>('.rolo')!.scrollTop = 0;
+    }
+
+    const tuning = { ...NEAR_TUNING };
+    beforeEach(() => {
+      setEverythingNear(false);
+      Object.assign(NEAR_TUNING, { leaveAfter: 60, sweepEvery: 20 });
+    });
+    afterEach(() => Object.assign(NEAR_TUNING, tuning));
+
+    it('na coluna comprida, o que passa da folga fica vaga; rolando até lá, vira ficha, e a do alto sai', async () => {
+      await openWide();
+      await showAll();
+      expect(namesIn('col0').length).withContext('todas com o lugar delas, para arrastar e contar').toBe(60);
+      await until(() => mounted('nlong001'), 'a do alto');
+      await until(() => !mounted('nlong059'), 'longe, no pé');
+      expect(column('col0').querySelectorAll('.ficha-vaga').length).toBeGreaterThan(0);
+      const rolo = column('col0').querySelector<HTMLElement>('.rolo')!;
+      rolo.scrollTop = rolo.scrollHeight;
+      await until(() => mounted('nlong059'), 'o pé, rolando até lá');
+      // a do alto sai depois de um tempo longe (ver NEAR_TUNING.leaveAfter)
+      await until(() => !mounted('nlong000'), 'a do alto saiu');
+    });
+
+    it('a coluna longe, de lado, fica só com vagas; o quadro rolando até ela traz as fichas', async () => {
+      await openWide();
+      await until(() => mounted('nlong000'), 'a primeira coluna');
+      expect(mounted('nsoma010')).withContext('a última coluna').toBeFalse();
+      const quadro = host.querySelector<HTMLElement>('.quadro')!;
+      quadro.scrollLeft = quadro.scrollWidth;
+      await until(() => mounted('nsoma010'), 'o quadro chegou nela');
+    });
+
+    it('a vaga fica com a altura medida da ficha, para a coluna não mudar de tamanho quando ela volta', async () => {
+      await openWide();
+      await showAll();
+      const li = () => host.querySelector<HTMLElement>('.lugar[data-nota="nlong000"]')!;
+      await until(() => mounted('nlong000'), 'montada');
+      const rolo = column('col0').querySelector<HTMLElement>('.rolo')!;
+      rolo.scrollTop = rolo.scrollHeight;
+      // a altura dela até o último quadro montada (as letras chegando também a mudam)
+      let height = 0;
+      await until(() => {
+        if (mounted('nlong000')) height = parseFloat(getComputedStyle(li()).height);
+        return !mounted('nlong000');
+      }, 'voltou a ser vaga');
+      expect(Math.abs(parseFloat(getComputedStyle(li()).height) - height)).toBeLessThanOrEqual(0.5);
+    });
+
+    it('a ficha que acabou de chegar vem montada, mesmo longe da tela (a rolagem até ela ainda vai acontecer)', async () => {
+      await openWide();
+      await showAll();
+      await until(() => mounted('nlong001'), 'a do alto');
+      await until(() => !mounted('nlong059'), 'longe, no pé');
+      TestBed.inject(Desk).land('nlong059');
+      await settle();
+      expect(mounted('nlong059')).toBeTrue();
+    });
+
+    it('as marcadas ficam montadas, mesmo longe: as de baixo do maço que segue o ponteiro são cópias delas', async () => {
+      await openWide();
+      await showAll();
+      const rolo = column('col0').querySelector<HTMLElement>('.rolo')!;
+      await until(() => mounted('nlong001'), 'a do alto');
+      host.querySelector<HTMLElement>('.lugar[data-nota="nlong001"] .hit')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));
+      await settle();
+      expect(host.querySelector('.lugar[data-nota="nlong001"]')!.hasAttribute('data-marcada')).toBeTrue();
+      rolo.scrollTop = rolo.scrollHeight;
+      await until(() => !mounted('nlong000'), 'a vizinha saiu');
+      expect(mounted('nlong001')).toBeTrue();
+    });
+
+    it('arrastando, a ficha que vai fica no quadro e o lugar segue funcionando', async () => {
+      await openWide();
+      await until(() => mounted('nlong000'), 'a do alto');
+      const grab = host.querySelector<HTMLElement>('.lugar[data-nota="nlong000"] .hit')!;
+      const r = grab.getBoundingClientRect();
+      const at = (x: number, y: number) => ({ bubbles: true, cancelable: true, button: 0, isPrimary: true, pointerId: 1, pointerType: 'mouse', clientX: x, clientY: y });
+      grab.dispatchEvent(new PointerEvent('pointerdown', at(r.left + 20, r.top + 10)));
+      window.dispatchEvent(new PointerEvent('pointermove', at(r.left + 40, r.top + 30)));
+      await settle();
+      expect(host.querySelector('.kanban-fantasma')).withContext('a cópia que segue o ponteiro').not.toBeNull();
+      expect(host.querySelector('.lugar.vaga app-kanban-note')).withContext('a que foi levada segue montada').not.toBeNull();
+      expect(host.querySelector('.lugar.vaga .ficha-vaga')).toBeNull();
+      window.dispatchEvent(new PointerEvent('pointerup', at(r.left + 40, r.top + 30)));
+      await settle();
     });
   });
   describe('status', () => {

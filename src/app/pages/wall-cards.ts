@@ -18,6 +18,7 @@ import { Review, ScoreKey } from '../core/review';
 import { Settings } from '../core/settings';
 import { pinningFor } from '../core/wall-physics';
 import { onWallSettle } from '../core/wall-settle';
+import { HeightMemo } from '../ui/height-memo';
 import { budget, perFrame, rest, setForcedSlow, slow, spend, struggling, tick } from '../ui/pace';
 import { ASLEEP, wakePaper } from '../ui/paper-layer';
 import { DateFrom, ReviewCard } from '../ui/review-card';
@@ -133,49 +134,16 @@ export const WALL_TUNING = {
 /** A altura de uma ficha ainda não montada, até a primeira do mesmo tipo ser medida. */
 const GUESS: Record<Shape, number> = { completa: 320, inteira: 460, simples: 132, geral: 98, capas: 236 };
 
-/**
- * As alturas já medidas nesta visita (tipo de ficha + id), para a vaga da ficha que voltou a ser vaga,
- * ou do mural aberto de novo, ter a altura certa: a página não muda de tamanho quando ela é montada
- * outra vez. Valem para a largura de janela em que foram medidas.
- */
-const seen = new Map<string, number>();
-const mean = new Map<Shape, { sum: number; n: number }>();
-let seenAt = 0;
-
-function fresh(): void {
-  const w = typeof innerWidth === 'number' ? innerWidth : 0;
-  if (w === seenAt) return;
-  seenAt = w;
-  seen.clear();
-  mean.clear();
-}
-
-function remember(shape: Shape, id: string, height: number): void {
-  if (height <= 0) return;
-  fresh();
-  const key = `${shape}|${id}`;
-  const before = seen.get(key);
-  seen.set(key, height);
-  const m = mean.get(shape) ?? { sum: 0, n: 0 };
-  m.sum += height - (before ?? 0);
-  if (before === undefined) m.n++;
-  mean.set(shape, m);
-}
+const heights = new HeightMemo<Shape>();
 
 /** A altura da vaga: a medida da própria ficha, a média das do mesmo tipo ou, sem nenhuma, um palpite. */
 function heightFor(shape: Shape, id: string): number {
-  fresh();
-  const known = seen.get(`${shape}|${id}`);
-  if (known) return known;
-  const m = mean.get(shape);
-  return m?.n ? Math.round(m.sum / m.n) : GUESS[shape];
+  return heights.height(shape, id, GUESS[shape]);
 }
 
 /** Só para os testes: esquece as alturas medidas. */
 export function forgetHeights(): void {
-  seen.clear();
-  mean.clear();
-  seenAt = 0;
+  heights.forget();
 }
 
 /**
@@ -597,7 +565,7 @@ export class WallCardPool implements OnDestroy {
       if (body) out.push({ slot, body: heightOf(body), height: heightOf(slot.el) });
     }
     for (const { slot, body, height } of out) {
-      remember(shape, slot.id, height);
+      heights.remember(shape, slot.id, height);
       this.sleep(slot, body);
       slot.napping = true;
       this.napped = true;
@@ -816,13 +784,13 @@ export class WallCardPool implements OnDestroy {
     this.measureFrame = requestAnimationFrame(() => {
       this.measureFrame = 0;
       const shape = this.shape;
-      const blind = !mean.get(shape)?.n;
+      const blind = !heights.measured(shape);
       for (const slot of this.slots.values()) {
-        if (slot.ref && !slot.asleep && slot.box.isConnected && !seen.has(`${shape}|${slot.id}`)) remember(shape, slot.id, heightOf(slot.el));
+        if (slot.ref && !slot.asleep && slot.box.isConnected && !heights.knows(shape, slot.id)) heights.remember(shape, slot.id, heightOf(slot.el));
       }
       // as primeiras medidas do tipo: as vagas trocam o palpite pela média (só desta vez, para a
       // página não ficar mudando de tamanho a cada ficha medida)
-      if (blind && mean.get(shape)?.n) {
+      if (blind && heights.measured(shape)) {
         for (const slot of this.slots.values()) if (!slot.ref) slot.el.style.height = `${heightFor(shape, slot.id)}px`;
       }
     });
@@ -863,7 +831,7 @@ export class WallCardPool implements OnDestroy {
       if (body) sleepy.push({ slot, body: heightOf(body), height: heightOf(slot.el) });
     }
     for (const { slot, body, height } of sleepy) {
-      remember(shape, slot.id, height);
+      heights.remember(shape, slot.id, height);
       this.sleep(slot, body);
     }
     const max = this.settings.fewCards() ? WALL_TUNING.maxLiveLite : WALL_TUNING.maxLive;

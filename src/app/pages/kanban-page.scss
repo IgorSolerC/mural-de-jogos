@@ -767,6 +767,14 @@ $folga-sombra: 30px;
   }
 }
 
+/* a ficha ainda não montada (longe da tela): o mesmo tracejado, bem mais ralo, para não parecer um lugar
+   onde soltar; da altura da ficha, e vazia, não custa nada ao navegador */
+.ficha-vaga {
+  box-sizing: border-box;
+  border: 2px dashed rgb(21 21 21 / 0.16);
+  border-radius: 3px;
+}
+
 /* marcada para copiar (Ctrl+clique, ver ui/note-selection.ts): o mesmo do mural, na tira de papel
    pardo. O tracejado é a caneta da vaga, mais forte, afastado da ficha; no canto, o adesivo do Lado a
    lado com a ordem em que ela entra na cópia, de beirada clara para descolar do pardo */

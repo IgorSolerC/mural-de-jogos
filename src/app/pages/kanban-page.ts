@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
@@ -25,6 +25,7 @@ import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
+import { NearPool, NearScreen } from '../ui/near-screen';
 import { MuralConfig } from '../ui/mural-config';
 import { NoteSelection } from '../ui/note-selection';
 import { HOLD_MS, NoteMenu, NoteMenuBoard, NoteMenuTrigger } from '../ui/note-menu';
@@ -64,6 +65,11 @@ const COLUMN_EDGE = 56;
 /** Quantas anotações uma coluna mostra de saída, e quantas a mais a cada "Mostrar mais". */
 export const FIRST_SHOWN = 10;
 export const SHOW_STEP = 5;
+/** A altura da vaga de uma ficha e de uma tira, até a primeira ser medida. */
+const FICHA_GUESS = 132;
+const TIRA_GUESS = 40;
+/** Por quanto tempo a ficha que chegou fica montada sem depender da folga em volta da tela (ver `keep`). */
+const KEPT_FOR = 1500;
 
 /** Uma anotação numa coluna, como aparece: a ficha, o lugar no quadro e se é a que está sendo arrastada. */
 interface Item {
@@ -144,7 +150,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -315,6 +321,10 @@ export class KanbanPage {
    * dela traz mais `SHOW_STEP`. Vale nesta visita ao quadro.
    */
   private readonly shown = signal<ReadonlyMap<string, number>>(new Map());
+  private readonly nearPool = inject(NearPool);
+  /** As que acabaram de chegar (ver `keep`). */
+  private readonly arriving = signal<ReadonlySet<string>>(new Set());
+  private arrivingTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Os quadros vistos só pelos títulos (ver `setDense`). */
   private readonly denseBoards = signal<readonly string[]>(readDense());
@@ -550,7 +560,33 @@ export class KanbanPage {
     const first = v.list[v.items.filter((it) => !it.dragged).length]?.note;
     const last = v.hidden <= SHOW_STEP;
     this.shown.update((m) => new Map(m).set(column, (m.get(column) ?? FIRST_SHOWN) + SHOW_STEP));
-    if (last && first) focusAfterRender(this.injector, () => this.host.querySelector<HTMLElement>(`.lugar[data-nota="${first}"] .hit`));
+    if (last && first) {
+      this.keep(first);
+      focusAfterRender(this.injector, () => this.host.querySelector<HTMLElement>(`.lugar[data-nota="${first}"] .hit`));
+    }
+  }
+
+  /**
+   * A ficha que vai receber o foco, o marca-texto ou a queda agora: montada já, mesmo longe da tela (a
+   * rolagem até ela ainda vai acontecer). Depois de um tempo, a folga em volta da tela volta a decidir.
+   */
+  private keep(note: string): void {
+    this.arriving.update((s) => new Set(s).add(note));
+    clearTimeout(this.arrivingTimer);
+    this.arrivingTimer = setTimeout(() => this.arriving.set(new Set()), KEPT_FOR);
+  }
+
+  /**
+   * As fichas sempre montadas, onde quer que estejam: as que acabaram de chegar e as marcadas (as de baixo
+   * do maço que segue o ponteiro são cópias delas, ver `pile`).
+   */
+  protected readonly kept = computed<ReadonlySet<string>>(() => new Set([...this.arriving(), ...this.selection.ids()]));
+
+  /** O tipo da medida da ficha (para a vaga ter a altura dela), na vista de agora. */
+  protected readonly fichaKind = computed(() => (this.dense() ? 'kanban-tira' : 'kanban-ficha'));
+
+  protected fichaHeight(note: string): number {
+    return this.nearPool.height(this.fichaKind(), note, this.dense() ? TIRA_GUESS : FICHA_GUESS);
   }
 
   /**
@@ -558,6 +594,7 @@ export class KanbanPage {
    * que estão à mostra): a coluna passa a mostrar até ela, de cinco em cinco como o botão.
    */
   private reveal(note: string): void {
+    this.keep(note);
     const b = this.board();
     const card = b?.cards.find((c) => c.note === note);
     const col = card ? b!.columns.find((c) => c.id === card.column) : undefined;
@@ -712,6 +749,13 @@ export class KanbanPage {
       if (sheet) ro.observe(sheet);
       onCleanup(() => ro.disconnect());
     });
+    // o quadro mudou (a ordem, o filtro, a vista, uma ficha que foi para outra coluna): o que está na tela
+    // é montado antes da pintura, sem passar por uma tela de vagas (ver ui/near-screen.ts)
+    afterRenderEffect(() => {
+      this.view();
+      this.dense();
+      this.nearPool.settle();
+    });
     // a anotação nova que caiu numa coluna (a "Nova nota" do pé dela) aparece, mesmo depois das primeiras
     effect(() => {
       const id = this.desk.landingId();
@@ -728,6 +772,7 @@ export class KanbanPage {
       cancelAnimationFrame(this.shadeFrame);
     });
     destroy.onDestroy(() => {
+      clearTimeout(this.arrivingTimer);
       this.kanban.openBoard.set(null);
       this.endDrag();
       this.stopPan?.();

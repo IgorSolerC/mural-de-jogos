@@ -10,6 +10,7 @@ import { STUDY_SIZE_KEY, studyGroupId } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { WallView } from '../core/wall-view';
 import { Confirm } from '../ui/confirm';
+import { setEverythingNear } from '../ui/near-screen';
 import { StudyPage } from './study-page';
 
 /** A página dos Estudos: a primeira vez, as abas, as pilhas de Tudo, a parede do baralho e a folha. */
@@ -51,6 +52,8 @@ describe('página dos Estudos', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    // a janela dos testes é baixa: tudo montado, menos no bloco que testa justamente isso
+    setEverythingNear(true);
     TestBed.configureTestingModule({
       providers: [
         provideZonelessChangeDetection(),
@@ -73,6 +76,7 @@ describe('página dos Estudos', () => {
     sheet()?.close();
     host.remove();
     localStorage.clear();
+    setEverythingNear(false);
   });
 
   /** Kanjis (sol, lua e fogo; o sol já respondido) e Química (água), e um vazio. */
@@ -242,6 +246,99 @@ describe('página dos Estudos', () => {
     // mais cartas, mais grossa a pilha
     expect(pilhas[0].querySelectorAll('.camada').length).toBe(1);
     expect(pilhas[1].querySelectorAll('.camada').length).toBe(0);
+  });
+
+  describe('só as cartas perto da tela ficam montadas', () => {
+    let deck: string;
+    /** Espera até valer (o observador e a fila respondem em quadros). */
+    async function until(done: () => boolean, what: string): Promise<void> {
+      for (let i = 0; i < 400 && !done(); i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        await settle();
+      }
+      expect(done()).withContext(what).toBeTrue();
+    }
+    const li = (i: number) => $$('.carta-li')[i];
+    const isCard = (i: number) => !!li(i).querySelector('app-study-card');
+
+    beforeEach(async () => {
+      setEverythingNear(false);
+      const ids = Array.from({ length: 300 }, (_, i) => `nmuitas${String(i).padStart(3, '0')}`);
+      TestBed.inject(ReviewStore).reviews.set(ids.map((id, i) => note(id, `Carta ${i}`)));
+      deck = study.addDeck('Muitas', 'azul');
+      for (const id of ids) study.addCard(id, [deck]);
+      await go(deckUrl(deck));
+      $('.cartas')!.scrollIntoView({ block: 'start' });
+    });
+    afterEach(() => scrollTo(0, 0));
+
+    it('monta as de perto; as de longe são vagas, com o botão e o nome no lugar (o Tab e o leitor de tela passam por todas)', async () => {
+      await until(() => isCard(0), 'a primeira');
+      expect($$('.carta-li').length).toBe(300);
+      expect($$('.carta-btn').length).withContext('todos os botões').toBe(300);
+      expect(isCard(299)).withContext('a última, longe').toBeFalse();
+      expect(li(299).querySelector('.carta-vaga')).not.toBeNull();
+      expect(li(299).querySelector('.carta-btn')!.getAttribute('aria-label')).toContain('Carta');
+      // os ajustes só chegam com a carta
+      expect(li(299).querySelector('.mexer')).toBeNull();
+    });
+
+    it('a vaga tem o tamanho da carta, nos dois tamanhos: a página não muda de altura quando ela chega', async () => {
+      await until(() => isCard(0), 'a primeira');
+      const size = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        return { w: Math.round((el as HTMLElement).offsetWidth), h: Math.round(r.height), raw: r };
+      };
+      const box = (i: number) => li(i).getBoundingClientRect();
+      expect(Math.abs(box(299).height - box(0).height)).withContext('grandes').toBeLessThanOrEqual(1);
+      expect(size(li(299)).w).toBe(size(li(0)).w);
+      $$('[aria-label^="Cartas pequenas"]')[0].click();
+      await settle();
+      await until(() => isCard(0), 'a primeira, pequena');
+      expect(Math.abs(box(299).height - box(0).height)).withContext('pequenas').toBeLessThanOrEqual(1);
+    });
+
+    it('rolando até lá, a vaga vira carta e a que ficou para trás sai', async () => {
+      await until(() => isCard(0), 'a primeira');
+      li(299).scrollIntoView({ block: 'center' });
+      await until(() => isCard(299), 'a última');
+      await until(() => !isCard(0), 'a primeira saiu');
+      // o foco do teclado numa carta longe (o Tab chega nela): o botão está lá
+      expect(li(0).querySelector('.carta-btn')).not.toBeNull();
+    });
+
+    it('outra ordem: as cartas que chegam à tela já vêm montadas, sem passar por uma tela de vagas', async () => {
+      await until(() => isCard(0), 'a primeira');
+      const select = $<HTMLSelectElement>('select[aria-label="Ordenar por"]')!;
+      select.value = 'nome';
+      select.dispatchEvent(new Event('change'));
+      await settle();
+      expect(isCard(0)).toBeTrue();
+      select.value = 'entrada';
+      select.dispatchEvent(new Event('change'));
+      await settle();
+      expect(isCard(0)).toBeTrue();
+    });
+
+    it('filtrando, a carta que estava longe e sobe para a tela já vem montada', async () => {
+      await until(() => isCard(0), 'a primeira');
+      const input = $<HTMLInputElement>('#busca-cartas')!;
+      input.value = 'Carta 299';
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      expect($$('.carta-li').length).toBe(1);
+      $('.cartas')!.scrollIntoView({ block: 'start' });
+      await settle();
+      await until(() => isCard(0), 'a que sobrou');
+    });
+
+    it('a vaga também abre a anotação (tocar nela, antes de a carta chegar, não se perde)', async () => {
+      await until(() => isCard(0), 'a primeira');
+      const desk = TestBed.inject(Desk);
+      const opened = spyOn(desk, 'openReview');
+      li(299).querySelector<HTMLElement>('.carta-btn')!.click();
+      expect(opened).toHaveBeenCalled();
+    });
   });
 
   describe('o tamanho das cartas', () => {

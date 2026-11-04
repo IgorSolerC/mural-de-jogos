@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -21,6 +21,7 @@ import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
+import { NearPool, NearScreen } from '../ui/near-screen';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { StudyCard } from '../ui/study-card';
@@ -122,7 +123,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrl: './study-page.scss',
@@ -398,6 +399,14 @@ export class StudyPage {
   });
 
   constructor() {
+    // outra ordem, outro filtro, outro tamanho: o que está na tela é montado antes da pintura, sem passar
+    // por uma tela de vagas (ver ui/near-screen.ts)
+    const nearPool = inject(NearPool);
+    afterRenderEffect(() => {
+      this.cards();
+      this.cardSize();
+      nearPool.settle();
+    });
     // o "+ Novo baralho" abre nele com a folha aberta: a página é outra depois da navegação (são duas rotas)
     const asked = (this.router.getCurrentNavigation()?.extras.state as { folha?: string } | undefined)?.folha;
     if (asked) this.sheet.set({ id: asked, fresh: true });

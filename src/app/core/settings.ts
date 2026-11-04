@@ -81,7 +81,7 @@ interface Stored {
   plainPencil: boolean;
   /** Fichas paradas: não levantam com o mouse, e os brilhos ficam parados (pages/wall-cards.ts e `.fichas-paradas`). */
   stillCards: boolean;
-  /** Menos fichas prontas: menos fichas montadas em volta da tela, uma de cada vez (pages/wall-cards.ts). */
+  /** Menos fichas prontas: menos fichas montadas em volta da tela, uma de cada vez (pages/wall-cards.ts e, no Kanban e nos Estudos, ui/near-screen.ts). */
   fewCards: boolean;
   /**
    * Perguntar antes de salvar uma anotação sem categoria (ligado por padrão). O "Nunca mais me
