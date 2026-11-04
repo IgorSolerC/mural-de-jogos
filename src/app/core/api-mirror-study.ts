@@ -41,9 +41,11 @@ export function cartaV1(card: StudyCard, note: Review, decks: readonly Deck[]): 
     nota_titulo: note.game.name,
     verso: note.text,
     grupo: note.category?.trim() || null,
-    baralhos: [...card.decks],
+    // só os que existem (a carta guardada, ou a de um baralho apagado noutro aparelho, vai com a lista vazia)
+    baralhos: card.decks.filter((id) => decks.some((d) => d.id === id)),
     no_mural: card.wall ?? null,
-    fica_no_mural: studyOnWall(card, decks) ?? false,
+    // sem baralho que valha (guardada fora dos baralhos), os Estudos não votam: a anotação fica no mural
+    fica_no_mural: studyOnWall(card, decks) ?? true,
     nivel: levelOf(card.srs),
     estado: card.srs.state,
     volta_em: fresh ? null : card.srs.due,
@@ -96,6 +98,8 @@ export function baralhoV1(deck: Deck, st: StudyState, live: (note: string) => bo
   return {
     id: deck.id,
     nome: deck.name,
+    // o grupo das anotações do baralho (a chave limitada a grupos só vê os baralhos dos dela)
+    grupo: deck.group ?? null,
     cor: deck.color,
     icone: deck.icon,
     novas_por_dia: deck.newPerDay,
@@ -110,7 +114,12 @@ export function baralhoV1(deck: Deck, st: StudyState, live: (note: string) => bo
 }
 
 /** A carta aparece (no espelho, nas contagens): a anotação existe e algum baralho dela também. */
-const shown = (st: StudyState, c: StudyCard, live: (note: string) => boolean) => live(c.note) && c.decks.some((d) => st.decks.some((x) => x.id === d));
+/**
+ * A carta vai ao espelho: a de uma anotação sua que existe. A que está guardada fora dos baralhos (a anotação
+ * mudou de grupo, ou o baralho dela foi apagado noutro aparelho) vai com os baralhos vazios: a AI vê que ela
+ * existe, com o progresso, e que não está em fila nenhuma.
+ */
+const shown = (_st: StudyState, c: StudyCard, live: (note: string) => boolean) => live(c.note);
 
 export function contextoEstudosV1(st: StudyState, live: (note: string) => boolean, now: Date, byNote?: ReadonlyMap<string, StudyCard>): ContextoEstudosV1 {
   return {
@@ -134,7 +143,6 @@ export function studyMirror(st: StudyState, notes: ReadonlyMap<string, Review>, 
   const live = (note: string) => notes.has(note);
   const out: StudyMirrorItem[] = [];
   for (const c of st.cards) {
-    // a carta sem nenhum baralho que exista (o baralho apagado noutro aparelho) não aparece em lugar nenhum
     if (shown(st, c, live)) out.push({ tipo: 'carta', id: c.note, dados: cartaV1(c, notes.get(c.note)!, st.decks) });
   }
   // as cartas pelo id, uma vez só para todas as filas (a de cada baralho e a de todos, hoje e amanhã)

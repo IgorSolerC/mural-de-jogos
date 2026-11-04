@@ -88,7 +88,11 @@ export interface CartaV1 {
   verso: string;
   /** O grupo da anotação. */
   grupo: string | null;
-  /** Os ids dos baralhos, na ordem em que a carta entrou neles. */
+  /**
+   * Os ids dos baralhos, na ordem em que a carta entrou neles. Só os do grupo da anotação valem (cada
+   * baralho é de um grupo): vazio, a carta está guardada fora dos baralhos, com o progresso (a anotação mudou
+   * de grupo; volta a eles se voltar ao grupo).
+   */
   baralhos: string[];
   /** A escolha da carta: true aparece também no mural, false só nos Estudos, null segue os baralhos. */
   no_mural: boolean | null;
@@ -112,6 +116,11 @@ export interface CartaV1 {
 export interface BaralhoV1 {
   id: string;
   nome: string;
+  /**
+   * O grupo das anotações do baralho: só as cartas de anotações deste grupo entram nele. null: um baralho de
+   * antes dos grupos, que o Murall ainda vai pôr num grupo ao abrir.
+   */
+  grupo: string | null;
   cor: CorV1;
   /** O desenho da cartela escolhido na tela; null sem ele. Só se escolhe no app. */
   icone: string | null;

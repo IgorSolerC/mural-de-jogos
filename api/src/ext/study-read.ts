@@ -19,6 +19,7 @@ import type { CriarNotaV1 } from '../../../contrato/api-v1/operacoes';
 import {
   OPS_DOS_ESTUDOS,
   acharBaralho,
+  baralhosDeNome,
   baralhoDoPedido,
   cartaDoPedido,
   conferirOpEstudo,
@@ -44,7 +45,8 @@ import { OFFSET_MAX, groupLimit, intQuery, mirrorState } from './routes';
  * pessoa. Tudo do espelho: a fila do dia vem pronta do app (o FSRS e os limites do dia são conta dele);
  * daqui só se separa o que é para agora das cartas nos passos que voltam mais tarde. Os pedidos abertos
  * vêm por cima (8.5): o baralho criado aparece, a carta mudada aparece mudada, a respondida sai da fila.
- * A chave limitada a alguns grupos só vê as cartas das notas deles.
+ * Cada baralho é de um grupo das anotações (PLANO-ESTUDOS-GRUPOS.md): a chave limitada a alguns grupos só
+ * vê as cartas das notas deles e os baralhos deles.
  */
 
 /** As permissões dos Estudos: qualquer uma deixa ver os baralhos no contexto (quem põe cartas precisa dos nomes). */
@@ -102,15 +104,37 @@ export async function studyNow(deps: Deps, userId: string): Promise<StudyNow> {
 /** O baralho vai ser apagado por um pedido aberto (não conta para nome repetido nem para o limite). */
 export const leaving = (d: ComPedidos<BaralhoV1>) => !!d.pedidos?.some((p) => p.op === 'baralho.apagar');
 
-/** Os baralhos pedidos (nomes ou ids) trocados pelos ids, ou 422 com os que existem. `campo` vai na mensagem. */
-export function resolveDecks(decks: readonly BaralhoV1[], refs: readonly string[], campo = 'baralhos'): string[] {
+/** Os baralhos que a chave alcança: a limitada a alguns grupos só vê os dos grupos dela. */
+export function decksInKey<T extends Pick<BaralhoV1, 'grupo'>>(me: KeyCaller, decks: readonly T[]): T[] {
+  return me.key.groups?.length ? decks.filter((d) => inKeyGroups(me, d.grupo)) : [...decks];
+}
+
+/** O nome do baralho com o grupo, para as mensagens: "Kana (Estudo Japones)". */
+export const deckLabel = (d: Pick<BaralhoV1, 'nome' | 'grupo'>) => (d.grupo ? `${d.nome} (${d.grupo})` : d.nome);
+
+/**
+ * O baralho pelo nome ou pelo id. O mesmo nome em mais de um grupo vale o do `grupo` (o da anotação); sem
+ * ele para desempatar, 422 pedindo o id.
+ */
+export function pickDeck<T extends BaralhoV1>(decks: readonly T[], ref: string, grupo?: string | null, campo = 'baralho'): T | null {
+  const d = acharBaralho(decks, ref, grupo);
+  if (!d || d.id === ref) return d;
+  const named = baralhosDeNome(decks, ref);
+  if (named.length > 1 && !(grupo && d.grupo && dobra(d.grupo) === dobra(grupo))) {
+    throw new HttpError(422, 'baralho-ambiguo', `Há mais de um baralho "${ref.slice(0, 64)}" (campo ${campo}): ${named.map((x) => `${deckLabel(x)}, id ${x.id}`).join('; ')}. Use o id.`);
+  }
+  return d;
+}
+
+/** Os baralhos pedidos (nomes ou ids) trocados pelos ids, ou 422 com os que existem. `campo` vai na mensagem; `grupo` desempata o nome repetido. */
+export function resolveDecks(decks: readonly BaralhoV1[], refs: readonly string[], campo = 'baralhos', grupo?: string | null): string[] {
   return refs.map((ref) => {
-    const d = acharBaralho(decks, ref);
+    const d = pickDeck(decks, ref, grupo, campo);
     if (!d) {
       throw new HttpError(
         422,
         'baralho-desconhecido',
-        `Não há o baralho "${ref.slice(0, 64)}" (campo ${campo}). ${decks.length ? `Os baralhos são: ${decks.map((x) => x.nome).join(', ')}.` : 'Ainda não há baralhos: crie com criar_baralho.'}`,
+        `Não há o baralho "${ref.slice(0, 64)}" (campo ${campo}). ${decks.length ? `Os baralhos são: ${decks.map(deckLabel).join(', ')}.` : 'Ainda não há baralhos: crie com criar_baralho.'}`,
       );
     }
     return d.id;
@@ -142,6 +166,23 @@ export function decksAsWillBe(decks: readonly BaralhoV1[], pending: PendingStudy
     } else out = out.map((b) => (b.id === r.alvo ? mark(b) : b));
   }
   return out.sort((a, b) => a.posicao - b.posicao || a.id.localeCompare(b.id));
+}
+
+/**
+ * Os baralhos `ids` são do grupo da anotação? (Cada baralho só tem cartas do grupo dele.) 422 com o motivo,
+ * ou nada; o baralho de antes dos grupos (sem grupo) ainda não tem como conferir e passa.
+ */
+export function assertDecksInGroup(decks: readonly BaralhoV1[], ids: readonly string[], grupo: string | null, quem: string): void {
+  if (!grupo) throw new HttpError(422, 'nota-sem-grupo', `${quem} não tem grupo: só a anotação de um grupo vira carta, porque cada baralho é de um grupo. Ponha a anotação num grupo (editar_nota) antes.`);
+  const out = ids.map((id) => decks.find((d) => d.id === id)).filter((d): d is BaralhoV1 => !!d && !!d.grupo && dobra(d.grupo) !== dobra(grupo));
+  if (out.length) {
+    const ok = decks.filter((d) => !!d.grupo && dobra(d.grupo) === dobra(grupo)).map((d) => d.nome);
+    throw new HttpError(
+      422,
+      'baralho-de-outro-grupo',
+      `${out.map(deckLabel).join(', ')} ${out.length === 1 ? 'é de outro grupo' : 'são de outro grupo'}, e ${quem.toLowerCase()} é de ${grupo}: um baralho só tem cartas do grupo dele. ${ok.length ? `Os baralhos de ${grupo}: ${ok.join(', ')}.` : `Ainda não há baralho em ${grupo}: crie com criar_baralho (grupo: "${grupo}").`}`,
+    );
+  }
 }
 
 /** Os baralhos levam a carta ao mural (o "no mural também" de algum deles)? */
@@ -254,12 +295,42 @@ export async function studyContext(deps: Deps, me: KeyCaller) {
   if (!row) return null;
   const ctx = JSON.parse(row.dados) as ContextoEstudosV1;
   const only = await reachable(deps, me);
-  const decks = limitedDecks(decksAsWillBe(await mirroredDecks(deps, me.key.userId), await pendingStudy(deps, me.key.userId), deps.now()), only);
+  const decks = limitedDecks(decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), await pendingStudy(deps, me.key.userId), deps.now())), only);
   return {
     config: ctx.config,
     cartas: only ? only.size : ctx.cartas,
-    baralhos: decks.map((b) => ({ id: b.id, nome: b.nome, cor: b.cor, novas_por_dia: b.novas_por_dia, no_mural: b.no_mural, estilo: b.estilo, cartas: b.cartas })),
+    baralhos: decks.map((b) => ({ id: b.id, nome: b.nome, grupo: b.grupo ?? null, cor: b.cor, novas_por_dia: b.novas_por_dia, no_mural: b.no_mural, estilo: b.estilo, cartas: b.cartas })),
   };
+}
+
+/**
+ * As filas de um grupo: as de todos, só com as cartas dos baralhos dele (a carta é de um grupo só, e o
+ * baralho que a traz na fila de todos é um dos dela). O teto de revisões do dia é o de todos os baralhos:
+ * com ele cheio, o grupo mostra as revisões que cabem nele, como o Estudar tudo.
+ */
+function groupQueues(filas: readonly FilaDoDiaV1[], ids: ReadonlySet<string>): FilaDoDiaV1[] {
+  return filas.map((f) => ({ ...f, itens: f.itens.filter((i) => ids.has(i.baralho)) }));
+}
+
+/** Os baralhos do grupo pedido (sem acento nem caixa), ou 404 com os grupos que têm baralho. */
+function decksOfGroup<T extends Pick<BaralhoV1, 'id' | 'grupo'>>(decks: readonly T[], grupo: string): T[] {
+  const mine = decks.filter((d) => !!d.grupo && dobra(d.grupo) === dobra(grupo));
+  if (mine.length) return mine;
+  const groups = [...new Set(decks.flatMap((d) => (d.grupo ? [d.grupo] : [])))];
+  throw new HttpError(404, 'grupo-sem-baralho', `O grupo "${grupo.slice(0, 32)}" não tem baralho. ${groups.length ? `Os grupos com baralho: ${groups.join(', ')}.` : 'Ainda não há baralhos: crie com criar_baralho.'}`);
+}
+
+/**
+ * Quantas cartas o grupo tem nos baralhos dele (cada carta uma vez, mesmo em dois baralhos; a guardada fora
+ * dos baralhos não conta), só as que a chave alcança.
+ */
+async function groupCards(deps: Deps, me: KeyCaller, grupo: string): Promise<number> {
+  const limit = groupLimit(me);
+  const row = await deps.db.first<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM api_espelho WHERE usuario_id = ? AND tipo = 'carta' AND grupo = ? AND json_array_length(dados, '$.baralhos') > 0${limit.sql}`,
+    [me.key.userId, dobra(grupo), ...limit.params],
+  );
+  return row?.n ?? 0;
 }
 
 /** A fila de agora de uma fila do dia (a de todos, ou a de um baralho), sem as cartas que um pedido já respondeu ou tirou. */
@@ -331,12 +402,15 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
       const live = [...q.agora].filter((i) => only.has(i.nota));
       return { novas: count(live, 'nova'), aprender: count(live, 'aprender'), revisar: count(live, 'revisao') };
     };
-    const decks = limitedDecks(decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now), only);
+    const group = c.req.query('grupo')?.trim() || null;
+    const inKey = decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now));
+    const decks = limitedDecks(group ? decksOfGroup(inKey, group) : inKey, only);
     const baralhos: ComPedidos<BaralhoResumoV1>[] = decks.map(({ filas, ...b }) => ({ ...b, hoje: counted(nowQueue(filas, dia, pending, now)) }));
-    const all = nowQueue(ctx.filas, dia, pending, now);
+    const all = nowQueue(group ? groupQueues(ctx.filas, new Set(decks.map((d) => d.id))) : ctx.filas, dia, pending, now);
     return c.json({
       config: ctx.config,
-      cartas: only ? only.size : ctx.cartas,
+      ...(group ? { grupo: decks[0]?.grupo ?? group } : {}),
+      cartas: group ? await groupCards(deps, me, group) : only ? only.size : ctx.cartas,
       baralhos,
       hoje: all
         ? { dia, contagem: counted(all), cortada: all.fila.cortada }
@@ -354,13 +428,14 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
     const now = deps.now();
     const dia = studyDay(espelho.fuso);
     const ref = c.req.query('baralho')?.trim();
+    const group = c.req.query('grupo')?.trim() || null;
     let filas: readonly FilaDoDiaV1[] | null = null;
-    let deck: { id: string; nome: string } | null = null;
+    let deck: { id: string; nome: string; grupo: string | null } | null = null;
     if (ref) {
       // o baralho que só existe num pedido (criado agora pela AI) também vale: ainda sem cartas
-      const found = acharBaralho(decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now), ref);
+      const found = pickDeck(decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now)), ref, group);
       if (!found) throw await deckNotFound(deps, me, ref);
-      deck = { id: found.id, nome: found.nome };
+      deck = { id: found.id, nome: found.nome, grupo: found.grupo ?? null };
       if (!found.filas.length && found.pedidos?.some((p) => p.op === 'baralho.criar')) {
         return c.json({ dia, baralho: deck, contagem: { novas: 0, aprender: 0, revisar: 0 }, cartas: [], mais_tarde: [], restam: 0, aviso: 'O baralho ainda vai ser criado: as cartas dele entram na fila quando o Murall aplicar os pedidos.', espelho });
       }
@@ -371,6 +446,11 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
         CONTEXTO_ESTUDOS,
       ]);
       filas = row ? (JSON.parse(row.dados) as ContextoEstudosV1).filas : null;
+      // o Estudar o grupo: a fila de todos, só com os baralhos dele
+      if (group && filas) {
+        const mine = decksOfGroup(decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now)), group);
+        filas = groupQueues(filas, new Set(mine.map((d) => d.id)));
+      }
     }
     const q = filas ? nowQueue(filas, dia, pending, now) : null;
     if (!q) {
@@ -414,13 +494,18 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
     const withBack = ['sim', 'true', '1'].includes(q('com_verso') ?? '');
     const pending = await pendingStudy(deps, me.key.userId);
     const now = deps.now();
-    const decks = decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now);
+    const decks = decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), pending, now));
     const where: string[] = ['usuario_id = ?', "tipo = 'carta'"];
     const params: SqlValue[] = [me.key.userId];
     let deckId: string | null = null;
     const ref = q('baralho');
+    const group = q('grupo');
+    if (group) {
+      where.push('grupo = ?');
+      params.push(dobra(group));
+    }
     if (ref) {
-      const found = acharBaralho(decks, ref);
+      const found = pickDeck(decks, ref, group);
       if (!found) throw await deckNotFound(deps, me, ref);
       deckId = found.id;
       where.push("EXISTS (SELECT 1 FROM json_each(dados, '$.baralhos') WHERE value = ?)");
@@ -456,7 +541,7 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
           if (known.has(nota)) continue;
           const k = cardAsWillBe(null, rs, decks, infos.get(nota) ?? null, now);
           if (!k || !inKeyGroups(me, k.grupo)) continue;
-          if ((deckId && !k.baralhos.includes(deckId)) || (level && k.nivel !== level) || (text && !dobra(`${k.titulo}\n${k.verso}`).includes(dobra(text)))) continue;
+          if ((deckId && !k.baralhos.includes(deckId)) || (group && (!k.grupo || dobra(k.grupo) !== dobra(group))) || (level && k.nivel !== level) || (text && !dobra(`${k.titulo}\n${k.verso}`).includes(dobra(text)))) continue;
           itens.push(summary(k));
         }
       }
@@ -485,11 +570,11 @@ export function studyReadRoutes(app: Hono, deps: Deps): void {
 
 /** O 404 de um baralho que não existe, com os que existem. */
 export async function deckNotFound(deps: Deps, me: KeyCaller, ref: string): Promise<HttpError> {
-  const decks = decksAsWillBe(await mirroredDecks(deps, me.key.userId), await pendingStudy(deps, me.key.userId), deps.now());
+  const decks = decksInKey(me, decksAsWillBe(await mirroredDecks(deps, me.key.userId), await pendingStudy(deps, me.key.userId), deps.now()));
   return new HttpError(
     404,
     'baralho-nao-encontrado',
-    `Não achei o baralho "${ref.slice(0, 64)}". ${decks.length ? `Os baralhos são: ${decks.map((d) => d.nome).join(', ')}.` : 'Ainda não há baralhos (crie com criar_baralho).'}`,
+    `Não achei o baralho "${ref.slice(0, 64)}". ${decks.length ? `Os baralhos são: ${decks.map(deckLabel).join(', ')}.` : 'Ainda não há baralhos (crie com criar_baralho).'}`,
   );
 }
 

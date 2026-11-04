@@ -93,7 +93,7 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
       }
       // a nota que já nasce carta (como o "Nova carta" de dentro de um baralho): os nomes viram ids
       const e = (checked.dados as CriarNotaV1).estudos;
-      if (e) e.baralhos = await deckIdsForNewNote(deps, me, e.baralhos);
+      if (e) e.baralhos = await deckIdsForNewNote(deps, me, e.baralhos, (checked.dados as CriarNotaV1).grupo ?? null);
     } else {
       if (!id || !/^[\w-]{1,64}$/.test(id)) throw notFound();
       alvo = id;

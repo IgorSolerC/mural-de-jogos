@@ -129,7 +129,7 @@ describe('os Estudos no espelho da API (core/api-mirror-study.ts)', () => {
     expect(answered.volta_em).toBe(st.cards[1]!.srs.due);
   });
 
-  it('só as cartas de anotações suas que existem, em algum baralho que existe; o baralho conta os níveis', () => {
+  it('só as cartas de anotações suas que existem; a de baralho que não existe vai guardada, sem baralhos; o baralho conta os níveis', () => {
     let st = emptyStudy();
     st = addDeck(st, 'Kanji', 'amarelo', iso(NOW), null, 'dk').state;
     st = updateDeck(st, 'dk', { wall: true, look: 'biblioteca' }, iso(NOW));
@@ -139,13 +139,14 @@ describe('os Estudos no espelho da API (core/api-mirror-study.ts)', () => {
     st = answer(st, 'n-fogo', true, NOW, 'dk');
     const notes = new Map([['n-fogo', note('n-fogo', 'Fogo')], ['n-orfa', note('n-orfa', 'Órfã')]]);
     const items = studyMirror(st, notes, NOW);
-    expect(items.filter((i) => i.tipo === 'carta').map((i) => i.id)).toEqual(['n-fogo']);
+    expect(items.filter((i) => i.tipo === 'carta').map((i) => i.id)).toEqual(['n-fogo', 'n-orfa']);
+    expect((items.find((i) => i.id === 'n-orfa')!.dados as { baralhos: string[] }).baralhos).toEqual([]);
     const deck = baralhoV1(st.decks[0]!, st, (n) => notes.has(n), NOW);
     expect(deck).toEqual(jasmine.objectContaining({ id: 'dk', nome: 'Kanji', no_mural: true, estilo: 'biblioteca', posicao: 0, cartas: 1 }));
     expect(deck.por_nivel).toEqual({ desconhecida: 0, nova: 1, aprendendo: 0, dominada: 0 });
     // a carta da anotação apagada não entra na fila
     expect(deck.filas[0]!.itens.map((i) => i.nota)).toEqual(['n-fogo']);
     const ctx = items.find((i) => i.tipo === 'contexto-estudos')!.dados as { cartas: number };
-    expect(ctx.cartas).toBe(1);
+    expect(ctx.cartas).toBe(2);
   });
 });

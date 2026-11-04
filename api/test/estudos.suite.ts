@@ -66,6 +66,7 @@ const FILA_JP = [item('n-fogo', 'd-jp', 'aprender', at(-MIN)), item('n-terra', '
 const baralho = (id: string, nome: string, posicao: number, itens: ItemDaFilaV1[], extra: Partial<BaralhoV1> = {}): BaralhoV1 => ({
   id,
   nome,
+  grupo: 'Estudos',
   cor: 'azul',
   icone: null,
   novas_por_dia: 5,
@@ -85,7 +86,7 @@ const baralho = (id: string, nome: string, posicao: number, itens: ItemDaFilaV1[
 export const BARALHOS: BaralhoV1[] = [
   baralho('d-jp', 'Japonês', 0, FILA_JP, { cartas: 4, por_nivel: { desconhecida: 0, nova: 2, aprendendo: 2, dominada: 0 } }),
   baralho('d-kanji', 'Kanji', 1, [], { estilo: 'biblioteca' }),
-  baralho('d-dir', 'Direito Civil', 2, [item('n-lei', 'd-dir', 'nova')], { cor: 'vermelho', no_mural: true }),
+  baralho('d-dir', 'Direito Civil', 2, [item('n-lei', 'd-dir', 'nova')], { cor: 'vermelho', no_mural: true, grupo: 'Trabalho' }),
 ];
 
 export const CONTEXTO: ContextoEstudosV1 = {
@@ -190,7 +191,15 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect(grupo).toEqual({ grupo: 'estudos', data: '2026-10-06' });
       const bad = async (tipo: string, id: string, dados: unknown) => (await t.mirror(me.token, { rev, poe: [t.row(tipo, id, dados)] })).status;
       expect(await bad('carta', k.nota, { ...k, nivel: 'mestre' })).toBe(400);
-      expect(await bad('carta', k.nota, { ...k, baralhos: [] })).toBe(400);
+      // a carta guardada fora dos baralhos (a anotação mudou de grupo) vai com a lista vazia
+      expect(await bad('carta', k.nota, { ...k, baralhos: [] })).toBe(200);
+      expect(await bad('baralho', 'd-jp', { ...BARALHOS[0], grupo: 5 })).toBe(400);
+      // o grupo do baralho, sem acento, como o das cartas (o limite de grupos da chave vale para ele)
+      expect((await t.db.first<{ grupo: string }>("SELECT grupo FROM api_espelho WHERE tipo = 'baralho' AND id = 'd-jp'"))!.grupo).toBe('estudos');
+      // o site de antes dos grupos manda o baralho sem o campo: vale null
+      const { grupo: _g, ...old } = BARALHOS[0]!;
+      expect(await bad('baralho', 'd-jp', old)).toBe(200);
+      expect(JSON.parse((await t.db.first<{ dados: string }>("SELECT dados FROM api_espelho WHERE tipo = 'baralho' AND id = 'd-jp'"))!.dados).grupo).toBeNull();
       expect(await bad('carta', k.nota, { ...k, imagem: 'javascript:alert(1)' })).toBe(400);
       expect(await bad('carta', 'outra', k)).toBe(400);
       expect(await bad('baralho', 'd-jp', { ...BARALHOS[0], estilo: 'neon' })).toBe(400);
@@ -254,11 +263,29 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect(one.cartas.map((c: { nota: string }) => c.nota)).toEqual(['n-fogo']);
       expect(one.restam).toBe(3);
       const dir = await t.body(t.ext(secret, `/ext/v1/estudos/hoje?baralho=${encodeURIComponent('direito civil')}`));
-      expect(dir.baralho).toEqual({ id: 'd-dir', nome: 'Direito Civil' });
+      expect(dir.baralho).toEqual({ id: 'd-dir', nome: 'Direito Civil', grupo: 'Trabalho' });
       expect(dir.cartas.map((c: { nota: string }) => c.nota)).toEqual(['n-lei']);
       const missing = await t.ext(secret, '/ext/v1/estudos/hoje?baralho=Grego');
       expect(missing.status).toBe(404);
-      expect((await t.body(missing)).mensagem).toContain('Japonês, Kanji, Direito Civil');
+      expect((await t.body(missing)).mensagem).toContain('Japonês (Estudos), Kanji (Estudos), Direito Civil (Trabalho)');
+    });
+
+    it('o grupo: os baralhos dele, o Estudar o grupo e as cartas dele; o grupo sem baralho é 404', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(['estudos:ler']);
+      const jp = await t.body(t.ext(secret, '/ext/v1/estudos?grupo=estudos'));
+      expect(jp.grupo).toBe('Estudos');
+      // cada carta uma vez, mesmo em dois baralhos do grupo (o 風 está no Japonês e no Kanji)
+      expect(jp.cartas).toBe(4);
+      expect(jp.baralhos.map((b: { nome: string; grupo: string }) => `${b.nome}/${b.grupo}`)).toEqual(['Japonês/Estudos', 'Kanji/Estudos']);
+      expect(jp.hoje.contagem).toEqual({ novas: 0, aprender: 2, revisar: 1 });
+      const now = await t.body(t.ext(secret, '/ext/v1/estudos/hoje?grupo=Trabalho'));
+      expect(now.cartas.map((c: { nota: string }) => c.nota)).toEqual(['n-lei']);
+      const cards = await t.body(t.ext(secret, '/ext/v1/estudos/cartas?grupo=trabalho'));
+      expect(cards.itens.map((c: { nota: string }) => c.nota)).toEqual(['n-lei']);
+      const none = await t.ext(secret, '/ext/v1/estudos?grupo=Culinaria');
+      expect(none.status).toBe(404);
+      expect((await t.body(none)).mensagem).toContain('Os grupos com baralho: Estudos, Trabalho');
     });
 
     it('o tempo anda: a de 2 horas aparece; amanhã vale a fila de amanhã; depois disso, o aviso de abrir o Murall', async () => {
@@ -288,8 +315,11 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect(decks.hoje.contagem).toEqual({ novas: 1, aprender: 0, revisar: 0 });
       // nem quantas cartas há nas notas dos outros grupos
       expect(decks.cartas).toBe(1);
-      expect(decks.baralhos.map((b: { cartas: number }) => b.cartas)).toEqual([0, 0, 1]);
-      expect(decks.baralhos[2].por_nivel).toEqual({ desconhecida: 1, nova: 0, aprendendo: 0, dominada: 0 });
+      // e só os baralhos do grupo dela (cada baralho é de um grupo)
+      expect(decks.baralhos.map((b: { nome: string; cartas: number }) => `${b.nome}: ${b.cartas}`)).toEqual(['Direito Civil: 1']);
+      expect(decks.baralhos[0].por_nivel).toEqual({ desconhecida: 1, nova: 0, aprendendo: 0, dominada: 0 });
+      expect((await t.body(t.ext(secret, '/ext/v1/contexto'))).estudos.baralhos.map((b: { nome: string }) => b.nome)).toEqual(['Direito Civil']);
+      expect((await t.ext(secret, '/ext/v1/estudos/hoje?baralho=Kanji')).status).toBe(404);
       expect((await t.body(t.ext(secret, '/ext/v1/contexto'))).estudos.cartas).toBe(1);
       expect((await t.ext(secret, '/ext/v1/estudos/cartas/n-agua')).status).toBe(404);
       expect((await t.body(t.ext(secret, '/ext/v1/estudos/cartas'))).itens.map((c: { nota: string }) => c.nota)).toEqual(['n-lei']);
@@ -353,12 +383,22 @@ export function estudosSuite(label: string, getDb: () => Db) {
     it('baralhos: criar (o nome repetido é 409), já usar o nome dele, mudar e apagar', async () => {
       const t = await setup();
       const { secret } = await t.ready(WRITE);
-      const dup = await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'japones' });
+      // o grupo é obrigatório, e tem de ser um que existe
+      const noGroup = await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Latim' });
+      expect(noGroup.status).toBe(422);
+      expect((await t.body(noGroup)).erro).toBe('grupo-obrigatorio');
+      const unknown = await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Latim', grupo: 'Culinária' });
+      expect(unknown.status).toBe(422);
+      expect((await t.body(unknown)).mensagem).toContain('Os grupos:');
+      const dup = await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'japones', grupo: 'estudos' });
       expect(dup.status).toBe(409);
       expect((await t.body(dup)).baralho.id).toBe('d-jp');
-      const made = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego', cor: 'verde', novas_por_dia: 10, estilo: 'selo' }));
-      expect(made.baralho).toMatchObject({ nome: 'Grego', cor: 'verde', novas_por_dia: 10, estilo: 'selo', posicao: 3, cartas: 0 });
-      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego' })).status).toBe(409);
+      // o grupo escrito como já está
+      const made = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego', grupo: 'ESTUDOS', cor: 'verde', novas_por_dia: 10, estilo: 'selo' }));
+      expect(made.baralho).toMatchObject({ nome: 'Grego', grupo: 'Estudos', cor: 'verde', novas_por_dia: 10, estilo: 'selo', posicao: 3, cartas: 0 });
+      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego', grupo: 'Estudos' })).status).toBe(409);
+      // o grupo não muda por editar
+      expect((await t.send(secret, 'PATCH', '/ext/v1/estudos/baralhos/Kanji', { grupo: 'Trabalho' })).status).toBe(400);
       expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'x', cor: 'roxo' })).status).toBe(400);
       // o baralho que vai nascer já aparece, e já recebe cartas pelo nome
       const list = await t.body(t.ext(secret, '/ext/v1/estudos'));
@@ -386,13 +426,24 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect((await t.body(t.ext(secret, '/ext/v1/estudos/cartas?baralho=Kanji'))).itens.map((c: { nota: string }) => c.nota)).toEqual(['n-solta', 'n-vento']);
       expect((await t.body(t.ext(secret, '/ext/v1/estudos/cartas/n-solta'))).carta.pedidos).toHaveLength(1);
       // a que já é carta entra no baralho novo também
-      const more = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-agua', 'n-outra'], baralhos: ['Direito Civil'] }));
-      expect(more.cartas.map((c: CartaV1) => c.baralhos)).toEqual([['d-jp', 'd-dir'], ['d-dir']]);
+      const more = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-agua', 'n-solta'], baralhos: ['Kanji'] }));
+      expect(more.cartas.map((c: CartaV1) => c.baralhos)).toEqual([['d-jp', 'd-kanji'], ['d-kanji']]);
       expect(more.pedidos).toHaveLength(2);
+      // só nos baralhos do grupo da anotação: o lote com uma de outro grupo não guarda nada
+      const other = await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-outra', 'n-agua'], baralhos: ['Direito Civil'] });
+      expect(other.status).toBe(422);
+      const why = await t.body(other);
+      expect(why.erro).toBe('baralho-de-outro-grupo');
+      expect(why.mensagem).toMatch(/^Nota 2: Direito Civil \(Trabalho\) é de outro grupo/);
+      expect(why.mensagem).toContain('Os baralhos de Estudos: Japonês, Kanji');
+      // o baralho que não existe, no lote: com a posição da nota
+      const missing = await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-agua', 'n-outra'], baralhos: ['Latim'] });
+      expect(missing.status).toBe(422);
+      expect((await t.body(missing)).mensagem).toMatch(/^Nota 1: Não há o baralho "Latim"/);
       expect((await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-agua'], baralhos: ['Kanji'], titulo: 'x' })).status).toBe(400);
       const unknownDeck = await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-solta', baralhos: ['Latim'] });
       expect(unknownDeck.status).toBe(422);
-      expect((await t.body(unknownDeck)).mensagem).toContain('Japonês, Kanji, Direito Civil');
+      expect((await t.body(unknownDeck)).mensagem).toContain('Japonês (Estudos), Kanji (Estudos), Direito Civil (Trabalho)');
       const unknownNote = await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { notas: ['n-solta', 'n-nada'], baralhos: ['Kanji'] });
       expect(unknownNote.status).toBe(404);
       expect((await t.body(unknownNote)).mensagem).toMatch(/^Nota 2:/);
@@ -412,28 +463,49 @@ export function estudosSuite(label: string, getDb: () => Db) {
       expect(more.carta).toMatchObject({ titulo: '水', baralhos: ['d-jp', 'd-kanji'] });
       // virar carta tirando do mural espera; no mural, não
       expect((await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-solta', baralhos: ['Kanji'], no_mural: false }))).pedido.estado).toBe('aguardando-aprovacao');
-      expect((await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-outra', baralhos: ['Kanji'] }))).pedido.estado).toBe('pendente');
+      expect((await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-outra', baralhos: ['Direito Civil'] }))).pedido.estado).toBe('pendente');
     });
 
     it('o baralho que vai nascer serve para estudar_agora (vazio); o nome do que vai ser apagado fica livre', async () => {
       const t = await setup();
       const { secret } = await t.ready(WRITE);
-      await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego' });
+      await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Grego', grupo: 'Estudos' });
       const res = await t.ext(secret, '/ext/v1/estudos/hoje?baralho=Grego');
       expect(res.status).toBe(200);
       const got = await t.body(res);
       expect(got.cartas).toEqual([]);
       expect(got.aviso).toContain('ainda vai ser criado');
       await t.send(secret, 'DELETE', '/ext/v1/estudos/baralhos/Kanji');
-      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Kanji' })).status).toBe(202);
+      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Kanji', grupo: 'Estudos' })).status).toBe(202);
+    });
+
+    it('o mesmo nome em outro grupo: nasce; pelo nome, vale o do grupo da anotação; sem como desempatar, pede o id', async () => {
+      const t = await setup();
+      const { secret } = await t.ready(WRITE);
+      const twin = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Kanji', grupo: 'Trabalho' }));
+      expect(twin.baralho).toMatchObject({ nome: 'Kanji', grupo: 'Trabalho' });
+      // a anotação de Trabalho vai para o Kanji de Trabalho; a de Estudos, para o de Estudos
+      const work = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-outra', baralhos: ['kanji'] }));
+      expect(work.carta.baralhos).toEqual([twin.baralho.id]);
+      const study = await t.body(t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-solta', baralhos: ['Kanji'] }));
+      expect(study.carta.baralhos).toEqual(['d-kanji']);
+      // mudar o baralho pelo nome repetido: qual dos dois?
+      const which = await t.send(secret, 'PATCH', '/ext/v1/estudos/baralhos/Kanji', { cor: 'rosa' });
+      expect(which.status).toBe(422);
+      expect((await t.body(which)).erro).toBe('baralho-ambiguo');
+      expect((await t.send(secret, 'PATCH', '/ext/v1/estudos/baralhos/d-kanji', { cor: 'rosa' })).status).toBe(202);
     });
 
     it('a chave limitada a um grupo não faz carta de nota de outro grupo', async () => {
       const t = await setup();
       const { secret } = await t.ready(WRITE, { grupos: ['Trabalho'] });
       expect((await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-solta', baralhos: ['Kanji'] })).status).toBe(404);
-      expect((await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-outra', baralhos: ['Kanji'] })).status).toBe(202);
+      expect((await t.send(secret, 'POST', '/ext/v1/estudos/cartas', { nota: 'n-outra', baralhos: ['Direito Civil'] })).status).toBe(202);
       expect((await t.send(secret, 'POST', '/ext/v1/estudos/cartas/n-agua/responder', { acertou: true })).status).toBe(404);
+      // nem vê, nem mexe nos baralhos dos outros grupos; nem cria baralho fora dos dela
+      expect((await t.send(secret, 'PATCH', '/ext/v1/estudos/baralhos/Kanji', { cor: 'rosa' })).status).toBe(404);
+      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Latim', grupo: 'Estudos' })).status).toBe(403);
+      expect((await t.send(secret, 'POST', '/ext/v1/estudos/baralhos', { nome: 'Latim', grupo: 'Trabalho' })).status).toBe(202);
     });
 
     it('mudar a carta (os baralhos trocam a lista inteira), tirar e recomeçar', async () => {

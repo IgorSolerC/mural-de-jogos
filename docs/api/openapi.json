@@ -331,7 +331,7 @@
                   },
                   "estudos": {
                     "type": "object",
-                    "description": "Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o \"Nova carta\" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural).",
+                    "description": "Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o \"Nova carta\" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural). Os baralhos têm de ser do grupo da nota; sem grupo, a nota vai para o grupo do primeiro baralho.",
                     "properties": {
                       "baralhos": {
                         "type": "array",
@@ -342,7 +342,7 @@
                           "minLength": 1,
                           "maxLength": 64
                         },
-                        "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20)."
+                        "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20). Só os do grupo da anotação: cada baralho é de um grupo."
                       },
                       "titulo": {
                         "type": [
@@ -1353,7 +1353,20 @@
       "get": {
         "operationId": "ver_estudos",
         "summary": "Ver os Estudos",
-        "description": "Os baralhos (com quantas cartas, os níveis e o que tem para hoje em cada um: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia). Permissão: estudos:ler.",
+        "description": "Os baralhos (o grupo de cada um, com quantas cartas, os níveis e o que tem para hoje: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia). Com grupo, só os baralhos dele e o total dele. Permissão: estudos:ler.",
+        "parameters": [
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "description": "Opcional: só os baralhos deste grupo (um grupo das Anotações, como em ver_contexto; sem ligar para acento e caixa).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -1374,11 +1387,22 @@
             "name": "baralho",
             "in": "query",
             "required": false,
-            "description": "Opcional: só deste baralho: o nome (como em ver_estudos) ou o id.",
+            "description": "Opcional: só deste baralho: o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id.",
             "schema": {
               "type": "string",
               "minLength": 1,
               "maxLength": 64
+            }
+          },
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "description": "Opcional: só dos baralhos deste grupo (o Estudar o grupo) (um grupo das Anotações, como em ver_contexto; sem ligar para acento e caixa).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
             }
           },
           {
@@ -1413,11 +1437,22 @@
             "name": "baralho",
             "in": "query",
             "required": false,
-            "description": "Só deste baralho: o nome (como em ver_estudos) ou o id.",
+            "description": "Só deste baralho: o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id.",
             "schema": {
               "type": "string",
               "minLength": 1,
               "maxLength": 64
+            }
+          },
+          {
+            "name": "grupo",
+            "in": "query",
+            "required": false,
+            "description": "Só as cartas das anotações deste grupo (um grupo das Anotações, como em ver_contexto; sem ligar para acento e caixa).",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
             }
           },
           {
@@ -1547,7 +1582,7 @@
                       "minLength": 1,
                       "maxLength": 64
                     },
-                    "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20)."
+                    "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20). Só os do grupo da anotação: cada baralho é de um grupo."
                   },
                   "titulo": {
                     "type": [
@@ -1798,7 +1833,7 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 64,
-                    "description": "Opcional: o baralho que trouxe a carta (o baralho_da_vez de estudar_agora; conta no limite de novas dele): o nome (como em ver_estudos) ou o id."
+                    "description": "Opcional: o baralho que trouxe a carta (o baralho_da_vez de estudar_agora; conta no limite de novas dele): o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id."
                   }
                 },
                 "additionalProperties": false,
@@ -1861,7 +1896,7 @@
       "post": {
         "operationId": "criar_baralho",
         "summary": "Criar um baralho",
-        "description": "Cria um baralho (no fim da fileira). Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe volta 409 com o baralho de agora. Permissão: estudos:escrever.",
+        "description": "Cria um baralho num grupo das Anotações (no fim da fileira): só as anotações desse grupo viram cartas nele. Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe no mesmo grupo volta 409 com o baralho de agora; o mesmo nome em outro grupo pode. Permissão: estudos:escrever.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -1927,11 +1962,18 @@
                       "biblioteca"
                     ],
                     "description": "O desenho da frente das cartas (o padrão: classica)."
+                  },
+                  "grupo": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32,
+                    "description": "O grupo do baralho (um grupo das Anotações, como em ver_contexto; sem ligar para acento e caixa)."
                   }
                 },
                 "additionalProperties": false,
                 "required": [
-                  "nome"
+                  "nome",
+                  "grupo"
                 ]
               }
             }
@@ -1951,7 +1993,7 @@
       "patch": {
         "operationId": "editar_baralho",
         "summary": "Mudar um baralho",
-        "description": "Muda o nome, a cor, as novas por dia, o \"no mural\", o estilo ou o lugar do baralho na fileira. Mande só o que muda. Permissão: estudos:escrever.",
+        "description": "Muda o nome, a cor, as novas por dia, o \"no mural\", o estilo ou o lugar do baralho na fileira. Mande só o que muda. O grupo do baralho não muda (para outro grupo, crie um baralho nele). Permissão: estudos:escrever.",
         "parameters": [
           {
             "name": "baralho",
@@ -1961,7 +2003,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 64,
-              "description": "O baralho: o nome (como em ver_estudos) ou o id."
+              "description": "O baralho: o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id."
             }
           },
           {
@@ -2066,7 +2108,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 64,
-              "description": "O baralho a apagar: o nome (como em ver_estudos) ou o id."
+              "description": "O baralho a apagar: o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id."
             }
           },
           {

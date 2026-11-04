@@ -25,6 +25,7 @@ import {
   StudyCard,
   cardDecks,
   cleanFront,
+  groupKey,
   frontTitle,
   levelOf,
   sanitizeCard,
@@ -118,7 +119,7 @@ function cardOut(study: StudyStore, note: string, name: string) {
 const stampOf = (study: StudyStore, note: string) => study.cardOf().get(note)?.at ?? null;
 
 /** O deck como a AI lê no resultado. */
-const deckOut = (d: Deck | undefined) => (d ? { id: d.id, nome: d.name } : null);
+const deckOut = (d: Deck | undefined) => (d ? { id: d.id, nome: d.name, grupo: d.group ?? null } : null);
 
 /** O que mudar num baralho (do pedido para o formato do Murall). */
 function deckPatch(d: EditarBaralhoV1 | CriarBaralhoV1): Partial<DeckPatch> {
@@ -132,7 +133,9 @@ function deckPatch(d: EditarBaralhoV1 | CriarBaralhoV1): Partial<DeckPatch> {
 }
 
 /** Outro baralho com este nome (sem ligar para acento e caixa)? */
-const sameName = (study: StudyStore, name: string, except?: string) => study.decks().find((d) => d.id !== except && dobra(d.name) === dobra(name));
+/** Outro baralho com este nome no mesmo grupo (o nome é único dentro do grupo, como na API). */
+const sameName = (study: StudyStore, name: string, group: string | null | undefined, except?: string) =>
+  study.decks().find((d) => d.id !== except && dobra(d.name) === dobra(name) && groupKey(d.group) === groupKey(group));
 
 /** Aplica um pedido dos Estudos, pelo `StudyStore`, e diz como foi. */
 export function applyStudyRequest(
@@ -150,12 +153,14 @@ export function applyStudyRequest(
     const d = checked.dados as CriarBaralhoV1;
     // já entrou (aplicado aqui antes, numa aba que fechou sem concluir): o mesmo baralho
     if (study.deck(id)) return { estado: 'aplicado', resultado: { baralho: deckOut(study.deck(id)) }, antes: null };
-    const same = sameName(study, d.nome);
+    // o grupo do pedido (sem ele, um pedido de antes dos grupos, o de sempre, onde o baralho vai nascer)
+    const same = sameName(study, d.nome, d.grupo ?? study.fallbackGroup());
     if (same) return failed(`Já existe o baralho “${same.name}”.`);
     if (study.decks().length >= MAX_DECKS) return failed(`Os Estudos têm até ${MAX_DECKS} baralhos.`);
-    const made = study.addDeck(d.nome, (d.cor ?? 'amarelo') as LightStock, null, id);
+    // no grupo do pedido (a API pede sempre; um pedido de antes dos grupos cai no grupo de sempre)
+    const made = study.addDeck(d.nome, (d.cor ?? 'amarelo') as LightStock, null, id, d.grupo);
     if (!made) return failed('O baralho não pôde ser criado.');
-    const { nome: _n, cor: _c, ...rest } = d;
+    const { nome: _n, cor: _c, grupo: _g, ...rest } = d;
     const patch = deckPatch(rest);
     if (Object.keys(patch).length) study.updateDeck(made, patch);
     return { estado: 'aplicado', resultado: { baralho: deckOut(study.deck(made)) }, antes: null };
@@ -173,7 +178,7 @@ export function applyStudyRequest(
     }
     const d = checked.dados as EditarBaralhoV1;
     if (d.nome !== undefined) {
-      const same = sameName(study, d.nome, id);
+      const same = sameName(study, d.nome, deck.group, id);
       if (same) return failed(`Já existe o baralho “${same.name}”.`);
     }
     const patch = deckPatch(d);

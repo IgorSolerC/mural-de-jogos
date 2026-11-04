@@ -396,13 +396,19 @@ export const FERRAMENTAS_DO_KANBAN: readonly Ferramenta[] = [
 // ===== Os Estudos (rodada 12) =====
 
 const notaDaCarta = (o: string): Esquema => ({ type: 'string', pattern: '^[\\w-]{1,64}$', description: `O id da anotação (a carta é a própria anotação; ${o}).` });
-const baralhoArg = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 64, description: `${o}: o nome (como em ver_estudos) ou o id.` });
+const baralhoArg = (o: string): Esquema => ({
+  type: 'string',
+  minLength: 1,
+  maxLength: 64,
+  description: `${o}: o nome (como em ver_estudos) ou o id. O mesmo nome pode estar em dois grupos: vale o do grupo da anotação; sem como desempatar, use o id.`,
+});
+const grupoDosEstudos = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 32, description: `${o} (um grupo das Anotações, como em ver_contexto; sem ligar para acento e caixa).` });
 const baralhosArg: Esquema = {
   type: 'array',
   minItems: 1,
   maxItems: 20,
   items: { type: 'string', minLength: 1, maxLength: 64 },
-  description: 'Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20).',
+  description: 'Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20). Só os do grupo da anotação: cada baralho é de um grupo.',
 };
 const ESTILOS_ENUM = ['classica', 'faixa', 'cartolina', 'orelha', 'antigo', 'argola', 'selo', 'polaroid', 'ingresso', 'biblioteca'];
 const CORES_ENUM = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
@@ -428,7 +434,7 @@ const CAMPOS_DO_BARALHO: Record<string, Esquema> = {
 const NOS_ESTUDOS: Esquema = {
   type: 'object',
   description:
-    'Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o "Nova carta" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural).',
+    'Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o "Nova carta" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural). Os baralhos têm de ser do grupo da nota; sem grupo, a nota vai para o grupo do primeiro baralho.',
   properties: { baralhos: baralhosArg, ...FRENTE },
   required: ['baralhos'],
   additionalProperties: false,
@@ -439,11 +445,11 @@ export const FERRAMENTAS_DOS_ESTUDOS: readonly Ferramenta[] = [
     nome: 'ver_estudos',
     titulo: 'Ver os Estudos',
     descricao:
-      'Os baralhos (com quantas cartas, os níveis e o que tem para hoje em cada um: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia).',
+      'Os baralhos (o grupo de cada um, com quantas cartas, os níveis e o que tem para hoje: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia). Com grupo, só os baralhos dele e o total dele.',
     escopo: 'estudos:ler',
     somenteLeitura: true,
     destrutiva: false,
-    entrada: obj({}),
+    entrada: obj({ grupo: grupoDosEstudos('Opcional: só os baralhos deste grupo') }),
     metodo: 'GET',
     caminho: '/ext/v1/estudos',
   },
@@ -457,6 +463,7 @@ export const FERRAMENTAS_DOS_ESTUDOS: readonly Ferramenta[] = [
     destrutiva: false,
     entrada: obj({
       baralho: baralhoArg('Opcional: só deste baralho'),
+      grupo: grupoDosEstudos('Opcional: só dos baralhos deste grupo (o Estudar o grupo)'),
       limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Quantas cartas trazer (padrão 10). O resto vem em restam.' },
     }),
     metodo: 'GET',
@@ -471,6 +478,7 @@ export const FERRAMENTAS_DOS_ESTUDOS: readonly Ferramenta[] = [
     destrutiva: false,
     entrada: obj({
       baralho: baralhoArg('Só deste baralho'),
+      grupo: grupoDosEstudos('Só as cartas das anotações deste grupo'),
       nivel: { type: 'string', enum: ['desconhecida', 'nova', 'aprendendo', 'dominada'], description: 'Só deste nível.' },
       q: { type: 'string', maxLength: 200, description: 'Busca na frente e no verso, sem ligar para acento e caixa.' },
       ordem: { type: 'string', enum: ['entrou', 'volta', 'titulo', 'mudou'], description: 'A ordem (padrão: entrou, a mais nova primeiro; volta: a que volta antes).' },
@@ -579,18 +587,19 @@ export const FERRAMENTAS_DOS_ESTUDOS: readonly Ferramenta[] = [
   {
     nome: 'criar_baralho',
     titulo: 'Criar um baralho',
-    descricao: 'Cria um baralho (no fim da fileira). Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe volta 409 com o baralho de agora.',
+    descricao:
+      'Cria um baralho num grupo das Anotações (no fim da fileira): só as anotações desse grupo viram cartas nele. Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe no mesmo grupo volta 409 com o baralho de agora; o mesmo nome em outro grupo pode.',
     escopo: 'estudos:escrever',
     somenteLeitura: false,
     destrutiva: false,
-    entrada: obj({ ...CAMPOS_DO_BARALHO, chave_idempotencia: idem }, ['nome']),
+    entrada: obj({ ...CAMPOS_DO_BARALHO, grupo: grupoDosEstudos('O grupo do baralho'), chave_idempotencia: idem }, ['nome', 'grupo']),
     metodo: 'POST',
     caminho: '/ext/v1/estudos/baralhos',
   },
   {
     nome: 'editar_baralho',
     titulo: 'Mudar um baralho',
-    descricao: 'Muda o nome, a cor, as novas por dia, o "no mural", o estilo ou o lugar do baralho na fileira. Mande só o que muda.',
+    descricao: 'Muda o nome, a cor, as novas por dia, o "no mural", o estilo ou o lugar do baralho na fileira. Mande só o que muda. O grupo do baralho não muda (para outro grupo, crie um baralho nele).',
     escopo: 'estudos:escrever',
     somenteLeitura: false,
     destrutiva: false,

@@ -1822,6 +1822,18 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      fichas na chave (ou no conector) que já existe, ou criar outra. Com ela, as rodadas 0 a 9 estão
      feitas; a 10 (CLI no npm) e a 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
 
+- **04/nov/2026, os Estudos por grupo (PLANO-ESTUDOS-GRUPOS.md, rodada 4)**: cada baralho é de um grupo das
+  anotações, e a carta só entra nos baralhos do grupo dela. Na API: `BaralhoV1.grupo` (null: um baralho de
+  antes dos grupos), a linha do baralho no espelho com o grupo (a chave limitada a grupos só vê os baralhos
+  deles, como as cartas), `criar_baralho` pede `grupo` (um que existe: das anotações, de outro baralho ou de
+  uma nota que um pedido aberto vai criar; 422 `grupo-obrigatorio`/`grupo-desconhecido`, 403 fora da chave),
+  `editar_baralho` não muda o grupo (400), o nome é único dentro do grupo (o mesmo nome em outro grupo pode:
+  pelo nome, vale o do grupo da anotação; sem como desempatar, 422 `baralho-ambiguo` pedindo o id), virar
+  carta, mudar a carta, responder e o `estudos` de `criar_nota` só com os baralhos do grupo da anotação (422
+  `baralho-de-outro-grupo` ou `nota-sem-grupo`; a nota nova sem grupo vai para o do primeiro baralho), e o
+  filtro `grupo` em `ver_estudos`, `estudar_agora` (a fila de todos só com os baralhos do grupo) e
+  `listar_cartas`. A carta guardada fora dos baralhos (a anotação mudou de grupo) vai ao espelho com
+  `baralhos: []`.
 - **03/nov/2026, rodada 12 (Estudos)**: pedido do usuário, num cartão do Dev Murall: "validar se o
   MCP/CLI de integração do Murall com AIs possui suporte para interações com a nova aba de ESTUDOS. Se
   essa integração não existir, essa tarefa visa a implementação dessa funcionalidade por completo." Não
@@ -1846,7 +1858,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
     com o aviso de abrir o Murall. O dia de estudo da API é o do fuso da conta, virando às 4h.
   - **As cartas das anotações compartilhadas ficam de fora** (como no resto da API), e a chave limitada
     a alguns grupos só vê as cartas das notas deles (a coluna `grupo` da linha é o grupo da nota). Os
-    baralhos não têm grupo: a limitada vê todos.
+    baralhos não tinham grupo: a limitada via todos (até 04/nov; ver a entrada dos Estudos por grupo).
   - **Responder** (`carta.responder`, `acertou` true/false, `baralho` opcional) entra direto também com
     a aprovação "mudancas" (estudar não pode esperar um clique por carta; "tudo" espera). O site aplica
     com a hora do pedido (o FSRS conta o tempo de quando a pessoa respondeu), mas grava com a hora de

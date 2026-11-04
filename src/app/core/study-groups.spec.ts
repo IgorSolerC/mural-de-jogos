@@ -1,6 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { studyMirror } from './api-mirror-study';
 import { applyStudyRequest, placeInDecks, undoStudy } from './api-requests-study';
+import type { BaralhoV1, CartaV1 } from '../../../contrato/api-v1/estudos';
 import { KanbanStore } from './kanban-store';
 import { LabelEdits } from './label-edits';
 import { Review, sanitizeReview } from './review';
@@ -325,6 +327,38 @@ describe('os Estudos por grupo (PLANO-ESTUDOS-GRUPOS.md)', () => {
       expect(sanitizeStudy(JSON.parse(JSON.stringify(study.state()))).cards.length).toBe(1);
       store.update({ ...store.get('n1')!, category: 'Japonês' });
       expect(study.cardOf().get('n1')!.decks).toEqual([kana]);
+    });
+
+    it('o espelho da API: o grupo de cada baralho, e a carta guardada com os baralhos vazios (no mural)', () => {
+      const study = boot(null, [note('n1', 'Japonês')]);
+      const kana = study.addDeck('Kana', 'amarelo', null, undefined, 'Japonês');
+      study.addCard('n1', [kana]);
+      store.update({ ...store.get('n1')!, category: 'Computação' });
+      const items = studyMirror(study.view(), new Map(store.notes().map((n) => [n.id, n])), new Date(NOW));
+      const deck = items.find((i) => i.tipo === 'baralho')!.dados as BaralhoV1;
+      expect(deck.grupo).toBe('Japonês');
+      const card = items.find((i) => i.tipo === 'carta')!.dados as CartaV1;
+      expect(card.baralhos).toEqual([]);
+      expect(card.grupo).toBe('Computação');
+      expect(card.fica_no_mural).toBeTrue();
+    });
+
+    it('o pedido de criar baralho vem com o grupo; sem ele (um pedido de antes dos grupos), o de sempre', () => {
+      const study = boot(null, [note('n1', 'Japonês'), note('n2', 'Japonês')]);
+      const ctx = { ownNote: () => ({ name: 'Nota' }), onWall: () => true };
+      const made = applyStudyRequest(study, { op: 'baralho.criar', alvo: 'dkana', dados: { nome: 'Kana', grupo: 'Japonês' }, criado_em: NOW }, ctx);
+      expect(made.estado).toBe('aplicado');
+      expect((made.resultado as unknown as { baralho: { grupo: string } }).baralho.grupo).toBe('Japonês');
+      expect(study.deck('dkana')!.group).toBe('Japonês');
+      applyStudyRequest(study, { op: 'baralho.criar', alvo: 'dvelho', dados: { nome: 'Velho' }, criado_em: NOW }, ctx);
+      expect(study.deck('dvelho')!.group).toBe('Japonês');
+      // o grupo não muda por editar
+      expect(applyStudyRequest(study, { op: 'baralho.editar', alvo: 'dkana', dados: { grupo: 'Outro' }, criado_em: NOW }, ctx).estado).toBe('falhou');
+      expect(study.deck('dkana')!.group).toBe('Japonês');
+      // o nome é único dentro do grupo: o Kana de outro grupo nasce; o mesmo nome no mesmo grupo, não
+      expect(applyStudyRequest(study, { op: 'baralho.criar', alvo: 'dkana2', dados: { nome: 'kana', grupo: 'Idiomas' }, criado_em: NOW }, ctx).estado).toBe('aplicado');
+      expect(applyStudyRequest(study, { op: 'baralho.criar', alvo: 'dkana3', dados: { nome: 'Kana', grupo: 'Japonês' }, criado_em: NOW }, ctx).estado).toBe('falhou');
+      expect(applyStudyRequest(study, { op: 'baralho.editar', alvo: 'dvelho', dados: { nome: 'KANA' }, criado_em: NOW }, ctx).estado).toBe('falhou');
     });
 
     it('os pedidos da API: o baralho de outro grupo é recusado com o motivo; a nota nova sem grupo ganha o do baralho', () => {

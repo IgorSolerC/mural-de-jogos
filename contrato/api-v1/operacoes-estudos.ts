@@ -7,7 +7,9 @@
  * tipos e funções puras.
  *
  * Sem versão, como no Kanban: o app junta carta a carta e baralho a baralho pela hora da mudança, e um
- * baralho ou uma carta que sumiram fazem o pedido falhar com o porquê. A resposta não muda o FSRS aqui:
+ * baralho ou uma carta que sumiram fazem o pedido falhar com o porquê. Cada baralho é de um grupo das
+ * anotações (PLANO-ESTUDOS-GRUPOS.md): o grupo vem ao criar e não muda depois (muda com o grupo, renomeado
+ * na tela), e a carta só entra nos baralhos do grupo da anotação dela. A resposta não muda o FSRS aqui:
  * quando a carta volta é conta do app, ao aplicar.
  */
 
@@ -57,6 +59,11 @@ export interface CamposDoBaralho {
 
 export interface CriarBaralhoV1 extends CamposDoBaralho {
   nome: string;
+  /**
+   * O grupo das anotações do baralho (só as cartas dele entram). A API pede sempre; sem ele (um pedido de
+   * antes dos grupos), o Murall usa o grupo de sempre.
+   */
+  grupo?: string;
 }
 
 export interface EditarBaralhoV1 extends CamposDoBaralho {
@@ -172,15 +179,26 @@ function lerNoMural(r: Record<string, unknown>): ConferidoEstudo<boolean | null 
   return { ok: true, dados: r['no_mural'] };
 }
 
+/** O tamanho de um nome de grupo (o das anotações). */
+export const NOME_DO_GRUPO_MAX = 32;
+
 /** Confere os dados de uma operação (vale na API, ao receber, e no site, ao aplicar). */
 export function conferirOpEstudo(op: OpEstudo, raw: unknown): ConferidoEstudo<DadosDaOpEstudo> {
   const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   switch (op) {
     case 'baralho.criar': {
       const b = lerBaralho(r, true);
-      return b.ok ? { ok: true, dados: b.dados as CriarBaralhoV1 } : b;
+      if (!b.ok) return b;
+      const out = b.dados as CriarBaralhoV1;
+      if (r['grupo'] !== undefined) {
+        const g = textoLimpo(r['grupo'], NOME_DO_GRUPO_MAX + 1);
+        if (!g || g.length > NOME_DO_GRUPO_MAX) return falha('grupo', `O grupo do baralho é o nome de um grupo das anotações (de 1 a ${NOME_DO_GRUPO_MAX} letras; veja ver_contexto).`);
+        out.grupo = g;
+      }
+      return { ok: true, dados: out };
     }
     case 'baralho.editar': {
+      if (r['grupo'] !== undefined) return falha('grupo', 'O grupo do baralho não muda por aqui: ele acompanha o grupo das anotações (renomeado no Murall). Para outro grupo, crie um baralho nele.');
       const b = lerBaralho(r, false);
       if (!b.ok) return b;
       const out: EditarBaralhoV1 = b.dados;
@@ -232,9 +250,20 @@ export function conferirOpEstudo(op: OpEstudo, raw: unknown): ConferidoEstudo<Da
   }
 }
 
-/** O baralho pelo id ou pelo nome (sem ligar para acento e caixa), ou null. */
-export function acharBaralho<T extends Pick<BaralhoV1, 'id' | 'nome'>>(decks: readonly T[], ref: string): T | null {
-  return decks.find((d) => d.id === ref) ?? decks.find((d) => dobra(d.nome.trim()) === dobra(ref.trim())) ?? null;
+/**
+ * O baralho pelo id ou pelo nome (sem ligar para acento e caixa), ou null. O mesmo nome pode estar em mais
+ * de um grupo (o Kana de Japonês e o de Idiomas): com `grupo`, vale o desse grupo.
+ */
+export function acharBaralho<T extends Pick<BaralhoV1, 'id' | 'nome'> & { grupo?: string | null }>(decks: readonly T[], ref: string, grupo?: string | null): T | null {
+  const byId = decks.find((d) => d.id === ref);
+  if (byId) return byId;
+  const named = baralhosDeNome(decks, ref);
+  return (grupo ? named.find((d) => !!d.grupo && dobra(d.grupo) === dobra(grupo)) : undefined) ?? named[0] ?? null;
+}
+
+/** Os baralhos com este nome (sem ligar para acento e caixa): mais de um quando o nome se repete em grupos diferentes. */
+export function baralhosDeNome<T extends Pick<BaralhoV1, 'nome'>>(decks: readonly T[], nome: string): T[] {
+  return decks.filter((d) => dobra(d.nome.trim()) === dobra(nome.trim()));
 }
 
 const ID_DO_BARALHO = ID_RE;
@@ -245,6 +274,7 @@ export function baralhoDoPedido(id: string, d: CriarBaralhoV1, posicao: number, 
   return {
     id,
     nome: d.nome,
+    grupo: d.grupo ?? null,
     cor: d.cor ?? 'amarelo',
     icone: null,
     novas_por_dia: d.novas_por_dia ?? 5,

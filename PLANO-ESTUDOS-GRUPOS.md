@@ -338,3 +338,11 @@ sempre) e a build de produção com o smoke.
   existia seguir sozinha também; a crítica do Impeccable mostrou que isso a mudava de baralho em silêncio
   (quem troca o grupo na aba Anotação não vê a aba Flashcard) e contrariava o G1 e a 4.4, e ficou o botão.
   O resto da rodada 3 do plano já tinha entrado na rodada 1.
+- **Rodada 4 (04/nov, BUILD 737).** A API e o MCP (a seção 5): `BaralhoV1.grupo`, a chave limitada só com os
+  baralhos dos grupos dela, `criar_baralho` com `grupo` obrigatório (um que existe), `editar_baralho` sem
+  mudar o grupo, o nome único dentro do grupo (o mesmo nome em outro grupo vale, pelo nome, o do grupo da
+  anotação; sem como desempatar, o id), a carta só nos baralhos do grupo dela (`baralho-de-outro-grupo`,
+  `nota-sem-grupo`), `grupo` em `ver_estudos`, `estudar_agora` e `listar_cartas`, o guia e o OpenAPI. A carta
+  guardada fora dos baralhos passou a ir ao espelho (com `baralhos: []` e `fica_no_mural: true`): antes ela
+  ficava de fora, e a AI não a via. O baralho que junta baralhos de grupos diferentes continua para depois
+  (seção 7). Com isso, o plano está completo.

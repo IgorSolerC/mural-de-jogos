@@ -18,6 +18,26 @@ describe('as operações dos Estudos', () => {
     expect(conferirOpEstudo('baralho.editar', { posicao: 2, no_mural: true })).toEqual({ ok: true, dados: { posicao: 2, no_mural: true } });
   });
 
+  it('o grupo do baralho: vem ao criar (limpo, até 32 letras) e não muda por editar', () => {
+    expect(conferirOpEstudo('baralho.criar', { nome: 'Kana', grupo: '  Estudo   Japones ' })).toEqual({ ok: true, dados: { nome: 'Kana', grupo: 'Estudo Japones' } });
+    expect(conferirOpEstudo('baralho.criar', { nome: 'Kana', grupo: '' })).toMatchObject({ ok: false, campo: 'grupo' });
+    expect(conferirOpEstudo('baralho.criar', { nome: 'Kana', grupo: 'x'.repeat(33) })).toMatchObject({ ok: false, campo: 'grupo' });
+    expect(conferirOpEstudo('baralho.criar', { nome: 'Kana', grupo: 5 })).toMatchObject({ ok: false, campo: 'grupo' });
+    expect(conferirOpEstudo('baralho.editar', { nome: 'Kana', grupo: 'Idiomas' })).toMatchObject({ ok: false, campo: 'grupo' });
+  });
+
+  it('o mesmo nome em dois grupos: pelo nome, vale o do grupo pedido (sem ele, o primeiro); pelo id, aquele', () => {
+    const decks = [
+      { id: 'd1', nome: 'Kana', grupo: 'Japonês' },
+      { id: 'd2', nome: 'kana', grupo: 'Idiomas' },
+    ];
+    expect(acharBaralho(decks, 'KANA', 'idiomas')?.id).toBe('d2');
+    expect(acharBaralho(decks, 'Kana', 'Japones')?.id).toBe('d1');
+    expect(acharBaralho(decks, 'Kana')?.id).toBe('d1');
+    expect(acharBaralho(decks, 'd2', 'Japonês')?.id).toBe('d2');
+    expect(acharBaralho(decks, 'Kana', 'Outro')?.id).toBe('d1');
+  });
+
   it('a carta: os baralhos sem repetir (sem ligar para acento), a frente numa linha, a imagem só https', () => {
     expect(conferirOpEstudo('carta.por', { baralhos: ['Japonês', 'japones', 'Kanji'], titulo: ' 火 \n ', subtitulo: '' })).toEqual({
       ok: true,

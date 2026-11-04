@@ -659,8 +659,8 @@ function checkCarta(c: Record<string, unknown>): CartaV1 {
     isStr(c['nota_titulo'], 200) &&
     isStr(c['verso'], 20_000) &&
     isStrOrNull(c['grupo'], 32) &&
+    // vazia: a carta está guardada fora dos baralhos (a anotação mudou de grupo)
     idList(c['baralhos'], BARALHOS_POR_CARTA) &&
-    (c['baralhos'] as unknown[]).length > 0 &&
     (c['no_mural'] === null || typeof c['no_mural'] === 'boolean') &&
     typeof c['fica_no_mural'] === 'boolean' &&
     (NIVEIS as readonly unknown[]).includes(c['nivel']) &&
@@ -707,6 +707,8 @@ function checkBaralho(b: Record<string, unknown>): BaralhoV1 {
     ID_RE.test(b['id']) &&
     isStr(b['nome'], NOME_DO_BARALHO_MAX * 2) &&
     !!b['nome'].trim() &&
+    // o grupo das anotações do baralho (o site de antes dos grupos não manda: vale null)
+    (b['grupo'] === undefined || isStrOrNull(b['grupo'], 32)) &&
     isColor(b['cor']) &&
     (b['icone'] === null || (typeof b['icone'] === 'string' && ICONE_RE.test(b['icone']))) &&
     Number.isInteger(b['novas_por_dia']) &&
@@ -726,6 +728,7 @@ function checkBaralho(b: Record<string, unknown>): BaralhoV1 {
   return {
     id: v.id,
     nome: v.nome,
+    grupo: v.grupo ?? null,
     cor: v.cor,
     icone: v.icone,
     novas_por_dia: v.novas_por_dia,
@@ -855,7 +858,8 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
     if (item['tipo'] === 'baralho') {
       const b = checkBaralho(dados);
       if (b.id !== item['id']) throw bad('O id do baralho não bate com o do item.');
-      return { tipo: 'baralho', id: b.id, versao: b.versao, hash: item['hash'], grupo: null, data: null, busca: dobra(b.nome), dados: JSON.stringify(b) };
+      // o grupo sem acento, como o das cartas: a chave limitada a grupos só vê os baralhos dos dela
+      return { tipo: 'baralho', id: b.id, versao: b.versao, hash: item['hash'], grupo: b.grupo ? dobra(b.grupo) : null, data: null, busca: dobra(b.nome), dados: JSON.stringify(b) };
     }
     if (item['tipo'] === 'contexto-estudos') {
       if (item['id'] !== CONTEXTO_ESTUDOS) throw bad('O contexto dos Estudos tem o id "estudos".');
