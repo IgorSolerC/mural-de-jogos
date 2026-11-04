@@ -252,11 +252,14 @@ import { ZoomKnob } from './zoom-knob';
     }
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     @include formatado.enfases;
-    :host-context(app-review-card[data-cor='amarelo']) .marca:not(.cartao *) {
+    :host-context(app-review-card[data-cor='amarelo']) .marca:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='amarelo']) .marca:not(.cartao *) {
       --marca-cor: rgb(255 112 168 / 0.45);
     }
     :host-context(app-review-card[data-cor$='-escuro']) .marca:not(.cartao *),
-    :host-context(app-review-card[data-cor='preto']) .marca:not(.cartao *) {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .marca:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .marca:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='preto']) .marca:not(.cartao *) {
       --marca-cor: rgb(255 218 66 / 0.32);
     }
     /* o spoiler: a tarja de caneta preta da altura das letras (como a do marca-texto, só que cobrindo
@@ -309,15 +312,21 @@ import { ZoomKnob } from './zoom-knob';
     }
     /* (no card, o papel é claro em toda cartolina: a tarja, o link e o marca-texto ficam os de sempre) */
     :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.cartao *),
-    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.cartao *) {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .spoiler:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='preto']) .spoiler:not(.cartao *) {
       --tarja: #f1f1ec;
     }
     :host-context(app-review-card[data-cor$='-escuro']) .spoiler:not(.revelado, .cartao *):hover,
-    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.revelado, .cartao *):hover {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .spoiler:not(.revelado, .cartao *):hover,
+    :host-context(app-review-card[data-cor='preto']) .spoiler:not(.revelado, .cartao *):hover,
+    :host-context(.verso.cartolina[data-cor='preto']) .spoiler:not(.revelado, .cartao *):hover {
       --tarja: #cfcfc8;
     }
     :host-context(app-review-card[data-cor$='-escuro']) .spoiler.revelado:not(.cartao *),
-    :host-context(app-review-card[data-cor='preto']) .spoiler.revelado:not(.cartao *) {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .spoiler.revelado:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .spoiler.revelado:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='preto']) .spoiler.revelado:not(.cartao *) {
       --tarja: rgb(241 241 236 / 0.14);
     }
     @media (prefers-reduced-motion: reduce) {
@@ -658,12 +667,16 @@ import { ZoomKnob } from './zoom-knob';
     @include formatado.elo;
     /* nas escuras: a caneta azul-céu, que aparece no escuro, e o marca-texto mais fraco */
     :host-context(app-review-card[data-cor$='-escuro']) .elo:not(.cartao *),
-    :host-context(app-review-card[data-cor='preto']) .elo:not(.cartao *) {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .elo:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .elo:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='preto']) .elo:not(.cartao *) {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.4C16 4.9 31 7.3 49 5.7S82 4.6 99 5.9' fill='none' stroke='%238fd3ff' stroke-width='2.4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
       --elo-marca: rgb(143 211 255 / 0.26);
     }
     :host-context(app-review-card[data-cor$='-escuro']) .elo.quebrado:not(.cartao *),
-    :host-context(app-review-card[data-cor='preto']) .elo.quebrado:not(.cartao *) {
+    :host-context(.verso.cartolina[data-cor$='-escuro']) .elo.quebrado:not(.cartao *),
+    :host-context(app-review-card[data-cor='preto']) .elo.quebrado:not(.cartao *),
+    :host-context(.verso.cartolina[data-cor='preto']) .elo.quebrado:not(.cartao *) {
       --elo-traco: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 6.2C16 5.2 31 7 49 5.8S82 4.9 99 6' fill='none' stroke='%23f3ece0' stroke-opacity='.6' stroke-width='1.8' stroke-dasharray='5 4' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
     }
     :host-context(.cartolina[data-cor$='-escuro']) .feita .tarefa:not(.cartao *),

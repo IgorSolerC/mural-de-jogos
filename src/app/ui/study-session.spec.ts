@@ -1,6 +1,7 @@
 import { Component, provideZonelessChangeDetection, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Review, sanitizeReview } from '../core/review';
+import { Desk } from '../core/desk';
 import { ReviewStore } from '../core/review-store';
 import { StudyStore } from '../core/study-store';
 import { StudySession } from './study-session';
@@ -192,5 +193,72 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     await settle();
     expect(fixture.componentInstance.open()).toBeFalse();
     expect(study.cardOf().get('nsol')!.stats.seen).toBe(1);
+  });
+
+  describe('o texto do verso sai como na ficha do mural', () => {
+    /** Troca o texto (e a cor) da anotação da primeira carta e vira. */
+    async function reveal(text: string, extra: Record<string, unknown> = {}): Promise<HTMLElement> {
+      TestBed.inject(ReviewStore).reviews.update((list) => list.map((r) => (r.id === 'nsol' ? { ...r, text, ...extra } : r)));
+      await settle();
+      key(' ');
+      await settle();
+      return $('.verso-texto')!;
+    }
+
+    it('o link "[[título|texto]]" é a caneta azul com o texto escolhido, sem os colchetes; o que não existe, tracejado', async () => {
+      const verso = await reveal('Ver [[Lua (月)|a lua]] e [[Estrela]].');
+      expect(text(verso)).toBe('Ver a lua e Estrela.');
+      expect(text(verso)).not.toContain('[[');
+      const [lua, estrela] = [...verso.querySelectorAll<HTMLElement>('.elo')];
+      expect(text(lua)).toBe('a lua');
+      expect(lua.classList).not.toContain('quebrado');
+      expect(estrela.classList).toContain('quebrado');
+    });
+
+    it('tocar no link abre a anotação na leitura, com a da carta no "Voltar", sem responder a carta', async () => {
+      const open = spyOn(TestBed.inject(Desk), 'openReview');
+      const verso = await reveal('Ver [[Lua (月)|a lua]].');
+      const lua = verso.querySelector<HTMLElement>('.elo')!;
+      lua.click();
+      lua.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await settle();
+      expect(open).toHaveBeenCalledWith('nlua', 'nsol');
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
+      // de volta da leitura, o foco no link: o Espaço (que o link não usa) ainda é o Acertei
+      lua.focus();
+      lua.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(1);
+    });
+
+    it('a letra, a linha e os espaços escritos são os da ficha', async () => {
+      const verso = await reveal('Leitura:\n    recuada');
+      const css = getComputedStyle(verso);
+      expect(css.whiteSpace).toBe('pre-wrap');
+      // a letra à mão das anotações (--f-hand), não a da interface
+      const hand = document.createElement('span');
+      hand.style.fontFamily = 'var(--f-hand)';
+      document.body.append(hand);
+      expect(css.fontFamily).toBe(getComputedStyle(hand).fontFamily);
+      hand.remove();
+      expect(css.getPropertyValue('--line').trim()).toBe('1.4rem');
+      expect(verso.textContent).toContain('    recuada');
+    });
+
+    it('na cartolina escura, o link é a caneta azul-céu, como na ficha do mural', async () => {
+      const verso = await reveal('Ver [[Lua (月)|a lua]].', { stock: 'preto' });
+      expect($('.verso')!.getAttribute('data-cor')).toBe('preto');
+      expect(getComputedStyle(verso.querySelector('.elo')!).getPropertyValue('--elo-traco')).toContain('8fd3ff');
+    });
+
+    it('Espaço no título do card que abre e fecha é do card: não responde a carta', async () => {
+      const verso = await reveal('> [!citacao]- Leituras\n> toki');
+      const summary = verso.querySelector<HTMLElement>('summary')!;
+      summary.focus();
+      summary.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
+      expect(frontTitle()).toBe('日');
+    });
   });
 });

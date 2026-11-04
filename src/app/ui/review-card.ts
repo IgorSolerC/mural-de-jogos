@@ -55,9 +55,8 @@ import { RichText } from './rich-text';
 import { Corta } from './clamp';
 import { ReviewStore } from '../core/review-store';
 import { tickTask } from '../core/rich-text';
-import { NoteLinks, resolveNote } from '../core/note-links';
-import { ReminderLinks } from '../core/reminder-links';
-import { Desk } from '../core/desk';
+import { NoteLinks } from '../core/note-links';
+import { OwnNoteLinks } from '../core/own-note-links';
 import { NoteDone } from '../core/note-done';
 import { NotePin } from '../core/note-pin';
 import { WallMotion } from '../core/wall-motion';
@@ -1815,8 +1814,7 @@ export class ReviewCard {
     void this.noteDone.offerLinked(r.id, text, line);
   }
 
-  private readonly desk = inject(Desk);
-  private readonly reminderLinks = inject(ReminderLinks);
+  private readonly ownLinks = inject(OwnNoteLinks);
   private readonly noteDone = inject(NoteDone);
   private readonly view = inject(WallView);
   private readonly motion = inject(WallMotion);
@@ -1947,18 +1945,7 @@ export class ReviewCard {
    */
   protected readonly noteLinks = computed<NoteLinks>(() => {
     if (!this.checkable()) return {};
-    const notes = this.store.notes();
-    const from = this.review().id;
-    return {
-      resolve: (title) => resolveNote(notes, title),
-      open: (n) => this.desk.openReview(n.id, from),
-      create: (title) => this.desk.newNote(title, from),
-      // a ficha colada no texto (o widget Nota), de qualquer mural: abre na leitura, com esta no "Voltar"
-      openCard: (card) => this.desk.openReview(card.id, from),
-      // o link de lembrete: o Calendário abre no dia dele, com ele em destaque
-      reminder: (id) => this.reminderLinks.info(id),
-      openReminder: (id) => this.reminderLinks.open(id),
-    };
+    return this.ownLinks.of(this.review().id);
   });
 
   /** É uma anotação (mural de anotações): sem nota nem veredito; as categorias e o texto. */

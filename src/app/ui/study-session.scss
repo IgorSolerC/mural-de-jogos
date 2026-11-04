@@ -270,6 +270,27 @@ dialog.sessao {
   text-wrap: balance;
 }
 
+/* o texto da anotação com a letra, a linha e os respiros da ficha do mural (ui/review-card.ts, .nota-texto):
+   a mesma cartolina sem pauta. Sem eles, o texto saía na letra da interface, sem os espaços escritos
+   (o recuo) e com os títulos e as tarefas grudados */
+.verso-texto {
+  --line: 1.4rem;
+  --titulo-antes: calc(1.4rem * 0.55);
+  --titulo-depois: calc(1.4rem * 0.3);
+  --tarefa-respiro: 0.45em;
+  --corpo-respiro: 0px;
+  --caixa-sobe: 3.5px;
+  font-family: var(--f-hand);
+  font-size: 1.04rem;
+  line-height: var(--line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+
+  app-rich-text {
+    display: block;
+  }
+}
+
 .verso-vazio {
   margin: 0;
   font-family: var(--f-hand);

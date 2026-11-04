@@ -13,6 +13,7 @@ import { paperVars } from '../core/paper-art';
 import { artIdOf, isDarkStock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { StudyCard } from './study-card';
+import { OwnNoteLinks } from '../core/own-note-links';
 
 /** Uma resposta da sessão, para o Desfazer: a carta, se acertou, e como voltar. */
 interface Answered {
@@ -108,10 +109,21 @@ export class StudySession {
         return { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) };
       })(),
       deck: this.study.deck(item.deck) ?? null,
+      noteId: note.id,
       noteTitle: note.game.name,
       text: note.text,
       srs: card.srs,
     };
+  });
+
+  private readonly ownLinks = inject(OwnNoteLinks);
+  /**
+   * Os links do verso, os mesmos da ficha do mural (core/own-note-links.ts): sem eles, o "[[título|texto]]"
+   * sairia com os colchetes, e o lembrete e a ficha colada não abririam.
+   */
+  protected readonly links = computed(() => {
+    const id = this.current()?.note;
+    return id ? this.ownLinks.of(id) : null;
   });
 
   /** Quando a carta voltaria com cada resposta (o que o FSRS calcularia agora, sem guardar nada). */
@@ -252,8 +264,11 @@ export class StudySession {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    // Espaço e Enter num botão com o foco são do botão (o Voltar do fim, o Errei escolhido pelo Tab)
-    if ((key === ' ' || key === 'enter') && e.target instanceof HTMLButtonElement) return;
+    // Espaço e Enter num botão com o foco são do botão (o Voltar do fim, o Errei escolhido pelo Tab), e
+    // no que se toca no texto do verso também: o título do card que abre e fecha, o spoiler. O link só usa
+    // o Enter: com o foco nele (de volta da leitura que ele abriu), o Espaço continua sendo o Acertei
+    const own = key === ' ' ? 'button, summary, [role="button"]' : 'button, a[href], summary, [role="button"], [role="link"]';
+    if ((key === ' ' || key === 'enter') && e.target instanceof Element && e.target.closest(own)) return;
     if (!this.card()) return;
     if (!this.revealed()) {
       if (key === ' ' || key === 'enter') {
