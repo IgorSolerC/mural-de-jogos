@@ -330,3 +330,11 @@ sempre) e a build de produção com o smoke.
   e o nome numa tira de papel no topo da pasta, a cartolina do primeiro baralho de um grupo e a de todos com a
   escolha do grupo. O grupo aberto aqui fica aberto no mural (`WallView.openGroup`, como o Kanban). Nada novo
   no navegador: o grupo aberto vai no endereço.
+- **Rodada 3 (04/nov, BUILD 736).** O baralho de mesmo nome (sem acento nem caixa) no grupo novo: a carta
+  guardada (G1, a que já existia) ganha na aba Flashcard o botão "Pôr no Kana de Idiomas" (`offers`), um
+  toque e nunca sozinho, também ao reabrir a anotação que chegou ao grupo por outro caminho; a Nova carta
+  (4.3), com o grupo trocado no editor, segue sozinha (`twins`), com a frase "Em Idiomas, a carta vai para
+  Kana, o baralho de mesmo nome."; tirado à mão, o gêmeo não volta. A primeira versão fazia a carta que já
+  existia seguir sozinha também; a crítica do Impeccable mostrou que isso a mudava de baralho em silêncio
+  (quem troca o grupo na aba Anotação não vê a aba Flashcard) e contrariava o G1 e a 4.4, e ficou o botão.
+  O resto da rodada 3 do plano já tinha entrado na rodada 1.

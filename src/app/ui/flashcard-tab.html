@@ -70,11 +70,21 @@
         <span class="nome">Baralhos</span>
         <div class="valor">
           <div aria-live="polite">
-            @if (asleepText(); as t) {
+            @if (twinText(); as t) {
+              <p class="dorme">{{ t }}</p>
+            } @else if (asleepText(); as t) {
               <p class="dorme">{{ t }}</p>
             }
           </div>
-          <app-study-deck-picker [decks]="decks()" [group]="group()" (decksChange)="setDecks($event)" />
+          @if (offers().length) {
+            <!-- a carta guardada, com o baralho de mesmo nome no grupo de agora: seguir é um toque, nunca sozinho -->
+            <div class="ofertas">
+              @for (o of offers(); track o.id) {
+                <button type="button" class="papel pequeno" (click)="adopt(o.id)">Pôr no {{ o.name }} de {{ group() }}</button>
+              }
+            </div>
+          }
+          <app-study-deck-picker [decks]="shownDecks()" [group]="group()" (decksChange)="setDecks($event)" />
           @if (missingDeck()) {
             <p class="erro" role="alert">{{ missingText() }}</p>
           }

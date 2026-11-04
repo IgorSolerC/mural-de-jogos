@@ -176,6 +176,78 @@ describe('o editor: a aba Flashcard', () => {
     expect(redes).toBeTruthy();
   });
 
+  it('a carta que já existia não muda de baralho sozinha: trocado o grupo, ela dorme e ganha o "Pôr no Kana de Idiomas"', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const kana = study.addDeck('Kana', 'amarelo', null, undefined, 'Estudos');
+    const twin = study.addDeck('kana', 'rosa', null, undefined, 'Idiomas');
+    study.addDeck('Outro', 'azul', null, undefined, 'Idiomas');
+    study.addCard('nsol', [kana], { title: '日' });
+    study.answer('nsol', true, kana);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    const chips = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
+    const offers = () => [...panel().querySelectorAll<HTMLButtonElement>('.ofertas button')];
+    // no mesmo grupo, nada a oferecer
+    expect(offers()).toEqual([]);
+    fixture.componentInstance['noteCategory'].set('Idiomas');
+    await fixture.whenStable();
+    // nada muda sozinho: a carta dorme no Kana de Estudos, e o de mesmo nome é oferecido
+    expect(chips()).toEqual([]);
+    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kana enquanto a anotação não for de Estudos');
+    expect(offers().map((b) => b.textContent!.trim())).toEqual(['Pôr no Kana de Idiomas']);
+    offers()[0].click();
+    await fixture.whenStable();
+    expect(chips()).toEqual(['Kana']);
+    expect(offers()).toEqual([]);
+    fixture.componentInstance['mode'].set('escrever');
+    await save();
+    // foi para o gêmeo, com o progresso de antes
+    const card = study.state().cards.find((c) => c.note === 'nsol')!;
+    expect(card.decks).toEqual([twin]);
+    expect(card.stats.seen).toBe(1);
+  });
+
+  it('sem o toque, a carta fica guardada no baralho de antes; reaberta já no grupo novo, a oferta continua', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const kana = study.addDeck('Kana', 'amarelo', null, undefined, 'Estudos');
+    study.addDeck('Kana', 'rosa', null, undefined, 'Idiomas');
+    study.addCard('nsol', [kana]);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    fixture.componentInstance['noteCategory'].set('Idiomas');
+    await fixture.whenStable();
+    fixture.componentInstance['mode'].set('escrever');
+    await save();
+    expect(study.state().cards.find((c) => c.note === 'nsol')!.decks).toEqual([kana]);
+    expect(study.cardOf().get('nsol')!.decks).toEqual([]);
+    // reaberta (a anotação já em Idiomas): a carta guardada e o mesmo botão
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    expect([...panel().querySelectorAll('.ofertas button')].map((b) => b.textContent!.trim())).toEqual(['Pôr no Kana de Idiomas']);
+  });
+
+  it('a Nova carta de um baralho num grupo trocado no editor vai para o de mesmo nome do grupo novo', async () => {
+    const verbos = study.addDeck('Verbos', 'rosa', null, undefined, 'Japonês');
+    const twin = study.addDeck('Verbos', 'azul', null, undefined, 'Inglês');
+    study.pending.set({ decks: [verbos] });
+    fixture.componentInstance.openInCategory('Japonês');
+    (fixture.componentInstance as unknown as { setNoteTitle(t: string): void }).setNoteTitle('To eat');
+    await fixture.whenStable();
+    fixture.componentInstance['noteCategory'].set('Inglês');
+    await fixture.whenStable();
+    fixture.componentInstance['mode'].set('escrever');
+    await save();
+    const saved = store.notes().find((n) => n.game.name === 'To eat')!;
+    expect(saved.category).toBe('Inglês');
+    expect(study.cardOf().get(saved.id)!.decks).toEqual([twin]);
+  });
+
   it('a anotação sem grupo não vira carta: a aba pede o grupo, no lugar do Criar a frente', async () => {
     store.reviews.set([{ ...note('nlua', 'Lua'), category: undefined }]);
     study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');

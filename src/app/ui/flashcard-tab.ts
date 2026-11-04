@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject, input, signal } f
 import { ImageStore } from '../core/image-store';
 import { ImageProblem, localImageUrl } from '../core/images';
 import { Stock } from '../core/review';
-import { CardFront, StudyCard as Card, SUBTITLE_MAX, TITLE_MAX, cleanFront, cleanImage, groupKey, inGroup, studyOnWall } from '../core/study';
+import { lookKey } from '../core/category-looks';
+import { CardFront, Deck, StudyCard as Card, SUBTITLE_MAX, TITLE_MAX, cleanFront, cleanImage, groupKey, inGroup, studyOnWall } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { ICON, IconModule } from './icons';
@@ -22,7 +23,11 @@ import { Toasts } from './toast';
  *
  * Só os baralhos do grupo que está no editor valem (PLANO-ESTUDOS-GRUPOS.md). A carta guarda também os de
  * outro grupo em que ela dorme: trocado o grupo no editor, salvar sem escolher baralho do grupo novo deixa a
- * carta dormindo nos de antes; escolhendo, ela passa para os do grupo novo.
+ * carta dormindo nos de antes; escolhendo, ela passa para os do grupo novo. Se o grupo novo tem um baralho
+ * de mesmo nome que um dos dela (o "Kana" de cada grupo, como a conversão dos baralhos mistos cria), a carta
+ * guardada ganha o botão "Pôr no Kana de Idiomas" (`offers`): um toque, nunca sozinho (a carta que já existia
+ * dorme, G1). A Nova carta, que ainda não tem progresso, segue sozinha para ele (`twins`), como a anotação do
+ * Kanban cai na coluna de mesmo nome; tirado à mão, ele não volta.
  */
 @Component({
   selector: 'app-flashcard-tab',
@@ -59,11 +64,60 @@ export class FlashcardTab {
   protected readonly image = signal('');
   /** Os baralhos escolhidos, com os de outro grupo em que a carta dorme (ver `live`). */
   readonly decks = signal<string[]>([]);
-  /** Os escolhidos que valem: os que existem e são do grupo do editor. */
-  protected readonly live = computed(() => this.decks().filter((id) => {
-    const d = this.study.deck(id);
-    return !!d && inGroup(d, this.group());
-  }));
+  /** Os escolhidos que valem: os que existem e são do grupo do editor, e os de mesmo nome que a carta segue. */
+  protected readonly live = computed(() => [
+    ...this.decks().filter((id) => {
+      const d = this.study.deck(id);
+      return !!d && inGroup(d, this.group());
+    }),
+    ...this.twins().map((d) => d.id),
+  ]);
+  /** O grupo da anotação quando o editor abriu (o salvo; na Nova carta, o do baralho): os gêmeos só vêm de uma troca feita aqui. */
+  private readonly startGroup = signal<string | null>(null);
+  /** Os gêmeos tirados à mão (pelo id): não voltam enquanto o editor está aberto. */
+  private readonly declined = signal<ReadonlySet<string>>(new Set());
+  /** Os baralhos do grupo do editor com o mesmo nome (sem acento nem caixa) que um dos escolhidos de outro grupo. */
+  private readonly sameNamed = computed<Deck[]>(() => {
+    const g = this.group();
+    if (!this.on() || !groupKey(g)) return [];
+    const chosen = new Set(this.decks());
+    const out: Deck[] = [];
+    for (const id of this.decks()) {
+      const d = this.study.deck(id);
+      if (!d || inGroup(d, g)) continue;
+      const twin = this.study.decks().find((x) => inGroup(x, g) && lookKey(x.name) === lookKey(d.name) && !chosen.has(x.id));
+      if (twin && !out.includes(twin)) out.push(twin);
+    }
+    return out;
+  });
+  /**
+   * Na Nova carta (ainda sem progresso) com o grupo trocado no editor: os baralhos de mesmo nome do grupo
+   * novo, que ela segue sozinha; os tirados à mão não voltam.
+   */
+  protected readonly twins = computed<Deck[]>(() => {
+    if (!this.freshNote() || groupKey(this.group()) === groupKey(this.startGroup())) return [];
+    const declined = this.declined();
+    return this.sameNamed().filter((d) => !declined.has(d.id));
+  });
+  /** Na carta guardada fora dos baralhos: os de mesmo nome do grupo de agora, oferecidos num toque ("Pôr no Kana de Idiomas"). */
+  protected readonly offers = computed<Deck[]>(() => (this.asleep().length ? this.sameNamed() : []));
+  /** O que o seletor mostra: os escolhidos e os gêmeos. */
+  protected readonly shownDecks = computed(() => [...this.decks(), ...this.twins().map((d) => d.id)]);
+  /** A frase dos gêmeos: para onde a carta vai no grupo novo. */
+  protected readonly twinText = computed(() => {
+    const twins = this.twins();
+    if (!twins.length) return '';
+    const names = twins.map((d) => d.name);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+    const what = names.length === 1 ? 'o baralho de mesmo nome' : 'os baralhos de mesmo nome';
+    return `Em ${this.group()}, a carta vai para ${list}, ${what}.`;
+  });
+
+  /** "Pôr no Kana de Idiomas": a carta guardada passa para o baralho de mesmo nome do grupo de agora. */
+  protected adopt(id: string): void {
+    this.decks.set([...this.decks(), id]);
+    this.missingDeck.set(false);
+  }
   /** O "No mural" escolhido aqui (null: o que já vale). */
   private readonly wallChoice = signal<boolean | null>(null);
   /** Faltou o baralho ao salvar. */
@@ -173,6 +227,9 @@ export class FlashcardTab {
     this.decks.set(stored ? [...stored.decks] : pending ? [...pending.decks] : []);
     this.storedDecks.set(stored ? [...stored.decks] : []);
     this.wasLive = !!card?.decks.length;
+    this.declined.set(new Set());
+    // o grupo de partida: o salvo da anotação; na Nova carta, o do baralho pedido
+    this.startGroup.set(isNew ? (pending?.decks.map((d) => this.study.deck(d)?.group).find((g) => !!g) ?? null) : (this.study.groupOf(id) ?? null));
     const asked = this.study.openFront() === id;
     if (asked) this.study.openFront.set(null);
     return !!pending || asked;
@@ -224,7 +281,10 @@ export class FlashcardTab {
     this.on.set(false);
   }
 
+  /** O seletor mudou os baralhos (com os gêmeos à mostra): o gêmeo que saiu fica recusado; os que ficaram, escolhidos. */
   protected setDecks(decks: string[]): void {
+    const out = this.twins().filter((d) => !decks.includes(d.id));
+    if (out.length) this.declined.update((s) => new Set([...s, ...out.map((d) => d.id)]));
     this.decks.set(decks);
     if (decks.length) this.missingDeck.set(false);
   }

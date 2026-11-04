@@ -209,6 +209,14 @@
   rotate: 1.4deg;
 }
 
+/* "Pôr no Kana de Idiomas": embaixo da frase da carta guardada, antes do seletor */
+.ofertas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
 /* a carta guardada fora dos baralhos (a anotação mudou de grupo): à mão, como a dica, com a tinta cheia */
 .dorme {
   margin: 0 0 8px;
