@@ -77,6 +77,13 @@ describe('o Mais das abas (TabMore)', () => {
     expect(option.title).toBe(long);
   });
 
+  it('o aperto na orelha não é cancelado, com a lista fechada ou aberta', async () => {
+    const press = () => trigger().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+    expect(press()).toBeTrue();
+    await open();
+    expect(press()).toBeTrue();
+  });
+
   it('fechado, é só a orelha: um botão que diz que abre uma lista (escondida)', () => {
     expect(trigger().getAttribute('aria-haspopup')).toBe('listbox');
     expect(trigger().getAttribute('aria-expanded')).toBe('false');

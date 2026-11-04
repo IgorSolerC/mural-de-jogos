@@ -54,7 +54,7 @@ export interface TabMoreItem {
       [attr.aria-expanded]="open()"
       [attr.aria-controls]="open() ? listId : null"
       [attr.aria-label]="label() + (activeLabel() ? ': ' + activeLabel() : '')"
-      (pointerdown)="wasOpen = open()"
+      (pointerdown)="onPress()"
       (click)="toggle()"
       (keydown)="onTriggerKey($event)"
     >
@@ -144,7 +144,7 @@ export class TabMore {
    * A lista estava aberta quando o dedo ou o mouse desceu na orelha: o toque fora do popover já a
    * fechou (no pointerdown), e o clique não pode abrir de novo.
    */
-  protected wasOpen = false;
+  private wasOpen = false;
   /** O id da lista (aria-controls), um por "Mais" da página. */
   protected readonly listId = `mais-lista-${++lists}`;
 
@@ -168,6 +168,14 @@ export class TabMore {
 
   protected colorOf(x: TabMoreItem): string | null {
     return categoryColorHex(x.look.color);
+  }
+
+  /**
+   * Num método: no molde, um "wasOpen = open()" devolveria false com a lista fechada, e o Angular
+   * cancelaria o aperto, o que fazia a primeira opção mostrar o anel do teclado a quem abriu com o mouse.
+   */
+  protected onPress(): void {
+    this.wasOpen = this.open();
   }
 
   protected toggle(): void {

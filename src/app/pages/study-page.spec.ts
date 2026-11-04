@@ -178,6 +178,8 @@ describe('página dos Estudos', () => {
       TestBed.inject(ReviewStore).reviews.update((all) => [...all, { ...note('ntrab', 'Reunião'), category: 'Trabalho' }]);
       seed();
       await go('/anotacoes/estudos');
+      // a lista fecha quando o botão sai da tela, e a janela dos testes é baixa: o botão fica à vista
+      trigger().scrollIntoView({ block: 'center' });
     }
 
     it('tem o nome e o + do das outras abas, e diz que abre uma lista, fechada', async () => {

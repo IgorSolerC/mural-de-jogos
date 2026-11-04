@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-novo-baralho-em-tudo',
+    id: '2026-11-04-mais-sem-anel-no-mouse',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -49,6 +49,7 @@ export const NEWS: NewsEntry[] = [
       'O botão de criar baralho da aba Tudo dos Estudos não fazia nada ao ser clicado, e o "+ Baralho" da carta não abria com o mouse: os dois agora abrem.',
       'As tags dos filtros e a tira de dependências do Kanban voltaram a responder ao teclado: o Enter e o espaço acionam, e o Tab passa por eles.',
       'No Mais das abas, o nome de grupo muito comprido agora termina em reticências, dentro da lista, e aparece inteiro na dica do mouse.',
+      'Ao abrir o Mais das abas com o mouse, a primeira opção não aparece mais com o contorno de quem usa o teclado.',
     ],
   },
   {
