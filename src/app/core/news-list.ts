@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-kanban-e-estudos-so-perto-da-tela',
+    id: '2026-11-04-kanban-sem-mostrar-mais',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -38,7 +38,7 @@ export const NEWS: NewsEntry[] = [
       'Pela API e pelo MCP, cada baralho mostra o grupo dele, criar um baralho pede o grupo, a AI só põe a carta nos baralhos do grupo da anotação (o mesmo nome em outro grupo vale o do grupo dela) e pode estudar, listar e contar só um grupo; a chave limitada a alguns grupos só vê os baralhos deles, e a carta guardada fora dos baralhos aparece sem baralho.',
       'Cada baralho dos Estudos agora é de um grupo das anotações, e só as cartas desse grupo valem nele: os baralhos que já existiam ganharam o grupo das cartas deles (o que misturava grupos virou um por grupo, sem perder nada), a anotação que muda de grupo sai dos baralhos de antes sem perder o progresso (a aba Flashcard e o aviso de salvar dizem isso, com Desfazer, e ela volta a eles se voltar ao grupo), a anotação sem grupo pede um grupo antes de virar carta, a Nova carta nasce no grupo do baralho, o Trazer anotações mostra só as dele, e apagar um grupo leva os baralhos dele junto, dizendo antes.',
       'No baralho dos Estudos, dois botões depois do Ordenar trocam entre as cartas grandes e as pequenas: a mesma carta, uns 60% menor, para ver mais cartas na tela. A escolha fica guardada neste aparelho e vale para todos os baralhos.',
-      'O Kanban e os baralhos dos Estudos ficaram mais leves: como no mural, só as fichas e as cartas perto da tela ficam montadas, e abrir um baralho grande não trava mais a página.',
+      'O Kanban e os baralhos dos Estudos ficaram mais leves: como no mural, só as fichas e as cartas perto da tela ficam montadas, e abrir um baralho grande não trava mais a página. Com isso, as colunas do Kanban mostram todas as anotações de uma vez, é só rolar, e o "Mostrar mais" saiu.',
     ],
     correcoes: [
       'A reação com um emoji do "+" agora mostra o nome dele ao lado do desenho (como o "Amei" das sete da fileira), em vez de repetir o emoji; o nome também vale para o leitor de tela, a dica do botão e os avisos.',

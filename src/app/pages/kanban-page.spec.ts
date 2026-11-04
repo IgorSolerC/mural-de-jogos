@@ -1534,39 +1534,17 @@ describe('página do Kanban', () => {
       return { ...b, cards: [...b.cards, ...ids.map((id) => ({ note: id, column: 'feito', importance: null }))] };
     }
 
-    it('mostram as 10 primeiras e o "Mostrar mais 5" no pé; a última leva das que faltam', async () => {
+    it('mostram todas as anotações, sem botão no pé: é só rolar', async () => {
       kanban.state.set(state(long()));
       await go(TRAB_URL);
-      expect(namesIn('feito').length).toBe(10);
-      // a contagem da etiqueta continua contando todas
-      expect(column('feito').querySelector('.etiqueta-n')!.textContent).toContain('23');
-      const mais = () => column('feito').querySelector<HTMLButtonElement>('.mais');
-      expect(mais()!.textContent!.replace(/\s+/g, ' ').trim()).toBe('Mostrar mais 5 , faltam 13');
-      // a coluna com poucas não tem botão
-      expect(column('afazer').querySelector('.mais')).toBeNull();
-      mais()!.click();
-      await settle();
-      expect(namesIn('feito').length).toBe(15);
-      mais()!.click();
-      await settle();
-      expect(namesIn('feito').length).toBe(20);
-      expect(mais()!.textContent).toContain('Mostrar mais 3');
-      const focused = spyOn(HTMLElement.prototype, 'focus').and.callThrough();
-      mais()!.click();
-      await settle();
       expect(namesIn('feito').length).toBe(23);
-      expect(mais()).toBeNull();
-      await settle();
-      // o botão sumiu: o foco vai para a primeira das que chegaram
-      // (na suíte inteira o foco às vezes não pega no headless: confere a quem ele foi dado)
-      expect(focused.calls.all().map((c) => (c.object as HTMLElement).closest('.lugar')?.getAttribute('data-nota'))).toContain('nfeit020');
+      expect(column('feito').querySelector('.etiqueta-n')!.textContent).toContain('23');
+      expect(column('feito').querySelector('.rolo')!.querySelector('button.mais')).toBeNull();
     });
 
     it('cada coluna rola por dentro: a altura dela cabe na tela e a página não cresce com ela', async () => {
       kanban.state.set(state(long()));
       await go(TRAB_URL);
-      column('feito').querySelector<HTMLButtonElement>('.mais')!.click();
-      await settle();
       const rolo = column('feito').querySelector<HTMLElement>('.rolo')!;
       expect(getComputedStyle(rolo).overflowY).toBe('auto');
       await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -1616,7 +1594,7 @@ describe('página do Kanban', () => {
         const rolo = column(id).querySelector<HTMLElement>('.rolo')!;
         rolo.scrollTop = rolo.scrollHeight;
         const last = [...rolo.querySelectorAll('.lugar app-kanban-note')].at(-1)!.getBoundingClientRect();
-        const end = rolo.querySelector('.mais')?.getBoundingClientRect().bottom ?? last.bottom;
+        const end = last.bottom;
         // a sombra das fichas (--shadow-card) é forte nos primeiros 20px e se apaga até uns 30px
         expect(rolo.getBoundingClientRect().bottom - end).toBeGreaterThanOrEqual(29);
       }
@@ -1625,17 +1603,7 @@ describe('página do Kanban', () => {
       expect(column('afazer').querySelector('.adicionar')!.getBoundingClientRect().top - rolo.getBoundingClientRect().bottom).toBeLessThanOrEqual(5);
     });
 
-    it('a anotação que desce além das que estão à mostra continua à vista', async () => {
-      kanban.state.set(state(long()));
-      await go(TRAB_URL);
-      // a 10ª desce uma: a coluna passa a mostrar 15
-      host.querySelector('[data-nota="nfeit009"] .hit')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true }));
-      await settle();
-      expect(namesIn('feito').length).toBe(15);
-      expect(namesIn('feito')[10]).toBe('nfeit009');
-    });
-
-    it('soltar depois da última à mostra cai antes das que o "Mostrar mais" guarda', async () => {
+    it('soltar depois da última da coluna comprida: ela vai para o fim', async () => {
       kanban.state.set(state(long()));
       await go(TRAB_URL);
       const grab = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
@@ -1653,7 +1621,7 @@ describe('página do Kanban', () => {
       window.dispatchEvent(new PointerEvent('pointerup', at(feito.left + feito.width / 2, last.bottom - 2)));
       await settle();
       const ids = cardsIn(kanban.get(TRAB)!, 'feito').map((c) => c.note);
-      expect(ids.indexOf('nlogin01')).toBe(10);
+      expect(ids.at(-1)).toBe('nlogin01');
       expect(namesIn('feito')).toContain('nlogin01');
     });
   });
@@ -1681,18 +1649,6 @@ describe('página do Kanban', () => {
       await go(TRAB_URL);
       host.querySelector('.quadro')!.scrollIntoView({ block: 'start' });
     }
-    /** Traz todas as da coluna comprida (o "Mostrar mais" até o fim). */
-    async function showAll(): Promise<void> {
-      for (let i = 0; i < 12 && column('col0').querySelector('.mais'); i++) {
-        column('col0').querySelector<HTMLElement>('.mais')!.click();
-        await settle();
-      }
-      // (o último Mostrar mais leva o foco para a primeira que chegou: a coluna volta para o alto)
-      (document.activeElement as HTMLElement | null)?.blur();
-      await new Promise((r) => requestAnimationFrame(r));
-      column('col0').querySelector<HTMLElement>('.rolo')!.scrollTop = 0;
-    }
-
     const tuning = { ...NEAR_TUNING };
     beforeEach(() => {
       setEverythingNear(false);
@@ -1702,7 +1658,6 @@ describe('página do Kanban', () => {
 
     it('na coluna comprida, o que passa da folga fica vaga; rolando até lá, vira ficha, e a do alto sai', async () => {
       await openWide();
-      await showAll();
       expect(namesIn('col0').length).withContext('todas com o lugar delas, para arrastar e contar').toBe(60);
       await until(() => mounted('nlong001'), 'a do alto');
       await until(() => !mounted('nlong059'), 'longe, no pé');
@@ -1725,7 +1680,6 @@ describe('página do Kanban', () => {
 
     it('a vaga fica com a altura medida da ficha, para a coluna não mudar de tamanho quando ela volta', async () => {
       await openWide();
-      await showAll();
       const li = () => host.querySelector<HTMLElement>('.lugar[data-nota="nlong000"]')!;
       await until(() => mounted('nlong000'), 'montada');
       const rolo = column('col0').querySelector<HTMLElement>('.rolo')!;
@@ -1741,7 +1695,6 @@ describe('página do Kanban', () => {
 
     it('a ficha que acabou de chegar vem montada, mesmo longe da tela (a rolagem até ela ainda vai acontecer)', async () => {
       await openWide();
-      await showAll();
       await until(() => mounted('nlong001'), 'a do alto');
       await until(() => !mounted('nlong059'), 'longe, no pé');
       TestBed.inject(Desk).land('nlong059');
@@ -1751,7 +1704,6 @@ describe('página do Kanban', () => {
 
     it('as marcadas ficam montadas, mesmo longe: as de baixo do maço que segue o ponteiro são cópias delas', async () => {
       await openWide();
-      await showAll();
       const rolo = column('col0').querySelector<HTMLElement>('.rolo')!;
       await until(() => mounted('nlong001'), 'a do alto');
       host.querySelector<HTMLElement>('.lugar[data-nota="nlong001"] .hit')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true }));

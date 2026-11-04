@@ -405,20 +405,6 @@
                   </li>
                 }
               </ol>
-              @if (v.hidden) {
-                <!-- uma coluna comprida não monta todas as fichas de uma vez: as próximas cinco no pé dela -->
-                <button type="button" class="mais" (click)="showMore(v.col.id)">
-                  <lucide-icon
-                    [img]="MoreIcon"
-                    [size]="17"
-                    aria-hidden="true"
-                  />
-                  Mostrar mais {{ v.hidden < showStep ? v.hidden : showStep }}
-                  <span class="mais-n"
-                    ><span class="sr-only">, </span>faltam {{ v.hidden }}</span
-                  >
-                </button>
-              }
             </div>
           </div>
 

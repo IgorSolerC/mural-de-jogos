@@ -57,7 +57,6 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronUp,
-  ChevronsDown,
   Circle,
   CircleCheckBig,
   CircleDashed,
@@ -387,7 +386,6 @@ export const ICON = {
   /** Dentro de outra (resposta, "mais respostas"). */
   dentro: CornerDownRight,
   maisOpcoes: Ellipsis,
-  mostrarMais: ChevronsDown,
   abrir: ChevronDown,
   recolher: ChevronUp,
   anterior: ChevronLeft,

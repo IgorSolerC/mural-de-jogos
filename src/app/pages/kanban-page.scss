@@ -704,30 +704,6 @@ $folga-sombra: 30px;
   overflow-anchor: none;
 }
 
-/* ===== Mostrar mais: as próximas cinco, no pé das que estão à mostra ===== */
-.mais {
-  @include kit.botao-papel;
-  width: 100%;
-  margin-top: 16px;
-  gap: 7px;
-  /* as fichas que chegam empurram o botão para baixo; a rolagem não se prende a ele */
-  overflow-anchor: none;
-
-  lucide-icon {
-    display: inline-flex;
-  }
-}
-
-/* quantas faltam: miúdo, na tinta rala, fora da caixa alta do botão */
-.mais-n {
-  font-family: var(--f-body);
-  font-weight: 600;
-  font-size: 0.8rem;
-  letter-spacing: 0;
-  text-transform: none;
-  color: rgb(21 21 21 / 0.66);
-}
-
 .fichas {
   display: flex;
   flex-direction: column;
