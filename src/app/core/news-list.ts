@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-03-visita-comparar-revisao',
+    id: '2026-11-03-estudos-na-api',
     version: '1.37.2',
     kind: 'ajustes',
     date: '2026-11-03',
-    title: 'O estilo das cartas por baralho e a pasta dos Estudos',
+    title: 'O estilo das cartas por baralho, a pasta dos Estudos e os Estudos pela API',
     melhorias: [
+      'Pela API e pelo MCP, a AI estuda com você: vê os baralhos e as cartas (a frente e o verso), o que tem para hoje na mesma ordem da sessão, anota o Errei ou o Acertei que você disser, cria e muda baralhos e faz cartas das anotações (ou já cria a anotação como carta). Nos Acessos, os Estudos têm quatro permissões (ver, estudar, mexer e apagar) e o atalho "Estudar comigo"; tudo fica no Histórico, com Desfazer.',
       'Cada baralho escolhe o estilo das cartas, na folha do baralho, entre dez, cada um mostrado com a primeira carta do baralho: a Clássica (o padrão), Faixa de cor, Cartolina inteira, Orelha, Baralho antigo, Ficha de argola, Selo, Polaroid, Ingresso e Ficha da biblioteca.',
       'A carta ficou mais leve: a moldura fina na cor da cartolina, o nome do baralho em cima (o ícone saiu dos cantos), o subtítulo inteiro, até quatro linhas, e no pé o nível num selo e quando ela volta.',
       'A pasta dos Estudos ficou como a dos Gastos e a do Kanban: quantas cartas para hoje a pincel, os três montes e o Estudar com o traço de marca-texto, os controles impressos em tinta na ponta e, depois do picote, a busca, o Nível e o Ordenar impressos, como o Ordenar do mural.',

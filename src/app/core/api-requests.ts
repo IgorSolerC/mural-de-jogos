@@ -13,6 +13,7 @@ import {
   notaDoPedido,
   type AcrescentarV1,
   type CamposDaNota,
+  type CartaNovaV1,
   type CriarNotaV1,
   type EditarNotaV1,
   type EstadoDoPedido,
@@ -23,6 +24,7 @@ import { OPS_DO_CALENDARIO } from '../../../contrato/api-v1/operacoes-calendario
 import { OPS_DE_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { OPS_DOS_MURAIS } from '../../../contrato/api-v1/operacoes-murais';
 import { OPS_DO_KANBAN, type NoQuadroV1 } from '../../../contrato/api-v1/operacoes-kanban';
+import { OPS_DOS_ESTUDOS } from '../../../contrato/api-v1/operacoes-estudos';
 import { CalendarResult, applyCalendarRequest, calendarTitle, calendarWords, isCalendarOp, undoCalendar } from './api-requests-calendar';
 import { CalendarStore } from './calendar-store';
 import { MuralResult, applyMuralRequest, isMuralOp, muralTitle, muralWords, undoMural } from './api-requests-murals';
@@ -30,6 +32,8 @@ import { GameLookup } from './game-lookup';
 import { fold } from './text';
 import { ColumnNames, KanbanResult, applyKanbanRequest, boardById, columnNames, kanbanTitle, kanbanWords, placeNewNote, undoKanban } from './api-requests-kanban';
 import { KanbanStore } from './kanban-store';
+import { StudyResult, applyStudyRequest, deckNames, isStudyOp, placeInDecks, studyTitle, studyWords, undoStudy } from './api-requests-study';
+import { StudyStore } from './study-store';
 import { ApiMirror } from './api-mirror';
 import { type RequestStamps, SpendingResult, applySpendingRequest, onlyOwnSince, spendingTitle, spendingWords, undoSpending } from './api-requests-spending';
 import { SpendingStore } from './spending-store';
@@ -86,7 +90,7 @@ export interface SiteRequest {
 export type Concluded = 'aplicado' | 'conflito' | 'falhou';
 
 /** O que a AI lê depois: a nota como ficou (null: apagada), ou o porquê de não ter entrado. */
-export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult | MuralResult;
+export type RequestResult = { nota: NotaV1 | null; aviso?: string } | { erro: string; nota?: NotaV1 } | SpendingResult | KanbanResult | CalendarResult | MuralResult | StudyResult;
 
 /** Um pedido aplicado aqui, pronto para concluir na nuvem. */
 export interface AppliedItem {
@@ -116,6 +120,8 @@ export interface ApplyContext {
   v1(r: Review): NotaV1;
   /** Põe a nota nova no quadro do grupo dela (o `kanban` de `nota.criar`); devolve o aviso, se houver. */
   place?(r: Review, k: NoQuadroV1): string | null;
+  /** A nota nova já vira carta dos baralhos (o `estudos` de `nota.criar`); devolve o aviso, se houver. */
+  study?(r: Review, e: CartaNovaV1): string | null;
 }
 
 /** O nome como já existe no mural (sem ligar para caixa e acento), ou o novo, limpo. */
@@ -218,7 +224,10 @@ export function applyNoteRequest(
     if (!note || note.id !== req.alvo) return { ...failed('A nota não pôde ser criada.'), antes: null };
     store.add(note);
     // já no quadro do grupo, na coluna pedida (como o "Nova nota" de dentro de uma coluna)
-    const aviso = d.kanban && ctx.place ? ctx.place(store.get(note.id) ?? note, d.kanban) : null;
+    const placed = d.kanban && ctx.place ? ctx.place(store.get(note.id) ?? note, d.kanban) : null;
+    // já carta dos baralhos pedidos (como o "Nova carta" de dentro de um baralho)
+    const carded = d.estudos && ctx.study ? ctx.study(store.get(note.id) ?? note, d.estudos) : null;
+    const aviso = [placed, carded].filter(Boolean).join(' ') || null;
     const born = store.get(note.id) ?? note;
     return { estado: 'aplicado', resultado: { nota: ctx.v1(born), ...(aviso ? { aviso } : {}) }, antes: null, carimbo: born.updatedAt, desde: null };
   }
@@ -311,7 +320,7 @@ export function fits(item: AppliedItem): AppliedItem {
 export type UndoTarget = Pick<AppliedItem, 'id' | 'alvo'> & { op: string; antes?: unknown; resultado?: unknown };
 
 /** O que cria algo (o Desfazer tira): a nota, o lançamento, a coluna, o lembrete, o desejo, o pra depois, a ficha. */
-const CREATES = new Set(['nota.criar', 'gasto.lancar', 'coluna.criar', 'lembrete.criar', 'desejo.por', 'pra-depois.por', 'ficha.criar']);
+const CREATES = new Set(['nota.criar', 'gasto.lancar', 'coluna.criar', 'lembrete.criar', 'desejo.por', 'pra-depois.por', 'ficha.criar', 'baralho.criar']);
 
 /** Dá para desfazer? Só o que entrou e mudou algo (o que cria, ou o que tem o de antes). */
 export function undoable(t: { estado: string; op: string; antes?: unknown }): boolean {
@@ -343,6 +352,8 @@ export function requestWords(op: string, dados: unknown, title: string, past = f
   if (calendar) return calendar;
   const mural = muralWords(op, dados, title, past);
   if (mural) return mural;
+  const study = studyWords(op, dados, title, past, cols);
+  if (study) return study;
   const t = `“${title}”`;
   const d = (dados ?? {}) as Record<string, unknown>;
   const v = (now: string, then: string) => (past ? then : now);
@@ -497,6 +508,7 @@ export class ApiRequests {
   private readonly spending = inject(SpendingStore);
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly study = inject(StudyStore);
   private readonly lookup = inject(GameLookup);
 
   /** Os pedidos abertos que a nuvem contou na última conversa: pendentes (para aplicar) e para aprovar. */
@@ -564,9 +576,15 @@ export class ApiRequests {
             stamps,
             v1: (r) => this.mirror.notaOf(r),
             place: (r, k) => placeNewNote(this.kanban, this.store, r, k, now),
+            study: (r, e) => placeInDecks(this.study, r.id, e),
           })
         : isKanbanOp(req.op)
           ? applyKanbanRequest(this.kanban, this.store, req, now)
+          : isStudyOp(req.op)
+            ? applyStudyRequest(this.study, req, {
+                ownNote: (id) => (this.ownNote(id) ? { name: this.store.get(id)!.game.name } : undefined),
+                onWall: (id) => !this.kanban.boardOnly().has(id),
+              })
           : isCalendarOp(req.op)
             ? applyCalendarRequest(this.calendar, req, { now, stamps, noteExists: (id) => this.ownNote(id) })
             : isMuralOp(req.op)
@@ -656,6 +674,10 @@ export class ApiRequests {
       undoCalendar(this.calendar, t);
       return;
     }
+    if (isStudyOp(t.op)) {
+      undoStudy(this.study, t);
+      return;
+    }
     if (isMuralOp(t.op)) {
       undoMural(this.store, t);
       return;
@@ -672,6 +694,8 @@ export class ApiRequests {
     if (cur && cur.updatedAt !== after?.versao) this.store.keepVersions([cur], 'api', false);
     if (t.op === 'nota.criar') {
       if (cur) this.store.remove(cur.id);
+      // a nota que nasceu carta (o `estudos` do pedido; o id é novo, então a carta só pode ser dela) sai dos Estudos junto
+      if (this.study.cardOf().has(t.alvo)) this.study.removeCard(t.alvo);
       return;
     }
     const before = sanitizeReview(t.antes, BUILD);
@@ -702,6 +726,7 @@ export class ApiRequests {
   titleOf(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { resultado?: unknown; antes?: unknown }): string {
     if (isKanbanOp(t.op)) return kanbanTitle(this.kanban, this.store, t);
     if (isCalendarOp(t.op)) return calendarTitle(this.calendar, t);
+    if (isStudyOp(t.op)) return studyTitle(this.study, (id) => (this.ownNote(id) ? this.store.get(id)!.game.name : undefined), t);
     if (isMuralOp(t.op)) return muralTitle(this.store, t);
     if (!t.op.startsWith('nota.')) return spendingTitle(this.spending, t);
     if (t.op === 'nota.criar') return (t.dados as { titulo?: string } | null)?.titulo ?? 'uma nota';
@@ -729,13 +754,15 @@ export class ApiRequests {
 
   /** Os nomes das colunas de um pedido do Kanban (para as frases da folha e do histórico). */
   columnNames(t: Pick<SiteRequest, 'op' | 'alvo' | 'dados'> & { antes?: unknown }): ColumnNames {
+    // nos dos Estudos, os nomes dos baralhos
+    if (isStudyOp(t.op)) return deckNames(this.study);
     return columnNames(this.kanban, t);
   }
 
   /** Os pendentes que este site sabe aplicar e que ainda não entraram aqui, na ordem de chegada. */
   private due(list: readonly SiteRequest[]): SiteRequest[] {
     const done = new Set(this.readItems().map((i) => i.id));
-    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN, ...OPS_DO_CALENDARIO, ...OPS_DOS_MURAIS];
+    const known: readonly string[] = [...OPS_DE_NOTA, ...OPS_DE_GASTO, ...OPS_DO_KANBAN, ...OPS_DO_CALENDARIO, ...OPS_DOS_MURAIS, ...OPS_DOS_ESTUDOS];
     return list.filter((r) => r.estado === 'pendente' && !done.has(r.id) && known.includes(r.op));
   }
 
@@ -746,6 +773,9 @@ export class ApiRequests {
   spendingGone(r: Pick<SiteRequest, 'op' | 'alvo'> & { dados?: unknown }): boolean {
     if (isKanbanOp(r.op)) return this.kanbanGone(r);
     if (r.op === 'lembrete.editar' || r.op === 'lembrete.apagar') return !this.calendar.get(r.alvo);
+    if (r.op === 'baralho.editar' || r.op === 'baralho.apagar') return !this.study.deck(r.alvo);
+    if (r.op === 'carta.por') return !this.ownNote(r.alvo);
+    if (isStudyOp(r.op) && r.op.startsWith('carta.')) return !this.ownNote(r.alvo) || !this.study.cardOf().has(r.alvo);
     if (r.op === 'desejo.editar' || r.op === 'desejo.tirar') return !this.store.getWish(r.alvo);
     if (r.op === 'pra-depois.tirar') return !this.store.getDraft(r.alvo);
     if (r.op === 'ficha.editar') return !this.store.get(r.alvo);

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import type { AgendaDoMesV1, LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoFichasV1, DesejoV1, FichaV1, PraDepoisV1 } from '../../../contrato/api-v1/murais';
+import type { BaralhoV1, CartaV1, ContextoEstudosV1 } from '../../../contrato/api-v1/estudos';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import type { ContextoGastosV1, LancamentoV1, MesV1 } from '../../../contrato/api-v1/gastos';
 import type { QuadroV1 } from '../../../contrato/api-v1/kanban';
@@ -9,6 +10,9 @@ import { calendarMirror } from './api-mirror-calendar';
 import { muralsMirror } from './api-mirror-murals';
 import { kanbanMirror } from './api-mirror-kanban';
 import { spendingMirror } from './api-mirror-spending';
+import { studyMirror } from './api-mirror-study';
+import { studyDay } from './fsrs';
+import type { StudyState } from './study';
 import { lookKey } from './category-looks';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
@@ -20,6 +24,7 @@ import { checkCount } from './rich-text';
 import { Settings } from './settings';
 import { todayISO } from './dates';
 import { SpendingStore } from './spending-store';
+import { StudyStore } from './study-store';
 import { nameCollator } from './text';
 
 /**
@@ -27,8 +32,9 @@ import { nameCollator } from './text';
  * que deixou o aparelho igual à nuvem, o site traduz as anotações e os gastos para o formato público v1
  * e manda à nuvem só o que mudou (a nuvem guarda as impressões do que já tem). A API lê dali, sem abrir
  * o mural. Só para a conta que pode usar a API, e só as áreas que alguma chave dela lê (as Anotações,
- * os Gastos, o Kanban, o Calendário, a Wishlist, o Pra depois e as fichas; ver core/api-mirror-spending.ts,
- * core/api-mirror-kanban.ts, core/api-mirror-calendar.ts e core/api-mirror-murals.ts).
+ * os Gastos, o Kanban, o Calendário, a Wishlist, o Pra depois, as fichas e os Estudos; ver
+ * core/api-mirror-spending.ts, core/api-mirror-kanban.ts, core/api-mirror-calendar.ts, core/api-mirror-murals.ts e
+ * core/api-mirror-study.ts).
  *
  * Nada fica no navegador: o "o que já foi" mora na nuvem, e o resto vive na memória desta aba.
  */
@@ -40,11 +46,11 @@ export interface MirrorItem {
   tipo: TipoDoEspelho;
   id: string;
   hash: string;
-  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1;
+  dados: NotaV1 | ContextoNotasV1 | LancamentoV1 | MesV1 | ContextoGastosV1 | QuadroV1 | LembreteV1 | AgendaDoMesV1 | DesejoV1 | PraDepoisV1 | FichaV1 | ContextoFichasV1 | CartaV1 | BaralhoV1 | ContextoEstudosV1;
 }
 
 /** As áreas que este site sabe espelhar, e os tipos que se tiram quando somem daqui. */
-const AREAS = ['notas', 'gastos', 'kanban', 'calendario', 'desejos', 'pra-depois', 'fichas'] as const;
+const AREAS = ['notas', 'gastos', 'kanban', 'calendario', 'desejos', 'pra-depois', 'fichas', 'estudos'] as const;
 const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = {
   notas: ['nota'],
   gastos: ['lancamento', 'visao'],
@@ -53,6 +59,7 @@ const DROPPABLE: Record<(typeof AREAS)[number], readonly TipoDoEspelho[]> = {
   desejos: ['desejo'],
   'pra-depois': ['pra-depois'],
   fichas: ['ficha'],
+  estudos: ['carta', 'baralho'],
 };
 
 /** O cartão da nota no Kanban, como a v1 mostra. */
@@ -159,6 +166,12 @@ export class ApiMirror {
   private readonly settings = inject(Settings);
   private readonly spending = inject(SpendingStore);
   private readonly calendar = inject(CalendarStore);
+  private readonly study = inject(StudyStore);
+  /**
+   * Os Estudos do último espelho, com as impressões: as filas pedem uma volta em todas as cartas por
+   * baralho, e a maior parte das sincronizações não mexe nos Estudos (nem nas anotações, nem no dia).
+   */
+  private studyMemo: { state: StudyState; notes: readonly Review[]; shared: ReadonlySet<string>; day: string; items: MirrorItem[] } | null = null;
   /** A última rev que o espelho alcançou nesta aba (a mesma rev não pede a nuvem de novo). */
   private doneRev: number | null = null;
   /** A última rev em sincronia que esta aba viu (para o `kick` depois de criar uma chave). */
@@ -187,7 +200,8 @@ export class ApiMirror {
    * Os itens das áreas pedidas no formato v1, com as impressões: nas Anotações, as notas da conta (as
    * compartilhadas não) e o contexto; nos Gastos, os lançamentos, as visões dos meses e o contexto; no
    * Kanban, o quadro de cada grupo com nota; no Calendário, os lembretes e a agenda de cada mês da janela;
-   * nos murais de resenhas, os desejos, os pra depois, as fichas e o que cada mural tem.
+   * nos murais de resenhas, os desejos, os pra depois, as fichas e o que cada mural tem; nos Estudos, as
+   * cartas, os baralhos e o contexto, com as filas de hoje e de amanhã.
    */
   async items(areas: readonly string[] = ['notas']): Promise<MirrorItem[]> {
     const out: MirrorItem[] = [];
@@ -208,7 +222,24 @@ export class ApiMirror {
       const murals = { wishes: this.store.wishes(), drafts: this.store.drafts(), reviews: this.store.reviews(), boardOnly: this.kanban.boardOnly() };
       for (const i of muralsMirror(murals, areas)) out.push({ ...i, hash: await hashOf(i.dados) });
     }
+    if (areas.includes('estudos')) out.push(...(await this.studyItems()));
     return out;
+  }
+
+  /** Os Estudos em v1 (ver core/api-mirror-study.ts), refeitos só quando eles, as anotações ou o dia mudam. */
+  private async studyItems(): Promise<MirrorItem[]> {
+    const state = this.study.state();
+    const all = this.store.notes();
+    const shared = this.store.sharedIds();
+    const now = new Date();
+    const day = studyDay(now);
+    const m = this.studyMemo;
+    if (m && m.state === state && m.notes === all && m.shared === shared && m.day === day) return m.items;
+    const notes = new Map(all.filter((n) => !shared.has(n.id)).map((n) => [n.id, n]));
+    const items: MirrorItem[] = [];
+    for (const i of studyMirror(state, notes, now)) items.push({ ...i, hash: await hashOf(i.dados) });
+    this.studyMemo = { state, notes: all, shared, day, items };
+    return items;
   }
 
   private async noteItems(): Promise<MirrorItem[]> {

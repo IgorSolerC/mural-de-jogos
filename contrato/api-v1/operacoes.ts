@@ -7,6 +7,7 @@
 
 import { dobra, textoLimpo } from './escopos';
 import type { NotaV1 } from './notas';
+import { lerBaralhos, lerFrente, type FrenteV1 } from './operacoes-estudos';
 import { lerNoQuadro, type NoQuadroV1 } from './operacoes-kanban';
 
 export type OpNota =
@@ -45,8 +46,25 @@ export const ESCOPO_DA_OP: Record<OpNota, string> = {
   'nota.apagar': 'notas:apagar',
 };
 
-/** As operações que criam (a nota; nos Gastos o lançamento, o envelope e a pessoa; a coluna; o lembrete; pôr na wishlist e no Pra depois; a ficha). */
-const CRIAM = new Set(['nota.criar', 'gasto.lancar', 'envelope.criar', 'pessoa.criar', 'coluna.criar', 'lembrete.criar', 'desejo.por', 'pra-depois.por', 'ficha.criar']);
+/**
+ * As operações que entram direto com a aprovação "mudancas": as que criam (a nota; nos Gastos o lançamento,
+ * o envelope e a pessoa; a coluna; o lembrete; pôr na wishlist e no Pra depois; a ficha; nos Estudos o
+ * baralho e a carta) e a resposta de uma carta (estudar não espera um clique por carta).
+ */
+const CRIAM = new Set([
+  'nota.criar',
+  'gasto.lancar',
+  'envelope.criar',
+  'pessoa.criar',
+  'coluna.criar',
+  'lembrete.criar',
+  'desejo.por',
+  'pra-depois.por',
+  'ficha.criar',
+  'baralho.criar',
+  'carta.por',
+  'carta.responder',
+]);
 
 /** O que muda ou apaga algo que existe: com a aprovação "mudancas", espera a pessoa. Criar não. */
 export function opMuda(op: string): boolean {
@@ -76,6 +94,13 @@ export interface CriarNotaV1 extends CamposDaNota {
   fixada?: boolean;
   /** A nota já nasce no quadro do grupo dela (pede também `kanban:mover`), como o "Nova nota" de uma coluna. */
   kanban?: NoQuadroV1;
+  /** A nota já nasce carta destes baralhos (pede também `estudos:escrever`), como o "Nova carta" de um baralho. */
+  estudos?: CartaNovaV1;
+}
+
+/** A carta de uma nota nova: os baralhos (pelo id; a rota troca os nomes) e a frente. */
+export interface CartaNovaV1 extends FrenteV1 {
+  baralhos: string[];
 }
 
 export interface EditarNotaV1 extends CamposDaNota {
@@ -182,7 +207,20 @@ export function conferirOp(op: OpNota, raw: unknown): Conferido<DadosDaOp> {
         if (!lugar.ok) return { ...lugar, campo: `kanban.${lugar.campo}` };
         kanban = lugar.dados;
       }
-      return { ok: true, dados: { ...c.dados, titulo: c.dados.titulo!, ...(r['fixada'] === true ? { fixada: true } : {}), ...(kanban ? { kanban } : {}) } };
+      let estudos: CartaNovaV1 | undefined;
+      if (r['estudos'] !== undefined && r['estudos'] !== null) {
+        const e = r['estudos'];
+        if (typeof e !== 'object' || Array.isArray(e)) return falha('estudos', 'estudos é {baralhos, titulo, subtitulo, imagem}: a nota já nasce carta destes baralhos.');
+        const decks = lerBaralhos((e as Record<string, unknown>)['baralhos'], 'estudos.baralhos');
+        if (!decks.ok) return decks;
+        const front = lerFrente(e as Record<string, unknown>);
+        if (!front.ok) return { ...front, campo: `estudos.${front.campo}` };
+        estudos = { baralhos: decks.dados, ...front.dados };
+      }
+      return {
+        ok: true,
+        dados: { ...c.dados, titulo: c.dados.titulo!, ...(r['fixada'] === true ? { fixada: true } : {}), ...(kanban ? { kanban } : {}), ...(estudos ? { estudos } : {}) },
+      };
     }
     case 'nota.editar': {
       if (typeof r['versao'] !== 'string' || Number.isNaN(Date.parse(r['versao']))) {

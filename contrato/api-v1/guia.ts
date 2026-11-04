@@ -19,13 +19,13 @@ export const REGRAS_DE_OURO = [
 ] as const;
 
 /** O texto curto do `instructions` do MCP. */
-export const INSTRUCOES = `Você está ligado ao Murall de uma pessoa (um mural pessoal de anotações, resenhas, gastos e agenda). Regras:\n${REGRAS_DE_OURO.map((r, i) => `${i + 1}. ${r}`).join('\n')}\nO guia inteiro está na ferramenta guia_do_murall.`;
+export const INSTRUCOES = `Você está ligado ao Murall de uma pessoa (um mural pessoal de anotações, estudos, resenhas, gastos e agenda). Regras:\n${REGRAS_DE_OURO.map((r, i) => `${i + 1}. ${r}`).join('\n')}\nO guia inteiro está na ferramenta guia_do_murall.`;
 
 /** O mapa curto (`/llms.txt`). */
 export function llmsTxt(api: string): string {
   return `# Murall
 
-> A API do Murall para AIs e programas: ler e escrever nas Anotações, no Kanban, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave que ela criou em Ajustes › Acessos (ou um conector que ela autorizou).
+> A API do Murall para AIs e programas: ler e escrever nas Anotações, no Kanban, nos Estudos, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave que ela criou em Ajustes › Acessos (ou um conector que ela autorizou).
 
 - [Guia inteiro](${api}/llms-full.txt): como funciona, os pedidos, o markdown, as regras.
 - [OpenAPI](${api}/ext/v1/openapi.json): as rotas REST em /ext/v1.
@@ -38,7 +38,7 @@ export function guia(api: string): string {
   const tools = FERRAMENTAS.map((f) => `- \`${f.nome}\`${f.escopo ? ` (${escopoEmPalavras(f.escopo)})` : ''}: ${f.descricao}`).join('\n');
   return `# O Murall, para AIs
 
-O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas e um Kanban), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações**, no **Kanban**, no **Calendário**, nos **Gastos** e nos **murais de resenhas** (a Wishlist, o Pra depois e as fichas), só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
+O Murall é o mural pessoal de uma pessoa: anotações (com grupos, assuntos, tags, tarefas, um Kanban e os Estudos, com flashcards), resenhas, gastos, agenda e listas. Esta API deixa uma AI ou um programa ler e escrever nas **Anotações**, no **Kanban**, nos **Estudos**, no **Calendário**, nos **Gastos** e nos **murais de resenhas** (a Wishlist, o Pra depois e as fichas), só com as permissões que a pessoa deu à chave. Nenhuma chave alcança o cofre de senhas, os amigos ou a conta.
 
 ## Regras de ouro
 
@@ -76,6 +76,16 @@ Uma nota nova nasce privada. Um grupo que não existe é recusado (422 \`grupo-n
 - **A coluna que finaliza** (\`finaliza: true\`, como "Feito") finaliza a nota que chega nela, e sair dela abre a nota de novo, como no arrastar da tela. A coluna que se arruma sozinha (\`ordem\`) ignora a posição.
 - Para criar uma nota já numa coluna, use \`criar_nota\` com \`kanban: {"coluna": "A fazer"}\` (pede a permissão kanban:mover e um grupo).
 - As colunas: \`criar_coluna\`, \`editar_coluna\` (nome, finaliza, pula, posicao) e \`apagar_coluna\` (os cartões vão para a vizinha da esquerda, ou para \`para\`; nenhuma nota é apagada). Uma coluna criada já serve para mover antes de o pedido entrar.
+
+## Os Estudos
+
+- Os Estudos são flashcards como os do Anki, feitos das anotações: uma **carta** é uma anotação com uma **frente** (\`titulo\`, \`subtitulo\`, \`imagem\`; sem título próprio, a frente usa o nome da anotação), e o **verso** é o texto da anotação, inteiro. As cartas ficam em **baralhos** (uma palavra só dos Estudos: não são os grupos nem as tags). Uma carta pode estar em vários baralhos, com um progresso só.
+- O app decide quando cada carta volta (o FSRS, com Errei e Acertei) e o que entra em cada dia (as novas por dia de cada baralho, o teto de revisões, o dia que vira às 4h). Não refaça essas contas: use \`estudar_agora\`, que traz a fila pronta do app, na ordem da sessão, com a frente e o verso. \`ver_estudos\` traz os baralhos e quantas novas, para aprender e para revisar há hoje em cada um.
+- **Para estudar com a pessoa**: pegue as cartas de \`estudar_agora\`; mostre só a frente; espere a resposta; mostre o verso; pergunte (ou combine com ela) se acertou; mande \`responder_carta\` com \`acertou\` e o \`baralho_da_vez\`. Nunca responda por ela. A carta errada (ou nova) volta daqui a 1 ou 10 minutos (em \`mais_tarde\`); chame \`estudar_agora\` de novo para seguir. A resposta entra direto (sem esperar aprovação) quando o Murall estiver aberto.
+- Carta: \`nota\` (o id da anotação), \`titulo\`, \`titulo_da_frente\`, \`subtitulo\`, \`imagem\`, \`nota_titulo\`, \`verso\`, \`grupo\`, \`baralhos\` (ids), \`no_mural\` (\`true\` também no mural, \`false\` só nos Estudos, \`null\` segue os baralhos), \`fica_no_mural\`, \`nivel\` (\`desconhecida\`, \`nova\`, \`aprendendo\`, \`dominada\` com 21 dias ou mais), \`estado\` (o do FSRS), \`volta_em\`, \`vistas\`, \`acertos\`, \`erros\`, \`ultimas\` ("1" acertou, "0" errou), \`entrou_em\`, \`versao\`.
+- **Para criar cartas**: \`criar_nota\` com \`estudos: {"baralhos": ["Japonês"], "titulo": "火"}\` cria a anotação já como carta (o texto é o verso; ela segue os baralhos, fora do mural se eles não pedem o mural). \`virar_carta\` faz carta de anotações que já existem (uma, com a frente, ou até 50), e elas continuam no mural. Uma boa carta tem uma pergunta curta na frente e a resposta no texto da anotação. Crie o baralho antes com \`criar_baralho\` (já dá para usar o nome dele antes de o pedido entrar).
+- Baralho: \`id\`, \`nome\`, \`cor\`, \`icone\` (só se escolhe no app), \`novas_por_dia\`, \`no_mural\`, \`estilo\` (o desenho da frente), \`posicao\`, \`cartas\`, \`por_nivel\`. A configuração (\`retencao\`, \`revisoes_por_dia\`, \`ordem_das_novas\`) só se lê.
+- \`tirar_dos_estudos\`, \`recomecar_carta\` e \`apagar_baralho\` perdem progresso (com Desfazer no histórico): pergunte antes. Apagar um baralho tira dos Estudos a carta que só estava nele; nenhuma anotação é apagada. As anotações compartilhadas não viram carta pela API, e a chave limitada a alguns grupos só vê as cartas das notas deles.
 
 ## O Calendário
 

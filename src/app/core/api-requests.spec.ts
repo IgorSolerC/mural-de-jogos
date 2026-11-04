@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { StudyStore } from './study-store';
 import { ApiMirror } from './api-mirror';
 import {
   APPLIED_KEY,
@@ -520,6 +521,16 @@ describe('os pedidos da API: aprovar, recusar e desfazer', () => {
     await s.undo(site('pd_a', 'nota.criar', 'r0001', { resultado: { nota: { versao: '2026-10-27T15:00:00.000Z' } } }));
     expect(store.get('r0001')).toBeUndefined();
     expect(store.versions().map((v) => [v.ficha.text, v.motivo])).toEqual([['mexida por você', 'api']]);
+  });
+
+  it('desfazer um criar que nasceu carta tira a carta dos Estudos junto (sem carta órfã)', async () => {
+    const { s, store } = setup();
+    const study = TestBed.inject(StudyStore);
+    const deck = study.addDeck('Kanji', 'amarelo');
+    study.addCard('r0001', [deck]);
+    await s.undo(site('pd_a', 'nota.criar', 'r0001', { resultado: { nota: { versao: store.get('r0001')!.updatedAt } } }));
+    expect(store.get('r0001')).toBeUndefined();
+    expect(study.cardOf().has('r0001')).toBeFalse();
   });
 
   it('desfazer um apagar devolve a nota', async () => {

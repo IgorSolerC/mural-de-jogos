@@ -6,6 +6,7 @@ import { onOtherTab, writeJson } from './storage';
 import {
   CardFront,
   Deck,
+  StudyCard,
   StudyConfig,
   StudyState,
   addCard,
@@ -133,11 +134,41 @@ export class StudyStore {
     return this.decks().find((d) => d.id === id);
   }
 
-  /** Um baralho novo, no fim da fileira; devolve o id ('' sem lugar para mais). */
-  addDeck(name: string, color: LightStock, icon: IconChoice | null = null): string {
-    const { state, id } = addDeck(this.state(), name, color, this.stamp(), icon);
+  /** Um baralho novo, no fim da fileira; devolve o id ('' sem lugar para mais). `id`: o que já nasceu fora (um pedido da API). */
+  addDeck(name: string, color: LightStock, icon: IconChoice | null = null, id?: string): string {
+    const { state, id: made } = addDeck(this.state(), name, color, this.stamp(), icon, id);
     this.set(state);
-    return id;
+    return made;
+  }
+
+  /** O baralho apagado (ou mudado) volta como estava, com as cartas que saíram junto (o Desfazer de um pedido). */
+  restoreDeck(deck: Deck, cards: readonly StudyCard[]): void {
+    this.set(restoreDeck(this.state(), deck, cards, this.stamp()));
+  }
+
+  /** A carta volta como estava (tirada, mudada ou respondida), com a hora de agora (o Desfazer de um pedido). */
+  restoreCard(card: StudyCard): void {
+    this.set(restoreCard(this.state(), card, this.stamp()));
+  }
+
+  /**
+   * A resposta de um pedido da API, contada na hora `when` (quando a pessoa respondeu) e gravada agora. Um
+   * pedido de um dia de estudo que já passou não mexe nos números de hoje.
+   */
+  answerAt(note: string, ok: boolean, when: Date, deck?: string): void {
+    const st = this.state();
+    const next = answer(st, note, ok, when, deck, this.stamp());
+    this.set(st.today && next.today && next.today.day < st.today.day ? { ...next, today: st.today } : next);
+  }
+
+  /** Desconta uma resposta do dia (o Desfazer de um pedido): a nova do baralho `deck`, ou a revisão. */
+  uncount(day: string, deck: string | null, review: boolean): void {
+    const st = this.state();
+    const t = st.today;
+    if (!t || t.day !== day || (!review && !deck)) return;
+    const at = this.stamp();
+    const today = review ? { ...t, reviews: Math.max(0, t.reviews - 1), at } : { ...t, news: { ...t.news, [deck!]: Math.max(0, (t.news[deck!] ?? 0) - 1) }, at };
+    this.set({ ...st, today });
   }
 
   updateDeck(id: string, patch: Partial<Omit<Deck, 'id' | 'at' | 'order'>>): void {

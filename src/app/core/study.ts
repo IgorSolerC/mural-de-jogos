@@ -580,12 +580,13 @@ export function todayOf(st: StudyState, now: Date): StudyDay {
 
 /**
  * A resposta a uma carta: o FSRS decide quando ela volta, o boletim conta, e o dia anota a nova (no
- * baralho `deck`, o que a trouxe) ou a revisão. Errei é a nota 1, Acertei a 3.
+ * baralho `deck`, o que a trouxe) ou a revisão. Errei é a nota 1, Acertei a 3. `at` carimba a mudança
+ * (sem ele, a hora da resposta): a resposta de um pedido da API é contada na hora em que a pessoa
+ * respondeu, mas gravada com a hora de agora, para a junção de aparelhos não a perder.
  */
-export function answer(st: StudyState, note: string, ok: boolean, now: Date, deck?: string): StudyState {
+export function answer(st: StudyState, note: string, ok: boolean, now: Date, deck?: string, at = now.toISOString()): StudyState {
   const card = st.cards.find((c) => c.note === note);
   if (!card) return st;
-  const at = now.toISOString();
   const srs = review(card.srs, ok ? 3 : 1, now, fsrsConfig(st.config), note);
   const stats: CardStats = {
     seen: card.stats.seen + 1,

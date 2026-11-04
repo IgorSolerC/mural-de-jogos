@@ -8,6 +8,7 @@ import { createdNote, overlay, pendingOf, type NotaComPedidos } from './overlay'
 import { CALENDAR_SCOPES, calendarContext } from './calendar-read';
 import { KANBAN_SCOPES, kanbanContext } from './kanban-read';
 import { muralsContext, searchMurals } from './murals-read';
+import { STUDY_SCOPES, studyContext } from './study-read';
 import { spendingContext } from './spending-read';
 import type { LembreteV1 } from '../../../contrato/api-v1/calendario';
 import type { ContextoGastosV1, LancamentoV1 } from '../../../contrato/api-v1/gastos';
@@ -232,6 +233,8 @@ export function extRoutes(app: Hono, deps: Deps): void {
       calendario: CALENDAR_SCOPES.some((s) => me.key.scopes.includes(s)) ? await calendarContext(deps, me) : null,
       // quantos desejos e pra depois em cada mural, e o que cada mural tem (as notas de cada um, para escrever fichas)
       ...(await muralsContext(deps, me)),
+      // os baralhos dos Estudos (os nomes a usar ao pôr cartas) e a configuração, para a chave dos Estudos
+      estudos: STUDY_SCOPES.some((s) => me.key.scopes.includes(s)) ? await studyContext(deps, me) : null,
       espelho: state,
     });
   });

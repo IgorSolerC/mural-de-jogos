@@ -76,7 +76,8 @@ async function narrowOpen(deps: Deps, before: ApiKey, after: ApiKey, at: Date): 
       // um pedido que não se lê não ganha passe livre
     }
     const scopeGone = scopesOfRequest(r.op, dados).some((x) => !after.scopes.includes(x));
-    const groupGone = lostGroup && (r.op.startsWith('nota.') || (OPS_DO_KANBAN as readonly string[]).includes(r.op));
+    // as cartas dos Estudos também são notas: a chave que perdeu o grupo delas não mexe mais nelas
+    const groupGone = lostGroup && (r.op.startsWith('nota.') || r.op.startsWith('carta.') || (OPS_DO_KANBAN as readonly string[]).includes(r.op));
     if (scopeGone || groupGone) refuse.push(r.id);
     else if (r.estado === 'pendente' && waitsForApproval(after.approval, r.op, dados) && !(r.pego_ate && Date.parse(r.pego_ate) > at.getTime())) hold.push(r.id);
   }

@@ -17,6 +17,23 @@ import {
 } from '../../../contrato/api-v1/calendario';
 import { dobra } from '../../../contrato/api-v1/escopos';
 import {
+  BARALHOS_POR_CARTA,
+  CONTEXTO_ESTUDOS,
+  ESTADOS_DA_CARTA,
+  ESTILOS,
+  FILA_MAX,
+  NIVEIS,
+  NOME_DO_BARALHO_MAX,
+  NOVAS_POR_DIA_MAX,
+  SUBTITULO_MAX,
+  TITULO_DA_FRENTE_MAX,
+  ULTIMAS_MAX,
+  type BaralhoV1,
+  type CartaV1,
+  type ContextoEstudosV1,
+  type FilaDoDiaV1,
+} from '../../../contrato/api-v1/estudos';
+import {
   CONTEXTO_GASTOS,
   DIA_RE,
   MES_RE,
@@ -92,6 +109,7 @@ export const SCOPES_OF_AREA: Record<string, readonly string[]> = {
   desejos: ['desejos:ler', 'desejos:escrever'],
   'pra-depois': ['pra-depois:ler', 'pra-depois:escrever'],
   fichas: ['fichas:ler', 'fichas:escrever'],
+  estudos: ['estudos:ler', 'estudos:estudar', 'estudos:escrever', 'estudos:apagar'],
 };
 
 /** Os tipos de linha de cada área. */
@@ -103,6 +121,7 @@ export const TYPES_OF: Record<string, readonly TipoDoEspelho[]> = {
   desejos: ['desejo'],
   'pra-depois': ['pra-depois'],
   fichas: ['ficha', 'contexto-fichas'],
+  estudos: ['carta', 'baralho', 'contexto-estudos'],
 };
 
 export interface MirrorRow {
@@ -596,6 +615,151 @@ function checkContextoFichas(c: Record<string, unknown>): ContextoFichasV1 {
   };
 }
 
+// ===== Os Estudos (rodada 12) =====
+
+const isCount = (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0;
+const FILA_TIPOS: readonly unknown[] = ['nova', 'aprender', 'revisao'];
+
+/** As filas de hoje e de amanhã (até `FILA_MAX` cartas cada), na forma da v1. */
+function checkFilas(v: unknown): FilaDoDiaV1[] | null {
+  if (!Array.isArray(v) || v.length > 2) return null;
+  const out: FilaDoDiaV1[] = [];
+  for (const f of v as Record<string, unknown>[]) {
+    if (!f || !ehDia(f['dia']) || typeof f['cortada'] !== 'boolean' || !Array.isArray(f['itens']) || f['itens'].length > FILA_MAX) return null;
+    const itens = f['itens'] as Record<string, unknown>[];
+    const ok = itens.every(
+      (i) =>
+        !!i &&
+        typeof i['nota'] === 'string' &&
+        ID_RE.test(i['nota']) &&
+        typeof i['baralho'] === 'string' &&
+        ID_RE.test(i['baralho']) &&
+        FILA_TIPOS.includes(i['tipo']) &&
+        (i['volta_em'] === null || isIso(i['volta_em'])),
+    );
+    if (!ok) return null;
+    out.push({
+      dia: f['dia'] as string,
+      itens: itens.map((i) => ({ nota: i['nota'] as string, baralho: i['baralho'] as string, tipo: i['tipo'] as FilaDoDiaV1['itens'][number]['tipo'], volta_em: i['volta_em'] as string | null })),
+      cortada: f['cortada'] as boolean,
+    });
+  }
+  return out;
+}
+
+/** A carta v1 tem a forma certa? (A frente e o verso são da própria pessoa: confere só a forma e os tamanhos.) */
+function checkCarta(c: Record<string, unknown>): CartaV1 {
+  const ok =
+    isStr(c['nota'], 64) &&
+    ID_RE.test(c['nota']) &&
+    isStr(c['titulo'], 200) &&
+    isStrOrNull(c['titulo_da_frente'], TITULO_DA_FRENTE_MAX * 2) &&
+    isStrOrNull(c['subtitulo'], SUBTITULO_MAX * 2) &&
+    (c['imagem'] === null || (isStr(c['imagem'], 2_000) && /^(https:\/\/|murall:\/\/imagem\/)/.test(c['imagem']))) &&
+    isStr(c['nota_titulo'], 200) &&
+    isStr(c['verso'], 20_000) &&
+    isStrOrNull(c['grupo'], 32) &&
+    idList(c['baralhos'], BARALHOS_POR_CARTA) &&
+    (c['baralhos'] as unknown[]).length > 0 &&
+    (c['no_mural'] === null || typeof c['no_mural'] === 'boolean') &&
+    typeof c['fica_no_mural'] === 'boolean' &&
+    (NIVEIS as readonly unknown[]).includes(c['nivel']) &&
+    (ESTADOS_DA_CARTA as readonly unknown[]).includes(c['estado']) &&
+    (c['volta_em'] === null || isIso(c['volta_em'])) &&
+    isCount(c['vistas']) &&
+    isCount(c['acertos']) &&
+    isCount(c['erros']) &&
+    isStr(c['ultimas'], ULTIMAS_MAX) &&
+    /^[01]*$/.test(c['ultimas'] as string) &&
+    isIso(c['entrou_em']) &&
+    isIso(c['versao']);
+  if (!ok) throw bad(`A carta "${String(c['nota']).slice(0, 64)}" não tem a forma da v1.`);
+  const v = c as unknown as CartaV1;
+  return {
+    nota: v.nota,
+    titulo: v.titulo,
+    titulo_da_frente: v.titulo_da_frente,
+    subtitulo: v.subtitulo,
+    imagem: v.imagem,
+    nota_titulo: v.nota_titulo,
+    verso: v.verso,
+    grupo: v.grupo,
+    baralhos: v.baralhos,
+    no_mural: v.no_mural,
+    fica_no_mural: v.fica_no_mural,
+    nivel: v.nivel,
+    estado: v.estado,
+    volta_em: v.volta_em,
+    vistas: v.vistas,
+    acertos: v.acertos,
+    erros: v.erros,
+    ultimas: v.ultimas,
+    entrou_em: v.entrou_em,
+    versao: v.versao,
+  };
+}
+
+function checkBaralho(b: Record<string, unknown>): BaralhoV1 {
+  const nivel = b['por_nivel'] as Record<string, unknown> | null;
+  const filas = checkFilas(b['filas']);
+  const ok =
+    isStr(b['id'], 64) &&
+    ID_RE.test(b['id']) &&
+    isStr(b['nome'], NOME_DO_BARALHO_MAX * 2) &&
+    !!b['nome'].trim() &&
+    isColor(b['cor']) &&
+    (b['icone'] === null || (typeof b['icone'] === 'string' && ICONE_RE.test(b['icone']))) &&
+    Number.isInteger(b['novas_por_dia']) &&
+    (b['novas_por_dia'] as number) >= 0 &&
+    (b['novas_por_dia'] as number) <= NOVAS_POR_DIA_MAX &&
+    typeof b['no_mural'] === 'boolean' &&
+    (ESTILOS as readonly unknown[]).includes(b['estilo']) &&
+    isCount(b['posicao']) &&
+    isCount(b['cartas']) &&
+    !!nivel &&
+    typeof nivel === 'object' &&
+    NIVEIS.every((n) => isCount(nivel[n])) &&
+    !!filas &&
+    isIso(b['versao']);
+  if (!ok) throw bad(`O baralho "${String(b['id']).slice(0, 64)}" não tem a forma da v1.`);
+  const v = b as unknown as BaralhoV1;
+  return {
+    id: v.id,
+    nome: v.nome,
+    cor: v.cor,
+    icone: v.icone,
+    novas_por_dia: v.novas_por_dia,
+    no_mural: v.no_mural,
+    estilo: v.estilo,
+    posicao: v.posicao,
+    cartas: v.cartas,
+    por_nivel: { desconhecida: v.por_nivel.desconhecida, nova: v.por_nivel.nova, aprendendo: v.por_nivel.aprendendo, dominada: v.por_nivel.dominada },
+    filas: filas!,
+    versao: v.versao,
+  };
+}
+
+function checkContextoEstudos(c: Record<string, unknown>): ContextoEstudosV1 {
+  const cfg = c['config'] as Record<string, unknown> | null;
+  const filas = checkFilas(c['filas']);
+  const ok =
+    !!cfg &&
+    typeof cfg === 'object' &&
+    typeof cfg['retencao'] === 'number' &&
+    cfg['retencao'] >= 0.5 &&
+    cfg['retencao'] <= 1 &&
+    isCount(cfg['revisoes_por_dia']) &&
+    (cfg['ordem_das_novas'] === 'entrada' || cfg['ordem_das_novas'] === 'sorteio') &&
+    isCount(c['cartas']) &&
+    !!filas;
+  if (!ok) throw bad('O contexto dos Estudos não tem a forma da v1.');
+  return {
+    config: { retencao: cfg!['retencao'] as number, revisoes_por_dia: cfg!['revisoes_por_dia'] as number, ordem_das_novas: cfg!['ordem_das_novas'] as 'entrada' | 'sorteio' },
+    cartas: c['cartas'] as number,
+    filas: filas!,
+  };
+}
+
 /**
  * Lê um envio ao espelho: `{rev, fuso?, poe: [{tipo, id, hash, dados}], tira: [{tipo, id}]}`, com no
  * máximo `ESPELHO_POR_ENVIO` itens ao todo, só dos tipos das áreas pedidas.
@@ -672,6 +836,30 @@ export function readMirrorBody(body: Record<string, unknown>, areas: readonly st
         busca: dobra(`${f.nome}\n${f.por ?? ''}\n${f.artista ?? ''}\n${f.texto}`),
         dados: JSON.stringify(f),
       };
+    }
+    if (item['tipo'] === 'carta') {
+      const k = checkCarta(dados);
+      if (k.nota !== item['id']) throw bad('O id da carta não bate com o do item.');
+      // o grupo da anotação (o limite de grupos da chave vale para as cartas); a data, o dia em que volta
+      return {
+        tipo: 'carta',
+        id: k.nota,
+        versao: k.versao,
+        hash: item['hash'],
+        grupo: k.grupo ? dobra(k.grupo) : null,
+        data: k.volta_em ? k.volta_em.slice(0, 10) : null,
+        busca: dobra(`${k.titulo}\n${k.subtitulo ?? ''}\n${k.nota_titulo}\n${k.verso}`),
+        dados: JSON.stringify(k),
+      };
+    }
+    if (item['tipo'] === 'baralho') {
+      const b = checkBaralho(dados);
+      if (b.id !== item['id']) throw bad('O id do baralho não bate com o do item.');
+      return { tipo: 'baralho', id: b.id, versao: b.versao, hash: item['hash'], grupo: null, data: null, busca: dobra(b.nome), dados: JSON.stringify(b) };
+    }
+    if (item['tipo'] === 'contexto-estudos') {
+      if (item['id'] !== CONTEXTO_ESTUDOS) throw bad('O contexto dos Estudos tem o id "estudos".');
+      return { tipo: 'contexto-estudos', id: CONTEXTO_ESTUDOS, versao: null, hash: item['hash'], grupo: null, data: null, busca: null, dados: JSON.stringify(checkContextoEstudos(dados)) };
     }
     if (item['tipo'] === 'contexto-fichas') {
       if (item['id'] !== CONTEXTO_FICHAS) throw bad('O contexto das fichas tem o id "fichas".');

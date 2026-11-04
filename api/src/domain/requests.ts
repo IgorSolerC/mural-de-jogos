@@ -1,6 +1,7 @@
 import type { Aprovacao } from '../../../contrato/api-v1/escopos';
 import { ESCOPO_DA_OP, opMuda, type EstadoDoPedido } from '../../../contrato/api-v1/operacoes';
 import { ESCOPO_DA_OP_LEMBRETE } from '../../../contrato/api-v1/operacoes-calendario';
+import { ESCOPO_DA_OP_ESTUDO } from '../../../contrato/api-v1/operacoes-estudos';
 import { ESCOPO_DA_OP_MURAL } from '../../../contrato/api-v1/operacoes-murais';
 import { ESCOPO_DA_OP_GASTO } from '../../../contrato/api-v1/operacoes-gastos';
 import { ESCOPO_DA_OP_KANBAN } from '../../../contrato/api-v1/operacoes-kanban';
@@ -143,7 +144,9 @@ export function waitsForApproval(approval: Aprovacao, op: string, dados: unknown
   if (approval === 'tudo') return true;
   if (approval !== 'mudancas') return false;
   const publishes = op === 'nota.criar' && (dados as { visibilidade?: unknown } | null)?.visibilidade === 'publica';
-  return opMuda(op) || publishes;
+  // virar carta só nos Estudos tira a anotação do mural: espera como uma mudança
+  const hides = op === 'carta.por' && (dados as { no_mural?: unknown } | null)?.no_mural === false;
+  return opMuda(op) || publishes || hides;
 }
 
 /**
@@ -157,10 +160,12 @@ export function scopesOfRequest(op: string, dados: unknown): string[] {
     (ESCOPO_DA_OP_KANBAN as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_GASTO as Record<string, string>)[op] ??
     (ESCOPO_DA_OP_LEMBRETE as Record<string, string>)[op] ??
-    (ESCOPO_DA_OP_MURAL as Record<string, string>)[op];
+    (ESCOPO_DA_OP_MURAL as Record<string, string>)[op] ??
+    (ESCOPO_DA_OP_ESTUDO as Record<string, string>)[op];
   const out = new Set<string>(base ? [base] : []);
   if (d['visibilidade'] !== undefined) out.add('publicar');
   if (op === 'nota.criar' && d['kanban']) out.add('kanban:mover');
+  if (op === 'nota.criar' && d['estudos']) out.add('estudos:escrever');
   if (d['criar_envelope'] || d['criar_pessoas']) out.add('gastos:editar');
   return [...out];
 }

@@ -11,6 +11,7 @@ import { createdNote, overlay, pendingOf } from './overlay';
 import { acharColuna } from '../../../contrato/api-v1/operacoes-kanban';
 import { findBoard } from './kanban-read';
 import { unknownColumn } from './kanban-write';
+import { deckIdsForNewNote } from './study-write';
 import { readJson } from '../routes/http';
 
 /**
@@ -90,6 +91,9 @@ export function notesWriteRoutes(app: Hono, deps: Deps): void {
           k.coluna = col.id;
         }
       }
+      // a nota que já nasce carta (como o "Nova carta" de dentro de um baralho): os nomes viram ids
+      const e = (checked.dados as CriarNotaV1).estudos;
+      if (e) e.baralhos = await deckIdsForNewNote(deps, me, e.baralhos);
     } else {
       if (!id || !/^[\w-]{1,64}$/.test(id)) throw notFound();
       alvo = id;

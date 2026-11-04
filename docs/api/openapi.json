@@ -3,7 +3,7 @@
   "info": {
     "title": "Murall: API para AIs e programas",
     "version": "1",
-    "description": "Ler e escrever nas Anotações, no Kanban, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
+    "description": "Ler e escrever nas Anotações, no Kanban, nos Estudos, no Calendário, nos Gastos, na Wishlist, no Pra depois e nas fichas de uma pessoa, com uma chave criada em Ajustes › Acessos. Toda escrita vira um pedido, que entra quando o Murall estiver aberto. Guia: https://mural-api.igorsoler.workers.dev/llms-full.txt"
   },
   "servers": [
     {
@@ -29,7 +29,7 @@
       "get": {
         "operationId": "ver_contexto",
         "summary": "Ver o contexto",
-        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever.",
+        "description": "A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem. Permissão: notas:ler ou gastos:ler ou kanban:ler ou kanban:mover ou kanban:colunas ou calendario:ler ou calendario:escrever ou calendario:apagar ou desejos:ler ou desejos:escrever ou pra-depois:ler ou pra-depois:escrever ou fichas:ler ou fichas:escrever ou estudos:ler ou estudos:estudar ou estudos:escrever ou estudos:apagar.",
         "responses": {
           "200": {
             "description": "O que foi pedido, em JSON."
@@ -204,7 +204,7 @@
       "post": {
         "operationId": "criar_nota",
         "summary": "Criar uma nota",
-        "description": "Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo. Permissão: notas:criar.",
+        "description": "Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo; com estudos, já nasce carta de um baralho (o texto é o verso). Permissão: notas:criar.",
         "parameters": [
           {
             "name": "Idempotency-Key",
@@ -327,6 +327,52 @@
                         "description": "Umas palavras ao lado da importância (\"Em revisão\", \"Com o Sérgio\"); null tira."
                       }
                     },
+                    "additionalProperties": false
+                  },
+                  "estudos": {
+                    "type": "object",
+                    "description": "Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o \"Nova carta\" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural).",
+                    "properties": {
+                      "baralhos": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 20,
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20)."
+                      },
+                      "titulo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 80,
+                        "description": "O título da frente (a pergunta, a palavra). Sem ele (ou null), a frente usa o nome da anotação."
+                      },
+                      "subtitulo": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 160,
+                        "description": "Uma linha embaixo do título (a leitura, uma dica); null tira."
+                      },
+                      "imagem": {
+                        "type": [
+                          "string",
+                          "null"
+                        ],
+                        "maxLength": 2000,
+                        "pattern": "^https://",
+                        "description": "Uma imagem https para a frente; null tira."
+                      }
+                    },
+                    "required": [
+                      "baralhos"
+                    ],
                     "additionalProperties": false
                   }
                 },
@@ -1290,6 +1336,747 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 64
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos": {
+      "get": {
+        "operationId": "ver_estudos",
+        "summary": "Ver os Estudos",
+        "description": "Os baralhos (com quantas cartas, os níveis e o que tem para hoje em cada um: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia). Permissão: estudos:ler.",
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/hoje": {
+      "get": {
+        "operationId": "estudar_agora",
+        "summary": "O que estudar agora",
+        "description": "As cartas para estudar agora, na ordem do app (de todos os baralhos, ou de um), cada uma com a frente (titulo, subtitulo, imagem) e o verso (o texto da anotação). Para estudar com a pessoa: mostre só a frente, espere a resposta dela, mostre o verso, pergunte se ela acertou e mande responder_carta. mais_tarde são as cartas que voltam daqui a pouco (nos passos de 1 e 10 minutos). Permissão: estudos:ler.",
+        "parameters": [
+          {
+            "name": "baralho",
+            "in": "query",
+            "required": false,
+            "description": "Opcional: só deste baralho: o nome (como em ver_estudos) ou o id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantas cartas trazer (padrão 10). O resto vem em restam.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/cartas": {
+      "get": {
+        "operationId": "listar_cartas",
+        "summary": "Listar cartas",
+        "description": "As cartas, com filtros: a frente, o resumo do verso (com_verso: true traz inteiro), os baralhos, o nível, quando volta e os acertos. Pagine com depois. Permissão: estudos:ler.",
+        "parameters": [
+          {
+            "name": "baralho",
+            "in": "query",
+            "required": false,
+            "description": "Só deste baralho: o nome (como em ver_estudos) ou o id.",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          {
+            "name": "nivel",
+            "in": "query",
+            "required": false,
+            "description": "Só deste nível.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "desconhecida",
+                "nova",
+                "aprendendo",
+                "dominada"
+              ]
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Busca na frente e no verso, sem ligar para acento e caixa.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "ordem",
+            "in": "query",
+            "required": false,
+            "description": "A ordem (padrão: entrou, a mais nova primeiro; volta: a que volta antes).",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entrou",
+                "volta",
+                "titulo",
+                "mudou"
+              ]
+            }
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "required": false,
+            "description": "Quantas por página (padrão 30).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          },
+          {
+            "name": "depois",
+            "in": "query",
+            "required": false,
+            "description": "Quantas pular (a paginação).",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "com_verso",
+            "in": "query",
+            "required": false,
+            "description": "true: o verso inteiro de cada carta.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "post": {
+        "operationId": "virar_carta",
+        "summary": "Virar carta",
+        "description": "Põe uma anotação que já existe num ou mais baralhos: ela vira carta (o verso é o texto dela) ou, se já é carta, entra nesses baralhos também. Com nota, dá para mandar a frente; com notas, até 50 de uma vez (um pedido por anotação, todas com a frente do nome). A anotação continua no mural, a não ser com no_mural: false (que espera a aprovação da pessoa). Na anotação que já é carta, só soma os baralhos: a frente e o mural se mudam com editar_carta. Para criar a anotação já como carta, use criar_nota com estudos. Permissão: estudos:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nota": {
+                    "type": "string",
+                    "pattern": "^[\\w-]{1,64}$",
+                    "description": "O id da anotação (de listar_notas)."
+                  },
+                  "notas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[\\w-]{1,64}$"
+                    },
+                    "description": "Ou várias anotações (até 50)."
+                  },
+                  "baralhos": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "description": "Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20)."
+                  },
+                  "titulo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80,
+                    "description": "O título da frente (a pergunta, a palavra). Sem ele (ou null), a frente usa o nome da anotação."
+                  },
+                  "subtitulo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 160,
+                    "description": "Uma linha embaixo do título (a leitura, uma dica); null tira."
+                  },
+                  "imagem": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "Uma imagem https para a frente; null tira."
+                  },
+                  "no_mural": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "true: a anotação aparece também no mural; false: só nos Estudos; null: segue os baralhos."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "baralhos"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/cartas/{nota}": {
+      "get": {
+        "operationId": "ler_carta",
+        "summary": "Ler uma carta",
+        "description": "Uma carta inteira: a frente, o verso, os baralhos, o nível, quando volta, os acertos e os pedidos abertos sobre ela. Permissão: estudos:ler.",
+        "parameters": [
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da anotação (a carta é a própria anotação; de estudar_agora ou listar_cartas)."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "O que foi pedido, em JSON."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "editar_carta",
+        "summary": "Mudar uma carta",
+        "description": "Muda a frente (titulo, subtitulo, imagem), a lista inteira dos baralhos ou o no_mural. Mande só o que muda. O verso é o texto da anotação: para mudar, use editar_nota. Permissão: estudos:escrever.",
+        "parameters": [
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da anotação (a carta é a própria anotação; a carta)."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "titulo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 80,
+                    "description": "O título da frente (a pergunta, a palavra). Sem ele (ou null), a frente usa o nome da anotação."
+                  },
+                  "subtitulo": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 160,
+                    "description": "Uma linha embaixo do título (a leitura, uma dica); null tira."
+                  },
+                  "imagem": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 2000,
+                    "pattern": "^https://",
+                    "description": "Uma imagem https para a frente; null tira."
+                  },
+                  "baralhos": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "description": "A lista inteira dos baralhos (pelo nome ou id); para tirar dos Estudos, tirar_dos_estudos."
+                  },
+                  "no_mural": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ],
+                    "description": "true: a anotação aparece também no mural; false: só nos Estudos; null: segue os baralhos."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "nota"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "tirar_dos_estudos",
+        "summary": "Tirar dos Estudos",
+        "description": "Tira a carta de todos os baralhos, com o progresso dela (a anotação continua nas Anotações e volta ao mural). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes. Permissão: estudos:apagar.",
+        "parameters": [
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da anotação (a carta é a própria anotação; a carta)."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/cartas/{nota}/responder": {
+      "post": {
+        "operationId": "responder_carta",
+        "summary": "Responder uma carta",
+        "description": "Anota a resposta da pessoa, como os botões da sessão: acertou false é Errei, true é Acertei. O Murall calcula quando a carta volta (o FSRS) ao aplicar, com a hora deste pedido. Só responda o que a pessoa respondeu de verdade; nunca responda por ela. Entra direto, sem esperar aprovação. Permissão: estudos:estudar.",
+        "parameters": [
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da anotação (a carta é a própria anotação; a carta respondida)."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "acertou": {
+                    "type": "boolean",
+                    "description": "true: Acertei; false: Errei."
+                  },
+                  "baralho": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Opcional: o baralho que trouxe a carta (o baralho_da_vez de estudar_agora; conta no limite de novas dele): o nome (como em ver_estudos) ou o id."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "nota",
+                  "acertou"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/cartas/{nota}/recomecar": {
+      "post": {
+        "operationId": "recomecar_carta",
+        "summary": "Recomeçar uma carta",
+        "description": "Zera o progresso da carta: ela volta a Desconhecida, sem respostas (entra de novo como nova). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes. Permissão: estudos:apagar.",
+        "parameters": [
+          {
+            "name": "nota",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[\\w-]{1,64}$",
+              "description": "O id da anotação (a carta é a própria anotação; a carta)."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/baralhos": {
+      "post": {
+        "operationId": "criar_baralho",
+        "summary": "Criar um baralho",
+        "description": "Cria um baralho (no fim da fileira). Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe volta 409 com o baralho de agora. Permissão: estudos:escrever.",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "O nome do baralho (\"Japonês\", \"Direito Civil\")."
+                  },
+                  "cor": {
+                    "type": "string",
+                    "enum": [
+                      "vermelho",
+                      "laranja",
+                      "amarelo",
+                      "verde",
+                      "azul",
+                      "lilas",
+                      "rosa",
+                      "cinza",
+                      "branco"
+                    ],
+                    "description": "A cor (sem ela, amarelo)."
+                  },
+                  "novas_por_dia": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 999,
+                    "description": "Quantas cartas novas entram por dia (o padrão é 5)."
+                  },
+                  "no_mural": {
+                    "type": "boolean",
+                    "description": "As cartas aparecem também no mural das Anotações (o padrão: só nos Estudos)."
+                  },
+                  "estilo": {
+                    "type": "string",
+                    "enum": [
+                      "classica",
+                      "faixa",
+                      "cartolina",
+                      "orelha",
+                      "antigo",
+                      "argola",
+                      "selo",
+                      "polaroid",
+                      "ingresso",
+                      "biblioteca"
+                    ],
+                    "description": "O desenho da frente das cartas (o padrão: classica)."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "nome"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      }
+    },
+    "/ext/v1/estudos/baralhos/{baralho}": {
+      "patch": {
+        "operationId": "editar_baralho",
+        "summary": "Mudar um baralho",
+        "description": "Muda o nome, a cor, as novas por dia, o \"no mural\", o estilo ou o lugar do baralho na fileira. Mande só o que muda. Permissão: estudos:escrever.",
+        "parameters": [
+          {
+            "name": "baralho",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O baralho: o nome (como em ver_estudos) ou o id."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40,
+                    "description": "O nome novo."
+                  },
+                  "cor": {
+                    "type": "string",
+                    "enum": [
+                      "vermelho",
+                      "laranja",
+                      "amarelo",
+                      "verde",
+                      "azul",
+                      "lilas",
+                      "rosa",
+                      "cinza",
+                      "branco"
+                    ],
+                    "description": "A cor (sem ela, amarelo)."
+                  },
+                  "novas_por_dia": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 999,
+                    "description": "Quantas cartas novas entram por dia (o padrão é 5)."
+                  },
+                  "no_mural": {
+                    "type": "boolean",
+                    "description": "As cartas aparecem também no mural das Anotações (o padrão: só nos Estudos)."
+                  },
+                  "estilo": {
+                    "type": "string",
+                    "enum": [
+                      "classica",
+                      "faixa",
+                      "cartolina",
+                      "orelha",
+                      "antigo",
+                      "argola",
+                      "selo",
+                      "polaroid",
+                      "ingresso",
+                      "biblioteca"
+                    ],
+                    "description": "O desenho da frente das cartas (o padrão: classica)."
+                  },
+                  "posicao": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000,
+                    "description": "O lugar na fileira das abas: 0 é a primeira."
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "baralho"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "O pedido guardado e a nota como vai ficar (ela entra quando o Murall estiver aberto)."
+          },
+          "default": {
+            "description": "Erro: {\"erro\": \"codigo\", \"mensagem\": \"...\"}"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "apagar_baralho",
+        "summary": "Apagar um baralho",
+        "description": "Apaga o baralho: as cartas saem dele, e a que só estava nele sai dos Estudos com o progresso (a anotação nunca é apagada e volta ao mural). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes. Permissão: estudos:apagar.",
+        "parameters": [
+          {
+            "name": "baralho",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "description": "O baralho a apagar: o nome (como em ver_estudos) ou o id."
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Opcional. Um texto seu (até 100 letras, sem espaço) que identifica este pedido: repetir a chamada com o mesmo valor não cria outro pedido.",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
             }
           }
         ],

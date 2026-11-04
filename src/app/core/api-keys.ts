@@ -104,9 +104,14 @@ export function approvalLabel(a: Aprovacao): string {
   return a === 'tudo' ? 'Espera você aprovar tudo' : a === 'mudancas' ? 'Espera você aprovar o que muda, apaga ou publica' : 'Não espera aprovação';
 }
 
-/** Onde a chave alcança nas Anotações e no Kanban (só quando ela mexe neles). */
+/** A permissão alcança as anotações (nas Anotações, no Kanban ou nos Estudos, onde cada carta é uma anotação)? */
+export function touchesGroups(scope: string): boolean {
+  return scope.startsWith('notas:') || scope.startsWith('kanban:') || scope.startsWith('estudos:');
+}
+
+/** Onde a chave alcança nas Anotações, no Kanban e nos Estudos (só quando ela mexe neles). */
 export function groupsLabel(key: Pick<ApiKeyInfo, 'grupos' | 'escopos'>): string | null {
-  if (!key.escopos.some((s) => s.startsWith('notas:') || s.startsWith('kanban:'))) return null;
+  if (!key.escopos.some(touchesGroups)) return null;
   return key.grupos?.length ? `Só ${key.grupos.length === 1 ? 'no grupo' : 'nos grupos'} ${andList(key.grupos)}` : 'Em todos os grupos';
 }
 

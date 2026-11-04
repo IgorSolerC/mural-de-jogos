@@ -9,6 +9,7 @@ import { ESTADOS } from './operacoes';
 
 /** O subconjunto de JSON Schema que o contrato usa (seção 13.1). */
 export interface Esquema {
+  minItems?: number;
   type?: 'object' | 'string' | 'integer' | 'number' | 'boolean' | 'array' | 'null' | ('object' | 'string' | 'integer' | 'number' | 'boolean' | 'null')[];
   description?: string;
   properties?: Record<string, Esquema>;
@@ -391,6 +392,234 @@ export const FERRAMENTAS_DO_KANBAN: readonly Ferramenta[] = [
   },
 ];
 
+
+// ===== Os Estudos (rodada 12) =====
+
+const notaDaCarta = (o: string): Esquema => ({ type: 'string', pattern: '^[\\w-]{1,64}$', description: `O id da anotação (a carta é a própria anotação; ${o}).` });
+const baralhoArg = (o: string): Esquema => ({ type: 'string', minLength: 1, maxLength: 64, description: `${o}: o nome (como em ver_estudos) ou o id.` });
+const baralhosArg: Esquema = {
+  type: 'array',
+  minItems: 1,
+  maxItems: 20,
+  items: { type: 'string', minLength: 1, maxLength: 64 },
+  description: 'Os baralhos, pelo nome (como em ver_estudos) ou pelo id (de 1 a 20).',
+};
+const ESTILOS_ENUM = ['classica', 'faixa', 'cartolina', 'orelha', 'antigo', 'argola', 'selo', 'polaroid', 'ingresso', 'biblioteca'];
+const CORES_ENUM = ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'cinza', 'branco'];
+
+/** A frente de uma carta (também o `estudos` de criar_nota). */
+const FRENTE: Record<string, Esquema> = {
+  titulo: { type: ['string', 'null'], maxLength: 80, description: 'O título da frente (a pergunta, a palavra). Sem ele (ou null), a frente usa o nome da anotação.' },
+  subtitulo: { type: ['string', 'null'], maxLength: 160, description: 'Uma linha embaixo do título (a leitura, uma dica); null tira.' },
+  imagem: { type: ['string', 'null'], maxLength: 2000, pattern: '^https://', description: 'Uma imagem https para a frente; null tira.' },
+};
+const noMuralDaCarta: Esquema = { type: ['boolean', 'null'], description: 'true: a anotação aparece também no mural; false: só nos Estudos; null: segue os baralhos.' };
+
+/** Os campos de um baralho que se escrevem. */
+const CAMPOS_DO_BARALHO: Record<string, Esquema> = {
+  nome: { type: 'string', minLength: 1, maxLength: 40, description: 'O nome do baralho ("Japonês", "Direito Civil").' },
+  cor: { type: 'string', enum: CORES_ENUM, description: 'A cor (sem ela, amarelo).' },
+  novas_por_dia: { type: 'integer', minimum: 0, maximum: 999, description: 'Quantas cartas novas entram por dia (o padrão é 5).' },
+  no_mural: { type: 'boolean', description: 'As cartas aparecem também no mural das Anotações (o padrão: só nos Estudos).' },
+  estilo: { type: 'string', enum: ESTILOS_ENUM, description: 'O desenho da frente das cartas (o padrão: classica).' },
+};
+
+/** A nota nova que já nasce carta (o `estudos` de criar_nota). */
+const NOS_ESTUDOS: Esquema = {
+  type: 'object',
+  description:
+    'Opcional: a nota já nasce carta destes baralhos (pede a permissão estudos:escrever), como o "Nova carta" de um baralho. O verso é o texto da nota; a frente, o titulo daqui (ou o da nota). Ela segue os baralhos (fora do mural, se eles não pedem o mural).',
+  properties: { baralhos: baralhosArg, ...FRENTE },
+  required: ['baralhos'],
+  additionalProperties: false,
+};
+
+export const FERRAMENTAS_DOS_ESTUDOS: readonly Ferramenta[] = [
+  {
+    nome: 'ver_estudos',
+    titulo: 'Ver os Estudos',
+    descricao:
+      'Os baralhos (com quantas cartas, os níveis e o que tem para hoje em cada um: novas, aprender e revisar), a configuração e o total de hoje. Os números de hoje são os do app (o FSRS e os limites do dia).',
+    escopo: 'estudos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({}),
+    metodo: 'GET',
+    caminho: '/ext/v1/estudos',
+  },
+  {
+    nome: 'estudar_agora',
+    titulo: 'O que estudar agora',
+    descricao:
+      'As cartas para estudar agora, na ordem do app (de todos os baralhos, ou de um), cada uma com a frente (titulo, subtitulo, imagem) e o verso (o texto da anotação). Para estudar com a pessoa: mostre só a frente, espere a resposta dela, mostre o verso, pergunte se ela acertou e mande responder_carta. mais_tarde são as cartas que voltam daqui a pouco (nos passos de 1 e 10 minutos).',
+    escopo: 'estudos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      baralho: baralhoArg('Opcional: só deste baralho'),
+      limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Quantas cartas trazer (padrão 10). O resto vem em restam.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/estudos/hoje',
+  },
+  {
+    nome: 'listar_cartas',
+    titulo: 'Listar cartas',
+    descricao: 'As cartas, com filtros: a frente, o resumo do verso (com_verso: true traz inteiro), os baralhos, o nível, quando volta e os acertos. Pagine com depois.',
+    escopo: 'estudos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({
+      baralho: baralhoArg('Só deste baralho'),
+      nivel: { type: 'string', enum: ['desconhecida', 'nova', 'aprendendo', 'dominada'], description: 'Só deste nível.' },
+      q: { type: 'string', maxLength: 200, description: 'Busca na frente e no verso, sem ligar para acento e caixa.' },
+      ordem: { type: 'string', enum: ['entrou', 'volta', 'titulo', 'mudou'], description: 'A ordem (padrão: entrou, a mais nova primeiro; volta: a que volta antes).' },
+      limite: { type: 'integer', minimum: 1, maximum: 100, description: 'Quantas por página (padrão 30).' },
+      depois: { type: 'integer', minimum: 0, description: 'Quantas pular (a paginação).' },
+      com_verso: { type: 'boolean', description: 'true: o verso inteiro de cada carta.' },
+    }),
+    metodo: 'GET',
+    caminho: '/ext/v1/estudos/cartas',
+  },
+  {
+    nome: 'ler_carta',
+    titulo: 'Ler uma carta',
+    descricao: 'Uma carta inteira: a frente, o verso, os baralhos, o nível, quando volta, os acertos e os pedidos abertos sobre ela.',
+    escopo: 'estudos:ler',
+    somenteLeitura: true,
+    destrutiva: false,
+    entrada: obj({ nota: notaDaCarta('de estudar_agora ou listar_cartas') }, ['nota']),
+    metodo: 'GET',
+    caminho: '/ext/v1/estudos/cartas/:nota',
+  },
+  {
+    nome: 'responder_carta',
+    titulo: 'Responder uma carta',
+    descricao:
+      'Anota a resposta da pessoa, como os botões da sessão: acertou false é Errei, true é Acertei. O Murall calcula quando a carta volta (o FSRS) ao aplicar, com a hora deste pedido. Só responda o que a pessoa respondeu de verdade; nunca responda por ela. Entra direto, sem esperar aprovação.',
+    escopo: 'estudos:estudar',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        nota: notaDaCarta('a carta respondida'),
+        acertou: { type: 'boolean', description: 'true: Acertei; false: Errei.' },
+        baralho: baralhoArg('Opcional: o baralho que trouxe a carta (o baralho_da_vez de estudar_agora; conta no limite de novas dele)'),
+        chave_idempotencia: idem,
+      },
+      ['nota', 'acertou'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/estudos/cartas/:nota/responder',
+  },
+  {
+    nome: 'virar_carta',
+    titulo: 'Virar carta',
+    descricao:
+      'Põe uma anotação que já existe num ou mais baralhos: ela vira carta (o verso é o texto dela) ou, se já é carta, entra nesses baralhos também. Com nota, dá para mandar a frente; com notas, até 50 de uma vez (um pedido por anotação, todas com a frente do nome). A anotação continua no mural, a não ser com no_mural: false (que espera a aprovação da pessoa). Na anotação que já é carta, só soma os baralhos: a frente e o mural se mudam com editar_carta. Para criar a anotação já como carta, use criar_nota com estudos.',
+    escopo: 'estudos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        nota: { type: 'string', pattern: '^[\\w-]{1,64}$', description: 'O id da anotação (de listar_notas).' },
+        notas: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'string', pattern: '^[\\w-]{1,64}$' }, description: 'Ou várias anotações (até 50).' },
+        baralhos: baralhosArg,
+        ...FRENTE,
+        no_mural: noMuralDaCarta,
+        chave_idempotencia: idem,
+      },
+      ['baralhos'],
+    ),
+    metodo: 'POST',
+    caminho: '/ext/v1/estudos/cartas',
+  },
+  {
+    nome: 'editar_carta',
+    titulo: 'Mudar uma carta',
+    descricao: 'Muda a frente (titulo, subtitulo, imagem), a lista inteira dos baralhos ou o no_mural. Mande só o que muda. O verso é o texto da anotação: para mudar, use editar_nota.',
+    escopo: 'estudos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        nota: notaDaCarta('a carta'),
+        ...FRENTE,
+        baralhos: { ...baralhosArg, description: 'A lista inteira dos baralhos (pelo nome ou id); para tirar dos Estudos, tirar_dos_estudos.' },
+        no_mural: noMuralDaCarta,
+        chave_idempotencia: idem,
+      },
+      ['nota'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/estudos/cartas/:nota',
+  },
+  {
+    nome: 'tirar_dos_estudos',
+    titulo: 'Tirar dos Estudos',
+    descricao: 'Tira a carta de todos os baralhos, com o progresso dela (a anotação continua nas Anotações e volta ao mural). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes.',
+    escopo: 'estudos:apagar',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ nota: notaDaCarta('a carta'), chave_idempotencia: idem }, ['nota']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/estudos/cartas/:nota',
+  },
+  {
+    nome: 'recomecar_carta',
+    titulo: 'Recomeçar uma carta',
+    descricao: 'Zera o progresso da carta: ela volta a Desconhecida, sem respostas (entra de novo como nova). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes.',
+    escopo: 'estudos:apagar',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ nota: notaDaCarta('a carta'), chave_idempotencia: idem }, ['nota']),
+    metodo: 'POST',
+    caminho: '/ext/v1/estudos/cartas/:nota/recomecar',
+  },
+  {
+    nome: 'criar_baralho',
+    titulo: 'Criar um baralho',
+    descricao: 'Cria um baralho (no fim da fileira). Já dá para pôr cartas nele antes de o pedido entrar. Um nome que já existe volta 409 com o baralho de agora.',
+    escopo: 'estudos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj({ ...CAMPOS_DO_BARALHO, chave_idempotencia: idem }, ['nome']),
+    metodo: 'POST',
+    caminho: '/ext/v1/estudos/baralhos',
+  },
+  {
+    nome: 'editar_baralho',
+    titulo: 'Mudar um baralho',
+    descricao: 'Muda o nome, a cor, as novas por dia, o "no mural", o estilo ou o lugar do baralho na fileira. Mande só o que muda.',
+    escopo: 'estudos:escrever',
+    somenteLeitura: false,
+    destrutiva: false,
+    entrada: obj(
+      {
+        baralho: baralhoArg('O baralho'),
+        ...CAMPOS_DO_BARALHO,
+        nome: { ...CAMPOS_DO_BARALHO['nome']!, description: 'O nome novo.' },
+        posicao: { type: 'integer', minimum: 0, maximum: 1000, description: 'O lugar na fileira das abas: 0 é a primeira.' },
+        chave_idempotencia: idem,
+      },
+      ['baralho'],
+    ),
+    metodo: 'PATCH',
+    caminho: '/ext/v1/estudos/baralhos/:baralho',
+  },
+  {
+    nome: 'apagar_baralho',
+    titulo: 'Apagar um baralho',
+    descricao: 'Apaga o baralho: as cartas saem dele, e a que só estava nele sai dos Estudos com o progresso (a anotação nunca é apagada e volta ao mural). A pessoa pode desfazer pelo histórico. Pergunte ao usuário antes.',
+    escopo: 'estudos:apagar',
+    somenteLeitura: false,
+    destrutiva: true,
+    entrada: obj({ baralho: baralhoArg('O baralho a apagar'), chave_idempotencia: idem }, ['baralho']),
+    metodo: 'DELETE',
+    caminho: '/ext/v1/estudos/baralhos/:baralho',
+  },
+];
+
 /** A permissão em palavras (para o guia e o OpenAPI). */
 // ===== O Calendário (rodada 7) =====
 
@@ -738,7 +967,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'ver_contexto',
     titulo: 'Ver o contexto',
     descricao:
-      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
+      'A conta, o dia de hoje no fuso dela, o que esta chave pode, o vocabulário das Anotações (grupos com assuntos e tags, tags fixas), o do Kanban (os quadros e as colunas), o dos Estudos (os baralhos), o dos Gastos (envelopes, pessoas, os meses com lançamento), o do Calendário (as cores e os meses que ver_agenda alcança) e o dos murais (quantos desejos e pra depois há, e as notas de cada mural para escrever fichas). Chame antes de criar ou mudar, e use os nomes que já existem.',
     escopo: [
       'notas:ler',
       'gastos:ler',
@@ -754,6 +983,10 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
       'pra-depois:escrever',
       'fichas:ler',
       'fichas:escrever',
+      'estudos:ler',
+      'estudos:estudar',
+      'estudos:escrever',
+      'estudos:apagar',
     ],
     somenteLeitura: true,
     destrutiva: false,
@@ -835,7 +1068,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     nome: 'criar_nota',
     titulo: 'Criar uma nota',
     descricao:
-      'Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo.',
+      'Cria uma nota (nasce privada). Vira um pedido: a resposta já traz o id e a nota como vai ficar; ela entra quando o Murall estiver aberto. Para um grupo que não existe, mande criar_grupo: true. Com kanban, ela já nasce numa coluna do quadro do grupo; com estudos, já nasce carta de um baralho (o texto é o verso).',
     escopo: 'notas:criar',
     somenteLeitura: false,
     destrutiva: false,
@@ -845,6 +1078,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
         fixada: { type: 'boolean', description: 'true: fixada no topo do mural.' },
         criar_grupo: { type: 'boolean', description: 'true: aceita um grupo que ainda não existe.' },
         kanban: NO_QUADRO,
+        estudos: NOS_ESTUDOS,
         chave_idempotencia: idem,
       },
       ['titulo'],
@@ -943,6 +1177,7 @@ export const FERRAMENTAS: readonly Ferramenta[] = [
     caminho: '/ext/v1/notas/:id',
   },
   ...FERRAMENTAS_DO_KANBAN,
+  ...FERRAMENTAS_DOS_ESTUDOS,
   ...FERRAMENTAS_DO_CALENDARIO,
   ...FERRAMENTAS_DOS_GASTOS,
   ...FERRAMENTAS_DOS_MURAIS,

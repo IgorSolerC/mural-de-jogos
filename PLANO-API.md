@@ -927,6 +927,7 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
 | 9 | **Wishlist, Pra depois e fichas** — feita em 29/out (seção 23) | Com a busca da capa no app |
 | 10 | **CLI** — fora por enquanto (pedido do usuário em 29/out: sem npm) | `murall login` (aparelho), os comandos, `murall mcp`, publicada no npm |
 | 11 | **Fechar** — fora por enquanto (pedido do usuário em 29/out: sem domínio novo) | Domínio `api.murall.igorsc.com.br` (com o CAA, como no cofre), `/security-review` e rodada adversarial, Novidades (funcionalidade), decidir abrir para todos |
+| 12 | **Estudos** — feita em 03/nov (seção 23) | Baralhos, cartas, a fila do dia pronta pelo app, responder Errei/Acertei, virar carta |
 
 ---
 
@@ -1820,3 +1821,76 @@ testar de verdade testado. Tudo começa atrás de `API_CODIGOS` = o código do d
      histórico). **Rodada 9 feita.** Para usar: em Acessos, marcar a Wishlist, o Pra depois e as
      fichas na chave (ou no conector) que já existe, ou criar outra. Com ela, as rodadas 0 a 9 estão
      feitas; a 10 (CLI no npm) e a 11 (domínio e fechamento) ficaram de fora por pedido do usuário.
+
+- **03/nov/2026, rodada 12 (Estudos)**: pedido do usuário, num cartão do Dev Murall: "validar se o
+  MCP/CLI de integração do Murall com AIs possui suporte para interações com a nova aba de ESTUDOS. Se
+  essa integração não existir, essa tarefa visa a implementação dessa funcionalidade por completo." Não
+  existia nada (nem permissão, nem espelho, nem ferramenta). A CLI continua fora (rodada 10, sem npm):
+  o suporte vai na API e no MCP, como as outras áreas. Um commit só, a pedido ("commite e dê push quando
+  terminar").
+
+  Decisões tomadas para a rodada (sem perguntar, seguindo as seções 5.2, 7, 8, 9 e 10 e o
+  PLANO-ESTUDOS.md):
+  - **Quatro permissões, área `estudos`**: `estudos:ler` (baralhos, cartas com a frente e o verso, a
+    fila do dia), `estudos:estudar` (responder Errei/Acertei), `estudos:escrever` (criar e mudar
+    baralhos, virar carta, mudar a frente, os baralhos e o "no mural") e `estudos:apagar` (apagar
+    baralho, tirar a carta dos Estudos, recomeçar o progresso). Qualquer uma leva a área ao espelho.
+    Atalho novo "Estudar comigo" (ler, estudar e ler as anotações).
+  - **A regra do FSRS e da fila fica no site** (core/fsrs.ts, core/study-queue.ts). O espelho leva cada
+    `carta` (a frente, o verso = o texto da anotação, os baralhos, o nível, o estado, `volta_em`, os
+    acertos), cada `baralho` e o `contexto-estudos` (id `estudos`: a configuração e a fila de todos),
+    e a fila pronta (`dayQueue`) do dia de estudo de hoje e do de amanhã, de todos (no contexto) e de
+    cada baralho (no baralho), até 300 cartas por dia. A fila é a do dia inteiro (as cartas nos passos
+    de 1 e 10 minutos vão com o `volta_em`, e a API separa as de agora das de mais tarde); a de amanhã
+    serve para o Murall que ficou fechado de um dia para o outro. Mais velha que isso, a fila vem vazia
+    com o aviso de abrir o Murall. O dia de estudo da API é o do fuso da conta, virando às 4h.
+  - **As cartas das anotações compartilhadas ficam de fora** (como no resto da API), e a chave limitada
+    a alguns grupos só vê as cartas das notas deles (a coluna `grupo` da linha é o grupo da nota). Os
+    baralhos não têm grupo: a limitada vê todos.
+  - **Responder** (`carta.responder`, `acertou` true/false, `baralho` opcional) entra direto também com
+    a aprovação "mudancas" (estudar não pode esperar um clique por carta; "tudo" espera). O site aplica
+    com a hora do pedido (o FSRS conta o tempo de quando a pessoa respondeu), mas grava com a hora de
+    agora (a junção de aparelhos não perde a resposta). Respondida no site depois do pedido, a carta
+    faz o pedido terminar em `conflito`. O dia de estudo de um pedido velho não apaga os números de
+    hoje.
+  - **Virar carta** (`carta.por`): pôr uma anotação sua num ou mais baralhos (pelo id ou pelo nome); a
+    que já é carta entra nos baralhos novos. Como na tela ("Trazer anotações"), a anotação que já
+    existia continua no mural (`no_mural` diz outra coisa); a nota nova de `criar_nota` com `estudos`
+    segue os baralhos (como o "Nova carta"). Entra direto (é criar), a não ser com `no_mural: false`, que
+    tira a anotação do mural e espera a aprovação "mudancas"; na anotação que já é carta, só soma os
+    baralhos (a frente e o mural, ali, são `carta.editar`: 422 `ja-e-carta`). `carta.editar` muda a frente
+    (título, subtítulo, imagem https), a lista inteira dos baralhos e o "no mural" (true, false, null =
+    seguir os baralhos); espera a aprovação. Sem versão, como no Kanban: o app junta carta a carta pela
+    hora.
+  - **Baralhos**: `baralho.criar` (nome, cor, novas por dia, no mural, estilo) entra direto, nome
+    repetido é 409 `baralho-existe`; `baralho.editar` (os mesmos e a posição) espera; `baralho.apagar`
+    tira o baralho e a carta que só estava nele sai dos Estudos (volta ao mural), com Desfazer. O
+    ícone só se lê (quem escolhe é a pessoa, na tela). A configuração dos Estudos (retenção, revisões
+    por dia, ordem das novas) só se lê.
+  - Todo pedido dos Estudos tem Desfazer no histórico (o de antes vai no `antes`: o baralho e as
+    cartas tiradas, a carta como estava, e na resposta o que ela somou no dia).
+
+  Passos (feitos de uma vez, num commit):
+  1. [feito] Contrato: `contrato/api-v1/estudos.ts` (`CartaV1`, `BaralhoV1`, `ContextoEstudosV1`,
+     `FilaDoDiaV1`, os níveis, os estilos, `diaDeEstudo`, `filaDeAgora`) e
+     `contrato/api-v1/operacoes-estudos.ts` (`conferirOpEstudo`, prévias `cartaDoPedido`,
+     `baralhoDoPedido`); as permissões em escopos.ts; os tipos novos do espelho.
+  2. [feito] API: a forma no espelho (`api/src/domain/mirror.ts`), as rotas em
+     `api/src/ext/study-read.ts` (`GET /ext/v1/estudos`, `/estudos/hoje`, `/estudos/cartas`,
+     `/estudos/cartas/:nota`) e `api/src/ext/study-write.ts` (`POST`/`PATCH`/`DELETE
+     /ext/v1/estudos/baralhos…`, `PUT`/`PATCH`/`DELETE /ext/v1/estudos/cartas/:nota`, `POST
+     /ext/v1/estudos/cartas/:nota/responder` e `/recomecar`), o contexto com `estudos`, o `estudos`
+     de `nota.criar`. Testes em `api/test/estudos.suite.ts` e `api/test/operacoes-estudos.test.ts`.
+  3. [feito] Site: `core/api-mirror-study.ts` (o espelho), `core/api-requests-study.ts` (aplicar,
+     Desfazer, frases, títulos), os ganchos em `ApiMirror` e `ApiRequests`, os ícones e frases na folha
+     dos pedidos, Como usar e a folha da chave. Testes.
+  4. [feito] MCP e guia: as ferramentas em `FERRAMENTAS_DOS_ESTUDOS`, a parte "Os Estudos" no guia, o
+     OpenAPI e as cópias em `docs/api` regerados.
+  5. [feito] Revisão (`/code-review high`), corrigida no mesmo commit: virar carta não muda mais a frente
+     nem o mural de uma carta que existe sem a aprovação; o Desfazer de uma carta não passa por cima do que
+     veio depois (as respostas da sessão ficam; o da frente volta só a frente, os baralhos e o mural); o
+     Desfazer de `nota.criar` com `estudos` tira a carta junto; o lote de virar carta lê os pedidos e os
+     baralhos uma vez só (`studyNow`); `estudar_agora` aceita o baralho que ainda vai nascer; o nome de um
+     baralho que vai ser apagado fica livre; o limite de cartas conta as que vão nascer; o site só refaz o
+     espelho dos Estudos quando eles, as anotações ou o dia mudam. Fica para o uso de verdade: a ponta a
+     ponta com o Murall aberto (os testes cobrem cada lado: a API nos dois bancos, o site aplicando).

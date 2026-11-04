@@ -14,7 +14,7 @@ import {
   dobra,
   textoLimpo,
 } from '../../../contrato/api-v1/escopos';
-import { ApiKeyInput, dayLabel } from '../core/api-keys';
+import { ApiKeyInput, dayLabel, touchesGroups } from '../core/api-keys';
 import { DAY_MS } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
 
@@ -84,7 +84,7 @@ export interface KeyChoiceStart {
     @if (touchesNotes()) {
       <fieldset class="parte">
         <legend class="parte-titulo">Em que grupos das Anotações</legend>
-        <p class="parte-desc">Vale para as anotações e para os quadros do Kanban.</p>
+        <p class="parte-desc">Vale para as anotações, os quadros do Kanban e as cartas dos Estudos.</p>
         <div class="segmentos dois">
           <label class="segmento">
             <input type="radio" name="chave-grupos" [checked]="!someGroups()" (change)="someGroups.set(false)" />
@@ -177,8 +177,8 @@ export class ApiKeyChoices {
 
   protected readonly nameMissing = computed(() => this.tried() && !textoLimpo(this.name(), NOME_DA_CHAVE_MAX));
   protected readonly scopesMissing = computed(() => this.tried() && this.scopes().size === 0);
-  /** O acesso mexe nas Anotações ou no Kanban: os grupos importam. */
-  protected readonly touchesNotes = computed(() => [...this.scopes()].some((s) => s.startsWith('notas:') || s.startsWith('kanban:')));
+  /** O acesso mexe nas Anotações, no Kanban ou nos Estudos (as cartas são anotações): os grupos importam. */
+  protected readonly touchesNotes = computed(() => [...this.scopes()].some(touchesGroups));
   /** Os grupos das anotações (os do Kanban), com os que o acesso já tinha e sumiram no fim. */
   protected readonly groupOptions = computed(() => {
     const labels = this.kanban.categories().map((c) => c.label);
