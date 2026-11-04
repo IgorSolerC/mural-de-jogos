@@ -7,7 +7,7 @@ import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, levelOf, whenLabel } from '../core/study';
+import { CardFace, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, StudyCard as Card, cardFace, frontTitle, groupKey, levelOf, whenLabel } from '../core/study';
 import { QueueCounts, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { nameCollator } from '../core/text';
@@ -138,7 +138,7 @@ export class StudyPage {
   /** A folha das configurações dos Estudos aberta. */
   protected readonly config = signal(false);
   /** Quantas revisões vencem amanhã (no baralho aberto, ou em todos): o "Estudar adiantado" só aparece com alguma. */
-  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.state(), this.now(), this.deck()?.id, this.study.live, 1).counts));
+  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.deck()?.id, this.study.live, 1).counts));
   /** A folha da carta aberta (o id da anotação). */
   protected readonly cardSheet = signal<string | null>(null);
   /** O seletor de fichas do "Trazer anotações" aberto. */
@@ -147,7 +147,7 @@ export class StudyPage {
   protected readonly firstName = signal('');
 
   private readonly notesById = computed(() => new Map(this.store.notes().map((n) => [n.id, n])));
-  private readonly counts = computed(() => allCounts(this.study.state(), this.now(), this.study.live));
+  private readonly counts = computed(() => allCounts(this.study.view(), this.now(), this.study.live));
   /** O número de cada carta em cada baralho, na ordem em que entrou (o Nº do Ingresso, da Faixa…). */
   private readonly numbers = computed(() => {
     const out = new Map<string, Map<string, number>>();
@@ -294,10 +294,17 @@ export class StudyPage {
     return d ? this.study.cards().filter((c) => c.decks.includes(d.id)).map((c) => c.note) : [];
   });
 
-  /** "Nova carta": o editor de uma anotação nova, já na aba Flashcard, com este baralho. */
+  /** O grupo do baralho como o seletor de anotações filtra (a chave do quadro do Kanban). */
+  protected groupOfDeck(d: Deck): string | null {
+    return groupKey(d.group) || null;
+  }
+
+  /** "Nova carta": o editor de uma anotação nova, já na aba Flashcard, com este baralho (e no grupo dele). */
   protected newCard(deck: string): void {
     this.study.pending.set({ decks: [deck] });
-    this.desk.newNote('');
+    const group = this.study.deck(deck)?.group;
+    if (group) this.desk.newNoteIn(group);
+    else this.desk.newNote('');
   }
 
   /**
@@ -308,6 +315,8 @@ export class StudyPage {
     const had = this.study.cardOf().get(note);
     if (had) this.study.setDecks(note, [...had.decks, deck]);
     else this.study.addCard(note, [deck], {}, true);
+    // só as anotações do grupo do baralho podem entrar nele (o seletor só mostra essas)
+    if (!this.study.cardOf().get(note)?.decks.includes(deck)) return;
     const name = this.store.get(note)?.game.name ?? '';
     this.toasts.show(`“${name}” virou carta de ${this.study.deck(deck)?.name ?? ''}`);
   }
@@ -338,7 +347,8 @@ export class StudyPage {
     const names = new Set(this.study.decks().map((d) => d.name));
     let n = this.study.decks().length + 1;
     while (names.has(`Baralho ${n}`)) n++;
-    const id = this.study.addDeck(`Baralho ${n}`, this.freeColor());
+    // no grupo do baralho aberto (vindo de Tudo, o grupo de sempre)
+    const id = this.study.addDeck(`Baralho ${n}`, this.freeColor(), null, undefined, this.deck()?.group);
     if (!id) return;
     void this.router.navigateByUrl(studyPath(id), { state: { folha: id } }).then(() => {
       if (!this.gone) this.sheet.set({ id, fresh: true });

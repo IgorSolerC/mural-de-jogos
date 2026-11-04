@@ -228,7 +228,7 @@ export class ApiMirror {
 
   /** Os Estudos em v1 (ver core/api-mirror-study.ts), refeitos só quando eles, as anotações ou o dia mudam. */
   private async studyItems(): Promise<MirrorItem[]> {
-    const state = this.study.state();
+    const state = this.study.view();
     const all = this.store.notes();
     const shared = this.store.sharedIds();
     const now = new Date();

@@ -7,13 +7,13 @@ import { Settings } from '../core/settings';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { Toasts } from './toast';
-import { ReviewEditor } from './review-editor';
+import { ReviewEditor, SavedEvent } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
 /** A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): virar carta, a frente, os baralhos, o mural. */
 
 const T0 = '2026-10-01T10:00:00.000Z';
-const note = (id: string, name: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', game: { name, coverUrl: null, source: 'manual' }, completedAt: '2026-10-01', createdAt: T0 })!, id });
+const note = (id: string, name: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name, coverUrl: null, source: 'manual' }, completedAt: '2026-10-01', createdAt: T0 })!, id });
 
 describe('o editor: a aba Flashcard', () => {
   comMarkdown();
@@ -82,6 +82,8 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     expect(tab()).toBeNull();
     fixture.componentInstance.openNote('Sol (日)');
+    // num grupo (sem grupo, a aba pede o grupo no lugar do "Criar a frente")
+    fixture.componentInstance['noteCategory'].set('Estudos');
     await fixture.whenStable();
     expect(tab()).not.toBeNull();
     tab()!.click();
@@ -118,23 +120,88 @@ describe('o editor: a aba Flashcard', () => {
     expect(card.wall).toBeTrue();
   });
 
-  it('a Nova carta de um baralho abre na aba, nasce só nos Estudos e não pergunta grupo nem tag', async () => {
+  it('a Nova carta de um baralho abre na aba, nasce no grupo dele, só nos Estudos, e não pergunta a tag', async () => {
     settings.askNoCategory.set(true);
     settings.askNoTag.set(true);
-    const deck = study.addDeck('Verbos', 'rosa');
+    const deck = study.addDeck('Verbos', 'rosa', null, undefined, 'Japonês');
     study.pending.set({ decks: [deck] });
-    fixture.componentInstance.openNote('Comer');
+    // como a página dos Estudos pede (ver StudyPage.newCard)
+    fixture.componentInstance.openInCategory('Japonês');
+    (fixture.componentInstance as unknown as { setNoteTitle(t: string): void }).setNoteTitle('Comer');
     await fixture.whenStable();
     expect(tab()!.getAttribute('aria-selected')).toBe('true');
     expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Só nos Estudos');
     await type('fc-titulo', '食べる');
     await save();
     expect(asked).toEqual([]);
-    const id = store.notes().find((n) => n.game.name === 'Comer')!.id;
-    const card = study.cardOf().get(id)!;
+    const saved = store.notes().find((n) => n.game.name === 'Comer')!;
+    expect(saved.category).toBe('Japonês');
+    const card = study.cardOf().get(saved.id)!;
     expect(card.decks).toEqual([deck]);
     expect('wall' in card).toBeFalse();
     expect(study.pending()).toBeNull();
+  });
+
+  it('só os baralhos do grupo da anotação; trocado o grupo no editor, salvar sem escolher deixa a carta dormindo nos de antes', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const redes = study.addDeck('Redes', 'azul', null, undefined, 'Computação');
+    study.addCard('nsol', [kanji], { title: '日' }, true);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    const options = () => [...panel().querySelectorAll<HTMLOptionElement>('.mais option')].map((o) => o.textContent!.trim());
+    const chips = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
+    expect(chips()).toEqual(['Kanjis']);
+    expect(options()).not.toContain('Redes');
+    // o grupo muda no editor: o baralho de antes some da lista, os do grupo novo aparecem, e a aba diz
+    // que a carta fica guardada fora dele (e que ela fica no mural)
+    fixture.componentInstance['noteCategory'].set('Computação');
+    await fixture.whenStable();
+    expect(chips()).toEqual([]);
+    expect(options()).toContain('Redes');
+    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kanjis enquanto a anotação não for de Estudos');
+    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Aparece no mural também');
+    const events: SavedEvent[] = [];
+    fixture.componentInstance.saved.subscribe((e) => events.push(e));
+    fixture.componentInstance['mode'].set('escrever');
+    await save();
+    // o aviso de salvar sabe de onde ela saiu (o Desfazer devolve o grupo)
+    expect(events[0].slept).toEqual({ decks: ['Kanjis'], group: 'Estudos' });
+    // a carta continua, com o progresso, guardada no baralho de antes, e não vale em nenhum
+    expect(store.get('nsol')!.category).toBe('Computação');
+    expect(study.state().cards.find((c) => c.note === 'nsol')!.decks).toEqual([kanji]);
+    expect(study.cardOf().get('nsol')!.decks).toEqual([]);
+    expect(redes).toBeTruthy();
+  });
+
+  it('a anotação sem grupo não vira carta: a aba pede o grupo, no lugar do Criar a frente', async () => {
+    store.reviews.set([{ ...note('nlua', 'Lua'), category: undefined }]);
+    study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    fixture.componentInstance.open(store.get('nlua')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    expect(panel().querySelector('.vazia .papel')).toBeNull();
+    expect(panel().querySelector('.vazia .sem-grupo')!.textContent).toContain('Escolha um na aba Anotação');
+    // com o grupo escolhido, o Criar a frente volta, e o seletor mostra os baralhos dele
+    fixture.componentInstance['noteCategory'].set('Estudos');
+    await fixture.whenStable();
+    panel().querySelector<HTMLButtonElement>('.vazia .papel')!.click();
+    await fixture.whenStable();
+    expect(panel().querySelector('.adesivo-nome')!.textContent!.trim()).toBe('Kanjis');
+    // o grupo some de novo: o seletor dá a frase, e salvar diz o que falta de verdade
+    fixture.componentInstance['noteCategory'].set(null);
+    await fixture.whenStable();
+    expect(panel().querySelector('.mais')).toBeNull();
+    expect(panel().querySelector('app-study-deck-picker .sem-grupo')!.textContent).toContain('Escolha um grupo');
+    fixture.componentInstance['mode'].set('escrever');
+    el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    expect(panel().querySelector('.erro')!.textContent).toContain('Esta anotação não tem grupo');
   });
 
   it('virando carta sem baralho, não salva: a aba diz o que falta', async () => {

@@ -9,7 +9,7 @@ import { StudyStore } from './study-store';
 
 /** Uma anotação de verdade, para a carta ter de onde sair. */
 function note(id: string, name: string): Review {
-  return sanitizeReview({ id, kind: 'anotacoes', game: { name, coverUrl: null, source: 'manual' }, scores: { final: 0 }, status: 'finalizado', difficulty: 'nenhuma', text: '', createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '2026-11-01T10:00:00.000Z' })!;
+  return sanitizeReview({ id, kind: 'anotacoes', category: 'Estudos', game: { name, coverUrl: null, source: 'manual' }, scores: { final: 0 }, status: 'finalizado', difficulty: 'nenhuma', text: '', createdAt: '2026-11-01T10:00:00.000Z', updatedAt: '2026-11-01T10:00:00.000Z' })!;
 }
 
 describe('os pedidos dos Estudos aplicados pelo site (core/api-requests-study.ts)', () => {

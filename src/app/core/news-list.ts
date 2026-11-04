@@ -27,11 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-duas-abas-juntas',
+    id: '2026-11-04-baralhos-por-grupo',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
-    title: 'Nada some com dois Muralls abertos',
+    title: 'Nada some com dois Muralls abertos, e cada baralho é de um grupo',
+    melhorias: [
+      'Cada baralho dos Estudos agora é de um grupo das anotações, e só as cartas desse grupo valem nele: os baralhos que já existiam ganharam o grupo das cartas deles (o que misturava grupos virou um por grupo, sem perder nada), a anotação que muda de grupo sai dos baralhos de antes sem perder o progresso (a aba Flashcard e o aviso de salvar dizem isso, com Desfazer, e ela volta a eles se voltar ao grupo), a anotação sem grupo pede um grupo antes de virar carta, a Nova carta nasce no grupo do baralho, o Trazer anotações mostra só as dele, e apagar um grupo leva os baralhos dele junto, dizendo antes.',
+    ],
     correcoes: [
       'Com dois Muralls abertos no mesmo navegador, o que uma aba fazia podia sumir quando a outra gravava o mural dela por cima: o que a aba escondida aplicava (os pedidos da AI, o que vinha da nuvem) e o que as duas mudavam no mesmo instante, e as anotações saíam da nuvem também. Agora cada aba grava tudo antes de passar a vez da sincronização, a próxima acompanha o que a outra gravou antes de começar, e as mudanças das duas se juntam (as anotações, a fila, a wishlist, o Kanban, os Estudos, o Calendário, os Gastos, o perfil e os ajustes) em vez de uma apagar a outra.',
     ],

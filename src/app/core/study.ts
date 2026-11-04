@@ -1,8 +1,11 @@
 import { canonicalJson } from './canonical-json';
+import { lookKey } from './category-looks';
 import { MONTHS_SHORT } from './dates';
 import { DEFAULT_FSRS, FsrsConfig, Srs, SrsState, daysBetween, freshSrs, review, studyDay } from './fsrs';
 import { IconChoice, isIconChoice } from './icon-choices';
 import { localImageId } from './images';
+import { categoryKey, hash64 } from './kanban';
+import { cleanCategory } from './note-labels';
 import { LIGHT_STOCKS, LightStock, newId } from './review';
 import { cleanLabel } from './text';
 
@@ -10,8 +13,12 @@ import { cleanLabel } from './text';
  * Os Estudos das anotações (PLANO-ESTUDOS.md): flashcards como os do Anki, feitos das anotações que já
  * existem. Uma anotação vira **carta** quando ganha uma **frente** (título, subtítulo, imagem); o **verso**
  * é a própria anotação, inteira. As cartas se juntam em **baralhos**, uma palavra que só existe aqui (não
- * são as tags nem os grupos do mural). Uma carta pode estar em vários baralhos, com um progresso só
- * (D3): respondida num, vale em todos.
+ * são as tags). Uma carta pode estar em vários baralhos, com um progresso só (D3): respondida num, vale
+ * em todos.
+ *
+ * Todo baralho é de um **grupo** das anotações (PLANO-ESTUDOS-GRUPOS.md), e a carta só vale nos baralhos
+ * do grupo da anotação dela. A regra vale na leitura (`liveStudy`), nunca apagando o guardado: a anotação
+ * que muda de grupo **dorme** nos baralhos de antes, com o progresso, e volta a eles se voltar ao grupo.
  *
  * Como o Kanban, tudo mora fora da anotação: a carta guarda o id dela (`note`), a frente, os baralhos,
  * onde ela aparece (`wall`) e o progresso do FSRS (core/fsrs.ts). A anotação apagada some dos Estudos
@@ -89,10 +96,22 @@ export interface Deck {
   wall?: true;
   /** O desenho da frente das cartas (sem o campo: a Clássica, o padrão). */
   look?: Exclude<CardLook, 'classica'>;
+  /**
+   * O grupo do baralho, escrito como nas anotações (comparado pela chave, `lookKey`). Só as cartas de
+   * anotações deste grupo valem nele. Sem o campo: o baralho de antes dos grupos, ainda por converter
+   * (`convertGroups`), em que nenhuma carta vale.
+   */
+  group?: string;
   /** A posição na fileira das abas. */
   order: number;
   at: string;
 }
+
+/**
+ * O que muda num baralho pela folha e pela API. O grupo fica de fora: o grupo de verdade é o das
+ * anotações, e o baralho só muda de grupo com o grupo (renomeado ou juntado, `moveGroup`).
+ */
+export type DeckPatch = Omit<Deck, 'id' | 'at' | 'order' | 'group'>;
 
 export interface CardFront {
   /** Sem título próprio, a frente usa o nome da anotação (D8). */
@@ -237,6 +256,7 @@ export function sanitizeDeck(raw: unknown): Deck | null {
   if (typeof r['id'] !== 'string' || !ID_RE.test(r['id']) || !isStamp(r['at'])) return null;
   const name = cleanLabel(typeof r['name'] === 'string' ? r['name'] : '', DECK_NAME_MAX);
   if (!name) return null;
+  const group = typeof r['group'] === 'string' ? cleanCategory(r['group']) : '';
   return {
     id: r['id'],
     name,
@@ -245,6 +265,7 @@ export function sanitizeDeck(raw: unknown): Deck | null {
     newPerDay: int(r['newPerDay'], 0, MAX_NEW_PER_DAY, DEFAULT_NEW_PER_DAY),
     ...(r['wall'] === true ? { wall: true as const } : {}),
     ...(isCardLook(r['look']) && r['look'] !== DEFAULT_CARD_LOOK ? { look: r['look'] as Exclude<CardLook, 'classica'> } : {}),
+    ...(group ? { group } : {}),
     order: int(r['order'], 0, MAX_DECKS * 10, 0),
     at: r['at'],
   };
@@ -422,6 +443,68 @@ export function cardDecks(card: Pick<StudyCard, 'decks'>, decks: readonly Deck[]
   return decks.filter((d) => card.decks.includes(d.id));
 }
 
+/** A chave de um grupo (sem acento nem caixa), a mesma do quadro do Kanban, ou '' sem grupo. */
+export function groupKey(group: string | null | undefined): string {
+  return group?.trim() ? categoryKey(group) : '';
+}
+
+/** O baralho é do grupo (pela chave)? Sem grupo dos dois lados, não: anotação sem grupo não tem baralho. */
+export function inGroup(deck: Pick<Deck, 'group'>, group: string | null | undefined): boolean {
+  const key = groupKey(group);
+  return !!key && groupKey(deck.group) === key;
+}
+
+/**
+ * O grupo de cada anotação, para os Estudos: o nome do grupo; '' ou null para a anotação sem grupo;
+ * `undefined` para a que não existe (apagada, ou ainda não chegou).
+ */
+export type GroupOf = (note: string) => string | null | undefined;
+
+/**
+ * Os Estudos como valem agora (PLANO-ESTUDOS-GRUPOS.md, 3.2): cada carta só nos baralhos do grupo da
+ * anotação dela. A carta sem nenhum desses **dorme**: continua aqui, com `decks` vazio e o progresso, e
+ * nada que conte ou desenhe a mostra (nem ela tira a anotação do mural). O guardado não muda: a anotação
+ * que volta ao grupo volta aos baralhos. Sem mudança nenhuma, devolve o mesmo estado.
+ */
+export function liveStudy(st: StudyState, groupOf: GroupOf): StudyState {
+  const byId = new Map(st.decks.map((d) => [d.id, d]));
+  let changed = false;
+  const cards = st.cards.map((c) => {
+    const group = groupOf(c.note);
+    const decks = c.decks.filter((id) => {
+      const d = byId.get(id);
+      return !!d && inGroup(d, group);
+    });
+    if (decks.length === c.decks.length) return c;
+    changed = true;
+    return { ...c, decks };
+  });
+  return changed ? { ...st, cards } : st;
+}
+
+/**
+ * Duas vistas iguais (para o `computed` do `StudyStore` não refazer as filas, as contas e o mural quando
+ * uma anotação muda e os Estudos não): o mesmo guardado, e cada carta a mesma, ou feita da mesma
+ * guardada (os mesmos pedaços) com os mesmos baralhos.
+ */
+export function sameView(a: StudyState, b: StudyState): boolean {
+  if (a === b) return true;
+  if (a.decks !== b.decks || a.removed !== b.removed || a.today !== b.today || a.config !== b.config || a.cards.length !== b.cards.length) return false;
+  return a.cards.every((x, i) => {
+    const y = b.cards[i];
+    return x === y || (x.note === y.note && x.at === y.at && x.srs === y.srs && x.stats === y.stats && x.front === y.front && x.wall === y.wall && x.added === y.added && x.decks.join() === y.decks.join());
+  });
+}
+
+/** Os baralhos `ids` que existem e são do grupo, sem repetir. */
+export function decksInGroup(st: StudyState, ids: readonly string[], group: string | null | undefined): string[] {
+  const byId = new Map(st.decks.map((d) => [d.id, d]));
+  return [...new Set(ids)].filter((id) => {
+    const d = byId.get(id);
+    return !!d && inGroup(d, group);
+  });
+}
+
 /**
  * O voto dos Estudos sobre o mural (PLANO-ESTUDOS.md, 4.4): a escolha da carta, ou, sem ela, "no mural"
  * se algum dos baralhos dela pede o mural. A carta sem nenhum baralho que exista não vota.
@@ -453,23 +536,27 @@ export function setConfig(st: StudyState, patch: Partial<Omit<StudyConfig, 'at'>
   return { ...st, config: sanitizeConfig({ ...st.config, ...patch, at }) };
 }
 
-/** Um baralho novo, no fim da fileira. */
-export function addDeck(st: StudyState, name: string, color: LightStock, at: string, icon: IconChoice | null = null, id = newId()): { state: StudyState; id: string } {
+/**
+ * Um baralho novo do grupo `group`, no fim da fileira. O `StudyStore` sempre dá o grupo (sem ele, o baralho
+ * é como os de antes dos grupos, à espera da conversão).
+ */
+export function addDeck(st: StudyState, name: string, color: LightStock, at: string, icon: IconChoice | null = null, id = newId(), group?: string): { state: StudyState; id: string } {
   const order = st.decks.reduce((m, d) => Math.max(m, d.order + 1), 0);
-  const deck = sanitizeDeck({ id, name, color, icon, newPerDay: DEFAULT_NEW_PER_DAY, order, at });
+  const deck = sanitizeDeck({ id, name, color, icon, newPerDay: DEFAULT_NEW_PER_DAY, group, order, at });
   if (!deck || st.decks.length >= MAX_DECKS) return { state: st, id: '' };
   const removed = { ...st.removed };
   delete removed[deckKey(id)];
   return { state: { ...st, decks: [...st.decks, deck], removed }, id };
 }
 
-export function updateDeck(st: StudyState, id: string, patch: Partial<Omit<Deck, 'id' | 'at' | 'order'>>, at: string): StudyState {
+export function updateDeck(st: StudyState, id: string, patch: Partial<DeckPatch>, at: string): StudyState {
   return {
     ...st,
     decks: st.decks.map((d) => {
       if (d.id !== id) return d;
-      // o "no mural também" desligado (wall: undefined) volta ao padrão, que não é guardado
-      return sanitizeDeck({ ...d, ...patch, at }) ?? d;
+      // o "no mural também" desligado (wall: undefined) volta ao padrão, que não é guardado; o grupo não
+      // muda por aqui, nem vindo num pedido
+      return sanitizeDeck({ ...d, ...patch, group: d.group, at }) ?? d;
     }),
   };
 }
@@ -515,6 +602,140 @@ export function restoreDeck(st: StudyState, deck: Deck, cards: readonly StudyCar
     cards: [...kept, ...back.values()].sort(byAdded),
     removed,
   };
+}
+
+// ——— os grupos ———
+
+/**
+ * O id da cópia de um baralho para outro grupo (a conversão de um baralho misto): sai do id do baralho e
+ * da chave do grupo, para dois aparelhos que convertem ao mesmo tempo criarem o mesmo baralho.
+ */
+export function deckCopyId(deck: string, group: string): string {
+  return `${deck.slice(0, 40)}-${hash64(groupKey(group))}`;
+}
+
+export interface GroupConversion {
+  state: StudyState;
+  /** As anotações sem grupo que ganham o do baralho delas (pelo id da anotação): quem chama grava. */
+  noteGroups: Map<string, string>;
+}
+
+/**
+ * Os baralhos de antes dos grupos, cada um num grupo (PLANO-ESTUDOS-GRUPOS.md, 3.3):
+ *
+ * 1. O grupo do baralho é o que mais aparece entre as anotações das cartas dele (no empate, o da carta
+ *    mais antiga). Sem grupo nenhum entre elas, ou sem cartas, vai para `fallback`. Sem `ready` (nenhuma
+ *    anotação carregada ainda), o baralho com cartas espera: as anotações podem chegar depois.
+ * 2. A anotação sem grupo (a carta nova que ficava só nos Estudos) ganha o grupo do primeiro baralho dela.
+ * 3. A carta de outro grupo vai para uma cópia do baralho naquele grupo (`deckCopyId`): o mesmo nome, cor,
+ *    ícone, desenho e ajustes, logo ao lado. Nada some, e o progresso é o mesmo.
+ *
+ * O baralho que ganha o grupo fica com a hora de antes (na junção, vence o de antes sem o campo, pela regra
+ * do mais rico, mas não passa por cima de uma mudança de verdade feita noutro aparelho); a carta que troca
+ * de baralho ganha `at`. Rodar de novo com o resultado não muda nada (null: nada a converter agora).
+ */
+export function convertGroups(st: StudyState, groupOf: GroupOf, fallback: string, at: string, ready = true): GroupConversion | null {
+  const pending = st.decks.filter((d) => !d.group);
+  if (!pending.length) return null;
+  const cards = [...st.cards].sort(byAdded);
+  const assigned = new Map<string, string>();
+  for (const d of pending) {
+    const mine = cards.filter((c) => c.decks.includes(d.id));
+    const here = mine.filter((c) => groupOf(c.note) !== undefined);
+    if (mine.length && !here.length && !ready) continue;
+    const count = new Map<string, { label: string; n: number }>();
+    for (const c of here) {
+      const g = groupOf(c.note);
+      const key = groupKey(g);
+      if (!key) continue;
+      const slot = count.get(key) ?? { label: cleanCategory(g!), n: 0 };
+      slot.n++;
+      count.set(key, slot);
+    }
+    // o Map guarda a ordem de entrada: no empate, o da carta mais antiga
+    let best: { label: string; n: number } | null = null;
+    for (const slot of count.values()) if (!best || slot.n > best.n) best = slot;
+    // um grupo vazio não é grupo: sem ele, o baralho espera (e o estado não muda, para não girar)
+    const label = best?.label || cleanCategory(fallback);
+    if (label) assigned.set(d.id, label);
+  }
+  if (!assigned.size) return null;
+  // pelo saneamento, para o baralho convertido ter a mesma forma do que volta do armazenamento
+  let decks = st.decks.map((d) => (assigned.has(d.id) ? (sanitizeDeck({ ...d, group: assigned.get(d.id)! }) ?? d) : d));
+  const byId = new Map(decks.map((d) => [d.id, d]));
+  // as anotações sem grupo, das cartas dos baralhos convertidos agora: o grupo do primeiro baralho delas
+  // que tem grupo
+  const noteGroups = new Map<string, string>();
+  for (const c of cards) {
+    const g = groupOf(c.note);
+    if (g === undefined || groupKey(g) || !c.decks.some((id) => assigned.has(id))) continue;
+    const first = c.decks.map((id) => byId.get(id)).find((d) => !!d?.group);
+    if (first?.group) noteGroups.set(c.note, first.group);
+  }
+  const groupNow = (note: string) => noteGroups.get(note) ?? groupOf(note);
+  // as cartas de outro grupo, nos baralhos convertidos agora: para a cópia do baralho no grupo delas
+  const copies = new Map<string, Deck>();
+  const moved = new Map<string, StudyCard>();
+  for (const c of cards) {
+    const g = groupNow(c.note);
+    if (!groupKey(g)) continue;
+    let list = c.decks;
+    for (const id of c.decks) {
+      const d = byId.get(id);
+      if (!d || !assigned.has(id) || inGroup(d, g)) continue;
+      const copyId = deckCopyId(id, g!);
+      if (!byId.has(copyId) && !copies.has(copyId)) {
+        if (decks.length + copies.size >= MAX_DECKS || buried(st.removed, deckKey(copyId), d.at)) continue;
+        const copy = sanitizeDeck({ ...d, id: copyId, group: g });
+        if (!copy) continue;
+        copies.set(copyId, copy);
+      }
+      list = list.map((x) => (x === id ? copyId : x));
+    }
+    if (list !== c.decks) moved.set(c.note, { ...c, decks: [...new Set(list)], at });
+  }
+  decks = [...decks, ...copies.values()].sort(byOrder);
+  return {
+    state: { ...st, decks, cards: st.cards.map((c) => moved.get(c.note) ?? c) },
+    noteGroups,
+  };
+}
+
+/**
+ * O grupo `from` mudou de nome para `to` (null: apagado), pelas configurações do mural (como o quadro do
+ * Kanban, `moveBoardCategory`). Renomeado, os baralhos dele vão para o nome novo; juntado a um grupo que
+ * já tem um baralho de mesmo nome (sem acento nem caixa), as cartas entram nele e o de antes sai. Apagado,
+ * os baralhos saem, com as cartas que só estavam neles (PLANO-ESTUDOS-GRUPOS.md, G7).
+ */
+export function moveGroup(st: StudyState, from: string, to: string | null, at: string): StudyState {
+  const fromKey = groupKey(from);
+  if (!fromKey) return st;
+  const toKey = groupKey(to);
+  if (toKey === fromKey && to !== null) {
+    // só mudou a escrita (a caixa, um acento): o nome novo, nos mesmos baralhos
+    const label = cleanCategory(to);
+    return { ...st, decks: st.decks.map((d) => (groupKey(d.group) === fromKey && d.group !== label ? (sanitizeDeck({ ...d, group: label, at }) ?? d) : d)) };
+  }
+  const leaving = st.decks.filter((d) => groupKey(d.group) === fromKey);
+  if (!leaving.length) return st;
+  let next = st;
+  if (to === null || !toKey) {
+    for (const d of leaving) next = removeDeck(next, d.id, at).state;
+    return next;
+  }
+  const label = cleanCategory(to);
+  const nameKey = (name: string) => lookKey(name);
+  for (const d of leaving) {
+    const target = next.decks.find((x) => x.id !== d.id && groupKey(x.group) === toKey && nameKey(x.name) === nameKey(d.name));
+    if (!target) {
+      next = { ...next, decks: next.decks.map((x) => (x.id === d.id ? (sanitizeDeck({ ...x, group: label, at }) ?? x) : x)) };
+      continue;
+    }
+    // as cartas do de antes no de mesmo nome do grupo novo; o de antes sai
+    const cards = next.cards.map((c) => (c.decks.includes(d.id) ? { ...c, decks: [...new Set(c.decks.map((x) => (x === d.id ? target.id : x)))], at } : c));
+    next = removeDeck({ ...next, cards }, d.id, at).state;
+  }
+  return next;
 }
 
 /**

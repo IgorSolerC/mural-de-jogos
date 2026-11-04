@@ -208,3 +208,13 @@
   width: min(200px, 64vw);
   rotate: 1.4deg;
 }
+
+/* a carta guardada fora dos baralhos (a anotação mudou de grupo): à mão, como a dica, com a tinta cheia */
+.dorme {
+  margin: 0 0 8px;
+  max-width: 52ch;
+  font-family: var(--f-hand);
+  font-size: 0.98rem;
+  line-height: 1.4;
+  color: var(--ink);
+}

@@ -519,7 +519,7 @@ export class AreaBar {
     // nos Estudos: quantas cartas para hoje, no baralho aberto ou em todos (a mesma conta do Estudar)
     if (sectionOf(this.path(), NOTE_SECTIONS)?.slug === 'estudos' && this.area() === 'anotacoes') {
       const deck = pathOf(this.path()).split('/')[3];
-      const n = countTotal(dayQueue(this.study.state(), this.study.now(), deck && this.study.deck(deck) ? deck : undefined, this.study.live).counts);
+      const n = countTotal(dayQueue(this.study.view(), this.study.now(), deck && this.study.deck(deck) ? deck : undefined, this.study.live).counts);
       return n ? { n, long: n === 1 ? 'carta para hoje' : 'cartas para hoje', short: 'hoje' } : null;
     }
     // no Calendário: quantos lembretes hoje tem

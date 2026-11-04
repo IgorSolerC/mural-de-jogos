@@ -162,9 +162,10 @@ export class StudyReport {
     return {
       level,
       levelLabel: LEVEL_LABEL[level],
-      when: studied ? `Volta ${whenLabel(card.srs, now)}` : 'Nunca estudada',
+      // guardada fora dos baralhos (a anotação mudou de grupo): não está em fila nenhuma
+      when: !card.decks.length ? 'Guardada, fora dos baralhos' : studied ? `Volta ${whenLabel(card.srs, now)}` : 'Nunca estudada',
       // a data só quando é outro dia (a vencida "volta hoje", sem a data de quando venceu)
-      date: card.srs.state === 'revisao' && studyDay(due) > studyDay(now) ? `${String(due.getDate()).padStart(2, '0')} ${MONTHS[due.getMonth()]}` : '',
+      date: card.decks.length && card.srs.state === 'revisao' && studyDay(due) > studyDay(now) ? `${String(due.getDate()).padStart(2, '0')} ${MONTHS[due.getMonth()]}` : '',
       seen: card.stats.seen,
       right: card.stats.right,
       wrong: card.stats.wrong,

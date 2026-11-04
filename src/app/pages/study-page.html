@@ -234,12 +234,13 @@
   <app-card-picker
     [(open)]="picking"
     [onlyKind]="notesKind"
+    [onlyCategory]="groupOfDeck(d)"
     [exclude]="inDeck()"
     [doneOption]="false"
     heading="Trazer anotações"
-    [hint]="'Uma anotação sua, para virar carta de ' + d.name + '. Ela continua no mural; a frente começa com o nome dela.'"
+    [hint]="(d.group ? 'Uma anotação do grupo ' + d.group : 'Uma anotação sua') + ', para virar carta de ' + d.name + '. Ela continua no mural; a frente começa com o nome dela.'"
     footHint="Toque numa anotação para trazê-la."
-    emptyText="Todas as suas anotações já estão neste baralho."
+    [emptyText]="d.group ? 'Nenhuma anotação do grupo ' + d.group + ' fora deste baralho.' : 'Todas as suas anotações já estão neste baralho.'"
     (picked)="bring($event.id, d.id)"
   />
 }

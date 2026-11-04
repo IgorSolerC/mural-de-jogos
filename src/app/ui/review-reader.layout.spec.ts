@@ -373,9 +373,11 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
 
   it('a carta dos Estudos: o baralho (e quantos mais), o nível e quando volta; o baralho abre nos Estudos', async () => {
     const study = TestBed.inject(StudyStore);
-    const kanji = study.addDeck('Kanjis', 'amarelo');
-    const extra = study.addDeck('Revisão', 'azul');
-    const r = note('n-sol', 'Sol');
+    const kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const extra = study.addDeck('Revisão', 'azul', null, undefined, 'Estudos');
+    // a carta só vale nos baralhos do grupo da anotação, que está no mural
+    const r = note('n-sol', 'Sol', { category: 'Estudos' });
+    TestBed.inject(ReviewStore).reviews.update((list) => [...list, r]);
     study.addCard(r.id, [kanji, extra], { title: '日' });
     fixture.componentInstance.open(r);
     await settle();

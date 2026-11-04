@@ -406,7 +406,7 @@
 
         <!-- ===== Flashcard: a frente da carta, os baralhos e o mural (ui/flashcard-tab.ts) ===== -->
         <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">
-          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" />
+          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" [group]="noteCategory()" />
         </div>
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->

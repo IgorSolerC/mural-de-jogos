@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, model, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, model, signal, viewChild } from '@angular/core';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
-import { DECK_NAME_MAX, MAX_DECKS_PER_CARD } from '../core/study';
+import { DECK_NAME_MAX, MAX_DECKS_PER_CARD, groupKey, inGroup } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 
@@ -11,13 +11,19 @@ const NEW = '__novo__';
  * Os baralhos de uma carta (PLANO-ESTUDOS.md, 6.5 e 6.6): um adesivo por baralho em que ela está (o ícone
  * e o nome, com a cor do baralho na ponta, e o X), como o seletor de tags, e "+ Baralho", a lista do
  * aparelho com os outros e "Novo baralho…" no fim (o nome escrito ali, a cor sorteada entre as livres).
- * Uma carta pode estar em vários baralhos (D3); o progresso é um só.
+ * Uma carta pode estar em vários baralhos (D3); o progresso é um só. Só os baralhos do grupo da anotação
+ * (PLANO-ESTUDOS-GRUPOS.md): os de outro grupo em que a carta dorme não aparecem, e a anotação sem grupo
+ * não escolhe baralho nenhum.
  */
 @Component({
   selector: 'app-study-deck-picker',
   imports: [IconModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    @if (!hasGroup()) {
+      <!-- a anotação sem grupo não entra em baralho nenhum: a frase no lugar da lista -->
+      <p class="sem-grupo">Escolha um grupo para a anotação entrar num baralho.</p>
+    } @else {
     <ul class="baralhos" aria-label="Baralhos da carta">
       @for (d of chosen(); track d.id) {
         <li class="adesivo" [style.--cor]="'var(--stock-' + d.color + ')'">
@@ -38,11 +44,11 @@ const NEW = '__novo__';
           </label>
           <button type="button" class="tinta" (click)="create()">Criar</button>
         </li>
-      } @else if (decks().length < maxDecks) {
+      } @else if (chosen().length < maxDecks) {
         <li>
-          <label class="mais" [class.vazio]="!decks().length">
+          <label class="mais" [class.vazio]="!chosen().length">
             <lucide-icon [img]="AddIcon" [size]="15" aria-hidden="true" />
-            {{ decks().length ? 'Baralho' : 'Escolher o baralho' }}
+            {{ chosen().length ? 'Baralho' : 'Escolher o baralho' }}
             <select
               [value]="''"
               aria-label="Pôr em um baralho"
@@ -61,12 +67,15 @@ const NEW = '__novo__';
         </li>
       }
     </ul>
+    }
   `,
   styleUrl: './study-deck-picker.scss',
 })
 export class StudyDeckPicker {
   /** Os ids dos baralhos da carta, na ordem em que ela entrou neles. */
   readonly decks = model<string[]>([]);
+  /** O grupo da anotação, como está no editor agora. */
+  readonly group = input<string | null>(null);
 
   protected readonly CloseIcon = ICON.fechar;
   protected readonly AddIcon = ICON.adicionar;
@@ -79,8 +88,9 @@ export class StudyDeckPicker {
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
   protected readonly adding = signal(false);
 
-  protected readonly chosen = computed(() => this.decks().flatMap((id) => this.study.deck(id) ?? []));
-  protected readonly others = computed(() => this.study.decks().filter((d) => !this.decks().includes(d.id)));
+  protected readonly hasGroup = computed(() => !!groupKey(this.group()));
+  protected readonly chosen = computed(() => this.decks().flatMap((id) => this.study.deck(id) ?? []).filter((d) => inGroup(d, this.group())));
+  protected readonly others = computed(() => this.study.decks().filter((d) => !this.decks().includes(d.id) && inGroup(d, this.group())));
 
   /**
    * A lista fechada do Windows troca de opção (e avisa) a cada seta: pelo teclado, a escolha só vale no
@@ -120,7 +130,9 @@ export class StudyDeckPicker {
     if (!name) return;
     const used = new Set(this.study.decks().map((d) => d.color));
     const color: LightStock = LIGHT_STOCKS.find((s) => !used.has(s) && s !== 'branco') ?? 'amarelo';
-    const id = this.study.addDeck(name, color);
+    const group = this.group();
+    if (!groupKey(group)) return;
+    const id = this.study.addDeck(name, color, null, undefined, group);
     this.adding.set(false);
     if (id) this.decks.set([...this.decks(), id]);
   }

@@ -4,6 +4,16 @@
   display: block;
 }
 
+/* a anotação sem grupo não entra em baralho: a frase no lugar do "+ Baralho", à mão como o convite da aba */
+.sem-grupo {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--f-hand);
+  font-size: 1.05rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
 .baralhos {
   display: flex;
   flex-wrap: wrap;

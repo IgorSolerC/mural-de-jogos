@@ -123,6 +123,11 @@ export interface SavedEvent {
   swap?: OriginalSwap | null;
   /** A anotação mudou de título: em quantas outras os links para ela foram atualizados. */
   relinked?: number;
+  /**
+   * A anotação mudou de grupo e a carta dela ficou guardada fora dos baralhos (PLANO-ESTUDOS-GRUPOS.md, G1):
+   * os nomes dos baralhos de antes e o grupo deles, para o aviso com o Desfazer (que devolve o grupo).
+   */
+  slept?: { decks: string[]; group: string };
 }
 
 /** As duas abas da ficha no editor. */
@@ -1509,10 +1514,10 @@ export class ReviewEditor {
     for (const n of relinked) this.store.update(n);
     // o lugar no quadro do grupo, como ficou na parte Kanban, e a carta, como ficou na aba Flashcard
     this.applyBoard(clean.id, !prev);
-    this.flashcard().apply(clean.id);
+    const slept = this.flashcard().apply(clean.id);
     this.snapshot = this.serialize();
     this.shut();
-    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}) });
+    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}), ...(slept ? { slept } : {}) });
   }
 
   /**

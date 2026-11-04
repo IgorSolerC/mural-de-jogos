@@ -19,6 +19,7 @@ import { LightStock } from './review';
 import {
   CardFront,
   Deck,
+  DeckPatch,
   MAX_CARDS,
   MAX_DECKS,
   StudyCard,
@@ -87,11 +88,24 @@ function frontWith(cur: CardFront, d: FrenteV1): CardFront {
 
 const hasFront = (d: FrenteV1) => d.titulo !== undefined || d.subtitulo !== undefined || d.imagem !== undefined;
 
-/** Os baralhos do pedido que existem aqui, e o aviso dos que sumiram. */
-function liveDecks(study: StudyStore, ids: readonly string[]): { ids: string[]; aviso: string | null } {
-  const ok = ids.filter((id) => !!study.deck(id));
-  const gone = ids.length - ok.length;
-  return { ids: ok, aviso: gone ? `${gone === 1 ? 'Um baralho do pedido não existe mais' : `${gone} baralhos do pedido não existem mais`}: a carta ficou nos outros.` : null };
+/**
+ * Os baralhos do pedido que a anotação pode ter (os que existem aqui e são do grupo dela), e o aviso dos
+ * que sumiram ou são de outro grupo (PLANO-ESTUDOS-GRUPOS.md).
+ */
+function liveDecks(study: StudyStore, note: string, ids: readonly string[]): { ids: string[]; aviso: string | null; erro: string } {
+  const there = ids.filter((id) => !!study.deck(id));
+  const ok = study.decksFor(note, there);
+  const gone = ids.length - there.length;
+  const other = there.length - ok.length;
+  const group = study.groupOf(note)?.trim();
+  const where = group ? `do grupo ${group}, o da anotação` : 'de nenhum grupo, porque a anotação não tem grupo';
+  const parts = [
+    gone ? (gone === 1 ? 'um baralho do pedido não existe mais' : `${gone} baralhos do pedido não existem mais`) : '',
+    other ? (other === 1 ? `um baralho do pedido não é ${where}` : `${other} baralhos do pedido não são ${where}`) : '',
+  ].filter(Boolean);
+  const aviso = parts.length ? `${parts.join(' e ')}: a carta ficou nos outros.` : null;
+  const erro = other ? `Os baralhos do pedido não são ${where} (um baralho só tem cartas do grupo dele).` : 'Os baralhos do pedido não existem mais.';
+  return { ids: ok, aviso: aviso && aviso[0].toUpperCase() + aviso.slice(1), erro };
 }
 
 /** A carta como a AI lê no resultado. */
@@ -107,8 +121,8 @@ const stampOf = (study: StudyStore, note: string) => study.cardOf().get(note)?.a
 const deckOut = (d: Deck | undefined) => (d ? { id: d.id, nome: d.name } : null);
 
 /** O que mudar num baralho (do pedido para o formato do Murall). */
-function deckPatch(d: EditarBaralhoV1 | CriarBaralhoV1): Partial<Omit<Deck, 'id' | 'at' | 'order'>> {
-  const out: Partial<Omit<Deck, 'id' | 'at' | 'order'>> = {};
+function deckPatch(d: EditarBaralhoV1 | CriarBaralhoV1): Partial<DeckPatch> {
+  const out: Partial<DeckPatch> = {};
   if (d.nome !== undefined) out.name = d.nome;
   if (d.cor !== undefined) out.color = d.cor as LightStock;
   if (d.novas_por_dia !== undefined) out.newPerDay = d.novas_por_dia;
@@ -152,7 +166,8 @@ export function applyStudyRequest(
     if (!deck) return failed('O baralho não existe mais.');
     const posicao = study.decks().indexOf(deck);
     if (op === 'baralho.apagar') {
-      const cartas = study.cards().filter((c) => c.decks.includes(id));
+      // as guardadas (também as que dormem nele), para o Desfazer trazer todas
+      const cartas = study.state().cards.filter((c) => c.decks.includes(id));
       study.removeDeck(id);
       return { estado: 'aplicado', resultado: { baralho: null }, antes: { baralho: deck, cartas, posicao } };
     }
@@ -171,12 +186,13 @@ export function applyStudyRequest(
   const note = ctx.ownNote(id);
   if (!note) return failed('A anotação não existe mais (foi apagada, ou virou compartilhada).');
   const card = study.cardOf().get(id);
-  const before: CardBefore = { carta: card ?? null };
+  // o Desfazer põe de volta a carta guardada (com os baralhos de outro grupo em que ela dorme), não a da vista
+  const before: CardBefore = { carta: study.state().cards.find((c) => c.note === id) ?? null };
 
   if (op === 'carta.por') {
     const d = checked.dados as PorCartaV1;
-    const { ids, aviso } = liveDecks(study, d.baralhos);
-    if (!ids.length) return failed('Os baralhos do pedido não existem mais.');
+    const { ids, aviso, erro } = liveDecks(study, id, d.baralhos);
+    if (!ids.length) return failed(erro);
     if (card) {
       // a que já é carta só ganha os baralhos (a frente e o mural mudam pelo carta.editar, que espera a aprovação)
       const all = [...new Set([...card.decks, ...ids])];
@@ -198,8 +214,8 @@ export function applyStudyRequest(
       const d = checked.dados as EditarCartaV1;
       let aviso: string | null = null;
       if (d.baralhos) {
-        const live = liveDecks(study, d.baralhos);
-        if (!live.ids.length) return failed('Os baralhos do pedido não existem mais.');
+        const live = liveDecks(study, id, d.baralhos);
+        if (!live.ids.length) return failed(live.erro);
         aviso = live.aviso;
         if (live.ids.join() !== card.decks.join()) study.setDecks(id, live.ids);
       }
@@ -220,10 +236,13 @@ export function applyStudyRequest(
       if (card.srs.last && card.srs.last > when.toISOString()) {
         return { estado: 'conflito', resultado: { erro: 'A carta foi respondida no Murall depois deste pedido: a resposta não entrou.' }, antes: null };
       }
+      // guardada fora dos baralhos (a anotação mudou de grupo), ela não está em fila nenhuma
+      if (!card.decks.length) return failed('A carta está guardada fora dos baralhos: a anotação mudou de grupo. Ela volta a ser estudada se a anotação voltar ao grupo do baralho.');
       const deck = d.baralho && card.decks.includes(d.baralho) ? d.baralho : undefined;
       const counted = deck ?? cardDecks(card, study.decks())[0]?.id ?? card.decks[0] ?? null;
       const conta = card.srs.state === 'nova' ? 'nova' : card.srs.state === 'revisao' ? 'revisao' : null;
-      study.answerAt(id, d.acertou, when, deck);
+      // a nova conta num baralho em que ela vale (nunca num de outro grupo em que dorme)
+      study.answerAt(id, d.acertou, when, counted ?? undefined);
       return { estado: 'aplicado', resultado: { carta: cardOut(study, id, note.name) }, antes: { ...before, depois: stampOf(study, id), dia: studyDay(when), conta, baralho: counted } satisfies CardBefore };
     }
     default:
@@ -350,8 +369,10 @@ export function deckNames(study: StudyStore): ColumnNames {
  * "Nova carta" da tela. Devolve o aviso, se houver.
  */
 export function placeInDecks(study: StudyStore, note: string, e: CartaNovaV1): string | null {
-  const { ids, aviso } = liveDecks(study, e.baralhos);
-  if (!ids.length) return 'Os baralhos do pedido não existem mais: a nota nasceu sem carta.';
+  // a nota sem grupo ganha o do primeiro baralho (como a "Nova carta" da tela nasce no grupo do baralho)
+  study.adoptGroup(note, e.baralhos.filter((id) => !!study.deck(id)));
+  const { ids, aviso, erro } = liveDecks(study, note, e.baralhos);
+  if (!ids.length) return `${erro.replace(/\.$/, '')}: a nota nasceu sem carta.`;
   if (study.cards().length >= MAX_CARDS) return `Os Estudos têm até ${MAX_CARDS} cartas: a nota nasceu sem carta.`;
   study.addCard(note, ids, frontWith({}, e));
   return aviso;

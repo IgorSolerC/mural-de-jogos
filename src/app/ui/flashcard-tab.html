@@ -6,7 +6,12 @@
     </div>
     <div class="vazia-texto">
       <p class="convite">Dê uma frente a esta anotação para estudar com ela, como num baralho de cartas: na frente, o que você quer lembrar; atrás, a anotação inteira.</p>
-      <button type="button" class="papel" (click)="start()">Criar a frente</button>
+      @if (hasGroup()) {
+        <button type="button" class="papel" (click)="start()">Criar a frente</button>
+      } @else {
+        <!-- cada baralho é de um grupo: sem grupo, não há onde a carta entrar -->
+        <p class="convite sem-grupo">Esta anotação ainda não tem grupo. Escolha um na aba Anotação para ela virar carta.</p>
+      }
     </div>
   </div>
 } @else {
@@ -64,9 +69,14 @@
       <div class="linha" [class.errada]="missingDeck()">
         <span class="nome">Baralhos</span>
         <div class="valor">
-          <app-study-deck-picker [decks]="decks()" (decksChange)="setDecks($event)" />
+          <div aria-live="polite">
+            @if (asleepText(); as t) {
+              <p class="dorme">{{ t }}</p>
+            }
+          </div>
+          <app-study-deck-picker [decks]="decks()" [group]="group()" (decksChange)="setDecks($event)" />
           @if (missingDeck()) {
-            <p class="erro" role="alert">Escolha um baralho para a carta.</p>
+            <p class="erro" role="alert">{{ missingText() }}</p>
           }
         </div>
       </div>

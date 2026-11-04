@@ -298,3 +298,26 @@ sempre) e a build de produção com o smoke.
 - **O "Esconder os grupos vazios"** nos Estudos quer dizer "sem baralho", e no mural "sem anotação à
   mostra": a mesma chave da engrenagem com dois sentidos. Se confundir, os Estudos ganham a opção própria
   na parte Estudo da engrenagem.
+
+---
+
+## 10. Andamento
+
+- **Rodada 1 (04/nov, BUILD 734).** `Deck.group`, `liveStudy` (o `StudyStore.view`, de onde saem as cartas,
+  as filas e os números; `state` continua o guardado), `convertGroups` ao abrir (espera só enquanto não há
+  anotação nenhuma carregada; o baralho cujas anotações foram todas apagadas vai para o grupo de sempre),
+  `moveGroup` pelo `LabelEdits.renameCategory`, a pergunta de apagar o grupo com os baralhos, SYNC_SCHEMA 52,
+  o voto do mural (G8). Para a tela de hoje não oferecer o que a regra recusa, entraram já os pedaços mínimos
+  das rodadas 3 e 4: a Nova carta abre o editor no grupo do baralho (`desk.newNoteIn`), o Trazer anotações
+  só mostra as do grupo, a escolha de baralhos (aba Flashcard e folha da carta) só os do grupo do editor (sem
+  grupo, "Escolha um grupo…"), salvar com a carta dormindo não a tira, e a API recusa o baralho de outro grupo
+  com o motivo (a nota nova sem grupo ganha o do baralho). O "Novo baralho" da tela de hoje nasce no grupo do
+  baralho aberto (de Tudo, no grupo de sempre) até a rodada 2, e o `baralho.criar` da API, no grupo de sempre
+  até a rodada 4. Pela crítica do Impeccable (18/40: a carta sumia sem aviso), entrou também o aviso da
+  rodada 3: a linha "Fora de Kana enquanto a anotação não for de…" na aba Flashcard, o aviso de salvar com o
+  Desfazer do grupo, a prévia e o "No mural" verdadeiros com a carta guardada, o boletim "Guardada, fora dos
+  baralhos", a anotação sem grupo pedindo o grupo no lugar do "Criar a frente", a pergunta de apagar o grupo
+  com a perda primeiro ("Apagar o grupo e os baralhos") e o grupo na folha do baralho. O `/code-review high`
+  achou 8 (o Desfazer da API com a carta da vista, que a perderia; responder a carta guardada; o seletor com
+  baralho escondido; a vista que refazia tudo a cada anotação salva; e outros), todos corrigidos. Fica para a
+  3: a carta que procura o baralho de mesmo nome no grupo novo.

@@ -49,7 +49,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 }
                 {{ d.deck.name }}
               </h2>
-              <p class="sub">Baralho {{ d.index + 1 }} de {{ d.total }} · {{ d.count === 1 ? '1 carta' : d.count + ' cartas' }}</p>
+              <p class="sub">Baralho {{ d.index + 1 }} de {{ d.total }} · {{ d.count === 1 ? '1 carta' : d.count + ' cartas' }}@if (d.deck.group) { · do grupo {{ d.deck.group }}}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />

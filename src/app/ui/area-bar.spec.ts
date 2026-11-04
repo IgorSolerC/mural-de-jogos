@@ -212,7 +212,7 @@ describe('o índice embaixo do topo', () => {
 
   it('nos Estudos, quantas cartas para hoje: as de todos em Tudo, as do baralho aberto nele', async () => {
     const reviews = TestBed.inject(ReviewStore);
-    reviews.reviews.set([sanitizeReview({ id: 'nsol', kind: 'anotacoes', game: { name: 'Sol' }, completedAt: '2026-10-01' })!, sanitizeReview({ id: 'nlua', kind: 'anotacoes', game: { name: 'Lua' }, completedAt: '2026-10-01' })!]);
+    reviews.reviews.set([sanitizeReview({ id: 'nsol', kind: 'anotacoes', category: 'Estudos', game: { name: 'Sol' }, completedAt: '2026-10-01' })!, sanitizeReview({ id: 'nlua', kind: 'anotacoes', category: 'Estudos', game: { name: 'Lua' }, completedAt: '2026-10-01' })!]);
     const study = TestBed.inject(StudyStore);
     const a = study.addDeck('Kanjis', 'amarelo');
     const b = study.addDeck('Vazio', 'azul');

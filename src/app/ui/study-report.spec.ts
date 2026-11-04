@@ -7,7 +7,7 @@ import { StudyStore } from '../core/study-store';
 import { StudyReport } from './study-report';
 
 const T0 = '2026-10-10T10:00:00.000Z';
-const note = (id: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', game: { name: id }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
+const note = (id: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name: id }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
 
 /** O boletim da carta (PLANO-ESTUDOS.md, 6.8). */
 describe('o boletim da carta (ui/study-report.ts)', () => {

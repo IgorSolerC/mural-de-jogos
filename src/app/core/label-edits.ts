@@ -6,12 +6,13 @@ import { MAX_PINNED_TAGS, cleanCategory, cleanSubject, cleanTag, sanitizeTags } 
 import { Review } from './review';
 import { ReviewStore } from './review-store';
 import { Settings } from './settings';
+import { StudyStore } from './study-store';
 
 /**
  * Renomear e apagar uma categoria, um assunto ou uma tag das anotações, pelas Configurações do mural. O nome mora
  * em vários lugares, e todos acompanham: as próprias anotações, o ícone e a cor (nos jeitos das
- * categorias, com as chaves "#" das tags), a ordem e os padrões de cada categoria, as tags fixas e o
- * quadro do Kanban (um por categoria, pelo nome).
+ * categorias, com as chaves "#" das tags), a ordem e os padrões de cada categoria, as tags fixas, o
+ * quadro do Kanban (um por categoria, pelo nome) e os baralhos dos Estudos (cada um é de um grupo).
  *
  * O assunto e a tag são de uma categoria (o assunto também fica na lista dos criados nas
  * configurações, `NotesConfig.subjects`, que acompanha). A tag é de uma categoria: renomear ou apagar a "Bug" do Trabalho não mexe na "Bug" dos Estudos, e
@@ -185,6 +186,7 @@ export class LabelEdits {
   private readonly store = inject(ReviewStore);
   private readonly settings = inject(Settings);
   private readonly kanban = inject(KanbanStore);
+  private readonly study = inject(StudyStore);
 
   /** Quantas anotações têm a categoria (pela chave). */
   categoryUses(category: string): number {
@@ -258,6 +260,8 @@ export class LabelEdits {
       this.settings.setNotesConfig(configMoved(this.settings.notesConfig(), from, toKey));
       this.kanban.moveCategory(from, toKey);
     }
+    // os baralhos do grupo vão com ele (também quando só muda a escrita: a caixa, um acento); apagado, saem
+    this.study.moveGroup(category, to);
     return result;
   }
 

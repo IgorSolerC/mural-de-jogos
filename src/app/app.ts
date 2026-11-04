@@ -494,6 +494,17 @@ export class App {
     if (saved && isNotes(saved.kind)) {
       // trocou o título: os links das outras anotações foram junto
       const links = e.relinked ? ` (e os links para ela em ${e.relinked === 1 ? 'outra anotação' : `${e.relinked} anotações`})` : '';
+      if (e.slept) {
+        // mudou de grupo e a carta ficou guardada fora dos baralhos: diz de onde saiu, com o Desfazer do grupo
+        const { decks, group } = e.slept;
+        const list = decks.length === 1 ? decks[0] : `${decks.slice(0, -1).join(', ')} e ${decks[decks.length - 1]}`;
+        const back = () => {
+          const now = this.store.get(e.id);
+          if (now) this.store.update({ ...now, category: group, updatedAt: new Date().toISOString() });
+        };
+        this.toasts.show(`“${name}” saiu de ${list}, com o progresso guardado: volta se a anotação voltar a ${group}${links}`, { label: 'Desfazer', run: back }, 8000);
+        return;
+      }
       this.toasts.show(e.isNew ? `“${name}” pregada no mural` : `Anotação atualizada${links}`);
       if (e.isNew) void this.backup.protect();
       return;

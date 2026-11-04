@@ -19,7 +19,7 @@ class Host {
 }
 
 const T0 = '2026-10-01T10:00:00.000Z';
-const note = (id: string, name: string, extra: Record<string, unknown> = {}): Review => ({ ...sanitizeReview({ kind: 'anotacoes', game: { name }, completedAt: '2026-10-01', createdAt: T0, ...extra })!, id });
+const note = (id: string, name: string, extra: Record<string, unknown> = {}): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name }, completedAt: '2026-10-01', createdAt: T0, ...extra })!, id });
 
 describe('a sessão de estudo (ui/study-session.ts)', () => {
   let fixture: ComponentFixture<Host>;

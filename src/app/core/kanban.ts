@@ -202,7 +202,7 @@ export function categoryKey(category: string): string {
 }
 
 /** Dois FNV-1a de 32 bits misturados de jeitos diferentes, em hexadecimal: 64 bits, sem colisão na prática. */
-function hash64(text: string): string {
+export function hash64(text: string): string {
   let a = 0x811c9dc5;
   let b = 0x050c5d1f;
   for (const ch of text) {

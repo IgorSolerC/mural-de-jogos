@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { StudyStore } from '../core/study-store';
-import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP } from '../core/study';
+import { MAX_NEW_PER_DAY, MAX_REVIEWS_CAP, inGroup } from '../core/study';
 import { CategoryLook, categoryColorHex, lookKey, tagColorHex } from '../core/category-looks';
 import { Cloud } from '../core/cloud-config';
 import { KanbanStore } from '../core/kanban-store';
@@ -488,11 +488,31 @@ export class MuralConfig {
     this.notice.set(other ? `${row.label} entrou em ${other} ${this.told(r)}` : `${row.label} virou ${name} ${this.told(r)}`);
   }
 
+  /**
+   * Os baralhos dos Estudos que vão embora com o grupo, para a pergunta de apagar (PLANO-ESTUDOS-GRUPOS.md,
+   * G7): "os baralhos Kana e Kanji dos Estudos, com o progresso de 101 cartas", ou '' sem baralho. Contam
+   * todas as cartas que perdem o progresso, também as guardadas de anotações que já mudaram de grupo.
+   */
+  private decksGoing(group: string): string {
+    const decks = this.studyStore.decks().filter((d) => inGroup(d, group));
+    if (!decks.length) return '';
+    const ids = new Set(decks.map((d) => d.id));
+    const cards = this.studyStore.state().cards.filter((c) => c.decks.every((d) => ids.has(d))).length;
+    const names = decks.map((d) => d.name);
+    const list = names.length === 1 ? `o baralho ${names[0]}` : `os baralhos ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
+    const what = cards === 0 ? '' : `, com o progresso de ${plural(cards, 'carta', 'cartas')}`;
+    return `${list} dos Estudos${what}`;
+  }
+
   protected async deleteCategory(row: CategoryRow): Promise<void> {
+    const decks = this.decksGoing(row.label);
     const sure = await this.confirm.ask({
       title: `Apagar o grupo ${row.label}?`,
-      text: `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
-      confirm: 'Apagar o grupo',
+      // com baralhos nos Estudos, o que vai embora (e não volta) vem primeiro
+      text: decks
+        ? `Vão embora o ícone, a cor, os padrões, o quadro do Kanban e ${decks}. ${this.uses(row.n)} este grupo: elas continuam no mural, sem grupo.`
+        : `${this.uses(row.n)} este grupo. Elas continuam no mural, sem grupo; o ícone, a cor, os padrões e o quadro do Kanban dele vão embora.`,
+      confirm: decks ? 'Apagar o grupo e os baralhos' : 'Apagar o grupo',
       icon: this.DeleteIcon,
     });
     if (!sure) return;

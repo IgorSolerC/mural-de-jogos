@@ -37,7 +37,7 @@ import { Toasts } from './toast';
           <div class="body">
             <div class="linha">
               <span class="nome"><lucide-icon [img]="CardsIcon" [size]="16" aria-hidden="true" />Baralhos</span>
-              <app-study-deck-picker class="valor" [decks]="d.card.decks" (decksChange)="setDecks($event)" />
+              <app-study-deck-picker class="valor" [decks]="d.card.decks" [group]="d.group" (decksChange)="setDecks($event)" />
             </div>
             <div class="linha">
               <span class="nome" id="fc-mural-folha"><lucide-icon [img]="WallIcon" [size]="16" aria-hidden="true" />No mural</span>
@@ -105,6 +105,8 @@ export class StudyCardSheet {
     return {
       card,
       name: note.game.name,
+      // o grupo da anotação: só os baralhos dele (ver ui/study-deck-picker.ts)
+      group: note.category ?? null,
       stock: note.stock ?? 'amarelo',
       level,
       onWall: studyOnWall(card, this.study.decks()) ?? true,

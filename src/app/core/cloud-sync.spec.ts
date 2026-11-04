@@ -171,6 +171,11 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Mural-Agora': new Date().toISOString() } });
 }
 
+/** Uma anotação do grupo Estudos, para virar carta (a carta só vale nos baralhos do grupo dela). */
+function studyNote(id: string, name: string): Review {
+  return { ...review(id, name), kind: 'anotacoes', category: 'Estudos', scores: { final: 0 } } as Review;
+}
+
 function review(id: string, name: string, updatedAt = '2026-01-01T00:00:00.000Z', createdAt = '2026-01-01T00:00:00.000Z'): Review {
   return sanitizeReview({
     id,
@@ -580,7 +585,9 @@ describe('sincronização com a nuvem', () => {
   describe('os Estudos', () => {
     it('vão só no mural privado, carta a carta, com os baralhos e o progresso; o apagado fica apagado', async () => {
       const a = device();
-      const kanji = a.study.addDeck('Kanjis simples', 'amarelo');
+      // as cartas são de anotações que existem, do grupo do baralho
+      for (const [id, name] of [['nsol', 'Sol'], ['nlua', 'Lua']]) a.store.add(studyNote(id, name));
+      const kanji = a.study.addDeck('Kanjis simples', 'amarelo', null, undefined, 'Estudos');
       a.study.addCard('nsol', [kanji], { title: '日', image: 'murall://imagem/abcdefghijklmnopqrstuv' });
       a.study.addCard('nlua', [kanji], { title: '月' });
       a.study.answer('nsol', true, kanji);
@@ -635,7 +642,8 @@ describe('sincronização com a nuvem', () => {
 
     it('a imagem da frente conta como usada (não sai da nuvem em 30 dias)', async () => {
       const a = device();
-      const deck = a.study.addDeck('Mapas', 'verde');
+      a.store.add(studyNote('nmapa', 'Mapa'));
+      const deck = a.study.addDeck('Mapas', 'verde', null, undefined, 'Estudos');
       a.study.addCard('nmapa', [deck], { image: 'murall://imagem/abcdefghijklmnopqrstuv' });
       await a.sync.syncNow();
       expect(JSON.parse(cloud.published!).usadas).toContain('abcdefghijklmnopqrstuv');
@@ -1742,6 +1750,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 51, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 52, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
   });
 });

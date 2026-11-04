@@ -15,7 +15,7 @@ import { StudyPage } from './study-page';
 class Raiz {}
 
 const T0 = '2026-10-10T10:00:00.000Z';
-const note = (id: string, title: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', game: { name: title }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
+const note = (id: string, title: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name: title }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
 
 describe('página dos Estudos', () => {
   let host: HTMLElement;
@@ -220,13 +220,14 @@ describe('página dos Estudos', () => {
 
   it('Nova carta pede ao editor uma anotação nova com este baralho; Trazer anotações abre o seletor', async () => {
     const { kanji } = seed();
-    const fresh = spyOn(TestBed.inject(Desk), 'newNote');
+    // no grupo do baralho, como a "Nova nota" de uma coluna do Kanban
+    const fresh = spyOn(TestBed.inject(Desk), 'newNoteIn');
     await go(`/anotacoes/estudos/${kanji}`);
     const [nova, trazer] = $$('.poe-cartas button');
     expect(text(nova)).toBe('Nova carta');
     nova.click();
     expect(study.pending()).toEqual({ decks: [kanji] });
-    expect(fresh).toHaveBeenCalledWith('');
+    expect(fresh).toHaveBeenCalledWith('Estudos');
     expect(text(trazer)).toBe('Trazer anotações');
   });
 

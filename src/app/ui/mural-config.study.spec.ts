@@ -6,7 +6,7 @@ import { StudyStore } from '../core/study-store';
 import { MuralConfig } from './mural-config';
 
 const T0 = '2026-10-10T10:00:00.000Z';
-const note = (id: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', game: { name: id }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
+const note = (id: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name: id }, completedAt: '2026-10-01', createdAt: T0, updatedAt: T0 })!, id });
 
 /** A engrenagem dos Estudos: a mesma folha do mural, com as partes Estudo e Baralhos. */
 describe('as configurações dos Estudos (a folha da engrenagem)', () => {
