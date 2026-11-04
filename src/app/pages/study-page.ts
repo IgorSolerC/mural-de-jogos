@@ -319,6 +319,11 @@ export class StudyPage {
   protected readonly moreItems = computed<TabMoreItem[]>(() =>
     this.moreTabs().map((g) => ({ key: g.id, label: g.label, n: g.today, look: g.look, say: g.decks.length ? `${g.today} para hoje` : 'sem baralho', quiet: !g.decks.length })),
   );
+  /**
+   * O Novo baralho de Tudo: os grupos, na ordem das abas, só com o desenho e o nome. Todos, até os sem
+   * baralho e os escondidos: é neles que o botão mais faz falta (a chave é o nome, que o newDeck recebe).
+   */
+  protected readonly newDeckItems = computed<TabMoreItem[]>(() => this.groups().map((g) => ({ key: g.label, label: g.label, n: 0, look: g.look, say: '', quiet: true })));
   /** O grupo aberto é um dos do "Mais": ele mostra o nome dele, como aba aberta. */
   protected readonly moreOn = computed(() => this.moreTabs().find((g) => g.id === this.group()?.id) ?? null);
   /** Os grupos com baralho, para as seções de Tudo. */
@@ -552,32 +557,6 @@ export class StudyPage {
     void this.router.navigateByUrl(studyPath(studyGroupId(group), id), { state: { folha: id } }).then(() => {
       if (!this.gone) this.sheet.set({ id, fresh: true });
     });
-  }
-
-  /**
-   * O "Novo baralho em…" de Tudo: a lista do aparelho com os grupos. A lista fechada do Windows troca de
-   * opção (e avisa) a cada seta: pelo teclado, a escolha só vale no Enter; pelo mouse (ou tocando), na
-   * hora. Sair da lista não cria nada (criar um baralho e ir para ele não é algo para acontecer de passagem).
-   */
-  protected keying = false;
-
-  protected onNewKey(e: KeyboardEvent): void {
-    if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.keying = true;
-    else if (e.key === 'Enter') {
-      e.preventDefault();
-      this.newDeckFrom(e.target as HTMLSelectElement);
-    }
-  }
-
-  protected onNewChange(select: HTMLSelectElement): void {
-    if (!this.keying) this.newDeckFrom(select);
-  }
-
-  protected newDeckFrom(select: HTMLSelectElement): void {
-    this.keying = false;
-    const group = select.value;
-    select.value = '';
-    if (group) this.newDeck(group);
   }
 
   /** A cartolina do primeiro baralho (de um grupo, ou de todos, com o grupo escolhido): o baralho com o nome escrito. */

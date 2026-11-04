@@ -71,6 +71,12 @@ describe('FilterCard', () => {
     expect(chip('Urgente').classList).not.toContain('zero');
   });
 
+  it('as teclas passam pela tag: o Enter, o espaço e o Tab não são cancelados', async () => {
+    await mount({ tags });
+    const chip = el.querySelector<HTMLElement>('.atalho')!;
+    for (const key of ['Enter', ' ', 'Tab']) expect(chip.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))).toBeTrue();
+  });
+
   it('o assunto que não mostraria nada desbota; o escolhido, nunca', async () => {
     await mount({ subjects: [subjects[0], { ...subjects[1], n: 0 }, { value: 'Prova', label: 'Prova', n: 0, on: true }] });
     const zero = [...el.querySelectorAll('.recorte.zero .recorte-nome')].map((n) => n.textContent!.trim());

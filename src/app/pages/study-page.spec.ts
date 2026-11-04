@@ -168,32 +168,92 @@ describe('página dos Estudos', () => {
     expect(router.url).toBe('/anotacoes/estudos');
   });
 
-  it('em Tudo, o "Novo baralho em" cria o baralho no grupo escolhido e abre nele, com a folha', async () => {
-    TestBed.inject(ReviewStore).reviews.update((list) => [...list, { ...note('ntrab', 'Reunião'), category: 'Trabalho' }]);
-    seed();
-    await go('/anotacoes/estudos');
-    const select = $<HTMLSelectElement>('.novo-em select')!;
-    expect([...select.options].map((o) => o.textContent!.trim())).toEqual(['Escolha o grupo', 'Estudos', 'Trabalho']);
-    // pelo teclado, as setas só andam na lista
-    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    select.value = 'Trabalho';
-    select.dispatchEvent(new Event('change'));
-    await settle();
-    expect(study.decks().length).toBe(3);
-    // sair da lista (Tab) não cria nada
-    select.dispatchEvent(new Event('blur'));
-    await settle();
-    expect(study.decks().length).toBe(3);
-    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
-    select.value = 'Trabalho';
-    select.dispatchEvent(new Event('change'));
-    // o Enter escolhe
-    select.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-    await sheetOpen();
-    const made = study.decks()[3];
-    expect(made.group).toBe('Trabalho');
-    expect(router.url).toBe(studyPath(studyGroupId('Trabalho'), made.id));
-    expect(sheet()?.open).toBeTrue();
+  describe('em Tudo, o Novo baralho', () => {
+    const trigger = () => $<HTMLButtonElement>('.novo-baralho .gatilho')!;
+    const list = () => $('.novo-baralho .cardapio')!;
+    const options = () => $$('.novo-baralho [role=option]');
+    const key = (k: string) => document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
+    async function inTudo(): Promise<void> {
+      // Trabalho: um grupo com anotações e ainda sem baralho
+      TestBed.inject(ReviewStore).reviews.update((all) => [...all, { ...note('ntrab', 'Reunião'), category: 'Trabalho' }]);
+      seed();
+      await go('/anotacoes/estudos');
+    }
+
+    it('tem o nome e o + do das outras abas, e diz que abre uma lista, fechada', async () => {
+      await inTudo();
+      expect(text(trigger())).toBe('Novo baralho');
+      expect(trigger().querySelector('lucide-icon')).not.toBeNull();
+      expect(trigger().getAttribute('aria-haspopup')).toBe('listbox');
+      expect(trigger().getAttribute('aria-expanded')).toBe('false');
+      // o nome à mostra faz parte do nome ouvido
+      expect(trigger().getAttribute('aria-label')).toContain('Novo baralho');
+      expect(list().matches(':popover-open')).toBeFalse();
+      // como os outros .tinta da pasta: em caixa alta e centrado (o botão de dentro do "Mais" não herda)
+      const inside = trigger().querySelector<HTMLElement>('.novo-dentro')!;
+      expect(getComputedStyle(inside).textTransform).toBe('uppercase');
+      expect(getComputedStyle(inside).alignItems).toBe('center');
+    });
+
+    it('o clique abre o remendo com a pergunta e todos os grupos, até o sem baralho, só com o nome', async () => {
+      await inTudo();
+      trigger().click();
+      await settle();
+      expect(list().matches(':popover-open')).toBeTrue();
+      expect(trigger().getAttribute('aria-expanded')).toBe('true');
+      expect(text(list().querySelector('.legenda'))).toBe('Em qual grupo?');
+      expect(options().map(text)).toEqual(['Estudos', 'Trabalho']);
+      expect(options().map((o) => o.getAttribute('aria-label'))).toEqual(['Estudos', 'Trabalho']);
+      expect(list().querySelector('.n')).toBeNull();
+      expect(document.activeElement).toBe(options()[0]);
+      // abrir não cria nada
+      expect(study.decks().length).toBe(3);
+    });
+
+    it('escolher cria o baralho naquele grupo e abre nele, com a folha, como o das outras abas', async () => {
+      await inTudo();
+      trigger().click();
+      await settle();
+      options()[1].click();
+      await sheetOpen();
+      const made = study.decks()[3];
+      expect(made.group).toBe('Trabalho');
+      expect(router.url).toBe(studyPath(studyGroupId('Trabalho'), made.id));
+      expect(sheet()?.open).toBeTrue();
+    });
+
+    it('pelo teclado: a seta abre e anda, e o Esc fecha sem criar nada, com o foco de volta no botão', async () => {
+      await inTudo();
+      trigger().focus();
+      key('ArrowDown');
+      await settle();
+      expect(list().matches(':popover-open')).toBeTrue();
+      key('ArrowDown');
+      await settle();
+      expect(document.activeElement).toBe(options()[1]);
+      key('Escape');
+      await settle();
+      expect(list().matches(':popover-open')).toBeFalse();
+      expect(document.activeElement).toBe(trigger());
+      expect(study.decks().length).toBe(3);
+    });
+
+    it('o remendo que fecha sozinho (o toque fora) não cria nada', async () => {
+      await inTudo();
+      trigger().click();
+      await settle();
+      list().hidePopover();
+      await settle();
+      expect(trigger().getAttribute('aria-expanded')).toBe('false');
+      expect(study.decks().length).toBe(3);
+    });
+
+    it('num grupo aberto, o botão continua direto, sem perguntar', async () => {
+      await inTudo();
+      await go(studyPath(GROUP));
+      expect($('.novo-baralho .gatilho')).toBeNull();
+      expect(text($('button.novo-baralho'))).toBe('Novo baralho');
+    });
   });
 
   it('o grupo aberto abre no mural uma vez (não a cada minuto), e o grupo só com baralho não mexe no mural', async () => {
@@ -584,9 +644,9 @@ describe('página dos Estudos', () => {
     key('Enter');
     await settle();
     expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio]);
-    // pelo mouse: na hora
+    // pelo mouse: na hora, e o aperto do botão não é cancelado (cancelado, a lista do aparelho nem abre)
     const again = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
-    again.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(again.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).toBeTrue();
     again.value = quimica;
     again.dispatchEvent(new Event('change'));
     await settle();

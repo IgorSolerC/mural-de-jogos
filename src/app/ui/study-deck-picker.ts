@@ -52,7 +52,7 @@ const NEW = '__novo__';
             <select
               [value]="''"
               aria-label="Pôr em um baralho"
-              (mousedown)="keying = false"
+              (mousedown)="onMouse()"
               (keydown)="onKey($event)"
               (change)="changed($any($event.target))"
               (blur)="commit($any($event.target))"
@@ -97,6 +97,11 @@ export class StudyDeckPicker {
    * Enter ou ao sair da lista; pelo mouse (ou tocando), na hora.
    */
   protected keying = false;
+
+  /** Num método: no molde, um "keying = false" devolveria false, e o Angular cancelaria o clique que abre a lista. */
+  protected onMouse(): void {
+    this.keying = false;
+  }
 
   protected onKey(e: KeyboardEvent): void {
     if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.keying = true;

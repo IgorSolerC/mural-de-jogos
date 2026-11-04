@@ -58,7 +58,7 @@ const CLOSE_DELAY = 260;
       (pointerleave)="leave($event)"
       (click)="$event.stopPropagation()"
       (pointerdown)="$event.stopPropagation()"
-      (keydown)="$event.stopPropagation(); $event.key === 'Escape' && close()"
+      (keydown)="onPanelKey($event)"
     >
       <span class="fita" aria-hidden="true"></span>
       <span class="cabeca">
@@ -180,6 +180,12 @@ export class KanbanDepsBadge {
   }
 
   /** Finalizar (perguntando, se ela também depende de outra aberta) ou abrir de novo uma dependência. */
+  /** Num método: no molde, um "x && close()" devolveria false, e o Angular cancelaria as outras teclas (o Enter, o Tab). */
+  protected onPanelKey(e: KeyboardEvent): void {
+    e.stopPropagation();
+    if (e.key === 'Escape') this.close();
+  }
+
   protected check(note: Review): void {
     this.noteDone.finishAsking(note.id, !note.doneAt);
   }

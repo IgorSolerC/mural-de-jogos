@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-verso-da-carta-resposta-curta',
+    id: '2026-11-04-novo-baralho-em-tudo',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -40,11 +40,15 @@ export const NEWS: NewsEntry[] = [
       'No baralho dos Estudos, dois botões depois do Ordenar trocam entre as cartas grandes e as pequenas: a mesma carta, uns 60% menor, para ver mais cartas na tela. A escolha fica guardada neste aparelho e vale para todos os baralhos.',
       'O Kanban e os baralhos dos Estudos ficaram mais leves: como no mural, só as fichas e as cartas perto da tela ficam montadas, e abrir um baralho grande não trava mais a página. Com isso, as colunas do Kanban mostram todas as anotações de uma vez, é só rolar, e o "Mostrar mais" saiu.',
       'No verso da carta, o título aparece uma vez só, o da frente, em negrito e maior; e a resposta curta cresce até o dobro para encher a carta e não ficar miúda.',
+      'Na aba Tudo dos Estudos, o botão agora se chama Novo baralho, como nas outras abas, e pergunta em qual grupo na lista de feltro do Mais, com todos os grupos, até os que ainda não têm baralho.',
     ],
     correcoes: [
       'A reação com um emoji do "+" agora mostra o nome dele ao lado do desenho (como o "Amei" das sete da fileira), em vez de repetir o emoji; o nome também vale para o leitor de tela, a dica do botão e os avisos.',
       'No verso da carta, durante a sessão dos Estudos, o texto da anotação agora sai igual ao da ficha do mural: os links "[[título|texto]]" são a caneta azul que abre a anotação (antes apareciam com os colchetes), o link de lembrete e a ficha colada abrem, e a letra, os recuos, os títulos e as cores da cartolina escura são os da ficha; o Espaço no título de um card que abre e fecha não responde mais a carta.',
       'Com dois Muralls abertos no mesmo navegador, o que uma aba fazia podia sumir quando a outra gravava o mural dela por cima: o que a aba escondida aplicava (os pedidos da AI, o que vinha da nuvem) e o que as duas mudavam no mesmo instante, e as anotações saíam da nuvem também. Agora cada aba grava tudo antes de passar a vez da sincronização, a próxima acompanha o que a outra gravou antes de começar, e as mudanças das duas se juntam (as anotações, a fila, a wishlist, o Kanban, os Estudos, o Calendário, os Gastos, o perfil e os ajustes) em vez de uma apagar a outra.',
+      'O botão de criar baralho da aba Tudo dos Estudos não fazia nada ao ser clicado, e o "+ Baralho" da carta não abria com o mouse: os dois agora abrem.',
+      'As tags dos filtros e a tira de dependências do Kanban voltaram a responder ao teclado: o Enter e o espaço acionam, e o Tab passa por eles.',
+      'No Mais das abas, o nome de grupo muito comprido agora termina em reticências, dentro da lista, e aparece inteiro na dica do mouse.',
     ],
   },
   {

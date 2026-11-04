@@ -62,6 +62,21 @@ describe('o Mais das abas (TabMore)', () => {
     }
   }
 
+  it('sem pergunta, o remendo não tem legenda', async () => {
+    await open();
+    expect(panel().querySelector('.legenda')).toBeNull();
+  });
+
+  it('a opção do nome comprido não passa do remendo, e o nome fica inteiro na dica', async () => {
+    const long = 'Um grupo com o nome bem comprido para ver como ele se comporta na lista';
+    fixture.componentInstance.groups.update((list) => [...list, { key: 'c:longo', label: long, n: 3, look: {} }]);
+    await fixture.whenStable();
+    await open();
+    const option = options().find((o) => o.dataset['k'] === 'c:longo')!;
+    expect(option.offsetWidth).toBeLessThanOrEqual(panel().clientWidth);
+    expect(option.title).toBe(long);
+  });
+
   it('fechado, é só a orelha: um botão que diz que abre uma lista (escondida)', () => {
     expect(trigger().getAttribute('aria-haspopup')).toBe('listbox');
     expect(trigger().getAttribute('aria-expanded')).toBe('false');

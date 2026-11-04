@@ -23,7 +23,8 @@
   }
 }
 
-:host(:has(.gatilho:focus-visible)) {
+/* (o botão de tinta da pasta, o Novo baralho de Tudo, tem o anel dos outros .tinta, em src/styles.scss) */
+:host(:not(.tinta):has(.gatilho:focus-visible)) {
   outline: 3px solid var(--focus);
   outline-offset: -3px;
 }
@@ -41,6 +42,8 @@
   border-radius: 16px;
   @include felt.feltro(-6px);
   color: #151515;
+  /* só as opções têm a mãozinha (a pergunta e o miolo não fazem nada ao clicar) */
+  cursor: default;
   box-shadow:
     0 1px 2px rgb(0 0 0 / 0.35),
     0 12px 24px -8px rgb(0 0 0 / 0.5);
@@ -52,6 +55,8 @@
 
   &:popover-open {
     display: grid;
+    /* a coluna não passa do remendo: o nome comprido corta em reticências, em vez de alargar as opções */
+    grid-template-columns: minmax(0, 1fr);
     gap: 2px;
     animation: brota 170ms var(--ease-physical);
   }
@@ -81,7 +86,13 @@
 /* as duas levas: os grupos e, depois da costura, as abas geradas */
 .leva {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
+}
+
+/* a pergunta da lista, como o nome da anotação no menu dela */
+.legenda {
+  @include felt.legenda;
 }
 
 /* uma aba: o desenho na cor do grupo, o nome a pincel e quantas anotações tem, impresso miúdo */

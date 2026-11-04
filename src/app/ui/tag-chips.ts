@@ -54,7 +54,7 @@ let nextId = 0;
               [title]="titleOf(t)"
               (click)="onClick($event, t)"
               (contextmenu)="onMenu($event, t)"
-              (keydown)="lastTouch = false"
+              (keydown)="onKey()"
               (pointerdown)="onDown($event, t)"
               (pointermove)="onMove($event)"
               (pointerup)="cancelHold()"
@@ -233,6 +233,11 @@ export class TagChips {
   private hold: { timer: ReturnType<typeof setTimeout>; x: number; y: number } | null = null;
   /** O dedo segurou e escondeu a tag: o clique que vem quando ele sobe não liga a tag. */
   private swallow = false;
+
+  /** Num método: no molde, um "lastTouch = false" devolveria false, e o Angular cancelaria a tecla (o Enter, o Tab). */
+  protected onKey(): void {
+    this.lastTouch = false;
+  }
 
   protected onClick(e: MouseEvent, t: TagChip): void {
     if (this.swallow) {

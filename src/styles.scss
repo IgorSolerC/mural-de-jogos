@@ -573,7 +573,8 @@ select optgroup {
     }
 
     &:focus-visible,
-    &:has(select:focus-visible) {
+    &:has(select:focus-visible),
+    &:has(> .gatilho:focus-visible) {
       outline: 2.5px solid var(--ink);
       outline-offset: 1px;
     }
@@ -600,9 +601,10 @@ select optgroup {
         scale var(--t-ui) var(--ease-ui);
     }
 
-    /* ligado, ou aberto (a cartela do Filtrar) */
+    /* ligado, ou aberto (a cartela do Filtrar, a lista do Novo baralho de Tudo) */
     &[aria-pressed='true'],
-    &[aria-expanded='true'] {
+    &[aria-expanded='true'],
+    &:has(> .gatilho[aria-expanded='true']) {
       &::before {
         opacity: 1;
         scale: 1 1;

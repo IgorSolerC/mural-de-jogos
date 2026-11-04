@@ -62,6 +62,10 @@ export interface TabMoreItem {
     </button>
     <!-- a lista fica montada (escondida pelo popover): abrir é só mostrar, medir e pôr o foco -->
     <div #cardapio [id]="listId" class="cardapio" popover="auto" role="listbox" [attr.aria-label]="label()" (toggle)="onToggle($event)" (keydown)="onListKey($event)">
+      @if (caption(); as c) {
+        <!-- o leitor de tela já ouve a pergunta no nome da lista -->
+        <p class="legenda" aria-hidden="true">{{ c }}</p>
+      }
       @if (groups().length) {
         <div role="group" class="leva" [attr.aria-label]="groupsLabel()">
           @for (x of groups(); track x.key) {
@@ -88,6 +92,7 @@ export interface TabMoreItem {
         [attr.aria-selected]="x.key === active()"
         [attr.aria-label]="x.say !== undefined ? x.label + (x.say ? ', ' + x.say : '') : x.label + ', ' + x.n + (x.n === 1 ? ' anotação' : ' anotações')"
         [attr.tabindex]="x.key === focusKey() ? 0 : -1"
+        [attr.title]="x.label"
         [attr.data-k]="x.key"
         [style.--cat-cor]="colorOf(x)"
         (click)="pick(x.key)"
@@ -119,10 +124,13 @@ export class TabMore {
   readonly label = input('Mais abas');
   /** O nome da leva dos grupos, para o leitor de tela ("Grupos", "Artistas"). */
   readonly groupsLabel = input('Grupos');
+  /** A pergunta no alto do remendo, quando a lista escolhe algo em vez de abrir uma aba ("Em qual grupo?"). */
+  readonly caption = input<string | null>(null);
   readonly chosen = output<string>();
 
   protected readonly CheckIcon = ICON.pronto;
   protected readonly open = signal(false);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly trigger = viewChild.required<ElementRef<HTMLButtonElement>>('gatilho');
   private readonly panel = viewChild.required<ElementRef<HTMLElement>>('cardapio');
   private readonly options = viewChildren<ElementRef<HTMLButtonElement>>('opcao');
@@ -183,10 +191,9 @@ export class TabMore {
     this.focusOn(start.key);
   }
 
-  /** A orelha inteira (o host), onde o remendo se apoia. */
+  /** A orelha inteira (o host, seja a aba ou o botão de tinta), onde o remendo se apoia. */
   private tabRect(): DOMRect {
-    const t = this.trigger().nativeElement;
-    return (t.closest('.aba') ?? t).getBoundingClientRect();
+    return this.host.nativeElement.getBoundingClientRect();
   }
 
   private place(): void {

@@ -207,9 +207,12 @@
   }
 }
 
-/* o "Novo baralho em" de Tudo: o campo impresso da pasta, com o + na frente */
-.novo-em {
+/* o Novo baralho de Tudo: o botão de dentro do "Mais" não herda a caixa alta nem o centro dos outros .tinta */
+.novo-dentro {
+  display: inline-flex;
+  align-items: center;
   gap: 6px;
+  text-transform: uppercase;
 }
 
 /* ===== Num baralho: o caminho de volta ao grupo, em tinta, e o nome do baralho na tira de papel ===== */

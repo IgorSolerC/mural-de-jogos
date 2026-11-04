@@ -680,6 +680,20 @@ describe('página do Kanban', () => {
       expect(host.querySelector('[data-nota="nlogin01"] .tira app-kanban-deps.mini .selo')!.getAttribute('title')).toBe('Dependências: 2 de 2');
     });
 
+    it('pelo teclado, a tira deixa passar as teclas (o Enter, o espaço, o Tab), e o Esc a fecha', async () => {
+      kanban.state.set(state(withDeps()));
+      await go(TRAB_URL);
+      selo('nlogin01')!.click();
+      await settle();
+      expect(tira('nlogin01').matches(':popover-open')).toBeTrue();
+      const press = (key: string) => tira('nlogin01').dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+      for (const key of ['Enter', ' ', 'Tab']) expect(press(key)).toBeTrue();
+      expect(tira('nlogin01').matches(':popover-open')).toBeTrue();
+      press('Escape');
+      await settle();
+      expect(tira('nlogin01').matches(':popover-open')).toBeFalse();
+    });
+
     it('com o mouse parado no selo, a tira mostra cada uma: o check, o nome que abre a leitura e onde ela está', async () => {
       kanban.state.set(state(withDeps()));
       await go(TRAB_URL);

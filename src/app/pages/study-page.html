@@ -217,20 +217,15 @@
               Novo baralho
             </button>
           </div>
-        } @else if (!group()) {
-          <!-- em Tudo: o baralho novo de qualquer grupo, pela lista dos grupos (o do grupo aberto fica na pasta dele) -->
+        } @else if (!group() && groups().length) {
+          <!-- em Tudo: o mesmo Novo baralho, que pergunta o grupo no remendo de feltro do "Mais" (ui/tab-more.ts) -->
           <div class="pasta-grupo">
-            <label class="tinta campo escolha novo-em">
-              <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
-              <span class="campo-pre">Novo baralho em</span>
-              <lucide-icon class="campo-chev" [img]="ChevronIcon" [size]="15" aria-hidden="true" />
-              <select aria-label="Novo baralho em qual grupo" [value]="''" (mousedown)="keying = false" (keydown)="onNewKey($event)" (change)="onNewChange($any($event.target))" (blur)="keying = false; $any($event.target).value = ''">
-                <option value="" disabled>Escolha o grupo</option>
-                @for (g of groups(); track g.id) {
-                  <option [value]="g.label">{{ g.label }}</option>
-                }
-              </select>
-            </label>
+            <app-tab-more class="tinta novo-baralho" [groups]="newDeckItems()" active="" label="Novo baralho: em qual grupo" caption="Em qual grupo?" (chosen)="newDeck($event)">
+              <span class="novo-dentro">
+                <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
+                Novo baralho
+              </span>
+            </app-tab-more>
           </div>
         }
         <!-- o lápis do baralho e as configurações dos Estudos (todos os baralhos: a mesma folha das do mural e
