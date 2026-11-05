@@ -1,0 +1,386 @@
+import { Desfecho, FALHAS } from '../../../contrato/uso-apis/contagem';
+import { MedidoEm, SERVICOS, ServicoExterno } from '../../../contrato/uso-apis/servicos';
+import { MONTHS_SHORT } from './dates';
+
+/**
+ * As contas da tela Uso das APIs (PLANO-ADMIN-APIS.md, seções 4 e 11): a API só entrega as linhas, e aqui se
+ * decide o que elas querem dizer. Tudo puro: o "agora" é o da resposta, e nada olha o relógio do aparelho.
+ */
+
+const DAY_MS = 86_400_000;
+/** A partir daqui, "perto do fim": o mesmo número da checagem diária (`ALERT` em api/scripts/saude.ts). */
+export const NEAR_END = 0.7;
+export const ALMOST_OUT = 0.9;
+/** Quantas falhas seguidas, sem nenhuma resposta boa no meio, querem dizer que caiu. */
+const DOWN_AFTER = 3;
+const RECENT_MS = 3_600_000;
+/** Com menos dias contados que isto, o ritmo do mês não diz nada. */
+const PACE_MIN_DAYS = 7;
+
+export interface UsageLine {
+  dia: string;
+  servico: string;
+  operacao: string;
+  medidoEm: string;
+  desfecho: Desfecho;
+  pedidos: number;
+  msTotal: number;
+  msMax: number;
+  ultimoEm: string;
+}
+
+export interface UsageFailure {
+  em: string;
+  servico: string;
+  operacao: string;
+  medidoEm: string;
+  desfecho: Desfecho;
+  status: number | null;
+  repeticoes: number;
+}
+
+export interface ApiUsage {
+  geradoEm: string;
+  contandoDesde: string | null;
+  linhas: UsageLine[];
+  falhas: UsageFailure[];
+  proprias: { dia: string; linhasGravadas: number; cotaLinhas: number; imagens: { imagens: number; bytes: number; cota: number } | null };
+}
+
+/** O que veio da API, sem confiar na forma: o que não tem a forma certa sai. */
+export function parseUsage(raw: unknown): ApiUsage {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  const linhas: UsageLine[] = (Array.isArray(r['linhas']) ? r['linhas'] : []).flatMap((l): UsageLine[] => {
+    if (!Array.isArray(l) || l.length < 9) return [];
+    const [dia, servico, operacao, medidoEm, desfecho, pedidos, msTotal, msMax, ultimoEm] = l as unknown[];
+    if (typeof dia !== 'string' || typeof servico !== 'string' || typeof pedidos !== 'number') return [];
+    return [{ dia, servico, operacao: String(operacao), medidoEm: String(medidoEm), desfecho: desfecho as Desfecho, pedidos, msTotal: Number(msTotal) || 0, msMax: Number(msMax) || 0, ultimoEm: String(ultimoEm) }];
+  });
+  const falhas = (Array.isArray(r['falhas']) ? r['falhas'] : []).filter((f): f is UsageFailure => !!f && typeof (f as UsageFailure).em === 'string' && typeof (f as UsageFailure).servico === 'string');
+  const own = (r['proprias'] ?? {}) as Partial<ApiUsage['proprias']>;
+  return {
+    geradoEm: typeof r['geradoEm'] === 'string' ? r['geradoEm'] : new Date(0).toISOString(),
+    contandoDesde: typeof r['contandoDesde'] === 'string' ? r['contandoDesde'] : null,
+    linhas,
+    falhas,
+    proprias: { dia: own.dia ?? '', linhasGravadas: own.linhasGravadas ?? 0, cotaLinhas: own.cotaLinhas ?? 0, imagens: own.imagens ?? null },
+  };
+}
+
+// ===== Os dias =====
+
+const utcDay = (d: Date) => d.toISOString().slice(0, 10);
+const daysBack = (now: Date, n: number) => utcDay(new Date(now.getTime() - n * DAY_MS));
+const firstOfMonth = (now: Date) => `${utcDay(now).slice(0, 7)}-01`;
+const daysInMonth = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+
+// ===== Os totais de um serviço =====
+
+export interface ServiceTotals {
+  hoje: number;
+  semana: number;
+  trinta: number;
+  mes: number;
+  /** A parte que falhou nos últimos 7 dias, de 0 a 1; null sem nenhum pedido. */
+  falhas: number | null;
+  /** O tempo médio das respostas boas nos últimos 7 dias. */
+  tempoMs: number | null;
+  /** A última resposta boa e a última chamada de qualquer jeito (ISO). */
+  ultimaBoa: string | null;
+  ultima: string | null;
+  ultimoDesfecho: Desfecho | null;
+}
+
+const GOOD: readonly Desfecho[] = ['ok', 'nao-achou'];
+
+export function totalsOf(lines: readonly UsageLine[], now: Date): ServiceTotals {
+  const today = utcDay(now);
+  const week = daysBack(now, 6);
+  const thirty = daysBack(now, 29);
+  const month = firstOfMonth(now);
+  const out: ServiceTotals = { hoje: 0, semana: 0, trinta: 0, mes: 0, falhas: null, tempoMs: null, ultimaBoa: null, ultima: null, ultimoDesfecho: null };
+  let failed = 0;
+  let okCount = 0;
+  let okMs = 0;
+  for (const l of lines) {
+    // desistir de digitar não é chamada que conte, nem falha
+    if (l.desfecho === 'cancelada') continue;
+    if (l.dia === today) out.hoje += l.pedidos;
+    if (l.dia >= week) out.semana += l.pedidos;
+    if (l.dia >= thirty) out.trinta += l.pedidos;
+    if (l.dia >= month) out.mes += l.pedidos;
+    if (l.dia >= week && FALHAS.includes(l.desfecho)) failed += l.pedidos;
+    if (l.dia >= week && l.desfecho === 'ok') {
+      okCount += l.pedidos;
+      okMs += l.msTotal;
+    }
+    if (GOOD.includes(l.desfecho) && (!out.ultimaBoa || l.ultimoEm > out.ultimaBoa)) out.ultimaBoa = l.ultimoEm;
+    if (!out.ultima || l.ultimoEm > out.ultima) {
+      out.ultima = l.ultimoEm;
+      out.ultimoDesfecho = l.desfecho;
+    }
+  }
+  if (out.semana > 0) out.falhas = failed / out.semana;
+  if (okCount > 0) out.tempoMs = okMs / okCount;
+  return out;
+}
+
+// ===== As cotas: o que tem fim =====
+
+export type QuotaLevel = 'folga' | 'perto' | 'quase';
+export type QuotaWindow = 'mes' | 'dia' | 'sempre';
+
+export interface Quota {
+  id: string;
+  nome: string;
+  /** "na RAWG", para a frase. */
+  onde: string;
+  janela: QuotaWindow;
+  usado: number;
+  total: number;
+  falta: number;
+  /** De 0 a 1 (pode passar de 1 se a conta passou do limite). */
+  parte: number;
+  nivel: QuotaLevel;
+  unidade: 'pedidos' | 'linhas' | 'bytes';
+  /** A conta começou depois do início da janela: o número não tem o que veio antes. */
+  desde: string | null;
+}
+
+export function levelOf(part: number): QuotaLevel {
+  return part >= ALMOST_OUT ? 'quase' : part >= NEAR_END ? 'perto' : 'folga';
+}
+
+function quota(q: Omit<Quota, 'falta' | 'parte' | 'nivel' | 'desde'> & { desde?: string | null }): Quota {
+  const parte = q.total > 0 ? q.usado / q.total : 0;
+  return { ...q, desde: q.desde ?? null, falta: Math.max(0, q.total - q.usado), parte, nivel: levelOf(parte) };
+}
+
+/** "a RAWG" vira "na RAWG"; "o Google Agenda", "no Google Agenda". */
+const inPrep = (called: string) => called.replace(/^a /, 'na ').replace(/^o /, 'no ');
+/** "a RAWG" vira "à RAWG"; "o TMDB", "ao TMDB". */
+const toPrep = (called: string) => called.replace(/^a /, 'à ').replace(/^o /, 'ao ');
+
+export function quotasOf(usage: ApiUsage, now: Date): Quota[] {
+  const out: Quota[] = [];
+  for (const s of SERVICOS) {
+    const cota = s.limite.cota;
+    if (!cota) continue;
+    const totals = totalsOf(usage.linhas.filter((l) => l.servico === s.id), now);
+    const monthly = cota.janela === 'mes';
+    // no primeiro mês, a conta só tem o que veio depois de ligada
+    const late = monthly && !!usage.contandoDesde && usage.contandoDesde > firstOfMonth(now);
+    out.push(quota({ id: s.id, nome: s.nome, onde: inPrep(s.chamado), janela: cota.janela, usado: monthly ? totals.mes : totals.hoje, total: cota.valor, unidade: 'pedidos', desde: late ? usage.contandoDesde : null }));
+  }
+  const own = usage.proprias;
+  if (own.cotaLinhas > 0) out.push(quota({ id: 'linhas', nome: 'Linhas gravadas pelo Murall', onde: 'na cota de gravações', janela: 'dia', usado: own.linhasGravadas, total: own.cotaLinhas, unidade: 'linhas' }));
+  if (own.imagens && own.imagens.cota > 0) out.push(quota({ id: 'imagens', nome: 'Imagens guardadas', onde: 'no espaço das imagens', janela: 'sempre', usado: own.imagens.bytes, total: own.imagens.cota, unidade: 'bytes' }));
+  return out;
+}
+
+/**
+ * Em que dia do mês uma cota mensal acaba, no ritmo de agora. Null sem dias bastantes para dizer, ou se o
+ * ritmo não a acaba neste mês.
+ */
+export function runsOutOn(q: Quota, usage: ApiUsage, now: Date): number | null {
+  if (q.janela !== 'mes' || q.usado <= 0 || q.falta <= 0) return null;
+  const from = usage.contandoDesde && usage.contandoDesde > firstOfMonth(now) ? usage.contandoDesde : firstOfMonth(now);
+  const counted = Math.floor((Date.parse(`${utcDay(now)}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS) + 1;
+  if (counted < PACE_MIN_DAYS) return null;
+  const day = now.getUTCDate() + Math.ceil(q.falta / (q.usado / counted));
+  return day <= daysInMonth(now) ? day : null;
+}
+
+// ===== O estado =====
+
+export type ServiceStatus = 'fora' | 'limite' | 'recusada' | 'quase' | 'perto' | 'falhou' | 'ok' | 'sem-uso' | 'sem-contagem';
+
+/** A ordem da tabela: o que precisa de atenção em cima. */
+export const STATUS_ORDER: readonly ServiceStatus[] = ['fora', 'limite', 'recusada', 'quase', 'perto', 'falhou', 'ok', 'sem-uso', 'sem-contagem'];
+
+export const STATUS_LABEL: Record<ServiceStatus, string> = {
+  fora: 'Fora do ar',
+  limite: 'No limite',
+  recusada: 'Chave recusada',
+  quase: 'Quase no fim',
+  perto: 'Perto do fim',
+  falhou: 'A última falhou',
+  ok: 'Respondendo',
+  'sem-uso': 'Sem uso',
+  'sem-contagem': 'Ainda não conta',
+};
+
+export function statusOf(totals: ServiceTotals, lines: readonly UsageLine[], failures: readonly UsageFailure[], level: QuotaLevel | null, now: Date, counted = true): { status: ServiceStatus; desde: string | null } {
+  if (!counted) return { status: 'sem-contagem', desde: null };
+  const recent = (iso: string) => now.getTime() - Date.parse(iso) <= RECENT_MS;
+  // caiu: as falhas de queda depois da última resposta boa, a mais nova há pouco tempo
+  const downs = failures.filter((f) => (f.desfecho === 'fora' || f.desfecho === 'prazo') && (!totals.ultimaBoa || f.em > totals.ultimaBoa));
+  const count = downs.reduce((n, f) => n + f.repeticoes, 0);
+  if (count >= DOWN_AFTER && downs.some((f) => recent(f.em))) {
+    return { status: 'fora', desde: downs.reduce((min, f) => (f.em < min ? f.em : min), downs[0]!.em) };
+  }
+  if (lines.some((l) => l.desfecho === 'limite' && recent(l.ultimoEm))) return { status: 'limite', desde: null };
+  if (totals.ultimoDesfecho === 'recusada') return { status: 'recusada', desde: null };
+  if (level === 'quase' || level === 'perto') return { status: level, desde: null };
+  if (totals.ultimoDesfecho && FALHAS.includes(totals.ultimoDesfecho)) return { status: 'falhou', desde: null };
+  return { status: totals.semana > 0 ? 'ok' : 'sem-uso', desde: null };
+}
+
+// ===== As palavras =====
+
+const int = (n: number) => Math.round(n).toLocaleString('pt-BR');
+const comma = (n: number) => String(n).replace('.', ',');
+
+/** "2.470", "20 mil", "1,2 mi": curto, para a régua. A tabela usa o número inteiro. */
+export function shortNumber(n: number): string {
+  const trim = (v: number) => comma(Math.round(v * 10) / 10);
+  if (n >= 1_000_000) return `${trim(n / 1_000_000)} mi`;
+  if (n >= 10_000) return `${trim(n / 1_000)} mil`;
+  return int(n);
+}
+
+export const wholeNumber = int;
+
+export function megabytes(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  return `${comma(Math.round(mb * 10) / 10)} MB`;
+}
+
+export function percent(part: number): string {
+  if (part <= 0) return '0%';
+  if (part < 0.01) return 'menos de 1%';
+  return `${Math.round(part * 100)}%`;
+}
+
+export function duration(ms: number): string {
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${comma(Math.round(ms / 100) / 10)} s`;
+}
+
+/** A hora em Brasília, de onde quer que se abra: "19:40". */
+export function clock(iso: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+}
+
+/** A que horas o dia UTC vira, em Brasília: "21h". */
+export function dayTurn(now: Date): string {
+  const hour = new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', hour: 'numeric', hourCycle: 'h23' }).format(new Date(`${utcDay(now)}T00:00:00Z`));
+  return `${Number(hour)}h`;
+}
+
+export function ago(iso: string, now: Date): string {
+  const min = Math.floor((now.getTime() - Date.parse(iso)) / 60_000);
+  if (min < 1) return 'agora';
+  if (min < 60) return `há ${min} min`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `há ${hours} h`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'ontem' : `há ${days} dias`;
+}
+
+/** "2026-11-05" vira "05/nov/2026". Sem `Date`: a data é um dia, sem fuso. */
+export function dayLabel(iso: string): string {
+  const [year, month, day] = iso.split('-');
+  return `${day}/${MONTHS_SHORT[Number(month) - 1]}/${year}`;
+}
+
+/** Uma parte da frase, em minúscula: quem junta decide a maiúscula. */
+function problemOf(row: ServiceRow): string | null {
+  const called = row.service.chamado;
+  switch (row.status) {
+    case 'fora':
+      return `${called} está fora do ar${row.desde ? ` desde ${clock(row.desde)}` : ''}`;
+    case 'limite':
+      return `${called} bateu no limite`;
+    case 'recusada':
+      return `${called} recusou a chave`;
+    case 'falhou':
+      return `a última chamada ${toPrep(called)} falhou`;
+    default:
+      return null;
+  }
+}
+
+const QUOTA_WHEN: Record<QuotaWindow, string> = { mes: 'do mês', dia: 'de hoje', sempre: 'ocupado' };
+const turnOf = (q: Quota, now: Date) => (q.janela === 'mes' ? 'até dia 1º' : q.janela === 'dia' ? `até as ${dayTurn(now)}` : '');
+const amountOf = (q: Quota, n: number) => (q.unidade === 'bytes' ? megabytes(n) : `${int(n)} ${q.unidade}`);
+
+function quotaProblem(q: Quota, now: Date): string {
+  const when = turnOf(q, now);
+  return `faltam ${amountOf(q, q.falta)} ${q.onde}${when ? ` ${when}` : ''}`;
+}
+
+const COUNT_WORD = ['', 'Uma', 'Duas', 'Três', 'Quatro', 'Cinco', 'Seis'];
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const joined = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
+
+/** A frase que responde "alguma coisa está caindo ou perto do fim?" (PLANO-ADMIN-APIS.md, 11.5). */
+export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date): string {
+  if (!usage.contandoDesde) return 'A contagem ainda não começou. Os números vão aparecendo conforme o site é usado.';
+  const down = rows.flatMap((r) => {
+    const text = problemOf(r);
+    return text ? [{ row: r, text }] : [];
+  });
+  const ending = quotas.filter((q) => q.nivel !== 'folga').sort((a, b) => b.parte - a.parte);
+  const parts = [...down.map((d) => d.text), ...ending.map((q) => quotaProblem(q, now))];
+
+  if (parts.length === 1) {
+    const only = down[0];
+    if (only) {
+      const backup = only.row.status === 'fora' && only.row.service.reserva ? `: ${only.row.service.reserva} estão indo para a Wikipedia` : '';
+      const others = rows.some((r) => r !== only.row && r.status === 'ok');
+      return `${cap(only.text)}${backup}.${others ? ' O resto está respondendo.' : ''}`;
+    }
+    const q = ending[0]!;
+    const day = runsOutOn(q, usage, now);
+    return `${cap(parts[0]!)}.${day ? ` No ritmo deste mês, acabam dia ${day}.` : ''}`;
+  }
+  if (parts.length > 1) {
+    const word = COUNT_WORD[parts.length] ?? String(parts.length);
+    return `${word} coisas pedem atenção: ${joined(parts)}.`;
+  }
+  if (usage.contandoDesde === utcDay(now)) return 'A contagem começou hoje. Os números vão aparecendo conforme o site é usado.';
+  if (!rows.some((r) => r.status === 'ok')) return 'Nada foi chamado nos últimos 7 dias.';
+  const top = [...quotas].sort((a, b) => b.parte - a.parte)[0];
+  if (!top || top.parte < 0.01) return 'Tudo respondendo, e nenhuma cota passou de 1%.';
+  return `Tudo respondendo. O mais perto do fim: ${top.onde.replace(/^n(?=[ao] )/, '')}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
+}
+
+// ===== A tela inteira =====
+
+export interface ServiceRow {
+  service: ServicoExterno;
+  totals: ServiceTotals;
+  status: ServiceStatus;
+  desde: string | null;
+}
+
+export interface UsageView {
+  sentence: string;
+  quotas: Quota[];
+  groups: { id: MedidoEm; rows: ServiceRow[] }[];
+  now: Date;
+}
+
+/** Só o que passa pelo Worker é contado por enquanto: o navegador entra na rodada 5, e a Cloudflare, na 4. */
+const COUNTED: readonly MedidoEm[] = ['worker'];
+const GROUP_ORDER: readonly MedidoEm[] = ['worker', 'navegador', 'cloudflare'];
+
+export function usageView(usage: ApiUsage): UsageView {
+  const now = new Date(usage.geradoEm);
+  const quotas = quotasOf(usage, now);
+  const rows = SERVICOS.map((service): ServiceRow => {
+    const lines = usage.linhas.filter((l) => l.servico === service.id);
+    const totals = totalsOf(lines, now);
+    const level = quotas.find((q) => q.id === service.id)?.nivel ?? null;
+    const failures = usage.falhas.filter((f) => f.servico === service.id);
+    return { service, totals, ...statusOf(totals, lines, failures, level, now, COUNTED.includes(service.medidoEm)) };
+  });
+  const rank = (r: ServiceRow) => STATUS_ORDER.indexOf(r.status);
+  return {
+    now,
+    quotas,
+    sentence: howItIs(rows, quotas, usage, now),
+    // a ordem do catálogo desempata: `sort` é estável
+    groups: GROUP_ORDER.map((id) => ({ id, rows: rows.filter((r) => r.service.medidoEm === id).sort((a, b) => rank(a) - rank(b)) })),
+  };
+}

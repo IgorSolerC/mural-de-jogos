@@ -755,7 +755,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 0 | **Medir** — feita em 05/nov (seção 22). Sem mudar o produto. Em aberto, por não dar para medir agora: a dimensão `date` (rodada 4, com o token) e os cabeçalhos e o painel da RAWG (quando ela voltar) | Resultados na seção 22; seções 3, 4, 6, 8, 10 e 14 corrigidas; nenhuma decisão mudou |
 | 1 | **O papel de admin** — feita em 05/nov (seção 22). Impeccable no começo (brief 11.1, `context`, `craft-floor`). `ADMIN_USUARIOS`, `requireAdmin`, `admin` no `/v1/eu`, `CloudAccountInfo`, `onlyAdmin`, prateleira "Outros", ajustes na barra, página com a frase "A contagem ainda não começou" e o catálogo | O dono vê e abre; os testes provam que outra conta, sem sessão, com chave de API, e até com **o mesmo código numa conta nova** não entram; Extras sem nenhuma diferença para os outros |
 | 2 | **Contar no Worker** — feita em 05/nov (seção 22). Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
-| 3 | **A tela, com dados.** `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
+| 3 | **A tela, com dados** — feita em 05/nov (seção 22). `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
 | 4 | **A Cloudflare.** `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador.** `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
 | 6 | **Detalhe e falhas.** O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
@@ -922,3 +922,24 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
 
   Testes novos: `api/test/uso-apis.suite.ts` (nos dois bancos) e casos em `agenda.test.ts` e `oauth.suite.ts`. **Não
   medido:** a CPU da rota real com a sessão, e o volume real de gravações por dia (ver na rodada 3, já com dados).
+
+  **Conferido no ar (6c30ed02, 16:14 UTC), com a RAWG ainda fora:** uma busca desistindo aos 5 s, como o site, e outra
+  esperando (502 em 8,09 s) deram `rawg / busca / prazo` com `pedidos = 2` e 8.000 ms cada, então a busca abandonada foi
+  contada mesmo. Um TMDB deu `ok` em 496 ms. A recusa por origem (403) não gravou nada. O texto buscado não apareceu em
+  nenhuma linha. Essas três chamadas de teste estão na conta de 05/nov, e são as primeiras dela.
+- **05/nov/2026, rodada 3 (a tela, com dados), BUILD 754**: `core/api-usage.ts` (totais, cotas, estado, frase), `app-cota`
+  (`pages/api-usage/cota.ts`), a cartolina "O que tem fim", a tabela com os números, o detalhe de cada serviço e o
+  Atualizar. Decidido no caminho:
+  - A coluna Falhas e o Tempo olham os últimos 7 dias, e o Tempo só conta as respostas boas: um prazo de 8 s não pode
+    parecer lentidão.
+  - Um estado a mais, "A última falhou" (11.4 não tinha): uma falha só não é queda, mas também não é "Respondendo".
+  - "Fora do ar" vale por 1 h depois da última falha. Sem chamada depois disso, a tela não sabe se voltou: diz só que
+    a última falhou.
+  - Enquanto o navegador (rodada 5) e a Cloudflare (rodada 4) não contam, as linhas deles dizem "Ainda não conta", e
+    não "Sem uso", que seria falso.
+  - As cotas se agrupam por "quando a conta vira", e não "zera": a virada é da nossa conta (dia UTC), e a do Google não
+    é necessariamente a mesma.
+  - O celular voltou a ser tabela, como a 11.7 pedia: sem o limite nas colunas, os blocos da rodada 1 não fazem mais falta.
+  - **Colisão de classe:** `.prateleira` é global (a régua das abas), e pintou uma faixa e cortou as réguas. Renomeada.
+
+  **Falta medir:** a CPU de `GET /v1/admin/uso` na rota real, com a sessão do dono (`wrangler tail` enquanto a tela abre).

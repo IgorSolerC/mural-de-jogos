@@ -36,7 +36,11 @@ export interface LimiteDoServico {
 export interface ServicoExterno {
   id: string;
   nome: string;
+  /** Como a frase da tela chama, com o artigo: "a RAWG", "o TMDB". */
+  chamado: string;
   para: string;
+  /** Quando ele cai, o que passa a ir para a Wikipedia. */
+  reserva?: string;
   medidoEm: MedidoEm;
   /** De quem é a chave e onde ela fica. */
   chave: string;
@@ -51,6 +55,8 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'rawg',
     nome: 'RAWG',
+    chamado: 'a RAWG',
+    reserva: 'as buscas de jogos',
     para: 'Busca e capas de jogos',
     medidoEm: 'worker',
     chave: 'Do site, no Worker',
@@ -67,6 +73,8 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'tmdb',
     nome: 'TMDB',
+    chamado: 'o TMDB',
+    reserva: 'as buscas de filmes e séries',
     para: 'Busca e pôsteres de filmes e séries',
     medidoEm: 'worker',
     chave: 'Do site, no Worker',
@@ -81,6 +89,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'google-agenda',
     nome: 'Google Agenda',
+    chamado: 'o Google Agenda',
     para: 'Os dois sentidos do Calendário',
     medidoEm: 'worker',
     chave: 'A permissão de cada pessoa, no Worker',
@@ -96,6 +105,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'google-token',
     nome: 'Google, permissões',
+    chamado: 'o Google',
     para: 'Renovar e revogar a permissão da Agenda',
     medidoEm: 'worker',
     chave: 'Segredo do site, no Worker',
@@ -104,6 +114,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'oauth-documento',
     nome: 'Documento de conector',
+    chamado: 'o documento de conector',
     para: 'Ler quem pede acesso pelo OAuth',
     medidoEm: 'worker',
     chave: 'Nenhuma',
@@ -112,6 +123,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'wikipedia',
     nome: 'Wikipedia',
+    chamado: 'a Wikipedia',
     para: 'Capas, e a reserva da busca quando a RAWG ou o TMDB falham',
     medidoEm: 'navegador',
     chave: 'Nenhuma',
@@ -125,6 +137,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'open-library',
     nome: 'Open Library',
+    chamado: 'a Open Library',
     para: 'Busca e capas de livros',
     medidoEm: 'navegador',
     chave: 'Nenhuma',
@@ -138,6 +151,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'kitsu',
     nome: 'Kitsu',
+    chamado: 'o Kitsu',
     para: 'Busca e capas de animes',
     medidoEm: 'navegador',
     chave: 'Nenhuma',
@@ -146,6 +160,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'anilist',
     nome: 'AniList',
+    chamado: 'a AniList',
     para: 'A reserva dos animes, quando o Kitsu falha',
     medidoEm: 'navegador',
     chave: 'Nenhuma',
@@ -159,6 +174,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'itunes',
     nome: 'iTunes',
+    chamado: 'o iTunes',
     para: 'Busca, capas e prévias de músicas',
     medidoEm: 'navegador',
     chave: 'Nenhuma',
@@ -172,6 +188,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'chave-propria',
     nome: 'RAWG e TMDB com chave própria',
+    chamado: 'a chave própria',
     para: 'Quem colocou a própria chave em Ajustes',
     medidoEm: 'navegador',
     chave: 'Da própria pessoa, no navegador',
@@ -180,6 +197,7 @@ export const SERVICOS: readonly ServicoExterno[] = [
   {
     id: 'cloudflare',
     nome: 'Cloudflare',
+    chamado: 'a Cloudflare',
     para: 'Onde a API e os bancos moram',
     medidoEm: 'cloudflare',
     chave: 'Plano grátis, conta inteira',

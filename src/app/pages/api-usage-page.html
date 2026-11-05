@@ -1,29 +1,39 @@
+@let v = view();
+
 <header class="topo">
   <h1 class="tape-label big">Uso das APIs</h1>
-  <p class="intro">Só a sua conta abre esta página.</p>
+  <p class="intro" aria-live="polite">
+    @if (loading() && v) {
+      Atualizando…
+    } @else if (failed() && v) {
+      Não deu para atualizar. Os números são das {{ clock(v.now.toISOString()) }}.
+    } @else if (v) {
+      Atualizado às {{ clock(v.now.toISOString()) }}.
+    } @else {
+      Só a sua conta abre esta página.
+    }
+  </p>
+  @if (v) {
+    <button type="button" class="botao" [disabled]="loading()" (click)="load()">
+      <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
+      Atualizar
+    </button>
+  }
 </header>
 
 <div class="quadro">
   <!-- A frase é a resposta; os papéis embaixo são a prova. -->
   <section class="peca pauta" aria-label="Como está">
     <p class="frase" role="status">
-      @switch (state()) {
-        @case ('carregando') {
-          Conferindo…
-        }
-        @case ('pronto') {
-          @if (countingSince(); as since) {
-            A contagem começou em {{ checkedOn(since) }}, e os números vão entrar aqui. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
-          } @else {
-            A contagem ainda não começou. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
-          }
-        }
-        @case ('erro') {
-          Não deu para buscar os números agora.
-        }
+      @if (v) {
+        {{ v.sentence }}
+      } @else if (failed()) {
+        Não deu para buscar os números agora.
+      } @else {
+        Conferindo…
       }
     </p>
-    @if (state() === 'erro') {
+    @if (failed() && !v) {
       <button type="button" class="botao" (click)="load()">
         <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
         Tentar de novo
@@ -31,51 +41,123 @@
     }
   </section>
 
+  @if (v || loading()) {
+    <section class="peca cartolina cotas" aria-labelledby="cotas-titulo">
+      <app-pin class="pin" color="#ffd23f" />
+      <div class="cotas-topo">
+        <h2 id="cotas-titulo" class="titulo">O que tem fim</h2>
+        <p class="cotas-nota">Os dois riscos da régua marcam 70% e 90%.</p>
+      </div>
+      @if (v) {
+        <div class="prateleiras">
+          @for (s of shelves(); track s.janela) {
+            <div class="janela">
+              <h3>{{ s.title }}</h3>
+              @for (q of s.quotas; track q.id) {
+                <app-cota [quota]="q" />
+              }
+            </div>
+          }
+        </div>
+      } @else {
+        <div class="prateleiras" aria-hidden="true">
+          @for (p of placeholders; track p) {
+            <div class="esqueleto cota-vazia"></div>
+          }
+        </div>
+      }
+    </section>
+  }
+
   <section class="peca folha" aria-labelledby="servicos-titulo">
     <h2 id="servicos-titulo" class="titulo">Serviços</h2>
-    <!-- os `role` seguram o sentido de tabela quando, no celular, ela vira blocos (`display: block` o tiraria) -->
-    <table class="razao" role="table">
-      <caption class="sr-only">Os serviços que o Murall usa, de quem é a chave e o limite de cada um</caption>
-      <thead role="rowgroup">
-        <tr role="row">
-          <th scope="col" role="columnheader">Serviço</th>
-          <th scope="col" role="columnheader" class="col-chave">Chave</th>
-          <th scope="col" role="columnheader">Limite</th>
-        </tr>
-      </thead>
-      @for (g of groups; track g.id) {
-        <tbody role="rowgroup">
-          <tr class="grupo" role="row">
-            <th scope="rowgroup" role="columnheader" colspan="3">
-              <span class="grupo-nome">{{ g.title }}</span>
-              <span class="grupo-nota">{{ g.note }}</span>
-            </th>
+    @if (v) {
+      <table class="razao">
+        <caption class="sr-only">Quanto cada serviço foi chamado, a parte que falhou e a última chamada. O que precisa de atenção vem primeiro em cada grupo.</caption>
+        <thead>
+          <tr>
+            <th scope="col">Serviço</th>
+            <th scope="col" class="num">Hoje</th>
+            <th scope="col" class="num opcional">7 dias</th>
+            <th scope="col" class="num opcional">30 dias</th>
+            <th scope="col" class="num" title="A parte dos pedidos que falhou nos últimos 7 dias">Falhas</th>
+            <th scope="col" class="num opcional" title="O tempo médio das respostas boas nos últimos 7 dias">Tempo</th>
+            <th scope="col" class="num opcional">Última</th>
           </tr>
-          @for (s of g.services; track s.id) {
-            <tr role="row">
-              <th scope="row" role="rowheader" class="servico">
-                <span class="nome">{{ s.nome }}</span>
-                <span class="para">{{ s.para }}</span>
+        </thead>
+        @for (g of groups(); track g.id) {
+          <tbody>
+            <tr class="grupo">
+              <th scope="rowgroup" colspan="7">
+                <span class="grupo-nome">{{ g.title }}</span>
+                <span class="grupo-nota">{{ g.note }}</span>
               </th>
-              <td role="cell" class="col-chave">{{ s.chave }}</td>
-              <td role="cell" class="limite">
-                {{ s.limite.texto }}
-                @if (s.limite.conferidoEm || s.painel) {
-                  <span class="origem">
-                    @if (s.limite.fonte && s.limite.conferidoEm) {
-                      <a [href]="s.limite.fonte" target="_blank" rel="noreferrer" [attr.aria-label]="'Fonte do limite de ' + s.nome + ', conferida em ' + checkedOn(s.limite.conferidoEm)">Conferido em {{ checkedOn(s.limite.conferidoEm) }}</a>
-                    }
-                    @if (s.painel) {
-                      <a [href]="s.painel" target="_blank" rel="noreferrer" [attr.aria-label]="'Abrir o painel de ' + s.nome">Abrir o painel</a>
-                    }
-                  </span>
-                }
-              </td>
             </tr>
-          }
-        </tbody>
-      }
-    </table>
+            @for (r of g.rows; track r.service.id) {
+              @let aberto = open() === r.service.id;
+              <tr>
+                <th scope="row" class="servico">
+                  <button type="button" class="abre" [attr.aria-expanded]="aberto" [attr.aria-controls]="'detalhe-' + r.service.id" (click)="toggle(r.service.id)">
+                    <lucide-icon class="seta" [class.aberta]="aberto" [img]="OpenIcon" [size]="16" aria-hidden="true" />
+                    <span class="marca" [attr.data-estado]="r.status" aria-hidden="true"></span>
+                    <span class="nomes">
+                      <span class="nome">{{ r.service.nome }}</span>
+                      <span class="estado" [attr.data-estado]="r.status">{{ statusLabel(r.status) }}</span>
+                    </span>
+                  </button>
+                </th>
+                <td class="num">{{ count(r.status, r.totals.hoje) }}</td>
+                <td class="num opcional">{{ count(r.status, r.totals.semana) }}</td>
+                <td class="num opcional">{{ count(r.status, r.totals.trinta) }}</td>
+                <td class="num">{{ failureShare(r.totals) }}</td>
+                <td class="num opcional">{{ time(r.totals) }}</td>
+                <td class="num opcional">{{ last(r.totals, v.now) }}</td>
+              </tr>
+              @if (aberto) {
+                <tr class="detalhe" [id]="'detalhe-' + r.service.id">
+                  <td colspan="7">
+                    <dl>
+                      <div>
+                        <dt>Para quê</dt>
+                        <dd>{{ r.service.para }}</dd>
+                      </div>
+                      <div>
+                        <dt>Chave</dt>
+                        <dd>{{ r.service.chave }}</dd>
+                      </div>
+                      <div class="limite">
+                        <dt>Limite</dt>
+                        <dd>
+                          {{ r.service.limite.texto }}
+                          @if (r.service.limite.conferidoEm || r.service.painel) {
+                            <span class="origem">
+                              @if (r.service.limite.fonte && r.service.limite.conferidoEm) {
+                                <a [href]="r.service.limite.fonte" target="_blank" rel="noreferrer" [attr.aria-label]="'Fonte do limite de ' + r.service.nome + ', conferida em ' + checkedOn(r.service.limite.conferidoEm)">Conferido em {{ checkedOn(r.service.limite.conferidoEm) }}</a>
+                              }
+                              @if (r.service.painel) {
+                                <a [href]="r.service.painel" target="_blank" rel="noreferrer" [attr.aria-label]="'Abrir o painel de ' + r.service.nome">Abrir o painel</a>
+                              }
+                            </span>
+                          }
+                        </dd>
+                      </div>
+                    </dl>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        }
+      </table>
+    } @else if (loading()) {
+      <div class="linhas-vazias" aria-hidden="true">
+        @for (p of placeholders; track p) {
+          <div class="esqueleto linha-vazia"></div>
+        }
+      </div>
+    } @else {
+      <p class="sem-numeros">Os números voltam aqui assim que a nuvem responder.</p>
+    }
   </section>
 
   <details class="peca manilha">
