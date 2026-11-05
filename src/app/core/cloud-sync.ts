@@ -40,6 +40,7 @@ import { ColleagueStore } from './colleague-store';
 import { localImageIds } from './images';
 import { LocalData } from './local-data';
 import { catchUpOtherTabs } from './storage';
+import { oneTabAtATime } from './tab-lock';
 
 /**
  * A sincronização do mural com a nuvem.
@@ -746,6 +747,8 @@ export class CloudSync {
   private rerun = false;
   /** A primeira sincronização deste aparelho espera a pessoa escolher (não pergunta de novo sozinha). */
   private waitingChoice = false;
+  /** A pergunta da primeira sincronização ficou para quando esta aba estiver à vista (ver `firstSync`). */
+  private askWhenVisible = false;
   /** O mural local mudou por causa da própria sincronização: não agenda outra por isso. */
   private applying = false;
   private lastAttempt = 0;
@@ -781,6 +784,7 @@ export class CloudSync {
           this.status.set('fora');
           this.message.set(null);
           this.waitingChoice = false;
+          this.askWhenVisible = false;
         });
       }
     });
@@ -830,7 +834,12 @@ export class CloudSync {
 
     if (typeof window !== 'undefined') {
       const onVisible = () => {
-        if (document.visibilityState === 'visible' && this.active() && Date.now() - this.lastAttempt > MINUTE) this.schedule(0);
+        if (document.visibilityState !== 'visible' || !this.active()) return;
+        if (this.askWhenVisible) {
+          this.askWhenVisible = false;
+          this.waitingChoice = false;
+          this.schedule(0);
+        } else if (Date.now() - this.lastAttempt > MINUTE) this.schedule(0);
       };
       const onOnline = () => this.active() && this.schedule(0);
       document.addEventListener('visibilitychange', onVisible);
@@ -893,10 +902,8 @@ export class CloudSync {
    * de soltá-la (`persistNow`): senão uma aba enviaria o mural de antes, ou soltaria a vez com o que
    * aplicou só na memória, e a outra gravaria o dela por cima (ver `syncOnce`).
    */
-  private async withLock(fn: () => Promise<void>): Promise<void> {
-    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks?.request) await locks.request('meu-mural:sync', fn);
-    else await fn();
+  private withLock(fn: () => Promise<void>): Promise<void> {
+    return oneTabAtATime('meu-mural:sync', fn);
   }
 
   private async syncOnce(): Promise<void> {
@@ -966,8 +973,10 @@ export class CloudSync {
       // como de ninguém, podendo ir para outra conta (ver core/browser-reset.ts)
       if (state && this.kv.getItem(OWNER_KEY) === null) this.writeOwner(accountId);
       if (!state) {
-        // as imagens guardadas aqui contam como mural de ninguém (ver `localHasContent`)
+        // as imagens guardadas aqui contam como mural de ninguém (ver `localHasContent`), também as que
+        // outra aba colou depois de esta abrir
         await this.images.ready;
+        await this.images.recount();
         state = await this.firstSync(accountId);
         if (!state) return;
       }
@@ -1075,6 +1084,15 @@ export class CloudSync {
     // juntar as fichas (a junção de três vias); sem, elas já desceram trocando as daqui (ou não há o que juntar)
     let mergeFichas = false;
     if (owner === null && localHas) {
+      // A pergunta só numa aba à vista: esta espera a resposta com a vez da sincronização, e a pessoa, na
+      // outra aba, ficaria presa num "sincronizando" sem ver pergunta nenhuma.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        this.askWhenVisible = true;
+        this.waitingChoice = true;
+        this.status.set('escolha');
+        this.message.set('Falta escolher o que fazer com o mural deste navegador.');
+        return null;
+      }
       // o mural de ninguém: a pessoa decide se ele vai para a conta
       const choice = await this.ask(remoteHas);
       if (choice === null) {

@@ -320,6 +320,14 @@ export class Follow {
         void this.loadPeople().catch(() => undefined);
       });
     });
+    // outra aba viu o correio (ou seguiu alguém): esta acompanha, e o visto não volta atrás
+    if (typeof window !== 'undefined') {
+      const onOtherTab = (e: StorageEvent) => {
+        if (e.key === FEED_CACHE_KEY && e.newValue !== null) this.fromOtherTab();
+      };
+      window.addEventListener('storage', onOtherTab);
+      inject(DestroyRef).onDestroy(() => window.removeEventListener('storage', onOtherTab));
+    }
     if (typeof document !== 'undefined') {
       const tick = () => {
         if (document.visibilityState === 'visible' && Date.now() - this.checkedAt >= CHECK_EVERY_MS) void this.check();
@@ -330,6 +338,24 @@ export class Follow {
         document.removeEventListener('visibilitychange', tick);
         clearInterval(timer);
       });
+    }
+  }
+
+  /** O correio como outra aba o guardou: sem isto, o número ficava aqui e a próxima gravação daqui trazia o visto de antes. */
+  private fromOtherTab(): void {
+    const cache = readCache();
+    if (!cache || cache.conta !== this.owner()) return;
+    this.items.set(parseFeed(cache.itens));
+    const local = this.seenAt();
+    const seen = local && (!cache.vistasEm || local > cache.vistasEm) ? local : cache.vistasEm;
+    this.seenAt.set(seen);
+    const theirs = Array.isArray(cache.vistos) ? cache.vistos.filter((k): k is string => typeof k === 'string') : [];
+    this.seenKeys.update((keys) => this.pruneKeys(new Set([...keys, ...theirs]), seen));
+    this.serverNow = cache.agora ?? this.serverNow;
+    if (cache.pessoas !== undefined) {
+      // uma lista pedida antes disto chega velha
+      this.peopleVersion++;
+      this.people.set(parsePeople(cache.pessoas));
     }
   }
 

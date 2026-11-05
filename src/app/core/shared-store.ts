@@ -1,6 +1,7 @@
 import { DestroyRef, Injectable, InjectionToken, Injector, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Cloud } from './cloud-config';
+import { canonicalJson } from './canonical-json';
 import { DataKey, LocalData } from './local-data';
 import { Review, sanitizeReview } from './review';
 import { ReviewStore, SharedSink } from './review-store';
@@ -29,6 +30,8 @@ import {
   sharedContent,
   withPersonal,
 } from './shared-notes';
+import { joinWithOtherTab } from './tab-join';
+import { oneTabAtATime } from './tab-lock';
 
 /**
  * As anotações compartilhadas deste aparelho e a sincronização delas com a nuvem (ver
@@ -251,8 +254,8 @@ export class SharedStore implements SharedSink {
       );
     });
     // outra aba mexeu: acompanha
-    this.data.onExternalChange((key) => {
-      if (key === SHARED_KEY) this.loadFor(this.accountId(), true);
+    this.data.onExternalChange((key, before) => {
+      if (key === SHARED_KEY) this.fromOtherTab(before);
     });
     if (!this.auto) return;
     const destroy = inject(DestroyRef);
@@ -521,16 +524,20 @@ export class SharedStore implements SharedSink {
     this.schedule(failed ? 2 * MINUTE : open ? POLL_OPEN : POLL_EVERY);
   }
 
-  private async withLock(fn: () => Promise<void>): Promise<void> {
-    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks?.request) await locks.request('meu-mural:compartilhadas', fn);
-    else await fn();
+  private withLock(fn: () => Promise<void>): Promise<void> {
+    return oneTabAtATime('meu-mural:compartilhadas', fn);
   }
 
   private async syncOnce(): Promise<void> {
     const account = this.accountId();
     if (!account || !this.active()) return;
-    // outra aba pode ter gravado enquanto esta esperava a vez
+    // outra aba pode ter gravado enquanto esta esperava a vez, e o aviso dela pode não ter chegado: sem
+    // acompanhar, esta subiria a lista de antes e a gravaria por cima da dela
+    try {
+      await this.data.catchUp();
+    } catch {
+      /* sem como conferir: vale o aviso, quando chegar */
+    }
     this.loadFor(account, true);
     let failed = false;
     try {
@@ -779,7 +786,7 @@ export class SharedStore implements SharedSink {
   }
 
   /** Lê as compartilhadas da conta (de novo, se `force`, quando outra aba gravou). */
-  private loadFor(account: string | null, force = false): void {
+  private loadFor(account: string | null, force = false, all: Stored = this.readAll()): void {
     if (!force && account === this.loadedFor) return;
     this.loadedFor = account;
     if (!account) {
@@ -787,7 +794,6 @@ export class SharedStore implements SharedSink {
       if (this.places().size) this.places.set(new Map());
       return;
     }
-    const all = this.readAll();
     this.places.set(sanitizePlaces(all.lugares[account]));
     const list = (all.contas[account] ?? []).map(readEntry).filter((e) => e !== null);
     const before = this.entries();
@@ -819,29 +825,55 @@ export class SharedStore implements SharedSink {
 
   private readAll(): Stored {
     try {
-      const raw = JSON.parse(this.data.getItem(SHARED_KEY) ?? 'null') as Partial<Stored> | null;
-      const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
-      const lugares = raw?.lugares && typeof raw.lugares === 'object' ? raw.lugares : {};
-      return { contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>, lugares };
+      return storedFrom(JSON.parse(this.data.getItem(SHARED_KEY) ?? 'null'));
     } catch {
       return { contas: {}, lugares: {} };
     }
   }
 
-  private persist(): void {
-    const account = this.loadedFor;
-    if (!account) return;
+  /**
+   * Outra aba gravou. Sem mudança daqui fora do que esta aba viu, vale o gravado; com (uma edição que ela
+   * gravou sem ter ouvido a outra), as duas se juntam campo a campo, para a edição ainda não enviada não sumir.
+   */
+  private fromOtherTab(before: string | null): void {
+    const account = this.accountId();
+    const theirs = this.data.getItem(SHARED_KEY);
+    const joined = account === this.loadedFor && account ? joinWithOtherTab(before, JSON.stringify(this.toStore(account)), theirs) : undefined;
+    if (joined === undefined || canonicalJson(joined) === canonicalJson(JSON.parse(theirs!))) {
+      this.loadFor(account, true);
+      return;
+    }
+    this.loadFor(account, true, storedFrom(joined));
+    this.persist();
+  }
+
+  /** O que vai para o armazenamento: as outras contas como estão, e esta como está aqui. */
+  private toStore(account: string): Stored {
     const all = this.readAll();
     all.contas[account] = [...this.entries().values()].map(storedEntry);
     if (!all.contas[account].length) delete all.contas[account];
     all.lugares[account] = Object.fromEntries(this.places());
     if (!this.places().size) delete all.lugares[account];
+    return all;
+  }
+
+  private persist(): void {
+    const account = this.loadedFor;
+    if (!account) return;
     try {
-      void Promise.resolve(this.data.setItem(SHARED_KEY, JSON.stringify(all))).catch(() => undefined);
+      void Promise.resolve(this.data.setItem(SHARED_KEY, JSON.stringify(this.toStore(account)), { joinable: true })).catch(() => undefined);
     } catch {
       /* sem espaço: fica na memória até a próxima gravação */
     }
   }
+}
+
+/** O guardado, a partir do cru (o gravado, ou a junção com outra aba). */
+function storedFrom(value: unknown): Stored {
+  const raw = value as Partial<Stored> | null;
+  const contas = raw?.contas && typeof raw.contas === 'object' ? raw.contas : {};
+  const lugares = raw?.lugares && typeof raw.lugares === 'object' ? raw.lugares : {};
+  return { contas: Object.fromEntries(Object.entries(contas).filter(([, v]) => Array.isArray(v))) as Record<string, unknown[]>, lugares };
 }
 
 /** O que vem da nuvem e não é o conteúdo: o dono, o papel, as pessoas, quem gravou. */

@@ -171,6 +171,27 @@ describe('as outras abas', () => {
     expect(localStorage.getItem(PROFILE_KEY)).toBe(after);
   });
 
+  it('uma aba aberta antes de uma versão nova não regrava o que a outra gravou sem os campos que não conhece', () => {
+    const kanban = TestBed.inject(KanbanStore);
+    const settings = TestBed.inject(Settings);
+    const profiles = TestBed.inject(ProfileStore);
+    TestBed.tick();
+    for (const key of [KANBAN_KEY, SETTINGS_KEY, PROFILE_KEY]) {
+      const theirs = JSON.stringify({ ...(JSON.parse(localStorage.getItem(key)!) as object), campoDaVersaoNova: 1 });
+      otherTabWrote(key, theirs);
+      TestBed.tick();
+      expect(localStorage.getItem(key)).withContext(key).toBe(theirs);
+    }
+    // o que esta aba mudar depois é gravado, como sempre
+    kanban.update(kanban.boardFor('Trabalho').id, (b) => ({ ...b, columns: b.columns.map((c, i) => (i ? c : { ...c, name: 'Daqui' })) }));
+    settings.setCategoryLook('Casa', { color: 'rosa' });
+    profiles.update((p) => ({ ...p, tagline: 'Daqui' }));
+    TestBed.tick();
+    expect(localStorage.getItem(KANBAN_KEY)).toContain('Daqui');
+    expect(localStorage.getItem(SETTINGS_KEY)).toContain('rosa');
+    expect(localStorage.getItem(PROFILE_KEY)).toContain('Daqui');
+  });
+
   it('o calendário: o lembrete que a outra aba salvou aparece aqui', () => {
     const calendar = TestBed.inject(CalendarStore);
     const { after } = fromOtherTab(CALENDAR_KEY, () => calendar.save({ ...calendar.blank(calendar.today()), title: 'Dentista' }));

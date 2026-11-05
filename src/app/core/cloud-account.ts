@@ -1,4 +1,4 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Cloud } from './cloud-config';
 import { MONTHS_LONG } from './dates';
 import { OWNER_NAME_MAX, Settings } from './settings';
@@ -121,6 +121,18 @@ export class CloudAccount {
   readonly signedIn = computed(() => this.token() !== null && this.account() !== null);
 
   constructor() {
+    // Outra aba trouxe a conta de novo (trocou o código, a API liberada, a marca de apagar): esta acompanha,
+    // senão mostraria o link do código antigo, e a próxima mudança daqui o gravaria de volta. A sessão não:
+    // entrar em outra aba recarrega esta, e sair limpa (ver `watchOtherTabs` em core/browser-reset.ts).
+    if (typeof window !== 'undefined') {
+      const onOtherTab = (e: StorageEvent) => {
+        if (e.key !== ACCOUNT_KEY || e.newValue === null) return;
+        const account = readAccount();
+        if (account && this.token() !== null && this.token() === readToken() && account.id === this.account()?.id) this.account.set(account);
+      };
+      window.addEventListener('storage', onOtherTab);
+      inject(DestroyRef).onDestroy(() => window.removeEventListener('storage', onOtherTab));
+    }
     // Ao abrir, confere a sessão e traz o código e o nome de lá.
     void this.cloud.ready.then(() => {
       if (this.signedIn() && this.cloud.config()) this.refresh().catch(() => undefined);

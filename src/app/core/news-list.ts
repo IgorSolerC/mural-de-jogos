@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-mais-sem-anel-no-mouse',
+    id: '2026-11-04-duas-abas-sem-perder-nada',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -50,6 +50,14 @@ export const NEWS: NewsEntry[] = [
       'As tags dos filtros e a tira de dependências do Kanban voltaram a responder ao teclado: o Enter e o espaço acionam, e o Tab passa por eles.',
       'No Mais das abas, o nome de grupo muito comprido agora termina em reticências, dentro da lista, e aparece inteiro na dica do mouse.',
       'Ao abrir o Mais das abas com o mouse, a primeira opção não aparece mais com o contorno de quem usa o teclado.',
+      'Com o Murall aberto em duas abas, "Apagar o save" agora vale para todas: a outra não continua mostrando as fichas apagadas nem dá erro ao salvar.',
+      'Entrar na conta numa aba agora recarrega as outras, que ficavam mostrando o mural com o botão Entrar; o código trocado, a API liberada e o aviso de apagar a conta chegam às abas abertas, e o código antigo não volta.',
+      'A aba aberta antes de uma atualização do site não apaga mais o que a aba nova grava nos ajustes, no Kanban, nos Gastos, no Calendário e no perfil.',
+      'Com duas abas abertas, a edição de uma anotação compartilhada ainda não enviada e os conflitos à espera de escolha não somem mais quando a outra grava; o correio visto numa aba zera o número na outra, quem você seguiu aparece nas duas, e ligar ou desligar o Google Agenda vale para as duas.',
+      'O Google Agenda e as imagens coladas agora sobem de uma aba por vez, sem mandar a mesma coisa duas vezes e sem gastar o limite do dia à toa.',
+      'A anotação que não coube no navegador (sem espaço) não some mais da tela na sincronização seguinte, e uma anotação recém-criada não se perde quando as duas abas gravam quase juntas.',
+      'A imagem colada em outra aba agora entra na pergunta de levar o mural para a conta, e essa pergunta só aparece na aba à vista, sem deixar a outra presa em "sincronizando".',
+      'No Muraldle, fechar o mesmo dia em duas abas conta uma vez só e não zera a sequência.',
     ],
   },
   {

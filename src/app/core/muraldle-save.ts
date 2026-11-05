@@ -20,6 +20,8 @@ export interface DailyStats {
   best: number;
   /** O último dia acertado (para a sequência). */
   lastWon: string | null;
+  /** O último dia fechado, acertado ou não: com duas abas no mesmo jogo, ele conta uma vez só. */
+  lastDay?: string;
   /** As secretas dos últimos dias, para não repetir logo. */
   recent: string[];
 }
@@ -55,6 +57,9 @@ export function loadDaily(slot: string): DailyGame | null {
 
 export function saveDaily(slot: string, game: DailyGame): void {
   const s = read();
+  // o jogo já acabou em outra aba: esta, aberta desde antes, não o traz de volta
+  const had = s.games[slot];
+  if (had?.done && had.day === game.day && had.secretId === game.secretId) return;
   s.games[slot] = game;
   write(s);
 }
@@ -70,6 +75,9 @@ export function loadStats(slot: string, today: string): DailyStats {
 export function finishDay(slot: string, day: string, secretId: string, won: boolean): DailyStats {
   const s = read();
   const st: DailyStats = { ...EMPTY_STATS, ...(s.stats[slot] ?? {}) };
+  // já fechado em outra aba: acertar de novo aqui zeraria a sequência (o último acerto não é de ontem)
+  if (st.lastDay === day || st.lastWon === day) return st;
+  st.lastDay = day;
   st.played++;
   if (won) {
     st.won++;

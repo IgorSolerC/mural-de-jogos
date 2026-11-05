@@ -1,5 +1,6 @@
 import { COLLEAGUES_DB, Colleague, ColleagueStore } from './colleague-store';
 import { cloudColleagueId } from './cloud-murals';
+import { deleteDatabase } from './erase-save';
 import { sanitizeReview } from './review';
 
 describe('murais de outras pessoas guardados à parte', () => {
@@ -40,6 +41,19 @@ describe('murais de outras pessoas guardados à parte', () => {
   });
   afterEach(async () => {
     for (const id of ids.splice(0)) await store.remove(id);
+  });
+
+  it('a limpeza feita por outra aba apaga o banco: esta aba abre outra conexão, em vez de falhar', async () => {
+    const mine = new ColleagueStore();
+    await mine.ready;
+    await mine.restore(wall('AAAA-1111', 'Ana', 'Hades'));
+    ids.push(cloudColleagueId('AAAA-1111'));
+    await deleteDatabase(COLLEAGUES_DB);
+    await expectAsync(mine.restore(wall('BBBB-2222', 'Bia', 'Celeste'))).toBeResolved();
+    ids.push(cloudColleagueId('BBBB-2222'));
+    const fresh = new ColleagueStore();
+    await fresh.ready;
+    expect(fresh.colleagues().map((c) => c.name)).toEqual(['Bia']);
   });
 
   it('guarda pessoas distintas e as devolve ao reabrir', async () => {

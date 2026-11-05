@@ -1,6 +1,6 @@
 import { canonicalJson } from './canonical-json';
 import { mergeJson } from './merge-json';
-import { readText } from './storage';
+import { readText, tookFromOtherTab } from './storage';
 
 /**
  * Duas abas do Murall no mesmo navegador mexendo ao mesmo tempo. Cada loja guarda o estado inteiro numa
@@ -42,7 +42,10 @@ export function joinWithOtherTab(before: string | null | undefined, mine: string
  */
 export function fromOtherTab<T>(key: string, before: string | null, mine: unknown, read: () => T, sanitize: (raw: unknown) => T): T {
   const joined = joinWithOtherTab(before, JSON.stringify(mine), readText(key));
-  return joined === undefined ? read() : sanitize(joined);
+  if (joined !== undefined) return sanitize(joined);
+  const stored = read();
+  tookFromOtherTab(key, stored);
+  return stored;
 }
 
 type Item = Record<string, unknown> & { id: string };

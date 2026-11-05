@@ -1,3 +1,5 @@
+import { canonicalJson } from './canonical-json';
+
 /**
  * O que o site guarda no localStorage, num jeito só. Ler ou gravar pode falhar (a cota cheia, o
  * navegador sem armazenamento, uma janela privada que não deixa): aqui a falha nunca sobe, e o que
@@ -15,6 +17,8 @@ let frozen = false;
 const watched = new Map<string, Set<(before: string | null) => void>>();
 /** O texto de cada chave acompanhada como esta aba o viu por último (gravou ou ouviu). */
 const seen = new Map<string, string | null>();
+/** O que esta aba acabou de receber de outra, sem nada dela no meio (ver `tookFromOtherTab`). */
+const taken = new Map<string, string>();
 
 export function freezeStorage(): void {
   frozen = true;
@@ -85,15 +89,30 @@ export function writeJson(key: string, value: unknown): void {
       const before = seen.get(key) ?? null;
       if (now !== before && now !== text) {
         seen.set(key, now);
+        taken.delete(key);
         for (const fn of [...fns]) fn(before);
         return;
       }
+      // o que o effect grava é o que acabou de vir da outra aba: o gravado fica como ela o deixou
+      const same = taken.get(key);
+      taken.delete(key);
+      if (same !== undefined && now !== null && same === canonicalJson(value)) return;
     }
     localStorage.setItem(key, text);
     if (fns) seen.set(key, text);
   } catch {
     /* sem armazenamento: vale só até recarregar */
   }
+}
+
+/**
+ * Quem acompanha a chave pôs na memória o que outra aba gravou, sem mudança daqui: a passada do effect
+ * que vê exatamente isto não regrava. Regravar passaria o texto dela pelo saneamento desta aba, e uma aba
+ * aberta antes de uma versão nova do site tiraria os campos que ela não conhece (e a outra, ao ouvir, os
+ * perderia). O que esta aba mudar depois é gravado como sempre.
+ */
+export function tookFromOtherTab(key: string, value: unknown): void {
+  if (otherTabsChecked && watched.has(key)) taken.set(key, canonicalJson(value));
 }
 
 /** Tira a chave (sem armazenamento, não há o que tirar). */
@@ -160,6 +179,7 @@ export function onOtherTab(key: string, fn: (before: string | null) => void): ()
     if (set && !set.size) {
       watched.delete(key);
       seen.delete(key);
+      taken.delete(key);
     }
   };
 }

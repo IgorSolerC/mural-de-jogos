@@ -43,6 +43,36 @@ describe('conta na nuvem', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => localStorage.clear());
 
+  describe('com outra aba aberta', () => {
+    const me = { id: 'c1', codigo: 'K7QF-M2XA', nome: 'Igor' };
+    const otherTabWrote = (account: object) => {
+      const text = JSON.stringify(account);
+      localStorage.setItem(ACCOUNT_KEY, text);
+      window.dispatchEvent(new StorageEvent('storage', { key: ACCOUNT_KEY, newValue: text }));
+    };
+
+    async function signedIn(): Promise<CloudAccount> {
+      localStorage.setItem(SESSION_KEY, TOKEN);
+      localStorage.setItem(ACCOUNT_KEY, JSON.stringify(me));
+      fakeFetch(json(me));
+      const account = setup();
+      await settle();
+      return account;
+    }
+
+    it('o código trocado, a API liberada e a marca de apagar chegam aqui', async () => {
+      const account = await signedIn();
+      otherTabWrote({ ...me, codigo: 'NOVO-1234', api: true, apagarEm: '2026-11-11T00:00:00.000Z' });
+      expect(account.account()).toEqual(jasmine.objectContaining({ codigo: 'NOVO-1234', api: true, apagarEm: '2026-11-11T00:00:00.000Z' }));
+    });
+
+    it('a conta de outra pessoa não entra na memória desta aba (quem troca é a recarga)', async () => {
+      const account = await signedIn();
+      otherTabWrote({ id: 'c2', codigo: 'OUTR-0000', nome: 'Outra' });
+      expect(account.account()?.id).toBe('c1');
+    });
+  });
+
   it('entra com o credential do Google, manda o "Seu nome" e guarda a sessão', async () => {
     const account = setup();
     settings.ownerName.set('  Igor  ');

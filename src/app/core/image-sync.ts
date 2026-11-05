@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { CloudAccount, CloudError } from './cloud-account';
 import { ImageStore } from './image-store';
 import { Cloud } from './cloud-config';
+import { oneTabAtATime } from './tab-lock';
 
 /** Por que as imagens pararam de subir, para a folha da imagem e o Sair dizerem. */
 export interface ImageSendProblem {
@@ -70,7 +71,9 @@ export class ImageSync {
   send(now = Date.now()): Promise<void> {
     if (this.sending) return this.sending;
     if (now < this.waitUntil || !this.account.signedIn()) return Promise.resolve();
-    this.sending = this.sendAll().finally(() => (this.sending = null));
+    // uma aba por vez: colar sobe na hora, fora da vez da sincronização, e a outra aba mandaria a mesma
+    // imagem, gastando o limite do dia. A fila é lida já com a vez: o que a outra mandou não está mais nela
+    this.sending = oneTabAtATime('meu-mural:imagens', () => this.sendAll()).finally(() => (this.sending = null));
     return this.sending;
   }
 

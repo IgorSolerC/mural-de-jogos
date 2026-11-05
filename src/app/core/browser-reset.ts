@@ -4,7 +4,7 @@ import { ACCOUNT_KEY, SESSION_KEY, readAccount, readToken } from './cloud-accoun
 import { COLLEAGUES_DB } from './colleague-store';
 import { DATA_DB } from './local-data';
 import { IMAGES_DB } from './image-store';
-import { PREFIXES, deleteDatabase } from './erase-save';
+import { PREFIXES, deleteDatabase, eraseSave } from './erase-save';
 import { freezeStorage } from './storage';
 
 /**
@@ -21,13 +21,15 @@ import { freezeStorage } from './storage';
  *
  * A limpeza acontece na subida da página, antes de qualquer parte do app ler o que guardou: quem pede
  * marca `RESET_KEY` e recarrega. Até recarregar, nada mais grava (`freezeStorage`), e as outras abas
- * abertas recarregam junto (`watchOtherTabs`).
+ * abertas recarregam junto (`watchOtherTabs`). "Apagar o save" vai pelo mesmo caminho (`ERASE_KEY`).
  */
 
 /** De quem é o mural deste navegador: o id da conta, ou nada (de ninguém). */
 export const OWNER_KEY = 'meu-mural:nuvem:dono';
 /** Pedido de limpar o navegador na próxima subida, com o que fica (ver `ResetKeep`). */
 export const RESET_KEY = 'meu-mural:limpar';
+/** Pedido de "Apagar o save" (Ajustes) na próxima subida: sai o que `eraseSave` tira, e as outras abas recarregam junto. */
+export const ERASE_KEY = 'meu-mural:apagar-save';
 /** As capas guardadas pelo service worker (public/sw.js): mostram o que a pessoa viu. */
 export const COVERS_CACHE = 'mural-capas-v1';
 /** O código e a página guardados pelo service worker (public/sw.js), para o mural abrir offline. */
@@ -112,7 +114,9 @@ export async function resetOnBoot(): Promise<boolean> {
   let request: ResetRequest | null;
   let orphan: boolean;
   let foreign: boolean;
+  let erase: boolean;
   try {
+    erase = localStorage.getItem(ERASE_KEY) !== null;
     request = readRequest(localStorage.getItem(RESET_KEY));
     const owner = localStorage.getItem(OWNER_KEY);
     const account = readAccount();
@@ -125,7 +129,17 @@ export async function resetOnBoot(): Promise<boolean> {
   } catch {
     return false;
   }
-  if (!request && !orphan && !foreign) return false;
+  if (!request && !orphan && !foreign) {
+    if (!erase) return false;
+    // o pedido sai por último: se a aba fechar no meio, a próxima subida termina
+    await eraseSave(new Set([ERASE_KEY]));
+    try {
+      localStorage.removeItem(ERASE_KEY);
+    } catch {
+      /* fica para a próxima subida */
+    }
+    return true;
+  }
   // sem a sessão, não há conta para deixar
   const keep = orphan ? (request?.keep ?? []).filter((k) => k !== 'sessao') : (request?.keep ?? ['sessao']);
   await wipeBrowser(keep);
@@ -158,7 +172,8 @@ function whoIsHere(): string {
 }
 
 /**
- * Outra aba pediu a limpeza: esta para de gravar e recarrega junto (e limpa, se for a primeira a subir).
+ * Outra aba pediu a limpeza, apagou o save ou entrou na conta: esta para de gravar e recarrega junto (e
+ * limpa, se for a primeira a subir).
  *
  * A página guardada no cache de voltar/avançar (a pessoa foi para outro site nesta aba) não ouve o
  * `storage` enquanto está lá: se outra aba saiu da conta (ou entrou noutra) nesse meio-tempo, ela
@@ -168,7 +183,11 @@ function whoIsHere(): string {
 export function watchOtherTabs(reload: () => void = () => location.reload(), freeze: () => void = freezeStorage): () => void {
   if (typeof window === 'undefined') return () => undefined;
   const listener = (e: StorageEvent) => {
-    if (e.key !== RESET_KEY || e.newValue === null) return;
+    if (e.newValue === null) return;
+    // a sessão de outra aba (entrou nela): esta abriu fora da conta e estaria mostrando o mural da conta
+    // com o botão Entrar. Sair da conta não passa por aqui: quem recarrega é o pedido de limpeza
+    const session = e.key === SESSION_KEY && e.newValue !== e.oldValue;
+    if (e.key !== RESET_KEY && e.key !== ERASE_KEY && !session) return;
     freeze();
     reload();
   };
@@ -215,6 +234,27 @@ export class BrowserReset {
       // para as outras abas recarregarem e a subida terminar e avisar.
       void wipeBrowser(keep)
         .then(() => localStorage.setItem(RESET_KEY, JSON.stringify(pending)))
+        .catch(() => undefined)
+        .finally(() => this.reload());
+      return;
+    }
+    this.reload();
+  }
+
+  /**
+   * "Apagar o save" (Ajustes): como a limpeza, na subida da página, com todas as abas recarregando junto.
+   * Apagar com a página aberta deixava as outras abas com as fichas na memória e o banco fechado.
+   */
+  eraseSave(): void {
+    if (this.pending) return;
+    this.pending = { keep: ['sessao'], motivo: 'saiu' };
+    this.freeze();
+    try {
+      localStorage.setItem(ERASE_KEY, '1');
+    } catch {
+      // não coube nem o pedido: a limpeza começa daqui; com espaço, o pedido vai depois, para as outras abas recarregarem
+      void eraseSave()
+        .then(() => localStorage.setItem(ERASE_KEY, '1'))
         .catch(() => undefined)
         .finally(() => this.reload());
       return;

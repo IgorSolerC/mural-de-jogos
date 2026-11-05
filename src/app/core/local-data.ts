@@ -70,6 +70,8 @@ export class LocalData {
   private readonly pending = new Set<Promise<void>>();
   /** No localStorage: o texto de cada chave como esta aba o viu por último (leu, gravou ou ouviu). */
   private readonly seenLocal = new Map<DataKey, string | null>();
+  /** No IndexedDB: o que esta aba sabe que está gravado em cada chave (o `cache` já traz a gravação a caminho). */
+  private readonly stored = new Map<DataKey, string | null>();
 
   /** Onde os dados estão agora (para Ajustes e para os testes). */
   get where(): Mode {
@@ -120,6 +122,7 @@ export class LocalData {
       this.cache.clear();
       return; // a cópia não completou: nada mudou, segue no localStorage e tenta de novo depois
     }
+    for (const key of DATA_KEYS) this.stored.set(key, this.cache.get(key) ?? null);
     this.db = db;
     this.mode = 'indexeddb';
     db.onversionchange = () => db.close();
@@ -172,6 +175,7 @@ export class LocalData {
     if (opts.joinable) {
       write = writeIfUnchanged(this.db!, key, expected, value).then((current) => {
         if (current === undefined) {
+          this.stored.set(key, value);
           this.mirror(key, value);
           this.channel?.postMessage(key);
           return;
@@ -179,16 +183,28 @@ export class LocalData {
         // outra aba gravou antes: fica o dela, e quem grava junta (uma gravação daqui mais nova, a caminho,
         // vai dar com a mesma coisa e avisa então)
         if (this.cache.get(key) !== value) return;
+        // a base é o que esta aba sabe que estava lá, e não a gravação de antes desta, que também cedeu e
+        // nunca foi gravada: com ela, o que aquela pôs pareceria tirado pela outra aba, e sumiria
+        const before = this.stored.get(key) ?? null;
+        this.stored.set(key, current);
         this.cache.set(key, current);
-        this.emit(key, expected);
+        this.emit(key, before);
       });
     } else {
       this.mirror(key, value);
-      write = writeMany(this.db!, [[key, value]]).then(() => this.channel?.postMessage(key));
+      write = writeMany(this.db!, [[key, value]]).then(() => {
+        this.stored.set(key, value);
+        this.channel?.postMessage(key);
+      });
     }
     const done = write.then(
       () => undefined,
-      () => undefined,
+      () => {
+        // não gravou (sem espaço): a mudança é só da memória, e o gravado continua o de antes. Sem voltar
+        // aqui, conferir a outra aba (`catchUp`, a cada sincronização) tomaria o gravado por uma mudança dela,
+        // e a memória voltaria a ele
+        if (this.cache.get(key) === value) this.cache.set(key, this.stored.get(key) ?? null);
+      },
     );
     this.pending.add(done);
     void done.then(() => this.pending.delete(done));
@@ -235,6 +251,7 @@ export class LocalData {
       const now = typeof value === 'string' ? value : null;
       const before = this.cache.get(key) ?? null;
       if (now === before) continue;
+      this.stored.set(key, now);
       this.cache.set(key, now);
       this.emit(key, before);
     }
@@ -278,6 +295,7 @@ export class LocalData {
       const before = this.cache.get(key) ?? null;
       const now = typeof value === 'string' ? value : null;
       if (now === before) return;
+      this.stored.set(key, now);
       this.cache.set(key, now);
       this.emit(key, before);
     } catch {

@@ -1,10 +1,11 @@
-import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ApplicationRef, DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Reminder, addDays } from './calendar';
 import { CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
 import { GEvent, deviceTimeZone, eventIdFor, fromEvent, instanceIdFor, isMuralEvent, reminderIdFor, toEvent } from './google-agenda';
 import { ReviewStore } from './review-store';
-import { readJson, removeKey, writeJson } from './storage';
+import { catchUpOtherTabs, readJson, removeKey, writeJson } from './storage';
+import { oneTabAtATime } from './tab-lock';
 
 /** O que este aparelho guarda da ligação: de que conta, o ponto da última leitura e os apagados que já saíram de lá. */
 const DEVICE_KEY = 'meu-mural:agenda-google:v1';
@@ -148,6 +149,7 @@ export class GoogleAgenda {
   private readonly account = inject(CloudAccount);
   private readonly calendar = inject(CalendarStore);
   private readonly store = inject(ReviewStore);
+  private readonly appRef = inject(ApplicationRef);
 
   readonly status = signal<AgendaStatus>('fora');
   readonly since = signal<string | null>(null);
@@ -192,6 +194,7 @@ export class GoogleAgenda {
       // a janela do Google pode ter perdido o `opener`: a resposta chega pelo localStorage. O aviso chega a
       // todas as abas do Murall, mas o código vale uma vez: só a aba que pediu para ligar o entrega
       window.addEventListener('storage', (e) => {
+        if (e.key === DEVICE_KEY) this.deviceFromOtherTab(e.newValue !== null);
         if (e.key !== RETURN_KEY || !e.newValue) return;
         if (!this.awaitingSince || Date.now() - this.awaitingSince > AWAIT_MS) return;
         const d = readJson<{ codigo?: string; estado?: string; erro?: string }>(RETURN_KEY);
@@ -233,6 +236,28 @@ export class GoogleAgenda {
     }
     const back = readJson<{ codigo?: string; estado?: string; erro?: string }>(RETURN_KEY);
     if (back) await this.finish(back);
+  }
+
+  /**
+   * Lê a ligação guardada: outra aba divide esta chave e pode tê-la mudado (o ponto da leitura, os apagados
+   * que já foram, as recusas), e a cópia na memória gravaria a de antes por cima.
+   */
+  private readDevice(): void {
+    const conta = this.device?.conta ?? this.account.account()?.id;
+    if (!conta) return;
+    const saved = readJson<DeviceState>(DEVICE_KEY);
+    this.device = saved?.conta === conta ? saved : { conta };
+    this.doneDeletes.set(this.device.feitos ?? []);
+    this.refused.set(this.device.recusados ?? {});
+    this.lastSync.set(this.device.em ?? null);
+  }
+
+  /** Outra aba mexeu na ligação: esta acompanha; se ligou ou desligou, pergunta à API como está agora. */
+  private deviceFromOtherTab(stored: boolean): void {
+    if (!this.account.signedIn()) return;
+    this.readDevice();
+    const on = this.status() === 'ligada';
+    if (this.status() !== 'ligando' && stored !== on) void this.refresh();
   }
 
   /**
@@ -344,15 +369,26 @@ export class GoogleAgenda {
     this.running = (async () => {
       this.syncing.set(true);
       try {
-        do {
-          this.again = false;
-          await this.pull();
-          await this.push();
-        } while (this.again);
-        const em = new Date().toISOString();
-        this.saveDevice({ em });
-        this.lastSync.set(em);
-        this.error.set(this.refusals());
+        // Uma aba por vez, com o que as outras fizeram já aqui: sem isso, as duas mandavam as mesmas mudanças
+        // ao Google (gastando o limite) e cada uma gravava a ligação da sua memória por cima da outra.
+        await oneTabAtATime('meu-mural:agenda', async () => {
+          try {
+            catchUpOtherTabs();
+            this.readDevice();
+            do {
+              this.again = false;
+              await this.pull();
+              await this.push();
+            } while (this.again);
+            const em = new Date().toISOString();
+            this.saveDevice({ em });
+            this.lastSync.set(em);
+            this.error.set(this.refusals());
+          } finally {
+            // o que veio do Google vai para o localStorage antes de soltar a vez (na aba escondida, o effect demora)
+            this.persistNow();
+          }
+        });
       } catch (err) {
         if (err instanceof CloudError && err.code === 'agenda-desligada') {
           this.status.set('desligada');
@@ -611,9 +647,18 @@ export class GoogleAgenda {
     }
   }
 
+  private persistNow(): void {
+    try {
+      this.appRef.tick();
+    } catch {
+      /* já no meio de um tick: os effects rodam nele */
+    }
+  }
+
   private saveDevice(patch: Partial<DeviceState>): void {
     if (!this.device) return;
-    this.device = { ...this.device, ...patch };
+    const saved = readJson<DeviceState>(DEVICE_KEY);
+    this.device = { ...(saved?.conta === this.device.conta ? saved : this.device), ...patch };
     if (!this.device.sync) delete this.device.sync;
     writeJson(DEVICE_KEY, this.device);
   }

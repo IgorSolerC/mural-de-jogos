@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Reminder } from './calendar';
-import { CalendarStore } from './calendar-store';
+import { CALENDAR_KEY, CalendarStore } from './calendar-store';
 import { CloudAccount, CloudError } from './cloud-account';
 import { GEvent, eventIdFor } from './google-agenda';
 import { GoogleAgenda, RETURN_KEY, refusalMessage } from './google-agenda-sync';
@@ -122,6 +122,58 @@ describe('o Google Agenda ligado ao Calendário', () => {
     await google.refresh('u1');
   });
   afterEach(() => localStorage.clear());
+
+  describe('com outra aba aberta', () => {
+    const DEVICE_KEY = 'meu-mural:agenda-google:v1';
+    const device = () => JSON.parse(localStorage.getItem(DEVICE_KEY)!) as { feitos?: string[]; sync?: string };
+
+    it('uma aba por vez: espera a outra terminar para ler e mandar', async () => {
+      calendar.state.set({ reminders: [reminder('rumaaba0001', 'Dentista')], removed: {} });
+      let release!: () => void;
+      const otherTab = navigator.locks.request('meu-mural:agenda', () => new Promise<void>((r) => (release = r)));
+      const running = google.sync();
+      await new Promise((r) => setTimeout(r, 20));
+      expect(fake.ops).toEqual([]);
+      release();
+      await otherTab;
+      await running;
+      expect(fake.ops.length).toBe(1);
+    });
+
+    it('o que a outra aba guardou na ligação vale aqui: o apagado que ela mandou não vai de novo, e continua guardado', async () => {
+      calendar.state.set({ reminders: [], removed: {}, googleTrash: { evento0001: T0 } });
+      localStorage.setItem(DEVICE_KEY, JSON.stringify({ conta: 'u1', desde: T0, feitos: ['evento0001'] }));
+      await google.sync();
+      expect(fake.ops).toEqual([]);
+      expect(device().feitos).toEqual(['evento0001']);
+    });
+
+    it('o que vem do Google vai para o localStorage antes de soltar a vez, mesmo com o effect atrasado', async () => {
+      fake.events.set('dentista0001', { id: 'dentista0001', status: 'confirmed', summary: 'Dentista', start: { date: '2026-10-22' }, end: { date: '2026-10-23' }, updated: '2026-10-18T12:00:00.000Z', etag: '"e1"', seu: true, tipo: 'default' } as GEvent);
+      TestBed.tick();
+      await google.sync();
+      expect(localStorage.getItem(CALENDAR_KEY)).toContain('Dentista');
+    });
+
+    it('desligado na outra aba: esta confere e passa a mostrar desligado', async () => {
+      expect(google.status()).toBe('ligada');
+      connected = false;
+      window.dispatchEvent(new StorageEvent('storage', { key: DEVICE_KEY, newValue: null }));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(google.status()).toBe('desligada');
+    });
+
+    it('ligado na outra aba: esta confere e passa a mostrar ligado', async () => {
+      connected = false;
+      await google.refresh('u1');
+      expect(google.status()).toBe('desligada');
+      connected = true;
+      localStorage.setItem(DEVICE_KEY, JSON.stringify({ conta: 'u1', desde: T0 }));
+      window.dispatchEvent(new StorageEvent('storage', { key: DEVICE_KEY, newValue: localStorage.getItem(DEVICE_KEY) }));
+      await new Promise((r) => setTimeout(r, 0));
+      expect(google.status()).toBe('ligada');
+    });
+  });
 
   it('ligado, manda os lembretes do Murall (com o id que não repete) e traz os eventos do Google', async () => {
     calendar.state.set({ reminders: [reminder('rbolo00001', 'Fazer bolo', { repeat: 'ano' })], removed: {} });

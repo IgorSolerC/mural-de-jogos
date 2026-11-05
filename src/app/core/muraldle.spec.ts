@@ -1,4 +1,4 @@
-import { finishDay, loadStats } from './muraldle-save';
+import { finishDay, loadDaily, loadStats, saveDaily } from './muraldle-save';
 import { HINTS, columnsFor, compare, dailySecret, hintsUnlocked, previousDay, revealedWords, shareText, wordsShown } from './muraldle';
 import { Review, sanitizeReview } from './review';
 
@@ -96,6 +96,31 @@ describe('Muraldle', () => {
     expect(text).toContain('Acertei em 2 tentativas');
     expect(text).not.toContain('Jogo');
     expect(text.split('\n').at(-1)).toBe('🟩🟩🟩🟩🟩🟩🟩🟩🟩');
+  });
+
+  it('o mesmo dia fechado em duas abas conta uma vez, e a sequência não zera', () => {
+    localStorage.removeItem('mural-de-jogos:muraldle:v1');
+    finishDay('jogos|eu', '2026-10-04', 'raaaa1', true);
+    expect(finishDay('jogos|eu', '2026-10-05', 'rbbbb1', true).streak).toBe(2);
+    // a aba aberta desde antes, no mesmo jogo, acerta (ou desiste) depois
+    expect(finishDay('jogos|eu', '2026-10-05', 'rbbbb1', true)).toEqual(jasmine.objectContaining({ played: 2, won: 2, streak: 2 }));
+    expect(finishDay('jogos|eu', '2026-10-05', 'rbbbb1', false)).toEqual(jasmine.objectContaining({ played: 2, won: 2, streak: 2 }));
+    // desistiu numa aba, e a outra acerta: vale o que fechou primeiro
+    expect(finishDay('jogos|eu', '2026-10-06', 'rcccc1', false).streak).toBe(0);
+    expect(finishDay('jogos|eu', '2026-10-06', 'rcccc1', true)).toEqual(jasmine.objectContaining({ played: 3, won: 2, streak: 0 }));
+    localStorage.removeItem('mural-de-jogos:muraldle:v1');
+  });
+
+  it('o jogo terminado em outra aba não volta a estar em andamento', () => {
+    localStorage.removeItem('mural-de-jogos:muraldle:v1');
+    const day = { day: '2026-10-05', secretId: 'rbbbb1' };
+    saveDaily('jogos|eu', { ...day, guesses: ['rcccc1', 'rbbbb1'], done: 'acertou' });
+    saveDaily('jogos|eu', { ...day, guesses: ['rdddd1'], done: null });
+    expect(loadDaily('jogos|eu')).toEqual(jasmine.objectContaining({ guesses: ['rcccc1', 'rbbbb1'], done: 'acertou' }));
+    // o dia seguinte é outro jogo
+    saveDaily('jogos|eu', { day: '2026-10-06', secretId: 'reeee1', guesses: [], done: null });
+    expect(loadDaily('jogos|eu')?.day).toBe('2026-10-06');
+    localStorage.removeItem('mural-de-jogos:muraldle:v1');
   });
 
   it('a sequência de dias', () => {

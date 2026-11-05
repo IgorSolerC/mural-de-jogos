@@ -238,7 +238,8 @@ export class ImageStore {
     this.count.update((n) => n + fresh.length);
   }
 
-  private async recount(): Promise<void> {
+  /** Conta de novo: as que outra aba guardou não passam por aqui (ver `firstSync` em core/cloud-sync.ts). */
+  async recount(): Promise<void> {
     try {
       const db = await this.open();
       this.count.set((await request<StoredImage[]>(db.transaction(STORE).objectStore(STORE).getAll())).filter((i) => !i.alheia).length);

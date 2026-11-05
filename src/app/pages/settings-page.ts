@@ -8,7 +8,8 @@ import { LucideIconData } from 'lucide-angular';
 import { ICON, IconModule } from '../ui/icons';
 import { BACKUP_EVERY_DAYS, Backup, backupFileName } from '../core/backup';
 import { backupLists, ownerNameOf, readBackupFile } from '../core/backup-file';
-import { eraseSave, takeErased } from '../core/erase-save';import { ReviewStore } from '../core/review-store';
+import { BrowserReset } from '../core/browser-reset';
+import { takeErased } from '../core/erase-save';import { ReviewStore } from '../core/review-store';
 import { KEEP_VERSION_DAYS, KeptReason, KeptVersion, sameContent, versionKey } from '../core/kept-versions';
 import { OWNER_NAME_MAX, ScoreDisplay, Settings, PerformanceKey, PerformancePreset, WritingMode } from '../core/settings';
 import { Confirm } from '../ui/confirm';
@@ -210,6 +211,7 @@ export class SettingsPage {
     { value: 'inteiro', label: 'Inteiras', sample: '8' },
   ];
   protected readonly backup = inject(Backup);
+  private readonly reset = inject(BrowserReset);
   private readonly images = inject(ImageStore);
   protected readonly ownerNameMax = OWNER_NAME_MAX;
   /** Como o próximo backup vai se chamar, com o nome digitado. */
@@ -827,8 +829,7 @@ export class SettingsPage {
     });
     if (!sure) return;
     this.erasing.set(true);
-    await eraseSave();
-    location.reload();
+    this.reset.eraseSave();
   }
 
   protected async importFile(e: Event): Promise<void> {

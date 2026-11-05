@@ -58,6 +58,21 @@ describe('as imagens coladas e a nuvem (core/image-sync.ts)', () => {
     await deleteDatabase(IMAGES_DB);
   });
 
+  it('uma aba por vez: espera a outra e não manda de novo a imagem que ela já mandou', async () => {
+    const { sync, store } = await setup();
+    await store.restore([pasted(1), pasted(2)]);
+    let release!: () => void;
+    const otherTab = navigator.locks.request('meu-mural:imagens', () => new Promise<void>((r) => (release = r)));
+    const sending = sync.send();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(calls).toEqual([]);
+    await store.mark(pasted(1).id, 'na-nuvem');
+    release();
+    await otherTab;
+    await sending;
+    expect(calls.map((c) => c.url.split('/').at(-1))).toEqual([pasted(2).id]);
+  });
+
   it('manda as que só estão aqui, uma por vez, das mais velhas, com os bytes e o tipo; elas ficam na nuvem', async () => {
     const { sync, store } = await setup();
     await store.restore([pasted(2), pasted(1), pasted(3, 'na-nuvem')]);

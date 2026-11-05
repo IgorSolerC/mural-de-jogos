@@ -128,6 +128,47 @@ describe('Amigos: o serviço (Follow)', () => {
     await flush();
   }
 
+  describe('com outra aba aberta', () => {
+    const T = '2026-10-06T10:00:00.000Z';
+    const cache = (extra: object) => ({ conta: ME.id, itens: [resenha('ref1', T)], vistasEm: null, agora: null, ...extra });
+    const otherTabSaved = (value: object) => {
+      const text = JSON.stringify(value);
+      localStorage.setItem(CACHE_KEY, text);
+      window.dispatchEvent(new StorageEvent('storage', { key: CACHE_KEY, newValue: text }));
+    };
+
+    it('o correio visto na outra aba zera o número aqui, e o visto não volta atrás', async () => {
+      const h = make({ cache: cache({}) });
+      TestBed.tick();
+      await flush();
+      expect(h.follow.unseen()).toBe(1);
+      otherTabSaved(cache({ vistasEm: T }));
+      expect(h.follow.seenAt()).toBe(T);
+      expect(h.follow.unseen()).toBe(0);
+      otherTabSaved(cache({ vistasEm: '2026-10-01T10:00:00.000Z' }));
+      expect(h.follow.seenAt()).toBe(T);
+    });
+
+    it('o visto à parte de lá soma ao daqui, e quem a outra aba seguiu aparece', async () => {
+      const h = make({ cache: cache({}) });
+      TestBed.tick();
+      await flush();
+      const key = `resenha:${ana.codigo}:ref1:${T}`;
+      otherTabSaved(cache({ vistos: [key], pessoas: { seguindo: [{ ...ana, desde: T, silenciado: false, rev: null, meSegue: false }], seguidores: [] } }));
+      expect(h.follow.seenKeys().has(key)).toBeTrue();
+      expect(h.follow.isFollowing(ana.codigo)).toBeTrue();
+    });
+
+    it('o correio de outra conta não entra', async () => {
+      const h = make({ cache: cache({}) });
+      TestBed.tick();
+      await flush();
+      otherTabSaved({ conta: OTHER.id, itens: [], vistasEm: T, agora: null });
+      expect(h.follow.items().length).toBe(1);
+      expect(h.follow.seenAt()).toBeNull();
+    });
+  });
+
   describe('o correio guardado e a conferência', () => {
     it('sem nada guardado: pede o correio inteiro e guarda para a próxima abertura, marcado com a conta', async () => {
       const h = make();

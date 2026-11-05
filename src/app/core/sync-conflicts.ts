@@ -276,8 +276,8 @@ export class SyncConflicts {
   readonly notice = signal<{ chave: string; alvo: string; titulo: string; at: number } | null>(null);
 
   constructor() {
-    this.data.onExternalChange((key) => {
-      if (key === CONFLICTS_KEY) this.list.set(this.read());
+    this.data.onExternalChange((key, before) => {
+      if (key === CONFLICTS_KEY) this.fromOtherTab(before);
     });
   }
 
@@ -450,10 +450,30 @@ export class SyncConflicts {
     }
   }
 
+  /**
+   * Outra aba gravou os conflitos. Sem mudança daqui fora do que esta aba viu, vale o gravado; com, os dois
+   * se juntam (um conflito novo daqui, ou a escolha feita aqui, não somem com a gravação da outra).
+   */
+  private fromOtherTab(before: string | null): void {
+    const theirs = this.read();
+    const mine = this.list();
+    if (before === null || this.text(mine) === before) {
+      this.list.set(theirs);
+      return;
+    }
+    const joined = mergeConflicts(mine, theirs);
+    if (canonicalJson(storedConflicts(joined)) === canonicalJson(storedConflicts(theirs))) this.list.set(theirs);
+    else this.set(joined);
+  }
+
+  private text(list: readonly SyncConflict[]): string {
+    return JSON.stringify({ build: BUILD, lista: storedConflicts(list) });
+  }
+
   private set(list: SyncConflict[]): void {
     this.list.set(list);
     try {
-      void Promise.resolve(this.data.setItem(CONFLICTS_KEY, JSON.stringify({ build: BUILD, lista: storedConflicts(list) }))).catch(() => undefined);
+      void Promise.resolve(this.data.setItem(CONFLICTS_KEY, this.text(list), { joinable: true })).catch(() => undefined);
     } catch {
       /* sem espaço: fica na memória até a próxima gravação */
     }

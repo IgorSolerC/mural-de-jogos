@@ -226,7 +226,15 @@ class MemoryData {
   setItem(key: string, value: string): void {
     this.map.set(key, value);
   }
-  onExternalChange(): void {}
+  /** Quem ouve as outras abas, e quantas vezes esta conferiu o que elas gravaram. */
+  readonly listeners: ((key: string, before: string | null) => void)[] = [];
+  caughtUp = 0;
+  onExternalChange(listener: (key: string, before: string | null) => void): void {
+    this.listeners.push(listener);
+  }
+  async catchUp(): Promise<void> {
+    this.caughtUp++;
+  }
   takeForeign(): null {
     return null;
   }
@@ -415,6 +423,44 @@ describe('anotações compartilhadas (ponta a ponta)', () => {
   });
 
   describe('editar junto', () => {
+    describe('com outra aba aberta', () => {
+      const KEY = 'meu-mural:compartilhadas:v1';
+      const stored = (p: Person) => JSON.parse(p.data.getItem(KEY)!) as { contas: Record<string, { id: string; local?: { text: string } }[]> };
+
+      it('a edição daqui, ainda não enviada, não some quando a outra aba grava sem ter ouvido', async () => {
+        const { bia } = await sharedNote();
+        const before = bia.data.getItem(KEY);
+        bia.edit('nota-1', { text: 'arroz\nfeijão\nleite' });
+        // a outra aba gravou a partir de antes da edição (uma outra conta deste navegador, por exemplo)
+        const theirs = JSON.parse(before!) as { contas: Record<string, unknown[]> };
+        theirs.contas['outra-conta'] = [];
+        bia.data.map.set(KEY, JSON.stringify(theirs));
+        for (const l of bia.data.listeners) l(KEY, before);
+        TestBed.tick();
+        expect(bia.text('nota-1')).toBe('arroz\nfeijão\nleite');
+        expect(stored(bia).contas['outra-conta']).toEqual([]);
+        expect(JSON.stringify(stored(bia))).toContain('leite');
+      });
+
+      it('sem nada daqui por gravar, vale o gravado, e nada é regravado', async () => {
+        const { bia } = await sharedNote();
+        const before = bia.data.getItem(KEY)!;
+        const theirs = before.replace('feijão', 'feijão preto');
+        bia.data.map.set(KEY, theirs);
+        for (const l of bia.data.listeners) l(KEY, before);
+        TestBed.tick();
+        expect(bia.text('nota-1')).toContain('feijão preto');
+        expect(bia.data.getItem(KEY)).toBe(theirs);
+      });
+
+      it('a rodada confere o que a outra aba gravou antes de começar', async () => {
+        const { bia } = await sharedNote();
+        const before = bia.data.caughtUp;
+        await bia.shared.sync();
+        expect(bia.data.caughtUp).toBe(before + 1);
+      });
+    });
+
     it('a edição de uma pessoa chega na outra', async () => {
       const { ana, bia } = await sharedNote();
       bia.edit('nota-1', { text: 'arroz\nfeijão\nleite' });

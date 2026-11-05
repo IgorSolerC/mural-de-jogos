@@ -1,7 +1,8 @@
 import { ACCOUNT_KEY, SESSION_KEY } from './cloud-account';
 import { BEFORE_CLOUD_DB, readBeforeCloud, saveBeforeCloud } from './cloud-before';
-import { BrowserReset, COVERS_CACHE, OWNER_KEY, RESET_KEY, SITE_CACHE, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
+import { BrowserReset, COVERS_CACHE, ERASE_KEY, OWNER_KEY, RESET_KEY, SITE_CACHE, resetOnBoot, takeReset, watchOtherTabs, wipeBrowser } from './browser-reset';
 import { DATA_DB } from './local-data';
+import { takeErased } from './erase-save';
 import { IMAGES_DB, ImageStore } from './image-store';
 import { APPLIED_KEY } from './api-requests';
 import { freezeStorage, thawStorage, writeJson, writeText } from './storage';
@@ -406,6 +407,68 @@ describe('limpar o navegador (sair da conta)', () => {
     window.dispatchEvent(new StorageEvent('storage', { key: RESET_KEY, newValue: null }));
     expect(reload).toHaveBeenCalledTimes(1);
     stop();
+  });
+
+  describe('Apagar o save com outras abas abertas', () => {
+    it('pedir para, marca e recarrega: o save sai na subida, e as outras abas recarregam junto', () => {
+      const reset = new BrowserReset();
+      reset.reload = jasmine.createSpy('reload');
+      reset.freeze = jasmine.createSpy('freeze');
+      reset.eraseSave();
+      reset.eraseSave();
+      expect(reset.freeze).toHaveBeenCalled();
+      expect(localStorage.getItem(ERASE_KEY)).not.toBeNull();
+      expect(reset.reload).toHaveBeenCalledTimes(1);
+    });
+
+    it('na subida: sai o save, ficam os ajustes e o login, e o pedido sai por último', async () => {
+      signedInBrowser();
+      localStorage.setItem(ERASE_KEY, '1');
+      expect(await resetOnBoot()).toBeTrue();
+      expect(localStorage.getItem('meu-mural:gastos:v1')).toBeNull();
+      expect(localStorage.getItem('mural-de-jogos:resenhas:v1')).toBeNull();
+      expect(localStorage.getItem(SESSION_KEY)).not.toBeNull();
+      expect(localStorage.getItem('mural-de-jogos:config:v1')).not.toBeNull();
+      expect(localStorage.getItem(ERASE_KEY)).toBeNull();
+      expect(takeErased()).toBeTrue();
+    });
+
+    it('o pedido sai na limpeza de sair da conta', async () => {
+      localStorage.setItem(ERASE_KEY, '1');
+      await wipeBrowser();
+      expect(localStorage.getItem(ERASE_KEY)).toBeNull();
+    });
+
+    it('outra aba apagou o save: esta para de gravar e recarrega', () => {
+      const freeze = jasmine.createSpy('freeze');
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, freeze);
+      window.dispatchEvent(new StorageEvent('storage', { key: ERASE_KEY, newValue: '1' }));
+      expect(freeze).toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+      stop();
+    });
+  });
+
+  describe('entrar em outra aba', () => {
+    it('a sessão nova recarrega esta, que abriu fora da conta', () => {
+      const freeze = jasmine.createSpy('freeze');
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, freeze);
+      window.dispatchEvent(new StorageEvent('storage', { key: SESSION_KEY, oldValue: null, newValue: 'A'.repeat(43) }));
+      expect(freeze).toHaveBeenCalled();
+      expect(reload).toHaveBeenCalledTimes(1);
+      stop();
+    });
+
+    it('a sessão que sai não recarrega por aqui (quem recarrega é o pedido de limpeza), e outra chave também não', () => {
+      const reload = jasmine.createSpy('reload');
+      const stop = watchOtherTabs(reload, () => undefined);
+      window.dispatchEvent(new StorageEvent('storage', { key: SESSION_KEY, oldValue: 'A'.repeat(43), newValue: null }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'meu-mural:volume', newValue: '1' }));
+      expect(reload).not.toHaveBeenCalled();
+      stop();
+    });
   });
 
   describe('a página que volta do cache de voltar/avançar', () => {

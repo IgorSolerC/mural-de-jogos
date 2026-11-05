@@ -116,7 +116,10 @@ export class ColleagueStore {
         request.onupgradeneeded = () =>
           request.result.createObjectStore('colegas', { keyPath: 'id' });
         request.onsuccess = () => {
-          request.result.onversionchange = () => request.result.close();
+          request.result.onversionchange = () => {
+            request.result.close();
+            this.database = undefined;
+          };
           resolve(request.result);
         };
         request.onerror = () => reject(request.error);

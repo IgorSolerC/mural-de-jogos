@@ -48,6 +48,66 @@ describe('LocalData (IndexedDB)', () => {
     await deleteDataDb();
   });
 
+  describe('duas abas', () => {
+    async function twoTabs(): Promise<{ a: LocalData; b: LocalData; heard: (string | null)[] }> {
+      const a = new LocalData();
+      const b = new LocalData();
+      await a.load();
+      await b.load();
+      const heard: (string | null)[] = [];
+      a.onExternalChange((_key, was) => heard.push(was));
+      return { a, b, heard };
+    }
+
+    it('duas gravações daqui cedem à da outra aba: a base da junção é o que estava gravado, e não a primeira delas', async () => {
+      const { a, b, heard } = await twoTabs();
+      await a.setItem(KEY, 'v0');
+      await settle();
+      await b.setItem(KEY, 'da outra', { joinable: true });
+      // sem o aviso da outra aba ter chegado: a ficha que v1 pôs não pode parecer tirada por ela
+      await Promise.all([a.setItem(KEY, 'v1', { joinable: true }), a.setItem(KEY, 'v2', { joinable: true })]);
+      await settle();
+      expect(a.getItem(KEY)).toBe('da outra');
+      expect(heard).toEqual(['v0']);
+    });
+
+    it('a primeira grava e a segunda cede: a base é a primeira, que está gravada', async () => {
+      const { a, b, heard } = await twoTabs();
+      await a.setItem(KEY, 'v1', { joinable: true });
+      await settle();
+      await b.setItem(KEY, 'da outra', { joinable: true });
+      await a.setItem(KEY, 'v2', { joinable: true });
+      await settle();
+      expect(heard).toEqual(['v1']);
+    });
+
+    it('a gravação que falhou (sem espaço) não vira mudança da outra aba: conferir não troca nada', async () => {
+      const { a, heard } = await twoTabs();
+      await a.setItem(KEY, 'v0');
+      const db = (a as unknown as { db: IDBDatabase }).db;
+      const open = spyOn(db, 'transaction').and.throwError('sem espaço');
+      await expectAsync(Promise.resolve(a.setItem(KEY, 'v1', { joinable: true }))).toBeRejected();
+      open.and.callThrough();
+      await a.catchUp();
+      expect(heard).toEqual([]);
+    });
+
+    it('a ficha que não coube continua no mural depois de conferir a outra aba', async () => {
+      const { data, store } = await boot();
+      const db = (data as unknown as { db: IDBDatabase }).db;
+      const open = spyOn(db, 'transaction').and.throwError('sem espaço');
+      const memo = sanitizeReview(review('r1', 'Só na memória', '2024-01-02T00:00:00.000Z'))!;
+      store.add(memo);
+      TestBed.tick();
+      await settle();
+      expect(store.saveError()).toBeTruthy();
+      open.and.callThrough();
+      await data.catchUp();
+      TestBed.tick();
+      expect(store.get(memo.id)?.game.name).toBe('Só na memória');
+    });
+  });
+
   it('o aviso de outra aba, lido antes de uma gravação daqui, não volta o valor para trás', async () => {
     const { data } = await boot();
     await data.setItem(KEY, '["v1"]');

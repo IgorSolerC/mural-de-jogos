@@ -1223,6 +1223,39 @@ describe('sincronização com a nuvem', () => {
       await deleteDatabase(IMAGES_DB);
     });
 
+    it('a imagem que outra aba colou depois de esta abrir também conta como mural de ninguém', async () => {
+      await deleteDatabase(IMAGES_DB);
+      const a = device({ anonimo: true });
+      await TestBed.inject(ImageStore).ready;
+      // guardada por outra aba: a contagem desta não passa por ela
+      await new ImageStore().restore([
+        { id: 'dezinguemoutraaba00001', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'o', criada: '', estado: 'local' },
+      ]);
+      expect(TestBed.inject(ImageStore).count()).toBe(0);
+      a.answers.push(null);
+      await a.sync.syncNow();
+      expect(a.asked.length).toBe(1);
+      await deleteDatabase(IMAGES_DB);
+    });
+
+    it('numa aba escondida, a pergunta do mural de ninguém fica para depois: a vez não fica presa nela', async () => {
+      await deleteDatabase(IMAGES_DB);
+      const a = device({ anonimo: true });
+      await TestBed.inject(ImageStore).restore([
+        { id: 'escondidaesperaavista1', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'e', criada: '', estado: 'local' },
+      ]);
+      const visibility = spyOnProperty(document, 'visibilityState').and.returnValue('hidden');
+      await a.sync.syncNow();
+      expect(a.asked).toEqual([]);
+      expect(a.sync.status()).toBe('escolha');
+      // à vista, pergunta
+      visibility.and.returnValue('visible');
+      a.answers.push(null);
+      await a.sync.syncNow();
+      expect(a.asked.length).toBe(1);
+      await deleteDatabase(IMAGES_DB);
+    });
+
     it('de todos os aparelhos: sai na nuvem de todos e limpa este navegador', async () => {
       const a = device();
       const fetchSpy = window.fetch as jasmine.Spy;

@@ -13,8 +13,8 @@ import { SETTINGS_KEY } from './settings';
  * menos os ajustes: o nome, o perfil, as chaves de busca, as preferências, o login na nuvem e as
  * novidades já vistas ficam.
  *
- * Depois a página recarrega: cada parte do app lê o que guardou só ao subir, e assim nenhuma fica com
- * o save velho na memória.
+ * Acontece na subida da página (ver `BrowserReset.eraseSave` em core/browser-reset.ts): cada parte do
+ * app lê o que guardou só ao subir, e assim nenhuma fica com o save velho na memória, em nenhuma aba.
  */
 
 /** As chaves do localStorage que são do mural. */
@@ -27,19 +27,20 @@ const DATABASES = [DATA_DB, COLLEAGUES_DB, BEFORE_CLOUD_DB, IMAGES_DB];
 const ERASED = 'meu-mural:save-apagado';
 
 /** As chaves do save que estão no `storage`. */
-export function saveKeys(storage: Pick<Storage, 'length' | 'key'>): string[] {
+export function saveKeys(storage: Pick<Storage, 'length' | 'key'>, keep: ReadonlySet<string> = new Set()): string[] {
   const out: string[] = [];
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i);
-    if (key !== null && !KEEP.has(key) && PREFIXES.some((p) => key.startsWith(p))) out.push(key);
+    if (key !== null && !KEEP.has(key) && !keep.has(key) && PREFIXES.some((p) => key.startsWith(p))) out.push(key);
   }
   return out;
 }
 
-export async function eraseSave(): Promise<void> {
+/** Apaga o save, menos as chaves de `keep`. Quem pede pela página usa `BrowserReset.eraseSave`, que faz isto na subida. */
+export async function eraseSave(keep: ReadonlySet<string> = new Set()): Promise<void> {
   // o localStorage primeiro: ao subir de novo, o banco vazio copiaria o espelho que ficou lá
   try {
-    for (const key of saveKeys(localStorage)) localStorage.removeItem(key);
+    for (const key of saveKeys(localStorage, keep)) localStorage.removeItem(key);
   } catch {
     /* sem localStorage, não há o que tirar dele */
   }
