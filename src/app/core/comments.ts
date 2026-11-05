@@ -22,6 +22,9 @@ import { plural } from './text';
  * (`replyTo`). A conversa chega numa lista só, do mais antigo para o mais novo; a árvore é montada aqui
  * (`commentTree`). Um comentário apagado que tinha respostas fica no lugar dele (`gone`), sem texto nem
  * autor, até a última resposta sair.
+ *
+ * Comentários fechados: o dono fecha os de uma ficha (Configurações, no Mais da leitura). Fechada,
+ * ninguém escreve, responde nem reage, nem o dono; os de antes ficam guardados e só o dono os vê.
  */
 
 /** O tamanho de um comentário, contado como o campo conta (`String.length`); a API confere igual. */
@@ -117,11 +120,15 @@ export interface Thread {
   quem: CommentsFrom;
   /** Quem perguntou pode comentar ali (e reagir aos comentários). */
   pode: boolean;
+  /** O dono fechou os comentários da ficha (os outros recebem a conversa vazia). */
+  fechados: boolean;
 }
 
 /** Quantos comentários cada ficha de um mural tem. */
 export interface CommentCounts {
   contagem: ReadonlyMap<string, number>;
+  /** As fichas com os comentários fechados (para os outros, fora da `contagem`). */
+  fechadas: ReadonlySet<string>;
   quem: CommentsFrom;
   pode: boolean;
 }
@@ -182,7 +189,8 @@ export function parseThread(raw: unknown): Thread {
     seen.add(k.id);
     comentarios.push(k);
   }
-  return { comentarios, maisAntigos: r['maisAntigos'] === true, quem: fromOf(r['quem']), pode: r['pode'] === true };
+  const fechados = r['fechados'] === true;
+  return { comentarios, maisAntigos: r['maisAntigos'] === true, quem: fromOf(r['quem']), pode: r['pode'] === true && !fechados, fechados };
 }
 
 /** A contagem por ficha de um mural, como veio da nuvem. */
@@ -195,7 +203,8 @@ export function parseCounts(raw: unknown): CommentCounts {
       if (REF.test(ref) && typeof n === 'number' && Number.isInteger(n) && n > 0) contagem.set(ref, n);
     }
   }
-  return { contagem, quem: fromOf(r['quem']), pode: r['pode'] === true };
+  const fechadas = new Set(Array.isArray(r['fechadas']) ? r['fechadas'].filter((ref): ref is string => typeof ref === 'string' && REF.test(ref)) : []);
+  return { contagem, fechadas, quem: fromOf(r['quem']), pode: r['pode'] === true };
 }
 
 /** Um trecho da ficha para citar; `n` muda a cada pedido, para o mesmo trecho poder ser citado de novo. */
@@ -331,6 +340,54 @@ export class Comments {
     if (!thread) return counted;
     const live = liveCount(thread.comentarios);
     return thread.maisAntigos ? Math.max(counted, live) : live;
+  }
+
+  /**
+   * O dono fechou os comentários da ficha `ref` do mural de `code`? Vale a mais nova entre a conversa e
+   * a contagem do mural. Falso enquanto nada chegou.
+   */
+  closedOf(code: string, ref: string): boolean {
+    const key = keyOf(code, ref);
+    const thread = this.threads().get(key);
+    const counts = this.counts().get(code);
+    // vale o que chegou por último: a conversa guardada de antes não esconde que o dono abriu de novo
+    if (thread && (!counts || (this.threadsAt.get(key) ?? 0) > (this.countsAt.get(code) ?? 0))) return thread.fechados;
+    return !!counts?.fechadas.has(ref);
+  }
+
+  /**
+   * Fecha (ou abre de novo) os comentários de uma ficha sua. Muda na hora; se a nuvem recusar, volta
+   * como era e o erro sobe (com a mensagem pronta), para quem chamou dizer.
+   */
+  async setClosed(ref: string, closed: boolean): Promise<void> {
+    const me = this.myCode();
+    if (!me) throw new CloudError('Entre na sua conta para mudar os comentários.', 'sem-conta', 401);
+    const key = keyOf(me, ref);
+    const mark = (value: boolean) => {
+      this.counts.update((all) => {
+        const c = all.get(me);
+        if (!c || c.fechadas.has(ref) === value) return all;
+        const fechadas = new Set(c.fechadas);
+        if (value) fechadas.add(ref);
+        else fechadas.delete(ref);
+        return new Map(all).set(me, { ...c, fechadas });
+      });
+      const t = this.threads().get(key);
+      if (t) this.setThread(key, { ...t, fechados: value, pode: !value });
+    };
+    // sem a contagem ainda: ela vem antes, para a marca valer na hora (e o "antes" ser o da nuvem)
+    if (!this.counts().has(me)) await this.loadCounts(me, true);
+    const before = this.closedOf(me, ref);
+    if (before === closed) return;
+    mark(closed);
+    try {
+      await this.account.request(`/v1/eu/fichas/${encodeURIComponent(ref)}/comentarios`, { method: 'PUT', body: { fechados: closed } });
+    } catch (err) {
+      mark(before);
+      throw err;
+    }
+    // aberta de novo: a conversa (e a conta) dos outros volta; a nuvem diz como está
+    void this.loadThread({ code: me, ref }, true);
   }
 
   /** Os comentários da ficha, se já vieram. */
@@ -570,7 +627,7 @@ export class Comments {
   private changeThread(key: string, fn: (t: Thread) => Thread): void {
     const t = this.threads().get(key);
     // sem a conversa aqui ainda (comentou antes de ela chegar): começa de uma vazia
-    this.setThread(key, fn(t ?? { comentarios: [], maisAntigos: false, quem: 'seguidores', pode: true }));
+    this.setThread(key, fn(t ?? { comentarios: [], maisAntigos: false, quem: 'seguidores', pode: true, fechados: false }));
   }
 
   private setThread(key: string, thread: Thread): void {

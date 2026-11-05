@@ -73,6 +73,7 @@ import { CommentsPanel } from './comments-panel';
 import { ShareSheet } from './share-sheet';
 import { ConflictSheet } from './conflict-sheet';
 import { LinkSheet } from './link-sheet';
+import { CardConfig } from './card-config';
 import { CALENDAR_PATH, studyPath } from '../core/areas';
 import { LEVEL_LABEL, cardDecks, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { StudyStore } from '../core/study-store';
@@ -125,7 +126,7 @@ interface ReadingPlace {
 
 @Component({
   selector: 'app-review-reader',
-  imports: [BackdropClose, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel],
+  imports: [BackdropClose, CardConfig, CategoryLabel, CommentsPanel, ConflictSheet, LinkSheet, ShareSheet, OrganizeSheet, IconModule, KanbanDepsBadge, MoreMenu, Rabisco, Boletim, BonusSticker, CoverSleeve, RecordCover, DoneStamp, NoteTag, JudgeLabel, Luz, Pin, ReactionBubble, ReactionPicker, RichText, ReviewCard, Skulls, StatusLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <dialog
@@ -163,11 +164,17 @@ interface ReadingPlace {
             }
             <!-- os jeitos de ver a ficha, pequenos, antes do X: só a cartolina (como fica no mural) e a
                  tela cheia (só o nome e o texto, para ler). Na tela cheia, o segundo volta à leitura. A
-                 ficha aberta pelo link já tem o minimizar dela (a página mostra a ficha no mural) -->
-            <div class="vistas" role="group" aria-label="Jeito de ver a ficha">
+                 ficha aberta pelo link tem o minimizar dela (a página mostra a ficha no mural) e, no lugar
+                 do "só a cartolina", o PDF (quem abriu pelo link não tem o Mais) -->
+            <div class="vistas" role="group" [attr.aria-label]="solta() ? 'Salvar ou ver a ficha' : 'Jeito de ver a ficha'">
               @if (!solta()) {
                 <button type="button" class="icon-btn vista-btn ver-cartolina" (click)="setView('cartolina')" aria-label="Ver só a cartolina" title="Ver só a cartolina">
                   <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
+                </button>
+              } @else if (!masked()) {
+                <!-- quem abriu pelo link não tem o Mais: o PDF fica aqui, no lugar do "só a cartolina" -->
+                <button type="button" class="icon-btn vista-btn salvar-pdf" (click)="savePdf()" aria-label="Salvar como PDF" title="Salvar como PDF (abre a impressão)">
+                  <lucide-icon [img]="PdfIcon" [size]="16" aria-hidden="true" />
                 </button>
               }
               <!-- um botão só, que troca de nome: o foco fica nele ao entrar e ao sair da tela cheia. Sem
@@ -596,6 +603,13 @@ interface ReadingPlace {
           }
         }
 
+        <!-- as configurações da ficha (os comentários), num pedaço à parte, só quando abre -->
+        @if (configOpen()) {
+          @defer (on immediate) {
+            <app-card-config [review]="r" (closed)="configOpen.set(false)" />
+          }
+        }
+
         <!-- as folhas das compartilhadas: cada uma num pedaço à parte, só quando abre -->
         @if (shareOpen()) {
           @defer (on immediate) {
@@ -667,6 +681,7 @@ export class ReviewReader {
   protected readonly ConflictIcon = ICON.aviso;
   protected readonly LinkIcon = ICON.link;
   protected readonly PdfIcon = ICON.pdf;
+  protected readonly ConfigIcon = ICON.configurar;
   protected readonly MinimizeIcon = ICON.diminuir;
   /** Voltar à leitura, da cartolina: a folha escrita (os cantos ficam só para a tela cheia). */
   protected readonly ReadIcon = ICON.documento;
@@ -846,6 +861,8 @@ export class ReviewReader {
     // a ficha como documento, pela impressão do navegador (ver ui/pdf-sheet.ts); a ficha em segredo
     // (a nota e o texto riscados aqui) não sai no papel: revelada, sim
     const pdf: MoreItem[] = this.masked() ? [] : [{ id: 'pdf', label: 'Salvar como PDF', icon: this.PdfIcon, hint: 'Abre a impressão: escolha “Salvar como PDF”' }];
+    // o que vale só para esta ficha (aceitar comentários): de quem é dono dela, com a conta aberta
+    const config: MoreItem[] = this.configurable() ? [{ id: 'configurar', label: 'Configurações', icon: this.ConfigIcon, dialog: true }] : [];
     if (this.note()) {
       const pinned = r.noteRank === 'fixada';
       const shared = this.sharedHere();
@@ -857,6 +874,7 @@ export class ReviewReader {
         { id: 'compartilhar', label: !shared || shared.manages ? 'Compartilhar' : 'Pessoas', icon: this.SharedIcon, dialog: true },
         link,
         ...pdf,
+        ...config,
         remove,
       ];
     }
@@ -866,6 +884,7 @@ export class ReviewReader {
       ...(r.revisitOf ? [] : [{ id: 'lado-a-lado', label: 'Lado a lado', icon: this.side.has(r.id) ? this.CheckedIcon : this.UncheckedIcon, pressed: this.side.has(r.id), hint: `Marcar pra comparar com ${this.others()}` }]),
       link,
       ...pdf,
+      ...config,
       remove,
     ];
   });
@@ -881,6 +900,7 @@ export class ReviewReader {
     else if (id === 'lado-a-lado') this.side.toggle(r.id);
     else if (id === 'remover') this.remove.emit(r.id);
     else if (id === 'pdf') void this.savePdf();
+    else if (id === 'configurar') this.configOpen.set(true);
   }
 
   private readonly env = inject(EnvironmentInjector);
@@ -979,6 +999,13 @@ export class ReviewReader {
   protected readonly conflictOpen = linkedSignal({ source: this.openId, computation: () => false });
   /** A folha do grupo, do assunto e das tags de quem só lê a compartilhada. */
   protected readonly organizeOpen = linkedSignal({ source: this.openId, computation: () => false });
+  /** As configurações da ficha (ver ui/card-config.ts). */
+  protected readonly configOpen = linkedSignal({ source: this.openId, computation: () => false });
+  /**
+   * A ficha tem Configurações: é sua (no seu mural, e não a compartilhada de outra pessoa) e a conta
+   * está aberta (os comentários moram na nuvem).
+   */
+  protected readonly configurable = computed(() => this.owner() === null && !this.leaves() && !!this.comments.myCode());
   /** A folha do link da ficha (ver ui/link-sheet.ts). */
   protected readonly linkOpen = linkedSignal({ source: this.openId, computation: () => false });
   /** De quem é o link: o dono da compartilhada de outra pessoa, ou você. */
@@ -1144,7 +1171,18 @@ export class ReviewReader {
    * Os comentários têm porta nesta ficha: há algum para ler, ou você tem conta para escrever o
    * primeiro (na ficha de outra pessoa ou na sua: o dono também comenta nas dele).
    */
-  protected readonly commentable = computed(() => !!this.commentTarget() && (this.commentCount() > 0 || this.commentsOpen() || !!this.comments.myCode()));
+  protected readonly commentable = computed(() => {
+    const t = this.commentTarget();
+    if (!t) return false;
+    // fechados pelo dono: só ele, e só para ler (e apagar) os que já estavam
+    if (this.commentsClosed()) return t.code === this.comments.myCode() && (this.commentCount() > 0 || this.commentsOpen());
+    return this.commentCount() > 0 || this.commentsOpen() || !!this.comments.myCode();
+  });
+  /** O dono fechou os comentários desta ficha (Configurações, no Mais). */
+  protected readonly commentsClosed = computed(() => {
+    const t = this.commentTarget();
+    return !!t && this.comments.closedOf(t.code, t.ref);
+  });
   /**
    * O "Comentar" embaixo do texto: na anotação de que você é dono, só a orelha (o botão poluía a
    * leitura). Na compartilhada por outra pessoa e nas resenhas, os dois.
@@ -1160,7 +1198,7 @@ export class ReviewReader {
   /** O trecho selecionado no texto da ficha e onde fica o remendo "Citar" (em px, dentro da dupla). */
   protected readonly picked = signal<{ text: string; left: number; top: number } | null>(null);
   /** Dá para citar: há porta para os comentários, você tem conta e o texto não está em segredo. */
-  private readonly canQuote = computed(() => this.lendo() && this.commentable() && !!this.comments.myCode() && !this.masked());
+  private readonly canQuote = computed(() => this.lendo() && this.commentable() && !this.commentsClosed() && !!this.comments.myCode() && !this.masked());
   private selectionTimer: ReturnType<typeof setTimeout> | undefined;
   /** A seleção de texto da página, ouvida só com a leitura aberta (ver `open`). */
   private readonly onSelectionChange = () => this.watchSelection();

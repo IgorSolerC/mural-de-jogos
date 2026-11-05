@@ -100,9 +100,11 @@ export class CommentsPanel {
 
   protected readonly sendable = computed(() => !!this.text().trim() && this.text().length <= COMMENT_MAX && !this.busy());
   /** Por que não dá para comentar aqui (null: dá, ou ainda não se sabe). */
-  protected readonly door = computed<'conta' | 'seguir' | 'seguidos' | null>(() => {
-    if (!this.me()) return 'conta';
+  protected readonly door = computed<'fechados' | 'conta' | 'seguir' | 'seguidos' | null>(() => {
     const t = this.thread();
+    // fechados pelo dono: ninguém escreve (nem ele), com conta ou sem
+    if (t?.fechados) return 'fechados';
+    if (!this.me()) return 'conta';
     if (!t || t.pode) return null;
     return t.quem === 'seguidos' ? 'seguidos' : 'seguir';
   });

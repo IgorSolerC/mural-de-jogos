@@ -56,15 +56,17 @@
           <!-- as reações dos outros: o remendo de feltro das fichas, que abre quem reagiu -->
           <span class="contagem"><app-reaction-bubble [target]="p.target" /></span>
         }
-        <!-- ler os comentários, todo mundo lê; a folha diz quem pode escrever -->
-        <button type="button" class="acao comentar" [attr.aria-label]="commentSpoken()" [title]="commentCount() ? '' : 'Comentar'" (click)="opened.emit({ comments: true })">
-          <lucide-icon [img]="CommentIcon" [size]="19" aria-hidden="true" />
-          @if (commentCount(); as n) {
-            <span aria-hidden="true">{{ n }}</span>
-          } @else {
-            <span class="palavra" aria-hidden="true">Comentar</span>
-          }
-        </button>
+        <!-- ler os comentários, todo mundo lê; a folha diz quem pode escrever (fechados pelo dono, nem a porta) -->
+        @if (!commentsClosed()) {
+          <button type="button" class="acao comentar" [attr.aria-label]="commentSpoken()" [title]="commentCount() ? '' : 'Comentar'" (click)="opened.emit({ comments: true })">
+            <lucide-icon [img]="CommentIcon" [size]="19" aria-hidden="true" />
+            @if (commentCount(); as n) {
+              <span aria-hidden="true">{{ n }}</span>
+            } @else {
+              <span class="palavra" aria-hidden="true">Comentar</span>
+            }
+          </button>
+        }
         @if (p.secret) {
           <!-- em segredo: revelar mostra a nota e o texto só desta ficha, só desta vez -->
           <button type="button" class="acao" [attr.aria-label]="'Revelar spoilers: ' + theirs.game.name" (click)="revealed.emit()">

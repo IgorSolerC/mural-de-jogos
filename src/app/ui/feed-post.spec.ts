@@ -94,6 +94,8 @@ describe('Um post do Feed (FeedPost)', () => {
   let can: ReturnType<typeof signal<boolean>>;
   let mine: ReturnType<typeof signal<ReactionId | null>>;
   let count: ReturnType<typeof signal<number>>;
+  /** O dono fechou os comentários da ficha do post. */
+  let shut: ReturnType<typeof signal<boolean>>;
   /** Quem reagiu à ficha do post. */
   let given: ReturnType<typeof signal<Reaction[]>>;
   let fixture: ComponentFixture<Host>;
@@ -114,6 +116,7 @@ describe('Um post do Feed (FeedPost)', () => {
     can = signal(true);
     mine = signal<ReactionId | null>(null);
     count = signal(0);
+    shut = signal(false);
     given = signal<Reaction[]>([]);
     // as notas como foram dadas (outro teste pode ter deixado Inteiras ligado)
     scoreDisplay.set('livre');
@@ -124,7 +127,7 @@ describe('Um post do Feed (FeedPost)', () => {
           provide: Reactions,
           useValue: { canReact: () => can(), mineOn: () => mine(), react: async (_: unknown, r: ReactionId | null) => void mine.set(r), of: () => given(), myCode: () => 'EEEE-0000' },
         },
-        { provide: Comments, useValue: { countOf: () => count() } },
+        { provide: Comments, useValue: { countOf: () => count(), closedOf: () => shut(), myCode: () => 'EEEE-0000' } },
       ],
     });
     TestBed.overrideComponent(FeedPost, { remove: { imports: [ReviewCard] }, add: { imports: [StubCard] } });
@@ -290,6 +293,13 @@ describe('Um post do Feed (FeedPost)', () => {
       await show();
       expect(text('.comentar')).toBe('4');
       expect(el.querySelector('.comentar')?.getAttribute('aria-label')).toBe('4 comentários. Abrir');
+    });
+
+    it('com os comentários fechados pelo dono, o Comentar sai do bilhete', async () => {
+      shut.set(true);
+      await show();
+      expect(el.querySelector('.comentar')).toBeNull();
+      expect(labels()).toEqual(['Reagir', 'Quero jogar']);
     });
 
     it('em segredo: o Revelar aparece (e diz de qual ficha), e revela só esta', async () => {

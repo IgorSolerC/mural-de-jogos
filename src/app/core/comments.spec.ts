@@ -68,8 +68,17 @@ describe('comentários', () => {
       expect(t.comentarios.map((k) => k.texto)).toEqual(['um', 'dois']);
       expect([t.maisAntigos, t.quem, t.pode]).toEqual([true, 'seguidos', true]);
       // o que não veio vale o mais fechado: ninguém comenta por engano
-      expect(parseThread(null)).toEqual({ comentarios: [], maisAntigos: false, quem: 'seguidores', pode: false });
-      expect(parseThread({ comentarios: 'x', quem: 'todos', pode: 'sim' })).toEqual({ comentarios: [], maisAntigos: false, quem: 'seguidores', pode: false });
+      expect(parseThread(null)).toEqual({ comentarios: [], maisAntigos: false, quem: 'seguidores', pode: false, fechados: false });
+      expect(parseThread({ comentarios: 'x', quem: 'todos', pode: 'sim', fechados: 'sim' })).toEqual({ comentarios: [], maisAntigos: false, quem: 'seguidores', pode: false, fechados: false });
+    });
+
+    it('fechados pelo dono: a conversa diz, e ninguém pode comentar, mesmo que a nuvem diga que pode', () => {
+      expect(parseThread({ comentarios: [raw(1, 'Bia', 'um')], quem: 'seguidores', pode: true, fechados: true })).toEqual(
+        jasmine.objectContaining({ pode: false, fechados: true }),
+      );
+      const c = parseCounts({ contagem: { 'r-celeste': 1 }, fechadas: ['r-hades', 'com espaço', 7, 'r-hades'], quem: 'seguidores', pode: true });
+      expect([...c.fechadas]).toEqual(['r-hades']);
+      expect(parseCounts({ fechadas: 'r-hades' }).fechadas.size).toBe(0);
     });
 
     it('a contagem por ficha: só números inteiros acima de zero, em fichas que existem', () => {
@@ -80,7 +89,7 @@ describe('comentários', () => {
       ]);
       expect([c.quem, c.pode]).toEqual(['seguidos', true]);
       expect(parseCounts({ contagem: ['r-hades'] }).contagem.size).toBe(0);
-      expect(parseCounts(undefined)).toEqual({ contagem: new Map(), quem: 'seguidores', pode: false });
+      expect(parseCounts(undefined)).toEqual({ contagem: new Map(), fechadas: new Set(), quem: 'seguidores', pode: false });
     });
 
     it('a resposta leva o id do respondido; o apagado com respostas vem sem autor nem texto', () => {
@@ -240,6 +249,8 @@ describe('comentários', () => {
     let gate: ((path: string, method: string) => Promise<void> | undefined) | null;
     /** A recusa que chega só depois de o pedido ser segurado. */
     let lateFail: ((path: string, method: string) => CloudError | undefined) | null;
+    /** A ficha r-minha está com os comentários fechados na nuvem. */
+    let shut: boolean;
     const HADES = { code: ANA, ref: 'r-hades', titulo: 'Hades', mural: 'jogos' as const };
 
     function make(): Comments {
@@ -248,6 +259,7 @@ describe('comentários', () => {
       fail = null;
       gate = null;
       lateFail = null;
+      shut = false;
       toasts = [];
       thread = [raw(1, 'Bia', 'Que final!'), raw(2, 'Caio', 'Concordo.', { reacoes: [{ codigo: 'BBBB-1111', nome: 'Bia', reacao: 'amei', em: at }] })];
       cloud = signal<{ api: string } | null>({ api: 'https://api.teste' });
@@ -269,7 +281,10 @@ describe('comentários', () => {
                 const answer = (() => {
                   if (method === 'POST') return { comentario: raw(9, 'Eu', String((init.body as { texto: string }).texto).trim()) };
                   if (path === '/v1/eu') return method === 'GET' ? { comentarios: 'seguidos' } : init.body;
-                  if (path === `/v1/murais/${ANA}/comentarios`) return { contagem: { 'r-hades': 2, 'r-celeste': 7 }, quem: 'seguidores', pode: true };
+                  if (path === `/v1/murais/${ANA}/comentarios`) return { contagem: { 'r-hades': 2, 'r-celeste': 7 }, fechadas: ['r-portal'], quem: 'seguidores', pode: true };
+                  if (path === `/v1/murais/${ME.codigo}/comentarios`) return { contagem: { 'r-minha': 3 }, fechadas: shut ? ['r-minha'] : [], quem: 'seguidores', pode: true };
+                  if (path === `/v1/murais/${ME.codigo}/comentarios/r-minha`) return { comentarios: [...thread], maisAntigos: false, quem: 'seguidores', pode: !shut, fechados: shut };
+                  if (path.startsWith('/v1/eu/fichas/')) return init.body;
                   if (path === `/v1/murais/${ANA}/comentarios/r-hades`) return { comentarios: [...thread], maisAntigos: false, quem: 'seguidores', pode: true };
                   return { contagem: {}, comentarios: [], quem: 'seguidores', pode: false };
                 })();
@@ -299,6 +314,67 @@ describe('comentários', () => {
       expect([s.countOf(ANA, 'r-hades'), s.countOf(ANA, 'r-celeste'), s.countOf(ANA, 'r-outra')]).toEqual([2, 7, 0]);
       await s.loadCounts(ANA, true);
       expect(calls.filter((c) => c.path === `/v1/murais/${ANA}/comentarios`).length).toBe(2);
+    });
+
+    it('a contagem diz quais fichas estão com os comentários fechados; a conversa que veio vale mais', async () => {
+      const s = make();
+      expect(s.closedOf(ANA, 'r-portal')).toBeFalse();
+      await s.loadCounts(ANA);
+      expect([s.closedOf(ANA, 'r-portal'), s.closedOf(ANA, 'r-hades')]).toEqual([true, false]);
+    });
+
+    it('vale o que chegou por último: a conversa guardada fechada não esconde que a contagem nova diz aberta', async () => {
+      const s = make();
+      const mine = { code: ME.codigo, ref: 'r-minha', titulo: 'Minha', mural: 'jogos' as const };
+      shut = true;
+      await s.loadThread(mine);
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeTrue();
+      // o dono abriu de novo (em outro aparelho): a contagem chega depois da conversa guardada
+      shut = false;
+      await flush();
+      await s.loadCounts(ME.codigo, true);
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeFalse();
+    });
+
+    it('fechar os comentários de uma ficha sua muda na hora, vai para a nuvem e abre de novo do mesmo jeito', async () => {
+      const s = make();
+      const mine = { code: ME.codigo, ref: 'r-minha', titulo: 'Minha', mural: 'jogos' as const };
+      await s.loadCounts(ME.codigo);
+      await s.loadThread(mine);
+      const closing = s.setClosed('r-minha', true);
+      // na hora, antes da nuvem responder
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeTrue();
+      expect(s.thread(ME.codigo, 'r-minha')!.pode).toBeFalse();
+      shut = true;
+      await closing;
+      expect(calls.find((c) => c.method === 'PUT')).toEqual({ path: '/v1/eu/fichas/r-minha/comentarios', method: 'PUT', body: { fechados: true } });
+      await flush();
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeTrue();
+      // os de antes continuam contados para o dono
+      expect(s.countOf(ME.codigo, 'r-minha')).toBe(2);
+
+      shut = false;
+      await s.setClosed('r-minha', false);
+      await flush();
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeFalse();
+      expect(s.thread(ME.codigo, 'r-minha')!.pode).toBeTrue();
+      // pedir o que já está não chama a nuvem
+      const before = calls.length;
+      await s.setClosed('r-minha', false);
+      expect(calls.length).toBe(before);
+    });
+
+    it('a nuvem recusou fechar: volta como era e o erro sobe; sem conta, nem tenta', async () => {
+      const s = make();
+      await s.loadCounts(ME.codigo);
+      fail = new CloudError('Sem conexão com a nuvem agora.', 'sem-rede', 0);
+      await expectAsync(s.setClosed('r-minha', true)).toBeRejectedWith(fail);
+      expect(s.closedOf(ME.codigo, 'r-minha')).toBeFalse();
+      fail = null;
+      signedIn.set(false);
+      const before = calls.length;
+      await expectAsync(s.setClosed('r-minha', true)).toBeRejected();
+      expect(calls.length).toBe(before);
     });
 
     it('a conversa de uma ficha chega com quem pode comentar; duas chamadas juntas viram um pedido', async () => {

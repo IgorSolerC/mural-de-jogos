@@ -1198,14 +1198,10 @@ dialog.reader.solta::backdrop {
   margin-left: 0;
 }
 
-/* finalizada: o carimbo anda para a esquerda dos três botões (dos dois, na ficha aberta pelo link), e
-   o nome e a linha da data guardam o lugar dele */
+/* finalizada: o carimbo anda para a esquerda dos três botões (na ficha aberta pelo link, o PDF fica
+   no lugar do "só a cartolina"), e o nome e a linha da data guardam o lugar dele */
 .carimbo {
   right: 144px;
-}
-
-.solta .carimbo {
-  right: 106px;
 }
 
 .faixa-nome.feita .title {
@@ -1226,10 +1222,6 @@ dialog.reader.solta::backdrop {
     app-done-stamp {
       --tam: 64px;
     }
-  }
-
-  .solta .carimbo {
-    right: 96px;
   }
 
   .faixa-nome.feita .title {

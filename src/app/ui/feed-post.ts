@@ -95,6 +95,11 @@ export class FeedPost {
     return this.reactions.of(code, ref).some((r) => r.codigo !== me);
   });
   protected readonly commentCount = computed(() => this.comments.countOf(this.post().target.code, this.post().target.ref));
+  /** O dono fechou os comentários desta ficha: o "Comentar" sai do bilhete (a sua continua: a leitura mostra os de antes). */
+  protected readonly commentsClosed = computed(() => {
+    const { code, ref } = this.post().target;
+    return this.comments.closedOf(code, ref) && code !== this.comments.myCode();
+  });
   protected readonly commentSpoken = computed(() => (this.commentCount() ? `${spokenComments(this.commentCount())}. Abrir` : 'Comentar'));
 
   /** "avaliou um jogo", "escreveu uma rejogada" (releitura, reassistida), "publicou uma anotação". */

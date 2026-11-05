@@ -187,6 +187,10 @@
 <!-- o pé: escrever, ou o que falta para poder -->
 <div class="escrever" (keydown.control.enter)="send()" (keydown.meta.enter)="send()">
   @switch (door()) {
+    @case ('fechados') {
+      <!-- fechados: o dono lê (e apaga) os de antes; para os outros, a folha nem abre -->
+      <p class="porta">{{ own() ? 'Você fechou os comentários: só você vê estes, e ninguém escreve mais. Para abrir de novo, use Configurações, no Mais.' : ownerName() + ' fechou os comentários ' + (target().mural === 'anotacoes' ? 'desta anotação.' : 'desta ficha.') }}</p>
+    }
     @case ('conta') {
       <p class="porta">
         <button type="button" class="porta-link" (click)="leave.emit(['/ajustes'])">Entre na sua conta</button> para comentar.

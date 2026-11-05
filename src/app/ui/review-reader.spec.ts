@@ -63,6 +63,9 @@ function review(id: string, name: string, extra: Partial<Review> = {}): Review {
 describe('A leitura e os comentários (ReviewReader)', () => {
   /** Quantos comentários a nuvem diz que cada ficha tem, por dono. */
   let counts: Record<string, Record<string, number>>;
+  /** As fichas com os comentários fechados, por dono, e os pedidos para fechar/abrir. */
+  let closed: Record<string, string[]>;
+  let puts: { path: string; body: unknown }[];
   let signedIn: ReturnType<typeof signal<boolean>>;
   let fixture: ComponentFixture<ReviewReader>;
   let el: HTMLElement;
@@ -81,6 +84,8 @@ describe('A leitura e os comentários (ReviewReader)', () => {
   beforeEach(() => {
     localStorage.clear();
     counts = { [ANA]: {}, [ME.codigo]: {} };
+    closed = {};
+    puts = [];
     signedIn = signal(true);
     const people = signal<People | null>({ seguindo: [{ codigo: ANA, nome: 'Ana', desde: '2026-01-01T00:00:00.000Z', silenciado: false, rev: 1, meSegue: true }], seguidores: [] });
     TestBed.configureTestingModule({
@@ -95,10 +100,27 @@ describe('A leitura e os comentários (ReviewReader)', () => {
           useValue: {
             account: signal(ME),
             signedIn,
-            request: async (path: string) => {
+            request: async (path: string, init: { method?: string; body?: unknown } = {}) => {
+              if (init.method === 'PUT' && path.startsWith('/v1/eu/fichas/')) {
+                puts.push({ path, body: init.body });
+                return init.body;
+              }
               const wall = /^\/v1\/murais\/([\w-]+)\/comentarios$/.exec(path);
-              if (wall) return { contagem: counts[wall[1]] ?? {}, quem: 'seguidores', pode: true };
-              if (/\/comentarios\/[\w-]+$/.test(path)) return { comentarios: [], maisAntigos: false, quem: 'seguidores', pode: true };
+              if (wall) return { contagem: counts[wall[1]] ?? {}, fechadas: closed[wall[1]] ?? [], quem: 'seguidores', pode: true };
+              const one = /^\/v1\/murais\/([\w-]+)\/comentarios\/([\w-]+)$/.exec(path);
+              if (one) {
+                const shut = !!closed[one[1]]?.includes(one[2]);
+                // os que a contagem diz (o dono os vê mesmo fechados; os outros, não)
+                const n = shut && one[1] !== ME.codigo ? 0 : (counts[one[1]]?.[one[2]] ?? 0);
+                const comentarios = Array.from({ length: n }, (_, i) => ({
+                  id: `00000000-0000-4000-8000-${String(i + 1).padStart(12, '0')}`,
+                  autor: { codigo: 'BBBB-2222', nome: 'Bia' },
+                  texto: `Comentário ${i + 1}`,
+                  em: '2026-01-02T00:00:00.000Z',
+                  reacoes: [],
+                }));
+                return { comentarios, maisAntigos: false, quem: 'seguidores', pode: !shut, fechados: shut };
+              }
               return { reacoes: {} };
             },
           },
@@ -780,6 +802,31 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(q('#leitura-titulo')).toBeNull();
     });
 
+    it('aberta pelo link: o PDF fica na faixa, no lugar do "só a cartolina", e prepara a folha', async () => {
+      signedIn.set(false);
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
+      await settle();
+      expect(q('.ver-cartolina')).toBeNull();
+      expect(q('app-more-menu')).toBeNull();
+      const pdf = q<HTMLButtonElement>('.faixa-nome .vistas .salvar-pdf');
+      expect(pdf?.getAttribute('aria-label')).toBe('Salvar como PDF');
+      let sheet: HTMLElement | null = null;
+      spyOn(window, 'print').and.callFake(() => {
+        sheet = document.querySelector<HTMLElement>('body > .pdf-sheet');
+      });
+      pdf!.click();
+      for (let i = 0; i < 200 && !sheet; i++) await wait(25);
+      expect((sheet as HTMLElement | null)!.querySelector('h1')!.textContent).toBe('Hades');
+      dispatchEvent(new Event('afterprint'));
+      expect(document.querySelector('.pdf-sheet')).toBeNull();
+      // a leitura de sempre não tem o botão na faixa (o PDF está no Mais)
+      await closeReader();
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      expect(q('.salvar-pdf')).toBeNull();
+      expect(q('.ver-cartolina')).not.toBeNull();
+    });
+
     it('aberta pelo link, o minimizar fecha a leitura e pede a ficha do mural', async () => {
       const links = TestBed.inject(FichaLinks);
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
@@ -807,6 +854,91 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Fechar');
       expect(dialog().classList.contains('solta')).toBeFalse();
+    });
+  });
+
+  describe('as configurações da ficha (comentários fechados)', () => {
+    const items = async () => {
+      if (!q('app-more-menu .bilhete')) q<HTMLButtonElement>('app-more-menu .mais')!.click();
+      await settle();
+      return [...el.querySelectorAll<HTMLButtonElement>('app-more-menu .item')];
+    };
+    const sheet = () => q('app-card-config dialog') as HTMLDialogElement | null;
+    const toggle = () => sheet()!.querySelector<HTMLButtonElement>('.interruptor')!;
+
+    it('o "Mais" da sua ficha tem as Configurações; a folha fecha e abre os comentários na hora', async () => {
+      counts[ME.codigo] = { 'r-hades': 2 };
+      // o pedido de quando a conta entrou termina primeiro; aí, o de agora
+      await settle();
+      await TestBed.inject(Comments).loadCounts(ME.codigo, true);
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      const names = (await items()).map((b) => b.textContent?.trim());
+      // antes do item que apaga, depois do PDF
+      expect(names.slice(-3)).toEqual(['Salvar como PDF', 'Configurações', 'Remover do mural']);
+      const item = (await items()).find((b) => b.textContent?.includes('Configurações'))!;
+      expect(item.getAttribute('aria-haspopup')).toBe('dialog');
+      item.click();
+      await settle();
+      expect(sheet()?.open).toBeTrue();
+      expect(sheet()!.querySelector('h2')?.textContent).toBe('Configurações da ficha');
+      expect(toggle().getAttribute('role')).toBe('switch');
+      expect(toggle().getAttribute('aria-checked')).toBe('true');
+      expect(sheet()!.querySelector('.explica')?.textContent).toContain('Quem segue você comenta aqui');
+
+      closed[ME.codigo] = ['r-hades'];
+      toggle().click();
+      await settle();
+      expect(puts).toEqual([{ path: '/v1/eu/fichas/r-hades/comentarios', body: { fechados: true } }]);
+      expect(toggle().getAttribute('aria-checked')).toBe('false');
+      expect(sheet()!.querySelector('.explica')?.textContent).toContain('os 2 comentários de antes ficam guardados, só você vê');
+      // a dona ainda abre a folha (para ler e apagar os de antes), mas ninguém escreve
+      sheet()!.querySelector<HTMLButtonElement>('.fecha')!.click();
+      await settle();
+      expect(q('.orelha')).not.toBeNull();
+      q<HTMLButtonElement>('.orelha')!.click();
+      await settle();
+      expect(q('app-comments-panel .porta')?.textContent).toContain('Você fechou os comentários');
+      expect(q('app-comments-panel .abrir')).toBeNull();
+    });
+
+    it('fechados e sem comentários, a sua ficha fica sem porta nenhuma', async () => {
+      closed[ME.codigo] = ['r-hades'];
+      await settle();
+      await TestBed.inject(Comments).loadCounts(ME.codigo, true);
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      expect(q('.orelha')).toBeNull();
+      expect(q('.comentar')).toBeNull();
+    });
+
+    it('na ficha de outra pessoa com os comentários fechados: sem orelha, sem "Comentar", sem Configurações', async () => {
+      closed[ANA] = ['r-hades'];
+      fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);
+      await settle();
+      expect(q('.orelha')).toBeNull();
+      expect(q('.comentar')).toBeNull();
+      expect(q('app-more-menu')).toBeNull();
+      // a outra ficha dela continua com a porta
+      await closeReader();
+      fixture.componentInstance.open(review('r-celeste', 'Celeste'), 'Ana', [], false, ANA);
+      await settle();
+      expect(q('.orelha')).not.toBeNull();
+    });
+
+    it('aberta pelo link, com conta, e com os comentários fechados: só a ficha', async () => {
+      closed[ANA] = ['r-hades'];
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, true);
+      await settle();
+      expect(q('.orelha')).toBeNull();
+      expect(q('.comentar')).toBeNull();
+    });
+
+    it('sem conta, a sua ficha não tem Configurações (os comentários moram na nuvem)', async () => {
+      signedIn.set(false);
+      fixture.componentInstance.open(review('r-hades', 'Hades'));
+      await settle();
+      expect((await items()).map((b) => b.textContent?.trim())).not.toContain('Configurações');
     });
   });
 });

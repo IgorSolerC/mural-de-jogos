@@ -1,0 +1,106 @@
+@use 'sheet';
+@use 'paper-kit' as kit;
+
+:host {
+  display: contents;
+}
+
+/* As configurações da ficha: a ficha de fichário dos diálogos (a do Link da ficha), com a faixa na
+   cartolina da ficha e a tachinha vermelha das Configurações do mural. Dentro, as linhas dos Ajustes:
+   o título do grupo, o nome e o que ele faz, o interruptor de papel. */
+dialog.folha-config {
+  width: 100%;
+  max-width: min(560px, calc(100vw - 24px));
+}
+
+.ficha {
+  position: relative;
+}
+
+.head {
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.titulos {
+  @include sheet.titulos;
+}
+
+/* o nome da ficha, escrito à mão embaixo do título */
+.sub {
+  @include sheet.sub-mao;
+}
+
+.body {
+  padding-top: 12px;
+}
+
+.grupo-titulo {
+  @include kit.grupo-titulo;
+}
+
+.linha {
+  @include kit.linha;
+}
+
+.linha-titulo {
+  @include kit.linha-titulo;
+}
+
+.linha-desc {
+  @include kit.linha-desc;
+}
+
+.interruptor {
+  @include kit.interruptor;
+
+  /* indo para a nuvem: o toque espera, sem trocar o desenho (a marca já mudou) */
+  &[aria-busy='true'] {
+    cursor: progress;
+  }
+}
+
+/* o que vale agora, à mão (como as linhas do Link da ficha) */
+.explica {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 14px;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.explica-icone {
+  display: inline-flex;
+  flex: none;
+  margin-top: 4px;
+  color: var(--ink-2);
+}
+
+.erro {
+  margin-top: 10px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.02rem;
+  line-height: 1.35;
+  color: var(--red-deep);
+}
+
+.foot .actions {
+  margin-left: auto;
+}
+
+@media (max-width: 480px) {
+  .foot .actions {
+    width: 100%;
+    margin-left: 0;
+
+    .btn-ink {
+      flex: 1;
+      justify-content: center;
+    }
+  }
+}

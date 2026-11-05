@@ -36,12 +36,20 @@ import { MAX_REACTIONS_PER_DAY } from './reactions';
  * é a um comentário dele (fora da anotação compartilhada, em que o 'comentou' é o aviso de todos).
  * Apagar um comentário com respostas deixa ele no lugar, sem texto nem autor (`apagado`), para a
  * conversa continuar fazendo sentido; ele sai de vez quando a última resposta dele sai.
+ *
+ * Comentários fechados: o dono fecha os comentários de uma ficha (`PUT /v1/eu/fichas/:ref/comentarios`,
+ * tabela `comentarios_fechados`). Fechada, ninguém comenta, responde nem reage aos comentários dela, nem
+ * o dono nem quem está na anotação compartilhada; os que já estavam ficam guardados, mas só o dono os vê
+ * (e apaga), e eles voltam quando ele abre de novo. A contagem e a conversa dizem quais estão fechadas
+ * (`fechadas`, `fechados`), para o site esconder a porta.
  */
 
 /** Quantos comentários uma conta escreve em 24 horas, contando os apagados depois (ver `domain/brake.ts`). */
 export const MAX_COMMENTS_PER_DAY = 100;
 /** Quantos comentários uma ficha devolve, os mais novos. */
 export const MAX_COMMENTS_LISTED = 200;
+/** Quantas fichas uma conta deixa com os comentários fechados (o mural inteiro de alguém cabe com folga). */
+export const MAX_CLOSED = 10_000;
 /** Quantas fichas com comentários a contagem do mural devolve, e quantas reações uma ficha devolve. */
 const MAX_CARDS_COUNTED = 3000;
 const MAX_REACTIONS_LISTED = 3000;
@@ -193,6 +201,17 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     return userId === who.id || isShown(await shownRefs(deps.db, who.id), ref) || (await member(who.id, ref, userId));
   }
 
+  /** A ficha `ref` do mural de `ownerId` está com os comentários fechados? */
+  async function closed(ownerId: string, ref: string): Promise<boolean> {
+    return !!(await deps.db.first('SELECT 1 AS x FROM comentarios_fechados WHERE dono_id = ? AND ref = ?', [ownerId, ref]));
+  }
+
+  /** O pedaço do SQL que só deixa gravar com os comentários da ficha abertos (conferido no banco, no mesmo lote). */
+  const openSql = 'NOT EXISTS (SELECT 1 FROM comentarios_fechados WHERE dono_id = ? AND ref = ?)';
+
+  /** A recusa da ficha com os comentários fechados. */
+  const closedRefusal = () => new HttpError(403, 'comentarios-fechados', 'Quem escreveu fechou os comentários desta ficha.');
+
   /** A ficha não está à mostra (privada ou apagada): para os outros, ela não existe. */
   const hiddenCard = () => new HttpError(404, 'ficha-nao-encontrada', 'Essa ficha não está mais no mural.');
 
@@ -224,8 +243,14 @@ export function commentRoutes(app: Hono, deps: Deps): void {
             ).map((n) => n.id),
           )
         : null;
-    const counted = rows.filter((r) => isShown(shown, r.ref) || !!joined?.has(r.ref));
-    return c.json({ contagem: Object.fromEntries(counted.map((r) => [r.ref, r.n])), quem: fromOf(who), pode: await allowed(who, me) });
+    const seen = (ref: string) => isShown(shown, ref) || !!joined?.has(ref);
+    // as fechadas: o dono vê todas (e a conta delas); os outros só sabem que estão fechadas
+    const shut = (await deps.db.all<{ ref: string }>('SELECT ref FROM comentarios_fechados WHERE dono_id = ? LIMIT ?', [who.id, MAX_CLOSED]))
+      .map((r) => r.ref)
+      .filter(seen);
+    const hidden = new Set(me === who.id ? [] : shut);
+    const counted = rows.filter((r) => seen(r.ref) && !hidden.has(r.ref));
+    return c.json({ contagem: Object.fromEntries(counted.map((r) => [r.ref, r.n])), fechadas: shut, quem: fromOf(who), pode: await allowed(who, me) });
   });
 
   /**
@@ -237,6 +262,9 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const who = await owner(c.req.param('codigo'));
     const ref = refParam(c);
     if (!(await visible(who, ref, me))) throw hiddenCard();
+    // fechada: só o dono lê os de antes; ninguém escreve
+    const shut = await closed(who.id, ref);
+    if (shut && me !== who.id) return c.json({ comentarios: [], maisAntigos: false, quem: fromOf(who), pode: false, fechados: true });
     const rows = await deps.db.all<CommentRow>(
       'SELECT k.id, k.texto, k.criado_em, k.resposta_a, k.apagado, u.codigo, u.nome, u.foto FROM comentarios k JOIN usuarios u ON u.id = k.autor_id ' +
         'WHERE k.dono_id = ? AND k.ref = ? ORDER BY k.criado_em DESC, k.rowid DESC LIMIT ?',
@@ -262,7 +290,8 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       comentarios: shown.map((r) => commentOut(r, byComment.get(r.id) ?? [])),
       maisAntigos: older,
       quem: fromOf(who),
-      pode: await allowed(who, me, ref),
+      pode: !shut && (await allowed(who, me, ref)),
+      fechados: shut,
     });
   });
 
@@ -275,6 +304,8 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const text = cleanComment(body['texto']);
     if (!text) throw new HttpError(400, 'comentario-vazio', 'Escreva alguma coisa antes de comentar.');
     if (text.length > COMMENT_MAX) throw new HttpError(400, 'comentario-grande', `O comentário passa de ${COMMENT_MAX} caracteres.`);
+    // fechada (e à mostra para quem pede): diz isso antes de pedir para seguir, que não adiantaria
+    if ((await closed(who.id, ref)) && (await visible(who, ref, s.userId))) throw closedRefusal();
     if (!(await allowed(who, s.userId, ref))) throw refusal(who);
     if (!(await visible(who, ref, s.userId))) throw hiddenCard();
     // a resposta: o comentário respondido é desta ficha e ainda está nela
@@ -319,8 +350,8 @@ export function commentRoutes(app: Hono, deps: Deps): void {
         {
           sql:
             'INSERT INTO comentarios (id, dono_id, ref, autor_id, texto, criado_em, resposta_a) SELECT ?, ?, ?, ?, ?, ?, ? ' +
-            `WHERE ${room.sql} AND (? IS NULL OR EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND dono_id = ? AND ref = ? AND apagado = 0))`,
-          params: [id, who.id, ref, s.userId, text, at, parent?.id ?? null, ...room.params, parent?.id ?? null, parent?.id ?? null, who.id, ref],
+            `WHERE ${room.sql} AND ${openSql} AND (? IS NULL OR EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND dono_id = ? AND ref = ? AND apagado = 0))`,
+          params: [id, who.id, ref, s.userId, text, at, parent?.id ?? null, ...room.params, who.id, ref, parent?.id ?? null, parent?.id ?? null, who.id, ref],
         },
         // o aviso para quem foi respondido: o de antes sai e entra o de agora
         ...(!answered
@@ -347,6 +378,8 @@ export function commentRoutes(app: Hono, deps: Deps): void {
       20,
     );
     if (!results[0]?.changes) {
+      // fechada entre a conferência e a gravação
+      if (await closed(who.id, ref)) throw closedRefusal();
       if ((await usedToday(deps, s.userId, 'comentar', now)) >= MAX_COMMENTS_PER_DAY) {
         throw new HttpError(429, 'comentar-devagar', 'Você comentou bastante hoje. Tente de novo amanhã.');
       }
@@ -399,6 +432,7 @@ export function commentRoutes(app: Hono, deps: Deps): void {
     const body = await readJson(c);
     const reaction = body['reacao'];
     if (!isReaction(reaction)) throw new HttpError(400, 'reacao-invalida', 'Essa reação não existe.');
+    if ((await closed(k.dono_id, k.ref)) && (await visible(k.dono, k.ref, s.userId))) throw closedRefusal();
     if (!(await allowed(k.dono, s.userId, k.ref))) throw refusal(k.dono);
     if (!(await visible(k.dono, k.ref, s.userId))) throw hiddenCard();
     const now = deps.now();
@@ -415,23 +449,55 @@ export function commentRoutes(app: Hono, deps: Deps): void {
         {
           sql:
             'INSERT OR REPLACE INTO comentario_reacoes (comentario_id, autor_id, reacao, criado_em) SELECT ?, ?, ?, ? ' +
-            `WHERE ${room.sql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
-          params: [k.id, s.userId, reaction, now.toISOString(), ...room.params, k.id],
+            `WHERE ${room.sql} AND ${openSql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
+          params: [k.id, s.userId, reaction, now.toISOString(), ...room.params, k.dono_id, k.ref, k.id],
         },
         {
-          sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'reagir', ? WHERE ${room.sql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
-          params: [s.userId, now.toISOString(), ...room.params, k.id],
+          sql: `INSERT INTO freios (usuario_id, acao, criado_em) SELECT ?, 'reagir', ? WHERE ${room.sql} AND ${openSql} AND EXISTS (SELECT 1 FROM comentarios WHERE id = ? AND apagado = 0)`,
+          params: [s.userId, now.toISOString(), ...room.params, k.dono_id, k.ref, k.id],
         },
       ],
       6,
     );
     if (!results[0]?.changes) {
+      if (await closed(k.dono_id, k.ref)) throw closedRefusal();
       if (await deps.db.first('SELECT 1 AS x FROM comentarios WHERE id = ? AND apagado = 0', [k.id])) {
         throw new HttpError(429, 'reagir-devagar', 'Você reagiu a muita coisa hoje. Tente de novo amanhã.');
       }
       throw new HttpError(404, 'comentario-nao-encontrado', 'Esse comentário não existe mais.');
     }
     return c.json({ reacao: reaction }, before ? 200 : 201);
+  });
+
+  /**
+   * Fechar (ou abrir de novo) os comentários da ficha `ref` do próprio mural. O servidor não abre o
+   * mural: a ficha é só o `ref`, no mural de quem pede (o dono é sempre quem entrou).
+   */
+  app.put('/v1/eu/fichas/:ref/comentarios', async (c) => {
+    const s = await session(c);
+    const ref = refParam(c);
+    const body = await readJson(c);
+    const shut = body['fechados'];
+    if (typeof shut !== 'boolean') throw new HttpError(400, 'fechados-invalido', 'Diga se os comentários ficam fechados (true) ou abertos (false).');
+    if (shut === (await closed(s.userId, ref))) return c.json({ fechados: shut });
+    if (!shut) {
+      await write(deps, [{ sql: 'DELETE FROM comentarios_fechados WHERE dono_id = ? AND ref = ?', params: [s.userId, ref] }], 1);
+      return c.json({ fechados: false });
+    }
+    const [made] = await write(
+      deps,
+      [
+        {
+          sql: 'INSERT OR IGNORE INTO comentarios_fechados (dono_id, ref, fechado_em) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM comentarios_fechados WHERE dono_id = ?) < ?',
+          params: [s.userId, ref, deps.now().toISOString(), s.userId, MAX_CLOSED],
+        },
+      ],
+      1,
+    );
+    if (!made?.changes && !(await closed(s.userId, ref))) {
+      throw new HttpError(409, 'fechadas-demais', `Você já fechou os comentários de ${MAX_CLOSED} fichas. Abra os de alguma antes.`);
+    }
+    return c.json({ fechados: true });
   });
 
   /** Tirar a reação de um comentário. */

@@ -115,6 +115,7 @@ describe('A folha de comentários (CommentsPanel)', () => {
     maisAntigos: false,
     quem: 'seguidores',
     pode: true,
+    fechados: false,
   };
 
   /** `thread` null: a conversa ainda não chegou. */
@@ -405,6 +406,22 @@ describe('A folha de comentários (CommentsPanel)', () => {
     expect(el.querySelector('.abrir')).not.toBeNull();
   });
 
+  it('comentários fechados: o dono lê e apaga os de antes, ninguém escreve nem reage', async () => {
+    const { fixture, el, host } = await open({ ...THREAD, pode: false, fechados: true });
+    host.own.set(true);
+    fixture.detectChanges();
+    expect(el.querySelectorAll('.comentario').length).toBe(2);
+    expect(el.querySelector('.abrir')).toBeNull();
+    expect(el.querySelector('app-reaction-picker')).toBeNull();
+    expect(el.querySelectorAll('.apagar').length).toBe(2);
+    expect(el.querySelector('.porta')?.textContent).toContain('Você fechou os comentários: só você vê estes');
+    // quem não é dono (uma folha aberta de antes) lê só que estão fechados, sem o Seguir
+    host.own.set(false);
+    fixture.detectChanges();
+    expect(el.querySelector('.porta')?.textContent?.trim()).toBe('Ana fechou os comentários desta ficha.');
+    expect(el.querySelector('.porta .tinta')).toBeNull();
+  });
+
   it('só quem o dono segue: a folha diz isso, sem botão', async () => {
     const { el } = await open({ ...THREAD, quem: 'seguidos', pode: false });
     expect(el.querySelector('.porta')?.textContent?.trim()).toBe('Aqui só comenta quem Ana segue.');
@@ -454,6 +471,7 @@ describe('A folha de comentários (CommentsPanel)', () => {
       maisAntigos: false,
       quem: 'seguidores',
       pode: true,
+      fechados: false,
     };
     const ids = (el: Element, sel: string) => [...el.querySelectorAll(sel)].map((li) => li.getAttribute('data-comentario'));
 

@@ -1025,7 +1025,7 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect(body.comentarios[1].autor).toEqual({ codigo: caio.codigo, nome: 'Caio' });
         expect(body).toMatchObject({ maisAntigos: false, quem: 'seguidores', pode: false });
         expect((await thread(ana.codigo, 'r-hades', bia.token)).body.pode).toBe(true);
-        expect((await counts(ana.codigo)).body).toEqual({ contagem: { 'r-hades': 2, 'r-celeste': 1 }, quem: 'seguidores', pode: false });
+        expect((await counts(ana.codigo)).body).toEqual({ contagem: { 'r-hades': 2, 'r-celeste': 1 }, fechadas: [], quem: 'seguidores', pode: false });
         expect((await counts(ana.codigo, caio.token)).body.pode).toBe(true);
         // uma sessão que não vale mais conta como ninguém
         expect((await counts(ana.codigo, 'x'.repeat(43))).body.pode).toBe(false);
@@ -1313,6 +1313,63 @@ export function amigosSuite(label: string, getDb: () => Db) {
         expect((await db.first<{ n: number }>('SELECT COUNT(*) AS n FROM comentario_reacoes', []))?.n).toBe(0);
       });
 
+      it('a dona fecha os comentários: ninguém escreve, responde nem reage, e só ela vê os de antes; abrir traz de volta', async () => {
+        const { comment, reply, thread, counts, react, unreact, erase, json, login, ana, bia, caio } = await commenting();
+        const close = (token: string | undefined, ref: string, fechados: unknown) =>
+          Promise.resolve(json('PUT', `/v1/eu/fichas/${ref}/comentarios`, { fechados }, token)).then(async (r: Response) => ({ status: r.status, body: (await r.json()) as any }));
+        const first = (await comment(bia.token, ana.codigo, 'r-hades', 'Que final!')).body.comentario.id;
+        await react(caio.token, first, 'fogo');
+        await comment(caio.token, ana.codigo, 'r-celeste', 'Esse eu larguei.');
+
+        expect(await close(ana.token, 'r-hades', true)).toEqual({ status: 200, body: { fechados: true } });
+        // de novo não muda nada
+        expect(await close(ana.token, 'r-hades', true)).toEqual({ status: 200, body: { fechados: true } });
+
+        // os outros (com conta ou sem) não veem nada dela, e a contagem não a conta
+        for (const token of [undefined, bia.token, caio.token]) {
+          expect((await thread(ana.codigo, 'r-hades', token)).body).toEqual({ comentarios: [], maisAntigos: false, quem: 'seguidores', pode: false, fechados: true });
+          expect((await counts(ana.codigo, token)).body).toMatchObject({ contagem: { 'r-celeste': 1 }, fechadas: ['r-hades'] });
+        }
+        // a dona vê os de antes (e a conta deles), sem poder escrever
+        const own = (await thread(ana.codigo, 'r-hades', ana.token)).body;
+        expect([own.comentarios.map((k: any) => k.texto), own.pode, own.fechados]).toEqual([['Que final!'], false, true]);
+        expect((await counts(ana.codigo, ana.token)).body).toMatchObject({ contagem: { 'r-hades': 1, 'r-celeste': 1 }, fechadas: ['r-hades'] });
+
+        // ninguém comenta, responde nem reage, nem a dona
+        for (const token of [bia.token, caio.token, ana.token]) {
+          const res = await comment(token, ana.codigo, 'r-hades', 'oi');
+          expect([res.status, res.body.erro, res.body.mensagem]).toEqual([403, 'comentarios-fechados', 'Quem escreveu fechou os comentários desta ficha.']);
+          expect((await reply(token, ana.codigo, 'r-hades', first, 'oi')).body.erro).toBe('comentarios-fechados');
+          expect((await react(token, first, 'amei')).body.erro).toBe('comentarios-fechados');
+        }
+        // quem nem segue a dona ouve que estão fechados (seguir não adiantaria)
+        const dan = await login('dan', 'Dan');
+        expect((await comment(dan.token, ana.codigo, 'r-hades', 'oi')).body.erro).toBe('comentarios-fechados');
+        expect((await react(dan.token, first, 'amei')).body.erro).toBe('comentarios-fechados');
+        // a outra ficha continua aberta; tirar a reação e apagar continuam valendo
+        expect((await comment(bia.token, ana.codigo, 'r-celeste', 'Eu também.')).status).toBe(201);
+        expect((await unreact(caio.token, first)).status).toBe(200);
+
+        // abrir de novo: os de antes voltam para todos
+        expect(await close(ana.token, 'r-hades', false)).toEqual({ status: 200, body: { fechados: false } });
+        const back = (await thread(ana.codigo, 'r-hades', bia.token)).body;
+        expect([back.comentarios.map((k: any) => k.texto), back.pode, back.fechados]).toEqual([['Que final!'], true, false]);
+        expect((await counts(ana.codigo)).body).toMatchObject({ contagem: { 'r-hades': 1, 'r-celeste': 2 }, fechadas: [] });
+        expect((await comment(bia.token, ana.codigo, 'r-hades', 'Voltou!')).status).toBe(201);
+        expect((await erase(ana.token, first)).status).toBe(200);
+      });
+
+      it('fechar os comentários: só a própria conta, com sim ou não; a ficha de outra pessoa não muda', async () => {
+        const { json, thread, ana, bia } = await commenting();
+        const close = (token: string | undefined, ref: string, fechados: unknown) => Promise.resolve(json('PUT', `/v1/eu/fichas/${ref}/comentarios`, { fechados }, token)).then((r: Response) => r.status);
+        expect(await close(undefined, 'r-hades', true)).toBe(401);
+        expect(await close(ana.token, 'com espaço', true)).toBe(400);
+        for (const bad of ['sim', 1, null, undefined]) expect(await close(ana.token, 'r-hades', bad), String(bad)).toBe(400);
+        // a Bia fecha a "r-hades" do mural dela; a da Ana continua aberta
+        expect(await close(bia.token, 'r-hades', true)).toBe(200);
+        expect((await thread(ana.codigo, 'r-hades', bia.token)).body.fechados).toBe(false);
+      });
+
       it(`no máximo ${MAX_COMMENTS_PER_DAY} comentários por dia, mesmo apagando (429 comentar-devagar)`, async () => {
         const { db, comment, erase, ana, bia } = await commenting();
         await db.batch(
@@ -1436,8 +1493,10 @@ export function amigosSuite(label: string, getDb: () => Db) {
         const count = async (table: string) => (await db.first<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`, []))?.n;
         expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([1, 1]);
 
+        // e as fichas dela com os comentários fechados
+        expect((await json('PUT', '/v1/eu/fichas/r-hades/comentarios', { fechados: true }, ana.token)).status).toBe(200);
         await eraseNow(deps, ana.token);
-        expect([await count('comentarios'), await count('comentario_reacoes')]).toEqual([0, 0]);
+        expect([await count('comentarios'), await count('comentario_reacoes'), await count('comentarios_fechados')]).toEqual([0, 0, 0]);
         expect(await db.all("SELECT 1 FROM atividades WHERE tipo = 'comentou'")).toEqual([]);
       });
 

@@ -139,7 +139,7 @@ describe('Amigos em todas as larguras', () => {
         { provide: ColleagueStore, useValue: { colleagues: signal([]), select: () => undefined } },
         { provide: ProfilePeople, useValue: { of: () => undefined, load: async () => undefined } },
         { provide: Reactions, useValue: { canReact: () => true, mineOn: () => null, of: () => [], myCode: () => 'EEEE-0000', load: async () => undefined, react: async () => undefined } },
-        { provide: Comments, useValue: { countOf: () => 0, loadCounts: async () => undefined, want: () => undefined } },
+        { provide: Comments, useValue: { countOf: () => 0, closedOf: () => false, myCode: () => 'EEEE-0000', loadCounts: async () => undefined, want: () => undefined } },
         { provide: Cloud, useValue: { ready: Promise.resolve(), config: signal({ api: 'https://api.teste', googleClientId: 'x' }) } },
         { provide: CloudAccount, useValue: { account: signal({ id: 'u-eu', codigo: 'EEEE-0000', nome: 'Eu' }), signedIn: signal(true) } },
         { provide: SHARED_AUTO, useValue: false },
