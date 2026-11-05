@@ -215,22 +215,44 @@
   text-transform: uppercase;
 }
 
-/* ===== Num baralho: o caminho de volta ao grupo, em tinta, e o nome do baralho na tira de papel ===== */
+/* ===== Num baralho: o caminho de volta, em tinta, o nome na tira de papel e o lápis dele, tudo junto ===== */
 .trilha {
+  flex: 0 1 auto;
+  display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 8px;
+  min-width: 0;
 
+  /* a seta na mesma vertical da busca, embaixo (o respiro do botão fica para fora) */
   .voltar {
+    flex: none;
+    margin-left: -10px;
     text-decoration: none;
+  }
+
+  .so-icone {
+    flex: none;
+    margin-left: -2px;
   }
 }
 
-.trilha-nome {
+/* (com a .trilha na frente: a .nome-baralho, mais embaixo, é a tira das pilhas e tem outra largura máxima) */
+.trilha .trilha-nome {
+  flex: 0 1 auto;
   flex-direction: row;
+  min-width: 0;
+  max-width: 300px;
   rotate: -0.8deg;
 
+  /* o nome comprido: até duas linhas, e o resto na dica do mouse */
   .nome-txt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
     font-size: 1.3rem;
+    /* (o equilíbrio das linhas, da tira das pilhas, comeria as reticências) */
+    text-wrap: wrap;
   }
 }
 
@@ -363,15 +385,91 @@
   line-height: 1.35;
 }
 
-/* depois do picote, como os filtros ligados do Kanban */
+/* a régua das cartas, colada na linha de cima: a mesma pasta, sem picote (ele fica para o que a busca achou) */
 .pasta .filtros {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 2px dashed var(--picote);
+  margin-top: 8px;
 }
 
-/* no celular, o Estudar fica ao lado do título e os montes descem para a linha de baixo */
+/* num baralho, o nome leva o título: "para hoje" na mesma letra e no tamanho dele, sem disputar */
+.trilha + .hoje .hoje-n {
+  font-size: 1.3rem;
+}
+
+/* o picote entre o baralho e o que estudar hoje, só com os dois lado a lado (mais estreito, a linha quebra) */
+@media (min-width: 900px) {
+  .trilha + .hoje {
+    padding-left: 18px;
+    border-left: 2px dashed var(--picote);
+  }
+}
+
+/* com lugar para tudo numa linha, ela não quebra por causa de um nome comprido: quem cede é o nome */
+@media (min-width: 1200px) {
+  .pasta .linha-estudo:has(> .trilha) {
+    flex-wrap: nowrap;
+
+    .trilha {
+      flex: 0 1000 auto;
+      min-width: 260px;
+    }
+
+    /* (os montes e o Estudar ficam inteiros: qualquer fração tirada daqui já mandaria o Estudar para baixo;
+       a frase do "Tudo em dia", essa sim, pode quebrar) */
+    .hoje {
+      flex: 0 1 auto;
+
+      &:has(> .montes) {
+        flex: none;
+      }
+    }
+
+    .pasta-controles {
+      flex: none;
+    }
+  }
+}
+
+/* a tela não tem lugar para tudo numa linha: os montes ficam só com o selo e o número, como no papelzinho */
+@media (min-width: 721px) and (max-width: 1399px) {
+  .trilha + .hoje .monte-nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* no celular, o caminho numa linha (só a seta, e o nome ganha o lugar), o Estudar ao lado do título e os
+   montes na linha de baixo, com o nome de cada um (ali não tem dica de mouse) */
 @media (max-width: 720px) {
+  .trilha {
+    flex-basis: 100%;
+  }
+
+  .voltar-nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .trilha .voltar {
+    margin-left: -6px;
+  }
+
+  .trilha .trilha-nome {
+    max-width: none;
+  }
+
+  /* na tela bem estreita, o Trazer anotações desce em vez de sair da pasta */
+  .poe-cartas {
+    flex-wrap: wrap;
+  }
+
   .hoje {
     flex-basis: 100%;
     align-items: center;

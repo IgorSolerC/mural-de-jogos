@@ -145,7 +145,8 @@ export class StudyPage {
   protected readonly AdjustIcon = ICON.ajustar;
   protected readonly PlayIcon = ICON.estudar;
   protected readonly GearIcon = ICON.configurar;
-  protected readonly BringIcon = ICON.buscar;
+  /** A anotação (a lupa se confundia com a busca, que é logo embaixo). */
+  protected readonly BringIcon = ICON.anotacoes;
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly BackIcon = ICON.voltar;
   protected readonly tabKey = tabKeyOf;

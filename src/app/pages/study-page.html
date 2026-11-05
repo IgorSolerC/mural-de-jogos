@@ -146,29 +146,36 @@
   <!-- nenhum baralho ainda, em lugar nenhum -->
   <ng-container *ngTemplateOutlet="primeiro; context: { $implicit: null }" />
 } @else {
-  <!-- a pasta, como a dos Gastos e a do Kanban: num baralho, o caminho de volta ao grupo e o nome dele; em
-       cima, quantas para hoje (o título da pasta, a pincel), os montes e o Estudar, e os controles impressos
-       em tinta; depois do picote, num baralho, a busca, o nível e a ordem -->
+  <!-- a pasta, como a dos Gastos e a do Kanban. Em cima, na ordem de quem estuda: num baralho, o caminho de
+       volta, o nome dele e o lápis; quantas para hoje (a pincel), os montes e o Estudar; e os controles
+       impressos em tinta, com a engrenagem na ponta, no mesmo lugar em Tudo, no grupo e no baralho. Embaixo,
+       num baralho com cartas, a régua do mural e do Kanban: a busca e, à direita, o nível, a ordem e o tamanho -->
   <div class="pasta">
-    @if (deck(); as d) {
-      <div class="pasta-linha trilha">
-        <a class="tinta voltar" [routerLink]="studyPath(group()!.id)">
-          <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
-          Baralhos de {{ group()!.label }}
-        </a>
-        <span class="nome-baralho trilha-nome" [style.--cor]="'var(--stock-' + d.color + ')'">
-          <span class="nome-txt">{{ d.name }}</span>
-        </span>
-      </div>
-    }
     <div class="pasta-linha linha-estudo">
+      @if (deck(); as d) {
+        <div class="trilha">
+          <!-- o grupo já está na aba aberta logo em cima: à mostra, só "Baralhos" -->
+          <a class="tinta voltar" [routerLink]="studyPath(group()!.id)" [title]="'Voltar aos baralhos de ' + group()!.label">
+            <lucide-icon [img]="BackIcon" [size]="18" aria-hidden="true" />
+            <span class="voltar-nome">Baralhos</span><span class="sr-only"> de {{ group()!.label }}</span>
+          </a>
+          <span class="nome-baralho trilha-nome" [style.--cor]="'var(--stock-' + d.color + ')'" [title]="d.name">
+            <span class="nome-txt">{{ d.name }}</span>
+          </span>
+          <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
+            <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
+          </button>
+        </div>
+      }
       <div class="hoje" aria-live="polite">
         @if (lineTotal()) {
           <h2 class="hoje-n">{{ lineTotal() }} para hoje</h2>
           <ul class="montes" aria-label="Para hoje">
-            <li class="monte" data-monte="novas"><span class="selo" aria-hidden="true"></span>{{ line().novas }} {{ line().novas === 1 ? "nova" : "novas" }}</li>
-            <li class="monte" data-monte="aprender"><span class="selo" aria-hidden="true"></span>{{ line().aprender }} aprendendo</li>
-            <li class="monte" data-monte="revisar"><span class="selo" aria-hidden="true"></span>{{ line().revisar }} {{ line().revisar === 1 ? "revisão" : "revisões" }}</li>
+            <!-- num baralho, com a tela apertada, só o selo e o número, como o papelzinho das pilhas: o nome fica
+                 na dica do mouse e no leitor de tela -->
+            <li class="monte" data-monte="novas" [title]="line().novas + (line().novas === 1 ? ' nova' : ' novas')"><span class="selo" aria-hidden="true"></span><span>{{ line().novas }} <span class="monte-nome">{{ line().novas === 1 ? "nova" : "novas" }}</span></span></li>
+            <li class="monte" data-monte="aprender" [title]="line().aprender + ' aprendendo'"><span class="selo" aria-hidden="true"></span><span>{{ line().aprender }} <span class="monte-nome">aprendendo</span></span></li>
+            <li class="monte" data-monte="revisar" [title]="line().revisar + (line().revisar === 1 ? ' revisão' : ' revisões')"><span class="selo" aria-hidden="true"></span><span>{{ line().revisar }} <span class="monte-nome">{{ line().revisar === 1 ? "revisão" : "revisões" }}</span></span></li>
           </ul>
           <!-- o play, como no Anki: a sessão de estudo do baralho, do grupo ou de tudo, logo depois dos montes,
                com o traço de marca-texto sempre à mostra (como o Este mês dos Gastos) -->
@@ -228,14 +235,8 @@
             </app-tab-more>
           </div>
         }
-        <!-- o lápis do baralho e as configurações dos Estudos (todos os baralhos: a mesma folha das do mural e
-             do Kanban), na ponta -->
+        <!-- as configurações dos Estudos (todos os baralhos: a mesma folha das do mural e do Kanban), na ponta -->
         <div class="pasta-grupo">
-          @if (deck(); as d) {
-            <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Ajustes do baralho" title="Ajustes do baralho" (click)="sheet.set({ id: d.id, fresh: false })">
-              <lucide-icon [img]="EditIcon" [size]="18" aria-hidden="true" />
-            </button>
-          }
           <button type="button" class="tinta so-icone" aria-haspopup="dialog" aria-label="Configurações dos estudos" title="Configurações dos estudos" [attr.aria-expanded]="config()" (click)="config.set(true)">
             <lucide-icon [img]="GearIcon" [size]="18" aria-hidden="true" />
           </button>
@@ -243,7 +244,7 @@
       </div>
     </div>
     @if (deck() && deckSize()) {
-      <!-- depois do picote: a busca e, como o Ordenar do mural, o nível e a ordem impressos -->
+      <!-- a régua das cartas: a busca e, como o Ordenar do mural, o nível e a ordem impressos -->
       <div class="pasta-linha filtros">
         <app-search-strip class="pasta-busca" inputId="busca-cartas" [glued]="true" label="Procurar nas cartas" placeholder="Procurar nas cartas…" [value]="query()" (valueChange)="query.set($event)" />
         <div class="pasta-controles">

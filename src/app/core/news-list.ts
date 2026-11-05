@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-05-topo-do-baralho',
+    version: '1.37.4',
+    kind: 'ajustes',
+    date: '2026-11-05',
+    title: 'O topo do baralho nos Estudos, mais enxuto',
+    melhorias: [
+      'O topo de um baralho dos Estudos ficou mais enxuto: o caminho de volta, o nome e o lápis agora estão na mesma linha do "para hoje" e do Estudar, e logo embaixo vem a mesma régua do mural e do Kanban, com a busca, o nível, a ordem e o tamanho das cartas. O Trazer anotações ganhou o ícone de anotação, porque a lupa parecia uma segunda busca.',
+    ],
+    correcoes: ['No celular bem estreito, o Trazer anotações do baralho saía da pasta e ficava cortado; agora ele desce para a linha de baixo.'],
+  },
+  {
     id: '2026-11-04-busca-com-reserva-na-wikipedia',
     version: '1.37.3',
     kind: 'ajustes',

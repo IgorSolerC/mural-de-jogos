@@ -153,8 +153,41 @@ describe('página dos Estudos', () => {
     // o baralho: a aba do grupo continua aberta, com o caminho de volta e o nome dele
     await go(deckUrl(kanji));
     expect(text($('.aba.on'))).toBe('Estudos, 4 para hoje');
-    expect(text($('.trilha'))).toBe('Baralhos de Estudos Kanjis');
+    expect(text($('.trilha .voltar'))).toBe('Baralhos de Estudos');
+    expect(text($('.trilha .nome-txt'))).toBe('Kanjis');
     expect($('.trilha .voltar')!.getAttribute('href')).toBe(studyPath(GROUP));
+  });
+
+  it('o topo do baralho: o caminho, o nome e o lápis juntos, na mesma linha do para hoje e do Estudar; a busca embaixo', async () => {
+    const { kanji } = seed();
+    await go(deckUrl(kanji));
+    const line = $('.linha-estudo')!;
+    // numa linha só, na ordem de quem estuda: o baralho, o que estudar hoje, e os controles
+    expect([...line.children].map((c) => c.classList[0])).toEqual(['trilha', 'hoje', 'pasta-controles']);
+    expect($('.trilha button[aria-label="Ajustes do baralho"]')).not.toBeNull();
+    expect($('.pasta-controles button[aria-label="Ajustes do baralho"]')).toBeNull();
+    // à mostra, só "Baralhos" (o grupo está na aba aberta); o leitor de tela e a dica dizem de qual grupo
+    expect(text($('.voltar-nome'))).toBe('Baralhos');
+    expect(text($('.voltar'))).toBe('Baralhos de Estudos');
+    expect($('.voltar')!.getAttribute('title')).toBe('Voltar aos baralhos de Estudos');
+    // os montes continuam dizendo o nome ao leitor de tela, mesmo quando a tela só mostra o selo e o número
+    const montes = $$('.linha-estudo .monte');
+    expect(montes.map((m) => text(m.querySelector('.monte-nome')))).toEqual([jasmine.stringMatching(/^novas?$/), 'aprendendo', jasmine.stringMatching(/^revis(ão|ões)$/)]);
+    expect(montes.every((m) => m.getAttribute('title') === text(m))).toBeTrue();
+    // a régua das cartas é a do mural e do Kanban: sem picote em cima, a busca e os controles
+    const rule = $('.pasta-linha.filtros')!;
+    expect(getComputedStyle(rule).borderTopStyle).toBe('none');
+    expect(rule.firstElementChild!.classList).toContain('pasta-busca');
+    expect(rule.lastElementChild!.classList).toContain('pasta-controles');
+  });
+
+  it('o baralho vazio mantém o caminho e o lápis, sem a régua de busca', async () => {
+    const { vazio } = seed();
+    await go(deckUrl(vazio));
+    expect(text($('.trilha .nome-txt'))).toBe('Locais');
+    expect($('.trilha button[aria-label="Ajustes do baralho"]')).not.toBeNull();
+    expect($('.pasta-linha.filtros')).toBeNull();
+    expect(text($('.linha-estudo .em-dia'))).toBe('Nenhuma carta neste baralho ainda.');
   });
 
   it('o endereço de antes dos grupos (/estudos/:baralho) leva ao baralho no grupo dele; o baralho de outro grupo, ao grupo', async () => {
