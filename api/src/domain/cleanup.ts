@@ -10,6 +10,10 @@ import { DAY_MS, utcDay } from './quota';
  * atrás, os freios e os seguir desfeitos de mais de um dia (o "Desfazer" vale por 10 minutos), e as contas
  * marcadas para sair cuja hora passou (ver `domain/erase.ts`), e as imagens (ver `domain/image.ts`). Na Cloudflare roda pelo Cron Trigger; no Node, por um intervalo (ver `src/entry/`).
  */
+export const USAGE_KEEP_DAYS = 400;
+export const FAILURES_KEEP_DAYS = 30;
+export const FAILURES_KEEP = 500;
+
 /** Quem tem alguma chave viva que alcança uma área, por qualquer uma das permissões dela (um parâmetro: agora). */
 const readers = (scopes: readonly string[]) =>
   `SELECT usuario_id FROM api_chaves WHERE expira_em > ? AND (${scopes.map((s) => `escopos LIKE '%"${s}"%'`).join(' OR ')})`;
@@ -55,6 +59,10 @@ async function housekeeping(deps: Deps, now: Date): Promise<void> {
     { sql: 'DELETE FROM sessoes WHERE expira_em < ?', params: [now.toISOString()] },
     { sql: 'DELETE FROM atividades WHERE criado_em < ?', params: [new Date(now.getTime() - 90 * DAY_MS).toISOString()] },
     { sql: 'DELETE FROM uso_diario WHERE dia < ?', params: [utcDay(new Date(now.getTime() - 30 * DAY_MS))] },
+    // o uso das APIs externas: mais de um ano para comparar meses, e as falhas por 30 dias e até 500
+    { sql: 'DELETE FROM uso_apis WHERE dia < ?', params: [utcDay(new Date(now.getTime() - USAGE_KEEP_DAYS * DAY_MS))] },
+    { sql: 'DELETE FROM uso_apis_falhas WHERE em < ?', params: [new Date(now.getTime() - FAILURES_KEEP_DAYS * DAY_MS).toISOString()] },
+    { sql: 'DELETE FROM uso_apis_falhas WHERE id NOT IN (SELECT id FROM uso_apis_falhas ORDER BY id DESC LIMIT ?)', params: [FAILURES_KEEP] },
     { sql: 'DELETE FROM seguindo_desfeito WHERE desfeito_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     { sql: 'DELETE FROM freios WHERE criado_em < ?', params: [new Date(now.getTime() - DAY_MS).toISOString()] },
     // os pedidos para ligar o Google Agenda que ninguém terminou (valem 15 minutos)

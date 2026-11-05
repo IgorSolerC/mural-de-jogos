@@ -2,6 +2,7 @@ import { HttpError } from '../errors';
 import type { Deps } from '../ports';
 import { ICONE_RE } from '../../../contrato/api-v1/calendario';
 import { base64url } from './bytes';
+import { measured } from './external-usage';
 
 /**
  * O Google Agenda do Calendário: a cifra do refresh token e o que passa entre o site e o Google. A API é
@@ -86,12 +87,14 @@ export async function revokeAgenda(deps: Deps, sealed: string): Promise<void> {
   try {
     const refresh = await open(key, sealed);
     // a permissão vai no corpo, e não no endereço (que fica nos logs de quem estiver no caminho)
-    await upstream(GOOGLE_REVOKE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ token: refresh }),
-      signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
-    });
+    await measured(deps, 'google-token', 'revogar', () =>
+      upstream(GOOGLE_REVOKE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ token: refresh }),
+        signal: AbortSignal.timeout(REVOKE_TIMEOUT_MS),
+      }),
+    );
   } catch (err) {
     deps.log?.(`agenda: não deu para devolver a permissão ao Google (${err instanceof Error ? err.name : 'erro'})`);
   }

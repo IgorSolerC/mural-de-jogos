@@ -38,7 +38,9 @@ guarda as chaves do site como **secrets** do Worker e repassa a busca (`src/rout
 `GET /v1/catalogo` diz quais existem (`{"tmdb": true, "rawg": true}`, nunca a chave), e
 `GET /v1/catalogo/tmdb/...` e `GET /v1/catalogo/rawg/...` repassam só os endereços e parâmetros que o
 site usa (a busca, os pôsteres, um jogo e as lojas dele), só para quem vem das `ORIGENS`, com cache de
-um dia no navegador. Não toca no banco nem conta na cota de gravações. Sem o secret, aquele catálogo
+um dia no navegador. A resposta não espera o banco: só o que foi mesmo ao catálogo é anotado, e a conta é
+gravada depois, de 20 em 20 s, parando em metade da cota do dia (`src/domain/external-usage.ts`,
+PLANO-ADMIN-APIS.md); as recusas daqui não gravam nada. Sem o secret, aquele catálogo
 responde `503 sem-chave` e o site volta para a Wikipedia; a chave recusada ou no limite também vira
 503, e o site para de usar a do site até recarregar. O catálogo fora do ar responde `502 catalogo-fora`
 (o pedido a ele desiste em 8 s), e o site também procura na Wikipedia: ele espera no máximo 5 s, e deixa

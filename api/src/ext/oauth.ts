@@ -1,4 +1,5 @@
 import { Context, Hono } from 'hono';
+import { measured } from '../domain/external-usage';
 import { MAX_CHAVES, textoLimpo } from '../../../contrato/api-v1/escopos';
 import {
   ESCOPOS_DO_OAUTH,
@@ -190,7 +191,7 @@ export function oauthRoutes(app: Hono, deps: Deps): void {
     const bad = (why: string) => new OAuthError(400, 'invalid_client', `O documento do aplicativo (${url}) não serve: ${why}`);
     let res: Response;
     try {
-      res = await (deps.oauthFetch ?? fetch)(url, { headers: { Accept: 'application/json' }, redirect: 'manual', signal: AbortSignal.timeout(5_000) });
+      res = await measured(deps, 'oauth-documento', 'ler', () => (deps.oauthFetch ?? fetch)(url, { headers: { Accept: 'application/json' }, redirect: 'manual', signal: AbortSignal.timeout(5_000) }));
     } catch {
       throw bad('não respondeu.');
     }

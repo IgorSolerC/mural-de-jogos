@@ -6,6 +6,7 @@ import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
 import { adminRoutes } from './routes/admin';
 import { agendaRoutes } from './routes/agenda';
+import { keepAliveOf } from './routes/http';
 import { catalogRoutes } from './routes/catalog';
 import { extRoutes } from './ext/routes';
 import { commentRoutes } from './routes/comments';
@@ -77,6 +78,12 @@ export function createApp(deps: Deps): Hono {
       maxAge: 86_400,
     }),
   );
+
+  // a conta dos serviços externos, anotada por quem chamou (ver domain/external-usage.ts): grava só uma vez por janela
+  app.use('*', async (c, next) => {
+    await next();
+    await deps.meter?.schedule(deps, keepAliveOf(c));
+  });
 
   app.use('*', async (c, next) => {
     await next();

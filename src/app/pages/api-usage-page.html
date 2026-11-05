@@ -12,7 +12,11 @@
           Conferindo…
         }
         @case ('pronto') {
-          A contagem ainda não começou. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
+          @if (countingSince(); as since) {
+            A contagem começou em {{ checkedOn(since) }}, e os números vão entrar aqui. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
+          } @else {
+            A contagem ainda não começou. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
+          }
         }
         @case ('erro') {
           Não deu para buscar os números agora.

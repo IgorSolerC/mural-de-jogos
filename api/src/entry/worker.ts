@@ -6,6 +6,7 @@ import { readAgendaKeys } from '../domain/agenda';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
+import { UsageMeter } from '../domain/external-usage';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
 import { accountByGoogle } from '../domain/vault';
 import { Deps } from '../ports';
@@ -61,6 +62,7 @@ function deps(env: Env): Deps {
     catalog: { keys: readCatalogKeys(env as unknown as Record<string, unknown>) },
     agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
     log: (line) => console.warn(line),
+    meter: new UsageMeter(),
     ...(env.COFRE
       ? {
           vault: {
@@ -88,11 +90,13 @@ function appOf(env: Env): ReturnType<typeof createApp> {
 }
 
 export default {
-  fetch(request, env) {
-    return appOf(env).fetch(request);
+  fetch(request, env, ctx) {
+    return appOf(env).fetch(request, env, ctx);
   },
   scheduled(_controller, env, ctx) {
-    ctx.waitUntil(cleanup(deps(env)));
+    const d = deps(env);
+    // a limpeza pode devolver permissões ao Google (as contas que saem): a conta delas grava junto
+    ctx.waitUntil(cleanup(d).finally(() => d.meter?.flush(d)));
   },
 } satisfies ExportedHandler<Env>;
 

@@ -33,6 +33,12 @@ describe('a página Uso das APIs', () => {
     expect(t.host.querySelector('.frase')?.getAttribute('role')).toBe('status');
   });
 
+  it('com a contagem andando, diz desde quando', async () => {
+    const t = setup(async () => ({ ...answer, contandoDesde: '2026-11-05' }));
+    await t.fixture.whenStable();
+    expect(t.sentence()).toContain('A contagem começou em 05/nov/2026');
+  });
+
   it('todo serviço do catálogo aparece com o limite, na sua seção, e o que não se conta também', async () => {
     const t = setup(async () => answer);
     await t.fixture.whenStable();

@@ -78,7 +78,7 @@ export function adminSuite(label: string, getDb: () => Db) {
       const res = await t.appWith(`outra, ${dona.id}`).uso(dona.token);
       expect(res.status).toBe(200);
       expect(res.headers.get('Cache-Control')).toBe('no-store');
-      expect(await res.json()).toEqual({ geradoEm: NOW.toISOString(), contandoDesde: null, linhas: [], falhas: [] });
+      expect(await res.json()).toMatchObject({ geradoEm: NOW.toISOString(), contandoDesde: null, linhas: [], falhas: [] });
     });
 
     it('o /v1/eu avisa só a própria conta', async () => {

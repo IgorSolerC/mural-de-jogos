@@ -37,6 +37,8 @@ export class ApiUsagePage {
   private gone = false;
 
   protected readonly state = signal<'carregando' | 'pronto' | 'erro'>('carregando');
+  /** De quando é a primeira conta (AAAA-MM-DD); null, ainda não há nenhuma. */
+  protected readonly countingSince = signal<string | null>(null);
   protected readonly groups = GROUPS.map((g) => ({ ...g, services: SERVICOS.filter((s) => s.medidoEm === g.id) }));
   protected readonly uncounted = SEM_CONTAGEM;
   protected readonly checkedOn = checkedOn;
@@ -51,8 +53,10 @@ export class ApiUsagePage {
   protected async load(): Promise<void> {
     this.state.set('carregando');
     try {
-      await this.account.request('/v1/admin/uso');
-      if (!this.gone) this.state.set('pronto');
+      const usage = await this.account.request<{ contandoDesde: string | null }>('/v1/admin/uso');
+      if (this.gone) return;
+      this.countingSince.set(usage?.contandoDesde ?? null);
+      this.state.set('pronto');
     } catch (e) {
       if (this.gone) return;
       if (e instanceof CloudError && e.status === 403) {

@@ -4,6 +4,7 @@
  */
 
 import type { AgendaKeys } from './domain/agenda';
+import type { UsageMeter } from './domain/external-usage';
 import type { VerifyGoogle } from './domain/google';
 
 /** O que pode ir num parâmetro de SQL. */
@@ -121,4 +122,9 @@ export interface Deps {
    * de quem a API chama, nunca o corpo do pedido nem um token. Sem isto (nos testes), nada se escreve.
    */
   log?: (line: string) => void;
+  /**
+   * A contagem das chamadas aos serviços externos (ver `domain/external-usage.ts`), uma por instância. Sem
+   * isto, nada se conta (os testes que não olham a conta).
+   */
+  meter?: UsageMeter;
 }

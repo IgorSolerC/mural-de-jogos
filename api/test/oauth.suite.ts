@@ -4,6 +4,7 @@ import { DOCUMENTOS_POR_IP, ESCOPOS_DO_OAUTH, ESCOPOS_SEM_PEDIDO, REGISTROS_POR_
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { cleanup } from '../src/domain/cleanup';
+import { UsageMeter } from '../src/domain/external-usage';
 import { googleVerifier } from '../src/domain/google';
 import { base64url, sha256 } from '../src/domain/bytes';
 import { Db, Deps } from '../src/ports';
@@ -549,6 +550,14 @@ export function oauthSuite(label: string, getDb: () => Db) {
       const tok = (await t.body(t.exchange(code, DOC))) as any;
       expect(tok.access_token).toMatch(/^murall_/);
       expect((await t.mcp(tok.access_token)).status).toBe(200);
+    });
+
+    it('buscar o documento entra na conta do uso, sem o endereço dele', async () => {
+      const t = await setup(ENV, { oauthFetch: serving(() => new Response('nada', { status: 404 })).fetch, meter: new UsageMeter(0) });
+      await t.authorize({ client_id: DOC });
+      const rows = await t.db.all<Record<string, unknown>>('SELECT servico, operacao, desfecho, pedidos FROM uso_apis');
+      expect(rows).toEqual([{ servico: 'oauth-documento', operacao: 'ler', desfecho: 'nao-achou', pedidos: 1 }]);
+      expect(JSON.stringify(await t.db.all('SELECT * FROM uso_apis'))).not.toContain(new URL(DOC).host);
     });
 
     it('o documento que não serve vira página de erro, com o porquê', async () => {

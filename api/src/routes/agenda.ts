@@ -2,7 +2,9 @@ import { Hono } from 'hono';
 import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_AUTH_URL, GOOGLE_TOKEN_URL, cleanEvent, isEventId, isInstanceId, open, patchOf, plainCode, refusalOf, revokeAgenda, seal, trimEvent } from '../domain/agenda';
 import { brakeStatement, usedToday } from '../domain/brake';
 import { base64url, sha256 } from '../domain/bytes';
+import { measured } from '../domain/external-usage';
 import { write } from '../domain/quota';
+import type { OperacaoDe } from '../../../contrato/uso-apis/contagem';
 import { HttpError } from '../errors';
 import { Deps } from '../ports';
 import { readJson, sessionOf } from './http';
@@ -33,6 +35,8 @@ export const MAX_OPS = 25;
  */
 export const MAX_CALLS = 46;
 const UPSTREAM_TIMEOUT_MS = 10_000;
+/** O nome de cada pedido à agenda na contagem do uso (PATCH é mudar; o "voltar" do dia tirado também). */
+const CALENDAR_OPERATIONS: Record<string, OperacaoDe<'google-agenda'>> = { GET: 'listar', POST: 'criar', PATCH: 'mudar', DELETE: 'apagar' };
 const EVENT_FIELDS =
   'nextPageToken,nextSyncToken,items(id,status,summary,start,end,recurrence,recurringEventId,originalStartTime,colorId,updated,etag,htmlLink,eventType,reminders,extendedProperties(private),organizer(self),attendees(self))';
 
@@ -60,8 +64,11 @@ export function agendaRoutes(app: Hono, deps: Deps): void {
   };
 
   const google = async (url: string, init: RequestInit = {}): Promise<Response> => {
+    const run = () => upstream(url, { ...init, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
     try {
-      return await upstream(url, { ...init, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+      // a conta: a permissão (trocar ou renovar) e a agenda são serviços diferentes para o Google
+      if (url === GOOGLE_TOKEN_URL) return await measured(deps, 'google-token', (init.body as URLSearchParams).get('grant_type') === 'refresh_token' ? 'renovar' : 'trocar', run);
+      return await measured(deps, 'google-agenda', CALENDAR_OPERATIONS[init.method ?? 'GET'] ?? 'listar', run, { limitIn403: true });
     } catch (err) {
       warn(`agenda: o Google não respondeu (${err instanceof Error ? err.name : 'erro'})`);
       throw new HttpError(502, 'google-fora', 'O Google não respondeu. Tente de novo daqui a pouco.');

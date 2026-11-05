@@ -40,6 +40,19 @@ export async function readJson(c: Context, max = MAX_JSON_CHARS): Promise<Record
   }
 }
 
+/**
+ * O `waitUntil` do pedido, para um trabalho continuar depois da resposta. Fora do Worker (o Node, os testes)
+ * não há, e o Hono lança ao ler o `executionCtx`: devolve `undefined`.
+ */
+export function keepAliveOf(c: Context): ((work: Promise<unknown>) => void) | undefined {
+  try {
+    const ctx = c.executionCtx;
+    return (work) => ctx.waitUntil(work);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Quem está chamando, pelo cabeçalho `Authorization` (ver `authenticate`). */
 export function sessionOf(deps: Deps, c: Context): Promise<Session> {
   return authenticate(deps, c.req.header('Authorization'));

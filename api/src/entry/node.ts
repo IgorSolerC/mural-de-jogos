@@ -8,6 +8,7 @@ import { readAgendaKeys } from '../domain/agenda';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
+import { UsageMeter } from '../domain/external-usage';
 import { DAY_MS } from '../domain/quota';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
 import { Deps } from '../ports';
@@ -37,12 +38,16 @@ const deps: Deps = {
   catalog: { keys: readCatalogKeys(process.env) },
   agenda: { keys: readAgendaKeys(process.env) },
   log: (line) => console.warn(line),
+  meter: new UsageMeter(),
 };
 const app = createApp(deps);
 const port = Number(process.env['PORT'] ?? 8787);
 serve({ fetch: app.fetch, port }, () => console.log(`API em http://localhost:${port} (banco: ${file}, modo: ${deps.config.mode})`));
 
 // a limpeza na subida e depois a cada dia: um servidor que reinicia antes de 24 horas também limpa
-const daily = () => void cleanup(deps).catch((e) => console.error('limpeza falhou', e));
+const daily = () =>
+  void cleanup(deps)
+    .catch((e) => console.error('limpeza falhou', e))
+    .finally(() => deps.meter?.flush(deps));
 daily();
 setInterval(daily, DAY_MS);

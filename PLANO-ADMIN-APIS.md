@@ -754,7 +754,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 |---|---|---|
 | 0 | **Medir** — feita em 05/nov (seção 22). Sem mudar o produto. Em aberto, por não dar para medir agora: a dimensão `date` (rodada 4, com o token) e os cabeçalhos e o painel da RAWG (quando ela voltar) | Resultados na seção 22; seções 3, 4, 6, 8, 10 e 14 corrigidas; nenhuma decisão mudou |
 | 1 | **O papel de admin** — feita em 05/nov (seção 22). Impeccable no começo (brief 11.1, `context`, `craft-floor`). `ADMIN_USUARIOS`, `requireAdmin`, `admin` no `/v1/eu`, `CloudAccountInfo`, `onlyAdmin`, prateleira "Outros", ajustes na barra, página com a frase "A contagem ainda não começou" e o catálogo | O dono vê e abre; os testes provam que outra conta, sem sessão, com chave de API, e até com **o mesmo código numa conta nova** não entram; Extras sem nenhuma diferença para os outros |
-| 2 | **Contar no Worker.** Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
+| 2 | **Contar no Worker** — feita em 05/nov (seção 22). Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
 | 3 | **A tela, com dados.** `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
 | 4 | **A Cloudflare.** `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador.** `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
@@ -907,3 +907,18 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   Testes novos: `api/test/admin.suite.ts` (nos dois bancos, com o caso de quem troca de código e o da conta nova com o
   código antigo), `core/admin.spec.ts`, `pages/extras-page.spec.ts`, `pages/api-usage-page.spec.ts`, e casos em
   `cloud-account.spec`, `browser-reset.spec` e `area-bar.spec`. Fotos e smoke: `.angular/pptr/uso-apis-fotos.mjs`.
+- **05/nov/2026, rodada 2 (contar no Worker), BUILD 753**: migração `0022_uso_apis.sql`, listas fechadas em
+  `contrato/uso-apis/contagem.ts`, `domain/external-usage.ts` (`UsageMeter`, `measured`), o `ctx` chegando às rotas, o
+  catálogo, o Google e o documento OAuth contados, a limpeza diária e `GET /v1/admin/uso` de verdade. Sem tela nova:
+  a frase só passou a dizer desde quando conta. Decidido no caminho:
+  - **A conta precisava sobreviver à desistência do site, o que o plano não previa.** Numa queda, o site desiste aos
+    5 s e o Worker só aos 8 s, e a Cloudflare pode cancelar o pedido com quem desistiu: sem cuidado, justamente as
+    quedas não seriam contadas. No catálogo, `measured` recebe o `waitUntil` e deixa a chamada e a anotação dentro
+    dele. Na Agenda não: lá o site não desiste antes.
+  - O 403 da Agenda lê uma cópia do corpo para separar "passou do limite" de "falta permissão", porque o Google usa o
+    mesmo número; o corpo nunca é guardado. O 409 da Agenda conta como `ok` (outro aparelho já criou o evento), e o
+    410 como `nao-achou`.
+  - A resposta da API não repete o catálogo (10.1), e `chave-propria` é um serviço à parte (10.3).
+
+  Testes novos: `api/test/uso-apis.suite.ts` (nos dois bancos) e casos em `agenda.test.ts` e `oauth.suite.ts`. **Não
+  medido:** a CPU da rota real com a sessão, e o volume real de gravações por dia (ver na rodada 3, já com dados).

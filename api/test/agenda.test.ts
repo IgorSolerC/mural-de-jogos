@@ -6,6 +6,7 @@ import { migrate, sqliteDb } from '../src/adapters/sqlite-node';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { AGENDA_SCOPE, CALENDAR_URL, GOOGLE_REVOKE_URL, GOOGLE_TOKEN_URL, open, readAgendaKeys } from '../src/domain/agenda';
+import { UsageMeter } from '../src/domain/external-usage';
 import { googleVerifier } from '../src/domain/google';
 import { MAX_CALLS, MAX_OPS, forgetAgendaAccess } from '../src/routes/agenda';
 import { Deps } from '../src/ports';
@@ -99,6 +100,36 @@ describe('o Google Agenda', () => {
     const r = await json('POST', '/v1/agenda/retorno', { codigo: 'codigo-1', estado: state }, token);
     expect(r.status).toBe(200);
   }
+
+  it('a conta do uso: trocar, renovar, a agenda e devolver a permissão, cada um com o seu nome', async () => {
+    deps.meter = new UsageMeter(0);
+    const rows = () => db.all<{ servico: string; operacao: string; desfecho: string; pedidos: number }>('SELECT servico, operacao, desfecho, pedidos FROM uso_apis ORDER BY servico, operacao');
+    const token = await login();
+    await connect(token);
+    forgetAgendaAccess();
+    google = (c) => (c.url === GOOGLE_TOKEN_URL ? reply(200, { access_token: 'acesso-2', expires_in: 3600 }) : reply(200, { items: [], nextSyncToken: 's' }));
+    expect((await json('GET', '/v1/agenda/eventos', undefined, token)).status).toBe(200);
+    google = (c) => {
+      if (c.method === 'POST') return reply(200, { id: 'abcde' });
+      if (c.method === 'PATCH') return reply(403, { error: { errors: [{ reason: 'rateLimitExceeded' }] } });
+      return reply(204);
+    };
+    const ops = await json('POST', '/v1/agenda/enviar', { ops: [{ id: 'abcde', acao: 'apagar' }, { id: 'abcdf', acao: 'mudar', evento: { summary: 'Oi', start: { date: '2026-10-07' }, end: { date: '2026-10-08' } } }] }, token);
+    expect(ops.status).toBe(200);
+    google = () => reply(200);
+    expect((await json('DELETE', '/v1/agenda', undefined, token)).status).toBe(200);
+    expect(await rows()).toEqual([
+      { servico: 'google-agenda', operacao: 'apagar', desfecho: 'ok', pedidos: 1 },
+      { servico: 'google-agenda', operacao: 'listar', desfecho: 'ok', pedidos: 1 },
+      { servico: 'google-agenda', operacao: 'mudar', desfecho: 'limite', pedidos: 1 },
+      { servico: 'google-token', operacao: 'renovar', desfecho: 'ok', pedidos: 1 },
+      { servico: 'google-token', operacao: 'revogar', desfecho: 'ok', pedidos: 1 },
+      { servico: 'google-token', operacao: 'trocar', desfecho: 'ok', pedidos: 1 },
+    ]);
+    // nenhum token, nem o corpo de um pedido, chega ao banco
+    expect(JSON.stringify(await db.all('SELECT * FROM uso_apis'))).not.toContain('acesso');
+    expect(JSON.stringify(await db.all('SELECT * FROM uso_apis_falhas'))).not.toContain('rateLimitExceeded');
+  });
 
   it('sem o client secret e a chave, fica indisponível', async () => {
     build({ ...ENV, GOOGLE_CLIENT_SECRET: '', AGENDA_CHAVE: '' });
