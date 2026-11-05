@@ -199,6 +199,44 @@ describe('as contas do Uso das APIs', () => {
     });
   });
 
+  describe('a falha solta do navegador', () => {
+    const good = line({ dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' });
+    const kitsu = (over: Partial<UsageLine> = {}) => line({ servico: 'kitsu', operacao: 'geral', medidoEm: 'navegador', desfecho: 'fora', ...over });
+    const kitsuFailure = (over: Partial<UsageFailure> = {}) => failure({ servico: 'kitsu', operacao: 'geral', medidoEm: 'navegador', desfecho: 'fora', status: 503, ...over });
+    const kitsuRow = (u: ApiUsage) => usageView(u).groups.flatMap((g) => g.rows).find((r) => r.service.id === 'kitsu')!;
+
+    it('uma falha só aparece na linha, mas não alarma a frase nem o carimbo', () => {
+      const u = usage({ linhas: [good, kitsu()], falhas: [kitsuFailure()] });
+      expect(kitsuRow(u).status).toBe('falhou');
+      expect(kitsuRow(u).solta).toBeTrue();
+      expect(usageView(u).tone).toBe('calmo');
+      expect(usageView(u).sentence).toBe('Tudo respondendo, fora uma falha solta no Kitsu, e nenhuma cota passou de 1%.');
+    });
+
+    it('duas na última hora já pedem atenção', () => {
+      const u = usage({ linhas: [good, kitsu({ pedidos: 2 })], falhas: [kitsuFailure({ repeticoes: 2 })] });
+      expect(kitsuRow(u).solta).toBeUndefined();
+      expect(usageView(u).tone).toBe('atencao');
+      expect(usageView(u).sentence).toContain('A última chamada ao Kitsu falhou.');
+    });
+
+    it('as duas precisam ser da última hora', () => {
+      const u = usage({ linhas: [good, kitsu({ pedidos: 2 })], falhas: [kitsuFailure(), kitsuFailure({ em: minutesAgo(90) })] });
+      expect(kitsuRow(u).solta).toBeTrue();
+    });
+
+    it('do Worker, uma falha só continua pedindo atenção: a conta é exata', () => {
+      const u = usage({ linhas: [good, line({ servico: 'tmdb', desfecho: 'fora' })], falhas: [failure({ servico: 'tmdb' })] });
+      expect(usageView(u).tone).toBe('atencao');
+    });
+
+    it('só a falha solta em 7 dias: a frase diz isso, sem carimbo', () => {
+      const u = usage({ linhas: [kitsu()], falhas: [kitsuFailure()] });
+      expect(usageView(u).sentence).toBe('Nos últimos 7 dias, só uma falha solta no Kitsu.');
+      expect(usageView(u).tone).toBeNull();
+    });
+  });
+
   describe('o carimbo da frase', () => {
     const tone = (u: ApiUsage) => usageView(u).tone;
     const goodDays = [line({ dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' })];

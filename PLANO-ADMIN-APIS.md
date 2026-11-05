@@ -1064,6 +1064,12 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   alinharem; o "X de Y" fica só na frase do leitor de tela. De 70% para cima volta a régua grande, com a palavra. Com a Cloudflare
   ligada, a cartolina caiu de uns 455 px para uns 250 px a 1440, e a tabela de Serviços sobe.
 
+- **05/nov/2026, a falha solta do navegador, BUILD 762** (decisão do dono, "Só com 2 ou mais"). Uma falha vista só do navegador
+  pode ser a rede de uma pessoa. Com menos de 2 falhas na última hora, um serviço do navegador mostra "A última falhou" na linha e
+  em Últimas falhas, mas não entra como problema na frase nem acende o carimbo (`ServiceRow.solta`, `LOOSE_UNDER`). A frase continua
+  dizendo: "Tudo respondendo, fora uma falha solta no Kitsu." Os serviços do Worker continuam alarmando na primeira falha, porque
+  a conta deles é exata. O 429 e a chave recusada do navegador continuam alarmando: são sinais específicos, não uma rede ruim.
+
 ## 23. Para quem continuar (05/nov/2026)
 
 As rodadas 0 a 7 estão feitas. Falta:
@@ -1072,8 +1078,7 @@ As rodadas 0 a 7 estão feitas. Falta:
    tela). A primeira medida está na seção 22: 3 a 7 ms com 3 linhas, todo ele custo fixo; o plano para o caso de passar de 8 ms
    também está lá.
 2. **Ver uma linha `navegador` real** em `uso_apis` depois de uma busca do dono logado.
-3. **Decisões do dono, levantadas pela crítica (não feitas):** se uma falha só do navegador (aproximada) deve entrar na frase;
-   juntar falhas seguidas em episódios; link direto para um serviço.
+3. **Ideias levantadas pela crítica, sem pedido do dono:** juntar falhas seguidas em episódios; link direto para um serviço.
 
 Armadilhas: script com crases ou barras invertidas não vai em heredoc do Bash (usar a ferramenta de arquivo + node); `.prateleira`
 e `.papel` são classes globais; no molde, `?.` devolve null; `networkidle0` trava no puppeteer (usar `domcontentloaded` + espera);

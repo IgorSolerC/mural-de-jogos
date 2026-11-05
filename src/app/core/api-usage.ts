@@ -15,6 +15,8 @@ export const ALMOST_OUT = 0.9;
 /** Quantas falhas seguidas, sem nenhuma resposta boa no meio, querem dizer que caiu. */
 const DOWN_AFTER = 3;
 const RECENT_MS = 3_600_000;
+/** Do navegador, abaixo disto em uma hora a falha é "solta": aparece na linha, mas não alarma a frase nem o carimbo. */
+const LOOSE_UNDER = 2;
 /** Com menos dias contados que isto, o ritmo do mês não diz nada. */
 const PACE_MIN_DAYS = 7;
 
@@ -324,6 +326,7 @@ export function dayLabel(iso: string): string {
 
 /** Uma parte da frase, em minúscula: quem junta decide a maiúscula. */
 function problemOf(row: ServiceRow): string | null {
+  if (row.solta) return null;
   const called = row.service.chamado;
   switch (row.status) {
     case 'fora':
@@ -401,10 +404,14 @@ export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], u
     return `${word} coisas pedem atenção: ${joined(parts)}.`;
   }
   if (usage.contandoDesde === utcDay(now)) return 'A contagem começou hoje. Os números vão aparecendo conforme o site é usado.';
-  if (!rows.some((r) => r.status === 'ok')) return 'Nada foi chamado nos últimos 7 dias.';
+  // a falha solta não alarma, mas a frase não pode dizer "tudo" escondendo ela
+  const loose = rows.filter((r) => r.solta);
+  const looseText = loose.length ? `${loose.length === 1 ? 'uma falha solta' : 'falhas soltas'} ${joined(loose.map((r) => inPrep(r.service.chamado)))}` : '';
+  if (!rows.some((r) => r.status === 'ok')) return loose.length ? `Nos últimos 7 dias, só ${looseText}.` : 'Nada foi chamado nos últimos 7 dias.';
+  const all = `Tudo respondendo${loose.length ? `, fora ${looseText}` : ''}`;
   const top = [...quotas].sort((a, b) => b.parte - a.parte)[0];
-  if (!top || top.parte < 0.01) return 'Tudo respondendo, e nenhuma cota passou de 1%.';
-  return `Tudo respondendo. O mais perto do fim: ${top.chamado}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
+  if (!top || top.parte < 0.01) return `${all}, e nenhuma cota passou de 1%.`;
+  return `${all}. O mais perto do fim: ${top.chamado}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
 }
 
 // ===== O detalhe de um serviço (PLANO-ADMIN-APIS.md, 11.6) =====
@@ -544,6 +551,11 @@ export interface ServiceRow {
   desde: string | null;
   /** Só sabe de hoje (a Cloudflare): 7 e 30 dias ficam em branco, em vez de um zero falso. */
   soHoje: boolean;
+  /**
+   * Uma falha solta vista do navegador: a linha diz "A última falhou", mas a frase e o carimbo não se alarmam. Pode
+   * ser a rede de uma pessoa só; com 2 falhas ou mais na última hora, conta (decisão do dono, 05/nov/2026).
+   */
+  solta?: boolean;
 }
 
 export interface UsageView {
@@ -580,8 +592,11 @@ export function usageView(usage: ApiUsage, cf: CloudflareReport | null = null): 
     const level = quotas.find((q) => q.id === service.id)?.nivel ?? null;
     const failures = usage.falhas.filter((f) => f.servico === service.id);
     const { status, desde } = statusOf(totals, lines, failures, level, now);
+    // do navegador, uma falha só pode ser a rede de uma pessoa: com menos de 2 na última hora, ela não alarma
+    const recent = failures.filter((f) => now.getTime() - Date.parse(f.em) <= RECENT_MS).reduce((n, f) => n + f.repeticoes, 0);
+    const solta = service.medidoEm === 'navegador' && status === 'falhou' && recent < LOOSE_UNDER;
     // visto do navegador, pode ser a rede de uma pessoa só: a tela não afirma que o serviço caiu
-    return { service, totals, status: status === 'fora' && service.medidoEm === 'navegador' ? 'falhando' : status, desde, soHoje: false };
+    return { service, totals, status: status === 'fora' && service.medidoEm === 'navegador' ? 'falhando' : status, desde, soHoje: false, ...(solta ? { solta } : {}) };
   });
   const rank = (r: ServiceRow) => STATUS_ORDER.indexOf(r.status);
   const days = cf?.estado === 'ok' ? cf.dias : [];
