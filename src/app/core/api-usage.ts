@@ -226,13 +226,14 @@ export function runsOutOn(q: Quota, usage: ApiUsage, now: Date): number | null {
 
 // ===== O estado =====
 
-export type ServiceStatus = 'fora' | 'limite' | 'recusada' | 'quase' | 'perto' | 'falhou' | 'ok' | 'sem-uso' | 'sem-contagem';
+export type ServiceStatus = 'fora' | 'falhando' | 'limite' | 'recusada' | 'quase' | 'perto' | 'falhou' | 'ok' | 'sem-uso' | 'sem-contagem';
 
 /** A ordem da tabela: o que precisa de atenção em cima. */
-export const STATUS_ORDER: readonly ServiceStatus[] = ['fora', 'limite', 'recusada', 'quase', 'perto', 'falhou', 'ok', 'sem-uso', 'sem-contagem'];
+export const STATUS_ORDER: readonly ServiceStatus[] = ['fora', 'falhando', 'limite', 'recusada', 'quase', 'perto', 'falhou', 'ok', 'sem-uso', 'sem-contagem'];
 
 export const STATUS_LABEL: Record<ServiceStatus, string> = {
   fora: 'Fora do ar',
+  falhando: 'Falhando',
   limite: 'No limite',
   recusada: 'Chave recusada',
   quase: 'Quase no fim',
@@ -322,6 +323,8 @@ function problemOf(row: ServiceRow): string | null {
   switch (row.status) {
     case 'fora':
       return `${called} está fora do ar${row.desde ? ` desde ${clock(row.desde)}` : ''}`;
+    case 'falhando':
+      return `${called} está falhando nos navegadores${row.desde ? ` desde ${clock(row.desde)}` : ''}`;
     case 'limite':
       return `${called} bateu no limite`;
     case 'recusada':
@@ -401,8 +404,6 @@ export interface UsageView {
   ontem: CloudflareReport['dias'][number] | null;
 }
 
-/** Só o que passa pelo Worker é contado por enquanto: o navegador entra na rodada 5. A Cloudflare tem a própria linha. */
-const COUNTED: readonly MedidoEm[] = ['worker'];
 const GROUP_ORDER: readonly MedidoEm[] = ['worker', 'navegador', 'cloudflare'];
 
 /** A linha da Cloudflare: os pedidos de hoje e o pior nível das cotas dela; sem a leitura, "Ainda não conta". */
@@ -424,7 +425,9 @@ export function usageView(usage: ApiUsage, cf: CloudflareReport | null = null): 
     const totals = totalsOf(lines, now);
     const level = quotas.find((q) => q.id === service.id)?.nivel ?? null;
     const failures = usage.falhas.filter((f) => f.servico === service.id);
-    return { service, totals, ...statusOf(totals, lines, failures, level, now, COUNTED.includes(service.medidoEm)), soHoje: false };
+    const { status, desde } = statusOf(totals, lines, failures, level, now);
+    // visto do navegador, pode ser a rede de uma pessoa só: a tela não afirma que o serviço caiu
+    return { service, totals, status: status === 'fora' && service.medidoEm === 'navegador' ? 'falhando' : status, desde, soHoje: false };
   });
   const rank = (r: ServiceRow) => STATUS_ORDER.indexOf(r.status);
   const days = cf?.estado === 'ok' ? cf.dias : [];

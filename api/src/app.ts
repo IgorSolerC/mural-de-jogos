@@ -31,6 +31,7 @@ import { spendingWriteRoutes } from './ext/spending-write';
 import { muralRoutes } from './routes/mural';
 import { noteRoutes } from './routes/notes';
 import { reactionRoutes } from './routes/reactions';
+import { usageReportRoutes } from './routes/usage-report';
 import { imageRoutes } from './routes/images';
 import { ALL, room, usageOf } from './domain/image';
 
@@ -124,6 +125,7 @@ export function createApp(deps: Deps): Hono {
 
   accountRoutes(app, deps);
   adminRoutes(app, deps);
+  usageReportRoutes(app, deps);
   muralRoutes(app, deps);
   followRoutes(app, deps);
   reactionRoutes(app, deps);

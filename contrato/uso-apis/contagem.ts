@@ -26,6 +26,9 @@ export const OPERACOES = {
 } as const;
 
 export type ServicoContado = keyof typeof OPERACOES;
+
+/** Os que só o navegador vê, e os únicos que ele pode mandar: nunca a RAWG nem o TMDB, que o Worker conta. */
+export const SERVICOS_DO_NAVEGADOR: readonly ServicoContado[] = ['wikipedia', 'open-library', 'kitsu', 'anilist', 'itunes', 'chave-propria'];
 export type OperacaoDe<S extends ServicoContado> = (typeof OPERACOES)[S][number];
 
 /**

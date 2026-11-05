@@ -10,6 +10,7 @@ import { USAGE_BUDGET_SHARE, UsageMeter, measured } from '../src/domain/external
 import { googleVerifier } from '../src/domain/google';
 import { catalogBrake } from '../src/routes/catalog';
 import { usageFrom } from '../src/routes/admin';
+import { MAX_REPORTS_PER_HOUR, MAX_REPORT_LINES } from '../src/routes/usage-report';
 import { Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
 
@@ -283,6 +284,112 @@ export function usoApisSuite(label: string, getDb: () => Db) {
       await t.db.batch(Array.from({ length: FAILURES_KEEP + 3 }, () => failure(daysAgo(1))));
       await cleanup(t.deps);
       expect((await t.failures()).length).toBe(FAILURES_KEEP);
+    });
+
+    describe('o que o navegador manda', () => {
+      const LINE = { servico: 'wikipedia', operacao: 'geral', desfecho: 'ok', status: 200, pedidos: 3, msTotal: 600, msMax: 300 };
+
+      async function report() {
+        const t = await setup();
+        const dona = await t.login('dona');
+        const send = (linhas: unknown, token: string | undefined = dona.token) => t.json('POST', '/v1/uso/navegador', { linhas }, token);
+        return { ...t, send, dona };
+      }
+
+      it('sem sessão, 401; com a sessão, 204 e os totais gravados, marcados como do navegador', async () => {
+        const t = await report();
+        const res = await t.json('POST', '/v1/uso/navegador', { linhas: [LINE] });
+        expect(res.status).toBe(401);
+        expect((await t.rows()).length).toBe(0);
+        const ok = await t.send([LINE, { ...LINE, servico: 'kitsu', desfecho: 'fora', status: null, pedidos: 2, msTotal: 100, msMax: 60 }]);
+        expect(ok.status).toBe(204);
+        expect((await t.rows()).map((r) => [r.servico, r.operacao, r.medido_em, r.desfecho, r.pedidos, r.ms_total, r.ms_max])).toEqual([
+          ['kitsu', 'geral', 'navegador', 'fora', 2, 100, 60],
+          ['wikipedia', 'geral', 'navegador', 'ok', 3, 600, 300],
+        ]);
+        expect((await t.failures()).map((f) => [f.servico, f.desfecho, f.status, f.repeticoes])).toEqual([['kitsu', 'fora', null, 2]]);
+      });
+
+      it('de quem veio não fica guardado em lugar nenhum', async () => {
+        const t = await report();
+        await t.send([{ ...LINE, desfecho: 'fora', status: 500 }]);
+        const everything = JSON.stringify([await t.rows(), await t.failures()]);
+        expect(everything).not.toContain(t.dona.id);
+      });
+
+      it('o que vem fora das listas fechadas some, sem erro, e o resto entra', async () => {
+        const t = await report();
+        const res = await t.send([
+          { ...LINE, servico: 'rawg', operacao: 'busca' }, // a cota do site é conta do Worker
+          { ...LINE, servico: 'tmdb', operacao: 'busca' },
+          { ...LINE, servico: 'google-agenda', operacao: 'listar' },
+          { ...LINE, servico: 'qualquer' },
+          { ...LINE, servico: "wikipedia'; DROP TABLE uso_apis; --" },
+          { ...LINE, operacao: 'o que a pessoa buscou' },
+          { ...LINE, desfecho: 'inventado' },
+          { ...LINE, pedidos: 0 },
+          { ...LINE, pedidos: -1 },
+          { ...LINE, pedidos: 1.5 },
+          { ...LINE, pedidos: 1001 },
+          { ...LINE, pedidos: '3' },
+          null,
+          'nada',
+          { ...LINE, servico: 'chave-propria', operacao: 'rawg' },
+        ]);
+        expect(res.status).toBe(204);
+        expect((await t.rows()).map((r) => [r.servico, r.operacao])).toEqual([['chave-propria', 'rawg']]);
+      });
+
+      it('os números absurdos ficam nos tetos, e um status inventado vira nenhum', async () => {
+        const t = await report();
+        await t.send([{ ...LINE, desfecho: 'fora', status: 99999, pedidos: 1, msTotal: 1e12, msMax: 1e12 }]);
+        const [row] = await t.rows();
+        expect(row!.ms_total).toBe(60_000);
+        expect(row!.ms_max).toBe(60_000);
+        expect((await t.failures())[0]!.status).toBeNull();
+      });
+
+      it('um corpo que não é lista não dá erro, e só as primeiras linhas valem', async () => {
+        const t = await report();
+        expect((await t.send('nada')).status).toBe(204);
+        expect((await t.send(undefined)).status).toBe(204);
+        expect((await t.rows()).length).toBe(0);
+        await t.send(Array.from({ length: MAX_REPORT_LINES + 5 }, () => LINE));
+        expect((await t.rows())[0]!.pedidos).toBe(MAX_REPORT_LINES * 3);
+      });
+
+      it('passou do freio, responde igual e não conta', async () => {
+        const t = await report();
+        for (let i = 0; i < MAX_REPORTS_PER_HOUR; i++) expect((await t.send([{ ...LINE, pedidos: 1 }])).status).toBe(204);
+        expect((await t.rows())[0]!.pedidos).toBe(MAX_REPORTS_PER_HOUR);
+        expect((await t.send([{ ...LINE, pedidos: 1 }])).status).toBe(204);
+        expect((await t.rows())[0]!.pedidos).toBe(MAX_REPORTS_PER_HOUR);
+        // o freio é de cada conta
+        const bia = await t.login('bia');
+        await t.send([{ ...LINE, pedidos: 1 }], bia.token);
+        expect((await t.rows())[0]!.pedidos).toBe(MAX_REPORTS_PER_HOUR + 1);
+        // depois de uma hora, volta
+        t.clock.t += 3_600_001;
+        await t.send([{ ...LINE, pedidos: 1 }]);
+        expect((await t.rows()).reduce((n, r) => n + r.pedidos, 0)).toBe(MAX_REPORTS_PER_HOUR + 2);
+      });
+
+      it('a conta do navegador não se mistura com a do Worker, nem na cota', async () => {
+        const t = await report();
+        await t.send([{ ...LINE, servico: 'chave-propria', operacao: 'rawg', pedidos: 5 }]);
+        await t.search();
+        const rows = await t.rows();
+        expect(rows.find((r) => r.servico === 'rawg')!.pedidos).toBe(1);
+        expect(rows.find((r) => r.servico === 'chave-propria')!.medido_em).toBe('navegador');
+      });
+
+      it('para em metade da cota, como a do Worker', async () => {
+        const t = await report();
+        await t.db.batch([{ sql: 'INSERT INTO uso_diario (dia, linhas_gravadas, gravacoes) VALUES (?, ?, 1) ON CONFLICT (dia) DO UPDATE SET linhas_gravadas = excluded.linhas_gravadas', params: ['2026-10-06', 1000 * USAGE_BUDGET_SHARE] }]);
+        expect((await t.send([LINE])).status).toBe(204);
+        expect((await t.rows()).length).toBe(0);
+        expect(t.meter.pending).toBe(true);
+      });
     });
 
     describe('a leitura da Cloudflare', () => {

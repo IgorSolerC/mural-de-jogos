@@ -325,7 +325,7 @@
   font-size: 0.86rem;
   line-height: 1.2;
 
-  &:is([data-estado='fora'], [data-estado='limite'], [data-estado='recusada'], [data-estado='quase']) {
+  &:is([data-estado='fora'], [data-estado='falhando'], [data-estado='limite'], [data-estado='recusada'], [data-estado='quase']) {
     color: var(--red-deep);
     font-weight: 700;
   }
@@ -344,7 +344,7 @@
   border: 2px solid var(--ink);
   border-radius: 50%;
 
-  &:is([data-estado='fora'], [data-estado='limite'], [data-estado='recusada'], [data-estado='quase']) {
+  &:is([data-estado='fora'], [data-estado='falhando'], [data-estado='limite'], [data-estado='recusada'], [data-estado='quase']) {
     border-color: var(--red-deep);
     background: var(--red-deep);
   }

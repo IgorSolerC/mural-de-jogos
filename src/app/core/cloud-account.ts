@@ -154,7 +154,7 @@ export class CloudAccount {
    * Chama a API e devolve a resposta crua (o mural vem em bytes). Erro vira CloudError com a
    * mensagem da nuvem; uma sessão recusada (401) sai da conta neste navegador.
    */
-  async requestRaw(path: string, init: { method?: string; body?: unknown; headers?: Record<string, string> } = {}): Promise<Response> {
+  async requestRaw(path: string, init: { method?: string; body?: unknown; headers?: Record<string, string>; keepalive?: boolean } = {}): Promise<Response> {
     await this.cloud.ready;
     const config = this.cloud.config();
     if (!config) throw new CloudError('A nuvem não está disponível agora.', 'sem-nuvem', 0);
@@ -171,6 +171,7 @@ export class CloudAccount {
       res = await fetch(config.api + path, {
         method: init.method ?? 'GET',
         headers,
+        ...(init.keepalive ? { keepalive: true } : {}),
         body: init.body === undefined ? undefined : isForm ? (init.body as FormData) : isBlob ? (init.body as Blob) : JSON.stringify(init.body),
       });
     } catch {
@@ -187,7 +188,7 @@ export class CloudAccount {
   }
 
   /** Chama a API e lê a resposta JSON. */
-  async request<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  async request<T>(path: string, init: { method?: string; body?: unknown; keepalive?: boolean } = {}): Promise<T> {
     const res = await this.requestRaw(path, init);
     return (await res.json().catch(() => null)) as T;
   }

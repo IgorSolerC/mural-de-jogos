@@ -407,7 +407,7 @@ Ambas herdam o `no-store` de `app.ts:85` e o CORS só das `ORIGENS`.
 ### 10.2 Escrita (qualquer sessão, `routes/usage-report.ts`)
 
 **`POST /v1/uso/navegador`** com `{ linhas: [...] }`, até 40 linhas, cada `pedidos` até 1.000, `ms` limitados.
-Exige sessão. Freio em memória por conta (12 por hora, usando `CatalogBrake`), porque gravar um freio em D1
+Exige sessão. Freio em memória por conta (30 por hora, usando `CatalogBrake`), porque gravar um freio em D1
 para cada envio gastaria justamente o que queremos poupar. Responde `204` mesmo quando a cota mandou descartar:
 o navegador não tem o que fazer com isso.
 
@@ -758,7 +758,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 2 | **Contar no Worker** — feita em 05/nov (seção 22). Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
 | 3 | **A tela, com dados** — feita em 05/nov (seção 22). `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
 | 4 | **A Cloudflare** — feita em 05/nov, falta ligar o token (seção 22). `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
-| 5 | **Contar no navegador.** `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
+| 5 | **Contar no navegador** — feita em 05/nov (seção 22). `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
 | 6 | **Detalhe e falhas.** O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
 | 7 | **Fechar.** Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
 
@@ -958,3 +958,42 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   usam respostas simuladas no formato da documentação, então a consulta (em especial o `d1StorageAdaptiveGroups` sem filtro
   de banco) só se prova quando o dono guardar o token. **Ao ligar:** abrir a tela e olhar o log (`wrangler tail mural-api`);
   aproveitar para medir a CPU das duas rotas.
+
+  **Ligado em 05/nov:** o dono guardou os dois segredos, e as réguas da Cloudflare apareceram na tela de verdade, com
+  números coerentes com a checagem diária (4.346 pedidos contra 4.251 horas antes). Uma medida de cada rota com a sessão real:
+  `GET /v1/admin/cloudflare` 1 ms de CPU, 146 ms no total, sem recusa no log; `GET /v1/admin/uso` **6 ms de CPU**, 549 ms no
+  total, **com só 2 linhas de contagem**. Limites do que isso diz: é uma medida só, pode incluir a subida da instância; a da
+  Cloudflare pode ter vindo da memória de 5 min, então a CPU de ler a resposta e a dimensão aceita (`date` ou outra) seguem sem
+  confirmação. **A conferir na rodada 7:** o `uso` já gasta 6 ms quase vazio, e as linhas cresceram até 1.240; se a medida se
+  repetir, separar as consultas ou agregar no banco.
+- **05/nov/2026, rodada 5 (contar no navegador), BUILD 756**: `core/lookup-meter.ts`, `routes/usage-report.ts`
+  (`POST /v1/uso/navegador`), o `fetchJson`, o AniList e o TMDB com chave própria contados, e a tabela com os números deles.
+  Decidido no caminho:
+  - **Sem internet no aparelho, nada conta:** o catálogo não pode levar a culpa de um celular sem sinal.
+  - **Estado novo, "Falhando":** do navegador, uma sequência de falhas pode ser a rede de uma pessoa só, então a tela não
+    afirma que o serviço caiu.
+  - **O navegador só pode mandar os serviços dele** (`SERVICOS_DO_NAVEGADOR`): nunca a RAWG nem o TMDB, então ninguém mexe na cota
+    do site por este caminho.
+  - **Freio de 30 envios por hora,** e não 12: o site manda de 5 em 5 min e também ao esconder a aba (no mínimo 2 min depois).
+  - **A página de privacidade ganhou uma seção** e nova data, além do item nas Novidades (D8). Isso não estava no plano: a
+    página dizia "Não há rastreamento", o que continua verdade, mas a contagem precisava estar escrita ali.
+
+  Conferido na build de produção (`.angular/pptr/uso-apis-navegador-e2e.mjs`), com o catálogo simulado: logada, digitar uma busca
+  no editor e esconder a aba mandou uma só linha (`open-library`, `ok`, 2 pedidos), sem o texto buscado e sem o id; sem conta,
+  nenhum envio. **Ainda não visto com a nuvem de verdade:** uma linha de navegador real no banco de produção.
+
+## 23. Para quem continuar (05/nov/2026)
+
+Lido o plano e o andamento (seção 22), é isto o que falta, nesta ordem:
+
+1. **Rodada 5 com commit e push; suítes passando (3631 + 668 + 551).** Depois do push, ver o `POST /v1/uso/navegador` responder 401 sem
+   sessão, e uma linha `navegador` real em `uso_apis` depois que o dono fizer uma busca.
+2. **Rodada 6:** detalhe de cada serviço (30 dias em papel milimetrado, carregar a skill `dataviz` antes, por operação) e o bloco
+   "Últimas falhas". A API já entrega `falhas`. "O que não dá para contar" já está feito.
+3. **Rodada 7:** crítica final do Impeccable + detector + `impeccable-finish-reviewer`, fotos 2x
+   (`.angular/pptr/uso-apis-fotos.mjs`, config `dist-smoke` no launch.json), `/code-review high` com as correções (pedido do
+   usuário), DESIGN.md, memória. Reconferir os 6 ms de CPU de `GET /v1/admin/uso` e qual dimensão a Cloudflare aceitou
+   (`wrangler tail mural-api` enquanto o dono abre a tela).
+
+Armadilhas: script com crases não vai em heredoc do Bash (usar arquivo + node); `.prateleira` é classe global; no molde, `?.`
+devolve null; `networkidle0` trava no puppeteer (usar `domcontentloaded` + espera).

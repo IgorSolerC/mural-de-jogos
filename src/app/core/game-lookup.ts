@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { LookupMeter } from './lookup-meter';
 import { Kind, PickedGame, fold, musicFormOf } from './review';
 import { CoverSource, Settings } from './settings';
 import { SiteCatalog, SiteKeys } from './site-keys';
@@ -326,6 +327,7 @@ function wikiQuery(q: string, template: string): string {
 export class GameLookup {
   private readonly settings = inject(Settings);
   private readonly siteKeys = inject(SiteKeys);
+  private readonly meter = inject(LookupMeter);
   /** O que a busca da RAWG já contou: o jogo está na Steam? (id da RAWG → sim/não) */
   private readonly onSteam = new Map<string, boolean>();
   /** O que a busca de músicas já contou: de qual artista (o principal) é cada álbum e cada música. */
@@ -899,12 +901,14 @@ export class GameLookup {
     let res: Response;
     const deadline = withDeadline(signal);
     try {
-      res = await fetch('https://graphql.anilist.co', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ query, variables: { s: q } }),
-        signal: deadline,
-      });
+      res = await this.meter.track('https://graphql.anilist.co', signal, () =>
+        fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ query, variables: { s: q } }),
+          signal: deadline,
+        }),
+      );
     } catch (e) {
       throw lookupFailure(e, signal);
     }
@@ -1077,10 +1081,13 @@ export class GameLookup {
     let res: Response;
     const deadline = withDeadline(signal);
     try {
-      res = await fetch(`https://api.themoviedb.org/3/${path}?${params}`, {
-        headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
-        signal: deadline,
-      });
+      const url = `https://api.themoviedb.org/3/${path}?${params}`;
+      res = await this.meter.track(url, signal, () =>
+        fetch(url, {
+          headers: token ? { Authorization: `Bearer ${key}`, Accept: 'application/json' } : { Accept: 'application/json' },
+          signal: deadline,
+        }),
+      );
     } catch (e) {
       throw lookupFailure(e, signal);
     }
@@ -1134,7 +1141,7 @@ export class GameLookup {
     let res: Response;
     const deadline = withDeadline(signal, ms);
     try {
-      res = await fetch(url, { signal: deadline });
+      res = await this.meter.track(url, signal, () => fetch(url, { signal: deadline }));
     } catch (e) {
       // a RAWG recusa a chave (401) sem o cabeçalho de CORS: o navegador só vê uma falha de rede. Se o
       // mesmo endereço responde quando não se lê a resposta, a RAWG está de pé, e o que falhou foi a chave

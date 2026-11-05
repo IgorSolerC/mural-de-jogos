@@ -31,8 +31,12 @@ export interface ExternalCall {
   desfecho: Desfecho;
   /** O HTTP de lá; null quando não houve resposta (rede ou prazo). */
   status: number | null;
+  /** O tempo, somado quando a linha já traz várias chamadas. */
   ms: number;
   medidoEm?: MedidoEm;
+  /** Uma linha do navegador já chega somada; a do Worker é uma chamada só. */
+  pedidos?: number;
+  msMax?: number;
 }
 
 interface Line {
@@ -79,24 +83,26 @@ export class UsageMeter {
     const medidoEm = call.medidoEm ?? 'worker';
     const em = at.toISOString();
     const ms = Math.max(0, Math.round(call.ms));
+    const msMax = Math.max(0, Math.round(call.msMax ?? ms));
+    const pedidos = call.pedidos ?? 1;
     const key = [utcDay(at), call.servico, call.operacao, medidoEm, call.desfecho].join('|');
     const line = this.lines.get(key);
     if (line) {
-      line.pedidos++;
+      line.pedidos += pedidos;
       line.msTotal += ms;
-      line.msMax = Math.max(line.msMax, ms);
+      line.msMax = Math.max(line.msMax, msMax);
       line.ultimoEm = em;
     } else if (this.lines.size < MAX_LINES) {
-      this.lines.set(key, { dia: utcDay(at), servico: call.servico, operacao: call.operacao, medidoEm, desfecho: call.desfecho, pedidos: 1, msTotal: ms, msMax: ms, ultimoEm: em });
+      this.lines.set(key, { dia: utcDay(at), servico: call.servico, operacao: call.operacao, medidoEm, desfecho: call.desfecho, pedidos, msTotal: ms, msMax, ultimoEm: em });
     }
     if (!isFailure(call.desfecho)) return;
     const failKey = [call.servico, call.operacao, medidoEm, call.desfecho, call.status ?? ''].join('|');
     const failure = this.failures.get(failKey);
     if (failure) {
-      failure.repeticoes++;
+      failure.repeticoes += pedidos;
       failure.em = em;
     } else if (this.failures.size < MAX_FAILURES) {
-      this.failures.set(failKey, { em, servico: call.servico, operacao: call.operacao, medidoEm, desfecho: call.desfecho, status: call.status, repeticoes: 1 });
+      this.failures.set(failKey, { em, servico: call.servico, operacao: call.operacao, medidoEm, desfecho: call.desfecho, status: call.status, repeticoes: pedidos });
     }
   }
 

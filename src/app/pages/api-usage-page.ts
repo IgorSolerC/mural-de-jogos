@@ -10,7 +10,7 @@ import { Cota } from './api-usage/cota';
 /** Os grupos da tabela: por onde a chamada passa, porque a confiança da conta é diferente em cada um. */
 const GROUP_TEXT: Record<MedidoEm, { title: string; note: string }> = {
   worker: { title: 'Pelo Worker', note: 'Passam pela API do Murall: a conta é exata.' },
-  navegador: { title: 'Pelo navegador', note: 'Saem direto do aparelho de cada pessoa. Esta conta ainda não começou.' },
+  navegador: { title: 'Pelo navegador', note: 'Saem direto do aparelho. Conta aproximada, só de quem está logado.' },
   cloudflare: { title: 'Pela Cloudflare', note: 'Os números oficiais de hoje, da conta inteira. Podem atrasar alguns minutos.' },
 };
 

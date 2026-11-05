@@ -270,9 +270,27 @@ describe('as contas do Uso das APIs', () => {
       ]);
     });
 
-    it('o que ainda não conta diz isso, em vez de "sem uso"', () => {
+    it('sem a leitura, só a Cloudflare diz que ainda não conta', () => {
       const v = usageView(usage());
-      for (const g of v.groups.filter((x) => x.id !== 'worker')) for (const r of g.rows) expect(r.status).withContext(r.service.id).toBe('sem-contagem');
+      for (const g of v.groups) for (const r of g.rows) expect(r.status).withContext(r.service.id).toBe(g.id === 'cloudflare' ? 'sem-contagem' : 'sem-uso');
+    });
+
+    it('o que o navegador contou aparece, e é uma conta só daquele serviço', () => {
+      const v = usageView(usage({ linhas: [line({ servico: 'wikipedia', operacao: 'geral', medidoEm: 'navegador', pedidos: 7 })] }));
+      const row = v.groups.find((g) => g.id === 'navegador')!.rows.find((r) => r.service.id === 'wikipedia')!;
+      expect(row.status).toBe('ok');
+      expect(row.totals.hoje).toBe(7);
+      expect(v.quotas.find((q) => q.id === 'rawg')!.usado).toBe(0);
+    });
+
+    it('visto do navegador, a tela não afirma que o serviço caiu: pode ser a rede de uma pessoa', () => {
+      const lines = [line({ servico: 'kitsu', operacao: 'geral', medidoEm: 'navegador', desfecho: 'fora', pedidos: 3 })];
+      const failures = [failure({ servico: 'kitsu', operacao: 'geral', medidoEm: 'navegador', em: '2026-11-20T22:30:00.000Z', status: null, repeticoes: 3 })];
+      const v = usageView(usage({ linhas: lines, falhas: failures }));
+      const row = v.groups.find((g) => g.id === 'navegador')!.rows[0]!;
+      expect(row.status).toBe('falhando');
+      expect(v.sentence).toContain('O Kitsu está falhando nos navegadores desde 19:30');
+      expect(v.sentence).not.toContain('fora do ar');
     });
 
     it('uma linha da chave própria nunca vira a linha da RAWG', () => {

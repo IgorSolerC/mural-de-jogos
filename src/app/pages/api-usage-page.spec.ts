@@ -103,13 +103,20 @@ describe('a página Uso das APIs', () => {
     expect(t.cells('Google Agenda')).toEqual(['0', '0', '0', '—', '—', '—']);
   });
 
-  it('o que ainda não conta diz isso, nas duas seções, sem número nenhum', async () => {
+  it('sem a leitura, a Cloudflare diz que ainda não conta, sem número nenhum', async () => {
     const t = setup(async () => answer);
     await t.settle();
-    expect(t.rowOf('Wikipedia').querySelector('.estado')?.textContent).toBe('Ainda não conta');
-    expect(t.cells('Wikipedia')).toEqual(['—', '—', '—', '—', '—', '—']);
     expect(t.rowOf('Cloudflare').querySelector('.estado')?.textContent).toBe('Ainda não conta');
-    expect(t.text('.razao')).toContain('Esta conta ainda não começou.');
+    expect(t.cells('Cloudflare')).toEqual(['—', '—', '—', '—', '—', '—']);
+  });
+
+  it('o que o navegador conta tem número, e a tela diz que é aproximado', async () => {
+    const t = setup(async () => ({ ...answer, linhas: [...answer.linhas, ['2026-11-20', 'wikipedia', 'geral', 'navegador', 'ok', 7, 700, 200, minutesAgo(2)]] }));
+    await t.settle();
+    expect(t.rowOf('Wikipedia').querySelector('.estado')?.textContent).toBe('Respondendo');
+    expect(t.cells('Wikipedia')).toEqual(['7', '7', '7', '0%', '100 ms', 'há 2 min']);
+    expect(t.rowOf('iTunes').querySelector('.estado')?.textContent).toBe('Sem uso');
+    expect(t.text('.razao')).toContain('Conta aproximada, só de quem está logado.');
   });
 
   it('a régua diz quanto falta, em número e para o leitor de tela', async () => {
