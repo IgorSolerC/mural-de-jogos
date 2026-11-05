@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, a
 import { Router } from '@angular/router';
 import { OPERACOES } from '../../../contrato/uso-apis/contagem';
 import { MedidoEm, SEM_CONTAGEM, SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, daysOf, duration, failureText, operationLabel, operationsOf, parseCloudflare, parseUsage, percent, usageView, when, wholeNumber } from '../core/api-usage';
+import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, daysOf, duration, failureText, operationLabel, operationsOf, parseCloudflare, parseUsage, percentShort, usageView, when, wholeNumber } from '../core/api-usage';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
@@ -189,11 +189,7 @@ export class ApiUsagePage {
     return ms === null ? '—' : `${String(Math.round(ms * 10) / 10).replace('.', ',')} ms`;
   }
 
-  /** Numa coluna de números, "menos de 1%" não cabe nem alinha: vira "<1%". As réguas continuam por extenso. */
-  protected tablePercent(part: number): string {
-    const text = percent(part);
-    return text === 'menos de 1%' ? '<1%' : text;
-  }
+  protected readonly tablePercent = percentShort;
 
   /** Sem pedido, não há o que dizer: nunca um "0%" que parece bom. */
   protected failureShare(t: ServiceTotals): string {

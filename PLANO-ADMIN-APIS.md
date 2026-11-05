@@ -1059,6 +1059,11 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   ou sem números). `toneOf` em `core/api-usage.ts` lê a mesma lista de problemas da frase (`problemsOf`), então os dois nunca
   discordam. O carimbo encosta no fim da frase, e no celular ocupa uma linha da pauta acima dela.
 
+- **05/nov/2026, as réguas finas, BUILD 761** (decisão do dono, "Sim, as réguas"). Abaixo de 70%, a cota vira uma régua fina de
+  8 px, com a mesma fita e os mesmos riscos, e o percentual ao lado numa coluna de largura fixa ("<1%", `percentShort`), para todas
+  alinharem; o "X de Y" fica só na frase do leitor de tela. De 70% para cima volta a régua grande, com a palavra. Com a Cloudflare
+  ligada, a cartolina caiu de uns 455 px para uns 250 px a 1440, e a tabela de Serviços sobe.
+
 ## 23. Para quem continuar (05/nov/2026)
 
 As rodadas 0 a 7 estão feitas. Falta:
@@ -1067,7 +1072,7 @@ As rodadas 0 a 7 estão feitas. Falta:
    tela). A primeira medida está na seção 22: 3 a 7 ms com 3 linhas, todo ele custo fixo; o plano para o caso de passar de 8 ms
    também está lá.
 2. **Ver uma linha `navegador` real** em `uso_apis` depois de uma busca do dono logado.
-3. **Decisões do dono, levantadas pela crítica (não feitas):** as réguas das cotas calmas mais compactas; se uma falha só do navegador (aproximada) deve entrar na frase;
+3. **Decisões do dono, levantadas pela crítica (não feitas):** se uma falha só do navegador (aproximada) deve entrar na frase;
    juntar falhas seguidas em episódios; link direto para um serviço.
 
 Armadilhas: script com crases ou barras invertidas não vai em heredoc do Bash (usar a ferramenta de arquivo + node); `.prateleira`

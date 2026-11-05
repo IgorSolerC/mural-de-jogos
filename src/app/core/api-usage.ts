@@ -286,6 +286,12 @@ export function percent(part: number): string {
   return `${Math.round(part * 100)}%`;
 }
 
+/** Numa coluna de números (as tabelas, a régua fina), "menos de 1%" não cabe nem alinha: vira "<1%". */
+export function percentShort(part: number): string {
+  const text = percent(part);
+  return text === 'menos de 1%' ? '<1%' : text;
+}
+
 export function duration(ms: number): string {
   return ms < 1000 ? `${Math.round(ms)} ms` : `${comma(Math.round(ms / 100) / 10)} s`;
 }

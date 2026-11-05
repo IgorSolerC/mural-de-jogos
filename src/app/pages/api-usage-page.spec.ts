@@ -150,6 +150,11 @@ describe('a página Uso das APIs', () => {
     expect(rulers.map((r) => r.querySelector('.nome')?.textContent)).toEqual(['RAWG', 'Google Agenda', 'Cota de gravações do Murall', 'Imagens guardadas']);
     expect(rulers[0]!.querySelector('.falta')?.textContent).toBe('faltam 19.997');
     expect(rulers[0]!.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('RAWG: 3 de 20.000, faltam 19.997, menos de 1%.');
+    // folgada: a régua fina, com o percentual ao lado; o "de quanto" fica só na frase do leitor de tela
+    expect(rulers[0]!.classList).toContain('folgada');
+    expect(rulers[0]!.querySelector('.fina .regua')).not.toBeNull();
+    expect(rulers[0]!.querySelector('.fina .parte')?.textContent?.trim()).toBe('<1%');
+    expect(rulers[0]!.querySelector('.miudo')).toBeNull();
     // o primeiro mês: o que veio antes não está na conta
     expect(rulers[0]!.textContent).toContain('Contando desde 05/nov/2026');
     expect(t.text('.prateleiras')).toContain('Este mês');
@@ -264,6 +269,10 @@ describe('a página Uso das APIs', () => {
     const rawg = t.host.querySelector('app-cota')!;
     expect(rawg.querySelector('.aviso')?.textContent).toBe('Quase no fim');
     expect(rawg.querySelector('.regua')?.getAttribute('data-nivel')).toBe('quase');
+    // perto do fim, a régua grande volta, com o "de quanto" escrito
+    expect(rawg.classList).not.toContain('folgada');
+    expect(rawg.querySelector('.fina')).toBeNull();
+    expect(rawg.querySelector('.miudo')?.textContent).toContain('de 20 mil');
     expect(rawg.querySelector('[role="img"]')?.getAttribute('aria-label')).toContain('quase no fim');
     expect(t.rowOf('RAWG').querySelector('.estado')?.textContent).toBe('Quase no fim');
   });

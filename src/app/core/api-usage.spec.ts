@@ -1,5 +1,5 @@
 import { SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayShort, dayTurn, daysOf, duration, failureText, howItIs, levelOf, megabytes, operationsOf, parseCloudflare, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView, when } from './api-usage';
+import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayShort, dayTurn, daysOf, duration, failureText, howItIs, levelOf, megabytes, operationsOf, parseCloudflare, percentShort, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView, when } from './api-usage';
 
 const NOW = new Date('2026-11-20T22:40:00.000Z');
 const NOW_ISO = NOW.toISOString();
@@ -472,6 +472,10 @@ describe('as contas do Uso das APIs', () => {
       expect(percent(0)).toBe('0%');
       expect(percent(0.001)).toBe('menos de 1%');
       expect(percent(0.124)).toBe('12%');
+      // nas colunas de números e na régua fina, curto
+      expect(percentShort(0.001)).toBe('<1%');
+      expect(percentShort(0.124)).toBe('12%');
+      expect(percentShort(0)).toBe('0%');
       expect(percent(1.2)).toBe('120%');
     });
 
