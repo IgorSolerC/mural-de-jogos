@@ -760,7 +760,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 4 | **A Cloudflare** — feita em 05/nov, falta ligar o token (seção 22). `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador** — feita em 05/nov (seção 22). `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
 | 6 | **Detalhe e falhas** — feita em 05/nov (seção 22). O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
-| 7 | **Fechar** — feita em 05/nov, falta a medida de CPU (seção 22). Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
+| 7 | **Fechar** — feita em 05/nov, com a CPU medida no ar (seção 22). Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
 
 ---
 
@@ -1032,14 +1032,33 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
     do gráfico (2,18:1 sobre o papel) é o mesmo dos Gastos, e os números estão na tabela; o bloco das falhas grudado na tela
     (sticky) ao lado da tabela, porque com "Ver as N" aberto o fim dele sumiria.
 
+  **CPU medida no ar (05/nov, 19:00–19:07 UTC, `.angular/pptr/medir-admin.mjs`, com o dono abrindo a tela e tocando em
+  Atualizar, e `uso_apis` ainda com 3 linhas):**
+
+  | Rota | CPU | Tempo total |
+  | --- | --- | --- |
+  | `GET /v1/admin/uso` (com sessão) | 6, 3 e 7 ms | 293 a 569 ms |
+  | `GET /v1/admin/cloudflare` (da memória de 5 min) | 3 e 3 ms | 660 a 1.993 ms |
+  | `GET /v1/admin/cloudflare?novo=1` (lendo a GraphQL) | 5 ms | 777 ms |
+  | `GET /v1/admin/uso` sem sessão (401, para comparar) | 0 a 1 ms; uma vez 15 ms | 1 a 15 ms |
+
+  - Nenhum pedido foi cortado. Os picos de 15 ms (num 401) e de 26 ms (num preflight) foram instâncias novas subindo, e
+    aparecem em qualquer rota: não são desta tela.
+  - **A dimensão aceita é `date`:** nenhuma linha "recusou a consulta" no log, então a primeira da lista funcionou.
+  - **O que isto diz do `uso`:** com 3 linhas, os 3 a 7 ms são o custo fixo (a sessão e as 6 consultas), não as linhas. Então
+    separar as consultas ou agregar no banco não baixaria nada agora. O risco é o mês cheio: na rodada 0, 1.243 linhas custaram
+    de 3 a 7 ms a mais. **Medir de novo quando `uso_apis` passar de 600 linhas.** Se passar de 8 ms, tirar as linhas por dia
+    da resposta principal e mandá-las só ao abrir o detalhe de um serviço (uma rota `GET /v1/admin/uso/:servico`), deixando na
+    principal só os totais por serviço, somados no banco.
+
+
 ## 23. Para quem continuar (05/nov/2026)
 
 As rodadas 0 a 7 estão feitas. Falta:
 
-1. **Medir a CPU** de `GET /v1/admin/uso` e `GET /v1/admin/cloudflare` com a sessão do dono (`wrangler tail mural-api --format
-   json`, filtrando `/v1/admin` e sem imprimir cabeçalhos, enquanto ele abre a tela e toca em Atualizar), e ver qual dimensão de
-   tempo a Cloudflare aceitou (a linha "recusou a consulta por …" no log, se houver). Se o `uso` passar de 5 ms com poucas linhas,
-   separar as consultas ou agregar no banco.
+1. **Medir a CPU de novo quando `uso_apis` passar de 600 linhas** (`node .angular/pptr/medir-admin.mjs 20` e o dono abrindo a
+   tela). A primeira medida está na seção 22: 3 a 7 ms com 3 linhas, todo ele custo fixo; o plano para o caso de passar de 8 ms
+   também está lá.
 2. **Ver uma linha `navegador` real** em `uso_apis` depois de uma busca do dono logado.
 3. **Decisões do dono, levantadas pela crítica (não feitas):** a frase mudar de papel quando algo cai (caneta vermelha na margem,
    "PEDE ATENÇÃO"); as réguas das cotas calmas mais compactas; se uma falha só do navegador (aproximada) deve entrar na frase;
