@@ -34,7 +34,7 @@ export const NEWS: NewsEntry[] = [
     title: 'Comentários fechados, o PDF pelo link e o topo dos baralhos',
     melhorias: [
       'O Mais das suas fichas e anotações ganhou as Configurações, com o "Aceitar comentários": desligado, ninguém comenta, responde nem reage aos comentários dela, nem você; os que já estavam ficam guardados, só você os vê (e apaga), e voltam para todos quando você ligar de novo.',
-      'Quem abre uma ficha ou anotação pelo link agora salva ela em PDF pelo botão no alto da ficha, ao lado da tela cheia.',
+      'Quem abre uma ficha ou anotação pelo link agora salva ela em PDF pelo "Baixar em PDF", no canto de cima da página.',
       'O topo de um baralho dos Estudos ficou mais enxuto: o caminho de volta, o nome e o lápis agora estão na mesma linha do "para hoje" e do Estudar, e logo embaixo vem a mesma régua do mural e do Kanban, com a busca, o nível, a ordem e o tamanho das cartas. O Trazer anotações ganhou o ícone de anotação, porque a lupa parecia uma segunda busca.',
       'Quem está logado passa a contar, sem nome e sem o que buscou, quantas buscas vão a cada catálogo, para dar para ver quando um deles cai ou está acabando.',
     ],

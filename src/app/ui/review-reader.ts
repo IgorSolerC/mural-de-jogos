@@ -164,17 +164,11 @@ interface ReadingPlace {
             }
             <!-- os jeitos de ver a ficha, pequenos, antes do X: só a cartolina (como fica no mural) e a
                  tela cheia (só o nome e o texto, para ler). Na tela cheia, o segundo volta à leitura. A
-                 ficha aberta pelo link tem o minimizar dela (a página mostra a ficha no mural) e, no lugar
-                 do "só a cartolina", o PDF (quem abriu pelo link não tem o Mais) -->
-            <div class="vistas" role="group" [attr.aria-label]="solta() ? 'Salvar ou ver a ficha' : 'Jeito de ver a ficha'">
+                 ficha aberta pelo link já tem o minimizar dela (a página mostra a ficha no mural) -->
+            <div class="vistas" role="group" aria-label="Jeito de ver a ficha">
               @if (!solta()) {
                 <button type="button" class="icon-btn vista-btn ver-cartolina" (click)="setView('cartolina')" aria-label="Ver só a cartolina" title="Ver só a cartolina">
                   <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
-                </button>
-              } @else if (!masked()) {
-                <!-- quem abriu pelo link não tem o Mais: o PDF fica aqui, no lugar do "só a cartolina" -->
-                <button type="button" class="icon-btn vista-btn salvar-pdf" (click)="savePdf()" aria-label="Salvar como PDF" title="Salvar como PDF (abre a impressão)">
-                  <lucide-icon [img]="PdfIcon" [size]="16" aria-hidden="true" />
                 </button>
               }
               <!-- um botão só, que troca de nome: o foco fica nele ao entrar e ao sair da tela cheia. Sem
@@ -595,6 +589,14 @@ interface ReadingPlace {
         @if (solta() && vista() === 'leitura') {
           <a class="assinatura" href="./">feito no <span class="assinatura-nome">Murall</span></a>
         }
+        <!-- quem abriu pelo link não tem o Mais: o PDF é um remendo de feltro (o do menu da anotação)
+             pregado no canto da página -->
+        @if (solta() && !masked() && vista() === 'leitura') {
+          <button type="button" class="baixar-pdf" [attr.aria-busy]="pdfBusy()" title="Abre a impressão: escolha “Salvar como PDF”" (click)="savePdf()">
+            <lucide-icon class="baixar-pdf-ico" [img]="PdfIcon" [size]="18" aria-hidden="true" />
+            <span class="baixar-pdf-nome">{{ pdfBusy() ? 'Preparando…' : 'Baixar em PDF' }}</span>
+          </button>
+        }
 
         <!-- o link da ficha, num pedaço à parte, só quando abre -->
         @if (linkOpen()) {
@@ -906,8 +908,8 @@ export class ReviewReader {
   private readonly env = inject(EnvironmentInjector);
   private readonly app = inject(ApplicationRef);
   private readonly toasts = inject(Toasts);
-  /** A folha do PDF está sendo montada (um segundo pedido espera). */
-  private printing = false;
+  /** A folha do PDF está sendo montada (um segundo pedido espera; o botão da ficha pelo link diz). */
+  protected readonly pdfBusy = signal(false);
 
   /**
    * Salva a ficha aberta em PDF: a folha (ui/pdf-sheet.ts, num pedaço à parte, carregado só agora)
@@ -915,8 +917,8 @@ export class ReviewReader {
    */
   protected async savePdf(): Promise<void> {
     const r = this.review();
-    if (!r || this.printing) return;
-    this.printing = true;
+    if (!r || this.pdfBusy()) return;
+    this.pdfBusy.set(true);
     this.toasts.show('Preparando o PDF…', undefined, 20000);
     try {
       const m = await import('./pdf-sheet');
@@ -924,7 +926,7 @@ export class ReviewReader {
     } catch {
       this.toasts.show('Não deu para preparar o PDF. Tente de novo.');
     } finally {
-      this.printing = false;
+      this.pdfBusy.set(false);
     }
   }
 

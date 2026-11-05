@@ -1155,6 +1155,110 @@ dialog.reader.solta::backdrop {
   }
 }
 
+/* ===== Baixar em PDF, na ficha aberta pelo link =====
+   O remendo de feltro do menu da anotação (ui/note-menu.scss): o feltro creme com a costura por dentro,
+   os cantos de 16px e o nome a pincel, pregado no canto de cima da página, na parede. */
+.baixar-pdf {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px 18px 6px 16px;
+  border: 0;
+  border-radius: 16px;
+  @include felt.feltro(-6px);
+  color: #151515;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.35),
+    0 12px 24px -8px rgb(0 0 0 / 0.5);
+  cursor: pointer;
+  transition:
+    background-color var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui);
+
+  /* a mesma tinta da linha que as opções do menu ganham ao passar o mouse, sobre o feltro */
+  &:hover {
+    background-color: color-mix(in oklab, #f8f0dc, rgb(122 74 38) 9%);
+    translate: 0 -1px;
+  }
+
+  /* o contorno é a costura: o foco é o anel amarelo em volta, e a costura fica como está */
+  &:focus-visible {
+    @include felt.remendo-foco;
+    outline: 1.5px dashed rgb(122 74 38 / 0.6);
+    outline-offset: -6px;
+  }
+
+  &[aria-busy='true'] {
+    cursor: progress;
+  }
+}
+
+.baixar-pdf-ico {
+  display: inline-flex;
+  flex: none;
+  color: var(--red-deep);
+}
+
+.baixar-pdf-nome {
+  font-family: var(--f-marker);
+  font-size: 1.05rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+/* sem largura para o remendo ficar ao lado da ficha (ela tem até 760px, no meio), a página guarda o
+   alto dele em cima: a ficha comprida, que chega perto do topo, não passa por baixo dele */
+@media (max-width: 1340px) {
+  dialog.reader.solta:has(.baixar-pdf) {
+    padding-top: 64px;
+  }
+
+  .solta:has(.baixar-pdf) .par,
+  .solta:has(.baixar-pdf) .par > .ficha {
+    max-height: calc(100dvh - 72px - 64px);
+  }
+
+  .solta:has(.baixar-pdf) .par.com-grupo,
+  .solta:has(.baixar-pdf) .par.com-grupo > .ficha {
+    max-height: calc(100dvh - 100px - 64px);
+  }
+}
+
+/* no celular, menor, para caber em cima da faixa da ficha sem encostar na tachinha */
+@media (max-width: 600px) {
+  dialog.reader.solta:has(.baixar-pdf) {
+    padding-top: 52px;
+  }
+
+  .solta:has(.baixar-pdf) .par,
+  .solta:has(.baixar-pdf) .par > .ficha {
+    max-height: calc(100dvh - 72px - 52px);
+  }
+
+  .solta:has(.baixar-pdf) .par.com-grupo,
+  .solta:has(.baixar-pdf) .par.com-grupo > .ficha {
+    max-height: calc(100dvh - 100px - 52px);
+  }
+
+  .baixar-pdf {
+    top: 10px;
+    right: 10px;
+    min-height: 44px;
+    padding: 4px 14px 4px 12px;
+    gap: 8px;
+  }
+
+  .baixar-pdf-nome {
+    font-size: 0.95rem;
+  }
+}
+
 .assinatura-nome {
   color: var(--wall-ink);
   font-family: var(--f-marker);
@@ -1198,10 +1302,14 @@ dialog.reader.solta::backdrop {
   margin-left: 0;
 }
 
-/* finalizada: o carimbo anda para a esquerda dos três botões (na ficha aberta pelo link, o PDF fica
-   no lugar do "só a cartolina"), e o nome e a linha da data guardam o lugar dele */
+/* finalizada: o carimbo anda para a esquerda dos três botões (dos dois, na ficha aberta pelo link), e
+   o nome e a linha da data guardam o lugar dele */
 .carimbo {
   right: 144px;
+}
+
+.solta .carimbo {
+  right: 106px;
 }
 
 .faixa-nome.feita .title {
@@ -1222,6 +1330,10 @@ dialog.reader.solta::backdrop {
     app-done-stamp {
       --tam: 64px;
     }
+  }
+
+  .solta .carimbo {
+    right: 96px;
   }
 
   .faixa-nome.feita .title {

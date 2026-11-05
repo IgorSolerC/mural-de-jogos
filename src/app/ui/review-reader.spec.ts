@@ -802,29 +802,42 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       expect(q('#leitura-titulo')).toBeNull();
     });
 
-    it('aberta pelo link: o PDF fica na faixa, no lugar do "só a cartolina", e prepara a folha', async () => {
+    it('aberta pelo link: o "Baixar em PDF" no canto da página prepara a folha; na tela cheia, sai', async () => {
       signedIn.set(false);
       fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
       await settle();
-      expect(q('.ver-cartolina')).toBeNull();
       expect(q('app-more-menu')).toBeNull();
-      const pdf = q<HTMLButtonElement>('.faixa-nome .vistas .salvar-pdf');
-      expect(pdf?.getAttribute('aria-label')).toBe('Salvar como PDF');
+      // fora da faixa: a faixa continua com a tela cheia e o minimizar
+      expect(q('.faixa-nome .baixar-pdf')).toBeNull();
+      const pdf = q<HTMLButtonElement>('dialog.reader > .baixar-pdf');
+      expect(pdf?.textContent?.trim()).toBe('Baixar em PDF');
       let sheet: HTMLElement | null = null;
+      let busy = null as string | null;
       spyOn(window, 'print').and.callFake(() => {
         sheet = document.querySelector<HTMLElement>('body > .pdf-sheet');
+        busy = pdf!.getAttribute('aria-busy');
       });
       pdf!.click();
       for (let i = 0; i < 200 && !sheet; i++) await wait(25);
       expect((sheet as HTMLElement | null)!.querySelector('h1')!.textContent).toBe('Hades');
+      // enquanto prepara, o botão diz
+      expect(busy).toBe('true');
       dispatchEvent(new Event('afterprint'));
       expect(document.querySelector('.pdf-sheet')).toBeNull();
-      // a leitura de sempre não tem o botão na faixa (o PDF está no Mais)
+      await settle();
+      expect(pdf!.getAttribute('aria-busy')).toBe('false');
+      // na tela cheia (só para ler) o remendo sai, e volta com a leitura
+      q<HTMLButtonElement>('.ler-tela-cheia')!.click();
+      await settle();
+      expect(q('.baixar-pdf')).toBeNull();
+      q<HTMLButtonElement>('.ler-tela-cheia')!.click();
+      await settle();
+      expect(q('.baixar-pdf')).not.toBeNull();
+      // a leitura de sempre não tem o remendo (o PDF está no Mais)
       await closeReader();
       fixture.componentInstance.open(review('r-hades', 'Hades'));
       await settle();
-      expect(q('.salvar-pdf')).toBeNull();
-      expect(q('.ver-cartolina')).not.toBeNull();
+      expect(q('.baixar-pdf')).toBeNull();
     });
 
     it('aberta pelo link, o minimizar fecha a leitura e pede a ficha do mural', async () => {
