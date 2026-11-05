@@ -20,6 +20,12 @@ export async function samplePng(width: number, height: number, alpha = false): P
   return new Promise((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
 }
 
+/**
+ * Até quanto o teste espera a amostra grande. Ninguém aqui mede pressa, e o PNG é gerado na thread principal,
+ * nas folgas dela: leva 30 ms com a thread livre e mais de 6 s com ela ocupada a cada quadro (medido em 2400x1200).
+ */
+const BIG_SAMPLE_TIMEOUT = 30_000;
+
 describe('as imagens coladas (core/images.ts)', () => {
   it('o endereço murall://imagem/ID: o id de 22 letras, e nada mais', () => {
     const id = newImageId();
@@ -48,7 +54,7 @@ describe('as imagens coladas (core/images.ts)', () => {
     // o Chrome gera WebP; o Safari, JPEG
     expect(['image/webp', 'image/jpeg']).toContain(out.tipo);
     expect(out.blob.type).toBe(out.tipo);
-  });
+  }, BIG_SAMPLE_TIMEOUT);
 
   it('a pequena não cresce', async () => {
     const out = await shrinkImage(await samplePng(300, 200));
@@ -66,7 +72,7 @@ describe('as imagens coladas (core/images.ts)', () => {
     });
     expect(out.blob.size).toBe(1000);
     expect(steps).toEqual(['900@0.8', '900@0.7', '900@0.6', '720@0.6', '560@0.55']);
-  });
+  }, BIG_SAMPLE_TIMEOUT);
 
   it('nem a menor coube no teto: não guarda', async () => {
     const huge = async (_src: CanvasImageSource, width: number, height: number) => ({ blob: new Blob([new Uint8Array(MAX_BYTES + 1)]), tipo: 'image/webp' as const, largura: width, altura: height });

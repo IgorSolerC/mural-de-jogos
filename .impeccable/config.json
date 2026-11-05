@@ -74,6 +74,15 @@
         ],
         "createdAt": "2026-10-17T12:39:27.356Z",
         "reason": "Claude triage: .metal-nota is the approved gold foil of 9+ scores (DESIGN.md 'Nota 10 (foil pass)'), pre-existing, not touched by this change"
+      },
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/app/ui/glued-media.spec.ts"
+        ],
+        "createdAt": "2026-11-05T00:28:04.767Z",
+        "reason": "agent triage: a linha do achado é o título de um teste que cita <img> em texto; o arquivo não tem essa tag"
       }
     ]
   }

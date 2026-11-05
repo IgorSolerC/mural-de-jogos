@@ -14,6 +14,7 @@ import { Mural } from '../core/mural';
 import { KANBAN_LAST_KEY } from '../core/kanban';
 import { WallView } from '../core/wall-view';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
+import { scrollSettled } from '../testing/scroll-settled.spec';
 import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanProps } from '../ui/kanban-props';
 import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
@@ -1236,6 +1237,7 @@ describe('página do Kanban', () => {
   it('o botão direito numa ficha abre o menu dela, com o que o quadro faz (levar para a coluna seguinte, os ajustes no quadro)', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await scrollSettled();
     const hit = host.querySelector<HTMLElement>('.lugar[data-nota="nlogin01"] .hit')!;
     const e = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 });
     hit.dispatchEvent(e);
@@ -1255,6 +1257,7 @@ describe('página do Kanban', () => {
   it('os "Ajustes no quadro" do menu abrem a folha da anotação no quadro', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    await scrollSettled();
     host.querySelector<HTMLElement>('.lugar[data-nota="nsync001"] .hit')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
     await settle();
     const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;

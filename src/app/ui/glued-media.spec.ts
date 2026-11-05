@@ -31,10 +31,22 @@ async function waitFrames(ok: () => boolean, max = 30): Promise<void> {
   for (let i = 0; i < max && !ok(); i++) await new Promise((r) => requestAnimationFrame(() => r(null)));
 }
 
+/**
+ * A peça só ouve o `load` e o `error` que o teste manda. O endereço de mentira sai para a rede de verdade, e a
+ * resposta (o "não abriu") chegaria a qualquer hora, às vezes no meio do teste, tirando o picote ou o broche.
+ * Os eventos do navegador têm `isTrusted`, e no capture eles param aqui, antes de chegar na foto.
+ */
+function onlyTestEvents(el: HTMLElement): void {
+  for (const type of ['load', 'error']) {
+    el.addEventListener(type, (e) => e.isTrusted && e.stopPropagation(), true);
+  }
+}
+
 describe('a foto colada na anotação', () => {
   it('trocar o link começa de novo: o "não abriu" do link de antes não fica', async () => {
     TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(GluedMedia);
+    onlyTestEvents(fixture.nativeElement);
     fixture.componentRef.setInput('kind', 'imagem');
     // digitando o link: um pedaço dele já passa por link e não abre
     fixture.componentRef.setInput('args', ['https://i.im']);
@@ -229,6 +241,7 @@ describe('a foto colada na anotação', () => {
     async function photo(args: string[]) {
       TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
       const fixture = TestBed.createComponent(GluedMedia);
+      onlyTestEvents(fixture.nativeElement);
       fixture.componentRef.setInput('kind', 'imagem');
       fixture.componentRef.setInput('args', args);
       await fixture.whenStable();
@@ -414,9 +427,19 @@ describe('a foto colada na anotação', () => {
   });
 
   describe('o adesivo picotado', () => {
+    // a foto sem rede: o link de mentira sairia de verdade, e a foto quebrada mostra o texto alternativo, que
+    // muda o tamanho da peça e o corte, a qualquer hora. Uma amostra 4:3 ocupa o mesmo papel, com ou sem carregar
+    beforeEach(() => {
+      const realSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src')!.set!;
+      spyOnProperty(HTMLImageElement.prototype, 'src', 'set').and.callFake(function (this: HTMLImageElement) {
+        realSrc.call(this, `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='4' height='3'/>`);
+      });
+    });
+
     async function sticker(args: string[], kind: 'imagem' | 'video' = 'imagem') {
       TestBed.configureTestingModule({ imports: [GluedMedia], providers: [provideZonelessChangeDetection()] });
       const fixture = TestBed.createComponent(GluedMedia);
+      onlyTestEvents(fixture.nativeElement);
       fixture.componentRef.setInput('kind', kind);
       fixture.componentRef.setInput('args', args);
       const el = fixture.nativeElement as HTMLElement;
@@ -533,8 +556,6 @@ describe('a foto colada na anotação', () => {
     it('o vídeo de arquivo, que já é o player, fica inteiro: sem o corte, com a sombra da foto colada', async () => {
       const { fixture, el, foto } = await sticker(['https://exemplo.com.br/clipe.mp4', 'adesivo'], 'video');
       const film = foto.querySelector('video')!;
-      // o endereço de mentira não carrega: o "não abriu" de verdade chegaria no meio do teste
-      film.addEventListener('error', (e) => e.stopImmediatePropagation(), true);
       await waitFrames(() => !!foto.style.getPropertyValue('--picote'));
       expect(film.closest('.impressao')).toBeNull();
       expect(getComputedStyle(film).maskImage).toBe('none');

@@ -319,7 +319,11 @@ describe('o índice embaixo do topo', () => {
       document.head.appendChild(still);
     });
 
-    afterAll(() => still?.remove());
+    // as letras saem junto: ficando, o resto da suíte mediria na letra de verdade só se viesse depois daqui
+    afterAll(() => {
+      still?.remove();
+      for (const face of loaded) document.fonts.delete(face);
+    });
 
     // o mural de nome mais comprido (Músicas) e a seção mais comprida aberta; nas Anotações, as quatro
     // seções (com a do cofre) e a contagem do Calendário e a do Kanban (a mais comprida, com três dígitos)

@@ -8,6 +8,7 @@ import { ReviewStore } from '../core/review-store';
 import { SharedStore } from '../core/shared-store';
 import { WallState } from '../core/wall-view';
 import { WallAccess, WallBoard } from '../pages/wall-board';
+import { scrollSettled } from '../testing/scroll-settled.spec';
 import { NoteMenu } from './note-menu';
 
 /** As opções à vista no menu aberto, pelo texto. */
@@ -55,6 +56,7 @@ describe('menu da anotação no mural (NoteMenu)', () => {
     fixture.componentRef.setInput('access', ACCESS);
     document.body.appendChild(fixture.nativeElement);
     await fixture.whenStable();
+    await scrollSettled();
     el = fixture.nativeElement as HTMLElement;
   }
 
@@ -337,6 +339,7 @@ describe('menu da anotação: quem vê o quê', () => {
     document.body.appendChild(host);
     menu = fixture.componentInstance;
     await fixture.whenStable();
+    await scrollSettled();
   });
   afterEach(() => host.remove());
 

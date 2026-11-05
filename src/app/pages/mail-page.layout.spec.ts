@@ -104,7 +104,11 @@ describe('Amigos em todas as larguras', () => {
     document.head.appendChild(still);
   });
 
-  afterAll(() => still?.remove());
+  // as letras saem junto: ficando, o resto da suíte mediria na letra de verdade só se viesse depois daqui
+  afterAll(() => {
+    still?.remove();
+    for (const face of loaded) document.fonts.delete(face);
+  });
 
   beforeEach(async () => {
     localStorage.clear();

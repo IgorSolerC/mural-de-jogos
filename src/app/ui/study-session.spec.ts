@@ -318,10 +318,16 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       });
 
       it('o texto médio cresce até encher, sem rolar', async () => {
-        const { zoom, scroller } = await grown(Array.from({ length: 6 }, (_, i) => `Linha ${i + 1} da resposta`).join('\n'));
+        // linhas curtas, que não quebram em letra nenhuma: quem limita é a altura. Com linhas compridas, seria a
+        // largura, e o zoom dependeria da letra (na Kalam, 15% mais estreita que a de reserva, elas cabem no dobro)
+        const { text: el, zoom, scroller } = await grown(Array.from({ length: 12 }, (_, i) => `Linha ${i + 1}`).join('\n'));
         expect(zoom).toBeGreaterThan(1);
         expect(zoom).toBeLessThan(GROW_MAX);
         expect(scroller.scrollHeight).toBeLessThanOrEqual(scroller.clientHeight);
+        // encheu: a resposta chega perto do respiro do pé (a conta para a menos de um passo de 5% do que cabe)
+        const box = el.parentElement!;
+        const room = scroller.clientHeight - parseFloat(getComputedStyle(scroller).paddingBottom) - (box.offsetTop - scroller.offsetTop);
+        expect(box.offsetHeight).toBeGreaterThan(room * 0.92);
       });
 
       it('o texto comprido fica como é, e rola', async () => {
