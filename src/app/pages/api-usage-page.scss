@@ -421,6 +421,12 @@
     background: var(--hi);
   }
 
+  /* respondendo: a bola cheia no verde da faixa "Finalizado" (pedido do dono); a palavra continua em tinta */
+  &[data-estado='ok'] {
+    border-color: #10a64a;
+    background: #10a64a;
+  }
+
   &:is([data-estado='sem-uso'], [data-estado='sem-contagem']) {
     height: 2px;
     border: 0;
