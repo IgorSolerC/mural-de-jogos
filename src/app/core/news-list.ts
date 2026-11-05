@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-04-duas-abas-sem-perder-nada',
+    id: '2026-11-04-busca-com-reserva-na-wikipedia',
     version: '1.37.3',
     kind: 'ajustes',
     date: '2026-11-04',
@@ -43,6 +43,7 @@ export const NEWS: NewsEntry[] = [
       'Na aba Tudo dos Estudos, o botão agora se chama Novo baralho, como nas outras abas, e pergunta em qual grupo na lista de feltro do Mais, com todos os grupos, até os que ainda não têm baralho.',
     ],
     correcoes: [
+      'Com a RAWG ou o TMDB fora do ar, a busca de jogos, filmes e séries dizia que o catálogo não respondeu e não achava nada; agora ela procura na Wikipedia em até 5 segundos, e depois vai direto. Com a chave colada em Ajustes recusada, os resultados também aparecem, junto do aviso para conferir a chave.',
       'A reação com um emoji do "+" agora mostra o nome dele ao lado do desenho (como o "Amei" das sete da fileira), em vez de repetir o emoji; o nome também vale para o leitor de tela, a dica do botão e os avisos.',
       'No verso da carta, durante a sessão dos Estudos, o texto da anotação agora sai igual ao da ficha do mural: os links "[[título|texto]]" são a caneta azul que abre a anotação (antes apareciam com os colchetes), o link de lembrete e a ficha colada abrem, e a letra, os recuos, os títulos e as cores da cartolina escura são os da ficha; o Espaço no título de um card que abre e fecha não responde mais a carta.',
       'Com dois Muralls abertos no mesmo navegador, o que uma aba fazia podia sumir quando a outra gravava o mural dela por cima: o que a aba escondida aplicava (os pedidos da AI, o que vinha da nuvem) e o que as duas mudavam no mesmo instante, e as anotações saíam da nuvem também. Agora cada aba grava tudo antes de passar a vez da sincronização, a próxima acompanha o que a outra gravou antes de começar, e as mudanças das duas se juntam (as anotações, a fila, a wishlist, o Kanban, os Estudos, o Calendário, os Gastos, o perfil e os ajustes) em vez de uma apagar a outra.',

@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Kind, PickedGame, fold, musicFormOf } from './review';
 import { CoverSource, Settings } from './settings';
 import { SiteCatalog, SiteKeys } from './site-keys';
@@ -6,7 +6,8 @@ import { SiteCatalog, SiteKeys } from './site-keys';
 export class LookupError extends Error {
   constructor(
     message: string,
-    readonly kind: 'offline' | 'rawg-key' | 'tmdb-key' | 'site-key' | 'server',
+    /** `server`: o catálogo falhou (5xx); `request`: ele recusou o pedido (4xx), e está de pé. */
+    readonly kind: 'offline' | 'rawg-key' | 'tmdb-key' | 'site-key' | 'server' | 'request',
   ) {
     super(message);
   }
@@ -22,6 +23,14 @@ type Via = { own: string } | { site: string };
 
 /** Quanto a primeira busca de uma visita espera a nuvem dizer se tem as chaves do site. */
 const SITE_KEYS_WAIT_MS = 1_500;
+
+/**
+ * Quanto a busca espera a RAWG ou o TMDB antes de procurar na Wikipedia. Fora do ar, a RAWG só responde
+ * depois de uns 20 s (o 522 do Cloudflare, medido em 04/11), e a nuvem desiste dela em 8 s.
+ */
+export const PRIMARY_DEADLINE_MS = 5_000;
+/** Depois de uma queda, quanto tempo a busca vai direto à Wikipedia, sem esperar o catálogo a cada letra. */
+export const PRIMARY_REST_MS = 5 * 60_000;
 
 /** Grupos de ISBN do Brasil (CBL): 85 e 65, nas versões de 13 e de 10 dígitos. */
 const BRAZILIAN_BOOK_FILTER = 'language:por isbn:(97885* OR 97865* OR 85* OR 65*)';
@@ -296,6 +305,11 @@ function cleanWikiTitle(title: string): string {
   return title.replace(/\s*\([^)]*\b(game|film|series|miniseries|TV|anime|manga)\b[^)]*\)\s*$/i, '').trim();
 }
 
+/** A falha é do catálogo, que caiu ou não respondeu (e não da chave, do freio ou do que foi pedido)? */
+function catalogDown(e: unknown): boolean {
+  return !(e instanceof LookupError) || e.kind === 'offline' || e.kind === 'server';
+}
+
 /** Monta a busca do CirrusSearch: só letras/números, curinga na última palavra. */
 function wikiQuery(q: string, template: string): string {
   const words = q
@@ -316,6 +330,10 @@ export class GameLookup {
   private readonly onSteam = new Map<string, boolean>();
   /** O que a busca de músicas já contou: de qual artista (o principal) é cada álbum e cada música. */
   private readonly artistIds = new Map<string, string>();
+  /** O catálogo que caiu: até quando a busca nem tenta (só na memória: recarregar tenta de novo). */
+  private readonly restUntil = signal<Partial<Record<SiteCatalog, number>>>({});
+  /** O aviso da chave colada em Ajustes que o catálogo recusou: a busca segue na Wikipedia, e a pessoa fica sabendo. */
+  private readonly refused = signal<Partial<Record<SiteCatalog, string>>>({});
 
   /** O nome do catálogo onde o mural procura, para o leitor de tela. */
   sourceName(kind: Kind): string {
@@ -346,7 +364,18 @@ export class GameLookup {
     return via ? { name: 'TMDB', own: 'own' in via } : { name: 'Wikipedia', own: false };
   }
 
+  /** A chave colada em Ajustes foi recusada na última busca deste mural? O aviso para a tela. */
+  keyProblem(kind: Kind): string | null {
+    const catalog = kind === 'jogos' ? 'rawg' : kind === 'filmes' || kind === 'series' ? 'tmdb' : null;
+    return catalog ? (this.refused()[catalog] ?? null) : null;
+  }
+
+  private resting(catalog: SiteCatalog): boolean {
+    return (this.restUntil()[catalog] ?? 0) > Date.now();
+  }
+
   private rawgVia(): Via | null {
+    if (this.resting('rawg')) return null;
     const own = this.settings.rawgKey().trim();
     if (own) return { own };
     const site = this.siteKeys.base('rawg');
@@ -354,6 +383,7 @@ export class GameLookup {
   }
 
   private tmdbVia(): Via | null {
+    if (this.resting('tmdb')) return null;
     const own = this.settings.tmdbKey().trim();
     if (own) return { own };
     const site = this.siteKeys.base('tmdb');
@@ -370,8 +400,8 @@ export class GameLookup {
    * Procura no catálogo do mural. Livros: Open Library, preferindo a edição brasileira. Animes: Kitsu (com o
    * nome em português quando há), e o AniList se o Kitsu não responder. Filmes e séries: o TMDB, em
    * português, quando há chave (a da pessoa ou a do site); senão a Wikipedia. Jogos: a RAWG do mesmo
-   * jeito, ou a Wikipedia (`source` força a Wikipedia). Se a chave do site para de servir no meio
-   * (cota, recusada), a busca volta para a Wikipedia sem erro.
+   * jeito, ou a Wikipedia (`source` força a Wikipedia). Se o catálogo falha por qualquer motivo (fora do
+   * ar, lento demais, cota, chave recusada), a busca volta para a Wikipedia sem erro (ver `orWikipedia`).
    */
   async search(q: string, signal: AbortSignal, kind: Kind, source: CoverSource = 'rawg'): Promise<PickedGame[]> {
     const query = q.trim();
@@ -398,25 +428,46 @@ export class GameLookup {
       case 'filmes':
       case 'series': {
         const via = this.tmdbVia();
-        if (via) return this.orWikipedia(this.searchTmdb(query, via, kind === 'filmes' ? 'movie' : 'tv', signal), query, signal, kind);
+        if (via) return this.orWikipedia('tmdb', (s) => this.searchTmdb(query, via, kind === 'filmes' ? 'movie' : 'tv', s), query, signal, kind);
         return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
       }
       default: {
         const via = this.rawgVia();
-        if (source === 'rawg' && via) return this.orWikipedia(this.searchRawg(query, via, signal), query, signal, 'jogos');
+        if (source === 'rawg' && via) return this.orWikipedia('rawg', (s) => this.searchRawg(query, via, s), query, signal, 'jogos');
         return this.searchWikipedia(query, signal, WIKI_TEMPLATE.jogos);
       }
     }
   }
 
-  /** A busca pela chave do site que parou de servir vira a da Wikipedia (e a chave do site sai até recarregar). */
-  private async orWikipedia(run: Promise<PickedGame[]>, query: string, signal: AbortSignal, kind: 'jogos' | 'filmes' | 'series'): Promise<PickedGame[]> {
+  /**
+   * A busca no catálogo principal, com a Wikipedia de reserva para qualquer falha dele. Só o cancelamento
+   * de quem pediu passa direto. Se a Wikipedia responde, a internet está boa e quem caiu foi o catálogo:
+   * ele descansa um pouco, e as próximas buscas não esperam o prazo de novo. Se ela também falha, o erro
+   * é o dela, e o catálogo não leva a culpa.
+   */
+  private async orWikipedia(
+    catalog: SiteCatalog,
+    run: (signal: AbortSignal) => Promise<PickedGame[]>,
+    query: string,
+    signal: AbortSignal,
+    kind: 'jogos' | 'filmes' | 'series',
+  ): Promise<PickedGame[]> {
+    let failure: unknown;
     try {
-      return await run;
+      const hits = await run(withDeadline(signal, PRIMARY_DEADLINE_MS));
+      this.refused.update((all) => ({ ...all, [catalog]: undefined }));
+      return hits;
     } catch (e) {
-      if (!(e instanceof LookupError) || e.kind !== 'site-key') throw e;
-      return this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
+      if (signal.aborted) throw e;
+      failure = e;
     }
+    if (failure instanceof LookupError && (failure.kind === 'rawg-key' || failure.kind === 'tmdb-key')) {
+      const message = failure.message;
+      this.refused.update((all) => ({ ...all, [catalog]: message }));
+    }
+    const hits = await this.searchWikipedia(query, signal, WIKI_TEMPLATE[kind]);
+    if (catalogDown(failure)) this.restUntil.update((all) => ({ ...all, [catalog]: Date.now() + PRIMARY_REST_MS }));
+    return hits;
   }
 
   /** Procura o mesmo jogo na outra fonte e devolve a capa de lá (o jogo mais parecido pelo nome). Só no mural de jogos. */
@@ -1034,7 +1085,7 @@ export class GameLookup {
       throw lookupFailure(e, signal);
     }
     if (res.status === 401) throw new LookupError('A chave do TMDB foi recusada. Confira em Ajustes.', 'tmdb-key');
-    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', res.status < 500 ? 'request' : 'server');
     try {
       return await res.json();
     } catch (e) {
@@ -1103,7 +1154,7 @@ export class GameLookup {
       this.siteKeys.drop(catalog);
       throw new LookupError('A busca do site não está respondendo agora.', 'site-key');
     }
-    if (!res.ok) throw new LookupError('O catálogo não respondeu.', 'server');
+    if (!res.ok) throw new LookupError('O catálogo não respondeu.', res.status < 500 ? 'request' : 'server');
     try {
       return await res.json();
     } catch (e) {

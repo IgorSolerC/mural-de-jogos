@@ -15,7 +15,7 @@ amigos, ver o mural deles pelo código e reagir às resenhas. A API da nuvem mor
 - **Busca:** livros na Open Library (edição em português); animes no Kitsu (AniList de reserva); músicas (álbuns,
   faixas e artistas) no iTunes, que também dá a capa e o trecho de 30 segundos que o vinil da ficha toca; filmes e séries no
   TMDB e jogos na RAWG, com as chaves do site (secrets da API, ver [api/README.md](api/README.md)) ou com a
-  chave da pessoa colada em Ajustes › Busca; sem chave nenhuma, na Wikipedia.
+  chave da pessoa colada em Ajustes › Busca; sem chave nenhuma, ou com o catálogo falhando, na Wikipedia.
 - **Offline:** em produção, um service worker ([public/sw.js](public/sw.js)) guarda o site e as capas já vistas.
   Dá para instalar na tela inicial.
 

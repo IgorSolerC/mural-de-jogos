@@ -113,6 +113,12 @@ type Option = { kind: 'hit'; game: PickedGame } | { kind: 'manual'; game: Picked
         } @else if (!loading() && searched() && !fresh().length) {
           <li class="note" role="presentation">{{ words().none }}</li>
         }
+        @if (keyNote(); as note) {
+          <li class="note" role="presentation">
+            <lucide-icon [img]="OfflineIcon" [size]="16" aria-hidden="true" />
+            {{ note }}
+          </li>
+        }
       </ul>
     }
     <p class="sr-only" aria-live="polite">{{ announcement() }}</p>
@@ -135,6 +141,11 @@ export class GameSearch {
       // nas músicas a busca é de álbuns, músicas e artistas: "nenhuma música" diria pouco
       none: isMusic(p.kind) ? 'Nada no catálogo com esse nome.' : `${g(p, 'Nenhum', 'Nenhuma')} ${p.singular} ${g(p, 'conhecido', 'conhecida')} com esse nome.`,
     };
+  });
+  /** A chave colada em Ajustes foi recusada: os resultados vieram da Wikipedia, e a pessoa fica sabendo. */
+  protected readonly keyNote = computed(() => {
+    const problem = !this.loading() && !this.error() ? this.lookup.keyProblem(this.kind()) : null;
+    return problem && `${problem} Por enquanto, a busca é na Wikipedia.`;
   });
   readonly picked = output<PickedGame>();
 
@@ -186,8 +197,9 @@ export class GameSearch {
     const err = this.error();
     if (err) return `${err} Você ainda pode seguir sem capa.`;
     const n = this.fresh().length;
-    if (!n) return this.searched() ? this.words().none : '';
-    return `${plural(n, this.words().one, this.words().many)}.`;
+    const note = this.keyNote() ?? '';
+    if (!n) return this.searched() ? `${this.words().none} ${note}`.trim() : '';
+    return `${plural(n, this.words().one, this.words().many)}. ${note}`.trim();
   });
 
   constructor() {

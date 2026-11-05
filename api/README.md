@@ -40,8 +40,9 @@ guarda as chaves do site como **secrets** do Worker e repassa a busca (`src/rout
 site usa (a busca, os pôsteres, um jogo e as lojas dele), só para quem vem das `ORIGENS`, com cache de
 um dia no navegador. Não toca no banco nem conta na cota de gravações. Sem o secret, aquele catálogo
 responde `503 sem-chave` e o site volta para a Wikipedia; a chave recusada ou no limite também vira
-503, e o site para de usar a do site até recarregar. Quem cola a própria chave nos Ajustes continua
-indo direto ao catálogo.
+503, e o site para de usar a do site até recarregar. O catálogo fora do ar responde `502 catalogo-fora`
+(o pedido a ele desiste em 8 s), e o site também procura na Wikipedia: ele espera no máximo 5 s, e deixa
+o catálogo descansar por 5 minutos. Quem cola a própria chave nos Ajustes continua indo direto ao catálogo.
 
 A origem só barra o navegador (um script escreve o `Origin` que quiser), então há também um freio por IP
 (`CF-Connecting-IP`): 60 buscas por minuto, contadas só na memória (`catalogBrake`, sem banco nem cota),

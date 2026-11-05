@@ -1,7 +1,7 @@
 import { sameTitle } from './game-lookup';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { BOOK_DEADLINE_MS, GameLookup, LookupError, imageLoads } from './game-lookup';
+import { BOOK_DEADLINE_MS, GameLookup, LookupError, PRIMARY_DEADLINE_MS, PRIMARY_REST_MS, imageLoads } from './game-lookup';
 import { Settings } from './settings';
 import { Cloud } from './cloud-config';
 import { SiteKeys } from './site-keys';
@@ -294,12 +294,20 @@ describe('GameLookup', () => {
       expect(ok.choices.map((c) => c.coverUrl)).toContain('https://image.tmdb.org/t/p/w500/p2.jpg');
     });
 
-    it('chave recusada vira um aviso para conferir em Ajustes', async () => {
+    it('chave recusada: a busca segue na Wikipedia e o aviso para conferir em Ajustes fica até a chave servir', async () => {
       settings.tmdbKey.set('errada');
-      fetchSpy.and.returnValue(json({ status_code: 7 }, 401));
-      await expectAsync(lookup.search('duna', signal, 'filmes')).toBeRejectedWith(jasmine.any(LookupError));
-      fetchSpy.and.returnValue(json({ status_code: 7 }, 401));
-      await lookup.search('duna', signal, 'filmes').catch((e: LookupError) => expect(e.kind).toBe('tmdb-key'));
+      const wikiDune = { query: { pages: [{ pageid: 1, index: 1, title: 'Dune (2021 film)' }] } };
+      fetchSpy.and.callFake((input: RequestInfo | URL) => (String(input).includes('themoviedb') ? json({ status_code: 7 }, 401) : json(wikiDune)));
+      const hits = await lookup.search('duna', signal, 'filmes');
+      expect(hits).toEqual([jasmine.objectContaining({ name: 'Dune', source: 'wikipedia', year: '2021' })]);
+      expect(lookup.keyProblem('filmes')).toBe('A chave do TMDB foi recusada. Confira em Ajustes.');
+      expect(lookup.keyProblem('series')).toBe('A chave do TMDB foi recusada. Confira em Ajustes.');
+      expect(lookup.keyProblem('jogos')).toBeNull();
+      // a chave recusada não é o catálogo fora do ar: a próxima busca tenta de novo, e a chave nova apaga o aviso
+      settings.tmdbKey.set('certa');
+      fetchSpy.and.callFake(() => json({ results: [{ id: 1, title: 'Duna', release_date: '2021-10-21', poster_path: null }] }));
+      expect((await lookup.search('duna', signal, 'filmes'))[0].source).toBe('tmdb');
+      expect(lookup.keyProblem('filmes')).toBeNull();
     });
   });
 
@@ -495,6 +503,148 @@ describe('GameLookup', () => {
       lookup = TestBed.inject(GameLookup);
       await lookup.search('hades', signal, 'jogos');
       expect(calls()[0]).toContain('wikipedia.org');
+    });
+  });
+
+  describe('a Wikipedia de reserva, quando o catálogo principal falha', () => {
+    const API = 'https://api.teste';
+    const pages = { query: { pages: [{ pageid: 9, index: 1, title: 'Hades (video game)', description: '2020 video game' }] } };
+    const wikiHit = jasmine.objectContaining({ name: 'Hades', source: 'wikipedia', year: '2020' });
+    const rawgOk = { results: [{ id: 7, name: 'Hades', released: '2020-09-17', stores: [] }] };
+    const rawgCalls = () => fetchSpy.calls.allArgs().filter(([u]) => /catalogo\/rawg|api\.rawg\.io/.test(String(u))).length;
+    const wikiCalls = () => fetchSpy.calls.allArgs().filter(([u]) => String(u).includes('wikipedia.org')).length;
+    const flush = async () => {
+      for (let i = 0; i < 20; i++) await Promise.resolve();
+    };
+
+    /** O catálogo principal responde `main`, a Wikipedia responde as páginas. */
+    const answer = (main: () => Promise<Response>, wiki: () => Promise<Response> = () => json(pages)) =>
+      fetchSpy.and.callFake((input: RequestInfo | URL) => {
+        const u = String(input);
+        if (u === `${API}/v1/catalogo`) return json({ rawg: true, tmdb: true });
+        return u.includes('wikipedia.org') ? wiki() : main();
+      });
+
+    const start = async () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({
+        providers: [
+          provideZonelessChangeDetection(),
+          { provide: Cloud, useValue: { ready: Promise.resolve(), config: () => ({ api: API, googleClientId: 'x.apps.googleusercontent.com' }) } },
+        ],
+      });
+      answer(() => json(rawgOk));
+      lookup = TestBed.inject(GameLookup);
+      settings = TestBed.inject(Settings);
+      await TestBed.inject(SiteKeys).ready;
+      fetchSpy.calls.reset();
+    };
+
+    beforeEach(start);
+
+    it('a RAWG fora do ar (o 502 da nuvem): procura na Wikipedia, e a queda não vira erro', async () => {
+      answer(() => json({ erro: 'catalogo-fora' }, 502));
+      expect(await lookup.search('hades', signal, 'jogos')).toEqual([wikiHit]);
+    });
+
+    it('também sem resposta da rede, com erro do servidor ou com uma resposta que não é JSON', async () => {
+      const failures: (() => Promise<Response>)[] = [
+        () => Promise.reject(new TypeError('Failed to fetch')),
+        () => json({}, 500),
+        () => Promise.resolve(new Response('error code: 522', { status: 200 })),
+      ];
+      for (const failure of failures) {
+        await start();
+        answer(failure);
+        expect(await lookup.search('hades', signal, 'jogos')).toEqual([wikiHit]);
+      }
+    });
+
+    it('a chave da própria pessoa com a RAWG fora do ar: também vai para a Wikipedia, sem culpar a chave', async () => {
+      settings.rawgKey.set('minha');
+      answer(() => json({}, 503));
+      expect(await lookup.search('hades', signal, 'jogos')).toEqual([wikiHit]);
+      expect(lookup.keyProblem('jogos')).toBeNull();
+    });
+
+    it('o TMDB fora do ar: filmes e séries também, e a RAWG continua', async () => {
+      answer(() => json({ erro: 'catalogo-fora' }, 502));
+      expect(await lookup.search('hades', signal, 'filmes')).toEqual([wikiHit]);
+      const search = new URL(String(fetchSpy.calls.mostRecent().args[0])).searchParams.get('gsrsearch');
+      expect(search).toContain('hastemplate:"Infobox film"');
+      expect(lookup.filmsSource().name).toBe('Wikipedia');
+      expect(lookup.gamesSource().name).toBe('RAWG');
+    });
+
+    it('depois de uma queda, descansa: as próximas buscas vão direto, e depois do descanso tenta de novo', async () => {
+      const now = Date.now();
+      const clock = spyOn(Date, 'now').and.returnValue(now);
+      answer(() => json({}, 502));
+      await lookup.search('hades', signal, 'jogos');
+      expect(rawgCalls()).toBe(1);
+      expect(lookup.gamesSource()).toEqual({ name: 'Wikipedia', own: false });
+      expect(lookup.sourceName('jogos')).toBe('Wikipedia');
+
+      await lookup.search('hades ii', signal, 'jogos');
+      expect(rawgCalls()).toBe(1);
+
+      clock.and.returnValue(now + PRIMARY_REST_MS + 1);
+      answer(() => json(rawgOk));
+      const [hit] = await lookup.search('hades', signal, 'jogos');
+      expect(hit.source).toBe('rawg');
+      expect(rawgCalls()).toBe(2);
+    });
+
+    it('a RAWG pendurada: não espera mais que o prazo dela para ir à Wikipedia', async () => {
+      jasmine.clock().install();
+      try {
+        fetchSpy.and.callFake((input: RequestInfo | URL, init?: RequestInit) =>
+          String(input).includes('wikipedia.org')
+            ? json(pages)
+            : new Promise<Response>((_, reject) => init!.signal!.addEventListener('abort', () => reject(init!.signal!.reason))),
+        );
+        const found = lookup.search('hades', signal, 'jogos');
+        await flush();
+        expect(rawgCalls()).toBe(1);
+        jasmine.clock().tick(PRIMARY_DEADLINE_MS - 1);
+        await flush();
+        expect(wikiCalls()).toBe(0);
+        jasmine.clock().tick(1);
+        expect(await found).toEqual([wikiHit]);
+      } finally {
+        jasmine.clock().uninstall();
+      }
+    });
+
+    it('a internet caiu (a Wikipedia também falha): o erro aparece, e a RAWG não fica de castigo', async () => {
+      answer(
+        () => Promise.reject(new TypeError('Failed to fetch')),
+        () => Promise.reject(new TypeError('Failed to fetch')),
+      );
+      await expectAsync(lookup.search('hades', signal, 'jogos')).toBeRejectedWith(jasmine.any(LookupError));
+      expect(lookup.gamesSource().name).toBe('RAWG');
+      answer(() => json(rawgOk));
+      expect((await lookup.search('hades', signal, 'jogos'))[0].source).toBe('rawg');
+    });
+
+    it('um pedido recusado (400, nome comprido demais): só esta vai para a Wikipedia, sem tirar a RAWG', async () => {
+      answer(() => json({ erro: 'parametro-grande' }, 400));
+      expect(await lookup.search('hades', signal, 'jogos')).toEqual([wikiHit]);
+      expect(lookup.gamesSource().name).toBe('RAWG');
+    });
+
+    it('a busca cancelada não pergunta à Wikipedia nem tira a RAWG', async () => {
+      const ctrl = new AbortController();
+      fetchSpy.and.callFake((input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).includes('wikipedia.org')) return json(pages);
+        return new Promise<Response>((_, reject) => init!.signal!.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError'))));
+      });
+      const found = lookup.search('hades', ctrl.signal, 'jogos');
+      await flush();
+      ctrl.abort();
+      await expectAsync(found).toBeRejectedWith(jasmine.objectContaining({ name: 'AbortError' }));
+      expect(wikiCalls()).toBe(0);
+      expect(lookup.gamesSource().name).toBe('RAWG');
     });
   });
 
