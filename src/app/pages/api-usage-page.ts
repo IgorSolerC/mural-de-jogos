@@ -1,11 +1,21 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, afterNextRender, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { MedidoEm, SEM_CONTAGEM } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, duration, parseCloudflare, parseUsage, percent, usageView, wholeNumber } from '../core/api-usage';
+import { OPERACOES } from '../../../contrato/uso-apis/contagem';
+import { MedidoEm, SEM_CONTAGEM, SERVICOS } from '../../../contrato/uso-apis/servicos';
+import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, daysOf, duration, failureText, operationLabel, operationsOf, parseCloudflare, parseUsage, percent, usageView, when, wholeNumber } from '../core/api-usage';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
 import { Cota } from './api-usage/cota';
+import { UsoDias } from './api-usage/dias';
+
+/** Quantas falhas o bloco mostra antes do "Ver as N". */
+const FIRST_FAILURES = 8;
+/** Quantas falhas o detalhe de um serviço mostra. */
+const SERVICE_FAILURES = 5;
+
+/** A API já manda da mais nova para a mais velha; a tela não depende disso. */
+const newestFirst = <T extends { em: string }>(list: readonly T[]): T[] => [...list].sort((a, b) => (a.em < b.em ? 1 : a.em > b.em ? -1 : 0));
 
 /** Os grupos da tabela: por onde a chamada passa, porque a confiança da conta é diferente em cada um. */
 const GROUP_TEXT: Record<MedidoEm, { title: string; note: string }> = {
@@ -21,7 +31,7 @@ const GROUP_TEXT: Record<MedidoEm, { title: string; note: string }> = {
  */
 @Component({
   selector: 'app-api-usage-page',
-  imports: [Cota, IconModule, Pin],
+  imports: [Cota, IconModule, Pin, UsoDias],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './api-usage-page.html',
   styleUrl: './api-usage-page.scss',
@@ -30,6 +40,8 @@ export class ApiUsagePage {
   private readonly account = inject(CloudAccount);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly host: HTMLElement = inject(ElementRef).nativeElement;
+  private readonly injector = inject(Injector);
   private gone = false;
 
   protected readonly loading = signal(true);
@@ -59,6 +71,37 @@ export class ApiUsagePage {
     const shelf = (janela: string, title: string) => ({ janela, title, quotas: v.quotas.filter((q) => q.janela === janela) });
     return [shelf('mes', 'Este mês · a conta vira dia 1º'), shelf('dia', `Hoje · a conta vira às ${dayTurn(v.now)}`), shelf('sempre', 'Sem data para virar')].filter((s) => s.quotas.length);
   });
+
+  protected readonly since = computed(() => this.usage()?.contandoDesde ?? null);
+
+  /** O detalhe aberto (11.6): os 30 dias, cada operação e as últimas falhas. A Cloudflare tem o seu. */
+  protected readonly detail = computed(() => {
+    const id = this.open();
+    const usage = this.usage();
+    if (!id || !usage || id === 'cloudflare') return null;
+    const now = new Date(usage.geradoEm);
+    const lines = usage.linhas.filter((l) => l.servico === id);
+    const operations = (OPERACOES as Record<string, readonly string[]>)[id] ?? [];
+    return {
+      id,
+      days: daysOf(lines, now, usage.contandoDesde),
+      operations: operationsOf(operations, lines, now),
+      failures: newestFirst(usage.falhas)
+        .filter((f) => f.servico === id)
+        .slice(0, SERVICE_FAILURES)
+        .map((f) => ({ quando: when(f.em, now), texto: failureText(f), operacao: operations.length > 1 ? operationLabel(f.operacao) : null })),
+    };
+  });
+
+  /** As falhas mais novas de todos os serviços (a API manda as 50 mais novas, de até 30 dias). */
+  protected readonly failureList = computed(() => {
+    const usage = this.usage();
+    if (!usage) return [];
+    const now = new Date(usage.geradoEm);
+    return newestFirst(usage.falhas).map((f) => ({ servico: f.servico, nome: SERVICOS.find((s) => s.id === f.servico)?.nome ?? f.servico, quando: when(f.em, now), texto: failureText(f) }));
+  });
+  protected readonly allFailures = signal(false);
+  protected readonly shownFailures = computed(() => (this.allFailures() ? this.failureList() : this.failureList().slice(0, FIRST_FAILURES)));
 
   protected readonly uncounted = SEM_CONTAGEM;
   protected readonly checkedOn = dayLabel;
@@ -114,6 +157,20 @@ export class ApiUsagePage {
 
   protected toggle(id: string): void {
     this.open.update((now) => (now === id ? null : id));
+  }
+
+  /** Uma falha do bloco abre o detalhe do serviço dela, e o foco vai para a linha (que rola até a vista). */
+  protected openFrom(id: string): void {
+    this.open.set(id);
+    afterNextRender(() => this.host.querySelector<HTMLElement>(`#abre-${CSS.escape(id)}`)?.focus(), { injector: this.injector });
+  }
+
+  protected share(part: number): string {
+    return percent(part);
+  }
+
+  protected took(ms: number): string {
+    return duration(ms);
   }
 
   protected statusLabel(status: ServiceStatus): string {

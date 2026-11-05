@@ -272,6 +272,99 @@ describe('a página Uso das APIs', () => {
     expect(t.host.querySelector('.detalhe')).toBeNull();
   });
 
+  describe('o detalhe de um serviço', () => {
+    async function opened(name: string, answerWith: unknown = answer) {
+      const t = setup(async () => answerWith);
+      await t.settle();
+      t.rowOf(name).querySelector('button')!.click();
+      await t.settle();
+      return { ...t, detail: t.host.querySelector('.detalhe')! };
+    }
+
+    it('traz os 30 dias, cada operação e as falhas dele', async () => {
+      const { detail } = await opened('RAWG');
+      const chart = detail.querySelector('app-uso-dias [role="img"]')!;
+      expect(chart.getAttribute('aria-label')).toBe('Pedidos por dia nos últimos 30 dias: 3 no total, 3 falharam. O maior dia foi 20/nov, com 3. Hoje, 3.');
+      expect(detail.querySelectorAll('app-uso-dias .coluna').length).toBe(30);
+      expect(detail.querySelector('app-uso-dias .pe')?.textContent).toContain('contando desde 05/nov');
+      const ops = [...detail.querySelectorAll('.operacoes tbody tr')].map((r) => [...r.children].map((c) => c.textContent?.trim()));
+      expect(ops).toEqual([
+        ['Busca', '3', '100%', '—'],
+        ['Ficha do jogo', '—', '—', '—'],
+        ['Lojas', '—', '—', '—'],
+      ]);
+      expect(detail.querySelector('.falhas-dele')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('hoje 19:37 Demorou demais · 3 vezes · Busca');
+      expect(detail.querySelector('.oficial')?.textContent).toContain('A conta daqui começou em 05/nov/2026; o número oficial é o do painel.');
+    });
+
+    it('os números de cada dia também estão numa tabela', async () => {
+      const { detail } = await opened('TMDB');
+      const rows = [...detail.querySelectorAll('app-uso-dias tbody tr')].map((r) => [...r.children].map((c) => c.textContent?.trim()));
+      expect(rows).toEqual([
+        ['20/nov', '2', '—', '400 ms'],
+        ['18/nov', '8', '—', '400 ms'],
+      ]);
+      expect(detail.querySelector('app-uso-dias caption')).not.toBeNull();
+      expect(detail.textContent).toContain('Nenhuma falha guardada.');
+      // sem falhas, a legenda some: com uma cor só, o título já diz o que é
+      expect(detail.querySelector('app-uso-dias .legenda')).toBeNull();
+    });
+
+    it('a dica mostra o dia que o mouse aponta', async () => {
+      const { detail, fixture } = await opened('TMDB');
+      const columns = detail.querySelectorAll('app-uso-dias .coluna');
+      columns[27]!.dispatchEvent(new PointerEvent('pointerenter'));
+      await fixture.whenStable();
+      expect(detail.querySelector('app-uso-dias .dica')?.textContent?.replace(/\s+/g, ' ').trim()).toBe('18/nov8 pedidos');
+      columns[0]!.dispatchEvent(new PointerEvent('pointerenter'));
+      await fixture.whenStable();
+      expect(detail.querySelector('app-uso-dias .dica')?.textContent).toContain('antes da contagem');
+    });
+
+    it('com uma operação só, não há tabela de operações; sem uso, diz isso no lugar do gráfico', async () => {
+      const { detail } = await opened('Wikipedia');
+      expect(detail.querySelector('.operacoes')).toBeNull();
+      expect(detail.querySelector('app-uso-dias [role="img"]')).toBeNull();
+      expect(detail.textContent).toContain('Nenhuma chamada nos últimos 30 dias.');
+    });
+  });
+
+  describe('as últimas falhas', () => {
+    it('cada falha diz quando, quem e o que houve; tocar abre o detalhe do serviço', async () => {
+      const t = setup(async () => answer);
+      await t.settle();
+      const items = [...t.host.querySelectorAll('.lista-falhas .falha')];
+      expect(items.length).toBe(1);
+      expect(items[0]!.querySelector('.quando')?.textContent).toBe('hoje 19:37');
+      expect(items[0]!.querySelector('.falha-nome')?.textContent).toBe('RAWG');
+      expect(items[0]!.querySelector('.falha-texto')?.textContent).toBe('Demorou demais · 3 vezes');
+      (items[0] as HTMLButtonElement).click();
+      await t.settle();
+      const button = t.rowOf('RAWG').querySelector('button')!;
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      expect(document.activeElement).toBe(button);
+    });
+
+    it('sem falhas, diz isso', async () => {
+      const t = setup(async () => ({ ...answer, falhas: [] }));
+      await t.settle();
+      expect(t.text('.falhas')).toContain('Nenhuma falha nos últimos 30 dias.');
+    });
+
+    it('mostra as mais novas, e o resto num toque', async () => {
+      const many = Array.from({ length: 12 }, (_, i) => ({ em: minutesAgo(i + 1), servico: 'tmdb', operacao: 'busca', medidoEm: 'worker', desfecho: 'fora', status: 502, repeticoes: 1 }));
+      const t = setup(async () => ({ ...answer, falhas: many }));
+      await t.settle();
+      expect(t.host.querySelectorAll('.lista-falhas li').length).toBe(8);
+      const more = t.host.querySelector<HTMLButtonElement>('.falhas .mais')!;
+      expect(more.textContent?.trim()).toBe('Ver as 12');
+      more.click();
+      await t.settle();
+      expect(t.host.querySelectorAll('.lista-falhas li').length).toBe(12);
+      expect(t.host.querySelector('.falhas .mais')).toBeNull();
+    });
+  });
+
   it('todo limite do catálogo está ao alcance, e o que não se conta também', async () => {
     const t = setup(async () => nothing);
     await t.settle();

@@ -759,7 +759,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 3 | **A tela, com dados** — feita em 05/nov (seção 22). `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
 | 4 | **A Cloudflare** — feita em 05/nov, falta ligar o token (seção 22). `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador** — feita em 05/nov (seção 22). `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
-| 6 | **Detalhe e falhas.** O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
+| 6 | **Detalhe e falhas** — feita em 05/nov (seção 22). O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
 | 7 | **Fechar.** Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
 
 ---
@@ -982,18 +982,41 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   no editor e esconder a aba mandou uma só linha (`open-library`, `ok`, 2 pedidos), sem o texto buscado e sem o id; sem conta,
   nenhum envio. **Ainda não visto com a nuvem de verdade:** uma linha de navegador real no banco de produção.
 
+  Depois do push (05/nov, 17:45 UTC): `POST /v1/uso/navegador` sem sessão respondeu 401. Em `uso_apis` de produção, só as três
+  chamadas de teste do Worker da rodada 2; nenhuma linha `navegador` ainda, à espera de uma busca do dono logado.
+- **05/nov/2026, rodada 6 (detalhe e falhas), BUILD 757**: `daysOf`, `operationsOf`, `when`, `failureText` e as palavras dos
+  desfechos em `core/api-usage.ts`; o gráfico `app-uso-dias` (`pages/api-usage/dias.ts`); no detalhe, os 30 dias, "Por
+  operação, 30 dias" e "Falhas deste serviço"; e o bloco "Últimas falhas", ao lado da tabela a partir de 1080 px da peça.
+  Skill `dataviz` lida antes do gráfico. Sem mudança na API. Decidido no caminho:
+  - **A parte que falhou fica em cima da tira**, hachurada em vermelho sobre um rosado, separada do kraft por um fio do papel:
+    a altura da tira continua sendo o total, e a falha se lê sem depender só da cor. Rótulo só no maior dia e em hoje (este
+    só se estiver a 3 dias ou mais do maior, para os números não se encostarem); o resto vai na dica e em "Ver os números".
+  - **Os dias antes de a contagem começar ficam cinza,** com "contando desde" no pé: não são zero, são desconhecidos.
+  - **A legenda só aparece com falha nos 30 dias:** com uma cor só, o título já diz o que é (regra do `dataviz`).
+  - **"Por operação" só nos serviços com mais de uma operação** (RAWG, TMDB, Google Agenda, permissões, chave própria);
+    nos outros seria uma tabela de uma linha só, igual ao total.
+  - **As falhas do detalhe saem das 50 que a API já manda:** um serviço calmo pode ter uma falha mais velha que não aparece.
+    Não mexi na API por isso.
+  - **"Últimas falhas" mostra 8 e "Ver as N".** Tocar numa falha abre o detalhe do serviço na tabela e leva o foco à linha.
+    A hora fica numa coluna só (subgrid). A lista é ordenada na tela também, sem depender da ordem da API.
+  - **Colisões:** `.papel` é global (a cartolina das fichas): o gráfico usa `.grafico`. E a amostra da legenda não pode ter a
+    mesma classe da parte hachurada, ou herda a largura dela e empurra a palavra para fora da folha.
+  - **Orçamento:** o `.scss` da página chegou a passar 67 bytes dos 14 kB; o "Ver as N" usa a classe `.botao` que já existe.
+
+  Testes novos: casos em `core/api-usage.spec.ts` (dias, operações, hora de Brasília, palavras) e em `api-usage-page.spec.ts`
+  (o detalhe, a tabela dos dias, a dica, o serviço de uma operação só, e o bloco das falhas). Fotos e smoke:
+  `.angular/pptr/uso-apis-detalhe-fotos.mjs` (320 a 1920 px, sem erro no console, sem rolagem lateral, foco na linha da RAWG).
+
 ## 23. Para quem continuar (05/nov/2026)
 
 Lido o plano e o andamento (seção 22), é isto o que falta, nesta ordem:
 
-1. **Rodada 5 com commit e push; suítes passando (3631 + 668 + 551).** Depois do push, ver o `POST /v1/uso/navegador` responder 401 sem
-   sessão, e uma linha `navegador` real em `uso_apis` depois que o dono fizer uma busca.
-2. **Rodada 6:** detalhe de cada serviço (30 dias em papel milimetrado, carregar a skill `dataviz` antes, por operação) e o bloco
-   "Últimas falhas". A API já entrega `falhas`. "O que não dá para contar" já está feito.
-3. **Rodada 7:** crítica final do Impeccable + detector + `impeccable-finish-reviewer`, fotos 2x
-   (`.angular/pptr/uso-apis-fotos.mjs`, config `dist-smoke` no launch.json), `/code-review high` com as correções (pedido do
+1. **Ver uma linha `navegador` real** em `uso_apis` depois que o dono fizer uma busca logado (a rodada 5 está no ar e o
+   `POST /v1/uso/navegador` já responde 401 sem sessão).
+2. **Rodada 7:** crítica final do Impeccable + detector + `impeccable-finish-reviewer`, fotos 2x
+   (`.angular/pptr/uso-apis-fotos.mjs` e `uso-apis-detalhe-fotos.mjs`, config `dist-smoke` no launch.json), `/code-review high` com as correções (pedido do
    usuário), DESIGN.md, memória. Reconferir os 6 ms de CPU de `GET /v1/admin/uso` e qual dimensão a Cloudflare aceitou
    (`wrangler tail mural-api` enquanto o dono abre a tela).
 
-Armadilhas: script com crases não vai em heredoc do Bash (usar arquivo + node); `.prateleira` é classe global; no molde, `?.`
+Armadilhas: script com crases não vai em heredoc do Bash (usar arquivo + node); `.prateleira` e `.papel` são classes globais; no molde, `?.`
 devolve null; `networkidle0` trava no puppeteer (usar `domcontentloaded` + espera).

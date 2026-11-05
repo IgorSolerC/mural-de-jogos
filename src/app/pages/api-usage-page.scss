@@ -397,7 +397,7 @@
   text-transform: uppercase;
 }
 
-.razao .detalhe .workers {
+.razao .detalhe :is(.workers, .operacoes) {
   width: 100%;
   max-width: 640px;
   border-collapse: collapse;
@@ -454,6 +454,143 @@
       color: var(--ink);
     }
   }
+}
+
+/* o lembrete de que a nossa conta começou no meio do mês: o número que vale é o do painel */
+.oficial {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: 0.88rem;
+}
+
+/* --- o corpo do detalhe: os 30 dias em cima, e embaixo cada operação e as falhas do serviço --- */
+.detalhe-corpo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 18px 32px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.25);
+
+  .dias {
+    grid-column: 1 / -1;
+  }
+
+  .detalhe-titulo {
+    margin-top: 0;
+  }
+}
+
+.falhas-dele {
+  display: grid;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.92rem;
+
+  .quando {
+    margin-right: 6px;
+    font-family: var(--f-label);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .op {
+    color: var(--ink-2);
+  }
+}
+
+/* --- a tabela e as falhas, lado a lado quando há espaço --- */
+.mesa {
+  display: grid;
+  gap: 40px;
+  align-items: start;
+}
+
+@container (min-width: 1080px) {
+  .mesa {
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  }
+}
+
+/* a hora de todas as falhas numa coluna só: cada linha herda as colunas da lista (subgrid) */
+.lista-falhas {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+
+  li + li {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.25);
+  }
+}
+
+/* uma falha: a hora, o serviço e o que houve; tocar abre o detalhe dele na tabela */
+.falha {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  column-gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px 6px 6px 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--t-ui) var(--ease-ui);
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+}
+
+.quando {
+  grid-row: span 2;
+  padding-top: 1px;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.falha-nome {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.02rem;
+  line-height: 1.15;
+}
+
+.falha-texto {
+  color: var(--red-deep);
+  font-family: var(--f-ui);
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.mais {
+  margin-top: 12px;
+}
+
+.sem-falhas {
+  margin: 14px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.1rem;
 }
 
 /* --- o que fica guardado: uma pasta de manilha, fechada --- */
@@ -552,7 +689,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .seta,
-  .abre {
+  .abre,
+  .falha {
     transition: none;
   }
 }

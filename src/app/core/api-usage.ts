@@ -383,6 +383,134 @@ export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], u
   return `Tudo respondendo. O mais perto do fim: ${top.chamado}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
 }
 
+// ===== O detalhe de um serviço (PLANO-ADMIN-APIS.md, 11.6) =====
+
+/** Como uma chamada terminou, em palavras. */
+export const OUTCOME_LABEL: Record<Desfecho, string> = {
+  ok: 'Respondeu',
+  'nao-achou': 'Não achou',
+  limite: 'Bateu no limite',
+  recusada: 'Chave recusada',
+  fora: 'Fora do ar',
+  prazo: 'Demorou demais',
+  outro: 'Erro',
+  cancelada: 'Cancelada',
+};
+
+/** O nome de cada operação das listas fechadas (`contrato/uso-apis/contagem.ts`). */
+const OPERATION_LABEL: Record<string, string> = {
+  busca: 'Busca',
+  jogo: 'Ficha do jogo',
+  lojas: 'Lojas',
+  posteres: 'Pôsteres',
+  listar: 'Ler a agenda',
+  criar: 'Criar evento',
+  mudar: 'Mudar evento',
+  apagar: 'Apagar evento',
+  renovar: 'Renovar o acesso',
+  trocar: 'Ligar a conta',
+  revogar: 'Desligar a conta',
+  ler: 'Ler o documento',
+  geral: 'Tudo',
+  rawg: 'RAWG',
+  tmdb: 'TMDB',
+};
+
+export const operationLabel = (op: string): string => OPERATION_LABEL[op] ?? op;
+
+/** Um dia do gráfico de 30 dias. */
+export interface UsageDay {
+  dia: string;
+  /** Respostas boas (o "não achou" é resposta). */
+  boas: number;
+  falhas: number;
+  total: number;
+  /** Tempo médio das respostas boas; null sem nenhuma. */
+  tempoMs: number | null;
+  /** Antes de a contagem começar, o dia não é zero: é desconhecido. */
+  contado: boolean;
+}
+
+/** Os últimos `n` dias UTC, do mais velho para hoje, com o que cada um teve. */
+export function daysOf(lines: readonly UsageLine[], now: Date, since: string | null, n = 30): UsageDay[] {
+  const days: UsageDay[] = Array.from({ length: n }, (_, i) => {
+    const dia = daysBack(now, n - 1 - i);
+    return { dia, boas: 0, falhas: 0, total: 0, tempoMs: null, contado: !!since && dia >= since };
+  });
+  const byDay = new Map(days.map((d) => [d.dia, d]));
+  const okMs = new Map<string, { n: number; ms: number }>();
+  for (const l of lines) {
+    const day = byDay.get(l.dia);
+    if (!day || l.desfecho === 'cancelada') continue;
+    if (FALHAS.includes(l.desfecho)) day.falhas += l.pedidos;
+    else day.boas += l.pedidos;
+    day.total += l.pedidos;
+    if (l.desfecho === 'ok') {
+      const acc = okMs.get(l.dia) ?? { n: 0, ms: 0 };
+      acc.n += l.pedidos;
+      acc.ms += l.msTotal;
+      okMs.set(l.dia, acc);
+    }
+  }
+  for (const [dia, acc] of okMs) if (acc.n > 0) byDay.get(dia)!.tempoMs = acc.ms / acc.n;
+  return days;
+}
+
+/** Uma linha da tabela "Por operação": 30 dias. */
+export interface OperationRow {
+  operacao: string;
+  nome: string;
+  pedidos: number;
+  /** De 0 a 1; null sem pedido. */
+  falhas: number | null;
+  tempoMs: number | null;
+}
+
+/** As operações de um serviço nos últimos 30 dias, na ordem da lista fechada; as que nunca vieram também. */
+export function operationsOf(operations: readonly string[], lines: readonly UsageLine[], now: Date): OperationRow[] {
+  const from = daysBack(now, 29);
+  return operations.map((operacao) => {
+    let pedidos = 0;
+    let failed = 0;
+    let okN = 0;
+    let okMs = 0;
+    for (const l of lines) {
+      if (l.operacao !== operacao || l.dia < from || l.desfecho === 'cancelada') continue;
+      pedidos += l.pedidos;
+      if (FALHAS.includes(l.desfecho)) failed += l.pedidos;
+      if (l.desfecho === 'ok') {
+        okN += l.pedidos;
+        okMs += l.msTotal;
+      }
+    }
+    return { operacao, nome: operationLabel(operacao), pedidos, falhas: pedidos > 0 ? failed / pedidos : null, tempoMs: okN > 0 ? okMs / okN : null };
+  });
+}
+
+const BRASILIA_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' });
+
+/** "2026-11-05" vira "05/nov". */
+export function dayShort(iso: string): string {
+  const [, month, day] = iso.split('-');
+  return `${day}/${MONTHS_SHORT[Number(month) - 1]}`;
+}
+
+/** Quando foi uma falha, em Brasília: "hoje 20:12", "ontem 19:40", "03/nov 14:02". */
+export function when(iso: string, now: Date): string {
+  const day = BRASILIA_DAY.format(new Date(iso));
+  const today = BRASILIA_DAY.format(now);
+  const yesterday = BRASILIA_DAY.format(new Date(now.getTime() - DAY_MS));
+  const prefix = day === today ? 'hoje' : day === yesterday ? 'ontem' : dayShort(day);
+  return `${prefix} ${clock(iso)}`;
+}
+
+/** Uma falha em palavras: "Fora do ar · 522 · 3 vezes". */
+export function failureText(f: UsageFailure): string {
+  const status = f.status ? ` · ${f.status}` : '';
+  const times = f.repeticoes > 1 ? ` · ${f.repeticoes} vezes` : '';
+  return `${OUTCOME_LABEL[f.desfecho] ?? f.desfecho}${status}${times}`;
+}
+
 // ===== A tela inteira =====
 
 export interface ServiceRow {

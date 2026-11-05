@@ -83,7 +83,8 @@
     </section>
   }
 
-  <section class="peca folha" aria-labelledby="servicos-titulo">
+  <div class="mesa">
+  <section class="peca folha servicos" aria-labelledby="servicos-titulo">
     <h2 id="servicos-titulo" class="titulo">Serviços</h2>
     @if (v) {
       <table class="razao">
@@ -111,7 +112,7 @@
               @let aberto = open() === r.service.id;
               <tr>
                 <th scope="row" class="servico">
-                  <button type="button" class="abre" [attr.aria-expanded]="aberto" [attr.aria-controls]="'detalhe-' + r.service.id" (click)="toggle(r.service.id)">
+                  <button type="button" class="abre" [id]="'abre-' + r.service.id" [attr.aria-expanded]="aberto" [attr.aria-controls]="'detalhe-' + r.service.id" (click)="toggle(r.service.id)">
                     <lucide-icon class="seta" [class.aberta]="aberto" [img]="OpenIcon" [size]="16" aria-hidden="true" />
                     <span class="marca" [attr.data-estado]="r.status" aria-hidden="true"></span>
                     <span class="nomes">
@@ -153,9 +154,62 @@
                               }
                             </span>
                           }
+                          @if (r.service.limite.cota && r.service.painel && since()) {
+                            <span class="oficial">A conta daqui começou em {{ checkedOn(since()!) }}; o número oficial é o do painel.</span>
+                          }
                         </dd>
                       </div>
                     </dl>
+                    @let d = detail();
+                    @if (d && d.id === r.service.id) {
+                      <div class="detalhe-corpo">
+                        <app-uso-dias class="dias" [days]="d.days" />
+                        @if (d.operations.length > 1) {
+                          <div>
+                            <h3 class="detalhe-titulo">Por operação, 30 dias</h3>
+                            <table class="operacoes">
+                              <caption class="sr-only">Pedidos, a parte que falhou e o tempo médio das respostas boas de cada operação de {{ r.service.nome }}, nos últimos 30 dias</caption>
+                              <thead>
+                                <tr>
+                                  <th scope="col">Operação</th>
+                                  <th scope="col" class="num">Pedidos</th>
+                                  <th scope="col" class="num">Falhas</th>
+                                  <th scope="col" class="num">Tempo</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (o of d.operations; track o.operacao) {
+                                  <tr>
+                                    <th scope="row">{{ o.nome }}</th>
+                                    <td class="num">{{ o.pedidos ? whole(o.pedidos) : '—' }}</td>
+                                    <td class="num">{{ o.falhas === null ? '—' : share(o.falhas) }}</td>
+                                    <td class="num">{{ o.tempoMs === null ? '—' : took(o.tempoMs) }}</td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                        }
+                        <div>
+                          <h3 class="detalhe-titulo">Falhas deste serviço</h3>
+                          @if (d.failures.length) {
+                            <ul class="falhas-dele">
+                              @for (f of d.failures; track $index) {
+                                <li>
+                                  <span class="quando">{{ f.quando }}</span>
+                                  {{ f.texto }}
+                                  @if (f.operacao) {
+                                    <span class="op">· {{ f.operacao }}</span>
+                                  }
+                                </li>
+                              }
+                            </ul>
+                          } @else {
+                            <p class="cpu-nota">Nenhuma falha guardada. As falhas ficam 30 dias.</p>
+                          }
+                        </div>
+                      </div>
+                    }
                     @if (r.service.id === 'cloudflare' && cloudflare()?.estado === 'ok') {
                       <h3 class="detalhe-titulo">Cada Worker, hoje</h3>
                       <table class="workers">
@@ -207,6 +261,40 @@
       <p class="sem-numeros">Os números voltam aqui assim que a nuvem responder.</p>
     }
   </section>
+
+  @if (v || loading()) {
+    <section class="peca folha falhas" aria-labelledby="falhas-titulo">
+      <h2 id="falhas-titulo" class="titulo">Últimas falhas</h2>
+      @if (v) {
+        @if (failureList().length) {
+          <ol class="lista-falhas">
+            @for (f of shownFailures(); track $index) {
+              <li>
+                <button type="button" class="falha" (click)="openFrom(f.servico)">
+                  <span class="quando">{{ f.quando }}</span>
+                  <span class="falha-nome">{{ f.nome }}</span>
+                  <span class="falha-texto">{{ f.texto }}</span>
+                  <span class="sr-only">Abrir o detalhe de {{ f.nome }}</span>
+                </button>
+              </li>
+            }
+          </ol>
+          @if (failureList().length > shownFailures().length) {
+            <button type="button" class="botao mais" (click)="allFailures.set(true)">Ver as {{ failureList().length }}</button>
+          }
+        } @else {
+          <p class="sem-falhas">Nenhuma falha nos últimos 30 dias.</p>
+        }
+      } @else {
+        <div class="linhas-vazias" aria-hidden="true">
+          @for (p of placeholders; track p) {
+            <div class="esqueleto linha-vazia"></div>
+          }
+        </div>
+      }
+    </section>
+  }
+  </div>
 
   <details class="peca manilha">
     <summary>

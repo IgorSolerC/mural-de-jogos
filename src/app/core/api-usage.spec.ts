@@ -1,5 +1,5 @@
 import { SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayTurn, duration, howItIs, levelOf, megabytes, parseCloudflare, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView } from './api-usage';
+import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayShort, dayTurn, daysOf, duration, failureText, howItIs, levelOf, megabytes, operationsOf, parseCloudflare, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView, when } from './api-usage';
 
 const NOW = new Date('2026-11-20T22:40:00.000Z');
 const NOW_ISO = NOW.toISOString();
@@ -375,6 +375,60 @@ describe('as contas do Uso das APIs', () => {
       expect(s(cf({ cortados: 3 }))).toBe('A Cloudflare cortou 3 pedidos hoje por passar do limite.');
       expect(s(cf({ cortados: 1 }))).toBe('A Cloudflare cortou 1 pedido hoje por passar do limite.');
       expect(s(cf({}, { bancos: [{ nome: 'mural', bytes: 400 * 1024 * 1024 }] }))).toBe('Faltam 100 MB no banco mural.');
+    });
+  });
+
+  describe('o detalhe de um serviço', () => {
+    it('30 dias, do mais velho para hoje; o antes da contagem é desconhecido, não zero', () => {
+      const days = daysOf([], NOW, '2026-11-05');
+      expect(days.length).toBe(30);
+      expect(days[0]!.dia).toBe('2026-10-22');
+      expect(days.at(-1)!.dia).toBe('2026-11-20');
+      expect(days.filter((d) => !d.contado).map((d) => d.dia).at(-1)).toBe('2026-11-04');
+      expect(days.find((d) => d.dia === '2026-11-05')!.contado).toBeTrue();
+      expect(daysOf([], NOW, null).every((d) => !d.contado)).toBeTrue();
+    });
+
+    it('cada dia soma as boas e as falhas; cancelar não conta, e o tempo é só das boas', () => {
+      const days = daysOf(
+        [
+          line({ desfecho: 'ok', pedidos: 4, msTotal: 800 }),
+          line({ desfecho: 'nao-achou', pedidos: 1, msTotal: 9000 }),
+          line({ desfecho: 'prazo', pedidos: 2, msTotal: 16000 }),
+          line({ desfecho: 'cancelada', pedidos: 5 }),
+          line({ dia: '2026-10-01', pedidos: 50 }),
+        ],
+        NOW,
+        '2026-11-01',
+      );
+      const today = days.at(-1)!;
+      expect(today).toEqual({ dia: '2026-11-20', boas: 5, falhas: 2, total: 7, tempoMs: 200, contado: true });
+      expect(days.reduce((n, d) => n + d.total, 0)).toBe(7);
+    });
+
+    it('por operação: todas as da lista, na ordem dela, mesmo as que nunca vieram', () => {
+      const rows = operationsOf(
+        ['busca', 'jogo', 'lojas'],
+        [line({ operacao: 'jogo', pedidos: 3, msTotal: 600 }), line({ operacao: 'jogo', desfecho: 'fora', pedidos: 1 }), line({ operacao: 'jogo', dia: '2026-10-01', pedidos: 99 })],
+        NOW,
+      );
+      expect(rows.map((r) => r.nome)).toEqual(['Busca', 'Ficha do jogo', 'Lojas']);
+      expect(rows[0]).toEqual({ operacao: 'busca', nome: 'Busca', pedidos: 0, falhas: null, tempoMs: null });
+      expect(rows[1]).toEqual({ operacao: 'jogo', nome: 'Ficha do jogo', pedidos: 4, falhas: 0.25, tempoMs: 200 });
+    });
+
+    it('a hora de uma falha é a de Brasília, com hoje e ontem por extenso', () => {
+      expect(when('2026-11-20T22:12:00.000Z', NOW)).toBe('hoje 19:12');
+      // 01:30 UTC do dia 20 ainda é dia 19 em Brasília
+      expect(when('2026-11-20T01:30:00.000Z', NOW)).toBe('ontem 22:30');
+      expect(when('2026-11-03T17:02:00.000Z', NOW)).toBe('03/nov 14:02');
+      expect(dayShort('2026-11-05')).toBe('05/nov');
+    });
+
+    it('uma falha em palavras: o que houve, o número de lá e quantas vezes', () => {
+      expect(failureText(failure({ status: 522, repeticoes: 3 }))).toBe('Fora do ar · 522 · 3 vezes');
+      expect(failureText(failure({ desfecho: 'prazo', status: null }))).toBe('Demorou demais');
+      expect(failureText(failure({ desfecho: 'limite', status: 429 }))).toBe('Bateu no limite · 429');
     });
   });
 
