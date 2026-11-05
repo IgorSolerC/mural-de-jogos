@@ -21,6 +21,8 @@ export interface CloudAccountInfo {
   cofre?: boolean;
   /** Pode usar a API das AIs (o código está em API_CODIGOS)? Vem do /v1/eu; só mostra a parte Acessos dos Ajustes. */
   api?: boolean;
+  /** É a conta de admin (ADMIN_USUARIOS)? Vem do /v1/eu; só mostra a ficha Uso das APIs: quem trava é a API. */
+  admin?: boolean;
   /**
    * A conta está marcada para sair nesta hora (ISO): apagar espera 7 dias, com o aviso no topo e o
    * "Não apagar" (ver `deleteAccount`).
@@ -102,6 +104,7 @@ export function readAccount(): CloudAccountInfo | null {
     nome: raw.nome,
     ...(raw.cofre === true ? { cofre: true } : {}),
     ...(raw.api === true ? { api: true } : {}),
+    ...(raw.admin === true ? { admin: true } : {}),
     ...(typeof raw.apagarEm === 'string' ? { apagarEm: raw.apagarEm } : {}),
   };
 }
@@ -216,6 +219,7 @@ export class CloudAccount {
       nome: me.nome,
       ...(me.cofre === true ? { cofre: true } : {}),
       ...(me.api === true ? { api: true } : {}),
+      ...(me.admin === true ? { admin: true } : {}),
       ...(typeof me.apagarEm === 'string' ? { apagarEm: me.apagarEm } : {}),
     });
     // O nome mudou na nuvem (em outro aparelho) e aqui ninguém mexeu desde a última vez: o "Seu nome"

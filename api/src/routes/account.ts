@@ -7,6 +7,7 @@ import { write } from '../domain/quota';
 import { MAX_SESSIONS, hashToken, invalidSession, newToken, sessionStatements } from '../domain/session';
 import { endVaultGraces, vaultAllowed } from '../domain/vault';
 import { apiAllowed } from '../domain/api-key';
+import { isAdmin } from '../domain/admin';
 import { refuseOpen } from './keys';
 import { MAX_CHAVES } from '../../../contrato/api-v1/escopos';
 import { cancelErase, confirmByGoogle, scheduleErase } from '../domain/erase';
@@ -118,6 +119,8 @@ export function accountRoutes(app: Hono, deps: Deps): void {
       cofre: await vaultAllowed(deps, user.codigo),
       // pode usar a API das AIs (API_CODIGOS)? Só mostra a parte Acessos dos Ajustes
       api: apiAllowed(deps, user.codigo),
+      // é a conta de admin (ADMIN_USUARIOS)? Só mostra a ficha Uso das APIs; quem trava é o requireAdmin
+      admin: isAdmin(deps, user.id),
       // marcada para sair (ver o DELETE): o site mostra o aviso com o "Não apagar"
       ...(user.apagar_em ? { apagarEm: user.apagar_em } : {}),
     });

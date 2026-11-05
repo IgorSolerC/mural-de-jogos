@@ -22,6 +22,9 @@ AGENDA_CODIGOS = "*"
 # Quem pode usar a API das AIs (as chaves de API, PLANO-API.md): os códigos das contas, separados por
 # vírgula; vazio, ninguém; "*", todo mundo. Começa só com o dono (decisão D8), até a rodada 11.
 API_CODIGOS = "G11TG00D"
+# Quem é admin (só lê o Uso das APIs, PLANO-ADMIN-APIS.md): os ids das contas, que nunca mudam, separados
+# por vírgula; vazio, ninguém; não existe "*". O id não é segredo. Este é o da conta G11T-G00D, do dono.
+ADMIN_USUARIOS = "1e4a3307-852a-45c4-8110-ed336dda8e63"
 # As imagens (PLANO-IMAGENS.md): o banco mural-imagens tem 500 MB no plano grátis; a nuvem para em 400
 # (o resto é a folga do próprio banco), cada conta guarda até 25 MB (umas 300 imagens de 900 px) e manda
 # até 30 por dia. Zero (ou um valor que não é número) recusa todo envio.

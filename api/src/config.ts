@@ -33,6 +33,10 @@ export function readConfig(env: Record<string, unknown>): Config {
       .split(',')
       .map((c) => (c.trim() === '*' ? '*' : plainCode(c)))
       .filter(Boolean),
+    adminUsers: text('ADMIN_USUARIOS')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean),
     site: siteUrl(text('SITE')),
     imagesTotalBytes: mb('IMAGENS_MB_TOTAL'),
     imagesUserBytes: mb('IMAGENS_MB_PESSOA'),

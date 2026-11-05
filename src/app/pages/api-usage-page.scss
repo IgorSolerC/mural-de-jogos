@@ -1,0 +1,363 @@
+@use '../ui/paper-kit' as kit;
+
+/*
+ * Uso das APIs: uma prancheta de conferência na parede. Um tipo de papel para cada tipo de conteúdo, como
+ * nas Estatísticas: a folha pautada para a frase, o bloquinho com o pé serrilhado para a tabela, a manilha
+ * para o que fica guardado. Reto, para ler: esta página é consultada, não passeada.
+ */
+:host {
+  display: block;
+  --pauta: rgb(64 110 190 / 0.34);
+  --margem: rgb(230 46 45 / 0.45);
+}
+
+.topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  margin-bottom: 34px;
+}
+
+.intro {
+  margin: 0;
+  color: var(--wall-ink);
+  font-family: var(--f-hand);
+  font-size: 1.15rem;
+  line-height: 1.35;
+}
+
+.quadro {
+  display: grid;
+  gap: 40px;
+  container-type: inline-size;
+}
+
+.peca {
+  position: relative;
+  min-width: 0;
+  padding: 26px 28px 30px;
+  color: var(--ink);
+  color-scheme: light;
+  --focus: var(--ink);
+}
+
+.titulo {
+  margin: 0;
+  font-family: var(--f-marker);
+  font-weight: 400;
+  font-size: 1.6rem;
+  line-height: 1.05;
+}
+
+/* --- a frase, na folha pautada arrancada do caderno --- */
+.pauta {
+  --furo: 20px;
+  --linha: 46px;
+  padding-left: calc(var(--linha) + 20px);
+  background:
+    /* os furos se espalham pela altura: numa folha baixa, nenhum fica cortado na beirada */
+    radial-gradient(circle at var(--furo) 50%, var(--wall) 0 6px, rgb(0 0 0 / 0.25) 6.5px, transparent 7.5px) 0 0 / 40px 44px no-repeat space,
+    linear-gradient(90deg, transparent var(--linha), var(--margem) var(--linha) calc(var(--linha) + 1.5px), transparent 0),
+    linear-gradient(rgb(251 250 243 / 0.6), rgb(251 250 243 / 0.6)),
+    var(--paper-grain),
+    #fbfaf3;
+  border-radius: 2px;
+  box-shadow: var(--shadow-card);
+}
+
+.frase {
+  max-width: 70ch;
+  margin: 0;
+  font-family: var(--f-hand);
+  font-size: 1.4rem;
+  line-height: 1.32;
+  text-wrap: pretty;
+}
+
+.botao {
+  @include kit.botao-papel;
+  margin-top: 14px;
+}
+
+/* --- a tabela, no bloquinho com o pé serrilhado --- */
+.folha {
+  padding-bottom: 34px;
+  background-color: var(--paper);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.35)) drop-shadow(0 12px 14px rgb(0 0 0 / 0.45));
+
+  /* o serrilhado de onde a folha saiu do bloco, desenhado (uma máscara cortaria a sombra) */
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -11px;
+    height: 12px;
+    background: conic-gradient(from -45deg at bottom, #0000, var(--paper) 1deg 89deg, #0000 90deg) 0 0 / 14px 12px repeat-x;
+  }
+
+  > .titulo {
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--ink);
+  }
+}
+
+.razao {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--f-ui);
+  font-size: 0.98rem;
+  line-height: 1.35;
+
+  th,
+  td {
+    padding: 11px 16px 11px 0;
+    text-align: left;
+    vertical-align: top;
+    font-weight: 400;
+  }
+
+  th:last-child,
+  td:last-child {
+    padding-right: 0;
+  }
+
+  /* as colunas: o nome, de quem é a chave, e o limite, que é o que mais se lê */
+  thead th:nth-child(1) {
+    width: 32%;
+  }
+
+  thead th:nth-child(2) {
+    width: 22%;
+  }
+
+  thead th {
+    padding-block: 12px 8px;
+    color: var(--ink-2);
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.84rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  tbody tr:not(.grupo) + tr {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.25);
+  }
+}
+
+.grupo th {
+  padding-block: 22px 8px;
+  border-bottom: 1.5px solid var(--ink);
+}
+
+.grupo-nome {
+  margin-right: 10px;
+  font-family: var(--f-marker);
+  font-size: 1.16rem;
+}
+
+.grupo-nota,
+.para {
+  color: var(--ink-2);
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+}
+
+.nome {
+  display: block;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 1.12rem;
+  line-height: 1.12;
+}
+
+.para {
+  display: block;
+  margin-top: 2px;
+  line-height: 1.22;
+}
+
+.col-chave {
+  color: var(--ink-2);
+}
+
+.origem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin-top: 4px;
+  font-size: 0.88rem;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    /* o toque: a linha é baixa, mas o alvo não */
+    min-height: 28px;
+    color: var(--ink-2);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+
+    &:hover {
+      color: var(--ink);
+    }
+  }
+}
+
+/* --- o que fica guardado: uma pasta de manilha, fechada --- */
+.manilha {
+  padding: 0;
+  border-radius: 2px;
+  background-color: var(--manilha);
+  background-image: var(--paper-grain);
+  background-blend-mode: multiply;
+  box-shadow: var(--shadow-card);
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 56px;
+    padding: 10px 28px;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1.02rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    list-style: none;
+    cursor: pointer;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  .seta {
+    display: inline-flex;
+    rotate: -90deg;
+    transition: rotate var(--t-ui) var(--ease-ui);
+  }
+
+  &[open] .seta {
+    rotate: 0deg;
+  }
+
+  dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    gap: 16px 32px;
+    margin: 0;
+    padding: 6px 28px 26px;
+  }
+
+  dt {
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 1.08rem;
+    line-height: 1.15;
+  }
+
+  dd {
+    margin: 2px 0 0;
+    font-family: var(--f-ui);
+    font-size: 0.94rem;
+    line-height: 1.35;
+    color: var(--ink-2);
+  }
+}
+
+/* --- estreito: a chave sai da tabela, e o limite cabe ao lado do nome --- */
+@container (max-width: 720px) {
+  .peca {
+    padding-inline: 18px;
+  }
+
+  .pauta {
+    --furo: 14px;
+    --linha: 30px;
+    padding-left: calc(var(--linha) + 12px);
+  }
+
+  .frase {
+    font-size: 1.24rem;
+  }
+
+  .razao {
+    thead th:nth-child(1) {
+      width: 42%;
+    }
+
+    .col-chave {
+      display: none;
+    }
+  }
+
+  .manilha summary,
+  .manilha dl {
+    padding-inline: 18px;
+  }
+}
+
+/* --- celular: duas colunas viram fiapos de texto; cada serviço é um bloco, o limite embaixo do nome.
+       Os `role` da tabela, no HTML, seguram o sentido dela para o leitor de tela --- */
+@container (max-width: 560px) {
+  .razao {
+    display: block;
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    tbody,
+    tr {
+      display: block;
+    }
+
+    th,
+    td {
+      display: block;
+      padding-right: 0;
+    }
+
+    tbody tr:not(.grupo) {
+      padding-block: 11px;
+    }
+
+    .servico,
+    .limite {
+      padding-block: 0;
+    }
+
+    .limite {
+      margin-top: 6px;
+    }
+
+    /* o mesmo seletor da regra das colunas, para vencê-la */
+    .col-chave {
+      display: none;
+    }
+  }
+
+  .grupo-nome,
+  .grupo-nota {
+    display: block;
+  }
+
+  .nome {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .manilha .seta {
+    transition: none;
+  }
+}

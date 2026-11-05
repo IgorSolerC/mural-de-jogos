@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { onlyAdmin } from './core/admin';
 import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
@@ -94,6 +95,13 @@ export const routes: Routes = [
     canActivate: [enterExtras],
     title: 'Muraldle',
     loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),
+  },
+  {
+    // só a conta de admin; sem o enterExtras, porque a página não depende do mural
+    path: 'extras/uso-das-apis',
+    canActivate: [onlyAdmin],
+    title: 'Uso das APIs',
+    loadComponent: () => import('./pages/api-usage-page').then((m) => m.ApiUsagePage),
   },
   {
     path: 'perfil/editar',

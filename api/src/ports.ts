@@ -46,6 +46,11 @@ export interface Config {
    */
   apiCodes: string[];
   /**
+   * As contas de admin (PLANO-ADMIN-APIS.md, seção 9): os ids, que nunca mudam. Vazio, ninguém. Não há
+   * `*`: um `*` na lista não é o id de ninguém.
+   */
+  adminUsers: string[];
+  /**
    * O endereço do site (`https://murall.igorsc.com.br`), para onde o OAuth manda a pessoa autorizar um
    * conector; vazio, autorizar fica indisponível.
    */

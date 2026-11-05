@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import { migrate, sqliteDb } from '../src/adapters/sqlite-node';
+import { adminSuite } from './admin.suite';
 import { amigosSuite } from './amigos.suite';
 import { chavesSuite } from './chaves.suite';
 import { espelhoSuite } from './espelho.suite';
@@ -27,6 +28,7 @@ apiSuite('Node + SQLite', () => db);
 amigosSuite('Node + SQLite', () => db);
 notasSuite('Node + SQLite', () => db);
 chavesSuite('Node + SQLite', () => db);
+adminSuite('Node + SQLite', () => db);
 espelhoSuite('Node + SQLite', () => db);
 pedidosSuite('Node + SQLite', () => db);
 mcpSuite('Node + SQLite', () => db);

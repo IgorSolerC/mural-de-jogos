@@ -55,6 +55,14 @@ describe('limpar o navegador (sair da conta)', () => {
     localStorage.setItem('outro-site:coisa', 'fica');
   }
 
+  it('a bandeira de admin mora na conta guardada e sai na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ id: 'conta-ela', codigo: 'TMY1-BJMW', nome: 'Ela', admin: true }));
+    await wipeBrowser();
+    expect(localStorage.getItem(ACCOUNT_KEY)).toBeNull();
+    expect(JSON.stringify({ ...localStorage })).not.toContain('admin');
+  });
+
   it('sem pedido e com a sessão do dono: não mexe em nada', async () => {
     signedInBrowser();
     expect(await resetOnBoot()).toBeFalse();

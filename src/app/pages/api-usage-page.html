@@ -1,0 +1,91 @@
+<header class="topo">
+  <h1 class="tape-label big">Uso das APIs</h1>
+  <p class="intro">Só a sua conta abre esta página.</p>
+</header>
+
+<div class="quadro">
+  <!-- A frase é a resposta; os papéis embaixo são a prova. -->
+  <section class="peca pauta" aria-label="Como está">
+    <p class="frase" role="status">
+      @switch (state()) {
+        @case ('carregando') {
+          Conferindo…
+        }
+        @case ('pronto') {
+          A contagem ainda não começou. Por enquanto, esta página mostra o que o Murall usa e o limite de cada serviço.
+        }
+        @case ('erro') {
+          Não deu para buscar os números agora.
+        }
+      }
+    </p>
+    @if (state() === 'erro') {
+      <button type="button" class="botao" (click)="load()">
+        <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
+        Tentar de novo
+      </button>
+    }
+  </section>
+
+  <section class="peca folha" aria-labelledby="servicos-titulo">
+    <h2 id="servicos-titulo" class="titulo">Serviços</h2>
+    <!-- os `role` seguram o sentido de tabela quando, no celular, ela vira blocos (`display: block` o tiraria) -->
+    <table class="razao" role="table">
+      <caption class="sr-only">Os serviços que o Murall usa, de quem é a chave e o limite de cada um</caption>
+      <thead role="rowgroup">
+        <tr role="row">
+          <th scope="col" role="columnheader">Serviço</th>
+          <th scope="col" role="columnheader" class="col-chave">Chave</th>
+          <th scope="col" role="columnheader">Limite</th>
+        </tr>
+      </thead>
+      @for (g of groups; track g.id) {
+        <tbody role="rowgroup">
+          <tr class="grupo" role="row">
+            <th scope="rowgroup" role="columnheader" colspan="3">
+              <span class="grupo-nome">{{ g.title }}</span>
+              <span class="grupo-nota">{{ g.note }}</span>
+            </th>
+          </tr>
+          @for (s of g.services; track s.id) {
+            <tr role="row">
+              <th scope="row" role="rowheader" class="servico">
+                <span class="nome">{{ s.nome }}</span>
+                <span class="para">{{ s.para }}</span>
+              </th>
+              <td role="cell" class="col-chave">{{ s.chave }}</td>
+              <td role="cell" class="limite">
+                {{ s.limite.texto }}
+                @if (s.limite.conferidoEm || s.painel) {
+                  <span class="origem">
+                    @if (s.limite.fonte && s.limite.conferidoEm) {
+                      <a [href]="s.limite.fonte" target="_blank" rel="noreferrer" [attr.aria-label]="'Fonte do limite de ' + s.nome + ', conferida em ' + checkedOn(s.limite.conferidoEm)">Conferido em {{ checkedOn(s.limite.conferidoEm) }}</a>
+                    }
+                    @if (s.painel) {
+                      <a [href]="s.painel" target="_blank" rel="noreferrer" [attr.aria-label]="'Abrir o painel de ' + s.nome">Abrir o painel</a>
+                    }
+                  </span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      }
+    </table>
+  </section>
+
+  <details class="peca manilha">
+    <summary>
+      <lucide-icon class="seta" [img]="OpenIcon" [size]="18" aria-hidden="true" />
+      O que não dá para contar ({{ uncounted.length }})
+    </summary>
+    <dl>
+      @for (u of uncounted; track u.nome) {
+        <div>
+          <dt>{{ u.nome }}</dt>
+          <dd>{{ u.porque }}</dd>
+        </div>
+      }
+    </dl>
+  </details>
+</div>

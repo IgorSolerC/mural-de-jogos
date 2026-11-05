@@ -104,6 +104,9 @@ export function pathOf(url: string): string {
 /** As páginas de Extras: o Ranking e o Comparar já eram abas e moram lá dentro. */
 const EXTRAS = ['/extras', '/ranking', '/comparar'];
 
+/** O Uso das APIs (só a conta de admin): mora em Extras, mas não depende de mural nenhum. */
+export const API_USAGE_PATH = '/extras/uso-das-apis';
+
 /** Em que parte do site fica o caminho (nenhuma, no Perfil, em Amigos, nos Ajustes e nas Novidades). */
 export function areaOf(path: string): Area | null {
   const p = pathOf(path);

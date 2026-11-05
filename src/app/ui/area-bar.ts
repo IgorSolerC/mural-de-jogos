@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, VISIT_PATH, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { API_USAGE_PATH, AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, VISIT_PATH, areaOf, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
 import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
@@ -487,6 +487,7 @@ export class AreaBar {
 
   /** Os murais do seletor, nas páginas que dependem do mural; `null` onde ele não aparece. */
   protected readonly picker = computed<readonly Kind[] | null>(() => {
+    if (this.path() === API_USAGE_PATH) return null; // não depende de mural
     if (this.area() === 'analises' || this.inExtras()) return SCORED_KINDS;
     if (this.path() === '/amigos' && this.settings.friendKinds() === 'separado') return KINDS;
     return null;
@@ -567,8 +568,11 @@ export class AreaBar {
     return this.inExtras() ? 'extras' : null;
   });
 
-  /** Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. */
-  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades');
+  /**
+   * Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. No Uso das
+   * APIs, sem o seletor de murais, ela ainda traz a volta para Extras.
+   */
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.path() === API_USAGE_PATH);
 
   protected readonly navLabel = computed(() =>
     this.area() === 'analises' ? 'Seções das análises' : this.area() === 'utilidades' ? 'Seções das utilidades' : 'Seções das anotações',

@@ -34,6 +34,7 @@ interface Env {
   GOOGLE_CLIENT_ID?: string;
   VER_MURAIS?: string;
   API_CODIGOS?: string;
+  ADMIN_USUARIOS?: string;
   SITE?: string;
   IMAGENS_MB_TOTAL?: string;
   IMAGENS_MB_PESSOA?: string;

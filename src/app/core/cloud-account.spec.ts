@@ -119,6 +119,20 @@ describe('conta na nuvem', () => {
     expect(account.account()?.cofre).toBeUndefined();
   });
 
+  it('o /v1/eu diz se é a conta de admin; fica guardado com a conta e some quando deixa de ser', async () => {
+    localStorage.setItem(SESSION_KEY, TOKEN);
+    localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'G11T-G00D', nome: 'Igor' }));
+    fakeFetch(json({ codigo: 'G11T-G00D', nome: 'Igor', admin: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', admin: true }), json({ codigo: 'G11T-G00D', nome: 'Igor', admin: false }));
+    const account = setup();
+    await settle();
+    await account.refresh();
+    expect(account.account()?.admin).toBeTrue();
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).admin).toBeTrue();
+    await account.refresh();
+    expect(account.account()?.admin).toBeUndefined();
+    expect(JSON.parse(localStorage.getItem(ACCOUNT_KEY)!).admin).toBeUndefined();
+  });
+
   it('o /v1/eu diz se a conta pode usar a API das AIs (a parte Acessos)', async () => {
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify({ codigo: 'G11T-G00D', nome: 'Igor' }));

@@ -4,6 +4,7 @@ import { HttpError } from './errors';
 import { offline, readOnly, usageToday } from './domain/quota';
 import { Deps } from './ports';
 import { accountRoutes } from './routes/account';
+import { adminRoutes } from './routes/admin';
 import { agendaRoutes } from './routes/agenda';
 import { catalogRoutes } from './routes/catalog';
 import { extRoutes } from './ext/routes';
@@ -115,6 +116,7 @@ export function createApp(deps: Deps): Hono {
   });
 
   accountRoutes(app, deps);
+  adminRoutes(app, deps);
   muralRoutes(app, deps);
   followRoutes(app, deps);
   reactionRoutes(app, deps);

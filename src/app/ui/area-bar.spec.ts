@@ -21,7 +21,8 @@ class Blank {}
 
 /** As rotas de verdade (guardas e redirecionamentos), com páginas em branco. */
 const BLANK_ROUTES = routes.map(function blank(r: (typeof routes)[number]): (typeof routes)[number] {
-  return { ...r, loadComponent: r.loadComponent ? () => Blank : undefined, children: r.children?.map(blank) };
+  // a guarda do Uso das APIs olha a conta; aqui só importa a barra daquela página (a guarda: core/admin.spec.ts)
+  return { ...r, canActivate: r.path === 'extras/uso-das-apis' ? [] : r.canActivate, loadComponent: r.loadComponent ? () => Blank : undefined, children: r.children?.map(blank) };
 });
 
 /** De um celular de 320px (288px sem as margens) até a largura máxima do site, de 2 em 2 pixels. */
@@ -135,6 +136,14 @@ describe('o índice embaixo do topo', () => {
     await fixture.whenStable();
     expect(router.url).toBe('/analises/series/wishlist');
     expect(TestBed.inject(Mural).kind()).toBe('series');
+  });
+
+  it('no Uso das APIs, que não depende de mural: sem o seletor, com a volta para Extras e o logo', async () => {
+    await go('/extras/uso-das-apis');
+    expect(picker()).toBeNull();
+    expect(host.classList).not.toContain('vazio');
+    expect(host.querySelector('.volta')?.getAttribute('href')).toBe('/extras');
+    expect(host.querySelector('app-extras-logo')).not.toBeNull();
   });
 
   it('nos Extras, o mural (sem o de anotações) e a volta para Extras; no mural de um colega, nada', async () => {

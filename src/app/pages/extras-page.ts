@@ -1,4 +1,7 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { API_USAGE_PATH } from '../core/areas';
+import { CloudAccount } from '../core/cloud-account';
+import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
 import { RouterLink } from '@angular/router';
 import { LucideIconData } from 'lucide-angular';
@@ -96,6 +99,23 @@ const SHELVES: Shelf[] = [
   },
 ];
 
+/** A prateleira só da conta de admin: quem não é vê a página de sempre, sem diferença nenhuma. */
+const ADMIN_SHELF: Shelf = {
+  id: 'outros',
+  title: 'Outros',
+  entries: [
+    {
+      path: API_USAGE_PATH,
+      name: 'Uso das APIs',
+      blurb: 'Quanto cada serviço do Murall já gastou, quanto falta e o que falhou. Só você vê esta ficha.',
+      icon: ICON.ritmo,
+      stock: 'var(--stock-azul)',
+      pin: '#ffd23f',
+      go: 'Ver',
+    },
+  ],
+};
+
 /**
  * Extras: o Ranking, o Comparar, as Estatísticas e os jogos feitos com as fichas do mural (o seu ou o de um colega
  * carregado em Comparar). Cada um é uma ficha pregada no quadro.
@@ -112,7 +132,7 @@ const SHELVES: Shelf[] = [
       um colega aberto em <a routerLink="/comparar">Comparar</a>.
     </p>
 
-    @for (shelf of shelves; track shelf.id) {
+    @for (shelf of shelves(); track shelf.id) {
       <section class="prateleira-extras" [attr.aria-labelledby]="'extras-' + shelf.id">
         <h2 class="tape-label" [id]="'extras-' + shelf.id">{{ shelf.title }}</h2>
         <ul class="jogos" role="list">
@@ -232,5 +252,7 @@ const SHELVES: Shelf[] = [
 })
 export class ExtrasPage {
   protected readonly mural = inject(Mural);
-  protected readonly shelves = SHELVES;
+  private readonly cloud = inject(Cloud);
+  private readonly account = inject(CloudAccount);
+  protected readonly shelves = computed(() => (this.cloud.config() && this.account.signedIn() && this.account.account()?.admin ? [...SHELVES, ADMIN_SHELF] : SHELVES));
 }

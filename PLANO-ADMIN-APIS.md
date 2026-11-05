@@ -301,7 +301,7 @@ dado de ninguém.
 
 - **Onde conta:** `fetchJson`, AniList e TMDB com chave própria. Sem mexer no `window.fetch`.
 - **O que identifica o serviço:** o host, numa tabela fechada. **Host da própria API não conta** (o Worker já
-  contou), host desconhecido também não. Com chave própria, a operação é `chave-propria`.
+  contou), host desconhecido também não. Com chave própria, o serviço é `chave-propria`.
 - **O que manda:** só `{ servico, operacao, desfecho, pedidos, msTotal, msMax }`. Sem o texto da busca, sem o
   endereço, sem id. Na tabela não existe coluna de conta.
 - **Quando manda:** a cada 5 min, só se houver algo, e ao esconder a aba (`fetch` com `keepalive`; o
@@ -387,7 +387,6 @@ comportamento certo: o erro falha fechado.
 {
   "geradoEm": "2026-11-12T23:14:00.000Z",
   "contandoDesde": "2026-11-12",          // o primeiro dia em uso_apis
-  "servicos": [ /* o catálogo, 10.3 */ ],
   // listas, não objetos: [dia, serviço, operação, medido em, desfecho, pedidos, ms total, ms máx, último em]
   // Medido: 1.243 linhas como objetos (221 KB) gastaram 3 a 7 ms de CPU, perto demais dos 10 ms no pior caso.
   "linhas": [ ["2026-11-12", "rawg", "busca", "worker", "ok", 41, 18700, 930, "…"] ],
@@ -413,16 +412,19 @@ o navegador não tem o que fazer com isso.
 
 ### 10.3 O catálogo de serviços (`contrato/uso-apis/`)
 
-Um arquivo de dados, usado pelo Worker (validar e devolver) e pelo site. **Em `contrato/`, não em `shared/`**
-(a regra do cofre proíbe `import` em `shared/`).
+Um arquivo de dados, `contrato/uso-apis/servicos.ts`, que o site lê direto, e o Worker lerá para validar (por
+isso a resposta da API não repete o catálogo). **Em `contrato/`, não em `shared/`** (a regra do cofre proíbe
+`import` em `shared/`).
 
 ```ts
-{ id: 'rawg', nome: 'RAWG', para: 'Busca e capas de jogos', medidoEm: ['worker', 'navegador'],
-  chave: 'Do site (secret RAWG_KEY)',
-  limite: { tipo: 'cota-global', valor: 20000, janela: 'mes', fonte: 'https://rawg.io/apidocs',
-            conferidoEm: '2026-11-05' },
+{ id: 'rawg', nome: 'RAWG', para: 'Busca e capas de jogos', medidoEm: 'worker', chave: 'Do site, no Worker',
+  limite: { tipo: 'cota-global', texto: '20 mil pedidos por mês, para a chave inteira.',
+            cota: { valor: 20_000, janela: 'mes' }, fonte: 'https://rawg.io/apidocs', conferidoEm: '2026-11-05' },
   painel: 'https://rawg.io/apikey' }  // a conferir quando a RAWG voltar: o site está fora do ar
 ```
+
+A chave própria tem **um id só dela** (`chave-propria`, com a operação `rawg` ou `tmdb`), no lugar de `rawg` com
+uma operação à parte: assim, a conta dela nem tem como entrar na cota do site.
 
 ---
 
@@ -751,7 +753,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | # | Rodada | Pronta quando |
 |---|---|---|
 | 0 | **Medir** — feita em 05/nov (seção 22). Sem mudar o produto. Em aberto, por não dar para medir agora: a dimensão `date` (rodada 4, com o token) e os cabeçalhos e o painel da RAWG (quando ela voltar) | Resultados na seção 22; seções 3, 4, 6, 8, 10 e 14 corrigidas; nenhuma decisão mudou |
-| 1 | **O papel de admin.** Impeccable no começo (brief 11.1, `context`, `craft-floor`). `ADMIN_USUARIOS`, `requireAdmin`, `admin` no `/v1/eu`, `CloudAccountInfo`, `onlyAdmin`, prateleira "Outros", ajustes na barra, página com a frase "A contagem ainda não começou" e o catálogo | O dono vê e abre; os testes provam que outra conta, sem sessão, com chave de API, e até com **o mesmo código numa conta nova** não entram; Extras sem nenhuma diferença para os outros |
+| 1 | **O papel de admin** — feita em 05/nov (seção 22). Impeccable no começo (brief 11.1, `context`, `craft-floor`). `ADMIN_USUARIOS`, `requireAdmin`, `admin` no `/v1/eu`, `CloudAccountInfo`, `onlyAdmin`, prateleira "Outros", ajustes na barra, página com a frase "A contagem ainda não começou" e o catálogo | O dono vê e abre; os testes provam que outra conta, sem sessão, com chave de API, e até com **o mesmo código numa conta nova** não entram; Extras sem nenhuma diferença para os outros |
 | 2 | **Contar no Worker.** Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
 | 3 | **A tela, com dados.** `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
 | 4 | **A Cloudflare.** `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
@@ -887,3 +889,21 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   **Não deu para medir:** a dimensão `date` da GraphQL (depende do token, rodada 4); os cabeçalhos e o painel da RAWG
   (fora do ar); os cabeçalhos do TMDB com chave (o secret não se lê; a rodada 2 confere pelo Worker); o 403 do iTunes
   (forçar o limite dos outros não vale a resposta). Depende do dono: o id da conta, e se a `RAWG_KEY` já foi trocada.
+- **05/nov/2026, rodada 1 (o papel de admin), BUILD 752**: `ADMIN_USUARIOS` com o id do dono (conferido no D1:
+  é o da conta `G11TG00D`), `isAdmin`, `requireAdmin`, `admin` no `/v1/eu`, `GET /v1/admin/uso` ainda sem contagem,
+  `CloudAccountInfo.admin`, `onlyAdmin`, prateleira "Outros", barra e título sem mural, e a página com a frase, a
+  tabela dos serviços (`contrato/uso-apis/servicos.ts`) e "O que não dá para contar". Decidido no caminho:
+  - `requireAdmin` ficou em `routes/admin.ts`, porque `domain/` não importa de `routes/`.
+  - Para quem está logado e sem a bandeira, `onlyAdmin` pergunta à nuvem antes de recusar: abrindo o link direto, a
+    primeira conferida da conta pode ainda estar a caminho.
+  - O catálogo continua na tela mesmo sem resposta da nuvem (a seção 11.8 dizia que nada aparecia): é informação
+    fixa e serve justamente quando algo caiu.
+  - "O que não dá para contar" entrou já aqui, adiantado da rodada 6.
+  - No celular (abaixo de 560 px da peça), a tabela vira blocos, com `role` explícitos para o leitor de tela. **A
+    rodada 3 revê isso** ao entrar com as colunas de números: o limite passa para o detalhe, e a tabela pode voltar a
+    ser tabela (11.7).
+  - Novidades: desempate novo em NOVIDADES.md; a tela só do admin não entra, e o item de D8 vai na rodada 5.
+
+  Testes novos: `api/test/admin.suite.ts` (nos dois bancos, com o caso de quem troca de código e o da conta nova com o
+  código antigo), `core/admin.spec.ts`, `pages/extras-page.spec.ts`, `pages/api-usage-page.spec.ts`, e casos em
+  `cloud-account.spec`, `browser-reset.spec` e `area-bar.spec`. Fotos e smoke: `.angular/pptr/uso-apis-fotos.mjs`.
