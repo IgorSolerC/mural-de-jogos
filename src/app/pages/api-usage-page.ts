@@ -108,6 +108,8 @@ export class ApiUsagePage {
   protected readonly duration = duration;
   protected readonly RetryIcon = ICON.atualizar;
   protected readonly OpenIcon = ICON.abrir;
+  protected readonly WarnIcon = ICON.aviso;
+  protected readonly OkIcon = ICON.pronto;
   /** As linhas de mentira da cartolina enquanto a primeira leitura não chega. */
   protected readonly placeholders = [0, 1, 2, 3];
 

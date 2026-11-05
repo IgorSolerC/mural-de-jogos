@@ -199,6 +199,31 @@ describe('as contas do Uso das APIs', () => {
     });
   });
 
+  describe('o carimbo da frase', () => {
+    const tone = (u: ApiUsage) => usageView(u).tone;
+    const goodDays = [line({ dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' })];
+
+    it('pede atenção sempre que a frase aponta um problema', () => {
+      expect(tone(usage({ linhas: [line({ desfecho: 'outro' })] }))).toBe('atencao');
+      expect(tone(usage({ linhas: [line({ pedidos: 16_000 })] }))).toBe('atencao');
+      const down = usage({ linhas: [line({ desfecho: 'fora', pedidos: 3 })], falhas: [failure({ em: '2026-11-20T22:30:00.000Z', repeticoes: 3 })] });
+      expect(tone(down)).toBe('atencao');
+    });
+
+    it('tudo em ordem só quando há o que afirmar', () => {
+      expect(tone(usage({ linhas: goodDays }))).toBe('calmo');
+      // sem contagem, começou hoje, ou nada em 7 dias: não há como dizer que está tudo bem
+      expect(tone(usage({ contandoDesde: null }))).toBeNull();
+      expect(tone(usage({ contandoDesde: '2026-11-20', linhas: [line()] }))).toBeNull();
+      expect(tone(usage({ contandoDesde: '2026-08-01' }))).toBeNull();
+    });
+
+    it('os cortes da Cloudflare também pedem atenção', () => {
+      const cf = parseCloudflare({ estado: 'ok', geradoEm: NOW_ISO, dias: [{ dia: '2026-11-20', pedidos: 10, erros: 0, cortados: 2, linhasLidas: 0, linhasGravadas: 0 }], workers: [], bancos: [] });
+      expect(usageView(usage({ linhas: goodDays }), cf).tone).toBe('atencao');
+    });
+  });
+
   describe('a frase', () => {
     const sentence = (u: ApiUsage) => usageView(u).sentence;
     const goodDays = [line({ dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' }), line({ servico: 'tmdb', dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' })];

@@ -77,6 +77,30 @@ describe('a página Uso das APIs', () => {
     expect(t.host.querySelector('.frase')?.getAttribute('role')).toBe('status');
   });
 
+  describe('o carimbo da frase', () => {
+    it('pede atenção quando algo está errado, com a palavra e o ícone', async () => {
+      const t = setup(async () => answer);
+      await t.settle();
+      const stamp = t.host.querySelector('.pauta .carimbo')!;
+      expect(stamp.getAttribute('data-tom')).toBe('atencao');
+      expect(stamp.textContent?.trim()).toBe('Pede atenção');
+      expect(stamp.querySelector('lucide-icon')?.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('tudo em ordem quando tudo responde', async () => {
+      const t = setup(async () => ({ ...answer, linhas: [['2026-11-18', 'tmdb', 'busca', 'worker', 'ok', 8, 3200, 500, '2026-11-18T10:00:00.000Z']], falhas: [] }));
+      await t.settle();
+      expect(t.text('.pauta .carimbo')).toBe('Tudo em ordem');
+      expect(t.host.querySelector('.pauta .carimbo')?.getAttribute('data-tom')).toBe('calmo');
+    });
+
+    it('nenhum carimbo sem nada contado', async () => {
+      const t = setup(async () => nothing);
+      await t.settle();
+      expect(t.host.querySelector('.carimbo')).toBeNull();
+    });
+  });
+
   it('a frase responde, com a queda em cima e os outros embaixo', async () => {
     const t = setup(async () => answer);
     await t.settle();

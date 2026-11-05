@@ -26,6 +26,13 @@
 <div class="quadro">
   <!-- A frase é a resposta; os papéis embaixo são a prova. -->
   <section class="peca pauta" aria-label="Como está">
+    <!-- o carimbo diz de longe se é para olhar: a palavra sempre junto da cor -->
+    @if (v?.tone; as tom) {
+      <p class="carimbo" [attr.data-tom]="tom">
+        <lucide-icon [img]="tom === 'atencao' ? WarnIcon : OkIcon" [size]="15" aria-hidden="true" />
+        {{ tom === 'atencao' ? 'Pede atenção' : 'Tudo em ordem' }}
+      </p>
+    }
     <p class="frase" role="status">
       @if (v) {
         {{ v.sentence }}

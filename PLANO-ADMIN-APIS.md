@@ -1052,6 +1052,13 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
     principal só os totais por serviço, somados no banco.
 
 
+- **05/nov/2026, depois da rodada 7: o carimbo da frase, BUILD 760** (decisão do dono, "Sim, a frase"). A crítica mostrou que
+  "Tudo respondendo" e "a RAWG está fora do ar" tinham a mesma cara. A folha da frase ganha um carimbo de borracha, no desenho do
+  carimbo do veredito: "Pede atenção" em `red-deep` com o triângulo, quando a frase aponta algum problema; "Tudo em ordem" em tinta,
+  com o visto, quando tudo responde. Sem carimbo quando não há o que afirmar (a contagem não começou, começou hoje, nada em 7 dias,
+  ou sem números). `toneOf` em `core/api-usage.ts` lê a mesma lista de problemas da frase (`problemsOf`), então os dois nunca
+  discordam. O carimbo encosta no fim da frase, e no celular ocupa uma linha da pauta acima dela.
+
 ## 23. Para quem continuar (05/nov/2026)
 
 As rodadas 0 a 7 estão feitas. Falta:
@@ -1060,8 +1067,7 @@ As rodadas 0 a 7 estão feitas. Falta:
    tela). A primeira medida está na seção 22: 3 a 7 ms com 3 linhas, todo ele custo fixo; o plano para o caso de passar de 8 ms
    também está lá.
 2. **Ver uma linha `navegador` real** em `uso_apis` depois de uma busca do dono logado.
-3. **Decisões do dono, levantadas pela crítica (não feitas):** a frase mudar de papel quando algo cai (caneta vermelha na margem,
-   "PEDE ATENÇÃO"); as réguas das cotas calmas mais compactas; se uma falha só do navegador (aproximada) deve entrar na frase;
+3. **Decisões do dono, levantadas pela crítica (não feitas):** as réguas das cotas calmas mais compactas; se uma falha só do navegador (aproximada) deve entrar na frase;
    juntar falhas seguidas em episódios; link direto para um serviço.
 
 Armadilhas: script com crases ou barras invertidas não vai em heredoc do Bash (usar a ferramenta de arquivo + node); `.prateleira`

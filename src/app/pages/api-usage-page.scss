@@ -76,9 +76,58 @@
     #fbfaf3;
   border-radius: 2px;
   box-shadow: var(--shadow-card);
+  /* a frase à esquerda e o carimbo no canto; no estreito, o carimbo vai para a linha de cima */
+  display: grid;
+  /* o carimbo encosta no fim da frase (que vai até 70ch), e não na beirada de uma folha larga */
+  grid-template-columns: minmax(0, max-content) auto;
+  justify-content: start;
+  column-gap: 32px;
+  align-items: start;
+
+  .frase,
+  .botao {
+    grid-column: 1;
+  }
 
   .botao {
+    justify-self: start;
     margin-top: 14px;
+  }
+}
+
+/*
+ * O carimbo de borracha, do mesmo desenho do veredito (letra impressa, um ícone, borda dupla, torto): vermelho quando
+ * algo pede atenção, tinta quando tudo responde. A palavra está sempre lá, então a cor nunca é a única pista.
+ */
+.carimbo {
+  grid-column: 2;
+  grid-row: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 4px 9px 3px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+  background: rgb(255 255 255 / 0.55);
+  color: var(--ink);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.84rem;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  rotate: -3deg;
+
+  &[data-tom='atencao'] {
+    color: var(--red-deep);
+  }
+
+  lucide-icon {
+    display: inline-flex;
   }
 }
 
@@ -616,6 +665,18 @@
     --furo: 14px;
     --linha: 30px;
     --passo: calc(1.24rem * 1.32);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* em cima da frase, ocupando uma linha da pauta inteira, para a letra continuar sentada na linha */
+  .carimbo {
+    grid-column: 1;
+    justify-self: start;
+    height: calc(var(--passo) - 6px);
+    margin: 0 0 6px;
+  }
+
+  .pauta {
     padding-left: calc(var(--linha) + 12px);
   }
 

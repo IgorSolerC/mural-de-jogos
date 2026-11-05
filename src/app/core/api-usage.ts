@@ -348,9 +348,8 @@ const COUNT_WORD = ['', 'Uma', 'Duas', 'Três', 'Quatro', 'Cinco', 'Seis'];
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const joined = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
 
-/** A frase que responde "alguma coisa está caindo ou perto do fim?" (PLANO-ADMIN-APIS.md, 11.5). */
-export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date, cut = 0): string {
-  if (!usage.contandoDesde) return 'A contagem ainda não começou. Os números vão aparecendo conforme o site é usado.';
+/** O que pede atenção: as quedas, os cortes da Cloudflare e as cotas perto do fim. A frase e o carimbo leem daqui. */
+function problemsOf(rows: readonly ServiceRow[], quotas: readonly Quota[], now: Date, cut: number) {
   const down = rows.flatMap((r) => {
     const text = problemOf(r);
     return text ? [{ row: r, text }] : [];
@@ -358,6 +357,26 @@ export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], u
   const ending = quotas.filter((q) => q.nivel !== 'folga').sort((a, b) => b.parte - a.parte);
   const cutText = cut > 0 ? `a Cloudflare cortou ${int(cut)} ${cut === 1 ? 'pedido' : 'pedidos'} hoje por passar do limite` : null;
   const parts = [...down.map((d) => d.text), ...(cutText ? [cutText] : []), ...ending.map((q) => quotaProblem(q, now))];
+  return { down, ending, cutText, parts };
+}
+
+/**
+ * O tom da folha da frase, para o carimbo: "atencao" quando algo pede atenção, "calmo" quando tudo responde, e null
+ * quando não há o que afirmar (a contagem não começou, começou hoje, ou nada foi chamado em 7 dias).
+ */
+export type SentenceTone = 'atencao' | 'calmo' | null;
+
+export function toneOf(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date, cut = 0): SentenceTone {
+  if (!usage.contandoDesde) return null;
+  if (problemsOf(rows, quotas, now, cut).parts.length) return 'atencao';
+  if (usage.contandoDesde === utcDay(now) || !rows.some((r) => r.status === 'ok')) return null;
+  return 'calmo';
+}
+
+/** A frase que responde "alguma coisa está caindo ou perto do fim?" (PLANO-ADMIN-APIS.md, 11.5). */
+export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date, cut = 0): string {
+  if (!usage.contandoDesde) return 'A contagem ainda não começou. Os números vão aparecendo conforme o site é usado.';
+  const { down, ending, cutText, parts } = problemsOf(rows, quotas, now, cut);
 
   if (parts.length === 1) {
     const only = down[0];
@@ -523,6 +542,8 @@ export interface ServiceRow {
 
 export interface UsageView {
   sentence: string;
+  /** O carimbo da folha da frase. */
+  tone: SentenceTone;
   quotas: Quota[];
   groups: { id: MedidoEm; rows: ServiceRow[] }[];
   now: Date;
@@ -565,6 +586,7 @@ export function usageView(usage: ApiUsage, cf: CloudflareReport | null = null): 
     cloudflare: cf,
     ontem: days.find((d) => d.dia === daysBack(now, 1)) ?? null,
     sentence: howItIs(rows, quotas, usage, now, cut),
+    tone: toneOf(rows, quotas, usage, now, cut),
     // a ordem do catálogo desempata: `sort` é estável
     groups: GROUP_ORDER.map((id) => ({ id, rows: rows.filter((r) => r.service.medidoEm === id).sort((a, b) => rank(a) - rank(b)) })),
   };
