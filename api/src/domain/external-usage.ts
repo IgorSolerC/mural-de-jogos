@@ -114,7 +114,9 @@ export class UsageMeter {
     if (!this.pending || this.scheduled) return undefined;
     if (this.windowMs === 0) return this.flush(deps);
     this.scheduled = true;
-    keepAlive?.(new Promise((resolve) => setTimeout(resolve, this.windowMs)).then(() => this.flush(deps)));
+    const later = new Promise((resolve) => setTimeout(resolve, this.windowMs)).then(() => this.flush(deps));
+    // no Worker, o `waitUntil` segura a gravação depois da resposta; no Node, o intervalo já roda sozinho
+    keepAlive?.(later);
     return undefined;
   }
 

@@ -313,8 +313,7 @@ export function ago(iso: string, now: Date): string {
 
 /** "2026-11-05" vira "05/nov/2026". Sem `Date`: a data é um dia, sem fuso. */
 export function dayLabel(iso: string): string {
-  const [year, month, day] = iso.split('-');
-  return `${day}/${MONTHS_SHORT[Number(month) - 1]}/${year}`;
+  return `${dayShort(iso)}/${iso.slice(0, 4)}`;
 }
 
 /** Uma parte da frase, em minúscula: quem junta decide a maiúscula. */

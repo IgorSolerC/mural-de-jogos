@@ -9,6 +9,8 @@
       Não deu para atualizar. Os números são das {{ clock(v.now.toISOString()) }}.
     } @else if (v) {
       Atualizado às {{ clock(v.now.toISOString()) }}.
+    } @else if (failed()) {
+      Sem números agora.
     } @else {
       Só a sua conta abre esta página.
     }
@@ -51,7 +53,7 @@
       @if (v) {
         <div class="prateleiras">
           @for (s of shelves(); track s.janela) {
-            <div class="janela">
+            <div class="janela" [class.alta]="s.janela === 'dia'">
               <h3>{{ s.title }}</h3>
               @for (q of s.quotas; track q.id) {
                 <app-cota [quota]="q" />
@@ -83,9 +85,12 @@
     </section>
   }
 
+  <!-- sem números, a folha da frase já diz e deixa tentar de novo: nada aqui fingiria ter números -->
+  @if (v || loading()) {
   <div class="mesa">
   <section class="peca folha servicos" aria-labelledby="servicos-titulo">
     <h2 id="servicos-titulo" class="titulo">Serviços</h2>
+    <p class="servicos-nota">Falhas e Tempo olham os últimos 7 dias.</p>
     @if (v) {
       <table class="razao">
         <caption class="sr-only">Quanto cada serviço foi chamado, a parte que falhou e a última chamada. O que precisa de atenção vem primeiro em cada grupo.</caption>
@@ -182,8 +187,8 @@
                                   <tr>
                                     <th scope="row">{{ o.nome }}</th>
                                     <td class="num">{{ o.pedidos ? whole(o.pedidos) : '—' }}</td>
-                                    <td class="num">{{ o.falhas === null ? '—' : share(o.falhas) }}</td>
-                                    <td class="num">{{ o.tempoMs === null ? '—' : took(o.tempoMs) }}</td>
+                                    <td class="num">{{ o.falhas === null ? '—' : tablePercent(o.falhas) }}</td>
+                                    <td class="num">{{ o.tempoMs === null ? '—' : duration(o.tempoMs) }}</td>
                                   </tr>
                                 }
                               </tbody>
@@ -197,21 +202,25 @@
                               @for (f of d.failures; track $index) {
                                 <li>
                                   <span class="quando">{{ f.quando }}</span>
-                                  {{ f.texto }}
-                                  @if (f.operacao) {
-                                    <span class="op">· {{ f.operacao }}</span>
-                                  }
+                                  <span>
+                                    {{ f.texto }}
+                                    @if (f.operacao) {
+                                      <span class="op">· {{ f.operacao }}</span>
+                                    }
+                                  </span>
                                 </li>
                               }
                             </ul>
                           } @else {
-                            <p class="cpu-nota">Nenhuma falha guardada. As falhas ficam 30 dias.</p>
+                            <p class="cpu-nota">Nenhuma entre as 50 falhas mais novas de todos os serviços.</p>
                           }
                         </div>
                       </div>
                     }
                     @if (r.service.id === 'cloudflare' && cloudflare()?.estado === 'ok') {
                       <h3 class="detalhe-titulo">Cada Worker, hoje</h3>
+                      <!-- no celular, a tabela de cinco colunas rola sozinha, sem alargar a folha -->
+                      <div class="rolagem">
                       <table class="workers">
                         <caption class="sr-only">Pedidos, erros, pedidos cortados e o pior tempo de CPU de cada Worker, hoje</caption>
                         <thead>
@@ -239,6 +248,7 @@
                           }
                         </tbody>
                       </table>
+                      </div>
                       <p class="cpu-nota">O limite de CPU do plano grátis é 10 ms por pedido; "cortados" são os pedidos que a Cloudflare parou por passar de um limite.</p>
                       @if (v.ontem; as o) {
                         <p class="cpu-nota">Ontem: {{ whole(o.pedidos) }} pedidos, {{ whole(o.linhasLidas) }} linhas lidas e {{ whole(o.linhasGravadas) }} gravadas.</p>
@@ -251,40 +261,19 @@
           </tbody>
         }
       </table>
-    } @else if (loading()) {
+    } @else {
       <div class="linhas-vazias" aria-hidden="true">
         @for (p of placeholders; track p) {
           <div class="esqueleto linha-vazia"></div>
         }
       </div>
-    } @else {
-      <p class="sem-numeros">Os números voltam aqui assim que a nuvem responder.</p>
     }
   </section>
 
-  @if (v || loading()) {
     <section class="peca folha falhas" aria-labelledby="falhas-titulo">
       <h2 id="falhas-titulo" class="titulo">Últimas falhas</h2>
       @if (v) {
-        @if (failureList().length) {
-          <ol class="lista-falhas">
-            @for (f of shownFailures(); track $index) {
-              <li>
-                <button type="button" class="falha" (click)="openFrom(f.servico)">
-                  <span class="quando">{{ f.quando }}</span>
-                  <span class="falha-nome">{{ f.nome }}</span>
-                  <span class="falha-texto">{{ f.texto }}</span>
-                  <span class="sr-only">Abrir o detalhe de {{ f.nome }}</span>
-                </button>
-              </li>
-            }
-          </ol>
-          @if (failureList().length > shownFailures().length) {
-            <button type="button" class="botao mais" (click)="allFailures.set(true)">Ver as {{ failureList().length }}</button>
-          }
-        } @else {
-          <p class="sem-falhas">Nenhuma falha nos últimos 30 dias.</p>
-        }
+        <app-uso-falhas [items]="failureList()" (abrir)="openFrom($event)" />
       } @else {
         <div class="linhas-vazias" aria-hidden="true">
           @for (p of placeholders; track p) {
@@ -293,8 +282,8 @@
         </div>
       }
     </section>
-  }
   </div>
+  }
 
   <details class="peca manilha">
     <summary>

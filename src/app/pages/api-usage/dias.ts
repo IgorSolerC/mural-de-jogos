@@ -9,6 +9,8 @@ interface Column {
   failedPart: number;
   /** O número escrito em cima: só no maior dia e em hoje. */
   label: boolean;
+  /** Na primeira e na última coluna, o número encosta na beirada da tira, para não sair do papel. */
+  edge: 'inicio' | 'fim' | null;
   anchor: 'inicio' | 'meio' | 'fim';
 }
 
@@ -39,7 +41,7 @@ interface Column {
             @if (c.day.total > 0) {
               <span class="barra" [style.height.%]="c.height">
                 @if (c.label) {
-                  <span class="valor">{{ whole(c.day.total) }}</span>
+                  <span class="valor" [attr.data-ponta]="c.edge">{{ whole(c.day.total) }}</span>
                 }
                 @if (c.day.falhas > 0) {
                   <span class="parte-falha" [style.height.%]="c.failedPart"></span>
@@ -193,6 +195,16 @@ interface Column {
       @include gk.valor;
       font-size: 0.74rem;
       color: var(--ink);
+
+      &[data-ponta='inicio'] {
+        left: 0;
+        translate: none;
+      }
+      &[data-ponta='fim'] {
+        left: auto;
+        right: 0;
+        translate: none;
+      }
     }
     .dica {
       @include gk.dica;
@@ -235,6 +247,9 @@ interface Column {
 
         &:hover {
           color: var(--ink);
+        }
+        @media (pointer: coarse) {
+          min-height: 44px;
         }
       }
     }
@@ -304,6 +319,7 @@ export class UsoDias {
       failedPart: day.total > 0 ? (day.falhas / day.total) * 100 : 0,
       // hoje só leva rótulo longe do maior, para os dois números não se encostarem
       label: day.total > 0 && (i === top || (i === last && last - top >= 3)),
+      edge: i === 0 ? 'inicio' : i === last ? 'fim' : null,
       anchor: i < days.length / 4 ? 'inicio' : i >= (days.length * 3) / 4 ? 'fim' : 'meio',
     }));
   });

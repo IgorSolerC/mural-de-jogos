@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { CloudAccount, CloudAccountInfo, CloudError } from './cloud-account';
+import { LookupError } from './game-lookup';
 import { LookupMeter, SEND_EVERY_MS, SEND_HIDDEN_AFTER_MS, failureOf, outcomeOf, whereOf } from './lookup-meter';
 
 describe('a conta das chamadas do navegador', () => {
@@ -42,6 +43,8 @@ describe('a conta das chamadas do navegador', () => {
       const live = new AbortController().signal;
       expect(failureOf(new DOMException('x', 'TimeoutError'), live)).toBe('prazo');
       expect(failureOf(new TypeError('rede'), live)).toBe('fora');
+      // a chave própria recusada sem CORS: a busca conferiu que a RAWG está de pé
+      expect(failureOf(new LookupError('A chave da RAWG foi recusada.', 'rawg-key'), live)).toBe('recusada');
       expect(failureOf(new DOMException('x', 'AbortError'), live)).toBe('cancelada');
       const gone = new AbortController();
       gone.abort();

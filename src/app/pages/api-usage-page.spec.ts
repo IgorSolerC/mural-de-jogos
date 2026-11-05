@@ -153,7 +153,7 @@ describe('a página Uso das APIs', () => {
       expect(pedidos.querySelector('.falta')?.textContent).toBe('faltam 92.938');
       expect(t.rowOf('Cloudflare').querySelector('.estado')?.textContent).toBe('Respondendo');
       // só sabe de hoje: 7 e 30 dias ficam em branco, e não com um zero falso
-      expect(t.cells('Cloudflare')).toEqual(['7.062', '—', '—', 'menos de 1%', '—', '—']);
+      expect(t.cells('Cloudflare')).toEqual(['7.062', '—', '—', '<1%', '—', '—']);
       expect(t.text('.razao')).toContain('Os números oficiais de hoje');
     });
 
@@ -305,7 +305,7 @@ describe('a página Uso das APIs', () => {
         ['18/nov', '8', '—', '400 ms'],
       ]);
       expect(detail.querySelector('app-uso-dias caption')).not.toBeNull();
-      expect(detail.textContent).toContain('Nenhuma falha guardada.');
+      expect(detail.textContent).toContain('Nenhuma entre as 50 falhas mais novas de todos os serviços.');
       // sem falhas, a legenda some: com uma cor só, o título já diz o que é
       expect(detail.querySelector('app-uso-dias .legenda')).toBeNull();
     });
@@ -343,6 +343,15 @@ describe('a página Uso das APIs', () => {
       const button = t.rowOf('RAWG').querySelector('button')!;
       expect(button.getAttribute('aria-expanded')).toBe('true');
       expect(document.activeElement).toBe(button);
+    });
+
+    it('só as das últimas 24 h ficam em vermelho', async () => {
+      const old = { em: '2026-11-17T10:00:00.000Z', servico: 'tmdb', operacao: 'busca', medidoEm: 'worker', desfecho: 'fora', status: 502, repeticoes: 1 };
+      const t = setup(async () => ({ ...answer, falhas: [...answer.falhas, old] }));
+      await t.settle();
+      const texts = [...t.host.querySelectorAll('.falha-texto')];
+      expect(texts.map((x) => x.classList.contains('recente'))).toEqual([true, false]);
+      expect(t.host.querySelectorAll('.falha .quando')[1]?.textContent).toBe('17/nov 07:00');
     });
 
     it('sem falhas, diz isso', async () => {
@@ -439,7 +448,9 @@ describe('a página Uso das APIs', () => {
     expect(t.sentence()).toBe('Não deu para buscar os números agora.');
     expect(t.host.querySelector('.cotas')).toBeNull();
     expect(t.host.querySelector('.esqueleto')).toBeNull();
-    expect(t.text('.sem-numeros')).toContain('assim que a nuvem responder');
+    // nada que finja ter números: nem a tabela, nem as falhas; o catálogo do que não se conta fica
+    expect(t.host.querySelector('.mesa')).toBeNull();
+    expect(t.text('.intro')).toBe('Sem números agora.');
     expect(t.host.querySelector('.manilha')).not.toBeNull();
     fail = false;
     t.host.querySelector<HTMLButtonElement>('.frase + button')!.click();

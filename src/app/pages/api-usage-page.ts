@@ -8,11 +8,12 @@ import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
 import { Cota } from './api-usage/cota';
 import { UsoDias } from './api-usage/dias';
+import { FailureItem, UsoFalhas } from './api-usage/falhas';
 
-/** Quantas falhas o bloco mostra antes do "Ver as N". */
-const FIRST_FAILURES = 8;
 /** Quantas falhas o detalhe de um serviço mostra. */
 const SERVICE_FAILURES = 5;
+/** Até aqui, a falha ainda é notícia e fica em vermelho; as mais velhas ficam em tinta. */
+const RECENT_FAILURE_MS = 86_400_000;
 
 /** A API já manda da mais nova para a mais velha; a tela não depende disso. */
 const newestFirst = <T extends { em: string }>(list: readonly T[]): T[] => [...list].sort((a, b) => (a.em < b.em ? 1 : a.em > b.em ? -1 : 0));
@@ -31,7 +32,7 @@ const GROUP_TEXT: Record<MedidoEm, { title: string; note: string }> = {
  */
 @Component({
   selector: 'app-api-usage-page',
-  imports: [Cota, IconModule, Pin, UsoDias],
+  imports: [Cota, IconModule, Pin, UsoDias, UsoFalhas],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './api-usage-page.html',
   styleUrl: './api-usage-page.scss',
@@ -94,18 +95,17 @@ export class ApiUsagePage {
   });
 
   /** As falhas mais novas de todos os serviços (a API manda as 50 mais novas, de até 30 dias). */
-  protected readonly failureList = computed(() => {
+  protected readonly failureList = computed((): FailureItem[] => {
     const usage = this.usage();
     if (!usage) return [];
     const now = new Date(usage.geradoEm);
-    return newestFirst(usage.falhas).map((f) => ({ servico: f.servico, nome: SERVICOS.find((s) => s.id === f.servico)?.nome ?? f.servico, quando: when(f.em, now), texto: failureText(f) }));
+    return newestFirst(usage.falhas).map((f) => ({ servico: f.servico, nome: SERVICOS.find((s) => s.id === f.servico)?.nome ?? f.servico, quando: when(f.em, now), texto: failureText(f), recente: now.getTime() - Date.parse(f.em) < RECENT_FAILURE_MS }));
   });
-  protected readonly allFailures = signal(false);
-  protected readonly shownFailures = computed(() => (this.allFailures() ? this.failureList() : this.failureList().slice(0, FIRST_FAILURES)));
 
   protected readonly uncounted = SEM_CONTAGEM;
   protected readonly checkedOn = dayLabel;
   protected readonly clock = clock;
+  protected readonly duration = duration;
   protected readonly RetryIcon = ICON.atualizar;
   protected readonly OpenIcon = ICON.abrir;
   /** As linhas de mentira da cartolina enquanto a primeira leitura não chega. */
@@ -165,13 +165,6 @@ export class ApiUsagePage {
     afterNextRender(() => this.host.querySelector<HTMLElement>(`#abre-${CSS.escape(id)}`)?.focus(), { injector: this.injector });
   }
 
-  protected share(part: number): string {
-    return percent(part);
-  }
-
-  protected took(ms: number): string {
-    return duration(ms);
-  }
 
   protected statusLabel(status: ServiceStatus): string {
     return STATUS_LABEL[status];
@@ -194,9 +187,15 @@ export class ApiUsagePage {
     return ms === null ? '—' : `${String(Math.round(ms * 10) / 10).replace('.', ',')} ms`;
   }
 
+  /** Numa coluna de números, "menos de 1%" não cabe nem alinha: vira "<1%". As réguas continuam por extenso. */
+  protected tablePercent(part: number): string {
+    const text = percent(part);
+    return text === 'menos de 1%' ? '<1%' : text;
+  }
+
   /** Sem pedido, não há o que dizer: nunca um "0%" que parece bom. */
   protected failureShare(t: ServiceTotals): string {
-    return t.falhas === null ? '—' : percent(t.falhas);
+    return t.falhas === null ? '—' : this.tablePercent(t.falhas);
   }
 
   protected time(t: ServiceTotals): string {

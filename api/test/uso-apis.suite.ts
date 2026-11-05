@@ -195,6 +195,19 @@ export function usoApisSuite(label: string, getDb: () => Db) {
       expect((await t.db.first<{ gravacoes: number }>('SELECT gravacoes FROM uso_diario'))?.gravacoes).toBe(1);
     });
 
+    it('sem waitUntil (o Node), a janela também grava sozinha, e a seguinte também', async () => {
+      const t = await setup({ windowMs: 15 });
+      const settle = () => new Promise((r) => setTimeout(r, 60));
+      await t.search();
+      await t.search();
+      expect((await t.rows()).length, 'ainda não gravou').toBe(0);
+      await settle();
+      expect((await t.rows()).map((r) => r.pedidos)).toEqual([2]);
+      await t.search();
+      await settle();
+      expect((await t.rows()).map((r) => r.pedidos)).toEqual([3]);
+    });
+
     it('a conta sobrevive à desistência de quem pediu: a chamada lá fora fica no waitUntil', async () => {
       let answer!: (r: Response) => void;
       const t = await setup({ windowMs: 5, reply: () => new Promise<Response>((resolve) => (answer = resolve)) });

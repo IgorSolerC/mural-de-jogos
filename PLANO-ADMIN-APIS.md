@@ -760,7 +760,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 4 | **A Cloudflare** — feita em 05/nov, falta ligar o token (seção 22). `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador** — feita em 05/nov (seção 22). `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
 | 6 | **Detalhe e falhas** — feita em 05/nov (seção 22). O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
-| 7 | **Fechar.** Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
+| 7 | **Fechar** — feita em 05/nov, falta a medida de CPU (seção 22). Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
 
 ---
 
@@ -1007,16 +1007,44 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   (o detalhe, a tabela dos dias, a dica, o serviço de uma operação só, e o bloco das falhas). Fotos e smoke:
   `.angular/pptr/uso-apis-detalhe-fotos.mjs` (320 a 1920 px, sem erro no console, sem rolagem lateral, foco na linha da RAWG).
 
+- **05/nov/2026, rodada 7 (fechar), BUILD 758**: crítica do Impeccable em dois agentes (desenho e detector) e o
+  `impeccable-finish-reviewer`, com fotos a 2x de 320 a 1920 px; `/code-review high` sobre as rodadas 1 a 6 (786b5854^..HEAD).
+  Nota da crítica: 28/40 (registro em `.impeccable/critique/`). Corrigido:
+  - **320 px com o detalhe da Cloudflare aberto:** a tabela de Serviços passava da folha. A tabela dos Workers rola por
+    dentro (`.rolagem`, largura 0 e `min-width: 100%`, para não contar na largura de fora), e "menos de 1%" virou "<1%" nas
+    tabelas (as réguas continuam por extenso). O `table-layout: fixed` foi tentado e descartado: as colunas escondidas no
+    celular dividiam o espaço e o nome ficava com 36 px.
+  - **A folha pautada não tinha pauta:** `--pauta` estava declarado e nunca pintado. As linhas andam no passo da frase.
+  - **A cartolina em 768 e 1024 px** tinha um buraco embaixo de "Este mês": "Hoje" ocupa duas linhas e o `dense` sobe "Sem data".
+  - **Sem resposta da nuvem,** a folha de Serviços ainda aparecia ("Os números voltam aqui…"): agora só a frase e o "O que não dá
+    para contar", e o topo diz "Sem números agora.".
+  - **Últimas falhas** virou a peça `app-uso-falhas` (`pages/api-usage/falhas.ts`, também para o `.scss` da página caber nos
+    14 kB): o vermelho só para as últimas 24 h, e o texto escondido do botão vem primeiro ("Abrir o detalhe de RAWG:").
+  - "Falhas e Tempo olham os últimos 7 dias." escrito embaixo de Serviços; toques de 44 px nos links do detalhe e no "Ver os
+    números" (só no dedo); o número da última tira encosta na beirada; as falhas do serviço quebram embaixo do texto; o nome do
+    Worker não quebra no hífen.
+  - **Do code review:** no Node, a janela de 20 s nunca gravava (o `keepAlive?.(…)` sem `waitUntil` nem criava o timer, e a conta
+    só saía na limpeza diária), com teste novo; a chave própria da RAWG recusada (401 sem CORS) contava como "fora do ar" e agora
+    conta como `recusada`; `ORDER BY dia DESC` na leitura com teto de 3.000 linhas; "Nenhuma falha guardada" virou "Nenhuma entre
+    as 50 falhas mais novas de todos os serviços.", que é o que a tela sabe.
+  - **Deixado como está, de propósito:** a hora das linhas do navegador é a da chegada (até 5 min depois; a conta é aproximada
+    e a tela diz isso); a cota da RAWG conta também as falhas (erra para o lado seguro, e o número oficial é o do painel); o kraft
+    do gráfico (2,18:1 sobre o papel) é o mesmo dos Gastos, e os números estão na tabela; o bloco das falhas grudado na tela
+    (sticky) ao lado da tabela, porque com "Ver as N" aberto o fim dele sumiria.
+
 ## 23. Para quem continuar (05/nov/2026)
 
-Lido o plano e o andamento (seção 22), é isto o que falta, nesta ordem:
+As rodadas 0 a 7 estão feitas. Falta:
 
-1. **Ver uma linha `navegador` real** em `uso_apis` depois que o dono fizer uma busca logado (a rodada 5 está no ar e o
-   `POST /v1/uso/navegador` já responde 401 sem sessão).
-2. **Rodada 7:** crítica final do Impeccable + detector + `impeccable-finish-reviewer`, fotos 2x
-   (`.angular/pptr/uso-apis-fotos.mjs` e `uso-apis-detalhe-fotos.mjs`, config `dist-smoke` no launch.json), `/code-review high` com as correções (pedido do
-   usuário), DESIGN.md, memória. Reconferir os 6 ms de CPU de `GET /v1/admin/uso` e qual dimensão a Cloudflare aceitou
-   (`wrangler tail mural-api` enquanto o dono abre a tela).
+1. **Medir a CPU** de `GET /v1/admin/uso` e `GET /v1/admin/cloudflare` com a sessão do dono (`wrangler tail mural-api --format
+   json`, filtrando `/v1/admin` e sem imprimir cabeçalhos, enquanto ele abre a tela e toca em Atualizar), e ver qual dimensão de
+   tempo a Cloudflare aceitou (a linha "recusou a consulta por …" no log, se houver). Se o `uso` passar de 5 ms com poucas linhas,
+   separar as consultas ou agregar no banco.
+2. **Ver uma linha `navegador` real** em `uso_apis` depois de uma busca do dono logado.
+3. **Decisões do dono, levantadas pela crítica (não feitas):** a frase mudar de papel quando algo cai (caneta vermelha na margem,
+   "PEDE ATENÇÃO"); as réguas das cotas calmas mais compactas; se uma falha só do navegador (aproximada) deve entrar na frase;
+   juntar falhas seguidas em episódios; link direto para um serviço.
 
-Armadilhas: script com crases não vai em heredoc do Bash (usar arquivo + node); `.prateleira` e `.papel` são classes globais; no molde, `?.`
-devolve null; `networkidle0` trava no puppeteer (usar `domcontentloaded` + espera).
+Armadilhas: script com crases ou barras invertidas não vai em heredoc do Bash (usar a ferramenta de arquivo + node); `.prateleira`
+e `.papel` são classes globais; no molde, `?.` devolve null; `networkidle0` trava no puppeteer (usar `domcontentloaded` + espera);
+o `.scss` da página está perto dos 14 kB (peça nova vai em componente próprio).

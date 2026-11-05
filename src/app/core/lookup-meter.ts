@@ -71,6 +71,8 @@ export function outcomeOf(where: Where, status: number): Desfecho {
 export function failureOf(error: unknown, signal: AbortSignal): Desfecho {
   const name = (error as Error | undefined)?.name;
   if (name === 'TimeoutError') return 'prazo';
+  // a chave própria recusada sem CORS (o `LookupError` da busca, que já conferiu que a RAWG está de pé)
+  if ((error as { kind?: unknown } | undefined)?.kind === 'rawg-key') return 'recusada';
   return signal.aborted || name === 'AbortError' ? 'cancelada' : 'fora';
 }
 

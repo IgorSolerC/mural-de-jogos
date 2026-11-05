@@ -8,7 +8,7 @@ import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
 import { sessionOf } from './http';
 
-/** Um teto folgado: 40 combinações por dia em 31 dias dá 1.240 linhas. */
+/** Um teto folgado: 40 combinações por dia em 31 dias dá 1.240 linhas. Se passar, saem os dias mais velhos. */
 const MAX_LINES = 3_000;
 const MAX_FAILURES = 50;
 
@@ -44,7 +44,7 @@ export function adminRoutes(app: Hono, deps: Deps): void {
     await requireAdmin(deps, c);
     const now = deps.now();
     const [lines, failures, since, today, images, connected] = await Promise.all([
-      deps.db.all<Record<string, SqlValue>>('SELECT dia, servico, operacao, medido_em, desfecho, pedidos, ms_total, ms_max, ultimo_em FROM uso_apis WHERE dia >= ? LIMIT ?', [usageFrom(now), MAX_LINES]),
+      deps.db.all<Record<string, SqlValue>>('SELECT dia, servico, operacao, medido_em, desfecho, pedidos, ms_total, ms_max, ultimo_em FROM uso_apis WHERE dia >= ? ORDER BY dia DESC LIMIT ?', [usageFrom(now), MAX_LINES]),
       deps.db.all<{ em: string; servico: string; operacao: string; medido_em: string; desfecho: string; status: number | null; repeticoes: number }>(
         'SELECT em, servico, operacao, medido_em, desfecho, status, repeticoes FROM uso_apis_falhas ORDER BY em DESC, id DESC LIMIT ?',
         [MAX_FAILURES],

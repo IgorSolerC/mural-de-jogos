@@ -1141,13 +1141,21 @@ export class GameLookup {
     let res: Response;
     const deadline = withDeadline(signal, ms);
     try {
-      res = await this.meter.track(url, signal, () => fetch(url, { signal: deadline }));
+      // dentro da conta: a chave recusada é contada como recusada, e não como a RAWG fora do ar
+      res = await this.meter.track(url, signal, async () => {
+        try {
+          return await fetch(url, { signal: deadline });
+        } catch (e) {
+          // a RAWG recusa a chave (401) sem o cabeçalho de CORS: o navegador só vê uma falha de rede. Se o
+          // mesmo endereço responde quando não se lê a resposta, a RAWG está de pé, e o que falhou foi a chave
+          if (catalog === 'rawg-own' && (e as Error)?.name === 'TypeError' && !signal.aborted && (await answers(url, signal))) {
+            throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
+          }
+          throw e;
+        }
+      });
     } catch (e) {
-      // a RAWG recusa a chave (401) sem o cabeçalho de CORS: o navegador só vê uma falha de rede. Se o
-      // mesmo endereço responde quando não se lê a resposta, a RAWG está de pé, e o que falhou foi a chave
-      if (catalog === 'rawg-own' && (e as Error)?.name === 'TypeError' && !signal.aborted && (await answers(url, signal))) {
-        throw new LookupError('A chave da RAWG foi recusada. Confira em Ajustes.', 'rawg-key');
-      }
+      if (e instanceof LookupError) throw e;
       throw lookupFailure(e, signal);
     }
     if (catalog === 'rawg-own' && (res.status === 401 || res.status === 403)) {
