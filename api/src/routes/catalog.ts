@@ -1,6 +1,6 @@
 import { Context, Hono } from 'hono';
-import type { OperacaoDe } from '../../../contrato/uso-apis/contagem';
-import { measured } from '../domain/external-usage';
+import { Desfecho, OperacaoDe, desfechoDoStatus } from '../../../contrato/uso-apis/contagem';
+import { KeepAlive, measured } from '../domain/external-usage';
 import { HttpError } from '../errors';
 import { CatalogBrake, CatalogKeys, Deps } from '../ports';
 import { keepAliveOf } from './http';
@@ -103,6 +103,44 @@ function pickParams(c: Context, allowed: readonly string[]): URLSearchParams {
     out.set(name, value);
   }
   return out;
+}
+
+/** Como terminou o teste do admin: o desfecho da contagem, o HTTP de lá e quanto demorou. */
+export interface CatalogProbe {
+  desfecho: Desfecho;
+  status: number | null;
+  ms: number;
+}
+
+/**
+ * O "Testar agora" do Uso das APIs: o pedido mais barato de cada catálogo (uma página de um resultado), pela chave do
+ * site e pela mesma conta das buscas (gasta 1 da cota, e aparece na tabela). Null sem a chave do site.
+ */
+export function catalogProbe(deps: Deps): (which: 'rawg' | 'tmdb', keepAlive?: KeepAlive) => Promise<CatalogProbe | null> {
+  const keys = deps.catalog?.keys ?? { tmdb: '', rawg: '' };
+  const upstream = deps.catalog?.fetch ?? ((input: string, init?: RequestInit) => fetch(input, init));
+  return async (which, keepAlive) => {
+    const key = keys[which];
+    if (!key) return null;
+    let url: string;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (which === 'rawg') {
+      url = `https://api.rawg.io/api/games?${new URLSearchParams({ page_size: '1', key })}`;
+    } else {
+      const params = new URLSearchParams({ query: 'a', page: '1' });
+      // como na busca: a "API key" curta vai na URL; o "token de leitura" (eyJ…), no cabeçalho
+      if (key.startsWith('eyJ')) headers['Authorization'] = `Bearer ${key}`;
+      else params.set('api_key', key);
+      url = `https://api.themoviedb.org/3/search/movie?${params}`;
+    }
+    const started = Date.now();
+    try {
+      const res = await measured(deps, which, 'busca', () => upstream(url, { headers, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) }), { keepAlive });
+      return { desfecho: desfechoDoStatus(res.status), status: res.status, ms: Date.now() - started };
+    } catch (error) {
+      return { desfecho: error instanceof Error && error.name === 'TimeoutError' ? 'prazo' : 'fora', status: null, ms: Date.now() - started };
+    }
+  };
 }
 
 export function catalogRoutes(app: Hono, deps: Deps): void {

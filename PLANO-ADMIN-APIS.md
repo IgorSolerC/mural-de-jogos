@@ -817,7 +817,7 @@ vê a ficha e o link direto volta para Extras; computador e celular.
 ## 20. Fora por agora (rodadas futuras, se fizer falta)
 
 - Contagem por hora (hoje só o dia, com as falhas datadas).
-- Botão "Testar agora" por serviço, gastando uma chamada de verdade.
+- ~~Botão "Testar agora" por serviço~~: feito para a RAWG e o TMDB (seção 22).
 - RAWG no relatório do e-mail diário e bilhete no site (D10).
 - Ajuste manual da conta da RAWG (D7).
 - A cota própria do cofre (`/api/status`); hoje só os totais da Cloudflare.
@@ -1069,6 +1069,18 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   em Últimas falhas, mas não entra como problema na frase nem acende o carimbo (`ServiceRow.solta`, `LOOSE_UNDER`). A frase continua
   dizendo: "Tudo respondendo, fora uma falha solta no Kitsu." Os serviços do Worker continuam alarmando na primeira falha, porque
   a conta deles é exata. O 429 e a chave recusada do navegador continuam alarmando: são sinais específicos, não uma rede ruim.
+
+- **05/nov/2026, o Testar agora, BUILD 763** (pedido do dono, com a RAWG fora havia horas e a dúvida de quando ela é tentada de
+  novo). `POST /v1/admin/testar/:servico` (só admin, só `rawg` e `tmdb`): o pedido mais barato do catálogo (uma página de um
+  resultado), pela chave do site e por `measured`, então gasta 1 da cota e entra na conta como uma busca; a rota grava a conta na
+  hora (`meter.flush`) para a tela já mostrar. Uma vez a cada 20 s por catálogo (`PROBE_EVERY_MS`). Na tela, o botão fica no
+  detalhe da RAWG e do TMDB, com o resultado em palavras ao lado (`probeText`), e a tabela vem de novo em seguida.
+
+  **Descoberto no caminho (05/nov, 20:05 UTC):** o dono buscou um jogo e não viu uma falha nova da RAWG. A conta estava certa: duas
+  buscas feitas no site de verdade entraram no banco, uns 30 a 60 s depois (o site desiste aos 5 s, o Worker espera até 8 s, e a
+  janela grava 20 s depois). A busca dele não passou pelo Worker porque ele usa a própria chave da RAWG: essa conta é do navegador,
+  na linha "RAWG e TMDB com chave própria", mandada a cada 5 min ou ao esconder a aba. Ponto fraco anotado, sem mudança: a aba larga
+  a chave do site até recarregar quando a API responde 503 ou 403 (`siteKeys.drop`), o que numa aba aberta o dia todo pode durar horas.
 
 ## 23. Para quem continuar (05/nov/2026)
 

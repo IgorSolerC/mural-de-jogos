@@ -1,5 +1,5 @@
 import { SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayShort, dayTurn, daysOf, duration, failureText, howItIs, levelOf, megabytes, operationsOf, parseCloudflare, percentShort, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView, when } from './api-usage';
+import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayShort, dayTurn, daysOf, duration, failureText, howItIs, levelOf, megabytes, operationsOf, parseCloudflare, percentShort, probeText, ProbeResult, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView, when } from './api-usage';
 
 const NOW = new Date('2026-11-20T22:40:00.000Z');
 const NOW_ISO = NOW.toISOString();
@@ -234,6 +234,17 @@ describe('as contas do Uso das APIs', () => {
       const u = usage({ linhas: [kitsu()], falhas: [kitsuFailure()] });
       expect(usageView(u).sentence).toBe('Nos últimos 7 dias, só uma falha solta no Kitsu.');
       expect(usageView(u).tone).toBeNull();
+    });
+  });
+
+  describe('o resultado do Testar agora', () => {
+    const at = (over: Partial<ProbeResult>): ProbeResult => ({ servico: 'rawg', desfecho: 'ok', status: 200, ms: 420, em: '2026-11-20T20:30:00.000Z', ...over });
+    it('em palavras, com a hora de Brasília', () => {
+      expect(probeText(at({}))).toBe('Respondeu em 420 ms, às 17:30.');
+      expect(probeText(at({ desfecho: 'nao-achou', status: 404 }))).toBe('Respondeu em 420 ms, às 17:30.');
+      expect(probeText(at({ desfecho: 'prazo', status: null, ms: 8000 }))).toBe('Não respondeu em 8 s, às 17:30.');
+      expect(probeText(at({ desfecho: 'fora', status: 522 }))).toBe('Fora do ar · 522, às 17:30.');
+      expect(probeText(at({ desfecho: 'recusada', status: 401 }))).toBe('Chave recusada · 401, às 17:30.');
     });
   });
 

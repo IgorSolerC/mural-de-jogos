@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, Injector, a
 import { Router } from '@angular/router';
 import { OPERACOES } from '../../../contrato/uso-apis/contagem';
 import { MedidoEm, SEM_CONTAGEM, SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, daysOf, duration, failureText, operationLabel, operationsOf, parseCloudflare, parseUsage, percentShort, usageView, when, wholeNumber } from '../core/api-usage';
+import { ApiUsage, CloudflareReport, ProbeResult, STATUS_LABEL, TESTABLE, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, daysOf, duration, failureText, operationLabel, operationsOf, parseCloudflare, parseUsage, percentShort, probeText, usageView, when, wholeNumber } from '../core/api-usage';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
@@ -154,6 +154,29 @@ export class ApiUsagePage {
       this.failed.set(true);
     } finally {
       if (!this.gone) this.loading.set(false);
+    }
+  }
+
+  /** O "Testar agora" de cada catálogo: testando, ou o resultado em palavras (ruim quando falhou). */
+  protected readonly probes = signal<Record<string, { testando?: boolean; texto?: string; ruim?: boolean }>>({});
+
+  protected testable(id: string): boolean {
+    return TESTABLE.includes(id);
+  }
+
+  /** Chama o catálogo na hora pela API; o teste entra na conta, então a tabela e a frase vêm de novo em seguida. */
+  protected async probe(id: string): Promise<void> {
+    const set = (state: { testando?: boolean; texto?: string; ruim?: boolean }) => this.probes.update((all) => ({ ...all, [id]: state }));
+    set({ testando: true });
+    try {
+      const result = await this.account.request<ProbeResult>(`/v1/admin/testar/${id}`, { method: 'POST' });
+      if (this.gone) return;
+      set({ texto: probeText(result), ruim: result.desfecho !== 'ok' && result.desfecho !== 'nao-achou' });
+      await this.loadUsage();
+    } catch (e) {
+      if (this.gone) return;
+      const status = e instanceof CloudError ? e.status : 0;
+      set({ ruim: true, texto: status === 429 ? 'Espere uns segundos para testar de novo.' : status === 503 ? 'O site está sem a chave deste catálogo.' : 'Não deu para testar agora.' });
     }
   }
 

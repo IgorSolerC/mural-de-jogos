@@ -9,7 +9,7 @@ import { readCloudflareKeys, reportFrom } from '../src/domain/cloudflare-usage';
 import { USAGE_BUDGET_SHARE, UsageMeter, measured } from '../src/domain/external-usage';
 import { googleVerifier } from '../src/domain/google';
 import { catalogBrake } from '../src/routes/catalog';
-import { usageFrom } from '../src/routes/admin';
+import { PROBE_EVERY_MS, usageFrom } from '../src/routes/admin';
 import { MAX_REPORTS_PER_HOUR, MAX_REPORT_LINES } from '../src/routes/usage-report';
 import { Db, Deps } from '../src/ports';
 import { BASE_ENV, NOW, TABLES, jsonCaller } from './harness';
@@ -597,6 +597,60 @@ export function usoApisSuite(label: string, getDb: () => Db) {
         const app = createApp({ ...t.deps, config: readConfig({ ...ENV, ADMIN_USUARIOS: dona.id }) });
         const res = await app.request('https://api.teste/v1/admin/uso', { headers: { Authorization: `Bearer ${dona.token}` } });
         expect(await res.json()).toMatchObject({ contandoDesde: null, linhas: [], falhas: [] });
+      });
+
+      describe('o Testar agora', () => {
+        async function admin(options: Parameters<typeof setup>[0] = {}, keys?: { tmdb: string; rawg: string }) {
+          const t = await setup(options);
+          const dona = await t.login('dona');
+          const bia = await t.login('bia');
+          const deps = { ...t.deps, config: readConfig({ ...ENV, ADMIN_USUARIOS: dona.id }), ...(keys ? { catalog: { ...t.deps.catalog!, keys } } : {}) };
+          const app = createApp(deps);
+          const json = jsonCaller((path, init) => app.request(`https://api.teste${path}`, init));
+          const probe = (which: string, token?: string) => json('POST', `/v1/admin/testar/${which}`, undefined, token);
+          return { ...t, dona, bia, probe };
+        }
+
+        it('só o admin testa, e o teste entra na conta na hora', async () => {
+          const t = await admin();
+          expect((await t.probe('rawg')).status).toBe(401);
+          expect((await t.probe('rawg', t.bia.token)).status).toBe(403);
+          const res = await t.probe('rawg', t.dona.token);
+          expect(res.status).toBe(200);
+          expect(await res.json()).toMatchObject({ servico: 'rawg', desfecho: 'ok', status: 200, ms: expect.any(Number), em: NOW.toISOString() });
+          expect((await t.rows()).map((r) => [r.servico, r.operacao, r.desfecho, r.pedidos])).toEqual([['rawg', 'busca', 'ok', 1]]);
+        });
+
+        it('a queda e o prazo dizem o que houve, e também contam', async () => {
+          const t = await admin({ reply: () => new Response('{}', { status: 522 }) });
+          expect(await (await t.probe('rawg', t.dona.token)).json()).toMatchObject({ desfecho: 'fora', status: 522 });
+          t.setReply(() => {
+            throw Object.assign(new Error('demorou'), { name: 'TimeoutError' });
+          });
+          expect(await (await t.probe('tmdb', t.dona.token)).json()).toMatchObject({ servico: 'tmdb', desfecho: 'prazo', status: null });
+          expect((await t.failures()).map((f) => [f.servico, f.desfecho])).toEqual([
+            ['rawg', 'fora'],
+            ['tmdb', 'prazo'],
+          ]);
+        });
+
+        it('uma vez a cada 20 s por catálogo', async () => {
+          const t = await admin();
+          expect((await t.probe('rawg', t.dona.token)).status).toBe(200);
+          expect((await t.probe('rawg', t.dona.token)).status).toBe(429);
+          // o outro catálogo tem o seu próprio intervalo
+          expect((await t.probe('tmdb', t.dona.token)).status).toBe(200);
+          t.clock.t += PROBE_EVERY_MS;
+          expect((await t.probe('rawg', t.dona.token)).status).toBe(200);
+          expect((await t.rows()).find((r) => r.servico === 'rawg')?.pedidos).toBe(2);
+        });
+
+        it('só os catálogos com teste, e sem a chave do site diz isso', async () => {
+          const t = await admin({}, { tmdb: '', rawg: '' });
+          expect((await t.probe('wikipedia', t.dona.token)).status).toBe(404);
+          expect((await t.probe('rawg', t.dona.token)).status).toBe(503);
+          expect(await t.rows()).toEqual([]);
+        });
       });
 
       it('não devolve o que é mais velho que a janela', async () => {

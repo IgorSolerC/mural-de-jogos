@@ -542,6 +542,28 @@ export function failureText(f: UsageFailure): string {
   return `${OUTCOME_LABEL[f.desfecho] ?? f.desfecho}${status}${times}`;
 }
 
+// ===== O "Testar agora" =====
+
+/** Os catálogos que o admin pode testar na hora (pela chave do site, no Worker). */
+export const TESTABLE: readonly string[] = ['rawg', 'tmdb'];
+
+/** O que a rota de teste responde. */
+export interface ProbeResult {
+  servico: string;
+  desfecho: Desfecho;
+  status: number | null;
+  ms: number;
+  em: string;
+}
+
+/** O resultado do teste em palavras: "Respondeu em 420 ms, às 17:30.", "Fora do ar · 522, às 17:30." */
+export function probeText(p: ProbeResult): string {
+  const at = clock(p.em);
+  if (p.desfecho === 'ok' || p.desfecho === 'nao-achou') return `Respondeu em ${duration(p.ms)}, às ${at}.`;
+  if (p.desfecho === 'prazo') return `Não respondeu em ${duration(p.ms)}, às ${at}.`;
+  return `${OUTCOME_LABEL[p.desfecho] ?? p.desfecho}${p.status ? ` · ${p.status}` : ''}, às ${at}.`;
+}
+
 // ===== A tela inteira =====
 
 export interface ServiceRow {

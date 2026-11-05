@@ -42,8 +42,12 @@ const cloudflareOk = {
 
 describe('a página Uso das APIs', () => {
   /** `cloudflare`: o que a rota à parte responde; por padrão, que falta o token. */
-  function setup(request: () => Promise<unknown>, cloudflare: () => Promise<unknown> = async () => ({ estado: 'sem-token', geradoEm: NOW, dias: [], workers: [], bancos: [] })) {
-    const route = (path: string) => (path.startsWith('/v1/admin/cloudflare') ? cloudflare() : request());
+  function setup(
+    request: () => Promise<unknown>,
+    cloudflare: () => Promise<unknown> = async () => ({ estado: 'sem-token', geradoEm: NOW, dias: [], workers: [], bancos: [] }),
+    probe: (path: string) => Promise<unknown> = async () => ({}),
+  ) {
+    const route = (path: string) => (path.startsWith('/v1/admin/cloudflare') ? cloudflare() : path.startsWith('/v1/admin/testar/') ? probe(path) : request());
     const refresh = jasmine.createSpy('refresh').and.resolveTo();
     TestBed.configureTestingModule({
       imports: [ApiUsagePage],
@@ -359,6 +363,50 @@ describe('a página Uso das APIs', () => {
       expect(detail.querySelector('.operacoes')).toBeNull();
       expect(detail.querySelector('app-uso-dias [role="img"]')).toBeNull();
       expect(detail.textContent).toContain('Nenhuma chamada nos últimos 30 dias.');
+    });
+  });
+
+  describe('o Testar agora', () => {
+    async function openRawg(probe: (path: string) => Promise<unknown>) {
+      const t = setup(async () => answer, undefined, probe);
+      await t.settle();
+      t.rowOf('RAWG').querySelector('button')!.click();
+      await t.settle();
+      return t;
+    }
+
+    it('só nos catálogos que dá para testar, dizendo que gasta da cota', async () => {
+      const t = await openRawg(async () => ({}));
+      expect(t.text('.detalhe .teste-texto')).toBe('Uma chamada de verdade, pela chave do site: gasta 1 pedido da cota.');
+      t.rowOf('Wikipedia').querySelector('button')!.click();
+      await t.settle();
+      expect(t.host.querySelector('.detalhe .teste')).toBeNull();
+    });
+
+    it('chama a API, diz o que achou e busca os números de novo', async () => {
+      const t = await openRawg(async () => ({ servico: 'rawg', desfecho: 'ok', status: 200, ms: 420, em: NOW }));
+      t.account.request.calls.reset();
+      t.host.querySelector<HTMLButtonElement>('.detalhe .teste button')!.click();
+      await t.settle();
+      expect(t.account.request).toHaveBeenCalledWith('/v1/admin/testar/rawg', { method: 'POST' });
+      expect(t.account.request).toHaveBeenCalledWith('/v1/admin/uso');
+      expect(t.text('.detalhe .teste-texto')).toBe('Respondeu em 420 ms, às 19:40.');
+      expect(t.host.querySelector('.detalhe .teste-texto .ruim')).toBeNull();
+    });
+
+    it('a queda vem em vermelho, e a recusa do intervalo em palavras', async () => {
+      let calls = 0;
+      const t = await openRawg(async () => {
+        if (++calls === 1) return { servico: 'rawg', desfecho: 'fora', status: 522, ms: 7900, em: NOW };
+        throw new CloudError('Espere', 'teste-devagar', 429);
+      });
+      const button = () => t.host.querySelector<HTMLButtonElement>('.detalhe .teste button')!;
+      button().click();
+      await t.settle();
+      expect(t.text('.detalhe .teste-texto .ruim')).toBe('Fora do ar · 522, às 19:40.');
+      button().click();
+      await t.settle();
+      expect(t.text('.detalhe .teste-texto')).toBe('Espere uns segundos para testar de novo.');
     });
   });
 

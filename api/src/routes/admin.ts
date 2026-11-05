@@ -6,11 +6,14 @@ import { DAY_MS, usageToday, utcDay } from '../domain/quota';
 import { Session } from '../domain/session';
 import { HttpError } from '../errors';
 import { Deps, SqlValue } from '../ports';
-import { sessionOf } from './http';
+import { catalogProbe } from './catalog';
+import { keepAliveOf, sessionOf } from './http';
 
 /** Um teto folgado: 40 combinações por dia em 31 dias dá 1.240 linhas. Se passar, saem os dias mais velhos. */
 const MAX_LINES = 3_000;
 const MAX_FAILURES = 50;
+/** O "Testar agora" de cada catálogo, no máximo uma vez neste intervalo. */
+export const PROBE_EVERY_MS = 20_000;
 
 /**
  * Quem chama, se for admin: sem sessão, 401; com a sessão de outra conta, 403. Só a sessão do site passa
@@ -35,6 +38,8 @@ export function usageFrom(now: Date): string {
  */
 export function adminRoutes(app: Hono, deps: Deps): void {
   const readCloudflare = cloudflareReader(deps);
+  const probe = catalogProbe(deps);
+  const lastProbe = new Map<string, number>();
 
   /**
    * O uso de cada API. As linhas vão como listas, e as contas ficam no site: medido, 1.243 linhas como
@@ -77,5 +82,26 @@ export function adminRoutes(app: Hono, deps: Deps): void {
   app.get('/v1/admin/cloudflare', async (c) => {
     await requireAdmin(deps, c);
     return c.json(await readCloudflare(c.req.query('novo') === '1'));
+  });
+
+  /**
+   * O "Testar agora": uma chamada de verdade ao catálogo, pela chave do site, para saber se ele voltou sem esperar
+   * alguém buscar. Gasta 1 da cota e entra na conta como qualquer busca, gravada na hora para a tabela já mostrar.
+   * Uma vez a cada 20 s por catálogo: o dedo nervoso não gasta a cota.
+   */
+  app.post('/v1/admin/testar/:servico', async (c) => {
+    await requireAdmin(deps, c);
+    const which = c.req.param('servico');
+    if (which !== 'rawg' && which !== 'tmdb') throw new HttpError(404, 'nao-encontrado', 'Esse serviço não tem teste.');
+    const now = deps.now().getTime();
+    if (now - (lastProbe.get(which) ?? -Infinity) < PROBE_EVERY_MS) {
+      c.header('Retry-After', String(Math.ceil(PROBE_EVERY_MS / 1000)));
+      throw new HttpError(429, 'teste-devagar', 'Espere uns segundos para testar de novo.');
+    }
+    lastProbe.set(which, now);
+    const result = await probe(which, keepAliveOf(c));
+    if (!result) throw new HttpError(503, 'sem-chave', 'O site está sem a chave deste catálogo.');
+    await deps.meter?.flush(deps);
+    return c.json({ servico: which, ...result, em: deps.now().toISOString() });
   });
 }

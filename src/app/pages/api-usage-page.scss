@@ -533,6 +533,25 @@
   }
 }
 
+/* o "Testar agora": o botão de papel e, ao lado, o que ele vai fazer ou o que achou */
+.teste {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+
+.teste-texto {
+  margin: 0;
+  font-size: 0.92rem;
+
+  .ruim {
+    color: var(--red-deep);
+    font-weight: 700;
+  }
+}
+
 /* o lembrete de que a nossa conta começou no meio do mês: o número que vale é o do painel */
 .oficial {
   display: block;

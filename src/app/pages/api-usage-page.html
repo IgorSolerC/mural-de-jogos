@@ -172,6 +172,24 @@
                         </dd>
                       </div>
                     </dl>
+                    @if (testable(r.service.id)) {
+                      @let p = probes()[r.service.id];
+                      <div class="teste">
+                        <button type="button" class="botao" [disabled]="p?.testando" (click)="probe(r.service.id)">
+                          <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
+                          Testar agora
+                        </button>
+                        <p class="teste-texto" aria-live="polite">
+                          @if (p?.testando) {
+                            Chamando {{ r.service.chamado }}… (até 8 s)
+                          } @else if (p?.texto) {
+                            <span [class.ruim]="p?.ruim">{{ p?.texto }}</span>
+                          } @else {
+                            Uma chamada de verdade, pela chave do site: gasta 1 pedido da cota.
+                          }
+                        </p>
+                      </div>
+                    }
                     @let d = detail();
                     @if (d && d.id === r.service.id) {
                       <div class="detalhe-corpo">
