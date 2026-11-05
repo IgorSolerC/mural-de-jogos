@@ -23,12 +23,31 @@ const answer = {
 
 const nothing = { ...answer, contandoDesde: null, linhas: [], falhas: [] };
 
+const cloudflareOk = {
+  estado: 'ok',
+  geradoEm: NOW,
+  dias: [
+    { dia: '2026-11-20', pedidos: 7062, erros: 12, cortados: 0, linhasLidas: 433965, linhasGravadas: 3154 },
+    { dia: '2026-11-19', pedidos: 5351, erros: 1, cortados: 0, linhasLidas: 142883, linhasGravadas: 1409 },
+  ],
+  workers: [
+    { nome: 'mural-api', pedidos: 7000, erros: 12, cortados: 0, cpuP99: 4.25 },
+    { nome: 'cofre-api', pedidos: 62, erros: 0, cortados: 0, cpuP99: null },
+  ],
+  bancos: [
+    { nome: 'mural', bytes: 3565158 },
+    { nome: 'cofre', bytes: 209715 },
+  ],
+};
+
 describe('a página Uso das APIs', () => {
-  function setup(request: () => Promise<unknown>) {
+  /** `cloudflare`: o que a rota à parte responde; por padrão, que falta o token. */
+  function setup(request: () => Promise<unknown>, cloudflare: () => Promise<unknown> = async () => ({ estado: 'sem-token', geradoEm: NOW, dias: [], workers: [], bancos: [] })) {
+    const route = (path: string) => (path.startsWith('/v1/admin/cloudflare') ? cloudflare() : request());
     const refresh = jasmine.createSpy('refresh').and.resolveTo();
     TestBed.configureTestingModule({
       imports: [ApiUsagePage],
-      providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: CloudAccount, useValue: { request: jasmine.createSpy('request').and.callFake(request), refresh } }],
+      providers: [provideZonelessChangeDetection(), provideRouter([]), { provide: CloudAccount, useValue: { request: jasmine.createSpy('request').and.callFake(route), refresh } }],
     });
     const fixture = TestBed.createComponent(ApiUsagePage);
     const host: HTMLElement = fixture.nativeElement;
@@ -47,7 +66,8 @@ describe('a página Uso das APIs', () => {
     const t = setup(() => new Promise((resolve) => (release = resolve)));
     t.fixture.detectChanges();
     expect(t.sentence()).toBe('Conferindo…');
-    expect(t.account.request).toHaveBeenCalledOnceWith('/v1/admin/uso');
+    expect(t.account.request).toHaveBeenCalledWith('/v1/admin/uso');
+    expect(t.account.request).toHaveBeenCalledWith('/v1/admin/cloudflare');
     expect(t.host.querySelectorAll('.esqueleto').length).toBeGreaterThan(0);
     expect(t.host.querySelector('.razao')).toBeNull();
     expect(t.host.querySelector('.topo .botao')).toBeNull();
@@ -96,13 +116,115 @@ describe('a página Uso das APIs', () => {
     const t = setup(async () => answer);
     await t.settle();
     const rulers = [...t.host.querySelectorAll('app-cota')];
-    expect(rulers.map((r) => r.querySelector('.nome')?.textContent)).toEqual(['RAWG', 'Google Agenda', 'Linhas gravadas pelo Murall', 'Imagens guardadas']);
+    expect(rulers.map((r) => r.querySelector('.nome')?.textContent)).toEqual(['RAWG', 'Google Agenda', 'Cota de gravações do Murall', 'Imagens guardadas']);
     expect(rulers[0]!.querySelector('.falta')?.textContent).toBe('faltam 19.997');
     expect(rulers[0]!.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('RAWG: 3 de 20.000, faltam 19.997, menos de 1%.');
     // o primeiro mês: o que veio antes não está na conta
     expect(rulers[0]!.textContent).toContain('Contando desde 05/nov/2026');
     expect(t.text('.prateleiras')).toContain('Este mês');
     expect(t.text('.prateleiras')).toContain('Hoje · a conta vira às 21h');
+  });
+
+  describe('a Cloudflare', () => {
+    it('sem o token: diz o que falta, e o resto da tela está de pé', async () => {
+      const t = setup(async () => answer);
+      await t.settle();
+      expect(t.text('.cf-aviso')).toContain('Falta ligar a leitura da Cloudflare');
+      expect(t.host.querySelector('.cf-aviso button')).toBeNull();
+      expect(t.rowOf('Cloudflare').querySelector('.estado')?.textContent).toBe('Ainda não conta');
+      expect(t.text('.razao')).toContain('A leitura dos números ainda não está ligada.');
+      expect(t.host.querySelectorAll('app-cota').length).toBe(4);
+    });
+
+    it('com os números: as réguas de hoje e dos bancos, e a linha dela', async () => {
+      const t = setup(async () => answer, async () => cloudflareOk);
+      await t.settle();
+      expect(t.host.querySelector('.cf-aviso')).toBeNull();
+      const names = [...t.host.querySelectorAll('app-cota .nome')].map((n) => n.textContent);
+      expect(names).toEqual(['RAWG', 'Pedidos aos Workers', 'Linhas lidas no D1', 'Linhas gravadas no D1', 'Google Agenda', 'Cota de gravações do Murall', 'Banco mural', 'Banco cofre', 'Imagens guardadas']);
+      const pedidos = t.host.querySelectorAll('app-cota')[1]!;
+      expect(pedidos.querySelector('.falta')?.textContent).toBe('faltam 92.938');
+      expect(t.rowOf('Cloudflare').querySelector('.estado')?.textContent).toBe('Respondendo');
+      // só sabe de hoje: 7 e 30 dias ficam em branco, e não com um zero falso
+      expect(t.cells('Cloudflare')).toEqual(['7.062', '—', '—', 'menos de 1%', '—', '—']);
+      expect(t.text('.razao')).toContain('Os números oficiais de hoje');
+    });
+
+    it('o detalhe mostra cada Worker, com a CPU, e o dia de ontem', async () => {
+      const t = setup(async () => answer, async () => cloudflareOk);
+      await t.settle();
+      t.rowOf('Cloudflare').querySelector('button')!.click();
+      await t.settle();
+      const rows = [...t.host.querySelectorAll('.workers tbody tr')].map((r) => [...r.children].map((c) => c.textContent?.trim()));
+      expect(rows).toEqual([
+        ['mural-api', '7.000', '12', '0', '4,3 ms'],
+        ['cofre-api', '62', '0', '0', '—'],
+      ]);
+      expect(t.text('.detalhe')).toContain('O limite de CPU do plano grátis é 10 ms');
+      expect(t.text('.detalhe')).toContain('Ontem: 5.351 pedidos, 142.883 linhas lidas e 1.409 gravadas.');
+      expect(t.host.querySelector('.workers caption')).not.toBeNull();
+    });
+
+    it('nos outros serviços, o detalhe não traz os Workers', async () => {
+      const t = setup(async () => answer, async () => cloudflareOk);
+      await t.settle();
+      t.rowOf('RAWG').querySelector('button')!.click();
+      await t.settle();
+      expect(t.host.querySelector('.workers')).toBeNull();
+    });
+
+    it('fora do ar: diz isso e deixa tentar só ela de novo', async () => {
+      let calls = 0;
+      let usages = 0;
+      const t = setup(
+        async () => {
+          usages++;
+          return answer;
+        },
+        async () => (++calls === 1 ? { estado: 'fora', geradoEm: NOW, dias: [], workers: [], bancos: [] } : cloudflareOk),
+      );
+      await t.settle();
+      expect(t.text('.cf-aviso')).toContain('A Cloudflare não respondeu. Os outros números estão certos.');
+      expect(t.sentence()).toContain('A RAWG está fora do ar');
+      t.host.querySelector<HTMLButtonElement>('.cf-aviso button')!.click();
+      await t.settle();
+      expect(calls).toBe(2);
+      expect(usages).toBe(1);
+      expect(t.host.querySelector('.cf-aviso')).toBeNull();
+    });
+
+    it('sem rede só nela, é o mesmo aviso, e um 403 ali não tira ninguém da página', async () => {
+      const t = setup(
+        async () => answer,
+        async () => {
+          throw new CloudError('Só a conta de admin vê isto.', 'so-admin', 403);
+        },
+      );
+      const go = spyOn(TestBed.inject(Router), 'navigateByUrl').and.resolveTo(true);
+      await t.settle();
+      expect(t.text('.cf-aviso')).toContain('A Cloudflare não respondeu');
+      expect(go).not.toHaveBeenCalled();
+    });
+
+    it('os outros números não esperam por ela', async () => {
+      let release!: (v: unknown) => void;
+      const t = setup(async () => answer, () => new Promise((resolve) => (release = resolve)));
+      await t.settle();
+      expect(t.sentence()).toContain('A RAWG está fora do ar');
+      expect(t.text('.cf-aviso')).toBe('Buscando os números da Cloudflare…');
+      release(cloudflareOk);
+      await t.settle();
+      expect(t.host.querySelector('.cf-aviso')).toBeNull();
+    });
+
+    it('o Atualizar pede os números novos dela; abrir a página, não', async () => {
+      const t = setup(async () => answer, async () => cloudflareOk);
+      await t.settle();
+      expect(t.account.request).not.toHaveBeenCalledWith('/v1/admin/cloudflare?novo=1');
+      t.host.querySelector<HTMLButtonElement>('.topo .botao')!.click();
+      await t.settle();
+      expect(t.account.request).toHaveBeenCalledWith('/v1/admin/cloudflare?novo=1');
+    });
   });
 
   it('a cota acabando ganha a palavra e a fita da cor certa', async () => {

@@ -18,17 +18,18 @@
  */
 import { appendFileSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+import { ALERTA, PLANO_GRATIS } from '../../contrato/uso-apis/plano-gratis';
 
 /** O plano Workers Free (por dia UTC, menos o tamanho do banco). */
 export const FREE = {
-  workerRequests: 100_000,
-  d1RowsRead: 5_000_000,
-  d1RowsWritten: 100_000,
-  d1DatabaseBytes: 500 * 1024 * 1024,
+  workerRequests: PLANO_GRATIS.pedidosWorkers,
+  d1RowsRead: PLANO_GRATIS.linhasLidas,
+  d1RowsWritten: PLANO_GRATIS.linhasGravadas,
+  d1DatabaseBytes: PLANO_GRATIS.bytesPorBanco,
 } as const;
 
 /** A partir daqui, avisa. */
-export const ALERT = 0.7;
+export const ALERT = ALERTA;
 
 export interface Status {
   modo: string;

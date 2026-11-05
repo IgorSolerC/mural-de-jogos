@@ -1,4 +1,5 @@
 import { Desfecho, FALHAS } from '../../../contrato/uso-apis/contagem';
+import { ALERTA, PLANO_GRATIS } from '../../../contrato/uso-apis/plano-gratis';
 import { MedidoEm, SERVICOS, ServicoExterno } from '../../../contrato/uso-apis/servicos';
 import { MONTHS_SHORT } from './dates';
 
@@ -8,8 +9,8 @@ import { MONTHS_SHORT } from './dates';
  */
 
 const DAY_MS = 86_400_000;
-/** A partir daqui, "perto do fim": o mesmo número da checagem diária (`ALERT` em api/scripts/saude.ts). */
-export const NEAR_END = 0.7;
+/** A partir daqui, "perto do fim": o mesmo número da checagem diária. */
+export const NEAR_END = ALERTA;
 export const ALMOST_OUT = 0.9;
 /** Quantas falhas seguidas, sem nenhuma resposta boa no meio, querem dizer que caiu. */
 const DOWN_AFTER = 3;
@@ -45,6 +46,22 @@ export interface ApiUsage {
   linhas: UsageLine[];
   falhas: UsageFailure[];
   proprias: { dia: string; linhasGravadas: number; cotaLinhas: number; imagens: { imagens: number; bytes: number; cota: number } | null };
+}
+
+/** O uso oficial na Cloudflare (a rota à parte): hoje e ontem, e cada Worker só hoje. */
+export interface CloudflareReport {
+  estado: 'ok' | 'sem-token' | 'fora';
+  geradoEm: string;
+  dias: { dia: string; pedidos: number; erros: number; cortados: number; linhasLidas: number; linhasGravadas: number }[];
+  workers: { nome: string; pedidos: number; erros: number; cortados: number; cpuP99: number | null }[];
+  bancos: { nome: string; bytes: number }[];
+}
+
+/** O que veio da rota da Cloudflare; o que não tem a forma certa é como se ela não tivesse respondido. */
+export function parseCloudflare(raw: unknown): CloudflareReport {
+  const r = (raw ?? {}) as Partial<CloudflareReport>;
+  const estado = r.estado === 'ok' || r.estado === 'sem-token' ? r.estado : 'fora';
+  return { estado, geradoEm: typeof r.geradoEm === 'string' ? r.geradoEm : '', dias: Array.isArray(r.dias) ? r.dias : [], workers: Array.isArray(r.workers) ? r.workers : [], bancos: Array.isArray(r.bancos) ? r.bancos : [] };
 }
 
 /** O que veio da API, sem confiar na forma: o que não tem a forma certa sai. */
@@ -135,6 +152,8 @@ export interface Quota {
   nome: string;
   /** "na RAWG", para a frase. */
   onde: string;
+  /** "a RAWG", para a frase. */
+  chamado: string;
   janela: QuotaWindow;
   usado: number;
   total: number;
@@ -142,7 +161,8 @@ export interface Quota {
   /** De 0 a 1 (pode passar de 1 se a conta passou do limite). */
   parte: number;
   nivel: QuotaLevel;
-  unidade: 'pedidos' | 'linhas' | 'bytes';
+  /** O que se conta: "bytes" escreve em MB, e o resto vai como está na frase ("4.000 pedidos"). */
+  unidade: 'pedidos' | 'linhas' | 'linhas lidas' | 'linhas gravadas' | 'bytes';
   /** A conta começou depois do início da janela: o número não tem o que veio antes. */
   desde: string | null;
 }
@@ -161,21 +181,34 @@ const inPrep = (called: string) => called.replace(/^a /, 'na ').replace(/^o /, '
 /** "a RAWG" vira "à RAWG"; "o TMDB", "ao TMDB". */
 const toPrep = (called: string) => called.replace(/^a /, 'à ').replace(/^o /, 'ao ');
 
-export function quotasOf(usage: ApiUsage, now: Date): Quota[] {
-  const out: Quota[] = [];
-  for (const s of SERVICOS) {
+export function quotasOf(usage: ApiUsage, now: Date, cf: CloudflareReport | null = null): Quota[] {
+  const ofService = (s: ServicoExterno): Quota | null => {
     const cota = s.limite.cota;
-    if (!cota) continue;
+    if (!cota) return null;
     const totals = totalsOf(usage.linhas.filter((l) => l.servico === s.id), now);
     const monthly = cota.janela === 'mes';
     // no primeiro mês, a conta só tem o que veio depois de ligada
     const late = monthly && !!usage.contandoDesde && usage.contandoDesde > firstOfMonth(now);
-    out.push(quota({ id: s.id, nome: s.nome, onde: inPrep(s.chamado), janela: cota.janela, usado: monthly ? totals.mes : totals.hoje, total: cota.valor, unidade: 'pedidos', desde: late ? usage.contandoDesde : null }));
-  }
+    return quota({ id: s.id, nome: s.nome, onde: inPrep(s.chamado), chamado: s.chamado, janela: cota.janela, usado: monthly ? totals.mes : totals.hoje, total: cota.valor, unidade: 'pedidos', desde: late ? usage.contandoDesde : null });
+  };
+  const services = SERVICOS.flatMap((s) => ofService(s) ?? []);
+  const today = cf?.estado === 'ok' ? cf.dias.find((d) => d.dia === utcDay(now)) : undefined;
   const own = usage.proprias;
-  if (own.cotaLinhas > 0) out.push(quota({ id: 'linhas', nome: 'Linhas gravadas pelo Murall', onde: 'na cota de gravações', janela: 'dia', usado: own.linhasGravadas, total: own.cotaLinhas, unidade: 'linhas' }));
-  if (own.imagens && own.imagens.cota > 0) out.push(quota({ id: 'imagens', nome: 'Imagens guardadas', onde: 'no espaço das imagens', janela: 'sempre', usado: own.imagens.bytes, total: own.imagens.cota, unidade: 'bytes' }));
-  return out;
+  return [
+    ...services.filter((q) => q.janela === 'mes'),
+    // os limites da conta inteira na Cloudflare vêm antes: são eles que param tudo
+    ...(today
+      ? [
+          quota({ id: 'cf-pedidos', nome: 'Pedidos aos Workers', onde: 'aos Workers', chamado: 'os pedidos aos Workers', janela: 'dia', usado: today.pedidos, total: PLANO_GRATIS.pedidosWorkers, unidade: 'pedidos' }),
+          quota({ id: 'cf-lidas', nome: 'Linhas lidas no D1', onde: 'no D1', chamado: 'as linhas lidas', janela: 'dia', usado: today.linhasLidas, total: PLANO_GRATIS.linhasLidas, unidade: 'linhas lidas' }),
+          quota({ id: 'cf-gravadas', nome: 'Linhas gravadas no D1', onde: 'no D1', chamado: 'as linhas gravadas', janela: 'dia', usado: today.linhasGravadas, total: PLANO_GRATIS.linhasGravadas, unidade: 'linhas gravadas' }),
+        ]
+      : []),
+    ...services.filter((q) => q.janela === 'dia'),
+    ...(own.cotaLinhas > 0 ? [quota({ id: 'linhas', nome: 'Cota de gravações do Murall', onde: 'na cota de gravações', chamado: 'a cota de gravações', janela: 'dia', usado: own.linhasGravadas, total: own.cotaLinhas, unidade: 'linhas' })] : []),
+    ...(cf?.estado === 'ok' ? cf.bancos.map((b) => quota({ id: `banco-${b.nome}`, nome: `Banco ${b.nome}`, onde: `no banco ${b.nome}`, chamado: `o banco ${b.nome}`, janela: 'sempre', usado: b.bytes, total: PLANO_GRATIS.bytesPorBanco, unidade: 'bytes' })) : []),
+    ...(own.imagens && own.imagens.cota > 0 ? [quota({ id: 'imagens', nome: 'Imagens guardadas', onde: 'no espaço das imagens', chamado: 'o espaço das imagens', janela: 'sempre', usado: own.imagens.bytes, total: own.imagens.cota, unidade: 'bytes' })] : []),
+  ];
 }
 
 /**
@@ -314,14 +347,15 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const joined = (items: readonly string[]) => (items.length <= 1 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
 
 /** A frase que responde "alguma coisa está caindo ou perto do fim?" (PLANO-ADMIN-APIS.md, 11.5). */
-export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date): string {
+export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], usage: ApiUsage, now: Date, cut = 0): string {
   if (!usage.contandoDesde) return 'A contagem ainda não começou. Os números vão aparecendo conforme o site é usado.';
   const down = rows.flatMap((r) => {
     const text = problemOf(r);
     return text ? [{ row: r, text }] : [];
   });
   const ending = quotas.filter((q) => q.nivel !== 'folga').sort((a, b) => b.parte - a.parte);
-  const parts = [...down.map((d) => d.text), ...ending.map((q) => quotaProblem(q, now))];
+  const cutText = cut > 0 ? `a Cloudflare cortou ${int(cut)} ${cut === 1 ? 'pedido' : 'pedidos'} hoje por passar do limite` : null;
+  const parts = [...down.map((d) => d.text), ...(cutText ? [cutText] : []), ...ending.map((q) => quotaProblem(q, now))];
 
   if (parts.length === 1) {
     const only = down[0];
@@ -330,6 +364,7 @@ export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], u
       const others = rows.some((r) => r !== only.row && r.status === 'ok');
       return `${cap(only.text)}${backup}.${others ? ' O resto está respondendo.' : ''}`;
     }
+    if (cutText) return `${cap(cutText)}.`;
     const q = ending[0]!;
     const day = runsOutOn(q, usage, now);
     return `${cap(parts[0]!)}.${day ? ` No ritmo deste mês, acabam dia ${day}.` : ''}`;
@@ -342,7 +377,7 @@ export function howItIs(rows: readonly ServiceRow[], quotas: readonly Quota[], u
   if (!rows.some((r) => r.status === 'ok')) return 'Nada foi chamado nos últimos 7 dias.';
   const top = [...quotas].sort((a, b) => b.parte - a.parte)[0];
   if (!top || top.parte < 0.01) return 'Tudo respondendo, e nenhuma cota passou de 1%.';
-  return `Tudo respondendo. O mais perto do fim: ${top.onde.replace(/^n(?=[ao] )/, '')}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
+  return `Tudo respondendo. O mais perto do fim: ${top.chamado}, com ${percent(top.parte)} ${QUOTA_WHEN[top.janela]}.`;
 }
 
 // ===== A tela inteira =====
@@ -352,6 +387,8 @@ export interface ServiceRow {
   totals: ServiceTotals;
   status: ServiceStatus;
   desde: string | null;
+  /** Só sabe de hoje (a Cloudflare): 7 e 30 dias ficam em branco, em vez de um zero falso. */
+  soHoje: boolean;
 }
 
 export interface UsageView {
@@ -359,27 +396,45 @@ export interface UsageView {
   quotas: Quota[];
   groups: { id: MedidoEm; rows: ServiceRow[] }[];
   now: Date;
+  cloudflare: CloudflareReport | null;
+  /** O dia de ontem na Cloudflare, para comparar. */
+  ontem: CloudflareReport['dias'][number] | null;
 }
 
-/** Só o que passa pelo Worker é contado por enquanto: o navegador entra na rodada 5, e a Cloudflare, na 4. */
+/** Só o que passa pelo Worker é contado por enquanto: o navegador entra na rodada 5. A Cloudflare tem a própria linha. */
 const COUNTED: readonly MedidoEm[] = ['worker'];
 const GROUP_ORDER: readonly MedidoEm[] = ['worker', 'navegador', 'cloudflare'];
 
-export function usageView(usage: ApiUsage): UsageView {
+/** A linha da Cloudflare: os pedidos de hoje e o pior nível das cotas dela; sem a leitura, "Ainda não conta". */
+function cloudflareRow(service: ServicoExterno, cf: CloudflareReport | null, quotas: readonly Quota[], now: Date): ServiceRow {
+  const empty: ServiceTotals = { hoje: 0, semana: 0, trinta: 0, mes: 0, falhas: null, tempoMs: null, ultimaBoa: null, ultima: null, ultimoDesfecho: null };
+  const today = cf?.estado === 'ok' ? cf.dias.find((d) => d.dia === utcDay(now)) : undefined;
+  if (!today) return { service, totals: empty, status: 'sem-contagem', desde: null, soHoje: true };
+  const levels = quotas.filter((q) => q.id.startsWith('cf-') || q.id.startsWith('banco-')).map((q) => q.nivel);
+  const status: ServiceStatus = levels.includes('quase') ? 'quase' : levels.includes('perto') ? 'perto' : 'ok';
+  return { service, totals: { ...empty, hoje: today.pedidos, falhas: today.pedidos > 0 ? today.erros / today.pedidos : null }, status, desde: null, soHoje: true };
+}
+
+export function usageView(usage: ApiUsage, cf: CloudflareReport | null = null): UsageView {
   const now = new Date(usage.geradoEm);
-  const quotas = quotasOf(usage, now);
+  const quotas = quotasOf(usage, now, cf);
   const rows = SERVICOS.map((service): ServiceRow => {
+    if (service.id === 'cloudflare') return cloudflareRow(service, cf, quotas, now);
     const lines = usage.linhas.filter((l) => l.servico === service.id);
     const totals = totalsOf(lines, now);
     const level = quotas.find((q) => q.id === service.id)?.nivel ?? null;
     const failures = usage.falhas.filter((f) => f.servico === service.id);
-    return { service, totals, ...statusOf(totals, lines, failures, level, now, COUNTED.includes(service.medidoEm)) };
+    return { service, totals, ...statusOf(totals, lines, failures, level, now, COUNTED.includes(service.medidoEm)), soHoje: false };
   });
   const rank = (r: ServiceRow) => STATUS_ORDER.indexOf(r.status);
+  const days = cf?.estado === 'ok' ? cf.dias : [];
+  const cut = days.find((d) => d.dia === utcDay(now))?.cortados ?? 0;
   return {
     now,
     quotas,
-    sentence: howItIs(rows, quotas, usage, now),
+    cloudflare: cf,
+    ontem: days.find((d) => d.dia === daysBack(now, 1)) ?? null,
+    sentence: howItIs(rows, quotas, usage, now, cut),
     // a ordem do catálogo desempata: `sort` é estável
     groups: GROUP_ORDER.map((id) => ({ id, rows: rows.filter((r) => r.service.medidoEm === id).sort((a, b) => rank(a) - rank(b)) })),
   };

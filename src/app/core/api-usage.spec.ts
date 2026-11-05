@@ -1,5 +1,5 @@
 import { SERVICOS } from '../../../contrato/uso-apis/servicos';
-import { ApiUsage, UsageFailure, UsageLine, ago, clock, dayLabel, dayTurn, duration, howItIs, levelOf, megabytes, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView } from './api-usage';
+import { ApiUsage, CloudflareReport, UsageFailure, UsageLine, ago, clock, dayLabel, dayTurn, duration, howItIs, levelOf, megabytes, parseCloudflare, parseUsage, percent, quotasOf, runsOutOn, shortNumber, statusOf, totalsOf, usageView } from './api-usage';
 
 const NOW = new Date('2026-11-20T22:40:00.000Z');
 const NOW_ISO = NOW.toISOString();
@@ -283,6 +283,80 @@ describe('as contas do Uso das APIs', () => {
     it('todo serviço tem a frase pronta', () => {
       for (const s of SERVICOS) expect(s.chamado).withContext(s.id).toMatch(/^[ao] /);
       expect(SERVICOS.filter((s) => s.reserva).map((s) => s.id)).toEqual(['rawg', 'tmdb']);
+    });
+  });
+
+  describe('a Cloudflare', () => {
+    const cf = (over: Partial<CloudflareReport['dias'][number]> = {}, rest: Partial<CloudflareReport> = {}): CloudflareReport => ({
+      estado: 'ok',
+      geradoEm: NOW_ISO,
+      dias: [
+        { dia: '2026-11-20', pedidos: 7000, erros: 7, cortados: 0, linhasLidas: 400_000, linhasGravadas: 3000, ...over },
+        { dia: '2026-11-19', pedidos: 5000, erros: 0, cortados: 0, linhasLidas: 100_000, linhasGravadas: 1000 },
+      ],
+      workers: [],
+      bancos: [{ nome: 'mural', bytes: 5 * 1024 * 1024 }],
+      ...rest,
+    });
+
+    it('o que veio da rota, sem confiar na forma', () => {
+      expect(parseCloudflare(null).estado).toBe('fora');
+      expect(parseCloudflare({ estado: 'qualquer' }).estado).toBe('fora');
+      expect(parseCloudflare({ estado: 'sem-token' })).toEqual({ estado: 'sem-token', geradoEm: '', dias: [], workers: [], bancos: [] });
+      expect(parseCloudflare({ estado: 'ok', dias: 'x', workers: 1, bancos: null }).dias).toEqual([]);
+    });
+
+    it('os limites da conta inteira entram, com os números do plano grátis', () => {
+      const q = quotasOf(usage(), NOW, cf());
+      expect(q.map((x) => x.id)).toEqual(['rawg', 'cf-pedidos', 'cf-lidas', 'cf-gravadas', 'google-agenda', 'linhas', 'banco-mural', 'imagens']);
+      expect(q.find((x) => x.id === 'cf-pedidos')).toEqual(jasmine.objectContaining({ usado: 7000, total: 100_000, falta: 93_000, janela: 'dia' }));
+      expect(q.find((x) => x.id === 'cf-lidas')).toEqual(jasmine.objectContaining({ total: 5_000_000 }));
+      expect(q.find((x) => x.id === 'cf-gravadas')).toEqual(jasmine.objectContaining({ total: 100_000 }));
+      expect(q.find((x) => x.id === 'banco-mural')).toEqual(jasmine.objectContaining({ total: 500 * 1024 * 1024, janela: 'sempre', unidade: 'bytes' }));
+    });
+
+    it('sem a leitura, nenhuma régua inventada', () => {
+      for (const report of [null, parseCloudflare({ estado: 'sem-token' }), parseCloudflare({ estado: 'fora' })]) {
+        expect(quotasOf(usage(), NOW, report).map((x) => x.id)).toEqual(['rawg', 'google-agenda', 'linhas', 'imagens']);
+      }
+    });
+
+    it('a resposta guardada de ontem não vira o número de hoje', () => {
+      const old = cf({}, { dias: [{ dia: '2026-11-19', pedidos: 99_000, erros: 0, cortados: 0, linhasLidas: 0, linhasGravadas: 0 }] });
+      expect(quotasOf(usage(), NOW, old).some((x) => x.id === 'cf-pedidos')).toBeFalse();
+    });
+
+    it('a linha dela: os pedidos de hoje, só de hoje, e o pior nível', () => {
+      const row = (report: CloudflareReport | null) => usageView(usage(), report).groups.find((g) => g.id === 'cloudflare')!.rows[0]!;
+      expect(row(null).status).toBe('sem-contagem');
+      const ok = row(cf());
+      expect(ok.status).toBe('ok');
+      expect(ok.soHoje).toBeTrue();
+      expect(ok.totals.hoje).toBe(7000);
+      expect(ok.totals.falhas).toBe(0.001);
+      expect(row(cf({ pedidos: 75_000 })).status).toBe('perto');
+      expect(row(cf({ linhasGravadas: 95_000 })).status).toBe('quase');
+      expect(row(cf({}, { bancos: [{ nome: 'mural', bytes: 480 * 1024 * 1024 }] })).status).toBe('quase');
+    });
+
+    it('sem pedido hoje, a falha fica em branco', () => {
+      expect(usageView(usage(), cf({ pedidos: 0, erros: 0 })).groups.find((g) => g.id === 'cloudflare')!.rows[0]!.totals.falhas).toBeNull();
+    });
+
+    it('o dia de ontem fica à mão, e só com a leitura', () => {
+      expect(usageView(usage(), cf()).ontem?.pedidos).toBe(5000);
+      expect(usageView(usage()).ontem).toBeNull();
+    });
+
+    it('a frase fala dela quando há o que dizer', () => {
+      const s = (report: CloudflareReport) => usageView(usage({ linhas: [line({ servico: 'tmdb', dia: '2026-11-18', ultimoEm: '2026-11-18T10:00:00.000Z' })] }), report).sentence;
+      expect(s(cf())).toBe('Tudo respondendo. O mais perto do fim: as linhas lidas, com 8% de hoje.');
+      expect(s(cf({ linhasLidas: 1000 }))).toBe('Tudo respondendo. O mais perto do fim: os pedidos aos Workers, com 7% de hoje.');
+      expect(s(cf({ pedidos: 80_000 }))).toBe('Faltam 20.000 pedidos aos Workers até as 21h.');
+      expect(s(cf({ linhasGravadas: 80_000 }))).toBe('Faltam 20.000 linhas gravadas no D1 até as 21h.');
+      expect(s(cf({ cortados: 3 }))).toBe('A Cloudflare cortou 3 pedidos hoje por passar do limite.');
+      expect(s(cf({ cortados: 1 }))).toBe('A Cloudflare cortou 1 pedido hoje por passar do limite.');
+      expect(s(cf({}, { bancos: [{ nome: 'mural', bytes: 400 * 1024 * 1024 }] }))).toBe('Faltam 100 MB no banco mural.');
     });
   });
 

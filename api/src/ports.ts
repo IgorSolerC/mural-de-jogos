@@ -4,6 +4,7 @@
  */
 
 import type { AgendaKeys } from './domain/agenda';
+import type { CloudflareKeys } from './domain/cloudflare-usage';
 import type { UsageMeter } from './domain/external-usage';
 import type { VerifyGoogle } from './domain/google';
 
@@ -127,4 +128,9 @@ export interface Deps {
    * isto, nada se conta (os testes que não olham a conta).
    */
   meter?: UsageMeter;
+  /**
+   * A leitura do uso na Cloudflare (ver `domain/cloudflare-usage.ts`). Sem o token, a tela diz que falta
+   * ligar; `fetch` só muda nos testes.
+   */
+  cloudflare?: { keys: CloudflareKeys; fetch?: (url: string, init?: RequestInit) => Promise<Response> };
 }

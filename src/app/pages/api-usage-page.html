@@ -14,7 +14,7 @@
     }
   </p>
   @if (v) {
-    <button type="button" class="botao" [disabled]="loading()" (click)="load()">
+    <button type="button" class="botao" [disabled]="loading()" (click)="load(true)">
       <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
       Atualizar
     </button>
@@ -59,6 +59,20 @@
             </div>
           }
         </div>
+        @let cf = cloudflare();
+        @if (!cf) {
+          <p class="cf-aviso">Buscando os números da Cloudflare…</p>
+        } @else if (cf.estado === 'sem-token') {
+          <p class="cf-aviso">Falta ligar a leitura da Cloudflare: os limites dela aparecem aqui quando o token estiver no Worker.</p>
+        } @else if (cf.estado === 'fora') {
+          <p class="cf-aviso">
+            A Cloudflare não respondeu. Os outros números estão certos.
+            <button type="button" class="botao" [disabled]="cloudflareLoading()" (click)="loadCloudflare()">
+              <lucide-icon [img]="RetryIcon" [size]="16" aria-hidden="true" />
+              Tentar de novo
+            </button>
+          </p>
+        }
       } @else {
         <div class="prateleiras" aria-hidden="true">
           @for (p of placeholders; track p) {
@@ -107,8 +121,8 @@
                   </button>
                 </th>
                 <td class="num">{{ count(r.status, r.totals.hoje) }}</td>
-                <td class="num opcional">{{ count(r.status, r.totals.semana) }}</td>
-                <td class="num opcional">{{ count(r.status, r.totals.trinta) }}</td>
+                <td class="num opcional">{{ span(r, r.totals.semana) }}</td>
+                <td class="num opcional">{{ span(r, r.totals.trinta) }}</td>
                 <td class="num">{{ failureShare(r.totals) }}</td>
                 <td class="num opcional">{{ time(r.totals) }}</td>
                 <td class="num opcional">{{ last(r.totals, v.now) }}</td>
@@ -142,6 +156,40 @@
                         </dd>
                       </div>
                     </dl>
+                    @if (r.service.id === 'cloudflare' && cloudflare()?.estado === 'ok') {
+                      <h3 class="detalhe-titulo">Cada Worker, hoje</h3>
+                      <table class="workers">
+                        <caption class="sr-only">Pedidos, erros, pedidos cortados e o pior tempo de CPU de cada Worker, hoje</caption>
+                        <thead>
+                          <tr>
+                            <th scope="col">Worker</th>
+                            <th scope="col" class="num">Pedidos</th>
+                            <th scope="col" class="num">Erros</th>
+                            <th scope="col" class="num">Cortados</th>
+                            <th scope="col" class="num" title="99% dos pedidos gastaram menos que isto de CPU. O limite do plano grátis é 10 ms.">CPU P99</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (w of cloudflare()!.workers; track w.nome) {
+                            <tr>
+                              <th scope="row">{{ w.nome }}</th>
+                              <td class="num">{{ whole(w.pedidos) }}</td>
+                              <td class="num">{{ whole(w.erros) }}</td>
+                              <td class="num">{{ whole(w.cortados) }}</td>
+                              <td class="num">{{ cpu(w.cpuP99) }}</td>
+                            </tr>
+                          } @empty {
+                            <tr>
+                              <td colspan="5">Ainda sem pedidos hoje.</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                      <p class="cpu-nota">O limite de CPU do plano grátis é 10 ms por pedido; "cortados" são os pedidos que a Cloudflare parou por passar de um limite.</p>
+                      @if (v.ontem; as o) {
+                        <p class="cpu-nota">Ontem: {{ whole(o.pedidos) }} pedidos, {{ whole(o.linhasLidas) }} linhas lidas e {{ whole(o.linhasGravadas) }} gravadas.</p>
+                      }
+                    }
                   </td>
                 </tr>
               }

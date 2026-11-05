@@ -142,6 +142,20 @@
   }
 }
 
+/* a Cloudflare: a rota é à parte, e a falta dela não tira nada do resto */
+.cf-aviso {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 18px 0 0;
+  padding-top: 12px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.4);
+  font-family: var(--f-hand);
+  font-size: 1.08rem;
+  line-height: 1.25;
+}
+
 /* enquanto a primeira leitura não chega: o lugar de cada coisa, sem nenhum número de mentira */
 .esqueleto {
   border-radius: 2px;
@@ -370,6 +384,54 @@
   dd {
     margin: 2px 0 0;
   }
+}
+
+/* cada Worker, no detalhe da Cloudflare: uma tabela pequena, sem as regras da de fora */
+.detalhe-titulo {
+  margin: 14px 0 2px;
+  color: var(--ink-2);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.razao .detalhe .workers {
+  width: 100%;
+  max-width: 640px;
+  border-collapse: collapse;
+
+  th,
+  td {
+    padding: 4px 0 4px 14px;
+    border: 0;
+    font-size: 0.92rem;
+
+    &:first-child {
+      padding-left: 0;
+    }
+  }
+
+  thead th {
+    padding-block: 4px;
+    font-size: 0.76rem;
+  }
+
+  thead th:first-child {
+    width: auto;
+  }
+
+  tbody tr + tr {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.25);
+  }
+}
+
+.cpu-nota {
+  max-width: 70ch;
+  margin: 8px 0 0;
+  color: var(--ink-2);
+  font-size: 0.88rem;
 }
 
 .origem {

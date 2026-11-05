@@ -64,10 +64,9 @@ Para desligar na hora, apague o secret (`npx wrangler secret delete RAWG_KEY`) o
 
 A resposta sai sem a chave do site: a busca da RAWG devolve os endereços da página seguinte e da
 anterior (`next`, `previous`) com a chave dentro, e o repasse tira todo `key=`/`api_key=` com ela
-(`withoutKey`). **Pendente, do usuário:** até 24/10 a chave ia nesses endereços para o navegador, então
-a RAWG_KEY de agora já vazou. Gere outra em rawg.io/apidocs (entrar, "Get API key"; se a página só
-mostrar a mesma, peça uma nova pelo suporte deles) e grave por cima: `cd api && npx wrangler secret put
-RAWG_KEY`. Não precisa de deploy.
+(`withoutKey`). Até 24/10 a chave ia nesses endereços para o navegador; o usuário confirmou em 05/nov/2026 que
+ela já foi trocada. Para trocar de novo, grave por cima: `cd api && npx wrangler secret put RAWG_KEY`. Não
+precisa de deploy.
 Limites: a RAWG grátis dá 20 mil pedidos por mês para a chave inteira (cada resenha de jogo gasta uns
 5 a 10: a busca enquanto digita, a capa da Steam e a escolha de capa); o TMDB não tem cota mensal, só um
 limite por segundo. Os dois pedem crédito: está no pé de Ajustes › Busca.

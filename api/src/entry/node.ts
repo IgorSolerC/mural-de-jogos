@@ -8,6 +8,7 @@ import { readAgendaKeys } from '../domain/agenda';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
+import { readCloudflareKeys } from '../domain/cloudflare-usage';
 import { UsageMeter } from '../domain/external-usage';
 import { DAY_MS } from '../domain/quota';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
@@ -39,6 +40,7 @@ const deps: Deps = {
   agenda: { keys: readAgendaKeys(process.env) },
   log: (line) => console.warn(line),
   meter: new UsageMeter(),
+  cloudflare: { keys: readCloudflareKeys(process.env) },
 };
 const app = createApp(deps);
 const port = Number(process.env['PORT'] ?? 8787);

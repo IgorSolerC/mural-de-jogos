@@ -6,6 +6,7 @@ import { readAgendaKeys } from '../domain/agenda';
 import { readConfig } from '../config';
 import { createRemoteJWKSet } from 'jose';
 import { cleanup } from '../domain/cleanup';
+import { readCloudflareKeys } from '../domain/cloudflare-usage';
 import { UsageMeter } from '../domain/external-usage';
 import { GOOGLE_CERTS_URL, googleVerifier } from '../domain/google';
 import { accountByGoogle } from '../domain/vault';
@@ -46,6 +47,9 @@ interface Env {
   /** O Google Agenda: o client secret do cliente OAuth e a chave (32 bytes em base64) que cifra a permissão. */
   GOOGLE_CLIENT_SECRET?: string;
   AGENDA_CHAVE?: string;
+  /** A leitura do uso na Cloudflare (o token só tem "Account Analytics: Read") e a conta. */
+  CF_ANALYTICS_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
 }
 
 /** Fora do `fetch`: as chaves do Google ficam guardadas enquanto o Worker está de pé. */
@@ -63,6 +67,7 @@ function deps(env: Env): Deps {
     agenda: { keys: readAgendaKeys(env as unknown as Record<string, unknown>) },
     log: (line) => console.warn(line),
     meter: new UsageMeter(),
+    cloudflare: { keys: readCloudflareKeys(env as unknown as Record<string, unknown>) },
     ...(env.COFRE
       ? {
           vault: {

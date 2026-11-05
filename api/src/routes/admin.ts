@@ -1,5 +1,6 @@
 import { Context, Hono } from 'hono';
 import { isAdmin } from '../domain/admin';
+import { cloudflareReader } from '../domain/cloudflare-usage';
 import { ALL, room, usageOf } from '../domain/image';
 import { DAY_MS, usageToday, utcDay } from '../domain/quota';
 import { Session } from '../domain/session';
@@ -33,6 +34,8 @@ export function usageFrom(now: Date): string {
  * (ver `app.ts`), e o service worker não guarda.
  */
 export function adminRoutes(app: Hono, deps: Deps): void {
+  const readCloudflare = cloudflareReader(deps);
+
   /**
    * O uso de cada API. As linhas vão como listas, e as contas ficam no site: medido, 1.243 linhas como
    * objetos gastavam de 3 a 7 ms dos 10 ms de CPU do plano grátis.
@@ -65,5 +68,14 @@ export function adminRoutes(app: Hono, deps: Deps): void {
       },
       agenda: { contasLigadas: connected?.n ?? 0 },
     });
+  });
+
+  /**
+   * O uso oficial na Cloudflare, numa rota à parte: se ela não responde, o resto da tela está de pé. "Falta o
+   * token" e "não respondeu" são estados da tela, não erros: respondem 200. `?novo=1` é o Atualizar.
+   */
+  app.get('/v1/admin/cloudflare', async (c) => {
+    await requireAdmin(deps, c);
+    return c.json(await readCloudflare(c.req.query('novo') === '1'));
   });
 }

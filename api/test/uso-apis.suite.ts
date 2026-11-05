@@ -5,6 +5,7 @@ import { SERVICOS } from '../../contrato/uso-apis/servicos';
 import { createApp } from '../src/app';
 import { readConfig } from '../src/config';
 import { FAILURES_KEEP, cleanup } from '../src/domain/cleanup';
+import { readCloudflareKeys, reportFrom } from '../src/domain/cloudflare-usage';
 import { USAGE_BUDGET_SHARE, UsageMeter, measured } from '../src/domain/external-usage';
 import { googleVerifier } from '../src/domain/google';
 import { catalogBrake } from '../src/routes/catalog';
@@ -282,6 +283,159 @@ export function usoApisSuite(label: string, getDb: () => Db) {
       await t.db.batch(Array.from({ length: FAILURES_KEEP + 3 }, () => failure(daysAgo(1))));
       await cleanup(t.deps);
       expect((await t.failures()).length).toBe(FAILURES_KEEP);
+    });
+
+    describe('a leitura da Cloudflare', () => {
+      const TOKEN = 'token-de-leitura-secreto';
+      const graphql = (account: unknown) => Response.json({ data: { viewer: { accounts: [account] } }, errors: null });
+      const account = (timeField = 'date') => ({
+        workers: [
+          { sum: { requests: 100, errors: 2 }, quantiles: { cpuTimeP99: 4200 }, dimensions: { [timeField]: '2026-10-06', scriptName: 'mural-api', status: 'success' } },
+          { sum: { requests: 3, errors: 3 }, quantiles: { cpuTimeP99: 11000 }, dimensions: { [timeField]: '2026-10-06', scriptName: 'mural-api', status: 'exceededResources' } },
+          { sum: { requests: 7, errors: 0 }, quantiles: { cpuTimeP99: 900 }, dimensions: { [timeField]: '2026-10-06', scriptName: 'cofre-api', status: 'success' } },
+          { sum: { requests: 50, errors: 0 }, quantiles: { cpuTimeP99: 99000 }, dimensions: { [timeField]: '2026-10-05', scriptName: 'mural-api', status: 'success' } },
+        ],
+        d1: [
+          { sum: { rowsRead: 1000, rowsWritten: 10 }, dimensions: { date: '2026-10-06' } },
+          { sum: { rowsRead: 500, rowsWritten: 5 }, dimensions: { date: '2026-10-06' } },
+          { sum: { rowsRead: 9, rowsWritten: 9 }, dimensions: { date: '2026-10-05' } },
+        ],
+        storage: [
+          { max: { databaseSizeBytes: 3000 }, dimensions: { date: '2026-10-06', databaseId: 'c2c789d6-f0f3-4f37-b53a-f049aa02a530' } },
+          { max: { databaseSizeBytes: 2000 }, dimensions: { date: '2026-10-05', databaseId: 'c2c789d6-f0f3-4f37-b53a-f049aa02a530' } },
+          { max: { databaseSizeBytes: 500 }, dimensions: { date: '2026-10-06', databaseId: 'abcdef12-0000-0000-0000-000000000000' } },
+        ],
+      });
+
+      async function admin(reply: (query: string) => Response | Promise<Response>, keys = { token: TOKEN, account: 'conta-1' }) {
+        const t = await setup();
+        const dona = await t.login('dona');
+        const calls: { url: string; init: RequestInit; query: string; variables: Record<string, string> }[] = [];
+        const app = createApp({
+          ...t.deps,
+          config: readConfig({ ...ENV, ADMIN_USUARIOS: dona.id }),
+          cloudflare: {
+            keys,
+            fetch: async (url, init) => {
+              const body = JSON.parse(String(init?.body)) as { query: string; variables: Record<string, string> };
+              calls.push({ url, init: init!, query: body.query, variables: body.variables });
+              return reply(body.query);
+            },
+          },
+        });
+        const read = async (path = '/v1/admin/cloudflare', token: string | undefined = dona.token) => {
+          const res = await app.request(`https://api.teste${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+          return { status: res.status, cache: res.headers.get('Cache-Control'), body: (await res.json()) as any };
+        };
+        return { ...t, read, calls, dona };
+      }
+
+      it('só o admin lê', async () => {
+        const t = await admin(() => graphql(account()));
+        const bia = await t.login('bia');
+        expect((await t.read(undefined, bia.token)).status).toBe(403);
+        expect((await t.read('/v1/admin/cloudflare', '')).status).toBe(401);
+        expect(t.calls.length).toBe(0);
+      });
+
+      it('sem o token ou a conta, diz que falta, sem chamar ninguém e sem erro', async () => {
+        for (const keys of [{ token: '', account: 'conta-1' }, { token: TOKEN, account: '' }]) {
+          const t = await admin(() => graphql(account()), keys);
+          const r = await t.read();
+          expect(r.status).toBe(200);
+          expect(r.body).toEqual({ estado: 'sem-token', geradoEm: NOW.toISOString(), dias: [], workers: [], bancos: [] });
+          expect(t.calls.length).toBe(0);
+        }
+      });
+
+      it('junta por dia, por Worker e por banco; a conta inteira, sem filtrar', async () => {
+        const t = await admin(() => graphql(account()));
+        const r = await t.read();
+        expect(r.status).toBe(200);
+        expect(r.cache).toBe('no-store');
+        expect(r.body.estado).toBe('ok');
+        expect(r.body.dias).toEqual([
+          { dia: '2026-10-06', pedidos: 110, erros: 5, cortados: 3, linhasLidas: 1500, linhasGravadas: 15 },
+          { dia: '2026-10-05', pedidos: 50, erros: 0, cortados: 0, linhasLidas: 9, linhasGravadas: 9 },
+        ]);
+        expect(r.body.workers).toEqual([
+          { nome: 'mural-api', pedidos: 103, erros: 5, cortados: 3, cpuP99: 11 },
+          { nome: 'cofre-api', pedidos: 7, erros: 0, cortados: 0, cpuP99: 0.9 },
+        ]);
+        expect(r.body.bancos).toEqual([
+          { nome: 'mural', bytes: 3000 },
+          { nome: 'abcdef12', bytes: 500 },
+        ]);
+        const { query, variables, url, init } = t.calls[0]!;
+        expect(url).toBe('https://api.cloudflare.com/client/v4/graphql');
+        expect((init.headers as Record<string, string>)['Authorization']).toBe(`Bearer ${TOKEN}`);
+        expect(variables['account']).toBe('conta-1');
+        expect(variables['from']).toBe('2026-10-05');
+        expect(variables['to']).toBe('2026-10-06');
+        expect(query).not.toContain('scriptName:');
+        expect(query).not.toContain('databaseId:');
+      });
+
+      it('a resposta fica guardada 5 min; o Atualizar passa por cima, no máximo uma vez por minuto', async () => {
+        const t = await admin(() => graphql(account()));
+        await t.read();
+        await t.read();
+        expect(t.calls.length).toBe(1);
+        await t.read('/v1/admin/cloudflare?novo=1');
+        expect(t.calls.length, 'ainda dentro do minuto').toBe(1);
+        t.clock.t += 61_000;
+        await t.read();
+        expect(t.calls.length, 'sem pedir, continua guardada').toBe(1);
+        await t.read('/v1/admin/cloudflare?novo=1');
+        expect(t.calls.length).toBe(2);
+        t.clock.t += 5 * 60_000 + 1;
+        await t.read();
+        expect(t.calls.length).toBe(3);
+      });
+
+      it('a dimensão recusada passa para a seguinte, e a que funcionou é lembrada', async () => {
+        const t = await admin((query) => (query.includes('dimensions { date scriptName') ? Response.json({ data: null, errors: [{ message: 'unknown field date' }] }) : graphql(account('datetimeHour'))));
+        const r = await t.read();
+        expect(r.body.estado).toBe('ok');
+        expect(r.body.dias[0].pedidos).toBe(110);
+        expect(t.calls.length).toBe(2);
+        expect(t.logged.some((l) => l.includes('unknown field date'))).toBe(true);
+        t.clock.t += 5 * 60_000 + 1;
+        await t.read();
+        expect(t.calls.length).toBe(3);
+        expect(t.calls[2]!.query).toContain('dimensions { datetimeHour scriptName');
+      });
+
+      it('por hora, o dia sai dos dez primeiros caracteres', () => {
+        const hours = { workers: [{ sum: { requests: 4, errors: 0 }, dimensions: { datetimeHour: '2026-10-06T13:00:00Z', scriptName: 'x', status: 'success' } }] };
+        expect(reportFrom(hours, 'datetimeHour', NOW).dias[0]!.pedidos).toBe(4);
+      });
+
+      it('nenhuma dimensão serve, HTTP de erro ou rede: "fora", com 200, sem guardar e sem o token no log', async () => {
+        const replies: (() => Response)[] = [
+          () => Response.json({ data: null, errors: [{ message: 'nope' }] }),
+          () => new Response('{}', { status: 401 }),
+          () => {
+            throw new TypeError('rede');
+          },
+        ];
+        for (const reply of replies) {
+          const t = await admin(reply);
+          const r = await t.read();
+          expect(r.status).toBe(200);
+          expect(r.body).toEqual({ estado: 'fora', geradoEm: NOW.toISOString(), dias: [], workers: [], bancos: [] });
+          const before = t.calls.length;
+          await t.read();
+          expect(t.calls.length, 'a falha não fica guardada').toBeGreaterThan(before);
+          expect(JSON.stringify(r.body)).not.toContain(TOKEN);
+          expect(t.logged.join(' ')).not.toContain(TOKEN);
+        }
+      });
+
+      it('lê os segredos, sem espaços', () => {
+        expect(readCloudflareKeys({ CF_ANALYTICS_TOKEN: ' t ', CF_ACCOUNT_ID: 'c' })).toEqual({ token: 't', account: 'c' });
+        expect(readCloudflareKeys({})).toEqual({ token: '', account: '' });
+      });
     });
 
     describe('a leitura do admin', () => {

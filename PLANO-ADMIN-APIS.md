@@ -326,7 +326,8 @@ desconhecida é descartada, sem erro. Grava pelo mesmo caminho da seção 6.3 (j
 - **Conta inteira, não só o `mural-api`.** O `saude.ts` filtra por Worker e soma. Para a tela, consulta-se a
   conta sem filtro e agrupa-se por `scriptName` e `databaseId`: o limite é da conta, então o Worker de teste
   (`mural-api-teste`) também tem de aparecer.
-- **Janela:** 30 dias por dia (os conjuntos adaptativos guardam pelo menos 31).
+- **Janela:** hoje e ontem, a mesma que a checagem diária já usa. A ideia era 30 dias, mas a janela máxima depende do
+  plano (`maxDuration`, no nó `settings`) e não dá para conferir sem o token. A 6 pode aumentar, se o token mostrar que cabe.
 - **Secrets novos no Worker:** `CF_ANALYTICS_TOKEN` e `CF_ACCOUNT_ID` (passo do dono, seção 17). Permissão
   mínima: *Account Analytics: Read*. Sem eles, a parte diz "Falta ligar" e o resto funciona.
 - **Guardado 5 min na memória da instância.** "Atualizar" passa por cima, no máximo uma vez por minuto.
@@ -756,7 +757,7 @@ cd api && npx wrangler secret put CF_ACCOUNT_ID
 | 1 | **O papel de admin** — feita em 05/nov (seção 22). Impeccable no começo (brief 11.1, `context`, `craft-floor`). `ADMIN_USUARIOS`, `requireAdmin`, `admin` no `/v1/eu`, `CloudAccountInfo`, `onlyAdmin`, prateleira "Outros", ajustes na barra, página com a frase "A contagem ainda não começou" e o catálogo | O dono vê e abre; os testes provam que outra conta, sem sessão, com chave de API, e até com **o mesmo código numa conta nova** não entram; Extras sem nenhuma diferença para os outros |
 | 2 | **Contar no Worker** — feita em 05/nov (seção 22). Migração, medidor, `ctx`, janela, catálogo + Google + CIMD, limpeza, `GET /v1/admin/uso`. Sem tela nova | Uma busca real aparece no D1 em produção; falha não atrapalha a resposta; parada em 50% testada |
 | 3 | **A tela, com dados** — feita em 05/nov (seção 22). `core/api-usage.ts`, frase, tabela de serviços, régua da RAWG e Google Agenda, Atualizar, estados | O dono responde "está tudo bem?" em cinco segundos, no computador e no celular |
-| 4 | **A Cloudflare.** `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
+| 4 | **A Cloudflare** — feita em 05/nov, falta ligar o token (seção 22). `cloudflare-usage.ts`, `saude.ts` importando, `GET /v1/admin/cloudflare`, as réguas de hoje e dos bancos, `sem-token`/`fora`. Depende do passo 2 do dono | Os números batem com o painel da Cloudflare; `saude.ts` continua funcionando (`workflow_dispatch`) |
 | 5 | **Contar no navegador.** `lookup-meter`, `POST /v1/uso/navegador`, seção "aproximado" da tabela, Novidades (D8) | Wikipedia, Open Library, Kitsu, AniList e iTunes aparecem; a chave própria não entra na cota; sem dobrar o proxy; sem chave nova no storage |
 | 6 | **Detalhe e falhas.** O detalhe de um serviço (`dataviz` antes), gráfico + tabela, "Últimas falhas", "O que não dá para contar" | Cada API do inventário aparece em algum lugar, inclusive as não contadas |
 | 7 | **Fechar.** Impeccable no fim: `critique` + detector + `impeccable-finish-reviewer` com fotos a 2x em 320 a 1920 px e correções; `DESIGN.md` e `PRODUCT.md`; `/code-review high` sobre o conjunto e correções; todos os testes; memória | Sem achado aberto; o smoke na build de produção passa com a API interceptada |
@@ -807,7 +808,7 @@ vê a ficha e o link direto volta para Extras; computador e celular.
 | Limites de terceiros mudam | "Conferido em" visível e reconferidos a cada mudança nesta tela |
 | Conta do navegador subestima | Rótulo "aproximado, de quem está logado" |
 | Um dos serviços limita por IP do Worker | RAWG e TMDB saem do IP da Cloudflare, junto com outros sites; se aparecerem 429 sem motivo, é o caso |
-| Pendência antiga: `api/README.md:65-68` manda trocar a `RAWG_KEY`, que foi ao navegador até 24/10 | O repositório não mostra se foi feito (o secret não se lê): **o dono precisa responder**. Se não foi, a chave velha pode estar gastando a cota, e nossa conta não veria isso. Trocar antes de confiar no "faltam" |
+| ~~Pendência antiga: a `RAWG_KEY` vazada~~ | Resolvida: o usuário confirmou em 05/nov que ela já foi trocada |
 | RAWG ainda fora do ar (522 em `rawg.io` e `api.rawg.io` em 05/nov, 15:20 UTC) | A contagem vai mostrar isso. Conferir os cabeçalhos e o painel quando ela voltar. Até lá, a régua dela fica sem dados de sucesso |
 | Testes instáveis conhecidos | Ler as notas de testes instáveis antes de tratar uma falha como nova |
 
@@ -943,3 +944,17 @@ Lista datada, da mais antiga para a mais nova: commit, BUILD, medições, o que 
   - **Colisão de classe:** `.prateleira` é global (a régua das abas), e pintou uma faixa e cortou as réguas. Renomeada.
 
   **Falta medir:** a CPU de `GET /v1/admin/uso` na rota real, com a sessão do dono (`wrangler tail` enquanto a tela abre).
+- **05/nov/2026, rodada 4 (a Cloudflare), BUILD 755**: `domain/cloudflare-usage.ts`, `GET /v1/admin/cloudflare`, as réguas de
+  hoje e dos bancos, a linha da Cloudflare com cada Worker e a CPU, e os estados `sem-token` e `fora`. O usuário confirmou
+  que a `RAWG_KEY` já foi trocada. Decidido no caminho:
+  - **A consulta do `saude.ts` ficou como está:** ela é por Worker e por banco, e a da tela é da conta inteira. Só os
+    limites saíram de lá, para `contrato/uso-apis/plano-gratis.ts`, que os dois leem.
+  - **Só hoje e ontem,** e não 30 dias (seção 8).
+  - **A dimensão de tempo se descobre sozinha:** tenta `date`, `datetimeHour` e `datetime`, nessa ordem, e lembra da que
+    funcionou. Sem o token, não deu para saber qual vale, e o log guarda o motivo da recusa.
+  - A consulta à Cloudflare não entra em `uso_apis`: é rara, só o admin dispara e ela tem a própria linha.
+
+  **Não testado com a Cloudflare de verdade:** o token ainda não está no Worker (`wrangler secret list`, 05/nov). Os testes
+  usam respostas simuladas no formato da documentação, então a consulta (em especial o `d1StorageAdaptiveGroups` sem filtro
+  de banco) só se prova quando o dono guardar o token. **Ao ligar:** abrir a tela e olhar o log (`wrangler tail mural-api`);
+  aproveitar para medir a CPU das duas rotas.

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { MedidoEm, SEM_CONTAGEM } from '../../../contrato/uso-apis/servicos';
-import { STATUS_LABEL, ServiceTotals, ServiceStatus, UsageView, ago, clock, dayLabel, dayTurn, duration, parseUsage, percent, usageView, wholeNumber } from '../core/api-usage';
+import { ApiUsage, CloudflareReport, STATUS_LABEL, ServiceRow, ServiceTotals, ServiceStatus, ago, clock, dayLabel, dayTurn, duration, parseCloudflare, parseUsage, percent, usageView, wholeNumber } from '../core/api-usage';
 import { CloudAccount, CloudError } from '../core/cloud-account';
 import { ICON, IconModule } from '../ui/icons';
 import { Pin } from '../ui/pin';
@@ -11,7 +11,7 @@ import { Cota } from './api-usage/cota';
 const GROUP_TEXT: Record<MedidoEm, { title: string; note: string }> = {
   worker: { title: 'Pelo Worker', note: 'Passam pela API do Murall: a conta é exata.' },
   navegador: { title: 'Pelo navegador', note: 'Saem direto do aparelho de cada pessoa. Esta conta ainda não começou.' },
-  cloudflare: { title: 'Pela Cloudflare', note: 'Onde tudo isso roda. A leitura dos números ainda não está ligada.' },
+  cloudflare: { title: 'Pela Cloudflare', note: 'Os números oficiais de hoje, da conta inteira. Podem atrasar alguns minutos.' },
 };
 
 /**
@@ -34,11 +34,24 @@ export class ApiUsagePage {
 
   protected readonly loading = signal(true);
   /** A última leitura que deu certo; o erro de atualizar não apaga o que já está na tela. */
-  protected readonly view = signal<UsageView | null>(null);
+  private readonly usage = signal<ApiUsage | null>(null);
+  /** A rota da Cloudflare é à parte: se ela demora ou falha, o resto da tela está de pé. */
+  protected readonly cloudflare = signal<CloudflareReport | null>(null);
+  protected readonly cloudflareLoading = signal(true);
+  protected readonly view = computed(() => {
+    const usage = this.usage();
+    return usage ? usageView(usage, this.cloudflare()) : null;
+  });
   protected readonly failed = signal(false);
   protected readonly open = signal<string | null>(null);
 
-  protected readonly groups = computed(() => (this.view()?.groups ?? []).map((g) => ({ ...g, ...GROUP_TEXT[g.id] })));
+  protected readonly groups = computed(() =>
+    (this.view()?.groups ?? []).map((g) => {
+      const text = GROUP_TEXT[g.id];
+      // sem a leitura, a nota não pode prometer "os números oficiais"
+      return { ...g, ...text, note: g.id === 'cloudflare' && this.cloudflare()?.estado !== 'ok' ? 'Onde tudo isso roda. A leitura dos números ainda não está ligada.' : text.note };
+    }),
+  );
   /** As cotas, juntas pelo que importa ao olhar: quando a conta vira. */
   protected readonly shelves = computed(() => {
     const v = this.view();
@@ -60,13 +73,31 @@ export class ApiUsagePage {
     void this.load();
   }
 
-  protected async load(): Promise<void> {
+  /** Abrir a página e o Atualizar: a Cloudflare corre em paralelo, sem segurar os outros números. */
+  protected load(fresh = false): Promise<unknown> {
+    return Promise.all([this.loadUsage(), this.loadCloudflare(fresh)]);
+  }
+
+  protected async loadCloudflare(fresh = false): Promise<void> {
+    this.cloudflareLoading.set(true);
+    try {
+      const raw = await this.account.request(`/v1/admin/cloudflare${fresh ? '?novo=1' : ''}`);
+      if (!this.gone) this.cloudflare.set(parseCloudflare(raw));
+    } catch {
+      // o 403 quem trata é a outra rota; aqui, a tela só diz que a Cloudflare não respondeu
+      if (!this.gone) this.cloudflare.set(parseCloudflare({ estado: 'fora' }));
+    } finally {
+      if (!this.gone) this.cloudflareLoading.set(false);
+    }
+  }
+
+  private async loadUsage(): Promise<void> {
     this.loading.set(true);
     this.failed.set(false);
     try {
       const raw = await this.account.request('/v1/admin/uso');
       if (this.gone) return;
-      this.view.set(usageView(parseUsage(raw)));
+      this.usage.set(parseUsage(raw));
     } catch (e) {
       if (this.gone) return;
       if (e instanceof CloudError && e.status === 403) {
@@ -91,6 +122,19 @@ export class ApiUsagePage {
 
   protected count(status: ServiceStatus, n: number): string {
     return status === 'sem-contagem' ? '—' : wholeNumber(n);
+  }
+
+  /** As janelas maiores: quem só sabe de hoje fica em branco, e não com um zero falso. */
+  protected span(r: ServiceRow, n: number): string {
+    return r.soHoje ? '—' : this.count(r.status, n);
+  }
+
+  protected whole(n: number): string {
+    return wholeNumber(n);
+  }
+
+  protected cpu(ms: number | null): string {
+    return ms === null ? '—' : `${String(Math.round(ms * 10) / 10).replace('.', ',')} ms`;
   }
 
   /** Sem pedido, não há o que dizer: nunca um "0%" que parece bom. */
