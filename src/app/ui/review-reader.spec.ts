@@ -773,7 +773,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(dialog().open).toBeTrue();
       expect(dialog().classList.contains('solta')).toBeTrue();
-      expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
+      expect(q('.faixa-nome .minimizar')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
       expect(q('.foot .btn-ink')).toBeNull();
       expect(q('.foot')?.textContent?.trim()).toBe('Resenha de Ana');
       expect(q('.dono-link')).toBeNull();
@@ -800,6 +800,39 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(dialog().open).toBeFalse();
       expect(q('#leitura-titulo')).toBeNull();
+    });
+
+    it('aberta pelo link, os botões da faixa são os do mural sem o X: o minimizar e a tela cheia, pequenos, no mesmo grupo', async () => {
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
+      await settle();
+      const buttons = [...el.querySelectorAll<HTMLButtonElement>('.faixa-nome button')];
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural', 'Ler em tela cheia']);
+      // os dois do mesmo jeito que o "só a cartolina" e a tela cheia do mural: no grupo, com o desenho de 16px
+      for (const b of buttons) {
+        expect(b.parentElement?.classList.contains('vistas')).toBeTrue();
+        expect(b.classList.contains('vista-btn')).toBeTrue();
+        expect(b.querySelector('svg')!.getAttribute('width')).toBe('16');
+      }
+      expect(q('.faixa-nome .fecha')).toBeNull();
+      // a beirada do último fica onde a do X ficaria no mural
+      expect(getComputedStyle(buttons[1]).marginRight).toBe('-4px');
+      // na tela cheia, o minimizar continua lá
+      buttons[1].click();
+      await settle();
+      expect(q('.faixa-nome .minimizar')).not.toBeNull();
+    });
+
+    it('aberta pelo link: o "Baixar em PDF" já nasce no canto da página, não em cima da ficha que ainda entra', async () => {
+      fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], ANA, false);
+      fixture.detectChanges();
+      const pdf = q<HTMLButtonElement>('dialog.reader > .baixar-pdf')!;
+      // quem entra é a ficha; o diálogo, onde o remendo mora, fica parado (um transform nele prende o `fixed`)
+      expect(getComputedStyle(dialog()).animationName).toBe('none');
+      expect(getComputedStyle(dialog()).transform).toBe('none');
+      const gap = matchMedia('(max-width: 600px)').matches ? 10 : 20;
+      expect(Math.round(document.documentElement.clientWidth - pdf.getBoundingClientRect().right)).toBe(gap);
+      expect(Math.round(pdf.getBoundingClientRect().top)).toBe(gap);
+      await settle();
     });
 
     it('aberta pelo link: o "Baixar em PDF" no canto da página prepara a folha; na tela cheia, sai', async () => {
@@ -846,7 +879,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       await new Promise((res) => {
         dialog().addEventListener('close', res, { once: true });
-        q<HTMLButtonElement>('.faixa-nome .fecha')!.click();
+        q<HTMLButtonElement>('.faixa-nome .minimizar')!.click();
       });
       await settle();
       expect(links.minimized()).toBeTrue();
@@ -860,7 +893,7 @@ describe('A leitura e os comentários (ReviewReader)', () => {
       await settle();
       expect(q('.orelha')?.getAttribute('aria-label')).toBe('Comentários: 3');
       expect(q('.dono-link')?.textContent).toBe('Ana');
-      expect(q('.faixa-nome .fecha')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
+      expect(q('.faixa-nome .minimizar')?.getAttribute('aria-label')).toBe('Minimizar: ver como fica no mural');
       // abrir outra ficha do jeito de sempre volta a ter o fechar
       await closeReader();
       fixture.componentInstance.open(review('r-hades', 'Hades'), 'Ana', [], false, ANA);

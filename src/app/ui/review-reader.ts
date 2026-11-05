@@ -164,9 +164,15 @@ interface ReadingPlace {
             }
             <!-- os jeitos de ver a ficha, pequenos, antes do X: só a cartolina (como fica no mural) e a
                  tela cheia (só o nome e o texto, para ler). Na tela cheia, o segundo volta à leitura. A
-                 ficha aberta pelo link já tem o minimizar dela (a página mostra a ficha no mural) -->
+                 ficha aberta pelo link é a página inteira: não há para onde fechar, então não tem o X, e
+                 o primeiro é o minimizar dela (a página mostra a ficha pregada no mural de quem
+                 escreveu), no mesmo lugar e do mesmo jeito que o "só a cartolina" -->
             <div class="vistas" role="group" aria-label="Jeito de ver a ficha">
-              @if (!solta()) {
+              @if (solta()) {
+                <button type="button" class="icon-btn vista-btn minimizar" (click)="minimize()" aria-label="Minimizar: ver como fica no mural" title="Ver como fica no mural">
+                  <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
+                </button>
+              } @else {
                 <button type="button" class="icon-btn vista-btn ver-cartolina" (click)="setView('cartolina')" aria-label="Ver só a cartolina" title="Ver só a cartolina">
                   <lucide-icon [img]="MinimizeIcon" [size]="16" aria-hidden="true" />
                 </button>
@@ -180,13 +186,7 @@ interface ReadingPlace {
               </button>
               }
             </div>
-            <!-- a ficha aberta pelo link é a página inteira: não há para onde fechar, só minimizar (ela
-                 vira a ficha pregada no mural, como fica na parede de quem escreveu) -->
-            @if (solta()) {
-              <button type="button" class="icon-btn fecha" (click)="minimize()" aria-label="Minimizar: ver como fica no mural" title="Ver como fica no mural">
-                <lucide-icon [img]="MinimizeIcon" [size]="22" aria-hidden="true" />
-              </button>
-            } @else {
+            @if (!solta()) {
               <button type="button" class="icon-btn fecha" (click)="close()" aria-label="Fechar">
                 <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
               </button>

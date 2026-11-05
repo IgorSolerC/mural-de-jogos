@@ -1118,14 +1118,27 @@ dialog.reader.solta::backdrop {
   background: transparent;
 }
 
+/* Quem entra é a ficha, não o diálogo: o "Baixar em PDF" é `fixed` e mora no diálogo, e um transform
+   nele (a entrada de toda folha) prendia o remendo em cima da ficha até a entrada acabar, que na
+   abertura da página, com tudo carregando, durava um segundo ou dois. */
+dialog.reader.solta[open] {
+  animation: none;
+}
+
+/* a entrada de toda folha (sheet-in, em styles.scss), aqui na ficha */
+dialog.reader.solta[open] > .par {
+  animation: sheet-in var(--t-physical) var(--ease-physical);
+}
+
+/* --remendo: o alto que a página guarda em cima da ficha para o "Baixar em PDF" (ver mais abaixo) */
 .solta .par,
 .solta .par > .ficha {
-  max-height: calc(100dvh - 72px);
+  max-height: calc(100dvh - 72px - var(--remendo, 0px));
 }
 
 .solta .par.com-grupo,
 .solta .par.com-grupo > .ficha {
-  max-height: calc(100dvh - 100px);
+  max-height: calc(100dvh - 100px - var(--remendo, 0px));
 }
 
 .assinatura {
@@ -1180,6 +1193,8 @@ dialog.reader.solta::backdrop {
   transition:
     background-color var(--t-ui) var(--ease-ui),
     translate var(--t-ui) var(--ease-ui);
+  /* aparece já no canto, junto com a ficha (fade-in, em styles.scss) */
+  animation: fade-in var(--t-physical) var(--ease-physical);
 
   /* a mesma tinta da linha que as opções do menu ganham ao passar o mouse, sobre o feltro */
   &:hover {
@@ -1196,6 +1211,13 @@ dialog.reader.solta::backdrop {
 
   &[aria-busy='true'] {
     cursor: progress;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.reader.solta[open] > .par,
+  .baixar-pdf {
+    animation: none;
   }
 }
 
@@ -1216,34 +1238,15 @@ dialog.reader.solta::backdrop {
    alto dele em cima: a ficha comprida, que chega perto do topo, não passa por baixo dele */
 @media (max-width: 1340px) {
   dialog.reader.solta:has(.baixar-pdf) {
-    padding-top: 64px;
-  }
-
-  .solta:has(.baixar-pdf) .par,
-  .solta:has(.baixar-pdf) .par > .ficha {
-    max-height: calc(100dvh - 72px - 64px);
-  }
-
-  .solta:has(.baixar-pdf) .par.com-grupo,
-  .solta:has(.baixar-pdf) .par.com-grupo > .ficha {
-    max-height: calc(100dvh - 100px - 64px);
+    --remendo: 64px;
+    padding-top: var(--remendo);
   }
 }
 
 /* no celular, menor, para caber em cima da faixa da ficha sem encostar na tachinha */
 @media (max-width: 600px) {
   dialog.reader.solta:has(.baixar-pdf) {
-    padding-top: 52px;
-  }
-
-  .solta:has(.baixar-pdf) .par,
-  .solta:has(.baixar-pdf) .par > .ficha {
-    max-height: calc(100dvh - 72px - 52px);
-  }
-
-  .solta:has(.baixar-pdf) .par.com-grupo,
-  .solta:has(.baixar-pdf) .par.com-grupo > .ficha {
-    max-height: calc(100dvh - 100px - 52px);
+    --remendo: 52px;
   }
 
   .baixar-pdf {
@@ -1297,9 +1300,14 @@ dialog.reader.solta::backdrop {
   }
 }
 
-/* o X (ou o minimizar da ficha pelo link) logo depois deles, sem o empurrão para a direita */
+/* o X logo depois deles, sem o empurrão para a direita */
 .vistas + .fecha {
   margin-left: 0;
+}
+
+/* a ficha aberta pelo link não tem o X: o último dos dois fica com a beirada onde a do X ficaria */
+.solta .vista-btn:last-child {
+  margin-right: -4px;
 }
 
 /* finalizada: o carimbo anda para a esquerda dos três botões (dos dois, na ficha aberta pelo link), e

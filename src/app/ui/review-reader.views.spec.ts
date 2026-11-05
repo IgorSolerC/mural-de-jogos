@@ -366,11 +366,11 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(q('.vez-nome')?.textContent).toBe('Rejogada');
   });
 
-  it('pelo link, sem o "só a cartolina" (a página tem o minimizar dela); o Esc sai da tela cheia e não fecha', async () => {
+  it('pelo link, o minimizar no lugar do "só a cartolina" (a página mostra a ficha no mural); o Esc sai da tela cheia e não fecha', async () => {
     fixture.componentInstance.openLoose(review('r-hades', 'Hades'), 'Ana', [], 'ANA', false);
     await settle();
     expect(q('.faixa-nome .ver-cartolina')).toBeNull();
-    expect(qa('.faixa-nome button').map((b) => b.getAttribute('aria-label'))).toEqual(['Ler em tela cheia', 'Minimizar: ver como fica no mural']);
+    expect(qa('.faixa-nome button').map((b) => b.getAttribute('aria-label'))).toEqual(['Minimizar: ver como fica no mural', 'Ler em tela cheia']);
     band('.ler-tela-cheia').click();
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeTrue();
