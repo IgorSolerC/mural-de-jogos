@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-05-copiar-baralho',
+    version: '1.39.0',
+    kind: 'funcionalidade',
+    date: '2026-11-05',
+    title: 'Copiar baralho',
+    items: [
+      'No baralho público de outra pessoa, o "Copiar baralho" faz dele um baralho seu: você escolhe o nome (já vem o dela) e o grupo, e cada carta que você vê vira uma anotação sua, privada e só nos Estudos, com a mesma frente e o progresso do zero. O Murall abre o baralho novo, com Desfazer.',
+    ],
+  },
+  {
     id: '2026-11-05-baralhos-publicos',
     version: '1.38.0',
     kind: 'funcionalidade',

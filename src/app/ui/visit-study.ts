@@ -7,6 +7,7 @@ import { CategoryLook, categoryColorHex, lookKey } from '../core/category-looks'
 import { Colleague } from '../core/colleague-store';
 import { Review } from '../core/review';
 import { CardFace, CardSize, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, levelOf, studyGroupId } from '../core/study';
+import { DeckCopyRequest } from '../core/study-copy';
 import { readText, writeText } from '../core/storage';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
@@ -15,6 +16,7 @@ import { ICON, IconModule } from './icons';
 import { NearPool, NearScreen } from './near-screen';
 import { SearchStrip } from './search-strip';
 import { StudyCard } from './study-card';
+import { CopySample, StudyCopySheet } from './study-copy-sheet';
 
 /** As ordens da parede do baralho; as duas primeiras só com o progresso à mostra. */
 type SortId = 'proxima' | 'nivel' | 'entrada' | 'nome';
@@ -77,11 +79,12 @@ function tiltOf(id: string): number {
  * baralhos que ela tornou públicos, com as cartas de anotações públicas. O mesmo desenho dos seus Estudos
  * (as divisórias de manilha com Tudo e os grupos, a pasta, as pilhas com o elástico e a parede das cartas,
  * dos mesmos estilos de `study-page.scss`), só para ver: sem Estudar, sem os montes de hoje (são os dela) e
- * sem mexer. Tocar numa carta abre a anotação (o verso) na leitura da visita; no baralho, "Copiar baralho".
+ * sem mexer. Tocar numa carta abre a anotação (o verso) na leitura da visita; no baralho, "Copiar baralho"
+ * abre a folha que faz dele um baralho seu (ui/study-copy-sheet.ts).
  */
 @Component({
   selector: 'app-visit-study',
-  imports: [CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, RouterLink, SearchStrip, StudyCard],
+  imports: [CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, RouterLink, SearchStrip, StudyCard, StudyCopySheet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './visit-study.html',
   styleUrls: ['../pages/study-page.scss', './visit-study.scss'],
@@ -93,8 +96,6 @@ export class VisitStudy {
   readonly deckId = input<string | null>(null);
   /** Uma carta foi tocada: a anotação dela, e as do baralho (a leitura anda entre elas). */
   readonly opened = output<{ note: Review; pool: Review[] }>();
-  /** "Copiar baralho": o baralho e as cartas que quem visita vê. */
-  readonly copy = output<{ deck: Deck; cards: Card[]; notes: Review[] }>();
 
   protected readonly AllIcon = ICON.camadas;
   protected readonly BackIcon = ICON.voltar;
@@ -261,10 +262,17 @@ export class VisitStudy {
     this.opened.emit({ note: c.note, pool: this.cards().map((v) => v.note) });
   }
 
+  /** "Copiar baralho" aberto: o baralho, as cartas que quem visita vê e a de cima da pilha, para a folha mostrar. */
+  protected readonly copying = signal<{ request: DeckCopyRequest; sample: CopySample | null } | null>(null);
+
   protected askCopy(d: DeckView): void {
     const notes = new Set(d.cards.map((c) => c.note.id));
     const cards = (this.study()?.cards ?? []).filter((c) => notes.has(c.note) && c.decks.includes(d.deck.id));
-    this.copy.emit({ deck: d.deck, cards, notes: d.cards.map((c) => c.note) });
+    const top = d.top;
+    this.copying.set({
+      request: { deck: d.deck, cards, notes: d.cards.map((c) => c.note) },
+      sample: top ? { title: top.title, subtitle: top.subtitle, image: top.image, stock: top.stock } : null,
+    });
   }
 
   protected setCardSize(size: CardSize): void {

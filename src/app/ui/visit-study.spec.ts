@@ -88,11 +88,12 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
     expect(cards[0]).toContain('日, Dominada');
     expect(cards[1]).toBe('月, Desconhecida');
     expect(el.querySelector('select[aria-label="Nível"]')).not.toBeNull();
-    let asked: { deck: { id: string }; cards: { note: string }[]; notes: Review[] } | null = null;
-    fixture.componentInstance.copy.subscribe((e) => (asked = e));
+    // o Copiar abre a folha com o baralho e só as cartas que têm anotação (a 火 não veio)
     el.querySelector<HTMLButtonElement>('.copiar')!.click();
-    expect(asked!.deck.id).toBe('dkanji');
-    expect(asked!.cards.map((c) => c.note).sort()).toEqual(['nlua1', 'nsol1']);
+    const asked = (fixture.componentInstance as unknown as { copying: () => { request: { deck: { id: string }; cards: { note: string }[] }; sample: { title: string } } }).copying();
+    expect(asked.request.deck.id).toBe('dkanji');
+    expect(asked.request.cards.map((c) => c.note).sort()).toEqual(['nlua1', 'nsol1']);
+    expect(asked.sample.title).toBe('日');
     let opened: Review | null = null;
     fixture.componentInstance.opened.subscribe((e) => (opened = e.note));
     el.querySelector<HTMLButtonElement>('.carta-btn')!.click();

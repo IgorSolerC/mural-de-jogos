@@ -30,9 +30,18 @@ export function localImageId(url: string): string | null {
   return LOCAL.exec(url.trim())?.[1] ?? null;
 }
 
+/** Um endereço de imagem do Murall dentro de um texto. */
+const LOCAL_IN_TEXT = /murall:\/\/imagem\/([A-Za-z0-9_-]{22})(?![A-Za-z0-9_-])/g;
+
 /** Os ids das imagens do Murall num texto (o mural público em JSON, por exemplo), sem repetir. */
 export function localImageIds(text: string): string[] {
-  return [...new Set(Array.from(text.matchAll(/murall:\/\/imagem\/([A-Za-z0-9_-]{22})(?![A-Za-z0-9_-])/g), (m) => m[1]))];
+  return [...new Set(Array.from(text.matchAll(LOCAL_IN_TEXT), (m) => m[1]))];
+}
+
+/** O texto com os endereços das imagens do Murall trocados, pelo id (os que não estão no mapa ficam). */
+export function swapLocalImages(text: string, images: ReadonlyMap<string, string>): string {
+  if (!images.size) return text;
+  return text.replace(LOCAL_IN_TEXT, (all, id: string) => images.get(id) ?? all);
 }
 
 export function localImageUrl(id: string): string {

@@ -210,12 +210,14 @@ Uma parte nova no JSON público, `estudos`, só com os baralhos públicos:
 - A ficha das folhas do site (a do baralho), título "Copiar baralho", com a primeira carta do baralho ao
   lado, pequena e inclinada.
 - **Nome**: o campo de papel, com o nome do dono já escrito.
-- **Grupo**: o campo de papel, vazio, com a lista dos seus grupos (`<datalist>`) e a dica "Um dos seus
-  grupos, ou um nome novo". O botão só acende com um grupo.
+- **Grupo**: as orelhas e a busca que cria do editor da anotação (`app-group-picker`, sem o "Sem grupo"),
+  nenhuma escolhida, e a dica do que falta. O botão só acende com um grupo. (O plano dizia `<datalist>`: a
+  crítica mostrou a lista escondida e o triângulo nativo destoando.)
 - A frase do que vai acontecer: "24 cartas viram anotações suas, privadas, só nos Estudos. O progresso
   começa do zero."
 - **Copiar** (tinta) · Cancelar. Copiando, o botão espera (`appBusy`); no fim, D8.
-- Sem lugar (100 baralhos ou 5000 cartas): a frase vira o aviso em vermelho e o botão apaga.
+- Sem lugar (100 baralhos ou 5000 cartas): o aviso em vermelho embaixo (`role="alert"`) e o botão apaga.
+- Copiando, nada fecha a folha (Cancelar, X, Esc): a cópia não para no meio.
 
 ---
 
@@ -274,3 +276,10 @@ ver); a 4 em outro. Cada commit com push.
   `Colleague.estudos` e `studyNotes`), Quem vê na folha do baralho, Ajustes › Amigos, Mural · Estudos e
   `ui/visit-study.ts` nas rotas `/comparar/mural/estudos/...` (`isVisitPath`). A imagem da frente, fora da
   conta, vem pelo endereço público.
+- Rodada 4 e fim (BUILD 770, Novidades 1.39.0): `core/study-copy.ts` (`DeckCopy`, `copiedNote`, `freeDeckName`,
+  `swapImages`), `ui/study-copy-sheet.ts`, crítica do Impeccable (detector limpo; 28/40 antes das correções, em
+  `.impeccable/critique/`), `/code-review high`, build de produção e abrir a build com dados guardados. A visita
+  virou uma rota só (`visitMatcher`, BUILD 769): o Router não refaz mais a página a cada aba.
+- Sobre os riscos da seção 8: as cartas pesam pouco (uns 300 bytes de JSON cada, 30 KB nas 101 do dono, perto dos
+  1,8 MB de teto); a carta sem anotação não aparece (teste em `visit-study.spec.ts`); os estilos não foram movidos,
+  então a página do dono não mudou.

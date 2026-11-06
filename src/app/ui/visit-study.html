@@ -170,3 +170,9 @@
     </section>
   }
 }
+
+@if (copying(); as c) {
+  @defer (on immediate) {
+    <app-study-copy-sheet [request]="c.request" [owner]="colleague().name" [sample]="c.sample" (closed)="copying.set(null)" />
+  }
+}

@@ -215,7 +215,7 @@ baralho; ao salvar a anotação, `claim` põe a carta lá (o editor já abre na 
 - `SYNC_SCHEMA` sobe (um site antigo jogaria a parte fora ao enviar). `localHasContent` conta as cartas e
   os baralhos (o de ninguém pergunta antes de ir para a conta).
 - Nunca no mural público, na visita, no perfil ou no Feed: os Estudos são só seus, mesmo com a anotação
-  pública. Fora do backup em arquivo, como o Kanban e o Calendário (D9).
+  pública. (Desde 05/nov/2026, menos os baralhos que o dono torna públicos: ver PLANO-BARALHOS-PUBLICOS.md.) Fora do backup em arquivo, como o Kanban e o Calendário (D9).
 - A API e o MCP não leem os Estudos nesta leva (seção 8); uma rodada futura do PLANO-API pode pôr uma
   área `estudos` de leitura.
 

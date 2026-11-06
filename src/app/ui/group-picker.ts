@@ -10,7 +10,8 @@ import { roveRadios } from './focus';
 /**
  * O grupo da anotação, no editor (a parte Grupo): as orelhas dos grupos, como saem da ficha no mural,
  * e a busca que filtra e cria. Um só: tocar escolhe (e o editor fecha a parte); "Sem grupo" tira.
- * O ícone e a cor de cada grupo moram nas configurações do mural, não aqui.
+ * O ícone e a cor de cada grupo moram nas configurações do mural, não aqui. Também escolhe o grupo do
+ * baralho copiado (ui/study-copy-sheet.ts), onde o grupo é obrigatório: `required` tira o "Sem grupo".
  */
 @Component({
   selector: 'app-group-picker',
@@ -31,8 +32,8 @@ import { roveRadios } from './focus';
         (keydown.enter)="$event.preventDefault(); enter()"
       />
     </label>
-    <div class="orelhas" role="radiogroup" [attr.aria-label]="'Grupo da anotação'" (keydown)="rove($event)">
-      @if (!query().trim()) {
+    <div class="orelhas" role="radiogroup" [attr.aria-label]="groupLabel()" (keydown)="rove($event)">
+      @if (!query().trim() && !required()) {
         <button type="button" role="radio" class="op nenhum" [attr.aria-checked]="!category()" (click)="choose(null)">Sem grupo</button>
       }
       @for (g of shown(); track g.key) {
@@ -56,6 +57,10 @@ export class GroupPicker {
   readonly category = model<string | null>(null);
   /** Os grupos à mão (a cartela pronta e os escritos nas outras anotações; ver `categoryLibrary`). */
   readonly categories = input<readonly Bonus[]>([]);
+  /** Sem a opção "Sem grupo". */
+  readonly required = input(false);
+  /** O nome da lista para o leitor de tela. */
+  readonly groupLabel = input('Grupo da anotação');
 
   protected readonly max = LABEL_MAX;
   protected readonly SearchIcon = ICON.buscar;
