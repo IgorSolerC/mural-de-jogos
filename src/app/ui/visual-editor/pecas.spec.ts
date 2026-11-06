@@ -291,8 +291,73 @@ describe('os widgets no modo Visual', () => {
 
   describe('os botões da peça selecionada', () => {
     const controles = (i = 0) => pecas()[i].querySelector<HTMLElement>('.vis-peca-controles')!;
-    const botoes = (i = 0) => Array.from(controles(i).querySelectorAll<HTMLButtonElement>('button'));
+    /** Os da aparência (entre o Editar e o Tirar, nas pontas). */
+    const botoes = (i = 0) => Array.from(controles(i).querySelectorAll<HTMLButtonElement>('button:not(.vis-peca-editar, .vis-peca-tirar)'));
     const nomes = (i = 0) => botoes(i).map((b) => b.getAttribute('aria-label'));
+
+    it('nas pontas, o Editar (com o nome à vista) e o Tirar: pedem ao editor, no Tab, sem mudar o texto', async () => {
+      const t = 'a\n{{contador: 25/12/2030 | Natal}}\nb';
+      await make(t);
+      let editar = 0;
+      let tirar = 0;
+      ed().pedeEditarPeca.subscribe(() => editar++);
+      ed().pedeTirarPeca.subscribe(() => tirar++);
+      seleciona(1);
+      const todos = Array.from(controles().querySelectorAll<HTMLButtonElement>('button'));
+      const [primeiro, ultimo] = [todos[0], todos[todos.length - 1]];
+      expect(primeiro.classList).toContain('vis-peca-editar');
+      expect(primeiro.textContent).toBe('Editar');
+      expect(ultimo.getAttribute('aria-label')).toBe('Tirar');
+      expect([primeiro.tabIndex, ultimo.tabIndex]).toEqual([0, 0]);
+      primeiro.click();
+      ultimo.click();
+      expect([editar, tirar]).toEqual([1, 1]);
+      expect(valor).toBeNull();
+    });
+
+    it('o Esc num botão, e o Shift+Tab do primeiro: de volta à folha, com a peça selecionada', async () => {
+      needsWindowFocus();
+      await make('a\n{{contador: 25/12/2030 | Natal}}\nb');
+      view.focus();
+      seleciona(1);
+      const editar = controles().querySelector<HTMLButtonElement>('.vis-peca-editar')!;
+      const tirar = controles().querySelector<HTMLButtonElement>('.vis-peca-tirar')!;
+      tirar.focus();
+      expect(tecla('Escape', {}, tirar).defaultPrevented).toBeTrue();
+      expect(document.activeElement).toBe(view.dom);
+      expect(view.state.selection instanceof NodeSelection).toBeTrue();
+      editar.focus();
+      expect(tecla('Tab', { shiftKey: true }, editar).defaultPrevented).toBeTrue();
+      expect(document.activeElement).toBe(view.dom);
+      // do Tirar, o Shift+Tab é do navegador: volta para o botão de antes
+      tirar.focus();
+      expect(tecla('Tab', { shiftKey: true }, tirar).defaultPrevented).toBeFalse();
+    });
+
+    it('na peça mais alta que o lugar que rola, os botões grudam no pé do que se vê', async () => {
+      needsWindowFocus();
+      await make('{{contador: 25/12/2030 | Natal}}\nb');
+      const caixa = document.createElement('div');
+      caixa.style.cssText = 'height: 240px; overflow-y: auto';
+      fixture.nativeElement.before(caixa);
+      caixa.append(fixture.nativeElement);
+      fixture.nativeElement.classList.add('vis-cresce');
+      view.focus();
+      seleciona(0);
+      await ate(() => pecas()[0].style.getPropertyValue('--recorte-alto'));
+      // a linha de recorte de uma peça bem alta, como a foto grande
+      pecas()[0].style.setProperty('--recorte-alto', '900px');
+      pecas()[0].style.minHeight = '900px';
+      await new Promise((ok) => requestAnimationFrame(ok));
+      try {
+        const fundo = caixa.getBoundingClientRect().bottom;
+        expect(controles().getBoundingClientRect().bottom).toBeLessThanOrEqual(fundo);
+        expect(controles().getBoundingClientRect().top).toBeGreaterThanOrEqual(caixa.getBoundingClientRect().top);
+      } finally {
+        caixa.after(fixture.nativeElement);
+        caixa.remove();
+      }
+    });
 
     it('o − e o + do tamanho (com o nome dele) e o jeito, que anda a cada toque; a peça continua selecionada', async () => {
       const t = 'a\n{{contador: 25/12/2030 | Natal}}\nb';

@@ -259,6 +259,19 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-color: rgb(21 21 21 / 0.35) transparent;
+  /* a linha do cursor da folha do Markdown não fica atrás do alto da folha e da régua, presos em cima dela
+     (--topo-h de ui/rich-editor.ts), nem colada no pé */
+  scroll-padding-block: 110px 32px;
+
+  /* na janela baixa, só a régua fica presa */
+  @media (max-height: 500px) {
+    scroll-padding-top: 64px;
+  }
+
+  /* com a régua presa em cima do teclado, nada fica preso no alto */
+  &:has(.regua.presa) {
+    scroll-padding-top: 16px;
+  }
 }
 
 .escrever {
@@ -464,24 +477,12 @@
   border-top: 0;
 }
 
-/* A anotação é quase só o texto: a folha pautada vai até o pé da página. A página, a coluna do escrever e
-   o bloco do texto viram colunas que esticam. Do tablet para cima, a folha não passa da altura da página
-   (--folha-max, ver ui/rich-editor.ts): o texto comprido rola dentro dela e a régua fica sempre à vista
-   (pedido do usuário: com a nota longa, a régua subia com a página e sumia). A altura da página vem em
-   --conteudo-h (ui/height-var.ts; um container de tamanho prenderia nela a régua presa em cima do teclado).
-   Os 124px são o respiro de cima e de baixo do escrever (até 26 + 34), as abas Visual e Markdown (41) e o
-   contador embaixo da folha (23): rolando até o fim, o editor inteiro fica à vista. Nunca menos que a
-   régua e as seis linhas da folha. No celular, e com a régua presa em cima do teclado, a folha cresce com
-   o texto e a rolagem continua uma só (a de dentro prendia o dedo). */
+/* A anotação é quase só o texto: a folha pautada vai até o pé da página, mesmo com pouco texto. A página, a
+   coluna do escrever e o bloco do texto viram colunas que esticam. Com muito texto ela cresce sem teto (ver o
+   `grows` de ui/rich-editor.ts): uma rolagem só, a da página, com o alto da folha e a régua presos em cima. */
 .conteudo.enche {
   display: flex;
   flex-direction: column;
-
-  @media (min-width: 560px) {
-    &:not(:has(.regua.presa)) app-rich-editor {
-      --folha-max: max(calc(var(--conteudo-h) - 124px), 16rem);
-    }
-  }
 
   > .escrever:not([hidden]) {
     display: flex;

@@ -66,6 +66,20 @@ export function etiqueta(o: { nome: string; icone: LucideIconData; perigo?: bool
 }
 
 /**
+ * Uma ação da peça, com o nome à vista (o Editar). Ao contrário dos outros botões, entra no Tab: o teclado
+ * precisa alcançar a ação, e a escolha de aparência ele faz na folha do widget.
+ */
+export function acao(o: { nome: string; icone: LucideIconData; giro?: string; classe: string; aperta: () => void }): HTMLButtonElement {
+  const b = botao(`vis-acao ${o.classe}`, o.nome, o.aperta);
+  if (o.giro) b.style.setProperty('--giro', o.giro);
+  b.tabIndex = 0;
+  const nome = document.createElement('span');
+  nome.textContent = o.nome;
+  b.append(desenho(o.icone), nome);
+  return b;
+}
+
+/**
  * O − e o + com o nome do de agora no meio, a lápis ("Médio"): o − desliga na primeira escolha, o +
  * na última. `rotulo` é o que se muda ("o tamanho"), para o leitor de tela e a dica.
  */

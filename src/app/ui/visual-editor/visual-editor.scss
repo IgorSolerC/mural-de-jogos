@@ -394,16 +394,16 @@
   --vis-letra: 1.3rem;
   font-size: var(--vis-letra);
 }
-// enchendo, a folha não passa do que o editor deixa (ver o --folha-max de rich-editor.ts): o texto comprido
-// rola aqui dentro, com a régua parada no alto
-.vis-folha.vis-encher:not(.vis-grande) {
-  flex: 1 1 auto;
-  min-height: 0;
-}
+// enchendo, com poucas linhas de piso: o lugar vazio embaixo também é folha
 .vis-folha.vis-encher:not(.vis-grande) > .ProseMirror {
-  flex: 1 1 auto;
   min-height: calc(var(--line) * 6 + 8px);
+}
+// crescendo (o `grows` do RichEditor), sem teto e sem rolagem aqui dentro: quem rola é o lugar da folha, e os
+// botões da peça, grudados nele, acham o pé dele (o `clip` não vira um lugar que rola, como o `auto` viraria)
+.vis-folha.vis-cresce > .ProseMirror {
   max-height: none;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 @media (max-width: 559px) {
   // no celular a folha cresce com o texto e quem rola é o editor (uma rolagem só)

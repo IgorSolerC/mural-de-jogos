@@ -1,5 +1,5 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, afterRenderEffect, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { FitTools } from './fit-tools';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
@@ -27,7 +27,7 @@ import { Settings } from '../core/settings';
 import { VisualEditor } from './visual-editor/visual-editor';
 import { ESTADO_VAZIO } from './visual-editor/visual-api';
 import type { AcaoCartao, AcaoCodigo, AcaoTabela, AcaoVisual, EstadoCartao, EstadoCodigo, EstadoTabela, EstadoVisual, ImagemVisual, MarcaVisual, PedidoLink, VisualApi } from './visual-editor/visual-api';
-import { caretSpot } from './caret-follow';
+import { caretBox, caretSpot, scrollerOf } from './caret-follow';
 import { TableLooks } from './table-looks';
 import { TemplateAsk, TextTemplates } from './text-templates';
 import { TemplateSheet } from './template-sheet';
@@ -98,6 +98,9 @@ export const DOCK_MEDIA = '(pointer: coarse) and (max-width: 767px), (pointer: c
  */
 
 const COUNT_FMT = new Intl.NumberFormat('pt-BR');
+/** Quanto a lista do "[[" e a tirinha do widget pedem de lugar embaixo da linha do cursor (ver `placeAtCaret`). */
+const LIST_ROOM = 290;
+const STRIP_ROOM = 80;
 /** O que o Visual ainda não sabe fazer (o aviso, se uma ação nova da régua chegar antes dele). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
@@ -108,7 +111,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
   imports: [FitTools, IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
-  host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
+  host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()', '[class.cresce]': 'grows()' },
   template: `
     <ng-template #campo let-big="big">
       <!-- O alto da folha, como nos editores de sempre: os dois jeitos de escrever (o Visual, vendo
@@ -593,6 +596,13 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="blurSheet(area, big)">
             <lucide-icon [img]="DoneIcon" [size]="20" aria-hidden="true" />
           </button>
+          <!-- na folha que cresce (ver grows), os painéis penduram na régua: a régua está sempre à vista, e o
+               fim da folha pode estar muito longe -->
+          @if (grows() && !big) {
+            <div class="gaveta">
+              <ng-container *ngTemplateOutlet="paineis; context: { area, big }" />
+            </div>
+          }
         </div>
         <!-- O Visual: a folha escrita como a leitura (ver ui/visual-editor/). Vem num pedaço à parte, na
              primeira vez que a aba abre, e fica (escondido na aba Markdown, guardando o desfazer dele);
@@ -605,6 +615,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 [ativo]="visual() && (big || !bigOpen())"
                 [grande]="big"
                 [encher]="fill()"
+                [cresce]="grows() && !big"
                 [placeholder]="placeholder()"
                 [rotulo]="label() || placeholder()"
                 [descrito]="max() ? areaId + '-conta' + (big ? '-grande' : '') : null"
@@ -615,6 +626,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 (estado)="onVisualState($event, big)"
                 (pedeLink)="onVisualLink($event, big)"
                 (pedeLingua)="openMenu('codigo', big, true)"
+                (pedeEditarPeca)="editPiece(big)"
+                (pedeTirarPeca)="removePiece(area, big)"
                 (pronto)="onVisualReady($event, big)"
                 (foco)="onAreaFocus(big)"
                 (desfoco)="onAreaBlur($event, regua)"
@@ -657,6 +670,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           (drop)="onDrop($event, area)"
           (blur)="onAreaBlur($event, regua)"
         ></textarea>
+        <!-- na folha que cresce, o que vem do cursor abre junto dele (ver placeAtCaret) -->
+        @if (grows() && !big) {
+          <ng-container *ngTemplateOutlet="noCursor; context: { area, big }" />
+        }
       </div>
       @if (savingImage()) {
         <!-- a imagem colada (ou solta) sendo encolhida e guardada: logo vira a linha do widget -->
@@ -668,7 +685,60 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           {{ counted(value().length) }} / {{ counted(m) }} caracteres
         </p>
       }
-      <!-- o link para um endereço: o texto e o endereço, embaixo da folha -->
+      <!-- na folha de tamanho limitado (o comentário, o perfil, a tela cheia), tudo embaixo dela, à vista -->
+      @if (!grows() || big) {
+        <ng-container *ngTemplateOutlet="noCursor; context: { area, big }" />
+        <ng-container *ngTemplateOutlet="paineis; context: { area, big }" />
+      }
+    </ng-template>
+
+    <!-- o que vem do cursor: a tirinha do widget tocado no Markdown (no Visual, os botões moram na própria
+         peça, ver visual-editor/pecas.ts) e a lista do "[[" -->
+    <ng-template #noCursor let-area="area" let-big="big">
+      <!-- o widget tocado na folha: uma tirinha com o que ele é, Editar (abre a folha dele) e Tirar.
+           Ela é passiva, como o painel do link: o cursor fica na folha, e escrever ou sair da linha fecha -->
+      @if (widgetPick(); as w) {
+        @if (w.big === big && !widgetSheet() && !visual()) {
+          @let def = widgetOf(w.name);
+          <div class="painel widget-tira" [class.ancorada]="grows() && !big" [class.sobe]="spot()?.up" [style.top.px]="grows() && !big ? spot()?.top : null" role="group" [attr.aria-label]="'Widget: ' + def.label" (keydown.escape)="closeWidget($event, area)">
+            <lucide-icon class="widget-tira-icone" [img]="iconOf(w.name)" [size]="20" aria-hidden="true" />
+            <span class="widget-tira-texto">
+              <span class="widget-tira-nome">{{ def.label }}</span>
+              @if (widgetSummary(); as resumo) {
+                <span class="widget-tira-resumo">{{ resumo }}</span>
+              }
+            </span>
+            <span class="widget-tira-acoes">
+              <!-- o toque não tira o foco da folha: no celular, a régua sairia de cima do teclado e a tirinha
+                   andaria embaixo do dedo -->
+              <button type="button" class="acao-caneta widget-tira-tirar" (pointerdown)="$event.preventDefault()" (click)="removeWidget(area)">
+                <lucide-icon [img]="RemoveIcon" [size]="16" aria-hidden="true" />
+                Tirar
+              </button>
+              <button type="button" class="painel-ok widget-tira-editar" (pointerdown)="$event.preventDefault()" (click)="openWidgetSheet()">
+                <lucide-icon [img]="EditIcon" [size]="16" aria-hidden="true" />
+                Editar
+              </button>
+            </span>
+          </div>
+        }
+      }
+      <!-- a lista do "[[": escrever na folha filtra (a busca é o que se escreve depois dos colchetes) -->
+      @if (linking(); as k) {
+        @if (k.big === big && k.auto) {
+          @let solta = grows() && !big && docked() !== big;
+          <div class="elos" [class.grande]="big" [class.presa]="docked() === big" [class.ancorada]="solta" [class.sobe]="solta && spot()?.up" [style.top.px]="solta ? spot()?.top : null">
+            <p class="elos-dica" aria-hidden="true">Link para…</p>
+            <ng-container *ngTemplateOutlet="eloLista" />
+          </div>
+        }
+      }
+    </ng-template>
+
+    <!-- os painéis que a régua abre (e o clique num link): o link para um endereço, a Ajuda, o link para
+         outra anotação, o link para um lembrete -->
+    <ng-template #paineis let-area="area" let-big="big">
+      <!-- o link para um endereço: o texto e o endereço -->
       @if (urlLink(); as u) {
         @if (u.big === big) {
           <div class="painel url-painel" role="group" aria-label="Link para um endereço" (keydown.escape)="closeUrl($event, area)">
@@ -709,32 +779,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           </div>
         }
       }
-      <!-- o widget tocado na folha: uma tirinha com o que ele é, Editar (abre a folha dele) e Tirar.
-           Ela é passiva, como o painel do link: o cursor fica na folha, e escrever ou sair da linha fecha -->
-      @if (widgetPick(); as w) {
-        @if (w.big === big && !widgetSheet()) {
-          @let def = widgetOf(w.name);
-          <div class="painel widget-tira" role="group" [attr.aria-label]="'Widget: ' + def.label" (keydown.escape)="closeWidget($event, area)">
-            <lucide-icon class="widget-tira-icone" [img]="iconOf(w.name)" [size]="20" aria-hidden="true" />
-            <span class="widget-tira-texto">
-              <span class="widget-tira-nome">{{ def.label }}</span>
-              @if (widgetSummary(); as resumo) {
-                <span class="widget-tira-resumo">{{ resumo }}</span>
-              }
-            </span>
-            <span class="widget-tira-acoes">
-              <button type="button" class="acao-caneta widget-tira-tirar" (click)="removeWidget(area)">
-                <lucide-icon [img]="RemoveIcon" [size]="16" aria-hidden="true" />
-                Tirar
-              </button>
-              <button type="button" class="painel-ok widget-tira-editar" (click)="openWidgetSheet()">
-                <lucide-icon [img]="EditIcon" [size]="16" aria-hidden="true" />
-                Editar
-              </button>
-            </span>
-          </div>
-        }
-      }
       <!-- a Ajuda: todas as marcas, em partes (como a lista de atalhos do Docs), com o jeito de escrever
            cada uma e o atalho de teclado -->
       @if (guide() === big) {
@@ -749,17 +793,11 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           }
         </div>
       }
-      <!-- o link para outra anotação, embaixo da folha, sem cobrir o que se escreve: por "[[" na
-           folha, só a lista (a busca é o que se escreve depois dos colchetes); pela régua, o painel
-           do mesmo jeito do link para um endereço (o texto, a anotação e "Pôr o link") -->
+      <!-- o link para outra anotação, pela régua: o painel do mesmo jeito do link para um endereço (o
+           texto, a anotação e "Pôr o link") -->
       @if (linking(); as k) {
         @if (k.big === big) {
-          @if (k.auto) {
-            <div class="elos" [class.grande]="big" [class.presa]="docked() === big">
-              <p class="elos-dica" aria-hidden="true">Link para…</p>
-              <ng-container *ngTemplateOutlet="eloLista" />
-            </div>
-          } @else {
+          @if (!k.auto) {
             <div class="painel elo-painel" role="group" aria-label="Link para outra anotação" (keydown.escape)="closeLinkKey($event)">
               <div class="painel-topo">
                 <p class="painel-titulo">Link para outra anotação</p>
@@ -1026,6 +1064,142 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     :host {
       display: block;
       container: folha / inline-size;
+    }
+
+    /* ===== A folha que cresce (ver grows): sem teto, e uma rolagem só, a do lugar onde ela mora. O alto da
+       folha e a régua ficam presos em cima dela. --topo-h é a altura dos dois: o cursor não fica atrás deles
+       (ver visual-editor.ts e o scroll-padding em review-editor.scss) e o menu que cai deles cabe ===== */
+    :host(.cresce) {
+      --cabeca-h: 39px;
+      --topo-h: 85.5px;
+    }
+    @media (pointer: coarse) {
+      :host(.cresce) {
+        --cabeca-h: 47px;
+        --topo-h: 101.5px;
+      }
+    }
+    /* na janela baixa (o celular deitado), só a régua fica presa: as duas tomariam quase todo o texto */
+    @media (max-height: 500px) {
+      :host(.cresce) {
+        --cabeca-h: 0px;
+        --topo-h: 46.5px;
+      }
+    }
+    @media (max-height: 500px) and (pointer: coarse) {
+      :host(.cresce) {
+        --topo-h: 54.5px;
+      }
+    }
+    /* com a régua presa em cima do teclado, o alto rola com o texto: cada linha de folha conta */
+    :host(.cresce.presa),
+    .tela-cheia {
+      --topo-h: 0px;
+    }
+    /* (o papel é o da ficha em volta, com o grão: parada ou não, a faixa não aparece como um retângulo) */
+    @media (min-height: 501px) {
+      :host(.cresce:not(.presa)) > .cabeca {
+        position: sticky;
+        top: 0;
+        z-index: 7;
+        height: var(--cabeca-h);
+        background-color: var(--paper);
+        background-image: var(--paper-grain);
+        background-blend-mode: multiply;
+      }
+    }
+    :host(.cresce) > .papel {
+      position: relative;
+    }
+    :host(.cresce) > .papel > .regua:not(.presa) {
+      container-type: scroll-state;
+      position: sticky;
+      top: var(--cabeca-h);
+      z-index: 6;
+      background: var(--campo-papel);
+    }
+    /* parada no alto, com o texto passando por baixo: uma sombra fina embaixo da margem vermelha */
+    :host(.cresce) > .papel > .regua:not(.presa)::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: linear-gradient(to bottom, rgb(21 21 21 / 0.16), transparent);
+      opacity: 0;
+      transition: opacity var(--t-ui) var(--ease-ui);
+      pointer-events: none;
+    }
+    @container scroll-state(stuck: top) {
+      :host(.cresce) > .papel > .regua:not(.presa)::after {
+        opacity: 1;
+      }
+    }
+    /* os menus cabem entre a régua parada no alto e o pé do lugar que rola */
+    :host(.cresce) > .papel > .regua:not(.presa) .menu {
+      max-height: min(34rem, 72vh, max(10rem, calc(var(--conteudo-h, 100vh) - var(--topo-h) - 48px)));
+    }
+    @media (max-width: 559px) {
+      :host(.cresce) > .papel > .regua:not(.presa) .menu {
+        max-height: min(46dvh, max(10rem, calc(var(--conteudo-h, 100vh) - var(--topo-h) - 48px)));
+      }
+    }
+    /* os painéis da régua: pendurados nela, por cima do texto (nada muda de lugar na pauta), rolando por
+       dentro se não couberem; presa em cima do teclado, para cima dela, como os menus */
+    .gaveta {
+      position: absolute;
+      z-index: 30;
+      top: calc(100% + 4px);
+      left: 6px;
+      right: 6px;
+    }
+    .gaveta > .painel {
+      margin: 0;
+      /* (os 48px: o respiro do pé, o scroll-padding do lugar que rola; passando dele, abrir rolaria o texto.
+         Os 10rem: na janela bem baixa, ele nunca some, e rola por dentro) */
+      max-height: max(10rem, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    /* a lista da Ajuda chega num pedaço à parte: já na altura dela, para abrir à vista */
+    .gaveta > .guia {
+      height: max(10rem, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px));
+    }
+    .regua.presa .gaveta {
+      top: auto;
+      bottom: calc(100% + 6px);
+    }
+    .regua.presa .gaveta > .painel {
+      max-height: calc(var(--vv-h, 100dvh) - 96px);
+    }
+    /* a tirinha do widget (no Markdown) e a lista do "[[": embaixo da linha do cursor, por cima do texto de
+       baixo; sem lugar, em cima dela (ver placeAtCaret) */
+    .papel > .ancorada {
+      position: absolute;
+      z-index: 5;
+      left: 6px;
+      right: 6px;
+      max-width: 34rem;
+      margin: 0;
+    }
+    .ancorada.sobe {
+      transform: translateY(-100%);
+    }
+    /* sem o field-sizing, quem mede a folha é o constructor, só quando o texto muda: a rolagem fica, para a
+       janela que estreitou não esconder as últimas linhas */
+    :host(.cresce) > .papel > textarea:not(.grande) {
+      max-height: none;
+      resize: none;
+    }
+    @supports (field-sizing: content) {
+      :host(.cresce) > .papel > textarea:not(.grande) {
+        overflow: hidden;
+      }
+    }
+    :host(.cresce) .visual-chegando:not(.grande) {
+      max-height: none;
+      overflow: visible;
     }
 
     /* ===== O alto da folha, como nos editores de sempre: as abas "Visual" e "Markdown" à
@@ -1481,7 +1655,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       display: none;
     }
 
-    /* ===== Os painéis da régua (link, tabela, guia): uma tira de fichário embaixo da folha ===== */
+    /* ===== Os painéis da régua (link, tabela, guia): uma tira de fichário embaixo da folha, ou pendurada na
+       régua (ver .gaveta) ===== */
     .painel {
       margin-top: 8px;
       padding: 10px 12px 12px;
@@ -2050,7 +2225,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       overflow-y: auto;
       overscroll-behavior: contain;
     }
-    /* ===== A lista do link: uma tira de fichário presa embaixo da folha ===== */
+    /* ===== A lista do link: uma tira de fichário embaixo da folha, ou junto do cursor (ver .ancorada) ===== */
     .elos {
       margin-top: 8px;
       padding: 8px;
@@ -2387,9 +2562,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       min-height: 5rem;
     }
 
-    /* ===== Enchendo o lugar (ver \`fill\`): a folha vai até embaixo, sem alça de esticar, e não passa do
-       que o pai deixa à vista (--folha-max): o texto comprido rola dentro dela, e a régua fica sempre no
-       alto (pedido do usuário). Sem o --folha-max (o celular), ela cresce com o texto ===== */
+    /* ===== Enchendo o lugar (ver \`fill\`): a folha vai até embaixo mesmo com pouco texto, e cresce com ele
+       (com \`grows\`, sem teto) ===== */
     :host(.encher) {
       display: flex;
       flex-direction: column;
@@ -2398,23 +2572,17 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       display: flex;
       flex: 1 0 auto;
       flex-direction: column;
-      max-height: var(--folha-max, none);
     }
     :host(.encher) > .papel > textarea:not(.grande) {
-      flex: 1 1 auto;
+      flex: 1 0 auto;
       min-height: calc(var(--line) * 6 + 8px);
-      max-height: none;
-      resize: none;
     }
-    /* o Visual: quem rola é a folha dele (.ProseMirror, ver visual-editor.scss), com as seis linhas de piso */
-    :host(.encher) > .papel > .visual:not(.grande),
-    :host(.encher) > .papel > .visual:not(.grande) > app-visual-editor {
-      flex: 1 1 auto;
-      min-height: 0;
+    /* o Visual, com as seis linhas de piso (ver visual-editor.scss) */
+    :host(.encher) > .papel > .visual:not(.grande) {
+      flex: 1 0 auto;
     }
     :host(.encher) .visual-chegando:not(.grande) {
-      flex: 1 1 auto;
-      max-height: none;
+      flex: 1 0 auto;
     }
   `,
 })
@@ -2463,10 +2631,17 @@ export class RichEditor {
   readonly dock = input(false);
   /**
    * A folha enche o lugar que o pai der (o pai em coluna, com altura): a anotação, que é quase só o
-   * texto, vai até o pé da página. Cresce com o texto até o \`--folha-max\` que o pai der; passou, o texto
-   * rola dentro dela, com a régua sempre à vista no alto (sem ele, quem rola é a página).
+   * texto, vai até o pé da página, mesmo com pouco texto. Junto com `grows`.
    */
   readonly fill = input(false);
+  /**
+   * A folha cresce com o texto, sem teto, e quem rola é o lugar onde ela mora (o editor da ficha, com
+   * `--conteudo-h`, a altura à vista dele): nunca uma rolagem dentro de outra. O alto da folha e a régua
+   * ficam presos em cima dela, os painéis da régua penduram nela, e o que vem do cursor abre junto dele,
+   * porque o fim da folha pode estar muito longe. Sem ele (o comentário, o perfil), a folha tem o teto de
+   * sempre, e tudo fica embaixo dela. A tela cheia tem a medida dela, com ou sem ele.
+   */
+  readonly grows = input(false);
   /**
    * O menu "Templates" na régua (os textos guardados, para pôr no cursor ou copiar): no editor da ficha
    * (a anotação e a resenha); o comentário e o perfil ficam sem ele.
@@ -2484,6 +2659,59 @@ export class RichEditor {
     effect(() => {
       if (this.visual() && this.areaFrozen() === null) this.areaFrozen.set(untracked(this.value));
     });
+    // o navegador sem o field-sizing não mede a folha do Markdown: a medida vem daqui
+    if (typeof CSS !== 'undefined' && !CSS.supports('field-sizing', 'content')) {
+      afterRenderEffect(() => {
+        this.value();
+        if (!this.grows() || this.visual()) return;
+        const area = this.areaOf(false);
+        if (!area) return;
+        area.style.height = 'auto';
+        area.style.height = `${area.scrollHeight}px`;
+      });
+    }
+  }
+
+  /** Onde a tirinha do widget (no Markdown) e a lista do "[[" abrem na folha que cresce: ver `placeAtCaret`. */
+  protected readonly spot = signal<{ top: number; up: boolean } | null>(null);
+
+  /**
+   * Põe a tirinha ou a lista junto do cursor: logo embaixo do trecho (`range`, a linha do widget, que pode
+   * quebrar em várias, ou a tabela dele; sem ele, a linha do cursor); sem lugar até o pé do que rola (e com
+   * mais lugar em cima), logo em cima dele. O trecho maior que a tela, com as duas pontas fora dela: embaixo
+   * da linha do cursor. `need` é a altura aproximada do que vai abrir.
+   */
+  private placeAtCaret(big: boolean, need: number, range?: readonly [number, number]): void {
+    if (big || !this.grows()) return;
+    const paper = this.host.nativeElement.querySelector<HTMLElement>(':scope > .papel');
+    const caret = this.visual() ? this.visualOf(false)?.cursorNaTela() : this.markdownLines();
+    if (!paper || !caret) return;
+    const lines = (range && this.markdownLines(range)) || caret;
+    const scroller = scrollerOf(paper);
+    const view = scroller?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+    const toolbar = parseFloat(getComputedStyle(paper).getPropertyValue('--topo-h')) || 0;
+    const roof = view.top + toolbar;
+    const below = view.bottom - lines.bottom;
+    const above = lines.top - roof;
+    const y = paper.getBoundingClientRect().top;
+    if (below >= need || above <= 0) {
+      // embaixo do trecho, se ele acaba à vista; senão, da linha do cursor
+      const under = below >= 0 && lines.bottom >= roof ? lines.bottom : caret.bottom;
+      this.spot.set({ top: Math.round(under - y + 4), up: false });
+    } else if (above > below) {
+      this.spot.set({ top: Math.round(lines.top - y - 4), up: true });
+    } else {
+      this.spot.set({ top: Math.round(lines.bottom - y + 4), up: false });
+    }
+  }
+
+  /** As linhas da folha do Markdown entre as duas posições do texto (sem elas, a linha do cursor), na tela. */
+  private markdownLines(range?: readonly [number, number]): { top: number; bottom: number } | null {
+    const area = this.areaOf(false);
+    if (!area) return null;
+    const [from, to] = range ?? [area.selectionStart, area.selectionStart];
+    const box = area.getBoundingClientRect();
+    return { top: box.top + caretBox(area, from).top, bottom: box.top + caretBox(area, to).bottom };
   }
 
   protected readonly PlusIcon = ICON.adicionar;
@@ -2669,7 +2897,19 @@ export class RichEditor {
 
   /** O painel que acabou de abrir entra na tela (no celular, a régua pode já ter saído dela). */
   private showPanel(selector: string): void {
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>(selector)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+    setTimeout(() => this.reveal(this.host.nativeElement.querySelector<HTMLElement>(selector)));
+  }
+
+  /**
+   * Leva à vista o que abriu, só se faltar: o que pendura na régua parada já está à vista, e o
+   * `scroll-padding` do lugar que rola faria o texto andar por nada (ele anda, e o painel fica onde está).
+   */
+  private reveal(el: HTMLElement | null | undefined): void {
+    if (!el) return;
+    const view = scrollerOf(el)?.getBoundingClientRect();
+    const box = el.getBoundingClientRect();
+    if (view && box.top >= view.top && box.bottom <= view.bottom) return;
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   // ===== Os menus: "Formatar" e "Inserir" =====
@@ -2748,7 +2988,7 @@ export class RichEditor {
       if (name !== 'codigo') (first ? this.menuItems()[0] : menu)?.focus({ preventScroll: true });
       // o menu inteiro na tela (embaixo da folha, ele pode cair atrás do pé do editor); preso em cima
       // do teclado, ele já abre para cima, à vista
-      if (this.docked() === null) menu?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (this.docked() === null) this.reveal(menu);
     });
   }
 
@@ -3273,7 +3513,7 @@ export class RichEditor {
 
   /** A Ajuda aberta (em qual das folhas), ou null. */
   protected readonly guide = signal<boolean | null>(null);
-  /** "Ajuda" (ou Ctrl+/): abre a lista de todas as marcas embaixo da folha; de novo, fecha. */
+  /** "Ajuda" (ou Ctrl+/): abre a lista de todas as marcas (pendurada na régua, ou embaixo da folha); de novo, fecha. */
   protected toggleGuide(big: boolean): void {
     const open = this.guide() === big;
     this.closePanels();
@@ -3539,11 +3779,11 @@ export class RichEditor {
 
   /** As teclas que a folha do Visual deixa passar: a Ajuda, e as do que ele ainda não sabe fazer. */
   protected onVisualKey(e: KeyboardEvent, big: boolean): void {
-    const field = (e.target as Element | null)?.closest?.('input.campo-peca');
-    // o Tab com o widget selecionado (ou do campo da legenda dele): a tirinha, com o Editar e o Tirar
-    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.defaultPrevented && this.visualState().peca && this.widgetPick()) {
-      const edit = this.host.nativeElement.querySelectorAll<HTMLElement>('.widget-tira-editar');
-      const button = Array.from(edit).find((b) => !!b.closest('.tela-cheia') === big);
+    const target = e.target as Element | null;
+    const field = target?.closest?.('input.campo-peca');
+    // o Tab com o widget selecionado (ou do campo da legenda dele): o Editar da peça, e dele o Tirar
+    if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey && !e.defaultPrevented && !target?.closest?.('.vis-controles') && this.visualState().peca) {
+      const button = this.visualOf(big)?.host.querySelector<HTMLElement>('.vis-peca.ProseMirror-selectednode .vis-peca-editar');
       if (button) {
         e.preventDefault();
         button.focus();
@@ -3554,10 +3794,12 @@ export class RichEditor {
     if (field) return;
     // a lista do "[[" aberta: as setas, o Enter, o Tab e o Esc são dela (o Visual os deixou passar)
     if (this.linking()?.auto && this.onListKey(e)) return;
-    // o painel aberto pelo clique num link (com o cursor ainda na folha): o Esc fecha só ele
+    // o painel aberto pelo clique num link (com o cursor ainda na folha): o Esc fecha só ele; a peça
+    // selecionada: o Esc a solta, com o cursor logo depois dela (e os botões dela somem)
     if (e.key === 'Escape' && this.passive && this.panelRange()) {
       e.preventDefault();
       e.stopPropagation();
+      if (this.visualState().peca) this.visualOf(big)?.soltaPeca();
       this.closePanels();
       return;
     }
@@ -3603,6 +3845,7 @@ export class RichEditor {
     }
     if (!k || k.start !== c.de) this.active.set(0);
     this.linking.set({ auto: true, big, start: c.de, end: c.de + 2 + c.busca.length, query: c.busca });
+    this.placeAtCaret(big, LIST_ROOM);
   }
 
   /**
@@ -3687,8 +3930,9 @@ export class RichEditor {
   }
 
   /**
-   * O widget selecionado no Visual: a tirinha passiva dele (como o toque na linha do widget no Markdown);
-   * a seleção saiu dele, ela fecha. Com a folha do widget aberta, nada muda (ela é dele).
+   * O widget selecionado no Visual: fica guardado para os botões dele (ver `editPiece`), como o toque na
+   * linha do widget no Markdown; a seleção saiu dele, ele sai. Com a folha do widget aberta, nada muda (ela
+   * é dele).
    */
   private showVisualPiece(est: EstadoVisual, big: boolean): void {
     if (this.widgetSheet()) return;
@@ -3716,6 +3960,9 @@ export class RichEditor {
   protected blurSheet(area: HTMLTextAreaElement, big: boolean): void {
     if (this.visual()) this.visualOf(big)?.blur();
     else area.blur();
+    // (no campo de um painel pendurado na régua, é ele que está com o teclado)
+    const inPanel = (document.activeElement as HTMLElement | null)?.closest?.('.gaveta');
+    if (inPanel) (document.activeElement as HTMLElement).blur();
   }
 
   /** A folha pequena recebe o foco (o "Falta…" do editor, o rótulo clicado), no jeito que está à mostra. */
@@ -3900,6 +4147,7 @@ export class RichEditor {
     }
     if (!k || k.start !== m.index) this.active.set(0);
     this.linking.set({ auto: true, big, start: m.index, end: at, query: m[1] });
+    this.placeAtCaret(big, LIST_ROOM);
   }
 
   protected onKeyUp(e: KeyboardEvent, area: HTMLTextAreaElement, big: boolean): void {
@@ -4791,17 +5039,37 @@ export class RichEditor {
     if (openSheet) this.widgetSheet.set(true);
     else {
       this.passive = true;
-      this.showPanel('.widget-tira');
+      const picked = this.widgetPick();
+      this.placeAtCaret(big, STRIP_ROOM, picked ? [picked.start, picked.end] : undefined);
+      // (na folha que cresce, ela já abre à vista, junto do cursor)
+      if (!this.grows() || big) this.showPanel('.widget-tira');
     }
   }
 
-  /** O Editar da tirinha: a folha abre com o widget tocado. */
+  /** O Editar da tirinha (ou o da peça, no Visual): a folha abre com o widget tocado. */
   protected openWidgetSheet(): void {
+    const w = this.widgetPick();
+    // (sem widget, a folha não apareceria, e ficar marcada aberta travaria os toques seguintes)
+    if (!w) return;
     this.passive = false;
     // no Visual, a folha troca o widget selecionado (o Visual guarda qual é)
-    const w = this.widgetPick();
-    if (this.visual() && w) this.visualOf(w.big)?.lugarDaPeca();
+    if (this.visual()) this.visualOf(w.big)?.lugarDaPeca();
     this.widgetSheet.set(true);
+  }
+
+  /**
+   * O Editar e o Tirar colados na peça do Visual. O que está selecionado é ela: o `widgetPick` pode ter
+   * caído sem a seleção mudar (a folha fechada sem mudar nada, uma escolha de aparência), e o Visual não
+   * conta de novo um estado igual.
+   */
+  protected editPiece(big: boolean): void {
+    this.showVisualPiece(this.visualState(), big);
+    this.openWidgetSheet();
+  }
+
+  protected removePiece(area: HTMLTextAreaElement, big: boolean): void {
+    this.showVisualPiece(this.visualState(), big);
+    this.removeWidget(area);
   }
 
   /**
@@ -4875,7 +5143,7 @@ export class RichEditor {
     this.passive = false;
     const api = w && this.visual() ? this.visualOf(w.big) : null;
     if (api) {
-      // o Tirar da tirinha no Visual: a peça selecionada sai (o Ctrl+Z volta)
+      // o Tirar da peça no Visual: ela sai (o Ctrl+Z volta)
       api.lugarDaPeca();
       api.tiraPeca();
       return;
@@ -4960,13 +5228,6 @@ export class RichEditor {
     e?.preventDefault();
     e?.stopPropagation();
     const w = this.widgetPick();
-    const api = w && this.visual() ? this.visualOf(w.big) : null;
-    if (api) {
-      // o Esc na tirinha: de volta à folha, com a peça selecionada (a tirinha continua com ela)
-      api.lugarDaPeca();
-      api.voltaAPeca();
-      return;
-    }
     this.widgetPick.set(null);
     area.focus();
     if (w) area.setSelectionRange(w.start, w.end);

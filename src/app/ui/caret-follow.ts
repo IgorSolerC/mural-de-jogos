@@ -15,6 +15,43 @@ export function caretSpot(text: string, at: number): { line: number; frac: numbe
   return { line, frac: end > start ? (at - start) / (end - start) : 0 };
 }
 
+/** O que quebra as linhas de uma <textarea>: o que a cópia dela (ver `caretBox`) precisa ter igual. */
+const AREA_STYLE = ['boxSizing', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderStyle', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariantLigatures', 'fontFeatureSettings', 'letterSpacing', 'wordSpacing', 'lineHeight', 'textIndent', 'textTransform', 'tabSize'] as const;
+
+/**
+ * A linha do cursor na posição `at` de uma <textarea> (de cima a baixo, a partir do topo dela). A
+ * <textarea> não conta onde as linhas quebraram: uma cópia dela, invisível, com a mesma largura e a mesma
+ * letra, conta (com o resto da linha do cursor, que pode levar a palavra dele para a linha de baixo).
+ */
+export function caretBox(area: HTMLTextAreaElement, at: number): { top: number; bottom: number } {
+  const copy = document.createElement('div');
+  const css = getComputedStyle(area);
+  for (const p of AREA_STYLE) copy.style[p] = css[p];
+  Object.assign(copy.style, { position: 'absolute', top: '0', left: '0', visibility: 'hidden', width: `${area.offsetWidth}px`, whiteSpace: 'pre-wrap', overflowWrap: 'break-word' });
+  const text = area.value;
+  const lineEnd = text.indexOf('\n', at);
+  const mark = document.createElement('span');
+  // (sem largura e sem abrir uma quebra de linha: a palavra do cursor quebra como na <textarea>)
+  mark.textContent = '⁠';
+  copy.append(text.slice(0, at), mark, text.slice(at, lineEnd < 0 ? text.length : lineEnd));
+  (area.parentElement ?? document.body).append(copy);
+  const box = copy.getBoundingClientRect();
+  const line = mark.getBoundingClientRect();
+  copy.remove();
+  // (a caixa do marcador é a da letra, mais baixa que a linha: a linha inteira, em volta do meio dela)
+  const middle = (line.top + line.bottom) / 2 - box.top - area.scrollTop;
+  const half = (parseFloat(css.lineHeight) || line.height) / 2;
+  return { top: middle - half, bottom: middle + half };
+}
+
+/** O lugar que rola em volta de `el` (null: a página). */
+export function scrollerOf(el: Element): HTMLElement | null {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(p).overflowY)) return p;
+  }
+  return null;
+}
+
 /**
  * O pedaço desenhado da linha `line`: o de maior número até ela (as linhas que não aparecem, como as
  * tarefas feitas recolhidas ou o meio de um bloco de código, caem no pedaço de antes), e quantas

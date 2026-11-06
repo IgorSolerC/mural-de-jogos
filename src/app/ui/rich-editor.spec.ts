@@ -556,25 +556,20 @@ describe('a régua de formatação do texto', () => {
       expect(hiddenAt.every((n, i) => i === 0 || n >= hiddenAt[i - 1])).toBeTrue();
     });
 
-    it('enchendo, a folha não passa do --folha-max que o pai dá: o texto comprido rola dentro dela, e a régua fica no alto', async () => {
+    it('enchendo com `grows`, a folha cresce com o texto, sem rolar por dentro e sem alça de esticar', async () => {
       fixture.componentRef.setInput('fill', true);
+      fixture.componentRef.setInput('grows', true);
       const host = fixture.nativeElement as HTMLElement;
-      host.style.setProperty('--folha-max', '260px');
       host.style.width = '700px';
       write(Array.from({ length: 60 }, (_, i) => `Linha ${i + 1}`).join('\n') + '|');
       area.dispatchEvent(new Event('input', { bubbles: true }));
       fixture.detectChanges();
       await new Promise((r) => requestAnimationFrame(r));
       const papel = host.querySelector('.papel') as HTMLElement;
-      expect(papel.getBoundingClientRect().height).toBeLessThanOrEqual(261);
-      expect(area.scrollHeight).toBeGreaterThan(area.clientHeight);
-      // a régua no alto da folha, e a folha não passa dela (nada vaza por cima do contador)
-      expect((host.querySelector('.regua') as HTMLElement).getBoundingClientRect().top).toBeCloseTo(papel.getBoundingClientRect().top, -1);
-      expect(area.getBoundingClientRect().bottom).toBeLessThanOrEqual(papel.getBoundingClientRect().bottom + 1);
-      // sem o --folha-max (o celular), ela cresce com o texto
-      host.style.removeProperty('--folha-max');
-      await new Promise((r) => requestAnimationFrame(r));
       expect(papel.getBoundingClientRect().height).toBeGreaterThan(600);
+      expect(area.scrollHeight).toBeLessThanOrEqual(area.clientHeight + 1);
+      expect(getComputedStyle(area).resize).toBe('none');
+      expect((host.querySelector('.regua') as HTMLElement).getBoundingClientRect().top).toBeCloseTo(papel.getBoundingClientRect().top, 0);
     });
 
     it('o texto sutil pelo botão ao lado do negrito: em volta da seleção, afundado dentro dele, e de novo tira', () => {

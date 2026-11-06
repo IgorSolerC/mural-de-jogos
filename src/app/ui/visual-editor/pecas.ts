@@ -6,17 +6,17 @@ import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-vie
 import { NoteLinks } from '../../core/note-links';
 import { bodyIndent, indentOf } from '../../core/rich-text';
 import { imageFileOf } from '../../core/images';
-import { WIDGET_SIZES, WidgetSize, widgetCycles, widgetSized, widgetSpoken, withChoice, withInlineText } from '../../core/widgets';
+import { WIDGET_SIZES, WidgetSize, widgetCycles, widgetDef, widgetSized, widgetSpoken, withChoice, withInlineText } from '../../core/widgets';
 import { ICON } from '../icons';
 import { NoteWidget } from '../note-widget';
-import { ciclo, passos } from './controles';
+import { acao, ciclo, etiqueta, passos } from './controles';
 import { mapaDe } from './listas';
 import { schema } from './schema';
 
 /**
  * Os widgets no Visual (PLANO-EDITOR-VISUAL.md, 5.13, e a rodada 5): o widget é uma peça viva dentro da
  * folha, o mesmo `app-note-widget` da leitura, criado à mão dentro do ProseMirror. Um toque o seleciona
- * inteiro (é um átomo); a régua do editor mostra a tirinha de sempre (o nome, o resumo, Tirar e Editar),
+ * inteiro (é um átomo), com os botões dele colados nele (Editar, a aparência e Tirar),
  * e a folha do widget (ui/widget-sheet.ts) põe e troca. A legenda da imagem e do vídeo, o título do
  * contador e o da faixa se escrevem direto na peça selecionada (`WidgetField.inline` no registro): o
  * componente troca o texto por um campo com a mesma letra, no mesmo lugar, que o ProseMirror não toca.
@@ -38,6 +38,10 @@ export interface ContextoPeca {
   appRef: ApplicationRef;
   injector: EnvironmentInjector;
   links: () => NoteLinks | null;
+  /** O Editar da peça selecionada (a folha do widget abre). */
+  edita: () => void;
+  /** O Tirar da peça selecionada. */
+  tira: () => void;
 }
 
 /** Os controles de dentro da peça: o toque é deles (tocar o vídeo, o som, ampliar), não seleciona a peça. */
@@ -59,10 +63,11 @@ function campoDe(e: Event): HTMLInputElement | null {
  * fecharia ali), com um aviso miúdo embaixo da peça enquanto se escreve.
  *
  * Selecionada, embaixo da linha de recorte, por cima do texto de baixo (nada muda de lugar), os botões
- * dela (ver controles.ts): o − e o + do tamanho, com o nome dele no meio (só no widget que tem tamanho),
- * e um botão para cada escolha de aparência que anda a cada toque (o jeito, a moldura, como a nota
- * começa: os campos da parte "Aparência" da folha do widget). Cada toque é uma mudança no histórico, e
- * a peça continua selecionada.
+ * dela (ver controles.ts): o Editar (a folha do widget), o − e o + do tamanho, com o nome dele no meio (só
+ * no widget que tem tamanho), um botão para cada escolha de aparência que anda a cada toque (o jeito, a
+ * moldura, como a nota começa: os campos da parte "Aparência" da folha do widget) e o Tirar. Cada toque na
+ * aparência é uma mudança no histórico, e a peça continua selecionada. Na peça mais alta que a tela, eles
+ * grudam no pé do que se vê (`.vis-peca-lugar`).
  */
 export class WidgetView implements NodeView {
   readonly dom: HTMLElement;
@@ -107,8 +112,18 @@ export class WidgetView implements NodeView {
     this.controles.className = 'vis-controles vis-peca-controles';
     this.controles.contentEditable = 'false';
     this.controles.setAttribute('role', 'toolbar');
-    this.controles.setAttribute('aria-label', 'Tamanho e jeito do widget');
-    this.dom.append(host, this.aviso, this.controles);
+    this.controles.setAttribute('aria-label', 'Botões do widget');
+    // o Esc ou o Shift+Tab num botão: de volta à folha, com a peça selecionada
+    this.controles.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' && !(e.key === 'Tab' && e.shiftKey && e.target === this.controles.firstElementChild)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.view.focus();
+    });
+    const lugar = document.createElement('div');
+    lugar.className = 'vis-peca-lugar';
+    lugar.append(this.controles);
+    this.dom.append(host, this.aviso, lugar);
     this.dom.addEventListener('focusin', (e) => {
       const c = campoDe(e);
       if (!c) return;
@@ -152,7 +167,7 @@ export class WidgetView implements NodeView {
         this.aviso.hidden = true;
         this.view.focus();
       } else if (e.key === 'Tab' && e.shiftKey) {
-        // de volta para a folha, com a peça selecionada (o Tab, o editor leva à tirinha)
+        // de volta para a folha, com a peça selecionada (o Tab, o editor leva ao Editar)
         e.preventDefault();
         this.view.focus();
       }
@@ -170,8 +185,9 @@ export class WidgetView implements NodeView {
   }
 
   /**
-   * O tamanho e as escolhas de aparência que o widget tem agora (sem nenhum, a fileira não aparece). Só
-   * na peça selecionada: as outras não mostram os botões.
+   * O Editar, o tamanho e as escolhas de aparência que o widget tem agora, e o Tirar (o widget que o site
+   * não conhece não tem folha para editar: sem nada, a fileira não aparece). Só na peça selecionada: as
+   * outras não mostram os botões.
    */
   private desenhaControles(): void {
     if (!this.selecionada) return;
@@ -204,8 +220,16 @@ export class WidgetView implements NodeView {
         }),
       ),
     );
-    this.controles.replaceChildren(...botoes);
-    this.controles.hidden = !botoes.length;
+    const conhecido = !!widgetDef(nome);
+    const pontas = conhecido
+      ? {
+          editar: acao({ nome: 'Editar', icone: ICON.editar, giro: '-0.8deg', classe: 'vis-peca-editar', aperta: () => this.ctx.edita() }),
+          tirar: Object.assign(etiqueta({ nome: 'Tirar', icone: ICON.apagar, perigo: true, giro: '1deg', aperta: () => this.ctx.tira() }), { tabIndex: 0 }),
+        }
+      : null;
+    pontas?.tirar.classList.add('vis-peca-tirar');
+    this.controles.replaceChildren(...(pontas ? [pontas.editar] : []), ...botoes, ...(pontas ? [pontas.tirar] : []));
+    this.controles.hidden = !conhecido && !botoes.length;
   }
 
   /** A peça com o tamanho (ou os parâmetros) trocado, numa mudança do histórico; ela continua selecionada. */
@@ -259,12 +283,9 @@ export class WidgetView implements NodeView {
     this.poeEditavel(true);
     this.desenhaControles();
     this.mede();
-    // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho),
-    // e os botões embaixo dela entram na parte da folha que se vê
+    // de novo depois que a legenda virou campo (o tamanho dela pode mudar sem o widget mudar de tamanho)
     requestAnimationFrame(() => {
-      if (!this.selecionada) return;
-      this.mede();
-      this.mostraControles();
+      if (this.selecionada) this.mede();
     });
     if (!this.medida && typeof ResizeObserver !== 'undefined') {
       // o widget e a folha (a folha mais estreita prende a linha mais para dentro, mesmo sem o widget mudar)
@@ -280,19 +301,6 @@ export class WidgetView implements NodeView {
     if (!this.escrevendo) this.poeEditavel(false);
     this.medida?.disconnect();
     this.medida = null;
-  }
-
-  /**
-   * Os botões ficam embaixo da peça, por cima do texto: na peça do pé da folha que rola, eles cairiam
-   * fora do que se vê (o ProseMirror só rola até a peça). A folha desce o que falta, sem passar a peça.
-   */
-  private mostraControles(): void {
-    const folha = this.view.dom;
-    if (this.controles.hidden || folha.scrollHeight <= folha.clientHeight) return;
-    const fim = folha.getBoundingClientRect().top + folha.clientTop + folha.clientHeight;
-    const falta = this.controles.getBoundingClientRect().bottom + 4 - fim;
-    const sobra = this.dom.getBoundingClientRect().top - folha.getBoundingClientRect().top - folha.clientTop;
-    if (falta > 0) folha.scrollTop += Math.min(falta, Math.max(0, sobra));
   }
 
   /** A linha de recorte da seleção (ver visual-editor.scss) em volta do que o widget desenha, dentro da folha. */

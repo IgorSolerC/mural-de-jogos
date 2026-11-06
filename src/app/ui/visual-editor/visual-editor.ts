@@ -242,7 +242,7 @@ class CruView implements NodeView {
   selector: 'app-visual-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
-  host: { class: 'vis-folha', '[class.vis-grande]': 'grande()', '[class.vis-encher]': 'encher()' },
+  host: { class: 'vis-folha', '[class.vis-grande]': 'grande()', '[class.vis-encher]': 'encher()', '[class.vis-cresce]': 'cresce()' },
   template: '',
   styleUrls: ['./visual-editor.scss', './pecas.scss', './cartoes.scss', './controles.scss'],
 })
@@ -254,6 +254,8 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly grande = input(false);
   /** A folha enche o lugar que o pai der (a anotação), como a do Markdown. */
   readonly encher = input(false);
+  /** A folha cresce com o texto, sem teto: quem rola é o lugar onde ela mora (ver o `grows` do RichEditor). */
+  readonly cresce = input(false);
   readonly placeholder = input('');
   /** O nome da folha para o leitor de tela. */
   readonly rotulo = input('');
@@ -286,6 +288,10 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
   readonly imagem = output<ImagemVisual>();
   /** O botão da linguagem de um bloco de código: a régua abre o menu "Código", com o campo da linguagem. */
   readonly pedeLingua = output<void>();
+  /** O Editar da peça selecionada: a folha do widget abre. */
+  readonly pedeEditarPeca = output<void>();
+  /** O Tirar da peça selecionada: ela sai (o Ctrl+Z volta). */
+  readonly pedeTirarPeca = output<void>();
   /** Onde está o cursor (a ponta da seleção que anda), no texto guardado: a prévia da ficha vai até ele. */
   readonly cursor = output<number>();
 
@@ -370,6 +376,25 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return lembrete ? untracked(() => lembrete(id)) : undefined;
   }
 
+  /**
+   * O quanto o cursor fica longe das bordas do que rola. O alto muda com o que está preso em cima da folha
+   * (--topo-h, ver o RichEditor): `aplica` confere uma vez a cada mudança que leva o cursor à vista.
+   */
+  private readonly margem = { top: 24, bottom: 120, left: 8, right: 8 };
+
+  soltaPeca(): void {
+    const v = this.view;
+    if (!v || !(v.state.selection instanceof NodeSelection)) return;
+    v.dispatch(v.state.tr.setSelection(Selection.near(v.state.doc.resolve(v.state.selection.to), 1)));
+  }
+
+  cursorNaTela(): { top: number; bottom: number } | null {
+    const v = this.view;
+    if (!v) return null;
+    const { top, bottom } = v.coordsAtPos(v.state.selection.head);
+    return { top, bottom };
+  }
+
   ngOnInit(): void {
     const texto = this.texto();
     this.view = new EditorView(this.host, {
@@ -380,7 +405,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
         cartaoTopo: (node, view, getPos) => new CartaoView(node, view, getPos),
         blocoCodigo: (node, view) => new CodigoView(node, view, { pedeLingua: () => this.pedeLingua.emit(), copia: (texto) => void this.copiaCodigo(texto), temaPadrao: () => this.settings.notesConfig().codeTheme }),
         tabela: (node) => new TabelaView(node),
-        widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
+        widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links(), edita: () => this.pedeEditarPeca.emit(), tira: () => this.pedeTirarPeca.emit() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
             appRef: this.appRef,
@@ -406,9 +431,10 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
           lang: 'pt-BR',
         };
       },
-      // o cursor nunca atrás da régua presa em cima do teclado (no celular: 54px da régua e uma linha)
-      scrollMargin: { top: 24, bottom: 120, left: 8, right: 8 },
-      scrollThreshold: { top: 24, bottom: 120, left: 8, right: 8 },
+      // o cursor nunca atrás da régua presa em cima do teclado (no celular: 54px da régua e uma linha), nem
+      // do alto da folha e da régua presos em cima dela (--topo-h, ver o RichEditor)
+      scrollMargin: this.margem,
+      scrollThreshold: this.margem,
       // na célula da tabela, as células de uma planilha se espalham; as linhas se juntam com espaço. Fora
       // dela, a planilha (com tab, em várias linhas) vira uma tabela nova; o resto é lido como markdown
       clipboardTextParser: (text, $ctx, plain) => sliceNaCelula(text, plain, $ctx) ?? sliceDaPlanilha(text, plain) ?? sliceDoTexto(text, plain),
@@ -987,6 +1013,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     if (!v) return;
     const antes = v.state;
     const { state, transactions } = antes.applyTransaction(tr);
+    if (tr.scrolledIntoView) this.margem.top = 24 + (parseFloat(getComputedStyle(this.host).getPropertyValue('--topo-h')) || 0);
     v.updateState(state);
     // o trecho do pedido de link anda com o texto (as transações dos plugins também)
     if (this.trecho && state.doc !== antes.doc)

@@ -145,13 +145,26 @@
 
 // ===== O widget selecionado =====
 
+// o lugar dos botões: por cima da peça, do alto dela até eles (nada muda de lugar na pauta). Dentro dele, os
+// botões grudam no pé do que rola: na peça mais alta que a tela, com o pé dela lá embaixo, continuam à vista
+.vis-folha .vis-peca-lugar {
+  position: absolute;
+  z-index: 3;
+  inset: 0 0 auto;
+  pointer-events: none;
+  &::before {
+    content: '';
+    display: block;
+    height: calc(var(--recorte-topo, 0px) + var(--recorte-alto, 3rem) - 6px);
+  }
+}
 // embaixo da linha de recorte, por cima do texto de baixo, só com a folha no foco: uma tirinha da cartela
 // colada sobre a linha, com as etiquetas nela (o texto de baixo não aparece entre os botões)
 .vis-folha .vis-peca-controles {
-  position: absolute;
-  z-index: 3;
-  left: calc(var(--recorte-esq, 0px) + 6px);
-  top: calc(var(--recorte-topo, 0px) + var(--recorte-alto, 100%) - 6px);
+  position: sticky;
+  bottom: 8px;
+  width: fit-content;
+  margin-left: calc(var(--recorte-esq, 0px) + 6px);
   max-width: var(--controles-max, calc(100% - 12px));
   display: none;
   flex-wrap: wrap;
@@ -173,8 +186,49 @@
     pointer-events: auto;
   }
 }
-.vis-folha:focus-within > .ProseMirror > .vis-peca.ProseMirror-selectednode > .vis-peca-controles:not([hidden]) {
+.vis-folha:focus-within > .ProseMirror > .vis-peca.ProseMirror-selectednode > .vis-peca-lugar > .vis-peca-controles:not([hidden]) {
   display: flex;
+}
+// o Editar e o Tirar: as ações da peça, nas duas pontas da cartela (o Editar com o nome, é a de toda hora).
+// Estes entram no Tab (ver o onVisualKey do RichEditor): sem eles, o teclado não teria como editar
+.vis-folha .vis-acao {
+  @include kit.botao-papel;
+  flex: none;
+  gap: 5px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0 8px 0 7px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  rotate: var(--giro, 0deg);
+  > svg {
+    flex: none;
+    width: 13px;
+    height: 13px;
+  }
+  &::after {
+    inset: 2px;
+    border-width: 1px;
+  }
+}
+.vis-folha .vis-peca-controles button:focus-visible {
+  outline: 2.5px solid var(--ink);
+  outline-offset: 2px;
+}
+.vis-folha .vis-peca-tirar {
+  margin-left: 4px;
+}
+@media (pointer: coarse) {
+  .vis-folha .vis-acao {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px 0 9px;
+  }
+  .vis-folha .vis-acao::before {
+    content: '';
+    position: absolute;
+    inset: -7px -4px;
+  }
 }
 @media (pointer: coarse) {
   .vis-folha .vis-peca-controles {

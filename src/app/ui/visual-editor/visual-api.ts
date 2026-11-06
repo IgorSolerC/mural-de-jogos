@@ -95,7 +95,7 @@ export interface EstadoVisual {
   colchetes: { de: number; busca: string } | null;
   /** Onde começa (no documento) o link em que o cursor está; null fora de um link. */
   link: number | null;
-  /** O widget selecionado (a peça inteira): a régua mostra a tirinha dele. */
+  /** O widget selecionado (a peça inteira): os botões dele moram nela (ver pecas.ts). */
   peca: PecaVisual | null;
   /** A tabela do cursor: a régua mostra o menu "Tabela". */
   tabela: EstadoTabela | null;
@@ -168,6 +168,10 @@ export interface VisualApi {
   poePeca(nome: string, args: readonly string[], tamanho: WidgetSize, corpo?: readonly string[]): void;
   /** Tira o widget guardado (ou o selecionado). */
   tiraPeca(): void;
+  /** Solta a peça selecionada: o cursor vai para logo depois dela (ou para o que houver mais perto). */
+  soltaPeca(): void;
+  /** A linha do cursor, na tela (a lista do "[[" abre junto dela). */
+  cursorNaTela(): { top: number; bottom: number } | null;
   /** A folha fechou sem mudar nada: o foco volta, com o widget selecionado (ou o cursor no lugar). */
   voltaAPeca(): void;
   /** A imagem guardada (`marca`, a do pedido `imagem`) entra no lugar dela, como o widget de imagem. */

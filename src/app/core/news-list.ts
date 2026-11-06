@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-cards-estudo-vazio',
+    id: '2026-11-06-folha-que-cresce',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
@@ -38,7 +38,8 @@ export const NEWS: NewsEntry[] = [
       'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
       'No bloco de código, as teclas agora são as de um editor de código, nos dois modos: Tab e Shift+Tab seguem o recuo que o bloco já usa, o Enter mantém o recuo, o Backspace volta uma parada, Alt+setas movem a linha, Shift+Alt+setas duplicam, Ctrl+Shift+K apaga e Ctrl+/ comenta.',
       'Swift e Dart entraram nas linguagens do bloco de código.',
-      'Na anotação comprida, o texto rola dentro da folha, e a régua de formatação fica sempre à vista no alto (no computador e no tablet; no celular ela continua presa em cima do teclado).',
+      'Na anotação e na análise, a folha do texto cresce com o que está escrito, com uma rolagem só, a da página. As abas Visual e Markdown, a Ajuda, a Tela cheia e a régua ficam presas no alto; os painéis de link e a Ajuda abrem pendurados na régua, e a lista do [[ abre junto do cursor (no celular, enquanto se escreve, a régua continua presa em cima do teclado).',
+      'Editar e Tirar um widget ficou perto dele, mesmo numa nota imensa: no modo Visual, os dois moram nos botões do próprio widget selecionado, que ficam à vista mesmo num widget mais alto que a tela; no Markdown, a tirinha abre logo embaixo da linha do widget.',
       'A régua do texto ganhou o botão do texto sutil, ao lado do negrito, e os links ficam só no Inserir. Sem lugar, os botões saem na ordem dos menos usados: tarefas e lista numerada, riscado, lista, sutil, itálico, marca-texto e, por último, negrito.',
       'Na ficha aberta, a letra e a pauta ficaram menores, para caber mais texto na tela de uma vez.',
       'A tela cheia ficou bem mais larga, com a letra e a pauta um pouco menores que as de antes e a faixa do nome mais fina: a folha ocupa quase toda a tela até o limite dela, e cabe muito mais texto em cada linha. O bloco de código, o card e a tabela larga aproveitam o espaço; as fotos, os vídeos e os áudios continuam do mesmo tamanho.',

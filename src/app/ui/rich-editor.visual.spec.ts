@@ -676,23 +676,81 @@ describe('o editor com o Visual', () => {
       fixture.detectChanges();
     };
     const ed = () => fixture.componentInstance as unknown as { onWidgetDone(d: unknown): void; onWidgetClosed(): void; widgetSheet(): boolean; widgetPick(): unknown };
+    /** Um botão colado na peça selecionada. */
+    const noPeca = (nome: 'Editar' | 'Tirar') => fixture.nativeElement.querySelector(`.vis-peca.ProseMirror-selectednode .vis-peca-controles button[aria-label="${nome}"]`) as HTMLButtonElement;
 
-    it('a peça selecionada mostra a tirinha (o nome e o resumo); o Tirar a tira, e a seleção fora dela a fecha', async () => {
+    it('os botões moram na peça selecionada, sem a tirinha do Markdown: o Tirar a tira (o Ctrl+Z volta)', async () => {
       await make('um\n{{contador: 25/12/2030 | Natal}}\ndois');
       peca();
       await settle();
-      const tira = fixture.nativeElement.querySelector('.widget-tira') as HTMLElement;
-      expect(tira).not.toBeNull();
-      expect(tira.querySelector('.widget-tira-nome')?.textContent).toBe('Contador');
-      expect(tira.querySelector('.widget-tira-resumo')?.textContent).toBe('Natal');
-      select(2);
-      await settle();
       expect(fixture.nativeElement.querySelector('.widget-tira')).toBeNull();
-      peca();
-      await settle();
-      botao('.widget-tira', 'Tirar').click();
+      noPeca('Tirar').click();
       await settle();
       expect(value()).toBe('um\ndois');
+      pm().focus();
+      pm().dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+      await settle();
+      expect(value()).toBe('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+    });
+
+    it('o Editar e o Tirar da peça valem mesmo depois de o widget guardado cair: a folha fechada sem mudar nada, uma escolha de aparência', async () => {
+      await make('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+      peca();
+      await settle();
+      noPeca('Editar').click();
+      await settle();
+      expect(ed().widgetSheet()).toBeTrue();
+      // fechou sem mudar nada: a peça continua selecionada, num estado igual ao de antes
+      ed().onWidgetClosed();
+      await settle();
+      expect(ed().widgetPick()).toBeNull();
+      noPeca('Editar').click();
+      await settle();
+      expect(ed().widgetSheet()).toBeTrue();
+      expect(ed().widgetPick()).not.toBeNull();
+      ed().onWidgetClosed();
+      await settle();
+      noPeca('Tirar').click();
+      await settle();
+      expect(value()).toBe('um\ndois');
+    });
+
+    it('o Esc solta a peça selecionada: o cursor fica depois dela, os botões somem, e o Esc não vai para o editor', async () => {
+      await make('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+      pm().focus();
+      peca();
+      await settle();
+      const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+      pm().dom.dispatchEvent(esc);
+      await settle();
+      expect(esc.defaultPrevented).toBeTrue();
+      expect(pm().state.selection instanceof TextSelection).toBeTrue();
+      expect(pm().state.selection.from).toBe(pm().state.doc.child(0).nodeSize + pm().state.doc.child(1).nodeSize + 1);
+      expect(fixture.nativeElement.querySelector('.vis-peca.ProseMirror-selectednode')).toBeNull();
+    });
+
+    it('do teclado: o Tab com a peça selecionada vai ao título dela, depois ao Editar, que segue para os outros, e o Esc volta à folha com a peça selecionada', async () => {
+      await make('um\n{{contador: 25/12/2030 | Natal}}\ndois');
+      pm().focus();
+      peca();
+      await settle();
+      const tab = () => {
+        const e = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+        (document.activeElement as HTMLElement).dispatchEvent(e);
+        return e;
+      };
+      expect(tab().defaultPrevented).toBeTrue();
+      expect((document.activeElement as HTMLElement).classList).toContain('campo-peca');
+      expect(tab().defaultPrevented).toBeTrue();
+      await settle();
+      expect(document.activeElement).toBe(noPeca('Editar'));
+      // do próprio Editar, o Tab é do navegador (ele não fica preso ali)
+      expect(tab().defaultPrevented).toBeFalse();
+      noPeca('Editar').dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await settle();
+      expect(pm().dom.contains(document.activeElement)).toBeTrue();
+      expect(pm().state.selection instanceof NodeSelection).toBeTrue();
+      expect(noPeca('Tirar').tabIndex).toBe(0);
     });
 
     it('o Inserir abre a folha; o widget só entra quando ela fecha (W4), no lugar do cursor guardado', async () => {
@@ -709,9 +767,9 @@ describe('o editor com o Visual', () => {
       ed().onWidgetClosed();
       await settle();
       expect(value()).toBe('um\n{{contador: 25/12/2030 | Natal}}\ndois');
-      // e o Editar da tirinha troca a mesma peça
+      // e o Editar da peça troca a mesma peça
       await settle();
-      botao('.widget-tira', 'Editar').click();
+      noPeca('Editar').click();
       await settle();
       expect(ed().widgetSheet()).toBeTrue();
       ed().onWidgetDone({ name: 'contador', args: ['25/12/2031', 'Ceia'], size: 'grande' });
