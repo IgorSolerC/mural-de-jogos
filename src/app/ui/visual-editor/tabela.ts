@@ -1,10 +1,11 @@
 import { GapCursor } from 'prosemirror-gapcursor';
-import { Fragment, Node as PMNode, ResolvedPos, Slice } from 'prosemirror-model';
+import { DOMSerializer, Fragment, Node as PMNode, ResolvedPos, Slice } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, Selection, TextSelection, Transaction } from 'prosemirror-state';
 import { CellSelection, TableMap, tableEditing } from 'prosemirror-tables';
-import { Decoration, DecorationSet, EditorView } from 'prosemirror-view';
+import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { parseInline } from '../../core/rich-text';
 import { Align, MAX_TABLE_COLS, MAX_TABLE_ROWS, TABLE_LOOKS, TableLook, pastedGrid } from '../../core/tables';
+import { unwatchBar, watchBar } from '../bar-on-ruling';
 import { ICON } from '../icons';
 import { ciclo, etiqueta } from './controles';
 import { linkarEndereco } from './links';
@@ -38,6 +39,45 @@ const TABELA = N['tabela'];
 const FILEIRA = N['fileira'];
 const CABECA = N['cabeca'];
 const CELULA = N['celula'];
+
+// ===== A tabela na tela =====
+
+/**
+ * O desenho do `toDOM` do esquema (o rolo, o papel, a `<table>`), mais a barra de rolar de lado da tabela
+ * larga: uma linha da pauta só dela (ver ui/bar-on-ruling.ts). A sobra vira a margem de baixo do rolo, e
+ * os atributos dele o ProseMirror não relê (ver `ignoreMutation`).
+ */
+export class TabelaView implements NodeView {
+  readonly dom: HTMLElement;
+  readonly contentDOM: HTMLElement;
+
+  constructor(private node: PMNode) {
+    const { dom, contentDOM } = DOMSerializer.renderSpec(document, TABELA.spec.toDOM!(node));
+    this.dom = dom as HTMLElement;
+    this.contentDOM = contentDOM as HTMLElement;
+    watchBar(this.dom, 'fora');
+  }
+
+  /** O jeito e o recuo mudam no mesmo rolo (ele não perde a posição de lado, nem as marcas da seleção). */
+  update(node: PMNode): boolean {
+    if (node.type !== this.node.type) return false;
+    const jeito = (n: PMNode) => `jeito-${n.attrs['jeito'] ?? 'branca'}`;
+    if (jeito(node) !== jeito(this.node)) this.dom.classList.replace(jeito(this.node), jeito(node));
+    const recuo: number = node.attrs['recuo'] ?? 0;
+    if (recuo) this.dom.style.setProperty('--recuo', String(recuo));
+    else this.dom.style.removeProperty('--recuo');
+    this.node = node;
+    return true;
+  }
+
+  ignoreMutation(m: MutationRecord | { type: 'selection'; target: Node }): boolean {
+    return m.type === 'attributes' && m.target === this.dom;
+  }
+
+  destroy(): void {
+    unwatchBar(this.dom);
+  }
+}
 
 // ===== Onde está o cursor =====
 

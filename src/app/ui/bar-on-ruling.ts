@@ -7,12 +7,16 @@ import { Directive, ElementRef, OnDestroy, afterNextRender, inject, input } from
  * (`--sobra-barra`), e a barra fica numa linha só dela. Sem barra (ou com a que flutua por cima, no
  * celular e no Mac), nada muda.
  *
- * Onde a sobra entra é de quem usa (ver ui/rich-text-codigo.scss e a tabela em ui/_formatado.scss):
- * - `dentro` (o código): no padding de baixo, e a barra fica no pé do papel;
+ * Onde a sobra entra é de quem usa (ver ui/rich-text-codigo.scss, a tabela em ui/_formatado.scss e o
+ * modo Visual em ui/visual-editor/):
+ * - `dentro` (o código da leitura): no padding de baixo de quem rola, e a barra fica no pé do papel;
  * - `fora` (a tabela, que tem margem negativa embaixo para a sombra do papel): na margem de baixo, que
  *   passa a ser `sobra - a margem do desenho`; a conta garante que a barra, no pé da caixa, nunca passa
- *   por cima da linha de baixo.
+ *   por cima da linha de baixo;
+ * - `pai` (o código do Visual, que rola no `<code>` de dentro do `<pre>`): no padding de baixo do pai.
  */
+export type BarPlace = 'dentro' | 'fora' | 'pai';
+
 @Directive({ selector: '[appBarOnRuling]' })
 export class BarOnRuling implements OnDestroy {
   /** Onde a sobra entra: no padding de baixo (`dentro`) ou na margem (`fora`). */
@@ -20,32 +24,41 @@ export class BarOnRuling implements OnDestroy {
   private readonly el = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
 
   constructor() {
-    afterNextRender(() => {
-      places.set(this.el, this.appBarOnRuling() === 'fora' ? 'fora' : 'dentro');
-      watch(this.el);
-    });
+    afterNextRender(() => watchBar(this.el, this.appBarOnRuling() === 'fora' ? 'fora' : 'dentro'));
   }
 
   ngOnDestroy(): void {
-    observer?.unobserve(this.el);
-    due.delete(this.el);
+    unwatchBar(this.el);
   }
 }
 
 // um observador para todos (as fichas do mural podem ter muitos blocos)
 let observer: ResizeObserver | null = null;
-const places = new WeakMap<Element, 'dentro' | 'fora'>();
+const places = new WeakMap<Element, BarPlace>();
 // as sobras novas, escritas no quadro seguinte: mudar o tamanho de quem está sendo observado dentro do
 // aviso do observador faz o navegador acusar "ResizeObserver loop completed with undelivered notifications"
 const due = new Map<HTMLElement, number>();
 let frame = 0;
 
-function watch(el: HTMLElement): void {
+/** Passa a cuidar da barra de rolar de lado de `scroller` (quem rola), com a sobra no lugar dito. */
+export function watchBar(scroller: HTMLElement, place: BarPlace = 'dentro'): void {
   if (typeof ResizeObserver === 'undefined') return;
+  places.set(scroller, place);
   observer ??= new ResizeObserver((entries) => {
     for (const e of entries) fit(e);
   });
-  observer.observe(el, { box: 'border-box' });
+  observer.observe(scroller, { box: 'border-box' });
+}
+
+/** Para de cuidar (quem rola saiu da página). */
+export function unwatchBar(scroller: HTMLElement): void {
+  observer?.unobserve(scroller);
+  due.delete(target(scroller));
+}
+
+/** Onde a sobra é escrita: em quem rola, ou no pai (`pai`). */
+function target(scroller: HTMLElement): HTMLElement {
+  return places.get(scroller) === 'pai' ? (scroller.parentElement ?? scroller) : scroller;
 }
 
 function fit(e: ResizeObserverEntry): void {
@@ -53,25 +66,27 @@ function fit(e: ResizeObserverEntry): void {
   const border = e.borderBoxSize?.[0];
   const content = e.contentBoxSize?.[0];
   if (!border || !content) return;
+  const place = places.get(el) ?? 'dentro';
+  const to = target(el);
   const s = getComputedStyle(el);
   const px = (v: string) => parseFloat(v) || 0;
-  const now = px(s.getPropertyValue('--sobra-barra'));
-  const inside = places.get(el) !== 'fora';
-  // tirada a sobra de agora, ficam o padding e a margem do desenho
-  const pads = px(s.paddingTop) + px(s.paddingBottom) - (inside ? now : 0) + px(s.borderTopWidth) + px(s.borderBottomWidth);
-  const margin = px(s.marginBottom) - (inside ? 0 : now);
-  const bar = border.blockSize - (inside ? now : 0) - content.blockSize - pads;
+  const now = px(getComputedStyle(to).getPropertyValue('--sobra-barra'));
+  // tirada a sobra de agora (quando ela está em quem rola), ficam o padding e a margem do desenho
+  const inPadding = place === 'dentro' ? now : 0;
+  const pads = px(s.paddingTop) + px(s.paddingBottom) - inPadding + px(s.borderTopWidth) + px(s.borderBottomWidth);
+  const margin = px(s.marginBottom) - (place === 'fora' ? now : 0);
+  const bar = border.blockSize - inPadding - content.blockSize - pads;
   const next = barSpare(bar, px(s.lineHeight), margin);
   if (Math.abs(next - now) < 0.05) {
-    due.delete(el);
+    due.delete(to);
     return;
   }
-  due.set(el, next);
+  due.set(to, next);
   frame ||= requestAnimationFrame(() => {
     frame = 0;
-    for (const [target, spare] of due) {
-      if (spare) target.style.setProperty('--sobra-barra', `${spare}px`);
-      else target.style.removeProperty('--sobra-barra');
+    for (const [t, spare] of due) {
+      if (spare) t.style.setProperty('--sobra-barra', `${spare}px`);
+      else t.style.removeProperty('--sobra-barra');
     }
     due.clear();
   });

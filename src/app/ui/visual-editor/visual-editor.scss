@@ -4,6 +4,14 @@
 // vermelho), com o texto desenhado como a leitura (ui/_formatado.scss). Sem o encapsulamento do Angular
 // (o DOM é do ProseMirror): tudo debaixo de `.vis-folha`, e as classes próprias com `vis-`.
 
+// a sobra da barra de rolar de lado (ui/bar-on-ruling.ts) é de quem a recebe, não passa para quem está
+// dentro. Repetida de ui/rich-text-codigo.scss: esta folha pode carregar antes daquela
+@property --sobra-barra {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 .vis-folha {
   display: flex;
   flex-direction: column;
@@ -39,6 +47,7 @@
 
   // ===== O desenho da leitura =====
   @include formatado.linha;
+  @include formatado.pecas-na-linha;
   @include formatado.enfases;
   @include formatado.codigo;
   @include formatado.titulos;
@@ -81,7 +90,8 @@
     z-index: 0;
     text-indent: 0;
     margin-left: calc(var(--vis-corpo, 0) * var(--vis-letra) + max(0px, calc((var(--recuo, 0) - var(--vis-tira, 0)) * var(--vis-espaco, 0.27em))));
-    padding: var(--line) 0 0 (formatado.$cod-margem + formatado.$cod-vao);
+    // embaixo, a sobra da barra de rolar do <code> (ui/bar-on-ruling.ts): com ela, o papel fecha linhas inteiras
+    padding: var(--line) 0 var(--sobra-barra, 0px) (formatado.$cod-margem + formatado.$cod-vao);
     white-space: pre;
   }
   > pre.codigo > code {

@@ -45,6 +45,19 @@
   > .vis-cartao-fim {
     padding-bottom: calc(var(--line) / 2);
   }
+  // o bloco de código que fecha o card: embaixo dele, a meia linha de papel do card (sem ela, tudo o que
+  // vem depois saía meia linha fora da pauta), e o papel do código para antes dela
+  > pre.codigo.vis-cartao-fim {
+    padding-bottom: calc(var(--line) / 2 + var(--sobra-barra, 0px));
+  }
+  > pre.codigo.vis-cartao-fim::before {
+    bottom: calc(var(--line) / 2);
+  }
+  // a tabela de papel que fecha o card: a meia linha vem depois dos 8px que a margem negativa desconta
+  // (a sombra do papel, ver formatado.tabela-rolo-papel)
+  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo).vis-cartao-fim {
+    padding-bottom: calc(var(--line) / 2 + 8px);
+  }
   > .vis-cartao-fim::after {
     @include formatado.cartao-rasgo;
     left: calc(var(--c-fora) * -1);
@@ -82,5 +95,11 @@
     -webkit-mask: none;
     mask: none;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 10' preserveAspectRatio='none'%3E%3Cpath d='M2 5.5C20 3 38 7.6 58 5S96 3.2 118 5.6 160 7 198 4.6' fill='none' stroke='%231b1916' stroke-opacity='.5' stroke-width='2.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") center / 100% 10px no-repeat;
+  }
+  // a divisória que fecha o card: o risco no meio da linha dela, e embaixo a meia linha de papel (ela não
+  // tem letras: sem isto, a meia linha caía dentro da altura mínima)
+  > .divisoria.vis-cartao-fim {
+    min-height: calc(var(--line) * 1.5);
+    background-position: 50% calc(var(--line) / 2 - 5px);
   }
 }

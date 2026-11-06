@@ -1278,4 +1278,177 @@ describe('o modo Visual do texto', () => {
       expect(textToDoc(linhas[1]).linhas[0]).toEqual(jasmine.objectContaining({ kind: 'linha', spans: [{ text: '**só letras**' }] }));
     });
   });
+
+  describe('a pauta', () => {
+    /** A barra de rolar que ocupa lugar (a do Windows), do mesmo tamanho em toda máquina de teste. */
+    function comBarra(): HTMLStyleElement {
+      const bars = document.head.appendChild(document.createElement('style'));
+      bars.textContent =
+        '.vis-folha pre.codigo > code, .vis-folha .tabela-rolo { scrollbar-width: auto !important; scrollbar-color: auto !important; } .vis-folha pre.codigo > code::-webkit-scrollbar, .vis-folha .tabela-rolo::-webkit-scrollbar { height: 12px; }';
+      return bars;
+    }
+    const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const folha = () => fixture.nativeElement.querySelector('.vis-folha > .ProseMirror') as HTMLElement;
+    const LARGA = `| ${'coluna larga | '.repeat(14)}\n|${' --- |'.repeat(14)}\n| ${'um valor | '.repeat(14)}`;
+
+    it('nada tira o texto da pauta: as peças na linha, o bloco de código, a tabela e o card que fecha num código', async () => {
+      const F = '```';
+      const longo = "INSERT INTO VersoesApp VALUES ('0.0.0', getdate(), 0, 0, 1, 'uma linha bem comprida que passa da folha de um lado ao outro')";
+      const text = [
+        '# Apple',
+        '1. Inserir no banco de **PROD**',
+        '   1.1. Verificar a tabela VersoesApp (==1 = App; 3 = Totem==)',
+        '   1.2. Inserir a linha ((mude o 0.0.0 para a versão))',
+        `   ${F}sql`,
+        `   ${longo}`,
+        `   ${F}`,
+        '',
+        '2. Rodar `source ~/.zshrc` na pasta `pontodigital/Front/AppFlutter/app_flutter`',
+        '> [!aviso] Antes de embarcar',
+        '> O trem lota **depois das 10h**.',
+        `> ${F}sql`,
+        `> ${longo}`,
+        `> ${F}`,
+        '',
+        '-# Preços de outubro, podem mudar.',
+        '> [!dica] O card que fecha numa tabela',
+        '> | a | b |',
+        '> | --- | --- |',
+        '> | 1 | 2 |',
+        '',
+        'Depois da tabela do card.',
+        '> [!dica] O card que fecha numa tabela larga',
+        ...LARGA.split('\n').map((l) => `> ${l}`),
+        '',
+        'Depois da larga do card.',
+        '> [!dica] O card que fecha numa de caneta',
+        '> {{tabela: caneta}}',
+        '> | a | b |',
+        '> | --- | --- |',
+        '> | 1 | 2 |',
+        '',
+        'Depois da de caneta do card.',
+        '> [!nota] O card que fecha numa divisória',
+        '> ---',
+        '',
+        'Depois da divisória do card.',
+        '> [!nota] O card que fecha num contador',
+        '> {{contador: 19/11/2027 08:30 | Embarque}}',
+        '',
+        'Com [o site](https://example.com), ||segredo|| e emoji 🎮 e kanji 漢字.',
+        F,
+        'curto',
+        F,
+        'E outra.',
+        LARGA,
+        'Depois da larga.',
+        '{{tabela: recibo}}',
+        '| Trem | Sai |',
+        '| --- | --- |',
+        '| Sintra | 9h10 |',
+        'Depois do recibo.',
+        '{{contador: 19/11/2027 08:30 | Embarque}}',
+        'A última.',
+      ].join('\n');
+      const bars = comBarra();
+      try {
+        await make(text);
+        (fixture.nativeElement as HTMLElement).style.width = '480px';
+        await espera(120);
+        const pm = folha();
+        const s = getComputedStyle(pm);
+        const line = parseFloat(s.lineHeight);
+        const top0 = pm.getBoundingClientRect().top + parseFloat(s.paddingTop) - pm.scrollTop;
+        // em linhas, a partir do alto da pauta (a tabela de papel tem margem negativa para a sombra)
+        const emLinhas = (y: number) => (y - top0) / line;
+        const inteiro = (v: number) => Math.abs(v - Math.round(v));
+        // as linhas do card ficam em meia linha de propósito: o que conta é o que vem depois dele
+        const blocos = ([...pm.children] as HTMLElement[]).filter((e) => !e.matches('.vis-cartao-topo, .vis-no-cartao'));
+        expect(blocos.length).toBeGreaterThan(10);
+        for (const e of blocos) {
+          const r = e.getBoundingClientRect();
+          const cs = getComputedStyle(e);
+          const nome = (e.textContent ?? '').trim().slice(0, 24);
+          expect(inteiro(emLinhas(r.top - parseFloat(cs.marginTop)))).withContext(`alto de "${nome}"`).toBeLessThan(0.03);
+          expect(inteiro(emLinhas(r.bottom + parseFloat(cs.marginBottom)))).withContext(`pé de "${nome}"`).toBeLessThan(0.03);
+        }
+        // a barra ocupa lugar (sem ela, a conta acima não provaria nada) e ganha uma linha só dela
+        const code = pm.querySelector<HTMLElement>('pre.codigo:not(.vis-no-cartao) > code')!;
+        const larga = [...pm.querySelectorAll<HTMLElement>('.tabela-rolo')].find((t) => t.scrollWidth > t.clientWidth)!;
+        expect(code.scrollWidth).toBeGreaterThan(code.clientWidth);
+        expect(code.offsetHeight - code.clientHeight).toBeGreaterThan(5);
+        expect(parseFloat(getComputedStyle(code.parentElement!).getPropertyValue('--sobra-barra'))).toBeGreaterThan(0);
+        expect(larga.offsetHeight - larga.clientHeight).toBeGreaterThan(5);
+        expect(parseFloat(getComputedStyle(larga).getPropertyValue('--sobra-barra'))).toBeGreaterThan(0);
+        // o bloco sem barra não ganha nada
+        const curto = [...pm.querySelectorAll<HTMLElement>('pre.codigo')].find((p) => p.textContent?.includes('curto'))!;
+        expect(parseFloat(getComputedStyle(curto).getPropertyValue('--sobra-barra'))).toBe(0);
+      } finally {
+        bars.remove();
+      }
+    });
+
+    it('a sobra da barra não faz o ProseMirror reler o bloco: a mesma peça, com a sobra, e o texto igual', async () => {
+      const F = '```';
+      const bars = comBarra();
+      try {
+        await make(`${F}\n${'código comprido '.repeat(20)}\n${F}\nMeio.\n${LARGA}\nFim.`);
+        (fixture.nativeElement as HTMLElement).style.width = '480px';
+        const pre = folha().querySelector<HTMLElement>('pre.codigo')!;
+        const rolo = folha().querySelector<HTMLElement>('.tabela-rolo')!;
+        await espera(120);
+        expect(pre.style.getPropertyValue('--sobra-barra')).not.toBe('');
+        expect(rolo.style.getPropertyValue('--sobra-barra')).not.toBe('');
+        expect(folha().querySelector('pre.codigo')).toBe(pre);
+        expect(folha().querySelector('.tabela-rolo')).toBe(rolo);
+        expect(valor).toBeNull();
+      } finally {
+        bars.remove();
+      }
+    });
+
+    it('a tabela muda de jeito e de recuo no mesmo rolo, sem perder a posição de lado nem a sobra da barra', async () => {
+      const bars = comBarra();
+      try {
+        await make(`Antes.\n${LARGA}\nFim.`);
+        (fixture.nativeElement as HTMLElement).style.width = '480px';
+        await espera(120);
+        const rolo = folha().querySelector<HTMLElement>('.tabela-rolo')!;
+        expect(rolo.classList).toContain('jeito-branca');
+        rolo.scrollLeft = 60;
+        let pos = -1;
+        view.state.doc.forEach((n, p) => {
+          if (n.type.name === 'tabela') pos = p;
+        });
+        const muda = (attrs: Record<string, unknown>) => view.dispatch(view.state.tr.setNodeMarkup(pos, null, { ...view.state.doc.nodeAt(pos)!.attrs, ...attrs }));
+        muda({ jeito: 'caneta' });
+        expect(folha().querySelector('.tabela-rolo')).toBe(rolo);
+        expect(rolo.classList).toContain('jeito-caneta');
+        expect(rolo.classList).not.toContain('jeito-branca');
+        expect(rolo.scrollLeft).toBe(60);
+        muda({ recuo: 3 });
+        expect(rolo.style.getPropertyValue('--recuo')).toBe('3');
+        expect(rolo.style.getPropertyValue('--sobra-barra')).not.toBe('');
+        muda({ recuo: 0, jeito: null });
+        expect(rolo.style.getPropertyValue('--recuo')).toBe('');
+        expect(rolo.classList).toContain('jeito-branca');
+        expect(folha().querySelector('.tabela-rolo')).toBe(rolo);
+      } finally {
+        bars.remove();
+      }
+    });
+
+    it('as marcas na linha têm a altura da letra, e a linha fica com a altura da pauta', async () => {
+      await make('Com `cod`, ((sutil)), **negrito**, *itálico*, ~~riscado~~ e ==marca== no meio.');
+      const pm = folha();
+      for (const sel of ['code.cod', 'span.sutil', 'strong.negrito', 'mark.marca']) {
+        const el = pm.querySelector<HTMLElement>(sel);
+        expect(el).withContext(sel).not.toBeNull();
+        expect(parseFloat(getComputedStyle(el!).lineHeight)).withContext(sel).toBeCloseTo(parseFloat(getComputedStyle(el!).fontSize), 1);
+      }
+      const line = parseFloat(getComputedStyle(pm).lineHeight);
+      const alto = pm.querySelector<HTMLElement>('.linha')!.getBoundingClientRect().height;
+      expect(Math.abs(alto / line - Math.round(alto / line))).toBeLessThan(0.03);
+    });
+  });
 });

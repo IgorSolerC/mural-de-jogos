@@ -15,6 +15,18 @@
   }
 }
 
+// As peças dentro da linha não esticam a linha: com a letra de outro tamanho ou de outra família (o
+// código, o sutil), a caixa delas, da altura da pauta, ficava um tanto mais baixa que a da letra à mão,
+// e a linha crescia 1 ou 2px; linha a linha, o texto saía da pauta. Da altura da letra, a caixa cabe
+// dentro da linha. O desenho é o mesmo: o fundo, a tarja e o risco seguem a letra, não a caixa. As
+// classes são as da leitura (`.enf`, `.spoiler`) e as das marcas do Visual (`strong.negrito`,
+// `mark.marca`, `span.sutil`, `.vis-spoiler`); a linha sutil inteira (`.linha.sutil`) fica de fora.
+@mixin pecas-na-linha {
+  :is(.cod, .enf, .negrito, .italico, .riscado, .marca, .sutil, .sutil-texto, .elo, .elo-fim, .spoiler, .spoiler-texto, .vis-spoiler):not(.linha) {
+    line-height: 1;
+  }
+}
+
 @mixin enfases {
   /* ===== As ênfases ===== */
   .negrito {

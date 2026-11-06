@@ -3,6 +3,7 @@ import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { CodeRange, codeHighlightLoaded, codeRanges, loadCodeHighlight } from '../../core/code-highlight';
 import { CodeTheme, codeLangName, codeLangOf, codeThemeOf, withCodeLang, withCodeTheme } from '../../core/code-langs';
+import { unwatchBar, watchBar } from '../bar-on-ruling';
 import { ICON } from '../icons';
 import { desenho, etiqueta } from './controles';
 import { codigo } from './keymap';
@@ -88,6 +89,13 @@ export class CodigoView implements NodeView {
     this.controles.setAttribute('aria-label', 'Bloco de código');
     this.dom.append(this.etiqueta, this.contentDOM, this.controles);
     this.desenha();
+    // quem rola é o <code>; a sobra da barra (ver ui/bar-on-ruling.ts) é escrita no <pre>, cujos atributos
+    // o ProseMirror não relê (ver ignoreMutation)
+    watchBar(this.contentDOM, 'pai');
+  }
+
+  destroy(): void {
+    unwatchBar(this.contentDOM);
   }
 
   private desenha(): void {

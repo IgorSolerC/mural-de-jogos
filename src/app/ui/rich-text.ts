@@ -252,14 +252,7 @@ import { ZoomKnob } from './zoom-knob';
       position: relative;
       top: calc(var(--texto-desce, 0px) * -1);
     }
-    /* as peças dentro da linha não esticam a linha: com a letra de outro tamanho ou de outra família (o
-       código, o sutil), a caixa delas, da altura da pauta, ficava um tanto mais baixa que a da letra à
-       mão, e a linha crescia 1 ou 2px; na tela cheia, linha a linha, o texto saía da pauta. Da altura
-       da letra, a caixa cabe dentro da linha. O desenho é o mesmo: o fundo, a tarja e o risco seguem
-       a letra, não a caixa */
-    :is(.cod, .enf, .elo, .elo-fim, .spoiler, .spoiler-texto, .sutil-texto) {
-      line-height: 1;
-    }
+    @include formatado.pecas-na-linha;
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     @include formatado.enfases;
     :host-context(app-review-card[data-cor='amarelo']) .marca:not(.cartao *),

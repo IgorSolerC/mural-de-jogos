@@ -425,9 +425,11 @@ app-judge-label {
 /* A folha pautada da leitura. As linhas, bem mais claras que as do editor (0,2 em vez de 0,32), para não
    tirarem o olho do texto. O texto comum desce 5px (--texto-desce, ver ui/rich-text.ts): a letra à mão
    ficava 8,6px acima da linha, longe dela e perto da de cima; assim ela assenta como o título, a 3,6px.
-   A caixinha da tarefa (e o tique das feitas) sobe 3px, para ficar no meio das letras, não abaixo delas. */
+   A caixinha da tarefa (e o tique das feitas) sobe 3px, para ficar no meio das letras, não abaixo delas.
+   A letra e a pauta são as da tela cheia (1,12rem em 1,76rem; no celular, 1,06rem em 1,66rem): a ficha
+   aberta também serve para ver muito de uma vez. */
 .text {
-  --line: 1.85rem;
+  --line: 1.76rem;
   --texto-desce: 5px;
   --caixa-sobe: 3px;
   padding: 6px 8px;
@@ -435,7 +437,7 @@ app-judge-label {
   overflow-wrap: anywhere;
   max-width: 68ch;
   font-family: var(--f-hand);
-  font-size: 1.18rem;
+  font-size: 1.12rem;
   line-height: var(--line);
   background: repeating-linear-gradient(to bottom, transparent 0 calc(var(--line) - 2px), rgb(64 110 190 / 0.2) calc(var(--line) - 2px) var(--line)) 0 6px;
 }
@@ -645,6 +647,11 @@ app-judge-label {
   .head {
     min-height: 40px;
     padding: 4px 10px 0;
+  }
+
+  .text {
+    --line: 1.66rem;
+    font-size: 1.06rem;
   }
 
   .body {
@@ -1387,12 +1394,10 @@ dialog.reader.tela-cheia {
   padding: 28px var(--margem) 36px;
 }
 
-/* a letra e a pauta na proporção da leitura (a letra desce os mesmos 5px para assentar na linha) */
+/* a letra e a pauta são as da leitura; só a coluna muda */
 .tela-cheia .text {
-  --line: 1.76rem;
   width: 100%;
   max-width: var(--medida);
-  font-size: 1.12rem;
 }
 
 /* o nome começa onde começa a letra do texto (a margem, mais a folga de 8px da pauta); com a seta de
@@ -1461,10 +1466,6 @@ dialog.reader.tela-cheia {
     padding: 24px 16px calc(28px + env(safe-area-inset-bottom));
   }
 
-  .tela-cheia .text {
-    --line: 1.66rem;
-    font-size: 1.06rem;
-  }
 }
 
 /* ===== Só a cartolina: a ficha como fica no mural, grande, no meio da tela =====

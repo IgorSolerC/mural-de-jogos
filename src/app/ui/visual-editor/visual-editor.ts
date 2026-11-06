@@ -37,7 +37,7 @@ import { ItemView, desenhoDasListas, escritor, linhaNoItem, lista, marcarTarefa 
 import { CartaoView, acaoCartao, cartoes, estadoCartao } from './cartoes';
 import { CodigoView, acaoCodigo, estadoCodigo, realceDoCodigo, textoDoCodigo } from './codigos';
 import { Lugar, WidgetView, depoisDaPeca, envio, lugarDoCursor, marcaEnvio, pecas, poeBlocoNoLugar, poeNoLugar, tiraEm, tiraEnvio } from './pecas';
-import { acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
+import { TabelaView, acaoTabela, alcasDaTabela, celulaEm, colarNaCelula, edicaoDaTabela, estadoTabela, posDaCelula, protegeTabela, sliceNaCelula, tabelaEm, tabelaVazia, tabelasRetas, tiraTabela } from './tabela';
 import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } from './schema';
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
@@ -379,6 +379,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
         item: (node, view, getPos) => new ItemView(node, view, getPos),
         cartaoTopo: (node, view, getPos) => new CartaoView(node, view, getPos),
         blocoCodigo: (node, view) => new CodigoView(node, view, { pedeLingua: () => this.pedeLingua.emit(), copia: (texto) => void this.copiaCodigo(texto), temaPadrao: () => this.settings.notesConfig().codeTheme }),
+        tabela: (node) => new TabelaView(node),
         widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {

@@ -16,9 +16,23 @@ export class HeightVar {
   constructor() {
     const destroy = inject(DestroyRef);
     afterNextRender(() => {
-      const observer = new ResizeObserver(() => this.host.style.setProperty(this.appHeightVar(), `${this.host.clientHeight}px`));
+      let frame = 0;
+      const write = () => {
+        frame = 0;
+        this.host.style.setProperty(this.appHeightVar(), `${this.host.clientHeight}px`);
+      };
+      // a primeira na hora: quem está dentro não desenha um quadro sem o limite
+      write();
+      // no quadro seguinte, e não dentro do aviso do observador: quem está dentro muda de altura com a
+      // variável, e mudar ali faz o navegador acusar "ResizeObserver loop completed"
+      const observer = new ResizeObserver(() => {
+        frame ||= requestAnimationFrame(write);
+      });
       observer.observe(this.host);
-      destroy.onDestroy(() => observer.disconnect());
+      destroy.onDestroy(() => {
+        observer.disconnect();
+        cancelAnimationFrame(frame);
+      });
     });
   }
 }

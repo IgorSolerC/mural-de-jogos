@@ -136,9 +136,12 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Voltar à leitura');
     expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
-    // a letra e a pauta são menores que as da leitura (cabem mais linhas na tela)
-    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeLessThan(leitura.font);
-    expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBeLessThan(leitura.line);
+    // a letra e a pauta são as da leitura, menores que as de antes (cabem mais linhas na tela)
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBe(leitura.font);
+    expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBe(leitura.line);
+    expect(leitura.font).toBeCloseTo(1.12 * rem, 1);
+    expect(leitura.line).toBeCloseTo(1.76 * rem, 1);
     band('.ler-tela-cheia').click();
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();

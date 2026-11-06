@@ -214,8 +214,9 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     ficha.style.height = '1100px';
     ficha.style.maxHeight = 'none';
     await fixture.whenStable();
-    // a altura da página chega à folha no quadro seguinte (ui/height-var.ts)
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // a altura da página chega à folha no quadro depois do aviso do observador (ui/height-var.ts): um
+    // quadro para o aviso, um para a escrita, e o de fechar, pedido depois dela
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(r))));
     const page = el.querySelector<HTMLElement>('.conteudo')!;
     const area = el.querySelector<HTMLTextAreaElement>('.bloco.texto textarea')!;
     expect(page.scrollHeight).toBeLessThanOrEqual(page.clientHeight + 1);

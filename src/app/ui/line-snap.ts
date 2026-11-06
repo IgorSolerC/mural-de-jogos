@@ -22,8 +22,14 @@ export function snapToLines(selector: string, off?: () => boolean): void {
       const total = piece.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
       // a folga de um pixel: a peça medida da altura do tamanho dá uns décimos a mais nas contas, e
       // não pode subir uma linha inteira por isso
-      const h = `${Math.ceil((total - 1) / line) * line}px`;
+      const lines = Math.ceil((total - 1) / line) * line;
+      const h = `${lines}px`;
       if (host.style.minHeight !== h) host.style.minHeight = h;
+      // ... e esses décimos não empurram o texto de baixo para fora da pauta: a margem os desconta (com
+      // o meio pixel do arredondamento do offsetHeight; se sobrar, o min-height completa a altura certa)
+      const over = total + 0.5 - lines;
+      const margin = over > 0 ? `${-over}px` : '';
+      if (piece.style.marginBottom !== margin) piece.style.marginBottom = margin;
     };
     // no quadro seguinte, e não dentro do aviso do observador (mudar a altura ali faz um laço)
     const ro = new ResizeObserver(() => {
