@@ -184,6 +184,44 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     expect(study.cardOf().get('nsol')!.stats.wrong).toBe(1);
   });
 
+  describe('a rolagem do verso', () => {
+    const long = Array.from({ length: 60 }, (_, i) => `Linha ${i + 1}`).join('\n');
+    const scroller = () => $('.verso-conteudo')!;
+
+    beforeEach(async () => {
+      TestBed.inject(ReviewStore).reviews.update((list) => list.map((r) => (r.id === 'nsol' || r.id === 'nlua' ? { ...r, text: long } : r)));
+      $('.giro')!.style.setProperty('--w', '380px');
+      await settle();
+    });
+
+    /** Vira a carta na mesa, confere que abriu do começo e rola até o fim. */
+    async function revealAndScroll(): Promise<void> {
+      key(' ');
+      await settle();
+      expect(scroller().scrollTop).toBe(0);
+      scroller().scrollTop = 99999;
+      expect(scroller().scrollTop).toBeGreaterThan(0);
+    }
+
+    it('a resposta da próxima carta abre do começo, não onde a anterior parou', async () => {
+      await revealAndScroll();
+      key('2');
+      await settle();
+      expect(frontTitle()).toBe('月');
+      await revealAndScroll();
+    });
+
+    it('a mesma carta de volta (o Desfazer) também abre do começo', async () => {
+      await revealAndScroll();
+      key('2');
+      await settle();
+      key('z');
+      await settle();
+      expect(frontTitle()).toBe('日');
+      await revealAndScroll();
+    });
+  });
+
   describe('o clique rápido', () => {
     const versoTitle = () => text($('.verso-titulo'));
     /** O clique do mouse ou do dedo (`detail` 1), no instante dado do relógio dos eventos. */

@@ -94,6 +94,11 @@ export class StudyCardBack {
    */
   protected readonly links = computed(() => this.ownLinks.of(this.note()));
 
+  /** O texto volta ao começo: quem troca de carta no mesmo verso (a mesa de estudo) chama antes de mostrar. */
+  toTop(): void {
+    this.host.querySelector('.verso-conteudo')?.scrollTo(0, 0);
+  }
+
   /** Onde o dedo ou o mouse apertou, para saber se o clique foi um toque ou o fim de um arrasto. */
   private pressed: { x: number; y: number } | null = null;
 

@@ -27,12 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-clique-rapido-nos-estudos',
+    id: '2026-11-06-rolagem-do-verso',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
     title: 'O clique rápido nos Estudos',
-    correcoes: ['Ao estudar, a resposta da próxima carta não aparece mais antes da hora, e o clique rápido demais não vira a carta seguinte nem responde a carta sem você ter lido.'],
+    correcoes: [
+      'Ao estudar, a resposta da próxima carta não aparece mais antes da hora, e o clique rápido demais não vira a carta seguinte nem responde a carta sem você ter lido.',
+      'Ao estudar, a resposta comprida abre do começo, e não mais rolada até onde a carta anterior parou.',
+    ],
   },
   {
     id: '2026-11-05-virar-a-carta-na-parede',

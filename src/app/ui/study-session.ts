@@ -72,6 +72,7 @@ export class StudySession {
   private readonly study = inject(StudyStore);
   private readonly store = inject(ReviewStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  private readonly back = viewChild(StudyCardBack);
 
   /** A carta na mesa, e se já foi virada. */
   protected readonly current = signal<QueueItem | null>(null);
@@ -210,6 +211,8 @@ export class StudySession {
     if (!this.card() || this.revealed()) return;
     // virou de novo antes de a mesa terminar de desvirar: o verso já é o desta carta
     this.holdBack(null);
+    // o verso é o mesmo de carta em carta: a resposta abre do começo, não onde a anterior parou de rolar
+    this.back()?.toTop();
     this.revealed.set(true);
     this.swappedAt = performance.now();
     this.spoken.set('Resposta');
