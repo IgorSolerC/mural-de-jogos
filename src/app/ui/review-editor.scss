@@ -11,6 +11,9 @@
 
 .ficha {
   height: calc(100dvh - 24px);
+  /* o corpo do editor é o papel liso, em toda cor de cartolina (a fibra e a estampa ficam na faixa do alto);
+     o alto preso da folha do texto é esse mesmo papel (ver --faixa-alto em ui/rich-editor.ts) */
+  background-image: none;
 }
 
 /* ===== A faixa ===== */
@@ -261,7 +264,7 @@
   scrollbar-color: rgb(21 21 21 / 0.35) transparent;
   /* a linha do cursor da folha do Markdown não fica atrás do alto da folha e da régua, presos em cima dela
      (--topo-h de ui/rich-editor.ts), nem colada no pé */
-  scroll-padding-block: 110px 32px;
+  scroll-padding-block: 128px 32px;
 
   /* na janela baixa, só a régua fica presa */
   @media (max-height: 500px) {

@@ -101,6 +101,9 @@ const COUNT_FMT = new Intl.NumberFormat('pt-BR');
 /** Quanto a lista do "[[" e a tirinha do widget pedem de lugar embaixo da linha do cursor (ver `placeAtCaret`). */
 const LIST_ROOM = 290;
 const STRIP_ROOM = 80;
+/** O vão entre a linha do cursor e o painel, e o mínimo de altura que um painel aceita (10rem, ver .gaveta). */
+const DRAWER_GAP = 6;
+const DRAWER_MIN = 160;
 /** O que o Visual ainda não sabe fazer (o aviso, se uma ação nova da régua chegar antes dele). */
 const NOT_YET = 'Ainda não no Visual: use a aba Markdown';
 /** O que a régua faz no Visual nesta rodada (o resto avisa `NOT_YET`). */
@@ -111,7 +114,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
   imports: [FitTools, IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
-  host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()', '[class.cresce]': 'grows()' },
+  host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()', '[class.cresce]': 'grows()', '[class.no-alto]': 'stuck()' },
   template: `
     <ng-template #campo let-big="big">
       <!-- O alto da folha, como nos editores de sempre: os dois jeitos de escrever (o Visual, vendo
@@ -596,14 +599,15 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
           <button type="button" class="pronto" aria-label="Pronto: fechar o teclado" title="Pronto" (pointerdown)="$event.preventDefault()" (click)="blurSheet(area, big)">
             <lucide-icon [img]="DoneIcon" [size]="20" aria-hidden="true" />
           </button>
-          <!-- na folha que cresce (ver grows), os painéis penduram na régua: a régua está sempre à vista, e o
-               fim da folha pode estar muito longe -->
-          @if (grows() && !big) {
-            <div class="gaveta">
-              <ng-container *ngTemplateOutlet="paineis; context: { area, big }" />
-            </div>
-          }
         </div>
+        <!-- na folha que cresce (ver grows), os painéis abrem junto do cursor, nunca em cima dele (ver
+             placeDrawer): o fim da folha pode estar muito longe -->
+        @if (grows() && !big) {
+          <i class="marca-alto" aria-hidden="true"></i>
+          <div class="gaveta" (focusout)="onRulerFocusOut($event, area)">
+            <ng-container *ngTemplateOutlet="paineis; context: { area, big }" />
+          </div>
+        }
         <!-- O Visual: a folha escrita como a leitura (ver ui/visual-editor/). Vem num pedaço à parte, na
              primeira vez que a aba abre, e fica (escondido na aba Markdown, guardando o desfazer dele);
              enquanto ele chega, a folha mostra o texto pela leitura, no mesmo lugar -->
@@ -1067,21 +1071,24 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     }
 
     /* ===== A folha que cresce (ver grows): sem teto, e uma rolagem só, a do lugar onde ela mora. O alto da
-       folha e a régua ficam presos em cima dela. --topo-h é a altura dos dois: o cursor não fica atrás deles
-       (ver visual-editor.ts e o scroll-padding em review-editor.scss) e o menu que cai deles cabe ===== */
+       folha e a régua ficam presos em cima dela. --faixa-alto é o respiro acima das abas, presas. --topo-h é a
+       altura de tudo: o cursor não fica atrás deles (ver visual-editor.ts e o scroll-padding em
+       review-editor.scss) e o menu que cai deles cabe ===== */
     :host(.cresce) {
-      --cabeca-h: 39px;
-      --topo-h: 85.5px;
+      --faixa-alto: 16px;
+      --cabeca-h: 41px;
+      --topo-h: 103.5px;
     }
     @media (pointer: coarse) {
       :host(.cresce) {
         --cabeca-h: 47px;
-        --topo-h: 101.5px;
+        --topo-h: 117.5px;
       }
     }
     /* na janela baixa (o celular deitado), só a régua fica presa: as duas tomariam quase todo o texto */
     @media (max-height: 500px) {
       :host(.cresce) {
+        --faixa-alto: 0px;
         --cabeca-h: 0px;
         --topo-h: 46.5px;
       }
@@ -1096,45 +1103,47 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     .tela-cheia {
       --topo-h: 0px;
     }
-    /* (o papel é o da ficha em volta, com o grão: parada ou não, a faixa não aparece como um retângulo) */
     @media (min-height: 501px) {
       :host(.cresce:not(.presa)) > .cabeca {
         position: sticky;
-        top: 0;
+        top: var(--faixa-alto);
         z-index: 7;
         height: var(--cabeca-h);
-        background-color: var(--paper);
-        background-image: var(--paper-grain);
-        background-blend-mode: multiply;
+      }
+      /* preso, o texto passa por trás das abas: atrás delas, o papel do fundo da ficha, liso, igual ao que se vê
+         parado, sem sombra e sem borda. Sobe até a beira do que rola, e sobra dos lados para cobrir a sombra da
+         folha que passa por baixo. A última linha dele é o fio do alto da folha, o mesmo que ela tem parada, por
+         cima da largura dela: sem vão nenhum até a régua, por onde o texto apareceria (ver \`stuck\`) */
+      :host(.cresce.no-alto:not(.presa)) > .cabeca::before {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        inset: calc(-1 * var(--faixa-alto)) -8px 0;
+        background:
+          linear-gradient(rgb(21 21 21 / 0.1), rgb(21 21 21 / 0.1)) center bottom / calc(100% - 16px) 1px no-repeat,
+          var(--paper);
+        pointer-events: none;
       }
     }
     :host(.cresce) > .papel {
       position: relative;
     }
     :host(.cresce) > .papel > .regua:not(.presa) {
-      container-type: scroll-state;
       position: sticky;
-      top: var(--cabeca-h);
+      top: calc(var(--faixa-alto) + var(--cabeca-h));
       z-index: 6;
       background: var(--campo-papel);
     }
-    /* parada no alto, com o texto passando por baixo: uma sombra fina embaixo da margem vermelha */
-    :host(.cresce) > .papel > .regua:not(.presa)::after {
-      content: '';
+    /* o marco de quando o alto prende: acaba na linha onde a régua para, acima da folha, e vai bem alto, passando
+       da tela inteira: enquanto a linha não saiu por cima, ele está à vista. Com 1px, a rolagem que vai de uma vez
+       de "folha lá embaixo" a "folha lá em cima" passava por ele sem o observador contar (ver \`stuck\`) */
+    .marca-alto {
       position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      height: 8px;
-      background: linear-gradient(to bottom, rgb(21 21 21 / 0.16), transparent);
-      opacity: 0;
-      transition: opacity var(--t-ui) var(--ease-ui);
+      bottom: calc(100% + var(--faixa-alto) + var(--cabeca-h));
+      width: 1px;
+      height: 100000px;
+      visibility: hidden;
       pointer-events: none;
-    }
-    @container scroll-state(stuck: top) {
-      :host(.cresce) > .papel > .regua:not(.presa)::after {
-        opacity: 1;
-      }
     }
     /* os menus cabem entre a régua parada no alto e o pé do lugar que rola */
     :host(.cresce) > .papel > .regua:not(.presa) .menu {
@@ -1145,33 +1154,63 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
         max-height: min(46dvh, max(10rem, calc(var(--conteudo-h, 100vh) - var(--topo-h) - 48px)));
       }
     }
-    /* os painéis da régua: pendurados nela, por cima do texto (nada muda de lugar na pauta), rolando por
-       dentro se não couberem; presa em cima do teclado, para cima dela, como os menus */
+    /* os painéis (link, lembrete, Ajuda), por cima do texto, sem mudar nada de lugar na pauta e nunca em cima
+       do cursor: logo embaixo da linha dele, ou logo em cima (ver placeDrawer). A gaveta é o caminho do painel,
+       invisível para o mouse: do cursor até o pé da folha, ou do alto da folha até o cursor. Preso (sticky) só
+       na ponta longe do cursor, o painel fica à vista com o cursor já fora da tela, sem nunca andar para cima
+       dele. Rola por dentro se não couber (os 10rem: na janela bem baixa, ele nunca some) */
     .gaveta {
       position: absolute;
-      z-index: 30;
-      top: calc(100% + 4px);
+      z-index: 5;
+      top: var(--gaveta-y, 0px);
       left: 6px;
       right: 6px;
+      min-height: calc(100% - var(--gaveta-y, 0px));
+      pointer-events: none;
     }
     .gaveta > .painel {
+      position: sticky;
+      top: calc(var(--topo-h) + 6px);
       margin: 0;
-      /* (os 48px: o respiro do pé, o scroll-padding do lugar que rola; passando dele, abrir rolaria o texto.
-         Os 10rem: na janela bem baixa, ele nunca some, e rola por dentro) */
-      max-height: max(10rem, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px));
+      max-height: max(10rem, var(--gaveta-sala, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px)));
       overflow-y: auto;
       overscroll-behavior: contain;
+      pointer-events: auto;
+    }
+    .gaveta.sobe {
+      top: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      height: var(--gaveta-y, 0px);
+      min-height: 0;
+    }
+    .gaveta.sobe > .painel {
+      flex: none;
+      top: auto;
+      bottom: 8px;
     }
     /* a lista da Ajuda chega num pedaço à parte: já na altura dela, para abrir à vista */
     .gaveta > .guia {
-      height: max(10rem, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px));
+      height: max(10rem, var(--gaveta-sala, calc(var(--conteudo-h, 80dvh) - var(--topo-h) - 48px)));
     }
-    .regua.presa .gaveta {
-      top: auto;
-      bottom: calc(100% + 6px);
+    /* com a régua presa em cima do teclado, o painel fica logo acima dela, deixando uma linha de texto em cima,
+       para a do cursor (ver placeDrawer) */
+    .regua.presa ~ .gaveta {
+      position: fixed;
+      z-index: 41;
+      top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh) - 60px);
+      display: block;
+      height: auto;
+      min-height: 0;
+      translate: 0 -100%;
     }
-    .regua.presa .gaveta > .painel {
-      max-height: calc(var(--vv-h, 100dvh) - 96px);
+    .regua.presa ~ .gaveta > .painel {
+      position: static;
+      max-height: calc(var(--vv-h, 100dvh) - 136px);
+    }
+    .regua.presa ~ .gaveta > .guia {
+      height: calc(var(--vv-h, 100dvh) - 136px);
     }
     /* a tirinha do widget (no Markdown) e a lista do "[[": embaixo da linha do cursor, por cima do texto de
        baixo; sem lugar, em cima dela (ver placeAtCaret) */
@@ -2637,8 +2676,8 @@ export class RichEditor {
   /**
    * A folha cresce com o texto, sem teto, e quem rola é o lugar onde ela mora (o editor da ficha, com
    * `--conteudo-h`, a altura à vista dele): nunca uma rolagem dentro de outra. O alto da folha e a régua
-   * ficam presos em cima dela, os painéis da régua penduram nela, e o que vem do cursor abre junto dele,
-   * porque o fim da folha pode estar muito longe. Sem ele (o comentário, o perfil), a folha tem o teto de
+   * ficam presos em cima dela, e os painéis e o que vem do cursor abrem junto dele, nunca em cima (ver
+   * `placeDrawer`), porque o fim da folha pode estar muito longe. Sem ele (o comentário, o perfil), a folha tem o teto de
    * sempre, e tudo fica embaixo dela. A tela cheia tem a medida dela, com ou sem ele.
    */
   readonly grows = input(false);
@@ -2670,6 +2709,156 @@ export class RichEditor {
         area.style.height = `${area.scrollHeight}px`;
       });
     }
+    // o alto preso: o marco, acima da folha, saiu inteiro pela beira do que rola
+    afterRenderEffect((onCleanup) => {
+      if (!this.grows() || typeof IntersectionObserver === 'undefined') return;
+      const mark = this.host.nativeElement.querySelector<HTMLElement>(':scope > .papel > .marca-alto');
+      if (!mark) return;
+      const watch = new IntersectionObserver(
+        (seen) => {
+          const e = seen[seen.length - 1];
+          // (com a folha escondida, conta como preso, sem nada para mostrar: ela voltando no alto, sem o marco à
+          // vista, o observador não avisa de novo; voltando no começo, avisa)
+          this.stuck.set(!e.isIntersecting);
+        },
+        { root: scrollerOf(mark) },
+      );
+      watch.observe(mark);
+      onCleanup(() => watch.disconnect());
+    });
+    // o painel aberto acompanha o cursor (e o que muda de lugar em volta dele), nunca em cima dele
+    afterRenderEffect((onCleanup) => {
+      if (!this.drawerOpen()) {
+        this.drawerSide = null;
+        return;
+      }
+      this.caret();
+      this.docked();
+      this.value();
+      const drawer = this.host.nativeElement.querySelector<HTMLElement>(':scope > .papel > .gaveta');
+      const paper = drawer?.parentElement;
+      if (!drawer || !paper) return;
+      const scroller = scrollerOf(drawer);
+      this.placeDrawer(drawer, scroller, true);
+      let queued = 0;
+      const onScroll = () => {
+        queued ||= requestAnimationFrame(() => {
+          queued = 0;
+          this.placeDrawer(drawer, scroller, false);
+        });
+      };
+      const target = scroller ?? window;
+      target.addEventListener('scroll', onScroll, { passive: true });
+      const onResize = () => this.placeDrawer(drawer, scroller, true);
+      // a folha muda de altura (a imagem acima do cursor que chega) e a tela muda de tamanho
+      const sizes = new ResizeObserver(onResize);
+      sizes.observe(paper);
+      if (scroller) sizes.observe(scroller);
+      // a lista do painel cresce, ou outro painel entra no lugar: a gaveta em volta não muda de tamanho
+      const content = new MutationObserver(onResize);
+      content.observe(drawer, { childList: true, subtree: true });
+      // (o teclado que abre encolhe só o que se vê: nada acima muda de tamanho)
+      visualViewport?.addEventListener('resize', onResize);
+      onCleanup(() => {
+        target.removeEventListener('scroll', onScroll);
+        sizes.disconnect();
+        content.disconnect();
+        visualViewport?.removeEventListener('resize', onResize);
+        cancelAnimationFrame(queued);
+        paper.style.paddingBottom = '';
+      });
+    });
+  }
+
+  /** O alto da folha e a régua estão presos em cima do que rola: o papel do fundo entra atrás das abas. */
+  protected readonly stuck = signal(false);
+
+  /** Um painel aberto na folha que cresce (na tela cheia, eles ficam embaixo da folha). */
+  private readonly drawerOpen = computed(() => {
+    if (!this.grows()) return false;
+    const k = this.linking();
+    return this.urlLink()?.big === false || this.guide() === false || (k?.big === false && !k.auto) || this.reminding()?.big === false;
+  });
+
+  /** O lado do cursor onde o painel está, e onde o cursor está em relação à folha (a conta da rolagem). */
+  private drawerSide: 'below' | 'above' | null = null;
+  private drawerCaret: { top: number; bottom: number } | null = null;
+
+  /**
+   * Põe o painel em volta do cursor, sem nunca cobri-lo: embaixo da linha (ou do trecho selecionado), se couber;
+   * senão em cima; sem lugar nos dois, no lado maior, rolando por dentro. O texto rola e ele vai junto; só muda
+   * de lado quando acaba o lugar onde está. `fresh`: o cursor pode ter mudado (a rolagem só muda a tela).
+   */
+  private placeDrawer(drawer: HTMLElement, scroller: HTMLElement | null, fresh: boolean): void {
+    const panel = drawer.firstElementChild as HTMLElement | null;
+    const paper = drawer.parentElement;
+    if (!panel || !paper) return;
+    const y = paper.getBoundingClientRect().top;
+    if (fresh) {
+      const spot = this.selectionOnScreen();
+      this.drawerCaret = spot && { top: spot.top - y, bottom: spot.bottom - y };
+    }
+    const caret = this.drawerCaret;
+    if (!caret) return;
+    const view = scroller?.getBoundingClientRect() ?? { top: 0, bottom: innerHeight };
+    if (this.docked() !== null) {
+      // o painel fica acima da régua presa no teclado: quem sai de baixo dele é o texto
+      const over = caret.bottom + y + DRAWER_GAP - panel.getBoundingClientRect().top;
+      if (fresh && over > 0 && caret.top + y < view.bottom) {
+        const place = scroller ?? document.documentElement;
+        const before = place.scrollTop;
+        place.scrollBy({ top: over, behavior: 'instant' });
+        // o cursor no fim do texto: acabou a rolagem, e o pé da folha ganha o que faltou enquanto o painel está aberto
+        const left = over - (place.scrollTop - before);
+        if (left > 0) {
+          paper.style.paddingBottom = `${(parseFloat(paper.style.paddingBottom) || 0) + Math.ceil(left)}px`;
+          place.scrollBy({ top: left, behavior: 'instant' });
+        }
+      }
+      return;
+    }
+    const toolbar = parseFloat(getComputedStyle(paper).getPropertyValue('--topo-h')) || 0;
+    const roof = view.top + toolbar + DRAWER_GAP;
+    // (os 40px: o respiro do pé, o scroll-padding do que rola; passando dele, o foco num campo rolaria o texto.
+    // O que se vê acaba antes do que rola com o teclado aberto)
+    const seen = visualViewport ? visualViewport.offsetTop + visualViewport.height : innerHeight;
+    const floor = Math.min(view.bottom, seen) - 40;
+    const room = { below: floor - (caret.bottom + y) - DRAWER_GAP, above: caret.top + y - roof - DRAWER_GAP };
+    // a Ajuda é uma lista, que rola por dentro: qualquer lugar bom serve, e ela enche o que tiver
+    const guide = panel.classList.contains('guia');
+    const need = guide ? DRAWER_MIN : panel.scrollHeight;
+    // sem lugar nos dois lados, e a tela dá: o texto sobe, e o painel cabe inteiro, sem rolagem dentro dele
+    if (fresh && scroller && room.below < need && room.above < need && floor - roof - (caret.bottom - caret.top) - DRAWER_GAP >= need) {
+      const before = scroller.scrollTop;
+      scroller.scrollBy({ top: need - room.below, behavior: 'instant' });
+      room.below += scroller.scrollTop - before;
+      room.above -= scroller.scrollTop - before;
+    }
+    const was = fresh && guide ? null : this.drawerSide;
+    let side: 'below' | 'above';
+    if (was && room[was] >= need) side = was;
+    else if (!guide && room.below >= need) side = 'below';
+    else if (!guide && room.above >= need) side = 'above';
+    else if (was && room[was] >= DRAWER_MIN) side = was;
+    else side = room.below >= room.above ? 'below' : 'above';
+    if (side === this.drawerSide && !fresh) return;
+    this.drawerSide = side;
+    drawer.classList.toggle('sobe', side === 'above');
+    drawer.style.setProperty('--gaveta-y', `${Math.round(side === 'below' ? caret.bottom + DRAWER_GAP : caret.top - DRAWER_GAP)}px`);
+    // (com o cursor fora da tela, a tela inteira)
+    drawer.style.setProperty('--gaveta-sala', `${Math.round(Math.min(room[side], floor - roof))}px`);
+  }
+
+  /** A linha do cursor ou o trecho selecionado, na tela; o trecho maior que meia tela vale pelo cursor. */
+  private selectionOnScreen(): { top: number; bottom: number } | null {
+    if (this.visual()) {
+      const api = this.visualOf(false);
+      const spot = api?.selecaoNaTela();
+      return spot && spot.bottom - spot.top <= innerHeight / 2 ? spot : (api?.cursorNaTela() ?? null);
+    }
+    const area = this.areaOf(false);
+    const spot = area && this.markdownLines([area.selectionStart, area.selectionEnd]);
+    return spot && spot.bottom - spot.top <= innerHeight / 2 ? spot : this.markdownLines();
   }
 
   /** Onde a tirinha do widget (no Markdown) e a lista do "[[" abrem na folha que cresce: ver `placeAtCaret`. */
@@ -2901,7 +3090,7 @@ export class RichEditor {
   }
 
   /**
-   * Leva à vista o que abriu, só se faltar: o que pendura na régua parada já está à vista, e o
+   * Leva à vista o que abriu, só se faltar: o que abre em volta do cursor já vem à vista, e o
    * `scroll-padding` do lugar que rola faria o texto andar por nada (ele anda, e o painel fica onde está).
    */
   private reveal(el: HTMLElement | null | undefined): void {
@@ -3513,7 +3702,7 @@ export class RichEditor {
 
   /** A Ajuda aberta (em qual das folhas), ou null. */
   protected readonly guide = signal<boolean | null>(null);
-  /** "Ajuda" (ou Ctrl+/): abre a lista de todas as marcas (pendurada na régua, ou embaixo da folha); de novo, fecha. */
+  /** "Ajuda" (ou Ctrl+/): abre a lista de todas as marcas (em volta do cursor, ou embaixo da folha); de novo, fecha. */
   protected toggleGuide(big: boolean): void {
     const open = this.guide() === big;
     this.closePanels();
@@ -3960,7 +4149,7 @@ export class RichEditor {
   protected blurSheet(area: HTMLTextAreaElement, big: boolean): void {
     if (this.visual()) this.visualOf(big)?.blur();
     else area.blur();
-    // (no campo de um painel pendurado na régua, é ele que está com o teclado)
+    // (no campo de um painel aberto, é ele que está com o teclado)
     const inPanel = (document.activeElement as HTMLElement | null)?.closest?.('.gaveta');
     if (inPanel) (document.activeElement as HTMLElement).blur();
   }
@@ -4172,16 +4361,19 @@ export class RichEditor {
   protected onAreaBlur(e: FocusEvent, ruler: HTMLElement): void {
     // saiu da folha (sem ser para a lista, que não pega o foco): a lista automática fecha
     if (this.linking()?.auto) this.linking.set(null);
-    // para um menu da própria régua (o "Mais", os widgets), ela continua presa
-    if (!ruler.contains(e.relatedTarget as Node | null)) this.docked.set(null);
+    // para um menu da própria régua (o "Mais", os widgets) ou um painel aberto, ela continua presa
+    const to = e.relatedTarget as Node | null;
+    if (!ruler.contains(to) && !ruler.parentElement?.querySelector(':scope > .gaveta')?.contains(to)) this.docked.set(null);
   }
 
-  /** O foco saiu da régua presa (de um menu dela) para fora da folha: ela volta para o lugar dela. */
+  /** O foco saiu da régua presa (de um menu dela, de um painel) para fora da folha: ela volta para o lugar dela. */
   protected onRulerFocusOut(e: FocusEvent, area: HTMLTextAreaElement): void {
     const to = e.relatedTarget as Node | null;
+    const paper = (e.currentTarget as HTMLElement).parentElement;
     // para a folha (a do Markdown ou a do Visual), ela continua presa
-    const sheet = this.visual() ? (e.currentTarget as HTMLElement).parentElement?.querySelector('.visual') : area;
-    if (!sheet?.contains(to) && !(e.currentTarget as HTMLElement).contains(to)) this.docked.set(null);
+    const sheet = this.visual() ? paper?.querySelector('.visual') : area;
+    const kept = [sheet, paper?.querySelector(':scope > .regua'), paper?.querySelector(':scope > .gaveta')];
+    if (!kept.some((place) => place?.contains(to))) this.docked.set(null);
   }
 
   /** Setas, Enter, Tab e Esc na lista da "[[" (pela folha). Devolve se usou a tecla. */

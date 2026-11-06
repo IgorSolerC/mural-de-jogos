@@ -395,6 +395,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
     return { top, bottom };
   }
 
+  selecaoNaTela(): { top: number; bottom: number } | null {
+    const v = this.view;
+    if (!v) return null;
+    const { from, to } = v.state.selection;
+    return { top: v.coordsAtPos(from).top, bottom: v.coordsAtPos(to, -1).bottom };
+  }
+
   ngOnInit(): void {
     const texto = this.texto();
     this.view = new EditorView(this.host, {

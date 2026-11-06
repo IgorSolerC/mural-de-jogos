@@ -11,7 +11,7 @@ const LONGO = Array.from({ length: 120 }, (_, i) => `Linha ${i + 1} de uma nota 
 
 /**
  * A folha que cresce (`grows`, o editor da ficha): sem teto e sem rolagem dentro dela, com o alto da folha e
- * a régua presos em cima do lugar que rola, os painéis pendurados na régua e o que vem do cursor junto dele.
+ * a régua presos em cima do lugar que rola, e os painéis e o que vem do cursor junto dele, nunca em cima.
  */
 describe('a folha que cresce', () => {
   let fixture: ComponentFixture<RichEditor>;
@@ -26,7 +26,7 @@ describe('a folha que cresce', () => {
     fixture.componentInstance.value.set(text);
     // o lugar que rola, como o .conteudo do editor da ficha
     caixa = document.createElement('div');
-    caixa.style.cssText = 'height: 500px; width: 600px; overflow-y: auto; --conteudo-h: 500px; scroll-padding-block: 110px 32px';
+    caixa.style.cssText = 'height: 500px; width: 600px; overflow-y: auto; --conteudo-h: 500px; scroll-padding-block: 128px 32px';
     caixa.append(fixture.nativeElement);
     document.body.append(caixa);
     await settle();
@@ -78,14 +78,88 @@ describe('a folha que cresce', () => {
       expect(Math.abs(regua.top - onde)).toBeLessThan(1);
       expect(cabeca.bottom).toBeLessThan(onde);
     } else {
-      expect(Math.abs(cabeca.top - onde)).toBeLessThan(1);
+      // o respiro acima das abas
+      expect(Math.abs(cabeca.top - onde - 16)).toBeLessThan(1);
       expect(Math.abs(regua.top - cabeca.bottom)).toBeLessThan(1);
-      expect(getComputedStyle(el().querySelector('.cabeca')!).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
     }
-    // o que o cursor evita é a altura dos dois
+    // o que o cursor evita é a altura de tudo
     expect(Math.abs(regua.bottom - onde - parseFloat(getComputedStyle(el()).getPropertyValue('--topo-h')))).toBeLessThan(1.5);
     // de papel inteiro: o texto passa por baixo
     expect(getComputedStyle(el().querySelector('.regua')!).backgroundColor).not.toBe('rgba(0, 0, 0, 0)');
+  });
+
+  it('preso, atrás das abas fica o papel do fundo, sem sombra e sem borda; parado, nada', async () => {
+    await make(LONGO, 'visual');
+    const fundo = () => getComputedStyle(el().querySelector('.cabeca')!, '::before');
+    const preso = () => el().classList.contains('no-alto');
+    expect(preso()).toBeFalse();
+    expect(fundo().content).toBe('none');
+    expect(getComputedStyle(el().querySelector('.cabeca')!).backgroundColor).toBe('rgba(0, 0, 0, 0)');
+    caixa.scrollTop = 1500;
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(preso()).toBeTrue();
+    expect(getComputedStyle(el().querySelector('.regua')!, '::after').content).toBe('none');
+    if (!matchMedia('(max-height: 500px)').matches) {
+      const papel = getComputedStyle(document.documentElement).getPropertyValue('--paper').trim();
+      const prova = document.createElement('i');
+      prova.style.color = papel;
+      document.body.append(prova);
+      expect(fundo().backgroundColor).toBe(getComputedStyle(prova).color);
+      prova.remove();
+      expect(fundo().boxShadow).toBe('none');
+      expect(parseFloat(fundo().top)).toBe(-16);
+      // sem vão até a régua: por um vão, o texto de baixo apareceria
+      expect(parseFloat(fundo().bottom)).toBe(0);
+      expect(getComputedStyle(el().querySelector('.regua')!).boxShadow).toBe('none');
+      // cobre a sombra da folha, dos dois lados
+      expect(parseFloat(fundo().width)).toBeGreaterThan(el().querySelector('.papel')!.getBoundingClientRect().width + 15);
+    }
+    // de volta ao começo, sai
+    caixa.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(preso()).toBeFalse();
+    expect(fundo().content).toBe('none');
+  });
+
+  it('a folha que começa lá embaixo (a da análise), e a rolagem que passa dela de uma vez: o alto prende igual', async () => {
+    await make(LONGO, 'visual');
+    // o que vem antes da folha na análise: as notas, o veredito
+    const antes = document.createElement('div');
+    antes.style.height = '2000px';
+    caixa.prepend(antes);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(el().classList).not.toContain('no-alto');
+    // (de uma vez: a folha nunca passa pela parte que se vê)
+    caixa.scrollTop = 3500;
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(el().classList).toContain('no-alto');
+    // e de volta, de uma vez: a folha de novo lá embaixo
+    caixa.scrollTop = 0;
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(el().classList).not.toContain('no-alto');
+  });
+
+  it('a folha escondida (a aba da cartolina) que volta já rolada: o alto prende', async () => {
+    await make(LONGO, 'visual');
+    fixture.nativeElement.style.display = 'none';
+    await new Promise((r) => setTimeout(r, 100));
+    fixture.nativeElement.style.display = '';
+    caixa.scrollTop = 1500;
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(el().classList).toContain('no-alto');
+    // e a que volta no começo: não
+    fixture.nativeElement.style.display = 'none';
+    await new Promise((r) => setTimeout(r, 100));
+    caixa.scrollTop = 0;
+    fixture.nativeElement.style.display = '';
+    await new Promise((r) => setTimeout(r, 100));
+    await settle();
+    expect(el().classList).not.toContain('no-alto');
   });
 
   it('o cursor que anda no Visual para acima da régua presa: a folha rola, e ele fica à vista', async () => {
@@ -102,13 +176,13 @@ describe('a folha que cresce', () => {
     expect(v.coordsAtPos(v.state.selection.head).top).toBeGreaterThanOrEqual(el().querySelector('.regua')!.getBoundingClientRect().bottom);
   });
 
-  it('os painéis da régua penduram nela, à vista onde quer que o texto esteja', async () => {
+  it('a Ajuda abre à vista onde quer que o texto esteja, com o cursor longe', async () => {
     await make(LONGO, 'visual');
     caixa.scrollTop = 1500;
     await settle();
     (el().querySelector('.acao-folha.ajuda') as HTMLButtonElement).click();
     await settle();
-    const guia = el().querySelector('.regua .gaveta > .guia') as HTMLElement;
+    const guia = el().querySelector('.papel > .gaveta > .guia') as HTMLElement;
     expect(guia).not.toBeNull();
     const fundo = caixa.getBoundingClientRect().bottom;
     // (o painel desce 6px ao abrir)
@@ -117,6 +191,149 @@ describe('a folha que cresce', () => {
     // já à vista: abrir não rola o texto
     await new Promise((r) => setTimeout(r, 400));
     expect(caixa.scrollTop).toBe(1500);
+  });
+
+  /** Abre o painel do link pelo "Inserir" e espera ele parar (a descida de quando abre). */
+  async function abreLink(): Promise<HTMLElement> {
+    (el().querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 30));
+    ([...el().querySelectorAll<HTMLElement>('.menu button')].find((b) => /endereço/i.test(b.textContent ?? '')) as HTMLElement).click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 400));
+    await settle();
+    return el().querySelector('.papel > .gaveta > .url-painel') as HTMLElement;
+  }
+
+  /** O cursor do Visual no parágrafo `k`, com a linha dele a `y`px do alto do que rola. */
+  async function cursorVisualEm(k: number, y: number): Promise<void> {
+    const v = pm();
+    let pos = 0;
+    for (let i = 0; i < k; i++) pos += v.state.doc.child(i).nodeSize;
+    v.dispatch(v.state.tr.setSelection(TextSelection.create(v.state.doc, pos + 1)));
+    caixa.scrollTop += v.coordsAtPos(pos + 1).top - caixa.getBoundingClientRect().top - y;
+    await new Promise((r) => requestAnimationFrame(r));
+    await settle();
+  }
+
+  const naoCobre = (linha: { top: number; bottom: number }, painel: HTMLElement) => {
+    const box = painel.getBoundingClientRect();
+    expect(linha.bottom <= box.top || linha.top >= box.bottom).withContext(`linha ${linha.top}–${linha.bottom}, painel ${box.top}–${box.bottom}`).toBeTrue();
+  };
+  const cursorVisual = () => {
+    const v = pm();
+    return v.coordsAtPos(v.state.selection.head);
+  };
+
+  it('no Visual, o painel nunca cobre o cursor: cursor no alto, embaixo dele; no pé, em cima', async () => {
+    await make(LONGO, 'visual');
+    await cursorVisualEm(30, 120);
+    const alto = await abreLink();
+    naoCobre(cursorVisual(), alto);
+    expect(alto.parentElement!.classList).not.toContain('sobe');
+    expect(alto.getBoundingClientRect().top).toBeGreaterThanOrEqual(cursorVisual().bottom);
+    expect(alto.getBoundingClientRect().top - cursorVisual().bottom).toBeLessThan(12);
+
+    (alto.querySelector('.painel-fechar') as HTMLButtonElement).click();
+    await settle();
+    await cursorVisualEm(60, 440);
+    const pe = await abreLink();
+    naoCobre(cursorVisual(), pe);
+    expect(pe.parentElement!.classList).toContain('sobe');
+    expect(cursorVisual().top - pe.getBoundingClientRect().bottom).toBeLessThan(12);
+    expect(pe.getBoundingClientRect().top).toBeGreaterThanOrEqual(el().querySelector('.regua')!.getBoundingClientRect().bottom);
+  });
+
+  it('no Markdown também, com o trecho selecionado à vista', async () => {
+    await make(LONGO, 'markdown');
+    const a = area();
+    a.focus();
+    const de = a.value.indexOf('Linha 60');
+    const ate = a.value.indexOf('Linha 62');
+    a.setSelectionRange(de, ate);
+    const linha = () => ({ top: a.getBoundingClientRect().top + caretBox(a, de).top, bottom: a.getBoundingClientRect().top + caretBox(a, ate).bottom });
+    caixa.scrollTop += linha().bottom - caixa.getBoundingClientRect().top - 150;
+    await settle();
+    const painel = await abreLink();
+    naoCobre(linha(), painel);
+    expect(painel.parentElement!.classList).not.toContain('sobe');
+  });
+
+  it('rolando com o painel aberto, ele anda com o texto e troca de lado, sem cobrir o cursor', async () => {
+    await make(LONGO, 'visual');
+    await cursorVisualEm(60, 440);
+    const painel = await abreLink();
+    expect(painel.parentElement!.classList).toContain('sobe');
+    // o cursor sobe até perto da régua: em cima dele acaba o lugar
+    caixa.scrollTop += 300;
+    await new Promise((r) => setTimeout(r, 80));
+    naoCobre(cursorVisual(), painel);
+    expect(painel.parentElement!.classList).not.toContain('sobe');
+    // o cursor sai por cima: o painel fica à vista, preso embaixo da régua
+    caixa.scrollTop += 1000;
+    await new Promise((r) => setTimeout(r, 80));
+    const box = painel.getBoundingClientRect();
+    expect(box.top).toBeGreaterThanOrEqual(el().querySelector('.regua')!.getBoundingClientRect().bottom);
+    expect(box.bottom).toBeLessThanOrEqual(caixa.getBoundingClientRect().bottom);
+    // o cursor sai por baixo: preso no pé
+    caixa.scrollTop -= 2000;
+    await new Promise((r) => setTimeout(r, 80));
+    expect(painel.parentElement!.classList).toContain('sobe');
+    expect(painel.getBoundingClientRect().bottom).toBeLessThanOrEqual(caixa.getBoundingClientRect().bottom);
+    expect(painel.getBoundingClientRect().top).toBeGreaterThanOrEqual(el().querySelector('.regua')!.getBoundingClientRect().bottom);
+  });
+
+  it('sem lugar nos dois lados, o texto sobe e o painel cabe inteiro, sem rolagem dentro dele', async () => {
+    await make(LONGO, 'visual');
+    // cabe o painel e a linha, mas com o cursor bem no meio não cabe nem em cima nem embaixo
+    const topo = parseFloat(getComputedStyle(el()).getPropertyValue('--topo-h'));
+    caixa.style.height = `${topo + 340}px`;
+    await cursorVisualEm(60, topo + 150);
+    const antes = caixa.scrollTop;
+    const painel = await abreLink();
+    expect(caixa.scrollTop).toBeGreaterThan(antes);
+    expect(painel.scrollHeight).toBeLessThanOrEqual(painel.clientHeight + 1);
+    naoCobre(cursorVisual(), painel);
+  });
+
+  it('o painel que cresce (a lista dele) e deixa de caber: é refeita a conta, e ele cabe, sem cobrir o cursor', async () => {
+    await make(LONGO, 'visual');
+    const topo = parseFloat(getComputedStyle(el()).getPropertyValue('--topo-h'));
+    await cursorVisualEm(60, topo + 30);
+    const painel = await abreLink();
+    expect(painel.parentElement!.classList).not.toContain('sobe');
+    const antes = caixa.scrollTop;
+    // 20px a mais do que há até o pé do que se vê (o mesmo pé de placeDrawer)
+    const pe = Math.min(caixa.getBoundingClientRect().bottom, visualViewport!.offsetTop + visualViewport!.height) - 40;
+    const lista = document.createElement('div');
+    lista.style.height = `${Math.round(pe - cursorVisual().bottom - 6 - painel.scrollHeight + 20)}px`;
+    painel.append(lista);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(caixa.scrollTop).toBeGreaterThan(antes);
+    expect(painel.scrollHeight).toBeLessThanOrEqual(painel.clientHeight + 1);
+    naoCobre(cursorVisual(), painel);
+  });
+
+  it('a imagem que chega acima do cursor empurra o texto: o painel acompanha, sem cobrir o cursor', async () => {
+    await make(LONGO, 'visual');
+    await cursorVisualEm(60, 200);
+    const painel = await abreLink();
+    // (o que muda a altura da folha sem mexer no texto nem na seleção)
+    (prose().firstElementChild as HTMLElement).style.height = '140px';
+    await new Promise((r) => setTimeout(r, 80));
+    const naTela = cursorVisual();
+    naoCobre(naTela, painel);
+    expect(painel.getBoundingClientRect().top - naTela.bottom).toBeLessThan(12);
+  });
+
+  it('o clique fora do painel passa pela gaveta: ela só leva o painel', async () => {
+    await make(LONGO, 'visual');
+    await cursorVisualEm(30, 120);
+    const painel = await abreLink();
+    expect(getComputedStyle(painel.parentElement!).pointerEvents).toBe('none');
+    expect(getComputedStyle(painel).pointerEvents).toBe('auto');
+    // a régua continua por cima de tudo
+    expect(el().querySelector('.regua')!.contains(painel)).toBeFalse();
   });
 
   it('o menu que cai da régua presa cabe até o pé do lugar que rola', async () => {

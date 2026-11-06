@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DOCK_MEDIA, RichEditor } from './rich-editor';
+import { caretBox } from './caret-follow';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
 /**
@@ -69,6 +70,85 @@ describe('a régua presa em cima do teclado', () => {
     await settle();
     expect(document.activeElement).not.toBe(area());
     expect(ruler().classList).not.toContain('presa');
+  });
+
+  it('o foco num painel não solta a régua, o painel fica logo acima dela e a linha do cursor sai de baixo dele', async () => {
+    TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(RichEditor);
+    fixture.componentRef.setInput('dock', true);
+    fixture.componentRef.setInput('grows', true);
+    const linhas = Array.from({ length: 120 }, (_, i) => `Linha ${i + 1}`);
+    linhas[59] = '[o site](https://exemplo.invalid)';
+    fixture.componentInstance.value.set(linhas.join('\n'));
+    const caixa = document.createElement('div');
+    caixa.style.cssText = 'height: 400px; width: 500px; overflow-y: auto';
+    caixa.append(fixture.nativeElement);
+    document.body.append(caixa);
+    await settle();
+    const a = area();
+    a.focus();
+    const at = a.value.indexOf('[o site]') + 3;
+    a.setSelectionRange(at, at);
+    const linha = () => {
+      const box = caretBox(a, at);
+      return { top: a.getBoundingClientRect().top + box.top, bottom: a.getBoundingClientRect().top + box.bottom };
+    };
+    // o cursor bem onde o painel vai abrir, e o toque no link
+    caixa.scrollTop += linha().top - caixa.getBoundingClientRect().top - 300;
+    await settle();
+    expect(ruler().classList).toContain('presa');
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    await new Promise((r) => setTimeout(r, 400));
+    await settle();
+    const painel = fixture.nativeElement.querySelector('.papel > .gaveta > .url-painel') as HTMLElement;
+    expect(painel).not.toBeNull();
+    expect(ruler().classList).toContain('presa');
+    expect(getComputedStyle(painel.parentElement!).position).toBe('fixed');
+    expect(painel.getBoundingClientRect().bottom).toBeLessThanOrEqual(ruler().getBoundingClientRect().top);
+    expect(linha().bottom).toBeLessThanOrEqual(painel.getBoundingClientRect().top);
+    // o foco no campo do painel não solta a régua; dele para fora da folha, solta
+    (painel.querySelector('input') as HTMLInputElement).focus();
+    await settle();
+    expect(ruler().classList).toContain('presa');
+    (document.activeElement as HTMLElement).blur();
+    await settle();
+    expect(ruler().classList).not.toContain('presa');
+    caixa.remove();
+  });
+
+  it('com o link na última linha, o pé da folha ganha rolagem para o cursor sair de baixo do painel, e devolve ao fechar', async () => {
+    TestBed.configureTestingModule({ imports: [RichEditor], providers: [provideZonelessChangeDetection()] });
+    fixture = TestBed.createComponent(RichEditor);
+    fixture.componentRef.setInput('dock', true);
+    fixture.componentRef.setInput('grows', true);
+    const linhas = Array.from({ length: 60 }, (_, i) => `Linha ${i + 1}`);
+    linhas.push('[o site](https://exemplo.invalid)');
+    fixture.componentInstance.value.set(linhas.join('\n'));
+    const caixa = document.createElement('div');
+    caixa.style.cssText = 'height: 400px; width: 500px; overflow-y: auto';
+    caixa.append(fixture.nativeElement);
+    document.body.append(caixa);
+    await settle();
+    const a = area();
+    a.focus();
+    const at = a.value.indexOf('[o site]') + 3;
+    a.setSelectionRange(at, at);
+    caixa.scrollTop = caixa.scrollHeight;
+    await settle();
+    a.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+    await new Promise((r) => setTimeout(r, 400));
+    await settle();
+    const painel = fixture.nativeElement.querySelector('.papel > .gaveta > .url-painel') as HTMLElement;
+    const papel = fixture.nativeElement.querySelector('.papel') as HTMLElement;
+    const fim = a.getBoundingClientRect().top + caretBox(a, at).bottom;
+    expect(fim).toBeLessThanOrEqual(painel.getBoundingClientRect().top);
+    expect(parseFloat(papel.style.paddingBottom)).toBeGreaterThan(0);
+    (painel.querySelector('.painel-fechar') as HTMLButtonElement).click();
+    await settle();
+    await new Promise((r) => setTimeout(r, 30));
+    await settle();
+    expect(papel.style.paddingBottom).toBe('');
+    caixa.remove();
   });
 
   it('fora do editor da ficha (sem "dock"), a régua da folha pequena fica no alto', async () => {

@@ -172,6 +172,8 @@ export interface VisualApi {
   soltaPeca(): void;
   /** A linha do cursor, na tela (a lista do "[[" abre junto dela). */
   cursorNaTela(): { top: number; bottom: number } | null;
+  /** O trecho selecionado, de cima a baixo, na tela (sem seleção, a linha do cursor). */
+  selecaoNaTela(): { top: number; bottom: number } | null;
   /** A folha fechou sem mudar nada: o foco volta, com o widget selecionado (ou o cursor no lugar). */
   voltaAPeca(): void;
   /** A imagem guardada (`marca`, a do pedido `imagem`) entra no lugar dela, como o widget de imagem. */
