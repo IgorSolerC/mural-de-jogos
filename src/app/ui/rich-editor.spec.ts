@@ -1413,10 +1413,13 @@ describe('a folha do widget no editor', () => {
     await fixture.whenStable();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     sheet()?.close();
     el.remove();
     localStorage.clear();
+    // a imagem escolhida do aparelho fica no banco, que é um só na página: sobrando, o mural de ninguém
+    // dos testes seguintes tem conteúdo (ver `localHasContent` em core/cloud-sync.ts)
+    await deleteDatabase(IMAGES_DB);
   });
 
   /** Espera o que é guardado aos poucos (encolher a imagem leva um tempo). */

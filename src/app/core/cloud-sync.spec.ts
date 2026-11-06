@@ -229,6 +229,9 @@ describe('sincronização com a nuvem', () => {
       const r = indexedDB.deleteDatabase('meu-mural:antes-da-nuvem');
       r.onsuccess = r.onerror = r.onblocked = () => resolve();
     });
+    // o banco é um só na página, e outros testes guardam nele: uma imagem que sobrou é mural de ninguém
+    // (ver `localHasContent`), e o aparelho "vazio" perguntaria
+    await deleteDatabase(IMAGES_DB);
     localStorage.clear();
     localStorage.setItem(SESSION_KEY, TOKEN);
     localStorage.setItem(ACCOUNT_KEY, JSON.stringify(ACCOUNT));
@@ -1233,8 +1236,6 @@ describe('sincronização com a nuvem', () => {
     });
 
     it('as imagens coladas sobem antes de sair; a que não sobe (sem conexão) faz perguntar', async () => {
-      // só estas imagens: outros testes também guardam no mesmo banco
-      await deleteDatabase(IMAGES_DB);
       const a = device();
       const store = TestBed.inject(ImageStore);
       const pasted = (id: string) => ({ id, blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: id, criada: '', estado: 'local' as const });
@@ -1259,7 +1260,6 @@ describe('sincronização com a nuvem', () => {
     });
 
     it('as imagens sobem só com a conta dona do mural deste navegador', async () => {
-      await deleteDatabase(IMAGES_DB);
       const a = device({ anonimo: true });
       await TestBed.inject(ImageStore).restore([
         { id: 'deninguemesperaaescol1', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'n', criada: '', estado: 'local' },
@@ -1274,7 +1274,6 @@ describe('sincronização com a nuvem', () => {
     });
 
     it('a imagem que outra aba colou depois de esta abrir também conta como mural de ninguém', async () => {
-      await deleteDatabase(IMAGES_DB);
       const a = device({ anonimo: true });
       await TestBed.inject(ImageStore).ready;
       // guardada por outra aba: a contagem desta não passa por ela
@@ -1289,7 +1288,6 @@ describe('sincronização com a nuvem', () => {
     });
 
     it('numa aba escondida, a pergunta do mural de ninguém fica para depois: a vez não fica presa nela', async () => {
-      await deleteDatabase(IMAGES_DB);
       const a = device({ anonimo: true });
       await TestBed.inject(ImageStore).restore([
         { id: 'escondidaesperaavista1', blob: new Blob(['x'], { type: 'image/webp' }), tipo: 'image/webp', largura: 1, altura: 1, bytes: 1, hash: 'e', criada: '', estado: 'local' },
@@ -1553,7 +1551,6 @@ describe('sincronização com a nuvem', () => {
   });
 
   it('a imagem que o mural usa e a nuvem perdeu sobe de novo deste aparelho', async () => {
-    await deleteDatabase(IMAGES_DB);
     const a = device();
     const id = 'perdidanuvem' + 'x'.repeat(10);
     await TestBed.inject(ImageStore).restore([
