@@ -27,12 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-05-carta-privada-em-baralho-publico',
+    id: '2026-11-05-virar-a-carta-na-parede',
     version: '1.39.1',
     kind: 'ajustes',
     date: '2026-11-05',
-    title: 'A carta privada num baralho público',
-    melhorias: ['Quando uma anotação privada entra num baralho público, o Murall avisa que quem visita não vai ver a carta e oferece "Tornar pública": ela fica pública fora do Feed, com Desfazer.'],
+    title: 'Virar a carta na parede e a carta privada num baralho público',
+    melhorias: [
+      'Quando uma anotação privada entra num baralho público, o Murall avisa que quem visita não vai ver a carta e oferece "Tornar pública": ela fica pública fora do Feed, com Desfazer.',
+      'Na parede do baralho, tocar na carta vira a carta ali mesmo, sem contar como estudo; a pequena cresce no lugar para dar para ler. O botão preto novo de maximizar abre a carta grande, como no modo de estudos. A anotação e a edição agora ficam no botão preto de ajustes.',
+    ],
+    correcoes: ['Com "reduzir movimento" ligado no aparelho, o título da frente das cartas saía do tamanho errado.'],
   },
   {
     id: '2026-11-05-copiar-baralho',

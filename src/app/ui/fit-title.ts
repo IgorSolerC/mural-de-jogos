@@ -71,6 +71,8 @@ export class FitTitle {
     // a palavra só quebra no meio quando nem a menor letra a faz caber, e as reticências só quando nem o
     // piso cabe (ver o fim): a conta começa sem nenhum dos dois
     text.style.overflowWrap = '';
+    // com movimento reduzido, o site dá 1 ms de transição a tudo: a letra medida seria a de antes
+    text.style.transitionProperty = 'none';
     clamp(text, 0);
     const width = area.clientWidth;
     const height = area.clientHeight;

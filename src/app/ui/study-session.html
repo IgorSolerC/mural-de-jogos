@@ -22,32 +22,10 @@
       <div class="area">
       <div class="giro" [class.virada]="revealed()" [class.calma]="calm">
         <div class="face frente" [attr.inert]="revealed() ? '' : null">
-          <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.look.stock" [deck]="c.deck" />
+          <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="c.deck" />
         </div>
-        <!-- o verso: a cartolina da anotação (a cor, o papel e a estampa, sem estrago, mancha nem
-             decoração), no formato da carta, com a anotação inteira escrita nela -->
-        <article
-          class="face verso cartolina"
-          [style]="c.look.vars"
-          [style.--stock]="'var(--stock-' + c.look.stock + ')'"
-          [attr.data-cor]="c.look.stock"
-          [attr.inert]="revealed() ? null : ''"
-          [attr.aria-hidden]="revealed() ? null : 'true'"
-          aria-label="A resposta"
-        >
-          <app-paper-art class="verso-papel-arte" [id]="c.look.artId" [paper]="c.look.paper" [paperSeed]="c.look.paperSeed" [glitter]="c.look.paper === 'glitter'" [dark]="c.look.dark" />
-          <div class="verso-conteudo">
-            <!-- o título é o da frente, uma vez só; o nome da anotação só aparece quando é tudo o que ela tem -->
-            <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
-            @if (c.text) {
-              <div class="verso-resposta" [appGrowToFit]="c.text"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
-            } @else if (c.noteTitle !== c.title) {
-              <p class="verso-nome">{{ c.noteTitle }}</p>
-            } @else {
-              <p class="verso-vazio">Esta anotação não tem texto.</p>
-            }
-          </div>
-        </article>
+        <!-- o verso: a cartolina da anotação, no formato da carta, com a anotação inteira escrita nela -->
+        <article appStudyBack class="face verso cartolina" [note]="c.noteId" [attr.inert]="revealed() ? null : ''" [attr.aria-hidden]="revealed() ? null : 'true'"></article>
       </div>
       </div>
     </div>

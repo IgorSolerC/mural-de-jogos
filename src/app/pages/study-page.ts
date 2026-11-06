@@ -12,6 +12,7 @@ import { Settings } from '../core/settings';
 import { WallView } from '../core/wall-view';
 import { Desk } from '../core/desk';
 import { daysBetween, studyDay } from '../core/fsrs';
+import { reducedMotion } from '../core/motion';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
@@ -26,6 +27,8 @@ import { NearPool, NearScreen } from '../ui/near-screen';
 import { Pin } from '../ui/pin';
 import { SearchStrip } from '../ui/search-strip';
 import { StudyCard } from '../ui/study-card';
+import { StudyCardBack } from '../ui/study-card-back';
+import { StudyCardFocus } from '../ui/study-card-focus';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudyCardSheet } from '../ui/study-card-sheet';
 import { StudySession } from '../ui/study-session';
@@ -106,6 +109,13 @@ interface GroupTab {
 
 const NO_COUNTS: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
 
+/** Quanto a carta pequena cresce ao virar: da miniatura ao tamanho das grandes (o --escala de study-page.scss). */
+const SMALL_GROWS = 2.5;
+/** A folga da carta pequena crescida até a beira da tela. */
+const SCREEN_GAP = 8;
+/** Nada virado. */
+const NO_CARDS: ReadonlySet<string> = new Set();
+
 /** A chave do Tudo na régua das abas. */
 const ALL_TAB = 'tudo';
 
@@ -122,14 +132,20 @@ function tiltOf(id: string): number {
  * "Mais", os escondidos e "Esconder os grupos vazios" da engrenagem do mural; aqui, vazio é sem baralho).
  * Num grupo (`/:grupo`), os baralhos dele como pilhas de cartas presas com um elástico; em Tudo, as pilhas
  * de todos, uma seção por grupo; num baralho (`/:grupo/:baralho`), a parede das cartas, a frente à mostra,
- * que abrem a anotação (a resposta) como no mural. Estudar vale para o baralho, o grupo ou tudo.
+ * que viram ali mesmo com um toque (nada disso conta como estudo); o botão de maximizar abre a carta em foco, e
+ * a folha da carta leva à anotação e ao editor. Estudar vale para o baralho, o grupo ou tudo.
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
-  styleUrl: './study-page.scss',
+  styleUrls: ['./study-page.scss', './study-page-flip.scss'],
+  host: {
+    '(document:click)': 'clickedAround($event)',
+    '(document:keydown.escape)': 'escapeAround($event)',
+    '(window:resize)': 'resized()',
+  },
 })
 export class StudyPage {
   protected readonly study = inject(StudyStore);
@@ -147,6 +163,7 @@ export class StudyPage {
   protected readonly AddIcon = ICON.adicionar;
   protected readonly EditIcon = ICON.editar;
   protected readonly AdjustIcon = ICON.ajustar;
+  protected readonly MaximizeIcon = ICON.aumentar;
   protected readonly PlayIcon = ICON.estudar;
   protected readonly GearIcon = ICON.configurar;
   /** A anotação (a lupa se confundia com a busca, que é logo embaixo). */
@@ -216,6 +233,15 @@ export class StudyPage {
   protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.scope(), this.study.live, 1).counts));
   /** A folha da carta aberta (o id da anotação). */
   protected readonly cardSheet = signal<string | null>(null);
+  /** A carta maximizada (o id da anotação). */
+  protected readonly focused = signal<string | null>(null);
+  /** As cartas com o verso à mostra na parede. Fica só na memória da página: virar não é estudar, e nada se guarda. */
+  protected readonly flipped = signal<ReadonlySet<string>>(NO_CARDS);
+  /** As cartas já viradas neste baralho: o verso delas fica montado, para o giro de volta. */
+  protected readonly turnedOnce = signal<ReadonlySet<string>>(NO_CARDS);
+  /** O que a voz do leitor de tela diz ao virar. */
+  protected readonly spoken = signal('');
+  protected readonly calm = reducedMotion();
   /** O seletor de fichas do "Trazer anotações" aberto. */
   protected readonly picking = signal(false);
   /** O nome do primeiro baralho, na cartolina da primeira vez. */
@@ -418,6 +444,8 @@ export class StudyPage {
       this.cards();
       this.cardSize();
       nearPool.settle();
+      // a carta pequena crescida pode ter mudado de casa (a ordem, o filtro)
+      this.resized();
     });
     // o "+ Novo baralho" abre nele com a folha aberta: a página é outra depois da navegação (são duas rotas)
     const asked = (this.router.getCurrentNavigation()?.extras.state as { folha?: string } | undefined)?.folha;
@@ -433,6 +461,17 @@ export class StudyPage {
         const old = !deck ? this.study.deck(group) : undefined;
         const to = old ? this.deckPath(old) : !g ? studyPath() : deck && !d ? studyPath(g.id) : null;
         if (to) void this.router.navigateByUrl(to, { replaceUrl: true, state: this.router.getCurrentNavigation()?.extras.state });
+      });
+    });
+    // outro baralho (o mesmo, com outro nome ou vindo de outro aparelho, não conta): a parede começa de novo
+    // com as frentes à mostra, e a carta maximizada, que era do outro, fecha
+    const deckId = computed(() => this.deck()?.id);
+    effect(() => {
+      deckId();
+      untracked(() => {
+        this.flipped.set(NO_CARDS);
+        this.turnedOnce.set(NO_CARDS);
+        this.focused.set(null);
       });
     });
     // o grupo aberto aqui fica aberto no mural também (como o do quadro do Kanban): só quando ele muda (as
@@ -535,15 +574,104 @@ export class StudyPage {
     this.desk.editReview(note);
   }
 
-  /** Troca o tamanho das cartas e guarda neste aparelho. */
+  /** Troca o tamanho das cartas e guarda neste aparelho. As cartas voltam para a frente: a pequena virada é só uma. */
   protected setCardSize(size: CardSize): void {
+    if (size !== this.cardSize()) this.flipped.set(NO_CARDS);
     this.cardSize.set(size);
     writeText(STUDY_SIZE_KEY, size);
   }
 
-  /** A carta abre a anotação, como no mural: a resposta, com o Editar e tudo. */
+  /** "Ler a anotação" da folha da carta: a anotação como no mural, com o Editar e tudo. */
   protected open(note: string): void {
     this.desk.openReview(note);
+  }
+
+  /**
+   * Tocou na carta: ela vira ali mesmo. Nada conta como estudo. Das grandes, várias ficam viradas, como cartas
+   * na mesa; das pequenas, que crescem por cima das vizinhas, uma de cada vez.
+   */
+  protected flip(note: string, li: HTMLElement): void {
+    const small = this.cardSize() === 'pequenas';
+    const back = !this.flipped().has(note);
+    if (back && small) this.keepOnScreen(li);
+    if (!back) this.keepFocus(li);
+    this.flipped.update((set) => {
+      const next = new Set(small ? [] : set);
+      if (back) next.add(note);
+      else next.delete(note);
+      return next;
+    });
+    if (back && !this.turnedOnce().has(note)) this.turnedOnce.update((set) => new Set(set).add(note));
+    this.say(back ? 'Verso' : 'Frente', note);
+  }
+
+  /** O Esc com o foco na carta virada: ela volta para a frente, e o de fora não mexe em mais nenhuma. */
+  protected unflip(note: string, li: HTMLElement, e: Event): void {
+    if (!this.flipped().has(note)) return;
+    e.stopPropagation();
+    this.keepFocus(li);
+    this.turnBack(note);
+  }
+
+  /**
+   * O Esc com o foco em outro lugar: a carta pequena crescida volta (ela cobre as vizinhas, e o foco pode nem
+   * estar nela). As grandes não cobrem nada: só voltam com o Esc nelas. Os diálogos e os campos têm o Esc deles.
+   */
+  protected escapeAround(e: Event): void {
+    const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
+    if (!grown || document.querySelector('dialog:modal')) return;
+    if (e.target instanceof Element && e.target.closest('input, textarea, select, app-tab-more')) return;
+    this.turnBack(grown);
+  }
+
+  /** A carta pequena crescida fecha com um toque fora dela (na outra carta, é o toque dela que troca). */
+  protected clickedAround(e: Event): void {
+    const grown = this.cardSize() === 'pequenas' ? [...this.flipped()][0] : undefined;
+    if (!grown || (e.target instanceof Element && e.target.closest('.carta-li.virada, .carta-btn, dialog'))) return;
+    this.turnBack(grown);
+  }
+
+  /** A janela mudou: a carta pequena crescida é empurrada de novo, para continuar dentro da tela. */
+  protected resized(): void {
+    const li = this.cardSize() === 'pequenas' ? this.host.querySelector<HTMLElement>('.carta-li.virada') : null;
+    if (li) this.keepOnScreen(li);
+  }
+
+  private turnBack(note: string): void {
+    this.flipped.update((set) => {
+      const next = new Set(set);
+      next.delete(note);
+      return next;
+    });
+    this.say('Frente', note);
+  }
+
+  private say(side: 'Frente' | 'Verso', note: string): void {
+    this.spoken.set(`${side} de ${this.cards().find((c) => c.note === note)?.title ?? 'carta'}`);
+  }
+
+  /** O foco dentro do verso que vai ficar de costas cairia na página: passa para a carta. */
+  private keepFocus(li: HTMLElement): void {
+    const at = document.activeElement;
+    if (at?.closest('.verso') && li.contains(at)) li.querySelector<HTMLElement>('.carta-btn')?.focus({ preventScroll: true });
+  }
+
+  /**
+   * A carta pequena cresce em volta do meio dela, e o giro a empurra daí: para baixo, com o topo na linha da
+   * miniatura (sem cobrir a régua em cima), e para dentro, se passar da beira da tela.
+   */
+  private keepOnScreen(li: HTMLElement): void {
+    const box = li.getBoundingClientRect();
+    const view = document.documentElement;
+    const push = (size: number, centered: number, wanted: number, screen: number): number => {
+      const grown = size * SMALL_GROWS;
+      const at = Math.max(SCREEN_GAP, Math.min(wanted, screen - SCREEN_GAP - grown));
+      return Math.round(at - (centered - grown / 2));
+    };
+    const x = box.left + box.width / 2;
+    const y = box.top + box.height / 2;
+    li.style.setProperty('--empurra-x', `${push(box.width, x, x - (box.width * SMALL_GROWS) / 2, view.clientWidth)}px`);
+    li.style.setProperty('--empurra-y', `${push(box.height, y, box.top, view.clientHeight)}px`);
   }
 
   /** Uma cor ainda sem baralho (ou a do primeiro, se todas já têm). */

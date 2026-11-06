@@ -140,6 +140,8 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     fit().fit();
     const area = $('.titulo-area')!;
     const px = parseFloat($('.titulo')!.style.fontSize);
+    // com movimento reduzido, o site dá 1 ms de transição a tudo, e a letra medida seria a de antes
+    expect($('.titulo')!.style.transitionProperty).toBe('none');
     // pedido do usuário: "O kanji está muito grande agora. Diminua para que fique do tamanho que ficava antes";
     // antes (com a tabela de quatro linhas), 54 a 55cqi no computador e no celular; com o teto de 0,92 seria ~75cqi
     expect(fit().appFitTitleMax()).toBe(0.595);

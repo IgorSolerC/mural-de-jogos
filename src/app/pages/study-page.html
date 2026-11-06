@@ -307,24 +307,35 @@
     } @else if (!cards().length) {
       <p class="nada">Nenhuma carta com esse filtro.</p>
     } @else {
-      <!-- a parede das cartas, a frente à mostra; tocar abre a anotação, a resposta -->
+      <!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. A anotação como no mural e a
+           edição ficam na folha da carta (a etiqueta de ajustes) -->
       <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Cartas de ' + d.name">
         @for (c of cards(); track c.note) {
+          @let up = flipped().has(c.note);
           <!-- só o que está perto da tela é montado: longe, o botão fica (o Tab e o leitor de tela passam por
                todas), com a vaga tracejada do mural no lugar da carta (ver ui/near-screen.ts) -->
-          <li class="carta-li" appPerto #perto="perto" [style.--inclina]="c.tilt + 'deg'">
-            <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
-            <button type="button" class="carta-btn" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê esta carta' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="open(c.note)">
-              @if (perto.near()) {
-                <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
-              } @else {
-                <span class="carta-vaga"></span>
+          <li class="carta-li" appPerto #perto="perto" #cartaLi [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
+            <div class="giro" [class.virada]="up" [class.montada]="turnedOnce().has(c.note)" [class.calma]="calm">
+              <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
+              <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê esta carta' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="flip(c.note, cartaLi)">
+                @if (perto.near()) {
+                  <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
+                } @else {
+                  <span class="carta-vaga"></span>
+                }
+              </button>
+              <!-- o verso é o da mesa de estudo; só existe nas cartas já viradas, e fica para o giro de volta -->
+              @if (perto.near() && turnedOnce().has(c.note)) {
+                <article appStudyBack class="verso cartolina" [note]="c.note" [attr.inert]="up ? null : ''" [attr.aria-hidden]="up ? null : 'true'" (turn)="flip(c.note, cartaLi)"></article>
               }
-            </button>
+            </div>
             @if (perto.near()) {
-              <!-- os ajustes da carta: a etiqueta de tinta das fichas do Kanban, no hover -->
+              <!-- a etiqueta de tinta das fichas do Kanban, no hover: maximizar a carta e os ajustes dela -->
               <div class="acoes">
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Baralhos, mural e revisão de ' + c.title" title="Baralhos, mural e revisão" (click)="cardSheet.set(c.note)">
+                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
+                  <lucide-icon [img]="MaximizeIcon" [size]="16" aria-hidden="true" />
+                </button>
+                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Ler, editar e ajustes de ' + c.title" title="Ler, editar e ajustes da carta" (click)="cardSheet.set(c.note)">
                   <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
                 </button>
               </div>
@@ -332,6 +343,8 @@
           </li>
         }
       </ul>
+      <p id="carta-virar-dica" hidden>Vira a carta. Atrás está a anotação.</p>
+      <p class="sr-only" aria-live="polite">{{ spoken() }}</p>
     }
   } @else if (group(); as g) {
     @if (!g.decks.length) {
@@ -381,6 +394,14 @@
 @if (cardSheet(); as id) {
   @defer (on immediate) {
     <app-study-card-sheet [noteId]="id" (closed)="cardSheet.set(null)" (reading)="open($event)" (editing)="edit($event)" />
+  }
+}
+
+@if (focused(); as id) {
+  @if (deck(); as d) {
+    @defer (on immediate) {
+      <app-study-card-focus [note]="id" [deck]="d" [back]="flipped().has(id)" (closed)="focused.set(null)" />
+    }
   }
 }
 

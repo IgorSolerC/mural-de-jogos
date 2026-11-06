@@ -2,19 +2,13 @@ import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, afterNextRe
 import { reducedMotion } from '../core/motion';
 import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
-import { fsrsConfig, frontTitle, inGroup, intervalLabel, isPhraseTitle } from '../core/study';
+import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
 import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { ICON, IconModule } from './icons';
-import { RichText } from './rich-text';
-import { PaperArtLayer } from './paper-layer';
-import { lookOf } from '../core/paper';
-import { paperVars } from '../core/paper-art';
-import { artIdOf, isDarkStock } from '../core/review';
 import { pinningFor } from '../core/wall-physics';
 import { StudyCard } from './study-card';
-import { GrowToFit } from './grow-to-fit';
-import { OwnNoteLinks } from '../core/own-note-links';
+import { StudyCardBack } from './study-card-back';
 
 /** Uma resposta da sessão, para o Desfazer: a carta, se acertou, e como voltar. */
 interface Answered {
@@ -34,7 +28,7 @@ interface Answered {
  */
 @Component({
   selector: 'app-study-session',
-  imports: [GrowToFit, IconModule, PaperArtLayer, RichText, StudyCard],
+  imports: [IconModule, StudyCard, StudyCardBack],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-session.html',
   styleUrl: './study-session.scss',
@@ -91,42 +85,24 @@ export class StudySession {
   /** Os três montes do que falta, como no Anki (o da carta na mesa sublinhado). */
   protected readonly counts = computed(() => dayQueue(this.study.view(), this.study.now(), this.scope(), this.study.live, this.ahead() ? 1 : 0).counts);
 
-  /** A carta na mesa: a frente, a anotação (o verso) e a cartolina. */
+  /** A carta na mesa: a frente e a anotação (o verso, em ui/study-card-back.ts). */
   protected readonly card = computed(() => {
     const item = this.current();
     if (!item) return null;
     const card = this.study.cardOf().get(item.note);
     const note = this.store.get(item.note);
     if (!card || !note) return null;
-    const title = frontTitle(card, note.game.name);
     return {
       item,
-      title,
-      phrase: isPhraseTitle(title),
+      title: frontTitle(card, note.game.name),
       subtitle: card.front.subtitle,
       image: card.front.image,
-      // a cartolina da anotação como o mural a desenha (sem cor escolhida, a sorteada pelo id)
-      look: (() => {
-        const stock = pinningFor(note.id, note.stock).stock;
-        const dark = isDarkStock(stock);
-        return { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) };
-      })(),
+      // a cor da anotação como o mural a desenha (sem cor escolhida, a sorteada pelo id)
+      stock: pinningFor(note.id, note.stock).stock,
       deck: this.study.deck(item.deck) ?? null,
       noteId: note.id,
-      noteTitle: note.game.name,
-      text: note.text,
       srs: card.srs,
     };
-  });
-
-  private readonly ownLinks = inject(OwnNoteLinks);
-  /**
-   * Os links do verso, os mesmos da ficha do mural (core/own-note-links.ts): sem eles, o "[[título|texto]]"
-   * sairia com os colchetes, e o lembrete e a ficha colada não abririam.
-   */
-  protected readonly links = computed(() => {
-    const id = this.current()?.note;
-    return id ? this.ownLinks.of(id) : null;
   });
 
   /** Quando a carta voltaria com cada resposta (o que o FSRS calcularia agora, sem guardar nada). */

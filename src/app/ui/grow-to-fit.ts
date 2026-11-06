@@ -59,6 +59,8 @@ export class GrowToFit {
     const text = box.firstElementChild as HTMLElement | null;
     const area = box.parentElement;
     if (!text || !area) return;
+    // com movimento reduzido, o site dá 1 ms de transição a tudo: o zoom medido seria o de antes
+    text.style.transitionProperty = 'none';
     text.style.removeProperty('zoom');
     // o que sobra no pai, do alto do texto até o respiro do pé (1 px de folga: as medidas são arredondadas)
     const room = area.clientHeight - parseFloat(getComputedStyle(area).paddingBottom) - (box.offsetTop - area.offsetTop) - 1;

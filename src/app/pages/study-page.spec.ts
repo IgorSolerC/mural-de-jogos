@@ -428,12 +428,17 @@ describe('página dos Estudos', () => {
       await until(() => isCard(0), 'a que sobrou');
     });
 
-    it('a vaga também abre a anotação (tocar nela, antes de a carta chegar, não se perde)', async () => {
+    it('a vaga também vira (o toque antes de a carta chegar não se perde), e o verso dela só monta perto da tela', async () => {
       await until(() => isCard(0), 'a primeira');
-      const desk = TestBed.inject(Desk);
-      const opened = spyOn(desk, 'openReview');
+      const opened = spyOn(TestBed.inject(Desk), 'openReview');
       li(299).querySelector<HTMLElement>('.carta-btn')!.click();
-      expect(opened).toHaveBeenCalled();
+      await settle();
+      expect(opened).not.toHaveBeenCalled();
+      expect(li(299).classList).toContain('virada');
+      expect(li(299).querySelector('.verso')).withContext('longe, sem verso').toBeNull();
+      li(299).scrollIntoView({ block: 'center' });
+      await until(() => isCard(299), 'a última');
+      expect(li(299).querySelector('.verso')).withContext('perto, com o verso').not.toBeNull();
     });
   });
 
@@ -471,11 +476,8 @@ describe('página dos Estudos', () => {
       expect(getComputedStyle(card).scale).toBe('0.4');
       expect(card.offsetWidth * 0.4).toBeCloseTo(button.offsetWidth, 0);
       expect(text($('app-study-card .titulo'))).toBe(title);
-      // a letra do nível não se lê mais: o nome e o nível na dica; o toque continua abrindo a anotação
+      // a letra do nível não se lê mais: o nome e o nível na dica
       expect($('.carta-btn')!.title).toBe($('.carta-btn')!.getAttribute('aria-label')!);
-      const open = spyOn(TestBed.inject(Desk), 'openReview');
-      button.click();
-      expect(open).toHaveBeenCalledWith('nsol');
 
       size('Cartas grandes').click();
       await settle();
@@ -521,9 +523,8 @@ describe('página dos Estudos', () => {
     });
   });
 
-  it('um baralho: a parede das cartas, a frente à mostra (sem título, o nome da anotação), e tocar abre a anotação', async () => {
+  it('um baralho: a parede das cartas, a frente à mostra (sem título, o nome da anotação)', async () => {
     const { kanji } = seed();
-    const open = spyOn(TestBed.inject(Desk), 'openReview');
     await go(deckUrl(kanji));
     const cards = $$('app-study-card');
     // a ordem padrão: a que volta antes primeiro, as nunca estudadas no fim, na ordem em que entraram
@@ -538,8 +539,435 @@ describe('página dos Estudos', () => {
     expect(text(cards[1].querySelector('.pe'))).toBe('Desconhecida');
     expect(cards[1].querySelector('.pe .volta')).toBeNull();
     expect(text(cards[0].querySelector('.canto'))).toBe('日');
-    $$('.carta-btn')[2].click();
-    expect(open).toHaveBeenCalledWith('nfogo');
+  });
+
+  describe('virar a carta na parede', () => {
+    const li = (i: number) => $$('.carta-li')[i];
+    const btn = (i: number) => li(i).querySelector<HTMLElement>('.carta-btn')!;
+    const back = (i: number) => li(i).querySelector<HTMLElement>('.verso');
+    const turned = () => $$('.carta-li.virada').length;
+    const voice = () => $$('.cartas ~ p[aria-live]').map(text).join(' ');
+    /** A nota com texto, para o verso ter o que mostrar. */
+    function write(id: string, body: string): void {
+      TestBed.inject(ReviewStore).reviews.update((list) => list.map((n) => (n.id === id ? { ...n, text: body } : n)));
+    }
+    function focusDialog(): HTMLDialogElement | null {
+      return document.querySelector<HTMLDialogElement>('app-study-card-focus dialog');
+    }
+    async function focusOpen(i = 0): Promise<HTMLDialogElement> {
+      li(i).querySelector<HTMLElement>('.mexer[aria-label^="Maximizar"]')!.click();
+      for (let n = 0; n < 60 && !focusDialog()?.open; n++) await settle();
+      return focusDialog()!;
+    }
+    afterEach(() => focusDialog()?.close());
+
+    it('tocar vira ali mesmo, sem abrir a anotação; tocar no verso volta', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Leitura: nichi.');
+      const open = spyOn(TestBed.inject(Desk), 'openReview');
+      await go(deckUrl(kanji));
+      const place = li(0).getBoundingClientRect();
+      // a frente: sem verso montado, e o botão diz o que faz
+      expect(back(0)).toBeNull();
+      expect(btn(0).getAttribute('aria-pressed')).toBe('false');
+      expect($('#' + btn(0).getAttribute('aria-describedby'))!.textContent).toContain('Vira a carta');
+
+      btn(0).click();
+      await settle();
+      expect(open).not.toHaveBeenCalled();
+      expect(li(0).querySelector('.giro')!.classList).toContain('virada');
+      expect(btn(0).getAttribute('aria-pressed')).toBe('true');
+      expect(voice()).toBe('Verso de 日');
+      // o verso da mesa de estudo: a cartolina da anotação, com o texto dela
+      expect(back(0)!.classList).toContain('cartolina');
+      expect(back(0)!.hasAttribute('inert')).toBeFalse();
+      expect(back(0)!.hasAttribute('aria-hidden')).toBeFalse();
+      expect(text(back(0)!.querySelector('.verso-titulo'))).toContain('日');
+      expect(text(back(0)!.querySelector('app-rich-text'))).toContain('Leitura: nichi.');
+      // a carta não saiu do lugar nem mudou de tamanho
+      const now = li(0).getBoundingClientRect();
+      expect([now.left, now.top, now.width, now.height]).toEqual([place.left, place.top, place.width, place.height]);
+      expect(back(0)!.offsetWidth).toBe(btn(0).offsetWidth);
+      expect(back(0)!.offsetHeight).toBeCloseTo(btn(0).offsetHeight, -1);
+
+      back(0)!.querySelector<HTMLElement>('.verso-titulo')!.click();
+      await settle();
+      expect(open).not.toHaveBeenCalled();
+      expect(turned()).toBe(0);
+      expect(voice()).toBe('Frente de 日');
+      // fica montado para o giro de volta, sem ninguém alcançar
+      expect(back(0)!.hasAttribute('inert')).toBeTrue();
+      expect(back(0)!.getAttribute('aria-hidden')).toBe('true');
+    });
+
+    it('virar não conta como estudo: nada muda nas cartas nem no que está guardado', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      const before = JSON.stringify(study.state());
+      const answer = spyOn(study, 'answer').and.callThrough();
+      btn(0).click();
+      await settle();
+      btn(0).click();
+      await settle();
+      const dialog = await focusOpen();
+      dialog.querySelector<HTMLElement>('.mostrar')!.click();
+      await settle();
+      dialog.close();
+      await settle();
+      expect(answer).not.toHaveBeenCalled();
+      expect(JSON.stringify(study.state())).toBe(before);
+    });
+
+    it('o que se toca no texto do verso é dele: não vira; marcar um trecho também não', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Ver [[Lua (月)|a lua]] e ||segredo||.\n\nUm trecho para marcar.');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      for (const el of [...back(0)!.querySelectorAll<HTMLElement>('.elo, .spoiler')]) {
+        el.click();
+        await settle();
+        expect(turned()).withContext(el.className).toBe(1);
+      }
+      const para = [...back(0)!.querySelectorAll<HTMLElement>('.paragrafo')].pop()!;
+      getSelection()!.selectAllChildren(para);
+      para.click();
+      await settle();
+      expect(turned()).withContext('com o trecho marcado').toBe(1);
+      getSelection()!.removeAllRanges();
+      para.click();
+      await settle();
+      expect(turned()).withContext('o papel').toBe(0);
+    });
+
+    it('o clique não é cancelado (molde que devolve false cancelaria) e a carta é um botão de verdade: Esc volta', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      expect(btn(0).tagName).toBe('BUTTON');
+      expect(btn(0).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))).toBeTrue();
+      await settle();
+      expect(turned()).toBe(1);
+      btn(0).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await settle();
+      expect(turned()).toBe(0);
+      expect(voice()).toBe('Frente de 日');
+      // o Esc na carta de frente não faz nada
+      btn(1).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await settle();
+      expect(turned()).toBe(0);
+    });
+
+    it('o foco dentro do verso passa para a carta quando ela vira de volta (não cai na página)', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Ver [[Lua (月)|a lua]].');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      back(0)!.querySelector<HTMLElement>('.elo')!.focus();
+      back(0)!.querySelector<HTMLElement>('.elo')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await settle();
+      expect(turned()).toBe(0);
+      expect(document.activeElement).toBe(btn(0));
+    });
+
+    it('o Esc de fora volta a carta pequena crescida; nos campos e com uma folha aberta, o Esc é deles; as grandes só com o Esc nelas', async () => {
+      const { kanji } = seed();
+      const esc = (at: EventTarget) => at.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      esc(document.body);
+      await settle();
+      expect(turned()).withContext('grande, de fora').toBe(1);
+      $<HTMLButtonElement>('button[aria-label^="Cartas pequenas"]')!.click();
+      await settle();
+      btn(0).click();
+      await settle();
+      esc($('#busca-cartas')!);
+      await settle();
+      expect(turned()).withContext('na busca').toBe(1);
+      const dialog = await focusOpen();
+      esc(document.body);
+      await settle();
+      expect(turned()).withContext('com a folha aberta e o foco solto').toBe(1);
+      dialog.close();
+      await settle();
+      esc(document.body);
+      await settle();
+      expect(turned()).toBe(0);
+      expect(voice()).toBe('Frente de 日');
+    });
+
+    it('o mesmo baralho com outro nome continua virado; a carta maximizada fecha ao ir para outro baralho', async () => {
+      const { kanji, quimica } = seed();
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      study.updateDeck(kanji, { name: 'Kanjis 2' });
+      await settle();
+      expect(turned()).toBe(1);
+      expect(back(0)).not.toBeNull();
+      await focusOpen();
+      await go(deckUrl(quimica));
+      await settle();
+      expect(focusDialog()).toBeNull();
+    });
+
+    it('a carta pequena crescida é empurrada de novo quando volta do filtro', async () => {
+      const { kanji } = seed();
+      localStorage.setItem(STUDY_SIZE_KEY, 'pequenas');
+      await go(deckUrl(kanji));
+      $('.cartas')!.scrollIntoView({ block: 'start' });
+      btn(0).click();
+      await settle();
+      const search = $<HTMLInputElement>('#busca-cartas')!;
+      search.value = 'lua';
+      search.dispatchEvent(new Event('input'));
+      await settle();
+      search.value = '';
+      search.dispatchEvent(new Event('input'));
+      await settle();
+      await new Promise((r) => requestAnimationFrame(r));
+      await settle();
+      expect(li(0).classList).toContain('virada');
+      expect(li(0).style.getPropertyValue('--empurra-x')).toMatch(/px$/);
+    });
+
+    it('arrastar no verso (a barra de rolagem, um trecho) não vira; segurar o Espaço na maximizada vira uma vez só', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Um texto.');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      const title = back(0)!.querySelector<HTMLElement>('.verso-titulo')!;
+      title.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+      title.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 10, clientY: 90 }));
+      await settle();
+      expect(turned()).toBe(1);
+      title.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 }));
+      title.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 12, clientY: 12 }));
+      await settle();
+      expect(turned()).toBe(0);
+
+      const dialog = await focusOpen();
+      const giro = dialog.querySelector<HTMLElement>('.giro')!;
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', repeat: true, bubbles: true, cancelable: true }));
+      await settle();
+      expect(giro.classList).not.toContain('virada');
+    });
+
+    it('a linha de uma tarefa no verso é papel: tocar vira (só marca quem pode marcar)', async () => {
+      const { kanji } = seed();
+      write('nsol', '- [ ] escrever dez vezes');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      const row = back(0)!.querySelector<HTMLElement>('label')!;
+      expect(row.querySelector('input')).toBeNull();
+      row.click();
+      await settle();
+      expect(turned()).toBe(0);
+      expect(study.state().cards.length).toBe(4);
+    });
+
+    it('na parede, o verso se apaga na beira de baixo, com folga no pé; na mesa, não', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Texto.');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      const css = getComputedStyle(back(0)!.querySelector('.verso-conteudo')!);
+      expect(css.maskImage).toContain('linear-gradient');
+      expect(css.paddingBottom).toBe('24px');
+      const dialog = await focusOpen();
+      expect(getComputedStyle(dialog.querySelector('.verso-conteudo')!).maskImage).toBe('none');
+    });
+
+    it('a carta pequena crescida volta com um toque fora dela; com o toque na outra, troca', async () => {
+      const { kanji } = seed();
+      localStorage.setItem(STUDY_SIZE_KEY, 'pequenas');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      btn(1).click();
+      await settle();
+      expect(li(1).classList).toContain('virada');
+      expect(turned()).toBe(1);
+      $('.pasta')!.click();
+      await settle();
+      expect(turned()).toBe(0);
+      // nas grandes, o toque fora não mexe em nada
+      $<HTMLButtonElement>('button[aria-label^="Cartas grandes"]')!.click();
+      await settle();
+      btn(0).click();
+      await settle();
+      $('.pasta')!.click();
+      await settle();
+      expect(turned()).toBe(1);
+    });
+
+    it('das grandes, várias viradas; de outro baralho, as frentes de novo', async () => {
+      const { kanji, quimica } = seed();
+      await go(deckUrl(kanji));
+      btn(0).click();
+      btn(1).click();
+      await settle();
+      expect(turned()).toBe(2);
+      await go(deckUrl(quimica));
+      expect(turned()).toBe(0);
+      expect($('.verso')).toBeNull();
+      await go(deckUrl(kanji));
+      expect(turned()).toBe(0);
+      expect($('.verso')).toBeNull();
+    });
+
+    it('das pequenas, uma de cada vez, crescendo por cima das vizinhas sem tirá-las do lugar, e sem sair da tela', async () => {
+      const { kanji } = seed();
+      localStorage.setItem(STUDY_SIZE_KEY, 'pequenas');
+      await go(deckUrl(kanji));
+      $('.cartas')!.scrollIntoView({ block: 'start' });
+      const cells = () => $$('.carta-li').map((el) => Math.round(el.getBoundingClientRect().left));
+      const place = cells();
+      btn(0).click();
+      await settle();
+      const giro = li(0).querySelector<HTMLElement>('.giro')!;
+      giro.getAnimations().forEach((a) => a.finish());
+      // a escala da miniatura desfeita: com a do verso (0,4), a carta volta ao tamanho das grandes
+      expect(parseFloat(getComputedStyle(giro).scale)).toBeCloseTo(2.5, 5);
+      expect(parseFloat(getComputedStyle(back(0)!).scale)).toBeCloseTo(0.4, 5);
+      expect(back(0)!.offsetWidth).toBeCloseTo(btn(0).offsetWidth * 2.5, -1);
+      expect(cells()).withContext('as vizinhas ficam').toEqual(place);
+      expect(getComputedStyle(li(0)).zIndex).toBe('5');
+      // a carta da beira esquerda é empurrada para dentro da tela
+      const box = li(0).getBoundingClientRect();
+      const left = box.left + box.width / 2 - (box.width * 2.5) / 2 + parseFloat(li(0).style.getPropertyValue('--empurra-x'));
+      expect(left).toBeGreaterThanOrEqual(7);
+
+      btn(1).click();
+      await settle();
+      expect(turned()).toBe(1);
+      expect(li(1).classList).toContain('virada');
+      // trocar o tamanho volta para a frente
+      $<HTMLButtonElement>('button[aria-label^="Cartas grandes"]')!.click();
+      await settle();
+      expect(turned()).toBe(0);
+    });
+
+    it('a etiqueta tem o maximizar ao lado dos ajustes, com o mesmo botão preto', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      const buttons = [...li(0).querySelectorAll<HTMLElement>('.acoes .mexer')];
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Maximizar 日', 'Ler, editar e ajustes de 日']);
+      expect(buttons[0].getAttribute('aria-haspopup')).toBe('dialog');
+      expect(buttons[0].querySelector('lucide-icon')).not.toBeNull();
+      expect(getComputedStyle(buttons[0]).width).toBe(getComputedStyle(buttons[1]).width);
+    });
+
+    it('maximizar abre a mesa de estudo só para ver: clicar na carta vira, sem Errei nem Acertei', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Leitura: nichi.');
+      const open = spyOn(TestBed.inject(Desk), 'openReview');
+      await go(deckUrl(kanji));
+      const dialog = await focusOpen();
+      const $d = <T extends HTMLElement = HTMLElement>(sel: string) => dialog.querySelector<T>(sel);
+      const isBack = () => $d('.giro')!.classList.contains('virada');
+      expect(dialog.classList).toContain('sessao');
+      expect($d('.baralho')!.textContent).toBe('Kanjis · só para ver');
+      expect(dialog.getAttribute('aria-label')).toBe('Kanjis: 日');
+      expect(dialog.querySelectorAll('.errei, .acertei, .montes, .desfazer').length).toBe(0);
+      expect(isBack()).toBeFalse();
+      expect($d('.verso')!.hasAttribute('inert')).toBeTrue();
+      // a frente da mesa de estudo: sem o progresso, que é da parede
+      expect($d('.frente .selo-nivel')).toBeNull();
+      await new Promise((r) => setTimeout(r));
+      expect(document.activeElement).toBe($d('.mostrar'));
+
+      $d('.frente')!.click();
+      await settle();
+      expect(isBack()).toBeTrue();
+      expect($d('.frente')!.hasAttribute('inert')).toBeTrue();
+      expect(text($d('.verso app-rich-text'))).toContain('Leitura: nichi.');
+      expect(text($d('p[aria-live]'))).toBe('Verso de 日');
+      $d('.verso-titulo')!.click();
+      await settle();
+      expect(isBack()).toBeFalse();
+      expect(text($d('p[aria-live]'))).toBe('Frente de 日');
+      $d('.mostrar')!.click();
+      await settle();
+      expect(isBack()).toBeTrue();
+      // o Espaço também, fora dos botões
+      $d('.topo')!.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+      await settle();
+      expect(isBack()).toBeFalse();
+      expect(open).not.toHaveBeenCalled();
+
+      dialog.close();
+      await settle();
+      expect(focusDialog()).toBeNull();
+      expect(turned()).toBe(0);
+    });
+
+    it('a carta virada na parede abre maximizada com o verso à mostra', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      const dialog = await focusOpen();
+      expect(dialog.querySelector('.giro')!.classList).toContain('virada');
+      await settle();
+      expect(text(dialog.querySelector('p[aria-live]'))).toBe('Verso de 日');
+    });
+
+    it('maximizada, a tecla na rolagem do verso é dela, o foco não cai na página ao voltar, e a carta que sai dos Estudos fecha a folha', async () => {
+      const { kanji } = seed();
+      write('nsol', 'Ver [[Lua (月)|a lua]].');
+      await go(deckUrl(kanji));
+      const dialog = await focusOpen();
+      const giro = dialog.querySelector<HTMLElement>('.giro')!;
+      dialog.querySelector<HTMLElement>('.frente')!.click();
+      await settle();
+      expect(giro.classList).toContain('virada');
+      dialog.querySelector('.verso-conteudo')!.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+      await settle();
+      expect(giro.classList).withContext('o Espaço rola').toContain('virada');
+      dialog.querySelector<HTMLElement>('.elo')!.focus();
+      dialog.querySelector<HTMLElement>('.verso-titulo')!.click();
+      await settle();
+      expect(giro.classList).not.toContain('virada');
+      expect(document.activeElement).toBe(dialog.querySelector('.mostrar'));
+      // com o foco solto na página, o Espaço continua virando
+      (document.activeElement as HTMLElement).blur();
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true }));
+      await settle();
+      expect(giro.classList).toContain('virada');
+      study.removeCard('nsol');
+      await settle();
+      expect(dialog.open).toBeFalse();
+    });
+
+    it('a leitura e o editor continuam só na folha da carta', async () => {
+      const { kanji } = seed();
+      const desk = TestBed.inject(Desk);
+      const open = spyOn(desk, 'openReview');
+      const edit = spyOn(desk, 'editReview');
+      await go(deckUrl(kanji));
+      btn(0).click();
+      await settle();
+      expect(open).not.toHaveBeenCalled();
+      expect(edit).not.toHaveBeenCalled();
+      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Ler, editar"]')!.click();
+      let dialog: HTMLDialogElement | null = null;
+      for (let n = 0; n < 60 && !dialog?.open; n++) {
+        await settle();
+        dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta');
+      }
+      const labels = [...dialog!.querySelectorAll('.foot button')].map(text);
+      expect(labels).toContain('Ler a anotação');
+      expect(labels).toContain('Editar a frente');
+      [...dialog!.querySelectorAll<HTMLElement>('.foot button')].find((b) => text(b) === 'Ler a anotação')!.click();
+      await settle();
+      expect(open).toHaveBeenCalledWith('nsol');
+    });
   });
 
   it('a busca, o nível e a ordem da parede', async () => {
@@ -670,7 +1098,7 @@ describe('página dos Estudos', () => {
     const sol = store.notes().find((n) => n.game.name === 'Sol (日)')!;
     store.reviews.update((list) => list.map((r) => (r.id === sol.id ? { ...r, private: true as const } : r)));
     await go(deckUrl(kanji));
-    $$('.carta-li .mexer')[0].click();
+    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
     let dialog: HTMLDialogElement | null = null;
     for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
     toasts.dismiss();
@@ -686,7 +1114,7 @@ describe('página dos Estudos', () => {
   it('a etiqueta de tinta da carta abre a folha dela: tirar dos Estudos tem Desfazer', async () => {
     const { kanji } = seed();
     await go(deckUrl(kanji));
-    $$('.carta-li .mexer')[0].click();
+    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
     let dialog: HTMLDialogElement | null = null;
     for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
     expect(dialog!.open).toBeTrue();
@@ -701,7 +1129,7 @@ describe('página dos Estudos', () => {
   it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
     const { kanji, quimica, vazio } = seed();
     await go(deckUrl(kanji));
-    $$('.carta-li .mexer')[0].click();
+    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
     let dialog: HTMLDialogElement | null = null;
     for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
     const select = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
