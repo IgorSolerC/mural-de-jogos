@@ -18,6 +18,7 @@ import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE
 import { readText, writeText } from '../core/storage';
 import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
+import { PublicDeckNudge } from '../ui/public-deck-nudge';
 import { nameCollator } from '../core/text';
 import { pinningFor } from '../core/wall-physics';
 import { ICON, ICON_CHOICE, IconModule } from '../ui/icons';
@@ -136,6 +137,7 @@ export class StudyPage {
   private readonly desk = inject(Desk);
   private readonly router = inject(Router);
   private readonly toasts = inject(Toasts);
+  private readonly publicDeckNudge = inject(PublicDeckNudge);
   private readonly kanban = inject(KanbanStore);
   private readonly settings = inject(Settings);
   private readonly wallView = inject(WallView);
@@ -517,10 +519,12 @@ export class StudyPage {
    */
   protected bring(note: string, deck: string): void {
     const had = this.study.cardOf().get(note);
+    const before = had?.decks ?? [];
     if (had) this.study.setDecks(note, [...had.decks, deck]);
     else this.study.addCard(note, [deck], {}, true);
     // só as anotações do grupo do baralho podem entrar nele (o seletor só mostra essas)
     if (!this.study.cardOf().get(note)?.decks.includes(deck)) return;
+    if (this.publicDeckNudge.afterEntering(note, before)) return;
     const name = this.store.get(note)?.game.name ?? '';
     this.toasts.show(`“${name}” virou carta de ${this.study.deck(deck)?.name ?? ''}`);
   }

@@ -327,6 +327,16 @@ export class StudyStore {
   }
 
   /**
+   * A anotação privada acabou de entrar num baralho público (`before`: os baralhos de antes): quem visita não
+   * vê essa carta, e o dono pode não saber. A compartilhada não conta: `publishNotes` não muda quem vê nela.
+   */
+  privateInPublic(note: string, before: readonly string[]): boolean {
+    if (!this.notesById().get(note)?.private || this.store.sharedIds().has(note)) return false;
+    const decks = this.cardOf().get(note)?.decks ?? [];
+    return decks.some((id) => !before.includes(id) && !!this.deck(id)?.public);
+  }
+
+  /**
    * As anotações `ids` viram públicas fora do Feed (a escolha do dono, D1: "Pregar sem publicar no Feed"),
    * para o baralho público mostrar as cartas delas. A compartilhada fica como está: quem vê nela muda em
    * Compartilhar, e só o dono e os gestores mudam (`skipped`). Devolve o Desfazer: as que mudaram voltam a

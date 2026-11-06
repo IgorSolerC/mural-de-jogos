@@ -4,6 +4,7 @@ import { Router, RouterOutlet, provideRouter } from '@angular/router';
 import { Desk } from '../core/desk';
 import { Review, Stock, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
+import { Toasts } from '../ui/toast';
 import { addStudyDays, dayStart, studyDay } from '../core/fsrs';
 import { studyPath } from '../core/areas';
 import { STUDY_SIZE_KEY, studyGroupId } from '../core/study';
@@ -643,6 +644,43 @@ describe('página dos Estudos', () => {
     // a que já era carta de outro baralho entra neste também
     page.bring('nlua', quimica);
     expect(study.cardOf().get('nlua')!.decks).toEqual([study.decks()[0].id, quimica]);
+  });
+
+  it('trazer uma anotação privada para um baralho público pergunta se ela fica pública; para um privado, não', async () => {
+    const { quimica } = seed();
+    await go(deckUrl(quimica));
+    const page = (window as unknown as { ng: { getComponent(e: Element): { bring(n: string, d: string): void } } }).ng.getComponent(host.querySelector('app-study-page')!);
+    const store = TestBed.inject(ReviewStore);
+    store.reviews.update((list) => [...list, { ...note('npriv', 'Capital do Peru'), private: true }, { ...note('npri2', 'Capital do Chile'), private: true }]);
+    const toasts = TestBed.inject(Toasts);
+    page.bring('npriv', quimica);
+    expect(toasts.current()!.text).toContain('virou carta');
+    study.updateDeck(quimica, { public: true });
+    page.bring('npri2', quimica);
+    expect(toasts.current()!.text).toBe('Esta anotação é privada, mas o baralho dela é público. Quer deixá-la pública?');
+    toasts.dismiss();
+  });
+
+  it('na folha da carta, a privada posta num baralho público pergunta ao fechar (o bilhete fica atrás da folha aberta)', async () => {
+    const { kanji } = seed();
+    const store = TestBed.inject(ReviewStore);
+    const toasts = TestBed.inject(Toasts);
+    const pub = study.addDeck('Público', 'azul', null, undefined, 'Estudos');
+    study.updateDeck(pub, { public: true });
+    const sol = store.notes().find((n) => n.game.name === 'Sol (日)')!;
+    store.reviews.update((list) => list.map((r) => (r.id === sol.id ? { ...r, private: true as const } : r)));
+    await go(deckUrl(kanji));
+    $$('.carta-li .mexer')[0].click();
+    let dialog: HTMLDialogElement | null = null;
+    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
+    toasts.dismiss();
+    study.setDecks(sol.id, [kanji, pub]);
+    await settle();
+    expect(toasts.current()).toBeNull();
+    dialog!.close();
+    for (let i = 0; i < 60 && !toasts.current(); i++) await settle();
+    expect(toasts.current()!.text).toContain('Quer deixá-la pública?');
+    toasts.dismiss();
   });
 
   it('a etiqueta de tinta da carta abre a folha dela: tirar dos Estudos tem Desfazer', async () => {

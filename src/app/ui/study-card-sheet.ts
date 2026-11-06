@@ -7,6 +7,7 @@ import { ICON, IconModule } from './icons';
 import { Pin } from './pin';
 import { StudyDeckPicker } from './study-deck-picker';
 import { StudyReport } from './study-report';
+import { PublicDeckNudge } from './public-deck-nudge';
 import { Toasts } from './toast';
 
 /**
@@ -20,7 +21,7 @@ import { Toasts } from './toast';
   imports: [BackdropClose, IconModule, Pin, StudyDeckPicker, StudyReport],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <dialog #dialog class="sheet ficha-quadro ficha-carta" aria-labelledby="fc-titulo-folha" (close)="closed.emit()" (backdropClose)="close()">
+    <dialog #dialog class="sheet ficha-quadro ficha-carta" aria-labelledby="fc-titulo-folha" (close)="onClosed()" (backdropClose)="close()">
       @if (data(); as d) {
         <div class="ficha cartolina" [style.--stock]="'var(--stock-' + d.stock + ')'" [attr.data-cor]="d.stock">
           <app-pin class="pin" />
@@ -95,6 +96,9 @@ export class StudyCardSheet {
   private readonly study = inject(StudyStore);
   private readonly store = inject(ReviewStore);
   private readonly toasts = inject(Toasts);
+  private readonly publicDeckNudge = inject(PublicDeckNudge);
+  /** Os baralhos ao abrir: o aviso da carta privada num baralho público compara com eles ao fechar. */
+  private decksAtOpen: readonly string[] = [];
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
 
   protected readonly data = computed(() => {
@@ -115,10 +119,17 @@ export class StudyCardSheet {
 
   constructor() {
     afterNextRender(() => {
+      this.decksAtOpen = this.study.cardOf().get(this.noteId())?.decks ?? [];
       const el = this.dialog().nativeElement;
       el.showModal();
       el.querySelector<HTMLElement>('.fecha')?.focus();
     });
+  }
+
+  /** Fechou: o aviso só agora, porque o bilhete fica atrás da folha aberta e ninguém alcançaria o botão. */
+  protected onClosed(): void {
+    this.publicDeckNudge.afterEntering(this.noteId(), this.decksAtOpen);
+    this.closed.emit();
   }
 
   close(): void {

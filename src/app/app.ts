@@ -40,6 +40,7 @@ import { SyncConflicts, splitTarget } from './core/sync-conflicts';
 import { KanbanStore } from './core/kanban-store';
 import { CalendarStore } from './core/calendar-store';
 import { StudyStore } from './core/study-store';
+import { PublicDeckNudge } from './ui/public-deck-nudge';
 import { SpendingStore } from './core/spending-store';
 import { KanbanDresser } from './core/kanban-dresser';
 import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } from './core/kanban';
@@ -64,6 +65,7 @@ export class App {
   private readonly kanban = inject(KanbanStore);
   private readonly calendar = inject(CalendarStore);
   private readonly study = inject(StudyStore);
+  private readonly publicDeckNudge = inject(PublicDeckNudge);
   private readonly spending = inject(SpendingStore);
   /** O card padrão das colunas do Kanban veste as anotações em qualquer página (o que chega da nuvem também). */
   private readonly dresser = inject(KanbanDresser);
@@ -462,6 +464,12 @@ export class App {
   }
 
   protected onSaved(e: SavedEvent): void {
+    this.landSaved(e);
+    // por cima do aviso de salvar (só cabe um): é o que pede uma resposta. Quem saiu dos baralhos fica com o dele
+    if (e.privateInPublic && !e.slept) this.publicDeckNudge.ask(e.id);
+  }
+
+  private landSaved(e: SavedEvent): void {
     const saved = this.store.get(e.id);
     const name = saved?.game.name ?? '';
     if (e.isNew && saved && isNotes(saved.kind) && this.landOnBoard(saved.id, name, saved.category)) return;

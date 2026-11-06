@@ -128,6 +128,8 @@ export interface SavedEvent {
    * os nomes dos baralhos de antes e o grupo deles, para o aviso com o Desfazer (que devolve o grupo).
    */
   slept?: { decks: string[]; group: string };
+  /** A anotação é privada e entrou agora num baralho público: o aviso pergunta (ver ui/public-deck-nudge.ts). */
+  privateInPublic?: boolean;
 }
 
 /** As duas abas da ficha no editor. */
@@ -1515,9 +1517,10 @@ export class ReviewEditor {
     // o lugar no quadro do grupo, como ficou na parte Kanban, e a carta, como ficou na aba Flashcard
     this.applyBoard(clean.id, !prev);
     const slept = this.flashcard().apply(clean.id);
+    const privateInPublic = this.flashcard().enteredPublicDeck(clean.id);
     this.snapshot = this.serialize();
     this.shut();
-    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}), ...(slept ? { slept } : {}) });
+    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}), ...(slept ? { slept } : {}), ...(privateInPublic ? { privateInPublic } : {}) });
   }
 
   /**

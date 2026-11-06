@@ -343,6 +343,7 @@ export class FlashcardTab {
    */
   apply(id: string): { decks: string[]; group: string } | null {
     const card = this.study.cardOf().get(id);
+    this.decksBefore = card?.decks ?? [];
     if (!this.on()) {
       if (card) this.study.removeCard(id);
       this.study.pending.set(null);
@@ -369,5 +370,13 @@ export class FlashcardTab {
     if (decks.length) this.study.lastDeck.set(decks[0]);
     this.study.pending.set(null);
     return slept;
+  }
+
+  /** Os baralhos da carta antes do último `apply`. */
+  private decksBefore: readonly string[] = [];
+
+  /** O último `apply` pôs a anotação privada num baralho público (ver ui/public-deck-nudge.ts). */
+  enteredPublicDeck(id: string): boolean {
+    return this.study.privateInPublic(id, this.decksBefore);
   }
 }

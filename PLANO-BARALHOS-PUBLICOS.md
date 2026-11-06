@@ -280,6 +280,10 @@ ver); a 4 em outro. Cada commit com push.
   `swapImages`), `ui/study-copy-sheet.ts`, crítica do Impeccable (detector limpo; 28/40 antes das correções, em
   `.impeccable/critique/`), `/code-review high`, build de produção e abrir a build com dados guardados. A visita
   virou uma rota só (`visitMatcher`, BUILD 769): o Router não refaz mais a página a cada aba.
+- Depois do plano (BUILD 771, 1.39.1), pedido do dono: a pergunta da porcentagem só aparece ao tornar o baralho
+  público, e as cartas novas nascem privadas sem ninguém notar. A anotação privada que entra num baralho público
+  agora pergunta (`ui/public-deck-nudge.ts`): pelo editor, pelo Trazer anotações e pela folha da carta (ao fechar,
+  porque o bilhete fica atrás da folha). Pelos pedidos da API, não.
 - Sobre os riscos da seção 8: as cartas pesam pouco (uns 300 bytes de JSON cada, 30 KB nas 101 do dono, perto dos
   1,8 MB de teto); a carta sem anotação não aparece (teste em `visit-study.spec.ts`); os estilos não foram movidos,
   então a página do dono não mudou.

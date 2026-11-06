@@ -27,6 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-05-carta-privada-em-baralho-publico',
+    version: '1.39.1',
+    kind: 'ajustes',
+    date: '2026-11-05',
+    title: 'A carta privada num baralho público',
+    melhorias: ['Quando uma anotação privada entra num baralho público, o Murall avisa que quem visita não vai ver a carta e oferece "Tornar pública": ela fica pública fora do Feed, com Desfazer.'],
+  },
+  {
     id: '2026-11-05-copiar-baralho',
     version: '1.39.0',
     kind: 'funcionalidade',
