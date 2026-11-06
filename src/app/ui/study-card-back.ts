@@ -46,7 +46,7 @@ const DRAG_PX = 6;
         <!-- o título é o da frente, uma vez só; o nome da anotação só aparece quando é tudo o que ela tem -->
         <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
         @if (c.text) {
-          <div class="verso-resposta" [appGrowToFit]="c.text"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
+          <div class="verso-resposta" [appGrowToFit]="c.text" [appGrowToFitMin]="fitMin()"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
         } @else if (c.noteTitle !== c.title) {
           <p class="verso-nome">{{ c.noteTitle }}</p>
         } @else {
@@ -60,6 +60,11 @@ const DRAG_PX = 6;
 export class StudyCardBack {
   /** A anotação da carta. */
   readonly note = input.required<string>();
+  /**
+   * Até quanto a resposta diminui para caber inteira, sem rolar (1: não diminui). Na parede, a carta é
+   * pequena e diminui até 3/4; na mesa de estudo e na maximizada, cabe no tamanho de sempre ou rola.
+   */
+  readonly fitMin = input(1);
   /** Tocou no papel, não no que o texto tem para tocar: quem deixa, vira a carta. */
   readonly turn = output<void>();
 

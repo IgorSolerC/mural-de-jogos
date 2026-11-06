@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-blocos-de-codigo',
+    id: '2026-11-06-verso-na-parede',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'Os blocos de código, a cor de cada card e o clique rápido nos Estudos',
+    title: 'Os blocos de código, a cor de cada card e o verso das cartas nos Estudos',
     melhorias: [
       'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',
       'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
@@ -44,6 +44,7 @@ export const NEWS: NewsEntry[] = [
       'Na aba Markdown, o Enter dentro de um bloco de código numa lista não cria mais um item no meio do código, e "- x" dentro do bloco não vira lista. Uma linha que começa com ```código``` não abre mais um bloco, e ```js dentro de um bloco não o fecha.',
       'Ao estudar, a resposta da próxima carta não aparece mais antes da hora, e o clique rápido demais não vira a carta seguinte nem responde a carta sem você ter lido.',
       'Ao estudar, a resposta comprida abre do começo, e não mais rolada até onde a carta anterior parou.',
+      'Na parede do baralho, a resposta da carta virada não cresce mais além do espaço: nenhuma palavra quebra no meio (como o "Hiragana" de um card), a linha curta não vira duas e, na carta estreita, o texto diminui um pouco para caber inteiro, sem a última linha cortada. As cartas parecidas saem do mesmo tamanho.',
     ],
   },
   {

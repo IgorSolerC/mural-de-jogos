@@ -326,7 +326,7 @@
               </button>
               <!-- o verso é o da mesa de estudo; só existe nas cartas já viradas, e fica para o giro de volta -->
               @if (perto.near() && turnedOnce().has(c.note)) {
-                <article appStudyBack class="verso cartolina" [note]="c.note" [attr.inert]="up ? null : ''" [attr.aria-hidden]="up ? null : 'true'" (turn)="flip(c.note, cartaLi)"></article>
+                <article appStudyBack class="verso cartolina" [note]="c.note" [fitMin]="0.75" [attr.inert]="up ? null : ''" [attr.aria-hidden]="up ? null : 'true'" (turn)="flip(c.note, cartaLi)"></article>
               }
             </div>
             @if (perto.near()) {

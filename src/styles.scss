@@ -356,6 +356,14 @@ p {
   }
 }
 
+/* o texto que cresce até caber (ui/grow-to-fit.ts), enquanto é medido: nenhuma palavra quebra no meio,
+   nem a que tem a regra própria (o título do card), para a palavra larga demais aparecer na medida */
+[data-medindo],
+[data-medindo] * {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+
 /* ===== A orelha: uma aba de pasta de papel manilha =====
    Toda escolha de aba fora das pastas (Extras, Estatísticas, Lado a lado, o kit da ficha) é a mesma
    orelha das anotações (ver _divisorias.scss): cantos de cima redondos, as de trás num manilha mais
