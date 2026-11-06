@@ -509,13 +509,15 @@ $item-lugar: 1.35em;
      bastava para a tabela ganhar uma barra de rolar de pé */
   overflow-y: hidden;
   scrollbar-width: thin;
+  /* a sobra da barra de rolar (ui/bar-on-ruling.ts): com ela, a tabela fecha linhas inteiras da pauta */
+  margin-bottom: var(--sobra-barra, 0px);
 }
 
 // nos jeitos de papel, o rolo dá espaço para a sombra do papel
 @mixin tabela-rolo-papel {
   max-width: none;
   padding: 2px 8px 8px 2px;
-  margin: -2px -8px -8px -2px;
+  margin: -2px -8px calc(var(--sobra-barra, 0px) - 8px) -2px;
 }
 
 @mixin tabela-papel {

@@ -12,6 +12,7 @@ import { codeHighlightReady, codeRanges, codeTokens, CodeToken } from '../core/c
 import { codeLangName, codeThemeOf } from '../core/code-langs';
 import { Settings } from '../core/settings';
 import { ICON, IconModule, iconMask } from './icons';
+import { BarOnRuling } from './bar-on-ruling';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
 import { ZoomKnob } from './zoom-knob';
@@ -115,7 +116,7 @@ import { ZoomKnob } from './zoom-knob';
               @if (lingua) {
                 <span class="codigo-lingua" aria-hidden="true">{{ lingua }}</span>
               }
-              <pre class="codigo" [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
+              <pre class="codigo" appBarOnRuling [attr.data-lingua]="b.lang ?? null"><code>@for (t of codeTokens(b); track $index) {@if (t.c) {<span [class]="t.c">{{ t.t }}</span>} @else {{{ t.t }}}}</code></pre>
               <button type="button" class="codigo-copiar tocavel" aria-label="Copiar o código" title="Copiar o código" (click)="copyCode($event, b.text)"><lucide-icon [img]="CopyIcon" [size]="13" aria-hidden="true" /><span class="codigo-copiar-nome" aria-hidden="true">Copiar</span><span class="codigo-copiado" aria-hidden="true">Copiado</span></button>
             </div>
           }
@@ -129,7 +130,7 @@ import { ZoomKnob } from './zoom-knob';
                  como o contador: mais, ela vira letreiro) -->
             @let look = b.look ?? 'branca';
             <div #tabela class="tabela-peca amplia" [attr.data-l]="at(b)" data-zoom-min="1" data-zoom-max="2.5" [attr.data-papel-proprio]="look === 'caneta' ? null : ''">
-            <div [class]="'tabela-rolo jeito-' + look">
+            <div [class]="'tabela-rolo jeito-' + look" appBarOnRuling="fora">
               <div class="tabela-papel">
               <table class="tabela">
                 <thead>
@@ -228,7 +229,7 @@ import { ZoomKnob } from './zoom-knob';
     <!-- o link: um span com papel de link (quebra a linha junto com o texto, o que um botão não faz) -->
     <ng-template #elo let-s>@let l = links(); @let title = s.ref ?? s.text; @if (!l) {{{ '[[' + (s.ref ? s.ref + '|' : '') + s.text + ']]' }}} @else if (!l.resolve) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" [attr.title]="s.ref ?? null">{{ s.text }}</span>} @else {@let note = l.resolve(title); @if (note && l.open) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="link" tabindex="0" [attr.aria-label]="(s.ref ? s.text + ': ' : '') + 'abrir a anotação ' + note.game.name" (click)="go($event, note)" (keydown.enter)="go($event, note)">{{ s.text }}</span>} @else if (note) {<span class="elo" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle">{{ s.text }}</span>} @else if (l.create) {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" role="button" tabindex="0" [attr.aria-label]="'Criar a anotação ' + title" [title]="'Ainda não tem uma anotação ' + title + '. Toque para criar.'" (click)="make($event, title)" (keydown.enter)="make($event, title)" (keydown.space)="make($event, title)">{{ s.text }}</span>} @else {<span class="elo quebrado" [class.negrito]="s.bold" [class.italico]="s.italic" [class.sutil]="s.subtle" title="Essa anotação não existe ou não está à mostra">{{ s.text }}</span>}}</ng-template>
   `,
-  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule],
+  imports: [NgTemplateOutlet, NoteWidget, ZoomKnob, IconModule, BarOnRuling],
   styleUrl: './rich-text-codigo.scss',
   styles: `
     @use 'formatado';
@@ -250,6 +251,14 @@ import { ZoomKnob } from './zoom-knob';
     .corpo {
       position: relative;
       top: calc(var(--texto-desce, 0px) * -1);
+    }
+    /* as peças dentro da linha não esticam a linha: com a letra de outro tamanho ou de outra família (o
+       código, o sutil), a caixa delas, da altura da pauta, ficava um tanto mais baixa que a da letra à
+       mão, e a linha crescia 1 ou 2px; na tela cheia, linha a linha, o texto saía da pauta. Da altura
+       da letra, a caixa cabe dentro da linha. O desenho é o mesmo: o fundo, a tarja e o risco seguem
+       a letra, não a caixa */
+    :is(.cod, .enf, .elo, .elo-fim, .spoiler, .spoiler-texto, .sutil-texto) {
+      line-height: 1;
     }
     /* o parágrafo começa na margem: quem quer o recuo escreve os espaços (a linha os guarda) */
     @include formatado.enfases;

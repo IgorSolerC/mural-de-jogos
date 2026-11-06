@@ -5,6 +5,13 @@
 // na folha de formulário contínuo e o Copiar. À parte do resto do desenho do texto, pelo orçamento de
 // 24 kB por folha de estilo.
 
+// a sobra da barra de rolar de lado (ui/bar-on-ruling.ts) é de quem rola, não passa para quem está dentro
+@property --sobra-barra {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
 @include formatado.codigo;
 @include formatado.codigo-temas('.codigo-peca');
 /* a peça do bloco: o papel embaixo de tudo (o ::before, com os furos), com a sombra de papel colado,
@@ -28,7 +35,8 @@
 }
 .codigo-peca > .codigo {
   margin-left: formatado.$cod-margem;
-  padding: var(--line, 1.5em) 0.9em 0 formatado.$cod-vao;
+  /* embaixo, a sobra da barra de rolar (ui/bar-on-ruling.ts): com ela, o papel fecha linhas inteiras */
+  padding: var(--line, 1.5em) 0.9em var(--sobra-barra, 0px) formatado.$cod-vao;
   overflow-x: auto;
   overflow-y: hidden;
   white-space: pre;

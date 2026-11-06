@@ -106,6 +106,9 @@ dialog.reader {
 
 .body {
   padding-top: 22px;
+  /* a coluna é a largura que sobra: a tabela larga (que rola por dentro) a esticava até a largura dela
+     (no celular, a folha toda rolava de lado; na tela cheia, 15px, sem contar a barra de rolar de pé) */
+  grid-template-columns: minmax(0, 1fr);
 }
 /* com o mouse em cima da ficha aberta, a lâmpada bate nas folhas holográficas onde o ponteiro está */
 @media (hover: hover) {
@@ -1354,14 +1357,14 @@ dialog.reader.solta[open] > .par {
   }
 }
 
-/* ===== Tela cheia: só o nome e o texto, para ler =====
-   A folha é a coluna de leitura (uns 70 caracteres por linha) com 1cm de papel de cada lado, nunca
+/* ===== Tela cheia: só o nome e o texto, para ver o máximo de uma vez =====
+   A folha é a coluna do texto (uns 75 caracteres por linha) com 1cm de papel de cada lado, nunca
    mais larga que isso, e só da altura do texto, até a tela (no celular, a largura toda, presa no
-   alto); a faixa fica com o nome e os botões, e a letra e a pauta são um tanto maiores. O nome começa
-   onde o texto começa, como numa página. */
+   alto); a faixa fica com o nome e os botões, e a letra e a pauta são um tanto menores que as da
+   leitura: cabem mais linhas na tela. O nome começa onde o texto começa, como numa página. */
 dialog.reader.tela-cheia {
-  /* a coluna do texto: uns 70 caracteres da letra à mão a 1,36rem */
-  --medida: 43rem;
+  /* a coluna do texto: uns 75 caracteres da letra à mão a 1,12rem */
+  --medida: 38rem;
   /* o papel entre a beirada da folha e a pauta, nos dois lados */
   --margem: 1cm;
   width: min(calc(100vw - 48px), calc(var(--medida) + 2 * var(--margem)));
@@ -1384,12 +1387,12 @@ dialog.reader.tela-cheia {
   padding: 28px var(--margem) 36px;
 }
 
+/* a letra e a pauta na proporção da leitura (a letra desce os mesmos 5px para assentar na linha) */
 .tela-cheia .text {
-  --line: 2.15rem;
-  --texto-desce: 6px;
+  --line: 1.76rem;
   width: 100%;
   max-width: var(--medida);
-  font-size: 1.36rem;
+  font-size: 1.12rem;
 }
 
 /* o nome começa onde começa a letra do texto (a margem, mais a folga de 8px da pauta); com a seta de
@@ -1403,11 +1406,11 @@ dialog.reader.tela-cheia {
 }
 
 .tela-cheia .faixa-nome .title {
-  font-size: 1.9rem;
+  font-size: 1.56rem;
 }
 
 .tela-cheia .faixa-nome .title.longo {
-  font-size: 1.56rem;
+  font-size: 1.32rem;
 }
 
 @media (max-width: 600px) {
@@ -1447,11 +1450,11 @@ dialog.reader.tela-cheia {
   }
 
   .tela-cheia .faixa-nome .title {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
   }
 
   .tela-cheia .faixa-nome .title.longo {
-    font-size: 1.28rem;
+    font-size: 1.2rem;
   }
 
   .tela-cheia .body {
@@ -1459,8 +1462,8 @@ dialog.reader.tela-cheia {
   }
 
   .tela-cheia .text {
-    --line: 1.95rem;
-    font-size: 1.22rem;
+    --line: 1.66rem;
+    font-size: 1.06rem;
   }
 }
 

@@ -119,6 +119,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(q('.foot')).not.toBeNull();
     expect(q('.orelha-grupo')).not.toBeNull();
     expect(q('.carimbo')).not.toBeNull();
+    const leitura = { font: parseFloat(getComputedStyle(q('.text')!).fontSize), line: parseFloat(getComputedStyle(q('.text')!).lineHeight) };
     band('.ler-tela-cheia').focus();
     band('.ler-tela-cheia').click();
     await settle();
@@ -135,8 +136,9 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Voltar à leitura');
     expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
-    // a letra é maior que a da leitura
-    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeGreaterThan(1.3 * parseFloat(getComputedStyle(document.documentElement).fontSize));
+    // a letra e a pauta são menores que as da leitura (cabem mais linhas na tela)
+    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeLessThan(leitura.font);
+    expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBeLessThan(leitura.line);
     band('.ler-tela-cheia').click();
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();
@@ -161,7 +163,7 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
       // a pauta a 1cm das duas beiradas, e a folha nunca mais larga que a coluna mais as margens
       expect(text().left - sheet().left).toBeCloseTo(cm, 0);
       expect(sheet().right - text().right).toBeCloseTo(cm, 0);
-      expect(dialog().getBoundingClientRect().width).toBeLessThanOrEqual(43 * rem + 2 * cm + 1);
+      expect(dialog().getBoundingClientRect().width).toBeLessThanOrEqual(38 * rem + 2 * cm + 1);
       // o nome começa onde começa a letra (a margem e a folga de 8px da pauta)
       expect(parseFloat(getComputedStyle(q('.faixa-nome')!).paddingLeft)).toBeCloseTo(cm + 8, 0);
       // a nota curta: a folha tem a altura do texto, longe da tela inteira
@@ -382,5 +384,79 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(dialog().open).toBeTrue();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();
     expect(q('.assinatura')).not.toBeNull();
+  });
+  /**
+   * Onde cada linha cai: as linhas de texto (fora dos cards, que ficam em meia linha de propósito) a partir
+   * do alto da pauta, em linhas; e a altura delas, em linhas. Tudo tem de dar número inteiro.
+   */
+  function ruling(): { line: number; off: { what: string; top: number; height: number }[] } {
+    const box = q('.text[data-citavel]')!;
+    const s = getComputedStyle(box);
+    const line = parseFloat(s.lineHeight);
+    const top0 = box.getBoundingClientRect().top + parseFloat(s.paddingTop);
+    // a descida da letra (só se vê) fora da conta: a pauta é o lugar das linhas no layout
+    box.style.setProperty('--texto-desce', '0px');
+    const off = qa('.text[data-citavel] .linha')
+      .filter((e) => !e.closest('.cartao, app-note-widget') && !e.matches('.cartao-topo'))
+      .map((e) => {
+        const r = e.getBoundingClientRect();
+        return { what: (e.textContent ?? '').trim().slice(0, 24), top: (r.top - top0) / line, height: r.height / line };
+      });
+    box.style.removeProperty('--texto-desce');
+    return { line, off };
+  }
+
+  it('na tela cheia, nada tira o texto da pauta: o código, o sutil e as marcas na linha, o bloco de código e a tabela', async () => {
+    const F = '```';
+    const text = [
+      '# Apple',
+      '1. Inserir no banco de **PROD**',
+      '   1.1. Verificar a tabela VersoesApp (==1 = App; 3 = Totem==)',
+      '   1.2. Inserir a linha ((mude o 0.0.0 para a versão))',
+      '   ' + F + 'sql',
+      "   INSERT INTO VersoesApp VALUES ('0.0.0', getdate(), 0, 0, 1, 'uma linha bem comprida que passa da folha de um lado ao outro')",
+      '   ' + F,
+      '',
+      '2. Conectar na VM',
+      '   2.1. Aumentar a versão no `pubspec.yaml`',
+      '   2.2. Rodar `source ~/.zshrc` na pasta `pontodigital/Front/AppFlutter/app_flutter`',
+      '-# Preços de outubro, podem mudar.',
+      'Com [[Mercado]], [o site](https://example.com), ||segredo|| e emoji 🎮 e kanji 漢字.',
+      '| a | b | c | d | e | f | g | h | i | j | k | l | m | n | o | p | q | r | s |',
+      '| - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - | - |',
+      '| um | dois | três | quatro | cinco | seis | sete | oito | nove | dez | onze | doze | treze | catorze | quinze | dezesseis | dezessete | dezoito | dezenove |',
+      'Depois da tabela.',
+      'A última.',
+    ].join('\n');
+    // a barra de rolar que ocupa lugar (a do Windows), do mesmo tamanho em toda máquina de teste
+    const bars = document.head.appendChild(document.createElement('style'));
+    bars.textContent = '.codigo, .tabela-rolo { scrollbar-width: auto !important; scrollbar-color: auto !important; } .codigo::-webkit-scrollbar, .tabela-rolo::-webkit-scrollbar { height: 12px; background: #ccc; }';
+    try {
+      fixture.componentInstance.open(note('n-pauta', 'Publicar versão', { text }));
+      await settle();
+      for (const view of ['leitura', 'tela cheia']) {
+        if (view === 'tela cheia') {
+          band('.ler-tela-cheia').click();
+          await settle();
+        }
+        await wait(50);
+        const { off } = ruling();
+        expect(off.length).toBeGreaterThan(10);
+        for (const o of off) {
+          expect(Math.abs(o.top - Math.round(o.top))).withContext(`${view}: alto de "${o.what}" (${o.top.toFixed(3)} linhas)`).toBeLessThan(0.03);
+          expect(Math.abs(o.height - Math.round(o.height))).withContext(`${view}: altura de "${o.what}" (${o.height.toFixed(3)} linhas)`).toBeLessThan(0.03);
+        }
+        // a barra do código e a da tabela ficam numa linha só delas
+        for (const sel of ['.codigo-peca', '.tabela-rolo']) {
+          const scroller = q(sel === '.codigo-peca' ? '.codigo' : '.tabela-rolo')!;
+          expect(scroller.scrollWidth).withContext(`${view}: ${sel} rola de lado`).toBeGreaterThan(scroller.clientWidth);
+          // e a barra ocupa lugar (sem ela, a conta acima não provaria nada)
+          expect(scroller.offsetHeight - scroller.clientHeight).withContext(`${view}: a barra de ${sel}`).toBeGreaterThan(5);
+          expect(parseFloat(getComputedStyle(scroller).getPropertyValue('--sobra-barra'))).withContext(`${view}: a sobra de ${sel}`).toBeGreaterThan(0);
+        }
+      }
+    } finally {
+      bars.remove();
+    }
   });
 });
