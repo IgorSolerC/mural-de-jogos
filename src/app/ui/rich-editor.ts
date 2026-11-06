@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
+import { FitTools } from './fit-tools';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { CodeOptions, CodeState, codeBackspace, codeComment, codeDeleteLines, codeDiff, codeDuplicateLines, codeEnter, codeMoveLines, codeTab } from '../core/code-edit';
 import { bodyIndent, calloutAround, calloutAt, calloutLine, closes, copyText, dedentCode, fenceInfo, fenceOf, fencesPair, indentOf, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
@@ -104,7 +105,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
 
 @Component({
   selector: 'app-rich-editor',
-  imports: [IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
+  imports: [FitTools, IconModule, NgTemplateOutlet, RichText, WidgetSheet, MarkupGuide, VisualEditor, TableLooks, TextTemplates, TemplateSheet, CodeLangsMenu],
   changeDetection: ChangeDetectionStrategy.OnPush,
   // presa, a régua sai da folha para a tela: a folha deixa de ser a medida dela (ver "presa")
   host: { '[class.presa]': 'docked() !== null', '[class.encher]': 'fill()' },
@@ -554,58 +555,37 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             </span>
           }
           <span class="fio menus-fio" aria-hidden="true"></span>
-          <!-- os botões de sempre, à mão (no estreito, rolam de lado; tudo também está nos menus). Primeiro
-               desfazer e refazer, como no Docs: no celular não tem Ctrl+Z -->
-          <div class="ferramentas">
+          <!-- os botões de sempre, à mão (tudo também está nos menus). Primeiro desfazer e refazer, como no
+               Docs: no celular não tem Ctrl+Z. Sem lugar, os outros saem na vez de cada um, \`data-sai\`
+               (ui/fit-tools.ts): as tarefas e a numerada, o riscado, a lista, o sutil, o itálico, o
+               marca-texto e, por último, o negrito. Os links ficam só no "Inserir" (pedido do usuário) -->
+          <div class="ferramentas" appFitTools>
             <button type="button" class="ferramenta" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" aria-keyshortcuts="Control+Z" (pointerdown)="$event.preventDefault()" (click)="history(area, 'undo')">
               <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
             </button>
             <button type="button" class="ferramenta" title="Refazer (Ctrl+Y)" aria-label="Refazer" aria-keyshortcuts="Control+Y Control+Shift+Z" (pointerdown)="$event.preventDefault()" (click)="history(area, 'redo')">
               <lucide-icon [img]="RedoIcon" [size]="18" aria-hidden="true" />
             </button>
-            <span class="fio" aria-hidden="true"></span>
-            <button type="button" class="ferramenta" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" [attr.aria-pressed]="pressed('bold')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
+            <span class="fio" data-sai="7" aria-hidden="true"></span>
+            <button type="button" class="ferramenta" data-sai="7" title="Negrito (Ctrl+B)" aria-label="Negrito" aria-keyshortcuts="Control+B" [attr.aria-pressed]="pressed('bold')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'bold')">
               <lucide-icon [img]="BoldIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" [attr.aria-pressed]="pressed('italic')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
+            <button type="button" class="ferramenta" data-sai="4" title="Texto sutil: menor e mais claro, para os detalhes" aria-label="Texto sutil" [attr.aria-pressed]="pressed('subtle')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'subtle')">
+              <lucide-icon [img]="SubtleIcon" [size]="18" aria-hidden="true" />
+            </button>
+            <button type="button" class="ferramenta" data-sai="5" title="Itálico (Ctrl+I)" aria-label="Itálico" aria-keyshortcuts="Control+I" [attr.aria-pressed]="pressed('italic')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'italic')">
               <lucide-icon [img]="ItalicIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta extra" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" [attr.aria-pressed]="pressed('strike')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
+            <button type="button" class="ferramenta" data-sai="2" title="Riscado (Ctrl+Shift+X)" aria-label="Riscado" aria-keyshortcuts="Control+Shift+X" [attr.aria-pressed]="pressed('strike')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'strike')">
               <lucide-icon [img]="StrikeIcon" [size]="18" aria-hidden="true" />
             </button>
-            <button type="button" class="ferramenta extra" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" [attr.aria-pressed]="pressed('mark')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
+            <button type="button" class="ferramenta" data-sai="6" title="Marca-texto (Ctrl+Shift+H)" aria-label="Marca-texto" aria-keyshortcuts="Control+Shift+H" [attr.aria-pressed]="pressed('mark')" (pointerdown)="$event.preventDefault()" (click)="act(area, big, 'mark')">
               <lucide-icon [img]="MarkIcon" [size]="18" aria-hidden="true" />
             </button>
-            <span class="fio" aria-hidden="true"></span>
+            <span class="fio" data-sai="3" aria-hidden="true"></span>
             @for (l of lists; track l.act) {
-              <button type="button" class="ferramenta" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" [attr.aria-pressed]="listPressed(l.act)" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
+              <button type="button" class="ferramenta" [attr.data-sai]="l.act === 'ul' ? 3 : 1" [title]="l.name + ' (' + l.keys + ')'" [attr.aria-label]="l.name" [attr.aria-keyshortcuts]="l.aria" [attr.aria-pressed]="listPressed(l.act)" (pointerdown)="$event.preventDefault()" (click)="act(area, big, l.act)">
                 <lucide-icon [img]="l.icon" [size]="19" aria-hidden="true" />
-              </button>
-            }
-            <span class="fio link-fio" aria-hidden="true"></span>
-            <button
-              type="button"
-              class="ferramenta link"
-              title="Link para um endereço (Ctrl+K)"
-              aria-label="Link para um endereço"
-              aria-keyshortcuts="Control+K"
-              [attr.aria-expanded]="urlLink()?.big === big"
-              (pointerdown)="$event.preventDefault()"
-              (click)="act(area, big, 'url')"
-            >
-              <lucide-icon [img]="UrlIcon" [size]="18" aria-hidden="true" />
-            </button>
-            @if (notes()) {
-              <button
-                type="button"
-                class="ferramenta extra"
-                title="Link para outra anotação (ou escreva [[)"
-                aria-label="Link para outra anotação"
-                [attr.aria-expanded]="linking()?.big === big && !linking()?.auto"
-                (pointerdown)="$event.preventDefault()"
-                (click)="act(area, big, 'note')"
-              >
-                <lucide-icon [img]="LinkIcon" [size]="19" aria-hidden="true" />
               </button>
             }
           </div>
@@ -1264,16 +1244,29 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     .regua[hidden] {
       display: none;
     }
-    /* o que não couber (letra ou zoom maiores) rola de lado, em vez de passar da folha */
+    /* a fileira tem o que sobra da régua (não a largura dos botões): sem lugar, os botões saem na vez de
+       cada um (ui/fit-tools.ts, \`.fora\`); se nem assim couber (letra ou zoom maiores), rola de lado, com o
+       esmaecido na ponta dizendo que tem mais (\`.rola\`), em vez de passar da folha */
     .ferramentas {
       display: flex;
-      flex: 1 1 auto;
+      flex: 1 1 0;
       flex-wrap: nowrap;
       align-items: center;
       gap: 2px;
       min-width: 0;
       overflow-x: auto;
+      overscroll-behavior-x: contain;
       scrollbar-width: none;
+    }
+    .ferramentas::-webkit-scrollbar {
+      display: none;
+    }
+    .ferramentas.rola {
+      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+      mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
+    }
+    .ferramentas > .fora {
+      display: none;
     }
     .ferramenta {
       display: grid;
@@ -1313,22 +1306,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       rotate: 180deg;
     }
 
-    /* Sem lugar, os botões que também estão nos menus saem da régua (como a régua do Docs): primeiro o
-       riscado, o marca-texto e o link de anotação; depois o link (Ctrl+K). Nada some: tudo continua no
-       "Formatar" e no "Inserir" (desfazer e refazer, que não estão neles, nunca saem). Os cortes têm
-       folga sobre a medida da régua (medida com os menus só no desenho e os Templates: uns 590px com
-       tudo, 485 sem os primeiros, 435 sem o link), para a letra e o zoom de cada computador */
-    @container folha (max-width: 639px) {
-      .ferramenta.extra {
-        display: none;
-      }
-    }
-    @container folha (max-width: 529px) {
-      .link,
-      .link-fio {
-        display: none;
-      }
-    }
     @container folha (max-width: 599px) {
       /* o menu se alinha às bordas da régua */
       .menu-ancora {
@@ -1339,22 +1316,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
         right: 6px;
         width: auto;
         min-width: 0;
-      }
-    }
-    /* apertada mesmo assim, a régua não quebra em duas: os botões rolam de lado, com o esmaecido na
-       ponta dizendo que tem mais, e os menus ficam fixos */
-    @container folha (max-width: 479px) {
-      .ferramentas {
-        flex: 1 1 0;
-        contain: inline-size;
-        overflow-x: auto;
-        overscroll-behavior-x: contain;
-        scrollbar-width: none;
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
-        mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
-      }
-      .ferramentas::-webkit-scrollbar {
-        display: none;
       }
     }
     /* dedo não é cursor: no toque, todo botão da régua com 44px */
@@ -1420,19 +1381,6 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
         animation: none;
       }
     }
-    .regua.presa .ferramentas {
-      flex: 1 1 0;
-      contain: inline-size;
-      overflow-x: auto;
-      overscroll-behavior-x: contain;
-      scrollbar-width: none;
-      -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-      mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
-    }
-    .regua.presa .ferramentas::-webkit-scrollbar {
-      display: none;
-    }
-    .regua.presa .ferramenta.extra,
     .regua.presa .menus-fio {
       display: none;
     }
@@ -2435,7 +2383,9 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       min-height: 5rem;
     }
 
-    /* ===== Enchendo o lugar (ver \`fill\`): a folha vai até embaixo, sem alça de esticar ===== */
+    /* ===== Enchendo o lugar (ver \`fill\`): a folha vai até embaixo, sem alça de esticar, e não passa do
+       que o pai deixa à vista (--folha-max): o texto comprido rola dentro dela, e a régua fica sempre no
+       alto (pedido do usuário). Sem o --folha-max (o celular), ela cresce com o texto ===== */
     :host(.encher) {
       display: flex;
       flex-direction: column;
@@ -2444,16 +2394,22 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       display: flex;
       flex: 1 0 auto;
       flex-direction: column;
+      max-height: var(--folha-max, none);
     }
-    :host(.encher) > .papel > textarea:not(.grande),
-    :host(.encher) > .papel > .visual:not(.grande) {
-      flex: 1 0 auto;
+    :host(.encher) > .papel > textarea:not(.grande) {
+      flex: 1 1 auto;
       min-height: calc(var(--line) * 6 + 8px);
       max-height: none;
       resize: none;
     }
+    /* o Visual: quem rola é a folha dele (.ProseMirror, ver visual-editor.scss), com as seis linhas de piso */
+    :host(.encher) > .papel > .visual:not(.grande),
+    :host(.encher) > .papel > .visual:not(.grande) > app-visual-editor {
+      flex: 1 1 auto;
+      min-height: 0;
+    }
     :host(.encher) .visual-chegando:not(.grande) {
-      flex: 1 0 auto;
+      flex: 1 1 auto;
       max-height: none;
     }
   `,
@@ -2503,7 +2459,8 @@ export class RichEditor {
   readonly dock = input(false);
   /**
    * A folha enche o lugar que o pai der (o pai em coluna, com altura): a anotação, que é quase só o
-   * texto, vai até o pé da página. Cresce com o texto; passou, quem rola é a página, não a folha.
+   * texto, vai até o pé da página. Cresce com o texto até o \`--folha-max\` que o pai der; passou, o texto
+   * rola dentro dela, com a régua sempre à vista no alto (sem ele, quem rola é a página).
    */
   readonly fill = input(false);
   /**
@@ -2525,8 +2482,6 @@ export class RichEditor {
     });
   }
 
-  protected readonly LinkIcon = ICON.linkNota;
-  protected readonly UrlIcon = ICON.link;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly TableIcon = ICON.tabela;
   protected readonly TemplatesIcon = ICON.templates;
@@ -3432,6 +3387,7 @@ export class RichEditor {
 
   protected readonly BoldIcon = ICON.negrito;
   protected readonly ItalicIcon = ICON.italico;
+  protected readonly SubtleIcon = ICON.sutil;
   protected readonly GrowIcon = ICON.aumentar;
   protected readonly ShrinkIcon = ICON.diminuir;
 

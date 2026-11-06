@@ -508,7 +508,8 @@ describe('a régua de formatação do texto', () => {
       expect(menus.map((b) => b.querySelectorAll('lucide-icon').length)).toEqual([2, 2]);
       expect(menus.every((b) => b.title.length > 0)).toBeTrue();
       const tools = Array.from(fixture.nativeElement.querySelectorAll('.regua .ferramenta') as NodeListOf<HTMLElement>).map((b) => b.getAttribute('aria-label'));
-      expect(tools).toEqual(['Desfazer', 'Refazer', 'Negrito', 'Itálico', 'Riscado', 'Marca-texto', 'Tarefas', 'Lista', 'Lista numerada', 'Link para um endereço']);
+      // o sutil ao lado do negrito; os links só no "Inserir" (pedido do usuário)
+      expect(tools).toEqual(['Desfazer', 'Refazer', 'Negrito', 'Texto sutil', 'Itálico', 'Riscado', 'Marca-texto', 'Tarefas', 'Lista', 'Lista numerada']);
       (fixture.nativeElement.querySelector('.menu-botao[data-menu="formatar"]') as HTMLButtonElement).click();
       fixture.detectChanges();
       const formatar = fixture.nativeElement.querySelector('.menu')!.textContent;
@@ -522,19 +523,69 @@ describe('a régua de formatação do texto', () => {
       expect(inserir).not.toContain('Link para outra anotação');
     });
 
-    it('a régua nunca passa da folha: de 480px para cima, o que não cabe sai dela (e continua nos menus); abaixo, os botões rolam', async () => {
+    it('a régua nunca passa da folha: sem lugar, os botões saem na ordem pedida (e continuam nos menus)', async () => {
       fixture.componentRef.setInput('notes', []);
       // com tudo o que a régua da ficha tem (o link de anotação e os Templates)
       fixture.componentRef.setInput('templates', true);
       fixture.detectChanges();
       const ruler = fixture.nativeElement.querySelector('.regua') as HTMLElement;
       const tools = ruler.querySelector('.ferramentas') as HTMLElement;
-      for (const w of [360, 420, 480, 500, 520, 530, 560, 580, 600, 615, 630, 640, 680, 700, 740, 760, 800, 960]) {
+      // a vez de cada um (pedido do usuário): as tarefas e a numerada, o riscado, a lista, o sutil, o
+      // itálico, o marca-texto e, por último, o negrito; desfazer e refazer nunca saem
+      const turns = [['Tarefas', 'Lista numerada'], ['Riscado'], ['Lista'], ['Texto sutil'], ['Itálico'], ['Marca-texto'], ['Negrito']];
+      const hiddenAt: number[] = [];
+      for (const w of [960, 800, 740, 700, 680, 640, 620, 600, 580, 560, 530, 500, 480, 460, 440, 420, 400, 380, 360, 340]) {
         (fixture.nativeElement as HTMLElement).style.width = w + 'px';
         await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
         expect(ruler.scrollWidth).withContext(`régua em ${w}px`).toBeLessThanOrEqual(ruler.clientWidth);
-        if (w >= 480) expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth);
+        expect(tools.scrollWidth).withContext(`botões em ${w}px`).toBeLessThanOrEqual(tools.clientWidth + 1);
+        const hidden = Array.from(tools.querySelectorAll<HTMLElement>('.ferramenta'))
+          .filter((b) => getComputedStyle(b).display === 'none')
+          .map((b) => b.getAttribute('aria-label')!);
+        expect(hidden).not.toContain('Desfazer');
+        expect(hidden).not.toContain('Refazer');
+        // os que saíram são sempre as primeiras vezes inteiras
+        const k = turns.findIndex((_, i) => turns.slice(0, i + 1).flat().length > hidden.length);
+        const upTo = k < 0 ? turns.length : k;
+        expect([...hidden].sort()).withContext(`em ${w}px`).toEqual(turns.slice(0, upTo).flat().sort());
+        hiddenAt.push(hidden.length);
       }
+      // na folha larga, tudo; apertando, saem, e nunca voltam enquanto ela só diminui
+      expect(hiddenAt[0]).toBe(0);
+      expect(hiddenAt[hiddenAt.length - 1]).toBeGreaterThan(0);
+      expect(hiddenAt.every((n, i) => i === 0 || n >= hiddenAt[i - 1])).toBeTrue();
+    });
+
+    it('enchendo, a folha não passa do --folha-max que o pai dá: o texto comprido rola dentro dela, e a régua fica no alto', async () => {
+      fixture.componentRef.setInput('fill', true);
+      const host = fixture.nativeElement as HTMLElement;
+      host.style.setProperty('--folha-max', '260px');
+      host.style.width = '700px';
+      write(Array.from({ length: 60 }, (_, i) => `Linha ${i + 1}`).join('\n') + '|');
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+      fixture.detectChanges();
+      await new Promise((r) => requestAnimationFrame(r));
+      const papel = host.querySelector('.papel') as HTMLElement;
+      expect(papel.getBoundingClientRect().height).toBeLessThanOrEqual(261);
+      expect(area.scrollHeight).toBeGreaterThan(area.clientHeight);
+      // a régua no alto da folha, e a folha não passa dela (nada vaza por cima do contador)
+      expect((host.querySelector('.regua') as HTMLElement).getBoundingClientRect().top).toBeCloseTo(papel.getBoundingClientRect().top, -1);
+      expect(area.getBoundingClientRect().bottom).toBeLessThanOrEqual(papel.getBoundingClientRect().bottom + 1);
+      // sem o --folha-max (o celular), ela cresce com o texto
+      host.style.removeProperty('--folha-max');
+      await new Promise((r) => requestAnimationFrame(r));
+      expect(papel.getBoundingClientRect().height).toBeGreaterThan(600);
+    });
+
+    it('o texto sutil pelo botão ao lado do negrito: em volta da seleção, afundado dentro dele, e de novo tira', () => {
+      write('um |caro| item');
+      button('Texto sutil').click();
+      expect(value()).toBe('um ((caro)) item');
+      area.dispatchEvent(new Event('select'));
+      fixture.detectChanges();
+      expect(button('Texto sutil').getAttribute('aria-pressed')).toBe('true');
+      button('Texto sutil').click();
+      expect(value()).toBe('um caro item');
     });
 
     it('riscado e marca-texto em volta da seleção (pelo "Formatar", pelo botão e pelos atalhos); de novo, tira', () => {
@@ -809,8 +860,12 @@ describe('a régua de formatação do texto', () => {
       fixture.detectChanges();
     }
 
-    it('sem `notes` (a resenha), nada de link na régua', () => {
+    it('sem `notes` (a resenha), nada de link de anotação no "Inserir"; e os links nunca ficam na régua (só no menu)', () => {
       expect(button('Link para outra anotação')).toBeNull();
+      expect(button('Link para um endereço')).toBeNull();
+      (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.menu')!.textContent).not.toContain('Link para outra anotação');
     });
 
     it('"[[" na folha abre a lista, filtra pelo que vem depois, e Enter põe o link', () => {
@@ -853,8 +908,7 @@ describe('a régua de formatação do texto', () => {
       fixture.componentRef.setInput('notes', notes);
       fixture.detectChanges();
       write('ver |mercado| amanhã');
-      button('Link para outra anotação').click();
-      fixture.detectChanges();
+      pick('inserir', 'Link para outra anotação');
       const search = fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
       const put = () => Array.from(fixture.nativeElement.querySelectorAll('.elo-painel button') as NodeListOf<HTMLButtonElement>).find((b) => b.textContent!.includes('Pôr o link'))!;
       expect(search.value).toBe('mercado');
@@ -878,8 +932,7 @@ describe('a régua de formatação do texto', () => {
       fixture.componentRef.setInput('notes', notes);
       fixture.detectChanges();
       write('ver |');
-      button('Link para outra anotação').click();
-      fixture.detectChanges();
+      pick('inserir', 'Link para outra anotação');
       const search = fixture.nativeElement.querySelector('.elos-campo') as HTMLInputElement;
       const letter = new KeyboardEvent('keydown', { key: 'V', bubbles: true, cancelable: true });
       search.dispatchEvent(letter);
@@ -923,8 +976,7 @@ describe('a régua de formatação do texto', () => {
       /** Pela régua, com a busca escrita e a opção do título novo escolhida. */
       function panelWith(marked: string, query: string): void {
         write(marked);
-        button('Link para outra anotação').click();
-        fixture.detectChanges();
+        pick('inserir', 'Link para outra anotação');
         search().value = query;
         search().dispatchEvent(new Event('input'));
         fixture.detectChanges();
@@ -1004,8 +1056,7 @@ describe('a régua de formatação do texto', () => {
 
       it('o título que já atende uma anotação (sem maiúsculas nem acentos) só põe o link, sem perguntar', () => {
         write('ver |');
-        button('Link para outra anotação').click();
-        fixture.detectChanges();
+        pick('inserir', 'Link para outra anotação');
         search().value = 'LISTA DO MERCÁDO';
         search().dispatchEvent(new Event('input'));
         fixture.detectChanges();
@@ -1049,8 +1100,7 @@ describe('a régua de formatação do texto', () => {
         expect(options()[0]).toContain('Link para “Velho nome”');
         // "|" separa o texto do link: nem "Link para" nem criar
         write('ver |');
-        button('Link para outra anotação').click();
-        fixture.detectChanges();
+        pick('inserir', 'Link para outra anotação');
         search().value = 'A|B';
         search().dispatchEvent(new Event('input'));
         fixture.detectChanges();

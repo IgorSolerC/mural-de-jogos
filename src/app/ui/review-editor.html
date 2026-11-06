@@ -119,7 +119,7 @@
     </header>
 
     <div class="body">
-      <div class="conteudo" [class.enche]="notes()" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="'editor-modo-' + mode()">
+      <div class="conteudo" [class.enche]="notes()" appHeightVar="--conteudo-h" id="editor-conteudo" role="tabpanel" [attr.aria-labelledby]="'editor-modo-' + mode()">
         <!-- ===== Escrever ===== -->
         <div class="escrever" [hidden]="mode() !== 'escrever'">
           @if (notes()) {

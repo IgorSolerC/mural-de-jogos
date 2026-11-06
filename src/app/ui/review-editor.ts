@@ -73,6 +73,7 @@ import type { CardLook } from '../core/card-look';
 import { pinningFor } from '../core/wall-physics';
 import { BonusPicker } from './bonus';
 import { GroupPicker } from './group-picker';
+import { HeightVar } from './height-var';
 import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
@@ -162,6 +163,7 @@ const MIN_YEAR = 1971;
   imports: [
     BackdropClose,
     FlashcardTab,
+    HeightVar,
     IconModule,
     NgTemplateOutlet,
     BonusPicker,

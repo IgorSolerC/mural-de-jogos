@@ -53,6 +53,15 @@ describe('o editor com o Visual', () => {
   const pm = (): EditorView => (fixture.debugElement.query(By.css('app-visual-editor')).componentInstance as { view: EditorView }).view;
   const tab = (name: 'visual' | 'markdown') => fixture.nativeElement.querySelector(`[role=tab][id$="-aba-${name}"]`) as HTMLButtonElement;
   const button = (name: string) => fixture.nativeElement.querySelector(`button[aria-label="${name}"]`) as HTMLButtonElement;
+  /** Os links ficam só no "Inserir" da régua: abre e toca no item pelo nome. */
+  async function insert(name: string): Promise<void> {
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="inserir"]') as HTMLButtonElement).click();
+    await settle();
+    const op = Array.from(fixture.nativeElement.querySelectorAll('.menu .menu-op') as NodeListOf<HTMLButtonElement>).find((b) => (b.querySelector('.menu-op-nome')?.textContent ?? '').trim() === name);
+    expect(op).withContext(`"${name}" no Inserir`).toBeDefined();
+    op!.click();
+    await settle();
+  }
   const area = () => fixture.nativeElement.querySelector('textarea') as HTMLTextAreaElement;
   const value = () => fixture.componentInstance.value();
   const wait = (ms = 30) => new Promise((r) => setTimeout(r, ms));
@@ -457,9 +466,7 @@ describe('o editor com o Visual', () => {
       expect(document.activeElement).toBe(pm().dom);
       // o botão da régua também abre (e Cancelar volta à folha com o trecho selecionado)
       select(2);
-      button('Link para um endereço').click();
-      await settle();
-      expect(button('Link para um endereço').getAttribute('aria-disabled')).toBeNull();
+      await insert('Link para um endereço');
       botao('.url-painel', 'Cancelar').click();
       await settle();
       expect(painel('.url-painel')).toBeNull();
@@ -546,8 +553,7 @@ describe('o editor com o Visual', () => {
       // pela régua: o painel pergunta antes de criar
       digita(' e o sofá');
       select(pm().state.doc.content.size - 5, pm().state.doc.content.size - 1);
-      button('Link para outra anotação').click();
-      await settle();
+      await insert('Link para outra anotação');
       await wait();
       const busca = fixture.nativeElement.querySelector('.elo-painel .elos-campo') as HTMLInputElement;
       escreve(busca, 'Vender o sofá');
@@ -570,8 +576,7 @@ describe('o editor com o Visual', () => {
       fixture.componentRef.setInput('notes', notes);
       await settle();
       select(4, 9);
-      button('Link para outra anotação').click();
-      await settle();
+      await insert('Link para outra anotação');
       await wait();
       const busca = fixture.nativeElement.querySelector('.elo-painel .elos-campo') as HTMLInputElement;
       expect(document.activeElement).toBe(busca);
