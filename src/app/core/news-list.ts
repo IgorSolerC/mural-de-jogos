@@ -39,8 +39,8 @@ export const NEWS: NewsEntry[] = [
       'Swift e Dart entraram nas linguagens do bloco de código.',
       'Na anotação comprida, o texto rola dentro da folha, e a régua de formatação fica sempre à vista no alto (no computador e no tablet; no celular ela continua presa em cima do teclado).',
       'A régua do texto ganhou o botão do texto sutil, ao lado do negrito, e os links ficam só no Inserir. Sem lugar, os botões saem na ordem dos menos usados: tarefas e lista numerada, riscado, lista, sutil, itálico, marca-texto e, por último, negrito.',
-      'Na ficha aberta e na tela cheia, a letra e a pauta ficaram menores, iguais nas duas, para caber mais texto na tela de uma vez.',
-      'A tela cheia ficou bem mais larga: a folha ocupa quase toda a tela até o limite dela, e cabe muito mais texto em cada linha. O bloco de código, o card e a tabela larga aproveitam o espaço; as fotos, os vídeos e os áudios continuam do mesmo tamanho.',
+      'Na ficha aberta, a letra e a pauta ficaram menores, para caber mais texto na tela de uma vez.',
+      'A tela cheia ficou bem mais larga, com a letra e a pauta um pouco menores que as de antes e a faixa do nome mais fina: a folha ocupa quase toda a tela até o limite dela, e cabe muito mais texto em cada linha. O bloco de código, o card e a tabela larga aproveitam o espaço; as fotos, os vídeos e os áudios continuam do mesmo tamanho.',
     ],
     correcoes: [
       'Um widget ou um card com cor escrito logo embaixo de uma tabela, sem linha em branco, não vira mais uma fileira dela com a marca à mostra, e duas tabelas coladas não tiram mais o texto de baixo das linhas da pauta.',

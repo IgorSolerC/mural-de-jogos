@@ -1396,10 +1396,30 @@ dialog.reader.tela-cheia {
   padding: 28px var(--margem) 36px;
 }
 
-/* a letra e a pauta são as da leitura; só a coluna muda */
+/* a coluna larga, e a letra um pouco maior que a da leitura, com a pauta na mesma proporção e a letra sentada
+   1px mais para baixo (no celular, a da leitura: ver abaixo) */
 .tela-cheia .text {
+  --line: 1.95rem;
+  --texto-desce: 6px;
   width: 100%;
   max-width: var(--medida);
+  font-size: 1.24rem;
+}
+
+/* a faixa fina: só o nome e os botões, sem o alto que a tachinha pede na ficha aberta. Os botões continuam
+   de 44px; as margens negativas é que não os deixam esticar a faixa */
+.tela-cheia .par > article > .faixa-nome {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
+.tela-cheia .faixa-nome .icon-btn {
+  margin-block: -6px;
+}
+
+/* o nome de uma linha no meio da faixa; o que quebra em várias a estica, e os botões ficam no alto */
+.tela-cheia .faixa-nome .title {
+  align-self: center;
 }
 
 /* o nome começa onde começa a letra do texto (a margem, mais a folga de 8px da pauta); com a seta de
@@ -1449,7 +1469,14 @@ dialog.reader.tela-cheia {
   }
 
   .tela-cheia .par > article > .faixa-nome {
-    padding: calc(14px + env(safe-area-inset-top)) 8px 10px 24px;
+    padding: calc(7px + env(safe-area-inset-top)) 8px 7px 24px;
+  }
+
+  /* a tela estreita não ganha coluna larga: a letra fica a da leitura */
+  .tela-cheia .text {
+    --line: 1.66rem;
+    --texto-desce: 5px;
+    font-size: 1.06rem;
   }
 
   .tela-cheia .par > article > .faixa-nome.com-volta {

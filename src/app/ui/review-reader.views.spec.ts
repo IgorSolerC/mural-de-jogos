@@ -136,12 +136,22 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     expect(band('.ler-tela-cheia').getAttribute('aria-label')).toBe('Voltar à leitura');
     expect(document.activeElement).toBe(band('.ler-tela-cheia'));
     expect(band('.ver-cartolina').getAttribute('aria-label')).toBe('Ver só a cartolina');
-    // a letra e a pauta são as da leitura, menores que as de antes (cabem mais linhas na tela)
+    // a letra e a pauta um pouco maiores que as da leitura, na mesma proporção
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
-    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBe(leitura.font);
-    expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBe(leitura.line);
     expect(leitura.font).toBeCloseTo(1.12 * rem, 1);
     expect(leitura.line).toBeCloseTo(1.76 * rem, 1);
+    expect(innerWidth).toBeGreaterThan(600);
+    expect(parseFloat(getComputedStyle(q('.text')!).fontSize)).toBeCloseTo(1.24 * rem, 1);
+    expect(parseFloat(getComputedStyle(q('.text')!).lineHeight)).toBeCloseTo(1.95 * rem, 1);
+    // a faixa fina, com os botões do mesmo tamanho, inteiros dentro dela
+    const faixa = q('.faixa-nome')!.getBoundingClientRect();
+    expect(faixa.height).toBeLessThanOrEqual(48);
+    for (const b of qa('.faixa-nome .icon-btn')) {
+      const r = b.getBoundingClientRect();
+      expect(r.height).toBeCloseTo(44, 0);
+      expect(r.top).toBeGreaterThanOrEqual(faixa.top);
+      expect(r.bottom).toBeLessThanOrEqual(faixa.bottom);
+    }
     band('.ler-tela-cheia').click();
     await settle();
     expect(dialog().classList.contains('tela-cheia')).toBeFalse();
