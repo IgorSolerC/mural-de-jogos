@@ -6,14 +6,17 @@
 // 24 kB por folha de estilo.
 
 @include formatado.codigo;
+@include formatado.codigo-temas('.codigo-peca');
 /* a peça do bloco: o papel embaixo de tudo (o ::before, com os furos), com a sombra de papel colado,
    que também entra nos furos; as letras rolam de lado sem levar a tira dos furos junto */
 /* (a largura nunca vem das letras: a linha comprida rola por dentro, não alarga o texto em volta, que na
    leitura é item de grade) */
+/* a cerca recuada empurra o bloco inteiro, como os espaços empurram a linha de texto e como no Visual */
 .codigo-peca {
   position: relative;
   contain: inline-size;
   isolation: isolate;
+  margin-left: calc(var(--recuo, 0) * 0.27em);
   filter: drop-shadow(0 1px 0.5px rgb(0 0 0 / 0.16)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08));
 }
 .codigo-peca::before {
@@ -30,7 +33,7 @@
   overflow-y: hidden;
   white-space: pre;
   scrollbar-width: thin;
-  scrollbar-color: rgb(47 107 58 / 0.45) transparent;
+  scrollbar-color: var(--cod-rolo, rgb(47 107 58 / 0.45)) transparent;
 }
 .codigo-lingua {
   @include formatado.codigo-lingua;

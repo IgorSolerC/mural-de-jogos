@@ -1,3 +1,5 @@
+@use 'formatado';
+
 // A ficha como documento (ui/pdf-sheet.ts). Sem encapsular: veste o texto que o RichText desenha.
 // Só existe com a folha montada. A régua é a do Obsidian: papel branco, uma letra de leitura, os
 // títulos pelo peso e pelo tamanho, o código e a tabela em cinza claro; o Murall fica nos detalhes
@@ -400,6 +402,8 @@
     font-size: 0.86em;
   }
   .codigo-peca:not(app-note-widget *) {
+    // o tema escuro é da tela: no papel, as tintas do realce de sempre, chapadas
+    @include formatado.codigo-sem-tema;
     margin: 0.35em 0;
     border-radius: 4px;
     background: var(--pdf-fundo);

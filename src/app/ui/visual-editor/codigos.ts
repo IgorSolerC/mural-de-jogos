@@ -2,7 +2,7 @@ import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
 import { CodeRange, codeHighlightLoaded, codeRanges, loadCodeHighlight } from '../../core/code-highlight';
-import { codeLangName, codeLangOf, withCodeLang } from '../../core/code-langs';
+import { CodeTheme, codeLangName, codeLangOf, codeThemeOf, withCodeLang, withCodeTheme } from '../../core/code-langs';
 import { ICON } from '../icons';
 import { desenho, etiqueta } from './controles';
 import { codigo } from './keymap';
@@ -40,7 +40,9 @@ export function acaoCodigo(acao: AcaoCodigo): Command | null {
   return (state, dispatch) => {
     if (!estadoCodigo(state)) return false;
     const { $from } = state.selection;
-    if (dispatch) dispatch(state.tr.setNodeMarkup($from.before(), null, { ...$from.parent.attrs, lingua: withCodeLang($from.parent.attrs['lingua'] ?? '', acao.lingua) }));
+    const antes: string = $from.parent.attrs['lingua'] ?? '';
+    const lingua = 'tema' in acao ? withCodeTheme(antes, acao.tema) : withCodeLang(antes, acao.lingua);
+    if (dispatch) dispatch(state.tr.setNodeMarkup($from.before(), null, { ...$from.parent.attrs, lingua }));
     return true;
   };
 }
@@ -51,6 +53,8 @@ export function acaoCodigo(acao: AcaoCodigo): Command | null {
 export interface CodigoContexto {
   pedeLingua: () => void;
   copia: (texto: string) => void;
+  /** O tema dos blocos sem tema próprio (Ajustes › Mural). */
+  temaPadrao: () => CodeTheme;
 }
 
 /**
@@ -91,6 +95,10 @@ export class CodigoView implements NodeView {
     const recuo: number = this.node.attrs['recuo'] ?? 0;
     if (recuo) this.dom.style.setProperty('--recuo', String(recuo));
     else this.dom.style.removeProperty('--recuo');
+    // o papel é o desenho de sempre (sem marca nenhuma): só os escuros levam a marca
+    const tema = codeThemeOf(lingua) ?? this.ctx.temaPadrao();
+    if (tema === 'papel') delete this.dom.dataset['tema'];
+    else this.dom.dataset['tema'] = tema;
     if (this.feito === lingua) return;
     this.feito = lingua;
     const nome = codeLangName(lingua);

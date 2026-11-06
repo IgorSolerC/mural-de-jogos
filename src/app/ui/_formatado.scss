@@ -1,3 +1,5 @@
+@use 'sass:map';
+
 // O desenho do texto formatado (ver core/rich-text.ts), o mesmo na leitura (ui/rich-text.ts) e no modo
 // Visual do editor (ui/visual-editor/): as ênfases, o código, os títulos, a citação, o sutil, a
 // divisória, os links, as listas, as tarefas e a tabela. Cada parte é um mixin, incluído pela leitura no lugar onde a regra sempre
@@ -47,6 +49,85 @@
 // para ele só. O código na linha é um recorte do mesmo papel colado no meio da frase.
 // Só as declarações do papel moram em `codigo-papel`: quem usa diz onde (a leitura num ::before da peça,
 // que não rola com o texto; o Visual num ::before do próprio bloco, por cima do papel do card).
+// Os temas (`codigo-temas`) trocam só as cores: a mesma folha com os furos, nas cores dos editores. O Papel
+// é o valor reserva de cada var(): sem tema nenhum, não há o que trocar.
+
+// As cores dos temas escuros (ver core/code-langs.ts), todas com 4,5:1 ou mais no fundo e na faixa
+// (o spec confere): `pal` a palavra da linguagem, `txt` o texto entre aspas, `num` o número, `fun` a função,
+// `tip` o tipo, `atr` o atributo, `com` o comentário, `met` o que vem antes do código, `eti` a linguagem
+// impressa no cabeçalho; `ctl` as palavras de controle (if, return, import), que só o VS Code pinta à parte.
+$cod-temas: (
+  // o Dark Modern do VS Code
+  'vscode': (fundo: #1f1f1f, faixa: #272727, tinta: #cccccc, pal: #569cd6, txt: #ce9178, num: #b5cea8, fun: #dcdcaa, tip: #4ec9b0, atr: #9cdcfe, com: #7ca668, met: #a8a8a8, eti: #a8a8a8, ctl: #c586c0, del: #f48771, add: #89d185, sel: #264f78, cursor: #aeafad, peso: inherit),
+  // o Dracula (o comentário é o azul dele, clareado: o #6272a4 original dá só 3:1)
+  'dracula': (fundo: #282a36, faixa: #2f3241, tinta: #f8f8f2, pal: #ff79c6, txt: #f1fa8c, num: #bd93f9, fun: #50fa7b, tip: #8be9fd, atr: #ffb86c, com: #8f9ccb, met: #a9b0cd, eti: #a9b0cd, ctl: #ff79c6, del: #ff8585, add: #50fa7b, sel: #44475a, cursor: #f8f8f2, peso: inherit),
+  // o Default Dark do Xcode, como o Swift aparece nele: a palavra em negrito
+  'xcode': (fundo: #1f1f24, faixa: #27272d, tinta: #dfdfe0, pal: #ff7ab2, txt: #ff8170, num: #d9c97c, fun: #67b7a4, tip: #dabaff, atr: #5dd8ff, com: #8a97a3, met: #fd8f3f, eti: #a3a3a8, ctl: #ff7ab2, del: #ff8170, add: #84d97c, sel: #515b70, cursor: #ffffff, peso: 700),
+);
+
+// o tema de `$seletor` (o elemento com `data-tema`): só as variáveis, que o papel e as tintas leem por herança
+@mixin codigo-temas($seletor) {
+  @each $tema, $c in $cod-temas {
+    #{$seletor}[data-tema='#{$tema}'] {
+      --cod-fundo: #{map.get($c, fundo)};
+      --cod-faixa: #{map.get($c, faixa)};
+      --cod-furo: rgb(255 255 255 / 0.14);
+      --cod-picote: rgb(255 255 255 / 0.24);
+      --cod-beira: rgb(255 255 255 / 0.1);
+      --cod-tinta: #{map.get($c, tinta)};
+      --cod-etiqueta: #{map.get($c, eti)};
+      --cod-rolo: rgb(255 255 255 / 0.32);
+      --cod-selecao: #{map.get($c, sel)};
+      --cod-cursor: #{map.get($c, cursor)};
+      --tk-pal: #{map.get($c, pal)};
+      --tk-ctl: #{map.get($c, ctl)};
+      --tk-pal-peso: #{map.get($c, peso)};
+      --tk-txt: #{map.get($c, txt)};
+      --tk-num: #{map.get($c, num)};
+      --tk-fun: #{map.get($c, fun)};
+      --tk-tip: #{map.get($c, tip)};
+      --tk-atr: #{map.get($c, atr)};
+      --tk-com: #{map.get($c, com)};
+      --tk-met: #{map.get($c, met)};
+      --tk-del: #{map.get($c, del)};
+      --tk-del-fundo: rgb(255 90 90 / 0.1);
+      --tk-add: #{map.get($c, add)};
+      --tk-add-fundo: rgb(90 220 120 / 0.13);
+    }
+    #{$seletor}[data-tema='#{$tema}'] ::selection {
+      background: #{map.get($c, sel)};
+      color: #ffffff;
+    }
+  }
+}
+
+// o tema escuro desfeito: de volta ao valor reserva (o Papel), onde a tela escura não faz sentido (o PDF)
+@mixin codigo-sem-tema {
+  --cod-fundo: initial;
+  --cod-faixa: initial;
+  --cod-furo: initial;
+  --cod-picote: initial;
+  --cod-beira: initial;
+  --cod-tinta: initial;
+  --cod-etiqueta: initial;
+  --cod-rolo: initial;
+  --cod-selecao: initial;
+  --cod-cursor: initial;
+  --tk-pal: initial;
+  --tk-ctl: initial;
+  --tk-pal-peso: initial;
+  --tk-txt: initial;
+  --tk-num: initial;
+  --tk-fun: initial;
+  --tk-tip: initial;
+  --tk-atr: initial;
+  --tk-com: initial;
+  --tk-met: initial;
+  --tk-del: initial;
+  --tk-del-fundo: initial;
+  --tk-add: initial;
+  --tk-add-fundo: initial;
+}
 
 // a tira dos furos e o vão até as letras (em rem: a etiqueta, fora do bloco na leitura, usa as mesmas)
 $cod-margem: 1.05rem;
@@ -78,7 +159,7 @@ $cod-vao: 0.7rem;
   /* o bloco: as letras impressas, cada linha numa linha da pauta, na tinta escura do formulário */
   .codigo {
     margin: 0;
-    color: #1b1916;
+    color: var(--cod-tinta, #1b1916);
     font-family: var(--f-codigo);
     font-weight: 400;
     font-size: 0.8em;
@@ -91,37 +172,41 @@ $cod-vao: 0.7rem;
   }
   /* as tintas do realce: as da papelaria, todas com 4,5:1 ou mais no papel e na faixa verde */
   .tk-pal {
-    color: #5b2d8e;
+    color: var(--tk-pal, #5b2d8e);
+    font-weight: var(--tk-pal-peso, inherit);
+  }
+  .tk-ctl {
+    color: var(--tk-ctl, var(--tk-pal, #5b2d8e));
   }
   .tk-txt {
-    color: #0b6b33;
+    color: var(--tk-txt, #0b6b33);
   }
   .tk-num {
-    color: #ad261f;
+    color: var(--tk-num, #ad261f);
   }
   .tk-fun {
-    color: #1f4fc4;
+    color: var(--tk-fun, #1f4fc4);
   }
   .tk-tip {
-    color: #8c2457;
+    color: var(--tk-tip, #8c2457);
   }
   .tk-atr {
-    color: #85500a;
+    color: var(--tk-atr, #85500a);
   }
   .tk-com {
-    color: #67625a;
+    color: var(--tk-com, #67625a);
     font-style: italic;
   }
   .tk-met {
-    color: #67625a;
+    color: var(--tk-met, #67625a);
   }
   .tk-del {
-    color: #a1201b;
-    background: rgb(196 48 43 / 0.1);
+    color: var(--tk-del, #a1201b);
+    background: var(--tk-del-fundo, rgb(196 48 43 / 0.1));
   }
   .tk-add {
-    color: #0b6b33;
-    background: rgb(16 166 74 / 0.12);
+    color: var(--tk-add, #0b6b33);
+    background: var(--tk-add-fundo, rgb(16 166 74 / 0.12));
   }
   .tk-it {
     font-style: italic;
@@ -137,14 +222,13 @@ $cod-vao: 0.7rem;
 // esquerda, o picote em pé e os furos do trator, um no meio de cada linha, com o anel verde em volta.
 // O fio verde fino em volta é a beirada do papel na cartolina.
 @mixin codigo-papel {
-  --cod-faixa: #e8f1e0;
   background:
-    repeating-linear-gradient(to bottom, rgb(47 107 58 / 0.42) 0 2px, transparent 2px 5px) #{$cod-margem} 0 / 1px 100% no-repeat,
-    radial-gradient(circle, transparent 3.2px, rgb(47 107 58 / 0.3) 3.5px 4.3px, transparent 4.7px) 0 0 / #{$cod-margem} var(--line, 1.5em) repeat-y,
-    repeating-linear-gradient(to bottom, var(--cod-faixa) 0 var(--line, 1.5em), transparent var(--line, 1.5em) calc(var(--line, 1.5em) * 2)) #{$cod-margem} var(--line, 1.5em) / calc(100% - #{$cod-margem}) calc(100% - var(--line, 1.5em)) no-repeat,
-    #fbfcf6;
+    repeating-linear-gradient(to bottom, var(--cod-picote, rgb(47 107 58 / 0.42)) 0 2px, transparent 2px 5px) #{$cod-margem} 0 / 1px 100% no-repeat,
+    radial-gradient(circle, transparent 3.2px, var(--cod-furo, rgb(47 107 58 / 0.3)) 3.5px 4.3px, transparent 4.7px) 0 0 / #{$cod-margem} var(--line, 1.5em) repeat-y,
+    repeating-linear-gradient(to bottom, var(--cod-faixa, #e8f1e0) 0 var(--line, 1.5em), transparent var(--line, 1.5em) calc(var(--line, 1.5em) * 2)) #{$cod-margem} var(--line, 1.5em) / calc(100% - #{$cod-margem}) calc(100% - var(--line, 1.5em)) no-repeat,
+    var(--cod-fundo, #fbfcf6);
   border-radius: 2px;
-  box-shadow: inset 0 0 0 1px rgb(47 107 58 / 0.16);
+  box-shadow: inset 0 0 0 1px var(--cod-beira, rgb(47 107 58 / 0.16));
   -webkit-mask: radial-gradient(circle at calc(#{$cod-margem} / 2) 50%, #0000 3.1px, #000 3.7px) 0 0 / 100% var(--line, 1.5em) repeat-y;
   mask: radial-gradient(circle at calc(#{$cod-margem} / 2) 50%, #0000 3.1px, #000 3.7px) 0 0 / 100% var(--line, 1.5em) repeat-y;
 }
@@ -156,7 +240,7 @@ $cod-vao: 0.7rem;
   left: $cod-margem + $cod-vao;
   max-width: calc(100% - #{$cod-margem + $cod-vao} - 6rem);
   overflow: hidden;
-  color: #2f6b3a;
+  color: var(--cod-etiqueta, #2f6b3a);
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.62rem;

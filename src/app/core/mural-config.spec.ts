@@ -60,7 +60,13 @@ describe('as configurações do mural de anotações', () => {
       autoColors: {},
       subjects: {},
       templates: [],
+      codeTheme: 'papel',
     });
+    // o tema do código: só os que existem; sem ele (o guardado de antes), o Papel de sempre
+    expect(sanitizeNotesConfig({ codeTheme: 'dracula' }).codeTheme).toBe('dracula');
+    expect(sanitizeNotesConfig({ codeTheme: 'solarized' }).codeTheme).toBe('papel');
+    expect(sanitizeNotesConfig({}).codeTheme).toBe('papel');
+    expect(sanitizeNotesConfig(null).codeTheme).toBe('papel');
     // a aba Tudo: só com true (o padrão é sem ela)
     expect(sanitizeNotesConfig({ showAll: true }).showAll).toBeTrue();
     expect(sanitizeNotesConfig({ showAll: 'sim' }).showAll).toBeFalse();

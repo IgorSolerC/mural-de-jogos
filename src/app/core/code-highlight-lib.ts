@@ -4,6 +4,7 @@ import c from 'highlight.js/lib/languages/c';
 import cpp from 'highlight.js/lib/languages/cpp';
 import csharp from 'highlight.js/lib/languages/csharp';
 import css from 'highlight.js/lib/languages/css';
+import dart from 'highlight.js/lib/languages/dart';
 import diff from 'highlight.js/lib/languages/diff';
 import dockerfile from 'highlight.js/lib/languages/dockerfile';
 import go from 'highlight.js/lib/languages/go';
@@ -20,6 +21,7 @@ import ruby from 'highlight.js/lib/languages/ruby';
 import rust from 'highlight.js/lib/languages/rust';
 import scss from 'highlight.js/lib/languages/scss';
 import sql from 'highlight.js/lib/languages/sql';
+import swift from 'highlight.js/lib/languages/swift';
 import typescript from 'highlight.js/lib/languages/typescript';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
@@ -32,7 +34,7 @@ import type { CodeRange } from './code-highlight';
  * monta os elementos: nenhum HTML vai para a página.
  */
 
-const GRAMMARS = { bash, c, cpp, csharp, css, diff, dockerfile, go, ini, java, javascript, json, kotlin, markdown, php, powershell, python, ruby, rust, scss, sql, typescript, xml, yaml };
+const GRAMMARS = { bash, c, cpp, csharp, css, dart, diff, dockerfile, go, ini, java, javascript, json, kotlin, markdown, php, powershell, python, ruby, rust, scss, sql, swift, typescript, xml, yaml };
 for (const [name, fn] of Object.entries(GRAMMARS)) hljs.registerLanguage(name, fn);
 
 /**
@@ -146,8 +148,16 @@ export function hasGrammar(id: string): boolean {
   return !!hljs.getLanguage(id);
 }
 
+/**
+ * As palavras de controle, que o highlight.js não separa das outras palavras da linguagem: o tema do VS Code
+ * as pinta à parte (a classe `tk-ctl` só muda a tinta de quem a define). No SQL, "from" e "case" não são isso.
+ */
+const CONTROL = new Set(['if', 'else', 'elif', 'elsif', 'unless', 'switch', 'case', 'default', 'match', 'when', 'for', 'foreach', 'while', 'do', 'loop', 'break', 'continue', 'return', 'throw', 'throws', 'rethrow', 'raise', 'try', 'catch', 'except', 'finally', 'guard', 'defer', 'yield', 'await', 'import', 'export', 'from', 'using', 'package', 'include', 'require', 'pass', 'goto']);
+
 /** Os pedaços coloridos do texto na gramática `id` (um nome que ela não conhece: nenhum). */
 export function colorir(text: string, id: string): CodeRange[] {
   if (!hljs.getLanguage(id)) return [];
-  return rangesOfHtml(hljs.highlight(text, { language: id, ignoreIllegals: true }).value);
+  const out = rangesOfHtml(hljs.highlight(text, { language: id, ignoreIllegals: true }).value);
+  if (id !== 'sql') for (const r of out) if (r.c === 'tk-pal' && CONTROL.has(text.slice(r.de, r.ate))) r.c = 'tk-pal tk-ctl';
+  return out;
 }

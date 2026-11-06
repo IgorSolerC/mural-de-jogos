@@ -84,6 +84,17 @@ describe('limpar o navegador (sair da conta)', () => {
     expect(takeReset()).toBeNull();
   });
 
+  it('o tema do código (os ajustes do mural) sai na limpeza', async () => {
+    signedInBrowser();
+    localStorage.setItem('mural-de-jogos:config:v1', JSON.stringify({ notesConfig: { codeTheme: 'dracula' }, notesConfigAt: '2026-11-06T12:00:00.000Z' }));
+    localStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(ACCOUNT_KEY);
+    localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));
+    expect(await resetOnBoot()).toBeTrue();
+    expect(localStorage.getItem('mural-de-jogos:config:v1')).toBeNull();
+    takeReset();
+  });
+
   it('o mural de uma conta sem a sessão dela (o site de antes deixava ficar ao sair) é limpo ao abrir', async () => {
     signedInBrowser();
     localStorage.removeItem(SESSION_KEY);

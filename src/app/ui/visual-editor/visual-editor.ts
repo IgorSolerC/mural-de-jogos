@@ -42,6 +42,7 @@ import { docDe, linhaDaPeca, linhaDe, noDe, schema, sliceDoTexto, textoDoCru } f
 import { AcaoVisual, EstadoVisual, ImagemVisual, ListaVisual, MalaVisual, MarcaVisual, PecaVisual, PedidoLink, VisualApi } from './visual-api';
 import { CopyContext, WidgetSize, widgetLines } from '../../core/widgets';
 import { ReminderLinkInfo, ReminderLinks } from '../../core/reminder-links';
+import { Settings } from '../../core/settings';
 import { CopyContexts } from '../../core/copy-context';
 import { reminderLinkId } from '../../core/rich-text';
 import { colar, sliceDaPlanilha } from './colar';
@@ -353,6 +354,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
    * lembrete, com o desenho do calendário, tracejado quando ele não está no seu Calendário.
    */
   private readonly lembretes = inject(ReminderLinks);
+  private readonly settings = inject(Settings);
 
   private markViews() {
     return { elo: eloView((titulo) => this.eloExiste(titulo)), link: linkView((id) => this.lembreteDo(id)) };
@@ -376,7 +378,7 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
       nodeViews: {
         item: (node, view, getPos) => new ItemView(node, view, getPos),
         cartaoTopo: (node, view, getPos) => new CartaoView(node, view, getPos),
-        blocoCodigo: (node, view) => new CodigoView(node, view, { pedeLingua: () => this.pedeLingua.emit(), copia: (texto) => void this.copiaCodigo(texto) }),
+        blocoCodigo: (node, view) => new CodigoView(node, view, { pedeLingua: () => this.pedeLingua.emit(), copia: (texto) => void this.copiaCodigo(texto), temaPadrao: () => this.settings.notesConfig().codeTheme }),
         widget: (node, view, getPos) => new WidgetView(node, view, getPos, { appRef: this.appRef, injector: this.injector, links: () => this.links() }),
         cru: (node, _view, getPos) =>
           new CruView(node, getPos, {
@@ -426,13 +428,13 @@ export class VisualEditor implements OnInit, OnDestroy, VisualApi {
 
   // ===== O que a régua pede =====
 
-  run(acao: AcaoVisual): boolean {
+  run(acao: AcaoVisual, foca = true): boolean {
     const v = this.view;
     if (!v) return false;
     const cmd = this.comando(acao);
     if (!cmd) return false;
     cmd(v.state, v.dispatch, v);
-    v.focus();
+    if (foca) v.focus();
     return true;
   }
 

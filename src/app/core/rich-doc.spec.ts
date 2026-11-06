@@ -264,15 +264,44 @@ describe('o tradutor do modo Visual (core/rich-doc.ts)', () => {
     expect(docToText(d).texto).toBe('```\nsem fecho');
     const mexido = { ...d, linhas: [{ ...d.linhas[0], texto: 'mexido' } as LinhaDoc] };
     expect(docToText(mexido).texto).toBe('```\nmexido\n```');
-    const crases = escrever({ kind: 'codigo', recuo: 0, cerca: '```', texto: '```\ndentro', margem: 0, aberto: false });
+    const crases = escrever({ kind: 'codigo', recuo: 0, cerca: '```', texto: '```\ndentro', aberto: false });
     expect(crases.texto).toBe('````\n```\ndentro\n````');
     expect(crases.exato).toBeTrue();
   });
 
-  it('o código no corpo de um item fica no corpo (a margem dele em cada linha)', () => {
+  it('o código com as letras menos recuadas que a cerca é um bloco só; mexido, as letras vão para a coluna da cerca', () => {
+    const t = '1. a\n   1.2. b\n        ```\nINSERT\n        ```\n\n2. c\n   2.1. d';
+    const d = textToDoc(t);
+    expect(d.linhas.map((l) => l.kind)).toEqual(['item', 'item', 'codigo', 'linha', 'item', 'item']);
+    const cod = d.linhas[2];
+    expect(cod).toEqual(jasmine.objectContaining({ kind: 'codigo', recuo: 8, texto: 'INSERT' }));
+    expect(docToText(d).texto).toBe(t);
+    const e = docToText({ ...d, linhas: d.linhas.map((l, i) => (i === 2 ? ({ ...l, texto: 'INSERT;' } as LinhaDoc) : l)) });
+    expect(e.exato).toBeTrue();
+    expect(e.texto).toBe('1. a\n   1.2. b\n        ```\n        INSERT;\n        ```\n\n2. c\n   2.1. d');
+  });
+
+  it('o código recuado: as letras na coluna da cerca, o tab de dentro continua tab, e a volta é exata', () => {
+    for (const [t, texto] of [
+      ['    ```\n    a\n      b\n    ```', 'a\n  b'],
+      ['- x\n  ```\n  a\n  \tb\n  ```', 'a\n\tb'],
+      ['- x\n      ```\n      a\n      ```', 'a'],
+      ['\t```\n\ta\n\t\tb\n\t```', 'a\n\tb'],
+    ]) {
+      const d = textToDoc(t);
+      const i = d.linhas.findIndex((l) => l.kind === 'codigo');
+      expect((d.linhas[i] as Extract<LinhaDoc, { kind: 'codigo' }>).texto).withContext(t).toBe(texto);
+      expect(docToText(d).texto).withContext(t).toBe(t);
+      const mexido = docToText({ ...d, linhas: d.linhas.map((l, k) => (k === i ? ({ ...l, texto: texto + 'z' } as LinhaDoc) : l)) });
+      expect(mexido.exato).withContext(t).toBeTrue();
+      expect((mexido.doc.linhas[i] as Extract<LinhaDoc, { kind: 'codigo' }>).texto).withContext(t).toBe(texto + 'z');
+    }
+  });
+
+  it('o código no corpo de um item fica no corpo (o recuo da cerca em cada linha)', () => {
     const d = textToDoc('- item\n  ```\n  a\n\n  b\n  ```');
     const cod = d.linhas[1];
-    expect(cod).toEqual(jasmine.objectContaining({ kind: 'codigo', margem: 2, texto: 'a\n\nb' }));
+    expect(cod).toEqual(jasmine.objectContaining({ kind: 'codigo', recuo: 2, texto: 'a\n\nb' }));
     const e = docToText({ ...d, linhas: [d.linhas[0], { ...cod, texto: 'a\n\nc' } as LinhaDoc] });
     expect(e.texto).toBe('- item\n  ```\n  a\n\n  c\n  ```');
     expect(e.exato).toBeTrue();

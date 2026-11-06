@@ -252,6 +252,21 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     for (const tr of el.querySelectorAll('.pdf-texto .tabela tr')) expect(css(tr).breakInside).toBe('avoid');
   });
 
+  it('o bloco de tema escuro sai no papel do PDF, com as tintas de sempre', async () => {
+    const claro = await sheet({ text: '```js\nlet a = 1\n```' });
+    const tintaClara = css(claro.el.querySelector('.codigo-peca pre.codigo')!).color;
+    const fundoClaro = css(claro.el.querySelector('.codigo-peca')!).backgroundColor;
+    claro.fixture.destroy();
+    TestBed.resetTestingModule();
+    const { el } = await sheet({ text: '```js tema=dracula\nlet a = 1\n```' });
+    const peca = el.querySelector<HTMLElement>('.codigo-peca')!;
+    expect(peca.getAttribute('data-tema')).toBe('dracula');
+    expect(css(peca).backgroundColor).toBe(fundoClaro);
+    expect(css(peca, '::before').display).toBe('none');
+    expect(css(peca.querySelector('pre.codigo')!).color).toBe(tintaClara);
+    expect(css(peca).getPropertyValue('--tk-pal').trim()).toBe('');
+  });
+
   it('fora do PDF, o endereço do vídeo nunca aparece', async () => {
     const { el } = await sheet({ text: PDF_WIDGET_SAMPLES['video'][0] });
     const a = el.querySelector('a.fonte')!;

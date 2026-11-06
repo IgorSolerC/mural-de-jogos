@@ -695,6 +695,22 @@
               }
             </div>
           </fieldset>
+
+          <!-- o tema dos blocos de código sem tema próprio (o bloco escolhe o dele no menu Código); a amostra é o bloco de verdade -->
+          <fieldset class="linha larga">
+            <legend class="linha-titulo">Tema do código</legend>
+            <p class="linha-desc">O fundo e as cores dos blocos de código que não escolheram o deles. Cada bloco pode ter o próprio, no menu Código do editor.</p>
+            <div class="segmentos dois">
+              @for (t of codeThemes; track t) {
+                <label class="segmento">
+                  <input type="radio" name="tema-do-codigo" [value]="t" [checked]="settings.notesConfig().codeTheme === t" (change)="settings.setNotesConfig({ codeTheme: t })" />
+                  <span class="seg-nome">{{ codeThemeNames[t] }}</span>
+                </label>
+              }
+            </div>
+            <!-- (na largura dos segmentos, com a pauta dela; aqui mesmo, pelo orçamento de 24 kB da folha de estilo) -->
+            <app-rich-text style="display: block; --line: 1.65rem; max-width: 480px; margin-top: 14px; font-size: 1.05rem" [text]="codeSample" />
+          </fieldset>
         </div>
       }
 

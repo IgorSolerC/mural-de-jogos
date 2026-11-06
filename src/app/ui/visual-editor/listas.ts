@@ -430,7 +430,7 @@ function estrutura(doc: PMNode): string {
     let k = n.type.name + ':' + (a['recuo'] ?? '') + ':' + (a['cartao'] ?? '');
     if (n.type === ITEM) k += `:${a['tipo']}:${a['numero']}:${a['feita'] ? 1 : 0}`;
     else if (n.type === LINHA || n.type === N['titulo']) k += n.textContent.trim() ? ':x' : ':';
-    else if (n.type === N['blocoCodigo']) k += `:${a['margem']}:${a['aberto'] ? 1 : 0}`;
+    else if (n.type === N['blocoCodigo']) k += `:${a['aberto'] ? 1 : 0}`;
     else if (n.type === N['cru']) k += ':' + textoDoCru(n);
     partes.push(k);
   });

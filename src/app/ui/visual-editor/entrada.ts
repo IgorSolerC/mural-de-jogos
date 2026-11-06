@@ -2,7 +2,7 @@ import { undoInputRule } from 'prosemirror-inputrules';
 import { ResolvedPos } from 'prosemirror-model';
 import { Plugin, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { apagarParaFrente, apagarParaTras, enter, shiftEnter } from './keymap';
+import { apagarParaFrente, apagarParaTras, apagarRecuoDoCodigo, enter, shiftEnter } from './keymap';
 
 /**
  * O que a rodada 0 ensinou no Android (PLANO-EDITOR-VISUAL.md, seção 12): no Visual, o navegador só põe
@@ -99,6 +99,8 @@ export const apagarPeloBeforeinput = (): Plugin =>
             (dir > 0 ? apagarParaFrente : apagarParaTras)(state, view.dispatch, view);
             return true;
           }
+          // o Backspace no recuo do código (a tecla 229 do Gboard também): até a parada de antes, como no computador
+          if (tipo === 'deleteContentBackward' && apagarRecuoDoCodigo(state, view.dispatch, view)) return true;
           const trecho = trechoDoNavegador(view, e) ?? letraVizinha(sel.$from, dir as -1 | 1);
           if (trecho.to > trecho.from) view.dispatch(state.tr.delete(trecho.from, trecho.to).scrollIntoView());
           return true;

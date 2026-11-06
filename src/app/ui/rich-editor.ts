@@ -2,7 +2,8 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRender, computed, effect, inject, input, model, signal, untracked, viewChild } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
-import { bodyIndent, calloutAround, calloutAt, calloutLine, closes, copyText, fenceInfo, fenceOf, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
+import { CodeOptions, CodeState, codeBackspace, codeComment, codeDeleteLines, codeDiff, codeDuplicateLines, codeEnter, codeMoveLines, codeTab } from '../core/code-edit';
+import { bodyIndent, calloutAround, calloutAt, calloutLine, closes, copyText, dedentCode, fenceInfo, fenceOf, fencesPair, indentOf, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
 import { CALLOUTS, CALLOUT_CARTOLINA, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, NEW_CALLOUT_COLOR, calloutColorName, calloutColorWord, calloutHead, calloutLook, calloutPaper } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
@@ -30,7 +31,7 @@ import { TableLooks } from './table-looks';
 import { TemplateAsk, TextTemplates } from './text-templates';
 import { TemplateSheet } from './template-sheet';
 import { CodeLangsMenu } from './code-langs-menu';
-import { withCodeLang } from '../core/code-langs';
+import { withCodeLang, withCodeTheme } from '../core/code-langs';
 import { NoteTemplate, titleTaken } from '../core/note-templates';
 import { TIPO_MURALL, copiarMarkdown, cortarPorLinhas, markdownColado } from '../core/transferencia';
 
@@ -526,7 +527,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 [attr.aria-expanded]="isOpen('codigo', big)"
                 [attr.aria-controls]="isOpen('codigo', big) ? areaId + '-codigo' : null"
                 aria-label="Código"
-                title="Código: a linguagem (as cores) e copiar"
+                title="Código: a linguagem, o tema e copiar"
                 (pointerdown)="$event.preventDefault()"
                 (click)="toggleMenu('codigo', big, $event, area)"
                 (keydown.arrowdown)="$event.preventDefault(); openMenu('codigo', big, true)"
@@ -543,6 +544,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                   [id]="areaId + '-codigo'"
                   [lingua]="co.lingua"
                   (pick)="codeAct(area, big, { lingua: $event })"
+                  (theme)="codeAct(area, big, { tema: $event })"
                   (copy)="codeAct(area, big, 'copiar')"
                   (undo)="codeAct(area, big, 'desfazer')"
                   (leave)="onTemplatesLeave($event, big)"
@@ -3011,10 +3013,27 @@ export class RichEditor {
     if (this.codeHere()) this.openMenu('codigo', big, true);
   }
 
-  /** Uma ação do menu "Código" (o menu fecha antes, e o foco volta ao texto). */
+  /** Uma ação do menu "Código" (o menu fecha antes, e o foco volta ao texto; menos no tema). */
   protected codeAct(area: HTMLTextAreaElement, big: boolean, what: AcaoCodigo): void {
+    // o tema: o bloco troca na hora e o menu fica aberto, para comparar um com o outro (o foco volta para ele)
+    if (typeof what === 'object' && 'tema' in what) {
+      const back = document.activeElement as HTMLElement | null;
+      this.swappingMenu = true;
+      this.codeApply(area, big, what);
+      back?.focus({ preventScroll: true });
+      this.swappingMenu = false;
+      return;
+    }
     this.menu.set(null);
-    if (this.visual()) return this.visualAct(big, { codigo: what });
+    this.codeApply(area, big, what);
+  }
+
+  private codeApply(area: HTMLTextAreaElement, big: boolean, what: AcaoCodigo): void {
+    if (this.visual()) {
+      // (o tema é escolhido com o menu aberto: o foco fica nele, e o teclado do celular não sobe)
+      if (typeof what === 'object' && 'tema' in what) return void this.visualOf(big)?.run({ codigo: what }, false);
+      return this.visualAct(big, { codigo: what });
+    }
     const text = area.value;
     const block = codeBlockAt(text, area.selectionStart);
     if (!block) return area.focus();
@@ -3035,7 +3054,8 @@ export class RichEditor {
     const lines = text.split('\n');
     const from = lines.slice(0, block.open).reduce((n, l) => n + l.length + 1, 0);
     const old = lines[block.open];
-    const line = old.replace(/^(\s*(?:>\s?)?\s*(?:`{3,}|~{3,})).*$/, (_, fence: string) => fence + withCodeLang(block.info, what.lingua));
+    const info = 'tema' in what ? withCodeTheme(block.info, what.tema) : withCodeLang(block.info, what.lingua);
+    const line = old.replace(/^(\s*(?:>\s?)?\s*(?:`{3,}|~{3,})).*$/, (_, fence: string) => fence + info);
     const { selectionStart: s0, selectionEnd: e0 } = area;
     const shift = (at: number) => (at > from + old.length ? at + line.length - old.length : Math.min(at, from + line.length));
     this.replace(area, from, from + old.length, line, shift(s0), shift(e0));
@@ -3588,7 +3608,9 @@ export class RichEditor {
       return;
     }
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    // (o Ctrl+/ que o bloco de código usou para comentar não abre a Ajuda)
     if (mod && !e.shiftKey && (e.key === '/' || e.code === 'Slash')) {
+      if (e.defaultPrevented) return;
       e.preventDefault();
       this.toggleGuide(big);
     } else if (mod && e.shiftKey && LIST_KEYS[e.code]) {
@@ -4090,6 +4112,8 @@ export class RichEditor {
     }
     // com a lista aberta, as setas, o Enter e o Esc são dela (o Esc fecha só a lista, não o editor)
     if (this.linking() && (this.linking()!.auto || e.key === 'Escape') && this.onListKey(e)) return;
+    // dentro de um bloco de código, as teclas são as dele (nada de item, tabela ou card pelas letras de dentro)
+    if (this.codeKey(e, area)) return;
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
     const key = e.key.toLowerCase();
     if (mod && !e.shiftKey && key === 'b') {
@@ -4122,6 +4146,7 @@ export class RichEditor {
     } else if (e.key === 'Tab' && !mod && !e.altKey) {
       this.indentKey(e, area);
     } else if (e.key === 'Enter' && !e.shiftKey && !mod && !e.isComposing) {
+      if (this.fenceEnter(e, area)) return;
       if (this.tableLine(area)) this.tableEnter(e, area);
       else if (!this.cardEnter(e, area)) this.continueList(e, area);
     } else if (e.key === 'Enter' && e.shiftKey && !mod && !e.altKey && !e.isComposing && this.inItem(area)) {
@@ -4129,6 +4154,97 @@ export class RichEditor {
       e.preventDefault();
       this.lineInItem(area);
     }
+  }
+
+  // ===== As teclas do bloco de código (as mesmas do Visual, ver core/code-edit.ts) =====
+
+  /**
+   * O miolo do bloco de código onde a seleção inteira está (as linhas entre as cercas): onde começa e acaba
+   * no texto, o que vem na frente de cada linha e não é do código (o recuo da cerca, o "> " do card) e o que
+   * vem depois das crases. Null fora dele (em cima de uma cerca também).
+   */
+  private codeBody(area: HTMLTextAreaElement): { start: number; end: number; margin: string; info: string } | null {
+    const text = area.value;
+    const [s, e] = [area.selectionStart, area.selectionEnd];
+    const block = codeBlockAt(text, s);
+    if (!block) return null;
+    const rowOf = (at: number) => text.slice(0, at).split('\n').length - 1;
+    const all = text.split('\n');
+    const openLine = all[block.open];
+    // sem a cerca que fecha, o bloco vai até o fim do card (fora de um); a recuada sem par acaba no fim do item, como na leitura
+    if (block.close === null && indentOf(calloutLine(openLine) ?? openLine)) return null;
+    const stop = block.close ?? (calloutAround(all, block.open)?.end ?? all.length - 1) + 1;
+    const lastRow = rowOf(e > s && text[e - 1] === '\n' ? e - 1 : e);
+    if (rowOf(s) <= block.open || lastRow >= stop) return null;
+    const start = all.slice(0, block.open + 1).join('\n').length + 1;
+    const end = start + all.slice(block.open + 1, stop).join('\n').length;
+    const margin = /^\s*(?:>\s?)?\s*/.exec(openLine)![0];
+    return { start, end, margin, info: block.info };
+  }
+
+  /** As teclas de dentro do bloco de código. Verdadeiro: a tecla era dele. */
+  private codeKey(e: KeyboardEvent, area: HTMLTextAreaElement): boolean {
+    if (e.isComposing) return false;
+    const mod = (e.ctrlKey || e.metaKey) && !e.altKey;
+    const key = e.key.toLowerCase();
+    const plain = !mod && !e.altKey;
+    const alt = e.altKey && !e.ctrlKey && !e.metaKey;
+    type Conta = (s: CodeState, o: CodeOptions) => CodeState | null;
+    let conta: Conta | null = null;
+    // a tecla fica com o bloco mesmo sem nada a mudar (a ponta do texto, a marca que o código não tem)
+    let holds = true;
+    if (e.key === 'Tab' && plain) conta = (s, o) => codeTab(s, e.shiftKey ? -1 : 1, o);
+    else if (mod && !e.shiftKey && (e.key === ']' || e.key === '[')) conta = (s, o) => codeTab(s, e.key === ']' ? 1 : -1, o);
+    else if (e.key === 'Enter' && plain) conta = codeEnter;
+    else if (e.key === 'Backspace' && plain && !e.shiftKey) {
+      conta = codeBackspace;
+      holds = false;
+    } else if (alt && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      const dir = e.key === 'ArrowUp' ? -1 : 1;
+      conta = e.shiftKey ? (s) => codeDuplicateLines(s, dir) : (s) => codeMoveLines(s, dir);
+    } else if (mod && e.shiftKey && key === 'k') conta = codeDeleteLines;
+    else if (mod && !e.shiftKey && (e.key === '/' || e.code === 'Slash')) {
+      conta = codeComment;
+      holds = false;
+    } else if (mod && ((!e.shiftKey && (key === 'b' || key === 'i')) || (e.shiftKey && (key === 'x' || key === 'h')))) conta = () => null;
+    if (!conta) return false;
+    const body = this.codeBody(area);
+    if (!body) return false;
+    const old = area.value.slice(body.start, body.end);
+    const next = conta({ text: old, from: area.selectionStart - body.start, to: Math.min(area.selectionEnd, body.end) - body.start }, { margin: body.margin, lang: body.info });
+    if (!next && !holds) return false;
+    e.preventDefault();
+    if (next) {
+      const d = codeDiff(old, next.text);
+      this.replace(area, body.start + d.de, body.start + d.ate, d.ins, body.start + next.from, body.start + next.to);
+      this.track(area);
+    }
+    return true;
+  }
+
+  /**
+   * Enter no fim da cerca que abre um bloco: a linha nova no recuo dela (e no card) e, se esta cerca ainda não
+   * tem par, a que fecha já vem junto, com o cursor no meio: o resto do texto não vira código enquanto se escreve.
+   */
+  private fenceEnter(e: KeyboardEvent, area: HTMLTextAreaElement): boolean {
+    const at = area.selectionStart;
+    if (at !== area.selectionEnd) return false;
+    const text = area.value;
+    const all = text.split('\n');
+    const row = text.slice(0, at).split('\n').length - 1;
+    if (at !== text.slice(0, at).lastIndexOf('\n') + 1 + all[row].length) return false;
+    const block = codeBlockAt(text, at);
+    if (!block || block.open !== row) return false;
+    const card = calloutAround(all, row);
+    const rest = card ? all.slice(row + 1, card.end + 1).map((l) => calloutLine(l) ?? l) : all.slice(row + 1);
+    const m = /^(\s*(?:>\s?)?\s*)(`{3,}|~{3,})/.exec(all[row]);
+    if (!m) return false;
+    e.preventDefault();
+    const inside = '\n' + m[1];
+    const piece = block.close === null || fencesPair(rest, 0) ? inside + inside + m[2] : inside;
+    this.replace(area, at, at, piece, at + inside.length, at + inside.length);
+    this.track(area);
+    return true;
   }
 
   // ===== Código e divisória =====
@@ -4144,6 +4260,11 @@ export class RichEditor {
 
   /** Código: na seleção de uma linha, entre crases; em várias linhas (ou numa linha vazia), o bloco entre "```". */
   protected code(area: HTMLTextAreaElement): void {
+    // dentro de um bloco, ele sai e as linhas voltam a ser texto, como no Visual (nunca crases no código)
+    if (this.codeBody(area)) {
+      this.unfence(area);
+      return this.track(area);
+    }
     const text = area.value;
     const sel = text.slice(area.selectionStart, area.selectionEnd);
     const { lines } = this.linesAt(area);
@@ -5324,7 +5445,10 @@ export function codeBlockAt(text: string, at: number): { open: number; close: nu
       close = j;
       break;
     }
-  return { open: base + open, close: close === null ? null : base + close, body: lines.slice(open + 1, close ?? lines.length).join('\n'), info: fenceInfo(lines[open]) };
+  // as letras como a leitura as mostra, sem o recuo da cerca (é o que o Copiar leva)
+  const indent = indentOf(lines[open]);
+  const inner = lines.slice(open + 1, close ?? lines.length);
+  return { open: base + open, close: close === null ? null : base + close, body: (indent ? inner.map((l) => dedentCode(l, indent)) : inner).join('\n'), info: fenceInfo(lines[open]) };
 }
 
 /**

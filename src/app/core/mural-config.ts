@@ -1,5 +1,6 @@
 import type { Audience } from './review';
 import { CategoryColorId, lookKey, tagLookKey } from './category-looks';
+import { CODE_THEMES, CodeTheme } from './code-langs';
 import { ehCorDaCartela } from '../../../shared/cartela-de-icones';
 // (não de note-labels: ela traz review e settings, que trazem este arquivo)
 import { cleanLabel } from './text';
@@ -123,9 +124,14 @@ export interface NotesConfig {
    * em que foram criados (o menu mostra pelo nome).
    */
   templates: NoteTemplate[];
+  /**
+   * O tema dos blocos de código que não escolheram o deles (Ajustes › Mural, ver core/code-langs.ts): o que
+   * cada um vê no próprio Murall, também nas fichas dos outros. O Papel é o de sempre.
+   */
+  codeTheme: CodeTheme;
 }
 
-export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, templates: [] };
+export const NOTES_CONFIG_DEFAULT: NotesConfig = { audience: 'privada', orderBy: 'quantidade', order: [], categories: {}, hiddenTags: [], showAll: false, showPinned: false, showShared: false, hideEmpty: true, autoColors: {}, subjects: {}, templates: [], codeTheme: 'papel' };
 
 /** Assuntos guardados demais viram lixo: no máximo estes por grupo. */
 export const MAX_SAVED_SUBJECTS = 60;
@@ -214,6 +220,7 @@ export function sanitizeNotesConfig(raw: unknown): NotesConfig {
     autoColors: sanitizeAutoColors(r['autoColors']),
     subjects,
     templates: sanitizeTemplates(r['templates']),
+    codeTheme: (CODE_THEMES as readonly unknown[]).includes(r['codeTheme']) ? (r['codeTheme'] as CodeTheme) : NOTES_CONFIG_DEFAULT.codeTheme,
   };
 }
 

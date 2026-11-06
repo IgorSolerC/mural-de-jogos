@@ -58,6 +58,194 @@ describe('o bloco de código no Markdown', () => {
     expect(codeBlockAt('```\nsolto', 6)).toEqual({ open: 0, close: null, body: 'solto', info: '' });
   });
 
+  describe('as teclas de dentro do bloco (as mesmas do Visual)', () => {
+    /** O texto com a seleção de "^" a "^" (ou o cursor no "^"). */
+    function mark(marked: string): void {
+      const from = marked.indexOf('^');
+      const second = marked.indexOf('^', from + 1);
+      const text = marked.replace(/\^/g, '');
+      fixture.componentInstance.value.set(text);
+      fixture.detectChanges();
+      area.focus();
+      area.setSelectionRange(from, second < 0 ? from : second - 1);
+      area.dispatchEvent(new Event('select'));
+      fixture.detectChanges();
+    }
+    function key(k: string, init: KeyboardEventInit = {}): KeyboardEvent {
+      const e = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, ...init });
+      area.dispatchEvent(e);
+      fixture.detectChanges();
+      return e;
+    }
+    const shown = () => {
+      const t = value();
+      const [s, e] = [area.selectionStart, area.selectionEnd];
+      return s === e ? t.slice(0, s) + '^' + t.slice(s) : t.slice(0, s) + '^' + t.slice(s, e) + '^' + t.slice(e);
+    };
+
+    it('o Enter mantém o recuo, sem virar item nem na lista nem em "- x"', () => {
+      mark('- item\n  ```\n  a^\n  ```\n- outro');
+      expect(key('Enter').defaultPrevented).toBeTrue();
+      expect(shown()).toBe('- item\n  ```\n  a\n  ^\n  ```\n- outro');
+      mark('```\n- x^\n```');
+      key('Enter');
+      expect(shown()).toBe('```\n- x\n^\n```');
+      mark('```js\n  if (a) {^}\n```');
+      key('Enter');
+      expect(shown()).toBe('```js\n  if (a) {\n    ^\n  }\n```');
+    });
+
+    it('o Shift+Enter e o Enter nas letras sem recuo não abrem item nem tiram a margem de quem tem', () => {
+      mark('   1.2. item\n        ```\nINSERT^\n        ```');
+      key('Enter');
+      expect(shown()).toBe('   1.2. item\n        ```\nINSERT\n^\n        ```');
+      mark('- item\n  ```\n  a^\n  ```');
+      key('Enter', { shiftKey: true });
+      expect(shown()).toBe('- item\n  ```\n  a\n  ^\n  ```');
+    });
+
+    it('Tab e Shift+Tab: o recuo depois da margem, sem sair do bloco', () => {
+      mark('- item\n  ```\n  a^\n  ```');
+      expect(key('Tab').defaultPrevented).toBeTrue();
+      expect(shown()).toBe('- item\n  ```\n  a ^\n  ```');
+      mark('- item\n  ```\n  ^a^\n  b\n  ```');
+      key('Tab');
+      expect(shown()).toBe('- item\n  ```\n  ^  a^\n  b\n  ```');
+      expect(key('Tab', { shiftKey: true }).defaultPrevented).toBeTrue();
+      expect(shown()).toBe('- item\n  ```\n  ^a^\n  b\n  ```');
+      // sem nada para tirar: a tecla fica no bloco, e a margem também
+      expect(key('Tab', { shiftKey: true }).defaultPrevented).toBeTrue();
+      expect(value()).toBe('- item\n  ```\n  a\n  b\n  ```');
+    });
+
+    it('no card, o "> " fica', () => {
+      mark('> [!nota] T\n> ```\n> a^\n> ```');
+      key('Enter');
+      expect(shown()).toBe('> [!nota] T\n> ```\n> a\n> ^\n> ```');
+      key('Tab');
+      expect(shown()).toBe('> [!nota] T\n> ```\n> a\n>   ^\n> ```');
+      key('Backspace');
+      expect(shown()).toBe('> [!nota] T\n> ```\n> a\n> ^\n> ```');
+    });
+
+    it('o Backspace no recuo volta uma parada; nas letras, é o do navegador', () => {
+      mark('```\na\n  b\n    ^c\n```');
+      expect(key('Backspace').defaultPrevented).toBeTrue();
+      expect(shown()).toBe('```\na\n  b\n  ^c\n```');
+      mark('```\nab^\n```');
+      expect(key('Backspace').defaultPrevented).toBeFalse();
+    });
+
+    it('Alt+setas, Shift+Alt+setas, Ctrl+Shift+K e Ctrl+/', () => {
+      mark('```py\na^\nb\n```');
+      key('ArrowDown', { altKey: true });
+      expect(shown()).toBe('```py\nb\na^\n```');
+      // o bloco é o limite: a cerca não entra na conta
+      expect(key('ArrowDown', { altKey: true }).defaultPrevented).toBeTrue();
+      expect(shown()).toBe('```py\nb\na^\n```');
+      key('ArrowUp', { altKey: true, shiftKey: true });
+      expect(shown()).toBe('```py\nb\na^\na\n```');
+      key('k', { ctrlKey: true, shiftKey: true });
+      expect(shown()).toBe('```py\nb\na^\n```');
+      expect(key('/', { ctrlKey: true, code: 'Slash' }).defaultPrevented).toBeTrue();
+      expect(shown()).toBe('```py\nb\n# a^\n```');
+    });
+
+    it('sem saber comentar, o Ctrl+/ continua sendo a Ajuda; e o negrito não entra no código', () => {
+      mark('```\nab^\n```');
+      key('/', { ctrlKey: true, code: 'Slash' });
+      expect(value()).toBe('```\nab\n```');
+      expect(fixture.nativeElement.querySelector('.guia')).not.toBeNull();
+      mark('```\n^ab^\n```');
+      expect(key('b', { ctrlKey: true }).defaultPrevented).toBeTrue();
+      expect(value()).toBe('```\nab\n```');
+    });
+
+    it('fora do bloco e em cima da cerca, as teclas são as de sempre', () => {
+      mark('- a^\n```\nb\n```');
+      key('Enter');
+      expect(value()).toBe('- a\n- \n```\nb\n```');
+      mark('```^\nb\n```');
+      expect(key('Tab').defaultPrevented).toBeTrue();
+      // (o cursor no fim da cerca: o Tab de sempre, os espaços até a próxima coluna par)
+      expect(value()).toBe('``` \nb\n```');
+    });
+
+    it('o Enter no fim da cerca sem par já traz a que fecha, no recuo dela; com par, só a linha', () => {
+      mark('texto\n```js^\nresto');
+      expect(key('Enter').defaultPrevented).toBeTrue();
+      expect(shown()).toBe('texto\n```js\n^\n```\nresto');
+      mark('- item\n  ```^');
+      key('Enter');
+      expect(shown()).toBe('- item\n  ```\n  ^\n  ```');
+      mark('> [!nota] T\n> ```^');
+      key('Enter');
+      expect(shown()).toBe('> [!nota] T\n> ```\n> ^\n> ```');
+      mark('```^\na\n```');
+      key('Enter');
+      expect(shown()).toBe('```\n^\na\n```');
+      // em cima de um bloco que já tem as duas: a nova é de outro bloco, e ganha a dela
+      mark('```^\n\n```\na\n```');
+      key('Enter');
+      expect(shown()).toBe('```\n^\n```\n\n```\na\n```');
+      mark('```^\n```\na\n```\nb');
+      key('Enter');
+      expect(value()).toBe('```\n\n```\n```\na\n```\nb');
+    });
+
+    it('o Ctrl+E dentro do bloco desfaz o bloco, como no Visual, sem pôr crases no código', () => {
+      mark('```\nab^\n```');
+      key('e', { ctrlKey: true });
+      expect(value()).toBe('ab');
+    });
+
+    it('o bloco sem a que fecha, num card, acaba no fim do card', () => {
+      mark('> [!nota] T\n> ```\n> a^\ntexto de fora');
+      key('ArrowDown', { altKey: true });
+      expect(value()).toBe('> [!nota] T\n> ```\n> a\ntexto de fora');
+    });
+
+    it('a cerca recuada sem par: o item seguinte continua a lista', () => {
+      mark('- a\n  ```\n  b\n- c^');
+      key('Enter');
+      expect(value()).toBe('- a\n  ```\n  b\n- c\n- ');
+    });
+
+    it('o Copiar leva as letras sem o recuo da cerca', () => {
+      expect(codeBlockAt('- i\n    ```\n    a\n      b\n    ```', 14)?.body).toBe('a\n  b');
+    });
+  });
+
+  it('o tema: troca o que vem depois das crases, e a linguagem fica', async () => {
+    write('```ts\nlet^ a\n```');
+    const menu = await openCode();
+    const tema = (name: string) => Array.from(menu.querySelectorAll<HTMLButtonElement>('.menu-op')).find((b) => b.querySelector('.amostra') && b.querySelector('.nome')?.textContent?.trim().startsWith(name))!;
+    expect(tema('Padrão').getAttribute('aria-checked')).toBe('true');
+    tema('Dracula').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(value()).toBe('```ts tema=dracula\nlet a\n```');
+    // o menu fica aberto, com o foco nele, para comparar um tema com o outro
+    expect(fixture.nativeElement.querySelector('app-code-langs')).not.toBeNull();
+    expect(menu.contains(document.activeElement)).toBeTrue();
+    expect(tema('Dracula').getAttribute('aria-checked')).toBe('true');
+    tema('Xcode').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(value()).toBe('```ts tema=xcode\nlet a\n```');
+    expect(area.selectionStart).toBe('```ts tema=xcode\nlet'.length);
+    fixture.componentInstance.value.set('```ts tema=dracula\nlet a\n```');
+    fixture.detectChanges();
+    write('```ts tema=dracula\nlet^ a\n```');
+    const de = await openCode();
+    const t2 = (name: string) => Array.from(de.querySelectorAll<HTMLButtonElement>('.menu-op')).find((b) => b.querySelector('.amostra') && b.querySelector('.nome')?.textContent?.trim().startsWith(name))!;
+    expect(t2('Dracula').getAttribute('aria-checked')).toBe('true');
+    expect(option(de, 'TypeScript')!.getAttribute('aria-checked')).toBe('true');
+    t2('Padrão').click();
+    fixture.detectChanges();
+    expect(value()).toBe('```ts\nlet a\n```');
+  });
+
   it('o menu aparece só no bloco; abre com o foco no campo, mostra as comuns e marca a de agora', async () => {
     write('fora^\n```ts\nlet a\n```');
     expect(codeButton()).toBeNull();

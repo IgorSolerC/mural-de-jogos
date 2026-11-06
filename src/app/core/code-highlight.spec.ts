@@ -1,4 +1,4 @@
-import { CODE_GRAMMARS, CODE_LANGS, codeLangName, codeLangOf, codeLangsFor, COMMON_CODE_LANGS, typedCodeLang, withCodeLang } from './code-langs';
+import { CODE_GRAMMARS, CODE_LANGS, CODE_THEMES, codeLangName, codeLangOf, codeLangsFor, codeLangWord, codeThemeOf, COMMON_CODE_LANGS, typedCodeLang, withCodeLang, withCodeTheme } from './code-langs';
 import { codeHighlightLoaded, codeRanges, codeTokens, loadCodeHighlight } from './code-highlight';
 import { colorir, hasGrammar, rangesOfHtml } from './code-highlight-lib';
 import { docToText, textToDoc } from './rich-doc';
@@ -40,6 +40,33 @@ describe('as linguagens do bloco de código', () => {
     expect(withCodeLang('python title=main.py', 'rust')).toBe('rust title=main.py');
     expect(withCodeLang('', 'js')).toBe('js');
     expect(withCodeLang('js x', '')).toBe('');
+    // o tema fica, com a linguagem trocada ou tirada
+    expect(withCodeLang('js tema=xcode', 'py')).toBe('py tema=xcode');
+    expect(withCodeLang('tema=xcode', 'py')).toBe('py tema=xcode');
+    expect(withCodeLang('js x tema=xcode', '')).toBe('tema=xcode');
+  });
+
+  it('o tema é escrito depois das crases, e não é a linguagem', () => {
+    expect(CODE_THEMES).toEqual(['papel', 'vscode', 'dracula', 'xcode']);
+    expect(codeThemeOf('')).toBeNull();
+    expect(codeThemeOf('js')).toBeNull();
+    expect(codeThemeOf('js tema=dracula')).toBe('dracula');
+    expect(codeThemeOf('tema=xcode')).toBe('xcode');
+    expect(codeThemeOf('js title=x tema=papel')).toBe('papel');
+    // o que o site não conhece fica escrito e não muda nada
+    expect(codeThemeOf('js tema=solarized')).toBeNull();
+    expect(codeThemeOf('js sistema=dracula')).toBeNull();
+    expect(codeLangWord('tema=dracula')).toBe('');
+    expect(codeLangName('tema=dracula')).toBe('');
+    expect(codeLangOf('tema=dracula')).toBeNull();
+    expect(codeLangOf('swift tema=xcode')?.id).toBe('swift');
+    expect(codeLangName('swift')).toBe('Swift');
+    expect(codeLangName('dart')).toBe('Dart');
+    expect(withCodeTheme('', 'dracula')).toBe('tema=dracula');
+    expect(withCodeTheme('js', 'dracula')).toBe('js tema=dracula');
+    expect(withCodeTheme('js tema=xcode', 'dracula')).toBe('js tema=dracula');
+    expect(withCodeTheme('js tema=xcode title=x', '')).toBe('js title=x');
+    expect(withCodeTheme('tema=xcode', '')).toBe('');
   });
 });
 
@@ -95,6 +122,8 @@ describe('as cores do bloco', () => {
     expect(tokens.map((t) => t.t).join('')).toBe(js);
     const tinta = (palavra: string) => tokens.find((t) => t.t === palavra)?.c;
     expect(tinta('const')).toBe('tk-pal');
+    // as de controle também, com a classe a mais que só o tema do VS Code pinta à parte
+    expect(tinta('return')).toBe('tk-pal tk-ctl');
     expect(tinta('42')).toBe('tk-num');
     expect(tinta('// fim')).toBe('tk-com');
     expect(tinta('f')).toBe('tk-fun');

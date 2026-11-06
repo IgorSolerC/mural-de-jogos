@@ -28,6 +28,8 @@ import { Rabisco } from '../ui/rabisco';
 import { KIND_ICON } from '../ui/kind-switcher';
 import { Busy } from '../ui/busy';
 import { Cloud } from '../core/cloud-config';
+import { CODE_THEMES, CODE_THEME_NAMES } from '../core/code-langs';
+import { RichText } from '../ui/rich-text';
 import { CloudAccount, CloudError, eraseDayLabel } from '../core/cloud-account';
 import { CloudSync } from '../core/cloud-sync';
 import { BeforeCloudCopy, KEEP_DAYS, readBeforeCloud } from '../core/cloud-before';
@@ -93,7 +95,7 @@ interface ImageRow {
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet, ApiRequestsSheet],
+  imports: [Busy, IconModule, Pin, GoogleButton, RouterLink, NgTemplateOutlet, JudgeLabel, BonusSticker, Rabisco, ConflictSheet, ApiKeySheet, ApiRequestsSheet, RichText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './settings-page.html',
   styleUrl: './settings-page.scss',
@@ -200,6 +202,10 @@ export class SettingsPage {
   /** Os Estudos ("Esconder o progresso nos Estudos" mora na configuração deles, e vai com eles para a nuvem). */
   protected readonly study = inject(StudyStore);
   protected readonly settings = inject(Settings);
+  protected readonly codeThemes = CODE_THEMES;
+  protected readonly codeThemeNames = CODE_THEME_NAMES;
+  /** A amostra do tema do código: um bloco de verdade, que segue o tema escolhido. */
+  protected readonly codeSample = '```swift\n// o mural de hoje\nfunc titulo(_ nota: Int) -> String {\n  return "Nota \\(nota)"\n}\n```';
   /** O jeito de mostrar a nota, com um 8,4 em cada um. */
   /** Os jeitos de escrever o texto: o Visual (o padrão) e o Markdown. */
   protected readonly writingModes: readonly { value: WritingMode; label: string }[] = [

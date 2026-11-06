@@ -1,4 +1,4 @@
-import { Block, blockLine, checkCount, copyText, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, marksAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey, unwrapAt } from './rich-text';
+import { Block, blockLine, bodyOf, checkCount, copyText, dedentCode, fencesPair, ownerItem, renumberAfter, hasSpoiler, doneLines, foldDone, foldedCount, hasFormatting, linkAt, marksAt, parseInline, parseRich, plainText, snapshotDone, toggleCheck, uncheckedKey, unwrapAt } from './rich-text';
 
 describe('texto com formatação', () => {
   it('negrito, itálico e os dois juntos', () => {
@@ -191,6 +191,149 @@ describe('texto com formatação', () => {
     expect(linkAt(line, 57)).toEqual({ kind: 'url', start: 54, end: 67, text: '', href: 'https://b.com' });
     expect(linkAt(line, 68)).toBeNull();
     expect(linkAt(line, line.length - 3)).toBeNull();
+  });
+});
+
+describe('as cercas do bloco de código', () => {
+  const code = (b: Block | undefined) => (b?.kind === 'code' ? b : null);
+  const itens = (b: Block | undefined) => (b && (b.kind === 'ol' || b.kind === 'ul' || b.kind === 'check') ? b.items : []);
+
+  it('as letras menos recuadas que as crases, num item: o bloco é um só, e o resto do texto continua texto', () => {
+    // o texto do relato: o item 1.2, o código sem recuo, e a lista que continua embaixo
+    const t = ['1. Inserir', '   1.1. Verificar', '   1.2. Inserir nova', '        ```', "INSERT INTO VersoesApp VALUES ('0.0.0')", '        ```', '', '2. Conectar', '   2.1. Abrir', '## Android', 'fim'].join('\n');
+    const blocos = parseRich(t);
+    // (a linha em branco entre as listas é um parágrafo vazio, como sempre)
+    expect(blocos.map((b) => b.kind)).toEqual(['ol', 'p', 'ol', 'h', 'p']);
+    const de1 = itens(blocos[0])[0].body!;
+    expect(de1.length).toBe(1);
+    const dentro = itens(de1[0]);
+    expect(dentro.map((i) => plainText(i.spans.map((s) => s.text).join('')))).toEqual(['Verificar', 'Inserir nova']);
+    expect(dentro[1].body).toEqual([{ kind: 'code', text: "INSERT INTO VersoesApp VALUES ('0.0.0')" }]);
+    expect(itens(blocos[2])[0].body?.length).toBe(1);
+    expect(plainText(t)).toContain('Android');
+  });
+
+  it('as letras recuadas de qualquer jeito ficam no bloco, com o recuo que têm além da cerca', () => {
+    const body = (t: string) => code(itens(parseRich(t)[0])[0].body?.[0]);
+    expect(body('- a\n  ```\n  b\n  ```')?.text).toBe('b');
+    expect(body('- a\n  ```\nb\n  ```')?.text).toBe('b');
+    expect(body('- a\n  ```\n b\n  ```')?.text).toBe('b');
+    expect(body('- a\n  ```\n      b\n  ```')?.text).toBe('    b');
+    expect(body('- a\n  ```\n\n\nb\n  ```')?.text).toBe('\n\nb');
+    expect(body('- a\n  ~~~\nb\n  ~~~')?.text).toBe('b');
+    expect(body('- a\n\t```\nb\n\t```')?.text).toBe('b');
+    // o que tem cara de item, de título ou de tabela, dentro do bloco, é código
+    expect(body('- a\n  ```\n- b\n# c\n| d |\n  ```')?.text).toBe('- b\n# c\n| d |');
+  });
+
+  it('a que fecha sem recuo também fecha, e o item continua depois dela', () => {
+    const b = parseRich('- a\n  ```\nb\n```\n- c');
+    expect(b.length).toBe(1);
+    expect(itens(b[0]).length).toBe(2);
+    expect(code(itens(b[0])[0].body?.[0])?.text).toBe('b');
+  });
+
+  it('o bloco sem a que fecha acaba no fim do item, e não engole o resto', () => {
+    const b = parseRich('- a\n  ```\n  b\n- c\n\ntexto');
+    expect(itens(b[0]).length).toBe(2);
+    expect(code(itens(b[0])[0].body?.[0])?.text).toBe('b');
+    expect(b.at(-1)?.kind).toBe('p');
+    expect(plainText('- a\n  ```\n  b\n- c\n\ntexto')).toContain('texto');
+  });
+
+  it('o bloco de um item sem fechar não pega a cerca de outro bloco por cima dos itens', () => {
+    const b = parseRich('1. a\n   ```\n   b\n2. c\n   ```\n   d\n   ```\n\ntexto');
+    const [um, dois] = itens(b[0]);
+    expect(code(um.body?.[0])?.text).toBe('b');
+    expect(code(dois.body?.[0])?.text).toBe('d');
+    expect(b.at(-1)?.kind).toBe('p');
+  });
+
+  it('o código com cara de lista, sem recuo, dentro de um bloco fechado, continua nele', () => {
+    const b = parseRich('1. a\n   ```yaml\nitens:\n- x\n- y\n   ```\n2. b');
+    expect(itens(b[0]).length).toBe(2);
+    expect(code(itens(b[0])[0].body?.[0])?.text).toBe('itens:\n- x\n- y');
+  });
+
+  it('a cerca recuada fora de lista: as letras começam na coluna dela, e o bloco fica recuado', () => {
+    expect(parseRich('    ```\n    a\n      b\n    ```')).toEqual([{ kind: 'code', text: 'a\n  b', indent: 4 }]);
+    expect(parseRich('    ```\na\n    ```')).toEqual([{ kind: 'code', text: 'a', indent: 4 }]);
+    expect(parseRich('\t```\n\ta\n\t\tb\n\t```')).toEqual([{ kind: 'code', text: 'a\n\tb', indent: 4 }]);
+    expect(parseRich('```\n  a\n```')).toEqual([{ kind: 'code', text: '  a' }]);
+  });
+
+  it('o tab de dentro do código continua um tab', () => {
+    expect(parseRich('```\n\ta\n```')).toEqual([{ kind: 'code', text: '\ta' }]);
+    expect(code(itens(parseRich('- a\n  ```\n  \tb\n  ```')[0])[0].body?.[0])?.text).toBe('\tb');
+  });
+
+  it('"```js" dentro de um bloco não o fecha; só a cerca sozinha', () => {
+    expect(parseRich('```\na\n```js\nb\n```\nc').map((b) => b.kind)).toEqual(['code', 'p']);
+    expect(code(parseRich('```\na\n```js\nb\n```')[0])?.text).toBe('a\n```js\nb');
+    expect(code(parseRich('````\n```\na\n```\n````')[0])?.text).toBe('```\na\n```');
+    expect(code(parseRich('~~~\n```\n~~~')[0])?.text).toBe('```');
+    expect(code(parseRich('```\na\n```   ')[0])?.text).toBe('a');
+  });
+
+  it('a linha com crases no meio é código na linha, e não um bloco que engole o resto', () => {
+    const b = parseRich('```x``` e mais\noutra');
+    expect(b.map((k) => k.kind)).toEqual(['p']);
+    expect((b[0] as Extract<Block, { kind: 'p' }>).lines.length).toBe(2);
+    expect(parseRich('```js title=`x`').map((k) => k.kind)).toEqual(['p']);
+    // a de tis pode levar crase depois
+    expect(parseRich('~~~ `x`\na\n~~~')).toEqual([{ kind: 'code', text: 'a', lang: '`x`' }]);
+  });
+
+  it('as tarefas e os links seguem as mesmas cercas', () => {
+    const t = '- [ ] a\n  ```\n- [ ] não\n  ```\n- [ ] b';
+    expect(checkCount(t)).toEqual({ done: 0, total: 2 });
+    expect(toggleCheck(t, 2)).toBe(t);
+    expect(toggleCheck(t, 4)).toBe('- [ ] a\n  ```\n- [ ] não\n  ```\n- [x] b');
+  });
+
+  it('ownerItem: as letras sem recuo dentro do bloco são do item dele, e "- x" nele não é item', () => {
+    const lines = ['- a', '  ```', 'b', '- c', '  ```', '  depois', 'fora'];
+    expect(ownerItem(lines, 2)).toBe(0);
+    expect(ownerItem(lines, 3)).toBe(0);
+    expect(ownerItem(lines, 4)).toBe(0);
+    expect(ownerItem(lines, 5)).toBe(0);
+    expect(ownerItem(lines, 6)).toBeNull();
+    expect(bodyOf(lines, 0)).toEqual({ end: 5, indent: 2 });
+  });
+
+  it('ownerItem: a cerca recuada sem par acaba no fim do item, e o item seguinte é item', () => {
+    const lines = ['- a', '  ```', '  b', '- c', '  - d'];
+    expect(ownerItem(lines, 3)).toBe(3);
+    expect(ownerItem(lines, 4)).toBe(4);
+    expect(ownerItem(lines, 2)).toBe(0);
+    // a de fora de lista, sem recuo, vai até o fim: o resto é código
+    expect(ownerItem(['- a', '```', 'b', '- c'], 3)).toBeNull();
+  });
+
+  it('renumberAfter: o que está no bloco não corta a lista nem muda de número', () => {
+    const lines = ['2. a', '   ```', 'INSERT', '3. x', '```', '3. b', '4. c'];
+    expect(renumberAfter(lines, 0)).toEqual(lines);
+    const novo = ['3. a', '   ```', 'INSERT', '3. x', '   ```', '3. b', '4. c'];
+    expect(renumberAfter(novo, 0)).toEqual(['3. a', '   ```', 'INSERT', '3. x', '   ```', '4. b', '5. c']);
+  });
+
+  it('dedentCode tira as colunas, com o tab inteiro ou o que sobra dele', () => {
+    expect(dedentCode('    a', 2)).toBe('  a');
+    expect(dedentCode('a', 2)).toBe('a');
+    expect(dedentCode('\ta', 4)).toBe('a');
+    expect(dedentCode('\ta', 2)).toBe('  a');
+    expect(dedentCode('  \ta', 2)).toBe('\ta');
+    expect(dedentCode('\t\ta', 4)).toBe('\ta');
+    expect(dedentCode('   ', 8)).toBe('');
+  });
+
+  it('fencesPair: as cercas dali para baixo se fecham todas', () => {
+    expect(fencesPair([], 0)).toBeTrue();
+    expect(fencesPair(['a'], 0)).toBeTrue();
+    expect(fencesPair(['```', 'a', '```'], 0)).toBeTrue();
+    expect(fencesPair(['```', 'a'], 0)).toBeFalse();
+    expect(fencesPair(['x', '```'], 0)).toBeFalse();
+    expect(fencesPair(['```', '```'], 1)).toBeFalse();
   });
 });
 

@@ -392,7 +392,7 @@ class Montador {
     if (!texto.trim()) return;
     // a linguagem que o site de onde veio pôs (a classe "language-js" do <pre> ou do <code>, como no GitHub)
     const lingua = linguaDe(el);
-    this.linhas.push({ kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false, ...(lingua ? { lingua } : {}) });
+    this.linhas.push({ kind: 'codigo', recuo: 0, cerca: '```', texto, aberto: false, ...(lingua ? { lingua } : {}) });
   }
 
   /**

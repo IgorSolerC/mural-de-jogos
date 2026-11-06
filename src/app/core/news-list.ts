@@ -27,13 +27,21 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-cor-do-card',
+    id: '2026-11-06-blocos-de-codigo',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'A cor de cada card e o clique rápido nos Estudos',
-    melhorias: ['Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.'],
+    title: 'Os blocos de código, a cor de cada card e o clique rápido nos Estudos',
+    melhorias: [
+      'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',
+      'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
+      'No bloco de código, as teclas agora são as de um editor de código, nos dois modos: Tab e Shift+Tab seguem o recuo que o bloco já usa, o Enter mantém o recuo, o Backspace volta uma parada, Alt+setas movem a linha, Shift+Alt+setas duplicam, Ctrl+Shift+K apaga e Ctrl+/ comenta.',
+      'Swift e Dart entraram nas linguagens do bloco de código.',
+    ],
     correcoes: [
+      'O bloco de código com as letras menos recuadas que as crases não quebra mais a anotação inteira: ele continua no item da lista, e o resto do texto fica como texto. Escrever um bloco dentro de uma lista no modo Visual também não deixa mais as letras sem o recuo.',
+      'No bloco de código, o Shift+Tab não tira mais o cursor da folha, tira também o tab do começo da linha, e a seta para baixo sai do bloco quando ele é a última coisa do texto.',
+      'Na aba Markdown, o Enter dentro de um bloco de código numa lista não cria mais um item no meio do código, e "- x" dentro do bloco não vira lista. Uma linha que começa com ```código``` não abre mais um bloco, e ```js dentro de um bloco não o fecha.',
       'Ao estudar, a resposta da próxima carta não aparece mais antes da hora, e o clique rápido demais não vira a carta seguinte nem responde a carta sem você ter lido.',
       'Ao estudar, a resposta comprida abre do começo, e não mais rolada até onde a carta anterior parou.',
     ],

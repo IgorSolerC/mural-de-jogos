@@ -682,3 +682,70 @@ describe('o Copiar de dois blocos de código', () => {
     }
   });
 });
+
+describe('os temas do bloco de código', () => {
+  /** A primeira letra de um valor "#rrggbb" em luminância (WCAG). */
+  function lum(hex: string): number {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contraste(a: string, b: string): number {
+    const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+    return (x + 0.05) / (y + 0.05);
+  }
+
+  async function peca(texto: string): Promise<HTMLElement> {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', texto);
+    document.body.appendChild(fixture.nativeElement);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    return fixture.nativeElement.querySelector('.codigo-peca') as HTMLElement;
+  }
+  afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+
+  it('sem tema, o papel de sempre, sem marca nenhuma', async () => {
+    const el = await peca('```js\nlet a\n```');
+    expect(el.hasAttribute('data-tema')).toBeFalse();
+    expect(getComputedStyle(el, '::before').backgroundColor).toBe('rgb(251, 252, 246)');
+    expect(getComputedStyle(el.querySelector('.codigo')!).color).toBe('rgb(27, 25, 22)');
+  });
+
+  for (const [tema, fundo, tinta] of [
+    ['vscode', 'rgb(31, 31, 31)', 'rgb(204, 204, 204)'],
+    ['dracula', 'rgb(40, 42, 54)', 'rgb(248, 248, 242)'],
+    ['xcode', 'rgb(31, 31, 36)', 'rgb(223, 223, 224)'],
+  ]) {
+    it(`${tema}: o fundo e a tinta dele, com a linguagem e as letras como eram`, async () => {
+      const el = await peca(`\`\`\`js tema=${tema}\nlet a\n\`\`\``);
+      expect(el.getAttribute('data-tema')).toBe(tema);
+      expect(getComputedStyle(el, '::before').backgroundColor).toBe(fundo);
+      expect(getComputedStyle(el.querySelector('.codigo')!).color).toBe(tinta);
+      expect(el.querySelector('.codigo-lingua')!.textContent).toBe('JavaScript');
+      expect(el.querySelector('.codigo')!.textContent).toBe('let a');
+    });
+
+    it(`${tema}: toda tinta com 4,5:1 ou mais no fundo e na faixa`, async () => {
+      const el = await peca(`\`\`\`js tema=${tema}\nlet a\n\`\`\``);
+      const st = getComputedStyle(el);
+      const v = (n: string) => st.getPropertyValue(n).trim();
+      for (const papel of ['--cod-fundo', '--cod-faixa']) {
+        for (const tinta of ['--cod-tinta', '--cod-etiqueta', '--tk-pal', '--tk-txt', '--tk-num', '--tk-fun', '--tk-tip', '--tk-atr', '--tk-com', '--tk-met', '--tk-del', '--tk-add']) {
+          expect(contraste(v(tinta), v(papel))).withContext(`${tema} ${tinta} em ${papel}`).toBeGreaterThanOrEqual(4.5);
+        }
+        // a palavra de controle, e o removido em cima da própria tarja (10% do vermelho por cima do papel)
+        expect(contraste(v('--tk-ctl'), v(papel))).withContext(`${tema} --tk-ctl em ${papel}`).toBeGreaterThanOrEqual(4.5);
+        const cor = (i: number) => parseInt(v(papel).slice(i, i + 2), 16);
+        const tarja = [[255, 1], [90, 3], [90, 5]].map(([t, i]) => Math.round(t * 0.1 + cor(i) * 0.9).toString(16).padStart(2, '0')).join('');
+        expect(contraste(v('--tk-del'), '#' + tarja)).withContext(`${tema} --tk-del na tarja em ${papel}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  }
+
+  it('a cerca recuada empurra o bloco inteiro; a de dentro de um item, não', async () => {
+    const el = await peca('    ```\n    a\n    ```');
+    expect(el.style.getPropertyValue('--recuo')).toBe('4');
+    expect(parseFloat(getComputedStyle(el).marginLeft)).toBeGreaterThan(0);
+  });
+});

@@ -55,10 +55,11 @@ export type LinhaDoc =
   | (Base & { kind: 'sutil'; spans: Span[] })
   | (Base & { kind: 'divisoria' })
   /**
-   * `margem`: o recuo do corpo de item onde o código mora (as linhas dele o têm na frente); `aberto`: sem a
-   * cerca que fecha; `lingua`: o que vem escrito depois da cerca que abre ("js" em "```js"; sem, nada).
+   * O recuo é o da cerca, e as letras de dentro são escritas com ele na frente (quem lê tira dele, ver
+   * `parseRich`); `aberto`: sem a cerca que fecha; `lingua`: o que vem escrito depois da cerca que abre
+   * ("js" em "```js"; sem, nada).
    */
-  | (Base & { kind: 'codigo'; cerca: string; texto: string; margem: number; aberto: boolean; lingua?: string })
+  | (Base & { kind: 'codigo'; cerca: string; texto: string; aberto: boolean; lingua?: string })
   /** `sobra`: as células escritas além das do cabeçalho em cada fileira (a leitura esconde, a escrita devolve). */
   | (Base & { kind: 'tabela'; jeito: TableLook | null; alinhar: Align[]; cabeca: Span[][]; fileiras: Span[][][]; sobra: string[][] })
   | (Base & { kind: 'widget'; nome: string; args: string[]; tamanho: WidgetSize })
@@ -147,7 +148,7 @@ function contaChave(l: LinhaDoc): string {
     case 'divisoria':
       return JSON.stringify([l.kind, l.recuo]);
     case 'codigo':
-      return JSON.stringify([l.kind, l.recuo, l.texto, l.margem, (l.lingua ?? '').trim()]);
+      return JSON.stringify([l.kind, l.recuo, l.texto, (l.lingua ?? '').trim()]);
     case 'tabela':
       return JSON.stringify([l.kind, l.recuo, l.jeito, l.alinhar, l.cabeca.map(chaveSpans), l.fileiras.map((f) => f.map(chaveSpans)), l.sobra]);
     case 'widget':
@@ -193,10 +194,9 @@ type Pedaco = { de: number; ate: number; linha: LinhaDoc };
 
 /**
  * Os blocos do leitor em linhas tipadas. `fim`: a última linha do nível (o texto inteiro, ou o corpo do
- * item); `margem`: o recuo do corpo onde os blocos moram (o código o tem na frente de cada linha);
- * `noCartao`: os blocos são os de dentro de um card (`cruas` já vem sem o "> " das linhas dele).
+ * item); `noCartao`: os blocos são os de dentro de um card (`cruas` já vem sem o "> " das linhas dele).
  */
-function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: number, margem: number, out: Pedaco[], noCartao = false): void {
+function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: number, out: Pedaco[], noCartao = false): void {
   for (const b of blocks) {
     const at = blockLine(b)!;
     const recuo = (i: number) => indentOf(cruas[i]);
@@ -228,7 +228,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
         const dentro = [...cruas];
         for (let i = at + 1; i <= ate; i++) dentro[i] = calloutLine(cruas[i]) ?? cruas[i];
         const de = out.length;
-        percorrer(b.body, dentro, ate, 0, out, true);
+        percorrer(b.body, dentro, ate, out, true);
         for (let k = de; k < out.length; k++) out[k] = { ...out[k], linha: { ...out[k].linha, cartao: recuo(at) } };
         break;
       }
@@ -240,7 +240,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
         let j = at + 1;
         while (j <= fim && !closes(cruas[j], cerca)) j++;
         const aberto = j > fim;
-        out.push({ de: at, ate: aberto ? fim : j, linha: { kind: 'codigo', recuo: recuo(at), cerca, texto: b.text, margem, aberto, ...(fenceInfo(cruas[at]) ? { lingua: fenceInfo(cruas[at]) } : {}) } });
+        out.push({ de: at, ate: aberto ? fim : j, linha: { kind: 'codigo', recuo: recuo(at), cerca, texto: b.text, aberto, ...(fenceInfo(cruas[at]) ? { lingua: fenceInfo(cruas[at]) } : {}) } });
         break;
       }
       case 'table': {
@@ -271,7 +271,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
           });
           // o que vem embaixo do item: o leitor leu à parte, sem o recuo do corpo (o mesmo `bodyOf`)
           const corpo = it.body && bodyOf(cruas, it.line);
-          if (it.body && corpo) percorrer(it.body, cruas, corpo.end, corpo.indent, out);
+          if (it.body && corpo) percorrer(it.body, cruas, corpo.end, out);
         }
     }
   }
@@ -281,7 +281,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
 function lerLinhas(texto: string): { linhas: LinhaDoc[]; quebra: string } {
   const { linhas: cruas, quebras } = partir(texto);
   const pedacos: Pedaco[] = [];
-  percorrer(parseRich(texto), cruas, cruas.length - 1, 0, pedacos);
+  percorrer(parseRich(texto), cruas, cruas.length - 1, pedacos);
   pedacos.sort((a, b) => a.de - b.de);
   // cada linha do texto num pedaço só; a que sobrar (não deve) vira um trecho cru, guardada como está
   const out: Pedaco[] = [];
@@ -760,8 +760,8 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
       // a cerca maior que qualquer fila do mesmo sinal no começo de uma linha de dentro (senão ela fecharia antes)
       const maior = Math.max(0, ...corpo.map((c) => new RegExp(`^\\s*(\\${sinal}+)`).exec(c)?.[1].length ?? 0));
       const cerca = sinal.repeat(Math.max(3, maior + 1));
-      const margem = ' '.repeat(l.margem);
-      return [recuo + cerca + (l.lingua ?? '').trim(), ...corpo.map((c) => (c ? margem + c : '')), recuo + cerca];
+      // as letras na coluna da cerca: nunca com menos recuo que ela (fora do corpo do item, a de fechar já não é dele)
+      return [recuo + cerca + (l.lingua ?? '').trim(), ...corpo.map((c) => (c ? recuo + c : '')), recuo + cerca];
     }
     case 'tabela': {
       const cols = Math.max(1, l.cabeca.length);

@@ -22,9 +22,10 @@ export type AcaoVisual = MarcaVisual | ListaVisual | 'inside' | 'rule' | 'tabela
 
 /**
  * O que o menu "Código" pede (o bloco do cursor): a linguagem (o que vai depois das crases, "" sem
- * nenhuma), copiar o texto dele, ou desfazer o bloco (as letras voltam a ser linhas de texto).
+ * nenhuma), o tema ("tema=dracula" depois das crases, "" para seguir o padrão dos Ajustes), copiar o texto
+ * dele, ou desfazer o bloco (as letras voltam a ser linhas de texto).
  */
-export type AcaoCodigo = { lingua: string } | 'copiar' | 'desfazer';
+export type AcaoCodigo = { lingua: string } | { tema: string } | 'copiar' | 'desfazer';
 
 /** O bloco de código do cursor, para o menu "Código" da régua: o que vem escrito depois das crases. */
 export interface EstadoCodigo {
@@ -129,7 +130,8 @@ export interface VisualApi {
   /** O elemento do Visual (fora da página, ele já não vale). */
   readonly host: HTMLElement;
   /** Faz o que a régua pediu; false se o Visual ainda não sabe (a régua manda para o Markdown). */
-  run(acao: AcaoVisual): boolean;
+  /** `foca`: o foco volta para a folha (o padrão); sem ele, fica onde está (o menu que continua aberto). */
+  run(acao: AcaoVisual, foca?: boolean): boolean;
   focus(): void;
   blur(): void;
   /** A seleção, em posições do texto guardado (o começo e o fim). */

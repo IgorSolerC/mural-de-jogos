@@ -47,7 +47,8 @@ const alinharDe = (d: HTMLElement | string) => {
 /** A linguagem de um bloco de código colado (a nossa, ou a classe "language-js"/"lang-js" que os sites põem). */
 export function linguaDe(el: HTMLElement): string {
   const own = el.getAttribute('data-lingua');
-  if (own) return typedCodeLang(own);
+  // (o que vem depois das crases inteiro: a linguagem, o tema e o resto; sem o que fecharia a cerca)
+  if (own) return own.replace(/[`~\r\n]/g, '').trim();
   const cls = [el.className, el.querySelector('code')?.className ?? ''].join(' ');
   return typedCodeLang(/(?:^|\s)lang(?:uage)?-([^\s]+)/.exec(cls)?.[1] ?? '');
 }
@@ -152,9 +153,9 @@ export const schema = new Schema({
     },
     /**
      * O bloco de código: as linhas entre as cercas, em letra de máquina, sem marcas, com as quebras
-     * dentro (um nó só, como a leitura o mostra). `cerca` é a escrita (o "```" ou o "~~~~"), `margem` o
-     * recuo do corpo de item onde ele mora, `aberto` sem a cerca que fecha (o fim do texto). O recuo
-     * empurra o bloco inteiro (não só a primeira linha). `lingua`: o que vem depois da cerca que abre ("js"
+     * dentro (um nó só, como a leitura o mostra). `cerca` é a escrita (o "```" ou o "~~~~"), `aberto` sem
+     * a cerca que fecha (o fim do texto). O recuo empurra o bloco inteiro (não só a primeira linha), e a
+     * escrita o põe em cada linha de dentro. `lingua`: o que vem depois da cerca que abre ("js"
      * em "```js", ver core/code-langs.ts), que dá as cores (ver codigos.ts). Na tela, a peça `CodigoView`.
      */
     blocoCodigo: {
@@ -163,7 +164,7 @@ export const schema = new Schema({
       marks: '',
       code: true,
       defining: true,
-      attrs: { ...base, cerca: { default: '```' }, margem: { default: 0 }, aberto: { default: false }, lingua: { default: '' } },
+      attrs: { ...base, cerca: { default: '```' }, aberto: { default: false }, lingua: { default: '' } },
       // (o bloco copiado daqui leva a linguagem em data-lingua; o de fora, na classe "language-js" do <pre> ou do <code>)
       parseDOM: [{ tag: 'pre', preserveWhitespace: 'full', contentElement: (d) => (d as HTMLElement).querySelector('code') ?? (d as HTMLElement), getAttrs: (d) => ({ ...recuoDe(d), lingua: linguaDe(d as HTMLElement) }) }],
       toDOM: (n) => ['pre', { class: 'linha codigo', spellcheck: 'false', ...(n.attrs['lingua'] ? { 'data-lingua': n.attrs['lingua'] } : {}), ...recuo(n) }, ['code', 0]],
@@ -406,7 +407,7 @@ function noSemCartao(l: LinhaDoc): PMNode {
     case 'divisoria':
       return N['divisoria'].create({ recuo: l.recuo, fonte });
     case 'codigo':
-      return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, margem: l.margem, aberto: l.aberto, lingua: l.lingua ?? '' }, l.texto ? schema.text(l.texto) : []);
+      return N['blocoCodigo'].create({ recuo: l.recuo, fonte, cerca: l.cerca, aberto: l.aberto, lingua: l.lingua ?? '' }, l.texto ? schema.text(l.texto) : []);
     case 'widget':
       // a marca do jeito da tabela sozinha (sem a tabela embaixo) não é um widget: fica crua, como está
       if (l.nome === 'tabela') return N['cru'].create({ linha: l });
@@ -503,7 +504,7 @@ export function linhaDe(n: PMNode): LinhaDoc {
       break;
     }
     case 'blocoCodigo':
-      l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, margem: n.attrs['margem'], aberto: n.attrs['aberto'], ...(n.attrs['lingua'] ? { lingua: n.attrs['lingua'] } : {}), fonte };
+      l = { kind: 'codigo', recuo: r, cerca: n.attrs['cerca'], texto: n.textContent, aberto: n.attrs['aberto'], ...(n.attrs['lingua'] ? { lingua: n.attrs['lingua'] } : {}), fonte };
       break;
     case 'cru':
       l = n.attrs['linha'] as LinhaDoc;

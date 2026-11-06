@@ -158,7 +158,7 @@ export type Block =
    * O bloco de código; `lang`, o que vem escrito depois das crases que abrem ("js" em "```js", como no
    * Obsidian e no GitHub; ver core/code-langs.ts): sem nada escrito, ele não vem.
    */
-  | { kind: 'code'; text: string; lang?: string }
+  | { kind: 'code'; text: string; lang?: string; indent?: number }
   /** Um widget (ver core/widgets.ts): o nome do registro, os parâmetros como foram escritos e o tamanho. */
   | { kind: 'widget'; name: string; args: string[]; size: WidgetSize }
   /**
@@ -192,7 +192,8 @@ const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
  */
 const CALLOUT = /^\s*>\s?\[!([\p{L}\p{N}_-]+)(?:\|([\p{L}\p{N}_-]+))?\]([+-]?)(?:[ \t]+(.*?))?[ \t]*$/u;
 /** A cerca do bloco de código: três crases ou três tis (fecha com a mesma). */
-const FENCE = /^\s*(`{3,}|~{3,})/;
+// (a de crases não leva crase depois dela: "```x``` e mais" é código na linha, e não um bloco que engole o resto do texto)
+const FENCE = /^\s*(`{3,}(?=[^`]*$)|~{3,})/;
 
 /** A linha de cima de um card ("> [!aviso|azul]- Título"): o jeito, a cor, o fechar e o título como foi escrito; null se não é. */
 export function calloutAt(line: string): { type: string; color: string; fold: CalloutFold; title: string } | null {
@@ -247,10 +248,40 @@ export function fenceInfo(line: string): string {
   return m ? line.slice(m[0].length).trim() : '';
 }
 
-/** A linha fecha o bloco aberto por `open`: a mesma marca, pelo menos do mesmo tamanho. */
+/** A linha fecha o bloco aberto por `open`: a mesma marca, pelo menos do mesmo tamanho, sem nada escrito depois ("```js" abre, não fecha). */
 export function closes(line: string, open: string): boolean {
   const f = fenceOf(line);
-  return !!f && f[0] === open[0] && f.length >= open.length;
+  return !!f && f[0] === open[0] && f.length >= open.length && !fenceInfo(line);
+}
+
+/** As cercas das linhas a partir de `from` se fecham todas (nenhum bloco fica aberto no fim do texto). */
+export function fencesPair(lines: readonly string[], from: number): boolean {
+  let open: string | null = null;
+  for (let i = from; i < lines.length; i++) {
+    if (open === null) open = fenceOf(lines[i]);
+    else if (closes(lines[i], open)) open = null;
+  }
+  return open === null;
+}
+
+/**
+ * As linhas de dentro dos blocos de código, sem as cercas e como as cercas se fecham de cima para baixo.
+ * Para quem anda pelo texto atrás do item de uma linha: o que está no código não é item nem corta item.
+ */
+function codeLines(lines: readonly string[]): Set<number> {
+  const out = new Set<number>();
+  let open: string | null = null;
+  let from = 0;
+  lines.forEach((l, i) => {
+    if (open === null) {
+      open = fenceOf(l);
+      from = i;
+    } else if (closes(l, open)) open = null;
+    else out.add(i);
+  });
+  // a cerca recuada sem par: o leitor acaba o bloco no fim do item, e o que vem depois dele não é código
+  if (open !== null && indentOf(lines[from])) for (let i = from + 1; i < lines.length; i++) out.delete(i);
+  return out;
 }
 
 /** A largura do recuo da linha (o tab vai até a próxima parada de 4, como no markdown). */
@@ -273,9 +304,46 @@ function dedent(line: string, n: number): string {
 }
 
 /**
+ * A linha de código sem `n` colunas de recuo, com o resto do recuo como foi escrito: o tab de dentro do
+ * código continua um tab (só o que passa da coluna `n` vira espaços). A linha com menos recuo que isso
+ * perde o que tem.
+ */
+export function dedentCode(line: string, n: number): string {
+  let w = 0;
+  let i = 0;
+  while (i < line.length && w < n) {
+    if (line[i] === ' ') w++;
+    else if (line[i] === '\t') w += 4 - (w % 4);
+    else break;
+    i++;
+  }
+  return ' '.repeat(Math.max(0, w - n)) + line.slice(i);
+}
+
+/**
+ * A cerca da linha `j` abre um bloco de corpo de item: a linha da que fecha, mesmo que as letras de dentro
+ * (ou ela) estejam com menos recuo que o item, e o que veio escrito assim continua sendo o bloco inteiro.
+ * Null sem a que fecha: o bloco acaba no fim do item, como no markdown. A que fecha também é recusada se
+ * a de dentro passa por cima de outros itens e deixa uma cerca sem par depois dela: aí ela é a cerca de
+ * outro bloco, e o de cá é que ficou sem fechar.
+ */
+function fenceEnd(lines: readonly string[], j: number, min: number): number | null {
+  const open = fenceOf(lines[j]);
+  if (!open) return null;
+  let outdented = false;
+  for (let k = j + 1; k < lines.length; k++) {
+    if (closes(lines[k], open)) return outdented || indentOf(lines[k]) < min ? (fencesPair(lines, k + 1) ? k : null) : k;
+    if (lines[k].trim() && indentOf(lines[k]) < min) outdented = true;
+  }
+  return null;
+}
+
+/**
  * As linhas embaixo do item da linha `i` que são dele: as recuadas pelo menos dois espaços além do
  * começo do item e as em branco entre elas (a em branco seguida de uma linha sem o recuo termina o
  * item). Onde elas acabam (a última delas) e o recuo que todas têm; null, o item não tem nada embaixo.
+ * O bloco de código recuado é do item até a cerca que fecha, com qualquer recuo no meio: as letras de
+ * dentro não contam (nem para cortar o item, nem para o recuo).
  */
 export function bodyOf(lines: readonly string[], i: number): { end: number; indent: number } | null {
   const min = indentOf(lines[i]) + 2;
@@ -286,6 +354,8 @@ export function bodyOf(lines: readonly string[], i: number): { end: number; inde
     if (indentOf(lines[j]) < min) break;
     end = j;
     indent = Math.min(indent, indentOf(lines[j]));
+    const close = fenceEnd(lines, j, min);
+    if (close !== null) j = end = close;
   }
   return end === i ? null : { end, indent };
 }
@@ -294,7 +364,9 @@ export function bodyOf(lines: readonly string[], i: number): { end: number; inde
  * `bodyOf`; uma linha só de espaços conta pelo recuo dela). Null se a linha não é de item nenhum.
  */
 export function ownerItem(lines: readonly string[], i: number): number | null {
-  if (lineKind(lines[i]).kind !== 'p') return i;
+  // dentro de um bloco de código, "- x" não é item, e as letras sem recuo não cortam o item de cima
+  const code = codeLines(lines);
+  if (!code.has(i) && lineKind(lines[i]).kind !== 'p') return i;
   const probe = [...lines];
   // a linha só de espaços (acabou de ser aberta) conta como se já tivesse texto
   if (!probe[i].trim()) {
@@ -302,7 +374,7 @@ export function ownerItem(lines: readonly string[], i: number): number | null {
     probe[i] += '.';
   }
   for (let j = i - 1; j >= 0; j--) {
-    if (!probe[j].trim()) continue;
+    if (code.has(j) || !probe[j].trim()) continue;
     if (lineKind(probe[j]).kind !== 'p') {
       if ((bodyOf(probe, j)?.end ?? j) >= i) return j;
     } else if (indentOf(probe[j]) === 0) {
@@ -355,9 +427,11 @@ export function renumberAfter(lines: readonly string[], i: number, was?: string)
   let old = k.n - 1;
   let next = k.n + 1;
   let parent = was && was !== k.pre + k.n ? { from: was, to: k.pre + k.n } : null;
+  // o que está dentro de um bloco de código não é item, nem corta a lista (a cerca que fecha, sem recuo, também não)
+  const code = codeLines(out);
   for (let j = i + 1; j < out.length; j++) {
     const line = out[j];
-    if (!line.trim()) continue;
+    if (!line.trim() || code.has(j) || (code.has(j - 1) && fenceOf(line))) continue;
     const w = indentOf(line);
     if (w > indent) {
       // dentro do item de cima: o número que começa com o do pai segue o pai
@@ -778,10 +852,12 @@ function parseLines(lines: readonly string[], base: number): Block[] {
     // o bloco de código vai até a cerca que fecha (ou até o fim)
     const open = fenceOf(line);
     if (open) {
+      // as letras de dentro sem o recuo da cerca: o código começa na coluna dela, e a cerca recuada empurra o bloco inteiro
+      const indent = indentOf(line);
       const body: string[] = [];
-      while (++i < lines.length && !closes(lines[i], open)) body.push(lines[i]);
+      while (++i < lines.length && !closes(lines[i], open)) body.push(indent ? dedentCode(lines[i], indent) : lines[i]);
       const lang = fenceInfo(line);
-      push({ kind: 'code', text: body.join('\n'), ...(lang ? { lang } : {}) }, at);
+      push({ kind: 'code', text: body.join('\n'), ...(lang ? { lang } : {}), ...(indent ? { indent } : {}) }, at);
       continue;
     }
     // o card: a linha de cima e as do "> " embaixo dela, lidas como um texto à parte (outro card, uma
@@ -848,7 +924,18 @@ function parseLines(lines: readonly string[], base: number): Block[] {
     // as linhas recuadas embaixo são do item: a descrição, outra lista, um widget
     const body = bodyOf(lines, i);
     if (body) {
-      const inner = lines.slice(i + 1, body.end + 1).map((l) => (l.trim() ? dedent(l, body.indent) : ''));
+      // (dentro de um bloco de código, as letras ficam com o recuo como foi escrito: o tab continua um tab, e a
+      // linha só de espaços continua com os dela; sem isso, o recuo escrito numa linha nova sumia na hora)
+      let fence: string | null = null;
+      const inner = lines.slice(i + 1, body.end + 1).map((l) => {
+        if (fence !== null) {
+          const open: string = fence;
+          if (closes(l, open)) fence = null;
+          return dedentCode(l, body.indent);
+        }
+        fence = fenceOf(l);
+        return l.trim() ? dedent(l, body.indent) : '';
+      });
       item.body = parseLines(inner, base + i + 1);
       i = body.end;
     }

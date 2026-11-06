@@ -4,7 +4,9 @@ import { NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { textToDoc } from '../../core/rich-doc';
 import { Review } from '../../core/review';
-import { parseInline, parseRich } from '../../core/rich-text';
+import { Block, parseInline, parseRich } from '../../core/rich-text';
+import { SETTINGS_KEY } from '../../core/settings';
+import { linguaDe } from './schema';
 import { VisualEditor } from './visual-editor';
 import { EstadoVisual, PedidoLink } from './visual-api';
 
@@ -312,19 +314,384 @@ describe('o modo Visual do texto', () => {
       expect(estado?.marcas).toEqual([]);
     });
 
-    it('Tab põe dois espaços; Shift+Tab tira; sem nada para tirar, passa (o foco sai)', async () => {
+    it('Tab põe o recuo; Shift+Tab tira; sem nada para tirar, a tecla continua no bloco (o foco não sai)', async () => {
       await make('```\nx\ny\n```');
       noTexto(4);
       expect(tecla('Tab').defaultPrevented).toBeTrue();
       expect(texto()).toBe('```\n  x\ny\n```');
-      // as duas linhas selecionadas: dois espaços em cada uma
+      // as duas linhas selecionadas: uma parada em cada uma
       noTexto(6, 9);
       tecla('Tab');
       expect(texto()).toBe('```\n    x\n  y\n```');
       tecla('Tab', { shiftKey: true });
       tecla('Tab', { shiftKey: true });
       expect(texto()).toBe('```\nx\ny\n```');
-      expect(tecla('Tab', { shiftKey: true }).defaultPrevented).toBeFalse();
+      expect(tecla('Tab', { shiftKey: true }).defaultPrevented).toBeTrue();
+      expect(tipos()).toEqual(['blocoCodigo']);
+    });
+
+    describe('as teclas de um editor de código', () => {
+      /** O cursor no índice das letras do bloco da linha `i`. */
+      function noBloco(col: number, ate = col, i = 0): void {
+        let pos = 0;
+        for (let k = 0; k < i; k++) pos += view.state.doc.child(k).nodeSize;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1 + col, pos + 1 + ate)));
+      }
+      const letras = (i = 0) => view.state.doc.child(i).textContent;
+      const cursor = () => view.state.selection.from - 1;
+
+      it('o Tab com tab no começo da linha é tab; o Shift+Tab tira o tab', async () => {
+        await make('```\na\n\tb\n```');
+        noBloco(letras().length);
+        tecla('Enter');
+        expect(letras()).toBe('a\n\tb\n\t');
+        tecla('Tab');
+        expect(letras()).toBe('a\n\tb\n\t\t');
+        tecla('Tab', { shiftKey: true });
+        tecla('Tab', { shiftKey: true });
+        expect(letras()).toBe('a\n\tb\n');
+      });
+
+      it('o Enter mantém o recuo, sobe um nível depois da chave, e o fecho desce', async () => {
+        await make('```js\n  if (x) {}\n```');
+        noBloco('  if (x) {'.length);
+        tecla('Enter');
+        expect(letras()).toBe('  if (x) {\n    \n  }');
+        expect(cursor()).toBe('  if (x) {\n    '.length);
+        digita('y();');
+        tecla('Enter');
+        digita('z();');
+        expect(letras()).toBe('  if (x) {\n    y();\n    z();\n  }');
+      });
+
+      it('o Enter na linha só de recuo no fim do bloco sai dele', async () => {
+        await make('```\n  a\n```');
+        noBloco(3);
+        tecla('Enter');
+        expect(letras()).toBe('  a\n  ');
+        tecla('Enter');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(letras()).toBe('  a');
+        expect(texto()).toBe('```\n  a\n```\n');
+      });
+
+      it('a cerca escrita na última linha fecha o bloco, como no Markdown', async () => {
+        await make('```\na\n```');
+        noBloco(1);
+        tecla('Enter');
+        digita('```');
+        tecla('Enter');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(letras()).toBe('a');
+      });
+
+      it('o Shift+Enter quebra sempre, com o recuo', async () => {
+        await make('```\n  a\n```');
+        noBloco(3);
+        tecla('Enter', { shiftKey: true });
+        tecla('Enter', { shiftKey: true });
+        expect(tipos()).toEqual(['blocoCodigo']);
+        expect(letras()).toBe('  a\n\n  ');
+      });
+
+      it('o Backspace no recuo volta uma parada; nas letras, uma letra', async () => {
+        await make('```\na\n  b\n    c\n```');
+        noBloco('a\n  b\n    '.length);
+        tecla('Backspace');
+        expect(letras()).toBe('a\n  b\n  c');
+        tecla('Backspace');
+        expect(letras()).toBe('a\n  b\nc');
+      });
+
+      it('o Backspace no recuo pelo teclado do celular (a tecla 229) também volta uma parada', async () => {
+        await make('```\na\n  b\n    c\n```');
+        noBloco('a\n  b\n    '.length);
+        const e = new InputEvent('beforeinput', { inputType: 'deleteContentBackward', bubbles: true, cancelable: true });
+        view.dom.dispatchEvent(e);
+        expect(e.defaultPrevented).toBeTrue();
+        expect(letras()).toBe('a\n  b\n  c');
+      });
+
+      it('Alt+setas movem a linha; Shift+Alt+setas duplicam; Ctrl+Shift+K apaga', async () => {
+        await make('```\na\nb\nc\n```');
+        noBloco(2);
+        tecla('ArrowUp', { altKey: true });
+        expect(letras()).toBe('b\na\nc');
+        expect(cursor()).toBe(0);
+        tecla('ArrowDown', { altKey: true });
+        tecla('ArrowDown', { altKey: true });
+        expect(letras()).toBe('a\nc\nb');
+        // na ponta, a tecla fica com o bloco e nada muda
+        expect(tecla('ArrowDown', { altKey: true }).defaultPrevented).toBeTrue();
+        expect(letras()).toBe('a\nc\nb');
+        tecla('ArrowUp', { altKey: true, shiftKey: true });
+        expect(letras()).toBe('a\nc\nb\nb');
+        tecla('ArrowDown', { altKey: true, shiftKey: true });
+        expect(letras()).toBe('a\nc\nb\nb\nb');
+        // (com o Shift, a tecla chega maiúscula, e o Ctrl+K sozinho é o do link)
+        tecla('K', { ctrlKey: true, shiftKey: true, keyCode: 75 } as KeyboardEventInit);
+        expect(letras()).toBe('a\nc\nb\nb');
+      });
+
+      it('Ctrl+/ comenta na linguagem do bloco; sem linguagem, passa (é a da Ajuda)', async () => {
+        await make('```py\nx = 1\n```');
+        noBloco(0);
+        expect(tecla('/', { ctrlKey: true, code: 'Slash' }).defaultPrevented).toBeTrue();
+        expect(letras()).toBe('# x = 1');
+        tecla('/', { ctrlKey: true, code: 'Slash' });
+        expect(letras()).toBe('x = 1');
+        fixture.destroy();
+        TestBed.resetTestingModule();
+        await make('```\nx\n```');
+        noBloco(0);
+        expect(tecla('/', { ctrlKey: true, code: 'Slash' }).defaultPrevented).toBeFalse();
+      });
+
+      it('o Ctrl+] e o Ctrl+[ recuam, só dentro do bloco', async () => {
+        await make('```\nx\n```\nfora');
+        noBloco(0);
+        tecla(']', { ctrlKey: true });
+        expect(letras()).toBe('  x');
+        tecla('[', { ctrlKey: true });
+        expect(letras()).toBe('x');
+        fimDaLinha(1);
+        expect(tecla(']', { ctrlKey: true }).defaultPrevented).toBeFalse();
+      });
+
+      it('o Home vai ao começo das letras e, de novo, ao começo da linha; com o Shift, seleciona', async () => {
+        await make('```\n    abc\n```');
+        noBloco(6);
+        tecla('Home');
+        expect(cursor()).toBe(4);
+        tecla('Home');
+        expect(cursor()).toBe(0);
+        noBloco(6);
+        tecla('Home', { shiftKey: true });
+        expect(view.state.selection.anchor - 1).toBe(6);
+        expect(view.state.selection.head - 1).toBe(4);
+      });
+
+      it('o Ctrl+A pega as letras do bloco; de novo, o texto todo', async () => {
+        await make('antes\n```\nabc\n```\ndepois');
+        noBloco(1, 1, 1);
+        ctrl('a');
+        expect(view.state.selection.from).toBe(view.state.doc.child(0).nodeSize + 1);
+        expect(view.state.selection.to).toBe(view.state.doc.child(0).nodeSize + 4);
+        ctrl('a');
+        expect(view.state.selection.from).toBe(0);
+        expect(view.state.selection.to).toBe(view.state.doc.content.size);
+      });
+
+      it('o que entra pela seleção de várias linhas é um passo só no Ctrl+Z', async () => {
+        await make('```\na\nb\n```');
+        noBloco(0, 3);
+        tecla('Tab');
+        expect(letras()).toBe('  a\n  b');
+        ctrl('z');
+        expect(letras()).toBe('a\nb');
+      });
+
+      it('a seta para baixo no último bloco do texto abre uma linha embaixo; para cima, no primeiro, em cima', async () => {
+        await make('```\na\nb\n```');
+        noBloco(0);
+        tecla('ArrowDown');
+        // ainda não está na última linha do bloco: a seta é do navegador
+        expect(tipos()).toEqual(['blocoCodigo']);
+        noBloco(3);
+        expect(tecla('ArrowDown').defaultPrevented).toBeTrue();
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(view.state.selection.$from.parent.type.name).toBe('linha');
+        noBloco(0);
+        expect(tecla('ArrowUp').defaultPrevented).toBeTrue();
+        expect(tipos()).toEqual(['linha', 'blocoCodigo', 'linha']);
+        expect(view.state.selection.$from.parent.type.name).toBe('linha');
+      });
+
+      it('a seta com alguma coisa do outro lado não abre nada', async () => {
+        await make('a\n```\nb\n```\nc');
+        noBloco(1, 1, 1);
+        expect(tecla('ArrowDown').defaultPrevented).toBeFalse();
+        noBloco(0, 0, 1);
+        expect(tecla('ArrowUp').defaultPrevented).toBeFalse();
+        expect(tipos()).toEqual(['linha', 'blocoCodigo', 'linha']);
+      });
+
+      it('o Backspace embaixo do bloco não junta nele: a linha vazia sai, e da que tem texto o cursor só sobe', async () => {
+        await make('```\na\n```\n\n**b**');
+        const inicio = (i: number) => {
+          let pos = 0;
+          for (let k = 0; k < i; k++) pos += view.state.doc.child(k).nodeSize;
+          return pos + 1;
+        };
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, inicio(1))));
+        tecla('Backspace');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(view.state.selection.$from.parent.type.name).toBe('blocoCodigo');
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, inicio(1))));
+        tecla('Backspace');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(letras()).toBe('a');
+        expect(view.state.selection.$from.parent.type.name).toBe('blocoCodigo');
+        expect(cursor()).toBe(1);
+        // o negrito de baixo continua negrito
+        expect(texto()).toContain('**b**');
+      });
+
+      it('o Delete no fim do bloco não engole o que vem embaixo; a linha vazia sai', async () => {
+        await make('```\na\n```\n\nb');
+        noBloco(1);
+        tecla('Delete');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        tecla('Delete');
+        expect(tipos()).toEqual(['blocoCodigo', 'linha']);
+        expect(letras()).toBe('a');
+        expect(letras(1)).toBe('b');
+      });
+
+      it('o Backspace no começo do bloco com uma linha vazia em cima tira só ela; sem ela, o bloco vira texto', async () => {
+        await make('\n```\na\n```');
+        noBloco(0, 0, 1);
+        tecla('Backspace');
+        expect(tipos()).toEqual(['blocoCodigo']);
+        noBloco(0);
+        tecla('Backspace');
+        expect(tipos()).toEqual(['linha']);
+        expect(letras()).toBe('a');
+      });
+
+      it('"``` js" (com espaço) e o tema também abrem o bloco', async () => {
+        await make('');
+        digita('``` js tema=dracula');
+        tecla('Enter');
+        expect(tipos()).toEqual(['blocoCodigo']);
+        expect(texto()).toBe('```js tema=dracula\n```');
+      });
+    });
+
+    describe('o bloco dentro de um card', () => {
+      const card = '> [!nota] T\n> ```\n> a\n> ```\n> b';
+
+      it('sair dele com o Enter fica no card, e o que vem embaixo continua no card', async () => {
+        await make(card);
+        const pos = view.state.doc.child(0).nodeSize;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 2)));
+        tecla('Enter');
+        tecla('Enter');
+        expect(tipos()).toEqual(['cartaoTopo', 'blocoCodigo', 'linha', 'linha']);
+        const fim = texto()!.split('\n');
+        expect(fim.slice(0, 4)).toEqual(['> [!nota] T', '> ```', '> a', '> ```']);
+        expect(fim.at(-1)).toBe('> b');
+        expect(fim[4].trim()).toBe('>');
+      });
+
+      it('o Ctrl+E e o "```" escrito numa linha ficam no card', async () => {
+        await make(card);
+        const pos = view.state.doc.child(0).nodeSize;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 2)));
+        ctrl('e');
+        expect(tipos()).toEqual(['cartaoTopo', 'linha', 'linha']);
+        expect(texto()).toBe('> [!nota] T\n> a\n> b');
+        fimDaLinha(2);
+        tecla('Enter');
+        digita('```');
+        tecla('Enter');
+        expect(texto()).toBe('> [!nota] T\n> a\n> b\n> ```\n> ```');
+      });
+    });
+
+    describe('o recuo do bloco', () => {
+      it('escrito na descrição de um item, as letras ficam com o recuo da cerca (a leitura não as perde)', async () => {
+        await make('1. item\n   ');
+        fimDaLinha(1);
+        digita('```');
+        tecla('Enter');
+        digita('INSERT');
+        tecla('Enter');
+        digita('  x');
+        expect(texto()).toBe('1. item\n   ```\n   INSERT\n     x\n   ```');
+        const blocos = parseRich(texto()!);
+        expect(blocos.length).toBe(1);
+        const corpo = (blocos[0] as Extract<Block, { kind: 'ol' }>).items[0].body!;
+        expect(corpo).toEqual([jasmine.objectContaining({ kind: 'code', text: 'INSERT\n  x' })]);
+      });
+
+      it('o texto de antes, com as letras menos recuadas que a cerca, abre como um bloco só, e mexer nele arruma as letras', async () => {
+        const antes = '   1.2. item\n        ```\nINSERT\n        ```\n\n2. outro';
+        await make(antes);
+        expect(tipos()).toEqual(['item', 'blocoCodigo', 'linha', 'item']);
+        expect(view.state.doc.child(1).textContent).toBe('INSERT');
+        const pos = view.state.doc.child(0).nodeSize;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 1 + 6)));
+        digita(';');
+        expect(texto()).toBe('   1.2. item\n        ```\n        INSERT;\n        ```\n\n2. outro');
+      });
+
+      it('o tab de dentro do código continua um tab, no bloco recuado também', async () => {
+        await make('- item\n  ```\n  a\n  \tb\n  ```');
+        expect(view.state.doc.child(1).textContent).toBe('a\n\tb');
+        const pos = view.state.doc.child(0).nodeSize;
+        view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos + 2)));
+        digita('c');
+        expect(texto()).toBe('- item\n  ```\n  ac\n  \tb\n  ```');
+      });
+
+      it('o bloco recuado fora de lista: as letras começam na coluna da cerca', async () => {
+        await make('    ```\n    a\n      b\n    ```');
+        expect(view.state.doc.child(0).textContent).toBe('a\n  b');
+        expect(view.state.doc.child(0).attrs['recuo']).toBe(4);
+      });
+    });
+
+    describe('o tema', () => {
+      const pre = () => fixture.nativeElement.querySelector('pre.codigo') as HTMLElement;
+
+      it('o escrito depois das crases veste o bloco; o Papel não leva marca', async () => {
+        await make('```js tema=dracula\nlet a\n```');
+        expect(pre().dataset['tema']).toBe('dracula');
+        expect(getComputedStyle(pre()).color).toBe('rgb(248, 248, 242)');
+        expect(getComputedStyle(pre(), '::before').backgroundColor).toBe('rgb(40, 42, 54)');
+        // a linguagem continua a que era
+        expect(pre().dataset['lingua']).toBe('js tema=dracula');
+        expect(pre().querySelector('.codigo-lingua')!.textContent).toBe('JavaScript');
+      });
+
+      it('o menu troca o tema, e a linguagem fica', async () => {
+        await make('```js\nlet a\n```');
+        noTexto(6);
+        expect(pre().dataset['tema']).toBeUndefined();
+        fixture.componentInstance.run({ codigo: { tema: 'xcode' } });
+        expect(pre().dataset['tema']).toBe('xcode');
+        expect(texto()).toBe('```js tema=xcode\nlet a\n```');
+        fixture.componentInstance.run({ codigo: { lingua: 'py' } });
+        expect(texto()).toBe('```py tema=xcode\nlet a\n```');
+        fixture.componentInstance.run({ codigo: { lingua: '' } });
+        expect(texto()).toBe('```tema=xcode\nlet a\n```');
+        fixture.componentInstance.run({ codigo: { tema: '' } });
+        expect(pre().dataset['tema']).toBeUndefined();
+        expect(texto()).toBe('```\nlet a\n```');
+      });
+
+      it('copiado e lido do HTML, o bloco leva a linguagem e o tema', () => {
+        const pre = document.createElement('pre');
+        pre.setAttribute('data-lingua', 'js tema=dracula');
+        expect(linguaDe(pre)).toBe('js tema=dracula');
+        pre.setAttribute('data-lingua', 'tema=xcode`');
+        expect(linguaDe(pre)).toBe('tema=xcode');
+      });
+
+      it('sem tema escrito, o padrão dos Ajustes; o escrito manda nele', async () => {
+        const antes = localStorage.getItem(SETTINGS_KEY);
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify({ notesConfig: { codeTheme: 'vscode' } }));
+        try {
+          await make('```\na\n```\n```tema=papel\nb\n```');
+          const [um, dois] = Array.from(fixture.nativeElement.querySelectorAll('pre.codigo')) as HTMLElement[];
+          expect(um.dataset['tema']).toBe('vscode');
+          expect(dois.dataset['tema']).toBeUndefined();
+        } finally {
+          if (antes === null) localStorage.removeItem(SETTINGS_KEY);
+          else localStorage.setItem(SETTINGS_KEY, antes);
+        }
+      });
     });
 
     it('Ctrl+E: numa linha vazia, o bloco; no bloco, volta a ser texto; em várias linhas, as letras delas num bloco', async () => {

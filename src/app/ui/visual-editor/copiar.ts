@@ -105,7 +105,7 @@ export function linhasDoTrecho(state: EditorState, fonteDe: (n: PMNode) => Fonte
     const pai = $from.parent;
     if (pai.type.spec.code) {
       const texto = state.doc.textBetween(sel.from, sel.to);
-      return [texto.includes('\n') ? { kind: 'codigo', recuo: 0, cerca: '```', texto, margem: 0, aberto: false, ...(pai.attrs['lingua'] ? { lingua: pai.attrs['lingua'] } : {}) } : { kind: 'linha', recuo: 0, spans: [{ text: texto, code: true }] }];
+      return [texto.includes('\n') ? { kind: 'codigo', recuo: 0, cerca: '```', texto, aberto: false, ...(pai.attrs['lingua'] ? { lingua: pai.attrs['lingua'] } : {}) } : { kind: 'linha', recuo: 0, spans: [{ text: texto, code: true }] }];
     }
     const solta = N['linha'].create(null, pai.content.cut($from.parentOffset, $to.parentOffset));
     return [semFonte(linhaDe(solta))];
@@ -138,7 +138,7 @@ export function linhasDoTrecho(state: EditorState, fonteDe: (n: PMNode) => Fonte
   const recuos = linhas.filter((l) => l.kind !== 'cru' && !(l.kind === 'linha' && !l.spans.length)).map((l) => l.recuo);
   const menor = recuos.length ? Math.min(...recuos) : 0;
   if (!menor) return linhas;
-  return linhas.map((l) => (l.kind === 'cru' ? l : semFonte({ ...l, recuo: Math.max(0, l.recuo - menor), ...(l.kind === 'codigo' ? { margem: Math.max(0, l.margem - menor) } : {}) } as LinhaDoc)));
+  return linhas.map((l) => (l.kind === 'cru' ? l : semFonte({ ...l, recuo: Math.max(0, l.recuo - menor) } as LinhaDoc)));
 }
 
 function semFonte(l: LinhaDoc): LinhaDoc {

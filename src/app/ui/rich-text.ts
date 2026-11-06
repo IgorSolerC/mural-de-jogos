@@ -9,7 +9,8 @@ import { ShownDone } from '../core/shown-done';
 import { Review } from '../core/review';
 import { calloutIcon } from './callout-looks';
 import { codeHighlightReady, codeRanges, codeTokens, CodeToken } from '../core/code-highlight';
-import { codeLangName } from '../core/code-langs';
+import { codeLangName, codeThemeOf } from '../core/code-langs';
+import { Settings } from '../core/settings';
 import { ICON, IconModule, iconMask } from './icons';
 import { NoteWidget } from './note-widget';
 import { PieceLift } from './piece-lift';
@@ -110,7 +111,7 @@ import { ZoomKnob } from './zoom-knob';
             <!-- o bloco de código: a folha de formulário contínuo (o papel fica na peça; as letras rolam de
                  lado por cima dele), a linguagem impressa no alto e Copiar no canto -->
             @let lingua = codeName(b);
-            <div class="codigo-peca" [attr.data-l]="at(b)" role="group" [attr.aria-label]="lingua ? 'Código em ' + lingua : 'Código'">
+            <div class="codigo-peca" [attr.data-l]="at(b)" [attr.data-tema]="codeTheme(b)" [style.--recuo]="b.indent ?? null" role="group" [attr.aria-label]="lingua ? 'Código em ' + lingua : 'Código'">
               @if (lingua) {
                 <span class="codigo-lingua" aria-hidden="true">{{ lingua }}</span>
               }
@@ -723,6 +724,7 @@ export class RichText {
   /** A tabela no meio da tela (o broche de ampliar dela): feito só quando uma sobe, não em todo texto. */
   private lift: PieceLift | null = null;
   private readonly destroyRef = inject(DestroyRef);
+  private readonly settings = inject(Settings);
   protected liftTable(peca: HTMLElement): void {
     if (!this.lift) {
       const lift = (this.lift = new PieceLift());
@@ -743,6 +745,12 @@ export class RichText {
   /** O nome da linguagem do bloco ("JavaScript", ou a palavra escrita); "" sem nenhuma. */
   protected codeName(b: Block): string {
     return b.kind === 'code' && b.lang ? codeLangName(b.lang) : '';
+  }
+
+  /** O tema do bloco: o escrito nele ou o padrão dos Ajustes; o Papel, o de sempre, não leva marca. */
+  protected codeTheme(b: Block): string | null {
+    const tema = (b.kind === 'code' && b.lang ? codeThemeOf(b.lang) : null) ?? this.settings.notesConfig().codeTheme;
+    return tema === 'papel' ? null : tema;
   }
 
   // os pedaços coloridos de cada bloco (refeitos quando o colorir chega: a versão dele vai junto)

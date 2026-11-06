@@ -39,6 +39,8 @@ export const CODE_LANGS: readonly CodeLang[] = [
   { id: 'kotlin', name: 'Kotlin', words: ['kotlin', 'kt', 'kts'] },
   { id: 'php', name: 'PHP', words: ['php'] },
   { id: 'ruby', name: 'Ruby', words: ['ruby', 'rb', 'gemspec', 'podspec'] },
+  { id: 'swift', name: 'Swift', words: ['swift'] },
+  { id: 'dart', name: 'Dart', words: ['dart', 'flutter'] },
   { id: 'ini', name: 'TOML / INI', words: ['toml', 'ini', 'cfg', 'conf', 'properties'] },
   { id: 'dockerfile', name: 'Dockerfile', words: ['dockerfile', 'docker'] },
   { id: 'diff', name: 'Diff', words: ['diff', 'patch'] },
@@ -51,12 +53,18 @@ export const COMMON_CODE_LANGS: readonly CodeLang[] = CODE_LANGS.slice(0, 12);
 /** As gramáticas que o colorir carrega (cada `id` uma vez). */
 export const CODE_GRAMMARS: readonly string[] = [...new Set(CODE_LANGS.map((l) => l.id))].filter((id) => id !== 'plaintext');
 
+const THEME_PREFIX = 'tema=';
+
 const BY_WORD = new Map<string, CodeLang>();
 for (const l of CODE_LANGS) for (const w of l.words) if (!BY_WORD.has(w)) BY_WORD.set(w, l);
 
-/** A primeira palavra do que vem depois das crases ("js" de "js title=x"), como está escrita. */
+/**
+ * A primeira palavra do que vem depois das crases ("js" de "js title=x"), como está escrita. O tema não é a
+ * linguagem: "``` tema=dracula" não tem nenhuma.
+ */
 export function codeLangWord(info: string): string {
-  return /^\S*/.exec(info.trim())?.[0] ?? '';
+  const w = /^\S*/.exec(info.trim())?.[0] ?? '';
+  return w.startsWith(THEME_PREFIX) ? '' : w;
 }
 
 /** A linguagem do que vem depois das crases (pela primeira palavra, sem maiúsculas), ou null. */
@@ -89,13 +97,48 @@ export function codeLangInfo(l: CodeLang): string {
 
 /**
  * O que vai depois das crases com a linguagem trocada: só a primeira palavra muda, e o resto do que estava
- * escrito ali ("title=main.py") fica. Sem linguagem (""), nada.
+ * escrito ali ("title=main.py") fica. Sem linguagem (""), só o tema, se tinha.
  */
 export function withCodeLang(info: string, lang: string): string {
   const l = lang.trim();
-  if (!l) return '';
   const t = info.trim();
-  return l + t.slice(codeLangWord(t).length);
+  if (!l) return themeWordOf(t);
+  const rest = t.slice(codeLangWord(t).length).trim();
+  return rest ? `${l} ${rest}` : l;
+}
+
+// ===== Os temas =====
+
+/**
+ * Os temas do bloco de código (ui/_formatado.scss): o fundo e as cores das letras. O formulário contínuo é o
+ * Papel, o de sempre; os escuros usam as cores dos editores. Cada bloco pode ter o dele, escrito depois das
+ * crases ("```js tema=dracula", que os outros leitores de markdown ignoram); sem ele, o padrão dos Ajustes.
+ */
+export const CODE_THEMES = ['papel', 'vscode', 'dracula', 'xcode'] as const;
+export type CodeTheme = (typeof CODE_THEMES)[number];
+
+/** O nome de cada tema, na tela. */
+export const CODE_THEME_NAMES: Readonly<Record<CodeTheme, string>> = { papel: 'Papel', vscode: 'VS Code', dracula: 'Dracula', xcode: 'Xcode' };
+
+const THEME_WORD = /(?:^|\s)tema=(\S*)/;
+
+/** A palavra do tema como está escrita ("tema=dracula"), ou "". */
+function themeWordOf(info: string): string {
+  const m = THEME_WORD.exec(info);
+  return m ? THEME_PREFIX + m[1] : '';
+}
+
+/** O tema escrito depois das crases, ou null (sem nenhum, ou um que o site não conhece, que fica escrito e não muda nada). */
+export function codeThemeOf(info: string): CodeTheme | null {
+  const t = THEME_WORD.exec(info)?.[1];
+  return (CODE_THEMES as readonly string[]).includes(t ?? '') ? (t as CodeTheme) : null;
+}
+
+/** O que vai depois das crases com o tema trocado (o resto fica); "" tira o tema: o bloco segue o padrão dos Ajustes. */
+export function withCodeTheme(info: string, theme: string): string {
+  const rest = info.replace(THEME_WORD, '').trim();
+  if (!theme) return rest;
+  return rest ? `${rest} ${THEME_PREFIX}${theme}` : THEME_PREFIX + theme;
 }
 
 /**

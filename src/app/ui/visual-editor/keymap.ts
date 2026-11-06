@@ -5,6 +5,8 @@ import { undoInputRule } from 'prosemirror-inputrules';
 import { keymap } from 'prosemirror-keymap';
 import { MarkType, Node as PMNode, NodeType } from 'prosemirror-model';
 import { Command, EditorState, NodeSelection, Plugin, TextSelection, Transaction } from 'prosemirror-state';
+import { CodeOptions, CodeState, codeBackspace, codeComment, codeDeleteLines, codeDiff, codeDuplicateLines, codeEnter, codeHome, codeMoveLines, codeTab } from '../../core/code-edit';
+import { closes } from '../../core/rich-text';
 import { linkarEndereco } from './links';
 import { enterNaLista, linhaNoItem, mapaDe, paraFrente, paraTras, recuarItem, recuoParaFora } from './listas';
 import { tabNaPeca } from './pecas';
@@ -16,9 +18,9 @@ import { apagarNoCartao, enterNoCartao } from './cartoes';
  * O teclado do Visual (PLANO-EDITOR-VISUAL.md, 5.9), escrito tecla por tecla: o `baseKeymap` do
  * ProseMirror não entra inteiro (ele usa o Ctrl+Enter, que no comentário é "Enviar"). Tecla que o Visual
  * não usa passa adiante. Enter, Backspace e Delete nas linhas, títulos, citações, sutis, itens de lista
- * (ver listas.ts) e no bloco de código, Tab e Shift+Tab no recuo do texto e no nível dos itens (e os
- * dois espaços no código), as marcas, o código (Ctrl+E, que numa linha vazia ou em várias linhas faz o
- * bloco) e o desfazer (o Ctrl+Alt+Enter da tarefa mora no visual-editor.ts).
+ * (ver listas.ts) e no bloco de código, Tab e Shift+Tab no recuo do texto e no nível dos itens (e no
+ * recuo do código, com as teclas de core/code-edit.ts), as marcas, o código (Ctrl+E, que numa linha vazia
+ * ou em várias linhas faz o bloco) e o desfazer (o Ctrl+Alt+Enter da tarefa mora no visual-editor.ts).
  */
 
 const N = schema.nodes;
@@ -41,7 +43,8 @@ export function paraLinhas(tr: Transaction, pos: number, bloco: PMNode): PMNode[
   const linhas = bloco.textContent.split('\n').map((t) => {
     const lead = /^[ \t]*/.exec(t)![0];
     const resto = t.slice(lead.length);
-    return N['linha'].create({ recuo: Math.min(40, base + (resto ? largura(lead) : 0)) }, resto ? schema.text(resto) : []);
+    // (o bloco de dentro de um card: as linhas ficam nele)
+    return N['linha'].create({ recuo: Math.min(40, base + (resto ? largura(lead) : 0)), cartao: bloco.attrs['cartao'] }, resto ? schema.text(resto) : []);
   });
   tr.replaceWith(pos, pos + bloco.nodeSize, linhas);
   return linhas;
@@ -84,7 +87,7 @@ export const emBloco: Command = (state, dispatch) => {
     const texto = linhas.join('\n');
     const de = nos[0][1];
     const ultimo = nos[nos.length - 1];
-    const tr = state.tr.replaceWith(de, ultimo[1] + ultimo[0].nodeSize, BC.create({ recuo }, texto ? schema.text(texto) : []));
+    const tr = state.tr.replaceWith(de, ultimo[1] + ultimo[0].nodeSize, BC.create({ recuo, cartao: nos[0][0].attrs['cartao'] ?? null }, texto ? schema.text(texto) : []));
     dispatch(tr.setSelection(TextSelection.create(tr.doc, de + 1, de + 1 + texto.length)).scrollIntoView());
   }
   return true;
@@ -115,58 +118,124 @@ export const codigo: Command = (state, dispatch) => {
   return marca(M['codigo'])(state, dispatch);
 };
 
+/** A seleção num bloco de código só: o bloco, ou null. */
+function noBloco(state: EditorState): PMNode | null {
+  const { $from, $to } = state.selection;
+  return $from.depth === 1 && $from.parent.type === BC && $from.sameParent($to) ? $from.parent : null;
+}
+
 /**
- * Enter no bloco de código: a quebra de linha dentro dele. Numa linha vazia no fim do bloco, sai dele (a
- * linha vazia sai junto, e a linha nova embaixo tem o recuo do bloco). Shift+Enter quebra sempre.
+ * Uma tecla de core/code-edit.ts no bloco da seleção: troca só o que mudou (as cores e o desfazer andam com
+ * as letras). Fora de um bloco, ou com a conta dizendo que a tecla não é dela (null), a tecla passa.
  */
-export const enterNoCodigo =
-  (sair: boolean): Command =>
+const noCodigo =
+  (conta: (s: CodeState, o: CodeOptions) => CodeState | null): Command =>
   (state, dispatch) => {
-    const { $from, $to, empty } = state.selection;
-    if ($from.depth !== 1 || $from.parent.type !== BC || !$from.sameParent($to)) return false;
-    const bloco = $from.parent;
-    if (sair && empty && $from.parentOffset === bloco.content.size && bloco.textContent.endsWith('\n')) {
-      if (dispatch) {
-        const tr = state.tr.delete($from.pos - 1, $from.pos);
-        const at = tr.mapping.map($from.after());
-        tr.insert(at, N['linha'].create({ recuo: bloco.attrs['recuo'] }));
-        dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView());
-      }
-      return true;
+    const bloco = noBloco(state);
+    if (!bloco) return false;
+    const { $from, $to, anchor, head } = state.selection;
+    const antes = bloco.textContent;
+    const depois = conta({ text: antes, from: $from.parentOffset, to: $to.parentOffset }, { lang: bloco.attrs['lingua'] ?? '' });
+    if (!depois) return false;
+    if (dispatch) {
+      const inicio = $from.start();
+      const d = codeDiff(antes, depois.text);
+      const tr = state.tr;
+      if (d.ins) tr.replaceWith(inicio + d.de, inicio + d.ate, schema.text(d.ins));
+      else if (d.ate > d.de) tr.delete(inicio + d.de, inicio + d.ate);
+      // a seleção volta no sentido em que estava (quem estende com o Shift continua da mesma ponta)
+      const [a, b] = anchor <= head ? [depois.from, depois.to] : [depois.to, depois.from];
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, inicio + a, inicio + b)).scrollIntoView());
     }
-    if (dispatch) dispatch(state.tr.insertText('\n').scrollIntoView());
     return true;
   };
 
 /**
- * Tab no bloco de código: dois espaços (não muda o nível do bloco); com várias linhas selecionadas, dois
- * espaços no começo de cada uma. Shift+Tab tira até dois do começo de cada linha; sem nada para tirar,
- * passa (o foco sai da folha, como fora do código).
+ * Enter no bloco de código: a quebra de linha com o recuo da de cima (ver core/code-edit.ts). Numa linha
+ * vazia (ou só de recuo) no fim do bloco, sai dele: a linha sai junto, e a linha nova embaixo tem o recuo
+ * do bloco. A cerca escrita na última linha também sai dele, como quem fecha o bloco no Markdown.
+ * Shift+Enter quebra sempre.
  */
-const tabNoCodigo =
-  (dir: 1 | -1): Command =>
+export const enterNoCodigo =
+  (sair: boolean): Command =>
   (state, dispatch) => {
-    const { $from, $to, empty } = state.selection;
-    if ($from.depth !== 1 || $from.parent.type !== BC || !$from.sameParent($to)) return false;
-    if (dir > 0 && empty) {
-      if (dispatch) dispatch(state.tr.insertText('  ').scrollIntoView());
-      return true;
-    }
-    const texto = $from.parent.textContent;
-    const comecos = [texto.lastIndexOf('\n', $from.parentOffset - 1) + 1];
-    // as linhas que a seleção pega (a do fim, se ela acaba logo no começo dela, não conta)
-    for (let k = texto.indexOf('\n', comecos[0]); k !== -1 && k + 1 < $to.parentOffset + (empty ? 1 : 0); k = texto.indexOf('\n', k + 1)) comecos.push(k + 1);
-    const tr = state.tr;
-    const inicio = $from.start();
-    for (const c of comecos.reverse()) {
-      if (dir > 0) tr.insertText('  ', inicio + c);
-      else {
-        const n = /^ {0,2}/.exec(texto.slice(c))![0].length;
-        if (n) tr.delete(inicio + c, inicio + c + n);
+    const bloco = noBloco(state);
+    if (!bloco) return false;
+    const { $from, empty } = state.selection;
+    if (sair && empty && $from.parentOffset === bloco.content.size) {
+      const texto = bloco.textContent;
+      const quebra = texto.lastIndexOf('\n');
+      const ultima = texto.slice(quebra + 1);
+      const cerca = closes(ultima, bloco.attrs['cerca']);
+      if ((quebra >= 0 && !ultima.trim()) || cerca) {
+        if (dispatch) {
+          const inicio = $from.start();
+          const tr = state.tr.delete(inicio + Math.max(0, quebra), $from.pos);
+          const at = tr.mapping.map($from.after());
+          // (a linha nova continua no card de quem saiu dele; o Enter de novo sai do card)
+          tr.insert(at, N['linha'].create({ recuo: bloco.attrs['recuo'], cartao: bloco.attrs['cartao'] }));
+          dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView());
+        }
+        return true;
       }
     }
-    if (!tr.docChanged) return false;
-    if (dispatch) dispatch(tr.scrollIntoView());
+    return noCodigo(codeEnter)(state, dispatch);
+  };
+
+/** Tab e Shift+Tab no bloco: o recuo do código (não muda o nível do bloco), e a tecla nunca sai dele. */
+const tabNoCodigo = (dir: 1 | -1): Command => noCodigo((s, o) => codeTab(s, dir, o));
+
+/** Backspace no recuo do código: volta uma parada de uma vez (ver core/code-edit.ts). */
+export const apagarRecuoDoCodigo: Command = noCodigo(codeBackspace);
+
+/** Alt+seta: as linhas sobem e descem; Shift+Alt+seta: a cópia; Ctrl+Shift+K: saem. Fora do bloco, a tecla passa. */
+const moverNoCodigo = (dir: 1 | -1): Command =>
+  (state, dispatch) => !!noBloco(state) && (noCodigo((s) => codeMoveLines(s, dir))(state, dispatch) || true);
+const duplicarNoCodigo = (dir: 1 | -1): Command => noCodigo((s) => codeDuplicateLines(s, dir));
+const apagarLinhasDoCodigo: Command = noCodigo(codeDeleteLines);
+
+/** Ctrl+/: comenta (ou tira o comentário), na linguagem do bloco. Sem saber como ela comenta, a tecla é a da Ajuda. */
+export const comentarNoCodigo: Command = noCodigo(codeComment);
+
+/** Home: o começo das letras da linha, e de novo, o começo da linha (com o Shift, a seleção vai junto). */
+const homeNoCodigo =
+  (estende: boolean): Command =>
+  (state, dispatch) => {
+    const bloco = noBloco(state);
+    if (!bloco) return false;
+    if (dispatch) {
+      const { $from, anchor, head } = state.selection;
+      const inicio = $from.start();
+      const para = inicio + codeHome(bloco.textContent, head - inicio);
+      dispatch(state.tr.setSelection(TextSelection.create(state.doc, estende ? anchor : para, para)).scrollIntoView());
+    }
+    return true;
+  };
+
+/** Ctrl+A no bloco: primeiro as letras dele; de novo (já todas selecionadas), o texto inteiro. */
+const selecionarNoCodigo: Command = (state, dispatch) => {
+  const bloco = noBloco(state);
+  if (!bloco) return false;
+  const { $from, $to } = state.selection;
+  if ($from.parentOffset === 0 && $to.parentOffset === bloco.content.size) return false;
+  if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, $from.start(), $from.end())));
+  return true;
+};
+
+/**
+ * A seta para baixo na última linha do último bloco (ou para cima na primeira do primeiro): uma linha nova
+ * do lado de fora, com o cursor nela. Sem isso, o bloco no fim do texto prendia o cursor.
+ */
+const setaParaFora =
+  (dir: 1 | -1): Command =>
+  (state, dispatch, view) => {
+    const bloco = noBloco(state);
+    const { $from, empty } = state.selection;
+    if (!bloco || !empty) return false;
+    const i = $from.index(0);
+    if (dir > 0 ? i + 1 < state.doc.childCount : i > 0) return false;
+    if (view && !view.endOfTextblock(dir > 0 ? 'down' : 'up')) return false;
+    if (dispatch) dispatch(linhaNova(state, dir > 0 ? $from.after() : $from.before()));
     return true;
   };
 
@@ -211,11 +280,11 @@ const enterDaLinha: Command = (state, dispatch) => {
   const recuo: number = node.attrs['recuo'] ?? 0;
   // o bloco de código: "```" (ou "~~~") sozinho na linha e Enter (um atalho de digitação; o Ctrl+Z volta),
   // com a linguagem escrita logo depois ("```js"), como no Obsidian
-  const cerca = sel.empty && node.type === N['linha'] && $from.parentOffset === node.content.size && !node.firstChild?.marks.length ? /^(`{3,}|~{3,})([^`~\s]*)$/.exec(node.textContent) : null;
+  const cerca = sel.empty && node.type === N['linha'] && $from.parentOffset === node.content.size && !node.firstChild?.marks.length ? /^(`{3,}|~{3,})[ \t]*([^`~]*)$/.exec(node.textContent) : null;
   if (cerca) {
     if (dispatch) {
       const at = $from.before();
-      const tr = state.tr.replaceWith(at, $from.after(), BC.create({ recuo, cerca: cerca[1], lingua: cerca[2] }));
+      const tr = state.tr.replaceWith(at, $from.after(), BC.create({ recuo, cartao: node.attrs['cartao'] ?? null, cerca: cerca[1], lingua: cerca[2].trim() }));
       dispatch(tr.setSelection(TextSelection.create(tr.doc, at + 1)).scrollIntoView());
     }
     return true;
@@ -274,8 +343,14 @@ export const apagarNoComeco: Command = (state, dispatch) => {
   if (!empty || !$from.parent.isTextblock || $from.parentOffset > 0 || $from.depth !== 1) return false;
   const node = $from.parent;
   const pos = $from.before();
-  // no começo do bloco de código, ele volta a ser texto (o vazio, uma linha vazia)
+  // no começo do bloco de código, ele volta a ser texto (o vazio, uma linha vazia); com uma linha vazia em
+  // cima, só ela sai, e o bloco sobe inteiro
   if (node.type === BC) {
+    const cima = $from.index(0) > 0 ? state.doc.child($from.index(0) - 1) : null;
+    if (cima?.type === N['linha'] && !cima.content.size && node.content.size) {
+      if (dispatch) dispatch(state.tr.delete(pos - cima.nodeSize, pos).scrollIntoView());
+      return true;
+    }
     if (dispatch) {
       const tr = state.tr;
       paraLinhas(tr, pos, node);
@@ -296,6 +371,16 @@ export const apagarNoComeco: Command = (state, dispatch) => {
     return true;
   }
   const antes = $from.index(0) > 0 ? state.doc.child($from.index(0) - 1) : null;
+  // a linha embaixo de um bloco de código não entra nele (as marcas dela não cabem): a vazia sai, e da que tem
+  // texto o cursor só vai para o fim do bloco
+  if (antes?.type === BC && node.type !== BC) {
+    if (dispatch) {
+      const tr = state.tr;
+      if (!node.content.size) tr.delete(pos, $from.after());
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, pos - 1)).scrollIntoView());
+    }
+    return true;
+  }
   if (antes?.isAtom) {
     if (dispatch) {
       const tr = state.tr;
@@ -319,6 +404,11 @@ const apagarNoFim: Command = (state, dispatch) => {
     if (dispatch && !$from.parent.content.size) dispatch(state.tr.delete($from.before(), $from.after()).scrollIntoView());
     return true;
   }
+  // no fim do bloco, ele também não engole o que vem embaixo: a linha vazia sai, e o resto fica como está
+  if ($from.parent.type === BC && depois && !depois.isAtom) {
+    if (dispatch && depois.type === N['linha'] && !depois.content.size) dispatch(state.tr.delete($from.after(), $from.after() + depois.nodeSize).scrollIntoView());
+    return true;
+  }
   if (!depois?.isAtom) return false;
   if (dispatch) dispatch(state.tr.setSelection(NodeSelection.create(state.doc, $from.after())).scrollIntoView());
   return true;
@@ -328,7 +418,7 @@ const apagarNoFim: Command = (state, dispatch) => {
  * O apagar: uma seleção que toca uma tabela só tira texto, e a tabela nunca se desmancha nem se junta a uma
  * linha pelo apagar (as lições do Android, ver tabela.ts); o resto, como numa linha.
  */
-export const apagarParaTras: Command = chainCommands(undoInputRule, apagarSelecao, deleteSelection, apagarNaTabela(-1), apagarNoCartao, apagarNoComeco, entrarNaTabela(-1), joinBackward);
+export const apagarParaTras: Command = chainCommands(undoInputRule, apagarSelecao, deleteSelection, apagarRecuoDoCodigo, apagarNaTabela(-1), apagarNoCartao, apagarNoComeco, entrarNaTabela(-1), joinBackward);
 export const apagarParaFrente: Command = chainCommands(apagarSelecao, deleteSelection, apagarNaTabela(1), entrarNaTabela(1), apagarNoFim, joinForward, selectNodeForward);
 
 /**
@@ -437,8 +527,21 @@ export const teclas = (): Plugin =>
     Delete: apagarParaFrente,
     Tab: chainCommands(tabNaPeca, tabNaTabela(1), tabNoCodigo(1), recuar(1)),
     'Shift-Tab': chainCommands(tabNaTabela(-1), tabNoCodigo(-1), recuar(-1)),
-    // tudo (e, apagado, o texto vira uma linha vazia: a tabela sai junto, como no Docs)
-    'Mod-a': selectAll,
+    // as de um editor de código, só dentro do bloco (fora dele, a tecla passa)
+    'Mod-]': tabNoCodigo(1),
+    'Mod-[': tabNoCodigo(-1),
+    'Alt-ArrowUp': moverNoCodigo(-1),
+    'Alt-ArrowDown': moverNoCodigo(1),
+    'Shift-Alt-ArrowUp': duplicarNoCodigo(-1),
+    'Shift-Alt-ArrowDown': duplicarNoCodigo(1),
+    'Mod-Shift-k': apagarLinhasDoCodigo,
+    'Mod-/': comentarNoCodigo,
+    Home: homeNoCodigo(false),
+    'Shift-Home': homeNoCodigo(true),
+    ArrowUp: setaParaFora(-1),
+    ArrowDown: setaParaFora(1),
+    // tudo (e, apagado, o texto vira uma linha vazia: a tabela sai junto, como no Docs); no bloco, as letras dele primeiro
+    'Mod-a': chainCommands(selecionarNoCodigo, selectAll),
     'Mod-b': marca(M['negrito']),
     'Mod-i': marca(M['italico']),
     'Mod-e': codigo,

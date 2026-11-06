@@ -1983,6 +1983,17 @@ The user found the inline code and the code block ugly, asked for Obsidian's lan
 - **Choosing the language, like the card.** In the Visual, the block holding the caret shows two kit stickers in its header line: the language pill (code icon, the name, a chevron; it takes the printed name's place) and Copiar. The pill opens the toolbar's **Código** menu (shown while the caret is in a block, in both modes, after Card): "Linguagem" with a search field (focused on open; Enter takes the first match or the typed word), "Ou escreva depois das crases: ```js", "Sem linguagem" and the common ones, each with the word to type on a form slip beside its name in Kalam, the current one on the yellow highlighter with a check; an unknown typed word offers "Usar “…”" (no colours); and "Bloco": Copiar o código, Desfazer o bloco. Inserir › Bloco de código (typed ```` ``` ````) puts the block and opens the menu asking for the language. Typing ```` ```js ```` and Enter in the Visual keeps the language.
 - **PDF.** Obsidian-quiet: the warm grey box, Cascadia, the inks flat on it, the language small in the top corner, no form, holes or Copiar.
 
+## Os temas do código (code themes, 2026-11-06)
+
+The owner asked for dark themes "like the current VS Code, Dracula and Swift in dark Xcode", with the block still fitting the wall. Structure chosen without a decision round: **the same continuous-form sheet in other inks**, never a pasted editor. The holes still show the cartolina, the header line, the perforation and the ruling all stay, and only the colours change.
+
+- **Four themes:** Papel (the approved sheet, untouched: every colour is the fallback of a `var()`, so without a theme there is nothing to change), VS Code (Dark Modern, with the control words purple through `tk-ctl`), Dracula (the comment lightened from `#6272a4`, which gives only 3:1) and Xcode (Default Dark, keywords in a real Cascadia Mono 700). All inks reach 4.5:1 on the paper and on the band; the spec checks them, and the removed ink on its own tint too.
+- **Where it is chosen:** each block writes it after the fence (` ```js tema=dracula `, ignored by other markdown readers); blocks without one follow Ajustes › Mural › Tema do código, which each reader sets for themselves and which syncs with the mural settings. In the "Código" menu the Tema section shows a cut of each sheet, and choosing keeps the menu open to compare.
+- **The PDF stays on paper:** `codigo-sem-tema` puts the variables back to their fallback; a dark sheet is for the screen.
+- **On touch** the menu opens with the focus on itself and not on the search field: the keyboard would cover the Tema section.
+
+The keys of the block live in `core/code-edit.ts`, pure and shared by the Visual and the Markdown, so the two modes behave alike. Tab follows the indent the block already uses, Shift+Tab never leaves the block (the arrows do), and the indent of the fence is written in every line, so the letters can no longer end up left of the fence.
+
 ## O Calendário nas Utilidades (navigation pass, 2026-11-02)
 
 The user asked for the Calendário to leave Anotações for Utilidades, making room for the Estudos section planned in `PLANO-ESTUDOS.md`. Only the place changed; every view, sheet and logo stays as described in "Calendário" and "Logos das seções".

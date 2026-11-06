@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal } from '@angular/core';
 import { ICON, IconModule } from './icons';
-import { CodeLang, codeLangInfo, codeLangOf, codeLangWord, codeLangsFor, typedCodeLang } from '../core/code-langs';
+import { CODE_THEMES, CODE_THEME_NAMES, CodeLang, codeLangInfo, codeLangOf, codeLangWord, codeLangsFor, codeThemeOf, typedCodeLang } from '../core/code-langs';
+import { Settings } from '../core/settings';
 
 let seq = 0;
 
@@ -12,6 +13,7 @@ let seq = 0;
  * - "Linguagem": o campo onde se escreve o nome (ou o jeito curto: "js", "py"), filtrando a lista; sem
  *   nada escrito, as comuns e "Sem linguagem". Cada uma mostra, num recorte do formulário, a palavra que
  *   vai depois das crases. O nome que não está na lista também vale ("Usar “elixir”", sem cores).
+ * - "Tema": o fundo e as cores deste bloco (ver core/code-langs.ts), com um recorte de cada um; "Padrão" segue os Ajustes.
  * - "Bloco": copiar o código (só as letras) e desfazer o bloco (as letras voltam a ser texto).
  *
  * Teclado: o foco abre no campo; Enter escolhe a primeira da lista (ou o que se escreveu), a seta para
@@ -69,16 +71,37 @@ let seq = 0;
         }
       </div>
     </div>
-    <div class="coluna" role="group" [attr.aria-labelledby]="uid + '-b'">
-      <p class="secao" [id]="uid + '-b'" aria-hidden="true">Bloco</p>
-      <button type="button" role="menuitem" tabindex="-1" class="menu-op acao" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="copy.emit()">
-        <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
-        <span class="nome">Copiar o código</span>
-      </button>
-      <button type="button" role="menuitem" tabindex="-1" class="menu-op acao" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="undo.emit()">
-        <lucide-icon [img]="UnwrapIcon" [size]="17" aria-hidden="true" />
-        <span class="nome">Desfazer o bloco</span>
-      </button>
+    <div class="coluna">
+      <div class="parte" role="group" [attr.aria-labelledby]="uid + '-t'">
+        <p class="secao" [id]="uid + '-t'" aria-hidden="true">Tema</p>
+        <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="!ownTheme()" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="theme.emit('')">
+          <span class="amostra" [attr.data-tema]="defaultTheme()" aria-hidden="true"><b>if</b>&ngsp;<i>"a"</i></span>
+          <span class="nome">Padrão<small>{{ themeNames[defaultTheme()] }}, dos Ajustes</small></span>
+          @if (!ownTheme()) {
+            <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+          }
+        </button>
+        @for (t of themes; track t) {
+          <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="ownTheme() === t" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="theme.emit(t)">
+            <span class="amostra" [attr.data-tema]="t" aria-hidden="true"><b>if</b>&ngsp;<i>"a"</i></span>
+            <span class="nome">{{ themeNames[t] }}</span>
+            @if (ownTheme() === t) {
+              <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+            }
+          </button>
+        }
+      </div>
+      <div class="parte" role="group" [attr.aria-labelledby]="uid + '-b'">
+        <p class="secao bloco" [id]="uid + '-b'" aria-hidden="true">Bloco</p>
+        <button type="button" role="menuitem" tabindex="-1" class="menu-op acao" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="copy.emit()">
+          <lucide-icon [img]="CopyIcon" [size]="17" aria-hidden="true" />
+          <span class="nome">Copiar o código</span>
+        </button>
+        <button type="button" role="menuitem" tabindex="-1" class="menu-op acao" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="undo.emit()">
+          <lucide-icon [img]="UnwrapIcon" [size]="17" aria-hidden="true" />
+          <span class="nome">Desfazer o bloco</span>
+        </button>
+      </div>
     </div>
   `,
   styles: `
@@ -90,7 +113,8 @@ let seq = 0;
     }
     /* numa coluna só (estreita, ou presa em cima do teclado), as partes uma embaixo da outra, com o
        risco tracejado entre elas, como nos outros menus de duas partes da régua */
-    .coluna {
+    .coluna,
+    .parte {
       display: grid;
       align-content: start;
       min-width: 0;
@@ -222,6 +246,32 @@ let seq = 0;
     .cod-recorte.vazio {
       visibility: hidden;
     }
+    .secao.bloco {
+      margin-top: 8px;
+    }
+    /* o tema: um recorte da própria folha, com o fundo e duas tintas dele */
+    @include formatado.codigo-temas('.amostra');
+    .amostra {
+      justify-self: start;
+      padding: 0 0.42em 0.06em;
+      border-radius: 2px 3px 2px 3px;
+      background: var(--cod-fundo, #fbfcf6);
+      box-shadow:
+        0 0 0 1px var(--cod-beira, rgb(47 107 58 / 0.2)),
+        0 1px 1px rgb(0 0 0 / 0.16);
+      font-family: var(--f-codigo);
+      font-size: 0.82rem;
+      line-height: 1.5;
+      white-space: nowrap;
+    }
+    .amostra b {
+      color: var(--tk-pal, #5b2d8e);
+      font-weight: var(--tk-pal-peso, 400);
+    }
+    .amostra i {
+      color: var(--tk-txt, #0b6b33);
+      font-style: normal;
+    }
     .marcado {
       color: var(--ink);
     }
@@ -250,16 +300,30 @@ export class CodeLangsMenu {
   readonly lingua = input('');
   /** A linguagem escolhida: o que vai depois das crases ("" tira a que tinha). */
   readonly pick = output<string>();
+  /** O tema escolhido ("" volta ao padrão dos Ajustes). */
+  readonly theme = output<string>();
   readonly copy = output<void>();
   readonly undo = output<void>();
   /** O teclado saiu do menu: Esc (volta para quem abriu) ou Tab (segue adiante). */
   readonly leave = output<'escape' | 'tab'>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly settings = inject(Settings);
+
+  protected readonly themes = CODE_THEMES;
+  protected readonly themeNames = CODE_THEME_NAMES;
+  /** O tema escrito no bloco (null: segue o padrão). */
+  protected readonly ownTheme = computed(() => codeThemeOf(this.lingua()));
+  protected readonly defaultTheme = computed(() => this.settings.notesConfig().codeTheme);
 
   constructor() {
-    // abre com o foco no campo: escrever é o jeito de achar uma entre tantas
-    afterNextRender(() => this.host.nativeElement.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true }));
+    // abre com o foco no campo: escrever é o jeito de achar uma entre tantas. No toque, o foco fica no menu: o
+    // teclado subindo cobriria o Tema e as ações, e a lista já mostra as comuns
+    afterNextRender(() => {
+      const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+      const target = touch ? this.host.nativeElement : this.host.nativeElement.querySelector<HTMLInputElement>('input');
+      target?.focus({ preventScroll: true });
+    });
   }
 
   protected readonly uid = 'codigo-' + ++seq;
