@@ -86,6 +86,39 @@ describe('murais pela nuvem (código e link)', () => {
     expect(calls).toEqual(['/v1/murais/K7QF-M2XA']);
   });
 
+  it('traz os baralhos públicos e as anotações das cartas fora do mural, e guarda tudo', async () => {
+    const note = (id: string, name: string) => ({ ...review(id, name), kind: 'anotacoes', scores: { final: 0 }, category: 'Japonês' });
+    const at = '2026-11-05T15:00:00.000Z';
+    published.set('K7QF-M2XA', {
+      rev: 5,
+      doc: {
+        app: 'meu-mural',
+        version: 2,
+        owner: { name: 'Marina' },
+        reviews: [],
+        notas: [note('nsol', 'Sol')],
+        soKanban: [note('nlua', 'Lua'), note('noutra', 'Só no Kanban')],
+        estudos: {
+          decks: [{ id: 'dkanji', name: 'Kanji', icon: null, color: 'verde', group: 'Japonês', order: 0, at }],
+          cards: [
+            { note: 'nsol', decks: ['dkanji'], front: { title: '日' }, added: at, at },
+            { note: 'nlua', decks: ['dkanji'], front: { title: '月' }, added: at, at },
+          ],
+        },
+      },
+    });
+    const c = await murals.open('K7QF-M2XA');
+    expect(c.estudos?.decks.map((d) => d.name)).toEqual(['Kanji']);
+    expect(c.estudos?.cards.map((x) => x.note)).toEqual(['nlua', 'nsol']);
+    expect(c.studyNotes?.map((r) => r.id)).toEqual(['nlua']);
+    // o mural dela continua só com as do mural
+    expect(c.reviews.map((r) => r.id)).toEqual(['nsol']);
+    const again = new ColleagueStore();
+    await again.ready;
+    expect(again.colleagues()[0].estudos?.cards.length).toBe(2);
+    expect(again.colleagues()[0].studyNotes?.map((r) => r.id)).toEqual(['nlua']);
+  });
+
   it('abrir de novo pede só "mudou?" (204), e com mudança traz o novo', async () => {
     await murals.open('K7QF-M2XA');
     await murals.open('K7QF-M2XA');

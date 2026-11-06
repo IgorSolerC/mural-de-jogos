@@ -286,8 +286,11 @@ describe('limpar o navegador (sair da conta)', () => {
       ownerName: 'Marina',
       skipped: 0,
       reviews: [],
+      // os baralhos públicos dela e as anotações das cartas fora do mural (PLANO-BARALHOS-PUBLICOS.md)
+      estudos: { decks: [{ id: 'dk', name: 'Kanji', icon: null, color: 'amarelo', newPerDay: 5, group: 'Japonês', order: 0, at: '1970-01-01T00:00:00.000Z', public: true }], cards: [], progress: true },
     });
     expect(await databases()).toContain(COLLEAGUES_DB);
+    expect(colleagues.colleagues()[0].estudos?.decks.length).toBe(1);
     expect(localStorage.getItem('meu-mural:colega-aberto')).toBe('nuvem:K7QFM2XA');
     localStorage.removeItem(SESSION_KEY);
     localStorage.setItem(RESET_KEY, JSON.stringify({ keep: [], motivo: 'saiu' }));

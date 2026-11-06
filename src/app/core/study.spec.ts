@@ -10,6 +10,7 @@ import {
   cardDecks,
   cardFace,
   deckLook,
+  deckShare,
   cleanFront,
   emptyStudy,
   frontTitle,
@@ -315,6 +316,44 @@ describe('os Estudos (core/study.ts)', () => {
       const here = answer(base, 'n2', true, new Date(at(10)));
       const there = answer(base, 'n2', false, new Date(at(11)));
       expect(mergeStudy(here, there).cards.find((c) => c.note === 'n2')!.stats.wrong).toBe(1);
+    });
+  });
+
+  describe('o baralho público (PLANO-BARALHOS-PUBLICOS.md)', () => {
+    it('nasce privado; o público vai e volta da nuvem e ganha da junção pela hora', () => {
+      let st = sample();
+      expect(st.decks.every((d) => !('public' in d))).toBeTrue();
+      st = updateDeck(st, 'dkanji', { public: true }, at(5));
+      expect(st.decks[0].public).toBeTrue();
+      expect(sanitizeStudy(JSON.parse(JSON.stringify(studyToSync(st)))).decks[0].public).toBeTrue();
+      // privado de novo: o campo sai, e a mudança mais nova vence a de antes
+      const back = updateDeck(st, 'dkanji', { public: undefined }, at(6));
+      expect('public' in back.decks[0]).toBeFalse();
+      expect('public' in mergeStudy(st, back).decks[0]).toBeFalse();
+      expect('public' in mergeStudy(back, st).decks[0]).toBeFalse();
+      // qualquer outro valor não é público
+      const raw = JSON.parse(JSON.stringify(studyToSync(sample())));
+      raw.decks[0].public = 'sim';
+      expect('public' in sanitizeStudy(raw).decks[0]).toBeFalse();
+    });
+
+    it('"Esconder o progresso nos Estudos" fica na configuração, só quando ligado', () => {
+      const on = setConfig(sample(), { hideProgress: true }, at(5));
+      expect(on.config.hideProgress).toBeTrue();
+      expect(sanitizeStudy(JSON.parse(JSON.stringify(on))).config.hideProgress).toBeTrue();
+      expect('hideProgress' in setConfig(on, { hideProgress: undefined }, at(6)).config).toBeFalse();
+    });
+
+    it('quantas cartas são de anotação pública: a porcentagem e as que ficam com o dono', () => {
+      const st = sample();
+      const live = (n: string) => n !== 'n9';
+      // Kanjis tem n1 e n2; n2 é privada
+      expect(deckShare(st, 'dkanji', live, (n) => n !== 'n2')).toEqual({ total: 2, shown: 1, percent: 50, hidden: ['n2'] });
+      expect(deckShare(st, 'dkanji', live, () => true).percent).toBe(100);
+      expect(deckShare(st, 'dkanji', live, () => false).percent).toBe(0);
+      // a de anotação apagada não conta; sem carta nenhuma, nada a perguntar
+      expect(deckShare(st, 'dkanji', (n) => n !== 'n2', () => false).total).toBe(1);
+      expect(deckShare(st, 'nenhum', live, () => false)).toEqual({ total: 0, shown: 0, percent: 100, hidden: [] });
     });
   });
 

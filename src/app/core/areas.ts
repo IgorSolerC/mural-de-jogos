@@ -51,6 +51,12 @@ export const SPENDING_PATH = '/utilidades/gastos';
 /** O mural de outra pessoa (pages/colleague-wall-page): fora das partes, com o cabeçalho e a parede dela. */
 export const VISIT_PATH = '/comparar/mural';
 
+/** É a visita: o mural da pessoa, ou os Estudos dela (`/comparar/mural/estudos/...`). */
+export function isVisitPath(path: string): boolean {
+  const p = pathOf(path);
+  return p === VISIT_PATH || p.startsWith(VISIT_PATH + '/');
+}
+
 /** A página Autorizar: um conector (claude.ai, Claude Code) pedindo acesso pelo OAuth (PLANO-API.md, 11.2). */
 export const AUTHORIZE_PATH = '/autorizar';
 
@@ -71,6 +77,14 @@ export function kanbanPath(board?: string): string {
  */
 export function studyPath(group?: string | null, deck?: string | null): string {
   return '/anotacoes/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
+}
+
+/**
+ * Os Estudos de quem se visita (PLANO-BARALHOS-PUBLICOS.md): os baralhos públicos da pessoa aberta no mural
+ * do colega, por grupo e baralho como os seus.
+ */
+export function visitStudyPath(group?: string | null, deck?: string | null): string {
+  return '/comparar/mural/estudos' + (group ? `/${group}` + (deck ? `/${deck}` : '') : '');
 }
 
 /**

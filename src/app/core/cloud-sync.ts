@@ -21,6 +21,7 @@ import { SpendingState, sanitizeSpending, spendingToSync } from './spending';
 import { SpendingStore } from './spending-store';
 import { StudyState, sanitizeStudy, studyToSync } from './study';
 import { StudyStore } from './study-store';
+import { publicStudy, publicStudyGroups } from './public-study';
 import { BackupPayload, KnownVersion, ReviewStore, canonicalJson, payloadReviews } from './review-store';
 import { Settings } from './settings';
 import { hideCardTitles } from './widgets';
@@ -203,11 +204,13 @@ export const BASE_KEY = 'meu-mural:nuvem:base';
  *     fora ao enviar os Estudos, e o baralho voltaria para a Clássica em todo aparelho.
  * 52: o grupo de cada baralho dos Estudos (`group`, PLANO-ESTUDOS-GRUPOS.md). Um site da 51 jogaria o campo
  *     fora ao enviar os Estudos, e o baralho perderia o grupo (e as cartas, até a conversão de novo).
+ * 53: o baralho público (`public`) e "Esconder o progresso nos Estudos" (`hideProgress` na configuração),
+ *     PLANO-BARALHOS-PUBLICOS.md. Um site da 52 jogaria os dois fora, e o baralho deixaria de ser público.
  *
  * Tirar um campo não pede versão nova (só a impressão do teste muda): o site antigo continua lendo o
  * que conhece, só não recebe mais o que saiu. Saiu assim o tamanho da anotação (`noteSize`, 1.23.9).
  */
-export const SYNC_SCHEMA = 52;
+export const SYNC_SCHEMA = 53;
 
 export { SYNC_STORAGE };
 export type { KeyValueStore };
@@ -482,9 +485,9 @@ export function boardOnlyNotes(notes: unknown, boardOnly: ReadonlySet<string>): 
  * mexer em algo. 2: as anotações que estão só no Kanban saem do público. 3: elas voltam ao público à
  * parte (`soKanban`), fora do mural de quem visita, para o link da ficha. 4: a nota colada perde o
  * título sempre que não está à mostra (também a apagada e a de outra pessoa numa compartilhada) e
- * também no "Sobre mim" do perfil.
+ * também no "Sobre mim" do perfil. 5: os baralhos públicos dos Estudos (`estudos`, ver core/public-study.ts).
  */
-export const PUBLIC_RULES = 4;
+export const PUBLIC_RULES = 5;
 
 /**
  * A impressão do público que foi junto com este mural privado (`sync.publico`, ver `publicPrint`):
@@ -1732,6 +1735,12 @@ export class CloudSync {
     const soKanban = [...boardOnlyNotes(doc.notas, board), ...boardShared].map((n) => shownCard(n, hidden));
     // tudo o que os outros veem com nota: as resenhas de sempre e as de música
     const scored = [...reviews, ...musicas];
+    // os baralhos públicos, só com as cartas de anotações à mostra (no mural ou só fora dele)
+    const boardIds = publicIds([], soKanban);
+    const view = this.study.view();
+    const estudosPublicos = publicStudy(view, (id) => shownIds.has(id) || boardIds.has(id), !!this.study.config().hideProgress);
+    // o grupo de um baralho público leva o ícone e a cor dele, como o de uma anotação publicada
+    const studyGroups = estudosPublicos ? publicStudyGroups(view).map((category) => ({ category })) : [];
     const publicText =
       // o que os outros veem: sem as fichas privadas (nem o id delas nas seções do perfil)
       JSON.stringify({
@@ -1744,7 +1753,8 @@ export class CloudSync {
         notas,
         ...(musicas.length ? { musicas } : {}),
         ...(soKanban.length ? { soKanban } : {}),
-        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban]) } : {}),
+        ...(estudosPublicos ? { estudos: estudosPublicos } : {}),
+        ...(looks ? { categorias: publicCategoryLooks(looks.mapa, [...notas, ...soKanban, ...studyGroups]) } : {}),
         // o "Sobre mim" também cola notas: a que não está à mostra vai sem o título
         ...(profile ? { perfil: shownProfile(profile.dados, shownIds) } : {}),
       });
@@ -1771,7 +1781,7 @@ export class CloudSync {
     form.append('cartao', JSON.stringify(cartao));
     // as fichas à mostra: a nuvem esconde dos outros as reações, os comentários e os avisos das que não
     // estão (as só no Kanban estão, pelo link)
-    form.append('fichas', JSON.stringify([...new Set([...shownIds, ...publicIds([], soKanban)])]));
+    form.append('fichas', JSON.stringify([...new Set([...shownIds, ...boardIds])]));
     // as imagens coladas: as que estão à mostra (a nuvem as entrega a quem visita) e todas as que o mural
     // usa (as outras ficam soltas e saem da nuvem em 30 dias)
     form.append('imagens', JSON.stringify({ publicas: localImageIds(publicText), usadas: localImageIds(privateText + publicText) }));

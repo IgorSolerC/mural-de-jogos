@@ -4,6 +4,7 @@ import { parseBackupSnapshot, readBackupFile } from './backup-file';
 import { Cloud } from './cloud-config';
 import { CloudAccount, CloudError } from './cloud-account';
 import { Colleague, ColleagueStore } from './colleague-store';
+import { readVisitStudy } from './public-study';
 import { Toasts } from '../ui/toast';
 
 /**
@@ -17,10 +18,10 @@ const FRESH_MS = 2 * 60_000;
 /**
  * O jeito de ler o mural de alguém (`parseBackupSnapshot`). Sobe quando a leitura passa a entender
  * algo novo no mural (2: as anotações, em `notas`; 3: o ícone e a cor das categorias, em
- * `categorias`; 4: o perfil, em `perfil`; 5: a parede do perfil e o fundo dos quadros das seções; 6: as molduras; 7: o mural de músicas, em `musicas`; 8: o jeito das pastas dos murais, `wallsLook` no perfil): o guardado por um site mais velho não serve para o "mudou?" (204), senão ficaria sem
+ * `categorias`; 4: o perfil, em `perfil`; 5: a parede do perfil e o fundo dos quadros das seções; 6: as molduras; 7: o mural de músicas, em `musicas`; 8: o jeito das pastas dos murais, `wallsLook` no perfil; 9: os baralhos públicos dos Estudos, em `estudos`, e as anotações das cartas que estão fora do mural): o guardado por um site mais velho não serve para o "mudou?" (204), senão ficaria sem
  * o que aquele site jogou fora até a pessoa mexer no mural.
  */
-export const MURAL_READER = 8;
+export const MURAL_READER = 9;
 
 /** O código como a pessoa digitou → `K7QF-M2XA` (O vira 0; I e L viram 1), ou null se não é um código. */
 export function normalizeCode(input: string): string | null {
@@ -90,7 +91,16 @@ export class CloudMurals {
       await this.colleagues.restore(same, select);
       return same;
     }
-    const snapshot = parseBackupSnapshot(await readBackupFile(await res.blob()));
+    const text = await readBackupFile(await res.blob());
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error('O mural que veio da nuvem não abriu.');
+    }
+    const snapshot = parseBackupSnapshot({ parsed });
+    const object = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+    const { estudos, studyNotes } = readVisitStudy(object, new Set(snapshot.reviews.map((r) => r.id)));
     // um nome que a pessoa deu aqui (diferente do que veio no mural) fica
     const renamed = existing && existing.name !== (existing.ownerName ?? existing.name);
     const colleague: Colleague = {
@@ -102,6 +112,8 @@ export class CloudMurals {
       codigo: code,
       rev: Number(res.headers.get('Mural-Rev')) || undefined,
       leitor: MURAL_READER,
+      ...(estudos ? { estudos } : {}),
+      ...(studyNotes.length ? { studyNotes } : {}),
     };
     await this.colleagues.restore(colleague, select);
     return colleague;

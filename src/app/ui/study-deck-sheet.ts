@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ICON, ICON_CHOICE, ICON_CHOICE_LABEL, IconModule } from './icons';
 import { ICON_CHOICES, IconChoice } from '../core/icon-choices';
 import { LIGHT_STOCKS, LightStock } from '../core/review';
@@ -7,7 +7,8 @@ import { CARD_LOOKS, CARD_LOOK_LABEL, CardLook, DECK_NAME_MAX, cardFace, deckLoo
 import { StudyStore } from '../core/study-store';
 import { pinningFor } from '../core/wall-physics';
 import { BackdropClose } from './backdrop-close';
-import { Confirm } from './confirm';
+import { Choice, Confirm } from './confirm';
+import { CloudAccount } from '../core/cloud-account';
 import { Pin } from './pin';
 import { StudyCard } from './study-card';
 import { Toasts } from './toast';
@@ -63,6 +64,23 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 <span class="sr-only">Nome do baralho</span>
                 <input #nome type="text" autocomplete="off" [maxLength]="nameMax" [value]="d.deck.name" (change)="rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
               </label>
+            </section>
+
+            <!-- quem vê: as duas etiquetas do Público e do Privado do editor da anotação; o baralho público mostra
+                 a quem visita o seu mural as cartas de anotações públicas (PLANO-BARALHOS-PUBLICOS.md) -->
+            <section class="grupo" aria-labelledby="ba-quem-t">
+              <h3 class="grupo-titulo" id="ba-quem-t">Quem vê</h3>
+              <div class="quem-opts" role="radiogroup" aria-labelledby="ba-quem-t" aria-describedby="ba-quem-dica">
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!!d.deck.public" [disabled]="asking()" (click)="setPublic(true)">
+                  <lucide-icon [img]="PublicIcon" [size]="16" aria-hidden="true" />
+                  Público
+                </button>
+                <button type="button" role="radio" class="quem-tag" [attr.aria-checked]="!d.deck.public" [disabled]="asking()" (click)="setPublic(false)">
+                  <lucide-icon [img]="PrivateIcon" [size]="16" aria-hidden="true" />
+                  Privado
+                </button>
+              </div>
+              <p class="quem-dica" id="ba-quem-dica">{{ shareHint() }}</p>
             </section>
 
             <section class="grupo" aria-labelledby="ba-cor-t">
@@ -137,6 +155,61 @@ const STOCK_LABEL: Record<LightStock, string> = {
   styleUrl: './kanban-column-sheet.scss',
   // o "Sem ícone": o recorte com o risco, como na folha do lembrete (ui/reminder-sheet.scss)
   styles: `
+    /* quem vê: as etiquetas do editor da anotação (ui/review-editor.scss, "Quem vê"), iguais; a escolhida sai
+       colada em tinta. Aqui são botões (role=radio), para a escolha só mudar quando o baralho muda (a pergunta
+       do "Tornar todas públicas" pode ser cancelada) */
+    .quem-opts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+    .quem-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 44px;
+      padding: 8px 14px 7px;
+      border: 0;
+      border-radius: 2px;
+      outline: 1.5px dashed rgb(21 21 21 / 0.45);
+      outline-offset: -1.5px;
+      background: transparent;
+      color: inherit;
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.9rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      line-height: 1;
+      cursor: pointer;
+      transition:
+        rotate var(--t-ui) var(--ease-ui),
+        background-color var(--t-ui) var(--ease-ui);
+    }
+    .quem-tag:hover:not([aria-checked='true']) {
+      background: rgb(21 21 21 / 0.07);
+    }
+    .quem-tag[aria-checked='true'] {
+      outline: 0;
+      background: var(--ink);
+      color: var(--paper);
+      rotate: -2deg;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 4px 8px -3px rgb(0 0 0 / 0.35);
+    }
+    .quem-tag:focus-visible {
+      box-shadow: 0 0 0 3px var(--paper), 0 0 0 6px var(--focus);
+    }
+    .quem-tag:disabled {
+      cursor: progress;
+    }
+    .quem-dica {
+      margin: 12px 0 0;
+      max-width: 52ch;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      color: var(--ink-2);
+    }
+
     .op.sem-icone::before {
       content: '';
       width: 22px;
@@ -208,6 +281,8 @@ export class StudyDeckSheet {
   protected readonly LeftIcon = ICON.voltar;
   protected readonly RightIcon = ICON.ir;
   protected readonly TrashIcon = ICON.apagar;
+  protected readonly PublicIcon = ICON.pessoas;
+  protected readonly PrivateIcon = ICON.privada;
   protected readonly icons = ICON_CHOICES;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly iconLabel = ICON_CHOICE_LABEL;
@@ -221,6 +296,7 @@ export class StudyDeckSheet {
   private readonly store = inject(ReviewStore);
   private readonly confirm = inject(Confirm);
   private readonly toasts = inject(Toasts);
+  private readonly account = inject(CloudAccount);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
 
@@ -234,6 +310,27 @@ export class StudyDeckSheet {
   });
 
   protected readonly current = computed(() => deckLook(this.data()?.deck));
+
+  /** A pergunta do "Tornar todas públicas" está aberta: as etiquetas esperam. */
+  protected readonly asking = signal(false);
+
+  /** O que a escolha quer dizer agora: quem vê o baralho e quantas cartas. */
+  protected readonly shareHint = computed(() => {
+    const d = this.data();
+    if (!d) return '';
+    if (!d.deck.public) return 'Só você vê este baralho.';
+    const s = this.study.share(d.deck.id);
+    const cards = (n: number) => (n === 1 ? '1 carta' : `${n} cartas`);
+    const who =
+      s.total === 0
+        ? 'Quem visita o seu mural vê o baralho, ainda sem cartas.'
+        : s.shown === s.total
+          ? `Quem visita o seu mural vê o baralho e ${s.total === 1 ? 'a carta' : `as ${s.total} cartas`}.`
+          : s.shown === 0
+            ? `Quem visita o seu mural vê o baralho, mas nenhuma das ${cards(s.total)}: são de anotações privadas, e ficam só com você.`
+            : `Quem visita vê ${s.shown} das ${cards(s.total)}. As de anotações privadas ficam só com você.`;
+    return this.account.signedIn() ? who : `${who} Para alguém ver, entre na sua conta.`;
+  });
 
   /** A carta das miniaturas: a primeira do baralho, como ela é; sem nenhuma, o nome do baralho. */
   protected readonly sample = computed(() => {
@@ -288,6 +385,52 @@ export class StudyDeckSheet {
   protected rename(name: string): void {
     if (!name.trim()) return;
     this.study.updateDeck(this.deckId(), { name });
+  }
+
+  /**
+   * Público ou Privado. Tornar público com cartas de anotações privadas pergunta antes (o pedido, com a
+   * porcentagem de verdade): tornar todas públicas (fora do Feed), só o baralho, ou nada.
+   */
+  protected async setPublic(on: boolean): Promise<void> {
+    const d = this.data();
+    if (!d || !!d.deck.public === on || this.asking()) return;
+    if (!on) {
+      this.study.updateDeck(d.deck.id, { public: undefined });
+      return;
+    }
+    const share = this.study.share(d.deck.id);
+    if (!share.hidden.length) {
+      this.study.updateDeck(d.deck.id, { public: true });
+      return;
+    }
+    this.asking.set(true);
+    let choice: Choice;
+    try {
+      choice = await this.confirm.choose({
+        title: 'Tornar o baralho público',
+        text: `Gostaria de tornar todas as cartas deste baralho públicas? ${share.percent}% das cartas desse baralho são públicas atualmente.`,
+        confirm: 'Tornar todas públicas',
+        secondary: 'Só o baralho',
+        cancel: 'Cancelar',
+      });
+    } finally {
+      this.asking.set(false);
+    }
+    // o baralho pode ter sumido (apagado noutro aparelho) enquanto a pergunta estava aberta
+    if (!choice || !this.study.deck(d.deck.id)) return;
+    const name = d.deck.name;
+    this.study.updateDeck(d.deck.id, { public: true });
+    if (choice === 'secondary') return;
+    const out = this.study.publishNotes(share.hidden);
+    const after = this.study.share(d.deck.id);
+    const rest = out.skipped
+      ? ` ${out.skipped === 1 ? '1 compartilhada continua privada' : `${out.skipped} compartilhadas continuam privadas`}: quem vê nelas muda em Compartilhar.`
+      : '';
+    const undo = () => {
+      out.undo();
+      if (this.study.deck(d.deck.id)?.public) this.study.updateDeck(d.deck.id, { public: undefined });
+    };
+    this.toasts.show(`${name} ficou público, com ${after.shown === 1 ? '1 carta' : `${after.shown} cartas`}.${rest}`, { label: 'Desfazer', run: undo }, 8000);
   }
 
   protected shift(by: number): void {

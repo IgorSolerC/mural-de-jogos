@@ -770,6 +770,86 @@ describe('página dos Estudos', () => {
     if (toast) expect(study.deck(kanji)).toBeDefined();
   });
 
+  describe('Público ou Privado (PLANO-BARALHOS-PUBLICOS.md)', () => {
+    /** Kanjis com Sol, Lua e Fogo; Lua e Fogo privadas: 33% públicas. */
+    function privateSome(): { kanji: string; store: ReviewStore } {
+      const out = seed();
+      const store = TestBed.inject(ReviewStore);
+      for (const id of ['nlua', 'nfogo']) store.update({ ...store.get(id)!, private: true });
+      return { kanji: out.kanji, store };
+    }
+    async function openSheet(kanji: string): Promise<HTMLDialogElement> {
+      await go(deckUrl(kanji));
+      $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
+      return sheetOpen();
+    }
+    const tag = (d: HTMLDialogElement, label: string) => [...d.querySelectorAll<HTMLButtonElement>('.quem-tag')].find((b) => text(b) === label)!;
+
+    it('nasce privado; com cartas privadas, a pergunta traz a porcentagem e "Tornar todas" publica fora do Feed', async () => {
+      const { kanji, store } = privateSome();
+      const confirm = TestBed.inject(Confirm) as unknown as { choose?: (o: { text: string }) => Promise<string | null> };
+      let asked = '';
+      confirm.choose = async (o) => ((asked = o.text), 'confirm');
+      const dialog = await openSheet(kanji);
+      expect(tag(dialog, 'Privado').getAttribute('aria-checked')).toBe('true');
+      expect(text(dialog.querySelector('.quem-dica'))).toBe('Só você vê este baralho.');
+      tag(dialog, 'Público').click();
+      await settle();
+      expect(asked).toBe('Gostaria de tornar todas as cartas deste baralho públicas? 33% das cartas desse baralho são públicas atualmente.');
+      expect(study.deck(kanji)!.public).toBeTrue();
+      expect(store.get('nlua')!.private).toBeUndefined();
+      expect(store.get('nlua')!.quiet).toBeTrue();
+      expect(tag(dialog, 'Público').getAttribute('aria-checked')).toBe('true');
+      expect(text(dialog.querySelector('.quem-dica'))).toContain('vê o baralho e as 3 cartas');
+      // a pilha e a pasta dizem que é público
+      dialog.close();
+      await settle();
+      expect($('.trilha-nome .nome-publico')).not.toBeNull();
+    });
+
+    it('"Só o baralho": as privadas ficam com o dono (o leitor de tela diz quais); Cancelar não muda nada', async () => {
+      const { kanji, store } = privateSome();
+      const confirm = TestBed.inject(Confirm) as unknown as { choose?: () => Promise<string | null> };
+      confirm.choose = async () => null;
+      let dialog = await openSheet(kanji);
+      tag(dialog, 'Público').click();
+      await settle();
+      expect(study.deck(kanji)!.public).toBeUndefined();
+      expect(tag(dialog, 'Privado').getAttribute('aria-checked')).toBe('true');
+      confirm.choose = async () => 'secondary';
+      tag(dialog, 'Público').click();
+      await settle();
+      expect(study.deck(kanji)!.public).toBeTrue();
+      expect(store.get('nlua')!.private).toBeTrue();
+      expect(text(dialog.querySelector('.quem-dica'))).toContain('Quem visita vê 1 das 3 cartas.');
+      dialog.close();
+      await settle();
+      // sem marca na tela (pedido do dono): só o leitor de tela ouve
+      expect($$('.carta-li .cadeado').length).toBe(0);
+      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê esta carta')).length).toBe(2);
+      // privado de novo: sem pergunta, sem cadeado
+      $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
+      dialog = await sheetOpen();
+      tag(dialog, 'Privado').click();
+      await settle();
+      expect(study.deck(kanji)!.public).toBeUndefined();
+      dialog.close();
+      await settle();
+      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê esta carta')).length).toBe(0);
+    });
+
+    it('com todas as cartas públicas, vira público direto, sem pergunta', async () => {
+      const { kanji } = seed();
+      const confirm = TestBed.inject(Confirm) as unknown as { choose?: () => Promise<string | null> };
+      confirm.choose = jasmine.createSpy('choose');
+      const dialog = await openSheet(kanji);
+      tag(dialog, 'Público').click();
+      await settle();
+      expect(confirm.choose).not.toHaveBeenCalled();
+      expect(study.deck(kanji)!.public).toBeTrue();
+    });
+  });
+
   it('o estilo das cartas: a folha mostra os dez com a primeira carta do baralho, e o escolhido vale na parede e na pilha', async () => {
     const { kanji, quimica } = seed();
     await go(deckUrl(kanji));

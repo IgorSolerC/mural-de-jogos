@@ -44,6 +44,41 @@ describe('os Estudos guardados (core/study-store.ts)', () => {
     expect(study.answer('nada', true)).toBeNull();
   });
 
+  describe('o baralho público (PLANO-BARALHOS-PUBLICOS.md)', () => {
+    /** Kanjis com Sol (pública), Lua e Mar (privadas); Mar é compartilhada (quem vê muda em Compartilhar). */
+    function setup(): { store: ReviewStore; deck: string } {
+      const store = TestBed.inject(ReviewStore);
+      store.reviews.set([note('nsol', 'Sol'), { ...note('nlua', 'Lua'), private: true }, { ...note('nmar', 'Mar'), private: true }]);
+      spyOn(store, 'sharedIds').and.returnValue(new Set(['nmar']));
+      const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+      for (const id of ['nsol', 'nlua', 'nmar']) study.addCard(id, [deck]);
+      return { store, deck };
+    }
+
+    it('conta as cartas de anotação pública: a porcentagem do aviso', () => {
+      const { deck } = setup();
+      expect(study.share(deck)).toEqual({ total: 3, shown: 1, percent: 33, hidden: ['nlua', 'nmar'] });
+    });
+
+    it('tornar todas públicas: fora do Feed, a compartilhada fica, e o Desfazer volta só as que mudaram', () => {
+      const { store, deck } = setup();
+      const out = study.publishNotes(study.share(deck).hidden);
+      expect(out.changed).toBe(1);
+      expect(out.skipped).toBe(1);
+      const lua = store.get('nlua')!;
+      expect(lua.private).toBeUndefined();
+      // pública sem ir ao Feed (a setinha "Pregar sem publicar no Feed")
+      expect(lua.quiet).toBeTrue();
+      expect(store.get('nmar')!.private).toBeTrue();
+      expect(study.share(deck).percent).toBe(67);
+      out.undo();
+      expect(store.get('nlua')!.private).toBeTrue();
+      expect(store.get('nlua')!.quiet).toBeUndefined();
+      // a que já era pública continua
+      expect(store.get('nsol')!.private).toBeUndefined();
+    });
+  });
+
   it('apagar o baralho e tirar a carta devolvem o Desfazer', () => {
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck]);

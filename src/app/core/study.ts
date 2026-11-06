@@ -102,6 +102,11 @@ export interface Deck {
   /** O desenho da frente das cartas (sem o campo: a Clássica, o padrão). */
   look?: Exclude<CardLook, 'classica'>;
   /**
+   * Quem visita o mural vê o baralho (PLANO-BARALHOS-PUBLICOS.md), com as cartas de anotações públicas: a
+   * carta é a anotação, e a privada fica só com o dono. Sem o campo: privado, o padrão.
+   */
+  public?: true;
+  /**
    * O grupo do baralho, escrito como nas anotações (comparado pela chave, `lookKey`). Só as cartas de
    * anotações deste grupo valem nele. Sem o campo: o baralho de antes dos grupos, ainda por converter
    * (`convertGroups`), em que nenhuma carta vale.
@@ -166,6 +171,8 @@ export interface StudyConfig {
   retention: number;
   maxReviews: number;
   newOrder: NewOrder;
+  /** Quem visita os baralhos públicos vê as cartas sem o progresso (Ajustes › Amigos). Sem o campo: vê. */
+  hideProgress?: true;
   at: string;
 }
 
@@ -270,6 +277,7 @@ export function sanitizeDeck(raw: unknown): Deck | null {
     newPerDay: int(r['newPerDay'], 0, MAX_NEW_PER_DAY, DEFAULT_NEW_PER_DAY),
     ...(r['wall'] === true ? { wall: true as const } : {}),
     ...(isCardLook(r['look']) && r['look'] !== DEFAULT_CARD_LOOK ? { look: r['look'] as Exclude<CardLook, 'classica'> } : {}),
+    ...(r['public'] === true ? { public: true as const } : {}),
     ...(group ? { group } : {}),
     order: int(r['order'], 0, MAX_DECKS * 10, 0),
     at: r['at'],
@@ -338,6 +346,7 @@ function sanitizeConfig(raw: unknown): StudyConfig {
     retention: cleanRetention(r['retention']),
     maxReviews: int(r['maxReviews'], 0, MAX_REVIEWS_CAP, DEFAULT_MAX_REVIEWS),
     newOrder: r['newOrder'] === 'sorteio' ? 'sorteio' : 'entrada',
+    ...(r['hideProgress'] === true ? { hideProgress: true as const } : {}),
     at: isStamp(r['at']) ? r['at'] : FRESH_AT,
   };
 }
@@ -526,6 +535,23 @@ export function studyOnWall(card: Pick<StudyCard, 'decks' | 'wall'>, decks: read
   const mine = cardDecks(card, decks);
   if (!mine.length) return null;
   return card.wall ?? mine.some((d) => d.wall);
+}
+
+/**
+ * Quantas cartas do baralho valem agora (`view`: as de anotações que existem, `live`) e quantas são de
+ * anotação pública: um baralho público mostra a quem visita só essas (PLANO-BARALHOS-PUBLICOS.md). `percent`
+ * arredondado; sem carta nenhuma, 100 (não há o que perguntar).
+ */
+export function deckShare(view: StudyState, deck: string, live: (note: string) => boolean, isPublic: (note: string) => boolean): { total: number; shown: number; percent: number; hidden: string[] } {
+  const hidden: string[] = [];
+  let total = 0;
+  for (const c of view.cards) {
+    if (!c.decks.includes(deck) || !live(c.note)) continue;
+    total++;
+    if (!isPublic(c.note)) hidden.push(c.note);
+  }
+  const shown = total - hidden.length;
+  return { total, shown, percent: total ? Math.round((shown / total) * 100) : 100, hidden };
 }
 
 /** O título da frente: o da carta, ou o nome da anotação (D8). */

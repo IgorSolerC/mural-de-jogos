@@ -473,7 +473,8 @@ export class StudyCard {
       onCleanup(() => (alive = false));
       void this.images
         .url(id)
-        .then((url) => url ?? (signedIn ? this.imageSync.fetch(id) : null))
+        // fora da conta (quem visita sem entrar), o endereço público: a nuvem só entrega a que está à mostra
+        .then((url) => url ?? (signedIn ? this.imageSync.fetch(id) : this.imageSync.publicUrl(id)))
         .then((url) => alive && this.localSrc.set(url));
     });
   }

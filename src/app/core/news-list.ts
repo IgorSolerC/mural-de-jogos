@@ -27,6 +27,19 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-05-baralhos-publicos',
+    version: '1.38.0',
+    kind: 'funcionalidade',
+    date: '2026-11-05',
+    title: 'Baralhos públicos nos Estudos',
+    items: [
+      'Cada baralho dos Estudos agora é Público ou Privado, no lápis do baralho (nasce Privado). O público aparece para quem visita o seu mural, com as cartas de anotações públicas; as das privadas continuam só com você, e o lápis diz quantas cartas quem visita vê. Na pilha e no topo do baralho, o ícone de pessoas marca os públicos.',
+      'Ao tornar público um baralho com cartas privadas, o Murall pergunta se você quer tornar todas as cartas públicas, dizendo quantas já são. "Tornar todas públicas" publica as anotações fora do Feed (ninguém é avisado de cada uma), com Desfazer; "Só o baralho" deixa as privadas como estão.',
+      'No mural de alguém, as Anotações ganharam Mural e Estudos quando a pessoa tem baralho público: os Estudos dela mostram só os grupos com baralho público, as pilhas e as cartas, e tocar numa carta abre a anotação, a resposta.',
+      'Quem visita vê o progresso de cada carta (o nível e quando volta), como você vê. Para esconder, ligue "Esconder o progresso nos Estudos" em Ajustes › Amigos.',
+    ],
+  },
+  {
     id: '2026-11-05-botoes-da-ficha-pelo-link',
     version: '1.37.4',
     kind: 'ajustes',

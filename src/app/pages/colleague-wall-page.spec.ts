@@ -114,6 +114,30 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     expect(el.querySelector('.trilho')!.getAttribute('aria-label')).toBe('Murais de Marina');
   });
 
+  it('com baralho público, as Anotações dela ganham as seções Mural e Estudos; os outros murais, não', async () => {
+    const T = '2026-10-20T12:00:00.000Z';
+    const estudos = { decks: [{ id: 'dk', name: 'Kanji', icon: null, color: 'amarelo' as const, newPerDay: 5, group: 'Japonês', order: 0, at: T, public: true as const }], cards: [], progress: true };
+    const fixture = create(marina({ estudos }));
+    await settle();
+    const el = fixture.nativeElement as HTMLElement;
+    expect(el.querySelector('nav.secoes')).toBeNull();
+    TestBed.inject(Mural).kind.set('anotacoes');
+    await settle();
+    fixture.detectChanges();
+    const links = [...el.querySelectorAll<HTMLAnchorElement>('nav.secoes a')];
+    expect(links.map((a) => a.textContent!.trim())).toEqual(['Mural', 'Estudos']);
+    expect(links[0].getAttribute('aria-current')).toBe('page');
+    expect(links[1].getAttribute('href')).toBe('/comparar/mural/estudos');
+  });
+
+  it('sem baralho público, nada de seções nas Anotações dela', async () => {
+    const fixture = create(marina());
+    TestBed.inject(Mural).kind.set('anotacoes');
+    await settle();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('nav.secoes')).toBeNull();
+  });
+
   it('tocar numa orelha troca o mural; a aberta não faz nada', async () => {
     const fixture = create(marina());
     await settle();

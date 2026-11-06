@@ -5,7 +5,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
-import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, VISIT_PATH, areaOf, listOf, pathOf, reviewPath, wallPath } from './core/areas';
+import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
 import { Desk } from './core/desk';
 import { keptMessage } from './core/kept-versions';
@@ -125,7 +125,7 @@ export class App {
   private readonly fichaLinks = inject(FichaLinks);
 
   /** No mural de outra pessoa (pages/colleague-wall-page): a casa é dela, a parede também. */
-  protected readonly visiting = computed(() => this.path() === VISIT_PATH);
+  protected readonly visiting = computed(() => isVisitPath(this.path()));
   private readonly colleagues = inject(ColleagueStore);
 
   /**

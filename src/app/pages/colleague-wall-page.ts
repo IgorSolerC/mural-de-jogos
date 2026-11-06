@@ -1,14 +1,17 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
+import { visitStudyPath } from '../core/areas';
 import { ICON, IconModule } from '../ui/icons';
 import { CloudAccount } from '../core/cloud-account';
 import { CloudMurals } from '../core/cloud-murals';
 import { ColleagueStore } from '../core/colleague-store';
 import { Follow } from '../core/follow';
-import { KINDS, Kind, SCORED_KINDS, cap, countOf, isNotes, profileOf } from '../core/kinds';
+import { KINDS, Kind, NOTES, SCORED_KINDS, cap, countOf, isNotes, profileOf } from '../core/kinds';
 import { Mural } from '../core/mural';
 import { Reactions } from '../core/reactions';
-import { isDone, originalsOf } from '../core/review';
+import { Review, isDone, originalsOf } from '../core/review';
 import { SideBySide } from '../core/side-by-side';
 import { ViewTransitions } from '../core/view-transitions';
 import { VisitView } from '../core/visit-view';
@@ -17,6 +20,7 @@ import { Busy } from '../ui/busy';
 import { ReviewReader } from '../ui/review-reader';
 import { Toasts } from '../ui/toast';
 import { WallToolbar } from '../ui/wall-toolbar';
+import { VisitStudy } from '../ui/visit-study';
 import { WallAccess, WallBoard } from './wall-board';
 import { ONE_DECIMAL as avgFmt } from '../core/review';
 import { plural } from '../core/text';
@@ -37,7 +41,7 @@ const NO_PICKS: ReadonlyMap<string, number> = new Map();
  */
 @Component({
   selector: 'app-colleague-wall-page',
-  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, WallBoard, WallToolbar],
+  imports: [Busy, IconModule, PersonPhoto, ReviewReader, RouterLink, VisitStudy, WallBoard, WallToolbar],
   providers: [VisitView, { provide: WallState, useExisting: VisitView }],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './colleague-wall-page.html',
@@ -61,6 +65,11 @@ export class ColleagueWallPage {
   protected readonly name = this.visit.owner;
   protected readonly profile = this.mural.profile;
 
+  /** Nos Estudos da pessoa, a orelha aberta é a das Anotações (o endereço pode ter vindo de um link). */
+  private readonly notesTab = effect(() => {
+    if (this.studying && !isNotes(this.mural.kind())) untracked(() => this.mural.kind.set(NOTES));
+  });
+
   /** Aberto pelo código: se atualiza da nuvem ao aparecer (a cada 2 minutos, no máximo). */
   private readonly refreshCloud = effect(() => {
     const c = this.colleague();
@@ -74,13 +83,32 @@ export class ColleagueWallPage {
 
   /**
    * De onde a pessoa veio: o perfil dela ("Voltar ao perfil"), Amigos ("Voltar a Amigos") ou Comparar
-   * (o de sempre, também para quem chegou pelo link).
+   * (o de sempre, também para quem chegou pelo link). Indo e voltando entre o mural e os Estudos da pessoa
+   * (outra rota, outra página), a volta vai junto no estado da navegação.
    */
   private readonly prevUrl = (() => {
     const router = inject(Router);
-    const prev = untracked(() => router.currentNavigation())?.previousNavigation?.finalUrl;
+    const nav = untracked(() => router.currentNavigation());
+    const kept = (nav?.extras.state as { visitFrom?: unknown } | undefined)?.visitFrom;
+    if (typeof kept === 'string') return kept;
+    const prev = nav?.previousNavigation?.finalUrl;
     return prev ? router.serializeUrl(prev) : '';
   })();
+  /** O estado que leva a volta junto, entre o mural e os Estudos da pessoa. */
+  protected readonly keepBack = { visitFrom: this.prevUrl };
+
+  /** Os Estudos da pessoa (`/comparar/mural/estudos/...`): os baralhos públicos dela no lugar do mural. */
+  private readonly route = inject(ActivatedRoute);
+  protected readonly studying = !!this.route.snapshot.routeConfig?.path?.startsWith('comparar/mural/estudos');
+  private readonly params = toSignal(this.route.paramMap.pipe(map((p) => ({ group: p.get('grupo'), deck: p.get('baralho') }))), {
+    initialValue: { group: null, deck: null },
+  });
+  protected readonly studyGroup = computed(() => this.params().group);
+  protected readonly studyDeck = computed(() => this.params().deck);
+  /** A pessoa tem baralho público: nas Anotações, as seções Mural e Estudos. */
+  protected readonly hasStudy = computed(() => !!this.colleague()?.estudos?.decks.length);
+  protected readonly sections = computed(() => (this.hasStudy() && isNotes(this.mural.kind())) || this.studying);
+  protected readonly visitStudyPath = visitStudyPath;
   private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
     ? 'perfil'
     : this.prevUrl.startsWith('/amigos')
@@ -144,6 +172,7 @@ export class ColleagueWallPage {
   /** A linha curta do perfil ("Curadora · SP"). */
   protected readonly tagline = computed(() => this.colleague()?.profile?.tagline.trim() ?? '');
 
+  private readonly router = inject(Router);
   private readonly follow = inject(Follow);
   private readonly account = inject(CloudAccount);
   private readonly toasts = inject(Toasts);
@@ -177,6 +206,12 @@ export class ColleagueWallPage {
   }
 
   protected switchWall(kind: Kind): void {
+    // nos Estudos: as Anotações voltam ao mural dela; outro mural, também, já nele
+    if (this.studying) {
+      this.mural.kind.set(kind);
+      void this.router.navigateByUrl('/comparar/mural', { state: this.keepBack });
+      return;
+    }
     if (kind === this.mural.kind()) return;
     this.vt.run(() => {
       this.side.picking.set(false);
@@ -192,6 +227,11 @@ export class ColleagueWallPage {
     if (this.from !== 'comparar' || !isNotes(this.mural.kind())) return;
     const c = this.colleague();
     this.mural.kind.set(SCORED_KINDS.find((k) => c?.reviews.some((r) => r.kind === k)) ?? 'jogos');
+  }
+
+  /** Uma carta dos Estudos dela: a anotação (o verso) na leitura, andando entre as do baralho. */
+  protected openCard(e: { note: Review; pool: Review[] }): void {
+    this.reader().open(e.note, this.name(), e.pool, false, this.visit.code());
   }
 
   protected open(id: string): void {

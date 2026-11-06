@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { IconChoice } from './icon-choices';
-import { LightStock } from './review';
+import { LightStock, audienceFields } from './review';
 import { ReviewStore } from './review-store';
 import { onOtherTab, writeJson } from './storage';
 import { fromOtherTab } from './tab-join';
@@ -16,6 +16,7 @@ import {
   addDeck,
   answer,
   convertGroups,
+  deckShare,
   decksInGroup,
   emptyStudy,
   groupKey,
@@ -57,8 +58,8 @@ function read(): StudyState {
 /**
  * Os Estudos (ver core/study.ts): os baralhos, as cartas e o progresso de cada uma, guardados neste
  * navegador e, com conta, no mural privado da nuvem (`estudos`, juntado carta a carta e baralho a
- * baralho, ver core/cloud-sync.ts). Nunca no mural público: os Estudos são só seus, mesmo com a anotação
- * pública.
+ * baralho, ver core/cloud-sync.ts). No mural público, só os baralhos que a pessoa torna públicos, com as
+ * cartas de anotações públicas (core/public-study.ts, PLANO-BARALHOS-PUBLICOS.md).
  *
  * Todo baralho é de um grupo das anotações, e a carta só vale nos baralhos do grupo da anotação dela
  * (PLANO-ESTUDOS-GRUPOS.md). `state` é o guardado (o que vai para a nuvem); `view` é como vale agora, e é
@@ -315,6 +316,48 @@ export class StudyStore {
     if (!r || groupKey(r.category)) return;
     const group = decks.map((id) => this.deck(id)?.group).find((g) => !!g);
     if (group) this.store.update({ ...r, category: group, updatedAt: new Date().toISOString() });
+  }
+
+  /**
+   * As cartas do baralho como quem visita as vê (PLANO-BARALHOS-PUBLICOS.md): quantas valem, quantas são de
+   * anotação pública e quais ficam com o dono.
+   */
+  share(deck: string): ReturnType<typeof deckShare> {
+    return deckShare(this.view(), deck, this.live, (note) => !this.notesById().get(note)?.private);
+  }
+
+  /**
+   * As anotações `ids` viram públicas fora do Feed (a escolha do dono, D1: "Pregar sem publicar no Feed"),
+   * para o baralho público mostrar as cartas delas. A compartilhada fica como está: quem vê nela muda em
+   * Compartilhar, e só o dono e os gestores mudam (`skipped`). Devolve o Desfazer: as que mudaram voltam a
+   * privadas (a que alguém mudou de novo depois fica como está).
+   */
+  publishNotes(ids: readonly string[]): { changed: number; skipped: number; undo: () => void } {
+    const shared = this.store.sharedIds();
+    const now = new Date().toISOString();
+    const changed: string[] = [];
+    let skipped = 0;
+    for (const id of ids) {
+      const r = this.store.get(id);
+      if (!r?.private) continue;
+      if (shared.has(id)) {
+        skipped++;
+        continue;
+      }
+      const { private: _p, quiet: _q, publishedAt: _w, ...rest } = r;
+      this.store.update({ ...rest, ...audienceFields('visivel', r, now), updatedAt: now }, r);
+      changed.push(id);
+    }
+    const undo = () => {
+      const back = new Date().toISOString();
+      for (const id of changed) {
+        const r = this.store.get(id);
+        if (!r || r.private) continue;
+        const { quiet: _q, publishedAt: _w, ...rest } = r;
+        this.store.update({ ...rest, ...audienceFields('privada', r, back), updatedAt: back }, r);
+      }
+    };
+    return { changed: changed.length, skipped, undo };
   }
 
   setWall(note: string, wall: boolean | undefined): void {

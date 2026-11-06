@@ -197,7 +197,8 @@ export class SettingsPage {
   }
 
   protected readonly store = inject(ReviewStore);
-  private readonly study = inject(StudyStore);
+  /** Os Estudos ("Esconder o progresso nos Estudos" mora na configuração deles, e vai com eles para a nuvem). */
+  protected readonly study = inject(StudyStore);
   protected readonly settings = inject(Settings);
   /** O jeito de mostrar a nota, com um 8,4 em cada um. */
   /** Os jeitos de escrever o texto: o Visual (o padrão) e o Markdown. */

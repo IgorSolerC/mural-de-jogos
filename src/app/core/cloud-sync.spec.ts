@@ -640,6 +640,56 @@ describe('sincronização com a nuvem', () => {
       expect(((await cloud.read()) as unknown as Record<string, unknown>)['estudos']).toBeUndefined();
     });
 
+    it('o baralho público vai no público, só com as cartas de anotações públicas; o privado, não', async () => {
+      const a = device();
+      a.store.add(studyNote('nsol', 'Sol'));
+      a.store.add({ ...studyNote('nlua', 'Lua'), private: true });
+      a.store.add(studyNote('nmar', 'Mar'));
+      const kanji = a.study.addDeck('Kanjis', 'amarelo', 'livro', undefined, 'Estudos');
+      const secreto = a.study.addDeck('Secreto', 'azul', null, undefined, 'Estudos');
+      a.study.addCard('nsol', [kanji, secreto], { title: '日', image: 'murall://imagem/abcdefghijklmnopqrstuv' });
+      a.study.addCard('nlua', [kanji], { title: '月' });
+      a.study.addCard('nmar', [secreto], { title: '海' });
+      a.study.answer('nsol', true, kanji);
+      a.study.updateDeck(kanji, { public: true });
+      await a.sync.syncNow();
+      const pub = (await cloud.readPublic()) as { estudos?: { decks: { id: string; name: string; newPerDay?: number }[]; cards: { note: string; decks: string[]; srs?: unknown; stats?: { seen: number } }[]; progress?: boolean } };
+      expect(pub.estudos!.decks.map((d) => d.name)).toEqual(['Kanjis']);
+      expect(pub.estudos!.decks[0].newPerDay).toBeUndefined();
+      // a carta da anotação privada nem entra; a de dois baralhos, só com o público
+      expect(pub.estudos!.cards.map((c) => [c.note, c.decks])).toEqual([['nsol', [kanji]]]);
+      expect(pub.estudos!.cards[0].stats!.seen).toBe(1);
+      expect(pub.estudos!.progress).toBeUndefined();
+      // a imagem da frente fica pública na nuvem, como a do texto de uma anotação pública
+      expect(JSON.parse(cloud.published!).publicas).toContain('abcdefghijklmnopqrstuv');
+
+      // "Esconder o progresso nos Estudos": as cartas vão sem ele
+      a.study.setConfig({ hideProgress: true });
+      await a.sync.syncNow();
+      const hidden = (await cloud.readPublic()) as typeof pub;
+      expect(hidden.estudos!.progress).toBeFalse();
+      expect(hidden.estudos!.cards[0].srs).toBeUndefined();
+      expect(hidden.estudos!.cards[0].stats).toBeUndefined();
+
+      // privado de novo: sai do público
+      a.study.updateDeck(kanji, { public: undefined });
+      await a.sync.syncNow();
+      expect((await cloud.readPublic())['estudos']).toBeUndefined();
+    });
+
+    it('a carta só nos Estudos vai no público pela anotação fora do mural (soKanban)', async () => {
+      const a = device();
+      a.store.add(studyNote('nsol', 'Sol'));
+      const kanji = a.study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+      a.study.addCard('nsol', [kanji], { title: '日' }, false);
+      a.study.updateDeck(kanji, { public: true });
+      await a.sync.syncNow();
+      const pub = (await cloud.readPublic()) as { notas: { id: string }[]; soKanban?: { id: string }[]; estudos?: { cards: { note: string }[] } };
+      expect(pub.notas.map((n) => n.id)).not.toContain('nsol');
+      expect(pub.soKanban!.map((n) => n.id)).toContain('nsol');
+      expect(pub.estudos!.cards.map((c) => c.note)).toEqual(['nsol']);
+    });
+
     it('a imagem da frente conta como usada (não sai da nuvem em 30 dias)', async () => {
       const a = device();
       a.store.add(studyNote('nmapa', 'Mapa'));
@@ -1783,6 +1833,6 @@ describe('versão do formato (SYNC_SCHEMA)', () => {
     const source = [sanitizeReview, sanitizeNote, sanitizeDraft, sanitizeWish].map((f) => f.toString().replace(/\s+/g, '')).join('|');
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(source));
     const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
-    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 52, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
+    expect({ schema: SYNC_SCHEMA, hex }).toEqual({ schema: 53, hex: '688533d5419330f952246efba25b25b2ac04b3863ab28c3fb277766a9c92a7bd' });
   });
 });

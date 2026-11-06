@@ -880,6 +880,18 @@
   text-wrap: balance;
 }
 
+/* o baralho público: o ícone de pessoas do "Público", na linha do número e na tira da pasta */
+.nome-publico {
+  display: inline-flex;
+  vertical-align: -2px;
+}
+.trilha-nome .nome-publico {
+  flex: none;
+  align-self: center;
+  margin-left: 8px;
+  color: var(--ink-2);
+}
+
 .nome-n {
   font-family: var(--f-label);
   font-weight: 700;

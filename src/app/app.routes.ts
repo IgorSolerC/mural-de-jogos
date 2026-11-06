@@ -6,6 +6,7 @@ const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
 const calendar = () => import('./pages/calendar-page').then((m) => m.CalendarPage);
 const study = () => import('./pages/study-page').then((m) => m.StudyPage);
+const colleague = () => import('./pages/colleague-wall-page').then((m) => m.ColleagueWallPage);
 
 /**
  * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
@@ -64,8 +65,12 @@ export const routes: Routes = [
     path: 'comparar/mural',
     // o mural da pessoa tem o próprio seletor de mural (e pode ser o de anotações)
     title: 'Mural do colega',
-    loadComponent: () => import('./pages/colleague-wall-page').then((m) => m.ColleagueWallPage),
+    loadComponent: colleague,
   },
+  // os baralhos públicos dos Estudos da pessoa, por grupo e baralho (PLANO-BARALHOS-PUBLICOS.md)
+  { path: 'comparar/mural/estudos', title: 'Estudos do colega', loadComponent: colleague },
+  { path: 'comparar/mural/estudos/:grupo', title: 'Estudos do colega', loadComponent: colleague },
+  { path: 'comparar/mural/estudos/:grupo/:baralho', title: 'Estudos do colega', loadComponent: colleague },
   {
     path: 'extras',
     canActivate: [enterExtras],

@@ -66,6 +66,8 @@ interface CardView {
   meta: string;
   /** O progresso, como a frente mostra no desenho do baralho. */
   face: CardFace;
+  /** Num baralho público, a carta de anotação privada: só o dono vê (dito só ao leitor de tela: o cadeado na etiqueta saiu a pedido do dono). */
+  mine: boolean;
   due: string;
   added: string;
   tilt: number;
@@ -149,6 +151,8 @@ export class StudyPage {
   protected readonly BringIcon = ICON.anotacoes;
   protected readonly ChevronIcon = ICON.abrir;
   protected readonly BackIcon = ICON.voltar;
+  /** O baralho público: as pessoas do "Público" do editor da anotação. */
+  protected readonly PublicIcon = ICON.pessoas;
   protected readonly tabKey = tabKeyOf;
   protected readonly allTab = ALL_TAB;
   protected readonly notesKind = NOTES;
@@ -390,7 +394,7 @@ export class StudyPage {
     for (const c of this.study.cards()) {
       const note = byId.get(c.note);
       if (!note || !c.decks.includes(d.id)) continue;
-      const view = this.view(c, d.id, note.game.name, pinningFor(note.id, note.stock).stock, now);
+      const view = { ...this.view(c, d.id, note.game.name, pinningFor(note.id, note.stock).stock, now), mine: !!d.public && !!note.private };
       if (lv && view.level !== lv) continue;
       if (q && ![view.title, note.game.name, view.subtitle ?? ''].some((s) => s.toLocaleLowerCase('pt-BR').includes(q))) continue;
       out.push(view);
@@ -456,6 +460,7 @@ export class StudyPage {
       level,
       meta,
       face: cardFace(c, now, this.numbers().get(deck)?.get(c.note)),
+      mine: false,
       due: c.srs.due,
       added: c.added,
       tilt: tiltOf(c.note),

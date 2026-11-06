@@ -1,0 +1,8 @@
+/* Os Estudos de quem se visita: os estilos são os dos seus Estudos (pages/study-page.scss, na mesma lista de
+   estilos do componente); aqui, só o que é da visita. */
+
+/* o Copiar baralho, na ponta da pasta como o Nova carta dos seus baralhos */
+.copiar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

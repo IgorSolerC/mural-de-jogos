@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { BackupSnapshot } from './backup-file';
-import { sanitizeReview } from './review';
+import { Review, sanitizeReview } from './review';
+import { PublicStudy, readPublicStudy } from './public-study';
 import { PageBackground, sanitizeProfile } from './profile';
 import { readText, removeKey, storageFrozen, writeText } from './storage';
 
@@ -20,6 +21,10 @@ export interface Colleague extends BackupSnapshot {
   rev?: number;
   /** Com que `MURAL_READER` ele foi lido (sem: por um site de antes das anotações). */
   leitor?: number;
+  /** Os baralhos públicos dos Estudos (ver core/public-study.ts); sem o campo, nenhum. */
+  estudos?: PublicStudy;
+  /** As anotações das cartas públicas que não estão no mural da pessoa (só nos Estudos ou no Kanban). */
+  studyNotes?: Review[];
 }
 
 /**
@@ -191,6 +196,8 @@ export class ColleagueStore {
             ...c,
             reviews: c.reviews.map((r) => sanitizeReview(r)).filter((r) => r !== null),
             profile: sanitizeProfile(c.profile),
+            estudos: readPublicStudy(c.estudos) ?? undefined,
+            studyNotes: Array.isArray(c.studyNotes) ? c.studyNotes.map((r) => sanitizeReview(r)).filter((r): r is Review => r !== null && !r.private) : undefined,
           }))
           .sort((a, b) => b.loadedAt.localeCompare(a.loadedAt)),
       );

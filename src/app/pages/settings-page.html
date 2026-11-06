@@ -829,6 +829,28 @@
                   <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'comentarios' }" /></div>
                 }
               </fieldset>
+
+              <!-- o progresso nas cartas dos baralhos públicos (PLANO-BARALHOS-PUBLICOS.md, D2) -->
+              <div class="linha" (mouseenter)="peek('progresso')" (focusin)="peek('progresso')">
+                <div class="linha-texto">
+                  <p class="linha-titulo" id="t-progresso">Esconder o progresso nos Estudos</p>
+                  <p class="linha-desc" id="d-progresso">Quem visita os seus baralhos públicos vê as cartas sem o nível, a volta e os acertos.</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  class="interruptor"
+                  aria-labelledby="t-progresso"
+                  aria-describedby="d-progresso"
+                  [attr.aria-checked]="!!study.config().hideProgress"
+                  (click)="study.setConfig({ hideProgress: study.config().hideProgress ? undefined : true })"
+                >
+                  <span class="bolinha"></span>
+                </button>
+                @if (peeking() === 'progresso') {
+                  <div class="previa-linha" aria-hidden="true"><ng-container *ngTemplateOutlet="previa; context: { $implicit: 'progresso' }" /></div>
+                }
+              </div>
             }
           }
         </div>
@@ -1237,6 +1259,22 @@
         </span>
         <p class="pv-legenda">
           {{ peoplePrivacy.privacy() === 'numeros' ? 'Quem visita vê só quantos são. Você continua vendo as suas listas.' : 'Quem visita toca no número e vê quem são, cada um no seu mini-mural.' }}
+        </p>
+      </div>
+    }
+    @case ('progresso') {
+      <div class="pv pv-pessoas">
+        <span class="pv-gente abre">
+          @if (study.config().hideProgress) {
+            <span class="pv-gente-item">日 · <b>sol, dia</b></span>
+          } @else {
+            <span class="pv-gente-item">日 · <b>Aprendendo</b></span>
+            <span>·</span>
+            <span class="pv-gente-item">volta em <b>3 dias</b></span>
+          }
+        </span>
+        <p class="pv-legenda">
+          {{ study.config().hideProgress ? 'Quem visita vê a carta como ela é, sem saber como você vai nela.' : 'Quem visita vê como você vai em cada carta, como você vê.' }}
         </p>
       </div>
     }
