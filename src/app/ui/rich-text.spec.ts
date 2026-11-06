@@ -216,6 +216,28 @@ describe('o texto formatado na leitura', () => {
     }
   });
 
+  it('tabelas coladas, sem linha em branco, fecham linhas inteiras da pauta: o texto de baixo não sai dela', async () => {
+    const T = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const LOOKS = ['recibo', 'listrada', 'quadriculada', 'caneta', 'branca'];
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    for (const de of LOOKS) {
+      for (const para of LOOKS) {
+        const fixture = TestBed.createComponent(RichText);
+        fixture.componentRef.setInput('text', `{{tabela: ${de}}}\n${T}\n{{tabela: ${para}}}\n${T}\nfim`);
+        const el: HTMLElement = fixture.nativeElement;
+        el.style.cssText = 'display:block;width:600px;font-size:16px;line-height:24px;--line:24px';
+        document.body.appendChild(el);
+        await fixture.whenStable();
+        const pecas = Array.from(el.querySelectorAll<HTMLElement>('.tabela-peca'));
+        expect(pecas.length).withContext(`${de} e ${para}`).toBe(2);
+        const fim = Array.from(el.querySelectorAll<HTMLElement>('.linha')).at(-1)!;
+        const linhas = (fim.getBoundingClientRect().top - pecas[0].getBoundingClientRect().top) / 24;
+        expect(Math.abs(linhas - Math.round(linhas))).withContext(`${de} e ${para}: ${linhas} linhas`).toBeLessThan(0.02);
+        el.remove();
+      }
+    }
+  });
+
   it('a tabela larga sobe inteira, sem encolher a letra: maior que a tela, ela rola de lado no alto', async () => {
     const cells = (n: number, w: string) => '| ' + Array.from({ length: n }, (_, i) => `${w}${i}`).join(' | ') + ' |';
     const T = [cells(12, 'Coluna comprida '), '| ' + Array(12).fill('---').join(' | ') + ' |', cells(12, 'valor bem longo ')].join('\n');

@@ -27,7 +27,7 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-tela-cheia-mais-larga',
+    id: '2026-11-06-tabela-colada',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
@@ -43,6 +43,7 @@ export const NEWS: NewsEntry[] = [
       'A tela cheia ficou bem mais larga: a folha ocupa quase toda a tela até o limite dela, e cabe muito mais texto em cada linha. O bloco de código, o card e a tabela larga aproveitam o espaço; as fotos, os vídeos e os áudios continuam do mesmo tamanho.',
     ],
     correcoes: [
+      'Um widget ou um card com cor escrito logo embaixo de uma tabela, sem linha em branco, não vira mais uma fileira dela com a marca à mostra, e duas tabelas coladas não tiram mais o texto de baixo das linhas da pauta.',
       'O bloco de código com as letras menos recuadas que as crases não quebra mais a anotação inteira: ele continua no item da lista, e o resto do texto fica como texto. Escrever um bloco dentro de uma lista no modo Visual também não deixa mais as letras sem o recuo.',
       'No bloco de código, o Shift+Tab não tira mais o cursor da folha, tira também o tab do começo da linha, e a seta para baixo sai do bloco quando ele é a última coisa do texto.',
       'Na aba Markdown, o Enter dentro de um bloco de código numa lista não cria mais um item no meio do código, e "- x" dentro do bloco não vira lista. Uma linha que começa com ```código``` não abre mais um bloco, e ```js dentro de um bloco não o fecha.',

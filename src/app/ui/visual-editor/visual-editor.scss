@@ -180,6 +180,14 @@
     @include formatado.tabela-rolo-papel;
     margin-left: calc(var(--vis-margem) - 2px);
   }
+  // duas de papel coladas: as margens negativas colapsariam (-8px e -2px dariam -8px, e o texto de baixo
+  // sairia 2px da pauta); a conta fica toda na de cima (na leitura, é a peça em volta que as segura)
+  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo):has(+ :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo)) {
+    margin-bottom: calc(var(--sobra-barra, 0px) - 10px);
+  }
+  > :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo) + :is(.jeito-branca, .jeito-listrada, .jeito-quadriculada, .jeito-recibo) {
+    margin-top: 0;
+  }
   .tabela-papel {
     @include formatado.tabela-papel;
   }

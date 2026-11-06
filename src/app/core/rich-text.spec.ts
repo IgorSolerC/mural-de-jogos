@@ -19,6 +19,25 @@ describe('texto com formatação', () => {
     ]);
   });
 
+  it('a tabela acaba no widget ou no card colado embaixo dela, mesmo com "|" neles; a fileira comum continua', () => {
+    const T = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const kinds = (text: string) => parseRich(text).map((b) => b.kind);
+    const rows = (text: string) => parseRich(text).flatMap((b) => (b.kind === 'table' ? [b.rows.length] : []));
+    expect(kinds(`${T}\n{{contador: 19/11/2027 | Embarque}}\ndepois`)).toEqual(['table', 'widget', 'p']);
+    expect(rows(`${T}\n{{contador: 19/11/2027 | Embarque}}`)).toEqual([1]);
+    expect(kinds(`${T}\n{{imagem: https://a.io/b.jpg | polaroid | grande}}`)).toEqual(['table', 'widget']);
+    expect(kinds(`${T}\n  {{contador: 19/11/2027 | Embarque}}`)).toEqual(['table', 'widget']);
+    expect(kinds(`${T}\n> [!aviso|azul]- Título\n> dentro`)).toEqual(['table', 'callout']);
+    // a marca de outra tabela, com "|" nos parâmetros, começa a outra
+    expect(rows(`${T}\n{{tabela: recibo | nota}}\n${T}`)).toEqual([1, 1]);
+    // o que só parece: um widget que não existe, e a marca no meio da fileira, continuam fileiras
+    expect(rows(`${T}\n{{nada: 1 | 2}}\n| {{contador: 19/11/2027 | x}} | 2 |\n3 | 4`)).toEqual([4]);
+    // a linha certa de cada bloco, para o Visual e os toques
+    const [table, widget] = parseRich(`${T}\n{{contador: 19/11/2027 | Embarque}}`);
+    expect(blockLine(table)).toBe(0);
+    expect(blockLine(widget)).toBe(3);
+  });
+
   it('spoiler: ||texto|| como no Discord, ou >!texto!< como no Reddit, com as outras marcas por dentro', () => {
     expect(parseInline('o final: ||ele morre|| no fim')).toEqual([{ text: 'o final: ' }, { text: 'ele morre', spoiler: true }, { text: ' no fim' }]);
     expect(parseInline('>!o vilão é **o pai**!<')).toEqual([

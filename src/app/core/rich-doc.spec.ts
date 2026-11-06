@@ -101,6 +101,26 @@ describe('o tradutor do modo Visual (core/rich-doc.ts)', () => {
     }
   });
 
+  it('o widget e o card colados embaixo da tabela: cada um na sua linha, e o texto volta igual', () => {
+    const T = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    for (const [t, kinds] of [
+      [`${T}\n{{contador: 19/11/2027 | Embarque}}\ndepois`, ['tabela', 'widget', 'linha']],
+      [`${T}\n{{tabela: recibo}}\n${T}\ndepois`, ['tabela', 'tabela', 'linha']],
+    ] as const) {
+      const d = textToDoc(t);
+      expect(d.linhas.map((l) => l.kind)).withContext(t).toEqual([...kinds]);
+      const e = docToText(d);
+      expect(e.texto).withContext(t).toBe(t);
+      expect(e.exato).withContext(t).toBeTrue();
+    }
+    const card = `${T}\n> [!aviso|azul] Título\n> dentro`;
+    const e = docToText(textToDoc(card));
+    expect(e.texto).toBe(card);
+    expect(e.exato).toBeTrue();
+    expect(textToDoc(card).linhas[0].kind).toBe('tabela');
+    expect(textToDoc(card).linhas.length).toBe(3);
+  });
+
   it('nenhuma linha do corpus vira trecho cru, e cada linha do texto está em uma linha do documento', () => {
     for (const t of CORPUS) {
       const d = textToDoc(t);

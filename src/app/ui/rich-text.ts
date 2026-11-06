@@ -358,6 +358,9 @@ import { ZoomKnob } from './zoom-knob';
        (min(100%, 16em)) e no máximo a linha, onde a larga rola; o broche de ampliar no canto de cima
        dela, metade para fora, como o do contador */
     .tabela-peca {
+      /* as margens negativas do papel ficam aqui dentro: soltas, as de duas tabelas coladas colapsavam
+         (-8px e -2px davam -8px, não -10px), e o texto de baixo saía 2px da pauta */
+      display: flow-root;
       position: relative;
       width: fit-content;
       min-width: min(100%, 16em);

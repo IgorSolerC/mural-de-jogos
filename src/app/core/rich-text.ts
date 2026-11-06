@@ -882,7 +882,8 @@ function parseLines(lines: readonly string[], base: number): Block[] {
       const align = tableCells(lines[i + 1]).map(alignOf);
       const rows: Span[][][] = [];
       i += 2;
-      for (; i < lines.length && continuesTable(lines[i]); i++) {
+      for (; i < lines.length && continuesTable(lines[i]) && !parseWidgetLine(lines[i]) && !calloutAt(lines[i]); i++) {
+        // (o "|" de um widget ou da cor de um card não é de fileira: a linha colada embaixo é o que ela é)
         // cada linha com o número de colunas do cabeçalho: a que tem menos ganha células vazias
         const cells = tableCells(lines[i]);
         rows.push(head.map((_, c) => parseInline(cells[c] ?? '')));

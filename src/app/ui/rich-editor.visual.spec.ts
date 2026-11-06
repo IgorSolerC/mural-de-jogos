@@ -229,6 +229,18 @@ describe('o editor com o Visual', () => {
     expect(fixture.nativeElement.querySelector('.menu-botao[data-menu="tabela"]')).toBeNull();
   });
 
+  it('duas tabelas de papel coladas, sem linha em branco, não tiram o texto de baixo da pauta', async () => {
+    const T = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    await make(`{{tabela: listrada}}\n${T}\n{{tabela: recibo}}\n${T}\nfim`);
+    const raiz: HTMLElement = fixture.nativeElement.querySelector('.visual .ProseMirror');
+    const fim = Array.from(raiz.children).at(-1) as HTMLElement;
+    const line = parseFloat(getComputedStyle(fim).lineHeight);
+    const papel = raiz.querySelector('.tabela-papel')!;
+    expect(raiz.querySelectorAll('.tabela-papel').length).toBe(2);
+    const linhas = (fim.getBoundingClientRect().top - papel.getBoundingClientRect().top) / line;
+    expect(Math.abs(linhas - Math.round(linhas))).withContext(`${linhas} linhas`).toBeLessThan(0.02);
+  });
+
   it('"Abrir na folha": a folha da tabela de sempre, com a tabela do cursor; salvar troca a tabela no Visual', async () => {
     await make('| A | B |\n| --- | --- |\n| 1 | 2 |\nfim');
     select(3);
