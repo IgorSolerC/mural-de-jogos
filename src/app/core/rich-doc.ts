@@ -18,7 +18,7 @@
  * número escrito, a cerca do código, as células de sobra da tabela).
  */
 
-import { CalloutFold } from './callouts';
+import { CalloutFold, calloutMark } from './callouts';
 import { Block, Span, bodyOf, blockLine, calloutLine, closes, fenceInfo, fenceOf, indentOf, lineKind, parseInline, parseRich, SYMBOLS, tableCells } from './rich-text';
 import { Align, TableLook } from './tables';
 import { WidgetSize, widgetLine } from './widgets';
@@ -47,8 +47,8 @@ interface Base {
 export type LinhaDoc =
   | (Base & { kind: 'linha'; spans: Span[] })
   | (Base & { kind: 'titulo'; nivel: 1 | 2 | 3; spans: Span[] })
-  /** A linha de cima de um card: o jeito como foi escrito, o "-"/"+" de fechar e o título. */
-  | (Base & { kind: 'cartao'; tipo: string; dobra: CalloutFold; spans: Span[] })
+  /** A linha de cima de um card: o jeito e a cor própria como foram escritos ("" sem ela), o "-"/"+" de fechar e o título. */
+  | (Base & { kind: 'cartao'; tipo: string; cor: string; dobra: CalloutFold; spans: Span[] })
   /** `numero`: o escrito no item numerado ("1.2" em "1.2. item"); "" nos outros. */
   | (Base & { kind: 'item'; tipo: 'ul' | 'ol' | 'check'; feita: boolean; numero: string; spans: Span[] })
   | (Base & { kind: 'citacao'; spans: Span[] })
@@ -141,7 +141,7 @@ function contaChave(l: LinhaDoc): string {
     case 'titulo':
       return JSON.stringify([l.kind, l.recuo, l.nivel, chaveSpans(l.spans)]);
     case 'cartao':
-      return JSON.stringify([l.kind, l.recuo, l.tipo, l.dobra, chaveSpans(l.spans)]);
+      return JSON.stringify([l.kind, l.recuo, l.tipo, l.cor, l.dobra, chaveSpans(l.spans)]);
     case 'item':
       return JSON.stringify([l.kind, l.recuo, l.tipo, l.tipo === 'check' && l.feita, l.tipo === 'ol' ? l.numero : '', chaveSpans(l.spans)]);
     case 'divisoria':
@@ -223,7 +223,7 @@ function percorrer(blocks: readonly Block[], cruas: readonly string[], fim: numb
           out.push({ de: at, ate, linha: { kind: 'cru', recuo: 0, linhas: [] } });
           break;
         }
-        out.push({ de: at, ate: at, linha: { kind: 'cartao', recuo: recuo(at), tipo: b.type, dobra: b.fold, spans: juntarSpans(b.title) } });
+        out.push({ de: at, ate: at, linha: { kind: 'cartao', recuo: recuo(at), tipo: b.type, cor: b.color, dobra: b.fold, spans: juntarSpans(b.title) } });
         // as de dentro, lidas sem o "> " (como o leitor leu), e marcadas com a coluna do ">"
         const dentro = [...cruas];
         for (let i = at + 1; i <= ate; i++) dentro[i] = calloutLine(cruas[i]) ?? cruas[i];
@@ -744,7 +744,7 @@ function escreverLinha(l: LinhaDoc, modo: Modo, forcar = false): string[] | null
       return s === null ? null : [recuo + (s ? '-# ' + s : '-#')];
     }
     case 'cartao': {
-      const marca = `> [!${l.tipo}]${l.dobra}`;
+      const marca = `> ${calloutMark(l.tipo, l.dobra, l.cor)}`;
       const s = inline(l.spans, (s) => lidaComo(marca + (s ? ' ' + s : ''), semRecuo));
       return s === null ? null : [recuo + marca + (s ? ' ' + s : '')];
     }

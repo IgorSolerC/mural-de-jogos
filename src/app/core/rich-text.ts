@@ -167,11 +167,11 @@ export type Block =
    */
   | { kind: 'table'; align: Align[]; head: Span[][]; rows: Span[][][]; look?: TableLook }
   /**
-   * O card (ver core/callouts.ts): o jeito como foi escrito ("aviso", "warning"), o "-"/"+" de fechar, o
-   * título (vazio: o nome do jeito) e o que tem dentro, lido como um texto à parte; `size`, quantas
-   * linhas (as do "> ") vêm embaixo da de cima.
+   * O card (ver core/callouts.ts): o jeito como foi escrito ("aviso", "warning"), a cor própria como foi
+   * escrita ("" sem ela), o "-"/"+" de fechar, o título (vazio: o nome do jeito) e o que tem dentro, lido
+   * como um texto à parte; `size`, quantas linhas (as do "> ") vêm embaixo da de cima.
    */
-  | { kind: 'callout'; type: string; fold: CalloutFold; title: Span[]; body: Block[]; size: number };
+  | { kind: 'callout'; type: string; color: string; fold: CalloutFold; title: Span[]; body: Block[]; size: number };
 
 const CHECK = /^\s*[-*+•]\s+\[([ xX])\]\s?(.*)$/;
 const BULLET = /^\s*[-*+•]\s+(.*)$/;
@@ -187,17 +187,17 @@ const SUBTLE = /^\s*-#(?:[ \t]+(.*))?$/;
 const QUOTE = /^\s*>(?!!\S.*!<)\s?(.*)$/;
 const RULE = /^\s*([-*_])(?:\s*\1){2,}\s*$/;
 /**
- * A linha de cima do card: "> [!jeito]", com o "-" ou o "+" de fechar colado nele e o título depois de
- * um espaço (ver core/callouts.ts).
+ * A linha de cima do card: "> [!jeito]" ou "> [!jeito|cor]", com o "-" ou o "+" de fechar colado nele e
+ * o título depois de um espaço (ver core/callouts.ts).
  */
-const CALLOUT = /^\s*>\s?\[!([\p{L}\p{N}_-]+)\]([+-]?)(?:[ \t]+(.*?))?[ \t]*$/u;
+const CALLOUT = /^\s*>\s?\[!([\p{L}\p{N}_-]+)(?:\|([\p{L}\p{N}_-]+))?\]([+-]?)(?:[ \t]+(.*?))?[ \t]*$/u;
 /** A cerca do bloco de código: três crases ou três tis (fecha com a mesma). */
 const FENCE = /^\s*(`{3,}|~{3,})/;
 
-/** A linha de cima de um card ("> [!aviso]- Título"): o jeito, o fechar e o título como foi escrito; null se não é. */
-export function calloutAt(line: string): { type: string; fold: CalloutFold; title: string } | null {
+/** A linha de cima de um card ("> [!aviso|azul]- Título"): o jeito, a cor, o fechar e o título como foi escrito; null se não é. */
+export function calloutAt(line: string): { type: string; color: string; fold: CalloutFold; title: string } | null {
   const m = CALLOUT.exec(line);
-  return m ? { type: m[1], fold: m[2] as CalloutFold, title: m[3] ?? '' } : null;
+  return m ? { type: m[1], color: m[2] ?? '', fold: m[3] as CalloutFold, title: m[4] ?? '' } : null;
 }
 
 /**
@@ -789,7 +789,7 @@ function parseLines(lines: readonly string[], base: number): Block[] {
     const card = calloutBlockAt(lines, i);
     if (card) {
       const head = calloutAt(line)!;
-      push({ kind: 'callout', type: head.type, fold: head.fold, title: parseInline(head.title), body: parseLines(card.inner, base + i + 1), size: card.inner.length }, at);
+      push({ kind: 'callout', type: head.type, color: head.color, fold: head.fold, title: parseInline(head.title), body: parseLines(card.inner, base + i + 1), size: card.inner.length }, at);
       i = card.end;
       continue;
     }
@@ -879,7 +879,9 @@ export function hasTouchableWidget(text: string): boolean {
   if (!text.includes('{{') && !text.includes('|') && !text.includes('[!')) return false;
   const prose = proseLines(text);
   return prose.some(({ line, at }, i) => {
-    if (calloutAt(line)?.fold) return true;
+    // (a linha de cima é só do card: o "|" da cor dela não é de tabela)
+    const head = calloutAt(line);
+    if (head) return !!head.fold;
     const next = prose[i + 1];
     if (line.includes('|') && next?.at === at + 1 && startsTable([line, next.line], 0)) return true;
     if (!line.includes('{{')) return false;

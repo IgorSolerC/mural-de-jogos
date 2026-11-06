@@ -1,4 +1,4 @@
-import { calloutDef, calloutHead, calloutLook, calloutName } from './callouts';
+import { CALLOUTS, CALLOUT_CARTOLINA, CALLOUT_PAPERS, calloutColorName, calloutColorWord, calloutDef, calloutHead, calloutLook, calloutName, calloutPaper } from './callouts';
 import { LinhaDoc, docToText, posicaoNoDoc, posicaoNoTexto, textToDoc } from './rich-doc';
 import { Block, checkCount, copyText, hasFormatting, hasSpoiler, hasTouchableWidget, parseRich, plainText, proseLines, tasksOf, toggleCheck } from './rich-text';
 
@@ -80,6 +80,140 @@ describe('o card (o callout do Obsidian)', () => {
     expect(calloutName('meu-jogo')).toBe('Meu jogo');
     expect(calloutHead('aviso', '-', 'T')).toBe('> [!aviso]- T');
     expect(calloutHead('nota', '', '')).toBe('> [!nota]');
+  });
+});
+
+describe('a cor própria do card', () => {
+  it('vem depois da barra, com o fechar e o título como sempre; sem ela, o card é o de antes', () => {
+    const b = card('> [!aviso|azul]- Antes\n> x');
+    expect([b.type, b.color, b.fold]).toEqual(['aviso', 'azul', '-']);
+    expect(b.title).toEqual([{ text: 'Antes' }]);
+    expect(card('> [!aviso] T').color).toBe('');
+    expect(card('>[!aviso|Lilás]+').color).toBe('Lilás');
+    expect(card('> [!aviso|]').kind).toBe('quote');
+    expect(card('> [!aviso|azul claro]').kind).toBe('quote');
+  });
+
+  it('a cor muda só o papel: o nome e o jeito ficam, e a palavra desconhecida não muda nada (como no Obsidian)', () => {
+    expect(calloutPaper('aviso', 'azul')).toBe('info');
+    expect(calloutPaper('aviso', '')).toBe('aviso');
+    expect(calloutPaper('warning', 'wide-1')).toBe('aviso');
+    expect(calloutPaper('jogo', 'Lilás')).toBe('exemplo');
+    expect(calloutPaper('aviso', 'cartolina')).toBe('cartolina');
+    expect(calloutPaper('aviso', 'CARTOLINA')).toBe('cartolina');
+    expect(calloutLook('aviso')).toBe('aviso');
+    expect(plainText('> [!aviso|azul]\n> x')).toBe('Aviso\nx');
+    expect(hasFormatting('> [!aviso|azul]')).toBeTrue();
+  });
+
+  it('a barra da cor não faz da linha de cima uma tabela', () => {
+    const t = '> [!nota|azul] T\n|---|---|';
+    expect(parseRich(t)[0].kind).toBe('callout');
+    expect(hasTouchableWidget(t)).toBeFalse();
+    // a tabela de verdade dentro do card continua sendo tabela
+    expect((parseRich('> [!nota|azul] T\n> | a | b |\n> | - | - |\n> | 1 | 2 |')[0] as Callout).body[0].kind).toBe('table');
+  });
+
+  it('a palavra de cada cor volta igual; o nome de um jeito também escolhe o papel dele', () => {
+    expect(calloutColorWord('Verde-Água')).toBe('verde-agua');
+    expect(calloutColorWord('perigo')).toBe('vermelho');
+    expect(calloutColorWord('warning')).toBe('laranja');
+    expect(calloutColorWord('wide-1')).toBe('');
+    expect(calloutColorWord('')).toBe('');
+    for (const c of [...CALLOUT_PAPERS, CALLOUT_CARTOLINA]) expect(calloutColorWord(c.word)).toBe(c.word);
+    // uma cor para cada jeito, na ordem deles, e o rosa, que é só uma cor
+    expect(CALLOUT_PAPERS.map((c) => c.paper).filter((p) => p !== 'rosa')).toEqual(CALLOUTS.map((c) => c.look));
+    expect(calloutPaper('aviso', 'rosa')).toBe('rosa');
+    expect(calloutHead('aviso', '', 'T', 'rosa')).toBe('> [!aviso|rosa] T');
+    expect(calloutColorName('rosa')).toBe('Rosa');
+    expect(calloutColorName('cartolina')).toBe('Cartolina');
+    expect(calloutColorName('')).toBe('Padrão');
+  });
+
+  it('a linha de cima leva a cor no lugar certo, e sem cor fica como antes', () => {
+    expect(calloutHead('aviso', '-', 'T', 'azul')).toBe('> [!aviso|azul]- T');
+    expect(calloutHead('aviso', '', '', 'cartolina')).toBe('> [!aviso|cartolina]');
+    expect(calloutHead('aviso', '+', 'T', '')).toBe('> [!aviso]+ T');
+  });
+
+  it('no Visual, sai igual byte a byte, e trocar a cor, o jeito ou o fechar muda só o que mudou', () => {
+    for (const t of ['> [!aviso|azul]- T\n> a', '> [!nota|Lilás]\n> a', '> [!warning|wide-1] T\n> a', '  > [!dica|cartolina]+ T\n  > a']) {
+      expect(docToText(textToDoc(t)).texto).toBe(t);
+    }
+    const d = textToDoc('> [!aviso|azul] T\n> a');
+    const topo = d.linhas[0] as Extract<LinhaDoc, { kind: 'cartao' }>;
+    expect(topo.cor).toBe('azul');
+    const com = (mudou: Partial<typeof topo>) => docToText({ ...d, linhas: [{ ...topo, ...mudou }, d.linhas[1]] });
+    expect(com({ cor: 'cartolina' }).texto).toBe('> [!aviso|cartolina] T\n> a');
+    expect(com({ cor: '' }).texto).toBe('> [!aviso] T\n> a');
+    expect(com({ tipo: 'perigo' }).texto).toBe('> [!perigo|azul] T\n> a');
+    expect(com({ dobra: '-' }).texto).toBe('> [!aviso|azul]- T\n> a');
+    expect(com({ cor: 'cartolina' }).exato).toBeTrue();
+  });
+
+  it('o cursor anda pelas letras depois da cor', () => {
+    const e = docToText(textToDoc('> [!aviso|azul] Título\n> abc'));
+    expect(posicaoNoTexto(e, 0, 0)).toBe('> [!aviso|azul] '.length);
+    expect(posicaoNoDoc(e, '> [!aviso|azul] Tí'.length)).toEqual({ linha: 0, col: 2 });
+  });
+
+  /** O matiz de uma cor "#rrggbb", em graus. */
+  function hueOf(cor: string): number {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(cor.slice(i, i + 2), 16) / 255);
+    const max = Math.max(r, g, b);
+    const d = max - Math.min(r, g, b);
+    if (!d) return 0;
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+  }
+  const longe = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
+
+  /** O papel e a tinta do card na cor da cartolina, dentro de um elemento com os atributos dados. */
+  function cores(attrs: Record<string, string>): { papel: string; tinta: string; fim: () => void } {
+    const fora = document.createElement('div');
+    for (const [k, v] of Object.entries(attrs)) fora.setAttribute(k, v);
+    const dentro = document.createElement('div');
+    dentro.dataset['jeito'] = 'cartolina';
+    fora.append(dentro);
+    document.body.append(fora);
+    const s = getComputedStyle(dentro);
+    return { papel: s.getPropertyValue('--c-papel').trim(), tinta: s.getPropertyValue('--c-tinta').trim(), fim: () => fora.remove() };
+  }
+
+  it('a cor da cartolina tem o matiz dela, clara ou escura, e a tinta se lê no papel', () => {
+    for (const s of ['vermelho', 'laranja', 'amarelo', 'verde', 'azul', 'lilas', 'rosa', 'vermelho-escuro', 'laranja-escuro', 'amarelo-escuro', 'verde-escuro', 'azul-escuro', 'lilas-escuro', 'rosa-escuro']) {
+      const { papel, tinta, fim } = cores({ 'data-cor': s });
+      const stock = getComputedStyle(document.documentElement).getPropertyValue(`--stock-${s}`).trim();
+      expect(longe(hueOf(papel), hueOf(stock))).withContext(`papel de ${s}`).toBeLessThanOrEqual(15);
+      expect(longe(hueOf(tinta), hueOf(stock))).withContext(`tinta de ${s}`).toBeLessThanOrEqual(15);
+      fim();
+    }
+  });
+
+  it('o exemplo do pedido: laranja é o papel do Aviso; preto, branco e os cinzas, o da Citação; sem cartolina, também', () => {
+    const papel = (attrs: Record<string, string>) => {
+      const c = cores(attrs);
+      c.fim();
+      return [c.papel, c.tinta];
+    };
+    expect(papel({ 'data-cor': 'laranja' })).toEqual(['#fbdfc2', '#934407']);
+    for (const s of ['preto', 'branco', 'cinza', 'cinza-escuro']) expect(papel({ 'data-cor': s })).withContext(s).toEqual(['#e7e4de', '#4b463e']);
+    expect(papel({})).toEqual(['#e7e4de', '#4b463e']);
+    expect(papel({ 'data-cartolina': 'azul' })).toEqual(['#dce8f7', '#1e4f8e']);
+  });
+
+  it('a cartolina que vale é a mais perto: a ficha branca colada numa laranja fica cinza', () => {
+    const fora = document.createElement('div');
+    fora.dataset['cor'] = 'laranja';
+    const colada = document.createElement('div');
+    colada.dataset['cor'] = 'branco';
+    const c = document.createElement('div');
+    c.dataset['jeito'] = 'cartolina';
+    colada.append(c);
+    fora.append(colada);
+    document.body.append(fora);
+    expect(getComputedStyle(c).getPropertyValue('--c-papel').trim()).toBe('#e7e4de');
+    fora.remove();
   });
 });
 

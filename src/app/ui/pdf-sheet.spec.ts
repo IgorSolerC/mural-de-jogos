@@ -232,6 +232,14 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     for (const a of links) expect(css(a).display).toBe('block');
   });
 
+  it('o card com a própria cor sai no papel dela, e o da cor da cartolina, no matiz da cartolina da ficha', async () => {
+    const { fixture, el } = await sheet({ text: '> [!exemplo|laranja] A\n> a\n\n> [!exemplo|cartolina] B\n> b', stock: 'azul-escuro' });
+    const [laranja, cartolina] = Array.from(el.querySelectorAll('.cartao'));
+    expect(css(laranja).backgroundColor).toBe('rgb(251, 223, 194)');
+    expect(css(cartolina).backgroundColor).toBe('rgb(220, 232, 247)');
+    fixture.nativeElement.remove();
+  });
+
   it('a tabela branca vira a do PDF; os outros jeitos saem com a cara deles, sem partir uma linha', async () => {
     const { el } = await sheet({ text: [PDF_BLOCK_SAMPLES.table.text, '', ...PDF_WIDGET_SAMPLES['tabela'].flatMap((t) => [t, ''])].join('\n') });
     const rolos = [...el.querySelectorAll<HTMLElement>('.pdf-texto .tabela-rolo')];

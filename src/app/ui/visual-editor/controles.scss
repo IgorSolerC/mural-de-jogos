@@ -200,14 +200,27 @@
 .vis-folha:focus-within > .ProseMirror > .vis-cartao-topo.vis-cartao-ativo > .vis-cartao-controles {
   display: flex;
 }
-// o card na primeira linha do texto: dentro do papel (fora, a folha os cortaria)
-.vis-folha > .ProseMirror > .vis-cartao-topo:first-child > .vis-cartao-controles {
-  top: 2px;
+// o card na primeira linha do texto: uma linha da pauta em cima dele, só na escrita (é onde os botões ficam;
+// dentro do papel, eles cobriam o título, e o toque nele trocava o jeito)
+.vis-folha > .ProseMirror:has(> .vis-cartao-topo:first-child) {
+  padding-top: calc(var(--line) + 4px);
 }
 @media (pointer: coarse) {
   .vis-folha > .ProseMirror > .vis-cartao-topo > .vis-cartao-controles {
     top: -10px;
     gap: 12px;
+  }
+}
+// no celular, os três não cabem por extenso: sem as contas, e o jeito só com o desenho, que é o do próprio
+// card (a cor fica com o nome: Exemplo em Padrão e em Lilás têm o mesmo papel, e só o nome diz qual é)
+@media (max-width: 559px) {
+  .vis-folha > .ProseMirror > .vis-cartao-topo > .vis-cartao-controles {
+    gap: 6px;
+    .vis-ciclo-conta,
+    .vis-ciclo-bolas,
+    [data-ciclo='Jeito do card'] .vis-ciclo-nome {
+      display: none;
+    }
   }
 }
 

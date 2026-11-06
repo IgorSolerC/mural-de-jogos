@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { calloutLook, calloutName } from '../core/callouts';
+import { calloutName, calloutPaper } from '../core/callouts';
 import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, reminderLinkId, snapshotDone } from '../core/rich-text';
 import { ReminderLinkInfo, reminderLinkTitle } from '../core/reminder-links';
 import { NoteLinks } from '../core/note-links';
@@ -157,7 +157,7 @@ import { ZoomKnob } from './zoom-knob';
             <!-- o card: o papel do jeito dele, com o desenho e o título (sem título, o nome do jeito) em
                  cima e o que tem dentro embaixo; o que fecha abre e fecha pelo título -->
             @if (b.fold) {
-              <details class="cartao" [attr.data-jeito]="cardLook(b.type)" [open]="b.fold === '+'">
+              <details class="cartao" [attr.data-jeito]="cardPaper(b.type, b.color)" [open]="b.fold === '+'">
                 <summary class="linha cartao-topo tocavel" [attr.data-l]="at(b)" (click)="$event.stopPropagation()">
                   <ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" />
                   <span class="cartao-seta" aria-hidden="true"><lucide-icon [img]="ChevronIcon" [size]="16" /></span>
@@ -167,7 +167,7 @@ import { ZoomKnob } from './zoom-knob';
                 }
               </details>
             } @else {
-              <div class="cartao" role="note" [attr.data-jeito]="cardLook(b.type)" [attr.aria-label]="cardTitle(b)">
+              <div class="cartao" role="note" [attr.data-jeito]="cardPaper(b.type, b.color)" [attr.aria-label]="cardTitle(b)">
                 <div class="linha cartao-topo" [attr.data-l]="at(b)"><ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" /></div>
                 @if (b.body.length) {
                   <div class="cartao-corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: b.body }" /></div>
@@ -782,8 +782,8 @@ export class RichText {
     );
   }
   private readonly copiedTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
-  protected cardLook(type: string): string {
-    return calloutLook(type);
+  protected cardPaper(type: string, color: string): string {
+    return calloutPaper(type, color);
   }
   protected cardIcon(type: string): LucideIconData {
     return calloutIcon(type);

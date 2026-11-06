@@ -123,7 +123,7 @@ describe('o card no modo Visual', () => {
     // o cursor numa linha de dentro (a do item, no fim do card) também liga os do card
     cursor(2);
     expect(topo().classList).toContain('vis-cartao-ativo');
-    expect(botoes().map((b) => b.getAttribute('aria-label'))).toEqual(['Jeito do card: Aviso. Trocar para Perigo', 'Na leitura: Sempre aberto. Trocar para Fecha, começa aberto']);
+    expect(botoes().map((b) => b.getAttribute('aria-label'))).toEqual(['Jeito do card: Aviso. Trocar para Perigo', 'Cor do card: Padrão. Trocar para Cor da cartolina', 'Na leitura: Sempre aberto. Trocar para Fecha, começa aberto']);
     // fora do Tab: o teclado tem o menu "Card" da régua
     expect(botoes().every((b) => b.tabIndex === -1)).toBeTrue();
     const onde = view.state.selection.from;
@@ -131,11 +131,11 @@ describe('o card no modo Visual', () => {
     expect(valor).toBe('> [!perigo] T\n> a\n> - b\n\nfora');
     expect(view.state.selection.from).toBe(onde);
     expect(botoes()[0].querySelector('.vis-ciclo-nome')!.textContent).toBe('Perigo');
-    botoes()[1].click();
+    botoes()[2].click();
     expect(valor).toBe('> [!perigo]+ T\n> a\n> - b\n\nfora');
-    expect(botoes()[1].querySelector('.vis-ciclo-nome')!.textContent).toBe('Abre e fecha');
-    botoes()[1].click();
-    botoes()[1].click();
+    expect(botoes()[2].querySelector('.vis-ciclo-nome')!.textContent).toBe('Abre e fecha');
+    botoes()[2].click();
+    botoes()[2].click();
     expect(valor!.split('\n')[0]).toBe('> [!perigo] T');
     botoes()[0].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
     expect(valor!.split('\n')[0]).toBe('> [!aviso] T');
@@ -165,7 +165,7 @@ describe('o card no modo Visual', () => {
   it('o menu Card: o jeito, o fechar na leitura e desfazer (o que tinha dentro fica)', async () => {
     await make('> [!nota] T\n> a\n> b');
     cursor(1);
-    expect(estado?.cartao).toEqual({ tipo: 'nota', jeito: 'nota', dobra: '' });
+    expect(estado?.cartao).toEqual({ tipo: 'nota', jeito: 'nota', cor: '', dobra: '' });
     run({ cartao: { jeito: 'perigo' } });
     expect(valor).toBe('> [!perigo] T\n> a\n> b');
     run({ cartao: { dobra: '-' } });
@@ -176,12 +176,68 @@ describe('o card no modo Visual', () => {
     expect(estado?.cartao).toBeNull();
   });
 
+  it('o menu Card: a cor muda só o papel, em todas as linhas, e fica quando o jeito ou o fechar mudam', async () => {
+    await make('> [!nota] T\n> a\n> b');
+    cursor(1);
+    const jeitos = () => Array.from(view.dom.querySelectorAll<HTMLElement>('.vis-cartao-topo, .vis-no-cartao')).map((e) => e.dataset['jeito']);
+    expect(jeitos()).toEqual(['nota', 'nota', 'nota']);
+    run({ cartao: { cor: 'azul' } });
+    expect(valor).toBe('> [!nota|azul] T\n> a\n> b');
+    expect(estado?.cartao).toEqual({ tipo: 'nota', jeito: 'nota', cor: 'azul', dobra: '' });
+    expect(jeitos()).toEqual(['info', 'info', 'info']);
+    run({ cartao: { jeito: 'perigo' } });
+    expect(valor).toBe('> [!perigo|azul] T\n> a\n> b');
+    expect(jeitos()).toEqual(['info', 'info', 'info']);
+    run({ cartao: { dobra: '-' } });
+    expect(valor).toBe('> [!perigo|azul]- T\n> a\n> b');
+    run({ cartao: { cor: 'cartolina' } });
+    expect(valor).toBe('> [!perigo|cartolina]- T\n> a\n> b');
+    expect(jeitos()).toEqual(['cartolina', 'cartolina', 'cartolina']);
+    run({ cartao: { cor: '' } });
+    expect(valor).toBe('> [!perigo]- T\n> a\n> b');
+    expect(jeitos()).toEqual(['perigo', 'perigo', 'perigo']);
+  });
+
+  it('o botão da cor anda pelas doze, e o desenho do jeito fica; "[!aviso|azul] " escrito vira o card com a cor', async () => {
+    await make('> [!aviso] T\n> a');
+    cursor(1);
+    const cor = () => view.dom.querySelector<HTMLButtonElement>('[data-ciclo="Cor do card"]')!;
+    expect(cor().querySelector('.vis-ciclo-nome')!.textContent).toBe('Padrão');
+    expect(cor().querySelector('.vis-ciclo-conta')!.textContent).toBe('1/12');
+    const icone = view.dom.querySelector('.vis-cartao-icone')!.innerHTML;
+    cor().click();
+    expect(valor).toBe('> [!aviso|cartolina] T\n> a');
+    expect(cor().querySelector('.vis-ciclo-nome')!.textContent).toBe('Cartolina');
+    cor().click();
+    expect(valor).toBe('> [!aviso|pardo] T\n> a');
+    expect(view.dom.querySelector('.vis-cartao-icone')!.innerHTML).toBe(icone);
+    cor().dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    cor().dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
+    expect(valor).toBe('> [!aviso] T\n> a');
+    fixture.destroy();
+    fixture.nativeElement.remove();
+    TestBed.resetTestingModule();
+    await make('');
+    digita('> [!aviso|azul]- Cuidado');
+    expect(valor).toBe('> [!aviso|azul]- Cuidado');
+    expect(linhas()).toEqual(['cartaoTopo:Cuidado']);
+    expect(view.dom.querySelector<HTMLElement>('.vis-cartao-topo')!.dataset['jeito']).toBe('info');
+  });
+
+  it('a cor escrita à mão fica como está; a palavra desconhecida mostra o Padrão e não se perde sem trocar', async () => {
+    await make('> [!aviso|wide-1] T\n> a');
+    cursor(1);
+    expect(estado?.cartao?.cor).toBe('');
+    digita('b');
+    expect(valor).toBe('> [!aviso|wide-1] T\n> ab');
+  });
+
   it('Inserir › Card: na linha vazia, no lugar dela; com linhas selecionadas, elas vão para dentro', async () => {
     await make('x\n');
     cursor(1);
     run({ cartao: 'novo' });
     digita('Novo');
-    expect(valor).toBe('x\n> [!nota] Novo\n>');
+    expect(valor).toBe('x\n> [!nota|cartolina] Novo\n>');
     fixture.destroy();
     fixture.nativeElement.remove();
     TestBed.resetTestingModule();
@@ -192,8 +248,9 @@ describe('o card no modo Visual', () => {
     });
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, fim)));
     run({ cartao: 'novo' });
-    expect(valor).toBe('> [!nota]\n> a\n> b\nc');
+    expect(valor).toBe('> [!nota|cartolina]\n> a\n> b\nc');
     expect(estado?.cartao?.jeito).toBe('nota');
+    expect(estado?.cartao?.cor).toBe('cartolina');
   });
 
   it('Backspace no começo do título desfaz o card; "> " e "[!aviso] " escritos viram um card', async () => {
@@ -222,7 +279,7 @@ describe('o card no modo Visual', () => {
     // de "a" até o começo de "b"
     view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, 1, 4)));
     run({ cartao: 'novo' });
-    expect(valor).toBe('> [!nota]\n> a\nb\nc');
+    expect(valor).toBe('> [!nota|cartolina]\n> a\nb\nc');
   });
 
   it('a linha de dentro que perde a de cima (apagada junto com a de antes) sai do card', async () => {

@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, Injector, afterNextRend
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { bodyIndent, calloutAround, calloutAt, calloutLine, closes, copyText, fenceInfo, fenceOf, InlineMark, isTableSep, itemEnd, lineKind, linesOf, linkAt, marksAt, nextNumber, ownerItem, reminderLink, reminderLinkId, renumberAfter, tableBlockAt, tableCells, unwrapAt, withNumber } from '../core/rich-text';
-import { CALLOUTS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, calloutHead, calloutLook } from '../core/callouts';
+import { CALLOUTS, CALLOUT_CARTOLINA, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CalloutFold, CalloutLook, DEFAULT_CALLOUT, NEW_CALLOUT_COLOR, calloutColorName, calloutColorWord, calloutHead, calloutLook, calloutPaper } from '../core/callouts';
 import { CALLOUT_ICON } from './callout-looks';
 import { DEFAULT_TABLE_LOOK, MAX_TABLE_COLS, MAX_TABLE_ROWS, emptyTable, readTable, tableText } from '../core/tables';
 import { NoteLinks, linkKey, linkTitleOf, linkableTitle, resolveNote } from '../core/note-links';
@@ -432,7 +432,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
             </span>
           }
           <!-- o menu "Card", enquanto o cursor está num card (nos dois modos): o jeito dele (o papel e o
-               desenho), se fecha na leitura, e desfazer o card (o que tem dentro fica no texto) -->
+               desenho), a cor própria, se fecha na leitura, e desfazer o card (o que tem dentro fica no texto) -->
           @if (cardHere(); as cd) {
             <span class="menu-ancora" (focusout)="onMenuFocusOut($event)">
               <button
@@ -443,7 +443,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                 [attr.aria-expanded]="isOpen('card', big)"
                 [attr.aria-controls]="isOpen('card', big) ? areaId + '-card' : null"
                 aria-label="Card"
-                title="Card: o jeito e o fechar na leitura"
+                title="Card: o jeito, a cor e o fechar na leitura"
                 (pointerdown)="$event.preventDefault()"
                 (click)="toggleMenu('card', big, $event, area)"
                 (keydown.arrowdown)="$event.preventDefault(); openMenu('card', big, true)"
@@ -456,7 +456,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                   <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-jeito'">
                     <p class="menu-secao" [id]="areaId + '-sec-jeito'" aria-hidden="true">Jeito</p>
                     @for (d of cardLooks; track d.look) {
-                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="d.look" [attr.aria-checked]="cd.jeito === d.look" [title]="d.about" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { jeito: d.look })">
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cd.cor ? cardPaperOf(cd.tipo, cd.cor) : d.look" [attr.aria-checked]="cd.jeito === d.look" [title]="d.about" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { jeito: d.look })">
                         <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(d.look)" [size]="15" /></span>
                         <span class="menu-op-nome">{{ d.name }}</span>
                         @if (cd.jeito === d.look) {
@@ -465,17 +465,45 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                       </button>
                     }
                   </div>
-                  <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-dobra'">
-                    <p class="menu-secao" [id]="areaId + '-sec-dobra'" aria-hidden="true">Na leitura</p>
-                    @for (f of cardFolds; track f.value) {
-                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="cd.dobra === f.value" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { dobra: f.value })">
-                        <lucide-icon [img]="f.icon" [size]="17" aria-hidden="true" />
-                        <span class="menu-op-nome">{{ f.name }}</span>
-                        @if (cd.dobra === f.value) {
+                  <div class="menu-coluna">
+                    <!-- a cor: a do jeito, a da cartolina e os dez papéis, cada um com o desenho deste card -->
+                    <div class="menu-grupo" role="group" [attr.aria-labelledby]="areaId + '-sec-cor'">
+                      <p class="menu-secao" [id]="areaId + '-sec-cor'" aria-hidden="true">Cor: {{ cardColorName(cd.cor) }}</p>
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cd.jeito" [attr.aria-checked]="cd.cor === ''" title="A cor do jeito do card" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: '' })">
+                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(cd.jeito)" [size]="15" /></span>
+                        <span class="menu-op-nome">{{ cardDefaultColor }}</span>
+                        @if (cd.cor === '') {
                           <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
                         }
                       </button>
-                    }
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cardCartolina.paper" [attr.aria-checked]="cd.cor === cardCartolina.word" title="O mesmo matiz da cartolina" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: cardCartolina.word })">
+                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(cd.jeito)" [size]="15" /></span>
+                        <span class="menu-op-nome">{{ cardCartolina.name }}</span>
+                        @if (cd.cor === cardCartolina.word) {
+                          <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+                        }
+                      </button>
+                      <div class="cor-papeis">
+                        @for (c of cardPapers; track c.word) {
+                          <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op cor-op" [attr.data-jeito]="c.paper" [attr.aria-checked]="cd.cor === c.word" [attr.aria-label]="c.name" [title]="c.name" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: c.word })">
+                            <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cd.cor === c.word ? ChosenIcon : cardIconOf(cd.jeito)" [size]="15" /></span>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                    <span class="menu-fio" role="separator"></span>
+                    <div class="menu-grupo" role="group" [attr.aria-labelledby]="areaId + '-sec-dobra'">
+                      <p class="menu-secao" [id]="areaId + '-sec-dobra'" aria-hidden="true">Na leitura</p>
+                      @for (f of cardFolds; track f.value) {
+                        <button type="button" role="menuitemradio" tabindex="-1" class="menu-op" [attr.aria-checked]="cd.dobra === f.value" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { dobra: f.value })">
+                          <lucide-icon [img]="f.icon" [size]="17" aria-hidden="true" />
+                          <span class="menu-op-nome">{{ f.name }}</span>
+                          @if (cd.dobra === f.value) {
+                            <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
+                          }
+                        </button>
+                      }
+                    </div>
                     <span class="menu-fio" role="separator"></span>
                     <button type="button" role="menuitem" tabindex="-1" class="menu-op" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, 'desfazer')">
                       <lucide-icon [img]="UnwrapIcon" [size]="17" aria-hidden="true" />
@@ -1981,9 +2009,33 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       color: var(--c-tinta);
       rotate: -3deg;
       box-shadow: 0 1px 1px rgb(0 0 0 / 0.18);
+      /* a amostra é a cor: em cores forçadas, as dez ficariam iguais */
+      forced-color-adjust: none;
     }
     .cartao-op:nth-child(odd) .cartao-amostra {
       rotate: 2deg;
+    }
+    .menu-grupo {
+      display: grid;
+      align-content: start;
+      min-width: 0;
+    }
+    /* os dez papéis da cor do card: só os quadradinhos, cinco por fileira (o nome vem no title e no leitor de tela) */
+    .cor-papeis {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 2px;
+      padding: 2px 6px 4px;
+    }
+    .menu-op.cor-op {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      gap: 0;
+      padding: 0;
+    }
+    /* a escolhida, com o contorno na tinta dela: o marca-texto amarelo em volta some na amostra amarela */
+    .cor-op[aria-checked='true'] .cartao-amostra {
+      box-shadow: 0 0 0 2px var(--c-tinta);
     }
     /* o estilo da linha: o marca-texto amarelo e o tique, no lugar do atalho */
     .menu-op[aria-checked='true'] {
@@ -2756,6 +2808,7 @@ export class RichEditor {
       items[(i + items.length) % items.length]?.focus();
     };
     // com o foco no menu (aberto pelo mouse), a seta para baixo vai para o primeiro e a para cima, o último
+    if (at >= 0 && items[at].classList.contains('cor-op') && this.onColorGridKey(e, items, at)) return;
     if (e.key === 'ArrowDown') go(at + 1);
     else if (e.key === 'ArrowUp') go(at < 0 ? items.length - 1 : at - 1);
     else if (e.key === 'Home') go(0);
@@ -2774,6 +2827,26 @@ export class RichEditor {
       e.stopPropagation();
       this.backToMenuButton();
     } else if (e.key === 'Tab') this.menu.set(null);
+  }
+
+  /**
+   * As setas na grade das cores do card (`.cor-papeis`, cinco por fileira): para os lados, de um em um
+   * (no começo de uma fileira, a esquerda volta para o jeito escolhido); para cima e para baixo, de
+   * fileira em fileira, saindo da grade nas pontas. False: outra tecla, a de sempre.
+   */
+  private onColorGridKey(e: KeyboardEvent, items: readonly HTMLElement[], at: number): boolean {
+    const COLS = 5;
+    const cores = items.filter((b) => b.classList.contains('cor-op'));
+    const i = cores.indexOf(items[at]);
+    let next: HTMLElement | null | undefined;
+    if (e.key === 'ArrowRight') next = cores[(i + 1) % cores.length];
+    else if (e.key === 'ArrowLeft') next = i % COLS ? cores[i - 1] : this.host.nativeElement.querySelector<HTMLElement>('.menu .menu-coluna .menu-op[aria-checked="true"]');
+    else if (e.key === 'ArrowDown') next = cores[i + COLS] ?? items[items.indexOf(cores[cores.length - 1]) + 1];
+    else if (e.key === 'ArrowUp') next = cores[i - COLS] ?? items[items.indexOf(cores[0]) - 1];
+    else return false;
+    e.preventDefault();
+    next?.focus();
+    return true;
   }
 
   /** O menu fecha e o foco volta para o botão dele (o lugar de quem veio pelo teclado). */
@@ -2974,6 +3047,9 @@ export class RichEditor {
   protected readonly CardIcon = ICON.card;
   protected readonly UnwrapIcon = ICON.borracha;
   protected readonly cardLooks = CALLOUTS;
+  protected readonly cardPapers = CALLOUT_PAPERS;
+  protected readonly cardCartolina = CALLOUT_CARTOLINA;
+  protected readonly cardDefaultColor = CALLOUT_DEFAULT_COLOR_NAME;
   protected readonly cardFolds: readonly { value: CalloutFold; name: string; icon: LucideIconData }[] = [
     { value: '', name: 'Sempre aberto', icon: ICON.card },
     { value: '+', name: 'Fecha, começa aberto', icon: ICON.abrir },
@@ -2982,17 +3058,24 @@ export class RichEditor {
   protected cardIconOf(look: CalloutLook): LucideIconData {
     return CALLOUT_ICON[look];
   }
+  protected cardColorName(word: string): string {
+    return calloutColorName(word);
+  }
+  /** O papel do card do cursor: com cor própria, trocar o jeito não troca o papel, e as amostras do Jeito mostram isso. */
+  protected cardPaperOf(type: string, color: string): string {
+    return calloutPaper(type, color);
+  }
 
   /** O card do cursor (no Visual, o que ele conta; no Markdown, o da linha do cursor). */
   protected readonly cardHere = computed(() => (this.visual() ? this.visualState().cartao : this.markdownCard()));
 
-  /** O card em que cai a posição `at` do texto: o jeito escrito, a cara dele e o fechar. */
+  /** O card em que cai a posição `at` do texto: o jeito escrito, a cara dele, a cor e o fechar. */
   private cardOf(text: string, at: number): EstadoCartao | null {
     const lines = linesOf(text);
     const row = text.slice(0, at).split('\n').length - 1;
     const c = calloutAround(lines, row);
     const head = c && calloutAt(lines[c.head]);
-    return head ? { tipo: head.type, jeito: calloutLook(head.type), dobra: head.fold } : null;
+    return head ? { tipo: head.type, jeito: calloutLook(head.type), cor: calloutColorWord(head.color), dobra: head.fold } : null;
   }
 
   /** Uma ação do menu "Card" (o menu fecha antes). */
@@ -3023,8 +3106,9 @@ export class RichEditor {
       const at = from + outs.slice(0, Math.max(0, k)).reduce((n, l) => n + l.length + 1, 0) + Math.max(0, Math.min(col - cut, outs[Math.max(0, k)]?.length ?? 0));
       this.replace(area, from, to, out, at, at);
       return this.track(area);
-    } else if (typeof what === 'object' && 'jeito' in what) out = [lead + calloutHead(what.jeito, head.fold, head.title), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
-    else if (typeof what === 'object' && 'dobra' in what) out = [lead + calloutHead(head.type, what.dobra, head.title), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
+    } else if (typeof what === 'object' && 'jeito' in what) out = [lead + calloutHead(what.jeito, head.fold, head.title, head.color), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
+    else if (typeof what === 'object' && 'cor' in what) out = [lead + calloutHead(head.type, head.fold, head.title, what.cor), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
+    else if (typeof what === 'object' && 'dobra' in what) out = [lead + calloutHead(head.type, what.dobra, head.title, head.color), ...lines.slice(c.head + 1, c.end + 1)].join('\n');
     else return area.focus();
     // o cursor fica na mesma linha (na de cima, que mudou de tamanho, no fim dela)
     const caret = Math.min(from + out.length, area.selectionStart + out.length - (to - from));
@@ -3038,7 +3122,7 @@ export class RichEditor {
    * cursor, com uma linha vazia dentro. O cursor fica no lugar do título.
    */
   private newCard(area: HTMLTextAreaElement): void {
-    const head = calloutHead(DEFAULT_CALLOUT, '', '') + ' ';
+    const head = calloutHead(DEFAULT_CALLOUT, '', '', NEW_CALLOUT_COLOR) + ' ';
     const text = area.value;
     const { from, to, lines } = this.linesAt(area);
     if (area.selectionStart !== area.selectionEnd && lines.some((l) => l.trim())) {

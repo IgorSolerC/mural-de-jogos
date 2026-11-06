@@ -1,5 +1,5 @@
 import { Fragment, Mark, Node as PMNode, Schema, Slice } from 'prosemirror-model';
-import { CalloutFold, calloutLook } from '../../core/callouts';
+import { CalloutFold, calloutPaper } from '../../core/callouts';
 import { typedCodeLang } from '../../core/code-langs';
 import { Fonte, LinhaDoc, juntarSpans, textToDoc } from '../../core/rich-doc';
 import { Span } from '../../core/rich-text';
@@ -77,16 +77,24 @@ export const schema = new Schema({
     },
     /**
      * A linha de cima do card: o título escrito direto nela (sem título, a tela mostra o nome do jeito).
-     * `tipo`: o jeito como está escrito ("aviso", "warning"); `dobra`: o "-"/"+" de fechar. Na tela, a
-     * peça `CartaoView` (cartoes.ts), com o desenho do jeito na frente.
+     * `tipo`: o jeito como está escrito ("aviso", "warning"); `cor`: a cor própria como está escrita
+     * ("" sem ela); `dobra`: o "-"/"+" de fechar. Na tela, a peça `CartaoView` (cartoes.ts), com o desenho
+     * do jeito na frente.
      */
     cartaoTopo: {
       group: 'bloco',
       content: 'inline*',
       defining: true,
-      attrs: { ...base, tipo: { default: 'nota' }, dobra: { default: '' } },
-      parseDOM: [{ tag: 'div.vis-cartao-topo', priority: 60, contentElement: (d) => (d as HTMLElement).querySelector('.vis-cartao-titulo') ?? (d as HTMLElement), getAttrs: (d) => ({ tipo: (d as HTMLElement).dataset['tipo'] || 'nota' }) }],
-      toDOM: (n) => ['div', { class: 'linha vis-cartao-topo', 'data-tipo': n.attrs['tipo'], 'data-jeito': calloutLook(n.attrs['tipo']) }, ['span', { class: 'vis-cartao-titulo' }, 0]],
+      attrs: { ...base, tipo: { default: 'nota' }, cor: { default: '' }, dobra: { default: '' } },
+      parseDOM: [
+        {
+          tag: 'div.vis-cartao-topo',
+          priority: 60,
+          contentElement: (d) => (d as HTMLElement).querySelector('.vis-cartao-titulo') ?? (d as HTMLElement),
+          getAttrs: (d) => ({ tipo: (d as HTMLElement).dataset['tipo'] || 'nota', cor: (d as HTMLElement).dataset['tinta'] || '' }),
+        },
+      ],
+      toDOM: (n) => ['div', { class: 'linha vis-cartao-topo', 'data-tipo': n.attrs['tipo'], 'data-tinta': n.attrs['cor'], 'data-jeito': calloutPaper(n.attrs['tipo'], n.attrs['cor']) }, ['span', { class: 'vis-cartao-titulo' }, 0]],
     },
     citacao: {
       group: 'bloco',
@@ -388,7 +396,7 @@ function noSemCartao(l: LinhaDoc): PMNode {
     case 'titulo':
       return N['titulo'].create({ recuo: l.recuo, fonte, nivel: l.nivel }, inlineDe(l.spans));
     case 'cartao':
-      return N['cartaoTopo'].create({ recuo: l.recuo, fonte, tipo: l.tipo, dobra: l.dobra }, inlineDe(l.spans));
+      return N['cartaoTopo'].create({ recuo: l.recuo, fonte, tipo: l.tipo, cor: l.cor, dobra: l.dobra }, inlineDe(l.spans));
     case 'citacao':
       return N['citacao'].create({ recuo: l.recuo, fonte }, inlineDe(l.spans));
     case 'sutil':
@@ -459,7 +467,7 @@ export function linhaDe(n: PMNode): LinhaDoc {
       l = { kind: 'citacao', recuo: r, spans: spansDe(n), fonte };
       break;
     case 'cartaoTopo':
-      l = { kind: 'cartao', recuo: r, tipo: n.attrs['tipo'], dobra: n.attrs['dobra'] as CalloutFold, spans: spansDe(n), fonte };
+      l = { kind: 'cartao', recuo: r, tipo: n.attrs['tipo'], cor: n.attrs['cor'], dobra: n.attrs['dobra'] as CalloutFold, spans: spansDe(n), fonte };
       break;
     case 'sutil':
       l = { kind: 'sutil', recuo: r, spans: spansDe(n), fonte };

@@ -958,6 +958,7 @@ export class ReviewReader {
           },
       cover: r.game.coverUrl || null,
       text: r.text,
+      stock: this.pin().stock,
       // os links entre anotações só se mostram (no papel não se toca); o de lembrete leva a data
       links: { resolve: (title) => resolveNote(notes, title), ...(this.owner() === null ? { reminder: (id: string) => this.reminderLinks.info(id) } : {}) },
     };

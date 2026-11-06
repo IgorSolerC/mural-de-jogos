@@ -139,7 +139,7 @@ const EAR_GAP = 0.2;
               @if (!folded()) {
                 @if (f.review.text.trim()) {
                   <!-- o texto vivo: as tarefas se marcam (na sua nota), os widgets tocam, os links abrem -->
-                  <app-rich-text class="folha-texto" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" [checkable]="canTick()" (toggled)="tick(f.review, $event)" />
+                  <app-rich-text class="folha-texto" [attr.data-cartolina]="stock()" [text]="f.review.text" [fold]="true" [foldKey]="f.review.id" [links]="links()" [checkable]="canTick()" (toggled)="tick(f.review, $event)" />
                 } @else {
                   <p class="folha-vazia">Ainda sem texto.</p>
                 }

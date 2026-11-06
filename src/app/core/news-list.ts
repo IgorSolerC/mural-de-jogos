@@ -27,11 +27,12 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-rolagem-do-verso',
+    id: '2026-11-06-cor-do-card',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'O clique rápido nos Estudos',
+    title: 'A cor de cada card e o clique rápido nos Estudos',
+    melhorias: ['Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.'],
     correcoes: [
       'Ao estudar, a resposta da próxima carta não aparece mais antes da hora, e o clique rápido demais não vira a carta seguinte nem responde a carta sem você ter lido.',
       'Ao estudar, a resposta comprida abre do começo, e não mais rolada até onde a carta anterior parou.',

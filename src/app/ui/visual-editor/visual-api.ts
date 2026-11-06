@@ -33,14 +33,16 @@ export interface EstadoCodigo {
 
 /**
  * O que o menu "Card" pede (e o Inserir › Card, `novo`): o card novo (no jeito dado, ou na Nota), outro
- * jeito, o fechar na leitura, ou desfazer o card (o que tinha dentro fica no texto).
+ * jeito, outra cor (a palavra dela, "" para a do jeito), o fechar na leitura, ou desfazer o card (o que
+ * tinha dentro fica no texto).
  */
-export type AcaoCartao = 'novo' | 'desfazer' | { novo: CalloutLook } | { jeito: CalloutLook } | { dobra: CalloutFold };
+export type AcaoCartao = 'novo' | 'desfazer' | { novo: CalloutLook } | { jeito: CalloutLook } | { cor: string } | { dobra: CalloutFold };
 
-/** O card do cursor, para o menu "Card" da régua: o jeito escrito, a cara dele e o fechar. */
+/** O card do cursor, para o menu "Card" da régua: o jeito escrito, a cara dele, a cor (a palavra dela, "" sem cor própria) e o fechar. */
 export interface EstadoCartao {
   tipo: string;
   jeito: CalloutLook;
+  cor: string;
   dobra: CalloutFold;
 }
 

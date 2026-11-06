@@ -31,6 +31,8 @@ export interface PdfDoc {
   /** A capa da obra (ou a da anotação), pequena no canto do cabeçalho. */
   cover?: string | null;
   text: string;
+  /** A cartolina da ficha: a folha é branca, mas o card na cor da cartolina fica no matiz dela. */
+  stock?: string | null;
   /** Os links entre anotações: só para achar a de um título (o que não existe sai tracejado). */
   links?: NoteLinks | null;
 }
@@ -60,7 +62,7 @@ export interface PdfDoc {
   styleUrl: './pdf-sheet.scss',
   template: `
     @let d = doc();
-    <article class="pdf-folha" lang="pt-BR">
+    <article class="pdf-folha" lang="pt-BR" [attr.data-cartolina]="d.stock ?? null">
       <header class="pdf-cabeca">
         <div class="pdf-nomes">
           <h1 class="pdf-titulo">{{ d.title }}</h1>

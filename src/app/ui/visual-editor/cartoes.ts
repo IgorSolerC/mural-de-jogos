@@ -2,7 +2,7 @@ import { Mapping } from 'prosemirror-transform';
 import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
-import { CALLOUTS, CalloutFold, CalloutLook, calloutLook, calloutName, DEFAULT_CALLOUT } from '../../core/callouts';
+import { CALLOUT_CARTOLINA, CALLOUT_CARTOLINA_SHORT, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CALLOUTS, CalloutFold, CalloutLook, calloutColorWord, calloutLook, calloutName, calloutPaper, DEFAULT_CALLOUT, NEW_CALLOUT_COLOR } from '../../core/callouts';
 import { calloutIcon } from '../callout-looks';
 import { ICON } from '../icons';
 import { schema } from './schema';
@@ -120,11 +120,11 @@ function quemFica(trs: readonly Transaction[], velho: EditorState, novo: EditorS
 
 const DESENHO = new PluginKey<{ chave: string; deco: DecorationSet }>('vis-cartoes');
 
-/** Cada linha de dentro com a classe do papel (e a cor do jeito), a última com o pé rasgado. */
+/** Cada linha de dentro com a classe do papel (e a cor do card), a última com o pé rasgado. */
 function desenhar(doc: PMNode): DecorationSet {
   const decos: Decoration[] = [];
   for (const c of cardsDe(doc)) {
-    const jeito = calloutLook(c.node.attrs['tipo']);
+    const jeito = calloutPaper(c.node.attrs['tipo'], c.node.attrs['cor']);
     if (c.ultimo === c.topo) decos.push(Decoration.node(c.pos, c.fim, { class: 'vis-cartao-fim' }));
     let pos = c.pos + c.node.nodeSize;
     for (let i = c.topo + 1; i <= c.ultimo; i++) {
@@ -137,12 +137,12 @@ function desenhar(doc: PMNode): DecorationSet {
 }
 
 /**
- * O que muda o papel: a linha de cima (e o jeito dela) e quem está dentro, linha a linha. As letras não
+ * O que muda o papel: a linha de cima (o jeito e a cor dela) e quem está dentro, linha a linha. As letras não
  * mudam nada: o desenho só anda com elas (menos o da linha trocada inteira, ver `levarDesenho`).
  */
 function estrutura(doc: PMNode): string {
   let k = '';
-  doc.forEach((n) => (k += n.type === TOPO ? `[${n.attrs['tipo']}` : n.attrs['cartao'] != null ? '>' : '.'));
+  doc.forEach((n) => (k += n.type === TOPO ? `[${n.attrs['tipo']}|${n.attrs['cor']}` : n.attrs['cartao'] != null ? '>' : '.'));
   return k;
 }
 
@@ -197,14 +197,21 @@ const DOBRAS: readonly { valor: CalloutFold; nome: string; curto: string }[] = [
   { valor: '-', nome: 'Começa fechado', curto: 'Fechado' },
 ];
 
+/** As cores do botão, na ordem do menu "Card": a do jeito, a da cartolina e os dez papéis. */
+const CORES: readonly { valor: string; nome: string; curto?: string }[] = [
+  { valor: '', nome: CALLOUT_DEFAULT_COLOR_NAME },
+  { valor: CALLOUT_CARTOLINA.word, nome: CALLOUT_CARTOLINA.name, curto: CALLOUT_CARTOLINA_SHORT },
+  ...CALLOUT_PAPERS.map((c) => ({ valor: c.word, nome: c.name })),
+];
+
 // ===== A linha de cima na tela =====
 
 /**
  * A linha de cima do card: o desenho do jeito na frente (só desenho), o título escrito direto e, no card
  * que fecha, a setinha (na escrita, ele fica sempre aberto). Sem título, a linha mostra o nome do jeito,
- * apagado, como o que vai aparecer na leitura. Com o cursor no card, dois botões presos na beirada de
- * cima do papel, à direita (ver controles.ts): o jeito, que anda pelos nove a cada toque, e como ele fica
- * na leitura (sempre aberto, fecha começando aberto, começa fechado). O menu "Card" da régua faz o mesmo.
+ * apagado, como o que vai aparecer na leitura. Com o cursor no card, três botões presos na beirada de
+ * cima do papel, à direita (ver controles.ts): o jeito, que anda pelos nove a cada toque, a cor, e como ele
+ * fica na leitura (sempre aberto, fecha começando aberto, começa fechado). O menu "Card" da régua faz o mesmo.
  */
 export class CartaoView implements NodeView {
   readonly dom: HTMLElement;
@@ -213,7 +220,7 @@ export class CartaoView implements NodeView {
   private readonly seta: HTMLElement;
   private readonly controles: HTMLElement;
   private tipo = '';
-  /** O jeito e o fechar que os botões mostram (refeitos só quando um dos dois muda). */
+  /** O jeito, a cor e o fechar que os botões mostram (refeitos só quando um dos três muda). */
   private feitos = '';
 
   constructor(
@@ -243,21 +250,30 @@ export class CartaoView implements NodeView {
     this.desenha();
   }
 
-  /** Os botões do jeito e do fechar, com o que o card tem agora. */
+  /** Os botões do jeito, da cor e do fechar, com o que o card tem agora. */
   private desenhaControles(): void {
     const tipo: string = this.node.attrs['tipo'];
     const dobra: CalloutFold = this.node.attrs['dobra'] || '';
     const jeito = calloutLook(tipo);
-    if (this.feitos === `${jeito}|${dobra}`) return;
-    this.feitos = `${jeito}|${dobra}`;
+    const cor = calloutColorWord(this.node.attrs['cor']);
+    if (this.feitos === `${jeito}|${cor}|${dobra}`) return;
+    this.feitos = `${jeito}|${cor}|${dobra}`;
     this.controles.replaceChildren(
       ciclo({
         rotulo: 'Jeito do card',
         opcoes: CALLOUTS.map((c) => ({ valor: c.look, nome: c.name })),
         at: CALLOUTS.findIndex((c) => c.look === jeito),
-        icone: ICON.paleta,
+        icone: calloutIcon(tipo),
         giro: '-1.2deg',
         escolhe: (v) => this.muda({ tipo: v }),
+      }),
+      ciclo({
+        rotulo: 'Cor do card',
+        opcoes: CORES,
+        at: CORES.findIndex((c) => c.valor === cor),
+        icone: ICON.paleta,
+        giro: '0.7deg',
+        escolhe: (v) => this.muda({ cor: v }),
       }),
       ciclo({
         rotulo: 'Na leitura',
@@ -270,8 +286,8 @@ export class CartaoView implements NodeView {
     );
   }
 
-  /** O card com o jeito (ou o fechar) trocado; o cursor fica onde está. */
-  private muda(attrs: { tipo?: string; dobra?: string }): void {
+  /** O card com o jeito (ou a cor, ou o fechar) trocado; o cursor fica onde está. */
+  private muda(attrs: { tipo?: string; cor?: string; dobra?: string }): void {
     const pos = this.getPos();
     if (pos === undefined || !this.view.editable) return;
     this.view.dispatch(this.view.state.tr.setNodeMarkup(pos, null, { ...this.node.attrs, ...attrs }).setMeta(CARTAO, true));
@@ -285,7 +301,8 @@ export class CartaoView implements NodeView {
       this.icone.replaceChildren(desenho(calloutIcon(this.tipo)));
     }
     this.dom.dataset['tipo'] = this.tipo;
-    this.dom.dataset['jeito'] = calloutLook(this.tipo);
+    this.dom.dataset['tinta'] = a['cor'] || '';
+    this.dom.dataset['jeito'] = calloutPaper(this.tipo, a['cor']);
     this.dom.dataset['dobra'] = a['dobra'] || '';
     this.dom.classList.toggle('vazio', !this.node.content.size);
     this.contentDOM.dataset['vazio'] = calloutName(this.tipo);
@@ -361,7 +378,7 @@ export function estadoCartao(state: EditorState): EstadoCartao | null {
   const c = cardEm(state.doc, indiceDe(state));
   if (!c) return null;
   const tipo: string = c.node.attrs['tipo'];
-  return { tipo, jeito: calloutLook(tipo), dobra: c.node.attrs['dobra'] };
+  return { tipo, jeito: calloutLook(tipo), cor: calloutColorWord(c.node.attrs['cor']), dobra: c.node.attrs['dobra'] };
 }
 
 /** O card desfeito: o título vira uma linha de texto (sem título, ela sai) e as de dentro ficam fora. */
@@ -393,7 +410,7 @@ function desfazer(state: EditorState, i: number): Transaction {
  */
 function novo(state: EditorState, jeito: CalloutLook): Transaction {
   const tr = state.tr.setMeta(CARTAO, true);
-  const topo = (recuo: number) => TOPO.create({ recuo, tipo: jeito, dobra: '' });
+  const topo = (recuo: number) => TOPO.create({ recuo, tipo: jeito, cor: NEW_CALLOUT_COLOR, dobra: '' });
   const { from, to, empty } = state.selection;
   const alvos: [PMNode, number][] = [];
   // as linhas de que a seleção pega alguma coisa (a que ela só toca no começo ou no fim, não)
@@ -442,7 +459,7 @@ export function acaoCartao(acao: AcaoCartao): Command {
       dispatch(desfazer(state, i).scrollIntoView());
       return true;
     }
-    const attrs = 'jeito' in acao ? { tipo: acao.jeito } : { dobra: acao.dobra };
+    const attrs = 'jeito' in acao ? { tipo: acao.jeito } : 'cor' in acao ? { cor: acao.cor } : { dobra: acao.dobra };
     dispatch(state.tr.setNodeMarkup(c.pos, null, { ...c.node.attrs, ...attrs }).setMeta(CARTAO, true));
     return true;
   };

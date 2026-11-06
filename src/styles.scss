@@ -1789,3 +1789,30 @@ img.revelada {
   --c-papel: #e7e4de;
   --c-tinta: #4b463e;
 }
+/* (o rosa é só uma cor: nenhum jeito o tem) */
+[data-jeito='rosa'] {
+  --c-papel: #fadce7;
+  --c-tinta: #99214f;
+}
+/* A cor da cartolina ([!aviso|cartolina]): o papel e a tinta do mesmo matiz da cartolina em volta, vindos
+   da cartolina mais perto, por herança (uma ficha colada num texto fica com a dela). Clara ou escura, o
+   papel do card é claro; cada matiz é o de um dos papéis que se escolhem, menos o verde: o do Feito puxa
+   para o amarelo (30° longe da cartolina), e o daqui é só daqui.
+   data-cartolina diz a cor onde data-cor vestiria o que tem dentro (a folha creme da ficha colada, o PDF).
+   Fora de uma cartolina, o cinza. */
+[data-jeito='cartolina'] {
+  --c-papel: var(--cartolina-papel, #e7e4de);
+  --c-tinta: var(--cartolina-tinta, #4b463e);
+}
+@each $cores, $papel, $tinta in ((vermelho vermelho-escuro) #f7d9d4 #9d2118), ((laranja laranja-escuro) #fbdfc2 #934407),
+  ((amarelo amarelo-escuro) #faeea4 #735400), ((verde verde-escuro) #d8f0db #1f6a2c), ((azul azul-escuro) #dce8f7 #1e4f8e),
+  ((lilas lilas-escuro) #e6dcf5 #553594), ((rosa rosa-escuro) #fadce7 #99214f), ((cinza cinza-escuro branco preto) #e7e4de #4b463e)
+{
+  @each $cor in $cores {
+    [data-cor='#{$cor}'],
+    [data-cartolina='#{$cor}'] {
+      --cartolina-papel: #{$papel};
+      --cartolina-tinta: #{$tinta};
+    }
+  }
+}

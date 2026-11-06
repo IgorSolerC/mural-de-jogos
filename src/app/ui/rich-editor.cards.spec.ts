@@ -48,14 +48,81 @@ describe('o card no Markdown', () => {
     fixture.detectChanges();
   }
 
+  it('o menu Card: a cor fica na linha de cima, e trocar o jeito ou o fechar não a perde', () => {
+    write('> [!nota] T\n> a^b');
+    pick('card', 'Cor da cartolina');
+    expect(value()).toBe('> [!nota|cartolina] T\n> ab');
+    pick('card', 'Perigo');
+    expect(value()).toBe('> [!perigo|cartolina] T\n> ab');
+    pick('card', 'Começa fechado');
+    expect(value()).toBe('> [!perigo|cartolina]- T\n> ab');
+    pick('card', 'Padrão');
+    expect(value()).toBe('> [!perigo]- T\n> ab');
+    expect(caret()).toBe('> [!perigo]- T\n> a'.length);
+    // o quadradinho de um dos nove papéis, que só tem o nome para o leitor de tela
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const azul = fixture.nativeElement.querySelector('.cor-op[aria-label="Azul"]') as HTMLButtonElement;
+    expect(azul.dataset['jeito']).toBe('info');
+    azul.click();
+    fixture.detectChanges();
+    expect(value()).toBe('> [!perigo|azul]- T\n> ab');
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.cor-op[aria-checked="true"]').getAttribute('aria-label')).toBe('Azul');
+    // a cor escolhida também em texto, e as amostras do jeito no papel que ele vai ter de verdade
+    expect(fixture.nativeElement.querySelector('.menu [id$="-sec-cor"]').textContent.trim()).toBe('Cor: Azul');
+    const jeitos = Array.from(fixture.nativeElement.querySelectorAll('.menu-coluna:first-child .cartao-op') as NodeListOf<HTMLElement>);
+    expect(jeitos.length).toBe(9);
+    expect(jeitos.every((b) => b.dataset['jeito'] === 'info')).toBeTrue();
+  });
+
+  it('o menu Card sem cor própria: as amostras do jeito ficam cada uma na cor dela', () => {
+    write('> [!nota] T\n> a^b');
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const jeitos = Array.from(fixture.nativeElement.querySelectorAll('.menu-coluna:first-child .cartao-op') as NodeListOf<HTMLElement>);
+    expect(jeitos.map((b) => b.dataset['jeito'])).toEqual(['nota', 'info', 'dica', 'feito', 'pergunta', 'aviso', 'perigo', 'exemplo', 'citacao']);
+    expect(fixture.nativeElement.querySelector('.menu [id$="-sec-cor"]').textContent.trim()).toBe('Cor: Padrão');
+  });
+
+  it('as setas na grade das cores: de um em um para os lados, de fileira em fileira, e saem pelas pontas', () => {
+    write('> [!nota] T\n> a^b');
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const cor = (nome: string) => fixture.nativeElement.querySelector(`.cor-op[aria-label="${nome}"]`) as HTMLElement;
+    const seta = (key: string) => (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const aqui = () => (document.activeElement as HTMLElement).getAttribute('aria-label') ?? (document.activeElement as HTMLElement).querySelector('.menu-op-nome')?.textContent?.trim();
+    cor('Azul').focus();
+    seta('ArrowRight');
+    expect(aqui()).toBe('Verde-água');
+    seta('ArrowDown');
+    expect(aqui()).toBe('Lilás');
+    seta('ArrowRight');
+    expect(aqui()).toBe('Rosa');
+    seta('ArrowLeft');
+    seta('ArrowLeft');
+    expect(aqui()).toBe('Vermelho');
+    seta('ArrowUp');
+    expect(aqui()).toBe('Azul');
+    seta('ArrowUp');
+    expect(aqui()).toBe('Cor da cartolina');
+    cor('Laranja').focus();
+    seta('ArrowLeft');
+    expect(aqui()).toBe('Nota');
+    cor('Lilás').focus();
+    seta('ArrowDown');
+    expect(aqui()).toBe('Sempre aberto');
+  });
+
   it('Inserir › Card: na linha vazia, o card com o cursor no título; com linhas selecionadas, elas vão para dentro', () => {
     write('a\n^');
     pick('inserir', 'Card');
-    expect(value()).toBe('a\n> [!nota] \n> ');
-    expect(caret()).toBe('a\n> [!nota] '.length);
+    expect(value()).toBe('a\n> [!nota|cartolina] \n> ');
+    expect(caret()).toBe('a\n> [!nota|cartolina] '.length);
     write('^um\ndois^\nfora');
     pick('inserir', 'Card');
-    expect(value()).toBe('> [!nota] \n> um\n> dois\nfora');
+    expect(value()).toBe('> [!nota|cartolina] \n> um\n> dois\nfora');
   });
 
   it('Enter: continua no card (o item com o marcador); na última vazia, sai; antes das marcas, a de sempre', () => {

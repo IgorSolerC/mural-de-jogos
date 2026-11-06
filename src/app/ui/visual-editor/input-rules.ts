@@ -76,13 +76,14 @@ function lista(re: RegExp, tipo: 'ul' | 'ol' | 'check'): InputRule {
 
 /**
  * O card: na citação (o "> " já virou citação), "[!aviso] " no começo vira a linha de cima de um card
- * daquele jeito ("[!aviso]- " e "[!aviso]+ ", o que fecha), como se escreve no Obsidian.
+ * daquele jeito ("[!aviso]- " e "[!aviso]+ ", o que fecha; "[!aviso|azul] ", com a cor), como se escreve
+ * no Obsidian.
  */
 function cartao(): InputRule {
-  return new InputRule(/^\[!([\p{L}\p{N}_-]+)\]([+-]?) $/u, (state, match, start, end) => {
+  return new InputRule(/^\[!([\p{L}\p{N}_-]+)(?:\|([\p{L}\p{N}_-]+))?\]([+-]?) $/u, (state, match, start, end) => {
     const $s = state.doc.resolve(start);
     if ($s.depth !== 1 || $s.parent.type !== N['citacao'] || $s.parent.attrs['recuo'] || $s.parent.attrs['cartao'] != null) return null;
-    return state.tr.delete(start, end).setNodeMarkup($s.before(), N['cartaoTopo'], { recuo: 0, fonte: null, tipo: match[1], dobra: match[2] });
+    return state.tr.delete(start, end).setNodeMarkup($s.before(), N['cartaoTopo'], { recuo: 0, fonte: null, tipo: match[1], cor: match[2] ?? '', dobra: match[3] });
   });
 }
 

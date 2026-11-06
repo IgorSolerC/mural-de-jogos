@@ -13,9 +13,17 @@
  *
  * Os jeitos têm os nomes daqui e os do Obsidian (`[!warning]` é o Aviso). Um nome que este site não
  * conhece fica escrito como está e tem a cara da Nota, como lá.
+ *
+ * O jeito dá o desenho, o nome e a cor do papel. A cor pode ser outra, escrita depois de uma barra, no
+ * lugar que o Obsidian guarda para isso (`[!aviso|azul]`: lá ela é ignorada e o card continua Aviso). Um
+ * dos dez papéis, ou `cartolina`, o papel do mesmo matiz da cartolina em que o card está. Uma palavra que
+ * este site não conhece fica escrita como está, e o papel é o do jeito.
  */
 
 export type CalloutLook = 'nota' | 'info' | 'dica' | 'feito' | 'pergunta' | 'aviso' | 'perigo' | 'exemplo' | 'citacao';
+
+/** O papel de um card: o de um dos jeitos, o rosa (que nenhum jeito tem) ou o da cartolina (a cor mora no CSS, `[data-jeito]`). */
+export type CalloutPaper = CalloutLook | 'rosa' | 'cartolina';
 
 /** "-": começa fechado; "+": começa aberto, com o título para fechar; "": sempre aberto. */
 export type CalloutFold = '' | '+' | '-';
@@ -45,6 +53,39 @@ export const CALLOUTS: readonly CalloutDef[] = [
 
 /** O jeito novo do Inserir › Card (cada jeito se escreve com o próprio nome: `[!aviso]`). */
 export const DEFAULT_CALLOUT: CalloutLook = 'nota';
+
+/** Uma cor que se escolhe para o card: a palavra escrita depois da barra, o nome e o papel dela. */
+export interface CalloutColorDef {
+  word: string;
+  name: string;
+  paper: CalloutPaper;
+}
+
+/** Os dez papéis, na ordem dos jeitos: a cor de cada um, com o nome da cor, e o rosa junto do lilás. */
+export const CALLOUT_PAPERS: readonly CalloutColorDef[] = [
+  { word: 'pardo', name: 'Pardo', paper: 'nota' },
+  { word: 'azul', name: 'Azul', paper: 'info' },
+  { word: 'verde-agua', name: 'Verde-água', paper: 'dica' },
+  { word: 'verde', name: 'Verde', paper: 'feito' },
+  { word: 'amarelo', name: 'Amarelo', paper: 'pergunta' },
+  { word: 'laranja', name: 'Laranja', paper: 'aviso' },
+  { word: 'vermelho', name: 'Vermelho', paper: 'perigo' },
+  { word: 'lilas', name: 'Lilás', paper: 'exemplo' },
+  { word: 'rosa', name: 'Rosa', paper: 'rosa' },
+  { word: 'cinza', name: 'Cinza', paper: 'citacao' },
+];
+
+/** A cor do mesmo matiz da cartolina em que o card está. */
+export const CALLOUT_CARTOLINA: CalloutColorDef = { word: 'cartolina', name: 'Cor da cartolina', paper: 'cartolina' };
+
+/** O nome dela onde a palavra "cor" já está dita (o botão do Visual, o título da seção do menu). */
+export const CALLOUT_CARTOLINA_SHORT = 'Cartolina';
+
+/** O nome do "sem cor própria" (a palavra é vazia: a linha de cima fica sem a barra). */
+export const CALLOUT_DEFAULT_COLOR_NAME = 'Padrão';
+
+/** A cor do card novo do Inserir › Card (o escrito à mão sem a barra fica com a do jeito). */
+export const NEW_CALLOUT_COLOR = CALLOUT_CARTOLINA.word;
 
 /** O nome sem maiúsculas nem acentos ("Atenção" → "atencao"). */
 function fold(word: string): string {
@@ -77,7 +118,37 @@ export function calloutName(type: string): string {
   return t ? t[0].toLocaleUpperCase('pt-BR') + t.slice(1) : 'Nota';
 }
 
-/** A linha de cima do card: o jeito, o "-"/"+" e o título (sem marcas: o título já vem escrito). */
-export function calloutHead(type: string, foldMark: CalloutFold, title: string): string {
-  return `> [!${type}]${foldMark}${title ? ' ' + title : ''}`;
+/**
+ * A cor escrita depois da barra, como este site a chama ("Lilás" → "lilas"); o nome de um jeito também
+ * vale ("[!nota|perigo]" é o vermelho). "": sem cor própria, ou uma palavra que este site não conhece.
+ */
+export function calloutColorWord(written: string): string {
+  const w = fold(written);
+  if (w === CALLOUT_CARTOLINA.word) return w;
+  if (CALLOUT_PAPERS.some((c) => c.word === w)) return w;
+  const look = calloutDef(w)?.look;
+  return CALLOUT_PAPERS.find((c) => c.paper === look)?.word ?? '';
+}
+
+/** O nome curto da cor, pela palavra dela (`calloutColorWord`); sem cor própria, "Padrão". */
+export function calloutColorName(word: string): string {
+  if (word === CALLOUT_CARTOLINA.word) return CALLOUT_CARTOLINA_SHORT;
+  return CALLOUT_PAPERS.find((c) => c.word === word)?.name ?? CALLOUT_DEFAULT_COLOR_NAME;
+}
+
+/** O papel do card: o da cor escrita ou, sem ela, o do jeito. */
+export function calloutPaper(type: string, color: string): CalloutPaper {
+  const word = calloutColorWord(color);
+  if (word === CALLOUT_CARTOLINA.word) return CALLOUT_CARTOLINA.paper;
+  return CALLOUT_PAPERS.find((c) => c.word === word)?.paper ?? calloutLook(type);
+}
+
+/** O "[!jeito|cor]-" da linha de cima, sem o "> " nem o título. */
+export function calloutMark(type: string, foldMark: CalloutFold, color = ''): string {
+  return `[!${type}${color ? '|' + color : ''}]${foldMark}`;
+}
+
+/** A linha de cima do card: o jeito, a cor, o "-"/"+" e o título (sem marcas: o título já vem escrito). */
+export function calloutHead(type: string, foldMark: CalloutFold, title: string, color = ''): string {
+  return `> ${calloutMark(type, foldMark, color)}${title ? ' ' + title : ''}`;
 }
