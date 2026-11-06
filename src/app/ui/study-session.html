@@ -25,7 +25,7 @@
           <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="c.deck" />
         </div>
         <!-- o verso: a cartolina da anotação, no formato da carta, com a anotação inteira escrita nela -->
-        <article appStudyBack class="face verso cartolina" [note]="c.noteId" [attr.inert]="revealed() ? null : ''" [attr.aria-hidden]="revealed() ? null : 'true'"></article>
+        <article appStudyBack class="face verso cartolina" [note]="leaving() ?? c.noteId" [attr.inert]="revealed() ? null : ''" [attr.aria-hidden]="revealed() ? null : 'true'"></article>
       </div>
       </div>
     </div>
@@ -33,16 +33,16 @@
     <!-- os botões, presos no pé (na zona do polegar, no celular) -->
     <div class="botoes">
       @if (!revealed()) {
-        <button type="button" class="mostrar" aria-keyshortcuts="Space Enter" (click)="reveal()">
+        <button type="button" class="mostrar" aria-keyshortcuts="Space Enter" (click)="pressReveal($event)">
           Mostrar a resposta
           <span class="tecla" aria-hidden="true">Espaço</span>
         </button>
       } @else {
-        <button type="button" class="errei" aria-keyshortcuts="1" (click)="answer(false)">
+        <button type="button" class="errei" aria-keyshortcuts="1" (click)="pressAnswer($event, false)">
           <span class="resposta"><lucide-icon [img]="WrongIcon" [size]="20" aria-hidden="true" />Errei</span>
           <span class="volta">{{ intervals()?.wrong }}<span class="tecla" aria-hidden="true">1</span></span>
         </button>
-        <button type="button" class="acertei" aria-keyshortcuts="2 Space" (click)="answer(true)">
+        <button type="button" class="acertei" aria-keyshortcuts="2 Space" (click)="pressAnswer($event, true)">
           <span class="resposta"><lucide-icon [img]="RightIcon" [size]="20" aria-hidden="true" />Acertei</span>
           <span class="volta">{{ intervals()?.right }}<span class="tecla" aria-hidden="true">2</span></span>
         </button>

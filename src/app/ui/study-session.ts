@@ -10,6 +10,15 @@ import { pinningFor } from '../core/wall-physics';
 import { StudyCard } from './study-card';
 import { StudyCardBack } from './study-card-back';
 
+/** Quanto a carta leva para desvirar (o `transition` do `.giro`, em study-session.scss). */
+export const TURN_MS = 460;
+/**
+ * O clique do mouse ou do dedo que chega antes disto depois de os botões trocarem era para o botão de antes:
+ * o segundo clique de um clique duplo cairia no que acabou de surgir no mesmo lugar, e viraria a próxima carta
+ * sem mostrar a frente, ou responderia a carta sem mostrar a resposta.
+ */
+export const BOUNCE_MS = 350;
+
 /** Uma resposta da sessão, para o Desfazer: a carta, se acertou, e como voltar. */
 interface Answered {
   item: QueueItem;
@@ -67,6 +76,14 @@ export class StudySession {
   /** A carta na mesa, e se já foi virada. */
   protected readonly current = signal<QueueItem | null>(null);
   protected readonly revealed = signal(false);
+  /**
+   * A anotação da carta que acabou de sair, enquanto a mesa desvira: o giro é um só, e a carta nova não pode
+   * aparecer de costas, com a resposta dela à mostra, antes de a frente chegar.
+   */
+  protected readonly leaving = signal<string | null>(null);
+  private leavingTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Quando os botões do pé trocaram pela última vez (no relógio do `timeStamp` dos eventos). */
+  private swappedAt = 0;
   /** Acabou: sem nada para agora (e quando volta a próxima de hoje, se houver). */
   protected readonly finished = signal(false);
   protected readonly later = signal<string | null>(null);
@@ -167,7 +184,10 @@ export class StudySession {
       this.study.tick();
       if (this.finished() && this.later()) this.advance();
     }, 30_000);
-    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+    inject(DestroyRef).onDestroy(() => {
+      clearInterval(timer);
+      clearTimeout(this.leavingTimer);
+    });
   }
 
   close(): void {
@@ -182,12 +202,16 @@ export class StudySession {
     this.revealed.set(false);
     this.finished.set(!up.item);
     this.later.set(up.later);
+    this.swappedAt = performance.now();
     if (!up.item) this.spoken.set('Por hoje, é isso.');
   }
 
   protected reveal(): void {
     if (!this.card() || this.revealed()) return;
+    // virou de novo antes de a mesa terminar de desvirar: o verso já é o desta carta
+    this.holdBack(null);
     this.revealed.set(true);
+    this.swappedAt = performance.now();
     this.spoken.set('Resposta');
     // depois de virar, o foco vai para o Acertei (o Espaço também acerta)
     setTimeout(() => this.dialog().nativeElement.querySelector<HTMLElement>('.acertei')?.focus());
@@ -198,6 +222,7 @@ export class StudySession {
     if (!c || !this.revealed()) return;
     const undo = this.study.answer(c.item.note, ok, c.item.deck);
     if (!undo) return;
+    this.holdBack(c.noteId);
     this.answered.update((list) => [...list, { item: c.item, ok, undo }]);
     const back = this.study.cardOf().get(c.item.note);
     if (back) {
@@ -214,14 +239,39 @@ export class StudySession {
     const list = this.answered();
     const last = list.at(-1);
     if (!last) return;
+    const showing = this.revealed() ? this.card() : null;
+    if (showing) this.holdBack(showing.noteId);
     last.undo();
     this.answered.set(list.slice(0, -1));
     this.current.set(last.item);
     this.revealed.set(false);
+    this.swappedAt = performance.now();
     this.finished.set(false);
     this.later.set(null);
     this.spoken.set('Resposta desfeita');
     this.focusMain();
+  }
+
+  /** O toque no "Mostrar a resposta". */
+  protected pressReveal(e: MouseEvent): void {
+    if (!this.bounced(e)) this.reveal();
+  }
+
+  /** O toque no Errei ou no Acertei. */
+  protected pressAnswer(e: MouseEvent, ok: boolean): void {
+    if (!this.bounced(e)) this.answer(ok);
+  }
+
+  /** O clique que era para o botão de antes (`BOUNCE_MS`). O do teclado (`detail` 0) mira o botão com o foco: esse vale. */
+  private bounced(e: MouseEvent): boolean {
+    return e.detail > 0 && e.timeStamp - this.swappedAt < BOUNCE_MS;
+  }
+
+  /** Deixa o verso na anotação que saiu até a mesa terminar de desvirar; null solta na hora. */
+  private holdBack(note: string | null): void {
+    clearTimeout(this.leavingTimer);
+    this.leaving.set(note);
+    if (note) this.leavingTimer = setTimeout(() => this.leaving.set(null), TURN_MS);
   }
 
   /** "Estudar tudo", no fim de um baralho: a mesa continua, com todos os baralhos. */
@@ -243,6 +293,11 @@ export class StudySession {
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // a tecla segurada não passa as cartas sozinha: cada virada e cada resposta é um aperto
+    if (e.repeat && (key === ' ' || key === 'enter' || key === '1' || key === '2')) {
+      e.preventDefault();
+      return;
+    }
     // Espaço e Enter num botão com o foco são do botão (o Voltar do fim, o Errei escolhido pelo Tab), e
     // no que se toca no texto do verso também: o título do card que abre e fecha, o spoiler. O link só usa
     // o Enter: com o foco nele (de volta da leitura que ele abriu), o Espaço continua sendo o Acertei

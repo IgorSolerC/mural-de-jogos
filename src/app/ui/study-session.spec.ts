@@ -4,7 +4,7 @@ import { Review, sanitizeReview } from '../core/review';
 import { Desk } from '../core/desk';
 import { ReviewStore } from '../core/review-store';
 import { StudyStore } from '../core/study-store';
-import { StudySession } from './study-session';
+import { BOUNCE_MS, StudySession, TURN_MS } from './study-session';
 import { GROW_MAX } from './grow-to-fit';
 
 /** A sessão de estudo (PLANO-ESTUDOS.md, 6.7): a carta, virar, Errei e Acertei, as teclas, o Desfazer e o fim. */
@@ -182,6 +182,140 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     errei.click();
     await settle();
     expect(study.cardOf().get('nsol')!.stats.wrong).toBe(1);
+  });
+
+  describe('o clique rápido', () => {
+    const versoTitle = () => text($('.verso-titulo'));
+    /** O clique do mouse ou do dedo (`detail` 1), no instante dado do relógio dos eventos. */
+    const press = (el: HTMLElement, at: number) => {
+      const ev = new MouseEvent('click', { bubbles: true, detail: 1 });
+      Object.defineProperty(ev, 'timeStamp', { value: at });
+      el.dispatchEvent(ev);
+    };
+    /** Segura o relógio da mesa desvirando: quem solta é o teste, por mais lenta que a máquina esteja. */
+    function holdTurn(): { release: () => void } {
+      const real = window.setTimeout.bind(window) as (fn: () => void, ms?: number) => number;
+      const held: (() => void)[] = [];
+      spyOn(window, 'setTimeout').and.callFake(((fn: () => void, ms?: number) => {
+        if (ms !== TURN_MS) return real(fn, ms);
+        held.push(fn);
+        return 0;
+      }) as typeof window.setTimeout);
+      return { release: () => held.splice(0).forEach((fn) => fn()) };
+    }
+
+    it('o verso espera o tempo do giro: TURN_MS é o transition do .giro', () => {
+      expect(parseFloat(getComputedStyle($('.giro')!).transitionDuration) * 1000).toBe(TURN_MS);
+    });
+
+    it('enquanto a mesa desvira, a resposta nas costas ainda é a da carta respondida, nunca a da próxima', async () => {
+      const turn = holdTurn();
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+      expect(frontTitle()).toBe('月');
+      expect($('.giro')!.classList).not.toContain('virada');
+      expect(versoTitle()).toBe('日');
+      expect(text($('.verso-texto'))).toContain('nichi');
+      expect(text($('.verso-texto'))).not.toContain('getsu');
+      turn.release();
+      await settle();
+      expect(versoTitle()).toBe('月');
+      expect(text($('.verso-texto'))).toContain('getsu');
+    });
+
+    it('virar de novo no meio do giro mostra a resposta da carta na mesa', async () => {
+      holdTurn();
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+      expect(versoTitle()).toBe('日');
+      key(' ');
+      await settle();
+      expect(frontTitle()).toBe('月');
+      expect(versoTitle()).toBe('月');
+      expect(text($('.verso-texto'))).toContain('getsu');
+    });
+
+    it('o Desfazer com a carta virada também não mostra a resposta da que volta', async () => {
+      const turn = holdTurn();
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+      key(' ');
+      await settle();
+      expect(versoTitle()).toBe('月');
+      key('z');
+      await settle();
+      expect(frontTitle()).toBe('日');
+      expect(versoTitle()).toBe('月');
+      turn.release();
+      await settle();
+      expect(versoTitle()).toBe('日');
+    });
+
+    it('o segundo clique no Acertei não vira a próxima carta, que ainda nem foi vista', async () => {
+      key(' ');
+      await settle();
+      const start = performance.now();
+      key('2');
+      await settle();
+      const mostrar = $<HTMLButtonElement>('.mostrar')!;
+      press(mostrar, start + 1);
+      await settle();
+      expect(frontTitle()).toBe('月');
+      expect($('.giro')!.classList).not.toContain('virada');
+      // passado o clique duplo, o toque vale
+      press(mostrar, performance.now() + BOUNCE_MS + 1);
+      await settle();
+      expect($('.giro')!.classList).toContain('virada');
+    });
+
+    it('o segundo clique no Mostrar não responde a carta, que ainda nem foi lida', async () => {
+      const start = performance.now();
+      key(' ');
+      await settle();
+      const acertei = $<HTMLButtonElement>('.acertei')!;
+      press(acertei, start + 1);
+      press($<HTMLButtonElement>('.errei')!, start + 1);
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
+      expect(frontTitle()).toBe('日');
+      press(acertei, performance.now() + BOUNCE_MS + 1);
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.right).toBe(1);
+    });
+
+    it('o clique pelo teclado (detail 0) mira o botão com o foco, e vale na hora', async () => {
+      key(' ');
+      await settle();
+      $<HTMLButtonElement>('.acertei')!.click();
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.right).toBe(1);
+      $<HTMLButtonElement>('.mostrar')!.click();
+      await settle();
+      expect($('.giro')!.classList).toContain('virada');
+    });
+
+    it('a tecla segurada não vira nem responde: cada ação é um aperto', async () => {
+      key(' ', { repeat: true });
+      key('Enter', { repeat: true });
+      await settle();
+      expect($('.giro')!.classList).not.toContain('virada');
+      key(' ');
+      await settle();
+      for (const k of [' ', 'Enter', '1', '2']) key(k, { repeat: true });
+      await settle();
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
+      expect(frontTitle()).toBe('日');
+      // no botão com o foco, o Enter segurado também não aperta de novo
+      const ev = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true });
+      $<HTMLButtonElement>('.acertei')!.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBeTrue();
+    });
   });
 
   it('Parar fecha a mesa; o que foi respondido continua guardado', async () => {
