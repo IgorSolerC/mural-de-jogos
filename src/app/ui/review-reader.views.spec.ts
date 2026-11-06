@@ -166,7 +166,9 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
       // a pauta a 1cm das duas beiradas, e a folha nunca mais larga que a coluna mais as margens
       expect(text().left - sheet().left).toBeCloseTo(cm, 0);
       expect(sheet().right - text().right).toBeCloseTo(cm, 0);
-      expect(dialog().getBoundingClientRect().width).toBeLessThanOrEqual(38 * rem + 2 * cm + 1);
+      // a folha enche a tela (menos 24px de cada lado) até o teto da coluna mais as margens, na tela
+      // pequena ou na grande: a coluna antiga, de 38rem, era fina demais
+      expect(dialog().getBoundingClientRect().width).toBeCloseTo(Math.min(innerWidth - 48, 62 * rem + 2 * cm), 0);
       // o nome começa onde começa a letra (a margem e a folga de 8px da pauta)
       expect(parseFloat(getComputedStyle(q('.faixa-nome')!).paddingLeft)).toBeCloseTo(cm + 8, 0);
       // a nota curta: a folha tem a altura do texto, longe da tela inteira
@@ -241,6 +243,34 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
     band('.ler-tela-cheia').click();
     await settle();
     expect(topLine()?.textContent).toContain('Parágrafo 21.');
+  });
+
+  it('ao entrar e ao sair da tela cheia no meio de um parágrafo, a primeira linha à vista não fica cortada', async () => {
+    const paragraph = 'Um parágrafo bem comprido, escrito para quebrar em muitas linhas em qualquer largura da folha. '.repeat(30);
+    fixture.componentInstance.open(note('n-para', 'Diário', { text: `${paragraph}\n${paragraph}\n${paragraph}` }));
+    await settle();
+    const body = () => q('.par > article > .body')!;
+    const block = () => qa('.text .linha')[1];
+    const cut = () => {
+      const line = parseFloat(getComputedStyle(block()).lineHeight);
+      const into = (body().getBoundingClientRect().top - block().getBoundingClientRect().top) / line;
+      expect(into).toBeGreaterThan(0);
+      return Math.abs(into - Math.round(into)) * line;
+    };
+    // a um terço do segundo parágrafo, com a linha do alto pela metade
+    const line = parseFloat(getComputedStyle(block()).lineHeight);
+    body().scrollTop += block().getBoundingClientRect().top - body().getBoundingClientRect().top + 5.5 * line;
+    await settle();
+    band('.ler-tela-cheia').click();
+    await settle();
+    await wait(320);
+    expect(cut()).toBeLessThanOrEqual(1);
+    body().scrollTop += 0.5 * line;
+    await settle();
+    band('.ler-tela-cheia').click();
+    await settle();
+    await wait(60);
+    expect(cut()).toBeLessThanOrEqual(1);
   });
 
   it('só a cartolina: a ficha do mural no meio da tela, com os mesmos botões; tocar nela volta à leitura', async () => {

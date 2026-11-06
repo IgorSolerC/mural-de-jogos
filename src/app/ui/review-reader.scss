@@ -1365,13 +1365,15 @@ dialog.reader.solta[open] > .par {
 }
 
 /* ===== Tela cheia: só o nome e o texto, para ver o máximo de uma vez =====
-   A folha é a coluna do texto (uns 75 caracteres por linha) com 1cm de papel de cada lado, nunca
-   mais larga que isso, e só da altura do texto, até a tela (no celular, a largura toda, presa no
-   alto); a faixa fica com o nome e os botões, e a letra e a pauta são um tanto menores que as da
-   leitura: cabem mais linhas na tela. O nome começa onde o texto começa, como numa página. */
+   A folha é a coluna do texto com 1cm de papel de cada lado: a tela inteira menos 24px de cada lado,
+   até o teto da coluna, e só da altura do texto, até a tela (no celular, a largura toda, presa no
+   alto). A faixa fica com o nome e os botões. O nome começa onde o texto começa, como numa página. */
 dialog.reader.tela-cheia {
-  /* a coluna do texto: uns 75 caracteres da letra à mão a 1,12rem */
-  --medida: 38rem;
+  /* o teto da coluna do texto. Esta vista é para ver o máximo de uma vez, e o dono pediu a linha
+     comprida de propósito: passa do teto de 75 caracteres de um texto corrido, e a pauta leva o olho de
+     volta. Crescem com ela o que enche a coluna (código, tabela larga, card, Nota inteira) e, até o
+     teto de cada um, o contador grande, a tabela comum e a Nota padrão. */
+  --medida: 62rem;
   /* o papel entre a beirada da folha e a pauta, nos dois lados */
   --margem: 1cm;
   width: min(calc(100vw - 48px), calc(var(--medida) + 2 * var(--margem)));

@@ -1645,7 +1645,11 @@ export class ReviewReader {
     return { block, offset: passed ? 0 : (box.top - top) / scale, passed, scrollTop: body.scrollTop };
   }
 
-  /** Põe a folha de volta no trecho guardado (o mesmo trecho, à mesma distância do alto ou na mesma proporção). */
+  /**
+   * Põe a folha de volta no trecho guardado: à mesma distância do alto ou, se ele já tinha começado acima
+   * do alto, na mesma proporção, arredondada para linhas inteiras (na outra largura, a proporção cairia no
+   * meio de uma linha, e a primeira ficaria cortada).
+   */
   private restorePlace(place: ReadingPlace | null): void {
     const body = this.sheetBody();
     if (!body) return;
@@ -1660,7 +1664,10 @@ export class ReviewReader {
     const scale = this.sheetScale(body);
     const box = place.block.getBoundingClientRect();
     const at = (box.top - body.getBoundingClientRect().top) / scale;
-    body.scrollTop += at + (place.passed * box.height) / scale - place.offset;
+    const line = parseFloat(getComputedStyle(place.block).lineHeight);
+    const lines = place.passed * (box.height / scale);
+    const passed = line > 0 ? Math.round(lines / line) * line : lines;
+    body.scrollTop += at + passed - place.offset;
   }
 
   /**

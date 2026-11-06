@@ -27,11 +27,11 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-pauta-no-modo-visual',
+    id: '2026-11-06-tela-cheia-mais-larga',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'Os blocos de código, a cor de cada card, a régua do texto, a letra da ficha aberta e o verso das cartas nos Estudos',
+    title: 'Os blocos de código, a cor de cada card, a régua do texto, a letra e a largura da leitura e o verso das cartas nos Estudos',
     melhorias: [
       'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',
       'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
@@ -40,6 +40,7 @@ export const NEWS: NewsEntry[] = [
       'Na anotação comprida, o texto rola dentro da folha, e a régua de formatação fica sempre à vista no alto (no computador e no tablet; no celular ela continua presa em cima do teclado).',
       'A régua do texto ganhou o botão do texto sutil, ao lado do negrito, e os links ficam só no Inserir. Sem lugar, os botões saem na ordem dos menos usados: tarefas e lista numerada, riscado, lista, sutil, itálico, marca-texto e, por último, negrito.',
       'Na ficha aberta e na tela cheia, a letra e a pauta ficaram menores, iguais nas duas, para caber mais texto na tela de uma vez.',
+      'A tela cheia ficou bem mais larga: a folha ocupa quase toda a tela até o limite dela, e cabe muito mais texto em cada linha. O bloco de código, o card e a tabela larga aproveitam o espaço; as fotos, os vídeos e os áudios continuam do mesmo tamanho.',
     ],
     correcoes: [
       'O bloco de código com as letras menos recuadas que as crases não quebra mais a anotação inteira: ele continua no item da lista, e o resto do texto fica como texto. Escrever um bloco dentro de uma lista no modo Visual também não deixa mais as letras sem o recuo.',
