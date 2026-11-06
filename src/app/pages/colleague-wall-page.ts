@@ -65,9 +65,12 @@ export class ColleagueWallPage {
   protected readonly name = this.visit.owner;
   protected readonly profile = this.mural.profile;
 
-  /** Nos Estudos da pessoa, a orelha aberta é a das Anotações (o endereço pode ter vindo de um link). */
+  /**
+   * Entrando nos Estudos da pessoa, a orelha aberta é a das Anotações (o endereço pode ter vindo de um link).
+   * Só ao entrar: a orelha não é acompanhada, para a troca de mural e a volta poderem mudá-la de saída.
+   */
   private readonly notesTab = effect(() => {
-    if (this.studying && !isNotes(this.mural.kind())) untracked(() => this.mural.kind.set(NOTES));
+    if (this.studying()) untracked(() => !isNotes(this.mural.kind()) && this.mural.kind.set(NOTES));
   });
 
   /** Aberto pelo código: se atualiza da nuvem ao aparecer (a cada 2 minutos, no máximo). */
@@ -83,31 +86,27 @@ export class ColleagueWallPage {
 
   /**
    * De onde a pessoa veio: o perfil dela ("Voltar ao perfil"), Amigos ("Voltar a Amigos") ou Comparar
-   * (o de sempre, também para quem chegou pelo link). Indo e voltando entre o mural e os Estudos da pessoa
-   * (outra rota, outra página), a volta vai junto no estado da navegação.
+   * (o de sempre, também para quem chegou pelo link). O mural e os Estudos da pessoa são a mesma rota (ver
+   * `visitMatcher`): andar entre eles não refaz a página, e a volta continua a de quando ela abriu.
    */
   private readonly prevUrl = (() => {
     const router = inject(Router);
-    const nav = untracked(() => router.currentNavigation());
-    const kept = (nav?.extras.state as { visitFrom?: unknown } | undefined)?.visitFrom;
-    if (typeof kept === 'string') return kept;
-    const prev = nav?.previousNavigation?.finalUrl;
+    const prev = untracked(() => router.currentNavigation())?.previousNavigation?.finalUrl;
     return prev ? router.serializeUrl(prev) : '';
   })();
-  /** O estado que leva a volta junto, entre o mural e os Estudos da pessoa. */
-  protected readonly keepBack = { visitFrom: this.prevUrl };
 
   /** Os Estudos da pessoa (`/comparar/mural/estudos/...`): os baralhos públicos dela no lugar do mural. */
   private readonly route = inject(ActivatedRoute);
-  protected readonly studying = !!this.route.snapshot.routeConfig?.path?.startsWith('comparar/mural/estudos');
-  private readonly params = toSignal(this.route.paramMap.pipe(map((p) => ({ group: p.get('grupo'), deck: p.get('baralho') }))), {
-    initialValue: { group: null, deck: null },
-  });
+  private readonly params = toSignal(
+    this.route.paramMap.pipe(map((p) => ({ studying: p.get('secao') === 'estudos', group: p.get('grupo'), deck: p.get('baralho') }))),
+    { initialValue: { studying: this.route.snapshot.paramMap.get('secao') === 'estudos', group: null, deck: null } },
+  );
+  protected readonly studying = computed(() => this.params().studying);
   protected readonly studyGroup = computed(() => this.params().group);
   protected readonly studyDeck = computed(() => this.params().deck);
   /** A pessoa tem baralho público: nas Anotações, as seções Mural e Estudos. */
   protected readonly hasStudy = computed(() => !!this.colleague()?.estudos?.decks.length);
-  protected readonly sections = computed(() => (this.hasStudy() && isNotes(this.mural.kind())) || this.studying);
+  protected readonly sections = computed(() => (this.hasStudy() && isNotes(this.mural.kind())) || this.studying());
   protected readonly visitStudyPath = visitStudyPath;
   private readonly from: 'perfil' | 'amigos' | 'comparar' = this.prevUrl.startsWith('/perfil/')
     ? 'perfil'
@@ -207,9 +206,9 @@ export class ColleagueWallPage {
 
   protected switchWall(kind: Kind): void {
     // nos Estudos: as Anotações voltam ao mural dela; outro mural, também, já nele
-    if (this.studying) {
+    if (this.studying()) {
       this.mural.kind.set(kind);
-      void this.router.navigateByUrl('/comparar/mural', { state: this.keepBack });
+      void this.router.navigateByUrl('/comparar/mural');
       return;
     }
     if (kind === this.mural.kind()) return;

@@ -1,4 +1,4 @@
-import { Routes } from '@angular/router';
+import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
 import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
 
@@ -7,6 +7,19 @@ const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
 const calendar = () => import('./pages/calendar-page').then((m) => m.CalendarPage);
 const study = () => import('./pages/study-page').then((m) => m.StudyPage);
 const colleague = () => import('./pages/colleague-wall-page').then((m) => m.ColleagueWallPage);
+
+/**
+ * A visita: `/comparar/mural` e `/comparar/mural/estudos[/:grupo[/:baralho]]` (PLANO-BARALHOS-PUBLICOS.md). Uma
+ * rota com quatro endereços, e não quatro rotas: com quatro, o Router refazia a página (a ficha da dona, o
+ * seguir, a volta) a cada aba ou baralho tocado.
+ */
+export function visitMatcher(segments: UrlSegment[]): UrlMatchResult | null {
+  const [a, b, secao, grupo, baralho, ...rest] = segments;
+  if (a?.path !== 'comparar' || b?.path !== 'mural' || rest.length) return null;
+  if (!secao) return { consumed: segments, posParams: {} };
+  if (secao.path !== 'estudos') return null;
+  return { consumed: segments, posParams: { secao, ...(grupo ? { grupo } : {}), ...(baralho ? { baralho } : {}) } };
+}
 
 /**
  * O site em quatro partes (ver core/areas.ts): as Anotações, as Análises, com o mural de resenhas no
@@ -62,15 +75,12 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/comparison-page').then((m) => m.ComparisonPage),
   },
   {
-    path: 'comparar/mural',
-    // o mural da pessoa tem o próprio seletor de mural (e pode ser o de anotações)
-    title: 'Mural do colega',
+    // o mural da pessoa (com o próprio seletor de mural, e pode ser o de anotações) e os baralhos públicos dos
+    // Estudos dela, por grupo e baralho: uma rota só, para a página continuar a mesma ao andar entre eles
+    matcher: visitMatcher,
+    title: (route) => (route.paramMap.get('secao') ? 'Estudos do colega' : 'Mural do colega'),
     loadComponent: colleague,
   },
-  // os baralhos públicos dos Estudos da pessoa, por grupo e baralho (PLANO-BARALHOS-PUBLICOS.md)
-  { path: 'comparar/mural/estudos', title: 'Estudos do colega', loadComponent: colleague },
-  { path: 'comparar/mural/estudos/:grupo', title: 'Estudos do colega', loadComponent: colleague },
-  { path: 'comparar/mural/estudos/:grupo/:baralho', title: 'Estudos do colega', loadComponent: colleague },
   {
     path: 'extras',
     canActivate: [enterExtras],
