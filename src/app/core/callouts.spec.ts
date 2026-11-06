@@ -1,4 +1,4 @@
-import { CALLOUTS, CALLOUT_CARTOLINA, CALLOUT_PAPERS, calloutColorName, calloutColorWord, calloutDef, calloutHead, calloutLook, calloutName, calloutPaper } from './callouts';
+import { CALLOUTS, CALLOUT_CARTOLINA, CALLOUT_PAPERS, calloutColorName, calloutColorWord, calloutDef, calloutFallbackTitle, calloutHead, calloutLook, calloutName, calloutPaper } from './callouts';
 import { LinhaDoc, docToText, posicaoNoDoc, posicaoNoTexto, textToDoc } from './rich-doc';
 import { Block, checkCount, copyText, hasFormatting, hasSpoiler, hasTouchableWidget, parseRich, plainText, proseLines, tasksOf, toggleCheck } from './rich-text';
 
@@ -83,6 +83,38 @@ describe('o card (o callout do Obsidian)', () => {
   });
 });
 
+describe('o Estudo e o Vazio', () => {
+  it('têm os nomes daqui e os do pedido, sem ligar para maiúscula nem acento', () => {
+    for (const s of ['estudo', 'STUDY', 'Estudos']) expect(calloutLook(s)).withContext(s).toBe('estudo');
+    // um [!book] de antes (um livro lido por prazer) continua na cara da Nota
+    expect(calloutDef('book')).toBeNull();
+    for (const s of ['vazio', 'BLANK', 'empty', 'Sem-Ícone']) expect(calloutLook(s)).withContext(s).toBe('vazio');
+    expect(calloutName('study')).toBe('Estudo');
+  });
+
+  it('usam papéis que já existem, e o nome deles também escolhe a cor', () => {
+    expect(calloutPaper('estudo', '')).toBe('rosa');
+    expect(calloutPaper('blank', '')).toBe('citacao');
+    expect(calloutPaper('vazio', 'azul')).toBe('info');
+    expect(calloutColorWord('study')).toBe('rosa');
+    expect(calloutColorWord('vazio')).toBe('cinza');
+  });
+
+  it('só o Vazio fica sem o nome no lugar do título, e o texto sem marcas não ganha uma linha em branco', () => {
+    expect(calloutFallbackTitle('estudo')).toBe('Estudo');
+    expect(calloutFallbackTitle('jogo')).toBe('Jogo');
+    expect(calloutFallbackTitle('blank')).toBe('');
+    expect(plainText('> [!vazio]\n> x')).toBe('x');
+    expect(plainText('> [!vazio] Título\n> x')).toBe('Título\nx');
+    expect(plainText('> [!estudo]\n> x')).toBe('Estudo\nx');
+    expect(plainText('> [!blank]')).toBe('');
+  });
+
+  it('o escrito à mão volta igual byte a byte, com o nome que tinha', () => {
+    for (const t of ['> [!study] T\n> a', '> [!BLANK]\n> a', '> [!vazio|azul]- T\n> a', '> [!blank]+\n> a']) expect(docToText(textToDoc(t)).texto).toBe(t);
+  });
+});
+
 describe('a cor própria do card', () => {
   it('vem depois da barra, com o fechar e o título como sempre; sem ela, o card é o de antes', () => {
     const b = card('> [!aviso|azul]- Antes\n> x');
@@ -121,8 +153,8 @@ describe('a cor própria do card', () => {
     expect(calloutColorWord('wide-1')).toBe('');
     expect(calloutColorWord('')).toBe('');
     for (const c of [...CALLOUT_PAPERS, CALLOUT_CARTOLINA]) expect(calloutColorWord(c.word)).toBe(c.word);
-    // uma cor para cada jeito, na ordem deles, e o rosa, que é só uma cor
-    expect(CALLOUT_PAPERS.map((c) => c.paper).filter((p) => p !== 'rosa')).toEqual(CALLOUTS.map((c) => c.look));
+    // uma cor para cada jeito, na ordem deles; só o Vazio, o último, repete a da Citação
+    expect(CALLOUTS.map((c) => c.paper)).toEqual([...CALLOUT_PAPERS.map((c) => c.paper), 'citacao']);
     expect(calloutPaper('aviso', 'rosa')).toBe('rosa');
     expect(calloutHead('aviso', '', 'T', 'rosa')).toBe('> [!aviso|rosa] T');
     expect(calloutColorName('rosa')).toBe('Rosa');

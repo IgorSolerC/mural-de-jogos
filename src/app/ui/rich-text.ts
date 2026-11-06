@@ -1,7 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { LucideIconData } from 'lucide-angular';
-import { calloutName, calloutPaper } from '../core/callouts';
+import { calloutFallbackTitle, calloutPaper } from '../core/callouts';
 import { Block, blockLine, foldDone, hasFormatting, linesOf, parseRich, reminderLinkId, snapshotDone } from '../core/rich-text';
 import { ReminderLinkInfo, reminderLinkTitle } from '../core/reminder-links';
 import { NoteLinks } from '../core/note-links';
@@ -157,7 +157,8 @@ import { ZoomKnob } from './zoom-knob';
           }
           @case ('callout') {
             <!-- o card: o papel do jeito dele, com o desenho e o título (sem título, o nome do jeito) em
-                 cima e o que tem dentro embaixo; o que fecha abre e fecha pelo título -->
+                 cima e o que tem dentro embaixo; o que fecha abre e fecha pelo título. O Vazio sem título
+                 não tem linha de cima: é só o papel (o que fecha fica com a setinha, para ter onde tocar) -->
             @if (b.fold) {
               <details class="cartao" [attr.data-jeito]="cardPaper(b.type, b.color)" [open]="b.fold === '+'">
                 <summary class="linha cartao-topo tocavel" [attr.data-l]="at(b)" (click)="$event.stopPropagation()">
@@ -169,8 +170,10 @@ import { ZoomKnob } from './zoom-knob';
                 }
               </details>
             } @else {
-              <div class="cartao" role="note" [attr.data-jeito]="cardPaper(b.type, b.color)" [attr.aria-label]="cardTitle(b)">
-                <div class="linha cartao-topo" [attr.data-l]="at(b)"><ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" /></div>
+              <div class="cartao" role="note" [attr.data-jeito]="cardPaper(b.type, b.color)" [attr.aria-label]="cardTitle(b) || null" [attr.data-l]="cardHasTop(b) ? null : at(b)">
+                @if (cardHasTop(b)) {
+                  <div class="linha cartao-topo" [attr.data-l]="at(b)"><ng-container *ngTemplateOutlet="cartaoTopo; context: { $implicit: b }" /></div>
+                }
                 @if (b.body.length) {
                   <div class="cartao-corpo"><ng-container *ngTemplateOutlet="blocos; context: { $implicit: b.body }" /></div>
                 }
@@ -212,10 +215,19 @@ import { ZoomKnob } from './zoom-knob';
         }
       }
     </ng-template>
-    <!-- a linha de cima do card: o desenho do jeito e o título escrito (com as marcas), ou o nome do jeito -->
+    <!-- a linha de cima do card: o desenho do jeito (o Vazio não tem) e o título escrito (com as marcas), ou
+         o nome do jeito; no Vazio que fecha sem título, só o nome para o leitor de tela (a setinha é o toque) -->
     <ng-template #cartaoTopo let-b>
-      <span class="cartao-icone" aria-hidden="true"><lucide-icon [img]="cardIcon(b.type)" [size]="18" /></span>
-      <span class="cartao-titulo">@if (b.title.length) {@for (s of b.title; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}} @else {{{ cardName(b.type) }}}</span>
+      @if (cardIcon(b.type); as icone) {
+        <span class="cartao-icone" aria-hidden="true"><lucide-icon [img]="icone" [size]="18" /></span>
+      }
+      @if (b.title.length) {
+        <span class="cartao-titulo">@for (s of b.title; track $index) {<ng-container *ngTemplateOutlet="span; context: { $implicit: s }" />}</span>
+      } @else if (cardName(b.type); as nome) {
+        <span class="cartao-titulo">{{ nome }}</span>
+      } @else {
+        <span class="sr-only">Card sem título</span>
+      }
     </ng-template>
     <!-- o spoiler: a tarja preta por cima do pedaço (o pedaço por dentro, com as marcas dele, fica inerte até revelar) -->
     <ng-template #span let-s>@if (s.spoiler) {<span class="spoiler" role="button" tabindex="0" aria-label="Spoiler escondido: revelar" title="Spoiler: toque para revelar" (click)="reveal($event)" (keydown.enter)="reveal($event)" (keydown.space)="reveal($event)"><span class="spoiler-texto" inert><ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" /></span></span>} @else {<ng-container *ngTemplateOutlet="pedaco; context: { $implicit: s }" />}</ng-template>
@@ -535,6 +547,13 @@ import { ZoomKnob } from './zoom-knob';
     summary.cartao-topo::-webkit-details-marker {
       display: none;
     }
+    /* a setinha sozinha (o Vazio sem título): o traço dela na beirada do texto, sem a folga do desenho */
+    summary.cartao-topo:not(:has(.cartao-titulo)) .cartao-seta {
+      margin-left: -0.25em;
+    }
+    .cartao:not([open]) > summary.cartao-topo:not(:has(.cartao-titulo)) .cartao-seta {
+      margin-left: -0.4em;
+    }
     .cartao:not([open]) > summary .cartao-seta {
       rotate: -90deg;
     }
@@ -798,16 +817,20 @@ export class RichText {
   protected cardPaper(type: string, color: string): string {
     return calloutPaper(type, color);
   }
-  protected cardIcon(type: string): LucideIconData {
+  protected cardIcon(type: string): LucideIconData | null {
     return calloutIcon(type);
   }
   protected cardName(type: string): string {
-    return calloutName(type);
+    return calloutFallbackTitle(type);
   }
-  /** O nome do card para o leitor de tela: o título escrito (sem as marcas), ou o nome do jeito. */
+  /** O card sempre aberto tem linha de cima: com título escrito ou com o nome do jeito (sem ela, o Vazio é só o papel, e a âncora da linha fica nele). */
+  protected cardHasTop(b: Block): boolean {
+    return b.kind === 'callout' && (b.title.length > 0 || !!calloutFallbackTitle(b.type));
+  }
+  /** O nome do card para o leitor de tela: o título escrito (sem as marcas), ou o nome do jeito; o Vazio sem título, nenhum. */
   protected cardTitle(b: Block): string {
     if (b.kind !== 'callout') return '';
-    return b.title.map((s) => s.text).join('').trim() || calloutName(b.type);
+    return b.title.map((s) => s.text).join('').trim() || calloutFallbackTitle(b.type);
   }
 
   /** O que o leitor de tela diz no broche: "Ampliar a tabela: Jogo, Horas, Nota". */

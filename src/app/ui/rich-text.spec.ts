@@ -44,6 +44,70 @@ describe('o texto formatado na leitura', () => {
     expect(toggled).toEqual([1]);
   });
 
+  it('o Estudo: o livro no papel rosa, com o nome no lugar do título', async () => {
+    const el = await render('> [!study]\n> a');
+    const card = el.querySelector<HTMLElement>('.cartao')!;
+    expect(card.dataset['jeito']).toBe('rosa');
+    expect(card.getAttribute('aria-label')).toBe('Estudo');
+    expect(card.querySelector('.cartao-icone svg')).not.toBeNull();
+    expect(card.querySelector('.cartao-titulo')!.textContent!.trim()).toBe('Estudo');
+  });
+
+  it('o Vazio: sem desenho, o título começa na mesma beirada do texto de dentro', async () => {
+    const el = await render('> [!nota] Título\n> texto\n\n> [!blank] Título\n> texto');
+    const [nota, card] = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
+    const comDesenho = nota.querySelector<HTMLElement>('.cartao-titulo')!.getBoundingClientRect().left;
+    expect(card.dataset['jeito']).toBe('citacao');
+    expect(card.querySelector('.cartao-icone')).toBeNull();
+    const titulo = card.querySelector<HTMLElement>('.cartao-titulo')!.getBoundingClientRect().left;
+    expect(titulo).toBe(card.querySelector<HTMLElement>('.cartao-corpo .linha')!.getBoundingClientRect().left);
+    expect(titulo).toBeLessThan(comDesenho);
+  });
+
+  it('o Vazio sem título é só o papel: sem a linha de cima, sem a palavra "Vazio" e sem nome para o leitor de tela', async () => {
+    const el = await render('> [!vazio]\n> só o texto');
+    const card = el.querySelector<HTMLElement>('.cartao')!;
+    expect(card.querySelector('.cartao-topo')).toBeNull();
+    expect(card.textContent!.trim()).toBe('só o texto');
+    expect(card.getAttribute('role')).toBe('note');
+    expect(card.hasAttribute('aria-label')).toBeFalse();
+  });
+
+  it('o Vazio com um título só de marcas, sem letra nenhuma, continua com a linha de cima', async () => {
+    const el = await render('> [!vazio] ****\n> x');
+    expect(el.querySelector('.cartao-topo')).not.toBeNull();
+  });
+
+  it('o Vazio sem título leva no papel a âncora da linha de cima: a prévia acompanha o cursor nela', async () => {
+    TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
+    const fixture = TestBed.createComponent(RichText);
+    fixture.componentRef.setInput('text', 'a\n> [!vazio]\n> b\n\n> [!vazio] T\n> c');
+    fixture.componentRef.setInput('anchors', true);
+    document.body.appendChild(fixture.nativeElement);
+    await fixture.whenStable();
+    const [sem, com] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.cartao'));
+    expect(sem.dataset['l']).toBe('1');
+    expect(sem.querySelector<HTMLElement>('.cartao-corpo .linha')!.dataset['l']).toBe('2');
+    expect(com.hasAttribute('data-l')).toBeFalse();
+    expect(com.querySelector<HTMLElement>('.cartao-topo')!.dataset['l']).toBe('4');
+  });
+
+  it('o Vazio que fecha, sem título: a setinha na beirada é o toque, com o nome só para o leitor de tela', async () => {
+    const el = await render('> [!vazio]-\n> dentro');
+    const details = el.querySelector<HTMLDetailsElement>('details.cartao')!;
+    const summary = details.querySelector<HTMLElement>('summary')!;
+    expect(summary.querySelector('.cartao-titulo')).toBeNull();
+    expect(summary.querySelector('.cartao-icone')).toBeNull();
+    expect(summary.textContent!.trim()).toBe('Card sem título');
+    // o traço da setinha na beirada do texto (a caixa dela passa um pouco), e uma linha da pauta inteira para tocar
+    expect(summary.querySelector<HTMLElement>('.cartao-seta')!.getBoundingClientRect().left).toBeLessThan(summary.getBoundingClientRect().left);
+    expect(summary.getBoundingClientRect().height).toBeCloseTo(parseFloat(getComputedStyle(summary).minHeight), 0);
+    expect(parseFloat(getComputedStyle(summary).minHeight)).toBeGreaterThan(20);
+    expect(details.open).toBeFalse();
+    summary.click();
+    expect(details.open).toBeTrue();
+  });
+
   it('a caixinha mostra o que o texto diz: sem o texto novo (nada salvo), ela não fica marcada; com ele, fica', async () => {
     TestBed.configureTestingModule({ imports: [RichText], providers: [provideZonelessChangeDetection()] });
     const fixture = TestBed.createComponent(RichText);

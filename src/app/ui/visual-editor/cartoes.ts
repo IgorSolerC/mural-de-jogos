@@ -2,7 +2,7 @@ import { Mapping } from 'prosemirror-transform';
 import { Node as PMNode } from 'prosemirror-model';
 import { Command, EditorState, Plugin, PluginKey, TextSelection, Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, EditorView, NodeView } from 'prosemirror-view';
-import { CALLOUT_CARTOLINA, CALLOUT_CARTOLINA_SHORT, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CALLOUTS, CalloutFold, CalloutLook, calloutColorWord, calloutLook, calloutName, calloutPaper, DEFAULT_CALLOUT, NEW_CALLOUT_COLOR } from '../../core/callouts';
+import { CALLOUT_CARTOLINA, CALLOUT_CARTOLINA_SHORT, CALLOUT_DEFAULT_COLOR_NAME, CALLOUT_PAPERS, CALLOUTS, CalloutFold, CalloutLook, calloutColorWord, calloutFallbackTitle, calloutLook, calloutPaper, DEFAULT_CALLOUT, NEW_CALLOUT_COLOR } from '../../core/callouts';
 import { calloutIcon } from '../callout-looks';
 import { ICON } from '../icons';
 import { schema } from './schema';
@@ -207,10 +207,11 @@ const CORES: readonly { valor: string; nome: string; curto?: string }[] = [
 // ===== A linha de cima na tela =====
 
 /**
- * A linha de cima do card: o desenho do jeito na frente (só desenho), o título escrito direto e, no card
- * que fecha, a setinha (na escrita, ele fica sempre aberto). Sem título, a linha mostra o nome do jeito,
- * apagado, como o que vai aparecer na leitura. Com o cursor no card, três botões presos na beirada de
- * cima do papel, à direita (ver controles.ts): o jeito, que anda pelos nove a cada toque, a cor, e como ele
+ * A linha de cima do card: o desenho do jeito na frente (só desenho; o Vazio não tem, e o título fica no
+ * lugar dele), o título escrito direto e, no card que fecha, a setinha (na escrita, ele fica sempre aberto).
+ * Sem título, a linha mostra o nome do jeito, apagado, como o que vai aparecer na leitura; no Vazio,
+ * "Título (opcional)", porque na leitura ela não existe. Com o cursor no card, três botões presos na beirada de
+ * cima do papel, à direita (ver controles.ts): o jeito, que anda por todos a cada toque, a cor, e como ele
  * fica na leitura (sempre aberto, fecha começando aberto, começa fechado). O menu "Card" da régua faz o mesmo.
  */
 export class CartaoView implements NodeView {
@@ -263,7 +264,7 @@ export class CartaoView implements NodeView {
         rotulo: 'Jeito do card',
         opcoes: CALLOUTS.map((c) => ({ valor: c.look, nome: c.name })),
         at: CALLOUTS.findIndex((c) => c.look === jeito),
-        icone: calloutIcon(tipo),
+        icone: calloutIcon(tipo) ?? ICON.semDesenho,
         giro: '-1.2deg',
         escolhe: (v) => this.muda({ tipo: v }),
       }),
@@ -298,14 +299,16 @@ export class CartaoView implements NodeView {
     const a = this.node.attrs;
     if (a['tipo'] !== this.tipo) {
       this.tipo = a['tipo'];
-      this.icone.replaceChildren(desenho(calloutIcon(this.tipo)));
+      const icone = calloutIcon(this.tipo);
+      this.icone.hidden = !icone;
+      this.icone.replaceChildren(...(icone ? [desenho(icone)] : []));
     }
     this.dom.dataset['tipo'] = this.tipo;
     this.dom.dataset['tinta'] = a['cor'] || '';
     this.dom.dataset['jeito'] = calloutPaper(this.tipo, a['cor']);
     this.dom.dataset['dobra'] = a['dobra'] || '';
     this.dom.classList.toggle('vazio', !this.node.content.size);
-    this.contentDOM.dataset['vazio'] = calloutName(this.tipo);
+    this.contentDOM.dataset['vazio'] = calloutFallbackTitle(this.tipo) || 'Título (opcional)';
     this.seta.hidden = !a['dobra'];
     this.seta.title = a['dobra'] === '-' ? 'Começa fechado na leitura' : 'Fecha na leitura';
     this.desenhaControles();

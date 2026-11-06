@@ -240,6 +240,20 @@ describe('a ficha em PDF (ui/pdf-sheet.ts)', () => {
     fixture.nativeElement.remove();
   });
 
+  it('o Vazio sai sem desenho; sem título, o papel começa no texto, mesmo o que fecha; o Estudo, com o livro', async () => {
+    const { fixture, el } = await sheet({ text: '> [!blank] T\n> a\n\n> [!blank]\n> b\n\n> [!blank]-\n> c\n\n> [!estudo] E\n> d' });
+    const [comTitulo, sem, fecha, estudo] = Array.from(el.querySelectorAll<HTMLElement>('.cartao'));
+    expect(comTitulo.querySelector('.cartao-icone')).toBeNull();
+    expect(css(comTitulo.querySelector('.cartao-corpo')!).marginTop).not.toBe('0px');
+    expect(sem.querySelector('.cartao-topo')).toBeNull();
+    expect(css(sem.querySelector('.cartao-corpo')!).marginTop).toBe('0px');
+    expect(css(fecha.querySelector('summary')!).display).toBe('none');
+    expect(css(fecha.querySelector('.cartao-corpo')!).marginTop).toBe('0px');
+    expect(estudo.querySelector('.cartao-icone svg')).not.toBeNull();
+    expect(css(estudo).backgroundColor).toBe('rgb(250, 220, 231)');
+    fixture.nativeElement.remove();
+  });
+
   it('a tabela branca vira a do PDF; os outros jeitos saem com a cara deles, sem partir uma linha', async () => {
     const { el } = await sheet({ text: [PDF_BLOCK_SAMPLES.table.text, '', ...PDF_WIDGET_SAMPLES['tabela'].flatMap((t) => [t, ''])].join('\n') });
     const rolos = [...el.querySelectorAll<HTMLElement>('.pdf-texto .tabela-rolo')];

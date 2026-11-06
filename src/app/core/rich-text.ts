@@ -37,7 +37,7 @@
 
 import { CopyContext, WidgetSize, parseWidgetLine, widgetCopy, widgetDef } from './widgets';
 import { Align, TableLook, alignOf, continuesTable, startsTable, tableCells, tableLookOf } from './tables';
-import { CalloutFold, calloutName } from './callouts';
+import { CalloutFold, calloutFallbackTitle } from './callouts';
 
 export type { Align } from './tables';
 export { isTableSep, tableCells } from './tables';
@@ -1081,11 +1081,13 @@ function textOf(text: string, widget: (name: string, args: readonly string[]) =>
         }
         case 'hr':
           break;
-        case 'callout':
-          // o título (ou o nome do jeito) numa linha, e o que tem dentro embaixo dele
-          out.push(b.title.length ? join(b.title) : calloutName(b.type));
+        case 'callout': {
+          // o título (ou o nome do jeito; o Vazio não tem) numa linha, e o que tem dentro embaixo dele
+          const title = b.title.length ? join(b.title) : calloutFallbackTitle(b.type);
+          if (title) out.push(title);
           read(b.body);
           break;
+        }
         default:
           // o que vem embaixo do item, logo depois dele
           for (const it of b.items) {

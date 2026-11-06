@@ -368,10 +368,14 @@
   .cartao-icone:not(app-note-widget *) {
     rotate: none;
   }
-  .cartao-corpo:not(app-note-widget *) {
+  .cartao-topo:has(.cartao-titulo) + .cartao-corpo:not(app-note-widget *) {
     margin-top: 0.3em;
   }
   .cartao-seta:not(app-note-widget *) {
+    display: none;
+  }
+  // o Vazio que fecha, sem título: a linha de cima só tinha a setinha, e o papel não fecha
+  summary.cartao-topo:not(:has(.cartao-titulo)):not(app-note-widget *) {
     display: none;
   }
 

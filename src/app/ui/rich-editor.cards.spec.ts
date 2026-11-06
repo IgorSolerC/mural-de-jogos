@@ -59,7 +59,7 @@ describe('o card no Markdown', () => {
     pick('card', 'Padrão');
     expect(value()).toBe('> [!perigo]- T\n> ab');
     expect(caret()).toBe('> [!perigo]- T\n> a'.length);
-    // o quadradinho de um dos nove papéis, que só tem o nome para o leitor de tela
+    // o quadradinho de um dos dez papéis, que só tem o nome para o leitor de tela
     (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     const azul = fixture.nativeElement.querySelector('.cor-op[aria-label="Azul"]') as HTMLButtonElement;
@@ -73,7 +73,7 @@ describe('o card no Markdown', () => {
     // a cor escolhida também em texto, e as amostras do jeito no papel que ele vai ter de verdade
     expect(fixture.nativeElement.querySelector('.menu [id$="-sec-cor"]').textContent.trim()).toBe('Cor: Azul');
     const jeitos = Array.from(fixture.nativeElement.querySelectorAll('.menu-coluna:first-child .cartao-op') as NodeListOf<HTMLElement>);
-    expect(jeitos.length).toBe(9);
+    expect(jeitos.length).toBe(11);
     expect(jeitos.every((b) => b.dataset['jeito'] === 'info')).toBeTrue();
   });
 
@@ -82,8 +82,28 @@ describe('o card no Markdown', () => {
     (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
     fixture.detectChanges();
     const jeitos = Array.from(fixture.nativeElement.querySelectorAll('.menu-coluna:first-child .cartao-op') as NodeListOf<HTMLElement>);
-    expect(jeitos.map((b) => b.dataset['jeito'])).toEqual(['nota', 'info', 'dica', 'feito', 'pergunta', 'aviso', 'perigo', 'exemplo', 'citacao']);
+    expect(jeitos.map((b) => b.dataset['jeito'])).toEqual(['nota', 'info', 'dica', 'feito', 'pergunta', 'aviso', 'perigo', 'exemplo', 'rosa', 'citacao', 'citacao']);
     expect(fixture.nativeElement.querySelector('.menu [id$="-sec-cor"]').textContent.trim()).toBe('Cor: Padrão');
+    // o Estudo com o desenho dele, e o Vazio, o papel sem nada
+    expect(jeitos[8].querySelector('.cartao-amostra svg')).not.toBeNull();
+    expect(jeitos[10].querySelector('.cartao-amostra svg')).toBeNull();
+    expect(jeitos[10].querySelector('.menu-op-nome')!.textContent!.trim()).toBe('Vazio');
+  });
+
+  it('o menu Card no Vazio: as amostras da cor ficam sem desenho, menos a escolhida, com o tique', () => {
+    write('> [!blank|azul] T\n> a^b');
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const cores = Array.from(fixture.nativeElement.querySelectorAll('.cor-op') as NodeListOf<HTMLElement>);
+    expect(cores.filter((b) => b.querySelector('svg')).map((b) => b.getAttribute('aria-label'))).toEqual(['Azul']);
+    // sem o desenho, o fio na tinta de cada papel
+    expect(getComputedStyle(cores.find((b) => !b.querySelector('svg'))!.querySelector('.cartao-amostra')!).boxShadow).toContain('1px');
+    (fixture.nativeElement.querySelector('.menu-botao[data-menu="card"]') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    pick('card', 'Estudo');
+    expect(value()).toBe('> [!estudo|azul] T\n> ab');
+    pick('card', 'Vazio');
+    expect(value()).toBe('> [!vazio|azul] T\n> ab');
   });
 
   it('as setas na grade das cores: de um em um para os lados, de fileira em fileira, e saem pelas pontas', () => {

@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-tabela-colada',
+    id: '2026-11-06-cards-estudo-vazio',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
     title: 'Os blocos de código, a cor de cada card, a régua do texto, a letra e a largura da leitura e o verso das cartas nos Estudos',
     melhorias: [
+      'O card do texto ganhou dois jeitos: Estudo, com um livro no papel rosa, e Vazio, sem desenho, com o título na mesma beirada do texto e, sem título, só o papel.',
       'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',
       'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
       'No bloco de código, as teclas agora são as de um editor de código, nos dois modos: Tab e Shift+Tab seguem o recuo que o bloco já usa, o Enter mantém o recuo, o Backspace volta uma parada, Alt+setas movem a linha, Shift+Alt+setas duplicam, Ctrl+Shift+K apaga e Ctrl+/ comenta.',

@@ -6,7 +6,8 @@
  *     > A primeira linha do card.
  *     > - uma lista, uma tarefa, um widget: tudo o que o texto tem
  *
- * A linha de cima é a do jeito (`[!aviso]`) e do título (sem título, o nome do jeito); as de baixo, com
+ * A linha de cima é a do jeito (`[!aviso]`) e do título (sem título, o nome do jeito; o Vazio não tem
+ * nome de reserva, e sem título ele é só o papel); as de baixo, com
  * o "> " na frente, são o que tem dentro, lido como um texto à parte (ver `parseRich`). Um "-" depois
  * do jeito (`[!aviso]-`) faz o card começar fechado, e um "+", começar aberto, com o título para fechar.
  * O card acaba na primeira linha sem o ">" (ou na linha de outro card).
@@ -20,10 +21,10 @@
  * este site não conhece fica escrita como está, e o papel é o do jeito.
  */
 
-export type CalloutLook = 'nota' | 'info' | 'dica' | 'feito' | 'pergunta' | 'aviso' | 'perigo' | 'exemplo' | 'citacao';
+export type CalloutLook = 'nota' | 'info' | 'dica' | 'feito' | 'pergunta' | 'aviso' | 'perigo' | 'exemplo' | 'estudo' | 'citacao' | 'vazio';
 
-/** O papel de um card: o de um dos jeitos, o rosa (que nenhum jeito tem) ou o da cartolina (a cor mora no CSS, `[data-jeito]`). */
-export type CalloutPaper = CalloutLook | 'rosa' | 'cartolina';
+/** O papel de um card: um dos dez ou o da cartolina (a cor mora no CSS, `[data-jeito]`). O Estudo e o Vazio usam papéis que já existem. */
+export type CalloutPaper = Exclude<CalloutLook, 'estudo' | 'vazio'> | 'rosa' | 'cartolina';
 
 /** "-": começa fechado; "+": começa aberto, com o título para fechar; "": sempre aberto. */
 export type CalloutFold = '' | '+' | '-';
@@ -36,19 +37,23 @@ export interface CalloutDef {
   about: string;
   /** Os outros nomes que dão nele: os do Obsidian e os jeitos de escrever daqui. */
   aliases: readonly string[];
+  /** O papel dele, sem cor própria. */
+  paper: CalloutPaper;
 }
 
 /** Os jeitos, na ordem do menu. */
 export const CALLOUTS: readonly CalloutDef[] = [
-  { look: 'nota', name: 'Nota', about: 'Papel pardo, para o que vale guardar', aliases: ['note', 'nota'] },
-  { look: 'info', name: 'Info', about: 'Azul, para explicar ou listar o que falta', aliases: ['info', 'informacao', 'todo', 'tarefa', 'tarefas'] },
-  { look: 'dica', name: 'Dica', about: 'Verde-água, para um atalho ou um resumo', aliases: ['tip', 'hint', 'important', 'importante', 'dica', 'abstract', 'summary', 'tldr', 'resumo'] },
-  { look: 'feito', name: 'Feito', about: 'Verde, para o que deu certo', aliases: ['success', 'check', 'done', 'feito', 'ok', 'sucesso', 'certo'] },
-  { look: 'pergunta', name: 'Pergunta', about: 'Amarelo de recado, para uma dúvida', aliases: ['question', 'help', 'faq', 'pergunta', 'duvida', 'ajuda'] },
-  { look: 'aviso', name: 'Aviso', about: 'Laranja, para tomar cuidado', aliases: ['warning', 'caution', 'attention', 'aviso', 'atencao', 'cuidado'] },
-  { look: 'perigo', name: 'Perigo', about: 'Vermelho, para um erro ou um risco', aliases: ['danger', 'error', 'failure', 'fail', 'missing', 'bug', 'perigo', 'erro', 'falha'] },
-  { look: 'exemplo', name: 'Exemplo', about: 'Lilás, para mostrar como é', aliases: ['example', 'exemplo'] },
-  { look: 'citacao', name: 'Citação', about: 'Cinza, para o que alguém disse', aliases: ['quote', 'cite', 'citacao', 'citar'] },
+  { look: 'nota', name: 'Nota', about: 'Papel pardo, para o que vale guardar', aliases: ['note', 'nota'], paper: 'nota' },
+  { look: 'info', name: 'Info', about: 'Azul, para explicar ou listar o que falta', aliases: ['info', 'informacao', 'todo', 'tarefa', 'tarefas'], paper: 'info' },
+  { look: 'dica', name: 'Dica', about: 'Verde-água, para um atalho ou um resumo', aliases: ['tip', 'hint', 'important', 'importante', 'dica', 'abstract', 'summary', 'tldr', 'resumo'], paper: 'dica' },
+  { look: 'feito', name: 'Feito', about: 'Verde, para o que deu certo', aliases: ['success', 'check', 'done', 'feito', 'ok', 'sucesso', 'certo'], paper: 'feito' },
+  { look: 'pergunta', name: 'Pergunta', about: 'Amarelo de recado, para uma dúvida', aliases: ['question', 'help', 'faq', 'pergunta', 'duvida', 'ajuda'], paper: 'pergunta' },
+  { look: 'aviso', name: 'Aviso', about: 'Laranja, para tomar cuidado', aliases: ['warning', 'caution', 'attention', 'aviso', 'atencao', 'cuidado'], paper: 'aviso' },
+  { look: 'perigo', name: 'Perigo', about: 'Vermelho, para um erro ou um risco', aliases: ['danger', 'error', 'failure', 'fail', 'missing', 'bug', 'perigo', 'erro', 'falha'], paper: 'perigo' },
+  { look: 'exemplo', name: 'Exemplo', about: 'Lilás, para mostrar como é', aliases: ['example', 'exemplo'], paper: 'exemplo' },
+  { look: 'estudo', name: 'Estudo', about: 'Rosa, com um livro, para o que se estuda', aliases: ['study', 'estudo', 'estudos', 'estudar'], paper: 'rosa' },
+  { look: 'citacao', name: 'Citação', about: 'Cinza, para o que alguém disse', aliases: ['quote', 'cite', 'citacao', 'citar'], paper: 'citacao' },
+  { look: 'vazio', name: 'Vazio', about: 'Cinza e sem desenho, para o texto sem rótulo', aliases: ['blank', 'vazio', 'empty', 'sem-icone'], paper: 'citacao' },
 ];
 
 /** O jeito novo do Inserir › Card (cada jeito se escreve com o próprio nome: `[!aviso]`). */
@@ -61,7 +66,7 @@ export interface CalloutColorDef {
   paper: CalloutPaper;
 }
 
-/** Os dez papéis, na ordem dos jeitos: a cor de cada um, com o nome da cor, e o rosa junto do lilás. */
+/** Os dez papéis, na ordem dos jeitos: a cor de cada um, com o nome da cor (o Vazio divide o cinza com a Citação). */
 export const CALLOUT_PAPERS: readonly CalloutColorDef[] = [
   { word: 'pardo', name: 'Pardo', paper: 'nota' },
   { word: 'azul', name: 'Azul', paper: 'info' },
@@ -119,6 +124,14 @@ export function calloutName(type: string): string {
 }
 
 /**
+ * O que aparece no lugar do título, no card escrito sem ele: o nome do jeito. O Vazio não tem nada: a
+ * palavra "Vazio" em cima do texto de um card estaria mentindo, e ele fica só com o papel.
+ */
+export function calloutFallbackTitle(type: string): string {
+  return calloutLook(type) === 'vazio' ? '' : calloutName(type);
+}
+
+/**
  * A cor escrita depois da barra, como este site a chama ("Lilás" → "lilas"); o nome de um jeito também
  * vale ("[!nota|perigo]" é o vermelho). "": sem cor própria, ou uma palavra que este site não conhece.
  */
@@ -126,8 +139,8 @@ export function calloutColorWord(written: string): string {
   const w = fold(written);
   if (w === CALLOUT_CARTOLINA.word) return w;
   if (CALLOUT_PAPERS.some((c) => c.word === w)) return w;
-  const look = calloutDef(w)?.look;
-  return CALLOUT_PAPERS.find((c) => c.paper === look)?.word ?? '';
+  const paper = calloutDef(w)?.paper;
+  return CALLOUT_PAPERS.find((c) => c.paper === paper)?.word ?? '';
 }
 
 /** O nome curto da cor, pela palavra dela (`calloutColorWord`); sem cor própria, "Padrão". */
@@ -140,7 +153,7 @@ export function calloutColorName(word: string): string {
 export function calloutPaper(type: string, color: string): CalloutPaper {
   const word = calloutColorWord(color);
   if (word === CALLOUT_CARTOLINA.word) return CALLOUT_CARTOLINA.paper;
-  return CALLOUT_PAPERS.find((c) => c.word === word)?.paper ?? calloutLook(type);
+  return CALLOUT_PAPERS.find((c) => c.word === word)?.paper ?? calloutDef(type)?.paper ?? 'nota';
 }
 
 /** O "[!jeito|cor]-" da linha de cima, sem o "> " nem o título. */

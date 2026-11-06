@@ -458,8 +458,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                   <div class="menu-coluna" role="group" [attr.aria-labelledby]="areaId + '-sec-jeito'">
                     <p class="menu-secao" [id]="areaId + '-sec-jeito'" aria-hidden="true">Jeito</p>
                     @for (d of cardLooks; track d.look) {
-                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cd.cor ? cardPaperOf(cd.tipo, cd.cor) : d.look" [attr.aria-checked]="cd.jeito === d.look" [title]="d.about" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { jeito: d.look })">
-                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(d.look)" [size]="15" /></span>
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cardPaperOf(d.look, cd.cor)" [attr.aria-checked]="cd.jeito === d.look" [title]="d.about" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { jeito: d.look })">
+                        <span class="cartao-amostra" aria-hidden="true">@if (cardIconOf(d.look); as desenho) {<lucide-icon [img]="desenho" [size]="15" />}</span>
                         <span class="menu-op-nome">{{ d.name }}</span>
                         @if (cd.jeito === d.look) {
                           <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
@@ -471,15 +471,15 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                     <!-- a cor: a do jeito, a da cartolina e os dez papéis, cada um com o desenho deste card -->
                     <div class="menu-grupo" role="group" [attr.aria-labelledby]="areaId + '-sec-cor'">
                       <p class="menu-secao" [id]="areaId + '-sec-cor'" aria-hidden="true">Cor: {{ cardColorName(cd.cor) }}</p>
-                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cd.jeito" [attr.aria-checked]="cd.cor === ''" title="A cor do jeito do card" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: '' })">
-                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(cd.jeito)" [size]="15" /></span>
+                      <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cardPaperOf(cd.jeito, '')" [attr.aria-checked]="cd.cor === ''" title="A cor do jeito do card" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: '' })">
+                        <span class="cartao-amostra" aria-hidden="true">@if (cardIconOf(cd.jeito); as desenho) {<lucide-icon [img]="desenho" [size]="15" />}</span>
                         <span class="menu-op-nome">{{ cardDefaultColor }}</span>
                         @if (cd.cor === '') {
                           <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
                         }
                       </button>
                       <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op" [attr.data-jeito]="cardCartolina.paper" [attr.aria-checked]="cd.cor === cardCartolina.word" title="O mesmo matiz da cartolina" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: cardCartolina.word })">
-                        <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cardIconOf(cd.jeito)" [size]="15" /></span>
+                        <span class="cartao-amostra" aria-hidden="true">@if (cardIconOf(cd.jeito); as desenho) {<lucide-icon [img]="desenho" [size]="15" />}</span>
                         <span class="menu-op-nome">{{ cardCartolina.name }}</span>
                         @if (cd.cor === cardCartolina.word) {
                           <lucide-icon class="marcado" [img]="ChosenIcon" [size]="16" aria-hidden="true" />
@@ -488,7 +488,7 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
                       <div class="cor-papeis">
                         @for (c of cardPapers; track c.word) {
                           <button type="button" role="menuitemradio" tabindex="-1" class="menu-op cartao-op cor-op" [attr.data-jeito]="c.paper" [attr.aria-checked]="cd.cor === c.word" [attr.aria-label]="c.name" [title]="c.name" (pointerdown)="$event.preventDefault()" (pointerenter)="$any($event.currentTarget).focus()" (click)="cardAct(area, big, { cor: c.word })">
-                            <span class="cartao-amostra" aria-hidden="true"><lucide-icon [img]="cd.cor === c.word ? ChosenIcon : cardIconOf(cd.jeito)" [size]="15" /></span>
+                            <span class="cartao-amostra" aria-hidden="true">@if (cd.cor === c.word ? ChosenIcon : cardIconOf(cd.jeito); as desenho) {<lucide-icon [img]="desenho" [size]="15" />}</span>
                           </button>
                         }
                       </div>
@@ -1987,6 +1987,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     .cor-op[aria-checked='true'] .cartao-amostra {
       box-shadow: 0 0 0 2px var(--c-tinta);
     }
+    /* no Vazio, sem o desenho na tinta de cada papel: o fio na tinta é o que separa as amostras claras */
+    .cor-op .cartao-amostra:empty {
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-tinta) 55%, transparent);
+    }
     /* o estilo da linha: o marca-texto amarelo e o tique, no lugar do atalho */
     .menu-op[aria-checked='true'] {
       background: rgb(255 218 66 / 0.4);
@@ -3030,7 +3034,7 @@ export class RichEditor {
     { value: '+', name: 'Fecha, começa aberto', icon: ICON.abrir },
     { value: '-', name: 'Começa fechado', icon: ICON.proximo },
   ];
-  protected cardIconOf(look: CalloutLook): LucideIconData {
+  protected cardIconOf(look: CalloutLook): LucideIconData | null {
     return CALLOUT_ICON[look];
   }
   protected cardColorName(word: string): string {

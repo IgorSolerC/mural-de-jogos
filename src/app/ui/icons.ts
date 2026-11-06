@@ -209,6 +209,7 @@ import {
   Speaker,
   SpellCheck,
   Square,
+  SquareDashed,
   Stamp,
   SquareCheckBig,
   SquareCode,
@@ -494,6 +495,8 @@ export const ICON = {
   aspas: Quote,
   /** O card do texto (o callout do Obsidian): a caixa com a faixa do título em cima. */
   card: PanelTop,
+  /** O botão do jeito Vazio, o card sem desenho (no card, ele não aparece). */
+  semDesenho: SquareDashed,
   informacao: Info,
   /** Desfazer o card: o papel sai, o texto fica. */
   borracha: Eraser,

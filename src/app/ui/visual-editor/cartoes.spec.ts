@@ -114,7 +114,7 @@ describe('o card no modo Visual', () => {
     expect(valor).toBe('> [!info] L\n> - um\n> ## dois');
   });
 
-  it('os botões do card do cursor: o jeito anda pelos nove (do último, volta ao primeiro; com Shift, para trás) e o fechar pelos três; o cursor fica', async () => {
+  it('os botões do card do cursor: o jeito anda por todos (do último, volta ao primeiro; com Shift, para trás) e o fechar pelos três; o cursor fica', async () => {
     await make('> [!aviso] T\n> a\n> - b\n\nfora');
     const topo = () => view.dom.children[0] as HTMLElement;
     const botoes = () => Array.from(topo().querySelectorAll<HTMLButtonElement>('.vis-cartao-controles button'));
@@ -139,13 +139,42 @@ describe('o card no modo Visual', () => {
     expect(valor!.split('\n')[0]).toBe('> [!perigo] T');
     botoes()[0].dispatchEvent(new MouseEvent('click', { shiftKey: true, bubbles: true }));
     expect(valor!.split('\n')[0]).toBe('> [!aviso] T');
-    // a Citação, a última, volta para a Nota
-    run({ cartao: { jeito: 'citacao' } });
+    // o Vazio, o último, volta para a Nota
+    run({ cartao: { jeito: 'vazio' } });
     botoes()[0].click();
     expect(valor!.split('\n')[0]).toBe('> [!nota] T');
     // os toques entram no histórico (os seguidos, juntos): o Ctrl+Z volta
     view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
     expect(valor!.split('\n')[0]).not.toBe('> [!nota] T');
+  });
+
+  it('o Vazio: sem desenho, o título onde o desenho estaria; sem título, "Título (opcional)" apagado; e o botão só com o nome', async () => {
+    await make('> [!nota] T\n> a\n\n> [!blank]\n> b');
+    const topo = view.dom.querySelectorAll<HTMLElement>('.vis-cartao-topo');
+    const icone = topo[1].querySelector<HTMLElement>('.vis-cartao-icone')!;
+    expect(icone.hidden).toBeTrue();
+    expect(getComputedStyle(icone).display).toBe('none');
+    expect(icone.childElementCount).toBe(0);
+    expect(topo[1].dataset['jeito']).toBe('citacao');
+    const titulo = topo[1].querySelector<HTMLElement>('.vis-cartao-titulo')!;
+    expect(titulo.dataset['vazio']).toBe('Título (opcional)');
+    // o título começa na mesma beirada do texto de dentro (a Nota, depois do desenho)
+    const dentro = view.dom.children[4] as HTMLElement;
+    expect(titulo.getBoundingClientRect().left).toBe(dentro.getBoundingClientRect().left);
+    expect(topo[0].querySelector<HTMLElement>('.vis-cartao-titulo')!.getBoundingClientRect().left).toBeGreaterThan(dentro.getBoundingClientRect().left);
+    cursor(4);
+    const jeito = topo[1].querySelector<HTMLButtonElement>('.vis-cartao-controles button')!;
+    expect(jeito.getAttribute('aria-label')).toBe('Jeito do card: Vazio. Trocar para Nota');
+    // no celular, o botão do jeito fica só com o desenho: no Vazio, o quadrado tracejado (o botão não fica sem nada)
+    expect(jeito.querySelector('.vis-ciclo-nome')!.previousElementSibling!.tagName.toLowerCase()).toBe('svg');
+    // trocar de jeito traz o desenho de volta, e o nome apagado volta a ser o do jeito
+    run({ cartao: { jeito: 'estudo' } });
+    expect(valor!.split('\n')[3]).toBe('> [!estudo]');
+    const novo = view.dom.querySelectorAll<HTMLElement>('.vis-cartao-topo')[1];
+    expect(novo.querySelector<HTMLElement>('.vis-cartao-icone')!.hidden).toBeFalse();
+    expect(novo.querySelector('.vis-cartao-icone svg')).not.toBeNull();
+    expect(novo.querySelector<HTMLElement>('.vis-cartao-titulo')!.dataset['vazio']).toBe('Estudo');
+    expect(novo.dataset['jeito']).toBe('rosa');
   });
 
   it('os botões aparecem só com a folha no foco, presos na beirada de cima do papel', async () => {

@@ -70,7 +70,7 @@
   .vis-cartao-seta {
     @include formatado.cartao-seta;
   }
-  .vis-cartao-seta[hidden] {
+  :is(.vis-cartao-icone, .vis-cartao-seta)[hidden] {
     display: none;
   }
   > .vis-cartao-topo[data-dobra='-'] .vis-cartao-seta {

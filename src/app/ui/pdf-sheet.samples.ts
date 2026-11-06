@@ -28,7 +28,7 @@ export const PDF_BLOCK_SAMPLES: Record<Block['kind'], PdfSample> = {
   },
   quote: { text: '> A cidade é feita de escadas e de luz.\n> Vá com tempo.', shows: '.citacao' },
   callout: {
-    text: '> [!aviso] Antes de embarcar\n> O trem para Sintra lota **depois das 10h**.\n> - [ ] Comprar o cartão Viva Viagem\n> - Levar água\n\n> [!dica]- O atalho do 28\n> Ele passa na porta do apartamento, às 8h e às 8h20.\n\n> [!pergunta]\n> Vale a pena o Oceanário?\n\n> [!exemplo|laranja] Com a cor de outro papel\n> Um Exemplo, com o desenho dele, no papel laranja.\n\n> [!citacao|cartolina] Com a cor da cartolina\n> O papel do mesmo matiz da cartolina da anotação.',
+    text: '> [!aviso] Antes de embarcar\n> O trem para Sintra lota **depois das 10h**.\n> - [ ] Comprar o cartão Viva Viagem\n> - Levar água\n\n> [!dica]- O atalho do 28\n> Ele passa na porta do apartamento, às 8h e às 8h20.\n\n> [!pergunta]\n> Vale a pena o Oceanário?\n\n> [!exemplo|laranja] Com a cor de outro papel\n> Um Exemplo, com o desenho dele, no papel laranja.\n\n> [!citacao|cartolina] Com a cor da cartolina\n> O papel do mesmo matiz da cartolina da anotação.\n\n> [!estudo] Para a prova de sexta\n> O livro no papel rosa.\n\n> [!vazio] Sem desenho\n> O título começa na beirada do texto.\n\n> [!vazio]\n> Só o papel, sem a linha de cima.\n\n> [!vazio]-\n> O que fecha, sem título: no PDF, o texto, sem a linha de cima.',
     shows: '.cartao[data-jeito="aviso"]',
   },
   subtle: { text: '-# Preços de outubro de 2026, podem mudar.', shows: '.linha.sutil' },
