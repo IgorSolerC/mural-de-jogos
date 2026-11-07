@@ -133,11 +133,11 @@ export interface SavedEvent {
   privateInPublic?: boolean;
 }
 
-/** As duas abas da ficha no editor. */
-type EditorMode = 'escrever' | 'cartolina' | 'flashcard';
+/** As abas da ficha no editor (a resenha só tem as duas primeiras). */
+type EditorMode = 'escrever' | 'cartolina' | 'kanban' | 'flashcard';
 
 /** As etiquetas da fileira de propriedades (cada uma abre a sua parte). */
-type PropId = 'grupo' | 'assunto' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'quadro' | 'capa' | 'quem';
+type PropId = 'grupo' | 'assunto' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'capa' | 'quem';
 
 interface PropView {
   id: PropId;
@@ -149,8 +149,6 @@ interface PropView {
   /** Tem algo escolhido: a etiqueta colada; sem nada, o recorte. */
   filled: boolean;
   error?: boolean;
-  /** A cor da coluna (no Kanban). */
-  tint?: string;
 }
 
 
@@ -237,18 +235,21 @@ export class ReviewEditor {
   protected readonly WriteIcon = ICON.escrever;
   protected readonly KitIcon = ICON.paleta;
   protected readonly CardsIcon = ICON.camadas;
+  protected readonly BoardIcon = ICON.colunas;
   protected readonly ClearIcon = ICON.recomecar;
   protected readonly GrowIcon = ICON.aumentar;
   protected readonly ShrinkIcon = ICON.diminuir;
 
   /**
-   * As duas abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes) e
-   * a cartolina (o estojo). No computador a ficha fica à vista nas duas, ao lado; no celular, só na
-   * da cartolina, em cima do estojo.
+   * As abas da ficha, recortadas na beirada da faixa: o que se escreve (o texto e os detalhes), a
+   * cartolina (o estojo) e, na anotação, o Kanban (o lugar no quadro) e o Flashcard (a carta). No
+   * computador a ficha fica à vista em todas, ao lado; no celular, só na da cartolina, em cima do estojo.
    */
   protected readonly mode = signal<EditorMode>('escrever');
 
   protected setMode(m: EditorMode): void {
+    // a aba Kanban só existe aberta, e sair dela leva o campo embora: nem todo toque tira o foco antes
+    this.kanbanProps()?.flush();
     this.mode.set(m);
     // a prévia aparece (no celular) ou muda de lugar: mede de novo depois de desenhar
     requestAnimationFrame(() => this.fitPreview());
@@ -256,7 +257,7 @@ export class ReviewEditor {
 
   /** Setas, Home e End trocam de aba, como um tablist. */
   protected onModeKey(e: KeyboardEvent): void {
-    const order: EditorMode[] = this.notes() ? ['escrever', 'cartolina', 'flashcard'] : ['escrever', 'cartolina'];
+    const order: EditorMode[] = this.notes() ? ['escrever', 'cartolina', 'kanban', 'flashcard'] : ['escrever', 'cartolina'];
     if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
     const at = order.indexOf(this.mode());
     const next = e.key === 'Home' ? 0 : e.key === 'End' ? order.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
@@ -329,8 +330,8 @@ export class ReviewEditor {
 
   /**
    * A fileira de etiquetas: o que a ficha tem além do nome e do texto (na anotação, o grupo, as tags,
-   * a data, o lugar no Kanban, a capa e quem vê; na resenha, a data, a quantidade, a dificuldade, a
-   * capa e quem vê), cada uma com o que está escolhido.
+   * a data, a capa e quem vê; na resenha, a data, a quantidade, a dificuldade, a capa e quem vê), cada
+   * uma com o que está escolhido.
    */
   protected readonly props = computed<PropView[]>(() => {
     const out: PropView[] = [];
@@ -356,11 +357,6 @@ export class ReviewEditor {
       const d = this.difficulty();
       out.push({ id: 'dificuldade', name: p.difficulty, icon: ICON.caveira, value: d === 'nenhuma' ? 'Dificuldade' : DIFFICULTY_LABEL[d], spoken: DIFFICULTY_LABEL[d], filled: d !== 'nenhuma' });
     }
-    const board = this.kbBoard();
-    if (note && board) {
-      const col = board.columns.find((x) => x.id === this.kbColumn());
-      out.push({ id: 'quadro', name: 'Kanban', icon: ICON.colunas, value: col?.name ?? 'Kanban', spoken: col ? `${col.name}, no quadro ${this.noteCategory()}${this.kbWall() ? '' : ', só no Kanban'}` : 'fora do quadro', filled: !!col, tint: col?.color });
-    }
     if (note || this.game()) {
       const has = !!this.game()?.coverUrl;
       out.push({ id: 'capa', name: 'Capa', icon: ICON.imagem, value: 'Capa', spoken: has ? 'com capa' : 'sem capa', filled: has });
@@ -383,7 +379,7 @@ export class ReviewEditor {
     return formatReviewDate(v, v.length === 10 && v.startsWith(this.today().slice(0, 4)));
   });
 
-  // ===== O lugar no quadro do grupo (a parte Kanban) =====
+  // ===== O lugar no quadro do grupo (a aba Kanban) =====
 
   private readonly kanban = inject(KanbanStore);
   private readonly kanbanActions = inject(KanbanActions);
@@ -415,6 +411,22 @@ export class ReviewEditor {
     this.kbWallChoice.set(wall);
   }
 
+  /** A coluna escolhida, ou null fora do quadro (ou sem grupo): é ela que acende o pontinho da aba. */
+  protected readonly kbColumnNow = computed(() => this.kbBoard()?.columns.find((c) => c.id === this.kbColumn()) ?? null);
+
+  /** O nome da aba para quem não vê o pontinho: o que ela diz, e a etapa. */
+  protected readonly kbTabLabel = computed(() => {
+    const col = this.kbColumnNow();
+    if (col) return `Kanban: ${col.name}, no quadro ${this.noteCategory()}${this.kbWall() ? '' : ', só no Kanban'}`;
+    return this.kbBoard() ? 'Kanban: fora do quadro' : 'Kanban: sem grupo';
+  });
+
+  /** Sem grupo, a aba Kanban leva até o grupo: de volta à aba da anotação, com a etiqueta aberta. */
+  protected chooseGroup(): void {
+    this.setMode('escrever');
+    this.openProp('grupo');
+  }
+
   /** O lugar como está no quadro do grupo de agora (ou o pedido pela coluna de onde a nova veio). */
   private syncBoard(): void {
     const b = this.kbBoard();
@@ -431,7 +443,7 @@ export class ReviewEditor {
   }
 
   /**
-   * Leva o que foi escolhido na parte Kanban para o quadro. A nova cai lá pelo pedido (`pending`, ver
+   * Leva o que foi escolhido na aba Kanban para o quadro. A nova cai lá pelo pedido (`pending`, ver
    * App.onSaved, que finaliza se a coluna finaliza); a que já existia anda como no quadro (com a
    * pergunta das dependências e o Desfazer), e a importância e o status mudam depois de ela chegar.
    */
@@ -1516,7 +1528,7 @@ export class ReviewEditor {
     if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
-    // o lugar no quadro do grupo, como ficou na parte Kanban, e a carta, como ficou na aba Flashcard
+    // o lugar no quadro do grupo, como ficou na aba Kanban, e a carta, como ficou na aba Flashcard
     this.applyBoard(clean.id, !prev);
     const slept = this.flashcard().apply(clean.id);
     const privateInPublic = this.flashcard().enteredPublicDeck(clean.id);
@@ -1657,6 +1669,8 @@ export class ReviewEditor {
    * clique fora do cartão voltam para a folha como estava.
    */
   protected requestClose(e?: Event): void {
+    // o Esc fecha com o foco ainda no campo: a observação que está sendo escrita também é coisa por salvar
+    this.kanbanProps()?.flush();
     if (this.isDirty()) {
       e?.preventDefault();
       void this.askDiscard();
@@ -1770,7 +1784,7 @@ export class ReviewEditor {
       this.noteRank(),
       this.game()?.form,
       this.game()?.sample,
-      // o lugar no quadro (a parte Kanban) também é coisa por salvar
+      // o lugar no quadro (a aba Kanban) também é coisa por salvar
       this.kbColumn(),
       this.kbImportance(),
       cleanStatus(this.kbStatus()),

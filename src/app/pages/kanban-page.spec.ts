@@ -1944,17 +1944,16 @@ describe('página do Kanban', () => {
       sheet.nativeElement.remove();
     });
 
-    it('no editor (compacto), só dependências apagadas contam como nenhuma: o "+ Dependência" e sem a linha vazia', async () => {
+    it('só dependências apagadas contam como nenhuma: "Pôr dependência", sem linha de dependência', async () => {
       const props = TestBed.createComponent(KanbanProps);
       props.componentRef.setInput('board', board());
       props.componentRef.setInput('noteId', 'nlogin01');
-      props.componentRef.setInput('compact', true);
       props.componentRef.setInput('column', 'afazer');
       props.componentRef.setInput('deps', ['nsumiu01']);
       await props.whenStable();
       const el: HTMLElement = props.nativeElement;
-      expect(el.querySelector('.deps-linha')).toBeNull();
-      expect([...el.querySelectorAll('.extras .mais')].map((b) => b.textContent!.trim())).toContain('Dependência');
+      expect(el.querySelectorAll('.deps-linha .dep').length).toBe(0);
+      expect(el.querySelector('.por-dep')!.textContent!.trim()).toBe('Pôr dependência');
       props.componentRef.setInput('deps', ['nsumiu01', 'nsync001']);
       await props.whenStable();
       expect(el.querySelectorAll('.deps-linha .dep').length).toBe(1);

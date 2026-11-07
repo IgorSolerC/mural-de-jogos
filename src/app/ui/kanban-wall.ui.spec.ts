@@ -193,15 +193,15 @@ describe('só no Kanban, nas telas', () => {
     expect(kanban.boardOnly().size).toBe(2);
   });
 
-  it('no editor, a etiqueta Kanban põe a anotação no mural também ao salvar', async () => {
+  it('no editor, a aba Kanban põe a anotação no mural também ao salvar', async () => {
     TestBed.inject(Cloud).config.set(null);
     const f = await mount(ReviewEditor);
     const el: HTMLElement = f.nativeElement;
     f.componentInstance.open(store.get('ntarefa1')!);
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('.prop[data-prop="quadro"]')!.click();
+    el.querySelector<HTMLButtonElement>('#editor-modo-kanban')!.click();
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('#editor-parte .mural-linha [role="switch"]')!.click();
+    el.querySelector<HTMLButtonElement>('.kanban-modo .mural-linha [role="switch"]')!.click();
     await f.whenStable();
     // nada vale antes de salvar
     expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
@@ -219,9 +219,9 @@ describe('só no Kanban, nas telas', () => {
     kanban.pending.set({ board: TRAB, column: 'afazer' });
     f.componentInstance.openInCategory('Trabalho');
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('.prop[data-prop="quadro"]')!.click();
+    el.querySelector<HTMLButtonElement>('#editor-modo-kanban')!.click();
     await f.whenStable();
-    el.querySelector<HTMLButtonElement>('#editor-parte .mural-linha [role="switch"]')!.click();
+    el.querySelector<HTMLButtonElement>('.kanban-modo .mural-linha [role="switch"]')!.click();
     await f.whenStable();
     const name = el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
     name.value = 'Tarefa nova';

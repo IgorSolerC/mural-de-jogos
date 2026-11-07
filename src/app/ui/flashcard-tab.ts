@@ -15,7 +15,7 @@ import { Toasts } from './toast';
 /**
  * A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): a frente da carta (título, subtítulo e imagem), os
  * baralhos e se ela aparece no mural também, com a carta viva ao lado. Normalmente vazia: "Criar a frente"
- * faz da anotação uma carta. Nada muda até salvar a anotação (`apply`), como a parte Kanban.
+ * faz da anotação uma carta. Nada muda até salvar a anotação (`apply`), como a aba Kanban.
  *
  * O título é opcional: vazio, a frente usa o nome da anotação (D8). A anotação que já estava no mural
  * continua lá ao virar carta (D4: nada some sem a pessoa mandar); a nascida de dentro dos Estudos segue os

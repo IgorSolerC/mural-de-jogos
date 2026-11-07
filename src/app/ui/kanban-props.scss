@@ -13,85 +13,8 @@
 }
 
 /* a etapa e a importância andam juntas; depois delas, o fio de sempre */
-.par + .linha,
-.par + .extras {
+.par + .linha {
   border-top: 1.5px dashed rgb(21 21 21 / 0.18);
-}
-
-/* Compacto (no editor): a etapa e a importância lado a lado, cada uma com o nome em cima; o que está
-   vazio vira só o "+", numa linha. Sobra folha para escrever. */
-:host(.compacto) {
-  .par {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0 28px;
-  }
-
-  .par > .linha {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    padding-bottom: 8px;
-    border-top: 0;
-  }
-
-  .par .nome {
-    min-height: 28px;
-  }
-
-  .linha {
-    padding-block: 8px;
-  }
-
-  .escolha {
-    width: min(100%, 14rem);
-  }
-}
-
-@container kprops (max-width: 480px) {
-  :host(.compacto) .par {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-.extras {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding-top: 10px;
-}
-
-.mais {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 6px 12px 5px 10px;
-  border: 0;
-  border-radius: 2px;
-  outline: 1.5px dashed rgb(21 21 21 / 0.42);
-  outline-offset: -1.5px;
-  background: transparent;
-  color: rgb(21 21 21 / 0.78);
-  font-family: var(--f-label);
-  font-weight: 800;
-  font-size: 0.82rem;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  cursor: pointer;
-
-  lucide-icon {
-    display: inline-flex;
-  }
-
-  &:hover {
-    background: rgb(21 21 21 / 0.06);
-    outline-color: rgb(21 21 21 / 0.72);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-  }
 }
 
 .nome {
@@ -227,6 +150,19 @@
   &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 2px;
+  }
+}
+
+/* na tela mais estreita, a régua, o nome e o X seguem numa linha só: o X não cai sozinho embaixo */
+@container kprops (max-width: 300px) {
+  .imp-valor {
+    flex-wrap: nowrap;
+    column-gap: 4px;
+  }
+
+  .regua-imp {
+    gap: 4px;
+    padding: 0;
   }
 }
 

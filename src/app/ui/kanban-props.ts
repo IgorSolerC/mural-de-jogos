@@ -17,15 +17,13 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
  * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver), a importância (a régua de cinco tracinhos das fichas do quadro, que
  * diz o nome de cada um ao passar o mouse ou o dedo), a observação (o `status`, só o campo, sem sugestões) e as
  * dependências, e se ela aparece também no mural ou fica só no Kanban. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
- * hora, o editor guarda ao salvar. Compacto (no editor), a etapa e a importância ficam lado a lado e o
- * observação e as dependências vazias são dois "+". O que vier depois (as tags, na folha) entra pelo
+ * hora, a aba Kanban do editor guarda ao salvar. O que vier depois (as tags, na folha) entra pelo
  * conteúdo, como mais uma linha.
  */
 @Component({
   selector: 'app-kanban-props',
   imports: [IconModule, CardPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { '[class.compacto]': 'compact()' },
   template: `
     <div class="par">
       <!-- ===== Etapa: a lista das colunas por cima da tira ===== -->
@@ -117,81 +115,65 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
         </div>
       </div>
 
-      @if (!compact() || statusOpen()) {
-        <!-- ===== Observação: umas palavras (o status, por dentro) ===== -->
-        <div class="linha">
-          <label class="nome" [for]="id + '-status'"><lucide-icon [img]="StatusIcon" [size]="16" aria-hidden="true" />Observação</label>
-          <div class="valor status-valor">
-            <span class="campo">
-              <input
-                [id]="id + '-status'"
-                type="text"
-                autocomplete="off"
-                enterkeyhint="done"
-                [maxLength]="statusMax"
-                [value]="draft()"
-                (input)="draft.set($any($event.target).value)"
-                (change)="commit()"
-                (keydown.enter)="$event.preventDefault(); commit()"
-              />
-              @if (draft().trim()) {
-                <button type="button" class="tirar" aria-label="Tirar a observação" title="Tirar" (click)="setStatus('')">
-                  <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
-                </button>
-              }
-            </span>
-          </div>
-        </div>
-      }
-
-      @if (!compact() || depRows().length) {
-        <!-- ===== Depende de: as que precisam estar finalizadas antes ===== -->
-        <div class="linha deps-linha">
-          <span class="nome" [id]="id + '-deps'"><lucide-icon [img]="DepsIcon" [size]="16" aria-hidden="true" />Depende de</span>
-          <div class="valor deps-valor">
-            @if (depRows().length) {
-              <ul class="deps" [attr.aria-labelledby]="id + '-deps'">
-                @for (d of depRows(); track d.note.id) {
-                  <li class="dep" [class.feita]="d.done">
-                    <span class="dep-texto">
-                      <span class="dep-nome">{{ d.note.game.name }}</span>
-                      <span class="dep-onde">
-                        @if (d.done) {
-                          <span class="feita-selo"><lucide-icon [img]="DoneIcon" [size]="11" aria-hidden="true" />Finalizada</span>
-                        } @else {
-                          <span class="sr-only">Aberta, </span>
-                        }
-                        {{ d.where }}
-                      </span>
-                    </span>
-                    <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + d.note.game.name + ' das dependências'" title="Tirar" (click)="removeDep(d.note.id)">
-                      <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
-                    </button>
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="dica">Finalizar com alguma aberta pergunta antes.</p>
+      <!-- ===== Observação: umas palavras (o status, por dentro) ===== -->
+      <div class="linha">
+        <label class="nome" [for]="id + '-status'"><lucide-icon [img]="StatusIcon" [size]="16" aria-hidden="true" />Observação</label>
+        <div class="valor status-valor">
+          <span class="campo">
+            <input
+              [id]="id + '-status'"
+              type="text"
+              autocomplete="off"
+              enterkeyhint="done"
+              [maxLength]="statusMax"
+              [value]="draft()"
+              (input)="draft.set($any($event.target).value)"
+              (change)="commit()"
+              (keydown.enter)="$event.preventDefault(); commit()"
+            />
+            @if (draft().trim()) {
+              <button type="button" class="tirar" aria-label="Tirar a observação" title="Tirar" (click)="setStatus('')">
+                <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+              </button>
             }
-            <button type="button" class="por-dep" [disabled]="depRows().length >= maxDeps" (click)="picking.set(true)">
-              <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
-              {{ depRows().length ? 'Outra' : 'Pôr dependência' }}
-            </button>
-          </div>
+          </span>
         </div>
-      }
+      </div>
 
-      <!-- compacto: o que está vazio é só o recorte com o "+", numa linha; abre no lugar -->
-      @if (compact() && (!statusOpen() || !depRows().length)) {
-        <div class="extras">
-          @if (!statusOpen()) {
-            <button type="button" class="mais" (click)="openStatus()"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Observação</button>
+      <!-- ===== Depende de: as que precisam estar finalizadas antes ===== -->
+      <div class="linha deps-linha">
+        <span class="nome" [id]="id + '-deps'"><lucide-icon [img]="DepsIcon" [size]="16" aria-hidden="true" />Depende de</span>
+        <div class="valor deps-valor">
+          @if (depRows().length) {
+            <ul class="deps" [attr.aria-labelledby]="id + '-deps'">
+              @for (d of depRows(); track d.note.id) {
+                <li class="dep" [class.feita]="d.done">
+                  <span class="dep-texto">
+                    <span class="dep-nome">{{ d.note.game.name }}</span>
+                    <span class="dep-onde">
+                      @if (d.done) {
+                        <span class="feita-selo"><lucide-icon [img]="DoneIcon" [size]="11" aria-hidden="true" />Finalizada</span>
+                      } @else {
+                        <span class="sr-only">Aberta, </span>
+                      }
+                      {{ d.where }}
+                    </span>
+                  </span>
+                  <button type="button" class="tirar" [attr.aria-label]="'Tirar ' + d.note.game.name + ' das dependências'" title="Tirar" (click)="removeDep(d.note.id)">
+                    <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="dica">Finalizar com alguma aberta pergunta antes.</p>
           }
-          @if (!depRows().length) {
-            <button type="button" class="mais" [title]="'As que precisam estar finalizadas antes'" (click)="picking.set(true)"><lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />Dependência</button>
-          }
+          <button type="button" class="por-dep" [disabled]="depRows().length >= maxDeps" (click)="picking.set(true)">
+            <lucide-icon [img]="PlusIcon" [size]="15" aria-hidden="true" />
+            {{ depRows().length ? 'Outra' : 'Pôr dependência' }}
+          </button>
         </div>
-      }
+      </div>
     }
 
     <ng-content />
@@ -221,8 +203,6 @@ export class KanbanProps {
   readonly title = input('');
   /** "Fora do quadro" é uma das etapas, no fim da lista (no editor; na folha do quadro, tirar é o botão do pé). */
   readonly outside = input(false);
-  /** No editor: etapa e importância lado a lado, e o status e as dependências vazios como dois "+". */
-  readonly compact = input(false);
   /** A coluna; null: fora do quadro. */
   readonly column = model<string | null>(null);
   readonly importance = model<Importance | null>(null);
@@ -254,9 +234,6 @@ export class KanbanProps {
   /** O tracinho sob o mouse (ou com o foco): a régua mostra esse nível e o nome dele. */
   protected readonly hover = signal<Importance | null>(null);
   protected readonly shownImp = computed(() => this.hover() ?? this.importance());
-  /** Compacto: o "+ Status" foi tocado (ou já tem status). */
-  private readonly statusTouched = signal(false);
-  protected readonly statusOpen = computed(() => this.statusTouched() || !!this.status());
 
   protected readonly current = computed(() => this.board().columns.find((c) => c.id === this.column()) ?? null);
 
@@ -270,11 +247,6 @@ export class KanbanProps {
 
   /** Fora da folha de escolher: ela mesma, as que já estão e as que fariam uma roda. */
   protected readonly excluded = computed(() => this.kanbanDeps.excluded(this.noteId(), this.deps()));
-
-  protected openStatus(): void {
-    this.statusTouched.set(true);
-    setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>(`#${this.id}-status`)?.focus());
-  }
 
   protected pickColumn(value: string): void {
     this.column.set(value || null);

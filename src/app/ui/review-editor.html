@@ -19,7 +19,8 @@
     <app-pin class="pin" [color]="pin().pinColor" />
 
     <!-- A faixa da cartolina é o alto da página: o nome escrito nela (como na ficha aberta) e, na
-         beirada de baixo, as duas abas recortadas no papel: o que se escreve e a cartolina -->
+         beirada de baixo, as abas recortadas no papel: o que se escreve, a cartolina e, na anotação,
+         o Kanban e o Flashcard -->
     <header class="head" [style]="headPaper()">
       <h2 id="editor-titulo" class="sr-only">{{ title() }}</h2>
       <div class="faixa-linha">
@@ -69,7 +70,7 @@
           <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
       </div>
-      <div class="modos" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
+      <div class="modos" [class.quatro]="notes()" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
         <button
           type="button"
           role="tab"
@@ -97,6 +98,25 @@
           Cartolina
         </button>
         @if (notes()) {
+          <!-- o lugar no quadro do grupo: a etapa, a importância, a observação e as dependências -->
+          <button
+            type="button"
+            role="tab"
+            class="modo"
+            id="editor-modo-kanban"
+            aria-controls="editor-conteudo"
+            [attr.aria-label]="kbTabLabel()"
+            [attr.title]="kbColumnNow()?.name ?? null"
+            [attr.aria-selected]="mode() === 'kanban'"
+            [attr.tabindex]="mode() === 'kanban' ? 0 : -1"
+            (click)="setMode('kanban')"
+          >
+            <lucide-icon [img]="BoardIcon" [size]="16" aria-hidden="true" />
+            Kanban
+            @if (kbColumnNow()) {
+              <span class="modo-marca" aria-hidden="true"></span>
+            }
+          </button>
           <!-- a frente de carta dos Estudos (PLANO-ESTUDOS.md, 6.5): normalmente vazia -->
           <button
             type="button"
@@ -182,7 +202,6 @@
                 [class.vazia]="!p.filled"
                 [class.errada]="p.error"
                 [attr.data-prop]="p.id"
-                [attr.data-cor]="p.tint ?? null"
                 [attr.aria-expanded]="prop() === p.id"
                 aria-controls="editor-parte"
                 [attr.aria-label]="p.name + ': ' + p.spoken"
@@ -224,10 +243,6 @@
                     } @else {
                       <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
                     }
-                    <span class="prop-txt">{{ p.value }}</span>
-                  }
-                  @case ('quadro') {
-                    <lucide-icon [img]="p.icon" [size]="16" aria-hidden="true" />
                     <span class="prop-txt">{{ p.value }}</span>
                   }
                   @default {
@@ -285,11 +300,6 @@
                 }
                 @case ('capa') {
                   <app-cover-picker group="editor-capa" [game]="notes() ? noteGame() : game()!" [kind]="kind()" (changed)="notes() ? setNoteCover($event.coverUrl) : game.set($event)" />
-                }
-                @case ('quadro') {
-                  @if (kbBoard(); as b) {
-                    <app-kanban-props [compact]="true" [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
-                  }
                 }
                 @case ('quem') {
                   <ng-container [ngTemplateOutlet]="quemVe" />
@@ -404,6 +414,21 @@
             }
           </section>
         </div>
+
+        <!-- ===== Kanban: as linhas da folha da anotação no quadro; só desenhadas nesta aba, e valem ao salvar ===== -->
+        @if (mode() === 'kanban') {
+          <div class="kanban-modo">
+            @if (kbBoard(); as b) {
+              <app-kanban-props [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
+            } @else {
+              <!-- cada quadro é de um grupo: sem grupo, o caminho até ele -->
+              <div class="sem-quadro">
+                <p class="sem-quadro-convite">Cada grupo tem o seu quadro, e esta anotação ainda não tem grupo.</p>
+                <button type="button" class="escolher-grupo" (click)="chooseGroup()">Escolher o grupo</button>
+              </div>
+            }
+          </div>
+        }
 
         <!-- ===== Flashcard: a frente da carta, os baralhos e o mural (ui/flashcard-tab.ts) ===== -->
         <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">

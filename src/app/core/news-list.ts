@@ -27,13 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-07-menus-do-editor',
+    id: '2026-11-07-aba-kanban',
     version: '1.39.3',
     kind: 'ajustes',
     date: '2026-11-07',
-    title: 'Os menus das etiquetas do editor',
+    title: 'O Kanban numa aba do editor e os menus das etiquetas',
+    melhorias: [
+      'No editor da anotação, o Kanban saiu das etiquetas e virou uma aba, ao lado de Anotação, Cartolina e Flashcard: a etapa, a importância, o mural, a observação e as dependências ficam à vista, e um pontinho na aba mostra que a anotação está no quadro.',
+    ],
     correcoes: [
-      'No editor da anotação e da análise, o papel que abre pelas etiquetas (Grupo, Assunto, Tags, Kanban, Hoje e as outras) fica na frente do texto, e não mais atrás das abas Visual e Markdown e da régua.',
+      'No editor da anotação e da análise, o papel que abre pelas etiquetas (Grupo, Assunto, Tags, Hoje e as outras) fica na frente do texto, e não mais atrás das abas Visual e Markdown e da régua.',
+      'No celular, as abas do editor da anotação cabem todas na tela: antes, a última ficava cortada nas telas mais estreitas.',
     ],
   },
   {

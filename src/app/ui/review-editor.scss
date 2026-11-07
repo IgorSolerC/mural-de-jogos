@@ -1,7 +1,6 @@
 @use 'sheet';
 @use 'a11y';
 @use 'paper-kit' as kit;
-@use 'kanban-kit' as kk;
 
 /* ===== A ficha em branco, como uma página =====
    No alto, a faixa da cartolina com o nome escrito nela (como na ficha aberta) e, na beirada de
@@ -178,7 +177,7 @@
   line-height: 1.05;
 }
 
-/* As duas abas, recortadas na beirada de baixo da faixa: a de trás é só o nome, na tinta da faixa;
+/* As abas, recortadas na beirada de baixo da faixa: a de trás é só o nome, na tinta da faixa;
    a escolhida é um pedaço da própria folha, emendado nela (como as abas da folha do texto) */
 .modos {
   display: flex;
@@ -303,7 +302,8 @@
    Ficha inteira, em cima da prévia (a mesma etiqueta da fileira; ligada, a de tinta) */
 .prop,
 .ver-inteira,
-.parte-pronto {
+.parte-pronto,
+.escolher-grupo {
   @include kit.botao-papel;
 }
 
@@ -333,10 +333,6 @@
     --corte: color-mix(in srgb, var(--error-ink) 70%, transparent);
     --corte-forte: var(--error-ink);
     color: var(--error-ink);
-  }
-
-  &[data-prop='quadro'] {
-    @include kk.coluna-cores;
   }
 }
 
@@ -406,14 +402,6 @@
   border-radius: 2px;
   object-fit: cover;
   box-shadow: 0 0 0 1px rgb(21 21 21 / 0.2);
-}
-
-.prop[data-prop='quadro'] lucide-icon {
-  color: var(--col-cor);
-}
-
-.prop[data-prop='quadro'][aria-expanded='true'] lucide-icon {
-  color: var(--hi);
 }
 
 /* ===== A parte aberta: um papel solto preso logo embaixo das etiquetas =====
@@ -1124,6 +1112,33 @@ fieldset.quem-ve {
     padding-inline: 13px;
   }
 
+  /* as quatro abas da anotação, todas à vista: só os nomes, dividindo a beirada; o pontinho vai no
+     canto, sem pedir largura. Com a letra do aparelho maior, a fileira rola em vez de cortar a última */
+  .modos.quatro {
+    margin-inline: -8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+
+    .modo {
+      flex: 1 0 auto;
+      justify-content: center;
+      padding-inline: 5px;
+      font-size: 0.84rem;
+      letter-spacing: 0.04em;
+
+      lucide-icon {
+        display: none;
+      }
+    }
+
+    .modo-marca {
+      position: absolute;
+      top: 7px;
+      right: 3px;
+      margin: 0;
+    }
+  }
+
   .escrever {
     padding: 18px 16px 26px;
   }
@@ -1321,8 +1336,25 @@ fieldset.quem-ve {
   }
 }
 
-/* ===== Flashcard: a aba da frente de carta, com o papel do texto ===== */
-.flashcard-modo {
+/* ===== Flashcard e Kanban: as abas da frente de carta e do lugar no quadro, com o papel do texto ===== */
+.flashcard-modo,
+.kanban-modo {
   padding: 4px 22px 22px;
+}
+
+/* ===== Kanban sem grupo: a frase e o caminho até o grupo ===== */
+.sem-quadro {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding: 26px 4px;
+}
+
+.sem-quadro-convite {
+  margin: 0;
+  max-width: 46ch;
+  font-family: var(--f-hand);
+  font-size: 1.12rem;
+  line-height: 1.45;
 }
 
