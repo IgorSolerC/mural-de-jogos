@@ -110,7 +110,11 @@ const LOOKS: Record<string, (el: HTMLElement) => void> = {
     expect(css(el).outlineStyle).toBe('dashed');
   },
   '.enf.sutil': (el) => expect(css(el).color).toBe('rgb(138, 132, 122)'),
-  'code.cod': (el) => expect(css(el).fontFamily).toMatch(MONO),
+  'code.cod': (el) => {
+    expect(css(el).fontFamily).toMatch(MONO);
+    // a fita da tela não vai para o papel: o recorte das pontas cortaria a caixa do PDF
+    expect(css(el).maskImage).toBe('none');
+  },
   '.elo': (el) => {
     expect(css(el).color).toBe('rgb(29, 53, 119)');
     expect(css(el).textDecorationLine).toBe('underline');

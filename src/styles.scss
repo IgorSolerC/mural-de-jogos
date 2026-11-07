@@ -165,6 +165,12 @@
   /* a passada de marca-texto do ligado (as seções do índice, os botões ligados da régua do texto): mais
      grossa no começo, a ponta chanfrada; usada como máscara do amarelo */
   --marca-passada: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 10' preserveAspectRatio='none'%3E%3Cpath d='M1 3.2C24 1.6 58 1.2 99 2.4L97 8.6C62 7.4 30 7.8 3 9.4Z'/%3E%3C/svg%3E");
+  /* o corte em diagonal das duas pontas do código na linha (ver ui/_formatado.scss): cada ponta tem 0,5em; o
+     pedaço do meio passa 1px para dentro delas, para não sobrar uma emenda entre eles */
+  --cod-mascara:
+    linear-gradient(#000 0 0) center / calc(100% - 1em + 1px) 100% no-repeat,
+    linear-gradient(to bottom right, #0000 50%, #000 50%) left / 0.5em 100% no-repeat,
+    linear-gradient(to bottom right, #000 50%, #0000 50%) right / 0.5em 100% no-repeat;
   /* a fibra que a cartolina usa: a procedural até a foto carregar (body.has-paper-texture) */
   --grao-img: var(--paper-grain);
   /* a fibra das claras, sempre: uma ficha clara colada numa escura volta a ela (a escura troca a

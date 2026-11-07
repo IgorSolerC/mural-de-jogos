@@ -27,16 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-paineis-junto-do-cursor',
+    id: '2026-11-06-codigo-na-linha',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'Os blocos de código, a cor de cada card, a régua do texto, a letra e a largura da leitura e o verso das cartas nos Estudos',
+    title: 'Os blocos de código, o código no meio do texto, a cor de cada card, a régua do texto, a letra e a largura da leitura e o verso das cartas nos Estudos',
     melhorias: [
       'O card do texto ganhou dois jeitos: Estudo, com um livro no papel rosa, e Vazio, sem desenho, com o título na mesma beirada do texto e, sem título, só o papel.',
       'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',
       'O bloco de código ganhou temas escuros, nas cores do VS Code, do Dracula e do Xcode, além do Papel de sempre: cada bloco escolhe o dele no menu Código, e o padrão dos blocos sem tema fica em Ajustes › Mural.',
       'No bloco de código, as teclas agora são as de um editor de código, nos dois modos: Tab e Shift+Tab seguem o recuo que o bloco já usa, o Enter mantém o recuo, o Backspace volta uma parada, Alt+setas movem a linha, Shift+Alt+setas duplicam, Ctrl+Shift+K apaga e Ctrl+/ comenta.',
+      'O código no meio do texto virou um pedaço de fita no tom do próprio papel, com as pontas cortadas em diagonal: não some mais na folha e acompanha a cor de qualquer cartolina, clara ou escura.',
       'Swift e Dart entraram nas linguagens do bloco de código.',
       'Na anotação e na análise, a folha do texto cresce com o que está escrito, com uma rolagem só, a da página. As abas Visual e Markdown, a Ajuda, a Tela cheia e a régua ficam presas no alto; os painéis de link e de lembrete, a Ajuda e a lista do [[ abrem junto do cursor, embaixo ou em cima da linha, sem nunca cobrir o cursor (no celular, enquanto se escreve, a régua continua presa em cima do teclado).',
       'Editar e Tirar um widget ficou perto dele, mesmo numa nota imensa: no modo Visual, os dois moram nos botões do próprio widget selecionado, que ficam à vista mesmo num widget mais alto que a tela; no Markdown, a tirinha abre logo embaixo da linha do widget.',

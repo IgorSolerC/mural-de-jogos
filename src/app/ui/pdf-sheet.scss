@@ -398,12 +398,16 @@
     font-family: var(--pdf-mono);
     font-weight: 400;
   }
+  // (a fita da tela sai toda: a máscara e o tom não servem no papel)
   .cod:not(app-note-widget *) {
+    position: static;
     padding: 0.08em 0.36em;
     border-radius: 3px;
     background: var(--pdf-fundo);
-    box-shadow: none;
+    color: var(--pdf-tinta);
     font-size: 0.86em;
+    -webkit-mask: none;
+    mask: none;
   }
   .codigo-peca:not(app-note-widget *) {
     // o tema escuro é da tela: no papel, as tintas do realce de sempre, chapadas

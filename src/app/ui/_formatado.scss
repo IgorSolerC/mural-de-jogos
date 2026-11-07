@@ -58,7 +58,7 @@
 // Impresso pela impressora do computador numa folha de formulário contínuo: o papel claro com as faixas
 // verde-claras uma linha sim, uma não, a tira dos furos do trator à esquerda, separada pelo picote, e a
 // letra Cascadia Mono. O papel é claro em toda cartolina (como o card): as tintas do realce são escritas
-// para ele só. O código na linha é um recorte do mesmo papel colado no meio da frase.
+// para ele só. O código na linha é outra peça (`cod-recorte`): um pedaço de fita no tom do próprio papel.
 // Só as declarações do papel moram em `codigo-papel`: quem usa diz onde (a leitura num ::before da peça,
 // que não rola com o texto; o Visual num ::before do próprio bloco, por cima do papel do card).
 // Os temas (`codigo-temas`) trocam só as cores: a mesma folha com os furos, nas cores dos editores. O Papel
@@ -145,26 +145,30 @@ $cod-temas: (
 $cod-margem: 1.05rem;
 $cod-vao: 0.7rem;
 
-// o recorte do formulário: o papel claro com a beirada verde da faixa embaixo, o fio verde e a sombrinha
-// de colado, na letra do código e na tinta escura (o código na linha, e as amostras dele nos menus da régua)
+// o recorte de fita do código na linha (e das amostras dele nos menus da régua): o fundo é a própria letra
+// bem diluída, sem nenhuma cor escrita, e a letra é a da frase, com o contraste dela; por isso a peça
+// acompanha sozinha toda cartolina. As duas pontas são cortadas em diagonal, de tesoura: a máscara
+// (`--cod-mascara`, em src/styles.scss, escrita uma vez só) só pega a sobra dos lados, e o padding afasta
+// a letra das pontas.
 @mixin cod-recorte {
-  border-radius: 2px 3px 2px 3px;
-  background: linear-gradient(to bottom, #fbfcf6 0 62%, #e7f1df 62%);
-  color: #1b1916;
-  box-shadow:
-    0 0 0 1px rgb(47 107 58 / 0.2),
-    0 1px 1px rgb(0 0 0 / 0.16);
+  padding-inline: 0.68em;
+  background: color-mix(in srgb, currentColor 13%, transparent);
   font-family: var(--f-codigo);
   font-weight: 400;
   font-variant-ligatures: none;
+  -webkit-mask: var(--cod-mascara);
+  mask: var(--cod-mascara);
 }
 
 @mixin codigo {
-  /* o código na linha: um recorte do formulário colado na frase, sem a tinta da cartolina */
+  /* o código na linha: um pedaço de fita no tom do papel, colado na frase. Da altura da letra e um tico
+     acima da linha (`top` só muda o que se vê, não o lugar): a caixa fica entre as linhas da pauta, sem
+     encostar na de baixo. Cada pedaço de uma quebra de linha tem as duas pontas cortadas */
   .cod {
     @include cod-recorte;
-    padding: 0.02em 0.34em 0.08em;
-    font-size: 0.8em;
+    position: relative;
+    top: -1px;
+    font-size: 0.78em;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
   }

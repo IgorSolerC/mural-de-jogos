@@ -14,6 +14,16 @@
 
 @include formatado.codigo;
 @include formatado.codigo-temas('.codigo-peca');
+/* o código com outra marca, na mesma peça (no Visual, uma peça dentro da outra, que já fica assim): o
+   marca-texto soma à fita, sem tirar o respiro que afasta a letra das pontas cortadas; o sutil diminui a
+   letra do código, não a troca pela dele */
+.cod.marca {
+  padding-inline: 0.68em;
+  background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 52% / 100% 0.7em, color-mix(in srgb, currentColor 13%, transparent);
+}
+.cod.sutil:not(.linha) {
+  font-size: 0.66em;
+}
 /* a peça do bloco: o papel embaixo de tudo (o ::before, com os furos), com a sombra de papel colado,
    que também entra nos furos; as letras rolam de lado sem levar a tira dos furos junto */
 /* (a largura nunca vem das letras: a linha comprida rola por dentro, não alarga o texto em volta, que na

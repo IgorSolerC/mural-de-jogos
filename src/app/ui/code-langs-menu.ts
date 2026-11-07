@@ -231,13 +231,13 @@ let seq = 0;
       font-size: 0.78rem;
       color: var(--ink-2);
     }
-    /* a palavra que vai depois das crases: o recorte do formulário, como o código na linha do texto */
+    /* a palavra que vai depois das crases: o recorte de fita, como o código na linha do texto */
     .cod-recorte {
       justify-self: start;
       max-width: 100%;
       overflow: hidden;
       @include formatado.cod-recorte;
-      padding: 0 0.34em 0.06em;
+      padding-block: 0 0.06em;
       font-size: 0.82rem;
       line-height: 1.5;
       text-overflow: ellipsis;

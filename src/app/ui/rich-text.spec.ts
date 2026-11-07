@@ -730,14 +730,29 @@ describe('o código na leitura', () => {
     expect(btn.getAttribute('aria-label')).toBe('Código copiado');
   });
 
-  it('o código na linha: o recorte claro do formulário, na Cascadia Mono, com a tinta escura', async () => {
+  it('o código na linha: a fita no tom da própria letra, com as pontas cortadas, na Cascadia Mono', async () => {
     const el = await render('a senha `tejo-2026` e mais');
+    el.style.color = 'rgb(200, 10, 20)';
     const cod = el.querySelector<HTMLElement>('code.cod')!;
     const s = getComputedStyle(cod);
     expect(s.fontFamily).toContain('Cascadia Mono');
-    expect(s.backgroundImage).toContain('linear-gradient');
-    expect(s.color).toBe('rgb(27, 25, 22)');
+    // sem nenhuma cor escrita: a letra é a da frase, e o fundo, a letra diluída
+    expect(s.color).toBe('rgb(200, 10, 20)');
+    expect(s.backgroundColor).toMatch(/0\.13\)$/);
+    expect(s.backgroundColor).toMatch(/0\.78\d* 0\.03\d* 0\.07\d*/);
+    expect(s.maskImage || s.getPropertyValue('-webkit-mask-image')).toContain('linear-gradient');
   });
+
+  it('o código com marca-texto ou sutil: a letra continua longe das pontas cortadas, e o sutil só diminui', async () => {
+    const el = await render('`comum` e ==`grifado`== e ((`baixo`))');
+    const [comum, grifado, baixo] = [...el.querySelectorAll<HTMLElement>('code.cod')].map((c) => getComputedStyle(c));
+    expect(grifado.paddingLeft).toBe(comum.paddingLeft);
+    expect(grifado.paddingRight).toBe(comum.paddingRight);
+    expect(grifado.backgroundImage).toContain('linear-gradient');
+    expect(grifado.backgroundColor).toBe(comum.backgroundColor);
+    expect(parseFloat(baixo.fontSize)).toBeLessThan(parseFloat(comum.fontSize));
+  });
+
 });
 
 describe('o Copiar de dois blocos de código', () => {
@@ -790,6 +805,16 @@ describe('os temas do bloco de código', () => {
     return fixture.nativeElement.querySelector('.codigo-peca') as HTMLElement;
   }
   afterEach(() => document.querySelectorAll('app-rich-text').forEach((e) => e.remove()));
+
+  it('o código na linha: a letra com 4,5:1 ou mais em cima da fita, em toda cartolina do site', () => {
+    const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+    const hex = (c: number[]) => `#${c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('')}`;
+    const fita = (letra: string, papel: string) => hex(rgb(papel).map((v, i) => rgb(letra)[i] * 0.13 + v * 0.87));
+    const claras = ['#ff79a8', '#ffda42', '#7be986', '#ffa358', '#70cdff', '#c4a5fb', '#ef7d73', '#c9c3bc', '#f6f1e7', '#f7f4ec'];
+    const escuras = ['#511d19', '#4a2603', '#3a2f03', '#083b14', '#0a334b', '#36264e', '#54162e', '#403c38', '#100f0e'];
+    for (const papel of claras) expect(contraste('#151515', fita('#151515', papel))).withContext(papel).toBeGreaterThanOrEqual(4.5);
+    for (const papel of escuras) expect(contraste('#f4f0e6', fita('#f4f0e6', papel))).withContext(papel).toBeGreaterThanOrEqual(4.5);
+  });
 
   it('sem tema, o papel de sempre, sem marca nenhuma', async () => {
     const el = await peca('```js\nlet a\n```');

@@ -2129,10 +2129,10 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
       background: #151515;
       color: #f1f1ec;
     }
-    /* o código como fica no texto: o recorte do formulário (ver ui/_formatado.scss) */
+    /* o código como fica no texto: o recorte de fita (ver ui/_formatado.scss) */
     .menu-op-nome code {
       @include formatado.cod-recorte;
-      padding: 0 0.34em 0.06em;
+      padding-block: 0 0.06em;
       font-size: 0.82em;
     }
     /* os estilos, cada um do jeito que fica no texto (as medidas dos títulos são as da leitura) */
