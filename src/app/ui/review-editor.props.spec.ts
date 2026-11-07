@@ -204,6 +204,33 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     expect(card.status).toBe('Em revisão');
   });
 
+  it('a parte aberta fica na frente do alto do texto e da régua, que ficam presos em cima da folha', async () => {
+    fixture.componentInstance.openNote('Ideias');
+    await fixture.whenStable();
+    await openPart('assunto');
+    // as regras da página, também as de dentro dos @media: a janela do teste é estreita, e é no largo que a
+    // parte cai por cima do texto (no estreito ela empurra o texto para baixo, sem cobrir nada)
+    const rules: { sel: string; style: CSSStyleDeclaration; media: string }[] = [];
+    const walk = (list: CSSRuleList, media: string) => {
+      for (const r of Array.from(list)) {
+        if (r instanceof CSSStyleRule) rules.push({ sel: r.selectorText, style: r.style, media });
+        if (r instanceof CSSMediaRule) walk(r.cssRules, media + r.conditionText);
+        else if ('cssRules' in r) walk((r as CSSGroupingRule).cssRules, media);
+      }
+    };
+    for (const sheet of [...Array.from(document.styleSheets), ...document.adoptedStyleSheets]) walk(sheet.cssRules, '');
+    const layer = (pick: (sel: string, style: CSSStyleDeclaration, media: string) => boolean) => {
+      const found = rules.filter((r) => pick(r.sel, r.style, r.media) && r.style.zIndex);
+      expect(found.length).withContext('a regra existe').toBeGreaterThan(0);
+      return Math.max(...found.map((r) => Number(r.style.zIndex)));
+    };
+    const parte = layer((sel, st, media) => /^\.parte\[/.test(sel) && st.position === 'absolute' && media.includes('1024'));
+    const presos = layer((sel, st) => /\.(cabeca|regua)\[/.test(sel) && st.position === 'sticky');
+    const ancorados = layer((sel, st) => /\.(gaveta|ancorada)\[/.test(sel) && st.position === 'absolute');
+    expect(parte).toBeGreaterThan(presos);
+    expect(parte).toBeGreaterThan(ancorados);
+  });
+
   it('na anotação, a folha do texto vai até o pé da página, sem rolar', async () => {
     store.add(note('nfolha01', { category: 'Trabalho', text: 'Uma linha só.' }));
     await edit(store.get('nfolha01')!);
