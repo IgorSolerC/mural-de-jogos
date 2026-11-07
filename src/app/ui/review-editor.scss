@@ -428,8 +428,6 @@
 
 .parte {
   position: relative;
-  /* acima do alto preso do editor (7) e da régua (6), que vêm depois na página */
-  z-index: 8;
   display: grid;
   gap: 16px;
   min-width: 0;
@@ -1253,7 +1251,9 @@ fieldset.quem-ve {
     top: calc(100% + 10px);
     right: 0;
     left: 0;
-    z-index: 4;
+    /* na frente de tudo o que o texto prende em cima dele (ui/rich-editor.ts): o alto com as abas (7), a régua
+       (6), a gaveta e os painéis ancorados no cursor (5) */
+    z-index: 8;
     max-height: min(520px, 62dvh);
     overflow-y: auto;
     overscroll-behavior: contain;

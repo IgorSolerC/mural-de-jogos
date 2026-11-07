@@ -27,6 +27,16 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-07-menus-do-editor',
+    version: '1.39.3',
+    kind: 'ajustes',
+    date: '2026-11-07',
+    title: 'Os menus das etiquetas do editor',
+    correcoes: [
+      'No editor da anotação e da análise, o papel que abre pelas etiquetas (Grupo, Assunto, Tags, Kanban, Hoje e as outras) fica na frente do texto, e não mais atrás das abas Visual e Markdown e da régua.',
+    ],
+  },
+  {
     id: '2026-11-06-flashcards',
     version: '1.39.2',
     kind: 'ajustes',
