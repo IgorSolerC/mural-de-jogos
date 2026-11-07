@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, linkedSignal, model, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, linkedSignal, model, signal } from '@angular/core';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { IMPORTANCES, IMPORTANCE_LABEL, Importance, KanbanBoard, MAX_DEPS, STATUS_MAX, cleanStatus } from '../core/kanban';
 import { KanbanDeps } from '../core/kanban-deps';
@@ -16,9 +16,8 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
  * As coisas da anotação no quadro, em linhas como as propriedades do Notion: a etapa (a lista das
  * colunas por cima de uma tira impressa, que aguenta quantas colunas o quadro tiver), a importância (a régua de cinco tracinhos das fichas do quadro, que
  * diz o nome de cada um ao passar o mouse ou o dedo), a observação (o `status`, só o campo, sem sugestões) e as
- * dependências, e se ela aparece também no mural ou fica só no Kanban. Mostra e avisa; quem guarda é quem usa: a folha da anotação no quadro guarda na
- * hora, a aba Kanban do editor guarda ao salvar. O que vier depois (as tags, na folha) entra pelo
- * conteúdo, como mais uma linha.
+ * dependências, e se ela aparece também no mural ou fica só no Kanban. Mostra e avisa; quem guarda é a aba Kanban do
+ * editor, ao salvar.
  */
 @Component({
   selector: 'app-kanban-props',
@@ -40,11 +39,12 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
               @for (c of board().columns; track c.id) {
                 <option [value]="c.id" [selected]="c.id === column()">{{ c.name }}{{ c.finishes ? ' (finaliza)' : '' }}</option>
               }
-              @if (outside()) {
-                <option value="" [selected]="column() === null">Fora do quadro</option>
-              }
+              <option value="" [selected]="column() === null">Fora do quadro</option>
             </select>
           </span>
+          @if (column() === null) {
+            <p class="dica fora-dica">Fora do quadro, a anotação fica só no mural.</p>
+          }
           @if (current()?.finishes) {
             <span class="finaliza" title="Nesta etapa a anotação fica finalizada"><lucide-icon [img]="DoneIcon" [size]="13" aria-hidden="true" />Finaliza</span>
           }
@@ -129,7 +129,7 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
               [value]="draft()"
               (input)="draft.set($any($event.target).value)"
               (change)="commit()"
-              (keydown.enter)="$event.preventDefault(); commit()"
+              (keydown.enter)="$event.preventDefault(); commit(); $any($event.target).blur()"
             />
             @if (draft().trim()) {
               <button type="button" class="tirar" aria-label="Tirar a observação" title="Tirar" (click)="setStatus('')">
@@ -174,9 +174,15 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
           </button>
         </div>
       </div>
-    }
 
-    <ng-content />
+      <!-- o pé: tirar do quadro, como o "Deixar de ser carta" da aba Flashcard -->
+      <div class="pe">
+        <button type="button" class="papel perigo" (click)="leave()">
+          <lucide-icon [img]="LeaveIcon" [size]="16" aria-hidden="true" />
+          Tirar do quadro
+        </button>
+      </div>
+    }
 
     <app-card-picker
       [(open)]="picking"
@@ -194,15 +200,12 @@ const SCALE: readonly Importance[] = [...IMPORTANCES].reverse();
 })
 export class KanbanProps {
   private readonly kanbanDeps = inject(KanbanDeps);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   readonly board = input.required<KanbanBoard>();
   /** A anotação (para as dependências não fazerem roda); a nova ainda sem nada salvo também serve. */
   readonly noteId = input.required<string>();
   /** O nome da anotação, para a folha de escolher a dependência. */
   readonly title = input('');
-  /** "Fora do quadro" é uma das etapas, no fim da lista (no editor; na folha do quadro, tirar é o botão do pé). */
-  readonly outside = input(false);
   /** A coluna; null: fora do quadro. */
   readonly column = model<string | null>(null);
   readonly importance = model<Importance | null>(null);
@@ -222,6 +225,7 @@ export class KanbanProps {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly PlusIcon = ICON.adicionar;
   protected readonly WallIcon = ICON.painel;
+  protected readonly LeaveIcon = ICON.sair;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly scale = SCALE;
   protected readonly impLabel = IMPORTANCE_LABEL;
@@ -252,21 +256,17 @@ export class KanbanProps {
     this.column.set(value || null);
   }
 
-  /**
-   * A etapa volta a mostrar `column` (a folha do quadro, quando ir para a coluna escolhida espera a
-   * pergunta das dependências, ou não vai): a lista também, para escolher a mesma de novo valer.
-   */
-  showColumn(column: string | null): void {
-    this.column.set(column);
-    const select = this.host.nativeElement.querySelector<HTMLSelectElement>(`#${this.id}-etapa`);
-    if (select) select.value = column ?? '';
+  /** "Tirar do quadro": o mesmo que a etapa "Fora do quadro". O botão some: o foco vai para a etapa, que mostra o que aconteceu. */
+  protected leave(): void {
+    this.column.set(null);
+    document.getElementById(`${this.id}-etapa`)?.focus();
   }
 
   protected commit(): void {
     this.setStatus(this.draft());
   }
 
-  /** Guarda o status que ainda está sendo escrito (a folha fechando, o editor salvando). */
+  /** Guarda o status que ainda está sendo escrito (trocando de aba, o editor salvando). */
   flush(): void {
     this.commit();
   }

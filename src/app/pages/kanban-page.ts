@@ -21,7 +21,6 @@ import { WallView } from '../core/wall-view';
 import { NO_TAG_OUTS, TagOuts, excludeTag, hiddenByTags, outByDefault, outTags, releaseTag, showAllTags } from '../core/tag-filter';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
-import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanColumnSheet } from '../ui/kanban-column-sheet';
 import { ColumnWheel } from '../ui/column-wheel';
 import { KanbanNote } from '../ui/kanban-note';
@@ -145,7 +144,7 @@ interface BoardTab {
  */
 @Component({
   selector: 'app-kanban-page',
-  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanCardSheet, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
+  imports: [CardPicker, CategoryLabel, ColumnWheel, TabMore, KanbanColumnSheet, KanbanNote, IconModule, MuralConfig, NearScreen, NoteMenu, PageWall, Pin, RouterLink, SearchStrip, FilterCard, FilterTags],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './kanban-page.html',
   styleUrl: './kanban-page.scss',
@@ -300,7 +299,6 @@ export class KanbanPage {
   protected readonly adding = signal<string | null>(null);
   protected readonly picking = signal(false);
   private pickColumn: string | null = null;
-  protected readonly cardSheet = signal<string | null>(null);
   protected readonly columnSheet = signal<{ id: string; fresh: boolean } | null>(null);
   /** As configurações do mural abertas pela engrenagem (a folha chega por @defer, ver ui/mural-config.ts). */
   protected readonly configOpen = signal(false);
@@ -577,7 +575,7 @@ export class KanbanPage {
 
   /**
    * O menu do botão direito (ou de Shift+F10) numa ficha do quadro (ver ui/note-menu.ts), com o que o
-   * quadro acrescenta: levar para a coluna seguinte e a folha da anotação no quadro. No toque, segurar
+   * quadro acrescenta: levar para a coluna seguinte e os ajustes (a aba Kanban do editor). No toque, segurar
    * é arrastar: o menu abre quando o dedo segura e solta sem mexer (ver `onPointerUp`).
    */
   private readonly noteMenu = viewChild<NoteMenu>('menuDaNota');
@@ -592,7 +590,7 @@ export class KanbanPage {
     board: (id) => this.menuBoard(id),
   });
 
-  /** O que o quadro põe no menu de uma ficha dele: a seta para a coluna seguinte e a folha do quadro. */
+  /** O que o quadro põe no menu de uma ficha dele: a seta para a coluna seguinte e os ajustes. */
   private menuBoard(id: string): NoteMenuBoard | null {
     const card = this.board()?.cards.find((c) => c.note === id);
     const b = this.board();
@@ -600,7 +598,7 @@ export class KanbanPage {
     return {
       next: nextStop(b.columns, card.column)?.name ?? null,
       advance: () => this.advance(id, card.column),
-      details: () => this.cardSheet.set(id),
+      details: () => this.adjust(id),
     };
   }
 
@@ -883,6 +881,11 @@ export class KanbanPage {
 
   protected read(id: string): void {
     this.desk.openReview(id);
+  }
+
+  /** Os ajustes de uma anotação do quadro: o editor dela, na aba Kanban. */
+  protected adjust(id: string): void {
+    this.desk.editReview(id, 'kanban');
   }
 
   /** Limpar: sem busca, sem tag ligada e nenhuma escondida nesta visita (nem pelo padrão). */

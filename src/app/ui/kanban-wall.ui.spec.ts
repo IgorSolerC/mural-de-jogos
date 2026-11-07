@@ -10,7 +10,6 @@ import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { WallView } from '../core/wall-view';
 import { WallAccess, WallBoard } from '../pages/wall-board';
-import { KanbanCardSheet } from './kanban-card-sheet';
 import { KanbanProps } from './kanban-props';
 import { MuralConfig } from './mural-config';
 import { ReviewEditor } from './review-editor';
@@ -105,24 +104,6 @@ describe('só no Kanban, nas telas', () => {
     expect(el.querySelector('.mural-diz')!.textContent!.trim()).toBe('Só no Kanban');
     // o nome da linha é o rótulo do interruptor
     expect(document.getElementById(sw.getAttribute('aria-labelledby')!)!.textContent!.trim()).toBe('No mural');
-  });
-
-  it('na folha da anotação no quadro, o interruptor vale na hora', async () => {
-    const f = await mount(KanbanCardSheet, (x) => {
-      x.componentRef.setInput('boardId', TRAB);
-      x.componentRef.setInput('noteId', 'ntarefa1');
-    });
-    const sw = (f.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.mural-linha [role="switch"]')!;
-    // o padrão: só no Kanban
-    expect(sw.getAttribute('aria-checked')).toBe('false');
-    sw.click();
-    await f.whenStable();
-    expect(kanban.boardOnly().has('ntarefa1')).toBeFalse();
-    expect(kanban.get(TRAB)!.cards[0].wall).toBeTrue();
-    sw.click();
-    await f.whenStable();
-    expect(kanban.boardOnly().has('ntarefa1')).toBeTrue();
-    expect('wall' in kanban.get(TRAB)!.cards[0]).toBeFalse();
   });
 
   it('a folha dos filtros conta as que estão só no Kanban, no "Mostrar também", e o interruptor as traz com a etiqueta', async () => {

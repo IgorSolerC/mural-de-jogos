@@ -91,7 +91,7 @@
   (wishRemoved)="removeWish($event)"
   (closed)="onEditorClosed()"
 />
-<app-review-reader (edit)="editReview($event)" (remove)="removeReview($event)" (revisit)="writeRevisit($event)" (createNote)="newNote($event.title, $event.from)" />
+<app-review-reader (edit)="editReview($event)" (editBoard)="editBoardOf($event)" (remove)="removeReview($event)" (revisit)="writeRevisit($event)" (createNote)="newNote($event.title, $event.from)" />
 <app-wish-adder
   (wished)="onWished($event)"
   (seen)="seeWish($event)"

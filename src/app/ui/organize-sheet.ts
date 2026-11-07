@@ -16,9 +16,9 @@ import { TagPicker } from './tag-picker';
 
 /**
  * Onde uma anotação compartilhada mora no seu mural: o grupo, o assunto e as tags, que são de cada um
- * (ver core/shared-notes.ts). É a folha de quem só lê a anotação (o editor fica fechado para ela); quem
- * escreve muda os três no editor. Tudo vale na hora, só no mural de quem está aqui, como na folha do
- * quadro (ui/kanban-card-sheet.ts), com os mesmos seletores do editor.
+ * (ver core/shared-notes.ts). É a folha de quem só lê a anotação (no editor, essa pessoa só tem as abas Kanban
+ * e Flashcard); quem escreve muda os três no editor. Tudo vale na hora, só no mural de quem está aqui, com os
+ * mesmos seletores do editor.
  */
 @Component({
   selector: 'app-organize-sheet',

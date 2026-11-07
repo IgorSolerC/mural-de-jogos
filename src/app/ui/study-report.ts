@@ -9,7 +9,7 @@ const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', '
 /**
  * O boletim de uma carta dos Estudos (PLANO-ESTUDOS.md, 6.8): o nível num selo impresso, quando volta, quantas
  * vezes foi vista e quantas acertou e errou, a chance de lembrar agora (o R do FSRS) e as últimas respostas
- * como riscos de contagem a lápis. Na aba Flashcard do editor e na folha da carta.
+ * como riscos de contagem a lápis. Na aba Flashcard do editor.
  */
 @Component({
   selector: 'app-study-report',

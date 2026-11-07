@@ -104,7 +104,7 @@ export class KanbanDepsBadge {
   readonly mini = input(false);
   /** O nome de uma dependência: abrir a leitura dela. */
   readonly opened = output<string>();
-  /** Mudar as dependências: a folha da anotação no quadro. */
+  /** Mudar as dependências: o editor da anotação, na aba Kanban. */
   readonly edit = output<void>();
 
   protected readonly DepsIcon = ICON.dependencias;

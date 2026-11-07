@@ -10,7 +10,7 @@ import { NoteTag } from './note-tag';
 const SHOWN = 24;
 
 /**
- * As tags da anotação, no editor (a parte Tags): todas à mão, como na folha da anotação no quadro,
+ * As tags da anotação, no editor (a parte Tags): todas à mão,
  * cada uma a etiqueta para tocar (amarrada na anotação, ou só o contorno). As desta anotação
  * primeiro, depois as fixas e as mais usadas no grupo. A busca filtra e, com um nome novo, cria;
  * Enter amarra a primeira. A estrela deixa a tag sempre à mão (fixa), em toda anotação.

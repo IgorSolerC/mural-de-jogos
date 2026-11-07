@@ -1,5 +1,5 @@
 /* A papelaria do Kanban: a etiqueta de importância e o cabeçalho das colunas. Usadas na ficha do
-   quadro (ui/kanban-note.ts), na folha dela (ui/kanban-card-sheet.ts) e na página. */
+   quadro (ui/kanban-note.ts), na aba Kanban do editor (ui/kanban-props.ts) e na página. */
 
 /* As tintas da importância: a listra e a letra da etiqueta (Crítico é a etiqueta inteira em vermelho). */
 @mixin importancia-cores {
@@ -149,7 +149,7 @@
 }
 
 /* Uma etapa para escolher (as colunas do quadro): o contorno fino; a escolhida é o cabeçalho da coluna,
-   colado e torto. Na folha da anotação no quadro e no Quadro do editor. Num `button[role=radio]`. */
+   colado e torto. Na aba Kanban do editor. Num `button[role=radio]`. */
 @mixin etapa-opcao {
   position: relative;
   display: inline-flex;
@@ -194,7 +194,7 @@
 }
 
 /* Uma importância para escolher: o recorte tracejado ainda na cartela; a escolhida (.colado) é a
-   etiqueta de verdade. Na folha da anotação no quadro e no Quadro do editor. */
+   etiqueta de verdade. Na aba Kanban do editor. */
 @mixin imp-opcao {
   @include importancia-cores;
   --imp: var(--ink);

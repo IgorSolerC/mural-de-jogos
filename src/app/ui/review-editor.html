@@ -34,6 +34,8 @@
               maxlength="200"
               spellcheck="true"
               placeholder="Nome da anotação"
+              [readOnly]="readOnly()"
+              [attr.tabindex]="readOnly() ? -1 : null"
               [value]="noteTitle()"
               [attr.aria-invalid]="attempted() && !noteTitle().trim()"
               [attr.aria-describedby]="(attempted() && !noteTitle().trim()) || bracketTitle() || titleTwin() ? 'editor-titulo-dica' : null"
@@ -70,7 +72,8 @@
           <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
       </div>
-      <div class="modos" [class.quatro]="notes()" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
+      <div class="modos" [class.quatro]="notes() && !readOnly()" role="tablist" aria-label="Partes da ficha" (keydown)="onModeKey($event)">
+        @if (!readOnly()) {
         <button
           type="button"
           role="tab"
@@ -97,6 +100,7 @@
           <lucide-icon [img]="KitIcon" [size]="16" aria-hidden="true" />
           Cartolina
         </button>
+        }
         @if (notes()) {
           <!-- o lugar no quadro do grupo: a etapa, a importância, a observação e as dependências -->
           <button
@@ -124,6 +128,7 @@
             class="modo"
             id="editor-modo-flashcard"
             aria-controls="editor-conteudo"
+            [attr.aria-label]="flashcard().on() ? 'Flashcard: esta anotação é uma carta' : 'Flashcard: ainda não é uma carta'"
             [attr.aria-selected]="mode() === 'flashcard'"
             [attr.tabindex]="mode() === 'flashcard' ? 0 : -1"
             (click)="setMode('flashcard')"
@@ -415,16 +420,20 @@
           </section>
         </div>
 
-        <!-- ===== Kanban: as linhas da folha da anotação no quadro; só desenhadas nesta aba, e valem ao salvar ===== -->
+        <!-- ===== Kanban: o lugar da anotação no quadro; só desenhadas nesta aba, e valem ao salvar ===== -->
         @if (mode() === 'kanban') {
           <div class="kanban-modo">
             @if (kbBoard(); as b) {
-              <app-kanban-props [board]="b" [noteId]="id()" [title]="noteTitle()" [outside]="true" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
+              <app-kanban-props [board]="b" [noteId]="id()" [title]="noteTitle()" [(column)]="kbColumn" [(importance)]="kbImportance" [(status)]="kbStatus" [(deps)]="kbDeps" [wall]="kbWall()" (wallChange)="setKbWall($event)" />
             } @else {
               <!-- cada quadro é de um grupo: sem grupo, o caminho até ele -->
               <div class="sem-quadro">
                 <p class="sem-quadro-convite">Cada grupo tem o seu quadro, e esta anotação ainda não tem grupo.</p>
-                <button type="button" class="escolher-grupo" (click)="chooseGroup()">Escolher o grupo</button>
+                @if (readOnly()) {
+                  <p class="sem-quadro-convite">Escolha um em Grupo e tags, na leitura da anotação.</p>
+                } @else {
+                  <button type="button" class="escolher-grupo" (click)="chooseGroup()">Escolher o grupo</button>
+                }
               </div>
             }
           </div>
@@ -432,7 +441,7 @@
 
         <!-- ===== Flashcard: a frente da carta, os baralhos e o mural (ui/flashcard-tab.ts) ===== -->
         <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">
-          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" [group]="noteCategory()" />
+          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" [group]="noteCategory()" [readOnly]="readOnly()" />
         </div>
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->

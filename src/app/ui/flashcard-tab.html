@@ -10,7 +10,7 @@
         <button type="button" class="papel" (click)="start()">Criar a frente</button>
       } @else {
         <!-- cada baralho é de um grupo: sem grupo, não há onde a carta entrar -->
-        <p class="convite sem-grupo">Esta anotação ainda não tem grupo. Escolha um na aba Anotação para ela virar carta.</p>
+        <p class="convite sem-grupo">Esta anotação ainda não tem grupo. Escolha um {{ groupPlace() }} para ela virar carta.</p>
       }
     </div>
   </div>

@@ -104,7 +104,8 @@ import { readText, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
 import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
-import { canManage } from '../core/shared-notes';
+import type { EditorTab } from '../core/desk';
+import { canManage, canWrite } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
@@ -124,6 +125,10 @@ export interface SavedEvent {
   swap?: OriginalSwap | null;
   /** A anotação mudou de título: em quantas outras os links para ela foram atualizados. */
   relinked?: number;
+  /** Só o lugar no quadro e a carta mudaram: a anotação ficou como estava. */
+  onlyPlace?: boolean;
+  /** Salvar já deu um aviso, com o Desfazer (finalizou, saiu do quadro, deixou de ser carta): o de "atualizada" não o cobre. */
+  acted?: boolean;
   /**
    * A anotação mudou de grupo e a carta dela ficou guardada fora dos baralhos (PLANO-ESTUDOS-GRUPOS.md, G1):
    * os nomes dos baralhos de antes e o grupo deles, para o aviso com o Desfazer (que devolve o grupo).
@@ -134,7 +139,7 @@ export interface SavedEvent {
 }
 
 /** As abas da ficha no editor (a resenha só tem as duas primeiras). */
-type EditorMode = 'escrever' | 'cartolina' | 'kanban' | 'flashcard';
+type EditorMode = 'escrever' | 'cartolina' | EditorTab;
 
 /** As etiquetas da fileira de propriedades (cada uma abre a sua parte). */
 type PropId = 'grupo' | 'assunto' | 'tags' | 'data' | 'horas' | 'dificuldade' | 'capa' | 'quem';
@@ -257,7 +262,7 @@ export class ReviewEditor {
 
   /** Setas, Home e End trocam de aba, como um tablist. */
   protected onModeKey(e: KeyboardEvent): void {
-    const order: EditorMode[] = this.notes() ? ['escrever', 'cartolina', 'kanban', 'flashcard'] : ['escrever', 'cartolina'];
+    const order: EditorMode[] = this.readOnly() ? ['kanban', 'flashcard'] : this.notes() ? ['escrever', 'cartolina', 'kanban', 'flashcard'] : ['escrever', 'cartolina'];
     if (!['ArrowRight', 'ArrowLeft', 'Home', 'End'].includes(e.key)) return;
     const at = order.indexOf(this.mode());
     const next = e.key === 'Home' ? 0 : e.key === 'End' ? order.length - 1 : (at + (e.key === 'ArrowRight' ? 1 : order.length - 1)) % order.length;
@@ -397,6 +402,8 @@ export class ReviewEditor {
   protected readonly kbImportance = signal<Importance | null>(null);
   protected readonly kbStatus = signal('');
   protected readonly kbDeps = signal<readonly string[]>([]);
+  /** O lugar como estava ao abrir (ou ao trocar de grupo): salvar só grava o que mudou aqui, sem desfazer o que outra aba mudou nesse meio-tempo. */
+  private kbStart: { column: string | null; importance: Importance | null; status: string; deps: readonly string[] } = { column: null, importance: null, status: '', deps: [] };
   /** Também no mural (`true`) ou só no Kanban, escolhido aqui; null: o que já vale (o da anotação, ou o do grupo). */
   private readonly kbWallChoice = signal<boolean | null>(null);
   /** Também no mural ou só no Kanban: o escolhido, senão o da anotação no quadro, senão o do grupo de agora. */
@@ -440,6 +447,7 @@ export class ReviewEditor {
     this.kbStatus.set(card?.status ?? '');
     this.kbDeps.set(card?.deps ?? []);
     this.kbWallChoice.set(null);
+    this.kbStart = { column: card?.column ?? null, importance: card?.importance ?? null, status: cleanStatus(card?.status ?? ''), deps: card?.deps ?? [] };
   }
 
   /**
@@ -461,8 +469,9 @@ export class ReviewEditor {
     }
     if (!b) return;
     const card = b.cards.find((c) => c.note === id);
+    const start = this.kbStart;
     if (column === null) {
-      if (card) this.kanbanActions.remove(b, id);
+      if (card && start.column !== null) this.kanbanActions.remove(b, id);
       return;
     }
     const importance = this.kbImportance();
@@ -470,17 +479,17 @@ export class ReviewEditor {
       this.kanban.update(b.id, (board, at) => {
         const now = board.cards.find((c) => c.note === id);
         if (!now) return board;
-        const ranked = now.importance !== importance ? setImportance(board, id, importance, at) : board;
-        return setStatus(ranked, id, status, at);
+        const ranked = importance !== start.importance && now.importance !== importance ? setImportance(board, id, importance, at) : board;
+        return status !== start.status ? setStatus(ranked, id, status, at) : ranked;
       });
       // a que acabou de entrar no quadro ganha as dependências agora (antes, não tinha onde guardar)
-      if (deps.join() !== this.kanbanDeps.idsOf(id).join()) this.kanbanDeps.set(id, deps);
+      if (deps.join() !== start.deps.join() && deps.join() !== this.kanbanDeps.idsOf(id).join()) this.kanbanDeps.set(id, deps);
       if (wall !== null) this.kanban.setOnWall(id, wall);
     };
-    // as dependências antes de andar: levar para uma coluna que finaliza pergunta pelas de agora
-    if (deps.join() !== (card?.deps ?? []).join() && card) this.kanbanDeps.set(id, deps);
-    if (card?.column === column) rank();
-    else this.kanbanActions.move(b.id, id, column, undefined, rank);
+    // quem já está no quadro: tudo antes de andar (levar para uma coluna que finaliza pergunta pelas dependências
+    // de agora) e nada se perde se a resposta for esperar; quem chega só tem onde guardar depois de chegar
+    if (card) rank();
+    if (column !== start.column && card?.column !== column) this.kanbanActions.move(b.id, id, column, undefined, card ? undefined : rank);
   }
 
   // ===== A cartolina: tirar de uma vez tudo o que está por cima da cor =====
@@ -537,6 +546,14 @@ export class ReviewEditor {
   private readonly shared = inject(SharedStore);
   /** O papel de quem edita uma anotação compartilhada (null: não é compartilhada). */
   protected readonly sharedRole = computed(() => (this.editing() ? this.shared.role(this.id()) : null));
+  /**
+   * Quem só lê a compartilhada não escreve nela: o editor abre só com as abas Kanban e Flashcard, o lugar
+   * dela no quadro e a carta, que são de cada um (o grupo e as tags ficam em "Grupo e tags", na leitura).
+   */
+  protected readonly readOnly = computed(() => {
+    const role = this.sharedRole();
+    return !!role && !canWrite(role);
+  });
   /** O editor de uma compartilhada: quem vê fica como está (o grupo, o assunto e as tags são de cada um). */
   protected readonly structureLocked = computed(() => {
     const role = this.sharedRole();
@@ -578,7 +595,7 @@ export class ReviewEditor {
    * A setinha ao lado do botão: só com a nuvem, na pública, e enquanto o Feed ainda é uma escolha (a
    * ficha que já foi para o Feed não tem como voltar atrás: o aviso foi dado).
    */
-  protected readonly feedMenu = computed(() => !!this.cloud.config() && !this.isPrivate() && this.wasAudience() !== 'publicar');
+  protected readonly feedMenu = computed(() => !this.readOnly() && !!this.cloud.config() && !this.isPrivate() && this.wasAudience() !== 'publicar');
   /** O outro caminho, escrito no bilhete da setinha. */
   protected readonly feedAlt = computed(() => {
     const verb = this.editing() ? 'Salvar' : 'Pregar';
@@ -1215,6 +1232,18 @@ export class ReviewEditor {
 
   private snapshot = '';
 
+  /** A aba pedida por `openAt`, para o `open` que vem em seguida. */
+  private askedTab: EditorTab | null = null;
+
+  /**
+   * Abre a anotação direto numa aba: os ajustes do Kanban e dos Flashcards são as abas deste editor, sem
+   * outra folha para as mesmas coisas.
+   */
+  openAt(review: Review, tab?: EditorTab): void {
+    this.askedTab = tab ?? null;
+    this.open(review);
+  }
+
   /**
    * Abre o editor: uma ficha para editar, um pendente ou um desejo para terminar, ou nada (ficha
    * nova). Com `revisitOf`, uma rejogada nova da ficha original dada.
@@ -1285,8 +1314,12 @@ export class ReviewEditor {
     this.confirmingDraft.set(false);
     this.draftError.set(false);
     this.syncBoard();
-    // a frente de carta como está (a "Nova carta" de um baralho e o "Editar a frente" abrem nessa aba)
-    if (this.flashcard().reset(this.id(), !review) && isNotes(kind)) this.mode.set('flashcard');
+    // a frente de carta como está (a "Nova carta" de um baralho abre nessa aba)
+    const newCard = this.flashcard().reset(this.id(), !review);
+    // a aba pedida; quem só lê a compartilhada não tem a do que se escreve
+    const tab = isNotes(kind) ? (this.askedTab ?? (newCard ? 'flashcard' : this.readOnly() ? 'kanban' : null)) : null;
+    this.askedTab = null;
+    if (tab) this.mode.set(tab);
     this.snapshot = this.serialize();
     const dialog = this.dialog().nativeElement;
     // O diálogo é sempre o mesmo: sem isso, abre rolado onde a resenha anterior ficou
@@ -1299,7 +1332,7 @@ export class ReviewEditor {
     this.autoWhole.set(false);
     // as fichas montadas fora da tela dormem enquanto o diálogo está aberto (ver core/wall-settle.ts)
     napWall();
-    dialog.showModal();
+    this.showDialog(review && tab ? tab : null);
     this.previewObserver?.disconnect();
     this.previewObserver = new ResizeObserver(() => this.fitPreview());
     this.previewObserver.observe(this.previewSlot().nativeElement);
@@ -1310,6 +1343,10 @@ export class ReviewEditor {
     requestAnimationFrame(toTop);
     // o nome na faixa cresce com ele (depois de desenhar: o campo pode ainda não existir)
     setTimeout(() => this.fitTitle(this.dialog().nativeElement.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')));
+    if (review && tab) {
+      // de novo depois de desenhar: vindo de outro mural, as abas da anotação ainda não existiam ao abrir
+      setTimeout(() => dialog.querySelector<HTMLElement>(`#editor-modo-${tab}`)?.focus());
+    }
     if (!review && !draft && !root) {
       // depois de desenhar: trocando de mural, o campo do título ainda não existe neste instante
       setTimeout(() =>
@@ -1472,13 +1509,20 @@ export class ReviewEditor {
    */
   private async saveNote(audience: Audience): Promise<void> {
     const name = this.noteTitle().trim();
-    if (!name || !this.dateValid() || this.textTooLong()) {
+    // só o lugar no quadro e a carta mudaram (ou a pessoa só lê a anotação): a anotação fica como está, com a hora
+    // dela, sem ir para a nuvem, para os outros de uma compartilhada e para o Feed
+    const onlyPlace = !!this.editing() && (this.readOnly() || (audience === this.wasAudience() && this.noteUnchanged()));
+    if (!onlyPlace && (!name || !this.dateValid() || this.textTooLong())) {
       this.focusFirstMissing();
       return;
     }
     // virando carta sem baralho: a aba Flashcard abre, dizendo o que falta
     if (!this.flashcard().valid()) {
       this.setMode('flashcard');
+      return;
+    }
+    if (onlyPlace) {
+      this.finishNote(this.id(), { onlyPlace: true });
       return;
     }
     if (!(await this.okWithoutLabels())) return;
@@ -1528,13 +1572,19 @@ export class ReviewEditor {
     if (prev) this.store.update(clean, prev);
     else this.store.add(clean);
     for (const n of relinked) this.store.update(n);
-    // o lugar no quadro do grupo, como ficou na aba Kanban, e a carta, como ficou na aba Flashcard
-    this.applyBoard(clean.id, !prev);
-    const slept = this.flashcard().apply(clean.id);
-    const privateInPublic = this.flashcard().enteredPublicDeck(clean.id);
+    this.finishNote(clean.id, { isNew: !prev, relinked: relinked.length });
+  }
+
+  /** O lugar no quadro do grupo, como ficou na aba Kanban, e a carta, como ficou na aba Flashcard; e o editor fecha. */
+  private finishNote(id: string, { isNew = false, relinked = 0, onlyPlace = false }: { isNew?: boolean; relinked?: number; onlyPlace?: boolean }): void {
+    const toastBefore = this.toasts.current();
+    this.applyBoard(id, isNew);
+    const slept = this.flashcard().apply(id);
+    const privateInPublic = this.flashcard().enteredPublicDeck(id);
+    const acted = this.toasts.current() !== toastBefore;
     this.snapshot = this.serialize();
     this.shut();
-    this.saved.emit({ id: clean.id, isNew: !prev, ...(relinked.length ? { relinked: relinked.length } : {}), ...(slept ? { slept } : {}), ...(privateInPublic ? { privateInPublic } : {}) });
+    this.saved.emit({ id, isNew, ...(relinked ? { relinked } : {}), ...(slept ? { slept } : {}), ...(privateInPublic ? { privateInPublic } : {}), ...(onlyPlace ? { onlyPlace } : {}), ...(acted ? { acted } : {}) });
   }
 
   /**
@@ -1686,11 +1736,13 @@ export class ReviewEditor {
     if (this.askingDiscard) return;
     this.askingDiscard = true;
     try {
+      // só o quadro ou a carta mudaram: não há nada escrito para perder
+      const adjusted = !!this.editing() && this.noteUnchanged();
       const sure = await this.confirm.ask({
-        title: 'Descartar o que você escreveu?',
-        text: `${this.notes() ? 'A anotação' : 'A resenha'} ainda não foi salva. Fechando agora, o que você escreveu se perde.`,
+        title: adjusted ? 'Descartar os ajustes?' : 'Descartar o que você escreveu?',
+        text: adjusted ? 'Os ajustes ainda não foram salvos. Fechando agora, eles se perdem.' : `${this.notes() ? 'A anotação' : 'A resenha'} ainda não foi salva. Fechando agora, o que você escreveu se perde.`,
         confirm: 'Descartar',
-        cancel: 'Continuar escrevendo',
+        cancel: adjusted ? 'Continuar ajustando' : 'Continuar escrevendo',
       });
       if (sure) this.discard();
     } finally {
@@ -1705,6 +1757,18 @@ export class ReviewEditor {
   }
 
   /** Fecha de propósito (salvou, descartou, apagou, mandou para a fila…). */
+  /**
+   * Mostra a folha. Numa aba, o foco vai para ela sem passar pelo nome: o campo de texto abriria o teclado do
+   * celular e, depois de um clique, acenderia na aba o anel que é só de quem usa o teclado.
+   */
+  private showDialog(tab: EditorTab | null): void {
+    const dialog = this.dialog().nativeElement;
+    dialog.autofocus = !!tab;
+    dialog.showModal();
+    dialog.autofocus = false;
+    if (tab) dialog.querySelector<HTMLElement>(`#editor-modo-${tab}`)?.focus();
+  }
+
   private shut(): void {
     this.closing = true;
     this.dialog().nativeElement.close();
@@ -1717,7 +1781,8 @@ export class ReviewEditor {
    */
   protected onClose(): void {
     if (!this.closing && this.isDirty()) {
-      this.dialog().nativeElement.showModal();
+      const m = this.mode();
+      this.showDialog(m === 'kanban' || m === 'flashcard' ? m : null);
       void this.askDiscard();
       return;
     }
@@ -1749,6 +1814,16 @@ export class ReviewEditor {
   }
 
   private serialize(): string {
+    return JSON.stringify([this.noteState(), this.placeState()]);
+  }
+
+  /** A anotação está como quando o editor abriu (fora o lugar no quadro e a carta, que não moram nela). */
+  private noteUnchanged(): boolean {
+    return (JSON.parse(this.snapshot) as string[])[0] === this.noteState();
+  }
+
+  /** O que mora na anotação. */
+  private noteState(): string {
     return JSON.stringify([
       this.game()?.name,
       this.stock(),
@@ -1774,7 +1849,6 @@ export class ReviewEditor {
       this.noteCategory(),
       this.noteSubject(),
       this.noteTags(),
-      this.flashcard().snapshot(),
       this.hours().trim(),
       this.game()?.coverUrl,
       this.difficulty(),
@@ -1784,7 +1858,13 @@ export class ReviewEditor {
       this.noteRank(),
       this.game()?.form,
       this.game()?.sample,
-      // o lugar no quadro (a aba Kanban) também é coisa por salvar
+    ]);
+  }
+
+  /** O que é de cada um e mora fora da anotação: a carta (a aba Flashcard) e o lugar no quadro (a aba Kanban). */
+  private placeState(): string {
+    return JSON.stringify([
+      this.flashcard().snapshot(),
       this.kbColumn(),
       this.kbImportance(),
       cleanStatus(this.kbStatus()),

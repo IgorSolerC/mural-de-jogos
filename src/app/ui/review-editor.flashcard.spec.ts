@@ -4,6 +4,7 @@ import { Cloud } from '../core/cloud-config';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { SharedStore } from '../core/shared-store';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { Toasts } from './toast';
@@ -294,12 +295,11 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().has('nlua')).toBeFalse();
   });
 
-  it('"Deixar de ser carta" tira dos Estudos ao salvar; o "Editar a frente" abre na aba', async () => {
+  it('"Deixar de ser carta" tira dos Estudos ao salvar; os ajustes da carta abrem na aba', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck], { title: '日' }, true);
-    study.openFront.set('nsol');
-    fixture.componentInstance.open(store.get('nsol')!);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
     await fixture.whenStable();
     expect(tab()!.getAttribute('aria-selected')).toBe('true');
     expect(input('fc-titulo').value).toBe('日');
@@ -312,12 +312,121 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().has('nsol')).toBeFalse();
   });
 
+  it('"Deixar de ser carta" salvo avisa com Desfazer, e o evento diz para o aviso de salvar não cobri-lo', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    study.addCard('nsol', [deck], { title: '日' }, true);
+    const events: SavedEvent[] = [];
+    fixture.componentInstance.saved.subscribe((e) => events.push(e));
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    panel().querySelector<HTMLButtonElement>('.pe .papel.perigo')!.click();
+    await fixture.whenStable();
+    await new Promise((r) => setTimeout(r, 0));
+    await fixture.whenStable();
+    await save();
+    const toasts = TestBed.inject(Toasts);
+    expect(toasts.current()!.text).toContain('saiu dos Flashcards');
+    expect(events[0].onlyPlace).toBeTrue();
+    expect(events[0].acted).toBeTrue();
+    toasts.current()!.action!.run();
+    expect(study.cardOf().has('nsol')).toBeTrue();
+    toasts.dismiss();
+  });
+
+  it('só a carta mudou: a anotação fica como está, sem hora nova', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    study.addCard('nsol', [deck], { title: '日' }, true);
+    const before = store.get('nsol')!;
+    fixture.componentInstance.openAt(before, 'flashcard');
+    await fixture.whenStable();
+    await type('fc-subtitulo', 'nichi');
+    await save();
+    expect(study.cardOf().get('nsol')!.front.subtitle).toBe('nichi');
+    expect(store.get('nsol')).toBe(before);
+  });
+
+  it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const quimica = study.addDeck('Química', 'azul', null, undefined, 'Estudos');
+    const vazio = study.addDeck('Vazio', 'verde', null, undefined, 'Estudos');
+    study.addCard('nsol', [kanji], {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    const chosen = () => panel().querySelectorAll('app-study-deck-picker .adesivo').length;
+    const select = () => panel().querySelector<HTMLSelectElement>('.mais select')!;
+    const key = (k: string) => select().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+    key('ArrowDown');
+    select().value = quimica;
+    select().dispatchEvent(new Event('change'));
+    key('ArrowDown');
+    select().value = vazio;
+    select().dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    const before = chosen();
+    key('Enter');
+    await fixture.whenStable();
+    expect(chosen()).toBe(before + 1);
+    // pelo mouse: na hora, e o aperto do botão não é cancelado (cancelado, a lista do aparelho nem abre)
+    expect(select().dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).toBeTrue();
+    select().value = quimica;
+    select().dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    await save();
+    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio, quimica]);
+  });
+
+  it('só a carta mudou e a privada entrou num baralho público: o aviso continua vindo', async () => {
+    store.reviews.set([{ ...note('nsol', 'Sol'), private: true }]);
+    const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    const pub = study.addDeck('Público', 'azul', null, undefined, 'Estudos');
+    study.updateDeck(pub, { public: true });
+    study.addCard('nsol', [deck], {}, true);
+    const events: SavedEvent[] = [];
+    fixture.componentInstance.saved.subscribe((e) => events.push(e));
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    const select = panel().querySelector<HTMLSelectElement>('.mais select')!;
+    select.value = pub;
+    select.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    await save();
+    expect(events[0].onlyPlace).toBeTrue();
+    expect(events[0].privateInPublic).toBeTrue();
+  });
+
+  it('sem grupo, quem só lê é levado a Grupo e tags, e não à aba Anotação que não tem', async () => {
+    store.reviews.set([{ ...note('nsol', 'Sol'), category: undefined } as Review]);
+    spyOn(TestBed.inject(SharedStore), 'role').and.returnValue('leitor');
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    expect(panel().querySelector('.sem-grupo')!.textContent).toContain('em Grupo e tags, na leitura da anotação');
+    expect(panel().querySelector('.sem-grupo')!.textContent).not.toContain('aba Anotação');
+  });
+
+  it('a nota só de leitura: a carta muda ao salvar, e a anotação não', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    study.addCard('nsol', [deck], { title: '日' }, true);
+    spyOn(TestBed.inject(SharedStore), 'role').and.returnValue('leitor');
+    const before = store.get('nsol')!;
+    fixture.componentInstance.openAt(before, 'flashcard');
+    await fixture.whenStable();
+    expect(tab()!.getAttribute('aria-selected')).toBe('true');
+    expect(el.querySelector('#editor-modo-escrever')).toBeNull();
+    await type('fc-subtitulo', 'nichi');
+    await save();
+    expect(study.cardOf().get('nsol')!.front.subtitle).toBe('nichi');
+    expect(store.get('nsol')).toBe(before);
+  });
+
   it('o boletim aparece depois da primeira resposta; "Recomeçar o progresso" pergunta e a carta volta a Desconhecida', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck], { title: '日' }, true);
-    study.openFront.set('nsol');
-    fixture.componentInstance.open(store.get('nsol')!);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
     await fixture.whenStable();
     expect(panel().querySelector('app-study-report')).toBeNull();
     study.answer('nsol', true, deck);

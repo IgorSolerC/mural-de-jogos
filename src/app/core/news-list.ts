@@ -27,15 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-07-aba-kanban',
+    id: '2026-11-07-ajustes-no-editor',
     version: '1.39.3',
     kind: 'ajustes',
     date: '2026-11-07',
-    title: 'O Kanban numa aba do editor e os menus das etiquetas',
+    title: 'Os ajustes do Kanban e dos Flashcards no editor da anotação, e os menus das etiquetas',
     melhorias: [
       'No editor da anotação, o Kanban saiu das etiquetas e virou uma aba, ao lado de Anotação, Cartolina e Flashcard: a etapa, a importância, o mural, a observação e as dependências ficam à vista, e um pontinho na aba mostra que a anotação está no quadro.',
+      'Os botões de ajuste das fichas do Kanban e das cartas dos Flashcards abrem o editor da anotação, já na aba certa, em vez de uma folha à parte.',
+      'Cada carta dos Flashcards ganhou um botão para ler a anotação.',
+      'Quem só lê uma anotação compartilhada também ajusta o lugar dela no quadro e a carta nesse editor, só com as abas Kanban e Flashcard.',
     ],
     correcoes: [
+      'Salvar no editor uma mudança só do quadro ou da carta não muda mais a data de alteração da anotação, e o aviso com Desfazer de quando ela é finalizada ou sai do quadro não é mais coberto pelo de salvar.',
+      'No editor, responder "Esperar" à pergunta das dependências deixa a anotação na coluna e não perde mais a importância, a observação e o resto do que foi mudado junto.',
       'No editor da anotação e da análise, o papel que abre pelas etiquetas (Grupo, Assunto, Tags, Hoje e as outras) fica na frente do texto, e não mais atrás das abas Visual e Markdown e da régua.',
       'No celular, as abas do editor da anotação cabem todas na tela: antes, a última ficava cortada nas telas mais estreitas.',
     ],

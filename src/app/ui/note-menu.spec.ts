@@ -395,7 +395,7 @@ describe('menu da anotação: quem vê o quê', () => {
     const get = spyOn(shared, 'get');
     // (o link da compartilhada de outra pessoa é o do mural da dona)
     get.and.returnValue(entry('leitor'));
-    expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Pessoas', 'Sair da anotação']);
+    expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Estudar com ela…', 'Pessoas', 'Sair da anotação']);
     get.and.returnValue(entry('editor'));
     expect(await show(note('rsh00001', 'Plano', 'Texto'))).toEqual(['Abrir', 'Editar', 'Copiar o conteúdo', 'Copiar o link', 'Fixar no topo', 'Finalizar', 'Estudar com ela…', 'Pessoas', 'Sair da anotação']);
     get.and.returnValue(entry('dono', 2));

@@ -853,14 +853,15 @@ describe('página dos Estudos', () => {
       expect(turned()).toBe(0);
     });
 
-    it('a etiqueta tem o maximizar ao lado dos ajustes, com o mesmo botão preto', async () => {
+    it('a etiqueta tem o maximizar, o ler e o editar, com o mesmo botão preto', async () => {
       const { kanji } = seed();
       await go(deckUrl(kanji));
       const buttons = [...li(0).querySelectorAll<HTMLElement>('.acoes .mexer')];
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Maximizar 日', 'Ler, editar e ajustes de 日']);
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Maximizar 日', 'Ler a anotação de 日', 'Editar a carta 日']);
       expect(buttons[0].getAttribute('aria-haspopup')).toBe('dialog');
       expect(buttons[0].querySelector('lucide-icon')).not.toBeNull();
       expect(getComputedStyle(buttons[0]).width).toBe(getComputedStyle(buttons[1]).width);
+      expect(getComputedStyle(buttons[0]).width).toBe(getComputedStyle(buttons[2]).width);
     });
 
     it('maximizar abre a mesa de estudo só para ver: clicar na carta vira, sem Errei nem Acertei', async () => {
@@ -945,7 +946,7 @@ describe('página dos Estudos', () => {
       expect(dialog.open).toBeFalse();
     });
 
-    it('a leitura e o editor continuam só na folha da carta', async () => {
+    it('virar não abre nada; a etiqueta abre a leitura, e o editar abre o editor na aba Flashcard, sem outra folha', async () => {
       const { kanji } = seed();
       const desk = TestBed.inject(Desk);
       const open = spyOn(desk, 'openReview');
@@ -955,18 +956,13 @@ describe('página dos Estudos', () => {
       await settle();
       expect(open).not.toHaveBeenCalled();
       expect(edit).not.toHaveBeenCalled();
-      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Ler, editar"]')!.click();
-      let dialog: HTMLDialogElement | null = null;
-      for (let n = 0; n < 60 && !dialog?.open; n++) {
-        await settle();
-        dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta');
-      }
-      const labels = [...dialog!.querySelectorAll('.foot button')].map(text);
-      expect(labels).toContain('Ler a anotação');
-      expect(labels).toContain('Editar a frente');
-      [...dialog!.querySelectorAll<HTMLElement>('.foot button')].find((b) => text(b) === 'Ler a anotação')!.click();
+      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Ler a anotação"]')!.click();
       await settle();
-      expect(open).toHaveBeenCalledWith('nsol');
+      expect(open).toHaveBeenCalledOnceWith('nsol');
+      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Editar a carta"]')!.click();
+      await settle();
+      expect(edit).toHaveBeenCalledOnceWith('nsol', 'flashcard');
+      expect(document.querySelector('dialog.ficha-carta')).toBeNull();
     });
   });
 
@@ -1087,71 +1083,6 @@ describe('página dos Estudos', () => {
     page.bring('npri2', quimica);
     expect(toasts.current()!.text).toBe('Esta anotação é privada, mas o baralho dela é público. Quer deixá-la pública?');
     toasts.dismiss();
-  });
-
-  it('na folha da carta, a privada posta num baralho público pergunta ao fechar (o bilhete fica atrás da folha aberta)', async () => {
-    const { kanji } = seed();
-    const store = TestBed.inject(ReviewStore);
-    const toasts = TestBed.inject(Toasts);
-    const pub = study.addDeck('Público', 'azul', null, undefined, 'Estudos');
-    study.updateDeck(pub, { public: true });
-    const sol = store.notes().find((n) => n.game.name === 'Sol (日)')!;
-    store.reviews.update((list) => list.map((r) => (r.id === sol.id ? { ...r, private: true as const } : r)));
-    await go(deckUrl(kanji));
-    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
-    let dialog: HTMLDialogElement | null = null;
-    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
-    toasts.dismiss();
-    study.setDecks(sol.id, [kanji, pub]);
-    await settle();
-    expect(toasts.current()).toBeNull();
-    dialog!.close();
-    for (let i = 0; i < 60 && !toasts.current(); i++) await settle();
-    expect(toasts.current()!.text).toContain('Quer deixá-la pública?');
-    toasts.dismiss();
-  });
-
-  it('a etiqueta de tinta da carta abre a folha dela: tirar dos Estudos tem Desfazer', async () => {
-    const { kanji } = seed();
-    await go(deckUrl(kanji));
-    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
-    let dialog: HTMLDialogElement | null = null;
-    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
-    expect(dialog!.open).toBeTrue();
-    expect(text(dialog!.querySelector('h2'))).toBe('Sol (日)');
-    // nascida nos Estudos, segue o baralho: só nos Estudos
-    expect(text(dialog!.querySelector('.mural-txt'))).toBe('Só nos Flashcards');
-    dialog!.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
-    await settle();
-    expect(study.cardOf().has('nsol')).toBeFalse();
-  });
-
-  it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
-    const { kanji, quimica, vazio } = seed();
-    await go(deckUrl(kanji));
-    $$('.carta-li .mexer[aria-label^="Ler, editar"]')[0].click();
-    let dialog: HTMLDialogElement | null = null;
-    for (let i = 0; i < 60 && !(dialog = document.querySelector<HTMLDialogElement>('dialog.ficha-carta'))?.open; i++) await settle();
-    const select = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
-    const key = (k: string) => select.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
-    key('ArrowDown');
-    select.value = quimica;
-    select.dispatchEvent(new Event('change'));
-    key('ArrowDown');
-    select.value = vazio;
-    select.dispatchEvent(new Event('change'));
-    await settle();
-    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji]);
-    key('Enter');
-    await settle();
-    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio]);
-    // pelo mouse: na hora, e o aperto do botão não é cancelado (cancelado, a lista do aparelho nem abre)
-    const again = dialog!.querySelector<HTMLSelectElement>('.mais select')!;
-    expect(again.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).toBeTrue();
-    again.value = quimica;
-    again.dispatchEvent(new Event('change'));
-    await settle();
-    expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio, quimica]);
   });
 
   it('o play: Estudar no baralho abre a mesa dele; em Tudo, Estudar tudo; em dia, nenhum', async () => {

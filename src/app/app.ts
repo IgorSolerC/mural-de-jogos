@@ -7,7 +7,7 @@ import { ICON, IconModule } from './ui/icons';
 import { filter, map } from 'rxjs';
 import { AUTHORIZE_PATH, CALENDAR_PATH, SPENDING_PATH, areaOf, isVisitPath, listOf, pathOf, reviewPath, wallPath } from './core/areas';
 import { Backup } from './core/backup';
-import { Desk } from './core/desk';
+import { Desk, EditorTab } from './core/desk';
 import { keptMessage } from './core/kept-versions';
 import { AppliedItem, ApiRequests, appliedWords, undoable, waitingWords } from './core/api-requests';
 import { NOTES, cap, isNotes, profileOf, revisitCountOf } from './core/kinds';
@@ -240,7 +240,7 @@ export class App {
       },
       openLoose: (review, owner, pool, code, signedIn) => this.reader().openLoose(review, owner, pool, code, signedIn),
       closeReader: () => this.reader().close(),
-      editReview: (id) => this.editReview(id),
+      editReview: (id, tab) => this.editReview(id, tab),
       removeReview: (id) => void this.removeReview(id),
     });
     // Texturas fotográficas são opcionais: só entram se o arquivo existir.
@@ -352,19 +352,24 @@ export class App {
     this.kanban.pending.set(null);
     // nem a pedida pela folha de um lembrete
     this.calendar.pendingNote.set(null);
-    // nem a carta nova pedida de um baralho dos Estudos (nem o "Editar a frente" que não chegou a abrir)
+    // nem a carta nova pedida de um baralho dos Flashcards
     this.study.pending.set(null);
-    this.study.openFront.set(null);
     const back = this.returnTo && this.store.get(this.returnTo);
     this.returnTo = null;
     if (back) this.reader().open(back);
   }
 
-  protected editReview(id: string): void {
+  protected editReview(id: string, tab?: EditorTab): void {
     const r = this.store.get(id);
     if (!r) return;
     this.reader().close();
-    this.editor().open(r);
+    this.editor().openAt(r, tab);
+  }
+
+  /** "Mudar as dependências" na leitura: a aba Kanban do editor e, ao fechar, de volta à leitura. */
+  protected editBoardOf(id: string): void {
+    this.editReview(id, 'kanban');
+    this.returnTo = id;
   }
 
   /** Mais uma vez da obra: a rejogada (releitura, reassistida) nasce em branco, pronta pra ser escrita. */
@@ -513,7 +518,9 @@ export class App {
         this.toasts.show(`“${name}” saiu de ${list}, com o progresso guardado: volta se a anotação voltar a ${group}${links}`, { label: 'Desfazer', run: back }, 8000);
         return;
       }
-      this.toasts.show(e.isNew ? `“${name}” pregada no mural` : `Anotação atualizada${links}`);
+      // o aviso com o Desfazer (finalizou, saiu do quadro, deixou de ser carta) fica
+      if (e.acted && !e.isNew) return;
+      this.toasts.show(e.isNew ? `“${name}” pregada no mural` : e.onlyPlace ? `Ajustes de “${name}” salvos` : `Anotação atualizada${links}`);
       if (e.isNew) void this.backup.protect();
       return;
     }

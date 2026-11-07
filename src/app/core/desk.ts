@@ -3,6 +3,9 @@ import type { CardLook } from './card-look';
 import type { Review } from './review';
 import { reducedMotion } from './motion';
 
+/** As abas do editor que os ajustes do Kanban e dos Flashcards abrem direto. */
+export type EditorTab = 'kanban' | 'flashcard';
+
 export interface DeskHandlers {
   newReview(): void;
   /** Com `fromId`, veio pelo link de outra anotação: ela vira o "Voltar" da leitura. */
@@ -21,8 +24,8 @@ export interface DeskHandlers {
   /** A ficha de outra pessoa aberta pelo link: a leitura sem o fechar (ver pages/ficha-page.ts). */
   openLoose(review: Review, owner: string, pool: readonly Review[], code: string, signedIn: boolean): void;
   closeReader(): void;
-  /** O editor da sua ficha (o "Editar" da leitura e do menu da anotação). */
-  editReview(id: string): void;
+  /** O editor da sua ficha (o "Editar" da leitura e do menu da anotação), ou direto na aba dos ajustes do Kanban e dos Flashcards. */
+  editReview(id: string, tab?: EditorTab): void;
   /** Apagar a sua ficha, do jeito da leitura: a pergunta e o Desfazer, ou sair da compartilhada. */
   removeReview(id: string): void;
 }
@@ -84,8 +87,8 @@ export class Desk {
     this.handlers?.closeReader();
   }
 
-  editReview(id: string): void {
-    this.handlers?.editReview(id);
+  editReview(id: string, tab?: EditorTab): void {
+    this.handlers?.editReview(id, tab);
   }
 
   removeReview(id: string): void {

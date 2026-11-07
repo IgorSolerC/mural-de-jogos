@@ -43,6 +43,8 @@ export class FlashcardTab {
   readonly stock = input<Stock>('amarelo');
   /** O grupo da anotação, como está no editor agora. */
   readonly group = input<string | null>(null);
+  /** Quem só lê a compartilhada: não tem a aba Anotação, e o grupo dela se escolhe em "Grupo e tags", na leitura. */
+  readonly readOnly = input(false);
 
   protected readonly CardIcon = ICON.camadas;
   protected readonly ImageIcon = ICON.imagem;
@@ -122,9 +124,11 @@ export class FlashcardTab {
   private readonly wallChoice = signal<boolean | null>(null);
   /** Faltou o baralho ao salvar. */
   protected readonly missingDeck = signal(false);
+  /** Onde se escolhe o grupo. */
+  protected readonly groupPlace = computed(() => (this.readOnly() ? 'em Grupo e tags, na leitura da anotação' : 'na aba Anotação'));
   /** O que dizer quando falta: sem grupo, não há baralho para escolher. */
   protected readonly missingText = computed(() =>
-    this.hasGroup() ? 'Escolha um baralho para a carta.' : 'Esta anotação não tem grupo: escolha um na aba Anotação.',
+    this.hasGroup() ? 'Escolha um baralho para a carta.' : `Esta anotação não tem grupo: escolha um ${this.groupPlace()}.`,
   );
   protected readonly imageProblem = signal('');
   protected readonly busy = signal(false);
@@ -208,7 +212,7 @@ export class FlashcardTab {
 
   /**
    * O editor abriu (`id`, nova ou não): a carta como está, ou a pedida de dentro de um baralho, ou nada.
-   * Devolve se a aba deve abrir sozinha (a "Nova carta" e o "Editar a frente").
+   * Devolve se a aba deve abrir sozinha (a "Nova carta" de um baralho).
    */
   reset(id: string, isNew: boolean): boolean {
     this.noteId.set(id);
@@ -230,9 +234,7 @@ export class FlashcardTab {
     this.declined.set(new Set());
     // o grupo de partida: o salvo da anotação; na Nova carta, o do baralho pedido
     this.startGroup.set(isNew ? (pending?.decks.map((d) => this.study.deck(d)?.group).find((g) => !!g) ?? null) : (this.study.groupOf(id) ?? null));
-    const asked = this.study.openFront() === id;
-    if (asked) this.study.openFront.set(null);
-    return !!pending || asked;
+    return !!pending;
   }
 
   /** O que está escolhido, para o editor saber se algo mudou. */
@@ -345,7 +347,8 @@ export class FlashcardTab {
     const card = this.study.cardOf().get(id);
     this.decksBefore = card?.decks ?? [];
     if (!this.on()) {
-      if (card) this.study.removeCard(id);
+      const undo = card ? this.study.removeCard(id) : null;
+      if (undo) this.toasts.show(`“${this.noteTitle().trim()}” saiu dos Flashcards`, { label: 'Desfazer', run: undo });
       this.study.pending.set(null);
       return null;
     }

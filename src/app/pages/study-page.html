@@ -307,8 +307,8 @@
     } @else if (!cards().length) {
       <p class="nada">Nenhuma carta com esse filtro.</p>
     } @else {
-      <!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. A anotação como no mural e a
-           edição ficam na folha da carta (a etiqueta de ajustes) -->
+      <!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. Ler a anotação e editar a
+           carta ficam na etiqueta de tinta -->
       <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Cartas de ' + d.name">
         @for (c of cards(); track c.note) {
           @let up = flipped().has(c.note);
@@ -330,12 +330,15 @@
               }
             </div>
             @if (perto.near()) {
-              <!-- a etiqueta de tinta das fichas do Kanban, no hover: maximizar a carta e os ajustes dela -->
+              <!-- a etiqueta de tinta das fichas do Kanban, no hover: maximizar a carta, ler a anotação e editar (a aba Flashcard do editor) -->
               <div class="acoes">
                 <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
                   <lucide-icon [img]="MaximizeIcon" [size]="16" aria-hidden="true" />
                 </button>
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Ler, editar e ajustes de ' + c.title" title="Ler, editar e ajustes da carta" (click)="cardSheet.set(c.note)">
+                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="open(c.note)">
+                  <lucide-icon [img]="ReadIcon" [size]="16" aria-hidden="true" />
+                </button>
+                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Editar a carta ' + c.title" title="Editar a carta" (click)="edit(c.note)">
                   <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
                 </button>
               </div>
@@ -389,12 +392,6 @@
     [emptyText]="d.group ? 'Nenhuma anotação do grupo ' + d.group + ' fora deste baralho.' : 'Todas as suas anotações já estão neste baralho.'"
     (picked)="bring($event.id, d.id)"
   />
-}
-
-@if (cardSheet(); as id) {
-  @defer (on immediate) {
-    <app-study-card-sheet [noteId]="id" (closed)="cardSheet.set(null)" (reading)="open($event)" (editing)="edit($event)" />
-  }
 }
 
 @if (focused(); as id) {

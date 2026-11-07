@@ -361,3 +361,21 @@
     color: var(--ink);
   }
 }
+
+/* o pé: tirar do quadro, como o "Deixar de ser carta" da aba Flashcard */
+.pe {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+}
+
+.papel {
+  @include kit.botao-papel;
+}
+
+/* o que "Fora do quadro" quer dizer: a linha toda, embaixo da etapa */
+.fora-dica {
+  flex-basis: 100%;
+}

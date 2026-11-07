@@ -6,6 +6,7 @@ import { KanbanStore } from '../core/kanban-store';
 import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
+import { SharedStore } from '../core/shared-store';
 import { Confirm } from './confirm';
 import { ReviewEditor } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
@@ -404,6 +405,216 @@ describe('o editor: a fileira de etiquetas, o Kanban e a cartolina', () => {
     await fixture.whenStable();
     expect(tabs().map((t) => t.id)).toEqual(['editor-modo-escrever', 'editor-modo-cartolina']);
     expect(el.querySelector('.kanban-modo')).toBeNull();
+  });
+
+  describe('aberto direto na aba Kanban (os ajustes das fichas do quadro)', () => {
+    const onBoard = (extra: Partial<KanbanBoard['cards'][number]> = {}) => {
+      store.add(note('nabre001', { category: 'Trabalho', tags: ['x'] }));
+      kanban.state.set({ boards: [board([{ note: 'nabre001', column: 'afazer', importance: null, at: T0, ...extra }])], removed: {}, legacy: [] });
+    };
+    const cardOf = () => kanban.get(TRAB)!.cards.find((c) => c.note === 'nabre001')!;
+    const panel = () => el.querySelector<HTMLElement>('.kanban-modo')!;
+    const openHere = async () => {
+      fixture.componentInstance.openAt(store.get('nabre001')!, 'kanban');
+      await fixture.whenStable();
+      await new Promise((r) => setTimeout(r, 0));
+      await fixture.whenStable();
+    };
+
+    it('abre na aba, com o foco nela, e a próxima abertura volta ao que se escreve', async () => {
+      onBoard();
+      await openHere();
+      expect(kbTab().getAttribute('aria-selected')).toBe('true');
+      expect(document.activeElement).toBe(kbTab());
+      expect(panel().querySelector('app-kanban-props')).not.toBeNull();
+      el.querySelector('dialog')!.close();
+      await fixture.whenStable();
+      await edit(store.get('nabre001')!);
+      expect(el.querySelector('#editor-modo-escrever')!.getAttribute('aria-selected')).toBe('true');
+    });
+
+    it('só o quadro mudou: a anotação fica como está, sem hora nova', async () => {
+      onBoard();
+      const before = store.get('nabre001')!;
+      await openHere();
+      await pickImportance(panel(), 'Importante');
+      await saveAndClose();
+      expect(cardOf().importance).toBe('importante');
+      expect(store.get('nabre001')).toBe(before);
+    });
+
+    it('mudou o nome também: a anotação é salva junto', async () => {
+      onBoard();
+      const before = store.get('nabre001')!;
+      await openHere();
+      await pickImportance(panel(), 'Importante');
+      const name = el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!;
+      name.value = 'Nome novo';
+      name.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      await saveAndClose();
+      expect(cardOf().importance).toBe('importante');
+      expect(store.get('nabre001')).not.toBe(before);
+      expect(store.get('nabre001')!.game.name).toBe('Nome novo');
+    });
+
+    it('"Tirar do quadro" vale ao salvar; o Esc antes disso fala de ajustes, não do que foi escrito', async () => {
+      onBoard();
+      await openHere();
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
+      panel().querySelector<HTMLButtonElement>('.pe .papel.perigo')!.click();
+      await fixture.whenStable();
+      const etapa = panel().querySelector<HTMLSelectElement>('select')!;
+      expect(document.activeElement).toBe(etapa);
+      expect(etapa.value).toBe('');
+      expect(panel().querySelector('.fora-dica')!.textContent).toContain('fica só no mural');
+      expect(panel().querySelector('.pe .papel.perigo')).toBeNull();
+      expect(cardOf()).toBeDefined();
+      el.querySelector<HTMLButtonElement>('.btn-quiet.cancelar')!.click();
+      await fixture.whenStable();
+      expect(ask.calls.mostRecent().args[0].title).toBe('Descartar os ajustes?');
+      expect(ask.calls.mostRecent().args[0].cancel).toBe('Continuar ajustando');
+      await saveAndClose();
+      expect(cardOf()).toBeUndefined();
+    });
+
+    it('a observação: limpa os espaços, vale no Enter, e o x tira', async () => {
+      onBoard();
+      await openHere();
+      const input = panel().querySelector<HTMLInputElement>('.status-valor input')!;
+      expect(panel().querySelector('.status-valor .tirar')).toBeNull();
+      input.value = '  Em   revisão ';
+      input.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await fixture.whenStable();
+      expect(input.value).toBe('Em revisão');
+      // nada no quadro antes de salvar
+      expect(cardOf().status).toBeUndefined();
+      panel().querySelector<HTMLButtonElement>('.status-valor .tirar')!.click();
+      await fixture.whenStable();
+      expect(input.value).toBe('');
+      input.value = 'Com o Sérgio';
+      input.dispatchEvent(new Event('input'));
+      await fixture.whenStable();
+      await saveAndClose();
+      expect(cardOf().status).toBe('Com o Sérgio');
+    });
+
+    it('o interruptor do mural vale ao salvar', async () => {
+      onBoard();
+      await openHere();
+      const was = kanban.isOnWall(cardOf(), 'Trabalho');
+      const sw = panel().querySelector<HTMLButtonElement>('.mural-linha [role="switch"]')!;
+      expect(sw.getAttribute('aria-checked')).toBe(String(was));
+      sw.click();
+      await fixture.whenStable();
+      expect(kanban.isOnWall(cardOf(), 'Trabalho')).toBe(was);
+      await saveAndClose();
+      expect(kanban.isOnWall(cardOf(), 'Trabalho')).toBe(!was);
+    });
+
+    it('salvar só grava o que mudou aqui: o que outra aba mudou nesse meio-tempo fica', async () => {
+      onBoard({ importance: 'baixo', status: 'De antes' });
+      await openHere();
+      // na outra aba, a ficha anda, muda de importância e de observação
+      kanban.update(TRAB, (b) => ({ ...b, cards: b.cards.map((c) => (c.note === 'nabre001' ? { ...c, column: 'feito', importance: 'importante', status: 'De lá' } : c)) }));
+      const wall = kanban.isOnWall(cardOf(), 'Trabalho');
+      panel().querySelector<HTMLButtonElement>('.mural-linha [role="switch"]')!.click();
+      await fixture.whenStable();
+      await saveAndClose();
+      expect(cardOf().column).toBe('feito');
+      expect(cardOf().importance).toBe('importante');
+      expect(cardOf().status).toBe('De lá');
+      // o que mudou aqui vale
+      expect(kanban.isOnWall(cardOf(), 'Trabalho')).toBe(!wall);
+    });
+
+    it('as dependências: o seletor esconde as que fariam roda; pôr e tirar valem ao salvar', async () => {
+      store.add(note('nlogin02', { category: 'Trabalho' }));
+      store.add(note('nprova02', { category: 'Estudos', doneAt: '2026-10-02' }));
+      store.add(note('nsolta02'));
+      onBoard();
+      kanban.update(TRAB, (b) => ({ ...b, cards: [...b.cards, { note: 'nlogin02', column: 'afazer', importance: null, at: T0, deps: ['nabre001'] }] }));
+      await openHere();
+      expect(panel().querySelectorAll('.dep').length).toBe(0);
+      panel().querySelector<HTMLButtonElement>('.por-dep')!.click();
+      await fixture.whenStable();
+      const listed = () => [...panel().querySelectorAll('app-card-picker .escolha .nome')].map((n) => n.textContent!.trim());
+      for (let i = 0; i < 50 && !listed().length; i++) {
+        await new Promise((r) => setTimeout(r, 10));
+        await fixture.whenStable();
+      }
+      // nem ela mesma, nem a que depende dela; de qualquer grupo; a finalizada fica atrás do filtro
+      expect(listed()).toEqual(['Nota nsolta02']);
+      panel().querySelector<HTMLButtonElement>('app-card-picker .filtro[aria-pressed="true"]')!.click();
+      await fixture.whenStable();
+      expect(listed()).toEqual(['Nota nprova02', 'Nota nsolta02']);
+      panel().querySelector<HTMLButtonElement>('app-card-picker .escolha')!.click();
+      await fixture.whenStable();
+      const rows = [...panel().querySelectorAll('.dep')];
+      expect(rows.map((r) => r.querySelector('.dep-onde')!.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Finalizada Estudos · Fora do quadro']);
+      expect(rows[0].classList).toContain('feita');
+      expect(cardOf().deps).toBeUndefined();
+      await saveAndClose();
+      expect(cardOf().deps).toEqual(['nprova02']);
+      await openHere();
+      panel().querySelector<HTMLButtonElement>('.dep .tirar')!.click();
+      await fixture.whenStable();
+      await saveAndClose();
+      expect(cardOf().deps).toBeUndefined();
+    });
+
+    it('ir para Feito com dependência aberta: "Esperar" deixa na coluna e guarda o resto; o sim leva', async () => {
+      store.add(note('naberta2', { category: 'Trabalho' }));
+      onBoard({ deps: ['naberta2'] });
+      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
+      const toFeito = async () => {
+        const etapa = panel().querySelector<HTMLSelectElement>('app-kanban-props select')!;
+        etapa.value = 'feito';
+        etapa.dispatchEvent(new Event('change'));
+        await fixture.whenStable();
+        await pickImportance(panel(), 'Importante');
+        await saveAndClose();
+        await new Promise((r) => setTimeout(r, 0));
+        await fixture.whenStable();
+      };
+      await openHere();
+      await toFeito();
+      expect(ask).toHaveBeenCalledTimes(1);
+      expect(cardOf().column).toBe('afazer');
+      expect(cardOf().importance).toBe('importante');
+      ask.and.resolveTo(true);
+      await openHere();
+      const etapa = panel().querySelector<HTMLSelectElement>('app-kanban-props select')!;
+      etapa.value = 'feito';
+      etapa.dispatchEvent(new Event('change'));
+      await fixture.whenStable();
+      await saveAndClose();
+      await new Promise((r) => setTimeout(r, 0));
+      await fixture.whenStable();
+      expect(ask).toHaveBeenCalledTimes(2);
+      expect(cardOf().column).toBe('feito');
+    });
+
+    it('quem só lê a compartilhada: só as abas Kanban e Flashcard, o nome sem escrever, e a anotação não muda', async () => {
+      onBoard();
+      spyOn(TestBed.inject(SharedStore), 'role').and.returnValue('leitor');
+      const before = store.get('nabre001')!;
+      // pelo caminho comum também: nunca cai na aba do que se escreve
+      await edit(before);
+      expect(kbTab().getAttribute('aria-selected')).toBe('true');
+      expect(el.querySelector('#editor-modo-escrever')).toBeNull();
+      expect(el.querySelector('#editor-modo-cartolina')).toBeNull();
+      expect(el.querySelector('#editor-modo-flashcard')).not.toBeNull();
+      expect(el.querySelector<HTMLTextAreaElement>('#editor-titulo-nota')!.readOnly).toBeTrue();
+      expect(el.querySelector('#editor-titulo-nota')!.getAttribute('tabindex')).toBe('-1');
+      expect(el.querySelector('.modos')!.classList).not.toContain('quatro');
+      await pickImportance(panel(), 'Importante');
+      await saveAndClose();
+      expect(cardOf().importance).toBe('importante');
+      expect(store.get('nabre001')).toBe(before);
+    });
   });
 
   it('o Esc com a observação ainda sendo escrita pergunta antes de fechar, em vez de perdê-la', async () => {

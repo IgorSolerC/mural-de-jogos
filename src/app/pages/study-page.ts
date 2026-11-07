@@ -30,7 +30,6 @@ import { StudyCard } from '../ui/study-card';
 import { StudyCardBack } from '../ui/study-card-back';
 import { StudyCardFocus } from '../ui/study-card-focus';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
-import { StudyCardSheet } from '../ui/study-card-sheet';
 import { StudySession } from '../ui/study-session';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
@@ -137,7 +136,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyCardSheet, StudyDeckSheet, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrls: ['./study-page.scss', './study-page-flip.scss'],
@@ -164,6 +163,7 @@ export class StudyPage {
   protected readonly EditIcon = ICON.editar;
   protected readonly AdjustIcon = ICON.ajustar;
   protected readonly MaximizeIcon = ICON.aumentar;
+  protected readonly ReadIcon = ICON.livros;
   protected readonly PlayIcon = ICON.estudar;
   protected readonly GearIcon = ICON.configurar;
   /** A anotação (a lupa se confundia com a busca, que é logo embaixo). */
@@ -231,8 +231,6 @@ export class StudyPage {
   protected readonly config = signal(false);
   /** Quantas revisões vencem amanhã (no baralho, no grupo ou em todos): o "Estudar adiantado" só aparece com alguma. */
   protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.scope(), this.study.live, 1).counts));
-  /** A folha da carta aberta (o id da anotação). */
-  protected readonly cardSheet = signal<string | null>(null);
   /** A carta maximizada (o id da anotação). */
   protected readonly focused = signal<string | null>(null);
   /** As cartas com o verso à mostra na parede. Fica só na memória da página: virar não é estudar, e nada se guarda. */
@@ -568,10 +566,9 @@ export class StudyPage {
     this.toasts.show(`“${name}” virou carta de ${this.study.deck(deck)?.name ?? ''}`);
   }
 
-  /** "Editar a frente" da folha da carta: o editor da anotação, na aba Flashcard. */
+  /** Os ajustes da carta: o editor da anotação, na aba Flashcard. */
   protected edit(note: string): void {
-    this.study.openFront.set(note);
-    this.desk.editReview(note);
+    this.desk.editReview(note, 'flashcard');
   }
 
   /** Troca o tamanho das cartas e guarda neste aparelho. As cartas voltam para a frente: a pequena virada é só uma. */
@@ -581,7 +578,7 @@ export class StudyPage {
     writeText(STUDY_SIZE_KEY, size);
   }
 
-  /** "Ler a anotação" da folha da carta: a anotação como no mural, com o Editar e tudo. */
+  /** Ler a anotação da carta: a anotação como no mural, com o Editar e tudo. */
   protected open(note: string): void {
     this.desk.openReview(note);
   }

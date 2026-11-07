@@ -35,7 +35,7 @@ export interface NoteMenuBoard {
   /** O nome da coluna seguinte (a da seta da ficha); null, a ficha está na última. */
   next: string | null;
   advance: () => void;
-  /** A folha da anotação no quadro (etapa, assunto, importância, observação, dependências, tags). */
+  /** O editor da anotação, na aba Kanban (etapa, importância, observação, dependências). */
   details: () => void;
 }
 
@@ -216,23 +216,18 @@ export class NoteMenu {
       }
       if (a.board?.next) act.push({ id: 'avancar', label: `Levar para ${a.board.next}`, icon: ICON.proximo, run: a.board.advance });
       if (a.board) {
-        act.push({ id: 'quadro', label: 'Ajustes no quadro', icon: ICON.ajustar, dialog: true, hint: 'Etapa, assunto, importância, observação, dependências e tags', run: a.board.details });
+        act.push({ id: 'quadro', label: 'Ajustes no quadro', icon: ICON.ajustar, dialog: true, hint: 'A etapa, a importância, a observação e as dependências, na aba Kanban', run: a.board.details });
       }
-      // a carta dos Estudos: o editor na aba Flashcard (vira carta, ou muda a frente e os baralhos)
-      if (writes) {
-        const card = this.study.cardOf().has(id);
-        act.push({
-          id: 'estudar',
-          label: card ? 'Ver a carta' : 'Estudar com ela…',
-          icon: ICON.camadas,
-          dialog: true,
-          hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Flashcards',
-          run: () => {
-            this.study.openFront.set(id);
-            this.desk.editReview(id);
-          },
-        });
-      }
+      // a carta é de cada um, também na compartilhada de quem só lê: o editor na aba Flashcard (vira carta, ou muda a frente e os baralhos)
+      const card = this.study.cardOf().has(id);
+      act.push({
+        id: 'estudar',
+        label: card ? 'Editar a carta' : 'Estudar com ela…',
+        icon: ICON.camadas,
+        dialog: true,
+        hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Flashcards',
+        run: () => this.desk.editReview(id, 'flashcard'),
+      });
       // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)
       act.push({ id: 'compartilhar', label: !entry || canManage(entry.papel) ? 'Compartilhar' : 'Pessoas', icon: ICON.pessoas, dialog: true, run: () => this.openShare(id, a.back) });
     }

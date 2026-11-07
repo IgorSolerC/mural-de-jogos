@@ -85,6 +85,11 @@
   color: var(--ink-claro-solido);
 }
 
+/* quem só lê: o nome sem a linha de caneta, que convidaria a escrever */
+.nome-faixa textarea:read-only {
+  background: none;
+}
+
 /* na faixa escura, a linha de erro é a caneta clara de lá (o --pen das cartolinas escuras) */
 .ficha:is([data-cor$='-escuro'], [data-cor='preto']) .nome-faixa.errada textarea {
   background-image: linear-gradient(var(--pen), var(--pen));

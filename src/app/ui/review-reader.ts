@@ -329,7 +329,7 @@ interface ReadingPlace {
                           <span class="etq status" [title]="st"><span class="sr-only">Observação: </span>{{ st }}</span>
                         }
                         @if (b.deps; as deps) {
-                          <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="openBoard(b.id)" />
+                          <app-kanban-deps class="dependencias" [noteId]="r.id" [owner]="r.game.name" [deps]="deps" (opened)="openDep($event)" (edit)="editBoard.emit(r.id)" />
                         }
                       </div>
                     }
@@ -635,6 +635,8 @@ interface ReadingPlace {
 })
 export class ReviewReader {
   readonly edit = output<string>();
+  /** "Mudar as dependências": o editor da anotação, na aba Kanban. */
+  readonly editBoard = output<string>();
   readonly remove = output<string>();
   /** Pediu para escrever mais uma vez da obra (rejogada, releitura, reassistida). */
   readonly revisit = output<string>();

@@ -383,7 +383,7 @@
                         [dense]="dense()"
                         [next]="v.next"
                         (opened)="read($event)"
-                        (details)="cardSheet.set(it.card.note)"
+                        (details)="adjust(it.card.note)"
                         (advanced)="advance(it.card.note, v.col.id)"
                       />
                     } @else {
@@ -559,14 +559,6 @@
     (picked)="placePicked($event)"
   />
 
-  @if (cardSheet(); as id) {
-    <app-kanban-card-sheet
-      [boardId]="b.id"
-      [noteId]="id"
-      (closed)="cardSheet.set(null)"
-      (reading)="read($event)"
-    />
-  }
   @if (columnSheet(); as c) {
     <app-kanban-column-sheet
       [boardId]="b.id"

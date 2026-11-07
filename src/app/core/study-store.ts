@@ -99,8 +99,6 @@ export class StudyStore {
    * baralho escolhido, e a anotação salva vira carta lá. Fechar o editor sem salvar esquece.
    */
   readonly pending = signal<{ decks: string[] } | null>(null);
-  /** O editor desta anotação deve abrir na aba Flashcard (o "Editar a frente" da folha da carta). */
-  readonly openFront = signal<string | null>(null);
   /** O último baralho escolhido para uma carta: o próximo "Criar a frente" já vem com ele. */
   readonly lastDeck = signal<string | null>(null);
 

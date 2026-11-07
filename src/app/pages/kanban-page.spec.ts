@@ -15,7 +15,6 @@ import { KANBAN_LAST_KEY } from '../core/kanban';
 import { WallView } from '../core/wall-view';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
 import { scrollSettled } from '../testing/scroll-settled.spec';
-import { KanbanCardSheet } from '../ui/kanban-card-sheet';
 import { KanbanProps } from '../ui/kanban-props';
 import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
 import { KanbanPage } from './kanban-page';
@@ -340,36 +339,16 @@ describe('página do Kanban', () => {
     expect(getComputedStyle(header.querySelector('.etiqueta-icone')!).color).toBe('rgb(94, 156, 28)');
   });
 
-  it('a folha da anotação põe e tira as tags dela mesma (as do mural)', async () => {
+  it('os ajustes de uma ficha abrem o editor da anotação, na aba Kanban, e nenhuma outra folha', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
+    const edit = spyOn(TestBed.inject(Desk), 'editReview');
     const mexer = column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!;
-    expect(mexer.getAttribute('aria-label')).toBe('Etapa, assunto, importância, observação, dependências e tags de Sincronizar quadros');
+    expect(mexer.getAttribute('aria-label')).toBe('Ajustes de Sincronizar quadros no quadro');
     mexer.click();
     await settle();
-    const sheet = host.querySelector('app-kanban-card-sheet')!;
-    expect(sheet.querySelector('.sub')!.textContent).toContain('No quadro de Trabalho');
-    // a tag de outra anotação da categoria está à mão, em contorno
-    const op = () => [...sheet.querySelectorAll<HTMLButtonElement>('.tag-op')].find((b) => b.textContent!.includes('Correção'))!;
-    expect(op().getAttribute('aria-pressed')).toBe('false');
-    op().click();
-    await settle();
-    expect(store.get('nsync001')!.tags).toEqual(['Correção']);
-    expect(op().getAttribute('aria-pressed')).toBe('true');
-    op().click();
-    await settle();
-    expect(store.get('nsync001')!.tags).toBeUndefined();
-    // uma tag nova: amarrada na anotação e com uma das cores, sorteada
-    const input = sheet.querySelector<HTMLInputElement>('app-tag-picker input')!;
-    input.value = 'Urgente';
-    input.dispatchEvent(new Event('input'));
-    await settle();
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-    await settle();
-    expect(store.get('nsync001')!.tags).toEqual(['Urgente']);
-    // a cor nasce na categoria da anotação
-    expect(TestBed.inject(Settings).tagColor('Urgente', 'Trabalho')).toBeTruthy();
-    expect(TestBed.inject(Settings).tagColor('Urgente', 'Estudos')).toBeUndefined();
+    expect(edit).toHaveBeenCalledOnceWith('nsync001', 'kanban');
+    expect(host.querySelector('.ficha-quadro')).toBeNull();
   });
 
   /** A folha das configurações chega num pedaço à parte (@defer): espera por ela. */
@@ -720,45 +699,18 @@ describe('página do Kanban', () => {
       expect(tira('nlogin01').matches(':popover-open')).toBeFalse();
     });
 
-    it('o clique (ou o toque) no selo abre a tira, e "Mudar as dependências" abre a folha da anotação', async () => {
+    it('o clique (ou o toque) no selo abre a tira, e "Mudar as dependências" abre a aba Kanban do editor', async () => {
       kanban.state.set(state(withDeps()));
       await go(TRAB_URL);
+      const edit = spyOn(TestBed.inject(Desk), 'editReview');
       selo('nlogin01')!.click();
       await settle();
       expect(tira('nlogin01').matches(':popover-open')).toBeTrue();
-      // o clique no selo não abre a leitura nem começa a arrastar
-      expect(host.querySelector('app-kanban-card-sheet')).toBeNull();
+      // o clique no selo não abre o editor nem começa a arrastar
+      expect(edit).not.toHaveBeenCalled();
       tira('nlogin01').querySelector<HTMLButtonElement>('.mudar')!.click();
       await settle();
-      expect(host.querySelector('app-kanban-card-sheet .deps-linha .nome')!.textContent!.trim()).toBe('Depende de');
-    });
-
-    it('a folha da anotação põe dependência (o seletor esconde as que fariam roda) e tira', async () => {
-      kanban.state.set(state(withDeps()));
-      await go(TRAB_URL);
-      column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
-      await settle();
-      const sheet = host.querySelector('app-kanban-card-sheet')!;
-      expect(sheet.querySelectorAll('.dep').length).toBe(0);
-      sheet.querySelector<HTMLButtonElement>('.por-dep')!.click();
-      await settle();
-      const picker = sheet.querySelector('app-card-picker dialog')!;
-      // nem ela mesma, nem o login (que depende dela); de qualquer grupo; a prova está finalizada (escondida pelo filtro)
-      const listed = () => [...picker.querySelectorAll('.escolha .nome')].map((n) => n.textContent!.trim());
-      expect(listed()).toEqual(['Sem categoria']);
-      picker.querySelector<HTMLButtonElement>('.filtro[aria-pressed="true"]')!.click();
-      await settle();
-      expect(listed()).toEqual(['Prova', 'Sem categoria']);
-      picker.querySelector<HTMLButtonElement>('.escolha')!.click();
-      await settle();
-      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toEqual(['nprova01']);
-      const rows = [...sheet.querySelectorAll('.dep')];
-      expect(rows.map((r) => r.querySelector('.dep-onde')!.textContent!.replace(/\s+/g, ' ').trim())).toEqual(['Finalizada Estudos · Fora do quadro']);
-      expect(rows[0].classList).toContain('feita');
-      sheet.querySelector<HTMLButtonElement>('.dep .tirar')!.click();
-      await settle();
-      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nsync001')!.deps).toBeUndefined();
-      expect(sheet.querySelectorAll('.dep').length).toBe(0);
+      expect(edit).toHaveBeenCalledOnceWith('nlogin01', 'kanban');
     });
 
     it('a seta pergunta antes de finalizar com dependência aberta', async () => {
@@ -919,23 +871,6 @@ describe('página do Kanban', () => {
     expect(namesIn('afazer')).toEqual(['nlogin01', 'nsync001']);
     expect(radios()[0].checked).toBeTrue();
     expect(host.querySelector('app-filter-tags')).toBeNull();
-  });
-
-  it('o assunto na folha da anotação: os do grupo à mão; escolher muda a anotação', async () => {
-    store.update({ ...store.get('nlogin01')!, subject: 'Site' });
-    kanban.state.set(state(board()));
-    await go(TRAB_URL);
-    column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
-    await settle();
-    const sheet = host.querySelector('app-kanban-card-sheet')!;
-    const op = () => [...sheet.querySelectorAll<HTMLButtonElement>('app-subject-picker .op')].find((b) => b.textContent!.includes('Site'))!;
-    expect(op().getAttribute('aria-checked')).toBe('false');
-    op().click();
-    await settle();
-    expect(store.get('nsync001')!.subject).toBe('Site');
-    sheet.querySelector<HTMLButtonElement>('app-subject-picker .nenhum')!.click();
-    await settle();
-    expect(store.get('nsync001')!.subject).toBeUndefined();
   });
 
   it('o quadro passa da pasta até as beiradas da tela: a primeira coluna na linha da pasta, o resto some num degradê, e a seta traz as escondidas', async () => {
@@ -1254,16 +1189,17 @@ describe('página do Kanban', () => {
     expect(kanban.boards()[0].cards.find((c) => c.note === 'nlogin01')!.column).toBe('fazendo');
   });
 
-  it('os "Ajustes no quadro" do menu abrem a folha da anotação no quadro', async () => {
+  it('os "Ajustes no quadro" do menu abrem o editor da anotação, na aba Kanban', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     await scrollSettled();
+    const edit = spyOn(TestBed.inject(Desk), 'editReview');
     host.querySelector<HTMLElement>('.lugar[data-nota="nsync001"] .hit')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2, clientX: 30, clientY: 30 }));
     await settle();
     const menu = host.querySelector<HTMLElement>('.menu-da-nota')!;
     [...menu.querySelectorAll<HTMLButtonElement>('.escolha')].find((b) => b.textContent!.includes('Ajustes no quadro'))!.click();
     await settle();
-    expect(host.querySelector('app-kanban-card-sheet')).not.toBeNull();
+    expect(edit).toHaveBeenCalledOnceWith('nsync001', 'kanban');
   });
 
   it('no toque, segurar e soltar sem arrastar abre o menu (e nada se move); segurar e arrastar continua arrastando', async () => {
@@ -1755,7 +1691,7 @@ describe('página do Kanban', () => {
       return b;
     };
 
-    it('na ficha, a etiqueta da importância com as palavras da pessoa, logo depois da importância; tocar abre a folha', async () => {
+    it('na ficha, a etiqueta da importância com as palavras da pessoa, logo depois da importância; tocar abre a aba Kanban do editor', async () => {
       kanban.state.set(state(withStatus()));
       await go(TRAB_URL);
       const pe = column('afazer').querySelector<HTMLElement>('[data-nota="nlogin01"] app-review-card .pe')!;
@@ -1769,9 +1705,10 @@ describe('página do Kanban', () => {
       // só com status (sem importância), o pé aparece com ele
       expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .status')!.textContent!.trim()).toBe('Sérgio');
       expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .imp')).toBeNull();
+      const edit = spyOn(TestBed.inject(Desk), 'editReview');
       status.click();
       await settle();
-      expect(host.querySelector<HTMLInputElement>('app-kanban-card-sheet .status-valor input')!.value).toBe('Aguardando cliente');
+      expect(edit).toHaveBeenCalledOnceWith('nlogin01', 'kanban');
     });
 
     it('com o status, a fileira do pé desce de linha em vez de cobrir a ficha de baixo', async () => {
@@ -1814,45 +1751,6 @@ describe('página do Kanban', () => {
       expect(top('nlogin01', '.tira-nome').width).toBeGreaterThanOrEqual(top('nlogin01', '').width * 0.4);
     });
 
-    it('a folha escreve o status (vale no Enter, ao sair do campo ou ao fechar) e o x tira', async () => {
-      kanban.state.set(state(board()));
-      await go(TRAB_URL);
-      const cardOf = (id: string) => kanban.get(TRAB)!.cards.find((c) => c.note === id)!;
-      column('afazer').querySelector<HTMLButtonElement>('[data-nota="nsync001"] .mexer')!.click();
-      await settle();
-      const sheet = host.querySelector('app-kanban-card-sheet')!;
-      expect(sheet.querySelector('label[for$="-status"]')!.textContent!.trim()).toBe('Observação');
-      const input = sheet.querySelector<HTMLInputElement>('.status-valor input')!;
-      expect(input.value).toBe('');
-      expect(sheet.querySelector('.status-valor .tirar')).toBeNull();
-      input.value = '  Em   revisão ';
-      input.dispatchEvent(new Event('input'));
-      await settle();
-      // escrevendo, ainda não guardou
-      expect(cardOf('nsync001').status).toBeUndefined();
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
-      await settle();
-      expect(cardOf('nsync001').status).toBe('Em revisão');
-      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe .status')!.textContent!.trim()).toBe('Em revisão');
-      // ao sair do campo
-      input.value = 'Com o Sérgio';
-      input.dispatchEvent(new Event('input'));
-      input.dispatchEvent(new Event('change'));
-      await settle();
-      expect(cardOf('nsync001').status).toBe('Com o Sérgio');
-      // o x tira
-      sheet.querySelector<HTMLButtonElement>('.status-valor .tirar')!.click();
-      await settle();
-      expect(cardOf('nsync001').status).toBeUndefined();
-      expect(input.value).toBe('');
-      expect(column('afazer').querySelector('[data-nota="nsync001"] .pe')).toBeNull();
-      // fechar a folha (o Esc, ou o x) guarda o que estava escrito
-      input.value = 'Aguardando cliente';
-      input.dispatchEvent(new Event('input'));
-      await closeDialog(sheet.querySelector<HTMLDialogElement>('dialog')!);
-      await settle();
-      expect(cardOf('nsync001').status).toBe('Aguardando cliente');
-    });
   });
   describe('revisão das regras do cartão', () => {
     const card = (id: string) => host.querySelector<HTMLElement>(`.lugar[data-nota="${id}"]`)!;
@@ -1896,52 +1794,6 @@ describe('página do Kanban', () => {
       document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       await settle();
       expect(marked()).toEqual([]);
-    });
-
-    it('na folha da anotação, ir para Feito com dependência aberta e "Esperar": a etapa volta para a de agora', async () => {
-      const b = board();
-      b.cards[0] = { ...b.cards[0], deps: ['nsync001'] };
-      kanban.state.set(state(b));
-      await go(TRAB_URL);
-      const ask = spyOn(TestBed.inject(Confirm), 'ask').and.resolveTo(false);
-      card('nlogin01').querySelector<HTMLButtonElement>('.mexer')!.click();
-      await settle();
-      const sheet = host.querySelector('app-kanban-card-sheet')!;
-      const select = sheet.querySelector<HTMLSelectElement>('app-kanban-props select')!;
-      select.value = 'feito';
-      select.dispatchEvent(new Event('change'));
-      await settle();
-      expect(ask).toHaveBeenCalledTimes(1);
-      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nlogin01')!.column).toBe('afazer');
-      expect(select.value).toBe('afazer');
-      expect(sheet.querySelector('.escolha-nome')!.textContent!.trim()).toBe('A fazer');
-      expect(sheet.querySelector('.finaliza')).toBeNull();
-      // escolher Feito de novo pergunta de novo; com o sim, vai
-      ask.and.resolveTo(true);
-      select.value = 'feito';
-      select.dispatchEvent(new Event('change'));
-      await settle();
-      expect(ask).toHaveBeenCalledTimes(2);
-      expect(kanban.get(TRAB)!.cards.find((c) => c.note === 'nlogin01')!.column).toBe('feito');
-      expect(select.value).toBe('feito');
-      expect(sheet.querySelector('.escolha-nome')!.textContent!.trim()).toBe('Feito');
-    });
-
-    it('na folha, as tags iguais às de antes não mexem na anotação (nem na hora dela)', async () => {
-      kanban.state.set(state(board()));
-      await go(TRAB_URL);
-      const sheet = TestBed.createComponent(KanbanCardSheet);
-      sheet.componentRef.setInput('boardId', TRAB);
-      sheet.componentRef.setInput('noteId', 'nlogin01');
-      document.body.appendChild(sheet.nativeElement);
-      await sheet.whenStable();
-      const before = store.get('nlogin01')!;
-      (sheet.componentInstance as unknown as { setTags(t: string[]): void }).setTags(['Correção']);
-      expect(store.get('nlogin01')).toBe(before);
-      (sheet.componentInstance as unknown as { setTags(t: string[]): void }).setTags(['Correção', 'Urgente']);
-      expect(store.get('nlogin01')!.tags).toEqual(['Correção', 'Urgente']);
-      sheet.destroy();
-      sheet.nativeElement.remove();
     });
 
     it('só dependências apagadas contam como nenhuma: "Pôr dependência", sem linha de dependência', async () => {

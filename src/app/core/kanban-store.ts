@@ -140,7 +140,7 @@ export class KanbanStore {
 
   /**
    * As anotações do mesmo lugar (o mural, o Kanban ou os dois): as sugestões de tag e de assunto vêm só
-   * delas, em todo seletor (o editor, a folha do quadro, a Organizar). "O mural" é o que está nele de fato
+   * delas, em todo seletor (o editor, a Organizar). "O mural" é o que está nele de fato
    * (fora as só no Kanban e as só nos Estudos).
    */
   notesAt(place: NotePlace): ReturnType<ReviewStore['notes']> {

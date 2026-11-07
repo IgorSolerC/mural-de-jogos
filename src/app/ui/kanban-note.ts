@@ -65,7 +65,7 @@ export class KanbanReviewCard extends ReviewCard {
  * - **títulos** (`dense`): só uma tira da cartolina dela com o assunto e o nome, a observação, o selo das dependências
  *   e a escala da importância, para caber o quadro inteiro na tela.
  * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
- * em cima ou o foco do teclado: os ajustes, que abrem a folha da anotação no quadro, e, fora da última
+ * em cima ou o foco do teclado: os ajustes, que abrem o editor dela na aba Kanban, e, fora da última
  * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, fica
  * sempre (na tira, só os desenhos, na ponta dela).
  */
@@ -136,7 +136,7 @@ export class KanbanReviewCard extends ReviewCard {
     <ng-template #adjust>
       <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
       <div class="acoes" [class.duas]="!!next()">
-        <button type="button" class="mexer" [attr.aria-label]="'Etapa, assunto, importância, observação, dependências e tags de ' + review().game.name" title="Etapa, assunto, importância, observação, dependências e tags" aria-haspopup="dialog" (click)="details.emit()">
+        <button type="button" class="mexer" [attr.aria-label]="'Ajustes de ' + review().game.name + ' no quadro'" title="Ajustes no quadro" aria-haspopup="dialog" (click)="details.emit()">
           <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>
         @if (next(); as to) {
