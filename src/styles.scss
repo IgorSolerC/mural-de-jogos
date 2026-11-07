@@ -1837,5 +1837,5 @@ img.revelada {
 .cod {
   --cod-pauta: color-mix(in srgb, rgb(64 110 190) var(--cod-pauta-alfa), var(--papel-ficha));
   --cod-pauta-tinta: color-mix(in srgb, #1a2b4c var(--cod-pauta-alfa), #1a2b4c);
-  --cod-desce: calc(var(--cod-pauta-alfa) * 0 + 1px);
+  --cod-desce: calc(var(--cod-pauta-alfa) * 0 + 2px);
 }
