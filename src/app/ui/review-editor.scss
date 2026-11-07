@@ -428,6 +428,8 @@
 
 .parte {
   position: relative;
+  /* acima do alto preso do editor (7) e da régua (6), que vêm depois na página */
+  z-index: 8;
   display: grid;
   gap: 16px;
   min-width: 0;
