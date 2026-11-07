@@ -32,7 +32,7 @@
   <a class="pilha" appPerto #perto="perto" [routerLink]="path(d.deck.group ? groupIdOf(d.deck.group) : null, d.deck.id)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards.length)">
     <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
       @if (!d.top) {
-        <span class="vaga-pilha">Sem cartas</span>
+        <span class="vaga-pilha">Sem flashcards</span>
       } @else if (!perto.near()) {
         <span class="vaga-pilha"></span>
       } @else if (d.top; as top) {
@@ -76,13 +76,13 @@
       <div class="hoje"><p class="em-dia">{{ groupSummary(g) }}</p></div>
     } @else {
       <div class="hoje">
-        <p class="em-dia">{{ groups().length === 1 ? "1 grupo" : groups().length + " grupos" }} com baralhos públicos. Toque num baralho para ver as cartas.</p>
+        <p class="em-dia">{{ groups().length === 1 ? "1 grupo" : groups().length + " grupos" }} com baralhos públicos. Toque num baralho para ver os flashcards.</p>
       </div>
     }
   </div>
   @if (deck()?.cards?.length) {
     <div class="pasta-linha filtros">
-      <app-search-strip class="pasta-busca" inputId="busca-cartas-visita" [glued]="true" label="Procurar nas cartas" placeholder="Procurar nas cartas…" [value]="query()" (valueChange)="query.set($event)" />
+      <app-search-strip class="pasta-busca" inputId="busca-cartas-visita" [glued]="true" label="Procurar nos flashcards" placeholder="Procurar nos flashcards…" [value]="query()" (valueChange)="query.set($event)" />
       <div class="pasta-controles">
         @if (progress()) {
           <div class="pasta-grupo">
@@ -111,7 +111,7 @@
             </select>
           </label>
         </div>
-        <div class="pasta-grupo" role="group" aria-label="Tamanho das cartas">
+        <div class="pasta-grupo" role="group" aria-label="Tamanho dos flashcards">
           @for (s of cardSizes; track s.value) {
             <button type="button" class="tinta so-icone" [attr.aria-pressed]="cardSize() === s.value" [attr.aria-label]="s.label" [title]="s.label" (click)="setCardSize(s.value)">
               <lucide-icon [img]="s.icon" [size]="18" aria-hidden="true" />
@@ -129,13 +129,13 @@
   @if (!d.cards.length) {
     <div class="vagas vazio">
       <div class="vaga">
-        <span class="vaga-txt">Nenhuma carta pública neste baralho ainda.</span>
+        <span class="vaga-txt">Nenhum flashcard público neste baralho ainda.</span>
       </div>
     </div>
   } @else if (!cards().length) {
-    <p class="nada">Nenhuma carta com esse filtro.</p>
+    <p class="nada">Nenhum flashcard com esse filtro.</p>
   } @else {
-    <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Cartas de ' + d.deck.name">
+    <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Flashcards de ' + d.deck.name">
       @for (c of cards(); track c.note.id) {
         <li class="carta-li" appPerto #perto="perto" [style.--inclina]="c.tilt + 'deg'">
           <button type="button" class="carta-btn" [attr.aria-label]="meta(c)" [attr.title]="cardSize() === 'pequenas' ? meta(c) : null" (click)="open(c)">

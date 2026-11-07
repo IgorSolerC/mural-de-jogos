@@ -222,10 +222,10 @@ export class NoteMenu {
       const card = this.study.cardOf().has(id);
       act.push({
         id: 'estudar',
-        label: card ? 'Editar a carta' : 'Estudar com ela…',
+        label: card ? 'Editar o flashcard' : 'Transformar em flashcard…',
         icon: ICON.camadas,
         dialog: true,
-        hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Flashcards',
+        hint: 'A frente, os baralhos e o mural, na aba Flashcard',
         run: () => this.desk.editReview(id, 'flashcard'),
       });
       // dividir com outras pessoas (ou ver quem está, para quem não gere a anotação)

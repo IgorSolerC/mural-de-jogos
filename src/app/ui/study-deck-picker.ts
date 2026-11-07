@@ -4,15 +4,11 @@ import { DECK_NAME_MAX, MAX_DECKS_PER_CARD, groupKey, inGroup } from '../core/st
 import { StudyStore } from '../core/study-store';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 
-/** O valor da lista que abre o campo de um baralho novo. */
-const NEW = '__novo__';
-
 /**
- * Os baralhos de uma carta (PLANO-ESTUDOS.md, 6.5 e 6.6): um adesivo por baralho em que ela está (o ícone
- * e o nome, com a cor do baralho na ponta, e o X), como o seletor de tags, e "+ Baralho", a lista do
- * aparelho com os outros e "Novo baralho…" no fim (o nome escrito ali, a cor sorteada entre as livres).
- * Uma carta pode estar em vários baralhos (D3); o progresso é um só. Só os baralhos do grupo da anotação
- * (PLANO-ESTUDOS-GRUPOS.md): os de outro grupo em que a carta dorme não aparecem, e a anotação sem grupo
+ * Os baralhos de um flashcard (PLANO-ESTUDOS.md, 6.5 e 6.6): todos os do grupo da anotação à vista, cada um um
+ * adesivo que se liga e desliga num toque, e "Novo baralho" no fim (o nome escrito ali, a cor sorteada entre as
+ * livres). Um flashcard pode estar em vários baralhos (D3); o progresso é um só. Só os baralhos do grupo da
+ * anotação (PLANO-ESTUDOS-GRUPOS.md): os de outro grupo em que ele dorme não aparecem, e a anotação sem grupo
  * não escolhe baralho nenhum.
  */
 @Component({
@@ -24,15 +20,17 @@ const NEW = '__novo__';
       <!-- a anotação sem grupo não entra em baralho nenhum: a frase no lugar da lista -->
       <p class="sem-grupo">Escolha um grupo para a anotação entrar num baralho.</p>
     } @else {
-    <ul class="baralhos" aria-label="Baralhos da carta">
-      @for (d of chosen(); track d.id) {
-        <li class="adesivo" [style.--cor]="'var(--stock-' + d.color + ')'">
-          @if (d.icon) {
-            <lucide-icon [img]="iconOf[d.icon]" [size]="14" aria-hidden="true" />
-          }
-          <span class="adesivo-nome">{{ d.name }}</span>
-          <button type="button" class="tirar" [attr.aria-label]="'Tirar do baralho ' + d.name" (click)="remove(d.id)">
-            <lucide-icon [img]="CloseIcon" [size]="14" aria-hidden="true" />
+    <ul class="baralhos" aria-label="Baralhos do flashcard">
+      @for (d of mine(); track d.id) {
+        @let inside = decks().includes(d.id);
+        <li>
+          <button type="button" class="adesivo" [class.dentro]="inside" [style.--cor]="'var(--stock-' + d.color + ')'" [attr.aria-pressed]="inside" [disabled]="!inside && full()" (click)="toggle(d.id)">
+            @if (inside) {
+              <lucide-icon [img]="CheckIcon" [size]="15" aria-hidden="true" />
+            } @else if (d.icon) {
+              <lucide-icon [img]="iconOf[d.icon]" [size]="14" aria-hidden="true" />
+            }
+            <span class="adesivo-nome">{{ d.name }}</span>
           </button>
         </li>
       }
@@ -40,30 +38,16 @@ const NEW = '__novo__';
         <li class="novo">
           <label class="campo-novo">
             <span class="sr-only">Nome do baralho novo</span>
-            <input #nome type="text" autocomplete="off" placeholder="Nome do baralho" [maxLength]="nameMax" (keydown.enter)="$event.preventDefault(); create()" (keydown.escape)="$event.stopPropagation(); adding.set(false)" />
+            <input #nome type="text" autocomplete="off" placeholder="Nome do baralho" [maxLength]="nameMax" (keydown.enter)="$event.preventDefault(); create()" (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); adding.set(false)" />
           </label>
           <button type="button" class="tinta" (click)="create()">Criar</button>
         </li>
-      } @else if (chosen().length < maxDecks) {
+      } @else if (!full()) {
         <li>
-          <label class="mais" [class.vazio]="!chosen().length">
+          <button type="button" class="mais" (click)="openNew()">
             <lucide-icon [img]="AddIcon" [size]="15" aria-hidden="true" />
-            {{ chosen().length ? 'Baralho' : 'Escolher o baralho' }}
-            <select
-              [value]="''"
-              aria-label="Pôr em um baralho"
-              (mousedown)="onMouse()"
-              (keydown)="onKey($event)"
-              (change)="changed($any($event.target))"
-              (blur)="commit($any($event.target))"
-            >
-              <option value="" disabled>Pôr em um baralho</option>
-              @for (d of others(); track d.id) {
-                <option [value]="d.id">{{ d.name }}</option>
-              }
-              <option [value]="newValue">Novo baralho…</option>
-            </select>
-          </label>
+            Novo baralho
+          </button>
         </li>
       }
     </ul>
@@ -72,64 +56,36 @@ const NEW = '__novo__';
   styleUrl: './study-deck-picker.scss',
 })
 export class StudyDeckPicker {
-  /** Os ids dos baralhos da carta, na ordem em que ela entrou neles. */
+  /** Os ids dos baralhos do flashcard, na ordem em que ele entrou neles. */
   readonly decks = model<string[]>([]);
   /** O grupo da anotação, como está no editor agora. */
   readonly group = input<string | null>(null);
 
-  protected readonly CloseIcon = ICON.fechar;
+  protected readonly CheckIcon = ICON.pronto;
   protected readonly AddIcon = ICON.adicionar;
   protected readonly iconOf = ICON_CHOICE;
   protected readonly nameMax = DECK_NAME_MAX;
-  protected readonly maxDecks = MAX_DECKS_PER_CARD;
-  protected readonly newValue = NEW;
 
   private readonly study = inject(StudyStore);
   private readonly nome = viewChild<ElementRef<HTMLInputElement>>('nome');
   protected readonly adding = signal(false);
 
   protected readonly hasGroup = computed(() => !!groupKey(this.group()));
-  protected readonly chosen = computed(() => this.decks().flatMap((id) => this.study.deck(id) ?? []).filter((d) => inGroup(d, this.group())));
-  protected readonly others = computed(() => this.study.decks().filter((d) => !this.decks().includes(d.id) && inGroup(d, this.group())));
+  /** Os baralhos do grupo, sempre na mesma ordem: ligar um não muda os outros de lugar. */
+  protected readonly mine = computed(() => this.study.decks().filter((d) => inGroup(d, this.group())));
+  /** Chegou ao limite: conta só os do grupo (`live`, em flashcard-tab, é o que vale ao salvar). */
+  protected readonly full = computed(() => this.mine().filter((d) => this.decks().includes(d.id)).length >= MAX_DECKS_PER_CARD);
 
-  /**
-   * A lista fechada do Windows troca de opção (e avisa) a cada seta: pelo teclado, a escolha só vale no
-   * Enter ou ao sair da lista; pelo mouse (ou tocando), na hora.
-   */
-  protected keying = false;
-
-  /** Num método: no molde, um "keying = false" devolveria false, e o Angular cancelaria o clique que abre a lista. */
-  protected onMouse(): void {
-    this.keying = false;
+  protected toggle(id: string): void {
+    this.decks.set(this.decks().includes(id) ? this.decks().filter((d) => d !== id) : [...this.decks(), id]);
   }
 
-  protected onKey(e: KeyboardEvent): void {
-    if (['ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) this.keying = true;
-    else if (e.key === 'Enter') {
-      e.preventDefault();
-      this.commit(e.target as HTMLSelectElement);
-    }
+  protected openNew(): void {
+    this.adding.set(true);
+    setTimeout(() => this.nome()?.nativeElement.focus());
   }
 
-  protected changed(select: HTMLSelectElement): void {
-    if (!this.keying) this.commit(select);
-  }
-
-  protected commit(select: HTMLSelectElement): void {
-    this.keying = false;
-    const value = select.value;
-    select.value = '';
-    if (value === NEW) {
-      this.adding.set(true);
-      setTimeout(() => this.nome()?.nativeElement.focus());
-    } else if (value) this.decks.set([...this.decks(), value]);
-  }
-
-  protected remove(id: string): void {
-    this.decks.set(this.decks().filter((d) => d !== id));
-  }
-
-  /** O baralho novo, já com esta carta: a cor é uma ainda sem baralho (ou a primeira). */
+  /** O baralho novo, já com este flashcard: a cor é uma ainda sem baralho (ou a primeira). */
   protected create(): void {
     const name = this.nome()?.nativeElement.value.trim() ?? '';
     if (!name) return;

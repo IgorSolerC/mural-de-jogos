@@ -1229,7 +1229,7 @@ export class CloudSync {
       ...(extra ? [`${extra} na fila e na wishlist`] : []),
       ...(spent ? [plural(spent, 'gasto', 'gastos')] : []),
       ...(reminders ? [plural(reminders, 'lembrete', 'lembretes')] : []),
-      ...(cards ? [plural(cards, 'carta de estudo', 'cartas de estudo')] : []),
+      ...(cards ? [plural(cards, 'flashcard', 'flashcards')] : []),
       ...(kept ? [plural(kept, 'versão guardada', 'versões guardadas')] : []),
     ];
     if (!parts.length) return 'ajustes e um perfil mudados aqui';

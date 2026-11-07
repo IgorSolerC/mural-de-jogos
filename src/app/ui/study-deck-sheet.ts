@@ -50,7 +50,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
                 }
                 {{ d.deck.name }}
               </h2>
-              <p class="sub">Baralho {{ d.index + 1 }} de {{ d.total }} · {{ d.count === 1 ? '1 carta' : d.count + ' cartas' }}@if (d.deck.group) { · do grupo {{ d.deck.group }}}</p>
+              <p class="sub">Baralho {{ d.index + 1 }} de {{ d.total }} · {{ d.count === 1 ? '1 flashcard' : d.count + ' flashcards' }}@if (d.deck.group) { · do grupo {{ d.deck.group }}}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -97,7 +97,7 @@ const STOCK_LABEL: Record<LightStock, string> = {
             </section>
 
             <section class="grupo" aria-labelledby="ba-estilo-t">
-              <h3 class="grupo-titulo" id="ba-estilo-t">Estilo das cartas</h3>
+              <h3 class="grupo-titulo" id="ba-estilo-t">Estilo dos flashcards</h3>
               <div class="ops estilos" role="radiogroup" aria-labelledby="ba-estilo-t">
                 @if (sample(); as s) {
                   @for (l of looks; track l) {
@@ -320,15 +320,15 @@ export class StudyDeckSheet {
     if (!d) return '';
     if (!d.deck.public) return 'Só você vê este baralho.';
     const s = this.study.share(d.deck.id);
-    const cards = (n: number) => (n === 1 ? '1 carta' : `${n} cartas`);
+    const cards = (n: number) => (n === 1 ? '1 flashcard' : `${n} flashcards`);
     const who =
       s.total === 0
-        ? 'Quem visita o seu mural vê o baralho, ainda sem cartas.'
+        ? 'Quem visita o seu mural vê o baralho, ainda sem flashcards.'
         : s.shown === s.total
-          ? `Quem visita o seu mural vê o baralho e ${s.total === 1 ? 'a carta' : `as ${s.total} cartas`}.`
+          ? `Quem visita o seu mural vê o baralho e ${s.total === 1 ? 'o flashcard' : `os ${s.total} flashcards`}.`
           : s.shown === 0
-            ? `Quem visita o seu mural vê o baralho, mas nenhuma das ${cards(s.total)}: são de anotações privadas, e ficam só com você.`
-            : `Quem visita vê ${s.shown} das ${cards(s.total)}. As de anotações privadas ficam só com você.`;
+            ? `Quem visita o seu mural vê o baralho, mas nenhum dos ${cards(s.total)}: são de anotações privadas, e ficam só com você.`
+            : `Quem visita vê ${s.shown} dos ${cards(s.total)}. Os de anotações privadas ficam só com você.`;
     return this.account.signedIn() ? who : `${who} Para alguém ver, entre na sua conta.`;
   });
 
@@ -408,7 +408,7 @@ export class StudyDeckSheet {
     try {
       choice = await this.confirm.choose({
         title: 'Tornar o baralho público',
-        text: `Gostaria de tornar todas as cartas deste baralho públicas? ${share.percent}% das cartas desse baralho são públicas atualmente.`,
+        text: `Gostaria de tornar públicos todos os flashcards deste baralho? ${share.percent}% dos flashcards dele são públicos atualmente.`,
         confirm: 'Tornar todas públicas',
         secondary: 'Só o baralho',
         cancel: 'Cancelar',
@@ -430,7 +430,7 @@ export class StudyDeckSheet {
       out.undo();
       if (this.study.deck(d.deck.id)?.public) this.study.updateDeck(d.deck.id, { public: undefined });
     };
-    this.toasts.show(`${name} ficou público, com ${after.shown === 1 ? '1 carta' : `${after.shown} cartas`}.${rest}`, { label: 'Desfazer', run: undo }, 8000);
+    this.toasts.show(`${name} ficou público, com ${after.shown === 1 ? '1 flashcard' : `${after.shown} flashcards`}.${rest}`, { label: 'Desfazer', run: undo }, 8000);
   }
 
   protected shift(by: number): void {
@@ -449,7 +449,7 @@ export class StudyDeckSheet {
     const yes = await this.confirm.ask({
       title: `Apagar o baralho ${d.deck.name}?`,
       text: d.count
-        ? `${d.count === 1 ? 'A carta sai' : `As ${d.count} cartas saem`} dele${only ? `; ${only === d.count ? (only === 1 ? 'ela não está' : 'elas não estão') : `${only} não ${only === 1 ? 'está' : 'estão'}`} em outro baralho e ${only === 1 ? 'sai' : 'saem'} dos Flashcards, com o progresso` : ''}. Nenhuma anotação é apagada.`
+        ? `${d.count === 1 ? 'O flashcard sai' : `Os ${d.count} flashcards saem`} dele${only ? `; ${only === d.count ? (only === 1 ? 'ele não está' : 'eles não estão') : `${only} não ${only === 1 ? 'está' : 'estão'}`} em outro baralho e ${only === 1 ? 'sai' : 'saem'} dos Flashcards, com o progresso` : ''}. Nenhuma anotação é apagada.`
         : 'Ele está vazio. Nenhuma anotação é apagada.',
       confirm: 'Apagar o baralho',
       cancel: 'Deixar',

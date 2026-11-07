@@ -381,7 +381,7 @@ export class ApiRequestsSheet {
     if (op.startsWith('pra-depois.')) return 'O item do Pra depois';
     if (op.startsWith('ficha.')) return 'A ficha';
     if (op.startsWith('baralho.')) return 'O baralho';
-    if (op.startsWith('carta.')) return 'A carta (ou a anotação)';
+    if (op.startsWith('carta.')) return 'O flashcard (ou a anotação)';
     return op.startsWith('gasto.') ? 'O lançamento' : op.startsWith('envelope.') ? 'O envelope' : op.startsWith('pessoa.') ? 'A pessoa' : 'A nota';
   }
 

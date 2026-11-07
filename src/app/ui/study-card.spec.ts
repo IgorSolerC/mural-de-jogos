@@ -79,7 +79,7 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect(text('.pe .selo-nivel')).toBe('Aprendendo');
     expect(text('.pe .volta')).toBe('volta em 3 dias');
     show('classica', NEVER);
-    expect(text('.pe')).toBe('Desconhecida');
+    expect(text('.pe')).toBe('Desconhecido');
     expect($('.carta')!.getAttribute('data-nivel')).toBe('desconhecida');
   });
 
@@ -118,16 +118,16 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect(el.querySelectorAll('.datas .tr').length).toBe(1);
     expect(cells()).toEqual(['06 NOV', '5']);
     expect($('.datas .volta')!.textContent!.trim()).toBe('06 NOV');
-    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisada 5 vezes');
+    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisado 5 vezes');
     // pedido do usuário: "a tabela ocupa um espaço imenso"; o cabeçalho e uma linha, menos de um quinto da largura
     expect($('.datas')!.getBoundingClientRect().height).toBeLessThan($('.carta')!.getBoundingClientRect().width * 0.2);
     show('biblioteca', DUE);
     expect(cells()).toEqual(['HOJE', '2']);
     show('biblioteca', { ...DUE, seen: 1, when: 'agora' });
     expect(cells()).toEqual(['AGORA', '1']);
-    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisada 1 vez');
+    expect($('.datas .total')!.getAttribute('aria-label')).toBe('revisado 1 vez');
     show('biblioteca', NEVER);
-    expect(cells()).toEqual(['ainda não estudada', '—']);
+    expect(cells()).toEqual(['ainda não estudado', '—']);
     expect($('.datas .data')).toBeNull();
     show('biblioteca', null);
     expect(el.querySelectorAll('.datas .tr').length).toBe(1);
@@ -201,7 +201,7 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect(text('.cab .pe')).toBe('aprendendo · volta em 3 dias');
     expect($('.bolinha')).not.toBeNull();
     show('argola', NEVER);
-    expect(text('.cab .pe')).toBe('ainda não estudada');
+    expect(text('.cab .pe')).toBe('ainda não estudado');
     show('argola', null);
     expect($('.bolinha')).toBeNull();
   });

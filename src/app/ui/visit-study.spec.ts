@@ -77,7 +77,7 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
     expect([...el.querySelectorAll('.grupo-pilhas .tape-label')].map(text)).toEqual(['Japonês', 'Geografia']);
     // sem os montes de hoje: são da dona
     expect(el.querySelector('.papelzinho')).toBeNull();
-    expect([...el.querySelectorAll('.pilha')].map((a) => a.getAttribute('aria-label'))).toEqual(['Kanji N5, 2 cartas', 'Capitais, 1 carta']);
+    expect([...el.querySelectorAll('.pilha')].map((a) => a.getAttribute('aria-label'))).toEqual(['Kanji N5, 2 flashcards', 'Capitais, 1 flashcard']);
   });
 
   it('o baralho: as cartas que têm anotação, a de cima a próxima, o progresso na frente e o Copiar', async () => {
@@ -85,8 +85,8 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
     const cards = [...el.querySelectorAll('.carta-btn')].map((b) => b.getAttribute('aria-label'));
     // a estudada antes da nunca estudada (a ordem "Próxima revisão")
     expect(cards.length).toBe(2);
-    expect(cards[0]).toContain('日, Dominada');
-    expect(cards[1]).toBe('月, Desconhecida');
+    expect(cards[0]).toContain('日, Dominado');
+    expect(cards[1]).toBe('月, Desconhecido');
     expect(el.querySelector('select[aria-label="Nível"]')).not.toBeNull();
     // o Copiar abre a folha com o baralho e só as cartas que têm anotação (a 火 não veio)
     el.querySelector<HTMLButtonElement>('.copiar')!.click();
@@ -109,7 +109,7 @@ describe('Os Estudos de quem se visita (VisitStudy)', () => {
 
   it('a carta só nos Estudos dela aparece pela anotação que veio à parte', async () => {
     const { el } = await render(marina(), studyGroupId('Geografia'), 'dcap');
-    expect([...el.querySelectorAll('.carta-btn')].map((b) => b.getAttribute('aria-label'))).toEqual(['Capital da Mongólia?, Desconhecida']);
+    expect([...el.querySelectorAll('.carta-btn')].map((b) => b.getAttribute('aria-label'))).toEqual(['Capital da Mongólia?, Desconhecido']);
   });
 
   it('um baralho que não está mais à mostra diz isso', async () => {

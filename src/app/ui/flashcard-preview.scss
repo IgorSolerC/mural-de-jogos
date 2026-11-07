@@ -1,0 +1,102 @@
+/* o tamanho dos dois lados: cabem na largura e na altura do palco (ver review-editor-flashcard.scss) */
+:host {
+  --vao: 18px;
+  --nome-lado: 34px;
+  display: block;
+  container-type: size;
+  width: 100%;
+  height: 100%;
+}
+
+.par {
+  --w: min(calc((100cqw - var(--vao)) / 2), calc((100cqh - var(--nome-lado)) * 5 / 7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vao);
+  height: 100%;
+}
+
+.lado {
+  display: grid;
+  justify-items: center;
+  width: var(--w);
+  min-width: 0;
+}
+
+/* o nome de cada lado, a giz na parede; o lápis diz que ali se muda */
+.rotulo-lado {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--nome-lado);
+  padding: 0 8px;
+  border: 0;
+  background: transparent;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink);
+
+  lucide-icon {
+    display: inline-flex;
+    opacity: 0.75;
+  }
+
+  &:is(button) {
+    cursor: pointer;
+
+    /* a altura do toque, sem pedir lugar no palco */
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -5px 0;
+    }
+
+    &:hover lucide-icon {
+      opacity: 1;
+    }
+
+    &:hover {
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--wall-ink);
+      outline-offset: -3px;
+    }
+  }
+}
+
+.carta-lado {
+  width: 100%;
+  transition: filter 0.26s ease-out;
+}
+
+app-study-card.carta-lado {
+  display: block;
+}
+
+/* a altura escrita, e não por aspect-ratio: sem ela, o texto do verso não sabe quanto tem para crescer nem para rolar.
+   O pé some aos poucos: é o que diz que o texto continua */
+article.carta-lado {
+  --verso-apaga: linear-gradient(#000 calc(100% - 22px), transparent);
+  --verso-pe: 22px;
+  --z: 1;
+  zoom: var(--z);
+  height: calc(var(--w) * 7 / 5 / var(--z));
+
+  /* no palco de cima, o flashcard é bem menor que o de verdade: a letra diminui junto, senão o título toma o verso */
+  @media (max-width: 1023px) {
+    --z: 0.72;
+  }
+}
+
+/* ainda não é flashcard: o desenho do que vai ser */
+.ainda-nao .carta-lado {
+  filter: saturate(0.65) brightness(0.55);
+}

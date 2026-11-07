@@ -36,7 +36,7 @@ const SECTIONS = [
   { id: 'quadro', label: 'Quadro', hint: 'O quadro deste grupo', icon: ICON.colunas },
   // as dos Estudos: só pela engrenagem dos Estudos (ver `study`)
   { id: 'estudo', label: 'Estudo', hint: 'Quanto lembrar e quantas por dia', icon: ICON.estudar },
-  { id: 'baralhos', label: 'Baralhos', hint: 'Novas por dia e o mural', icon: ICON.camadas },
+  { id: 'baralhos', label: 'Baralhos', hint: 'Novos por dia e o mural', icon: ICON.camadas },
 ] as const;
 const STUDY_SECTIONS: readonly string[] = ['estudo', 'baralhos'];
 
@@ -500,7 +500,7 @@ export class MuralConfig {
     const cards = this.studyStore.state().cards.filter((c) => c.decks.every((d) => ids.has(d))).length;
     const names = decks.map((d) => d.name);
     const list = names.length === 1 ? `o baralho ${names[0]}` : `os baralhos ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-    const what = cards === 0 ? '' : `, com o progresso de ${plural(cards, 'carta', 'cartas')}`;
+    const what = cards === 0 ? '' : `, com o progresso de ${plural(cards, 'flashcard', 'flashcards')}`;
     return `${list} dos Flashcards${what}`;
   }
 

@@ -317,7 +317,7 @@ describe('os Estudos por grupo (PLANO-ESTUDOS-GRUPOS.md)', () => {
       const ctx = { ownNote: () => ({ name: 'Nota' }), onWall: () => true };
       const answer = applyStudyRequest(study, { op: 'carta.responder', alvo: 'n1', dados: { acertou: true }, criado_em: new Date().toISOString() }, ctx);
       expect(answer.estado).toBe('falhou');
-      expect((answer.resultado as { erro: string }).erro).toContain('guardada fora dos baralhos');
+      expect((answer.resultado as { erro: string }).erro).toContain('guardado fora dos baralhos');
       expect(study.state().today).toBeNull();
       // mudar a frente e desfazer: a carta guardada volta inteira, com o baralho de antes (não a da vista, sem nenhum)
       const edit = applyStudyRequest(study, { op: 'carta.editar', alvo: 'n1', dados: { titulo: 'カ' }, criado_em: new Date().toISOString() }, ctx);

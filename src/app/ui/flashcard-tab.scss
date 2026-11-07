@@ -1,82 +1,162 @@
 @use 'paper-kit' as kit;
-@use 'kanban-kit' as kk;
 
 :host {
   display: block;
   container: kprops / inline-size;
 }
 
-/* ===== Vazia: a carta em contorno tracejado e o convite ===== */
+/* ===== Ainda não é flashcard: o estado e a ação, no meio da folha ===== */
 .vazia {
-  display: flex;
-  align-items: center;
-  gap: 26px;
-  padding: 26px 4px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  min-height: min(52dvh, 460px);
+  padding: 20px 4px;
+  text-align: center;
 
-  @container kprops (max-width: 520px) {
-    flex-direction: column;
-    align-items: flex-start;
+  @media (max-width: 1023px) {
+    min-height: 0;
+    padding-block: 28px;
   }
 }
 
-.vazia-carta {
-  flex: none;
+.estado {
+  margin: 0;
+  max-width: 34ch;
+  font-family: var(--f-hand);
+  font-size: 1.22rem;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.virar {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding-inline: 24px;
+}
+
+/* ===== É flashcard: blocos sem coluna de rótulos, do que decide para o que quase não muda ===== */
+.fc {
   display: grid;
-  place-items: center;
-  width: 120px;
-  aspect-ratio: 5 / 7;
-  border: 2px dashed rgb(21 21 21 / 0.35);
-  border-radius: 9px;
+  padding-top: 6px;
+}
+
+.bloco {
+  min-width: 0;
+  padding: 14px 0 16px;
+
+  & + & {
+    border-top: 1.5px dashed rgb(21 21 21 / 0.18);
+  }
+}
+
+.nome {
+  margin: 0 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
   color: var(--ink-2);
-  rotate: -2deg;
+}
+
+/* o que falta, à mão, ao lado do nome: pede sem acusar (o erro só vem ao salvar) */
+.falta {
+  margin-left: 8px;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.04rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+}
+
+.erro {
+  margin: 8px 0 0;
+  font-family: var(--f-label);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  color: var(--red-deep);
+}
+
+.errada .nome {
+  color: var(--red-deep);
+}
+
+/* ===== A frente: a imagem no formato do flashcard, e os dois textos ao lado ===== */
+.frente {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.foto {
+  display: grid;
+  /* o link menor: a divisão não fica na altura da que separa o título do subtítulo, e não parece um par com eles */
+  grid-template-rows: minmax(0, 1fr) auto;
+  border: 1.5px dashed rgb(21 21 21 / 0.45);
+  border-radius: 6px;
+  overflow: hidden;
+
+  &.ocupado {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+}
+
+.foto-parte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 44px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.74rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--ink);
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(21 21 21 / 0.06);
+  }
+
+  &:focus-visible,
+  &:has(input:focus-visible) {
+    outline: 3px solid var(--ink);
+    outline-offset: -3px;
+  }
 
   lucide-icon {
     display: inline-flex;
   }
 }
 
-.vazia-texto {
-  display: grid;
-  gap: 14px;
-  justify-items: start;
-}
+.link-btn {
+  flex-direction: row;
+  border-top: 1.5px dashed rgb(21 21 21 / 0.3);
 
-.convite {
-  margin: 0;
-  max-width: 46ch;
-  font-family: var(--f-hand);
-  font-size: 1.12rem;
-  line-height: 1.45;
-}
-
-/* ===== Com frente: as linhas do jeito do Kanban, e a carta viva ao lado ===== */
-.fc {
-  display: grid;
-  gap: 26px;
-  align-items: start;
-
-  @container kprops (min-width: 600px) {
-    grid-template-columns: minmax(0, 1fr) 200px;
+  &[aria-expanded='true'] {
+    background: rgb(21 21 21 / 0.08);
   }
 }
 
-.campos {
-  min-width: 0;
-}
-
-.linha {
-  @include kk.props-linha;
-}
-
-.nome {
-  @include kk.props-nome;
-}
-
-.valor {
+.textos {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  align-self: center;
 }
 
 .campo {
@@ -100,42 +180,8 @@
   font-size: 1.05rem;
 }
 
-.dica {
-  margin: 0;
-  font-family: var(--f-hand);
-  font-size: 0.98rem;
-  color: var(--ink-2);
-}
-
-.erro {
-  margin: 0;
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.02em;
-  color: var(--red-deep);
-}
-
-.linha.errada .nome {
-  color: var(--red-deep);
-}
-
-.imagem-campos,
-.imagem-escolhida {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .link {
-  flex: 1 1 220px;
-}
-
-.imagem-txt {
-  font-family: var(--f-hand);
-  font-weight: 700;
-  font-size: 1.05rem;
+  margin-top: 8px;
 }
 
 .papel {
@@ -146,70 +192,98 @@
   min-height: 44px;
 }
 
-.do-aparelho {
-  position: relative;
-  cursor: pointer;
-
-  &.ocupado {
-    opacity: 0.7;
-    pointer-events: none;
-  }
-
-  &:has(input:focus-visible) {
-    outline: 3px solid var(--ink);
-    outline-offset: 2px;
-  }
-}
-
-.mural {
+/* ===== O verso e o mural: uma linha cada ===== */
+.linha-so {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-block: 10px;
+
+  .nome {
+    margin: 0;
+  }
+
+  /* o que vem por último fica na ponta direita */
+  > :last-child:not(:first-child) {
+    margin-left: auto;
+  }
+}
+
+.verso-txt {
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.04rem;
 }
 
 .interruptor {
   @include kit.interruptor;
 }
 
-.mural-txt {
-  font-family: var(--f-label);
-  font-weight: 700;
-  font-size: 0.86rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-2);
+/* ===== O progresso: recolhido, com o nível à vista ===== */
+.progresso {
+  padding-block: 0;
 
-  /* só nos Estudos é a exceção: não passa despercebida (como o "Só no Kanban") */
-  &.forte {
-    color: var(--ink);
+  summary {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-block: 15px;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 2px;
+    }
   }
+
+  .nome {
+    margin: 0;
+  }
+
+  &[open] .seta {
+    rotate: 180deg;
+  }
+}
+
+.resumo {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--f-hand);
+  font-weight: 700;
+  font-size: 1.04rem;
+}
+
+.seta {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  transition: rotate 0.18s ease-out;
+}
+
+.progresso-dentro {
+  display: grid;
+  gap: 12px;
+  padding-bottom: 16px;
 }
 
 .recomecar {
   justify-self: start;
-  margin-top: 6px;
 }
 
+/* ===== A saída ===== */
 .pe {
   display: flex;
   justify-content: flex-start;
-  padding-top: 16px;
+  padding-top: 14px;
   border-top: 1.5px dashed rgb(21 21 21 / 0.18);
 }
 
-/* a carta viva, em pé na mesa, um pouco torta */
-.palco {
-  display: flex;
-  justify-content: center;
-  padding: 6px 0 12px;
-}
-
-.viva {
-  width: min(200px, 64vw);
-  rotate: 1.4deg;
-}
-
-/* "Pôr no Kana de Idiomas": embaixo da frase da carta guardada, antes do seletor */
+/* "Pôr no Kana de Idiomas": embaixo da frase do flashcard guardado, antes dos baralhos */
 .ofertas {
   display: flex;
   flex-wrap: wrap;
@@ -217,12 +291,11 @@
   margin: 0 0 10px;
 }
 
-/* a carta guardada fora dos baralhos (a anotação mudou de grupo): à mão, como a dica, com a tinta cheia */
+/* o flashcard guardado fora dos baralhos (a anotação mudou de grupo) */
 .dorme {
   margin: 0 0 8px;
   max-width: 52ch;
   font-family: var(--f-hand);
-  font-size: 0.98rem;
-  line-height: 1.4;
-  color: var(--ink);
+  font-size: 1.02rem;
+  line-height: 1.35;
 }

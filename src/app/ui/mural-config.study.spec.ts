@@ -62,25 +62,25 @@ describe('as configurações dos Estudos (a folha da engrenagem)', () => {
     max.value = '';
     max.dispatchEvent(new Event('change'));
     expect(study.config().maxReviews).toBe(50);
-    segment('Sorteadas').click();
+    segment('Sorteados').click();
     expect(study.config().newOrder).toBe('sorteio');
     await fixture.whenStable();
-    expect(el.textContent).toContain('Sorteadas, um sorteio novo a cada dia.');
+    expect(el.textContent).toContain('Sorteados, um sorteio novo a cada dia.');
   });
 
   it('os Baralhos: as novas por dia pelos botões e pelo campo, e o mural também', async () => {
     await go('baralhos');
     expect(el.querySelector('.baralho-nome')!.textContent).toContain('Kanjis');
-    expect(el.querySelector('.baralho-n')!.textContent!.trim()).toBe('2 cartas');
-    el.querySelector<HTMLButtonElement>('button[aria-label="Uma nova a mais por dia em Kanjis"]')!.click();
+    expect(el.querySelector('.baralho-n')!.textContent!.trim()).toBe('2 flashcards');
+    el.querySelector<HTMLButtonElement>('button[aria-label="Um novo a mais por dia em Kanjis"]')!.click();
     expect(study.deck(kanji)!.newPerDay).toBe(6);
     const field = el.querySelector<HTMLInputElement>('.baralho-config .numero input')!;
     field.value = '0';
     field.dispatchEvent(new Event('change'));
     expect(study.deck(kanji)!.newPerDay).toBe(0);
     await fixture.whenStable();
-    expect(el.querySelector<HTMLButtonElement>('button[aria-label="Uma nova a menos por dia em Kanjis"]')!.disabled).toBeTrue();
-    expect(el.textContent).toContain('Nenhuma nova entra: só as revisões.');
+    expect(el.querySelector<HTMLButtonElement>('button[aria-label="Um novo a menos por dia em Kanjis"]')!.disabled).toBeTrue();
+    expect(el.textContent).toContain('Nenhum novo entra: só as revisões.');
     const sw = el.querySelector<HTMLButtonElement>('.baralho-config .interruptor')!;
     expect(sw.getAttribute('aria-checked')).toBe('false');
     sw.click();

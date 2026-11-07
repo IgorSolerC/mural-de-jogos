@@ -524,7 +524,7 @@ export class AreaBar {
       const decks = group ? this.study.decksOfGroup(group) : [];
       const scope = deck && decks.some((d) => d.id === deck) ? deck : group ? decks.map((d) => d.id) : undefined;
       const n = countTotal(dayQueue(this.study.view(), this.study.now(), scope, this.study.live).counts);
-      return n ? { n, long: n === 1 ? 'carta para hoje' : 'cartas para hoje', short: 'hoje' } : null;
+      return n ? { n, long: n === 1 ? 'flashcard para hoje' : 'flashcards para hoje', short: 'hoje' } : null;
     }
     // no Calendário: quantos lembretes hoje tem
     if (this.area() === 'utilidades' && sectionOf(this.path(), UTILITY_SECTIONS)?.slug === 'calendario') {

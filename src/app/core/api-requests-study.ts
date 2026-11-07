@@ -104,8 +104,8 @@ function liveDecks(study: StudyStore, note: string, ids: readonly string[]): { i
     gone ? (gone === 1 ? 'um baralho do pedido não existe mais' : `${gone} baralhos do pedido não existem mais`) : '',
     other ? (other === 1 ? `um baralho do pedido não é ${where}` : `${other} baralhos do pedido não são ${where}`) : '',
   ].filter(Boolean);
-  const aviso = parts.length ? `${parts.join(' e ')}: a carta ficou nos outros.` : null;
-  const erro = other ? `Os baralhos do pedido não são ${where} (um baralho só tem cartas do grupo dele).` : 'Os baralhos do pedido não existem mais.';
+  const aviso = parts.length ? `${parts.join(' e ')}: o flashcard ficou nos outros.` : null;
+  const erro = other ? `Os baralhos do pedido não são ${where} (um baralho só tem flashcards do grupo dele).` : 'Os baralhos do pedido não existem mais.';
   return { ids: ok, aviso: aviso && aviso[0].toUpperCase() + aviso.slice(1), erro };
 }
 
@@ -203,16 +203,16 @@ export function applyStudyRequest(
       const all = [...new Set([...card.decks, ...ids])];
       if (all.join() !== card.decks.join()) study.setDecks(id, all);
     } else {
-      if (study.cards().length >= MAX_CARDS) return failed(`Os Flashcards têm até ${MAX_CARDS} cartas.`);
+      if (study.cards().length >= MAX_CARDS) return failed(`Os Flashcards têm até ${MAX_CARDS} flashcards.`);
       // a anotação que já estava no mural continua lá (como o "Trazer anotações" da tela)
       const wall = d.no_mural !== undefined ? (d.no_mural ?? undefined) : ctx.onWall(id) ? true : undefined;
       study.addCard(id, ids, frontWith({}, d), wall);
-      if (!study.cardOf().has(id)) return failed('A anotação não pôde virar carta.');
+      if (!study.cardOf().has(id)) return failed('A anotação não pôde virar flashcard.');
     }
     return { estado: 'aplicado', resultado: { carta: cardOut(study, id, note.name), ...(aviso ? { aviso } : {}) }, antes: { ...before, depois: stampOf(study, id) } };
   }
 
-  if (!card) return failed('A anotação não é mais carta (saiu dos Flashcards).');
+  if (!card) return failed('A anotação não é mais flashcard (saiu dos Flashcards).');
 
   switch (op) {
     case 'carta.editar': {
@@ -239,10 +239,10 @@ export function applyStudyRequest(
       const when = new Date(req.criado_em);
       // respondida depois do pedido (na sessão, noutro aparelho): a resposta da AI chegou tarde
       if (card.srs.last && card.srs.last > when.toISOString()) {
-        return { estado: 'conflito', resultado: { erro: 'A carta foi respondida no Murall depois deste pedido: a resposta não entrou.' }, antes: null };
+        return { estado: 'conflito', resultado: { erro: 'O flashcard foi respondido no Murall depois deste pedido: a resposta não entrou.' }, antes: null };
       }
       // guardada fora dos baralhos (a anotação mudou de grupo), ela não está em fila nenhuma
-      if (!card.decks.length) return failed('A carta está guardada fora dos baralhos: a anotação mudou de grupo. Ela volta a ser estudada se a anotação voltar ao grupo do baralho.');
+      if (!card.decks.length) return failed('O flashcard está guardado fora dos baralhos: a anotação mudou de grupo. Ele volta a ser estudado se a anotação voltar ao grupo do baralho.');
       const deck = d.baralho && card.decks.includes(d.baralho) ? d.baralho : undefined;
       const counted = deck ?? cardDecks(card, study.decks())[0]?.id ?? card.decks[0] ?? null;
       const conta = card.srs.state === 'nova' ? 'nova' : card.srs.state === 'revisao' ? 'revisao' : null;
@@ -307,7 +307,7 @@ const FRONT_WORDS: [keyof EditarCartaV1, string][] = [
 const DECK_WORDS: [keyof EditarBaralhoV1, string][] = [
   ['nome', 'o nome'],
   ['cor', 'a cor'],
-  ['novas_por_dia', 'as novas por dia'],
+  ['novas_por_dia', 'os novos por dia'],
   ['no_mural', 'o mural'],
   ['estilo', 'o estilo'],
   ['posicao', 'o lugar'],
@@ -338,7 +338,7 @@ export function studyWords(op: string, dados: unknown, title: string, past: bool
       return `${v('Pôr', 'pôs')} ${t} ${Array.isArray(d['baralhos']) && (d['baralhos'] as unknown[]).length > 1 ? 'nos baralhos' : 'no baralho'} ${decks(d['baralhos'])}`;
     case 'carta.editar': {
       const f = fields(FRONT_WORDS);
-      return f.length ? `${v('Mudar', 'mudou')} ${andList(f)} de ${t} nos Flashcards` : `${v('Mudar', 'mudou')} a carta ${t}`;
+      return f.length ? `${v('Mudar', 'mudou')} ${andList(f)} de ${t} nos Flashcards` : `${v('Mudar', 'mudou')} o flashcard ${t}`;
     }
     case 'carta.tirar':
       return `${v('Tirar', 'tirou')} ${t} dos Flashcards`;
@@ -377,8 +377,8 @@ export function placeInDecks(study: StudyStore, note: string, e: CartaNovaV1): s
   // a nota sem grupo ganha o do primeiro baralho (como a "Nova carta" da tela nasce no grupo do baralho)
   study.adoptGroup(note, e.baralhos.filter((id) => !!study.deck(id)));
   const { ids, aviso, erro } = liveDecks(study, note, e.baralhos);
-  if (!ids.length) return `${erro.replace(/\.$/, '')}: a nota nasceu sem carta.`;
-  if (study.cards().length >= MAX_CARDS) return `Os Flashcards têm até ${MAX_CARDS} cartas: a nota nasceu sem carta.`;
+  if (!ids.length) return `${erro.replace(/\.$/, '')}: a nota nasceu sem flashcard.`;
+  if (study.cards().length >= MAX_CARDS) return `Os Flashcards têm até ${MAX_CARDS} flashcards: a nota nasceu sem flashcard.`;
   study.addCard(note, ids, frontWith({}, e));
   return aviso;
 }

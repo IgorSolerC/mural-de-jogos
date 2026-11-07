@@ -299,7 +299,7 @@ export interface CardDeck {
                   <div class="campo">
                     <small>Volta</small>
                     @if (f.level === 'desconhecida') {
-                      <b>—</b><em>ainda não estudada</em>
+                      <b>—</b><em>ainda não estudado</em>
                     } @else if (due()) {
                       <b class="hoje">{{ f.when === 'agora' ? 'Agora' : 'Hoje' }}</b><em>{{ f.stamp.toLocaleLowerCase('pt-BR') }}</em>
                     } @else {
@@ -329,10 +329,10 @@ export interface CardDeck {
                 <div class="tr">
                   @if (face(); as f) {
                     @if (f.level === 'desconhecida') {
-                      <span><i class="nunca">ainda não estudada</i></span><span><i class="nunca">—</i></span>
+                      <span><i class="nunca">ainda não estudado</i></span><span><i class="nunca">—</i></span>
                     } @else {
                       <span><b class="data volta">{{ due() ? f.when.toLocaleUpperCase('pt-BR') : f.stamp }}</b></span>
-                      <span><b class="data total" [attr.aria-label]="f.seen === 1 ? 'revisada 1 vez' : 'revisada ' + f.seen + ' vezes'">{{ f.seen }}</b></span>
+                      <span><b class="data total" [attr.aria-label]="f.seen === 1 ? 'revisado 1 vez' : 'revisado ' + f.seen + ' vezes'">{{ f.seen }}</b></span>
                     }
                   } @else {
                     <span></span><span></span>
@@ -430,7 +430,7 @@ export class StudyCard {
   protected readonly back = computed(() => {
     const f = this.face();
     if (!f) return '';
-    return f.level === 'desconhecida' ? 'ainda não estudada' : `volta ${f.when}`;
+    return f.level === 'desconhecida' ? 'ainda não estudado' : `volta ${f.when}`;
   });
   /** A lápis (a Ficha de argola, a Polaroid): o nível e quando volta; a nunca estudada, só isso. */
   protected readonly pencil = computed(() => {

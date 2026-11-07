@@ -4,7 +4,7 @@
   display: block;
 }
 
-/* a anotação sem grupo não entra em baralho: a frase no lugar do "+ Baralho", à mão como o convite da aba */
+/* a anotação sem grupo não entra em baralho: a frase no lugar dos adesivos, à mão */
 .sem-grupo {
   margin: 0;
   max-width: 46ch;
@@ -24,34 +24,62 @@
   list-style: none;
 }
 
-/* o baralho da carta: um adesivo de papel com a cor do baralho pintada na ponta, como a tira do nome nas pilhas */
+/* um baralho do grupo: fora, o contorno com a cor na ponta; dentro, o adesivo colado, com o visto */
 .adesivo {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 40px;
-  padding: 0 2px 0 16px;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px 0 18px;
+  border: 1.5px solid rgb(21 21 21 / 0.28);
   border-radius: 2px;
-  background: var(--paper-grain), var(--papel-ficha);
-  box-shadow:
-    0 1px 1px rgb(0 0 0 / 0.28),
-    0 2px 4px rgb(0 0 0 / 0.16);
-  color: var(--ink);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
 
   &::before {
     content: '';
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    left: -1.5px;
+    top: -1.5px;
+    bottom: -1.5px;
     width: 6px;
     border-radius: 2px 0 0 2px;
     background: var(--cor);
   }
 
+  &:hover:not(:disabled) {
+    background: rgb(21 21 21 / 0.05);
+    color: var(--ink);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--ink);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   lucide-icon {
     display: inline-flex;
+    flex: none;
+  }
+
+  &.dentro {
+    border-color: transparent;
+    background: var(--paper-grain), var(--papel-ficha);
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.28),
+      0 2px 4px rgb(0 0 0 / 0.16);
+    color: var(--ink);
+
+    &:hover {
+      background: var(--paper-grain), var(--papel-ficha);
+    }
   }
 }
 
@@ -62,41 +90,19 @@
   white-space: nowrap;
   font-family: var(--f-marker);
   font-size: 1rem;
-  line-height: 1;
+  line-height: 1.2;
 }
 
-.tirar {
-  display: inline-grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--ink-2);
-  cursor: pointer;
-
-  &:hover {
-    background: rgb(21 21 21 / 0.08);
-    color: var(--ink);
-  }
-
-  &:focus-visible {
-    outline: 3px solid var(--ink);
-    outline-offset: -3px;
-  }
-}
-
-/* "+ Baralho": o recorte tracejado (o adesivo que ainda não está ali), com a lista do aparelho por cima */
+/* "Novo baralho": o recorte tracejado (o adesivo que ainda não existe) */
 .mais {
-  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 14px;
   border: 1.5px dashed rgb(21 21 21 / 0.45);
   border-radius: 3px;
+  background: transparent;
   font-family: var(--f-label);
   font-weight: 800;
   font-size: 0.86rem;
@@ -109,7 +115,7 @@
     background: rgb(21 21 21 / 0.05);
   }
 
-  &:has(select:focus-visible) {
+  &:focus-visible {
     outline: 3px solid var(--ink);
     outline-offset: 2px;
   }
@@ -117,16 +123,17 @@
   lucide-icon {
     display: inline-flex;
   }
-
-  select {
-    @include kit.select-por-cima;
-  }
 }
 
 .novo {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.tinta {
+  @include kit.botao-papel;
+  min-height: 44px;
 }
 
 .campo-novo {

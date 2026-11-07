@@ -170,10 +170,10 @@ export class StudyCopySheet {
   private gone = false;
 
   protected readonly count = computed(() => this.request().cards.length);
-  protected readonly cardsLabel = computed(() => (this.count() === 1 ? '1 carta' : `${this.count()} cartas`));
+  protected readonly cardsLabel = computed(() => (this.count() === 1 ? '1 flashcard' : `${this.count()} flashcards`));
   protected readonly phrase = computed(() => {
     const n = this.count();
-    return `${n === 1 ? 'A carta vira uma anotação sua' : `As ${n} cartas viram anotações suas`}, ${n === 1 ? 'privada' : 'privadas'}, só nos Flashcards. O progresso começa do zero.`;
+    return `${n === 1 ? 'O flashcard vira uma anotação sua' : `Os ${n} flashcards viram anotações suas`}, ${n === 1 ? 'privada' : 'privadas'}, só nos Flashcards. O progresso começa do zero.`;
   });
   /** Sem lugar, ou o erro da última tentativa. */
   protected readonly problem = computed(() => this.failed() ?? this.copier.limit(this.count()));
@@ -201,7 +201,7 @@ export class StudyCopySheet {
   /** O que falta para copiar, ou para onde o baralho vai: o Copiar apagado nunca fica sem o porquê. */
   protected readonly hint = computed(() => {
     const g = this.group();
-    if (!g) return 'Escolha um grupo ou crie um novo: o baralho e as anotações das cartas ficam nele.';
+    if (!g) return 'Escolha um grupo ou crie um novo: o baralho e as anotações dos flashcards ficam nele.';
     if (!this.name().trim()) return 'Dê um nome ao baralho para copiar.';
     return this.inUse() ? `Vai para o seu grupo ${g}.` : `${g} é um grupo novo: ele aparece nas abas do mural e dos Flashcards.`;
   });
@@ -248,6 +248,6 @@ export class StudyCopySheet {
       await this.router.navigateByUrl(studyPath(studyGroupId(group), out.id));
     }
     const lost = out.lostImages ? ` ${out.lostImages === 1 ? '1 imagem não veio' : `${out.lostImages} imagens não vieram`}.` : '';
-    this.toasts.show(`Baralho copiado: ${out.name}, com ${out.cards === 1 ? '1 carta' : `${out.cards} cartas`}.${lost}`, { label: 'Desfazer', run: out.undo }, 8000);
+    this.toasts.show(`Baralho copiado: ${out.name}, com ${out.cards === 1 ? '1 flashcard' : `${out.cards} flashcards`}.${lost}`, { label: 'Desfazer', run: out.undo }, 8000);
   }
 }

@@ -1,130 +1,136 @@
 @if (!on()) {
-  <!-- vazia (o normal): a carta em contorno e o convite -->
+  <!-- ainda não é flashcard: o estado e uma ação só. O que ela faz está à vista no palco, a frente e o verso -->
   <div class="vazia">
-    <div class="vazia-carta" aria-hidden="true">
-      <lucide-icon [img]="CardIcon" [size]="28" />
-    </div>
-    <div class="vazia-texto">
-      <p class="convite">Dê uma frente a esta anotação para estudar com ela, como num baralho de cartas: na frente, o que você quer lembrar; atrás, a anotação inteira.</p>
-      @if (hasGroup()) {
-        <button type="button" class="papel" (click)="start()">Criar a frente</button>
-      } @else {
-        <!-- cada baralho é de um grupo: sem grupo, não há onde a carta entrar -->
-        <p class="convite sem-grupo">Esta anotação ainda não tem grupo. Escolha um {{ groupPlace() }} para ela virar carta.</p>
-      }
-    </div>
+    @if (hasGroup()) {
+      <p class="estado">Esta anotação ainda não é um flashcard.</p>
+      <button type="button" class="btn-ink virar" (click)="start()">
+        <lucide-icon [img]="CardIcon" [size]="18" aria-hidden="true" />
+        Transformar em flashcard
+      </button>
+    } @else if (readOnly()) {
+      <p class="estado sem-grupo">Para virar flashcard, escolha um grupo {{ groupPlace() }}.</p>
+    } @else {
+      <!-- cada baralho é de um grupo: sem grupo, o caminho até ele -->
+      <p class="estado sem-grupo">Para virar flashcard, falta o grupo.</p>
+      <button type="button" class="btn-ink virar" (click)="chooseGroup.emit()">Escolher o grupo</button>
+    }
   </div>
 } @else {
   <div class="fc">
-    <div class="campos">
-      <div class="linha">
-        <label class="nome" for="fc-titulo">Título</label>
-        <div class="valor">
-          <label class="campo titulo">
-            <input id="fc-titulo" type="text" autocomplete="off" [maxLength]="titleMax" [placeholder]="noteTitle() || 'O que você quer lembrar'" [value]="title()" (input)="setTitle($any($event.target).value)" />
-          </label>
-          <p class="dica">Vazio, a frente usa o nome da anotação.</p>
-        </div>
+    <!-- o baralho vem primeiro: é o único que falta decidir para o flashcard existir -->
+    <section class="bloco" [class.errada]="missingDeck()" aria-labelledby="fc-baralho-nome">
+      <h3 class="nome" id="fc-baralho-nome">
+        Baralho
+        @if (deckHint(); as h) {
+          <span class="falta">{{ h }}</span>
+        }
+      </h3>
+      <div aria-live="polite">
+        @if (twinText(); as t) {
+          <p class="dorme">{{ t }}</p>
+        } @else if (asleepText(); as t) {
+          <p class="dorme">{{ t }}</p>
+        }
       </div>
-
-      <div class="linha">
-        <label class="nome" for="fc-subtitulo">Subtítulo</label>
-        <div class="valor">
-          <label class="campo subtitulo">
-            <input id="fc-subtitulo" type="text" autocomplete="off" [maxLength]="subtitleMax" placeholder="Uma pista, a leitura, o contexto" [value]="subtitle()" (input)="setSubtitle($any($event.target).value)" />
-          </label>
-        </div>
-      </div>
-
-      <div class="linha">
-        <span class="nome" id="fc-imagem-nome">Imagem</span>
-        <div class="valor">
-          @if (image()) {
-            <div class="imagem-escolhida">
-              <span class="imagem-txt">Com imagem</span>
-              <button type="button" class="papel pequeno" (click)="clearImage()">
-                <lucide-icon [img]="CloseIcon" [size]="15" aria-hidden="true" />
-                Tirar
-              </button>
-            </div>
-          } @else {
-            <div class="imagem-campos">
-              <label class="campo link">
-                <span class="sr-only">Link da imagem</span>
-                <input type="url" autocomplete="off" placeholder="Cole a imagem ou o link (https://)" (paste)="onPaste($event)" (change)="setLink($any($event.target).value)" (keydown.enter)="$event.preventDefault(); setLink($any($event.target).value)" />
-              </label>
-              <label class="papel pequeno do-aparelho" [class.ocupado]="busy()">
-                <lucide-icon [img]="ImageIcon" [size]="15" aria-hidden="true" />
-                {{ busy() ? 'Guardando…' : 'Do aparelho' }}
-                <input type="file" accept="image/*" class="sr-only" (change)="useFile($any($event.target).files?.[0]); $any($event.target).value = ''" />
-              </label>
-            </div>
+      @if (offers().length) {
+        <!-- o flashcard guardado, com o baralho de mesmo nome no grupo de agora: seguir é um toque, nunca sozinho -->
+        <div class="ofertas">
+          @for (o of offers(); track o.id) {
+            <button type="button" class="papel pequeno" (click)="adopt(o.id)">Pôr no {{ o.name }} de {{ group() }}</button>
           }
-          @if (imageProblem(); as p) {
-            <p class="erro" role="alert">{{ p }}</p>
-          }
-        </div>
-      </div>
-
-      <div class="linha" [class.errada]="missingDeck()">
-        <span class="nome">Baralhos</span>
-        <div class="valor">
-          <div aria-live="polite">
-            @if (twinText(); as t) {
-              <p class="dorme">{{ t }}</p>
-            } @else if (asleepText(); as t) {
-              <p class="dorme">{{ t }}</p>
-            }
-          </div>
-          @if (offers().length) {
-            <!-- a carta guardada, com o baralho de mesmo nome no grupo de agora: seguir é um toque, nunca sozinho -->
-            <div class="ofertas">
-              @for (o of offers(); track o.id) {
-                <button type="button" class="papel pequeno" (click)="adopt(o.id)">Pôr no {{ o.name }} de {{ group() }}</button>
-              }
-            </div>
-          }
-          <app-study-deck-picker [decks]="shownDecks()" [group]="group()" (decksChange)="setDecks($event)" />
-          @if (missingDeck()) {
-            <p class="erro" role="alert">{{ missingText() }}</p>
-          }
-        </div>
-      </div>
-
-      <div class="linha">
-        <span class="nome" id="fc-mural">No mural</span>
-        <div class="valor mural">
-          <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" aria-labelledby="fc-mural" (click)="setWall(!wall())">
-            <span class="bolinha"></span>
-          </button>
-          <span class="mural-txt" [class.forte]="!wall()">{{ wall() ? 'Aparece no mural também' : 'Só nos Flashcards' }}</span>
-        </div>
-      </div>
-
-      @if (studied()) {
-        <div class="linha">
-          <span class="nome">Boletim</span>
-          <div class="valor">
-            <app-study-report [note]="noteId()" />
-            <button type="button" class="papel pequeno recomecar" (click)="restart()">
-              <lucide-icon [img]="RestartIcon" [size]="15" aria-hidden="true" />
-              Recomeçar o progresso
-            </button>
-          </div>
         </div>
       }
+      <app-study-deck-picker [decks]="shownDecks()" [group]="group()" (decksChange)="setDecks($event)" />
+      @if (missingDeck()) {
+        <p class="erro" role="alert">{{ missingText() }}</p>
+      }
+    </section>
 
-      <div class="pe">
-        <button type="button" class="papel perigo" (click)="stop()">
-          <lucide-icon [img]="TrashIcon" [size]="15" aria-hidden="true" />
-          Deixar de ser carta
-        </button>
+    <!-- a frente: colar uma imagem em qualquer campo dela vale -->
+    <section class="bloco" aria-labelledby="fc-frente-nome" (paste)="onPaste($event)">
+      <h3 class="nome" id="fc-frente-nome">Frente</h3>
+      <div class="frente">
+        <div class="foto" [class.ocupado]="busy()">
+          @if (image()) {
+            <button type="button" class="foto-parte" (click)="clearImage()">
+              <lucide-icon [img]="CloseIcon" [size]="17" aria-hidden="true" />
+              Tirar imagem
+            </button>
+          } @else {
+            <label class="foto-parte">
+              <lucide-icon [img]="ImageIcon" [size]="17" aria-hidden="true" />
+              {{ busy() ? 'Guardando…' : 'Imagem' }}
+              <input type="file" accept="image/*" class="sr-only" (change)="useFile($any($event.target).files?.[0]); $any($event.target).value = ''" />
+            </label>
+            <button type="button" class="foto-parte link-btn" aria-label="Imagem por link" [attr.aria-expanded]="linkOpen()" (click)="toggleLink()">
+              <lucide-icon [img]="LinkIcon" [size]="15" aria-hidden="true" />
+              Link
+            </button>
+          }
+        </div>
+        <div class="textos">
+          <label class="campo titulo">
+            <span class="sr-only">Título da frente</span>
+            <input #tituloCampo id="fc-titulo" type="text" autocomplete="off" [maxLength]="titleMax" [placeholder]="noteTitle() || 'O que lembrar'" [value]="title()" (input)="setTitle($any($event.target).value)" />
+          </label>
+          <label class="campo subtitulo">
+            <span class="sr-only">Subtítulo da frente</span>
+            <input id="fc-subtitulo" type="text" autocomplete="off" [maxLength]="subtitleMax" placeholder="Subtítulo" [value]="subtitle()" (input)="setSubtitle($any($event.target).value)" />
+          </label>
+        </div>
       </div>
+      @if (linkOpen() && !image()) {
+        <label class="campo link">
+          <span class="sr-only">Link da imagem</span>
+          <input #linkCampo type="url" autocomplete="off" placeholder="https://" (change)="setLink($any($event.target).value)" (keydown.enter)="$event.preventDefault(); setLink($any($event.target).value)" (keydown.escape)="$event.preventDefault(); $event.stopPropagation(); closeLink()" />
+        </label>
+      }
+      @if (imageProblem(); as p) {
+        <p class="erro" role="alert">{{ p }}</p>
+      }
+    </section>
+
+    <!-- o verso não se edita aqui: é a anotação inteira, e o caminho até ela -->
+    <div class="bloco linha-so">
+      <h3 class="nome">Verso</h3>
+      <span class="verso-txt">A anotação inteira</span>
+      @if (!readOnly()) {
+        <button type="button" class="papel pequeno" (click)="editBack.emit()">
+          <lucide-icon [img]="EditIcon" [size]="15" aria-hidden="true" />
+          Escrever
+        </button>
+      }
     </div>
 
-    <!-- a carta viva: a frente mudando enquanto se escreve -->
-    <div class="palco" aria-label="Como a frente fica">
-      <app-study-card class="viva" [title]="previewTitle()" [subtitle]="subtitle().trim() || undefined" [image]="image() || undefined" [stock]="stock()" [deck]="deck()" />
+    <div class="bloco linha-so">
+      <span class="nome" id="fc-mural">Mostrar no mural</span>
+      <button type="button" class="interruptor" role="switch" [attr.aria-checked]="wall()" aria-labelledby="fc-mural" (click)="setWall(!wall())">
+        <span class="bolinha"></span>
+      </button>
+    </div>
+
+    @if (studied()) {
+      <details class="bloco progresso">
+        <summary>
+          <span class="nome">Progresso</span>
+          <span class="resumo">{{ progressLine() }}</span>
+          <lucide-icon class="seta" [img]="OpenIcon" [size]="17" aria-hidden="true" />
+        </summary>
+        <div class="progresso-dentro">
+          <app-study-report [note]="noteId()" />
+          <button type="button" class="papel pequeno recomecar" (click)="restart()">
+            <lucide-icon [img]="RestartIcon" [size]="15" aria-hidden="true" />
+            Recomeçar o progresso
+          </button>
+        </div>
+      </details>
+    }
+
+    <div class="pe">
+      <button type="button" class="papel perigo" (click)="stop()">
+        <lucide-icon [img]="TrashIcon" [size]="15" aria-hidden="true" />
+        Deixar de ser flashcard de estudos
+      </button>
     </div>
   </div>
 }

@@ -2,9 +2,9 @@ import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input
 import { OwnNoteLinks } from '../core/own-note-links';
 import { lookOf } from '../core/paper';
 import { paperVars } from '../core/paper-art';
-import { artIdOf, isDarkStock } from '../core/review';
+import { Review, artIdOf, isDarkStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
-import { frontTitle, isPhraseTitle } from '../core/study';
+import { CardFront, frontTitle, isPhraseTitle } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { pinningFor } from '../core/wall-physics';
 import { GrowToFit } from './grow-to-fit';
@@ -46,7 +46,7 @@ const DRAG_PX = 6;
         <!-- o título é o da frente, uma vez só; o nome da anotação só aparece quando é tudo o que ela tem -->
         <h3 class="verso-titulo" [class.frase]="c.phrase" lang="und">{{ c.title }}@if (c.subtitle) {<span> · {{ c.subtitle }}</span>}</h3>
         @if (c.text) {
-          <div class="verso-resposta" [appGrowToFit]="c.text" [appGrowToFitMin]="fitMin()"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
+          <div class="verso-resposta" [inert]="still()" [appGrowToFit]="c.text" [appGrowToFitMin]="fitMin()"><div class="verso-texto"><app-rich-text [text]="c.text" [fold]="true" [foldKey]="c.noteId" [links]="links()" /></div></div>
         } @else if (c.noteTitle !== c.title) {
           <p class="verso-nome">{{ c.noteTitle }}</p>
         } @else {
@@ -65,6 +65,13 @@ export class StudyCardBack {
    * pequena e diminui até 3/4; na mesa de estudo e na maximizada, cabe no tamanho de sempre ou rola.
    */
   readonly fitMin = input(1);
+  /**
+   * A anotação e a frente como estão no editor, ainda sem salvar (o palco da aba Flashcard, ui/flashcard-preview.ts):
+   * o verso sai delas, e não do que está guardado.
+   */
+  readonly draft = input<{ note: Review; front: CardFront } | null>(null);
+  /** Só para ver: o texto rola, mas nada nele se toca nem pega o foco (os links levariam para fora do editor). */
+  readonly still = input(false);
   /** Tocou no papel, não no que o texto tem para tocar: quem deixa, vira a carta. */
   readonly turn = output<void>();
 
@@ -75,10 +82,12 @@ export class StudyCardBack {
 
   protected readonly view = computed(() => {
     const id = this.note();
-    const card = this.study.cardOf().get(id);
-    const note = this.store.get(id);
+    const draft = this.draft();
+    const card = draft ? { front: draft.front } : this.study.cardOf().get(id);
+    const note = draft ? draft.note : this.store.get(id);
     if (!card || !note) return null;
-    const title = frontTitle(card, note.game.name);
+    // no editor, a anotação nova pode ainda não ter nome: o título da frente, como ela está mostrando
+    const title = frontTitle(card, note.game.name) || (draft ? 'Sem nome' : '');
     // a cartolina da anotação como o mural a desenha (sem cor escolhida, a sorteada pelo id)
     const stock = pinningFor(note.id, note.stock).stock;
     const dark = isDarkStock(stock);
@@ -88,7 +97,7 @@ export class StudyCardBack {
       subtitle: card.front.subtitle,
       look: { stock, dark, artId: artIdOf(note), paper: note.paper, paperSeed: note.paperSeed, vars: paperVars(note.paper, note.pattern, lookOf(note), note.patternSeed, dark, note.id) },
       noteId: note.id,
-      noteTitle: note.game.name,
+      noteTitle: note.game.name || title,
       text: note.text,
     };
   });

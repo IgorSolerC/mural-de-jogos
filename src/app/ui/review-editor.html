@@ -3,6 +3,7 @@
   class="sheet editor"
   [class.notas]="notes()"
   [class.na-cartolina]="mode() === 'cartolina'"
+  [class.na-flashcard]="mode() === 'flashcard'"
   aria-labelledby="editor-titulo"
   (cancel)="requestClose($event)"
   (close)="onClose()"
@@ -121,14 +122,14 @@
               <span class="modo-marca" aria-hidden="true"></span>
             }
           </button>
-          <!-- a frente de carta dos Estudos (PLANO-ESTUDOS.md, 6.5): normalmente vazia -->
+          <!-- o flashcard dos Estudos (PLANO-ESTUDOS.md, 6.5): normalmente vazia -->
           <button
             type="button"
             role="tab"
             class="modo"
             id="editor-modo-flashcard"
             aria-controls="editor-conteudo"
-            [attr.aria-label]="flashcard().on() ? 'Flashcard: esta anotação é uma carta' : 'Flashcard: ainda não é uma carta'"
+            [attr.aria-label]="flashcard().on() ? 'Flashcard: esta anotação é um flashcard' : 'Flashcard: ainda não é um flashcard'"
             [attr.aria-selected]="mode() === 'flashcard'"
             [attr.tabindex]="mode() === 'flashcard' ? 0 : -1"
             (click)="setMode('flashcard')"
@@ -439,9 +440,9 @@
           </div>
         }
 
-        <!-- ===== Flashcard: a frente da carta, os baralhos e o mural (ui/flashcard-tab.ts) ===== -->
+        <!-- ===== Flashcard: os baralhos, a frente e o mural (ui/flashcard-tab.ts); frente e verso ficam no palco ===== -->
         <div class="flashcard-modo" [hidden]="mode() !== 'flashcard'">
-          <app-flashcard-tab [noteTitle]="noteTitle()" [stock]="stock()" [group]="noteCategory()" [readOnly]="readOnly()" />
+          <app-flashcard-tab [noteTitle]="noteTitle()" [group]="noteCategory()" [readOnly]="readOnly()" (chooseGroup)="chooseGroup()" (editBack)="setMode('escrever')" />
         </div>
 
         <!-- ===== Cartolina: o estojo inteiro, com o que já está na ficha em etiquetas no alto ===== -->
@@ -465,7 +466,11 @@
            reta. No computador fica sempre à vista, ao lado; no celular, só na aba Cartolina, em cima
            do estojo. No computador, a ficha pode ficar inteira (o texto todo, rolando junto com o
            cursor de quem escreve) -->
-      <aside class="palco parede" aria-label="A ficha no mural">
+      <aside class="palco parede" [attr.aria-label]="mode() === 'flashcard' ? 'O flashcard: frente e verso' : 'A ficha no mural'">
+        <!-- na aba Flashcard, o que aparece é o flashcard: a ficha fica montada e escondida, para voltar como estava -->
+        @if (mode() === 'flashcard') {
+          <app-flashcard-preview [note]="preview()" [front]="flashcard().front()" [stock]="pin().stock" [deck]="flashcard().deck()" [on]="flashcard().on()" [canEditBack]="!readOnly()" (editFront)="flashcard().focusFront()" (editBack)="setMode('escrever')" />
+        }
         <div class="palco-topo">
           <button
             type="button"

@@ -75,7 +75,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     expect(frontTitle()).toBe('日');
     expect($('.verso')!.hasAttribute('inert')).toBeTrue();
     expect(text($('.mostrar'))).toContain('Mostrar a resposta');
-    expect([...dialog()!.querySelectorAll('.monte')].map(text)).toEqual(['2 novas', '0 aprendendo', '0 revisões']);
+    expect([...dialog()!.querySelectorAll('.monte')].map(text)).toEqual(['2 novos', '0 aprendendo', '0 revisões']);
   });
 
   it('Espaço vira; o verso é a cartolina da anotação (cor, papel e estampa, sem estrago nem mancha)', async () => {
@@ -108,7 +108,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
     expect(study.cardOf().get('nlua')!.stats.wrong).toBe(1);
     // as duas em aprendizado voltam daqui a pouco (dentro dos 20 minutos): a mesa continua com elas
     expect(dialog()!.querySelector('.fim')).toBeNull();
-    expect([...dialog()!.querySelectorAll('.monte')].map(text)).toEqual(['0 novas', '2 aprendendo', '0 revisões']);
+    expect([...dialog()!.querySelectorAll('.monte')].map(text)).toEqual(['0 novos', '2 aprendendo', '0 revisões']);
   });
 
   it('Desfazer (Z) volta a última resposta e a carta dela, sem virar', async () => {
@@ -137,7 +137,7 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       await settle();
     }
     expect(text($('.fim h3'))).toBe('Por hoje, é isso.');
-    expect(text($('.fim-conta'))).toContain('4 cartas vistas · acertou 4 (100%)');
+    expect(text($('.fim-conta'))).toContain('4 flashcards vistos · acertou 4 (100%)');
     const all = $<HTMLButtonElement>('.fim .papel')!;
     expect(text(all)).toBe('Estudar tudo');
     all.click();

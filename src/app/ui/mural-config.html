@@ -568,7 +568,7 @@
 
           @case ('estudo') {
             <h3>Estudo</h3>
-            <p class="lead">Como o algoritmo do Anki (o FSRS) decide quando cada carta volta, para todos os baralhos.</p>
+            <p class="lead">Como o algoritmo do Anki (o FSRS) decide quando cada flashcard volta, para todos os baralhos.</p>
 
             <div class="grupo">
               <p class="grupo-titulo">A memória</p>
@@ -599,8 +599,8 @@
                 </label>
               </div>
               <fieldset class="linha">
-                <legend class="linha-titulo">Ordem das novas</legend>
-                <p class="linha-desc">{{ studyStore.config().newOrder === 'sorteio' ? 'Sorteadas, um sorteio novo a cada dia.' : 'Na ordem em que entraram no baralho.' }}</p>
+                <legend class="linha-titulo">Ordem dos novos</legend>
+                <p class="linha-desc">{{ studyStore.config().newOrder === 'sorteio' ? 'Sorteados, um sorteio novo a cada dia.' : 'Na ordem em que entraram no baralho.' }}</p>
                 <div class="segmentos">
                   <label class="segmento">
                     <input type="radio" name="config-ordem-novas" [checked]="studyStore.config().newOrder === 'entrada'" (change)="setNewOrder('entrada')" />
@@ -608,7 +608,7 @@
                   </label>
                   <label class="segmento">
                     <input type="radio" name="config-ordem-novas" [checked]="studyStore.config().newOrder === 'sorteio'" (change)="setNewOrder('sorteio')" />
-                    <span class="seg-nome">Sorteadas</span>
+                    <span class="seg-nome">Sorteados</span>
                   </label>
                 </div>
               </fieldset>
@@ -617,7 +617,7 @@
 
           @case ('baralhos') {
             <h3>Baralhos</h3>
-            <p class="lead">Quantas cartas novas cada baralho põe por dia, e se as cartas dele aparecem no mural também. O nome, a cor e o ícone ficam no lápis da pasta de cada baralho.</p>
+            <p class="lead">Quantos flashcards novos cada baralho põe por dia, e se os flashcards dele aparecem no mural também. O nome, a cor e o ícone ficam no lápis da pasta de cada baralho.</p>
             @for (d of studyStore.decks(); track d.id) {
               <div class="grupo baralho-config" [style.--cor]="'var(--stock-' + d.color + ')'">
                 <p class="grupo-titulo baralho-nome">
@@ -626,26 +626,26 @@
                   }
                   {{ d.name }}
                   @let n = deckCards().get(d.id) ?? 0;
-                  <span class="baralho-n">{{ n === 1 ? '1 carta' : n + ' cartas' }}</span>
+                  <span class="baralho-n">{{ n === 1 ? '1 flashcard' : n + ' flashcards' }}</span>
                 </p>
                 <div class="linha">
                   <div>
-                    <p class="linha-titulo" [id]="'config-t-novas-' + d.id">Novas por dia</p>
-                    <p class="linha-desc">{{ d.newPerDay === 0 ? 'Nenhuma nova entra: só as revisões.' : d.newPerDay === 1 ? 'Uma carta nova por dia.' : d.newPerDay + ' cartas novas por dia.' }}</p>
+                    <p class="linha-titulo" [id]="'config-t-novas-' + d.id">Novos por dia</p>
+                    <p class="linha-desc">{{ d.newPerDay === 0 ? 'Nenhum novo entra: só as revisões.' : d.newPerDay === 1 ? 'Um flashcard novo por dia.' : d.newPerDay + ' flashcards novos por dia.' }}</p>
                   </div>
                   <div class="passo">
-                    <button type="button" class="passo-btn" [attr.aria-label]="'Uma nova a menos por dia em ' + d.name" [disabled]="d.newPerDay <= 0" (click)="setNewPerDay(d.id, d.newPerDay - 1)">−</button>
+                    <button type="button" class="passo-btn" [attr.aria-label]="'Um novo a menos por dia em ' + d.name" [disabled]="d.newPerDay <= 0" (click)="setNewPerDay(d.id, d.newPerDay - 1)">−</button>
                     <label class="numero">
-                      <span class="sr-only">Novas por dia em {{ d.name }}</span>
+                      <span class="sr-only">Novos por dia em {{ d.name }}</span>
                       <input type="number" inputmode="numeric" min="0" [max]="maxNew" [attr.aria-labelledby]="'config-t-novas-' + d.id" [value]="d.newPerDay" (change)="setNewPerDay(d.id, $any($event.target).value)" />
                     </label>
-                    <button type="button" class="passo-btn" [attr.aria-label]="'Uma nova a mais por dia em ' + d.name" [disabled]="d.newPerDay >= maxNew" (click)="setNewPerDay(d.id, d.newPerDay + 1)">+</button>
+                    <button type="button" class="passo-btn" [attr.aria-label]="'Um novo a mais por dia em ' + d.name" [disabled]="d.newPerDay >= maxNew" (click)="setNewPerDay(d.id, d.newPerDay + 1)">+</button>
                   </div>
                 </div>
                 <div class="linha">
                   <div>
                     <p class="linha-titulo" [id]="'config-t-mural-' + d.id">No mural também</p>
-                    <p class="linha-desc">{{ d.wall ? 'As cartas aparecem no mural de anotações também.' : 'Desligado (o padrão), as cartas ficam só nos Flashcards. Cada carta pode escolher o contrário.' }}</p>
+                    <p class="linha-desc">{{ d.wall ? 'Os flashcards aparecem no mural de anotações também.' : 'Desligado (o padrão), eles não aparecem no mural. Cada flashcard pode escolher o contrário.' }}</p>
                   </div>
                   <button type="button" role="switch" class="interruptor" [attr.aria-labelledby]="'config-t-mural-' + d.id" [attr.aria-checked]="!!d.wall" (click)="setDeckWall(d.id, !d.wall)">
                     <span class="bolinha"></span>

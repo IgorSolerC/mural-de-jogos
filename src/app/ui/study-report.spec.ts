@@ -41,8 +41,8 @@ describe('o boletim da carta (ui/study-report.ts)', () => {
   }
 
   it('a carta nunca estudada: Desconhecida, sem as contas', () => {
-    expect(text('.nivel')).toContain('Desconhecida');
-    expect(text('.volta')).toBe('Nunca estudada');
+    expect(text('.nivel')).toContain('Desconhecido');
+    expect(text('.volta')).toBe('Nunca estudado');
     expect(el.querySelector('.chance')).toBeNull();
   });
 
@@ -53,7 +53,7 @@ describe('o boletim da carta (ui/study-report.ts)', () => {
     await dueIn(-1);
     expect(text('.volta')).toBe('Volta hoje');
     expect(el.querySelector('.data')).toBeNull();
-    expect(text('.contas')).toBe('Vista 4 vezes · acertou 3 · errou 1');
+    expect(text('.contas')).toBe('Visto 4 vezes · acertou 3 · errou 1');
     expect(el.querySelectorAll('lucide-icon.marca.errou').length).toBe(1);
   });
 });

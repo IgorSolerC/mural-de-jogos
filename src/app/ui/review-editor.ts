@@ -77,6 +77,7 @@ import { HeightVar } from './height-var';
 import { SubjectPicker } from './subject-picker';
 import { TagPicker } from './tag-picker';
 import { KanbanProps } from './kanban-props';
+import { FlashcardPreview } from './flashcard-preview';
 import { FlashcardTab } from './flashcard-tab';
 import { CategoryLabel } from './category-label';
 import { NoteTag } from './note-tag';
@@ -165,6 +166,7 @@ const MIN_YEAR = 1971;
   selector: 'app-review-editor',
   imports: [
     BackdropClose,
+    FlashcardPreview,
     FlashcardTab,
     HeightVar,
     IconModule,
@@ -195,7 +197,7 @@ const MIN_YEAR = 1971;
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './review-editor.html',
-  styleUrl: './review-editor.scss',
+  styleUrls: ['./review-editor.scss', './review-editor-flashcard.scss'],
 })
 export class ReviewEditor {
   protected readonly store = inject(ReviewStore);

@@ -5,13 +5,14 @@ import { Review, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { Settings } from '../core/settings';
 import { SharedStore } from '../core/shared-store';
+import { MAX_DECKS_PER_CARD } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { Toasts } from './toast';
 import { ReviewEditor, SavedEvent } from './review-editor';
 import { comMarkdown } from '../testing/writing-mode.spec';
 
-/** A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): virar carta, a frente, os baralhos, o mural. */
+/** A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): virar flashcard, a frente, os baralhos, o mural, e o palco com a frente e o verso. */
 
 const T0 = '2026-10-01T10:00:00.000Z';
 const note = (id: string, name: string): Review => ({ ...sanitizeReview({ kind: 'anotacoes', category: 'Estudos', game: { name, coverUrl: null, source: 'manual' }, completedAt: '2026-10-01', createdAt: T0 })!, id });
@@ -63,6 +64,13 @@ describe('o editor: a aba Flashcard', () => {
 
   const tab = () => el.querySelector<HTMLButtonElement>('#editor-modo-flashcard');
   const panel = () => el.querySelector<HTMLElement>('.flashcard-modo')!;
+  const stage = () => el.querySelector<HTMLElement>('app-flashcard-preview');
+  /** O botão de um baralho do grupo, pelo nome. */
+  const deckBtn = (name: string) => [...panel().querySelectorAll<HTMLButtonElement>('button.adesivo')].find((b) => b.textContent!.trim() === name)!;
+  /** Os baralhos ligados. */
+  const chips = () => [...panel().querySelectorAll('.adesivo.dentro .adesivo-nome')].map((e) => e.textContent!.trim());
+  /** O interruptor "Mostrar no mural". */
+  const onWall = () => panel().querySelector('[role=switch]')!.getAttribute('aria-checked');
   const input = (id: string) => el.querySelector<HTMLInputElement>(`#${id}`)!;
   const type = async (id: string, v: string) => {
     const i = input(id);
@@ -78,21 +86,22 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
   };
 
-  it('só nas anotações, e vazia: "Criar a frente" faz da anotação uma carta', async () => {
+  it('só nas anotações, e vazia: "Transformar em flashcard" faz da anotação um flashcard', async () => {
     fixture.componentInstance.open(undefined, undefined, undefined, undefined, 'jogos');
     await fixture.whenStable();
     expect(tab()).toBeNull();
     fixture.componentInstance.openNote('Sol (日)');
-    // num grupo (sem grupo, a aba pede o grupo no lugar do "Criar a frente")
+    // num grupo (sem grupo, a aba pede o grupo no lugar do "Transformar em flashcard")
     fixture.componentInstance['noteCategory'].set('Estudos');
     await fixture.whenStable();
     expect(tab()).not.toBeNull();
     tab()!.click();
     await fixture.whenStable();
     expect(panel().hidden).toBeFalse();
-    expect(panel().textContent).toContain('Dê uma frente a esta anotação');
+    expect(panel().textContent).toContain('ainda não é um flashcard');
+    expect(panel().querySelector('.vazia .virar')!.textContent).toContain('Transformar em flashcard');
     expect(input('fc-titulo')).toBeNull();
-    panel().querySelector<HTMLButtonElement>('.vazia .papel')!.click();
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
     await fixture.whenStable();
     expect(input('fc-titulo').placeholder).toBe('Sol (日)');
   });
@@ -105,14 +114,14 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     tab()!.click();
     await fixture.whenStable();
-    panel().querySelector<HTMLButtonElement>('.vazia .papel')!.click();
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
     await fixture.whenStable();
     await type('fc-titulo', '日');
     await type('fc-subtitulo', 'sol, dia');
-    // o último baralho usado já vem escolhido; a carta viva mostra a frente
-    expect(panel().querySelectorAll('.adesivo').length).toBe(1);
-    expect(panel().querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('日');
-    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Aparece no mural também');
+    // o último baralho usado já vem escolhido; o palco mostra a frente
+    expect(chips()).toEqual(['Kanjis']);
+    expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('日');
+    expect(onWall()).toBe('true');
     await save();
     const card = study.cardOf().get('nsol')!;
     expect(card.front).toEqual({ title: '日', subtitle: 'sol, dia' });
@@ -131,7 +140,7 @@ describe('o editor: a aba Flashcard', () => {
     (fixture.componentInstance as unknown as { setNoteTitle(t: string): void }).setNoteTitle('Comer');
     await fixture.whenStable();
     expect(tab()!.getAttribute('aria-selected')).toBe('true');
-    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Só nos Flashcards');
+    expect(onWall()).toBe('false');
     await type('fc-titulo', '食べる');
     await save();
     expect(asked).toEqual([]);
@@ -152,18 +161,17 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     tab()!.click();
     await fixture.whenStable();
-    const options = () => [...panel().querySelectorAll<HTMLOptionElement>('.mais option')].map((o) => o.textContent!.trim());
-    const chips = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
+    const all = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
     expect(chips()).toEqual(['Kanjis']);
-    expect(options()).not.toContain('Redes');
+    expect(all()).not.toContain('Redes');
     // o grupo muda no editor: o baralho de antes some da lista, os do grupo novo aparecem, e a aba diz
     // que a carta fica guardada fora dele (e que ela fica no mural)
     fixture.componentInstance['noteCategory'].set('Computação');
     await fixture.whenStable();
     expect(chips()).toEqual([]);
-    expect(options()).toContain('Redes');
-    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kanjis enquanto a anotação não for de Estudos');
-    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Aparece no mural também');
+    expect(all()).toContain('Redes');
+    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kanjis, do grupo Estudos');
+    expect(onWall()).toBe('true');
     const events: SavedEvent[] = [];
     fixture.componentInstance.saved.subscribe((e) => events.push(e));
     fixture.componentInstance['mode'].set('escrever');
@@ -188,7 +196,6 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     tab()!.click();
     await fixture.whenStable();
-    const chips = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
     const offers = () => [...panel().querySelectorAll<HTMLButtonElement>('.ofertas button')];
     // no mesmo grupo, nada a oferecer
     expect(offers()).toEqual([]);
@@ -196,7 +203,7 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     // nada muda sozinho: a carta dorme no Kana de Estudos, e o de mesmo nome é oferecido
     expect(chips()).toEqual([]);
-    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kana enquanto a anotação não for de Estudos');
+    expect(panel().querySelector('.dorme')!.textContent).toContain('Fora de Kana, do grupo Estudos');
     expect(offers().map((b) => b.textContent!.trim())).toEqual(['Pôr no Kana de Idiomas']);
     offers()[0].click();
     await fixture.whenStable();
@@ -249,25 +256,31 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().get(saved.id)!.decks).toEqual([twin]);
   });
 
-  it('a anotação sem grupo não vira carta: a aba pede o grupo, no lugar do Criar a frente', async () => {
+  it('a anotação sem grupo não vira flashcard: a aba leva ao grupo, no lugar do Transformar', async () => {
     store.reviews.set([{ ...note('nlua', 'Lua'), category: undefined }]);
     study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     fixture.componentInstance.open(store.get('nlua')!);
     await fixture.whenStable();
     tab()!.click();
     await fixture.whenStable();
-    expect(panel().querySelector('.vazia .papel')).toBeNull();
-    expect(panel().querySelector('.vazia .sem-grupo')!.textContent).toContain('Escolha um na aba Anotação');
-    // com o grupo escolhido, o Criar a frente volta, e o seletor mostra os baralhos dele
+    expect(panel().querySelector('.vazia .virar')!.textContent).toContain('Escolher o grupo');
+    expect(panel().querySelector('.vazia .sem-grupo')!.textContent).toContain('falta o grupo');
+    // "Escolher o grupo" leva até ele, na aba Anotação
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('#editor-modo-escrever')!.getAttribute('aria-selected')).toBe('true');
+    tab()!.click();
+    await fixture.whenStable();
+    // com o grupo escolhido, o Transformar volta, e o seletor mostra os baralhos dele
     fixture.componentInstance['noteCategory'].set('Estudos');
     await fixture.whenStable();
-    panel().querySelector<HTMLButtonElement>('.vazia .papel')!.click();
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
     await fixture.whenStable();
-    expect(panel().querySelector('.adesivo-nome')!.textContent!.trim()).toBe('Kanjis');
+    expect(chips()).toEqual(['Kanjis']);
     // o grupo some de novo: o seletor dá a frase, e salvar diz o que falta de verdade
     fixture.componentInstance['noteCategory'].set(null);
     await fixture.whenStable();
-    expect(panel().querySelector('.mais')).toBeNull();
+    expect(panel().querySelector('.adesivo, .mais')).toBeNull();
     expect(panel().querySelector('app-study-deck-picker .sem-grupo')!.textContent).toContain('Escolha um grupo');
     fixture.componentInstance['mode'].set('escrever');
     el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
@@ -277,13 +290,13 @@ describe('o editor: a aba Flashcard', () => {
     expect(panel().querySelector('.erro')!.textContent).toContain('Esta anotação não tem grupo');
   });
 
-  it('virando carta sem baralho, não salva: a aba diz o que falta', async () => {
+  it('virando flashcard sem baralho, não salva: a aba diz o que falta', async () => {
     store.reviews.set([note('nlua', 'Lua')]);
     fixture.componentInstance.open(store.get('nlua')!);
     await fixture.whenStable();
     tab()!.click();
     await fixture.whenStable();
-    panel().querySelector<HTMLButtonElement>('.vazia .papel')!.click();
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
     await fixture.whenStable();
     fixture.componentInstance['mode'].set('escrever');
     el.querySelector<HTMLButtonElement>('.pregar .btn-ink')!.click();
@@ -295,7 +308,7 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().has('nlua')).toBeFalse();
   });
 
-  it('"Deixar de ser carta" tira dos Estudos ao salvar; os ajustes da carta abrem na aba', async () => {
+  it('"Deixar de ser flashcard de estudos" tira dos Estudos ao salvar; os ajustes dele abrem na aba', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck], { title: '日' }, true);
@@ -312,7 +325,7 @@ describe('o editor: a aba Flashcard', () => {
     expect(study.cardOf().has('nsol')).toBeFalse();
   });
 
-  it('"Deixar de ser carta" salvo avisa com Desfazer, e o evento diz para o aviso de salvar não cobri-lo', async () => {
+  it('"Deixar de ser flashcard de estudos" salvo avisa com Desfazer, e o evento diz para o aviso de salvar não cobri-lo', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     study.addCard('nsol', [deck], { title: '日' }, true);
@@ -334,7 +347,7 @@ describe('o editor: a aba Flashcard', () => {
     toasts.dismiss();
   });
 
-  it('só a carta mudou: a anotação fica como está, sem hora nova', async () => {
+  it('só o flashcard mudou: a anotação fica como está, sem hora nova', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     study.addCard('nsol', [deck], { title: '日' }, true);
@@ -347,7 +360,7 @@ describe('o editor: a aba Flashcard', () => {
     expect(store.get('nsol')).toBe(before);
   });
 
-  it('o "+ Baralho" pelo teclado: as setas só andam na lista, o Enter escolhe; pelo mouse, escolhe na hora', async () => {
+  it('os baralhos do grupo ficam à vista: um toque liga, outro desliga, e nada muda de lugar', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const kanji = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     const quimica = study.addDeck('Química', 'azul', null, undefined, 'Estudos');
@@ -355,30 +368,196 @@ describe('o editor: a aba Flashcard', () => {
     study.addCard('nsol', [kanji], {}, true);
     fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
     await fixture.whenStable();
-    const chosen = () => panel().querySelectorAll('app-study-deck-picker .adesivo').length;
-    const select = () => panel().querySelector<HTMLSelectElement>('.mais select')!;
-    const key = (k: string) => select().dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
-    key('ArrowDown');
-    select().value = quimica;
-    select().dispatchEvent(new Event('change'));
-    key('ArrowDown');
-    select().value = vazio;
-    select().dispatchEvent(new Event('change'));
+    const names = () => [...panel().querySelectorAll('.adesivo-nome')].map((e) => e.textContent!.trim());
+    const order = names();
+    expect(deckBtn('Kanjis').getAttribute('aria-pressed')).toBe('true');
+    expect(deckBtn('Vazio').getAttribute('aria-pressed')).toBe('false');
+    deckBtn('Vazio').click();
     await fixture.whenStable();
-    const before = chosen();
-    key('Enter');
+    deckBtn('Química').click();
     await fixture.whenStable();
-    expect(chosen()).toBe(before + 1);
-    // pelo mouse: na hora, e o aperto do botão não é cancelado (cancelado, a lista do aparelho nem abre)
-    expect(select().dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))).toBeTrue();
-    select().value = quimica;
-    select().dispatchEvent(new Event('change'));
+    expect(names()).toEqual(order);
+    expect(chips().length).toBe(3);
+    deckBtn('Química').click();
+    await fixture.whenStable();
+    deckBtn('Química').click();
     await fixture.whenStable();
     await save();
     expect(study.cardOf().get('nsol')!.decks).toEqual([kanji, vazio, quimica]);
   });
 
-  it('só a carta mudou e a privada entrou num baralho público: o aviso continua vindo', async () => {
+  it('"Novo baralho" abre o campo, cria no grupo da anotação e já liga o baralho novo', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    study.addCard('nsol', [study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos')], {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    panel().querySelector<HTMLButtonElement>('.mais')!.click();
+    await fixture.whenStable();
+    const name = panel().querySelector<HTMLInputElement>('.campo-novo input')!;
+    name.value = 'Verbos';
+    panel().querySelector<HTMLButtonElement>('.novo .tinta')!.click();
+    await fixture.whenStable();
+    expect(chips()).toEqual(['Kanjis', 'Verbos']);
+    expect(study.decks().find((d) => d.name === 'Verbos')!.group).toBe('Estudos');
+  });
+
+  it('no limite de baralhos, os que estão fora não ligam mais e o Novo baralho sai', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const ids = Array.from({ length: MAX_DECKS_PER_CARD }, (_, i) => study.addDeck(`B${i}`, 'amarelo', null, undefined, 'Estudos'));
+    study.addDeck('Fora', 'azul', null, undefined, 'Estudos');
+    study.addCard('nsol', ids, {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    expect(deckBtn('Fora').disabled).toBeTrue();
+    expect(panel().querySelector('.mais')).toBeNull();
+  });
+
+  it('os baralhos de outro grupo em que ele dorme não contam para o limite', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    const old = Array.from({ length: MAX_DECKS_PER_CARD }, (_, i) => study.addDeck(`Antigo ${i}`, 'amarelo', null, undefined, 'Estudos'));
+    study.addDeck('Novo', 'azul', null, undefined, 'Idiomas');
+    study.addCard('nsol', old, {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    fixture.componentInstance['noteCategory'].set('Idiomas');
+    await fixture.whenStable();
+    expect(deckBtn('Novo').disabled).toBeFalse();
+    expect(panel().querySelector('.mais')).not.toBeNull();
+  });
+
+  it('o palco mostra o flashcard só nesta aba: a frente e o verso, com o que está no editor, sem salvar', async () => {
+    store.reviews.set([{ ...note('nsol', 'Sol'), text: 'Texto salvo' }]);
+    study.addCard('nsol', [study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos')], { title: '日' }, true);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    expect(stage()).toBeNull();
+    expect(el.querySelector('.palco')!.getAttribute('aria-label')).toBe('A ficha no mural');
+    fixture.componentInstance['text'].set('Texto ainda sem salvar');
+    tab()!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('.palco')!.getAttribute('aria-label')).toBe('O flashcard: frente e verso');
+    expect(getComputedStyle(el.querySelector('.previa-slot')!).display).toBe('none');
+    expect([...stage()!.querySelectorAll('.rotulo-lado')].map((n) => n.textContent!.trim())).toEqual(['Frente', 'Verso']);
+    expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('日');
+    expect(stage()!.querySelector('article .verso-texto')!.textContent).toContain('Texto ainda sem salvar');
+    // o que se escreve na aba chega à frente e ao verso na hora
+    await type('fc-titulo', '月');
+    expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('月');
+    expect(stage()!.querySelector('article .verso-titulo')!.textContent).toContain('月');
+    // nada do verso pega o toque nem o foco: os links levariam para fora do editor
+    expect(stage()!.querySelector<HTMLElement>('article .verso-resposta')!.inert).toBeTrue();
+    // saindo da aba, a ficha volta
+    (el.querySelector('#editor-modo-escrever') as HTMLButtonElement).click();
+    await fixture.whenStable();
+    expect(stage()).toBeNull();
+    expect(getComputedStyle(el.querySelector('.previa-slot')!).display).not.toBe('none');
+  });
+
+  it('o nome de cada lado leva a quem o edita: a frente, ao título; o verso, à aba Anotação', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    study.addCard('nsol', [study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos')], {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    const sides = () => [...stage()!.querySelectorAll<HTMLButtonElement>('button.rotulo-lado')];
+    // o foco de quem abriu o editor chega depois de um quadro
+    await new Promise((r) => requestAnimationFrame(r));
+    await new Promise((r) => setTimeout(r, 0));
+    sides()[0].click();
+    await fixture.whenStable();
+    expect(document.activeElement).toBe(input('fc-titulo'));
+    sides()[1].click();
+    await fixture.whenStable();
+    expect(el.querySelector('#editor-modo-escrever')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('ainda não sendo flashcard, o palco mostra os dois lados apagados e sem levar a lugar nenhum', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    expect(stage()!.querySelector('.par.ainda-nao')).not.toBeNull();
+    expect(stage()!.querySelector('button.rotulo-lado')).toBeNull();
+    expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('Sol');
+  });
+
+  it('a anotação nova, ainda sem nome: os dois lados dizem "Sem nome", e o verso não fica com o título vazio', async () => {
+    fixture.componentInstance.openNote('');
+    fixture.componentInstance['noteCategory'].set('Estudos');
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    expect(stage()!.querySelector('app-study-card .titulo')!.textContent!.trim()).toBe('Sem nome');
+    expect(stage()!.querySelector('article .verso-titulo')!.textContent!.trim()).toBe('Sem nome');
+    expect(stage()!.querySelector('article .verso-vazio')!.textContent).toContain('não tem texto');
+  });
+
+  it('faltando o baralho, o nome dele já pede, antes do erro de salvar; sem nenhum no grupo, pede para criar', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    fixture.componentInstance.open(store.get('nsol')!);
+    await fixture.whenStable();
+    tab()!.click();
+    await fixture.whenStable();
+    panel().querySelector<HTMLButtonElement>('.vazia .virar')!.click();
+    await fixture.whenStable();
+    expect(panel().querySelector('.falta')!.textContent).toBe('crie um');
+    const a = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
+    study.addDeck('Verbos', 'rosa', null, undefined, 'Estudos');
+    await fixture.whenStable();
+    expect(panel().querySelector('.falta')!.textContent).toBe('escolha um');
+    deckBtn('Kanjis').click();
+    await fixture.whenStable();
+    expect(panel().querySelector('.falta')).toBeNull();
+    expect(a).toBeTruthy();
+  });
+
+  it('a linha do verso diz o que ele é e leva à aba Anotação', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    study.addCard('nsol', [study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos')], {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    expect(panel().querySelector('.verso-txt')!.textContent).toBe('A anotação inteira');
+    panel().querySelector<HTMLButtonElement>('.linha-so .papel')!.click();
+    await fixture.whenStable();
+    expect(el.querySelector('#editor-modo-escrever')!.getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('a imagem por link: o campo só abre pedido, recusa o que não é https e fecha ao valer', async () => {
+    store.reviews.set([note('nsol', 'Sol')]);
+    study.addCard('nsol', [study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos')], {}, true);
+    fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
+    await fixture.whenStable();
+    const field = () => panel().querySelector<HTMLInputElement>('.link input');
+    expect(field()).toBeNull();
+    panel().querySelector<HTMLButtonElement>('.link-btn')!.click();
+    await fixture.whenStable();
+    field()!.value = 'http://errado.com/a.png';
+    field()!.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(panel().querySelector('.erro')!.textContent).toContain('https://');
+    // o Esc fecha só o campo, sem o cancel do diálogo, e o erro do link recusado sai junto
+    const esc = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+    const open = field()!;
+    open.dispatchEvent(esc);
+    open.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(esc.defaultPrevented).toBeTrue();
+    expect(field()).toBeNull();
+    expect(panel().querySelector('.erro')).toBeNull();
+    expect(el.querySelector('dialog')!.open).toBeTrue();
+    panel().querySelector<HTMLButtonElement>('.link-btn')!.click();
+    await fixture.whenStable();
+    field()!.value = 'https://certo.com/a.png';
+    field()!.dispatchEvent(new Event('change'));
+    await fixture.whenStable();
+    expect(field()).toBeNull();
+    expect(panel().querySelector('.erro')).toBeNull();
+    expect(panel().querySelector('.foto')!.textContent).toContain('Tirar imagem');
+    await save();
+    expect(study.cardOf().get('nsol')!.front.image).toBe('https://certo.com/a.png');
+  });
+
+  it('só o flashcard mudou e a privada entrou num baralho público: o aviso continua vindo', async () => {
     store.reviews.set([{ ...note('nsol', 'Sol'), private: true }]);
     const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     const pub = study.addDeck('Público', 'azul', null, undefined, 'Estudos');
@@ -388,9 +567,7 @@ describe('o editor: a aba Flashcard', () => {
     fixture.componentInstance.saved.subscribe((e) => events.push(e));
     fixture.componentInstance.openAt(store.get('nsol')!, 'flashcard');
     await fixture.whenStable();
-    const select = panel().querySelector<HTMLSelectElement>('.mais select')!;
-    select.value = pub;
-    select.dispatchEvent(new Event('change'));
+    deckBtn('Público').click();
     await fixture.whenStable();
     await save();
     expect(events[0].onlyPlace).toBeTrue();
@@ -406,7 +583,7 @@ describe('o editor: a aba Flashcard', () => {
     expect(panel().querySelector('.sem-grupo')!.textContent).not.toContain('aba Anotação');
   });
 
-  it('a nota só de leitura: a carta muda ao salvar, e a anotação não', async () => {
+  it('a nota só de leitura: o flashcard muda ao salvar, e a anotação não; o verso não leva a uma aba que não tem', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo', null, undefined, 'Estudos');
     study.addCard('nsol', [deck], { title: '日' }, true);
@@ -416,13 +593,15 @@ describe('o editor: a aba Flashcard', () => {
     await fixture.whenStable();
     expect(tab()!.getAttribute('aria-selected')).toBe('true');
     expect(el.querySelector('#editor-modo-escrever')).toBeNull();
+    expect([...stage()!.querySelectorAll('button.rotulo-lado')].map((b) => b.textContent!.trim())).toEqual(['Frente']);
+    expect(panel().querySelector('.linha-so .papel')).toBeNull();
     await type('fc-subtitulo', 'nichi');
     await save();
     expect(study.cardOf().get('nsol')!.front.subtitle).toBe('nichi');
     expect(store.get('nsol')).toBe(before);
   });
 
-  it('o boletim aparece depois da primeira resposta; "Recomeçar o progresso" pergunta e a carta volta a Desconhecida', async () => {
+  it('o progresso aparece recolhido depois da primeira resposta; "Recomeçar o progresso" pergunta e o flashcard volta a Desconhecido', async () => {
     store.reviews.set([note('nsol', 'Sol')]);
     const deck = study.addDeck('Kanjis', 'amarelo');
     study.addCard('nsol', [deck], { title: '日' }, true);
@@ -433,8 +612,10 @@ describe('o editor: a aba Flashcard', () => {
     study.answer('nsol', false, deck);
     await fixture.whenStable();
     const report = panel().querySelector('app-study-report')!;
-    expect(report.querySelector('.nivel')!.textContent).toContain('Nova');
-    expect(report.querySelector('.contas')!.textContent!.replace(/\s+/g, ' ')).toContain('Vista 2 vezes · acertou 1 · errou 1');
+    expect(panel().querySelector('.progresso')!.hasAttribute('open')).toBeFalse();
+    expect(panel().querySelector('.progresso .resumo')!.textContent).toBe('Novo · visto 2 vezes');
+    expect(report.querySelector('.nivel')!.textContent).toContain('Novo');
+    expect(report.querySelector('.contas')!.textContent!.replace(/\s+/g, ' ')).toContain('Visto 2 vezes · acertou 1 · errou 1');
     expect(report.querySelector('.chance strong')!.textContent).toMatch(/^\d+%$/);
     expect(report.querySelectorAll('lucide-icon.marca').length).toBe(2);
     expect(report.querySelectorAll('lucide-icon.marca.errou').length).toBe(1);
@@ -448,7 +629,7 @@ describe('o editor: a aba Flashcard', () => {
     expect(panel().querySelector('app-study-report')).toBeNull();
     // o Desfazer traz as respostas de volta
     const toast = TestBed.inject(Toasts).current()!;
-    expect(toast.text).toBe('O progresso da carta recomeçou');
+    expect(toast.text).toBe('O progresso do flashcard recomeçou');
     toast.action!.run();
     expect(study.cardOf().get('nsol')!.stats.seen).toBe(2);
   });

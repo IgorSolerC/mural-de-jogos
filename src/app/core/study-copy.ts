@@ -82,7 +82,7 @@ export interface DeckCopyResult {
 /** Por que não dá para copiar agora (sem lugar), ou null. */
 export function copyLimit(decks: number, cards: number, more: number): string | null {
   if (decks >= MAX_DECKS) return `Você já tem ${MAX_DECKS} baralhos, o máximo. Apague um para copiar este.`;
-  if (cards + more > MAX_CARDS) return `As cartas passariam de ${MAX_CARDS}, o máximo dos Flashcards. Tire algumas para copiar este.`;
+  if (cards + more > MAX_CARDS) return `Os flashcards passariam de ${MAX_CARDS}, o máximo. Tire alguns para copiar este.`;
   return null;
 }
 

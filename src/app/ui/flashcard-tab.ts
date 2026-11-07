@@ -1,21 +1,20 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { ImageStore } from '../core/image-store';
 import { ImageProblem, localImageUrl } from '../core/images';
-import { Stock } from '../core/review';
 import { lookKey } from '../core/category-looks';
-import { CardFront, Deck, StudyCard as Card, SUBTITLE_MAX, TITLE_MAX, cleanFront, cleanImage, groupKey, inGroup, studyOnWall } from '../core/study';
+import { CardFront, Deck, LEVEL_LABEL, StudyCard as Card, SUBTITLE_MAX, TITLE_MAX, cleanFront, cleanImage, groupKey, inGroup, levelOf, studyOnWall } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { Confirm } from './confirm';
 import { ICON, IconModule } from './icons';
-import { StudyCard } from './study-card';
 import { StudyDeckPicker } from './study-deck-picker';
 import { StudyReport } from './study-report';
 import { Toasts } from './toast';
 
 /**
- * A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): a frente da carta (título, subtítulo e imagem), os
- * baralhos e se ela aparece no mural também, com a carta viva ao lado. Normalmente vazia: "Criar a frente"
- * faz da anotação uma carta. Nada muda até salvar a anotação (`apply`), como a aba Kanban.
+ * A aba Flashcard do editor (PLANO-ESTUDOS.md, 6.5): os baralhos, a frente (título, subtítulo e imagem) e se
+ * ele aparece no mural também. A frente e o verso ficam à vista no palco do editor (ui/flashcard-preview.ts),
+ * por isso aqui quase não há frase. Normalmente vazia: "Transformar em flashcard" faz da anotação um flashcard.
+ * Nada muda até salvar a anotação (`apply`), como a aba Kanban.
  *
  * O título é opcional: vazio, a frente usa o nome da anotação (D8). A anotação que já estava no mural
  * continua lá ao virar carta (D4: nada some sem a pessoa mandar); a nascida de dentro dos Estudos segue os
@@ -31,7 +30,7 @@ import { Toasts } from './toast';
  */
 @Component({
   selector: 'app-flashcard-tab',
-  imports: [IconModule, StudyCard, StudyDeckPicker, StudyReport],
+  imports: [IconModule, StudyDeckPicker, StudyReport],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './flashcard-tab.html',
   styleUrl: './flashcard-tab.scss',
@@ -39,18 +38,23 @@ import { Toasts } from './toast';
 export class FlashcardTab {
   /** O nome da anotação (a frente sem título próprio usa ele). */
   readonly noteTitle = input('');
-  /** A cartolina escolhida no editor: a moldura da carta sai dela. */
-  readonly stock = input<Stock>('amarelo');
   /** O grupo da anotação, como está no editor agora. */
   readonly group = input<string | null>(null);
   /** Quem só lê a compartilhada: não tem a aba Anotação, e o grupo dela se escolhe em "Grupo e tags", na leitura. */
   readonly readOnly = input(false);
+  /** "Escolher o grupo": o grupo mora na aba Anotação. */
+  readonly chooseGroup = output<void>();
+  /** O verso é a anotação: "Escrever" leva à aba dela. */
+  readonly editBack = output<void>();
 
   protected readonly CardIcon = ICON.camadas;
   protected readonly ImageIcon = ICON.imagem;
   protected readonly TrashIcon = ICON.apagar;
   protected readonly CloseIcon = ICON.fechar;
   protected readonly RestartIcon = ICON.recomecar;
+  protected readonly LinkIcon = ICON.link;
+  protected readonly EditIcon = ICON.editar;
+  protected readonly OpenIcon = ICON.abrir;
   protected readonly titleMax = TITLE_MAX;
   protected readonly subtitleMax = SUBTITLE_MAX;
 
@@ -64,6 +68,12 @@ export class FlashcardTab {
   protected readonly title = signal('');
   protected readonly subtitle = signal('');
   protected readonly image = signal('');
+  /** A frente como está na aba, para o palco do editor. */
+  readonly front = computed<CardFront>(() => cleanFront({ title: this.title(), subtitle: this.subtitle(), image: this.image() }));
+  /** O campo do link aberto (a imagem por link é o caminho raro). */
+  protected readonly linkOpen = signal(false);
+  private readonly titleField = viewChild<ElementRef<HTMLInputElement>>('tituloCampo');
+  private readonly linkField = viewChild<ElementRef<HTMLInputElement>>('linkCampo');
   /** Os baralhos escolhidos, com os de outro grupo em que a carta dorme (ver `live`). */
   readonly decks = signal<string[]>([]);
   /** Os escolhidos que valem: os que existem e são do grupo do editor, e os de mesmo nome que a carta segue. */
@@ -105,14 +115,18 @@ export class FlashcardTab {
   protected readonly offers = computed<Deck[]>(() => (this.asleep().length ? this.sameNamed() : []));
   /** O que o seletor mostra: os escolhidos e os gêmeos. */
   protected readonly shownDecks = computed(() => [...this.decks(), ...this.twins().map((d) => d.id)]);
-  /** A frase dos gêmeos: para onde a carta vai no grupo novo. */
+  /** Falta o baralho, e o erro de salvar ainda não veio: o que fazer, ao lado do nome. O guardado fora dos baralhos não precisa. */
+  protected readonly deckHint = computed(() => {
+    if (this.live().length || this.asleep().length || this.missingDeck() || !this.hasGroup()) return '';
+    return this.study.decks().some((d) => inGroup(d, this.group())) ? 'escolha um' : 'crie um';
+  });
+  /** A frase dos gêmeos: para onde o flashcard vai no grupo novo. */
   protected readonly twinText = computed(() => {
     const twins = this.twins();
     if (!twins.length) return '';
     const names = twins.map((d) => d.name);
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
-    const what = names.length === 1 ? 'o baralho de mesmo nome' : 'os baralhos de mesmo nome';
-    return `Em ${this.group()}, a carta vai para ${list}, ${what}.`;
+    return `Vai para ${list}, de mesmo nome.`;
   });
 
   /** "Pôr no Kana de Idiomas": a carta guardada passa para o baralho de mesmo nome do grupo de agora. */
@@ -128,7 +142,7 @@ export class FlashcardTab {
   protected readonly groupPlace = computed(() => (this.readOnly() ? 'em Grupo e tags, na leitura da anotação' : 'na aba Anotação'));
   /** O que dizer quando falta: sem grupo, não há baralho para escolher. */
   protected readonly missingText = computed(() =>
-    this.hasGroup() ? 'Escolha um baralho para a carta.' : `Esta anotação não tem grupo: escolha um ${this.groupPlace()}.`,
+    this.hasGroup() ? 'Escolha um baralho para o flashcard.' : `Esta anotação não tem grupo: escolha um ${this.groupPlace()}.`,
   );
   protected readonly imageProblem = signal('');
   protected readonly busy = signal(false);
@@ -161,16 +175,15 @@ export class FlashcardTab {
     return this.decks().flatMap((id) => this.study.deck(id) ?? []);
   });
 
-  /** A frase da carta guardada: de onde ela saiu e como volta. */
+  /** A frase do flashcard guardado: de onde ele saiu, e que o progresso não se perdeu. */
   protected readonly asleepText = computed(() => {
     const decks = this.asleep();
     if (!decks.length) return '';
     const names = decks.map((d) => d.name);
     const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
     const groups = [...new Set(decks.map((d) => d.group ?? ''))];
-    const to = names.length === 1 ? 'ao baralho' : 'aos baralhos';
-    if (groups.length > 1) return `Fora de ${list} enquanto a anotação não for do grupo deles: o progresso fica guardado, e a carta volta a cada um se ela voltar ao grupo dele.`;
-    return `Fora de ${list} enquanto a anotação não for de ${groups[0]}: o progresso fica guardado, e a carta volta ${to} se ela voltar ao grupo.`;
+    if (groups.length > 1) return `Fora de ${list}, de outros grupos. O progresso fica guardado.`;
+    return `Fora de ${list}, do grupo ${groups[0]}. O progresso fica guardado.`;
   });
 
   /** "No mural": o escolhido; senão o da carta; senão, para a anotação que já existia, sim; senão, o dos baralhos. */
@@ -189,26 +202,31 @@ export class FlashcardTab {
   /** A carta já foi respondida alguma vez: o boletim aparece. */
   protected readonly studied = computed(() => (this.study.cardOf().get(this.noteId())?.stats.seen ?? 0) > 0);
 
-  /** "Recomeçar o progresso": a carta volta a Desconhecida, sem respostas (pergunta antes; vale na hora, com Desfazer). */
+  /** O progresso recolhido, numa linha: o nível e quantas vezes foi visto. */
+  protected readonly progressLine = computed(() => {
+    const card = this.study.cardOf().get(this.noteId());
+    if (!card) return '';
+    return `${LEVEL_LABEL[levelOf(card.srs)]} · visto ${card.stats.seen === 1 ? '1 vez' : `${card.stats.seen} vezes`}`;
+  });
+
+  /** "Recomeçar o progresso": o flashcard volta a Desconhecido, sem respostas (pergunta antes; vale na hora, com Desfazer). */
   protected async restart(): Promise<void> {
     const card = this.card();
     if (!card) return;
     const yes = await this.confirm.ask({
       title: 'Recomeçar o progresso?',
-      text: `A carta volta a ser Desconhecida: as ${card.stats.seen === 1 ? 'uma resposta' : `${card.stats.seen} respostas`} dela saem, e ela entra de novo como nova.`,
+      text: `O flashcard volta a ser Desconhecido: ${card.stats.seen === 1 ? 'a resposta dele sai' : `as ${card.stats.seen} respostas dele saem`}, e ele entra de novo como novo.`,
       confirm: 'Recomeçar',
       cancel: 'Deixar',
       icon: ICON.recomecar,
     });
     if (!yes) return;
     const undo = this.study.resetCard(card.note);
-    if (undo) this.toasts.show('O progresso da carta recomeçou', { label: 'Desfazer', run: undo });
+    if (undo) this.toasts.show('O progresso do flashcard recomeçou', { label: 'Desfazer', run: undo });
   }
 
-  /** O naipe da carta viva: o ícone do primeiro baralho. */
-  /** O primeiro baralho escolhido: a carta viva no desenho dele. */
-  protected readonly deck = computed(() => this.study.deck(this.live()[0] ?? '') ?? null);
-  protected readonly previewTitle = computed(() => this.title().trim() || this.noteTitle().trim() || 'Sem nome');
+  /** O primeiro baralho escolhido: o palco mostra o flashcard no desenho dele. */
+  readonly deck = computed(() => this.study.deck(this.live()[0] ?? '') ?? null);
 
   /**
    * O editor abriu (`id`, nova ou não): a carta como está, ou a pedida de dentro de um baralho, ou nada.
@@ -220,6 +238,7 @@ export class FlashcardTab {
     this.wallChoice.set(null);
     this.missingDeck.set(false);
     this.imageProblem.set('');
+    this.linkOpen.set(false);
     const card = this.card();
     const pending = isNew ? this.study.pending() : null;
     this.on.set(!!card || !!pending);
@@ -257,7 +276,12 @@ export class FlashcardTab {
     return this.on() && this.freshNote() && !this.wall();
   }
 
-  /** "Criar a frente": a anotação vira carta, com o último baralho usado (se ainda existir). */
+  /** O nome "Frente", no palco: o título é o que se muda primeiro. */
+  focusFront(): void {
+    this.titleField()?.nativeElement.focus();
+  }
+
+  /** "Transformar em flashcard": com o último baralho usado (se ainda existir). */
   protected start(): void {
     const last = this.study.lastDeck();
     this.on.set(true);
@@ -267,13 +291,13 @@ export class FlashcardTab {
     else if (!this.decks().length && mine.length === 1) this.decks.set([mine[0].id]);
   }
 
-  /** "Deixar de ser carta": vale ao salvar; a que já tinha progresso pergunta antes. */
+  /** "Deixar de ser flashcard de estudos": vale ao salvar; a que já tinha progresso pergunta antes. */
   protected async stop(): Promise<void> {
     const card = this.card();
     if (card?.stats.seen) {
       const yes = await this.confirm.ask({
         title: 'Tirar dos Flashcards?',
-        text: `Ela já foi vista ${card.stats.seen === 1 ? '1 vez' : `${card.stats.seen} vezes`}; o progresso sai junto ao salvar. A anotação continua.`,
+        text: `Ele já foi visto ${card.stats.seen === 1 ? '1 vez' : `${card.stats.seen} vezes`}; o progresso sai junto ao salvar. A anotação continua.`,
         confirm: 'Tirar dos Flashcards',
         cancel: 'Deixar',
         icon: ICON.apagar,
@@ -298,10 +322,25 @@ export class FlashcardTab {
   /** A imagem por link: só https vale (ver `cleanImage`). */
   protected setLink(value: string): void {
     const v = value.trim();
-    if (!v) return;
+    // saindo da tela, o campo ainda avisa que mudou: fechado, não vale mais
+    if (!v || !this.linkOpen()) return;
     const ok = cleanImage(v);
     this.imageProblem.set(ok ? '' : 'O link precisa começar com https://');
-    if (ok) this.image.set(ok);
+    if (!ok) return;
+    this.image.set(ok);
+    this.linkOpen.set(false);
+  }
+
+  protected toggleLink(): void {
+    if (this.linkOpen()) return this.closeLink();
+    this.linkOpen.set(true);
+    setTimeout(() => this.linkField()?.nativeElement.focus());
+  }
+
+  /** Fechado o campo, o erro do link recusado sai junto: não teria a que se referir. */
+  protected closeLink(): void {
+    this.linkOpen.set(false);
+    this.imageProblem.set('');
   }
 
   /** A imagem do aparelho (escolhida ou colada): encolhida e guardada como as coladas no texto. */

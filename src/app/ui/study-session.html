@@ -6,7 +6,7 @@
     </button>
     <h2 id="sessao-titulo" class="baralho">{{ title() }}</h2>
     <ul class="montes" aria-label="Faltam">
-      <li class="monte" data-monte="novas" [class.vez]="current()?.kind === 'nova'"><span class="selo" aria-hidden="true"></span>{{ counts().novas }}<span class="sr-only"> {{ counts().novas === 1 ? 'nova' : 'novas' }}</span></li>
+      <li class="monte" data-monte="novas" [class.vez]="current()?.kind === 'nova'"><span class="selo" aria-hidden="true"></span>{{ counts().novas }}<span class="sr-only"> {{ counts().novas === 1 ? 'novo' : 'novos' }}</span></li>
       <li class="monte" data-monte="aprender" [class.vez]="current()?.kind === 'aprender'"><span class="selo" aria-hidden="true"></span>{{ counts().aprender }}<span class="sr-only"> aprendendo</span></li>
       <li class="monte" data-monte="revisar" [class.vez]="current()?.kind === 'revisao'"><span class="selo" aria-hidden="true"></span>{{ counts().revisar }}<span class="sr-only"> {{ counts().revisar === 1 ? 'revisão' : 'revisões' }}</span></li>
     </ul>
@@ -55,10 +55,10 @@
         <h3 id="fim-titulo">Por hoje, é isso.</h3>
         @if (summary(); as s) {
           @if (s.seen) {
-            <p class="fim-conta"><strong>{{ s.seen }}</strong> {{ s.seen === 1 ? 'carta vista' : 'cartas vistas' }} · acertou {{ s.right }} ({{ s.rate }}%) · {{ s.minutes === 1 ? '1 minuto' : s.minutes + ' minutos' }}</p>
+            <p class="fim-conta"><strong>{{ s.seen }}</strong> {{ s.seen === 1 ? 'flashcard visto' : 'flashcards vistos' }} · acertou {{ s.right }} ({{ s.rate }}%) · {{ s.minutes === 1 ? '1 minuto' : s.minutes + ' minutos' }}</p>
           }
           @if (later(); as at) {
-            <p class="fim-mao">Uma carta que você errou volta daqui a {{ laterLabel(at) }}: deixe aberto, ou volte depois.</p>
+            <p class="fim-mao">Um flashcard que você errou volta daqui a {{ laterLabel(at) }}: deixe aberto, ou volte depois.</p>
           } @else if (s.next; as n) {
             <p class="fim-mao">{{ n.when }}: {{ n.n === 1 ? '1 revisão' : n.n + ' revisões' }}.</p>
           } @else {

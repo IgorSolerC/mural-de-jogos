@@ -27,7 +27,7 @@ const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', '
         </p>
         @if (d.seen) {
           <p class="contas">
-            Vista {{ d.seen === 1 ? '1 vez' : d.seen + ' vezes' }} · acertou {{ d.right }} · errou {{ d.wrong }}
+            Visto {{ d.seen === 1 ? '1 vez' : d.seen + ' vezes' }} · acertou {{ d.right }} · errou {{ d.wrong }}
           </p>
           <p class="chance">Chance de lembrar agora: <strong>{{ d.recall }}%</strong></p>
           <p class="marcas">
@@ -37,7 +37,7 @@ const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', '
             }
           </p>
         } @else {
-          <p class="contas">Entra quando chegar a vez dela, com as novas do baralho.</p>
+          <p class="contas">Entra quando chegar a vez dele, com os novos do baralho.</p>
         }
       </div>
     }
@@ -163,7 +163,7 @@ export class StudyReport {
       level,
       levelLabel: LEVEL_LABEL[level],
       // guardada fora dos baralhos (a anotação mudou de grupo): não está em fila nenhuma
-      when: !card.decks.length ? 'Guardada, fora dos baralhos' : studied ? `Volta ${whenLabel(card.srs, now)}` : 'Nunca estudada',
+      when: !card.decks.length ? 'Guardado, fora dos baralhos' : studied ? `Volta ${whenLabel(card.srs, now)}` : 'Nunca estudado',
       // a data só quando é outro dia (a vencida "volta hoje", sem a data de quando venceu)
       date: card.decks.length && card.srs.state === 'revisao' && studyDay(due) > studyDay(now) ? `${String(due.getDate()).padStart(2, '0')} ${MONTHS[due.getMonth()]}` : '',
       seen: card.stats.seen,

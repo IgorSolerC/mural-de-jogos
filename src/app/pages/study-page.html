@@ -71,14 +71,14 @@
           @if (g.notes) {
             {{ g.label }} já tem {{ g.notes === 1 ? "1 anotação" : g.notes + " anotações" }}.
           }
-          Um baralho junta as que você quer lembrar: cada uma vira uma carta, com o que lembrar na frente e a
+          Um baralho junta as que você quer lembrar: cada uma vira um flashcard, com o que lembrar na frente e a
           anotação inteira atrás.
         </p>
       } @else {
         <p>
-          Um baralho junta as cartas que você estuda juntas, como <em>Kanjis simples</em>, <em>Verbos</em> ou
-          <em>Capitais</em>. Cada carta é uma anotação sua: na frente, o que você quer lembrar; atrás, a anotação
-          inteira, com a resposta. As cartas vêm das anotações do grupo escolhido.
+          Um baralho junta os flashcards que você estuda juntos, como <em>Kanjis simples</em>, <em>Verbos</em> ou
+          <em>Capitais</em>. Cada flashcard é uma anotação sua: na frente, o que você quer lembrar; atrás, a anotação
+          inteira, com a resposta. Os flashcards vêm das anotações do grupo escolhido.
         </p>
       }
       <form class="primeiro-form" (submit)="$event.preventDefault(); createFirst(g ? g.label : firstGroupValue())">
@@ -114,7 +114,7 @@
   <a class="pilha" appPerto #perto="perto" [routerLink]="deckPath(d.deck)" [attr.aria-label]="d.deck.name + ', ' + countLabel(d.cards) + (d.deck.public ? ', público' : '') + (d.today ? ', ' + d.today + ' para hoje' : '')">
     <span class="monte-cartas" aria-hidden="true" [style.--cor]="'var(--stock-' + d.deck.color + ')'">
       @if (!d.top) {
-        <span class="vaga-pilha">Sem cartas</span>
+        <span class="vaga-pilha">Sem flashcards</span>
       } @else if (!perto.near()) {
         <!-- longe da tela: só o lugar do monte; as cartas chegam quando a rolagem chega perto -->
         <span class="vaga-pilha"></span>
@@ -183,7 +183,7 @@
           <ul class="montes" aria-label="Para hoje">
             <!-- num baralho, com a tela apertada, só o selo e o número, como o papelzinho das pilhas: o nome fica
                  na dica do mouse e no leitor de tela -->
-            <li class="monte" data-monte="novas" [title]="line().novas + (line().novas === 1 ? ' nova' : ' novas')"><span class="selo" aria-hidden="true"></span><span>{{ line().novas }} <span class="monte-nome">{{ line().novas === 1 ? "nova" : "novas" }}</span></span></li>
+            <li class="monte" data-monte="novas" [title]="line().novas + (line().novas === 1 ? ' novo' : ' novos')"><span class="selo" aria-hidden="true"></span><span>{{ line().novas }} <span class="monte-nome">{{ line().novas === 1 ? "novo" : "novos" }}</span></span></li>
             <li class="monte" data-monte="aprender" [title]="line().aprender + ' aprendendo'"><span class="selo" aria-hidden="true"></span><span>{{ line().aprender }} <span class="monte-nome">aprendendo</span></span></li>
             <li class="monte" data-monte="revisar" [title]="line().revisar + (line().revisar === 1 ? ' revisão' : ' revisões')"><span class="selo" aria-hidden="true"></span><span>{{ line().revisar }} <span class="monte-nome">{{ line().revisar === 1 ? "revisão" : "revisões" }}</span></span></li>
           </ul>
@@ -194,11 +194,11 @@
             {{ deck() ? "Estudar" : group() ? "Estudar o grupo" : "Estudar tudo" }}
           </button>
         } @else if (deck() && !deckSize()) {
-          <p class="em-dia">Nenhuma carta neste baralho ainda.</p>
+          <p class="em-dia">Nenhum flashcard neste baralho ainda.</p>
         } @else if (!deck() && group() && !group()!.decks.length) {
           <p class="em-dia">Nenhum baralho em {{ group()!.label }} ainda.</p>
         } @else if (!deck() && group() && !group()!.cards) {
-          <p class="em-dia">Nenhuma carta nos baralhos de {{ group()!.label }} ainda.</p>
+          <p class="em-dia">Nenhum flashcard nos baralhos de {{ group()!.label }} ainda.</p>
         } @else {
           <p class="em-dia">
             Tudo em dia.
@@ -217,10 +217,10 @@
       </div>
       <div class="pasta-controles">
         @if (deck(); as d) {
-          <div class="pasta-grupo poe-cartas" role="group" aria-label="Cartas">
+          <div class="pasta-grupo poe-cartas" role="group" aria-label="Flashcards">
             <button type="button" class="tinta" (click)="newCard(d.id)">
               <lucide-icon [img]="AddIcon" [size]="18" aria-hidden="true" />
-              Nova carta
+              Novo flashcard
             </button>
             <button type="button" class="tinta" aria-haspopup="dialog" (click)="picking.set(true)">
               <lucide-icon [img]="BringIcon" [size]="18" aria-hidden="true" />
@@ -256,7 +256,7 @@
     @if (deck() && deckSize()) {
       <!-- a régua das cartas: a busca e, como o Ordenar do mural, o nível e a ordem impressos -->
       <div class="pasta-linha filtros">
-        <app-search-strip class="pasta-busca" inputId="busca-cartas" [glued]="true" label="Procurar nas cartas" placeholder="Procurar nas cartas…" [value]="query()" (valueChange)="query.set($event)" />
+        <app-search-strip class="pasta-busca" inputId="busca-cartas" [glued]="true" label="Procurar nos flashcards" placeholder="Procurar nos flashcards…" [value]="query()" (valueChange)="query.set($event)" />
         <div class="pasta-controles">
           <div class="pasta-grupo">
             <label class="tinta campo escolha">
@@ -284,7 +284,7 @@
             </label>
           </div>
           <!-- o tamanho das cartas: os mesmos botões de tinta do "Tipo de ficha" dos murais -->
-          <div class="pasta-grupo" role="group" aria-label="Tamanho das cartas">
+          <div class="pasta-grupo" role="group" aria-label="Tamanho dos flashcards">
             @for (s of cardSizes; track s.value) {
               <button type="button" class="tinta so-icone" [attr.aria-pressed]="cardSize() === s.value" [attr.aria-label]="s.label" [title]="s.label" (click)="setCardSize(s.value)">
                 <lucide-icon [img]="s.icon" [size]="18" aria-hidden="true" />
@@ -301,15 +301,15 @@
       <!-- o baralho vazio: uma carta desenhada a giz, dizendo como pôr a primeira -->
       <div class="vagas vazio">
         <div class="vaga">
-          <span class="vaga-txt">Nenhuma carta neste baralho ainda. Escreva uma Nova carta, ou traga anotações que você já tem.</span>
+          <span class="vaga-txt">Nenhum flashcard neste baralho ainda. Escreva um Novo flashcard, ou traga anotações que você já tem.</span>
         </div>
       </div>
     } @else if (!cards().length) {
-      <p class="nada">Nenhuma carta com esse filtro.</p>
+      <p class="nada">Nenhum flashcard com esse filtro.</p>
     } @else {
       <!-- a parede das cartas, a frente à mostra; tocar vira a carta ali mesmo. Ler a anotação e editar a
            carta ficam na etiqueta de tinta -->
-      <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Cartas de ' + d.name">
+      <ul class="cartas" [class.pequenas]="cardSize() === 'pequenas'" [attr.aria-label]="'Flashcards de ' + d.name">
         @for (c of cards(); track c.note) {
           @let up = flipped().has(c.note);
           <!-- só o que está perto da tela é montado: longe, o botão fica (o Tab e o leitor de tela passam por
@@ -317,7 +317,7 @@
           <li class="carta-li" appPerto #perto="perto" #cartaLi [class.virada]="up" [style.--inclina]="c.tilt + 'deg'" (keydown.escape)="unflip(c.note, cartaLi, $event)">
             <div class="giro" [class.virada]="up" [class.montada]="turnedOnce().has(c.note)" [class.calma]="calm">
               <!-- pequena, a letra do nível não se lê mais: o nome e o nível na dica do mouse -->
-              <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê esta carta' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="flip(c.note, cartaLi)">
+              <button type="button" class="carta-btn" aria-describedby="carta-virar-dica" [attr.aria-pressed]="up" [attr.aria-label]="c.title + ', ' + c.meta + (c.mine ? ', só você vê este flashcard' : '')" [attr.title]="cardSize() === 'pequenas' ? c.title + ', ' + c.meta : null" (click)="flip(c.note, cartaLi)">
                 @if (perto.near()) {
                   <app-study-card [title]="c.title" [subtitle]="c.subtitle" [image]="c.image" [stock]="c.stock" [deck]="d" [face]="c.face" />
                 } @else {
@@ -338,7 +338,7 @@
                 <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="open(c.note)">
                   <lucide-icon [img]="ReadIcon" [size]="16" aria-hidden="true" />
                 </button>
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Editar a carta ' + c.title" title="Editar a carta" (click)="edit(c.note)">
+                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Editar o flashcard ' + c.title" title="Editar o flashcard" (click)="edit(c.note)">
                   <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
                 </button>
               </div>
@@ -346,7 +346,7 @@
           </li>
         }
       </ul>
-      <p id="carta-virar-dica" hidden>Vira a carta. Atrás está a anotação.</p>
+      <p id="carta-virar-dica" hidden>Vira o flashcard. Atrás está a anotação.</p>
       <p class="sr-only" aria-live="polite">{{ spoken() }}</p>
     }
   } @else if (group(); as g) {
@@ -387,7 +387,7 @@
     [exclude]="inDeck()"
     [doneOption]="false"
     heading="Trazer anotações"
-    [hint]="(d.group ? 'Uma anotação do grupo ' + d.group : 'Uma anotação sua') + ', para virar carta de ' + d.name + '. Ela continua no mural; a frente começa com o nome dela.'"
+    [hint]="(d.group ? 'Uma anotação do grupo ' + d.group : 'Uma anotação sua') + ', para virar flashcard de ' + d.name + '. Ela continua no mural; a frente começa com o nome dela.'"
     footHint="Toque numa anotação para trazê-la."
     [emptyText]="d.group ? 'Nenhuma anotação do grupo ' + d.group + ' fora deste baralho.' : 'Todas as suas anotações já estão neste baralho.'"
     (picked)="bring($event.id, d.id)"

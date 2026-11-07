@@ -967,7 +967,7 @@ export class SettingsPage {
       const id = localImageId(c.front.image ?? '');
       if (!id) continue;
       const name = this.store.get(c.note)?.game.name ?? '';
-      out.set(id, [...(out.get(id) ?? []), `Frente da carta: ${c.front.title || name}`]);
+      out.set(id, [...(out.get(id) ?? []), `Frente do flashcard: ${c.front.title || name}`]);
     }
     return out;
   });

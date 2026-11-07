@@ -787,7 +787,7 @@ export class ReviewReader {
     const decks = card ? cardDecks(card, this.study.decks()) : [];
     if (!card || !decks.length) return null;
     const level = levelOf(card.srs);
-    const when = card.srs.state === 'nova' ? 'ainda não estudada' : `revisão ${whenLabel(card.srs, this.study.now())}`;
+    const when = card.srs.state === 'nova' ? 'ainda não estudado' : `revisão ${whenLabel(card.srs, this.study.now())}`;
     return {
       deckId: decks[0].id,
       deck: decks[0].name,

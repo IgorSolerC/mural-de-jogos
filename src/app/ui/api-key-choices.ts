@@ -84,7 +84,7 @@ export interface KeyChoiceStart {
     @if (touchesNotes()) {
       <fieldset class="parte">
         <legend class="parte-titulo">Em que grupos das Anotações</legend>
-        <p class="parte-desc">Vale para as anotações, os quadros do Kanban e as cartas dos Flashcards.</p>
+        <p class="parte-desc">Vale para as anotações, os quadros do Kanban e os Flashcards.</p>
         <div class="segmentos dois">
           <label class="segmento">
             <input type="radio" name="chave-grupos" [checked]="!someGroups()" (change)="someGroups.set(false)" />

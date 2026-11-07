@@ -142,7 +142,7 @@ describe('página dos Estudos', () => {
     expect($$('.abas:not(.medida) .aba').map(text)).toEqual(['Tudo', 'Estudos, 4 para hoje', 'Computação, 1 para hoje']);
     expect($('.aba.on')?.textContent).toContain('Tudo');
     // Tudo: uma seção por grupo, com a etiqueta de fita e o resumo
-    expect($$('.grupo-pilhas').map((s) => `${text(s.querySelector('.tape-label'))}: ${text(s.querySelector('.grupo-sum'))}`)).toEqual(['Estudos: 3 baralhos · 4 cartas', 'Computação: 1 baralho · 1 carta']);
+    expect($$('.grupo-pilhas').map((s) => `${text(s.querySelector('.tape-label'))}: ${text(s.querySelector('.grupo-sum'))}`)).toEqual(['Estudos: 3 baralhos · 4 flashcards', 'Computação: 1 baralho · 1 flashcard']);
     expect(text($('.estudar'))).toBe('Estudar tudo');
     // o grupo: a aba aberta, só os baralhos dele, o Estudar o grupo e o Novo baralho
     await go(studyPath(GROUP));
@@ -173,7 +173,7 @@ describe('página dos Estudos', () => {
     expect($('.voltar')!.getAttribute('title')).toBe('Voltar aos baralhos de Estudos');
     // os montes continuam dizendo o nome ao leitor de tela, mesmo quando a tela só mostra o selo e o número
     const montes = $$('.linha-estudo .monte');
-    expect(montes.map((m) => text(m.querySelector('.monte-nome')))).toEqual([jasmine.stringMatching(/^novas?$/), 'aprendendo', jasmine.stringMatching(/^revis(ão|ões)$/)]);
+    expect(montes.map((m) => text(m.querySelector('.monte-nome')))).toEqual([jasmine.stringMatching(/^novos?$/), 'aprendendo', jasmine.stringMatching(/^revis(ão|ões)$/)]);
     expect(montes.every((m) => m.getAttribute('title') === text(m))).toBeTrue();
     // a régua das cartas é a do mural e do Kanban: sem picote em cima, a busca e os controles
     const rule = $('.pasta-linha.filtros')!;
@@ -188,7 +188,7 @@ describe('página dos Estudos', () => {
     expect(text($('.trilha .nome-txt'))).toBe('Locais');
     expect($('.trilha button[aria-label="Ajustes do baralho"]')).not.toBeNull();
     expect($('.pasta-linha.filtros')).toBeNull();
-    expect(text($('.linha-estudo .em-dia'))).toBe('Nenhuma carta neste baralho ainda.');
+    expect(text($('.linha-estudo .em-dia'))).toBe('Nenhum flashcard neste baralho ainda.');
   });
 
   it('o endereço de antes dos grupos (/estudos/:baralho) leva ao baralho no grupo dele; o baralho de outro grupo, ao grupo', async () => {
@@ -325,11 +325,11 @@ describe('página dos Estudos', () => {
     seed();
     await go('/anotacoes/estudos');
     expect(text($('.hoje-n'))).toBe('4 para hoje');
-    expect($$('.monte').map(text)).toEqual(['3 novas', '1 aprendendo', '0 revisões']);
+    expect($$('.monte').map(text)).toEqual(['3 novos', '1 aprendendo', '0 revisões']);
     const pilhas = $$('.pilha');
     expect(pilhas.map((p) => text(p.querySelector('.nome-txt')))).toEqual(['Kanjis', 'Química', 'Locais']);
-    expect(pilhas.map((p) => text(p.querySelector('.nome-n')))).toEqual(['3 cartas', '1 carta', '0 cartas']);
-    expect(pilhas[0].getAttribute('aria-label')).toBe('Kanjis, 3 cartas, 3 para hoje');
+    expect(pilhas.map((p) => text(p.querySelector('.nome-n')))).toEqual(['3 flashcards', '1 flashcard', '0 flashcards']);
+    expect(pilhas[0].getAttribute('aria-label')).toBe('Kanjis, 3 flashcards, 3 para hoje');
     // por cima, a próxima carta do baralho (o sol, já respondido), na Clássica, sem o ícone nos cantos
     expect(text(pilhas[0].querySelector('app-study-card .titulo'))).toBe('日');
     expect(pilhas[0].querySelector('.capa .carta')!.classList).toContain('look-classica');
@@ -337,7 +337,7 @@ describe('página dos Estudos', () => {
     // o papelzinho no elástico: os três montes de hoje
     expect([...pilhas[0].querySelectorAll('.papelzinho .pz')].map(text)).toEqual(['2', '1', '0']);
     // o baralho sem cartas: só o lugar dele
-    expect(text(pilhas[2].querySelector('.vaga-pilha'))).toBe('Sem cartas');
+    expect(text(pilhas[2].querySelector('.vaga-pilha'))).toBe('Sem flashcards');
     expect(pilhas[2].querySelector('app-study-card')).toBeNull();
     // mais cartas, mais grossa a pilha
     expect(pilhas[0].querySelectorAll('.camada').length).toBe(1);
@@ -388,7 +388,7 @@ describe('página dos Estudos', () => {
       const box = (i: number) => li(i).getBoundingClientRect();
       expect(Math.abs(box(299).height - box(0).height)).withContext('grandes').toBeLessThanOrEqual(1);
       expect(size(li(299)).w).toBe(size(li(0)).w);
-      $$('[aria-label^="Cartas pequenas"]')[0].click();
+      $$('[aria-label^="Flashcards pequenos"]')[0].click();
       await settle();
       await until(() => isCard(0), 'a primeira, pequena');
       expect(Math.abs(box(299).height - box(0).height)).withContext('pequenas').toBeLessThanOrEqual(1);
@@ -443,27 +443,27 @@ describe('página dos Estudos', () => {
   });
 
   describe('o tamanho das cartas', () => {
-    const size = (label: string) => $<HTMLButtonElement>(`[role="group"][aria-label="Tamanho das cartas"] button[aria-label^="${label}"]`)!;
+    const size = (label: string) => $<HTMLButtonElement>(`[role="group"][aria-label="Tamanho dos flashcards"] button[aria-label^="${label}"]`)!;
     const columns = () => getComputedStyle($('.cartas')!).gridTemplateColumns.split(' ').length;
 
     it('as duas opções, depois do Ordenar: começa nas grandes; as pequenas são a mesma carta, 60% menor, e a escolha fica guardada', async () => {
       const { kanji } = seed();
       await go(deckUrl(kanji));
       // os botões de tinta do "Tipo de ficha" dos murais, na linha do Ordenar
-      expect($$('.filtros .pasta-grupo').pop()!.getAttribute('aria-label')).toBe('Tamanho das cartas');
-      expect(size('Cartas grandes').classList).toContain('so-icone');
-      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('true');
-      expect(size('Cartas pequenas').getAttribute('aria-pressed')).toBe('false');
+      expect($$('.filtros .pasta-grupo').pop()!.getAttribute('aria-label')).toBe('Tamanho dos flashcards');
+      expect(size('Flashcards grandes').classList).toContain('so-icone');
+      expect(size('Flashcards grandes').getAttribute('aria-pressed')).toBe('true');
+      expect(size('Flashcards pequenos').getAttribute('aria-pressed')).toBe('false');
       expect($('.cartas.pequenas')).toBeNull();
       expect($('.carta-btn')!.hasAttribute('title')).toBeFalse();
       const big = $('.carta-btn')!.offsetWidth;
       const bigColumns = columns();
       const title = text($('app-study-card .titulo'));
 
-      size('Cartas pequenas').click();
+      size('Flashcards pequenos').click();
       await settle();
-      expect(size('Cartas pequenas').getAttribute('aria-pressed')).toBe('true');
-      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('false');
+      expect(size('Flashcards pequenos').getAttribute('aria-pressed')).toBe('true');
+      expect(size('Flashcards grandes').getAttribute('aria-pressed')).toBe('false');
       expect($('.cartas.pequenas')).not.toBeNull();
       expect(localStorage.getItem(STUDY_SIZE_KEY)).toBe('pequenas');
       // a grade cabe mais, com o botão perto de 40% do que era, na proporção da carta
@@ -479,7 +479,7 @@ describe('página dos Estudos', () => {
       // a letra do nível não se lê mais: o nome e o nível na dica
       expect($('.carta-btn')!.title).toBe($('.carta-btn')!.getAttribute('aria-label')!);
 
-      size('Cartas grandes').click();
+      size('Flashcards grandes').click();
       await settle();
       expect($('.cartas.pequenas')).toBeNull();
       expect(localStorage.getItem(STUDY_SIZE_KEY)).toBe('grandes');
@@ -513,13 +513,13 @@ describe('página dos Estudos', () => {
       expect($('.cartas.pequenas')).not.toBeNull();
       // sem cartas, não há o que diminuir
       await go(deckUrl(vazio));
-      expect($('[aria-label="Tamanho das cartas"]')).toBeNull();
+      expect($('[aria-label="Tamanho dos flashcards"]')).toBeNull();
       // Tudo é outra rota: a página do baralho nasce de novo e lê o que está guardado
       localStorage.setItem(STUDY_SIZE_KEY, 'gigantes');
       await go('/anotacoes/estudos');
       await go(deckUrl(kanji));
       expect($('.cartas.pequenas')).toBeNull();
-      expect(size('Cartas grandes').getAttribute('aria-pressed')).toBe('true');
+      expect(size('Flashcards grandes').getAttribute('aria-pressed')).toBe('true');
     });
   });
 
@@ -534,9 +534,9 @@ describe('página dos Estudos', () => {
     expect(cards.every((c) => c.querySelector('.carta')!.classList.contains('look-classica'))).toBeTrue();
     expect(text(cards[0].querySelector('.carta > .nome'))).toBe('Kanjis');
     // acertou a nova: o segundo passo, daqui a 10 minutos
-    expect(text(cards[0].querySelector('.pe .selo-nivel'))).toBe('Nova');
+    expect(text(cards[0].querySelector('.pe .selo-nivel'))).toBe('Novo');
     expect(text(cards[0].querySelector('.pe .volta'))).toBe('volta daqui a 10 min');
-    expect(text(cards[1].querySelector('.pe'))).toBe('Desconhecida');
+    expect(text(cards[1].querySelector('.pe'))).toBe('Desconhecido');
     expect(cards[1].querySelector('.pe .volta')).toBeNull();
     expect(text(cards[0].querySelector('.canto'))).toBe('日');
   });
@@ -570,7 +570,7 @@ describe('página dos Estudos', () => {
       // a frente: sem verso montado, e o botão diz o que faz
       expect(back(0)).toBeNull();
       expect(btn(0).getAttribute('aria-pressed')).toBe('false');
-      expect($('#' + btn(0).getAttribute('aria-describedby'))!.textContent).toContain('Vira a carta');
+      expect($('#' + btn(0).getAttribute('aria-describedby'))!.textContent).toContain('Vira o flashcard');
 
       btn(0).click();
       await settle();
@@ -679,7 +679,7 @@ describe('página dos Estudos', () => {
       esc(document.body);
       await settle();
       expect(turned()).withContext('grande, de fora').toBe(1);
-      $<HTMLButtonElement>('button[aria-label^="Cartas pequenas"]')!.click();
+      $<HTMLButtonElement>('button[aria-label^="Flashcards pequenos"]')!.click();
       await settle();
       btn(0).click();
       await settle();
@@ -797,7 +797,7 @@ describe('página dos Estudos', () => {
       await settle();
       expect(turned()).toBe(0);
       // nas grandes, o toque fora não mexe em nada
-      $<HTMLButtonElement>('button[aria-label^="Cartas grandes"]')!.click();
+      $<HTMLButtonElement>('button[aria-label^="Flashcards grandes"]')!.click();
       await settle();
       btn(0).click();
       await settle();
@@ -848,7 +848,7 @@ describe('página dos Estudos', () => {
       expect(turned()).toBe(1);
       expect(li(1).classList).toContain('virada');
       // trocar o tamanho volta para a frente
-      $<HTMLButtonElement>('button[aria-label^="Cartas grandes"]')!.click();
+      $<HTMLButtonElement>('button[aria-label^="Flashcards grandes"]')!.click();
       await settle();
       expect(turned()).toBe(0);
     });
@@ -857,7 +857,7 @@ describe('página dos Estudos', () => {
       const { kanji } = seed();
       await go(deckUrl(kanji));
       const buttons = [...li(0).querySelectorAll<HTMLElement>('.acoes .mexer')];
-      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Maximizar 日', 'Ler a anotação de 日', 'Editar a carta 日']);
+      expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual(['Maximizar 日', 'Ler a anotação de 日', 'Editar o flashcard 日']);
       expect(buttons[0].getAttribute('aria-haspopup')).toBe('dialog');
       expect(buttons[0].querySelector('lucide-icon')).not.toBeNull();
       expect(getComputedStyle(buttons[0]).width).toBe(getComputedStyle(buttons[1]).width);
@@ -959,7 +959,7 @@ describe('página dos Estudos', () => {
       li(0).querySelector<HTMLElement>('.mexer[aria-label^="Ler a anotação"]')!.click();
       await settle();
       expect(open).toHaveBeenCalledOnceWith('nsol');
-      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Editar a carta"]')!.click();
+      li(0).querySelector<HTMLElement>('.mexer[aria-label^="Editar o flashcard"]')!.click();
       await settle();
       expect(edit).toHaveBeenCalledOnceWith('nsol', 'flashcard');
       expect(document.querySelector('dialog.ficha-carta')).toBeNull();
@@ -986,7 +986,7 @@ describe('página dos Estudos', () => {
     level.value = 'dominada';
     level.dispatchEvent(new Event('change'));
     await settle();
-    expect(text($('.nada'))).toBe('Nenhuma carta com esse filtro.');
+    expect(text($('.nada'))).toBe('Nenhum flashcard com esse filtro.');
     level.value = '';
     level.dispatchEvent(new Event('change'));
     sort.value = 'nome';
@@ -998,9 +998,9 @@ describe('página dos Estudos', () => {
   it('o baralho vazio diz que não tem cartas, sem a busca', async () => {
     const { vazio } = seed();
     await go(deckUrl(vazio));
-    expect(text($('.vaga-txt'))).toBe('Nenhuma carta neste baralho ainda. Escreva uma Nova carta, ou traga anotações que você já tem.');
+    expect(text($('.vaga-txt'))).toBe('Nenhum flashcard neste baralho ainda. Escreva um Novo flashcard, ou traga anotações que você já tem.');
     expect($('#busca-cartas')).toBeNull();
-    expect(text($('.em-dia'))).toBe('Nenhuma carta neste baralho ainda.');
+    expect(text($('.em-dia'))).toBe('Nenhum flashcard neste baralho ainda.');
   });
 
   it('um baralho que não existe mostra Tudo', async () => {
@@ -1047,7 +1047,7 @@ describe('página dos Estudos', () => {
     const fresh = spyOn(TestBed.inject(Desk), 'newNoteIn');
     await go(deckUrl(kanji));
     const [nova, trazer] = $$('.poe-cartas button');
-    expect(text(nova)).toBe('Nova carta');
+    expect(text(nova)).toBe('Novo flashcard');
     nova.click();
     expect(study.pending()).toEqual({ decks: [kanji] });
     expect(fresh).toHaveBeenCalledWith('Estudos');
@@ -1078,7 +1078,7 @@ describe('página dos Estudos', () => {
     store.reviews.update((list) => [...list, { ...note('npriv', 'Capital do Peru'), private: true }, { ...note('npri2', 'Capital do Chile'), private: true }]);
     const toasts = TestBed.inject(Toasts);
     page.bring('npriv', quimica);
-    expect(toasts.current()!.text).toContain('virou carta');
+    expect(toasts.current()!.text).toContain('virou flashcard');
     study.updateDeck(quimica, { public: true });
     page.bring('npri2', quimica);
     expect(toasts.current()!.text).toBe('Esta anotação é privada, mas o baralho dela é público. Quer deixá-la pública?');
@@ -1192,12 +1192,12 @@ describe('página dos Estudos', () => {
       expect(text(dialog.querySelector('.quem-dica'))).toBe('Só você vê este baralho.');
       tag(dialog, 'Público').click();
       await settle();
-      expect(asked).toBe('Gostaria de tornar todas as cartas deste baralho públicas? 33% das cartas desse baralho são públicas atualmente.');
+      expect(asked).toBe('Gostaria de tornar públicos todos os flashcards deste baralho? 33% dos flashcards dele são públicos atualmente.');
       expect(study.deck(kanji)!.public).toBeTrue();
       expect(store.get('nlua')!.private).toBeUndefined();
       expect(store.get('nlua')!.quiet).toBeTrue();
       expect(tag(dialog, 'Público').getAttribute('aria-checked')).toBe('true');
-      expect(text(dialog.querySelector('.quem-dica'))).toContain('vê o baralho e as 3 cartas');
+      expect(text(dialog.querySelector('.quem-dica'))).toContain('vê o baralho e os 3 flashcards');
       // a pilha e a pasta dizem que é público
       dialog.close();
       await settle();
@@ -1218,12 +1218,12 @@ describe('página dos Estudos', () => {
       await settle();
       expect(study.deck(kanji)!.public).toBeTrue();
       expect(store.get('nlua')!.private).toBeTrue();
-      expect(text(dialog.querySelector('.quem-dica'))).toContain('Quem visita vê 1 das 3 cartas.');
+      expect(text(dialog.querySelector('.quem-dica'))).toContain('Quem visita vê 1 dos 3 flashcards.');
       dialog.close();
       await settle();
       // sem marca na tela (pedido do dono): só o leitor de tela ouve
       expect($$('.carta-li .cadeado').length).toBe(0);
-      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê esta carta')).length).toBe(2);
+      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê este flashcard')).length).toBe(2);
       // privado de novo: sem pergunta, sem cadeado
       $<HTMLButtonElement>('button[aria-label="Ajustes do baralho"]')!.click();
       dialog = await sheetOpen();
@@ -1232,7 +1232,7 @@ describe('página dos Estudos', () => {
       expect(study.deck(kanji)!.public).toBeUndefined();
       dialog.close();
       await settle();
-      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê esta carta')).length).toBe(0);
+      expect($$('.carta-btn').filter((b) => b.getAttribute('aria-label')!.endsWith('só você vê este flashcard')).length).toBe(0);
     });
 
     it('com todas as cartas públicas, vira público direto, sem pergunta', async () => {
@@ -1277,7 +1277,7 @@ describe('página dos Estudos', () => {
     const cards = $$('.cartas app-study-card');
     expect(cards.every((c) => c.querySelector('.carta')!.classList.contains('look-ingresso'))).toBeTrue();
     expect(cards.map((c) => text(c.querySelector('.num')))).toEqual(['Nº 01', 'Nº 02', 'Nº 03']);
-    expect(text(cards[0].querySelector('.canhoto .campo b'))).toBe('Nova');
+    expect(text(cards[0].querySelector('.canhoto .campo b'))).toBe('Novo');
     // voltar para a Clássica tira o campo do baralho
     dialog.querySelector<HTMLButtonElement>('.op.estilo')!.click();
     await settle();

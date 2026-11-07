@@ -230,7 +230,7 @@ describe('o índice embaixo do topo', () => {
     study.addCard('nlua', [a]);
     await go('/anotacoes/estudos');
     expect(summary()).toContain('2');
-    expect(summary()).toContain('cartas para hoje');
+    expect(summary()).toContain('flashcards para hoje');
     // o endereço é /anotacoes/estudos/:grupo/:baralho: o grupo conta os baralhos dele, o baralho só ele
     const group = studyGroupId('Estudos');
     await go(`/anotacoes/estudos/${group}`);

@@ -198,10 +198,10 @@ export function emptyStudy(): StudyState {
 export type Level = 'desconhecida' | 'nova' | 'aprendendo' | 'dominada';
 
 export const LEVEL_LABEL: Record<Level, string> = {
-  desconhecida: 'Desconhecida',
-  nova: 'Nova',
+  desconhecida: 'Desconhecido',
+  nova: 'Novo',
   aprendendo: 'Aprendendo',
-  dominada: 'Dominada',
+  dominada: 'Dominado',
 };
 
 /**

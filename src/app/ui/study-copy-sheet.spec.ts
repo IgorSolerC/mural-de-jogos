@@ -73,7 +73,7 @@ describe('A folha do Copiar baralho (StudyCopySheet)', () => {
 
   it('abre com o nome do dono já escrito e o grupo vazio, sem "Sem grupo"; sem grupo, não copia e diz o porquê', () => {
     expect(dialog().open).toBeTrue();
-    expect(el.querySelector('.sub')!.textContent).toContain('Kanji N5, de Marina · 1 carta');
+    expect(el.querySelector('.sub')!.textContent).toContain('Kanji N5, de Marina · 1 flashcard');
     expect(el.querySelector<HTMLInputElement>('#cb-nome')!.value).toBe('Kanji N5');
     expect(groupInput().value).toBe('');
     expect(el.querySelector('app-group-picker .nenhum')).toBeNull();
@@ -81,7 +81,7 @@ describe('A folha do Copiar baralho (StudyCopySheet)', () => {
     expect(el.querySelector('.copia-dica')!.textContent).toContain('Escolha um grupo');
     if (matchMedia('(pointer: fine)').matches) expect(document.activeElement).toBe(groupInput());
     expect(submit().disabled).toBeTrue();
-    expect(el.querySelector('#cb-frase')!.textContent).toContain('A carta vira uma anotação sua, privada, só nos Flashcards');
+    expect(el.querySelector('#cb-frase')!.textContent).toContain('O flashcard vira uma anotação sua, privada, só nos Flashcards');
   });
 
   it('o grupo: um dos seus (sem acento ou com outra caixa, fica como você escreve) ou um novo', async () => {
@@ -100,7 +100,7 @@ describe('A folha do Copiar baralho (StudyCopySheet)', () => {
     limit.set('Você já tem 100 baralhos, o máximo. Apague um para copiar este.');
     await typeGroup('Inglês');
     expect(el.querySelector('[role=alert]')!.textContent).toContain('100 baralhos');
-    expect(el.querySelector('#cb-frase')!.textContent).toContain('A carta vira');
+    expect(el.querySelector('#cb-frase')!.textContent).toContain('O flashcard vira');
     expect(submit().disabled).toBeTrue();
   });
 
@@ -128,7 +128,7 @@ describe('A folha do Copiar baralho (StudyCopySheet)', () => {
     expect(closed).toBe(1);
     expect(go).toHaveBeenCalledWith(studyPath(studyGroupId('Inglês'), 'dnovo'));
     const toast = TestBed.inject(Toasts).current()!;
-    expect(toast.text).toBe('Baralho copiado: Kanji N5, com 1 carta. 2 imagens não vieram.');
+    expect(toast.text).toBe('Baralho copiado: Kanji N5, com 1 flashcard. 2 imagens não vieram.');
     toast.action!.run();
     expect(undo).toHaveBeenCalled();
   });

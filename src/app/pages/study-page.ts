@@ -51,12 +51,12 @@ const SORTS: readonly { id: SortId; label: string }[] = [
 
 /** Os tamanhos das cartas na parede do baralho, com os ícones das fichas simples e de "Só capa e nome". */
 const CARD_SIZES: readonly { value: CardSize; label: string; icon: LucideIconData }[] = [
-  { value: 'grandes', label: 'Cartas grandes', icon: ICON.simples },
-  { value: 'pequenas', label: 'Cartas pequenas: mais cartas na tela', icon: ICON.grade },
+  { value: 'grandes', label: 'Flashcards grandes', icon: ICON.simples },
+  { value: 'pequenas', label: 'Flashcards pequenos: mais flashcards na tela', icon: ICON.grade },
 ];
 
 const LEVELS: readonly Level[] = ['desconhecida', 'nova', 'aprendendo', 'dominada'];
-const LEVEL_PLURAL: Record<Level, string> = { desconhecida: 'Desconhecidas', nova: 'Novas', aprendendo: 'Aprendendo', dominada: 'Dominadas' };
+const LEVEL_PLURAL: Record<Level, string> = { desconhecida: 'Desconhecidos', nova: 'Novos', aprendendo: 'Aprendendo', dominada: 'Dominados' };
 
 /** A carta como a parede mostra: a frente, a cartolina da anotação e a linha do pé. */
 interface CardView {
@@ -563,7 +563,7 @@ export class StudyPage {
     if (!this.study.cardOf().get(note)?.decks.includes(deck)) return;
     if (this.publicDeckNudge.afterEntering(note, before)) return;
     const name = this.store.get(note)?.game.name ?? '';
-    this.toasts.show(`“${name}” virou carta de ${this.study.deck(deck)?.name ?? ''}`);
+    this.toasts.show(`“${name}” virou flashcard de ${this.study.deck(deck)?.name ?? ''}`);
   }
 
   /** Os ajustes da carta: o editor da anotação, na aba Flashcard. */
@@ -644,7 +644,7 @@ export class StudyPage {
   }
 
   private say(side: 'Frente' | 'Verso', note: string): void {
-    this.spoken.set(`${side} de ${this.cards().find((c) => c.note === note)?.title ?? 'carta'}`);
+    this.spoken.set(`${side} de ${this.cards().find((c) => c.note === note)?.title ?? 'flashcard'}`);
   }
 
   /** O foco dentro do verso que vai ficar de costas cairia na página: passa para a carta. */
@@ -717,7 +717,7 @@ export class StudyPage {
   }
 
   protected countLabel(n: number): string {
-    return n === 1 ? '1 carta' : `${n} cartas`;
+    return n === 1 ? '1 flashcard' : `${n} flashcards`;
   }
 
   /** Quantas camadas a pilha desenha embaixo da de cima: mais cartas, mais grossa (até três). */

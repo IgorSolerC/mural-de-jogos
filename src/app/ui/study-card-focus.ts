@@ -19,9 +19,9 @@ import { StudyCardBack } from './study-card-back';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:keydown)': 'onKey($event)' },
   template: `
-    <dialog #dialog class="sessao" [attr.aria-label]="deck().name + ': ' + (card()?.title ?? 'carta')" (close)="closed.emit()">
+    <dialog #dialog class="sessao" [attr.aria-label]="deck().name + ': ' + (card()?.title ?? 'flashcard')" (close)="closed.emit()">
       <header class="topo">
-        <button type="button" class="parar" aria-label="Fechar a carta" title="Fechar (Esc)" (click)="close()">
+        <button type="button" class="parar" aria-label="Fechar o flashcard" title="Fechar (Esc)" (click)="close()">
           <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
         </button>
         <h2 class="baralho">{{ deck().name }} · só para ver</h2>
@@ -41,7 +41,7 @@ import { StudyCardBack } from './study-card-back';
         </div>
         <div class="botoes">
           <button type="button" class="mostrar" aria-keyshortcuts="Space Enter" (click)="turn()">
-            Virar a carta
+            Virar o flashcard
             <span class="tecla" aria-hidden="true">Espaço</span>
           </button>
         </div>
@@ -97,7 +97,7 @@ export class StudyCardFocus {
       }
       this.dialog()?.nativeElement.showModal();
       this.foot()?.focus();
-      if (this.back()) this.spoken.set(`Verso de ${this.card()?.title ?? 'carta'}`);
+      if (this.back()) this.spoken.set(`Verso de ${this.card()?.title ?? 'flashcard'}`);
     });
     // a carta saiu dos Estudos (em outro aparelho, por exemplo) com a folha aberta: não sobra nada para ver
     effect(() => {
@@ -119,7 +119,7 @@ export class StudyCardFocus {
     // o foco dentro do verso que vai ficar de costas cairia na página
     if (!next && document.activeElement?.closest('.verso')) this.foot()?.focus();
     this.side.set(next);
-    this.spoken.set(`${next ? 'Verso' : 'Frente'} de ${this.card()?.title ?? 'carta'}`);
+    this.spoken.set(`${next ? 'Verso' : 'Frente'} de ${this.card()?.title ?? 'flashcard'}`);
   }
 
   /**

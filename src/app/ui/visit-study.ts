@@ -29,12 +29,12 @@ const SORTS: readonly { id: SortId; label: string; progress?: true }[] = [
 ];
 
 const CARD_SIZES: readonly { value: CardSize; label: string; icon: LucideIconData }[] = [
-  { value: 'grandes', label: 'Cartas grandes', icon: ICON.simples },
-  { value: 'pequenas', label: 'Cartas pequenas: mais cartas na tela', icon: ICON.grade },
+  { value: 'grandes', label: 'Flashcards grandes', icon: ICON.simples },
+  { value: 'pequenas', label: 'Flashcards pequenos: mais flashcards na tela', icon: ICON.grade },
 ];
 
 const LEVELS: readonly Level[] = ['desconhecida', 'nova', 'aprendendo', 'dominada'];
-const LEVEL_PLURAL: Record<Level, string> = { desconhecida: 'Desconhecidas', nova: 'Novas', aprendendo: 'Aprendendo', dominada: 'Dominadas' };
+const LEVEL_PLURAL: Record<Level, string> = { desconhecida: 'Desconhecidos', nova: 'Novos', aprendendo: 'Aprendendo', dominada: 'Dominados' };
 
 /** Uma carta como a parede de quem visita mostra. */
 interface CardView {
@@ -281,7 +281,7 @@ export class VisitStudy {
   }
 
   protected countLabel(n: number): string {
-    return n === 1 ? '1 carta' : `${n} cartas`;
+    return n === 1 ? '1 flashcard' : `${n} flashcards`;
   }
 
   protected groupSummary(g: GroupView): string {
