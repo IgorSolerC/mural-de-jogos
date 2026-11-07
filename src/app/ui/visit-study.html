@@ -1,7 +1,7 @@
-<h2 class="sr-only">Estudos de {{ colleague().name }}{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.deck.name : "" }}</h2>
+<h2 class="sr-only">Flashcards de {{ colleague().name }}{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.deck.name : "" }}</h2>
 
 <!-- as abas: Tudo e os grupos com baralho público, nas divisórias de manilha dos seus Estudos -->
-<nav class="abas-grupos" [attr.aria-label]="'Grupos dos Estudos de ' + colleague().name">
+<nav class="abas-grupos" [attr.aria-label]="'Grupos dos Flashcards de ' + colleague().name">
   <ul class="abas">
     <li>
       <a class="aba" [routerLink]="path()" [class.on]="!group()" [attr.aria-current]="!group() ? 'page' : null">

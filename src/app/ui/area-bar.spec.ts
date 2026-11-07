@@ -169,7 +169,7 @@ describe('o índice embaixo do topo', () => {
   it('nas Anotações: Mural, Kanban e Estudos, sem a etiqueta do mural; o Kanban e os Estudos ficam acesos por dentro', async () => {
     await go('/anotacoes');
     expect(picker()).toBeNull();
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Estudos']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards']);
     expect(tabs()[0].classList).toContain('on');
     expect(tabs()[1].getAttribute('href')).toBe('/anotacoes/kanban');
     await go('/anotacoes/kanban/qualquer');
@@ -207,7 +207,7 @@ describe('o índice embaixo do topo', () => {
     expect(cofre.classList).not.toContain('on');
     // o cofre e o Calendário saíram das Anotações
     await go('/anotacoes');
-    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Estudos']);
+    expect(tabs().map((t) => t.textContent!.trim())).toEqual(['Mural', 'Kanban', 'Flashcards']);
   });
 
   it('nos Gastos, quantos lançamentos o mês aberto tem', async () => {

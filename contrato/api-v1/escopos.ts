@@ -27,7 +27,7 @@ export interface Escopo {
 export const AREAS_DA_API: readonly { id: AreaDaApi; nome: string }[] = [
   { id: 'notas', nome: 'Anotações' },
   { id: 'kanban', nome: 'Kanban' },
-  { id: 'estudos', nome: 'Estudos' },
+  { id: 'estudos', nome: 'Flashcards' },
   { id: 'calendario', nome: 'Calendário' },
   { id: 'gastos', nome: 'Gastos' },
   { id: 'desejos', nome: 'Wishlist' },
@@ -54,15 +54,15 @@ export const ESCOPOS: readonly Escopo[] = [
   },
   { id: 'kanban:colunas', area: 'kanban', nome: 'Arrumar colunas', verbo: 'arrumar colunas', muda: true, inclui: 'Criar, renomear, reordenar, pular e apagar colunas.' },
   {
-    id: 'estudos:ler', area: 'estudos', nome: 'Ver os Estudos', verbo: 'ver',
+    id: 'estudos:ler', area: 'estudos', nome: 'Ver os Flashcards', verbo: 'ver',
     inclui: 'Os baralhos, as cartas (a frente e o verso, que é o texto da anotação), o progresso de cada uma e o que tem para estudar hoje.',
   },
   { id: 'estudos:estudar', area: 'estudos', nome: 'Estudar', verbo: 'estudar', inclui: 'Responder as cartas (Errei ou Acertei), como na sessão de estudo. Entra direto, sem esperar você.' },
   {
-    id: 'estudos:escrever', area: 'estudos', nome: 'Mexer nos Estudos', verbo: 'mexer', muda: true,
+    id: 'estudos:escrever', area: 'estudos', nome: 'Mexer nos Flashcards', verbo: 'mexer', muda: true,
     inclui: 'Criar e mudar baralhos; transformar anotações em cartas e mudar a frente, os baralhos e o "no mural".',
   },
-  { id: 'estudos:apagar', area: 'estudos', nome: 'Apagar dos Estudos', verbo: 'apagar', muda: true, inclui: 'Apagar baralhos, tirar cartas dos Estudos e recomeçar o progresso de uma carta.' },
+  { id: 'estudos:apagar', area: 'estudos', nome: 'Apagar dos Flashcards', verbo: 'apagar', muda: true, inclui: 'Apagar baralhos, tirar cartas dos Flashcards e recomeçar o progresso de uma carta.' },
   { id: 'calendario:ler', area: 'calendario', nome: 'Ver o calendário', verbo: 'ver', inclui: 'Os lembretes e o que acontece entre duas datas.' },
   {
     id: 'calendario:escrever', area: 'calendario', nome: 'Alterar calendário', verbo: 'mudar', muda: true,

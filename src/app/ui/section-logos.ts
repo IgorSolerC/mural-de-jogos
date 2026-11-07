@@ -507,7 +507,7 @@ export class CalendarLogo {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <span class="tras" aria-hidden="true"><span class="duvida">?</span></span>
-    <span class="frente" aria-hidden="true"><span class="nome">Estudos</span></span>
+    <span class="frente" aria-hidden="true"><span class="nome">Flashcards</span></span>
   `,
   styles: `
     :host {

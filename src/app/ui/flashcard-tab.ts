@@ -270,9 +270,9 @@ export class FlashcardTab {
     const card = this.card();
     if (card?.stats.seen) {
       const yes = await this.confirm.ask({
-        title: 'Tirar dos Estudos?',
+        title: 'Tirar dos Flashcards?',
         text: `Ela já foi vista ${card.stats.seen === 1 ? '1 vez' : `${card.stats.seen} vezes`}; o progresso sai junto ao salvar. A anotação continua.`,
-        confirm: 'Tirar dos Estudos',
+        confirm: 'Tirar dos Flashcards',
         cancel: 'Deixar',
         icon: ICON.apagar,
       });

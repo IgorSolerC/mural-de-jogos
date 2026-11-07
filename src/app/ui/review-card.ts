@@ -437,7 +437,7 @@ export const CARD_TEMPLATE = `
       <span class="so-kanban" aria-hidden="true">
         <lucide-icon [img]="studyOnly() ? StudyIcon : BoardIcon" [size]="compact() || capas() ? 12 : 13" aria-hidden="true" />
         @if (!capas() && !overview()) {
-          <span>{{ studyOnly() ? 'Só nos Estudos' : 'Só no Kanban' }}</span>
+          <span>{{ studyOnly() ? 'Só nos Flashcards' : 'Só no Kanban' }}</span>
         }
       </span>
     }
@@ -2104,7 +2104,7 @@ export class ReviewCard {
       const done = r.doneAt ? `finalizada em ${doneDayLong(r.doneAt)}` : '';
       const tasks = this.tasks();
       const todo = tasks ? `${tasks.done} de ${tasks.total} tarefas feitas` : '';
-      const board = this.boardOnly() ? (this.studyOnly() ? 'só nos Estudos' : 'só no Kanban') : '';
+      const board = this.boardOnly() ? (this.studyOnly() ? 'só nos Flashcards' : 'só no Kanban') : '';
       return `Abrir anotação: ${[r.game.name, rank, done, board, cats, todo, this.noText() ? 'sem descrição' : '', when, isPrivate(r) ? '' : 'pública'].filter(Boolean).join(', ')}`;
     }
     const parts = [r.game.name];

@@ -32,11 +32,11 @@ export const routes: Routes = [
   { path: 'anotacoes', title: 'Anotações', canActivate: [enterNotes], loadComponent: wall },
   { path: 'anotacoes/kanban', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
   { path: 'anotacoes/kanban/:quadro', title: 'Kanban', canActivate: [enterNotes], loadComponent: kanban },
-  { path: 'anotacoes/estudos', title: 'Estudos', canActivate: [enterNotes], loadComponent: study },
+  { path: 'anotacoes/estudos', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   // um grupo, ou um baralho dele; o endereço de antes dos grupos (/anotacoes/estudos/:baralho) cai no
   // primeiro, e a página leva ao baralho no grupo dele
-  { path: 'anotacoes/estudos/:grupo', title: 'Estudos', canActivate: [enterNotes], loadComponent: study },
-  { path: 'anotacoes/estudos/:grupo/:baralho', title: 'Estudos', canActivate: [enterNotes], loadComponent: study },
+  { path: 'anotacoes/estudos/:grupo', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
+  { path: 'anotacoes/estudos/:grupo/:baralho', title: 'Flashcards', canActivate: [enterNotes], loadComponent: study },
   // o Calendário morava aqui até 02/nov/2026: o endereço de antes vai para o novo com a query (dia, lembrete)
   { path: 'anotacoes/calendario', redirectTo: toCalendar },
   { path: 'analises', pathMatch: 'full', redirectTo: toReviews() },
@@ -78,7 +78,7 @@ export const routes: Routes = [
     // o mural da pessoa (com o próprio seletor de mural, e pode ser o de anotações) e os baralhos públicos dos
     // Estudos dela, por grupo e baralho: uma rota só, para a página continuar a mesma ao andar entre eles
     matcher: visitMatcher,
-    title: (route) => (route.paramMap.get('secao') ? 'Estudos do colega' : 'Mural do colega'),
+    title: (route) => (route.paramMap.get('secao') ? 'Flashcards do colega' : 'Mural do colega'),
     loadComponent: colleague,
   },
   {

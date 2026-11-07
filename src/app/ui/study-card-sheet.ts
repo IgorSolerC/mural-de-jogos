@@ -28,7 +28,7 @@ import { Toasts } from './toast';
           <header class="head">
             <div class="titulos">
               <h2 id="fc-titulo-folha">{{ d.name }}</h2>
-              <p class="sub"><lucide-icon [img]="CardsIcon" [size]="14" aria-hidden="true" />Carta dos Estudos · {{ d.level }}</p>
+              <p class="sub"><lucide-icon [img]="CardsIcon" [size]="14" aria-hidden="true" />Carta dos Flashcards · {{ d.level }}</p>
             </div>
             <button type="button" class="icon-btn fecha" aria-label="Fechar" (click)="close()">
               <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -46,7 +46,7 @@ import { Toasts } from './toast';
                 <button type="button" class="interruptor" role="switch" [attr.aria-checked]="d.onWall" aria-labelledby="fc-mural-folha" (click)="setWall(!d.onWall)">
                   <span class="bolinha"></span>
                 </button>
-                <span class="mural-txt" [class.forte]="!d.onWall">{{ d.onWall ? 'Aparece no mural também' : 'Só nos Estudos' }}</span>
+                <span class="mural-txt" [class.forte]="!d.onWall">{{ d.onWall ? 'Aparece no mural também' : 'Só nos Flashcards' }}</span>
               </div>
             </div>
             <div class="linha">
@@ -58,7 +58,7 @@ import { Toasts } from './toast';
           <footer class="foot">
             <button type="button" class="papel perigo" (click)="remove()">
               <lucide-icon [img]="OutIcon" [size]="16" aria-hidden="true" />
-              Tirar dos Estudos
+              Tirar dos Flashcards
             </button>
             <div class="actions">
               <button type="button" class="papel" (click)="editFront()">
@@ -157,7 +157,7 @@ export class StudyCardSheet {
     const name = this.data()?.name ?? '';
     const undo = this.study.removeCard(this.noteId());
     this.close();
-    if (undo) this.toasts.show(`“${name}” saiu dos Estudos`, { label: 'Desfazer', run: undo });
+    if (undo) this.toasts.show(`“${name}” saiu dos Flashcards`, { label: 'Desfazer', run: undo });
   }
 
   protected editFront(): void {

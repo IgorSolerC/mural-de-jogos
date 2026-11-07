@@ -449,7 +449,7 @@ export class StudyDeckSheet {
     const yes = await this.confirm.ask({
       title: `Apagar o baralho ${d.deck.name}?`,
       text: d.count
-        ? `${d.count === 1 ? 'A carta sai' : `As ${d.count} cartas saem`} dele${only ? `; ${only === d.count ? (only === 1 ? 'ela não está' : 'elas não estão') : `${only} não ${only === 1 ? 'está' : 'estão'}`} em outro baralho e ${only === 1 ? 'sai' : 'saem'} dos Estudos, com o progresso` : ''}. Nenhuma anotação é apagada.`
+        ? `${d.count === 1 ? 'A carta sai' : `As ${d.count} cartas saem`} dele${only ? `; ${only === d.count ? (only === 1 ? 'ela não está' : 'elas não estão') : `${only} não ${only === 1 ? 'está' : 'estão'}`} em outro baralho e ${only === 1 ? 'sai' : 'saem'} dos Flashcards, com o progresso` : ''}. Nenhuma anotação é apagada.`
         : 'Ele está vazio. Nenhuma anotação é apagada.',
       confirm: 'Apagar o baralho',
       cancel: 'Deixar',

@@ -335,9 +335,9 @@ interface ReadingPlace {
                     }
                     @if (studyCard(); as s) {
                       <div class="lugar nos-estudos" [attr.data-cor]="s.color">
-                        <span class="sr-only">Nos Estudos: </span>
+                        <span class="sr-only">Nos Flashcards: </span>
                         <lucide-icon class="lugar-icone" [img]="s.icon" [size]="16" aria-hidden="true" />
-                        <button type="button" class="parte-de" [title]="'Abrir o baralho ' + s.deck + ' nos Estudos'" (click)="openDeck(s.deckId)">{{ s.deck }}</button>
+                        <button type="button" class="parte-de" [title]="'Abrir o baralho ' + s.deck + ' nos Flashcards'" (click)="openDeck(s.deckId)">{{ s.deck }}</button>
                         @if (s.more) {
                           <span class="mais-baralhos">e mais {{ s.more }}</span>
                         }

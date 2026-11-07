@@ -184,7 +184,7 @@ describe('os pedidos dos Estudos aplicados pelo site (core/api-requests-study.ts
     expect(studyWords('carta.responder', { acertou: false }, '日', true, n)).toBe('respondeu “日”: errou');
     expect(studyWords('baralho.editar', { nome: 'x', posicao: 0 }, 'Kanji', false, n)).toBe('Mudar o nome e o lugar do baralho “Kanji”');
     expect(studyWords('baralho.editar', { novas_por_dia: 3, no_mural: true }, 'Kanji', true, n)).toBe('mudou as novas por dia e o mural do baralho “Kanji”');
-    expect(studyWords('carta.editar', { baralhos: [a], no_mural: true }, '日', false, n)).toBe('Mudar os baralhos e onde ela aparece de “日” nos Estudos');
+    expect(studyWords('carta.editar', { baralhos: [a], no_mural: true }, '日', false, n)).toBe('Mudar os baralhos e onde ela aparece de “日” nos Flashcards');
     expect(studyWords('nota.criar', {}, 'x', false, n)).toBeNull();
     const nameOf = (id: string) => names[id];
     expect(studyTitle(study, nameOf, { op: 'carta.tirar', alvo: 'nsol', dados: {} })).toBe('日');

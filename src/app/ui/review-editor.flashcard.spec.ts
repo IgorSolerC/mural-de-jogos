@@ -130,7 +130,7 @@ describe('o editor: a aba Flashcard', () => {
     (fixture.componentInstance as unknown as { setNoteTitle(t: string): void }).setNoteTitle('Comer');
     await fixture.whenStable();
     expect(tab()!.getAttribute('aria-selected')).toBe('true');
-    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Só nos Estudos');
+    expect(panel().querySelector('.mural-txt')!.textContent!.trim()).toBe('Só nos Flashcards');
     await type('fc-titulo', '食べる');
     await save();
     expect(asked).toEqual([]);

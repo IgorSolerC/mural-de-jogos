@@ -1,9 +1,9 @@
 <!-- o nome da seção está no índice embaixo do topo (ui/area-bar.ts) -->
-<h1 class="sr-only">Estudos{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.name : "" }}</h1>
+<h1 class="sr-only">Flashcards{{ group() ? ": " + group()!.label : "" }}{{ deck() ? ", " + deck()!.name : "" }}</h1>
 
 <!-- as abas: Tudo e os grupos das anotações, nas mesmas divisórias de manilha do mural e do Kanban, com o
      ícone e a cor de cada grupo e quantas cartas para hoje; os escondidos (e os que não cabem) no "Mais" -->
-<nav class="abas-grupos" aria-label="Grupos dos Estudos">
+<nav class="abas-grupos" aria-label="Grupos dos Flashcards">
   <ul class="abas">
     <li>
       <a class="aba" [routerLink]="studyPath()" [class.on]="!group()" [attr.aria-current]="!group() ? 'page' : null">

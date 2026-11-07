@@ -10,7 +10,7 @@
     <div class="acoes-vazio">
       <a class="btn-ink" [routerLink]="view.boardPlace() === 'estudos' ? studyLink : boardLink()">
         <lucide-icon [img]="view.boardPlace() === 'estudos' ? StudyIcon : BoardIcon" [size]="20" aria-hidden="true" />
-        {{ view.boardPlace() === 'estudos' ? 'Abrir os Estudos' : 'Abrir o quadro' }}
+        {{ view.boardPlace() === 'estudos' ? 'Abrir os Flashcards' : 'Abrir o quadro' }}
       </a>
       <button type="button" class="btn-quiet" (click)="showBoard()">Mostrar aqui</button>
     </div>

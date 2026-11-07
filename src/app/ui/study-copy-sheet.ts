@@ -173,7 +173,7 @@ export class StudyCopySheet {
   protected readonly cardsLabel = computed(() => (this.count() === 1 ? '1 carta' : `${this.count()} cartas`));
   protected readonly phrase = computed(() => {
     const n = this.count();
-    return `${n === 1 ? 'A carta vira uma anotação sua' : `As ${n} cartas viram anotações suas`}, ${n === 1 ? 'privada' : 'privadas'}, só nos Estudos. O progresso começa do zero.`;
+    return `${n === 1 ? 'A carta vira uma anotação sua' : `As ${n} cartas viram anotações suas`}, ${n === 1 ? 'privada' : 'privadas'}, só nos Flashcards. O progresso começa do zero.`;
   });
   /** Sem lugar, ou o erro da última tentativa. */
   protected readonly problem = computed(() => this.failed() ?? this.copier.limit(this.count()));
@@ -203,7 +203,7 @@ export class StudyCopySheet {
     const g = this.group();
     if (!g) return 'Escolha um grupo ou crie um novo: o baralho e as anotações das cartas ficam nele.';
     if (!this.name().trim()) return 'Dê um nome ao baralho para copiar.';
-    return this.inUse() ? `Vai para o seu grupo ${g}.` : `${g} é um grupo novo: ele aparece nas abas do mural e dos Estudos.`;
+    return this.inUse() ? `Vai para o seu grupo ${g}.` : `${g} é um grupo novo: ele aparece nas abas do mural e dos Flashcards.`;
   });
 
   constructor() {

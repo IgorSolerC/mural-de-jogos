@@ -32,6 +32,6 @@ describe('O endereço da visita (visitMatcher)', () => {
     const route = routes.find((r) => r.matcher === visitMatcher)!;
     const title = route.title as (r: { paramMap: { get(k: string): string | null } }) => string;
     expect(title({ paramMap: { get: () => null } })).toBe('Mural do colega');
-    expect(title({ paramMap: { get: (k) => (k === 'secao' ? 'estudos' : null) } })).toBe('Estudos do colega');
+    expect(title({ paramMap: { get: (k) => (k === 'secao' ? 'estudos' : null) } })).toBe('Flashcards do colega');
   });
 });

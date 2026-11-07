@@ -1120,7 +1120,7 @@ describe('página dos Estudos', () => {
     expect(dialog!.open).toBeTrue();
     expect(text(dialog!.querySelector('h2'))).toBe('Sol (日)');
     // nascida nos Estudos, segue o baralho: só nos Estudos
-    expect(text(dialog!.querySelector('.mural-txt'))).toBe('Só nos Estudos');
+    expect(text(dialog!.querySelector('.mural-txt'))).toBe('Só nos Flashcards');
     dialog!.querySelector<HTMLButtonElement>('.papel.perigo')!.click();
     await settle();
     expect(study.cardOf().has('nsol')).toBeFalse();

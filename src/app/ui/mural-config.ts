@@ -501,7 +501,7 @@ export class MuralConfig {
     const names = decks.map((d) => d.name);
     const list = names.length === 1 ? `o baralho ${names[0]}` : `os baralhos ${names.slice(0, -1).join(', ')} e ${names[names.length - 1]}`;
     const what = cards === 0 ? '' : `, com o progresso de ${plural(cards, 'carta', 'cartas')}`;
-    return `${list} dos Estudos${what}`;
+    return `${list} dos Flashcards${what}`;
   }
 
   protected async deleteCategory(row: CategoryRow): Promise<void> {

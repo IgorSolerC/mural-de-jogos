@@ -66,9 +66,9 @@ export class WallBoard {
   protected readonly offWords = computed(() => {
     switch (this.view.boardPlace()) {
       case 'estudos':
-        return { title: 'Tudo nos Estudos', only: 'só nos Estudos', hint: 'Abra os Estudos, ou mostre as anotações aqui.', show: 'Mostrar as dos Estudos' };
+        return { title: 'Tudo nos Flashcards', only: 'só nos Flashcards', hint: 'Abra os Flashcards, ou mostre as anotações aqui.', show: 'Mostrar as dos Flashcards' };
       case 'ambos':
-        return { title: 'Tudo fora do mural', only: 'só no Kanban ou nos Estudos', hint: 'Abra o quadro, ou mostre as anotações aqui.', show: 'Mostrar as do Kanban e dos Estudos' };
+        return { title: 'Tudo fora do mural', only: 'só no Kanban ou nos Flashcards', hint: 'Abra o quadro, ou mostre as anotações aqui.', show: 'Mostrar as do Kanban e dos Flashcards' };
       default:
         return { title: 'Tudo no Kanban', only: 'só no Kanban', hint: 'Abra o quadro, ou mostre as anotações aqui.', show: 'Mostrar as do Kanban' };
     }

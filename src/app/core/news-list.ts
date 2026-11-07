@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-06-carimbo-do-selo',
+    id: '2026-11-06-flashcards',
     version: '1.39.2',
     kind: 'ajustes',
     date: '2026-11-06',
-    title: 'Os blocos de código, o código no meio do texto, a cor de cada card, a régua do texto, a letra e a largura da leitura e o verso das cartas nos Estudos',
+    title: 'Os Estudos agora são Flashcards, os blocos de código, o código no meio do texto, a cor de cada card, a régua do texto e a leitura',
     melhorias: [
+      'A seção Estudos das Anotações agora se chama Flashcards, na aba, no título da página e em todo lugar que fala dela; os links de antes continuam abrindo.',
       'No estilo Selo das cartas, o carimbo do correio ficou bem menor, só com o dia e o mês, e encosta na beirada picotada de cima; o texto em volta do círculo saiu, e o título ganhou mais espaço.',
       'O card do texto ganhou dois jeitos: Estudo, com um livro no papel rosa, e Vazio, sem desenho, com o título na mesma beirada do texto e, sem título, só o papel.',
       'Cada card do texto pode ter a própria cor: a padrão do jeito dele, a de qualquer outro jeito, rosa, ou a cor da cartolina, no mesmo matiz da anotação (cinza no preto e no branco). Os cards novos já nascem na cor da cartolina.',

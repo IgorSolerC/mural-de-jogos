@@ -226,7 +226,7 @@ export class NoteMenu {
           label: card ? 'Ver a carta' : 'Estudar com ela…',
           icon: ICON.camadas,
           dialog: true,
-          hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Estudos',
+          hint: card ? 'A frente, os baralhos e o mural, na aba Flashcard' : 'Dá uma frente a ela, para os Flashcards',
           run: () => {
             this.study.openFront.set(id);
             this.desk.editReview(id);

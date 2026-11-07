@@ -69,8 +69,8 @@ export class NoteFilters {
     }
     if (this.view.boardCount()) {
       const place = this.view.boardPlace();
-      const label = place === 'estudos' ? 'Só nos Estudos' : place === 'ambos' ? 'Só no Kanban ou nos Estudos' : 'Só no Kanban';
-      const summary = place === 'estudos' ? 'Com as dos Estudos' : place === 'ambos' ? 'Com as do Kanban e dos Estudos' : 'Com as do Kanban';
+      const label = place === 'estudos' ? 'Só nos Flashcards' : place === 'ambos' ? 'Só no Kanban ou nos Flashcards' : 'Só no Kanban';
+      const summary = place === 'estudos' ? 'Com as dos Flashcards' : place === 'ambos' ? 'Com as do Kanban e dos Flashcards' : 'Com as do Kanban';
       list.push({ key: 'kanban', label, n: this.view.boardCount(), on: this.view.showBoard(), summary });
     }
     return list;

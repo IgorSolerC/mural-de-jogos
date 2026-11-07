@@ -91,7 +91,7 @@
           <a class="secao" routerLink="/comparar/mural" [class.on]="!studying()" [attr.aria-current]="!studying() ? 'page' : null">Mural</a>
         </li>
         <li>
-          <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Estudos</a>
+          <a class="secao" [routerLink]="visitStudyPath()" [class.on]="studying()" [attr.aria-current]="studying() ? 'page' : null">Flashcards</a>
         </li>
       </ul>
     </nav>
@@ -106,7 +106,7 @@
       <section class="vazio cartolina" aria-labelledby="vazio-titulo">
         <span class="fita-vazio" aria-hidden="true"></span>
         <h2 id="vazio-titulo">{{ c.name }} não tem baralhos públicos</h2>
-        <p>Os Estudos de {{ c.name }} ficam só com {{ c.name }}. As anotações públicas estão no mural.</p>
+        <p>Os Flashcards de {{ c.name }} ficam só com {{ c.name }}. As anotações públicas estão no mural.</p>
         <a class="btn-ink" routerLink="/comparar/mural">Ver o mural</a>
       </section>
     }

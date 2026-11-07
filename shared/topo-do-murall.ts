@@ -50,7 +50,7 @@ export interface SecaoDasAnotacoes {
 export const SECOES_DAS_ANOTACOES: readonly SecaoDasAnotacoes[] = [
   { slug: '', label: 'Mural' },
   { slug: 'kanban', label: 'Kanban' },
-  { slug: 'estudos', label: 'Estudos' },
+  { slug: 'estudos', label: 'Flashcards' },
 ];
 
 /**

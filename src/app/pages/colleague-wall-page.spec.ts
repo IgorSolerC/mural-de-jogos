@@ -125,7 +125,7 @@ describe('O mural de outra pessoa (ColleagueWallPage)', () => {
     await settle();
     fixture.detectChanges();
     const links = [...el.querySelectorAll<HTMLAnchorElement>('nav.secoes a')];
-    expect(links.map((a) => a.textContent!.trim())).toEqual(['Mural', 'Estudos']);
+    expect(links.map((a) => a.textContent!.trim())).toEqual(['Mural', 'Flashcards']);
     expect(links[0].getAttribute('aria-current')).toBe('page');
     expect(links[1].getAttribute('href')).toBe('/comparar/mural/estudos');
   });

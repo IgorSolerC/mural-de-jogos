@@ -55,7 +55,7 @@ interface Row {
               }
               @if (r.board) {
                 <lucide-icon class="marca" [img]="r.study ? StudyIcon : BoardIcon" [size]="14" aria-hidden="true" />
-                <span class="sr-only">{{ r.study ? ', só nos Estudos' : ', só no Kanban' }}</span>
+                <span class="sr-only">{{ r.study ? ', só nos Flashcards' : ', só no Kanban' }}</span>
               }
             </span>
             <!-- a orelha da ficha, deitada na linha (a mesma: o papel claro com a borda da cor do grupo

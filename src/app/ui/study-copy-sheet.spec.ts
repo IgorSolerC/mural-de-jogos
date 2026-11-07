@@ -81,7 +81,7 @@ describe('A folha do Copiar baralho (StudyCopySheet)', () => {
     expect(el.querySelector('.copia-dica')!.textContent).toContain('Escolha um grupo');
     if (matchMedia('(pointer: fine)').matches) expect(document.activeElement).toBe(groupInput());
     expect(submit().disabled).toBeTrue();
-    expect(el.querySelector('#cb-frase')!.textContent).toContain('A carta vira uma anotação sua, privada, só nos Estudos');
+    expect(el.querySelector('#cb-frase')!.textContent).toContain('A carta vira uma anotação sua, privada, só nos Flashcards');
   });
 
   it('o grupo: um dos seus (sem acento ou com outra caixa, fica como você escreve) ou um novo', async () => {

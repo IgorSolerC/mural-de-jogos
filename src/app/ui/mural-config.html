@@ -4,7 +4,7 @@
     <header class="head">
       <div class="titulos">
         <h2 id="config-titulo">{{ study() ? 'Configurações dos estudos' : 'Configurações do mural' }}</h2>
-        <p class="sub">{{ study() ? 'Estudos' : 'Anotações' }} · vale na hora e fica salvo</p>
+        <p class="sub">{{ study() ? 'Flashcards' : 'Anotações' }} · vale na hora e fica salvo</p>
       </div>
       <button type="button" class="icon-btn" aria-label="Fechar" (click)="close()">
         <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
@@ -645,7 +645,7 @@
                 <div class="linha">
                   <div>
                     <p class="linha-titulo" [id]="'config-t-mural-' + d.id">No mural também</p>
-                    <p class="linha-desc">{{ d.wall ? 'As cartas aparecem no mural de anotações também.' : 'Desligado (o padrão), as cartas ficam só nos Estudos. Cada carta pode escolher o contrário.' }}</p>
+                    <p class="linha-desc">{{ d.wall ? 'As cartas aparecem no mural de anotações também.' : 'Desligado (o padrão), as cartas ficam só nos Flashcards. Cada carta pode escolher o contrário.' }}</p>
                   </div>
                   <button type="button" role="switch" class="interruptor" [attr.aria-labelledby]="'config-t-mural-' + d.id" [attr.aria-checked]="!!d.wall" (click)="setDeckWall(d.id, !d.wall)">
                     <span class="bolinha"></span>
@@ -653,7 +653,7 @@
                 </div>
               </div>
             } @empty {
-              <p class="vazio">Ainda não há baralhos. Monte o primeiro na página dos Estudos.</p>
+              <p class="vazio">Ainda não há baralhos. Monte o primeiro na página dos Flashcards.</p>
             }
           }
         }
