@@ -98,13 +98,14 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     expect(fields()).toEqual(['Baralho Kanjis']);
   });
 
-  it('Selo: o carimbo com o baralho e a data só depois de estudar, vermelho quando é hoje', () => {
+  it('Selo: o carimbo só com o dia e o mês, depois de estudar, vermelho quando é hoje', () => {
     show('selo', NEVER);
     expect($('.carimbo')).toBeNull();
     show('selo', LEARNING);
     expect($('.carimbo')!.getAttribute('aria-label')).toBe('volta em 3 dias');
-    expect(text('.carimbo textPath')).toBe('KANJIS · VOLTA EM 3 DIAS ·');
-    expect([...el.querySelectorAll('.carimbo g > text')].slice(1).map((t) => t.textContent)).toEqual(['06', 'NOV']);
+    // sem o texto em volta do círculo (pedido do dono: era grande e difícil de ler)
+    expect($('.carimbo textPath')).toBeNull();
+    expect([...el.querySelectorAll('.carimbo text')].map((t) => t.textContent)).toEqual(['06', 'NOV']);
     expect($('.carimbo')!.classList).not.toContain('hoje');
     show('selo', DUE);
     expect($('.carimbo')!.classList).toContain('hoje');

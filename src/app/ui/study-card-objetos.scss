@@ -253,7 +253,7 @@
     text-overflow: ellipsis;
   }
 
-  /* o carimbo: a tinta falhada do correio, por cima de tudo */
+  /* o carimbo: a tinta falhada do correio, por cima de tudo, no canto de cima, pegando a beirada picotada */
   .carimbo {
     position: absolute;
     inset: 0;
@@ -286,9 +286,9 @@
   }
 }
 
-/* com o carimbo, o título desce para longe dele */
+/* com o carimbo (só o dia e o mês, pequeno, mordendo a beirada de cima), o título desce só até passar dele */
 .look-selo[data-nivel]:not([data-nivel='desconhecida']) .corpo {
-  padding-top: 15cqi;
+  padding-top: 11cqi;
 }
 
 .look-selo.escura {
@@ -303,10 +303,18 @@
   .subtitulo {
     border-color: rgb(243 236 224 / 0.3);
   }
+  /* o carimbo pega a cartolina escura e a beirada clara do selo: a tinta é a diferença, clara em cima de uma
+     e escura em cima da outra, para o anel não sumir pela metade */
   .carimbo {
     color: #efe6d6;
+    mix-blend-mode: difference;
+    opacity: 0.8;
+  }
+  /* para hoje: o vermelho, claro o bastante para a cartolina escura */
+  .carimbo.hoje {
+    color: #ff8f80;
     mix-blend-mode: normal;
-    opacity: 0.75;
+    opacity: 0.9;
   }
 }
 

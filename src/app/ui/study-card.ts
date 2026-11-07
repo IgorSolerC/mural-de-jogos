@@ -42,9 +42,6 @@ export interface CardDeck {
   look?: CardLook;
 }
 
-/** Os ids dos arcos do carimbo do Selo (um `<textPath>` por carta). */
-let arcs = 0;
-
 /**
  * A frente de uma carta de estudo (PLANO-ESTUDOS.md, 6.1), em pé, na proporção das cartas de baralho, no
  * desenho que o baralho escolheu (`look`, a Clássica sem escolha; pedido do usuário: "poder escolher por
@@ -241,18 +238,15 @@ let arcs = 0;
             @if (face(); as f) {
               @if (f.level !== 'desconhecida') {
                 <svg class="carimbo pe" [class.hoje]="due()" viewBox="0 0 100 140" role="img" [attr.aria-label]="back()">
-                  <defs><path [attr.id]="arc" d="M66.4 19 a12.6 12.6 0 1 1 25.2 0 a12.6 12.6 0 1 1 -25.2 0" /></defs>
-                  <g transform="rotate(-14 79 19)">
-                    <circle cx="79" cy="19" r="17" stroke-width="0.9" />
-                    <circle cx="79" cy="19" r="15.8" stroke-width="0.45" />
-                    <circle cx="79" cy="19" r="9.4" stroke-width="0.45" />
-                    <text font-size="3.9" letter-spacing="0.3"><textPath [attr.href]="'#' + arc" textLength="76" lengthAdjust="spacing">{{ postmark() }}</textPath></text>
-                    <text x="79" y="20.4" font-size="8" text-anchor="middle">{{ stampDay() }}</text>
-                    <text x="79" y="25.2" font-size="3.5" letter-spacing="0.5" text-anchor="middle">{{ stampMonth() }}</text>
+                  <path class="onda" stroke-width="0.65" d="M51 9 q2.4 -1.7 4.8 0 t4.8 0 t4.8 0 t4.8 0 t4.8 0" />
+                  <path class="onda" stroke-width="0.65" d="M51 13.5 q2.4 -1.7 4.8 0 t4.8 0 t4.8 0 t4.8 0 t4.8 0" />
+                  <path class="onda" stroke-width="0.65" d="M51 18 q2.4 -1.7 4.8 0 t4.8 0 t4.8 0 t4.8 0 t4.8 0" />
+                  <g transform="rotate(-12 85.5 13.5)">
+                    <circle cx="85.5" cy="13.5" r="10.5" stroke-width="0.8" />
+                    <circle cx="85.5" cy="13.5" r="9.2" stroke-width="0.4" />
+                    <text x="85.5" y="14.2" font-size="7.2" text-anchor="middle">{{ stampDay() }}</text>
+                    <text x="85.5" y="18.8" font-size="3.1" letter-spacing="0.45" text-anchor="middle">{{ stampMonth() }}</text>
                   </g>
-                  <path class="onda" stroke-width="0.8" d="M28 12 q3.2 -2.2 6.4 0 t6.4 0 t6.4 0 t6.4 0 t6.4 0" />
-                  <path class="onda" stroke-width="0.8" d="M28 17.5 q3.2 -2.2 6.4 0 t6.4 0 t6.4 0 t6.4 0 t6.4 0" />
-                  <path class="onda" stroke-width="0.8" d="M28 23 q3.2 -2.2 6.4 0 t6.4 0 t6.4 0 t6.4 0 t6.4 0" />
                 </svg>
               }
             }
@@ -393,7 +387,6 @@ export class StudyCard {
   readonly costas = input(false, { transform: booleanAttribute });
 
   protected readonly iconOf = ICON_CHOICE;
-  protected readonly arc = `carimbo-${++arcs}`;
 
   private readonly images = inject(ImageStore);
   private readonly imageSync = inject(ImageSync);
@@ -452,8 +445,6 @@ export class StudyCard {
   });
   protected readonly stampDay = computed(() => this.face()?.stamp.split(' ')[0] ?? '');
   protected readonly stampMonth = computed(() => this.face()?.stamp.split(' ')[1] ?? '');
-  /** O texto em volta do carimbo do Selo: o baralho e quando volta. */
-  protected readonly postmark = computed(() => `${this.deckName().toLocaleUpperCase('pt-BR')} · ${this.back().toLocaleUpperCase('pt-BR')} ·`);
 
   constructor() {
     loadKleeOne();
