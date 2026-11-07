@@ -1,4 +1,5 @@
 @use 'kanban-kit' as kk;
+@use 'etiqueta-acoes' as et;
 
 :host {
   position: relative;
@@ -105,122 +106,46 @@
   @include kk.escala;
 }
 
-/* ===== As ações da anotação no quadro: a etiqueta de tinta do Fixar e do Finalizar =====
-   Presa na beirada de cima da ficha, metade para fora (não cobre o nome); aparece com o mouse em
-   cima ou com o foco do teclado. Uma etiqueta só, com um botão por ação separados por um fio: os
-   ajustes e, fora da última coluna, a seta para a coluna seguinte (do lado de lá, para onde ela
-   leva). No toque, sem mouse, fica sempre, um pouco maior para o dedo. */
+/* ===== As ações da anotação no quadro: as etiquetas de tinta do Fixar e do Finalizar =====
+   O desenho e as reações moram em ui/_etiqueta-acoes.scss. Presas na beirada de cima da ficha, metade
+   para fora (não cobrem o nome): os ajustes e, fora da última coluna, a seta para a coluna seguinte
+   (do lado de lá, para onde ela leva). */
 .acoes {
   position: absolute;
-  top: -14px;
+  top: -15px;
   right: 12px;
   z-index: 6;
-  display: flex;
-  border-radius: 3px;
-  background: #151515;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.4),
-    0 4px 8px -3px rgb(0 0 0 / 0.4);
-  rotate: -1.5deg;
-  opacity: 0;
-  translate: 0 5px;
-  pointer-events: none;
-  transition:
-    opacity var(--t-ui) var(--ease-ui),
-    translate var(--t-ui) var(--ease-ui);
+  @include et.grupo;
+
+  @media (hover: none) {
+    top: -17px;
+  }
 }
 
 .mexer,
 .avancar {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: #f1f1ec;
-  cursor: pointer;
-  transition:
-    background-color var(--t-ui) var(--ease-ui),
-    translate var(--t-ui) var(--ease-ui);
-
-  lucide-icon {
-    display: inline-flex;
-  }
-
-  /* a área de toque passa da etiqueta (para cima e para baixo; dos lados, encosta na vizinha) */
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -7px 0;
-  }
-
-  /* o foco na tinta da etiqueta, com folga e o halo claro: aparece na cartolina e no papel pardo */
-  &:focus-visible {
-    z-index: 1;
-    outline: 2.5px solid #151515;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 6px rgb(241 241 236 / 0.85);
-  }
+  @include et.botao;
 }
 
-/* o fio entre os dois botões, riscado na própria tinta */
+.mexer {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
 .avancar {
-  border-radius: 0 3px 3px 0;
-  box-shadow: inset 1px 0 0 rgb(241 241 236 / 0.24);
-}
-
-.duas .mexer {
-  border-radius: 3px 0 0 3px;
-}
-
-/* a ponta da seta dá um passo para a direita quando a mão chega: é para lá que ela leva */
-@media (hover: hover) {
-  .mexer:hover,
-  .avancar:hover {
-    background: rgb(241 241 236 / 0.16);
-  }
-
-  .avancar:hover lucide-icon {
-    translate: 2px 0;
-  }
-
-  .avancar lucide-icon {
-    transition: translate var(--t-ui) var(--ease-ui);
-  }
+  @include et.cor-na-mao(var(--etiqueta-verde));
 }
 
 /* com o mouse em cima, ou com o teclado num dos botões dela. O foco que volta para a ficha (ao fechar
    a leitura, ou depois da seta) não mostra a etiqueta: ela só aparecia sem a mão estar lá */
-:host(:hover) .acoes,
-.acoes:has(:focus-visible) {
-  opacity: 1;
-  translate: 0 0;
-  pointer-events: auto;
+:host(:hover) .acoes :is(.mexer, .avancar),
+.acoes:has(:focus-visible) :is(.mexer, .avancar) {
+  @include et.mostra;
 }
 
 /* arrastando, ninguém mostra as ações (nem a cópia que segue o ponteiro) */
-:host-context(.kanban-arrastando) .acoes {
+:host-context(.kanban-arrastando) .acoes :is(.mexer, .avancar) {
   opacity: 0;
   pointer-events: none;
-}
-
-@media (hover: none) {
-  .acoes {
-    top: -17px;
-    opacity: 1;
-    translate: 0 0;
-    pointer-events: auto;
-  }
-
-  .mexer,
-  .avancar {
-    width: 34px;
-    height: 34px;
-  }
 }
 
 /* acabou de chegar pela seta: a ficha pisca o marca-texto da busca uma vez, para o olho achar onde ela foi */
@@ -359,20 +284,14 @@
   rotate: 2deg;
 }
 
-/* com o mouse, a etiqueta (a mesma do Fixar e do Finalizar, sem mudar nada nela) cola na ponta da
+/* com o mouse, as etiquetas (as mesmas do Fixar e do Finalizar, sem mudar nada nelas) colam na ponta da
    tira, por cima da importância enquanto a mão está lá: a coluna rola por dentro e corta o que passa
-   da beirada dela (ver .rolo em kanban-page.scss), então ela não sai mais para o papel pardo */
+   da beirada dela (ver .rolo em kanban-page.scss), então elas não saem mais para o papel pardo */
 :host(.titulo) .acoes {
   top: 50%;
   right: -6px;
   margin-top: -15px;
   rotate: 2deg;
-  translate: -5px 0;
-}
-
-:host(.titulo:hover) .acoes,
-:host(.titulo) .acoes:has(:focus-visible) {
-  translate: 0 0;
 }
 
 /* no toque, uma etiqueta preta em cada tira era barulho: só o desenho, na tinta da tira, na ponta */
@@ -382,17 +301,16 @@
     top: auto;
     left: auto;
     flex: none;
+    gap: 0;
     margin: -4px -6px -4px -2px;
-    background: none;
-    box-shadow: none;
     rotate: none;
-    translate: none;
     opacity: 0.6;
 
     .mexer,
     .avancar {
       width: 30px;
       height: 30px;
+      background: none;
       color: inherit;
       box-shadow: none;
     }
@@ -401,11 +319,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .imp,
-  .status,
-  .acoes,
-  .mexer,
-  .avancar,
-  .avancar lucide-icon {
+  .status {
     transition: none;
   }
 

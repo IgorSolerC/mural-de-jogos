@@ -1079,153 +1079,7 @@ export const CARD_STYLES = `
       pointer-events: auto;
     }
 
-    /* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
-       Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
-       Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o
-       alfinete vermelho à vista, que é o estado dela. No toque, sem mouse, ficam sempre. Pretas em
-       toda cartolina, clara ou escura (metade delas fica na parede). */
-    .acoes {
-      --etiqueta: #151515;
-      --etiqueta-tinta: #f1f1ec;
-      --etiqueta-verde: #8fe3ad;
-      --etiqueta-vermelho: #ff8f80;
-      position: absolute;
-      top: -15px;
-      right: 12px;
-      z-index: 6;
-      display: flex;
-      gap: 4px;
-      rotate: -1.5deg;
-    }
-    .fixar,
-    .feito {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      height: 30px;
-      padding: 0;
-      border: 0;
-      border-radius: 3px;
-      background: var(--etiqueta);
-      color: var(--etiqueta-tinta);
-      box-shadow:
-        0 1px 2px rgb(0 0 0 / 0.4),
-        0 4px 8px -3px rgb(0 0 0 / 0.4);
-      cursor: pointer;
-      opacity: 0;
-      translate: 0 5px;
-      pointer-events: none;
-      transition:
-        opacity var(--t-ui) var(--ease-ui),
-        translate var(--t-ui) var(--ease-ui),
-        scale var(--t-ui) var(--ease-ui);
-    }
-    .fixar {
-      width: 30px;
-    }
-    .feito {
-      padding: 0 10px 0 8px;
-      font-family: var(--f-label);
-      font-weight: 800;
-      font-size: 0.8rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    /* o check na tinta verde do carimbo que ele bate */
-    .feito lucide-icon {
-      display: inline-flex;
-      color: var(--etiqueta-verde);
-    }
-    .feito.marcado lucide-icon {
-      color: inherit;
-    }
-    /* a área de toque passa da etiqueta, mas só até o meio do vão entre as duas (o alfinete fica no
-       canto, então a fixada, sem o mouse, mostra só ele, no lugar de sempre) */
-    .fixar::before,
-    .feito::before {
-      content: '';
-      position: absolute;
-      inset: -7px -2px -7px -2px;
-    }
-    :host(:hover:not([data-quieta])) :is(.fixar, .feito),
-    .acoes:has(:focus-visible) :is(.fixar, .feito),
-    .fixar.marcado {
-      opacity: 1;
-      translate: 0 0;
-      pointer-events: auto;
-    }
-    /* o foco na tinta da etiqueta, com folga e o halo claro: aparece na cartolina clara e na escura */
-    .fixar:focus-visible,
-    .feito:focus-visible {
-      outline: 2.5px solid var(--etiqueta);
-      outline-offset: 2px;
-      box-shadow:
-        0 0 0 6px rgb(241 241 236 / 0.85),
-        0 1px 2px rgb(0 0 0 / 0.4);
-    }
-    @media (hover: hover) {
-      .fixar:hover,
-      .feito:hover {
-        scale: 1.06;
-      }
-      .fixar:not(.marcado):hover {
-        color: var(--etiqueta-vermelho);
-      }
-    }
-    /* fixada: o alfinete cravado, vermelho e cheio */
-    .fixar.marcado {
-      color: var(--etiqueta-vermelho);
-      animation: crava 320ms var(--ease-physical);
-    }
-    .fixar lucide-icon {
-      display: inline-flex;
-      rotate: 18deg;
-      transition: rotate var(--t-physical) var(--ease-physical);
-    }
-    .fixar.marcado lucide-icon {
-      rotate: 38deg;
-    }
-    .fixar.marcado ::ng-deep svg {
-      fill: currentColor;
-      fill-opacity: 0.85;
-    }
-    @keyframes crava {
-      from {
-        scale: 1.3;
-        translate: 3px -5px;
-      }
-    }
-    /* o carimbo batendo: as etiquetas saem da frente, a vez é dele */
-    :host(.carimbando) :is(.fixar, .feito) {
-      opacity: 0;
-      pointer-events: none;
-    }
-    /* sem mouse, as etiquetas não esperam o mouse passar: ficam, só com o desenho (o nome vai para o
-       leitor de tela e para a dica), um pouco maiores para o dedo */
-    @media (hover: none) {
-      .fixar,
-      .feito {
-        opacity: 1;
-        translate: 0 0;
-        pointer-events: auto;
-        width: 34px;
-        height: 34px;
-        padding: 0;
-      }
-      .acoes {
-        top: -17px;
-        gap: 6px;
-      }
-      .acao-nome {
-        display: none;
-      }
-      .fixar::before,
-      .feito::before {
-        inset: -5px -3px;
-      }
-    }
+    /* as etiquetas de ação (o alfinete e o check) moram em review-card-acoes.scss */
     /* as tarefas da anotação: o desenho do checklist e a conta; todas feitas, o verde do carimbo */
     .tarefas-conta {
       white-space: nowrap;
@@ -1322,8 +1176,7 @@ export const CARD_STYLES = `
       }
     }
     @media (prefers-reduced-motion: reduce) {
-      :host(.carimbando),
-      .fixar.marcado {
+      :host(.carimbando) {
         animation: none;
       }
     }
@@ -1724,7 +1577,8 @@ export const CARD_STYLES = `
   hostDirectives: [Luz],
   host: CARD_HOST,
   template: CARD_TEMPLATE,
-  styles: CARD_STYLES,
+  styles: [CARD_STYLES],
+  styleUrl: './review-card-acoes.scss',
 })
 export class ReviewCard {
   readonly review = input.required<Review>();

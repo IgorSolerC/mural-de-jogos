@@ -1,5 +1,22 @@
 # Regras do Murall (ler antes de qualquer feature)
 
+## Botões de hover dos cards: um padrão só
+
+Pedido do dono do projeto em 07/nov/2026, depois de o Kanban e os Flashcards terem saído diferentes do
+mural. **Todo botão de ação que aparece ao passar o mouse sobre um card, em qualquer mural, hoje e nos
+que vierem, segue o padrão do Finalizar e do Fixar do mural de anotações:**
+
+1. **Separados**: cada botão é uma etiqueta de tinta própria, com fundo e sombra próprios e um vão entre
+   eles. Nunca juntos numa etiqueta só, nunca com um fio separando.
+2. **Reagem ao mouse**: o botão cresce (`scale: 1.06`) e o desenho ganha uma cor que combine com ele.
+   Nunca só clarear o fundo, nunca ficar parado.
+
+Como fazer: use os mixins de `src/app/ui/_etiqueta-acoes.scss` (`grupo`, `botao`, `mostra`, `cor-na-mao`,
+`com-nome`) e não copie o CSS. O card decide só onde a etiqueta fica e quando aparece. Tamanho diferente
+só por falta de espaço de verdade, como nas miniaturas de flashcard; quem usa escreve `expectEtiquetaPadrao`
+(`src/app/testing/etiqueta-acoes.spec.ts`) num teste. `scripts/etiqueta-acoes.test.mjs` falha se alguém revelar
+botões com o mouse por conta própria.
+
 ## Sair da conta apaga TUDO o que o site guarda no navegador
 
 Pedido do dono do projeto, depois de um incidente em 26/out/2026: o mural de uma conta foi parar em outra

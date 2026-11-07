@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { Review, isPinnedNote, sanitizeReview } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SharedStore } from '../core/shared-store';
+import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { ReviewCard } from './review-card';
 
 function note(): Review {
@@ -46,6 +47,21 @@ describe('o alfinete da ficha no mural', () => {
   afterEach(() => {
     document.querySelectorAll('app-review-card').forEach((e) => e.remove());
     localStorage.clear();
+  });
+
+  it('o Finalizar e o Fixar são o padrão de todos os cards: separados e reagindo à mão', async () => {
+    const { el } = await show(null);
+    const acoes = el.querySelector<HTMLElement>('.acoes')!;
+    expect(acoes.querySelectorAll('button').length).toBe(2);
+    // o Finalizar leva o nome e o check já é verde, em vez de ganhar cor com a mão
+    expectEtiquetaPadrao(acoes, { semCorNaMao: ['feito'], comNome: ['feito'] });
+  });
+
+  it('a etiqueta escondida não pega o clique de quem toca na ficha embaixo dela', async () => {
+    const { el } = await show(null);
+    const acoes = el.querySelector<HTMLElement>('.acoes')!;
+    expect(getComputedStyle(acoes).pointerEvents).toBe('none');
+    expect(getComputedStyle(acoes.querySelector('button')!).pointerEvents).toBe('none');
   });
 
   it('na compartilhada em que você só lê: o alfinete, sem o check, e ele fixa e desafixa', async () => {

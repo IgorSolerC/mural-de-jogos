@@ -10,6 +10,7 @@ import { studyPath } from '../core/areas';
 import { STUDY_SIZE_KEY, studyGroupId } from '../core/study';
 import { StudyStore } from '../core/study-store';
 import { WallView } from '../core/wall-view';
+import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { Confirm } from '../ui/confirm';
 import { setEverythingNear } from '../ui/near-screen';
 import { StudyPage } from './study-page';
@@ -474,7 +475,8 @@ describe('página dos Estudos', () => {
       expect(button.offsetHeight / button.offsetWidth).toBeCloseTo(7 / 5, 1);
       // por dentro, a carta segue do tamanho de sempre, e só o desenho encolhe: a miniatura proporcional
       expect(getComputedStyle(card).scale).toBe('0.4');
-      expect(card.offsetWidth * 0.4).toBeCloseTo(button.offsetWidth, 0);
+      // (offsetWidth arredonda os dois lados, e a diferença passa de meio pixel conforme a largura da janela)
+      expect(Math.abs(card.offsetWidth * 0.4 - button.offsetWidth)).toBeLessThanOrEqual(1);
       expect(text($('app-study-card .titulo'))).toBe(title);
       // a letra do nível não se lê mais: o nome e o nível na dica
       expect($('.carta-btn')!.title).toBe($('.carta-btn')!.getAttribute('aria-label')!);
@@ -851,6 +853,12 @@ describe('página dos Estudos', () => {
       $<HTMLButtonElement>('button[aria-label^="Flashcards grandes"]')!.click();
       await settle();
       expect(turned()).toBe(0);
+    });
+
+    it('os botões do flashcard seguem o padrão do mural: separados e reagindo à mão, cada um com a sua cor', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      expectEtiquetaPadrao(li(0).querySelector<HTMLElement>('.acoes')!);
     });
 
     it('a etiqueta tem o maximizar, o ler e o editar, com o mesmo botão preto', async () => {

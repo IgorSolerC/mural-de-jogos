@@ -1364,6 +1364,15 @@ The user found the board cut off abruptly with many columns, and asked for more 
 - **Edge arrows (mouse only).** A 48px paper disc with the grain and a chevron, over the fade, on each side that hides columns; the ink sticker of the marked notes in its corner says how many columns are over there. It rides a rail as tall as the board, sticky at mid-screen, so it is at hand on a long column. A click brings the next page: the first column not fully shown lands on the folder line (or after the fade, if wider). Hidden while dragging (the edge already auto-scrolls) and on touch (the finger swipes).
 - **No more masking tape** on the column corners (the user found it noise); the kraft strips just hang on the wall, tilted as before.
 
+## Etiquetas de ação dos cards (hover standard, 2026-11-07)
+
+Every action button revealed by hovering a card, on any wall, is the note wall's Finalizar/Fixar label. This replaces the grouped Kanban label below and the flashcards' grouped one. One source: `src/app/ui/_etiqueta-acoes.scss`.
+
+- **Separate.** Each button is its own `#151515` label: 30px, 3px corners, its own two-step shadow, 4px gap, the row tilted −1.5deg. No shared background, no hairline.
+- **Reacts.** On hover the button scales to 1.06 and its glyph takes a color that fits it: red pin, green forward, yellow settings, blue maximize, lilac read. Finalizar's check stays green at rest.
+- **Reveal.** Fades and rises 5px on card hover or keyboard focus inside the row. The hidden row never catches clicks. Touch: always on, glyph only, 34px, 6px gap.
+- **Allowed variation.** Position and tilt per card (Kanban title strips at 2deg, the end of the strip). Size only when there is truly no room: three flashcard thumbnail buttons stay 24px, because 98px of buttons would pass a 78px thumbnail and cover its neighbor.
+
 ## Seta para a próxima coluna (Kanban advance pass, 2026-10-17)
 
 The user asked for an iOS-style chevron (the point only, no shaft) beside a note's hover settings that moves it to the next column, absent on the last column. Modelled on the grouped hover toolbars of GitHub Projects and Notion.

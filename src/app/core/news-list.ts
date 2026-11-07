@@ -27,12 +27,13 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-07-aba-flashcard',
+    id: '2026-11-07-botoes-dos-cards',
     version: '1.39.3',
     kind: 'ajustes',
     date: '2026-11-07',
-    title: 'A aba Flashcard refeita, carta agora é flashcard, os ajustes do Kanban e dos Flashcards no editor da anotação e os menus das etiquetas',
+    title: 'A aba Flashcard refeita, carta agora é flashcard, os ajustes do Kanban e dos Flashcards no editor da anotação e os botões iguais em todos os cards',
     melhorias: [
+      'Os botões que aparecem ao passar o mouse nas fichas do Kanban e nos Flashcards agora são iguais aos de Finalizar e Fixar do mural: separados, crescem com o mouse em cima e o desenho ganha uma cor.',
       'A aba Flashcard do editor foi refeita: a frente e o verso ficam à vista no lugar da ficha, mudando enquanto você escreve, os baralhos do grupo ligam e desligam num toque, a imagem ocupa um cantinho e o progresso fica recolhido. Tocar em Frente ou Verso leva a quem edita cada lado.',
       'A palavra "carta" saiu do site: agora é sempre flashcard, como em "Novo flashcard" e "Deixar de ser flashcard de estudos".',
       'No editor da anotação, o Kanban saiu das etiquetas e virou uma aba, ao lado de Anotação, Cartolina e Flashcard: a etapa, a importância, o mural, a observação e as dependências ficam à vista, e um pontinho na aba mostra que a anotação está no quadro.',
@@ -41,6 +42,7 @@ export const NEWS: NewsEntry[] = [
       'Quem só lê uma anotação compartilhada também ajusta o lugar dela no quadro e o flashcard nesse editor, só com as abas Kanban e Flashcard.',
     ],
     correcoes: [
+      'Na ficha do mural, tocar no canto de cima, onde os botões ficam escondidos, agora abre a anotação: antes, o clique ali se perdia.',
       'Salvar no editor uma mudança só do quadro ou do flashcard não muda mais a data de alteração da anotação, e o aviso com Desfazer de quando ela é finalizada ou sai do quadro não é mais coberto pelo de salvar.',
       'No editor, responder "Esperar" à pergunta das dependências deixa a anotação na coluna e não perde mais a importância, a observação e o resto do que foi mudado junto.',
       'No editor da anotação e da análise, o papel que abre pelas etiquetas (Grupo, Assunto, Tags, Hoje e as outras) fica na frente do texto, e não mais atrás das abas Visual e Markdown e da régua.',

@@ -14,6 +14,7 @@ import { Mural } from '../core/mural';
 import { KANBAN_LAST_KEY } from '../core/kanban';
 import { WallView } from '../core/wall-view';
 import { closeDialog, nextClose } from '../testing/dialog-close.spec';
+import { expectEtiquetaPadrao } from '../testing/etiqueta-acoes.spec';
 import { scrollSettled } from '../testing/scroll-settled.spec';
 import { KanbanProps } from '../ui/kanban-props';
 import { NEAR_TUNING, setEverythingNear } from '../ui/near-screen';
@@ -593,14 +594,24 @@ describe('página do Kanban', () => {
     // e, quando o foco pega na ficha, ela continua sem a etiqueta
     const li = host.querySelector<HTMLElement>('[data-nota="nlogin01"]')!;
     li.querySelector<HTMLElement>('.hit')!.focus();
-    if (li.contains(document.activeElement)) expect(getComputedStyle(li.querySelector('.acoes')!).opacity).toBe('0');
+    if (li.contains(document.activeElement)) expect(getComputedStyle(li.querySelector('.acoes .mexer')!).opacity).toBe('0');
   });
 
-  it('a seta da ficha (junto dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
+  it('os botões da ficha seguem o padrão do mural: separados e reagindo à mão', async () => {
+    kanban.state.set(state(board()));
+    await go(TRAB_URL);
+    expectEtiquetaPadrao(host.querySelector<HTMLElement>('[data-nota="nlogin01"] .acoes')!);
+    // na vista Só os títulos também (lá ela só fica em outro lugar e noutro giro, pela tira)
+    host.querySelector<HTMLButtonElement>('.pasta button[aria-label="Só os títulos"]')!.click();
+    await settle();
+    expectEtiquetaPadrao(host.querySelector<HTMLElement>('[data-nota="nsync001"] .acoes')!, { rotate: '2deg' });
+  });
+
+  it('a seta da ficha (ao lado dos ajustes) leva a anotação para a coluna seguinte, e some na última', async () => {
     kanban.state.set(state(board()));
     await go(TRAB_URL);
     const seta = (id: string) => host.querySelector<HTMLButtonElement>(`[data-nota="${id}"] .acoes .avancar`);
-    // na mesma etiqueta dos ajustes, depois deles
+    // na mesma fileira dos ajustes, depois deles
     const acoes = host.querySelector('[data-nota="nlogin01"] .acoes')!;
     expect([...acoes.querySelectorAll('button')].map((b) => b.className)).toEqual(['mexer', 'avancar']);
     expect(seta('nlogin01')!.getAttribute('aria-label')).toBe('Levar Corrigir o login para Fazendo');

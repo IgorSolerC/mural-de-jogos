@@ -1,0 +1,139 @@
+/* ===== A etiqueta de ações dos cards: a peça única dos botões que aparecem com o mouse em cima =====
+   O desenho é o do Fixar e do Finalizar do mural de anotações, e TODO card com botões assim usa estes
+   mixins (regra no CLAUDE.md, preso por scripts/etiqueta-acoes.test.mjs): cada botão é uma etiqueta
+   de tinta SEPARADA, com fundo e sombra próprios, e REAGE à mão, crescendo e pondo o desenho numa cor
+   que combine com ele. Nada de botões juntos numa etiqueta só, fio entre eles ou fundo que só clareia.
+   Cada card decide só onde a etiqueta fica (position, top, right, z-index) e quando ela aparece, que é
+   a mão em cima dele ou o teclado num dos botões:
+
+     .acoes { position: absolute; top: -15px; right: 12px; z-index: 6; @include et.grupo; }
+     .botao { @include et.botao; }
+     .botao { @include et.cor-na-mao(var(--etiqueta-amarelo)); }
+     :host(:hover) .botao,
+     .acoes:has(:focus-visible) .botao { @include et.mostra; }
+
+   Sem mouse, os botões não esperam: ficam à vista, só com o desenho, um pouco maiores para o dedo. */
+
+/* A fileira dos botões. Ela mesma não tem fundo nem sombra, e só os botões pegam o clique: escondida,
+   não pode roubar o toque do que está embaixo dela (a ficha, a importância da tira). */
+@mixin grupo {
+  --etiqueta: #151515;
+  --etiqueta-tinta: #f1f1ec;
+  --etiqueta-verde: #8fe3ad;
+  --etiqueta-vermelho: #ff8f80;
+  --etiqueta-amarelo: #ffda42;
+  --etiqueta-azul: #8cc8ff;
+  --etiqueta-lilas: #c9b8ff;
+  display: flex;
+  gap: 4px;
+  rotate: -1.5deg;
+  pointer-events: none;
+
+  @media (hover: none) {
+    gap: 6px;
+  }
+}
+
+/* Um botão: a etiqueta de tinta, escondida até a hora. Só com o desenho; com o nome, ver com-nome. */
+@mixin botao {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--etiqueta);
+  color: var(--etiqueta-tinta);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 4px 8px -3px rgb(0 0 0 / 0.4);
+  cursor: pointer;
+  opacity: 0;
+  translate: 0 5px;
+  pointer-events: none;
+  transition:
+    opacity var(--t-ui) var(--ease-ui),
+    translate var(--t-ui) var(--ease-ui),
+    scale var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  /* a área de toque passa da etiqueta, mas só até o meio do vão entre os botões */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -7px -2px;
+  }
+
+  /* o foco na tinta da etiqueta, com folga e o halo claro: aparece na cartolina clara e na escura, e
+     por cima do botão vizinho, porque o halo passa do vão entre eles */
+  &:focus-visible {
+    z-index: 1;
+    outline: 2.5px solid var(--etiqueta);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 6px rgb(241 241 236 / 0.85),
+      0 1px 2px rgb(0 0 0 / 0.4);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      scale: 1.06;
+    }
+  }
+
+  @media (hover: none) {
+    width: 34px;
+    height: 34px;
+    opacity: 1;
+    translate: 0 0;
+    pointer-events: auto;
+
+    &::before {
+      inset: -5px -3px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/* O botão que leva o nome escrito (o Finalizar). No toque, volta a ser só o desenho. */
+@mixin com-nome {
+  width: auto;
+  padding: 0 10px 0 8px;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  @media (hover: none) {
+    width: 34px;
+    padding: 0;
+  }
+}
+
+/* A hora de aparecer: a mão em cima do card ou o teclado num dos botões. */
+@mixin mostra {
+  opacity: 1;
+  translate: 0 0;
+  pointer-events: auto;
+}
+
+/* A cor que o desenho ganha com a mão em cima: uma que combine com ele (vermelho no alfinete, verde no
+   que leva adiante, amarelo nos ajustes, azul no que aumenta, lilás no que abre para ler). */
+@mixin cor-na-mao($cor) {
+  @media (hover: hover) {
+    &:hover {
+      color: $cor;
+    }
+  }
+}

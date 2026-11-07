@@ -1,0 +1,96 @@
+@use 'etiqueta-acoes' as et;
+
+/* ===== O alfinete e o check da anotação: duas etiquetas de tinta, presas na beirada de cima =====
+   Ficam metade para fora da ficha (como o balão das reações embaixo), então não cobrem o título.
+   Aparecem com o mouse em cima da ficha ou com o foco do teclado nelas; a fixada mantém o alfinete
+   vermelho à vista, que é o estado dela. No toque, sem mouse, ficam sempre. Pretas em toda cartolina,
+   clara ou escura (metade delas fica na parede). O desenho e as reações moram em _etiqueta-acoes.scss:
+   daqui, só o lugar delas e o que é do alfinete e do check.
+
+   Num arquivo à parte, e não em CARD_STYLES: o texto de uma constante não passa pelo Sass nos testes. */
+.acoes {
+  position: absolute;
+  top: -15px;
+  right: 12px;
+  z-index: 6;
+  @include et.grupo;
+}
+
+.fixar,
+.feito {
+  @include et.botao;
+}
+
+.feito {
+  @include et.com-nome;
+}
+
+/* o check na tinta verde do carimbo que ele bate */
+.feito lucide-icon {
+  color: var(--etiqueta-verde);
+}
+
+.feito.marcado lucide-icon {
+  color: inherit;
+}
+
+/* a fixada, sem o mouse, mostra só o alfinete, no lugar de sempre */
+:host(:hover:not([data-quieta])) :is(.fixar, .feito),
+.acoes:has(:focus-visible) :is(.fixar, .feito),
+.fixar.marcado {
+  @include et.mostra;
+}
+
+.fixar:not(.marcado) {
+  @include et.cor-na-mao(var(--etiqueta-vermelho));
+}
+
+/* fixada: o alfinete cravado, vermelho e cheio */
+.fixar.marcado {
+  color: var(--etiqueta-vermelho);
+  animation: crava 320ms var(--ease-physical);
+}
+
+.fixar lucide-icon {
+  rotate: 18deg;
+  transition: rotate var(--t-physical) var(--ease-physical);
+}
+
+.fixar.marcado lucide-icon {
+  rotate: 38deg;
+}
+
+.fixar.marcado ::ng-deep svg {
+  fill: currentColor;
+  fill-opacity: 0.85;
+}
+
+@keyframes crava {
+  from {
+    scale: 1.3;
+    translate: 3px -5px;
+  }
+}
+
+/* o carimbo batendo: as etiquetas saem da frente, a vez é dele */
+:host(.carimbando) :is(.fixar, .feito) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* sem mouse, o nome vai para o leitor de tela e para a dica */
+@media (hover: none) {
+  .acoes {
+    top: -17px;
+  }
+
+  .acao-nome {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fixar.marcado {
+    animation: none;
+  }
+}

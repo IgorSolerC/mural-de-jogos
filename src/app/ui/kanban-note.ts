@@ -24,6 +24,7 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
   changeDetection: ChangeDetectionStrategy.OnPush,
   // a etiqueta da importância vem de fora, colada na ficha (ver KanbanNote)
   template: CARD_TEMPLATE + '<ng-content />',
+  styleUrl: './review-card-acoes.scss',
   styles: [
     CARD_STYLES,
     `
@@ -64,9 +65,9 @@ export class KanbanReviewCard extends ReviewCard {
  *   selo das dependências; tocar na ficha abre a leitura. O assunto abre a linha da data.
  * - **títulos** (`dense`): só uma tira da cartolina dela com o assunto e o nome, a observação, o selo das dependências
  *   e a escala da importância, para caber o quadro inteiro na tela.
- * Nas duas, a etiqueta de tinta das ações (como o Fixar e o Finalizar do mural) aparece com o mouse
+ * Nas duas, as etiquetas de tinta das ações (as do Fixar e do Finalizar do mural) aparecem com o mouse
  * em cima ou o foco do teclado: os ajustes, que abrem o editor dela na aba Kanban, e, fora da última
- * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, fica
+ * coluna, a seta que a leva para a coluna seguinte (a ponta só, como a do iPhone); no toque, ficam
  * sempre (na tira, só os desenhos, na ponta dela).
  */
 @Component({
@@ -134,8 +135,8 @@ export class KanbanReviewCard extends ReviewCard {
       <ng-container [ngTemplateOutlet]="adjust" />
     }
     <ng-template #adjust>
-      <!-- as ações da anotação, juntas numa etiqueta de tinta: os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
-      <div class="acoes" [class.duas]="!!next()">
+      <!-- as ações da anotação, as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss): os ajustes e, fora da última coluna, a seta que a leva para a próxima -->
+      <div class="acoes">
         <button type="button" class="mexer" [attr.aria-label]="'Ajustes de ' + review().game.name + ' no quadro'" title="Ajustes no quadro" aria-haspopup="dialog" (click)="details.emit()">
           <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
         </button>

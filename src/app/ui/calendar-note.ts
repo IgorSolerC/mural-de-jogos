@@ -12,6 +12,7 @@ import { CARD_IMPORTS, CARD_STYLES, CARD_TEMPLATE, ReviewCard } from './review-c
   imports: CARD_IMPORTS,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: CARD_TEMPLATE,
+  styleUrl: './review-card-acoes.scss',
   styles: [
     CARD_STYLES,
     `

@@ -330,15 +330,15 @@
               }
             </div>
             @if (perto.near()) {
-              <!-- a etiqueta de tinta das fichas do Kanban, no hover: maximizar a carta, ler a anotação e editar (a aba Flashcard do editor) -->
+              <!-- as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss), no hover: maximizar a carta, ler a anotação e editar (a aba Flashcard do editor) -->
               <div class="acoes">
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
+                <button type="button" class="mexer acao-maximizar" aria-haspopup="dialog" [attr.aria-label]="'Maximizar ' + c.title" title="Maximizar" (click)="focused.set(c.note)">
                   <lucide-icon [img]="MaximizeIcon" [size]="16" aria-hidden="true" />
                 </button>
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="open(c.note)">
+                <button type="button" class="mexer acao-ler" aria-haspopup="dialog" [attr.aria-label]="'Ler a anotação de ' + c.title" title="Ler a anotação" (click)="open(c.note)">
                   <lucide-icon [img]="ReadIcon" [size]="16" aria-hidden="true" />
                 </button>
-                <button type="button" class="mexer" aria-haspopup="dialog" [attr.aria-label]="'Editar o flashcard ' + c.title" title="Editar o flashcard" (click)="edit(c.note)">
+                <button type="button" class="mexer acao-editar" aria-haspopup="dialog" [attr.aria-label]="'Editar o flashcard ' + c.title" title="Editar o flashcard" (click)="edit(c.note)">
                   <lucide-icon [img]="AdjustIcon" [size]="16" aria-hidden="true" />
                 </button>
               </div>

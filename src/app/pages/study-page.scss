@@ -1,5 +1,6 @@
 @use '../ui/paper-kit' as kit;
 @use '../ui/divisorias' as div;
+@use '../ui/etiqueta-acoes' as et;
 
 :host {
   display: block;
@@ -552,7 +553,8 @@
     transform-origin: 0 0;
   }
 
-  /* a etiqueta dos ajustes: menor, na quina, para não cobrir a miniatura (o toque continua folgado) */
+  /* as etiquetas: as mesmas, só menores e na quina, porque três de 30px passariam da miniatura e cobririam
+     a vizinha (o toque continua folgado) */
   .acoes {
     top: -9px;
     right: -5px;
@@ -585,70 +587,34 @@
   border-radius: 6px;
 }
 
-/* os ajustes da carta: a etiqueta de tinta das fichas do Kanban (ui/kanban-note.scss), no hover */
+/* as ações da carta: as etiquetas de tinta de todo card (ui/_etiqueta-acoes.scss), no hover */
 .acoes {
   position: absolute;
   top: -12px;
   right: 10px;
   z-index: 2;
-  display: flex;
-  border-radius: 3px;
-  background: #151515;
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 0.4),
-    0 4px 8px -3px rgb(0 0 0 / 0.4);
-  rotate: -1.5deg;
-  opacity: 0;
-  translate: 0 5px;
-  pointer-events: none;
-  transition:
-    opacity var(--t-ui) var(--ease-ui),
-    translate var(--t-ui) var(--ease-ui);
-}
-
-.carta-li:hover .acoes,
-.acoes:has(:focus-visible) {
-  opacity: 1;
-  translate: 0 0;
-  pointer-events: auto;
+  @include et.grupo;
 }
 
 .mexer {
-  position: relative;
-  display: inline-grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  border: 0;
-  border-radius: 3px;
-  background: transparent;
-  color: #f1f1ec;
-  cursor: pointer;
-
-  lucide-icon {
-    display: inline-flex;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset: -7px -4px;
-  }
-
-  &:focus-visible {
-    outline: 2.5px solid #151515;
-    outline-offset: 2px;
-    box-shadow: 0 0 0 6px rgb(241 241 236 / 0.85);
-  }
+  @include et.botao;
 }
 
-@media (hover: none) {
-  .acoes {
-    opacity: 1;
-    translate: 0 0;
-    pointer-events: auto;
-  }
+.carta-li:hover .mexer,
+.acoes:has(:focus-visible) .mexer {
+  @include et.mostra;
+}
+
+.acao-maximizar {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
+
+.acao-ler {
+  @include et.cor-na-mao(var(--etiqueta-lilas));
+}
+
+.acao-editar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
 }
 
 .carta-btn {

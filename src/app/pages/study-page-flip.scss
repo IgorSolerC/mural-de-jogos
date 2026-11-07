@@ -130,8 +130,13 @@
   }
 
   .carta-li.virada .mexer {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
+
+    @media (hover: none) {
+      width: 34px;
+      height: 34px;
+    }
   }
 }
 
