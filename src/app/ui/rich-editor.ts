@@ -1665,6 +1665,8 @@ const VISUAL_ACTS = ['bold', 'italic', 'strike', 'mark', 'spoiler', 'subtle', 'c
     }
     .visual-chegando {
       --line: 1.75rem;
+      /* o código na linha fica da cor desta pauta (ui/_formatado.scss) */
+      --cod-pauta-alfa: 32%;
       min-height: calc(var(--line) * var(--linhas, 6) + 8px);
       max-height: 22rem;
       overflow-y: auto;

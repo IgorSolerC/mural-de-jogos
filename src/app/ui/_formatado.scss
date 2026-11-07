@@ -152,7 +152,9 @@ $cod-vao: 0.7rem;
 // a letra das pontas.
 @mixin cod-recorte {
   padding-inline: 0.68em;
-  background: color-mix(in srgb, currentColor 13%, transparent);
+  /* numa folha pautada, a cor da linha e a letra azul-marinho (as variáveis moram em src/styles.scss) */
+  background: var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent));
+  color: var(--cod-pauta-tinta, inherit);
   font-family: var(--f-codigo);
   font-weight: 400;
   font-variant-ligatures: none;
@@ -167,7 +169,8 @@ $cod-vao: 0.7rem;
   .cod {
     @include cod-recorte;
     position: relative;
-    top: -1px;
+    /* na pauta, desce até encostar na linha (sem o fio de papel entre as duas) */
+    top: var(--cod-desce, -1px);
     font-size: 0.78em;
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;

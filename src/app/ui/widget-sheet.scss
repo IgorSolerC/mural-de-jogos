@@ -181,6 +181,8 @@ dialog.wfolha {
 /* aberta: a folha pautada da leitura */
 .folha-aberta {
   --line: 1.75rem;
+  /* o código na linha fica da cor desta pauta (ui/_formatado.scss) */
+  --cod-pauta-alfa: 32%;
   width: 100%;
   padding: 0 14px;
   border-radius: 2px;

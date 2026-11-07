@@ -216,6 +216,8 @@ const TILTS = [-0.4, 0.3, -0.2, 0.45, -0.3, 0.2];
 
     /* a folha pautada embaixo do fio vermelho: as listas e os nomes delas correm na mesma pauta */
     .corpo {
+      /* o código na linha fica da cor desta pauta (ui/_formatado.scss) */
+      --cod-pauta-alfa: 32%;
       margin: 0 26px;
       padding: 6px 0 14px;
       border-top: 2px solid rgb(214 72 72 / 0.55);

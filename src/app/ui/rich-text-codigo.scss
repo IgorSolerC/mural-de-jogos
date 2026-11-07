@@ -19,7 +19,7 @@
    letra do código, não a troca pela dele */
 .cod.marca {
   padding-inline: 0.68em;
-  background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 52% / 100% 0.7em, color-mix(in srgb, currentColor 13%, transparent);
+  background: linear-gradient(var(--marca-cor), var(--marca-cor)) no-repeat 0 52% / 100% 0.7em, var(--cod-pauta, color-mix(in srgb, currentColor 13%, transparent));
 }
 .cod.sutil:not(.linha) {
   font-size: 0.66em;

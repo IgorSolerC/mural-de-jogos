@@ -431,6 +431,8 @@ app-judge-label {
 .text {
   --line: 1.76rem;
   --texto-desce: 5px;
+  /* o código na linha fica da cor desta pauta (ui/_formatado.scss) */
+  --cod-pauta-alfa: 20%;
   --caixa-sobe: 3px;
   padding: 6px 8px;
   white-space: pre-wrap;

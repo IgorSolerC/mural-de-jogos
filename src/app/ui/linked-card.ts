@@ -431,6 +431,8 @@ const EAR_GAP = 0.2;
       outline-offset: 3px;
     }
     .folha {
+      /* o código na linha fica da cor desta pauta (ui/_formatado.scss) */
+      --cod-pauta-alfa: 26%;
       position: relative;
       z-index: 1;
       padding: calc(var(--line, 1.5em) * 0.35) 0.95em calc(var(--line, 1.5em) * 0.45);
