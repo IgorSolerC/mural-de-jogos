@@ -102,6 +102,13 @@
 <!-- a lista "Parte de N notas" é rara: chega depois, quando o navegador está ocioso (o orçamento do bundle inicial) -->
 @defer (on idle) {
 }
+<!-- o relógio do Pomodoro ligado, num canto de toda página (ver ui/pomodoro-corner.ts): chega num pedaço à
+     parte, só quando alguém liga o Pomodoro (o orçamento do bundle inicial) -->
+@if (pomodoro.on()) {
+  @defer (on immediate) {
+    <app-pomodoro-corner />
+  }
+}
 <app-confirm />
 <app-toast />
 <app-paper-defs />

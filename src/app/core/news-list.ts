@@ -27,6 +27,20 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-08-pomodoro',
+    version: '1.41.0',
+    kind: 'funcionalidade',
+    date: '2026-11-08',
+    title: 'Pomodoro nos Extras',
+    notice: 'Novo: o Pomodoro, nos Extras. Estudo e pausa em turnos, com um relógio no canto da tela em qualquer página e música para concentrar.',
+    items: [
+      'Uma prateleira nova nos Extras, Foco, com o Pomodoro: escolha o tempo de estudo e o de pausa (de 5 a 120 minutos, ou um dos prontos, 25/5, 50/10 e 90/20) e toque em Começar o foco.',
+      'Ligado, um relógio fica num canto da tela em todas as páginas, com a fase e o tempo que falta. Com o mouse em cima (ou um toque, no celular), ele pausa, pula a fase, liga ou desliga a música e sai, desligando o Pomodoro; arraste para trocar de canto.',
+      'Doze relógios para escolher: Tomate, Bilhete, Placar, Neon, Relógio de pulso, Lousa, Ampulheta, Cassete, Vinil, Disco, Dymo e Broche. Todos mostram a fase, o tempo e quanto da fase já foi.',
+      'No estudo toca música: uma rádio lofi do YouTube, ou o link que você puser (YouTube ou MP3). Ela some devagar na pausa e volta de onde parou, e dá para desligar. Um sininho avisa cada troca, e a página conta os estudos completos do dia.',
+    ],
+  },
+  {
     id: '2026-11-08-sem-estudar-adiantado',
     version: '1.40.1',
     kind: 'ajustes',

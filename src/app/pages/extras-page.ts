@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { API_USAGE_PATH } from '../core/areas';
+import { API_USAGE_PATH, POMODORO_PATH } from '../core/areas';
+import { PomodoroStore } from '../core/pomodoro-store';
 import { CloudAccount } from '../core/cloud-account';
 import { Cloud } from '../core/cloud-config';
 import { Mural } from '../core/mural';
@@ -26,8 +27,8 @@ interface Shelf {
 }
 
 /**
- * O que mora em Extras, em duas prateleiras: os números do mural (Ranking e Comparar, que já eram
- * abas, e as Estatísticas) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
+ * O que mora em Extras, em prateleiras: os números do mural (Ranking e Comparar, que já eram
+ * abas, e as Estatísticas), o Foco (o Pomodoro) e os jogos. Cada jogo novo (os quizzes) entra na segunda e joga com o mural escolhido em
  * `Players`, o seu ou o de um colega.
  */
 const SHELVES: Shelf[] = [
@@ -61,6 +62,21 @@ const SHELVES: Shelf[] = [
         stock: 'var(--stock-laranja)',
         pin: '#2f6bff',
         go: 'Ver',
+      },
+    ],
+  },
+  {
+    id: 'foco',
+    title: 'Foco',
+    entries: [
+      {
+        path: POMODORO_PATH,
+        name: 'Pomodoro',
+        blurb: 'Estudo e pausa em turnos, com um relógio no canto da tela em qualquer página e música para concentrar.',
+        icon: ICON.cronometro,
+        stock: 'var(--stock-vermelho)',
+        pin: '#1fb65a',
+        go: 'Abrir',
       },
     ],
   },
@@ -143,6 +159,9 @@ const ADMIN_SHELF: Shelf = {
                 <lucide-icon class="icone" [img]="j.icon" [size]="34" aria-hidden="true" />
                 <h3>{{ j.name }}</h3>
                 <p>{{ j.blurb }}</p>
+                @if (j.path === pomodoroPath && pomodoro.on()) {
+                  <span class="ligado">Ligado</span>
+                }
                 <span class="jogar" aria-hidden="true">{{ j.go }}</span>
               </a>
             </li>
@@ -238,6 +257,23 @@ const ADMIN_SHELF: Shelf = {
       line-height: 1.3;
     }
 
+    /* o Pomodoro ligado: o adesivo amarelo no canto, para quem esqueceu */
+    .ligado {
+      position: absolute;
+      top: 18px;
+      right: 16px;
+      padding: 5px 10px 4px;
+      background: var(--hi);
+      color: var(--ink);
+      font-family: var(--f-label);
+      font-weight: 800;
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      rotate: 4deg;
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+    }
+
     .jogar {
       justify-self: end;
       align-self: end;
@@ -252,6 +288,8 @@ const ADMIN_SHELF: Shelf = {
 })
 export class ExtrasPage {
   protected readonly mural = inject(Mural);
+  protected readonly pomodoro = inject(PomodoroStore);
+  protected readonly pomodoroPath = POMODORO_PATH;
   private readonly cloud = inject(Cloud);
   private readonly account = inject(CloudAccount);
   protected readonly shelves = computed(() => (this.cloud.config() && this.account.signedIn() && this.account.account()?.admin ? [...SHELVES, ADMIN_SHELF] : SHELVES));

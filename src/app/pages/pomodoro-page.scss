@@ -1,0 +1,480 @@
+@use 'extras-kit';
+@use '../ui/paper-kit' as kit;
+
+/* O Pomodoro (pages/pomodoro-page.ts): a bancada de foco. A vitrine na parede, com o relógio grande numa
+   prateleira de madeira; a folha de súmula dos jogos de Extras com os tempos e o som; embaixo, a parede de
+   relógios pendurados em pregos, como numa relojoaria. */
+
+:host {
+  display: block;
+  color: var(--wall-ink);
+}
+
+.bancada {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.15fr);
+  align-items: start;
+  gap: 48px 56px;
+}
+
+/* ===== A vitrine ===== */
+.vitrine {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  justify-items: center;
+  padding-top: 18px;
+  text-align: center;
+}
+
+.palco {
+  display: grid;
+  place-items: end center;
+  min-height: 260px;
+  padding: 0 12px;
+}
+
+.grande {
+  --dial: clamp(19px, 2.3vw, 27px);
+}
+
+/* a prateleira onde o relógio fica em pé */
+.prateleira-madeira {
+  width: min(100%, 380px);
+  height: 16px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(90deg, rgb(70 40 10 / 0.12) 0 3px, transparent 3px 17px),
+    linear-gradient(#b98852, #8c5f31);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 0.22),
+    0 2px 2px rgb(0 0 0 / 0.4),
+    0 16px 18px -10px rgb(0 0 0 / 0.65);
+}
+
+.estado {
+  max-width: 34ch;
+  margin: 22px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1.2rem;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.tomatinhos {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: 14px 0 0;
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.86rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--wall-ink-2);
+
+  .fileira {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .tomatinho {
+    width: 26px;
+    height: 26px;
+    rotate: calc(var(--giro) * 8deg);
+    filter: drop-shadow(0 2px 1px rgb(0 0 0 / 0.4));
+
+    circle {
+      fill: #e83a2b;
+    }
+
+    .folha {
+      fill: #46a434;
+      stroke: #2a6c1e;
+      stroke-width: 0.8;
+      stroke-linejoin: round;
+    }
+  }
+
+  .mais {
+    margin-left: 4px;
+    font-size: 1rem;
+    color: var(--wall-ink);
+  }
+}
+
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+
+  lucide-icon {
+    display: inline-flex;
+  }
+}
+
+.comecar {
+  font-size: 1.25rem;
+}
+
+.botao-papel {
+  @include kit.botao-papel;
+}
+
+.desligar {
+  color: var(--wall-ink);
+}
+
+.dica-canto {
+  max-width: 36ch;
+  margin: 14px 0 0;
+  font-family: var(--f-hand);
+  font-size: 1rem;
+  line-height: 1.35;
+  color: var(--wall-ink-2);
+}
+
+/* ===== A folha de súmula ===== */
+.regras {
+  max-width: 600px;
+  rotate: 0.4deg;
+}
+
+.secao {
+  margin: 28px 0 14px;
+}
+
+.reguas {
+  display: grid;
+  gap: 22px;
+}
+
+.atalhos {
+  margin-top: 18px;
+
+  .minutos {
+    margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.7;
+  }
+}
+
+.linha {
+  @include kit.linha;
+  padding: 14px 0;
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.linha-titulo {
+  @include kit.linha-titulo;
+}
+
+.linha-desc {
+  @include kit.linha-desc;
+  display: block;
+}
+
+.interruptor {
+  @include kit.interruptor;
+}
+
+.ouvir {
+  @include kit.botao-papel;
+}
+
+/* o link da música: o campo de papel do site */
+.link {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+
+  input {
+    @include kit.campo;
+
+    &.erro {
+      @include kit.campo-erro;
+    }
+  }
+}
+
+.link-rotulo {
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.link-dica {
+  margin: 8px 0 6px;
+  font-family: var(--f-hand);
+  font-size: 1.02rem;
+  line-height: 1.3;
+  color: var(--caneta-azul);
+
+  &.erro {
+    color: var(--error-ink, #6b0000);
+  }
+}
+
+/* ===== A parede de relógios ===== */
+.loja {
+  margin-top: 64px;
+
+  > .nota {
+    margin: 12px 0 0;
+    color: var(--wall-ink);
+    font-size: 1.1rem;
+  }
+}
+
+.relogios {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: 46px 26px;
+  margin-top: 30px;
+  padding-top: 10px;
+}
+
+/* cada relógio pendurado num prego, com o nome numa etiqueta embaixo; o escolhido, com o traço de
+   marca-texto embaixo do nome e reto na parede */
+.relogio {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  align-content: start;
+  gap: 12px;
+  padding: 14px 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  --dial: 10.5px;
+
+  app-pomodoro-dial {
+    rotate: calc(var(--giro) * 2.5deg);
+    transform-origin: 50% 0;
+    transition:
+      rotate var(--t-physical) var(--ease-physical),
+      translate var(--t-physical) var(--ease-physical),
+      filter var(--t-ui) var(--ease-ui);
+  }
+
+  .prego {
+    position: absolute;
+    z-index: 2;
+    top: 6px;
+    left: calc(50% - 5px);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #e9e9ec, #7d7d84);
+    box-shadow: 0 2px 2px rgb(0 0 0 / 0.55);
+  }
+
+  .nome {
+    position: relative;
+    isolation: isolate;
+    font-family: var(--f-label);
+    font-weight: 800;
+    font-size: 0.92rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wall-ink-2);
+    transition: color var(--t-ui) var(--ease-ui);
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      app-pomodoro-dial {
+        rotate: 0deg;
+        translate: 0 -3px;
+      }
+
+      .nome {
+        color: var(--wall-ink);
+      }
+    }
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+
+  &[aria-checked='true'] {
+    app-pomodoro-dial {
+      rotate: 0deg;
+    }
+
+    .nome {
+      color: var(--wall-ink);
+
+      /* o traço de marca-texto amarelo, como a seção aberta do índice */
+      &::after {
+        content: '';
+        position: absolute;
+        z-index: -1;
+        left: -6px;
+        right: -6px;
+        bottom: -1px;
+        height: 9px;
+        border-radius: 2px 6px 4px 2px;
+        background: rgb(255 218 66 / 0.55);
+        rotate: -1.5deg;
+      }
+    }
+  }
+}
+
+/* ===== O canto da tela: uma telinha com os quatro cantos para tocar ===== */
+.cantos {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin-top: 48px;
+
+  .rotulo {
+    color: var(--wall-ink);
+  }
+
+  .nota {
+    margin: 0;
+    color: var(--wall-ink-2);
+  }
+}
+
+.tela {
+  position: relative;
+  width: 168px;
+  height: 108px;
+  border: 3px solid #f3efe6;
+  border-radius: 8px;
+  background:
+    linear-gradient(rgb(243 239 230 / 0.06), rgb(243 239 230 / 0.02)),
+    #2a2622;
+  box-shadow:
+    0 2px 3px rgb(0 0 0 / 0.4),
+    0 12px 18px -10px rgb(0 0 0 / 0.6);
+}
+
+.canto {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+
+  &.canto-se {
+    top: 2px;
+    left: 2px;
+  }
+
+  &.canto-sd {
+    top: 2px;
+    right: 2px;
+  }
+
+  &.canto-ie {
+    bottom: 2px;
+    left: 2px;
+  }
+
+  &.canto-id {
+    right: 2px;
+    bottom: 2px;
+  }
+
+  .ponto {
+    width: 26px;
+    height: 16px;
+    border: 2px dashed rgb(243 239 230 / 0.45);
+    border-radius: 3px;
+    transition:
+      background-color var(--t-ui) var(--ease-ui),
+      border-color var(--t-ui) var(--ease-ui),
+      scale var(--t-ui) var(--ease-ui);
+  }
+
+  @media (hover: hover) {
+    &:hover .ponto {
+      border-color: rgb(243 239 230 / 0.85);
+      scale: 1.08;
+    }
+  }
+
+  &[aria-checked='true'] .ponto {
+    border: 0;
+    background: var(--hi);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  }
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 1px;
+  }
+}
+
+/* ===== Larguras ===== */
+@media (max-width: 960px) {
+  .bancada {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vitrine {
+    position: static;
+  }
+
+  .regras {
+    justify-self: center;
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .palco {
+    min-height: 0;
+  }
+
+  .vitrine {
+    padding-top: 0;
+  }
+
+  .grande {
+    --dial: 17px;
+  }
+
+  .relogios {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 38px 10px;
+  }
+
+  .relogio {
+    --dial: 8.5px;
+  }
+
+  .regras {
+    padding: 24px 18px 36px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relogio app-pomodoro-dial {
+    transition: none;
+  }
+}

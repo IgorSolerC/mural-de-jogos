@@ -1,0 +1,117 @@
+// O relógio digital de papel e de lata: as peças que o Contador (ui/countdown.ts) e o Pomodoro
+// (ui/pomodoro-dial.ts) desenham igual. Tudo mede em em da letra de quem inclui.
+
+// As plaquinhas que viram, de estação: cada `.cela` tem as duas `.meia` (cima e baixo) com a `.letra`; virando,
+// a `.velha`, a `.sobe` e a `.cai` animam a troca. Quem inclui pinta o fundo de cada meia.
+@mixin plaquinhas {
+  .cela {
+    position: relative;
+    width: 1.22em;
+    height: 1.86em;
+    perspective: 4em;
+    font-family: var(--f-label);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .meia {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 50%;
+    overflow: hidden;
+    background: #2b2b2f;
+    backface-visibility: hidden;
+  }
+  .meia.cima {
+    top: 0;
+    border-radius: 0.1em 0.1em 0 0;
+    transform-origin: bottom;
+    background: linear-gradient(#323236, #2a2a2e);
+  }
+  .meia.baixo {
+    bottom: 0;
+    border-radius: 0 0 0.1em 0.1em;
+    transform-origin: top;
+    background: linear-gradient(#262629, #2d2d31);
+  }
+  /* a fresta da dobradiça, com os dois pinos nas pontas */
+  .cela::after {
+    content: '';
+    position: absolute;
+    inset: calc(50% - 0.025em) 0 auto;
+    z-index: 4;
+    height: 0.05em;
+    background: #0b0b0c;
+    box-shadow: 0 0.03em 0 rgb(255 255 255 / 0.06);
+  }
+  .letra {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 200%;
+    display: grid;
+    place-items: center;
+    font-size: 1.42em;
+    line-height: 1;
+  }
+  .meia.baixo .letra {
+    top: -100%;
+  }
+  .meia.cima .letra {
+    top: 0;
+  }
+  /* virando: a de cima (a de antes) cai até deitar; depois a de baixo (a nova) desce até assentar */
+  .velha {
+    z-index: 1;
+  }
+  .sobe {
+    z-index: 2;
+    animation: sobe 520ms both;
+  }
+  .cai {
+    z-index: 3;
+    animation: cai 520ms both;
+  }
+  @keyframes cai {
+    0% {
+      transform: rotateX(0);
+      animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
+    }
+    50%,
+    100% {
+      transform: rotateX(-90deg);
+    }
+  }
+  @keyframes sobe {
+    0%,
+    50% {
+      transform: rotateX(90deg);
+      animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1.2);
+    }
+    100% {
+      transform: rotateX(0);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .velha,
+    .sobe,
+    .cai {
+      display: none;
+    }
+  }}
+
+// Os sete segmentos (ui/seven-segment.ts): o `svg.seg` com os sete `polygon`, os acesos com `.aceso`.
+@mixin sete-segmentos($apagado, $aceso) {
+  .seg {
+    display: block;
+    width: 1.12em;
+    height: 1.86em;
+    overflow: visible;
+  }
+  .seg polygon {
+    fill: $apagado;
+  }
+  .seg polygon.aceso {
+    fill: $aceso;
+  }
+}

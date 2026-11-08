@@ -1,0 +1,152 @@
+<div class="bancada">
+  <!-- ===== A vitrine: o relógio grande, na skin escolhida, numa prateleira da parede ===== -->
+  <section class="vitrine" aria-labelledby="pomodoro-estado">
+    <div class="palco">
+      <app-pomodoro-dial class="grande" [skin]="s().skin" [ms]="left()" [total]="total()" [phase]="phase()" [paused]="paused()" [idle]="!on()" />
+    </div>
+    <span class="prateleira-madeira" aria-hidden="true"></span>
+
+    <p class="estado" id="pomodoro-estado" role="status">{{ status() }}</p>
+
+    @if (done() > 0) {
+      <p class="tomatinhos">
+        <span class="fileira" aria-hidden="true">
+          @for (t of tomatoes(); track t) {
+            <svg class="tomatinho" viewBox="0 0 24 24" [style.--giro]="(t % 3) - 1">
+              <circle cx="12" cy="14" r="8.5" />
+              <path class="folha" d="M12 7.5 L7.5 4.5 L11 6.4 L10 2.5 L12.6 5.8 L15.4 2.8 L14 6.6 L17.5 5.2 Z" />
+            </svg>
+          }
+          @if (done() > tomatoes().length) {
+            <span class="mais">+{{ done() - tomatoes().length }}</span>
+          }
+        </span>
+        {{ done() }} {{ done() === 1 ? 'estudo completo' : 'estudos completos' }} hoje
+      </p>
+    }
+
+    <div class="botoes">
+      @if (!on()) {
+        <button type="button" class="btn-ink comecar" (click)="startFocus()">
+          <lucide-icon [img]="ICON.cronometro" [size]="20" aria-hidden="true" />
+          Começar o foco
+        </button>
+      } @else {
+        <button type="button" class="botao-papel" (click)="togglePause()">
+          <lucide-icon [img]="paused() ? ICON.estudar : ICON.pausa" [size]="18" aria-hidden="true" />
+          {{ paused() ? 'Continuar' : 'Pausar' }}
+        </button>
+        <button type="button" class="botao-papel" (click)="skip()">
+          <lucide-icon [img]="ICON.pular" [size]="18" aria-hidden="true" />
+          {{ s().phase === 'estudo' ? 'Pular para a pausa' : 'Voltar ao estudo' }}
+        </button>
+        <button type="button" class="btn-quiet desligar" (click)="turnOff()">
+          <lucide-icon [img]="ICON.fechar" [size]="18" aria-hidden="true" />
+          Desligar
+        </button>
+      }
+    </div>
+    @if (on()) {
+      <p class="dica-canto">O relógio fica no canto da tela em qualquer página. O X dele desliga o Pomodoro.</p>
+    }
+  </section>
+
+  <!-- ===== A folha de súmula: os tempos e a música ===== -->
+  <section class="regras" aria-labelledby="pomodoro-titulo">
+    <header class="r-head">
+      <lucide-icon class="icone" [img]="ICON.cronometro" [size]="30" aria-hidden="true" />
+      <h1 id="pomodoro-titulo" tabindex="-1">Pomodoro</h1>
+    </header>
+    <p class="lead">Estudo e pausa em turnos. O sininho avisa a troca, a música toca só no estudo, e o relógio vai junto para qualquer página.</p>
+
+    <h2 class="rotulo secao">Tempos</h2>
+    <div class="reguas">
+      <app-minutes-ruler label="Estudo" inputId="pomodoro-estudo" tone="estudo" [value]="s().study" (changed)="setMinutes('estudo', $event)" />
+      <app-minutes-ruler label="Pausa" inputId="pomodoro-pausa" tone="pausa" [value]="s().rest" (changed)="setMinutes('pausa', $event)" />
+    </div>
+    <div class="escolhas atalhos" role="group" aria-label="Tempos prontos">
+      @for (p of PRESETS; track p.label) {
+        <button type="button" class="escolha" [attr.aria-pressed]="isPreset(p.study, p.rest)" (click)="preset(p.study, p.rest)">
+          {{ p.label }} <span class="minutos">{{ p.study }}/{{ p.rest }}</span>
+        </button>
+      }
+    </div>
+
+    <h2 class="rotulo secao">Som</h2>
+    <div class="linha">
+      <div class="linha-texto">
+        <span class="linha-titulo" id="pomodoro-musica-nome">Música no estudo</span>
+        <span class="linha-desc">Some devagar na pausa e volta de onde parou.</span>
+      </div>
+      <button type="button" class="interruptor" role="switch" [attr.aria-checked]="s().music" aria-labelledby="pomodoro-musica-nome" (click)="toggleMusic()">
+        <span class="bolinha"></span>
+      </button>
+    </div>
+
+    @if (s().music) {
+      <label class="link" for="pomodoro-link">
+        <span class="link-rotulo">Link do YouTube ou de um MP3</span>
+        <input
+          id="pomodoro-link"
+          type="url"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Sem link: a rádio lofi de sempre"
+          [class.erro]="urlError()"
+          [attr.aria-invalid]="urlError()"
+          aria-describedby="pomodoro-link-dica"
+          [value]="draftUrl() ?? s().musicUrl"
+          (input)="typeUrl($any($event.target).value)"
+          (change)="commitUrl($any($event.target).value)"
+        />
+      </label>
+      <p class="link-dica" id="pomodoro-link-dica" [class.erro]="urlError()" aria-live="polite">
+        @if (urlError()) {
+          Esse link não é de um som que dê para tocar aqui: use um vídeo do YouTube ou um arquivo de áudio (.mp3, .ogg, .wav…). Enquanto isso, toca a de sempre.
+        } @else {
+          {{ musicHint() }}
+        }
+      </p>
+    }
+
+    <div class="linha">
+      <div class="linha-texto">
+        <span class="linha-titulo">Sininho na troca</span>
+        <span class="linha-desc">Dois toques: subindo na volta ao estudo, descendo na pausa. Segue o volume do site.</span>
+      </div>
+      <button type="button" class="btn-quiet ouvir" (click)="testChime()">
+        <lucide-icon [img]="ICON.sino" [size]="18" aria-hidden="true" />
+        Ouvir
+      </button>
+    </div>
+  </section>
+</div>
+
+<!-- ===== A parede de relógios: as 12 skins, vivas, e o canto da tela ===== -->
+<section class="loja" aria-labelledby="pomodoro-relogios">
+  <h2 class="tape-label" id="pomodoro-relogios">Relógio do canto</h2>
+  <p class="nota">Escolha o relógio que fica no canto da tela. Todos mostram a fase, o tempo e quanto já foi.</p>
+
+  <div class="relogios" role="radiogroup" aria-labelledby="pomodoro-relogios">
+    @for (k of SKINS; track k.value; let i = $index) {
+      <button type="button" class="relogio" role="radio" [attr.aria-checked]="s().skin === k.value" [style.--giro]="(i % 3) - 1" (click)="setSkin(k.value)">
+        <span class="prego" aria-hidden="true"></span>
+        <app-pomodoro-dial [skin]="k.value" [ms]="sampleMs()" [total]="sampleTotal()" [phase]="phase()" [paused]="paused()" [idle]="!on()" />
+        <span class="nome">{{ k.label }}</span>
+      </button>
+    }
+  </div>
+
+  <fieldset class="cantos">
+    <legend class="rotulo">Canto da tela</legend>
+    <div class="tela" role="radiogroup" aria-label="Canto da tela">
+      @for (c of CORNERS; track c.value) {
+        <button type="button" class="canto" [class]="'canto-' + c.value" role="radio" [attr.aria-checked]="s().corner === c.value" [attr.aria-label]="c.label" [title]="c.label" (click)="setCorner(c.value)">
+          <span class="ponto"></span>
+        </button>
+      }
+    </div>
+    <p class="nota">Ou arraste o relógio para outro canto.</p>
+  </fieldset>
+</section>

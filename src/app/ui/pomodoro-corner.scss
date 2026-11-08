@@ -1,0 +1,244 @@
+@use 'etiqueta-acoes' as et;
+
+/* O relógio do canto do Pomodoro (ui/pomodoro-corner.ts): preso num dos quatro cantos, por cima da página e por
+   baixo dos recados e das folhas (que vão para a camada de cima sozinhas). Os botões seguem a etiqueta de ações
+   dos cards (regra do CLAUDE.md): separados, crescem e o desenho ganha cor. */
+
+:host {
+  display: contents;
+}
+
+.relogio {
+  --gutter: 16px;
+  position: fixed;
+  z-index: 45;
+  display: grid;
+  justify-items: end;
+  touch-action: none;
+  transition:
+    translate var(--t-physical) var(--ease-physical),
+    top var(--t-physical) var(--ease-physical),
+    bottom var(--t-physical) var(--ease-physical),
+    left var(--t-physical) var(--ease-physical),
+    right var(--t-physical) var(--ease-physical);
+
+  &.canto-id {
+    right: max(var(--gutter), env(safe-area-inset-right));
+    bottom: max(var(--gutter), env(safe-area-inset-bottom));
+  }
+
+  &.canto-ie {
+    left: max(var(--gutter), env(safe-area-inset-left));
+    bottom: max(var(--gutter), env(safe-area-inset-bottom));
+    justify-items: start;
+  }
+
+  &.canto-sd {
+    top: max(var(--gutter), env(safe-area-inset-top));
+    right: max(var(--gutter), env(safe-area-inset-right));
+  }
+
+  &.canto-se {
+    top: max(var(--gutter), env(safe-area-inset-top));
+    left: max(var(--gutter), env(safe-area-inset-left));
+    justify-items: start;
+  }
+
+  /* arrastando: segue o dedo sem a mola, e por cima de tudo */
+  &.arrastando {
+    z-index: 60;
+    transition: none;
+    cursor: grabbing;
+
+    .mostrador {
+      scale: 1.04;
+      filter: drop-shadow(0 14px 18px rgb(0 0 0 / 0.45));
+    }
+  }
+
+  /* na própria página do Pomodoro, que já tem o relógio grande: só o bilhete da música segurada fica */
+  &.na-pagina :is(.acoes, .mostrador) {
+    display: none;
+  }
+
+  /* trocou a fase: o relógio balança, como o timer de cozinha tocando */
+  &.tocou .mostrador {
+    animation: toca 760ms var(--ease-physical);
+  }
+}
+
+/* com a tira de marcação no pé da tela, os cantos de baixo sobem junto com o recado */
+:host-context(body.has-tray) .relogio:is(.canto-id, .canto-ie) {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+@keyframes toca {
+  0%,
+  100% {
+    rotate: 0deg;
+  }
+  12% {
+    rotate: -9deg;
+  }
+  26% {
+    rotate: 8deg;
+  }
+  40% {
+    rotate: -6deg;
+  }
+  54% {
+    rotate: 4deg;
+  }
+  70% {
+    rotate: -2deg;
+  }
+}
+
+.mostrador {
+  display: grid;
+  border-radius: 12px;
+  color: inherit;
+  text-decoration: none;
+  cursor: grab;
+  -webkit-tap-highlight-color: transparent;
+  --dial: 13px;
+  transform-origin: 50% 20%;
+  transition:
+    scale var(--t-ui) var(--ease-ui),
+    filter var(--t-ui) var(--ease-ui);
+
+  &:focus-visible {
+    outline: 3px solid var(--hi);
+    outline-offset: 4px;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      scale: 1.03;
+    }
+  }
+}
+
+/* no celular, um pouco menor: o canto não pode tampar a página */
+@media (max-width: 560px) {
+  .mostrador {
+    --dial: 11px;
+  }
+}
+
+/* os botões: em cima do relógio nos cantos de baixo, embaixo dele nos de cima */
+.acoes {
+  @include et.grupo;
+  position: absolute;
+  z-index: 1;
+  bottom: calc(100% + 2px);
+  right: 4px;
+
+  .canto-ie &,
+  .canto-se & {
+    right: auto;
+    left: 4px;
+  }
+
+  .canto-sd &,
+  .canto-se & {
+    top: calc(100% + 2px);
+    bottom: auto;
+  }
+}
+
+.botao {
+  @include et.botao;
+}
+
+.pausar {
+  @include et.cor-na-mao(var(--etiqueta-amarelo));
+}
+
+.pular {
+  @include et.cor-na-mao(var(--etiqueta-azul));
+}
+
+.musica {
+  @include et.cor-na-mao(var(--etiqueta-lilas));
+}
+
+.tirar {
+  @include et.cor-na-mao(var(--etiqueta-vermelho));
+}
+
+.relogio:hover .botao,
+.relogio.aberto .botao,
+.acoes:has(:focus-visible) .botao {
+  @include et.mostra;
+}
+
+/* no toque, os botões esperam o primeiro toque no relógio: à mostra o tempo todo, tampariam a página */
+@media (hover: none) {
+  .relogio:not(.aberto) .acoes:not(:has(:focus-visible)) .botao {
+    opacity: 0;
+    translate: 0 5px;
+    pointer-events: none;
+  }
+}
+
+/* o navegador segurou o som: o bilhete de tinta embaixo do relógio pede um clique */
+.tocar-musica {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 7px 12px 6px 10px;
+  border: 0;
+  border-radius: 3px;
+  background: var(--ink);
+  color: var(--hi);
+  font-family: var(--f-label);
+  font-weight: 800;
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  rotate: 1.5deg;
+  cursor: pointer;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.4),
+    0 4px 8px -3px rgb(0 0 0 / 0.4);
+  transition: scale var(--t-ui) var(--ease-ui);
+
+  lucide-icon {
+    display: inline-flex;
+  }
+
+  &:hover {
+    scale: 1.06;
+  }
+
+  &:focus-visible {
+    outline: 2.5px solid var(--ink);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px rgb(241 241 236 / 0.85);
+  }
+
+  .canto-sd &,
+  .canto-se & {
+    order: -1;
+    margin: 0 0 8px;
+  }
+}
+
+@media print {
+  .relogio {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relogio {
+    transition: none;
+  }
+
+  .relogio.tocou .mostrador {
+    animation: none;
+  }
+}

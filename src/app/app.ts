@@ -47,10 +47,12 @@ import { doneChange, placeCard, setDeps, setImportance, setStatus, setWall } fro
 import { NoteDone } from './core/note-done';
 import { TRY_AGAIN } from './ui/follow-toasts';
 import { FichaLinks, isFichaPath } from './core/ficha-link';
+import { PomodoroStore } from './core/pomodoro-store';
+import { PomodoroCorner } from './ui/pomodoro-corner';
 
 @Component({
   selector: 'app-root',
-  imports: [AreaBar, PageWall, ConfirmDialog, GoogleButton, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
+  imports: [AreaBar, PageWall, ConfirmDialog, PomodoroCorner, GoogleButton, IconModule, PaperDefs, ReactionSheetView, ReviewEditor, ReviewReader, RouterLink, RouterOutlet, SiteHeader, Toast, WishAdder],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -58,6 +60,8 @@ import { FichaLinks, isFichaPath } from './core/ficha-link';
 })
 export class App {
   protected readonly store = inject(ReviewStore);
+  /** O Pomodoro ligado põe o relógio no canto da tela (PLANO-POMODORO.md). */
+  protected readonly pomodoro = inject(PomodoroStore);
   private readonly profiles = inject(ProfileStore);
   protected readonly mural = inject(Mural);
   private readonly view = inject(WallView);

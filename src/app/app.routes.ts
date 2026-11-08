@@ -1,6 +1,6 @@
 import { Routes, UrlMatchResult, UrlSegment } from '@angular/router';
 import { onlyAdmin } from './core/admin';
-import { SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
+import { POMODORO_PATH, SPENDING_PATH, enterExtras, enterNotes, enterReviews, toCalendar, toLastWall, toReviews } from './core/areas';
 
 const wall = () => import('./pages/wall-page').then((m) => m.WallPage);
 const kanban = () => import('./pages/kanban-page').then((m) => m.KanbanPage);
@@ -110,6 +110,12 @@ export const routes: Routes = [
     canActivate: [enterExtras],
     title: 'Muraldle',
     loadComponent: () => import('./pages/muraldle-page').then((m) => m.MuraldlePage),
+  },
+  {
+    // o Pomodoro (PLANO-POMODORO.md); sem o enterExtras, porque não depende do mural
+    path: POMODORO_PATH.slice(1),
+    title: 'Pomodoro',
+    loadComponent: () => import('./pages/pomodoro-page').then((m) => m.PomodoroPage),
   },
   {
     // só a conta de admin; sem o enterExtras, porque a página não depende do mural

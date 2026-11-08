@@ -7,6 +7,7 @@ import { CountdownLook, Remaining, When, everyText, inlineField, readCountdown, 
 import { NgTemplateOutlet } from '@angular/common';
 import { cap } from '../core/text';
 import { DAY_MS, MONTHS_LONG, MONTHS_SHORT } from '../core/dates';
+import { SEGMENTS, segmentsOf } from './seven-segment';
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
@@ -25,16 +26,6 @@ const ORDER: Unit[] = ['days', 'hours', 'minutes', 'seconds'];
 const pad = (n: number) => String(n).padStart(2, '0');
 const plural = (n: number, u: Unit) => `${n} ${UNIT_NAMES[u][n === 1 ? 0 : 1]}`;
 
-/**
- * Os sete segmentos de um algarismo de relógio digital (a, b, c, d, e, f, g), num desenho de 12 × 20:
- * cada um é um sextavado comprido, com uma folga nas pontas, como nos mostradores de verdade.
- */
-const H = (x1: number, x2: number, y: number) => `${x1},${y} ${x1 + 1},${y - 1} ${x2 - 1},${y - 1} ${x2},${y} ${x2 - 1},${y + 1} ${x1 + 1},${y + 1}`;
-const V = (x: number, y1: number, y2: number) => `${x},${y1} ${x + 1},${y1 + 1} ${x + 1},${y2 - 1} ${x},${y2} ${x - 1},${y2 - 1} ${x - 1},${y1 + 1}`;
-const SEGMENTS = [H(1.6, 10.4, 1.2), V(10.8, 1.6, 9.6), V(10.8, 10.4, 18.4), H(1.6, 10.4, 18.8), V(1.2, 10.4, 18.4), V(1.2, 1.6, 9.6), H(1.6, 10.4, 10)];
-const LIT: Record<string, string> = { '0': 'abcdef', '1': 'bc', '2': 'abged', '3': 'abgcd', '4': 'fgbc', '5': 'afgcd', '6': 'afgedc', '7': 'abc', '8': 'abcdefg', '9': 'abcdfg' };
-/** Quais dos sete ficam acesos em cada algarismo. */
-const DIGIT_SEGMENTS: Record<string, boolean[]> = Object.fromEntries(Object.entries(LIT).map(([d, on]) => [d, [...'abcdefg'].map((k) => on.includes(k))]));
 
 /** Um pedaço do mostrador do neon e do placar: os algarismos de uma unidade e o nome dela embaixo. */
 interface BoardGroup {
@@ -233,6 +224,8 @@ interface Flap {
     </ng-template>
   `,
   styles: `
+    @use 'relogio-digital' as rd;
+
     :host {
       /* a peça tem a altura do tamanho (ver note-widget.ts), em linhas inteiras da pauta: o texto de
          baixo continua em cima das linhas azuis */
@@ -719,18 +712,7 @@ interface Flap {
       gap: 0.12em;
       filter: drop-shadow(0 0 0.04em #ff2a3d) drop-shadow(0 0 0.22em rgb(255 30 60 / 0.75));
     }
-    .seg {
-      display: block;
-      width: 1.12em;
-      height: 1.86em;
-      overflow: visible;
-    }
-    .seg polygon {
-      fill: rgb(255 70 85 / 0.08);
-    }
-    .seg polygon.aceso {
-      fill: #ff4a5a;
-    }
+    @include rd.sete-segmentos(rgb(255 70 85 / 0.08), #ff4a5a);
     .neon-pontos {
       display: grid;
       align-content: center;
@@ -818,101 +800,7 @@ interface Flap {
       display: flex;
       gap: 0.07em;
     }
-    .cela {
-      position: relative;
-      width: 1.22em;
-      height: 1.86em;
-      perspective: 4em;
-      font-family: var(--f-label);
-      font-weight: 600;
-      font-variant-numeric: tabular-nums;
-    }
-    .meia {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 50%;
-      overflow: hidden;
-      background: #2b2b2f;
-      backface-visibility: hidden;
-    }
-    .meia.cima {
-      top: 0;
-      border-radius: 0.1em 0.1em 0 0;
-      transform-origin: bottom;
-      background: linear-gradient(#323236, #2a2a2e);
-    }
-    .meia.baixo {
-      bottom: 0;
-      border-radius: 0 0 0.1em 0.1em;
-      transform-origin: top;
-      background: linear-gradient(#262629, #2d2d31);
-    }
-    /* a fresta da dobradiça, com os dois pinos nas pontas */
-    .cela::after {
-      content: '';
-      position: absolute;
-      inset: calc(50% - 0.025em) 0 auto;
-      z-index: 4;
-      height: 0.05em;
-      background: #0b0b0c;
-      box-shadow: 0 0.03em 0 rgb(255 255 255 / 0.06);
-    }
-    .letra {
-      position: absolute;
-      left: 0;
-      right: 0;
-      height: 200%;
-      display: grid;
-      place-items: center;
-      font-size: 1.42em;
-      line-height: 1;
-    }
-    .meia.baixo .letra {
-      top: -100%;
-    }
-    .meia.cima .letra {
-      top: 0;
-    }
-    /* virando: a de cima (a de antes) cai até deitar; depois a de baixo (a nova) desce até assentar */
-    .velha {
-      z-index: 1;
-    }
-    .sobe {
-      z-index: 2;
-      animation: sobe 520ms both;
-    }
-    .cai {
-      z-index: 3;
-      animation: cai 520ms both;
-    }
-    @keyframes cai {
-      0% {
-        transform: rotateX(0);
-        animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.5);
-      }
-      50%,
-      100% {
-        transform: rotateX(-90deg);
-      }
-    }
-    @keyframes sobe {
-      0%,
-      50% {
-        transform: rotateX(90deg);
-        animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1.2);
-      }
-      100% {
-        transform: rotateX(0);
-      }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .velha,
-      .sobe,
-      .cai {
-        display: none;
-      }
-    }
+    @include rd.plaquinhas;
     .placar-ha {
       text-transform: none;
       letter-spacing: 0.06em;
@@ -1046,9 +934,7 @@ export class Countdown {
   });
 
   /** Os sete segmentos de um algarismo do neon. */
-  protected segmentsOf(d: string): boolean[] {
-    return DIGIT_SEGMENTS[d] ?? DIGIT_SEGMENTS['8'].map(() => false);
-  }
+  protected readonly segmentsOf = segmentsOf;
 
   /**
    * O nome (sem título) e a linha do dia, ao lado do bloquinho. O de uma vez e o de todo ano: a data
