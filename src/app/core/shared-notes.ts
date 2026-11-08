@@ -45,6 +45,16 @@ export const canWrite = (r: SharedRole | null | undefined): boolean => r === 'do
 /** Mexe na estrutura (as pessoas e quem vê): o dono e os gestores. */
 export const canManage = (r: SharedRole | null | undefined): boolean => r === 'dono' || r === 'gestor';
 export const isMemberRole = (v: unknown): v is MemberRole => typeof v === 'string' && (MEMBER_ROLES as readonly string[]).includes(v);
+/**
+ * O que "apagar" faz com a ficha, nos três lugares que apagam (o "Mais" da leitura, o menu da anotação e o pé
+ * do editor): a compartilhada de outra pessoa não se apaga, sai-se dela; o dono dela apaga para todos; a
+ * anotação só sua se apaga; a resenha sai do mural.
+ */
+export function removalOf(entry: { papel: SharedRole; membros: readonly unknown[] } | null | undefined, note: boolean): { label: string; leaves: boolean } {
+  const leaves = !!entry && entry.papel !== 'dono';
+  const label = leaves ? 'Sair da anotação' : entry && entry.membros.length > 0 ? 'Apagar para todos' : note ? 'Apagar anotação' : 'Remover do mural';
+  return { label, leaves };
+}
 
 export interface SharedPerson {
   /** `K7QF-M2XA`. */

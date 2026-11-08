@@ -504,6 +504,12 @@
           </button>
         </div>
       } @else {
+        @if (removal(); as rm) {
+          <button type="button" class="btn-quiet danger apagar" (click)="requestRemove()">
+            <lucide-icon [img]="rm.leaves ? LeaveIcon : TrashIcon" [size]="17" aria-hidden="true" />
+            {{ rm.label }}
+          </button>
+        }
         <p class="missing" aria-live="polite">{{ attempted() ? missingText() : '' }}</p>
         <div class="actions">
           @if (fromDraft()) {

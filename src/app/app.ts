@@ -409,6 +409,7 @@ export class App {
     });
     if (!sure || !this.store.get(id)) return;
     this.reader().close();
+    this.editor().forget(id);
     // O leitor devolveu o foco à ficha, que vai sumir: o teclado segue para a vizinha (ou o Desfazer)
     // (a cópia da mesma ficha, ordenando por tag, sai junto: a vizinha é outra)
     const cards = [...document.querySelectorAll<HTMLElement>('[data-ficha]')];
@@ -465,6 +466,7 @@ export class App {
       return;
     }
     this.reader().close();
+    this.editor().forget(id);
     this.toasts.show(mine ? `“${name}” foi apagada${others ? ' para todos' : ''}` : `Você saiu de “${name}”`);
   }
 

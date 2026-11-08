@@ -10,7 +10,7 @@ import { notesAsText } from '../core/note-copy';
 import { NotePin } from '../core/note-pin';
 import { Reactions } from '../core/reactions';
 import { Review, isDone, isPinnedNote } from '../core/review';
-import { canManage, canWrite } from '../core/shared-notes';
+import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { SharedStore } from '../core/shared-store';
 import { readText } from '../core/storage';
 import { fold } from '../core/text';
@@ -234,12 +234,10 @@ export class NoteMenu {
 
     const end: NoteMenuItem[] = [];
     if (mine) {
-      // a compartilhada de outra pessoa não se apaga: sai-se dela; o dono dela apaga para todos
-      const leaves = !!entry && entry.papel !== 'dono';
-      const forAll = !!entry && entry.papel === 'dono' && entry.membros.length > 0;
+      const { label, leaves } = removalOf(entry, true);
       end.push({
         id: 'apagar',
-        label: leaves ? 'Sair da anotação' : forAll ? 'Apagar para todos' : 'Apagar anotação',
+        label,
         icon: leaves ? ICON.sair : ICON.apagar,
         danger: true,
         dialog: true,

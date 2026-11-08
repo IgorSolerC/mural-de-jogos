@@ -105,8 +105,8 @@ import { readText, writeText } from '../core/storage';
 import { reducedMotion } from '../core/motion';
 import { anchorFor, caretY, scrollToShow } from './caret-follow';
 import { SharedStore } from '../core/shared-store';
-import type { EditorTab } from '../core/desk';
-import { canManage, canWrite } from '../core/shared-notes';
+import { Desk, type EditorTab } from '../core/desk';
+import { canManage, canWrite, removalOf } from '../core/shared-notes';
 import { ShareSheet } from './share-sheet';
 import { MONTHS_LONG } from '../core/dates';
 import { KanbanStore } from '../core/kanban-store';
@@ -219,6 +219,7 @@ export class ReviewEditor {
   protected readonly CloseIcon = ICON.fechar;
   protected readonly LaterIcon = ICON.marcador;
   protected readonly TrashIcon = ICON.apagar;
+  protected readonly LeaveIcon = ICON.sair;
   protected readonly SwapIcon = ICON.atualizar;
   protected readonly PinIcon = ICON.fixar;
   protected readonly DoneIcon = ICON.pronto;
@@ -548,6 +549,14 @@ export class ReviewEditor {
   private readonly shared = inject(SharedStore);
   /** O papel de quem edita uma anotação compartilhada (null: não é compartilhada). */
   protected readonly sharedRole = computed(() => (this.editing() ? this.shared.role(this.id()) : null));
+  private readonly desk = inject(Desk);
+  /**
+   * Apagar a ficha daqui mesmo, no canto esquerdo do pé (pedido do dono: antes, só lendo): só a que já está no
+   * mural, com o rótulo e o ícone do "Mais" da leitura (ver `removalOf`).
+   */
+  protected readonly removal = computed(() =>
+    this.editing() && this.store.get(this.id()) ? removalOf(this.shared.get(this.id()), this.notes()) : null,
+  );
   /**
    * Quem só lê a compartilhada não escreve nela: o editor abre só com as abas Kanban e Flashcard, o lugar
    * dela no quadro e a carta, que são de cada um (o grupo e as tags ficam em "Grupo e tags", na leitura).
@@ -1729,6 +1738,21 @@ export class ReviewEditor {
       return;
     }
     if (e?.type !== 'cancel') this.shut();
+  }
+
+  /**
+   * O botão de apagar do pé: a pergunta, o Desfazer e a saída da compartilhada são os da leitura (`Desk`); só
+   * se a pessoa confirmar o editor fecha, sem perguntar de novo pelo que não foi salvo (ver `forget`).
+   */
+  protected requestRemove(): void {
+    this.desk.removeReview(this.id());
+  }
+
+  /** A ficha `id` saiu do mural: se é ela que está aberta aqui, o editor fecha, sem a pergunta de descartar. */
+  forget(id: string): void {
+    if (!this.dialog().nativeElement.open || this.id() !== id) return;
+    this.snapshot = this.serialize();
+    this.shut();
   }
 
   /** A pergunta de descartar já está na tela: outro X (ou o fundo) não abre uma segunda. */

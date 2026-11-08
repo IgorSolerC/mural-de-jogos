@@ -1061,6 +1061,11 @@ fieldset.quem-ve {
 }
 
 /* "Salvar pra depois": o recorte picotado, a ficha que ainda não foi colada */
+/* apagar a ficha, no canto esquerdo do pé, longe do pregar: a tinta vermelha do "Mais" da leitura, sem fundo */
+.apagar {
+  color: var(--red-deep);
+}
+
 .later {
   box-shadow: none;
   outline: 1.5px dashed rgb(21 21 21 / 0.45);
