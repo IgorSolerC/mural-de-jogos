@@ -1,6 +1,6 @@
 import { DEFAULT_FSRS, dayStart, freshSrs } from './fsrs';
 import { StudyState, addCard, addDeck, answer, emptyStudy, setConfig, updateDeck } from './study';
-import { LEARN_AHEAD_MS, allCounts, countTotal, dayQueue, interleave, nextUp } from './study-queue';
+import { LEARN_AHEAD_MS, allCounts, countTotal, dayQueue, interleave, nextUp, scopeCards } from './study-queue';
 
 const NOW = new Date(2026, 10, 2, 20, 0);
 const iso = (d: Date) => d.toISOString();
@@ -87,23 +87,26 @@ describe('a fila do dia (core/study-queue.ts)', () => {
     expect(dayQueue(st, new Date(2026, 10, 3, 4, 1), 'da').counts.revisar).toBe(1);
   });
 
-  it('adiantado: as revisões até amanhã (as de hoje além do limite primeiro), sem novas e sem o limite do dia', () => {
+  it('sem adiantar: a revisão de amanhã não entra hoje, nem passando do limite do dia', () => {
     let st = sample();
     st = inReview(st, 'a5', '2026-11-03');
-    st = inReview(st, 'a6', '2026-11-03');
-    st = inReview(st, 'a7', '2026-11-04');
     st = inReview(st, 'a8', '2026-11-02');
     st = inReview(st, 'a4', '2026-11-02');
     st = setConfig(st, { maxReviews: 1 }, iso(NOW));
-    // hoje, uma das duas vencidas (o limite); adiantado, as duas de hoje antes das de amanhã, e a de depois não
-    expect(dayQueue(st, NOW, 'da').counts.revisar).toBe(1);
-    const q = dayQueue(st, NOW, 'da', undefined, 1);
-    expect(q.rest.slice(0, 2).map((i) => i.note).sort()).toEqual(['a4', 'a8']);
-    expect(q.rest.slice(2).map((i) => i.note).sort()).toEqual(['a5', 'a6']);
-    expect(q.counts).toEqual({ novas: 0, aprender: 0, revisar: 4 });
-    expect(nextUp(st, NOW, 'da', undefined, 1).item?.kind).toBe('revisao');
-    // sem adiantar, a de amanhã não entra
-    expect(dayQueue(st, NOW, 'da').rest.some((i) => i.note === 'a5' || i.note === 'a6')).toBeFalse();
+    const q = dayQueue(st, NOW, 'da');
+    expect(q.counts.revisar).toBe(1);
+    expect(q.rest.some((i) => i.note === 'a5')).toBeFalse();
+  });
+
+  it('as cartas do escopo: cada uma uma vez, com o primeiro baralho dela entre os estudados', () => {
+    const st = sample();
+    const all = scopeCards(st, undefined);
+    expect(all.length).toBe(12);
+    expect(all.find((x) => x.card.note === 'x1')!.deck.id).toBe('da');
+    expect(scopeCards(st, 'db').find((x) => x.card.note === 'x1')!.deck.id).toBe('db');
+    expect(scopeCards(st, 'db').length).toBe(4);
+    expect(scopeCards(st, 'db', (n) => n !== 'b1').map((x) => x.card.note)).not.toContain('b1');
+    expect(scopeCards(st, 'zz')).toEqual([]);
   });
 
   it('novas espalhadas entre as revisões, e não no fim', () => {

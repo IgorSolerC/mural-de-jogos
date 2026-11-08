@@ -1111,30 +1111,132 @@ describe('página dos Estudos', () => {
     expect($('.estudar')).toBeNull();
   });
 
-  it('em dia, com revisões amanhã: "Estudar adiantado" abre a mesa com elas; sem nada amanhã, não aparece', async () => {
-    const kanji = study.addDeck('Kanjis', 'amarelo');
-    study.addCard('nsol', [kanji]);
-    const inDays = (n: number) =>
+  describe('o Treinar', () => {
+    const trigger = () => $<HTMLButtonElement>('.treinar .gatilho')!;
+    const options = () => $$('.treinar [role=option]');
+    async function openMenu(): Promise<void> {
+      // a lista fecha quando o botão sai da tela, e a janela dos testes é baixa: o botão fica à vista
+      trigger().scrollIntoView({ block: 'center' });
+      trigger().click();
+      await settle();
+    }
+    async function table(): Promise<HTMLDialogElement> {
+      let mesa: HTMLDialogElement | null = null;
+      for (let i = 0; i < 60 && !(mesa = document.querySelector<HTMLDialogElement>('dialog.sessao'))?.open; i++) await settle();
+      return mesa!;
+    }
+    async function picker(): Promise<HTMLDialogElement> {
+      let folha: HTMLDialogElement | null = null;
+      for (let i = 0; i < 60 && !(folha = document.querySelector<HTMLDialogElement>('app-study-drill-picker dialog'))?.open; i++) await settle();
+      return folha!;
+    }
+
+    it('fica ao lado do Estudar, e o remendo lista os treinos com quantos flashcards cada um traria', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      expect(text(trigger())).toBe('Treinar');
+      expect(trigger().closest('.hoje-botoes')!.querySelector('.estudar')).not.toBeNull();
+      await openMenu();
+      // nsol foi respondida hoje; nlua e nfogo nunca
+      expect(options().map((o) => o.getAttribute('aria-label'))).toEqual([
+        'Os respondidos hoje, 1 flashcard',
+        'Os já estudados, 1 flashcard',
+        'Todos, 3 flashcards',
+        'Só os nunca vistos, 2 flashcards',
+        'Escolher quais',
+      ]);
+      expect(text($('.treinar .legenda'))).toContain('Não conta no progresso');
+    });
+
+    it('em dia, o "Estudar adiantado" saiu: no lugar dele, só o Treinar', async () => {
+      const kanji = study.addDeck('Kanjis', 'amarelo');
+      study.addCard('nsol', [kanji]);
       study.state.update((st) => ({
         ...st,
-        cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 5, d: 5, due: dayStart(addStudyDays(studyDay(new Date()), n)).toISOString(), last: T0, reps: 3 } })),
+        cards: st.cards.map((c) => ({ ...c, srs: { state: 'revisao' as const, step: 0, s: 5, d: 5, due: dayStart(addStudyDays(studyDay(new Date()), 1)).toISOString(), last: T0, reps: 3 } })),
       }));
-    inDays(3);
-    await go(deckUrl(kanji));
-    expect($('.estudar')).toBeNull();
-    expect($('.adiantado')).toBeNull();
-    inDays(1);
-    await settle();
-    expect($('.estudar')).toBeNull();
-    expect(text($('.adiantado'))).toBe('Estudar adiantado');
-    $<HTMLButtonElement>('.adiantado')!.click();
-    let mesa: HTMLDialogElement | null = null;
-    for (let i = 0; i < 60 && !(mesa = document.querySelector<HTMLDialogElement>('dialog.sessao'))?.open; i++) await settle();
-    expect(mesa!.open).toBeTrue();
-    expect(text(mesa!.querySelector('.baralho'))).toBe('Kanjis · adiantado');
-    expect(mesa!.querySelector('app-study-card')).not.toBeNull();
-    mesa!.close();
-    await settle();
+      await go(deckUrl(kanji));
+      expect($('.estudar')).toBeNull();
+      expect($('.adiantado')).toBeNull();
+      expect(text($('.em-dia'))).toContain('Tudo em dia');
+      expect(text(trigger())).toBe('Treinar');
+      await openMenu();
+      // sem nada respondido hoje e sem nunca vistos: os dois somem do remendo
+      expect(options().map((o) => o.getAttribute('aria-label'))).toEqual(['Os já estudados, 1 flashcard', 'Todos, 1 flashcard', 'Escolher quais']);
+    });
+
+    it('um treino abre a mesa com as cartas dele e o placar, e responder não guarda nada', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      const before = JSON.stringify(study.state());
+      await openMenu();
+      options()[3].click();
+      const mesa = await table();
+      expect(text(mesa.querySelector('.baralho'))).toBe('Treino · Kanjis');
+      expect(mesa.querySelector('.baralho')!.getAttribute('title')).toBe('Só os nunca vistos');
+      expect([...mesa.querySelectorAll('.placar .monte')].map(text)).toEqual(['0 respostas', '0 acertos', '0 erros']);
+      mesa.querySelector<HTMLButtonElement>('.mostrar')!.click();
+      await settle();
+      mesa.querySelector<HTMLButtonElement>('.errei')!.click();
+      await settle();
+      expect([...mesa.querySelectorAll('.placar .monte')].map(text)).toEqual(['1 resposta', '0 acertos', '1 erro']);
+      expect(JSON.stringify(study.state())).toBe(before);
+      mesa.close();
+      await settle();
+    });
+
+    it('"Escolher quais" abre a lista dos flashcards; Treinar com os marcados abre a mesa só com eles', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      await openMenu();
+      options()[4].click();
+      const folha = await picker();
+      expect(folha.open).toBeTrue();
+      const rows = () => [...folha.querySelectorAll<HTMLElement>('.item')];
+      // de A a Z pela frente, com o nível
+      expect(rows().map((r) => text(r.querySelector('.nome')))).toEqual(['Fogo', '日 · sol, dia', '月']);
+      expect(text(rows()[1].querySelector('.meta'))).toBe('Novo');
+      const start = folha.querySelector<HTMLButtonElement>('.foot .btn-ink')!;
+      expect(start.disabled).toBeTrue();
+      rows()[2].querySelector<HTMLInputElement>('input')!.click();
+      await settle();
+      expect(text(folha.querySelector('.conta'))).toBe('1 escolhido');
+      start.click();
+      const mesa = await table();
+      expect(folha.open).toBeFalse();
+      expect(text(mesa.querySelector('.baralho'))).toBe('Treino · Kanjis');
+      expect(text(mesa.querySelector('.frente app-study-card .titulo'))).toBe('月');
+      mesa.querySelector<HTMLButtonElement>('.mostrar')!.click();
+      await settle();
+      mesa.querySelector<HTMLButtonElement>('.acertei')!.click();
+      await settle();
+      // acertou de primeira o único: a rodada acabou
+      expect(text(mesa.querySelector('.fim h3'))).toBe('Rodada completa.');
+      mesa.close();
+      await settle();
+    });
+
+    it('a busca da lista acha sem acento, e "Marcar todos" marca o que ela mostra', async () => {
+      const { kanji } = seed();
+      await go(deckUrl(kanji));
+      await openMenu();
+      options()[4].click();
+      const folha = await picker();
+      const all = () => folha.querySelector<HTMLButtonElement>('.todos')!;
+      expect(text(all())).toBe('Marcar todos');
+      all().click();
+      await settle();
+      expect(text(folha.querySelector('.conta'))).toBe('3 escolhidos');
+      expect(text(all())).toBe('Desmarcar todos');
+      const input = folha.querySelector<HTMLInputElement>('input[type=search]')!;
+      input.value = 'FOGO';
+      input.dispatchEvent(new Event('input'));
+      await settle();
+      expect(folha.querySelectorAll('.item').length).toBe(1);
+      expect(text(all())).toBe('Desmarcar estes 1');
+      folha.close();
+      await settle();
+    });
   });
 
   it('a engrenagem, na ponta da pasta (em Tudo e no baralho), abre as configurações dos Estudos', async () => {

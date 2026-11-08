@@ -188,11 +188,14 @@
             <li class="monte" data-monte="revisar" [title]="line().revisar + (line().revisar === 1 ? ' revisão' : ' revisões')"><span class="selo" aria-hidden="true"></span><span>{{ line().revisar }} <span class="monte-nome">{{ line().revisar === 1 ? "revisão" : "revisões" }}</span></span></li>
           </ul>
           <!-- o play, como no Anki: a sessão de estudo do baralho, do grupo ou de tudo, logo depois dos montes,
-               com o traço de marca-texto sempre à mostra (como o Este mês dos Gastos) -->
-          <button type="button" class="tinta estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, group: deck() ? null : (group()?.label ?? null) })">
-            <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
-            {{ deck() ? "Estudar" : group() ? "Estudar o grupo" : "Estudar tudo" }}
-          </button>
+               com o traço de marca-texto sempre à mostra (como o Este mês dos Gastos); ao lado, o Treinar -->
+          <div class="hoje-botoes">
+            <button type="button" class="tinta estudar" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, group: deck() ? null : (group()?.label ?? null) })">
+              <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
+              {{ deck() ? "Estudar" : group() ? "Estudar o grupo" : "Estudar tudo" }}
+            </button>
+            <ng-container *ngTemplateOutlet="treinar" />
+          </div>
         } @else if (deck() && !deckSize()) {
           <p class="em-dia">Nenhum flashcard neste baralho ainda.</p>
         } @else if (!deck() && group() && !group()!.decks.length) {
@@ -206,13 +209,10 @@
               A próxima revisão é {{ n.when }} ({{ countLabel(n.n) }}).
             }
           </p>
-          <!-- sem nada para hoje: as revisões de amanhã, antes (o "estudar adiantado" do Anki) -->
-          @if (tomorrow()) {
-            <button type="button" class="tinta adiantado" aria-haspopup="dialog" (click)="session.set({ deck: deck()?.id ?? null, group: deck() ? null : (group()?.label ?? null), ahead: true })">
-              <lucide-icon [img]="PlayIcon" [size]="18" aria-hidden="true" />
-              Estudar adiantado
-            </button>
-          }
+          <!-- em dia, o estudo de verdade espera o dia dele (adiantar atrapalharia o FSRS): o que sobra é treinar -->
+          <div class="hoje-botoes">
+            <ng-container *ngTemplateOutlet="treinar" />
+          </div>
         }
       </div>
       <div class="pasta-controles">
@@ -402,9 +402,28 @@
   }
 }
 
+<!-- o Treinar: o remendo de feltro do "Novo baralho" (ui/tab-more.ts), com os tipos de treino e quantos
+     flashcards cada um traria. O treino não guarda nada (core/study-drill.ts) -->
+<ng-template #treinar>
+  @if (drillItems().length) {
+    <app-tab-more class="tinta treinar" [groups]="drillItems()" active="" label="Treinar" groupsLabel="Treinar com" caption="Treinar com quais? Não conta no progresso." (chosen)="train($event)">
+      <span class="novo-dentro">
+        <lucide-icon [img]="TrainIcon" [size]="18" aria-hidden="true" />
+        Treinar
+      </span>
+    </app-tab-more>
+  }
+</ng-template>
+
 @if (session(); as s) {
   @defer (on immediate) {
-    <app-study-session [deck]="s.deck" [group]="s.group ?? null" [ahead]="!!s.ahead" (closed)="session.set(null)" (all)="session.set({ deck: null })" (groupAll)="session.set({ deck: null, group: $event })" />
+    <app-study-session [deck]="s.deck" [group]="s.group ?? null" [drill]="s.drill ?? null" (closed)="session.set(null)" (all)="session.set({ deck: null })" (groupAll)="session.set({ deck: null, group: $event })" />
+  }
+}
+
+@if (choosing()) {
+  @defer (on immediate) {
+    <app-study-drill-picker [cards]="drillChoices()" [place]="drillPlace()" (chosen)="startDrill('escolhidos', $event)" (closed)="choosing.set(false)" />
   }
 }
 

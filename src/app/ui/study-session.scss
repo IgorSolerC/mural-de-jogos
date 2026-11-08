@@ -149,6 +149,62 @@ dialog.sessao {
   --monte: #3fae6f;
 }
 
+/* o placar do treino: o nome de cada número à mostra (não são os montes do Anki, que quem estuda já conhece);
+   no celular, só o selo e o número, com o nome na dica e no leitor de tela */
+[data-monte='respostas'] {
+  --monte: var(--wall-ink);
+}
+
+[data-monte='acertos'] {
+  --monte: #3fae6f;
+}
+
+[data-monte='erros'] {
+  --monte: #f0645a;
+}
+
+@media (max-width: 640px) {
+  .treino-nome {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* acertos e erros: o tique e o X na tinta deles, no lugar do selo (a forma diz o que a cor diz) */
+.sinal {
+  display: inline-flex;
+  color: var(--monte);
+}
+
+.placar .monte {
+  gap: 5px;
+}
+
+.placar .monte-nome {
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.8;
+
+  @media (max-width: 640px) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.btn-ink lucide-icon {
+  display: inline-flex;
+}
+
 /* ===== A mesa: a carta no meio, do tamanho que cabe ===== */
 .mesa {
   display: grid;

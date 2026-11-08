@@ -3,6 +3,7 @@ import { reducedMotion } from '../core/motion';
 import { ReviewStore } from '../core/review-store';
 import { daysBetween, review, studyDay } from '../core/fsrs';
 import { fsrsConfig, frontTitle, inGroup, intervalLabel } from '../core/study';
+import { DRILL_LABEL, DrillPlan, DrillState, drillAnswer, drillLeft, drillNext, drillReturn, startDrill } from '../core/study-drill';
 import { QueueItem, StudyScope, countTotal, dayQueue, nextUp } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { ICON, IconModule } from './icons';
@@ -18,6 +19,8 @@ export const TURN_MS = 460;
  * sem mostrar a frente, ou responderia a carta sem mostrar a resposta.
  */
 export const BOUNCE_MS = 350;
+/** Quantas respostas do treino o Desfazer guarda (cada uma leva a rodada inteira de antes). */
+export const DRILL_UNDO_MAX = 100;
 
 /** Uma resposta da sessão, para o Desfazer: a carta, se acertou, e como voltar. */
 interface Answered {
@@ -34,6 +37,10 @@ interface Answered {
  *
  * A fila não fica guardada: a próxima é pedida depois de cada resposta (core/study-queue.ts, `nextUp`);
  * a carta respondida sai sozinha, e a que errou volta em 1 ou 10 minutos.
+ *
+ * Com `drill`, a mesma mesa vira o treino (core/study-drill.ts): as cartas escolhidas, embaralhadas, sem
+ * guardar nada (nem o progresso, nem o boletim, nem os limites do dia). Em cima, no lugar dos montes, o placar
+ * do treino; no fim da rodada, "Mais uma rodada" passa as mesmas cartas de novo, somando os números.
  */
 @Component({
   selector: 'app-study-session',
@@ -55,8 +62,8 @@ export class StudySession {
     const group = this.group();
     return group ? this.study.decks().filter((d) => inGroup(d, group)).map((d) => d.id) : undefined;
   });
-  /** O "Estudar adiantado": as revisões de amanhã, quando hoje já está em dia. */
-  readonly ahead = input(false);
+  /** O treino (as cartas e com o que treinar), no lugar do estudo do dia; null: o estudo de verdade. */
+  readonly drill = input<DrillPlan | null>(null);
   readonly closed = output<void>();
   /** "Estudar tudo", no fim de um baralho: quem abriu troca a mesa para todos os baralhos. */
   readonly all = output<void>();
@@ -68,6 +75,7 @@ export class StudySession {
   protected readonly RightIcon = ICON.pronto;
   protected readonly UndoIcon = ICON.desfazer;
   protected readonly PlayIcon = ICON.estudar;
+  protected readonly AgainIcon = ICON.recomecar;
 
   private readonly study = inject(StudyStore);
   private readonly store = inject(ReviewStore);
@@ -90,18 +98,25 @@ export class StudySession {
   protected readonly later = signal<string | null>(null);
   private readonly answered = signal<Answered[]>([]);
   private readonly started = Date.now();
+  /** O treino em andamento: só aqui, na memória da mesa (fechou, sumiu). */
+  protected readonly tally = signal<DrillState | null>(null);
+  private rounds = 0;
   /** O que a voz do leitor de tela diz (virou, respondeu). */
   protected readonly spoken = signal('');
   protected readonly calm = reducedMotion();
 
   protected readonly title = computed(() => {
     const id = this.deck();
-    const name = id ? (this.study.deck(id)?.name ?? 'Baralho') : (this.group() ?? 'Tudo');
-    return this.ahead() ? `${name} · adiantado` : name;
+    return id ? (this.study.deck(id)?.name ?? 'Baralho') : (this.group() ?? 'Tudo');
+  });
+  /** Com o que se treina, na dica do título. */
+  protected readonly drillLabel = computed(() => {
+    const d = this.drill();
+    return d ? DRILL_LABEL[d.kind] : null;
   });
 
   /** Os três montes do que falta, como no Anki (o da carta na mesa sublinhado). */
-  protected readonly counts = computed(() => dayQueue(this.study.view(), this.study.now(), this.scope(), this.study.live, this.ahead() ? 1 : 0).counts);
+  protected readonly counts = computed(() => dayQueue(this.study.view(), this.study.now(), this.scope(), this.study.live).counts);
 
   /** A carta na mesa: a frente e a anotação (o verso, em ui/study-card-back.ts). */
   protected readonly card = computed(() => {
@@ -128,6 +143,17 @@ export class StudySession {
     const c = this.card();
     if (!c) return null;
     const now = new Date();
+    const drill = this.tally();
+    if (drill) {
+      // no treino: daqui a quanto volta na rodada, ou que sai dela; sendo a única que sobrou, ela volta já
+      const alone = drillLeft(drill) <= 1;
+      const label = (ok: boolean) => {
+        const min = drillReturn(drill, c.item.note, ok);
+        if (min === null) return 'sai da rodada';
+        return alone ? 'volta já' : intervalLabel(now, new Date(now.getTime() + min * 60_000), false);
+      };
+      return { wrong: label(false), right: label(true) };
+    }
     const cfg = { ...fsrsConfig(this.study.config()), fuzz: false };
     const label = (ok: boolean) => {
       const next = review(c.srs, ok ? 3 : 1, now, cfg, c.item.note);
@@ -174,7 +200,11 @@ export class StudySession {
     effect(() => {
       this.deck();
       this.group();
-      untracked(() => this.advance());
+      const drill = this.drill();
+      untracked(() => {
+        this.tally.set(drill ? startDrill(drill.items, this.seed()) : null);
+        this.advance();
+      });
     });
     afterNextRender(() => {
       this.dialog().nativeElement.showModal();
@@ -198,7 +228,19 @@ export class StudySession {
 
   /** A próxima carta, ou o fim. */
   private advance(): void {
-    const up = nextUp(this.study.view(), new Date(), this.scope(), this.study.live, this.ahead() ? 1 : 0);
+    const drill = this.tally();
+    if (drill) {
+      const cards = this.study.cardOf();
+      const item = drillNext(drill, Date.now(), (note) => this.study.live(note) && cards.has(note));
+      this.current.set(item);
+      this.revealed.set(false);
+      this.finished.set(!item);
+      this.later.set(null);
+      this.swappedAt = performance.now();
+      if (!item) this.spoken.set('Rodada completa.');
+      return;
+    }
+    const up = nextUp(this.study.view(), new Date(), this.scope(), this.study.live);
     this.current.set(up.item);
     this.revealed.set(false);
     this.finished.set(!up.item);
@@ -223,6 +265,19 @@ export class StudySession {
   protected answer(ok: boolean): void {
     const c = this.card();
     if (!c || !this.revealed()) return;
+    const drill = this.tally();
+    if (drill) {
+      // o treino não guarda nada: a resposta só mexe na rodada, e desfazer é voltar a rodada de antes
+      this.holdBack(c.noteId);
+      this.tally.set(drillAnswer(drill, c.item.note, ok, Date.now()));
+      this.answered.update((list) => [...list, { item: c.item, ok, undo: () => this.tally.set(drill) }].slice(-DRILL_UNDO_MAX));
+      const min = drillReturn(drill, c.item.note, ok);
+      const back = drillLeft(drill) <= 1 ? 'Volta já.' : `Volta em ${min} min.`;
+      this.spoken.set(`${ok ? 'Acertou' : 'Errou'}. ${min === null ? 'Saiu da rodada.' : back}`);
+      this.advance();
+      this.focusMain();
+      return;
+    }
     const undo = this.study.answer(c.item.note, ok, c.item.deck);
     if (!undo) return;
     this.holdBack(c.noteId);
@@ -275,6 +330,23 @@ export class StudySession {
     clearTimeout(this.leavingTimer);
     this.leaving.set(note);
     if (note) this.leavingTimer = setTimeout(() => this.leaving.set(null), TURN_MS);
+  }
+
+  /** "Mais uma rodada", no fim do treino: as mesmas cartas, embaralhadas de novo, e o placar continua. */
+  protected again(): void {
+    const drill = this.drill();
+    const tally = this.tally();
+    if (!drill || !tally) return;
+    this.tally.set(startDrill(drill.items, this.seed(), tally));
+    // a rodada que acabou não se desfaz mais: o Desfazer volta só dentro da rodada nova
+    this.answered.set([]);
+    this.advance();
+    this.focusMain();
+  }
+
+  /** A semente do sorteio de cada rodada (cada uma numa ordem). */
+  private seed(): string {
+    return `${this.started}:${this.rounds++}`;
   }
 
   /** "Estudar tudo", no fim de um baralho: a mesa continua, com todos os baralhos. */

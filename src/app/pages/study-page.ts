@@ -17,7 +17,8 @@ import { LIGHT_STOCKS, LightStock } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { CardFace, CardSize, DECK_NAME_MAX, Deck, LEVEL_LABEL, Level, STUDY_SIZE_KEY, StudyCard as Card, cardFace, frontTitle, groupKey, inGroup, levelOf, studyGroupId, whenLabel } from '../core/study';
 import { readText, writeText } from '../core/storage';
-import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue } from '../core/study-queue';
+import { DRILL_KINDS, DRILL_LABEL, DrillKind, DrillPlan, drillCounts, drillPool } from '../core/study-drill';
+import { QueueCounts, StudyScope, allCounts, countTotal, dayQueue, scopeCards } from '../core/study-queue';
 import { StudyStore } from '../core/study-store';
 import { PublicDeckNudge } from '../ui/public-deck-nudge';
 import { nameCollator } from '../core/text';
@@ -31,6 +32,8 @@ import { StudyCardBack } from '../ui/study-card-back';
 import { StudyCardFocus } from '../ui/study-card-focus';
 import { StudyDeckSheet } from '../ui/study-deck-sheet';
 import { StudySession } from '../ui/study-session';
+import { StudyDrillPicker } from '../ui/study-drill-picker';
+import type { DrillChoice } from '../ui/study-drill-picker';
 import { MuralConfig } from '../ui/mural-config';
 import { CardPicker } from '../ui/card-picker';
 import { CategoryLabel } from '../ui/category-label';
@@ -107,6 +110,14 @@ interface GroupTab {
 }
 
 const NO_COUNTS: QueueCounts = { novas: 0, aprender: 0, revisar: 0 };
+/** O desenho de cada treino no remendo do Treinar. */
+const DRILL_ICON: Record<DrillKind, LucideIconData> = {
+  hoje: ICON.recomecar,
+  vistos: ICON.historico,
+  todos: ICON.camadas,
+  novos: ICON.brilho,
+  escolhidos: ICON.tarefas,
+};
 
 /** Quanto a carta pequena cresce ao virar: da miniatura ao tamanho das grandes (o --escala de study-page.scss). */
 const SMALL_GROWS = 2.5;
@@ -136,7 +147,7 @@ function tiltOf(id: string): number {
  */
 @Component({
   selector: 'app-study-page',
-  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudySession, MuralConfig, TabMore],
+  imports: [CardPicker, CategoryLabel, IconModule, NearScreen, NgTemplateOutlet, Pin, RouterLink, SearchStrip, StudyCard, StudyCardBack, StudyCardFocus, StudyDeckSheet, StudyDrillPicker, StudySession, MuralConfig, TabMore],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './study-page.html',
   styleUrls: ['./study-page.scss', './study-page-flip.scss'],
@@ -165,6 +176,7 @@ export class StudyPage {
   protected readonly MaximizeIcon = ICON.aumentar;
   protected readonly ReadIcon = ICON.livros;
   protected readonly PlayIcon = ICON.estudar;
+  protected readonly TrainIcon = ICON.alvo;
   protected readonly GearIcon = ICON.configurar;
   /** A anotação (a lupa se confundia com a busca, que é logo embaixo). */
   protected readonly BringIcon = ICON.anotacoes;
@@ -225,12 +237,39 @@ export class StudyPage {
   protected readonly sortLabel = computed(() => SORTS.find((s) => s.id === this.sort())!.label);
   /** A folha do baralho aberta (`fresh`: acabou de nascer, o nome vem selecionado). */
   protected readonly sheet = signal<{ id: string; fresh: boolean } | null>(null);
-  /** A sessão de estudo aberta: de um baralho, de um grupo (o nome), ou de todos (os dois null). */
-  protected readonly session = signal<{ deck: string | null; group?: string | null; ahead?: boolean } | null>(null);
+  /** A sessão de estudo aberta: de um baralho, de um grupo (o nome), ou de todos (os dois null); com `drill`, o treino. */
+  protected readonly session = signal<{ deck: string | null; group?: string | null; drill?: DrillPlan } | null>(null);
+  /** O "Escolher quais" do Treinar aberto. */
+  protected readonly choosing = signal(false);
   /** A folha das configurações dos Estudos aberta. */
   protected readonly config = signal(false);
-  /** Quantas revisões vencem amanhã (no baralho, no grupo ou em todos): o "Estudar adiantado" só aparece com alguma. */
-  protected readonly tomorrow = computed(() => countTotal(dayQueue(this.study.view(), this.now(), this.scope(), this.study.live, 1).counts));
+  /** Quantos flashcards cada treino traria aqui (no baralho, no grupo ou em todos). */
+  protected readonly drillCounts = computed(() => drillCounts(this.study.view(), this.now(), this.scope(), this.study.live));
+  /**
+   * O remendo do Treinar: os tipos de treino com algum flashcard, cada um com quantos traria (o "Escolher
+   * quais" escolhe entre todos, sem número).
+   */
+  protected readonly drillItems = computed<TabMoreItem[]>(() => {
+    const n = this.drillCounts();
+    return DRILL_KINDS.filter((k) => n[k] > 0).map((k) =>
+      k === 'escolhidos'
+        ? { key: k, label: DRILL_LABEL[k], n: 0, look: {}, glyph: DRILL_ICON[k], say: '', quiet: true }
+        : { key: k, label: DRILL_LABEL[k], n: n[k], look: {}, glyph: DRILL_ICON[k], say: n[k] === 1 ? '1 flashcard' : `${n[k]} flashcards` },
+    );
+  });
+  /** Os flashcards para o "Escolher quais": todos os do que se treina, com o nível (e o baralho, juntando vários). */
+  protected readonly drillChoices = computed<DrillChoice[]>(() => {
+    const byId = this.notesById();
+    const many = !this.deck();
+    return scopeCards(this.study.view(), this.scope(), this.study.live).flatMap(({ card, deck }) => {
+      const note = byId.get(card.note);
+      if (!note) return [];
+      const level = LEVEL_LABEL[levelOf(card.srs)];
+      return [{ note: card.note, title: frontTitle(card, note.game.name), subtitle: card.front.subtitle, meta: many ? `${level} · ${deck.name}` : level, stock: pinningFor(note.id, note.stock).stock, icon: deck.icon ? ICON_CHOICE[deck.icon] : null }];
+    });
+  });
+  /** Onde se treina, na frase do "Escolher quais". */
+  protected readonly drillPlace = computed(() => this.deck()?.name ?? this.group()?.label ?? 'todos os baralhos');
   /** A carta maximizada (o id da anotação). */
   protected readonly focused = signal<string | null>(null);
   /** As cartas com o verso à mostra na parede. Fica só na memória da página: virar não é estudar, e nada se guarda. */
@@ -675,6 +714,23 @@ export class StudyPage {
   private freeColor(): LightStock {
     const used = new Set(this.study.decks().map((d) => d.color));
     return LIGHT_STOCKS.find((s) => !used.has(s) && s !== 'branco') ?? 'amarelo';
+  }
+
+  /** Um tipo de treino escolhido no remendo do Treinar: abre a mesa (ou, em "Escolher quais", a lista). */
+  protected train(kind: string): void {
+    if (kind === 'escolhidos') {
+      this.choosing.set(true);
+      return;
+    }
+    this.startDrill(kind as DrillKind);
+  }
+
+  /** A mesa do treino, com as cartas desse tipo no que se estuda aqui (o baralho, o grupo ou tudo). */
+  protected startDrill(kind: DrillKind, chosen: readonly string[] = []): void {
+    // o mesmo relógio das contas do remendo: o que ele prometeu é o que vem (na virada do dia, às 4h, também)
+    const items = drillPool(this.study.view(), this.now(), this.scope(), kind, this.study.live, chosen);
+    if (!items.length) return;
+    this.session.set({ deck: this.deck()?.id ?? null, group: this.deck() ? null : (this.group()?.label ?? null), drill: { kind, items } });
   }
 
   /**

@@ -4,7 +4,8 @@ import { Review, sanitizeReview } from '../core/review';
 import { Desk } from '../core/desk';
 import { ReviewStore } from '../core/review-store';
 import { StudyStore } from '../core/study-store';
-import { BOUNCE_MS, StudySession, TURN_MS } from './study-session';
+import { DrillPlan, drillPool } from '../core/study-drill';
+import { BOUNCE_MS, DRILL_UNDO_MAX, StudySession, TURN_MS } from './study-session';
 import { GROW_MAX } from './grow-to-fit';
 
 /** A sessão de estudo (PLANO-ESTUDOS.md, 6.7): a carta, virar, Errei e Acertei, as teclas, o Desfazer e o fim. */
@@ -12,13 +13,14 @@ import { GROW_MAX } from './grow-to-fit';
 @Component({
   imports: [StudySession],
   template: `@if (open()) {
-    <app-study-session [deck]="deck()" [group]="group()" (closed)="open.set(false)" (all)="deck.set(null)" (groupAll)="deck.set(null); group.set($event)" />
+    <app-study-session [deck]="deck()" [group]="group()" [drill]="drill()" (closed)="open.set(false)" (all)="deck.set(null)" (groupAll)="deck.set(null); group.set($event)" />
   }`,
 })
 class Host {
   readonly open = signal(true);
   readonly deck = signal<string | null>(null);
   readonly group = signal<string | null>(null);
+  readonly drill = signal<DrillPlan | null>(null);
 }
 
 const T0 = '2026-10-01T10:00:00.000Z';
@@ -353,6 +355,123 @@ describe('a sessão de estudo (ui/study-session.ts)', () => {
       const ev = new KeyboardEvent('keydown', { key: 'Enter', repeat: true, bubbles: true, cancelable: true });
       $<HTMLButtonElement>('.acertei')!.dispatchEvent(ev);
       expect(ev.defaultPrevented).toBeTrue();
+    });
+  });
+
+  describe('o treino', () => {
+    const placar = () => [...dialog()!.querySelectorAll('.placar .monte')].map(text);
+    /** Reabre a mesa como treino, com as cartas desse tipo no baralho. */
+    async function drill(kind: 'todos' | 'novos' = 'todos'): Promise<void> {
+      fixture.componentInstance.open.set(false);
+      await settle();
+      fixture.componentInstance.drill.set({ kind, items: drillPool(study.view(), new Date(), kanji, kind, study.live) });
+      fixture.componentInstance.open.set(true);
+      await settle();
+    }
+
+    it('a mesa diz que é treino, mostra o placar no lugar dos montes, e embaixo do botão o que acontece na rodada', async () => {
+      await drill();
+      expect(text($('.baralho'))).toBe('Treino · Kanjis');
+      expect($('.baralho')!.getAttribute('title')).toBe('Todos');
+      expect(placar()).toEqual(['0 respostas', '0 acertos', '0 erros']);
+      expect(dialog()!.querySelector('[data-monte="novas"]')).toBeNull();
+      key(' ');
+      await settle();
+      expect(text($('.errei .volta'))).toContain('1 min');
+      expect(text($('.acertei .volta'))).toContain('sai da rodada');
+    });
+
+    it('o Desfazer do treino guarda só as últimas respostas (cada uma leva a rodada inteira)', async () => {
+      await drill();
+      // erra sempre: a rodada nunca acaba (as teclas da mesa respondem na hora, sem esperar a tela)
+      for (let i = 0; i < DRILL_UNDO_MAX + 5; i++) {
+        key(' ');
+        key('1');
+      }
+      await settle();
+      expect(placar()[0]).toBe(`${DRILL_UNDO_MAX + 5} respostas`);
+      for (let i = 0; i < DRILL_UNDO_MAX; i++) key('z');
+      await settle();
+      expect(placar()[0]).toBe('5 respostas');
+      expect($<HTMLButtonElement>('.desfazer')!.disabled).toBeTrue();
+    });
+
+    it('responder conta no placar e não guarda nada: nem o progresso, nem o boletim, nem o dia', async () => {
+      const before = JSON.stringify(study.state());
+      await drill();
+      key(' ');
+      await settle();
+      key('1');
+      await settle();
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+      expect(placar()).toEqual(['2 respostas', '1 acerto', '1 erro']);
+      expect(JSON.stringify(study.state())).toBe(before);
+      expect(study.cardOf().get('nsol')!.stats.seen).toBe(0);
+    });
+
+    it('quem errou volta na mesma rodada (1 min, depois 10, como no estudo); sem mais nada, volta na hora', async () => {
+      await drill();
+      const first = frontTitle();
+      key(' ');
+      await settle();
+      key('1');
+      await settle();
+      const second = frontTitle();
+      expect(second).not.toBe(first);
+      key(' ');
+      await settle();
+      key('2');
+      await settle();
+      // só sobrou a que errou: ela volta já, e os botões dizem isso (não "1 min" nem "10 min")
+      expect(frontTitle()).toBe(first);
+      key(' ');
+      await settle();
+      expect(text($('.acertei .volta'))).toContain('volta já');
+      expect(text($('.errei .volta'))).toContain('volta já');
+      key('2');
+      await settle();
+      expect(frontTitle()).toBe(first);
+      key(' ');
+      await settle();
+      expect(text($('.acertei .volta'))).toContain('sai da rodada');
+      key('2');
+      await settle();
+      expect(text($('.fim h3'))).toBe('Rodada completa.');
+      expect(text($('.fim-conta'))).toContain('4 respostas · acertou 3 · errou 1');
+    });
+
+    it('"Mais uma rodada" passa as mesmas cartas de novo, e o placar continua somando', async () => {
+      await drill();
+      for (let i = 0; i < 2; i++) {
+        key(' ');
+        await settle();
+        key('2');
+        await settle();
+      }
+      expect(text($('.fim h3'))).toBe('Rodada completa.');
+      expect($<HTMLButtonElement>('.fim .btn-ink')).toBe(document.activeElement as HTMLButtonElement);
+      $<HTMLButtonElement>('.fim .btn-ink')!.click();
+      await settle();
+      expect($('.fim')).toBeNull();
+      expect(['日', '月']).toContain(frontTitle());
+      expect(placar()).toEqual(['2 respostas', '2 acertos', '0 erros']);
+    });
+
+    it('Desfazer (Z) volta a resposta do treino e a carta dela', async () => {
+      await drill();
+      const first = frontTitle();
+      key(' ');
+      await settle();
+      key('1');
+      await settle();
+      key('z');
+      await settle();
+      expect(frontTitle()).toBe(first);
+      expect(placar()).toEqual(['0 respostas', '0 acertos', '0 erros']);
+      expect($('.mostrar')).not.toBeNull();
     });
   });
 

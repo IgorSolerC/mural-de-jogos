@@ -1,0 +1,44 @@
+/* O "Escolher quais" do Treinar: o resto é a folha do "Escolher fichas" (profile-picker.scss) e a cartolina
+   pequena do "Trazer anotações" (card-picker.scss). Aqui, só o que é dele: a busca com o "Marcar todos" ao
+   lado, e a marca sempre com o tique (a ordem não importa no treino, então não há número). */
+.linha-busca {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.linha-busca .busca {
+  flex-basis: 140px;
+  min-width: 0;
+
+  /* sem isto, o tamanho próprio do campo empurraria o "Marcar todos" para baixo no celular */
+  input {
+    width: 100%;
+  }
+}
+
+/* o subtítulo da frente, a lápis ao lado (como no verso da mesa) */
+.sub {
+  font-family: var(--f-hand);
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+
+.todos {
+  flex: none;
+  white-space: nowrap;
+}
+
+.capa lucide-icon {
+  display: inline-flex;
+}
+
+.marca lucide-icon {
+  display: inline-flex;
+}
+
+.foot .btn-ink:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

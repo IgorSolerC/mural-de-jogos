@@ -27,6 +27,27 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-08-sem-estudar-adiantado',
+    version: '1.40.1',
+    kind: 'ajustes',
+    date: '2026-11-08',
+    title: 'Sem o Estudar adiantado',
+    melhorias: [
+      'O "Estudar adiantado" saiu dos Estudos: o estudo de verdade acontece só no dia dele, que é como o algoritmo espaça as revisões. Para passar os flashcards antes, use o Treinar.',
+    ],
+  },
+  {
+    id: '2026-11-08-treinar-flashcards',
+    version: '1.40.0',
+    kind: 'funcionalidade',
+    date: '2026-11-08',
+    title: 'Treinar nos Estudos',
+    items: [
+      'Ao lado do Estudar, o Treinar passa os flashcards de novo sem contar no progresso: nenhum flashcard muda de data, e nada fica guardado. Dá para refazer o estudo de hoje, treinar com os já estudados, com todos, só com os nunca vistos, ou escolher quais numa lista.',
+      'O treino não tem tamanho: em cima, o placar de respostas, acertos e erros; quem você errou volta na mesma rodada, como no estudo de verdade; e no fim, "Mais uma rodada" passa os mesmos de novo. Fechar sai na hora.',
+    ],
+  },
+  {
     id: '2026-11-08-links-sem-mudar-o-texto',
     version: '1.39.4',
     kind: 'ajustes',

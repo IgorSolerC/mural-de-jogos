@@ -4,12 +4,28 @@
     <button type="button" class="parar" aria-label="Parar de estudar" title="Parar (Esc)" (click)="close()">
       <lucide-icon [img]="CloseIcon" [size]="22" aria-hidden="true" />
     </button>
-    <h2 id="sessao-titulo" class="baralho">{{ title() }}</h2>
-    <ul class="montes" aria-label="Faltam">
-      <li class="monte" data-monte="novas" [class.vez]="current()?.kind === 'nova'"><span class="selo" aria-hidden="true"></span>{{ counts().novas }}<span class="sr-only"> {{ counts().novas === 1 ? 'novo' : 'novos' }}</span></li>
-      <li class="monte" data-monte="aprender" [class.vez]="current()?.kind === 'aprender'"><span class="selo" aria-hidden="true"></span>{{ counts().aprender }}<span class="sr-only"> aprendendo</span></li>
-      <li class="monte" data-monte="revisar" [class.vez]="current()?.kind === 'revisao'"><span class="selo" aria-hidden="true"></span>{{ counts().revisar }}<span class="sr-only"> {{ counts().revisar === 1 ? 'revisão' : 'revisões' }}</span></li>
-    </ul>
+    <h2 id="sessao-titulo" class="baralho" [attr.title]="drillLabel()">
+      @if (tally()) {
+        <!-- no celular, só "Treino": o placar precisa do lugar, e o baralho é o que acabou de ser aberto -->
+        Treino<span class="treino-nome"> · {{ title() }}</span>
+      } @else {
+        {{ title() }}
+      }
+    </h2>
+    @if (tally(); as t) {
+      <!-- no treino, o placar: quantas respostas, quantos acertos e quantos erros, do treino inteiro -->
+      <ul class="montes placar" aria-label="No treino">
+        <li class="monte" data-monte="respostas" [title]="t.answered + (t.answered === 1 ? ' resposta' : ' respostas')"><span class="selo" aria-hidden="true"></span>{{ t.answered }}<span class="monte-nome"> {{ t.answered === 1 ? 'resposta' : 'respostas' }}</span></li>
+        <li class="monte" data-monte="acertos" [title]="t.right + (t.right === 1 ? ' acerto' : ' acertos')"><lucide-icon class="sinal" [img]="RightIcon" [size]="15" aria-hidden="true" />{{ t.right }}<span class="monte-nome"> {{ t.right === 1 ? 'acerto' : 'acertos' }}</span></li>
+        <li class="monte" data-monte="erros" [title]="t.wrong + (t.wrong === 1 ? ' erro' : ' erros')"><lucide-icon class="sinal" [img]="WrongIcon" [size]="15" aria-hidden="true" />{{ t.wrong }}<span class="monte-nome"> {{ t.wrong === 1 ? 'erro' : 'erros' }}</span></li>
+      </ul>
+    } @else {
+      <ul class="montes" aria-label="Faltam">
+        <li class="monte" data-monte="novas" [class.vez]="current()?.kind === 'nova'"><span class="selo" aria-hidden="true"></span>{{ counts().novas }}<span class="sr-only"> {{ counts().novas === 1 ? 'novo' : 'novos' }}</span></li>
+        <li class="monte" data-monte="aprender" [class.vez]="current()?.kind === 'aprender'"><span class="selo" aria-hidden="true"></span>{{ counts().aprender }}<span class="sr-only"> aprendendo</span></li>
+        <li class="monte" data-monte="revisar" [class.vez]="current()?.kind === 'revisao'"><span class="selo" aria-hidden="true"></span>{{ counts().revisar }}<span class="sr-only"> {{ counts().revisar === 1 ? 'revisão' : 'revisões' }}</span></li>
+      </ul>
+    }
     <button type="button" class="desfazer" [disabled]="!canUndo()" title="Desfazer a última resposta (Z)" (click)="undo()">
       <lucide-icon [img]="UndoIcon" [size]="18" aria-hidden="true" />
       <span class="desfazer-txt">Desfazer</span>
@@ -47,6 +63,22 @@
           <span class="volta">{{ intervals()?.right }}<span class="tecla" aria-hidden="true">2</span></span>
         </button>
       }
+    </div>
+  } @else if (finished() && tally(); as t) {
+    <!-- o fim da rodada do treino: o placar, e mais uma rodada com as mesmas cartas -->
+    <div class="mesa">
+      <section class="fim" aria-labelledby="fim-titulo">
+        <h3 id="fim-titulo">Rodada completa.</h3>
+        <p class="fim-conta"><strong>{{ t.answered }}</strong> {{ t.answered === 1 ? 'resposta' : 'respostas' }} · acertou {{ t.right }} · errou {{ t.wrong }} · {{ summary().minutes === 1 ? '1 minuto' : summary().minutes + ' minutos' }}</p>
+        <p class="fim-mao">Treino não conta: nenhum flashcard mudou de data, e nada ficou guardado.</p>
+        <div class="fim-acoes">
+          <button type="button" class="btn-ink" (click)="again()">
+            <lucide-icon [img]="AgainIcon" [size]="16" aria-hidden="true" />
+            Mais uma rodada
+          </button>
+          <button type="button" class="papel" (click)="close()">Voltar aos baralhos</button>
+        </div>
+      </section>
     </div>
   } @else if (finished()) {
     <!-- o fim: o que foi feito hoje, e o que vem -->

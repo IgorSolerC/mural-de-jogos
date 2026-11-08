@@ -208,7 +208,7 @@
   }
 }
 
-/* o Novo baralho de Tudo: o botão de dentro do "Mais" não herda a caixa alta nem o centro dos outros .tinta */
+/* o Novo baralho de Tudo e o Treinar: o botão de dentro do "Mais" não herda a caixa alta nem o centro dos outros .tinta */
 .novo-dentro {
   display: inline-flex;
   align-items: center;
@@ -371,6 +371,14 @@
 
 [data-monte='revisar'] {
   --monte: #0d6b3c;
+}
+
+/* o Estudar e o Treinar juntos, de mãos dadas: na linha que quebra, os dois descem juntos */
+.hoje-botoes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
 }
 
 /* o Estudar: o traço de marca-texto sempre à mostra, como o Este mês dos Gastos (o que mais se aperta aqui) */
