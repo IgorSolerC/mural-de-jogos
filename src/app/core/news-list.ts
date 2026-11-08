@@ -27,6 +27,17 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-08-cantos-dos-flashcards',
+    version: '1.39.4',
+    kind: 'ajustes',
+    date: '2026-11-08',
+    title: 'Os cantos dos flashcards',
+    melhorias: [
+      'Nos flashcards Clássica e Cartolina inteira, os cantos não repetem mais a primeira letra do título. No Baralho antigo, os cantos mostram o ícone do baralho, num quarto de círculo maior.',
+    ],
+    correcoes: ['No flashcard Ficha de argola, um fio branco não fica mais girando na argola a cada dois segundos.'],
+  },
+  {
     id: '2026-11-07-botoes-dos-cards',
     version: '1.39.3',
     kind: 'ajustes',

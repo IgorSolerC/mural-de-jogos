@@ -144,7 +144,9 @@
     stroke-width: 2.7;
   }
 
-  .brilho {
+  /* o reflexo do metal. Não é .brilho: essa é a das pontas douradas que piscam e giram (styles.scss), e a
+     argola pegava a animação dela, um fio branco rodando a cada 2,4 s */
+  .reflexo {
     stroke: rgb(255 255 255 / 0.5);
     stroke-width: 0.7;
   }

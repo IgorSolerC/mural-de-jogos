@@ -157,8 +157,6 @@ export interface CardDeck {
             @if (deckName()) {
               <span class="dymo">{{ deckName() }}</span>
             }
-            <span class="canto canto-cima" aria-hidden="true">{{ corner() }}</span>
-            <span class="canto canto-baixo" aria-hidden="true">{{ corner() }}</span>
             <div class="corpo">
               <ng-container *ngTemplateOutlet="foto" /><ng-container *ngTemplateOutlet="titulo" /><ng-container *ngTemplateOutlet="sub" />
             </div>
@@ -188,8 +186,11 @@ export interface CardDeck {
           @case ('antigo') {
             <div class="face"></div>
             <div class="moldura" aria-hidden="true"></div>
-            <span class="canto canto-cima" aria-hidden="true">{{ corner() }}</span>
-            <span class="canto canto-baixo" aria-hidden="true">{{ corner() }}</span>
+            @if (deck()?.icon) {
+              <!-- os cantos, como numa carta de baralho: o ícone do baralho (o de baixo de cabeça para baixo) -->
+              <span class="canto canto-cima" aria-hidden="true"><ng-container *ngTemplateOutlet="icone" /></span>
+              <span class="canto canto-baixo" aria-hidden="true"><ng-container *ngTemplateOutlet="icone" /></span>
+            }
             @if (deckName()) {
               <span class="fita fita-cima">{{ deckName() }}</span>
             }
@@ -223,7 +224,7 @@ export interface CardDeck {
             </div>
             <svg class="anel frente" viewBox="0 0 100 140" aria-hidden="true">
               <path class="cor" d="M13 -12 A5.6 13 0 0 1 13 14" />
-              <path class="brilho" d="M14.5 -10.5 A4.6 11.6 0 0 1 17.6 4" />
+              <path class="reflexo" d="M14.5 -10.5 A4.6 11.6 0 0 1 17.6 4" />
             </svg>
           }
           @case ('selo') {
@@ -344,8 +345,6 @@ export interface CardDeck {
           @default {
             <div class="face"></div>
             <div class="moldura" aria-hidden="true"></div>
-            <span class="canto canto-cima" aria-hidden="true">{{ corner() }}</span>
-            <span class="canto canto-baixo" aria-hidden="true">{{ corner() }}</span>
             @if (deckName()) {
               <span class="nome">{{ deckName() }}</span>
             }
@@ -414,10 +413,6 @@ export class StudyCard {
   /** A cartolina escura: a tinta clara onde o desenho imprime na cor da cartolina. */
   protected readonly dark = computed(() => isDarkStock(this.stock()));
 
-  /** Os caracteres do título (um kanji ou um emoji contam como um). */
-  private readonly chars = computed(() => Array.from(this.title().trim()));
-  /** O canto, como numa carta de baralho: o primeiro caractere do título. */
-  protected readonly corner = computed(() => this.chars()[0]?.toLocaleUpperCase('pt-BR') ?? '');
   protected readonly phrase = computed(() => isPhraseTitle(this.title()));
 
   protected readonly deckName = computed(() => this.deck()?.name ?? '');

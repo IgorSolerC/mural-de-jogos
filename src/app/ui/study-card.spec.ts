@@ -50,11 +50,10 @@ describe('a frente da carta (ui/study-card.ts)', () => {
     TestBed.tick();
   }
 
-  it('sem escolha, a do baralho; sem ela, a Clássica, com o nome do baralho e sem o ícone nos cantos', () => {
+  it('sem escolha, a do baralho; sem ela, a Clássica, com o nome do baralho e sem nada nos cantos', () => {
     expect($('.carta')!.classList).toContain('look-classica');
     expect(text('.carta > .nome')).toBe('Kanjis');
-    expect(el.querySelectorAll('.canto').length).toBe(2);
-    expect($('.canto lucide-icon')).toBeNull();
+    expect($('.canto')).toBeNull();
     host.deck.set({ name: 'Kanjis', color: 'vermelho', icon: 'livro', look: 'polaroid' });
     TestBed.tick();
     expect($('.carta')!.classList).toContain('look-polaroid');
@@ -190,6 +189,42 @@ describe('a frente da carta (ui/study-card.ts)', () => {
       expect(card.getAttribute('data-nivel')).withContext(look).toBeNull();
       expect(card.style.getPropertyValue('--c')).withContext(look).toBe('var(--stock-laranja)');
     }
+  });
+
+  it('nenhum desenho repete o primeiro caractere do título nos cantos (pedido do dono: só o Baralho antigo tem cantos, com o ícone)', () => {
+    for (const look of CARD_LOOKS) {
+      for (const face of [null, LEARNING]) {
+        show(look, face);
+        if (look === 'antigo') continue;
+        expect($('.canto')).withContext(look).toBeNull();
+      }
+    }
+  });
+
+  it('Baralho antigo: o ícone do baralho nos dois cantos, o de baixo de cabeça para baixo, dentro do quarto de círculo; sem ícone, cantos vazios', () => {
+    show('antigo', LEARNING);
+    const corners = [...el.querySelectorAll<HTMLElement>('.canto')];
+    expect(corners.length).toBe(2);
+    expect(corners.every((c) => c.querySelector('lucide-icon svg'))).toBeTrue();
+    expect(corners.every((c) => !c.textContent!.trim())).toBeTrue();
+    expect(getComputedStyle(corners[1]).rotate).toBe('180deg');
+    // o ícone cabe no quarto de círculo: a ponta mais longe dele fica dentro do raio (15,5% da largura da moldura)
+    const frame = $('.moldura')!.getBoundingClientRect();
+    const icon = corners[0].getBoundingClientRect();
+    const reach = Math.hypot(icon.right - frame.left, icon.bottom - frame.top);
+    expect(reach).toBeLessThanOrEqual(frame.width * 0.155 * (100 / 90) + 0.5);
+    host.deck.set({ name: 'Kanjis', color: 'vermelho', icon: null });
+    TestBed.tick();
+    expect($('.canto')).toBeNull();
+  });
+
+  it('Ficha de argola: o reflexo do metal fica parado (não é a .brilho das pontas que piscam e giram)', () => {
+    show('argola', LEARNING);
+    const shine = $('.anel.frente path:last-child')!;
+    expect(shine.classList).toContain('reflexo');
+    expect($('.anel .brilho')).toBeNull();
+    expect(getComputedStyle(shine).animationName).toBe('none');
+    expect(getComputedStyle(shine).position).toBe('static');
   });
 
   it('Polaroid e Ficha de argola: o baralho na fita e na argola; a lápis, o nível e quando volta', () => {

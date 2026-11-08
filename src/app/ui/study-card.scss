@@ -186,18 +186,6 @@
   outline-offset: calc(-1 * max(1px, 0.4cqi));
 }
 
-/* os cantos, como numa carta de baralho: o primeiro caractere do título (o de baixo de cabeça para baixo) */
-.canto {
-  position: absolute;
-  font-family: 'Permanent Marker', 'Klee One', 'Comic Sans MS', cursive;
-  line-height: 1;
-  pointer-events: none;
-}
-
-.canto-baixo {
-  rotate: 180deg;
-}
-
 /* a ficha creme das releituras, deitada na mesa: a sombra curta das fichas deitadas */
 .face {
   position: absolute;
@@ -231,24 +219,11 @@
     }
   }
 
-  .canto {
-    font-size: 8.5cqi;
-    color: color-mix(in oklab, var(--fio) 35%, #151515);
-  }
-  .canto-cima {
-    top: 10cqi;
-    left: 10cqi;
-  }
-  .canto-baixo {
-    bottom: 10cqi;
-    right: 10cqi;
-  }
-
   .nome {
     position: absolute;
     top: 10.6cqi;
-    left: 22cqi;
-    right: 22cqi;
+    left: 12cqi;
+    right: 12cqi;
     text-align: center;
     font: 800 max(4.2cqi, 0.5rem) / 1 var(--f-label);
     letter-spacing: 0.16em;
@@ -432,20 +407,6 @@
     overflow: hidden;
   }
 
-  .canto {
-    font-size: 8cqi;
-    color: var(--tinta);
-    opacity: 0.72;
-  }
-  .canto-cima {
-    top: 6.5cqi;
-    left: 7cqi;
-  }
-  .canto-baixo {
-    bottom: 6.5cqi;
-    right: 7cqi;
-  }
-
   .corpo {
     position: absolute;
     inset: 17cqi 9cqi 9cqi;
@@ -591,8 +552,8 @@
     border-radius: 3cqi;
     border: max(1px, 0.5cqi) solid color-mix(in oklab, var(--fio) 60%, #151515);
     background:
-      radial-gradient(circle at 0 0, var(--q) 0 11.5cqi, transparent 11.6cqi 12.6cqi, var(--fio) 12.7cqi 13.1cqi, transparent 13.2cqi),
-      radial-gradient(circle at 100% 100%, var(--q) 0 11.5cqi, transparent 11.6cqi 12.6cqi, var(--fio) 12.7cqi 13.1cqi, transparent 13.2cqi),
+      radial-gradient(circle at 0 0, var(--q) 0 15.5cqi, transparent 15.6cqi 16.6cqi, var(--fio) 16.7cqi 17.1cqi, transparent 17.2cqi),
+      radial-gradient(circle at 100% 100%, var(--q) 0 15.5cqi, transparent 15.6cqi 16.6cqi, var(--fio) 16.7cqi 17.1cqi, transparent 17.2cqi),
       radial-gradient(circle at 100% 0, var(--q) 0 7cqi, transparent 7.1cqi),
       radial-gradient(circle at 0 100%, var(--q) 0 7cqi, transparent 7.1cqi),
       repeating-linear-gradient(45deg, var(--l) 0 0.3cqi, transparent 0.3cqi 4.2cqi),
@@ -609,17 +570,28 @@
     }
   }
 
+  /* os cantos, como numa carta de baralho: o ícone do baralho no quarto de círculo (o de baixo de cabeça para baixo) */
   .canto {
-    font-size: 8cqi;
+    position: absolute;
+    width: 7.6cqi;
+    height: 7.6cqi;
+    display: flex;
     color: var(--ink);
+    pointer-events: none;
+
+    .ic {
+      width: 100%;
+      height: 100%;
+    }
   }
   .canto-cima {
-    top: 8cqi;
-    left: 8.4cqi;
+    top: 8.2cqi;
+    left: 8.2cqi;
   }
   .canto-baixo {
-    bottom: 8cqi;
-    right: 8.4cqi;
+    bottom: 8.2cqi;
+    right: 8.2cqi;
+    rotate: 180deg;
   }
 
   /* as fitas com as pontas em V */

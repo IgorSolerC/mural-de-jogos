@@ -540,7 +540,8 @@ describe('página dos Estudos', () => {
     expect(text(cards[0].querySelector('.pe .volta'))).toBe('volta daqui a 10 min');
     expect(text(cards[1].querySelector('.pe'))).toBe('Desconhecido');
     expect(cards[1].querySelector('.pe .volta')).toBeNull();
-    expect(text(cards[0].querySelector('.canto'))).toBe('日');
+    // a Clássica não repete a primeira letra do título nos cantos
+    expect(cards[0].querySelector('.canto')).toBeNull();
   });
 
   describe('virar a carta na parede', () => {
