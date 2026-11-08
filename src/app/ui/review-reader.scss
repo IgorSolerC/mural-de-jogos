@@ -324,15 +324,6 @@ dialog.reader {
   grid-area: bonus;
   margin-top: 20px;
 }
-/* a nota dada na mão, e a média que as notas dariam, logo abaixo da etiqueta */
-.na-mao {
-  flex-basis: 100%;
-  margin: -6px 0 0;
-  font-family: var(--f-hand);
-  font-size: 1.05rem;
-  line-height: 1.3;
-}
-
 app-judge-label {
   flex: none;
 }
@@ -412,15 +403,6 @@ app-judge-label {
   }
 }
 
-.sem {
-  margin-top: 10px;
-  font-family: var(--f-label);
-  font-weight: 600;
-  font-size: 0.92rem;
-  letter-spacing: 0.03em;
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-}
 
 /* A folha pautada da leitura. As linhas, bem mais claras que as do editor (0,2 em vez de 0,32), para não
    tirarem o olho do texto. O texto comum desce 5px (--texto-desce, ver ui/rich-text.ts): a letra à mão

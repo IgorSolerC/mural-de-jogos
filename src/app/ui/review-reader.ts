@@ -21,7 +21,7 @@ import { BackdropClose } from './backdrop-close';
 import { LucideIconData } from 'lucide-angular';
 import { ICON, ICON_CHOICE, IconModule } from './icons';
 import { cap, g, profileOf } from '../core/kinds';
-import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isMusicReview, isNote, musicFormOf, computeBase, computeFinal, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
+import { BONUS_KIND_LABEL, MUSIC_FORM_LABEL, NO_DAY_LABEL, Review, SCORE_LABEL, VERDICT_LABEL, ratedKeys, scoreOf, weightOf, isMusicReview, isNote, musicFormOf, dayLabel, formatAmount, formatReviewDate, formatReviewDateLong, formatScore, isDarkStock, isPrivate, sortBonuses, timesOf } from '../core/review';
 import { ReviewStore } from '../core/review-store';
 import { SideBySide } from '../core/side-by-side';
 import { lookOf } from '../core/paper';
@@ -81,7 +81,7 @@ import { FichaLinks } from '../core/ficha-link';
 import { OrganizeSheet } from './organize-sheet';
 import { SharedStore } from '../core/shared-store';
 import { SyncConflicts } from '../core/sync-conflicts';
-import { ROLE_LABEL, canManage, canWrite } from '../core/shared-notes';
+import { ROLE_LABEL, canManage, canWrite, removalOf } from '../core/shared-notes';
 
 
 /** O vão entre o trecho selecionado e o remendo "Citar" (e entre o remendo e o rodapé). */
@@ -366,9 +366,6 @@ interface ReadingPlace {
                 @if (profile().difficulty && !masked()) {
                   <app-skulls class="skulls" [value]="r.difficulty" [size]="18" />
                 }
-                @if (!masked() && handAverage(); as avg) {
-                  <p class="na-mao">Nota dada na mão · a média daria {{ avg }}</p>
-                }
                 <!-- a ficha de outra pessoa em segredo: revelada aqui, fica revelada no mural de quem abriu (ver revealedChange) -->
                 @if (forceMask()) {
                   <button type="button" class="btn-quiet revelar" [attr.aria-pressed]="revealed()" (click)="toggleReveal()">
@@ -378,7 +375,8 @@ interface ReadingPlace {
                 }
               </div>
 
-              <!-- Os bônus: os mesmos adesivos da ficha, todos, com a conta sem eles logo abaixo -->
+              <!-- Os bônus: os mesmos adesivos da ficha, todos. Sem a conta sem eles nem a média que a nota dada na mão
+                   trocou (pedido do dono: "Quero apenas que minha nota seja minha nota"); essas ficam só no editor -->
               @if (bonuses().length) {
                 <div class="bonus-block">
                   <ul class="bonus" aria-label="Bônus">
@@ -391,9 +389,6 @@ interface ReadingPlace {
                       </li>
                     }
                   </ul>
-                  @if (!masked()) {
-                    <p class="sem">{{ withoutBonus() }}</p>
-                  }
                 </div>
               }
               }
@@ -852,14 +847,9 @@ export class ReviewReader {
   protected readonly moreItems = computed<MoreItem[]>(() => {
     const r = this.review();
     if (!r) return [];
-    // a anotação finalizada também sai do mural; apagar é outra coisa. A compartilhada de outra
-    // pessoa não se apaga: sai-se dela
-    const remove: MoreItem = {
-      id: 'remover',
-      label: this.leaves() ? 'Sair da anotação' : this.sharedWithOthers() ? 'Apagar para todos' : this.note() ? 'Apagar anotação' : 'Remover do mural',
-      icon: this.leaves() ? this.LeaveIcon : this.TrashIcon,
-      danger: true,
-    };
+    // a anotação finalizada também sai do mural; apagar é outra coisa (ver `removalOf`)
+    const removal = removalOf(this.sharedEntry(), this.note());
+    const remove: MoreItem = { id: 'remover', label: removal.label, icon: removal.leaves ? this.LeaveIcon : this.TrashIcon, danger: true };
     // o link que abre só esta ficha, para quem não usa o Murall (a privada diz por que não tem)
     const link: MoreItem = { id: 'link', label: this.note() ? 'Link da anotação' : 'Link da ficha', icon: this.LinkIcon, dialog: true };
     // a ficha como documento, pela impressão do navegador (ver ui/pdf-sheet.ts); a ficha em segredo
@@ -967,15 +957,7 @@ export class ReviewReader {
   }
 
   /** Quem não é o dono sai da anotação (em vez de apagar). */
-  protected readonly leaves = computed(() => {
-    const e = this.sharedEntry();
-    return !!e && e.papel !== 'dono';
-  });
-  /** O dono de uma anotação com mais gente: apagar é para todos. */
-  protected readonly sharedWithOthers = computed(() => {
-    const e = this.sharedEntry();
-    return !!e && e.papel === 'dono' && e.membros.length > 0;
-  });
+  protected readonly leaves = computed(() => removalOf(this.sharedEntry(), true).leaves);
   /** Há um conflito que quem abriu pode resolver. */
   protected readonly conflictHere = computed(() => {
     const e = this.sharedEntry();
@@ -1075,21 +1057,6 @@ export class ReviewReader {
   protected readonly others = computed(() => `${g(this.profile(), 'outros', 'outras')} ${this.profile().plural}`);
   protected readonly bonuses = computed(() => sortBonuses(this.review()?.bonuses ?? []));
   protected readonly kindLabels = BONUS_KIND_LABEL;
-  /** "Sem eles, a média seria 7,6." Contra a média com eles, mesmo quando a nota final foi dada na mão. */
-  protected readonly withoutBonus = computed(() => {
-    const r = this.review();
-    const base = r ? computeBase(r) : null;
-    if (!r || base === null) return '';
-    const withThem = computeFinal(r.kind, r.scores, r.weights, r.bonuses);
-    return base === withThem ? 'Sem eles, a média seria a mesma.' : `Sem eles, a média seria ${formatScore(base)}.`;
-  });
-  /** A nota final dada na mão: a média que as notas dariam, para comparar. */
-  protected readonly handAverage = computed(() => {
-    const r = this.review();
-    if (!r || r.finalOverride === undefined) return null;
-    const avg = computeFinal(r.kind, r.scores, r.weights, r.bonuses);
-    return avg === null ? null : formatScore(avg);
-  });
   protected readonly dayLabel = dayLabel;
   protected readonly noDay = NO_DAY_LABEL;
 

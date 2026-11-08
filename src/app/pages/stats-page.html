@@ -249,16 +249,19 @@
           @if (st.bonusShift?.down; as d) {
             <p class="resposta"><span class="quem">Maior puxão:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: d.review, v: shift(d.value) }" /></p>
           }
-          <p class="resposta">
-            <span class="quem">Nota na mão:</span>
-            @if (st.overrides.n) {
-              em {{ countOf(p, st.overrides.n) }} a Média foi dada na mão; em média, {{ shift(st.overrides.avg) }} em relação à conta.
-            } @else {
-              {{ mine() ? 'você' : player().name }} sempre deixou a conta fazer a Média.
+          <!-- a nota dada na mão é só de quem a deu: no mural de outra pessoa, nem a conta nem a maior diferença -->
+          @if (mine()) {
+            <p class="resposta">
+              <span class="quem">Nota na mão:</span>
+              @if (st.overrides.n) {
+                em {{ countOf(p, st.overrides.n) }} a Média foi dada na mão; em média, {{ shift(st.overrides.avg) }} em relação à conta.
+              } @else {
+                você sempre deixou a conta fazer a Média.
+              }
+            </p>
+            @if (st.overrides.biggest; as o) {
+              <p class="resposta"><span class="quem">Maior diferença:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: o.review, v: shift(o.value) }" /></p>
             }
-          </p>
-          @if (st.overrides.biggest; as o) {
-            <p class="resposta"><span class="quem">Maior diferença:</span> <ng-container *ngTemplateOutlet="ref; context: { $implicit: o.review, v: shift(o.value) }" /></p>
           }
         </section>
       }

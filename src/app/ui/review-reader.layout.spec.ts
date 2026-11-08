@@ -165,6 +165,23 @@ describe('A ficha aberta, arrumada para ler (ReviewReader)', () => {
     expect(words(q('.foot p'))).toBe('Resenha de Ana');
   });
 
+  it('a nota é a nota: sem "dada na mão", sem a média que daria e sem a conta sem os bônus, para o dono e para quem visita', async () => {
+    const bonuses = [{ id: 'trilha-sonora', label: 'Trilha sonora incrível', kind: 'favor' as const }];
+    const r = review('r-hades', 'Hades', { bonuses, finalOverride: 6 });
+    for (const owner of [undefined, 'Ana']) {
+      fixture.componentInstance.open(r, owner);
+      await settle();
+      const page = words(q('article.ficha'));
+      expect(q('app-judge-label')).withContext(owner ?? 'dono').not.toBeNull();
+      // os adesivos dos bônus continuam
+      expect(qa('.bonus app-bonus-sticker').length).withContext(owner ?? 'dono').toBe(1);
+      expect(page).withContext(owner ?? 'dono').not.toContain('na mão');
+      expect(page).withContext(owner ?? 'dono').not.toContain('a média daria');
+      expect(page).withContext(owner ?? 'dono').not.toContain('Sem eles');
+      expect(q('.na-mao, .bonus-block .sem')).withContext(owner ?? 'dono').toBeNull();
+    }
+  });
+
   it('o pé da análise tem só o "Mais" e o Editar; o resto mora no bilhete', async () => {
     const reader = fixture.componentInstance;
     const removed: string[] = [];

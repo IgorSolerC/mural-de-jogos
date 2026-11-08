@@ -373,7 +373,8 @@ export class ComparisonPage {
     });
     const weight = (w: string) => (w === 'nao-tem' ? 'não tem' : w === 'relevante' ? 'relevante' : w === 'pouco' ? 'pouco importa' : '');
     const rows: NoteRow[] = [
-      score('final', 'Nota final', shownFinal(a), shownFinal(b), a.finalOverride !== undefined ? 'na mão' : '', b.finalOverride !== undefined ? 'na mão' : ''),
+      // sem dizer se a nota foi dada na mão: a nota de cada um é a nota dele (pedido do dono)
+      score('final', 'Nota final', shownFinal(a), shownFinal(b)),
     ];
     if (a.verdict || b.verdict) rows.push(fact('verdict', 'Veredito', a.verdict === b.verdict));
     for (const k of ratedKeys(a.kind)) {
