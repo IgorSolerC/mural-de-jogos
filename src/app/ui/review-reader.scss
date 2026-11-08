@@ -1374,8 +1374,9 @@ dialog.reader.tela-cheia {
   /* o teto da coluna do texto. Esta vista é para ver o máximo de uma vez, e o dono pediu a linha
      comprida de propósito: passa do teto de 75 caracteres de um texto corrido, e a pauta leva o olho de
      volta. Crescem com ela o que enche a coluna (código, tabela larga, card, Nota inteira) e, até o
-     teto de cada um, o contador grande, a tabela comum e a Nota padrão. */
-  --medida: 62rem;
+     teto de cada um, o contador grande, a tabela comum e a Nota padrão. Era 62rem; o dono achou longo
+     demais (08/nov) e pediu a folha 15% mais estreita: 52rem + 2cm é 85% de 62rem + 2cm. */
+  --medida: 52rem;
   /* o papel entre a beirada da folha e a pauta, nos dois lados */
   --margem: 1cm;
   width: min(calc(100vw - 48px), calc(var(--medida) + 2 * var(--margem)));

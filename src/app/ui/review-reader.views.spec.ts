@@ -177,8 +177,9 @@ describe('Os jeitos de ver a ficha aberta (ReviewReader)', () => {
       expect(text().left - sheet().left).toBeCloseTo(cm, 0);
       expect(sheet().right - text().right).toBeCloseTo(cm, 0);
       // a folha enche a tela (menos 24px de cada lado) até o teto da coluna mais as margens, na tela
-      // pequena ou na grande: a coluna antiga, de 38rem, era fina demais
-      expect(dialog().getBoundingClientRect().width).toBeCloseTo(Math.min(innerWidth - 48, 62 * rem + 2 * cm), 0);
+      // pequena ou na grande: a coluna antiga, de 38rem, era fina demais; a de 62rem, longa demais (a folha
+      // de agora tem 85% da largura daquela)
+      expect(dialog().getBoundingClientRect().width).toBeCloseTo(Math.min(innerWidth - 48, 52 * rem + 2 * cm), 0);
       // o nome começa onde começa a letra (a margem e a folga de 8px da pauta)
       expect(parseFloat(getComputedStyle(q('.faixa-nome')!).paddingLeft)).toBeCloseTo(cm + 8, 0);
       // a nota curta: a folha tem a altura do texto, longe da tela inteira

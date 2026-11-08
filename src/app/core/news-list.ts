@@ -27,13 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-08-apagar-no-editor',
+    id: '2026-11-08-tela-cheia-mais-estreita',
     version: '1.39.4',
     kind: 'ajustes',
     date: '2026-11-08',
     title: 'Apagar pelo editor e os cantos dos flashcards',
     melhorias: [
       'Dá para apagar uma anotação ou uma análise de dentro do editor, no canto esquerdo do pé, como no "Mais" da leitura.',
+      'A tela cheia das anotações ficou 15% mais estreita, com linhas mais curtas de ler.',
       'Nos flashcards Clássica e Cartolina inteira, os cantos não repetem mais a primeira letra do título. No Baralho antigo, os cantos mostram o ícone do baralho, num quarto de círculo maior.',
     ],
     correcoes: ['No flashcard Ficha de argola, um fio branco não fica mais girando na argola a cada dois segundos.'],
