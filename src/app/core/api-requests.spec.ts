@@ -109,7 +109,7 @@ describe('os pedidos da API: aplicar nas Anotações', () => {
     expect(n.category).toBeUndefined();
     expect(n.tags).toBeUndefined();
     expect(n.updatedAt).toBe(NOW);
-    expect(store.get('r0002')!.text).toBe('Ver [[Reunião geral]]');
+    expect(store.get('r0002')!.text).toBe('Ver [[Reunião geral|Reunião]]');
     expect((out.antes as Review).game.name).toBe('Reunião');
     expect((out.antes as Record<string, unknown>)['scores']).withContext('guardada como no armazenamento').toBeUndefined();
   });
@@ -506,7 +506,8 @@ describe('os pedidos da API: aprovar, recusar e desfazer', () => {
   it('desfazer a troca de título volta os [[links]] das outras notas para o título de antes', async () => {
     const { s, store } = setup();
     const before = store.get('r0001')!;
-    store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião geral]]' }));
+    // o link como a troca deixou: o título novo por trás, e o que se lia antes
+    store.add(note('r0002', 'Compras', { text: 'Ver [[Reunião geral|Reunião]]' }));
     const changed = { ...before, game: { ...before.game, name: 'Reunião geral' }, updatedAt: '2026-10-27T15:00:00.000Z' };
     store.update(changed);
     const { scores: _s, ...antes } = before;

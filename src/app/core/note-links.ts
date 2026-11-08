@@ -14,8 +14,9 @@ import type { ReminderLinkInfo } from './reminder-links';
  * - O título vale sem diferença de maiúsculas, acentos e espaços repetidos.
  * - Dois títulos iguais: o link abre a mais antiga, para uma anotação nova com o mesmo nome não
  *   roubar os links que já existiam (o editor avisa).
- * - Trocou o título? Os links das outras anotações que apontavam para ela mudam junto (ver
- *   `relinkAfterRename`).
+ * - Trocou o título? Os links das outras anotações que apontavam para ela mudam junto, sem mudar uma
+ *   letra do que se lê: "[[Paris]]" vira "[[Saiba tudo sobre a capital da França|Paris]]" (ver
+ *   `renameLinks` e `relinkAfterRename`).
  * - Um link para uma anotação que não existe (ainda, ou não mais) aparece tracejado; no seu mural,
  *   tocar nele cria a anotação com aquele título.
  */
@@ -54,9 +55,13 @@ export function resolveNote(notes: readonly Review[], title: string): Review | n
 }
 
 /**
- * Troca, no texto, os links para `from` por links para `to`; o texto escolhido de cada um fica (o resto,
- * como estava). A nota colada escrita à mão só com o título ("{{nota: título}}", que abre como um link)
- * muda junto (ver `retitleCardLine`).
+ * Troca, no texto, os links para `from` por links para `to`, sem mudar o que se lê: o link continua
+ * mostrando o que mostrava, e só o título por trás dele muda. "[[Paris]]" vira "[[Título novo|Paris]]" (o
+ * texto que se lia era o título, como foi escrito), e "[[Paris|a capital]]" vira "[[Título novo|a capital]]".
+ * Pedido do dono: renomear uma anotação nunca pode mudar o texto de outra ("Eu fui para PARIS" não vira
+ * "Eu fui para Saiba tudo sobre a capital da França!"). O resto fica como estava. A nota colada escrita à
+ * mão só com o título ("{{nota: título}}", que abre como um link) muda junto: ela mostra a ficha, não o
+ * texto (ver `retitleCardLine`).
  */
 export function renameLinks(text: string, from: string, to: string): string {
   const key = linkKey(from);
@@ -65,7 +70,12 @@ export function renameLinks(text: string, from: string, to: string): string {
     const bar = inner.indexOf('|');
     const title = bar === -1 ? inner : inner.slice(0, bar);
     if (!same(title)) return all;
-    return bar === -1 ? `[[${to.trim()}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
+    // o que a leitura mostrava (o título, sem texto depois da barra), como estava escrito
+    const shown = splitLink(inner).label;
+    // o que se lê já é o título novo (o desfazer de uma troca, "[[Paris, França|Paris]]" voltando a Paris): o
+    // link simples, que lê igual e abre a mesma anotação
+    if (linkKey(shown) === linkKey(to) && linkableTitle(shown)) return `[[${shown}]]`;
+    return bar === -1 || !inner.slice(bar + 1).trim() ? `[[${to.trim()}|${shown}]]` : `[[${to.trim()}${inner.slice(bar)}]]`;
   };
   // só os links que a leitura mostra (ver `linksIn`): o código e os escapados ficam como estão; a linha
   // de dentro de um card vem sem o "> " da frente, que fica

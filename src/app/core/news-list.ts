@@ -27,14 +27,15 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
-    id: '2026-11-08-a-nota-e-a-nota',
+    id: '2026-11-08-links-sem-mudar-o-texto',
     version: '1.39.4',
     kind: 'ajustes',
     date: '2026-11-08',
-    title: 'Apagar pelo editor, a nota sem a conta por trás e os cantos dos flashcards',
+    title: 'Links que não mudam o texto, apagar pelo editor e a nota sem a conta por trás',
     melhorias: [
+      'Trocar o título de uma anotação não muda mais o texto das anotações com um link para ela: o link continua mostrando o que mostrava e abre a anotação com o nome novo.',
       'Dá para apagar uma anotação ou uma análise de dentro do editor, no canto esquerdo do pé, como no "Mais" da leitura.',
-      'A análise aberta mostra só a nota: saíram o "Nota dada na mão · a média daria" e o "Sem eles, a média seria", para você e para quem visita. O Comparar não diz mais se a nota foi dada na mão, e as Estatísticas de outra pessoa não contam as notas dadas na mão. No editor, tudo continua.',
+      'A nota é só a nota: a análise aberta, o Comparar e as Estatísticas de outra pessoa não dizem mais se ela foi dada na mão nem qual seria a média com e sem os bônus. No editor, tudo continua.',
       'A tela cheia das anotações ficou 15% mais estreita, com linhas mais curtas de ler.',
       'Nos flashcards Clássica e Cartolina inteira, os cantos não repetem mais a primeira letra do título. No Baralho antigo, os cantos mostram o ícone do baralho, num quarto de círculo maior.',
     ],

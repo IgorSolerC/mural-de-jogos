@@ -33,6 +33,6 @@ describe('notas ligadas: revisão (renameLinks e a nota colada à mão)', () => 
     const target = note('n1', 'Console', '', '2026-01-01T00:00:00.000Z');
     const list = note('n2', 'A fazeres', '[[Console]]\n{{nota: Console | tira}}');
     const changed = relinkAfterRename([target, list], target, 'PS5', now);
-    expect(changed.map((n) => n.text)).toEqual(['[[PS5]]\n{{nota: PS5 | tira}}']);
+    expect(changed.map((n) => n.text)).toEqual(['[[PS5|Console]]\n{{nota: PS5 | tira}}']);
   });
 });

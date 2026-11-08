@@ -31,9 +31,30 @@ describe('links entre anotações', () => {
     // sem texto depois da barra, vale o título
     expect(parseInline('[[Compras|]]')).toEqual([{ text: 'Compras', link: true }]);
     expect(linksIn('[[Compras|a lista]] e [[Casa]]')).toEqual(['Compras', 'Casa']);
-    expect(renameLinks('[[compras|a lista]] e [[Compras]]', 'Compras', 'Mercado')).toBe('[[Mercado|a lista]] e [[Mercado]]');
+    expect(renameLinks('[[compras|a lista]] e [[Compras]] e [[Compras|]]', 'Compras', 'Mercado')).toBe('[[Mercado|a lista]] e [[Mercado|Compras]] e [[Mercado|Compras]]');
     expect(plainText('ver [[Compras|a lista]]')).toBe('ver a lista');
     expect(linkableTitle('Casa | praia')).toBeFalse();
+  });
+
+  it('renomear nunca muda o que se lê na anotação que cita: só o título por trás do link (pedido do dono)', () => {
+    const now = '2026-11-08T00:00:00.000Z';
+    const paris = note('n1', 'Paris', '', '2026-01-01T00:00:00.000Z');
+    const diary = note('n2', 'Diário', 'Eu fui para [[PARIS]]. Depois, [[paris|a cidade]] e [[ Paris ]].');
+    const title = 'Saiba tudo sobre a capital da França!';
+    const [changed] = relinkAfterRename([paris, diary], paris, title, now);
+    expect(changed.text).toBe(`Eu fui para [[${title}|PARIS]]. Depois, [[${title}|a cidade]] e [[${title}|Paris]].`);
+    // o que se lê é o mesmo de antes, letra por letra; o link abre a mesma anotação, com o nome novo
+    expect(plainText(changed.text)).toBe(plainText(diary.text));
+    const renamed = { ...paris, game: { ...paris.game, name: title } };
+    expect(linksIn(changed.text).map((t) => resolveNote([renamed, diary], t)?.id)).toEqual(['n1', 'n1', 'n1']);
+    // mais um nome: o mesmo texto, sem ir empilhando
+    const [again] = relinkAfterRename([renamed, changed], renamed, 'Paris, França', now);
+    expect(again.text).toBe('Eu fui para [[Paris, França|PARIS]]. Depois, [[Paris, França|a cidade]] e [[Paris, França|Paris]].');
+    expect(plainText(again.text)).toBe(plainText(diary.text));
+    // e de volta a Paris: o texto como era, com os links simples
+    const twice = { ...renamed, game: { ...renamed.game, name: 'Paris, França' } };
+    const [back] = relinkAfterRename([twice, again], twice, 'Paris', now);
+    expect(back.text).toBe('Eu fui para [[PARIS]]. Depois, [[Paris|a cidade]] e [[Paris]].');
   });
 
   it('o título vale sem maiúsculas, acentos e espaços a mais; com dois iguais, abre o mais antigo', () => {
@@ -47,13 +68,13 @@ describe('links entre anotações', () => {
   });
 
   it('trocar o título leva junto os links que abriam a anotação, e só esses', () => {
-    expect(renameLinks('1. [[console]]\n2. [[Outra]] [[CONSOLE]]', 'Console', 'PS5')).toBe('1. [[PS5]]\n2. [[Outra]] [[PS5]]');
+    expect(renameLinks('1. [[console]]\n2. [[Outra]] [[CONSOLE]]', 'Console', 'PS5')).toBe('1. [[PS5|console]]\n2. [[Outra]] [[PS5|CONSOLE]]');
     const target = note('n1', 'Console', '', '2026-01-01T00:00:00.000Z');
     const list = note('n2', 'A fazeres', '1. Arrumar o carro\n2. [[Console]]');
     const other = note('n3', 'Ideias', 'nada aqui');
     const now = '2026-10-08T00:00:00.000Z';
     const changed = relinkAfterRename([target, list, other], target, 'Comprar um PS5', now);
-    expect(changed.map((n) => [n.id, n.text, n.updatedAt])).toEqual([['n2', '1. Arrumar o carro\n2. [[Comprar um PS5]]', now]]);
+    expect(changed.map((n) => [n.id, n.text, n.updatedAt])).toEqual([['n2', '1. Arrumar o carro\n2. [[Comprar um PS5|Console]]', now]]);
     // só mudou maiúscula: nada a fazer
     expect(relinkAfterRename([target, list], target, 'CONSOLE', now)).toEqual([]);
     // a gêmea mais nova muda de nome: os links continuam na mais antiga
@@ -68,7 +89,7 @@ describe('links entre anotações', () => {
     // uma resenha com o mesmo nome do título novo não rouba o link (só anotações são alvo)
     const homonym = { ...note('r2', 'Dicas', ''), kind: 'jogos' } as Review;
     const changed = relinkAfterRename([dicas], dicas, 'Dicas', now, [review, homonym]);
-    expect(changed.map((n) => [n.id, n.text])).toEqual([['r1', 'Ver as [[Dicas]].\n- [ ] [[Dicas|o resto]]']]);
+    expect(changed.map((n) => [n.id, n.text])).toEqual([['r1', 'Ver as [[Dicas|Dicas do Hades]].\n- [ ] [[Dicas|o resto]]']]);
   });
 
   it('o título novo de outra anotação, mais antiga, ou com colchetes: os links ficam como estavam', () => {
@@ -114,7 +135,7 @@ describe('links entre anotações', () => {
   it('o link dentro de um código ou escapado é só texto: não conta, não cita e não muda de nome', () => {
     const text = 'use `[[Foo]]` e \\[[Foo]] e [[Foo]]\n```\n[[Foo]]\n```';
     expect(linksIn(text)).toEqual(['Foo']);
-    expect(renameLinks(text, 'Foo', 'Bar')).toBe('use `[[Foo]]` e \\[[Foo]] e [[Bar]]\n```\n[[Foo]]\n```');
+    expect(renameLinks(text, 'Foo', 'Bar')).toBe('use `[[Foo]]` e \\[[Foo]] e [[Bar|Foo]]\n```\n[[Foo]]\n```');
     expect(linksIn('```\n- [x] [[Foo]]\n```')).toEqual([]);
     expect(renameLinks('nada aqui', 'Foo', 'Bar')).toBe('nada aqui');
   });
