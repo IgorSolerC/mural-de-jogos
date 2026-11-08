@@ -146,6 +146,14 @@ describe('o índice embaixo do topo', () => {
     expect(host.querySelector('app-extras-logo')).not.toBeNull();
   });
 
+  it('no Pomodoro, que também não depende de mural: sem o seletor, com a volta para Extras e o logo', async () => {
+    await go('/extras/pomodoro');
+    expect(picker()).toBeNull();
+    expect(host.classList).not.toContain('vazio');
+    expect(host.querySelector('.volta')?.getAttribute('href')).toBe('/extras');
+    expect(host.querySelector('app-extras-logo')).not.toBeNull();
+  });
+
   it('nos Extras, o mural (sem o de anotações) e a volta para Extras; no mural de um colega, nada', async () => {
     await go('/extras');
     expect(picker()).not.toBeNull();

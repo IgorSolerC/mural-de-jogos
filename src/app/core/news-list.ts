@@ -27,6 +27,14 @@ import type { NewsEntry } from './news';
 /** Da mais nova para a mais velha. */
 export const NEWS: NewsEntry[] = [
   {
+    id: '2026-11-08-pomodoro-sem-seletor',
+    version: '1.41.1',
+    kind: 'ajustes',
+    date: '2026-11-08',
+    title: 'Pomodoro sem o seletor de murais',
+    correcoes: ['A página do Pomodoro não mostra mais o seletor de murais (Jogos, Séries…) nem o mural no nome da aba: ela não depende de mural nenhum.'],
+  },
+  {
     id: '2026-11-08-pomodoro',
     version: '1.41.0',
     kind: 'funcionalidade',

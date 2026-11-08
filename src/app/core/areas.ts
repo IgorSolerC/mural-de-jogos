@@ -124,6 +124,15 @@ export const API_USAGE_PATH = '/extras/uso-das-apis';
 /** O Pomodoro (PLANO-POMODORO.md): mora em Extras e também não depende de mural. */
 export const POMODORO_PATH = '/extras/pomodoro';
 
+/**
+ * As páginas de Extras que não dependem de mural nenhum (o Uso das APIs e o Pomodoro): sem o seletor de murais
+ * na barra e sem o mural no título da aba.
+ */
+export function muralFree(path: string): boolean {
+  const p = pathOf(path);
+  return p === API_USAGE_PATH || p === POMODORO_PATH;
+}
+
 /** Em que parte do site fica o caminho (nenhuma, no Perfil, em Amigos, nos Ajustes e nas Novidades). */
 export function areaOf(path: string): Area | null {
   const p = pathOf(path);

@@ -3,7 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { ICON, IconModule } from './icons';
 import { filter, map } from 'rxjs';
-import { API_USAGE_PATH, AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, areaOf, isVisitPath, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
+import { AreaSection, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, VAULT_URL, areaOf, isVisitPath, muralFree, pathOf, reviewPath, reviewPlace, sectionOf } from '../core/areas';
 import { CloudAccount } from '../core/cloud-account';
 import { COFRE_ROTULO } from '../../../shared/topo-do-murall';
 import { KINDS, Kind, SCORED_KINDS } from '../core/kinds';
@@ -485,9 +485,12 @@ export class AreaBar {
   /** A própria página de Extras (lá não há volta). */
   protected readonly extrasHome = computed(() => this.path() === '/extras');
 
+  /** As páginas de Extras que não dependem de mural (o Uso das APIs e o Pomodoro): sem o seletor, com a volta. */
+  private readonly noMural = computed(() => muralFree(this.path()));
+
   /** Os murais do seletor, nas páginas que dependem do mural; `null` onde ele não aparece. */
   protected readonly picker = computed<readonly Kind[] | null>(() => {
-    if (this.path() === API_USAGE_PATH) return null; // não depende de mural
+    if (this.noMural()) return null;
     if (this.area() === 'analises' || this.inExtras()) return SCORED_KINDS;
     if (this.path() === '/amigos' && this.settings.friendKinds() === 'separado') return KINDS;
     return null;
@@ -570,9 +573,9 @@ export class AreaBar {
 
   /**
    * Nas Utilidades a barra aparece mesmo sem o cofre: ela traz o logo e o quanto saiu no mês. No Uso das
-   * APIs, sem o seletor de murais, ela ainda traz a volta para Extras.
+   * APIs e no Pomodoro, sem o seletor de murais, ela ainda traz a volta para Extras.
    */
-  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.path() === API_USAGE_PATH);
+  protected readonly shown = computed(() => !!this.picker() || this.tabs().length > 0 || this.area() === 'utilidades' || this.noMural());
 
   protected readonly navLabel = computed(() =>
     this.area() === 'analises' ? 'Seções das análises' : this.area() === 'utilidades' ? 'Seções das utilidades' : 'Seções das anotações',

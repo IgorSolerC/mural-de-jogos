@@ -1,7 +1,7 @@
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { RouterStateSnapshot, TitleStrategy } from '@angular/router';
-import { API_USAGE_PATH, areaOf, pathOf } from './areas';
+import { areaOf, muralFree } from './areas';
 import { cap } from './kinds';
 import { Mural } from './mural';
 
@@ -21,7 +21,7 @@ export class MuralTitle extends TitleStrategy {
     effect(() => {
       const { title, url } = this.page();
       const area = areaOf(url);
-      const wall = (area === 'analises' || area === 'extras') && pathOf(url) !== API_USAGE_PATH ? cap(this.mural.profile().plural) : null;
+      const wall = (area === 'analises' || area === 'extras') && !muralFree(url) ? cap(this.mural.profile().plural) : null;
       this.title.setTitle([title, wall, 'Murall'].filter(Boolean).join(' · '));
     });
   }

@@ -2,7 +2,7 @@ import { Component, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { routes } from '../app.routes';
-import { CALENDAR_PATH, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, areaOf, listOf, reviewPath, reviewPlace, sectionOf, wallPath } from './areas';
+import { CALENDAR_PATH, NOTE_SECTIONS, REVIEW_SECTIONS, UTILITY_SECTIONS, areaOf, listOf, muralFree, reviewPath, reviewPlace, sectionOf, wallPath } from './areas';
 import { Mural } from './mural';
 
 @Component({ template: '' })
@@ -154,5 +154,16 @@ describe('as quatro partes do site', () => {
       expect(JSON.parse(localStorage.getItem('mural-de-jogos:analises:v1') ?? 'null')).toBe('series');
       expect(JSON.parse(localStorage.getItem('mural-de-jogos:mural:v1') ?? 'null')).toBe('anotacoes');
     });
+  });
+});
+
+describe('as páginas de Extras sem mural', () => {
+  it('o Uso das APIs e o Pomodoro não dependem de mural; as outras de Extras, sim', () => {
+    expect(muralFree('/extras/pomodoro')).toBeTrue();
+    expect(muralFree('/extras/pomodoro?x=1')).toBeTrue();
+    expect(muralFree('/extras/uso-das-apis')).toBeTrue();
+    expect(muralFree('/extras')).toBeFalse();
+    expect(muralFree('/extras/estatisticas')).toBeFalse();
+    expect(muralFree('/ranking')).toBeFalse();
   });
 });
